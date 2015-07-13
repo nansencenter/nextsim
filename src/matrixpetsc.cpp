@@ -19,6 +19,21 @@
 namespace Nextsim
 {
 
+MatrixPetsc::MatrixPetsc( Communicator const& comm )
+	:
+    M_comm( comm )
+{
+    int ierr = 0;
+
+    ierr = MatCreate(M_comm,&M_mat);
+    CHKERRABORT( comm, ierr );
+
+    ierr = MatSetType(M_mat,MATSEQAIJ);
+    CHKERRABORT( comm, ierr );
+
+    M_is_initialized = false;
+}
+
 MatrixPetsc::MatrixPetsc( const size_type m, const size_type n, const size_type nnz, Communicator const& comm )
 	:
     M_comm( comm )
@@ -364,6 +379,67 @@ MatrixPetsc::printMatlab(std::string const& filename) const
 
         ierr = MatView ( M_mat, petsc_viewer );
         CHKERRABORT( M_comm,ierr );
+    }
+
+    ierr = PetscViewerDestroy( &petsc_viewer );
+    CHKERRABORT( M_comm,ierr );
+}
+
+
+void
+MatrixPetsc::printBinary(std::string const& filename) const
+{
+    ASSERT(M_is_initialized, "MatrixPetsc not properly initialized");
+
+    int ierr = 0;
+
+    PetscObjectSetName((PetscObject)M_mat,boost::filesystem::path("out_"+filename).stem().string().c_str());
+    PetscViewer petsc_viewer;
+
+    ierr = PetscViewerCreate ( M_comm, &petsc_viewer );
+    CHKERRABORT( M_comm, ierr );
+
+    if ( filename != "NULL" )
+    {
+        ierr = PetscViewerBinaryOpen(M_comm,
+                                     filename.c_str(),
+                                     FILE_MODE_WRITE,
+                                     &petsc_viewer);
+        CHKERRABORT( M_comm,ierr );
+
+        ierr = MatView ( M_mat, petsc_viewer );
+        CHKERRABORT( M_comm,ierr );
+    }
+
+    ierr = PetscViewerDestroy( &petsc_viewer );
+    CHKERRABORT( M_comm,ierr );
+}
+
+void
+MatrixPetsc::loadBinary(std::string const& filename)
+{
+    this->clear();
+
+    int ierr = 0;
+
+    PetscObjectSetName((PetscObject)M_mat,boost::filesystem::path("in_"+filename).stem().string().c_str());
+    PetscViewer petsc_viewer;
+
+    ierr = PetscViewerCreate ( M_comm, &petsc_viewer );
+    CHKERRABORT( M_comm, ierr );
+
+    if ( filename != "NULL" )
+    {
+        ierr = PetscViewerBinaryOpen(M_comm,
+                                     filename.c_str(),
+                                     FILE_MODE_READ,
+                                     &petsc_viewer);
+        CHKERRABORT( M_comm,ierr );
+
+        ierr = MatLoad ( M_mat, petsc_viewer );
+        CHKERRABORT( M_comm,ierr );
+
+        M_is_initialized = true;
     }
 
     ierr = PetscViewerDestroy( &petsc_viewer );

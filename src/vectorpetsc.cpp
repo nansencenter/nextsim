@@ -18,6 +18,22 @@
 
 namespace Nextsim
 {
+
+VectorPetsc::VectorPetsc( Communicator const& comm )
+	:
+    M_comm( comm )
+{
+    int ierr = 0;
+
+    ierr = VecCreate(M_comm,&M_vec);
+    CHKERRABORT( comm, ierr );
+
+    ierr = VecSetType(M_vec,VECSEQ);
+    CHKERRABORT( comm, ierr );
+
+    M_is_initialized = false;
+}
+
 VectorPetsc::VectorPetsc( const size_type n, Communicator const& comm )
 	:
 	M_comm( comm )
@@ -417,6 +433,16 @@ VectorPetsc::size() const
 }
 
 void
+VectorPetsc::printScreen() const
+{
+    ASSERT(M_is_initialized, "MatrixPetsc not properly initialized");
+
+    int ierr = 0;
+    ierr = VecView(M_vec,PETSC_VIEWER_STDOUT_WORLD);
+    CHKERRABORT( M_comm, ierr );
+}
+
+void
 VectorPetsc::printMatlab(std::string const& filename) const
 {
 	ASSERT(M_is_initialized, "VectorPetsc not initialized");
@@ -459,6 +485,70 @@ VectorPetsc::printMatlab(std::string const& filename) const
 
 	ierr = PetscViewerDestroy ( &petsc_viewer );
 	CHKERRABORT( M_comm,ierr );
+}
+
+void
+VectorPetsc::printBinary(std::string const& filename) const
+{
+    ASSERT(M_is_initialized, "VectorPetsc not initialized");
+
+	if ( !this->closed() )
+		const_cast<VectorPetsc*>( this )->close();
+
+    int ierr = 0;
+
+    PetscObjectSetName((PetscObject)M_vec,boost::filesystem::path("out_"+filename).stem().string().c_str());
+    PetscViewer petsc_viewer;
+
+    ierr = PetscViewerCreate ( M_comm, &petsc_viewer );
+    CHKERRABORT( M_comm, ierr );
+
+    if ( filename != "NULL" )
+    {
+        ierr = PetscViewerBinaryOpen(M_comm,
+                                     filename.c_str(),
+                                     FILE_MODE_WRITE,
+                                     &petsc_viewer);
+        CHKERRABORT( M_comm,ierr );
+
+        //ierr = VecView ( const_cast<Vec>( M_vec ), petsc_viewer );
+        ierr = VecView ( M_vec, petsc_viewer );
+        CHKERRABORT( M_comm,ierr );
+    }
+
+    ierr = PetscViewerDestroy( &petsc_viewer );
+    CHKERRABORT( M_comm,ierr );
+}
+
+void
+VectorPetsc::loadBinary(std::string const& filename)
+{
+    this->clear();
+
+    int ierr = 0;
+
+    PetscObjectSetName((PetscObject)M_vec,boost::filesystem::path("in_"+filename).stem().string().c_str());
+    PetscViewer petsc_viewer;
+
+    ierr = PetscViewerCreate ( M_comm, &petsc_viewer );
+    CHKERRABORT( M_comm, ierr );
+
+    if ( filename != "NULL" )
+    {
+        ierr = PetscViewerBinaryOpen(M_comm,
+                                     filename.c_str(),
+                                     FILE_MODE_READ,
+                                     &petsc_viewer);
+        CHKERRABORT( M_comm,ierr );
+
+        ierr = VecLoad ( M_vec, petsc_viewer );
+        CHKERRABORT( M_comm,ierr );
+
+        M_is_initialized = true;
+    }
+
+    ierr = PetscViewerDestroy( &petsc_viewer );
+    CHKERRABORT( M_comm,ierr );
 }
 
 void

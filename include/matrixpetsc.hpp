@@ -47,6 +47,8 @@ public:
     typedef std::size_t size_type;
     typedef double value_type;
 
+    MatrixPetsc( Communicator const& comm = Environment::comm() );
+
     MatrixPetsc( const size_type m, const size_type n, const size_type nnz, Communicator const& comm = Environment::comm() );
 
     ~MatrixPetsc();
@@ -84,6 +86,10 @@ public:
     void printScreen() const;
 
     void printMatlab(std::string const& filename = "NULL") const;
+
+    void printBinary(std::string const& filename = "NULL") const;
+
+    void loadBinary(std::string const& filename = "NULL");
 
     void clear();
 

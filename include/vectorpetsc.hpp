@@ -42,6 +42,8 @@ public:
 	typedef std::size_t size_type;
     typedef double value_type;
 
+    VectorPetsc( Communicator const& comm = Environment::comm() );
+
 	VectorPetsc( const size_type n, Communicator const& comm = Environment::comm() );
 
 	~VectorPetsc();
@@ -102,7 +104,13 @@ public:
 
 	size_type size() const;
 
+    void printScreen() const;
+
 	void printMatlab(std::string const& filename = "NULL") const;
+
+    void printBinary(std::string const& filename = "NULL") const;
+
+    void loadBinary(std::string const& filename = "NULL");
 
 	void clear();
 
