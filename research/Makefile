@@ -5,13 +5,13 @@ PROGNAME=nextsim.exec
 NEXTSIMDIR=..
 
 CXX = g++
-CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -lm -pthread #-v
+CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -pthread -v
 
 ifeq ($(KERNEL),Linux)
 	#CXX = g++-4.8
 	#CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -lm -pthread -v #-MMD -MP -lm -pthread -v
 	CXXFLAGS += -I. -I $(NEXTSIMDIR)/include -I /usr/lib/openmpi/include -I $(PETSC_DIR)/include #-I headers
-	LDFLAGS += -lboost_program_options -lboost_filesystem -lboost_system -lmpi_cxx -lmpi -ldl -lhwloc -lboost_mpi
+	LDFLAGS += -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi -lmpi_cxx -lmpi -lm -ldl -lhwloc
 	LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib -Wl,-rpath,$(NEXTSIMDIR)/lib
 	LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc -L$(NEXTSIMDIR)/lib -lnextsim
 else
