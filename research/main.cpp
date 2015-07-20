@@ -1,21 +1,22 @@
 /* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
 
-//#include <environment.hpp>
-//#include <matrixpetsc.hpp>
-//#include <vectorpetsc.hpp>
 #include <solverpetsc.hpp>
+#include <boost/program_options.hpp>
+#include <boost/version.hpp>
+
+namespace fs = boost::filesystem;
+namespace po = boost::program_options;
+
+namespace Nextsim
+{
+    po::options_description descrOptions();
+}
 
 int main(int argc, char** argv )
 {
     using namespace Nextsim;
 
     Environment env(argc, argv);
-
-    //std::cout<<"STATUS= "<< boost::mpi::environment::finalized() <<"\n";
-    //Communicator comm;
-    //Communicator comm = Environment::comm();
-
-    //MatrixPetsc testmat(10,5,15,Environment::comm());
 
 #if 1
     MatrixPetsc testmat(10,10,5);
@@ -28,7 +29,6 @@ int main(int argc, char** argv )
 
     VectorPetsc testvec(10);
     testvec.setOnes();
-
 
 #if 0
     int rows[3];
@@ -46,29 +46,37 @@ int main(int argc, char** argv )
     testmat.addMatrix(rows, nrows, cols, ncols, data);
 #endif
 
-    //Environment::logMemoryUsage("toto");
+#if 0
+    Environment::logMemoryUsage("toto");
 
-    // int row=2;
-    // int nrow=1;
-    // testmat.addMatrix(&row, nrow, cols, ncols, data);
+    int row=2;
+    int nrow=1;
+    testmat.addMatrix(&row, nrow, cols, ncols, data);
+#endif
 
     testmat.close();
 
-    // for (int i = 0; i < testmat.size1(); ++i)
-    //     std::cout<<"MAT["<< i <<"," << i <<"]= "<< testmat(i,i) <<"\n";
+#if 0
+    for (int i = 0; i < testmat.size1(); ++i)
+        std::cout<<"MAT["<< i <<"," << i <<"]= "<< testmat(i,i) <<"\n";
 
-    //testmat.printScreen();
-    //testmat.zero();
-    //testmat.printMatlab("test.m");
+    testmat.printScreen();
+    testmat.zero();
+    testmat.printMatlab("test.m");
 
-    //std::cout<<"CLOSED= "<< testmat.closed() <<"\n";
+    std::cout<<"CLOSED= "<< testmat.closed() <<"\n";
 
-    //std::cout<<"SYMM= "<< testmat.isSymmetric() <<"\n";
-    //std::cout<<"NORM= "<< testmat.linftyNorm() <<"\n";
+    std::cout<<"SYMM= "<< testmat.isSymmetric() <<"\n";
+    std::cout<<"NORM= "<< testmat.linftyNorm() <<"\n";
 #endif
 
-    //testmat.clear();
-    //Environment::logMemoryUsage("PASS");
+#endif
+
+#if 0
+    testmat.clear();
+    Environment::logMemoryUsage("PASS");
+#endif
+
 
 #if 0
     VectorPetsc testvec(10);
@@ -130,6 +138,8 @@ int main(int argc, char** argv )
     solution.printMatlab("solution.m");
 
 #endif
+
+
     //testsolver.init();
 
     // std::cout<<"solverType= "<< testsolver.solverType() <<"\n";
@@ -143,17 +153,9 @@ int main(int argc, char** argv )
     PetscViewer viewer;
     PetscScalar v;
     int ierr = 0;
-    //std::string file = "spd-real-int64-float64";
     PetscLogEvent MATRIX_GENERATE,MATRIX_READ;
 
-#if 0
-    // /* Read the matrix again as a sequential matrix */
-    // ierr = PetscViewerBinaryOpen(Environment::comm(),"spd-real-int64-float64",FILE_MODE_READ,&viewer);CHKERRQ(ierr);
-    // ierr = MatCreate(Environment::comm(),&A);CHKERRQ(ierr);
-    // ierr = MatSetType(A,MATSEQAIJ);CHKERRQ(ierr);
-    // ierr = MatLoad(A,viewer);CHKERRQ(ierr);
-    // ierr = PetscViewerDestroy(&viewer);CHKERRQ(ierr);
-
+#if 1
     /* PART 1:  Generate matrix, then write it in binary format */
 
     ierr = PetscLogEventRegister("Generate Matrix",0,&MATRIX_GENERATE);CHKERRQ(ierr);
@@ -175,17 +177,17 @@ int main(int argc, char** argv )
     }
     ierr = MatAssemblyBegin(A,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
     ierr = MatAssemblyEnd(A,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
-    ierr = MatView(A,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
+    //ierr = MatView(A,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
 
     ierr = PetscPrintf(PETSC_COMM_WORLD,"writing matrix in binary to matrix.dat ...\n");CHKERRQ(ierr);
     ierr = PetscViewerBinaryOpen(PETSC_COMM_WORLD,"matrix.dat",FILE_MODE_WRITE,&viewer);CHKERRQ(ierr);
     ierr = MatView(A,viewer);CHKERRQ(ierr);
+    ierr = MatView(A,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
     ierr = PetscViewerDestroy(&viewer);CHKERRQ(ierr);
     ierr = MatDestroy(&A);CHKERRQ(ierr);
     ierr = PetscLogEventEnd(MATRIX_GENERATE,0,0,0,0);CHKERRQ(ierr);
 
-
-
+#else
 
     /* Read the matrix again as a sequential matrix */
     ierr = PetscPrintf(PETSC_COMM_WORLD,"reading matrix in binary from matrix.dat ...\n");CHKERRQ(ierr);
@@ -199,28 +201,8 @@ int main(int argc, char** argv )
 
 #endif
 
-    //testmat.printScreen();
-
+    std::cout<<"reading matrix in binary from matrix.dat ...\n";
     std::string file = "matrix.dat";
-    std::cout<<"writing matrix in binary to matrix.dat ...\n";
-    // ierr = PetscViewerBinaryOpen(Environment::comm(),file.c_str(),FILE_MODE_WRITE,&viewer);CHKERRQ(ierr);
-    // ierr = MatView(testmat.mat(),viewer);CHKERRQ(ierr);
-    // ierr = PetscViewerDestroy(&viewer);CHKERRQ(ierr);
-    testmat.printBinary(file);
-    testmat.clear();
-
-    ierr = PetscPrintf(PETSC_COMM_WORLD,"reading matrix in binary from matrix.dat ...\n");CHKERRQ(ierr);
-#if 0
-    Mat B;
-    ierr = PetscViewerBinaryOpen(Environment::comm(),file.c_str(),FILE_MODE_READ,&viewer);CHKERRQ(ierr);
-    ierr = MatCreate(Environment::comm(),&B);CHKERRQ(ierr);
-    ierr = MatSetType(B,MATSEQAIJ);CHKERRQ(ierr);
-    ierr = MatLoad(B,viewer);CHKERRQ(ierr);
-    ierr = PetscViewerDestroy(&viewer);CHKERRQ(ierr);
-    ierr = MatView(B,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
-    ierr = MatDestroy(&B);CHKERRQ(ierr);
-#endif
-
     MatrixPetsc B;
     B.loadBinary(file);
     B.printScreen();
@@ -232,23 +214,149 @@ int main(int argc, char** argv )
     std::cout<<"writing vector in binary to vector.dat ...\n";
     testvec.printBinary(file);
     testvec.clear();
-    ierr = PetscPrintf(PETSC_COMM_WORLD,"reading vector in binary from vector.dat ...\n");CHKERRQ(ierr);
 
-#if 0
-    Vec C;
-    ierr = PetscViewerBinaryOpen(Environment::comm(),file.c_str(),FILE_MODE_READ,&viewer);CHKERRQ(ierr);
-    ierr = VecCreate(Environment::comm(),&C);CHKERRQ(ierr);
-    ierr = VecSetType(C,VECSEQ);CHKERRQ(ierr);
-    ierr = VecLoad(C,viewer);CHKERRQ(ierr);
-    ierr = PetscViewerDestroy(&viewer);CHKERRQ(ierr);
-    ierr = VecView(C,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
-    ierr = VecDestroy(&C);CHKERRQ(ierr);
-#endif
-
+    std::cout<<"reading vector in binary from vector.dat ...\n";
     VectorPetsc C;
     C.loadBinary(file);
     C.printScreen();
 
 
+    //namespace po = boost::program_options;
+    po::options_description desc = descrOptions();
+    po::variables_map vm;
 
+    try
+    {
+        //po::store(po::parse_command_line(argc, argv, desc),vm);
+
+        po::store(po::command_line_parser(argc, argv)
+                  .options(desc)
+                  .style(po::command_line_style::unix_style | po::command_line_style::allow_long_disguise)
+                  .run(),
+                  vm);
+
+        if ( vm.count("help")  )
+        {
+            std::cout<< "BOOST VERSION= "<< BOOST_LIB_VERSION <<"\n";
+            std::cout << "Basic Command Line Parameter Application" <<"\n"
+                      << desc << "\n";
+            //return SUCCESS;
+            return 0;
+        }
+
+        if ( vm.count( "config-file" ) || vm.count( "config-files" ) )
+        {
+#if 0
+            if ( fs::exists( vm["config-file"].as<std::string>() ) )
+            {
+                std::ifstream ifs( vm["config-file"].as<std::string>().c_str() );
+                po::store( parse_config_file( ifs, desc, true ), vm );
+                po::notify( vm );
+            }
+            else
+            {
+                std::cout << "Cannot found " << "config-file `" << vm["config-file"].as<std::string>() <<"`\n";
+                return 1;
+            }
+#endif
+
+            if ( vm.count( "config-file" ) )
+            {
+                if ( fs::exists( vm["config-file"].as<std::string>() ) )
+                {
+                    std::cout << "Reading " << vm["config-file"].as<std::string>() << "...\n";
+                    std::ifstream ifs( vm["config-file"].as<std::string>().c_str() );
+                    po::store( parse_config_file( ifs, desc, true ), vm );
+                    //po::notify( vm );
+                }
+                else
+                {
+                    std::cout << "Cannot found " << "config-file `" << vm["config-file"].as<std::string>() <<"`\n";
+                    return 1;
+                }
+            }
+
+            if ( vm.count( "config-files" ) )
+            {
+                std::vector<std::string> configFiles = vm["config-files"].as<std::vector<std::string> >();
+
+                // reverse order (priorty for the last)
+                //std::reverse(configFiles.begin(),configFiles.end());
+
+                for ( std::string cfgfile : configFiles )
+                {
+                    if ( fs::exists( cfgfile ) )
+                    {
+                        std::cout << "Reading " << cfgfile << "...\n";
+                        std::ifstream ifs( cfgfile.c_str() );
+                        po::store( parse_config_file( ifs, desc, true ), vm );
+                    }
+                    else
+                    {
+                        std::cout << "Cannot found " << "config-file `" << cfgfile <<"`\n";
+                        return 1;
+                    }
+                }
+            }
+
+        }
+
+        po::notify(vm);
+
+    }
+    // catch(po::error& e)
+    // {
+    //     std::cerr << "ERROR: " << e.what() << std::endl <<"\n";
+    //     std::cerr << desc <<"\n";
+    //     //return ERROR_IN_COMMAND_LINE;
+    //     return -1;
+    // }
+
+    catch(po::duplicate_option_error const& e)
+    {
+        return -1;
+    }
+
+    // catches program_options exceptions
+
+    catch (po::multiple_occurrences const& e)
+    {
+        std::cout << "Command line or config file option parsing error: " << e.what() << "\n"
+                  << "  o faulty option: " << e.get_option_name() << "\n"
+                  << "ERROR: the .cfg file or some options may not have been read properly\n";
+
+        return -2;
+    }
+
+    catch (po::ambiguous_option const& e)
+    {
+        std::cout << "Command line or config file option parsing error: " << e.what() << "\n"
+                  << "  o faulty option: " << e.get_option_name() << "\n"
+                  << "  o possible alternatives: " ;
+        std::for_each( e.alternatives().begin(), e.alternatives().end(), []( std::string const& s )
+                       {
+                           std::cout << s << " ";
+                       } );
+        std::cout << "\n"
+                  << "ERROR: the .cfg file or some options may not have been read properly\n";
+
+        return -3;
+    }
+
+    catch ( std::exception& e )
+    {
+        std::cout << "Application option parsing: unknown option:" << e.what() << " (the .cfg file or some options may not have been read properly)\n";
+    }
+
+
+    catch ( ... )
+    {
+        std::cout << "Application option parsing: unknown exception triggered  (the .cfg file or some options may not have been read properly)\n";
+    }
+
+    std::cout<<"nx= "<< vm["nx"]. as<int>() <<"\n";
+    std::cout<<"ny= "<< vm["ny"]. as<int>() <<"\n";
+
+    // std::cout<<"dx= "<< vm["dx"]. as<double>() <<"\n";
+    // std::cout<<"dy= "<< vm["dy"]. as<double>() <<"\n";
 }

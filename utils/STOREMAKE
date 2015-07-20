@@ -1,0 +1,67 @@
+# OBJS:=$(addprefix $(OBJECTDIR),$(notdir $(CXXSRC:.cpp=.o)))
+# DEPS:=$(addprefix $(OBJECTDIR),$(notdir $(CXXSRC:.cpp=.d)))
+
+# OBJS=$(join $(addsuffix ../objs/, $(dir $(CXXSRC))), $(notdir $(CXXSRC:.cpp=.o)))
+# DEPS=$(join $(addsuffix ../objs/, $(dir $(CXXSRC))), $(notdir $(CXXSRC:.cpp=.d)))
+
+# OBJS=$(patsubst %.cpp,$(OBJECTDIR)%.o,$(CXXSRC))
+# DEPS=$(patsubst %.cpp,$(OBJECTDIR)%.d,$(CXXSRC))
+
+#OBJS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.o)
+#DEPS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.d)
+
+# OBJS:=$(addprefix $(OBJECTDIR),$(notdir $(CXXSRC:.cpp=.o)))
+# DEPS:=$(addprefix $(OBJECTDIR),$(notdir $(CXXSRC:.cpp=.d)))
+
+
+
+
+# %.o : %.cpp
+# 	@mkdir -p $(dir $@)
+# 	@echo "============="
+# 	@echo "Compiling $<"
+# 	@$(CXX) -o $@ -c $< $(CXXFLAGS)
+
+
+
+# ../objs/%.o : %.cpp
+# 	@mkdir -p $(dir $@)
+# 	@echo "============="
+# 	@echo "Compiling $<"
+# 	@$(CXX) -o $@ -c $< $(CXXFLAGS)
+
+
+
+
+# $(OBJS): | $(OBJECTDIR)
+
+# $(OBJECTDIR):
+# 	@mkdir -p $@
+
+# $(OBJECTDIR)%.o: %.cpp
+# 	@echo $<
+# 	$(CXX) -o $@ -c $< $(CXXFLAGS)
+
+
+# $(VARIABLE:OLD_PREFIX%OLD_SUFFIX=NEW_PREFIX%NEW_SUFFIX)
+# mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
+# current_dir := $(notdir $(patsubst %/,%,$(dir $(mkfile_path))))
+
+# POBJS=$(nodir $(OBJS)%.o)
+# POBJS:=$(addprefix $(OBJECTDIR), $(POBJS))
+# $(addprefix $(OBJDIR),$(notdir $(SOURCECODE:.c=.o)))
+
+# $(OBJECTDIR)/%.o: %.cpp
+# 	@mkdir -p $(OBJECTDIR) $(DEPENDIR)
+# 	$(CXX) -MM -MT$(OBJECTDIR)/$(notdir $@) $< -o $(DEPENDIR)/$(notdir $(basename $<).d )
+# 	$(CXX) -o $(OBJECTDIR)/$(notdir $@ ) -c $<
+
+# static library or archive library
+
+# LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc -static -L $(NEXTSIMDIR)/lib -lnextsim
+
+# static library linking
+@echo "============================================"
+@echo Creating static library $(LIBRARYDIR)libnextsim.a
+@echo "============================================"
+@ar rcs $(LIBRARYDIR)libnextsim.a $^
