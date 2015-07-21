@@ -7,6 +7,11 @@ else
 endif
 
 NEXTSIMDIR=..
+LIB=$(LIBRARYNAME)
+OBJECTDIR=$(NEXTSIMDIR)/objs/
+DEPENDDIR=$(NEXTSIMDIR)/.deps/
+LIBRARYDIR=$(NEXTSIMDIR)/lib/
+
 
 CXX = g++
 CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -pthread -v
@@ -21,7 +26,7 @@ ifeq ($(KERNEL),Linux)
 else
 	CXXFLAGS += -I $(NEXTSIMDIR)/include -I /usr/local/include -I /opt/local/include/openmpi-mp
 	CXXFLAGS += -I $(PETSC_DIR)/include -I $(BOOST_DIR)/include
-	LDFLAGS += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,libnextsim.dylib
+	LDFLAGS += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,$(LIBRARYDIR)$(LIBRARYNAME)
 	LDFLAGS += -Wl,-rpath,/usr/local/lib -Wl,-rpath,/opt/local/lib/openmpi-mp
 	LDFLAGS += -L /usr/local/lib -L /opt/local/lib/openmpi-mp -lmpi_cxx -lmpi -ldl -lstdc++
 	LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib
@@ -29,12 +34,6 @@ else
 	LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
 	LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
 endif
-
-
-LIB=$(LIBRARYNAME)
-OBJECTDIR=$(NEXTSIMDIR)/objs/
-DEPENDDIR=$(NEXTSIMDIR)/.deps/
-LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
 # C++ files
 CXXSRCDIR=.
