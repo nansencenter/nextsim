@@ -232,6 +232,8 @@ int main(int argc, char** argv )
         po::store(po::command_line_parser(argc, argv)
                   .options(desc)
                   .style(po::command_line_style::unix_style | po::command_line_style::allow_long_disguise)
+                  //.style(po::command_line_style::allow_long | po::command_line_style::long_allow_adjacent | po::command_line_style::long_allow_next)
+                  .allow_unregistered()
                   .run(),
                   vm);
 
@@ -304,18 +306,21 @@ int main(int argc, char** argv )
         po::notify(vm);
 
     }
-    // catch(po::error& e)
-    // {
-    //     std::cerr << "ERROR: " << e.what() << std::endl <<"\n";
-    //     std::cerr << desc <<"\n";
-    //     //return ERROR_IN_COMMAND_LINE;
-    //     return -1;
-    // }
+
+#if 0
+    catch(po::error& e)
+    {
+        std::cerr << "ERROR: " << e.what() << std::endl <<"\n";
+        std::cerr << desc <<"\n";
+        //return ERROR_IN_COMMAND_LINE;
+        return -1;
+    }
 
     catch(po::duplicate_option_error const& e)
     {
         return -1;
     }
+#endif
 
     // catches program_options exceptions
 
@@ -323,7 +328,7 @@ int main(int argc, char** argv )
     {
         std::cout << "Command line or config file option parsing error: " << e.what() << "\n"
                   << "  o faulty option: " << e.get_option_name() << "\n"
-                  << "ERROR: the .cfg file or some options may not have been read properly\n";
+                  << "Error: the .cfg file or some options may not have been read properly\n";
 
         return -2;
     }
@@ -338,7 +343,7 @@ int main(int argc, char** argv )
                            std::cout << s << " ";
                        } );
         std::cout << "\n"
-                  << "ERROR: the .cfg file or some options may not have been read properly\n";
+                  << "Error: the .cfg file or some options may not have been read properly\n";
 
         return -3;
     }
@@ -354,9 +359,8 @@ int main(int argc, char** argv )
         std::cout << "Application option parsing: unknown exception triggered  (the .cfg file or some options may not have been read properly)\n";
     }
 
-    std::cout<<"nx= "<< vm["nx"]. as<int>() <<"\n";
-    std::cout<<"ny= "<< vm["ny"]. as<int>() <<"\n";
-
+    // std::cout<<"nx= "<< vm["nx"]. as<int>() <<"\n";
+    // std::cout<<"ny= "<< vm["ny"]. as<int>() <<"\n";
     // std::cout<<"dx= "<< vm["dx"]. as<double>() <<"\n";
     // std::cout<<"dy= "<< vm["dy"]. as<double>() <<"\n";
 }
