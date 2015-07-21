@@ -19,10 +19,11 @@ ifeq ($(KERNEL),Linux)
 	LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
 	LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
 else
-	CXXFLAGS += -I $(NEXTSIMDIR)/include -I /usr/lib/openmpi/include -I /opt/local/include/openmpi-mp -I $(PETSC_DIR)/include -I $(BOOST_DIR)/include
+	CXXFLAGS += -I $(NEXTSIMDIR)/include -I /usr/local/include -I /opt/local/include/openmpi-mp
+	CXXFLAGS += -I $(PETSC_DIR)/include -I $(BOOST_DIR)/include
 	LDFLAGS += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,libnextsim.dylib
-	LDFLAGS += -Wl,-rpath,/opt/local/lib/openmpi-mp
-	LDFLAGS += -L /opt/local/lib/openmpi-mp -lmpi_cxx -lmpi -ldl -lstdc++
+	LDFLAGS += -Wl,-rpath,/usr/local/lib -Wl,-rpath,/opt/local/lib/openmpi-mp
+	LDFLAGS += -L /usr/local/lib -L /opt/local/lib/openmpi-mp -lmpi_cxx -lmpi -ldl -lstdc++
 	LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib
 	LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi
 	LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
