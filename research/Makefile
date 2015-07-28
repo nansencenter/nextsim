@@ -5,7 +5,7 @@ PROGNAME=nextsim.exec
 NEXTSIMDIR=..
 
 CXX = g++
-CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -pthread -v
+CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -pthread -v -DHAVE_CONFIG_H
 
 ifeq ($(KERNEL),Linux)
 	#CXX = g++-4.8
@@ -15,11 +15,24 @@ ifeq ($(KERNEL),Linux)
 	LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib -Wl,-rpath,$(NEXTSIMDIR)/lib
 	LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc -L$(NEXTSIMDIR)/lib -lnextsim
 else
+
+	ifeq ($(CXX),clang)
+	CXXFLAGS += -stdlib=libc++
+	endif
+
 	CXXFLAGS += -I $(NEXTSIMDIR)/include -I /usr/local/include -I /opt/local/include/openmpi-mp
-	CXXFLAGS +=	-I $(PETSC_DIR)/include -I $(BOOST_DIR)/include #-I headers
+	CXXFLAGS +=	-I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I /Users/abdama/Downloads/ISSM/
+	CXXFLAGS +=	-I $(NETCDF_DIR)/include
 	LDFLAGS += -Wl,-rpath,/usr/local/lib -Wl,-rpath,/opt/local/lib/openmpi-mp
 	LDFLAGS += -L /usr/local/lib -L /opt/local/lib/openmpi-mp -lmpi_cxx -lmpi -ldl -lstdc++
-	LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib
+	LDFLAGS += -Wl,-rpath,/opt/local/issm/lib -L /opt/local/issm/lib -lISSMCore #-lISSMModules -lISSMOverload
+	LDFLAGS += -Wl,-rpath,/opt/local/netcdf-cxx/lib -L /opt/local/netcdf-cxx/lib -lnetcdf_c++4
+
+	ifeq ($(CXX),clang)
+	LDFLAGS += -stdlib=libc++
+	endif
+
+	Ldflags += -Wl,-rpath,$(BOOST_DIR)/lib
 	LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi
 	LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib -Wl,-rpath,$(NEXTSIMDIR)/lib
 	LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc -L $(NEXTSIMDIR)/lib -lnextsim

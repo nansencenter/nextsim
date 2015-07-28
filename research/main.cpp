@@ -3,9 +3,26 @@
 #include <solverpetsc.hpp>
 #include <boost/program_options.hpp>
 #include <boost/version.hpp>
+//#include <src/wrappers/BamgConvertMesh/BamgConvertMesh.h>
+
+#include <src/c/main/globals.h>
+#include <src/c/modules/Bamgx/Bamgx.h>
+#include <src/c/modules/BamgConvertMeshx/BamgConvertMeshx.h>
+
+#include <netcdf>
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
+
+using namespace netCDF;
+using namespace netCDF::exceptions;
+
+// We are reading 2D data, a 6 x 12 grid.
+static const int NX = 6;
+static const int NY = 12;
+
+// Return this in event of a problem.
+static const int NC_ERR = 2;
 
 namespace Nextsim
 {
@@ -180,7 +197,7 @@ int main(int argc, char** argv )
     //ierr = MatView(A,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
 
     ierr = PetscPrintf(PETSC_COMM_WORLD,"writing matrix in binary to matrix.dat ...\n");CHKERRQ(ierr);
-    ierr = PetscViewerBinaryOpen(PETSC_COMM_WORLD,"matrix.dat",FILE_MODE_WRITE,&viewer);CHKERRQ(ierr);
+    ierr = PetscViewerBinaryOpen(PETSC_COMM_WORLD,"../data/matrix.dat",FILE_MODE_WRITE,&viewer);CHKERRQ(ierr);
     ierr = MatView(A,viewer);CHKERRQ(ierr);
     ierr = MatView(A,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
     ierr = PetscViewerDestroy(&viewer);CHKERRQ(ierr);
@@ -192,7 +209,7 @@ int main(int argc, char** argv )
     /* Read the matrix again as a sequential matrix */
     ierr = PetscPrintf(PETSC_COMM_WORLD,"reading matrix in binary from matrix.dat ...\n");CHKERRQ(ierr);
     Mat B;
-    ierr = PetscViewerBinaryOpen(Environment::comm(),"matrix.dat",FILE_MODE_READ,&viewer);CHKERRQ(ierr);
+    ierr = PetscViewerBinaryOpen(Environment::comm(),"../data/matrix.dat",FILE_MODE_READ,&viewer);CHKERRQ(ierr);
     ierr = MatCreate(Environment::comm(),&B);CHKERRQ(ierr);
     ierr = MatSetType(B,MATSEQAIJ);CHKERRQ(ierr);
     ierr = MatLoad(B,viewer);CHKERRQ(ierr);
@@ -202,7 +219,7 @@ int main(int argc, char** argv )
 #endif
 
     std::cout<<"reading matrix in binary from matrix.dat ...\n";
-    std::string file = "matrix.dat";
+    std::string file = "../data/matrix.dat";
     MatrixPetsc B;
     B.loadBinary(file);
     B.printScreen();
@@ -210,7 +227,7 @@ int main(int argc, char** argv )
     std::cout<<"B.size1= "<< B.size1() <<"\n";
     std::cout<<"B.size2= "<< B.size2() <<"\n";
 
-    file = "vector.dat";
+    file = "../data/vector.dat";
     std::cout<<"writing vector in binary to vector.dat ...\n";
     testvec.printBinary(file);
     testvec.clear();
@@ -363,4 +380,60 @@ int main(int argc, char** argv )
     // std::cout<<"ny= "<< vm["ny"]. as<int>() <<"\n";
     // std::cout<<"dx= "<< vm["dx"]. as<double>() <<"\n";
     // std::cout<<"dy= "<< vm["dy"]. as<double>() <<"\n";
+
+#if 1
+    BamgOpts *bamgopt = NULL;
+    BamgMesh *bamgmesh = NULL;
+    BamgGeom *bamggeom = NULL;
+
+    bamgopt=new BamgOpts();
+    bamggeom=new BamgGeom();
+    bamgmesh=new BamgMesh();
+
+    bamgopt->anisomax=1;
+
+    std::cout<<"Anisomax= "<< bamgopt->anisomax <<"\n";
+
+    //bamgopt->Check();
+
+    delete bamggeom;
+    delete bamgmesh;
+    delete bamgopt;
+#endif
+
+    try
+    {
+        // This is the array we will read.
+        int dataIn[NX][NY];
+
+        // Open the file for read access
+        NcFile dataFile("../data/simple_xy.nc", NcFile::read);
+
+        // Retrieve the variable named "data"
+        NcVar data=dataFile.getVar("data");
+        if(data.isNull()) return NC_ERR;
+        data.getVar(dataIn);
+
+        // Check the values.
+        for (int i = 0; i < NX; i++)
+            for (int j = 0; j < NY; j++)
+            {
+                std::cout<<"simple_xy.nc= "<< dataIn[i][j] <<"\n";
+                if (dataIn[i][j] != i * NY + j)
+                    return NC_ERR;
+            }
+
+        // The netCDF file is automatically closed by the NcFile destructor
+        //cout << "*** SUCCESS reading example file simple_xy.nc!" << endl;
+
+        return 0;
+    }
+    catch(NcException& e)
+    {
+        e.what();
+        cout<<"FAILURE*************************************"<<endl;
+        return NC_ERR;
+    }
+
+
 }
