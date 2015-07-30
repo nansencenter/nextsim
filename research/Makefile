@@ -22,7 +22,7 @@ else
 
 	CXXFLAGS += -I $(NEXTSIMDIR)/include -I /usr/local/include -I /opt/local/include/openmpi-mp
 	CXXFLAGS +=	-I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I /Users/abdama/Downloads/ISSM/
-	CXXFLAGS +=	-I $(NETCDF_DIR)/include
+	CXXFLAGS +=	-I $(NETCDF_DIR)/include -I $(GMSH_DIR)/include/gmsh
 	LDFLAGS += -Wl,-rpath,/usr/local/lib -Wl,-rpath,/opt/local/lib/openmpi-mp
 	LDFLAGS += -L /usr/local/lib -L /opt/local/lib/openmpi-mp -lmpi_cxx -lmpi -ldl -lstdc++
 	LDFLAGS += -Wl,-rpath,/opt/local/issm/lib -L /opt/local/issm/lib -lISSMCore #-lISSMModules -lISSMOverload
@@ -32,10 +32,14 @@ else
 	LDFLAGS += -stdlib=libc++
 	endif
 
-	Ldflags += -Wl,-rpath,$(BOOST_DIR)/lib
+	LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib
 	LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi
 	LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib -Wl,-rpath,$(NEXTSIMDIR)/lib
 	LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc -L $(NEXTSIMDIR)/lib -lnextsim
+
+	#LDFLAGS += -Wl,-rpath,$(GMSH_DIR)/lib
+	#LDFLAGS += -L $(GMSH_DIR)/lib -lGmsh
+
 endif
 
 #-shared -Wl,-soname,libnextsim.so.1 -o libnextsim.so.1.0.0

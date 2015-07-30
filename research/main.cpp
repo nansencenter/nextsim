@@ -1,11 +1,13 @@
 /* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
 
 #include <solverpetsc.hpp>
+#include <gmshmesh.hpp>
 #include <boost/program_options.hpp>
 #include <boost/version.hpp>
 //#include <src/wrappers/BamgConvertMesh/BamgConvertMesh.h>
 
 #include <src/c/main/globals.h>
+//#include <src/c/bamg/Mesh.h>
 #include <src/c/modules/Bamgx/Bamgx.h>
 #include <src/c/modules/BamgConvertMeshx/BamgConvertMeshx.h>
 
@@ -381,7 +383,7 @@ int main(int argc, char** argv )
     // std::cout<<"dx= "<< vm["dx"]. as<double>() <<"\n";
     // std::cout<<"dy= "<< vm["dy"]. as<double>() <<"\n";
 
-#if 1
+#if 0
     BamgOpts *bamgopt = NULL;
     BamgMesh *bamgmesh = NULL;
     BamgGeom *bamggeom = NULL;
@@ -418,7 +420,7 @@ int main(int argc, char** argv )
         for (int i = 0; i < NX; i++)
             for (int j = 0; j < NY; j++)
             {
-                std::cout<<"simple_xy.nc= "<< dataIn[i][j] <<"\n";
+                //std::cout<<"simple_xy.nc= "<< dataIn[i][j] <<"\n";
                 if (dataIn[i][j] != i * NY + j)
                     return NC_ERR;
             }
@@ -426,7 +428,7 @@ int main(int argc, char** argv )
         // The netCDF file is automatically closed by the NcFile destructor
         //cout << "*** SUCCESS reading example file simple_xy.nc!" << endl;
 
-        return 0;
+        //return 0;
     }
     catch(NcException& e)
     {
@@ -435,5 +437,116 @@ int main(int argc, char** argv )
         return NC_ERR;
     }
 
+    GmshMesh mesh;
+
+    std::cout <<"VERSION= "<< mesh.version() <<"\n";
+
+
+    mesh.readFromFile("bigarctic10km.msh");
+
+    auto nodes = mesh.nodes();
+
+    for (auto it=nodes.begin(), end=nodes.end(); it!=end; ++it)
+    {
+        auto coords = it->second.coords;
+
+        if (it->first < 10)
+            std::cout<< "Nodes "<< it->first << ": coords= ("<< coords[0] << ","<< coords[1] << ","<< coords[2] <<")\n";
+    }
+
+
+
+    auto elements = mesh.elements();
+
+    for (auto it=elements.begin(), end=elements.end(); it!=end; ++it)
+    {
+        //auto coords = it->second.coords;
+
+        if (it->first < 10)
+        {
+            std::cout<< "Elements : "<< it->first <<"\n"
+                     << "           number= " << it->second.number <<"\n"
+                     << "             type= " << it->second.type <<"\n"
+                     << "         physical= " << it->second.physical <<"\n"
+                     << "       elementary= " << it->second.elementary <<"\n"
+                     << "      numVertices= " << it->second.numVertices <<"\n";
+                //<< "          indices= (" << indices[] <<"\n"
+
+        }
+    }
+
+    std::cout<<"NumNodes   = "<< mesh.numNodes() <<"\n";
+    std::cout<<"NumElements= "<< mesh.numElements() <<"\n";
+
+    int nods = mesh.numNodes();
+    int nels = mesh.numElements();
+
+    int *index;
+    double *x;
+    double *y;
+
+    index = new int[nels];
+    x = new double[nods];
+    y = new double[nods];
+
+    // int cpt = 0;
+
+    // for (auto it=elements.begin(), end=elements.end(); it!=end; ++it)
+    // {
+    //     index[cpt] = it->first;
+    //     ++cpt;
+    // }
+
+    int cpt = 0;
+
+    for (auto it=nodes.begin(), end=nodes.end(); it!=end; ++it)
+    {
+        auto coords = it->second.coords;
+
+        index[cpt] = it->first-1;
+
+        x[cpt] = coords[0];
+        y[cpt] = coords[1];
+
+
+        //if (cpt < 10)
+        //    std::cout<<"I= "<< index[cpt] << " X= "<< x[cpt] << " Y= "<< y[cpt] <<"\n";
+
+        //if (cpt < 10)
+        //    std::cout<<"I= "<< index[cpt] <<"\n";
+
+        ++cpt;
+    }
+
+    //int Bmesh = BamgConvertMeshx;
+
+
+    BamgOpts *bamgopt = NULL;
+    BamgMesh *bamgmesh = NULL;
+    BamgGeom *bamggeom = NULL;
+
+    bamgopt=new BamgOpts();
+    bamggeom=new BamgGeom();
+    bamgmesh=new BamgMesh();
+
+    //int test = BamgConvertMeshx(bamgmesh,bamggeom,index,x,y,nods,nels);
+
+    //bamg::Mesh Th(index,x,y,nods,nels);
+
+    bamg::Mesh Th(x,y,nods);
+
+    std::cout<< "BAMG OBJECTS*******************\n";
+    std::cout<< "MAX_NVERTEX= " << Th.maxnbv <<"\n";
+    std::cout<< "MAX_NELEMENT= " << Th.maxnbt <<"\n";
+    //maxnbt
+
+    Th.Gh.WriteGeometry(bamggeom,bamgopt);
+    Th.WriteMesh(bamgmesh,bamgopt);
+
+    //std::cout<<"TRIAN= "<< bamgmesh->TrianglesSize[1] <<"\n";
+
+    delete bamggeom;
+    delete bamgmesh;
+    delete bamgopt;
 
 }

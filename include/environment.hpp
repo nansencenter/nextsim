@@ -7,8 +7,8 @@
  */
 
 
-#ifndef FEELPP_ENVIRONMENT_HPP
-#define FEELPP_ENVIRONMENT_HPP 1
+#ifndef Environment_HPP
+#define Environment_HPP 1
 
 #include <communicator.hpp>
 #include <petscsys.h>
@@ -70,4 +70,4 @@ private:
 };
 
 } // Nextsim
-#endif // FEELPP_ENVIRONMENT_HPP
+#endif // ENVIRONMENT_HPP
