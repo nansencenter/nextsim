@@ -12,7 +12,15 @@ namespace Nextsim
 {
 	GmshMesh::GmshMesh()
 		:
-		M_version("2.2")
+		M_version("2.2"),
+        M_nodes(),
+        M_elements(),
+        M_triangles(),
+        M_lines(),
+        M_num_nodes(0),
+        M_num_elements(0),
+        M_num_triangles(0),
+        M_num_lines(0)
 	{}
 
     void GmshMesh::readFromFile(std::string const& filename)
@@ -151,6 +159,12 @@ namespace Nextsim
             //__et.push_back( gmshElt );
             M_elements.insert(std::make_pair(number,gmshElt));
 
+            if (type == 2)
+                M_triangles.insert(std::make_pair(number,gmshElt));
+            else if (type == 1)
+                M_lines.insert(std::make_pair(number,gmshElt));
+
+
             if ( __gt.find( type ) != __gt.end() )
                 ++__gt[ type ];
             else
@@ -163,6 +177,11 @@ namespace Nextsim
             const char* name;
             MElement::getInfoMSH( it.first, &name );
             std::cout << "Read " << it.second << " " << name << " elements\n";
+
+            if (std::string(name) == "Triangle 3")
+                M_num_triangles = it.second;
+            else if (std::string(name) == "Line 2")
+                M_num_lines = it.second;
         }
 
         // make sure that we have read everything

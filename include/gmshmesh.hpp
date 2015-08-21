@@ -95,19 +95,27 @@ public:
     void readFromFile(std::string const& filename);
 
     std::string const& version() const {return M_version;}
-    std::map<int, point_type > const& nodes () const {return M_nodes;}
-    std::map<int, element_type > const& elements () const {return M_elements;}
+    std::map<int, point_type > const& nodes() const {return M_nodes;}
+    std::map<int, element_type > const& elements() const {return M_elements;}
+    std::map<int, element_type > const& triangles() const {return M_triangles;}
+    std::map<int, element_type > const& lines() const {return M_lines;}
 
     int numNodes() const {return M_num_nodes;}
     int numElements() const {return M_num_elements;}
+    int numTriangles() const {return M_num_triangles;}
+    int numLines() const {return M_num_lines;}
 
 private:
 
+    std::string M_version;
     std::map<int, point_type > M_nodes;
     std::map<int, element_type > M_elements;
-    std::string M_version;
+    std::map<int, element_type > M_triangles;
+    std::map<int, element_type > M_lines;
     int M_num_nodes;
     int M_num_elements;
+    int M_num_triangles;
+    int M_num_lines;
 };
 
 } // Nextsim

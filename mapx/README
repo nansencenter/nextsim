@@ -1,0 +1,170 @@
+General Information
+-------------------
+
+This is the NSIDC mapx library version 0.9.
+
+
+Mapx is free software and covered by the GNU LGPL.
+
+Information and the latest version of the software can be found at 
+	    http://nsidc.org/data/tools/
+
+
+Installation
+------------
+
+See the file 'INSTALL'
+
+
+Prerequisites
+-------------
+
+C compiler
+
+Manifest
+--------
+
+Your kit should contain the following files:
+
+README			    This file
+INSTALL			    A brief installation guide
+COPYING			    The GNU Lesser General Public License
+Makefile		    Top level make file
+ppgc.html		    Documentation for configuration files
+*.[ch]			    Source code
+unit_test/utest.pl	    Script to run unit tests
+
+
+Description
+-----------
+
+Geographic coordinate transformations are used in many applications at the
+National Snow & Ice Data Center, including gridded data display tools,
+data processing systems, and online area search interfaces. These
+applications require accurate, efficient, and reusable transformation
+routines. The common packages GCTP and PROJ were difficult to use in our
+modern multi-threaded event driven software architectures. The mapx
+library was developed to fill this gap for our internal uses. We are now
+offering the library to outside users.
+
+Features:
+
+The main benefit of an object-oriented design for the mapping library is
+that each transformation is independent. Often, in the available standard
+packages, only one instance of a given projection can be initialized at a
+time. In mapx the creation and initialization of a new transformation has
+no effect on existing mapx objects. This is an important feature where
+concurrent processing is required. Examples include simultaneously
+ingesting data from different maps, pixel-by-pixel conversion of one map
+to another, or an online map server with multiple projection options.
+
+Projections:
+
+The following projections are currently implemented:
+
+ *			 Azimuthal_Equal_Area
+ *			 Cylindrical_Equal_Area
+ *			 Mercator
+ *			 Mollweide
+ *			 Orthographic
+ *			 Sinusoidal
+ *			 Cylindrical_Equidistant
+ *			 Polar_Stereographic
+ *			 Polar_Stereographic_Ellipsoid
+ *			 Azimuthal_Equal_Area_Ellipsoid			 
+ *			 Cylindrical_Equal_Area_Ellipsoid
+ *                       Lambert_Conic_Conformal_Ellipsoid
+ *			 Interupted_Homolosine_Equal_Area
+ *                       Albers_Conic_Equal_Area
+ *                       Albers_Conic_Equal_Area_Ellipsoid
+ *			 Integerized_Sinusoidal
+ *                       Transverse_Mercator
+ *                       Transverse_Mercator_Ellipsoid
+ *                       Universal_Transverse_Mercator
+ *			or anything reasonably similar
+
+And, the library's design makes it easy to add new projections. 
+
+Many projections have both spherical and ellipsoidal versions. The
+initialization of each transformation allows for the use of a different
+datum to describe the spheroid. Even two transformations with the same
+projection can have different datums. The datum is not restricted to the
+Earth. You could easily use mapx on the moon or Mars, for example.
+
+Accuracy:
+
+The coordinate transformations used in mapx are (for the most part) taken
+from Snyder and tested against the numerical examples he gives in Appendix
+A. Further, all transformations are tested against their inverse and are
+consistent to within one meter.
+
+Application Program Interface (API):
+
+This is the C version of the library. There is also a Java version
+available at http://nsidc.org/data/tools/
+
+Both versions provide constructors, a destructor, a forward transformation
+(from latitude and longitude to map coordinates), an inverse
+transformation (map coordinates to latitude and longitude), and a test to
+determine if a point is within a map.
+
+In addition the C version has a derived grid object that abstracts a map
+projection and a matrix object for the storage and retrieval of gridded
+data.
+
+There are also a couple of two dimensional modeling objects--a polynomial
+based model called pmodel and a cubic spline based model called smodel.
+
+And, finally, an interface to a coastlines database derived from a
+combination of WDBII and World Vector Shoreline.
+
+Applications:
+
+This package also contains several standalone routines that serve as test
+beds and coding examples but also as useful applications in their own
+right. Some examples include:
+
+gridloc - output latitude and longitude for every cell in a grid
+
+regrid - interpolate data from one grid to another
+
+resamp - interpolate data from one grid to another (in a slightly
+different way)
+
+irregrid - interpolate irregularly sampled data (points) to a grid
+
+mapenum - enumerate (list) map feature vectors from a cdb file
+
+mtest - interactive command line map transformations
+
+gtest - interactive command line grid transformations
+
+
+Reference:
+
+Snyder, John P., Map Projections Used by the U.S. Geological Survey, 1982.
+
+
+Points, Pixels, Grids, and Cells
+--------------------------------
+
+Predefined map projection files are available from NSIDC. The
+documentation describing these configuration files is in ppgc.html.
+It seems straightforward enough but in practice can be tricky to get it
+"just right". We are glad to help. Please contact NSIDC User Services.
+
+
+Help and Other Information
+__________________________
+
+NSIDC User Services
+National Snow and Ice Data Center
+CIRES, 449 UCB
+University of Colorado
+Boulder, CO 80309-0449  USA
+phone: (303)492-6199
+fax: (303)492-2468
+form: http://nsidc.org/forms/contact.html
+e-mail: nsidc@nsidc.org
+
+

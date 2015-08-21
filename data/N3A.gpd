@@ -1,0 +1,4 @@
+Nps.mpp		map projection parameters	# SSM/I Brightness Temp Grids
+608 896		columns rows			# North Polar Region
+8		grid cells per map unit		# 12.5km
+307.5 467.5	map origin column, row		#

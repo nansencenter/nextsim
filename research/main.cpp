@@ -4,12 +4,26 @@
 #include <gmshmesh.hpp>
 #include <boost/program_options.hpp>
 #include <boost/version.hpp>
-//#include <src/wrappers/BamgConvertMesh/BamgConvertMesh.h>
+#include <boost/format.hpp>
 
+#include <BamgConvertMeshx.h>
+
+//#include <math.h>
+
+extern "C" {
+#include <mapx.h>
+#include <grids.h>
+}
+
+#if 0
+//#include <src/wrappers/BamgConvertMesh/BamgConvertMesh.h>
+//#include <src/c/shared/String/sharedstring.h>
+//#include <src/c/cores/cores.h>
 #include <src/c/main/globals.h>
 //#include <src/c/bamg/Mesh.h>
 #include <src/c/modules/Bamgx/Bamgx.h>
 #include <src/c/modules/BamgConvertMeshx/BamgConvertMeshx.h>
+#endif
 
 #include <netcdf>
 
@@ -30,6 +44,8 @@ namespace Nextsim
 {
     po::options_description descrOptions();
 }
+
+int init_polar_stereographic(mapx_class *current);
 
 int main(int argc, char** argv )
 {
@@ -174,7 +190,7 @@ int main(int argc, char** argv )
     int ierr = 0;
     PetscLogEvent MATRIX_GENERATE,MATRIX_READ;
 
-#if 1
+#if 0
     /* PART 1:  Generate matrix, then write it in binary format */
 
     ierr = PetscLogEventRegister("Generate Matrix",0,&MATRIX_GENERATE);CHKERRQ(ierr);
@@ -206,7 +222,7 @@ int main(int argc, char** argv )
     ierr = MatDestroy(&A);CHKERRQ(ierr);
     ierr = PetscLogEventEnd(MATRIX_GENERATE,0,0,0,0);CHKERRQ(ierr);
 
-#else
+    //#else
 
     /* Read the matrix again as a sequential matrix */
     ierr = PetscPrintf(PETSC_COMM_WORLD,"reading matrix in binary from matrix.dat ...\n");CHKERRQ(ierr);
@@ -438,11 +454,11 @@ int main(int argc, char** argv )
     }
 
     GmshMesh mesh;
-
     std::cout <<"VERSION= "<< mesh.version() <<"\n";
 
 
     mesh.readFromFile("bigarctic10km.msh");
+    //mesh.readFromFile("example_2d.msh");
 
     auto nodes = mesh.nodes();
 
@@ -456,70 +472,125 @@ int main(int argc, char** argv )
 
 
 
-    auto elements = mesh.elements();
+    //auto elements = mesh.elements();
+    auto elements = mesh.triangles();
 
+    //for (auto it=elements.begin(), end=elements.end(); it!=end; ++it)
+    int nprint = 0;
     for (auto it=elements.begin(), end=elements.end(); it!=end; ++it)
     {
         //auto coords = it->second.coords;
 
-        if (it->first < 10)
+        //if (it->first < 10)
+        if (nprint < 10)
         {
             std::cout<< "Elements : "<< it->first <<"\n"
                      << "           number= " << it->second.number <<"\n"
                      << "             type= " << it->second.type <<"\n"
                      << "         physical= " << it->second.physical <<"\n"
                      << "       elementary= " << it->second.elementary <<"\n"
-                     << "      numVertices= " << it->second.numVertices <<"\n";
-                //<< "          indices= (" << indices[] <<"\n"
+                     << "      numVertices= " << it->second.numVertices <<"\n"
+                     << "          indices= (" << it->second.indices[0] << ","<< it->second.indices[1] << "," << it->second.indices[2] <<")\n";
 
         }
+
+        ++nprint;
     }
 
-    std::cout<<"NumNodes   = "<< mesh.numNodes() <<"\n";
-    std::cout<<"NumElements= "<< mesh.numElements() <<"\n";
+    std::cout<<"NumNodes     = "<< mesh.numNodes() <<"\n";
+    std::cout<<"NumElements  = "<< mesh.numElements() <<"\n";
+    std::cout<<"NumTriangles = "<< mesh.numTriangles() <<"\n";
+    std::cout<<"NumLines     = "<< mesh.numLines() <<"\n";
+
 
     int nods = mesh.numNodes();
-    int nels = mesh.numElements();
+    //int nels = mesh.numElements();
+    int nels = mesh.numTriangles();
 
     int *index;
     double *x;
     double *y;
 
-    index = new int[nels];
+    index = new int[3*nels];
     x = new double[nods];
     y = new double[nods];
 
-    // int cpt = 0;
-
-    // for (auto it=elements.begin(), end=elements.end(); it!=end; ++it)
-    // {
-    //     index[cpt] = it->first;
-    //     ++cpt;
-    // }
-
     int cpt = 0;
+
+    for (auto it=elements.begin(), end=elements.end(); it!=end; ++it)
+    {
+        index[3*cpt] = it->second.indices[0];//it->first;
+        index[3*cpt+1] = it->second.indices[1];
+        index[3*cpt+2] = it->second.indices[2];
+        ++cpt;
+    }
+
+    //int _max = *std::max_element(_test.begin(),_test.end());
+    //std::cout<<"_MAX= "<< _max <<"\n";
+
+    cpt = 0;
+
+    // test polar stereographic
+    // mapx_class *the_map;
+    // char* filename = "Nps.mpp";
+    // the_map = init_mapx(filename);
+
+    grid_class *grid;
+    std::string str = "../data/Nps6.gpd"; // POLARSTEREOGRAPHICELLIPSOID
+    //std::string str = "../data/Ims24km.gpd"; // POLARSTEREOGRAPHIC
+
+    std::vector<char> filename(str.begin(), str.end());
+    filename.push_back('\0');
+
+    //char* filename = "N3B.gpd";
+    grid = init_grid(&filename[0]);
+
+    std::cout<<"GFILE= "<< std::string(grid->gpd_filename) <<"\n";
+    std::cout<<"MFILE= "<< std::string(grid->mapx->mpp_filename) <<"\n";
+    std::cout<<"PROJE= "<< std::string(grid->mapx->projection_name) <<"\n";
 
     for (auto it=nodes.begin(), end=nodes.end(); it!=end; ++it)
     {
         auto coords = it->second.coords;
 
-        index[cpt] = it->first-1;
+        //compute latitude and longitude from cartesian coordinates
 
-        x[cpt] = coords[0];
-        y[cpt] = coords[1];
+        double _x = coords[0];
+        double _y = coords[1];
+        double _z = coords[2];
 
+        double radius = std::sqrt(std::pow(_x,2.)+std::pow(_y,2.)+std::pow(_z,2.));
+
+        double latitude = std::asin(_z/radius)*(180./PI);
+        double longitude = std::atan2(_y,_x);
+        //longitude = std::fmod(longitude,2*PI);
+        longitude = longitude-2*PI*std::floor(longitude/(2*PI));
+        longitude = longitude*(180./PI);
+
+        double __x, __y;
+        //int status = forward_xy_mapx(the_map,latitude,longitude,&__x,&__y);
+        //int status = forward_mapx(the_map,latitude,longitude,&__x,&__y);
+        //int status = forward_mapx(grid->mapx,latitude,longitude,&__x,&__y);
+        int status = forward_grid(grid,latitude,longitude,&__x,&__y);
+
+        //reinit_mapx(the_map);
+
+        if (cpt < 20)
+        {
+            std::cout<<"latitude= "<< latitude <<"\n";
+            std::cout<<"longitude= "<< longitude <<"\n";
+
+            std::cout<<"        xcart= "<< __x <<"\n";
+            std::cout<<"        ycart= "<< __y <<"\n";
+        }
+
+        x[cpt] = __x;//coords[0];
+        y[cpt] = __y;//coords[1];
 
         //if (cpt < 10)
         //    std::cout<<"I= "<< index[cpt] << " X= "<< x[cpt] << " Y= "<< y[cpt] <<"\n";
-
-        //if (cpt < 10)
-        //    std::cout<<"I= "<< index[cpt] <<"\n";
-
         ++cpt;
     }
-
-    //int Bmesh = BamgConvertMeshx;
-
 
     BamgOpts *bamgopt = NULL;
     BamgMesh *bamgmesh = NULL;
@@ -529,24 +600,80 @@ int main(int argc, char** argv )
     bamggeom=new BamgGeom();
     bamgmesh=new BamgMesh();
 
-    //int test = BamgConvertMeshx(bamgmesh,bamggeom,index,x,y,nods,nels);
+    int test = BamgConvertMeshx(bamgmesh,bamggeom,index,x,y,nods,nels);
 
     //bamg::Mesh Th(index,x,y,nods,nels);
+    //bamg::Mesh Th(x,y,nods);
 
+#if 0
     bamg::Mesh Th(x,y,nods);
 
     std::cout<< "BAMG OBJECTS*******************\n";
     std::cout<< "MAX_NVERTEX= " << Th.maxnbv <<"\n";
     std::cout<< "MAX_NELEMENT= " << Th.maxnbt <<"\n";
-    //maxnbt
 
     Th.Gh.WriteGeometry(bamggeom,bamgopt);
     Th.WriteMesh(bamgmesh,bamgopt);
-
+#endif
     //std::cout<<"TRIAN= "<< bamgmesh->TrianglesSize[1] <<"\n";
 
     delete bamggeom;
     delete bamgmesh;
     delete bamgopt;
+
+    // writw gmsh mesh in 2D
+
+    std::string gmshfilename = (boost::format( "../data/arctic10km.msh" ) ).str();
+    std::fstream gmshfile(gmshfilename, std::ios::out | std::ios::trunc);
+
+    if (gmshfile.is_open())
+    {
+        //gmshfile << std::setw(15) << std::left << 07    << "    Nrecs    # "<< "Number of records" <<"\n";
+        gmshfile << "$MeshFormat\n";
+        gmshfile << "2.2 0 8\n";
+        gmshfile << "$EndMeshFormat\n";
+
+        gmshfile << "$Nodes\n";
+        gmshfile << nods << "\n";
+
+        for ( int node = 0; node < nods; node++ )
+        {
+            gmshfile << node + 1
+                     << "  " << x[node]
+                     << "  " << y[node]
+                     << "  0.0\n";
+        }
+        gmshfile << "$EndNodes\n";
+
+
+        int element_type = 2;
+        int tag_num = 2;
+        int tag1 = 0;
+        gmshfile << "$Elements\n";
+        gmshfile << nels << "\n";
+        for ( int element = 0; element < nels; element++ )
+        {
+            gmshfile << element + 1
+                 << "  " << element_type
+                 << "  " << tag_num
+                 << "  " << tag1
+                 << "  " << element + 1;
+
+            for ( i = 0; i < 3; i++ )
+            {
+                gmshfile << "  " << index[3*element+i] ;
+            }
+            gmshfile << "\n";
+        }
+        gmshfile << "$EndElements\n";
+
+
+    }
+    else
+    {
+        std::cout << "Cannot open " << gmshfilename  << "\n";
+        std::cerr << "error: open file " << gmshfilename << " for output failed!" <<"\n";
+        std::abort();
+    }
 
 }
