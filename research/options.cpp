@@ -22,6 +22,7 @@ namespace Nextsim
             ("help,h", "Print help messages")
             ("config-file", po::value<std::string>(), "specify a configuration file")
             ("config-files", po::value<std::vector<std::string> >()->multitoken(), "specify a list of configuration files" )
+            ("hsize", po::value<double>()->default_value(0.1), "mesh maximum characteristic length")
             ;
         return desc;
     }

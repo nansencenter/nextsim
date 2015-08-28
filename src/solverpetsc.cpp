@@ -13,7 +13,7 @@ namespace Nextsim
 SolverPetsc::SolverPetsc(Communicator const& comm)
 	:
 	M_comm(comm),
-	M_solver_type(CG),
+	M_solver_type(PREONLY),
 	M_preconditioner_type(LU_PRECOND),
     M_matSolverPackage_type(MATSOLVER_UMFPACK),
     M_rtolerance(1e-13),

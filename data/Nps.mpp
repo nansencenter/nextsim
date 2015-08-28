@@ -1,6 +1,6 @@
 Polar Stereographic Ellipsoid
 90.0 -45.0 70.0	lat0 lon0 lat1
-0.0		rotation
+-45.0	    rotation
 100.0	   	scale (km/map unit)
 90.00	135.00	center lat lon
 20.00	90.00	lat min max

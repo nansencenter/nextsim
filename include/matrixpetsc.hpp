@@ -39,6 +39,8 @@ extern "C"
 namespace Nextsim
 {
 
+class VectorPetsc;
+
 class MatrixPetsc
 {
 
@@ -98,6 +100,10 @@ public:
     bool closed() const;
 
     bool isSymmetric() const;
+
+    void diagonal( VectorPetsc& out ) const;
+
+    void on(std::vector<int> const& flags, VectorPetsc& rhs);
 
 private:
 

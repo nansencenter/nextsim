@@ -22,7 +22,7 @@ else
 
 	CXXFLAGS += -I $(NEXTSIMDIR)/include -I $(NEXTSIMDIR)/bamg/include -I $(NEXTSIMDIR)/mapx/include
 	CXXFLAGS += -I /usr/local/include -I /opt/local/include/openmpi-mp
-	CXXFLAGS +=	-I $(PETSC_DIR)/include -I $(BOOST_DIR)/include #-I /Users/abdama/Downloads/ISSM
+	CXXFLAGS +=	-I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I . #-I /Users/abdama/Downloads/ISSM
 	#CXXFLAGS +=	-I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I /Users/abdama/ISSM
 	CXXFLAGS +=	-I $(NETCDF_DIR)/include -I $(GMSH_DIR)/include/gmsh
 
@@ -38,7 +38,7 @@ else
 	LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib
 	LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi
 	LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib -Wl,-rpath,$(NEXTSIMDIR)/lib
-	LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc -L $(NEXTSIMDIR)/lib -lbamg -L $(NEXTSIMDIR)/lib -lmapx
+	LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc -L $(NEXTSIMDIR)/lib -lbamg #-L $(NEXTSIMDIR)/lib -lmapx
 	#LDFLAGS += -lm -pthread -L /opt/local/mapx/lib -lmapx
 	LDFLAGS += -L $(NEXTSIMDIR)/lib -lnextsim
 

@@ -13,9 +13,14 @@
 #include <communicator.hpp>
 #include <petscsys.h>
 #include <petsc.h>
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/fstream.hpp>
+#include <boost/program_options.hpp>
 
 namespace Nextsim
 {
+namespace fs = boost::filesystem;
+namespace po = boost::program_options;
 
 struct MemoryUsage
 {
@@ -56,9 +61,13 @@ public:
 
     Environment( int& argc, char** &argv );
 
+    Environment( int& argc, char** &argv, po::options_description desc );
+
     ~Environment();
 
     static Communicator const& comm() { return mpicomm; }
+
+    static po::variables_map const& vm() { return vmenv; }
 
     static MemoryUsage logMemoryUsage(std::string const& message);
 
@@ -66,6 +75,7 @@ private:
 
     boost::mpi::environment mpienv;
     static Communicator mpicomm;
+    static po::variables_map vmenv;
 
 };
 

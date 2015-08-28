@@ -13,6 +13,7 @@ namespace Nextsim
 	GmshMesh::GmshMesh()
 		:
 		M_version("2.2"),
+        M_ordering("gmsh"),
         M_nodes(),
         M_elements(),
         M_triangles(),
@@ -149,6 +150,11 @@ namespace Nextsim
                 __is >> indices[j];
             }
 
+            if (M_ordering=="bamg")
+            {
+                std::next_permutation(indices.begin()+1,indices.end());
+            }
+
             Nextsim::entities::GMSHElement gmshElt( number,
                                                     type,
                                                     physical,
@@ -190,6 +196,128 @@ namespace Nextsim
         ASSERT(std::string( __buf ) == "$EndElements","invalid end elements string");
 
         // we are done reading the MSH file
+    }
+
+    void GmshMesh::writeTofile(std::string const& filename)
+    {
+        //std::string gmshfilename = (boost::format( "../data/arctic10km.msh" ) ).str();
+        std::fstream gmshfile(filename, std::ios::out | std::ios::trunc);
+
+        if (gmshfile.is_open())
+        {
+            gmshfile << "$MeshFormat\n";
+            gmshfile << "2.2 0 8\n";
+            gmshfile << "$EndMeshFormat\n";
+
+            gmshfile << "$Nodes\n";
+            gmshfile << M_num_nodes << "\n";
+
+            //for ( int node = 0; node < M_num_nodes; node++ )
+            int node = 0;
+            for (auto it=M_nodes.begin(), en=M_nodes.end(); it!=en; ++it)
+            {
+                gmshfile << node + 1
+                         << "  " << it->second.coords[0]
+                         << "  " << it->second.coords[1]
+                         << "  0.0\n";
+
+                ++node;
+            }
+            gmshfile << "$EndNodes\n";
+
+
+            int element_type = 2;
+            int tag_num = 2;
+            int tag1 = 1;
+            int tag2 = 0;
+
+            gmshfile << "$Elements\n";
+            gmshfile << M_num_triangles << "\n";
+
+            //for ( int element = 0; element < nels; element++ )
+            int element = 0;
+            for (auto it=M_triangles.begin(), en=M_triangles.end(); it!=en; ++it)
+            {
+                //tag2 = element +1;
+
+                gmshfile << element + 1
+                         << "  " << element_type
+                         << "  " << tag_num
+                         << "  " << tag1
+                         << "  " << tag2;
+                //<< "  " << element + 1;
+
+                for (int i = 0; i < 3; i++ )
+                {
+                    gmshfile << "  " << it->second.indices[i] ;
+                }
+                gmshfile << "\n";
+
+                ++element;
+            }
+            gmshfile << "$EndElements\n";
+
+
+        }
+        else
+        {
+            std::cout << "Cannot open " << filename  << "\n";
+            std::cerr << "error: open file " << filename << " for output failed!" <<"\n";
+            std::abort();
+        }
+    }
+
+    void GmshMesh::project(std::string const& filename)
+    {
+        // polar stereographic projection
+        mapx_class *map;
+        std::vector<char> str(filename.begin(), filename.end());
+        str.push_back('\0');
+
+        map = init_mapx(&str[0]);
+
+        std::cout<<"MFILE= "<< std::string(map->mpp_filename) <<"\n";
+        std::cout<<"PROJE= "<< std::string(map->projection_name) <<"\n";
+
+        int cpt = 0;
+
+        for (auto it=M_nodes.begin(), en=M_nodes.end(); it!=en; ++it)
+        {
+            //compute latitude and longitude from cartesian coordinates
+            double _x = it->second.coords[0];
+            double _y = it->second.coords[1];
+            double _z = it->second.coords[2];
+
+            // compute radius
+            double radius = std::sqrt(std::pow(_x,2.)+std::pow(_y,2.)+std::pow(_z,2.));
+
+            double latitude = std::asin(_z/radius)*(180./PI);
+            double longitude = std::atan2(_y,_x);
+
+            longitude = longitude-2*PI*std::floor(longitude/(2*PI));
+            longitude = longitude*(180./PI);
+
+            double x_, y_;
+            int status = forward_mapx(map,latitude,longitude,&x_,&y_);
+
+            it->second.coords[0] = x_;
+            it->second.coords[1] = y_;
+            it->second.coords[2] = 0.0;
+
+#if 0
+            if (cpt < 10)
+            {
+                std::cout<<"latitude= "<< latitude <<"\n";
+                std::cout<<"longitude= "<< longitude <<"\n";
+
+                std::cout<<"        xcart= "<< it->second.coords[0] <<"\n";
+                std::cout<<"        ycart= "<< it->second.coords[1] <<"\n";
+                std::cout<<"        zcart= "<< it->second.coords[2] <<"\n";
+            }
+#endif
+
+            ++cpt;
+        }
     }
 
 } // Nextsim

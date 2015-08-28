@@ -6,6 +6,7 @@
  * @date   Mon Jul  6 16:39:32 2015
  */
 
+#include <vectorpetsc.hpp>
 #include <matrixpetsc.hpp>
 
 /**
@@ -486,6 +487,79 @@ MatrixPetsc::isSymmetric() const
     MatIsSymmetric( M_mat, 1e-13, &b );
 
     return b;
+}
+
+void
+MatrixPetsc::diagonal( VectorPetsc& out ) const
+{
+    int ierr = MatGetDiagonal( M_mat, out.vec() );
+    CHKERRABORT( M_comm,ierr );
+}
+
+void
+MatrixPetsc::on(std::vector<int> const& flags, VectorPetsc& rhs)
+{
+    ASSERT(M_is_initialized, "MatrixPetsc not properly initialized");
+
+    ASSERT(this->size2() == rhs.size(), "invalid right-hand side");
+
+    // apply homogeneous dirichlet boundary conditions
+
+    // first step: elimination of dirichlet rows
+    for (int flag : flags)
+    {
+        const PetscInt* petsc_columns;
+        const PetscScalar* petsc_data;
+        int ncols;
+        int ierr = MatGetRow( M_mat, flag, &ncols, &petsc_columns,PETSC_NULL);
+        CHKERRABORT( M_comm, ierr );
+
+        std::vector<double> data(ncols,0.);
+        for (int jj=0; jj<ncols; ++jj)
+        {
+            if (petsc_columns[jj]==flag)
+                data[jj] = 1.;
+        }
+
+        this->close();
+
+        this->setMatrix(&flag, 1,
+                            (int *)petsc_columns, ncols, &data[0]);
+
+        this->close();
+
+        rhs(flag) = 0.;
+    }
+#if 0
+    // in-place matrix transposition
+    int ierr = MatTranspose( M_mat, MAT_INITIAL_MATRIX, &M_mat );
+    CHKERRABORT( M_comm, ierr );
+
+    // dirichlet boundary application should be symmetric
+    // second step: elimination of dirichlet columns
+    for (int flag : flags)
+    {
+        const PetscInt* petsc_columns;
+        const PetscScalar* petsc_data;
+        int ncols;
+        int ierr = MatGetRow( M_mat, flag, &ncols, &petsc_columns,PETSC_NULL);
+        CHKERRABORT( M_comm, ierr );
+
+        std::vector<double> data(ncols,0.);
+        for (int jj=0; jj<ncols; ++jj)
+        {
+            if (petsc_columns[jj]==flag)
+                data[jj] = 1.;
+        }
+
+        this->close();
+
+        this->setMatrix(&flag, 1,
+                            (int *)petsc_columns, ncols, &data[0]);
+
+        this->close();
+    }
+#endif
 }
 
 } // Nextsim

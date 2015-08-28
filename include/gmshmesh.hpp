@@ -21,6 +21,12 @@
 #include <GModel.h>
 #include <MElement.h>
 
+extern "C"
+{
+#include <mapx.h>
+}
+
+
 namespace Nextsim
 {
 
@@ -93,8 +99,10 @@ public:
     //~GmshMesh();
 
     void readFromFile(std::string const& filename);
+    void writeTofile(std::string const& filename);
 
     std::string const& version() const {return M_version;}
+    std::string const& ordering() const {return M_ordering;}
     std::map<int, point_type > const& nodes() const {return M_nodes;}
     std::map<int, element_type > const& elements() const {return M_elements;}
     std::map<int, element_type > const& triangles() const {return M_triangles;}
@@ -105,9 +113,13 @@ public:
     int numTriangles() const {return M_num_triangles;}
     int numLines() const {return M_num_lines;}
 
+    void setOrdering(std::string const& order) {M_ordering=order;}
+    void project(std::string const& filename);
+
 private:
 
     std::string M_version;
+    std::string M_ordering;
     std::map<int, point_type > M_nodes;
     std::map<int, element_type > M_elements;
     std::map<int, element_type > M_triangles;
