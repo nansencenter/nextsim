@@ -105,6 +105,8 @@ public:
 
     void on(std::vector<int> const& flags, VectorPetsc& rhs);
 
+    value_type energy(VectorPetsc& u) const;
+
 private:
 
     Mat M_mat;

@@ -17,6 +17,15 @@ Environment::Environment( int& argc, char** &argv )
     //mpicomm()
 {
     mpicomm = Communicator::commSelf();
+
+    char * senv = ::getenv( "NEXTSIMDIR" );
+    if ( (senv == NULL) || (senv[0] == '\0') )
+    {
+        std::cout << "you must define 'NEXTSIMDIR' environment variable for nextsim root directory"<<"\n";
+        throw std::logic_error("invalid environment variable");
+    }
+    nextsimdirenv = fs::path(std::string(senv));
+
     int ierr = 0;
     ierr = PetscInitialize( &argc, &argv, PETSC_NULL, PETSC_NULL );
     CHKERRABORT( mpicomm, ierr );
@@ -28,6 +37,16 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
     //mpicomm()
 {
     mpicomm = Communicator::commSelf();
+
+
+    char * senv = ::getenv( "NEXTSIMDIR" );
+    if ( (senv == NULL) || (senv[0] == '\0') )
+    {
+        std::cout << "you must define 'NEXTSIMDIR' environment variable for nextsim root directory"<<"\n";
+        throw std::logic_error("invalid environment variable");
+    }
+    nextsimdirenv = fs::path(std::string(senv));
+
     int ierr = 0;
     ierr = PetscInitialize( &argc, &argv, PETSC_NULL, PETSC_NULL );
     CHKERRABORT( mpicomm, ierr );
@@ -178,6 +197,7 @@ Environment::~Environment()
 
 Communicator Environment::mpicomm;
 po::variables_map Environment::vmenv;
+fs::path Environment::nextsimdirenv;
 
 MemoryUsage
 Environment::logMemoryUsage(std::string const& message)

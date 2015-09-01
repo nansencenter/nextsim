@@ -69,6 +69,8 @@ public:
 
     static po::variables_map const& vm() { return vmenv; }
 
+    static fs::path const& nextsimDir() { return nextsimdirenv; }
+
     static MemoryUsage logMemoryUsage(std::string const& message);
 
 private:
@@ -76,6 +78,7 @@ private:
     boost::mpi::environment mpienv;
     static Communicator mpicomm;
     static po::variables_map vmenv;
+    static fs::path nextsimdirenv;
 
 };
 

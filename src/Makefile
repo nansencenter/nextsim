@@ -6,7 +6,7 @@ else
 	LIBRARYNAME=libnextsim.dylib
 endif
 
-NEXTSIMDIR=..
+#NEXTSIMDIR=..
 LIB=$(LIBRARYNAME)
 OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/

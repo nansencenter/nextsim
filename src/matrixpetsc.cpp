@@ -543,6 +543,7 @@ MatrixPetsc::on(std::vector<int> const& flags, VectorPetsc& rhs)
         const PetscScalar* petsc_data;
         int ncols;
         int ierr = MatGetRow( M_mat, flag, &ncols, &petsc_columns,PETSC_NULL);
+        //int ierr = MatGetRow( M_mat, flag, &ncols, &petsc_columns,&petsc_data);
         CHKERRABORT( M_comm, ierr );
 
         std::vector<double> data(ncols,0.);
@@ -552,6 +553,19 @@ MatrixPetsc::on(std::vector<int> const& flags, VectorPetsc& rhs)
                 data[jj] = 1.;
         }
 
+#if 0
+        if (tt == 0)
+        {
+            std::cout<<"flag = "<< flag <<"\n";
+            for (int jj=0; jj<ncols; ++jj)
+                std::cout<<"petsc_data["<< jj << "]= "<< petsc_data[jj] <<"\n";
+
+            for (int jj=0; jj<ncols; ++jj)
+                std::cout<<"petsc_columns["<< jj << "]= "<< petsc_columns[jj] <<"\n";
+        }
+        ++tt;
+#endif
+
         this->close();
 
         this->setMatrix(&flag, 1,
@@ -560,6 +574,22 @@ MatrixPetsc::on(std::vector<int> const& flags, VectorPetsc& rhs)
         this->close();
     }
 #endif
+}
+
+typename MatrixPetsc::value_type
+MatrixPetsc::energy(VectorPetsc& u) const
+{
+    ASSERT(M_is_initialized, "MatrixPetsc not properly initialized");
+    ASSERT(this->size2() == u.size(), "invalid right-hand side");
+
+    this->close();
+
+    PetscScalar e;
+    VectorPetsc v(u.size());
+    MatMult( M_mat, u.vec(), v.vec() );
+    VecDot( u.vec(), v.vec(), &e );
+
+    return e;
 }
 
 } // Nextsim

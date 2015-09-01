@@ -6,13 +6,11 @@ else
 	LIBRARYNAME=libbamg.dylib
 endif
 
-NEXTSIMDIR=../..
+#NEXTSIMDIR=../..
 LIB=$(LIBRARYNAME)
 OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
 LIBRARYDIR=$(NEXTSIMDIR)/lib/
-LIBRARYDIRP=../lib/
-
 
 CXX = g++
 CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -pthread -v
@@ -28,7 +26,7 @@ else
 	endif
 
 	CXXFLAGS += -I $(NEXTSIMDIR)/bamg/include -I /usr/local/include
-	LDFLAGS += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,$(LIBRARYDIRP)$(LIBRARYNAME)
+	LDFLAGS += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,$(LIBRARYDIR)$(LIBRARYNAME)
 	LDFLAGS += -ldl -lstdc++
 
 	ifeq ($(CXX),clang)

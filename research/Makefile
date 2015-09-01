@@ -2,7 +2,7 @@ KERNEL := $(shell uname -s)
 
 PROGNAME=nextsim.exec
 
-NEXTSIMDIR=..
+#NEXTSIMDIR=..
 
 CXX = g++
 CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -pthread -v -DHAVE_CONFIG_H

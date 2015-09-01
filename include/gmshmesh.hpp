@@ -18,6 +18,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string/trim.hpp>
 
+#include <environment.hpp>
 #include <GModel.h>
 #include <MElement.h>
 
@@ -114,7 +115,7 @@ public:
     int numLines() const {return M_num_lines;}
 
     void setOrdering(std::string const& order) {M_ordering=order;}
-    void project(std::string const& filename);
+    void stereographicProjection();
 
 private:
 

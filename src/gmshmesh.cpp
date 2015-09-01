@@ -26,15 +26,16 @@ namespace Nextsim
 
     void GmshMesh::readFromFile(std::string const& filename)
     {
-        std::cout<<"Reading Msh file "<< filename <<"\n";
+        std::string gmshmshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
+        std::cout<<"Reading Msh file "<< gmshmshfile <<"\n";
 
-        std::ifstream __is ( filename.c_str() );
+        std::ifstream __is ( gmshmshfile.c_str() );
 
         if ( !__is.is_open() )
         {
             std::ostringstream ostr;
-            std::cout << "Invalid file name " << filename << " (file not found)\n";
-            ostr << "Invalid file name " << filename << " (file not found)\n";
+            std::cout << "Invalid file name " << gmshmshfile << " (file not found)\n";
+            ostr << "Invalid file name " << gmshmshfile << " (file not found)\n";
             throw std::invalid_argument( ostr.str() );
         }
 
@@ -201,7 +202,8 @@ namespace Nextsim
     void GmshMesh::writeTofile(std::string const& filename)
     {
         //std::string gmshfilename = (boost::format( "../data/arctic10km.msh" ) ).str();
-        std::fstream gmshfile(filename, std::ios::out | std::ios::trunc);
+        std::string gmshmshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
+        std::fstream gmshfile(gmshmshfile, std::ios::out | std::ios::trunc);
 
         if (gmshfile.is_open())
         {
@@ -261,16 +263,17 @@ namespace Nextsim
         }
         else
         {
-            std::cout << "Cannot open " << filename  << "\n";
-            std::cerr << "error: open file " << filename << " for output failed!" <<"\n";
+            std::cout << "Cannot open " << gmshmshfile  << "\n";
+            std::cerr << "error: open file " << gmshmshfile << " for output failed!" <<"\n";
             std::abort();
         }
     }
 
-    void GmshMesh::project(std::string const& filename)
+    void GmshMesh::stereographicProjection()
     {
         // polar stereographic projection
         mapx_class *map;
+        std::string filename = Environment::nextsimDir().string() + "/data/Nps.mpp";
         std::vector<char> str(filename.begin(), filename.end());
         str.push_back('\0');
 

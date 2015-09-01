@@ -50,14 +50,17 @@ public:
     void assemble();
     void solve();
     void run();
+    void error();
 
 
 private:
     po::variables_map vm;
     mesh_type M_mesh;
     matrix_ptrtype M_matrix;
+    //matrix_ptrtype M_mass;
     vector_ptrtype M_vector;
     vector_ptrtype M_solution;
+    vector_ptrtype M_exact;
 
     std::map<int,std::vector<double> > M_local_contrib;
     std::map<int,std::vector<double> > M_local_rows;

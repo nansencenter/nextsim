@@ -8,7 +8,7 @@
 
 #include <finiteelement.hpp>
 
-#define GMSH_EXECUTABLE /opt/local/bin/gmsh
+#define GMSH_EXECUTABLE gmsh
 
 namespace Nextsim
 {
@@ -102,6 +102,9 @@ void FiniteElement::init()
     M_matrix = matrix_ptrtype(new matrix_type(M_num_nodes,M_num_nodes,10));
     M_matrix->zero();
 
+    // M_mass = matrix_ptrtype(new matrix_type(M_num_nodes,M_num_nodes,10));
+    // M_mass->zero();
+
     M_vector = vector_ptrtype(new vector_type(M_num_nodes));
     M_vector->zero();
     //M_vector->setOnes();
@@ -113,12 +116,22 @@ void FiniteElement::init()
 
 void FiniteElement::createGMSHMesh(std::string const& geofilename)
 {
-    std::ostringstream gmshstr;
-    gmshstr << BOOST_PP_STRINGIZE( GMSH_EXECUTABLE )
-            << " -" << 2 << " -part " << 1 << " -clmax " << vm["hsize"].as<double>()  << " " << geofilename;
+    std::string gmshgeofile = Environment::nextsimDir().string() + "/mesh/" + geofilename;
 
-    std::cout << "[Gmsh::generate] execute '" <<  gmshstr.str() << "'\n";
-    auto err = ::system( gmshstr.str().c_str() );
+    if (fs::exists(gmshgeofile))
+    {
+        //std::cout<<"NOT FOUND " << fs::absolute( gmshgeofile ).string() <<"\n";
+        std::ostringstream gmshstr;
+        gmshstr << BOOST_PP_STRINGIZE( GMSH_EXECUTABLE )
+                << " -" << 2 << " -part " << 1 << " -clmax " << vm["hsize"].as<double>() << " " << gmshgeofile;
+
+        std::cout << "[Gmsh::generate] execute '" <<  gmshstr.str() << "'\n";
+        auto err = ::system( gmshstr.str().c_str() );
+    }
+    else
+    {
+        std::cout << "Cannot found " << gmshgeofile <<"\n";
+    }
 }
 
 double FiniteElement::measure(element_type const& element) const
@@ -145,12 +158,14 @@ void FiniteElement::assemble()
         std::vector<double> x(3);
         std::vector<double> y(3);
         std::vector<double> data(9);
+        //std::vector<double> mass_data(9);
 
         std::vector<int> rcindices(3);
         for (int s=0; s<rcindices.size(); ++s)
             rcindices[s] = it->second.indices[s]-1;
 
         double m_jk = 0;
+        //double mass_jk = 0;
 
         std::vector<double> fvdata(3);
         double f_j = 0;
@@ -187,8 +202,12 @@ void FiniteElement::assemble()
 
                 //add mass matrix contribution
                 //m_jk += ((j == k) ? 2.0 : 1.0)*area/12.0;
+                //mass_jk = ((j == k) ? 2.0 : 1.0)*area/12.0;
 
                 data[lc] = m_jk;
+
+                //mass_data[lc] = mass_jk;
+
                 ++lc;
 
                 // if (cpt <1)
@@ -208,12 +227,18 @@ void FiniteElement::assemble()
         M_matrix->addMatrix(&rcindices[0], rcindices.size(),
                             &rcindices[0], rcindices.size(), &data[0]);
 
+        // M_mass->addMatrix(&rcindices[0], rcindices.size(),
+        //                   &rcindices[0], rcindices.size(), &mass_data[0]);
+
+
         M_vector->addVector(&rcindices[0], rcindices.size(), &fvdata[0]);
 
         ++cpt;
     }
 
     M_matrix->close();
+
+    //M_mass->close();
 
     // apply homogeneous dirichlet boundary conditions
     chrono.restart();
@@ -275,7 +300,7 @@ void FiniteElement::run()
         index[3*cpt+1] = it->second.indices[1];
         index[3*cpt+2] = it->second.indices[2];
 
-  #if 0
+  #if 1
         mindex(3*cpt) = it->second.indices[0];//it->first;
         mindex(3*cpt+1) = it->second.indices[1];
         mindex(3*cpt+2) = it->second.indices[2];
@@ -299,7 +324,8 @@ void FiniteElement::run()
         ++cpt;
     }
 
-    vector_type M_exact(M_num_nodes);
+    //vector_type M_exact(M_num_nodes);
+    M_exact = vector_ptrtype(new vector_type(M_num_nodes));
     double exact = 0;
     cpt = 0;
     for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
@@ -308,17 +334,17 @@ void FiniteElement::run()
         y[cpt] = it->second.coords[1];
 
         exact = std::sin(PI*x[cpt])*std::sin(PI*y[cpt]);
-        M_exact(cpt) = exact;
+        M_exact->operator()(cpt) = exact;
 
         ++cpt;
     }
 
-    // mindex.printMatlab("mindex.m");
-    // mx.printMatlab("mx.m");
-    // my.printMatlab("my.m");
-    // mc.printMatlab("mc.m");
+    mindex.printMatlab("mindex.m");
+    mx.printMatlab("mx.m");
+    my.printMatlab("my.m");
+    mc.printMatlab("mc.m");
 
-    M_exact.printMatlab("exact.m");
+    M_exact->printMatlab("exact.m");
 
     BamgOpts *bamgopt = NULL;
     BamgMesh *bamgmesh = NULL;
@@ -338,12 +364,69 @@ void FiniteElement::run()
     delete bamgmesh;
     delete bamgopt;
 
-    M_exact.scale(-1.);
-    M_exact.add(*M_solution);
+    M_exact->scale(-1.);
+    M_exact->add(*M_solution);
 
-    std::cout<<"L2  = "<< M_exact.l2Norm() <<"\n";
-    std::cout<<"LINF= "<< M_exact.linftyNorm() <<"\n";
+    //std::cout<<"L2  = "<< M_exact.l2Norm() <<"\n";
+    //std::cout<<"LINF= "<< M_exact.linftyNorm() <<"\n";
+    //std::cout<<"||u-uh||_L2  = "<< std::sqrt(M_mass->energy(*M_exact)) <<"\n";
+    //std::cout<<"||u-uh||_H1  = "<< std::sqrt(M_mass->energy(*M_exact)+M_matrix->energy(*M_exact)) <<"\n";
+
+    this->error();
+
 }
 
+void FiniteElement::error()
+{
+    double l2_error = 0;
+    double sh1_error = 0;
+
+    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
+    {
+        double area = measure(it->second);
+        std::vector<double> x(3);
+        std::vector<double> y(3);
+
+        double l2_contrib = 0;
+        double sh1_contrib = 0;
+        double entry_contrib = 0;
+
+        for (int i=0; i<3; ++i)
+        {
+            x[i] = M_nodes.find(it->second.indices[i])->second.coords[0];
+            y[i] = M_nodes.find(it->second.indices[i])->second.coords[1];
+        }
+
+        int lc = 0;
+        for (int j=0; j<3; ++j)
+        {
+            l2_contrib = 0;
+            sh1_contrib = 0;
+            // x-axis
+            int jp1 = (j+1)%3;
+            int jp2 = (j+2)%3;
+
+            for (int k=0; k<3; ++k)
+            {
+                // y-axis
+                int kp1 = (k+1)%3;
+                int kp2 = (k+2)%3;
+
+                // semi h1 error
+                entry_contrib = (y[jp1]-y[jp2])*(y[kp1]-y[kp2])+(x[jp1]-x[jp2])*(x[kp1]-x[kp2]);
+                sh1_contrib += entry_contrib*M_exact->operator()(it->second.indices[k]-1)/(4.0*area);
+
+                // l2 error
+                l2_contrib += M_exact->operator()(it->second.indices[k]-1)*((j == k) ? 2.0 : 1.0)*area/12.0;
+            }
+
+            l2_error += l2_contrib*M_exact->operator()(it->second.indices[j]-1);
+            sh1_error += sh1_contrib*M_exact->operator()(it->second.indices[j]-1);
+        }
+    }
+
+    std::cout<<"||u-uh||_L2  = "<< std::sqrt(l2_error) <<"\n";
+    std::cout<<"||u-uh||_H1  = "<< std::sqrt(l2_error+sh1_error) <<"\n";
+}
 
 } // Nextsim

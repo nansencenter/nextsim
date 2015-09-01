@@ -1,6 +1,6 @@
 # VPATH=.
 
-NEXTSIMDIR=.
+#NEXTSIMDIR=.
 
 all:
 	@cd $(NEXTSIMDIR)/src; make;
