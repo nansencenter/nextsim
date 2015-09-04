@@ -326,6 +326,7 @@ void FiniteElement::run()
 
     //vector_type M_exact(M_num_nodes);
     M_exact = vector_ptrtype(new vector_type(M_num_nodes));
+    std::vector<double> data(M_num_nodes);
     double exact = 0;
     cpt = 0;
     for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
@@ -335,6 +336,10 @@ void FiniteElement::run()
 
         exact = std::sin(PI*x[cpt])*std::sin(PI*y[cpt]);
         M_exact->operator()(cpt) = exact;
+
+        data[cpt] = exact;
+
+        //std::cout<<"data["<< cpt <<"]= "<< data[cpt] <<"\n";
 
         ++cpt;
     }
@@ -363,6 +368,39 @@ void FiniteElement::run()
     delete bamggeom;
     delete bamgmesh;
     delete bamgopt;
+
+#if 1
+    std::vector<double> x_interp(M_num_nodes);
+    std::vector<double> y_interp(M_num_nodes);
+    //std::vector<double> data_interp(M_num_nodes);
+    double* data_interp;
+
+    x_interp = x;
+    y_interp = y;
+
+    Options* options;
+    options = new Options();
+    //options->AddOption("default");
+    // std::cout<<"DEFAULT= "<< options->GetOption("default") <<"\n";
+    // double defaultvalue;
+    // options->Get(&defaultvalue,"default");
+
+    //std::cout<<"VALUE= "<< defaultvalue <<"\n";
+
+    //std::vector<double> data(M_num_nodes);
+    //std::iota(data.begin(),data.end(),0.);
+
+    InterpFromMeshToMesh2dx(&data_interp,&index[0],&x[0],&y[0],M_num_nodes,M_num_elements,
+                            &data[0],M_num_nodes,1,&x_interp[0],&y_interp[0],M_num_nodes,
+                            options);
+
+    //std::cout<<"First= "<< data_interp[0] <<"\n";
+
+    for (int i=0; i<M_num_nodes; ++i)
+        std::cout<<"data_interp["<< i <<"]= "<< data_interp[i] <<"\n";
+#endif
+
+    //delete options;
 
     M_exact->scale(-1.);
     M_exact->add(*M_solution);

@@ -14,6 +14,7 @@
 #include <boost/version.hpp>
 #include <boost/format.hpp>
 #include <BamgConvertMeshx.h>
+#include <InterpFromMeshToMesh2dx.h>
 #include <gmshmesh.hpp>
 
 

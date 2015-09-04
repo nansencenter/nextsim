@@ -450,7 +450,17 @@ VectorPetsc::printMatlab(std::string const& filename) const
 	if ( !this->closed() )
 		const_cast<VectorPetsc*>( this )->close();
 
-	PetscObjectSetName((PetscObject)M_vec,boost::filesystem::path("out_"+filename).stem().string().c_str());
+    std::string vecfilename = Environment::nextsimDir().string() + "/matlab/" + filename;
+
+    fs::path path(vecfilename);
+    if ( !fs::exists(path) )
+        fs::create_directories(path.parent_path());
+
+
+	// PetscObjectSetName((PetscObject)M_vec,boost::filesystem::path("out_"+vecfilename).stem().string().c_str());
+
+    PetscObjectSetName((PetscObject)M_vec,path.stem().string().c_str());
+
 
 	int ierr=0;
 
@@ -459,10 +469,10 @@ VectorPetsc::printMatlab(std::string const& filename) const
 	ierr = PetscViewerCreate ( M_comm, &petsc_viewer );
 	CHKERRABORT( M_comm,ierr );
 
-	if ( filename != "NULL" )
+	if ( vecfilename != "NULL" )
 	{
 		ierr = PetscViewerASCIIOpen( M_comm,
-		                             filename.c_str(),
+		                             vecfilename.c_str(),
 		                             &petsc_viewer );
 		CHKERRABORT( M_comm,ierr );
 

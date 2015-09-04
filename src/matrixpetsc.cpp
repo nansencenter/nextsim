@@ -361,16 +361,26 @@ MatrixPetsc::printMatlab(std::string const& filename) const
     //std::cout<<"PATH= "<< boost::filesystem::path(filename).stem().string() <<"\n";
     //std::cout<<"CHAR= " << filename.substr(filename.size()-2, filename.size()) <<"\n";
 
-    PetscObjectSetName((PetscObject)M_mat,boost::filesystem::path("out_"+filename).stem().string().c_str());
+    std::string matfilename = Environment::nextsimDir().string() + "/matlab/" + filename;
+
+    fs::path path(matfilename);
+    if ( !fs::exists(path) )
+        fs::create_directories(path.parent_path());
+
+
+    // PetscObjectSetName((PetscObject)M_mat,boost::filesystem::path("out_"+matfilename).stem().string().c_str());
+
+    PetscObjectSetName((PetscObject)M_mat,path.stem().string().c_str());
+
     PetscViewer petsc_viewer;
 
     ierr = PetscViewerCreate ( M_comm, &petsc_viewer );
     CHKERRABORT( M_comm, ierr );
 
-    if ( filename != "NULL" )
+    if ( matfilename != "NULL" )
     {
         ierr = PetscViewerASCIIOpen( M_comm,
-                                     filename.c_str(),
+                                     matfilename.c_str(),
                                      &petsc_viewer );
         CHKERRABORT( M_comm,ierr );
 

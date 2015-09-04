@@ -2,15 +2,16 @@
 #define _DATASET_H_
 
 #include <vector>
+#include "./Object.h"
 
-class Object{
-	public: 
-		virtual       ~Object() {};
-};
+/* class Object{ */
+/* 	public:  */
+/* 		virtual       ~Object() {}; */
+/* }; */
 class DataSet{
-	private:
-		std::vector<Object*> objects;
+
 	public:
+	    std::vector<Object*> objects;
 		DataSet();
 		DataSet(double* observations_list,double* x,double* y,int n);
 		~DataSet();
