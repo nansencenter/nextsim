@@ -291,6 +291,7 @@ void
 SolverPetsc::setPetscPreconditionerType()
 {
 	int ierr = 0;
+#if 0
 #if (PETSC_VERSION_MAJOR == 3) && (PETSC_VERSION_MINOR >= 2)
 	ierr = PCFactorSetMatSolverPackage( M_pc,MATSOLVERUMFPACK );
 
@@ -318,7 +319,7 @@ SolverPetsc::setPetscPreconditionerType()
 	}
 
 #endif
-
+#endif
     switch ( this->preconditionerType() )
     {
     case IDENTITY_PRECOND:
@@ -339,6 +340,7 @@ SolverPetsc::setPetscPreconditionerType()
     case ILU_PRECOND:
         ierr = PCSetType ( M_pc, ( char* ) PCILU );
         CHKERRABORT( M_comm,ierr );
+        return;
 
     case LU_PRECOND:
         ierr = PCSetType ( M_pc, ( char* ) PCLU );

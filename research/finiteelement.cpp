@@ -396,11 +396,12 @@ void FiniteElement::run()
 
     //std::cout<<"First= "<< data_interp[0] <<"\n";
 
-    for (int i=0; i<M_num_nodes; ++i)
-        std::cout<<"data_interp["<< i <<"]= "<< data_interp[i] <<"\n";
+    // for (int i=0; i<M_num_nodes; ++i)
+    //     std::cout<<"data_interp["<< i <<"]= "<< data_interp[i] <<"\n";
+
 #endif
 
-    //delete options;
+    delete options;
 
     M_exact->scale(-1.);
     M_exact->add(*M_solution);

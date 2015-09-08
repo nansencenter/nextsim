@@ -57,7 +57,7 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
 
         po::store(po::command_line_parser(argc, argv)
                   .options(desc)
-                  .style(po::command_line_style::unix_style | po::command_line_style::allow_long_disguise)
+                  .style(po::command_line_style::unix_style)// | po::command_line_style::allow_long_disguise)
                   .allow_unregistered()
                   .run(),
                   vmenv);
