@@ -22,7 +22,7 @@ namespace Nextsim
             ("help,h", "Print help messages")
             ("config-file", po::value<std::string>(), "specify a configuration file")
             ("config-files", po::value<std::vector<std::string> >()->multitoken(), "specify a list of configuration files" )
-            ("hsize", po::value<double>()->default_value( 0.1 ), "")
+            ("hsize", po::value<double>()->default_value( 0.01 ), "")
             ("simul_in.use_simul_out", po::value<bool>()->default_value( false ), "")
             ("simul_in.step_nb", po::value<bool>()->default_value( false ), "")
             ("simul_in.time_init", po::value<std::string>()->default_value( "05-Mar-2008 00:00:00" ), "")

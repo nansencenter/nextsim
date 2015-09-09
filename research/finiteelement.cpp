@@ -81,7 +81,7 @@ void FiniteElement::init()
         }
     }
 
-    std::cout<<"DIRICHLET_FLAGS= "<< dirichlet_flags.size() <<"\n";
+    //std::cout<<"DIRICHLET_FLAGS= "<< dirichlet_flags.size() <<"\n";
 
     std::cout<<"NumNodes     = "<< M_mesh.numNodes() <<"\n";
     std::cout<<"NumElements  = "<< M_mesh.numElements() <<"\n";

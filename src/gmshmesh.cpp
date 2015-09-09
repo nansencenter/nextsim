@@ -69,7 +69,7 @@ namespace Nextsim
 
         // Read NODES
 
-        std::cout << "buf: "<< __buf << "\n";
+        //std::cout << "buf: "<< __buf << "\n";
 
         if ( !( std::string( __buf ) == "$NOD" ||
              std::string( __buf ) == "$Nodes" ||
@@ -103,7 +103,7 @@ namespace Nextsim
         }
 
         __is >> __buf;
-        std::cout << "buf: "<< __buf << "\n";
+        //std::cout << "buf: "<< __buf << "\n";
 
         // make sure that we have read all the points
 
