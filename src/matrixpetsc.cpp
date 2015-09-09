@@ -513,8 +513,22 @@ MatrixPetsc::on(std::vector<int> const& flags, VectorPetsc& rhs)
 
     ASSERT(this->size2() == rhs.size(), "invalid right-hand side");
 
+    this->close();
     // apply homogeneous dirichlet boundary conditions
+    VectorPetsc values(rhs.size());
+    values.zero();
 
+#if (PETSC_VERSION_MAJOR >= 3) && (PETSC_VERSION_MINOR > 0)
+    MatSetOption( M_mat,MAT_KEEP_NONZERO_PATTERN,PETSC_TRUE );
+#elif (PETSC_VERSION_MAJOR >= 3) && (PETSC_VERSION_MINOR == 0)
+    MatSetOption( M_mat,MAT_KEEP_ZEROED_ROWS,PETSC_TRUE );
+#else
+    MatSetOption( M_mat,MAT_KEEP_ZEROED_ROWS );
+#endif
+
+    MatZeroRowsColumns(M_mat, flags.size(), flags.data(), 1.0, values.vec(), rhs.vec() );
+
+#if 0
     // first step: elimination of dirichlet rows
     for (int flag : flags)
     {
@@ -531,16 +545,16 @@ MatrixPetsc::on(std::vector<int> const& flags, VectorPetsc& rhs)
                 data[jj] = 1.;
         }
 
-        this->close();
+        // this->close();
 
         this->setMatrix(&flag, 1,
-                            (int *)petsc_columns, ncols, &data[0]);
+                        (int *)petsc_columns, ncols, &data[0]);
 
-        this->close();
+        // this->close();
 
         rhs(flag) = 0.;
     }
-#if 0
+
     // in-place matrix transposition
     int ierr = MatTranspose( M_mat, MAT_INITIAL_MATRIX, &M_mat );
     CHKERRABORT( M_comm, ierr );

@@ -148,6 +148,7 @@ double FiniteElement::measure(element_type const& element) const
 
 void FiniteElement::assemble()
 {
+    chrono.restart();
     int cpt = 0;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
     {
@@ -237,6 +238,8 @@ void FiniteElement::assemble()
     }
 
     M_matrix->close();
+
+    std::cout<<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
 
     //M_mass->close();
 
