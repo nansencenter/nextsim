@@ -7,6 +7,7 @@
  */
 
 #include <finiteelement.hpp>
+#include <constants.hpp>
 
 #define GMSH_EXECUTABLE gmsh
 
