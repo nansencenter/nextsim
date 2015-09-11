@@ -35,8 +35,9 @@ else
 
 	LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib
 	LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi
-	#LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib -Wl,-rpath,$(NEXTSIMDIR)/lib
-	#LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc -L $(NEXTSIMDIR)/lib -lbamg
+
+	LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
+	LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
 
 	LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
 	LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
