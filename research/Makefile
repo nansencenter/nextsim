@@ -22,14 +22,12 @@ else
 
 	CXXFLAGS += -I $(NEXTSIMDIR)/include -I $(NEXTSIMDIR)/bamg/include -I $(NEXTSIMDIR)/mapx/include
 	CXXFLAGS += -I /usr/local/include -I /opt/local/include/openmpi-mp
-	CXXFLAGS +=	-I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I . #-I /Users/abdama/Downloads/ISSM
-	#CXXFLAGS +=	-I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I /Users/abdama/ISSM
+	CXXFLAGS +=	-I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I .
 	CXXFLAGS +=	-I $(NETCDF_DIR)/include -I $(GMSH_DIR)/include/gmsh
 
 	LDFLAGS += -Wl,-rpath,/usr/local/lib -Wl,-rpath,/opt/local/lib/openmpi-mp
 	LDFLAGS += -L /usr/local/lib -L /opt/local/lib/openmpi-mp -lmpi_cxx -lmpi -ldl -lstdc++
-	#LDFLAGS += -Wl,-rpath,/opt/local/issm/lib -L /opt/local/issm/lib -lISSMOverload -lISSMCore # -lISSMModules -lISSMOverload
-	LDFLAGS += -Wl,-rpath,/opt/local/netcdf-cxx/lib -L /opt/local/netcdf-cxx/lib -lnetcdf_c++4
+	LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf_c++4
 
 	ifeq ($(CXX),clang)
 	LDFLAGS += -stdlib=libc++
@@ -37,13 +35,12 @@ else
 
 	LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib
 	LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi
-	LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib -Wl,-rpath,$(NEXTSIMDIR)/lib
-	LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc -L $(NEXTSIMDIR)/lib -lbamg #-L $(NEXTSIMDIR)/lib -lmapx
-	#LDFLAGS += -lm -pthread -L /opt/local/mapx/lib -lmapx
-	LDFLAGS += -L $(NEXTSIMDIR)/lib -lnextsim
+	#LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib -Wl,-rpath,$(NEXTSIMDIR)/lib
+	#LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc -L $(NEXTSIMDIR)/lib -lbamg
 
-	#LDFLAGS += -Wl,-rpath,$(GMSH_DIR)/lib
-	#LDFLAGS += -L $(GMSH_DIR)/lib -lGmsh
+	LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
+	LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
+	LDFLAGS += -L $(NEXTSIMDIR)/lib -lnextsim
 
 endif
 
