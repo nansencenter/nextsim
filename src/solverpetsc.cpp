@@ -14,8 +14,8 @@ SolverPetsc::SolverPetsc(Communicator const& comm)
 	:
 	M_comm(comm),
 	M_solver_type(PREONLY),
-    M_preconditioner_type(LU_PRECOND),
-    M_matSolverPackage_type(MATSOLVER_UMFPACK),
+    M_preconditioner_type(CHOLESKY_PRECOND),
+    M_matSolverPackage_type(MATSOLVER_CHOLMOD),
     M_rtolerance(1e-13),
     M_dtolerance(1e5),
     M_atolerance(1e-50),
@@ -465,6 +465,11 @@ SolverPetsc::PetscPCFactorSetMatSolverPackage(PC & pc, MatSolverPackageType mspa
         CHKERRABORT( PETSC_COMM_WORLD,ierr );
         break;
 #endif
+
+    case MATSOLVER_CHOLMOD :
+        ierr = PCFactorSetMatSolverPackage( pc, ( char* ) MATSOLVERCHOLMOD );
+        CHKERRABORT( PETSC_COMM_WORLD,ierr );
+        break;
 
 #else // PETSC < 3.2
 

@@ -278,6 +278,7 @@ void FiniteElement::solve()
     std::cout<<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";
     M_solution->printMatlab("solution.m");
 
+    Environment::logMemoryUsage("");
 }
 
 void FiniteElement::run()
