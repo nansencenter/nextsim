@@ -277,8 +277,8 @@ void FiniteElement::solve()
               _rhs=M_vector,
               _ksp="preonly",
               _pc="cholesky",
-              _pcfactormatsolverpackage="cholmod"
-              //_rtolerance=1e-09
+              _pcfactormatsolverpackage="cholmod",
+              _reuse_prec=true
               );
 
     std::cout<<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";

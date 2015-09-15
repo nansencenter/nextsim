@@ -89,14 +89,14 @@ public:
                                        ( rhs, ( vector_ptrtype ) )
                                        )
                                      ( optional
+                                       ( ksp,( std::string ),M_ksp_type/*"preonly"*/ )
+                                       ( pc,( std::string ),M_pc_type/*"cholesky"*/ )
+                                       ( pcfactormatsolverpackage,( std::string ), M_pcfactormatsolverpackage_type/*"cholmod"*/ )
                                        ( rtolerance,( double ), M_rtolerance/*1e-13*/ )
                                        ( atolerance,( double ), M_atolerance/*1e-50*/ )
                                        ( dtolerance,( double ), M_dtolerance/*1e5*/ )
                                        ( maxit,( size_type ), M_maxit/*1000*/ )
                                        ( reuse_prec,( bool ), M_reuse_prec )
-                                       ( ksp,( std::string ),M_ksp_type/*"preonly"*/ )
-                                       ( pc,( std::string ),M_pc_type/*"cholesky"*/ )
-                                       ( pcfactormatsolverpackage,( std::string ), M_pcfactormatsolverpackage_type/*"cholmod"*/ )
                                        ) )
     {
         this->setSolverType(ksp);
