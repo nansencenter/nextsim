@@ -249,9 +249,10 @@ void FiniteElement::assemble()
     M_matrix->on(dirichlet_flags,*M_vector);
     std::cout<<"TIMER DBCA= " << chrono.elapsed() <<"s\n";
 
-    std::cout<<"CLOSED = "<< M_matrix->closed() <<"\n";
-    std::cout<<"SYMM   = "<< M_matrix->isSymmetric() <<"\n";
-    std::cout<<"NORM   = "<< M_matrix->linftyNorm() <<"\n";
+    std::cout<<"[PETSC MATRIX] CLOSED      = "<< M_matrix->closed() <<"\n";
+    std::cout<<"[PETSC MATRIX] SIZE        = "<< M_matrix->size1() << " " << M_matrix->size2() <<"\n";
+    std::cout<<"[PETSC MATRIX] SYMMETRIC   = "<< M_matrix->isSymmetric() <<"\n";
+    std::cout<<"[PETSC MATRIX] NORM        = "<< M_matrix->linftyNorm() <<"\n";
 
 #if 1
     //M_matrix->printScreen();

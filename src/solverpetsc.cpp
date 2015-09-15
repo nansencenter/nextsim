@@ -112,7 +112,6 @@ SolverPetsc::solveLinearSystem(matrix_ptrtype const& matrix,
 
     ierr = KSPSetTolerances ( M_ksp,
                               this->rTolerance(),
-                              //1e-15,
                               this->aTolerance(),
                               this->dTolerance(),
                               this->maxIterations() );
