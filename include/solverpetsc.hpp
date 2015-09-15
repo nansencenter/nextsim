@@ -9,17 +9,12 @@
 #ifndef __SolverPetsc_H
 #define __SolverPetsc_H 1
 
-//#include <environment.hpp>
 #include <matrixpetsc.hpp>
 #include <vectorpetsc.hpp>
 #include <parameter.hpp>
 #include <enums.hpp>
 #include <assert.hpp>
 #include <petsc.hpp>
-
-// #include <boost/parameter/keyword.hpp>
-// #include <boost/parameter/preprocessor.hpp>
-// #include <boost/parameter/name.hpp>
 
 extern "C" {
 # include <petscversion.h>
@@ -40,6 +35,12 @@ public:
 	typedef std::size_t size_type;
     typedef double value_type;
 
+    typedef MatrixPetsc matrix_type;
+    typedef boost::shared_ptr<matrix_type> matrix_ptrtype;
+    typedef VectorPetsc vector_type;
+    typedef boost::shared_ptr<vector_type> vector_ptrtype;
+
+
 	SolverPetsc( Communicator const& comm = Environment::comm() );
 
 	~SolverPetsc();
@@ -48,16 +49,15 @@ public:
 
     void init();
 
-	void solve(MatrixPetsc const& matrix,
-	           VectorPetsc& solution,
-	           VectorPetsc const& rhs,
-	           const value_type tolerance,
-	           const size_type maxit);
+	void solveLinearSystem(matrix_ptrtype const& matrix,
+                           vector_ptrtype& solution,
+                           vector_ptrtype const& rhs);
 
-	void setSolverType(const SolverType st);
-    void setPreconditionerType(const PreconditionerType pct);
-    void setMatSolverPackageType(const MatSolverPackageType mspackt);
+    void setSolverType(std::string const& st);
+    void setPreconditionerType(std::string const& pct);
+    void setMatSolverPackageType(std::string const& mspackt);
     void PetscPCFactorSetMatSolverPackage(PC & pc, MatSolverPackageType mspackt);
+    void setReusePrec(bool reuse);
 
 	void clear();
 
@@ -69,6 +69,7 @@ public:
 	SolverType solverType() const { return M_solver_type; }
     PreconditionerType preconditionerType() const { return M_preconditioner_type; }
     MatSolverPackageType matSolverPackageType() const { return M_matSolverPackage_type; }
+    bool reusePrec() const { return M_reuse_prec;}
 
     std::string PetscConvertKSPReasonToString(KSPConvergedReason reason);
     size_type nIterations() const { return M_iteration; }
@@ -78,6 +79,40 @@ public:
 	KSP ksp();
 
 	PC pc();
+
+    BOOST_PARAMETER_MEMBER_FUNCTION( ( void ),
+                                     solve,
+                                     tag,
+                                     ( required
+                                       ( matrix, (matrix_ptrtype) )
+                                       ( solution, ( vector_ptrtype ) )
+                                       ( rhs, ( vector_ptrtype ) )
+                                       )
+                                     ( optional
+                                       ( rtolerance,( double ), M_rtolerance/*1e-13*/ )
+                                       ( atolerance,( double ), M_atolerance/*1e-50*/ )
+                                       ( dtolerance,( double ), M_dtolerance/*1e5*/ )
+                                       ( maxit,( size_type ), M_maxit/*1000*/ )
+                                       ( reuse_prec,( bool ), M_reuse_prec )
+                                       ( ksp,( std::string ),M_ksp_type/*"preonly"*/ )
+                                       ( pc,( std::string ),M_pc_type/*"cholesky"*/ )
+                                       ( pcfactormatsolverpackage,( std::string ), M_pcfactormatsolverpackage_type/*"cholmod"*/ )
+                                       ) )
+    {
+        this->setSolverType(ksp);
+        this->setPreconditionerType(pc);
+        this->setMatSolverPackageType(pcfactormatsolverpackage);
+        this->setReusePrec(reuse_prec);
+
+        setTolerances(_rtolerance=rtolerance,
+                      _dtolerance=dtolerance,
+                      _atolerance=atolerance,
+                      _maxit=maxit);
+
+        this->solveLinearSystem(matrix, solution, rhs);;
+    }
+
+
 
 	BOOST_PARAMETER_MEMBER_FUNCTION( ( void ),
 	                                 setTolerances,
@@ -94,7 +129,7 @@ public:
 		M_rtolerance = rtolerance;
 		M_dtolerance = dtolerance;
 		M_atolerance = atolerance;
-		M_maxit=maxit;
+		M_maxit = maxit;
 	}
 
 
@@ -139,6 +174,11 @@ private:
 
     // reason ksp iteration was stopped
     std::string M_reason;
+
+    std::string M_ksp_type;
+    std::string M_pc_type;
+    std::string M_pcfactormatsolverpackage_type;
+    bool M_reuse_prec;
 
 private:
 

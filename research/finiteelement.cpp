@@ -23,7 +23,7 @@ FiniteElement::FiniteElement()
 
 void FiniteElement::init()
 {
-    std::cout <<"VERSION= "<< M_mesh.version() <<"\n";
+    // std::cout <<"GMSH VERSION= "<< M_mesh.version() <<"\n";
     // M_mesh.setOrdering("bamg");
     // M_mesh.readFromFile("bigarctic10km.msh");
 
@@ -269,12 +269,18 @@ void FiniteElement::solve()
 {
     SolverPetsc ksp;
 
-    std::cout<<"solverType= "<< ksp.solverType() <<"\n";
-    std::cout<<"PreconditionerType= "<< ksp.preconditionerType() <<"\n";
-    std::cout<<"MatSolverPackageType= "<< ksp.matSolverPackageType() <<"\n";
-
     chrono.restart();
-    ksp.solve(*M_matrix, *M_solution, *M_vector,1e-12,1000);
+    //ksp.solve(M_matrix, M_solution, M_vector);
+
+    ksp.solve(_matrix=M_matrix,
+              _solution=M_solution,
+              _rhs=M_vector,
+              _ksp="preonly",
+              _pc="cholesky",
+              _pcfactormatsolverpackage="cholmod"
+              //_rtolerance=1e-09
+              );
+
     std::cout<<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";
     M_solution->printMatlab("solution.m");
 

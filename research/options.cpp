@@ -23,6 +23,11 @@ namespace Nextsim
             ("config-file", po::value<std::string>(), "specify a configuration file")
             ("config-files", po::value<std::vector<std::string> >()->multitoken(), "specify a list of configuration files" )
             ("hsize", po::value<double>()->default_value( 0.01 ), "")
+            ("solver.ksp-type", po::value<std::string>()->default_value( "preonly" ), "")
+            ("solver.pc-type", po::value<std::string>()->default_value( "cholesky" ), "")
+            ("solver.mat-package-type", po::value<std::string>()->default_value( "cholmod" ), "")
+            ("solver.ksp-view", po::value<bool>()->default_value( true ), "")
+
             ("simul_in.use_simul_out", po::value<bool>()->default_value( false ), "")
             ("simul_in.step_nb", po::value<bool>()->default_value( false ), "")
             ("simul_in.time_init", po::value<std::string>()->default_value( "05-Mar-2008 00:00:00" ), "")

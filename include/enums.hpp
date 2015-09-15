@@ -6,6 +6,11 @@
  * @date   Tue Jul  7 13:08:30 2015
  */
 
+#include <string>
+
+namespace Nextsim
+{
+
 enum SolverType
 {
      CG=0,
@@ -83,3 +88,14 @@ enum MatSolverPackageType
 	 MATSOLVER_PILUT,
      MATSOLVER_CHOLMOD
 };
+
+SolverType
+kspTypeConvertStrToEnum( std::string const& type );
+
+PreconditionerType
+pcTypeConvertStrToEnum( std::string const& type );
+
+MatSolverPackageType
+matSolverPackageConvertStrToEnum( std::string const& type );
+
+} // Nextsim

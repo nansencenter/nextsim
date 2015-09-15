@@ -10,7 +10,7 @@
 #define __Parameter_H 1
 
 #if !defined(BOOST_PARAMETER_MAX_ARITY)
-#define BOOST_PARAMETER_MAX_ARITY 10
+#define BOOST_PARAMETER_MAX_ARITY 11
 #endif
 
 #include <boost/parameter.hpp>
@@ -24,6 +24,14 @@ namespace Nextsim
 	BOOST_PARAMETER_NAME(dtolerance)
 	BOOST_PARAMETER_NAME(atolerance)
 	BOOST_PARAMETER_NAME(maxit)
+    BOOST_PARAMETER_NAME(reuse_prec)
+
+    BOOST_PARAMETER_NAME(matrix)
+    BOOST_PARAMETER_NAME(solution)
+    BOOST_PARAMETER_NAME(rhs)
+    BOOST_PARAMETER_NAME(ksp)
+    BOOST_PARAMETER_NAME(pc)
+    BOOST_PARAMETER_NAME(pcfactormatsolverpackage)
 
 } // Nextsim
 

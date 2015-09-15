@@ -13,13 +13,14 @@ namespace Nextsim
 SolverPetsc::SolverPetsc(Communicator const& comm)
 	:
 	M_comm(comm),
-	M_solver_type(PREONLY),
-    M_preconditioner_type(CHOLESKY_PRECOND),
-    M_matSolverPackage_type(MATSOLVER_CHOLMOD),
+    M_ksp_type("preonly"),
+    M_pc_type("cholesky"),
+    M_pcfactormatsolverpackage_type("cholmod"),
     M_rtolerance(1e-13),
     M_dtolerance(1e5),
     M_atolerance(1e-50),
     M_maxit(1000),
+    M_reuse_prec(true),
 	M_is_initialized(false)
 {}
 
@@ -35,7 +36,7 @@ SolverPetsc::init()
     {
         M_is_initialized = true;
 
-        int ierr=0;
+        int ierr = 0;
 
         // Create the linear solver context
         ierr = KSPCreate ( M_comm, &M_ksp );
@@ -85,29 +86,27 @@ SolverPetsc::init()
 }
 
 void
-SolverPetsc::solve(MatrixPetsc const& matrix,
-                   VectorPetsc& solution,
-                   VectorPetsc const& rhs,
-                   const value_type tolerance,
-                   const size_type maxit)
+SolverPetsc::solveLinearSystem(matrix_ptrtype const& matrix,
+                               vector_ptrtype& solution,
+                               vector_ptrtype const& rhs)
 {
     this->init();
 
-    matrix.close();
-    solution.close();
-    //rhs.close();
+    matrix->close();
+    solution->close();
+    //rhs->close();
 
-    int ierr=0;
-    int its=0;
-    PetscReal final_resid=0.;
+    int ierr = 0;
+    int its = 0;
+    PetscReal final_resid = 0.;
 
 #if PETSC_VERSION_LESS_THAN(3,5,0)
-    ierr = KSPSetOperators( M_ksp, matrix.mat(), matrix.mat(), DIFFERENT_NONZERO_PATTERN);
+    ierr = KSPSetOperators( M_ksp, matrix->mat(), matrix->mat(), DIFFERENT_NONZERO_PATTERN);
 #else
-    bool same_preconditioner=true;
-    ierr = KSPSetReusePreconditioner( M_ksp, (same_preconditioner)? PETSC_TRUE : PETSC_FALSE );
+    //bool same_preconditioner=true;
+    ierr = KSPSetReusePreconditioner( M_ksp, (M_reuse_prec)? PETSC_TRUE : PETSC_FALSE );
     CHKERRABORT( M_comm,ierr );
-    ierr = KSPSetOperators( M_ksp, matrix.mat(), matrix.mat() );
+    ierr = KSPSetOperators( M_ksp, matrix->mat(), matrix->mat() );
 #endif
     CHKERRABORT( M_comm,ierr );
 
@@ -126,56 +125,65 @@ SolverPetsc::solve(MatrixPetsc const& matrix,
 #endif
 
     // Solve the linear system
-    ierr = KSPSolve ( M_ksp, rhs.vec(), solution.vec() );
+    ierr = KSPSolve ( M_ksp, rhs->vec(), solution->vec() );
     CHKERRABORT( M_comm,ierr );
 
     // Get the number of iterations required for convergence
     ierr = KSPGetIterationNumber ( M_ksp, &its );
-    M_iteration = its;
-
-    std::cout << "NITER = " << M_iteration << "\n";
     CHKERRABORT( M_comm,ierr );
+
+    M_iteration = its;
 
     // Get the norm of the final residual to return to the user.
     //ierr = KSPGetResidualNorm ( M_ksp, &final_resid );
     ierr = KSPGetResidualNorm ( M_ksp, &M_residual );
-    std::cout << "RESIDUAL = " << M_residual << "\n";
     CHKERRABORT( M_comm,ierr );
 
     KSPConvergedReason reason;
     KSPGetConvergedReason( M_ksp,&reason );
     M_reason = PetscConvertKSPReasonToString(reason);
 
-    ierr = KSPView( M_ksp, PETSC_VIEWER_STDOUT_WORLD );
-
-    std::cout<< "[solverpetsc] reason = " << PetscConvertKSPReasonToString(reason) <<"\n";
-
-    if (reason == KSP_DIVERGED_INDEFINITE_PC)
+    if (Environment::vm()["solver.ksp-view"]. as<bool>())
     {
-        std::cout << "[solverpetsc] Divergence because of indefinite preconditioner \n";
-        std::cout << "[solverpetsc] Run the executable again but with '-pc_factor_shift_type POSITIVE_DEFINITE' option \n";
-    }
-    else if (reason < 0)
-    {
-        std::cout <<"[solverpetsc] Other kind of divergence: this should not happen \n";
+        ierr = KSPView( M_ksp, PETSC_VIEWER_STDOUT_WORLD );
+
+        std::cout<< "[solverpetsc] #OF ITERATIONS   = " << M_iteration << "\n";
+        std::cout<< "[solverpetsc] RESIDUAL NORN    = " << M_residual << "\n";
+        std::cout<< "[solverpetsc] CONVERGED REASON = " << PetscConvertKSPReasonToString(reason) <<"\n";
+
+        if (reason == KSP_DIVERGED_INDEFINITE_PC)
+        {
+            std::cout << "[solverpetsc] Divergence because of indefinite preconditioner \n";
+            std::cout << "[solverpetsc] Run the executable again but with '-pc_factor_shift_type POSITIVE_DEFINITE' option \n";
+        }
+        else if (reason < 0)
+        {
+            std::cout <<"[solverpetsc] Other kind of divergence: this should not happen \n";
+        }
     }
 }
 
 void
-SolverPetsc::setSolverType(const SolverType st)
+SolverPetsc::setSolverType(std::string const& st)
 {
-	M_solver_type = st;
+	M_solver_type = kspTypeConvertStrToEnum( st );
 }
 
-void SolverPetsc::setPreconditionerType(const PreconditionerType pct)
+void SolverPetsc::setPreconditionerType(std::string const& pct)
 {
-    M_preconditioner_type = pct;
+    M_preconditioner_type = pcTypeConvertStrToEnum( pct );
 }
 
 void
-SolverPetsc::setMatSolverPackageType(const MatSolverPackageType mspackt)
+SolverPetsc::setMatSolverPackageType(std::string const& mspackt)
 {
-    M_matSolverPackage_type = mspackt;
+    M_matSolverPackage_type = matSolverPackageConvertStrToEnum( mspackt );
+}
+
+void
+SolverPetsc::setReusePrec(bool reuse)
+{
+    M_reuse_prec = reuse;
 }
 
 void
@@ -188,7 +196,7 @@ SolverPetsc::clear()
     {
         this->setInitialized( false );
 
-        int ierr=0;
+        int ierr = 0;
 
         ASSERT(M_ksp != 0, "invalid ksp");
         ierr = KSPDestroy( &M_ksp );
