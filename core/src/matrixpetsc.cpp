@@ -368,9 +368,8 @@ MatrixPetsc::printMatlab(std::string const& filename) const
         fs::create_directories(path.parent_path());
 
 
-    // PetscObjectSetName((PetscObject)M_mat,boost::filesystem::path("out_"+matfilename).stem().string().c_str());
-
-    PetscObjectSetName((PetscObject)M_mat,path.stem().string().c_str());
+    //PetscObjectSetName((PetscObject)M_mat,boost::filesystem::path("out_"+matfilename).stem().string().c_str());
+    PetscObjectSetName((PetscObject)M_mat,("var_" + path.stem().string()).c_str());
 
     PetscViewer petsc_viewer;
 

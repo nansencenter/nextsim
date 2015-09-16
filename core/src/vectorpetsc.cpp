@@ -457,9 +457,8 @@ VectorPetsc::printMatlab(std::string const& filename) const
         fs::create_directories(path.parent_path());
 
 
-	// PetscObjectSetName((PetscObject)M_vec,boost::filesystem::path("out_"+vecfilename).stem().string().c_str());
-
-    PetscObjectSetName((PetscObject)M_vec,path.stem().string().c_str());
+	//PetscObjectSetName((PetscObject)M_vec,boost::filesystem::path("out_"+vecfilename).stem().string().c_str());
+    PetscObjectSetName((PetscObject)M_vec,("var_" + path.stem().string()).c_str());
 
 
 	int ierr=0;

@@ -24,12 +24,12 @@ FiniteElement::FiniteElement()
 void FiniteElement::init()
 {
     // std::cout <<"GMSH VERSION= "<< M_mesh.version() <<"\n";
-    // M_mesh.setOrdering("bamg");
-    // M_mesh.readFromFile("bigarctic10km.msh");
+    M_mesh.setOrdering("bamg");
+    M_mesh.readFromFile("bigarctic10km.msh");
 
-    createGMSHMesh("hypercube.geo");
-    M_mesh.setOrdering("gmsh");
-    M_mesh.readFromFile("hypercube.msh");
+    //createGMSHMesh("hypercube.geo");
+    //M_mesh.setOrdering("gmsh");
+    //M_mesh.readFromFile("hypercube.msh");
 
  #if 0
     auto nodes = M_mesh.nodes();
@@ -71,18 +71,17 @@ void FiniteElement::init()
     int first = 0;
     for (auto it=M_lines.begin(), end=M_lines.end(); it!=end; ++it)
     {
-        //if (it->second.physical==158)
-        if (it->second.physical==1)
+        if (it->second.physical==158)
         {
-            // ++first;
-            // if (first==1)
-            //     continue;
+            ++first;
+            if (first==1)
+                continue;
 
             dirichlet_flags.push_back(it->second.indices[0]-1);
         }
     }
 
-    //std::cout<<"DIRICHLET_FLAGS= "<< dirichlet_flags.size() <<"\n";
+    std::cout<<"DIRICHLET_FLAGS= "<< dirichlet_flags.size() <<"\n";
 
     std::cout<<"NumNodes     = "<< M_mesh.numNodes() <<"\n";
     std::cout<<"NumElements  = "<< M_mesh.numElements() <<"\n";
@@ -92,7 +91,8 @@ void FiniteElement::init()
     // std::string str = "../data/Nps.mpp";
     // M_mesh.project(str);
 
-    // M_mesh.writeTofile("../data/arctic10km.msh");
+    M_mesh.stereographicProjection();
+    M_mesh.writeTofile("arctic10km.msh");
 
     M_elements = M_mesh.triangles();
     M_nodes = M_mesh.nodes();
@@ -108,7 +108,7 @@ void FiniteElement::init()
 
     M_vector = vector_ptrtype(new vector_type(M_num_nodes));
     M_vector->zero();
-    //M_vector->setOnes();
+    M_vector->setOnes();
 
     M_solution = vector_ptrtype(new vector_type(M_num_nodes));
     M_solution->zero();
@@ -233,7 +233,7 @@ void FiniteElement::assemble()
         //                   &rcindices[0], rcindices.size(), &mass_data[0]);
 
 
-        M_vector->addVector(&rcindices[0], rcindices.size(), &fvdata[0]);
+        //M_vector->addVector(&rcindices[0], rcindices.size(), &fvdata[0]);
 
         ++cpt;
     }
@@ -254,7 +254,7 @@ void FiniteElement::assemble()
     std::cout<<"[PETSC MATRIX] SYMMETRIC   = "<< M_matrix->isSymmetric() <<"\n";
     std::cout<<"[PETSC MATRIX] NORM        = "<< M_matrix->linftyNorm() <<"\n";
 
-#if 1
+#if 0
     //M_matrix->printScreen();
     M_matrix->printMatlab("stiffness.m");
     M_vector->printMatlab("rhs.m");
@@ -300,7 +300,7 @@ void FiniteElement::run()
     std::vector<double> x(M_num_nodes);
     std::vector<double> y(M_num_nodes);
 
-    vector_type mindex(3*M_num_elements);
+    //vector_type mindex(3*M_num_elements);
     vector_type mx(3*M_num_elements);
     vector_type my(3*M_num_elements);
     vector_type mc(3*M_num_elements);
@@ -313,9 +313,9 @@ void FiniteElement::run()
         index[3*cpt+2] = it->second.indices[2];
 
   #if 1
-        mindex(3*cpt) = it->second.indices[0];//it->first;
-        mindex(3*cpt+1) = it->second.indices[1];
-        mindex(3*cpt+2) = it->second.indices[2];
+        // mindex(3*cpt) = it->second.indices[0];//it->first;
+        // mindex(3*cpt+1) = it->second.indices[1];
+        // mindex(3*cpt+2) = it->second.indices[2];
 
         double sum = 0;
         for (int j=0; j<3; ++j)
@@ -336,7 +336,7 @@ void FiniteElement::run()
         ++cpt;
     }
 
-    //vector_type M_exact(M_num_nodes);
+
     M_exact = vector_ptrtype(new vector_type(M_num_nodes));
     std::vector<double> data(M_num_nodes);
     double exact = 0;
@@ -356,12 +356,12 @@ void FiniteElement::run()
         ++cpt;
     }
 
-    mindex.printMatlab("mindex.m");
+    //mindex.printMatlab("mindex.m");
     mx.printMatlab("mx.m");
     my.printMatlab("my.m");
     mc.printMatlab("mc.m");
 
-    M_exact->printMatlab("exact.m");
+    // M_exact->printMatlab("exact.m");
 
     BamgOpts *bamgopt = NULL;
     BamgMesh *bamgmesh = NULL;
@@ -392,15 +392,6 @@ void FiniteElement::run()
 
     Options* options;
     options = new Options();
-    //options->AddOption("default");
-    // std::cout<<"DEFAULT= "<< options->GetOption("default") <<"\n";
-    // double defaultvalue;
-    // options->Get(&defaultvalue,"default");
-
-    //std::cout<<"VALUE= "<< defaultvalue <<"\n";
-
-    //std::vector<double> data(M_num_nodes);
-    //std::iota(data.begin(),data.end(),0.);
 
     InterpFromMeshToMesh2dx(&data_interp,&index[0],&x[0],&y[0],M_num_nodes,M_num_elements,
                             &data[0],M_num_nodes,1,&x_interp[0],&y_interp[0],M_num_nodes,
@@ -415,15 +406,9 @@ void FiniteElement::run()
 
     delete options;
 
-    M_exact->scale(-1.);
-    M_exact->add(*M_solution);
-
-    //std::cout<<"L2  = "<< M_exact.l2Norm() <<"\n";
-    //std::cout<<"LINF= "<< M_exact.linftyNorm() <<"\n";
-    //std::cout<<"||u-uh||_L2  = "<< std::sqrt(M_mass->energy(*M_exact)) <<"\n";
-    //std::cout<<"||u-uh||_H1  = "<< std::sqrt(M_mass->energy(*M_exact)+M_matrix->energy(*M_exact)) <<"\n";
-
-    this->error();
+    // M_exact->scale(-1.);
+    // M_exact->add(*M_solution);
+    // this->error();
 
 }
 
