@@ -1,6 +1,6 @@
 KERNEL := $(shell uname -s)
 
-PROGNAME=laplacian.exec
+PROGNAME=nextsim.exec
 
 #NEXTSIMDIR=..
 

@@ -1,6 +1,6 @@
 /* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
 
-#include <laplacian.hpp>
+#include <finiteelement.hpp>
 #include <netcdf>
 
 namespace fs = boost::filesystem;
@@ -77,6 +77,6 @@ int main(int argc, char** argv )
         return NC_ERR;
     }
 
-    Laplacian LP;
-    LP.run();
+    FiniteElement FE;
+    FE.run();
 }

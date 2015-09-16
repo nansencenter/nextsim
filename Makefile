@@ -3,16 +3,16 @@
 #NEXTSIMDIR=.
 
 all:
-	@cd $(NEXTSIMDIR)/src; make;
-	@cd $(NEXTSIMDIR)/bamg/src; make
-	@cd $(NEXTSIMDIR)/mapx/src; make
+	@cd $(NEXTSIMDIR)/core/src; make;
+	@cd $(NEXTSIMDIR)/contrib/bamg/src; make
+	@cd $(NEXTSIMDIR)/contrib/mapx/src; make
 
 clean:
-	@cd $(NEXTSIMDIR)/src; make clean;
-	@cd $(NEXTSIMDIR)/bamg/src; make clean
-	@cd $(NEXTSIMDIR)/mapx/src; make clean
+	@cd $(NEXTSIMDIR)/core/src; make clean;
+	@cd $(NEXTSIMDIR)/contrib/bamg/src; make clean
+	@cd $(NEXTSIMDIR)/contrib/mapx/src; make clean
 
 mrproper: clean
-	@cd $(NEXTSIMDIR)/src; make clean mrproper
-	@cd $(NEXTSIMDIR)/bamg/src; make clean mrproper
-	@cd $(NEXTSIMDIR)/mapx/src; make clean mrproper
+	@cd $(NEXTSIMDIR)/core/src; make clean mrproper
+	@cd $(NEXTSIMDIR)/contrib/bamg/src; make clean mrproper
+	@cd $(NEXTSIMDIR)/contrib/mapx/src; make clean mrproper

@@ -21,7 +21,7 @@ CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -pthr
 ifeq ($(KERNEL),Linux)
 	#CXX = g++-4.8
 	#CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -lm -pthread -v #-MMD -MP
-	CXXFLAGS += -I $(NEXTSIMDIR)/include -I $(NEXTSIMDIR)/mapx/include -I /usr/lib/openmpi/include
+	CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I $(NEXTSIMDIR)/contrib/mapx/include -I /usr/lib/openmpi/include
 	CXXFLAGS += -I $(PETSC_DIR)/include
 	LDFLAGS += -shared -Wl,-soname,libnextsim.so.1 -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi -lmpi_cxx -lmpi -lm -ldl -lhwloc
 	LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
@@ -32,9 +32,9 @@ else
 	CXXFLAGS += -stdlib=libc++
 	endif
 
-	CXXFLAGS += -I $(NEXTSIMDIR)/include -I /usr/local/include -I /opt/local/include/openmpi-mp
+	CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I /usr/local/include -I /opt/local/include/openmpi-mp
 	CXXFLAGS += -I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I $(GMSH_DIR)/include/gmsh
-	CXXFLAGS += -I $(NEXTSIMDIR)/mapx/include
+	CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
 	LDFLAGS += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,$(LIBRARYDIR)$(LIBRARYNAME)
 
 	LDFLAGS += -Wl,-rpath,/usr/local/lib -Wl,-rpath,/opt/local/lib/openmpi-mp
