@@ -68,15 +68,15 @@ void FiniteElement::init()
   #endif
 
     M_lines = M_mesh.lines();
-    int first = 0;
+    //int first = 0;
     for (auto it=M_lines.begin(), end=M_lines.end(); it!=end; ++it)
     {
-        if (it->second.physical==158)
+        //if (it->second.physical==158)
+        if (it->second.physical==161)
         {
-            ++first;
-            if (first==1)
-                continue;
-
+            //++first;
+            // if (first==1)
+            //     continue;
             dirichlet_flags.push_back(it->second.indices[0]-1);
         }
     }
