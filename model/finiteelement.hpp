@@ -47,11 +47,16 @@ public:
 
     void init();
     void createGMSHMesh(std::string const& geofilename);
+    double jacobian(element_type const& element) const;
     double measure(element_type const& element) const;
+    std::vector<double> shapeCoeff(element_type const& element) const;
     void assemble();
     void solve();
     void run();
     void error();
+
+    void performSimulation();
+    void initialdata();
 
 
 private:

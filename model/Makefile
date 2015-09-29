@@ -34,7 +34,7 @@ else
 	endif
 
 	LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib
-	LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi
+	LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi -lboost_date_time
 
 	LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
 	LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc

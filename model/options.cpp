@@ -55,6 +55,7 @@ namespace Nextsim
             ("simul_in.regrid_angle", po::value<double>()->default_value( 10. ), "")
             ("simul_in.interp_with_cavities", po::value<bool>()->default_value( true ), "")
             ("simul_in.interp_forcing_every_timestep", po::value<bool>()->default_value( false ), "")
+            ("simul_in.timestep", po::value<double>()->default_value( 200. ), "")
             ("simul_in.use_bathymetry", po::value<bool>()->default_value( true ), "")
             ("simul_in.scale_coef", po::value<double>()->default_value( 0.1 ), "")
             ("simul_in.alea_factor", po::value<double>()->default_value( 0. ), "")
@@ -66,7 +67,7 @@ namespace Nextsim
             ("simul_in.init_damage", po::value<std::string>()->default_value( "No-damage" ), "")
             ("simul_in.time_relaxation_damage", po::value<double>()->default_value( 14. ), "")
             ("simul_in.deltaT_relaxation_damage", po::value<double>()->default_value( 40. ), "")
-            ("simul_in.Young", po::value<double>()->default_value( 9000e+6 ), "")
+            ("simul_in.young", po::value<double>()->default_value( 9000e+6 ), "")
             ("simul_in.cfix", po::value<double>()->default_value( 40e+3 ), "")
             ("simul_in.nu0", po::value<double>()->default_value( 0.3 ), "")
             ("simul_in.tan_phi", po::value<double>()->default_value( 0.7 ), "")
@@ -127,6 +128,7 @@ namespace Nextsim
             ("simul_in.init_thin_max_thickness", po::value<double>()->default_value( 0.1 ), "")
             ("simul_in.init_snow_thickness", po::value<double>()->default_value( 0. ), "")
             ("simul_in.init_snow_thin_thickness", po::value<double>()->default_value( 0. ), "")
+            ("simul_in.constant_u", po::value<double>()->default_value( 0. ), "")
             ("simul_in.constant_v", po::value<double>()->default_value( -10. ), "")
             ;
         return desc;
