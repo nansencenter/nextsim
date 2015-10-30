@@ -97,38 +97,53 @@ public:
 
     GmshMesh();
 
-    //~GmshMesh();
+    GmshMesh(std::vector<point_type> const& nodes,
+             std::vector<element_type> const& edges,
+             std::vector<element_type> const& triangles);
 
     void readFromFile(std::string const& filename);
     void writeTofile(std::string const& filename);
+    void move(std::vector<double> const& um, double factor);
 
     std::string const& version() const {return M_version;}
     std::string const& ordering() const {return M_ordering;}
-    std::map<int, point_type > const& nodes() const {return M_nodes;}
-    std::map<int, element_type > const& elements() const {return M_elements;}
-    std::map<int, element_type > const& triangles() const {return M_triangles;}
-    std::map<int, element_type > const& lines() const {return M_lines;}
+    std::vector<point_type> const& nodes() const {return M_nodes;}
+    //std::vector<element_type> const& elements() const {return M_elements;}
+    std::vector<element_type> const& triangles() const {return M_triangles;}
+    std::vector<element_type> const& edges() const {return M_edges;}
 
     int numNodes() const {return M_num_nodes;}
-    int numElements() const {return M_num_elements;}
+    //int numElements() const {return M_num_elements;}
     int numTriangles() const {return M_num_triangles;}
-    int numLines() const {return M_num_lines;}
+    int numEdges() const {return M_num_edges;}
 
     void setOrdering(std::string const& order) {M_ordering=order;}
+    void setNodes(std::vector<point_type> const& nodes) {M_nodes=nodes;}
+    //void setElements(std::vector<element_type> const& elements) {M_elements=elements;}
+    void setEdges(std::vector<element_type> const& edges) {M_edges=edges;}
+    void setTriangles(std::vector<element_type> const& triangles) {M_triangles=triangles;}
+    void setNumNodes(int const& nnodes) {M_num_nodes=nnodes;}
+    //void setNumElements(int const& nelts) {M_num_elements=nelts;}
+    void setNumEdges(int const& nlns) {M_num_edges=nlns;}
+    void setNumTriangles(int const& ntrs) {M_num_triangles=ntrs;}
     void stereographicProjection();
+
+    std::vector<int> indexTr();
+    std::vector<double> coordX();
+    std::vector<double> coordY();
 
 private:
 
     std::string M_version;
     std::string M_ordering;
-    std::map<int, point_type > M_nodes;
-    std::map<int, element_type > M_elements;
-    std::map<int, element_type > M_triangles;
-    std::map<int, element_type > M_lines;
+    std::vector<point_type> M_nodes;
+    //std::vector<element_type> M_elements;
+    std::vector<element_type> M_triangles;
+    std::vector<element_type> M_edges;
     int M_num_nodes;
-    int M_num_elements;
+    //int M_num_elements;
     int M_num_triangles;
-    int M_num_lines;
+    int M_num_edges;
 };
 
 } // Nextsim

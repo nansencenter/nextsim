@@ -20,7 +20,8 @@ else
 	CXXFLAGS += -stdlib=libc++
 	endif
 
-	CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I $(NEXTSIMDIR)/contrib/bamg/include -I $(NEXTSIMDIR)/contrib/mapx/include
+	CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I $(NEXTSIMDIR)/contrib/bamg/include
+	CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include -I $(NEXTSIMDIR)/contrib/interp/include
 	CXXFLAGS += -I /usr/local/include -I /opt/local/include/openmpi-mp
 	CXXFLAGS +=	-I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I .
 	CXXFLAGS +=	-I $(NETCDF_DIR)/include -I $(GMSH_DIR)/include/gmsh
@@ -41,6 +42,7 @@ else
 
 	LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
 	LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
+	LDFLAGS += -L $(NEXTSIMDIR)/lib -linterp
 	LDFLAGS += -L $(NEXTSIMDIR)/lib -lnextsim
 
 endif

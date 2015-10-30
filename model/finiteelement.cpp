@@ -8,10 +8,7 @@
 
 #include <finiteelement.hpp>
 #include <constants.hpp>
-
-#include <boost/format.hpp>
-#include <boost/date_time/gregorian/gregorian.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
+#include <date.hpp>
 
 #define GMSH_EXECUTABLE gmsh
 
@@ -28,85 +25,100 @@ FiniteElement::FiniteElement()
 void
 FiniteElement::init()
 {
-    // std::cout <<"GMSH VERSION= "<< M_mesh.version() <<"\n";
+    std::cout <<"GMSH VERSION= "<< M_mesh.version() <<"\n";
     M_mesh.setOrdering("bamg");
     M_mesh.readFromFile("bigarctic10km.msh");
 
     // createGMSHMesh("hypercube.geo");
-    // M_mesh.setOrdering("gmsh");
+    // //M_mesh.setOrdering("gmsh");
     // M_mesh.readFromFile("hypercube.msh");
 
- #if 0
-    auto nodes = M_mesh.nodes();
-    for (auto it=nodes.begin(), end=nodes.end(); it!=end; ++it)
-    {
-        auto coords = it->second.coords;
+    this->initBamg();
 
-        if (it->first < 10)
-            std::cout<< "Nodes "<< it->first
-                     << ": coords= ("<< coords[0] << ","<< coords[1] << ","<< coords[2] <<")\n";
+    //BamgConvertMeshx(bamgmesh,bamggeom,&index[0],&x[0],&y[0],M_num_nodes,M_num_elements);
+    BamgConvertMeshx(
+                     bamgmesh,bamggeom,
+                     &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
+                     M_mesh.numNodes(), M_mesh.numTriangles()
+                     );
+
+
+    auto h = this->minMaxSide(M_mesh);
+    bamgopt->hmin = h[0];
+    bamgopt->hmax = h[1];
+
+    double minang = this->minAngle(M_mesh);
+
+    double resol = this->resolution(M_mesh);
+
+    std::cout<<"Lenght min = "<< h[0] <<"\n";
+    std::cout<<"Lenght max = "<< h[1] <<"\n";
+    std::cout<<"Angle min  = "<< minang <<"\n";
+    std::cout<<"Resolution = "<< resol <<"\n";
+
+    if (minang < vm["simul_in.regrid_angle"].as<double>())
+    {
+        std::cout<<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
+        throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
     }
 
+    auto hminVertices = this->hminVertices(M_mesh, bamgmesh);
+    auto hmaxVertices = this->hmaxVertices(M_mesh, bamgmesh);
 
-    //auto elements = M_mesh.elements();
-    auto elements = M_mesh.triangles();
-    int nprint = 0;
-    for (auto it=elements.begin(), end=elements.end(); it!=end; ++it)
+    bamgopt->hminVertices = &hminVertices[0];
+    bamgopt->hmaxVertices = &hmaxVertices[0];
+
+    if (!vm["simul_in.use_simul_out"].as<bool>())
     {
-        //if (it->first < 10)
-        if (nprint < 10)
+        //if (vm["simul_in.regrid"].as<std::string>() == "bamg")
+        if (vm["simul_in.regrid"].as<std::string>() == "No-regridding")
         {
-            std::cout<< "Elements : "<< it->first <<"\n"
-                     << "           number= " << it->second.number <<"\n"
-                     << "             type= " << it->second.type <<"\n"
-                     << "         physical= " << it->second.physical <<"\n"
-                     << "       elementary= " << it->second.elementary <<"\n"
-                     << "      numVertices= " << it->second.numVertices <<"\n"
-                     << "          indices= (" << it->second.indices[0] << ","
-                     << it->second.indices[1] << "," << it->second.indices[2] <<")\n";
-
+            if((bamgopt->hminVerticesSize[0] == 0) && (bamgopt->hminVerticesSize[1] == 0))
+            {
+                //bamgopt->KeepVertices=0;
+                Bamgx(bamgmeshout,bamggeomout,bamgmesh,bamggeom,bamgopt);
+            }
+            else
+            {
+                bamgopt->KeepVertices=0;
+                Bamgx(bamgmeshout,bamggeomout,bamgmesh,bamggeom,bamgopt);
+            }
         }
-
-        ++nprint;
     }
 
-#endif
+    this->importBamg();
 
-    M_lines = M_mesh.lines();
+    M_edges = M_mesh.edges();
     //int first = 0;
-    for (auto it=M_lines.begin(), end=M_lines.end(); it!=end; ++it)
+    for (auto it=M_edges.begin(), end=M_edges.end(); it!=end; ++it)
     {
         //if (it->second.physical==158)
         //if (it->second.physical==161)
         //if (it->second.physical==1)
-        if (it->second.physical==161)
+
+        if (it->physical==0)
         {
             //++first;
             // if (first==1)
             //     continue;
 
-            dirichlet_flags.push_back(it->second.indices[0]-1);
-            dirichlet_flags.push_back(it->second.indices[0]-1+M_mesh.numNodes());
+            dirichlet_flags.push_back(it->indices[0]-1);
+            dirichlet_flags.push_back(it->indices[0]-1+M_mesh.numNodes());
         }
     }
 
-    // for (int flag=0; flag < 10; ++flag)
+    // for (int flag=0; flag < 183; ++flag)
     // {
     //     std::cout<<"flag["<< flag <<"]= "<< dirichlet_flags[flag] <<"\n";
     // }
 
     std::cout<<"DIRICHLET_FLAGS= "<< dirichlet_flags.size() <<"\n";
-
     std::cout<<"NumNodes     = "<< M_mesh.numNodes() <<"\n";
-    std::cout<<"NumElements  = "<< M_mesh.numElements() <<"\n";
     std::cout<<"NumTriangles = "<< M_mesh.numTriangles() <<"\n";
-    std::cout<<"NumLines     = "<< M_mesh.numLines() <<"\n";
-
-    // std::string str = "../data/Nps.mpp";
-    // M_mesh.project(str);
+    std::cout<<"NumEdges     = "<< M_mesh.numEdges() <<"\n";
 
     M_mesh.stereographicProjection();
-    M_mesh.writeTofile("arctic10km.msh");
+    //M_mesh.writeTofile("arctic10km.msh");
 
     M_elements = M_mesh.triangles();
     M_nodes = M_mesh.nodes();
@@ -114,11 +126,8 @@ FiniteElement::init()
     M_num_elements = M_mesh.numTriangles();
     M_num_nodes = M_mesh.numNodes();
 
-    M_matrix = matrix_ptrtype(new matrix_type(2*M_num_nodes,2*M_num_nodes,20));
+    M_matrix = matrix_ptrtype(new matrix_type(2*M_num_nodes,2*M_num_nodes,22));
     M_matrix->zero();
-
-    // M_mass = matrix_ptrtype(new matrix_type(M_num_nodes,M_num_nodes,10));
-    // M_mass->zero();
 
     M_vector = vector_ptrtype(new vector_type(2*M_num_nodes));
     M_vector->zero();
@@ -126,7 +135,49 @@ FiniteElement::init()
 
     M_solution = vector_ptrtype(new vector_type(2*M_num_nodes));
     M_solution->zero();
+}
 
+void
+FiniteElement::initBamg()
+{
+    bamgopt = new BamgOpts();
+
+    bamgopt->Crack             = 0;
+    bamgopt->anisomax          = 1e30;
+    bamgopt->coeff             = 1;
+    bamgopt->cutoff            = 1e-5;
+    //bamgopt->err               = 0.01;
+    bamgopt->errg              = 0.1;
+    bamgopt->field             = NULL;
+    bamgopt->gradation         = 1.5;
+    bamgopt->Hessiantype       = 0;
+    bamgopt->hmin              = 1e-100;
+    bamgopt->hmax              = 1e100;
+    bamgopt->hminVertices      = NULL;
+    bamgopt->hmaxVertices      = NULL;
+    bamgopt->hVertices         = NULL;
+    bamgopt->KeepVertices      = 1;
+    bamgopt->MaxCornerAngle    = 10;
+    bamgopt->maxnbv            = 1e7;
+    bamgopt->maxsubdiv         = 10;
+    bamgopt->metric            = NULL;
+    bamgopt->Metrictype        = 0;
+    bamgopt->nbjacobi          = 1;
+    bamgopt->nbsmooth          = 3;
+    bamgopt->omega             = 1.8;
+    bamgopt->power             = 1.;
+    bamgopt->splitcorners      = 0; //the Devil!  Changed to 0, original 1 Phil
+    bamgopt->geometricalmetric = 0;
+    bamgopt->random            = true;
+    bamgopt->verbose           = vm["verbose"].as<int>();
+
+    bamggeom = new BamgGeom();
+    bamgmesh = new BamgMesh();
+
+    bamggeomout = new BamgGeom();
+    bamgmeshout = new BamgMesh();
+
+    bamgopt->Check();
 }
 
 void
@@ -151,38 +202,172 @@ FiniteElement::createGMSHMesh(std::string const& geofilename)
 }
 
 double
-FiniteElement::jacobian(element_type const& element) const
+FiniteElement::jacobian(element_type const& element, mesh_type const& mesh) const
 {
-    std::vector<double> vertex_0 = M_nodes.find(element.indices[0])->second.coords;
-    std::vector<double> vertex_1 = M_nodes.find(element.indices[1])->second.coords;
-    std::vector<double> vertex_2 = M_nodes.find(element.indices[2])->second.coords;
+    std::vector<double> vertex_0 = mesh.nodes()[element.indices[0]-1].coords;
+    std::vector<double> vertex_1 = mesh.nodes()[element.indices[1]-1].coords;
+    std::vector<double> vertex_2 = mesh.nodes()[element.indices[2]-1].coords;
 
     double jac = (vertex_1[0]-vertex_0[0])*(vertex_2[1]-vertex_0[1]);
     jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);
 
-    return jac;
-}
-
-double
-FiniteElement::measure(element_type const& element) const
-{
-    return (1./2)*std::abs(jacobian(element));
+    return  jac;
 }
 
 std::vector<double>
-FiniteElement::shapeCoeff(element_type const& element) const
+FiniteElement::sides(element_type const& element, mesh_type const& mesh) const
+{
+    std::vector<double> vertex_0 = mesh.nodes()[element.indices[0]-1].coords;
+    std::vector<double> vertex_1 = mesh.nodes()[element.indices[1]-1].coords;
+    std::vector<double> vertex_2 = mesh.nodes()[element.indices[2]-1].coords;
+
+    // std::vector<double> vertex_0 = dispnodes[element.indices[0]-1].coords;
+    // std::vector<double> vertex_1 = dispnodes[element.indices[1]-1].coords;
+    // std::vector<double> vertex_2 = dispnodes[element.indices[2]-1].coords;
+
+    std::vector<double> side(3);
+
+    side[0] = std::sqrt(std::pow(vertex_1[0]-vertex_0[0],2.) + std::pow(vertex_1[1]-vertex_0[1],2.));
+    side[1] = std::sqrt(std::pow(vertex_2[0]-vertex_1[0],2.) + std::pow(vertex_2[1]-vertex_1[1],2.));
+    side[2] = std::sqrt(std::pow(vertex_2[0]-vertex_0[0],2.) + std::pow(vertex_2[1]-vertex_0[1],2.));
+
+    return side;
+}
+
+std::vector<double>
+FiniteElement::minMaxSide(mesh_type const& mesh) const
+{
+    std::vector<double> minmax(2);
+    std::vector<double> all_min_side(mesh.numTriangles());
+    std::vector<double> all_max_side(mesh.numTriangles());
+
+    int cpt = 0;
+    for (auto it=mesh.triangles().begin(), end=mesh.triangles().end(); it!=end; ++it)
+    {
+        auto side = this->sides(*it,mesh);
+        all_min_side[cpt] = *std::min_element(side.begin(),side.end());
+        all_max_side[cpt] = *std::max_element(side.begin(),side.end());
+        ++cpt;
+    }
+
+    minmax[0] = *std::min_element(all_min_side.begin(),all_min_side.end());
+    minmax[1] = *std::max_element(all_max_side.begin(),all_max_side.end());
+
+    //minmax[0] = std::accumulate(all_min_side.begin(),all_min_side.end(),0.)/(all_min_side.size());
+    //minmax[1] = std::accumulate(all_max_side.begin(),all_max_side.end(),0.)/(all_max_side.size());
+
+    return minmax;
+}
+
+double
+FiniteElement::minAngles(element_type const& element, mesh_type const& mesh) const
+{
+    std::vector<double> side = this->sides(element,mesh);
+    std::sort(side.begin(),side.end());
+    double minang = std::acos( (std::pow(side[1],2.) + std::pow(side[2],2.) - std::pow(side[0],2.) )/(2*side[1]*side[2]) );
+    minang = minang*45.0/std::atan(1.0);
+
+    return minang;
+}
+
+double
+FiniteElement::minAngle(mesh_type const& mesh) const
+{
+    std::vector<double> all_min_angle(mesh.numTriangles());
+
+    int cpt = 0;
+    for (auto it=mesh.triangles().begin(), end=mesh.triangles().end(); it!=end; ++it)
+    {
+        all_min_angle[cpt] = this->minAngles(*it,mesh);
+        ++cpt;
+    }
+
+    return *std::min_element(all_min_angle.begin(),all_min_angle.end());;
+}
+
+double
+FiniteElement::resolution(mesh_type const& mesh) const
+{
+    std::vector<double> all_min_measure(mesh.numTriangles());
+
+    int cpt = 0;
+    for (auto it=mesh.triangles().begin(), end=mesh.triangles().end(); it!=end; ++it)
+    {
+        all_min_measure[cpt] = this->measure(*it,mesh);
+        ++cpt;
+    }
+
+    double resol = std::accumulate(all_min_measure.begin(),all_min_measure.end(),0.)/(all_min_measure.size());
+    resol = std::pow(resol,0.5);
+
+    return resol;
+}
+
+
+std::vector<double>
+FiniteElement::hminVertices(mesh_type const& mesh, BamgMesh const* bamgmesh) const
+{
+    // std::cout<<"Connectivity[0]= "<< (bamgmesh->NodalElementConnectivitySize[0]) <<"\n";
+    // std::cout<<"Connectivity[1]= "<< (bamgmesh->NodalElementConnectivitySize[1]) <<"\n";
+    // std::cout<<"Connectivity[1]= "<< (mesh.numTriangles()) <<"\n";
+
+    std::vector<double> hmin(bamgmesh->NodalElementConnectivitySize[0]);
+
+    for (int i=0; i<bamgmesh->NodalElementConnectivitySize[0]; ++i)
+    {
+        std::vector<double> measure(bamgmesh->NodalElementConnectivitySize[1]);
+        int j = 0;
+        for (j=0; j<bamgmesh->NodalElementConnectivitySize[1]; ++j)
+        {
+            int elt_num = bamgmesh->NodalElementConnectivity[bamgmesh->NodalElementConnectivitySize[1]*i+j]-1;
+
+            if ((0 <= elt_num) && (elt_num < mesh.numTriangles()) && (elt_num != NAN))
+            {
+                measure[j] = this->measure(mesh.triangles()[elt_num],mesh);
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        measure.resize(j);
+        hmin[i] = std::sqrt(std::sqrt(2.)*(*std::min_element(measure.begin(),measure.end()))*0.9);
+    }
+
+    return hmin;
+}
+
+std::vector<double>
+FiniteElement::hmaxVertices(mesh_type const& mesh, BamgMesh const* bamgmesh) const
+{
+    std::vector<double> hmax = this->hminVertices(mesh,bamgmesh);
+
+    std::for_each(hmax.begin(), hmax.end(), [&](double& f){ f = 1.2*f; });
+
+    return hmax;
+}
+
+double
+FiniteElement::measure(element_type const& element, mesh_type const& mesh) const
+{
+    return (1./2)*std::abs(jacobian(element,mesh));
+}
+
+std::vector<double>
+FiniteElement::shapeCoeff(element_type const& element, mesh_type const& mesh) const
 {
     std::vector<double> x(3);
     std::vector<double> y(3);
 
     for (int i=0; i<3; ++i)
     {
-        x[i] = M_nodes.find(element.indices[i])->second.coords[0];
-        y[i] = M_nodes.find(element.indices[i])->second.coords[1];
+        x[i] = mesh.nodes()[element.indices[i]-1].coords[0];
+        y[i] = mesh.nodes()[element.indices[i]-1].coords[1];
     }
 
     std::vector<double> coeff(6);
-    double jac = jacobian(element);
+    double jac = jacobian(element,mesh);
 
     for (int k=0; k<6; ++k)
     {
@@ -205,384 +390,6 @@ FiniteElement::shapeCoeff(element_type const& element) const
 
 void
 FiniteElement::assemble()
-{
-    chrono.restart();
-    int cpt = 0;
-    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
-    {
-        // if (cpt <10)
-        //     std::cout<<"***Element "<< it->first <<"\n";
-
-        if (cpt==0)
-        {
-            for (int tt=0; tt<6; ++tt)
-                std::cout<<"shape["<< tt <<"]= "<< this->shapeCoeff(it->second)[tt] <<"\n";
-        }
-
-        double area = measure(it->second);
-        std::vector<double> x(3);
-        std::vector<double> y(3);
-        std::vector<double> data(9);
-        //std::vector<double> mass_data(9);
-
-        std::vector<int> rcindices(3);
-        for (int s=0; s<rcindices.size(); ++s)
-            rcindices[s] = it->second.indices[s]-1;
-
-        double m_jk = 0;
-        //double mass_jk = 0;
-
-        std::vector<double> fvdata(3);
-        double f_j = 0;
-        double x_b = 0;
-        double y_b = 0;
-
-        for (int i=0; i<3; ++i)
-        {
-            x[i] = M_nodes.find(it->second.indices[i])->second.coords[0];
-            y[i] = M_nodes.find(it->second.indices[i])->second.coords[1];
-
-            x_b += x[i];
-            y_b += y[i];
-        }
-        x_b = x_b/3.0;
-        y_b = y_b/3.0;
-
-        int lc = 0;
-        for (int j=0; j<3; ++j)
-        {
-            f_j = 0;
-            // x-axis
-            int jp1 = (j+1)%3;
-            int jp2 = (j+2)%3;
-
-            for (int k=0; k<3; ++k)
-            {
-                // y-axis
-                int kp1 = (k+1)%3;
-                int kp2 = (k+2)%3;
-
-                m_jk = (y[jp1]-y[jp2])*(y[kp1]-y[kp2])+(x[jp1]-x[jp2])*(x[kp1]-x[kp2]);
-                m_jk = m_jk/(4.0*area);
-
-                //add mass matrix contribution
-                //m_jk += ((j == k) ? 2.0 : 1.0)*area/12.0;
-                //mass_jk = ((j == k) ? 2.0 : 1.0)*area/12.0;
-
-                data[lc] = m_jk;
-
-                //mass_data[lc] = mass_jk;
-
-                ++lc;
-
-                // if (cpt <1)
-                //     std::cout<<"DATA["<< j << ","<< k <<"]= "<< m_jk <<"\n";
-
-                //compute right-hand side contribution
-                //f_j += ((j == k) ? 2.0 : 1.0)*2.0*PI*PI*std::sin(PI*x[k])*std::sin(PI*y[k]);
-            }
-
-            //f_j = f_j*area/12.0;
-            f_j = 2*PI*PI*std::sin(PI*x_b)*std::sin(PI*y_b);
-            //f_j = 2*PI*PI*std::sin(PI*x[j])*std::sin(PI*y[j]);
-            f_j = f_j*area/3.0;
-            fvdata[j] = f_j;
-        }
-
-        M_matrix->addMatrix(&rcindices[0], rcindices.size(),
-                            &rcindices[0], rcindices.size(), &data[0]);
-
-        // M_mass->addMatrix(&rcindices[0], rcindices.size(),
-        //                   &rcindices[0], rcindices.size(), &mass_data[0]);
-
-
-        //M_vector->addVector(&rcindices[0], rcindices.size(), &fvdata[0]);
-
-        ++cpt;
-    }
-
-    M_matrix->close();
-
-    std::cout<<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
-
-    //M_mass->close();
-
-    // apply homogeneous dirichlet boundary conditions
-    chrono.restart();
-    M_matrix->on(dirichlet_flags,*M_vector);
-    std::cout<<"TIMER DBCA= " << chrono.elapsed() <<"s\n";
-
-    std::cout<<"[PETSC MATRIX] CLOSED      = "<< M_matrix->closed() <<"\n";
-    std::cout<<"[PETSC MATRIX] SIZE        = "<< M_matrix->size1() << " " << M_matrix->size2() <<"\n";
-    std::cout<<"[PETSC MATRIX] SYMMETRIC   = "<< M_matrix->isSymmetric() <<"\n";
-    std::cout<<"[PETSC MATRIX] NORM        = "<< M_matrix->linftyNorm() <<"\n";
-
-#if 0
-    //M_matrix->printScreen();
-    M_matrix->printMatlab("stiffness.m");
-    M_vector->printMatlab("rhs.m");
-
-    vector_type v(M_num_nodes);
-    M_matrix->diagonal(v);
-    v.printMatlab("diag.m");
-#endif
-
-}
-
-void
-FiniteElement::solve()
-{
-    SolverPetsc ksp;
-
-    chrono.restart();
-    //ksp.solve(M_matrix, M_solution, M_vector);
-
-    ksp.solve(_matrix=M_matrix,
-              _solution=M_solution,
-              _rhs=M_vector,
-              _ksp="preonly",
-              _pc="cholesky",
-              _pcfactormatsolverpackage="cholmod",
-              _reuse_prec=true
-              );
-
-    std::cout<<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";
-    M_solution->printMatlab("solution.m");
-
-    Environment::logMemoryUsage("");
-}
-
-void
-FiniteElement::run()
-{
-
-    this->init();
-
-#if 1
-    //this->assemble();
-    this->initialdata();
-    this->solve();
-
-    // test bamg usage
-    std::vector<int> index(3*M_num_elements);
-    std::vector<double> x(M_num_nodes);
-    std::vector<double> y(M_num_nodes);
-
-    //vector_type mindex(3*M_num_elements);
-    vector_type mx(3*M_num_elements);
-    vector_type my(3*M_num_elements);
-    vector_type mc(3*M_num_elements);
-
-    int cpt = 0;
-    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
-    {
-        index[3*cpt] = it->second.indices[0];//it->first;
-        index[3*cpt+1] = it->second.indices[1];
-        index[3*cpt+2] = it->second.indices[2];
-
-  #if 1
-        // mindex(3*cpt) = it->second.indices[0];//it->first;
-        // mindex(3*cpt+1) = it->second.indices[1];
-        // mindex(3*cpt+2) = it->second.indices[2];
-
-        double sum = 0;
-        for (int j=0; j<3; ++j)
-        {
-            sum += M_solution->operator()(it->second.indices[j]-1+M_num_nodes);
-        }
-        mc(3*cpt) = sum;
-        mc(3*cpt+1) = sum;
-        mc(3*cpt+2) = sum;
-
-        for (int i=0; i<3; ++i)
-        {
-            mx(3*cpt+i) = M_nodes.find(it->second.indices[i])->second.coords[0];
-            my(3*cpt+i) = M_nodes.find(it->second.indices[i])->second.coords[1];
-        }
-#endif
-
-        ++cpt;
-    }
-
-    mx.printMatlab("mx.m");
-    my.printMatlab("my.m");
-    mc.printMatlab("mc.m");
-
-#if 0
-    M_exact = vector_ptrtype(new vector_type(M_num_nodes));
-    std::vector<double> data(M_num_nodes);
-    double exact = 0;
-    cpt = 0;
-    for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
-    {
-        x[cpt] = it->second.coords[0];
-        y[cpt] = it->second.coords[1];
-
-        exact = std::sin(PI*x[cpt])*std::sin(PI*y[cpt]);
-        M_exact->operator()(cpt) = exact;
-
-        data[cpt] = exact;
-
-        //std::cout<<"data["<< cpt <<"]= "<< data[cpt] <<"\n";
-
-        ++cpt;
-    }
-
-    //mindex.printMatlab("mindex.m");
-    mx.printMatlab("mx.m");
-    my.printMatlab("my.m");
-    mc.printMatlab("mc.m");
-
-    // M_exact->printMatlab("exact.m");
-
-    BamgOpts *bamgopt = NULL;
-    BamgMesh *bamgmesh = NULL;
-    BamgGeom *bamggeom = NULL;
-
-    bamgopt=new BamgOpts();
-    bamggeom=new BamgGeom();
-    bamgmesh=new BamgMesh();
-
-    //bamgopt->anisomax=1;
-    //std::cout<<"Anisomax= "<< bamgopt->anisomax <<"\n";
-    //bamgopt->Check();
-
-    int test = BamgConvertMeshx(bamgmesh,bamggeom,&index[0],&x[0],&y[0],M_num_nodes,M_num_elements);
-
-    delete bamggeom;
-    delete bamgmesh;
-    delete bamgopt;
-
-    std::vector<double> x_interp(M_num_nodes);
-    std::vector<double> y_interp(M_num_nodes);
-    //std::vector<double> data_interp(M_num_nodes);
-    double* data_interp;
-
-    x_interp = x;
-    y_interp = y;
-
-    Options* options;
-    options = new Options();
-
-    InterpFromMeshToMesh2dx(&data_interp,&index[0],&x[0],&y[0],M_num_nodes,M_num_elements,
-                            &data[0],M_num_nodes,1,&x_interp[0],&y_interp[0],M_num_nodes,
-                            options);
-
-    //std::cout<<"First= "<< data_interp[0] <<"\n";
-
-    // for (int i=0; i<M_num_nodes; ++i)
-    //     std::cout<<"data_interp["<< i <<"]= "<< data_interp[i] <<"\n";
-
-    delete options;
-
-    // M_exact->scale(-1.);
-    // M_exact->add(*M_solution);
-    // this->error();
-
-
-    double date_time = 10.;
-    //boost::gregorian::date dt = boost::date_time::parse_date<boost::gregorian::date>( "1899-12-30", boost::date_time::ymd_order_iso );
-    //dt = boost::gregorian::date_duration( static_cast<long>( floor(date_time) ) );
-    //std::cout<< dt <<"\n";
-    //from_date_string( )
-    //std::string str = boost::gregorian::to_date_string( date_time );
-
-    //boost::gregorian::date dt = boost::date_time::parse_date<boost::gregorian::date>( "1899-12-30", boost::date_time::ymd_order_iso );
-    //boost::gregorian::date dt = boost::date_time::parse_date<boost::gregorian::date>( "1400-01-01", boost::date_time::ymd_order_iso );
-    //dt += boost::gregorian::date_duration( static_cast<long>( floor(date_time) ) );
-
- #if 0
-    std::string value = "1900-01-30";
-    boost::gregorian::date epoch = boost::date_time::parse_date<boost::gregorian::date>( "1899-12-30", boost::date_time::ymd_order_iso);
-    boost::gregorian::date dt = boost::date_time::parse_date<boost::gregorian::date>( value, boost::date_time::ymd_order_iso);
-
-    std::cout<<"time 1 = "<< epoch <<"\n";
-    std::cout<<"time 2 = "<< dt <<"\n";
-
-    boost::gregorian::date_duration diff = dt - epoch;
-    std::cout<<"diff = "<< diff.days()*24 <<"\n";
-#endif
-
-    using namespace boost::gregorian;
-    boost::gregorian::date epoch = from_string("1899-12-30");
-    boost::gregorian::date dt = from_string("1900-01-30");
-
-    std::cout<<"epoch = "<< epoch <<"\n";
-    std::cout<<"dt    = "<< dt <<"\n";
-#endif
-
-    this->initialdata();
-
-#endif
-
-
-}
-
-void
-FiniteElement::error()
-{
-    double l2_error = 0;
-    double sh1_error = 0;
-
-    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
-    {
-        double area = measure(it->second);
-        std::vector<double> x(3);
-        std::vector<double> y(3);
-
-        double l2_contrib = 0;
-        double sh1_contrib = 0;
-        double entry_contrib = 0;
-
-        for (int i=0; i<3; ++i)
-        {
-            x[i] = M_nodes.find(it->second.indices[i])->second.coords[0];
-            y[i] = M_nodes.find(it->second.indices[i])->second.coords[1];
-        }
-
-        int lc = 0;
-        for (int j=0; j<3; ++j)
-        {
-            l2_contrib = 0;
-            sh1_contrib = 0;
-            // x-axis
-            int jp1 = (j+1)%3;
-            int jp2 = (j+2)%3;
-
-            for (int k=0; k<3; ++k)
-            {
-                // y-axis
-                int kp1 = (k+1)%3;
-                int kp2 = (k+2)%3;
-
-                // semi h1 error
-                entry_contrib = (y[jp1]-y[jp2])*(y[kp1]-y[kp2])+(x[jp1]-x[jp2])*(x[kp1]-x[kp2]);
-                sh1_contrib += entry_contrib*M_exact->operator()(it->second.indices[k]-1)/(4.0*area);
-
-                // l2 error
-                l2_contrib += M_exact->operator()(it->second.indices[k]-1)*((j == k) ? 2.0 : 1.0)*area/12.0;
-            }
-
-            l2_error += l2_contrib*M_exact->operator()(it->second.indices[j]-1);
-            sh1_error += sh1_contrib*M_exact->operator()(it->second.indices[j]-1);
-        }
-    }
-
-    std::cout<<"||u-uh||_L2  = "<< std::sqrt(l2_error) <<"\n";
-    std::cout<<"||u-uh||_H1  = "<< std::sqrt(l2_error+sh1_error) <<"\n";
-}
-
-void
-FiniteElement::performSimulation()
-{
-    bool simul_running=true;
-    int n_regrid = 0;
-    int regrid_counter = 0;
-    int cpt=0;
-}
-
-void
-FiniteElement::initialdata()
 {
     int sys_size = 2*M_num_nodes;
     //std::vector<double> VT(2*M_num_nodes,0);
@@ -690,32 +497,28 @@ FiniteElement::initialdata()
         //std::cout<<"\n";
     }
 
+    std::vector<double> um(2*M_mesh.numNodes(),1.);
+    for (int al=0; al<um.size();++al)
+    {
+        um[al] = static_cast <double> (std::rand()) / static_cast <double> (RAND_MAX);
+    }
+
     chrono.restart();
     int cpt = 0;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
     {
-        // if (cpt <10)
-        //     std::cout<<"***Element "<< it->first <<"\n";
-
-        // if (cpt==0)
-        // {
-        //     for (int tt=0; tt<6; ++tt)
-        //         std::cout<<"shape["<< tt <<"]= "<< this->shapeCoeff(it->second)[tt] <<"\n";
-        // }
-
         for (int i=0; i<18; ++i)
         {
             if (i < 3)
             {
-                B0T[2*i] = this->shapeCoeff(it->second)[i];
-                B0T[12+2*i] = this->shapeCoeff(it->second)[i+3];
-                B0T[13+2*i] = this->shapeCoeff(it->second)[i];
+                B0T[2*i] = this->shapeCoeff(*it,M_mesh)[i];
+                B0T[12+2*i] = this->shapeCoeff(*it,M_mesh)[i+3];
+                B0T[13+2*i] = this->shapeCoeff(*it,M_mesh)[i];
             }
             else if (i < 6)
             {
-                B0T[2*i+1] = this->shapeCoeff(it->second)[i];
+                B0T[2*i+1] = this->shapeCoeff(*it,M_mesh)[i];
             }
-
         }
 
         //std::cout<<"\n";
@@ -729,7 +532,6 @@ FiniteElement::initialdata()
         //         std::cout<<"\n";
         //     }
 
-
         coef = young*(1-damage)*h*std::exp(ridging_exponent*(1-concentr));
         coef_P = 0.;
         if(divergence_rate < 0.)
@@ -738,11 +540,10 @@ FiniteElement::initialdata()
             coef_P = coef_P/(std::abs(divergence_rate)+divergence_min);
         }
 
-
         /* Compute the value that only depends on the element */
         mass_e = rhoi*h + rhos*hs;
         mass_e = (concentr > 0.) ? (mass_e/concentr):0.;
-        surface_e = this->measure(it->second);
+        surface_e = this->measure(*it,M_mesh);
 
         // /* compute the x and y derivative of g*ssh */
         g_ssh_e_x = 0.;
@@ -750,8 +551,8 @@ FiniteElement::initialdata()
         for(int i=0; i<3; i++)
         {
             g_ssh_e = g_ssh;   /* g*ssh at the node k of the element e */
-            g_ssh_e_x += this->shapeCoeff(it->second)[i]*g_ssh_e; /* x derivative of g*ssh */
-            g_ssh_e_y += this->shapeCoeff(it->second)[i+3]*g_ssh_e; /* y derivative of g*ssh */
+            g_ssh_e_x += this->shapeCoeff(*it,M_mesh)[i]*g_ssh_e; /* x derivative of g*ssh */
+            g_ssh_e_y += this->shapeCoeff(*it,M_mesh)[i+3]*g_ssh_e; /* y derivative of g*ssh */
         }
 
         coef_C    = mass_e*fcor;              /* for the Coriolis term */
@@ -932,8 +733,6 @@ FiniteElement::initialdata()
             fvdata[2*j+1] = fvv;
         }
 
-
-#if 1
         // if (cpt == 0)
         //     for (int i=0; i<6; ++i)
         //     {
@@ -948,9 +747,8 @@ FiniteElement::initialdata()
         std::vector<int> rcindices(6);
         for (int s=0; s<3; ++s)
         {
-            rcindices[2*s] = it->second.indices[s]-1;
-            //rcindices[2*s+1] = it->second.indices[s];
-            rcindices[2*s+1] = it->second.indices[s]-1+M_num_nodes;
+            rcindices[2*s] = it->indices[s]-1;
+            rcindices[2*s+1] = it->indices[s]-1+M_num_nodes;
         }
 
         // if (cpt == 0)
@@ -962,13 +760,10 @@ FiniteElement::initialdata()
 
         M_vector->addVector(&rcindices[0], rcindices.size(), &fvdata[0]);
 
-#endif
-
         ++cpt;
     }
 
     M_matrix->close();
-
     std::cout<<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
 
     chrono.restart();
@@ -980,8 +775,530 @@ FiniteElement::initialdata()
     std::cout<<"[PETSC MATRIX] SYMMETRIC   = "<< M_matrix->isSymmetric() <<"\n";
     std::cout<<"[PETSC MATRIX] NORM        = "<< M_matrix->linftyNorm() <<"\n";
 
-    M_matrix->printMatlab("stiffness.m");
-    M_vector->printMatlab("rhs.m");
+    //M_matrix->printMatlab("stiffness.m");
+    //M_vector->printMatlab("rhs.m");
+}
+
+void
+FiniteElement::solve()
+{
+    SolverPetsc ksp;
+
+    chrono.restart();
+    //ksp.solve(M_matrix, M_solution, M_vector);
+
+    ksp.solve(_matrix=M_matrix,
+              _solution=M_solution,
+              _rhs=M_vector,
+              _ksp=vm["solver.ksp-type"].as<std::string>()/*"preonly"*/,
+              _pc=vm["solver.pc-type"].as<std::string>()/*"cholesky"*/,
+              _pcfactormatsolverpackage=vm["solver.mat-package-type"].as<std::string>()/*"cholmod"*/,
+              _reuse_prec=true
+              );
+
+    std::cout<<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";
+    M_solution->printMatlab("solution.m");
+
+    Environment::logMemoryUsage("");
+}
+
+void
+FiniteElement::run()
+{
+    this->init();
+
+    double days_in_sec = 24.0*3600.0;
+    int pcpt = 0;
+    int niter = 0;
+    double time_init = dateStr2Num(vm["simul_in.time_init"].as<std::string>());
+    double output_time_step =  days_in_sec/vm["simul_in.output_per_day"].as<int>();
+    double current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
+
+    double time_step = vm["simul_in.timestep"].as<double>();
+    double duration = (vm["simul_in.duration"].as<double>())*days_in_sec;
+
+    std::cout<<"TIMESTEP= "<< time_step <<"\n";
+    std::cout<<"DURATION= "<< duration <<"\n";
+
+    //gregorian::date epoch = date_time::parse_date<gregorian::date>( "01-01-1900", date_time::ymd_order_dmy);
+    gregorian::date epoch = date_time::parse_date<gregorian::date>(
+                                                                   vm["simul_in.time_init"].as<std::string>(),
+                                                                   //date_time::ymd_order_dmy
+                                                                   date_time::ymd_order_iso
+                                                                   );
+
+    std::string time_init_ym = to_iso_string(epoch).substr(0,6);
+    std::string init_topaz_file = (boost::format( "TP4DAILY_%1%_3m.nc" ) % time_init_ym ).str();
+    std::cout<<"INIT_TOPAZ_FILE "<< init_topaz_file <<"\n";
+
+    std::string init_mit_file = (boost::format( "MITgcm_%1%_3m.nc" ) % time_init_ym ).str();
+    std::cout<<"INIT_MIT_FILE "<< init_mit_file <<"\n";
+
+    // Interpolation of the bathymetry
+    if (vm["simul_in.Lemieux_basal_k2"].as<double>() > 0 )
+    {
+        std::vector<double> data_in(M_mesh_previous.numNodes(),1.);
+
+        for (int i=0; i<data_in.size(); ++i)
+            data_in[i] = static_cast <double> (std::rand()) / static_cast <double> (RAND_MAX);
+
+        double *data_out;
+
+        Options* options;
+        options = new Options();
+
+        InterpFromMeshToMesh2dx(&data_out,
+                                &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
+                                M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
+                                &data_in[0],
+                                M_mesh_previous.numNodes(),1,
+                                &M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
+                                options);
+#if 0
+        cout << "\n";
+        cout << "     K      Xi(K)       Yi(K)       Zi(K)       Z(X,Y)\n";
+        cout << "\n";
+        //for (int k = 0; k < bamgmeshout->VerticesSize[0]; k++ )
+        for (int k = 0; k < M_mesh.numNodes(); k++ )
+        {
+            //ze = xyi[0+k*2] + 2.0 * xyi[1+k*2];
+            cout << "  " << setw(4) << k
+                 << "  " << setw(10) << M_mesh.coordX()[k]
+                 << "  " << setw(10) << M_mesh.coordY()[k]
+                 << "  " << setw(10) << data_out[k] << "\n";
+            //<< "  " << setw(10) << data_in[k] << "\n";
+        }
+#endif
+    }
+
+    this->forcingWind(0.,0.);
+    this->forcingOcean(0.,0.);
+    this->forcingThermo(0.,0.);
+
+    this->initConcentration();
+    this->initThickness();
+    this->initDamage();
+
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        if ((conc[i] < 0) || (thick[i] < 0) )
+        {
+            conc[i] = 0;
+            thick[i] = 0;
+        }
+    }
+
+    // main loop for nextsim program
+
+    bool is_running = true;
+    while (is_running)
+    {
+        is_running = ((pcpt+1)*time_step) < duration;
+        //is_running = false;
+
+        current_time = time_init + pcpt*time_step/(24*3600.0);
+
+        // step 0: preparation
+        // remeshing and remapping of the prognostic variables
+
+        if (vm["simul_in.regrid"].as<std::string>() == "No-regridding")
+        {
+            //std::cout<<"YES\n";
+            //minAngleMesh(&M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.coordY().size());
+        }
+
+        //if (pcpt <30)
+        //std::cout<<"CURRENT_TIME= "<< current_time <<"\n";
+
+        ++pcpt;
+    }
+
+    std::cout<<"pcpt= "<< pcpt <<"\n";
+    this->assemble();
+    this->solve();
+
+    //this->initSnowThickness();
+    //this->performSimulation();
+}
+
+void
+FiniteElement::error()
+{
+    double l2_error = 0;
+    double sh1_error = 0;
+
+    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
+    {
+        double area = measure(*it,M_mesh);
+        std::vector<double> x(3);
+        std::vector<double> y(3);
+
+        double l2_contrib = 0;
+        double sh1_contrib = 0;
+        double entry_contrib = 0;
+
+        for (int i=0; i<3; ++i)
+        {
+            // x[i] = M_nodes.find(it->second.indices[i])->second.coords[0];
+            // y[i] = M_nodes.find(it->second.indices[i])->second.coords[1];
+
+            x[i] = M_nodes[it->indices[i]-1].coords[0];
+            y[i] = M_nodes[it->indices[i]-1].coords[1];
+        }
+
+        int lc = 0;
+        for (int j=0; j<3; ++j)
+        {
+            l2_contrib = 0;
+            sh1_contrib = 0;
+            // x-axis
+            int jp1 = (j+1)%3;
+            int jp2 = (j+2)%3;
+
+            for (int k=0; k<3; ++k)
+            {
+                // y-axis
+                int kp1 = (k+1)%3;
+                int kp2 = (k+2)%3;
+
+                // semi h1 error
+                entry_contrib = (y[jp1]-y[jp2])*(y[kp1]-y[kp2])+(x[jp1]-x[jp2])*(x[kp1]-x[kp2]);
+                sh1_contrib += entry_contrib*M_exact->operator()(it->indices[k]-1)/(4.0*area);
+
+                // l2 error
+                l2_contrib += M_exact->operator()(it->indices[k]-1)*((j == k) ? 2.0 : 1.0)*area/12.0;
+            }
+
+            l2_error += l2_contrib*M_exact->operator()(it->indices[j]-1);
+            sh1_error += sh1_contrib*M_exact->operator()(it->indices[j]-1);
+        }
+    }
+
+    std::cout<<"||u-uh||_L2  = "<< std::sqrt(l2_error) <<"\n";
+    std::cout<<"||u-uh||_H1  = "<< std::sqrt(l2_error+sh1_error) <<"\n";
+}
+
+void
+FiniteElement::performSimulation()
+{
+}
+
+void
+FiniteElement::initialConditions()
+{
+
+}
+
+void
+FiniteElement::forcingWind(double const& u, double const& v)
+{
+    switch (M_wind)
+    {
+        case forcing::WindType::CONSTANT:
+            this->constantWind(u,v);
+            break;
+
+        default:
+            std::cout << "invalid wind forcing"<<"\n";
+            throw std::logic_error("invalid wind forcing");
+    }
+}
+
+void
+FiniteElement::constantWind(double const& u, double const& v)
+{
+    if (wind.size() ==0)
+        wind.resize(2*M_num_nodes);
+
+    for (int i=0; i<M_num_nodes; ++i)
+    {
+        wind[i] = u;
+        wind[i+M_num_nodes] = v;
+    }
+}
+
+void
+FiniteElement::forcingOcean(double const& u, double const& v)
+{
+    switch (M_ocean)
+    {
+        case forcing::OceanType::CONSTANT:
+            this->constantOcean(u,v);
+            break;
+
+        default:
+            std::cout << "invalid ocean forcing"<<"\n";
+            throw std::logic_error("invalid ocean forcing");
+    }
+}
+
+void
+FiniteElement::constantOcean(double const& u, double const& v)
+{
+    if (ocean.size() ==0)
+        ocean.resize(2*M_num_nodes);
+
+    for (int i=0; i<M_num_nodes; ++i)
+    {
+        ocean[i] = u;
+        ocean[i+M_num_nodes] = v;
+    }
+}
+
+void
+FiniteElement::forcingThermo(double const& u, double const& v)
+{
+    switch (M_thermo)
+    {
+        case forcing::ThermoType::CONSTANT:
+            this->constantThermo(u,v);
+            break;
+
+        default:
+            std::cout << "invalid thermo forcing"<<"\n";
+            throw std::logic_error("invalid thermo forcing");
+    }
+}
+
+void
+FiniteElement::constantThermo(double const& u, double const& v)
+{
+    if (thermo.size() ==0)
+        thermo.resize(2*M_num_nodes);
+
+    for (int i=0; i<M_num_nodes; ++i)
+    {
+        thermo[i] = u;
+        thermo[i+M_num_nodes] = v;
+    }
+}
+
+void
+FiniteElement::initConcentration()
+{
+    switch (M_conc)
+    {
+        case forcing::ConcentrationType::CONSTANT:
+            this->constantConc();
+            break;
+
+        default:
+            std::cout << "invalid initialization of concentration"<<"\n";
+            throw std::logic_error("invalid initialization of concentration");
+    }
+}
+
+void
+FiniteElement::constantConc()
+{
+    if (conc.size() ==0)
+        conc.resize(M_num_elements);
+
+    std::fill(conc.begin(), conc.end(), vm["simul_in.init_concentration"].as<double>());
+}
+
+void
+FiniteElement::initThickness()
+{
+    switch (M_thick)
+    {
+        case forcing::ThicknessType::CONSTANT:
+            this->constantThick();
+            break;
+
+        default:
+            std::cout << "invalid initialization of thickness"<<"\n";
+            throw std::logic_error("invalid initialization of thickness");
+    }
+}
+
+void
+FiniteElement::constantThick()
+{
+    if (thick.size() ==0)
+        thick.resize(M_num_elements);
+
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        thick[i] = (vm["simul_in.init_thickness"].as<bool>())*conc[i];
+    }
+}
+
+void
+FiniteElement::initDamage()
+{
+    switch (M_damage)
+    {
+        case forcing::DamageType::CONSTANT:
+            this->constantDamage();
+            break;
+
+        default:
+            std::cout << "invalid initialization of damage"<<"\n";
+            throw std::logic_error("invalid initialization of damage");
+    }
+}
+
+void
+FiniteElement::constantDamage()
+{
+    if (damage.size() ==0)
+        damage.resize(M_num_elements);
+
+    std::fill(damage.begin(), damage.end(), 0.);
+
+#if 0
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        damage[i] = 1.0 - conc[i];
+    }
+#endif
+}
+
+void
+FiniteElement::initSnowThickness()
+{
+    switch (M_snow_thick)
+    {
+        case forcing::SnowThicknessType::CONSTANT:
+            this->constantSnowThick();
+            break;
+
+        default:
+            std::cout << "invalid initialization of snow thickness"<<"\n";
+            throw std::logic_error("invalid initialization of snow thickness");
+    }
+}
+
+void
+FiniteElement::constantSnowThick()
+{
+    if (snow_thick.size() ==0)
+        snow_thick.resize(M_num_elements);
+
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        snow_thick[i] = (vm["simul_in.init_snow_thickness"].as<double>())*conc[i];
+    }
+}
+
+
+void
+FiniteElement::initThermodynamics()
+{
+    if (damage.size() ==0)
+        damage.resize(M_num_elements);
+
+    std::fill(damage.begin(), damage.end(), 0.);
+
+#if 0
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        damage[i] = 1.0 - conc[i];
+    }
+#endif
+}
+
+void
+FiniteElement::initDrifter()
+{
+    switch (M_drifter)
+    {
+        case forcing::DrifterType::EQUALLYSPACED:
+            this->equallySpacedDrifter();
+            break;
+
+        default:
+            std::cout << "invalid initialization of drifter"<<"\n";
+            throw std::logic_error("invalid initialization of drifter");
+    }
+}
+
+void
+FiniteElement::equallySpacedDrifter()
+{
+    if (drifter.size() ==0)
+        drifter.resize(M_num_elements);
+
+    std::fill(drifter.begin(), drifter.end(), 0.);
+}
+
+void
+FiniteElement::importBamg()
+{
+    //mesh_type mesh;
+    std::vector<point_type> mesh_nodes;
+    std::vector<element_type> mesh_edges;
+    std::vector<element_type> mesh_triangles;
+    std::vector<double> coords(3,0);
+
+    mesh_nodes.resize(bamgmeshout->VerticesSize[0]);
+
+    for (int id=0; id<bamgmeshout->VerticesSize[0]; ++id)
+    {
+        coords[0] = bamgmeshout->Vertices[3*id];
+        coords[1] = bamgmeshout->Vertices[3*id+1];
+
+        mesh_nodes[id].id = id+1;
+        mesh_nodes[id].coords = coords;
+    }
+
+    int type = 2;
+    int physical = 0;
+    int elementary = 0;
+    int numVertices = 2;
+    std::vector<int> edges(numVertices);
+
+    for (int edg=0; edg<bamgmeshout->EdgesSize[0]; ++edg)
+    {
+        edges[0] = bamgmeshout->Edges[3*edg];
+        edges[1] = bamgmeshout->Edges[3*edg+1];
+        //std::cout<< "Edges= "<< bamgmeshout->Edges[3*edg+2] <<"\n";
+
+        element_type gmshElt( edg,
+                              type,
+                              physical,
+                              elementary,
+                              numVertices,
+                              edges );
+
+        //mesh_edges.insert(std::make_pair(edg,gmshElt));
+        mesh_edges.push_back(gmshElt);
+    }
+
+    numVertices = 3;
+    std::vector<int> indices(numVertices);
+
+    for (int tr=0; tr<bamgmeshout->TrianglesSize[0]; ++tr)
+    {
+        indices[0] = bamgmeshout->Triangles[4*tr];
+        indices[1] = bamgmeshout->Triangles[4*tr+1];
+        indices[2] = bamgmeshout->Triangles[4*tr+2];
+
+        element_type gmshElt( tr,
+                              type,
+                              physical,
+                              elementary,
+                              numVertices,
+                              indices );
+
+        //mesh_triangles.insert(std::make_pair(tr,gmshElt));
+        mesh_triangles.push_back(gmshElt);
+    }
+
+    M_mesh_previous = M_mesh;
+    M_mesh = mesh_type(mesh_nodes,mesh_edges,mesh_triangles);
+    M_mesh.writeTofile("out.msh");
+
+    std::cout<<"\n";
+    std::cout<<"INFO: Previous  NumNodes     = "<< M_mesh_previous.numNodes() <<"\n";
+    std::cout<<"INFO: Previous  NumTriangles = "<< M_mesh_previous.numTriangles() <<"\n";
+    std::cout<<"INFO: Previous  NumEdges     = "<< M_mesh_previous.numEdges() <<"\n";
+    std::cout<<"\n";
+    std::cout<<"INFO: Current  NumNodes      = "<< M_mesh.numNodes() <<"\n";
+    std::cout<<"INFO: Current  NumTriangles  = "<< M_mesh.numTriangles() <<"\n";
+    std::cout<<"INFO: Current  NumEdges      = "<< M_mesh.numEdges() <<"\n";
+    std::cout<<"\n";
 }
 
 } // Nextsim

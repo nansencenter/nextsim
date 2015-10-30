@@ -10,317 +10,431 @@
 
 namespace Nextsim
 {
-	GmshMesh::GmshMesh()
-		:
-		M_version("2.2"),
-        M_ordering("gmsh"),
-        M_nodes(),
-        M_elements(),
-        M_triangles(),
-        M_lines(),
-        M_num_nodes(0),
-        M_num_elements(0),
-        M_num_triangles(0),
-        M_num_lines(0)
-	{}
+GmshMesh::GmshMesh()
+    :
+    M_version("2.2"),
+    M_ordering("gmsh"),
+    M_nodes(),
+    //M_elements(),
+    M_triangles(),
+    M_edges(),
+    M_num_nodes(0),
+    //M_num_elements(0),
+    M_num_triangles(0),
+    M_num_edges(0)
+{}
 
-    void GmshMesh::readFromFile(std::string const& filename)
+GmshMesh::GmshMesh(std::vector<point_type> const& nodes,
+                   std::vector<element_type> const& edges,
+                   std::vector<element_type> const& triangles)
+    :
+    M_version("2.2"),
+    M_ordering("gmsh"),
+    M_nodes(nodes),
+    M_triangles(triangles),
+    M_edges(edges),
+    M_num_nodes(nodes.size()),
+    M_num_triangles(triangles.size()),
+    M_num_edges(edges.size())
+{}
+
+void
+GmshMesh::readFromFile(std::string const& filename)
+{
+    std::string gmshmshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
+    std::cout<<"Reading Msh file "<< gmshmshfile <<"\n";
+
+    std::ifstream __is ( gmshmshfile.c_str() );
+
+    if ( !__is.is_open() )
     {
-        std::string gmshmshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
-        std::cout<<"Reading Msh file "<< gmshmshfile <<"\n";
+        std::ostringstream ostr;
+        std::cout << "Invalid file name " << gmshmshfile << " (file not found)\n";
+        ostr << "Invalid file name " << gmshmshfile << " (file not found)\n";
+        throw std::invalid_argument( ostr.str() );
+    }
 
-        std::ifstream __is ( gmshmshfile.c_str() );
+    char __buf[256];
+    __is >> __buf;
 
-        if ( !__is.is_open() )
-        {
-            std::ostringstream ostr;
-            std::cout << "Invalid file name " << gmshmshfile << " (file not found)\n";
-            ostr << "Invalid file name " << gmshmshfile << " (file not found)\n";
-            throw std::invalid_argument( ostr.str() );
-        }
+    std::string theversion;
 
-        char __buf[256];
-        __is >> __buf;
+    double version = 2.2;
 
-        std::string theversion;
+    if (std::string( __buf ) == "$MeshFormat")
+    {
+        int format, size;
+        __is >> theversion >> format >> size;
+        std::cout << "GMSH mesh file version : " << theversion << " format: " << (format?"binary":"ascii") << \
+            " size of double: " << size << "\n";
 
-        double version = 2.2;
+        ASSERT(boost::lexical_cast<double>( theversion ) >= 2, "Nextsim supports only Gmsh version >= 2");
 
-        if (std::string( __buf ) == "$MeshFormat")
-        {
-            int format, size;
-            __is >> theversion >> format >> size;
-            std::cout << "GMSH mesh file version : " << theversion << " format: " << (format?"binary":"ascii") << \
-                " size of double: " << size << "\n";
-
-            ASSERT(boost::lexical_cast<double>( theversion ) >= 2, "Nextsim supports only Gmsh version >= 2");
-
-            version = boost::lexical_cast<double>( theversion );
-
-            __is >> __buf;
-
-            ASSERT(std::string( __buf ) == "$EndMeshFormat","invalid file format entry");
-
-            __is >> __buf;
-
-            std::cout << "[importergmsh] " << __buf << " (expect $PhysicalNames)\n";
-
-        }
-
-        // Read NODES
-
-        //std::cout << "buf: "<< __buf << "\n";
-
-        if ( !( std::string( __buf ) == "$NOD" ||
-             std::string( __buf ) == "$Nodes" ||
-                std::string( __buf ) == "$ParametricNodes") )
-        {
-            std::cout<< "invalid nodes string '" << __buf << "' in gmsh importer. It should be either $Nodes.\n";
-        }
-
-        bool has_parametric_nodes = ( std::string( __buf ) == "$ParametricNodes" );
-        unsigned int __n;
-        __is >> __n;
-
-        M_num_nodes = __n;
-
-        //std::map<int, Nextsim::entities::GMSHPoint > gmshpts;
-        std::cout << "Reading "<< __n << " nodes\n";
-
-        std::vector<double> coords(3,0);
-
-        for ( unsigned int __i = 0; __i < __n; ++__i )
-        {
-            int id = 0;
-
-            __is >> id
-                 >> coords[0]
-                 >> coords[1]
-                 >> coords[2];
-
-            M_nodes[id].id = id;
-            M_nodes[id].coords = coords;
-        }
-
-        __is >> __buf;
-        //std::cout << "buf: "<< __buf << "\n";
-
-        // make sure that we have read all the points
-
-        ASSERT(std::string( __buf ) == "$EndNodes","invalid end nodes string");
-
-        // Read ELEMENTS
+        version = boost::lexical_cast<double>( theversion );
 
         __is >> __buf;
 
-        ASSERT(std::string( __buf ) == "$Elements","invalid elements string");
+        ASSERT(std::string( __buf ) == "$EndMeshFormat","invalid file format entry");
 
-        int numElements;
-        __is >> numElements;
+        __is >> __buf;
 
-        M_num_elements = numElements;
+        std::cout << "[importergmsh] " << __buf << " (expect $PhysicalNames)\n";
 
-        std::cout << "Reading " << numElements << " elements...\n";
-        //std::list<Nextsim::entities::GMSHElement> __et; // tags in each element
-        std::map<int,int> __gt;
+    }
 
-        for(int i = 0; i < numElements; i++)
+    // Read NODES
+
+    //std::cout << "buf: "<< __buf << "\n";
+
+    if ( !( std::string( __buf ) == "$NOD" ||
+            std::string( __buf ) == "$Nodes" ||
+            std::string( __buf ) == "$ParametricNodes") )
+    {
+        std::cout<< "invalid nodes string '" << __buf << "' in gmsh importer. It should be either $Nodes.\n";
+    }
+
+    bool has_parametric_nodes = ( std::string( __buf ) == "$ParametricNodes" );
+    unsigned int __n;
+    __is >> __n;
+
+    M_num_nodes = __n;
+
+    //std::map<int, Nextsim::entities::GMSHPoint > gmshpts;
+    std::cout << "Reading "<< __n << " nodes\n";
+
+    M_nodes.resize(__n);
+    std::vector<double> coords(3,0);
+
+    for ( unsigned int __i = 0; __i < __n; ++__i )
+    {
+        int id = 0;
+
+        __is >> id
+             >> coords[0]
+             >> coords[1]
+             >> coords[2];
+
+        M_nodes[id-1].id = id;
+        M_nodes[id-1].coords = coords;
+    }
+
+    __is >> __buf;
+    //std::cout << "buf: "<< __buf << "\n";
+
+    // make sure that we have read all the points
+
+    ASSERT(std::string( __buf ) == "$EndNodes","invalid end nodes string");
+
+    // Read ELEMENTS
+
+    __is >> __buf;
+
+    ASSERT(std::string( __buf ) == "$Elements","invalid elements string");
+
+    int numElements;
+    __is >> numElements;
+
+    //M_num_elements = numElements;
+
+    std::cout << "Reading " << numElements << " elements...\n";
+    //std::list<Nextsim::entities::GMSHElement> __et; // tags in each element
+    std::map<int,int> __gt;
+
+    int cpt_edge = 0;
+    int cpt_triangle = 0;
+
+    for(int i = 0; i < numElements; i++)
+    {
+        int number, type, physical = 0, elementary = 0, numVertices;
+        int numTags;
+
+        __is >> number  // elm-number
+             >> type // elm-type
+             >> numTags; // number-of-tags
+
+        for(int j = 0; j < numTags; j++)
         {
-            int number, type, physical = 0, elementary = 0, numVertices;
-            int numTags;
+            int tag;
+            __is >> tag;
+            if(j == 0) physical = tag;
+            else if(j == 1) elementary = tag;
+        }
 
-            __is >> number  // elm-number
-                 >> type // elm-type
-                 >> numTags; // number-of-tags
+        numVertices = MElement::getInfoMSH(type);
 
-            for(int j = 0; j < numTags; j++)
-            {
-                int tag;
-                __is >> tag;
-                if(j == 0) physical = tag;
-                else if(j == 1) elementary = tag;
-            }
+        ASSERT(numVertices!=0,"unknown number of vertices for element type");
 
-            numVertices = MElement::getInfoMSH(type);
+        std::vector<int> indices(numVertices);
+        for(int j = 0; j < numVertices; j++)
+        {
+            __is >> indices[j];
+            // check
+            //indices[j] = indices[j]-1;
+        }
 
-            ASSERT(numVertices!=0,"unknown number of vertices for element type");
+        if (M_ordering=="bamg")
+        {
+            std::next_permutation(indices.begin()+1,indices.end());
+        }
 
-            std::vector<int> indices(numVertices);
-            for(int j = 0; j < numVertices; j++)
-            {
-                __is >> indices[j];
-            }
+        // Nextsim::entities::GMSHElement gmshElt( number,
+        //                                         type,
+        //                                         physical,
+        //                                         elementary,
+        //                                         numVertices,
+        //                                         indices );
 
-            if (M_ordering=="bamg")
-            {
-                std::next_permutation(indices.begin()+1,indices.end());
-            }
+        //__et.push_back( gmshElt );
+        //M_elements.insert(std::make_pair(number,gmshElt));
 
-            Nextsim::entities::GMSHElement gmshElt( number,
+        if (type == 2)
+        {
+            Nextsim::entities::GMSHElement gmshElt( cpt_triangle,
                                                     type,
                                                     physical,
                                                     elementary,
                                                     numVertices,
                                                     indices );
 
-            //__et.push_back( gmshElt );
-            M_elements.insert(std::make_pair(number,gmshElt));
+            //M_triangles.insert(std::make_pair(number,gmshElt));
+            M_triangles.push_back(gmshElt);
 
-            if (type == 2)
-                M_triangles.insert(std::make_pair(number,gmshElt));
-            else if (type == 1)
-                M_lines.insert(std::make_pair(number,gmshElt));
-
-
-            if ( __gt.find( type ) != __gt.end() )
-                ++__gt[ type ];
-            else
-                __gt[type]=1;
-
-        } // element description loop
-
-        for ( auto const& it : __gt )
+            ++cpt_triangle;
+        }
+        else if (type == 1)
         {
-            const char* name;
-            MElement::getInfoMSH( it.first, &name );
-            std::cout << "Read " << it.second << " " << name << " elements\n";
+            Nextsim::entities::GMSHElement gmshElt( cpt_edge,
+                                                    type,
+                                                    physical,
+                                                    elementary,
+                                                    numVertices,
+                                                    indices );
 
-            if (std::string(name) == "Triangle 3")
-                M_num_triangles = it.second;
-            else if (std::string(name) == "Line 2")
-                M_num_lines = it.second;
+            //M_edges.insert(std::make_pair(number,gmshElt));
+            M_edges.push_back(gmshElt);
+
+            ++cpt_edge;
         }
 
-        // make sure that we have read everything
-        __is >> __buf;
 
-        ASSERT(std::string( __buf ) == "$EndElements","invalid end elements string");
-
-        // we are done reading the MSH file
-    }
-
-    void GmshMesh::writeTofile(std::string const& filename)
-    {
-        //std::string gmshfilename = (boost::format( "../data/arctic10km.msh" ) ).str();
-        std::string gmshmshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
-        std::fstream gmshfile(gmshmshfile, std::ios::out | std::ios::trunc);
-
-        if (gmshfile.is_open())
-        {
-            gmshfile << "$MeshFormat\n";
-            gmshfile << "2.2 0 8\n";
-            gmshfile << "$EndMeshFormat\n";
-
-            gmshfile << "$Nodes\n";
-            gmshfile << M_num_nodes << "\n";
-
-            //for ( int node = 0; node < M_num_nodes; node++ )
-            int node = 0;
-            for (auto it=M_nodes.begin(), en=M_nodes.end(); it!=en; ++it)
-            {
-                gmshfile << node + 1
-                         << "  " << it->second.coords[0]
-                         << "  " << it->second.coords[1]
-                         << "  0.0\n";
-
-                ++node;
-            }
-            gmshfile << "$EndNodes\n";
-
-
-            int element_type = 2;
-            int tag_num = 2;
-            int tag1 = 1;
-            int tag2 = 0;
-
-            gmshfile << "$Elements\n";
-            gmshfile << M_num_triangles << "\n";
-
-            //for ( int element = 0; element < nels; element++ )
-            int element = 0;
-            for (auto it=M_triangles.begin(), en=M_triangles.end(); it!=en; ++it)
-            {
-                //tag2 = element +1;
-
-                gmshfile << element + 1
-                         << "  " << element_type
-                         << "  " << tag_num
-                         << "  " << tag1
-                         << "  " << tag2;
-                //<< "  " << element + 1;
-
-                for (int i = 0; i < 3; i++ )
-                {
-                    gmshfile << "  " << it->second.indices[i] ;
-                }
-                gmshfile << "\n";
-
-                ++element;
-            }
-            gmshfile << "$EndElements\n";
-
-
-        }
+        if ( __gt.find( type ) != __gt.end() )
+            ++__gt[ type ];
         else
-        {
-            std::cout << "Cannot open " << gmshmshfile  << "\n";
-            std::cerr << "error: open file " << gmshmshfile << " for output failed!" <<"\n";
-            std::abort();
-        }
+            __gt[type]=1;
+
+    } // element description loop
+
+    for ( auto const& it : __gt )
+    {
+        const char* name;
+        MElement::getInfoMSH( it.first, &name );
+        std::cout << "Read " << it.second << " " << name << " elements\n";
+
+        if (std::string(name) == "Triangle 3")
+            M_num_triangles = it.second;
+        else if (std::string(name) == "Line 2")
+            M_num_edges = it.second;
     }
 
-    void GmshMesh::stereographicProjection()
+    // make sure that we have read everything
+    __is >> __buf;
+
+    ASSERT(std::string( __buf ) == "$EndElements","invalid end elements string");
+
+    // we are done reading the MSH file
+}
+
+void
+GmshMesh::writeTofile(std::string const& filename)
+{
+    //std::string gmshfilename = (boost::format( "../data/arctic10km.msh" ) ).str();
+    std::string gmshmshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
+    std::fstream gmshfile(gmshmshfile, std::ios::out | std::ios::trunc);
+
+    if (gmshfile.is_open())
     {
-        // polar stereographic projection
-        mapx_class *map;
-        std::string filename = Environment::nextsimDir().string() + "/data/Nps.mpp";
-        std::vector<char> str(filename.begin(), filename.end());
-        str.push_back('\0');
+        gmshfile << "$MeshFormat\n";
+        gmshfile << "2.2 0 8\n";
+        gmshfile << "$EndMeshFormat\n";
 
-        map = init_mapx(&str[0]);
+        gmshfile << "$Nodes\n";
+        gmshfile << M_num_nodes << "\n";
 
-        std::cout<<"MFILE= "<< std::string(map->mpp_filename) <<"\n";
-        std::cout<<"PROJE= "<< std::string(map->projection_name) <<"\n";
-
-        int cpt = 0;
-
+        //for ( int node = 0; node < M_num_nodes; node++ )
+        int node = 0;
         for (auto it=M_nodes.begin(), en=M_nodes.end(); it!=en; ++it)
         {
-            //compute latitude and longitude from cartesian coordinates
-            double _x = it->second.coords[0];
-            double _y = it->second.coords[1];
-            double _z = it->second.coords[2];
+            // gmshfile << node + 1
+            //          << "  " << it->second.coords[0]
+            //          << "  " << it->second.coords[1]
+            //          << "  0.0\n";
 
-            // compute radius
-            double radius = std::sqrt(std::pow(_x,2.)+std::pow(_y,2.)+std::pow(_z,2.));
+            gmshfile << node + 1
+                     << "  " << it->coords[0]
+                     << "  " << it->coords[1]
+                     << "  0.0\n";
 
-            double latitude = std::asin(_z/radius)*(180./PI);
-            double longitude = std::atan2(_y,_x);
 
-            longitude = longitude-2*PI*std::floor(longitude/(2*PI));
-            longitude = longitude*(180./PI);
+            ++node;
+        }
+        gmshfile << "$EndNodes\n";
 
-            double x_, y_;
-            int status = forward_mapx(map,latitude,longitude,&x_,&y_);
 
-            it->second.coords[0] = x_;
-            it->second.coords[1] = y_;
-            it->second.coords[2] = 0.0;
+        int element_type = 2;
+        int tag_num = 2;
+        int tag1 = 1;
+        int tag2 = 0;
 
-#if 0
-            if (cpt < 10)
+        gmshfile << "$Elements\n";
+        gmshfile << M_num_triangles << "\n";
+
+        //for ( int element = 0; element < nels; element++ )
+        int element = 0;
+        for (auto it=M_triangles.begin(), en=M_triangles.end(); it!=en; ++it)
+        {
+            //tag2 = element +1;
+
+            gmshfile << element + 1
+                     << "  " << element_type
+                     << "  " << tag_num
+                     << "  " << tag1
+                     << "  " << tag2;
+            //<< "  " << element + 1;
+
+            for (int i = 0; i < 3; i++ )
             {
-                std::cout<<"latitude= "<< latitude <<"\n";
-                std::cout<<"longitude= "<< longitude <<"\n";
-
-                std::cout<<"        xcart= "<< it->second.coords[0] <<"\n";
-                std::cout<<"        ycart= "<< it->second.coords[1] <<"\n";
-                std::cout<<"        zcart= "<< it->second.coords[2] <<"\n";
+                //gmshfile << "  " << it->second.indices[i];
+                gmshfile << "  " << it->indices[i];
             }
-#endif
+            gmshfile << "\n";
 
-            ++cpt;
+            ++element;
+        }
+        gmshfile << "$EndElements\n";
+
+
+    }
+    else
+    {
+        std::cout << "Cannot open " << gmshmshfile  << "\n";
+        std::cerr << "error: open file " << gmshmshfile << " for output failed!" <<"\n";
+        std::abort();
+    }
+}
+
+void
+GmshMesh::move(std::vector<double> const& um, double factor)
+{
+    if ((um.size() != 0) && (factor != 0))
+    {
+        ASSERT(M_nodes.size()==um.size(),"invalid size of displacement vector");
+
+        for (int i=0; i<M_nodes.size(); ++i)
+        {
+            //std::cout<<"ADDED= "<< factor*um[2*(element.indices[i]-1)] <<"\n";
+            M_nodes[i].coords[0] += factor*um[2*i];
+            M_nodes[i].coords[1] += factor*um[(2*i)+1];
         }
     }
+}
+
+void
+GmshMesh::stereographicProjection()
+{
+    // polar stereographic projection
+    mapx_class *map;
+    std::string filename = Environment::nextsimDir().string() + "/data/Nps.mpp";
+    std::vector<char> str(filename.begin(), filename.end());
+    str.push_back('\0');
+
+    map = init_mapx(&str[0]);
+
+    std::cout<<"MFILE= "<< std::string(map->mpp_filename) <<"\n";
+    std::cout<<"PROJE= "<< std::string(map->projection_name) <<"\n";
+
+    int cpt = 0;
+
+    for (auto it=M_nodes.begin(), en=M_nodes.end(); it!=en; ++it)
+    {
+        //compute latitude and longitude from cartesian coordinates
+        double _x = it->coords[0];
+        double _y = it->coords[1];
+        double _z = it->coords[2];
+
+        // compute radius
+        double radius = std::sqrt(std::pow(_x,2.)+std::pow(_y,2.)+std::pow(_z,2.));
+
+        double latitude = std::asin(_z/radius)*(180./PI);
+        double longitude = std::atan2(_y,_x);
+
+        longitude = longitude-2*PI*std::floor(longitude/(2*PI));
+        longitude = longitude*(180./PI);
+
+        double x_, y_;
+        int status = forward_mapx(map,latitude,longitude,&x_,&y_);
+
+        it->coords[0] = x_;
+        it->coords[1] = y_;
+        it->coords[2] = 0.0;
+
+#if 0
+        if (cpt < 10)
+        {
+            std::cout<<"latitude= "<< latitude <<"\n";
+            std::cout<<"longitude= "<< longitude <<"\n";
+
+            std::cout<<"        xcart= "<< it->second.coords[0] <<"\n";
+            std::cout<<"        ycart= "<< it->second.coords[1] <<"\n";
+            std::cout<<"        zcart= "<< it->second.coords[2] <<"\n";
+        }
+#endif
+
+        ++cpt;
+    }
+}
+
+std::vector<int>
+GmshMesh::indexTr()
+{
+    std::vector<int> index(3*M_num_triangles);
+    int cpt = 0;
+    for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
+    {
+        index[3*cpt] = it->indices[0];//it->first;
+        index[3*cpt+1] = it->indices[1];
+        index[3*cpt+2] = it->indices[2];
+        ++cpt;
+    }
+
+    return index;
+}
+
+std::vector<double>
+GmshMesh::coordX()
+{
+    std::vector<double> x(M_num_nodes);
+    int cpt = 0;
+    for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
+    {
+        x[cpt] = it->coords[0];
+        ++cpt;
+    }
+
+    return x;
+}
+
+std::vector<double>
+GmshMesh::coordY()
+{
+    std::vector<double> y(M_num_nodes);
+    int cpt = 0;
+    for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
+    {
+        y[cpt] = it->coords[1];
+        ++cpt;
+    }
+
+    return y;
+}
 
 } // Nextsim

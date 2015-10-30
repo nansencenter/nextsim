@@ -69,9 +69,9 @@ namespace bamg {
 		  for (i=0;i<Tho.nbv;i++)
 			refv[i]=0;
 		  int nbNewBedge =0;
-		  //  int nbOldBedge =0;  
+		  //  int nbOldBedge =0;
 		  for (i=0;i<Tho.nbt;i++)
-			if(  reft[i] >=0 && flag[i]) 
+			if(  reft[i] >=0 && flag[i])
 			  {
 				const Triangle & t = Tho.triangles[i];
 				kt++;
@@ -105,7 +105,7 @@ namespace bamg {
 		  long imaxnbv =k;
 		  Init(imaxnbv);
 		  for (i=0;i<Tho.nbv;i++)
-			if (kk[i]>=0) 
+			if (kk[i]>=0)
 			  {
 				vertices[nbv] = Tho.vertices[i];
 				if (!vertices[nbv].GetReferenceNumber())
@@ -132,8 +132,8 @@ namespace bamg {
 					_error_("i0>=Tho.nbv || i1>=Tho.nbv || i2>=Tho.nbv");
 				}
 				triangles[nbt] = Triangle(this,kk[i0],kk[i1],kk[i2]);
-				triangles[nbt].color = Tho.subdomains[reft[i]].ReferenceNumber; 
-				nbt++;           
+				triangles[nbt].color = Tho.subdomains[reft[i]].ReferenceNumber;
+				nbt++;
 			  }
 		  if (nbt==0 && nbv==0) {
 			  _error_("All triangles have been removed");
@@ -142,25 +142,25 @@ namespace bamg {
 		  delete [] reft;
 		  delete [] refv;
 		  BuildGeometryFromMesh(bamgopts);
-		  Gh.PostRead(); 
+		  Gh.PostRead();
 		  SetIntCoor();
 		  ReconstructExistingMesh();
 
 		  /*Final checks*/
 		  _assert_(kt==nbt);
 		  _assert_(nbsubdomains);
-		  _assert_(subdomains[0].head && subdomains[0].head->link); 
+		  _assert_(subdomains[0].head && subdomains[0].head->link);
 	  }
 	/*}}}*/
 	Mesh::Mesh(Mesh & Th,Geometry * pGh,Mesh * pBth,long maxnbv_in)/*{{{*/
 	  : Gh(*(pGh?pGh:&Th.Gh)), BTh(*(pBth?pBth:this)) {
 		  /*Original code from Frederic Hecht <hecht@ann.jussieu.fr> (BAMG v1.01, Mesh2.cpp/Triangles)*/
 		  Gh.NbRef++;
-		  maxnbv_in = Max(maxnbv_in,Th.nbv); 
+		  maxnbv_in = Max(maxnbv_in,Th.nbv);
 		  long i;
 		  // do all the allocation to be sure all the pointer existe
 
-		  Init(maxnbv_in);// to make the allocation 
+		  Init(maxnbv_in);// to make the allocation
 		  // copy of triangles
 		  nbv = Th.nbv;
 		  nbt = Th.nbt;
@@ -173,7 +173,7 @@ namespace bamg {
 		  NbVerticesOnGeomEdge = Th.NbVerticesOnGeomEdge;
 		  if (NbVerticesOnGeomEdge)
 			VerticesOnGeomEdge = new VertexOnGeom[NbVerticesOnGeomEdge] ;
-		  if (& BTh == & Th.BTh){ // same background 
+		  if (& BTh == & Th.BTh){ // same background
 			  BTh.NbRef++;
 			  NbVertexOnBThVertex = Th.NbVertexOnBThVertex;
 			  if(NbVertexOnBThVertex)
@@ -182,7 +182,7 @@ namespace bamg {
 			  if(NbVertexOnBThEdge)
 				VertexOnBThEdge = new VertexOnEdge[NbVertexOnBThEdge];
 			 }
-		  else { // no add on background mesh 
+		  else { // no add on background mesh
 			  BTh.NbRef++;
 			  NbVertexOnBThVertex=0;
 			  VertexOnBThVertex=0;
@@ -203,7 +203,7 @@ namespace bamg {
 			edges[i].Set(Th,i,*this);
 		  for(i=0;i<nbv;i++)
 			vertices[i].Set(Th.vertices[i],Th,*this);
-		  for(i=0;i<nbsubdomains;i++)  
+		  for(i=0;i<nbsubdomains;i++)
 			subdomains[i].Set(Th,i,*this);
 		  for (i=0;i<NbVerticesOnGeomVertex;i++)
 			VerticesOnGeomVertex[i].Set(Th.VerticesOnGeomVertex[i],Th,*this);
@@ -245,7 +245,7 @@ namespace bamg {
 			if (BTh.NbRef>0) BTh.NbRef--;
 			else if (BTh.NbRef==0) delete &BTh;
 		}
-		Init(0); // set all to zero 
+		Init(0); // set all to zero
 	}
 	/*}}}*/
 
@@ -274,11 +274,11 @@ namespace bamg {
 			vertices[i].m=M1;
 			vertices[i].color=0;
 		}
-		maxnbt=2*maxnbv-2; // for filling The Holes and quadrilaterals 
+		maxnbt=2*maxnbv-2; // for filling The Holes and quadrilaterals
 
 		//Triangles
 		if (verbose) _printf_("Reading triangles (" << nbt << ")\n");
-		triangles =new Triangle[maxnbt]; //we cannot allocate only nbt triangles since 
+		triangles =new Triangle[maxnbt]; //we cannot allocate only nbt triangles since
 		nodeflags=new bool[nbv];
 		for(i=0;i<nbv;i++) nodeflags[i]=false;
 		//other triangles will be added for each edge
@@ -341,7 +341,7 @@ namespace bamg {
 				vertices[i].m=M1;
 				vertices[i].color=0;
 			}
-			maxnbt=2*maxnbv-2; // for filling The Holes and quadrilaterals 
+			maxnbt=2*maxnbv-2; // for filling The Holes and quadrilaterals
 		}
 		else{
 			if(verbose>5) _error_("no Vertices found in the initial mesh");
@@ -350,7 +350,7 @@ namespace bamg {
 		//Triangles
 		if(bamgmesh->Triangles){
 			if(verbose>5) _printf_("      processing Triangles\n");
-			triangles =new Triangle[maxnbt]; //we cannot allocate only nbt triangles since 
+			triangles =new Triangle[maxnbt]; //we cannot allocate only nbt triangles since
 			//other triangles will be added for each edge
 			for (i=0;i<nbt;i++){
 				Triangle &t=triangles[i];
@@ -424,21 +424,21 @@ namespace bamg {
 				Hmin = Min(Hmin,l12);
 			}
 
-			// definition  the default of the given mesh size 
+			// definition  the default of the given mesh size
 			for (i=0;i<nbv;i++){
-				if (vertices[i].color>0) 
+				if (vertices[i].color>0)
 				 vertices[i].m=Metric(len[i]/(double)vertices[i].color);
-				else 
+				else
 				 vertices[i].m=Metric(Hmin);
 			}
 			delete [] len;
 
-			// construction of edges[].adj 
-			for (i=0;i<nbv;i++){ 
+			// construction of edges[].adj
+			for (i=0;i<nbv;i++){
 				vertices[i].color=(vertices[i].color ==2) ?-1:-2;
 			}
 			for (i=0;i<nbe;i++){
-				for (j=0;j<2;j++) { 
+				for (j=0;j<2;j++) {
 					BamgVertex *v=edges[i].v[j];
 					long i0=v->color,j0;
 					if(i0==-1){
@@ -480,7 +480,7 @@ namespace bamg {
 			subdomains = new SubDomain [ nbsubdomains ];
 			for (i=0;i<nbsubdomains;i++) {
 				i3  =(int)bamgmesh->SubDomains[i*3+0];
-				head=(int)bamgmesh->SubDomains[i*3+1]-1;//C indexing
+				head=(int)bamgmesh->SubDomains[i*3+1];//-1;//C indexing
 				direction=(int)bamgmesh->SubDomains[i*3+2];
 				if (i3!=3) _error_("Bad Subdomain definition: first number should be 3");
 				if (head<0 || head>=nbt) _error_("Bad Subdomain definition: head should in [1 " << nbt << "] (triangle number)");
@@ -897,7 +897,7 @@ namespace bamg {
 			else if (j==3){
 				//do not erase metric computed by hVertices
 				if (vertices[i].m.a11==1 && vertices[i].m.a21==0 && vertices[i].m.a22==1){
-					double a,b,c;	     
+					double a,b,c;
 					a=bamgopts->metric[i*3+0];
 					b=bamgopts->metric[i*3+1];
 					c=bamgopts->metric[i*3+2];
@@ -975,7 +975,7 @@ namespace bamg {
 		double hmin = Gh.MinimalHmin();
 
 		//check that hmax is positive
-		_assert_(hmax>0); 
+		_assert_(hmax>0);
 
 		//errC cannot be higher than 1
 		if(errC>1) errC=1;
@@ -997,7 +997,7 @@ namespace bamg {
 				double  R1= eg->R1tg(s,tg);
 				double  ht=hmax;
 				// err relative to the length of the edge
-				if (R1>1.0e-20) {  
+				if (R1>1.0e-20) {
 					ht = Min(Max(errC/R1,hmin),hmax);
 				}
 				double hn=Min(hmax,ht*anisomax);
@@ -1010,7 +1010,7 @@ namespace bamg {
 				edges[i][j].m.IntersectWith(MVp);
 			}
 		}
-		// the problem is for the vertex on vertex 
+		// the problem is for the vertex on vertex
 	}
 	/*}}}*/
 	void Mesh::AddMetric(BamgOpts* bamgopts){/*{{{*/
@@ -1053,7 +1053,7 @@ namespace bamg {
 		Icoor2 det3local[3];   //three determinants (integer)
 		int nbzerodet =0;      //number of zeros in det3
 		int izerodet=-1;       //egde containing the vertex s
-		int iedge; 
+		int iedge;
 
 		/*three vertices of t*/
 		BamgVertex* s0=t->GetVertex(0);
@@ -1073,8 +1073,8 @@ namespace bamg {
 			_error_("inconsistent configuration (Contact ISSM developers)");
 		}
 
-		// if det3 does not exist, build it 
-		if (!det3){ 
+		// if det3 does not exist, build it
+		if (!det3){
 			//allocate
 			det3 = det3local;
 			//if no infinite vertex
@@ -1082,7 +1082,7 @@ namespace bamg {
 				det3[0]=bamg::det(s .GetIntegerCoordinates(),s1->GetIntegerCoordinates(),s2->GetIntegerCoordinates());
 				det3[1]=bamg::det(s0->GetIntegerCoordinates(),s .GetIntegerCoordinates(),s2->GetIntegerCoordinates());
 				det3[2]=bamg::det(s0->GetIntegerCoordinates(),s1->GetIntegerCoordinates(),s.GetIntegerCoordinates());}
-			else { 
+			else {
 				// one of &s1  &s2  &s0 is NULL
 				det3[0]= s0 ? -1 : bamg::det(s.GetIntegerCoordinates(),s1->GetIntegerCoordinates(),s2->GetIntegerCoordinates()) ;
 				det3[1]= s1 ? -1 : bamg::det(s0->GetIntegerCoordinates(),s.GetIntegerCoordinates(),s2->GetIntegerCoordinates()) ;
@@ -1094,18 +1094,18 @@ namespace bamg {
 		if (!det3[1]) izerodet=1,nbzerodet++;
 		if (!det3[2]) izerodet=2,nbzerodet++;
 
-		//if nbzerodet>0, point s is on an egde or on a vertex 
-		if  (nbzerodet>0){ 
+		//if nbzerodet>0, point s is on an egde or on a vertex
+		if  (nbzerodet>0){
 			/*s is on an edge*/
 			if (nbzerodet==1) {
 				iedge = OppositeEdge[izerodet];
 				AdjacentTriangle ta = t->Adj(iedge);
 
-				/*if the point is one the boundary 
+				/*if the point is one the boundary
 				  add the point in outside part */
 				if (t->det>=0){ // inside triangle
 					if (((Triangle*)ta)->det<0 ) {
-						// add in outside triangle 
+						// add in outside triangle
 						AddVertex(s,( Triangle *)ta);
 						return;
 					}
@@ -1129,7 +1129,7 @@ namespace bamg {
 
 		*tt[1]=*tt[2]=*t;
 		tt[0]->link=tt[1];
-		tt[1]->link=tt[2]; 
+		tt[1]->link=tt[2];
 
 		(*tt[0])(OppositeVertex[0])=&s;
 		(*tt[1])(OppositeVertex[1])=&s;
@@ -1137,9 +1137,9 @@ namespace bamg {
 
 		tt[0]->det=det3[0];
 		tt[1]->det=det3[1];
-		tt[2]->det=det3[2];         
+		tt[2]->det=det3[2];
 
-		//  update adj des triangles externe 
+		//  update adj des triangles externe
 		tt[0]->SetAdjAdj(0);
 		tt[1]->SetAdjAdj(1);
 		tt[2]->SetAdjAdj(2);
@@ -1177,7 +1177,7 @@ namespace bamg {
 
 		double h1=1.e30,h2=1e-30;
 		double coef = 1./(anisomax*anisomax);
-		double hn1=1.e30,hn2=1e-30,rnx =1.e-30,rx=0;  
+		double hn1=1.e30,hn2=1e-30,rnx =1.e-30,rx=0;
 
 		//loop over all vertices
 		for (int i=0;i<nbv;i++){
@@ -1246,9 +1246,9 @@ namespace bamg {
 			edge4->SortAndAdd(GetId(edges[i][0]),GetId(edges[i][1]));
 		}
 		//check that there is no double edge
-		if (nbe !=  edge4->nb()){ 
+		if (nbe !=  edge4->nb()){
 			delete [] st;
-			_error_("Some Double edge in the mesh, the number is " << nbe << ", nbe4=" << edge4->nb()); 
+			_error_("Some Double edge in the mesh, the number is " << nbe << ", nbe4=" << edge4->nb());
 		}
 		//keep nbe in nbeold
 		long nbeold = nbe;
@@ -1278,7 +1278,7 @@ namespace bamg {
 						triangles[i].SetLocked(j);
 					}
 					//set st[k] as negative so that the edge should not be called again
-					st[k]=-2-st[k]; 
+					st[k]=-2-st[k];
 				}
 				//else (see 3 lines above), the edge has been called more than twice: return error
 				else {
@@ -1287,22 +1287,22 @@ namespace bamg {
 					_printf_("Edge " << (-st[k]+2)%3 << " of triangle " << (-st[k]+2)/3 << "\n");
 					_printf_("Edge " << triangles[(-st[k]+2)/3].NuEdgeTriangleAdj((int)((-st[k]+2)%3)) << " of triangle " << GetId(triangles[(-st[k]+2)/3].TriangleAdj((int)((-st[k]+2)%3))) << "\n");
 					_error_("An edge belongs to more than 2 triangles");
-				}	
+				}
 			}
 		}
 
 		//delete edge4
-		long nbedges = edge4->nb(); // the total number of edges 
+		long nbedges = edge4->nb(); // the total number of edges
 		delete edge4; edge4=NULL;
 
 		//display info
 		if(verbose>5) {
 			_printf_("         info on Mesh:\n");
-			_printf_("            - number of vertices    = " << nbv << "\n"); 
-			_printf_("            - number of triangles   = " << nbt << "\n"); 
-			_printf_("            - number of given edges = " << nbe << "\n"); 
-			_printf_("            - number of all edges   = " << nbedges << "\n"); 
-			_printf_("            - Euler number 1 - nb of holes = " << nbt-nbedges+nbv << "\n"); 
+			_printf_("            - number of vertices    = " << nbv << "\n");
+			_printf_("            - number of triangles   = " << nbt << "\n");
+			_printf_("            - number of given edges = " << nbe << "\n");
+			_printf_("            - number of all edges   = " << nbedges << "\n");
+			_printf_("            - Euler number 1 - nb of holes = " << nbt-nbedges+nbv << "\n");
 		}
 
 		// check consistency of edge[].adj and geometrical required  vertices
@@ -1318,7 +1318,7 @@ namespace bamg {
 				if (triangles[it].color != tt.color|| i < nbeold) k++;
 			}
 			//boundary edge (alone)
-			else if (st[i] >=0) 
+			else if (st[i] >=0)
 			 kk++;
 		}
 
@@ -1335,11 +1335,11 @@ namespace bamg {
 			//display info
 			if(verbose>4) _printf_("   Construction of the edges " << nbe << "\n");
 
-			for (i=0;i<nbedges;i++){ 
+			for (i=0;i<nbedges;i++){
 				long  add= -1;
 
 				//internal edge (belongs to two triangles)
-				if (st[i] <-1){ 
+				if (st[i] <-1){
 					it =  (-2-st[i])/3;
 					j  =  (int) ((-2-st[i])%3);
 					Triangle & tt = * triangles[it].TriangleAdj(j);
@@ -1354,10 +1354,10 @@ namespace bamg {
 				if (add>=0 && add < nbe){
 					edges[add].v[0] = &triangles[it][VerticesOfTriangularEdge[j][0]];
 					edges[add].v[1] = &triangles[it][VerticesOfTriangularEdge[j][1]];
-					edges[add].GeomEdgeHook=NULL; 
+					edges[add].GeomEdgeHook=NULL;
 					//if already existed
 					if (i<nbeold){
-						edges[add].ReferenceNumber=edgessave[i].ReferenceNumber; 		      
+						edges[add].ReferenceNumber=edgessave[i].ReferenceNumber;
 						edges[add].GeomEdgeHook=edgessave[i].GeomEdgeHook; //  HACK to get required edges
 						_printf_("oh no...\n");
 					}
@@ -1392,7 +1392,7 @@ namespace bamg {
 
 		/*Build edges[i].adj: adjacency of each edge (if on the same curve)*/
 		for (i=0;i<nbe;i++){
-			for (j=0;j<2;j++){ 
+			for (j=0;j<2;j++){
 				//get current vertex
 				BamgVertex* v=edges[i].v[j];
 				//get vertex color (i0)
@@ -1453,11 +1453,11 @@ namespace bamg {
 				//color all the adjacent triangles of T that share a non marked edge
 				int level =1;
 				int kolor=triangles[it].color;
-				st[0]=it; // stack 
+				st[0]=it; // stack
 				st[1]=0;
 				k=1;
 				while (level>0){
-					if( (j=st[level]++)<3 ){ 
+					if( (j=st[level]++)<3 ){
 						t = &triangles[st[level-1]];
 						tt=t->TriangleAdj((int)j);
 
@@ -1474,7 +1474,7 @@ namespace bamg {
 				nbsubdomains++;
 			}
 		}
-		if (verbose> 3) _printf_("      The Number of sub domain = " << nbsubdomains << "\n"); 
+		if (verbose> 3) _printf_("      The Number of sub domain = " << nbsubdomains << "\n");
 
 		//build subdomains
 		long isd;
@@ -1570,7 +1570,7 @@ namespace bamg {
 		for(i=0;i<Gh.nbv;i++) len[i]=0;
 
 		//initialize edge4 again
-		edge4= new SetOfEdges4(nbe,nbv);  
+		edge4= new SetOfEdges4(nbe,nbv);
 		double hmin = HUGE_VAL;
 		int kreq=0;
 		for (i=0;i<nbe;i++){
@@ -1588,7 +1588,7 @@ namespace bamg {
 			Gh.edges[i].tg[0]=R2();
 			Gh.edges[i].tg[1]=R2();
 
-			bool required= edges[i].GeomEdgeHook; 
+			bool required= edges[i].GeomEdgeHook;
 			if(required) kreq++;
 			edges[i].GeomEdgeHook =  Gh.edges + i;
 			if(required){
@@ -1598,7 +1598,7 @@ namespace bamg {
 			}
 
 			R2 x12 = Gh.vertices[j0].r-Gh.vertices[j1].r;
-			double l12=Norme2(x12);        
+			double l12=Norme2(x12);
 			hmin = Min(hmin,l12);
 
 			Gh.vertices[j1].color++;
@@ -1619,9 +1619,9 @@ namespace bamg {
 
 		//Build metric for all vertices of Gh
 		for (i=0;i<Gh.nbv;i++){
-		 if (Gh.vertices[i].color > 0) 
+		 if (Gh.vertices[i].color > 0)
 		  Gh.vertices[i].m=  Metric(len[i] /(double) Gh.vertices[i].color);
-		 else 
+		 else
 		  Gh.vertices[i].m=  Metric(hmin);
 		}
 		//delete len
@@ -1711,12 +1711,12 @@ namespace bamg {
 		for(i=0;i<nbt;i++){
 
 			//lopp over the real triangles (no boundary elements)
-			if(triangles[i].link){ 
+			if(triangles[i].link){
 
 				//get current triangle t
 				const Triangle &t=triangles[i];
 
-				// coor of 3 vertices 
+				// coor of 3 vertices
 				R2 A=t[0];
 				R2 B=t[1];
 				R2 C=t[2];
@@ -1785,7 +1785,7 @@ namespace bamg {
 					iB = GetId(triangles[i][1]);
 					iC = GetId(triangles[i][2]);
 
-					// value of the P1 fonction on 3 vertices 
+					// value of the P1 fonction on 3 vertices
 					sA = ss[iA*nbsol+nusol];
 					sB = ss[iB*nbsol+nusol];
 					sC = ss[iC*nbsol+nusol];
@@ -1906,15 +1906,15 @@ namespace bamg {
 		}
 
 		//Build detT Mmas Mmassxx workT and OnBoundary
-		for (i=0;i<nbt;i++){ 
+		for (i=0;i<nbt;i++){
 
 			//lopp over the real triangles (no boundary elements)
-			if(triangles[i].link){ 
+			if(triangles[i].link){
 
 				//get current triangle t
 				const Triangle &t=triangles[i];
 
-				// coor of 3 vertices 
+				// coor of 3 vertices
 				R2 A=t[0];
 				R2 B=t[1];
 				R2 C=t[2];
@@ -1961,12 +1961,12 @@ namespace bamg {
 			else workT[i]=-1;
 		}
 
-		//for all Solution  
+		//for all Solution
 		for (int nusol=0;nusol<nbsol;nusol++) {
 
 			double smin=ss[nusol],smax=ss[nusol];
 			double h1=1.e30,h2=1e-30,rx=0;
-			double hn1=1.e30,hn2=1e-30,rnx =1.e-30;  
+			double hn1=1.e30,hn2=1e-30,rnx =1.e-30;
 
 			//get min(s), max(s) and initialize Hessian (dxdx,dxdy,dydy)
 			for ( iv=0,k=0; iv<nbv; iv++ ){
@@ -1987,7 +1987,7 @@ namespace bamg {
 			}
 
 			//pointer toward ss that is also a pointer toward s (solutions)
-			double* sf=ss; 
+			double* sf=ss;
 
 				//initialize the hessian matrix
 				for ( iv=0,k=0; iv<nbv; iv++) dxdx[iv]=dxdy[iv]=dydy[iv]=0;
@@ -1995,10 +1995,10 @@ namespace bamg {
 				//loop over the triangles
 				for (i=0;i<nbt;i++){
 
-					//for real all triangles 
+					//for real all triangles
 					if(triangles[i].link){
 
-						// coor of 3 vertices 
+						// coor of 3 vertices
 						R2 A=triangles[i][0];
 						R2 B=triangles[i][1];
 						R2 C=triangles[i][2];
@@ -2007,7 +2007,7 @@ namespace bamg {
 						R2 nAB = Orthogonal(B-A);
 						R2 nBC = Orthogonal(C-B);
 						R2 nCA = Orthogonal(A-C);
-						//note that :  nAB + nBC + nCA == 0 
+						//note that :  nAB + nBC + nCA == 0
 
 						// number of the 3 vertices
 						iA = GetId(triangles[i][0]);
@@ -2015,12 +2015,12 @@ namespace bamg {
 						iC = GetId(triangles[i][2]);
 
 						// for the test of  boundary edge
-						// the 3 adj triangles 
+						// the 3 adj triangles
 						Triangle *tBC = triangles[i].TriangleAdj(OppositeEdge[0]);
 						Triangle *tCA = triangles[i].TriangleAdj(OppositeEdge[1]);
 						Triangle *tAB = triangles[i].TriangleAdj(OppositeEdge[2]);
 
-						// value of the P1 fonction on 3 vertices 
+						// value of the P1 fonction on 3 vertices
 						sA = ss[iA*nbsol+nusol];
 						sB = ss[iB*nbsol+nusol];
 						sC = ss[iC*nbsol+nusol];
@@ -2049,9 +2049,9 @@ namespace bamg {
 						if ( !tAB || !tAB->link ) nAB=O;
 
 						// remark we forgot a 1/2 because
-						//       int_{edge} w_i = 1/2 if i is in edge 
+						//       int_{edge} w_i = 1/2 if i is in edge
 						//                         0  if not
-						// if we don't take the  boundary 
+						// if we don't take the  boundary
 						dxdx[iA] += ( nCA.x + nAB.x ) *Grads.x;
 						dxdx[iB] += ( nAB.x + nBC.x ) *Grads.x;
 						dxdx[iC] += ( nBC.x + nCA.x ) *Grads.x;
@@ -2059,20 +2059,20 @@ namespace bamg {
 						//warning optimization (1) the division by 2 is done on the metric construction
 						dxdy[iA] += (( nCA.y + nAB.y ) *Grads.x + ( nCA.x + nAB.x ) *Grads.y) ;
 						dxdy[iB] += (( nAB.y + nBC.y ) *Grads.x + ( nAB.x + nBC.x ) *Grads.y) ;
-						dxdy[iC] += (( nBC.y + nCA.y ) *Grads.x + ( nBC.x + nCA.x ) *Grads.y) ; 
+						dxdy[iC] += (( nBC.y + nCA.y ) *Grads.x + ( nBC.x + nCA.x ) *Grads.y) ;
 
 						dydy[iA] += ( nCA.y + nAB.y ) *Grads.y;
 						dydy[iB] += ( nAB.y + nBC.y ) *Grads.y;
 						dydy[iC] += ( nBC.y + nCA.y ) *Grads.y;
 
-					} // for real all triangles 
+					} // for real all triangles
 				}
 
 				long kk=0;
 				for ( iv=0,k=0 ; iv<nbv; iv++){
 					if(Mmassxx[iv]>0){
 						dxdx[iv] /= 2*Mmassxx[iv];
-						// warning optimization (1) on term dxdy[iv]*ci/2 
+						// warning optimization (1) on term dxdy[iv]*ci/2
 						dxdy[iv] /= 4*Mmassxx[iv];
 						dydy[iv] /= 2*Mmassxx[iv];
 						// Compute the matrix with abs(eigen value)
@@ -2097,8 +2097,8 @@ namespace bamg {
 					else    _error_("not supported yet");
 					// do leat 2 iteration for boundary problem
 					for (int ijacobi=0;ijacobi<Max(NbJacobi,2);ijacobi++){
-						for (i=0;i<nbt;i++) 
-						 if(triangles[i].link){// the real triangles 
+						for (i=0;i<nbt;i++)
+						 if(triangles[i].link){// the real triangles
 							 // number of the 3 vertices
 							 iA = GetId(triangles[i][0]);
 							 iB = GetId(triangles[i][1]);
@@ -2110,8 +2110,8 @@ namespace bamg {
 						 }
 						for (iv=0;iv<nbv;iv++) workV[iv]=0;
 
-						for (i=0;i<nbt;i++){ 
-							if(triangles[i].link){ // the real triangles 
+						for (i=0;i<nbt;i++){
+							if(triangles[i].link){ // the real triangles
 								// number of the 3 vertices
 								iA = GetId(triangles[i][0]);
 								iB = GetId(triangles[i][1]);
@@ -2136,7 +2136,7 @@ namespace bamg {
 					vertices[iv].MetricFromHessian(dxdx[iv],dxdy[iv],dydy[iv],smin,smax,ss[iv*nbsol+nusol],bamgopts->err[nusol],bamgopts);
 				}
 
-		}// end for all solution 
+		}// end for all solution
 
 		delete [] detT;
 		delete [] Mmass;
@@ -2160,9 +2160,9 @@ namespace bamg {
 		_printf_("   nbe = " << nbe << "\n");
 		_printf_("   index:\n");
 		for (i=0;i<nbt;i++){
-			_printf_("   " << setw(4) << i+1 << ": [" 
-						<< setw(4) << (((BamgVertex *)triangles[i](0))?GetId(triangles[i][0])+1:0) << " " 
-						<< setw(4) << (((BamgVertex *)triangles[i](0))?GetId(triangles[i][1])+1:0) << " " 
+			_printf_("   " << setw(4) << i+1 << ": ["
+						<< setw(4) << (((BamgVertex *)triangles[i](0))?GetId(triangles[i][0])+1:0) << " "
+						<< setw(4) << (((BamgVertex *)triangles[i](0))?GetId(triangles[i][1])+1:0) << " "
 						<< setw(4) << (((BamgVertex *)triangles[i](0))?GetId(triangles[i][2])+1:0) << "]");
 		}
 		_printf_("   coordinates:\n");
@@ -2211,7 +2211,7 @@ namespace bamg {
 		for (int j=0;j<nbv;j++){
 			Nbswap +=  vertices[j].Optim(1,0);
 		}
-		if (verbose > 3) _printf_("      number of inforced edge = " << nbfe << ", number of swap= " << Nbswap << "\n"); 
+		if (verbose > 3) _printf_("      number of inforced edge = " << nbfe << ", number of swap= " << Nbswap << "\n");
 	}
 	/*}}}*/
 	void Mesh::FindSubDomain(int OutSide) {/*{{{*/
@@ -2220,7 +2220,7 @@ namespace bamg {
 		long int verbose=0;
 
 		if (verbose >2){
-			if (OutSide) _printf_("   Find all external sub-domain\n"); 
+			if (OutSide) _printf_("   Find all external sub-domain\n");
 			else _printf_("   Find all internal sub-domain\n");
 		  }
 		short * HeapArete = new short[nbt];
@@ -2228,54 +2228,54 @@ namespace bamg {
 		Triangle *t,*t1;
 		long k,it;
 
-		for (int itt=0;itt<nbt;itt++) 
+		for (int itt=0;itt<nbt;itt++)
 		 triangles[itt].link=0; // par defaut pas de couleur
 
 		long  NbSubDomTot =0;
-		for ( it=0;it<nbt;it++)  { 
+		for ( it=0;it<nbt;it++)  {
 			if ( ! triangles[it].link  ) {
 				t = triangles + it;
 				NbSubDomTot++;; // new composante connexe
-				long i = 0; // niveau de la pile 
+				long i = 0; // niveau de la pile
 				t->link = t ; // sd forme d'un triangle cicular link
 
-				HeapTriangle[i] =t ; 
+				HeapTriangle[i] =t ;
 				HeapArete[i] = 3;
 
 				while (i >= 0) // boucle sur la pile
-				  { while ( HeapArete[i]--) // boucle sur les 3 aretes 
-					  { 
+				  { while ( HeapArete[i]--) // boucle sur les 3 aretes
+					  {
 						int na =  HeapArete[i];
 						Triangle * tc =  HeapTriangle[i]; // triangle courant
 						if( ! tc->Locked(na)) // arete non frontiere
 						  {
 							Triangle * ta = tc->TriangleAdj(na) ; // næ triangle adjacent
 							if (ta->link == 0 ) // non deja chainer => on enpile
-							  { 
+							  {
 								i++;
 								ta->link = t->link ;  // on chaine les triangles
-								t->link = ta ;  // d'un meme sous domaine          
+								t->link = ta ;  // d'un meme sous domaine
 								HeapArete[i] = 3; // pour les 3 triangles adjacents
 								HeapTriangle[i] = ta;
 							  }}
 					  } // deplie fin de boucle sur les 3 adjacences
 					i--;
-				  }          
-			}      
+				  }
+			}
 		}
 
 		// supression de tous les sous domaine infini <=>  contient le sommet NULL
 		it =0;
 		nbtout = 0;
 		while (it<nbt) {
-			if (triangles[it].link) 
-			  { 
-				if (!( triangles[it](0) &&  triangles[it](1) &&  triangles[it](2) )) 
+			if (triangles[it].link)
+			  {
+				if (!( triangles[it](0) &&  triangles[it](1) &&  triangles[it](2) ))
 				  {
-					// infini triangle 
+					// infini triangle
 					NbSubDomTot --;
 					t=&triangles[it];
-					nbtout--;  // on fait un coup de trop. 
+					nbtout--;  // on fait un coup de trop.
 					while  (t){
 						nbtout++;
 						t1=t;
@@ -2283,7 +2283,7 @@ namespace bamg {
 						t1->link=0;
 					}
 				  }
-			  }   
+			  }
 			it++;} // end while (it<nbt)
 			if (nbt == nbtout ||  !NbSubDomTot) {
 				delete [] HeapArete;
@@ -2293,7 +2293,7 @@ namespace bamg {
 			delete [] HeapArete;
 			delete [] HeapTriangle;
 
-			if (OutSide|| !Gh.subdomains || !Gh.nbsubdomains ) 
+			if (OutSide|| !Gh.subdomains || !Gh.nbsubdomains )
 			  { // No geom sub domain
 				long i;
 				if (subdomains) delete [] subdomains;
@@ -2326,7 +2326,7 @@ namespace bamg {
 							delete [] mark;
 							_error_("k!=nbsubdomains");
 						}
-						if(OutSide) 
+						if(OutSide)
 						  {
 							//  to remove all the sub domain by parity adjacents
 							//  because in this case we have only the true boundary edge
@@ -2352,11 +2352,11 @@ namespace bamg {
 								 }
 							long  j=0;
 							for ( i=0;i<nbsubdomains;i++)
-							 if((-subdomains[i].ReferenceNumber) %2) { // good 
-								 if(i != j) 
+							 if((-subdomains[i].ReferenceNumber) %2) { // good
+								 if(i != j)
 								  Exchange(subdomains[i],subdomains[j]);
 								 j++;}
-							 else{ 
+							 else{
 								 t= subdomains[i].head;
 								 while (t){
 									 nbtout++;
@@ -2369,13 +2369,13 @@ namespace bamg {
 							nbsubdomains=j;
 						  }
 
-						delete []  mark; 
+						delete []  mark;
 
 			  }
 			else{ // find the head for all subdomains
 				if (Gh.nbsubdomains != nbsubdomains && subdomains)
 				 delete [] subdomains, subdomains=0;
-				if (! subdomains  ) 
+				if (! subdomains  )
 				 subdomains = new SubDomain[ Gh.nbsubdomains];
 				nbsubdomains =Gh.nbsubdomains;
 				CreateSingleVertexToTriangleConnectivity();
@@ -2388,14 +2388,14 @@ namespace bamg {
 				for (int i=0;i<nbsubdomains;i++) {
 					GeomEdge &eg = *Gh.subdomains[i].edge;
 					subdomains[i].ReferenceNumber = Gh.subdomains[i].ReferenceNumber;
-					// by carefull is not easy to find a edge create from a GeomEdge 
+					// by carefull is not easy to find a edge create from a GeomEdge
 					// see routine MakeGeomEdgeToEdge
 					Edge &e = *GeomEdgetoEdge[Gh.GetId(eg)];
 					_assert_(&e);
 					BamgVertex * v0 =  e(0),*v1 = e(1);
 					Triangle *t  = v0->t;
 					int direction = Gh.subdomains[i].direction;
-					// test if ge and e is in the same direction 
+					// test if ge and e is in the same direction
 					if (((eg[0].r-eg[1].r),(e[0].r-e[1].r))<0) direction = -direction ;
 					subdomains[i].direction = direction;
 					subdomains[i].edge = &e;
@@ -2406,9 +2406,9 @@ namespace bamg {
 					while (1) {
 						_assert_(v0==ta.EdgeVertex(1));
 						if (ta.EdgeVertex(0) == v1) { // ok we find the edge
-							if (direction>0)  
+							if (direction>0)
 							 subdomains[i].head=t=Adj(ta);
-							else 
+							else
 							 subdomains[i].head=t=ta;
 							if(t<triangles || t >= triangles+nbt || t->det < 0 || t->link == 0) {
 								_error_("bad definition of SubSomain " << i);
@@ -2417,12 +2417,12 @@ namespace bamg {
 							if (mark[it] >=0) {
 								break;
 							}
-							if(i != inew) 
+							if(i != inew)
 							 Exchange(subdomains[i],subdomains[inew]);
 							inew++;
 							Triangle *tt=t;
 							long kkk=0;
-							do 
+							do
 							  {
 								kkk++;
 								if (mark[GetId(tt)]>=0){
@@ -2433,7 +2433,7 @@ namespace bamg {
 							  } while (tt!=t);
 							break;
 						}
-						ta = Previous(Adj(ta));         
+						ta = Previous(Adj(ta));
 						if(t == (Triangle *) ta) {
 							_error_("bad definition of SubSomain " << i);
 						}
@@ -2445,14 +2445,14 @@ namespace bamg {
 					nbsubdomains=inew;}
 
 					for (it=0;it<nbt;it++)
-					 if ( mark[it] ==-1 ) 
+					 if ( mark[it] ==-1 )
 					  nbtout++,triangles[it].link =0;
 					delete [] GeomEdgetoEdge;
 					delete [] mark;
 
 			  }
 			nbtout=0;
-			for (it=0;it<nbt;it++) 
+			for (it=0;it<nbt;it++)
 			 if(!triangles[it].link)  nbtout++;
 	}
 	/*}}}*/
@@ -2520,7 +2520,7 @@ namespace bamg {
 			orderedvertices=NULL;
 			triangles=NULL;
 			maxnbt=0;
-		} 
+		}
 	}
 	/*}}}*/
 	void Mesh::Insert(bool random) {/*{{{*/
@@ -2557,7 +2557,7 @@ namespace bamg {
 		 * k_j1 = k_j2
 		 *
 		 * This means that
-		 *  
+		 *
 		 *  k0+j1*PN = k0+j2*PN [nbv]
 		 *  (j1-j2)*PN =0       [nbv]
 		 * since PN is a prime number larger than nbv, and nbv!=1
@@ -2571,7 +2571,7 @@ namespace bamg {
 		//Get Prime number
 		const long PrimeNumber= BigPrimeNumber(nbv);
 		int temp = rand(); if(!random) temp = 756804110;
-		int  k0=temp%nbv; 
+		int  k0=temp%nbv;
 
 		//Build orderedvertices
 		for (i=0; i<nbv; i++){
@@ -2639,7 +2639,7 @@ namespace bamg {
 			Triangle* tcvi = TriangleFindFromCoord(newvertex->i,det3); //(newvertex->i = integer coordinates)
 
 			//Add newvertex to the quadtree
-			quadtree->Add(*newvertex); 
+			quadtree->Add(*newvertex);
 
 			//Add newvertex to the existing mesh
 			AddVertex(*newvertex,tcvi,det3);
@@ -2659,7 +2659,7 @@ namespace bamg {
 		/*Original code from Frederic Hecht <hecht@ann.jussieu.fr> (BAMG v1.01, Mesh2.cpp/InsertNewPoints)*/
 
 		long int verbose=0;
-		double seuil= 1.414/2 ;// for two close point 
+		double seuil= 1.414/2 ;// for two close point
 		long i;
 		long NbSwap=0;
 		Icoor2 det3[3];
@@ -2671,7 +2671,7 @@ namespace bamg {
 		if (verbose>5) _printf_("      Try to Insert " << nbvnew << " new points\n");
 
 		//return if no new points
-		if (!nbvnew) return 0; 
+		if (!nbvnew) return 0;
 
 		/*construction of a random order*/
 		const long PrimeNumber= BigPrimeNumber(nbv)  ;
@@ -2681,7 +2681,7 @@ namespace bamg {
 		//loop over the new points
 		for (int is3=0; is3<nbvnew; is3++){
 			long j=nbvold +(k3 = (k3+PrimeNumber)%nbvnew);
-			long i=nbvold+is3; 
+			long i=nbvold+is3;
 			orderedvertices[i]= vertices + j;
 			orderedvertices[i]->ReferenceNumber=i;
 		}
@@ -2696,17 +2696,17 @@ namespace bamg {
 			vi.m.Box(hx,hy);
 			Icoor1 hi=(Icoor1) (hx*coefIcoor),hj=(Icoor1) (hy*coefIcoor);
 			if(!quadtree->ToClose(vi,seuil,hi,hj)){
-				// a good new point 
+				// a good new point
 				BamgVertex &vj = vertices[iv];
-				long  j=vj.ReferenceNumber; 
+				long  j=vj.ReferenceNumber;
 				if (&vj!=orderedvertices[j]){
 					_error_("&vj!= orderedvertices[j]");
 				}
-				if(i!=j){ 
+				if(i!=j){
 					Exchange(vi,vj);
 					Exchange(orderedvertices[j],orderedvertices[i]);
 				}
-				vj.ReferenceNumber=0; 
+				vj.ReferenceNumber=0;
 				Triangle *tcvj=TriangleFindFromCoord(vj.i,det3);
 				if (tcvj && !tcvj->link){
 					_printf_("While trying to add the following point:\n");
@@ -2717,13 +2717,13 @@ namespace bamg {
 				}
 				quadtree->Add(vj);
 				AddVertex(vj,tcvj,det3);
-				NbSwap += vj.Optim(1);          
+				NbSwap += vj.Optim(1);
 				iv++;
 			}
 			else{
 				vi.PreviousNumber = 0;
 			}
-		} 
+		}
 		if (verbose>3) {
 			_printf_("         number of new points: " << iv << "\n");
 			_printf_("         number of to close (?) points: " << nbv-iv << "\n");
@@ -2731,7 +2731,7 @@ namespace bamg {
 		}
 		nbv = iv;
 
-		for (i=nbvold;i<nbv;i++) NbSwap += vertices[i].Optim(1);  
+		for (i=nbvold;i<nbv;i++) NbSwap += vertices[i].Optim(1);
 		if (verbose>3) _printf_("   NbSwap=" << NbSwap << "\n");
 
 		NbTSwap +=  NbSwap ;
@@ -2749,22 +2749,22 @@ namespace bamg {
 		long i;
 		for ( i=0;i<Gh.nbe ; i++)
 		 e[i]=NULL;
-		for ( i=0;i<nbe ; i++) 
-		  { 
+		for ( i=0;i<nbe ; i++)
+		  {
 			Edge * ei = edges+i;
-			GeomEdge *GeomEdgeHook = ei->GeomEdgeHook; 
-			e[Gh.GetId(GeomEdgeHook)] = ei;    
+			GeomEdge *GeomEdgeHook = ei->GeomEdgeHook;
+			e[Gh.GetId(GeomEdgeHook)] = ei;
 		  }
-		for ( i=0;i<nbe ; i++) 
-		 for (int ii=0;ii<2;ii++) { 
+		for ( i=0;i<nbe ; i++)
+		 for (int ii=0;ii<2;ii++) {
 			 Edge * ei = edges+i;
 			 GeomEdge *GeomEdgeHook = ei->GeomEdgeHook;
 			 int j= ii;
-			 while (!(*GeomEdgeHook)[j].Required()) { 
+			 while (!(*GeomEdgeHook)[j].Required()) {
 				 Adj(GeomEdgeHook,j); // next geom edge
 				 j=1-j;
 				 if (e[Gh.GetId(GeomEdgeHook)])  break; // optimisation
-				 e[Gh.GetId(GeomEdgeHook)] = ei; 
+				 e[Gh.GetId(GeomEdgeHook)] = ei;
 			 }
 		 }
 
@@ -2796,9 +2796,9 @@ namespace bamg {
 
 		const  double maxsubdiv2 = maxsubdiv*maxsubdiv;
 		if(verbose>1) _printf_("   Limit the subdivision of a edges in the new mesh by " << maxsubdiv << "\n");
-		// for all the edges 
-		// if the len of the edge is to long 
-		long it,nbchange=0;    
+		// for all the edges
+		// if the len of the edge is to long
+		long it,nbchange=0;
 		double lmax=0;
 		for (it=0;it<nbt;it++){
 			Triangle &t=triangles[it];
@@ -2868,8 +2868,8 @@ namespace bamg {
 	/*}}}*/
 	BamgVertex* Mesh::NearestVertex(Icoor1 i,Icoor1 j) {/*{{{*/
 		/*Original code from Frederic Hecht <hecht@ann.jussieu.fr> (BAMG v1.01, Mesh2.cpp/NearestVertex)*/
-		return  quadtree->NearestVertex(i,j); 
-	} 
+		return  quadtree->NearestVertex(i,j);
+	}
 	/*}}}*/
 	void  Mesh::NewPoints(Mesh & Bh,BamgOpts* bamgopts,int KeepVertices){/*{{{*/
 		/*Original code from Frederic Hecht <hecht@ann.jussieu.fr> (BAMG v1.01, Mesh2.cpp/NewPoints)*/
@@ -2890,7 +2890,7 @@ namespace bamg {
 		if(KeepVertices && (&Bh != this) && (nbv+Bh.nbv< maxnbv)){
 			if (verbose>5) _printf_("         Inserting initial mesh points\n");
 			bool pointsoutside = false;
-			for(i=0;i<Bh.nbv;i++){ 
+			for(i=0;i<Bh.nbv;i++){
 				BamgVertex &bv=Bh[i];
 				/*Do not insert if the point is outside*/
 				long long det3[3];
@@ -2899,9 +2899,9 @@ namespace bamg {
 					pointsoutside = true;
 					continue;
 				}
-				double area_1=((bv.r.x -(*tcvj)(2)->r.x)*((*tcvj)(1)->r.y-(*tcvj)(2)->r.y) 
+				double area_1=((bv.r.x -(*tcvj)(2)->r.x)*((*tcvj)(1)->r.y-(*tcvj)(2)->r.y)
 						- (bv.r.y -(*tcvj)(2)->r.y)*((*tcvj)(1)->r.x-(*tcvj)(2)->r.x));
-				double area_2=(((*tcvj)(0)->r.x -(*tcvj)(2)->r.x)*(bv.r.y -(*tcvj)(2)->r.y) 
+				double area_2=(((*tcvj)(0)->r.x -(*tcvj)(2)->r.x)*(bv.r.y -(*tcvj)(2)->r.y)
 						- ((*tcvj)(0)->r.y -(*tcvj)(2)->r.y)*(bv.r.x -(*tcvj)(2)->r.x));
 				double area_3 =((bv.r.x -(*tcvj)(1)->r.x)*((*tcvj)(0)->r.y-(*tcvj)(1)->r.y)
 						- (bv.r.y -(*tcvj)(1)->r.y)*((*tcvj)(0)->r.x-(*tcvj)(1)->r.x));
@@ -2916,12 +2916,12 @@ namespace bamg {
 				}
 			}
 			if(pointsoutside) _printf_("WARNING: One or more points of the initial mesh fall outside of the geometric boundary\n");
-			Bh.CreateSingleVertexToTriangleConnectivity();     
+			Bh.CreateSingleVertexToTriangleConnectivity();
 			InsertNewPoints(nbvold,NbTSwap,bamgopts->random);
 		}
-		else Bh.CreateSingleVertexToTriangleConnectivity();     
+		else Bh.CreateSingleVertexToTriangleConnectivity();
 
-		// generation of the list of next Triangle 
+		// generation of the list of next Triangle
 		for(i=0;i<nbt;i++) first_np_or_next_t[i]=-(i+1);
 		// the next traingle of i is -first_np_or_next_t[i]
 
@@ -2944,7 +2944,7 @@ namespace bamg {
 					_error_("Index problem in NewPoints (i=" << i << " not in [0 " << nbt-1 << "])");
 				}
 				//change first_np_or_next_t[i]
-				first_np_or_next_t[i] = iter; 
+				first_np_or_next_t[i] = iter;
 
 				//Loop over the edges of t
 				for(j=0;j<3;j++){
@@ -2957,11 +2957,11 @@ namespace bamg {
 					if (t->det <0)    continue;
 					if (t->Locked(j)) continue;
 
-					AdjacentTriangle tadjj = t->Adj(j);	  
+					AdjacentTriangle tadjj = t->Adj(j);
 					Triangle* ta=tadjj;
 
 					//if the adjacent triangle is a boundary triangle, continur
-					if (ta->det<0) continue;	  
+					if (ta->det<0) continue;
 
 					R2 A=vA;
 					R2 B=vB;
@@ -2972,20 +2972,20 @@ namespace bamg {
 
 					lIntTria.SplitEdge(Bh,A,B);
 					lIntTria.NewPoints(vertices,nbv,maxnbv);
-				} // end loop for each edge 
-			}// for triangle   
+				} // end loop for each edge
+			}// for triangle
 
 			if (!InsertNewPoints(nbvold,NbTSwap,bamgopts->random)) break;
 			for (i=nbtold;i<nbt;i++) first_np_or_next_t[i]=iter;
-			Headt = nbt; // empty list 
+			Headt = nbt; // empty list
 
 			// for all the triangle containing the vertex i
-			for (i=nbvold;i<nbv;i++){ 
+			for (i=nbvold;i<nbv;i++){
 				BamgVertex*          s  = vertices + i;
 				AdjacentTriangle ta(s->t, EdgesVertexTriangle[s->IndexInTriangle][1]);
 				Triangle*        tbegin= (Triangle*) ta;
 				long kt;
-				do { 
+				do {
 					kt = GetId((Triangle*) ta);
 					if (first_np_or_next_t[kt]>0){
 						first_np_or_next_t[kt]=-Headt;
@@ -2995,7 +2995,7 @@ namespace bamg {
 						_error_("ta.EdgeVertex(0)!=s");
 					}
 					ta = Next(Adj(ta));
-				} while ( (tbegin != (Triangle*) ta)); 
+				} while ( (tbegin != (Triangle*) ta));
 			}
 
 		}while(nbv!=nbvold);
@@ -3021,7 +3021,7 @@ namespace bamg {
 		}
 		else {
 			_error_("ProjectOnCurve On BamgVertex " << BTh.GetId(vA) << " forget call to SetVertexFieldOnBTh");
-		} 
+		}
 
 		if (vB.IndexInTriangle == IsVertexOnVertex){
 			pB=vB.BackgroundVertexHook;
@@ -3032,28 +3032,28 @@ namespace bamg {
 		}
 		else {
 			_error_("ProjectOnCurve On BamgVertex " << BTh.GetId(vB) << " forget call to SetVertexFieldOnBTh");
-		} 
+		}
 		Edge * e = &BhAB;
 		if (!pA || !pB || !e){
 			_error_("!pA || !pB || !e");
 		}
-		// be carefull the back ground edge e is on same geom edge 
+		// be carefull the back ground edge e is on same geom edge
 		// of the initiale edge def by the 2 vertex A B;
-		//check Is a background Mesh;   
+		//check Is a background Mesh;
 		if (e<BTh.edges || e>=BTh.edges+BTh.nbe){
 			_error_("e<BTh.edges || e>=BTh.edges+BTh.nbe");
 		}
-		// walk on BTh edge 
+		// walk on BTh edge
 		//not finish ProjectOnCurve with BackGround Mesh);
 		// 1 first find a back ground edge contening the vertex A
 		// 2 walk n back gound boundary to find the final vertex B
 
-		if( vA.IndexInTriangle == IsVertexOnEdge) 
-		  { // find the start edge 
-			e = vA.BackgroundEdgeHook->be;	 
+		if( vA.IndexInTriangle == IsVertexOnEdge)
+		  { // find the start edge
+			e = vA.BackgroundEdgeHook->be;
 
-		  } 
-		else if (vB.IndexInTriangle == IsVertexOnEdge) 
+		  }
+		else if (vB.IndexInTriangle == IsVertexOnEdge)
 		  {
 			theta = 1-theta;
 			Exchange(tA,tB);
@@ -3062,8 +3062,8 @@ namespace bamg {
 			Exchange(A,B);
 			e =  vB.BackgroundEdgeHook->be;
 
-		  } 
-		else{ // do the search by walking 
+		  }
+		else{ // do the search by walking
 			_error_("case not supported yet");
 		}
 
@@ -3080,16 +3080,16 @@ namespace bamg {
 		for (int step=0;step<2;step++){
 			// 2 times algo:
 			//    1 for computing the length l
-			//    2 for find the vertex 
+			//    2 for find the vertex
 			int  iii;
-			BamgVertex  *v0=pvA,*v1; 
+			BamgVertex  *v0=pvA,*v1;
 			Edge *neee,*eee;
-			double lg =0; // length of the curve 
+			double lg =0; // length of the curve
 			double te0;
-			// we suppose take the curve's abcisse 
+			// we suppose take the curve's abcisse
 			for ( eee=e,iii=direction,te0=tA;
 						eee && ((( void*) eee) != pB) && (( void*) (v1=&((*eee)[iii]))) != pB ;
-						neee = eee->adj[iii],iii = 1-neee->Intersection(*eee),eee = neee,v0=v1,te0=1-iii ) { 
+						neee = eee->adj[iii],iii = 1-neee->Intersection(*eee),eee = neee,v0=v1,te0=1-iii ) {
 
 				kkk=kkk+1;
 				_assert_(kkk<100);
@@ -3097,7 +3097,7 @@ namespace bamg {
 				double lg0 = lg;
 				double dp = LengthInterpole(v0->m,v1->m,(R2) *v1 - (R2) *v0);
 				lg += dp;
-				if (step && abscisse <= lg) { // ok we find the geom edge 
+				if (step && abscisse <= lg) { // ok we find the geom edge
 					double sss  =   (abscisse-lg0)/dp;
 					double thetab = te0*(1-sss)+ sss*iii;
 					_assert_(thetab>=0 && thetab<=1);
@@ -3105,7 +3105,7 @@ namespace bamg {
 					return  Gh.ProjectOnCurve(*eee,thetab,R,GR);
 				}
 			}
-			// we find the end 
+			// we find the end
 			if (v1 != pvB){
 				if (( void*) v1 == pB)
 				 tB = iii;
@@ -3114,10 +3114,10 @@ namespace bamg {
 				_assert_(eee);
 				v1 = pvB;
 				double dp = LengthInterpole(v0->m,v1->m,(R2) *v1 - (R2) *v0);
-				lg += dp;	
+				lg += dp;
 				abscisse = lg*theta;
 				if (abscisse <= lg && abscisse >= lg0 ) // small optimisation we know the lenght because end
-				  { // ok we find the geom edge 
+				  { // ok we find the geom edge
 					double sss  =   (abscisse-lg0)/dp;
 					double thetab = te0*(1-sss)+ sss*tB;
 					_assert_(thetab>=0 && thetab<=1);
@@ -3129,8 +3129,8 @@ namespace bamg {
 
 		}
 		_error_("Big bug...");
-		return 0; // just for the compiler 
-	}                  
+		return 0; // just for the compiler
+	}
 	/*}}}*/
 	void Mesh::ReconstructExistingMesh(){/*{{{*/
 		/*Original code from Frederic Hecht <hecht@ann.jussieu.fr> (BAMG v1.01, Mesh2.cpp/FillHoleInMesh)*/
@@ -3150,7 +3150,7 @@ namespace bamg {
 
 		// find extrema coordinates of vertices pmin,pmax
 		long i;
-		if(verbose>2) _printf_("      Reconstruct mesh of " << nbv << " vertices\n"); 
+		if(verbose>2) _printf_("      Reconstruct mesh of " << nbv << " vertices\n");
 
 		//initialize orderedvertices
 		_assert_(orderedvertices);
@@ -3167,7 +3167,7 @@ namespace bamg {
 		for (i=0;i<nbe;i++){
 			kk=kk+(i==edge4->SortAndAdd(GetId(edges[i][0]),GetId(edges[i][1])));
 		}
-		if (kk != nbe){ 
+		if (kk != nbe){
 			_error_("There are " << kk-nbe << " double edges in the mesh");
 		}
 
@@ -3195,7 +3195,7 @@ namespace bamg {
 					if (k<nbe)     triangles[i].SetLocked(j);
 
 					//Make st[k] negative so that it will throw an error message if it is found again
-					st[k]=-2-st[k]; 
+					st[k]=-2-st[k];
 				}
 
 				//An edge belongs to 2 triangles
@@ -3208,17 +3208,17 @@ namespace bamg {
 		//Display info if required
 		if(verbose>5) {
 			_printf_("         info of Mesh:\n");
-			_printf_("            - number of vertices    = " << nbv << " \n"); 
-			_printf_("            - number of triangles   = " << nbt << " \n"); 
-			_printf_("            - number of given edges = " << nbe << " \n"); 
-			_printf_("            - number of all edges   = " << edge4->nb() << "\n"); 
-			_printf_("            - Euler number 1 - nb of holes = " << nbt-edge4->nb()+nbv << "\n"); 
+			_printf_("            - number of vertices    = " << nbv << " \n");
+			_printf_("            - number of triangles   = " << nbt << " \n");
+			_printf_("            - number of given edges = " << nbe << " \n");
+			_printf_("            - number of all edges   = " << edge4->nb() << "\n");
+			_printf_("            - Euler number 1 - nb of holes = " << nbt-edge4->nb()+nbv << "\n");
 		}
 
 		//check the consistency of edge[].adj and the geometrical required vertex
 		long k=0;
 		for (i=0;i<edge4->nb();i++){
-			if (st[i]>=0){ // edge alone 
+			if (st[i]>=0){ // edge alone
 				if (i<nbe){
 					long i0=edge4->i(i);
 					orderedvertices[i0] = vertices+i0;
@@ -3243,7 +3243,7 @@ namespace bamg {
 
 		/* mesh generation with boundary points*/
 		long nbvb=0;
-		for (i=0;i<nbv;i++){ 
+		for (i=0;i<nbv;i++){
 			vertices[i].t=0;
 			vertices[i].IndexInTriangle=0;
 			if (orderedvertices[i]) orderedvertices[nbvb++]=orderedvertices[i];
@@ -3263,7 +3263,7 @@ namespace bamg {
 		maxnbt= Nbtriafillhole;
 
 		//Find a vertex that is not aligned with vertices 0 and 1
-		for (i=2;det(orderedvertices[0]->i,orderedvertices[1]->i,orderedvertices[i]->i)==0;) 
+		for (i=2;det(orderedvertices[0]->i,orderedvertices[1]->i,orderedvertices[i]->i)==0;)
 		 if  (++i>=nbvb) {
 			 _error_("ReconstructExistingMesh: All the vertices are aligned");
 		 }
@@ -3307,12 +3307,12 @@ namespace bamg {
 			BamgVertex *vi  = orderedvertices[icount];
 			Icoor2 det3[3];
 			Triangle *tcvi = TriangleFindFromCoord(vi->i,det3);
-			quadtree->Add(*vi); 
+			quadtree->Add(*vi);
 			AddVertex(*vi,tcvi,det3);
 			NbSwap += vi->Optim(1,1);
 		}
 
-		//enforce the boundary 
+		//enforce the boundary
 		AdjacentTriangle ta(0,0);
 		long nbloss = 0,knbe=0;
 		for ( i = 0; i < nbe; i++){
@@ -3329,7 +3329,7 @@ namespace bamg {
 		}
 
 		FindSubDomain(1);
-		// remove all the hole 
+		// remove all the hole
 		// remove all the good sub domain
 		long krm =0;
 		for (i=0;i<nbt;i++){
@@ -3338,8 +3338,8 @@ namespace bamg {
 				for (int j=0;j<3;j++){
 					AdjacentTriangle ta =  triangles[i].Adj(j);
 					Triangle &tta = *(Triangle*)ta;
-					//if edge between remove and not remove 
-					if(! tta.link){ 
+					//if edge between remove and not remove
+					if(! tta.link){
 						// change the link of ta;
 						int ja = ta;
 						BamgVertex *v0= ta.EdgeVertex(0);
@@ -3349,7 +3349,7 @@ namespace bamg {
 						_assert_(st[k]>=0);
 						tta.SetAdj2(ja,savetriangles + st[k] / 3,(int) (st[k]%3));
 						ta.SetLock();
-						st[k]=-2-st[k]; 
+						st[k]=-2-st[k];
 					}
 				}
 			}
@@ -3366,7 +3366,7 @@ namespace bamg {
 		}
 		_assert_(savenbt+NbTfillHoll<=savemaxnbt);
 
-		// copy of the outside triangles in saveMesh 
+		// copy of the outside triangles in saveMesh
 		for (i=0;i<nbt;i++){
 			if(triangles[i].color>=0) {
 				savetriangles[savenbt]=triangles[i];
@@ -3377,13 +3377,13 @@ namespace bamg {
 		// gestion of the adj
 		k =0;
 		Triangle * tmax = triangles + nbt;
-		for (i=0;i<savenbt;i++) { 
+		for (i=0;i<savenbt;i++) {
 			Triangle & ti = savetriangles[i];
 			for (int j=0;j<3;j++){
 				Triangle * ta = ti.TriangleAdj(j);
 				int aa = ti.NuEdgeTriangleAdj(j);
 				int lck = ti.Locked(j);
-				if (!ta) k++; // bug 
+				if (!ta) k++; // bug
 				else if ( ta >= triangles && ta < tmax){
 					ta= savetriangles + ta->color;
 					ti.SetAdj2(j,ta,aa);
@@ -3455,7 +3455,7 @@ namespace bamg {
 		}
 		R2 DD = (pmax-pmin)*0.05;
 		pmin = pmin-DD;
-		pmax = pmax+DD; 
+		pmax = pmax+DD;
 
 		//Compute coefIcoor
 		coefIcoor= (MaxICoor)/(Max(pmax.x-pmin.x,pmax.y-pmin.y));
@@ -3463,12 +3463,12 @@ namespace bamg {
 			_error_("coefIcoor should be positive, a problem in the geometry is likely");
 		}
 
-		// generation of integer coord  
+		// generation of integer coord
 		for (i=0;i<nbv;i++) {
-			vertices[i].i = R2ToI2(vertices[i].r);    
+			vertices[i].i = R2ToI2(vertices[i].r);
 		}
 
-		// computation of the det 
+		// computation of the det
 		int number_of_errors=0;
 		for (i=0;i<nbt;i++) {
 			BamgVertex* v0 = triangles[i](0);
@@ -3514,7 +3514,7 @@ namespace bamg {
 		double logseuil= log(raisonmax);
 
 		for(i=0;i<nbv-1;i++)
-		 first_np_or_next_t0[i]=i+1; 
+		 first_np_or_next_t0[i]=i+1;
 		first_np_or_next_t0[nbv-1]=-1;// end;
 		for(i=0;i<nbv;i++)
 		 first_np_or_next_t1[i]=-1;
@@ -3543,7 +3543,7 @@ namespace bamg {
 						}
 						R2 Aij = (R2) vj - (R2) vi;
 						double ll =  Norme2(Aij);
-						if (0) {  
+						if (0) {
 							double hi = ll/vi.m(Aij);
 							double hj = ll/vj.m(Aij);
 							if(hi < hj)
@@ -3555,12 +3555,12 @@ namespace bamg {
 									 kch++,first_np_or_next_t1[j]=Head1,Head1=j;
 								}
 							  }
-						} 
+						}
 						else
 						  {
 							double li = vi.m(Aij);
 							if( vj.m.IntersectWith(vi.m/(1 +logseuil*li)) )
-							 if(first_np_or_next_t1[j]<0) // if the metrix change 
+							 if(first_np_or_next_t1[j]<0) // if the metrix change
 							  kch++,first_np_or_next_t1[j]=Head1,Head1=j;
 						  }
 					}
@@ -3571,7 +3571,7 @@ namespace bamg {
 			Head1 = -1;
 			Exchange(first_np_or_next_t0,first_np_or_next_t1);
 		}
-		if(verbose>2) _printf_("      number of iterations = " << kch << "\n"); 
+		if(verbose>2) _printf_("      number of iterations = " << kch << "\n");
 		delete [] first_np_or_next_t0;
 		delete [] first_np_or_next_t1;
 	}
@@ -3587,16 +3587,16 @@ namespace bamg {
 		Triangle vide; // a triangle to mark the boundary vertex
 		Triangle   ** tstart= new Triangle* [nbv];
 		long i,j,k;
-		//   attention si Background == Triangle alors on ne peut pas utiliser la rechech rapide 
+		//   attention si Background == Triangle alors on ne peut pas utiliser la rechech rapide
 		if ( this == & BTh)
 		 for ( i=0;i<nbv;i++)
-		  tstart[i]=vertices[i].t;     
-		else 
+		  tstart[i]=vertices[i].t;
+		else
 		 for ( i=0;i<nbv;i++)
 		  tstart[i]=0;
-		for ( j=0;j<NbVerticesOnGeomVertex;j++ ) 
+		for ( j=0;j<NbVerticesOnGeomVertex;j++ )
 		 tstart[ GetId(VerticesOnGeomVertex[j].meshvertex)]=&vide;
-		for ( k=0;k<NbVerticesOnGeomEdge;k++ ) 
+		for ( k=0;k<NbVerticesOnGeomEdge;k++ )
 		 tstart[ GetId(VerticesOnGeomEdge[k].meshvertex)]=&vide;
 		if(verbose>2) _printf_("   SmoothingVertex: nb Iteration = " << nbiter << ", Omega=" << omega << "\n");
 		for (k=0;k<nbiter;k++)
@@ -3604,10 +3604,10 @@ namespace bamg {
 			long i,NbSwap =0;
 			double delta =0;
 			for ( i=0;i<nbv;i++)
-			 if (tstart[i] != &vide) // not a boundary vertex 
+			 if (tstart[i] != &vide) // not a boundary vertex
 			  delta=Max(delta,vertices[i].Smoothing(*this,BTh,tstart[i],omega));
 			for ( i=0;i<nbv;i++)
-			 if (tstart[i] != &vide) // not a boundary vertex 
+			 if (tstart[i] != &vide) // not a boundary vertex
 			  NbSwap += vertices[i].Optim(1);
 			if (verbose>3) _printf_("      move max = " << pow(delta,0.5) << ", iteration = " << k << ", nb of swap = " << NbSwap << "\n");
 		  }
@@ -3620,7 +3620,7 @@ namespace bamg {
 		/*Original code from Frederic Hecht <hecht@ann.jussieu.fr> (BAMG v1.01, Mesh2.cpp/SplitInternalEdgeWithBorderVertices)*/
 
 		long NbSplitEdge=0;
-		SetVertexFieldOn();  
+		SetVertexFieldOn();
 		long it;
 		long nbvold=nbv;
 		long int verbose=2;
@@ -3630,8 +3630,8 @@ namespace bamg {
 			 for (int j=0;j<3;j++)
 			  if(!t.Locked(j) && !t.Hidden(j)){
 				  Triangle &tt = *t.TriangleAdj(j);
-				  if ( &tt && tt.link && it < GetId(tt)) 
-					 { // an internal edge 
+				  if ( &tt && tt.link && it < GetId(tt))
+					 { // an internal edge
 					  BamgVertex &v0 = t[VerticesOfTriangularEdge[j][0]];
 					  BamgVertex &v1 = t[VerticesOfTriangularEdge[j][1]];
 					  if (v0.GeomEdgeHook && v1.GeomEdgeHook){
@@ -3647,18 +3647,18 @@ namespace bamg {
 					 }
 			  }
 		}
-		CreateSingleVertexToTriangleConnectivity();    
+		CreateSingleVertexToTriangleConnectivity();
 		if (nbvold!=nbv){
 			long  iv = nbvold;
 			long NbSwap = 0;
-			Icoor2 det3[3];  
+			Icoor2 det3[3];
 			for (int i=nbvold;i<nbv;i++) {// for all the new point
 				BamgVertex & vi = vertices[i];
 				vi.i = R2ToI2(vi.r);
 				vi.r = I2ToR2(vi.i);
 
-				// a good new point 
-				vi.ReferenceNumber=0; 
+				// a good new point
+				vi.ReferenceNumber=0;
 				vi.DirOfSearch =NoDirOfSearch;
 				Triangle *tcvi = TriangleFindFromCoord(vi.i,det3);
 				if (tcvi && !tcvi->link) {
@@ -3670,7 +3670,7 @@ namespace bamg {
 					_error_("!tcvi || tcvi->det < 0");
 				}
 				AddVertex(vi,tcvi,det3);
-				NbSwap += vi.Optim(1);          
+				NbSwap += vi.Optim(1);
 				iv++;
 			}
 			if (verbose>3) {
@@ -3696,7 +3696,7 @@ namespace bamg {
 	Triangle * Mesh::TriangleFindFromCoord(const I2 & B,Icoor2 det3[3], Triangle *tstart) const {/*{{{*/
 		/*Original code from Frederic Hecht <hecht@ann.jussieu.fr> (BAMG v1.01, Mesh2.cpp/FindTriangleContening)*/
 
-		Triangle * t=0;	
+		Triangle * t=0;
 		int j,jp,jn,jj;
 		int counter;
 
@@ -3725,19 +3725,19 @@ namespace bamg {
 		Icoor2  detop ;
 
 		/*initialize number of test triangle*/
-		counter=0; 
+		counter=0;
 
 		/*The initial triangle might be outside*/
-		while (t->det < 0){ 
+		while (t->det < 0){
 
 			/*Get a real vertex from this triangle (k0)*/
 			int k0=(*t)(0)?(((*t)(1)?((*t)(2)?-1:2):1)):0;
 			_assert_(k0>=0);// k0 the NULL vertex
 			int k1=NextVertex[k0],k2=PreviousVertex[k0];
 			det3[k0]=det(B,(*t)[k1],(*t)[k2]);
-			det3[k1]=det3[k2]=-1;     
-			if (det3[k0] > 0) // outside B 
-			 return t; 
+			det3[k1]=det3[k2]=-1;
+			if (det3[k0] > 0) // outside B
+			 return t;
 			t = t->TriangleAdj(OppositeEdge[k0]);
 			counter++;
 			_assert_(counter<2);
@@ -3760,7 +3760,7 @@ namespace bamg {
 
 			// count the number k of  det3 <0
 			int k=0,ii[3];
-			if (det3[0] < 0 ) ii[k++]=0; 
+			if (det3[0] < 0 ) ii[k++]=0;
 			if (det3[1] < 0 ) ii[k++]=1;
 			if (det3[2] < 0 ) ii[k++]=2;
 			// 0 => ok
@@ -3779,7 +3779,7 @@ namespace bamg {
 			jj = j;
 		}
 
-		if (t->det<0) // outside triangle 
+		if (t->det<0) // outside triangle
 		 det3[0]=det3[1]=det3[2]=-1,det3[OppositeVertex[jj]]=detop;
 		return t;
 	}
@@ -3791,20 +3791,20 @@ namespace bamg {
 			if (triangles[i].det>0) renumbering[i]=num++;
 			else renumbering[i]=-1;
 		}
-		return;   
+		return;
 	}
 	/*}}}*/
 	long  Mesh::TriangleReferenceList(long* reft) const {/*{{{*/
 		/*Original code from Frederic Hecht <hecht@ann.jussieu.fr> (BAMG v1.01, Mesh2.cpp/ConsRefTriangle)*/
 
 		Triangle *t0,*t;
-		long k=0, num;   
+		long k=0, num;
 
 		//initialize all triangles as -1 (outside)
 		for (int it=0;it<nbt;it++) reft[it]=-1;
 
 		//loop over all subdomains
-		for (int i=0;i<nbsubdomains;i++){ 
+		for (int i=0;i<nbsubdomains;i++){
 
 			//first triangle of the subdomain i
 			t=t0=subdomains[i].head;
@@ -3829,7 +3829,7 @@ namespace bamg {
 			//stop when all triangles of subdomains have been tagged
 
 		}
-		return k;   
+		return k;
 	}
 	/*}}}*/
 	void Mesh::Triangulate(double* x,double* y,int nods){/*{{{*/
@@ -3852,7 +3852,7 @@ namespace bamg {
 			vertices[i].m=M1;
 			vertices[i].color=0;
 		}
-		maxnbt=2*maxnbv-2; // for filling The Holes and quadrilaterals 
+		maxnbt=2*maxnbv-2; // for filling The Holes and quadrilaterals
 
 		/*Insert Vertices*/
 		Insert(true);
@@ -3890,7 +3890,7 @@ namespace bamg {
 			if (Gh[i].Required()) NbVerticesOnGeomVertex++;
 		}
 		//allocate
-		VerticesOnGeomVertex = new VertexOnGeom[NbVerticesOnGeomVertex];  
+		VerticesOnGeomVertex = new VertexOnGeom[NbVerticesOnGeomVertex];
 		if(NbVerticesOnGeomVertex >= maxnbv) _error_("too many vertices on geometry: " << NbVerticesOnGeomVertex << " >= " << maxnbv);
 		_assert_(nbv==0);
 		//Build VerticesOnGeomVertex
@@ -3930,20 +3930,20 @@ namespace bamg {
 			long nbex=0;
 			nbe=0;
 			long NbVerticesOnGeomEdge0=NbVerticesOnGeomEdge;
-			Gh.UnMarkEdges();	
+			Gh.UnMarkEdges();
 			nbcurves=0;
 
 			//go through the edges of the geometry
 			for (i=0;i<Gh.nbe;i++){
 
 				//ei = current Geometrical edge
-				GeomEdge &ei=Gh.edges[i];   
+				GeomEdge &ei=Gh.edges[i];
 
 				//loop over the two vertices of the edge ei
 				for(int j=0;j<2;j++) {
 
 					/*Take only required vertices (corner->beginning of a new curve)*/
-					if (!ei.Mark() && ei[j].Required()){ 
+					if (!ei.Mark() && ei[j].Required()){
 
 						long  nbvend=0;
 						Edge* PreviousNewEdge=NULL;
@@ -3954,7 +3954,7 @@ namespace bamg {
 							if (j==0){
 								//do not create internal points if required (take it as is)
 								if(step==0) nbe++;
-								else{ 
+								else{
 									e=&ei;
 									a=ei(0);
 									b=ei(1);
@@ -3992,7 +3992,7 @@ namespace bamg {
 								e->SetMark();   // Mark edge
 
 								/*Loop until we reach the end of the curve*/
-								for(;;){ 
+								for(;;){
 									k = 1-k;            // other vertx index of the curve
 									b = (*e)(k);        // b = pointer toward the other vertex of the current edge
 									AB= b->r - a->r;   // AB = vector of the current edge
@@ -4022,12 +4022,12 @@ namespace bamg {
 										/*Now, we are going to divide the edge according to the metric.
 										 * Get segment by sement along the edge.
 										 * Build lSubEdge, which holds the distance between the first vertex
-										 * of the edge and the next point on the edge according to the 
+										 * of the edge and the next point on the edge according to the
 										 * discretization (each SubEdge is AB)*/
 										R2 A,B;
 										A=a->r;
 										Metric MAs=MA,MBs;
-										ledge=0; 
+										ledge=0;
 										double x =0, xstep= 1./NbSubEdge;
 										for (int kk=0; kk < NbSubEdge; kk++,A=B,MAs=MBs ) {
 											x += xstep;
@@ -4082,7 +4082,7 @@ namespace bamg {
 										vb->DirOfSearch =NoDirOfSearch;
 										double abcisse = k ? bb : aa;
 										vb->r =  e->F(abcisse);
-										VerticesOnGeomEdge[NbVerticesOnGeomEdge++]= VertexOnGeom(*vb,*e,abcisse);        
+										VerticesOnGeomEdge[NbVerticesOnGeomEdge++]= VertexOnGeom(*vb,*e,abcisse);
 
 										// to take into account the direction of the edge
 										s += lstep;
@@ -4119,10 +4119,10 @@ namespace bamg {
 									NbVerticesOnGeomEdge0 += NbNewPoints;
 									nbcurves++;
 								}
-								nbvend=nbv+NbNewPoints; 
+								nbvend=nbv+NbNewPoints;
 								lstep = lcurve / NbEdgeCurve; //approximately one
 							}// end of curve --
-							if (edges) { // last edges of the curves 
+							if (edges) { // last edges of the curves
 								edges[nbe].v[0]=va;
 								edges[nbe].v[1]=vb;
 								edges[nbe].ReferenceNumber = e->ReferenceNumber;
@@ -4146,7 +4146,7 @@ namespace bamg {
 
 				// do the vertex on a geometrical vertex
 				_assert_(VerticesOnGeomEdge || NbVerticesOnGeomEdge0==0);
-				NbVerticesOnGeomEdge0 = NbVerticesOnGeomEdge;       
+				NbVerticesOnGeomEdge0 = NbVerticesOnGeomEdge;
 			}
 			else{
 				_assert_(NbVerticesOnGeomEdge==NbVerticesOnGeomEdge0);
@@ -4180,21 +4180,21 @@ namespace bamg {
 
 		Gh.NbRef++;// add a ref to Gh
 
-		/************************************************************************* 
+		/*************************************************************************
 		 * method in 2 steps
 		 * 1 - compute the number of new edges to allocate
 		 * 2 - construct the edges
 		 * remark:
-		 * in this part we suppose to have a background mesh with the same geometry 
-		 * 
-		 * To construct the discretization of the new mesh we have to 
-		 * rediscretize the boundary of background Mesh 
+		 * in this part we suppose to have a background mesh with the same geometry
+		 *
+		 * To construct the discretization of the new mesh we have to
+		 * rediscretize the boundary of background Mesh
 		 * because we have only the pointeur from the background mesh to the geometry.
 		 * We need the abcisse of the background mesh vertices on geometry
-		 * so a vertex is 
+		 * so a vertex is
 		 * 0 on GeomVertex ;
 		 * 1 on GeomEdge + abcisse
-		 * 2 internal 
+		 * 2 internal
 		 *************************************************************************/
 
 		//Check that background mesh and current mesh do have the same geometry
@@ -4203,10 +4203,10 @@ namespace bamg {
 
 		//Initialize new mesh
 		BTh.SetVertexFieldOn();
-		int* bcurve = new int[Gh.nbcurves]; // 
+		int* bcurve = new int[Gh.nbcurves]; //
 
-		/* There are 2 ways to make the loop 
-		 * 1) on the geometry 
+		/* There are 2 ways to make the loop
+		 * 1) on the geometry
 		 * 2) on the background mesh
 		 *  if you do the loop on geometry, we don't have the pointeur on background,
 		 *  and if you do the loop in background we have the pointeur on geometry
@@ -4217,7 +4217,7 @@ namespace bamg {
 
 		/*STEP 1 copy of Required vertices*/
 
-		int i; 
+		int i;
 		for (i=0;i<Gh.nbv;i++) if (Gh[i].Required()) NbVerticesOnGeomVertex++;
 		printf("\n");
 		if(NbVerticesOnGeomVertex >= maxnbv){
@@ -4238,8 +4238,8 @@ namespace bamg {
 				nbv++;
 			}
 			else Gh[i].MeshVertexHook=0;
-		} 
-		for (i=0;i<BTh.NbVerticesOnGeomVertex;i++){ 
+		}
+		for (i=0;i<BTh.NbVerticesOnGeomVertex;i++){
 			VertexOnGeom &vog=BTh.VerticesOnGeomVertex[i];
 			if (vog.IsRequiredVertex()){
 				GeomVertex* gv=vog;
@@ -4254,19 +4254,19 @@ namespace bamg {
 		/*STEP 2: reseed boundary edges*/
 
 		//  find the begining of the curve in BTh
-		Gh.UnMarkEdges();	
+		Gh.UnMarkEdges();
 		int bfind=0;
-		for (int i=0;i<Gh.nbcurves;i++) bcurve[i]=-1; 
+		for (int i=0;i<Gh.nbcurves;i++) bcurve[i]=-1;
 
 		/*Loop over the backgrounf mesh BTh edges*/
-		for (int iedge=0;iedge<BTh.nbe;iedge++){      
+		for (int iedge=0;iedge<BTh.nbe;iedge++){
 			Edge &ei = BTh.edges[iedge];
 
 			/*Loop over the 2 vertices of the current edge*/
 			for(int je=0;je<2;je++){
 
 				/* If one of the vertex is required we are in a new curve*/
-				if (ei[je].GeomEdgeHook->IsRequiredVertex()){ 
+				if (ei[je].GeomEdgeHook->IsRequiredVertex()){
 
 					/*Get curve number*/
 					int nc=ei.GeomEdgeHook->CurveNumber;
@@ -4281,24 +4281,24 @@ namespace bamg {
 					/*Check that we are on the same edge and right vertex (0 or 1) */
 					if(ei.GeomEdgeHook==Gh.curves[nc].FirstEdge  && (GeomVertex *)*ei[je].GeomEdgeHook==&(*Gh.curves[nc].FirstEdge)[Gh.curves[nc].FirstVertexIndex]){
 						bcurve[nc]=iedge*2+je;
-						bfind++;	
+						bfind++;
 					}
 					else if ((ei.GeomEdgeHook==Gh.curves[nc].LastEdge  && (GeomVertex *)*ei[je].GeomEdgeHook==&(*Gh.curves[nc].LastEdge)[Gh.curves[nc].LastVertexIndex]) && bcurve[nc]==-1){
 						bcurve[nc]=iedge*2+je;
-						bfind++;	
+						bfind++;
 					}
 				}
 			}
-		} 
+		}
 		if (bfind!=Gh.nbcurves){
 			delete [] bcurve;
 			_error_("problem generating number of curves (" << Gh.nbcurves << " found in the geometry but " << bfind << " curve found in the mesh)");
 		}
 
-		// method in 2 + 1 step 
+		// method in 2 + 1 step
 		//  0.0) compute the length and the number of vertex to do allocation
 		//  1.0) recompute the length
-		//  1.1) compute the  vertex 
+		//  1.1) compute the  vertex
 
 		long nbex=0,NbVerticesOnGeomEdgex=0;
 		for (int step=0; step <2;step++){
@@ -4306,11 +4306,11 @@ namespace bamg {
 			long NbOfNewPoints=0;
 			long NbOfNewEdge=0;
 			long iedge;
-			Gh.UnMarkEdges();	
+			Gh.UnMarkEdges();
 			double L=0;
 
 			/*Go through all geometrical curve*/
-			for (int icurve=0;icurve<Gh.nbcurves;icurve++){ 
+			for (int icurve=0;icurve<Gh.nbcurves;icurve++){
 
 				/*Get edge and vertex (index) of background mesh on this curve*/
 				iedge=bcurve[icurve]/2;
@@ -4320,8 +4320,8 @@ namespace bamg {
 				Edge &ei = BTh.edges[iedge];
 
 				/*Initialize variables*/
-				double Lstep=0;             // step between two points   (phase==1) 
-				long NbCreatePointOnCurve=0;// Nb of new points on curve (phase==1) 
+				double Lstep=0;             // step between two points   (phase==1)
+				long NbCreatePointOnCurve=0;// Nb of new points on curve (phase==1)
 
 				/*Do phase 0 to step*/
 				for(int phase=0;phase<=step;phase++){
@@ -4340,11 +4340,11 @@ namespace bamg {
 					int   iedgeequi=bcurve[icurveequi]/2;
 					int   jedgeequi=bcurve[icurveequi]%2;
 
-					int k0equi=jedgeequi,k1equi;		  
+					int k0equi=jedgeequi,k1equi;
 					Edge * peequi= BTh.edges+iedgeequi;
 					GeomEdge *ongequi = peequi->GeomEdgeHook;
 
-					double sNew=Lstep;// abscisse of the new points (phase==1) 
+					double sNew=Lstep;// abscisse of the new points (phase==1)
 					L=0;// length of the curve
 					long i=0;// index of new points on the curve
 					GeomVertex * GA0 = *(*peequi)[k0equi].GeomEdgeHook;
@@ -4354,17 +4354,17 @@ namespace bamg {
 					VertexOnGeom *GA1;
 					Edge* PreviousNewEdge = 0;
 
-					// New Curve phase 
+					// New Curve phase
 					_assert_(A0-vertices>=0 && A0-vertices<nbv);
 					if(ongequi->Required()){
 						GeomVertex *GA1 = *(*peequi)[1-k0equi].GeomEdgeHook;
 						A1 = GA1->MeshVertexHook;  //
-					}       
+					}
 					else {
 						for(;;){
-							Edge &ee=*pe; 
-							Edge &eeequi=*peequi; 
-							k1 = 1-k0; // next vertex of the edge 
+							Edge &ee=*pe;
+							Edge &eeequi=*peequi;
+							k1 = 1-k0; // next vertex of the edge
 							k1equi= 1 - k0equi;
 							_assert_(pe && ee.GeomEdgeHook);
 							ee.GeomEdgeHook->SetMark();
@@ -4376,7 +4376,7 @@ namespace bamg {
 
 							if (phase){
 								// computation of the new points for the given curve
-								while ((i!=NbCreatePointOnCurve) && sNew<=L) { 
+								while ((i!=NbCreatePointOnCurve) && sNew<=L) {
 
 									//some checks
 									_assert_(sNew>=L0);
@@ -4399,8 +4399,8 @@ namespace bamg {
 									}
 									se = k1         ? se : 1. - se;
 									se = k1==k1equi ? se : 1. - se;
-									VertexOnBThEdge[NbVerticesOnGeomEdge++] = VertexOnEdge(A1,&eeequi,se); // save 
-									ongequi=Gh.ProjectOnCurve(eeequi,se,*A1,*GA1); 
+									VertexOnBThEdge[NbVerticesOnGeomEdge++] = VertexOnEdge(A1,&eeequi,se); // save
+									ongequi=Gh.ProjectOnCurve(eeequi,se,*A1,*GA1);
 									A1->ReferenceNumber = eeequi.ReferenceNumber;
 									A1->DirOfSearch =NoDirOfSearch;
 									e->GeomEdgeHook = ongequi;
@@ -4430,9 +4430,9 @@ namespace bamg {
 								_error_("adj edge " << BTh.GetId(ee) << ", nbe=" << nbe << ", Gh.vertices=" << Gh.vertices);
 							}
 							pe = ee.adj[k1]; // next edge
-							k0 = pe->Intersection(ee); 
+							k0 = pe->Intersection(ee);
 							peequi= eeequi.adj[k1equi];  // next edge
-							k0equi=peequi->Intersection(eeequi);            
+							k0equi=peequi->Intersection(eeequi);
 						}// for(;;) end of the curve
 					}
 
@@ -4450,15 +4450,15 @@ namespace bamg {
 						_assert_(i==NbCreatePointOnCurve);
 					}
 
-					if (!phase)  { // 
+					if (!phase)  { //
 						long NbSegOnCurve = Max((long)(L+0.5),(long) 1);// nb of seg
-						Lstep = L/NbSegOnCurve; 
+						Lstep = L/NbSegOnCurve;
 						NbCreatePointOnCurve = NbSegOnCurve-1;
 						NbOfNewEdge += NbSegOnCurve;
 						NbOfNewPoints += NbCreatePointOnCurve;
 					}
 				}
-			}//  end of curve loop 
+			}//  end of curve loop
 
 			//Allocate memory
 			if(step==0){
@@ -4506,15 +4506,15 @@ namespace bamg {
 		Triangle *t0,*t,*te=triangles+nbt;
 		long k=0,it,i,j;
 
-		for ( it=0;it<nbt;it++) 
-		 renu[it]=-1; // outside triangle 
+		for ( it=0;it<nbt;it++)
+		 renu[it]=-1; // outside triangle
 		for ( i=0;i<nbsubdomains;i++)
-		  { 
+		  {
 			t=t0=subdomains[i].head;
 			if (!t0){ // not empty sub domain
 				_error_("!t0");
 			}
-			do { 
+			do {
 				long kt = GetId(t);
 				if (kt<0 || kt >= nbt ){
 					_error_("kt<0 || kt >= nbt");
@@ -4526,10 +4526,10 @@ namespace bamg {
 			}
 			while (t0 != (t=t->link));
 		  }
-		// take is same numbering if possible    
+		// take is same numbering if possible
 		if(justcompress)
-		 for ( k=0,it=0;it<nbt;it++) 
-		  if(renu[it] >=0 ) 
+		 for ( k=0,it=0;it<nbt;it++)
+		  if(renu[it] >=0 )
 			renu[it]=k++;
 
 		// put the outside triangles at the end
@@ -4539,28 +4539,28 @@ namespace bamg {
 		if (k != nbt){
 			_error_("k != nbt");
 		}
-		// do the change on all the pointeur 
+		// do the change on all the pointeur
 		for ( it=0;it<nbt;it++)
 		 triangles[it].Renumbering(triangles,te,renu);
 
 		for ( i=0;i<nbsubdomains;i++)
 		 subdomains[i].head=triangles+renu[GetId(subdomains[i].head)];
 
-		// move the Triangles  without a copy of the array 
-		// be carefull not trivial code 
+		// move the Triangles  without a copy of the array
+		// be carefull not trivial code
 		for ( it=0;it<nbt;it++) // for all sub cycles of the permutation renu
 		 if (renu[it] >= 0) // a new sub cycle
-			{ 
+			{
 			 i=it;
 			 Triangle ti=triangles[i],tj;
-			 while ( (j=renu[i]) >= 0) 
-				{ // i is old, and j is new 
-				 renu[i] = -1; // mark 
+			 while ( (j=renu[i]) >= 0)
+				{ // i is old, and j is new
+				 renu[i] = -1; // mark
 				 tj = triangles[j]; // save new
 				 triangles[j]= ti; // new <- old
-				 i=j;     // next 
+				 i=j;     // next
 				 ti = tj;
-				}  
+				}
 			}
 		delete [] renu;
 
@@ -4596,10 +4596,10 @@ namespace bamg {
 		if (k<0){
 			_error_("k<0");
 		}
-		int kkk=0;  
+		int kkk=0;
 		Icoor2 IJ_IA,IJ_AJ;
-		AdjacentTriangle edge(t,OppositeEdge[k]);          
-		for (;;edge = dir >0 ? Next(Adj(Next(edge))) : Previous(Adj(Previous(edge)))) {  
+		AdjacentTriangle edge(t,OppositeEdge[k]);
+		for (;;edge = dir >0 ? Next(Adj(Next(edge))) : Previous(Adj(Previous(edge)))) {
 			kkk++;
 			if (kkk>=1000){
 				_error_("kkk>=1000");
@@ -4611,10 +4611,10 @@ namespace bamg {
 			if (IJ_IA<0) {
 				if (dir>0) {a=1;b=0;return edge;}// change of signe => I
 				else {dir=-1;
-					continue;}};// go in direction i 
+					continue;}};// go in direction i
 					IJ_AJ = (IJ ,(J-A));
 					if (IJ_AJ<0) {
-						if(dir<0)  {a=0;b=1;return edge;}            
+						if(dir<0)  {a=0;b=1;return edge;}
 						else {dir = 1;
 							continue;}}// go in direction j
 							double IJ2 = IJ_IA + IJ_AJ;
@@ -4624,7 +4624,7 @@ namespace bamg {
 							a= IJ_AJ/IJ2;
 							b= IJ_IA/IJ2;
 							return edge;
-		} 
+		}
 	}
 	/*}}}*/
 	int ForceEdge(BamgVertex &a, BamgVertex & b,AdjacentTriangle & taret)  { /*{{{*/
@@ -4635,14 +4635,14 @@ namespace bamg {
 			_error_("!a.t || !b.t");
 		}
 		int k=0;
-		taret=AdjacentTriangle(0,0); // erreur 
+		taret=AdjacentTriangle(0,0); // erreur
 
 		AdjacentTriangle tta(a.t,EdgesVertexTriangle[a.IndexInTriangle][0]);
 		BamgVertex   *v1, *v2 = tta.EdgeVertex(0),*vbegin =v2;
-		// we turn around a in the  direct direction  
+		// we turn around a in the  direct direction
 
 		Icoor2 det2 = v2 ? det(*v2,a,b): -1 , det1;
-		if(v2) // normal case 
+		if(v2) // normal case
 		 det2 = det(*v2,a,b);
 		else { // no chance infini vertex try the next
 			tta= Previous(Adj(tta));
@@ -4655,14 +4655,14 @@ namespace bamg {
 		}
 
 		while (v2 != &b) {
-			AdjacentTriangle tc = Previous(Adj(tta));    
-			v1 = v2; 
+			AdjacentTriangle tc = Previous(Adj(tta));
+			v1 = v2;
 			v2 = tc.EdgeVertex(0);
 			det1 = det2;
-			det2 =  v2 ? det(*v2,a,b): det2; 
+			det2 =  v2 ? det(*v2,a,b): det2;
 
-			if((det1 < 0) && (det2 >0)) { 
-				// try to force the edge 
+			if((det1 < 0) && (det2 >0)) {
+				// try to force the edge
 				BamgVertex * va = &a, *vb = &b;
 				tc = Previous(tc);
 				if (!v1 || !v2){
@@ -4681,7 +4681,7 @@ namespace bamg {
 					taret = tc;
 					return NbSwap;
 				}
-				else 
+				else
 				  {
 					taret = tc;
 					return -2; // error  boundary is crossing
@@ -4692,31 +4692,31 @@ namespace bamg {
 			if (k>=2000){
 				_error_("k>=2000");
 			}
-			if ( vbegin == v2 ) return -1;// error 
+			if ( vbegin == v2 ) return -1;// error
 		}
 
 		tta.SetLock();
 		taret=tta;
 		a.Optim(1,0);
 		b.Optim(1,0);
-		return NbSwap; 
+		return NbSwap;
 	}
 	/*}}}*/
 	void  swap(Triangle *t1,short a1, Triangle *t2,short a2, BamgVertex *s1,BamgVertex *s2,Icoor2 det1,Icoor2 det2){ /*{{{*/
 		/*Original code from Frederic Hecht <hecht@ann.jussieu.fr> (BAMG v1.01, Mesh2.cpp/swap)*/
 		// --------------------------------------------------------------
 		// short a2=aa[a];// les 2 numero de l arete dans les 2 triangles
-		//                               
-		//               sb                     sb    
+		//
+		//               sb                     sb
 		//             / | \                   /   \                      !
 		//         as1/  |  \                 /a2   \                     !
 		//           /   |   \               /    t2 \                    !
 		//       s1 /t1  | t2 \s2  -->   s1 /___as2___\s2                 !
-		//          \  a1|a2  /             \   as1   /  
-		//           \   |   /               \ t1    /   
-		//            \  |  / as2             \   a1/    
-		//             \ | /                   \   /     
-		//              sa                       sa   
+		//          \  a1|a2  /             \   as1   /
+		//           \   |   /               \ t1    /
+		//            \  |  / as2             \   a1/
+		//             \ | /                   \   /
+		//              sa                       sa
 		//  -------------------------------------------------------------
 		int as1 = NextEdge[a1];
 		int as2 = NextEdge[a2];
@@ -4724,7 +4724,7 @@ namespace bamg {
 		int ap2 = PreviousEdge[a2];
 		(*t1)(VerticesOfTriangularEdge[a1][1]) = s2 ; // avant sb
 		(*t2)(VerticesOfTriangularEdge[a2][1]) = s1  ; // avant sa
-		// mise a jour des 2 adjacences externes 
+		// mise a jour des 2 adjacences externes
 		AdjacentTriangle taas1 = t1->Adj(as1),
 							  taas2 = t2->Adj(as2),
 							  tas1(t1,as1), tas2(t2,as2),
@@ -4733,10 +4733,10 @@ namespace bamg {
 		taas1.SetAdj2(ta2, taas1.GetAllFlag_UnSwap());
 		// externe bas droite
 		taas2.SetAdj2(ta1, taas2.GetAllFlag_UnSwap());
-		// remove the Mark  UnMarkSwap 
+		// remove the Mark  UnMarkSwap
 		t1->SetUnMarkUnSwap(ap1);
 		t2->SetUnMarkUnSwap(ap2);
-		// interne 
+		// interne
 		tas1.SetAdj2(tas2);
 
 		t1->det = det1;
@@ -4744,17 +4744,17 @@ namespace bamg {
 
 		t1->SetSingleVertexToTriangleConnectivity();
 		t2->SetSingleVertexToTriangleConnectivity();
-	} // end swap 
+	} // end swap
 	/*}}}*/
 	int SwapForForcingEdge(BamgVertex   *  & pva ,BamgVertex  * &   pvb ,AdjacentTriangle & tt1,Icoor2 & dets1, Icoor2 & detsa,Icoor2 & detsb, int & NbSwap) {/*{{{*/
 		/*Original code from Frederic Hecht <hecht@ann.jussieu.fr> (BAMG v1.01, Mesh2.cpp/SwapForForcingEdge)*/
 		// l'arete ta coupe l'arete pva pvb
 		// de cas apres le swap sa coupe toujours
-		// on cherche l'arete suivante 
+		// on cherche l'arete suivante
 		// on suppose que detsa >0 et detsb <0
-		// attention la routine echange pva et pvb 
+		// attention la routine echange pva et pvb
 
-		if(tt1.Locked()) return 0; // frontiere croise 
+		if(tt1.Locked()) return 0; // frontiere croise
 
 		AdjacentTriangle tt2 = Adj(tt1);
 		Triangle *t1=tt1,*t2=tt2;// les 2 triangles adjacent
@@ -4780,13 +4780,13 @@ namespace bamg {
 		Icoor2 ndet2 = detT - ndet1;
 
 		int ToSwap =0; //pas de swap
-		if ((ndet1 >0) && (ndet2 >0)) 
-		  { // on peut swaper  
+		if ((ndet1 >0) && (ndet2 >0))
+		  { // on peut swaper
 			if ((dets1 <=0 && dets2 <=0) || (dets2 >=0 && detsb >=0))
-			 ToSwap =1; 
-			else // swap alleatoire 
-			 if (BinaryRand()) 
-			  ToSwap =2; 
+			 ToSwap =1;
+			else // swap alleatoire
+			 if (BinaryRand())
+			  ToSwap =2;
 		  }
 		if (ToSwap) NbSwap++,
 		 bamg::swap(t1,a1,t2,a2,&s1,&s2,ndet1,ndet2);
@@ -4795,15 +4795,15 @@ namespace bamg {
 
 		if (dets2 < 0) {// haut
 			dets1 = ToSwap ? dets1 : detsa ;
-			detsa = dets2; 
+			detsa = dets2;
 			tt1 =  Previous(tt2) ;}
-		else if (dets2 > 0){// bas 
+		else if (dets2 > 0){// bas
 			dets1 = ToSwap ? dets1 : detsb ;
 			detsb = dets2;
 			//xxxx tt1 = ToSwap ? tt1 : Next(tt2);
 			if(!ToSwap) tt1 =  Next(tt2);
 		}
-		else { // changement de direction 
+		else { // changement de direction
 			ret = -1;
 			Exchange(pva,pvb);
 			Exchange(detsa,detsb);
@@ -4817,9 +4817,9 @@ namespace bamg {
 			if(ToSwap){
 				if (dets2 < 0) {// haut
 					dets1 = (ToSwap ? dets1 : detsa) ;
-					detsa = dets2; 
+					detsa = dets2;
 					tt1 =  Previous(tt2) ;}
-				else if(dets2 > 0){// bas 
+				else if(dets2 > 0){// bas
 					dets1 = (ToSwap ? dets1 : detsb) ;
 					detsb =  dets2;
 					if(!ToSwap) tt1 =  Next(tt2);

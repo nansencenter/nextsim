@@ -29,10 +29,11 @@ namespace Nextsim
             ("solver.ksp-view", po::value<bool>()->default_value( true ), "")
 
             ("simul_in.use_simul_out", po::value<bool>()->default_value( false ), "")
-            ("simul_in.step_nb", po::value<bool>()->default_value( false ), "")
-            ("simul_in.time_init", po::value<std::string>()->default_value( "05-Mar-2008 00:00:00" ), "")
+            ("simul_in.step_nb", po::value<int>()->default_value( 0 ), "")
+            ("simul_in.time_init", po::value<std::string>()->default_value( "2008-Mar-05" ), "")
+            ("simul_in.duration", po::value<double>()->default_value( 1. ), "")
             ("simul_in.spinup_duration", po::value<double>()->default_value( 1. ), "")
-            ("output_per_day", po::value<int>()->default_value( 4 ), "")
+            ("simul_in.output_per_day", po::value<int>()->default_value( 4 ), "")
             ("simul_in.output_timestep", po::value<double>()->default_value( 0.25 ), "")
             ("simul_in.diagnostics_frequency", po::value<int>()->default_value( 1 ), "")
             ("simul_in.save_forcing_field", po::value<bool>()->default_value( false ), "")
@@ -130,6 +131,7 @@ namespace Nextsim
             ("simul_in.init_snow_thin_thickness", po::value<double>()->default_value( 0. ), "")
             ("simul_in.constant_u", po::value<double>()->default_value( 0. ), "")
             ("simul_in.constant_v", po::value<double>()->default_value( -10. ), "")
+            ("verbose", po::value<int>()->default_value( 7 ), "")
             ;
         return desc;
     }
