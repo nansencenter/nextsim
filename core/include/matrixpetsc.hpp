@@ -51,8 +51,6 @@ public:
 
     MatrixPetsc( Communicator const& comm = Environment::comm() );
 
-    MatrixPetsc( const size_type m, const size_type n, const size_type nnz, Communicator const& comm = Environment::comm() );
-
     ~MatrixPetsc();
 
     Communicator const& comm() const { return M_comm; }
@@ -60,6 +58,8 @@ public:
     Mat mat () const;
 
     Mat& mat ();
+
+    void init( const size_type m, const size_type n, const size_type nnz );
 
     void zero();
 

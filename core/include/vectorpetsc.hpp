@@ -44,8 +44,6 @@ public:
 
     VectorPetsc( Communicator const& comm = Environment::comm() );
 
-	VectorPetsc( const size_type n, Communicator const& comm = Environment::comm() );
-
 	~VectorPetsc();
 
 	Communicator const& comm() const { return M_comm; }
@@ -54,7 +52,11 @@ public:
 
     Vec& vec ();
 
+    void init( const size_type n, bool fast = false );
+
     void zero();
+
+    void resize(const size_type n, bool fast = false);
 
 	void close();
 

@@ -52,9 +52,10 @@ public:
     double jacobian(element_type const& element, mesh_type const& mesh) const;
     std::vector<double> sides(element_type const& element, mesh_type const& mesh) const;
     std::vector<double> minMaxSide(mesh_type const& mesh) const;
-    void movedMesh(std::vector<double> const& um, double factor = 0);
+    //void movedMesh(std::vector<double> const& um, double factor = 0);
     double measure(element_type const& element, mesh_type const& mesh) const;
     std::vector<double> shapeCoeff(element_type const& element, mesh_type const& mesh) const;
+    void regrid();
 
     void assemble();
     void solve();
@@ -64,14 +65,20 @@ public:
     double minAngles(element_type const& element, mesh_type const& mesh) const;
     double minAngle(mesh_type const& mesh) const;
 
+    //double minAngles(element_type const& element, mesh_type const& mesh, std::vector<double> const& um, double factor) const;
+    double minAngle(mesh_type const& mesh, std::vector<double> const& um, double factor) const;
+
+    bool flip(mesh_type const& mesh, std::vector<double> const& um, double factor) const;
+
     double resolution(mesh_type const& mesh) const;
 
-    std::vector<double> hminVertices(mesh_type const& mesh, BamgMesh const* bamgmesh) const;
-    std::vector<double> hmaxVertices(mesh_type const& mesh, BamgMesh const* bamgmesh) const;
+    std::vector<double> hminVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const;
+    std::vector<double> hmaxVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const;
 
     void performSimulation();
     void initialConditions();
     void initBamg();
+    void initConstant();
     void forcing();
     void forcingWind(double const& u, double const& v);
     void forcingOcean(double const& u, double const& v);
@@ -85,12 +92,12 @@ public:
     void initDrifter();
 
     void PwlInterp2D();
-    void importBamg();
+    void importBamg(BamgMesh const* bamg_mesh);
 
 private:
     po::variables_map vm;
     mesh_type M_mesh;
-    mesh_type M_mesh_previous;
+    mesh_type M_mesh_init;
     matrix_ptrtype M_matrix;
     //matrix_ptrtype M_mass;
     vector_ptrtype M_vector;
@@ -128,6 +135,23 @@ private:
 
 private:
 
+    double nu0;
+    double young;
+    double rhoi;
+    double rhos;
+    double days_in_sec;
+    double time_init;
+    double output_time_step;
+    double time_step;
+    double duration;
+    double divergence_min;
+    double compression_factor;
+    double exponent_compression_factor;
+    double ocean_turning_angle_rad;
+    double ridging_exponent;
+
+private:
+
     // bamgopt_ptrtype bamgopt;
     // bamgmesh_ptrtype bamgmesh;
     // bamggeom_ptrtype bamggeom;
@@ -139,8 +163,12 @@ private:
     BamgMesh *bamgmesh;
     BamgGeom *bamggeom;
 
-    BamgMesh *bamgmeshout;
-    BamgGeom *bamggeomout;
+    // BamgMesh *bamgmeshout;
+    // BamgGeom *bamggeomout;
+
+    BamgMesh *bamgmesh_previous;
+    BamgGeom *bamggeom_previous;
+
 
 private:
     std::vector<double> wind;

@@ -21,8 +21,10 @@ namespace Nextsim
 
 VectorPetsc::VectorPetsc( Communicator const& comm )
 	:
-    M_comm( comm )
+    M_comm( comm ),
+    M_is_initialized( false )
 {
+#if 0
     int ierr = 0;
 
     ierr = VecCreate(M_comm,&M_vec);
@@ -32,23 +34,7 @@ VectorPetsc::VectorPetsc( Communicator const& comm )
     CHKERRABORT( comm, ierr );
 
     M_is_initialized = false;
-}
-
-VectorPetsc::VectorPetsc( const size_type n, Communicator const& comm )
-	:
-	M_comm( comm )
-{
-	int ierr=0;
-	int petsc_n=static_cast<int>( n );
-
-	//ierr = VecCreateSeq ( PETSC_COMM_SELF, petsc_n, &M_vec );
-	ierr = VecCreateSeq ( M_comm, petsc_n, &M_vec );
-	CHKERRABORT( M_comm,ierr );
-
-	ierr = VecSetFromOptions ( M_vec );
-	CHKERRABORT( M_comm,ierr );
-
-	M_is_initialized = true;
+#endif
 }
 
 VectorPetsc::~VectorPetsc()
@@ -71,6 +57,30 @@ VectorPetsc::vec()
 }
 
 void
+VectorPetsc::init( const size_type n, bool fast )
+{
+    {
+        if (M_is_initialized)
+            this->clear();
+    }
+
+	int ierr=0;
+	int petsc_n=static_cast<int>( n );
+
+	//ierr = VecCreateSeq ( PETSC_COMM_SELF, petsc_n, &M_vec );
+	ierr = VecCreateSeq ( M_comm, petsc_n, &M_vec );
+	CHKERRABORT( M_comm,ierr );
+
+	ierr = VecSetFromOptions ( M_vec );
+	CHKERRABORT( M_comm,ierr );
+
+	M_is_initialized = true;
+
+    if (fast == false)
+        this->zero();
+}
+
+void
 VectorPetsc::zero()
 {
 	ASSERT(M_is_initialized, "VectorPetsc not initialized");
@@ -82,6 +92,15 @@ VectorPetsc::zero()
 
 	ierr = VecSet ( M_vec, z );
 	CHKERRABORT( M_comm,ierr );
+}
+
+void
+VectorPetsc::resize( const size_type n, bool fast )
+{
+    if (M_is_initialized)
+        this->init(0,true);
+
+    this->init(n,fast);
 }
 
 void

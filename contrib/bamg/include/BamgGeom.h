@@ -1,5 +1,5 @@
 /*!\file:  BamgGeom.h
- */ 
+ */
 
 #ifndef _BAMGGEOM_H_
 #define _BAMGGEOM_H_
@@ -24,6 +24,7 @@ class BamgGeom{
 
 		BamgGeom();
 		~BamgGeom();
+		void reset();
 };
 
 #endif

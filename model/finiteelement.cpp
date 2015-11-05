@@ -26,12 +26,14 @@ void
 FiniteElement::init()
 {
     std::cout <<"GMSH VERSION= "<< M_mesh.version() <<"\n";
-    M_mesh.setOrdering("bamg");
-    M_mesh.readFromFile("bigarctic10km.msh");
+    // M_mesh.setOrdering("bamg");
+    // M_mesh.readFromFile("bigarctic10km.msh");
 
-    // createGMSHMesh("hypercube.geo");
-    // //M_mesh.setOrdering("gmsh");
-    // M_mesh.readFromFile("hypercube.msh");
+    createGMSHMesh("hypercube.geo");
+    //M_mesh.setOrdering("gmsh");
+    M_mesh.readFromFile("hypercube.msh");
+
+    this->initConstant();
 
     this->initBamg();
 
@@ -42,19 +44,30 @@ FiniteElement::init()
                      M_mesh.numNodes(), M_mesh.numTriangles()
                      );
 
-
     auto h = this->minMaxSide(M_mesh);
     bamgopt->hmin = h[0];
     bamgopt->hmax = h[1];
 
     double minang = this->minAngle(M_mesh);
-
     double resol = this->resolution(M_mesh);
+
+    std::vector<double> um(2*M_mesh.numNodes(),1.);
+    for (int al=0; al<um.size();++al)
+    {
+        um[al] = static_cast <double> (std::rand()) / static_cast <double> (RAND_MAX);
+    }
+
+    double minangv = this->minAngle(M_mesh,um,1.);
+    bool flip = this->flip(M_mesh,um,1.);
 
     std::cout<<"Lenght min = "<< h[0] <<"\n";
     std::cout<<"Lenght max = "<< h[1] <<"\n";
     std::cout<<"Angle min  = "<< minang <<"\n";
     std::cout<<"Resolution = "<< resol <<"\n";
+
+    std::cout<<"Angle minv  = "<< minangv <<"\n";
+    std::cout<<"Flip  = "<< flip <<"\n";
+
 
     if (minang < vm["simul_in.regrid_angle"].as<double>())
     {
@@ -65,8 +78,17 @@ FiniteElement::init()
     auto hminVertices = this->hminVertices(M_mesh, bamgmesh);
     auto hmaxVertices = this->hmaxVertices(M_mesh, bamgmesh);
 
-    bamgopt->hminVertices = &hminVertices[0];
-    bamgopt->hmaxVertices = &hmaxVertices[0];
+    bamgopt->hminVertices = new double[hminVertices.size()];
+    bamgopt->hmaxVertices = new double[hmaxVertices.size()];
+
+    for (int i=0; i<hminVertices.size();++i)
+    {
+        bamgopt->hminVertices[i] = hminVertices[i];
+        bamgopt->hmaxVertices[i] = hmaxVertices[i];
+    }
+
+    *bamggeom_previous = *bamggeom;
+    *bamgmesh_previous = *bamgmesh;
 
     if (!vm["simul_in.use_simul_out"].as<bool>())
     {
@@ -76,17 +98,19 @@ FiniteElement::init()
             if((bamgopt->hminVerticesSize[0] == 0) && (bamgopt->hminVerticesSize[1] == 0))
             {
                 //bamgopt->KeepVertices=0;
-                Bamgx(bamgmeshout,bamggeomout,bamgmesh,bamggeom,bamgopt);
+                Bamgx(bamgmesh,bamggeom,bamgmesh_previous,bamggeom_previous,bamgopt);
             }
             else
             {
                 bamgopt->KeepVertices=0;
-                Bamgx(bamgmeshout,bamggeomout,bamgmesh,bamggeom,bamgopt);
+                Bamgx(bamgmesh,bamggeom,bamgmesh_previous,bamggeom_previous,bamgopt);
             }
         }
     }
 
-    this->importBamg();
+    M_mesh_init = M_mesh;
+
+    this->importBamg(bamgmesh);
 
     M_edges = M_mesh.edges();
     //int first = 0;
@@ -117,7 +141,7 @@ FiniteElement::init()
     std::cout<<"NumTriangles = "<< M_mesh.numTriangles() <<"\n";
     std::cout<<"NumEdges     = "<< M_mesh.numEdges() <<"\n";
 
-    M_mesh.stereographicProjection();
+    //M_mesh.stereographicProjection();
     //M_mesh.writeTofile("arctic10km.msh");
 
     M_elements = M_mesh.triangles();
@@ -126,15 +150,21 @@ FiniteElement::init()
     M_num_elements = M_mesh.numTriangles();
     M_num_nodes = M_mesh.numNodes();
 
-    M_matrix = matrix_ptrtype(new matrix_type(2*M_num_nodes,2*M_num_nodes,22));
-    M_matrix->zero();
+    M_matrix = matrix_ptrtype(new matrix_type());
+    M_matrix->init(2*M_num_nodes,2*M_num_nodes,22);
 
-    M_vector = vector_ptrtype(new vector_type(2*M_num_nodes));
-    M_vector->zero();
-    //M_vector->setOnes();
+    M_vector = vector_ptrtype(new vector_type());
+    M_vector->init(2*M_num_nodes);
 
-    M_solution = vector_ptrtype(new vector_type(2*M_num_nodes));
-    M_solution->zero();
+    M_solution = vector_ptrtype(new vector_type());
+    M_solution->init(2*M_num_nodes);
+
+    M_VT.resize(2*M_num_nodes,0.);
+    M_VTM.resize(2*M_num_nodes,0.);
+    M_VTMM.resize(2*M_num_nodes,0.);
+
+    M_UM.resize(2*M_num_nodes,0.);
+    M_UT.resize(2*M_num_nodes,0.);
 }
 
 void
@@ -174,10 +204,36 @@ FiniteElement::initBamg()
     bamggeom = new BamgGeom();
     bamgmesh = new BamgMesh();
 
-    bamggeomout = new BamgGeom();
-    bamgmeshout = new BamgMesh();
+    // bamggeomout = new BamgGeom();
+    // bamgmeshout = new BamgMesh();
+
+    bamggeom_previous = new BamgGeom();
+    bamgmesh_previous = new BamgMesh();
 
     bamgopt->Check();
+}
+
+void
+FiniteElement::initConstant()
+{
+    nu0 = vm["simul_in.nu0"].as<double>();
+    young = vm["simul_in.young"].as<double>();
+    rhoi = physical::rhoi;
+    rhos = physical::rhos;
+
+    days_in_sec = 24.0*3600.0;
+    time_init = dateStr2Num(vm["simul_in.time_init"].as<std::string>());
+    output_time_step =  days_in_sec/vm["simul_in.output_per_day"].as<int>();
+
+    time_step = vm["simul_in.timestep"].as<double>();
+    duration = (vm["simul_in.duration"].as<double>())*days_in_sec;
+
+    divergence_min = (1./days_in_sec)*vm["simul_in.divergence_min"].as<double>();
+    compression_factor = vm["simul_in.compression_factor"].as<double>();
+    exponent_compression_factor = vm["simul_in.exponent_compression_factor"].as<double>();
+    ocean_turning_angle_rad = (PI/180.)*vm["simul_in.oceanic_turning_angle"].as<double>();
+    ridging_exponent = vm["simul_in.ridging_exponent"].as<double>();
+
 }
 
 void
@@ -263,9 +319,24 @@ double
 FiniteElement::minAngles(element_type const& element, mesh_type const& mesh) const
 {
     std::vector<double> side = this->sides(element,mesh);
+    //std::for_each(side.begin(), side.end(), [&](double& f){ f = 1000.*f; });
     std::sort(side.begin(),side.end());
     double minang = std::acos( (std::pow(side[1],2.) + std::pow(side[2],2.) - std::pow(side[0],2.) )/(2*side[1]*side[2]) );
     minang = minang*45.0/std::atan(1.0);
+
+    // std::cout<<"************************\n";
+    // std::cout<<"SIDE[0]= "<< side[0] <<"\n";
+    // std::cout<<"SIDE[1]= "<< side[1] <<"\n";
+    // std::cout<<"SIDE[2]= "<< side[2] <<"\n";
+    // std::cout<<"MINANG=  "<< std::setprecision(12) << minang  <<"\n";
+
+    // if (minang ==0)
+    // {
+    //     std::cout<<"ERROR FOUND\n";
+    //     std::cout << "invalid min angle"<<"\n";
+    //     throw std::logic_error("invalid min angle");
+
+    // }
 
     return minang;
 }
@@ -282,7 +353,61 @@ FiniteElement::minAngle(mesh_type const& mesh) const
         ++cpt;
     }
 
+    return *std::min_element(all_min_angle.begin(),all_min_angle.end());
+}
+
+#if 0
+double
+FiniteElement::minAngles(element_type const& element, mesh_type const& mesh, std::vector<double> const& um, double factor) const
+{
+    //auto movedmesh = mesh;
+    //movedmesh.move(um,factor);
+    std::vector<double> side = this->sides(element,mesh);
+    std::sort(side.begin(),side.end());
+    double minang = std::acos( (std::pow(side[1],2.) + std::pow(side[2],2.) - std::pow(side[0],2.) )/(2*side[1]*side[2]) );
+    minang = minang*45.0/std::atan(1.0);
+
+    return minang;
+}
+#endif
+
+double
+FiniteElement::minAngle(mesh_type const& mesh, std::vector<double> const& um, double factor) const
+{
+    auto movedmesh = mesh;
+    movedmesh.move(um,factor);
+
+    std::vector<double> all_min_angle(movedmesh.numTriangles());
+
+    int cpt = 0;
+    for (auto it=movedmesh.triangles().begin(), end=movedmesh.triangles().end(); it!=end; ++it)
+    {
+        all_min_angle[cpt] = this->minAngles(*it,movedmesh);
+        ++cpt;
+    }
+
     return *std::min_element(all_min_angle.begin(),all_min_angle.end());;
+}
+
+bool
+FiniteElement::flip(mesh_type const& mesh, std::vector<double> const& um, double factor) const
+{
+    auto movedmesh = mesh;
+    movedmesh.move(um,factor);
+
+    std::vector<double> area(movedmesh.numTriangles());
+
+    int cpt = 0;
+    for (auto it=movedmesh.triangles().begin(), end=movedmesh.triangles().end(); it!=end; ++it)
+    {
+        area[cpt] = this->measure(*it,movedmesh);
+        ++cpt;
+    }
+
+    double minarea = *std::min_element(area.begin(),area.end());
+    double maxarea = *std::max_element(area.begin(),area.end());
+
+    return ((minarea <= 0.) && (maxarea >= 0.));
 }
 
 double
@@ -305,21 +430,21 @@ FiniteElement::resolution(mesh_type const& mesh) const
 
 
 std::vector<double>
-FiniteElement::hminVertices(mesh_type const& mesh, BamgMesh const* bamgmesh) const
+FiniteElement::hminVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const
 {
-    // std::cout<<"Connectivity[0]= "<< (bamgmesh->NodalElementConnectivitySize[0]) <<"\n";
-    // std::cout<<"Connectivity[1]= "<< (bamgmesh->NodalElementConnectivitySize[1]) <<"\n";
+    // std::cout<<"Connectivity[0]= "<< (bamg_mesh->NodalElementConnectivitySize[0]) <<"\n";
+    // std::cout<<"Connectivity[1]= "<< (bamg_mesh->NodalElementConnectivitySize[1]) <<"\n";
     // std::cout<<"Connectivity[1]= "<< (mesh.numTriangles()) <<"\n";
 
-    std::vector<double> hmin(bamgmesh->NodalElementConnectivitySize[0]);
+    std::vector<double> hmin(bamg_mesh->NodalElementConnectivitySize[0]);
 
-    for (int i=0; i<bamgmesh->NodalElementConnectivitySize[0]; ++i)
+    for (int i=0; i<bamg_mesh->NodalElementConnectivitySize[0]; ++i)
     {
-        std::vector<double> measure(bamgmesh->NodalElementConnectivitySize[1]);
+        std::vector<double> measure(bamg_mesh->NodalElementConnectivitySize[1]);
         int j = 0;
-        for (j=0; j<bamgmesh->NodalElementConnectivitySize[1]; ++j)
+        for (j=0; j<bamg_mesh->NodalElementConnectivitySize[1]; ++j)
         {
-            int elt_num = bamgmesh->NodalElementConnectivity[bamgmesh->NodalElementConnectivitySize[1]*i+j]-1;
+            int elt_num = bamg_mesh->NodalElementConnectivity[bamg_mesh->NodalElementConnectivitySize[1]*i+j]-1;
 
             if ((0 <= elt_num) && (elt_num < mesh.numTriangles()) && (elt_num != NAN))
             {
@@ -339,9 +464,9 @@ FiniteElement::hminVertices(mesh_type const& mesh, BamgMesh const* bamgmesh) con
 }
 
 std::vector<double>
-FiniteElement::hmaxVertices(mesh_type const& mesh, BamgMesh const* bamgmesh) const
+FiniteElement::hmaxVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const
 {
-    std::vector<double> hmax = this->hminVertices(mesh,bamgmesh);
+    std::vector<double> hmax = this->hminVertices(mesh,bamg_mesh);
 
     std::for_each(hmax.begin(), hmax.end(), [&](double& f){ f = 1.2*f; });
 
@@ -389,9 +514,115 @@ FiniteElement::shapeCoeff(element_type const& element, mesh_type const& mesh) co
 
 
 void
+FiniteElement::regrid()
+{
+    double displacement_factor = 2.;
+    bool flip = true;
+    int substep = 0;
+
+    while (flip)
+    {
+        ++substep;
+        std::cout<<"STEP "<< substep <<"\n";
+        flip = this->flip(M_mesh,M_UM,displacement_factor);
+        displacement_factor /= 2.;
+    }
+
+    //double minangv = this->minAngle(M_mesh,M_UM,displacement_factor);
+    M_mesh.move(M_UM,displacement_factor);
+
+    Options* options;
+    options = new Options();
+
+    //bamgopt->hminVertices
+    double* hmin_vertices;
+    double* hmax_vertices;
+
+    chrono.restart();
+    InterpFromMeshToMesh2dx(&hmin_vertices,
+                            &M_mesh_init.indexTr()[0],&M_mesh_init.coordX()[0],&M_mesh_init.coordY()[0],
+                            M_mesh_init.numNodes(),M_mesh_init.numTriangles(),
+                            bamgopt->hminVertices,
+                            M_mesh_init.numNodes(),1,
+                            &M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
+                            options);
+
+    InterpFromMeshToMesh2dx(&hmax_vertices,
+                            &M_mesh_init.indexTr()[0],&M_mesh_init.coordX()[0],&M_mesh_init.coordY()[0],
+                            M_mesh_init.numNodes(),M_mesh_init.numTriangles(),
+                            bamgopt->hmaxVertices,
+                            M_mesh_init.numNodes(),1,
+                            &M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
+                            options);
+
+    std::cout<<"TIMER INTERPOLATION= " << chrono.elapsed() <<"s\n";
+
+    //auto hminVertices = this->hminVertices(M_mesh_init, bamgmesh);
+    //auto hmaxVertices = this->hmaxVertices(M_mesh_init, bamgmesh);
+
+#if 0
+    cout << "\n";
+    cout << "     K      Xi(K)       Yi(K)       Zi(K)       Z(X,Y)\n";
+    cout << "\n";
+    //for (int k = 0; k < bamgmeshout->VerticesSize[0]; k++ )
+    for (int k = 0; k < M_mesh_init.numNodes(); k++ )
+    {
+        //ze = xyi[0+k*2] + 2.0 * xyi[1+k*2];
+        cout << "  " << setw(4) << k
+             << "  " << setw(10) << M_mesh_init.coordX()[k]
+             << "  " << setw(10) << M_mesh_init.coordY()[k]
+            //<< "  " << setw(10) << bamgopt->hminVertices[k]
+            //<< "  " << setw(10) << bamgopt->hmaxVertices[k] << "\n";
+             << "  " << setw(10) << hmin_vertices[k]
+             << "  " << setw(10) << hmax_vertices[k] << "\n";
+        //<< "  " << setw(10) << data_in[k] << "\n";
+    }
+#endif
+
+    auto hminVertices = this->hminVertices(M_mesh, bamgmesh);
+    auto hmaxVertices = this->hmaxVertices(M_mesh, bamgmesh);
+
+    bamgopt->hminVertices = new double[hminVertices.size()];
+    bamgopt->hmaxVertices = new double[hmaxVertices.size()];
+
+    for (int i=0; i<hminVertices.size();++i)
+    {
+        bamgopt->hminVertices[i] = hminVertices[i];
+        bamgopt->hmaxVertices[i] = hmaxVertices[i];
+    }
+
+    *bamggeom_previous = *bamggeom;
+    *bamgmesh_previous = *bamgmesh;
+
+    bamgopt->KeepVertices=0;
+    Bamgx(bamgmesh,bamggeom,bamgmesh_previous,bamggeom_previous,bamgopt);
+
+    this->importBamg(bamgmesh);
+
+    M_UM.resize(2*M_mesh.numNodes(),0.);
+    for (int al=0; al<M_UM.size();++al)
+    {
+        M_UM[al] = 1.;//static_cast <double> (std::rand()) / static_cast <double> (RAND_MAX);
+    }
+
+
+
+    M_matrix->init(2*M_num_nodes,2*M_num_nodes,22);
+    M_vector->resize(2*M_num_nodes);
+    M_solution->resize(2*M_num_nodes);
+
+    M_VT.resize(2*M_num_nodes,0.);
+    M_VTM.resize(2*M_num_nodes,0.);
+    M_VTMM.resize(2*M_num_nodes,0.);
+
+    M_UM.resize(2*M_num_nodes,0.);
+    M_UT.resize(2*M_num_nodes,0.);
+}
+
+void
 FiniteElement::assemble()
 {
-    int sys_size = 2*M_num_nodes;
+    //int sys_size = 2*M_num_nodes;
     //std::vector<double> VT(2*M_num_nodes,0);
     double VT = 1;
     double Vcor = 1;
@@ -431,20 +662,7 @@ FiniteElement::assemble()
     std::vector<double> Mass(9);
     std::vector<double> B0T(18,0);
 
-    double nu0 = vm["simul_in.nu0"].as<double>();
-    double young = vm["simul_in.young"].as<double>();
-    double rhoi = physical::rhoi;
-    double rhos = physical::rhos;
-    double timestep = vm["simul_in.timestep"].as<double>();
-    double ridging_exponent = vm["simul_in.ridging_exponent"].as<double>();
-    double ocean_turning_angle_rad = (PI/180.)*vm["simul_in.oceanic_turning_angle"].as<double>();
-
-    double days_in_sec = 24.*3600.;
-    double divergence_min = (1./days_in_sec)*vm["simul_in.divergence_min"].as<double>();
-    double compression_factor = vm["simul_in.compression_factor"].as<double>();
-    double exponent_compression_factor = vm["simul_in.exponent_compression_factor"].as<double>();
-
-    double concentr = vm["simul_in.init_concentration"].as<double>();
+    double concentr  = 0.9; //vm["simul_in.init_concentration"].as<double>();
     //std::vector<double> concentration(M_num_elements,concentr);
     double h = 0.;
     double h_thin = 0.;
@@ -504,20 +722,27 @@ FiniteElement::assemble()
     }
 
     chrono.restart();
+    std::vector<double> data(36);
+    std::vector<double> fvdata(6);
+    std::vector<int> rcindices(6);
+    //std::vector<double> shapecoeff(6);
+
     int cpt = 0;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
     {
+        std::vector<double> shapecoeff = this->shapeCoeff(*it,M_mesh);
+
         for (int i=0; i<18; ++i)
         {
             if (i < 3)
             {
-                B0T[2*i] = this->shapeCoeff(*it,M_mesh)[i];
-                B0T[12+2*i] = this->shapeCoeff(*it,M_mesh)[i+3];
-                B0T[13+2*i] = this->shapeCoeff(*it,M_mesh)[i];
+                B0T[2*i] = shapecoeff[i];
+                B0T[12+2*i] = shapecoeff[i+3];
+                B0T[13+2*i] = shapecoeff[i];
             }
             else if (i < 6)
             {
-                B0T[2*i+1] = this->shapeCoeff(*it,M_mesh)[i];
+                B0T[2*i+1] = shapecoeff[i];
             }
         }
 
@@ -551,12 +776,12 @@ FiniteElement::assemble()
         for(int i=0; i<3; i++)
         {
             g_ssh_e = g_ssh;   /* g*ssh at the node k of the element e */
-            g_ssh_e_x += this->shapeCoeff(*it,M_mesh)[i]*g_ssh_e; /* x derivative of g*ssh */
-            g_ssh_e_y += this->shapeCoeff(*it,M_mesh)[i+3]*g_ssh_e; /* y derivative of g*ssh */
+            g_ssh_e_x += shapecoeff[i]*g_ssh_e; /* x derivative of g*ssh */
+            g_ssh_e_y += shapecoeff[i+3]*g_ssh_e; /* y derivative of g*ssh */
         }
 
         coef_C    = mass_e*fcor;              /* for the Coriolis term */
-        coef_V    = mass_e/timestep;             /* for the inertial term */
+        coef_V    = mass_e/time_step;             /* for the inertial term */
         coef_X    = - mass_e*g_ssh_e_x;              /* for the ocean slope */
         coef_Y    = - mass_e*g_ssh_e_y;              /* for the ocean slope */
         coef_Vair = Vair_factor;             /* for the wind stress */
@@ -663,9 +888,9 @@ FiniteElement::assemble()
          * col+1, row   -> VV component
          * col+1, row+1 -> UV component */
 
-        std::vector<double> data(36);
-        std::vector<double> fvdata(6);
-        //int lc = 0;
+        // std::vector<double> data(36);
+        // std::vector<double> fvdata(6);
+        // std::vector<int> rcindices(6);
 
         for(int j=0; j<3; j++)
         {
@@ -700,16 +925,16 @@ FiniteElement::assemble()
                 }
 
                 /* ---------- UU component */
-                double duu = surface_e*( mloc*(coef_Vair+coef_Voce*std::cos(ocean_turning_angle_rad)+coef_V+coef_basal)+B0Tj_Dunit_B0Ti[0]*coef*timestep+B0Tj_Dunit_comp_B0Ti[0]*coef_P);
+                double duu = surface_e*( mloc*(coef_Vair+coef_Voce*std::cos(ocean_turning_angle_rad)+coef_V+coef_basal)+B0Tj_Dunit_B0Ti[0]*coef*time_step+B0Tj_Dunit_comp_B0Ti[0]*coef_P);
 
                 /* ---------- VU component */
-                double dvu = surface_e*(+B0Tj_Dunit_B0Ti[1]*coef*timestep+B0Tj_Dunit_comp_B0Ti[1]*coef_P);
+                double dvu = surface_e*(+B0Tj_Dunit_B0Ti[1]*coef*time_step+B0Tj_Dunit_comp_B0Ti[1]*coef_P);
 
                 /* ---------- UV component */
-                double duv = surface_e*(+B0Tj_Dunit_B0Ti[2]*coef*timestep+B0Tj_Dunit_comp_B0Ti[2]*coef_P);
+                double duv = surface_e*(+B0Tj_Dunit_B0Ti[2]*coef*time_step+B0Tj_Dunit_comp_B0Ti[2]*coef_P);
 
                 /* ---------- VV component */
-                double dvv = surface_e*( mloc*(coef_Vair+coef_Voce*std::cos(ocean_turning_angle_rad)+coef_V+coef_basal)+B0Tj_Dunit_B0Ti[3]*coef*timestep+B0Tj_Dunit_comp_B0Ti[3]*coef_P);
+                double dvv = surface_e*( mloc*(coef_Vair+coef_Voce*std::cos(ocean_turning_angle_rad)+coef_V+coef_basal)+B0Tj_Dunit_B0Ti[3]*coef*time_step+B0Tj_Dunit_comp_B0Ti[3]*coef_P);
 
                 // if (cpt ==1)
                 // {
@@ -731,6 +956,9 @@ FiniteElement::assemble()
 
             fvdata[2*j] = fuu;
             fvdata[2*j+1] = fvv;
+
+            rcindices[2*j] = it->indices[j]-1;
+            rcindices[2*j+1] = it->indices[j]-1+M_num_nodes;
         }
 
         // if (cpt == 0)
@@ -743,13 +971,14 @@ FiniteElement::assemble()
         //         std::cout<<"\n";
         //     }
 
-
+#if 0
         std::vector<int> rcindices(6);
         for (int s=0; s<3; ++s)
         {
             rcindices[2*s] = it->indices[s]-1;
             rcindices[2*s+1] = it->indices[s]-1+M_num_nodes;
         }
+#endif
 
         // if (cpt == 0)
         //     for(int k=0; k<6; k++)
@@ -807,15 +1036,9 @@ FiniteElement::run()
 {
     this->init();
 
-    double days_in_sec = 24.0*3600.0;
     int pcpt = 0;
     int niter = 0;
-    double time_init = dateStr2Num(vm["simul_in.time_init"].as<std::string>());
-    double output_time_step =  days_in_sec/vm["simul_in.output_per_day"].as<int>();
     double current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
-
-    double time_step = vm["simul_in.timestep"].as<double>();
-    double duration = (vm["simul_in.duration"].as<double>())*days_in_sec;
 
     std::cout<<"TIMESTEP= "<< time_step <<"\n";
     std::cout<<"DURATION= "<< duration <<"\n";
@@ -837,21 +1060,21 @@ FiniteElement::run()
     // Interpolation of the bathymetry
     if (vm["simul_in.Lemieux_basal_k2"].as<double>() > 0 )
     {
-        std::vector<double> data_in(M_mesh_previous.numNodes(),1.);
+        std::vector<double> data_in(M_mesh_init.numNodes(),1.);
 
         for (int i=0; i<data_in.size(); ++i)
             data_in[i] = static_cast <double> (std::rand()) / static_cast <double> (RAND_MAX);
 
-        double *data_out;
+        double* data_out;
 
         Options* options;
         options = new Options();
 
         InterpFromMeshToMesh2dx(&data_out,
-                                &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
-                                M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
+                                &M_mesh_init.indexTr()[0],&M_mesh_init.coordX()[0],&M_mesh_init.coordY()[0],
+                                M_mesh_init.numNodes(),M_mesh_init.numTriangles(),
                                 &data_in[0],
-                                M_mesh_previous.numNodes(),1,
+                                M_mesh_init.numNodes(),1,
                                 &M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
                                 options);
 #if 0
@@ -890,32 +1113,56 @@ FiniteElement::run()
 
     // main loop for nextsim program
 
+    std::vector<double> um(2*M_mesh.numNodes(),1.);
+    for (int al=0; al<um.size();++al)
+    {
+        um[al] = static_cast <double> (std::rand()) / static_cast <double> (RAND_MAX);
+    }
+
+
+    double displacement_factor = 1.;
+    double minang = 0.;
     bool is_running = true;
     while (is_running)
     {
         is_running = ((pcpt+1)*time_step) < duration;
-        //is_running = false;
+
+        if (pcpt > 2)
+            is_running = false;
 
         current_time = time_init + pcpt*time_step/(24*3600.0);
 
         // step 0: preparation
         // remeshing and remapping of the prognostic variables
 
+        // start remeshing
         if (vm["simul_in.regrid"].as<std::string>() == "No-regridding")
         {
-            //std::cout<<"YES\n";
-            //minAngleMesh(&M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.coordY().size());
+            minang = this->minAngle(M_mesh,M_UM,displacement_factor);
+            std::cout<<"REGRID ANGLE= "<< minang <<"\n";
+
+            if (1)// (minang < vm["simul_in.regrid_angle"].as<double>())
+            {
+                // call regrid(simul_out, mesh, simul_in);
+                std::cout<<"Regriding starts\n";
+                this->regrid();
+                std::cout<<"Regriding done\n";
+            }
+
         }
 
         //if (pcpt <30)
         //std::cout<<"CURRENT_TIME= "<< current_time <<"\n";
 
+        this->assemble();
+        this->solve();
+
         ++pcpt;
     }
 
-    std::cout<<"pcpt= "<< pcpt <<"\n";
-    this->assemble();
-    this->solve();
+    // std::cout<<"pcpt= "<< pcpt <<"\n";
+    //this->assemble();
+    //this->solve();
 
     //this->initSnowThickness();
     //this->performSimulation();
@@ -1224,7 +1471,7 @@ FiniteElement::equallySpacedDrifter()
 }
 
 void
-FiniteElement::importBamg()
+FiniteElement::importBamg(BamgMesh const* bamg_mesh)
 {
     //mesh_type mesh;
     std::vector<point_type> mesh_nodes;
@@ -1232,12 +1479,12 @@ FiniteElement::importBamg()
     std::vector<element_type> mesh_triangles;
     std::vector<double> coords(3,0);
 
-    mesh_nodes.resize(bamgmeshout->VerticesSize[0]);
+    mesh_nodes.resize(bamg_mesh->VerticesSize[0]);
 
-    for (int id=0; id<bamgmeshout->VerticesSize[0]; ++id)
+    for (int id=0; id<bamg_mesh->VerticesSize[0]; ++id)
     {
-        coords[0] = bamgmeshout->Vertices[3*id];
-        coords[1] = bamgmeshout->Vertices[3*id+1];
+        coords[0] = bamg_mesh->Vertices[3*id];
+        coords[1] = bamg_mesh->Vertices[3*id+1];
 
         mesh_nodes[id].id = id+1;
         mesh_nodes[id].coords = coords;
@@ -1249,11 +1496,11 @@ FiniteElement::importBamg()
     int numVertices = 2;
     std::vector<int> edges(numVertices);
 
-    for (int edg=0; edg<bamgmeshout->EdgesSize[0]; ++edg)
+    for (int edg=0; edg<bamg_mesh->EdgesSize[0]; ++edg)
     {
-        edges[0] = bamgmeshout->Edges[3*edg];
-        edges[1] = bamgmeshout->Edges[3*edg+1];
-        //std::cout<< "Edges= "<< bamgmeshout->Edges[3*edg+2] <<"\n";
+        edges[0] = bamg_mesh->Edges[3*edg];
+        edges[1] = bamg_mesh->Edges[3*edg+1];
+        //std::cout<< "Edges= "<< bamg_mesh->Edges[3*edg+2] <<"\n";
 
         element_type gmshElt( edg,
                               type,
@@ -1269,11 +1516,11 @@ FiniteElement::importBamg()
     numVertices = 3;
     std::vector<int> indices(numVertices);
 
-    for (int tr=0; tr<bamgmeshout->TrianglesSize[0]; ++tr)
+    for (int tr=0; tr<bamg_mesh->TrianglesSize[0]; ++tr)
     {
-        indices[0] = bamgmeshout->Triangles[4*tr];
-        indices[1] = bamgmeshout->Triangles[4*tr+1];
-        indices[2] = bamgmeshout->Triangles[4*tr+2];
+        indices[0] = bamg_mesh->Triangles[4*tr];
+        indices[1] = bamg_mesh->Triangles[4*tr+1];
+        indices[2] = bamg_mesh->Triangles[4*tr+2];
 
         element_type gmshElt( tr,
                               type,
@@ -1286,14 +1533,21 @@ FiniteElement::importBamg()
         mesh_triangles.push_back(gmshElt);
     }
 
-    M_mesh_previous = M_mesh;
+    std::cout<<"\n";
+    std::cout<<"INFO: Previous  NumNodes     = "<< M_mesh.numNodes() <<"\n";
+    std::cout<<"INFO: Previous  NumTriangles = "<< M_mesh.numTriangles() <<"\n";
+    std::cout<<"INFO: Previous  NumEdges     = "<< M_mesh.numEdges() <<"\n";
+
+    //M_mesh_init = M_mesh;
     M_mesh = mesh_type(mesh_nodes,mesh_edges,mesh_triangles);
     M_mesh.writeTofile("out.msh");
 
-    std::cout<<"\n";
-    std::cout<<"INFO: Previous  NumNodes     = "<< M_mesh_previous.numNodes() <<"\n";
-    std::cout<<"INFO: Previous  NumTriangles = "<< M_mesh_previous.numTriangles() <<"\n";
-    std::cout<<"INFO: Previous  NumEdges     = "<< M_mesh_previous.numEdges() <<"\n";
+    M_elements = M_mesh.triangles();
+    M_nodes = M_mesh.nodes();
+
+    M_num_elements = M_mesh.numTriangles();
+    M_num_nodes = M_mesh.numNodes();
+
     std::cout<<"\n";
     std::cout<<"INFO: Current  NumNodes      = "<< M_mesh.numNodes() <<"\n";
     std::cout<<"INFO: Current  NumTriangles  = "<< M_mesh.numTriangles() <<"\n";

@@ -327,7 +327,7 @@ GmshMesh::move(std::vector<double> const& um, double factor)
 {
     if ((um.size() != 0) && (factor != 0))
     {
-        ASSERT(M_nodes.size()==um.size(),"invalid size of displacement vector");
+        ASSERT(2*M_nodes.size()==um.size(),"invalid size of displacement vector");
 
         for (int i=0; i<M_nodes.size(); ++i)
         {

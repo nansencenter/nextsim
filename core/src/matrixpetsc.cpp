@@ -22,8 +22,10 @@ namespace Nextsim
 
 MatrixPetsc::MatrixPetsc( Communicator const& comm )
 	:
-    M_comm( comm )
+    M_comm( comm ),
+    M_is_initialized( false )
 {
+#if 0
     int ierr = 0;
 
     ierr = MatCreate(M_comm,&M_mat);
@@ -33,74 +35,7 @@ MatrixPetsc::MatrixPetsc( Communicator const& comm )
     CHKERRABORT( comm, ierr );
 
     M_is_initialized = false;
-}
-
-MatrixPetsc::MatrixPetsc( const size_type m, const size_type n, const size_type nnz, Communicator const& comm )
-	:
-    M_comm( comm )
-{
-	if (m==0 || n==0)
-		return;
-
-    int ierr = 0;
-    int nrow = static_cast<int> (m);
-    int ncol = static_cast<int> (n);
-    int n_nz  = static_cast<int> (nnz);
-
-    // ierr = PetscInitialize(0,(char ***)"", PETSC_NULL, PETSC_NULL);
-    // CHKERRABORT( comm, ierr );
-
-    ierr = MatCreateSeqAIJ ( comm, nrow, ncol, n_nz, PETSC_NULL, &M_mat );
-    CHKERRABORT( comm, ierr );
-
-
-    ierr = MatSetFromOptions ( M_mat );
-    CHKERRABORT( comm, ierr );
-
-    ierr = MatSetOption( M_mat,MAT_KEEP_NONZERO_PATTERN,PETSC_TRUE );
-    MatSetOption( M_mat,MAT_IGNORE_ZERO_ENTRIES,PETSC_FALSE );
-    CHKERRABORT( comm, ierr );
-
-    // generates an error for new matrix entry
-    ierr = MatSetOption ( M_mat, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_TRUE );
-    CHKERRABORT( comm, ierr );
-
-    M_is_initialized = true;
-
-    this->zero();
-
-#if 0
-    PetscInt i,j,m = 5,n = 5,Ii,J,ncols;
-    PetscScalar v;
-    Mat C;
-
-    //ierr = MatCreateSeqAIJ(PETSC_COMM_SELF,m*n,m*n,5,NULL,&C);
-    ierr = MatCreateSeqAIJ(comm,m*n,m*n,5,NULL,&M_mat);
-    CHKERRABORT( comm, ierr );
-
-    ierr = MatSetUp(M_mat);
-    CHKERRABORT( comm, ierr );
-    //CHKERRQ(ierr);
-
-
-    for (i=0; i<m; i++) {
-        for (j=0; j<n; j++) {
-            v = -1.0;  Ii = j + n*i;
-            if (i>0)   {J = Ii - n; ierr = MatSetValues(M_mat,1,&Ii,1,&J,&v,INSERT_VALUES);}
-            if (i<m-1) {J = Ii + n; ierr = MatSetValues(M_mat,1,&Ii,1,&J,&v,INSERT_VALUES);}
-            if (j>0)   {J = Ii - 1; ierr = MatSetValues(M_mat,1,&Ii,1,&J,&v,INSERT_VALUES);}
-            if (j<n-1) {J = Ii + 1; ierr = MatSetValues(M_mat,1,&Ii,1,&J,&v,INSERT_VALUES);}
-            v = 4.0;
-            ierr = MatSetValues(M_mat,1,&Ii,1,&Ii,&v,INSERT_VALUES);
-            CHKERRABORT( comm, ierr );
-        }
-    }
-
 #endif
-    //ierr = MatDestroy(&C);
-    //std::cout<<"Comm size= "<< comm.rank() <<"\n";
-
-    //ierr = PetscFinalize();
 }
 
 MatrixPetsc::~MatrixPetsc()
@@ -122,6 +57,45 @@ MatrixPetsc::mat()
     ASSERT(M_is_initialized, "null petsc matrix");
 
     return M_mat;
+}
+
+void
+MatrixPetsc::init( const size_type m, const size_type n, const size_type nnz )
+{
+	if (m==0 || n==0)
+		return;
+
+    {
+        if (M_is_initialized)
+            this->clear();
+    }
+
+    int ierr = 0;
+    int nrow = static_cast<int> (m);
+    int ncol = static_cast<int> (n);
+    int n_nz  = static_cast<int> (nnz);
+
+    // ierr = PetscInitialize(0,(char ***)"", PETSC_NULL, PETSC_NULL);
+    // CHKERRABORT( M_comm, ierr );
+
+    ierr = MatCreateSeqAIJ ( M_comm, nrow, ncol, n_nz, PETSC_NULL, &M_mat );
+    CHKERRABORT( M_comm, ierr );
+
+
+    ierr = MatSetFromOptions ( M_mat );
+    CHKERRABORT( M_comm, ierr );
+
+    ierr = MatSetOption( M_mat,MAT_KEEP_NONZERO_PATTERN,PETSC_TRUE );
+    MatSetOption( M_mat,MAT_IGNORE_ZERO_ENTRIES,PETSC_FALSE );
+    CHKERRABORT( M_comm, ierr );
+
+    // generates an error for new matrix entry
+    ierr = MatSetOption ( M_mat, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_TRUE );
+    CHKERRABORT( M_comm, ierr );
+
+    M_is_initialized = true;
+
+    this->zero();
 }
 
 void
@@ -514,8 +488,9 @@ MatrixPetsc::on(std::vector<int> const& flags, VectorPetsc& rhs)
 
     this->close();
     // apply homogeneous dirichlet boundary conditions
-    VectorPetsc values(rhs.size());
-    values.zero();
+    VectorPetsc values;
+    values.init(rhs.size());
+    //values.zero();
 
 #if (PETSC_VERSION_MAJOR >= 3) && (PETSC_VERSION_MINOR > 0)
     MatSetOption( M_mat,MAT_KEEP_NONZERO_PATTERN,PETSC_TRUE );
@@ -608,7 +583,8 @@ MatrixPetsc::energy(VectorPetsc& u) const
     this->close();
 
     PetscScalar e;
-    VectorPetsc v(u.size());
+    VectorPetsc v;
+    v.init(u.size());
     MatMult( M_mat, u.vec(), v.vec() );
     VecDot( u.vec(), v.vec(), &e );
 
