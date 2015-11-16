@@ -25,6 +25,7 @@ else
 	CXXFLAGS += -I /usr/local/include -I /opt/local/include/openmpi-mp
 	CXXFLAGS +=	-I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I .
 	CXXFLAGS +=	-I $(NETCDF_DIR)/include -I $(GMSH_DIR)/include/gmsh
+	CXXFLAGS +=	-I /opt/local/netcdf/include/
 
 	LDFLAGS += -Wl,-rpath,/usr/local/lib -Wl,-rpath,/opt/local/lib/openmpi-mp
 	LDFLAGS += -L /usr/local/lib -L /opt/local/lib/openmpi-mp -lmpi_cxx -lmpi -ldl -lstdc++
