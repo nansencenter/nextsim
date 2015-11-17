@@ -112,14 +112,6 @@ sudo ln -sf /opt/local/lib/openmpi-gcc47 /opt/local/lib/openmpi-mp
 
 # Type make in nextsim
 
-## For the research application (Solve a Laplacian)
-
-# go to nextsim/research
-
-# Type make
-
-# Go to bin, type ./laplacian.exec
-
 ## For the mode application (run nextsim)
 
 # go to nextsim/model
