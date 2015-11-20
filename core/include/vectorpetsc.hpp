@@ -116,6 +116,8 @@ public:
 
 	void clear();
 
+    std::vector<value_type> container();
+
 	bool isInitialized() const { return M_is_initialized; }
 
 	bool closed() const { return M_is_closed; }

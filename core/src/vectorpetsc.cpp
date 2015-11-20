@@ -594,4 +594,18 @@ VectorPetsc::clear()
 	M_is_closed = true;
 }
 
+std::vector<double>
+VectorPetsc::container()
+{
+    ASSERT(M_is_initialized, "VectorPetsc not initialized");
+
+    std::vector<value_type> contnr(this->size());
+    for (int i=0; i<this->size(); ++i)
+    {
+        contnr[i] = this->operator()(i);
+    }
+
+    return contnr;
+}
+
 } // Nextsim

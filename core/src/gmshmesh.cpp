@@ -332,8 +332,8 @@ GmshMesh::move(std::vector<double> const& um, double factor)
         for (int i=0; i<M_nodes.size(); ++i)
         {
             //std::cout<<"ADDED= "<< factor*um[2*(element.indices[i]-1)] <<"\n";
-            M_nodes[i].coords[0] += factor*um[2*i];
-            M_nodes[i].coords[1] += factor*um[(2*i)+1];
+            M_nodes[i].coords[0] += factor*um[i];
+            M_nodes[i].coords[1] += factor*um[i+M_num_nodes];
         }
     }
 }
@@ -436,5 +436,104 @@ GmshMesh::coordY()
 
     return y;
 }
+
+std::vector<double>
+GmshMesh::meanX()
+{
+    std::vector<double> mean_x(M_num_triangles);
+    int cpt = 0;
+    double x = 0.;
+    for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
+    {
+        x = 0.;
+
+        for (int i=0; i<3; ++i)
+        {
+            x += M_nodes[it->indices[i]-1].coords[0];
+        }
+
+        mean_x[cpt] = x/3.;
+
+        ++cpt;
+    }
+
+    return mean_x;
+}
+
+std::vector<double>
+GmshMesh::meanY()
+{
+    std::vector<double> mean_y(M_num_triangles);
+    int cpt = 0;
+    double y = 0.;
+    for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
+    {
+        y = 0.;
+
+        for (int i=0; i<3; ++i)
+        {
+            y += M_nodes[it->indices[i]-1].coords[1];
+        }
+
+        mean_y[cpt] = y/3.;
+
+        ++cpt;
+    }
+
+    return mean_y;
+}
+
+std::vector<double>
+GmshMesh::meanLon()
+{
+    mapx_class *map;
+    std::string filename = Environment::nextsimDir().string() + "/data/Nps.mpp";
+    std::vector<char> str(filename.begin(), filename.end());
+    str.push_back('\0');
+
+    map = init_mapx(&str[0]);
+
+    std::vector<double> mean_lon(M_num_triangles);
+    double lat = 0.;
+    double lon = 0.;
+
+    std::vector<double> X = this->meanX();
+    std::vector<double> Y = this->meanY();
+
+    for (int elt=0; elt<M_num_triangles; ++elt)
+    {
+        int status = inverse_mapx(map,X[elt],Y[elt],&lat,&lon);
+        mean_lon[elt] = lon;
+    }
+
+    return mean_lon;
+}
+
+std::vector<double>
+GmshMesh::meanLat()
+{
+    mapx_class *map;
+    std::string filename = Environment::nextsimDir().string() + "/data/Nps.mpp";
+    std::vector<char> str(filename.begin(), filename.end());
+    str.push_back('\0');
+
+    map = init_mapx(&str[0]);
+
+    std::vector<double> mean_lat(M_num_triangles);
+    double lat = 0.;
+    double lon = 0.;
+
+    std::vector<double> X = this->meanX();
+    std::vector<double> Y = this->meanY();
+
+    for (int elt=0; elt<M_num_triangles; ++elt)
+    {
+        int status = inverse_mapx(map,X[elt],Y[elt],&lat,&lon);
+        mean_lat[elt] = lat;
+    }
+
+    return mean_lat;
+}
+
 
 } // Nextsim

@@ -1,3 +1,4 @@
+clear;
 mc;
 mx;
 my;
