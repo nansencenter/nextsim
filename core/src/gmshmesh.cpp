@@ -343,7 +343,7 @@ GmshMesh::stereographicProjection()
 {
     // polar stereographic projection
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/Nps.mpp";
+    std::string filename = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
@@ -487,7 +487,7 @@ std::vector<double>
 GmshMesh::meanLon()
 {
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/Nps.mpp";
+    std::string filename = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
@@ -513,7 +513,7 @@ std::vector<double>
 GmshMesh::meanLat()
 {
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/Nps.mpp";
+    std::string filename = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
