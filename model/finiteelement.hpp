@@ -102,7 +102,7 @@ public:
     void importBamg(BamgMesh const* bamg_mesh);
     void tensors();
     void update();
-    void exportResults();
+    void exportResults(int step);
 
 private:
     po::variables_map vm;

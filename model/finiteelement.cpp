@@ -962,6 +962,11 @@ FiniteElement::assemble()
         {
             /* Column corresponding to indice j (we also assemble terms in col+1) */
             //col = (mwIndex)it[2*j]-1; /* -1 to use the indice convention of C */
+             fuu=0.;
+             fvv=0.;
+
+            int index_u = it->indices[j]-1;
+            int index_v = it->indices[j]-1+M_num_nodes;
 
             for(int i=0; i<3; i++)
             {
@@ -1015,6 +1020,13 @@ FiniteElement::assemble()
                 data[(12*i+2*j)+6] = dvu;
                 data[(12*i+2*j+1)+6] = dvv;
 
+                fuu += surface_e*( mloc*( coef_Vair*M_wind[index_u]+coef_Voce*std::cos(ocean_turning_angle_rad)*M_ocean[index_u]+coef_X+coef_V*M_VT[index_u]) - B0Tj_sigma_h[0]/3);
+                fuu += surface_e*( mloc*( -coef_Voce*std::sin(ocean_turning_angle_rad)*(M_ocean[index_u]-M_VT[index_u])-coef_C*M_Vcor[index_u]) );
+
+                fvv += surface_e*( mloc*( coef_Vair*M_wind[index_v]+coef_Voce*std::cos(ocean_turning_angle_rad)*M_ocean[index_v]+coef_Y+coef_V*M_VT[index_v]) - B0Tj_sigma_h[1]/3);
+                fvv += surface_e*( mloc*( -coef_Voce*std::sin(ocean_turning_angle_rad)*(M_ocean[index_v]-M_VT[index_v])-coef_C*M_Vcor[index_v]) );
+
+                
             }
 
             // double fuu = surface_e*( mloc*( coef_Vair*M_wind[2*j]+coef_Voce*std::cos(ocean_turning_angle_rad)*M_ocean[2*j]+coef_X+coef_V*M_VT[2*j]) - B0Tj_sigma_h[0]/3);
@@ -1033,15 +1045,6 @@ FiniteElement::assemble()
                 std::cout<<"wind V      = "<< M_wind[it->indices[j]-1+M_num_nodes] <<"\n";
             }
 
-
-            int index_u = it->indices[j]-1;
-            int index_v = it->indices[j]-1+M_num_nodes;
-
-            fuu = surface_e*( mloc*( coef_Vair*M_wind[index_u]+coef_Voce*std::cos(ocean_turning_angle_rad)*M_ocean[index_u]+coef_X+coef_V*M_VT[index_u]) - B0Tj_sigma_h[0]/3);
-            fuu += surface_e*( mloc*( -coef_Voce*std::sin(ocean_turning_angle_rad)*(M_ocean[index_u]-M_VT[index_u])-coef_C*M_Vcor[index_u]) );
-
-            fvv = surface_e*( mloc*( coef_Vair*M_wind[index_v]+coef_Voce*std::cos(ocean_turning_angle_rad)*M_ocean[index_v]+coef_Y+coef_V*M_VT[index_v]) - B0Tj_sigma_h[1]/3);
-            fvv += surface_e*( mloc*( -coef_Voce*std::sin(ocean_turning_angle_rad)*(M_ocean[index_v]-M_VT[index_v])-coef_C*M_Vcor[index_v]) );
 
             //double fvv = surface_e*( mloc*( coef_Voce*std::sin(ocean_turning_angle_rad)*(M_ocean[index_v]-M_VT[index_v])-coef_C*M_Vcor[index_v]) );
 
@@ -1524,7 +1527,7 @@ FiniteElement::run()
             std::cout<<"REGRID ANGLE= "<< minang <<"\n";
 
             //if (1)// ((minang < vm["simul_in.regrid_angle"].as<double>()) || (pcpt ==0) )
-            if (1)//((minang < vm["simul_in.regrid_angle"].as<double>()) || (pcpt ==0) )
+            if ((minang < vm["simul_in.regrid_angle"].as<double>()) || (pcpt ==0) )
             {
                 std::cout<<"Regriding starts\n";
                 this->regrid(pcpt);
@@ -1579,7 +1582,7 @@ FiniteElement::run()
 
         this->update();
 
-        this->exportResults();
+        this->exportResults(pcpt+1);
 
         ++pcpt;
     }
@@ -1682,8 +1685,8 @@ FiniteElement::computeFactors(int pcpt)
         for (int i=0; i<3; ++i)
         {
             nind = it->indices[i]-1;
-            welt_oce_ice += std::sqrt(std::pow(M_VT[nind],2.)+std::pow(M_VT[nind+M_num_nodes],2.));
-            welt_air_ice += std::sqrt(std::pow(M_VT[nind]-M_wind[nind],2.)+std::pow(M_VT[nind+M_num_nodes]-M_wind[nind+M_num_nodes],2.));
+            welt_oce_ice += std::sqrt(std::pow(M_VT[nind]-M_ocean[nind],2.)+std::pow(M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes],2.));
+            welt_air_ice += std::sqrt(std::pow(M_VT[nind]-M_wind [nind],2.)+std::pow(M_VT[nind+M_num_nodes]-M_wind [nind+M_num_nodes],2.));
             welt_ice += std::sqrt(std::pow(M_VT[nind],2.)+std::pow(M_VT[nind+M_num_nodes],2.));
         }
 
@@ -1716,7 +1719,7 @@ FiniteElement::computeFactors(int pcpt)
     for (int i=0; i<M_Voce_factor.size(); ++i)
     {
         M_Voce_factor[i] = (vm["simul_in.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*M_norm_Voce_ice[i]));
-        M_Voce_factor[i] *= Vair_coef*(vm["simul_in.rho_air"].as<double>());
+        M_Voce_factor[i] *= Voce_coef*(vm["simul_in.rho_water"].as<double>());
         //std::cout <<"Coeff= "<< M_Voce_factor[i] <<"\n";
     }
 
@@ -1972,7 +1975,7 @@ FiniteElement::constantThick()
 
     for (int i=0; i<M_num_elements; ++i)
     {
-        M_thick[i] = (vm["simul_in.init_thickness"].as<bool>())*M_conc[i];
+        M_thick[i] = (vm["simul_in.init_thickness"].as<double>())*M_conc[i];
     }
 }
 
@@ -2133,10 +2136,10 @@ FiniteElement::timeInterpolation(int step)
     Vair_coef = 1.;
     Voce_coef = 1.;
 
-    if ((step*time_step) < spinup_duration)
+    if (((step+1)*time_step) < spinup_duration)
     {
-        Vair_coef = ((step)*time_step)/spinup_duration;
-        Voce_coef = ((step)*time_step)/spinup_duration;
+        Vair_coef = ((step+1)*time_step)/spinup_duration;
+        Voce_coef = ((step+1)*time_step)/spinup_duration;
     }
 }
 
@@ -2255,7 +2258,7 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
 }
 
 void
-FiniteElement::exportResults()
+FiniteElement::exportResults(int step)
 {
     vector_type mx;
     mx.init(3*M_num_elements);
@@ -2263,22 +2266,29 @@ FiniteElement::exportResults()
     my.init(3*M_num_elements);
     vector_type mc;
     mc.init(3*M_num_elements);
+    vector_type mu;
+    mu.init(3*M_num_elements);
+    vector_type mv;
+    mv.init(3*M_num_elements);
 
     int cpt = 0;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
     {
-        double sum = 0;
+        double sum_u = 0.;
+        double sum_v = 0.;
         for (int j=0; j<3; ++j)
         {
-            sum += M_solution->operator()(it->indices[j]-1);
+            sum_u += M_solution->operator()(it->indices[j]-1);
+            sum_v += M_solution->operator()(it->indices[j]-1+M_num_nodes);
         }
-
-        mc(3*cpt) = sum;
-        mc(3*cpt+1) = sum;
-        mc(3*cpt+2) = sum;
+        sum_u /= 3.;
+        sum_v /= 3.;
 
         for (int i=0; i<3; ++i)
         {
+            mc(3*cpt+i) = M_conc[cpt];
+            mu(3*cpt+i) = sum_u;
+            mv(3*cpt+i) = sum_v;
             mx(3*cpt+i) = M_nodes[it->indices[i]-1].coords[0];
             my(3*cpt+i) = M_nodes[it->indices[i]-1].coords[1];
         }
@@ -2286,9 +2296,13 @@ FiniteElement::exportResults()
         ++cpt;
     }
 
-    mx.printMatlab("mx.m");
-    my.printMatlab("my.m");
-    mc.printMatlab("mc.m");
+    string step_str;
+    step_str= boost::lexical_cast<std::string>(step)+".m";
+    mx.printMatlab("mx"+ step_str);
+    my.printMatlab("my"+ step_str);
+    mc.printMatlab("mc"+ step_str);
+    mu.printMatlab("mu"+ step_str);
+    mv.printMatlab("mv"+ step_str);
 }
 
 } // Nextsim
