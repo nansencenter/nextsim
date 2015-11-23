@@ -37,8 +37,6 @@ FiniteElement::init()
     // //M_mesh.setOrdering("gmsh");
     // M_mesh.readFromFile("hypercube.msh");
 
-    M_mesh_barc = M_mesh;
-
     this->initConstant();
 
     this->initBamg();
@@ -97,6 +95,8 @@ FiniteElement::init()
     M_VT.resize(2*M_num_nodes,0.);
     M_VTM.resize(2*M_num_nodes,0.);
     M_VTMM.resize(2*M_num_nodes,0.);
+
+    M_bathy_depth.resize(M_num_nodes,200.);
 
     M_UM.resize(2*M_num_nodes,0.);
     //M_UT.resize(2*M_num_nodes,0.);
@@ -497,17 +497,15 @@ FiniteElement::regrid(bool step)
         while (flip)
         {
             ++substep;
-            //std::cout<<"STEP "<< substep <<"\n";
-            //flip = this->flip(M_mesh,M_UM,(1e-03)*displacement_factor);
             displacement_factor /= 2.;
             flip = this->flip(M_mesh,M_UM,displacement_factor);
 
-            std::cout<<"********************************************FLIP= "<< substep <<"\n";
+            if (substep > 1)
+                std::cout<<"FLIP DETECTED "<< substep-1 <<"\n";
         }
 
-        std::cout<<"flip= "<< flip <<"\n";
+        std::cout<<"displacement_factor= "<< displacement_factor <<"\n";
 
-        //M_mesh.move(M_UM,(1e-03)*displacement_factor);
         M_mesh.move(M_UM,displacement_factor);
 
 #if 0
@@ -644,9 +642,62 @@ FiniteElement::regrid(bool step)
         M_dirichlet_flags[2*i+1] = vec[i]+M_num_nodes;
     }
 
+    int prv_num_nodes = M_mesh_previous.numNodes();
+    double* interp_in;
+    interp_in = new double[6*prv_num_nodes];
+
+    double* interp_out;
+
+    std::cout<<"Interp starts\n";
+    chrono.restart();
+
+    for (int i=0; i<prv_num_nodes; ++i)
+    {
+        // VT
+        interp_in[6*i] = M_VT[i];
+        interp_in[6*i+1] = M_VT[i+prv_num_nodes];
+
+        // VTM
+        interp_in[6*i+2] = M_VTM[i];
+        interp_in[6*i+3] = M_VTM[i+prv_num_nodes];
+
+        // VTMM
+        interp_in[6*i+4] = M_VTMM[i];
+        interp_in[6*i+5] = M_VTMM[i+prv_num_nodes];
+    }
+
+    InterpFromMeshToMesh2dx(&interp_out,
+                            &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
+                            M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
+                            interp_in,
+                            M_mesh_previous.numNodes(),6,
+                            &M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
+                            options);
 
 
-    M_UM.resize(2*M_mesh.numNodes(),0.);
+    M_VT.resize(2*M_num_nodes,0.);
+    M_VTM.resize(2*M_num_nodes,0.);
+    M_VTMM.resize(2*M_num_nodes,0.);
+
+    for (int i=0; i<M_num_nodes; ++i)
+    {
+        // VT
+        M_VT[i] = interp_out[6*i];
+        M_VT[i+M_num_nodes] = interp_out[6*i+1];
+
+        // VTM
+        M_VTM[i] = interp_out[6*i+2];
+        M_VTM[i+M_num_nodes] = interp_out[6*i+3];
+
+        // VTMM
+        M_VTMM[i] = interp_out[6*i+4];
+        M_VTMM[i+M_num_nodes] = interp_out[6*i+5];
+    }
+
+    std::cout<<"Interp done\n";
+    std::cout<<"TIMER INTERPOLATION= " << chrono.elapsed() <<"s\n";
+
+
     //M_matrix->init(2*M_num_nodes,2*M_num_nodes,22);
     M_matrix->init(2*M_num_nodes,2*M_num_nodes,27);
     M_vector->resize(2*M_num_nodes);
@@ -660,14 +711,11 @@ FiniteElement::regrid(bool step)
     M_snow_thick.resize(M_num_elements,0.);
     M_damage.resize(M_num_elements,0.);
 
-    M_VT.resize(2*M_num_nodes,0.);
-    M_VTM.resize(2*M_num_nodes,0.);
-    M_VTMM.resize(2*M_num_nodes,0.);
 
     M_UM.resize(2*M_num_nodes,0.);
     //M_UT.resize(2*M_num_nodes,0.);
 
-    M_element_depth.resize(M_num_nodes,0.);
+    M_element_depth.resize(M_num_elements,0.);
     M_h_thin.resize(M_num_elements,0.);
     M_hs_thin.resize(M_num_elements,0.);
 
@@ -740,6 +788,7 @@ FiniteElement::assemble()
     std::vector<double> B0Tj_Dunit_comp_B0Ti(4,0);
     std::vector<double> B0T_Dunit_comp_B0T(36,0);
     std::vector<double> B0Tj_sigma_h(2,0);
+
     double B0Tj_Dunit_tmp0, B0Tj_Dunit_tmp1;
     double B0Tj_Dunit_B0Ti_tmp0, B0Tj_Dunit_B0Ti_tmp1, B0Tj_Dunit_B0Ti_tmp2, B0Tj_Dunit_B0Ti_tmp3;
     double B0Tj_Dunit_comp_tmp0, B0Tj_Dunit_comp_tmp1;
@@ -775,6 +824,7 @@ FiniteElement::assemble()
     //     um[al] = static_cast <double> (std::rand()) / static_cast <double> (RAND_MAX);
     // }
 
+    std::cout<<"Assembling starts\n";
     chrono.restart();
     std::vector<double> data(36);
     std::vector<double> fvdata(6);
@@ -782,6 +832,7 @@ FiniteElement::assemble()
     //std::vector<double> shapecoeff(6);
 
     double duu, dvu, duv, dvv, fuu, fvv;
+    int index_u, index_v;
 
 
     int cpt = 0;
@@ -1026,7 +1077,7 @@ FiniteElement::assemble()
                 fvv += surface_e*( mloc*( coef_Vair*M_wind[index_v]+coef_Voce*std::cos(ocean_turning_angle_rad)*M_ocean[index_v]+coef_Y+coef_V*M_VT[index_v]) - B0Tj_sigma_h[1]/3);
                 fvv += surface_e*( mloc*( -coef_Voce*std::sin(ocean_turning_angle_rad)*(M_ocean[index_v]-M_VT[index_v])-coef_C*M_Vcor[index_v]) );
 
-                
+
             }
 
             // double fuu = surface_e*( mloc*( coef_Vair*M_wind[2*j]+coef_Voce*std::cos(ocean_turning_angle_rad)*M_ocean[2*j]+coef_X+coef_V*M_VT[2*j]) - B0Tj_sigma_h[0]/3);
@@ -1044,7 +1095,6 @@ FiniteElement::assemble()
                 std::cout<<"wind U      = "<< M_wind[it->indices[j]-1] <<"\n";
                 std::cout<<"wind V      = "<< M_wind[it->indices[j]-1+M_num_nodes] <<"\n";
             }
-
 
             //double fvv = surface_e*( mloc*( coef_Voce*std::sin(ocean_turning_angle_rad)*(M_ocean[index_v]-M_VT[index_v])-coef_C*M_Vcor[index_v]) );
 
@@ -1094,6 +1144,7 @@ FiniteElement::assemble()
     }
 
     M_matrix->close();
+    std::cout<<"Assembling done\n";
     std::cout<<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
 
     chrono.restart();
@@ -1180,12 +1231,18 @@ FiniteElement::update()
     {
         //std::cout<<"M_UMF= "<< M_UM[i] <<"\n";
         //M_UT[i] = M_UT[i] + time_step*M_VT[i];
-        M_UM[i] = M_UM[i] + time_step*M_VT[i];
-        //std::cout<<"M_UMC= "<< M_UM[i] <<"\n";
+        if(std::find(M_neumann_flags.begin(),M_neumann_flags.end(),i) == M_neumann_flags.end())
+        {
+            M_UM[i] = M_UM[i] + time_step*M_VT[i];
+        }
+        //std::cout<<"M_UMC= "<< M_VT[i] <<"\n";
     }
 
-    std::cout<<"Jacobian init   = "<< this->measure(*M_elements.begin(),M_mesh, UM_P) <<"\n";
-    std::cout<<"Jacobian current= "<< this->measure(*M_elements.begin(),M_mesh,M_UM) <<"\n";
+    std::cout<<"MAX VT= "<< *std::max_element(M_VT.begin(),M_VT.end()) <<"\n";
+    std::cout<<"MIN VT= "<< *std::min_element(M_VT.begin(),M_VT.end()) <<"\n";
+
+    // std::cout<<"Jacobian init   = "<< this->measure(*M_elements.begin(),M_mesh, UM_P) <<"\n";
+    // std::cout<<"Jacobian current= "<< this->measure(*M_elements.begin(),M_mesh,M_UM) <<"\n";
 
     std::vector<double> B0T(18,0);
     int cpt = 0;
@@ -1334,8 +1391,8 @@ FiniteElement::update()
          *======================================================================
          */
 
-        surface = this->measure(*M_elements.begin(),M_mesh, UM_P);
-        surface_new = this->measure(*M_elements.begin(),M_mesh,M_UM);
+        surface = this->measure(*it,M_mesh, UM_P);
+        surface_new = this->measure(*it,M_mesh,M_UM);
 
         ice_surface = M_conc[cpt]*surface;
         ice_volume = M_thick[cpt]*surface;
@@ -1463,7 +1520,7 @@ FiniteElement::solve()
               );
 
     std::cout<<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";
-    M_solution->printMatlab("solution.m");
+    //M_solution->printMatlab("solution.m");
 
     Environment::logMemoryUsage("");
 }
@@ -1511,14 +1568,17 @@ FiniteElement::run()
     {
         is_running = ((pcpt+1)*time_step) < duration;
 
-        if (pcpt > 1)
+        if (pcpt > 4)
             is_running = false;
 
         current_time = time_init + pcpt*time_step/(24*3600.0);
 
+        std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
+
         // step 0: preparation
         // remeshing and remapping of the prognostic variables
 
+        bool regrid_done = false;
         // start remeshing
         //if (vm["simul_in.regrid"].as<std::string>() == "bamg")
         if (vm["simul_in.regrid"].as<std::string>() == "No-regridding")
@@ -1529,6 +1589,7 @@ FiniteElement::run()
             //if (1)// ((minang < vm["simul_in.regrid_angle"].as<double>()) || (pcpt ==0) )
             if ((minang < vm["simul_in.regrid_angle"].as<double>()) || (pcpt ==0) )
             {
+                regrid_done = true;
                 std::cout<<"Regriding starts\n";
                 this->regrid(pcpt);
                 std::cout<<"Regriding done\n";
@@ -1564,13 +1625,13 @@ FiniteElement::run()
         }
 
         //if (pcpt <30)
-        std::cout<<"CURRENT_TIME= "<< current_time <<"\n";
+        //std::cout<<"CURRENT_TIME= "<< current_time <<"\n";
 
         this->timeInterpolation(pcpt);
 
         this->computeFactors(pcpt);
 
-        if (pcpt==0)
+        if ((pcpt==0) || (regrid_done))
             this->tensors();
 
         this->assemble();
@@ -1583,23 +1644,10 @@ FiniteElement::run()
         this->update();
 
         this->exportResults(pcpt+1);
-
         ++pcpt;
     }
 
     //this->exportResults();
-
-    //std::cout<<"pcpt= "<< pcpt <<"\n";
-    //this->assemble();
-    //this->solve();
-
-    //this->performSimulation();
-
-    // auto X = M_mesh.meanLat();
-    // for (int i=0; i<M_num_elements; ++i)
-    // {
-    //     std::cout<<"Mean["<< i <<"]= "<< X[i] <<"\n";
-    // }
 }
 
 void
@@ -2072,8 +2120,8 @@ FiniteElement::initDrifter()
 void
 FiniteElement::bathymetry()
 {
-    if (M_bathy_depth.size()==0)
-        M_bathy_depth.resize(M_num_nodes,200.);
+    // if (M_bathy_depth.size()==0)
+    //     M_bathy_depth.resize(M_num_nodes,200.);
 
     // Interpolation of the bathymetry
     if (vm["simul_in.Lemieux_basal_k2"].as<double>() > 0 )
@@ -2095,17 +2143,20 @@ FiniteElement::bathymetry()
                                 &M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
                                 options);
 
-        for (int i=0; i<M_element_depth.size(); ++i)
-        {
-            M_element_depth[i] = depth_out[i];
-        }
+        // for (int i=0; i<M_element_depth.size(); ++i)
+        // {
+        //     M_element_depth[i] = depth_out[i];
+        // }
+
+        // std::cout<<"M_element_depth= "<< M_element_depth.size() <<"\n";
+        // std::cout<<"M_element      = "<< M_num_elements <<"\n";
 
         // std::cout<<"M_element_depth.size()= "<< M_element_depth.size() <<"\n";
         // std::cout<<"M_num_elements        = "<< M_num_elements <<"\n";
         // std::cout<<"M_num_nodes           = "<< M_num_nodes <<"\n";
         // std::cout<<"INTERP DONE\n";
 
-        this->nodesToElements(M_element_depth);
+        this->nodesToElements(depth_out,M_element_depth);
 
         // for (int k = 0; k < M_num_elements; k++ )
         // {
@@ -2144,10 +2195,10 @@ FiniteElement::timeInterpolation(int step)
 }
 
 void
-FiniteElement::nodesToElements(std::vector<double>& v)
+FiniteElement::nodesToElements(double const* depth, std::vector<double>& v)
 {
-    std::vector<double> vc = v;
-    v.resize(M_num_elements);
+    //std::vector<double> vc = v;
+    //v.resize(M_num_elements);
 
     int cpt = 0;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
@@ -2155,7 +2206,7 @@ FiniteElement::nodesToElements(std::vector<double>& v)
         double sum = 0;
         for (int j=0; j<3; ++j)
         {
-            sum += vc[it->indices[j]-1];
+            sum += depth[it->indices[j]-1];
         }
 
         v[cpt] = sum/3.0;
@@ -2240,7 +2291,7 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     std::cout<<"INFO: Previous  NumTriangles = "<< M_mesh.numTriangles() <<"\n";
     std::cout<<"INFO: Previous  NumEdges     = "<< M_mesh.numEdges() <<"\n";
 
-    //M_mesh_init = M_mesh;
+    M_mesh_previous = M_mesh;
     M_mesh = mesh_type(mesh_nodes,mesh_edges,mesh_triangles);
     //M_mesh.writeTofile("out.msh");
 
@@ -2272,10 +2323,12 @@ FiniteElement::exportResults(int step)
     mv.init(3*M_num_elements);
 
     int cpt = 0;
+    double sum_u = 0.;
+    double sum_v = 0.;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
     {
-        double sum_u = 0.;
-        double sum_v = 0.;
+        sum_u = 0.;
+        sum_v = 0.;
         for (int j=0; j<3; ++j)
         {
             sum_u += M_solution->operator()(it->indices[j]-1);

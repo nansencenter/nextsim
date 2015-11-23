@@ -96,7 +96,7 @@ public:
     void initDrifter();
     void bathymetry();
     void timeInterpolation(int step);
-    void nodesToElements(std::vector<double>& v);
+    void nodesToElements(double const* depth, std::vector<double>& v);
 
     void PwlInterp2D();
     void importBamg(BamgMesh const* bamg_mesh);
@@ -108,7 +108,7 @@ private:
     po::variables_map vm;
     mesh_type M_mesh;
     mesh_type M_mesh_init;
-    mesh_type M_mesh_barc;
+    mesh_type M_mesh_previous;
     matrix_ptrtype M_matrix;
     //matrix_ptrtype M_mass;
     vector_ptrtype M_vector;
