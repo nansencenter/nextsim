@@ -14,14 +14,14 @@ using namespace bamg;
 using namespace std;
 
 int InterpFromMeshToMesh2dx(double** pdata_interp,int* index_data,double* x_data,double* y_data,int nods_data,int nels_data,
-			double* data,int M_data,int N_data,double* x_interp,double* y_interp,int N_interp,Options* options){
+			double* data,int M_data,int N_data,double* x_interp,double* y_interp,int N_interp,bool isdefault/*Options* options*/){
 
 	/*Output*/
 	double* data_interp=NULL;
 
 	/*Intermediary*/
 	double xmin,xmax,ymin,ymax;
-	bool   isdefault;
+	//bool   isdefault;
 	double defaultvalue;
 	R2     r;
 	I2     I;
@@ -37,6 +37,7 @@ int InterpFromMeshToMesh2dx(double** pdata_interp,int* index_data,double* x_data
 		_error_("data provided should have either " << nods_data << " or " << nels_data << " lines (not " << M_data << ")");
 	}
 
+#if 0
 	/*Get default*/
 	if(options->GetOption("default")){
 		isdefault=true;
@@ -45,6 +46,7 @@ int InterpFromMeshToMesh2dx(double** pdata_interp,int* index_data,double* x_data
 	else{
 		isdefault=false;
 	}
+#endif
 
 	/*Initialize output*/
 	data_interp=xNew<double>(N_interp*N_data);
@@ -140,6 +142,7 @@ int InterpFromMeshToMesh2dx(double** pdata_interp,int* index_data,double* x_data
 				if (it<0 || it>=nels_data){
 					_error_("Triangle number " << it << " not in [0 " << nels_data << "], report bug to developers");
 				}
+				data_interp[i*N_data+j]=data[N_data*it+j];
 			}
 		}
 	}

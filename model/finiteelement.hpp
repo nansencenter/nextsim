@@ -11,9 +11,11 @@
 
 #include <solverpetsc.hpp>
 #include <boost/program_options.hpp>
+#include <boost/unordered_map.hpp>
 #include <boost/version.hpp>
 #include <boost/format.hpp>
 #include <BamgConvertMeshx.h>
+#include <BamgTriangulatex.h>
 #include <Bamgx.h>
 #include <InterpFromMeshToMesh2dx.h>
 #include <pwl_interp_2d_scattered.hpp>
@@ -78,9 +80,7 @@ public:
     std::vector<double> hminVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const;
     std::vector<double> hmaxVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const;
 
-    void performSimulation();
     void computeFactors(int cpt);
-    void initialConditions();
     void initBamg();
     void initConstant();
     void forcing();
@@ -100,7 +100,11 @@ public:
 
     void PwlInterp2D();
     void importBamg(BamgMesh const* bamg_mesh);
+    void initSimulation();
     void tensors();
+    void cohesion();
+    void updateVelocity();
+    void scalingVelocity();
     void update();
     void exportResults(int step);
 
@@ -168,6 +172,9 @@ private:
     std::vector<double> M_Dunit;
     std::vector<double> M_Dunit_comp;
     std::vector<double> M_Mass;
+    // std::vector<std::vector<double>> M_B0T;
+    // std::vector<std::vector<double>> M_B0T_Dunit_B0T;
+    // std::vector<std::vector<double>> M_B0T_Dunit_comp_B0T;
     std::vector<double> M_random_number;
     std::vector<double> M_Cohesion;
     std::vector<double> M_Compressive_strength;

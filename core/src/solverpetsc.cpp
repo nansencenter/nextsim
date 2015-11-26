@@ -104,7 +104,7 @@ SolverPetsc::solveLinearSystem(matrix_ptrtype const& matrix,
     ierr = KSPSetOperators( M_ksp, matrix->mat(), matrix->mat(), DIFFERENT_NONZERO_PATTERN);
 #else
     //bool same_preconditioner=true;
-    ierr = KSPSetReusePreconditioner( M_ksp, (M_reuse_prec)? PETSC_TRUE : PETSC_FALSE );
+    ierr = KSPSetReusePreconditioner( M_ksp, (M_reuse_prec) ? PETSC_TRUE : PETSC_FALSE );
     CHKERRABORT( M_comm,ierr );
     ierr = KSPSetOperators( M_ksp, matrix->mat(), matrix->mat() );
 #endif

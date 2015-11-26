@@ -51,7 +51,7 @@ namespace Nextsim
             ("simul_in.drifter_climit", po::value<double>()->default_value( 0.15 ), "")
             ("simul_in.reduce_domain_to_sea_ice", po::value<bool>()->default_value( true ), "")
             ("simul_in.transport_scheme", po::value<std::string>()->default_value( "lagrangian" ), "")
-            ("simul_in.regrid", po::value<std::string>()->default_value( "No-regridding" ), "")
+            ("simul_in.regrid", po::value<std::string>()->default_value( "bamg" ), "No-regridding or bamg")
             ("simul_in.regrid_output_flag", po::value<bool>()->default_value( false ), "")
             ("simul_in.regrid_angle", po::value<double>()->default_value( 10. ), "")
             ("simul_in.interp_with_cavities", po::value<bool>()->default_value( true ), "")

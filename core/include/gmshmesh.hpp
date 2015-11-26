@@ -132,8 +132,8 @@ public:
     std::vector<double> coordX();
     std::vector<double> coordY();
 
-    std::vector<double> meanX();
-    std::vector<double> meanY();
+    std::vector<double> bCoordX();
+    std::vector<double> bCoordY();
     std::vector<double> meanLat();
     std::vector<double> meanLon();
 

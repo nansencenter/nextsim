@@ -438,9 +438,9 @@ GmshMesh::coordY()
 }
 
 std::vector<double>
-GmshMesh::meanX()
+GmshMesh::bCoordX()
 {
-    std::vector<double> mean_x(M_num_triangles);
+    std::vector<double> bcoord_x(M_num_triangles);
     int cpt = 0;
     double x = 0.;
     for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
@@ -452,18 +452,18 @@ GmshMesh::meanX()
             x += M_nodes[it->indices[i]-1].coords[0];
         }
 
-        mean_x[cpt] = x/3.;
+        bcoord_x[cpt] = x/3.;
 
         ++cpt;
     }
 
-    return mean_x;
+    return bcoord_x;
 }
 
 std::vector<double>
-GmshMesh::meanY()
+GmshMesh::bCoordY()
 {
-    std::vector<double> mean_y(M_num_triangles);
+    std::vector<double> bcoord_y(M_num_triangles);
     int cpt = 0;
     double y = 0.;
     for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
@@ -475,12 +475,12 @@ GmshMesh::meanY()
             y += M_nodes[it->indices[i]-1].coords[1];
         }
 
-        mean_y[cpt] = y/3.;
+        bcoord_y[cpt] = y/3.;
 
         ++cpt;
     }
 
-    return mean_y;
+    return bcoord_y;
 }
 
 std::vector<double>
@@ -497,8 +497,8 @@ GmshMesh::meanLon()
     double lat = 0.;
     double lon = 0.;
 
-    std::vector<double> X = this->meanX();
-    std::vector<double> Y = this->meanY();
+    std::vector<double> X = this->bCoordX();
+    std::vector<double> Y = this->bCoordY();
 
     for (int elt=0; elt<M_num_triangles; ++elt)
     {
@@ -523,8 +523,8 @@ GmshMesh::meanLat()
     double lat = 0.;
     double lon = 0.;
 
-    std::vector<double> X = this->meanX();
-    std::vector<double> Y = this->meanY();
+    std::vector<double> X = this->bCoordX();
+    std::vector<double> Y = this->bCoordY();
 
     for (int elt=0; elt<M_num_triangles; ++elt)
     {
