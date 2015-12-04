@@ -126,8 +126,11 @@ private:
     int M_num_nodes;
     int M_num_elements;
 
+    std::vector<int> M_boundary_flags;
     std::vector<int> M_dirichlet_flags;
+    std::vector<int> M_dirichlet_nodes;
     std::vector<int> M_neumann_flags;
+    std::vector<int> M_neumann_nodes;
 
     boost::timer chrono;
 
@@ -223,6 +226,7 @@ private:
     double C_alea;
     double tan_phi;
     double ridge_h;
+    double current_time;
 
 private:
 
@@ -267,6 +271,8 @@ private:
     void constantDamage();
     void constantSnowThick();
     void equallySpacedDrifter();
+
+    void asrWind();//(double const& u, double const& v);
 
 };
 } // Nextsim

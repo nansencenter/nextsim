@@ -48,21 +48,24 @@ FiniteElement::init()
                      M_mesh.numNodes(), M_mesh.numTriangles()
                      );
 
+    //chrono.restart();
     for (auto it=M_mesh.edges().begin(), end=M_mesh.edges().end(); it!=end; ++it)
     {
         if (it->physical==161)
         {
             M_dirichlet_flags.push_back(it->indices[0]-1);
-            M_dirichlet_flags.push_back(it->indices[0]-1+M_mesh.numNodes());
-            //std::cout<<"PHYSICAL["<< ppt <<"]= "<< it->indices[0]-1 <<"\n";
-            //++ppt;
-        }
-        else
-        {
-            M_neumann_flags.push_back(it->indices[0]-1);
-            M_neumann_flags.push_back(it->indices[0]-1+M_mesh.numNodes());
+            M_dirichlet_flags.push_back(it->indices[1]-1);
         }
     }
+
+
+    // chrono.restart();
+    std::sort(M_dirichlet_flags.begin(), M_dirichlet_flags.end());
+    std::cout<<"INIT: DIRICHLET NODES 1= "<< M_dirichlet_flags.size() <<"\n";
+    M_dirichlet_flags.erase(std::unique( M_dirichlet_flags.begin(), M_dirichlet_flags.end() ), M_dirichlet_flags.end());
+    std::cout<<"INIT: DIRICHLET NODES 2= "<< M_dirichlet_flags.size() <<"\n";
+    // //std::cout<<"INIT: NEUMANN   NODES= "<< M_neumann_flags.size() <<"\n";
+    //std::cout<<"TIMER DIRICHLET= " << chrono.elapsed() <<"s\n";
 
     importBamg(bamgmesh);
 
@@ -76,6 +79,7 @@ FiniteElement::init()
 
     std::cout<<"HMIN= "<< h[0] <<"\n";
     std::cout<<"HMAX= "<< h[1] <<"\n";
+    std::cout<<"RES = "<< this->resolution(M_mesh) <<"\n";
 
     M_elements = M_mesh.triangles();
     M_nodes = M_mesh.nodes();
@@ -626,65 +630,96 @@ FiniteElement::regrid(bool step)
     std::vector<int> vec;
     int fnd = 0;
     int snd = 0;
+
+#if 1
     for (int edg=0; edg<bamgmesh_previous->EdgesSize[0]; ++edg)
     {
         fnd = bamgmesh_previous->Edges[3*edg]-1;
         snd = bamgmesh_previous->Edges[3*edg+1]-1;
 
-        if ((std::find(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),fnd) != M_dirichlet_flags.end()) || (std::find(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),snd) != M_dirichlet_flags.end()))
+        if ((std::binary_search(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),fnd))
+            || (std::binary_search(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),snd)))
         {
             bamggeom_previous->Edges[3*edg+2] = 161;
             bamgmesh_previous->Edges[3*edg+2] = 161;
 
-            if(std::find(vec.begin(),vec.end(),fnd) == vec.end())
-                vec.push_back(fnd);
-
-            if(std::find(vec.begin(),vec.end(),snd) == vec.end())
-                vec.push_back(snd);
-
-            //std::cout<<"INIT["<< ppt << "]= ("<< M_mesh.coordX()[flag] <<","<< M_mesh.coordY()[flag] <<")\n";
-            //std::cout<<"INIT["<< ppt << "]= ("<< flag <<","<< bamgmesh_previous->Edges[3*edg+1]-1 <<")\n";
         }
     }
 
-    std::sort(vec.begin(), vec.end());
-    for (int i=0; i<vec.size(); ++i)
-    {
-        //std::cout<<"VEC["<< i <<"]= "<< vec[i] <<"\n";
-        //std::cout<<"INIT["<< vec[i] << "]= ("<< M_mesh.coordX()[vec[i]] <<","<< M_mesh.coordY()[vec[i]] <<")\n";
-    }
+    //std::sort(vec.begin(), vec.end());
+    // for (int i=0; i<vec.size(); ++i)
+    // {
+    //     //std::cout<<"VEC["<< i <<"]= "<< vec[i] <<"\n";
+    //     //std::cout<<"INIT["<< vec[i] << "]= ("<< M_mesh.coordX()[vec[i]] <<","<< M_mesh.coordY()[vec[i]] <<")\n";
+    // }
+#endif
 
     *bamgopt_previous = *bamgopt;
-    Bamgx(bamgmesh,bamggeom_previous,bamgmesh_previous,bamggeom_previous,bamgopt_previous);
+    //Bamgx(bamgmesh,bamggeom_previous,bamgmesh_previous,bamggeom_previous,bamgopt_previous);
+    Bamgx(bamgmesh,bamggeom,bamgmesh_previous,bamggeom_previous,bamgopt_previous);
     this->importBamg(bamgmesh);
 
     // update dirichlet nodes
-    vec.resize(0);
+    M_boundary_flags.resize(0);
+    M_dirichlet_flags.resize(0);
     for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
     {
+        M_boundary_flags.push_back(bamgmesh->Edges[3*edg]-1);
+        M_boundary_flags.push_back(bamgmesh->Edges[3*edg+1]-1);
+
         if (bamgmesh->Edges[3*edg+2] == 161)
         {
-            if(std::find(vec.begin(),vec.end(),bamgmesh->Edges[3*edg]-1) == vec.end())
-                vec.push_back(bamgmesh->Edges[3*edg]-1);
+            M_dirichlet_flags.push_back(bamgmesh->Edges[3*edg]-1);
+            M_dirichlet_flags.push_back(bamgmesh->Edges[3*edg+1]-1);
 
-            if(std::find(vec.begin(),vec.end(),bamgmesh->Edges[3*edg+1]-1) == vec.end())
-                vec.push_back(bamgmesh->Edges[3*edg+1]-1);
-
-            //std::cout<<"CURRENT["<< ppt << "]= ("<< M_mesh.coordX()[flag] <<","<< M_mesh.coordY()[flag] <<")\n";
+            //std::cout<<"NODES["<< edg <<"]= "<< bamgmesh->Edges[3*edg]-1 << " and "<< bamgmesh->Edges[3*edg+1]-1 <<"\n";
         }
     }
 
-    std::sort(vec.begin(), vec.end());
-    M_dirichlet_flags.clear();
-    M_dirichlet_flags.resize(2*(vec.size()));
-    for (int i=0; i<vec.size(); ++i)
+    std::sort(M_dirichlet_flags.begin(), M_dirichlet_flags.end());
+    //std::cout<<"CURRENT: DIRICHLET NODES 1= "<< M_dirichlet_flags.size() <<"\n";
+    M_dirichlet_flags.erase( std::unique(M_dirichlet_flags.begin(), M_dirichlet_flags.end() ), M_dirichlet_flags.end());
+    //std::cout<<"CURRENT: DIRICHLET NODES 2= "<< M_dirichlet_flags.size() <<"\n";
+
+
+    std::sort(M_boundary_flags.begin(), M_boundary_flags.end());
+    //std::cout<<"CURRENT: BOUNDARY NODES 1= "<< M_boundary_flags.size() <<"\n";
+    M_boundary_flags.erase( std::unique(M_boundary_flags.begin(), M_boundary_flags.end() ), M_boundary_flags.end());
+    //std::cout<<"CURRENT: BOUNDARY NODES 2= "<< M_boundary_flags.size() <<"\n";
+
+    M_neumann_flags.resize(0);
+    std::set_difference(M_boundary_flags.begin(), M_boundary_flags.end(),
+                        M_dirichlet_flags.begin(), M_dirichlet_flags.end(),
+                        std::back_inserter(M_neumann_flags));
+
+
+    // std::cout<<"***************************\n";
+    // std::cout<<"CURRENT: BOUNDARY NODES 2 = "<< M_boundary_flags.size() <<"\n";
+    // std::cout<<"CURRENT: DIRICHLET NODES 2= "<< M_dirichlet_flags.size() <<"\n";
+    // std::cout<<"CURRENT: NEUMANN NODES 2  = "<< M_neumann_flags.size() <<"\n";
+
+
+    // for (const int& edg : M_dirichlet_flags)
+    // {
+    //     std::cout<<"AFTER["<< edg << "]= ("<< M_mesh.coordX()[edg] <<","<< M_mesh.coordY()[edg] <<")\n";
+    // }
+
+    M_dirichlet_nodes.resize(2*(M_dirichlet_flags.size()));
+    for (int i=0; i<M_dirichlet_flags.size(); ++i)
     {
-        //std::cout<<"VEC["<< i <<"]= "<< vec[i] <<"\n";
-        //std::cout<<"CURRENT["<< vec[i] << "]= ("<< M_mesh.coordX()[vec[i]] <<","<< M_mesh.coordY()[vec[i]] <<")\n";
-        M_dirichlet_flags[2*i] = vec[i];
-        M_dirichlet_flags[2*i+1] = vec[i]+M_num_nodes;
+        M_dirichlet_nodes[2*i] = M_dirichlet_flags[i];
+        M_dirichlet_nodes[2*i+1] = M_dirichlet_flags[i]+M_num_nodes;
     }
 
+
+    M_neumann_nodes.resize(2*(M_neumann_flags.size()));
+    for (int i=0; i<M_neumann_flags.size(); ++i)
+    {
+        M_neumann_nodes[2*i] = M_neumann_flags[i];
+        M_neumann_nodes[2*i+1] = M_neumann_flags[i]+M_num_nodes;
+    }
+
+    //std::cout<<"GLOBAL: NEUMANN NODES 2  = "<< M_neumann_nodes.size() <<"\n";
 
     if (step)
     {
@@ -1229,7 +1264,7 @@ FiniteElement::assemble()
     std::cout<<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
 
     chrono.restart();
-    M_matrix->on(M_dirichlet_flags,*M_vector);
+    M_matrix->on(M_dirichlet_nodes,*M_vector);
     std::cout<<"TIMER DBCA= " << chrono.elapsed() <<"s\n";
 
     std::cout<<"[PETSC MATRIX] CLOSED      = "<< M_matrix->closed() <<"\n";
@@ -1434,6 +1469,7 @@ FiniteElement::update()
     std::vector<double> thickness_new = M_thick;
     std::vector<double> snow_thickness_new = M_snow_thick;
     std::vector<double> concentration_new = M_conc;
+    std::vector<double> damage_new = M_damage;
     std::vector<double> thin_thickness_new = M_h_thin;
     std::vector<double> thin_snow_thickness_new = M_hs_thin;
     std::vector<double> h_ridged_thin_ice_new = M_h_ridged_thin_ice;
@@ -1466,14 +1502,24 @@ FiniteElement::update()
 
     std::vector<double> UM_P = M_UM;
 
-    for (int i=0; i<M_UM.size(); ++i)
+    //std::cout<<"CURRENT: DIRICHLET NODES= "<< M_dirichlet_flags.size() <<"\n";
+    //std::cout<<"CURRENT: NEUMANN   NODES= "<< M_neumann_flags.size() <<"\n";
+
+    // std::cout<<"UM MIN B= "<< *std::min_element(M_UM.begin(),M_UM.end()) <<"\n";
+    // std::cout<<"UM MAX B= "<< *std::max_element(M_UM.begin(),M_UM.end()) <<"\n";
+
+    for (int nd=0; nd<M_UM.size(); ++nd)
     {
-        //M_UT[i] = M_UT[i] + time_step*M_VT[i];
-        if(std::find(M_neumann_flags.begin(),M_neumann_flags.end(),i) == M_neumann_flags.end())
-        {
-            M_UM[i] = M_UM[i] + time_step*M_VT[i];
-        }
+        M_UM[nd] = M_UM[nd] + time_step*M_VT[nd];
     }
+
+    for (const int& nd : M_neumann_nodes)
+    {
+        M_UM[nd] = UM_P[nd];
+    }
+
+    // std::cout<<"UM MIN A= "<< *std::min_element(M_UM.begin(),M_UM.end()) <<"\n";
+    // std::cout<<"UM MAX A= "<< *std::max_element(M_UM.begin(),M_UM.end()) <<"\n";
 
     std::cout<<"VT MIN= "<< *std::min_element(M_VT.begin(),M_VT.end()) <<"\n";
     std::cout<<"VT MAX= "<< *std::max_element(M_VT.begin(),M_VT.end()) <<"\n";
@@ -1516,7 +1562,7 @@ FiniteElement::update()
                 /* deformation */
                 //col = (mwIndex)it[j]-1;
                 epsilon_veloc_i += B0T[i*6 + 2*j]*M_VT[it->indices[j]-1]  ;
-                epsilon_veloc_i += B0T[i*6 + 2*j+1]*M_VT[it->indices[j]-1+M_num_nodes]  ;
+                epsilon_veloc_i += B0T[i*6 + 2*j]*M_VT[it->indices[j]-1+M_num_nodes]  ;
             }
 
             epsilon_veloc[i] = epsilon_veloc_i;
@@ -1539,7 +1585,8 @@ FiniteElement::update()
                 sigma_dot_i += std::exp(ridging_exponent*(1-M_conc[cpt]))*young*(1.-M_damage[cpt])*M_Dunit[i*3 + j]*epsilon_veloc[j];
             }
 
-            M_sigma[3*cpt+i] = M_sigma[3*cpt+i] + time_step*sigma_dot_i;
+            //M_sigma[3*cpt+i] = M_sigma[3*cpt+i] + time_step*sigma_dot_i;
+            M_sigma[3*cpt+i] += time_step*sigma_dot_i;
             sigma_pred[i]    = M_sigma[3*cpt+i] + time_step*sigma_dot_i;
         }
 
@@ -1560,9 +1607,9 @@ FiniteElement::update()
 
         /* Correction of the damage */
         //damage_new[e]=damage[e];
-        double damage_new = M_damage[cpt];
+        //double damage_new = M_damage[cpt];
 
-        if(sigma_n>tract_max || sigma_n<-M_Compressive_strength[cpt])
+        if((sigma_n>tract_max) || (sigma_n<(-M_Compressive_strength[cpt])))
         {
             if(sigma_n>tract_max)
             {
@@ -1575,19 +1622,19 @@ FiniteElement::update()
 
             tmp=1.0-sigma_target/sigma_n*(1-M_damage[cpt]);
 
-            if(tmp>M_damage[cpt])
+            if(tmp>damage_new[cpt])
             {
-                M_damage[cpt]=tmp;
+                damage_new[cpt]=tmp;
             }
         }
 
         if(sigma_s>M_Cohesion[cpt]-sigma_n*tan_phi)
         {
-            tmp=1.0-M_Cohesion[cpt]/(sigma_s+sigma_n*tan_phi)*(1-damage_new);
+            tmp=1.0-M_Cohesion[cpt]/(sigma_s+sigma_n*tan_phi)*(1-M_damage[cpt]);
 
-            if(tmp>damage_new)
+            if(tmp>damage_new[cpt])
             {
-                M_damage[cpt]=tmp;
+                damage_new[cpt]=tmp;
             }
         }
 
@@ -1597,9 +1644,10 @@ FiniteElement::update()
          */
         for(int i=0;i<3;i++)
         {
-            if(damage_new<1)
+            if(M_damage[cpt]<1)
             {
-                M_sigma[3*cpt+i] = (1.-M_damage[cpt])/(1.-damage_new)*M_sigma[3*cpt+i] ;
+                //M_sigma[3*cpt+i] = (1.-M_damage[cpt])/(1.-damage_new)*M_sigma[3*cpt+i] ;
+                M_sigma[3*cpt+i] = (1.-damage_new[cpt])/(1.-M_damage[cpt])*M_sigma[3*cpt+i] ;
             }
             else
             {
@@ -1617,7 +1665,7 @@ FiniteElement::update()
          * time_recovery_damage still depends on the temperature when themodynamics is activated.
          *======================================================================
          */
-        tmp=1./(1.-M_damage[cpt]);
+        tmp=1./(1.-damage_new[cpt]);
         tmp=tmp-1000*time_step/time_relaxation_damage;
         tmp=((tmp>1.)?(tmp):(1.));
         M_damage[cpt]=-1./tmp + 1.;
@@ -1702,6 +1750,24 @@ FiniteElement::update()
             thin_snow_thickness_new[cpt] = M_hs_thin[cpt];
         }
 
+        /* For the Lagrangian scheme, we do not update the variables for the elements having one node on the open boundary. */
+
+        if(std::find(M_neumann_flags.begin(),M_neumann_flags.end(),it->indices[0]-1) != M_neumann_flags.end() ||
+           std::find(M_neumann_flags.begin(),M_neumann_flags.end(),it->indices[1]-1) != M_neumann_flags.end() ||
+           std::find(M_neumann_flags.begin(),M_neumann_flags.end(),it->indices[2]-1) != M_neumann_flags.end())
+        {
+            //std::cout<<"--------------------------------------FOUND\n";
+
+            concentration_new[cpt]    = M_conc[cpt] ;
+            thickness_new[cpt]        = M_thick[cpt] ;
+            snow_thickness_new[cpt]   = M_snow_thick[cpt] ;
+
+            thin_thickness_new[cpt]        = M_h_thin[cpt] ;
+            thin_snow_thickness_new[cpt]   = M_hs_thin[cpt] ;
+
+            h_ridged_thin_ice_new[cpt] = M_h_ridged_thin_ice[cpt];
+            h_ridged_thick_ice_new[cpt] = M_h_ridged_thick_ice[cpt];
+        }
 
         /* Compute the redistribution of thin ice. */
         /* Returns the change in volume and concentration of thick ice as well as the
@@ -1730,9 +1796,14 @@ FiniteElement::update()
         ++cpt;
     }
 
+    // std::cout<<"****************************\n";
+    // std::cout<<"SIGMA MIN= "<< *std::min_element(M_sigma.begin(),M_sigma.end()) <<"\n";
+    // std::cout<<"SIGMA MAX= "<< *std::max_element(M_sigma.begin(),M_sigma.end()) <<"\n";
+
     M_thick = thickness_new;
     M_snow_thick = snow_thickness_new;
     M_conc = concentration_new;
+    M_damage = damage_new;
     M_h_thin = thin_thickness_new;
     M_hs_thin = thin_snow_thickness_new;
     M_h_ridged_thin_ice = h_ridged_thin_ice_new;
@@ -1769,7 +1840,7 @@ FiniteElement::run()
 
     int pcpt = 0;
     int niter = 0;
-    double current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
+    current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
 
     std::cout<<"TIMESTEP= "<< time_step <<"\n";
     std::cout<<"DURATION= "<< duration <<"\n";
@@ -1788,6 +1859,25 @@ FiniteElement::run()
     std::string init_mit_file = (boost::format( "MITgcm_%1%_3m.nc" ) % time_init_ym ).str();
     std::cout<<"INIT_MIT_FILE "<< init_mit_file <<"\n";
 
+    std::cout<<"INIT TIME= "<< time_init <<"\n";
+
+    // double test_ = 2000000.;
+    // boost::gregorian::date dattrs(boost::date_time::parse_date( test_ ));
+
+    double aa = dateStr2Num(vm["simul_in.time_init"].as<std::string>()) + 24.;
+    // std::cout<<"VALUE= "<< aa <<"\n";
+    // std::cout<<"TIMMM= "<< boost::gregorian::date_duration( static_cast<double>( std::floor(aa) ) ) <<"\n";
+
+    // boost::gregorian::date toto = parse_date(aa);
+
+    // std::cout<<"YEAR  = "<< toto.year() <<"\n";
+    // std::cout<<"MONTH = "<< toto.month() <<"\n";
+    // std::cout<<"DAY   = "<< toto.day() <<"\n";
+
+    // //std::cout<<"YEAR = "<< parse_date.year() <<"\n";
+    // std::cout<<"MONTH= "<< dattrs.month() <<"\n";
+    // std::cout<<"DAY  = "<< dattrs.day() <<"\n";
+
     // main loop for nextsim program
 
     double displacement_factor = 1.;
@@ -1805,11 +1895,12 @@ FiniteElement::run()
     {
         is_running = ((pcpt+1)*time_step) < duration;
 
-        if (pcpt > 20)
+        if (pcpt > 100)
             is_running = false;
 
         current_time = time_init + pcpt*time_step/(24*3600.0);
-        std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
+        //std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
+        std::cout<<"TIME STEP "<< pcpt << " for "<< current_time << " + "<< pcpt*time_step/(24*3600.0) <<"\n";
 
         // step 0: preparation
         // remeshing and remapping of the prognostic variables
@@ -1852,6 +1943,7 @@ FiniteElement::run()
         this->update();
 
         //this->exportResults(pcpt+1);
+        this->asrWind();
         ++pcpt;
     }
 
@@ -2103,6 +2195,17 @@ FiniteElement::constantWind(double const& u, double const& v)
         M_wind[i] = u;
         M_wind[i+M_num_nodes] = v;
     }
+}
+
+void
+FiniteElement::asrWind()//(double const& u, double const& v)
+{
+    std::string current_timestr = to_date_string(current_time);
+    std::cout<<"TIMESTR= "<< current_timestr <<"\n";
+    //std::string filename = (boost::format( "asr30km.comb.2d." ) % time_init_ym ).str();
+
+    // M_wind[i] = u;
+    // M_wind[i+M_num_nodes] = v;
 }
 
 void
