@@ -2194,6 +2194,9 @@ FiniteElement::asrWind()//(double const& u, double const& v)
     std::vector<double> XLAT(360);
     std::vector<double> XLON(360);
 
+    std::vector<double> YLAT(360);
+    std::vector<double> YLON(360);
+
     std::vector<size_t> index_start(2);
     std::vector<size_t> index_lat_end(2);
     std::vector<size_t> index_lon_end(2);
@@ -2251,7 +2254,10 @@ FiniteElement::asrWind()//(double const& u, double const& v)
     // VXLON.getVar(index_start,index_lon_end,&XLON[0]);
 
     VXLAT.getVar(index_lat_start,index_lat_end,&XLAT[0]);
-    VXLON.getVar(index_lon_start,index_lon_end,&XLON[0]);
+    VXLON.getVar(index_lat_start,index_lat_end,&XLON[0]);
+
+    VXLAT.getVar(index_lon_start,index_lon_end,&YLAT[0]);
+    VXLON.getVar(index_lon_start,index_lon_end,&YLON[0]);
 
     VTIME.getVar(&XTIME[0]);
 
@@ -2272,6 +2278,8 @@ FiniteElement::asrWind()//(double const& u, double const& v)
     {
         std::vector<double> XY = latLon2XY(XLAT[i], XLON[i], map, configfile);
         X[i] = XY[0];
+
+        std::vector<double> XY = latLon2XY(YLAT[i], YLON[i], map, configfile);
         Y[i] = XY[1];
 
         if (i<10)
