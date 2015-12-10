@@ -18,7 +18,8 @@
 
 void LaunchThread(void* function(void*), void* gate,int num_threads){
 
-	#ifdef _MULTITHREADING_
+
+#ifdef _MULTITHREADING_
 	int i;
 	int            *status  = NULL;
 	pthread_t      *threads = NULL;
@@ -53,12 +54,12 @@ void LaunchThread(void* function(void*), void* gate,int num_threads){
 	xDelete<pthread_t>(threads);
 	xDelete<pthread_handle>(handles);
 
-	#else
+#else
 	pthread_handle handle;
 	handle.gate=gate;
 	handle.id=0;
 	handle.num=1;
 
 	function((void*)&handle);
-	#endif
+#endif
 }

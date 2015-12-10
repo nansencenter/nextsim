@@ -10,11 +10,7 @@
 #include "./isnan.h"
 /*}}}*/
 
-/*InterpFromGridToMeshx{{{*/
-int InterpFromGridToMeshx(IssmSeqVec<double>** pdata_mesh,double* x_in, int x_rows, double* y_in, int y_rows, double* data, int M, int N, double* x_mesh, double* y_mesh, int nods,double default_value, int interpenum){
-
-	/*output: */
-	IssmSeqVec<double>* data_mesh=NULL;
+int InterpFromGridToMeshx(double* &data_mesh,double* x_in, int x_rows, double* y_in, int y_rows, double* data, int M, int N, double* x_mesh, double* y_mesh, int nods,double default_value, int interpenum){
 
 	/*Intermediary*/
 	double* x=NULL;
@@ -33,7 +29,7 @@ int InterpFromGridToMeshx(IssmSeqVec<double>** pdata_mesh,double* x_in, int x_ro
 	}
 
 	/*Allocate output vector: */
-	data_mesh=new IssmSeqVec<double>(nods);
+	data_mesh = new double[nods];
 
 	/*Find out what kind of coordinates (x_in,y_in) have been given is input*/
 	if(N==(x_rows-1) && M==(y_rows-1)){
@@ -67,31 +63,29 @@ int InterpFromGridToMeshx(IssmSeqVec<double>** pdata_mesh,double* x_in, int x_ro
 	gate.x             = x;
 	gate.y             = y;
 	gate.nods          = nods;
-	gate.data_mesh     = data_mesh;
+	//gate.data_mesh     = data_mesh;
 	gate.data          = data;
 	gate.default_value = default_value;
 	gate.interp        = interpenum;
 	gate.M             = M;
 	gate.N             = N;
 
-	/*launch the thread manager with InterpFromGridToMeshxt as a core: */
-	LaunchThread(InterpFromGridToMeshxt,(void*)&gate,_NUMTHREADS_);
-	_printf_("\r      interpolation progress: "<<fixed<<setw(6)<<setprecision(2)<<100.<<"%  \n");
+	InterpFromGridToMeshxt(gate,data_mesh);
+	//_printf_("\r      interpolation progress: "<<fixed<<setw(6)<<setprecision(2)<<100.<<"%  \n");
+
+	// for (int k=0; k<10; ++k)
+	// 	std::cout<<"OUTPUT["<< k <<"]= "<< data_mesh[k] <<"\n";
 
 	/*Assign output pointers:*/
-	*pdata_mesh=data_mesh;
+	//*pdata_mesh=data_mesh;
+
+	std::cout<<"SUCCESS\n";
+
 	return 1;
 }
 /*}}}*/
-/*InterpFromGridToMeshxt {{{*/
-void* InterpFromGridToMeshxt(void* vpthread_handle){
 
-	/*gate variables :*/
-	InterpFromGridToMeshxThreadStruct *gate    = NULL;
-	pthread_handle                    *handle  = NULL;
-	int my_thread;
-	int num_threads;
-	int i0,i1;
+int InterpFromGridToMeshxt(InterpFromGridToMeshxThreadStruct gate, double* data_mesh){//(void* vpthread_handle){
 
 	/*intermediary: */
 	int    i,m,n;
@@ -101,35 +95,29 @@ void* InterpFromGridToMeshxt(void* vpthread_handle){
 	double x1,x2,y1,y2;
 	double Q11,Q12,Q21,Q22;
 
-	/*recover handle and gate: */
-	handle=(pthread_handle*)vpthread_handle;
-	gate=(InterpFromGridToMeshxThreadStruct*)handle->gate;
-	my_thread=handle->id;
-	num_threads=handle->num;
-
 	/*recover parameters :*/
-	double *x_mesh                = gate->x_mesh;
-	double *y_mesh                = gate->y_mesh;
-	int     x_rows                = gate->x_rows;
-	int     y_rows                = gate->y_rows;
-	double *x                     = gate->x;
-	double *y                     = gate->y;
-	int     nods                  = gate->nods;
-	IssmSeqVec<double>*data_mesh = gate->data_mesh;
-	double *data                  = gate->data;
-	double  default_value         = gate->default_value;
-	int     interpenum            = gate->interp;
-	int     M                     = gate->M;
-	int     N                     = gate->N;
+	double *x_mesh                = gate.x_mesh;
+	double *y_mesh                = gate.y_mesh;
+	int     x_rows                = gate.x_rows;
+	int     y_rows                = gate.y_rows;
+	double *x                     = gate.x;
+	double *y                     = gate.y;
+	int     nods                  = gate.nods;
+	//double *data_mesh             = gate.data_mesh;
+	double *data                  = gate.data;
+	double  default_value         = gate.default_value;
+	int     interpenum            = gate.interp;
+	int     M                     = gate.M;
+	int     N                     = gate.N;
 
 	bool debug = M*N>1? true:false;
 
-	/*partition loop across threads: */
-	PartitionRange(&i0,&i1,nods,num_threads,my_thread);
-	for (i=i0;i<i1;i++) {
+	for (i=0;i<nods;i++) {
 
-		if(debug && my_thread==0)
-		 _printf_("\r      interpolation progress: "<<setw(6)<<setprecision(2)<<double(i-i0)/double(i1-i0)*100<<"%   ");
+		//if(debug && my_thread==0)
+		// if(debug)
+		// 	_printf_("\r      interpolation progress: "<<setw(6)<<setprecision(2)<<double(i)/double(nods)*100<<"%   ");
+
 		x_grid=*(x_mesh+i);
 		y_grid=*(y_mesh+i);
 
@@ -174,10 +162,10 @@ void* InterpFromGridToMeshxt(void* vpthread_handle){
 			data_value=default_value;
 		}
 
-		data_mesh->SetValue(i,data_value,INS_VAL);
+		data_mesh[i] = data_value;
 	}
 
-	return NULL;
+	return 1;
 }/*}}}*/
 
 /*findindices {{{*/

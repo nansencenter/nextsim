@@ -438,6 +438,36 @@ GmshMesh::coordY()
 }
 
 std::vector<double>
+GmshMesh::coordX(double const& rotangle)
+{
+    std::vector<double> x(M_num_nodes);
+    int cpt = 0;
+    for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
+    {
+        x[cpt] = std::cos(rotangle)*(it->coords[0]) + std::sin(rotangle)*(it->coords[1]);
+        ++cpt;
+    }
+
+    return x;
+}
+
+std::vector<double>
+GmshMesh::coordY(double const& rotangle)
+{
+    std::vector<double> y(M_num_nodes);
+    int cpt = 0;
+    for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
+    {
+        y[cpt] = -std::sin(rotangle)*(it->coords[0]) + std::cos(rotangle)*(it->coords[1]);
+        ++cpt;
+    }
+
+    return y;
+}
+
+
+
+std::vector<double>
 GmshMesh::bCoordX()
 {
     std::vector<double> bcoord_x(M_num_triangles);

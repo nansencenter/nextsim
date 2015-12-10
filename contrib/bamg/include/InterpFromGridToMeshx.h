@@ -27,11 +27,12 @@ typedef struct{
 	int                 nods;
 	double*             x_mesh;
 	double*             y_mesh;
-	IssmSeqVec<double>* data_mesh;
+	double* data_mesh;
 } InterpFromGridToMeshxThreadStruct;
 
-int    InterpFromGridToMeshx(IssmSeqVec<double>** pdata_mesh,double* x, int x_rows, double* y, int y_rows, double* data, int M, int N, double* x_mesh, double* y_mesh, int nods, double default_value, int interpenum=BilinearInterpEnum);
-void*  InterpFromGridToMeshxt(void* vInterpFromGridToMeshxThreadStruct);
+int    InterpFromGridToMeshx(double* &data_mesh,double* x, int x_rows, double* y, int y_rows, double* data, int M, int N, double* x_mesh, double* y_mesh, int nods, double default_value, int interpenum=BilinearInterpEnum);
+
+int InterpFromGridToMeshxt(InterpFromGridToMeshxThreadStruct gate, double* data_mesh);
 bool   findindices(int* pn,int* pm,double* x,int x_rows, double* y,int y_rows, double xgrid,double ygrid);
 double triangleinterp(double x1,double x2,double y1,double y2,double Q11,double Q12,double Q21,double Q22,double x,double y);
 double bilinearinterp(double x1,double x2,double y1,double y2,double Q11,double Q12,double Q21,double Q22,double x,double y);
