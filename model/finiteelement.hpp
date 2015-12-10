@@ -18,9 +18,17 @@
 #include <BamgTriangulatex.h>
 #include <Bamgx.h>
 #include <InterpFromMeshToMesh2dx.h>
+#include <InterpFromGridToMeshx.h>
 #include <pwl_interp_2d_scattered.hpp>
 #include <gmshmesh.hpp>
 #include "enums.hpp"
+#include <netcdf>
+
+extern "C"
+{
+#include <mapx.h>
+}
+
 
 namespace Nextsim
 {
@@ -79,6 +87,8 @@ public:
 
     std::vector<double> hminVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const;
     std::vector<double> hmaxVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const;
+
+    std::vector<double> latLon2XY(double const& lat, double const& lon, mapx_class* map, std::string const& configfile);
 
     void computeFactors(int cpt);
     void initBamg();

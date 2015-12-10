@@ -41,14 +41,12 @@ FiniteElement::init()
 
     this->initBamg();
 
-    //BamgConvertMeshx(bamgmesh,bamggeom,&index[0],&x[0],&y[0],M_num_nodes,M_num_elements);
     BamgConvertMeshx(
                      bamgmesh,bamggeom,
                      &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
                      M_mesh.numNodes(), M_mesh.numTriangles()
                      );
 
-    //chrono.restart();
     for (auto it=M_mesh.edges().begin(), end=M_mesh.edges().end(); it!=end; ++it)
     {
         if (it->physical==161)
@@ -58,14 +56,8 @@ FiniteElement::init()
         }
     }
 
-
-    // chrono.restart();
     std::sort(M_dirichlet_flags.begin(), M_dirichlet_flags.end());
-    std::cout<<"INIT: DIRICHLET NODES 1= "<< M_dirichlet_flags.size() <<"\n";
     M_dirichlet_flags.erase(std::unique( M_dirichlet_flags.begin(), M_dirichlet_flags.end() ), M_dirichlet_flags.end());
-    std::cout<<"INIT: DIRICHLET NODES 2= "<< M_dirichlet_flags.size() <<"\n";
-    // //std::cout<<"INIT: NEUMANN   NODES= "<< M_neumann_flags.size() <<"\n";
-    //std::cout<<"TIMER DIRICHLET= " << chrono.elapsed() <<"s\n";
 
     importBamg(bamgmesh);
 
@@ -113,7 +105,6 @@ FiniteElement::initSimulation()
     M_bathy_depth.resize(M_mesh_init.numTriangles(),200.);
 
     M_UM.resize(2*M_num_nodes,0.);
-    //M_UT.resize(2*M_num_nodes,0.);
 
     M_element_depth.resize(M_num_elements,0.);
 
@@ -439,10 +430,6 @@ FiniteElement::resolution(mesh_type const& mesh) const
 std::vector<double>
 FiniteElement::hminVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const
 {
-    // std::cout<<"Connectivity[0]= "<< (bamg_mesh->NodalElementConnectivitySize[0]) <<"\n";
-    // std::cout<<"Connectivity[1]= "<< (bamg_mesh->NodalElementConnectivitySize[1]) <<"\n";
-    // std::cout<<"Connectivity[1]= "<< (mesh.numTriangles()) <<"\n";
-
     std::vector<double> hmin(bamg_mesh->NodalElementConnectivitySize[0]);
 
     for (int i=0; i<bamg_mesh->NodalElementConnectivitySize[0]; ++i)
@@ -619,13 +606,11 @@ FiniteElement::regrid(bool step)
     }
 #endif
 
-    //chrono.restart();
     BamgConvertMeshx(
                      bamgmesh_previous,bamggeom_previous,
                      &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
                      M_mesh.numNodes(), M_mesh.numTriangles()
                      );
-    //std::cout<<"TIMER CONVERT= " << chrono.elapsed() <<"s\n";
 
     std::vector<int> vec;
     int fnd = 0;
@@ -677,27 +662,15 @@ FiniteElement::regrid(bool step)
     }
 
     std::sort(M_dirichlet_flags.begin(), M_dirichlet_flags.end());
-    //std::cout<<"CURRENT: DIRICHLET NODES 1= "<< M_dirichlet_flags.size() <<"\n";
     M_dirichlet_flags.erase( std::unique(M_dirichlet_flags.begin(), M_dirichlet_flags.end() ), M_dirichlet_flags.end());
-    //std::cout<<"CURRENT: DIRICHLET NODES 2= "<< M_dirichlet_flags.size() <<"\n";
-
 
     std::sort(M_boundary_flags.begin(), M_boundary_flags.end());
-    //std::cout<<"CURRENT: BOUNDARY NODES 1= "<< M_boundary_flags.size() <<"\n";
     M_boundary_flags.erase( std::unique(M_boundary_flags.begin(), M_boundary_flags.end() ), M_boundary_flags.end());
-    //std::cout<<"CURRENT: BOUNDARY NODES 2= "<< M_boundary_flags.size() <<"\n";
 
     M_neumann_flags.resize(0);
     std::set_difference(M_boundary_flags.begin(), M_boundary_flags.end(),
                         M_dirichlet_flags.begin(), M_dirichlet_flags.end(),
                         std::back_inserter(M_neumann_flags));
-
-
-    // std::cout<<"***************************\n";
-    // std::cout<<"CURRENT: BOUNDARY NODES 2 = "<< M_boundary_flags.size() <<"\n";
-    // std::cout<<"CURRENT: DIRICHLET NODES 2= "<< M_dirichlet_flags.size() <<"\n";
-    // std::cout<<"CURRENT: NEUMANN NODES 2  = "<< M_neumann_flags.size() <<"\n";
-
 
     // for (const int& edg : M_dirichlet_flags)
     // {
@@ -718,8 +691,6 @@ FiniteElement::regrid(bool step)
         M_neumann_nodes[2*i] = M_neumann_flags[i];
         M_neumann_nodes[2*i+1] = M_neumann_flags[i]+M_num_nodes;
     }
-
-    //std::cout<<"GLOBAL: NEUMANN NODES 2  = "<< M_neumann_nodes.size() <<"\n";
 
     if (step)
     {
@@ -794,9 +765,6 @@ FiniteElement::regrid(bool step)
             // concentration
             interp_elt_in[11*i] = M_conc[i];
 
-            // if (i<10)
-            //     std::cout<<"CONCENTRATION BEFORE["<< i <<"]= "<< M_conc[i] <<"\n";
-
             // thickness
             interp_elt_in[11*i+1] = M_thick[i];
 
@@ -854,9 +822,6 @@ FiniteElement::regrid(bool step)
             // concentration
             M_conc[i] = std::max(0., std::min(1.,interp_elt_out[11*i]));
 
-            // if (i<10)
-            //     std::cout<<"CONCENTRATION AFTER["<< i <<"]= "<< M_conc[i] <<"\n";
-
             // thickness
             M_thick[i] = std::max(0., std::min(1.,interp_elt_out[11*i+1]));
 
@@ -907,7 +872,6 @@ FiniteElement::regrid(bool step)
     M_thermo.resize(2*M_num_nodes,0.);
 
     M_UM.resize(2*M_num_nodes,0.);
-    //M_UT.resize(2*M_num_nodes,0.);
 
     M_element_depth.resize(M_num_elements,0.);
     M_h_thin.resize(M_num_elements,0.);
@@ -1562,7 +1526,7 @@ FiniteElement::update()
                 /* deformation */
                 //col = (mwIndex)it[j]-1;
                 epsilon_veloc_i += B0T[i*6 + 2*j]*M_VT[it->indices[j]-1]  ;
-                epsilon_veloc_i += B0T[i*6 + 2*j]*M_VT[it->indices[j]-1+M_num_nodes]  ;
+                epsilon_veloc_i += B0T[i*6 + 2*j + 1]*M_VT[it->indices[j]-1+M_num_nodes]  ;
             }
 
             epsilon_veloc[i] = epsilon_veloc_i;
@@ -1606,8 +1570,6 @@ FiniteElement::update()
         tract_max=tract_coef*M_Cohesion[cpt]/tan_phi;
 
         /* Correction of the damage */
-        //damage_new[e]=damage[e];
-        //double damage_new = M_damage[cpt];
 
         if((sigma_n>tract_max) || (sigma_n<(-M_Compressive_strength[cpt])))
         {
@@ -1646,7 +1608,6 @@ FiniteElement::update()
         {
             if(M_damage[cpt]<1)
             {
-                //M_sigma[3*cpt+i] = (1.-M_damage[cpt])/(1.-damage_new)*M_sigma[3*cpt+i] ;
                 M_sigma[3*cpt+i] = (1.-damage_new[cpt])/(1.-M_damage[cpt])*M_sigma[3*cpt+i] ;
             }
             else
@@ -1678,6 +1639,9 @@ FiniteElement::update()
 
         surface = this->measure(*it,M_mesh, UM_P);
         surface_new = this->measure(*it,M_mesh,M_UM);
+
+        // std::cout<<"SURFACE    = "<< std::setprecision(18) << surface <<"\n";
+        // std::cout<<"SURFACE_NEW= "<< std::setprecision(18) << surface_new <<"\n";
 
         ice_surface = M_conc[cpt]*surface;
         ice_volume = M_thick[cpt]*surface;
@@ -1845,7 +1809,6 @@ FiniteElement::run()
     std::cout<<"TIMESTEP= "<< time_step <<"\n";
     std::cout<<"DURATION= "<< duration <<"\n";
 
-    //gregorian::date epoch = date_time::parse_date<gregorian::date>( "01-01-1900", date_time::ymd_order_dmy);
     gregorian::date epoch = date_time::parse_date<gregorian::date>(
                                                                    vm["simul_in.time_init"].as<std::string>(),
                                                                    //date_time::ymd_order_dmy
@@ -1860,23 +1823,6 @@ FiniteElement::run()
     std::cout<<"INIT_MIT_FILE "<< init_mit_file <<"\n";
 
     std::cout<<"INIT TIME= "<< time_init <<"\n";
-
-    // double test_ = 2000000.;
-    // boost::gregorian::date dattrs(boost::date_time::parse_date( test_ ));
-
-    double aa = dateStr2Num(vm["simul_in.time_init"].as<std::string>()) + 24.;
-    // std::cout<<"VALUE= "<< aa <<"\n";
-    // std::cout<<"TIMMM= "<< boost::gregorian::date_duration( static_cast<double>( std::floor(aa) ) ) <<"\n";
-
-    // boost::gregorian::date toto = parse_date(aa);
-
-    // std::cout<<"YEAR  = "<< toto.year() <<"\n";
-    // std::cout<<"MONTH = "<< toto.month() <<"\n";
-    // std::cout<<"DAY   = "<< toto.day() <<"\n";
-
-    // //std::cout<<"YEAR = "<< parse_date.year() <<"\n";
-    // std::cout<<"MONTH= "<< dattrs.month() <<"\n";
-    // std::cout<<"DAY  = "<< dattrs.day() <<"\n";
 
     // main loop for nextsim program
 
@@ -1995,6 +1941,10 @@ FiniteElement::updateVelocity()
 
     // std::cout<<"MAX SPEED= "<< *std::max_element(speed_c_scaling_test.begin(),speed_c_scaling_test.end()) <<"\n";
     // std::cout<<"MIN SPEED= "<< *std::min_element(speed_c_scaling_test.begin(),speed_c_scaling_test.end()) <<"\n";
+
+    std::cout<<"MAX SPEED= "<< *std::max_element(M_conc.begin(),M_conc.end()) <<"\n";
+    std::cout<<"MIN SPEED= "<< *std::min_element(M_conc.begin(),M_conc.end()) <<"\n";
+
 }
 
 void
@@ -2200,12 +2150,353 @@ FiniteElement::constantWind(double const& u, double const& v)
 void
 FiniteElement::asrWind()//(double const& u, double const& v)
 {
-    std::string current_timestr = to_date_string(current_time);
+
+    std::string current_timestr = to_date_string_ym(current_time);
     std::cout<<"TIMESTR= "<< current_timestr <<"\n";
-    //std::string filename = (boost::format( "asr30km.comb.2d." ) % time_init_ym ).str();
+    std::string asr_filename = (boost::format( "%1%/data/asr30km.comb.2d.%2%.nc" )
+                                % Environment::nextsimDir().string()
+                                % current_timestr ).str();
+
+    std::cout<<"ASR FILE= "<< asr_filename <<"\n";
+
+    double nb_timestep_day = 8;
+    double asr_dt = 1./nb_timestep_day;
+    double time_start = std::floor(current_time*nb_timestep_day)/nb_timestep_day;
+    double time_end = std::ceil(current_time*nb_timestep_day)/nb_timestep_day;
+
+    std::cout<<"TIME START= "<< std::setprecision(9) << time_start <<"\n";
+    std::cout<<"TIME END  = "<< std::setprecision(9) << time_end <<"\n";
+
+    // We always need at least two time steps to interpolate between
+    if (time_end == time_start)
+    {
+        time_end = time_start + (1./nb_timestep_day);
+    }
+
+    std::vector<double> time_vec;
+    for (double dt=time_start; dt<=time_end; dt+=asr_dt)
+    {
+        time_vec.push_back(dt);
+    }
+
+    for (int i=0; i<time_vec.size(); ++i)
+    {
+        std::cout<<"TIMEVEC["<< i <<"]= "<< time_vec[i] <<"\n";
+    }
+
+    //time_vec=time_start:1/nb_timestep_day:time_end;
+    int nb_forcing_step = time_vec.size();
+
+    std::cout<<"NB_FORCING_STEP= "<< nb_forcing_step <<"\n";
+
+    // read in re-analysis coordinates
+
+    std::vector<double> XLAT(360);
+    std::vector<double> XLON(360);
+
+    std::vector<size_t> index_start(2);
+    std::vector<size_t> index_lat_end(2);
+    std::vector<size_t> index_lon_end(2);
+
+    // index_start[0] = 0;
+    // index_start[1] = 0;
+
+    // index_lat_end[0] = 360;
+    // index_lat_end[1] = 1;
+
+    // index_lon_end[0] = 1;
+    // index_lon_end[1] = 360;
+
+#if 1
+    std::vector<size_t> index_lat_start(2);
+    std::vector<size_t> index_lon_start(2);
+
+    index_lat_start[0] = 0;
+    index_lat_start[1] = 0;
+
+    index_lat_end[0] = 360;
+    index_lat_end[1] = 1;
+
+    index_lon_start[0] = 0;
+    index_lon_start[1] = 0;
+
+    index_lon_end[0] = 1;
+    index_lon_end[1] = 360;
+#endif
+
+
+    std::vector<double> XTIME(248);
+
+
+    float U10[360][360];
+    float V10[360][360];
+
+    std::vector<size_t> index_u10_start(3,0);
+    std::vector<size_t> index_u10_end(3);
+
+    // index_u10_end[0] = 1;
+    // index_u10_end[1] = 1;
+    // index_u10_end[2] = 248;
+
+    std::cout<<"READ NETCDF starts\n";
+    netCDF::NcFile dataFile(asr_filename, netCDF::NcFile::read);
+    netCDF::NcVar VXLAT = dataFile.getVar("XLAT");
+    netCDF::NcVar VXLON = dataFile.getVar("XLONG");
+    netCDF::NcVar VTIME = dataFile.getVar("time");
+    netCDF::NcVar VU10 = dataFile.getVar("U10");
+    netCDF::NcVar VV10 = dataFile.getVar("V10");
+    std::cout<<"READ NETCDF done\n";
+
+    // VXLAT.getVar(index_start,index_lat_end,&XLAT[0]);
+    // VXLON.getVar(index_start,index_lon_end,&XLON[0]);
+
+    VXLAT.getVar(index_lat_start,index_lat_end,&XLAT[0]);
+    VXLON.getVar(index_lon_start,index_lon_end,&XLON[0]);
+
+    VTIME.getVar(&XTIME[0]);
+
+    // VU10.getVar(index_u10_start,index_u10_end,&U10[0]);
+    // VV10.getVar(index_u10_start,index_u10_end,&V10[0]);
+
+    std::vector<double> X(360);
+    std::vector<double> Y(360);
+
+    double RE = 6378.273;
+    mapx_class *map;
+    std::string configfile = Environment::nextsimDir().string() + "/data/NpsASR.mpp";
+    std::vector<char> str(configfile.begin(), configfile.end());
+    str.push_back('\0');
+    map = init_mapx(&str[0]);
+
+    for (int i=0; i<360; ++i)
+    {
+        std::vector<double> XY = latLon2XY(XLAT[i], XLON[i], map, configfile);
+        X[i] = XY[0];
+        Y[i] = XY[1];
+
+        if (i<10)
+            std::cout<<"X= "<< X[i] <<" and Y= "<< Y[i] <<"\n";
+    }
+
+    std::sort(X.begin(), X.end());
+    std::sort(Y.begin(), Y.end());
+
+#if 1
+
+    // rotate EB coordinates to fit the ASR coords
+
+    double angle_stereo_mesh = -45;
+    double angle_stereo_ASR = -175;
+
+    double diff_angle = -(angle_stereo_mesh-angle_stereo_ASR)*PI/180.;
+    //double diff_angle = -130.*PI/180;
+
+    std::cout<<"VALUE= "<< from_date_string("1901-01-01") <<"\n";
+
+    std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string("1901-01-01"); });
+    // for (int i=0; i<248; ++i)
+    // {
+    //     std::cout<<"TIME["<< i <<"]= "<< XTIME[i] <<"\n";
+    // }
+
+    nb_forcing_step = 1;
+    for (int fstep=0; fstep <nb_forcing_step; ++fstep)
+    {
+
+        double ftime = time_vec[fstep];
+        std::cout<<"FTIME= "<< ftime <<"\n";
+
+        if (to_date_string_ym(std::floor(ftime)) != to_date_string_ym(current_time))
+        {
+            std::string f_timestr = to_date_string_ym(std::floor(ftime));
+            std::cout<<"F_TIMESTR= "<< f_timestr <<"\n";
+            asr_filename = (boost::format( "%1%/data/asr30km.comb.2d.%2%.nc" )
+                            % Environment::nextsimDir().string()
+                            % to_date_string_ym(std::floor(ftime)) ).str();
+
+            std::cout<<"ASR_FILENAME= "<< asr_filename <<"\n";
+
+            //dataFile = netCDF::NcFile(asr_filename, netCDF::NcFile::read);
+            netCDF::NcFile fdataFile(asr_filename, netCDF::NcFile::read);
+            VTIME = dataFile.getVar("time");
+            //std::vector<double> XTIME(248);
+            VTIME.getVar(&XTIME[0]);
+            std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string("1901-01-01"); });
+            std::cout<<"TODO\n";
+
+            for (int i=0; i<248; ++i)
+            {
+                std::cout<<"TIME["<< i <<"]= "<< XTIME[i] <<"\n";
+            }
+        }
+
+        auto it = std::find(XTIME.begin(), XTIME.end(), ftime);
+        int index = std::distance(XTIME.begin(),it);
+
+        std::cout<<"FIND "<< ftime <<" in position "<< index <<"\n";
+
+        index_u10_start[0] = index;
+        index_u10_start[1] = 0;
+        index_u10_start[2] = 0;
+
+        index_u10_end[0] = 1;
+        index_u10_end[1] = 360;
+        index_u10_end[2] = 360;
+
+        VU10.getVar(index_u10_start,index_u10_end,U10);
+        VV10.getVar(index_u10_start,index_u10_end,V10);
+
+        for (int i=0; i<10; ++i)
+        {
+            std::cout<<"U10["<< i << ","<< 0 <<"]= "<< V10[i][0] <<"\n";
+        }
+
+
+        // InterpFromGridToMeshx(double** pdata_mesh,double* x_in, int x_rows, double* y_in, int y_rows, double* data,
+        //                       int M, int N, double* x_mesh, double* y_mesh, int nods,double default_value)
+
+        std::vector<double> data(360*360);
+        for (int i=0; i<360; ++i)
+            for (int j=0; j<360; ++j)
+            {
+                data[360*i+j] = U10[i][j];
+
+                // if (i<10 && j<10)
+                //     std::cout<<"data_out["<< i << "]= "<< data[i] <<"\n";
+            }
+
+        //std::fill(data.begin(), data.end(), 1.0);
+
+        //diff_angle = 0.;
+
+        auto RX = M_mesh.coordX(diff_angle);
+        auto RY = M_mesh.coordY(diff_angle);
+
+        double* data_out;
+        InterpFromGridToMeshx(data_out, &X[0], X.size(), &Y[0], Y.size(), &data[0], X.size(), Y.size(),
+                              &RX[0], &RY[0], M_mesh.numNodes(), 1.0,TriangleInterpEnum);
+        //&X[0], &Y[0], X.size(),1.0);//, /*BilinearInterpEnum*/ TriangleInterpEnum);
+        //&M_mesh.coordX(diff_angle)[0], &M_mesh.coordY(diff_angle)[0], M_mesh.numNodes(), 1.0,TriangleInterpEnum);
+
+        // for (int i=0; i<M_mesh.numNodes(); ++i)
+        //     std::cout<<"data_out["<< i << "]= "<< data_out[i] <<"\n";
+
+        for (int i=0; i<50; ++i)
+            std::cout<<"data_out["<< i << "]= "<< data_out[i] <<"\n";
+
+
+        //std::cout<<"X[0]= "<< X[0] <<" and XMESH[0]= "<< M_mesh.coordX(diff_angle)[0] <<"\n";
+
+        std::cout<<"MIN BOUND ASRX= "<< *std::min_element(X.begin(),X.end()) <<"\n";
+        std::cout<<"MAX BOUND ASRX= "<< *std::max_element(X.begin(),X.end()) <<"\n";
+
+        std::cout<<"MIN BOUND ASRY= "<< *std::min_element(Y.begin(),Y.end()) <<"\n";
+        std::cout<<"MAX BOUND ASRY= "<< *std::max_element(Y.begin(),Y.end()) <<"\n";
+
+        std::cout<<"DIFF ANGLE= "<< diff_angle <<"\n";
+        // auto RX = M_mesh.coordX(diff_angle);
+        // auto RY = M_mesh.coordY(diff_angle);
+
+        std::cout<<"MIN BOUND MESHX= "<< *std::min_element(RX.begin(),RX.end()) <<"\n";
+        std::cout<<"MAX BOUND MESHX= "<< *std::max_element(RX.begin(),RX.end()) <<"\n";
+
+        std::cout<<"MIN BOUND MESHY= "<< *std::min_element(RY.begin(),RY.end()) <<"\n";
+        std::cout<<"MAX BOUND MESHY= "<< *std::max_element(RY.begin(),RY.end()) <<"\n";
+
+    }
+
+    // double U10[360][360][248];
+    // double V10[360][360][248];
+
+    // netCDF::NcVar VU10 = dataFile.getVar("U10");
+    // netCDF::NcVar VV10 = dataFile.getVar("V10");
+
+    // VU10.getVar(U10);
+    // VV10.getVar(V10);
+
+
+#if 0
+    std::vector<int> datar = {5, 16, 4, 7};
+    std::vector<int> index(datar.size(), 0);
+    for (int i = 0 ; i != index.size() ; i++) {
+        index[i] = i;
+    }
+    std::sort(index.begin(), index.end(),
+         [&](const int& a, const int& b) {
+             return (datar[a] < datar[b]);
+         }
+         );
+    for (int i = 0 ; i != index.size() ; i++) {
+        cout << index[i] << endl;
+    }
+
+    template <typename T>
+        std::vector<size_t> ordered(std::vector<T> const& values) {
+        std::vector<size_t> indices(values.size());
+        std::iota(begin(indices), end(indices), static_cast<size_t>(0));
+
+        std::sort(
+                  begin(indices), end(indices),
+                  [&](size_t a, size_t b) { return values[a] < values[b]; }
+                  );
+        return indices;
+    }
+#endif
+
+    std::cout<<"there are "<<dataFile.getVarCount()<<" variables"<<endl;
+    std::cout<<"there are "<<dataFile.getAttCount()<<" attributes"<<endl;
+    std::cout<<"there are "<<dataFile.getDimCount()<<" dimensions"<<endl;
+    std::cout<<"there are "<<dataFile.getGroupCount()<<" groups"<<endl;
+    std::cout<<"there are "<<dataFile.getTypeCount()<<" types"<<endl;
+
+#endif
+
+#if 0
+    float NEWLAT[360];
+    float NEWLON[360];
+
+    std::vector<size_t> index_lat_start(2);//(720);
+    std::vector<size_t> index_lat_end(2);//(720);
+
+    index_lat_start[0] = 0;
+    index_lat_start[1] = 0;
+
+    index_lat_end[0] = 360;
+    index_lat_end[1] = 1;
+
+
+    // for (int i=0; i<360; ++i)
+    // {
+    //     index_lat_start[i] = i;
+    //     //index_lat[i+360] = 0;
+    // }
+
+    std::cout<<"TESTING STARTS\n";
+    VXLAT.getVar(index_lat_start,index_lat_end,NEWLAT);
+    std::cout<<"TESTING DONE\n";
+
+    for (int i=0; i<360; ++i)
+    {
+        std::cout<<"COMPARE["<< i <<"]= "<< XLAT[i][0] << " and "<< NEWLAT[i] << " DIFF= "<< XLAT[i][0]-NEWLAT[i] <<"\n";
+    }
+
+    // for (int i=0; i<360; ++i)
+    // {
+    //     for (int j=1; j<2; ++j)
+    //     {
+    //         std::cout<<"XLAT["<< i <<"]["<< j <<"]= "<< XLAT[i][j] <<"\n";
+    //     }
+    // }
+
+    // for (int j=0; j<248; ++j)
+    // {
+    //     std::cout<<"XTIME["<< j <<"]= "<< XTIME[j] <<"\n";
+    // }
 
     // M_wind[i] = u;
     // M_wind[i+M_num_nodes] = v;
+#endif
+
 }
 
 void
@@ -2604,6 +2895,21 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     std::cout<<"INFO: Current  NumTriangles  = "<< M_mesh.numTriangles() <<"\n";
     std::cout<<"INFO: Current  NumEdges      = "<< M_mesh.numEdges() <<"\n";
     std::cout<<"\n";
+}
+
+std::vector<double>
+FiniteElement::latLon2XY(double const& lat, double const& lon, mapx_class* map, std::string const& configfile)
+{
+    std::vector<double> xy(2);
+    double x;
+    double y;
+
+    int status = forward_mapx(map,lat,lon,&x,&y);
+
+    xy[0] = x;
+    xy[1] = y;
+
+    return xy;
 }
 
 void

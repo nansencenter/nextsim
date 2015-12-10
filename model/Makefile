@@ -44,6 +44,7 @@ else
 	LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
 	LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
 	LDFLAGS += -L $(NEXTSIMDIR)/lib -linterp
+	LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
 	LDFLAGS += -L $(NEXTSIMDIR)/lib -lnextsim
 
 endif
