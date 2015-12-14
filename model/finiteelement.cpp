@@ -797,6 +797,25 @@ FiniteElement::regrid(bool step)
 
         }
 
+        double* surface_previous = new double[prv_num_elements];
+        double* surface = new double[M_num_elements];
+
+        int cpt = 0;
+        for (auto it=M_mesh_previous.triangles().begin(), end=M_mesh_previous.triangles().end(); it!=end; ++it)
+        {
+            surface_previous[cpt] = this->measure(*it,M_mesh_previous);
+        }
+
+        cpt = 0;
+        for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
+        {
+            surface[cpt] = this->measure(*it,M_mesh);
+        }
+
+        InterpFromMeshToMesh2dCavities(&interp_elt_out,interp_elt_in,11,
+             surface_previous, surface, bamgmesh_previous, bamgmesh);
+
+
         InterpFromMeshToMesh2dx(&interp_elt_out,
                                 &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
                                 M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
@@ -1888,7 +1907,7 @@ FiniteElement::run()
         this->updateVelocity();
         this->update();
 
-        //this->exportResults(pcpt+1);
+        this->exportResults(pcpt+1);
         this->asrWind();
         ++pcpt;
     }
@@ -2253,11 +2272,11 @@ FiniteElement::asrWind()//(double const& u, double const& v)
     // VXLAT.getVar(index_start,index_lat_end,&XLAT[0]);
     // VXLON.getVar(index_start,index_lon_end,&XLON[0]);
 
-    VXLAT.getVar(index_lat_start,index_lat_end,&XLAT[0]);
-    VXLON.getVar(index_lat_start,index_lat_end,&XLON[0]);
+    VXLAT.getVar(index_lon_start,index_lon_end,&XLAT[0]);
+    VXLON.getVar(index_lon_start,index_lon_end,&XLON[0]);
 
-    VXLAT.getVar(index_lon_start,index_lon_end,&YLAT[0]);
-    VXLON.getVar(index_lon_start,index_lon_end,&YLON[0]);
+    VXLAT.getVar(index_lat_start,index_lat_end,&YLAT[0]);
+    VXLON.getVar(index_lat_start,index_lat_end,&YLON[0]);
 
     VTIME.getVar(&XTIME[0]);
 
@@ -2276,10 +2295,11 @@ FiniteElement::asrWind()//(double const& u, double const& v)
 
     for (int i=0; i<360; ++i)
     {
-        std::vector<double> XY = latLon2XY(XLAT[i], XLON[i], map, configfile);
+        std::vector<double> XY;
+        XY = latLon2XY(XLAT[i], XLON[i], map, configfile);
         X[i] = XY[0];
 
-        std::vector<double> XY = latLon2XY(YLAT[i], YLON[i], map, configfile);
+        XY = latLon2XY(YLAT[i], YLON[i], map, configfile);
         Y[i] = XY[1];
 
         if (i<10)
