@@ -79,8 +79,6 @@ int InterpFromGridToMeshx(double* &data_mesh,double* x_in, int x_rows, double* y
 	/*Assign output pointers:*/
 	//*pdata_mesh=data_mesh;
 
-	std::cout<<"SUCCESS\n";
-
 	return 1;
 }
 /*}}}*/
