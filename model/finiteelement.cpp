@@ -83,6 +83,35 @@ FiniteElement::init()
     M_vector = vector_ptrtype(new vector_type());
     M_solution = vector_ptrtype(new vector_type());
 
+
+    const boost::unordered_map<const std::string, forcing::WindType> str2wind = boost::assign::map_list_of
+        ("constant", forcing::WindType::CONSTANT)
+        ("asr", forcing::WindType::ASR);
+    M_wind_type = str2wind.find(vm["wind-type"].as<std::string>())->second;
+
+    //std::cout<<"WINDTYPE= "<< (int)M_wind_type <<"\n";
+
+    const boost::unordered_map<const std::string, forcing::OceanType> str2ocean = boost::assign::map_list_of
+        ("constant", forcing::OceanType::CONSTANT)
+        ("topaz", forcing::OceanType::TOPAZR);
+    M_ocean_type = str2ocean.find(vm["ocean-type"].as<std::string>())->second;
+
+    //std::cout<<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
+
+    const boost::unordered_map<const std::string, forcing::ConcentrationType> str2conc = boost::assign::map_list_of
+        ("constant", forcing::ConcentrationType::CONSTANT)
+        ("topaz", forcing::ConcentrationType::TOPAZ4);
+    M_conc_type = str2conc.find(vm["concentration-type"].as<std::string>())->second;
+
+    //std::cout<<"CONCTYPE= "<< (int)M_conc_type <<"\n";
+
+    const boost::unordered_map<const std::string, forcing::ThicknessType> str2thick = boost::assign::map_list_of
+        ("constant", forcing::ThicknessType::CONSTANT)
+        ("topaz", forcing::ThicknessType::TOPAZ4);
+    M_thick_type = str2thick.find(vm["thickness-type"].as<std::string>())->second;
+
+    //std::cout<<"THICKTYPE= "<< (int)M_thick_type <<"\n";
+
     // init options for interpolation from mesh to mesh
     options = new Options();
 }
@@ -1894,8 +1923,8 @@ FiniteElement::run()
         }
 
         this->timeInterpolation(pcpt);
-        this->forcingWind(vm["simul_in.constant_u"].as<double>(),vm["simul_in.constant_v"].as<double>());
-        this->forcingOcean(0.,0.);
+        this->forcingWind();
+        this->forcingOcean();
         //this->timeInterpolation(pcpt);
         this->computeFactors(pcpt);
 
@@ -2147,12 +2176,14 @@ FiniteElement::computeFactors(int pcpt)
 }
 
 void
-FiniteElement::forcingWind(double const& u, double const& v)
+FiniteElement::forcingWind()//(double const& u, double const& v)
 {
     switch (M_wind_type)
     {
         case forcing::WindType::CONSTANT:
-            //this->constantWind(u,v);
+            this->constantWind(vm["simul_in.constant_u"].as<double>(),vm["simul_in.constant_v"].as<double>());
+            break;
+        case forcing::WindType::ASR:
             this->asrWind();
             break;
 
@@ -2473,14 +2504,17 @@ FiniteElement::loadAsrWind()//(double const& u, double const& v)
 }
 
 void
-FiniteElement::forcingOcean(double const& u, double const& v)
+FiniteElement::forcingOcean()//(double const& u, double const& v)
 {
     switch (M_ocean_type)
     {
         case forcing::OceanType::CONSTANT:
-            this->constantOcean(u,v);
-            //this->topazOcean();
+            this->constantOcean(0.,0.);
             break;
+        case forcing::OceanType::TOPAZR:
+            this->topazOcean();
+            break;
+
 
         default:
             std::cout << "invalid ocean forcing"<<"\n";
@@ -2839,6 +2873,10 @@ FiniteElement::initConcentration()
         case forcing::ConcentrationType::CONSTANT:
             this->constantConc();
             break;
+        case forcing::ConcentrationType::TOPAZ4:
+            this->topazConc();
+            break;
+
 
         default:
             std::cout << "invalid initialization of concentration"<<"\n";
@@ -2878,6 +2916,11 @@ FiniteElement::constantConc()
 }
 
 void
+FiniteElement::topazConc()
+{
+}
+
+void
 FiniteElement::initThickness()
 {
     switch (M_thick_type)
@@ -2885,6 +2928,10 @@ FiniteElement::initThickness()
         case forcing::ThicknessType::CONSTANT:
             this->constantThick();
             break;
+        case forcing::ThicknessType::TOPAZ4:
+            this->topazThick();
+            break;
+
 
         default:
             std::cout << "invalid initialization of thickness"<<"\n";
@@ -2899,6 +2946,11 @@ FiniteElement::constantThick()
     {
         M_thick[i] = (vm["simul_in.init_thickness"].as<double>())*M_conc[i];
     }
+}
+
+void
+FiniteElement::topazThick()
+{
 }
 
 void

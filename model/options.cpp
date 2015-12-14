@@ -28,6 +28,14 @@ namespace Nextsim
             ("solver.mat-package-type", po::value<std::string>()->default_value( "cholmod" ), "")
             ("solver.ksp-view", po::value<bool>()->default_value( true ), "")
 
+            ("wind-type", po::value<std::string>()->default_value( "asr" ), "")
+            ("ocean-type", po::value<std::string>()->default_value( "constant" ), "")
+            ("thermo-type", po::value<std::string>()->default_value( "constant" ), "")
+            ("concentration-type", po::value<std::string>()->default_value( "constant" ), "")
+            ("thickness-type", po::value<std::string>()->default_value( "constant" ), "")
+            ("damage-type", po::value<std::string>()->default_value( "constant" ), "")
+            ("snow-thickness-type", po::value<std::string>()->default_value( "constant" ), "")
+
             ("simul_in.use_simul_out", po::value<bool>()->default_value( false ), "")
             ("simul_in.step_nb", po::value<int>()->default_value( 0 ), "")
             ("simul_in.time_init", po::value<std::string>()->default_value( "2008-Mar-05" ), "")

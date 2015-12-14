@@ -12,6 +12,7 @@
 #include <solverpetsc.hpp>
 #include <boost/program_options.hpp>
 #include <boost/unordered_map.hpp>
+#include <boost/assign/list_of.hpp>
 #include <boost/version.hpp>
 #include <boost/format.hpp>
 #include <BamgConvertMeshx.h>
@@ -96,8 +97,8 @@ public:
     void initBamg();
     void initConstant();
     void forcing();
-    void forcingWind(double const& u, double const& v);
-    void forcingOcean(double const& u, double const& v);
+    void forcingWind();//(double const& u, double const& v);
+    void forcingOcean();//(double const& u, double const& v);
     void forcingThermo(double const& u, double const& v);
 
     void initConcentration();
@@ -291,6 +292,9 @@ private:
     void constantDamage();
     void constantSnowThick();
     void equallySpacedDrifter();
+
+    void topazConc();
+    void topazThick();
 
     void asrWind();//(double const& u, double const& v);
     void loadAsrWind();//(double const& u, double const& v);
