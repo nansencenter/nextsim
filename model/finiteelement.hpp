@@ -89,6 +89,8 @@ public:
     std::vector<double> hmaxVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const;
 
     std::vector<double> latLon2XY(double const& lat, double const& lon, mapx_class* map, std::string const& configfile);
+    double latLon2X(double const& lat, double const& lon, mapx_class* map, std::string const& configfile);
+    double latLon2Y(double const& lat, double const& lon, mapx_class* map, std::string const& configfile);
 
     void computeFactors(int cpt);
     void initBamg();
@@ -214,7 +216,7 @@ private:
     double quad_drag_coef_water;
     double ssh_coef;
     double time_relaxation_damage;
-    double water_depth;
+    //double water_depth;
     double critical_h;
     double Vair_coef;
     double Voce_coef;
@@ -237,6 +239,14 @@ private:
     double tan_phi;
     double ridge_h;
     double current_time;
+
+private:
+
+    std::vector<double> M_ftime_wind_range;
+    std::vector<std::vector<double>> M_vair;
+    std::vector<double> M_ftime_ocean_range;
+    std::vector<std::vector<double>> M_voce;
+    std::vector<double> M_vssh;
 
 private:
 
@@ -283,6 +293,10 @@ private:
     void equallySpacedDrifter();
 
     void asrWind();//(double const& u, double const& v);
+    void loadAsrWind();//(double const& u, double const& v);
+
+    void topazOcean();//(double const& u, double const& v);
+    void loadTopazOcean();//(double const& u, double const& v);
 
 };
 } // Nextsim
