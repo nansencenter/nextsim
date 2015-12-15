@@ -19,19 +19,37 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* data,int N_data
 	/*Output*/
 	double* data_interp=NULL;
 
-	/*Intermediary*/
-	int N_interp=bamgmesh_new->TrianglesSize[0];
+    /*Intermediary*/
+    int new_nb_elements=bamgmesh_new->TrianglesSize[0];
+
+
+    /*---- beginning of the detection of the cavities------*/
+    /*initialize thread parameters: */
+    InterpFromMeshToMesh2dCavitiesThreadStruct gate;
+    gate.PreviousNumbering      =NULL;
+    gate.old_elements           =NULL;
+    gate.new_elements           =NULL;
+    gate.size_born_cavity       =NULL;
+    gate.size_dead_cavity       =NULL;
+    gate.element_born_cavity    =NULL;
+    gate.element_dead_cavity    =NULL;
+    gate.nb_cavities            =0;
+    gate.nb_new_nodes           =0;
+
+    DetectCavities(&gate, bamgmesh_old, bamgmesh_new);
+
+    /*---- end of the detection of the cavities------*/
+
 
 	/*Initialize output*/
-	data_interp=xNew<double>(N_interp*N_data);
+	data_interp=xNew<double>(new_nb_elements*N_data);
 
 	*pdata_interp=data_interp;
 	return 1;
 
 }
-#if 0
-int DetectCavities(int* PreviousNumbering,int* old_elements,int* new_elements,int* size_born_cavity,int* size_dead_cavity,
-			int* element_born_cavity,int* element_dead_cavity, BamgMesh* bamgmesh_old,BamgMesh* bamgmesh_new){
+
+int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* bamgmesh_old,BamgMesh* bamgmesh_new){
 
 	/*---------- Input  ----------*/
 
@@ -53,15 +71,8 @@ int DetectCavities(int* PreviousNumbering,int* old_elements,int* new_elements,in
     int new_bamg_mesh_NVerticesOnGeomVertex  = (int)bamgmesh_new->VerticesOnGeomVertexSize[0];
     int new_bamg_mesh_Ne                     = (int)bamgmesh_new->TrianglesSize[0];
 
-	data_interp=xNew<double>(N_interp*N_data);
 
-	/*---------- Output ----------*/
-    int  *PreviousNumbering  = xNew<int>(new_bamg_mesh_Nn);  
-    int  *tmp_old_elements   = xNew<int>(bamg_mesh_Ne);
-    int  *tmp_new_elements   = xNew<int>(new_bamg_mesh_Ne);
-    int  *cavity_number_dead = xNew<int>(bamg_mesh_Ne);
-    int  *cavity_number_born = xNew<int>(new_bamg_mesh_Ne);
-
+    #if 0
     /*---------- Local variables ----------*/
     int i, j, k, l, l0, l1, l2, j_next;
     
@@ -80,11 +91,41 @@ int DetectCavities(int* PreviousNumbering,int* old_elements,int* new_elements,in
     int i_dead_element_node_2, dead_element_node_2;
     int i_dead_element, max_cavity_size;
        
-    int  *is_born_element_to_treat = = xNew<int>(new_bamg_mesh_Ne); /* boolean to know if the born element is to be treated */      
-    int  *is_dead_element_to_treat = = xNew<int>(bamg_mesh_Ne);	/* boolean to know if the dead element is to be treated */ 
+    int  *is_born_element_to_treat = xNew<int>(new_bamg_mesh_Ne); /* boolean to know if the born element is to be treated */      
+    int  *is_dead_element_to_treat = xNew<int>(bamg_mesh_Ne);	/* boolean to know if the dead element is to be treated */ 
     
     int found_intersect;
+    #endif
+
+    int  *PreviousNumbering = xNew<int>(new_bamg_mesh_Nn);
+
+    int i_intersect=1;
+
+    /* reducing the old_elements and new_elements arrays */
+    int  *old_elements = xNew<int>(i_intersect);
+    int  *new_elements = xNew<int>(i_intersect);
+
+    int number_of_cavities=1;
+
+    int  *size_born_cavity = xNew<int>(number_of_cavities);
+    int  *size_dead_cavity = xNew<int>(number_of_cavities);
+
+    int max_size_born_cavity=1;
+    int max_size_dead_cavity=1;
+
+    int  *element_born_cavity = xNew<int>(number_of_cavities*max_size_born_cavity);
+    int  *element_dead_cavity = xNew<int>(number_of_cavities*max_size_dead_cavity);
+
+
+    gate->PreviousNumbering     =PreviousNumbering;
+    gate->nb_new_nodes          =new_bamg_mesh_Nn;
+    gate->old_elements          =old_elements;
+    gate->new_elements          =new_elements;
+    gate->size_born_cavity      =size_born_cavity;
+    gate->size_dead_cavity      =size_dead_cavity;
+    gate->nb_cavities           =number_of_cavities;
+    gate->element_born_cavity   =element_born_cavity;
+    gate->element_dead_cavity   =element_dead_cavity;
 
 return 1;	
 }
-#endif
