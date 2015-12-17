@@ -613,28 +613,28 @@ namespace bamg {
 			}
 
 			// angular test on current vertex to guess whether it is a corner (ord = number of edges holding i)
-			if(ord==2) { 
-				long  n1 = head_v[i];
-				long  n2 = next_p[n1];
-				long  i1 = n1/2, i2 = n2/2; // edge number
-				long  j1 = n1%2, j2 = n2%2; // vertex in the edge 
-				float angle1=  j1 ? OppositeAngle(eangle[i1]) : eangle[i1];
-				float angle2= !j2 ? OppositeAngle(eangle[i2]) : eangle[i2];
-				float da12 = Abs(angle2-angle1);
-				if (( da12 >= MaxCornerAngle ) && (da12 <= 2*Pi -MaxCornerAngle)) {
-					vertices[i].SetCorner() ; 
-				}
-				// if the edge type/referencenumber a changing then is SetRequired();
-				if (edges[i1].type != edges[i2].type || edges[i1].Required()){
-					vertices[i].SetRequired();
-				}
-				if (edges[i1].ReferenceNumber != edges[i2].ReferenceNumber) {
-					vertices[i].SetRequired();
-				}
-			}
-			if(ord != 2) {
+			// if(ord==2) { 
+			// 	long  n1 = head_v[i];
+			// 	long  n2 = next_p[n1];
+			// 	long  i1 = n1/2, i2 = n2/2; // edge number
+			// 	long  j1 = n1%2, j2 = n2%2; // vertex in the edge 
+			// 	float angle1=  j1 ? OppositeAngle(eangle[i1]) : eangle[i1];
+			// 	float angle2= !j2 ? OppositeAngle(eangle[i2]) : eangle[i2];
+			// 	float da12 = Abs(angle2-angle1);
+			// 	if (( da12 >= MaxCornerAngle ) && (da12 <= 2*Pi -MaxCornerAngle)) {
+			// 		vertices[i].SetCorner() ; 
+			// 	}
+			// 	// if the edge type/referencenumber a changing then is SetRequired();
+			// 	if (edges[i1].type != edges[i2].type || edges[i1].Required()){
+			// 		vertices[i].SetRequired();
+			// 	}
+			// 	if (edges[i1].ReferenceNumber != edges[i2].ReferenceNumber) {
+			// 		vertices[i].SetRequired();
+			// 	}
+			// }
+			// if(ord != 2) {
 				vertices[i].SetCorner();
-			}
+			//}
 
 			/*close the list around the vertex to have a circular loop*/
 			long no=-1, ne = head_v[i];
