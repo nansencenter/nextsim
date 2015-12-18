@@ -85,9 +85,16 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
     ulong nb_dead_elements, nb_born_elements;
     ulong tmp_element;
     double integrated_area, new_integrated_area, correction_factor;
-    if (verbosity>1) _printf_("nb_variables" << nb_variables << "\n");
+    
+    // integrated_variables is used with method 0
     double *integrated_variables = xNew<double>(nb_variables);
 
+    // tmp_mean_variables and tmp_integrated_area are used with method 1
+    double *tmp_mean_variables  = xNew<double>(gate.max_size_born_cavity*nb_variables);
+    double *tmp_integrated_area = xNew<double>(gate.max_size_born_cavity);
+
+    double area_error_tolerance=1000; 
+    double area_error;
 
     if (verbosity>1) _printf_("   Interp Cavities: loop1...\n");
 
@@ -106,6 +113,13 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
         new_integrated_area=0.;
         for(int i=0; i<nb_variables; i++)
             integrated_variables[i]=0.;
+
+        for(int i=0; i<gate.max_size_born_cavity; i++)
+        {
+            tmp_integrated_area[i] = 0.;
+            for(int j=0; j<nb_variables; j++)
+                tmp_mean_variables[i*nb_variables+j]=0.;
+        }       
 
         if (verbosity>1) _printf_("   Interp Cavities: integrated area, nb_dead_elements:" << nb_dead_elements << "\n");
 
@@ -160,100 +174,31 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
                 for(int j=0; j<nb_variables; j++)
                     IntMatrix_out[(tmp_element-1)*nb_variables+j]=integrated_variables[j]/integrated_area*correction_factor;
             }
-        }
-        #if 0           
+        }  
+        #if 0         
         else
+        {
             /* Second method (fully conservative)*/
-            
-            /* preparation*/
-            dead_num_node=element_old.num_node(dead_elements,:);
-            born_num_node=element.num_node(born_elements,:);
-            
-            x_dead_elements=mesh_old.node.x(dead_num_node);
-            y_dead_elements=mesh_old.node.y(dead_num_node);
-            
-            x_born_elements=mesh.node.x(born_num_node);
-            y_born_elements=mesh.node.y(born_num_node);
-            
-            dead_variables=IntMatrix_in(dead_elements,:);
-            
+
             /* interpolation over the cavity*/
-            [tmp_mean_variables,tmp_integrated_area]=interp_cavity_mex(...
-                nb_dead_elements,...
-                nb_born_elements,...
-                nb_variables,...
-                gate.new_bamg_mesh_Nn,...
-                uint32(dead_elements'),...
-                uint32(born_elements'),...
-                uint32(dead_num_node'),...
-                uint32(born_num_node'),...
-                uint32(PreviousNumbering'),...
-                x_dead_elements',...
-                x_born_elements',...
-                y_dead_elements',...
-                y_born_elements',...
-                dead_variables',...
-                uint32(0));
-            
-            /* reshaping */
-            tmp_mean_variables=tmp_mean_variables;
+            interp_cavity(tmp_mean_variables, tmp_integrated_area, nb_dead_elements, nb_born_elements, nb_variables, gate.new_bamg_mesh_Nn,dead_elements,born_elements,PreviousNumbering,IntMatrix_in, bamgmesh_old, bamgmesh_new);
             
             /* Sanity check
               does the integrated area corresponds to the area of the born element*/
-            area_error_tolerance=1000; 
-            area_error=abs(tmp_integrated_area-new_element_area(born_elements)');
-            if(max(area_error)>area_error_tolerance)
-                ind_error=find(area_error>area_error_tolerance);
-                
-                disp('Indices of the problematic born elements')
-                born_elements(ind_error)
-                
-                % Rerunning interpolation over the cavity with debugging
-                % activated
-                [tmp_mean_variables,tmp_integrated_area]=interp_cavity_mex(...
-                    nb_dead_elements,...
-                    nb_born_elements,...
-                    nb_variables,...
-                    gate.new_bamg_mesh_Nn,...
-                    uint32(dead_elements'),...
-                    uint32(born_elements'),...
-                    uint32(dead_num_node'),...
-                    uint32(born_num_node'),...
-                    uint32(PreviousNumbering'),...
-                    x_dead_elements',...
-                    x_born_elements',...
-                    y_dead_elements',...
-                    y_born_elements',...
-                    dead_variables',...
-                    uint32(born_elements(ind_error(1))));
-                
-                tmp_integrated_area(ind_error)
-                new_element_area(born_elements(ind_error))
-                
-                figure
-                patch(x_dead_elements',y_dead_elements',0*y_dead_elements','EdgeColor','green','LineWidth',16,'FaceAlpha',0.0)
-                hold on;
-                patch(x_born_elements',y_born_elements',0*y_born_elements','EdgeColor','yellow','LineWidth',8,'FaceAlpha',0.0)
-                
-                text(x_dead_elements(:),y_dead_elements(:)+1,num2str(dead_num_node(:)),'Color','black')
-                
-                for i=1:length(dead_elements)
-                    text(mean(x_dead_elements(i,:)),mean(y_dead_elements(i,:)),num2str(dead_elements(i)),'Color','red')
-                end
-                    
-                wrong_x=x_born_elements(ind_error',:);
-                wrong_y=y_born_elements(ind_error',:);
-                wrong_num=born_num_node(ind_error',:);
-                text(wrong_x(:),wrong_y(:)+0.1,num2str(wrong_num(:)),'Color','blue');
-                
-                error(' Conservation issue!!! The area of the new element does not match with the sum of the triangle intersections...')
-            end
-            %-------- Parrallel stuff (may be not useful in case parfor is not used) ----------
-            
-            % store information in the shared vectors (Not useful if parfor id not used)
-            par_born_elements{cavity_id,1}=born_elements;
-            par_mean_variables{cavity_id,1}=tmp_mean_variables*correction_factor; 
-        end
+            for(ulong i=0; i<nb_born_elements; i++)
+            {
+                area_error=std::abs(tmp_integrated_area[i]-surface_new[born_elements[i]-1]);
+                if(area_error>area_error_tolerance)
+                    _error_("Conservation issue!!! The area of the new element does not match with the sum of the triangle intersections...");
+            }
+
+            for(ulong i=0; i<nb_born_elements; i++)
+            {
+                tmp_element=born_elements[i];
+                for(int j=0; j<nb_variables; j++)
+                    IntMatrix_out[(tmp_element-1)*nb_variables+j]=tmp_mean_variables[i*nb_variables+j]*correction_factor;
+            }
+        }
         #endif
     }
 
