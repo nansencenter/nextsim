@@ -3351,10 +3351,6 @@ FiniteElement::exportResults(int step)
     mu.init(3*M_num_elements);
     vector_type mv;
     mv.init(3*M_num_elements);
-    vector_type mfu;
-    mfu.init(3*M_num_elements);
-    vector_type mfv;
-    mfv.init(3*M_num_elements);
 
     int cpt = 0;
     double sum_u = 0.;
@@ -3371,8 +3367,6 @@ FiniteElement::exportResults(int step)
         {
             sum_u += M_VT[it->indices[j]-1];
             sum_v += M_VT[it->indices[j]-1+M_num_nodes];
-            sum_fu += M_vector->operator()(it->indices[j]-1);
-            sum_fv += M_vector->operator()(it->indices[j]-1+M_num_nodes);
         }
         sum_u /= 3.;
         sum_v /= 3.;
@@ -3384,8 +3378,6 @@ FiniteElement::exportResults(int step)
             mc(3*cpt+i) = M_conc[cpt];
             mu(3*cpt+i) = sum_u;
             mv(3*cpt+i) = sum_v;
-            mfu(3*cpt+i) = sum_fu;
-            mfv(3*cpt+i) = sum_fv;
             mx(3*cpt+i) = M_nodes[it->indices[i]-1].coords[0];
             my(3*cpt+i) = M_nodes[it->indices[i]-1].coords[1];
         }
@@ -3399,8 +3391,6 @@ FiniteElement::exportResults(int step)
     mc.printMatlab("mc" + step_str);
     mu.printMatlab("mu" + step_str);
     mv.printMatlab("mv" + step_str);
-    mfu.printMatlab("mfu" + step_str);
-    mfv.printMatlab("mfv" + step_str);
 }
 
 } // Nextsim
