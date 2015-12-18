@@ -29,7 +29,6 @@ FiniteElement::init()
     std::cout <<"GMSH VERSION= "<< M_mesh.version() <<"\n";
     M_mesh.setOrdering("bamg");
     M_mesh.readFromFile("bigarctic10km.msh");
-
     M_mesh.stereographicProjection();
     // M_mesh.writeTofile("arctic10km.msh");
 
@@ -38,14 +37,15 @@ FiniteElement::init()
     // M_mesh.readFromFile("hypercube.msh");
 
     this->initConstant();
-
     this->initBamg();
 
+    std::cout<<"Convert MESH starts\n";
     BamgConvertMeshx(
                      bamgmesh,bamggeom,
                      &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
                      M_mesh.numNodes(), M_mesh.numTriangles()
                      );
+    std::cout<<"Convert MESH done\n";
 
 
     for (auto it=M_mesh.edges().begin(), end=M_mesh.edges().end(); it!=end; ++it)
@@ -1068,9 +1068,17 @@ FiniteElement::assemble()
         coef_Voce  = M_Voce_factor[cpt];             /* for the ocean stress */
         coef_basal = M_basal_factor[cpt];            /* for the basal stress */
 
-        // std::cout<<"************************\n";
-        // std::cout<<"Coef_X= "<< coef_X <<"\n";
-        // std::cout<<"Coef_Y= "<< coef_Y <<"\n";
+        if (cpt < 0)
+        {
+            std::cout<<"************************\n";
+            std::cout<<"Coef_C    = "<< coef_C <<"\n";
+            std::cout<<"Coef_V    = "<< coef_V <<"\n";
+            std::cout<<"Coef_X    = "<< coef_X <<"\n";
+            std::cout<<"Coef_Y    = "<< coef_Y <<"\n";
+            std::cout<<"coef_Vair = "<< coef_Vair <<"\n";
+            std::cout<<"coef_Voce = "<< coef_Voce <<"\n";
+            std::cout<<"coef_basal= "<< coef_basal <<"\n";
+        }
 
         for(int j=0; j<3; j++)
         {
@@ -1910,7 +1918,7 @@ FiniteElement::run()
     {
         is_running = ((pcpt+1)*time_step) < duration;
 
-        if (pcpt > 100)
+        if (pcpt > 10)
             is_running = false;
 
         //if(pcpt >0)
@@ -1972,6 +1980,7 @@ FiniteElement::run()
         this->exportResults(pcpt+1);
         //this->asrWind();
         //this->loadTopazOcean();
+        //this->topazConc();
         ++pcpt;
     }
 
@@ -2953,6 +2962,273 @@ FiniteElement::constantConc()
 void
 FiniteElement::topazConc()
 {
+    std::string init_timestr = to_date_string_ym(time_init);
+    std::cout<<"TIMEINITSTR= "<< init_timestr <<"\n";
+    std::string init_topaz_filename = (boost::format( "%1%/data/TP4DAILY_%2%_3m.nc" )
+                                       % Environment::nextsimDir().string()
+                                       % init_timestr ).str();
+
+    std::cout<<"TOPAZ INIT FILE= "<< init_topaz_filename <<"\n";
+
+    // read in latitude and longitude
+    std::vector<double> XLAT(1101);
+    std::vector<double> XLON(1101);
+
+    std::vector<double> YLAT(761);
+    std::vector<double> YLON(761);
+
+    std::vector<size_t> index_start(2);
+    std::vector<size_t> index_lat_end(2);
+    std::vector<size_t> index_lon_end(2);
+
+    std::vector<size_t> index_lat_start(2);
+    std::vector<size_t> index_lon_start(2);
+
+    index_lat_start[0] = 0;
+    index_lat_start[1] = 0;
+
+    index_lat_end[0] = 1101;
+    index_lat_end[1] = 1;
+
+    index_lon_start[0] = 0;
+    index_lon_start[1] = 0;
+
+    index_lon_end[0] = 1;
+    index_lon_end[1] = 761;
+
+    std::vector<double> XTIME(31);
+    std::vector<size_t> index_fhice_start(3,0);
+    std::vector<size_t> index_fhice_end(3);
+
+    std::cout<<"READING NETCDF file "<< init_topaz_filename <<" starts\n";
+    //netCDF::NcFile::FileFormat format = netCDF::NcFile::classic;
+    netCDF::NcFile dataFile(init_topaz_filename, netCDF::NcFile::read);
+    netCDF::NcVar VXLAT = dataFile.getVar("latitude");
+    netCDF::NcVar VXLON = dataFile.getVar("longitude");
+    netCDF::NcVar VFICE;
+    netCDF::NcVar VHICE;
+
+    if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
+    {
+        VFICE = dataFile.getVar("fice");
+    }
+
+    if (M_thick_type == forcing::ThicknessType::TOPAZ4)
+    {
+        VHICE = dataFile.getVar("hice");
+    }
+
+    netCDF::NcVar VTIME = dataFile.getVar("time");
+    std::cout<<"READING NETCDF "<< init_topaz_filename << " done\n";
+
+    VXLAT.getVar(index_lat_start,index_lat_end,&XLAT[0]);
+    VXLON.getVar(index_lat_start,index_lat_end,&XLON[0]);
+
+    VXLAT.getVar(index_lon_start,index_lon_end,&YLAT[0]);
+    VXLON.getVar(index_lon_start,index_lon_end,&YLON[0]);
+
+    VTIME.getVar(&XTIME[0]);
+
+    std::vector<double> X(1101);
+    std::vector<double> Y(761);
+
+    mapx_class *map;
+    std::string configfile = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
+    std::vector<char> str(configfile.begin(), configfile.end());
+    str.push_back('\0');
+    map = init_mapx(&str[0]);
+
+    for (int i=0; i<1101; ++i)
+    {
+        X[i] = latLon2XY(XLAT[i], XLON[i], map, configfile)[1];
+
+        // if (i<10)
+        // {
+        //     std::cout<<"**********************\n";
+        //     std::cout<<"X= "<< X[i] <<"\n";
+        //     std::cout<<"XLAT= "<< XLAT[i] <<" and XLON= "<< XLON[i] <<"\n";
+        // }
+    }
+
+    for (int i=0; i<761; ++i)
+    {
+        Y[i] = latLon2XY(YLAT[i], YLON[i], map, configfile)[0];
+
+        // if (i<10)
+        // {
+        //     std::cout<<"**********************\n";
+        //     std::cout<<"Y= "<< Y[i] <<"\n";
+        //     std::cout<<"YLAT= "<< YLAT[i] <<" and YLON= "<< YLON[i] <<"\n";
+        // }
+    }
+
+    auto RX = M_mesh.bCoordY();
+    auto RY = M_mesh.bCoordY();
+
+#if 0
+    std::cout<<"MIN BOUND TOPAZX= "<< *std::min_element(X.begin(),X.end()) <<"\n";
+    std::cout<<"MAX BOUND TOPAZX= "<< *std::max_element(X.begin(),X.end()) <<"\n";
+
+    std::cout<<"MIN BOUND TOPAZY= "<< *std::min_element(Y.begin(),Y.end()) <<"\n";
+    std::cout<<"MAX BOUND TOPAZY= "<< *std::max_element(Y.begin(),Y.end()) <<"\n";
+
+    std::cout<<"MIN BOUND MESHX= "<< *std::min_element(RX.begin(),RX.end()) <<"\n";
+    std::cout<<"MAX BOUND MESHX= "<< *std::max_element(RX.begin(),RX.end()) <<"\n";
+
+    std::cout<<"MIN BOUND MESHY= "<< *std::min_element(RY.begin(),RY.end()) <<"\n";
+    std::cout<<"MAX BOUND MESHY= "<< *std::max_element(RY.begin(),RY.end()) <<"\n";
+#endif
+
+    std::cout<<"VALUE= "<< from_date_string("1950-01-01") <<"\n";
+    double target = (time_init - from_date_string("1950-01-01"))*24.0;
+    //std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string("1950-01-01"); });
+    std::cout<<"TARGET= "<< target <<"\n";
+
+    // for (int i=0; i<31; ++i)
+    // {
+    //     std::cout<<"TIME["<< i <<"]= "<< XTIME[i] <<"\n";
+    // }
+
+    if (std::find(XTIME.begin(), XTIME.end(), target) == XTIME.end())
+    {
+        std::cout<<"forcing not available for this initial time\n";
+        std::cout<<"take the largest integer value not greater than initial time\n";
+
+        target = (std::floor(time_init) - from_date_string("1950-01-01"))*24.0;
+    }
+
+    auto it = std::find(XTIME.begin(), XTIME.end(), target);
+    int index = std::distance(XTIME.begin(),it);
+    std::cout<<"INIT TIME TOPAZ FOUND "<< target <<" in index "<< index <<"\n";
+
+    index_fhice_start[0] = index;
+    index_fhice_start[1] = 0;
+    index_fhice_start[2] = 0;
+
+    index_fhice_end[0] = 1;
+    index_fhice_end[1] = 1101;
+    index_fhice_end[2] = 761;
+
+    std::cout<<"NETCDF INFO: "<<dataFile.getVarCount()<<" variables\n";
+    std::cout<<"NETCDF INFO: "<<dataFile.getAttCount()<<" attributes\n";
+    std::cout<<"NETCDF INFO: "<<dataFile.getDimCount()<<" dimensions\n";
+    std::cout<<"NETCDF INFO: "<<dataFile.getGroupCount()<<" groups\n";
+    std::cout<<"NETCDF INFO: "<<dataFile.getTypeCount()<<" types\n";
+
+    // void* data_void[1101*761];
+    // VFICE.getVar(index_fhice_start,index_fhice_end,data_void);
+
+    //float* data_values = (float*)data_void;
+    //float* data_values = reinterpret_cast<float*>(data_void);
+    // double* data_values = (double*)data_void;
+
+    std::vector<double> data_in_fice;
+    std::vector<double> data_in_hice;
+
+    if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
+    {
+        data_in_fice.resize(1101*761);
+        VFICE.getVar(index_fhice_start,index_fhice_end,&data_in_fice[0]);
+    }
+
+    if (M_thick_type == forcing::ThicknessType::TOPAZ4)
+    {
+        data_in_hice.resize(1101*761);
+        VFICE.getVar(index_fhice_start,index_fhice_end,&data_in_hice[0]);
+    }
+
+    double maskvfh;
+    for (int i=0; i<1101; ++i)
+    {
+        for (int j=0; j<761; ++j)
+        {
+            if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
+            {
+                maskvfh = data_in_fice[761*i+j];
+                maskvfh = std::abs(maskvfh);
+
+                if (100. < maskvfh)
+                {
+                    data_in_fice[761*i+j] = NAN;
+                }
+            }
+
+            if (M_thick_type == forcing::ThicknessType::TOPAZ4)
+            {
+                maskvfh = data_in_hice[761*i+j];
+                maskvfh = std::abs(maskvfh);
+
+                if (100. < maskvfh)
+                {
+                    data_in_hice[761*i+j] = NAN;
+                }
+            }
+        }
+    }
+
+    if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
+    {
+        std::cout<<"MIN DATA_IN FICE= "<< *std::min_element(data_in_fice.begin(),data_in_fice.end()) <<"\n";
+        std::cout<<"MAX DATA_IN FICE= "<< *std::max_element(data_in_fice.begin(),data_in_fice.end()) <<"\n";
+    }
+
+    if (M_thick_type == forcing::ThicknessType::TOPAZ4)
+    {
+        std::cout<<"MIN DATA_IN HICE= "<< *std::min_element(data_in_hice.begin(),data_in_hice.end()) <<"\n";
+        std::cout<<"MAX DATA_IN HICE= "<< *std::max_element(data_in_hice.begin(),data_in_hice.end()) <<"\n";
+    }
+
+    //int interp_type = TriangleInterpEnum;
+    //int interp_type = BilinearInterpEnum;
+    int interp_type = NearestInterpEnum;
+
+    std::vector<double> data_out_fice_tmp;
+    std::vector<double> data_out_hice_tmp;
+
+    if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
+    {
+        double* data_out_fice;
+        data_out_fice_tmp.resize(M_num_elements);
+
+        InterpFromGridToMeshx(data_out_fice, &X[0], X.size(), &Y[0], Y.size(), &data_in_fice[0], Y.size(), X.size(),
+                              &RX[0], &RY[0], M_mesh.numTriangles(), 1.0, interp_type);
+
+        for (int i=0; i<M_num_elements; ++i)
+        {
+            data_out_fice_tmp[i] = data_out_fice[i];
+            M_conc[i] = data_out_fice[i];
+            //std::cout<<"MCONC["<< i <<"]= "<< M_conc[i] <<"\n";
+        }
+    }
+
+    if (M_thick_type == forcing::ThicknessType::TOPAZ4)
+    {
+        double* data_out_hice;
+        data_out_hice_tmp.resize(M_num_elements);
+
+        InterpFromGridToMeshx(data_out_hice, &X[0], X.size(), &Y[0], Y.size(), &data_in_hice[0], Y.size(), X.size(),
+                              &RX[0], &RY[0], M_mesh.numTriangles(), 1.0, interp_type);
+
+        for (int i=0; i<M_num_elements; ++i)
+        {
+            data_out_hice_tmp[i] = data_out_hice[i];
+            M_thick[i] = data_out_hice[i];
+
+            //std::cout<<"MTHICKC["<< i <<"]= "<< M_thick[i] <<"\n";
+        }
+    }
+
+    if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
+    {
+        std::cout<<"MIN DATA_OUT FICE= "<< *std::min_element(data_out_fice_tmp.begin(),data_out_fice_tmp.end()) <<"\n";
+        std::cout<<"MAX DATA_OUT FICE= "<< *std::max_element(data_out_fice_tmp.begin(),data_out_fice_tmp.end()) <<"\n";
+    }
+
+    if (M_thick_type == forcing::ThicknessType::TOPAZ4)
+    {
+        std::cout<<"MIN DATA_OUT HICE= "<< *std::min_element(data_out_hice_tmp.begin(),data_out_hice_tmp.end()) <<"\n";
+        std::cout<<"MAX DATA_OUT HICE= "<< *std::max_element(data_out_hice_tmp.begin(),data_out_hice_tmp.end()) <<"\n";
+    }
 }
 
 void
