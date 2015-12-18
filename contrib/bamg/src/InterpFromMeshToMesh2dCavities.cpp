@@ -22,7 +22,7 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
     int verbosity;
     
     /*Bamg options*/
-    verbosity=2;//bamgopts->verbose;
+    verbosity=0;//bamgopts->verbose;
 
     /* Which conservative method to be used:
       method 0 is simply averaging over the whole cavity (conservative but highly diffusive)

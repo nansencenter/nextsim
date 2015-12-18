@@ -47,39 +47,6 @@ FiniteElement::init()
                      M_mesh.numNodes(), M_mesh.numTriangles()
                      );
 
-    _printf_("VerticesSize[0] = " << bamgmesh->VerticesSize[0] << "\n");
-    _printf_("EdgesSize[0] = " << bamgmesh->EdgesSize[0] << "\n");
-    _printf_("rianglesSize[0] = " << bamgmesh->TrianglesSize[0] << "\n");
-
-    _printf_("SubDomainsSize[0] = " << bamgmesh->SubDomainsSize[0] << "\n");
-    _printf_("SubDomainsFromGeomSize[0] = " << bamgmesh->SubDomainsFromGeomSize[0] << "\n");
-
-    _printf_("VerticesOnGeomVertexSize[0] = " << bamgmesh->VerticesOnGeomVertexSize[0] << "\n");
-    _printf_("VerticesOnGeomEdgeSize[0] = " << bamgmesh->VerticesOnGeomEdgeSize[0] << "\n");
-    _printf_("EdgesOnGeomEdgeSize[0] = " << bamgmesh->EdgesOnGeomEdgeSize[0] << "\n");
-
-    _printf_("IssmEdgesSize[0] = " << bamgmesh->IssmEdgesSize[0] << "\n");
-    _printf_("IssmSegmentsSize[0] = " << bamgmesh->IssmSegmentsSize[0] << "\n");
-
-    _printf_("ElementConnectivitySize[1] = " << bamgmesh->ElementConnectivitySize[1] << "\n");
-    _printf_("NodalConnectivitySize[1] = " << bamgmesh->NodalConnectivitySize[1] << "\n");
-    _printf_("NodalElementConnectivitySize[1] = " << bamgmesh->NodalElementConnectivitySize[1] << "\n");
-
-    _printf_("bamggeom->VerticesSize[0] = " << bamggeom->VerticesSize[0] << "\n");
-    _printf_("bamggeom->EdgesSize[0] = " << bamggeom->EdgesSize[0] << "\n");
-    _printf_("bamggeom->RequiredVerticesSize[0] = " << bamggeom->RequiredVerticesSize[0] << "\n");
-
-
-
-    /*for (int i=0; i<bamgmesh->VerticesOnGeomVertexSize[0]; ++i)
-    {
-        _printf_( bamgmesh->VerticesOnGeomVertex[i*2] << " " << bamgmesh->VerticesOnGeomVertex[i*2+1] <<"\n");
-    }
-
-    for (int i=0; i<bamggeom->RequiredVerticesSize[0]; ++i)
-    {
-        _printf_( bamggeom->RequiredVertices[i]  <<"\n");
-    }*/
 
     for (auto it=M_mesh.edges().begin(), end=M_mesh.edges().end(); it!=end; ++it)
     {
