@@ -98,8 +98,8 @@ public:
     void initBamg();
     void initConstant();
     void forcing();
-    void forcingWind();//(double const& u, double const& v);
-    void forcingOcean();//(double const& u, double const& v);
+    void forcingWind(bool reload);//(double const& u, double const& v);
+    void forcingOcean(bool reload);//(double const& u, double const& v);
     void forcingThermo(double const& u, double const& v);
 
     void initConcentration();
@@ -270,7 +270,7 @@ private:
     BamgMesh *bamgmesh_previous;
     BamgGeom *bamggeom_previous;
 
-    Options *options;
+    //Options *options;
 
 private:
     std::vector<double> M_wind;
@@ -297,10 +297,10 @@ private:
     void topazConc();
     void topazThick();
 
-    void asrWind();//(double const& u, double const& v);
+    void asrWind(bool reload);//(double const& u, double const& v);
     void loadAsrWind();//(double const& u, double const& v);
 
-    void topazOcean();//(double const& u, double const& v);
+    void topazOcean(bool reload);//(double const& u, double const& v);
     void loadTopazOcean();//(double const& u, double const& v);
 
 };

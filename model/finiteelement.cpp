@@ -47,6 +47,40 @@ FiniteElement::init()
                      M_mesh.numNodes(), M_mesh.numTriangles()
                      );
 
+    _printf_("VerticesSize[0] = " << bamgmesh->VerticesSize[0] << "\n");
+    _printf_("EdgesSize[0] = " << bamgmesh->EdgesSize[0] << "\n");
+    _printf_("rianglesSize[0] = " << bamgmesh->TrianglesSize[0] << "\n");
+
+    _printf_("SubDomainsSize[0] = " << bamgmesh->SubDomainsSize[0] << "\n");
+    _printf_("SubDomainsFromGeomSize[0] = " << bamgmesh->SubDomainsFromGeomSize[0] << "\n");
+
+    _printf_("VerticesOnGeomVertexSize[0] = " << bamgmesh->VerticesOnGeomVertexSize[0] << "\n");
+    _printf_("VerticesOnGeomEdgeSize[0] = " << bamgmesh->VerticesOnGeomEdgeSize[0] << "\n");
+    _printf_("EdgesOnGeomEdgeSize[0] = " << bamgmesh->EdgesOnGeomEdgeSize[0] << "\n");
+
+    _printf_("IssmEdgesSize[0] = " << bamgmesh->IssmEdgesSize[0] << "\n");
+    _printf_("IssmSegmentsSize[0] = " << bamgmesh->IssmSegmentsSize[0] << "\n");
+
+    _printf_("ElementConnectivitySize[1] = " << bamgmesh->ElementConnectivitySize[1] << "\n");
+    _printf_("NodalConnectivitySize[1] = " << bamgmesh->NodalConnectivitySize[1] << "\n");
+    _printf_("NodalElementConnectivitySize[1] = " << bamgmesh->NodalElementConnectivitySize[1] << "\n");
+
+    _printf_("bamggeom->VerticesSize[0] = " << bamggeom->VerticesSize[0] << "\n");
+    _printf_("bamggeom->EdgesSize[0] = " << bamggeom->EdgesSize[0] << "\n");
+    _printf_("bamggeom->RequiredVerticesSize[0] = " << bamggeom->RequiredVerticesSize[0] << "\n");
+
+
+
+    /*for (int i=0; i<bamgmesh->VerticesOnGeomVertexSize[0]; ++i)
+    {
+        _printf_( bamgmesh->VerticesOnGeomVertex[i*2] << " " << bamgmesh->VerticesOnGeomVertex[i*2+1] <<"\n");
+    }
+
+    for (int i=0; i<bamggeom->RequiredVerticesSize[0]; ++i)
+    {
+        _printf_( bamggeom->RequiredVertices[i]  <<"\n");
+    }*/
+
     for (auto it=M_mesh.edges().begin(), end=M_mesh.edges().end(); it!=end; ++it)
     {
         if (it->physical==161)
@@ -113,7 +147,7 @@ FiniteElement::init()
     //std::cout<<"THICKTYPE= "<< (int)M_thick_type <<"\n";
 
     // init options for interpolation from mesh to mesh
-    options = new Options();
+    // options = new Options();
 }
 
 void
@@ -587,7 +621,7 @@ FiniteElement::regrid(bool step)
                                 bamgopt->hminVertices,
                                 M_mesh_init.numNodes(),1,
                                 &M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
-                                options);
+                                false);
 
         InterpFromMeshToMesh2dx(&hmax_vertices,
                                 &M_mesh_init.indexTr()[0],&M_mesh_init.coordX()[0],&M_mesh_init.coordY()[0],
@@ -595,7 +629,7 @@ FiniteElement::regrid(bool step)
                                 bamgopt->hmaxVertices,
                                 M_mesh_init.numNodes(),1,
                                 &M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
-                                options);
+                                false);
 
         std::cout<<"TIMER INTERPOLATION= " << chrono.elapsed() <<"s\n";
 
@@ -761,12 +795,12 @@ FiniteElement::regrid(bool step)
                                 interp_in,
                                 M_mesh_previous.numNodes(),6,
                                 &M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
-                                options);
-
+                                false);
 
         M_VT.resize(2*M_num_nodes,0.);
         M_VTM.resize(2*M_num_nodes,0.);
         M_VTMM.resize(2*M_num_nodes,0.);
+        M_UM.resize(2*M_num_nodes,0.);
 
         for (int i=0; i<M_num_nodes; ++i)
         {
@@ -781,6 +815,10 @@ FiniteElement::regrid(bool step)
             // VTMM
             M_VTMM[i] = interp_out[6*i+4];
             M_VTMM[i+M_num_nodes] = interp_out[6*i+5];
+
+            // UM
+            M_UM[i] = 0.;
+            M_UM[i+M_num_nodes] = 0.;
         }
 
         std::cout<<"NODAL: Interp done\n";
@@ -840,25 +878,30 @@ FiniteElement::regrid(bool step)
         for (auto it=M_mesh_previous.triangles().begin(), end=M_mesh_previous.triangles().end(); it!=end; ++it)
         {
             surface_previous[cpt] = this->measure(*it,M_mesh_previous);
+            ++cpt;
         }
 
         cpt = 0;
         for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
         {
             surface[cpt] = this->measure(*it,M_mesh);
+            ++cpt;
         }
 
+        //#if 0
         InterpFromMeshToMesh2dCavities(&interp_elt_out,interp_elt_in,11,
              surface_previous, surface, bamgmesh_previous, bamgmesh);
+        //#endif
 
-
+        #if 0
         InterpFromMeshToMesh2dx(&interp_elt_out,
                                 &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
                                 M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
                                 interp_elt_in,
                                 M_mesh_previous.numTriangles(),11,
                                 &M_mesh.bCoordX()[0],&M_mesh.bCoordY()[0],M_mesh.numTriangles(),
-                                options);
+                                false);
+        #endif
 
         M_conc.resize(M_num_elements,0.);
         M_thick.resize(M_num_elements,0.);
@@ -927,8 +970,6 @@ FiniteElement::regrid(bool step)
     M_thermo.resize(2*M_num_nodes,0.);
 
     //M_vair.resize(2*M_num_nodes,0.);
-
-    M_UM.resize(2*M_num_nodes,0.);
 
     M_element_depth.resize(M_num_elements,0.);
     M_h_thin.resize(M_num_elements,0.);
@@ -1905,6 +1946,9 @@ FiniteElement::run()
         if (pcpt > 100)
             is_running = false;
 
+        //if(pcpt >0)
+        //    this->exportResults(pcpt+3000);
+
         current_time = time_init + pcpt*time_step/(24*3600.0);
         //std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
         std::cout<<"TIME STEP "<< pcpt << " for "<< current_time << " + "<< pcpt*time_step/(24*3600.0) <<"\n";
@@ -1925,6 +1969,8 @@ FiniteElement::run()
                 std::cout<<"Regriding starts\n";
                 this->regrid(pcpt);
                 std::cout<<"Regriding done\n";
+                //if(pcpt >0)
+                //    this->exportResults(pcpt+1000);
             }
         }
 
@@ -1942,14 +1988,18 @@ FiniteElement::run()
         }
 
         this->timeInterpolation(pcpt);
-        this->forcingWind();
-        this->forcingOcean();
+        this->forcingWind(regrid_done);
+        this->forcingOcean(regrid_done);
         //this->timeInterpolation(pcpt);
         this->computeFactors(pcpt);
 
         this->assemble();
         this->solve();
         this->updateVelocity();
+
+        //if(pcpt >0)
+        //    this->exportResults(pcpt+2000);
+
         this->update();
 
         this->exportResults(pcpt+1);
@@ -2009,7 +2059,6 @@ FiniteElement::updateVelocity()
 
     std::cout<<"MAX SPEED= "<< *std::max_element(M_conc.begin(),M_conc.end()) <<"\n";
     std::cout<<"MIN SPEED= "<< *std::min_element(M_conc.begin(),M_conc.end()) <<"\n";
-
 }
 
 void
@@ -2195,7 +2244,7 @@ FiniteElement::computeFactors(int pcpt)
 }
 
 void
-FiniteElement::forcingWind()//(double const& u, double const& v)
+FiniteElement::forcingWind(bool reload)//(double const& u, double const& v)
 {
     switch (M_wind_type)
     {
@@ -2203,7 +2252,7 @@ FiniteElement::forcingWind()//(double const& u, double const& v)
             this->constantWind(vm["simul_in.constant_u"].as<double>(),vm["simul_in.constant_v"].as<double>());
             break;
         case forcing::WindType::ASR:
-            this->asrWind();
+            this->asrWind(reload);
             break;
 
         default:
@@ -2223,9 +2272,9 @@ FiniteElement::constantWind(double const& u, double const& v)
 }
 
 void
-FiniteElement::asrWind()
+FiniteElement::asrWind(bool reload)
 {
-    if ((current_time < M_ftime_wind_range[0]) || (M_ftime_wind_range[1] < current_time) || (current_time == time_init))
+    if ((current_time < M_ftime_wind_range[0]) || (M_ftime_wind_range[1] < current_time) || (current_time == time_init) || reload)
     {
         if (current_time == time_init)
             std::cout<<"load forcing from ASR for initial time\n";
@@ -2523,7 +2572,7 @@ FiniteElement::loadAsrWind()//(double const& u, double const& v)
 }
 
 void
-FiniteElement::forcingOcean()//(double const& u, double const& v)
+FiniteElement::forcingOcean(bool reload)//(double const& u, double const& v)
 {
     switch (M_ocean_type)
     {
@@ -2531,7 +2580,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             this->constantOcean(0.,0.);
             break;
         case forcing::OceanType::TOPAZR:
-            this->topazOcean();
+            this->topazOcean(reload);
             break;
 
 
@@ -2552,9 +2601,9 @@ FiniteElement::constantOcean(double const& u, double const& v)
 }
 
 void
-FiniteElement::topazOcean()
+FiniteElement::topazOcean(bool reload)
 {
-    if ((current_time < M_ftime_ocean_range[0]) || (M_ftime_ocean_range[1] < current_time) || (current_time == time_init))
+    if ((current_time < M_ftime_ocean_range[0]) || (M_ftime_ocean_range[1] < current_time) || (current_time == time_init) || reload)
     {
         if (current_time == time_init)
             std::cout<<"load forcing from TOPAZ for initial time\n";
@@ -3067,7 +3116,7 @@ FiniteElement::bathymetry()
         //                         &M_bathy_depth[0],
         //                         M_mesh_init.numNodes(),1,
         //                         &M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
-        //                         options);
+        //                         false);
 
         InterpFromMeshToMesh2dx(&depth_out,
                                 &M_mesh_init.indexTr()[0],&M_mesh_init.coordX()[0],&M_mesh_init.coordY()[0],
@@ -3075,7 +3124,7 @@ FiniteElement::bathymetry()
                                 &M_bathy_depth[0],
                                 M_mesh_init.numTriangles(),1,
                                 &M_mesh.bCoordX()[0],&M_mesh.bCoordY()[0],M_mesh.numTriangles(),
-                                options);
+                                false);
 
         M_element_depth.resize(M_num_elements,0.);
 
@@ -3302,27 +3351,41 @@ FiniteElement::exportResults(int step)
     mu.init(3*M_num_elements);
     vector_type mv;
     mv.init(3*M_num_elements);
+    vector_type mfu;
+    mfu.init(3*M_num_elements);
+    vector_type mfv;
+    mfv.init(3*M_num_elements);
 
     int cpt = 0;
     double sum_u = 0.;
     double sum_v = 0.;
+    double sum_fu = 0.;
+    double sum_fv = 0.;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
     {
         sum_u = 0.;
         sum_v = 0.;
+        sum_fu = 0.;
+        sum_fv = 0.;
         for (int j=0; j<3; ++j)
         {
-            sum_u += M_solution->operator()(it->indices[j]-1);
-            sum_v += M_solution->operator()(it->indices[j]-1+M_num_nodes);
+            sum_u += M_VT[it->indices[j]-1];
+            sum_v += M_VT[it->indices[j]-1+M_num_nodes];
+            sum_fu += M_vector->operator()(it->indices[j]-1);
+            sum_fv += M_vector->operator()(it->indices[j]-1+M_num_nodes);
         }
         sum_u /= 3.;
         sum_v /= 3.;
+        sum_fu /= 3.;
+        sum_fv /= 3.;
 
         for (int i=0; i<3; ++i)
         {
             mc(3*cpt+i) = M_conc[cpt];
             mu(3*cpt+i) = sum_u;
             mv(3*cpt+i) = sum_v;
+            mfu(3*cpt+i) = sum_fu;
+            mfv(3*cpt+i) = sum_fv;
             mx(3*cpt+i) = M_nodes[it->indices[i]-1].coords[0];
             my(3*cpt+i) = M_nodes[it->indices[i]-1].coords[1];
         }
@@ -3336,6 +3399,8 @@ FiniteElement::exportResults(int step)
     mc.printMatlab("mc" + step_str);
     mu.printMatlab("mu" + step_str);
     mv.printMatlab("mv" + step_str);
+    mfu.printMatlab("mfu" + step_str);
+    mfv.printMatlab("mfv" + step_str);
 }
 
 } // Nextsim
