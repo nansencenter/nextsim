@@ -19,6 +19,7 @@ FiniteElement::FiniteElement()
     :
     vm(Environment::vm()),
     M_mesh(),
+    M_solver(),
     M_matrix(),
     M_vector()
 {}
@@ -79,10 +80,12 @@ FiniteElement::init()
     M_num_elements = M_mesh.numTriangles();
     M_num_nodes = M_mesh.numNodes();
 
+    M_solver = solver_ptrtype(new solver_type());
     M_matrix = matrix_ptrtype(new matrix_type());
     M_vector = vector_ptrtype(new vector_type());
     M_solution = vector_ptrtype(new vector_type());
 
+    M_reuse_prec = true;
 
     const boost::unordered_map<const std::string, forcing::WindType> str2wind = boost::assign::map_list_of
         ("constant", forcing::WindType::CONSTANT)
@@ -119,7 +122,6 @@ FiniteElement::init()
 void
 FiniteElement::initSimulation()
 {
-
     M_matrix->init(2*M_num_nodes,2*M_num_nodes,22);
     M_vector->init(2*M_num_nodes);
     M_solution->init(2*M_num_nodes);
@@ -899,39 +901,42 @@ FiniteElement::regrid(bool step)
         std::cout<<"ELEMENT: TIMER INTERPOLATION= " << chrono.elapsed() <<"s\n";
     }
 
-    M_matrix->init(2*M_num_nodes,2*M_num_nodes,22);
-    M_vector->resize(2*M_num_nodes);
-    M_solution->resize(2*M_num_nodes);
+    if (step)
+    {
+        M_matrix->init(2*M_num_nodes,2*M_num_nodes,22);
+        M_vector->resize(2*M_num_nodes);
+        M_solution->resize(2*M_num_nodes);
+        M_reuse_prec = false;
 
-    M_wind.resize(2*M_num_nodes,0.);
-    M_ocean.resize(2*M_num_nodes,0.);
-    M_thermo.resize(2*M_num_nodes,0.);
+        M_wind.resize(2*M_num_nodes,0.);
+        M_ocean.resize(2*M_num_nodes,0.);
+        M_thermo.resize(2*M_num_nodes,0.);
 
-    //M_vair.resize(2*M_num_nodes,0.);
+        //M_vair.resize(2*M_num_nodes,0.);
 
-    M_UM.resize(2*M_num_nodes,0.);
+        M_UM.resize(2*M_num_nodes,0.);
 
-    M_element_depth.resize(M_num_elements,0.);
-    M_h_thin.resize(M_num_elements,0.);
-    M_hs_thin.resize(M_num_elements,0.);
+        M_element_depth.resize(M_num_elements,0.);
+        M_h_thin.resize(M_num_elements,0.);
+        M_hs_thin.resize(M_num_elements,0.);
 
-    M_norm_Voce_ice.resize(M_num_elements);
-    M_norm_Vair_ice.resize(M_num_elements);
-    M_norm_Vice.resize(M_num_elements);
-    M_element_ssh.resize(M_num_elements,0.);
-    M_ssh.resize(M_num_nodes,0.);
-    M_vssh.resize(M_num_nodes);
+        M_norm_Voce_ice.resize(M_num_elements);
+        M_norm_Vair_ice.resize(M_num_elements);
+        M_norm_Vice.resize(M_num_elements);
+        M_element_ssh.resize(M_num_elements,0.);
+        M_ssh.resize(M_num_nodes,0.);
+        M_vssh.resize(M_num_nodes);
 
-    M_Vair_factor.resize(M_num_elements);
-    M_Voce_factor.resize(M_num_elements);
+        M_Vair_factor.resize(M_num_elements);
+        M_Voce_factor.resize(M_num_elements);
 
-    M_basal_factor.resize(M_num_elements);
-    M_fcor.resize(M_num_elements);
-    M_Vcor.resize(M_VT.size());
+        M_basal_factor.resize(M_num_elements);
+        M_fcor.resize(M_num_elements);
+        M_Vcor.resize(M_VT.size());
+    }
 
     M_Cohesion.resize(M_num_elements);
     M_Compressive_strength.resize(M_num_elements);
-
 }
 
 void
@@ -1828,18 +1833,17 @@ void
 FiniteElement::solve()
 {
     SolverPetsc ksp;
-
     chrono.restart();
     //ksp.solve(M_matrix, M_solution, M_vector);
-
-    ksp.solve(_matrix=M_matrix,
-              _solution=M_solution,
-              _rhs=M_vector,
-              _ksp=vm["solver.ksp-type"].as<std::string>()/*"preonly"*/,
-              _pc=vm["solver.pc-type"].as<std::string>()/*"cholesky"*/,
-              _pcfactormatsolverpackage=vm["solver.mat-package-type"].as<std::string>()/*"cholmod"*/,
-              _reuse_prec=true
-              );
+    M_solver->solve(_matrix=M_matrix,
+                    _solution=M_solution,
+                    _rhs=M_vector,
+                    _ksp=vm["solver.ksp-type"].as<std::string>()/*"preonly"*/,
+                    _pc=vm["solver.pc-type"].as<std::string>()/*"cholesky"*/,
+                    _pcfactormatsolverpackage=vm["solver.mat-package-type"].as<std::string>()/*"cholmod"*/,
+                    _reuse_prec=true,
+                    _rebuild=M_regrid
+                    );
 
     std::cout<<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";
     //M_solution->printMatlab("solution.m");
@@ -1901,7 +1905,7 @@ FiniteElement::run()
         // step 0: preparation
         // remeshing and remapping of the prognostic variables
 
-        bool regrid_done = false;
+        M_regrid = false;
 
         if (vm["simul_in.regrid"].as<std::string>() == "bamg")
         {
@@ -1910,7 +1914,7 @@ FiniteElement::run()
 
             if ((minang < vm["simul_in.regrid_angle"].as<double>()) || (pcpt ==0) )
             {
-                regrid_done = true;
+                M_regrid = true;
                 std::cout<<"Regriding starts\n";
                 this->regrid(pcpt);
                 std::cout<<"Regriding done\n";
@@ -1920,10 +1924,8 @@ FiniteElement::run()
         if (pcpt == 0)
             this->initSimulation();
 
-        if ((pcpt==0) || (regrid_done))
+        if ((pcpt==0) || (M_regrid))
         {
-            //this->forcingWind(vm["simul_in.constant_u"].as<double>(),vm["simul_in.constant_v"].as<double>());
-            //this->forcingOcean(0.,0.);
             this->forcingThermo(0.,0.);
             this->bathymetry();
             this->tensors();
@@ -1933,7 +1935,6 @@ FiniteElement::run()
         this->timeInterpolation(pcpt);
         this->forcingWind();
         this->forcingOcean();
-        //this->timeInterpolation(pcpt);
         this->computeFactors(pcpt);
 
         this->assemble();
@@ -1942,9 +1943,6 @@ FiniteElement::run()
         this->update();
 
         //this->exportResults(pcpt+1);
-        //this->asrWind();
-        //this->loadTopazOcean();
-        //this->topazConc();
         ++pcpt;
     }
 
@@ -1996,10 +1994,6 @@ FiniteElement::updateVelocity()
 
     // std::cout<<"MAX SPEED= "<< *std::max_element(speed_c_scaling_test.begin(),speed_c_scaling_test.end()) <<"\n";
     // std::cout<<"MIN SPEED= "<< *std::min_element(speed_c_scaling_test.begin(),speed_c_scaling_test.end()) <<"\n";
-
-    std::cout<<"MAX SPEED= "<< *std::max_element(M_conc.begin(),M_conc.end()) <<"\n";
-    std::cout<<"MIN SPEED= "<< *std::min_element(M_conc.begin(),M_conc.end()) <<"\n";
-
 }
 
 void
@@ -3027,7 +3021,7 @@ FiniteElement::topazConc()
         // }
     }
 
-    auto RX = M_mesh.bCoordY();
+    auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
 
 #if 0
@@ -3131,6 +3125,7 @@ FiniteElement::topazConc()
         }
     }
 
+#if 0
     if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
     {
         std::cout<<"MIN DATA_IN FICE= "<< *std::min_element(data_in_fice.begin(),data_in_fice.end()) <<"\n";
@@ -3142,25 +3137,39 @@ FiniteElement::topazConc()
         std::cout<<"MIN DATA_IN HICE= "<< *std::min_element(data_in_hice.begin(),data_in_hice.end()) <<"\n";
         std::cout<<"MAX DATA_IN HICE= "<< *std::max_element(data_in_hice.begin(),data_in_hice.end()) <<"\n";
     }
+#endif
+
+#if 0
+    // bamg triangulation
+    int* pindex;
+    int pnels;
+    std::cout<<"Triangulate starts\n";
+    BamgTriangulatex(&pindex,&pnels,&X[0],&Y[0],X.size());
+    std::cout<<"Triangulate done\n";
+    for (int i=0; i<Y.size(); ++i)
+    {
+        std::cout<<"Point["<< i <<"]= ("<< RX[i] << " , "<< RY[i] <<")\n";
+    }
+#endif
 
     //int interp_type = TriangleInterpEnum;
     //int interp_type = BilinearInterpEnum;
     int interp_type = NearestInterpEnum;
 
-    std::vector<double> data_out_fice_tmp;
-    std::vector<double> data_out_hice_tmp;
+    // std::vector<double> data_out_fice_tmp;
+    // std::vector<double> data_out_hice_tmp;
 
     if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
     {
         double* data_out_fice;
-        data_out_fice_tmp.resize(M_num_elements);
+        //data_out_fice_tmp.resize(M_num_elements);
 
         InterpFromGridToMeshx(data_out_fice, &X[0], X.size(), &Y[0], Y.size(), &data_in_fice[0], Y.size(), X.size(),
                               &RX[0], &RY[0], M_mesh.numTriangles(), 1.0, interp_type);
 
         for (int i=0; i<M_num_elements; ++i)
         {
-            data_out_fice_tmp[i] = data_out_fice[i];
+            //data_out_fice_tmp[i] = data_out_fice[i];
             M_conc[i] = data_out_fice[i];
             //std::cout<<"MCONC["<< i <<"]= "<< M_conc[i] <<"\n";
         }
@@ -3169,20 +3178,21 @@ FiniteElement::topazConc()
     if (M_thick_type == forcing::ThicknessType::TOPAZ4)
     {
         double* data_out_hice;
-        data_out_hice_tmp.resize(M_num_elements);
+        //data_out_hice_tmp.resize(M_num_elements);
 
         InterpFromGridToMeshx(data_out_hice, &X[0], X.size(), &Y[0], Y.size(), &data_in_hice[0], Y.size(), X.size(),
                               &RX[0], &RY[0], M_mesh.numTriangles(), 1.0, interp_type);
 
         for (int i=0; i<M_num_elements; ++i)
         {
-            data_out_hice_tmp[i] = data_out_hice[i];
+            //data_out_hice_tmp[i] = data_out_hice[i];
             M_thick[i] = data_out_hice[i];
 
             //std::cout<<"MTHICKC["<< i <<"]= "<< M_thick[i] <<"\n";
         }
     }
 
+#if 0
     if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
     {
         std::cout<<"MIN DATA_OUT FICE= "<< *std::min_element(data_out_fice_tmp.begin(),data_out_fice_tmp.end()) <<"\n";
@@ -3194,6 +3204,7 @@ FiniteElement::topazConc()
         std::cout<<"MIN DATA_OUT HICE= "<< *std::min_element(data_out_hice_tmp.begin(),data_out_hice_tmp.end()) <<"\n";
         std::cout<<"MAX DATA_OUT HICE= "<< *std::max_element(data_out_hice_tmp.begin(),data_out_hice_tmp.end()) <<"\n";
     }
+#endif
 }
 
 void

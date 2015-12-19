@@ -58,6 +58,7 @@ public:
     void setMatSolverPackageType(std::string const& mspackt);
     void PetscPCFactorSetMatSolverPackage(PC & pc, MatSolverPackageType mspackt);
     void setReusePrec(bool reuse);
+    void setRebuild(bool rebuild);
 
 	void clear();
 
@@ -70,6 +71,7 @@ public:
     PreconditionerType preconditionerType() const { return M_preconditioner_type; }
     MatSolverPackageType matSolverPackageType() const { return M_matSolverPackage_type; }
     bool reusePrec() const { return M_reuse_prec;}
+    bool rebuild() const { return M_rebuild;}
 
     std::string PetscConvertKSPReasonToString(KSPConvergedReason reason);
     size_type nIterations() const { return M_iteration; }
@@ -97,12 +99,14 @@ public:
                                        ( dtolerance,( double ), M_dtolerance/*1e5*/ )
                                        ( maxit,( size_type ), M_maxit/*1000*/ )
                                        ( reuse_prec,( bool ), M_reuse_prec )
+                                       ( rebuild,( bool ), M_rebuild )
                                        ) )
     {
         this->setSolverType(ksp);
         this->setPreconditionerType(pc);
         this->setMatSolverPackageType(pcfactormatsolverpackage);
         this->setReusePrec(reuse_prec);
+        this->setRebuild(rebuild);
 
         setTolerances(_rtolerance=rtolerance,
                       _dtolerance=dtolerance,
@@ -179,6 +183,7 @@ private:
     std::string M_pc_type;
     std::string M_pcfactormatsolverpackage_type;
     bool M_reuse_prec;
+    bool M_rebuild;
 
 private:
 
