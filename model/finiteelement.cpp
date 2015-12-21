@@ -1968,12 +1968,13 @@ FiniteElement::run()
         //this->timeInterpolation(pcpt);
         this->computeFactors(pcpt);
 
+        if (pcpt == 0)
+            this->exportResults(pcpt);
+
         this->assemble();
         this->solve();
-        this->updateVelocity();
 
-        //if(pcpt >0)
-        //    this->exportResults(pcpt+2000);
+        this->updateVelocity();
 
         this->update();
 

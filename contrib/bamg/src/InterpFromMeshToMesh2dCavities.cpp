@@ -214,7 +214,7 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
     int verbosity;
     
     /*Bamg options*/
-    verbosity=2;//bamgopts->verbose;
+    verbosity=0;//bamgopts->verbose;
 
     if (verbosity>1) _printf_("   Detect_cavities: Read input...\n");
 	/*---------- Input  ----------*/
