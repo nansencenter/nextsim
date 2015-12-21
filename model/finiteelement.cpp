@@ -1913,7 +1913,7 @@ FiniteElement::run()
     {
         is_running = ((pcpt+1)*time_step) < duration;
 
-        if (pcpt > 10)
+        if (pcpt == 0)
             is_running = false;
 
         current_time = time_init + pcpt*time_step/(24*3600.0);
@@ -2381,9 +2381,6 @@ FiniteElement::loadAsrWind()//(double const& u, double const& v)
         // }
     }
 
-    // std::sort(X.begin(), X.end());
-    // std::sort(Y.begin(), Y.end());
-
 #if 1
 
     // rotate EB coordinates to fit the ASR coords
@@ -2720,17 +2717,19 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
     auto RX = M_mesh.coordX();
     auto RY = M_mesh.coordY();
 
-    // std::cout<<"MIN BOUND TOPAZX= "<< *std::min_element(X.begin(),X.end()) <<"\n";
-    // std::cout<<"MAX BOUND TOPAZX= "<< *std::max_element(X.begin(),X.end()) <<"\n";
+#if 0
+    std::cout<<"MIN BOUND TOPAZX= "<< *std::min_element(X.begin(),X.end()) <<"\n";
+    std::cout<<"MAX BOUND TOPAZX= "<< *std::max_element(X.begin(),X.end()) <<"\n";
 
-    // std::cout<<"MIN BOUND TOPAZY= "<< *std::min_element(Y.begin(),Y.end()) <<"\n";
-    // std::cout<<"MAX BOUND TOPAZY= "<< *std::max_element(Y.begin(),Y.end()) <<"\n";
+    std::cout<<"MIN BOUND TOPAZY= "<< *std::min_element(Y.begin(),Y.end()) <<"\n";
+    std::cout<<"MAX BOUND TOPAZY= "<< *std::max_element(Y.begin(),Y.end()) <<"\n";
 
-    // std::cout<<"MIN BOUND MESHX= "<< *std::min_element(RX.begin(),RX.end()) <<"\n";
-    // std::cout<<"MAX BOUND MESHX= "<< *std::max_element(RX.begin(),RX.end()) <<"\n";
+    std::cout<<"MIN BOUND MESHX= "<< *std::min_element(RX.begin(),RX.end()) <<"\n";
+    std::cout<<"MAX BOUND MESHX= "<< *std::max_element(RX.begin(),RX.end()) <<"\n";
 
-    // std::cout<<"MIN BOUND MESHY= "<< *std::min_element(RY.begin(),RY.end()) <<"\n";
-    // std::cout<<"MAX BOUND MESHY= "<< *std::max_element(RY.begin(),RY.end()) <<"\n";
+    std::cout<<"MIN BOUND MESHY= "<< *std::min_element(RY.begin(),RY.end()) <<"\n";
+    std::cout<<"MAX BOUND MESHY= "<< *std::max_element(RY.begin(),RY.end()) <<"\n";
+#endif
 
     std::cout<<"VALUE= "<< from_date_string("1950-01-01") <<"\n";
     std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string("1950-01-01"); });
@@ -2806,17 +2805,23 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
         // {
         //     for (int j=0; j<761; ++j)
         //     {
-        //         if (i<160 && j<500)
-        //             std::cout<<"U["<< i << ","<< j <<"]= "<< data_in_ssh[761*i+j]  <<"\n";
+        //         // if (i<160 && j<500)
+        //         //     std::cout<<"U["<< i << ","<< j <<"]= "<< data_in_ssh[761*i+j]  <<"\n";
         //         //std::cout<<"U["<< i << ","<< j <<"]= "<< data_in_u[761*i+j] << "  and  " << U[i][j] <<"\n";
+
+        //         //std::cout<<"U["<< i << ","<< j <<"]= "<< data_in_u[761*i+j]  <<"\n";
         //     }
         // }
 
-        // std::cout<<"MIN DATA U= "<< *std::min_element(data_in_u.begin(),data_in_u.end()) <<"\n";
-        // std::cout<<"MAX DATA U= "<< *std::max_element(data_in_u.begin(),data_in_u.end()) <<"\n";
+        std::cout<<"MIN DATA U= "<< *std::min_element(data_in_u.begin(),data_in_u.end()) <<"\n";
+        std::cout<<"MAX DATA U= "<< *std::max_element(data_in_u.begin(),data_in_u.end()) <<"\n";
 
-        // std::cout<<"MIN DATA V= "<< *std::min_element(data_in_v.begin(),data_in_v.end()) <<"\n";
-        // std::cout<<"MAX DATA V= "<< *std::max_element(data_in_v.begin(),data_in_v.end()) <<"\n";
+        std::cout<<"MIN DATA V= "<< *std::min_element(data_in_v.begin(),data_in_v.end()) <<"\n";
+        std::cout<<"MAX DATA V= "<< *std::max_element(data_in_v.begin(),data_in_v.end()) <<"\n";
+
+        std::cout<<"MIN DATA SSH= "<< *std::min_element(data_in_ssh.begin(),data_in_ssh.end()) <<"\n";
+        std::cout<<"MAX DATA SSH= "<< *std::max_element(data_in_ssh.begin(),data_in_ssh.end()) <<"\n";
+
 
         double* data_out_u;
         double* data_out_v;
@@ -2825,6 +2830,7 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
         int interp_type = BilinearInterpEnum;
         //int interp_type = NearestInterpEnum;
 
+#if 0
         InterpFromGridToMeshx(data_out_u, &X[0], X.size(), &Y[0], Y.size(), &data_in_u[0], Y.size(), X.size(),
                               &RX[0], &RY[0], M_mesh.numNodes(), 1.0, interp_type);
 
@@ -2833,7 +2839,16 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
 
         InterpFromGridToMeshx(data_out_ssh, &X[0], X.size(), &Y[0], Y.size(), &data_in_ssh[0], Y.size(), X.size(),
                               &RX[0], &RY[0], M_mesh.numNodes(), 1.0, interp_type);
+#endif
 
+        InterpFromGridToMeshx(data_out_u, &Y[0], Y.size(), &X[0], X.size(), &data_in_u[0], X.size(), Y.size(),
+                              &RX[0], &RY[0], M_mesh.numNodes(), 1.0, interp_type);
+
+        InterpFromGridToMeshx(data_out_v, &Y[0], Y.size(), &X[0], X.size(), &data_in_u[0], X.size(), Y.size(),
+                              &RX[0], &RY[0], M_mesh.numNodes(), 1.0, interp_type);
+
+        InterpFromGridToMeshx(data_out_ssh, &Y[0], Y.size(), &X[0], X.size(), &data_in_u[0], X.size(), Y.size(),
+                              &RX[0], &RY[0], M_mesh.numNodes(), 1.0, interp_type);
 
         // for (int i=0; i<50; ++i)
         //     std::cout<<"data_out["<< i << "]= "<< data_out_u[i] << " and "<< data_out_v[i] <<"\n";
@@ -2850,6 +2865,13 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
             // if (i<20)
             //     std::cout<<"data_out["<< i << "]= "<< M_wind[i] << " and "<< M_wind[i+M_num_nodes] <<"\n";
         }
+
+        std::cout<<"MIN DATA_OUT UV= "<< *std::min_element(fvoce.begin(),fvoce.end()) <<"\n";
+        std::cout<<"MAX DATA_OUT UV= "<< *std::max_element(fvoce.begin(),fvoce.end()) <<"\n";
+
+        std::cout<<"MIN DATA_OUT SSH= "<< *std::min_element(M_vssh.begin(),M_vssh.end()) <<"\n";
+        std::cout<<"MAX DATA_OUT SSH= "<< *std::max_element(M_vssh.begin(),M_vssh.end()) <<"\n";
+
 
         M_voce[fstep] = fvoce;
     }
@@ -3138,11 +3160,11 @@ FiniteElement::topazConc()
                     data_in_fice[761*i+j] = NAN;
                 }
 
-                if ((1.e-15 <= maskvfh) && (maskvfh <= 1.))
+                if ((1.e-25 <= maskvfh) && (maskvfh <= 1.))
                 {
                     reduced_data_in_fice.push_back(data_in_fice[761*i+j]);
-                    reduced_FX.push_back(X[i]);
-                    reduced_FY.push_back(Y[j]);
+                    reduced_FX.push_back(Y[j]);
+                    reduced_FY.push_back(X[i]);
                 }
             }
 
@@ -3156,11 +3178,11 @@ FiniteElement::topazConc()
                     data_in_hice[761*i+j] = NAN;
                 }
 
-                if ((1.e-15 <= maskvfh) && (maskvfh <= 1.))
+                if ((1.e-25 <= maskvfh) && (maskvfh <= 1.))
                 {
                     reduced_data_in_hice.push_back(data_in_hice[761*i+j]);
-                    reduced_HX.push_back(X[i]);
-                    reduced_HY.push_back(Y[j]);
+                    reduced_HX.push_back(Y[j]);
+                    reduced_HY.push_back(X[i]);
                 }
             }
         }
@@ -3664,6 +3686,8 @@ FiniteElement::exportResults(int step)
     my.init(3*M_num_elements);
     vector_type mc;
     mc.init(3*M_num_elements);
+    vector_type mh;
+    mh.init(3*M_num_elements);
     vector_type mu;
     mu.init(3*M_num_elements);
     vector_type mv;
@@ -3680,6 +3704,12 @@ FiniteElement::exportResults(int step)
         {
             sum_u += M_solution->operator()(it->indices[j]-1);
             sum_v += M_solution->operator()(it->indices[j]-1+M_num_nodes);
+
+            // sum_u += M_wind[it->indices[j]-1];
+            // sum_v += M_wind[it->indices[j]-1+M_num_nodes];
+
+            // sum_u += M_ocean[it->indices[j]-1];
+            // sum_v += M_ocean[it->indices[j]-1+M_num_nodes];
         }
         sum_u /= 3.;
         sum_v /= 3.;
@@ -3687,6 +3717,7 @@ FiniteElement::exportResults(int step)
         for (int i=0; i<3; ++i)
         {
             mc(3*cpt+i) = M_conc[cpt];
+            mh(3*cpt+i) = M_thick[cpt];
             mu(3*cpt+i) = sum_u;
             mv(3*cpt+i) = sum_v;
             mx(3*cpt+i) = M_nodes[it->indices[i]-1].coords[0];
@@ -3700,6 +3731,7 @@ FiniteElement::exportResults(int step)
     mx.printMatlab("mx" + step_str);
     my.printMatlab("my" + step_str);
     mc.printMatlab("mc" + step_str);
+    mh.printMatlab("mh" + step_str);
     mu.printMatlab("mu" + step_str);
     mv.printMatlab("mv" + step_str);
 }
