@@ -1984,8 +1984,8 @@ FiniteElement::run()
 
         this->timeInterpolation(pcpt);
 
-        this->forcingWind(regrid_done);
-        this->forcingOcean(regrid_done);
+        this->forcingWind(M_regrid);
+        this->forcingOcean(M_regrid);
         this->computeFactors(pcpt);
 
         if (pcpt == 0)
@@ -1998,7 +1998,7 @@ FiniteElement::run()
 
         this->update();
 
-        //this->exportResults(pcpt+1);
+        this->exportResults(pcpt+1);
         ++pcpt;
     }
 
@@ -2986,11 +2986,8 @@ FiniteElement::topazConc()
     std::cout<<"TOPAZ INIT FILE= "<< init_topaz_filename <<"\n";
 
     // read in latitude and longitude
-    std::vector<double> XLAT(1101);
-    std::vector<double> XLON(1101);
-
-    std::vector<double> YLAT(761);
-    std::vector<double> YLON(761);
+    std::vector<double> LAT(1101*761);
+    std::vector<double> LON(1101*761);
 
     std::vector<size_t> index_start(2);
     std::vector<size_t> index_lat_end(2);
@@ -3003,12 +3000,12 @@ FiniteElement::topazConc()
     index_lat_start[1] = 0;
 
     index_lat_end[0] = 1101;
-    index_lat_end[1] = 1;
+    index_lat_end[1] = 761;
 
     index_lon_start[0] = 0;
     index_lon_start[1] = 0;
 
-    index_lon_end[0] = 1;
+    index_lon_end[0] = 1101;
     index_lon_end[1] = 761;
 
     std::vector<double> XTIME(31);
@@ -3018,8 +3015,8 @@ FiniteElement::topazConc()
     std::cout<<"READING NETCDF file "<< init_topaz_filename <<" starts\n";
     //netCDF::NcFile::FileFormat format = netCDF::NcFile::classic;
     netCDF::NcFile dataFile(init_topaz_filename, netCDF::NcFile::read);
-    netCDF::NcVar VXLAT = dataFile.getVar("latitude");
-    netCDF::NcVar VXLON = dataFile.getVar("longitude");
+    netCDF::NcVar VLAT = dataFile.getVar("latitude");
+    netCDF::NcVar VLON = dataFile.getVar("longitude");
     netCDF::NcVar VFICE;
     netCDF::NcVar VHICE;
 
@@ -3036,16 +3033,13 @@ FiniteElement::topazConc()
     netCDF::NcVar VTIME = dataFile.getVar("time");
     std::cout<<"READING NETCDF "<< init_topaz_filename << " done\n";
 
-    VXLAT.getVar(index_lat_start,index_lat_end,&XLAT[0]);
-    VXLON.getVar(index_lat_start,index_lat_end,&XLON[0]);
-
-    VXLAT.getVar(index_lon_start,index_lon_end,&YLAT[0]);
-    VXLON.getVar(index_lon_start,index_lon_end,&YLON[0]);
+    VLAT.getVar(index_lat_start,index_lat_end,&LAT[0]);
+    VLON.getVar(index_lat_start,index_lat_end,&LON[0]);
 
     VTIME.getVar(&XTIME[0]);
 
-    std::vector<double> X(1101);
-    std::vector<double> Y(761);
+    std::vector<double> X(1101*761);
+    std::vector<double> Y(1101*761);
 
     mapx_class *map;
     std::string configfile = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
@@ -3053,28 +3047,16 @@ FiniteElement::topazConc()
     str.push_back('\0');
     map = init_mapx(&str[0]);
 
+    std::vector<double> xy(2);
+
     for (int i=0; i<1101; ++i)
     {
-        X[i] = latLon2XY(XLAT[i], XLON[i], map, configfile)[1];
-
-        // if (i<10)
-        // {
-        //     std::cout<<"**********************\n";
-        //     std::cout<<"X= "<< X[i] <<"\n";
-        //     std::cout<<"XLAT= "<< XLAT[i] <<" and XLON= "<< XLON[i] <<"\n";
-        // }
-    }
-
-    for (int i=0; i<761; ++i)
-    {
-        Y[i] = latLon2XY(YLAT[i], YLON[i], map, configfile)[0];
-
-        // if (i<10)
-        // {
-        //     std::cout<<"**********************\n";
-        //     std::cout<<"Y= "<< Y[i] <<"\n";
-        //     std::cout<<"YLAT= "<< YLAT[i] <<" and YLON= "<< YLON[i] <<"\n";
-        // }
+        for (int j=0; j<761; ++j)
+        {
+            xy=latLon2XY(LAT[761*i+j], LON[761*i+j], map, configfile);
+            X[761*i+j] = xy[0];
+            Y[761*i+j] = xy[1];
+        }
     }
 
     auto RX = M_mesh.bCoordX();
@@ -3149,6 +3131,7 @@ FiniteElement::topazConc()
     std::vector<double> reduced_HY;
 
 
+
     if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
     {
         data_in_fice.resize(1101*761);
@@ -3171,16 +3154,11 @@ FiniteElement::topazConc()
                 maskvfh = data_in_fice[761*i+j];
                 maskvfh = std::abs(maskvfh);
 
-                if (100. < maskvfh)
-                {
-                    data_in_fice[761*i+j] = NAN;
-                }
-
-                if ((1.e-15 <= maskvfh) && (maskvfh <= 1.))
+                if (maskvfh < 100.)
                 {
                     reduced_data_in_fice.push_back(data_in_fice[761*i+j]);
-                    reduced_FX.push_back(X[i]);
-                    reduced_FY.push_back(Y[j]);
+                    reduced_FX.push_back(X[761*i+j]);
+                    reduced_FY.push_back(Y[761*i+j]);
                 }
             }
 
@@ -3189,16 +3167,11 @@ FiniteElement::topazConc()
                 maskvfh = data_in_hice[761*i+j];
                 maskvfh = std::abs(maskvfh);
 
-                if (100. < maskvfh)
-                {
-                    data_in_hice[761*i+j] = NAN;
-                }
-
-                if ((1.e-15 <= maskvfh) && (maskvfh <= 1.))
+                if (maskvfh < 100.)
                 {
                     reduced_data_in_hice.push_back(data_in_hice[761*i+j]);
-                    reduced_HX.push_back(X[i]);
-                    reduced_HY.push_back(Y[j]);
+                    reduced_HX.push_back(X[761*i+j]);
+                    reduced_HY.push_back(Y[761*i+j]);
                 }
             }
         }
@@ -3702,6 +3675,8 @@ FiniteElement::exportResults(int step)
     my.init(3*M_num_elements);
     vector_type mc;
     mc.init(3*M_num_elements);
+    vector_type mh;
+    mh.init(3*M_num_elements);
     vector_type mu;
     mu.init(3*M_num_elements);
     vector_type mv;
@@ -3731,6 +3706,7 @@ FiniteElement::exportResults(int step)
         for (int i=0; i<3; ++i)
         {
             mc(3*cpt+i) = M_conc[cpt];
+            mh(3*cpt+i) = M_thick[cpt];
             mu(3*cpt+i) = sum_u;
             mv(3*cpt+i) = sum_v;
             mx(3*cpt+i) = M_nodes[it->indices[i]-1].coords[0];
@@ -3744,6 +3720,7 @@ FiniteElement::exportResults(int step)
     mx.printMatlab("mx" + step_str);
     my.printMatlab("my" + step_str);
     mc.printMatlab("mc" + step_str);
+    mh.printMatlab("mh" + step_str);
     mu.printMatlab("mu" + step_str);
     mv.printMatlab("mv" + step_str);
 }
