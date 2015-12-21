@@ -1711,6 +1711,14 @@ FiniteElement::update()
             /* updated values */
             concentration_new[cpt]    = ice_surface/surface_new;
             thickness_new[cpt]        = ice_volume/surface_new;
+#if 0
+            if (cpt==82696)
+            {
+                std::cout<<"ICE_SURFACE= "<< ice_surface <<"\n";
+                std::cout<<"ICE_VOLUME = "<< ice_volume <<"\n";
+                std::cout<<"SURFACE_NEW= "<< surface_new <<"\n";
+            }
+#endif
             snow_thickness_new[cpt]   = snow_volume/surface_new;
 
             thin_thickness_new[cpt]        = thin_ice_volume/surface_new;
@@ -1827,6 +1835,16 @@ FiniteElement::update()
     M_hs_thin = thin_snow_thickness_new;
     M_h_ridged_thin_ice = h_ridged_thin_ice_new;
     M_h_ridged_thick_ice = h_ridged_thick_ice_new;
+
+#if 0
+    std::cout<<"****************************\n";
+    std::cout<<"THICK MIN= "<< *std::min_element(M_thick.begin(),M_thick.end()) <<"\n";
+    std::cout<<"THICK MAX= "<< *std::max_element(M_thick.begin(),M_thick.end()) <<"\n";
+
+    auto it = std::max_element(M_thick.begin(),M_thick.end());
+    std::cout << "MAX ELEMENT AT: " << std::distance(M_thick.begin(), it) << '\n';
+#endif
+
 }
 
 void
@@ -3084,6 +3102,15 @@ FiniteElement::topazConc()
     std::vector<double> data_in_fice;
     std::vector<double> data_in_hice;
 
+    std::vector<double> reduced_data_in_fice;
+    std::vector<double> reduced_FX;
+    std::vector<double> reduced_FY;
+
+    std::vector<double> reduced_data_in_hice;
+    std::vector<double> reduced_HX;
+    std::vector<double> reduced_HY;
+
+
     if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
     {
         data_in_fice.resize(1101*761);
@@ -3093,7 +3120,7 @@ FiniteElement::topazConc()
     if (M_thick_type == forcing::ThicknessType::TOPAZ4)
     {
         data_in_hice.resize(1101*761);
-        VFICE.getVar(index_fhice_start,index_fhice_end,&data_in_hice[0]);
+        VHICE.getVar(index_fhice_start,index_fhice_end,&data_in_hice[0]);
     }
 
     double maskvfh;
@@ -3110,6 +3137,13 @@ FiniteElement::topazConc()
                 {
                     data_in_fice[761*i+j] = NAN;
                 }
+
+                if ((1.e-15 <= maskvfh) && (maskvfh <= 1.))
+                {
+                    reduced_data_in_fice.push_back(data_in_fice[761*i+j]);
+                    reduced_FX.push_back(X[i]);
+                    reduced_FY.push_back(Y[j]);
+                }
             }
 
             if (M_thick_type == forcing::ThicknessType::TOPAZ4)
@@ -3120,6 +3154,13 @@ FiniteElement::topazConc()
                 if (100. < maskvfh)
                 {
                     data_in_hice[761*i+j] = NAN;
+                }
+
+                if ((1.e-15 <= maskvfh) && (maskvfh <= 1.))
+                {
+                    reduced_data_in_hice.push_back(data_in_hice[761*i+j]);
+                    reduced_HX.push_back(X[i]);
+                    reduced_HY.push_back(Y[j]);
                 }
             }
         }
@@ -3139,16 +3180,55 @@ FiniteElement::topazConc()
     }
 #endif
 
-#if 0
+#if 1
     // bamg triangulation
-    int* pindex;
-    int pnels;
-    std::cout<<"Triangulate starts\n";
-    BamgTriangulatex(&pindex,&pnels,&X[0],&Y[0],X.size());
-    std::cout<<"Triangulate done\n";
-    for (int i=0; i<Y.size(); ++i)
+
+    if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
     {
-        std::cout<<"Point["<< i <<"]= ("<< RX[i] << " , "<< RY[i] <<")\n";
+        std::cout<<"SIZE REDUCED_FX= "<< reduced_FX.size() <<"\n";
+        std::cout<<"SIZE REDUCED_FY= "<< reduced_FY.size() <<"\n";
+
+        std::cout<<"MIN DATA_RF_IN = "<< *std::min_element(reduced_data_in_fice.begin(),reduced_data_in_fice.end()) <<"\n";
+        std::cout<<"MAX DATA_RF_IN = "<< *std::max_element(reduced_data_in_fice.begin(),reduced_data_in_fice.end()) <<"\n";
+    }
+
+    if (M_thick_type == forcing::ThicknessType::TOPAZ4)
+    {
+        std::cout<<"SIZE REDUCED_HX= "<< reduced_HX.size() <<"\n";
+        std::cout<<"SIZE REDUCED_HY= "<< reduced_HY.size() <<"\n";
+
+        std::cout<<"MIN DATA_RH_IN = "<< *std::min_element(reduced_data_in_hice.begin(),reduced_data_in_hice.end()) <<"\n";
+        std::cout<<"MAX DATA_RH_IN = "<< *std::max_element(reduced_data_in_hice.begin(),reduced_data_in_hice.end()) <<"\n";
+    }
+
+    int* pfindex;
+    int pfnels;
+
+    if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
+    {
+        std::cout<<"FICE: Triangulate starts\n";
+        BamgTriangulatex(&pfindex,&pfnels,&reduced_FX[0],&reduced_FY[0],reduced_FX.size());
+        std::cout<<"FICE: NUMTRIANGLES= "<< pfnels <<"\n";
+        std::cout<<"FICE: Triangulate done\n";
+        // for (int i=0; i<Y.size(); ++i)
+        // {
+        //     std::cout<<"Point["<< i <<"]= ("<< RX[i] << " , "<< RY[i] <<")\n";
+        // }
+    }
+
+    int* phindex;
+    int phnels;
+
+    if (M_thick_type == forcing::ThicknessType::TOPAZ4)
+    {
+        std::cout<<"HICE: Triangulate starts\n";
+        BamgTriangulatex(&phindex,&phnels,&reduced_HX[0],&reduced_HY[0],reduced_HX.size());
+        std::cout<<"HICE: NUMTRIANGLES= "<< phnels <<"\n";
+        std::cout<<"HICE: Triangulate done\n";
+        // for (int i=0; i<Y.size(); ++i)
+        // {
+        //     std::cout<<"Point["<< i <<"]= ("<< RX[i] << " , "<< RY[i] <<")\n";
+        // }
     }
 #endif
 
@@ -3156,20 +3236,29 @@ FiniteElement::topazConc()
     //int interp_type = BilinearInterpEnum;
     int interp_type = NearestInterpEnum;
 
-    // std::vector<double> data_out_fice_tmp;
-    // std::vector<double> data_out_hice_tmp;
+    std::vector<double> data_out_fice_tmp;
+    std::vector<double> data_out_hice_tmp;
 
     if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
     {
         double* data_out_fice;
-        //data_out_fice_tmp.resize(M_num_elements);
+        data_out_fice_tmp.resize(M_num_elements);
 
-        InterpFromGridToMeshx(data_out_fice, &X[0], X.size(), &Y[0], Y.size(), &data_in_fice[0], Y.size(), X.size(),
-                              &RX[0], &RY[0], M_mesh.numTriangles(), 1.0, interp_type);
+        // InterpFromGridToMeshx(data_out_fice, &X[0], X.size(), &Y[0], Y.size(), &data_in_fice[0], Y.size(), X.size(),
+        //                       &RX[0], &RY[0], M_mesh.numTriangles(), 1.0, interp_type);
+
+        InterpFromMeshToMesh2dx(&data_out_fice,
+                                pfindex,&reduced_FX[0],&reduced_FY[0],
+                                reduced_FX.size(),pfnels,
+                                &reduced_data_in_fice[0],
+                                reduced_FX.size(),1,
+                                &RX[0], &RY[0], M_mesh.numTriangles(),
+                                false /*options*/);
+
 
         for (int i=0; i<M_num_elements; ++i)
         {
-            //data_out_fice_tmp[i] = data_out_fice[i];
+            data_out_fice_tmp[i] = data_out_fice[i];
             M_conc[i] = data_out_fice[i];
             //std::cout<<"MCONC["<< i <<"]= "<< M_conc[i] <<"\n";
         }
@@ -3178,21 +3267,30 @@ FiniteElement::topazConc()
     if (M_thick_type == forcing::ThicknessType::TOPAZ4)
     {
         double* data_out_hice;
-        //data_out_hice_tmp.resize(M_num_elements);
+        data_out_hice_tmp.resize(M_num_elements);
 
-        InterpFromGridToMeshx(data_out_hice, &X[0], X.size(), &Y[0], Y.size(), &data_in_hice[0], Y.size(), X.size(),
-                              &RX[0], &RY[0], M_mesh.numTriangles(), 1.0, interp_type);
+        // InterpFromGridToMeshx(data_out_hice, &X[0], X.size(), &Y[0], Y.size(), &data_in_hice[0], Y.size(), X.size(),
+        //                       &RX[0], &RY[0], M_mesh.numTriangles(), 1.0, interp_type);
+
+        InterpFromMeshToMesh2dx(&data_out_hice,
+                                phindex,&reduced_HX[0],&reduced_HY[0],
+                                reduced_HX.size(),phnels,
+                                &reduced_data_in_hice[0],
+                                reduced_HX.size(),1,
+                                &RX[0], &RY[0], M_mesh.numTriangles(),
+                                false /*options*/);
+
 
         for (int i=0; i<M_num_elements; ++i)
         {
-            //data_out_hice_tmp[i] = data_out_hice[i];
+            data_out_hice_tmp[i] = data_out_hice[i];
             M_thick[i] = data_out_hice[i];
 
             //std::cout<<"MTHICKC["<< i <<"]= "<< M_thick[i] <<"\n";
         }
     }
 
-#if 0
+#if 1
     if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
     {
         std::cout<<"MIN DATA_OUT FICE= "<< *std::min_element(data_out_fice_tmp.begin(),data_out_fice_tmp.end()) <<"\n";
