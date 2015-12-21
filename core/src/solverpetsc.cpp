@@ -21,6 +21,7 @@ SolverPetsc::SolverPetsc(Communicator const& comm)
     M_atolerance(1e-50),
     M_maxit(1000),
     M_reuse_prec(true),
+    M_rebuild(false),
 	M_is_initialized(false)
 {}
 
@@ -32,8 +33,11 @@ SolverPetsc::~SolverPetsc()
 void
 SolverPetsc::init()
 {
-    if ( !this->initialized() )
+    if ( !this->initialized() || this->rebuild() )
     {
+        if (M_is_initialized)
+            this->clear();
+
         M_is_initialized = true;
 
         int ierr = 0;
@@ -103,7 +107,7 @@ SolverPetsc::solveLinearSystem(matrix_ptrtype const& matrix,
 #if PETSC_VERSION_LESS_THAN(3,5,0)
     ierr = KSPSetOperators( M_ksp, matrix->mat(), matrix->mat(), DIFFERENT_NONZERO_PATTERN);
 #else
-    //bool same_preconditioner=true;
+    M_reuse_prec = M_reuse_prec && ( M_ksp_type != "preonly");
     ierr = KSPSetReusePreconditioner( M_ksp, (M_reuse_prec) ? PETSC_TRUE : PETSC_FALSE );
     CHKERRABORT( M_comm,ierr );
     ierr = KSPSetOperators( M_ksp, matrix->mat(), matrix->mat() );
@@ -183,6 +187,12 @@ void
 SolverPetsc::setReusePrec(bool reuse)
 {
     M_reuse_prec = reuse;
+}
+
+void
+SolverPetsc::setRebuild(bool rebuild)
+{
+    M_rebuild = rebuild;
 }
 
 void

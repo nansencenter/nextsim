@@ -42,6 +42,8 @@ public:
     typedef typename GmshMesh::element_type element_type;
 
     typedef GmshMesh mesh_type;
+    typedef SolverPetsc solver_type;
+    typedef boost::shared_ptr<solver_type> solver_ptrtype;
     typedef MatrixPetsc matrix_type;
     typedef boost::shared_ptr<matrix_type> matrix_ptrtype;
     typedef VectorPetsc vector_type;
@@ -51,10 +53,12 @@ public:
 
     mesh_type const& mesh() const {return M_mesh;}
 
+    solver_ptrtype const& solverPtr() const {return M_solver;}
     matrix_ptrtype const& matrixPtr() const {return M_matrix;}
     vector_ptrtype const& rhsPtr() const {return M_vector;}
     vector_ptrtype const& solutionPtr() const {return M_solution;}
 
+    solver_type const& solver() const {return *M_solver;}
     matrix_type const& matrix() const {return *M_matrix;}
     vector_type const& rhs() const {return *M_vector;}
     vector_type const& solution() const {return *M_solution;}
@@ -127,6 +131,7 @@ private:
     mesh_type M_mesh;
     mesh_type M_mesh_init;
     mesh_type M_mesh_previous;
+    solver_ptrtype M_solver;
     matrix_ptrtype M_matrix;
     //matrix_ptrtype M_mass;
     vector_ptrtype M_vector;
@@ -241,6 +246,8 @@ private:
     double tan_phi;
     double ridge_h;
     double current_time;
+    bool M_reuse_prec;
+    bool M_regrid;
 
 private:
 
