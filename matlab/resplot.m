@@ -21,4 +21,6 @@ y=reshape(var_my,[3,nr/3]);
 
 patch(x,y,c,'FaceColor','flat','EdgeColor','none')
 caxis([min(var_mc), max(var_mc)])
+
+colorbar
 end
