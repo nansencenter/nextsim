@@ -255,7 +255,7 @@ private:
     std::vector<std::vector<double>> M_vair;
     std::vector<double> M_ftime_ocean_range;
     std::vector<std::vector<double>> M_voce;
-    std::vector<double> M_vssh;
+    std::vector<std::vector<double>> M_vssh;
 
 private:
 
