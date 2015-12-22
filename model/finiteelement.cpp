@@ -3703,7 +3703,7 @@ FiniteElement::exportResults(int step)
     {
         sum_u = 0.;
         sum_v = 0.;
-        sum_ssh = 0.;
+        //sum_ssh = 0.;
         for (int j=0; j<3; ++j)
         {
             //sum_u += M_voce[0][it->indices[j]-1];
