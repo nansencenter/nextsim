@@ -857,12 +857,12 @@ FiniteElement::regrid(bool step)
             ++cpt;
         }
 
-        //#if 0
+        #if 0
         InterpFromMeshToMesh2dCavities(&interp_elt_out,interp_elt_in,11,
              surface_previous, surface, bamgmesh_previous, bamgmesh);
-        //#endif
+        #endif
 
-        #if 0
+        //#if 0
         InterpFromMeshToMesh2dx(&interp_elt_out,
                                 &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
                                 M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
@@ -870,7 +870,7 @@ FiniteElement::regrid(bool step)
                                 M_mesh_previous.numTriangles(),11,
                                 &M_mesh.bCoordX()[0],&M_mesh.bCoordY()[0],M_mesh.numTriangles(),
                                 false);
-        #endif
+        //#endif
 
         M_conc.resize(M_num_elements,0.);
         M_thick.resize(M_num_elements,0.);
@@ -1940,7 +1940,7 @@ FiniteElement::run()
     {
         is_running = ((pcpt+1)*time_step) < duration;
 
-        if (pcpt > 10)
+        if (pcpt == 0)
             is_running = false;
 
         //if(pcpt >0)
@@ -2419,9 +2419,6 @@ FiniteElement::loadAsrWind()//(double const& u, double const& v)
         // }
     }
 
-    // std::sort(X.begin(), X.end());
-    // std::sort(Y.begin(), Y.end());
-
 #if 1
 
     // rotate EB coordinates to fit the ASR coords
@@ -2758,17 +2755,19 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
     auto RX = M_mesh.coordX();
     auto RY = M_mesh.coordY();
 
-    // std::cout<<"MIN BOUND TOPAZX= "<< *std::min_element(X.begin(),X.end()) <<"\n";
-    // std::cout<<"MAX BOUND TOPAZX= "<< *std::max_element(X.begin(),X.end()) <<"\n";
+#if 0
+    std::cout<<"MIN BOUND TOPAZX= "<< *std::min_element(X.begin(),X.end()) <<"\n";
+    std::cout<<"MAX BOUND TOPAZX= "<< *std::max_element(X.begin(),X.end()) <<"\n";
 
-    // std::cout<<"MIN BOUND TOPAZY= "<< *std::min_element(Y.begin(),Y.end()) <<"\n";
-    // std::cout<<"MAX BOUND TOPAZY= "<< *std::max_element(Y.begin(),Y.end()) <<"\n";
+    std::cout<<"MIN BOUND TOPAZY= "<< *std::min_element(Y.begin(),Y.end()) <<"\n";
+    std::cout<<"MAX BOUND TOPAZY= "<< *std::max_element(Y.begin(),Y.end()) <<"\n";
 
-    // std::cout<<"MIN BOUND MESHX= "<< *std::min_element(RX.begin(),RX.end()) <<"\n";
-    // std::cout<<"MAX BOUND MESHX= "<< *std::max_element(RX.begin(),RX.end()) <<"\n";
+    std::cout<<"MIN BOUND MESHX= "<< *std::min_element(RX.begin(),RX.end()) <<"\n";
+    std::cout<<"MAX BOUND MESHX= "<< *std::max_element(RX.begin(),RX.end()) <<"\n";
 
-    // std::cout<<"MIN BOUND MESHY= "<< *std::min_element(RY.begin(),RY.end()) <<"\n";
-    // std::cout<<"MAX BOUND MESHY= "<< *std::max_element(RY.begin(),RY.end()) <<"\n";
+    std::cout<<"MIN BOUND MESHY= "<< *std::min_element(RY.begin(),RY.end()) <<"\n";
+    std::cout<<"MAX BOUND MESHY= "<< *std::max_element(RY.begin(),RY.end()) <<"\n";
+#endif
 
     std::cout<<"VALUE= "<< from_date_string("1950-01-01") <<"\n";
     std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string("1950-01-01"); });
@@ -2844,17 +2843,23 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
         // {
         //     for (int j=0; j<761; ++j)
         //     {
-        //         if (i<160 && j<500)
-        //             std::cout<<"U["<< i << ","<< j <<"]= "<< data_in_ssh[761*i+j]  <<"\n";
+        //         // if (i<160 && j<500)
+        //         //     std::cout<<"U["<< i << ","<< j <<"]= "<< data_in_ssh[761*i+j]  <<"\n";
         //         //std::cout<<"U["<< i << ","<< j <<"]= "<< data_in_u[761*i+j] << "  and  " << U[i][j] <<"\n";
+
+        //         //std::cout<<"U["<< i << ","<< j <<"]= "<< data_in_u[761*i+j]  <<"\n";
         //     }
         // }
 
-        // std::cout<<"MIN DATA U= "<< *std::min_element(data_in_u.begin(),data_in_u.end()) <<"\n";
-        // std::cout<<"MAX DATA U= "<< *std::max_element(data_in_u.begin(),data_in_u.end()) <<"\n";
+        std::cout<<"MIN DATA U= "<< *std::min_element(data_in_u.begin(),data_in_u.end()) <<"\n";
+        std::cout<<"MAX DATA U= "<< *std::max_element(data_in_u.begin(),data_in_u.end()) <<"\n";
 
-        // std::cout<<"MIN DATA V= "<< *std::min_element(data_in_v.begin(),data_in_v.end()) <<"\n";
-        // std::cout<<"MAX DATA V= "<< *std::max_element(data_in_v.begin(),data_in_v.end()) <<"\n";
+        std::cout<<"MIN DATA V= "<< *std::min_element(data_in_v.begin(),data_in_v.end()) <<"\n";
+        std::cout<<"MAX DATA V= "<< *std::max_element(data_in_v.begin(),data_in_v.end()) <<"\n";
+
+        std::cout<<"MIN DATA SSH= "<< *std::min_element(data_in_ssh.begin(),data_in_ssh.end()) <<"\n";
+        std::cout<<"MAX DATA SSH= "<< *std::max_element(data_in_ssh.begin(),data_in_ssh.end()) <<"\n";
+
 
         double* data_out_u;
         double* data_out_v;
@@ -2863,6 +2868,7 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
         int interp_type = BilinearInterpEnum;
         //int interp_type = NearestInterpEnum;
 
+#if 0
         InterpFromGridToMeshx(data_out_u, &X[0], X.size(), &Y[0], Y.size(), &data_in_u[0], Y.size(), X.size(),
                               &RX[0], &RY[0], M_mesh.numNodes(), 1.0, interp_type);
 
@@ -2871,7 +2877,16 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
 
         InterpFromGridToMeshx(data_out_ssh, &X[0], X.size(), &Y[0], Y.size(), &data_in_ssh[0], Y.size(), X.size(),
                               &RX[0], &RY[0], M_mesh.numNodes(), 1.0, interp_type);
+#endif
 
+        InterpFromGridToMeshx(data_out_u, &Y[0], Y.size(), &X[0], X.size(), &data_in_u[0], X.size(), Y.size(),
+                              &RX[0], &RY[0], M_mesh.numNodes(), 1.0, interp_type);
+
+        InterpFromGridToMeshx(data_out_v, &Y[0], Y.size(), &X[0], X.size(), &data_in_u[0], X.size(), Y.size(),
+                              &RX[0], &RY[0], M_mesh.numNodes(), 1.0, interp_type);
+
+        InterpFromGridToMeshx(data_out_ssh, &Y[0], Y.size(), &X[0], X.size(), &data_in_u[0], X.size(), Y.size(),
+                              &RX[0], &RY[0], M_mesh.numNodes(), 1.0, interp_type);
 
         // for (int i=0; i<50; ++i)
         //     std::cout<<"data_out["<< i << "]= "<< data_out_u[i] << " and "<< data_out_v[i] <<"\n";
@@ -2888,6 +2903,13 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
             // if (i<20)
             //     std::cout<<"data_out["<< i << "]= "<< M_wind[i] << " and "<< M_wind[i+M_num_nodes] <<"\n";
         }
+
+        std::cout<<"MIN DATA_OUT UV= "<< *std::min_element(fvoce.begin(),fvoce.end()) <<"\n";
+        std::cout<<"MAX DATA_OUT UV= "<< *std::max_element(fvoce.begin(),fvoce.end()) <<"\n";
+
+        std::cout<<"MIN DATA_OUT SSH= "<< *std::min_element(M_vssh.begin(),M_vssh.end()) <<"\n";
+        std::cout<<"MAX DATA_OUT SSH= "<< *std::max_element(M_vssh.begin(),M_vssh.end()) <<"\n";
+
 
         M_voce[fstep] = fvoce;
     }
