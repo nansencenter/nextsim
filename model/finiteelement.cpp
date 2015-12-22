@@ -862,7 +862,7 @@ FiniteElement::regrid(bool step)
              surface_previous, surface, bamgmesh_previous, bamgmesh);
         #endif
 
-        //#if 0
+        #if 1
         InterpFromMeshToMesh2dx(&interp_elt_out,
                                 &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
                                 M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
@@ -870,7 +870,7 @@ FiniteElement::regrid(bool step)
                                 M_mesh_previous.numTriangles(),11,
                                 &M_mesh.bCoordX()[0],&M_mesh.bCoordY()[0],M_mesh.numTriangles(),
                                 false);
-        //#endif
+        #endif
 
         M_conc.resize(M_num_elements,0.);
         M_thick.resize(M_num_elements,0.);
@@ -1939,7 +1939,7 @@ FiniteElement::run()
     {
         is_running = ((pcpt+1)*time_step) < duration;
 
-        if (pcpt == 0)
+        if (pcpt > 3)
             is_running = false;
 
         //if(pcpt >0)
@@ -1989,8 +1989,12 @@ FiniteElement::run()
         std::cout<<"computeFactors\n";
         this->computeFactors(pcpt);
 
+
         if (pcpt == 0)
+        {
+            std::cout<<"First export\n";
             this->exportResults(pcpt);
+        }
 
         std::cout<<"Assemble\n";
         this->assemble();
@@ -2758,6 +2762,19 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
     std::vector<double> fvoce(2*M_num_nodes);
     std::vector<double> fssh(M_num_nodes);
 
+    int N_data =3;
+
+    std::vector<double> data_in_u(1101*761);
+    std::vector<double> data_in_v(1101*761);
+    std::vector<double> data_in_ssh(1101*761);
+
+    std::vector<double> data_in(1101*761*N_data);
+
+    int* pfindex;
+    int pfnels;
+        
+    double* data_out;
+
     std::cout<<"nb_forcing_step = "<< nb_forcing_step <<"\n";
     for (int fstep=0; fstep < nb_forcing_step; ++fstep)
     {
@@ -2798,9 +2815,6 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
         index_u_end[2] = 1101;
         index_u_end[3] = 761;
 
-        std::vector<double> data_in_u(1101*761);
-        std::vector<double> data_in_v(1101*761);
-
         VU.getVar(index_u_start,index_u_end,&data_in_u[0]);
         VV.getVar(index_u_start,index_u_end,&data_in_v[0]);
 
@@ -2812,7 +2826,7 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
         index_ssh_end[1] = 1101;
         index_ssh_end[2] = 761;
 
-        std::vector<double> data_in_ssh(1101*761);
+        
         VSSH.getVar(index_ssh_start,index_ssh_end,&data_in_ssh[0]);
 
         // for (int i=0; i<1101; ++i)
@@ -2836,75 +2850,41 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
         std::cout<<"MIN DATA SSH= "<< *std::min_element(data_in_ssh.begin(),data_in_ssh.end()) <<"\n";
         std::cout<<"MAX DATA SSH= "<< *std::max_element(data_in_ssh.begin(),data_in_ssh.end()) <<"\n";
 
-        std::vector<double> reduced_data_in_u;
-        std::vector<double> reduced_data_in_v;
-        std::vector<double> reduced_data_in_ssh;
-
-        std::vector<double> reduced_X;
-        std::vector<double> reduced_Y;
-
-        double maskvfh;
-        for (int i=0; i<1101; ++i)
-        {
-            for (int j=0; j<761; ++j)
-            {
-                maskvfh = data_in_ssh[761*i+j];
-                maskvfh = std::abs(maskvfh);
-
-                if (maskvfh < 100.)
-                {
-                    reduced_data_in_u.push_back(data_in_u[761*i+j]);
-                    reduced_data_in_v.push_back(data_in_v[761*i+j]);
-                    reduced_data_in_ssh.push_back(data_in_ssh[761*i+j]);
-                    reduced_X.push_back(X[761*i+j]);
-                    reduced_Y.push_back(Y[761*i+j]);
-                }
-            }
-        }
-
 
         // bamg triangulation
-        int* pfindex;
-        int pfnels;
+        if(fstep==0)
+        {
+            std::cout<<"TOPAZ: Triangulate starts\n";
+            BamgTriangulatex(&pfindex,&pfnels,&X[0],&Y[0],X.size());
+            std::cout<<"TOPAZ: NUMTRIANGLES= "<< pfnels <<"\n";
+            std::cout<<"TOPAZ: Triangulate done\n";
+        }
 
-        std::cout<<"FICE: Triangulate starts\n";
-        BamgTriangulatex(&pfindex,&pfnels,&reduced_X[0],&reduced_Y[0],reduced_X.size());
-        std::cout<<"FICE: NUMTRIANGLES= "<< pfnels <<"\n";
-        std::cout<<"FICE: Triangulate done\n";
+        for (int i=0; i<X.size(); ++i)
+        {
+            data_in[i*N_data+0] = data_in_u[i];
+            data_in[i*N_data+1] = data_in_v[i];
+            data_in[i*N_data+2] = data_in_ssh[i];
 
-        double* data_out_u;
-        double* data_out_v;
-        double* data_out_ssh;
+            // if (i<20)
+            //     std::cout<<"data_out["<< i << "]= "<< M_wind[i] << " and "<< M_wind[i+M_num_nodes] <<"\n";
+        }
 
-        InterpFromMeshToMesh2dx(&data_out_u,
-                                pfindex,&reduced_X[0],&reduced_Y[0],
-                                reduced_X.size(),pfnels,
-                                &reduced_data_in_u[0],
-                                reduced_X.size(),1,
-                                &RX[0], &RY[0], M_mesh.numTriangles(),
+        InterpFromMeshToMesh2dx(&data_out,
+                                pfindex,&X[0],&Y[0],
+                                X.size(),pfnels,
+                                &data_in[0],
+                                X.size(),N_data,
+                                &RX[0], &RY[0], M_mesh.numNodes(),
                                 false /*options*/);
 
-        InterpFromMeshToMesh2dx(&data_out_v,
-                                pfindex,&reduced_X[0],&reduced_Y[0],
-                                reduced_X.size(),pfnels,
-                                &reduced_data_in_v[0],
-                                reduced_X.size(),1,
-                                &RX[0], &RY[0], M_mesh.numTriangles(),
-                                false /*options*/);
-
-        InterpFromMeshToMesh2dx(&data_out_ssh,
-                                pfindex,&reduced_X[0],&reduced_Y[0],
-                                reduced_X.size(),pfnels,
-                                &reduced_data_in_ssh[0],
-                                reduced_X.size(),1,
-                                &RX[0], &RY[0], M_mesh.numTriangles(),
-                                false /*options*/);
+        std::cout<<" Interpolation done\n";
 
         for (int i=0; i<M_num_nodes; ++i)
         {
-            fvoce[i] = data_out_u[i];
-            fvoce[i+M_num_nodes] = data_out_v[i];
-            fssh[i] = data_out_ssh[i];
+            fvoce[i] = data_out[i*N_data+0];
+            fvoce[i+M_num_nodes] = data_out[i*N_data+1];
+            fssh[i] = data_out[i*N_data+2];
 
             // if (i<20)
             //     std::cout<<"data_out["<< i << "]= "<< M_wind[i] << " and "<< M_wind[i+M_num_nodes] <<"\n";
@@ -3724,10 +3704,10 @@ FiniteElement::exportResults(int step)
         sum_ssh = 0.;
         for (int j=0; j<3; ++j)
         {
-            sum_u += M_voce[0][it->indices[j]-1];
-            sum_v += M_voce[0][it->indices[j]-1+M_num_nodes];
-            //sum_u += M_VT[it->indices[j]-1];
-            //sum_v += M_VT[it->indices[j]-1+M_num_nodes];
+            //sum_u += M_voce[0][it->indices[j]-1];
+            //sum_v += M_voce[0][it->indices[j]-1+M_num_nodes];
+            sum_u += M_VT[it->indices[j]-1];
+            sum_v += M_VT[it->indices[j]-1+M_num_nodes];
             sum_ssh += M_ssh[it->indices[j]-1];
         }
         sum_u /= 3.;
