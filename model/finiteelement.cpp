@@ -890,10 +890,10 @@ FiniteElement::regrid(bool step)
             M_conc[i] = std::max(0., std::min(1.,interp_elt_out[11*i]));
 
             // thickness
-            M_thick[i] = std::max(0., std::min(1.,interp_elt_out[11*i+1]));
+            M_thick[i] = std::max(0., interp_elt_out[11*i+1]);
 
             // snow thickness
-            M_snow_thick[i] = std::max(0., std::min(1.,interp_elt_out[11*i+2]));
+            M_snow_thick[i] = std::max(0., interp_elt_out[11*i+2]);
 
             if (M_thick[i] != 0.)
             {
@@ -2880,6 +2880,8 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
 
         std::cout<<" Interpolation done\n";
 
+        // Note that we do here the assumption that no rotation is needed from the Topz grid to the polar stereo grid
+        // It should be corrected, once we will do the interpo in the native TOPAZ grid
         for (int i=0; i<M_num_nodes; ++i)
         {
             fvoce[i] = data_out[i*N_data+0];
@@ -3686,8 +3688,8 @@ FiniteElement::exportResults(int step)
     mc.init(3*M_num_elements);
     vector_type mh;
     mh.init(3*M_num_elements);
-    vector_type mssh;
-    mssh.init(3*M_num_elements);
+    //vector_type mssh;
+    //mssh.init(3*M_num_elements);
     vector_type mu;
     mu.init(3*M_num_elements);
     vector_type mv;
@@ -3696,7 +3698,7 @@ FiniteElement::exportResults(int step)
     int cpt = 0;
     double sum_u = 0.;
     double sum_v = 0.;
-    double sum_ssh = 0.;
+    //double sum_ssh = 0.;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
     {
         sum_u = 0.;
@@ -3708,11 +3710,11 @@ FiniteElement::exportResults(int step)
             //sum_v += M_voce[0][it->indices[j]-1+M_num_nodes];
             sum_u += M_VT[it->indices[j]-1];
             sum_v += M_VT[it->indices[j]-1+M_num_nodes];
-            sum_ssh += M_ssh[it->indices[j]-1];
+            //sum_ssh += M_ssh[it->indices[j]-1];
         }
         sum_u /= 3.;
         sum_v /= 3.;
-        sum_ssh /= 3.;
+        //sum_ssh /= 3.;
         
         for (int i=0; i<3; ++i)
         {
@@ -3720,7 +3722,7 @@ FiniteElement::exportResults(int step)
             mh(3*cpt+i) = M_thick[cpt];
             mu(3*cpt+i) = sum_u;
             mv(3*cpt+i) = sum_v;
-            mssh(3*cpt+i) = sum_ssh;
+            //mssh(3*cpt+i) = sum_ssh;
             mx(3*cpt+i) = M_nodes[it->indices[i]-1].coords[0];
             my(3*cpt+i) = M_nodes[it->indices[i]-1].coords[1];
         }
@@ -3733,7 +3735,7 @@ FiniteElement::exportResults(int step)
     my.printMatlab("my" + step_str);
     mc.printMatlab("mc" + step_str);
     mh.printMatlab("mh" + step_str);
-    mssh.printMatlab("mssh" + step_str);
+    //mssh.printMatlab("mssh" + step_str);
     mu.printMatlab("mu" + step_str);
     mv.printMatlab("mv" + step_str);
 }
