@@ -1,4 +1,7 @@
-/*!\file InterpFromMeshToMesh2dCavities
+/**
+ * @file   InterpFromMeshToMesh2dCavities.cpp
+ * @author Sylvain Bouillon <sylvain.bouillon@nersc.no>
+ * @date   Wed Dec 23 15:00:00 2015
  */
 
 #include "./InterpFromMeshToMesh2dCavities.h"
@@ -12,6 +15,8 @@
 
 using namespace bamg;
 using namespace std;
+
+
 
 int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,int nb_variables,
 		double* surface_old, double* surface_new, BamgMesh* bamgmesh_old,BamgMesh* bamgmesh_new){
@@ -27,7 +32,7 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
     /* Which conservative method to be used:
       method 0 is simply averaging over the whole cavity (conservative but highly diffusive)
       method 1 computes the intersection between born and dead triangles (conservative and non-diffusive)*/
-    bool method=0; /* method 1 should be used, method 0 is kept for comparison and debugging*/
+    int method=1; /* method 1 should be used, method 0 is kept for comparison and debugging*/
 
 	/*Output*/
 	double* IntMatrix_out=NULL;
@@ -174,22 +179,27 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
                 for(int j=0; j<nb_variables; j++)
                     IntMatrix_out[(tmp_element-1)*nb_variables+j]=integrated_variables[j]/integrated_area*correction_factor;
             }
-        }  
-        #if 0         
+        }           
         else
         {
             /* Second method (fully conservative)*/
 
             /* interpolation over the cavity*/
-            interp_cavity(tmp_mean_variables, tmp_integrated_area, nb_dead_elements, nb_born_elements, nb_variables, gate.new_bamg_mesh_Nn,dead_elements,born_elements,PreviousNumbering,IntMatrix_in, bamgmesh_old, bamgmesh_new);
-            
+            InterpCavity(tmp_mean_variables, tmp_integrated_area, nb_dead_elements, nb_born_elements, nb_variables, dead_elements, born_elements, gate.PreviousNumbering,IntMatrix_in, bamgmesh_old, bamgmesh_new, 0);
+
             /* Sanity check
               does the integrated area corresponds to the area of the born element*/
             for(ulong i=0; i<nb_born_elements; i++)
             {
-                area_error=std::abs(tmp_integrated_area[i]-surface_new[born_elements[i]-1]);
+                area_error=fabs(tmp_integrated_area[i]-surface_new[born_elements[i]-1]);
                 if(area_error>area_error_tolerance)
+                {   
+                    _printf_("tmp_integrated_area[i]=" << tmp_integrated_area[i] << "\n");
+                    _printf_("surface_new[born_elements[i]-1]=" << surface_new[born_elements[i]-1] << "\n");
+                    _printf_("area_error=" << area_error << "\n");
+                    _printf_("area_error_tolerance=" << area_error_tolerance << "\n");
                     _error_("Conservation issue!!! The area of the new element does not match with the sum of the triangle intersections...");
+                }
             }
 
             for(ulong i=0; i<nb_born_elements; i++)
@@ -199,7 +209,6 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
                     IntMatrix_out[(tmp_element-1)*nb_variables+j]=tmp_mean_variables[i*nb_variables+j]*correction_factor;
             }
         }
-        #endif
     }
 
     if (verbosity>1) _printf_("   Interp Cavities: end!\n");
@@ -811,4 +820,842 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 
 
 return 1;	
+}
+
+int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area, 
+            int nb_dead_elements, int nb_born_elements, int nb_variables, 
+            ulong* dead_elements, ulong* born_elements, ulong* PreviousNumbering, 
+            double* IntMatrix_in, BamgMesh* bamgmesh_old, BamgMesh* bamgmesh_new, int debug_born_elements_i){
+
+    /*---------- Input  ----------*/
+    int *dead_num_node      = xNew<int>(3*nb_dead_elements);
+    int *born_num_node      = xNew<int>(3*nb_born_elements);
+    
+    double *x_dead_elements = xNew<double>(3*nb_dead_elements);
+    double *x_born_elements = xNew<double>(3*nb_born_elements);
+    double *y_dead_elements = xNew<double>(3*nb_dead_elements);
+    double *y_born_elements = xNew<double>(3*nb_born_elements);
+
+    double *dead_variables  = xNew<double>(nb_variables*nb_dead_elements);
+     
+    /*---------- Local variables ----------*/
+    int i, i_dead, j, j_dead, jnext, jnext_dead, j_edge_polygon, k;
+    
+    int tmp_sign_cross, max_nb_intersections, sign_polygon;
+    
+    double *integrated_variables = xNew<double>(nb_variables);
+    
+    int born_node_on_dead_node[3], born_node_in_dead_element[3], dead_node_in_born_element[3], born_node_on_dead_edge[3], dead_node_on_born_edge[3];
+    double born_edge_intersect_dead_edge[3*3];
+    double alpha_tmp[3];
+    double alpha_tol=1e-12;
+            
+    double test_integrated_area, area_polygon, area_intersection;
+            
+    double dist_max, dist, tmp_point_x, tmp_point_y;
+    int ind_max;
+    
+    double x_vect_born_dead_node_j, y_vect_born_dead_node_j, x_vect_dead_node_j_jnext, y_vect_dead_node_j_jnext;
+    double x_vect_dead_born_node_j, y_vect_dead_born_node_j, x_vect_born_node_j_jnext, y_vect_born_node_j_jnext;
+    double cross_prod;
+
+    double P0x, P0y, P1x, P1y;
+    double Q0x, Q0y, Q1x, Q1y;
+    double Xx, Xy;
+    
+    double alpha_denominator, alpha_numerator, alpha, beta;
+    
+    double intersection_points_x[18], intersection_points_y[18];
+    int nb_intersection_points, i_intersection_points;
+    
+    double polygon_points_x[6], polygon_points_y[6];
+    int next_polygon_point[6];
+    int nb_polygon_points, i_polygon_points, inext_polygon_points;
+        
+    double x_target, y_target, x_vect_target, y_vect_target, x_edge_polygon, y_edge_polygon;
+    int flag_print;
+    div_t divresult;
+    int tmp_ind, tmp_element;
+  
+    /* ---------------------------------------------------------------
+     * BEGIN CODE
+     * --------------------------------------------------------------- */
+    for (i=0; i<nb_born_elements; i++)
+    {
+        tmp_element=born_elements[i];
+        for (j=0; j<3; j++)
+        {
+            tmp_ind=bamgmesh_new->Triangles[4*(tmp_element-1)+j];
+            born_num_node[i*3+j]=tmp_ind;
+            x_born_elements[i*3+j]=bamgmesh_new->Vertices[3*(tmp_ind-1)];
+            y_born_elements[i*3+j]=bamgmesh_new->Vertices[3*(tmp_ind-1)+1];
+        }
+    }
+
+    for (i=0; i<nb_dead_elements; i++)
+    {
+        tmp_element=dead_elements[i];
+        for(int j=0; j<nb_variables; j++)
+            dead_variables[i*nb_variables+j]=IntMatrix_in[(tmp_element-1)*nb_variables+j];
+        
+        for (j=0; j<3; j++)
+        {
+            tmp_ind=bamgmesh_old->Triangles[4*(tmp_element-1)+j];
+            dead_num_node[i*3+j]=tmp_ind;
+            x_dead_elements[i*3+j]=bamgmesh_old->Vertices[3*(tmp_ind-1)];
+            y_dead_elements[i*3+j]=bamgmesh_old->Vertices[3*(tmp_ind-1)+1];
+        }
+
+    }
+
+    /* Loop over the born elements of the cavity*/
+    for (i=0; i<nb_born_elements; i++)
+    {
+        flag_print=0;
+        if(born_elements[i]==debug_born_elements_i)
+            flag_print=1;
+
+        /*-------- Initializing the integrated quantities --------- -*/
+        for (k=0; k<nb_variables; k++)
+            integrated_variables[k]=0.;
+        
+        test_integrated_area=0.;
+    
+        /*-------- Lets starting the loop on the dead elements of the cavity ---------- */
+        /* Loop over the dead elements of the cavity */
+        for (i_dead=0; i_dead<nb_dead_elements; i_dead++)
+        {
+            /*-------- Initialization ---------- */
+            
+            
+            /* 1) Shared nodes: */
+            for (j=0; j<3; j++)
+                born_node_on_dead_node[j]=-1;          /* -1 if node is not on a node of dead element, local indice of the node of the dead element otherwise */
+            
+            /* 2) Born nodes included in dead element: */
+            for (j=0; j<3; j++)
+                born_node_in_dead_element[j]=0;       /* 0 if node from born element is not in dead element, 1 otherwise */
+            
+            /* 3) Dead nodes included in born element: */
+            for (j=0; j<3; j++)
+                dead_node_in_born_element[j]=0;       /* 0 if node from dead element is not in born element, 1 otherwise */
+            
+            /* 4) Edge to edge intersections: */
+            /* Each line   corresponds to a born edge */
+            /* Each column corresponds to a dead edge */
+            /* 0<=alpha<=1 defines the position of the intersection relatively to born edge */
+            for (j=0; j<3; j++)
+                for (j_dead=0; j_dead<3; j_dead++)
+                    born_edge_intersect_dead_edge[j*3+j_dead]=-1.;   /* -1 if edge i does no intersect edge j, alpha otherwise */
+
+            /* 4 bis) Born nodes on dead edge: */
+            for (j=0; j<3; j++)
+                born_node_on_dead_edge[j]=0;       /* 0 if node from born element is not in dead element, 1 otherwise */
+            
+            /* 4 tris) Born nodes on dead edge: */
+            for (j=0; j<3; j++)
+                dead_node_on_born_edge[j]=0;       /* 0 if node from born element is not in dead element, 1 otherwise */
+            
+            /*-------- Detection ---------- */
+            
+            /* Loop over the born nodes */
+            for (j=0; j<3; j++)
+            {
+                
+                /* 1) Shared nodes: */
+                
+                /* Loop over the dead nodes to detect if the node correspond to a node of the dead element */
+                for (j_dead=0; j_dead<3; j_dead++)                    
+                    if(PreviousNumbering[born_num_node[i*3+j]-1]==dead_num_node[i_dead*3+j_dead])
+                        born_node_on_dead_node[j]=j_dead;
+                    else /* Bamg sometimes says that the nodes are different, whereas they are exactly at the same position */
+                    {
+                        if( (x_dead_elements[i_dead*3+j_dead]==x_born_elements[i*3+j]) && (y_dead_elements[i_dead*3+j_dead]==y_born_elements[i*3+j]) )
+                            born_node_on_dead_node[j]=j_dead;
+                    }
+                
+                
+                
+                /* 2) Born nodes included in dead element: */
+                
+                /* detect if the node is inside the dead element */
+                /* only if the node is not shared */
+                if(born_node_on_dead_node[j]==-1)
+                {
+                    tmp_sign_cross=0;
+                    /* Loop over the dead nodes */
+                    for (j_dead=0; j_dead<3; j_dead++)
+                    {
+                        /* vector from dead node j_dead to born node */
+                        x_vect_born_dead_node_j=x_born_elements[i*3+j]-x_dead_elements[i_dead*3+j_dead];
+                        y_vect_born_dead_node_j=y_born_elements[i*3+j]-y_dead_elements[i_dead*3+j_dead];
+                        
+                        /* vector from dead node j_dead to j_dead+1 */
+                        divresult = div(j_dead+1,3);
+                        jnext_dead=divresult.rem;
+                        
+                        x_vect_dead_node_j_jnext=x_dead_elements[i_dead*3+jnext_dead]-x_dead_elements[i_dead*3+j_dead];
+                        y_vect_dead_node_j_jnext=y_dead_elements[i_dead*3+jnext_dead]-y_dead_elements[i_dead*3+j_dead];
+                        
+                        /* add the sign of the cross product */
+                        cross_prod=x_vect_born_dead_node_j*y_vect_dead_node_j_jnext-x_vect_dead_node_j_jnext*y_vect_born_dead_node_j;
+                        tmp_sign_cross+=sign(cross_prod);
+                    }
+                    if(flag_print==1)
+                        _printf_("in dead, i=" << i << ", j=" << j << ",tmp_sign_cross=" << tmp_sign_cross <<"\n");
+                    
+                    /* check if the 3 cross products have the same sign */
+                    if((tmp_sign_cross==(3))||(tmp_sign_cross==-(3)))
+                    {
+                        born_node_in_dead_element[j]=1;
+                    }
+                }
+            } /* end of a loop on the born nodes */
+            
+            /* 3) Dead nodes included in born element: */
+            
+            /* Loop over the dead nodes */
+            for (j_dead=0; j_dead<3; j_dead++)
+            {
+                /* detect if the node is inside the dead element */
+                /* only if the node is not shared */
+                if(born_node_on_dead_node[0]!=j_dead && born_node_on_dead_node[1]!=j_dead && born_node_on_dead_node[2]!=j_dead)
+                {
+                    tmp_sign_cross=0;
+                    /* Loop over the born nodes */
+                    for (j=0; j<3; j++)
+                    {
+                        /* vector from born node j to born node */
+                        x_vect_dead_born_node_j=x_dead_elements[i_dead*3+j_dead]-x_born_elements[i*3+j];
+                        y_vect_dead_born_node_j=y_dead_elements[i_dead*3+j_dead]-y_born_elements[i*3+j];
+                        
+                        /* vector from born node j to j+1 */
+                        divresult = div(j+1,3);
+                        jnext=divresult.rem;
+                        
+                        x_vect_born_node_j_jnext=x_born_elements[i*3+jnext]-x_born_elements[i*3+j];
+                        y_vect_born_node_j_jnext=y_born_elements[i*3+jnext]-y_born_elements[i*3+j];
+                        
+                        /* add the sign of the cross product */
+                        cross_prod=x_vect_dead_born_node_j*y_vect_born_node_j_jnext-x_vect_born_node_j_jnext*y_vect_dead_born_node_j;
+                        tmp_sign_cross+=sign(cross_prod);
+                    }
+                    /* check if the 3 cross products have the same sign */
+                    if((tmp_sign_cross==3)||(tmp_sign_cross==-3))
+                    {
+                        dead_node_in_born_element[j_dead]=1;
+                    }
+                }
+            } /* end of a loop on the dead nodes */
+            
+            /* 4) Edge to edge intersections: */
+            /* Each line   corresponds to a born edge */
+            /* Each column corresponds to a dead edge */
+            /* 0<=alpha<=1 defines the position of the intersection relatively to born edge */
+            
+            /* Loop over the born edges */
+            for (j=0; j<3; j++)
+            {
+                /* the edge j goes from node j to node jnext */
+                divresult = div(j+1,3);
+                jnext=divresult.rem;
+                               
+                /* Extremities of the born edge */
+                P0x=x_born_elements[i*3+j];
+                P0y=y_born_elements[i*3+j];
+                P1x=x_born_elements[i*3+jnext];
+                P1y=y_born_elements[i*3+jnext];
+                
+                /* define the maximum number of intersections to search for */
+                max_nb_intersections=2;
+                
+                if(born_node_in_dead_element[j]==1)
+                    max_nb_intersections--;
+                
+                if(born_node_in_dead_element[jnext]==1)
+                    max_nb_intersections--;
+                
+                if(born_node_on_dead_node[j]>=0)
+                    max_nb_intersections--;
+                
+                if(born_node_on_dead_node[jnext]>=0)
+                    max_nb_intersections--;
+                               
+                /* the nodes of the born edge are either in the dead element or on one of its nodes (no intersection to compute) */
+                if(max_nb_intersections<=0)
+                    continue;
+                
+                /* Loop over the dead edges */
+                for (j_dead=0; j_dead<3; j_dead++)
+                    alpha_tmp[j_dead]=-1.;
+                
+                /* Loop over the dead edges */
+                for (j_dead=0; j_dead<3; j_dead++)
+                {
+                    /* the edge j_dead goes from node j_dead to node jnext_dead */
+                    divresult = div(j_dead+1,3);
+                    jnext_dead=divresult.rem;
+                    
+                    /* ---------- Compute the intersection of the two edges -------- */
+                    
+                    /* Extremities of the dead edge */
+                    Q0x=x_dead_elements[i_dead*3+j_dead];
+                    Q0y=y_dead_elements[i_dead*3+j_dead];
+                    Q1x=x_dead_elements[i_dead*3+jnext_dead];
+                    Q1y=y_dead_elements[i_dead*3+jnext_dead];
+                    
+                    /* Denuminator and numerator for alpha */
+                    alpha_denominator= (P1x-P0x)*(Q1y-Q0y)-(P1y-P0y)*(Q1x-Q0x);
+                    alpha_numerator =-((P0x-Q0x)*(Q1y-Q0y)-(P0y-Q0y)*(Q1x-Q0x));
+                    
+                    if(flag_print==1)
+                        _printf_("alpha_denominator=" << alpha_denominator << "\n");
+                    
+                    /* the edges are parallel, do nothing (no intersection to compute) */
+                    if(alpha_denominator==0.)
+                    {
+                        if(flag_print==1)
+                            _printf_("parrallel edge");
+                        
+                        /* Check if edge j in on the dead edge */
+                        if((born_node_on_dead_node[j]!=j_dead) && (born_node_on_dead_node[j]!=jnext_dead))
+                        {
+                            alpha=-1.;
+                            beta=-1.;
+                            /* alpha in case of parrallel edge */
+                            if(Q1x==Q0x)
+                            {
+                                if(P0x==Q0x)
+                                    alpha=-2.;
+                                else
+                                    continue;
+                            }
+                            else
+                                alpha=(P0x-Q0x)/(Q1x-Q0x);
+                            
+                            /* beta in case of parrallel edge */
+                            if(Q1y==Q0y)
+                            {
+                                if(P0y==Q0y)
+                                    beta=-2.;
+                                else
+                                    continue;
+                            }
+                            else
+                                beta=(P0y-Q0y)/(Q1y-Q0y);
+                            
+                            if(beta==-2.)
+                                if (alpha>0. && alpha<1.)
+                                    born_node_on_dead_edge[j]=1;
+                            
+                            if(alpha==-2.)
+                                if(beta>0. && beta<1.)
+                                    born_node_on_dead_edge[j]=1;
+                            
+                            if(alpha!=-2. && beta!=-2. && alpha==beta && alpha>0. && alpha<1. && beta>0. && beta<1.)
+                                born_node_on_dead_edge[j]=1;  
+                            
+                            if(flag_print==1)
+                                _printf_("alpha=" << alpha << ", beta=" << beta << ",\n");
+                        }
+                        
+                        /* is the node jnext on the edge */
+                        /* Check if edge jnext in on the dead edge */
+                        if((born_node_on_dead_node[jnext]!=j_dead) && (born_node_on_dead_node[jnext]!=jnext_dead))
+                        {
+                            alpha=-1.;
+                            beta=-1.;
+       
+                            /* alpha in case of parrallel edge */
+                            if((Q1x-Q0x)==0.)
+                            {
+                                if(P1x==Q0x)
+                                    alpha=-2.;
+                                else
+                                    continue;
+                            }
+                            else
+                                alpha=(P1x-Q0x)/(Q1x-Q0x);
+                            
+                            /* beta in case of parrallel edge */
+                            if((Q1y-Q0y)==0.)
+                            {
+                                if(P1y==Q0y)
+                                    beta=-2.;
+                                else
+                                    continue;
+                            }
+                            else
+                                beta=(P1y-Q0y)/(Q1y-Q0y);
+                            
+                            /* is the node on the edge */
+                            if(beta==-2.)
+                                if (alpha>0. && alpha<1.)
+                                    born_node_on_dead_edge[jnext]=1;
+                            
+                            if(alpha==-2.)
+                                if(beta>0. && beta<1.)
+                                    born_node_on_dead_edge[jnext]=1;
+                            
+                            if(alpha!=-2. && beta!=-2. && alpha==beta  && alpha>0. && alpha<1. && beta>0. && beta<1.)
+                                born_node_on_dead_edge[jnext]=1;
+                            
+                            if(flag_print==1)
+                                _printf_("alpha=" << alpha << ", beta=" << beta << ",\n");
+                        }
+                        
+                        /* Check if dead edge j_dead is on the born edge */
+                        if((born_node_on_dead_node[j]!=j_dead) && (born_node_on_dead_node[jnext]!=j_dead))
+                        {
+                            alpha=-1.;
+                            beta=-1.;
+                            /* alpha in case of parrallel edge */
+                            if(P1x==P0x)
+                            {
+                                if(Q0x==P0x)
+                                    alpha=-2.;
+                                else
+                                    continue;
+                            }
+                            else
+                                alpha=(Q0x-P0x)/(P1x-P0x);
+                            
+                            /* beta in case of parrallel edge */
+                            if(P1y==P0y)
+                            {
+                                if(Q0y==P0y)
+                                    beta=-2.;
+                                else
+                                    continue;
+                            }
+                            else
+                                beta=(Q0y-P0y)/(P1y-P0y);
+                            
+                            if(beta==-2.)
+                                if (alpha>0. && alpha<1.)
+                                    dead_node_on_born_edge[j_dead]=1;
+                            
+                            if(alpha==-2.)
+                                if(beta>0. && beta<1.)
+                                    dead_node_on_born_edge[j_dead]=1;
+                            
+                            if(alpha!=-2. && beta!=-2. && alpha==beta && alpha>0. && alpha<1. && beta>0. && beta<1.)
+                                dead_node_on_born_edge[j_dead]=1;  
+                            
+                            if(flag_print==1)
+                                _printf_("alpha=" << alpha << ", beta=" << beta << ",\n");
+                        }
+                        
+                        /* Check if node jnext_dead in on the born edge */
+                        if((born_node_on_dead_node[j]!=jnext_dead) && (born_node_on_dead_node[jnext]!=jnext_dead))
+                        {
+                            alpha=-1.;
+                            beta=-1.;
+       
+                            /* alpha in case of parrallel edge */
+                            if((P1x-P0x)==0.)
+                            {
+                                if(Q1x==P0x)
+                                    alpha=-2.;
+                                else
+                                    continue;
+                            }
+                            else
+                                alpha=(Q1x-P0x)/(P1x-P0x);
+                            
+                            /* beta in case of parrallel edge */
+                            if((P1y-P0y)==0.)
+                            {
+                                if(Q1y==P0y)
+                                    beta=-2.;
+                                else
+                                    continue;
+                            }
+                            else
+                                beta=(Q1y-P0y)/(P1y-P0y);
+                            
+                            /* is the node on the edge */
+                            if(beta==-2.)
+                                if (alpha>0. && alpha<1.)
+                                    dead_node_on_born_edge[jnext_dead]=1;
+                            
+                            if(alpha==-2.)
+                                if(beta>0. && beta<1.)
+                                    dead_node_on_born_edge[jnext_dead]=1;
+                            
+                            if(alpha!=-2. && beta!=-2. && alpha==beta  && alpha>0. && alpha<1. && beta>0. && beta<1.)
+                                dead_node_on_born_edge[jnext_dead]=1;
+                            
+                            if(flag_print==1)
+                                _printf_("alpha=" << alpha << ", beta=" << beta << ",\n");
+                        }
+                        
+                        /* end of this check in case of parallel edge */
+                        continue;
+                    }
+                      
+                     /* check if the edges are connected (no other intersection to compute) */
+                    if(born_node_on_dead_node[j]==j_dead    )
+                        continue;
+                    if(born_node_on_dead_node[j]==jnext_dead)
+                        continue;
+                    if(born_node_on_dead_node[jnext]==j_dead    )
+                        continue;
+                    if(born_node_on_dead_node[jnext]==jnext_dead)
+                        continue;
+                    
+                    /* alpha and beta defines the position of the intersection */
+                    /* relatively to the born and dead edge, respectively. */
+                    
+                    
+                    alpha=alpha_numerator/alpha_denominator;
+                    
+                    
+                    if(fabs(Q1x-Q0x)<fabs(Q1y-Q0y))
+                        beta=((P0y-Q0y)+alpha*(P1y-P0y))/(Q1y-Q0y);
+                    else
+                        beta=((P0x-Q0x)+alpha*(P1x-P0x))/(Q1x-Q0x);
+                    
+                    /*if(flag_print==1)
+                            _printf_("interesct: alpha=" << alpha << ", beta=" << beta << ", beta-1.=" << (beta-1.0)*1e12 << "\n");
+                        */
+                    
+                    /* Check on the alpha and beta */
+                    if((alpha>=0.-alpha_tol) && (alpha<=1.+alpha_tol) && (beta>=0.-alpha_tol) && (beta<=1.+alpha_tol))
+                    {
+                        /*if(flag_print==1)
+                            _printf_("select interesct: alpha=" << alpha << ", beta=" << beta << ", beta-1.=" << beta-1.0) << "\n");
+                        */
+                        if((alpha<=alpha_tol) && (beta>alpha_tol) && (beta<(1.-alpha_tol))) /* add intersection if not on a dead node */
+                            if(born_node_on_dead_node[j]<0) /* thick check may be not useful */
+                                born_node_on_dead_edge[j]=1;
+                        
+                        if((alpha>=(1.-alpha_tol)) && (beta>alpha_tol) && (beta<(1.-alpha_tol))) /* add intersection if not on a dead node */
+                            if(born_node_on_dead_node[jnext]<0) /* thick check may be not useful */
+                                born_node_on_dead_edge[jnext]=1;
+                        
+                        if((beta<=alpha_tol) && (alpha>alpha_tol) && (alpha<(1.-alpha_tol))) /* add intersection if not on a dead node */
+                            dead_node_on_born_edge[j_dead]=1;
+                        
+                        if((alpha>alpha_tol) && (alpha<(1.-alpha_tol)) && (beta>=(1.-alpha_tol))) /* add intersection if not on a dead node */
+                            dead_node_on_born_edge[jnext_dead]=1;
+                        
+                        if((beta<(1.-alpha_tol)) && (alpha>alpha_tol) && (alpha<(1.-alpha_tol)) && (beta>alpha_tol)) /* add intersection */
+                        {
+                            if(flag_print==1)
+                                _printf_("alpha=" <<  alpha << "");
+                            
+                            alpha_tmp[j_dead]=alpha;
+                        }
+                        
+                    } /* else, do nothing, no intersection */
+  
+                } /* End loop over the dead edges */
+                
+                /* storing information in born_edge_intersect_dead_edge */
+                for (j_dead=0; j_dead<3; j_dead++)
+                    born_edge_intersect_dead_edge[j*3+j_dead]=alpha_tmp[j_dead];
+                
+            } /* End loop over the born edges */
+            
+            /*-------- Building the intersection (a convex polygon) ---------- */
+            
+            /* List of interesection points (shared node, inside node, or edge to edge intersection) */
+            nb_intersection_points=0;
+            
+            /*if(flag_print==1)
+            {
+                _printf_("  \n");
+                _printf_("dead_elements[i_dead]=" << dead_elements[i_dead] <<"\n",);
+                _printf_("born_num_node[i*3+0]=" << << ",born_num_node[i*3+1]=" << << ",born_num_node[i*3+2]=" << << "\n",born_num_node[i*3+0],born_num_node[i*3+1],born_num_node[i*3+2]);
+                _printf_("born_node_on_dead_node[0]=" << << ",born_node_on_dead_node[1]=" << << ",born_node_on_dead_node[2]=" << << "\n",born_node_on_dead_node[0],born_node_on_dead_node[1],born_node_on_dead_node[2]);
+                _printf_("born_node_in_dead_element[0]=" << << ",born_node_in_dead_element[1]=" << << ",born_node_in_dead_element[2]=" << << "\n",born_node_in_dead_element[0],born_node_in_dead_element[1],born_node_in_dead_element[2]);
+                _printf_("dead_node_in_born_element[0]=" << << ",dead_node_in_born_element[1]=" << << ",dead_node_in_born_element[2]=" << << "\n",dead_node_in_born_element[0],dead_node_in_born_element[1],dead_node_in_born_element[2]);
+                _printf_("born_edge_intersect_dead_edge[0]=" << << ",born_edge_intersect_dead_edge[1]=" << << ",born_edge_intersect_dead_edge[2]=" << << "\n",born_edge_intersect_dead_edge[0],born_edge_intersect_dead_edge[1],born_edge_intersect_dead_edge[2]);
+                _printf_("born_edge_intersect_dead_edge[3+0]=" << << ",born_edge_intersect_dead_edge[3+1]=" << << ",born_edge_intersect_dead_edge[3+2]=" << << "\n",born_edge_intersect_dead_edge[3+0],born_edge_intersect_dead_edge[3+1],born_edge_intersect_dead_edge[3+2]);
+                _printf_("born_edge_intersect_dead_edge[6+0]=" << << ",born_edge_intersect_dead_edge[6+1]=" << << ",born_edge_intersect_dead_edge[6+2]=" << << "\n",born_edge_intersect_dead_edge[6+0],born_edge_intersect_dead_edge[6+1],born_edge_intersect_dead_edge[6+2]);
+                _printf_("born_node_on_dead_edge[0]=" << << ",born_node_on_dead_edge[1]=" << << ",born_node_on_dead_edge[2]=" << << "\n",born_node_on_dead_edge[0],born_node_on_dead_edge[1],born_node_on_dead_edge[2]);
+                _printf_("dead_node_on_born_edge[0]=" << << ",dead_node_on_born_edge[1]=" << << ",dead_node_on_born_edge[2]=" << << "\n",dead_node_on_born_edge[0],dead_node_on_born_edge[1],dead_node_on_born_edge[2]);
+            }   */
+            
+            /* 1) Shared nodes: */
+            for (j=0; j<3; j++)
+            {
+                if(flag_print==1)
+                    _printf_("j=" << j << ",born_node_on_dead_node[j]=" <<  born_node_on_dead_node[j] << "\n");
+                
+                if(born_node_on_dead_node[j]>=0)
+                {
+                    
+                    intersection_points_x[nb_intersection_points]=x_born_elements[i*3+j];
+                    intersection_points_y[nb_intersection_points]=y_born_elements[i*3+j];
+                    nb_intersection_points++;
+                }
+            }
+            
+            /* 2) Born nodes included in dead element: */
+            for (j=0; j<3; j++)
+            {
+                if(flag_print==1)
+                    _printf_("j=" << j << ",born_node_in_dead_element[j]=" << born_node_in_dead_element[j] << "\n");
+                
+                if(born_node_in_dead_element[j]>0)
+                {
+                    intersection_points_x[nb_intersection_points]=x_born_elements[i*3+j];
+                    intersection_points_y[nb_intersection_points]=y_born_elements[i*3+j];
+                    nb_intersection_points++;
+                }
+            }
+            
+            /* 3) Dead nodes included in born element: */
+            for (j_dead=0; j_dead<3; j_dead++)
+            {
+                if(flag_print==1)
+                    _printf_("j_dead=" << j_dead << ",dead_node_in_born_element[j_dead]=" << dead_node_in_born_element[j_dead] << "\n");
+                
+                if(dead_node_in_born_element[j_dead]>0)
+                {
+                    intersection_points_x[nb_intersection_points]=x_dead_elements[i_dead*3+j_dead];
+                    intersection_points_y[nb_intersection_points]=y_dead_elements[i_dead*3+j_dead];
+                    nb_intersection_points++;
+                }
+            }
+            
+            /* 4) Edge to edge intersections: */
+            for (j=0; j<3; j++)
+            {
+                for (j_dead=0; j_dead<3; j_dead++)
+                {
+                    if(flag_print==1)
+                        _printf_("j=" << j << ",j_dead=" << j_dead << ",born_edge_intersect_dead_edge[j*3+j_dead]=" << born_edge_intersect_dead_edge[j*3+j_dead] << "\n");
+                    
+                    if(born_edge_intersect_dead_edge[j*3+j_dead]!=-1.)
+                    {
+                        alpha=born_edge_intersect_dead_edge[j*3+j_dead];
+                        
+                        /* the edge j goes from node j to node jnext */
+                        divresult = div(j+1,3);
+                        jnext=divresult.rem;
+                        
+                        P0x=x_born_elements[i*3+j];
+                        P0y=y_born_elements[i*3+j];
+                        P1x=x_born_elements[i*3+jnext];
+                        P1y=y_born_elements[i*3+jnext];
+                        
+                        Xx=P0x+alpha*(P1x-P0x);
+                        Xy=P0y+alpha*(P1y-P0y);
+                        
+                        intersection_points_x[nb_intersection_points]=Xx;
+                        intersection_points_y[nb_intersection_points]=Xy;
+                        nb_intersection_points++;
+                    }
+                }
+            }
+             
+            /* 4 bis) Born nodes on dead edge: */
+            for (j=0; j<3; j++)
+            {
+                if(born_node_on_dead_edge[j]>0)
+                {
+                    intersection_points_x[nb_intersection_points]=x_born_elements[i*3+j];
+                    intersection_points_y[nb_intersection_points]=y_born_elements[i*3+j];
+                    nb_intersection_points++;
+                }
+            }
+            
+            /* 4 tris) Dead nodes on born edge: */
+            for (j_dead=0; j_dead<3; j_dead++)
+            {
+                if(dead_node_on_born_edge[j_dead]>0)
+                {
+                    intersection_points_x[nb_intersection_points]=x_dead_elements[i_dead*3+j_dead];
+                    intersection_points_y[nb_intersection_points]=y_dead_elements[i_dead*3+j_dead];
+                    nb_intersection_points++;
+                }
+            }
+            
+            if(flag_print==1)
+                for (i_intersection_points=0; i_intersection_points<nb_intersection_points; i_intersection_points++)
+                    _printf_("intersection_points_x[i_intersection_points]=" << intersection_points_x[i_intersection_points] << ",intersection_points_y[i_intersection_points]=" << intersection_points_y[i_intersection_points] << "\n");
+            
+            /* Building the polygon as in https://hal.archives-ouvertes.fr/inria-00354509/document */
+            /* "The convex polygon is meshed by primarily constructing an oriented triangle with three points chosen randomly. */
+            /* Notice that the three points cannot be aligned by construction. */
+            /* Then, a new point is selected and the unique triangle */
+            /* edge which is viewing this point is looked for, i.e., the only edge for which the barycentric coordinate is negative. */
+            /* A new oriented triangle is built by connecting the point to this edge. */
+            /* The process is iterated until all points are inserted by only checking edges forming the boundary of the current polygon */
+            /* (i.e., edges which are not shared by two triangles). */
+            /* Notice that, at each iteration, as the current polygon is convex, there is only one boundary edge that views the selected point. */
+            /* A mesh of the polygon is then obtained." */
+
+            /* Resetting the list of polygon points */
+            nb_polygon_points=0;
+            for (i_polygon_points=0; i_polygon_points<6; i_polygon_points++)
+                next_polygon_point[i_polygon_points]=0;
+            
+            if(flag_print==1)
+                _printf_("i=" << i << ",i_dead=" << i_dead << "\n");
+            
+            if(flag_print==1)
+                _printf_("nb_intersection_points=" << nb_intersection_points << "\n");
+            
+            /* Defining a polygon with the intersection points */
+            if(nb_intersection_points>=3)
+            {
+
+                /* we select 3 nodes that are far away one from each other */
+
+                /* select the node that is the farest from the first node */
+                dist_max=0.;
+                ind_max=0;
+                for (i_intersection_points=1; i_intersection_points<nb_intersection_points; i_intersection_points++)
+                {
+                    dist=pow(pow(intersection_points_x[i_intersection_points]-intersection_points_x[0],2.)+pow(intersection_points_y[i_intersection_points]-intersection_points_y[0],2.),0.5);
+                    if(dist>dist_max)
+                    {
+                        dist_max=dist;
+                        ind_max=i_intersection_points;
+                    }
+                }
+                tmp_point_x=intersection_points_x[1];
+                tmp_point_y=intersection_points_y[1];
+                
+                intersection_points_x[1]=intersection_points_x[ind_max];
+                intersection_points_y[1]=intersection_points_y[ind_max];
+                
+                intersection_points_x[ind_max]=tmp_point_x;
+                intersection_points_y[ind_max]=tmp_point_y;
+                
+                /* select the node whose the summed distance to the first and the select node is the largest */
+                dist_max=0.;
+                ind_max=0;
+                for (i_intersection_points=2; i_intersection_points<nb_intersection_points; i_intersection_points++)
+                {
+                    dist= pow(pow(intersection_points_x[i_intersection_points]-intersection_points_x[0],2.)+pow(intersection_points_y[i_intersection_points]-intersection_points_y[0],2.),0.5);
+                    dist+=pow(pow(intersection_points_x[i_intersection_points]-intersection_points_x[1],2.)+pow(intersection_points_y[i_intersection_points]-intersection_points_y[1],2.),0.5);
+                    if(dist>dist_max)
+                    {
+                        dist_max=dist;
+                        ind_max=i_intersection_points;
+                    }
+                }
+                tmp_point_x=intersection_points_x[2];
+                tmp_point_y=intersection_points_y[2];
+                
+                intersection_points_x[2]=intersection_points_x[ind_max];
+                intersection_points_y[2]=intersection_points_y[ind_max];
+                
+                intersection_points_x[ind_max]=tmp_point_x;
+                intersection_points_y[ind_max]=tmp_point_y;
+                
+                /* Select the first three nodes of the intersection */
+                for (i_intersection_points=0; i_intersection_points<3; i_intersection_points++)
+                {
+                    polygon_points_x[i_intersection_points]=intersection_points_x[i_intersection_points];
+                    polygon_points_y[i_intersection_points]=intersection_points_y[i_intersection_points];
+                    nb_polygon_points++;
+                    if(i_intersection_points>0)
+                        next_polygon_point[i_intersection_points-1]=i_intersection_points;
+                }
+                
+                /* compute the sign of the polygon */
+                area_polygon=0.;
+                area_polygon+= (polygon_points_x[0]*polygon_points_y[1]-polygon_points_y[0]*polygon_points_x[1]);
+                area_polygon+= (polygon_points_x[1]*polygon_points_y[2]-polygon_points_y[1]*polygon_points_x[2]);
+                area_polygon+= (polygon_points_x[2]*polygon_points_y[0]-polygon_points_y[2]*polygon_points_x[0]);
+                sign_polygon=sign(area_polygon);
+                                                                
+                /* While loop to treat the remaining intersection nodes */
+                while(i_intersection_points<nb_intersection_points)
+                {
+                    x_target=intersection_points_x[i_intersection_points];
+                    y_target=intersection_points_y[i_intersection_points];
+                    
+                    /* Loop over the edge of the current polygon */
+                    i_polygon_points=0;
+                    for (j_edge_polygon=0; j_edge_polygon<nb_polygon_points; j_edge_polygon++)
+                    {
+                        /* Defining the next polygon point */
+                        inext_polygon_points=next_polygon_point[i_polygon_points];
+                        
+                        /* vector from born node j to born node */
+                        x_vect_target=x_target-polygon_points_x[i_polygon_points];
+                        y_vect_target=y_target-polygon_points_y[i_polygon_points];
+                        
+                        /* vector from j_edge_polygon to j_edge_polygon+1 */                      
+                        x_edge_polygon=polygon_points_x[inext_polygon_points]-polygon_points_x[i_polygon_points];
+                        y_edge_polygon=polygon_points_y[inext_polygon_points]-polygon_points_y[i_polygon_points];
+                        
+                        /* add the sign of the cross product */
+                        cross_prod=x_vect_target*y_edge_polygon-x_edge_polygon*y_vect_target;
+                        /*if(flag_print==1)
+                            _printf_("cross_prod=" << << ",sign(cross_prod)=" << << ", sign_polygon=" << << "\n", cross_prod, sign(cross_prod), sign_polygon);
+                        */
+                        if(cross_prod!=0. && sign(cross_prod)==sign_polygon)
+                        {
+                            polygon_points_x[nb_polygon_points]=x_target;
+                            polygon_points_y[nb_polygon_points]=y_target;
+                            next_polygon_point[nb_polygon_points]=inext_polygon_points;
+                            next_polygon_point[i_polygon_points]=nb_polygon_points;
+                            nb_polygon_points++;
+                            break;
+                        }
+                        
+                        i_polygon_points=inext_polygon_points;
+                    }
+                    i_intersection_points++;
+                }
+                  
+                /*if(flag_print==1)
+                    _printf_("nb_polygon_points=" << << "\n", nb_polygon_points);*/
+                
+                /* Compute the area of this convex polygon by */
+                /* first meshing it with triangles and then summing */
+                /* the area of the triangles */
+                area_intersection=0.;
+                    
+                i_polygon_points=0;
+                for (j_edge_polygon=0; j_edge_polygon<nb_polygon_points; j_edge_polygon++)
+                {
+                    /*if(flag_print==1)
+                        _printf_("polygon_points_x[i_polygon_points]=" << << ",polygon_points_y[i_polygon_points]=" << << "\n",polygon_points_x[i_polygon_points],polygon_points_y[i_polygon_points]);                
+                    */
+                    /* Defining the next polygon point */
+                    inext_polygon_points=next_polygon_point[i_polygon_points];
+                     
+                    /*if(flag_print==1)
+                        _printf_("i_polygon_points=" << << ", inext_polygon_points=" << << "\n", i_polygon_points, inext_polygon_points);
+                    if(flag_print==1)
+                        _printf_("area_intersection=" << << ", darea=" << << "\n", area_intersection, (polygon_points_x[i_polygon_points]*polygon_points_y[inext_polygon_points]-polygon_points_y[i_polygon_points]*polygon_points_x[inext_polygon_points]));
+                    */
+                    area_intersection+=(polygon_points_x[i_polygon_points]*polygon_points_y[inext_polygon_points]-polygon_points_y[i_polygon_points]*polygon_points_x[inext_polygon_points]);
+                
+                    i_polygon_points=inext_polygon_points;
+                }
+                area_intersection=fabs(area_intersection/2.);
+            }
+            else /* no triangle interesection */
+                area_intersection=0.;
+            
+            
+            /*if(flag_print==1)
+                _printf_("area_intersection=" << << "\n \n", area_intersection);*/
+            
+            /*-------- Computing the integrated quantities ---------- */
+            for (k=0; k<nb_variables; k++)
+                integrated_variables[k]+=area_intersection*dead_variables[i_dead*nb_variables+k];
+            
+            test_integrated_area+=area_intersection;
+        } /* end of loop on i_dead */
+        
+        /* Weighted average is computed as the */
+        /* integrated variables divided by integrated area */
+        for (k=0; k<nb_variables; k++)
+            tmp_mean_variables[i*nb_variables+k]=integrated_variables[k]/test_integrated_area;
+        
+        tmp_integrated_area[i]=test_integrated_area;
+    } /* end of loop on i */
+    
+    return 1;   
 }

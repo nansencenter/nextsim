@@ -857,6 +857,8 @@ FiniteElement::regrid(bool step)
             ++cpt;
         }
 
+        // The interpolation with the cavities still needs to be tested on a long run. 
+        // By default, we then use the non-conservative MeshToMesh interpolation
         #if 0
         InterpFromMeshToMesh2dCavities(&interp_elt_out,interp_elt_in,11,
              surface_previous, surface, bamgmesh_previous, bamgmesh);
@@ -2007,8 +2009,6 @@ FiniteElement::run()
         this->exportResults(pcpt+1);
         ++pcpt;
     }
-
-    this->exportResults(1);
 }
 
 void
