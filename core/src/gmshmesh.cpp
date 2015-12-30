@@ -394,7 +394,7 @@ GmshMesh::stereographicProjection()
 }
 
 std::vector<int>
-GmshMesh::indexTr()
+GmshMesh::indexTr() const
 {
     std::vector<int> index(3*M_num_triangles);
     int cpt = 0;
@@ -410,7 +410,7 @@ GmshMesh::indexTr()
 }
 
 std::vector<double>
-GmshMesh::coordX()
+GmshMesh::coordX() const
 {
     std::vector<double> x(M_num_nodes);
     int cpt = 0;
@@ -424,7 +424,7 @@ GmshMesh::coordX()
 }
 
 std::vector<double>
-GmshMesh::coordY()
+GmshMesh::coordY() const
 {
     std::vector<double> y(M_num_nodes);
     int cpt = 0;
@@ -438,7 +438,7 @@ GmshMesh::coordY()
 }
 
 std::vector<double>
-GmshMesh::coordX(double const& rotangle)
+GmshMesh::coordX(double const& rotangle) const
 {
     std::vector<double> x(M_num_nodes);
     int cpt = 0;
@@ -452,7 +452,7 @@ GmshMesh::coordX(double const& rotangle)
 }
 
 std::vector<double>
-GmshMesh::coordY(double const& rotangle)
+GmshMesh::coordY(double const& rotangle) const
 {
     std::vector<double> y(M_num_nodes);
     int cpt = 0;
@@ -468,7 +468,7 @@ GmshMesh::coordY(double const& rotangle)
 
 
 std::vector<double>
-GmshMesh::bCoordX()
+GmshMesh::bCoordX() const
 {
     std::vector<double> bcoord_x(M_num_triangles);
     int cpt = 0;
@@ -491,7 +491,7 @@ GmshMesh::bCoordX()
 }
 
 std::vector<double>
-GmshMesh::bCoordY()
+GmshMesh::bCoordY() const
 {
     std::vector<double> bcoord_y(M_num_triangles);
     int cpt = 0;
@@ -514,7 +514,7 @@ GmshMesh::bCoordY()
 }
 
 std::vector<double>
-GmshMesh::meanLon()
+GmshMesh::meanLon() const
 {
     mapx_class *map;
     std::string filename = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
@@ -540,7 +540,7 @@ GmshMesh::meanLon()
 }
 
 std::vector<double>
-GmshMesh::meanLat()
+GmshMesh::meanLat() const
 {
     mapx_class *map;
     std::string filename = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";

@@ -10,6 +10,7 @@
 #include <constants.hpp>
 #include <date.hpp>
 #include <thin_ice_redistribute.hpp>
+#include <exporter.hpp>
 
 #define GMSH_EXECUTABLE gmsh
 
@@ -71,9 +72,9 @@ FiniteElement::init()
     bamgopt->hmin = h[0];
     bamgopt->hmax = h[1];
 
-    std::cout<<"HMIN= "<< h[0] <<"\n";
-    std::cout<<"HMAX= "<< h[1] <<"\n";
-    std::cout<<"RES = "<< this->resolution(M_mesh) <<"\n";
+    std::cout<<"MESH: HMIN= "<< h[0] <<"\n";
+    std::cout<<"MESH: HMAX= "<< h[1] <<"\n";
+    std::cout<<"MESH: RES = "<< this->resolution(M_mesh) <<"\n";
 
     M_elements = M_mesh.triangles();
     M_nodes = M_mesh.nodes();
@@ -115,6 +116,13 @@ FiniteElement::init()
     M_thick_type = str2thick.find(vm["thickness-type"].as<std::string>())->second;
 
     //std::cout<<"THICKTYPE= "<< (int)M_thick_type <<"\n";
+
+    const boost::unordered_map<const std::string, forcing::SnowThicknessType> str2snow = boost::assign::map_list_of
+        ("constant", forcing::SnowThicknessType::CONSTANT)
+        ("topaz", forcing::SnowThicknessType::TOPAZ4);
+    M_snow_thick_type = str2snow.find(vm["snow-thickness-type"].as<std::string>())->second;
+
+    //std::cout<<"SNOWTHICKTYPE= "<< (int)M_snow_thick_type <<"\n";
 
     // init options for interpolation from mesh to mesh
     // options = new Options();
@@ -192,6 +200,11 @@ FiniteElement::initSimulation()
 
     M_ftime_wind_range.resize(2,0.);
     M_ftime_ocean_range.resize(2,0.);
+
+    if (M_ocean_type == forcing::OceanType::TOPAZR)
+    {
+        this->gridTopazOcean();
+    }
 }
 
 void
@@ -651,7 +664,7 @@ FiniteElement::regrid(bool step)
                      M_mesh.numNodes(), M_mesh.numTriangles()
                      );
 
-    std::vector<int> vec;
+    //std::vector<int> vec;
     int fnd = 0;
     int snd = 0;
 
@@ -669,6 +682,11 @@ FiniteElement::regrid(bool step)
 
         }
     }
+
+    // for (const int& edg : M_dirichlet_flags)
+    // {
+    //     std::cout<<"BEFORE["<< edg << "]= ("<< M_mesh.coordX()[edg] <<","<< M_mesh.coordY()[edg] <<")\n";
+    // }
 
     //std::sort(vec.begin(), vec.end());
     // for (int i=0; i<vec.size(); ++i)
@@ -840,6 +858,7 @@ FiniteElement::regrid(bool step)
 
         }
 
+#if 0
         double* surface_previous = new double[prv_num_elements];
         double* surface = new double[M_num_elements];
 
@@ -857,14 +876,14 @@ FiniteElement::regrid(bool step)
             ++cpt;
         }
 
-        // The interpolation with the cavities still needs to be tested on a long run. 
+        // The interpolation with the cavities still needs to be tested on a long run.
         // By default, we then use the non-conservative MeshToMesh interpolation
-        #if 0
+
         InterpFromMeshToMesh2dCavities(&interp_elt_out,interp_elt_in,11,
              surface_previous, surface, bamgmesh_previous, bamgmesh);
-        #endif
+#endif
 
-        #if 1
+#if 1
         InterpFromMeshToMesh2dx(&interp_elt_out,
                                 &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
                                 M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
@@ -872,7 +891,7 @@ FiniteElement::regrid(bool step)
                                 M_mesh_previous.numTriangles(),11,
                                 &M_mesh.bCoordX()[0],&M_mesh.bCoordY()[0],M_mesh.numTriangles(),
                                 false);
-        #endif
+#endif
 
         M_conc.resize(M_num_elements,0.);
         M_thick.resize(M_num_elements,0.);
@@ -1941,11 +1960,8 @@ FiniteElement::run()
     {
         is_running = ((pcpt+1)*time_step) < duration;
 
-        if (pcpt > 3)
+        if (pcpt > 30)
             is_running = false;
-
-        //if(pcpt >0)
-        //    this->exportResults(pcpt+3000);
 
         current_time = time_init + pcpt*time_step/(24*3600.0);
         //std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
@@ -1964,11 +1980,10 @@ FiniteElement::run()
             if ((minang < vm["simul_in.regrid_angle"].as<double>()) || (pcpt ==0) )
             {
                 M_regrid = true;
+                chrono.restart();
                 std::cout<<"Regriding starts\n";
                 this->regrid(pcpt);
-                std::cout<<"Regriding done\n";
-                //if(pcpt >0)
-                //    this->exportResults(pcpt+1000);
+                std::cout<<"Regriding done in "<< chrono.elapsed() <<"s\n";
             }
         }
 
@@ -1985,30 +2000,44 @@ FiniteElement::run()
 
         this->timeInterpolation(pcpt);
 
+        chrono.restart();
+        std::cout<<"forcingwind starts\n";
         this->forcingWind(M_regrid);
-        std::cout<<"forcingOcean\n";
+        std::cout<<"forcingwind done in "<< chrono.elapsed() <<"s\n";
+
+        chrono.restart();
+        std::cout<<"forcingOcean starts\n";
         this->forcingOcean(M_regrid);
-        std::cout<<"computeFactors\n";
+        std::cout<<"forcingOcean done in "<< chrono.elapsed() <<"s\n";
+
+        chrono.restart();
+        std::cout<<"computeFactors starts\n";
         this->computeFactors(pcpt);
+        std::cout<<"computeFactors done in "<< chrono.elapsed() <<"s\n";
 
+        // if (pcpt == 0)
+        // {
+        //     chrono.restart();
+        //     std::cout<<"first export starts\n";
+        //     this->exportResults(1, M_regrid);
+        //     std::cout<<"first export done in " << chrono.elapsed() <<"s\n";
+        // }
 
-        if (pcpt == 0)
-        {
-            std::cout<<"First export\n";
-            this->exportResults(pcpt);
-        }
-
-        std::cout<<"Assemble\n";
         this->assemble();
         this->solve();
 
         this->updateVelocity();
-
         this->update();
 
-        this->exportResults(pcpt+1);
+        // chrono.restart();
+        // std::cout<<"export starts\n";
+        // this->exportResults(pcpt+1, M_regrid);
+        // std::cout<<"export done in " << chrono.elapsed() <<"s\n";
+
         ++pcpt;
     }
+
+    this->exportResults(1);
 }
 
 void
@@ -2673,6 +2702,7 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
     int nb_forcing_step = M_ftime_ocean_range.size();
     std::cout<<"NB_FORCING_STEP= "<< nb_forcing_step <<"\n";
 
+ #if 0
     // read in re-analysis coordinates
     std::vector<double> LAT(1101*762);
     std::vector<double> LON(1101*761);
@@ -2685,6 +2715,7 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
 
     index_end[0] = 1101;
     index_end[1] = 761;
+#endif
 
     std::vector<double> XTIME(31);
     std::vector<size_t> index_u_start(4,0);
@@ -2695,19 +2726,20 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
 
     std::cout<<"READ NETCDF starts\n";
     netCDF::NcFile dataFile(topaz_filename, netCDF::NcFile::read);
-    netCDF::NcVar VLAT = dataFile.getVar("latitude");
-    netCDF::NcVar VLON = dataFile.getVar("longitude");
+    // netCDF::NcVar VLAT = dataFile.getVar("latitude");
+    // netCDF::NcVar VLON = dataFile.getVar("longitude");
     netCDF::NcVar VTIME = dataFile.getVar("time");
     netCDF::NcVar VU = dataFile.getVar("u");
     netCDF::NcVar VV = dataFile.getVar("v");
     netCDF::NcVar VSSH = dataFile.getVar("ssh");
     std::cout<<"READ NETCDF done\n";
 
-    VLAT.getVar(index_start,index_end,&LAT[0]);
-    VLON.getVar(index_start,index_end,&LON[0]);
+    // VLAT.getVar(index_start,index_end,&LAT[0]);
+    // VLON.getVar(index_start,index_end,&LON[0]);
 
     VTIME.getVar(&XTIME[0]);
 
+#if 0
     std::vector<double> X(1101*761);
     std::vector<double> Y(1101*761);
 
@@ -2729,17 +2761,12 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
             Y[761*i+j] = xy[1];
         }
     }
+#endif
 
     auto RX = M_mesh.coordX();
     auto RY = M_mesh.coordY();
 
 #if 0
-    std::cout<<"MIN BOUND TOPAZX= "<< *std::min_element(X.begin(),X.end()) <<"\n";
-    std::cout<<"MAX BOUND TOPAZX= "<< *std::max_element(X.begin(),X.end()) <<"\n";
-
-    std::cout<<"MIN BOUND TOPAZY= "<< *std::min_element(Y.begin(),Y.end()) <<"\n";
-    std::cout<<"MAX BOUND TOPAZY= "<< *std::max_element(Y.begin(),Y.end()) <<"\n";
-
     std::cout<<"MIN BOUND MESHX= "<< *std::min_element(RX.begin(),RX.end()) <<"\n";
     std::cout<<"MAX BOUND MESHX= "<< *std::max_element(RX.begin(),RX.end()) <<"\n";
 
@@ -2770,9 +2797,9 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
 
     std::vector<double> data_in(1101*761*N_data);
 
-    int* pfindex;
-    int pfnels;
-        
+    // int* pfindex;
+    // int pfnels;
+
     double* data_out;
 
     std::cout<<"nb_forcing_step = "<< nb_forcing_step <<"\n";
@@ -2826,7 +2853,7 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
         index_ssh_end[1] = 1101;
         index_ssh_end[2] = 761;
 
-        
+
         VSSH.getVar(index_ssh_start,index_ssh_end,&data_in_ssh[0]);
 
         // for (int i=0; i<1101; ++i)
@@ -2850,17 +2877,18 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
         std::cout<<"MIN DATA SSH= "<< *std::min_element(data_in_ssh.begin(),data_in_ssh.end()) <<"\n";
         std::cout<<"MAX DATA SSH= "<< *std::max_element(data_in_ssh.begin(),data_in_ssh.end()) <<"\n";
 
-
+#if 0
         // bamg triangulation
         if(fstep==0)
         {
             std::cout<<"TOPAZ: Triangulate starts\n";
-            BamgTriangulatex(&pfindex,&pfnels,&X[0],&Y[0],X.size());
-            std::cout<<"TOPAZ: NUMTRIANGLES= "<< pfnels <<"\n";
+            BamgTriangulatex(&M_pfindex,&M_pfnels,&X[0],&Y[0],X.size());
+            std::cout<<"TOPAZ: NUMTRIANGLES= "<< M_pfnels <<"\n";
             std::cout<<"TOPAZ: Triangulate done\n";
         }
+#endif
 
-        for (int i=0; i<X.size(); ++i)
+        for (int i=0; i<data_in_u.size(); ++i)
         {
             data_in[i*N_data+0] = data_in_u[i];
             data_in[i*N_data+1] = data_in_v[i];
@@ -2870,11 +2898,13 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
             //     std::cout<<"data_out["<< i << "]= "<< M_wind[i] << " and "<< M_wind[i+M_num_nodes] <<"\n";
         }
 
+        std::cout<<" Interpolation starts\n";
+
         InterpFromMeshToMesh2dx(&data_out,
-                                pfindex,&X[0],&Y[0],
-                                X.size(),pfnels,
+                                M_pfindex,&M_topaz_gridX[0],&M_topaz_gridY[0],
+                                M_topaz_gridX.size(),M_pfnels,
                                 &data_in[0],
-                                X.size(),N_data,
+                                M_topaz_gridX.size(),N_data,
                                 &RX[0], &RY[0], M_mesh.numNodes(),
                                 false /*options*/);
 
@@ -2908,6 +2938,74 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
     // std::cout<<"there are "<<dataFile.getDimCount()<<" dimensions"<<endl;
     // std::cout<<"there are "<<dataFile.getGroupCount()<<" groups"<<endl;
     // std::cout<<"there are "<<dataFile.getTypeCount()<<" types"<<endl;
+}
+
+void
+FiniteElement::gridTopazOcean()
+{
+    std::string current_timestr = to_date_string_ym(current_time);
+    std::cout<<"TIMESTR= "<< current_timestr <<"\n";
+    std::string topaz_filename = (boost::format( "%1%/data/TP4DAILY_%2%_30m.nc" )
+                                  % Environment::nextsimDir().string()
+                                  % current_timestr ).str();
+
+    // read in re-analysis coordinates
+    std::vector<double> LAT(1101*762);
+    std::vector<double> LON(1101*761);
+
+    std::vector<size_t> index_start(2);
+    std::vector<size_t> index_end(2);
+
+    index_start[0] = 0;
+    index_start[1] = 0;
+
+    index_end[0] = 1101;
+    index_end[1] = 761;
+
+    std::cout<<"GRID TOPAZ: READ NETCDF starts\n";
+    netCDF::NcFile dataFile(topaz_filename, netCDF::NcFile::read);
+    netCDF::NcVar VLAT = dataFile.getVar("latitude");
+    netCDF::NcVar VLON = dataFile.getVar("longitude");
+    std::cout<<"GRID TOPAZ: READ NETCDF done\n";
+
+    VLAT.getVar(index_start,index_end,&LAT[0]);
+    VLON.getVar(index_start,index_end,&LON[0]);
+
+    M_topaz_gridX.resize(1101*761);
+    M_topaz_gridY.resize(1101*761);
+
+    double RE = 6378.273;
+    mapx_class *map;
+    std::string configfile = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
+    std::vector<char> str(configfile.begin(), configfile.end());
+    str.push_back('\0');
+    map = init_mapx(&str[0]);
+
+    std::vector<double> xy(2);
+
+    for (int i=0; i<1101; ++i)
+    {
+        for (int j=0; j<761; ++j)
+        {
+            xy=latLon2XY(LAT[761*i+j], LON[761*i+j], map, configfile);
+            M_topaz_gridX[761*i+j] = xy[0];
+            M_topaz_gridY[761*i+j] = xy[1];
+        }
+    }
+
+    std::cout<<"GRID TOPAZ: Triangulate starts\n";
+    BamgTriangulatex(&M_pfindex,&M_pfnels,&M_topaz_gridX[0],&M_topaz_gridY[0],M_topaz_gridX.size());
+    std::cout<<"GRID TOPAZ: NUMTRIANGLES= "<< M_pfnels <<"\n";
+    std::cout<<"GRID TOPAZ: Triangulate done\n";
+
+#if 0
+    std::cout<<"MIN BOUND TOPAZX= "<< *std::min_element(M_topaz_gridX.begin(),M_topaz_gridX.end()) <<"\n";
+    std::cout<<"MAX BOUND TOPAZX= "<< *std::max_element(M_topaz_gridX.begin(),M_topaz_gridX.end()) <<"\n";
+
+    std::cout<<"MIN BOUND TOPAZY= "<< *std::min_element(M_topaz_gridY.begin(),M_topaz_gridY.end()) <<"\n";
+    std::cout<<"MAX BOUND TOPAZY= "<< *std::max_element(M_topaz_gridY.begin(),M_topaz_gridY.end()) <<"\n";
+#endif
+
 }
 
 void
@@ -3030,6 +3128,7 @@ FiniteElement::topazConc()
     netCDF::NcVar VLON = dataFile.getVar("longitude");
     netCDF::NcVar VFICE;
     netCDF::NcVar VHICE;
+    netCDF::NcVar VSNOW;
 
     if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
     {
@@ -3039,6 +3138,11 @@ FiniteElement::topazConc()
     if (M_thick_type == forcing::ThicknessType::TOPAZ4)
     {
         VHICE = dataFile.getVar("hice");
+    }
+
+    if (M_snow_thick_type == forcing::SnowThicknessType::TOPAZ4)
+    {
+        VSNOW = dataFile.getVar("hsnow");
     }
 
     netCDF::NcVar VTIME = dataFile.getVar("time");
@@ -3132,6 +3236,7 @@ FiniteElement::topazConc()
 
     std::vector<double> data_in_fice;
     std::vector<double> data_in_hice;
+    std::vector<double> data_in_snow;
 
     std::vector<double> reduced_data_in_fice;
     std::vector<double> reduced_FX;
@@ -3141,7 +3246,9 @@ FiniteElement::topazConc()
     std::vector<double> reduced_HX;
     std::vector<double> reduced_HY;
 
-
+    std::vector<double> reduced_data_in_snow;
+    std::vector<double> reduced_SX;
+    std::vector<double> reduced_SY;
 
     if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
     {
@@ -3153,6 +3260,12 @@ FiniteElement::topazConc()
     {
         data_in_hice.resize(1101*761);
         VHICE.getVar(index_fhice_start,index_fhice_end,&data_in_hice[0]);
+    }
+
+    if (M_snow_thick_type == forcing::SnowThicknessType::TOPAZ4)
+    {
+        data_in_snow.resize(1101*761);
+        VSNOW.getVar(index_fhice_start,index_fhice_end,&data_in_snow[0]);
     }
 
     double maskvfh;
@@ -3183,6 +3296,19 @@ FiniteElement::topazConc()
                     reduced_data_in_hice.push_back(data_in_hice[761*i+j]);
                     reduced_HX.push_back(X[761*i+j]);
                     reduced_HY.push_back(Y[761*i+j]);
+                }
+            }
+
+            if (M_snow_thick_type == forcing::SnowThicknessType::TOPAZ4)
+            {
+                maskvfh = data_in_snow[761*i+j];
+                maskvfh = std::abs(maskvfh);
+
+                if (maskvfh < 100.)
+                {
+                    reduced_data_in_snow.push_back(data_in_snow[761*i+j]);
+                    reduced_SX.push_back(X[761*i+j]);
+                    reduced_SY.push_back(Y[761*i+j]);
                 }
             }
         }
@@ -3223,6 +3349,15 @@ FiniteElement::topazConc()
         std::cout<<"MAX DATA_RH_IN = "<< *std::max_element(reduced_data_in_hice.begin(),reduced_data_in_hice.end()) <<"\n";
     }
 
+    if (M_snow_thick_type == forcing::SnowThicknessType::TOPAZ4)
+    {
+        std::cout<<"SIZE REDUCED_SX= "<< reduced_SX.size() <<"\n";
+        std::cout<<"SIZE REDUCED_SY= "<< reduced_SY.size() <<"\n";
+
+        std::cout<<"MIN DATA_RS_IN = "<< *std::min_element(reduced_data_in_snow.begin(),reduced_data_in_snow.end()) <<"\n";
+        std::cout<<"MAX DATA_RS_IN = "<< *std::max_element(reduced_data_in_snow.begin(),reduced_data_in_snow.end()) <<"\n";
+    }
+
     int* pfindex;
     int pfnels;
 
@@ -3252,6 +3387,21 @@ FiniteElement::topazConc()
         //     std::cout<<"Point["<< i <<"]= ("<< RX[i] << " , "<< RY[i] <<")\n";
         // }
     }
+
+    int* psindex;
+    int psnels;
+
+    if (M_snow_thick_type == forcing::SnowThicknessType::TOPAZ4)
+    {
+        std::cout<<"HSNOW: Triangulate starts\n";
+        BamgTriangulatex(&psindex,&psnels,&reduced_SX[0],&reduced_SY[0],reduced_SX.size());
+        std::cout<<"HSNOW: NUMTRIANGLES= "<< psnels <<"\n";
+        std::cout<<"HSNOW: Triangulate done\n";
+        // for (int i=0; i<Y.size(); ++i)
+        // {
+        //     std::cout<<"Point["<< i <<"]= ("<< RX[i] << " , "<< RY[i] <<")\n";
+        // }
+    }
 #endif
 
     //int interp_type = TriangleInterpEnum;
@@ -3260,6 +3410,7 @@ FiniteElement::topazConc()
 
     std::vector<double> data_out_fice_tmp;
     std::vector<double> data_out_hice_tmp;
+    std::vector<double> data_out_snow_tmp;
 
     if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
     {
@@ -3312,6 +3463,32 @@ FiniteElement::topazConc()
         }
     }
 
+    if (M_snow_thick_type == forcing::SnowThicknessType::TOPAZ4)
+    {
+        double* data_out_snow;
+        data_out_snow_tmp.resize(M_num_elements);
+
+        // InterpFromGridToMeshx(data_out_hice, &X[0], X.size(), &Y[0], Y.size(), &data_in_hice[0], Y.size(), X.size(),
+        //                       &RX[0], &RY[0], M_mesh.numTriangles(), 1.0, interp_type);
+
+        InterpFromMeshToMesh2dx(&data_out_snow,
+                                psindex,&reduced_SX[0],&reduced_SY[0],
+                                reduced_SX.size(),psnels,
+                                &reduced_data_in_snow[0],
+                                reduced_SX.size(),1,
+                                &RX[0], &RY[0], M_mesh.numTriangles(),
+                                false /*options*/);
+
+
+        for (int i=0; i<M_num_elements; ++i)
+        {
+            data_out_snow_tmp[i] = data_out_snow[i];
+            M_snow_thick[i] = data_out_snow[i];
+
+            //std::cout<<"MTHICKC["<< i <<"]= "<< M_snow_thick[i] <<"\n";
+        }
+    }
+
 #if 1
     if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
     {
@@ -3323,6 +3500,12 @@ FiniteElement::topazConc()
     {
         std::cout<<"MIN DATA_OUT HICE= "<< *std::min_element(data_out_hice_tmp.begin(),data_out_hice_tmp.end()) <<"\n";
         std::cout<<"MAX DATA_OUT HICE= "<< *std::max_element(data_out_hice_tmp.begin(),data_out_hice_tmp.end()) <<"\n";
+    }
+
+    if (M_snow_thick_type == forcing::SnowThicknessType::TOPAZ4)
+    {
+        std::cout<<"MIN DATA_OUT SNOW= "<< *std::min_element(data_out_snow_tmp.begin(),data_out_snow_tmp.end()) <<"\n";
+        std::cout<<"MAX DATA_OUT SNOW= "<< *std::max_element(data_out_snow_tmp.begin(),data_out_snow_tmp.end()) <<"\n";
     }
 #endif
 }
@@ -3396,6 +3579,9 @@ FiniteElement::initSnowThickness()
         case forcing::SnowThicknessType::CONSTANT:
             this->constantSnowThick();
             break;
+        case forcing::SnowThicknessType::TOPAZ4:
+            this->topazSnowThick();
+            break;
 
         default:
             std::cout << "invalid initialization of snow thickness"<<"\n";
@@ -3412,6 +3598,10 @@ FiniteElement::constantSnowThick()
     }
 }
 
+void
+FiniteElement::topazSnowThick()
+{
+}
 
 void
 FiniteElement::initThermodynamics()
@@ -3678,8 +3868,9 @@ FiniteElement::latLon2Y(double const& lat, double const& lon, mapx_class* map, s
 }
 
 void
-FiniteElement::exportResults(int step)
+FiniteElement::exportResults(int step, bool export_mesh)
 {
+#if 1
     vector_type mx;
     mx.init(3*M_num_elements);
     vector_type my;
@@ -3688,8 +3879,10 @@ FiniteElement::exportResults(int step)
     mc.init(3*M_num_elements);
     vector_type mh;
     mh.init(3*M_num_elements);
-    //vector_type mssh;
-    //mssh.init(3*M_num_elements);
+    vector_type mhs;
+    mhs.init(3*M_num_elements);
+    vector_type mssh;
+    mssh.init(3*M_num_elements);
     vector_type mu;
     mu.init(3*M_num_elements);
     vector_type mv;
@@ -3698,7 +3891,7 @@ FiniteElement::exportResults(int step)
     int cpt = 0;
     double sum_u = 0.;
     double sum_v = 0.;
-    //double sum_ssh = 0.;
+    double sum_ssh = 0.;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
     {
         sum_u = 0.;
@@ -3706,23 +3899,31 @@ FiniteElement::exportResults(int step)
         //sum_ssh = 0.;
         for (int j=0; j<3; ++j)
         {
-            //sum_u += M_voce[0][it->indices[j]-1];
-            //sum_v += M_voce[0][it->indices[j]-1+M_num_nodes];
+            // export ocean field
+            // sum_u += M_ocean[it->indices[j]-1];
+            // sum_v += M_ocean[it->indices[j]-1+M_num_nodes];
+
+            // export wind field
+            // sum_u += M_wind[it->indices[j]-1];
+            // sum_v += M_wind[it->indices[j]-1+M_num_nodes];
+
+            // export velocity
             sum_u += M_VT[it->indices[j]-1];
             sum_v += M_VT[it->indices[j]-1+M_num_nodes];
-            //sum_ssh += M_ssh[it->indices[j]-1];
+            sum_ssh += M_ssh[it->indices[j]-1];
         }
         sum_u /= 3.;
         sum_v /= 3.;
-        //sum_ssh /= 3.;
-        
+        sum_ssh /= 3.;
+
         for (int i=0; i<3; ++i)
         {
             mc(3*cpt+i) = M_conc[cpt];
             mh(3*cpt+i) = M_thick[cpt];
+            mhs(3*cpt+i) = M_snow_thick[cpt];
+            mssh(3*cpt+i) = sum_ssh;
             mu(3*cpt+i) = sum_u;
             mv(3*cpt+i) = sum_v;
-            //mssh(3*cpt+i) = sum_ssh;
             mx(3*cpt+i) = M_nodes[it->indices[i]-1].coords[0];
             my(3*cpt+i) = M_nodes[it->indices[i]-1].coords[1];
         }
@@ -3735,9 +3936,54 @@ FiniteElement::exportResults(int step)
     my.printMatlab("my" + step_str);
     mc.printMatlab("mc" + step_str);
     mh.printMatlab("mh" + step_str);
-    //mssh.printMatlab("mssh" + step_str);
+    mhs.printMatlab("mhs" + step_str);
+    mssh.printMatlab("mssh" + step_str);
     mu.printMatlab("mu" + step_str);
     mv.printMatlab("mv" + step_str);
+#endif
+
+#if 0
+    Exporter exporter;
+    std::string fileout;
+
+    if (export_mesh)
+    {
+        fileout = (boost::format( "%1%/matlab/mesh_%2%.bin" )
+                   % Environment::nextsimDir().string()
+                   % step ).str();
+
+        std::cout<<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
+
+        std::fstream meshbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
+        exporter.writeMesh(meshbin, M_mesh);
+        meshbin.close();
+    }
+
+
+    fileout = (boost::format( "%1%/matlab/field_%2%.bin" )
+               % Environment::nextsimDir().string()
+               % step ).str();
+
+    std::cout<<"BINARY: Exporter Filename= "<< fileout <<"\n";
+
+    std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
+    exporter.writeField(outbin, M_VT, "Velocity");
+    exporter.writeField(outbin, M_conc, "Concentration");
+    exporter.writeField(outbin, M_thick, "Thickness");
+    exporter.writeField(outbin, M_wind, "Wind");
+    exporter.writeField(outbin, M_ocean, "Ocean");
+    outbin.close();
+
+    fileout = (boost::format( "%1%/matlab/field_%2%.dat" )
+               % Environment::nextsimDir().string()
+               % step ).str();
+
+    std::cout<<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
+
+    std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
+    exporter.writeRecord(outrecord);
+    outrecord.close();
+#endif
 }
 
 } // Nextsim

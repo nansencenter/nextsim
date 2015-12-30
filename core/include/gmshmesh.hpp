@@ -128,17 +128,17 @@ public:
     void setNumTriangles(int const& ntrs) {M_num_triangles=ntrs;}
     void stereographicProjection();
 
-    std::vector<int> indexTr();
-    std::vector<double> coordX();
-    std::vector<double> coordY();
+    std::vector<int> indexTr() const;
+    std::vector<double> coordX() const;
+    std::vector<double> coordY() const;
 
-    std::vector<double> coordX(double const& rotangle);
-    std::vector<double> coordY(double const& rotangle);
+    std::vector<double> coordX(double const& rotangle) const;
+    std::vector<double> coordY(double const& rotangle) const;
 
-    std::vector<double> bCoordX();
-    std::vector<double> bCoordY();
-    std::vector<double> meanLat();
-    std::vector<double> meanLon();
+    std::vector<double> bCoordX() const;
+    std::vector<double> bCoordY() const;
+    std::vector<double> meanLat() const;
+    std::vector<double> meanLon() const;
 
 private:
 

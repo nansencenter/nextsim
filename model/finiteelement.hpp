@@ -124,7 +124,7 @@ public:
     void updateVelocity();
     void scalingVelocity();
     void update();
-    void exportResults(int step);
+    void exportResults(int step, bool export_mesh = false);
 
 private:
     po::variables_map vm;
@@ -259,6 +259,13 @@ private:
 
 private:
 
+    int* M_pfindex;
+    int M_pfnels;
+    std::vector<double> M_topaz_gridX;
+    std::vector<double> M_topaz_gridY;
+
+private:
+
     // bamgopt_ptrtype bamgopt;
     // bamgmesh_ptrtype bamgmesh;
     // bamggeom_ptrtype bamggeom;
@@ -303,12 +310,14 @@ private:
 
     void topazConc();
     void topazThick();
+    void topazSnowThick();
 
     void asrWind(bool reload);//(double const& u, double const& v);
     void loadAsrWind();//(double const& u, double const& v);
 
     void topazOcean(bool reload);//(double const& u, double const& v);
     void loadTopazOcean();//(double const& u, double const& v);
+    void gridTopazOcean();
 
 };
 } // Nextsim
