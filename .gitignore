@@ -1,0 +1,16 @@
+# untracked files to ignore
+
+*.m
+*.msh
+*.geo
+*.bin
+*.dat
+*txt
+*.info
+*.nc*
+*.pos
+*.back
+*octave*
+lib/
+objs/
+bin/
