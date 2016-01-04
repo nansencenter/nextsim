@@ -9,7 +9,7 @@
 #include <finiteelement.hpp>
 #include <constants.hpp>
 #include <date.hpp>
-#include <thin_ice_redistribute.hpp>
+#include <redistribute.hpp>
 #include <exporter.hpp>
 
 #define GMSH_EXECUTABLE gmsh
@@ -37,7 +37,7 @@ FiniteElement::init()
     // createGMSHMesh("hypercube.geo");
     // //M_mesh.setOrdering("gmsh");
     // M_mesh.readFromFile("hypercube.msh");
-
+    std::cout<<"START CONSTANTS\n";
     this->initConstant();
     this->initBamg();
 
@@ -92,35 +92,35 @@ FiniteElement::init()
     const boost::unordered_map<const std::string, forcing::WindType> str2wind = boost::assign::map_list_of
         ("constant", forcing::WindType::CONSTANT)
         ("asr", forcing::WindType::ASR);
-    M_wind_type = str2wind.find(vm["wind-type"].as<std::string>())->second;
+    M_wind_type = str2wind.find(vm["forcing.wind-type"].as<std::string>())->second;
 
     //std::cout<<"WINDTYPE= "<< (int)M_wind_type <<"\n";
 
     const boost::unordered_map<const std::string, forcing::OceanType> str2ocean = boost::assign::map_list_of
         ("constant", forcing::OceanType::CONSTANT)
         ("topaz", forcing::OceanType::TOPAZR);
-    M_ocean_type = str2ocean.find(vm["ocean-type"].as<std::string>())->second;
+    M_ocean_type = str2ocean.find(vm["forcing.ocean-type"].as<std::string>())->second;
 
     //std::cout<<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
 
     const boost::unordered_map<const std::string, forcing::ConcentrationType> str2conc = boost::assign::map_list_of
         ("constant", forcing::ConcentrationType::CONSTANT)
         ("topaz", forcing::ConcentrationType::TOPAZ4);
-    M_conc_type = str2conc.find(vm["concentration-type"].as<std::string>())->second;
+    M_conc_type = str2conc.find(vm["forcing.concentration-type"].as<std::string>())->second;
 
     //std::cout<<"CONCTYPE= "<< (int)M_conc_type <<"\n";
 
     const boost::unordered_map<const std::string, forcing::ThicknessType> str2thick = boost::assign::map_list_of
         ("constant", forcing::ThicknessType::CONSTANT)
         ("topaz", forcing::ThicknessType::TOPAZ4);
-    M_thick_type = str2thick.find(vm["thickness-type"].as<std::string>())->second;
+    M_thick_type = str2thick.find(vm["forcing.thickness-type"].as<std::string>())->second;
 
     //std::cout<<"THICKTYPE= "<< (int)M_thick_type <<"\n";
 
     const boost::unordered_map<const std::string, forcing::SnowThicknessType> str2snow = boost::assign::map_list_of
         ("constant", forcing::SnowThicknessType::CONSTANT)
         ("topaz", forcing::SnowThicknessType::TOPAZ4);
-    M_snow_thick_type = str2snow.find(vm["snow-thickness-type"].as<std::string>())->second;
+    M_snow_thick_type = str2snow.find(vm["forcing.snow-thickness-type"].as<std::string>())->second;
 
     //std::cout<<"SNOWTHICKTYPE= "<< (int)M_snow_thick_type <<"\n";
 
@@ -239,7 +239,7 @@ FiniteElement::initBamg()
     bamgopt->splitcorners      = 0; //the Devil!  Changed to 0, original 1 Phil
     bamgopt->geometricalmetric = 0;
     bamgopt->random            = true;
-    bamgopt->verbose           = vm["verbose"].as<int>();
+    bamgopt->verbose           = vm["simul.verbose"].as<int>();
 
     bamggeom = new BamgGeom();
     bamgmesh = new BamgMesh();
@@ -254,48 +254,48 @@ FiniteElement::initBamg()
 void
 FiniteElement::initConstant()
 {
-    nu0 = vm["simul_in.nu0"].as<double>();
-    young = vm["simul_in.young"].as<double>();
+    nu0 = vm["simul.nu0"].as<double>();
+    young = vm["simul.young"].as<double>();
     rhoi = physical::rhoi;
     rhos = physical::rhos;
 
     days_in_sec = 24.0*3600.0;
-    time_init = dateStr2Num(vm["simul_in.time_init"].as<std::string>());
-    output_time_step =  days_in_sec/vm["simul_in.output_per_day"].as<int>();
+    time_init = dateStr2Num(vm["simul.time_init"].as<std::string>());
+    output_time_step =  days_in_sec/vm["simul.output_per_day"].as<int>();
 
-    time_step = vm["simul_in.timestep"].as<double>();
-    duration = (vm["simul_in.duration"].as<double>())*days_in_sec;
-    spinup_duration = (vm["simul_in.spinup_duration"].as<double>())*days_in_sec;
+    time_step = vm["simul.timestep"].as<double>();
+    duration = (vm["simul.duration"].as<double>())*days_in_sec;
+    spinup_duration = (vm["simul.spinup_duration"].as<double>())*days_in_sec;
 
-    divergence_min = (1./days_in_sec)*vm["simul_in.divergence_min"].as<double>();
-    compression_factor = vm["simul_in.compression_factor"].as<double>();
-    exponent_compression_factor = vm["simul_in.exponent_compression_factor"].as<double>();
-    ocean_turning_angle_rad = (PI/180.)*vm["simul_in.oceanic_turning_angle"].as<double>();
-    ridging_exponent = vm["simul_in.ridging_exponent"].as<double>();
+    divergence_min = (1./days_in_sec)*vm["simul.divergence_min"].as<double>();
+    compression_factor = vm["simul.compression_factor"].as<double>();
+    exponent_compression_factor = vm["simul.exponent_compression_factor"].as<double>();
+    ocean_turning_angle_rad = (PI/180.)*vm["simul.oceanic_turning_angle"].as<double>();
+    ridging_exponent = vm["simul.ridging_exponent"].as<double>();
 
-    quad_drag_coef_air = vm["simul_in.ASR_quad_drag_coef_air"].as<double>();
-    quad_drag_coef_water = vm["simul_in.quad_drag_coef_water"].as<double>();
+    quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>();
+    quad_drag_coef_water = vm["simul.quad_drag_coef_water"].as<double>();
 
-    basal_k2 = vm["simul_in.Lemieux_basal_k2"].as<double>();
-    basal_drag_coef_air = vm["simul_in.Lemieux_drag_coef_air"].as<double>();
-    basal_u_0 = vm["simul_in.Lemieux_basal_u_0"].as<double>();
-    basal_Cb = vm["simul_in.Lemieux_basal_Cb"].as<double>();
+    basal_k2 = vm["simul.Lemieux_basal_k2"].as<double>();
+    basal_drag_coef_air = vm["simul.Lemieux_drag_coef_air"].as<double>();
+    basal_u_0 = vm["simul.Lemieux_basal_u_0"].as<double>();
+    basal_Cb = vm["simul.Lemieux_basal_Cb"].as<double>();
 
-    time_relaxation_damage = vm["simul_in.time_relaxation_damage"].as<double>();
+    time_relaxation_damage = vm["simul.time_relaxation_damage"].as<double>();
 
-    h_thin_max = vm["simul_in.h_thin_max"].as<double>();
-    c_thin_max = vm["simul_in.c_thin_max"].as<double>();
+    h_thin_max = vm["simul.h_thin_max"].as<double>();
+    c_thin_max = vm["simul.c_thin_max"].as<double>();
 
-    compr_strength = vm["simul_in.compr_strength"].as<double>();
-    tract_coef = vm["simul_in.tract_coef"].as<double>();
-    scale_coef = vm["simul_in.scale_coef"].as<double>();
-    alea_factor = vm["simul_in.alea_factor"].as<double>();
-    cfix = vm["simul_in.cfix"].as<double>();
+    compr_strength = vm["simul.compr_strength"].as<double>();
+    tract_coef = vm["simul.tract_coef"].as<double>();
+    scale_coef = vm["simul.scale_coef"].as<double>();
+    alea_factor = vm["simul.alea_factor"].as<double>();
+    cfix = vm["simul.cfix"].as<double>();
 
     C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
-    tan_phi = vm["simul_in.tan_phi"].as<double>();
-    ridge_h = vm["simul_in.ridge_h"].as<double>();
+    tan_phi = vm["simul.tan_phi"].as<double>();
+    ridge_h = vm["simul.ridge_h"].as<double>();
 }
 
 void
@@ -308,7 +308,7 @@ FiniteElement::createGMSHMesh(std::string const& geofilename)
         //std::cout<<"NOT FOUND " << fs::absolute( gmshgeofile ).string() <<"\n";
         std::ostringstream gmshstr;
         gmshstr << BOOST_PP_STRINGIZE( GMSH_EXECUTABLE )
-                << " -" << 2 << " -part " << 1 << " -clmax " << vm["hsize"].as<double>() << " " << gmshgeofile;
+                << " -" << 2 << " -part " << 1 << " -clmax " << vm["simul.hsize"].as<double>() << " " << gmshgeofile;
 
         std::cout << "[Gmsh::generate] execute '" <<  gmshstr.str() << "'\n";
         auto err = ::system( gmshstr.str().c_str() );
@@ -657,29 +657,32 @@ FiniteElement::regrid(bool step)
         bamgopt->hmaxVertices[i] = (step) ? hmax_vertices[i] : hmax_vertices_first[i];
     }
 #endif
-
+#if 0
     BamgConvertMeshx(
                      bamgmesh_previous,bamggeom_previous,
                      &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
                      M_mesh.numNodes(), M_mesh.numTriangles()
                      );
+#endif
 
-    //std::vector<int> vec;
+    *bamgmesh_previous = *bamgmesh;
+    *bamggeom_previous = *bamggeom;
+
     int fnd = 0;
-    int snd = 0;
+    //int snd = 0;
 
 #if 1
     for (int edg=0; edg<bamgmesh_previous->EdgesSize[0]; ++edg)
     {
         fnd = bamgmesh_previous->Edges[3*edg]-1;
-        snd = bamgmesh_previous->Edges[3*edg+1]-1;
+        //snd = bamgmesh_previous->Edges[3*edg+1]-1;
 
-        if ((std::binary_search(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),fnd))
-            || (std::binary_search(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),snd)))
+        // if ((std::binary_search(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),fnd))
+        //     || (std::binary_search(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),snd)))
+        if ((std::binary_search(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),fnd)))
         {
             bamggeom_previous->Edges[3*edg+2] = 161;
             bamgmesh_previous->Edges[3*edg+2] = 161;
-
         }
     }
 
@@ -697,7 +700,6 @@ FiniteElement::regrid(bool step)
 #endif
 
     *bamgopt_previous = *bamgopt;
-    //Bamgx(bamgmesh,bamggeom_previous,bamgmesh_previous,bamggeom_previous,bamgopt_previous);
     Bamgx(bamgmesh,bamggeom,bamgmesh_previous,bamggeom_previous,bamgopt_previous);
     this->importBamg(bamgmesh);
 
@@ -707,22 +709,24 @@ FiniteElement::regrid(bool step)
     for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
     {
         M_boundary_flags.push_back(bamgmesh->Edges[3*edg]-1);
-        M_boundary_flags.push_back(bamgmesh->Edges[3*edg+1]-1);
+        //M_boundary_flags.push_back(bamgmesh->Edges[3*edg+1]-1);
 
         if (bamgmesh->Edges[3*edg+2] == 161)
         {
             M_dirichlet_flags.push_back(bamgmesh->Edges[3*edg]-1);
-            M_dirichlet_flags.push_back(bamgmesh->Edges[3*edg+1]-1);
+            //M_dirichlet_flags.push_back(bamgmesh->Edges[3*edg+1]-1);
 
             //std::cout<<"NODES["<< edg <<"]= "<< bamgmesh->Edges[3*edg]-1 << " and "<< bamgmesh->Edges[3*edg+1]-1 <<"\n";
         }
     }
 
     std::sort(M_dirichlet_flags.begin(), M_dirichlet_flags.end());
-    M_dirichlet_flags.erase( std::unique(M_dirichlet_flags.begin(), M_dirichlet_flags.end() ), M_dirichlet_flags.end());
+    //M_dirichlet_flags.erase( std::unique(M_dirichlet_flags.begin(), M_dirichlet_flags.end() ), M_dirichlet_flags.end());
 
     std::sort(M_boundary_flags.begin(), M_boundary_flags.end());
-    M_boundary_flags.erase( std::unique(M_boundary_flags.begin(), M_boundary_flags.end() ), M_boundary_flags.end());
+    //std::cout<<"Boundary size 1= "<< M_boundary_flags.size() <<"\n";
+    //M_boundary_flags.erase(std::unique(M_boundary_flags.begin(), M_boundary_flags.end() ), M_boundary_flags.end());
+    //std::cout<<"Boundary size 2= "<< M_boundary_flags.size() <<"\n";
 
     M_neumann_flags.resize(0);
     std::set_difference(M_boundary_flags.begin(), M_boundary_flags.end(),
@@ -1080,7 +1084,7 @@ FiniteElement::assemble()
         g_ssh_e_y = 0.;
         for(int i=0; i<3; i++)
         {
-            g_ssh_e = (vm["simul_in.gravity"].as<double>())*M_ssh[it->indices[i]-1] /*g_ssh*/;   /* g*ssh at the node k of the element e */
+            g_ssh_e = (vm["simul.gravity"].as<double>())*M_ssh[it->indices[i]-1] /*g_ssh*/;   /* g*ssh at the node k of the element e */
             g_ssh_e_x += shapecoeff[i]*g_ssh_e; /* x derivative of g*ssh */
             g_ssh_e_y += shapecoeff[i+3]*g_ssh_e; /* y derivative of g*ssh */
         }
@@ -1929,7 +1933,7 @@ FiniteElement::run()
     std::cout<<"DURATION= "<< duration <<"\n";
 
     gregorian::date epoch = date_time::parse_date<gregorian::date>(
-                                                                   vm["simul_in.time_init"].as<std::string>(),
+                                                                   vm["simul.time_init"].as<std::string>(),
                                                                    //date_time::ymd_order_dmy
                                                                    date_time::ymd_order_iso
                                                                    );
@@ -1950,7 +1954,7 @@ FiniteElement::run()
     bool is_running = true;
 
     minang = this->minAngle(M_mesh);
-    if (minang < vm["simul_in.regrid_angle"].as<double>())
+    if (minang < vm["simul.regrid_angle"].as<double>())
     {
         std::cout<<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
@@ -1960,7 +1964,7 @@ FiniteElement::run()
     {
         is_running = ((pcpt+1)*time_step) < duration;
 
-        if (pcpt > 30)
+        if (pcpt > 35)
             is_running = false;
 
         current_time = time_init + pcpt*time_step/(24*3600.0);
@@ -1972,12 +1976,12 @@ FiniteElement::run()
 
         M_regrid = false;
 
-        if (vm["simul_in.regrid"].as<std::string>() == "bamg")
+        if (vm["simul.regrid"].as<std::string>() == "bamg")
         {
             minang = this->minAngle(M_mesh,M_UM,displacement_factor);
             std::cout<<"REGRID ANGLE= "<< minang <<"\n";
 
-            if ((minang < vm["simul_in.regrid_angle"].as<double>()) || (pcpt ==0) )
+            if ((minang < vm["simul.regrid_angle"].as<double>()) || (pcpt ==0) )
             {
                 M_regrid = true;
                 chrono.restart();
@@ -2026,8 +2030,15 @@ FiniteElement::run()
         this->assemble();
         this->solve();
 
+        chrono.restart();
+        std::cout<<"updateVelocity starts\n";
         this->updateVelocity();
+        std::cout<<"updateVelocity done in "<< chrono.elapsed() <<"s\n";
+
+        chrono.restart();
+        std::cout<<"update starts\n";
         this->update();
+        std::cout<<"update done in "<< chrono.elapsed() <<"s\n";
 
         // chrono.restart();
         // std::cout<<"export starts\n";
@@ -2072,7 +2083,7 @@ FiniteElement::updateVelocity()
 
         cloc_elts.resize(j);
         c_max_nodal_neighbour = *std::max_element(cloc_elts.begin(),cloc_elts.end());
-        c_max_nodal_neighbour /= vm["simul_in.drift_limit_concentration"].as<double>();
+        c_max_nodal_neighbour /= vm["simul.drift_limit_concentration"].as<double>();
         speed_c_scaling = std::min(1.,c_max_nodal_neighbour);
         //std::cout<<"c_max_nodal_neighbour["<< i <<"]= "<< c_max_nodal_neighbour <<"\n";
         //std::cout<<"speed_c_scaling["<< i <<"]= "<< speed_c_scaling <<"\n";
@@ -2184,19 +2195,19 @@ FiniteElement::computeFactors(int pcpt)
 
     for (int i=0; i<M_Vair_factor.size(); ++i)
     {
-        M_Vair_factor[i] = (vm["simul_in.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*M_norm_Vair_ice[i]));
-        M_Vair_factor[i] *= Vair_coef*(vm["simul_in.rho_air"].as<double>());
+        M_Vair_factor[i] = (vm["simul.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*M_norm_Vair_ice[i]));
+        M_Vair_factor[i] *= Vair_coef*(vm["simul.rho_air"].as<double>());
         //std::cout <<"Coeff= "<< M_Vair_factor[i] <<"\n";
     }
 
     for (int i=0; i<M_Voce_factor.size(); ++i)
     {
-        M_Voce_factor[i] = (vm["simul_in.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*M_norm_Voce_ice[i]));
-        M_Voce_factor[i] *= Voce_coef*(vm["simul_in.rho_water"].as<double>());
+        M_Voce_factor[i] = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*M_norm_Voce_ice[i]));
+        M_Voce_factor[i] *= Voce_coef*(vm["simul.rho_water"].as<double>());
         //std::cout <<"Coeff= "<< M_Voce_factor[i] <<"\n";
     }
 
-    if (vm["simul_in.Lemieux_basal_k2"].as<double>() > 0 )
+    if (vm["simul.Lemieux_basal_k2"].as<double>() > 0 )
     {
 
         // for (int k = 0; k < M_num_elements; k++ )
@@ -2207,11 +2218,11 @@ FiniteElement::computeFactors(int pcpt)
 
 
         //critical_h = std::inner_product(M_conc.begin(), M_conc.end(), M_element_depth.begin(), 0.);
-        //critical_h /= (vm["simul_in.Lemieux_basal_k1"].as<double>());
+        //critical_h /= (vm["simul.Lemieux_basal_k1"].as<double>());
 
         for (int i=0; i<M_basal_factor.size(); ++i)
         {
-            critical_h = M_conc[i]*(M_element_depth[i]+M_element_ssh[i])/(vm["simul_in.Lemieux_basal_k1"].as<double>());
+            critical_h = M_conc[i]*(M_element_depth[i]+M_element_ssh[i])/(vm["simul.Lemieux_basal_k1"].as<double>());
             //double _coef = ((M_thick[i]-critical_h) > 0) ? (M_thick[i]-critical_h) : 0.;
             double _coef = std::max(0., M_thick[i]-critical_h);
             M_basal_factor[i] = quad_drag_coef_air*basal_k2/(basal_drag_coef_air*(M_norm_Vice[i]+basal_u_0));
@@ -2229,7 +2240,7 @@ FiniteElement::computeFactors(int pcpt)
     std::vector<double> lat = M_mesh.meanLat();
     for (int i=0; i<M_fcor.size(); ++i)
     {
-        M_fcor[i] = 2*(vm["simul_in.omega"].as<double>())*std::sin(lat[i]*PI/180.);
+        M_fcor[i] = 2*(vm["simul.omega"].as<double>())*std::sin(lat[i]*PI/180.);
         //std::cout <<"Coeff= "<< M_fcor[i] <<"\n";
     }
 
@@ -2275,7 +2286,7 @@ FiniteElement::forcingWind(bool reload)//(double const& u, double const& v)
     switch (M_wind_type)
     {
         case forcing::WindType::CONSTANT:
-            this->constantWind(vm["simul_in.constant_u"].as<double>(),vm["simul_in.constant_v"].as<double>());
+            this->constantWind(vm["simul.constant_u"].as<double>(),vm["simul.constant_v"].as<double>());
             break;
         case forcing::WindType::ASR:
             this->asrWind(reload);
@@ -2898,6 +2909,7 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
             //     std::cout<<"data_out["<< i << "]= "<< M_wind[i] << " and "<< M_wind[i+M_num_nodes] <<"\n";
         }
 
+        chrono.restart();
         std::cout<<" Interpolation starts\n";
 
         InterpFromMeshToMesh2dx(&data_out,
@@ -2908,7 +2920,7 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
                                 &RX[0], &RY[0], M_mesh.numNodes(),
                                 false /*options*/);
 
-        std::cout<<" Interpolation done\n";
+        std::cout<<" Interpolation done in " << chrono.elapsed() <<"s\n";
 
         // Note that we do here the assumption that no rotation is needed from the Topz grid to the polar stereo grid
         // It should be corrected, once we will do the interpo in the native TOPAZ grid
@@ -2927,7 +2939,6 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
 
         std::cout<<"MIN DATA_OUT SSH= "<< *std::min_element(fssh.begin(),fssh.end()) <<"\n";
         std::cout<<"MAX DATA_OUT SSH= "<< *std::max_element(fssh.begin(),fssh.end()) <<"\n";
-
 
         M_voce[fstep] = fvoce;
         M_vssh[fstep] = fssh;
@@ -3055,7 +3066,7 @@ FiniteElement::initConcentration()
 void
 FiniteElement::constantConc()
 {
-    std::fill(M_conc.begin(), M_conc.end(), vm["simul_in.init_concentration"].as<double>());
+    std::fill(M_conc.begin(), M_conc.end(), vm["simul.init_concentration"].as<double>());
 
 #if 0
     if (M_water_elements.size() == 0)
@@ -3534,7 +3545,7 @@ FiniteElement::constantThick()
 {
     for (int i=0; i<M_num_elements; ++i)
     {
-        M_thick[i] = (vm["simul_in.init_thickness"].as<double>())*M_conc[i];
+        M_thick[i] = (vm["simul.init_thickness"].as<double>())*M_conc[i];
     }
 }
 
@@ -3594,7 +3605,7 @@ FiniteElement::constantSnowThick()
 {
     for (int i=0; i<M_num_elements; ++i)
     {
-        M_snow_thick[i] = (vm["simul_in.init_snow_thickness"].as<double>())*M_conc[i];
+        M_snow_thick[i] = (vm["simul.init_snow_thickness"].as<double>())*M_conc[i];
     }
 }
 
@@ -3635,7 +3646,7 @@ void
 FiniteElement::bathymetry()
 {
     // Interpolation of the bathymetry
-    if (vm["simul_in.Lemieux_basal_k2"].as<double>() > 0 )
+    if (vm["simul.Lemieux_basal_k2"].as<double>() > 0 )
     {
         double* depth_out;
 
