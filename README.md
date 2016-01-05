@@ -54,20 +54,21 @@ This README would normally document whatever steps are necessary to get your app
 	6) From boost directory, type: “./bconfigure.sh”
 	7) From boost directory, type: “./binstall.sh” (sudo password is required during the process)
 
-# Install petsc (Warning: the 3.6 version is not supported by nextsim when using MATSOLVER_UMFPACK, it has to be fixed. In the meantime, use MATSOLVER_MUMPS or MATSOLVER_PETSC by editing nextsim/src/solverpetsc.cpp)
-	1) Download the version 3.6 of petsc from http://www.mcs.anl.gov/petsc/download/ (It is better to restart from here if you had an upgrade of your os)
+# Install petsc
+	0) Desinstall other version of petsc by doing (It is better to restart from here if you had an upgrade of your os)
+			rm -rf /opt/local/petsc
+		or by changing the prefix in pconfigure.sh, for example:
+			--prefix=/opt/local/petsc/3.6	
+	0bis) Desinstall older installation of suitesparse/cholmod/umfpack in /usr/local (It depends on how you installed it. For example you will have to type: make uninstall in SuiteSparse/, or to use: sudo brew remove suite-sparse)
+	1) Download the version 3.6 of petsc from http://www.mcs.anl.gov/petsc/download/ 
 	2) copy the content of /nextsim/scripts/petsc/ in petsc directory
 	3) type the command “unset PETSC_DIR”
-	4) check if pconfigure.sh corresponds to your architecture 
+	4) check if pconfigure.sh corresponds to your architecture and change the permission to make it executable.
 	5) From petsc directory, type: “./pconfigure.sh” (sudo password is required during the process)
 	6) From petsc directory, follow the instruction for the rest of the compilation (something like: “make PETSC_DIR=/Users/syloui/Developer/petsc-3.6.1 PETSC_ARCH=arch-darwin-c-opt all”, “sudo make PETSC_DIR=/Users/syloui/Developer/petsc-3.6.1 PETSC_ARCH=arch-darwin-c-opt install” and “make PETSC_DIR=/opt/local/petsc PETSC_ARCH="" test”)
 
 
-# Install SuiteSparse
-	1) Download
-
-
-# Install netcdf (NETCDF not yet neededfor the default version of nextsim, only for the develop version) 
+# Install netcdf
 1) instal hdf5 via macport: "sudo port install hdf5"
 2) download latest stable c version of netcdf on http://www.unidata.ucar.edu/downloads/netcdf/index.jsp and unzip it
 3) copy configure_c.sh from /nextsim/scripts/netcdf
