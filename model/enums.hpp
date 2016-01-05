@@ -8,7 +8,7 @@
 
 namespace Nextsim
 {
-namespace forcing
+namespace setup
 {
     enum class WindType
     {
@@ -77,5 +77,21 @@ namespace forcing
         IABP          = 1
     };
 
-} // forcing
+    enum class DomainType
+    {
+        DEFAULT        = 0,
+        KARA           = 1,
+        BERINGKARA     = 2,
+        BIGKARA        = 3,
+        ARCTIC         = 4,
+        BIGARCTIC      = 5
+    };  
+
+    enum class MeshType
+    {
+        FROM_GMSH      = 0,
+        FROM_SPLIT     = 1
+    };   
+
+} // setup
 } // Nextsim

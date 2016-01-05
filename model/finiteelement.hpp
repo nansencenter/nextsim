@@ -153,15 +153,21 @@ private:
 
     boost::timer chrono;
 
-    forcing::WindType M_wind_type;
-    forcing::OceanType M_ocean_type;
-    forcing::ThermoType M_thermo_type;
+    setup::WindType M_wind_type;
+    setup::OceanType M_ocean_type;
+    setup::ThermoType M_thermo_type;
 
-    forcing::ConcentrationType M_conc_type;
-    forcing::ThicknessType M_thick_type;
-    forcing::DamageType M_damage_type;
-    forcing::SnowThicknessType M_snow_thick_type;
-    forcing::DrifterType M_drifter_type;
+    setup::ConcentrationType M_conc_type;
+    setup::ThicknessType M_thick_type;
+    setup::DamageType M_damage_type;
+    setup::SnowThicknessType M_snow_thick_type;
+    setup::DrifterType M_drifter_type;
+    setup::DomainType M_domain_type;
+    setup::MeshType M_mesh_type;
+
+    std::string M_mesh_filename;
+
+    int M_flag_fix;
 
     std::vector<double> M_sigma;
     std::vector<double> M_surface;

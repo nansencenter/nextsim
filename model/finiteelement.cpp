@@ -30,9 +30,54 @@ FiniteElement::init()
 {
     std::cout <<"GMSH VERSION= "<< M_mesh.version() <<"\n";
     M_mesh.setOrdering("bamg");
-    M_mesh.readFromFile("bigarctic10km.msh");
+
+    M_mesh_filename = vm["simul.mesh_filename"].as<std::string>();
+
+    const boost::unordered_map<const std::string, setup::DomainType> str2domain = boost::assign::map_list_of
+        ("bigarctic10km.msh", setup::DomainType::BIGARCTIC)
+        ("topazreducedsplit2.msh", setup::DomainType::DEFAULT)
+        ("topazreducedsplit4.msh", setup::DomainType::DEFAULT)
+        ("topazreducedsplit8.msh", setup::DomainType::DEFAULT);
+
+    M_domain_type = str2domain.find(M_mesh_filename)->second;
+
+    const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
+        ("bigarctic10km.msh", setup::MeshType::FROM_GMSH)
+        ("topazreducedsplit2.msh", setup::MeshType::FROM_SPLIT)
+        ("topazreducedsplit4.msh", setup::MeshType::FROM_SPLIT)
+        ("topazreducedsplit8.msh", setup::MeshType::FROM_SPLIT);
+
+    M_mesh_type = str2mesh.find(M_mesh_filename)->second;
+
+    switch (M_domain_type)
+    {
+        case setup::DomainType::DEFAULT:
+            M_flag_fix = 10000; // free = [10001 10002];
+            break;
+        case setup::DomainType::KARA:
+            M_flag_fix = 17; // free = [15 16];
+            break;
+        case setup::DomainType::BERINGKARA:
+            M_flag_fix = 1; // free = [];
+            break;
+        case setup::DomainType::BIGKARA:
+            M_flag_fix = 158; // free = 157;
+            break;
+        case setup::DomainType::ARCTIC:
+            M_flag_fix = 174; // free = [172 173];
+            break;
+        case setup::DomainType::BIGARCTIC:
+            M_flag_fix = 161; // free = 158:160;
+            break;          
+        default:
+            std::cout << "invalid domain type"<<"\n";
+            throw std::logic_error("invalid domain type");
+    }   
+
+    M_mesh.readFromFile(M_mesh_filename);
+    
     M_mesh.stereographicProjection();
-    // M_mesh.writeTofile("arctic10km.msh");
+    // M_mesh.writeTofile("copy_init_mesh.msh");
 
     // createGMSHMesh("hypercube.geo");
     // //M_mesh.setOrdering("gmsh");
@@ -52,7 +97,7 @@ FiniteElement::init()
 
     for (auto it=M_mesh.edges().begin(), end=M_mesh.edges().end(); it!=end; ++it)
     {
-        if (it->physical==161)
+        if (it->physical==M_flag_fix)
         {
             M_dirichlet_flags.push_back(it->indices[0]-1);
             M_dirichlet_flags.push_back(it->indices[1]-1);
@@ -68,13 +113,33 @@ FiniteElement::init()
 
     M_edges = M_mesh.edges();
 
+    // Definition of the hmin, hmax, hminVertices or hmaxVertices
     auto h = this->minMaxSide(M_mesh);
-    bamgopt->hmin = h[0];
-    bamgopt->hmax = h[1];
+    switch (M_mesh_type)
+    {
+        case setup::MeshType::FROM_GMSH:
+            // For the other meshes, we use a constant hmin and hmax
+            bamgopt->hmin = h[0];
+            bamgopt->hmax = h[1];
 
-    std::cout<<"MESH: HMIN= "<< h[0] <<"\n";
-    std::cout<<"MESH: HMAX= "<< h[1] <<"\n";
-    std::cout<<"MESH: RES = "<< this->resolution(M_mesh) <<"\n";
+            std::cout<<"MESH: HMIN= "<< h[0] <<"\n";
+            std::cout<<"MESH: HMAX= "<< h[1] <<"\n";
+            std::cout<<"MESH: RES = "<< this->resolution(M_mesh) <<"\n";
+            break;
+
+        case setup::MeshType::FROM_SPLIT:
+            bamgopt->hmin = h[0];
+            bamgopt->hmax = h[1];
+
+            std::cout<<"MESH: HMIN= "<< h[0] <<"\n";
+            std::cout<<"MESH: HMAX= "<< h[1] <<"\n";
+            std::cout<<"MESH: RES = "<< this->resolution(M_mesh) <<"\n";
+            break;
+
+        default:
+            std::cout << "invalid mesh type"<<"\n";
+            throw std::logic_error("invalid mesh type");
+    }  
 
     M_elements = M_mesh.triangles();
     M_nodes = M_mesh.nodes();
@@ -89,38 +154,38 @@ FiniteElement::init()
 
     M_reuse_prec = true;
 
-    const boost::unordered_map<const std::string, forcing::WindType> str2wind = boost::assign::map_list_of
-        ("constant", forcing::WindType::CONSTANT)
-        ("asr", forcing::WindType::ASR);
-    M_wind_type = str2wind.find(vm["forcing.wind-type"].as<std::string>())->second;
+    const boost::unordered_map<const std::string, setup::WindType> str2wind = boost::assign::map_list_of
+        ("constant", setup::WindType::CONSTANT)
+        ("asr", setup::WindType::ASR);
+    M_wind_type = str2wind.find(vm["setup.wind-type"].as<std::string>())->second;
 
     //std::cout<<"WINDTYPE= "<< (int)M_wind_type <<"\n";
 
-    const boost::unordered_map<const std::string, forcing::OceanType> str2ocean = boost::assign::map_list_of
-        ("constant", forcing::OceanType::CONSTANT)
-        ("topaz", forcing::OceanType::TOPAZR);
-    M_ocean_type = str2ocean.find(vm["forcing.ocean-type"].as<std::string>())->second;
+    const boost::unordered_map<const std::string, setup::OceanType> str2ocean = boost::assign::map_list_of
+        ("constant", setup::OceanType::CONSTANT)
+        ("topaz", setup::OceanType::TOPAZR);
+    M_ocean_type = str2ocean.find(vm["setup.ocean-type"].as<std::string>())->second;
 
     //std::cout<<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
 
-    const boost::unordered_map<const std::string, forcing::ConcentrationType> str2conc = boost::assign::map_list_of
-        ("constant", forcing::ConcentrationType::CONSTANT)
-        ("topaz", forcing::ConcentrationType::TOPAZ4);
-    M_conc_type = str2conc.find(vm["forcing.concentration-type"].as<std::string>())->second;
+    const boost::unordered_map<const std::string, setup::ConcentrationType> str2conc = boost::assign::map_list_of
+        ("constant", setup::ConcentrationType::CONSTANT)
+        ("topaz", setup::ConcentrationType::TOPAZ4);
+    M_conc_type = str2conc.find(vm["setup.concentration-type"].as<std::string>())->second;
 
     //std::cout<<"CONCTYPE= "<< (int)M_conc_type <<"\n";
 
-    const boost::unordered_map<const std::string, forcing::ThicknessType> str2thick = boost::assign::map_list_of
-        ("constant", forcing::ThicknessType::CONSTANT)
-        ("topaz", forcing::ThicknessType::TOPAZ4);
-    M_thick_type = str2thick.find(vm["forcing.thickness-type"].as<std::string>())->second;
+    const boost::unordered_map<const std::string, setup::ThicknessType> str2thick = boost::assign::map_list_of
+        ("constant", setup::ThicknessType::CONSTANT)
+        ("topaz", setup::ThicknessType::TOPAZ4);
+    M_thick_type = str2thick.find(vm["setup.thickness-type"].as<std::string>())->second;
 
     //std::cout<<"THICKTYPE= "<< (int)M_thick_type <<"\n";
 
-    const boost::unordered_map<const std::string, forcing::SnowThicknessType> str2snow = boost::assign::map_list_of
-        ("constant", forcing::SnowThicknessType::CONSTANT)
-        ("topaz", forcing::SnowThicknessType::TOPAZ4);
-    M_snow_thick_type = str2snow.find(vm["forcing.snow-thickness-type"].as<std::string>())->second;
+    const boost::unordered_map<const std::string, setup::SnowThicknessType> str2snow = boost::assign::map_list_of
+        ("constant", setup::SnowThicknessType::CONSTANT)
+        ("topaz", setup::SnowThicknessType::TOPAZ4);
+    M_snow_thick_type = str2snow.find(vm["setup.snow-thickness-type"].as<std::string>())->second;
 
     //std::cout<<"SNOWTHICKTYPE= "<< (int)M_snow_thick_type <<"\n";
 
@@ -201,7 +266,7 @@ FiniteElement::initSimulation()
     M_ftime_wind_range.resize(2,0.);
     M_ftime_ocean_range.resize(2,0.);
 
-    if (M_ocean_type == forcing::OceanType::TOPAZR)
+    if (M_ocean_type == setup::OceanType::TOPAZR)
     {
         this->gridTopazOcean();
     }
@@ -681,8 +746,8 @@ FiniteElement::regrid(bool step)
         //     || (std::binary_search(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),snd)))
         if ((std::binary_search(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),fnd)))
         {
-            bamggeom_previous->Edges[3*edg+2] = 161;
-            bamgmesh_previous->Edges[3*edg+2] = 161;
+            bamggeom_previous->Edges[3*edg+2] = M_flag_fix;
+            bamgmesh_previous->Edges[3*edg+2] = M_flag_fix;
         }
     }
 
@@ -711,7 +776,7 @@ FiniteElement::regrid(bool step)
         M_boundary_flags.push_back(bamgmesh->Edges[3*edg]-1);
         //M_boundary_flags.push_back(bamgmesh->Edges[3*edg+1]-1);
 
-        if (bamgmesh->Edges[3*edg+2] == 161)
+        if (bamgmesh->Edges[3*edg+2] == M_flag_fix)
         {
             M_dirichlet_flags.push_back(bamgmesh->Edges[3*edg]-1);
             //M_dirichlet_flags.push_back(bamgmesh->Edges[3*edg+1]-1);
@@ -2019,13 +2084,15 @@ FiniteElement::run()
         this->computeFactors(pcpt);
         std::cout<<"computeFactors done in "<< chrono.elapsed() <<"s\n";
 
-        // if (pcpt == 0)
-        // {
-        //     chrono.restart();
-        //     std::cout<<"first export starts\n";
-        //     this->exportResults(1, M_regrid);
-        //     std::cout<<"first export done in " << chrono.elapsed() <<"s\n";
-        // }
+#if 0
+        if (pcpt == 0)
+        {
+            chrono.restart();
+            std::cout<<"first export starts\n";
+            this->exportResults(0, M_regrid);
+            std::cout<<"first export done in " << chrono.elapsed() <<"s\n";
+        }
+#endif
 
         this->assemble();
         this->solve();
@@ -2040,11 +2107,12 @@ FiniteElement::run()
         this->update();
         std::cout<<"update done in "<< chrono.elapsed() <<"s\n";
 
-        // chrono.restart();
-        // std::cout<<"export starts\n";
-        // this->exportResults(pcpt+1, M_regrid);
-        // std::cout<<"export done in " << chrono.elapsed() <<"s\n";
-
+#if 0
+        chrono.restart();
+        std::cout<<"export starts\n";
+        this->exportResults(pcpt+1, M_regrid);
+        std::cout<<"export done in " << chrono.elapsed() <<"s\n";
+#endif
         ++pcpt;
     }
 
@@ -2285,10 +2353,10 @@ FiniteElement::forcingWind(bool reload)//(double const& u, double const& v)
 {
     switch (M_wind_type)
     {
-        case forcing::WindType::CONSTANT:
+        case setup::WindType::CONSTANT:
             this->constantWind(vm["simul.constant_u"].as<double>(),vm["simul.constant_v"].as<double>());
             break;
-        case forcing::WindType::ASR:
+        case setup::WindType::ASR:
             this->asrWind(reload);
             break;
 
@@ -2610,10 +2678,10 @@ FiniteElement::forcingOcean(bool reload)//(double const& u, double const& v)
 {
     switch (M_ocean_type)
     {
-        case forcing::OceanType::CONSTANT:
+        case setup::OceanType::CONSTANT:
             this->constantOcean(0.,0.);
             break;
-        case forcing::OceanType::TOPAZR:
+        case setup::OceanType::TOPAZR:
             this->topazOcean(reload);
             break;
 
@@ -3024,7 +3092,7 @@ FiniteElement::forcingThermo(double const& u, double const& v)
 {
     switch (M_thermo_type)
     {
-        case forcing::ThermoType::CONSTANT:
+        case setup::ThermoType::CONSTANT:
             this->constantThermo(u,v);
             break;
 
@@ -3049,10 +3117,10 @@ FiniteElement::initConcentration()
 {
     switch (M_conc_type)
     {
-        case forcing::ConcentrationType::CONSTANT:
+        case setup::ConcentrationType::CONSTANT:
             this->constantConc();
             break;
-        case forcing::ConcentrationType::TOPAZ4:
+        case setup::ConcentrationType::TOPAZ4:
             this->topazConc();
             break;
 
@@ -3141,17 +3209,17 @@ FiniteElement::topazConc()
     netCDF::NcVar VHICE;
     netCDF::NcVar VSNOW;
 
-    if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
+    if (M_conc_type == setup::ConcentrationType::TOPAZ4)
     {
         VFICE = dataFile.getVar("fice");
     }
 
-    if (M_thick_type == forcing::ThicknessType::TOPAZ4)
+    if (M_thick_type == setup::ThicknessType::TOPAZ4)
     {
         VHICE = dataFile.getVar("hice");
     }
 
-    if (M_snow_thick_type == forcing::SnowThicknessType::TOPAZ4)
+    if (M_snow_thick_type == setup::SnowThicknessType::TOPAZ4)
     {
         VSNOW = dataFile.getVar("hsnow");
     }
@@ -3261,19 +3329,19 @@ FiniteElement::topazConc()
     std::vector<double> reduced_SX;
     std::vector<double> reduced_SY;
 
-    if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
+    if (M_conc_type == setup::ConcentrationType::TOPAZ4)
     {
         data_in_fice.resize(1101*761);
         VFICE.getVar(index_fhice_start,index_fhice_end,&data_in_fice[0]);
     }
 
-    if (M_thick_type == forcing::ThicknessType::TOPAZ4)
+    if (M_thick_type == setup::ThicknessType::TOPAZ4)
     {
         data_in_hice.resize(1101*761);
         VHICE.getVar(index_fhice_start,index_fhice_end,&data_in_hice[0]);
     }
 
-    if (M_snow_thick_type == forcing::SnowThicknessType::TOPAZ4)
+    if (M_snow_thick_type == setup::SnowThicknessType::TOPAZ4)
     {
         data_in_snow.resize(1101*761);
         VSNOW.getVar(index_fhice_start,index_fhice_end,&data_in_snow[0]);
@@ -3284,7 +3352,7 @@ FiniteElement::topazConc()
     {
         for (int j=0; j<761; ++j)
         {
-            if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
+            if (M_conc_type == setup::ConcentrationType::TOPAZ4)
             {
                 maskvfh = data_in_fice[761*i+j];
                 maskvfh = std::abs(maskvfh);
@@ -3297,7 +3365,7 @@ FiniteElement::topazConc()
                 }
             }
 
-            if (M_thick_type == forcing::ThicknessType::TOPAZ4)
+            if (M_thick_type == setup::ThicknessType::TOPAZ4)
             {
                 maskvfh = data_in_hice[761*i+j];
                 maskvfh = std::abs(maskvfh);
@@ -3310,7 +3378,7 @@ FiniteElement::topazConc()
                 }
             }
 
-            if (M_snow_thick_type == forcing::SnowThicknessType::TOPAZ4)
+            if (M_snow_thick_type == setup::SnowThicknessType::TOPAZ4)
             {
                 maskvfh = data_in_snow[761*i+j];
                 maskvfh = std::abs(maskvfh);
@@ -3326,13 +3394,13 @@ FiniteElement::topazConc()
     }
 
 #if 0
-    if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
+    if (M_conc_type == setup::ConcentrationType::TOPAZ4)
     {
         std::cout<<"MIN DATA_IN FICE= "<< *std::min_element(data_in_fice.begin(),data_in_fice.end()) <<"\n";
         std::cout<<"MAX DATA_IN FICE= "<< *std::max_element(data_in_fice.begin(),data_in_fice.end()) <<"\n";
     }
 
-    if (M_thick_type == forcing::ThicknessType::TOPAZ4)
+    if (M_thick_type == setup::ThicknessType::TOPAZ4)
     {
         std::cout<<"MIN DATA_IN HICE= "<< *std::min_element(data_in_hice.begin(),data_in_hice.end()) <<"\n";
         std::cout<<"MAX DATA_IN HICE= "<< *std::max_element(data_in_hice.begin(),data_in_hice.end()) <<"\n";
@@ -3342,7 +3410,7 @@ FiniteElement::topazConc()
 #if 1
     // bamg triangulation
 
-    if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
+    if (M_conc_type == setup::ConcentrationType::TOPAZ4)
     {
         std::cout<<"SIZE REDUCED_FX= "<< reduced_FX.size() <<"\n";
         std::cout<<"SIZE REDUCED_FY= "<< reduced_FY.size() <<"\n";
@@ -3351,7 +3419,7 @@ FiniteElement::topazConc()
         std::cout<<"MAX DATA_RF_IN = "<< *std::max_element(reduced_data_in_fice.begin(),reduced_data_in_fice.end()) <<"\n";
     }
 
-    if (M_thick_type == forcing::ThicknessType::TOPAZ4)
+    if (M_thick_type == setup::ThicknessType::TOPAZ4)
     {
         std::cout<<"SIZE REDUCED_HX= "<< reduced_HX.size() <<"\n";
         std::cout<<"SIZE REDUCED_HY= "<< reduced_HY.size() <<"\n";
@@ -3360,7 +3428,7 @@ FiniteElement::topazConc()
         std::cout<<"MAX DATA_RH_IN = "<< *std::max_element(reduced_data_in_hice.begin(),reduced_data_in_hice.end()) <<"\n";
     }
 
-    if (M_snow_thick_type == forcing::SnowThicknessType::TOPAZ4)
+    if (M_snow_thick_type == setup::SnowThicknessType::TOPAZ4)
     {
         std::cout<<"SIZE REDUCED_SX= "<< reduced_SX.size() <<"\n";
         std::cout<<"SIZE REDUCED_SY= "<< reduced_SY.size() <<"\n";
@@ -3372,7 +3440,7 @@ FiniteElement::topazConc()
     int* pfindex;
     int pfnels;
 
-    if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
+    if (M_conc_type == setup::ConcentrationType::TOPAZ4)
     {
         std::cout<<"FICE: Triangulate starts\n";
         BamgTriangulatex(&pfindex,&pfnels,&reduced_FX[0],&reduced_FY[0],reduced_FX.size());
@@ -3387,7 +3455,7 @@ FiniteElement::topazConc()
     int* phindex;
     int phnels;
 
-    if (M_thick_type == forcing::ThicknessType::TOPAZ4)
+    if (M_thick_type == setup::ThicknessType::TOPAZ4)
     {
         std::cout<<"HICE: Triangulate starts\n";
         BamgTriangulatex(&phindex,&phnels,&reduced_HX[0],&reduced_HY[0],reduced_HX.size());
@@ -3402,7 +3470,7 @@ FiniteElement::topazConc()
     int* psindex;
     int psnels;
 
-    if (M_snow_thick_type == forcing::SnowThicknessType::TOPAZ4)
+    if (M_snow_thick_type == setup::SnowThicknessType::TOPAZ4)
     {
         std::cout<<"HSNOW: Triangulate starts\n";
         BamgTriangulatex(&psindex,&psnels,&reduced_SX[0],&reduced_SY[0],reduced_SX.size());
@@ -3423,7 +3491,7 @@ FiniteElement::topazConc()
     std::vector<double> data_out_hice_tmp;
     std::vector<double> data_out_snow_tmp;
 
-    if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
+    if (M_conc_type == setup::ConcentrationType::TOPAZ4)
     {
         double* data_out_fice;
         data_out_fice_tmp.resize(M_num_elements);
@@ -3448,7 +3516,7 @@ FiniteElement::topazConc()
         }
     }
 
-    if (M_thick_type == forcing::ThicknessType::TOPAZ4)
+    if (M_thick_type == setup::ThicknessType::TOPAZ4)
     {
         double* data_out_hice;
         data_out_hice_tmp.resize(M_num_elements);
@@ -3474,7 +3542,7 @@ FiniteElement::topazConc()
         }
     }
 
-    if (M_snow_thick_type == forcing::SnowThicknessType::TOPAZ4)
+    if (M_snow_thick_type == setup::SnowThicknessType::TOPAZ4)
     {
         double* data_out_snow;
         data_out_snow_tmp.resize(M_num_elements);
@@ -3501,19 +3569,19 @@ FiniteElement::topazConc()
     }
 
 #if 1
-    if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
+    if (M_conc_type == setup::ConcentrationType::TOPAZ4)
     {
         std::cout<<"MIN DATA_OUT FICE= "<< *std::min_element(data_out_fice_tmp.begin(),data_out_fice_tmp.end()) <<"\n";
         std::cout<<"MAX DATA_OUT FICE= "<< *std::max_element(data_out_fice_tmp.begin(),data_out_fice_tmp.end()) <<"\n";
     }
 
-    if (M_thick_type == forcing::ThicknessType::TOPAZ4)
+    if (M_thick_type == setup::ThicknessType::TOPAZ4)
     {
         std::cout<<"MIN DATA_OUT HICE= "<< *std::min_element(data_out_hice_tmp.begin(),data_out_hice_tmp.end()) <<"\n";
         std::cout<<"MAX DATA_OUT HICE= "<< *std::max_element(data_out_hice_tmp.begin(),data_out_hice_tmp.end()) <<"\n";
     }
 
-    if (M_snow_thick_type == forcing::SnowThicknessType::TOPAZ4)
+    if (M_snow_thick_type == setup::SnowThicknessType::TOPAZ4)
     {
         std::cout<<"MIN DATA_OUT SNOW= "<< *std::min_element(data_out_snow_tmp.begin(),data_out_snow_tmp.end()) <<"\n";
         std::cout<<"MAX DATA_OUT SNOW= "<< *std::max_element(data_out_snow_tmp.begin(),data_out_snow_tmp.end()) <<"\n";
@@ -3526,10 +3594,10 @@ FiniteElement::initThickness()
 {
     switch (M_thick_type)
     {
-        case forcing::ThicknessType::CONSTANT:
+        case setup::ThicknessType::CONSTANT:
             this->constantThick();
             break;
-        case forcing::ThicknessType::TOPAZ4:
+        case setup::ThicknessType::TOPAZ4:
             this->topazThick();
             break;
 
@@ -3559,7 +3627,7 @@ FiniteElement::initDamage()
 {
     switch (M_damage_type)
     {
-        case forcing::DamageType::CONSTANT:
+        case setup::DamageType::CONSTANT:
             this->constantDamage();
             break;
 
@@ -3587,10 +3655,10 @@ FiniteElement::initSnowThickness()
 {
     switch (M_snow_thick_type)
     {
-        case forcing::SnowThicknessType::CONSTANT:
+        case setup::SnowThicknessType::CONSTANT:
             this->constantSnowThick();
             break;
-        case forcing::SnowThicknessType::TOPAZ4:
+        case setup::SnowThicknessType::TOPAZ4:
             this->topazSnowThick();
             break;
 
@@ -3632,7 +3700,7 @@ FiniteElement::initDrifter()
 {
     switch (M_drifter_type)
     {
-        case forcing::DrifterType::EQUALLYSPACED:
+        case setup::DrifterType::EQUALLYSPACED:
             this->equallySpacedDrifter();
             break;
 
