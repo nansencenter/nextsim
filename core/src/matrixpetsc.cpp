@@ -92,7 +92,7 @@ MatrixPetsc::init( const size_type m, const size_type n, const size_type nnz )
     CHKERRABORT( M_comm, ierr );
 
     //ierr = MatSetOption( M_mat,MAT_SPD,PETSC_FALSE );
-    //ierr = MatSetOption ( M_mat, MAT_SYMMETRIC, PETSC_TRUE );
+    ierr = MatSetOption ( M_mat, MAT_SYMMETRIC, PETSC_TRUE );
     ierr = MatSetOption ( M_mat,MAT_SYMMETRY_ETERNAL,PETSC_TRUE );
     CHKERRABORT( M_comm, ierr );
 

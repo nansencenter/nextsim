@@ -198,6 +198,13 @@ FiniteElement::init()
 
     //std::cout<<"SNOWTHICKTYPE= "<< (int)M_snow_thick_type <<"\n";
 
+    const boost::unordered_map<const std::string, forcing::DamageType> str2damg = boost::assign::map_list_of
+        ("constant", forcing::DamageType::CONSTANT);
+    M_damage_type = str2damg.find(vm["forcing.damage-type"].as<std::string>())->second;
+
+    //std::cout<<"DAMAGETYPE= "<< (int)M_damage_type <<"\n";
+
+
     // init options for interpolation from mesh to mesh
     // options = new Options();
 }
