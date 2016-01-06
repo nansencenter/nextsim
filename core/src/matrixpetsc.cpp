@@ -79,6 +79,7 @@ MatrixPetsc::init( const size_type m, const size_type n, const size_type nnz )
     // CHKERRABORT( M_comm, ierr );
 
     ierr = MatCreateSeqAIJ ( M_comm, nrow, ncol, n_nz, PETSC_NULL, &M_mat );
+    //ierr = MatCreateSeqSBAIJ ( M_comm, 1, nrow, ncol, n_nz, PETSC_NULL, &M_mat );
     CHKERRABORT( M_comm, ierr );
 
 
@@ -87,6 +88,12 @@ MatrixPetsc::init( const size_type m, const size_type n, const size_type nnz )
 
     ierr = MatSetOption( M_mat,MAT_KEEP_NONZERO_PATTERN,PETSC_TRUE );
     MatSetOption( M_mat,MAT_IGNORE_ZERO_ENTRIES,PETSC_FALSE );
+    //MatSetOption( M_mat,MAT_IGNORE_LOWER_TRIANGULAR,PETSC_TRUE );
+    CHKERRABORT( M_comm, ierr );
+
+    //ierr = MatSetOption( M_mat,MAT_SPD,PETSC_FALSE );
+    //ierr = MatSetOption ( M_mat, MAT_SYMMETRIC, PETSC_TRUE );
+    ierr = MatSetOption ( M_mat,MAT_SYMMETRY_ETERNAL,PETSC_TRUE );
     CHKERRABORT( M_comm, ierr );
 
     // generates an error for new matrix entry

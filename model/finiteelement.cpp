@@ -1112,25 +1112,25 @@ FiniteElement::assemble()
     double g_ssh_e = 0.;
     double g_ssh_e_y = 0.;
 
-    std::vector<double> B0T(18,0);
-    std::vector<double> B0Tj_Dunit(6,0);
-    std::vector<double> B0Tj_Dunit_B0Ti(4,0);
-    std::vector<double> B0T_Dunit_B0T(36,0);
-    std::vector<double> B0Tj_Dunit_comp(6,0);
-    std::vector<double> B0Tj_Dunit_comp_B0Ti(4,0);
-    std::vector<double> B0T_Dunit_comp_B0T(36,0);
+    //std::vector<double> B0T(18,0);
+    // std::vector<double> B0Tj_Dunit(6,0);
+    // std::vector<double> B0Tj_Dunit_B0Ti(4,0);
+    // std::vector<double> B0T_Dunit_B0T(36,0);
+    // std::vector<double> B0Tj_Dunit_comp(6,0);
+    // std::vector<double> B0Tj_Dunit_comp_B0Ti(4,0);
+    // std::vector<double> B0T_Dunit_comp_B0T(36,0);
 
     std::vector<double> sigma_P(3,0); /* temporary variable for the resistance to the compression */
     std::vector<double> B0Tj_sigma_h(2,0);
 
-    double B0Tj_Dunit_tmp0, B0Tj_Dunit_tmp1;
-    double B0Tj_Dunit_B0Ti_tmp0, B0Tj_Dunit_B0Ti_tmp1, B0Tj_Dunit_B0Ti_tmp2, B0Tj_Dunit_B0Ti_tmp3;
-    double B0Tj_Dunit_comp_tmp0, B0Tj_Dunit_comp_tmp1;
-    double B0Tj_Dunit_comp_B0Ti_tmp0, B0Tj_Dunit_comp_B0Ti_tmp1, B0Tj_Dunit_comp_B0Ti_tmp2, B0Tj_Dunit_comp_B0Ti_tmp3;
+    // double B0Tj_Dunit_tmp0, B0Tj_Dunit_tmp1;
+    // double B0Tj_Dunit_B0Ti_tmp0, B0Tj_Dunit_B0Ti_tmp1, B0Tj_Dunit_B0Ti_tmp2, B0Tj_Dunit_B0Ti_tmp3;
+    // double B0Tj_Dunit_comp_tmp0, B0Tj_Dunit_comp_tmp1;
+    // double B0Tj_Dunit_comp_B0Ti_tmp0, B0Tj_Dunit_comp_B0Ti_tmp1, B0Tj_Dunit_comp_B0Ti_tmp2, B0Tj_Dunit_comp_B0Ti_tmp3;
     double mloc = 0;
 
-    // std::vector<double> B0Tj_Dunit_B0Ti(4,0);
-    // std::vector<double> B0Tj_Dunit_comp_B0Ti(4,0);
+    std::vector<double> B0Tj_Dunit_B0Ti(4,0);
+    std::vector<double> B0Tj_Dunit_comp_B0Ti(4,0);
     // std::vector<double> B0T_Dunit_B0T(36,0);
     // std::vector<double> B0T_Dunit_comp_B0T(36,0);
 
@@ -1147,22 +1147,26 @@ FiniteElement::assemble()
     int cpt = 0;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
     {
-        std::vector<double> shapecoeff = this->shapeCoeff(*it,M_mesh);
+#if 0
+        //chrono.restart();
+        //std::vector<double> shapecoeff = this->shapeCoeff(*it,M_mesh);
+        // if (cpt==0)
+        //     std::cout<<"SHAPECOEFF elapsed in "<< chrono.elapsed() <<"s\n";
 
         for (int i=0; i<18; ++i)
         {
             if (i < 3)
             {
-                B0T[2*i] = shapecoeff[i];
-                B0T[12+2*i] = shapecoeff[i+3];
-                B0T[13+2*i] = shapecoeff[i];
+                B0T[2*i] = M_shape_coeff[cpt][i];
+                B0T[12+2*i] = M_shape_coeff[cpt][i+3];
+                B0T[13+2*i] = M_shape_coeff[cpt][i];
             }
             else if (i < 6)
             {
-                B0T[2*i+1] = shapecoeff[i];
+                B0T[2*i+1] = M_shape_coeff[cpt][i];
             }
         }
-
+#endif
         //std::cout<<"\n";
         // if (cpt == 0)
         //     for (int i=0; i<3; ++i)
@@ -1195,8 +1199,8 @@ FiniteElement::assemble()
         for(int i=0; i<3; i++)
         {
             g_ssh_e = (vm["simul.gravity"].as<double>())*M_ssh[it->indices[i]-1] /*g_ssh*/;   /* g*ssh at the node k of the element e */
-            g_ssh_e_x += shapecoeff[i]*g_ssh_e; /* x derivative of g*ssh */
-            g_ssh_e_y += shapecoeff[i+3]*g_ssh_e; /* y derivative of g*ssh */
+            g_ssh_e_x += M_shape_coeff[cpt][i]*g_ssh_e; /* x derivative of g*ssh */
+            g_ssh_e_y += M_shape_coeff[cpt][i+3]*g_ssh_e; /* y derivative of g*ssh */
         }
 
         coef_C     = mass_e*M_fcor[cpt];              /* for the Coriolis term */
@@ -1218,7 +1222,7 @@ FiniteElement::assemble()
             std::cout<<"coef_Voce = "<< coef_Voce <<"\n";
             std::cout<<"coef_basal= "<< coef_basal <<"\n";
         }
-
+#if 0
         for(int j=0; j<3; j++)
         {
 
@@ -1242,11 +1246,11 @@ FiniteElement::assemble()
 
                 for(int kk=0; kk<3; kk++)
                 {
-                    B0Tj_Dunit_tmp0 += B0T[kk*6+2*j]*M_Dunit[3*i+kk];
-                    B0Tj_Dunit_tmp1 += B0T[kk*6+2*j+1]*M_Dunit[3*i+kk];
+                    B0Tj_Dunit_tmp0 += M_B0T[cpt][kk*6+2*j]*M_Dunit[3*i+kk];
+                    B0Tj_Dunit_tmp1 += M_B0T[cpt][kk*6+2*j+1]*M_Dunit[3*i+kk];
 
-                    B0Tj_Dunit_comp_tmp0 += B0T[kk*6+2*j]*M_Dunit_comp[3*i+kk];
-                    B0Tj_Dunit_comp_tmp1 += B0T[kk*6+2*j+1]*M_Dunit_comp[3*i+kk];
+                    B0Tj_Dunit_comp_tmp0 += M_B0T[cpt][kk*6+2*j]*M_Dunit_comp[3*i+kk];
+                    B0Tj_Dunit_comp_tmp1 += M_B0T[cpt][kk*6+2*j+1]*M_Dunit_comp[3*i+kk];
                 }
 
                 B0Tj_Dunit[2*i] = B0Tj_Dunit_tmp0;
@@ -1273,15 +1277,15 @@ FiniteElement::assemble()
 
                 for(int kk=0; kk<3; kk++)
                 {
-                    B0Tj_Dunit_B0Ti_tmp0 += B0Tj_Dunit[2*kk]*B0T[kk*6+2*i];
-                    B0Tj_Dunit_B0Ti_tmp1 += B0Tj_Dunit[2*kk]*B0T[kk*6+2*i+1];
-                    B0Tj_Dunit_B0Ti_tmp2 += B0Tj_Dunit[2*kk+1]*B0T[kk*6+2*i];
-                    B0Tj_Dunit_B0Ti_tmp3 += B0Tj_Dunit[2*kk+1]*B0T[kk*6+2*i+1];
+                    B0Tj_Dunit_B0Ti_tmp0 += B0Tj_Dunit[2*kk]*M_B0T[cpt][kk*6+2*i];
+                    B0Tj_Dunit_B0Ti_tmp1 += B0Tj_Dunit[2*kk]*M_B0T[cpt][kk*6+2*i+1];
+                    B0Tj_Dunit_B0Ti_tmp2 += B0Tj_Dunit[2*kk+1]*M_B0T[cpt][kk*6+2*i];
+                    B0Tj_Dunit_B0Ti_tmp3 += B0Tj_Dunit[2*kk+1]*M_B0T[cpt][kk*6+2*i+1];
 
-                    B0Tj_Dunit_comp_B0Ti_tmp0 += B0Tj_Dunit_comp[2*kk]*B0T[kk*6+2*i];
-                    B0Tj_Dunit_comp_B0Ti_tmp1 += B0Tj_Dunit_comp[2*kk]*B0T[kk*6+2*i+1];
-                    B0Tj_Dunit_comp_B0Ti_tmp2 += B0Tj_Dunit_comp[2*kk+1]*B0T[kk*6+2*i];
-                    B0Tj_Dunit_comp_B0Ti_tmp3 += B0Tj_Dunit_comp[2*kk+1]*B0T[kk*6+2*i+1];
+                    B0Tj_Dunit_comp_B0Ti_tmp0 += B0Tj_Dunit_comp[2*kk]*M_B0T[cpt][kk*6+2*i];
+                    B0Tj_Dunit_comp_B0Ti_tmp1 += B0Tj_Dunit_comp[2*kk]*M_B0T[cpt][kk*6+2*i+1];
+                    B0Tj_Dunit_comp_B0Ti_tmp2 += B0Tj_Dunit_comp[2*kk+1]*M_B0T[cpt][kk*6+2*i];
+                    B0Tj_Dunit_comp_B0Ti_tmp3 += B0Tj_Dunit_comp[2*kk+1]*M_B0T[cpt][kk*6+2*i+1];
                 }
 
                 B0T_Dunit_B0T[(2*i)*6+2*j] = B0Tj_Dunit_B0Ti_tmp0;
@@ -1309,7 +1313,7 @@ FiniteElement::assemble()
                 B0T_Dunit_comp_B0T[i*6+j] = B0T_Dunit_comp_B0T[j*6+i];
             }
         }
-
+#endif
         /* Loop over the 6 by 6 components of the finite element intergrale
          * this is done smartly by looping over j=0:2 and i=0:2
          * col = (mwIndex)it[2*j]-1  , row = (mwIndex)it[2*i]-1;
@@ -1337,15 +1341,15 @@ FiniteElement::assemble()
                 /* Row corresponding to indice i (we also assemble terms in row+1) */
                 //row = (mwIndex)it[2*i]-1; /* -1 to use the indice convention of C */
 
-                B0Tj_Dunit_B0Ti[0] = B0T_Dunit_B0T[(2*i)*6+2*j];
-                B0Tj_Dunit_B0Ti[1] = B0T_Dunit_B0T[(2*i+1)*6+2*j];
-                B0Tj_Dunit_B0Ti[2] = B0T_Dunit_B0T[(2*i)*6+2*j+1];
-                B0Tj_Dunit_B0Ti[3] = B0T_Dunit_B0T[(2*i+1)*6+2*j+1];
+                B0Tj_Dunit_B0Ti[0] = M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j];
+                B0Tj_Dunit_B0Ti[1] = M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j];
+                B0Tj_Dunit_B0Ti[2] = M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j+1];
+                B0Tj_Dunit_B0Ti[3] = M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j+1];
 
-                B0Tj_Dunit_comp_B0Ti[0] = B0T_Dunit_comp_B0T[(2*i)*6+2*j];
-                B0Tj_Dunit_comp_B0Ti[1] = B0T_Dunit_comp_B0T[(2*i+1)*6+2*j];
-                B0Tj_Dunit_comp_B0Ti[2] = B0T_Dunit_comp_B0T[(2*i)*6+2*j+1];
-                B0Tj_Dunit_comp_B0Ti[3] = B0T_Dunit_comp_B0T[(2*i+1)*6+2*j+1];
+                B0Tj_Dunit_comp_B0Ti[0] = M_B0T_Dunit_comp_B0T[cpt][(2*i)*6+2*j];
+                B0Tj_Dunit_comp_B0Ti[1] = M_B0T_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j];
+                B0Tj_Dunit_comp_B0Ti[2] = M_B0T_Dunit_comp_B0T[cpt][(2*i)*6+2*j+1];
+                B0Tj_Dunit_comp_B0Ti[3] = M_B0T_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j+1];
 
                 /* Select the nodal weight values from M_loc */
                 mloc = M_Mass[3*j+i];
@@ -1355,8 +1359,8 @@ FiniteElement::assemble()
 
                 for(int k=0; k<3; k++)
                 {
-                    B0Tj_sigma_h[0] += B0T[k*6+2*i]*(M_sigma[3*cpt+k]*M_thick[k]+sigma_P[k]);
-                    B0Tj_sigma_h[1] += B0T[k*6+2*i+1]*(M_sigma[3*cpt+k]*M_thick[k]+sigma_P[k]);
+                    B0Tj_sigma_h[0] += M_B0T[cpt][k*6+2*i]*(M_sigma[3*cpt+k]*M_thick[k]+sigma_P[k]);
+                    B0Tj_sigma_h[1] += M_B0T[cpt][k*6+2*i+1]*(M_sigma[3*cpt+k]*M_thick[k]+sigma_P[k]);
                 }
 
                 /* ---------- UU component */
@@ -1371,7 +1375,7 @@ FiniteElement::assemble()
                 /* ---------- VV component */
                 dvv = surface_e*( mloc*(coef_Vair+coef_Voce*std::cos(ocean_turning_angle_rad)+coef_V+coef_basal)+B0Tj_Dunit_B0Ti[3]*coef*time_step+B0Tj_Dunit_comp_B0Ti[3]*coef_P);
 
-                // if (cpt ==1)
+                // if (cpt == 1)
                 // {
                 //     std::cout<<"duu= "<< duu <<"\n";
                 //     std::cout<<"dvu= "<< dvu <<"\n";
@@ -1484,11 +1488,12 @@ FiniteElement::tensors()
         //std::cout<<"\n";
     }
 
-#if 0
+#if 1
 
     M_B0T.resize(M_num_elements);
     M_B0T_Dunit_B0T.resize(M_num_elements);
     M_B0T_Dunit_comp_B0T.resize(M_num_elements);
+    M_shape_coeff.resize(M_num_elements);
 
     std::vector<double> B0T(18,0);
     std::vector<double> B0Tj_Dunit(6,0);
@@ -1622,6 +1627,7 @@ FiniteElement::tensors()
             }
         }
 
+        M_shape_coeff[cpt]        = shapecoeff;
         M_B0T[cpt]                = B0T;
         M_B0T_Dunit_B0T[cpt]      = B0T_Dunit_B0T;
         M_B0T_Dunit_comp_B0T[cpt] = B0T_Dunit_comp_B0T;
@@ -1711,6 +1717,7 @@ FiniteElement::update()
     int cpt = 0;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
     {
+#if 0
         std::vector<double> shapecoeff = this->shapeCoeff(*it,M_mesh);
 
         for (int i=0; i<18; ++i)
@@ -1726,6 +1733,7 @@ FiniteElement::update()
                 B0T[2*i+1] = shapecoeff[i];
             }
         }
+#endif
 
         /*======================================================================
          * Diagnostic:
@@ -1741,8 +1749,8 @@ FiniteElement::update()
             {
                 /* deformation */
                 //col = (mwIndex)it[j]-1;
-                epsilon_veloc_i += B0T[i*6 + 2*j]*M_VT[it->indices[j]-1]  ;
-                epsilon_veloc_i += B0T[i*6 + 2*j + 1]*M_VT[it->indices[j]-1+M_num_nodes]  ;
+                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j]*M_VT[it->indices[j]-1]  ;
+                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j + 1]*M_VT[it->indices[j]-1+M_num_nodes]  ;
             }
 
             epsilon_veloc[i] = epsilon_veloc_i;
@@ -2011,7 +2019,7 @@ FiniteElement::update()
 void
 FiniteElement::solve()
 {
-    SolverPetsc ksp;
+    //SolverPetsc ksp;
     chrono.restart();
     //ksp.solve(M_matrix, M_solution, M_vector);
     M_solver->solve(_matrix=M_matrix,
@@ -2025,6 +2033,7 @@ FiniteElement::solve()
                     );
 
     std::cout<<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";
+
     //M_solution->printMatlab("solution.m");
 
     Environment::logMemoryUsage("");
@@ -2476,8 +2485,8 @@ FiniteElement::loadAsrWind()//(double const& u, double const& v)
     double time_start = std::floor(current_time*nb_timestep_day)/nb_timestep_day;
     double time_end = std::ceil(current_time*nb_timestep_day)/nb_timestep_day;
 
-    std::cout<<"TIME START= "<< std::setprecision(9) << time_start <<"\n";
-    std::cout<<"TIME END  = "<< std::setprecision(9) << time_end <<"\n";
+    // std::cout<<"TIME START= "<< std::setprecision(9) << time_start <<"\n";
+    // std::cout<<"TIME END  = "<< std::setprecision(9) << time_end <<"\n";
 
     // We always need at least two time steps to interpolate between
     if (time_end == time_start)
@@ -2828,7 +2837,7 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
     // }
 
     int nb_forcing_step = M_ftime_ocean_range.size();
-    std::cout<<"NB_FORCING_STEP= "<< nb_forcing_step <<"\n";
+    //std::cout<<"NB_FORCING_STEP= "<< nb_forcing_step <<"\n";
 
  #if 0
     // read in re-analysis coordinates
@@ -3349,11 +3358,13 @@ FiniteElement::topazConc()
     index_fhice_end[1] = 1101;
     index_fhice_end[2] = 761;
 
+ #if 0
     std::cout<<"NETCDF INFO: "<<dataFile.getVarCount()<<" variables\n";
     std::cout<<"NETCDF INFO: "<<dataFile.getAttCount()<<" attributes\n";
     std::cout<<"NETCDF INFO: "<<dataFile.getDimCount()<<" dimensions\n";
     std::cout<<"NETCDF INFO: "<<dataFile.getGroupCount()<<" groups\n";
     std::cout<<"NETCDF INFO: "<<dataFile.getTypeCount()<<" types\n";
+#endif
 
     // void* data_void[1101*761];
     // VFICE.getVar(index_fhice_start,index_fhice_end,data_void);
@@ -3536,14 +3547,14 @@ FiniteElement::topazConc()
     //int interp_type = BilinearInterpEnum;
     int interp_type = NearestInterpEnum;
 
-    std::vector<double> data_out_fice_tmp;
-    std::vector<double> data_out_hice_tmp;
-    std::vector<double> data_out_snow_tmp;
+    // std::vector<double> data_out_fice_tmp;
+    // std::vector<double> data_out_hice_tmp;
+    // std::vector<double> data_out_snow_tmp;
 
     if (M_conc_type == setup::ConcentrationType::TOPAZ4)
     {
         double* data_out_fice;
-        data_out_fice_tmp.resize(M_num_elements);
+        //data_out_fice_tmp.resize(M_num_elements);
 
         // InterpFromGridToMeshx(data_out_fice, &X[0], X.size(), &Y[0], Y.size(), &data_in_fice[0], Y.size(), X.size(),
         //                       &RX[0], &RY[0], M_mesh.numTriangles(), 1.0, interp_type);
@@ -3559,7 +3570,7 @@ FiniteElement::topazConc()
 
         for (int i=0; i<M_num_elements; ++i)
         {
-            data_out_fice_tmp[i] = data_out_fice[i];
+            //data_out_fice_tmp[i] = data_out_fice[i];
             M_conc[i] = data_out_fice[i];
             //std::cout<<"MCONC["<< i <<"]= "<< M_conc[i] <<"\n";
         }
@@ -3568,7 +3579,7 @@ FiniteElement::topazConc()
     if (M_thick_type == setup::ThicknessType::TOPAZ4)
     {
         double* data_out_hice;
-        data_out_hice_tmp.resize(M_num_elements);
+        //data_out_hice_tmp.resize(M_num_elements);
 
         // InterpFromGridToMeshx(data_out_hice, &X[0], X.size(), &Y[0], Y.size(), &data_in_hice[0], Y.size(), X.size(),
         //                       &RX[0], &RY[0], M_mesh.numTriangles(), 1.0, interp_type);
@@ -3584,7 +3595,7 @@ FiniteElement::topazConc()
 
         for (int i=0; i<M_num_elements; ++i)
         {
-            data_out_hice_tmp[i] = data_out_hice[i];
+            //data_out_hice_tmp[i] = data_out_hice[i];
             M_thick[i] = data_out_hice[i];
 
             //std::cout<<"MTHICKC["<< i <<"]= "<< M_thick[i] <<"\n";
@@ -3594,7 +3605,7 @@ FiniteElement::topazConc()
     if (M_snow_thick_type == setup::SnowThicknessType::TOPAZ4)
     {
         double* data_out_snow;
-        data_out_snow_tmp.resize(M_num_elements);
+        //data_out_snow_tmp.resize(M_num_elements);
 
         // InterpFromGridToMeshx(data_out_hice, &X[0], X.size(), &Y[0], Y.size(), &data_in_hice[0], Y.size(), X.size(),
         //                       &RX[0], &RY[0], M_num_elements, 1.0, interp_type);
@@ -3610,15 +3621,16 @@ FiniteElement::topazConc()
 
         for (int i=0; i<M_num_elements; ++i)
         {
-            data_out_snow_tmp[i] = data_out_snow[i];
+            //data_out_snow_tmp[i] = data_out_snow[i];
             M_snow_thick[i] = data_out_snow[i];
 
             //std::cout<<"MTHICKC["<< i <<"]= "<< M_snow_thick[i] <<"\n";
         }
     }
 
-#if 1
-    if (M_conc_type == setup::ConcentrationType::TOPAZ4)
+
+#if 0
+    if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
     {
         std::cout<<"MIN DATA_OUT FICE= "<< *std::min_element(data_out_fice_tmp.begin(),data_out_fice_tmp.end()) <<"\n";
         std::cout<<"MAX DATA_OUT FICE= "<< *std::max_element(data_out_fice_tmp.begin(),data_out_fice_tmp.end()) <<"\n";
