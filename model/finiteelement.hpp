@@ -194,9 +194,10 @@ private:
     std::vector<double> M_Dunit;
     std::vector<double> M_Dunit_comp;
     std::vector<double> M_Mass;
-    // std::vector<std::vector<double>> M_B0T;
-    // std::vector<std::vector<double>> M_B0T_Dunit_B0T;
-    // std::vector<std::vector<double>> M_B0T_Dunit_comp_B0T;
+    std::vector<std::vector<double>> M_shape_coeff;
+    std::vector<std::vector<double>> M_B0T;
+    std::vector<std::vector<double>> M_B0T_Dunit_B0T;
+    std::vector<std::vector<double>> M_B0T_Dunit_comp_B0T;
     std::vector<double> M_random_number;
     std::vector<double> M_Cohesion;
     std::vector<double> M_Compressive_strength;
@@ -248,6 +249,7 @@ private:
     double current_time;
     bool M_reuse_prec;
     bool M_regrid;
+    int M_cpt;
 
 private:
 
