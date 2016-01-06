@@ -37,7 +37,9 @@ FiniteElement::init()
         ("bigarctic10km.msh", setup::DomainType::BIGARCTIC)
         ("topazreducedsplit2.msh", setup::DomainType::DEFAULT)
         ("topazreducedsplit4.msh", setup::DomainType::DEFAULT)
-        ("topazreducedsplit8.msh", setup::DomainType::DEFAULT);
+        ("topazreducedsplit8.msh", setup::DomainType::DEFAULT)
+        ("simplesquaresplit2.msh", setup::DomainType::DEFAULT);
+        
 
     M_domain_type = str2domain.find(M_mesh_filename)->second;
 
@@ -45,7 +47,8 @@ FiniteElement::init()
         ("bigarctic10km.msh", setup::MeshType::FROM_GMSH)
         ("topazreducedsplit2.msh", setup::MeshType::FROM_SPLIT)
         ("topazreducedsplit4.msh", setup::MeshType::FROM_SPLIT)
-        ("topazreducedsplit8.msh", setup::MeshType::FROM_SPLIT);
+        ("topazreducedsplit8.msh", setup::MeshType::FROM_SPLIT)
+        ("simplesquaresplit2.msh", setup::MeshType::FROM_SPLIT);
 
     M_mesh_type = str2mesh.find(M_mesh_filename)->second;
 
@@ -115,27 +118,33 @@ FiniteElement::init()
 
     // Definition of the hmin, hmax, hminVertices or hmaxVertices
     auto h = this->minMaxSide(M_mesh);
+
+    std::cout<<"MESH: HMIN= "<< h[0] <<"\n";
+    std::cout<<"MESH: HMAX= "<< h[1] <<"\n";
+    std::cout<<"MESH: RES = "<< this->resolution(M_mesh) <<"\n";
+
     switch (M_mesh_type)
     {
         case setup::MeshType::FROM_GMSH:
             // For the other meshes, we use a constant hmin and hmax
             bamgopt->hmin = h[0];
             bamgopt->hmax = h[1];
-
-            std::cout<<"MESH: HMIN= "<< h[0] <<"\n";
-            std::cout<<"MESH: HMAX= "<< h[1] <<"\n";
-            std::cout<<"MESH: RES = "<< this->resolution(M_mesh) <<"\n";
             break;
-
         case setup::MeshType::FROM_SPLIT:
             bamgopt->hmin = h[0];
             bamgopt->hmax = h[1];
 
-            std::cout<<"MESH: HMIN= "<< h[0] <<"\n";
-            std::cout<<"MESH: HMAX= "<< h[1] <<"\n";
-            std::cout<<"MESH: RES = "<< this->resolution(M_mesh) <<"\n";
+            M_hminVertices = this->hminVertices(M_mesh_init, bamgmesh);
+            M_hmaxVertices = this->hmaxVertices(M_mesh_init, bamgmesh);
+        
+            bamgopt->hminVertices = new double[M_mesh_init.numNodes()];
+            bamgopt->hmaxVertices = new double[M_mesh_init.numNodes()];
+            for (int i=0; i<M_mesh_init.numNodes(); ++i)
+            {
+                bamgopt->hminVertices[i] = M_hminVertices[i];
+                bamgopt->hmaxVertices[i] = M_hmaxVertices[i];
+            }
             break;
-
         default:
             std::cout << "invalid mesh type"<<"\n";
             throw std::logic_error("invalid mesh type");
@@ -207,7 +216,11 @@ FiniteElement::initSimulation()
     M_wind.resize(2*M_num_nodes);
     M_ocean.resize(2*M_num_nodes);
     M_thermo.resize(2*M_num_nodes);
-    M_bathy_depth.resize(M_mesh_init.numTriangles(),200.);
+
+    M_bathy_depth.resize(M_mesh_init.numNodes(),200.);
+
+    M_hminVertices.resize(M_mesh_init.numNodes(),1e-100);
+    M_hmaxVertices.resize(M_mesh_init.numNodes(),1e100);
 
     M_vair.resize(2);
     M_voce.resize(2);
@@ -660,30 +673,7 @@ FiniteElement::regrid(bool step)
 
         M_mesh.move(M_UM,displacement_factor);
 
-#if 0
-        chrono.restart();
-        InterpFromMeshToMesh2dx(&hmin_vertices,
-                                &M_mesh_init.indexTr()[0],&M_mesh_init.coordX()[0],&M_mesh_init.coordY()[0],
-                                M_mesh_init.numNodes(),M_mesh_init.numTriangles(),
-                                bamgopt->hminVertices,
-                                M_mesh_init.numNodes(),1,
-                                &M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
-                                false);
-
-        InterpFromMeshToMesh2dx(&hmax_vertices,
-                                &M_mesh_init.indexTr()[0],&M_mesh_init.coordX()[0],&M_mesh_init.coordY()[0],
-                                M_mesh_init.numNodes(),M_mesh_init.numTriangles(),
-                                bamgopt->hmaxVertices,
-                                M_mesh_init.numNodes(),1,
-                                &M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
-                                false);
-
-        std::cout<<"TIMER INTERPOLATION= " << chrono.elapsed() <<"s\n";
-
-#endif
-
-        //auto hminVertices = this->hminVertices(M_mesh_init, bamgmesh);
-        //auto hmaxVertices = this->hmaxVertices(M_mesh_init, bamgmesh);
+        
 
 #if 0
         cout << "\n";
@@ -730,93 +720,54 @@ FiniteElement::regrid(bool step)
                      );
 #endif
 
-    *bamgmesh_previous = *bamgmesh;
-    *bamggeom_previous = *bamggeom;
 
-    int fnd = 0;
-    //int snd = 0;
-
-#if 1
-    for (int edg=0; edg<bamgmesh_previous->EdgesSize[0]; ++edg)
+    if(M_mesh_type==setup::MeshType::FROM_SPLIT)
     {
-        fnd = bamgmesh_previous->Edges[3*edg]-1;
-        //snd = bamgmesh_previous->Edges[3*edg+1]-1;
-
-        // if ((std::binary_search(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),fnd))
-        //     || (std::binary_search(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),snd)))
-        if ((std::binary_search(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),fnd)))
+        if(step==0)
         {
-            bamggeom_previous->Edges[3*edg+2] = M_flag_fix;
-            bamgmesh_previous->Edges[3*edg+2] = M_flag_fix;
+            // step 1 (only for the first time step): Start by having bamg 'clean' the mesh with KeepVertices=0
+            bamgopt->KeepVertices=0;
+            this->adapt_mesh();
+            bamgopt->KeepVertices=1;
         }
-    }
 
-    // for (const int& edg : M_dirichlet_flags)
-    // {
-    //     std::cout<<"BEFORE["<< edg << "]= ("<< M_mesh.coordX()[edg] <<","<< M_mesh.coordY()[edg] <<")\n";
-    // }
+        // Interpolate hminVertices and hmaxVertices onto the current mesh
+        chrono.restart();
 
-    //std::sort(vec.begin(), vec.end());
-    // for (int i=0; i<vec.size(); ++i)
-    // {
-    //     //std::cout<<"VEC["<< i <<"]= "<< vec[i] <<"\n";
-    //     //std::cout<<"INIT["<< vec[i] << "]= ("<< M_mesh.coordX()[vec[i]] <<","<< M_mesh.coordY()[vec[i]] <<")\n";
-    // }
-#endif
+        // NODAL INTERPOLATION
+        int init_num_nodes = M_mesh_init.numNodes();
+        double* interp_Vertices_in;
+        interp_Vertices_in = new double[2*init_num_nodes];
 
-    *bamgopt_previous = *bamgopt;
-    Bamgx(bamgmesh,bamggeom,bamgmesh_previous,bamggeom_previous,bamgopt_previous);
-    this->importBamg(bamgmesh);
+        double* interp_Vertices_out;
 
-    // update dirichlet nodes
-    M_boundary_flags.resize(0);
-    M_dirichlet_flags.resize(0);
-    for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
-    {
-        M_boundary_flags.push_back(bamgmesh->Edges[3*edg]-1);
-        //M_boundary_flags.push_back(bamgmesh->Edges[3*edg+1]-1);
-
-        if (bamgmesh->Edges[3*edg+2] == M_flag_fix)
+        for (int i=0; i<init_num_nodes; ++i)
         {
-            M_dirichlet_flags.push_back(bamgmesh->Edges[3*edg]-1);
-            //M_dirichlet_flags.push_back(bamgmesh->Edges[3*edg+1]-1);
-
-            //std::cout<<"NODES["<< edg <<"]= "<< bamgmesh->Edges[3*edg]-1 << " and "<< bamgmesh->Edges[3*edg+1]-1 <<"\n";
+            interp_Vertices_in[2*i]   = M_hminVertices[i];
+            interp_Vertices_in[2*i+1] = M_hmaxVertices[i];
         }
+
+        InterpFromMeshToMesh2dx(&interp_Vertices_out,
+                            &M_mesh_init.indexTr()[0],&M_mesh_init.coordX()[0],&M_mesh_init.coordY()[0],
+                            M_mesh_init.numNodes(),M_mesh_init.numTriangles(),
+                            interp_Vertices_in,
+                            M_mesh_init.numNodes(),2,
+                            &M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
+                            false);
+
+        bamgopt->hminVertices = new double[M_mesh.numNodes()];
+        bamgopt->hmaxVertices = new double[M_mesh.numNodes()];
+
+        for (int i=0; i<M_mesh.numNodes(); ++i)
+        {
+            bamgopt->hminVertices[i] = interp_Vertices_out[2*i];
+            bamgopt->hmaxVertices[i] = interp_Vertices_out[2*i+1];
+        }
+
+        std::cout<<"TIMER INTERPOLATION = hminVertices, hmaxVertices" << chrono.elapsed() <<"s\n";
     }
 
-    std::sort(M_dirichlet_flags.begin(), M_dirichlet_flags.end());
-    //M_dirichlet_flags.erase( std::unique(M_dirichlet_flags.begin(), M_dirichlet_flags.end() ), M_dirichlet_flags.end());
-
-    std::sort(M_boundary_flags.begin(), M_boundary_flags.end());
-    //std::cout<<"Boundary size 1= "<< M_boundary_flags.size() <<"\n";
-    //M_boundary_flags.erase(std::unique(M_boundary_flags.begin(), M_boundary_flags.end() ), M_boundary_flags.end());
-    //std::cout<<"Boundary size 2= "<< M_boundary_flags.size() <<"\n";
-
-    M_neumann_flags.resize(0);
-    std::set_difference(M_boundary_flags.begin(), M_boundary_flags.end(),
-                        M_dirichlet_flags.begin(), M_dirichlet_flags.end(),
-                        std::back_inserter(M_neumann_flags));
-
-    // for (const int& edg : M_dirichlet_flags)
-    // {
-    //     std::cout<<"AFTER["<< edg << "]= ("<< M_mesh.coordX()[edg] <<","<< M_mesh.coordY()[edg] <<")\n";
-    // }
-
-    M_dirichlet_nodes.resize(2*(M_dirichlet_flags.size()));
-    for (int i=0; i<M_dirichlet_flags.size(); ++i)
-    {
-        M_dirichlet_nodes[2*i] = M_dirichlet_flags[i];
-        M_dirichlet_nodes[2*i+1] = M_dirichlet_flags[i]+M_num_nodes;
-    }
-
-
-    M_neumann_nodes.resize(2*(M_neumann_flags.size()));
-    for (int i=0; i<M_neumann_flags.size(); ++i)
-    {
-        M_neumann_nodes[2*i] = M_neumann_flags[i];
-        M_neumann_nodes[2*i+1] = M_neumann_flags[i]+M_num_nodes;
-    }
+    this->adapt_mesh();
 
     if (step)
     {
@@ -1053,6 +1004,100 @@ FiniteElement::regrid(bool step)
 
     M_Cohesion.resize(M_num_elements);
     M_Compressive_strength.resize(M_num_elements);
+}
+
+void
+FiniteElement::adapt_mesh()
+{
+    *bamgmesh_previous = *bamgmesh;
+    *bamggeom_previous = *bamggeom;
+    *bamgopt_previous = *bamgopt;
+
+
+    int fnd = 0;
+    //int snd = 0;
+
+#if 1
+    for (int edg=0; edg<bamgmesh_previous->EdgesSize[0]; ++edg)
+    {
+        fnd = bamgmesh_previous->Edges[3*edg]-1;
+        //snd = bamgmesh_previous->Edges[3*edg+1]-1;
+
+        // if ((std::binary_search(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),fnd))
+        //     || (std::binary_search(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),snd)))
+        if ((std::binary_search(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),fnd)))
+        {
+            bamggeom_previous->Edges[3*edg+2] = M_flag_fix;
+            bamgmesh_previous->Edges[3*edg+2] = M_flag_fix;
+        }
+    }
+
+    // for (const int& edg : M_dirichlet_flags)
+    // {
+    //     std::cout<<"BEFORE["<< edg << "]= ("<< M_mesh.coordX()[edg] <<","<< M_mesh.coordY()[edg] <<")\n";
+    // }
+
+    //std::sort(vec.begin(), vec.end());
+    // for (int i=0; i<vec.size(); ++i)
+    // {
+    //     //std::cout<<"VEC["<< i <<"]= "<< vec[i] <<"\n";
+    //     //std::cout<<"INIT["<< vec[i] << "]= ("<< M_mesh.coordX()[vec[i]] <<","<< M_mesh.coordY()[vec[i]] <<")\n";
+    // }
+#endif
+
+
+    Bamgx(bamgmesh,bamggeom,bamgmesh_previous,bamggeom_previous,bamgopt_previous);
+    this->importBamg(bamgmesh);
+
+    // update dirichlet nodes
+    M_boundary_flags.resize(0);
+    M_dirichlet_flags.resize(0);
+    for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
+    {
+        M_boundary_flags.push_back(bamgmesh->Edges[3*edg]-1);
+        //M_boundary_flags.push_back(bamgmesh->Edges[3*edg+1]-1);
+
+        if (bamgmesh->Edges[3*edg+2] == M_flag_fix)
+        {
+            M_dirichlet_flags.push_back(bamgmesh->Edges[3*edg]-1);
+            //M_dirichlet_flags.push_back(bamgmesh->Edges[3*edg+1]-1);
+
+            //std::cout<<"NODES["<< edg <<"]= "<< bamgmesh->Edges[3*edg]-1 << " and "<< bamgmesh->Edges[3*edg+1]-1 <<"\n";
+        }
+    }
+
+    std::sort(M_dirichlet_flags.begin(), M_dirichlet_flags.end());
+    //M_dirichlet_flags.erase( std::unique(M_dirichlet_flags.begin(), M_dirichlet_flags.end() ), M_dirichlet_flags.end());
+
+    std::sort(M_boundary_flags.begin(), M_boundary_flags.end());
+    //std::cout<<"Boundary size 1= "<< M_boundary_flags.size() <<"\n";
+    //M_boundary_flags.erase(std::unique(M_boundary_flags.begin(), M_boundary_flags.end() ), M_boundary_flags.end());
+    //std::cout<<"Boundary size 2= "<< M_boundary_flags.size() <<"\n";
+
+    M_neumann_flags.resize(0);
+    std::set_difference(M_boundary_flags.begin(), M_boundary_flags.end(),
+                        M_dirichlet_flags.begin(), M_dirichlet_flags.end(),
+                        std::back_inserter(M_neumann_flags));
+
+    // for (const int& edg : M_dirichlet_flags)
+    // {
+    //     std::cout<<"AFTER["<< edg << "]= ("<< M_mesh.coordX()[edg] <<","<< M_mesh.coordY()[edg] <<")\n";
+    // }
+
+    M_dirichlet_nodes.resize(2*(M_dirichlet_flags.size()));
+    for (int i=0; i<M_dirichlet_flags.size(); ++i)
+    {
+        M_dirichlet_nodes[2*i] = M_dirichlet_flags[i];
+        M_dirichlet_nodes[2*i+1] = M_dirichlet_flags[i]+M_num_nodes;
+    }
+
+
+    M_neumann_nodes.resize(2*(M_neumann_flags.size()));
+    for (int i=0; i<M_neumann_flags.size(); ++i)
+    {
+        M_neumann_nodes[2*i] = M_neumann_flags[i];
+        M_neumann_nodes[2*i+1] = M_neumann_flags[i]+M_num_nodes;
+    }
 }
 
 void
@@ -2061,9 +2106,13 @@ FiniteElement::run()
 
         if ((pcpt==0) || (M_regrid))
         {
+            std::cout<<"forcingThermo starts\n";
             this->forcingThermo(0.,0.);
+            std::cout<<"bathymetry starts\n";
             this->bathymetry();
+            std::cout<<"tensors starts\n";
             this->tensors();
+            std::cout<<"cohesion starts\n";
             this->cohesion();
         }
 
@@ -3504,7 +3553,7 @@ FiniteElement::topazConc()
                                 reduced_FX.size(),pfnels,
                                 &reduced_data_in_fice[0],
                                 reduced_FX.size(),1,
-                                &RX[0], &RY[0], M_mesh.numTriangles(),
+                                &RX[0], &RY[0], M_num_elements,
                                 false /*options*/);
 
 
@@ -3529,7 +3578,7 @@ FiniteElement::topazConc()
                                 reduced_HX.size(),phnels,
                                 &reduced_data_in_hice[0],
                                 reduced_HX.size(),1,
-                                &RX[0], &RY[0], M_mesh.numTriangles(),
+                                &RX[0], &RY[0], M_num_elements,
                                 false /*options*/);
 
 
@@ -3548,14 +3597,14 @@ FiniteElement::topazConc()
         data_out_snow_tmp.resize(M_num_elements);
 
         // InterpFromGridToMeshx(data_out_hice, &X[0], X.size(), &Y[0], Y.size(), &data_in_hice[0], Y.size(), X.size(),
-        //                       &RX[0], &RY[0], M_mesh.numTriangles(), 1.0, interp_type);
+        //                       &RX[0], &RY[0], M_num_elements, 1.0, interp_type);
 
         InterpFromMeshToMesh2dx(&data_out_snow,
                                 psindex,&reduced_SX[0],&reduced_SY[0],
                                 reduced_SX.size(),psnels,
                                 &reduced_data_in_snow[0],
                                 reduced_SX.size(),1,
-                                &RX[0], &RY[0], M_mesh.numTriangles(),
+                                &RX[0], &RY[0], M_num_elements,
                                 false /*options*/);
 
 
@@ -3718,25 +3767,17 @@ FiniteElement::bathymetry()
     {
         double* depth_out;
 
-        // InterpFromMeshToMesh2dx(&depth_out,
-        //                         &M_mesh_init.indexTr()[0],&M_mesh_init.coordX()[0],&M_mesh_init.coordY()[0],
-        //                         M_mesh_init.numNodes(),M_mesh_init.numTriangles(),
-        //                         &M_bathy_depth[0],
-        //                         M_mesh_init.numNodes(),1,
-        //                         &M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
-        //                         false);
-
         InterpFromMeshToMesh2dx(&depth_out,
                                 &M_mesh_init.indexTr()[0],&M_mesh_init.coordX()[0],&M_mesh_init.coordY()[0],
                                 M_mesh_init.numNodes(),M_mesh_init.numTriangles(),
                                 &M_bathy_depth[0],
-                                M_mesh_init.numTriangles(),1,
-                                &M_mesh.bCoordX()[0],&M_mesh.bCoordY()[0],M_mesh.numTriangles(),
+                                M_mesh_init.numNodes(),1,
+                                &M_mesh.bCoordX()[0],&M_mesh.bCoordY()[0],M_num_elements,
                                 false);
 
         M_element_depth.resize(M_num_elements,0.);
 
-        for (int i=0; i<M_element_depth.size(); ++i)
+        for (int i=0; i<M_num_elements; ++i)
         {
             M_element_depth[i] = depth_out[i];
             //std::cout<<"DEPTH["<< i <<"]= "<< M_element_depth[i] <<"\n";

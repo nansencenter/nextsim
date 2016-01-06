@@ -76,6 +76,7 @@ public:
                    std::vector<double> const& um, double factor = 1.) const;
     std::vector<double> shapeCoeff(element_type const& element, mesh_type const& mesh) const;
     void regrid(bool step = true);
+    void adapt_mesh();
 
     void assemble();
     void solve();
@@ -180,6 +181,10 @@ private:
     std::vector<double> M_Vcor;
 
     std::vector<double> M_bathy_depth;
+
+    std::vector<double> M_hminVertices;
+    std::vector<double> M_hmaxVertices;
+
     std::vector<double> M_element_depth;
     std::vector<double> M_Vair_factor;
     std::vector<double> M_Voce_factor;
