@@ -1696,9 +1696,11 @@ FiniteElement::update()
     /* Indices loop*/
     int i,j;
 
+    bool is_moving;
+
     /* set constants for the ice redistribution */
 	tanalpha  = h_thin_max/c_thin_max;
-	rtanalpha = 1/tanalpha;
+	rtanalpha = 1./tanalpha;
 
     std::vector<double> UM_P = M_UM;
 
@@ -1727,7 +1729,7 @@ FiniteElement::update()
     // std::cout<<"Jacobian init   = "<< this->measure(*M_elements.begin(),M_mesh, UM_P) <<"\n";
     // std::cout<<"Jacobian current= "<< this->measure(*M_elements.begin(),M_mesh,M_UM) <<"\n";
 
-    std::vector<double> B0T(18,0);
+    //std::vector<double> B0T(18,0);
     int cpt = 0;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
     {
@@ -1885,22 +1887,32 @@ FiniteElement::update()
          *======================================================================
          */
 
-        surface = this->measure(*it,M_mesh, UM_P);
-        surface_new = this->measure(*it,M_mesh,M_UM);
-
-        // std::cout<<"SURFACE    = "<< std::setprecision(18) << surface <<"\n";
-        // std::cout<<"SURFACE_NEW= "<< std::setprecision(18) << surface_new <<"\n";
-
-        ice_surface = old_conc*surface;
-        ice_volume = old_thick*surface;
-        snow_volume = old_snow_thick*surface;
-        thin_ice_volume = old_h_thin*surface;
-        thin_snow_volume = old_hs_thin*surface;
-        ridged_thin_ice_volume = old_h_ridged_thin_ice*surface;
-        ridged_thick_ice_volume = old_h_ridged_thick_ice*surface;
-
-        if(old_conc>0.)
+        is_moving=false;
+        for(j=0;j<3;j++)
         {
+            if( (M_VT[it->indices[j]-1]!=0.)  || (M_VT[it->indices[j]-1+M_num_nodes]!=0.))
+            {
+                is_moving=true;
+                break;
+            };
+        }
+
+        if((old_conc>0.)  && is_moving)
+        {
+            surface = this->measure(*it,M_mesh, UM_P);
+            surface_new = this->measure(*it,M_mesh,M_UM);
+
+            // std::cout<<"SURFACE    = "<< std::setprecision(18) << surface <<"\n";
+            // std::cout<<"SURFACE_NEW= "<< std::setprecision(18) << surface_new <<"\n";
+
+            ice_surface = old_conc*surface;
+            ice_volume = old_thick*surface;
+            snow_volume = old_snow_thick*surface;
+            thin_ice_volume = old_h_thin*surface;
+            thin_snow_volume = old_hs_thin*surface;
+            ridged_thin_ice_volume = old_h_ridged_thin_ice*surface;
+            ridged_thick_ice_volume = old_h_ridged_thick_ice*surface;
+
             /* updated values */
             M_conc[cpt]    = ice_surface/surface_new;
             M_thick[cpt]        = ice_volume/surface_new;
@@ -1959,15 +1971,6 @@ FiniteElement::update()
 
             M_h_thin[cpt]        = ((M_h_thin[cpt]>0.)?(M_h_thin[cpt] ):(0.)) ;
             M_hs_thin[cpt]   = ((M_hs_thin[cpt]>0.)?(M_hs_thin[cpt]):(0.)) ;
-        }
-        else
-        {
-            M_conc[cpt] = old_conc;
-            M_thick[cpt]     = old_thick;
-            M_snow_thick[cpt]= old_snow_thick;
-
-            M_h_thin[cpt] = old_h_thin;
-            M_hs_thin[cpt] = old_hs_thin;
         }
 
         /* For the Lagrangian scheme, we do not update the variables for the elements having one node on the open boundary. */
