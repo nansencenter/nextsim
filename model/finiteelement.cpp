@@ -1666,11 +1666,20 @@ FiniteElement::update()
     std::vector<double> thickness_new = M_thick;
     std::vector<double> snow_thickness_new = M_snow_thick;
     std::vector<double> concentration_new = M_conc;
-    std::vector<double> damage_new = M_damage;
+//    std::vector<double> damage_new = M_damage;
     std::vector<double> thin_thickness_new = M_h_thin;
     std::vector<double> thin_snow_thickness_new = M_hs_thin;
     std::vector<double> h_ridged_thin_ice_new = M_h_ridged_thin_ice;
     std::vector<double> h_ridged_thick_ice_new = M_h_ridged_thick_ice;
+
+    double old_thick;
+    double old_snow_thick;
+    double old_conc;
+    double old_damage;
+    double old_h_thin;
+    double old_hs_thin;
+    double old_h_ridged_thin_ice;
+    double old_h_ridged_thick_ice;
 
     /* deformation, deformation rate and internal stress tensor and temporary variables */
     double epsilon_veloc_i;
@@ -1707,7 +1716,7 @@ FiniteElement::update()
 
     for (int nd=0; nd<M_UM.size(); ++nd)
     {
-        M_UM[nd] = M_UM[nd] + time_step*M_VT[nd];
+        M_UM[nd] += time_step*M_VT[nd];
     }
 
     for (const int& nd : M_neumann_nodes)
@@ -1728,6 +1737,9 @@ FiniteElement::update()
     int cpt = 0;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
     {
+        // Temporary memory
+        old_damage = M_damage[cpt];
+
 #if 0
         std::vector<double> shapecoeff = this->shapeCoeff(*it,M_mesh);
 
@@ -1781,7 +1793,7 @@ FiniteElement::update()
             sigma_dot_i = 0.0;
             for(int j=0;j<3;j++)
             {
-                sigma_dot_i += std::exp(ridging_exponent*(1-M_conc[cpt]))*young*(1.-M_damage[cpt])*M_Dunit[i*3 + j]*epsilon_veloc[j];
+                sigma_dot_i += std::exp(ridging_exponent*(1-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
             }
 
             //M_sigma[3*cpt+i] = M_sigma[3*cpt+i] + time_step*sigma_dot_i;
@@ -1817,21 +1829,21 @@ FiniteElement::update()
                 sigma_target=-M_Compressive_strength[cpt];
             }
 
-            tmp=1.0-sigma_target/sigma_n*(1-M_damage[cpt]);
+            tmp=1.0-sigma_target/sigma_n*(1-old_damage);
 
-            if(tmp>damage_new[cpt])
+            if(tmp>M_damage[cpt])
             {
-                damage_new[cpt]=tmp;
+                M_damage[cpt]=tmp;
             }
         }
 
         if(sigma_s>M_Cohesion[cpt]-sigma_n*tan_phi)
         {
-            tmp=1.0-M_Cohesion[cpt]/(sigma_s+sigma_n*tan_phi)*(1-M_damage[cpt]);
+            tmp=1.0-M_Cohesion[cpt]/(sigma_s+sigma_n*tan_phi)*(1-old_damage);
 
-            if(tmp>damage_new[cpt])
+            if(tmp>M_damage[cpt])
             {
-                damage_new[cpt]=tmp;
+                M_damage[cpt]=tmp;
             }
         }
 
@@ -1841,9 +1853,9 @@ FiniteElement::update()
          */
         for(int i=0;i<3;i++)
         {
-            if(M_damage[cpt]<1)
+            if(old_damage<1)
             {
-                M_sigma[3*cpt+i] = (1.-damage_new[cpt])/(1.-M_damage[cpt])*M_sigma[3*cpt+i] ;
+                M_sigma[3*cpt+i] = (1.-M_damage[cpt])/(1.-old_damage)*M_sigma[3*cpt+i] ;
             }
             else
             {
@@ -1861,7 +1873,7 @@ FiniteElement::update()
          * time_recovery_damage still depends on the temperature when themodynamics is activated.
          *======================================================================
          */
-        tmp=1./(1.-damage_new[cpt]);
+        tmp=1./(1.-M_damage[cpt]);
         tmp=tmp-1000*time_step/time_relaxation_damage;
         tmp=((tmp>1.)?(tmp):(1.));
         M_damage[cpt]=-1./tmp + 1.;
@@ -2010,7 +2022,7 @@ FiniteElement::update()
     M_thick = thickness_new;
     M_snow_thick = snow_thickness_new;
     M_conc = concentration_new;
-    M_damage = damage_new;
+    //M_damage = damage_new;
     M_h_thin = thin_thickness_new;
     M_hs_thin = thin_snow_thickness_new;
     M_h_ridged_thin_ice = h_ridged_thin_ice_new;
@@ -3021,6 +3033,7 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
         //     }
         // }
 
+#if 0
         std::cout<<"MIN DATA U= "<< *std::min_element(data_in_u.begin(),data_in_u.end()) <<"\n";
         std::cout<<"MAX DATA U= "<< *std::max_element(data_in_u.begin(),data_in_u.end()) <<"\n";
 
@@ -3029,7 +3042,7 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
 
         std::cout<<"MIN DATA SSH= "<< *std::min_element(data_in_ssh.begin(),data_in_ssh.end()) <<"\n";
         std::cout<<"MAX DATA SSH= "<< *std::max_element(data_in_ssh.begin(),data_in_ssh.end()) <<"\n";
-
+#endif
 #if 0
         // bamg triangulation
         if(fstep==0)
@@ -3075,12 +3088,13 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
             //     std::cout<<"data_out["<< i << "]= "<< M_wind[i] << " and "<< M_wind[i+M_num_nodes] <<"\n";
         }
 
+#if 0
         std::cout<<"MIN DATA_OUT UV= "<< *std::min_element(fvoce.begin(),fvoce.end()) <<"\n";
         std::cout<<"MAX DATA_OUT UV= "<< *std::max_element(fvoce.begin(),fvoce.end()) <<"\n";
 
         std::cout<<"MIN DATA_OUT SSH= "<< *std::min_element(fssh.begin(),fssh.end()) <<"\n";
         std::cout<<"MAX DATA_OUT SSH= "<< *std::max_element(fssh.begin(),fssh.end()) <<"\n";
-
+#endif
         M_voce[fstep] = fvoce;
         M_vssh[fstep] = fssh;
     }
