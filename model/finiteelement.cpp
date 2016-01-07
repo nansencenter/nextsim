@@ -2680,8 +2680,8 @@ FiniteElement::loadAsrWind()//(double const& u, double const& v)
 
         for (int i=0; i<(360*360); ++i)
         {
-            data_in_uv10[(2*nb_forcing_step)*i+fstep*2]=data_in_u10[i];
-            data_in_uv10[(2*nb_forcing_step)*i+fstep*2]=data_in_v10[i];
+            data_in_uv10[(2*nb_forcing_step)*i+fstep*2  ]=data_in_u10[i];
+            data_in_uv10[(2*nb_forcing_step)*i+fstep*2+1]=data_in_v10[i];
         }
 
 
@@ -2938,12 +2938,15 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
     std::vector<double> fssh(M_num_nodes);
 
     int N_data =3;
+    int M  =1101;
+    int N  = 761;
+    int MN = M*N;
 
-    std::vector<double> data_in_u(1101*761);
-    std::vector<double> data_in_v(1101*761);
-    std::vector<double> data_in_ssh(1101*761);
+    std::vector<double> data_in_u(MN);
+    std::vector<double> data_in_v(MN);
+    std::vector<double> data_in_ssh(MN);
 
-    std::vector<double> data_in(1101*761*N_data);
+    std::vector<double> data_in(N_data*nb_forcing_step*MN);
 
     // int* pfindex;
     // int pfnels;
@@ -3038,34 +3041,33 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
 
         for (int i=0; i<data_in_u.size(); ++i)
         {
-            data_in[i*N_data+0] = data_in_u[i];
-            data_in[i*N_data+1] = data_in_v[i];
-            data_in[i*N_data+2] = data_in_ssh[i];
-
+            data_in[(N_data*nb_forcing_step)*i+fstep*N_data+0] = data_in_u[i];
+            data_in[(N_data*nb_forcing_step)*i+fstep*N_data+1] = data_in_v[i];
+            data_in[(N_data*nb_forcing_step)*i+fstep*N_data+2] = data_in_ssh[i];
             // if (i<20)
             //     std::cout<<"data_out["<< i << "]= "<< M_wind[i] << " and "<< M_wind[i+M_num_nodes] <<"\n";
         }
+    }
 
-        chrono.restart();
-        std::cout<<" Interpolation starts\n";
+    std::cout<<" Interpolation starts\n";
 
-        InterpFromMeshToMesh2dx(&data_out,
+    InterpFromMeshToMesh2dx(&data_out,
                                 M_pfindex,&M_topaz_gridX[0],&M_topaz_gridY[0],
                                 M_topaz_gridX.size(),M_pfnels,
                                 &data_in[0],
-                                M_topaz_gridX.size(),N_data,
+                                M_topaz_gridX.size(),N_data*nb_forcing_step,
                                 &RX[0], &RY[0], M_mesh.numNodes(),
                                 false /*options*/);
 
-        std::cout<<" Interpolation done in " << chrono.elapsed() <<"s\n";
-
+    for (int fstep=0; fstep < nb_forcing_step; ++fstep)
+    {
         // Note that we do here the assumption that no rotation is needed from the Topz grid to the polar stereo grid
         // It should be corrected, once we will do the interpo in the native TOPAZ grid
         for (int i=0; i<M_num_nodes; ++i)
         {
-            fvoce[i] = data_out[i*N_data+0];
-            fvoce[i+M_num_nodes] = data_out[i*N_data+1];
-            fssh[i] = data_out[i*N_data+2];
+            fvoce[i] = data_out[(N_data*nb_forcing_step)*i+fstep*N_data+0]; 
+            fvoce[i+M_num_nodes] = data_out[(N_data*nb_forcing_step)*i+fstep*N_data+1];
+            fssh[i] = data_out[(N_data*nb_forcing_step)*i+fstep*N_data+2];
 
             // if (i<20)
             //     std::cout<<"data_out["<< i << "]= "<< M_wind[i] << " and "<< M_wind[i+M_num_nodes] <<"\n";
@@ -3098,7 +3100,7 @@ FiniteElement::gridTopazOcean()
                                   % current_timestr ).str();
 
     // read in re-analysis coordinates
-    std::vector<double> LAT(1101*762);
+    std::vector<double> LAT(1101*761);
     std::vector<double> LON(1101*761);
 
     std::vector<size_t> index_start(2);
