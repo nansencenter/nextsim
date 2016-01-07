@@ -10,7 +10,7 @@
 #include "./isnan.h"
 /*}}}*/
 
-int InterpFromGridToMeshx(double* &data_mesh,double* x_in, int x_rows, double* y_in, int y_rows, double* data, int M, int N, double* x_mesh, double* y_mesh, int nods,double default_value, int interpenum){
+int InterpFromGridToMeshx(double* &data_mesh,double* x_in, int x_rows, double* y_in, int y_rows, double* data, int M, int N, int N_data, double* x_mesh, double* y_mesh, int nods,double default_value, int interpenum){
 
 	/*Intermediary*/
 	double* x=NULL;
@@ -29,7 +29,7 @@ int InterpFromGridToMeshx(double* &data_mesh,double* x_in, int x_rows, double* y
 	}
 
 	/*Allocate output vector: */
-	data_mesh = new double[nods];
+	data_mesh = new double[nods*N_data];
 
 	/*Find out what kind of coordinates (x_in,y_in) have been given is input*/
 	if(N==(x_rows-1) && M==(y_rows-1)){
@@ -69,6 +69,7 @@ int InterpFromGridToMeshx(double* &data_mesh,double* x_in, int x_rows, double* y
 	gate.interp        = interpenum;
 	gate.M             = M;
 	gate.N             = N;
+	gate.N_data        = N_data;
 
 	InterpFromGridToMeshxt(gate,data_mesh);
 	//_printf_("\r      interpolation progress: "<<fixed<<setw(6)<<setprecision(2)<<100.<<"%  \n");
@@ -86,7 +87,7 @@ int InterpFromGridToMeshx(double* &data_mesh,double* x_in, int x_rows, double* y
 int InterpFromGridToMeshxt(InterpFromGridToMeshxThreadStruct gate, double* data_mesh){//(void* vpthread_handle){
 
 	/*intermediary: */
-	int    i,m,n;
+	int    i,j,m,n;
 	double x_grid;
 	double y_grid;
 	double data_value;
@@ -107,6 +108,7 @@ int InterpFromGridToMeshxt(InterpFromGridToMeshxThreadStruct gate, double* data_
 	int     interpenum            = gate.interp;
 	int     M                     = gate.M;
 	int     N                     = gate.N;
+	int     N_data                = gate.N_data;
 
 	bool debug = M*N>1? true:false;
 
@@ -120,7 +122,8 @@ int InterpFromGridToMeshxt(InterpFromGridToMeshxThreadStruct gate, double* data_
 		y_grid=*(y_mesh+i);
 
 		/*Find indices m and n into y and x, for which  y(m)<=y_grids<=y(m+1) and x(n)<=x_grid<=x(n+1)*/
-		if(findindices(&n,&m,x,x_rows, y,y_rows, x_grid,y_grid)){
+		if(findindices(&n,&m,x,x_rows, y,y_rows, x_grid,y_grid))
+		{
 
 			/*    Q12             Q22
 			 * y2 x---------+-----x
@@ -135,32 +138,36 @@ int InterpFromGridToMeshxt(InterpFromGridToMeshxThreadStruct gate, double* data_
 			 */
 			x1=x[n]; x2=x[n+1];
 			y1=y[m]; y2=y[m+1];
-			Q11=data[m*N+n];
-			Q12=data[(m+1)*N+n];
-			Q21=data[m*N+n+1];
-			Q22=data[(m+1)*N+n+1];
+			
+			for(j=0;j<N_data;j++) {
+				Q11=data[(j*nods)+m*N+n];
+				Q12=data[(j*nods)+(m+1)*N+n];
+				Q21=data[(j*nods)+m*N+n+1];
+				Q22=data[(j*nods)+(m+1)*N+n+1];
 
-			switch(interpenum){
-				case TriangleInterpEnum:
-					data_value=triangleinterp(x1,x2,y1,y2,Q11,Q12,Q21,Q22,x_grid,y_grid);
-					break;
-				case BilinearInterpEnum:
-					data_value=bilinearinterp(x1,x2,y1,y2,Q11,Q12,Q21,Q22,x_grid,y_grid);
-					break;
-				case NearestInterpEnum:
-					data_value=nearestinterp(x1,x2,y1,y2, Q11,Q12,Q21,Q22,x_grid,y_grid);
-					break;
-				default:
-					_printf_("Interpolation " << EnumToStringx(interpenum) << " not supported yet\n");
-					return NULL; /*WARNING: no error because it would blow up the multithreading!*/
+				switch(interpenum){
+					case TriangleInterpEnum:
+						data_value=triangleinterp(x1,x2,y1,y2,Q11,Q12,Q21,Q22,x_grid,y_grid);
+						break;
+					case BilinearInterpEnum:
+						data_value=bilinearinterp(x1,x2,y1,y2,Q11,Q12,Q21,Q22,x_grid,y_grid);
+						break;
+					case NearestInterpEnum:
+						data_value=nearestinterp(x1,x2,y1,y2, Q11,Q12,Q21,Q22,x_grid,y_grid);
+						break;
+					default:
+						_printf_("Interpolation " << EnumToStringx(interpenum) << " not supported yet\n");
+						return NULL; /*WARNING: no error because it would blow up the multithreading!*/
+				}
+				if(xIsNan<double>(data_value)) data_value=default_value;
+				data_mesh[(j*nods)+i] = data_value;
 			}
-			if(xIsNan<double>(data_value)) data_value=default_value;
-		}
-		else{
+		}	
+		else
+		{
 			data_value=default_value;
+			for(j=0;j<N_data;j++) data_mesh[(j*nods)+i] = data_value;
 		}
-
-		data_mesh[i] = data_value;
 	}
 
 	return 1;

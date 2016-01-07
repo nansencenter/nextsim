@@ -2624,6 +2624,8 @@ FiniteElement::loadAsrWind()//(double const& u, double const& v)
 
     std::vector<double> fvair(2*M_num_nodes);
 
+    double* data_in_uv10 = new double[(2*nb_forcing_step)*360*360];
+
     for (int fstep=0; fstep < nb_forcing_step; ++fstep)
     {
         double ftime = M_ftime_wind_range[fstep];
@@ -2676,43 +2678,41 @@ FiniteElement::loadAsrWind()//(double const& u, double const& v)
         // std::vector<double> data_in_u10(360*360);
         // std::vector<double> data_in_v10(360*360);
 
-        // for (int i=0; i<360; ++i)
-        // {
-        //     for (int j=0; j<360; ++j)
-        //     {
-        //         data_in_u10[360*i+j] = U10[i][j];
-        //         data_in_v10[360*i+j] = V10[i][j];
-        //     }
-        // }
+        for (int i=0; i<(360*360); ++i)
+        {
+            data_in_uv10[(2*nb_forcing_step)*i+fstep*2]=data_in_u10[i];
+            data_in_uv10[(2*nb_forcing_step)*i+fstep*2]=data_in_v10[i];
+        }
 
-        auto RX = M_mesh.coordX(diff_angle);
-        auto RY = M_mesh.coordY(diff_angle);
-
-        double* data_out_u10;
-        double* data_out_v10;
-        //int interp_type = TriangleInterpEnum;
-        int interp_type = BilinearInterpEnum;
-        //int interp_type = NearestInterpEnum;
-
-        InterpFromGridToMeshx(data_out_u10, &X[0], X.size(), &Y[0], Y.size(), &data_in_u10[0], X.size(), Y.size(),
-                              &RX[0], &RY[0], M_mesh.numNodes(), 1.0, interp_type);
-
-        InterpFromGridToMeshx(data_out_v10, &X[0], X.size(), &Y[0], Y.size(), &data_in_v10[0], X.size(), Y.size(),
-                              &RX[0], &RY[0], M_mesh.numNodes(), 1.0, interp_type);
 
         // for (int i=0; i<50; ++i)
         //     std::cout<<"data_out["<< i << "]= "<< data_out_u10[i] << " and "<< data_out_v10[i] <<"\n";
+    }
 
+    auto RX = M_mesh.coordX(diff_angle);
+    auto RY = M_mesh.coordY(diff_angle);
+
+    double* data_out_uv10;
+
+    //int interp_type = TriangleInterpEnum;
+    int interp_type = BilinearInterpEnum;
+    //int interp_type = NearestInterpEnum;
+
+    InterpFromGridToMeshx(data_out_uv10, &X[0], X.size(), &Y[0], Y.size(), &data_in_uv10[0], X.size(), Y.size(), 2*nb_forcing_step, 
+                          &RX[0], &RY[0], M_mesh.numNodes(), 1.0, interp_type);
+
+    for (int fstep=0; fstep < nb_forcing_step; ++fstep)
+    {
         for (int i=0; i<M_num_nodes; ++i)
         {
-            fvair[i] = std::cos(-diff_angle)*data_out_u10[i] + std::sin(-diff_angle)*data_out_v10[i];
-            fvair[i+M_num_nodes] = -std::sin(-diff_angle)*data_out_u10[i] + std::cos(-diff_angle)*data_out_v10[i];
+            fvair[i] = std::cos(-diff_angle)*data_out_uv10[(2*nb_forcing_step)*i+fstep*2] + std::sin(-diff_angle)*data_out_uv10[(2*nb_forcing_step)*i+fstep*2+1];
+            fvair[i+M_num_nodes] = -std::sin(-diff_angle)*data_out_uv10[(2*nb_forcing_step)*i+fstep*2] + std::cos(-diff_angle)*data_out_uv10[(2*nb_forcing_step)*i+fstep*2+1];
 
             // if (i<20)
             //     std::cout<<"data_out["<< i << "]= "<< M_wind[i] << " and "<< M_wind[i+M_num_nodes] <<"\n";
         }
-
         M_vair[fstep] = fvair;
+    }
 #if 0
 
         std::cout<<"MIN BOUND ASRX= "<< *std::min_element(X.begin(),X.end()) <<"\n";
@@ -2730,7 +2730,7 @@ FiniteElement::loadAsrWind()//(double const& u, double const& v)
         std::cout<<"MAX BOUND MESHY= "<< *std::max_element(RY.begin(),RY.end()) <<"\n";
 #endif
 
-    }
+    
 
     // std::cout<<"there are "<<dataFile.getVarCount()<<" variables"<<endl;
     // std::cout<<"there are "<<dataFile.getAttCount()<<" attributes"<<endl;
