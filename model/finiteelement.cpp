@@ -1663,15 +1663,6 @@ FiniteElement::cohesion()
 void
 FiniteElement::update()
 {
-    std::vector<double> thickness_new = M_thick;
-    std::vector<double> snow_thickness_new = M_snow_thick;
-//    std::vector<double> concentration_new = M_conc;
-//    std::vector<double> damage_new = M_damage;
-    std::vector<double> thin_thickness_new = M_h_thin;
-    std::vector<double> thin_snow_thickness_new = M_hs_thin;
-    std::vector<double> h_ridged_thin_ice_new = M_h_ridged_thin_ice;
-    std::vector<double> h_ridged_thick_ice_new = M_h_ridged_thick_ice;
-
     double old_thick;
     double old_snow_thick;
     double old_conc;
@@ -1702,6 +1693,9 @@ FiniteElement::update()
     /* some variables used for the ice redistribution*/
     double tanalpha, rtanalpha, del_v, del_c, del_vs, new_v_thin;
 
+    /* Indices loop*/
+    int i,j;
+
     /* set constants for the ice redistribution */
 	tanalpha  = h_thin_max/c_thin_max;
 	rtanalpha = 1/tanalpha;
@@ -1727,8 +1721,8 @@ FiniteElement::update()
     // std::cout<<"UM MIN A= "<< *std::min_element(M_UM.begin(),M_UM.end()) <<"\n";
     // std::cout<<"UM MAX A= "<< *std::max_element(M_UM.begin(),M_UM.end()) <<"\n";
 
-    std::cout<<"VT MIN= "<< *std::min_element(M_VT.begin(),M_VT.end()) <<"\n";
-    std::cout<<"VT MAX= "<< *std::max_element(M_VT.begin(),M_VT.end()) <<"\n";
+    // std::cout<<"VT MIN= "<< *std::min_element(M_VT.begin(),M_VT.end()) <<"\n";
+    // std::cout<<"VT MAX= "<< *std::max_element(M_VT.begin(),M_VT.end()) <<"\n";
 
     // std::cout<<"Jacobian init   = "<< this->measure(*M_elements.begin(),M_mesh, UM_P) <<"\n";
     // std::cout<<"Jacobian current= "<< this->measure(*M_elements.begin(),M_mesh,M_UM) <<"\n";
@@ -1738,19 +1732,19 @@ FiniteElement::update()
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
     {
         // Temporary memory
-        //old_thick;
-        //old_snow_thick;
+        old_thick = M_thick[cpt];
+        old_snow_thick = M_snow_thick[cpt];
         old_conc = M_conc[cpt];
         old_damage = M_damage[cpt];
-        //old_h_thin;
-        //old_hs_thin;
-        //old_h_ridged_thin_ice;
-        //old_h_ridged_thick_ice;
+        old_h_thin = M_h_thin[cpt];
+        old_hs_thin=M_hs_thin[cpt];
+        old_h_ridged_thin_ice=M_h_ridged_thin_ice[cpt];
+        old_h_ridged_thick_ice=M_h_ridged_thick_ice[cpt];
         
 #if 0
         std::vector<double> shapecoeff = this->shapeCoeff(*it,M_mesh);
 
-        for (int i=0; i<18; ++i)
+        for (i=0; i<18; ++i)
         {
             if (i < 3)
             {
@@ -1772,10 +1766,10 @@ FiniteElement::update()
          */
 
         /* Compute the elastic deformation and the instantaneous deformation rate */
-        for(int i=0;i<3;i++)
+        for(i=0;i<3;i++)
         {
             epsilon_veloc_i = 0.0;
-            for(int j=0;j<3;j++)
+            for(j=0;j<3;j++)
             {
                 /* deformation */
                 //col = (mwIndex)it[j]-1;
@@ -1795,10 +1789,10 @@ FiniteElement::update()
          *======================================================================
          */
 
-        for(int i=0;i<3;i++)
+        for(i=0;i<3;i++)
         {
             sigma_dot_i = 0.0;
-            for(int j=0;j<3;j++)
+            for(j=0;j<3;j++)
             {
                 sigma_dot_i += std::exp(ridging_exponent*(1-old_conc))*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
             }
@@ -1836,7 +1830,7 @@ FiniteElement::update()
                 sigma_target=-M_Compressive_strength[cpt];
             }
 
-            tmp=1.0-sigma_target/sigma_n*(1-old_damage);
+            tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
 
             if(tmp>M_damage[cpt])
             {
@@ -1846,7 +1840,7 @@ FiniteElement::update()
 
         if(sigma_s>M_Cohesion[cpt]-sigma_n*tan_phi)
         {
-            tmp=1.0-M_Cohesion[cpt]/(sigma_s+sigma_n*tan_phi)*(1-old_damage);
+            tmp=1.0-M_Cohesion[cpt]/(sigma_s+sigma_n*tan_phi)*(1.0-old_damage);
 
             if(tmp>M_damage[cpt])
             {
@@ -1858,9 +1852,9 @@ FiniteElement::update()
          * Diagnostic:
          * Recompute the internal stress
          */
-        for(int i=0;i<3;i++)
+        for(i=0;i<3;i++)
         {
-            if(old_damage<1)
+            if(old_damage<1.0)
             {
                 M_sigma[3*cpt+i] = (1.-M_damage[cpt])/(1.-old_damage)*M_sigma[3*cpt+i] ;
             }
@@ -1881,7 +1875,7 @@ FiniteElement::update()
          *======================================================================
          */
         tmp=1./(1.-M_damage[cpt]);
-        tmp=tmp-1000*time_step/time_relaxation_damage;
+        tmp-= 1000*time_step/time_relaxation_damage;
         tmp=((tmp>1.)?(tmp):(1.));
         M_damage[cpt]=-1./tmp + 1.;
 
@@ -1898,18 +1892,18 @@ FiniteElement::update()
         // std::cout<<"SURFACE_NEW= "<< std::setprecision(18) << surface_new <<"\n";
 
         ice_surface = old_conc*surface;
-        ice_volume = M_thick[cpt]*surface;
-        snow_volume = M_snow_thick[cpt]*surface;
-        thin_ice_volume = M_h_thin[cpt]*surface;
-        thin_snow_volume = M_hs_thin[cpt]*surface;
-        ridged_thin_ice_volume = M_h_ridged_thin_ice[cpt]*surface;
-        ridged_thick_ice_volume = M_h_ridged_thick_ice[cpt]*surface;
+        ice_volume = old_thick*surface;
+        snow_volume = old_snow_thick*surface;
+        thin_ice_volume = old_h_thin*surface;
+        thin_snow_volume = old_hs_thin*surface;
+        ridged_thin_ice_volume = old_h_ridged_thin_ice*surface;
+        ridged_thick_ice_volume = old_h_ridged_thick_ice*surface;
 
         if(old_conc>0.)
         {
             /* updated values */
             M_conc[cpt]    = ice_surface/surface_new;
-            thickness_new[cpt]        = ice_volume/surface_new;
+            M_thick[cpt]        = ice_volume/surface_new;
 #if 0
             if (cpt==82696)
             {
@@ -1918,62 +1912,62 @@ FiniteElement::update()
                 std::cout<<"SURFACE_NEW= "<< surface_new <<"\n";
             }
 #endif
-            snow_thickness_new[cpt]   = snow_volume/surface_new;
+            M_snow_thick[cpt]   = snow_volume/surface_new;
 
-            thin_thickness_new[cpt]        = thin_ice_volume/surface_new;
-            thin_snow_thickness_new[cpt]   = thin_snow_volume/surface_new;
+            M_h_thin[cpt]        = thin_ice_volume/surface_new;
+            M_hs_thin[cpt]   = thin_snow_volume/surface_new;
 
-            h_ridged_thin_ice_new[cpt]    =   ridged_thin_ice_volume/surface_new;
-            h_ridged_thick_ice_new[cpt]   =   ridged_thick_ice_volume/surface_new;
+            M_h_ridged_thin_ice[cpt]    =   ridged_thin_ice_volume/surface_new;
+            M_h_ridged_thick_ice[cpt]   =   ridged_thick_ice_volume/surface_new;
 
             /* Ridging scheme */
             if(surface_new<surface)
             {
-                ridging_thin_ice=(surface-surface_new)/surface_new*M_h_thin[cpt];
-                ridging_snow_thin_ice=(surface-surface_new)/surface_new*M_hs_thin[cpt];
+                ridging_thin_ice=(surface-surface_new)/surface_new*old_h_thin;
+                ridging_snow_thin_ice=(surface-surface_new)/surface_new*old_hs_thin;
 
-                ridging_thin_ice=((ridging_thin_ice<M_h_thin[cpt])?(ridging_thin_ice):(M_h_thin[cpt]));
-                ridging_snow_thin_ice=((ridging_snow_thin_ice<M_hs_thin[cpt])?(ridging_snow_thin_ice):(M_hs_thin[cpt])) ;
+                ridging_thin_ice=((ridging_thin_ice<old_h_thin)?(ridging_thin_ice):(old_h_thin));
+                ridging_snow_thin_ice=((ridging_snow_thin_ice<old_hs_thin)?(ridging_snow_thin_ice):(old_hs_thin)) ;
 
-                thickness_new[cpt] += ridging_thin_ice ;
-                thin_thickness_new[cpt] -= ridging_thin_ice ;
+                M_thick[cpt] += ridging_thin_ice ;
+                M_h_thin[cpt] -= ridging_thin_ice ;
 
-                snow_thickness_new[cpt] += ridging_snow_thin_ice ;
-                thin_snow_thickness_new[cpt] -= ridging_snow_thin_ice ;
+                M_snow_thick[cpt] += ridging_snow_thin_ice ;
+                M_hs_thin[cpt] -= ridging_snow_thin_ice ;
 
-                h_ridged_thin_ice_new[cpt] += ridging_thin_ice;
+                M_h_ridged_thin_ice[cpt] += ridging_thin_ice;
                 M_conc[cpt] += ridging_thin_ice/ridge_h;
 
                 /* upper bounds (only for the concentration) */
-                ridging_thin_ice = ((M_conc[cpt]<1.)?(0.):(thin_thickness_new[cpt])) ;
-                ridging_snow_thin_ice = ((M_conc[cpt]<1.)?(0.):(thin_snow_thickness_new[cpt])) ;
+                ridging_thin_ice = ((M_conc[cpt]<1.)?(0.):(M_h_thin[cpt])) ;
+                ridging_snow_thin_ice = ((M_conc[cpt]<1.)?(0.):(M_hs_thin[cpt])) ;
 
-                ridging_thick_ice=((M_conc[cpt]<1.)?(0.):(thickness_new[cpt]*(M_conc[cpt]-1.)));
+                ridging_thick_ice=((M_conc[cpt]<1.)?(0.):(M_thick[cpt]*(M_conc[cpt]-1.)));
                 M_conc[cpt] = ((M_conc[cpt]<1.)?(M_conc[cpt]):(1.)) ;
 
-                snow_thickness_new[cpt] += ridging_snow_thin_ice ;
-                thin_snow_thickness_new[cpt] -= ridging_snow_thin_ice ;
+                M_snow_thick[cpt] += ridging_snow_thin_ice ;
+                M_hs_thin[cpt] -= ridging_snow_thin_ice ;
 
-                thickness_new[cpt] += ridging_thin_ice;
-                thin_thickness_new[cpt] -= ridging_thin_ice;
+                M_thick[cpt] += ridging_thin_ice;
+                M_h_thin[cpt] -= ridging_thin_ice;
             }
 
             /* lower bounds */
             M_conc[cpt] = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
-            thickness_new[cpt]        = ((thickness_new[cpt]>0.)?(thickness_new[cpt]     ):(0.)) ;
-            snow_thickness_new[cpt]   = ((snow_thickness_new[cpt]>0.)?(snow_thickness_new[cpt]):(0.)) ;
+            M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
+            M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
 
-            thin_thickness_new[cpt]        = ((thin_thickness_new[cpt]>0.)?(thin_thickness_new[cpt] ):(0.)) ;
-            thin_snow_thickness_new[cpt]   = ((thin_snow_thickness_new[cpt]>0.)?(thin_snow_thickness_new[cpt]):(0.)) ;
+            M_h_thin[cpt]        = ((M_h_thin[cpt]>0.)?(M_h_thin[cpt] ):(0.)) ;
+            M_hs_thin[cpt]   = ((M_hs_thin[cpt]>0.)?(M_hs_thin[cpt]):(0.)) ;
         }
         else
         {
             M_conc[cpt] = old_conc;
-            thickness_new[cpt]     = M_thick[cpt];
-            snow_thickness_new[cpt]= M_snow_thick[cpt];
+            M_thick[cpt]     = old_thick;
+            M_snow_thick[cpt]= old_snow_thick;
 
-            thin_thickness_new[cpt] = M_h_thin[cpt];
-            thin_snow_thickness_new[cpt] = M_hs_thin[cpt];
+            M_h_thin[cpt] = old_h_thin;
+            M_hs_thin[cpt] = old_hs_thin;
         }
 
         /* For the Lagrangian scheme, we do not update the variables for the elements having one node on the open boundary. */
@@ -1985,14 +1979,14 @@ FiniteElement::update()
             //std::cout<<"--------------------------------------FOUND\n";
 
             M_conc[cpt]    = old_conc ;
-            thickness_new[cpt]        = M_thick[cpt] ;
-            snow_thickness_new[cpt]   = M_snow_thick[cpt] ;
+            M_thick[cpt]        = old_thick ;
+            M_snow_thick[cpt]   = old_snow_thick ;
 
-            thin_thickness_new[cpt]        = M_h_thin[cpt] ;
-            thin_snow_thickness_new[cpt]   = M_hs_thin[cpt] ;
+            M_h_thin[cpt]        = old_h_thin ;
+            M_hs_thin[cpt]   = old_hs_thin ;
 
-            h_ridged_thin_ice_new[cpt] = M_h_ridged_thin_ice[cpt];
-            h_ridged_thick_ice_new[cpt] = M_h_ridged_thick_ice[cpt];
+            M_h_ridged_thin_ice[cpt] = old_h_ridged_thin_ice;
+            M_h_ridged_thick_ice[cpt] = old_h_ridged_thick_ice;
         }
 
         /* Compute the redistribution of thin ice. */
@@ -2000,23 +1994,23 @@ FiniteElement::update()
          * change in volume of thin ice. It is called after the
          * dynamics are done. */
 
-        if(thin_thickness_new[cpt]>0.)
+        if(M_h_thin[cpt]>0.)
         {
-            thin_ice_redistribute(thin_thickness_new[cpt], thin_snow_thickness_new[cpt], 0., M_conc[cpt],
+            thin_ice_redistribute(M_h_thin[cpt], M_hs_thin[cpt], 0., M_conc[cpt],
                                   tanalpha, rtanalpha, h_thin_max, &new_v_thin, &del_v, &del_c, &del_vs);
 
             M_conc[cpt]       += del_c;
 
-            thickness_new[cpt]           += del_v;
-            thin_thickness_new[cpt]      -= del_v;
+            M_thick[cpt]           += del_v;
+            M_h_thin[cpt]      -= del_v;
 
-            snow_thickness_new[cpt]      += del_vs;
-            thin_snow_thickness_new[cpt] -= del_vs;
+            M_snow_thick[cpt]      += del_vs;
+            M_hs_thin[cpt] -= del_vs;
         }
         else
         {
-            snow_thickness_new[cpt] += thin_snow_thickness_new[cpt];
-            thin_snow_thickness_new[cpt] = 0. ;
+            M_snow_thick[cpt] += M_hs_thin[cpt];
+            M_hs_thin[cpt] = 0. ;
         }
 
         ++cpt;
@@ -2025,15 +2019,6 @@ FiniteElement::update()
     // std::cout<<"****************************\n";
     // std::cout<<"SIGMA MIN= "<< *std::min_element(M_sigma.begin(),M_sigma.end()) <<"\n";
     // std::cout<<"SIGMA MAX= "<< *std::max_element(M_sigma.begin(),M_sigma.end()) <<"\n";
-
-    M_thick = thickness_new;
-    M_snow_thick = snow_thickness_new;
-    //M_conc = concentration_new;
-    //M_damage = damage_new;
-    M_h_thin = thin_thickness_new;
-    M_hs_thin = thin_snow_thickness_new;
-    M_h_ridged_thin_ice = h_ridged_thin_ice_new;
-    M_h_ridged_thick_ice = h_ridged_thick_ice_new;
 
 #if 0
     std::cout<<"****************************\n";
@@ -2217,14 +2202,14 @@ FiniteElement::updateVelocity()
     M_VT = M_solution->container();
 
     //std::vector<double> speed_c_scaling_test(bamgmesh->NodalElementConnectivitySize[0]);
-    int elt_num;
+    int elt_num, i, j;
     double c_max_nodal_neighbour;
     double speed_c_scaling;
 
-    for (int i=0; i<bamgmesh->NodalElementConnectivitySize[0]; ++i)
+    for (i=0; i<bamgmesh->NodalElementConnectivitySize[0]; ++i)
     {
         std::vector<double> cloc_elts(bamgmesh->NodalElementConnectivitySize[1]);
-        int j = 0;
+        
         for (j=0; j<bamgmesh->NodalElementConnectivitySize[1]; ++j)
         {
             elt_num = bamgmesh->NodalElementConnectivity[bamgmesh->NodalElementConnectivitySize[1]*i+j]-1;
