@@ -125,7 +125,7 @@ public:
     void updateVelocity();
     void scalingVelocity();
     void update();
-    void exportResults(int step, bool export_mesh = false);
+    void exportResults(int step, bool export_mesh = true);
 
 private:
     po::variables_map vm;

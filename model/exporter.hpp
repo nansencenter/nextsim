@@ -14,6 +14,7 @@
 #include <iomanip>
 #include <vector>
 #include <gmshmesh.hpp>
+#include <boost/format.hpp>
 
 namespace Nextsim
 {

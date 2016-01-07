@@ -2,25 +2,65 @@ function resplot(step)
 
 clearvars -except step;
 
-mc_script=['mu',num2str(step)];
-mx_script=['mx',num2str(step)];
-my_script=['my',num2str(step)];
+% mc_script=['mu',num2str(step)];
+% mx_script=['mx',num2str(step)];
+% my_script=['my',num2str(step)];
+% 
+% run(mc_script);
+% run(mx_script);
+% run(my_script);
+% 
+% var_mc=eval(['var_', mc_script]);
+% var_mx=eval(['var_', mx_script]);
+% var_my=eval(['var_', my_script]);
+% 
+% [nr,nc]= size(var_mc);
+% c=reshape(var_mc,[3,nr/3]);
+% x=reshape(var_mx,[3,nr/3]);
+% y=reshape(var_my,[3,nr/3]);
+% 
+% patch(x,y,c,'FaceColor','flat','EdgeColor','none')
+% caxis([min(var_mc), max(var_mc)])
 
-run(mc_script);
-run(mx_script);
-run(my_script);
+field='Velocity';
+%field='Concentration';
+%field='Thickness';
+%field='Wind';
+%field='Ocean';
 
-var_mc=eval(['var_', mc_script]);
-var_mx=eval(['var_', mx_script]);
-var_my=eval(['var_', my_script]);
+[mesh_out,data_out] = neXtSIM_bin_revert('', step);
 
-[nr,nc]= size(var_mc);
-c=reshape(var_mc,[3,nr/3]);
-x=reshape(var_mx,[3,nr/3]);
-y=reshape(var_my,[3,nr/3]);
+% reshape
+var_mx=mesh_out.Nodes_x(mesh_out.Elements);
+var_my=mesh_out.Nodes_y(mesh_out.Elements);
 
-patch(x,y,c,'FaceColor','flat','EdgeColor','none')
-caxis([min(var_mc), max(var_mc)])
+[nr,nc]= size(var_mx);
+Ne=nr/3;
+Nn=length(mesh_out.Nodes_x);
+x=reshape(var_mx,[3,Ne]);
+y=reshape(var_my,[3,Ne]);
 
-colorbar
+field_tmp=data_out.(field);
+length(field_tmp)
+if(length(field_tmp)==Ne)
+    c{1}=[field_tmp,field_tmp,field_tmp]';
+elseif(length(field_tmp)==2*Nn)
+    var_mc=field_tmp(mesh_out.Elements);
+    c{1}=reshape(var_mc,[3,Ne]);
+    var_mc=field_tmp(mesh_out.Elements+Nn);
+    c{2}=reshape(var_mc,[3,Ne]);
+elseif(length(field_tmp)==Nn)
+    var_mc=field_tmp(mesh_out.Elements);
+    c{1}=reshape(var_mc,[3,Ne]);
+else
+    error('Not the right dimensions')
+end
+
+for i=1:length(c)
+    figure
+    patch(x,y,c{i},'FaceColor','flat','EdgeColor','none')
+    caxis([min(min(c{i})), max(max(c{i}))])
+    colorbar
+end
+
 end

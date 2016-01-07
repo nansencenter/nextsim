@@ -44,18 +44,40 @@ Exporter::writeContainer(std::fstream& out, std::vector<Type> const& container)
 void
 Exporter::writeMesh(std::fstream& out, GmshMesh const& Mesh)
 {
+    std::string description;
+
     writeContainer(out, Mesh.indexTr());
+    description = (boost::format( "%1% %2%" )
+               % "Elements"
+               % sizeof(int) ).str();
+    M_mrecord.push_back(description);
+
+
     writeContainer(out, Mesh.coordX());
+    description = (boost::format( "%1% %2%" )
+               % "Nodes_x"
+               % sizeof(double) ).str();
+    M_mrecord.push_back(description);
+
     writeContainer(out, Mesh.coordY());
-    M_mrecord = {"Elements", "Nodes.x", "Nodes.y"};
+    description = (boost::format( "%1% %2%" )
+               % "Nodes_y"
+               % sizeof(double) ).str();
+    M_mrecord.push_back(description);
 }
 
 template<typename Type>
 void
 Exporter::writeField(std::fstream& out, std::vector<Type> const& field, std::string const& name)
 {
+    std::string description;
     writeContainer(out, field);
-	M_frecord.push_back(name);
+
+    description = (boost::format( "%1% %2%" )
+               % name
+               % sizeof(Type) ).str();
+
+	M_frecord.push_back(description);
 }
 
 void

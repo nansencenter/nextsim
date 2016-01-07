@@ -2158,10 +2158,12 @@ FiniteElement::run()
         {
             chrono.restart();
             std::cout<<"first export starts\n";
-            this->exportResults(0, M_regrid);
+            this->exportResults(0);
             std::cout<<"first export done in " << chrono.elapsed() <<"s\n";
         }
 #endif
+        
+
 
         this->assemble();
         this->solve();
@@ -2179,7 +2181,7 @@ FiniteElement::run()
 #if 0
         chrono.restart();
         std::cout<<"export starts\n";
-        this->exportResults(pcpt+1, M_regrid);
+        this->exportResults(pcpt+1);
         std::cout<<"export done in " << chrono.elapsed() <<"s\n";
 #endif
         ++pcpt;
@@ -2227,8 +2229,8 @@ FiniteElement::updateVelocity()
         //speed_c_scaling_test[i] = speed_c_scaling;
 
         // linear scaling of ice velocity
-        M_VT[i] = speed_c_scaling*M_VT[i];
-        M_VT[i+M_num_nodes] = speed_c_scaling*M_VT[i+M_num_nodes];
+        M_VT[i] *= speed_c_scaling;
+        M_VT[i+M_num_nodes] *= speed_c_scaling;
     }
 
     // std::cout<<"MAX SPEED= "<< *std::max_element(speed_c_scaling_test.begin(),speed_c_scaling_test.end()) <<"\n";
@@ -2680,7 +2682,7 @@ FiniteElement::loadAsrWind()//(double const& u, double const& v)
 
         for (int i=0; i<(360*360); ++i)
         {
-            data_in_uv10[(2*nb_forcing_step)*i+fstep*2  ]=data_in_u10[i];
+            data_in_uv10[(2*nb_forcing_step)*i+fstep*2+0]=data_in_u10[i];
             data_in_uv10[(2*nb_forcing_step)*i+fstep*2+1]=data_in_v10[i];
         }
 
@@ -4015,7 +4017,7 @@ FiniteElement::latLon2Y(double const& lat, double const& lon, mapx_class* map, s
 void
 FiniteElement::exportResults(int step, bool export_mesh)
 {
-#if 1
+#if 0
     vector_type mx;
     mx.init(3*M_num_elements);
     vector_type my;
@@ -4087,7 +4089,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
     mv.printMatlab("mv" + step_str);
 #endif
 
-#if 0
+#if 1
     Exporter exporter;
     std::string fileout;
 
@@ -4102,6 +4104,16 @@ FiniteElement::exportResults(int step, bool export_mesh)
         std::fstream meshbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
         exporter.writeMesh(meshbin, M_mesh);
         meshbin.close();
+
+        fileout = (boost::format( "%1%/matlab/mesh_%2%.dat" )
+               % Environment::nextsimDir().string()
+               % step ).str();
+
+        std::cout<<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
+
+        std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
+        exporter.writeRecord(outrecord,"mesh");
+        outrecord.close();
     }
 
 

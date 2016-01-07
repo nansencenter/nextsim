@@ -140,10 +140,11 @@ int InterpFromGridToMeshxt(InterpFromGridToMeshxThreadStruct gate, double* data_
 			y1=y[m]; y2=y[m+1];
 			
 			for(j=0;j<N_data;j++) {
-				Q11=data[(j*nods)+m*N+n];
-				Q12=data[(j*nods)+(m+1)*N+n];
-				Q21=data[(j*nods)+m*N+n+1];
-				Q22=data[(j*nods)+(m+1)*N+n+1];
+
+				Q11=data[N_data*(m*N+n)			+j];
+				Q12=data[N_data*((m+1)*N+n)		+j];
+				Q21=data[N_data*(m*N+n+1)		+j];
+				Q22=data[N_data*((m+1)*N+n+1)	+j];
 
 				switch(interpenum){
 					case TriangleInterpEnum:
@@ -160,13 +161,13 @@ int InterpFromGridToMeshxt(InterpFromGridToMeshxThreadStruct gate, double* data_
 						return NULL; /*WARNING: no error because it would blow up the multithreading!*/
 				}
 				if(xIsNan<double>(data_value)) data_value=default_value;
-				data_mesh[(j*nods)+i] = data_value;
+				data_mesh[N_data*i+j] = data_value;
 			}
 		}	
 		else
 		{
 			data_value=default_value;
-			for(j=0;j<N_data;j++) data_mesh[(j*nods)+i] = data_value;
+			for(j=0;j<N_data;j++) data_mesh[N_data*i+j] = data_value;
 		}
 	}
 
