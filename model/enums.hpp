@@ -63,6 +63,13 @@ namespace setup
         RCONC    = 2
     };
 
+    enum class IceCategoryType
+    {
+        CLASSIC     = 0,
+        THIN_ICE    = 1,
+        MULTI       = 2
+    };
+
     enum class SnowThicknessType
     {
         CONSTANT  = 0,
