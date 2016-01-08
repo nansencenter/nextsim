@@ -2209,10 +2209,10 @@ FiniteElement::updateVelocity()
     double c_max_nodal_neighbour;
     double speed_c_scaling;
 
+    std::vector<double> cloc_elts(bamgmesh->NodalElementConnectivitySize[1]);
+
     for (i=0; i<bamgmesh->NodalElementConnectivitySize[0]; ++i)
-    {
-        std::vector<double> cloc_elts(bamgmesh->NodalElementConnectivitySize[1]);
-        
+    {   
         for (j=0; j<bamgmesh->NodalElementConnectivitySize[1]; ++j)
         {
             elt_num = bamgmesh->NodalElementConnectivity[bamgmesh->NodalElementConnectivitySize[1]*i+j]-1;
@@ -2227,8 +2227,7 @@ FiniteElement::updateVelocity()
             }
         }
 
-        cloc_elts.resize(j);
-        c_max_nodal_neighbour = *std::max_element(cloc_elts.begin(),cloc_elts.end());
+        c_max_nodal_neighbour = *std::max_element(cloc_elts.begin(),cloc_elts.begin()+j);
         c_max_nodal_neighbour /= vm["simul.drift_limit_concentration"].as<double>();
         speed_c_scaling = std::min(1.,c_max_nodal_neighbour);
         //std::cout<<"c_max_nodal_neighbour["<< i <<"]= "<< c_max_nodal_neighbour <<"\n";
