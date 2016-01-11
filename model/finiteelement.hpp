@@ -23,6 +23,7 @@
 #include <InterpFromGridToMeshx.h>
 #include <pwl_interp_2d_scattered.hpp>
 #include <gmshmesh.hpp>
+#include <graphcsr.hpp>
 #include "enums.hpp"
 #include <netcdf>
 
@@ -48,6 +49,8 @@ public:
     typedef boost::shared_ptr<matrix_type> matrix_ptrtype;
     typedef VectorPetsc vector_type;
     typedef boost::shared_ptr<vector_type> vector_ptrtype;
+    typedef GraphCSR graph_type;
+    typedef boost::shared_ptr<graph_type> graph_ptrtype;
 
     FiniteElement();
 
@@ -130,6 +133,7 @@ public:
 private:
     po::variables_map vm;
     mesh_type M_mesh;
+    graph_type M_graph;
     mesh_type M_mesh_init;
     mesh_type M_mesh_previous;
     solver_ptrtype M_solver;

@@ -106,6 +106,82 @@ MatrixPetsc::init( const size_type m, const size_type n, const size_type nnz )
 }
 
 void
+MatrixPetsc::init( const size_type m, const size_type n, graph_type const& graph )
+{
+    if (m==0 || n==0)
+		return;
+
+    {
+        if (M_is_initialized)
+            this->clear();
+    }
+
+    int ierr = 0;
+    int nrow = static_cast<int> (m);
+    int ncol = static_cast<int> (n);
+
+#if 1
+    ierr = MatCreateSeqAIJ ( M_comm, nrow, ncol,
+                             0,
+                             (int*) graph.nNz().data(),
+                             &M_mat );
+
+    CHKERRABORT( M_comm, ierr );
+
+    ierr = MatSeqAIJSetPreallocationCSR( M_mat,
+                                         (int*) graph.ia().data(),
+                                         (int*) graph.ja().data(),
+                                         graph.a().data() );
+
+    CHKERRABORT( M_comm, ierr );
+#endif
+
+#if 0
+    ierr = MatCreateSeqSBAIJ ( M_comm, 1, nrow, ncol,
+                               0,
+                               (int*) graph.nNz().data(),
+                               &M_mat );
+
+    CHKERRABORT( M_comm, ierr );
+
+    ierr = MatSeqSBAIJSetPreallocationCSR( M_mat, 1,
+                                           (int*) graph.ia().data(),
+                                           (int*) graph.ja().data(),
+                                           graph.a().data() );
+
+    CHKERRABORT( M_comm, ierr );
+#endif
+
+#if 0
+    std::cout<<"MatSeqAIJSetPreallocationCSR starts\n";
+    ierr = MatSeqAIJSetPreallocation( M_mat, 0, dnz );
+    CHKERRABORT( M_comm, ierr );
+    std::cout<<"MatSeqAIJSetPreallocationCSR done\n";
+#endif
+
+    ierr = MatSetFromOptions ( M_mat );
+    CHKERRABORT( M_comm, ierr );
+
+    ierr = MatSetOption( M_mat,MAT_KEEP_NONZERO_PATTERN,PETSC_TRUE );
+    MatSetOption( M_mat,MAT_IGNORE_ZERO_ENTRIES,PETSC_FALSE );
+    //MatSetOption( M_mat,MAT_IGNORE_LOWER_TRIANGULAR,PETSC_TRUE );
+    CHKERRABORT( M_comm, ierr );
+
+    //ierr = MatSetOption( M_mat,MAT_SPD,PETSC_FALSE );
+    ierr = MatSetOption ( M_mat, MAT_SYMMETRIC, PETSC_TRUE );
+    ierr = MatSetOption ( M_mat,MAT_SYMMETRY_ETERNAL,PETSC_TRUE );
+    CHKERRABORT( M_comm, ierr );
+
+    // generates an error for new matrix entry
+    ierr = MatSetOption ( M_mat, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_TRUE );
+    CHKERRABORT( M_comm, ierr );
+
+    M_is_initialized = true;
+
+    //this->zero();
+}
+
+void
 MatrixPetsc::zero()
 {
     ASSERT(M_is_initialized, "MatrixPetsc not properly initialized");
@@ -577,6 +653,28 @@ MatrixPetsc::on(std::vector<int> const& flags, VectorPetsc& rhs)
                             (int *)petsc_columns, ncols, &data[0]);
 
         this->close();
+    }
+#endif
+
+#if 0
+    const PetscInt* petsc_columns;
+    const PetscScalar* petsc_data;
+    std::vector<int> flagss = {11047,131888};
+    //int flag = 11047;
+    for (int flag : flagss)
+    {
+        int ncols;
+        int ierr = MatGetRow( M_mat, flag, &ncols, &petsc_columns,PETSC_NULL);
+        CHKERRABORT( M_comm, ierr );
+
+        std::cout<<"NCOLS= "<< ncols <<"\n";
+        //std::vector<double> data(ncols,0.);
+        for (int jj=0; jj<ncols; ++jj)
+        {
+            std::cout<<"COLUMN["<< jj <<"]= "<< petsc_columns[jj] <<"\n";
+            //if (petsc_columns[jj]==flag)
+            //    data[jj] = 1.;
+        }
     }
 #endif
 }
