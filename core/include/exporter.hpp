@@ -3,6 +3,7 @@
 /**
  * @file   exporter.hpp
  * @author Abdoulaye Samake <abdoulaye.samake@nersc.no>
+ * @author Sylvain Bouillon <sylvain.bouillon@nersc.no>
  * @date   Mon Dec 28 14:00:31 2015
  */
 

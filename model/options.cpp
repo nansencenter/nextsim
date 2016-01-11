@@ -3,6 +3,7 @@
 /**
  * @file   options.cpp
  * @author Abdoulaye Samake <abdoulaye.samake@nersc.no>
+ * @author Sylvain Bouillon <sylvain.bouillon@nersc.no>
  * @date   Tue Jul 14 13:23:45 2015
  */
 

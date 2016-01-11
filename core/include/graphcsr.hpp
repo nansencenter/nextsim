@@ -2,7 +2,7 @@
 
 /**
  * @file   graphcsr.hpp
- * @author Abdoulaye Samake <abdama@beijing.wifi.ad.nersc.no>
+ * @author Abdoulaye Samake <abdoulaye.samake@nersc.no>
  * @date   Fri Jan  8 15:02:02 2016
  */
 

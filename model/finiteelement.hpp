@@ -3,6 +3,7 @@
 /**
  * @file   finiteelement.hpp
  * @author Abdoulaye Samake <abdoulaye.samake@nersc.no>
+ * @author Sylvain Bouillon <sylvain.bouillon@nersc.no>
  * @date   Mon Aug 24 10:40:29 2015
  */
 
