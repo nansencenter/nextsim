@@ -156,7 +156,7 @@ private:
     std::vector<int> M_neumann_flags;
     std::vector<int> M_neumann_nodes;
 
-    boost::timer chrono;
+    boost::mpi::timer chrono;
 
     setup::WindType M_wind_type;
     setup::OceanType M_ocean_type;

@@ -1147,8 +1147,6 @@ FiniteElement::assemble()
     // std::vector<double> B0T_Dunit_B0T(36,0);
     // std::vector<double> B0T_Dunit_comp_B0T(36,0);
 
-    std::cout<<"Assembling starts\n";
-    chrono.restart();
     std::vector<double> data(36);
     std::vector<double> fvdata(6);
     std::vector<int> rcindices(6);
@@ -1160,7 +1158,8 @@ FiniteElement::assemble()
     std::iota(rhsindices.begin(), rhsindices.end(), 0);
     std::vector<double> rhsdata(2*M_num_nodes, 0.);
 
-
+    std::cout<<"Assembling starts\n";
+    chrono.restart();
     int cpt = 0;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
     {
