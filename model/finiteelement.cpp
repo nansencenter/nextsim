@@ -1370,6 +1370,12 @@ FiniteElement::assemble()
         // std::vector<double> fvdata(6);
         // std::vector<int> rcindices(6);
 
+        for(int i=0; i<3; i++)
+        {
+            fvdata[2*i]=0.;
+            fvdata[2*i+1]=0.;
+        }
+
         for(int j=0; j<3; j++)
         {
             /* Column corresponding to indice j (we also assemble terms in col+1) */
@@ -1382,9 +1388,6 @@ FiniteElement::assemble()
 
             for(int i=0; i<3; i++)
             {
-                fvdata[2*i]=0.;
-                fvdata[2*i+1]=0.;
-
                 int index_u_i = it->indices[i]-1;
                 int index_v_i = it->indices[i]-1+M_num_nodes;
                 /* Row corresponding to indice i (we also assemble terms in row+1) */
@@ -1432,10 +1435,15 @@ FiniteElement::assemble()
                 //     std::cout<<"dvv= "<< dvv <<"\n";
                 // }
 
-                data[12*i+2*j] = duu;
-                data[12*i+2*j+1] = duv;
-                data[(12*i+2*j)+6] = dvu;
-                data[(12*i+2*j+1)+6] = dvv;
+                // data[12*i+2*j] = duu;
+                // data[12*i+2*j+1] = duv;
+                // data[(12*i+2*j)+6] = dvu;
+                // data[(12*i+2*j+1)+6] = dvv;
+
+                data[(2*i  )*6+2*j  ] = duu;
+                data[(2*i+1)*6+2*j  ] = dvu;
+                data[(2*i  )*6+2*j+1] = duv;
+                data[(2*i+1)*6+2*j+1] = dvv;
 
 #if 0
                 fuu += surface_e*( mloc*( coef_Vair*M_wind[index_u]+coef_Voce*std::cos(ocean_turning_angle_rad)*M_ocean[index_u]+coef_X+coef_V*M_VT[index_u]) - B0Tj_sigma_h[0]/3);
@@ -1454,15 +1462,17 @@ FiniteElement::assemble()
 
                 rcindices_i[2*i] = index_u_i;
                 rcindices_i[2*i+1] = index_v_i;
-
+                #if 0
                 M_matrix->addValue(index_u_i,index_u, duu);
                 M_matrix->addValue(index_v_i,index_u, dvu);
 
                 M_matrix->addValue(index_u_i,index_v, duv);
                 M_matrix->addValue(index_v_i,index_v, dvv);
+                
 
                 M_vector->add(index_u_i, fvdata[2*i]);
                 M_vector->add(index_v_i, fvdata[2*i+1]);
+                #endif
             }
 
             if (cpt < 0)
@@ -1508,16 +1518,16 @@ FiniteElement::assemble()
         //     for(int k=0; k<6; k++)
         //         std::cout<<"INDEX["<< rcindices[k] <<"]\n";
 
-        //M_matrix->addMatrix(&rcindices[0], rcindices.size(),
-        //                    &rcindices[0], rcindices.size(), &data[0]);
+        M_matrix->addMatrix(&rcindices_i[0], rcindices_i.size(),
+                            &rcindices[0], rcindices.size(), &data[0]);
 
 
-        // M_vector->addVector(&rcindices[0], rcindices.size(), &fvdata[0]);
+        //M_vector->addVector(&rcindices_i[0], rcindices_i.size(), &fvdata[0]);
 
-#if 0
-        for (int idf=0; idf<rcindices.size(); ++idf)
+#if 1
+        for (int idf=0; idf<rcindices_i.size(); ++idf)
         {
-            rhsdata[rcindices[idf]] += fvdata[idf];
+            rhsdata[rcindices_i[idf]] += fvdata[idf];
         }
 #endif
         if((M_conc[cpt]>0.))
@@ -1532,6 +1542,10 @@ FiniteElement::assemble()
         ++cpt;
     }
 
+    
+
+    M_vector->addVector(&rhsindices[0], rhsindices.size(), &rhsdata[0]);
+
     for (int i=0; i<2*M_num_nodes; ++i)
     {
         if(M_vector_reduction[i]==0.)
@@ -1542,7 +1556,6 @@ FiniteElement::assemble()
         }
     }
 
-    // M_vector->addVector(&rhsindices[0], rhsindices.size(), &rhsdata[0]);
     M_vector->close();
 
     M_matrix->close();
