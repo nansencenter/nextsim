@@ -172,6 +172,9 @@ private:
 
     int M_flag_fix;
 
+    std::vector<double> M_vector_reduction;
+
+
     std::vector<double> M_sigma;
     std::vector<double> M_surface;
     std::vector<double> M_divergence_rate;
