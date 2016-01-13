@@ -3,6 +3,7 @@
 /**
  * @file   finiteelement.hpp
  * @author Abdoulaye Samake <abdoulaye.samake@nersc.no>
+ * @author Sylvain Bouillon <sylvain.bouillon@nersc.no>
  * @date   Mon Aug 24 10:40:29 2015
  */
 
@@ -23,6 +24,7 @@
 #include <InterpFromGridToMeshx.h>
 #include <pwl_interp_2d_scattered.hpp>
 #include <gmshmesh.hpp>
+#include <graphcsr.hpp>
 #include "enums.hpp"
 #include <netcdf>
 
@@ -49,6 +51,8 @@ public:
     typedef boost::shared_ptr<matrix_type> matrix_ptrtype;
     typedef VectorPetsc vector_type;
     typedef boost::shared_ptr<vector_type> vector_ptrtype;
+    typedef GraphCSR graph_type;
+    typedef boost::shared_ptr<graph_type> graph_ptrtype;
 
     FiniteElement();
 
@@ -131,6 +135,7 @@ public:
 private:
     po::variables_map vm;
     mesh_type M_mesh;
+    graph_type M_graph;
     mesh_type M_mesh_init;
     mesh_type M_mesh_previous;
     solver_ptrtype M_solver;
@@ -153,7 +158,7 @@ private:
     std::vector<int> M_neumann_flags;
     std::vector<int> M_neumann_nodes;
 
-    boost::timer chrono, chrono_tot;
+    boost::mpi::timer chrono, chrono_tot;
 
     setup::WindType M_wind_type;
     setup::OceanType M_ocean_type;

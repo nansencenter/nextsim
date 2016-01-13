@@ -3,6 +3,7 @@
 /**
  * @file   enums.hpp
  * @author Abdoulaye Samake <abdoulaye.samake@nersc.no>
+ * @author Sylvain Bouillon <sylvain.bouillon@nersc.no>
  * @date   Mon Oct 12 12:04:59 2015
  */
 
@@ -92,13 +93,13 @@ namespace setup
         BIGKARA        = 3,
         ARCTIC         = 4,
         BIGARCTIC      = 5
-    };  
+    };
 
     enum class MeshType
     {
         FROM_GMSH      = 0,
         FROM_SPLIT     = 1
-    };   
+    };
 
 } // setup
 } // Nextsim

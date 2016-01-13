@@ -3,6 +3,7 @@
 /**
  * @file   finiteelement.cpp
  * @author Abdoulaye Samake <abdoulaye.samake@nersc.no>
+ * @author Sylvain Bouillon <sylvain.bouillon@nersc.no>
  * @date   Mon Aug 24 11:02:45 2015
  */
 
@@ -39,7 +40,7 @@ FiniteElement::init()
         ("topazreducedsplit4.msh", setup::DomainType::DEFAULT)
         ("topazreducedsplit8.msh", setup::DomainType::DEFAULT)
         ("simplesquaresplit2.msh", setup::DomainType::DEFAULT);
-        
+
 
     M_domain_type = str2domain.find(M_mesh_filename)->second;
 
@@ -71,14 +72,14 @@ FiniteElement::init()
             break;
         case setup::DomainType::BIGARCTIC:
             M_flag_fix = 161; // free = 158:160;
-            break;          
+            break;
         default:
             std::cout << "invalid domain type"<<"\n";
             throw std::logic_error("invalid domain type");
-    }   
+    }
 
     M_mesh.readFromFile(M_mesh_filename);
-    
+
     M_mesh.stereographicProjection();
     // M_mesh.writeTofile("copy_init_mesh.msh");
 
@@ -136,7 +137,7 @@ FiniteElement::init()
 
             M_hminVertices = this->hminVertices(M_mesh_init, bamgmesh);
             M_hmaxVertices = this->hmaxVertices(M_mesh_init, bamgmesh);
-        
+
             bamgopt->hminVertices = new double[M_mesh_init.numNodes()];
             bamgopt->hmaxVertices = new double[M_mesh_init.numNodes()];
             for (int i=0; i<M_mesh_init.numNodes(); ++i)
@@ -148,7 +149,7 @@ FiniteElement::init()
         default:
             std::cout << "invalid mesh type"<<"\n";
             throw std::logic_error("invalid mesh type");
-    }  
+    }
 
     M_elements = M_mesh.triangles();
     M_nodes = M_mesh.nodes();
@@ -220,7 +221,8 @@ FiniteElement::initSimulation()
 {
     chrono_tot.restart();
 
-    M_matrix->init(2*M_num_nodes,2*M_num_nodes,22);
+    //M_matrix->init(2*M_num_nodes,2*M_num_nodes,22);
+    M_matrix->init(2*M_num_nodes,2*M_num_nodes,M_graph);
     M_vector->init(2*M_num_nodes);
     M_solution->init(2*M_num_nodes);
 
@@ -693,7 +695,7 @@ FiniteElement::regrid(bool step)
 
         M_mesh.move(M_UM,displacement_factor);
 
-        
+
 
 #if 0
         cout << "\n";
@@ -824,10 +826,10 @@ FiniteElement::regrid(bool step)
                                 &M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
                                 false);
 
-        M_VT.resize(2*M_num_nodes,0.);
-        M_VTM.resize(2*M_num_nodes,0.);
-        M_VTMM.resize(2*M_num_nodes,0.);
-        M_UM.resize(2*M_num_nodes,0.);
+        M_VT.assign(2*M_num_nodes,0.);
+        M_VTM.assign(2*M_num_nodes,0.);
+        M_VTMM.assign(2*M_num_nodes,0.);
+        M_UM.assign(2*M_num_nodes,0.);
 
         for (int i=0; i<M_num_nodes; ++i)
         {
@@ -933,15 +935,15 @@ FiniteElement::regrid(bool step)
                                 false);
 #endif
 
-        M_conc.resize(M_num_elements,0.);
-        M_thick.resize(M_num_elements,0.);
-        M_snow_thick.resize(M_num_elements,0.);
-        M_sigma.resize(3*M_num_elements,0.);
-        M_damage.resize(M_num_elements,0.);
+        M_conc.assign(M_num_elements,0.);
+        M_thick.assign(M_num_elements,0.);
+        M_snow_thick.assign(M_num_elements,0.);
+        M_sigma.assign(3*M_num_elements,0.);
+        M_damage.assign(M_num_elements,0.);
 
-        M_divergence_rate.resize(M_num_elements,0.);
-        M_h_ridged_thin_ice.resize(M_num_elements,0.);
-        M_h_ridged_thick_ice.resize(M_num_elements,0.);
+        M_divergence_rate.assign(M_num_elements,0.);
+        M_h_ridged_thin_ice.assign(M_num_elements,0.);
+        M_h_ridged_thick_ice.assign(M_num_elements,0.);
 
         M_random_number.resize(M_num_elements);
 
@@ -994,28 +996,29 @@ FiniteElement::regrid(bool step)
 
     if (step)
     {
-        M_matrix->init(2*M_num_nodes,2*M_num_nodes,22);
+        //M_matrix->init(2*M_num_nodes,2*M_num_nodes,22);
+        M_matrix->init(2*M_num_nodes,2*M_num_nodes,M_graph);
         M_vector->resize(2*M_num_nodes);
         M_solution->resize(2*M_num_nodes);
         M_reuse_prec = false;
 
         M_vector_reduction.resize(2*M_num_nodes,0.);
 
-        M_wind.resize(2*M_num_nodes,0.);
-        M_ocean.resize(2*M_num_nodes,0.);
-        M_thermo.resize(2*M_num_nodes,0.);
+        M_wind.assign(2*M_num_nodes,0.);
+        M_ocean.assign(2*M_num_nodes,0.);
+        M_thermo.assign(2*M_num_nodes,0.);
 
-        //M_vair.resize(2*M_num_nodes,0.);
+        //M_vair.assign(2*M_num_nodes,0.);
 
-        M_element_depth.resize(M_num_elements,0.);
-        M_h_thin.resize(M_num_elements,0.);
-        M_hs_thin.resize(M_num_elements,0.);
+        M_element_depth.assign(M_num_elements,0.);
+        M_h_thin.assign(M_num_elements,0.);
+        M_hs_thin.assign(M_num_elements,0.);
 
         M_norm_Voce_ice.resize(M_num_elements);
         M_norm_Vair_ice.resize(M_num_elements);
         M_norm_Vice.resize(M_num_elements);
-        M_element_ssh.resize(M_num_elements,0.);
-        M_ssh.resize(M_num_nodes,0.);
+        M_element_ssh.assign(M_num_elements,0.);
+        M_ssh.assign(M_num_nodes,0.);
 
         M_Vair_factor.resize(M_num_elements);
         M_Voce_factor.resize(M_num_elements);
@@ -1159,8 +1162,6 @@ FiniteElement::assemble()
     // std::vector<double> B0T_Dunit_B0T(36,0);
     // std::vector<double> B0T_Dunit_comp_B0T(36,0);
 
-    std::cout<<"Assembling starts\n";
-    chrono.restart();
     std::vector<double> data(36);
     std::vector<double> fvdata(6),fvdata_reduction(6);
     std::vector<int> rcindices(6), rcindices_i(6);
@@ -1174,6 +1175,12 @@ FiniteElement::assemble()
     M_matrix->zero();
     M_vector->zero();
 
+    std::vector<int> rhsindices(2*M_num_nodes);
+    std::iota(rhsindices.begin(), rhsindices.end(), 0);
+    std::vector<double> rhsdata(2*M_num_nodes, 0.);
+
+    std::cout<<"Assembling starts\n";
+    chrono.restart();
     int cpt = 0;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
     {
@@ -1504,8 +1511,15 @@ FiniteElement::assemble()
         //M_matrix->addMatrix(&rcindices[0], rcindices.size(),
         //                    &rcindices[0], rcindices.size(), &data[0]);
 
-        //M_vector->addVector(&rcindices[0], rcindices.size(), &fvdata[0]);
 
+        // M_vector->addVector(&rcindices[0], rcindices.size(), &fvdata[0]);
+
+#if 0
+        for (int idf=0; idf<rcindices.size(); ++idf)
+        {
+            rhsdata[rcindices[idf]] += fvdata[idf];
+        }
+#endif
         if((M_conc[cpt]>0.))
         {
             M_vector_reduction[rcindices[0]]=1.;
@@ -1528,6 +1542,9 @@ FiniteElement::assemble()
         }
     }
 
+    // M_vector->addVector(&rhsindices[0], rhsindices.size(), &rhsdata[0]);
+    M_vector->close();
+
     M_matrix->close();
     std::cout<<"Assembling done\n";
     std::cout<<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
@@ -1548,9 +1565,9 @@ FiniteElement::assemble()
 void
 FiniteElement::tensors()
 {
-    M_Dunit.resize(9,0);
-    M_Dunit_comp.resize(9,0);
-    M_Mass.resize(9,0);
+    M_Dunit.assign(9,0);
+    M_Dunit_comp.assign(9,0);
+    M_Mass.assign(9,0);
 
     for (int k=0; k<6; k+=3)
     {
@@ -1804,7 +1821,6 @@ FiniteElement::update()
     // std::cout<<"Jacobian init   = "<< this->measure(*M_elements.begin(),M_mesh, UM_P) <<"\n";
     // std::cout<<"Jacobian current= "<< this->measure(*M_elements.begin(),M_mesh,M_UM) <<"\n";
 
-    //std::vector<double> B0T(18,0);
     int cpt = 0;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
     {
@@ -2234,7 +2250,7 @@ FiniteElement::run()
             ind=1;
         }
 #endif
-        
+
 
 
         this->assemble();
@@ -2774,7 +2790,7 @@ FiniteElement::loadAsrWind()//(double const& u, double const& v)
     int interp_type = BilinearInterpEnum;
     //int interp_type = NearestInterpEnum;
 
-    InterpFromGridToMeshx(data_out_uv10, &X[0], X.size(), &Y[0], Y.size(), &data_in_uv10[0], X.size(), Y.size(), 2*nb_forcing_step, 
+    InterpFromGridToMeshx(data_out_uv10, &X[0], X.size(), &Y[0], Y.size(), &data_in_uv10[0], X.size(), Y.size(), 2*nb_forcing_step,
                           &RX[0], &RY[0], M_mesh.numNodes(), 1.0, interp_type);
 
     for (int fstep=0; fstep < nb_forcing_step; ++fstep)
@@ -2806,7 +2822,7 @@ FiniteElement::loadAsrWind()//(double const& u, double const& v)
         std::cout<<"MAX BOUND MESHY= "<< *std::max_element(RY.begin(),RY.end()) <<"\n";
 #endif
 
-    
+
 
     // std::cout<<"there are "<<dataFile.getVarCount()<<" variables"<<endl;
     // std::cout<<"there are "<<dataFile.getAttCount()<<" attributes"<<endl;
@@ -3142,7 +3158,7 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
         // It should be corrected, once we will do the interpo in the native TOPAZ grid
         for (int i=0; i<M_num_nodes; ++i)
         {
-            fvoce[i] = data_out[(N_data*nb_forcing_step)*i+fstep*N_data+0]; 
+            fvoce[i] = data_out[(N_data*nb_forcing_step)*i+fstep*N_data+0];
             fvoce[i+M_num_nodes] = data_out[(N_data*nb_forcing_step)*i+fstep*N_data+1];
             fssh[i] = data_out[(N_data*nb_forcing_step)*i+fstep*N_data+2];
 
@@ -3900,7 +3916,7 @@ FiniteElement::bathymetry()
                                 &M_mesh.bCoordX()[0],&M_mesh.bCoordY()[0],M_num_elements,
                                 false);
 
-        M_element_depth.resize(M_num_elements,0.);
+        M_element_depth.assign(M_num_elements,0.);
 
         for (int i=0; i<M_num_elements; ++i)
         {
@@ -4073,6 +4089,113 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     std::cout<<"INFO: Current  NumTriangles  = "<< M_mesh.numTriangles() <<"\n";
     std::cout<<"INFO: Current  NumEdges      = "<< M_mesh.numEdges() <<"\n";
     std::cout<<"\n";
+
+    // std::cout<<"NodalConnectivitySize[0]= "<< bamg_mesh->NodalConnectivitySize[0] <<"\n";
+    // std::cout<<"NodalConnectivitySize[1]= "<< bamg_mesh->NodalConnectivitySize[1] <<"\n";
+
+    int Nd = bamg_mesh->NodalConnectivitySize[1];
+    std::vector<int> dz;
+    std::vector<int> ddz_j;
+    std::vector<int> ddz_i;
+
+    for (int i=0; i<bamgmesh->NodalConnectivitySize[0]; ++i)
+    {
+        int Nc = bamgmesh->NodalConnectivity[Nd*(i+1)-1];
+        dz.push_back(2*(Nc+1));
+
+        std::vector<int> local_ddz;
+        local_ddz.push_back(i);
+
+        for (int j=0; j<Nc; ++j)
+        {
+            local_ddz.push_back(bamgmesh->NodalConnectivity[Nd*i+j]-1);
+        }
+        std::sort(local_ddz.begin(),local_ddz.end());
+
+        ddz_i.push_back(ddz_j.size());
+
+        for (int const& k : local_ddz)
+        {
+            ddz_j.push_back(k);
+        }
+
+        for (int const& k : local_ddz)
+        {
+            ddz_j.push_back(k+M_num_nodes);
+        }
+
+#if 0
+        for (int j=0; j<Nc; ++j)
+        {
+            std::cout<<"Connectivity["<< Nd*i+j <<"]= "<< bamgmesh->NodalConnectivity[Nd*i+j]-1 <<"\n";
+        }
+#endif
+    }
+
+    // auto mindzit = std::min_element(dz.begin(),dz.end());
+    // auto maxdzit = std::max_element(dz.begin(),dz.end());
+
+    // std::cout<<"************MINDZ= "<< *mindzit << " at "<< std::distance(dz.begin(), mindzit) << "\n";
+    // std::cout<<"************MAXDZ= "<< *maxdzit << " at "<< std::distance(dz.begin(), maxdzit) <<"\n";
+
+    auto dzu_count = dz.size();
+    dz.resize(2*dzu_count);
+    std::copy_n(dz.begin(), dzu_count, dz.begin() + dzu_count);
+
+    int ddzi_count = ddz_i.size();
+    ddz_i.resize(2*ddzi_count+1,0);
+    ddz_i[ddzi_count] = ddz_i[ddzi_count-1] + dz[ddzi_count-1];
+
+    for (int ll=0; ll<ddzi_count; ++ll)
+    {
+        ddz_i[ddzi_count+1+ll] = ddz_i[ddzi_count+ll] + dz[ll];
+    }
+
+    auto ddzj_count = ddz_j.size();
+    ddz_j.resize(2*ddzj_count);
+    std::copy_n(ddz_j.begin(), ddzj_count, ddz_j.begin() + ddzj_count);
+
+    std::vector<double> ddz_data(ddz_j.size(),0.);
+    M_graph = graph_type(dz,ddz_i,ddz_j,ddz_data);
+
+    std::cout<<"\n";
+    std::cout<<"GRAPHCSR INFO: MIN NZ (per row)      = "<< *std::min_element(dz.begin(),dz.end()) <<"\n";
+    std::cout<<"GRAPHCSR INFO: MAX NZ (per row)      = "<< *std::max_element(dz.begin(),dz.end()) <<"\n";
+    std::cout<<"GRAPHCSR INFO: NNZ (total)           = "<< ddz_j.size() <<"\n";
+    std::cout<<"\n";
+
+
+ #if 0
+    auto NNZ = M_graph.nNz();
+    double minNNZ = *std::min_element(NNZ.begin(),NNZ.end());
+    double maxNNZ = *std::max_element(NNZ.begin(),NNZ.end());
+
+    std::cout<<"sizeNNZ= "<< NNZ.size() <<"\n";
+    std::cout<<"minNNZ= "<< minNNZ <<"\n";
+    std::cout<<"maxNNZ= "<< maxNNZ <<"\n";
+
+    auto DDZI = M_graph.ia();
+    auto DDZJ = M_graph.ja();
+
+    int minDDZI = *std::min_element(DDZI.begin(),DDZI.end());
+    int maxDDZI = *std::max_element(DDZI.begin(),DDZI.end());
+
+    int minDDZJ = *std::min_element(DDZJ.begin(),DDZJ.end());
+    int maxDDZJ = *std::max_element(DDZJ.begin(),DDZJ.end());
+
+    std::cout<<"sizeDDZI= "<< DDZI.size() <<"\n";
+    std::cout<<"minDDZI= "<< minDDZI <<"\n";
+    std::cout<<"maxDDZI= "<< maxDDZI <<"\n";
+
+    std::cout<<"ACCUMULATE= "<< std::accumulate(NNZ.begin(),NNZ.end(),0) <<"\n";
+
+    std::cout<<"sizeDDZJ= "<< DDZJ.size() <<"\n";
+    std::cout<<"minDDZJ= "<< minDDZJ <<"\n";
+    std::cout<<"maxDDZJ= "<< maxDDZJ <<"\n";
+
+    auto NNZ = M_graph.nNz();
+    std::cout<<"ACCUMULATE= "<< std::accumulate(NNZ.begin(),NNZ.end(),0) <<"\n";
+#endif
 }
 
 std::vector<double>

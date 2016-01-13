@@ -98,7 +98,7 @@ SolverPetsc::solveLinearSystem(matrix_ptrtype const& matrix,
 
     matrix->close();
     solution->close();
-    //rhs->close();
+    rhs->close();
 
     int ierr = 0;
     int its = 0;
@@ -149,7 +149,10 @@ SolverPetsc::solveLinearSystem(matrix_ptrtype const& matrix,
     if (Environment::vm()["solver.ksp-view"]. as<bool>())
     {
         ierr = KSPView( M_ksp, PETSC_VIEWER_STDOUT_WORLD );
+    }
 
+    if (Environment::vm()["solver.ksp-convergence-info"]. as<bool>())
+    {
         std::cout<< "[solverpetsc] #OF ITERATIONS   = " << M_iteration << "\n";
         std::cout<< "[solverpetsc] RESIDUAL NORN    = " << M_residual << "\n";
         std::cout<< "[solverpetsc] CONVERGED REASON = " << PetscConvertKSPReasonToString(reason) <<"\n";

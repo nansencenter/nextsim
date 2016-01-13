@@ -3,6 +3,7 @@
 /**
  * @file   options.cpp
  * @author Abdoulaye Samake <abdoulaye.samake@nersc.no>
+ * @author Sylvain Bouillon <sylvain.bouillon@nersc.no>
  * @date   Tue Jul 14 13:23:45 2015
  */
 
@@ -22,11 +23,12 @@ namespace Nextsim
             ("help,h", "Print help messages")
             ("config-file", po::value<std::string>(), "specify a configuration file")
             ("config-files", po::value<std::vector<std::string> >()->multitoken(), "specify a list of configuration files" )
-            
+
             ("solver.ksp-type", po::value<std::string>()->default_value( "preonly" ), "")
             ("solver.pc-type", po::value<std::string>()->default_value( "cholesky" ), "")
             ("solver.mat-package-type", po::value<std::string>()->default_value( "cholmod" ), "")
-            ("solver.ksp-view", po::value<bool>()->default_value( true ), "")
+            ("solver.ksp-view", po::value<bool>()->default_value( false ), "")
+            ("solver.ksp-convergence-info", po::value<bool>()->default_value( true ), "")
 
             ("setup.wind-type", po::value<std::string>()->default_value( "asr" ), "")
             ("setup.ocean-type", po::value<std::string>()->default_value( "constant" ), "")
