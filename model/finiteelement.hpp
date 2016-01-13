@@ -181,7 +181,6 @@ private:
 
 
     std::vector<double> M_sigma;
-    std::vector<double> M_surface;
     std::vector<double> M_divergence_rate;
     //std::vector<double> M_UT;
     std::vector<double> M_UM;
