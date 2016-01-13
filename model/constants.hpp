@@ -52,16 +52,16 @@ const double mu = -0.055;
 const double Ra = 286.9;
 
 /* Density of ice (same as in NEMO-LIM) */
-const double rhoi = 917;
+const double rhoi = 917.;
 
 /* Density of fresh water */
-const double rhofw = 1000;
+const double rhofw = 1000.;
 
 /* Density of snow (same as in NEMO-LIM) */
-const double rhos = 330;
+const double rhos = 330.;
 
 /* Salinity of ice */
-const double si = 5;
+const double si = 5.;
 
 /* Stephan-Boltzmann constant [W/m2/K4] */
 const double sigma_sb = 5.67E-8;
