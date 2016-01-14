@@ -3054,10 +3054,28 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
         }
 #endif
 
+	// Need to multiply with scale factor and add offset - these are stored as variable attributes
+	netCDF::NcVarAtt att;
+	double scale_factor_u, scale_factor_v;
+	double add_offset_u, add_offset_v;
+
+	att = VU.getAtt("scale_factor");
+	att.getValues(&scale_factor_u);
+	att = VV.getAtt("scale_factor");
+	att.getValues(&scale_factor_v);
+
+	att = VU.getAtt("add_offset");
+	att.getValues(&add_offset_u);
+	att = VV.getAtt("add_offset");
+	att.getValues(&add_offset_v);
+
+	std::cout<<"U: add_offset="<< add_offset_u <<", scale_factor="<<scale_factor_u <<"\n";
+	std::cout<<"V: add_offset="<< add_offset_v <<", scale_factor="<<scale_factor_v <<"\n";
+
         for (int i=0; i<data_in_u.size(); ++i)
         {
-            data_in[(N_data*nb_forcing_step)*i+fstep*N_data+0] = data_in_u[i];
-            data_in[(N_data*nb_forcing_step)*i+fstep*N_data+1] = data_in_v[i];
+            data_in[(N_data*nb_forcing_step)*i+fstep*N_data+0] = data_in_u[i]*scale_factor_u + add_offset_u;
+            data_in[(N_data*nb_forcing_step)*i+fstep*N_data+1] = data_in_v[i]*scale_factor_v + add_offset_v;
             data_in[(N_data*nb_forcing_step)*i+fstep*N_data+2] = data_in_ssh[i];
             // if (i<20)
             //     std::cout<<"data_out["<< i << "]= "<< M_wind[i] << " and "<< M_wind[i+M_num_nodes] <<"\n";

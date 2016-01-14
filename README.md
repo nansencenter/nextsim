@@ -83,14 +83,20 @@ This README would normally document whatever steps are necessary to get your app
 
 1) Download the source code from http://geuz.org/gmsh/
 
-2) Follow the instructions
+2) In the gmsh directory do
+
+mkdir lib
+cd lib
+cmake -DDEFAULT=0 -DENABLE_BUILD_LIB=1 ..
+make -j 32 lib
+sudo make install/fast
 
 ####### Set the PATH correctly #######
 
 # Add these lines to your .bash_profile:
 
 # for nextSIM in C++
-export NEXTSIMDIR =/Users/syloui/Developer/nextsim/
+export NEXTSIMDIR=$HOME/Developer/nextsim/
 export GMSH_DIR=/usr/local/
 
 export NETCDF_DIR=/opt/local/netcdf-cxx
@@ -101,7 +107,7 @@ export PETSC_ARCH=arch-darwin-c-opt
 export BOOST_DIR=/opt/local/boost
 
 export DYLD_LIBRARY_PATH="/opt/local/boost/lib"
-export DYLD_LIBRARY_PATH=/Users/syloui/Developer/nextsim/lib:$DYLD_LIBRARY_PATH
+export DYLD_LIBRARY_PATH=NEXTSIMDIR/lib:$DYLD_LIBRARY_PATH
 
 ##-------  Compile neXtSIM itself --------- 
 
@@ -109,10 +115,10 @@ export DYLD_LIBRARY_PATH=/Users/syloui/Developer/nextsim/lib:$DYLD_LIBRARY_PATH
 
 # Either modify the Makefile to have the right link to openmpi or do the following:
 
-sudo rm -f /opt/local/include/openmpi-mp
+sudo rm -rf /opt/local/include/openmpi-mp
 sudo ln -sf /opt/local/include/openmpi-gcc48 /opt/local/include/openmpi-mp
 
-sudo rm -f /opt/local/lib/openmpi-mp
+sudo rm -rf /opt/local/lib/openmpi-mp
 sudo ln -sf /opt/local/lib/openmpi-gcc48 /opt/local/lib/openmpi-mp
 
 # Type make in nextsim
