@@ -28,6 +28,7 @@
 #include "enums.hpp"
 #include <netcdf>
 
+
 extern "C"
 {
 #include <mapx.h>
@@ -157,12 +158,13 @@ private:
     std::vector<int> M_neumann_flags;
     std::vector<int> M_neumann_nodes;
 
-    boost::mpi::timer chrono;
+    boost::mpi::timer chrono, chrono_tot;
 
     setup::WindType M_wind_type;
     setup::OceanType M_ocean_type;
     setup::ThermoType M_thermo_type;
 
+    setup::IceCategoryType M_ice_type;
     setup::ConcentrationType M_conc_type;
     setup::ThicknessType M_thick_type;
     setup::DamageType M_damage_type;
@@ -175,8 +177,10 @@ private:
 
     int M_flag_fix;
 
+    std::vector<double> M_vector_reduction;
+
+
     std::vector<double> M_sigma;
-    std::vector<double> M_surface;
     std::vector<double> M_divergence_rate;
     //std::vector<double> M_UT;
     std::vector<double> M_UM;

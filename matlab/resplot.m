@@ -27,7 +27,9 @@ field='Velocity';
 %field='Thickness';
 %field='Wind';
 %field='Ocean';
-
+%field='Vair_factor';
+%field='Voce_factor';
+%field='Damage';
 [mesh_out,data_out] = neXtSIM_bin_revert('', step);
 
 % reshape
@@ -58,7 +60,9 @@ end
 
 for i=1:length(c)
     figure
-    patch(x,y,c{i},'FaceColor','flat','EdgeColor','none')
+    patch(x,y,c{i},'EdgeColor','none')
+    min(min(c{i}))
+    max(max(c{i}))
     caxis([min(min(c{i})), max(max(c{i}))])
     colorbar
 end
