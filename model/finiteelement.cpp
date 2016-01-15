@@ -26,11 +26,12 @@ FiniteElement::FiniteElement()
     M_vector()
 {}
 
+// Initialisation of the mesh and forcing
 void
 FiniteElement::init()
 {
     std::cout <<"GMSH VERSION= "<< M_mesh.version() <<"\n";
-    M_mesh.setOrdering("bamg");
+    M_mesh.setOrdering("gmsh");
 
     M_mesh_filename = vm["simul.mesh_filename"].as<std::string>();
 
@@ -216,6 +217,7 @@ FiniteElement::init()
     // options = new Options();
 }
 
+// Initialise all physical variables to propper initial conditions
 void
 FiniteElement::initSimulation()
 {
@@ -2149,11 +2151,14 @@ FiniteElement::solve()
     Environment::logMemoryUsage("");
 }
 
+// This is the main working function, called from main.cpp (same as perform_simul in the old code)
 void
 FiniteElement::run()
 {
+    // Initialise grid and forcing
     this->init();
 
+    // Initialise time
     int ind;
     int pcpt = 0;
     int niter = 0;
@@ -2175,14 +2180,13 @@ FiniteElement::run()
     std::string init_mit_file = (boost::format( "MITgcm_%1%_3m.nc" ) % time_init_ym ).str();
     std::cout<<"INIT_MIT_FILE "<< init_mit_file <<"\n";
 
-    std::cout<<"INIT TIME= "<< time_init <<"\n";
-
-    // main loop for nextsim program
+    std::cout<<"INIT TIME= "<< to_iso_string(epoch) <<"\n";
 
     double displacement_factor = 1.;
     double minang = 0.;
     bool is_running = true;
 
+    // Check the minimum angle of the grid
     minang = this->minAngle(M_mesh);
     if (minang < vm["simul.regrid_angle"].as<double>())
     {
@@ -2190,6 +2194,7 @@ FiniteElement::run()
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
     }
 
+    // main loop for nextsim program
     while (is_running)
     {
         is_running = ((pcpt+1)*time_step) < duration;
@@ -3160,9 +3165,6 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
 	att = VV.getAtt("add_offset");
 	att.getValues(&add_offset_v);
 
-	std::cout<<"U: add_offset="<< add_offset_u <<", scale_factor="<<scale_factor_u <<"\n";
-	std::cout<<"V: add_offset="<< add_offset_v <<", scale_factor="<<scale_factor_v <<"\n";
-
         for (int i=0; i<data_in_u.size(); ++i)
         {
             data_in[(N_data*nb_forcing_step)*i+fstep*N_data+0] = data_in_u[i]*scale_factor_u + add_offset_u;
@@ -3527,22 +3529,50 @@ FiniteElement::topazConc()
     std::vector<double> reduced_SX;
     std::vector<double> reduced_SY;
 
+    netCDF::NcVarAtt att;
+    double scale_factor_fice, add_offset_fice;
+    double scale_factor_hice, add_offset_hice;
+    double scale_factor_snow, add_offset_snow;
+    int FillValue_fice, FillValue_hice, FillValue_snow;
+
+    // Need to multiply with scale factor and add offset - these are stored as variable attributes
     if (M_conc_type == setup::ConcentrationType::TOPAZ4)
     {
         data_in_fice.resize(1101*761);
         VFICE.getVar(index_fhice_start,index_fhice_end,&data_in_fice[0]);
+
+	att = VFICE.getAtt("scale_factor");
+	att.getValues(&scale_factor_fice);
+	att = VFICE.getAtt("add_offset");
+	att.getValues(&add_offset_fice);
+	att = VFICE.getAtt("_FillValue");
+	att.getValues(&FillValue_fice);
     }
 
     if (M_thick_type == setup::ThicknessType::TOPAZ4)
     {
         data_in_hice.resize(1101*761);
         VHICE.getVar(index_fhice_start,index_fhice_end,&data_in_hice[0]);
+
+	att = VHICE.getAtt("scale_factor");
+	att.getValues(&scale_factor_hice);
+	att = VHICE.getAtt("add_offset");
+	att.getValues(&add_offset_hice);
+	att = VHICE.getAtt("_FillValue");
+	att.getValues(&FillValue_hice);
     }
 
     if (M_snow_thick_type == setup::SnowThicknessType::TOPAZ4)
     {
         data_in_snow.resize(1101*761);
         VSNOW.getVar(index_fhice_start,index_fhice_end,&data_in_snow[0]);
+
+	att = VSNOW.getAtt("scale_factor");
+	att.getValues(&scale_factor_snow);
+	att = VSNOW.getAtt("add_offset");
+	att.getValues(&add_offset_snow);
+	att = VSNOW.getAtt("_FillValue");
+	att.getValues(&FillValue_snow);
     }
 
     double maskvfh;
@@ -3552,12 +3582,12 @@ FiniteElement::topazConc()
         {
             if (M_conc_type == setup::ConcentrationType::TOPAZ4)
             {
-                maskvfh = data_in_fice[761*i+j];
-                maskvfh = std::abs(maskvfh);
+                // maskvfh = data_in_fice[761*i+j]*scale_factor_fice+add_offset_fice;
+                // maskvfh = std::abs(maskvfh);
 
-                if (maskvfh < 100.)
+                if (data_in_fice[761*i+j] != FillValue_fice)
                 {
-                    reduced_data_in_fice.push_back(data_in_fice[761*i+j]);
+                    reduced_data_in_fice.push_back(data_in_fice[761*i+j]*scale_factor_fice+add_offset_fice);
                     reduced_FX.push_back(X[761*i+j]);
                     reduced_FY.push_back(Y[761*i+j]);
                 }
@@ -3565,12 +3595,12 @@ FiniteElement::topazConc()
 
             if (M_thick_type == setup::ThicknessType::TOPAZ4)
             {
-                maskvfh = data_in_hice[761*i+j];
-                maskvfh = std::abs(maskvfh);
+                // maskvfh = data_in_hice[761*i+j]*scale_factor_hice+add_offset_hice;
+                // maskvfh = std::abs(maskvfh);
 
-                if (maskvfh < 100.)
+                if (data_in_fice[761*i+j] != FillValue_hice)
                 {
-                    reduced_data_in_hice.push_back(data_in_hice[761*i+j]);
+                    reduced_data_in_hice.push_back(data_in_hice[761*i+j]*scale_factor_hice+add_offset_hice);
                     reduced_HX.push_back(X[761*i+j]);
                     reduced_HY.push_back(Y[761*i+j]);
                 }
@@ -3578,12 +3608,12 @@ FiniteElement::topazConc()
 
             if (M_snow_thick_type == setup::SnowThicknessType::TOPAZ4)
             {
-                maskvfh = data_in_snow[761*i+j];
-                maskvfh = std::abs(maskvfh);
+                // maskvfh = data_in_snow[761*i+j]*scale_factor_snow+add_offset_snow;
+                // maskvfh = std::abs(maskvfh);
 
-                if (maskvfh < 100.)
+                if (data_in_fice[761*i+j] != FillValue_snow)
                 {
-                    reduced_data_in_snow.push_back(data_in_snow[761*i+j]);
+                    reduced_data_in_snow.push_back(data_in_snow[761*i+j]*scale_factor_snow+add_offset_snow);
                     reduced_SX.push_back(X[761*i+j]);
                     reduced_SY.push_back(Y[761*i+j]);
                 }
