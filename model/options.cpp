@@ -145,6 +145,13 @@ namespace Nextsim
             ("simul.init_snow_thin_thickness", po::value<double>()->default_value( 0. ), "")
             ("simul.constant_u", po::value<double>()->default_value( 0. ), "")
             ("simul.constant_v", po::value<double>()->default_value( -10. ), "")
+            ("simul.constant_tair", po::value<double>()->default_value( -25. ), "")
+            ("simul.constant_mixrat", po::value<double>()->default_value( 0.001 ), "")
+            ("simul.constant_mslp", po::value<double>()->default_value( 1013e2 ), "")
+            ("simul.constant_Qsw_in", po::value<double>()->default_value( 50. ), "")
+            ("simul.constant_Qlw_in", po::value<double>()->default_value( 250. ), "")
+            ("simul.constant_snowfr", po::value<double>()->default_value( 0.9 ), "")
+            ("simul.constant_rain", po::value<double>()->default_value( 1e-5 ), "")
             ;
         return desc;
     }

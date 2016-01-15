@@ -87,6 +87,7 @@ public:
     void solve();
     void run();
     void error();
+    void thermo();
 
     double minAngles(element_type const& element, mesh_type const& mesh) const;
     double minAngle(mesh_type const& mesh) const;
@@ -110,7 +111,7 @@ public:
     void forcing();
     void forcingWind(bool reload);//(double const& u, double const& v);
     void forcingOcean(bool reload);//(double const& u, double const& v);
-    void forcingThermo(double const& u, double const& v);
+    void forcingThermo(bool reload);//(double const& u, double const& v);
 
     void initConcentration();
     void initThickness();
@@ -311,7 +312,17 @@ private:
 private:
     std::vector<double> M_wind;
     std::vector<double> M_ocean;
-    std::vector<double> M_thermo;
+
+    // Thermodynamic variables
+    std::vector<double> M_tair;         // 2 m temperature [C]
+    std::vector<double> M_mixrat;       // Mixing ratio
+    std::vector<double> M_dair;         // 2 m dew point [C]
+    std::vector<double> M_mslp;         // Atmospheric pressure [Pa]
+    std::vector<double> M_Qsw_in;       // Incoming short-wave radiation [W/m2]
+    std::vector<double> M_Qlw_in;       // Incoming long-wave radiation [W/m2]
+    std::vector<double> M_tcc;          // Total cloud fraction
+    std::vector<double> M_rain;         // Total precipitation [m]
+    std::vector<double> M_snowfr;       // Fraction of precipitation that is snow
 
     std::vector<double> M_conc;
     std::vector<double> M_thick;
@@ -322,7 +333,7 @@ private:
 private:
     void constantWind(double const& u, double const& v);
     void constantOcean(double const& u, double const& v);
-    void constantThermo(double const& u, double const& v);
+    void constantThermo();//(double const& u, double const& v);
 
     void constantConc();
     void constantThick();

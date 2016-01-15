@@ -207,6 +207,7 @@ FiniteElement::init()
     M_damage_type = str2damg.find(vm["setup.damage-type"].as<std::string>())->second;
 
     const boost::unordered_map<const std::string, setup::ThermoType> str2thermo = boost::assign::map_list_of
+        ("off", setup::ThermoType::OFF)
         ("constant", setup::ThermoType::CONSTANT);
     M_thermo_type = str2thermo.find(vm["setup.thermo-type"].as<std::string>())->second;
 
@@ -235,7 +236,16 @@ FiniteElement::initSimulation()
 
     M_wind.resize(2*M_num_nodes);
     M_ocean.resize(2*M_num_nodes);
-    M_thermo.resize(2*M_num_nodes);
+    //M_thermo.resize(2*M_num_nodes);
+    M_tair.resize(M_num_elements);
+    M_mixrat.resize(M_num_elements);
+    M_dair.resize(M_num_elements);
+    M_mslp.resize(M_num_elements);
+    M_Qsw_in.resize(M_num_elements);
+    M_Qlw_in.resize(M_num_elements);
+    M_tcc.resize(M_num_elements);
+    M_snowfr.resize(M_num_elements);
+    M_rain.resize(M_num_elements);
 
     M_bathy_depth.resize(M_mesh_init.numNodes(),200.);
 
@@ -1008,7 +1018,14 @@ FiniteElement::regrid(bool step)
 
         M_wind.assign(2*M_num_nodes,0.);
         M_ocean.assign(2*M_num_nodes,0.);
-        M_thermo.assign(2*M_num_nodes,0.);
+        //M_thermo.assign(2*M_num_nodes,0.);
+        M_tair.assign(M_num_elements,vm["simul.constant_tair"].as<double>());
+        M_mixrat.assign(M_num_elements,vm["simul.constant_mixrat"].as<double>());
+        M_mslp.assign(M_num_elements,vm["simul.constant_mslp"].as<double>());
+        M_Qsw_in.assign(M_num_elements,vm["simul.constant_Qsw_in"].as<double>());
+        M_Qlw_in.assign(M_num_elements,vm["simul.constant_Qlw_in"].as<double>());
+        M_snowfr.assign(M_num_elements,vm["simul.constant_snowfr"].as<double>());
+        M_rain.assign(M_num_elements,vm["simul.constant_rain"].as<double>());
 
         //M_vair.assign(2*M_num_nodes,0.);
 
@@ -2151,6 +2168,20 @@ FiniteElement::solve()
     Environment::logMemoryUsage("");
 }
 
+// Routine for the 1D thermodynamical model
+void
+FiniteElement::thermo()
+{
+    std::cout << "We have no thermo yet, but thanks for playing!\n";
+    std::cout << "tair[1] = " << M_tair[1] << "\n";
+    std::cout << "mixrat[1] = " << M_mixrat[1] << "\n";
+    std::cout << "mslp[1] = " << M_mslp[1] << "\n";
+    std::cout << "Qsw_in[1] = " << M_Qsw_in[1] << "\n";
+    std::cout << "Qlw_in[1] = " << M_Qlw_in[1] << "\n";
+    std::cout << "snowfr[1] = " << M_snowfr[1] << "\n";
+    std::cout << "rain[1] = " << M_rain[1] << "\n";
+}
+
 // This is the main working function, called from main.cpp (same as perform_simul in the old code)
 void
 FiniteElement::run()
@@ -2231,8 +2262,6 @@ FiniteElement::run()
 
         if ((pcpt==0) || (M_regrid))
         {
-            std::cout<<"forcingThermo starts\n";
-            this->forcingThermo(0.,0.);
             std::cout<<"bathymetry starts\n";
             this->bathymetry();
             std::cout<<"tensors starts\n";
@@ -2242,6 +2271,9 @@ FiniteElement::run()
         }
 
         this->timeInterpolation(pcpt);
+
+        std::cout<<"forcingThermo starts\n";
+        this->forcingThermo(M_regrid);
 
         chrono.restart();
         std::cout<<"forcingwind starts\n";
@@ -2269,9 +2301,23 @@ FiniteElement::run()
         }
 #endif
 
+        //======================================================================
+        // Do the thermodynamics
+        //======================================================================
 
+        if ( M_thermo_type != setup::ThermoType::OFF )
+            this->thermo();
+
+        //======================================================================
+        // Assemble the matrix
+        //======================================================================
 
         this->assemble();
+
+        //======================================================================
+        // Solve the linear problem
+        //======================================================================
+
         this->solve();
 
         chrono.restart();
@@ -3286,12 +3332,15 @@ FiniteElement::gridTopazOcean()
 }
 
 void
-FiniteElement::forcingThermo(double const& u, double const& v)
+FiniteElement::forcingThermo(bool reload)
 {
     switch (M_thermo_type)
     {
+        case setup::ThermoType::OFF:
+            // Nothing to do if thermo is off
+            break;
         case setup::ThermoType::CONSTANT:
-            this->constantThermo(u,v);
+            this->constantThermo();
             break;
 
         default:
@@ -3301,13 +3350,15 @@ FiniteElement::forcingThermo(double const& u, double const& v)
 }
 
 void
-FiniteElement::constantThermo(double const& u, double const& v)
+FiniteElement::constantThermo()
 {
-    for (int i=0; i<M_num_nodes; ++i)
-    {
-        M_thermo[i] = u;
-        M_thermo[i+M_num_nodes] = v;
-    }
+    M_tair.assign(M_num_elements,vm["simul.constant_tair"].as<double>());
+    M_mixrat.assign(M_num_elements,vm["simul.constant_mixrat"].as<double>());
+    M_mslp.assign(M_num_elements,vm["simul.constant_mslp"].as<double>());
+    M_Qsw_in.assign(M_num_elements,vm["simul.constant_Qsw_in"].as<double>());
+    M_Qlw_in.assign(M_num_elements,vm["simul.constant_Qlw_in"].as<double>());
+    M_snowfr.assign(M_num_elements,vm["simul.constant_snowfr"].as<double>());
+    M_rain.assign(M_num_elements,vm["simul.constant_rain"].as<double>());
 }
 
 void

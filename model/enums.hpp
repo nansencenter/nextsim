@@ -30,6 +30,7 @@ namespace setup
 
 	enum class ThermoType
 	{
+		OFF      = -1,
 		CONSTANT = 0,
 		ASR      = 1,
 		ERA      = 2,
