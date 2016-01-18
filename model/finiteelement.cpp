@@ -244,8 +244,11 @@ FiniteElement::initSimulation()
     M_Qsw_in.resize(M_num_elements);
     M_Qlw_in.resize(M_num_elements);
     M_tcc.resize(M_num_elements);
+    M_precip.resize(M_num_elements);
     M_snowfr.resize(M_num_elements);
-    M_rain.resize(M_num_elements);
+    M_sst.resize(M_num_elements);
+    M_sss.resize(M_num_elements);
+    M_mld.resize(M_num_elements);
 
     M_bathy_depth.resize(M_mesh_init.numNodes(),200.);
 
@@ -1024,8 +1027,11 @@ FiniteElement::regrid(bool step)
         M_mslp.assign(M_num_elements,vm["simul.constant_mslp"].as<double>());
         M_Qsw_in.assign(M_num_elements,vm["simul.constant_Qsw_in"].as<double>());
         M_Qlw_in.assign(M_num_elements,vm["simul.constant_Qlw_in"].as<double>());
+        M_precip.assign(M_num_elements,vm["simul.constant_precip"].as<double>());
         M_snowfr.assign(M_num_elements,vm["simul.constant_snowfr"].as<double>());
-        M_rain.assign(M_num_elements,vm["simul.constant_rain"].as<double>());
+        M_sst.assign(M_num_elements,vm["simul.constant_sst"].as<double>());
+        M_sss.assign(M_num_elements,vm["simul.constant_sss"].as<double>());
+        M_mld.assign(M_num_elements,vm["simul.constant_mld"].as<double>());
 
         //M_vair.assign(2*M_num_nodes,0.);
 
@@ -2178,8 +2184,11 @@ FiniteElement::thermo()
     std::cout << "mslp[1] = " << M_mslp[1] << "\n";
     std::cout << "Qsw_in[1] = " << M_Qsw_in[1] << "\n";
     std::cout << "Qlw_in[1] = " << M_Qlw_in[1] << "\n";
+    std::cout << "precip[1] = " << M_precip[1] << "\n";
     std::cout << "snowfr[1] = " << M_snowfr[1] << "\n";
-    std::cout << "rain[1] = " << M_rain[1] << "\n";
+    std::cout << "sst[1] = " << M_sst[1] << "\n";
+    std::cout << "sss[1] = " << M_sss[1] << "\n";
+    std::cout << "mld[1] = " << M_mld[1] << "\n";
 }
 
 // This is the main working function, called from main.cpp (same as perform_simul in the old code)
@@ -2272,8 +2281,10 @@ FiniteElement::run()
 
         this->timeInterpolation(pcpt);
 
+        chrono.restart();
         std::cout<<"forcingThermo starts\n";
         this->forcingThermo(M_regrid);
+        std::cout<<"forcingthermo done in "<< chrono.elapsed() <<"s\n";
 
         chrono.restart();
         std::cout<<"forcingwind starts\n";
@@ -3357,8 +3368,11 @@ FiniteElement::constantThermo()
     M_mslp.assign(M_num_elements,vm["simul.constant_mslp"].as<double>());
     M_Qsw_in.assign(M_num_elements,vm["simul.constant_Qsw_in"].as<double>());
     M_Qlw_in.assign(M_num_elements,vm["simul.constant_Qlw_in"].as<double>());
+    M_precip.assign(M_num_elements,vm["simul.constant_precip"].as<double>());
     M_snowfr.assign(M_num_elements,vm["simul.constant_snowfr"].as<double>());
-    M_rain.assign(M_num_elements,vm["simul.constant_rain"].as<double>());
+    M_sst.assign(M_num_elements,vm["simul.constant_sst"].as<double>());
+    M_sss.assign(M_num_elements,vm["simul.constant_sss"].as<double>());
+    M_mld.assign(M_num_elements,vm["simul.constant_mld"].as<double>());
 }
 
 void

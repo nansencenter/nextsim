@@ -310,10 +310,12 @@ private:
     //Options *options;
 
 private:
-    std::vector<double> M_wind;
-    std::vector<double> M_ocean;
+    // Dynamic forcing ordered as [u1, v1, u2, v2, ...
+    std::vector<double> M_wind;         // Surface wind [m/s]
+    std::vector<double> M_ocean;        // "Geostrophic" ocean currents [m/s]
 
-    // Thermodynamic variables
+    // Thermodynamic forcing
+    // Atmosphere
     std::vector<double> M_tair;         // 2 m temperature [C]
     std::vector<double> M_mixrat;       // Mixing ratio
     std::vector<double> M_dair;         // 2 m dew point [C]
@@ -321,8 +323,12 @@ private:
     std::vector<double> M_Qsw_in;       // Incoming short-wave radiation [W/m2]
     std::vector<double> M_Qlw_in;       // Incoming long-wave radiation [W/m2]
     std::vector<double> M_tcc;          // Total cloud fraction
-    std::vector<double> M_rain;         // Total precipitation [m]
+    std::vector<double> M_precip;       // Total precipitation [m]
     std::vector<double> M_snowfr;       // Fraction of precipitation that is snow
+    // Ocean
+    std::vector<double> M_sst;          // Sea-surface temperature [C]
+    std::vector<double> M_sss;          // Sea-surface salinity [psu]
+    std::vector<double> M_mld;           // Mixed-layer depth [m]
 
     std::vector<double> M_conc;
     std::vector<double> M_thick;
