@@ -391,6 +391,8 @@ GmshMesh::stereographicProjection()
 
         ++cpt;
     }
+
+    close_mapx(map);
 }
 
 std::vector<int>
@@ -536,6 +538,8 @@ GmshMesh::meanLon() const
         mean_lon[elt] = lon;
     }
 
+    close_mapx(map);
+
     return mean_lon;
 }
 
@@ -561,6 +565,8 @@ GmshMesh::meanLat() const
         int status = inverse_mapx(map,X[elt],Y[elt],&lat,&lon);
         mean_lat[elt] = lat;
     }
+
+    close_mapx(map);
 
     return mean_lat;
 }

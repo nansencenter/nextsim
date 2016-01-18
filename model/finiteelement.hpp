@@ -27,7 +27,7 @@
 #include <graphcsr.hpp>
 #include "enums.hpp"
 #include <netcdf>
-
+#include <omp.h>
 
 extern "C"
 {
@@ -81,9 +81,10 @@ public:
                    std::vector<double> const& um, double factor = 1.) const;
     std::vector<double> shapeCoeff(element_type const& element, mesh_type const& mesh) const;
     void regrid(bool step = true);
-    void adapt_mesh();
+    void adaptMesh();
 
     void assemble();
+    void assembleSeq();
     void solve();
     void run();
     void error();
@@ -105,6 +106,7 @@ public:
     double latLon2Y(double const& lat, double const& lon, mapx_class* map, std::string const& configfile);
 
     void computeFactors(int cpt);
+    void computeFactorsSeq(int cpt);
     void initBamg();
     void initConstant();
     void forcing();
@@ -130,6 +132,7 @@ public:
     void updateVelocity();
     void scalingVelocity();
     void update();
+    void updateSeq();
     void exportResults(int step, bool export_mesh = true);
 
 private:
@@ -178,6 +181,7 @@ private:
     int M_flag_fix;
 
     std::vector<double> M_vector_reduction;
+    std::vector<bool> M_valid_conc;
 
 
     std::vector<double> M_sigma;
