@@ -5,7 +5,7 @@ PROGNAME=nextsim.exec
 #NEXTSIMDIR=..
 
 CXX = g++
-CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -pthread -v -DHAVE_CONFIG_H
+CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -pthread -fopenmp -v -DHAVE_CONFIG_H
 
 ifeq ($(KERNEL),Linux)
 	#CXX = g++-4.8
@@ -28,7 +28,7 @@ else
 	CXXFLAGS +=	-I /opt/local/netcdf/include/
 
 	LDFLAGS += -Wl,-rpath,/usr/local/lib -Wl,-rpath,/opt/local/lib/openmpi-mp
-	LDFLAGS += -L /usr/local/lib -L /opt/local/lib/openmpi-mp -lmpi_cxx -lmpi -ldl -lstdc++
+	LDFLAGS += -L /usr/local/lib -L /opt/local/lib/openmpi-mp -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
 	LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf_c++4
 
 	ifeq ($(CXX),clang)
