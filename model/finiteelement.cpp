@@ -1141,13 +1141,8 @@ FiniteElement::assemble()
     std::iota(rhsindices.begin(), rhsindices.end(), 0);
     std::vector<double> rhsdata(2*M_num_nodes, 0.);
 
-#if 0
-    std::vector<std::vector<double>> lhsdata(2*M_num_nodes);
-    for (int i=0; i<2*M_num_nodes; ++i)
-        lhsdata[i] = std::vector<double>(M_graph.nNz()[i],0.);
-
-    auto NNZ = M_graph.nNz();
-    auto JA = M_graph.ja();
+#if 1
+    std::vector<double> lhsdata(M_graph.ja().size(), 0.);
 #endif
 
     std::vector<int> extended_dirichlet_nodes = M_dirichlet_nodes;
@@ -1161,7 +1156,7 @@ FiniteElement::assemble()
 
     //std::cout<<"MAX THREADS= "<< max_threads <<"\n";
 
-#pragma omp parallel for num_threads(2) private(thread_id)
+#pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
         // if(thread_id == 0)
@@ -1327,25 +1322,26 @@ FiniteElement::assemble()
         {
             rhsdata[rcindices[idf]] += fvdata[idf];
 
-#if 0
+#if 1
+            int indexr = rcindices[idf];
             for (int idj=0; idj<rcindices.size(); ++idj)
             {
-                //lhsdata[rcindices[idf]][idj] += data[idf][idj];
+                int indexc = rcindices[idj];
+                int rnnz = M_graph.nNz()[indexr];
+                int start = M_graph.ia()[indexr];
+                int colind = 0;
 
-                int index = rcindices[idj];
-                std::vector<int> vecloc(NNZ[index]);
-                int start = M_graph.ia()[index];
-
-                for (int io=start; io<vecloc.size(); ++io)
+                for (int io=start; io<start+rnnz; ++io)
                 {
-                    vecloc[io-start] = JA[io];
+                    if (M_graph.ja()[io] == indexc)
+                    {
+                        colind = io-start;
+                        break;
+                    }
                 }
 
-                int colind = std::distance(vecloc.begin(), std::find(vecloc.begin(),vecloc.end(),index));
-                //int colind = this->globalToLocal(rcindices[idj]);
-                //std::cout<<"COL= "<< colind <<"\n";
-                //lhsdata[rcindices[idf]][colind] += data[6*idf+idj];
-                lhsdata[rcindices[idf]][0] += data[6*idf+idj];
+#pragma omp atomic
+                lhsdata[start+colind] += data[6*idf+idj];
             }
 #endif
         }
@@ -1356,16 +1352,53 @@ FiniteElement::assemble()
                 M_valid_conc[idn] = true;
         }
 
+#if 0
 #pragma omp critical(updatematrix)
         {
             M_matrix->addMatrix(&rcindices[0], rcindices.size(),
                                 &rcindices[0], rcindices.size(), &data[0]);
         }
-#pragma omp end critical
+//#pragma omp end critical
+#endif
     }
 
+    // update petsc matrix
+    boost::mpi::timer petsc_chrono;
+    petsc_chrono.restart();
+#pragma omp parallel for num_threads(max_threads)
+    for (int cptpm=0; cptpm<2*M_num_nodes; ++cptpm)
+    {
+        int rnnz = M_graph.nNz()[cptpm];
+        std::vector<int> lrcindices(rnnz);
+        std::vector<double> ldata(rnnz);
+        int start = M_graph.ia()[cptpm];
+        //std::cout<<"Looking for "<< indexc << " in array of size "<< rnnz << " started by "<< start <<"\n";
+        for (int io=start; io<start+rnnz; ++io)
+        {
+            lrcindices[io-start] = M_graph.ja()[io];
+            ldata[io-start] = lhsdata[io];
+        }
+#if 0
+        if (cptpm < 10)
+        {
+            std::cout<<"**************Row "<< cptpm <<"*************\n";
+            for (int j=0; j<rnnz; ++j)
+            {
+                std::cout<< std::left << std::setw(12) << ldata[j] <<" for indice "<< lrcindices[j] <<"\n";
+            }
+        }
+#endif
+        M_matrix->setMatrix(&cptpm, 1,
+                            &lrcindices[0], lrcindices.size(),
+                            &ldata[0]);
+    }
+    std::cout<<"SET PETSC MATRIX done in " << petsc_chrono.elapsed() <<"s\n";
+    lhsdata.resize(0);
+
+    // close petsc matrix
     M_matrix->close();
 
+    // update petsc vector and close it
     M_vector->addVector(&rhsindices[0], rhsindices.size(), &rhsdata[0]);
     M_vector->close();
 
