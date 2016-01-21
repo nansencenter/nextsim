@@ -1077,7 +1077,9 @@ FiniteElement::adaptMesh()
 #endif
 
 
+    //Environment::logMemoryUsage("before adaptMesh");
     Bamgx(bamgmesh,bamggeom,bamgmesh_previous,bamggeom_previous,bamgopt_previous);
+    //Environment::logMemoryUsage("after adaptMesh");
     this->importBamg(bamgmesh);
 
     // update dirichlet nodes
@@ -1320,6 +1322,7 @@ FiniteElement::assemble()
 
         for (int idf=0; idf<rcindices.size(); ++idf)
         {
+#pragma omp atomic
             rhsdata[rcindices[idf]] += fvdata[idf];
 
 #if 1
@@ -2283,10 +2286,16 @@ FiniteElement::update()
         if( M_divergence_rate[cpt]!=0.)
             to_be_updated=true;
 
+#if 0
         /* For the Lagrangian scheme, we do not update the variables for the elements having one node on the open boundary. */
         if(std::find(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[0]-1) != M_neumann_flags.end() ||
            std::find(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[1]-1) != M_neumann_flags.end() ||
            std::find(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[2]-1) != M_neumann_flags.end())
+            to_be_updated=false;
+#endif
+        if(std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[0]-1) ||
+           std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[1]-1) ||
+           std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[2]-1))
             to_be_updated=false;
 
         if((old_conc>0.)  && to_be_updated)
