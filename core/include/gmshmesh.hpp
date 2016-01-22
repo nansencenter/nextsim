@@ -58,6 +58,12 @@ public:
         type( MSH_PNT ),
         physical( 0 ),
         elementary( 0 ),
+        numPartitions( 1 ),
+        partition( 0 ),
+        ghosts(),
+        is_on_processor( false ),
+        is_ghost( false ),
+        ghost_partition_id( -1 ),
         numVertices(0),
         indices()
     {}
@@ -66,21 +72,77 @@ public:
                  int t,
                  int p,
                  int e,
+                 int _numPartitions,
+                 int _partition,
+                 std::vector<int> const& _ghosts,
                  int _numVertices,
-                 std::vector<int> const& _indices )
+                 std::vector<int> const& _indices,
+                 int worldcommrank,
+                 int worldcommsize)
         :
         number( n ),
         type( t ),
         physical( p ),
         elementary( e ),
+        numPartitions( _numPartitions ),
+        partition( (_partition % worldcommsize) ),
+        ghosts( _ghosts ),
+        is_on_processor( false ),
+        is_ghost( false ),
+        ghost_partition_id( partition ),
         numVertices( _numVertices ),
         indices( _indices )
-    {}
+    {
+        setPartition(worldcommrank,worldcommsize);
+    }
+
+
+    bool isOnProcessor() const { return is_on_processor; }
+    bool isGhost() const { return is_ghost; }
+    int ghostPartitionId() const { return ghost_partition_id; }
+
+    void setPartition(int worldcommrank, int worldcommsize)
+    {
+        // maybe proc id not start to 0
+        for ( auto _itghost=ghosts.begin(),_enghost=ghosts.end() ; _itghost!=_enghost ; ++_itghost )
+            *_itghost = ( (*_itghost) % worldcommsize);
+
+        if ( worldcommsize == 1 )
+        {
+            is_on_processor = true;
+            is_ghost = false;
+        }
+        else if ( worldcommrank == partition )
+        {
+            is_on_processor = true;
+            is_ghost = false;
+        }
+        else
+        {
+            // is the element a ghost cell
+            // look into ghosts if 'partition' is present
+            auto it = std::find( ghosts.begin(), ghosts.end(), worldcommrank );
+            if ( it != ghosts.end() )
+            {
+                is_on_processor = true;
+                is_ghost = true;
+                ghost_partition_id = partition;
+            }
+        }
+    }
 
     int number;
     int type;
     int physical;
     int elementary;
+
+    // partitioning info
+    int numPartitions;
+    int partition;
+    std::vector<int> ghosts;
+    bool is_on_processor;
+    bool is_ghost;
+    int ghost_partition_id;
 
     // vertices
     int numVertices;
@@ -95,16 +157,18 @@ public:
     typedef Nextsim::entities::GMSHPoint point_type;
     typedef Nextsim::entities::GMSHElement element_type;
 
-    GmshMesh();
+    GmshMesh( Communicator const& comm = Environment::comm() );
 
     GmshMesh(std::vector<point_type> const& nodes,
              std::vector<element_type> const& edges,
-             std::vector<element_type> const& triangles);
+             std::vector<element_type> const& triangles,
+             Communicator const& comm = Environment::comm());
 
     void readFromFile(std::string const& filename);
     void writeTofile(std::string const& filename);
     void move(std::vector<double> const& um, double factor);
 
+    Communicator const& comm() const { return M_comm; }
     std::string const& version() const {return M_version;}
     std::string const& ordering() const {return M_ordering;}
     std::vector<point_type> const& nodes() const {return M_nodes;}
@@ -117,6 +181,7 @@ public:
     int numTriangles() const {return M_num_triangles;}
     int numEdges() const {return M_num_edges;}
 
+    void setCommunicator(Communicator const& comm) {M_comm=comm;}
     void setOrdering(std::string const& order) {M_ordering=order;}
     void setNodes(std::vector<point_type> const& nodes) {M_nodes=nodes;}
     //void setElements(std::vector<element_type> const& elements) {M_elements=elements;}
@@ -142,6 +207,7 @@ public:
 
 private:
 
+    Communicator M_comm;
     std::string M_version;
     std::string M_ordering;
     std::vector<point_type> M_nodes;

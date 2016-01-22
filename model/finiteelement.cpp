@@ -36,17 +36,18 @@ FiniteElement::init()
     M_mesh_filename = vm["simul.mesh_filename"].as<std::string>();
 
     const boost::unordered_map<const std::string, setup::DomainType> str2domain = boost::assign::map_list_of
-        ("bigarctic10km.msh", setup::DomainType::BIGARCTIC)
+        ("parbigarctic10km.msh", setup::DomainType::BIGARCTIC)
         ("topazreducedsplit2.msh", setup::DomainType::DEFAULT)
         ("topazreducedsplit4.msh", setup::DomainType::DEFAULT)
         ("topazreducedsplit8.msh", setup::DomainType::DEFAULT)
         ("simplesquaresplit2.msh", setup::DomainType::DEFAULT);
 
-
     M_domain_type = str2domain.find(M_mesh_filename)->second;
 
+    std::cout<<"Mesh_Filename= "<< M_mesh_filename <<"\n";
+
     const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
-        ("bigarctic10km.msh", setup::MeshType::FROM_GMSH)
+        ("parbigarctic10km.msh", setup::MeshType::FROM_GMSH)
         ("topazreducedsplit2.msh", setup::MeshType::FROM_SPLIT)
         ("topazreducedsplit4.msh", setup::MeshType::FROM_SPLIT)
         ("topazreducedsplit8.msh", setup::MeshType::FROM_SPLIT)
@@ -79,8 +80,10 @@ FiniteElement::init()
             throw std::logic_error("invalid domain type");
     }
 
+    std::cout<<"start\n";
+    M_mesh_filename = "parbigarctic10km.msh";
     M_mesh.readFromFile(M_mesh_filename);
-
+#if 0
     M_mesh.stereographicProjection();
     // M_mesh.writeTofile("copy_init_mesh.msh");
 
@@ -215,6 +218,7 @@ FiniteElement::init()
 
     // init options for interpolation from mesh to mesh
     // options = new Options();
+#endif
 }
 
 // Initialise all physical variables to propper initial conditions
@@ -2791,7 +2795,7 @@ FiniteElement::run()
 {
     // Initialise grid and forcing
     this->init();
-
+#if 0
     // Initialise time
     int ind;
     int pcpt = 0;
@@ -2935,6 +2939,7 @@ FiniteElement::run()
 
     this->exportResults(1000);
     std::cout<<"TIMER total = " << chrono_tot.elapsed() <<"s\n";
+#endif
 }
 
 void
@@ -4834,6 +4839,7 @@ FiniteElement::equallySpacedDrifter()
 void
 FiniteElement::importBamg(BamgMesh const* bamg_mesh)
 {
+#if 0
     //mesh_type mesh;
     std::vector<point_type> mesh_nodes;
     std::vector<element_type> mesh_edges;
@@ -5020,6 +5026,7 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
 
     auto NNZ = M_graph.nNz();
     std::cout<<"ACCUMULATE= "<< std::accumulate(NNZ.begin(),NNZ.end(),0) <<"\n";
+#endif
 #endif
 }
 

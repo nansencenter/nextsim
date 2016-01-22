@@ -10,8 +10,9 @@
 
 namespace Nextsim
 {
-GmshMesh::GmshMesh()
+GmshMesh::GmshMesh(Communicator const& comm)
     :
+    M_comm(comm),
     M_version("2.2"),
     M_ordering("gmsh"),
     M_nodes(),
@@ -26,8 +27,10 @@ GmshMesh::GmshMesh()
 
 GmshMesh::GmshMesh(std::vector<point_type> const& nodes,
                    std::vector<element_type> const& edges,
-                   std::vector<element_type> const& triangles)
+                   std::vector<element_type> const& triangles,
+                   Communicator const& comm)
     :
+    M_comm(comm),
     M_version("2.2"),
     M_ordering("gmsh"),
     M_nodes(nodes),
@@ -146,11 +149,15 @@ GmshMesh::readFromFile(std::string const& filename)
     for(int i = 0; i < numElements; i++)
     {
         int number, type, physical = 0, elementary = 0, numVertices;
+        std::vector<int> ghosts;
         int numTags;
+        int partition = (this->comm().size()>1)?this->comm().rank():0;
 
         __is >> number  // elm-number
              >> type // elm-type
              >> numTags; // number-of-tags
+
+        int numPartitions = 1;
 
         for(int j = 0; j < numTags; j++)
         {
@@ -158,6 +165,9 @@ GmshMesh::readFromFile(std::string const& filename)
             __is >> tag;
             if(j == 0) physical = tag;
             else if(j == 1) elementary = tag;
+            else if((j == 2) && (numTags > 3)) numPartitions = tag;
+            else if(j == 3) partition = tag-1;
+            else if((j >= 4) && (j < 4 + numPartitions - 1)) ghosts.push_back((-tag)-1);
         }
 
         numVertices = MElement::getInfoMSH(type);
@@ -177,45 +187,38 @@ GmshMesh::readFromFile(std::string const& filename)
             std::next_permutation(indices.begin()+1,indices.end());
         }
 
-        // Nextsim::entities::GMSHElement gmshElt( number,
-        //                                         type,
-        //                                         physical,
-        //                                         elementary,
-        //                                         numVertices,
-        //                                         indices );
+        int cpt_elt = (type == 2) ? cpt_triangle : cpt_edge;
 
-        //__et.push_back( gmshElt );
-        //M_elements.insert(std::make_pair(number,gmshElt));
+        //std::cout<<"On proc "<< this->comm().rank() <<" : Global size= "<< this->comm().size() <<"\n";
+
+        Nextsim::entities::GMSHElement gmshElt( cpt_elt,
+                                                type,
+                                                physical,
+                                                elementary,
+                                                numPartitions,
+                                                partition,
+                                                ghosts,
+                                                numVertices,
+                                                indices,
+                                                this->comm().rank(),
+                                                this->comm().size());
+
+
+        //M_triangles.insert(std::make_pair(number,gmshElt));
+
+        if (gmshElt.isOnProcessor() == false)
+            continue;
 
         if (type == 2)
         {
-            Nextsim::entities::GMSHElement gmshElt( cpt_triangle,
-                                                    type,
-                                                    physical,
-                                                    elementary,
-                                                    numVertices,
-                                                    indices );
-
-            //M_triangles.insert(std::make_pair(number,gmshElt));
             M_triangles.push_back(gmshElt);
-
             ++cpt_triangle;
         }
         else if (type == 1)
         {
-            Nextsim::entities::GMSHElement gmshElt( cpt_edge,
-                                                    type,
-                                                    physical,
-                                                    elementary,
-                                                    numVertices,
-                                                    indices );
-
-            //M_edges.insert(std::make_pair(number,gmshElt));
             M_edges.push_back(gmshElt);
-
             ++cpt_edge;
         }
-
 
         if ( __gt.find( type ) != __gt.end() )
             ++__gt[ type ];

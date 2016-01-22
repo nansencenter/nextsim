@@ -38,7 +38,7 @@ namespace Nextsim
             ("setup.snow-thickness-type", po::value<std::string>()->default_value( "constant" ), "")
             ("setup.damage-type", po::value<std::string>()->default_value( "constant" ), "")
 
-            ("simul.mesh_filename", po::value<std::string>()->default_value( "bigarctic10km.msh" ), "")
+            ("simul.mesh_filename", po::value<std::string>()->default_value( "parbigarctic10km.msh" ), "")
             ("simul.hsize", po::value<double>()->default_value( 0.01 ), "")
             ("simul.verbose", po::value<int>()->default_value( 7 ), "")
             ("simul.use_simul_out", po::value<bool>()->default_value( false ), "")
