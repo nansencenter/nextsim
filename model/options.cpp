@@ -152,9 +152,10 @@ namespace Nextsim
             ("simul.constant_Qlw_in", po::value<double>()->default_value( 250. ), "")
             ("simul.constant_precip", po::value<double>()->default_value( 1e-5 ), "")
             ("simul.constant_snowfr", po::value<double>()->default_value( 0.9 ), "")
-            ("simul.constant_sst", po::value<double>()->default_value( -1.8 ), "")
-            ("simul.constant_sss", po::value<double>()->default_value( 32.8 ), "")
             ("simul.constant_mld", po::value<double>()->default_value( 9. ), "")
+            ("simul.ocean_nudge", po::value<bool>()->default_value( false ), "")
+            ("simul.constant_Qdw", po::value<double>()->default_value( 0. ), "")
+            ("simul.constant_Fdw", po::value<double>()->default_value( 0. ), "")
             ;
         return desc;
     }

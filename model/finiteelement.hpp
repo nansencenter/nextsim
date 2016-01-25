@@ -88,7 +88,12 @@ public:
     void solve();
     void run();
     void error();
+
     void thermo();
+    void openWaterFlux(std::vector<double> &Qow, std::vector<double> &evap, std::vector<double> const &wspeed, double const ocean_albedo, double const drag_ocean_t, double const drag_ocean_q);
+    double calcSphumA(double mslp, double dair, double mixrat);
+    void calcSphumI(double mslp, double tsurf, double &sphumi, double &dsphumidT);
+    double calcSphumW(double mslp, double sst, double sss);
 
     double minAngles(element_type const& element, mesh_type const& mesh) const;
     double minAngle(mesh_type const& mesh) const;
@@ -120,6 +125,7 @@ public:
     void initDamage();
     void initSnowThickness();
     void initThermodynamics();
+    void initSlabOcean();
     void initDrifter();
     void bathymetry();
     void timeInterpolation(int step);
@@ -249,6 +255,7 @@ private:
     double quad_drag_coef_water;
     double ssh_coef;
     double time_relaxation_damage;
+    double deltaT_relaxation_damage;
     //double water_depth;
     double critical_h;
     double Vair_coef;
@@ -330,15 +337,20 @@ private:
     std::vector<double> M_precip;       // Total precipitation [m]
     std::vector<double> M_snowfr;       // Fraction of precipitation that is snow
     // Ocean
+    std::vector<double> M_ocean_temp;   // Ocean temperature in top layer [C]
+    std::vector<double> M_ocean_salt;   // Ocean salinity in top layer [C]
+    std::vector<double> M_mld;          // Mixed-layer depth [m]
+
+    std::vector<double> M_drifter;      
+
+    // Prognostic variables
+    std::vector<double> M_conc;         // Ice concentration
+    std::vector<double> M_thick;        // Effective ice thickness [m]
+    std::vector<double> M_damage;       // Ice damage
+    std::vector<double> M_snow_thick;   // Effective snow thickness [m]
+    std::vector<double> M_tsurf;        // Ice surface temperature [C]
     std::vector<double> M_sst;          // Sea-surface temperature [C]
     std::vector<double> M_sss;          // Sea-surface salinity [psu]
-    std::vector<double> M_mld;           // Mixed-layer depth [m]
-
-    std::vector<double> M_conc;
-    std::vector<double> M_thick;
-    std::vector<double> M_damage;
-    std::vector<double> M_snow_thick;
-    std::vector<double> M_drifter;
 
 private:
     void constantWind(double const& u, double const& v);
