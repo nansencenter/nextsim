@@ -2811,6 +2811,7 @@ FiniteElement::thermo()
     std::vector<double> hi(M_num_elements);     // Ice thickness (slab)
     std::vector<double> hs(M_num_elements);     // Snow thickness (slab)
 
+    std::vector<double> del_hi(M_num_elements); // Change in ice thickness (slab only)
     std::vector<double> del_vi(M_num_elements); // Change in ice volume
     std::vector<double> del_vs(M_num_elements); // Change in snow volume
 
@@ -2868,7 +2869,16 @@ FiniteElement::thermo()
     std::cout<<"MIN Qow= "<< *std::min_element(Qow.begin(),Qow.end()) <<"\n";
 
     // Thickness change of the ice slab
-    std::cout << "this->thermo_ice0(*hi[0], *hs[0], *Qio[0], *del_hi[0], *Qai[0]);" << "\n";
+    this->thermoIce0(hi, hs, Qio, del_hi, Qai, wspeed);
+
+    std::cout<<"MAX M_tsurf= "<< *std::max_element(M_tsurf.begin(),M_tsurf.end()) <<"\n";
+    std::cout<<"MIN M_tsurf= "<< *std::min_element(M_tsurf.begin(),M_tsurf.end()) <<"\n";
+
+    std::cout<<"MAX hi= "<< *std::max_element(hi.begin(),hi.end()) <<"\n";
+    std::cout<<"MIN hi= "<< *std::min_element(hi.begin(),hi.end()) <<"\n";
+
+    std::cout<<"MAX hs= "<< *std::max_element(hs.begin(),hs.end()) <<"\n";
+    std::cout<<"MIN hs= "<< *std::min_element(hs.begin(),hs.end()) <<"\n";
 
     // Ice growth over open water and lateral melt
     std::cout << "this->thermo_ow(*hi[0], *hs[0], *Qow[0], *evap[0]);" << "\n";
@@ -2918,6 +2928,241 @@ FiniteElement::thermo()
         }
     }
 }
+
+// Calculate the heat flux through the ice using Semtner's 0-layer model
+void
+FiniteElement::thermoIce0(std::vector<double> &hi, std::vector<double> &hs, std::vector<double> &Qio, std::vector<double> &del_hi, std::vector<double> &Qai, std::vector<double> const &wspeed)
+{
+    /* Local variables */
+    double qi, qs;
+    double dtsurf, tbot, albedo;
+    double Qsw, Qout, dQaidT, subl;
+    double Qic, del_hs, del_ht, del_hb, draft;
+    double alb_ice, alb_sn, I_0;
+    int alb_scheme;
+
+    // Set local variable to values defined by options
+    alb_ice    = vm["simul.alb_ice"].as<double>();
+    alb_sn     = vm["simul.alb_sn"].as<double>();
+    I_0        = vm["simul.I_0"].as<double>();
+    alb_scheme = vm["simul.alb_scheme"].as<int>();
+
+    /* ---------------------------------------------------------------
+     * BEGIN CODE
+     * --------------------------------------------------------------- */
+
+    /* Calculate the volumetric latent heats */
+    qi = physical::Lf*physical::rhoi;
+    qs = physical::Lf*physical::rhos;
+
+    for (int i=0; i < M_num_elements; ++i)
+    {
+        /* ---------------------------------------------------------------
+         * Calculate the surface temperature within a while-loop
+         * --------------------------------------------------------------- */
+
+        /* Don't do anything if there's no ice */
+        if ( M_conc[i] <=0 )
+        {
+            hi[i]      = 0;
+            hs[i]      = 0;
+            M_tsurf[i] = 0;
+            Qio[i]     = 0;
+            del_hi[i]  = 0;
+            Qai[i]     = 0;
+            continue;
+        } else {
+            /* Calculate the slab thickness */
+            hi[i] = M_thick[i]/M_conc[i];
+            hs[i] = M_snow_thick[i]/M_conc[i];
+        }
+
+        dtsurf   = 1.;
+        tbot     = mu*M_sss[i];
+        while ( dtsurf > 1e-4 )
+        {
+            /* Calculate albedo - we can impliment different schemes if we want */
+            switch ( alb_scheme )
+            {
+                case 1:
+                case 2:
+                    albedo = getAlbedo(hs[i], alb_ice, alb_sn, I_0, alb_scheme);
+                    break;
+                case 3:
+                    albedo = getAlbedoCCSM3(M_tsurf[i], hs[i], alb_ice, alb_sn);
+                    break;
+                default:
+                    std::cout << "alb_scheme = " << alb_scheme << "\n";
+                    throw std::logic_error("Wrong albedo_scheme");
+            }
+
+            /* Calculate atmospheric fluxes */
+            Qsw = -M_Qsw_in[i]*(1.-albedo);
+            bulkIce(M_tsurf[i], M_tair[i], M_mslp[i], wspeed[i], M_mixrat[i], M_dair[i], vm["simul.drag_ice_t"].as<double>(), Qout, dQaidT, subl);
+            /* Sum them up */
+            Qai[i] = Qsw - M_Qlw_in[i] + Qout;
+
+            /* Recalculate M_tsurf */
+            dtsurf = M_tsurf[i];
+            Qic    = physical::ks*( tbot-M_tsurf[i] )/( hs[i] + physical::ks*hi[i]/physical::ki );
+            M_tsurf[i] = M_tsurf[i] + ( Qic - Qai[i] )/
+                ( physical::ks/(hs[i]+physical::ks*hi[i]/physical::ki) + dQaidT );
+
+            /* Set M_tsurf to the freezing point of snow or ice */
+            if ( hs[i] > 0. )
+                M_tsurf[i] = std::min(0., M_tsurf[i]);
+            else
+                M_tsurf[i] = std::min(physical::mu*physical::si, M_tsurf[i]);
+
+            /* Re-evaluate the exit condition */
+            dtsurf = std::abs(dtsurf-M_tsurf[i]);
+        }
+
+        /* Conductive flux through the ice */
+        Qic = physical::ks*( tbot-M_tsurf[i] )/( hs[i] + physical::ks*hi[i]/physical::ki );
+
+        /* ---------------------------------------------------------------
+         * Melt and growth
+         * --------------------------------------------------------------- */
+
+        /* Top melt */
+        /* Snow melt and sublimation */
+        del_hs = std::min(Qai[i]-Qic,0.)*time_step/qs - subl*time_step/physical::rhos;
+        /* Use the energy left over after snow melts to melt the ice */
+        del_ht = std::min(hs[i]+del_hs,0.)*qs/qi;
+        /* Can't have negative hs! */
+        del_hs = std::max(del_hs,-hs[i]);
+        hs[i]  = hs[i] + del_hs + M_precip[i]*M_snowfr[i]/physical::rhos*time_step;
+
+        /* Heatflux from ocean */
+        /* Use all excess heat to melt or grow ice. This is not
+         * accurate, but will have to do for now! */
+        Qio[i] = (M_sst[i]-tbot)*physical::rhow*physical::cpw*M_mld[i]/time_step;
+        /* Bottom melt/growth */
+        del_hb = (Qic-Qio[i])*time_step/qi;
+
+        /* Combine top and bottom */
+        del_hi[i] = del_ht+del_hb;
+        hi[i]     = hi[i] + del_hi[i];
+
+        /* Make sure we don't get too small hi_new */
+        if ( hi[i] < hmin )
+        {
+            Qio[i]     = Qio[i] + hi[i]*qi/time_step + hs[i]*qs/time_step;
+            hi[i]      = 0.;
+            hs[i]      = 0.;
+            M_tsurf[i] = 0.;
+            del_hi[i]  = -hi[i];
+        }
+
+        /* Snow-to-ice conversion */
+        draft = ( hi[i]*physical::rhoi + hs[i]*physical::rhos ) / physical::rhow;
+        if ( vm["simul.flooding"].as<bool>() && draft > hi[i] )
+        {
+            /* Subtract the mass of snow converted to ice from hs_new */
+            hs[i] = hs[i] - ( draft - hi[i] )*physical::rhoi/physical::rhos;
+            hi[i] = draft;
+        }
+    }
+}
+
+// Calculate the ice and snow surface albedo using constant albedos or a simple snow-thickness dependend scheme
+double
+FiniteElement::getAlbedo( double hs, double alb_ice, double alb_sn, double I_0, int alb_scheme )
+{
+    /* This scheme mimics Semtner 76 and Maykut and Untersteiner 71 when
+     * alb_ice = 0.64 and alb_sn = 0.85 */
+
+    double albedo;
+
+    if ( hs > 0. )
+    {
+        /* decrease the albedo towards ice albedo for snow thinner than 0.2 m */
+        if ( alb_scheme == 2 )
+            albedo = std::min(alb_sn, alb_ice + (alb_sn-alb_ice)*hs/0.2);
+        else
+            albedo = alb_sn;
+    } else {
+        /* account for penetrating shortwave radiation */
+        albedo = alb_ice + 0.4*( 1-alb_ice )*I_0;
+    }
+
+    return(albedo);
+}
+
+// Calculate the ice and snow surface albedo using the CCSM temperature dependent scheme
+double
+FiniteElement::getAlbedoCCSM3( double tsurf, double hs, double alb_ice, double alb_sn )
+{
+    /* Albedo scheme from ccsm 3 */
+    /* The scheme is simplified using the assumption that visible solar
+     * radiation accounts for 52% of the spectrum and the near-infrared for
+     * 48% (the same split as used in cice when running in stand-alone
+     * mode). */
+
+    /* This is the ccsm3 scheme when alb_ice = 0.538 and alb_sn = 0.8256 */
+
+    double albs, albi, frac_sn; 
+
+    if ( tsurf > -1. )
+    {
+        albi = alb_ice - 0.075*(tsurf+1.);
+        albs = alb_sn  - 0.124*(tsurf+1.);
+    } else {
+        albi = alb_ice;
+        albs = alb_sn;
+    }
+
+    /* Snow cover fraction */
+    frac_sn = hs/(hs+0.02);
+
+    /* Final albedo */
+    return(frac_sn*albs + (1.-frac_sn)*albi);
+}
+
+/* -----------------------------------------------------------------------
+ * Calculate surface fluxes at the ice surface using bulk formula
+ * ----------------------------------------------------------------------- */
+void
+FiniteElement::bulkIce(double tsurf, double tair, double mslp, double wspeed, double mixrat, double dair, double Cd,
+		double &Qout, double &dQoutdT, double &subl)
+{
+
+	double Qlw_out, dQlwdT;
+	double tairK, sphuma, sphumi;
+	double rhoair, Qsh, dQshdT;
+	double Qlh, dsphumidT, dQlhdT;
+
+	/* Out-going long-wave flux and derivative */
+        Qlw_out =   physical::eps * physical::sigma_sb * std::pow(tsurf+physical::tfrwK,4);
+        dQlwdT  = 4*physical::eps * physical::sigma_sb * std::pow(tsurf+physical::tfrwK,3);
+
+	/* Specific humidity - atmosphere */
+	sphuma = calcSphumA(mslp, dair, mixrat);
+
+	/* Specific humidity - ice surface */
+        calcSphumI(mslp, tsurf, sphumi, dsphumidT);
+
+	/* Density of air */
+	tairK  = tair + physical::tfrwK;
+	rhoair = mslp/(Ra*tairK) * (1+sphuma)/(1+1.609*sphuma);
+
+	/* Sensible heat flux and derivative */
+        Qsh    = Cd * rhoair * physical::cpa * wspeed*( tsurf - tair );
+        dQshdT = Cd * rhoair * physical::cpa * wspeed;
+
+	/* Latent heat flux and derivative */
+        Qlh    = Cd*rhoair*(physical::Lf+physical::Lv0)*wspeed*( sphumi - sphuma );
+        dQlhdT = Cd*(physical::Lf+physical::Lv0)*rhoair*wspeed*dsphumidT;
+
+	/* Sum them up */
+	Qout    = Qlw_out + Qsh + Qlh;
+	dQoutdT = dQlwdT + dQshdT + dQlhdT;
+
+	/* Sublimation */
+	subl    = Qlh/(physical::Lf+physical::Lv0);
+}
+
 
 // Calculate the heat flux and evaporation in the open water portion.
 // The resulting flux should be multiplied with 1-M_conc to get the mean flux over the element.

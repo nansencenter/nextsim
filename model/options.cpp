@@ -99,7 +99,7 @@ namespace Nextsim
             ("simul.albedoW", po::value<double>()->default_value( 0.07 ), "")
             ("simul.read_hw", po::value<double>()->default_value( 1. ), "")
             ("simul.hw", po::value<double>()->default_value( 9. ), "")
-            ("simul.alb_scheme", po::value<std::string>()->default_value( "Albedo" ), "")
+            ("simul.alb_scheme", po::value<int>()->default_value( 1 ), "")
             ("simul.flooding", po::value<bool>()->default_value( true ), "")
             ("simul.alb_ice", po::value<double>()->default_value( 0.64 ), "")
             ("simul.alb_sn", po::value<double>()->default_value( 0.85 ), "")

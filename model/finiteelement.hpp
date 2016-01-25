@@ -90,6 +90,10 @@ public:
     void error();
 
     void thermo();
+    void thermoIce0(std::vector<double> &hi, std::vector<double> &hs, std::vector<double> &Qio, std::vector<double> &del_hi, std::vector<double> &Qai, std::vector<double> const &wspeed);
+    double getAlbedo( double hs, double alb_ice, double alb_sn, double I_0, int alb_scheme );
+    double getAlbedoCCSM3( double tsurf, double hs, double alb_ice, double alb_sn );
+    void bulkIce(double tsurf, double tair, double mslp, double wspeed, double mixrat, double dair, double Cd, double &Qout, double &dQoutdT, double &subl);
     void openWaterFlux(std::vector<double> &Qow, std::vector<double> &evap, std::vector<double> const &wspeed, double const ocean_albedo, double const drag_ocean_t, double const drag_ocean_q);
     double calcSphumA(double mslp, double dair, double mixrat);
     void calcSphumI(double mslp, double tsurf, double &sphumi, double &dsphumidT);
