@@ -83,8 +83,8 @@ public:
     void regrid(bool step = true);
     void adaptMesh();
 
-    void assemble();
-    void assembleSeq();
+    void assemble(int cpt);
+    void assembleSeq(int cpt);
     void solve();
     void run();
     void error();
@@ -105,8 +105,6 @@ public:
     double latLon2X(double const& lat, double const& lon, mapx_class* map, std::string const& configfile);
     double latLon2Y(double const& lat, double const& lon, mapx_class* map, std::string const& configfile);
 
-    void computeFactors(int cpt);
-    void computeFactorsSeq(int cpt);
     void initBamg();
     void initConstant();
     void forcing();
@@ -120,6 +118,7 @@ public:
     void initSnowThickness();
     void initThermodynamics();
     void initDrifter();
+    void coriolis();
     void bathymetry();
     void timeInterpolation(int step);
     void nodesToElements(double const* depth, std::vector<double>& v);
@@ -191,7 +190,6 @@ private:
     std::vector<double> M_VT;
     std::vector<double> M_VTM;
     std::vector<double> M_VTMM;
-    std::vector<double> M_Vcor;
 
     std::vector<double> M_bathy_depth;
 
@@ -204,15 +202,11 @@ private:
     std::vector<double> M_basal_factor;
     std::vector<double> M_water_elements;
     std::vector<double> M_ssh;
-    std::vector<double> M_element_ssh;
     std::vector<double> M_h_thin;
     std::vector<double> M_hs_thin;
     std::vector<double> M_h_ridged_thin_ice;
     std::vector<double> M_h_ridged_thick_ice;
 
-    std::vector<double> M_norm_Voce_ice;
-    std::vector<double> M_norm_Vair_ice;
-    std::vector<double> M_norm_Vice;
     std::vector<double> M_fcor;
 
     std::vector<double> M_Dunit;
@@ -246,10 +240,9 @@ private:
     double ridging_exponent;
     double quad_drag_coef_air;
     double quad_drag_coef_water;
-    double ssh_coef;
     double time_relaxation_damage;
     //double water_depth;
-    double critical_h;
+    double ssh_coef;
     double Vair_coef;
     double Voce_coef;
 
