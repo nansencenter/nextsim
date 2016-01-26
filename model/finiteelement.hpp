@@ -90,6 +90,7 @@ public:
     void error();
 
     void thermo();
+    void thermoOW(std::vector<double> &hi, std::vector<double> &hs, std::vector<double> &Qow, std::vector<double> &evap, std::vector<double> const &wspeed, std::vector<double> const &del_hi);
     void thermoIce0(std::vector<double> &hi, std::vector<double> &hs, std::vector<double> &Qio, std::vector<double> &del_hi, std::vector<double> &Qai, std::vector<double> const &wspeed);
     double getAlbedo( double hs, double alb_ice, double alb_sn, double I_0, int alb_scheme );
     double getAlbedoCCSM3( double tsurf, double hs, double alb_ice, double alb_sn );

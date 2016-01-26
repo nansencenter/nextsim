@@ -2881,7 +2881,19 @@ FiniteElement::thermo()
     std::cout<<"MIN hs= "<< *std::min_element(hs.begin(),hs.end()) <<"\n";
 
     // Ice growth over open water and lateral melt
-    std::cout << "this->thermo_ow(*hi[0], *hs[0], *Qow[0], *evap[0]);" << "\n";
+    this->thermoOW(hi, hs, Qow, evap, wspeed, del_hi);
+
+    std::cout<<"MAX del_hi= "<< *std::max_element(del_hi.begin(),del_hi.end()) <<"\n";
+    std::cout<<"MIN del_hi= "<< *std::min_element(del_hi.begin(),del_hi.end()) <<"\n";
+
+    std::cout<<"MAX hi= "<< *std::max_element(hi.begin(),hi.end()) <<"\n";
+    std::cout<<"MIN hi= "<< *std::min_element(hi.begin(),hi.end()) <<"\n";
+
+    std::cout<<"MAX hs= "<< *std::max_element(hs.begin(),hs.end()) <<"\n";
+    std::cout<<"MIN hs= "<< *std::min_element(hs.begin(),hs.end()) <<"\n";
+
+    std::cout<<"MAX M_conc= "<< *std::max_element(M_conc.begin(),M_conc.end()) <<"\n";
+    std::cout<<"MIN M_conc= "<< *std::min_element(M_conc.begin(),M_conc.end()) <<"\n";
 
     // some in-line pre-processing for the slab-ocean
     // this should be moved into the slab-ocean routine
@@ -2925,6 +2937,162 @@ FiniteElement::thermo()
             M_time_relaxation_damage[i] = std::max(time_relaxation_damage*deltaT_relaxation_damage/deltaT, time_step);
         } else {
             M_time_relaxation_damage[i] = time_relaxation_damage;
+        }
+    }
+}
+
+// Calculate ice growth over open water
+void
+FiniteElement::thermoOW(std::vector<double> &hi, std::vector<double> &hs, std::vector<double> &Qow, std::vector<double> &evap, std::vector<double> const &wspeed, std::vector<double> const &del_hi)
+{
+    /* Local variables */
+    int newice_type, melt_type;
+    double PhiM, PhiF;
+    double qi, qs;
+    double hi_old, tw_new, tfrw, newice, del_c, newsnow, h0, rh0, rPhiF;
+    double tanalpha, rtanalpha;
+
+    /* ---------------------------------------------------------------
+     * BEGIN CODE
+     * --------------------------------------------------------------- */
+
+    /* Set constants */
+    rh0   = 1./vm["simul.hnull"].as<double>();
+    rPhiF = 1./vm["simul.PhiF"].as<double>();
+    // no thin ice for now!
+    /* tanalpha  = vm["simul.hi_thin_max"].as<double>()/vm["simul.c_thin_max"].as<double>(); 
+    rtanalpha = 1/tanalpha; */
+
+    /* Volumetric latent heats */
+    qi = physical::Lf * physical::rhoi;
+    qs = physical::Lf * physical::rhos;
+
+    // Set local variable to values defined by options
+    newice_type = vm["simul.newice_type"].as<int>();
+    melt_type = vm["simul.melt_type"].as<int>();
+    PhiM = vm["simul.PhiM"].as<double>();
+    PhiF = vm["simul.PhiF"].as<double>();
+
+    for (int i=0; i < M_num_elements; ++i)
+    {
+        /* dT/dt due to heatflux atmos.-ocean */
+        tw_new = M_sst[i] - Qow[i]*time_step/(M_mld[i]*physical::rhow*physical::cpw);
+        tfrw   = physical::mu*M_sss[i];
+
+        /* Form new ice in case of super cooling, and reset Qow and evap */
+        if ( tw_new < tfrw )
+        {
+            newice  = (1-M_conc[i])*(tfrw-tw_new)*M_mld[i]*physical::rhow*physical::cpw/qi;
+            Qow[i]  = -(tfrw-M_sst[i])*M_mld[i]*physical::rhow*physical::cpw/time_step;
+            evap[i] = 0.;
+        } else {
+            newice  = 0.;
+            Qow[i]  = Qow[i];
+            evap[i] = evap[i];
+        }
+
+        /* Decide the change in ice fraction (del_c) */
+        hi_old = hi[i]-del_hi[i];
+        /* Initialise to be safe */
+        del_c = 0.;
+        newsnow = 0.;
+        if ( newice > 0. )
+        {
+            /* Freezing conditions */
+            switch ( newice_type )
+            {
+                case 1:
+                    /* Hibler's (79) approach */
+                    del_c = newice*rh0;
+                    break;
+                case 2:
+                    /* Mellor and Kantha (89) */
+                    if ( hi_old > 0. )
+                    {
+                            del_c = newice*PhiF/hi_old;
+                    } else {
+                            del_c = 1.;
+                    }
+                    break;
+                case 3:
+                    /* Olason and Harms (09) */
+                    h0    = (1.+0.1*wspeed[i])/15.;
+                    del_c = newice/std::max(rPhiF*hi_old,h0);
+                    break;
+                case 4:
+                    /* Thin ice category -- not for now!
+                    thinIceRedistribute(v_thin[i], vs_thin[i], newice/(1-c[i]), c[i], tanalpha, rtanalpha, hi_thin_max, v_thin_new[i], newice, del_c, newsnow);
+                    // Change the snow _thickness_ for thick ice and _volume_ for thin ice
+                    vs_thin_new[i] = vs_thin[i] - newsnow;
+                    break; */
+                default:
+                    std::cout << "newice_type = " << newice_type << "\n";
+                    throw std::logic_error("Wrong newice_type");
+            }
+            /* Check bounds on del_c */
+            del_c = std::min( 1.-M_conc[i], del_c );
+        }
+        else if ( del_hi[i] < 0 )
+        {
+            /* Melting conditions */
+            switch ( melt_type )
+            {
+                case 1:
+                    /* Hibler (79) using PhiM to tune. PhiM = 0.5 is
+                     * equivilent Hibler's (79) approach */
+                    if ( M_conc[i] < 1 )
+                        del_c = del_hi[i]*M_conc[i]*PhiM/hi_old;
+                    else
+                        del_c = 0;
+                    break;
+                case 2:
+                    /* Mellor and Kantha (89) */
+                    /* Use the fraction PhiM of (1-c)*Qow to melt laterally */
+                    del_c = PhiM*(1-M_conc[i])*std::min(0.,Qow[i])*time_step/( hi[i]*qi+hs[i]*qs );
+                    /* Deliver the fraction (1-PhiM) of Qow to the ocean */
+                    /* + Deliver excess energy to the ocean when there's no ice left */
+                    Qow[i] = (1-PhiM)*Qow[i] 
+                            + std::min(0., std::max(0.,M_conc[i]+del_c)*( hi[i]*qi+hs[i]*qs )/time_step);
+                    /* Don't suffer negative c! */
+                    del_c = fmax(del_c, -M_conc[i]);
+                    break;
+                default :
+                    std::cout << "newice_type = " << newice_type << "\n";
+                    throw std::logic_error("Wrong newice_type");
+            }
+        }
+        else
+        {
+            /* There is no ice growing or melting */
+            del_c = 0;
+        }
+
+        /* New concentration */
+        M_conc[i] = M_conc[i] + del_c;
+
+        /* New thickness */
+        /* We conserve volume and energy */
+        if ( M_conc[i] >= physical::cmin )
+        {
+            hi[i]  = ( hi[i]*(M_conc[i]-del_c) + newice )/M_conc[i];
+            if ( del_c < 0. )
+            {
+                /* We conserve the snow height, but melt away snow as the concentration decreases */
+                // hs_new[i]  = hs[i];
+                Qow[i] = Qow[i] + del_c*hs[i]*qs/time_step;
+            } else {
+                /* Snow volume is conserved as concentration increases */
+                hs[i]  = ( hs[i]*(M_conc[i]-del_c) + newsnow )/M_conc[i];
+            }
+        }
+
+        /* Check limits */
+        if ( M_conc[i] < cmin || hi[i] < hmin )
+        {
+            M_conc[i] = 0;
+            hi[i]     = 0;
+            hs[i]     = 0;
+            Qow[i]    = Qow[i] + (M_conc[i]-del_c)*hi[i]*qi/time_step + (M_conc[i]-del_c)*hs[i]*qs/time_step;
         }
     }
 }
