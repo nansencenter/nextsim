@@ -183,6 +183,7 @@ private:
     std::vector<bool> M_valid_conc;
 
 
+    std::vector<double> M_surface;
     std::vector<double> M_sigma;
     std::vector<double> M_divergence_rate;
     //std::vector<double> M_UT;

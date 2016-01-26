@@ -290,6 +290,8 @@ FiniteElement::initSimulation()
 
     M_ssh.resize(M_num_nodes,0.);
 
+    M_surface.resize(M_num_elements);
+
     M_fcor.resize(M_num_elements);
 
     M_ftime_wind_range.resize(2,0.);
@@ -456,9 +458,9 @@ FiniteElement::sides(element_type const& element, mesh_type const& mesh) const
 
     std::vector<double> side(3);
 
-    side[0] = std::sqrt(std::pow(vertex_1[0]-vertex_0[0],2.) + std::pow(vertex_1[1]-vertex_0[1],2.));
-    side[1] = std::sqrt(std::pow(vertex_2[0]-vertex_1[0],2.) + std::pow(vertex_2[1]-vertex_1[1],2.));
-    side[2] = std::sqrt(std::pow(vertex_2[0]-vertex_0[0],2.) + std::pow(vertex_2[1]-vertex_0[1],2.));
+    side[0] = std::hypot(vertex_1[0]-vertex_0[0], vertex_1[1]-vertex_0[1]);
+    side[1] = std::hypot(vertex_2[0]-vertex_1[0], vertex_2[1]-vertex_1[1]);
+    side[2] = std::hypot(vertex_2[0]-vertex_0[0], vertex_2[1]-vertex_0[1]);
 
     return side;
 }
@@ -906,9 +908,9 @@ FiniteElement::regrid(bool step)
         }
 
         cpt = 0;
-        for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
+        for (auto it=M_mesh.triangles().begin(), end=M_mesh.triangles().end(); it!=end; ++it)
         {
-            surface[cpt] = this->measure(*it,M_mesh);
+            surface[cpt] = M_surface[cpt];
             ++cpt;
         }
 
@@ -1113,6 +1115,15 @@ FiniteElement::adaptMesh()
         M_neumann_nodes[2*i] = M_neumann_flags[i];
         M_neumann_nodes[2*i+1] = M_neumann_flags[i]+M_num_nodes;
     }
+
+    M_surface.assign(M_num_elements,0.);
+
+    int cpt = 0;
+    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
+    {
+        M_surface[cpt] = this->measure(*it,M_mesh);
+        ++cpt;
+    }
 }
 
 void
@@ -1131,6 +1142,7 @@ FiniteElement::assemble(int pcpt)
 
     std::vector<int> extended_dirichlet_nodes = M_dirichlet_nodes;
 
+    // ---------- Identical values for all the elements -----------
     // coriolis term
     double beta0;
     double beta1;
@@ -1157,6 +1169,10 @@ FiniteElement::assemble(int pcpt)
         beta2 = 0 ;
     }
 
+    double cos_ocean_turning_angle=std::cos(ocean_turning_angle_rad);
+    double sin_ocean_turning_angle=std::sin(ocean_turning_angle_rad);
+
+    // ---------- Assembling starts -----------
     std::cout<<"Assembling starts\n";
     chrono.restart();
 
@@ -1186,9 +1202,9 @@ FiniteElement::assemble(int pcpt)
         for (int i=0; i<3; ++i)
         {
             nind = (M_elements[cpt]).indices[i]-1;
-            welt_oce_ice += std::sqrt(std::pow(M_VT[nind]-M_ocean[nind],2.)+std::pow(M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes],2.));
-            welt_air_ice += std::sqrt(std::pow(M_VT[nind]-M_wind [nind],2.)+std::pow(M_VT[nind+M_num_nodes]-M_wind [nind+M_num_nodes],2.));
-            welt_ice += std::sqrt(std::pow(M_VT[nind],2.)+std::pow(M_VT[nind+M_num_nodes],2.));
+            welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
+            welt_air_ice += std::hypot(M_VT[nind]-M_wind [nind],M_VT[nind+M_num_nodes]-M_wind [nind+M_num_nodes]);
+            welt_ice += std::hypot(M_VT[nind],M_VT[nind+M_num_nodes]);
 
             welt_ssh += M_ssh[nind];
         }
@@ -1239,7 +1255,7 @@ FiniteElement::assemble(int pcpt)
 
         double mass_e = rhoi*tmp_thick + rhos*M_snow_thick[cpt];
         mass_e = (tmp_conc > 0.) ? (mass_e/tmp_conc):0.;
-        double surface_e = this->measure(M_elements[cpt],M_mesh);
+        double surface_e = M_surface[cpt];
 
         // /* compute the x and y derivative of g*ssh */
         double g_ssh_e_x = 0.;
@@ -1309,7 +1325,7 @@ FiniteElement::assemble(int pcpt)
                 }
 
                 /* ---------- UU component */
-                duu = surface_e*( mloc*(coef_Vair+coef_Voce*std::cos(ocean_turning_angle_rad)+coef_V+coef_basal)
+                duu = surface_e*( mloc*(coef_Vair+coef_Voce*cos_ocean_turning_angle+coef_V+coef_basal)
                                   +M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i)*6+2*j]*coef_P);
 
                 /* ---------- VU component */
@@ -1319,7 +1335,7 @@ FiniteElement::assemble(int pcpt)
                 duv = surface_e*(+M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j+1]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i)*6+2*j+1]*coef_P);
 
                 /* ---------- VV component */
-                dvv = surface_e*( mloc*(coef_Vair+coef_Voce*std::cos(ocean_turning_angle_rad)+coef_V+coef_basal)
+                dvv = surface_e*( mloc*(coef_Vair+coef_Voce*cos_ocean_turning_angle+coef_V+coef_basal)
                                   +M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j+1]*coef_P);
 
 
@@ -1329,12 +1345,22 @@ FiniteElement::assemble(int pcpt)
                 data[(2*i+1)*6+2*j+1] = dvv;
 
 
-                fvdata[2*i] += surface_e*( mloc*( coef_Vair*M_wind[index_u]+coef_Voce*std::cos(ocean_turning_angle_rad)*M_ocean[index_u]+coef_X+coef_V*M_VT[index_u]) - b0tj_sigma_hu/3)
-                               +surface_e*( mloc*( -coef_Voce*std::sin(ocean_turning_angle_rad)*(M_ocean[index_v]-M_VT[index_v])+coef_C*Vcor_index_v) );
+                fvdata[2*i] += surface_e*( mloc*( coef_Vair*M_wind[index_u]
+                                                +coef_Voce*cos_ocean_turning_angle*M_ocean[index_u]
+                                                +coef_X
+                                                +coef_V*M_VT[index_u]
+                                                -coef_Voce*sin_ocean_turning_angle*(M_ocean[index_v]-M_VT[index_v])
+                                                +coef_C*Vcor_index_v) 
+                                - b0tj_sigma_hu/3);
 
                 
-                fvdata[2*i+1] += surface_e*( mloc*( +coef_Voce*std::sin(ocean_turning_angle_rad)*(M_ocean[index_u]-M_VT[index_u])-coef_C*Vcor_index_u) )
-                              +surface_e*( mloc*( coef_Vair*M_wind[index_v]+coef_Voce*std::cos(ocean_turning_angle_rad)*M_ocean[index_v]+coef_Y+coef_V*M_VT[index_v]) - b0tj_sigma_hv/3);
+                fvdata[2*i+1] += surface_e*( mloc*( +coef_Vair*M_wind[index_v]
+                                                    +coef_Voce*cos_ocean_turning_angle*M_ocean[index_v]
+                                                    +coef_Y
+                                                    +coef_V*M_VT[index_v] 
+                                                    +coef_Voce*sin_ocean_turning_angle*(M_ocean[index_u]-M_VT[index_u])
+                                                    -coef_C*Vcor_index_u)
+                                - b0tj_sigma_hv/3);
 
             }
 
@@ -1551,6 +1577,9 @@ FiniteElement::assembleSeq(int pcpt)
         beta2 = 0 ;
     }
 
+    double cos_ocean_turning_angle=std::cos(ocean_turning_angle_rad);
+    double sin_ocean_turning_angle=std::sin(ocean_turning_angle_rad);
+
     std::cout<<"Assembling starts\n";
     chrono.restart();
     int cpt = 0;
@@ -1597,9 +1626,9 @@ FiniteElement::assembleSeq(int pcpt)
         for (int i=0; i<3; ++i)
         {
             nind = (M_elements[cpt]).indices[i]-1;
-            welt_oce_ice += std::sqrt(std::pow(M_VT[nind]-M_ocean[nind],2.)+std::pow(M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes],2.));
-            welt_air_ice += std::sqrt(std::pow(M_VT[nind]-M_wind [nind],2.)+std::pow(M_VT[nind+M_num_nodes]-M_wind [nind+M_num_nodes],2.));
-            welt_ice += std::sqrt(std::pow(M_VT[nind],2.)+std::pow(M_VT[nind+M_num_nodes],2.));
+            welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
+            welt_air_ice += std::hypot(M_VT[nind]-M_wind [nind],M_VT[nind+M_num_nodes]-M_wind [nind+M_num_nodes]);
+            welt_ice += std::hypot(M_VT[nind],M_VT[nind+M_num_nodes]);
 
             welt_ssh += M_ssh[nind];
         }
@@ -1643,7 +1672,7 @@ FiniteElement::assembleSeq(int pcpt)
         /* Compute the value that only depends on the element */
         mass_e = rhoi*tmp_thick + rhos*M_snow_thick[cpt];
         mass_e = (tmp_conc > 0.) ? (mass_e/tmp_conc):0.;
-        surface_e = this->measure(*it,M_mesh);
+        surface_e = M_surface[cpt];
 
         // /* compute the x and y derivative of g*ssh */
         g_ssh_e_x = 0.;
@@ -1821,7 +1850,7 @@ FiniteElement::assembleSeq(int pcpt)
                 }
 
                 /* ---------- UU component */
-                duu = surface_e*( mloc*(coef_Vair+coef_Voce*std::cos(ocean_turning_angle_rad)+coef_V+coef_basal)+B0Tj_Dunit_B0Ti[0]*coef*time_step+B0Tj_Dunit_comp_B0Ti[0]*coef_P);
+                duu = surface_e*( mloc*(coef_Vair+coef_Voce*cos_ocean_turning_angle+coef_V+coef_basal)+B0Tj_Dunit_B0Ti[0]*coef*time_step+B0Tj_Dunit_comp_B0Ti[0]*coef_P);
 
                 /* ---------- VU component */
                 dvu = surface_e*(+B0Tj_Dunit_B0Ti[1]*coef*time_step+B0Tj_Dunit_comp_B0Ti[1]*coef_P);
@@ -1830,7 +1859,7 @@ FiniteElement::assembleSeq(int pcpt)
                 duv = surface_e*(+B0Tj_Dunit_B0Ti[2]*coef*time_step+B0Tj_Dunit_comp_B0Ti[2]*coef_P);
 
                 /* ---------- VV component */
-                dvv = surface_e*( mloc*(coef_Vair+coef_Voce*std::cos(ocean_turning_angle_rad)+coef_V+coef_basal)+B0Tj_Dunit_B0Ti[3]*coef*time_step+B0Tj_Dunit_comp_B0Ti[3]*coef_P);
+                dvv = surface_e*( mloc*(coef_Vair+coef_Voce*cos_ocean_turning_angle+coef_V+coef_basal)+B0Tj_Dunit_B0Ti[3]*coef*time_step+B0Tj_Dunit_comp_B0Ti[3]*coef_P);
 
                 // if (cpt == 1)
                 // {
@@ -1851,22 +1880,22 @@ FiniteElement::assembleSeq(int pcpt)
                 data[(2*i+1)*6+2*j+1] = dvv;
 
 #if 0
-                fuu += surface_e*( mloc*( coef_Vair*M_wind[index_u]+coef_Voce*std::cos(ocean_turning_angle_rad)*M_ocean[index_u]+coef_X+coef_V*M_VT[index_u]) - B0Tj_sigma_h[0]/3);
-                fuu += surface_e*( mloc*( -coef_Voce*std::sin(ocean_turning_angle_rad)*(M_ocean[index_u]-M_VT[index_u])-coef_C*M_Vcor[index_u]) );
+                fuu += surface_e*( mloc*( coef_Vair*M_wind[index_u]+coef_Voce*cos_ocean_turning_angle*M_ocean[index_u]+coef_X+coef_V*M_VT[index_u]) - B0Tj_sigma_h[0]/3);
+                fuu += surface_e*( mloc*( -coef_Voce*sin_ocean_turning_angle*(M_ocean[index_u]-M_VT[index_u])-coef_C*M_Vcor[index_u]) );
 
-                fvv += surface_e*( mloc*( coef_Vair*M_wind[index_v]+coef_Voce*std::cos(ocean_turning_angle_rad)*M_ocean[index_v]+coef_Y+coef_V*M_VT[index_v]) - B0Tj_sigma_h[1]/3);
-                fvv += surface_e*( mloc*( -coef_Voce*std::sin(ocean_turning_angle_rad)*(M_ocean[index_v]-M_VT[index_v])-coef_C*M_Vcor[index_v]) );
+                fvv += surface_e*( mloc*( coef_Vair*M_wind[index_v]+coef_Voce*cos_ocean_turning_angle*M_ocean[index_v]+coef_Y+coef_V*M_VT[index_v]) - B0Tj_sigma_h[1]/3);
+                fvv += surface_e*( mloc*( -coef_Voce*sin_ocean_turning_angle*(M_ocean[index_v]-M_VT[index_v])-coef_C*M_Vcor[index_v]) );
 #endif
 
                 double Vcor_index_u=beta0*M_VT[index_u] + beta1*M_VTM[index_u] + beta2*M_VTMM[index_u];
 
-                fvdata[2*i] += surface_e*( mloc*( coef_Vair*M_wind[index_u]+coef_Voce*std::cos(ocean_turning_angle_rad)*M_ocean[index_u]+coef_X+coef_V*M_VT[index_u]) - B0Tj_sigma_h[0]/3);
-                fvdata[2*i+1] += surface_e*( mloc*( +coef_Voce*std::sin(ocean_turning_angle_rad)*(M_ocean[index_u]-M_VT[index_u])-coef_C*Vcor_index_u) );
+                fvdata[2*i] += surface_e*( mloc*( coef_Vair*M_wind[index_u]+coef_Voce*cos_ocean_turning_angle*M_ocean[index_u]+coef_X+coef_V*M_VT[index_u]) - B0Tj_sigma_h[0]/3);
+                fvdata[2*i+1] += surface_e*( mloc*( +coef_Voce*sin_ocean_turning_angle*(M_ocean[index_u]-M_VT[index_u])-coef_C*Vcor_index_u) );
 
                 double Vcor_index_v=beta0*M_VT[index_v] + beta1*M_VTM[index_v] + beta2*M_VTMM[index_v];
 
-                fvdata[2*i] += surface_e*( mloc*( -coef_Voce*std::sin(ocean_turning_angle_rad)*(M_ocean[index_v]-M_VT[index_v])+coef_C*Vcor_index_v) );
-                fvdata[2*i+1] += surface_e*( mloc*( coef_Vair*M_wind[index_v]+coef_Voce*std::cos(ocean_turning_angle_rad)*M_ocean[index_v]+coef_Y+coef_V*M_VT[index_v]) - B0Tj_sigma_h[1]/3);
+                fvdata[2*i] += surface_e*( mloc*( -coef_Voce*sin_ocean_turning_angle*(M_ocean[index_v]-M_VT[index_v])+coef_C*Vcor_index_v) );
+                fvdata[2*i+1] += surface_e*( mloc*( coef_Vair*M_wind[index_v]+coef_Voce*cos_ocean_turning_angle*M_ocean[index_v]+coef_Y+coef_V*M_VT[index_v]) - B0Tj_sigma_h[1]/3);
 
 
                 rcindices_i[2*i] = index_u_i;
@@ -2308,8 +2337,8 @@ FiniteElement::update()
 
         /* Compute the shear and normal stress, which are two invariants of the internal stress tensor */
 
-        sigma_s=std::sqrt(std::pow((sigma_pred[0]-sigma_pred[1])/2.,2.)+std::pow(sigma_pred[2],2.));
-        sigma_n=         (sigma_pred[0]+sigma_pred[1])/2.;
+        sigma_s=std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
+        sigma_n=           (sigma_pred[0]+sigma_pred[1])/2.;
 
         /* minimum and maximum normal stress */
         tract_max=tract_coef*M_Cohesion[cpt]/tan_phi;
@@ -2655,8 +2684,8 @@ FiniteElement::updateSeq()
 
         /* Compute the shear and normal stress, which are two invariants of the internal stress tensor */
 
-        sigma_s=std::sqrt(std::pow((sigma_pred[0]-sigma_pred[1])/2.,2.)+std::pow(sigma_pred[2],2.));
-        sigma_n=         (sigma_pred[0]+sigma_pred[1])/2.;
+        sigma_s=std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
+        sigma_n=           (sigma_pred[0]+sigma_pred[1])/2.;
 
         //std::cout<<"sigma_n= "<< sigma_n <<"\n";
 
