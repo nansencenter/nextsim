@@ -2812,14 +2812,9 @@ FiniteElement::thermo()
     std::vector<double> hs(M_num_elements);     // Snow thickness (slab)
 
     std::vector<double> del_hi(M_num_elements); // Change in ice thickness (slab only)
-    std::vector<double> del_vi(M_num_elements); // Change in ice volume
     std::vector<double> del_vs(M_num_elements); // Change in snow volume
 
-    std::vector<double> rain(M_num_elements);   // Liquid precipitation
     std::vector<double> evap(M_num_elements);   // Evaporation
-    std::vector<double> emp(M_num_elements);    // Evaporation minus liquid precipitation
-    std::vector<double> Qio_mean(M_num_elements);       // Element mean ice-ocean heat flux
-    std::vector<double> Qow_mean(M_num_elements);       // Element mean open water heat flux
 
     std::vector<double> Qdw(M_num_elements);    // Heat flux from ocean nudging
     std::vector<double> Fdw(M_num_elements);    // Fresh water flux from ocean nudging
@@ -2895,29 +2890,20 @@ FiniteElement::thermo()
     std::cout<<"MAX M_conc= "<< *std::max_element(M_conc.begin(),M_conc.end()) <<"\n";
     std::cout<<"MIN M_conc= "<< *std::min_element(M_conc.begin(),M_conc.end()) <<"\n";
 
-    // some in-line pre-processing for the slab-ocean
-    // this should be moved into the slab-ocean routine
+    // Calculate effective ice and snow thickness
     for (int i=0; i < M_num_elements; ++i)
     {
-        // Calculate effective ice and snow thickness
         M_thick[i] = hi[i]*M_conc[i];
         M_snow_thick[i] = hs[i]*M_conc[i];
-
-        // Calculate change in volume to calculate salt rejection
-        del_vi[i] = M_thick[i] - old_vol[i];
-        del_vs[i] = M_snow_thick[i] - old_snow_vol[i];
-
-        // Rain falling on ice falls straight through. We need to calculate the
-        // bulk freshwater input into the entire cell, i.e. everything in the
-        // open-water part plus rain in the ice-covered part.
-        rain[i] = (1-old_conc[i])*M_precip[i] + old_conc[i]*(1-M_snowfr[i])*M_precip[i];
-        emp[i]  = (evap[i]*(1-old_conc[i])-rain[i]);
-
-        Qio_mean[i] = Qio[i]*old_conc[i];
-        Qow_mean[i] = Qow[i]*(1-old_conc[i]);
     }
 
-    std::cout << "this->slab_ocean(*del_vi[0], *del_vs[0], *emp[0], *Qio_mean[0], *Qow_mean[0], *Qdw[0], *Fdw[0]);" << "\n";
+    this->slabOcean(old_conc, old_vol, old_snow_vol, evap, Qio, Qow, Qdw, Fdw);
+
+    std::cout<<"MAX M_sst= "<< *std::max_element(M_sst.begin(),M_sst.end()) <<"\n";
+    std::cout<<"MIN M_sst= "<< *std::min_element(M_sst.begin(),M_sst.end()) <<"\n";
+
+    std::cout<<"MAX M_sss= "<< *std::max_element(M_sss.begin(),M_sss.end()) <<"\n";
+    std::cout<<"MIN M_sss= "<< *std::min_element(M_sss.begin(),M_sss.end()) <<"\n";
 
     // Damage manipulation
     double deltaT;      // Temperature difference between ice bottom and the snow-ice interface
@@ -2938,6 +2924,42 @@ FiniteElement::thermo()
         } else {
             M_time_relaxation_damage[i] = time_relaxation_damage;
         }
+    }
+}
+
+// Calculate the T and S evolution of the slab ocean
+void
+FiniteElement::slabOcean(std::vector<double> const &old_conc, std::vector<double> const &old_vol, std::vector<double> const &old_snow_vol, std::vector<double> const &evap, std::vector<double> const &Qio, std::vector<double> const &Qow, std::vector<double> const &Qdw, std::vector<double> const &Fdw)
+{
+    // local variables
+    double del_vi;      // Change in ice volume
+    double del_vs;      // Change in snow olume
+    double rain;        // Liquid precipitation
+    double emp;         // Evaporation minus liquid precipitation
+    double Qio_mean;    // Element mean ice-ocean heat flux
+    double Qow_mean;    // Element mean open water heat flux
+
+    for (int i=0; i < M_num_elements; ++i)
+    {
+        // Calculate change in volume to calculate salt rejection
+        del_vi = M_thick[i] - old_vol[i];
+        del_vs = M_snow_thick[i] - old_snow_vol[i];
+
+        // Rain falling on ice falls straight through. We need to calculate the
+        // bulk freshwater input into the entire cell, i.e. everything in the
+        // open-water part plus rain in the ice-covered part.
+        rain = (1.-old_conc[i])*M_precip[i] + old_conc[i]*(1.-M_snowfr[i])*M_precip[i];
+        emp  = (evap[i]*(1.-old_conc[i])-rain);
+
+        Qio_mean = Qio[i]*old_conc[i];
+        Qow_mean = Qow[i]*(1.-old_conc[i]);
+
+        /* Heat-flux */
+        M_sst[i] = M_sst[i] - time_step*( Qio_mean + Qow_mean - Qdw[i] )/(physical::rhow*physical::cpw*M_mld[i]);
+
+        /* Change in salinity */
+        M_sss[i] = M_sss[i] + ( (M_sss[i]-physical::si)*physical::rhoi*del_vi + M_sss[i]*(del_vs*physical::rhos + (emp-Fdw[i])*time_step) ) 
+            / ( M_mld[i]*physical::rhow - del_vi*physical::rhoi - ( del_vs*physical::rhos + (emp-Fdw[i])*time_step) );
     }
 }
 
