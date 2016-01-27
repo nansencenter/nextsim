@@ -750,7 +750,6 @@ FiniteElement::regrid(bool step)
         }
 
         // Interpolate hminVertices and hmaxVertices onto the current mesh
-        chrono.restart();
 
         // NODAL INTERPOLATION
         int init_num_nodes = M_mesh_init.numNodes();
@@ -781,8 +780,6 @@ FiniteElement::regrid(bool step)
             bamgopt->hminVertices[i] = interp_Vertices_out[2*i];
             bamgopt->hmaxVertices[i] = interp_Vertices_out[2*i+1];
         }
-
-        std::cout<<"TIMER INTERPOLATION = hminVertices, hmaxVertices" << chrono.elapsed() <<"s\n";
     }
 
     this->adaptMesh();
@@ -797,7 +794,6 @@ FiniteElement::regrid(bool step)
         double* interp_out;
 
         std::cout<<"NODAL: Interp starts\n";
-        chrono.restart();
 
         for (int i=0; i<prv_num_nodes; ++i)
         {
@@ -847,7 +843,6 @@ FiniteElement::regrid(bool step)
         }
 
         std::cout<<"NODAL: Interp done\n";
-        std::cout<<"NODAL: TIMER INTERPOLATION= " << chrono.elapsed() <<"s\n";
 
         // ELEMENT INTERPOLATION
         int prv_num_elements = M_mesh_previous.numTriangles();
@@ -857,7 +852,6 @@ FiniteElement::regrid(bool step)
         double* interp_elt_out;
 
         std::cout<<"ELEMENT: Interp starts\n";
-        chrono.restart();
 
         for (int i=0; i<prv_num_elements; ++i)
         {
@@ -988,7 +982,6 @@ FiniteElement::regrid(bool step)
         }
 
         std::cout<<"ELEMENT: Interp done\n";
-        std::cout<<"ELEMENT: TIMER INTERPOLATION= " << chrono.elapsed() <<"s\n";
     }
 
     if (step)
@@ -2994,16 +2987,26 @@ FiniteElement::run()
 
         if ((pcpt==0) || (M_regrid))
         {
+            chrono.restart();
             std::cout<<"forcingThermo starts\n";
             this->forcingThermo(0.,0.);
+            std::cout<<"forcingThermo done in "<< chrono.elapsed() <<"s\n";
+            chrono.restart();
             std::cout<<"bathymetry starts\n";
             this->bathymetry();
+            std::cout<<"bathymetry done in "<< chrono.elapsed() <<"s\n";
+            chrono.restart();
             std::cout<<"tensors starts\n";
             this->tensors();
+            std::cout<<"tensors done in "<< chrono.elapsed() <<"s\n";
+            chrono.restart();
             std::cout<<"cohesion starts\n";
             this->cohesion();
+            std::cout<<"cohesion done in "<< chrono.elapsed() <<"s\n";
+            chrono.restart();
             std::cout<<"Coriolis starts\n";
             this->coriolis();
+            std::cout<<"Coriolis done in "<< chrono.elapsed() <<"s\n";
         }
 
         this->timeInterpolation(pcpt);
