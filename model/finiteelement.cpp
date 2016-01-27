@@ -2796,18 +2796,8 @@ FiniteElement::solve()
 void
 FiniteElement::thermo()
 {
-    std::cout << "We have no thermo yet, but thanks for playing!\n";
-    std::cout << "tair[1] = " << M_tair[1] << "\n";
-    std::cout << "mixrat[1] = " << M_mixrat[1] << "\n";
-    std::cout << "mslp[1] = " << M_mslp[1] << "\n";
-    std::cout << "Qsw_in[1] = " << M_Qsw_in[1] << "\n";
-    std::cout << "Qlw_in[1] = " << M_Qlw_in[1] << "\n";
-    std::cout << "precip[1] = " << M_precip[1] << "\n";
-    std::cout << "snowfr[1] = " << M_snowfr[1] << "\n";
-    std::cout << "sst[1] = " << M_sst[1] << "\n";
-    std::cout << "sss[1] = " << M_sss[1] << "\n";
-    std::cout << "mld[1] = " << M_mld[1] << "\n";
 
+    // local variables
     std::vector<double> hi(M_num_elements);     // Ice thickness (slab)
     std::vector<double> hs(M_num_elements);     // Snow thickness (slab)
 
@@ -2906,7 +2896,16 @@ FiniteElement::thermo()
     std::cout<<"MIN M_sss= "<< *std::min_element(M_sss.begin(),M_sss.end()) <<"\n";
 
     // Damage manipulation
+    this->thermoDamage(old_vol);
+}
+
+// Modify the damage via thermodynamic processes
+void
+FiniteElement::thermoDamage(std::vector<double> const &old_vol)
+{
+    // local variables
     double deltaT;      // Temperature difference between ice bottom and the snow-ice interface
+
     for (int i=0; i < M_num_elements; ++i)
     {
         // Newly formed ice is undamaged - calculate damage as a weighted
@@ -2918,8 +2917,8 @@ FiniteElement::thermo()
         // temperature difference between bottom and snow-ice interface
         if ( M_thick[i] > 0. )
         {
-            deltaT = std::max(0., mu*M_sss[i] - M_tsurf[i] ) 
-                / ( 1. + ki*M_snow_thick[i]/(ks*M_thick[i]) );
+            deltaT = std::max(0., physical::mu*M_sss[i] - M_tsurf[i] ) 
+                / ( 1. + physical::ki*M_snow_thick[i]/(physical::ks*M_thick[i]) );
             M_time_relaxation_damage[i] = std::max(time_relaxation_damage*deltaT_relaxation_damage/deltaT, time_step);
         } else {
             M_time_relaxation_damage[i] = time_relaxation_damage;
@@ -4776,13 +4775,28 @@ void
 FiniteElement::constantThermo()
 {
     M_tair.assign(M_num_elements,vm["simul.constant_tair"].as<double>());
+    std::cout << "simul.constant_tair:   " << vm["simul.constant_tair"].as<double>() << "\n";
+
     M_mixrat.assign(M_num_elements,vm["simul.constant_mixrat"].as<double>());
+    std::cout << "simul.constant_mixrat: " << vm["simul.constant_mixrat"].as<double>() << "\n";
+
     M_mslp.assign(M_num_elements,vm["simul.constant_mslp"].as<double>());
+    std::cout << "simul.constant_mslp:   " << vm["simul.constant_mslp"].as<double>() << "\n";
+
     M_Qsw_in.assign(M_num_elements,vm["simul.constant_Qsw_in"].as<double>());
+    std::cout << "simul.constant_Qlw_in: " << vm["simul.constant_Qlw_in"].as<double>() << "\n";
+
     M_Qlw_in.assign(M_num_elements,vm["simul.constant_Qlw_in"].as<double>());
+    std::cout << "simul.constant_precip: " << vm["simul.constant_precip"].as<double>() << "\n";
+
     M_precip.assign(M_num_elements,vm["simul.constant_precip"].as<double>());
+    std::cout << "simul.constant_precip: " << vm["simul.constant_precip"].as<double>() << "\n";
+
     M_snowfr.assign(M_num_elements,vm["simul.constant_snowfr"].as<double>());
+    std::cout << "simul.constant_snowfr: " << vm["simul.constant_snowfr"].as<double>() << "\n";
+
     M_mld.assign(M_num_elements,vm["simul.constant_mld"].as<double>());
+    std::cout << "simul.constant_mld:    " << vm["simul.constant_mld"].as<double>() << "\n";
 }
 
 void

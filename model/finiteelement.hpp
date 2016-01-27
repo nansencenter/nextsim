@@ -90,7 +90,8 @@ public:
     void error();
 
     void thermo();
-    void slabOcean(std::vector<double> const &old_c, std::vector<double> const &old_vol, std::vector<double> const &old_snow_vol, std::vector<double> const &evap, std::vector<double> const &Qio, std::vector<double> const &Qow, std::vector<double> const &Qdw, std::vector<double> const &Fdw);
+    void thermoDamage(std::vector<double> const &old_vol);
+    void slabOcean(std::vector<double> const &old_conc, std::vector<double> const &old_vol, std::vector<double> const &old_snow_vol, std::vector<double> const &evap, std::vector<double> const &Qio, std::vector<double> const &Qow, std::vector<double> const &Qdw, std::vector<double> const &Fdw);
     void thermoOW(std::vector<double> &hi, std::vector<double> &hs, std::vector<double> &Qow, std::vector<double> &evap, std::vector<double> const &wspeed, std::vector<double> const &del_hi);
     void thermoIce0(std::vector<double> &hi, std::vector<double> &hs, std::vector<double> &Qio, std::vector<double> &del_hi, std::vector<double> &Qai, std::vector<double> const &wspeed);
     double getAlbedo( double hs, double alb_ice, double alb_sn, double I_0, int alb_scheme );
