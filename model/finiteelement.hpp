@@ -89,6 +89,19 @@ public:
     void run();
     void error();
 
+    void thermo();
+    void thermoDamage(std::vector<double> const &old_vol);
+    void slabOcean(std::vector<double> const &old_conc, std::vector<double> const &old_vol, std::vector<double> const &old_snow_vol, std::vector<double> const &evap, std::vector<double> const &Qio, std::vector<double> const &Qow, std::vector<double> const &Qdw, std::vector<double> const &Fdw);
+    void thermoOW(std::vector<double> &hi, std::vector<double> &hs, std::vector<double> &Qow, std::vector<double> &evap, std::vector<double> const &wspeed, std::vector<double> const &del_hi);
+    void thermoIce0(std::vector<double> &hi, std::vector<double> &hs, std::vector<double> &Qio, std::vector<double> &del_hi, std::vector<double> &Qai, std::vector<double> const &wspeed);
+    double getAlbedo( double hs, double alb_ice, double alb_sn, double I_0, int alb_scheme );
+    double getAlbedoCCSM3( double tsurf, double hs, double alb_ice, double alb_sn );
+    void bulkIce(double tsurf, double tair, double mslp, double wspeed, double mixrat, double dair, double Cd, double &Qout, double &dQoutdT, double &subl);
+    void openWaterFlux(std::vector<double> &Qow, std::vector<double> &evap, std::vector<double> const &wspeed, double const ocean_albedo, double const drag_ocean_t, double const drag_ocean_q);
+    double calcSphumA(double mslp, double dair, double mixrat);
+    void calcSphumI(double mslp, double tsurf, double &sphumi, double &dsphumidT);
+    double calcSphumW(double mslp, double sst, double sss);
+
     double minAngles(element_type const& element, mesh_type const& mesh) const;
     double minAngle(mesh_type const& mesh) const;
 
@@ -110,13 +123,14 @@ public:
     void forcing();
     void forcingWind(bool reload);//(double const& u, double const& v);
     void forcingOcean(bool reload);//(double const& u, double const& v);
-    void forcingThermo(double const& u, double const& v);
+    void forcingThermo(bool reload);//(double const& u, double const& v);
 
     void initConcentration();
     void initThickness();
     void initDamage();
     void initSnowThickness();
     void initThermodynamics();
+    void initSlabOcean();
     void initDrifter();
     void coriolis();
     void bathymetry();
@@ -242,6 +256,7 @@ private:
     double quad_drag_coef_air;
     double quad_drag_coef_water;
     double time_relaxation_damage;
+    double deltaT_relaxation_damage;
     //double water_depth;
     double ssh_coef;
     double Vair_coef;
@@ -307,20 +322,41 @@ private:
     //Options *options;
 
 private:
-    std::vector<double> M_wind;
-    std::vector<double> M_ocean;
-    std::vector<double> M_thermo;
+    // Dynamic forcing ordered as [u1, v1, u2, v2, ...
+    std::vector<double> M_wind;         // Surface wind [m/s]
+    std::vector<double> M_ocean;        // "Geostrophic" ocean currents [m/s]
 
-    std::vector<double> M_conc;
-    std::vector<double> M_thick;
-    std::vector<double> M_damage;
-    std::vector<double> M_snow_thick;
-    std::vector<double> M_drifter;
+    // Thermodynamic forcing
+    // Atmosphere
+    std::vector<double> M_tair;         // 2 m temperature [C]
+    std::vector<double> M_mixrat;       // Mixing ratio
+    std::vector<double> M_dair;         // 2 m dew point [C]
+    std::vector<double> M_mslp;         // Atmospheric pressure [Pa]
+    std::vector<double> M_Qsw_in;       // Incoming short-wave radiation [W/m2]
+    std::vector<double> M_Qlw_in;       // Incoming long-wave radiation [W/m2]
+    std::vector<double> M_tcc;          // Total cloud fraction
+    std::vector<double> M_precip;       // Total precipitation [m]
+    std::vector<double> M_snowfr;       // Fraction of precipitation that is snow
+    // Ocean
+    std::vector<double> M_ocean_temp;   // Ocean temperature in top layer [C]
+    std::vector<double> M_ocean_salt;   // Ocean salinity in top layer [C]
+    std::vector<double> M_mld;          // Mixed-layer depth [m]
+
+    std::vector<double> M_drifter;      
+
+    // Prognostic variables
+    std::vector<double> M_conc;         // Ice concentration
+    std::vector<double> M_thick;        // Effective ice thickness [m]
+    std::vector<double> M_damage;       // Ice damage
+    std::vector<double> M_snow_thick;   // Effective snow thickness [m]
+    std::vector<double> M_tsurf;        // Ice surface temperature [C]
+    std::vector<double> M_sst;          // Sea-surface temperature [C]
+    std::vector<double> M_sss;          // Sea-surface salinity [psu]
 
 private:
     void constantWind(double const& u, double const& v);
     void constantOcean(double const& u, double const& v);
-    void constantThermo(double const& u, double const& v);
+    void constantThermo();//(double const& u, double const& v);
 
     void constantConc();
     void constantThick();
