@@ -13,7 +13,8 @@ DEPENDDIR=$(NEXTSIMDIR)/.deps/
 LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
 CXX = g++
-CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -pthread -v
+#CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -pthread -v
+CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -v
 
 ifeq ($(KERNEL),Linux)
 	CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include -I /usr/lib/openmpi/include

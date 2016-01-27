@@ -14,7 +14,8 @@ LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
 
 CXX = g++
-CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -pthread -fopenmp -v
+#CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -pthread -fopenmp -v
+CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v
 
 #-fvisibility=hidden
 
