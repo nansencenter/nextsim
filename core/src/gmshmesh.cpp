@@ -191,7 +191,7 @@ GmshMesh::readFromFile(std::string const& filename)
 
         //std::cout<<"On proc "<< this->comm().rank() <<" : Global size= "<< this->comm().size() <<"\n";
 
-        Nextsim::entities::GMSHElement gmshElt( cpt_elt,
+        Nextsim::entities::GMSHElement gmshElt( number /*cpt_elt*/,
                                                 type,
                                                 physical,
                                                 elementary,

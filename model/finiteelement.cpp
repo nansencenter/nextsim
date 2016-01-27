@@ -81,8 +81,107 @@ FiniteElement::init()
     }
 
     std::cout<<"start\n";
-    M_mesh_filename = "parbigarctic10km.msh";
+    //M_mesh_filename = "parbigarctic10km.msh";
+    M_mesh_filename = "par3hypercube.msh";
     M_mesh.readFromFile(M_mesh_filename);
+
+
+    M_mesh.comm().barrier();
+    //std::cout<<"*********Process "<< M_mesh.comm().rank() <<"\n";
+    std::vector<int> local_node_num;
+    int cpt = 0;
+    if (M_mesh.comm().rank() == 0)
+    {
+        for (auto it=M_mesh.triangles().begin(), end=M_mesh.triangles().end(); it!=end; ++it)
+        {
+            //int gst = (it->ghosts.size() > 0) ? it->ghosts[0] : -1;
+            if (1)//(it->partition == 2)//(it->partition == M_mesh.comm().rank())
+            {
+                std::cout<<"-------------------"<< cpt << "-------------------"<<"\n";
+                std::cout<<"it->number              = "<< it->number <<"\n";
+                std::cout<<"it->type                = "<< it->type <<"\n";
+                std::cout<<"it->physical            = "<< it->physical <<"\n";
+                std::cout<<"it->elementary          = "<< it->elementary <<"\n";
+                std::cout<<"it->numPartitions       = "<< it->numPartitions <<"\n";
+                std::cout<<"it->partition           = "<< it->partition <<"\n";
+                std::cout<<"it->ghosts              = "<<"\n";
+
+                for (int k=0; k<it->ghosts.size(); ++k)
+                {
+                    std::cout<<"                    ghosts["<< k <<"]= "<< it->ghosts[k] <<"\n";
+                }
+
+                std::cout<<"it->is_on_processor     = "<< it->is_on_processor <<"\n";
+                std::cout<<"it->is_ghost            = "<< it->is_ghost <<"\n";
+                std::cout<<"it->ghost_partition_id  = "<< it->ghost_partition_id <<"\n";
+
+                for (int const& index : it->indices)
+                {
+                    if ((!it->is_ghost) && (std::find(local_node_num.begin(),local_node_num.end(),index) == local_node_num.end()))
+                    {
+                        local_node_num.push_back(index);
+#if 0
+                        if (it->ghosts.size() == 0)
+                        {
+                            local_node_num.push_back(index);
+                        }
+                        else
+                        {
+                            int neigh = *std::min_element(it->ghosts.begin(),it->ghosts.end());
+                            int min_id = std::min(neigh,it->partition);
+                            if (it->partition == min_id)
+                            {
+                                local_node_num.push_back(index);
+                            }
+                        }
+#endif
+                    }
+                }
+
+                ++cpt;
+            }
+
+            // for (int const& index : it->indices)
+            //     if ((!it->is_ghost) && (std::find(local_node_num.begin(),local_node_num.end(),index) == local_node_num.end()))
+            //     {
+            //         local_node_num.push_back(index);
+            //     }
+
+            //++cpt;
+        }
+    }
+
+    //std::cout<<"**********************Process "<< M_mesh.comm().rank() << " local nodes "<< local_node_num.size() <<"\n";
+
+#if 0
+    M_mesh.comm().barrier();
+
+    if (M_mesh.comm().rank() == 0)
+    {
+        std::cout<<"*************************\n";
+        for (int const& index : local_node_num)
+            std::cout<<"INDEX "<< index <<"\n";
+    }
+
+    M_mesh.comm().barrier();
+
+    if (M_mesh.comm().rank() == 1)
+    {
+        std::cout<<"*************************\n";
+        for (int const& index : local_node_num)
+            std::cout<<"INDEX "<< index <<"\n";
+    }
+
+    M_mesh.comm().barrier();
+
+    if (M_mesh.comm().rank() == 2)
+    {
+        std::cout<<"*************************\n";
+        for (int const& index : local_node_num)
+            std::cout<<"INDEX "<< index <<"\n";
+    }
+#endif
+
 #if 0
     M_mesh.stereographicProjection();
     // M_mesh.writeTofile("copy_init_mesh.msh");
