@@ -87,6 +87,8 @@ SolverPetsc::init()
         // PCFactorSetZeroPivot( M_pc,1.e-18 );
         // PCFactorSetShiftType( M_pc,MAT_SHIFT_NONZERO);
         // PCFactorSetShiftType( M_pc,MAT_SHIFT_POSITIVE_DEFINITE);
+        // PCFactorSetShiftAmount( M_pc,1.);
+        // PCFactorSetColumnPivot( M_pc, 0.0);
 
         KSPMonitorSet( M_ksp,KSPMonitorDefault,PETSC_NULL,PETSC_NULL );
     }
