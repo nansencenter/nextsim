@@ -40,6 +40,7 @@ boost::gregorian::date parse_date( double date_time )
     //boost::gregorian::date dt = boost::date_time::parse_date<boost::gregorian::date>( "1899-12-30", boost::date_time::ymd_order_iso );
     boost::gregorian::date dt = boost::date_time::parse_date<boost::gregorian::date>( "1900-01-01", boost::date_time::ymd_order_iso );
     dt += boost::gregorian::date_duration( static_cast<long>( floor(date_time) ) );
+    return dt;
 }
 
 boost::posix_time::time_duration parse_time( double date_time )
