@@ -57,6 +57,9 @@ const double rhoi = 917.;
 /* Density of fresh water */
 const double rhofw = 1000.;
 
+/* Density of ocean water */
+const double rhow = 1025.;
+
 /* Density of snow (same as in NEMO-LIM) */
 const double rhos = 330.;
 
