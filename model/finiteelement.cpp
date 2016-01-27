@@ -507,12 +507,25 @@ FiniteElement::minAngle(mesh_type const& mesh) const
 {
     std::vector<double> all_min_angle(mesh.numTriangles());
 
+#if 0
     int cpt = 0;
     for (auto it=mesh.triangles().begin(), end=mesh.triangles().end(); it!=end; ++it)
     {
         all_min_angle[cpt] = this->minAngles(*it,mesh);
         ++cpt;
     }
+#endif
+
+#if 1
+    int thread_id;
+    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
+
+#pragma omp parallel for num_threads(max_threads) private(thread_id)
+    for (int cpt=0; cpt < M_num_elements; ++cpt)
+    {
+        all_min_angle[cpt] = this->minAngles(M_elements[cpt],mesh);
+    }
+#endif
 
     return *std::min_element(all_min_angle.begin(),all_min_angle.end());
 }
@@ -525,12 +538,25 @@ FiniteElement::minAngle(mesh_type const& mesh, std::vector<double> const& um, do
 
     std::vector<double> all_min_angle(movedmesh.numTriangles());
 
-    int cpt = 0;
-    for (auto it=movedmesh.triangles().begin(), end=movedmesh.triangles().end(); it!=end; ++it)
+#if 0
+    // int cpt = 0;
+    // for (auto it=movedmesh.triangles().begin(), end=movedmesh.triangles().end(); it!=end; ++it)
+    // {
+    //     all_min_angle[cpt] = this->minAngles(*it,movedmesh);
+    //     ++cpt;
+    // }
+#endif
+
+#if 1
+    int thread_id;
+    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
+
+#pragma omp parallel for num_threads(max_threads) private(thread_id)
+    for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
-        all_min_angle[cpt] = this->minAngles(*it,movedmesh);
-        ++cpt;
+        all_min_angle[cpt] = this->minAngles(movedmesh.triangles()[cpt],movedmesh);
     }
+#endif
 
     return *std::min_element(all_min_angle.begin(),all_min_angle.end());;
 }
@@ -543,12 +569,25 @@ FiniteElement::flip(mesh_type const& mesh, std::vector<double> const& um, double
 
     std::vector<double> area(movedmesh.numTriangles());
 
+ #if 0
     int cpt = 0;
     for (auto it=movedmesh.triangles().begin(), end=movedmesh.triangles().end(); it!=end; ++it)
     {
         area[cpt] = this->jacobian(*it,movedmesh);
         ++cpt;
     }
+#endif
+
+#if 1
+    int thread_id;
+    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
+
+#pragma omp parallel for num_threads(max_threads) private(thread_id)
+    for (int cpt=0; cpt < M_num_elements; ++cpt)
+    {
+        area[cpt] = this->jacobian(movedmesh.triangles()[cpt],movedmesh);
+    }
+#endif
 
     double minarea = *std::min_element(area.begin(),area.end());
     double maxarea = *std::max_element(area.begin(),area.end());
@@ -1221,7 +1260,7 @@ FiniteElement::assemble(int pcpt)
         double coef_Voce = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
         coef_Voce *= (vm["simul.rho_water"].as<double>());
 
-        
+
         double critical_h = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
         //double _coef = ((M_thick[i]-critical_h) > 0) ? (M_thick[i]-critical_h) : 0.;
         double _coef = std::max(0., M_thick[cpt]-critical_h);
@@ -1350,14 +1389,14 @@ FiniteElement::assemble(int pcpt)
                                                 +coef_X
                                                 +coef_V*M_VT[index_u]
                                                 -coef_Voce*sin_ocean_turning_angle*(M_ocean[index_v]-M_VT[index_v])
-                                                +coef_C*Vcor_index_v) 
+                                                +coef_C*Vcor_index_v)
                                 - b0tj_sigma_hu/3);
 
-                
+
                 fvdata[2*i+1] += surface_e*( mloc*( +coef_Vair*M_wind[index_v]
                                                     +coef_Voce*cos_ocean_turning_angle*M_ocean[index_v]
                                                     +coef_Y
-                                                    +coef_V*M_VT[index_v] 
+                                                    +coef_V*M_VT[index_v]
                                                     +coef_Voce*sin_ocean_turning_angle*(M_ocean[index_u]-M_VT[index_u])
                                                     -coef_C*Vcor_index_u)
                                 - b0tj_sigma_hv/3);
@@ -1645,7 +1684,7 @@ FiniteElement::assembleSeq(int pcpt)
         double coef_Voce = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
         coef_Voce *= (vm["simul.rho_water"].as<double>());
 
-        
+
         double critical_h = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
         //double _coef = ((M_thick[i]-critical_h) > 0) ? (M_thick[i]-critical_h) : 0.;
         double _coef = std::max(0., M_thick[cpt]-critical_h);
@@ -2929,7 +2968,7 @@ FiniteElement::run()
 
     std::cout<<"TIMESTEP= "<< time_step <<"\n";
     std::cout<<"DURATION= "<< duration <<"\n";
-
+#if 0
     gregorian::date epoch = date_time::parse_date<gregorian::date>(
                                                                    vm["simul.time_init"].as<std::string>(),
                                                                    //date_time::ymd_order_dmy
@@ -2944,6 +2983,7 @@ FiniteElement::run()
     std::cout<<"INIT_MIT_FILE "<< init_mit_file <<"\n";
 
     std::cout<<"INIT TIME= "<< to_iso_string(epoch) <<"\n";
+#endif
 
     double displacement_factor = 1.;
     double minang = 0.;
@@ -4614,7 +4654,7 @@ FiniteElement::coriolis()
 {
     // Interpolation of the latitude
     std::vector<double> lat = M_mesh.meanLat();
-    
+
     for (int i=0; i<M_fcor.size(); ++i)
     {
         M_fcor[i] = 2*(vm["simul.omega"].as<double>())*std::sin(lat[i]*PI/180.);
@@ -4733,7 +4773,7 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
 {
     //mesh_type mesh;
     std::vector<point_type> mesh_nodes;
-    std::vector<element_type> mesh_edges;
+    //std::vector<element_type> mesh_edges;
     std::vector<element_type> mesh_triangles;
     std::vector<double> coords(3,0);
 
@@ -4751,6 +4791,7 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     int type = 2;
     int physical = 0;
     int elementary = 0;
+ #if 0
     int numVertices = 2;
     std::vector<int> edges(numVertices);
 
@@ -4770,8 +4811,9 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
         //mesh_edges.insert(std::make_pair(edg,gmshElt));
         mesh_edges.push_back(gmshElt);
     }
+#endif
 
-    numVertices = 3;
+    int numVertices = 3;
     std::vector<int> indices(numVertices);
 
     for (int tr=0; tr<bamg_mesh->TrianglesSize[0]; ++tr)
@@ -4794,10 +4836,11 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     std::cout<<"\n";
     std::cout<<"INFO: Previous  NumNodes     = "<< M_mesh.numNodes() <<"\n";
     std::cout<<"INFO: Previous  NumTriangles = "<< M_mesh.numTriangles() <<"\n";
-    std::cout<<"INFO: Previous  NumEdges     = "<< M_mesh.numEdges() <<"\n";
+    //std::cout<<"INFO: Previous  NumEdges     = "<< M_mesh.numEdges() <<"\n";
 
     M_mesh_previous = M_mesh;
-    M_mesh = mesh_type(mesh_nodes,mesh_edges,mesh_triangles);
+    //M_mesh = mesh_type(mesh_nodes,mesh_edges,mesh_triangles);
+    M_mesh = mesh_type(mesh_nodes,mesh_triangles);
     //M_mesh.writeTofile("out.msh");
 
     M_elements = M_mesh.triangles();
@@ -4809,7 +4852,7 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     std::cout<<"\n";
     std::cout<<"INFO: Current  NumNodes      = "<< M_mesh.numNodes() <<"\n";
     std::cout<<"INFO: Current  NumTriangles  = "<< M_mesh.numTriangles() <<"\n";
-    std::cout<<"INFO: Current  NumEdges      = "<< M_mesh.numEdges() <<"\n";
+    //std::cout<<"INFO: Current  NumEdges      = "<< M_mesh.numEdges() <<"\n";
     std::cout<<"\n";
 
     // std::cout<<"NodalConnectivitySize[0]= "<< bamg_mesh->NodalConnectivitySize[0] <<"\n";
