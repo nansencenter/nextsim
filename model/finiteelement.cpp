@@ -167,12 +167,12 @@ FiniteElement::init()
 
     M_ice_type = setup::IceCategoryType::CLASSIC;
 
-    const boost::unordered_map<const std::string, setup::WindType> str2wind = boost::assign::map_list_of
-        ("constant", setup::WindType::CONSTANT)
-        ("asr", setup::WindType::ASR);
-    M_wind_type = str2wind.find(vm["setup.wind-type"].as<std::string>())->second;
+    const boost::unordered_map<const std::string, setup::AtmosphereType> str2atmosphere = boost::assign::map_list_of
+        ("constant", setup::AtmosphereType::CONSTANT)
+        ("asr", setup::AtmosphereType::ASR);
+    M_atmosphere_type = str2atmosphere.find(vm["setup.atmosphere-type"].as<std::string>())->second;
 
-    //std::cout<<"WINDTYPE= "<< (int)M_wind_type <<"\n";
+    //std::cout<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::OceanType> str2ocean = boost::assign::map_list_of
         ("constant", setup::OceanType::CONSTANT)
@@ -206,11 +206,6 @@ FiniteElement::init()
         ("constant", setup::DamageType::CONSTANT);
     M_damage_type = str2damg.find(vm["setup.damage-type"].as<std::string>())->second;
 
-    const boost::unordered_map<const std::string, setup::ThermoType> str2thermo = boost::assign::map_list_of
-        ("off", setup::ThermoType::OFF)
-        ("constant", setup::ThermoType::CONSTANT);
-    M_thermo_type = str2thermo.find(vm["setup.thermo-type"].as<std::string>())->second;
-
     //std::cout<<"DAMAGETYPE= "<< (int)M_damage_type <<"\n";
 
 
@@ -237,7 +232,6 @@ FiniteElement::initSimulation()
 
     M_wind.resize(2*M_num_nodes);
     M_ocean.resize(2*M_num_nodes);
-    //M_thermo.resize(2*M_num_nodes);
     M_tair.resize(M_num_elements);
     M_mixrat.resize(M_num_elements);
     M_dair.resize(M_num_elements);
@@ -309,7 +303,7 @@ FiniteElement::initSimulation()
 
     M_fcor.resize(M_num_elements);
 
-    M_ftime_wind_range.resize(2,0.);
+    M_ftime_atmosphere_range.resize(2,0.);
     M_ftime_ocean_range.resize(2,0.);
 
     if (M_ocean_type == setup::OceanType::TOPAZR)
@@ -1035,7 +1029,6 @@ FiniteElement::regrid(bool step)
 
         M_wind.assign(2*M_num_nodes,0.);
         M_ocean.assign(2*M_num_nodes,0.);
-        //M_thermo.assign(2*M_num_nodes,0.);
         M_tair.assign(M_num_elements,vm["simul.constant_tair"].as<double>());
         M_mixrat.assign(M_num_elements,vm["simul.constant_mixrat"].as<double>());
         M_mslp.assign(M_num_elements,vm["simul.constant_mslp"].as<double>());
@@ -2978,7 +2971,7 @@ FiniteElement::thermo()
     std::vector<double> Qow(M_num_elements);    // Open water heat flux
 
     // First we calculate or set the flux due to nudging
-    if ( M_thermo_type == setup::ThermoType::CONSTANT || M_ocean_type == setup::OceanType::CONSTANT )
+    if ( M_atmosphere_type == setup::AtmosphereType::CONSTANT || M_ocean_type == setup::OceanType::CONSTANT )
     {
         Qdw.assign(M_num_elements,vm["simul.constant_Qdw"].as<double>());
         Fdw.assign(M_num_elements,vm["simul.constant_Fdw"].as<double>());
@@ -3737,14 +3730,9 @@ FiniteElement::run()
         this->timeInterpolation(pcpt);
 
         chrono.restart();
-        std::cout<<"forcingThermo starts\n";
-        this->forcingThermo(M_regrid);
-        std::cout<<"forcingthermo done in "<< chrono.elapsed() <<"s\n";
-
-        chrono.restart();
-        std::cout<<"forcingwind starts\n";
-        this->forcingWind(M_regrid);
-        std::cout<<"forcingwind done in "<< chrono.elapsed() <<"s\n";
+        std::cout<<"forcingAtmosphere starts\n";
+        this->forcingAtmosphere(M_regrid);
+        std::cout<<"forcingAtmosphere done in "<< chrono.elapsed() <<"s\n";
 
         chrono.restart();
         std::cout<<"forcingOcean starts\n";
@@ -3766,8 +3754,7 @@ FiniteElement::run()
         // Do the thermodynamics
         //======================================================================
 
-        if ( M_thermo_type != setup::ThermoType::OFF )
-            this->thermo();
+        this->thermo();
 
         //======================================================================
         // Assemble the matrix
@@ -3918,15 +3905,15 @@ FiniteElement::error()
 }
 
 void
-FiniteElement::forcingWind(bool reload)//(double const& u, double const& v)
+FiniteElement::forcingAtmosphere(bool reload)//(double const& u, double const& v)
 {
-    switch (M_wind_type)
+    switch (M_atmosphere_type)
     {
-        case setup::WindType::CONSTANT:
-            this->constantWind(vm["simul.constant_u"].as<double>(),vm["simul.constant_v"].as<double>());
+        case setup::AtmosphereType::CONSTANT:
+            this->constantAtmosphere();
             break;
-        case setup::WindType::ASR:
-            this->asrWind(reload);
+        case setup::AtmosphereType::ASR:
+            this->asrAtmosphere(reload);
             break;
 
         default:
@@ -3936,35 +3923,59 @@ FiniteElement::forcingWind(bool reload)//(double const& u, double const& v)
 }
 
 void
-FiniteElement::constantWind(double const& u, double const& v)
+FiniteElement::constantAtmosphere()
 {
     for (int i=0; i<M_num_nodes; ++i)
     {
-        M_wind[i] = Vair_coef*(u);
-        M_wind[i+M_num_nodes] = Vair_coef*(v);
+        M_wind[i]             = Vair_coef*vm["simul.constant_wind_u"].as<double>();
+        M_wind[i+M_num_nodes] = Vair_coef*vm["simul.constant_wind_v"].as<double>();
     }
+
+    M_tair.assign(M_num_elements,vm["simul.constant_tair"].as<double>());
+    std::cout << "simul.constant_tair:   " << vm["simul.constant_tair"].as<double>() << "\n";
+
+    M_mixrat.assign(M_num_elements,vm["simul.constant_mixrat"].as<double>());
+    std::cout << "simul.constant_mixrat: " << vm["simul.constant_mixrat"].as<double>() << "\n";
+
+    M_mslp.assign(M_num_elements,vm["simul.constant_mslp"].as<double>());
+    std::cout << "simul.constant_mslp:   " << vm["simul.constant_mslp"].as<double>() << "\n";
+
+    M_Qsw_in.assign(M_num_elements,vm["simul.constant_Qsw_in"].as<double>());
+    std::cout << "simul.constant_Qsw_in: " << vm["simul.constant_Qsw_in"].as<double>() << "\n";
+
+    M_Qlw_in.assign(M_num_elements,vm["simul.constant_Qlw_in"].as<double>());
+    std::cout << "simul.constant_Qlw_in: " << vm["simul.constant_Qlw_in"].as<double>() << "\n";
+
+    M_precip.assign(M_num_elements,vm["simul.constant_precip"].as<double>());
+    std::cout << "simul.constant_precip: " << vm["simul.constant_precip"].as<double>() << "\n";
+
+    M_snowfr.assign(M_num_elements,vm["simul.constant_snowfr"].as<double>());
+    std::cout << "simul.constant_snowfr: " << vm["simul.constant_snowfr"].as<double>() << "\n";
+
+    M_mld.assign(M_num_elements,vm["simul.constant_mld"].as<double>());
+    std::cout << "simul.constant_mld:    " << vm["simul.constant_mld"].as<double>() << "\n";
 }
 
 void
-FiniteElement::asrWind(bool reload)
+FiniteElement::asrAtmosphere(bool reload)
 {
-    if ((current_time < M_ftime_wind_range[0]) || (M_ftime_wind_range[1] < current_time) || (current_time == time_init) || reload)
+    if ((current_time < M_ftime_atmosphere_range[0]) || (M_ftime_atmosphere_range[1] < current_time) || (current_time == time_init) || reload)
     {
         if (current_time == time_init)
             std::cout<<"load forcing from ASR for initial time\n";
         else
             std::cout<<"forcing not available for the current date: load data from ASR\n";
 
-        this->loadAsrWind();
+        this->loadAsrAtmosphere();
 
         //std::cout<<"forcing not available for the current date\n";
         //throw std::logic_error("forcing not available for the current date");
     }
 
-    double fdt = std::abs(M_ftime_wind_range[1]-M_ftime_wind_range[0]);
+    double fdt = std::abs(M_ftime_atmosphere_range[1]-M_ftime_atmosphere_range[0]);
     std::vector<double> fcoeff(2);
-    fcoeff[0] = std::abs(current_time-M_ftime_wind_range[1])/fdt;
-    fcoeff[1] = std::abs(current_time-M_ftime_wind_range[0])/fdt;
+    fcoeff[0] = std::abs(current_time-M_ftime_atmosphere_range[1])/fdt;
+    fcoeff[1] = std::abs(current_time-M_ftime_atmosphere_range[0])/fdt;
 
     std::cout<<"LINEAR COEFF 1= "<< fcoeff[0] <<"\n";
     std::cout<<"LINEAR COEFF 2= "<< fcoeff[1] <<"\n";
@@ -3980,7 +3991,7 @@ FiniteElement::asrWind(bool reload)
 }
 
 void
-FiniteElement::loadAsrWind()//(double const& u, double const& v)
+FiniteElement::loadAsrAtmosphere()//(double const& u, double const& v)
 {
 
     std::string current_timestr = to_date_string_ym(current_time);
@@ -4005,15 +4016,15 @@ FiniteElement::loadAsrWind()//(double const& u, double const& v)
         time_end = time_start + (1./nb_timestep_day);
     }
 
-    M_ftime_wind_range.resize(0);
+    M_ftime_atmosphere_range.resize(0);
     for (double dt=time_start; dt<=time_end; dt+=asr_dt)
     {
-        M_ftime_wind_range.push_back(dt);
+        M_ftime_atmosphere_range.push_back(dt);
     }
 
-    for (int i=0; i<M_ftime_wind_range.size(); ++i)
+    for (int i=0; i<M_ftime_atmosphere_range.size(); ++i)
     {
-        std::cout<<"TIMEVEC["<< i <<"]= "<< M_ftime_wind_range[i] <<"\n";
+        std::cout<<"TIMEVEC["<< i <<"]= "<< M_ftime_atmosphere_range[i] <<"\n";
     }
 
     // if ((current_time < time_start) || (time_end < current_time))
@@ -4022,7 +4033,7 @@ FiniteElement::loadAsrWind()//(double const& u, double const& v)
     //     throw std::logic_error("forcing not available for the current date");
     // }
 
-    int nb_forcing_step = M_ftime_wind_range.size();
+    int nb_forcing_step = M_ftime_atmosphere_range.size();
     std::cout<<"NB_FORCING_STEP= "<< nb_forcing_step <<"\n";
 
     // read in re-analysis coordinates
@@ -4119,9 +4130,9 @@ FiniteElement::loadAsrWind()//(double const& u, double const& v)
     //     std::cout<<"TIME["<< i <<"]= "<< XTIME[i] <<"\n";
     // }
 
-    for (int i=0; i<M_ftime_wind_range.size(); ++i)
+    for (int i=0; i<M_ftime_atmosphere_range.size(); ++i)
     {
-        std::cout<<"---TIMEVEC["<< i <<"]= "<< M_ftime_wind_range[i] <<" : current_time= "<< current_time <<"\n";
+        std::cout<<"---TIMEVEC["<< i <<"]= "<< M_ftime_atmosphere_range[i] <<" : current_time= "<< current_time <<"\n";
     }
 
     std::vector<double> fvair(2*M_num_nodes);
@@ -4130,7 +4141,7 @@ FiniteElement::loadAsrWind()//(double const& u, double const& v)
 
     for (int fstep=0; fstep < nb_forcing_step; ++fstep)
     {
-        double ftime = M_ftime_wind_range[fstep];
+        double ftime = M_ftime_atmosphere_range[fstep];
 
         if (to_date_string_ym(std::floor(ftime)) != to_date_string_ym(current_time))
         {
@@ -4250,7 +4261,7 @@ FiniteElement::forcingOcean(bool reload)//(double const& u, double const& v)
     switch (M_ocean_type)
     {
         case setup::OceanType::CONSTANT:
-            this->constantOcean(0.,0.);
+            this->constantOcean();
             break;
         case setup::OceanType::TOPAZR:
             this->topazOcean(reload);
@@ -4264,12 +4275,12 @@ FiniteElement::forcingOcean(bool reload)//(double const& u, double const& v)
 }
 
 void
-FiniteElement::constantOcean(double const& u, double const& v)
+FiniteElement::constantOcean()
 {
     for (int i=0; i<M_num_nodes; ++i)
     {
-        M_ocean[i] = Voce_coef*u;
-        M_ocean[i+M_num_nodes] = Voce_coef*v;
+        M_ocean[i] = Voce_coef*vm["simul.constant_ocean_v"].as<double>();
+        M_ocean[i+M_num_nodes] = Voce_coef*vm["simul.constant_ocean_v"].as<double>();
     }
 }
 
@@ -4677,52 +4688,6 @@ FiniteElement::gridTopazOcean()
     std::cout<<"MAX BOUND TOPAZY= "<< *std::max_element(M_topaz_gridY.begin(),M_topaz_gridY.end()) <<"\n";
 #endif
 
-}
-
-void
-FiniteElement::forcingThermo(bool reload)
-{
-    switch (M_thermo_type)
-    {
-        case setup::ThermoType::OFF:
-            // Nothing to do if thermo is off
-            break;
-        case setup::ThermoType::CONSTANT:
-            this->constantThermo();
-            break;
-
-        default:
-            std::cout << "invalid thermo forcing"<<"\n";
-            throw std::logic_error("invalid thermo forcing");
-    }
-}
-
-void
-FiniteElement::constantThermo()
-{
-    M_tair.assign(M_num_elements,vm["simul.constant_tair"].as<double>());
-    std::cout << "simul.constant_tair:   " << vm["simul.constant_tair"].as<double>() << "\n";
-
-    M_mixrat.assign(M_num_elements,vm["simul.constant_mixrat"].as<double>());
-    std::cout << "simul.constant_mixrat: " << vm["simul.constant_mixrat"].as<double>() << "\n";
-
-    M_mslp.assign(M_num_elements,vm["simul.constant_mslp"].as<double>());
-    std::cout << "simul.constant_mslp:   " << vm["simul.constant_mslp"].as<double>() << "\n";
-
-    M_Qsw_in.assign(M_num_elements,vm["simul.constant_Qsw_in"].as<double>());
-    std::cout << "simul.constant_Qlw_in: " << vm["simul.constant_Qlw_in"].as<double>() << "\n";
-
-    M_Qlw_in.assign(M_num_elements,vm["simul.constant_Qlw_in"].as<double>());
-    std::cout << "simul.constant_precip: " << vm["simul.constant_precip"].as<double>() << "\n";
-
-    M_precip.assign(M_num_elements,vm["simul.constant_precip"].as<double>());
-    std::cout << "simul.constant_precip: " << vm["simul.constant_precip"].as<double>() << "\n";
-
-    M_snowfr.assign(M_num_elements,vm["simul.constant_snowfr"].as<double>());
-    std::cout << "simul.constant_snowfr: " << vm["simul.constant_snowfr"].as<double>() << "\n";
-
-    M_mld.assign(M_num_elements,vm["simul.constant_mld"].as<double>());
-    std::cout << "simul.constant_mld:    " << vm["simul.constant_mld"].as<double>() << "\n";
 }
 
 void

@@ -11,7 +11,7 @@ namespace Nextsim
 {
 namespace setup
 {
-    enum class WindType
+    enum class AtmosphereType
     {
         CONSTANT = 0,
         ASR      = 1,
@@ -27,15 +27,6 @@ namespace setup
 		TOPAZF   = 2,
 		MITGCM   = 3
     };
-
-	enum class ThermoType
-	{
-		OFF      = -1,
-		CONSTANT = 0,
-		ASR      = 1,
-		ERA      = 2,
-		ASRFINAL = 4
-	};
 
     enum class ConcentrationType
 	{

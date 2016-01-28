@@ -30,9 +30,8 @@ namespace Nextsim
             ("solver.ksp-view", po::value<bool>()->default_value( false ), "")
             ("solver.ksp-convergence-info", po::value<bool>()->default_value( true ), "")
 
-            ("setup.wind-type", po::value<std::string>()->default_value( "asr" ), "")
+            ("setup.atmosphere-type", po::value<std::string>()->default_value( "asr" ), "")
             ("setup.ocean-type", po::value<std::string>()->default_value( "constant" ), "")
-            ("setup.thermo-type", po::value<std::string>()->default_value( "constant" ), "")
             ("setup.concentration-type", po::value<std::string>()->default_value( "constant" ), "")
             ("setup.thickness-type", po::value<std::string>()->default_value( "constant" ), "")
             ("setup.snow-thickness-type", po::value<std::string>()->default_value( "constant" ), "")
@@ -144,8 +143,8 @@ namespace Nextsim
             ("simul.init_thin_max_thickness", po::value<double>()->default_value( 0.1 ), "")
             ("simul.init_snow_thickness", po::value<double>()->default_value( 0. ), "")
             ("simul.init_snow_thin_thickness", po::value<double>()->default_value( 0. ), "")
-            ("simul.constant_u", po::value<double>()->default_value( 0. ), "")
-            ("simul.constant_v", po::value<double>()->default_value( -10. ), "")
+            ("simul.constant_wind_u", po::value<double>()->default_value( 0. ), "")
+            ("simul.constant_wind_v", po::value<double>()->default_value( -10. ), "")
             ("simul.constant_tair", po::value<double>()->default_value( -25. ), "")
             ("simul.constant_mixrat", po::value<double>()->default_value( 0.001 ), "")
             ("simul.constant_mslp", po::value<double>()->default_value( 1013e2 ), "")
@@ -157,6 +156,8 @@ namespace Nextsim
             ("simul.ocean_nudge", po::value<bool>()->default_value( false ), "")
             ("simul.constant_Qdw", po::value<double>()->default_value( 0. ), "")
             ("simul.constant_Fdw", po::value<double>()->default_value( 0. ), "")
+            ("simul.constant_ocean_u", po::value<double>()->default_value( 0. ), "")
+            ("simul.constant_ocean_v", po::value<double>()->default_value( 0. ), "")
             ;
         return desc;
     }

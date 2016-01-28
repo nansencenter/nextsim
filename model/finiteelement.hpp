@@ -121,9 +121,8 @@ public:
     void initBamg();
     void initConstant();
     void forcing();
-    void forcingWind(bool reload);//(double const& u, double const& v);
+    void forcingAtmosphere(bool reload);//(double const& u, double const& v);
     void forcingOcean(bool reload);//(double const& u, double const& v);
-    void forcingThermo(bool reload);//(double const& u, double const& v);
 
     void initConcentration();
     void initThickness();
@@ -176,9 +175,8 @@ private:
 
     boost::mpi::timer chrono, chrono_tot;
 
-    setup::WindType M_wind_type;
+    setup::AtmosphereType M_atmosphere_type;
     setup::OceanType M_ocean_type;
-    setup::ThermoType M_thermo_type;
 
     setup::IceCategoryType M_ice_type;
     setup::ConcentrationType M_conc_type;
@@ -282,11 +280,10 @@ private:
     double current_time;
     bool M_reuse_prec;
     bool M_regrid;
-    int M_cpt;
 
 private:
 
-    std::vector<double> M_ftime_wind_range;
+    std::vector<double> M_ftime_atmosphere_range;
     std::vector<std::vector<double>> M_vair;
     std::vector<double> M_ftime_ocean_range;
     std::vector<std::vector<double>> M_voce;
@@ -322,12 +319,10 @@ private:
     //Options *options;
 
 private:
-    // Dynamic forcing ordered as [u1, v1, u2, v2, ...
-    std::vector<double> M_wind;         // Surface wind [m/s]
-    std::vector<double> M_ocean;        // "Geostrophic" ocean currents [m/s]
 
-    // Thermodynamic forcing
+    // Thermodynamic and dynamic forcing
     // Atmosphere
+    std::vector<double> M_wind;         // Surface wind [m/s]
     std::vector<double> M_tair;         // 2 m temperature [C]
     std::vector<double> M_mixrat;       // Mixing ratio
     std::vector<double> M_dair;         // 2 m dew point [C]
@@ -338,10 +333,12 @@ private:
     std::vector<double> M_precip;       // Total precipitation [m]
     std::vector<double> M_snowfr;       // Fraction of precipitation that is snow
     // Ocean
+    std::vector<double> M_ocean;        // "Geostrophic" ocean currents [m/s]
     std::vector<double> M_ocean_temp;   // Ocean temperature in top layer [C]
     std::vector<double> M_ocean_salt;   // Ocean salinity in top layer [C]
     std::vector<double> M_mld;          // Mixed-layer depth [m]
 
+    // Drifters
     std::vector<double> M_drifter;      
 
     // Prognostic variables
@@ -354,9 +351,8 @@ private:
     std::vector<double> M_sss;          // Sea-surface salinity [psu]
 
 private:
-    void constantWind(double const& u, double const& v);
-    void constantOcean(double const& u, double const& v);
-    void constantThermo();//(double const& u, double const& v);
+    void constantAtmosphere();
+    void constantOcean();
 
     void constantConc();
     void constantThick();
@@ -368,8 +364,8 @@ private:
     void topazThick();
     void topazSnowThick();
 
-    void asrWind(bool reload);//(double const& u, double const& v);
-    void loadAsrWind();//(double const& u, double const& v);
+    void asrAtmosphere(bool reload);//(double const& u, double const& v);
+    void loadAsrAtmosphere();//(double const& u, double const& v);
 
     void topazOcean(bool reload);//(double const& u, double const& v);
     void loadTopazOcean();//(double const& u, double const& v);
