@@ -232,18 +232,29 @@ FiniteElement::initSimulation()
 
     M_wind.resize(2*M_num_nodes);
     M_ocean.resize(2*M_num_nodes);
+
     M_tair.resize(M_num_elements);
     M_mixrat.resize(M_num_elements);
     M_dair.resize(M_num_elements);
     M_mslp.resize(M_num_elements);
     M_Qsw_in.resize(M_num_elements);
     M_Qlw_in.resize(M_num_elements);
-    M_tcc.resize(M_num_elements);
     M_precip.resize(M_num_elements);
     M_snowfr.resize(M_num_elements);
+
+    M_tair2.resize(2);
+    M_mixrat2.resize(2);
+    M_dair2.resize(2);
+    M_mslp2.resize(2);
+    M_Qsw_in2.resize(2);
+    M_Qlw_in2.resize(2);
+    M_precip2.resize(2);
+    M_snowfr2.resize(2);
+
+    M_mld.resize(M_num_elements);
+
     M_sst.resize(M_num_elements);
     M_sss.resize(M_num_elements);
-    M_mld.resize(M_num_elements);
 
     M_bathy_depth.resize(M_mesh_init.numNodes(),200.);
 
@@ -940,7 +951,7 @@ FiniteElement::regrid(bool step)
                                 M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
                                 interp_elt_in,
                                 M_mesh_previous.numTriangles(),14,
-                                &M_mesh.bCoordX()[0],&M_mesh.bCoordY()[0],M_mesh.numTriangles(),
+                                &M_mesh.bcoordX()[0],&M_mesh.bcoordY()[0],M_mesh.numTriangles(),
                                 false);
 #endif
 
@@ -1027,18 +1038,20 @@ FiniteElement::regrid(bool step)
         M_vector_reduction.resize(2*M_num_nodes,0.);
         M_valid_conc.resize(2*M_num_nodes,false);
 
-        M_wind.assign(2*M_num_nodes,0.);
-        M_ocean.assign(2*M_num_nodes,0.);
-        M_tair.assign(M_num_elements,vm["simul.constant_tair"].as<double>());
-        M_mixrat.assign(M_num_elements,vm["simul.constant_mixrat"].as<double>());
-        M_mslp.assign(M_num_elements,vm["simul.constant_mslp"].as<double>());
-        M_Qsw_in.assign(M_num_elements,vm["simul.constant_Qsw_in"].as<double>());
-        M_Qlw_in.assign(M_num_elements,vm["simul.constant_Qlw_in"].as<double>());
-        M_precip.assign(M_num_elements,vm["simul.constant_precip"].as<double>());
-        M_snowfr.assign(M_num_elements,vm["simul.constant_snowfr"].as<double>());
-        M_mld.assign(M_num_elements,vm["simul.constant_mld"].as<double>());
+        M_wind.resize(2*M_num_nodes);
+        M_ocean.resize(2*M_num_nodes);
 
-        //M_vair.assign(2*M_num_nodes,0.);
+        // Atmo
+        M_tair.resize(M_num_elements);
+        M_dair.resize(M_num_elements);
+        M_mixrat.resize(M_num_elements);
+        M_mslp.resize(M_num_elements);
+        M_Qsw_in.resize(M_num_elements);
+        M_Qlw_in.resize(M_num_elements);
+        M_precip.resize(M_num_elements);
+        M_snowfr.resize(M_num_elements);
+
+        M_mld.resize(M_num_elements);
 
         M_element_depth.assign(M_num_elements,0.);
         M_h_thin.assign(M_num_elements,0.);
@@ -3934,6 +3947,9 @@ FiniteElement::constantAtmosphere()
     M_tair.assign(M_num_elements,vm["simul.constant_tair"].as<double>());
     std::cout << "simul.constant_tair:   " << vm["simul.constant_tair"].as<double>() << "\n";
 
+    M_dair.assign(M_num_elements,vm["simul.constant_dair"].as<double>());
+    std::cout << "simul.constant_dair:   " << vm["simul.constant_dair"].as<double>() << "\n";
+
     M_mixrat.assign(M_num_elements,vm["simul.constant_mixrat"].as<double>());
     std::cout << "simul.constant_mixrat: " << vm["simul.constant_mixrat"].as<double>() << "\n";
 
@@ -3951,14 +3967,12 @@ FiniteElement::constantAtmosphere()
 
     M_snowfr.assign(M_num_elements,vm["simul.constant_snowfr"].as<double>());
     std::cout << "simul.constant_snowfr: " << vm["simul.constant_snowfr"].as<double>() << "\n";
-
-    M_mld.assign(M_num_elements,vm["simul.constant_mld"].as<double>());
-    std::cout << "simul.constant_mld:    " << vm["simul.constant_mld"].as<double>() << "\n";
 }
 
 void
 FiniteElement::asrAtmosphere(bool reload)
 {
+
     if ((current_time < M_ftime_atmosphere_range[0]) || (M_ftime_atmosphere_range[1] < current_time) || (current_time == time_init) || reload)
     {
         if (current_time == time_init)
@@ -3988,27 +4002,90 @@ FiniteElement::asrAtmosphere(bool reload)
         //     std::cout<<"data_out["<< i << "]= "<< M_wind[i] << " and "<< M_wind[i+M_num_nodes] <<"\n";
     }
 
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        M_tair[i] = fcoeff[0]*M_tair2[0][i] + fcoeff[1]*M_tair2[1][i];
+        M_mixrat[i] = fcoeff[0]*M_mixrat2[0][i] + fcoeff[1]*M_mixrat2[1][i];
+        M_mslp[i] = fcoeff[0]*M_mslp2[0][i] + fcoeff[1]*M_mslp2[1][i];
+        M_Qsw_in[i] = fcoeff[0]*M_Qsw_in2[0][i] + fcoeff[1]*M_Qsw_in2[1][i];
+        M_Qlw_in[i] = fcoeff[0]*M_Qlw_in2[0][i] + fcoeff[1]*M_Qlw_in2[1][i];
+        M_precip[i] = fcoeff[0]*M_precip2[0][i] + fcoeff[1]*M_precip2[1][i];
+        M_snowfr[i] = fcoeff[0]*M_snowfr2[0][i] + fcoeff[1]*M_snowfr2[1][i];
+    }
+
+    M_dair.assign(M_num_elements,vm["simul.constant_dair"].as<double>());
+    std::cout << "simul.constant_dair:   " << vm["simul.constant_dair"].as<double>() << "\n";
 }
+
 
 void
 FiniteElement::loadAsrAtmosphere()//(double const& u, double const& v)
 {
+    std::string dirname="data";
+    std::string prefix="asr30km.comb.2d."; // "asr30km.comb.2D.";
+    std::string postfix=".nc";
+    int nb_timestep_day = 8;
+
+    std::string lat_name="XLAT";
+    std::string lon_name="XLONG";
+    std::string time_name="time"; // "Time"
+
+    // conversion factors: xnew = a*x + b
+    Variable u10={
+        name_data: "U10", // U10M
+        a: 1.,
+        b: 0.,
+        Units: "m/s"};
+
+    Variable v10={
+        name_data: "V10", // U10M
+        a: 1.,
+        b: 0.,
+        Units: "m/s"};
+
+    Variable tair={name_data:"T2",a:1.,b:-273.15,Units:"C"}; // T2M
+    Variable mixrat={name_data:"Q2",a:1.,b:0.,Units:""}; // Q2M
+    Variable mslp={name_data:"SLP",a:1e2,b:0.,Units:"Pa"}; //PSFC, a=1.
+    Variable Qsw_in={name_data:"SWDNB",a:1.,b:0.,Units:"W/m^2"}; 
+    Variable Qlw_in={name_data:"LWDNB",a:1.,b:0.,Units:"W/m^2"};
+    Variable snowfr={name_data:"SR",a:1.,b:0.,Units:""};
+    Variable precip={name_data:"RAINNC",a:nb_timestep_day/(24*3600),b:0.,Units:"kg/m^2/s"};
+
+    std::vector<int> num_nodes_or_elements(2); 
+    num_nodes_or_elements[0]=M_mesh.numNodes();
+    num_nodes_or_elements[1]=M_mesh.numTriangles();
+
+    std::vector<std::vector<Variable>> variables_on_nodes_or_elements(2);
+
+    std::vector<Variable> variables_on_nodes(2);
+    variables_on_nodes[0] = u10;
+    variables_on_nodes[1] = v10;
+    variables_on_nodes_or_elements[0]=variables_on_nodes;
+    
+    std::vector<Variable> variables_on_elements(7);
+    variables_on_elements[0] = tair;
+    variables_on_elements[1] = mixrat;
+    variables_on_elements[2] = mslp;
+    variables_on_elements[3] = Qsw_in;
+    variables_on_elements[4] = Qlw_in;
+    variables_on_elements[5] = snowfr;
+    variables_on_elements[6] = precip;
+    variables_on_nodes_or_elements[1]=variables_on_elements;
 
     std::string current_timestr = to_date_string_ym(current_time);
-    std::cout<<"TIMESTR= "<< current_timestr <<"\n";
-    std::string asr_filename = (boost::format( "%1%/data/asr30km.comb.2d.%2%.nc" )
+    std::string asr_filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                                 % Environment::nextsimDir().string()
-                                % current_timestr ).str();
+                                % dirname
+                                % prefix
+                                % current_timestr 
+                                % postfix
+                                ).str();
 
-    std::cout<<"ASR FILE= "<< asr_filename <<"\n";
+    std::cout<<"FILE= "<< asr_filename <<"\n";
 
-    double nb_timestep_day = 8;
-    double asr_dt = 1./nb_timestep_day;
+    double file_dt = 1./nb_timestep_day;
     double time_start = std::floor(current_time*nb_timestep_day)/nb_timestep_day;
     double time_end = std::ceil(current_time*nb_timestep_day)/nb_timestep_day;
-
-    // std::cout<<"TIME START= "<< std::setprecision(9) << time_start <<"\n";
-    // std::cout<<"TIME END  = "<< std::setprecision(9) << time_end <<"\n";
 
     // We always need at least two time steps to interpolate between
     if (time_end == time_start)
@@ -4017,7 +4094,7 @@ FiniteElement::loadAsrAtmosphere()//(double const& u, double const& v)
     }
 
     M_ftime_atmosphere_range.resize(0);
-    for (double dt=time_start; dt<=time_end; dt+=asr_dt)
+    for (double dt=time_start; dt<=time_end; dt+=file_dt)
     {
         M_ftime_atmosphere_range.push_back(dt);
     }
@@ -4043,7 +4120,6 @@ FiniteElement::loadAsrAtmosphere()//(double const& u, double const& v)
     std::vector<double> YLAT(360);
     std::vector<double> YLON(360);
 
-    std::vector<size_t> index_start(2);
     std::vector<size_t> index_lat_end(2);
     std::vector<size_t> index_lon_end(2);
 
@@ -4063,21 +4139,26 @@ FiniteElement::loadAsrAtmosphere()//(double const& u, double const& v)
     index_lon_end[1] = 360;
 
     std::vector<double> XTIME(248);
-    std::vector<size_t> index_u10_start(3,0);
-    std::vector<size_t> index_u10_end(3);
+    std::vector<size_t> index_start(3,0);
+    std::vector<size_t> index_end(3);
 
-    //std::cout<<"READ NETCDF starts\n";
+    index_start[0] = 0;
+    index_start[1] = 0;
+    index_start[2] = 0;
+
+    index_end[0] = 1;
+    index_end[1] = 360;
+    index_end[2] = 360;
+
     netCDF::NcFile dataFile(asr_filename, netCDF::NcFile::read);
-    netCDF::NcVar VXLAT = dataFile.getVar("XLAT");
-    netCDF::NcVar VXLON = dataFile.getVar("XLONG");
-    netCDF::NcVar VTIME = dataFile.getVar("time");
-    netCDF::NcVar VU10 = dataFile.getVar("U10");
-    netCDF::NcVar VV10 = dataFile.getVar("V10");
-    //std::cout<<"READ NETCDF done\n";
-
-    // VXLAT.getVar(index_start,index_lat_end,&XLAT[0]);
-    // VXLON.getVar(index_start,index_lon_end,&XLON[0]);
-
+    netCDF::NcVar VXLAT = dataFile.getVar(lat_name);
+    netCDF::NcVar VXLON = dataFile.getVar(lon_name);
+    netCDF::NcVar VTIME = dataFile.getVar(time_name);
+    
+    for(int k=0; k<variables_on_nodes_or_elements.size(); ++k)
+            for(int j=0; j<variables_on_nodes_or_elements[k].size(); ++j)
+                variables_on_nodes_or_elements[k][j].NcVar = dataFile.getVar(variables_on_nodes_or_elements[k][j].name_data);
+    
     VXLAT.getVar(index_lon_start,index_lon_end,&XLAT[0]);
     VXLON.getVar(index_lon_start,index_lon_end,&XLON[0]);
 
@@ -4085,9 +4166,6 @@ FiniteElement::loadAsrAtmosphere()//(double const& u, double const& v)
     VXLON.getVar(index_lat_start,index_lat_end,&YLON[0]);
 
     VTIME.getVar(&XTIME[0]);
-
-    // VU10.getVar(index_u10_start,index_u10_end,&U10[0]);
-    // VV10.getVar(index_u10_start,index_u10_end,&V10[0]);
 
     std::vector<double> X(360);
     std::vector<double> Y(360);
@@ -4123,6 +4201,9 @@ FiniteElement::loadAsrAtmosphere()//(double const& u, double const& v)
     double angle_stereo_ASR = -175;
     double diff_angle = -(angle_stereo_mesh-angle_stereo_ASR)*PI/180.;
 
+    double cos_m_diff_angle=std::cos(-diff_angle);
+    double sin_m_diff_angle=std::sin(-diff_angle);
+
     std::cout<<"VALUE= "<< from_date_string("1901-01-01") <<"\n";
     std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string("1901-01-01"); });
     // for (int i=0; i<248; ++i)
@@ -4136,8 +4217,17 @@ FiniteElement::loadAsrAtmosphere()//(double const& u, double const& v)
     }
 
     std::vector<double> fvair(2*M_num_nodes);
+    std::vector<double> tmp_interpolated_field(M_num_elements);
 
-    double* data_in_uv10 = new double[(2*nb_forcing_step)*360*360];
+    std::vector<double *> data_in(variables_on_nodes_or_elements.size());
+    
+    for(int k=0; k<variables_on_nodes_or_elements.size(); ++k)
+    {
+        double* data_in_matrix = new double[(variables_on_nodes_or_elements[k].size()*nb_forcing_step)*360*360];
+        data_in[k]=data_in_matrix;
+    }
+
+    std::vector<double> data_in_tmp(360*360);
 
     for (int fstep=0; fstep < nb_forcing_step; ++fstep)
     {
@@ -4168,88 +4258,96 @@ FiniteElement::loadAsrAtmosphere()//(double const& u, double const& v)
         int index = std::distance(XTIME.begin(),it);
         std::cout<<"FIND "<< ftime <<" in index "<< index <<"\n";
 
-        index_u10_start[0] = index;
-        index_u10_start[1] = 0;
-        index_u10_start[2] = 0;
+        index_start[0] = index;
 
-        index_u10_end[0] = 1;
-        index_u10_end[1] = 360;
-        index_u10_end[2] = 360;
-
-        std::vector<double> data_in_u10(360*360);
-        std::vector<double> data_in_v10(360*360);
-
-        VU10.getVar(index_u10_start,index_u10_end,&data_in_u10[0]);
-        VV10.getVar(index_u10_start,index_u10_end,&data_in_v10[0]);
-
-        // for (int i=0; i<10; ++i)
-        // {
-        //     for (int j=0; j<10; ++j)
-        //         std::cout<<"U10["<< i << ","<< j <<"]= "<< U10[i][j] << " and "<< data_in_u10[360*i+j] <<"\n";
-        // }
-
-        // std::vector<double> data_in_u10(360*360);
-        // std::vector<double> data_in_v10(360*360);
-
-        for (int i=0; i<(360*360); ++i)
+        for(int k=0; k<variables_on_nodes_or_elements.size(); ++k)
         {
-            data_in_uv10[(2*nb_forcing_step)*i+fstep*2+0]=data_in_u10[i];
-            data_in_uv10[(2*nb_forcing_step)*i+fstep*2+1]=data_in_v10[i];
+            for(int j=0; j<variables_on_nodes_or_elements[k].size(); ++j)
+            {
+                variables_on_nodes_or_elements[k][j].NcVar.getVar(index_start,index_end,&data_in_tmp[0]);
+
+                for (int i=0; i<(360*360); ++i)
+                    data_in[k][(variables_on_nodes_or_elements[k].size()*nb_forcing_step)*i+fstep*variables_on_nodes_or_elements[k].size()+j]=data_in_tmp[i];
+            }
         }
-
-
-        // for (int i=0; i<50; ++i)
-        //     std::cout<<"data_out["<< i << "]= "<< data_out_u10[i] << " and "<< data_out_v10[i] <<"\n";
     }
 
-    auto RX = M_mesh.coordX(diff_angle);
-    auto RY = M_mesh.coordY(diff_angle);
-
-    double* data_out_uv10;
+    std::vector<double *> data_out(2);
 
     //int interp_type = TriangleInterpEnum;
     int interp_type = BilinearInterpEnum;
     //int interp_type = NearestInterpEnum;
 
-    InterpFromGridToMeshx(data_out_uv10, &X[0], X.size(), &Y[0], Y.size(), &data_in_uv10[0], X.size(), Y.size(), 2*nb_forcing_step,
-                          &RX[0], &RY[0], M_mesh.numNodes(), 1.0, interp_type);
+    auto RX = M_mesh.coordX(diff_angle);
+    auto RY = M_mesh.coordY(diff_angle);
+
+    for(int k=0; k<variables_on_nodes_or_elements.size(); ++k)
+    {
+        switch(k)
+        {
+            case 1:
+                RX = M_mesh.bcoordX(diff_angle);
+                RY = M_mesh.bcoordY(diff_angle);
+                break;
+        }   
+        
+        double * data_out_tmp;
+        InterpFromGridToMeshx(  data_out_tmp, &X[0], X.size(), &Y[0], Y.size(), 
+                                &(data_in[k])[0], X.size(), Y.size(), 
+                                variables_on_nodes_or_elements[k].size()*nb_forcing_step,
+                                &RX[0], &RY[0], num_nodes_or_elements[k], 1.0, interp_type);
+        data_out[k]=data_out_tmp;
+    }
 
     for (int fstep=0; fstep < nb_forcing_step; ++fstep)
     {
         for (int i=0; i<M_num_nodes; ++i)
         {
-            fvair[i] = std::cos(-diff_angle)*data_out_uv10[(2*nb_forcing_step)*i+fstep*2] + std::sin(-diff_angle)*data_out_uv10[(2*nb_forcing_step)*i+fstep*2+1];
-            fvair[i+M_num_nodes] = -std::sin(-diff_angle)*data_out_uv10[(2*nb_forcing_step)*i+fstep*2] + std::cos(-diff_angle)*data_out_uv10[(2*nb_forcing_step)*i+fstep*2+1];
+            for(int j=0; j<variables_on_nodes.size(); ++j)
+                variables_on_nodes[j].tmp_data=data_out[0][(variables_on_nodes.size()*nb_forcing_step)*i+fstep*variables_on_nodes.size()+j];
 
-            // if (i<20)
-            //     std::cout<<"data_out["<< i << "]= "<< M_wind[i] << " and "<< M_wind[i+M_num_nodes] <<"\n";
+            fvair[i            ] =  cos_m_diff_angle*u10.tmp_data + sin_m_diff_angle*v10.tmp_data;
+            fvair[i+M_num_nodes] = -sin_m_diff_angle*u10.tmp_data + cos_m_diff_angle*v10.tmp_data;
         }
         M_vair[fstep] = fvair;
-    }
-#if 0
-
-        std::cout<<"MIN BOUND ASRX= "<< *std::min_element(X.begin(),X.end()) <<"\n";
-        std::cout<<"MAX BOUND ASRX= "<< *std::max_element(X.begin(),X.end()) <<"\n";
-
-        std::cout<<"MIN BOUND ASRY= "<< *std::min_element(Y.begin(),Y.end()) <<"\n";
-        std::cout<<"MAX BOUND ASRY= "<< *std::max_element(Y.begin(),Y.end()) <<"\n";
-
-        std::cout<<"DIFF ANGLE= "<< diff_angle <<"\n";
-
-        std::cout<<"MIN BOUND MESHX= "<< *std::min_element(RX.begin(),RX.end()) <<"\n";
-        std::cout<<"MAX BOUND MESHX= "<< *std::max_element(RX.begin(),RX.end()) <<"\n";
-
-        std::cout<<"MIN BOUND MESHY= "<< *std::min_element(RY.begin(),RY.end()) <<"\n";
-        std::cout<<"MAX BOUND MESHY= "<< *std::max_element(RY.begin(),RY.end()) <<"\n";
+#if 1
+        for(int j=0; j<variables_on_elements.size(); ++j)
+        {
+            for (int i=0; i<M_num_elements; ++i)
+            { 
+                variables_on_elements[j].tmp_data=data_out[1][(variables_on_elements.size()*nb_forcing_step)*i+fstep*variables_on_elements.size()+j];
+                tmp_interpolated_field[i]=variables_on_elements[j].tmp_data;
+            }
+            //variables_on_elements[j].interpolated_data[fstep]=tmp_interpolated_field;
+            switch(j)
+            {
+                case 0:
+                    M_tair2[fstep]=tmp_interpolated_field;
+                    break;
+                case 1:
+                    M_mixrat2[fstep]=tmp_interpolated_field;
+                    break;
+                case 2:
+                    M_mslp2[fstep]=tmp_interpolated_field;
+                    break;
+                case 3:
+                    M_Qsw_in2[fstep]=tmp_interpolated_field;
+                    break;
+                case 4:
+                    M_Qlw_in2[fstep]=tmp_interpolated_field;
+                    break;
+                case 5:
+                    M_snowfr2[fstep]=tmp_interpolated_field;
+                    break;
+                case 6:
+                    M_precip2[fstep]=tmp_interpolated_field;
+                    break;
+                default:
+                    break;
+            }
+        }
 #endif
-
-
-
-    // std::cout<<"there are "<<dataFile.getVarCount()<<" variables"<<endl;
-    // std::cout<<"there are "<<dataFile.getAttCount()<<" attributes"<<endl;
-    // std::cout<<"there are "<<dataFile.getDimCount()<<" dimensions"<<endl;
-    // std::cout<<"there are "<<dataFile.getGroupCount()<<" groups"<<endl;
-    // std::cout<<"there are "<<dataFile.getTypeCount()<<" types"<<endl;
+    }
 
 #endif
 
@@ -4282,6 +4380,8 @@ FiniteElement::constantOcean()
         M_ocean[i] = Voce_coef*vm["simul.constant_ocean_v"].as<double>();
         M_ocean[i+M_num_nodes] = Voce_coef*vm["simul.constant_ocean_v"].as<double>();
     }
+
+    M_mld.assign(M_num_elements,vm["simul.constant_mld"].as<double>());
 }
 
 void
@@ -4318,6 +4418,8 @@ FiniteElement::topazOcean(bool reload)
         // if (i<20)
         //     std::cout<<"data_out["<< i << "]= "<< M_wind[i] << " and "<< M_wind[i+M_num_nodes] <<"\n";
     }
+
+    M_mld.assign(M_num_elements,vm["simul.constant_mld"].as<double>());
 }
 
 void
@@ -4363,21 +4465,6 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
     int nb_forcing_step = M_ftime_ocean_range.size();
     //std::cout<<"NB_FORCING_STEP= "<< nb_forcing_step <<"\n";
 
- #if 0
-    // read in re-analysis coordinates
-    std::vector<double> LAT(1101*762);
-    std::vector<double> LON(1101*761);
-
-    std::vector<size_t> index_start(2);
-    std::vector<size_t> index_end(2);
-
-    index_start[0] = 0;
-    index_start[1] = 0;
-
-    index_end[0] = 1101;
-    index_end[1] = 761;
-#endif
-
     std::vector<double> XTIME(31);
     std::vector<size_t> index_u_start(4,0);
     std::vector<size_t> index_u_end(4);
@@ -4399,30 +4486,6 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
     // VLON.getVar(index_start,index_end,&LON[0]);
 
     VTIME.getVar(&XTIME[0]);
-
-#if 0
-    std::vector<double> X(1101*761);
-    std::vector<double> Y(1101*761);
-
-    double RE = 6378.273;
-    mapx_class *map;
-    std::string configfile = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
-    std::vector<char> str(configfile.begin(), configfile.end());
-    str.push_back('\0');
-    map = init_mapx(&str[0]);
-
-    std::vector<double> xy(2);
-
-    for (int i=0; i<1101; ++i)
-    {
-        for (int j=0; j<761; ++j)
-        {
-            xy=latLon2XY(LAT[761*i+j], LON[761*i+j], map, configfile);
-            X[761*i+j] = xy[0];
-            Y[761*i+j] = xy[1];
-        }
-    }
-#endif
 
     auto RX = M_mesh.coordX();
     auto RY = M_mesh.coordY();
@@ -4520,53 +4583,20 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
 
         VSSH.getVar(index_ssh_start,index_ssh_end,&data_in_ssh[0]);
 
-        // for (int i=0; i<1101; ++i)
-        // {
-        //     for (int j=0; j<761; ++j)
-        //     {
-        //         // if (i<160 && j<500)
-        //         //     std::cout<<"U["<< i << ","<< j <<"]= "<< data_in_ssh[761*i+j]  <<"\n";
-        //         //std::cout<<"U["<< i << ","<< j <<"]= "<< data_in_u[761*i+j] << "  and  " << U[i][j] <<"\n";
+        // Need to multiply with scale factor and add offset - these are stored as variable attributes
+        netCDF::NcVarAtt att;
+        double scale_factor_u, scale_factor_v;
+        double add_offset_u, add_offset_v;
 
-        //         //std::cout<<"U["<< i << ","<< j <<"]= "<< data_in_u[761*i+j]  <<"\n";
-        //     }
-        // }
+        att = VU.getAtt("scale_factor");
+        att.getValues(&scale_factor_u);
+        att = VV.getAtt("scale_factor");
+        att.getValues(&scale_factor_v);
 
-#if 0
-        std::cout<<"MIN DATA U= "<< *std::min_element(data_in_u.begin(),data_in_u.end()) <<"\n";
-        std::cout<<"MAX DATA U= "<< *std::max_element(data_in_u.begin(),data_in_u.end()) <<"\n";
-
-        std::cout<<"MIN DATA V= "<< *std::min_element(data_in_v.begin(),data_in_v.end()) <<"\n";
-        std::cout<<"MAX DATA V= "<< *std::max_element(data_in_v.begin(),data_in_v.end()) <<"\n";
-
-        std::cout<<"MIN DATA SSH= "<< *std::min_element(data_in_ssh.begin(),data_in_ssh.end()) <<"\n";
-        std::cout<<"MAX DATA SSH= "<< *std::max_element(data_in_ssh.begin(),data_in_ssh.end()) <<"\n";
-#endif
-#if 0
-        // bamg triangulation
-        if(fstep==0)
-        {
-            std::cout<<"TOPAZ: Triangulate starts\n";
-            BamgTriangulatex(&M_pfindex,&M_pfnels,&X[0],&Y[0],X.size());
-            std::cout<<"TOPAZ: NUMTRIANGLES= "<< M_pfnels <<"\n";
-            std::cout<<"TOPAZ: Triangulate done\n";
-        }
-#endif
-
-	// Need to multiply with scale factor and add offset - these are stored as variable attributes
-	netCDF::NcVarAtt att;
-	double scale_factor_u, scale_factor_v;
-	double add_offset_u, add_offset_v;
-
-	att = VU.getAtt("scale_factor");
-	att.getValues(&scale_factor_u);
-	att = VV.getAtt("scale_factor");
-	att.getValues(&scale_factor_v);
-
-	att = VU.getAtt("add_offset");
-	att.getValues(&add_offset_u);
-	att = VV.getAtt("add_offset");
-	att.getValues(&add_offset_v);
+        att = VU.getAtt("add_offset");
+        att.getValues(&add_offset_u);
+        att = VV.getAtt("add_offset");
+        att.getValues(&add_offset_v);
 
         for (int i=0; i<data_in_u.size(); ++i)
         {
@@ -4630,9 +4660,6 @@ FiniteElement::gridTopazOcean()
                                   % current_timestr ).str();
 
     // read in re-analysis coordinates
-    std::vector<double> LAT(1101*761);
-    std::vector<double> LON(1101*761);
-
     std::vector<size_t> index_start(2);
     std::vector<size_t> index_end(2);
 
@@ -4641,6 +4668,9 @@ FiniteElement::gridTopazOcean()
 
     index_end[0] = 1101;
     index_end[1] = 761;
+
+    std::vector<double> LAT(index_end[0]*index_end[1]);
+    std::vector<double> LON(index_end[0]*index_end[1]);
 
     std::cout<<"GRID TOPAZ: READ NETCDF starts\n";
     netCDF::NcFile dataFile(topaz_filename, netCDF::NcFile::read);
@@ -4651,8 +4681,8 @@ FiniteElement::gridTopazOcean()
     VLAT.getVar(index_start,index_end,&LAT[0]);
     VLON.getVar(index_start,index_end,&LON[0]);
 
-    M_topaz_gridX.resize(1101*761);
-    M_topaz_gridY.resize(1101*761);
+    M_topaz_gridX.resize(index_end[0]*index_end[1]);
+    M_topaz_gridY.resize(index_end[0]*index_end[1]);
 
     double RE = 6378.273;
     mapx_class *map;
@@ -4663,13 +4693,13 @@ FiniteElement::gridTopazOcean()
 
     std::vector<double> xy(2);
 
-    for (int i=0; i<1101; ++i)
+    for (int i=0; i<index_end[0]; ++i)
     {
-        for (int j=0; j<761; ++j)
+        for (int j=0; j<index_end[1]; ++j)
         {
-            xy=latLon2XY(LAT[761*i+j], LON[761*i+j], map, configfile);
-            M_topaz_gridX[761*i+j] = xy[0];
-            M_topaz_gridY[761*i+j] = xy[1];
+            xy=latLon2XY(LAT[index_end[1]*i+j], LON[index_end[1]*i+j], map, configfile);
+            M_topaz_gridX[index_end[1]*i+j] = xy[0];
+            M_topaz_gridY[index_end[1]*i+j] = xy[1];
         }
     }
 
@@ -4774,27 +4804,17 @@ FiniteElement::topazConc()
     std::cout<<"TOPAZ INIT FILE= "<< init_topaz_filename <<"\n";
 
     // read in latitude and longitude
-    std::vector<double> LAT(1101*761);
-    std::vector<double> LON(1101*761);
-
     std::vector<size_t> index_start(2);
-    std::vector<size_t> index_lat_end(2);
-    std::vector<size_t> index_lon_end(2);
+    std::vector<size_t> index_end(2);
 
-    std::vector<size_t> index_lat_start(2);
-    std::vector<size_t> index_lon_start(2);
+    index_start[0] = 0;
+    index_start[1] = 0;
 
-    index_lat_start[0] = 0;
-    index_lat_start[1] = 0;
+    index_end[0] = 1101;
+    index_end[1] = 761;
 
-    index_lat_end[0] = 1101;
-    index_lat_end[1] = 761;
-
-    index_lon_start[0] = 0;
-    index_lon_start[1] = 0;
-
-    index_lon_end[0] = 1101;
-    index_lon_end[1] = 761;
+    std::vector<double> LAT(index_end[0]*index_end[1]);
+    std::vector<double> LON(index_end[0]*index_end[1]);
 
     std::vector<double> XTIME(31);
     std::vector<size_t> index_fhice_start(3,0);
@@ -4827,13 +4847,13 @@ FiniteElement::topazConc()
     netCDF::NcVar VTIME = dataFile.getVar("time");
     std::cout<<"READING NETCDF "<< init_topaz_filename << " done\n";
 
-    VLAT.getVar(index_lat_start,index_lat_end,&LAT[0]);
-    VLON.getVar(index_lat_start,index_lat_end,&LON[0]);
+    VLAT.getVar(index_start,index_end,&LAT[0]);
+    VLON.getVar(index_start,index_end,&LON[0]);
 
     VTIME.getVar(&XTIME[0]);
 
-    std::vector<double> X(1101*761);
-    std::vector<double> Y(1101*761);
+    std::vector<double> X(index_end[0]*index_end[1]);
+    std::vector<double> Y(index_end[0]*index_end[1]);
 
     mapx_class *map;
     std::string configfile = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
@@ -4843,20 +4863,20 @@ FiniteElement::topazConc()
 
     std::vector<double> xy(2);
 
-    for (int i=0; i<1101; ++i)
+    for (int i=0; i<index_end[0]; ++i)
     {
-        for (int j=0; j<761; ++j)
+        for (int j=0; j<index_end[1]; ++j)
         {
-            xy=latLon2XY(LAT[761*i+j], LON[761*i+j], map, configfile);
-            X[761*i+j] = xy[0];
-            Y[761*i+j] = xy[1];
+            xy=latLon2XY(LAT[index_end[1]*i+j], LON[index_end[1]*i+j], map, configfile);
+            X[index_end[1]*i+j] = xy[0];
+            Y[index_end[1]*i+j] = xy[1];
         }
     }
 
     close_mapx(map);
 
-    auto RX = M_mesh.bCoordX();
-    auto RY = M_mesh.bCoordY();
+    auto RX = M_mesh.bcoordX();
+    auto RY = M_mesh.bcoordY();
 
 #if 0
     std::cout<<"MIN BOUND TOPAZX= "<< *std::min_element(X.begin(),X.end()) <<"\n";
@@ -4895,12 +4915,12 @@ FiniteElement::topazConc()
     std::cout<<"INIT TIME TOPAZ FOUND "<< target <<" in index "<< index <<"\n";
 
     index_fhice_start[0] = index;
-    index_fhice_start[1] = 0;
-    index_fhice_start[2] = 0;
+    index_fhice_start[1] = index_start[0];
+    index_fhice_start[2] = index_start[1];
 
     index_fhice_end[0] = 1;
-    index_fhice_end[1] = 1101;
-    index_fhice_end[2] = 761;
+    index_fhice_end[1] = index_end[0];
+    index_fhice_end[2] = index_end[1];
 
  #if 0
     std::cout<<"NETCDF INFO: "<<dataFile.getVarCount()<<" variables\n";
@@ -4910,7 +4930,7 @@ FiniteElement::topazConc()
     std::cout<<"NETCDF INFO: "<<dataFile.getTypeCount()<<" types\n";
 #endif
 
-    // void* data_void[1101*761];
+    // void* data_void[1101*index_end[1]];
     // VFICE.getVar(index_fhice_start,index_fhice_end,data_void);
 
     //float* data_values = (float*)data_void;
@@ -4942,7 +4962,7 @@ FiniteElement::topazConc()
     // Need to multiply with scale factor and add offset - these are stored as variable attributes
     if (M_conc_type == setup::ConcentrationType::TOPAZ4)
     {
-        data_in_fice.resize(1101*761);
+        data_in_fice.resize(index_end[0]*index_end[1]);
         VFICE.getVar(index_fhice_start,index_fhice_end,&data_in_fice[0]);
 
 	att = VFICE.getAtt("scale_factor");
@@ -4955,7 +4975,7 @@ FiniteElement::topazConc()
 
     if (M_thick_type == setup::ThicknessType::TOPAZ4)
     {
-        data_in_hice.resize(1101*761);
+        data_in_hice.resize(index_end[0]*index_end[1]);
         VHICE.getVar(index_fhice_start,index_fhice_end,&data_in_hice[0]);
 
 	att = VHICE.getAtt("scale_factor");
@@ -4968,7 +4988,7 @@ FiniteElement::topazConc()
 
     if (M_snow_thick_type == setup::SnowThicknessType::TOPAZ4)
     {
-        data_in_snow.resize(1101*761);
+        data_in_snow.resize(index_end[0]*index_end[1]);
         VSNOW.getVar(index_fhice_start,index_fhice_end,&data_in_snow[0]);
 
 	att = VSNOW.getAtt("scale_factor");
@@ -4979,46 +4999,46 @@ FiniteElement::topazConc()
 	att.getValues(&FillValue_snow);
     }
 
-    for (int i=0; i<1101; ++i)
+    for (int i=0; i<index_end[0]; ++i)
     {
-        for (int j=0; j<761; ++j)
+        for (int j=0; j<index_end[1]; ++j)
         {
             if (M_conc_type == setup::ConcentrationType::TOPAZ4)
             {
-                // maskvfh = data_in_fice[761*i+j]*scale_factor_fice+add_offset_fice;
+                // maskvfh = data_in_fice[index_end[1]*i+j]*scale_factor_fice+add_offset_fice;
                 // maskvfh = std::abs(maskvfh);
 
-                if (data_in_fice[761*i+j] != FillValue_fice)
+                if (data_in_fice[index_end[1]*i+j] != FillValue_fice)
                 {
-                    reduced_data_in_fice.push_back(data_in_fice[761*i+j]*scale_factor_fice+add_offset_fice);
-                    reduced_FX.push_back(X[761*i+j]);
-                    reduced_FY.push_back(Y[761*i+j]);
+                    reduced_data_in_fice.push_back(data_in_fice[index_end[1]*i+j]*scale_factor_fice+add_offset_fice);
+                    reduced_FX.push_back(X[index_end[1]*i+j]);
+                    reduced_FY.push_back(Y[index_end[1]*i+j]);
                 }
             }
 
             if (M_thick_type == setup::ThicknessType::TOPAZ4)
             {
-                // maskvfh = data_in_hice[761*i+j]*scale_factor_hice+add_offset_hice;
+                // maskvfh = data_in_hice[index_end[1]*i+j]*scale_factor_hice+add_offset_hice;
                 // maskvfh = std::abs(maskvfh);
 
-                if (data_in_fice[761*i+j] != FillValue_hice)
+                if (data_in_fice[index_end[1]*i+j] != FillValue_hice)
                 {
-                    reduced_data_in_hice.push_back(data_in_hice[761*i+j]*scale_factor_hice+add_offset_hice);
-                    reduced_HX.push_back(X[761*i+j]);
-                    reduced_HY.push_back(Y[761*i+j]);
+                    reduced_data_in_hice.push_back(data_in_hice[index_end[1]*i+j]*scale_factor_hice+add_offset_hice);
+                    reduced_HX.push_back(X[index_end[1]*i+j]);
+                    reduced_HY.push_back(Y[index_end[1]*i+j]);
                 }
             }
 
             if (M_snow_thick_type == setup::SnowThicknessType::TOPAZ4)
             {
-                // maskvfh = data_in_snow[761*i+j]*scale_factor_snow+add_offset_snow;
+                // maskvfh = data_in_snow[index_end[1]*i+j]*scale_factor_snow+add_offset_snow;
                 // maskvfh = std::abs(maskvfh);
 
-                if (data_in_fice[761*i+j] != FillValue_snow)
+                if (data_in_fice[index_end[1]*i+j] != FillValue_snow)
                 {
-                    reduced_data_in_snow.push_back(data_in_snow[761*i+j]*scale_factor_snow+add_offset_snow);
-                    reduced_SX.push_back(X[761*i+j]);
-                    reduced_SY.push_back(Y[761*i+j]);
+                    reduced_data_in_snow.push_back(data_in_snow[index_end[1]*i+j]*scale_factor_snow+add_offset_snow);
+                    reduced_SX.push_back(X[index_end[1]*i+j]);
+                    reduced_SY.push_back(Y[index_end[1]*i+j]);
                 }
             }
         }
@@ -5390,7 +5410,7 @@ FiniteElement::bathymetry()
                                 M_mesh_init.numNodes(),M_mesh_init.numTriangles(),
                                 &M_bathy_depth[0],
                                 M_mesh_init.numNodes(),1,
-                                &M_mesh.bCoordX()[0],&M_mesh.bCoordY()[0],M_num_elements,
+                                &M_mesh.bcoordX()[0],&M_mesh.bcoordY()[0],M_num_elements,
                                 false);
 
         M_element_depth.assign(M_num_elements,0.);

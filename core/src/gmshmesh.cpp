@@ -444,9 +444,11 @@ GmshMesh::coordX(double const& rotangle) const
 {
     std::vector<double> x(M_num_nodes);
     int cpt = 0;
+    double cos_rotangle=std::cos(rotangle);
+    double sin_rotangle=std::sin(rotangle);
     for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
     {
-        x[cpt] = std::cos(rotangle)*(it->coords[0]) + std::sin(rotangle)*(it->coords[1]);
+        x[cpt] = cos_rotangle*(it->coords[0]) + sin_rotangle*(it->coords[1]);
         ++cpt;
     }
 
@@ -458,19 +460,19 @@ GmshMesh::coordY(double const& rotangle) const
 {
     std::vector<double> y(M_num_nodes);
     int cpt = 0;
+    double cos_rotangle=std::cos(rotangle);
+    double sin_rotangle=std::sin(rotangle);
     for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
     {
-        y[cpt] = -std::sin(rotangle)*(it->coords[0]) + std::cos(rotangle)*(it->coords[1]);
+        y[cpt] = -sin_rotangle*(it->coords[0]) + cos_rotangle*(it->coords[1]);
         ++cpt;
     }
 
     return y;
 }
 
-
-
 std::vector<double>
-GmshMesh::bCoordX() const
+GmshMesh::bcoordX() const
 {
     std::vector<double> bcoord_x(M_num_triangles);
     int cpt = 0;
@@ -493,7 +495,7 @@ GmshMesh::bCoordX() const
 }
 
 std::vector<double>
-GmshMesh::bCoordY() const
+GmshMesh::bcoordY() const
 {
     std::vector<double> bcoord_y(M_num_triangles);
     int cpt = 0;
@@ -505,6 +507,56 @@ GmshMesh::bCoordY() const
         for (int i=0; i<3; ++i)
         {
             y += M_nodes[it->indices[i]-1].coords[1];
+        }
+
+        bcoord_y[cpt] = y/3.;
+
+        ++cpt;
+    }
+
+    return bcoord_y;
+}
+
+std::vector<double>
+GmshMesh::bcoordX(double const& rotangle) const
+{
+    std::vector<double> bcoord_x(M_num_triangles);
+    double cos_rotangle=std::cos(rotangle);
+    double sin_rotangle=std::sin(rotangle);
+    int cpt = 0;
+    double x = 0.;
+    for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
+    {
+        x = 0.;
+
+        for (int i=0; i<3; ++i)
+        {
+            x += cos_rotangle*(M_nodes[it->indices[i]-1].coords[0])+ sin_rotangle*(M_nodes[it->indices[i]-1].coords[1]);
+        }
+
+        bcoord_x[cpt] = x/3.;
+
+        ++cpt;
+    }
+
+    return bcoord_x;
+}
+
+std::vector<double>
+GmshMesh::bcoordY(double const& rotangle) const
+{
+    std::vector<double> bcoord_y(M_num_triangles);
+    double cos_rotangle=std::cos(rotangle);
+    double sin_rotangle=std::sin(rotangle);
+    int cpt = 0;
+    double y = 0.;
+    for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
+    {
+        y = 0.;
+
+        for (int i=0; i<3; ++i)
+        {
+            y += -sin_rotangle*(M_nodes[it->indices[i]-1].coords[0])+ cos_rotangle*(M_nodes[it->indices[i]-1].coords[1]);
         }
 
         bcoord_y[cpt] = y/3.;
@@ -529,8 +581,8 @@ GmshMesh::meanLon() const
     double lat = 0.;
     double lon = 0.;
 
-    std::vector<double> X = this->bCoordX();
-    std::vector<double> Y = this->bCoordY();
+    std::vector<double> X = this->bcoordX();
+    std::vector<double> Y = this->bcoordY();
 
     for (int elt=0; elt<M_num_triangles; ++elt)
     {
@@ -557,8 +609,8 @@ GmshMesh::meanLat() const
     double lat = 0.;
     double lon = 0.;
 
-    std::vector<double> X = this->bCoordX();
-    std::vector<double> Y = this->bCoordY();
+    std::vector<double> X = this->bcoordX();
+    std::vector<double> Y = this->bcoordY();
 
     for (int elt=0; elt<M_num_triangles; ++elt)
     {

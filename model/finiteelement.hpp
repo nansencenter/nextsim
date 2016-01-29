@@ -54,6 +54,16 @@ public:
     typedef GraphCSR graph_type;
     typedef boost::shared_ptr<graph_type> graph_ptrtype;
 
+    typedef struct Variable
+    {
+        std::string name_data;
+        double a;
+        double b;
+        std::string Units;
+        netCDF::NcVar NcVar;
+        double tmp_data;
+    } Variable;
+
     FiniteElement();
 
     mesh_type const& mesh() const {return M_mesh;}
@@ -289,6 +299,15 @@ private:
     std::vector<std::vector<double>> M_voce;
     std::vector<std::vector<double>> M_vssh;
 
+    std::vector<std::vector<double>> M_tair2;
+    std::vector<std::vector<double>> M_mixrat2;
+    std::vector<std::vector<double>> M_dair2;
+    std::vector<std::vector<double>> M_mslp2;
+    std::vector<std::vector<double>> M_Qsw_in2;
+    std::vector<std::vector<double>> M_Qlw_in2;
+    std::vector<std::vector<double>> M_precip2;
+    std::vector<std::vector<double>> M_snowfr2;
+
 private:
 
     int* M_pfindex;
@@ -329,7 +348,6 @@ private:
     std::vector<double> M_mslp;         // Atmospheric pressure [Pa]
     std::vector<double> M_Qsw_in;       // Incoming short-wave radiation [W/m2]
     std::vector<double> M_Qlw_in;       // Incoming long-wave radiation [W/m2]
-    std::vector<double> M_tcc;          // Total cloud fraction
     std::vector<double> M_precip;       // Total precipitation [m]
     std::vector<double> M_snowfr;       // Fraction of precipitation that is snow
     // Ocean

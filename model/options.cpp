@@ -146,6 +146,7 @@ namespace Nextsim
             ("simul.constant_wind_u", po::value<double>()->default_value( 0. ), "")
             ("simul.constant_wind_v", po::value<double>()->default_value( -10. ), "")
             ("simul.constant_tair", po::value<double>()->default_value( -25. ), "")
+            ("simul.constant_dair", po::value<double>()->default_value( -1. ), "")
             ("simul.constant_mixrat", po::value<double>()->default_value( 0.001 ), "")
             ("simul.constant_mslp", po::value<double>()->default_value( 1013e2 ), "")
             ("simul.constant_Qsw_in", po::value<double>()->default_value( 50. ), "")

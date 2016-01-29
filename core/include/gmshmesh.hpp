@@ -135,8 +135,12 @@ public:
     std::vector<double> coordX(double const& rotangle) const;
     std::vector<double> coordY(double const& rotangle) const;
 
-    std::vector<double> bCoordX() const;
-    std::vector<double> bCoordY() const;
+    std::vector<double> bcoordX() const;
+    std::vector<double> bcoordY() const;
+
+    std::vector<double> bcoordX(double const& rotangle) const;
+    std::vector<double> bcoordY(double const& rotangle) const;
+
     std::vector<double> meanLat() const;
     std::vector<double> meanLon() const;
 
