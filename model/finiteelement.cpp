@@ -4316,7 +4316,7 @@ FiniteElement::loadAsrAtmosphere()//(double const& u, double const& v)
             for (int i=0; i<M_num_elements; ++i)
             { 
                 variables_on_elements[j].tmp_data=data_out[1][(variables_on_elements.size()*nb_forcing_step)*i+fstep*variables_on_elements.size()+j];
-                tmp_interpolated_field[i]=variables_on_elements[j].tmp_data;
+                tmp_interpolated_field[i]=variables_on_elements[j].a*variables_on_elements[j].tmp_data+variables_on_elements[j].b;
             }
             //variables_on_elements[j].interpolated_data[fstep]=tmp_interpolated_field;
             switch(j)
