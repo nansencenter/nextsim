@@ -61,8 +61,25 @@ public:
         double b;
         std::string Units;
         netCDF::NcVar NcVar;
-        double tmp_data;
     } Variable;
+
+    typedef struct Dataset
+    {
+        int case_number;
+        std::string dirname;
+        std::string prefix;
+        std::string postfix;
+        int nb_timestep_day;
+
+        std::string lat_name;
+        std::string lon_name;
+
+        std::string time_name;
+
+        std::vector<Variable> variables;
+
+        int target_size;
+    } Dataset;
 
     FiniteElement();
 
@@ -111,6 +128,9 @@ public:
     double calcSphumA(double mslp, double dair, double mixrat);
     void calcSphumI(double mslp, double tsurf, double &sphumi, double &dsphumidT);
     double calcSphumW(double mslp, double sst, double sss);
+
+    Dataset M_asr_nodes_dataset;
+    Dataset M_asr_elements_dataset;
 
     double minAngles(element_type const& element, mesh_type const& mesh) const;
     double minAngle(mesh_type const& mesh) const;
@@ -294,10 +314,13 @@ private:
 private:
 
     std::vector<double> M_ftime_atmosphere_range;
-    std::vector<std::vector<double>> M_vair;
     std::vector<double> M_ftime_ocean_range;
+
     std::vector<std::vector<double>> M_voce;
     std::vector<std::vector<double>> M_vssh;
+
+    std::vector<std::vector<double>> M_uair2;
+    std::vector<std::vector<double>> M_vair2;
 
     std::vector<std::vector<double>> M_tair2;
     std::vector<std::vector<double>> M_mixrat2;
@@ -383,7 +406,7 @@ private:
     void topazSnowThick();
 
     void asrAtmosphere(bool reload);//(double const& u, double const& v);
-    void loadAsrAtmosphere();//(double const& u, double const& v);
+    void loadAsrAtmosphere(Dataset dataset);//(double const& u, double const& v);
 
     void topazOcean(bool reload);//(double const& u, double const& v);
     void loadTopazOcean();//(double const& u, double const& v);
