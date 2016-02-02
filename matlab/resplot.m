@@ -23,6 +23,7 @@ clearvars -except step;
 % caxis([min(var_mc), max(var_mc)])
 
 field='Velocity';
+%field='mld';
 %field='Concentration';
 %field='Thickness';
 %field='Wind';

@@ -251,6 +251,10 @@ FiniteElement::initSimulation()
     M_precip2.resize(2);
     M_snowfr2.resize(2);
 
+    M_sss2.resize(2);
+    M_sst2.resize(2);
+    M_mld2.resize(2);
+
     M_mld.resize(M_num_elements);
 
     M_sst.resize(M_num_elements);
@@ -596,8 +600,57 @@ FiniteElement::initSimulation()
         variables: variables_tmp2,
         target_size: M_num_nodes};
 
-
     M_topaz_nodes_dataset.ftime_range.resize(2,0.);
+
+    Variable sst={
+        name: "temperature", 
+        dimensions: dimensions_topaz_uv,
+        a: 1.,
+        b: 0.,
+        Units: "deg celsius",
+        NcVar: NcVar_tmp};
+
+    Variable sss={
+        name: "salinity",
+        dimensions: dimensions_topaz_uv, 
+        a: 1.,
+        b: 0.,
+        Units: "",
+        NcVar: NcVar_tmp};
+
+    Variable mld={
+        name: "mlp",
+        dimensions: dimensions_topaz,
+        a: 1.,
+        b: 0.,
+        Units: "m",
+        NcVar: NcVar_tmp};
+
+    std::vector<Variable> variables_tmp3(3);
+    variables_tmp3[0] = sst;
+    variables_tmp3[1] = sss;
+    variables_tmp3[2] = mld;
+
+    M_topaz_elements_dataset={
+        case_number: 3,
+        dirname: "data",
+        prefix: "TP4DAILY_",
+        postfix: "_3m.nc",
+        reference_date: "1950-01-01",
+        nb_timestep_day: 1,
+     
+        latitude: topaz_latitude,
+        longitude: topaz_longitude,
+        time: topaz_time,
+
+        dimension_x: topaz_dimension_x,
+        dimension_y: topaz_dimension_y,
+        dimension_time: topaz_dimension_time,
+
+        variables: variables_tmp3,
+        target_size: M_num_elements};
+
+    M_topaz_elements_dataset.ftime_range.resize(2,0.);
 
     if (M_ocean_type == setup::OceanType::TOPAZR)
     {
@@ -1347,6 +1400,7 @@ FiniteElement::regrid(bool step)
     M_asr_nodes_dataset.target_size=M_num_nodes;
     M_asr_elements_dataset.target_size=M_num_elements;
     M_topaz_nodes_dataset.target_size=M_num_nodes;
+    M_topaz_elements_dataset.target_size=M_num_elements;
 
     M_Cohesion.resize(M_num_elements);
     M_Compressive_strength.resize(M_num_elements);
@@ -4647,6 +4701,7 @@ FiniteElement::topazOcean(bool reload)
             std::cout<<"forcing not available for the current date: load data from TOPAZ\n";
 
         this->loadTopazOcean(&M_topaz_nodes_dataset);
+        this->loadTopazOcean(&M_topaz_elements_dataset);
 
         //std::cout<<"forcing not available for the current date\n";
         //throw std::logic_error("forcing not available for the current date");
@@ -4671,7 +4726,14 @@ FiniteElement::topazOcean(bool reload)
         //     std::cout<<"data_out["<< i << "]= "<< M_wind[i] << " and "<< M_wind[i+M_num_nodes] <<"\n";
     }
 
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        //M_sss[i] = fcoeff[0]*M_sss2[0][i] + fcoeff[1]*M_sss2[1][i];
+        //M_sst[i] = fcoeff[0]*M_sst2[0][i] + fcoeff[1]*M_sst2[1][i];
+        M_mld[i] = fcoeff[0]*M_mld2[0][i] + fcoeff[1]*M_mld2[1][i];
+    }
     M_mld.assign(M_num_elements,vm["simul.constant_mld"].as<double>());
+    
 }
 
 void
@@ -4838,6 +4900,15 @@ FiniteElement::loadTopazOcean(Dataset *dataset)//(double const& u, double const&
     auto RX = M_mesh.coordX();
     auto RY = M_mesh.coordY();
 
+    switch(dataset->case_number)
+    {
+        case 3:
+            RX = M_mesh.bcoordX();
+            RY = M_mesh.bcoordY();
+            break;
+    } 
+
+    std::cout<<"befor interp " <<"\n";
     InterpFromMeshToMesh2dx(&data_out,
                                 M_pfindex,&M_topaz_gridX[0],&M_topaz_gridY[0],
                                 M_topaz_gridX.size(),M_pfnels,
@@ -4845,17 +4916,20 @@ FiniteElement::loadTopazOcean(Dataset *dataset)//(double const& u, double const&
                                 M_topaz_gridX.size(),N_data*nb_forcing_step,
                                 &RX[0], &RY[0], dataset->target_size,
                                 false /*options*/);
-
+    std::cout<<"after interp " <<"\n";
     for (int fstep=0; fstep < nb_forcing_step; ++fstep)
     {
+        std::cout<<"fstep " << fstep <<"\n";
         for(int j=0; j<dataset->variables.size(); ++j)
         {
+            std::cout<<"j " << j <<"\n";
             for (int i=0; i<dataset->target_size; ++i)
             { 
                 tmp_data=data_out[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j];
                 tmp_interpolated_field[i]=dataset->variables[j].a*tmp_data+dataset->variables[j].b;
             }
 
+            std::cout<<"before switch " << dataset->case_number <<"\n";
             switch(dataset->case_number)
             {
                 case 2:
@@ -4871,8 +4945,22 @@ FiniteElement::loadTopazOcean(Dataset *dataset)//(double const& u, double const&
                         M_ssh2[fstep]=tmp_interpolated_field;
                         break;
                     }
+                case 3:
+                switch(j)
+                {
+                    case 0:
+                        M_sst2[fstep]=tmp_interpolated_field;
+                        break;
+                    case 1:
+                        M_sss2[fstep]=tmp_interpolated_field;
+                        break;
+                    case 2:
+                        M_mld2[fstep]=tmp_interpolated_field;
+                        break;
+                }
                 break;
             }
+            std::cout<<"after switch "  <<"\n";
         }
     }
 }
@@ -6069,6 +6157,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
     std::cout<<"BINARY: Exporter Filename= "<< fileout <<"\n";
 
     std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
+    exporter.writeField(outbin, M_mld, "mld");
     exporter.writeField(outbin, M_VT, "Velocity");
     exporter.writeField(outbin, M_conc, "Concentration");
     exporter.writeField(outbin, M_thick, "Thickness");

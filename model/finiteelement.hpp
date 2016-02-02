@@ -141,6 +141,7 @@ public:
     Dataset M_asr_nodes_dataset;
     Dataset M_asr_elements_dataset;
     Dataset M_topaz_nodes_dataset;
+    Dataset M_topaz_elements_dataset;
 
     double minAngles(element_type const& element, mesh_type const& mesh) const;
     double minAngle(mesh_type const& mesh) const;
@@ -338,6 +339,10 @@ private:
     std::vector<std::vector<double>> M_Qlw_in2;
     std::vector<std::vector<double>> M_precip2;
     std::vector<std::vector<double>> M_snowfr2;
+
+    std::vector<std::vector<double>> M_sst2;
+    std::vector<std::vector<double>> M_sss2;
+    std::vector<std::vector<double>> M_mld2;
 
 private:
 
