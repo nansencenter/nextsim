@@ -54,9 +54,17 @@ public:
     typedef GraphCSR graph_type;
     typedef boost::shared_ptr<graph_type> graph_ptrtype;
 
+    typedef struct Dimension
+    {
+        std::string name;
+        int start;
+        int end;
+    } Dimesion;
+
     typedef struct Variable
     {
-        std::string name_data;
+        std::string name;
+        std::vector<Dimension> dimensions;
         double a;
         double b;
         std::string Units;
@@ -69,16 +77,17 @@ public:
         std::string dirname;
         std::string prefix;
         std::string postfix;
+        std::string reference_date;
         int nb_timestep_day;
-
-        std::string lat_name;
-        std::string lon_name;
-
-        std::string time_name;
-
+        Variable latitude;
+        Variable longitude;
+        Variable time;
+        Dimension dimension_x;
+        Dimension dimension_y;
+        Dimension dimension_time;
         std::vector<Variable> variables;
-
         int target_size;
+        std::vector<double> ftime_range;
     } Dataset;
 
     FiniteElement();
@@ -131,6 +140,7 @@ public:
 
     Dataset M_asr_nodes_dataset;
     Dataset M_asr_elements_dataset;
+    Dataset M_topaz_nodes_dataset;
 
     double minAngles(element_type const& element, mesh_type const& mesh) const;
     double minAngle(mesh_type const& mesh) const;
@@ -313,11 +323,9 @@ private:
 
 private:
 
-    std::vector<double> M_ftime_atmosphere_range;
-    std::vector<double> M_ftime_ocean_range;
-
-    std::vector<std::vector<double>> M_voce;
-    std::vector<std::vector<double>> M_vssh;
+    std::vector<std::vector<double>> M_uoce2;
+    std::vector<std::vector<double>> M_voce2;
+    std::vector<std::vector<double>> M_ssh2;
 
     std::vector<std::vector<double>> M_uair2;
     std::vector<std::vector<double>> M_vair2;
@@ -406,10 +414,10 @@ private:
     void topazSnowThick();
 
     void asrAtmosphere(bool reload);//(double const& u, double const& v);
-    void loadAsrAtmosphere(Dataset dataset);//(double const& u, double const& v);
+    void loadAsrAtmosphere(Dataset *dataset);//(double const& u, double const& v);
 
     void topazOcean(bool reload);//(double const& u, double const& v);
-    void loadTopazOcean();//(double const& u, double const& v);
+    void loadTopazOcean(Dataset *dataset);//(double const& u, double const& v);
     void gridTopazOcean();
 
 };

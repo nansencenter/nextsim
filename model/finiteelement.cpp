@@ -263,8 +263,9 @@ FiniteElement::initSimulation()
 
     M_uair2.resize(2);
     M_vair2.resize(2);
-    M_voce.resize(2);
-    M_vssh.resize(2);
+    M_uoce2.resize(2);
+    M_voce2.resize(2);
+    M_ssh2.resize(2);
 
     M_UM.resize(2*M_num_nodes,0.);
 
@@ -315,69 +316,288 @@ FiniteElement::initSimulation()
 
     M_fcor.resize(M_num_elements);
 
+    Dimension asr_dimension_x={
+        name:"x",
+        start:0,
+        end:360};
+
+    Dimension asr_dimension_y={
+        name:"y",
+        start:0,
+        end:360};
+
+    Dimension asr_dimension_time={
+        name:"time", // "Time"
+        start:0,
+        end:248};
+
+    std::vector<Dimension> dimensions_asr_latlon(2);
+    dimensions_asr_latlon[0] = asr_dimension_y;
+    dimensions_asr_latlon[1] = asr_dimension_x;
+
+    std::vector<Dimension> dimensions_asr(3);
+    dimensions_asr[0] = asr_dimension_time;
+    dimensions_asr[1] = asr_dimension_y;
+    dimensions_asr[2] = asr_dimension_x;
+
+    std::vector<Dimension> dimensions_asr_time(1);
+    dimensions_asr_time[0] = asr_dimension_time;
+
+    netCDF::NcVar NcVar_tmp;
+
     // conversion factors: xnew = a*x + b
-        Variable u10={
-            name_data: "U10", // U10M
-            a: 1.,
-            b: 0.,
-            Units: "m/s"};
+    Variable u10={
+        name: "U10", // U10M
+        dimensions: dimensions_asr,
+        a: 1.,
+        b: 0.,
+        Units: "m/s",
+        NcVar: NcVar_tmp};
 
-        Variable v10={
-            name_data: "V10", // U10M
-            a: 1.,
-            b: 0.,
-            Units: "m/s"};
+    Variable v10={
+        name: "V10", // U10M
+        dimensions: dimensions_asr,
+        a: 1.,
+        b: 0.,
+        Units: "m/s",
+        NcVar: NcVar_tmp};
 
-    std::vector<Variable> variables_tmp(2);
-        variables_tmp[0] = u10;
-        variables_tmp[1] = v10;
+    std::vector<Variable> variables_tmp0(2);
+        variables_tmp0[0] = u10;
+        variables_tmp0[1] = v10;
+
+    Variable asr_latitude={
+        name: "XLAT", 
+        dimensions: dimensions_asr_latlon,
+        a: 1.,
+        b: 0.,
+        Units: "degree_north",
+        NcVar: NcVar_tmp};
+
+    Variable asr_longitude={
+        name: "XLONG", 
+        dimensions: dimensions_asr_latlon,
+        a: 1.,
+        b: 0.,
+        Units: "degree_east",
+        NcVar: NcVar_tmp};
+
+    Variable asr_time={
+        name: "time",
+        dimensions: dimensions_asr_time,
+        a: 1.,
+        b: 0.,
+        Units: "hours",
+        NcVar: NcVar_tmp};
 
     M_asr_nodes_dataset={
         case_number:0,
         dirname: "data",
         prefix: "asr30km.comb.2d.", // "asr30km.comb.2D.";
         postfix:".nc",
+        reference_date: "1901-01-01",
         nb_timestep_day: 8,
-        lat_name: "XLAT",
-        lon_name: "XLONG",
-        time_name:"time", // "Time"
-        variables: variables_tmp,
+        
+        latitude: asr_latitude,
+        longitude: asr_longitude,
+        time: asr_time,
+
+        dimension_x: asr_dimension_x,
+        dimension_y: asr_dimension_y,
+        dimension_time: asr_dimension_time,
+
+        variables: variables_tmp0,
         target_size: M_num_nodes};
+
+    M_asr_nodes_dataset.ftime_range.resize(2,0.);
 
     int nb_timestep_day=8;
 
-    Variable tair={name_data:"T2",a:1.,b:-273.15,Units:"C"}; // T2M
-    Variable mixrat={name_data:"Q2",a:1.,b:0.,Units:""}; // Q2M
-    Variable mslp={name_data:"SLP",a:1e2,b:0.,Units:"Pa"}; //PSFC, a=1.
-    Variable Qsw_in={name_data:"SWDNB",a:1.,b:0.,Units:"W/m^2"}; 
-    Variable Qlw_in={name_data:"LWDNB",a:1.,b:0.,Units:"W/m^2"};
-    Variable snowfr={name_data:"SR",a:1.,b:0.,Units:""};
-    Variable precip={name_data:"RAINNC",a:nb_timestep_day/(24*3600),b:0.,Units:"kg/m^2/s"};
+    Variable tair={
+        name:"T2",
+        dimensions: dimensions_asr,
+        a:1.,
+        b:-273.15,
+        Units:"C"}; // T2M
+    Variable mixrat={
+        name:"Q2",
+        dimensions: dimensions_asr,
+        a:1.,
+        b:0.,
+        Units:""}; // Q2M
+    Variable mslp={
+        name:"SLP",
+        dimensions: dimensions_asr,
+        a:1e2,
+        b:0.,
+        Units:"Pa"}; //PSFC, a=1.
+    Variable Qsw_in={
+        name:"SWDNB",
+        dimensions: dimensions_asr,
+        a:1.,
+        b:0.,
+        Units:"W/m^2"}; 
+    Variable Qlw_in={
+        name:"LWDNB",
+        dimensions: dimensions_asr,
+        a:1.,
+        b:0.,
+        Units:"W/m^2"};
+    Variable snowfr={
+        name:"SR",
+        dimensions: dimensions_asr,
+        a:1.,
+        b:0.,
+        Units:""};
+    Variable precip={
+        name:"RAINNC",
+        dimensions: dimensions_asr,
+        a:nb_timestep_day/(24*3600),
+        b:0.,
+        Units:"kg/m^2/s"};
 
-    std::vector<Variable> variables_tmp2(7);
-    variables_tmp2[0] = tair;
-    variables_tmp2[1] = mixrat;
-    variables_tmp2[2] = mslp;
-    variables_tmp2[3] = Qsw_in;
-    variables_tmp2[4] = Qlw_in;
-    variables_tmp2[5] = snowfr;
-    variables_tmp2[6] = precip;
-        
+    std::vector<Variable> variables_tmp1(7);
+    variables_tmp1[0] = tair;
+    variables_tmp1[1] = mixrat;
+    variables_tmp1[2] = mslp;
+    variables_tmp1[3] = Qsw_in;
+    variables_tmp1[4] = Qlw_in;
+    variables_tmp1[5] = snowfr;
+    variables_tmp1[6] = precip;
+
     M_asr_elements_dataset={
         case_number:1,
         dirname:"data",
         prefix:"asr30km.comb.2d.", // "asr30km.comb.2D.";
         postfix:".nc",
+        reference_date: "1901-01-01",
         nb_timestep_day: 8,
-        lat_name:"XLAT",
-        lon_name:"XLONG",
-        time_name:"time", // "Time"
-        variables: variables_tmp2,
+
+        latitude: asr_latitude,
+        longitude: asr_longitude,
+        time: asr_time, 
+
+        dimension_x: asr_dimension_x,
+        dimension_y: asr_dimension_y,
+        dimension_time: asr_dimension_time,
+        
+        variables: variables_tmp1,
         target_size:M_num_elements};
 
-    M_ftime_atmosphere_range.resize(2,0.);
+    M_asr_elements_dataset.ftime_range.resize(2,0.);
 
-    M_ftime_ocean_range.resize(2,0.);
+    Dimension topaz_dimension_x={
+        name:"x",
+        start:0,
+        end:761};
+
+    Dimension topaz_dimension_y={
+        name:"y",
+        start:0,
+        end:1101};
+
+    Dimension topaz_dimension_time={
+        name:"time", // "Time"
+        start:0,
+        end:31};
+
+    Dimension topaz_dimension_depth={
+        name:"depth", // "Time"
+        start:0,
+        end:1};
+
+    std::vector<Dimension> dimensions_topaz_uv(4);
+    dimensions_topaz_uv[0] = topaz_dimension_time;
+    dimensions_topaz_uv[1] = topaz_dimension_depth;
+    dimensions_topaz_uv[2] = topaz_dimension_y;
+    dimensions_topaz_uv[3] = topaz_dimension_x;
+
+    std::vector<Dimension> dimensions_topaz(3);
+    dimensions_topaz[0] = topaz_dimension_time;
+    dimensions_topaz[1] = topaz_dimension_y;
+    dimensions_topaz[2] = topaz_dimension_x;
+
+    std::vector<Dimension> dimensions_topaz_latlon(2);
+    dimensions_topaz_latlon[0] = topaz_dimension_y;
+    dimensions_topaz_latlon[1] = topaz_dimension_x;
+
+    std::vector<Dimension> dimensions_topaz_time(1);
+    dimensions_topaz_time[0] = topaz_dimension_time;
+
+    Variable u={
+        name: "u", 
+        dimensions: dimensions_topaz_uv,
+        a: 1.,
+        b: 0.,
+        Units: "m/s",
+        NcVar: NcVar_tmp};
+
+    Variable v={
+        name: "v",
+        dimensions: dimensions_topaz_uv, 
+        a: 1.,
+        b: 0.,
+        Units: "m/s",
+        NcVar: NcVar_tmp};
+
+    Variable ssh={
+        name: "ssh",
+        dimensions: dimensions_topaz,
+        a: 1.,
+        b: 0.,
+        Units: "m/s",
+        NcVar: NcVar_tmp};
+
+    std::vector<Variable> variables_tmp2(3);
+    variables_tmp2[0] = u;
+    variables_tmp2[1] = v;
+    variables_tmp2[2] = ssh;
+
+    Variable topaz_latitude={
+        name: "latitude", 
+        dimensions: dimensions_topaz_latlon,
+        a: 1.,
+        b: 0.,
+        Units: "degree_north",
+        NcVar: NcVar_tmp};
+
+    Variable topaz_longitude={
+        name: "longitude", 
+        dimensions: dimensions_topaz_latlon,
+        a: 1.,
+        b: 0.,
+        Units: "degree_east",
+        NcVar: NcVar_tmp};
+
+    Variable topaz_time={
+        name: "time",
+        dimensions: dimensions_topaz_time,
+        a: 1.,
+        b: 0.,
+        Units: "hours",
+        NcVar: NcVar_tmp};
+
+    M_topaz_nodes_dataset={
+        case_number: 2,
+        dirname: "data",
+        prefix: "TP4DAILY_",
+        postfix: "_30m.nc",
+        reference_date: "1950-01-01",
+        nb_timestep_day: 1,
+     
+        latitude: topaz_latitude,
+        longitude: topaz_longitude,
+        time: topaz_time,
+
+        dimension_x: topaz_dimension_x,
+        dimension_y: topaz_dimension_y,
+        dimension_time: topaz_dimension_time,
+
+        variables: variables_tmp2,
+        target_size: M_num_nodes};
+
+
+    M_topaz_nodes_dataset.ftime_range.resize(2,0.);
 
     if (M_ocean_type == setup::OceanType::TOPAZR)
     {
@@ -1126,6 +1346,7 @@ FiniteElement::regrid(bool step)
 
     M_asr_nodes_dataset.target_size=M_num_nodes;
     M_asr_elements_dataset.target_size=M_num_elements;
+    M_topaz_nodes_dataset.target_size=M_num_nodes;
 
     M_Cohesion.resize(M_num_elements);
     M_Compressive_strength.resize(M_num_elements);
@@ -4038,24 +4259,24 @@ void
 FiniteElement::asrAtmosphere(bool reload)
 {
 
-    if ((current_time < M_ftime_atmosphere_range[0]) || (M_ftime_atmosphere_range[1] < current_time) || (current_time == time_init) || reload)
+    if ((current_time < M_asr_elements_dataset.ftime_range[0]) || (M_asr_elements_dataset.ftime_range[1] < current_time) || (current_time == time_init) || reload)
     {
         if (current_time == time_init)
             std::cout<<"load forcing from ASR for initial time\n";
         else
             std::cout<<"forcing not available for the current date: load data from ASR\n";
 
-        this->loadAsrAtmosphere(M_asr_elements_dataset);
-        this->loadAsrAtmosphere(M_asr_nodes_dataset);
+        this->loadAsrAtmosphere(&M_asr_elements_dataset);
+        this->loadAsrAtmosphere(&M_asr_nodes_dataset);
 
         //std::cout<<"forcing not available for the current date\n";
         //throw std::logic_error("forcing not available for the current date");
     }
 
-    double fdt = std::abs(M_ftime_atmosphere_range[1]-M_ftime_atmosphere_range[0]);
+    double fdt = std::abs(M_asr_elements_dataset.ftime_range[1]-M_asr_elements_dataset.ftime_range[0]);
     std::vector<double> fcoeff(2);
-    fcoeff[0] = std::abs(current_time-M_ftime_atmosphere_range[1])/fdt;
-    fcoeff[1] = std::abs(current_time-M_ftime_atmosphere_range[0])/fdt;
+    fcoeff[0] = std::abs(current_time-M_asr_elements_dataset.ftime_range[1])/fdt;
+    fcoeff[1] = std::abs(current_time-M_asr_elements_dataset.ftime_range[0])/fdt;
 
     std::cout<<"LINEAR COEFF 1= "<< fcoeff[0] <<"\n";
     std::cout<<"LINEAR COEFF 2= "<< fcoeff[1] <<"\n";
@@ -4102,39 +4323,39 @@ FiniteElement::asrAtmosphere(bool reload)
 
 
 void
-FiniteElement::loadAsrAtmosphere(Dataset dataset)//(double const& u, double const& v)
+FiniteElement::loadAsrAtmosphere(Dataset *dataset)//(double const& u, double const& v)
 { 
 
     std::string current_timestr = to_date_string_ym(current_time);
     std::string filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                                 % Environment::nextsimDir().string()
-                                % dataset.dirname
-                                % dataset.prefix
+                                % dataset->dirname
+                                % dataset->prefix
                                 % current_timestr 
-                                % dataset.postfix
+                                % dataset->postfix
                                 ).str();
 
     std::cout<<"FILE= "<< filename <<"\n";
 
-    double file_dt = 1./dataset.nb_timestep_day;
-    double time_start = std::floor(current_time*dataset.nb_timestep_day)/dataset.nb_timestep_day;
-    double time_end = std::ceil(current_time*dataset.nb_timestep_day)/dataset.nb_timestep_day;
+    double file_dt = 1./dataset->nb_timestep_day;
+    double time_start = std::floor(current_time*dataset->nb_timestep_day)/dataset->nb_timestep_day;
+    double time_end = std::ceil(current_time*dataset->nb_timestep_day)/dataset->nb_timestep_day;
 
     // We always need at least two time steps to interpolate between
     if (time_end == time_start)
     {
-        time_end = time_start + (1./dataset.nb_timestep_day);
+        time_end = time_start + (1./dataset->nb_timestep_day);
     }
 
-    M_ftime_atmosphere_range.resize(0);
+    dataset->ftime_range.resize(0);
     for (double dt=time_start; dt<=time_end; dt+=file_dt)
     {
-        M_ftime_atmosphere_range.push_back(dt);
+        dataset->ftime_range.push_back(dt);
     }
 
-    for (int i=0; i<M_ftime_atmosphere_range.size(); ++i)
+    for (int i=0; i<dataset->ftime_range.size(); ++i)
     {
-        std::cout<<"TIMEVEC["<< i <<"]= "<< M_ftime_atmosphere_range[i] <<"\n";
+        std::cout<<"TIMEVEC["<< i <<"]= "<< dataset->ftime_range[i] <<"\n";
     }
 
     // if ((current_time < time_start) || (time_end < current_time))
@@ -4143,7 +4364,7 @@ FiniteElement::loadAsrAtmosphere(Dataset dataset)//(double const& u, double cons
     //     throw std::logic_error("forcing not available for the current date");
     // }
 
-    int nb_forcing_step = M_ftime_atmosphere_range.size();
+    int nb_forcing_step = dataset->ftime_range.size();
     std::cout<<"NB_FORCING_STEP= "<< nb_forcing_step <<"\n";
 
     // read in re-analysis coordinates
@@ -4171,25 +4392,18 @@ FiniteElement::loadAsrAtmosphere(Dataset dataset)//(double const& u, double cons
     index_lon_end[0] = 1;
     index_lon_end[1] = 360;
 
-    std::vector<double> XTIME(248);
-    std::vector<size_t> index_start(3,0);
-    std::vector<size_t> index_end(3);
+    std::vector<size_t> index_start(4);
+    std::vector<size_t> index_end(4);
 
-    index_start[0] = 0;
-    index_start[1] = 0;
-    index_start[2] = 0;
-
-    index_end[0] = 1;
-    index_end[1] = 360;
-    index_end[2] = 360;
+    std::vector<double> XTIME(dataset->time.dimensions[0].end);
 
     netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
-    netCDF::NcVar VXLAT = dataFile.getVar(dataset.lat_name);
-    netCDF::NcVar VXLON = dataFile.getVar(dataset.lon_name);
-    netCDF::NcVar VTIME = dataFile.getVar(dataset.time_name);
+    netCDF::NcVar VXLAT = dataFile.getVar(dataset->latitude.name);
+    netCDF::NcVar VXLON = dataFile.getVar(dataset->longitude.name);
+    netCDF::NcVar VTIME = dataFile.getVar(dataset->time.name);
     
-    for(int j=0; j<dataset.variables.size(); ++j)
-        dataset.variables[j].NcVar = dataFile.getVar(dataset.variables[j].name_data);
+    for(int j=0; j<dataset->variables.size(); ++j)
+        dataset->variables[j].NcVar = dataFile.getVar(dataset->variables[j].name);
     
     VXLAT.getVar(index_lon_start,index_lon_end,&XLAT[0]);
     VXLON.getVar(index_lon_start,index_lon_end,&XLON[0]);
@@ -4233,27 +4447,28 @@ FiniteElement::loadAsrAtmosphere(Dataset dataset)//(double const& u, double cons
     double angle_stereo_ASR = -175;
     double diff_angle = -(angle_stereo_mesh-angle_stereo_ASR)*PI/180.;
 
-    std::cout<<"VALUE= "<< from_date_string("1901-01-01") <<"\n";
-    std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string("1901-01-01"); });
-    // for (int i=0; i<248; ++i)
-    // {
-    //     std::cout<<"TIME["<< i <<"]= "<< XTIME[i] <<"\n";
-    // }
+    std::cout<<"VALUE= "<< from_date_string(dataset->reference_date) <<"\n";
+    std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string(dataset->reference_date); });
 
-    for (int i=0; i<M_ftime_atmosphere_range.size(); ++i)
+    for (int i=0; i<dataset->ftime_range.size(); ++i)
     {
-        std::cout<<"---TIMEVEC["<< i <<"]= "<< M_ftime_atmosphere_range[i] <<" : current_time= "<< current_time <<"\n";
+        std::cout<<"---TIMEVEC["<< i <<"]= "<< dataset->ftime_range[i] <<" : current_time= "<< current_time <<"\n";
     }
 
-    std::vector<double> tmp_interpolated_field(dataset.target_size);
+    std::vector<double> tmp_interpolated_field(dataset->target_size);
 
-    double* data_in = new double[(dataset.variables.size()*nb_forcing_step)*360*360];
+    int N_data =dataset->variables.size();
+    int M  =dataset->dimension_y.end;
+    int N  = dataset->dimension_x.end;
+    int MN = M*N;
+
+    double* data_in = new double[N_data*nb_forcing_step*MN];
     
-    std::vector<double> data_in_tmp(360*360);
+    std::vector<double> data_in_tmp(MN);
 
     for (int fstep=0; fstep < nb_forcing_step; ++fstep)
     {
-        double ftime = M_ftime_atmosphere_range[fstep];
+        double ftime = dataset->ftime_range[fstep];
 
         if (to_date_string_ym(std::floor(ftime)) != to_date_string_ym(current_time))
         {
@@ -4262,19 +4477,19 @@ FiniteElement::loadAsrAtmosphere(Dataset dataset)//(double const& u, double cons
 
             filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                                 % Environment::nextsimDir().string()
-                                % dataset.dirname
-                                % dataset.prefix
+                                % dataset->dirname
+                                % dataset->prefix
                                 % f_timestr 
-                                % dataset.postfix
+                                % dataset->postfix
                                 ).str();
 
 
-            std::cout<<"ASR_FILENAME= "<< filename <<"\n";
+            std::cout<<"FILENAME= "<< filename <<"\n";
 
             netCDF::NcFile fdataFile(filename, netCDF::NcFile::read);
-            netCDF::NcVar FVTIME = dataFile.getVar(dataset.time_name);
+            netCDF::NcVar FVTIME = dataFile.getVar(dataset->time.name);
             FVTIME.getVar(&XTIME[0]);
-            std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string("1901-01-01"); });
+            std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string(dataset->reference_date); });
 
             // for (int i=0; i<248; ++i)
             // {
@@ -4286,14 +4501,23 @@ FiniteElement::loadAsrAtmosphere(Dataset dataset)//(double const& u, double cons
         int index = std::distance(XTIME.begin(),it);
         std::cout<<"FIND "<< ftime <<" in index "<< index <<"\n";
 
-        index_start[0] = index;
-
-        for(int j=0; j<dataset.variables.size(); ++j)
+        for(int j=0; j<dataset->variables.size(); ++j)
         {
-            dataset.variables[j].NcVar.getVar(index_start,index_end,&data_in_tmp[0]);
+            index_start.resize(dataset->variables[j].dimensions.size());
+            index_end.resize(dataset->variables[j].dimensions.size());
 
-            for (int i=0; i<(360*360); ++i)
-                data_in[(dataset.variables.size()*nb_forcing_step)*i+fstep*dataset.variables.size()+j]=data_in_tmp[i];
+            for(int k=0; k<dataset->variables[j].dimensions.size(); ++k)
+            {
+                index_start[k] = dataset->variables[j].dimensions[k].start;
+                index_end[k] = dataset->variables[j].dimensions[k].end;
+            }
+            index_start[0] = index;
+            index_end[0] = 1;
+
+            dataset->variables[j].NcVar.getVar(index_start,index_end,&data_in_tmp[0]);
+
+            for (int i=0; i<(MN); ++i)
+                data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=data_in_tmp[i];
         }
     }
 
@@ -4308,7 +4532,7 @@ FiniteElement::loadAsrAtmosphere(Dataset dataset)//(double const& u, double cons
     auto RY = M_mesh.coordY(diff_angle);
 
 
-    switch(dataset.case_number)
+    switch(dataset->case_number)
     {
         case 1:
             RX = M_mesh.bcoordX(diff_angle);
@@ -4318,20 +4542,20 @@ FiniteElement::loadAsrAtmosphere(Dataset dataset)//(double const& u, double cons
         
     InterpFromGridToMeshx(  data_out, &X[0], X.size(), &Y[0], Y.size(), 
                             &data_in[0], X.size(), Y.size(), 
-                            dataset.variables.size()*nb_forcing_step,
-                            &RX[0], &RY[0], dataset.target_size, 1.0, interp_type);
+                            dataset->variables.size()*nb_forcing_step,
+                            &RX[0], &RY[0], dataset->target_size, 1.0, interp_type);
 
     for (int fstep=0; fstep < nb_forcing_step; ++fstep)
     {
-        for(int j=0; j<dataset.variables.size(); ++j)
+        for(int j=0; j<dataset->variables.size(); ++j)
         {
-            for (int i=0; i<dataset.target_size; ++i)
+            for (int i=0; i<dataset->target_size; ++i)
             { 
-                tmp_data=data_out[(dataset.variables.size()*nb_forcing_step)*i+fstep*dataset.variables.size()+j];
-                tmp_interpolated_field[i]=dataset.variables[j].a*tmp_data+dataset.variables[j].b;
+                tmp_data=data_out[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j];
+                tmp_interpolated_field[i]=dataset->variables[j].a*tmp_data+dataset->variables[j].b;
             }
             
-            switch(dataset.case_number)
+            switch(dataset->case_number)
             {
                 case 0:
                     switch(j)
@@ -4415,33 +4639,33 @@ FiniteElement::constantOcean()
 void
 FiniteElement::topazOcean(bool reload)
 {
-    if ((current_time < M_ftime_ocean_range[0]) || (M_ftime_ocean_range[1] < current_time) || (current_time == time_init) || reload)
+    if ((current_time < M_topaz_nodes_dataset.ftime_range[0]) || (M_topaz_nodes_dataset.ftime_range[1] < current_time) || (current_time == time_init) || reload)
     {
         if (current_time == time_init)
             std::cout<<"load forcing from TOPAZ for initial time\n";
         else
             std::cout<<"forcing not available for the current date: load data from TOPAZ\n";
 
-        this->loadTopazOcean();
+        this->loadTopazOcean(&M_topaz_nodes_dataset);
 
         //std::cout<<"forcing not available for the current date\n";
         //throw std::logic_error("forcing not available for the current date");
     }
 
-    double fdt = std::abs(M_ftime_ocean_range[1]-M_ftime_ocean_range[0]);
+    double fdt = std::abs(M_topaz_nodes_dataset.ftime_range[1]-M_topaz_nodes_dataset.ftime_range[0]);
     std::vector<double> fcoeff(2);
-    fcoeff[0] = std::abs(current_time-M_ftime_ocean_range[1])/fdt;
-    fcoeff[1] = std::abs(current_time-M_ftime_ocean_range[0])/fdt;
+    fcoeff[0] = std::abs(current_time-M_topaz_nodes_dataset.ftime_range[1])/fdt;
+    fcoeff[1] = std::abs(current_time-M_topaz_nodes_dataset.ftime_range[0])/fdt;
 
     std::cout<<"TOPAZ LINEAR COEFF 1= "<< fcoeff[0] <<"\n";
     std::cout<<"TOPAZ LINEAR COEFF 2= "<< fcoeff[1] <<"\n";
 
     for (int i=0; i<M_num_nodes; ++i)
     {
-        M_ocean[i] = Voce_coef*(fcoeff[0]*M_voce[0][i] + fcoeff[1]*M_voce[1][i]);
-        M_ocean[i+M_num_nodes] = Voce_coef*(fcoeff[0]*M_voce[0][i+M_num_nodes] + fcoeff[1]*M_voce[1][i+M_num_nodes]);
+        M_ocean[i] = Voce_coef*(fcoeff[0]*M_uoce2[0][i] + fcoeff[1]*M_uoce2[1][i]);
+        M_ocean[i+M_num_nodes] = Voce_coef*(fcoeff[0]*M_voce2[0][i] + fcoeff[1]*M_voce2[1][i]);
 
-        M_ssh[i] = ssh_coef*(fcoeff[0]*M_vssh[0][i] + fcoeff[1]*M_vssh[1][i]);
+        M_ssh[i] = ssh_coef*(fcoeff[0]*M_ssh2[0][i] + fcoeff[1]*M_ssh2[1][i]);
 
         // if (i<20)
         //     std::cout<<"data_out["<< i << "]= "<< M_wind[i] << " and "<< M_wind[i+M_num_nodes] <<"\n";
@@ -4451,70 +4675,41 @@ FiniteElement::topazOcean(bool reload)
 }
 
 void
-FiniteElement::loadTopazOcean()//(double const& u, double const& v)
+FiniteElement::loadTopazOcean(Dataset *dataset)//(double const& u, double const& v)
 {
-    std::string dirname="data";
-    std::string prefix="TP4DAILY_"; // "asr30km.comb.2D.";
-    std::string postfix="_30m.nc";
-    int nb_timestep_day = 1;
-
-    std::string lat_name="XLAT";
-    std::string lon_name="XLONG";
-
-    std::string time_name="time"; // "Time"
-
-    // conversion factors: xnew = a*x + b
-    Variable u={
-        name_data: "u", 
-        a: 1.,
-        b: 0.,
-        Units: "m/s"};
-
-    Variable v={
-        name_data: "v", 
-        a: 1.,
-        b: 0.,
-        Units: "m/s"};
-
-    Variable ssh={
-        name_data: "ssh",
-        a: 1.,
-        b: 0.,
-        Units: "m/s"};
 
     std::string current_timestr = to_date_string_ym(current_time);
     std::cout<<"TIMESTR= "<< current_timestr <<"\n";
 
     std::string filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                                 % Environment::nextsimDir().string()
-                                % dirname
-                                % prefix
+                                % dataset->dirname
+                                % dataset->prefix
                                 % current_timestr 
-                                % postfix
+                                % dataset->postfix
                                 ).str();
 
-    std::cout<<"TOPAZ FILE= "<< filename <<"\n";
-    double time_start = std::floor(current_time);
-    double time_end = std::ceil(current_time);
+    std::cout<<"FILE= "<< filename <<"\n";
 
-    std::cout<<"TOPAZ TIME START= "<< std::setprecision(9) << time_start <<"\n";
-    std::cout<<"TOPAZ TIME END  = "<< std::setprecision(9) << time_end <<"\n";
+    double file_dt = 1./dataset->nb_timestep_day;
+    double time_start = std::floor(current_time*dataset->nb_timestep_day)/dataset->nb_timestep_day;
+    double time_end = std::ceil(current_time*dataset->nb_timestep_day)/dataset->nb_timestep_day;
 
     // We always need at least two time steps to interpolate between
     if (time_end == time_start)
     {
-        time_end = time_start + 1.;
+        time_end = time_start + (1./dataset->nb_timestep_day);
     }
 
-    M_ftime_ocean_range.resize(0);
+    dataset->ftime_range.resize(0);
     for (double dt=time_start; dt<=time_end; dt+=1.)
     {
-        M_ftime_ocean_range.push_back(dt);
+        dataset->ftime_range.push_back(dt);
     }
 
-    for (int i=0; i<M_ftime_ocean_range.size(); ++i)
+    for (int i=0; i<dataset->ftime_range.size(); ++i)
     {
-        std::cout<<"TOPAZ TIMEVEC["<< i <<"]= "<< M_ftime_ocean_range[i] <<"\n";
+        std::cout<<"TIMEVEC["<< i <<"]= "<< dataset->ftime_range[i] <<"\n";
     }
 
     // if ((current_time < time_start) || (time_end < current_time))
@@ -4523,73 +4718,50 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
     //     throw std::logic_error("forcing not available for the current date");
     // }
 
-    int nb_forcing_step = M_ftime_ocean_range.size();
-    //std::cout<<"NB_FORCING_STEP= "<< nb_forcing_step <<"\n";
+    int nb_forcing_step = dataset->ftime_range.size();
+    std::cout<<"NB_FORCING_STEP= "<< nb_forcing_step <<"\n";
 
-    std::vector<double> XTIME(31);
-    std::vector<size_t> index_u_start(4,0);
-    std::vector<size_t> index_u_end(4);
+    std::vector<size_t> index_start(4,0);
+    std::vector<size_t> index_end(4);
 
-    std::vector<size_t> index_ssh_start(3,0);
-    std::vector<size_t> index_ssh_end(3);
+    std::vector<double> XTIME(dataset->time.dimensions[0].end);
 
-    std::cout<<"READ NETCDF starts\n";
     netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
     
-    netCDF::NcVar VTIME = dataFile.getVar(time_name);
-    netCDF::NcVar VU = dataFile.getVar(u.name_data);
-    netCDF::NcVar VV = dataFile.getVar(v.name_data);
-    netCDF::NcVar VSSH = dataFile.getVar(ssh.name_data);
-    std::cout<<"READ NETCDF done\n";
-
+    netCDF::NcVar VTIME = dataFile.getVar(dataset->time.name);
+    
+    for(int j=0; j<dataset->variables.size(); ++j)
+        dataset->variables[j].NcVar = dataFile.getVar(dataset->variables[j].name);
+    
     VTIME.getVar(&XTIME[0]);
 
-    auto RX = M_mesh.coordX();
-    auto RY = M_mesh.coordY();
 
-#if 0
-    std::cout<<"MIN BOUND MESHX= "<< *std::min_element(RX.begin(),RX.end()) <<"\n";
-    std::cout<<"MAX BOUND MESHX= "<< *std::max_element(RX.begin(),RX.end()) <<"\n";
+    std::cout<<"VALUE= "<< from_date_string(dataset->reference_date) <<"\n";
+    std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string(dataset->reference_date); });
 
-    std::cout<<"MIN BOUND MESHY= "<< *std::min_element(RY.begin(),RY.end()) <<"\n";
-    std::cout<<"MAX BOUND MESHY= "<< *std::max_element(RY.begin(),RY.end()) <<"\n";
-#endif
-
-    std::cout<<"VALUE= "<< from_date_string("1950-01-01") <<"\n";
-    std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string("1950-01-01"); });
-    // for (int i=0; i<31; ++i)
-    // {
-    //     std::cout<<"TIME["<< i <<"]= "<< XTIME[i] <<"\n";
-    // }
-
-    for (int i=0; i<M_ftime_ocean_range.size(); ++i)
+    for (int i=0; i<dataset->ftime_range.size(); ++i)
     {
-        std::cout<<"---TIMEVEC["<< i <<"]= "<< M_ftime_ocean_range[i] <<" : current_time= "<< current_time <<"\n";
+        std::cout<<"---TIMEVEC["<< i <<"]= "<< dataset->ftime_range[i] <<" : current_time= "<< current_time <<"\n";
     }
 
-    std::vector<double> fvoce(2*M_num_nodes);
-    std::vector<double> fssh(M_num_nodes);
+    std::vector<double> tmp_interpolated_field(dataset->target_size);
 
-    int N_data =3;
-    int M  =1101;
-    int N  = 761;
+    int N_data =dataset->variables.size();
+    int M  =dataset->dimension_y.end;
+    int N  = dataset->dimension_x.end;
     int MN = M*N;
 
-    std::vector<double> data_in_u(MN);
-    std::vector<double> data_in_v(MN);
-    std::vector<double> data_in_ssh(MN);
+    double* data_in = new double[N_data*nb_forcing_step*MN];
+    
+    std::vector<double> data_in_tmp(MN);
 
-    std::vector<double> data_in(N_data*nb_forcing_step*MN);
+    netCDF::NcVarAtt att;
+    double scale_factor;
+    double add_offset;
 
-    // int* pfindex;
-    // int pfnels;
-
-    double* data_out;
-
-    std::cout<<"nb_forcing_step = "<< nb_forcing_step <<"\n";
     for (int fstep=0; fstep < nb_forcing_step; ++fstep)
     {
-        double ftime = M_ftime_ocean_range[fstep];
+        double ftime = dataset->ftime_range[fstep];
 
         if (to_date_string_ym(std::floor(ftime)) != to_date_string_ym(current_time))
         {
@@ -4598,18 +4770,18 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
 
             filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                                 % Environment::nextsimDir().string()
-                                % dirname
-                                % prefix
+                                % dataset->dirname
+                                % dataset->prefix
                                 % f_timestr 
-                                % postfix
+                                % dataset->postfix
                                 ).str();
 
-            std::cout<<"TOPAZ_FILENAME= "<< filename <<"\n";
+            std::cout<<"FILENAME= "<< filename <<"\n";
 
             netCDF::NcFile fdataFile(filename, netCDF::NcFile::read);
-            netCDF::NcVar FVTIME = dataFile.getVar("time");
+            netCDF::NcVar FVTIME = dataFile.getVar(dataset->time.name);
             FVTIME.getVar(&XTIME[0]);
-            std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string("1950-01-01"); });
+            std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string(dataset->reference_date); });
 
             // for (int i=0; i<31; ++i)
             // {
@@ -4621,95 +4793,88 @@ FiniteElement::loadTopazOcean()//(double const& u, double const& v)
         int index = std::distance(XTIME.begin(),it);
         std::cout<<"FIND "<< ftime <<" in index "<< index <<"\n";
 
-        index_u_start[0] = index;
-        index_u_start[1] = 0;
-        index_u_start[2] = 0;
-        index_u_start[3] = 0;
-
-        index_u_end[0] = 1;
-        index_u_end[1] = 1;
-        index_u_end[2] = 1101;
-        index_u_end[3] = 761;
-
-        VU.getVar(index_u_start,index_u_end,&data_in_u[0]);
-        VV.getVar(index_u_start,index_u_end,&data_in_v[0]);
-
-        index_ssh_start[0] = index;
-        index_ssh_start[1] = 0;
-        index_ssh_start[2] = 0;
-
-        index_ssh_end[0] = 1;
-        index_ssh_end[1] = 1101;
-        index_ssh_end[2] = 761;
-
-
-        VSSH.getVar(index_ssh_start,index_ssh_end,&data_in_ssh[0]);
-
-        // Need to multiply with scale factor and add offset - these are stored as variable attributes
-        netCDF::NcVarAtt att;
-        double scale_factor_u, scale_factor_v;
-        double add_offset_u, add_offset_v;
-
-        att = VU.getAtt("scale_factor");
-        att.getValues(&scale_factor_u);
-        att = VV.getAtt("scale_factor");
-        att.getValues(&scale_factor_v);
-
-        att = VU.getAtt("add_offset");
-        att.getValues(&add_offset_u);
-        att = VV.getAtt("add_offset");
-        att.getValues(&add_offset_v);
-
-        for (int i=0; i<data_in_u.size(); ++i)
+        for(int j=0; j<dataset->variables.size(); ++j)
         {
-            data_in[(N_data*nb_forcing_step)*i+fstep*N_data+0] = data_in_u[i]*scale_factor_u + add_offset_u;
-            data_in[(N_data*nb_forcing_step)*i+fstep*N_data+1] = data_in_v[i]*scale_factor_v + add_offset_v;
-            data_in[(N_data*nb_forcing_step)*i+fstep*N_data+2] = data_in_ssh[i];
-            // if (i<20)
-            //     std::cout<<"data_out["<< i << "]= "<< M_wind[i] << " and "<< M_wind[i+M_num_nodes] <<"\n";
+            index_start.resize(dataset->variables[j].dimensions.size());
+            index_end.resize(dataset->variables[j].dimensions.size());
+
+            for(int k=0; k<dataset->variables[j].dimensions.size(); ++k)
+            {
+                index_start[k] = dataset->variables[j].dimensions[k].start;
+                index_end[k] = dataset->variables[j].dimensions[k].end;
+            }
+            index_start[0] = index;
+            index_end[0] = 1;
+
+            dataset->variables[j].NcVar.getVar(index_start,index_end,&data_in_tmp[0]);
+
+            // Need to multiply with scale factor and add offset - these are stored as variable attributes
+            scale_factor=1.;
+            try
+            {
+                att = dataset->variables[j].NcVar.getAtt("scale_factor");
+                att.getValues(&scale_factor);
+            }
+            catch(netCDF::exceptions::NcException& e)
+            {}
+
+            add_offset=0.;
+            try
+            {
+                att = dataset->variables[j].NcVar.getAtt("add_offset");
+                att.getValues(&add_offset);
+            }
+            catch(netCDF::exceptions::NcException& e)
+            {}
+
+            for (int i=0; i<(MN); ++i)
+                data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=data_in_tmp[i]*scale_factor + add_offset;
         }
     }
 
-    std::cout<<" Interpolation starts\n";
+    double* data_out;
+    double tmp_data;
+
+    auto RX = M_mesh.coordX();
+    auto RY = M_mesh.coordY();
 
     InterpFromMeshToMesh2dx(&data_out,
                                 M_pfindex,&M_topaz_gridX[0],&M_topaz_gridY[0],
                                 M_topaz_gridX.size(),M_pfnels,
                                 &data_in[0],
                                 M_topaz_gridX.size(),N_data*nb_forcing_step,
-                                &RX[0], &RY[0], M_mesh.numNodes(),
+                                &RX[0], &RY[0], dataset->target_size,
                                 false /*options*/);
 
     for (int fstep=0; fstep < nb_forcing_step; ++fstep)
     {
-        // Note that we do here the assumption that no rotation is needed from the Topz grid to the polar stereo grid
-        // It should be corrected, once we will do the interpo in the native TOPAZ grid
-        for (int i=0; i<M_num_nodes; ++i)
+        for(int j=0; j<dataset->variables.size(); ++j)
         {
-            fvoce[i] = data_out[(N_data*nb_forcing_step)*i+fstep*N_data+0];
-            fvoce[i+M_num_nodes] = data_out[(N_data*nb_forcing_step)*i+fstep*N_data+1];
-            fssh[i] = data_out[(N_data*nb_forcing_step)*i+fstep*N_data+2];
+            for (int i=0; i<dataset->target_size; ++i)
+            { 
+                tmp_data=data_out[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j];
+                tmp_interpolated_field[i]=dataset->variables[j].a*tmp_data+dataset->variables[j].b;
+            }
 
-            // if (i<20)
-            //     std::cout<<"data_out["<< i << "]= "<< M_wind[i] << " and "<< M_wind[i+M_num_nodes] <<"\n";
+            switch(dataset->case_number)
+            {
+                case 2:
+                    switch(j)
+                    {
+                    case 0:
+                        M_uoce2[fstep]=tmp_interpolated_field;
+                        break;
+                    case 1:
+                        M_voce2[fstep]=tmp_interpolated_field;
+                        break;
+                    case 2:
+                        M_ssh2[fstep]=tmp_interpolated_field;
+                        break;
+                    }
+                break;
+            }
         }
-
-#if 0
-        std::cout<<"MIN DATA_OUT UV= "<< *std::min_element(fvoce.begin(),fvoce.end()) <<"\n";
-        std::cout<<"MAX DATA_OUT UV= "<< *std::max_element(fvoce.begin(),fvoce.end()) <<"\n";
-
-        std::cout<<"MIN DATA_OUT SSH= "<< *std::min_element(fssh.begin(),fssh.end()) <<"\n";
-        std::cout<<"MAX DATA_OUT SSH= "<< *std::max_element(fssh.begin(),fssh.end()) <<"\n";
-#endif
-        M_voce[fstep] = fvoce;
-        M_vssh[fstep] = fssh;
     }
-
-    // std::cout<<"there are "<<dataFile.getVarCount()<<" variables"<<endl;
-    // std::cout<<"there are "<<dataFile.getAttCount()<<" attributes"<<endl;
-    // std::cout<<"there are "<<dataFile.getDimCount()<<" dimensions"<<endl;
-    // std::cout<<"there are "<<dataFile.getGroupCount()<<" groups"<<endl;
-    // std::cout<<"there are "<<dataFile.getTypeCount()<<" types"<<endl;
 }
 
 void
