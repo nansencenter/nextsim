@@ -38,6 +38,17 @@ GmshMesh::GmshMesh(std::vector<point_type> const& nodes,
     M_num_edges(edges.size())
 {}
 
+GmshMesh::GmshMesh(std::vector<point_type> const& nodes,
+                   std::vector<element_type> const& triangles)
+    :
+    M_version("2.2"),
+    M_ordering("gmsh"),
+    M_nodes(nodes),
+    M_triangles(triangles),
+    M_num_nodes(nodes.size()),
+    M_num_triangles(triangles.size())
+{}
+
 void
 GmshMesh::readFromFile(std::string const& filename)
 {

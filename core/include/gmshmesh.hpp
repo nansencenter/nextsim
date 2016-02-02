@@ -101,6 +101,9 @@ public:
              std::vector<element_type> const& edges,
              std::vector<element_type> const& triangles);
 
+    GmshMesh(std::vector<point_type> const& nodes,
+             std::vector<element_type> const& triangles);
+
     void readFromFile(std::string const& filename);
     void writeTofile(std::string const& filename);
     void move(std::vector<double> const& um, double factor);
