@@ -71,6 +71,27 @@ public:
         netCDF::NcVar NcVar;
     } Variable;
 
+    typedef struct Grid
+    {
+        setup::InterpolationType interpolation_method;
+        std::string dirname;
+        std::string prefix;
+        std::string postfix;
+
+        Variable latitude;
+        Variable longitude;
+
+        Dimension dimension_x;
+        Dimension dimension_y;
+
+        std::string mpp_file;
+        double rotation_angle;
+        int* pfindex;
+        int pfnels;
+        std::vector<double> gridX;
+        std::vector<double> gridY;
+    } Grid;
+
     typedef struct Dataset
     {
         int case_number;
@@ -78,22 +99,15 @@ public:
         std::string prefix;
         std::string postfix;
         std::string reference_date;
+        
         int nb_timestep_day;
-        Variable latitude;
-        Variable longitude;
         Variable time;
-        Dimension dimension_x;
-        Dimension dimension_y;
         Dimension dimension_time;
+        
         std::vector<Variable> variables;
         int target_size;
-        std::string mpp_file;
-        double rotation_angle;
+        Grid *grid;
         std::vector<double> ftime_range;
-        int* pfindex;
-        int pfnels;
-        std::vector<double> gridX;
-        std::vector<double> gridY;
     } Dataset;
 
     FiniteElement();
@@ -148,6 +162,9 @@ public:
     Dataset M_asr_elements_dataset;
     Dataset M_topaz_nodes_dataset;
     Dataset M_topaz_elements_dataset;
+
+    Grid M_asr_grid;
+    Grid M_topaz_grid;
 
     double minAngles(element_type const& element, mesh_type const& mesh) const;
     double minAngle(mesh_type const& mesh) const;
@@ -421,9 +438,8 @@ private:
     void asrAtmosphere(bool reload);//(double const& u, double const& v);
     void topazOcean(bool reload);//(double const& u, double const& v);
 
-    void loadAsrAtmosphere(Dataset *dataset);//(double const& u, double const& v);
     void loadDataset(Dataset *dataset);//(double const& u, double const& v);
-    void load_grid(Dataset *dataset);
+    void load_grid(Grid *grid);
 
 };
 } // Nextsim

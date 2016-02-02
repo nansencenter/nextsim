@@ -11,6 +11,13 @@ namespace Nextsim
 {
 namespace setup
 {
+    enum class InterpolationType
+    {
+        InterpFromGridToMesh = 0,
+        InterpFromMeshToMesh2dx = 1,
+        InterpFromMeshToMesh2dCavities = 2,
+    };
+
     enum class AtmosphereType
     {
         CONSTANT = 0,

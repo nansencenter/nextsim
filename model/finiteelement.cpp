@@ -349,27 +349,6 @@ FiniteElement::initSimulation()
 
     netCDF::NcVar NcVar_tmp;
 
-    // conversion factors: xnew = a*x + b
-    Variable u10={
-        name: "U10", // U10M
-        dimensions: dimensions_asr,
-        a: 1.,
-        b: 0.,
-        Units: "m/s",
-        NcVar: NcVar_tmp};
-
-    Variable v10={
-        name: "V10", // U10M
-        dimensions: dimensions_asr,
-        a: 1.,
-        b: 0.,
-        Units: "m/s",
-        NcVar: NcVar_tmp};
-
-    std::vector<Variable> variables_tmp0(2);
-        variables_tmp0[0] = u10;
-        variables_tmp0[1] = v10;
-
     Variable asr_latitude={
         name: "XLAT", 
         dimensions: dimensions_asr_latlon,
@@ -399,26 +378,56 @@ FiniteElement::initSimulation()
     double angle_stereo_ASR = -175;
     double diff_angle = -(angle_stereo_mesh-angle_stereo_ASR)*PI/180.;
 
+    M_asr_grid={
+        interpolation_method: setup::InterpolationType::InterpFromGridToMesh,
+        dirname:"data",
+        prefix:"asr30km.comb.2d.", // "asr30km.comb.2D.";
+        postfix:".nc",
+
+        latitude: asr_latitude,
+        longitude: asr_longitude,
+
+        dimension_x: asr_dimension_x,
+        dimension_y: asr_dimension_y,
+        
+        mpp_file: "NpsASR.mpp",
+        rotation_angle: diff_angle};
+
+    // conversion factors: xnew = a*x + b
+    Variable u10={
+        name: "U10", // U10M
+        dimensions: dimensions_asr,
+        a: 1.,
+        b: 0.,
+        Units: "m/s",
+        NcVar: NcVar_tmp};
+
+    Variable v10={
+        name: "V10", // U10M
+        dimensions: dimensions_asr,
+        a: 1.,
+        b: 0.,
+        Units: "m/s",
+        NcVar: NcVar_tmp};
+
+    std::vector<Variable> variables_tmp0(2);
+        variables_tmp0[0] = u10;
+        variables_tmp0[1] = v10;
+
     M_asr_nodes_dataset={
         case_number:0,
         dirname: "data",
         prefix: "asr30km.comb.2d.", // "asr30km.comb.2D.";
         postfix:".nc",
         reference_date: "1901-01-01",
-        nb_timestep_day: 8,
         
-        latitude: asr_latitude,
-        longitude: asr_longitude,
-        time: asr_time,
-
-        dimension_x: asr_dimension_x,
-        dimension_y: asr_dimension_y,
+        nb_timestep_day: 8,
+        time: asr_time, 
         dimension_time: asr_dimension_time,
-
+        
         variables: variables_tmp0,
         target_size: M_num_nodes,
-        mpp_file: "NpsASR.mpp",
-        rotation_angle: diff_angle};
+        grid: &M_asr_grid};
 
     M_asr_nodes_dataset.ftime_range.resize(2,0.);
 
@@ -482,20 +491,14 @@ FiniteElement::initSimulation()
         prefix:"asr30km.comb.2d.", // "asr30km.comb.2D.";
         postfix:".nc",
         reference_date: "1901-01-01",
+        
         nb_timestep_day: 8,
-
-        latitude: asr_latitude,
-        longitude: asr_longitude,
         time: asr_time, 
-
-        dimension_x: asr_dimension_x,
-        dimension_y: asr_dimension_y,
         dimension_time: asr_dimension_time,
         
         variables: variables_tmp1,
         target_size:M_num_elements,
-        mpp_file: "NpsASR.mpp",
-        rotation_angle: diff_angle};
+        grid: &M_asr_grid};
 
     M_asr_elements_dataset.ftime_range.resize(2,0.);
 
@@ -537,6 +540,45 @@ FiniteElement::initSimulation()
     std::vector<Dimension> dimensions_topaz_time(1);
     dimensions_topaz_time[0] = topaz_dimension_time;
 
+    Variable topaz_latitude={
+        name: "latitude", 
+        dimensions: dimensions_topaz_latlon,
+        a: 1.,
+        b: 0.,
+        Units: "degree_north",
+        NcVar: NcVar_tmp};
+
+    Variable topaz_longitude={
+        name: "longitude", 
+        dimensions: dimensions_topaz_latlon,
+        a: 1.,
+        b: 0.,
+        Units: "degree_east",
+        NcVar: NcVar_tmp};
+
+    Variable topaz_time={
+        name: "time",
+        dimensions: dimensions_topaz_time,
+        a: 1.,
+        b: 0.,
+        Units: "hours",
+        NcVar: NcVar_tmp};
+
+    M_topaz_grid={
+        interpolation_method: setup::InterpolationType::InterpFromMeshToMesh2dx,
+        dirname: "data",
+        prefix: "TP4DAILY_",
+        postfix: "_3m.nc",
+
+        latitude: topaz_latitude,
+        longitude: topaz_longitude,
+
+        dimension_x: topaz_dimension_x,
+        dimension_y: topaz_dimension_y,
+        
+        mpp_file: "NpsNextsim.mpp",
+        rotation_angle: 0.};
+
     Variable u={
         name: "u", 
         dimensions: dimensions_topaz_uv,
@@ -566,50 +608,20 @@ FiniteElement::initSimulation()
     variables_tmp2[1] = v;
     variables_tmp2[2] = ssh;
 
-    Variable topaz_latitude={
-        name: "latitude", 
-        dimensions: dimensions_topaz_latlon,
-        a: 1.,
-        b: 0.,
-        Units: "degree_north",
-        NcVar: NcVar_tmp};
-
-    Variable topaz_longitude={
-        name: "longitude", 
-        dimensions: dimensions_topaz_latlon,
-        a: 1.,
-        b: 0.,
-        Units: "degree_east",
-        NcVar: NcVar_tmp};
-
-    Variable topaz_time={
-        name: "time",
-        dimensions: dimensions_topaz_time,
-        a: 1.,
-        b: 0.,
-        Units: "hours",
-        NcVar: NcVar_tmp};
-
     M_topaz_nodes_dataset={
         case_number: 2,
         dirname: "data",
         prefix: "TP4DAILY_",
         postfix: "_30m.nc",
         reference_date: "1950-01-01",
+        
         nb_timestep_day: 1,
-     
-        latitude: topaz_latitude,
-        longitude: topaz_longitude,
         time: topaz_time,
-
-        dimension_x: topaz_dimension_x,
-        dimension_y: topaz_dimension_y,
         dimension_time: topaz_dimension_time,
-
+        
         variables: variables_tmp2,
         target_size: M_num_nodes,
-        mpp_file: "NpsNextsim.mpp",
-        rotation_angle: 0.};
+        grid: &M_topaz_grid};
 
     M_topaz_nodes_dataset.ftime_range.resize(2,0.);
 
@@ -648,27 +660,19 @@ FiniteElement::initSimulation()
         prefix: "TP4DAILY_",
         postfix: "_3m.nc",
         reference_date: "1950-01-01",
+        
         nb_timestep_day: 1,
-     
-        latitude: topaz_latitude,
-        longitude: topaz_longitude,
         time: topaz_time,
-
-        dimension_x: topaz_dimension_x,
-        dimension_y: topaz_dimension_y,
         dimension_time: topaz_dimension_time,
-
+        
         variables: variables_tmp3,
         target_size: M_num_elements,
-        mpp_file: "NpsNextsim.mpp",
-        rotation_angle: 0.};
+        grid: &M_topaz_grid};
 
     M_topaz_elements_dataset.ftime_range.resize(2,0.);
 
-    load_grid(&M_asr_nodes_dataset);
-    load_grid(&M_asr_elements_dataset);
-    load_grid(&M_topaz_nodes_dataset);
-    load_grid(&M_topaz_elements_dataset);
+    load_grid(&M_asr_grid);
+    load_grid(&M_topaz_grid);
 }
 
 void
@@ -4581,8 +4585,8 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
     std::vector<double> tmp_interpolated_field(dataset->target_size);
 
     int N_data =dataset->variables.size();
-    int M  =dataset->dimension_y.end;
-    int N  = dataset->dimension_x.end;
+    int M  =dataset->grid->dimension_y.end;
+    int N  = dataset->grid->dimension_x.end;
     int MN = M*N;
 
     double* data_in = new double[N_data*nb_forcing_step*MN];
@@ -4669,14 +4673,14 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
     double* data_out;
     double tmp_data;
 
-    auto RX = M_mesh.coordX(dataset->rotation_angle);
-    auto RY = M_mesh.coordY(dataset->rotation_angle);
+    auto RX = M_mesh.coordX(dataset->grid->rotation_angle);
+    auto RY = M_mesh.coordY(dataset->grid->rotation_angle);
 
     switch(dataset->case_number)
     {
         case 1: case 3:
-            RX = M_mesh.bcoordX(dataset->rotation_angle);
-            RY = M_mesh.bcoordY(dataset->rotation_angle);
+            RX = M_mesh.bcoordX(dataset->grid->rotation_angle);
+            RY = M_mesh.bcoordY(dataset->grid->rotation_angle);
             break;
     } 
 
@@ -4684,23 +4688,31 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
     int interp_type = BilinearInterpEnum;
     //int interp_type = NearestInterpEnum;
 
-    if(dataset->case_number<=1)
+    std::cout<<"before interp " <<"\n";
+
+    switch(dataset->grid->interpolation_method)
     {
-            InterpFromGridToMeshx(  data_out, &dataset->gridX[0], dataset->gridX.size(), &dataset->gridY[0], dataset->gridY.size(), 
-                                  &data_in[0], dataset->gridX.size(), dataset->gridY.size(), 
+        case setup::InterpolationType::InterpFromGridToMesh:
+            InterpFromGridToMeshx(  data_out, &dataset->grid->gridX[0], dataset->grid->gridX.size(), &dataset->grid->gridY[0], dataset->grid->gridY.size(), 
+                                  &data_in[0], dataset->grid->gridX.size(), dataset->grid->gridY.size(), 
                                   dataset->variables.size()*nb_forcing_step,
                                  &RX[0], &RY[0], dataset->target_size, 1.0, interp_type);
-    }
-    else
-    {
-        InterpFromMeshToMesh2dx(&data_out,
-                                        dataset->pfindex,&dataset->gridX[0],&dataset->gridY[0],
-                                        dataset->gridX.size(),dataset->pfnels,
+        break;
+        case setup::InterpolationType::InterpFromMeshToMesh2dx:
+            InterpFromMeshToMesh2dx(&data_out,
+                                        dataset->grid->pfindex,&dataset->grid->gridX[0],&dataset->grid->gridY[0],
+                                        dataset->grid->gridX.size(),dataset->grid->pfnels,
                                         &data_in[0],
-                                        dataset->gridX.size(),N_data*nb_forcing_step,
+                                        dataset->grid->gridX.size(),N_data*nb_forcing_step,
                                         &RX[0], &RY[0], dataset->target_size,
                                         false /*options*/);
+        break;
+        default:
+            std::cout << "invalid interpolation type:" <<"\n";
+            throw std::logic_error("invalid interpolation type");
     }
+
+std::cout<<"after interp " <<"\n";
 
     for (int fstep=0; fstep < nb_forcing_step; ++fstep)
     {
@@ -4787,19 +4799,21 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
             }
         }
     }
+
+    std::cout<<"end load" <<"\n";
 }
 
 void
-FiniteElement::load_grid(Dataset *dataset)
+FiniteElement::load_grid(Grid *grid)
 {
     std::string current_timestr = to_date_string_ym(current_time);
     std::cout<<"TIMESTR= "<< current_timestr <<"\n";
     std::string filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                                 % Environment::nextsimDir().string()
-                                % dataset->dirname
-                                % dataset->prefix
+                                % grid->dirname
+                                % grid->prefix
                                 % current_timestr 
-                                % dataset->postfix
+                                % grid->postfix
                                 ).str();
 
     // read in re-analysis coordinates
@@ -4812,16 +4826,16 @@ FiniteElement::load_grid(Dataset *dataset)
     index_y_start[0] = 0;
     index_y_start[1] = 0;
 
-    index_y_end[0] = dataset->dimension_y.end;
-    index_y_end[1] = dataset->dimension_x.end;
+    index_y_end[0] = grid->dimension_y.end;
+    index_y_end[1] = grid->dimension_x.end;
 
     index_x_start[0] = 0;
     index_x_start[1] = 0;
 
-    index_x_end[0] = dataset->dimension_y.end;
-    index_x_end[1] = dataset->dimension_x.end;
+    index_x_end[0] = grid->dimension_y.end;
+    index_x_end[1] = grid->dimension_x.end;
 
-    if(dataset->case_number==0 || dataset->case_number==1)
+    if(grid->interpolation_method==setup::InterpolationType::InterpFromGridToMesh)
     {
         index_y_end[1] = 1;
         index_x_end[0] = 1;
@@ -4834,8 +4848,8 @@ FiniteElement::load_grid(Dataset *dataset)
 
     std::cout<<"GRID : READ NETCDF starts\n";
     netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
-    netCDF::NcVar VLAT = dataFile.getVar(dataset->latitude.name);
-    netCDF::NcVar VLON = dataFile.getVar(dataset->longitude.name);
+    netCDF::NcVar VLAT = dataFile.getVar(grid->latitude.name);
+    netCDF::NcVar VLON = dataFile.getVar(grid->longitude.name);
     std::cout<<"GRID : READ NETCDF done\n";
 
     VLAT.getVar(index_x_start,index_x_end,&XLAT[0]);
@@ -4844,15 +4858,15 @@ FiniteElement::load_grid(Dataset *dataset)
     VLAT.getVar(index_y_start,index_y_end,&YLAT[0]);
     VLON.getVar(index_y_start,index_y_end,&YLON[0]);
 
-    dataset->gridX.resize(index_x_end[0]*index_x_end[1]);
-    dataset->gridY.resize(index_y_end[0]*index_y_end[1]);
+    grid->gridX.resize(index_x_end[0]*index_x_end[1]);
+    grid->gridY.resize(index_y_end[0]*index_y_end[1]);
 
     double RE = 6378.273;
     mapx_class *map;
     std::string configfile = (boost::format( "%1%/%2%/%3%" )
                                 % Environment::nextsimDir().string()
-                                % dataset->dirname
-                                % dataset->mpp_file
+                                % grid->dirname
+                                % grid->mpp_file
                                 ).str();
 
     std::vector<char> str(configfile.begin(), configfile.end());
@@ -4863,7 +4877,7 @@ FiniteElement::load_grid(Dataset *dataset)
     {
         for (int j=0; j<index_x_end[1]; ++j)
         {
-            dataset->gridX[index_x_end[1]*i+j]=latLon2XY(XLAT[index_x_end[1]*i+j], XLON[index_x_end[1]*i+j], map, configfile)[0];
+            grid->gridX[index_x_end[1]*i+j]=latLon2XY(XLAT[index_x_end[1]*i+j], XLON[index_x_end[1]*i+j], map, configfile)[0];
         }
     }
 
@@ -4871,17 +4885,17 @@ FiniteElement::load_grid(Dataset *dataset)
     {
         for (int j=0; j<index_y_end[1]; ++j)
         {
-            dataset->gridY[index_y_end[1]*i+j]=latLon2XY(YLAT[index_y_end[1]*i+j], YLON[index_y_end[1]*i+j], map, configfile)[1];
+            grid->gridY[index_y_end[1]*i+j]=latLon2XY(YLAT[index_y_end[1]*i+j], YLON[index_y_end[1]*i+j], map, configfile)[1];
         }
     }
 
     close_mapx(map);
 
-    if(dataset->case_number==2 || dataset->case_number==3)
+    if(grid->interpolation_method==setup::InterpolationType::InterpFromMeshToMesh2dx)
     {
         std::cout<<"GRID : Triangulate starts\n";
-        BamgTriangulatex(&dataset->pfindex,&dataset->pfnels,&dataset->gridX[0],&dataset->gridY[0],dataset->gridX.size());
-        std::cout<<"GRID : NUMTRIANGLES= "<< dataset->pfnels <<"\n";
+        BamgTriangulatex(&grid->pfindex,&grid->pfnels,&grid->gridX[0],&grid->gridY[0],grid->gridX.size());
+        std::cout<<"GRID : NUMTRIANGLES= "<< grid->pfnels <<"\n";
         std::cout<<"GRID : Triangulate done\n";
     }
 }
