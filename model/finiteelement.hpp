@@ -87,7 +87,13 @@ public:
         Dimension dimension_time;
         std::vector<Variable> variables;
         int target_size;
+        std::string mpp_file;
+        double rotation_angle;
         std::vector<double> ftime_range;
+        int* pfindex;
+        int pfnels;
+        std::vector<double> gridX;
+        std::vector<double> gridY;
     } Dataset;
 
     FiniteElement();
@@ -344,12 +350,6 @@ private:
     std::vector<std::vector<double>> M_sss2;
     std::vector<std::vector<double>> M_mld2;
 
-private:
-
-    int* M_pfindex;
-    int M_pfnels;
-    std::vector<double> M_topaz_gridX;
-    std::vector<double> M_topaz_gridY;
 
 private:
 
@@ -419,11 +419,11 @@ private:
     void topazSnowThick();
 
     void asrAtmosphere(bool reload);//(double const& u, double const& v);
-    void loadAsrAtmosphere(Dataset *dataset);//(double const& u, double const& v);
-
     void topazOcean(bool reload);//(double const& u, double const& v);
-    void loadTopazOcean(Dataset *dataset);//(double const& u, double const& v);
-    void gridTopazOcean();
+
+    void loadAsrAtmosphere(Dataset *dataset);//(double const& u, double const& v);
+    void loadDataset(Dataset *dataset);//(double const& u, double const& v);
+    void load_grid(Dataset *dataset);
 
 };
 } // Nextsim

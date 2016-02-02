@@ -394,6 +394,11 @@ FiniteElement::initSimulation()
         Units: "hours",
         NcVar: NcVar_tmp};
 
+    // rotate EB coordinates to fit the ASR coords
+    double angle_stereo_mesh = -45;
+    double angle_stereo_ASR = -175;
+    double diff_angle = -(angle_stereo_mesh-angle_stereo_ASR)*PI/180.;
+
     M_asr_nodes_dataset={
         case_number:0,
         dirname: "data",
@@ -411,7 +416,9 @@ FiniteElement::initSimulation()
         dimension_time: asr_dimension_time,
 
         variables: variables_tmp0,
-        target_size: M_num_nodes};
+        target_size: M_num_nodes,
+        mpp_file: "NpsASR.mpp",
+        rotation_angle: diff_angle};
 
     M_asr_nodes_dataset.ftime_range.resize(2,0.);
 
@@ -486,7 +493,9 @@ FiniteElement::initSimulation()
         dimension_time: asr_dimension_time,
         
         variables: variables_tmp1,
-        target_size:M_num_elements};
+        target_size:M_num_elements,
+        mpp_file: "NpsASR.mpp",
+        rotation_angle: diff_angle};
 
     M_asr_elements_dataset.ftime_range.resize(2,0.);
 
@@ -598,7 +607,9 @@ FiniteElement::initSimulation()
         dimension_time: topaz_dimension_time,
 
         variables: variables_tmp2,
-        target_size: M_num_nodes};
+        target_size: M_num_nodes,
+        mpp_file: "NpsNextsim.mpp",
+        rotation_angle: 0.};
 
     M_topaz_nodes_dataset.ftime_range.resize(2,0.);
 
@@ -648,14 +659,16 @@ FiniteElement::initSimulation()
         dimension_time: topaz_dimension_time,
 
         variables: variables_tmp3,
-        target_size: M_num_elements};
+        target_size: M_num_elements,
+        mpp_file: "NpsNextsim.mpp",
+        rotation_angle: 0.};
 
     M_topaz_elements_dataset.ftime_range.resize(2,0.);
 
-    if (M_ocean_type == setup::OceanType::TOPAZR)
-    {
-        this->gridTopazOcean();
-    }
+    load_grid(&M_asr_nodes_dataset);
+    load_grid(&M_asr_elements_dataset);
+    load_grid(&M_topaz_nodes_dataset);
+    load_grid(&M_topaz_elements_dataset);
 }
 
 void
@@ -4320,8 +4333,8 @@ FiniteElement::asrAtmosphere(bool reload)
         else
             std::cout<<"forcing not available for the current date: load data from ASR\n";
 
-        this->loadAsrAtmosphere(&M_asr_elements_dataset);
-        this->loadAsrAtmosphere(&M_asr_nodes_dataset);
+        this->loadDataset(&M_asr_elements_dataset);
+        this->loadDataset(&M_asr_nodes_dataset);
 
         //std::cout<<"forcing not available for the current date\n";
         //throw std::logic_error("forcing not available for the current date");
@@ -4345,6 +4358,7 @@ FiniteElement::asrAtmosphere(bool reload)
     double u10_tmp[2];
     double v10_tmp[2];
 
+    std::cout<<"lbefore uv\n";
     for (int i=0; i<M_num_nodes; ++i)
     {
         for(int j=0; j<2; ++j)
@@ -4360,6 +4374,8 @@ FiniteElement::asrAtmosphere(bool reload)
         //     std::cout<<"data_out["<< i << "]= "<< M_wind[i] << " and "<< M_wind[i+M_num_nodes] <<"\n";
     }
 
+    std::cout<<"lbefore thermo\n";
+
     for (int i=0; i<M_num_elements; ++i)
     {
         M_tair[i] = fcoeff[0]*M_tair2[0][i] + fcoeff[1]*M_tair2[1][i];
@@ -4373,290 +4389,6 @@ FiniteElement::asrAtmosphere(bool reload)
 
     M_dair.assign(M_num_elements,vm["simul.constant_dair"].as<double>());
     std::cout << "simul.constant_dair:   " << vm["simul.constant_dair"].as<double>() << "\n";
-}
-
-
-void
-FiniteElement::loadAsrAtmosphere(Dataset *dataset)//(double const& u, double const& v)
-{ 
-
-    std::string current_timestr = to_date_string_ym(current_time);
-    std::string filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
-                                % Environment::nextsimDir().string()
-                                % dataset->dirname
-                                % dataset->prefix
-                                % current_timestr 
-                                % dataset->postfix
-                                ).str();
-
-    std::cout<<"FILE= "<< filename <<"\n";
-
-    double file_dt = 1./dataset->nb_timestep_day;
-    double time_start = std::floor(current_time*dataset->nb_timestep_day)/dataset->nb_timestep_day;
-    double time_end = std::ceil(current_time*dataset->nb_timestep_day)/dataset->nb_timestep_day;
-
-    // We always need at least two time steps to interpolate between
-    if (time_end == time_start)
-    {
-        time_end = time_start + (1./dataset->nb_timestep_day);
-    }
-
-    dataset->ftime_range.resize(0);
-    for (double dt=time_start; dt<=time_end; dt+=file_dt)
-    {
-        dataset->ftime_range.push_back(dt);
-    }
-
-    for (int i=0; i<dataset->ftime_range.size(); ++i)
-    {
-        std::cout<<"TIMEVEC["<< i <<"]= "<< dataset->ftime_range[i] <<"\n";
-    }
-
-    // if ((current_time < time_start) || (time_end < current_time))
-    // {
-    //     std::cout<<"forcing not available for the current date\n";
-    //     throw std::logic_error("forcing not available for the current date");
-    // }
-
-    int nb_forcing_step = dataset->ftime_range.size();
-    std::cout<<"NB_FORCING_STEP= "<< nb_forcing_step <<"\n";
-
-    // read in re-analysis coordinates
-    std::vector<double> XLAT(360);
-    std::vector<double> XLON(360);
-
-    std::vector<double> YLAT(360);
-    std::vector<double> YLON(360);
-
-    std::vector<size_t> index_lat_end(2);
-    std::vector<size_t> index_lon_end(2);
-
-    std::vector<size_t> index_lat_start(2);
-    std::vector<size_t> index_lon_start(2);
-
-    index_lat_start[0] = 0;
-    index_lat_start[1] = 0;
-
-    index_lat_end[0] = 360;
-    index_lat_end[1] = 1;
-
-    index_lon_start[0] = 0;
-    index_lon_start[1] = 0;
-
-    index_lon_end[0] = 1;
-    index_lon_end[1] = 360;
-
-    std::vector<size_t> index_start(4);
-    std::vector<size_t> index_end(4);
-
-    std::vector<double> XTIME(dataset->time.dimensions[0].end);
-
-    netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
-    netCDF::NcVar VXLAT = dataFile.getVar(dataset->latitude.name);
-    netCDF::NcVar VXLON = dataFile.getVar(dataset->longitude.name);
-    netCDF::NcVar VTIME = dataFile.getVar(dataset->time.name);
-    
-    for(int j=0; j<dataset->variables.size(); ++j)
-        dataset->variables[j].NcVar = dataFile.getVar(dataset->variables[j].name);
-    
-    VXLAT.getVar(index_lon_start,index_lon_end,&XLAT[0]);
-    VXLON.getVar(index_lon_start,index_lon_end,&XLON[0]);
-
-    VXLAT.getVar(index_lat_start,index_lat_end,&YLAT[0]);
-    VXLON.getVar(index_lat_start,index_lat_end,&YLON[0]);
-
-    VTIME.getVar(&XTIME[0]);
-
-    std::vector<double> X(360);
-    std::vector<double> Y(360);
-
-    double RE = 6378.273;
-    mapx_class *map;
-    std::string configfile = Environment::nextsimDir().string() + "/data/NpsASR.mpp";
-    std::vector<char> str(configfile.begin(), configfile.end());
-    str.push_back('\0');
-    map = init_mapx(&str[0]);
-
-    for (int i=0; i<360; ++i)
-    {
-        X[i] = latLon2XY(XLAT[i], XLON[i], map, configfile)[0];
-        Y[i] = latLon2XY(YLAT[i], YLON[i], map, configfile)[1];
-
-        // if (i<10)
-        // {
-        //     //std::cout<<"X= "<< X[i] <<" and Y= "<< Y[i] <<"\n";
-        //     std::cout<<"**********************\n";
-        //     std::cout<<"XLAT= "<< XLAT[i] <<" and XLON= "<< XLON[i] <<"\n";
-        //     std::cout<<"YLAT= "<< YLAT[i] <<" and YLON= "<< YLON[i] <<"\n";
-        // }
-    }
-
-    close_mapx(map);
-
-#if 1
-
-    // rotate EB coordinates to fit the ASR coords
-
-    double angle_stereo_mesh = -45;
-    double angle_stereo_ASR = -175;
-    double diff_angle = -(angle_stereo_mesh-angle_stereo_ASR)*PI/180.;
-
-    std::cout<<"VALUE= "<< from_date_string(dataset->reference_date) <<"\n";
-    std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string(dataset->reference_date); });
-
-    for (int i=0; i<dataset->ftime_range.size(); ++i)
-    {
-        std::cout<<"---TIMEVEC["<< i <<"]= "<< dataset->ftime_range[i] <<" : current_time= "<< current_time <<"\n";
-    }
-
-    std::vector<double> tmp_interpolated_field(dataset->target_size);
-
-    int N_data =dataset->variables.size();
-    int M  =dataset->dimension_y.end;
-    int N  = dataset->dimension_x.end;
-    int MN = M*N;
-
-    double* data_in = new double[N_data*nb_forcing_step*MN];
-    
-    std::vector<double> data_in_tmp(MN);
-
-    for (int fstep=0; fstep < nb_forcing_step; ++fstep)
-    {
-        double ftime = dataset->ftime_range[fstep];
-
-        if (to_date_string_ym(std::floor(ftime)) != to_date_string_ym(current_time))
-        {
-            std::string f_timestr = to_date_string_ym(std::floor(ftime));
-            std::cout<<"F_TIMESTR= "<< f_timestr <<"\n";
-
-            filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
-                                % Environment::nextsimDir().string()
-                                % dataset->dirname
-                                % dataset->prefix
-                                % f_timestr 
-                                % dataset->postfix
-                                ).str();
-
-
-            std::cout<<"FILENAME= "<< filename <<"\n";
-
-            netCDF::NcFile fdataFile(filename, netCDF::NcFile::read);
-            netCDF::NcVar FVTIME = dataFile.getVar(dataset->time.name);
-            FVTIME.getVar(&XTIME[0]);
-            std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string(dataset->reference_date); });
-
-            // for (int i=0; i<248; ++i)
-            // {
-            //     std::cout<<"TIME["<< i <<"]= "<< XTIME[i] <<"\n";
-            // }
-        }
-
-        auto it = std::find(XTIME.begin(), XTIME.end(), ftime);
-        int index = std::distance(XTIME.begin(),it);
-        std::cout<<"FIND "<< ftime <<" in index "<< index <<"\n";
-
-        for(int j=0; j<dataset->variables.size(); ++j)
-        {
-            index_start.resize(dataset->variables[j].dimensions.size());
-            index_end.resize(dataset->variables[j].dimensions.size());
-
-            for(int k=0; k<dataset->variables[j].dimensions.size(); ++k)
-            {
-                index_start[k] = dataset->variables[j].dimensions[k].start;
-                index_end[k] = dataset->variables[j].dimensions[k].end;
-            }
-            index_start[0] = index;
-            index_end[0] = 1;
-
-            dataset->variables[j].NcVar.getVar(index_start,index_end,&data_in_tmp[0]);
-
-            for (int i=0; i<(MN); ++i)
-                data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=data_in_tmp[i];
-        }
-    }
-
-    double * data_out;
-    double tmp_data;
-
-    //int interp_type = TriangleInterpEnum;
-    int interp_type = BilinearInterpEnum;
-    //int interp_type = NearestInterpEnum;
-
-    auto RX = M_mesh.coordX(diff_angle);
-    auto RY = M_mesh.coordY(diff_angle);
-
-
-    switch(dataset->case_number)
-    {
-        case 1:
-            RX = M_mesh.bcoordX(diff_angle);
-            RY = M_mesh.bcoordY(diff_angle);
-            break;
-    }   
-        
-    InterpFromGridToMeshx(  data_out, &X[0], X.size(), &Y[0], Y.size(), 
-                            &data_in[0], X.size(), Y.size(), 
-                            dataset->variables.size()*nb_forcing_step,
-                            &RX[0], &RY[0], dataset->target_size, 1.0, interp_type);
-
-    for (int fstep=0; fstep < nb_forcing_step; ++fstep)
-    {
-        for(int j=0; j<dataset->variables.size(); ++j)
-        {
-            for (int i=0; i<dataset->target_size; ++i)
-            { 
-                tmp_data=data_out[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j];
-                tmp_interpolated_field[i]=dataset->variables[j].a*tmp_data+dataset->variables[j].b;
-            }
-            
-            switch(dataset->case_number)
-            {
-                case 0:
-                    switch(j)
-                    {
-                    case 0:
-                        M_uair2[fstep]=tmp_interpolated_field;
-                        break;
-                    case 1:
-                        M_vair2[fstep]=tmp_interpolated_field;
-                        break;
-                    }
-                break;
-
-                case 1:
-                switch(j)
-                {
-                    case 0:
-                        M_tair2[fstep]=tmp_interpolated_field;
-                        break;
-                    case 1:
-                        M_mixrat2[fstep]=tmp_interpolated_field;
-                        break;
-                    case 2:
-                        M_mslp2[fstep]=tmp_interpolated_field;
-                        break;
-                    case 3:
-                        M_Qsw_in2[fstep]=tmp_interpolated_field;
-                        break;
-                    case 4:
-                        M_Qlw_in2[fstep]=tmp_interpolated_field;
-                        break;
-                    case 5:
-                        M_snowfr2[fstep]=tmp_interpolated_field;
-                        break;
-                    case 6:
-                        M_precip2[fstep]=tmp_interpolated_field;
-                        break;
-                    default:
-                        break;
-                }
-                break;
-            }
-        }
-    }
-
-#endif
-
 }
 
 void
@@ -4700,8 +4432,8 @@ FiniteElement::topazOcean(bool reload)
         else
             std::cout<<"forcing not available for the current date: load data from TOPAZ\n";
 
-        this->loadTopazOcean(&M_topaz_nodes_dataset);
-        this->loadTopazOcean(&M_topaz_elements_dataset);
+        this->loadDataset(&M_topaz_nodes_dataset);
+        this->loadDataset(&M_topaz_elements_dataset);
 
         //std::cout<<"forcing not available for the current date\n";
         //throw std::logic_error("forcing not available for the current date");
@@ -4737,7 +4469,7 @@ FiniteElement::topazOcean(bool reload)
 }
 
 void
-FiniteElement::loadTopazOcean(Dataset *dataset)//(double const& u, double const& v)
+FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 {
 
     std::string current_timestr = to_date_string_ym(current_time);
@@ -4764,7 +4496,7 @@ FiniteElement::loadTopazOcean(Dataset *dataset)//(double const& u, double const&
     }
 
     dataset->ftime_range.resize(0);
-    for (double dt=time_start; dt<=time_end; dt+=1.)
+    for (double dt=time_start; dt<=time_end; dt+=file_dt)
     {
         dataset->ftime_range.push_back(dt);
     }
@@ -4783,7 +4515,7 @@ FiniteElement::loadTopazOcean(Dataset *dataset)//(double const& u, double const&
     int nb_forcing_step = dataset->ftime_range.size();
     std::cout<<"NB_FORCING_STEP= "<< nb_forcing_step <<"\n";
 
-    std::vector<size_t> index_start(4,0);
+    std::vector<size_t> index_start(4);
     std::vector<size_t> index_end(4);
 
     std::vector<double> XTIME(dataset->time.dimensions[0].end);
@@ -4897,41 +4629,92 @@ FiniteElement::loadTopazOcean(Dataset *dataset)//(double const& u, double const&
     double* data_out;
     double tmp_data;
 
-    auto RX = M_mesh.coordX();
-    auto RY = M_mesh.coordY();
+    auto RX = M_mesh.coordX(dataset->rotation_angle);
+    auto RY = M_mesh.coordY(dataset->rotation_angle);
 
     switch(dataset->case_number)
     {
-        case 3:
-            RX = M_mesh.bcoordX();
-            RY = M_mesh.bcoordY();
+        case 1: case 3:
+            RX = M_mesh.bcoordX(dataset->rotation_angle);
+            RY = M_mesh.bcoordY(dataset->rotation_angle);
             break;
     } 
 
-    std::cout<<"befor interp " <<"\n";
-    InterpFromMeshToMesh2dx(&data_out,
-                                M_pfindex,&M_topaz_gridX[0],&M_topaz_gridY[0],
-                                M_topaz_gridX.size(),M_pfnels,
-                                &data_in[0],
-                                M_topaz_gridX.size(),N_data*nb_forcing_step,
-                                &RX[0], &RY[0], dataset->target_size,
-                                false /*options*/);
-    std::cout<<"after interp " <<"\n";
+    //int interp_type = TriangleInterpEnum;
+    int interp_type = BilinearInterpEnum;
+    //int interp_type = NearestInterpEnum;
+
+    if(dataset->case_number<=1)
+    {
+            InterpFromGridToMeshx(  data_out, &dataset->gridX[0], dataset->gridX.size(), &dataset->gridY[0], dataset->gridY.size(), 
+                                  &data_in[0], dataset->gridX.size(), dataset->gridY.size(), 
+                                  dataset->variables.size()*nb_forcing_step,
+                                 &RX[0], &RY[0], dataset->target_size, 1.0, interp_type);
+    }
+    else
+    {
+        InterpFromMeshToMesh2dx(&data_out,
+                                        dataset->pfindex,&dataset->gridX[0],&dataset->gridY[0],
+                                        dataset->gridX.size(),dataset->pfnels,
+                                        &data_in[0],
+                                        dataset->gridX.size(),N_data*nb_forcing_step,
+                                        &RX[0], &RY[0], dataset->target_size,
+                                        false /*options*/);
+    }
+
     for (int fstep=0; fstep < nb_forcing_step; ++fstep)
     {
-        std::cout<<"fstep " << fstep <<"\n";
         for(int j=0; j<dataset->variables.size(); ++j)
         {
-            std::cout<<"j " << j <<"\n";
             for (int i=0; i<dataset->target_size; ++i)
             { 
                 tmp_data=data_out[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j];
                 tmp_interpolated_field[i]=dataset->variables[j].a*tmp_data+dataset->variables[j].b;
             }
-
-            std::cout<<"before switch " << dataset->case_number <<"\n";
+            
             switch(dataset->case_number)
             {
+                case 0:
+                    switch(j)
+                    {
+                    case 0:
+                        M_uair2[fstep]=tmp_interpolated_field;
+                        break;
+                    case 1:
+                        M_vair2[fstep]=tmp_interpolated_field;
+                        break;
+                    }
+                break;
+
+                case 1:
+                    switch(j)
+                    {
+                    case 0:
+                        M_tair2[fstep]=tmp_interpolated_field;
+                        break;
+                    case 1:
+                        M_mixrat2[fstep]=tmp_interpolated_field;
+                        break;
+                    case 2:
+                        M_mslp2[fstep]=tmp_interpolated_field;
+                        break;
+                    case 3:
+                        M_Qsw_in2[fstep]=tmp_interpolated_field;
+                        break;
+                    case 4:
+                        M_Qlw_in2[fstep]=tmp_interpolated_field;
+                        break;
+                    case 5:
+                        M_snowfr2[fstep]=tmp_interpolated_field;
+                        break;
+                    case 6:
+                        M_precip2[fstep]=tmp_interpolated_field;
+                        break;
+                    default:
+                        break;
+                    }
+                break;
+
                 case 2:
                     switch(j)
                     {
@@ -4945,9 +4728,11 @@ FiniteElement::loadTopazOcean(Dataset *dataset)//(double const& u, double const&
                         M_ssh2[fstep]=tmp_interpolated_field;
                         break;
                     }
+                break;
+
                 case 3:
-                switch(j)
-                {
+                    switch(j)
+                    {
                     case 0:
                         M_sst2[fstep]=tmp_interpolated_field;
                         break;
@@ -4957,82 +4742,108 @@ FiniteElement::loadTopazOcean(Dataset *dataset)//(double const& u, double const&
                     case 2:
                         M_mld2[fstep]=tmp_interpolated_field;
                         break;
-                }
+                    }
                 break;
             }
-            std::cout<<"after switch "  <<"\n";
         }
     }
 }
 
 void
-FiniteElement::gridTopazOcean()
+FiniteElement::load_grid(Dataset *dataset)
 {
     std::string current_timestr = to_date_string_ym(current_time);
     std::cout<<"TIMESTR= "<< current_timestr <<"\n";
-    std::string filename = (boost::format( "%1%/data/TP4DAILY_%2%_30m.nc" )
-                                  % Environment::nextsimDir().string()
-                                  % current_timestr ).str();
+    std::string filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
+                                % Environment::nextsimDir().string()
+                                % dataset->dirname
+                                % dataset->prefix
+                                % current_timestr 
+                                % dataset->postfix
+                                ).str();
 
     // read in re-analysis coordinates
-    std::vector<size_t> index_start(2);
-    std::vector<size_t> index_end(2);
+    std::vector<size_t> index_x_end(2);
+    std::vector<size_t> index_y_end(2);
 
-    index_start[0] = 0;
-    index_start[1] = 0;
+    std::vector<size_t> index_x_start(2);
+    std::vector<size_t> index_y_start(2);
 
-    index_end[0] = 1101;
-    index_end[1] = 761;
+    index_y_start[0] = 0;
+    index_y_start[1] = 0;
 
-    std::vector<double> LAT(index_end[0]*index_end[1]);
-    std::vector<double> LON(index_end[0]*index_end[1]);
+    index_y_end[0] = dataset->dimension_y.end;
+    index_y_end[1] = dataset->dimension_x.end;
 
-    std::cout<<"GRID TOPAZ: READ NETCDF starts\n";
+    index_x_start[0] = 0;
+    index_x_start[1] = 0;
+
+    index_x_end[0] = dataset->dimension_y.end;
+    index_x_end[1] = dataset->dimension_x.end;
+
+    if(dataset->case_number==0 || dataset->case_number==1)
+    {
+        index_y_end[1] = 1;
+        index_x_end[0] = 1;
+    }
+
+    std::vector<double> XLAT(index_x_end[0]*index_x_end[1]);
+    std::vector<double> XLON(index_x_end[0]*index_x_end[1]);
+    std::vector<double> YLAT(index_y_end[0]*index_y_end[1]);
+    std::vector<double> YLON(index_y_end[0]*index_y_end[1]);
+
+    std::cout<<"GRID : READ NETCDF starts\n";
     netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
-    netCDF::NcVar VLAT = dataFile.getVar("latitude");
-    netCDF::NcVar VLON = dataFile.getVar("longitude");
-    std::cout<<"GRID TOPAZ: READ NETCDF done\n";
+    netCDF::NcVar VLAT = dataFile.getVar(dataset->latitude.name);
+    netCDF::NcVar VLON = dataFile.getVar(dataset->longitude.name);
+    std::cout<<"GRID : READ NETCDF done\n";
 
-    VLAT.getVar(index_start,index_end,&LAT[0]);
-    VLON.getVar(index_start,index_end,&LON[0]);
+    VLAT.getVar(index_x_start,index_x_end,&XLAT[0]);
+    VLON.getVar(index_x_start,index_x_end,&XLON[0]);
 
-    M_topaz_gridX.resize(index_end[0]*index_end[1]);
-    M_topaz_gridY.resize(index_end[0]*index_end[1]);
+    VLAT.getVar(index_y_start,index_y_end,&YLAT[0]);
+    VLON.getVar(index_y_start,index_y_end,&YLON[0]);
+
+    dataset->gridX.resize(index_x_end[0]*index_x_end[1]);
+    dataset->gridY.resize(index_y_end[0]*index_y_end[1]);
 
     double RE = 6378.273;
     mapx_class *map;
-    std::string configfile = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
+    std::string configfile = (boost::format( "%1%/%2%/%3%" )
+                                % Environment::nextsimDir().string()
+                                % dataset->dirname
+                                % dataset->mpp_file
+                                ).str();
+
     std::vector<char> str(configfile.begin(), configfile.end());
     str.push_back('\0');
     map = init_mapx(&str[0]);
 
-    std::vector<double> xy(2);
-
-    for (int i=0; i<index_end[0]; ++i)
+    for (int i=0; i<index_x_end[0]; ++i)
     {
-        for (int j=0; j<index_end[1]; ++j)
+        for (int j=0; j<index_x_end[1]; ++j)
         {
-            xy=latLon2XY(LAT[index_end[1]*i+j], LON[index_end[1]*i+j], map, configfile);
-            M_topaz_gridX[index_end[1]*i+j] = xy[0];
-            M_topaz_gridY[index_end[1]*i+j] = xy[1];
+            dataset->gridX[index_x_end[1]*i+j]=latLon2XY(XLAT[index_x_end[1]*i+j], XLON[index_x_end[1]*i+j], map, configfile)[0];
+        }
+    }
+
+    for (int i=0; i<index_y_end[0]; ++i)
+    {
+        for (int j=0; j<index_y_end[1]; ++j)
+        {
+            dataset->gridY[index_y_end[1]*i+j]=latLon2XY(YLAT[index_y_end[1]*i+j], YLON[index_y_end[1]*i+j], map, configfile)[1];
         }
     }
 
     close_mapx(map);
 
-    std::cout<<"GRID TOPAZ: Triangulate starts\n";
-    BamgTriangulatex(&M_pfindex,&M_pfnels,&M_topaz_gridX[0],&M_topaz_gridY[0],M_topaz_gridX.size());
-    std::cout<<"GRID TOPAZ: NUMTRIANGLES= "<< M_pfnels <<"\n";
-    std::cout<<"GRID TOPAZ: Triangulate done\n";
-
-#if 0
-    std::cout<<"MIN BOUND TOPAZX= "<< *std::min_element(M_topaz_gridX.begin(),M_topaz_gridX.end()) <<"\n";
-    std::cout<<"MAX BOUND TOPAZX= "<< *std::max_element(M_topaz_gridX.begin(),M_topaz_gridX.end()) <<"\n";
-
-    std::cout<<"MIN BOUND TOPAZY= "<< *std::min_element(M_topaz_gridY.begin(),M_topaz_gridY.end()) <<"\n";
-    std::cout<<"MAX BOUND TOPAZY= "<< *std::max_element(M_topaz_gridY.begin(),M_topaz_gridY.end()) <<"\n";
-#endif
-
+    if(dataset->case_number==2 || dataset->case_number==3)
+    {
+        std::cout<<"GRID : Triangulate starts\n";
+        BamgTriangulatex(&dataset->pfindex,&dataset->pfnels,&dataset->gridX[0],&dataset->gridY[0],dataset->gridX.size());
+        std::cout<<"GRID : NUMTRIANGLES= "<< dataset->pfnels <<"\n";
+        std::cout<<"GRID : Triangulate done\n";
+    }
 }
 
 void
