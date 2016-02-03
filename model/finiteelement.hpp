@@ -22,7 +22,6 @@
 #include <InterpFromMeshToMesh2dCavities.h>
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromGridToMeshx.h>
-#include <pwl_interp_2d_scattered.hpp>
 #include <gmshmesh.hpp>
 #include <graphcsr.hpp>
 #include "enums.hpp"
@@ -37,6 +36,49 @@ extern "C"
 
 namespace Nextsim
 {
+
+struct Dimension
+{
+    std::string name;
+    int start;
+    int end;
+};
+
+struct Variable
+{
+    std::string name;
+    std::vector<Dimension> dimensions;
+    double a;
+    double b;
+    std::string Units;
+    netCDF::NcVar NcVar;
+};
+
+struct Dataset
+{
+    int case_number;
+    std::string dirname;
+    std::string prefix;
+    std::string postfix;
+    std::string reference_date;
+    int nb_timestep_day;
+    Variable latitude;
+    Variable longitude;
+    Variable time;
+    Dimension dimension_x;
+    Dimension dimension_y;
+    Dimension dimension_time;
+    std::vector<Variable> variables;
+    int target_size;
+    std::string mpp_file;
+    double rotation_angle;
+    std::vector<double> ftime_range;
+    int* pfindex;
+    int pfnels;
+    std::vector<double> gridX;
+    std::vector<double> gridY;
+};
+
 class FiniteElement
 {
 public:
@@ -53,48 +95,6 @@ public:
     typedef boost::shared_ptr<vector_type> vector_ptrtype;
     typedef GraphCSR graph_type;
     typedef boost::shared_ptr<graph_type> graph_ptrtype;
-
-    typedef struct Dimension
-    {
-        std::string name;
-        int start;
-        int end;
-    } Dimesion;
-
-    typedef struct Variable
-    {
-        std::string name;
-        std::vector<Dimension> dimensions;
-        double a;
-        double b;
-        std::string Units;
-        netCDF::NcVar NcVar;
-    } Variable;
-
-    typedef struct Dataset
-    {
-        int case_number;
-        std::string dirname;
-        std::string prefix;
-        std::string postfix;
-        std::string reference_date;
-        int nb_timestep_day;
-        Variable latitude;
-        Variable longitude;
-        Variable time;
-        Dimension dimension_x;
-        Dimension dimension_y;
-        Dimension dimension_time;
-        std::vector<Variable> variables;
-        int target_size;
-        std::string mpp_file;
-        double rotation_angle;
-        std::vector<double> ftime_range;
-        int* pfindex;
-        int pfnels;
-        std::vector<double> gridX;
-        std::vector<double> gridY;
-    } Dataset;
 
     FiniteElement();
 
@@ -393,7 +393,7 @@ private:
     std::vector<double> M_mld;          // Mixed-layer depth [m]
 
     // Drifters
-    std::vector<double> M_drifter;      
+    std::vector<double> M_drifter;
 
     // Prognostic variables
     std::vector<double> M_conc;         // Ice concentration
@@ -423,7 +423,7 @@ private:
 
     void loadAsrAtmosphere(Dataset *dataset);//(double const& u, double const& v);
     void loadDataset(Dataset *dataset);//(double const& u, double const& v);
-    void load_grid(Dataset *dataset);
+    void loadGrid(Dataset *dataset);
 
 };
 } // Nextsim

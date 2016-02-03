@@ -12,6 +12,7 @@
 #include <date.hpp>
 #include <redistribute.hpp>
 #include <exporter.hpp>
+#include <numeric>
 
 #define GMSH_EXECUTABLE gmsh
 
@@ -371,7 +372,7 @@ FiniteElement::initSimulation()
         variables_tmp0[1] = v10;
 
     Variable asr_latitude={
-        name: "XLAT", 
+        name: "XLAT",
         dimensions: dimensions_asr_latlon,
         a: 1.,
         b: 0.,
@@ -379,7 +380,7 @@ FiniteElement::initSimulation()
         NcVar: NcVar_tmp};
 
     Variable asr_longitude={
-        name: "XLONG", 
+        name: "XLONG",
         dimensions: dimensions_asr_latlon,
         a: 1.,
         b: 0.,
@@ -406,7 +407,7 @@ FiniteElement::initSimulation()
         postfix:".nc",
         reference_date: "1901-01-01",
         nb_timestep_day: 8,
-        
+
         latitude: asr_latitude,
         longitude: asr_longitude,
         time: asr_time,
@@ -447,7 +448,7 @@ FiniteElement::initSimulation()
         dimensions: dimensions_asr,
         a:1.,
         b:0.,
-        Units:"W/m^2"}; 
+        Units:"W/m^2"};
     Variable Qlw_in={
         name:"LWDNB",
         dimensions: dimensions_asr,
@@ -463,7 +464,7 @@ FiniteElement::initSimulation()
     Variable precip={
         name:"RAINNC",
         dimensions: dimensions_asr,
-        a:nb_timestep_day/(24*3600),
+        a:nb_timestep_day/(24.*3600),
         b:0.,
         Units:"kg/m^2/s"};
 
@@ -486,12 +487,12 @@ FiniteElement::initSimulation()
 
         latitude: asr_latitude,
         longitude: asr_longitude,
-        time: asr_time, 
+        time: asr_time,
 
         dimension_x: asr_dimension_x,
         dimension_y: asr_dimension_y,
         dimension_time: asr_dimension_time,
-        
+
         variables: variables_tmp1,
         target_size:M_num_elements,
         mpp_file: "NpsASR.mpp",
@@ -538,7 +539,7 @@ FiniteElement::initSimulation()
     dimensions_topaz_time[0] = topaz_dimension_time;
 
     Variable u={
-        name: "u", 
+        name: "u",
         dimensions: dimensions_topaz_uv,
         a: 1.,
         b: 0.,
@@ -547,7 +548,7 @@ FiniteElement::initSimulation()
 
     Variable v={
         name: "v",
-        dimensions: dimensions_topaz_uv, 
+        dimensions: dimensions_topaz_uv,
         a: 1.,
         b: 0.,
         Units: "m/s",
@@ -567,7 +568,7 @@ FiniteElement::initSimulation()
     variables_tmp2[2] = ssh;
 
     Variable topaz_latitude={
-        name: "latitude", 
+        name: "latitude",
         dimensions: dimensions_topaz_latlon,
         a: 1.,
         b: 0.,
@@ -575,7 +576,7 @@ FiniteElement::initSimulation()
         NcVar: NcVar_tmp};
 
     Variable topaz_longitude={
-        name: "longitude", 
+        name: "longitude",
         dimensions: dimensions_topaz_latlon,
         a: 1.,
         b: 0.,
@@ -597,7 +598,7 @@ FiniteElement::initSimulation()
         postfix: "_30m.nc",
         reference_date: "1950-01-01",
         nb_timestep_day: 1,
-     
+
         latitude: topaz_latitude,
         longitude: topaz_longitude,
         time: topaz_time,
@@ -614,7 +615,7 @@ FiniteElement::initSimulation()
     M_topaz_nodes_dataset.ftime_range.resize(2,0.);
 
     Variable sst={
-        name: "temperature", 
+        name: "temperature",
         dimensions: dimensions_topaz_uv,
         a: 1.,
         b: 0.,
@@ -623,7 +624,7 @@ FiniteElement::initSimulation()
 
     Variable sss={
         name: "salinity",
-        dimensions: dimensions_topaz_uv, 
+        dimensions: dimensions_topaz_uv,
         a: 1.,
         b: 0.,
         Units: "",
@@ -649,7 +650,7 @@ FiniteElement::initSimulation()
         postfix: "_3m.nc",
         reference_date: "1950-01-01",
         nb_timestep_day: 1,
-     
+
         latitude: topaz_latitude,
         longitude: topaz_longitude,
         time: topaz_time,
@@ -665,10 +666,10 @@ FiniteElement::initSimulation()
 
     M_topaz_elements_dataset.ftime_range.resize(2,0.);
 
-    load_grid(&M_asr_nodes_dataset);
-    load_grid(&M_asr_elements_dataset);
-    load_grid(&M_topaz_nodes_dataset);
-    load_grid(&M_topaz_elements_dataset);
+    loadGrid(&M_asr_nodes_dataset);
+    loadGrid(&M_asr_elements_dataset);
+    loadGrid(&M_topaz_nodes_dataset);
+    loadGrid(&M_topaz_elements_dataset);
 }
 
 void
@@ -3349,7 +3350,7 @@ FiniteElement::solve()
 
     //M_solution->printMatlab("solution.m");
 
-    Environment::logMemoryUsage("");
+    //Environment::logMemoryUsage("");
 }
 
 // Routine for the 1D thermodynamical model
@@ -3479,7 +3480,7 @@ FiniteElement::thermoDamage(std::vector<double> const &old_vol)
         // temperature difference between bottom and snow-ice interface
         if ( M_thick[i] > 0. )
         {
-            deltaT = std::max(0., physical::mu*M_sss[i] - M_tsurf[i] ) 
+            deltaT = std::max(0., physical::mu*M_sss[i] - M_tsurf[i] )
                 / ( 1. + physical::ki*M_snow_thick[i]/(physical::ks*M_thick[i]) );
             M_time_relaxation_damage[i] = std::max(time_relaxation_damage*deltaT_relaxation_damage/deltaT, time_step);
         } else {
@@ -3519,7 +3520,7 @@ FiniteElement::slabOcean(std::vector<double> const &old_conc, std::vector<double
         M_sst[i] = M_sst[i] - time_step*( Qio_mean + Qow_mean - Qdw[i] )/(physical::rhow*physical::cpw*M_mld[i]);
 
         /* Change in salinity */
-        M_sss[i] = M_sss[i] + ( (M_sss[i]-physical::si)*physical::rhoi*del_vi + M_sss[i]*(del_vs*physical::rhos + (emp-Fdw[i])*time_step) ) 
+        M_sss[i] = M_sss[i] + ( (M_sss[i]-physical::si)*physical::rhoi*del_vi + M_sss[i]*(del_vs*physical::rhos + (emp-Fdw[i])*time_step) )
             / ( M_mld[i]*physical::rhow - del_vi*physical::rhoi - ( del_vs*physical::rhos + (emp-Fdw[i])*time_step) );
     }
 }
@@ -3543,7 +3544,7 @@ FiniteElement::thermoOW(std::vector<double> &hi, std::vector<double> &hs, std::v
     rh0   = 1./vm["simul.hnull"].as<double>();
     rPhiF = 1./vm["simul.PhiF"].as<double>();
     // no thin ice for now!
-    /* tanalpha  = vm["simul.hi_thin_max"].as<double>()/vm["simul.c_thin_max"].as<double>(); 
+    /* tanalpha  = vm["simul.hi_thin_max"].as<double>()/vm["simul.c_thin_max"].as<double>();
     rtanalpha = 1/tanalpha; */
 
     /* Volumetric latent heats */
@@ -3634,7 +3635,7 @@ FiniteElement::thermoOW(std::vector<double> &hi, std::vector<double> &hs, std::v
                     del_c = PhiM*(1-M_conc[i])*std::min(0.,Qow[i])*time_step/( hi[i]*qi+hs[i]*qs );
                     /* Deliver the fraction (1-PhiM) of Qow to the ocean */
                     /* + Deliver excess energy to the ocean when there's no ice left */
-                    Qow[i] = (1-PhiM)*Qow[i] 
+                    Qow[i] = (1-PhiM)*Qow[i]
                             + std::min(0., std::max(0.,M_conc[i]+del_c)*( hi[i]*qi+hs[i]*qs )/time_step);
                     /* Don't suffer negative c! */
                     del_c = fmax(del_c, -M_conc[i]);
@@ -3853,7 +3854,7 @@ FiniteElement::getAlbedoCCSM3( double tsurf, double hs, double alb_ice, double a
 
     /* This is the ccsm3 scheme when alb_ice = 0.538 and alb_sn = 0.8256 */
 
-    double albs, albi, frac_sn; 
+    double albs, albi, frac_sn;
 
     if ( tsurf > -1. )
     {
@@ -4099,7 +4100,7 @@ FiniteElement::run()
         if (vm["simul.regrid"].as<std::string>() == "bamg")
         {
             minang = this->minAngle(M_mesh,M_UM,displacement_factor);
-            std::cout<<"REGRID ANGLE= "<< minang <<"\n";
+            //std::cout<<"REGRID ANGLE= "<< minang <<"\n";
 
             if ((minang < vm["simul.regrid_angle"].as<double>()) || (pcpt ==0) )
             {
@@ -4141,9 +4142,9 @@ FiniteElement::run()
         std::cout<<"forcingAtmosphere done in "<< chrono.elapsed() <<"s\n";
 
         chrono.restart();
-        std::cout<<"forcingOcean starts\n";
+        //std::cout<<"forcingOcean starts\n";
         this->forcingOcean(M_regrid);
-        std::cout<<"forcingOcean done in "<< chrono.elapsed() <<"s\n";
+        //std::cout<<"forcingOcean done in "<< chrono.elapsed() <<"s\n";
 
 #if 1
         if (pcpt == 0)
@@ -4484,8 +4485,8 @@ FiniteElement::topazOcean(bool reload)
     fcoeff[0] = std::abs(current_time-M_topaz_nodes_dataset.ftime_range[1])/fdt;
     fcoeff[1] = std::abs(current_time-M_topaz_nodes_dataset.ftime_range[0])/fdt;
 
-    std::cout<<"TOPAZ LINEAR COEFF 1= "<< fcoeff[0] <<"\n";
-    std::cout<<"TOPAZ LINEAR COEFF 2= "<< fcoeff[1] <<"\n";
+    // std::cout<<"TOPAZ LINEAR COEFF 1= "<< fcoeff[0] <<"\n";
+    // std::cout<<"TOPAZ LINEAR COEFF 2= "<< fcoeff[1] <<"\n";
 
     for (int i=0; i<M_num_nodes; ++i)
     {
@@ -4505,7 +4506,7 @@ FiniteElement::topazOcean(bool reload)
         M_mld[i] = fcoeff[0]*M_mld2[0][i] + fcoeff[1]*M_mld2[1][i];
     }
     M_mld.assign(M_num_elements,vm["simul.constant_mld"].as<double>());
-    
+
 }
 
 void
@@ -4519,7 +4520,7 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
                                 % Environment::nextsimDir().string()
                                 % dataset->dirname
                                 % dataset->prefix
-                                % current_timestr 
+                                % current_timestr
                                 % dataset->postfix
                                 ).str();
 
@@ -4561,12 +4562,12 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
     std::vector<double> XTIME(dataset->time.dimensions[0].end);
 
     netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
-    
+
     netCDF::NcVar VTIME = dataFile.getVar(dataset->time.name);
-    
+
     for(int j=0; j<dataset->variables.size(); ++j)
         dataset->variables[j].NcVar = dataFile.getVar(dataset->variables[j].name);
-    
+
     VTIME.getVar(&XTIME[0]);
 
 
@@ -4586,7 +4587,7 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
     int MN = M*N;
 
     double* data_in = new double[N_data*nb_forcing_step*MN];
-    
+
     std::vector<double> data_in_tmp(MN);
 
     netCDF::NcVarAtt att;
@@ -4606,7 +4607,7 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
                                 % Environment::nextsimDir().string()
                                 % dataset->dirname
                                 % dataset->prefix
-                                % f_timestr 
+                                % f_timestr
                                 % dataset->postfix
                                 ).str();
 
@@ -4678,7 +4679,7 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
             RX = M_mesh.bcoordX(dataset->rotation_angle);
             RY = M_mesh.bcoordY(dataset->rotation_angle);
             break;
-    } 
+    }
 
     //int interp_type = TriangleInterpEnum;
     int interp_type = BilinearInterpEnum;
@@ -4686,8 +4687,8 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 
     if(dataset->case_number<=1)
     {
-            InterpFromGridToMeshx(  data_out, &dataset->gridX[0], dataset->gridX.size(), &dataset->gridY[0], dataset->gridY.size(), 
-                                  &data_in[0], dataset->gridX.size(), dataset->gridY.size(), 
+            InterpFromGridToMeshx(  data_out, &dataset->gridX[0], dataset->gridX.size(), &dataset->gridY[0], dataset->gridY.size(),
+                                  &data_in[0], dataset->gridX.size(), dataset->gridY.size(),
                                   dataset->variables.size()*nb_forcing_step,
                                  &RX[0], &RY[0], dataset->target_size, 1.0, interp_type);
     }
@@ -4707,11 +4708,11 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
         for(int j=0; j<dataset->variables.size(); ++j)
         {
             for (int i=0; i<dataset->target_size; ++i)
-            { 
+            {
                 tmp_data=data_out[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j];
                 tmp_interpolated_field[i]=dataset->variables[j].a*tmp_data+dataset->variables[j].b;
             }
-            
+
             switch(dataset->case_number)
             {
                 case 0:
@@ -4790,7 +4791,7 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 }
 
 void
-FiniteElement::load_grid(Dataset *dataset)
+FiniteElement::loadGrid(Dataset *dataset)
 {
     std::string current_timestr = to_date_string_ym(current_time);
     std::cout<<"TIMESTR= "<< current_timestr <<"\n";
@@ -4798,7 +4799,7 @@ FiniteElement::load_grid(Dataset *dataset)
                                 % Environment::nextsimDir().string()
                                 % dataset->dirname
                                 % dataset->prefix
-                                % current_timestr 
+                                % current_timestr
                                 % dataset->postfix
                                 ).str();
 
@@ -4899,8 +4900,8 @@ FiniteElement::initSlabOcean()
             M_sst.assign(M_num_elements,-1.8);
             M_sss.assign(M_num_elements,-1.8/mu);
             break;
-            
-            
+
+
 
         default:
             std::cout << "invalid ocean initialisation"<<"\n";
@@ -5831,7 +5832,7 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     std::cout<<"\n";
 
 
- #if 0
+#if 0
     auto NNZ = M_graph.nNz();
     double minNNZ = *std::min_element(NNZ.begin(),NNZ.end());
     double maxNNZ = *std::max_element(NNZ.begin(),NNZ.end());
