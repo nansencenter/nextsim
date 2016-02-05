@@ -19,7 +19,7 @@
 #include <boost/algorithm/string/trim.hpp>
 
 #include <environment.hpp>
-#include <GModel.h>
+//#include <GModel.h>
 #include <MElement.h>
 
 extern "C"
