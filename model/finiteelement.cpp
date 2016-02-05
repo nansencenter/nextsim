@@ -675,8 +675,8 @@ FiniteElement::initSimulation()
 
     M_topaz_elements_dataset.ftime_range.resize(2,0.);
 
-    load_grid(&M_asr_grid);
-    load_grid(&M_topaz_grid);
+    loadGrid(&M_asr_grid);
+    loadGrid(&M_topaz_grid);
 }
 
 void

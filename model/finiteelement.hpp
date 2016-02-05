@@ -481,7 +481,7 @@ private:
     void topazOcean(bool reload);//(double const& u, double const& v);
 
     void loadDataset(Dataset *dataset);//(double const& u, double const& v);
-    void load_grid(Grid *grid);
+    void loadGrid(Grid *grid);
 };
 } // Nextsim
 #endif
