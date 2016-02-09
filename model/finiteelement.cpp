@@ -4808,7 +4808,7 @@ std::cout<<"after interp " <<"\n";
 }
 
 void
-FiniteElement::load_grid(Grid *grid)
+FiniteElement::loadGrid(Grid *grid)
 {
     std::string current_timestr = to_date_string_ym(current_time);
     std::cout<<"TIMESTR= "<< current_timestr <<"\n";
