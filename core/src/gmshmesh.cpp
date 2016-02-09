@@ -245,6 +245,8 @@ GmshMesh::readFromFile(std::string const& filename)
     ASSERT(std::string( __buf ) == "$EndElements","invalid end elements string");
 
     // we are done reading the MSH file
+
+    // create local dofs
 }
 
 void

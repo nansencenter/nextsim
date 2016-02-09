@@ -218,6 +218,10 @@ private:
     //int M_num_elements;
     int M_num_triangles;
     int M_num_edges;
+
+    std::vector<int> M_local_dof_with_ghost;
+    std::vector<int> M_local_dof_without_ghost;
+    std::vector<int> M_local_dof_ghost;
 };
 
 } // Nextsim
