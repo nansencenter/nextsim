@@ -6080,8 +6080,6 @@ FiniteElement::exportResults(int step, bool export_mesh)
     exporter.writeField(outbin, M_damage, "Damage");
     exporter.writeField(outbin, M_sst, "SST");
     exporter.writeField(outbin, M_sss, "SSS");
-    exporter.writeField(outbin, M_ocean_temp, "ocean_temp");
-    exporter.writeField(outbin, M_ocean_salt, "ocean_salt");
     outbin.close();
 
     fileout = (boost::format( "%1%/matlab/field_%2%.dat" )
