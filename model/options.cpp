@@ -12,6 +12,7 @@
 
 namespace po = boost::program_options;
 
+double const days_in_sec = 24.0*3600.0;
 namespace Nextsim
 {
     po::options_description
@@ -155,6 +156,8 @@ namespace Nextsim
             ("simul.constant_snowfr", po::value<double>()->default_value( 0.9 ), "")
             ("simul.constant_mld", po::value<double>()->default_value( 9. ), "")
             ("simul.ocean_nudge", po::value<bool>()->default_value( false ), "")
+            ("simul.ocean_nudge_timeT", po::value<double>()->default_value( 30*days_in_sec), "")
+            ("simul.ocean_nudge_timeS", po::value<double>()->default_value( 30*days_in_sec), "")
             ("simul.constant_Qdw", po::value<double>()->default_value( 0. ), "")
             ("simul.constant_Fdw", po::value<double>()->default_value( 0. ), "")
             ("simul.constant_ocean_u", po::value<double>()->default_value( 0. ), "")

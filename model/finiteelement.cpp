@@ -32,7 +32,7 @@ void
 FiniteElement::init()
 {
     std::cout <<"GMSH VERSION= "<< M_mesh.version() <<"\n";
-    M_mesh.setOrdering("bamg");
+    M_mesh.setOrdering("gmsh");
 
     M_mesh_filename = vm["simul.mesh_filename"].as<std::string>();
 
@@ -252,10 +252,12 @@ FiniteElement::initSimulation()
     M_precip2.resize(2);
     M_snowfr2.resize(2);
 
-    M_sss2.resize(2);
-    M_sst2.resize(2);
+    M_ocean_salt2.resize(2);
+    M_ocean_temp2.resize(2);
     M_mld2.resize(2);
 
+    M_ocean_temp.resize(M_num_elements);
+    M_ocean_salt.resize(M_num_elements);
     M_mld.resize(M_num_elements);
 
     M_sst.resize(M_num_elements);
@@ -1446,6 +1448,8 @@ FiniteElement::regrid(bool step)
         M_precip.resize(M_num_elements);
         M_snowfr.resize(M_num_elements);
 
+        M_ocean_temp.resize(M_num_elements);
+        M_ocean_salt.resize(M_num_elements);
         M_mld.resize(M_num_elements);
 
         M_element_depth.assign(M_num_elements,0.);
@@ -3383,6 +3387,12 @@ FiniteElement::thermo()
     std::vector<double> Qai(M_num_elements);    // Atmosphere-ice heat flux
     std::vector<double> Qow(M_num_elements);    // Open water heat flux
 
+    std::cout<<"MAX M_ocean_temp= "<< *std::max_element(M_ocean_temp.begin(),M_ocean_temp.end()) <<"\n";
+    std::cout<<"MIN M_ocean_temp= "<< *std::min_element(M_ocean_temp.begin(),M_ocean_temp.end()) <<"\n";
+
+    std::cout<<"MAX M_ocean_salt= "<< *std::max_element(M_ocean_salt.begin(),M_ocean_salt.end()) <<"\n";
+    std::cout<<"MIN M_ocean_salt= "<< *std::min_element(M_ocean_salt.begin(),M_ocean_salt.end()) <<"\n";
+
     // First we calculate or set the flux due to nudging
     if ( M_atmosphere_type == setup::AtmosphereType::CONSTANT || M_ocean_type == setup::OceanType::CONSTANT )
     {
@@ -3391,9 +3401,7 @@ FiniteElement::thermo()
     }
     else
     {
-        std::cout << "this->nudgeFlux(*Qdw,*Fdw);" << "\n";
-        Qdw.assign(M_num_elements,vm["simul.constant_Qdw"].as<double>());
-        Fdw.assign(M_num_elements,vm["simul.constant_Fdw"].as<double>());
+        this->nudgeFlux(Qdw,Fdw);
     }
 
     // Save old _volumes_ and concentration and calculate wind speed
@@ -3467,6 +3475,31 @@ FiniteElement::thermo()
 
     // Damage manipulation
     this->thermoDamage(old_vol);
+}
+
+// Ocean heat fluxes due to nudging
+void
+FiniteElement::nudgeFlux(std::vector<double> &Qdw, std::vector<double> &Fdw)
+{
+    double const timeT = vm["simul.ocean_nudge_timeT"].as<double>();
+    double const timeS = vm["simul.ocean_nudge_timeS"].as<double>();
+    double const Qdw_const = vm["simul.constant_Qdw"].as<double>();
+    double const Fdw_const = vm["simul.constant_Fdw"].as<double>();
+
+    for (int i=0; i < M_num_elements; ++i)
+    {
+        if ( M_ocean_salt[i] > physical::si )
+        {
+            Qdw[i] = -(M_sst[i]-M_ocean_temp[i]) * M_mld[i] * physical::rhow * physical::cpw/timeT;
+
+            double delS;
+            delS = M_sss[i] - M_ocean_salt[i];
+            Fdw[i] = delS * M_mld[i] * physical::rhow /(timeS*M_sss[i] - time_step*delS);
+        } else {
+            Qdw[i] = Qdw_const;
+            Fdw[i] = Fdw_const;
+        }
+    }
 }
 
 // Modify the damage via thermodynamic processes
@@ -4508,8 +4541,8 @@ FiniteElement::topazOcean(bool reload)
 
     for (int i=0; i<M_num_elements; ++i)
     {
-        //M_sss[i] = fcoeff[0]*M_sss2[0][i] + fcoeff[1]*M_sss2[1][i];
-        //M_sst[i] = fcoeff[0]*M_sst2[0][i] + fcoeff[1]*M_sst2[1][i];
+        M_ocean_salt[i] = fcoeff[0]*M_ocean_salt2[0][i] + fcoeff[1]*M_ocean_salt2[1][i];
+        M_ocean_temp[i] = fcoeff[0]*M_ocean_temp2[0][i] + fcoeff[1]*M_ocean_temp2[1][i];
         M_mld[i] = fcoeff[0]*M_mld2[0][i] + fcoeff[1]*M_mld2[1][i];
     }
     M_mld.assign(M_num_elements,vm["simul.constant_mld"].as<double>());
@@ -4790,10 +4823,10 @@ std::cout<<"after interp " <<"\n";
                     switch(j)
                     {
                     case 0:
-                        M_sst2[fstep]=tmp_interpolated_field;
+                        M_ocean_temp2[fstep]=tmp_interpolated_field;
                         break;
                     case 1:
-                        M_sss2[fstep]=tmp_interpolated_field;
+                        M_ocean_salt2[fstep]=tmp_interpolated_field;
                         break;
                     case 2:
                         M_mld2[fstep]=tmp_interpolated_field;
@@ -6036,7 +6069,8 @@ FiniteElement::exportResults(int step, bool export_mesh)
     exporter.writeField(outbin, M_wind, "Wind");
     exporter.writeField(outbin, M_ocean, "Ocean");
     exporter.writeField(outbin, M_damage, "Damage");
-    exporter.writeField(outbin, M_tsurf, "Tsurf");
+    exporter.writeField(outbin, M_sst, "SST");
+    exporter.writeField(outbin, M_sss, "SSS");
     outbin.close();
 
     fileout = (boost::format( "%1%/matlab/field_%2%.dat" )
