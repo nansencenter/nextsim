@@ -297,12 +297,8 @@ FiniteElement::initSimulation()
     M_damage.resize(M_num_elements);
     M_snow_thick.resize(M_num_elements);
     M_tsurf.resize(M_num_elements);
-
-    this->initConcentration();
-    this->initThickness();
-    this->initDamage();
-    this->initSnowThickness();
-    this->initSlabOcean();
+    M_sst.resize(M_num_elements);
+    M_sss.resize(M_num_elements);
 
     for (int i=0; i<M_num_elements; ++i)
     {
@@ -679,6 +675,13 @@ FiniteElement::initSimulation()
 
     loadGrid(&M_asr_grid);
     loadGrid(&M_topaz_grid);
+
+    this->initConcentration();
+    this->initThickness();
+    this->initDamage();
+    this->initSnowThickness();
+    this->initSlabOcean();
+
 }
 
 void
@@ -4946,9 +4949,15 @@ FiniteElement::initSlabOcean()
             M_sst.assign(M_num_elements,-1.8);
             M_sss.assign(M_num_elements,-1.8/mu);
             break;
-        case setup::OceanType::TOPAZR:  // TODO: This needs to be changed to read in T and S from TOPAZ
-            M_sst.assign(M_num_elements,-1.8);
-            M_sss.assign(M_num_elements,-1.8/mu);
+        case setup::OceanType::TOPAZR:
+            this->topazOcean(1); // This is lazy re-use of code
+            for ( int i=0; i<M_num_elements; ++i)
+            {
+                // Make sure the erroneous salinity and temperature don't screw up the initialisation too badly
+                // This can still be done much better!
+                M_sss[i] = std::max(physical::si, M_ocean_salt[i]);
+                M_sst[i] = std::max(M_sss[i]*physical::mu, M_ocean_temp[i]);
+            }
             break;
 
 
@@ -6071,6 +6080,8 @@ FiniteElement::exportResults(int step, bool export_mesh)
     exporter.writeField(outbin, M_damage, "Damage");
     exporter.writeField(outbin, M_sst, "SST");
     exporter.writeField(outbin, M_sss, "SSS");
+    exporter.writeField(outbin, M_ocean_temp, "ocean_temp");
+    exporter.writeField(outbin, M_ocean_salt, "ocean_salt");
     outbin.close();
 
     fileout = (boost::format( "%1%/matlab/field_%2%.dat" )
