@@ -3452,32 +3452,36 @@ FiniteElement::solve()
 void
 FiniteElement::thermo()
 {
-    // local variables
-    double  hi=0.;     // Ice thickness (slab)
-    double  hs=0.;     // Snow thickness (slab)
-
-    double  del_hi=0.; // Change in ice thickness (slab only)
-
-    double  evap=0.;   // Evaporation
-
-    double  Qdw=0.;    // Heat flux from ocean nudging
-    double  Fdw=0.;    // Fresh water flux from ocean nudging
-
-    double  Qio=0.;    // Ice-ocean heat flux
-    double  Qai=0.;    // Atmosphere-ice heat flux
-    double  Qow=0.;    // Open water heat flux
-
-    // Save old _volumes_ and concentration and calculate wind speed
-    double  old_vol=0.;
-    double  old_snow_vol=0.;
-    double  old_conc=0.;
-    double  wspeed=0.;
-    double sum_u, sum_v;
-
     // There is now only one big loop for the thermodynamics. 
     // Note that we use reference for some functions by using & before the argument in the declaration of the function
+    int thread_id;
+    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
+
+#pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int i=0; i < M_num_elements; ++i)
     {
+        // local variables
+        double  hi=0.;     // Ice thickness (slab)
+        double  hs=0.;     // Snow thickness (slab)
+
+        double  del_hi=0.; // Change in ice thickness (slab only)
+
+        double  evap=0.;   // Evaporation
+
+        double  Qdw=0.;    // Heat flux from ocean nudging
+        double  Fdw=0.;    // Fresh water flux from ocean nudging
+
+        double  Qio=0.;    // Ice-ocean heat flux
+        double  Qai=0.;    // Atmosphere-ice heat flux
+        double  Qow=0.;    // Open water heat flux
+
+        // Save old _volumes_ and concentration and calculate wind speed
+        double  old_vol=0.;
+        double  old_snow_vol=0.;
+        double  old_conc=0.;
+        double  wspeed=0.;
+        double sum_u, sum_v;
+
         // First we calculate or set the flux due to nudging
         if ( M_atmosphere_type == setup::AtmosphereType::CONSTANT || M_ocean_type == setup::OceanType::CONSTANT )
         {
@@ -4227,8 +4231,9 @@ FiniteElement::run()
         //======================================================================
         // Do the thermodynamics
         //======================================================================
-
+        
         this->thermo();
+        std::cout<<"thermo done in "<< chrono.elapsed() <<"s\n";
 
         //======================================================================
         // Assemble the matrix
