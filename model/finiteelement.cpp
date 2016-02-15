@@ -4112,7 +4112,6 @@ FiniteElement::run()
 
     // Initialise time
     int ind;
-    int ind_adapt=0;
     int pcpt = 0;
     int niter = 0;
     current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
@@ -4175,10 +4174,7 @@ FiniteElement::run()
                 M_regrid = true;
                 chrono.restart();
                 std::cout<<"Regriding starts\n";
-                this->exportResults(1000+ind_adapt);
                 this->regrid(pcpt);
-                this->exportResults(2000+ind_adapt);
-                ind_adapt++;
                 std::cout<<"Regriding done in "<< chrono.elapsed() <<"s\n";
             }
         }
