@@ -188,14 +188,14 @@ public:
     void error();
 
     void thermo();
-    void thermoDamage(std::vector<double> const &old_vol);
-    void slabOcean(std::vector<double> const &old_conc, std::vector<double> const &old_vol, std::vector<double> const &old_snow_vol, std::vector<double> const &evap, std::vector<double> const &Qio, std::vector<double> const &Qow, std::vector<double> const &Qdw, std::vector<double> const &Fdw);
-    void thermoOW(std::vector<double> &hi, std::vector<double> &hs, std::vector<double> &Qow, std::vector<double> &evap, std::vector<double> const &wspeed, std::vector<double> const &del_hi);
-    void thermoIce0(std::vector<double> &hi, std::vector<double> &hs, std::vector<double> &Qio, std::vector<double> &del_hi, std::vector<double> &Qai, std::vector<double> const &wspeed);
+    void thermoDamage(double old_vol, int i);
+    void slabOcean(double old_conc, double old_vol, double old_snow_vol, double evap, double Qio, double Qow, double Qdw, double Fdw, int i);
+    void thermoOW(double &hi, double &hs, double &Qow, double &evap, double wspeed, double del_hi, int i);
+    void thermoIce0(double &hi, double &hs, double &Qio, double &del_hi, double &Qai, double wspeed, int i);
     double getAlbedo( double hs, double alb_ice, double alb_sn, double I_0, int alb_scheme );
     double getAlbedoCCSM3( double tsurf, double hs, double alb_ice, double alb_sn );
     void bulkIce(double tsurf, double tair, double mslp, double wspeed, double mixrat, double dair, double Cd, double &Qout, double &dQoutdT, double &subl);
-    void openWaterFlux(std::vector<double> &Qow, std::vector<double> &evap, std::vector<double> const &wspeed, double const ocean_albedo, double const drag_ocean_t, double const drag_ocean_q);
+    void openWaterFlux(double &Qow, double &evap, double wspeed, double const ocean_albedo, double const drag_ocean_t, double const drag_ocean_q, int i);
     double calcSphumA(double mslp, double dair, double mixrat);
     void calcSphumI(double mslp, double tsurf, double &sphumi, double &dsphumidT);
     double calcSphumW(double mslp, double sst, double sss);
