@@ -3806,8 +3806,10 @@ FiniteElement::thermoIce0(double &hi, double &hs, double &Qio, double &del_hi, d
 
     dtsurf   = 1.;
     tbot     = physical::mu*M_sss[i];
+    int nb_iter_while=0;
     while ( dtsurf > 1e-4 )
     {
+        nb_iter_while++;
         /* Calculate albedo - we can impliment different schemes if we want */
         switch ( alb_scheme )
         {
@@ -3843,6 +3845,12 @@ FiniteElement::thermoIce0(double &hi, double &hs, double &Qio, double &del_hi, d
 
         /* Re-evaluate the exit condition */
         dtsurf = std::abs(dtsurf-M_tsurf[i]);
+    }
+
+    if(nb_iter_while>10)
+    {
+        std::cout << "nb_iter_while = " << nb_iter_while << "\n";
+        throw std::logic_error("nb_iter_while larger than 10");
     }
 
     /* Conductive flux through the ice */
@@ -3910,7 +3918,7 @@ FiniteElement::getAlbedo( double hs, double alb_ice, double alb_sn, double I_0, 
             albedo = alb_sn;
     } else {
         /* account for penetrating shortwave radiation */
-        albedo = alb_ice + 0.4*( 1-alb_ice )*I_0;
+        albedo = alb_ice + 0.4*( 1.-alb_ice )*I_0;
     }
 
     return(albedo);
@@ -4231,7 +4239,8 @@ FiniteElement::run()
         //======================================================================
         // Do the thermodynamics
         //======================================================================
-        
+        chrono.restart();
+        std::cout<<"thermo starts\n";
         this->thermo();
         std::cout<<"thermo done in "<< chrono.elapsed() <<"s\n";
 
