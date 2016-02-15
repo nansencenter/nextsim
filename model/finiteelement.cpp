@@ -3504,7 +3504,7 @@ FiniteElement::thermo()
             sum_u += M_wind[M_elements[i].indices[j]-1];
             sum_v += M_wind[M_elements[i].indices[j]-1+M_num_nodes];
         }
-        wspeed = std::pow(sum_u*sum_u + sum_v*sum_v,0.5)/3.;
+        wspeed = std::hypot(sum_u, sum_v)/3.;
     
         // Calculate fluxes in the open water portion
         this->openWaterFlux(Qow, evap, wspeed, vm["simul.albedoW"].as<double>(), vm["simul.drag_ocean_t"].as<double>(), vm["simul.drag_ocean_q"].as<double>(), i);
@@ -4003,7 +4003,7 @@ FiniteElement::openWaterFlux(double &Qow, double &evap, double wspeed, double co
     // Calculate atmospheric fluxes
 
 	/* Out-going long-wave flux */
-    Qlw_out = physical::eps*physical::sigma_sb*pow(M_sst[i]+physical::tfrwK,4);
+    Qlw_out = physical::eps*physical::sigma_sb*std::pow(M_sst[i]+physical::tfrwK,4);
 
 	/* Specific humidity - atmosphere */
 	sphuma = calcSphumA(M_mslp[i], M_dair[i], M_mixrat[i]);
@@ -4018,7 +4018,7 @@ FiniteElement::openWaterFlux(double &Qow, double &evap, double wspeed, double co
     Qsh = drag_ocean_t*rhoair*physical::cpa*wspeed*( M_sst[i] - M_tair[i] );
 
 	/* Latent heat flux */
-	Lv  = physical::Lv0 - 2.36418e3*M_tair[i] + 1.58927*M_tair[i]*M_tair[i] - 6.14342e-2*pow(M_tair[i],3);
+	Lv  = physical::Lv0 - 2.36418e3*M_tair[i] + 1.58927*M_tair[i]*M_tair[i] - 6.14342e-2*std::pow(M_tair[i],3);
     Qlh = drag_ocean_q*rhoair*Lv*wspeed*( sphumw - sphuma );
 
 	/* Evaporation */
@@ -4102,7 +4102,7 @@ FiniteElement::calcSphumI(double mslp, double tsurf, double &sphumi, double &dsp
 
     /* We need the derivative of sphumi wrt. tsurf */
     dsphumdesti = alpha/(mslp-beta*fi*esti)*( 1 + beta*fi*esti/(mslp-beta*fi*esti) );
-    destidT     = ( bi*ci*di-tsurf*( 2*ci+tsurf) )/( di*pow(ci+tsurf,2) )*esti;
+    destidT     = ( bi*ci*di-tsurf*( 2*ci+tsurf) )/( di*std::pow(ci+tsurf,2) )*esti;
     dfidT       = 2*Ci*Bi*tsurf;
     dsphumidT   = dsphumdesti*(fi*destidT+esti*dfidT);
 }
