@@ -252,10 +252,12 @@ FiniteElement::initSimulation()
     M_precip2.resize(2);
     M_snowfr2.resize(2);
 
-    M_sss2.resize(2);
-    M_sst2.resize(2);
+    M_ocean_salt2.resize(2);
+    M_ocean_temp2.resize(2);
     M_mld2.resize(2);
 
+    M_ocean_temp.resize(M_num_elements);
+    M_ocean_salt.resize(M_num_elements);
     M_mld.resize(M_num_elements);
 
     M_sst.resize(M_num_elements);
@@ -295,12 +297,8 @@ FiniteElement::initSimulation()
     M_damage.resize(M_num_elements);
     M_snow_thick.resize(M_num_elements);
     M_tsurf.resize(M_num_elements);
-
-    this->initConcentration();
-    this->initThickness();
-    this->initDamage();
-    this->initSnowThickness();
-    this->initSlabOcean();
+    M_sst.resize(M_num_elements);
+    M_sss.resize(M_num_elements);
 
     for (int i=0; i<M_num_elements; ++i)
     {
@@ -677,6 +675,13 @@ FiniteElement::initSimulation()
 
     loadGrid(&M_asr_grid);
     loadGrid(&M_topaz_grid);
+
+    this->initConcentration();
+    this->initThickness();
+    this->initDamage();
+    this->initSnowThickness();
+    this->initSlabOcean();
+
 }
 
 void
@@ -1525,6 +1530,8 @@ FiniteElement::regrid(bool step)
         M_precip.resize(M_num_elements);
         M_snowfr.resize(M_num_elements);
 
+        M_ocean_temp.resize(M_num_elements);
+        M_ocean_salt.resize(M_num_elements);
         M_mld.resize(M_num_elements);
 
         M_element_depth.assign(M_num_elements,0.);
@@ -3479,8 +3486,7 @@ FiniteElement::thermo()
         }
         else
         {
-            Qdw=vm["simul.constant_Qdw"].as<double>();
-            Fdw=vm["simul.constant_Fdw"].as<double>();
+            this->nudgeFlux(Qdw,Fdw,i);
         }
 
         old_vol = M_thick[i];
@@ -3513,6 +3519,28 @@ FiniteElement::thermo()
 
         // Damage manipulation
         this->thermoDamage(old_vol, i);
+    }
+}
+
+// Ocean heat fluxes due to nudging
+void
+FiniteElement::nudgeFlux(double &Qdw, double &Fdw, int i)
+{
+    double const timeT = vm["simul.ocean_nudge_timeT"].as<double>();
+    double const timeS = vm["simul.ocean_nudge_timeS"].as<double>();
+    double const Qdw_const = vm["simul.constant_Qdw"].as<double>();
+    double const Fdw_const = vm["simul.constant_Fdw"].as<double>();
+
+    if ( M_ocean_salt[i] > physical::si )
+    {
+        Qdw = -(M_sst[i]-M_ocean_temp[i]) * M_mld[i] * physical::rhow * physical::cpw/timeT;
+
+        double delS;
+        delS = M_sss[i] - M_ocean_salt[i];
+        Fdw = delS * M_mld[i] * physical::rhow /(timeS*M_sss[i] - time_step*delS);
+    } else {
+        Qdw = Qdw_const;
+        Fdw = Fdw_const;
     }
 }
 
@@ -4544,8 +4572,8 @@ FiniteElement::topazOcean(bool reload)
 
     for (int i=0; i<M_num_elements; ++i)
     {
-        //M_sss[i] = fcoeff[0]*M_sss2[0][i] + fcoeff[1]*M_sss2[1][i];
-        //M_sst[i] = fcoeff[0]*M_sst2[0][i] + fcoeff[1]*M_sst2[1][i];
+        M_ocean_salt[i] = fcoeff[0]*M_ocean_salt2[0][i] + fcoeff[1]*M_ocean_salt2[1][i];
+        M_ocean_temp[i] = fcoeff[0]*M_ocean_temp2[0][i] + fcoeff[1]*M_ocean_temp2[1][i];
         M_mld[i] = fcoeff[0]*M_mld2[0][i] + fcoeff[1]*M_mld2[1][i];
     }
     M_mld.assign(M_num_elements,vm["simul.constant_mld"].as<double>());
@@ -4826,10 +4854,10 @@ std::cout<<"after interp " <<"\n";
                     switch(j)
                     {
                     case 0:
-                        M_sst2[fstep]=tmp_interpolated_field;
+                        M_ocean_temp2[fstep]=tmp_interpolated_field;
                         break;
                     case 1:
-                        M_sss2[fstep]=tmp_interpolated_field;
+                        M_ocean_salt2[fstep]=tmp_interpolated_field;
                         break;
                     case 2:
                         M_mld2[fstep]=tmp_interpolated_field;
@@ -4949,9 +4977,15 @@ FiniteElement::initSlabOcean()
             std::fill(M_sst.begin(), M_sst.end(), -1.8);
             std::fill(M_sss.begin(), M_sss.end(), -1.8/physical::mu);
             break;
-        case setup::OceanType::TOPAZR:  // TODO: This needs to be changed to read in T and S from TOPAZ
-            std::fill(M_sst.begin(), M_sst.end(), -1.8);
-            std::fill(M_sss.begin(), M_sss.end(), -1.8/physical::mu);
+        case setup::OceanType::TOPAZR:
+            this->topazOcean(1); // This is lazy re-use of code
+            for ( int i=0; i<M_num_elements; ++i)
+            {
+                // Make sure the erroneous salinity and temperature don't screw up the initialisation too badly
+                // This can still be done much better!
+                M_sss[i] = std::max(physical::si, M_ocean_salt[i]);
+                M_sst[i] = std::max(M_sss[i]*physical::mu, M_ocean_temp[i]);
+            }
             break;
 
 
@@ -6072,9 +6106,8 @@ FiniteElement::exportResults(int step, bool export_mesh)
     exporter.writeField(outbin, M_wind, "Wind");
     exporter.writeField(outbin, M_ocean, "Ocean");
     exporter.writeField(outbin, M_damage, "Damage");
-    exporter.writeField(outbin, M_tsurf, "Tsurf");
-    exporter.writeField(outbin, M_sss, "sss");
-    exporter.writeField(outbin, M_sst, "sst");
+    exporter.writeField(outbin, M_sst, "SST");
+    exporter.writeField(outbin, M_sss, "SSS");
     outbin.close();
 
     fileout = (boost::format( "%1%/matlab/field_%2%.dat" )

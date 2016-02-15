@@ -188,6 +188,7 @@ public:
     void error();
 
     void thermo();
+    void nudgeFlux(double &Qdw, double &Fdw, int i);
     void thermoDamage(double old_vol, int i);
     void slabOcean(double old_conc, double old_vol, double old_snow_vol, double evap, double Qio, double Qow, double Qdw, double Fdw, int i);
     void thermoOW(double &hi, double &hs, double &Qow, double &evap, double wspeed, double del_hi, int i);
@@ -405,8 +406,8 @@ private:
     std::vector<std::vector<double>> M_precip2;
     std::vector<std::vector<double>> M_snowfr2;
 
-    std::vector<std::vector<double>> M_sst2;
-    std::vector<std::vector<double>> M_sss2;
+    std::vector<std::vector<double>> M_ocean_temp2;
+    std::vector<std::vector<double>> M_ocean_salt2;
     std::vector<std::vector<double>> M_mld2;
 
 
