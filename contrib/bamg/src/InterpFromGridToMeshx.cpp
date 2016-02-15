@@ -73,7 +73,7 @@ int InterpFromGridToMeshx(double* &data_mesh,double* x_in, int x_rows, double* y
 
 	/*launch the thread manager with InterpFromGridToMeshxt as a core: */
 	LaunchThread(InterpFromGridToMeshxt,(void*)&gate,_NUMTHREADS_);
-	_printf_("\r      interpolation progress: "<<fixed<<setw(6)<<setprecision(2)<<100.<<"%  \n");
+	//_printf_("\r      interpolation progress: "<<fixed<<setw(6)<<setprecision(2)<<100.<<"%  \n");
 
 	//InterpFromGridToMeshxt(gate,data_mesh);
 	//_printf_("\r      interpolation progress: "<<fixed<<setw(6)<<setprecision(2)<<100.<<"%  \n");
@@ -222,8 +222,8 @@ void* InterpFromGridToMeshxt(void* vpthread_handle){
 	//for (i=0;i<nods;i++) {
 	PartitionRange(&i0,&i1,nods,num_threads,my_thread);
 	for (i=i0;i<i1;i++) {
-		if(debug && my_thread==0)
-			_printf_("\r      interpolation progress: "<<setw(6)<<setprecision(2)<<double(i)/double(nods)*100<<"%   ");
+		//if(debug && my_thread==0)
+		//	_printf_("\r      interpolation progress: "<<setw(6)<<setprecision(2)<<double(i)/double(nods)*100<<"%   ");
 
 		x_grid=*(x_mesh+i);
 		y_grid=*(y_mesh+i);
