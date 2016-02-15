@@ -3974,7 +3974,7 @@ FiniteElement::openWaterFlux(std::vector<double> &Qow, std::vector<double> &evap
         // Calculate atmospheric fluxes
 
 	/* Out-going long-wave flux */
-        Qlw_out = physical::eps*physical::sigma_sb*pow(M_tsurf[i]+physical::tfrwK,4);
+        Qlw_out = physical::eps*physical::sigma_sb*pow(M_sst[i]+physical::tfrwK,4);
 
 	/* Specific humidity - atmosphere */
 	sphuma = calcSphumA(M_mslp[i], M_dair[i], M_mixrat[i]);
@@ -3986,7 +3986,7 @@ FiniteElement::openWaterFlux(std::vector<double> &Qow, std::vector<double> &evap
 	rhoair = M_mslp[i]/(physical::Ra*(M_tair[i]+tfrwK)) * (1+sphuma)/(1+1.609*sphuma);
 
 	/* Sensible heat flux */
-        Qsh = drag_ocean_t*rhoair*physical::cpa*wspeed[i]*( M_tsurf[i] - M_tair[i] );
+        Qsh = drag_ocean_t*rhoair*physical::cpa*wspeed[i]*( M_sst[i] - M_tair[i] );
 
 	/* Latent heat flux */
 	Lv  = physical::Lv0 - 2.36418e3*M_tair[i] + 1.58927*M_tair[i]*M_tair[i] - 6.14342e-2*pow(M_tair[i],3);
