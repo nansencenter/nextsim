@@ -188,9 +188,6 @@ public:
     void error();
 
     void thermo();
-    double getAlbedo( double hs, double alb_ice, double alb_sn, double I_0, int alb_scheme );
-    double getAlbedoCCSM3( double tsurf, double hs, double alb_ice, double alb_sn );
-    void bulkIce(double tsurf, double tair, double mslp, double wspeed, double mixrat, double dair, double Cd, double &Qout, double &dQoutdT, double &subl);
     double calcSphumA(double mslp, double dair, double mixrat);
     void calcSphumI(double mslp, double tsurf, double &sphumi, double &dsphumidT);
     double calcSphumW(double mslp, double sst, double sss);

@@ -3464,6 +3464,7 @@ FiniteElement::thermo()
     double const ocean_albedo=vm["simul.albedoW"].as<double>();
     double const drag_ocean_t=vm["simul.drag_ocean_t"].as<double>();
     double const drag_ocean_q=vm["simul.drag_ocean_q"].as<double>();
+    double const drag_ice_t=vm["simul.drag_ice_t"].as<double>();
 
     double const alb_ice    = vm["simul.alb_ice"].as<double>();
     double const alb_sn     = vm["simul.alb_sn"].as<double>();
@@ -3621,10 +3622,46 @@ FiniteElement::thermo()
                 {
                     case 1:
                     case 2:
-                        albedo = getAlbedo(hs, alb_ice, alb_sn, I_0, alb_scheme);
+                        /* This scheme mimics Semtner 76 and Maykut and Untersteiner 71 when
+                         * alb_ice = 0.64 and alb_sn = 0.85 */
+                        if ( hs > 0. )
+                        {
+                            /* decrease the albedo towards ice albedo for snow thinner than 0.2 m */
+                            if ( alb_scheme == 2 )
+                                albedo = std::min(alb_sn, alb_ice + (alb_sn-alb_ice)*hs/0.2);
+                            else
+                                albedo = alb_sn;
+                        } else {
+                            /* account for penetrating shortwave radiation */
+                            albedo = alb_ice + 0.4*( 1.-alb_ice )*I_0;
+                        }
                         break;
                     case 3:
-                        albedo = getAlbedoCCSM3(M_tsurf[i], hs, alb_ice, alb_sn);
+                        /* Albedo scheme from ccsm 3 */
+                        /* The scheme is simplified using the assumption that visible solar
+                         * radiation accounts for 52% of the spectrum and the near-infrared for
+                         * 48% (the same split as used in cice when running in stand-alone
+                         * mode). */
+
+                        /* This is the ccsm3 scheme when alb_ice = 0.538 and alb_sn = 0.8256 */
+
+                        double albs, albi, frac_sn;
+
+                        if ( M_tsurf[i] > -1. )
+                        {
+                            albi = alb_ice - 0.075*(M_tsurf[i]+1.);
+                            albs = alb_sn  - 0.124*(M_tsurf[i]+1.);
+                        } else {
+                            albi = alb_ice;
+                            albs = alb_sn;
+                        }
+
+                        /* Snow cover fraction */
+                        frac_sn = hs/(hs+0.02);
+
+                        /* Final albedo */
+                        albedo = frac_sn*albs + (1.-frac_sn)*albi;
+
                         break;
                     default:
                         std::cout << "alb_scheme = " << alb_scheme << "\n";
@@ -3633,10 +3670,53 @@ FiniteElement::thermo()
 
                 /* Calculate atmospheric fluxes */
                 Qsw = -M_Qsw_in[i]*(1.-albedo);
-                bulkIce(M_tsurf[i], M_tair[i], M_mslp[i], wspeed, M_mixrat[i], M_dair[i], vm["simul.drag_ice_t"].as<double>(), Qout, dQaidT, subl);
+
+                // -------------------------------------------------
+                // 4.1) BULK ICE
+                double tsurf=M_tsurf[i];
+                double tair=M_tair[i];
+                double mslp=M_mslp[i];
+                double mixrat=M_mixrat[i];
+                double dair=M_dair[i];
+                
+                double Qlw_out, dQlwdT;
+                double tairK, sphuma, sphumi;
+                double rhoair, Qsh, dQshdT;
+                double Qlh, dsphumidT, dQlhdT;
+
+                /* Out-going long-wave flux and derivative */
+                Qlw_out =   physical::eps * physical::sigma_sb * std::pow(tsurf+physical::tfrwK,4);
+                dQlwdT  = 4.*physical::eps * physical::sigma_sb * std::pow(tsurf+physical::tfrwK,3);
+
+                /* Specific humidity - atmosphere */
+                sphuma = calcSphumA(mslp, dair, mixrat);
+
+                /* Specific humidity - ice surface */
+                calcSphumI(mslp, tsurf, sphumi, dsphumidT);
+
+                /* Density of air */
+                tairK  = tair + physical::tfrwK;
+                rhoair = mslp/(Ra*tairK) * (1.+sphuma)/(1.+1.609*sphuma);
+
+                /* Sensible heat flux and derivative */
+                Qsh    = drag_ice_t * rhoair * physical::cpa * wspeed*( tsurf - tair );
+                dQshdT = drag_ice_t * rhoair * physical::cpa * wspeed;
+
+                /* Latent heat flux and derivative */
+                Qlh    = drag_ice_t*rhoair*(physical::Lf+physical::Lv0)*wspeed*( sphumi - sphuma );
+                dQlhdT = drag_ice_t*(physical::Lf+physical::Lv0)*rhoair*wspeed*dsphumidT;
+
+                /* Sum them up */
+                Qout    = Qlw_out + Qsh + Qlh;
+                dQaidT = dQlwdT + dQshdT + dQlhdT;
+
+                /* Sublimation */
+                subl    = Qlh/(physical::Lf+physical::Lv0);
+
                 /* Sum them up */
                 Qai = Qsw - M_Qlw_in[i] + Qout;
 
+                // -------------------------------------------------
                 /* Recalculate M_tsurf */
                 dtsurf = M_tsurf[i];
                 Qic    = physical::ks*( tbot-M_tsurf[i] )/( hs + physical::ks*hi/physical::ki );
@@ -3896,104 +3976,6 @@ FiniteElement::thermo()
 
     }// end for loop
 }// end thermo function
-
-// Calculate the ice and snow surface albedo using constant albedos or a simple snow-thickness dependend scheme
-double
-FiniteElement::getAlbedo( double hs, double alb_ice, double alb_sn, double I_0, int alb_scheme )
-{
-    /* This scheme mimics Semtner 76 and Maykut and Untersteiner 71 when
-     * alb_ice = 0.64 and alb_sn = 0.85 */
-
-    double albedo;
-
-    if ( hs > 0. )
-    {
-        /* decrease the albedo towards ice albedo for snow thinner than 0.2 m */
-        if ( alb_scheme == 2 )
-            albedo = std::min(alb_sn, alb_ice + (alb_sn-alb_ice)*hs/0.2);
-        else
-            albedo = alb_sn;
-    } else {
-        /* account for penetrating shortwave radiation */
-        albedo = alb_ice + 0.4*( 1.-alb_ice )*I_0;
-    }
-
-    return(albedo);
-}
-
-// Calculate the ice and snow surface albedo using the CCSM temperature dependent scheme
-double
-FiniteElement::getAlbedoCCSM3( double tsurf, double hs, double alb_ice, double alb_sn )
-{
-    /* Albedo scheme from ccsm 3 */
-    /* The scheme is simplified using the assumption that visible solar
-     * radiation accounts for 52% of the spectrum and the near-infrared for
-     * 48% (the same split as used in cice when running in stand-alone
-     * mode). */
-
-    /* This is the ccsm3 scheme when alb_ice = 0.538 and alb_sn = 0.8256 */
-
-    double albs, albi, frac_sn;
-
-    if ( tsurf > -1. )
-    {
-        albi = alb_ice - 0.075*(tsurf+1.);
-        albs = alb_sn  - 0.124*(tsurf+1.);
-    } else {
-        albi = alb_ice;
-        albs = alb_sn;
-    }
-
-    /* Snow cover fraction */
-    frac_sn = hs/(hs+0.02);
-
-    /* Final albedo */
-    return(frac_sn*albs + (1.-frac_sn)*albi);
-}
-
-/* -----------------------------------------------------------------------
- * Calculate surface fluxes at the ice surface using bulk formula
- * ----------------------------------------------------------------------- */
-void
-FiniteElement::bulkIce(double tsurf, double tair, double mslp, double wspeed, double mixrat, double dair, double Cd,
-		double &Qout, double &dQoutdT, double &subl)
-{
-
-	double Qlw_out, dQlwdT;
-	double tairK, sphuma, sphumi;
-	double rhoair, Qsh, dQshdT;
-	double Qlh, dsphumidT, dQlhdT;
-
-	/* Out-going long-wave flux and derivative */
-        Qlw_out =   physical::eps * physical::sigma_sb * std::pow(tsurf+physical::tfrwK,4);
-        dQlwdT  = 4.*physical::eps * physical::sigma_sb * std::pow(tsurf+physical::tfrwK,3);
-
-	/* Specific humidity - atmosphere */
-	sphuma = calcSphumA(mslp, dair, mixrat);
-
-	/* Specific humidity - ice surface */
-        calcSphumI(mslp, tsurf, sphumi, dsphumidT);
-
-	/* Density of air */
-	tairK  = tair + physical::tfrwK;
-	rhoair = mslp/(Ra*tairK) * (1.+sphuma)/(1.+1.609*sphuma);
-
-	/* Sensible heat flux and derivative */
-        Qsh    = Cd * rhoair * physical::cpa * wspeed*( tsurf - tair );
-        dQshdT = Cd * rhoair * physical::cpa * wspeed;
-
-	/* Latent heat flux and derivative */
-        Qlh    = Cd*rhoair*(physical::Lf+physical::Lv0)*wspeed*( sphumi - sphuma );
-        dQlhdT = Cd*(physical::Lf+physical::Lv0)*rhoair*wspeed*dsphumidT;
-
-	/* Sum them up */
-	Qout    = Qlw_out + Qsh + Qlh;
-	dQoutdT = dQlwdT + dQshdT + dQlhdT;
-
-	/* Sublimation */
-	subl    = Qlh/(physical::Lf+physical::Lv0);
-}
-
 
 // Calculate specific humidity for the atmosphere
 double
