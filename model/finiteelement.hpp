@@ -188,9 +188,6 @@ public:
     void error();
 
     void thermo();
-    double calcSphumA(double mslp, double dair, double mixrat);
-    void calcSphumI(double mslp, double tsurf, double &sphumi, double &dsphumidT);
-    double calcSphumW(double mslp, double sst, double sss);
 
     Dataset M_asr_nodes_dataset;
     Dataset M_asr_elements_dataset;

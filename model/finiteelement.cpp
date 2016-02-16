@@ -3473,6 +3473,8 @@ FiniteElement::thermo()
 
     double const rh0   = 1./vm["simul.hnull"].as<double>();
     double const rPhiF = 1./vm["simul.PhiF"].as<double>();
+
+    bool const flooding = vm["simul.flooding"].as<bool>();
     
     /*double const tanalpha  = vm["simul.hi_thin_max"].as<double>()/vm["simul.c_thin_max"].as<double>();
     double const rtanalpha = 1./tanalpha;*/
@@ -3484,6 +3486,14 @@ FiniteElement::thermo()
     int const melt_type = vm["simul.melt_type"].as<int>();
     double const PhiM = vm["simul.PhiM"].as<double>();
     double const PhiF = vm["simul.PhiF"].as<double>();
+
+    const double aw=6.1121e2, bw=18.729, cw=257.87, dw=227.3;
+    const double Aw=7.2e-4, Bw=3.20e-6, Cw=5.9e-10;
+
+    const double ai=6.1115e2, bi=23.036, ci=279.82, di=333.7;
+    const double Ai=2.2e-4, Bi=3.83e-6, Ci=6.4e-10;
+
+    const double alpha=0.62197, beta=0.37803;
 
     // initialisation of the multithreading
     int thread_id;
@@ -3552,32 +3562,43 @@ FiniteElement::thermo()
 
         // -------------------------------------------------
         // 3) Calculate fluxes in the open water portion (openWaterFlux in old c code, Qow_mex in matlab)
-            
-        double Qlw_out;
-        double rhoair, Qsh;
-        double fa, esta, sphuma, fw, estw, sphumw;
-        double Qlh, Lv;
+        double sphuma, sphumw;
 
         // Calculate atmospheric fluxes
 
         /* Out-going long-wave flux */
-        Qlw_out = physical::eps*physical::sigma_sb*std::pow(M_sst[i]+physical::tfrwK,4.);
+        double Qlw_out = physical::eps*physical::sigma_sb*std::pow(M_sst[i]+physical::tfrwK,4.);
 
-        /* Specific humidity - atmosphere */
-        sphuma = calcSphumA(M_mslp[i], M_dair[i], M_mixrat[i]);
+        // -------------------------------------------------
+        // 3.1) Specific humidity - atmosphere (calcSphumA in matlab)
+        /* There are two ways to calculate this. We decide which one by
+         * checking mixrat - the calling routine must set this to a negative
+         * value if the dewpoint should be used. */
+        if ( M_mixrat[i] < 0. )
+        {
+            double fa     = 1. + Aw + M_mslp[i]*1e-2*( Bw + Cw*M_dair[i]*M_dair[i] );
+            double esta   = fa*aw*std::exp( (bw-M_dair[i]/dw)*M_dair[i]/(M_dair[i]+cw) );
+            sphuma = alpha*fa*esta/(M_mslp[i]-beta*fa*esta) ;
+        } 
+        else 
+            sphuma = M_mixrat[i]/(1.+M_mixrat[i]) ;
 
-        /* Specific humidity - ocean surface */
-        sphumw = calcSphumW(M_mslp[i], M_sst[i], M_sss[i]);
+        // -------------------------------------------------
+        // 3.2) Specific humidity - ocean surface (calcSphumW in matlab)
+        double fw     = 1. + Aw + M_mslp[i]*1e-2*( Bw + Cw*M_sst[i]*M_sst[i] );
+        double estw   = aw*std::exp( (bw-M_sst[i]/dw)*M_sst[i]/(M_sst[i]+cw) )*(1-5.37e-4*M_sss[i]);
+        sphumw = alpha*fw*estw/(M_mslp[i]-beta*fw*estw) ;
 
+        // -------------------------------------------------
         /* Density of air */
-        rhoair = M_mslp[i]/(physical::Ra*(M_tair[i]+tfrwK)) * (1.+sphuma)/(1.+1.609*sphuma);
+        double rhoair = M_mslp[i]/(physical::Ra*(M_tair[i]+tfrwK)) * (1.+sphuma)/(1.+1.609*sphuma);
 
         /* Sensible heat flux */
-        Qsh = drag_ocean_t*rhoair*physical::cpa*wspeed*( M_sst[i] - M_tair[i] );
+        double Qsh = drag_ocean_t*rhoair*physical::cpa*wspeed*( M_sst[i] - M_tair[i] );
 
         /* Latent heat flux */
-        Lv  = physical::Lv0 - 2.36418e3*M_tair[i] + 1.58927*M_tair[i]*M_tair[i] - 6.14342e-2*std::pow(M_tair[i],3.);
-        Qlh = drag_ocean_q*rhoair*Lv*wspeed*( sphumw - sphuma );
+        double Lv  = physical::Lv0 - 2.36418e3*M_tair[i] + 1.58927*M_tair[i]*M_tair[i] - 6.14342e-2*std::pow(M_tair[i],3.);
+        double Qlh = drag_ocean_q*rhoair*Lv*wspeed*( sphumw - sphuma );
 
         /* Evaporation */
         evap = Qlh/(physical::rhofw*Lv);
@@ -3587,15 +3608,6 @@ FiniteElement::thermo()
 
         // -------------------------------------------------
         // 4) Thickness change of the ice slab (thermoIce0 in matlab)
-       
-        /* Local variables */
-        double dtsurf, tbot, albedo;
-        double Qsw, Qout, dQaidT, subl;
-        double Qic, del_hs, del_ht, del_hb, draft;
-
-        /* ---------------------------------------------------------------
-         * Calculate the surface temperature within a while-loop
-         * --------------------------------------------------------------- */
 
         /* Don't do anything if there's no ice */
         if ( M_conc[i] <=0. )
@@ -3611,8 +3623,27 @@ FiniteElement::thermo()
             hi = M_thick[i]/M_conc[i];
             hs = M_snow_thick[i]/M_conc[i];
 
-            dtsurf   = 1.;
-            tbot     = physical::mu*M_sss[i];
+            /* Local variables */
+            double albedo;
+
+            double albs, albi, frac_sn;
+
+            double Qsw, Qout, dQaidT, subl;
+            double Qic, del_hs, del_ht, del_hb, draft;
+
+            double Qlw_out, dQlwdT;
+            double tairK, sphuma, sphumi;
+            double rhoair, Qsh, dQshdT;
+            double Qlh, dsphumidT, dQlhdT;
+
+            double fi, esti;
+            double dsphumdesti, destidT, dfidT;
+
+            /* ---------------------------------------------------------------
+            * Calculate the surface temperature within a while-loop
+            * --------------------------------------------------------------- */
+            double dtsurf   = 1.;
+            double tbot     = physical::mu*M_sss[i];
             int nb_iter_while=0;
             while ( dtsurf > 1e-4 )
             {
@@ -3644,9 +3675,6 @@ FiniteElement::thermo()
                          * mode). */
 
                         /* This is the ccsm3 scheme when alb_ice = 0.538 and alb_sn = 0.8256 */
-
-                        double albs, albi, frac_sn;
-
                         if ( M_tsurf[i] > -1. )
                         {
                             albi = alb_ice - 0.075*(M_tsurf[i]+1.);
@@ -3672,34 +3700,32 @@ FiniteElement::thermo()
                 Qsw = -M_Qsw_in[i]*(1.-albedo);
 
                 // -------------------------------------------------
-                // 4.1) BULK ICE
-                double tsurf=M_tsurf[i];
-                double tair=M_tair[i];
-                double mslp=M_mslp[i];
-                double mixrat=M_mixrat[i];
-                double dair=M_dair[i];
-                
-                double Qlw_out, dQlwdT;
-                double tairK, sphuma, sphumi;
-                double rhoair, Qsh, dQshdT;
-                double Qlh, dsphumidT, dQlhdT;
-
+                // 4.1) BULK ICE                
                 /* Out-going long-wave flux and derivative */
-                Qlw_out =   physical::eps * physical::sigma_sb * std::pow(tsurf+physical::tfrwK,4);
-                dQlwdT  = 4.*physical::eps * physical::sigma_sb * std::pow(tsurf+physical::tfrwK,3);
+                Qlw_out =   physical::eps * physical::sigma_sb * std::pow(M_tsurf[i]+physical::tfrwK,4);
+                dQlwdT  = 4.*physical::eps * physical::sigma_sb * std::pow(M_tsurf[i]+physical::tfrwK,3);
 
-                /* Specific humidity - atmosphere */
-                sphuma = calcSphumA(mslp, dair, mixrat);
-
+                // -------------------------------------------------
+                // calcSphumI
                 /* Specific humidity - ice surface */
-                calcSphumI(mslp, tsurf, sphumi, dsphumidT);
+                fi      = 1. + Ai + M_mslp[i]*1e-2*( Bi + Ci*M_tsurf[i]*M_tsurf[i] );
+                esti    = ai*std::exp( (bi-M_tsurf[i]/di)*M_tsurf[i]/(M_tsurf[i]+ci) );
+                sphumi = alpha*fi*esti/(M_mslp[i]-beta*fi*esti);
+
+                /* We need the derivative of sphumi wrt. tsurf */
+                dsphumdesti = alpha/(M_mslp[i]-beta*fi*esti)*( 1. + beta*fi*esti/(M_mslp[i]-beta*fi*esti) );
+                destidT     = ( bi*ci*di-M_tsurf[i]*( 2.*ci+M_tsurf[i]) )/( di*std::pow(ci+M_tsurf[i],2) )*esti;
+                dfidT       = 2.*Ci*Bi*M_tsurf[i];
+                dsphumidT   = dsphumdesti*(fi*destidT+esti*dfidT);
+
+                // -------------------------------------------------
 
                 /* Density of air */
-                tairK  = tair + physical::tfrwK;
-                rhoair = mslp/(Ra*tairK) * (1.+sphuma)/(1.+1.609*sphuma);
+                tairK  = M_tair[i] + physical::tfrwK;
+                rhoair = M_mslp[i]/(Ra*tairK) * (1.+sphuma)/(1.+1.609*sphuma);
 
                 /* Sensible heat flux and derivative */
-                Qsh    = drag_ice_t * rhoair * physical::cpa * wspeed*( tsurf - tair );
+                Qsh    = drag_ice_t * rhoair * physical::cpa * wspeed*( M_tsurf[i] - M_tair[i] );
                 dQshdT = drag_ice_t * rhoair * physical::cpa * wspeed;
 
                 /* Latent heat flux and derivative */
@@ -3779,7 +3805,7 @@ FiniteElement::thermo()
 
             /* Snow-to-ice conversion */
             draft = ( hi*physical::rhoi + hs*physical::rhos ) / physical::rhow;
-            if ( vm["simul.flooding"].as<bool>() && draft > hi )
+            if ( flooding && draft > hi )
             {
                 /* Subtract the mass of snow converted to ice from hs_new */
                 hs = hs - ( draft - hi )*physical::rhoi/physical::rhos;
@@ -3976,85 +4002,6 @@ FiniteElement::thermo()
 
     }// end for loop
 }// end thermo function
-
-// Calculate specific humidity for the atmosphere
-double
-FiniteElement::calcSphumA(double mslp, double dair, double mixrat)
-{
-
-    // constants
-    const double aw=6.1121e2, bw=18.729, cw=257.87, dw=227.3;
-    const double Aw=7.2e-4, Bw=3.20e-6, Cw=5.9e-10;
-    const double alpha=0.62197, beta=0.37803;
-
-    /* Variables */
-    double pmb, fa, esta;
-
-    /* Pressure in mBar */
-    pmb   = mslp*1e-2;
-
-    /* Specific humidity - atmosphere */
-    /* There are two ways to calculate this. We decide which one by
-     * checking mixrat - the calling routine must set this to a negative
-     * value if the dewpoint should be used. */
-    if ( mixrat < 0 )
-    {
-            fa     = 1 + Aw + pmb*( Bw + Cw*dair*dair );
-            esta   = fa*aw*std::exp( (bw-dair/dw)*dair/(dair+cw) );
-            return( alpha*fa*esta/(mslp-beta*fa*esta) );
-    } else {
-            return( mixrat/(1+mixrat) );
-    }
-}
-
-// Calculate specific humidity for the ocean surface
-double
-FiniteElement::calcSphumW(double mslp, double sst, double sss)
-{
-    // Constants
-    const double aw=6.1121e2, bw=18.729, cw=257.87, dw=227.3;
-    const double Aw=7.2e-4, Bw=3.20e-6, Cw=5.9e-10;
-    const double alpha=0.62197, beta=0.37803;
-
-    /* Variables */
-    double pmb, fw, estw;
-
-    /* Pressure in mBar */
-    pmb   = mslp*1e-2;
-
-    /* Specific humidity - ocean surface */
-    fw     = 1 + Aw + pmb*( Bw + Cw*sst*sst );
-    estw   = aw*exp( (bw-sst/dw)*sst/(sst+cw) )*(1-5.37e-4*sss);
-    return( alpha*fw*estw/(mslp-beta*fw*estw) );
-}
-
-// Calculate specific humidity for the ice surface
-void
-FiniteElement::calcSphumI(double mslp, double tsurf, double &sphumi, double &dsphumidT)
-{
-    // Constants
-    const double ai=6.1115e2, bi=23.036, ci=279.82, di=333.7;
-    const double Ai=2.2e-4, Bi=3.83e-6, Ci=6.4e-10;
-    const double alpha=0.62197, beta=0.37803;
-
-    /* Variables */
-    double pmb, fi, esti;
-    double dsphumdesti, destidT, dfidT;
-
-    /* Pressure in mBar */
-    pmb   = mslp*1e-2;
-
-    /* Specific humidity - ice surface */
-    fi      = 1 + Ai + pmb*( Bi + Ci*tsurf*tsurf );
-    esti    = ai*exp( (bi-tsurf/di)*tsurf/(tsurf+ci) );
-    sphumi = alpha*fi*esti/(mslp-beta*fi*esti);
-
-    /* We need the derivative of sphumi wrt. tsurf */
-    dsphumdesti = alpha/(mslp-beta*fi*esti)*( 1 + beta*fi*esti/(mslp-beta*fi*esti) );
-    destidT     = ( bi*ci*di-tsurf*( 2*ci+tsurf) )/( di*std::pow(ci+tsurf,2) )*esti;
-    dfidT       = 2*Ci*Bi*tsurf;
-    dsphumidT   = dsphumdesti*(fi*destidT+esti*dfidT);
-}
 
 // This is the main working function, called from main.cpp (same as perform_simul in the old code)
 void
