@@ -243,19 +243,6 @@ FiniteElement::initSimulation()
     M_precip.resize(M_num_elements);
     M_snowfr.resize(M_num_elements);
 
-    M_tair2.resize(2);
-    M_mixrat2.resize(2);
-    M_dair2.resize(2);
-    M_mslp2.resize(2);
-    M_Qsw_in2.resize(2);
-    M_Qlw_in2.resize(2);
-    M_precip2.resize(2);
-    M_snowfr2.resize(2);
-
-    M_ocean_salt2.resize(2);
-    M_ocean_temp2.resize(2);
-    M_mld2.resize(2);
-
     M_ocean_temp.resize(M_num_elements);
     M_ocean_salt.resize(M_num_elements);
     M_mld.resize(M_num_elements);
@@ -267,12 +254,6 @@ FiniteElement::initSimulation()
 
     M_hminVertices.resize(M_mesh_init.numNodes(),1e-100);
     M_hmaxVertices.resize(M_mesh_init.numNodes(),1e100);
-
-    M_uair2.resize(2);
-    M_vair2.resize(2);
-    M_uoce2.resize(2);
-    M_voce2.resize(2);
-    M_ssh2.resize(2);
 
     M_UM.resize(2*M_num_nodes,0.);
 
@@ -348,13 +329,17 @@ FiniteElement::initSimulation()
 
     netCDF::NcVar NcVar_tmp;
 
+    std::vector<std::vector<double>> data2_tmp;
+    data2_tmp.resize(2);
+
     Variable asr_latitude={
         name: "XLAT",
         dimensions: dimensions_asr_latlon,
         a: 1.,
         b: 0.,
         Units: "degree_north",
-        NcVar: NcVar_tmp};
+        NcVar: NcVar_tmp,
+        data2: data2_tmp};
 
     Variable asr_longitude={
         name: "XLONG",
@@ -362,7 +347,8 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "degree_east",
-        NcVar: NcVar_tmp};
+        NcVar: NcVar_tmp,
+        data2: data2_tmp};
 
     Variable asr_time={
         name: "time",
@@ -370,7 +356,8 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "hours",
-        NcVar: NcVar_tmp};
+        NcVar: NcVar_tmp,
+        data2: data2_tmp};
 
     // rotate EB coordinates to fit the ASR coords
     double angle_stereo_mesh = -45;
@@ -399,7 +386,8 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "m/s",
-        NcVar: NcVar_tmp};
+        NcVar: NcVar_tmp,
+        data2: data2_tmp};
 
     Variable v10={
         name: "V10", // U10M
@@ -407,7 +395,8 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "m/s",
-        NcVar: NcVar_tmp};
+        NcVar: NcVar_tmp,
+        data2: data2_tmp};
 
     std::vector<Variable> variables_tmp0(2);
         variables_tmp0[0] = u10;
@@ -438,43 +427,57 @@ FiniteElement::initSimulation()
         dimensions: dimensions_asr,
         a:1.,
         b:-273.15,
-        Units:"C"}; // T2M
+        Units:"C",
+        NcVar: NcVar_tmp,
+        data2: data2_tmp}; // T2M
     Variable mixrat={
         name:"Q2",
         dimensions: dimensions_asr,
         a:1.,
         b:0.,
-        Units:""}; // Q2M
+        Units:"",
+        NcVar: NcVar_tmp,
+        data2: data2_tmp}; // Q2M
     Variable mslp={
         name:"SLP",
         dimensions: dimensions_asr,
         a:1e2,
         b:0.,
-        Units:"Pa"}; //PSFC, a=1.
+        Units:"Pa",
+        NcVar: NcVar_tmp,
+        data2: data2_tmp}; //PSFC, a=1.
     Variable Qsw_in={
         name:"SWDNB",
         dimensions: dimensions_asr,
         a:1.,
         b:0.,
-        Units:"W/m^2"};
+        Units:"W/m^2",
+        NcVar: NcVar_tmp,
+        data2: data2_tmp};
     Variable Qlw_in={
         name:"LWDNB",
         dimensions: dimensions_asr,
         a:1.,
         b:0.,
-        Units:"W/m^2"};
+        Units:"W/m^2",
+        NcVar: NcVar_tmp,
+        data2: data2_tmp};
     Variable snowfr={
         name:"SR",
         dimensions: dimensions_asr,
         a:1.,
         b:0.,
-        Units:""};
+        Units:"",
+        NcVar: NcVar_tmp,
+        data2: data2_tmp};
     Variable precip={
         name:"RAINNC",
         dimensions: dimensions_asr,
         a:nb_timestep_day/(24.*3600),
         b:0.,
-        Units:"kg/m^2/s"};
+        Units:"kg/m^2/s",
+        NcVar: NcVar_tmp,
+        data2: data2_tmp};
 
     std::vector<Variable> variables_tmp1(7);
     variables_tmp1[0] = tair;
@@ -546,7 +549,8 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "degree_north",
-        NcVar: NcVar_tmp};
+        NcVar: NcVar_tmp,
+        data2: data2_tmp};
 
     Variable topaz_longitude={
         name: "longitude", 
@@ -554,7 +558,8 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "degree_east",
-        NcVar: NcVar_tmp};
+        NcVar: NcVar_tmp,
+        data2: data2_tmp};
 
     Variable topaz_time={
         name: "time",
@@ -562,7 +567,8 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "hours",
-        NcVar: NcVar_tmp};
+        NcVar: NcVar_tmp,
+        data2: data2_tmp};
 
     M_topaz_grid={
         interpolation_method: setup::InterpolationType::InterpFromMeshToMesh2dx,
@@ -585,7 +591,8 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "m/s",
-        NcVar: NcVar_tmp};
+        NcVar: NcVar_tmp,
+        data2: data2_tmp};
 
     Variable v={
         name: "v",
@@ -593,7 +600,8 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "m/s",
-        NcVar: NcVar_tmp};
+        NcVar: NcVar_tmp,
+        data2: data2_tmp};
 
     Variable ssh={
         name: "ssh",
@@ -601,7 +609,8 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "m/s",
-        NcVar: NcVar_tmp};
+        NcVar: NcVar_tmp,
+        data2: data2_tmp};
 
     std::vector<Variable> variables_tmp2(3);
     variables_tmp2[0] = u;
@@ -633,7 +642,8 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "deg celsius",
-        NcVar: NcVar_tmp};
+        NcVar: NcVar_tmp,
+        data2: data2_tmp};
 
     Variable sss={
         name: "salinity",
@@ -641,7 +651,8 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "",
-        NcVar: NcVar_tmp};
+        NcVar: NcVar_tmp,
+        data2: data2_tmp};
 
     Variable mld={
         name: "mlp",
@@ -649,7 +660,8 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "m",
-        NcVar: NcVar_tmp};
+        NcVar: NcVar_tmp,
+        data2: data2_tmp};
 
     std::vector<Variable> variables_tmp3(3);
     variables_tmp3[0] = sst;
@@ -4373,8 +4385,8 @@ FiniteElement::asrAtmosphere(bool reload)
     {
         for(int j=0; j<2; ++j)
         {
-            u10_tmp[j]= cos_m_diff_angle*M_uair2[j][i] + sin_m_diff_angle*M_vair2[j][i];
-            v10_tmp[j]=-sin_m_diff_angle*M_uair2[j][i] + cos_m_diff_angle*M_vair2[j][i];
+            u10_tmp[j]= cos_m_diff_angle*M_asr_nodes_dataset.variables[0].data2[j][i] + sin_m_diff_angle*M_asr_nodes_dataset.variables[1].data2[j][i];
+            v10_tmp[j]=-sin_m_diff_angle*M_asr_nodes_dataset.variables[0].data2[j][i] + cos_m_diff_angle*M_asr_nodes_dataset.variables[1].data2[j][i];
         }
 
         M_wind[i            ] = Vair_coef*(fcoeff[0]*u10_tmp[0] + fcoeff[1]*u10_tmp[1]);
@@ -4388,13 +4400,13 @@ FiniteElement::asrAtmosphere(bool reload)
 
     for (int i=0; i<M_num_elements; ++i)
     {
-        M_tair[i] = fcoeff[0]*M_tair2[0][i] + fcoeff[1]*M_tair2[1][i];
-        M_mixrat[i] = fcoeff[0]*M_mixrat2[0][i] + fcoeff[1]*M_mixrat2[1][i];
-        M_mslp[i] = fcoeff[0]*M_mslp2[0][i] + fcoeff[1]*M_mslp2[1][i];
-        M_Qsw_in[i] = fcoeff[0]*M_Qsw_in2[0][i] + fcoeff[1]*M_Qsw_in2[1][i];
-        M_Qlw_in[i] = fcoeff[0]*M_Qlw_in2[0][i] + fcoeff[1]*M_Qlw_in2[1][i];
-        M_precip[i] = fcoeff[0]*M_precip2[0][i] + fcoeff[1]*M_precip2[1][i];
-        M_snowfr[i] = fcoeff[0]*M_snowfr2[0][i] + fcoeff[1]*M_snowfr2[1][i];
+        M_tair[i] = fcoeff[0]*M_asr_elements_dataset.variables[0].data2[0][i] + fcoeff[1]*M_asr_elements_dataset.variables[0].data2[1][i];
+        M_mixrat[i] = fcoeff[0]*M_asr_elements_dataset.variables[1].data2[0][i] + fcoeff[1]*M_asr_elements_dataset.variables[1].data2[1][i];
+        M_mslp[i] = fcoeff[0]*M_asr_elements_dataset.variables[2].data2[0][i] + fcoeff[1]*M_asr_elements_dataset.variables[2].data2[1][i];
+        M_Qsw_in[i] = fcoeff[0]*M_asr_elements_dataset.variables[3].data2[0][i] + fcoeff[1]*M_asr_elements_dataset.variables[3].data2[1][i];
+        M_Qlw_in[i] = fcoeff[0]*M_asr_elements_dataset.variables[4].data2[0][i] + fcoeff[1]*M_asr_elements_dataset.variables[4].data2[1][i];
+        M_snowfr[i] = fcoeff[0]*M_asr_elements_dataset.variables[5].data2[0][i] + fcoeff[1]*M_asr_elements_dataset.variables[5].data2[1][i];
+        M_precip[i] = fcoeff[0]*M_asr_elements_dataset.variables[6].data2[0][i] + fcoeff[1]*M_asr_elements_dataset.variables[6].data2[1][i];
     }
 
     M_dair.assign(M_num_elements,vm["simul.constant_dair"].as<double>());
@@ -4459,20 +4471,17 @@ FiniteElement::topazOcean(bool reload)
 
     for (int i=0; i<M_num_nodes; ++i)
     {
-        M_ocean[i] = Voce_coef*(fcoeff[0]*M_uoce2[0][i] + fcoeff[1]*M_uoce2[1][i]);
-        M_ocean[i+M_num_nodes] = Voce_coef*(fcoeff[0]*M_voce2[0][i] + fcoeff[1]*M_voce2[1][i]);
 
-        M_ssh[i] = ssh_coef*(fcoeff[0]*M_ssh2[0][i] + fcoeff[1]*M_ssh2[1][i]);
-
-        // if (i<20)
-        //     std::cout<<"data_out["<< i << "]= "<< M_wind[i] << " and "<< M_wind[i+M_num_nodes] <<"\n";
+        M_ocean[i] = Voce_coef*(fcoeff[0]*M_topaz_nodes_dataset.variables[0].data2[0][i] + fcoeff[1]*M_topaz_nodes_dataset.variables[0].data2[1][i]);
+        M_ocean[i+M_num_nodes] = Voce_coef*(fcoeff[0]*M_topaz_nodes_dataset.variables[1].data2[0][i] + fcoeff[1]*M_topaz_nodes_dataset.variables[1].data2[1][i]);
+        M_ssh[i] = ssh_coef*(fcoeff[0]*M_topaz_nodes_dataset.variables[2].data2[0][i] + fcoeff[1]*M_topaz_nodes_dataset.variables[2].data2[1][i]);
     }
 
     for (int i=0; i<M_num_elements; ++i)
     {
-        M_ocean_salt[i] = fcoeff[0]*M_ocean_salt2[0][i] + fcoeff[1]*M_ocean_salt2[1][i];
-        M_ocean_temp[i] = fcoeff[0]*M_ocean_temp2[0][i] + fcoeff[1]*M_ocean_temp2[1][i];
-        M_mld[i] = fcoeff[0]*M_mld2[0][i] + fcoeff[1]*M_mld2[1][i];
+        M_ocean_temp[i] = fcoeff[0]*M_topaz_elements_dataset.variables[0].data2[0][i] + fcoeff[1]*M_topaz_elements_dataset.variables[0].data2[1][i];
+        M_ocean_salt[i] = fcoeff[0]*M_topaz_elements_dataset.variables[1].data2[0][i] + fcoeff[1]*M_topaz_elements_dataset.variables[1].data2[1][i];
+        M_mld[i] = fcoeff[0]*M_topaz_elements_dataset.variables[2].data2[0][i] + fcoeff[1]*M_topaz_elements_dataset.variables[2].data2[1][i];
     }
     M_mld.assign(M_num_elements,vm["simul.constant_mld"].as<double>());
 
@@ -4690,79 +4699,7 @@ std::cout<<"after interp " <<"\n";
                 tmp_interpolated_field[i]=dataset->variables[j].a*tmp_data+dataset->variables[j].b;
             }
 
-            switch(dataset->case_number)
-            {
-                case 0:
-                    switch(j)
-                    {
-                    case 0:
-                        M_uair2[fstep]=tmp_interpolated_field;
-                        break;
-                    case 1:
-                        M_vair2[fstep]=tmp_interpolated_field;
-                        break;
-                    }
-                break;
-
-                case 1:
-                    switch(j)
-                    {
-                    case 0:
-                        M_tair2[fstep]=tmp_interpolated_field;
-                        break;
-                    case 1:
-                        M_mixrat2[fstep]=tmp_interpolated_field;
-                        break;
-                    case 2:
-                        M_mslp2[fstep]=tmp_interpolated_field;
-                        break;
-                    case 3:
-                        M_Qsw_in2[fstep]=tmp_interpolated_field;
-                        break;
-                    case 4:
-                        M_Qlw_in2[fstep]=tmp_interpolated_field;
-                        break;
-                    case 5:
-                        M_snowfr2[fstep]=tmp_interpolated_field;
-                        break;
-                    case 6:
-                        M_precip2[fstep]=tmp_interpolated_field;
-                        break;
-                    default:
-                        break;
-                    }
-                break;
-
-                case 2:
-                    switch(j)
-                    {
-                    case 0:
-                        M_uoce2[fstep]=tmp_interpolated_field;
-                        break;
-                    case 1:
-                        M_voce2[fstep]=tmp_interpolated_field;
-                        break;
-                    case 2:
-                        M_ssh2[fstep]=tmp_interpolated_field;
-                        break;
-                    }
-                break;
-
-                case 3:
-                    switch(j)
-                    {
-                    case 0:
-                        M_ocean_temp2[fstep]=tmp_interpolated_field;
-                        break;
-                    case 1:
-                        M_ocean_salt2[fstep]=tmp_interpolated_field;
-                        break;
-                    case 2:
-                        M_mld2[fstep]=tmp_interpolated_field;
-                        break;
-                    }
-                break;
-            }
+            dataset->variables[j].data2[fstep]=tmp_interpolated_field;
         }
     }
 

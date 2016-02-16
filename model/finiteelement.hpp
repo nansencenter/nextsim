@@ -111,6 +111,7 @@ public:
         double b;
         std::string Units;
         netCDF::NcVar NcVar;
+        std::vector<std::vector<double>> data2;
     } Variable;
 
     typedef struct Grid
@@ -375,29 +376,6 @@ private:
     double current_time;
     bool M_reuse_prec;
     bool M_regrid;
-
-private:
-
-    std::vector<std::vector<double>> M_uoce2;
-    std::vector<std::vector<double>> M_voce2;
-    std::vector<std::vector<double>> M_ssh2;
-
-    std::vector<std::vector<double>> M_uair2;
-    std::vector<std::vector<double>> M_vair2;
-
-    std::vector<std::vector<double>> M_tair2;
-    std::vector<std::vector<double>> M_mixrat2;
-    std::vector<std::vector<double>> M_dair2;
-    std::vector<std::vector<double>> M_mslp2;
-    std::vector<std::vector<double>> M_Qsw_in2;
-    std::vector<std::vector<double>> M_Qlw_in2;
-    std::vector<std::vector<double>> M_precip2;
-    std::vector<std::vector<double>> M_snowfr2;
-
-    std::vector<std::vector<double>> M_ocean_temp2;
-    std::vector<std::vector<double>> M_ocean_salt2;
-    std::vector<std::vector<double>> M_mld2;
-
 
 private:
 
