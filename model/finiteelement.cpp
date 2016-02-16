@@ -4481,10 +4481,8 @@ FiniteElement::topazOcean(bool reload)
     {
         M_ocean_temp[i] = fcoeff[0]*M_topaz_elements_dataset.variables[0].data2[0][i] + fcoeff[1]*M_topaz_elements_dataset.variables[0].data2[1][i];
         M_ocean_salt[i] = fcoeff[0]*M_topaz_elements_dataset.variables[1].data2[0][i] + fcoeff[1]*M_topaz_elements_dataset.variables[1].data2[1][i];
-        M_mld[i] = fcoeff[0]*M_topaz_elements_dataset.variables[2].data2[0][i] + fcoeff[1]*M_topaz_elements_dataset.variables[2].data2[1][i];
+        M_mld[i] = std::max(vm["simul.constant_mld"].as<double>(), fcoeff[0]*M_topaz_elements_dataset.variables[2].data2[0][i] + fcoeff[1]*M_topaz_elements_dataset.variables[2].data2[1][i]);
     }
-    M_mld.assign(M_num_elements,vm["simul.constant_mld"].as<double>());
-
 }
 
 void
