@@ -64,9 +64,11 @@ end
 for i=1:length(c)
     figure
     patch(x,y,c{i},'EdgeColor','none')
-    min(min(c{i}))
-    max(max(c{i}))
-    caxis([min(min(c{i})), max(max(c{i}))])
+    min_value=min(min(c{i}))
+    max_value=max(max(c{i}))
+    if(min_value<max_value)
+        caxis([min_value, max_value])
+    end
     colorbar
 end
 
