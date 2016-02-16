@@ -5570,44 +5570,7 @@ FiniteElement::bathymetry()
         for (int i=0; i<M_num_elements; ++i)
         {
             M_element_depth[i] = depth_out[i];
-            //std::cout<<"DEPTH["<< i <<"]= "<< M_element_depth[i] <<"\n";
-            //std::cout<<"DEPTH["<< i <<"]= "<< depth_out[i] <<"\n";
-            //std::cout<<"DEPTH["<< i <<"]= "<< BC[i] << " and "<< M_mesh.coordX()[i] <<"\n";
         }
-
-        // std::cout<<"MAX BATHY= "<< *std::max_element(M_element_depth.begin(),M_element_depth.end()) <<"\n";
-        // std::cout<<"MIN BATHY= "<< *std::min_element(M_element_depth.begin(),M_element_depth.end()) <<"\n";
-
-        // std::cout<<"M_element_depth= "<< M_element_depth.size() <<"\n";
-        // std::cout<<"M_element      = "<< M_num_elements <<"\n";
-
-        // std::cout<<"M_element_depth.size()= "<< M_element_depth.size() <<"\n";
-        // std::cout<<"M_num_elements        = "<< M_num_elements <<"\n";
-        // std::cout<<"M_num_nodes           = "<< M_num_nodes <<"\n";
-        // std::cout<<"INTERP DONE\n";
-
-        //this->nodesToElements(depth_out,M_element_depth);
-
-        // for (int k = 0; k < M_num_elements; k++ )
-        // {
-        //     std::cout<<"DEPTH["<< k <<"]= "<< M_element_depth[k] <<"\n";
-        // }
-
-#if 0
-        cout << "\n";
-        cout << "     K      Xi(K)       Yi(K)       Zi(K)       Z(X,Y)\n";
-        cout << "\n";
-        //for (int k = 0; k < bamgmeshout->VerticesSize[0]; k++ )
-        for (int k = 0; k < M_mesh.numNodes(); k++ )
-        {
-            //ze = xyi[0+k*2] + 2.0 * xyi[1+k*2];
-            cout << "  " << setw(4) << k
-                 << "  " << setw(10) << M_mesh.coordX()[k]
-                 << "  " << setw(10) << M_mesh.coordY()[k]
-                 << "  " << setw(10) << depth_out[k] << "\n";
-            //<< "  " << setw(10) << data_in[k] << "\n";
-        }
-#endif
     }
 }
 
