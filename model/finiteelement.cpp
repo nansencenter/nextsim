@@ -3579,6 +3579,13 @@ FiniteElement::thermo()
             sum_v += M_wind[M_elements[i].indices[j]-1+M_num_nodes];
         }
         double  wspeed = std::hypot(sum_u, sum_v)/3.;
+		
+		if(M_mld[i]<=0.)
+		{
+            std::cout << "M_mld[i] = " << M_mld[i] << "\n";
+            throw std::logic_error("negative or 0 mld, Oups!!");
+		}
+			
 
         // -------------------------------------------------
         // 2) We calculate or set the flux due to nudging
@@ -4677,7 +4684,6 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 
 			if(dataset->grid->reduced_nodes_ind.size()!=0)
 			{
-				std::cout<<"dataset->grid->reduced_nodes_ind.size() " << dataset->grid->reduced_nodes_ind.size()<<"\n";
             	for (int i=0; i<(reduced_MN); ++i)
                 	data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=data_in_tmp[dataset->grid->reduced_nodes_ind[i]]*scale_factor + add_offset;
 			}
