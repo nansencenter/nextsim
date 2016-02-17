@@ -166,7 +166,7 @@ FiniteElement::init()
 
     M_reuse_prec = true;
 
-    M_ice_type = setup::IceCategoryType::CLASSIC;
+    M_ice_cat_type = setup::IceCategoryType::CLASSIC;
 
     const boost::unordered_map<const std::string, setup::AtmosphereType> str2atmosphere = boost::assign::map_list_of
         ("constant", setup::AtmosphereType::CONSTANT)
@@ -182,33 +182,12 @@ FiniteElement::init()
 
     //std::cout<<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
 
-    const boost::unordered_map<const std::string, setup::ConcentrationType> str2conc = boost::assign::map_list_of
-        ("constant", setup::ConcentrationType::CONSTANT)
-        ("topaz", setup::ConcentrationType::TOPAZ4);
-    M_conc_type = str2conc.find(vm["setup.concentration-type"].as<std::string>())->second;
+    const boost::unordered_map<const std::string, setup::IceType> str2conc = boost::assign::map_list_of
+        ("constant", setup::IceType::CONSTANT)
+        ("topaz", setup::IceType::TOPAZ4);
+    M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
 
-    //std::cout<<"CONCTYPE= "<< (int)M_conc_type <<"\n";
-
-    const boost::unordered_map<const std::string, setup::ThicknessType> str2thick = boost::assign::map_list_of
-        ("constant", setup::ThicknessType::CONSTANT)
-        ("topaz", setup::ThicknessType::TOPAZ4);
-    M_thick_type = str2thick.find(vm["setup.thickness-type"].as<std::string>())->second;
-
-    //std::cout<<"THICKTYPE= "<< (int)M_thick_type <<"\n";
-
-    const boost::unordered_map<const std::string, setup::SnowThicknessType> str2snow = boost::assign::map_list_of
-        ("constant", setup::SnowThicknessType::CONSTANT)
-        ("topaz", setup::SnowThicknessType::TOPAZ4);
-    M_snow_thick_type = str2snow.find(vm["setup.snow-thickness-type"].as<std::string>())->second;
-
-    //std::cout<<"SNOWTHICKTYPE= "<< (int)M_snow_thick_type <<"\n";
-
-    const boost::unordered_map<const std::string, setup::DamageType> str2damg = boost::assign::map_list_of
-        ("constant", setup::DamageType::CONSTANT);
-    M_damage_type = str2damg.find(vm["setup.damage-type"].as<std::string>())->second;
-
-    //std::cout<<"DAMAGETYPE= "<< (int)M_damage_type <<"\n";
-
+    //std::cout<<"ICETYPE= "<< (int)M_ice_type <<"\n";
 
     // init options for interpolation from mesh to mesh
     // options = new Options();
@@ -277,9 +256,11 @@ FiniteElement::initSimulation()
     M_thick.resize(M_num_elements);
     M_damage.resize(M_num_elements);
     M_snow_thick.resize(M_num_elements);
-    M_tsurf.resize(M_num_elements);
+	
     M_sst.resize(M_num_elements);
     M_sss.resize(M_num_elements);
+
+    M_tsurf.resize(M_num_elements);
 
     for (int i=0; i<M_num_elements; ++i)
     {
@@ -768,10 +749,8 @@ FiniteElement::initSimulation()
     loadGrid(&M_asr_grid);
     loadGrid(&M_topaz_grid);
 
-    this->initConcentration();
-    this->initThickness();
-    this->initDamage();
-    this->initSnowThickness();
+    this->initIce();
+
     this->initSlabOcean();
 
 }
@@ -1848,7 +1827,6 @@ FiniteElement::assemble(int pcpt)
 
 
         double critical_h = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
-        //double _coef = ((M_thick[i]-critical_h) > 0) ? (M_thick[i]-critical_h) : 0.;
         double _coef = std::max(0., M_thick[cpt]-critical_h);
         double coef_basal = quad_drag_coef_air*basal_k2/(basal_drag_coef_air*(norm_Vice+basal_u_0));
         coef_basal *= _coef*std::exp(-basal_Cb*(1.-M_conc[cpt]));
@@ -2908,7 +2886,7 @@ FiniteElement::update()
         old_damage = M_damage[cpt];
         old_h_ridged_thick_ice=M_h_ridged_thick_ice[cpt];
 
-        if(M_ice_type==setup::IceCategoryType::THIN_ICE)
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
             old_h_thin = M_h_thin[cpt];
             old_hs_thin=M_hs_thin[cpt];
@@ -3067,7 +3045,7 @@ FiniteElement::update()
             M_snow_thick[cpt]   = snow_volume/surface_new;
             M_h_ridged_thick_ice[cpt]   =   ridged_thick_ice_volume/surface_new;
 
-            if(M_ice_type==setup::IceCategoryType::THIN_ICE)
+            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
             {
                 thin_ice_volume = old_h_thin*surface;
                 thin_snow_volume = old_hs_thin*surface;
@@ -3081,7 +3059,7 @@ FiniteElement::update()
             /* Ridging scheme */
             if(surface_new<surface)
             {
-                if(M_ice_type==setup::IceCategoryType::THIN_ICE)
+                if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
                 {
                     ridging_thin_ice=(surface-surface_new)/surface_new*old_h_thin;
                     ridging_snow_thin_ice=(surface-surface_new)/surface_new*old_hs_thin;
@@ -3118,14 +3096,14 @@ FiniteElement::update()
             M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
             M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
 
-            if(M_ice_type==setup::IceCategoryType::THIN_ICE)
+            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
             {
                 M_h_thin[cpt]    = ((M_h_thin[cpt]>0.)?(M_h_thin[cpt] ):(0.)) ;
                 M_hs_thin[cpt]   = ((M_hs_thin[cpt]>0.)?(M_hs_thin[cpt]):(0.)) ;
             }
         }
 
-        if(M_ice_type==setup::IceCategoryType::THIN_ICE)
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
             /* Compute the redistribution of thin ice. */
             /* Returns the change in volume and concentration of thick ice as well as the
@@ -3234,7 +3212,7 @@ FiniteElement::updateSeq()
         old_damage = M_damage[cpt];
         old_h_ridged_thick_ice=M_h_ridged_thick_ice[cpt];
 
-        if(M_ice_type==setup::IceCategoryType::THIN_ICE)
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
             old_h_thin = M_h_thin[cpt];
             old_hs_thin=M_hs_thin[cpt];
@@ -3413,7 +3391,7 @@ FiniteElement::updateSeq()
             M_snow_thick[cpt]   = snow_volume/surface_new;
             M_h_ridged_thick_ice[cpt]   =   ridged_thick_ice_volume/surface_new;
 
-            if(M_ice_type==setup::IceCategoryType::THIN_ICE)
+            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
             {
                 thin_ice_volume = old_h_thin*surface;
                 thin_snow_volume = old_hs_thin*surface;
@@ -3427,7 +3405,7 @@ FiniteElement::updateSeq()
             /* Ridging scheme */
             if(surface_new<surface)
             {
-                if(M_ice_type==setup::IceCategoryType::THIN_ICE)
+                if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
                 {
                     ridging_thin_ice=(surface-surface_new)/surface_new*old_h_thin;
                     ridging_snow_thin_ice=(surface-surface_new)/surface_new*old_hs_thin;
@@ -3464,14 +3442,14 @@ FiniteElement::updateSeq()
             M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
             M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
 
-            if(M_ice_type==setup::IceCategoryType::THIN_ICE)
+            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
             {
                 M_h_thin[cpt]    = ((M_h_thin[cpt]>0.)?(M_h_thin[cpt] ):(0.)) ;
                 M_hs_thin[cpt]   = ((M_hs_thin[cpt]>0.)?(M_hs_thin[cpt]):(0.)) ;
             }
         }
 
-        if(M_ice_type==setup::IceCategoryType::THIN_ICE)
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
             /* Compute the redistribution of thin ice. */
             /* Returns the change in volume and concentration of thick ice as well as the
@@ -4989,57 +4967,35 @@ FiniteElement::initSlabOcean()
 }
 
 void
-FiniteElement::initConcentration()
+FiniteElement::initIce()
 {
-    switch (M_conc_type)
+    switch (M_ice_type)
     {
-        case setup::ConcentrationType::CONSTANT:
-            this->constantConc();
+        case setup::IceType::CONSTANT:
+            this->constantIce();
             break;
-        case setup::ConcentrationType::TOPAZ4:
-            this->topazConc();
+        case setup::IceType::TOPAZ4:
+            this->topazIce();
             break;
 
 
         default:
-            std::cout << "invalid initialization of concentration"<<"\n";
-            throw std::logic_error("invalid initialization of concentration");
+            std::cout << "invalid initialization of the ice"<<"\n";
+            throw std::logic_error("invalid initialization of the ice");
     }
 }
 
 void
-FiniteElement::constantConc()
+FiniteElement::constantIce()
 {
     std::fill(M_conc.begin(), M_conc.end(), vm["simul.init_concentration"].as<double>());
-
-#if 0
-    if (M_water_elements.size() == 0)
-    {
-        M_water_elements.resize(M_num_elements);
-        double welt = 0.;
-        int cpt = 0;
-        for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
-        {
-            welt = 0.;
-            for (int i=0; i<3; ++i)
-            {
-                welt += M_mesh.nodes()[it->indices[i]-1].coords[0];
-                welt += M_mesh.nodes()[it->indices[i]-1].coords[1];
-            }
-
-            M_water_elements[cpt] = welt;
-
-            if (welt >0.)
-                M_conc[cpt] = 0.;
-
-            ++cpt;
-        }
-    }
-#endif
+    std::fill(M_thick.begin(), M_thick.end(), vm["simul.init_thickness"].as<double>());
+    std::fill(M_snow_thick.begin(), M_snow_thick.end(), vm["simul.init_snow_thickness"].as<double>());
+    std::fill(M_damage.begin(), M_damage.end(), 0.);
 }
 
 void
-FiniteElement::topazConc()
+FiniteElement::topazIce()
 {
     if ((current_time < M_ice_topaz_elements_dataset.ftime_range[0]) || (M_ice_topaz_elements_dataset.ftime_range[1] < current_time) || (current_time == time_init))
     {
@@ -5080,100 +5036,9 @@ FiniteElement::topazConc()
             M_conc[i]=0.;
             M_snow_thick[i]=0.;
         }
+		
+		M_damage[i]=0.;
 	}
-}
-
-void
-FiniteElement::initThickness()
-{
-    switch (M_thick_type)
-    {
-        case setup::ThicknessType::CONSTANT:
-            this->constantThick();
-            break;
-        case setup::ThicknessType::TOPAZ4:
-            this->topazThick();
-            break;
-
-
-        default:
-            std::cout << "invalid initialization of thickness"<<"\n";
-            throw std::logic_error("invalid initialization of thickness");
-    }
-}
-
-void
-FiniteElement::constantThick()
-{
-    for (int i=0; i<M_num_elements; ++i)
-    {
-        M_thick[i] = (vm["simul.init_thickness"].as<double>())*M_conc[i];
-    }
-}
-
-void
-FiniteElement::topazThick()
-{
-}
-
-void
-FiniteElement::initDamage()
-{
-    switch (M_damage_type)
-    {
-        case setup::DamageType::CONSTANT:
-            this->constantDamage();
-            break;
-
-        default:
-            std::cout << "invalid initialization of damage"<<"\n";
-            throw std::logic_error("invalid initialization of damage");
-    }
-}
-
-void
-FiniteElement::constantDamage()
-{
-    std::fill(M_damage.begin(), M_damage.end(), 0.);
-
-#if 0
-    for (int i=0; i<M_num_elements; ++i)
-    {
-        M_damage[i] = 1.0 - M_conc[i];
-    }
-#endif
-}
-
-void
-FiniteElement::initSnowThickness()
-{
-    switch (M_snow_thick_type)
-    {
-        case setup::SnowThicknessType::CONSTANT:
-            this->constantSnowThick();
-            break;
-        case setup::SnowThicknessType::TOPAZ4:
-            this->topazSnowThick();
-            break;
-
-        default:
-            std::cout << "invalid initialization of snow thickness"<<"\n";
-            throw std::logic_error("invalid initialization of snow thickness");
-    }
-}
-
-void
-FiniteElement::constantSnowThick()
-{
-    for (int i=0; i<M_num_elements; ++i)
-    {
-        M_snow_thick[i] = (vm["simul.init_snow_thickness"].as<double>())*M_conc[i];
-    }
-}
-
-void
-FiniteElement::topazSnowThick()
-{
 }
 
 void

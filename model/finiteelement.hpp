@@ -183,10 +183,7 @@ public:
     void forcingAtmosphere(bool reload);//(double const& u, double const& v);
     void forcingOcean(bool reload);//(double const& u, double const& v);
 
-    void initConcentration();
-    void initThickness();
-    void initDamage();
-    void initSnowThickness();
+    void initIce();
     void initThermodynamics();
     void initSlabOcean();
     void initDrifter();
@@ -237,11 +234,8 @@ private:
     setup::AtmosphereType M_atmosphere_type;
     setup::OceanType M_ocean_type;
 
-    setup::IceCategoryType M_ice_type;
-    setup::ConcentrationType M_conc_type;
-    setup::ThicknessType M_thick_type;
-    setup::DamageType M_damage_type;
-    setup::SnowThicknessType M_snow_thick_type;
+    setup::IceCategoryType M_ice_cat_type;
+    setup::IceType M_ice_type;
     setup::DrifterType M_drifter_type;
     setup::DomainType M_domain_type;
     setup::MeshType M_mesh_type;
@@ -384,31 +378,30 @@ private:
     // Drifters
     std::vector<double> M_drifter;
 
-    // Prognostic variables
+    // Prognostic ice variables
     std::vector<double> M_conc;         // Ice concentration
     std::vector<double> M_thick;        // Effective ice thickness [m]
     std::vector<double> M_damage;       // Ice damage
     std::vector<double> M_snow_thick;   // Effective snow thickness [m]
-    std::vector<double> M_tsurf;        // Ice surface temperature [C]
+	
+	// Prognostic slab ocean variables
     std::vector<double> M_sst;          // Sea-surface temperature [C]
     std::vector<double> M_sss;          // Sea-surface salinity [psu]
+	
+	// Non-prognostic variables used to speed up the convergence of a non-linear equation in thermodynamics
+    std::vector<double> M_tsurf;        // Ice surface temperature [C]
+	
 
 private:
     void constantAtmosphere();
     void constantOcean();
-
-    void constantConc();
-    void constantThick();
-    void constantDamage();
-    void constantSnowThick();
+    void constantIce();
+	
     void equallySpacedDrifter();
-
-    void topazConc();
-    void topazThick();
-    void topazSnowThick();
 
     void asrAtmosphere(bool reload);//(double const& u, double const& v);
     void topazOcean(bool reload);//(double const& u, double const& v);
+    void topazIce();
 
     void loadDataset(Dataset *dataset);//(double const& u, double const& v);
     void loadGrid(Grid *grid);

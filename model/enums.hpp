@@ -35,7 +35,7 @@ namespace setup
 		MITGCM   = 3
     };
 
-    enum class ConcentrationType
+    enum class IceType
 	{
 		CONSTANT  = 0,
 		AMSRE     = 1,
@@ -46,36 +46,11 @@ namespace setup
         MITGCM    = 7
 	};
 
-    enum class ThicknessType
-    {
-        CONSTANT  = 0,
-        SMOS      = 1,
-        ARBITRARY = 2,
-        ICESAT    = 3,
-        TOPAZ4    = 4,
-        MITGCM    = 5
-    };
-
-    enum class DamageType
-    {
-        CONSTANT = 0,
-        RGPS     = 1,
-        RCONC    = 2
-    };
-
     enum class IceCategoryType
     {
         CLASSIC     = 0,
         THIN_ICE    = 1,
         MULTI       = 2
-    };
-
-    enum class SnowThicknessType
-    {
-        CONSTANT  = 0,
-        ARBITRARY = 1,
-        TOPAZ4    = 2,
-        MITGCM    = 3
     };
 
     enum class DrifterType

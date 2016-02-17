@@ -33,10 +33,7 @@ namespace Nextsim
 
             ("setup.atmosphere-type", po::value<std::string>()->default_value( "asr" ), "")
             ("setup.ocean-type", po::value<std::string>()->default_value( "constant" ), "")
-            ("setup.concentration-type", po::value<std::string>()->default_value( "constant" ), "")
-            ("setup.thickness-type", po::value<std::string>()->default_value( "constant" ), "")
-            ("setup.snow-thickness-type", po::value<std::string>()->default_value( "constant" ), "")
-            ("setup.damage-type", po::value<std::string>()->default_value( "constant" ), "")
+            ("setup.ice-type", po::value<std::string>()->default_value( "constant" ), "")
 
             ("simul.mesh_filename", po::value<std::string>()->default_value( "bigarctic10km.msh" ), "")
             ("simul.hsize", po::value<double>()->default_value( 0.01 ), "")
