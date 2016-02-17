@@ -413,7 +413,6 @@ FiniteElement::initSimulation()
         variables_tmp0[1] = v10;
 
     M_asr_nodes_dataset={
-        case_number:0,
         dirname: "data",
         prefix: "asr30km.comb.2d.", // "asr30km.comb.2D.";
         postfix:".nc",
@@ -507,7 +506,6 @@ FiniteElement::initSimulation()
     variables_tmp1[6] = precip;
 
     M_asr_elements_dataset={
-        case_number:1,
         dirname:"data",
         prefix:"asr30km.comb.2d.", // "asr30km.comb.2D.";
         postfix:".nc",
@@ -652,6 +650,37 @@ FiniteElement::initSimulation()
 		NcVar: NcVar_tmp,
 		data2: data2_tmp
 	};
+	
+	Variable conc={
+		name: "fice",
+		dimensions: dimensions_topaz,
+		a: 1.,
+		b: 0.,
+		Units: "",
+		NcVar: NcVar_tmp,
+		data2: data2_tmp
+	};
+
+	Variable thick={
+		name: "hice",
+		dimensions: dimensions_topaz,
+		a: 1.,
+		b: 0.,
+		Units: "m",
+		NcVar: NcVar_tmp,
+		data2: data2_tmp
+	};
+
+	Variable snow_thick={
+		name: "hsnow",
+		dimensions: dimensions_topaz,
+		a: 1.,
+		b: 0.,
+		Units: "m",
+		NcVar: NcVar_tmp,
+		data2: data2_tmp
+	};
+
 
     M_topaz_grid={
         interpolation_method: setup::InterpolationType::InterpFromMeshToMesh2dx,
@@ -678,7 +707,6 @@ FiniteElement::initSimulation()
     variables_tmp2[2] = ssh;
 
     M_topaz_nodes_dataset={
-        case_number: 2,
         dirname: "data",
         prefix: "TP4DAILY_",
         postfix: "_30m.nc",
@@ -701,7 +729,6 @@ FiniteElement::initSimulation()
     variables_tmp3[2] = mld;
 
     M_topaz_elements_dataset={
-        case_number: 3,
         dirname: "data",
         prefix: "TP4DAILY_",
         postfix: "_3m.nc",
@@ -716,6 +743,27 @@ FiniteElement::initSimulation()
         grid: &M_topaz_grid};
 
     M_topaz_elements_dataset.ftime_range.resize(2,0.);
+	
+    std::vector<Variable> variables_tmp4(3);
+    variables_tmp4[0] = conc;
+    variables_tmp4[1] = thick;
+    variables_tmp4[2] = snow_thick;
+
+    M_ice_topaz_elements_dataset={
+        dirname: "data",
+        prefix: "TP4DAILY_",
+        postfix: "_3m.nc",
+        reference_date: "1950-01-01",
+        
+        nb_timestep_day: 1,
+        time: topaz_time,
+        dimension_time: topaz_dimension_time,
+        
+        variables: variables_tmp4,
+        target_size: M_num_elements,
+        grid: &M_topaz_grid};
+
+    M_ice_topaz_elements_dataset.ftime_range.resize(2,0.);
 
     loadGrid(&M_asr_grid);
     loadGrid(&M_topaz_grid);
@@ -1591,6 +1639,7 @@ FiniteElement::regrid(bool step)
     M_asr_elements_dataset.target_size=M_num_elements;
     M_topaz_nodes_dataset.target_size=M_num_nodes;
     M_topaz_elements_dataset.target_size=M_num_elements;
+    M_ice_topaz_elements_dataset.target_size=M_num_elements;
 
     M_Cohesion.resize(M_num_elements);
     M_Compressive_strength.resize(M_num_elements);
@@ -4699,12 +4748,10 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
     auto RX = M_mesh.coordX(dataset->grid->rotation_angle);
     auto RY = M_mesh.coordY(dataset->grid->rotation_angle);
 
-    switch(dataset->case_number)
+    if(dataset->target_size==M_num_elements)
     {
-        case 1: case 3:
-            RX = M_mesh.bcoordX(dataset->grid->rotation_angle);
-            RY = M_mesh.bcoordY(dataset->grid->rotation_angle);
-            break;
+    	RX = M_mesh.bcoordX(dataset->grid->rotation_angle);
+        RY = M_mesh.bcoordY(dataset->grid->rotation_angle);
     }
 
     //int interp_type = TriangleInterpEnum;
@@ -4994,472 +5041,46 @@ FiniteElement::constantConc()
 void
 FiniteElement::topazConc()
 {
-    std::string init_timestr = to_date_string_ym(time_init);
-    std::cout<<"TIMEINITSTR= "<< init_timestr <<"\n";
-    std::string init_filename = (boost::format( "%1%/data/TP4DAILY_%2%_3m.nc" )
-                                       % Environment::nextsimDir().string()
-                                       % init_timestr ).str();
-
-    std::cout<<"TOPAZ INIT FILE= "<< init_filename <<"\n";
-
-    // read in latitude and longitude
-    std::vector<size_t> index_start(2);
-    std::vector<size_t> index_end(2);
-
-    index_start[0] = 0;
-    index_start[1] = 0;
-
-    index_end[0] = 1101;
-    index_end[1] = 761;
-
-    std::vector<double> LAT(index_end[0]*index_end[1]);
-    std::vector<double> LON(index_end[0]*index_end[1]);
-
-    std::vector<double> XTIME(31);
-    std::vector<size_t> index_fhice_start(3,0);
-    std::vector<size_t> index_fhice_end(3);
-
-    std::cout<<"READING NETCDF file "<< init_filename <<" starts\n";
-    //netCDF::NcFile::FileFormat format = netCDF::NcFile::classic;
-    netCDF::NcFile dataFile(init_filename, netCDF::NcFile::read);
-    netCDF::NcVar VLAT = dataFile.getVar("latitude");
-    netCDF::NcVar VLON = dataFile.getVar("longitude");
-    netCDF::NcVar VFICE;
-    netCDF::NcVar VHICE;
-    netCDF::NcVar VSNOW;
-
-    if (M_conc_type == setup::ConcentrationType::TOPAZ4)
+    if ((current_time < M_ice_topaz_elements_dataset.ftime_range[0]) || (M_ice_topaz_elements_dataset.ftime_range[1] < current_time) || (current_time == time_init))
     {
-        VFICE = dataFile.getVar("fice");
+        if (current_time == time_init)
+            std::cout<<"load ice state from TOPAZ for initial time\n";
+        else
+            std::cout<<" ice state not available for the current date: load data from TOPAZ\n";
+
+        this->loadDataset(&M_ice_topaz_elements_dataset);
     }
 
-    if (M_thick_type == setup::ThicknessType::TOPAZ4)
+    double fdt = std::abs(M_ice_topaz_elements_dataset.ftime_range[1]-M_ice_topaz_elements_dataset.ftime_range[0]);
+    std::vector<double> fcoeff(2);
+    fcoeff[0] = std::abs(current_time-M_ice_topaz_elements_dataset.ftime_range[1])/fdt;
+    fcoeff[1] = std::abs(current_time-M_ice_topaz_elements_dataset.ftime_range[0])/fdt;
+
+    std::cout<<"TOPAZ LINEAR COEFF 1= "<< fcoeff[0] <<"\n";
+    std::cout<<"TOPAZ LINEAR COEFF 2= "<< fcoeff[1] <<"\n";
+
+	double tmp_var;
+    for (int i=0; i<M_num_elements; ++i)
     {
-        VHICE = dataFile.getVar("hice");
-    }
-
-    if (M_snow_thick_type == setup::SnowThicknessType::TOPAZ4)
-    {
-        VSNOW = dataFile.getVar("hsnow");
-    }
-
-    netCDF::NcVar VTIME = dataFile.getVar("time");
-    std::cout<<"READING NETCDF "<< init_filename << " done\n";
-
-    VLAT.getVar(index_start,index_end,&LAT[0]);
-    VLON.getVar(index_start,index_end,&LON[0]);
-
-    VTIME.getVar(&XTIME[0]);
-
-    std::vector<double> X(index_end[0]*index_end[1]);
-    std::vector<double> Y(index_end[0]*index_end[1]);
-
-    mapx_class *map;
-    std::string configfile = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
-    std::vector<char> str(configfile.begin(), configfile.end());
-    str.push_back('\0');
-    map = init_mapx(&str[0]);
-
-    std::vector<double> xy(2);
-
-    for (int i=0; i<index_end[0]; ++i)
-    {
-        for (int j=0; j<index_end[1]; ++j)
+		tmp_var=fcoeff[0]*M_ice_topaz_elements_dataset.variables[0].data2[0][i] + fcoeff[1]*M_ice_topaz_elements_dataset.variables[0].data2[1][i];
+		M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+		tmp_var=fcoeff[0]*M_ice_topaz_elements_dataset.variables[1].data2[0][i] + fcoeff[1]*M_ice_topaz_elements_dataset.variables[1].data2[1][i];
+		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+		tmp_var=fcoeff[0]*M_ice_topaz_elements_dataset.variables[2].data2[0][i] + fcoeff[1]*M_ice_topaz_elements_dataset.variables[2].data2[1][i];
+		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+		
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
         {
-            xy=latLon2XY(LAT[index_end[1]*i+j], LON[index_end[1]*i+j], map, configfile);
-            X[index_end[1]*i+j] = xy[0];
-            Y[index_end[1]*i+j] = xy[1];
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
         }
-    }
-
-    close_mapx(map);
-
-    auto RX = M_mesh.bcoordX();
-    auto RY = M_mesh.bcoordY();
-
-#if 0
-    std::cout<<"MIN BOUND TOPAZX= "<< *std::min_element(X.begin(),X.end()) <<"\n";
-    std::cout<<"MAX BOUND TOPAZX= "<< *std::max_element(X.begin(),X.end()) <<"\n";
-
-    std::cout<<"MIN BOUND TOPAZY= "<< *std::min_element(Y.begin(),Y.end()) <<"\n";
-    std::cout<<"MAX BOUND TOPAZY= "<< *std::max_element(Y.begin(),Y.end()) <<"\n";
-
-    std::cout<<"MIN BOUND MESHX= "<< *std::min_element(RX.begin(),RX.end()) <<"\n";
-    std::cout<<"MAX BOUND MESHX= "<< *std::max_element(RX.begin(),RX.end()) <<"\n";
-
-    std::cout<<"MIN BOUND MESHY= "<< *std::min_element(RY.begin(),RY.end()) <<"\n";
-    std::cout<<"MAX BOUND MESHY= "<< *std::max_element(RY.begin(),RY.end()) <<"\n";
-#endif
-
-    std::cout<<"VALUE= "<< from_date_string("1950-01-01") <<"\n";
-    double target = (time_init - from_date_string("1950-01-01"))*24.0;
-    //std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string("1950-01-01"); });
-    std::cout<<"TARGET= "<< target <<"\n";
-
-    // for (int i=0; i<31; ++i)
-    // {
-    //     std::cout<<"TIME["<< i <<"]= "<< XTIME[i] <<"\n";
-    // }
-
-    if (std::find(XTIME.begin(), XTIME.end(), target) == XTIME.end())
-    {
-        std::cout<<"forcing not available for this initial time\n";
-        std::cout<<"take the largest integer value not greater than initial time\n";
-
-        target = (std::floor(time_init) - from_date_string("1950-01-01"))*24.0;
-    }
-
-    auto it = std::find(XTIME.begin(), XTIME.end(), target);
-    int index = std::distance(XTIME.begin(),it);
-    std::cout<<"INIT TIME TOPAZ FOUND "<< target <<" in index "<< index <<"\n";
-
-    index_fhice_start[0] = index;
-    index_fhice_start[1] = index_start[0];
-    index_fhice_start[2] = index_start[1];
-
-    index_fhice_end[0] = 1;
-    index_fhice_end[1] = index_end[0];
-    index_fhice_end[2] = index_end[1];
-
- #if 0
-    std::cout<<"NETCDF INFO: "<<dataFile.getVarCount()<<" variables\n";
-    std::cout<<"NETCDF INFO: "<<dataFile.getAttCount()<<" attributes\n";
-    std::cout<<"NETCDF INFO: "<<dataFile.getDimCount()<<" dimensions\n";
-    std::cout<<"NETCDF INFO: "<<dataFile.getGroupCount()<<" groups\n";
-    std::cout<<"NETCDF INFO: "<<dataFile.getTypeCount()<<" types\n";
-#endif
-
-    // void* data_void[1101*index_end[1]];
-    // VFICE.getVar(index_fhice_start,index_fhice_end,data_void);
-
-    //float* data_values = (float*)data_void;
-    //float* data_values = reinterpret_cast<float*>(data_void);
-    // double* data_values = (double*)data_void;
-
-    std::vector<double> data_in_fice;
-    std::vector<double> data_in_hice;
-    std::vector<double> data_in_snow;
-
-    std::vector<double> reduced_data_in_fice;
-    std::vector<double> reduced_FX;
-    std::vector<double> reduced_FY;
-
-    std::vector<double> reduced_data_in_hice;
-    std::vector<double> reduced_HX;
-    std::vector<double> reduced_HY;
-
-    std::vector<double> reduced_data_in_snow;
-    std::vector<double> reduced_SX;
-    std::vector<double> reduced_SY;
-
-    netCDF::NcVarAtt att;
-    double scale_factor_fice, add_offset_fice;
-    double scale_factor_hice, add_offset_hice;
-    double scale_factor_snow, add_offset_snow;
-    int FillValue_fice, FillValue_hice, FillValue_snow;
-
-    // Need to multiply with scale factor and add offset - these are stored as variable attributes
-    if (M_conc_type == setup::ConcentrationType::TOPAZ4)
-    {
-        data_in_fice.resize(index_end[0]*index_end[1]);
-        VFICE.getVar(index_fhice_start,index_fhice_end,&data_in_fice[0]);
-
-		att = VFICE.getAtt("scale_factor");
-		att.getValues(&scale_factor_fice);
-		att = VFICE.getAtt("add_offset");
-		att.getValues(&add_offset_fice);
-		att = VFICE.getAtt("_FillValue");
-		att.getValues(&FillValue_fice);
+        if(M_thick[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
 	}
-
-	if (M_thick_type == setup::ThicknessType::TOPAZ4)
-	{
-		data_in_hice.resize(index_end[0]*index_end[1]);
-		VHICE.getVar(index_fhice_start,index_fhice_end,&data_in_hice[0]);
-
-		att = VHICE.getAtt("scale_factor");
-		att.getValues(&scale_factor_hice);
-		att = VHICE.getAtt("add_offset");
-		att.getValues(&add_offset_hice);
-		att = VHICE.getAtt("_FillValue");
-		att.getValues(&FillValue_hice);
-	}
-
-	if (M_snow_thick_type == setup::SnowThicknessType::TOPAZ4)
-	{
-		data_in_snow.resize(index_end[0]*index_end[1]);
-		VSNOW.getVar(index_fhice_start,index_fhice_end,&data_in_snow[0]);
-
-		att = VSNOW.getAtt("scale_factor");
-		att.getValues(&scale_factor_snow);
-		att = VSNOW.getAtt("add_offset");
-		att.getValues(&add_offset_snow);
-		att = VSNOW.getAtt("_FillValue");
-		att.getValues(&FillValue_snow);
-    }
-
-    for (int i=0; i<index_end[0]; ++i)
-    {
-        for (int j=0; j<index_end[1]; ++j)
-        {
-            if (M_conc_type == setup::ConcentrationType::TOPAZ4)
-            {
-                // maskvfh = data_in_fice[index_end[1]*i+j]*scale_factor_fice+add_offset_fice;
-                // maskvfh = std::abs(maskvfh);
-
-                if (data_in_fice[index_end[1]*i+j] != FillValue_fice)
-                {
-                    reduced_data_in_fice.push_back(data_in_fice[index_end[1]*i+j]*scale_factor_fice+add_offset_fice);
-                    reduced_FX.push_back(X[index_end[1]*i+j]);
-                    reduced_FY.push_back(Y[index_end[1]*i+j]);
-                }
-            }
-
-            if (M_thick_type == setup::ThicknessType::TOPAZ4)
-            {
-                // maskvfh = data_in_hice[index_end[1]*i+j]*scale_factor_hice+add_offset_hice;
-                // maskvfh = std::abs(maskvfh);
-
-                if (data_in_fice[index_end[1]*i+j] != FillValue_hice)
-                {
-                    reduced_data_in_hice.push_back(data_in_hice[index_end[1]*i+j]*scale_factor_hice+add_offset_hice);
-                    reduced_HX.push_back(X[index_end[1]*i+j]);
-                    reduced_HY.push_back(Y[index_end[1]*i+j]);
-                }
-            }
-
-            if (M_snow_thick_type == setup::SnowThicknessType::TOPAZ4)
-            {
-                // maskvfh = data_in_snow[index_end[1]*i+j]*scale_factor_snow+add_offset_snow;
-                // maskvfh = std::abs(maskvfh);
-
-                if (data_in_fice[index_end[1]*i+j] != FillValue_snow)
-                {
-                    reduced_data_in_snow.push_back(data_in_snow[index_end[1]*i+j]*scale_factor_snow+add_offset_snow);
-                    reduced_SX.push_back(X[index_end[1]*i+j]);
-                    reduced_SY.push_back(Y[index_end[1]*i+j]);
-                }
-            }
-        }
-    }
-
-#if 0
-    if (M_conc_type == setup::ConcentrationType::TOPAZ4)
-    {
-        std::cout<<"MIN DATA_IN FICE= "<< *std::min_element(data_in_fice.begin(),data_in_fice.end()) <<"\n";
-        std::cout<<"MAX DATA_IN FICE= "<< *std::max_element(data_in_fice.begin(),data_in_fice.end()) <<"\n";
-    }
-
-    if (M_thick_type == setup::ThicknessType::TOPAZ4)
-    {
-        std::cout<<"MIN DATA_IN HICE= "<< *std::min_element(data_in_hice.begin(),data_in_hice.end()) <<"\n";
-        std::cout<<"MAX DATA_IN HICE= "<< *std::max_element(data_in_hice.begin(),data_in_hice.end()) <<"\n";
-    }
-#endif
-
-#if 1
-    // bamg triangulation
-
-    if (M_conc_type == setup::ConcentrationType::TOPAZ4)
-    {
-        std::cout<<"SIZE REDUCED_FX= "<< reduced_FX.size() <<"\n";
-        std::cout<<"SIZE REDUCED_FY= "<< reduced_FY.size() <<"\n";
-
-        std::cout<<"MIN DATA_RF_IN = "<< *std::min_element(reduced_data_in_fice.begin(),reduced_data_in_fice.end()) <<"\n";
-        std::cout<<"MAX DATA_RF_IN = "<< *std::max_element(reduced_data_in_fice.begin(),reduced_data_in_fice.end()) <<"\n";
-    }
-
-    if (M_thick_type == setup::ThicknessType::TOPAZ4)
-    {
-        std::cout<<"SIZE REDUCED_HX= "<< reduced_HX.size() <<"\n";
-        std::cout<<"SIZE REDUCED_HY= "<< reduced_HY.size() <<"\n";
-
-        std::cout<<"MIN DATA_RH_IN = "<< *std::min_element(reduced_data_in_hice.begin(),reduced_data_in_hice.end()) <<"\n";
-        std::cout<<"MAX DATA_RH_IN = "<< *std::max_element(reduced_data_in_hice.begin(),reduced_data_in_hice.end()) <<"\n";
-    }
-
-    if (M_snow_thick_type == setup::SnowThicknessType::TOPAZ4)
-    {
-        std::cout<<"SIZE REDUCED_SX= "<< reduced_SX.size() <<"\n";
-        std::cout<<"SIZE REDUCED_SY= "<< reduced_SY.size() <<"\n";
-
-        std::cout<<"MIN DATA_RS_IN = "<< *std::min_element(reduced_data_in_snow.begin(),reduced_data_in_snow.end()) <<"\n";
-        std::cout<<"MAX DATA_RS_IN = "<< *std::max_element(reduced_data_in_snow.begin(),reduced_data_in_snow.end()) <<"\n";
-    }
-
-    int* pfindex;
-    int pfnels;
-
-    if (M_conc_type == setup::ConcentrationType::TOPAZ4)
-    {
-        std::cout<<"FICE: Triangulate starts\n";
-        BamgTriangulatex(&pfindex,&pfnels,&reduced_FX[0],&reduced_FY[0],reduced_FX.size());
-        std::cout<<"FICE: NUMTRIANGLES= "<< pfnels <<"\n";
-        std::cout<<"FICE: Triangulate done\n";
-        // for (int i=0; i<Y.size(); ++i)
-        // {
-        //     std::cout<<"Point["<< i <<"]= ("<< RX[i] << " , "<< RY[i] <<")\n";
-        // }
-    }
-
-    int* phindex;
-    int phnels;
-
-    if (M_thick_type == setup::ThicknessType::TOPAZ4)
-    {
-        std::cout<<"HICE: Triangulate starts\n";
-        BamgTriangulatex(&phindex,&phnels,&reduced_HX[0],&reduced_HY[0],reduced_HX.size());
-        std::cout<<"HICE: NUMTRIANGLES= "<< phnels <<"\n";
-        std::cout<<"HICE: Triangulate done\n";
-        // for (int i=0; i<Y.size(); ++i)
-        // {
-        //     std::cout<<"Point["<< i <<"]= ("<< RX[i] << " , "<< RY[i] <<")\n";
-        // }
-    }
-
-    int* psindex;
-    int psnels;
-
-    if (M_snow_thick_type == setup::SnowThicknessType::TOPAZ4)
-    {
-        std::cout<<"HSNOW: Triangulate starts\n";
-        BamgTriangulatex(&psindex,&psnels,&reduced_SX[0],&reduced_SY[0],reduced_SX.size());
-        std::cout<<"HSNOW: NUMTRIANGLES= "<< psnels <<"\n";
-        std::cout<<"HSNOW: Triangulate done\n";
-        // for (int i=0; i<Y.size(); ++i)
-        // {
-        //     std::cout<<"Point["<< i <<"]= ("<< RX[i] << " , "<< RY[i] <<")\n";
-        // }
-    }
-#endif
-
-    //int interp_type = TriangleInterpEnum;
-    //int interp_type = BilinearInterpEnum;
-    int interp_type = NearestInterpEnum;
-
-    // std::vector<double> data_out_fice_tmp;
-    // std::vector<double> data_out_hice_tmp;
-    // std::vector<double> data_out_snow_tmp;
-
-    if (M_conc_type == setup::ConcentrationType::TOPAZ4)
-    {
-        double* data_out_fice;
-        //data_out_fice_tmp.resize(M_num_elements);
-
-        // InterpFromGridToMeshx(data_out_fice, &X[0], X.size(), &Y[0], Y.size(), &data_in_fice[0], Y.size(), X.size(),
-        //                       &RX[0], &RY[0], M_mesh.numTriangles(), 1.0, interp_type);
-
-        InterpFromMeshToMesh2dx(&data_out_fice,
-                                pfindex,&reduced_FX[0],&reduced_FY[0],
-                                reduced_FX.size(),pfnels,
-                                &reduced_data_in_fice[0],
-                                reduced_FX.size(),1,
-                                &RX[0], &RY[0], M_num_elements,
-                                false /*options*/);
-
-
-        for (int i=0; i<M_num_elements; ++i)
-        {
-            //data_out_fice_tmp[i] = data_out_fice[i];
-            // M_conc[i] = data_out_fice[i];
-            M_conc[i] = (data_out_fice[i]>1e-14) ? data_out_fice[i] : 0.;
-            //std::cout<<"MCONC["<< i <<"]= "<< M_conc[i] <<"\n";
-        }
-    }
-
-    if (M_thick_type == setup::ThicknessType::TOPAZ4)
-    {
-        double* data_out_hice;
-        //data_out_hice_tmp.resize(M_num_elements);
-
-        // InterpFromGridToMeshx(data_out_hice, &X[0], X.size(), &Y[0], Y.size(), &data_in_hice[0], Y.size(), X.size(),
-        //                       &RX[0], &RY[0], M_mesh.numTriangles(), 1.0, interp_type);
-
-        InterpFromMeshToMesh2dx(&data_out_hice,
-                                phindex,&reduced_HX[0],&reduced_HY[0],
-                                reduced_HX.size(),phnels,
-                                &reduced_data_in_hice[0],
-                                reduced_HX.size(),1,
-                                &RX[0], &RY[0], M_num_elements,
-                                false /*options*/);
-
-
-        for (int i=0; i<M_num_elements; ++i)
-        {
-            //data_out_hice_tmp[i] = data_out_hice[i];
-            //M_thick[i] = data_out_hice[i];
-            M_thick[i] = (data_out_hice[i]>1e-14) ? data_out_hice[i] : 0.;
-
-            //std::cout<<"MTHICKC["<< i <<"]= "<< M_thick[i] <<"\n";
-        }
-    }
-
-    if (M_snow_thick_type == setup::SnowThicknessType::TOPAZ4)
-    {
-        double* data_out_snow;
-        //data_out_snow_tmp.resize(M_num_elements);
-
-        // InterpFromGridToMeshx(data_out_hice, &X[0], X.size(), &Y[0], Y.size(), &data_in_hice[0], Y.size(), X.size(),
-        //                       &RX[0], &RY[0], M_num_elements, 1.0, interp_type);
-
-        InterpFromMeshToMesh2dx(&data_out_snow,
-                                psindex,&reduced_SX[0],&reduced_SY[0],
-                                reduced_SX.size(),psnels,
-                                &reduced_data_in_snow[0],
-                                reduced_SX.size(),1,
-                                &RX[0], &RY[0], M_num_elements,
-                                false /*options*/);
-
-
-        for (int i=0; i<M_num_elements; ++i)
-        {
-            //data_out_snow_tmp[i] = data_out_snow[i];
-            // M_snow_thick[i] = data_out_snow[i];
-            M_snow_thick[i] = (data_out_snow[i]>1e-14) ? data_out_snow[i] : 0.;
-
-            //std::cout<<"MTHICKC["<< i <<"]= "<< M_snow_thick[i] <<"\n";
-        }
-    }
-
-    if (M_thick_type == setup::ThicknessType::TOPAZ4)
-    {
-        for (int i=0; i<M_num_elements; ++i)
-        {
-            //if either c or h equal zero, we set the others to zero as well
-            if(M_conc[i]<=0.)
-            {
-                M_thick[i]=0.;
-                M_snow_thick[i]=0.;
-            }
-            if(M_thick[i]<=0.)
-            {
-                M_conc[i]=0.;
-                M_snow_thick[i]=0.;
-            }
-            //std::cout<<"MTHICKC["<< i <<"]= "<< M_thick[i] <<"\n";
-        }
-    }
-
-
-#if 0
-    if (M_conc_type == forcing::ConcentrationType::TOPAZ4)
-    {
-        std::cout<<"MIN DATA_OUT FICE= "<< *std::min_element(data_out_fice_tmp.begin(),data_out_fice_tmp.end()) <<"\n";
-        std::cout<<"MAX DATA_OUT FICE= "<< *std::max_element(data_out_fice_tmp.begin(),data_out_fice_tmp.end()) <<"\n";
-    }
-
-    if (M_thick_type == setup::ThicknessType::TOPAZ4)
-    {
-        std::cout<<"MIN DATA_OUT HICE= "<< *std::min_element(data_out_hice_tmp.begin(),data_out_hice_tmp.end()) <<"\n";
-        std::cout<<"MAX DATA_OUT HICE= "<< *std::max_element(data_out_hice_tmp.begin(),data_out_hice_tmp.end()) <<"\n";
-    }
-
-    if (M_snow_thick_type == setup::SnowThicknessType::TOPAZ4)
-    {
-        std::cout<<"MIN DATA_OUT SNOW= "<< *std::min_element(data_out_snow_tmp.begin(),data_out_snow_tmp.end()) <<"\n";
-        std::cout<<"MAX DATA_OUT SNOW= "<< *std::max_element(data_out_snow_tmp.begin(),data_out_snow_tmp.end()) <<"\n";
-    }
-#endif
 }
 
 void

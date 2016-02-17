@@ -100,7 +100,6 @@ public:
 
     typedef struct Dataset
     {
-        int case_number;
         std::string dirname;
         std::string prefix;
         std::string postfix;
@@ -157,6 +156,7 @@ public:
     Dataset M_asr_elements_dataset;
     Dataset M_topaz_nodes_dataset;
     Dataset M_topaz_elements_dataset;
+	Dataset M_ice_topaz_elements_dataset;
 
     Grid M_asr_grid;
     Grid M_topaz_grid;
