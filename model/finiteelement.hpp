@@ -37,48 +37,6 @@ extern "C"
 namespace Nextsim
 {
 
-struct Dimension
-{
-    std::string name;
-    int start;
-    int end;
-};
-
-struct Variable
-{
-    std::string name;
-    std::vector<Dimension> dimensions;
-    double a;
-    double b;
-    std::string Units;
-    netCDF::NcVar NcVar;
-};
-
-struct Dataset
-{
-    int case_number;
-    std::string dirname;
-    std::string prefix;
-    std::string postfix;
-    std::string reference_date;
-    int nb_timestep_day;
-    Variable latitude;
-    Variable longitude;
-    Variable time;
-    Dimension dimension_x;
-    Dimension dimension_y;
-    Dimension dimension_time;
-    std::vector<Variable> variables;
-    int target_size;
-    std::string mpp_file;
-    double rotation_angle;
-    std::vector<double> ftime_range;
-    int* pfindex;
-    int pfnels;
-    std::vector<double> gridX;
-    std::vector<double> gridY;
-};
-
 class FiniteElement
 {
 public:
@@ -129,6 +87,11 @@ public:
 
         std::string mpp_file;
         double rotation_angle;
+		
+		bool masking;
+		Variable masking_variable;
+		std::vector<int> reduced_nodes_ind;
+		
         int* pfindex;
         int pfnels;
         std::vector<double> gridX;

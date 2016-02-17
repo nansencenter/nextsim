@@ -303,17 +303,20 @@ FiniteElement::initSimulation()
     Dimension asr_dimension_x={
         name:"x",
         start:0,
-        end:360};
+        end:360
+	};
 
     Dimension asr_dimension_y={
         name:"y",
         start:0,
-        end:360};
+        end:360
+	};
 
     Dimension asr_dimension_time={
         name:"time", // "Time"
         start:0,
-        end:248};
+        end:248
+	};
 
     std::vector<Dimension> dimensions_asr_latlon(2);
     dimensions_asr_latlon[0] = asr_dimension_y;
@@ -339,7 +342,8 @@ FiniteElement::initSimulation()
         b: 0.,
         Units: "degree_north",
         NcVar: NcVar_tmp,
-        data2: data2_tmp};
+        data2: data2_tmp
+	};
 
     Variable asr_longitude={
         name: "XLONG",
@@ -348,7 +352,8 @@ FiniteElement::initSimulation()
         b: 0.,
         Units: "degree_east",
         NcVar: NcVar_tmp,
-        data2: data2_tmp};
+        data2: data2_tmp
+	};
 
     Variable asr_time={
         name: "time",
@@ -357,27 +362,13 @@ FiniteElement::initSimulation()
         b: 0.,
         Units: "hours",
         NcVar: NcVar_tmp,
-        data2: data2_tmp};
+        data2: data2_tmp
+	};
 
     // rotate EB coordinates to fit the ASR coords
     double angle_stereo_mesh = -45;
     double angle_stereo_ASR = -175;
     double diff_angle = -(angle_stereo_mesh-angle_stereo_ASR)*PI/180.;
-
-    M_asr_grid={
-        interpolation_method: setup::InterpolationType::InterpFromGridToMesh,
-        dirname:"data",
-        prefix:"asr30km.comb.2d.", // "asr30km.comb.2D.";
-        postfix:".nc",
-
-        latitude: asr_latitude,
-        longitude: asr_longitude,
-
-        dimension_x: asr_dimension_x,
-        dimension_y: asr_dimension_y,
-        
-        mpp_file: "NpsASR.mpp",
-        rotation_angle: diff_angle};
 
     // conversion factors: xnew = a*x + b
     Variable u10={
@@ -387,7 +378,8 @@ FiniteElement::initSimulation()
         b: 0.,
         Units: "m/s",
         NcVar: NcVar_tmp,
-        data2: data2_tmp};
+        data2: data2_tmp
+	};
 
     Variable v10={
         name: "V10", // U10M
@@ -396,7 +388,25 @@ FiniteElement::initSimulation()
         b: 0.,
         Units: "m/s",
         NcVar: NcVar_tmp,
-        data2: data2_tmp};
+        data2: data2_tmp
+	};
+	
+	M_asr_grid={
+		interpolation_method: setup::InterpolationType::InterpFromGridToMesh,
+		dirname:"data",
+		prefix:"asr30km.comb.2d.", // "asr30km.comb.2D.";
+		postfix:".nc",
+
+		latitude: asr_latitude,
+		longitude: asr_longitude,
+
+		dimension_x: asr_dimension_x,
+		dimension_y: asr_dimension_y,
+        
+		mpp_file: "NpsASR.mpp",
+		rotation_angle: diff_angle,
+		masking: false
+	};
 
     std::vector<Variable> variables_tmp0(2);
         variables_tmp0[0] = u10;
@@ -416,7 +426,8 @@ FiniteElement::initSimulation()
         
         variables: variables_tmp0,
         target_size: M_num_nodes,
-        grid: &M_asr_grid};
+        grid: &M_asr_grid
+	};
 
     M_asr_nodes_dataset.ftime_range.resize(2,0.);
 
@@ -429,7 +440,8 @@ FiniteElement::initSimulation()
         b:-273.15,
         Units:"C",
         NcVar: NcVar_tmp,
-        data2: data2_tmp}; // T2M
+        data2: data2_tmp
+	}; // T2M
     Variable mixrat={
         name:"Q2",
         dimensions: dimensions_asr,
@@ -437,7 +449,8 @@ FiniteElement::initSimulation()
         b:0.,
         Units:"",
         NcVar: NcVar_tmp,
-        data2: data2_tmp}; // Q2M
+        data2: data2_tmp
+	}; // Q2M
     Variable mslp={
         name:"SLP",
         dimensions: dimensions_asr,
@@ -445,7 +458,8 @@ FiniteElement::initSimulation()
         b:0.,
         Units:"Pa",
         NcVar: NcVar_tmp,
-        data2: data2_tmp}; //PSFC, a=1.
+        data2: data2_tmp
+	}; //PSFC, a=1.
     Variable Qsw_in={
         name:"SWDNB",
         dimensions: dimensions_asr,
@@ -453,7 +467,8 @@ FiniteElement::initSimulation()
         b:0.,
         Units:"W/m^2",
         NcVar: NcVar_tmp,
-        data2: data2_tmp};
+        data2: data2_tmp
+	};
     Variable Qlw_in={
         name:"LWDNB",
         dimensions: dimensions_asr,
@@ -461,7 +476,8 @@ FiniteElement::initSimulation()
         b:0.,
         Units:"W/m^2",
         NcVar: NcVar_tmp,
-        data2: data2_tmp};
+        data2: data2_tmp
+	};
     Variable snowfr={
         name:"SR",
         dimensions: dimensions_asr,
@@ -469,7 +485,8 @@ FiniteElement::initSimulation()
         b:0.,
         Units:"",
         NcVar: NcVar_tmp,
-        data2: data2_tmp};
+        data2: data2_tmp
+	};
     Variable precip={
         name:"RAINNC",
         dimensions: dimensions_asr,
@@ -477,7 +494,8 @@ FiniteElement::initSimulation()
         b:0.,
         Units:"kg/m^2/s",
         NcVar: NcVar_tmp,
-        data2: data2_tmp};
+        data2: data2_tmp
+	};
 
     std::vector<Variable> variables_tmp1(7);
     variables_tmp1[0] = tair;
@@ -501,29 +519,34 @@ FiniteElement::initSimulation()
 
         variables: variables_tmp1,
         target_size:M_num_elements,
-        grid: &M_asr_grid};
+        grid: &M_asr_grid
+	};
 
     M_asr_elements_dataset.ftime_range.resize(2,0.);
 
     Dimension topaz_dimension_x={
         name:"x",
         start:0,
-        end:761};
+        end:761
+	};
 
     Dimension topaz_dimension_y={
         name:"y",
         start:0,
-        end:1101};
+        end:1101
+	};
 
     Dimension topaz_dimension_time={
         name:"time", // "Time"
         start:0,
-        end:31};
+        end:31
+	};
 
     Dimension topaz_dimension_depth={
         name:"depth", // "Time"
         start:0,
-        end:1};
+        end:1
+	};
 
     std::vector<Dimension> dimensions_topaz_uv(4);
     dimensions_topaz_uv[0] = topaz_dimension_time;
@@ -570,6 +593,66 @@ FiniteElement::initSimulation()
         NcVar: NcVar_tmp,
         data2: data2_tmp};
 
+    Variable u={
+        name: "u",
+        dimensions: dimensions_topaz_uv,
+        a: 1.,
+        b: 0.,
+        Units: "m/s",
+        NcVar: NcVar_tmp,
+        data2: data2_tmp
+	};
+
+    Variable v={
+        name: "v",
+        dimensions: dimensions_topaz_uv,
+        a: 1.,
+        b: 0.,
+        Units: "m/s",
+        NcVar: NcVar_tmp,
+        data2: data2_tmp
+	};
+
+	Variable ssh={
+		name: "ssh",
+		dimensions: dimensions_topaz,
+		a: 1.,
+		b: 0.,
+		Units: "m/s",
+		NcVar: NcVar_tmp,
+		data2: data2_tmp
+	};
+		
+	Variable sst={
+		name: "temperature",
+		dimensions: dimensions_topaz_uv,
+		a: 1.,
+		b: 0.,
+		Units: "deg celsius",
+		NcVar: NcVar_tmp,
+		data2: data2_tmp
+	};
+
+	Variable sss={
+		name: "salinity",
+		dimensions: dimensions_topaz_uv,
+		a: 1.,
+		b: 0.,
+		Units: "",
+		NcVar: NcVar_tmp,
+		data2: data2_tmp
+	};
+
+	Variable mld={
+		name: "mlp",
+		dimensions: dimensions_topaz,
+		a: 1.,
+		b: 0.,
+		Units: "m",
+		NcVar: NcVar_tmp,
+		data2: data2_tmp
+	};
+
     M_topaz_grid={
         interpolation_method: setup::InterpolationType::InterpFromMeshToMesh2dx,
         dirname: "data",
@@ -583,40 +666,16 @@ FiniteElement::initSimulation()
         dimension_y: topaz_dimension_y,
         
         mpp_file: "NpsNextsim.mpp",
-        rotation_angle: 0.};
-
-    Variable u={
-        name: "u",
-        dimensions: dimensions_topaz_uv,
-        a: 1.,
-        b: 0.,
-        Units: "m/s",
-        NcVar: NcVar_tmp,
-        data2: data2_tmp};
-
-    Variable v={
-        name: "v",
-        dimensions: dimensions_topaz_uv,
-        a: 1.,
-        b: 0.,
-        Units: "m/s",
-        NcVar: NcVar_tmp,
-        data2: data2_tmp};
-
-    Variable ssh={
-        name: "ssh",
-        dimensions: dimensions_topaz,
-        a: 1.,
-        b: 0.,
-        Units: "m/s",
-        NcVar: NcVar_tmp,
-        data2: data2_tmp};
+        rotation_angle: 0.,
+		
+		masking: true,
+		masking_variable: sss
+	};
 
     std::vector<Variable> variables_tmp2(3);
     variables_tmp2[0] = u;
     variables_tmp2[1] = v;
     variables_tmp2[2] = ssh;
-
 
     M_topaz_nodes_dataset={
         case_number: 2,
@@ -635,33 +694,6 @@ FiniteElement::initSimulation()
         grid: &M_topaz_grid};
 
     M_topaz_nodes_dataset.ftime_range.resize(2,0.);
-
-    Variable sst={
-        name: "temperature",
-        dimensions: dimensions_topaz_uv,
-        a: 1.,
-        b: 0.,
-        Units: "deg celsius",
-        NcVar: NcVar_tmp,
-        data2: data2_tmp};
-
-    Variable sss={
-        name: "salinity",
-        dimensions: dimensions_topaz_uv,
-        a: 1.,
-        b: 0.,
-        Units: "",
-        NcVar: NcVar_tmp,
-        data2: data2_tmp};
-
-    Variable mld={
-        name: "mlp",
-        dimensions: dimensions_topaz,
-        a: 1.,
-        b: 0.,
-        Units: "m",
-        NcVar: NcVar_tmp,
-        data2: data2_tmp};
 
     std::vector<Variable> variables_tmp3(3);
     variables_tmp3[0] = sst;
@@ -4121,9 +4153,9 @@ FiniteElement::run()
         std::cout<<"forcingAtmosphere done in "<< chrono.elapsed() <<"s\n";
 
         chrono.restart();
-        //std::cout<<"forcingOcean starts\n";
+        std::cout<<"forcingOcean starts\n";
         this->forcingOcean(M_regrid);
-        //std::cout<<"forcingOcean done in "<< chrono.elapsed() <<"s\n";
+        std::cout<<"forcingOcean done in "<< chrono.elapsed() <<"s\n";
 
 #if 1
         if (pcpt == 0)
@@ -4481,8 +4513,9 @@ FiniteElement::topazOcean(bool reload)
     {
         M_ocean_temp[i] = fcoeff[0]*M_topaz_elements_dataset.variables[0].data2[0][i] + fcoeff[1]*M_topaz_elements_dataset.variables[0].data2[1][i];
         M_ocean_salt[i] = fcoeff[0]*M_topaz_elements_dataset.variables[1].data2[0][i] + fcoeff[1]*M_topaz_elements_dataset.variables[1].data2[1][i];
-        M_mld[i] = std::max(vm["simul.constant_mld"].as<double>(), fcoeff[0]*M_topaz_elements_dataset.variables[2].data2[0][i] + fcoeff[1]*M_topaz_elements_dataset.variables[2].data2[1][i]);
-    }
+        // SYL: this capping of the mld is maybee not necessary
+		M_mld[i] = std::max(vm["simul.constant_mld"].as<double>(), fcoeff[0]*M_topaz_elements_dataset.variables[2].data2[0][i] + fcoeff[1]*M_topaz_elements_dataset.variables[2].data2[1][i]);
+	}
 }
 
 void
@@ -4562,7 +4595,11 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
     int N  = dataset->grid->dimension_x.end;
     int MN = M*N;
 
-    double* data_in = new double[N_data*nb_forcing_step*MN];
+	int reduced_MN=MN;
+	if(dataset->grid->reduced_nodes_ind.size()!=0)
+		reduced_MN=dataset->grid->reduced_nodes_ind.size();
+	
+    double* data_in = new double[N_data*nb_forcing_step*reduced_MN];
 
     std::vector<double> data_in_tmp(MN);
 
@@ -4638,8 +4675,15 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
             catch(netCDF::exceptions::NcException& e)
             {}
 
-            for (int i=0; i<(MN); ++i)
-                data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=data_in_tmp[i]*scale_factor + add_offset;
+			if(dataset->grid->reduced_nodes_ind.size()!=0)
+			{
+				std::cout<<"dataset->grid->reduced_nodes_ind.size() " << dataset->grid->reduced_nodes_ind.size()<<"\n";
+            	for (int i=0; i<(reduced_MN); ++i)
+                	data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=data_in_tmp[dataset->grid->reduced_nodes_ind[i]]*scale_factor + add_offset;
+			}
+			else
+            	for (int i=0; i<(MN); ++i)
+                	data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=data_in_tmp[i]*scale_factor + add_offset;
         }
     }
 
@@ -4759,8 +4803,8 @@ FiniteElement::loadGrid(Grid *grid)
     VLAT.getVar(index_y_start,index_y_end,&YLAT[0]);
     VLON.getVar(index_y_start,index_y_end,&YLON[0]);
 
-    grid->gridX.resize(index_x_end[0]*index_x_end[1]);
-    grid->gridY.resize(index_y_end[0]*index_y_end[1]);
+    std::vector<double> X(index_x_end[0]*index_x_end[1]);
+    std::vector<double> Y(index_y_end[0]*index_y_end[1]);
 
     double RE = 6378.273;
     mapx_class *map;
@@ -4778,7 +4822,7 @@ FiniteElement::loadGrid(Grid *grid)
     {
         for (int j=0; j<index_x_end[1]; ++j)
         {
-            grid->gridX[index_x_end[1]*i+j]=latLon2XY(XLAT[index_x_end[1]*i+j], XLON[index_x_end[1]*i+j], map, configfile)[0];
+            X[index_x_end[1]*i+j]=latLon2XY(XLAT[index_x_end[1]*i+j], XLON[index_x_end[1]*i+j], map, configfile)[0];
         }
     }
 
@@ -4786,7 +4830,7 @@ FiniteElement::loadGrid(Grid *grid)
     {
         for (int j=0; j<index_y_end[1]; ++j)
         {
-            grid->gridY[index_y_end[1]*i+j]=latLon2XY(YLAT[index_y_end[1]*i+j], YLON[index_y_end[1]*i+j], map, configfile)[1];
+            Y[index_y_end[1]*i+j]=latLon2XY(YLAT[index_y_end[1]*i+j], YLON[index_y_end[1]*i+j], map, configfile)[1];
         }
     }
 
@@ -4794,11 +4838,73 @@ FiniteElement::loadGrid(Grid *grid)
 
     if(grid->interpolation_method==setup::InterpolationType::InterpFromMeshToMesh2dx)
     {
+		if(grid->masking){
+			netCDF::NcVar VMASK;
+			
+			VMASK = dataFile.getVar(grid->masking_variable.name);
+			
+			std::vector<double> data_in;
+			
+			std::vector<double> reduced_FX;
+			std::vector<double> reduced_FY;
+			std::vector<int> reduced_nodes_ind;
+
+		    std::vector<size_t> index_start(3,0);
+		    std::vector<size_t> index_end(3);
+
+            index_start.resize(grid->masking_variable.dimensions.size());
+            index_end.resize(grid->masking_variable.dimensions.size());
+
+            for(int k=0; k<grid->masking_variable.dimensions.size(); ++k)
+            {
+                index_start[k] = grid->masking_variable.dimensions[k].start;
+                index_end[k] = grid->masking_variable.dimensions[k].end;
+            }
+            index_start[0] = 0;
+            index_end[0] = 1;
+
+			data_in.resize(index_x_end[0]*index_x_end[1]);
+			VMASK.getVar(index_start,index_end,&data_in[0]);
+
+			netCDF::NcVarAtt att;
+			int FillValue;
+
+			att = VMASK.getAtt("_FillValue");
+			att.getValues(&FillValue);
+		
+			for (int i=0; i<index_x_end[0]; ++i)
+			{
+				for (int j=0; j<index_x_end[1]; ++j)
+				{
+					if (data_in[index_x_end[1]*i+j] != FillValue)
+					{
+						reduced_FX.push_back(X[index_x_end[1]*i+j]);
+						reduced_FY.push_back(Y[index_x_end[1]*i+j]);
+						reduced_nodes_ind.push_back(index_x_end[1]*i+j);
+					}
+				}
+			}
+			grid->gridX=reduced_FX;
+			grid->gridY=reduced_FY;
+			grid->reduced_nodes_ind=reduced_nodes_ind;	            	
+		}
+		else // no masking of the Filled Value
+		{
+		    grid->gridX=X;
+		    grid->gridY=Y;
+		}
+            
         std::cout<<"GRID : Triangulate starts\n";
         BamgTriangulatex(&grid->pfindex,&grid->pfnels,&grid->gridX[0],&grid->gridY[0],grid->gridX.size());
         std::cout<<"GRID : NUMTRIANGLES= "<< grid->pfnels <<"\n";
         std::cout<<"GRID : Triangulate done\n";
     }
+	else
+	{
+	    grid->gridX=X;
+	    grid->gridY=Y;
+	}
+		
 }
 
 void
@@ -5052,38 +5158,38 @@ FiniteElement::topazConc()
         data_in_fice.resize(index_end[0]*index_end[1]);
         VFICE.getVar(index_fhice_start,index_fhice_end,&data_in_fice[0]);
 
-	att = VFICE.getAtt("scale_factor");
-	att.getValues(&scale_factor_fice);
-	att = VFICE.getAtt("add_offset");
-	att.getValues(&add_offset_fice);
-	att = VFICE.getAtt("_FillValue");
-	att.getValues(&FillValue_fice);
-    }
+		att = VFICE.getAtt("scale_factor");
+		att.getValues(&scale_factor_fice);
+		att = VFICE.getAtt("add_offset");
+		att.getValues(&add_offset_fice);
+		att = VFICE.getAtt("_FillValue");
+		att.getValues(&FillValue_fice);
+	}
 
-    if (M_thick_type == setup::ThicknessType::TOPAZ4)
-    {
-        data_in_hice.resize(index_end[0]*index_end[1]);
-        VHICE.getVar(index_fhice_start,index_fhice_end,&data_in_hice[0]);
+	if (M_thick_type == setup::ThicknessType::TOPAZ4)
+	{
+		data_in_hice.resize(index_end[0]*index_end[1]);
+		VHICE.getVar(index_fhice_start,index_fhice_end,&data_in_hice[0]);
 
-	att = VHICE.getAtt("scale_factor");
-	att.getValues(&scale_factor_hice);
-	att = VHICE.getAtt("add_offset");
-	att.getValues(&add_offset_hice);
-	att = VHICE.getAtt("_FillValue");
-	att.getValues(&FillValue_hice);
-    }
+		att = VHICE.getAtt("scale_factor");
+		att.getValues(&scale_factor_hice);
+		att = VHICE.getAtt("add_offset");
+		att.getValues(&add_offset_hice);
+		att = VHICE.getAtt("_FillValue");
+		att.getValues(&FillValue_hice);
+	}
 
-    if (M_snow_thick_type == setup::SnowThicknessType::TOPAZ4)
-    {
-        data_in_snow.resize(index_end[0]*index_end[1]);
-        VSNOW.getVar(index_fhice_start,index_fhice_end,&data_in_snow[0]);
+	if (M_snow_thick_type == setup::SnowThicknessType::TOPAZ4)
+	{
+		data_in_snow.resize(index_end[0]*index_end[1]);
+		VSNOW.getVar(index_fhice_start,index_fhice_end,&data_in_snow[0]);
 
-	att = VSNOW.getAtt("scale_factor");
-	att.getValues(&scale_factor_snow);
-	att = VSNOW.getAtt("add_offset");
-	att.getValues(&add_offset_snow);
-	att = VSNOW.getAtt("_FillValue");
-	att.getValues(&FillValue_snow);
+		att = VSNOW.getAtt("scale_factor");
+		att.getValues(&scale_factor_snow);
+		att = VSNOW.getAtt("add_offset");
+		att.getValues(&add_offset_snow);
+		att = VSNOW.getAtt("_FillValue");
+		att.getValues(&FillValue_snow);
     }
 
     for (int i=0; i<index_end[0]; ++i)
