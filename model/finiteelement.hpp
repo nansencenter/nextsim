@@ -75,9 +75,9 @@ public:
     typedef struct Grid
     {
         setup::InterpolationType interpolation_method;
+		int interp_type;
         std::string dirname;
-        std::string prefix;
-        std::string postfix;
+        std::string filename;
 
         Variable latitude;
         Variable longitude;
@@ -87,6 +87,7 @@ public:
 
         std::string mpp_file;
         double rotation_angle;
+		bool interpolation_in_latlon;
 		
 		bool masking;
 		Variable masking_variable;
@@ -96,6 +97,9 @@ public:
         int pfnels;
         std::vector<double> gridX;
         std::vector<double> gridY;
+		
+        std::vector<double> gridLAT;
+        std::vector<double> gridLON;
     } Grid;
 
     typedef struct Dataset
@@ -105,13 +109,14 @@ public:
         std::string postfix;
         std::string reference_date;
         
-        int nb_timestep_day;
-        Variable time;
-        Dimension dimension_time;
-        
         std::vector<Variable> variables;
         int target_size;
         Grid *grid;
+		
+        int nb_timestep_day;
+        Variable time;
+        Dimension dimension_time;
+		
         std::vector<double> ftime_range;
     } Dataset;
 
@@ -157,9 +162,12 @@ public:
     Dataset M_topaz_nodes_dataset;
     Dataset M_topaz_elements_dataset;
 	Dataset M_ice_topaz_elements_dataset;
+    Dataset M_etopo_elements_dataset;
+	
 
     Grid M_asr_grid;
     Grid M_topaz_grid;
+	Grid M_etopo_grid;
 
     double minAngles(element_type const& element, mesh_type const& mesh) const;
     double minAngle(mesh_type const& mesh) const;
@@ -174,21 +182,20 @@ public:
     std::vector<double> hmaxVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const;
 
     std::vector<double> latLon2XY(double const& lat, double const& lon, mapx_class* map, std::string const& configfile);
-    double latLon2X(double const& lat, double const& lon, mapx_class* map, std::string const& configfile);
-    double latLon2Y(double const& lat, double const& lon, mapx_class* map, std::string const& configfile);
+    std::vector<double> XY2latLon(double const& x, double const& y, mapx_class* map, std::string const& configfile);
 
     void initBamg();
     void initConstant();
     void forcing();
-    void forcingAtmosphere(bool reload);//(double const& u, double const& v);
-    void forcingOcean(bool reload);//(double const& u, double const& v);
+    void forcingAtmosphere(bool reload);
+    void forcingOcean(bool reload);
+	void bathymetry(bool reload);
 
     void initIce();
     void initThermodynamics();
     void initSlabOcean();
     void initDrifter();
     void coriolis();
-    void bathymetry();
     void timeInterpolation(int step);
     void nodesToElements(double const* depth, std::vector<double>& v);
 
@@ -233,9 +240,10 @@ private:
 
     setup::AtmosphereType M_atmosphere_type;
     setup::OceanType M_ocean_type;
+    setup::IceType M_ice_type;
+	setup::BathymetryType M_bathymetry_type;
 
     setup::IceCategoryType M_ice_cat_type;
-    setup::IceType M_ice_type;
     setup::DrifterType M_drifter_type;
     setup::DomainType M_domain_type;
     setup::MeshType M_mesh_type;
@@ -396,12 +404,14 @@ private:
     void constantAtmosphere();
     void constantOcean();
     void constantIce();
-	
+	void constantBathymetry();
+
     void equallySpacedDrifter();
 
-    void asrAtmosphere(bool reload);//(double const& u, double const& v);
-    void topazOcean(bool reload);//(double const& u, double const& v);
+    void asrAtmosphere(bool reload);
+    void topazOcean(bool reload);
     void topazIce();
+	void etopoBathymetry(bool reload);
 
     void loadDataset(Dataset *dataset);//(double const& u, double const& v);
     void loadGrid(Grid *grid);

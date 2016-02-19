@@ -45,6 +45,12 @@ namespace setup
         TOPAZ4F   = 6,
         MITGCM    = 7
 	};
+	
+    enum class BathymetryType
+    {
+        CONSTANT = 0,
+        ETOPO    = 1
+    };
 
     enum class IceCategoryType
     {

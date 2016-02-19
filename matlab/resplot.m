@@ -33,6 +33,7 @@ field='Velocity';
 %field='Vair_factor';
 %field='Voce_factor';
 %field='Damage';
+%field='bathy';
 [mesh_out,data_out] = neXtSIM_bin_revert('', step);
 
 % reshape

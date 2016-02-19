@@ -34,6 +34,7 @@ namespace Nextsim
             ("setup.atmosphere-type", po::value<std::string>()->default_value( "asr" ), "")
             ("setup.ocean-type", po::value<std::string>()->default_value( "constant" ), "")
             ("setup.ice-type", po::value<std::string>()->default_value( "constant" ), "")
+			("setup.bathymetry-type", po::value<std::string>()->default_value( "etopo" ), "")
 
             ("simul.mesh_filename", po::value<std::string>()->default_value( "bigarctic10km.msh" ), "")
             ("simul.hsize", po::value<double>()->default_value( 0.01 ), "")
@@ -67,7 +68,6 @@ namespace Nextsim
             ("simul.interp_with_cavities", po::value<bool>()->default_value( true ), "")
             ("simul.interp_forcing_every_timestep", po::value<bool>()->default_value( false ), "")
             ("simul.timestep", po::value<double>()->default_value( 200. ), "")
-            ("simul.use_bathymetry", po::value<bool>()->default_value( true ), "")
             ("simul.scale_coef", po::value<double>()->default_value( 0.1 ), "")
             ("simul.alea_factor", po::value<double>()->default_value( 0. ), "")
             ("simul.ridging_exponent", po::value<double>()->default_value( -40. ), "")
@@ -159,6 +159,7 @@ namespace Nextsim
             ("simul.constant_Fdw", po::value<double>()->default_value( 0. ), "")
             ("simul.constant_ocean_u", po::value<double>()->default_value( 0. ), "")
             ("simul.constant_ocean_v", po::value<double>()->default_value( 0. ), "")
+			("simul.constant_bathymetry", po::value<double>()->default_value( 200. ), "")
             ;
         return desc;
     }

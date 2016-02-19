@@ -186,11 +186,12 @@ FiniteElement::init()
         ("constant", setup::IceType::CONSTANT)
         ("topaz", setup::IceType::TOPAZ4);
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
+	
+    const boost::unordered_map<const std::string, setup::BathymetryType> str2bathymetry = boost::assign::map_list_of
+        ("constant", setup::BathymetryType::CONSTANT)
+        ("etopo", setup::BathymetryType::ETOPO);
+    M_bathymetry_type = str2bathymetry.find(vm["setup.bathymetry-type"].as<std::string>())->second;
 
-    //std::cout<<"ICETYPE= "<< (int)M_ice_type <<"\n";
-
-    // init options for interpolation from mesh to mesh
-    // options = new Options();
 }
 
 // Initialise all physical variables to propper initial conditions
@@ -236,7 +237,7 @@ FiniteElement::initSimulation()
 
     M_UM.resize(2*M_num_nodes,0.);
 
-    M_element_depth.resize(M_num_elements,0.);
+    M_element_depth.resize(M_num_elements);
 
     M_h_thin.resize(M_num_elements,0.);
     M_hs_thin.resize(M_num_elements,0.);
@@ -281,6 +282,14 @@ FiniteElement::initSimulation()
 
     M_fcor.resize(M_num_elements);
 
+	// ---------------------------------
+	// Definition of the grids and datasets used in the code
+    netCDF::NcVar NcVar_tmp;
+	
+    std::vector<std::vector<double>> data2_tmp;
+    data2_tmp.resize(2);
+
+	// Definition of asr grid and datasets
     Dimension asr_dimension_x={
         name:"x",
         start:0,
@@ -310,11 +319,6 @@ FiniteElement::initSimulation()
 
     std::vector<Dimension> dimensions_asr_time(1);
     dimensions_asr_time[0] = asr_dimension_time;
-
-    netCDF::NcVar NcVar_tmp;
-
-    std::vector<std::vector<double>> data2_tmp;
-    data2_tmp.resize(2);
 
     Variable asr_latitude={
         name: "XLAT",
@@ -374,9 +378,12 @@ FiniteElement::initSimulation()
 	
 	M_asr_grid={
 		interpolation_method: setup::InterpolationType::InterpFromGridToMesh,
+	    //interp_type : TriangleInterpEnum,
+	    interp_type : BilinearInterpEnum,
+	    //interp_type : NearestInterpEnum,
+		
 		dirname:"data",
-		prefix:"asr30km.comb.2d.", // "asr30km.comb.2D.";
-		postfix:".nc",
+		filename:"asr30km.comb.2d.200803.nc",
 
 		latitude: asr_latitude,
 		longitude: asr_longitude,
@@ -386,6 +393,8 @@ FiniteElement::initSimulation()
         
 		mpp_file: "NpsASR.mpp",
 		rotation_angle: diff_angle,
+		interpolation_in_latlon: false,
+		
 		masking: false
 	};
 
@@ -399,14 +408,13 @@ FiniteElement::initSimulation()
         postfix:".nc",
         reference_date: "1901-01-01",
         
-        nb_timestep_day: 8,
-        time: asr_time, 
-
-        dimension_time: asr_dimension_time,
-        
         variables: variables_tmp0,
         target_size: M_num_nodes,
-        grid: &M_asr_grid
+        grid: &M_asr_grid,
+        
+        nb_timestep_day: 8,
+        time: asr_time, 
+        dimension_time: asr_dimension_time
 	};
 
     M_asr_nodes_dataset.ftime_range.resize(2,0.);
@@ -491,18 +499,19 @@ FiniteElement::initSimulation()
         prefix:"asr30km.comb.2d.", // "asr30km.comb.2D.";
         postfix:".nc",
         reference_date: "1901-01-01",
-        
-        nb_timestep_day: 8,
-        time: asr_time, 
-        dimension_time: asr_dimension_time,
 
         variables: variables_tmp1,
         target_size:M_num_elements,
-        grid: &M_asr_grid
+        grid: &M_asr_grid,
+        
+        nb_timestep_day: 8,
+        time: asr_time, 
+        dimension_time: asr_dimension_time
 	};
 
     M_asr_elements_dataset.ftime_range.resize(2,0.);
 
+	// Definition of asr grid and datasets
     Dimension topaz_dimension_x={
         name:"x",
         start:0,
@@ -665,9 +674,9 @@ FiniteElement::initSimulation()
 
     M_topaz_grid={
         interpolation_method: setup::InterpolationType::InterpFromMeshToMesh2dx,
+		interp_type: -1,
         dirname: "data",
-        prefix: "TP4DAILY_",
-        postfix: "_3m.nc",
+        filename: "TP4DAILY_200803_3m.nc",
 
         latitude: topaz_latitude,
         longitude: topaz_longitude,
@@ -677,6 +686,7 @@ FiniteElement::initSimulation()
         
         mpp_file: "NpsNextsim.mpp",
         rotation_angle: 0.,
+		interpolation_in_latlon: false,
 		
 		masking: true,
 		masking_variable: sss
@@ -693,14 +703,14 @@ FiniteElement::initSimulation()
         postfix: "_30m.nc",
         reference_date: "1950-01-01",
         
-        nb_timestep_day: 1,
-
-        time: topaz_time,
-        dimension_time: topaz_dimension_time,
-        
         variables: variables_tmp2,
         target_size: M_num_nodes,
-        grid: &M_topaz_grid};
+        grid: &M_topaz_grid,
+        
+        nb_timestep_day: 1,
+        time: topaz_time,
+        dimension_time: topaz_dimension_time
+	};
 
     M_topaz_nodes_dataset.ftime_range.resize(2,0.);
 
@@ -715,13 +725,14 @@ FiniteElement::initSimulation()
         postfix: "_3m.nc",
         reference_date: "1950-01-01",
         
-        nb_timestep_day: 1,
-        time: topaz_time,
-        dimension_time: topaz_dimension_time,
-        
         variables: variables_tmp3,
         target_size: M_num_elements,
-        grid: &M_topaz_grid};
+        grid: &M_topaz_grid,
+        
+        nb_timestep_day: 1,
+        time: topaz_time,
+        dimension_time: topaz_dimension_time
+	};
 
     M_topaz_elements_dataset.ftime_range.resize(2,0.);
 	
@@ -736,18 +747,109 @@ FiniteElement::initSimulation()
         postfix: "_3m.nc",
         reference_date: "1950-01-01",
         
-        nb_timestep_day: 1,
-        time: topaz_time,
-        dimension_time: topaz_dimension_time,
-        
         variables: variables_tmp4,
         target_size: M_num_elements,
-        grid: &M_topaz_grid};
+        grid: &M_topaz_grid,
+	    
+		nb_timestep_day: 1,
+	    time: topaz_time,
+	    dimension_time: topaz_dimension_time
+        };
 
     M_ice_topaz_elements_dataset.ftime_range.resize(2,0.);
 
+	// Definition of etopo grid and datasets
+    Dimension etopo_dimension_x={
+        name:"x",
+        start:0,
+        end:21601
+	};
+
+    Dimension etopo_dimension_y={
+        name:"y",
+        start:0,
+        end:10801
+	};
+
+    std::vector<Dimension> dimensions_etopo_lon(1);
+    dimensions_etopo_lon[0] = etopo_dimension_x;
+
+    std::vector<Dimension> dimensions_etopo_lat(1);
+    dimensions_etopo_lat[0] = etopo_dimension_y;
+
+    std::vector<Dimension> dimensions_etopo(2);
+    dimensions_etopo[0] = etopo_dimension_y;
+    dimensions_etopo[1] = etopo_dimension_x;
+
+    Variable etopo_latitude={
+        name: "y",
+        dimensions: dimensions_etopo_lat,
+        a: 1.,
+        b: 0.,
+        Units: "degree_north",
+        NcVar: NcVar_tmp,
+        data2: data2_tmp
+	};
+
+    Variable etopo_longitude={
+        name: "x",
+        dimensions: dimensions_etopo_lon,
+        a: 1.,
+        b: 0.,
+        Units: "degree_east",
+        NcVar: NcVar_tmp,
+        data2: data2_tmp
+	};
+	
+	M_etopo_grid={
+		interpolation_method: setup::InterpolationType::InterpFromGridToMesh,
+	    interp_type : TriangleInterpEnum,
+	    //interp_type : BilinearInterpEnum,
+	    //interp_type : NearestInterpEnum,
+		dirname:"data",
+		filename:"ETOPO1_Ice_g_gmt4.grd",
+
+		latitude: etopo_latitude,
+		longitude: etopo_longitude,
+
+		dimension_x: etopo_dimension_x,
+		dimension_y: etopo_dimension_y,
+        
+		mpp_file: "",
+		rotation_angle: 0.,
+		interpolation_in_latlon: true,
+		
+		masking: false
+	};
+
+    Variable z={
+        name:"z",
+        dimensions: dimensions_etopo,
+        a:1.,
+        b:0.,
+        Units:"m",
+        NcVar: NcVar_tmp,
+        data2: data2_tmp
+	}; 
+
+    std::vector<Variable> variables_tmp5(1);
+    variables_tmp5[0] = z;
+
+    M_etopo_elements_dataset={
+        dirname:"data",
+        prefix:"ETOPO1_Ice_g_gmt4", 
+        postfix:".grd",
+        reference_date: "",
+
+        variables: variables_tmp5,
+        target_size:M_num_elements,
+        grid: &M_etopo_grid,
+	};
+
+	// Loading the grids once
     loadGrid(&M_asr_grid);
     loadGrid(&M_topaz_grid);
+	loadGrid(&M_etopo_grid);
 
     this->initIce();
 
@@ -1601,11 +1703,14 @@ FiniteElement::regrid(bool step)
         M_precip.resize(M_num_elements);
         M_snowfr.resize(M_num_elements);
 
+		// Ocean
         M_ocean_temp.resize(M_num_elements);
         M_ocean_salt.resize(M_num_elements);
         M_mld.resize(M_num_elements);
+		
+		// bathy
+        M_element_depth.resize(M_num_elements);
 
-        M_element_depth.assign(M_num_elements,0.);
         M_h_thin.assign(M_num_elements,0.);
         M_hs_thin.assign(M_num_elements,0.);
 
@@ -1619,6 +1724,7 @@ FiniteElement::regrid(bool step)
     M_topaz_nodes_dataset.target_size=M_num_nodes;
     M_topaz_elements_dataset.target_size=M_num_elements;
     M_ice_topaz_elements_dataset.target_size=M_num_elements;
+	M_etopo_elements_dataset.target_size=M_num_elements;
 
     M_Cohesion.resize(M_num_elements);
     M_Compressive_strength.resize(M_num_elements);
@@ -2250,7 +2356,6 @@ FiniteElement::assembleSeq(int pcpt)
 
 
         double critical_h = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
-        //double _coef = ((M_thick[i]-critical_h) > 0) ? (M_thick[i]-critical_h) : 0.;
         double _coef = std::max(0., M_thick[cpt]-critical_h);
         double coef_basal = quad_drag_coef_air*basal_k2/(basal_drag_coef_air*(norm_Vice+basal_u_0));
         coef_basal *= _coef*std::exp(-basal_Cb*(1.-M_conc[cpt]));
@@ -4162,9 +4267,6 @@ FiniteElement::run()
 
         if ((pcpt==0) || (M_regrid))
         {
-            std::cout<<"bathymetry starts\n";
-            this->bathymetry();
-            std::cout<<"bathymetry done in "<< chrono.elapsed() <<"s\n";
             chrono.restart();
             std::cout<<"tensors starts\n";
             this->tensors();
@@ -4190,6 +4292,11 @@ FiniteElement::run()
         std::cout<<"forcingOcean starts\n";
         this->forcingOcean(M_regrid);
         std::cout<<"forcingOcean done in "<< chrono.elapsed() <<"s\n";
+
+        chrono.restart();
+        std::cout<<"bathymetry starts\n";
+        this->bathymetry(M_regrid);
+        std::cout<<"bathymetry done in "<< chrono.elapsed() <<"s\n";
 
 #if 1
         if (pcpt == 0)
@@ -4556,9 +4663,46 @@ void
 FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 {
 
-    std::string current_timestr = to_date_string_ym(current_time);
-    std::cout<<"TIMESTR= "<< current_timestr <<"\n";
+	std::string current_timestr = "";
+	int nb_forcing_step =1;
+	
+	std::vector<double> XTIME(1);
+	std::vector<size_t> index_start(1);
+	std::vector<size_t> index_end(1);
+	
+	int index = 0;
+	
+	// interp_type for grid to mesh interpolation
+	int interp_type = dataset->grid->interp_type;
+	
+	if(dataset->nb_timestep_day>0)
+	{
+		current_timestr = to_date_string_ym(current_time);
+	
+		double file_dt = 1./dataset->nb_timestep_day;
+		double time_start = std::floor(current_time*dataset->nb_timestep_day)/dataset->nb_timestep_day;
+		double time_end = std::ceil(current_time*dataset->nb_timestep_day)/dataset->nb_timestep_day;
 
+		// We always need at least two time steps to interpolate between
+		if (time_end == time_start)
+		{
+			time_end = time_start + (1./dataset->nb_timestep_day);
+		}
+
+		dataset->ftime_range.resize(0);
+		for (double dt=time_start; dt<=time_end; dt+=file_dt)
+		{
+			dataset->ftime_range.push_back(dt);
+		}
+
+		for (int i=0; i<dataset->ftime_range.size(); ++i)
+		{
+			std::cout<<"TIMEVEC["<< i <<"]= "<< dataset->ftime_range[i] <<"\n";
+		}
+
+		nb_forcing_step = dataset->ftime_range.size();
+	}
+	
     std::string filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                                 % Environment::nextsimDir().string()
                                 % dataset->dirname
@@ -4568,59 +4712,24 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
                                 ).str();
 
     std::cout<<"FILE= "<< filename <<"\n";
-
-    double file_dt = 1./dataset->nb_timestep_day;
-    double time_start = std::floor(current_time*dataset->nb_timestep_day)/dataset->nb_timestep_day;
-    double time_end = std::ceil(current_time*dataset->nb_timestep_day)/dataset->nb_timestep_day;
-
-    // We always need at least two time steps to interpolate between
-    if (time_end == time_start)
-    {
-        time_end = time_start + (1./dataset->nb_timestep_day);
-    }
-
-    dataset->ftime_range.resize(0);
-    for (double dt=time_start; dt<=time_end; dt+=file_dt)
-    {
-        dataset->ftime_range.push_back(dt);
-    }
-
-    for (int i=0; i<dataset->ftime_range.size(); ++i)
-    {
-        std::cout<<"TIMEVEC["<< i <<"]= "<< dataset->ftime_range[i] <<"\n";
-    }
-
-    // if ((current_time < time_start) || (time_end < current_time))
-    // {
-    //     std::cout<<"forcing not available for the current date\n";
-    //     throw std::logic_error("forcing not available for the current date");
-    // }
-
-    int nb_forcing_step = dataset->ftime_range.size();
-    std::cout<<"NB_FORCING_STEP= "<< nb_forcing_step <<"\n";
-
-    std::vector<size_t> index_start(4);
-    std::vector<size_t> index_end(4);
-
-    std::vector<double> XTIME(dataset->time.dimensions[0].end);
+	std::cout<<"NB_FORCING_STEP= "<< nb_forcing_step <<"\n";
 
     netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
 
-    netCDF::NcVar VTIME = dataFile.getVar(dataset->time.name);
 
     for(int j=0; j<dataset->variables.size(); ++j)
         dataset->variables[j].NcVar = dataFile.getVar(dataset->variables[j].name);
 
-    VTIME.getVar(&XTIME[0]);
+	if(dataset->nb_timestep_day>0)
+	{
+		XTIME.resize(dataset->time.dimensions[0].end);
+		
+    	netCDF::NcVar VTIME = dataFile.getVar(dataset->time.name);
 
+    	VTIME.getVar(&XTIME[0]);
 
-    std::cout<<"VALUE= "<< from_date_string(dataset->reference_date) <<"\n";
-    std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string(dataset->reference_date); });
-
-    for (int i=0; i<dataset->ftime_range.size(); ++i)
-    {
-        std::cout<<"---TIMEVEC["<< i <<"]= "<< dataset->ftime_range[i] <<" : current_time= "<< current_time <<"\n";
-    }
+    	std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string(dataset->reference_date); });
+	}
 
     std::vector<double> tmp_interpolated_field(dataset->target_size);
 
@@ -4643,38 +4752,40 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 
     for (int fstep=0; fstep < nb_forcing_step; ++fstep)
     {
-        double ftime = dataset->ftime_range[fstep];
+		if(dataset->nb_timestep_day>0)
+		{
+			double ftime = dataset->ftime_range[fstep];
 
-        if (to_date_string_ym(std::floor(ftime)) != to_date_string_ym(current_time))
-        {
-            std::string f_timestr = to_date_string_ym(std::floor(ftime));
-            std::cout<<"F_TIMESTR= "<< f_timestr <<"\n";
+			if (to_date_string_ym(std::floor(ftime)) != to_date_string_ym(current_time))
+			{
+				std::string f_timestr = to_date_string_ym(std::floor(ftime));
+				std::cout<<"F_TIMESTR= "<< f_timestr <<"\n";
 
-            filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
-                                % Environment::nextsimDir().string()
-                                % dataset->dirname
-                                % dataset->prefix
-                                % f_timestr
-                                % dataset->postfix
-                                ).str();
+				filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
+					% Environment::nextsimDir().string()
+						% dataset->dirname
+							% dataset->prefix
+								% f_timestr
+									% dataset->postfix
+										).str();
 
-            std::cout<<"FILENAME= "<< filename <<"\n";
+				std::cout<<"FILENAME= "<< filename <<"\n";
 
-            netCDF::NcFile fdataFile(filename, netCDF::NcFile::read);
-            netCDF::NcVar FVTIME = dataFile.getVar(dataset->time.name);
-            FVTIME.getVar(&XTIME[0]);
-            std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string(dataset->reference_date); });
+				netCDF::NcFile fdataFile(filename, netCDF::NcFile::read);
+				netCDF::NcVar FVTIME = dataFile.getVar(dataset->time.name);
+				FVTIME.getVar(&XTIME[0]);
+				std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string(dataset->reference_date); });
 
-            // for (int i=0; i<31; ++i)
-            // {
-            //     std::cout<<"TIME["<< i <<"]= "<< XTIME[i] <<"\n";
-            // }
-        }
+				// for (int i=0; i<31; ++i)
+				// {
+				//     std::cout<<"TIME["<< i <<"]= "<< XTIME[i] <<"\n";
+				// }
+			}
 
-        auto it = std::find(XTIME.begin(), XTIME.end(), ftime);
-        int index = std::distance(XTIME.begin(),it);
-        std::cout<<"FIND "<< ftime <<" in index "<< index <<"\n";
-
+			auto it = std::find(XTIME.begin(), XTIME.end(), ftime);
+			index = std::distance(XTIME.begin(),it);
+			std::cout<<"FIND "<< ftime <<" in index "<< index <<"\n";
+		}
         for(int j=0; j<dataset->variables.size(); ++j)
         {
             index_start.resize(dataset->variables[j].dimensions.size());
@@ -4685,11 +4796,15 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
                 index_start[k] = dataset->variables[j].dimensions[k].start;
                 index_end[k] = dataset->variables[j].dimensions[k].end;
             }
-            index_start[0] = index;
-            index_end[0] = 1;
-
+			
+			if(dataset->nb_timestep_day>0)
+			{
+            	index_start[0] = index;
+            	index_end[0] = 1;
+			}
+			
             dataset->variables[j].NcVar.getVar(index_start,index_end,&data_in_tmp[0]);
-
+			
             // Need to multiply with scale factor and add offset - these are stored as variable attributes
             scale_factor=1.;
             try
@@ -4717,12 +4832,13 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 			else
             	for (int i=0; i<(MN); ++i)
                 	data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=data_in_tmp[i]*scale_factor + add_offset;
-        }
+				
+		}
     }
 
     double* data_out;
     double tmp_data;
-
+	
     auto RX = M_mesh.coordX(dataset->grid->rotation_angle);
     auto RY = M_mesh.coordY(dataset->grid->rotation_angle);
 
@@ -4732,9 +4848,28 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
         RY = M_mesh.bcoordY(dataset->grid->rotation_angle);
     }
 
-    //int interp_type = TriangleInterpEnum;
-    int interp_type = BilinearInterpEnum;
-    //int interp_type = NearestInterpEnum;
+	if(dataset->grid->interpolation_in_latlon)
+	{
+		mapx_class *map;
+		std::string configfile = (boost::format( "%1%/%2%/%3%" )
+			% Environment::nextsimDir().string()
+				% "data"
+				% "NpsNextsim.mpp"
+		).str();
+
+		std::vector<char> str(configfile.begin(), configfile.end());
+		str.push_back('\0');
+		map = init_mapx(&str[0]);
+
+		std::vector<double> tmp_latlon(2);
+		
+		for (int i=0; i<dataset->target_size; ++i)
+		{
+			tmp_latlon = XY2latLon(RX[i], RY[i], map, configfile);
+			RY[i]=tmp_latlon[0];
+			RX[i]=tmp_latlon[1];
+		}
+	}
 
     std::cout<<"before interp " <<"\n";
 
@@ -4742,7 +4877,7 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
     {
         case setup::InterpolationType::InterpFromGridToMesh:
             InterpFromGridToMeshx(  data_out, &dataset->grid->gridX[0], dataset->grid->gridX.size(), &dataset->grid->gridY[0], dataset->grid->gridY.size(), 
-                                  &data_in[0], dataset->grid->gridX.size(), dataset->grid->gridY.size(), 
+                                  &data_in[0], dataset->grid->gridY.size(), dataset->grid->gridX.size(), 
                                   dataset->variables.size()*nb_forcing_step,
                                  &RX[0], &RY[0], dataset->target_size, 1.0, interp_type);
         break;
@@ -4784,157 +4919,197 @@ FiniteElement::loadGrid(Grid *grid)
 {
     std::string current_timestr = to_date_string_ym(current_time);
     std::cout<<"TIMESTR= "<< current_timestr <<"\n";
-    std::string filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
+    std::string filename = (boost::format( "%1%/%2%/%3%" )
                                 % Environment::nextsimDir().string()
                                 % grid->dirname
-                                % grid->prefix
-                                % current_timestr 
-                                % grid->postfix
+                                % grid->filename
                                 ).str();
 
-    // read in re-analysis coordinates
-    std::vector<size_t> index_x_end(2);
-    std::vector<size_t> index_y_end(2);
+    //switch (grid->latitude.dimensions.size())
+    //{
+    //    case 1:
+	if(grid->latitude.dimensions.size()==1)
+	{
+		// read in coordinates
+		std::vector<size_t> index_x_end(1);
+		std::vector<size_t> index_y_end(1);
 
-    std::vector<size_t> index_x_start(2);
-    std::vector<size_t> index_y_start(2);
-
-    index_y_start[0] = 0;
-    index_y_start[1] = 0;
-
-    index_y_end[0] = grid->dimension_y.end;
-    index_y_end[1] = grid->dimension_x.end;
-
-    index_x_start[0] = 0;
-    index_x_start[1] = 0;
-
-    index_x_end[0] = grid->dimension_y.end;
-    index_x_end[1] = grid->dimension_x.end;
-
-    if(grid->interpolation_method==setup::InterpolationType::InterpFromGridToMesh)
-    {
-        index_y_end[1] = 1;
-        index_x_end[0] = 1;
-    }
-
-    std::vector<double> XLAT(index_x_end[0]*index_x_end[1]);
-    std::vector<double> XLON(index_x_end[0]*index_x_end[1]);
-    std::vector<double> YLAT(index_y_end[0]*index_y_end[1]);
-    std::vector<double> YLON(index_y_end[0]*index_y_end[1]);
-
-    std::cout<<"GRID : READ NETCDF starts\n";
-    netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
-    netCDF::NcVar VLAT = dataFile.getVar(grid->latitude.name);
-    netCDF::NcVar VLON = dataFile.getVar(grid->longitude.name);
-    std::cout<<"GRID : READ NETCDF done\n";
-
-    VLAT.getVar(index_x_start,index_x_end,&XLAT[0]);
-    VLON.getVar(index_x_start,index_x_end,&XLON[0]);
-
-    VLAT.getVar(index_y_start,index_y_end,&YLAT[0]);
-    VLON.getVar(index_y_start,index_y_end,&YLON[0]);
-
-    std::vector<double> X(index_x_end[0]*index_x_end[1]);
-    std::vector<double> Y(index_y_end[0]*index_y_end[1]);
-
-    double RE = 6378.273;
-    mapx_class *map;
-    std::string configfile = (boost::format( "%1%/%2%/%3%" )
-                                % Environment::nextsimDir().string()
-                                % grid->dirname
-                                % grid->mpp_file
-                                ).str();
-
-    std::vector<char> str(configfile.begin(), configfile.end());
-    str.push_back('\0');
-    map = init_mapx(&str[0]);
-
-    for (int i=0; i<index_x_end[0]; ++i)
-    {
-        for (int j=0; j<index_x_end[1]; ++j)
-        {
-            X[index_x_end[1]*i+j]=latLon2XY(XLAT[index_x_end[1]*i+j], XLON[index_x_end[1]*i+j], map, configfile)[0];
-        }
-    }
-
-    for (int i=0; i<index_y_end[0]; ++i)
-    {
-        for (int j=0; j<index_y_end[1]; ++j)
-        {
-            Y[index_y_end[1]*i+j]=latLon2XY(YLAT[index_y_end[1]*i+j], YLON[index_y_end[1]*i+j], map, configfile)[1];
-        }
-    }
-
-    close_mapx(map);
-
-    if(grid->interpolation_method==setup::InterpolationType::InterpFromMeshToMesh2dx)
-    {
-		if(grid->masking){
-			netCDF::NcVar VMASK;
-			
-			VMASK = dataFile.getVar(grid->masking_variable.name);
-			
-			std::vector<double> data_in;
-			
-			std::vector<double> reduced_FX;
-			std::vector<double> reduced_FY;
-			std::vector<int> reduced_nodes_ind;
-
-		    std::vector<size_t> index_start(3,0);
-		    std::vector<size_t> index_end(3);
-
-            index_start.resize(grid->masking_variable.dimensions.size());
-            index_end.resize(grid->masking_variable.dimensions.size());
-
-            for(int k=0; k<grid->masking_variable.dimensions.size(); ++k)
-            {
-                index_start[k] = grid->masking_variable.dimensions[k].start;
-                index_end[k] = grid->masking_variable.dimensions[k].end;
-            }
-            index_start[0] = 0;
-            index_end[0] = 1;
-
-			data_in.resize(index_x_end[0]*index_x_end[1]);
-			VMASK.getVar(index_start,index_end,&data_in[0]);
-
-			netCDF::NcVarAtt att;
-			int FillValue;
-
-			att = VMASK.getAtt("_FillValue");
-			att.getValues(&FillValue);
+		std::vector<size_t> index_x_start(1);
+		std::vector<size_t> index_y_start(1);
 		
-			for (int i=0; i<index_x_end[0]; ++i)
-			{
-				for (int j=0; j<index_x_end[1]; ++j)
-				{
-					if (data_in[index_x_end[1]*i+j] != FillValue)
-					{
-						reduced_FX.push_back(X[index_x_end[1]*i+j]);
-						reduced_FY.push_back(Y[index_x_end[1]*i+j]);
-						reduced_nodes_ind.push_back(index_x_end[1]*i+j);
-					}
-				}
-			}
-			grid->gridX=reduced_FX;
-			grid->gridY=reduced_FY;
-			grid->reduced_nodes_ind=reduced_nodes_ind;	            	
-		}
-		else // no masking of the Filled Value
-		{
-		    grid->gridX=X;
-		    grid->gridY=Y;
-		}
-            
-        std::cout<<"GRID : Triangulate starts\n";
-        BamgTriangulatex(&grid->pfindex,&grid->pfnels,&grid->gridX[0],&grid->gridY[0],grid->gridX.size());
-        std::cout<<"GRID : NUMTRIANGLES= "<< grid->pfnels <<"\n";
-        std::cout<<"GRID : Triangulate done\n";
-    }
+		index_y_start[0] = 0;
+		index_y_end[0] = grid->dimension_y.end;
+
+		index_x_start[0] = 0;
+		index_x_end[0] = grid->dimension_x.end;
+		
+		std::vector<double> LAT(index_y_end[0]);
+		std::vector<double> LON(index_x_end[0]);
+
+		std::cout<<"GRID : READ NETCDF starts\n";
+		netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
+		netCDF::NcVar VLAT = dataFile.getVar(grid->latitude.name);
+		netCDF::NcVar VLON = dataFile.getVar(grid->longitude.name);
+		std::cout<<"GRID : READ NETCDF done\n";
+
+		VLAT.getVar(index_y_start,index_y_end,&LAT[0]);
+		VLON.getVar(index_x_start,index_x_end,&LON[0]);
+
+		grid->gridY=LAT;
+		grid->gridX=LON;
+	}
 	else
 	{
-	    grid->gridX=X;
-	    grid->gridY=Y;
-	}
+//		break;
+//    	case 2:
+		// read in coordinates
+		std::vector<size_t> index_px_end(2);
+		std::vector<size_t> index_py_end(2);
+
+		std::vector<size_t> index_px_start(2);
+		std::vector<size_t> index_py_start(2);
+
+		index_py_start[0] = 0;
+		index_py_start[1] = 0;
+
+		index_py_end[0] = grid->dimension_y.end;
+		index_py_end[1] = grid->dimension_x.end;
+
+		index_px_start[0] = 0;
+		index_px_start[1] = 0;
+
+		index_px_end[0] = grid->dimension_y.end;
+		index_px_end[1] = grid->dimension_x.end;
+
+		if(grid->interpolation_method==setup::InterpolationType::InterpFromGridToMesh)
+		{
+			index_py_end[1] = 1;
+			index_px_end[0] = 1;
+		}
+
+		std::vector<double> XLAT(index_px_end[0]*index_px_end[1]);
+		std::vector<double> XLON(index_px_end[0]*index_px_end[1]);
+		std::vector<double> YLAT(index_py_end[0]*index_py_end[1]);
+		std::vector<double> YLON(index_py_end[0]*index_py_end[1]);
+
+		std::cout<<"GRID : READ NETCDF starts\n";
+		netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
+		netCDF::NcVar VLAT = dataFile.getVar(grid->latitude.name);
+		netCDF::NcVar VLON = dataFile.getVar(grid->longitude.name);
+		std::cout<<"GRID : READ NETCDF done\n";
+
+		VLAT.getVar(index_px_start,index_px_end,&XLAT[0]);
+		VLON.getVar(index_px_start,index_px_end,&XLON[0]);
+
+		VLAT.getVar(index_py_start,index_py_end,&YLAT[0]);
+		VLON.getVar(index_py_start,index_py_end,&YLON[0]);
+
+		std::vector<double> X(index_px_end[0]*index_px_end[1]);
+		std::vector<double> Y(index_py_end[0]*index_py_end[1]);
+
+		mapx_class *map;
+		std::string configfile = (boost::format( "%1%/%2%/%3%" )
+			% Environment::nextsimDir().string()
+				% grid->dirname
+					% grid->mpp_file
+						).str();
+
+		std::vector<char> str(configfile.begin(), configfile.end());
+		str.push_back('\0');
+		map = init_mapx(&str[0]);
+
+		for (int i=0; i<index_px_end[0]; ++i)
+		{
+			for (int j=0; j<index_px_end[1]; ++j)
+			{
+				X[index_px_end[1]*i+j]=latLon2XY(XLAT[index_px_end[1]*i+j], XLON[index_px_end[1]*i+j], map, configfile)[0];
+			}
+		}
+
+		for (int i=0; i<index_py_end[0]; ++i)
+		{
+			for (int j=0; j<index_py_end[1]; ++j)
+			{
+				Y[index_py_end[1]*i+j]=latLon2XY(YLAT[index_py_end[1]*i+j], YLON[index_py_end[1]*i+j], map, configfile)[1];
+			}
+		}
+
+		close_mapx(map);
+
+		if(grid->interpolation_method==setup::InterpolationType::InterpFromMeshToMesh2dx)
+		{
+			if(grid->masking){
+				netCDF::NcVar VMASK;
+			
+				VMASK = dataFile.getVar(grid->masking_variable.name);
+			
+				std::vector<double> data_in;
+			
+				std::vector<double> reduced_FX;
+				std::vector<double> reduced_FY;
+				std::vector<int> reduced_nodes_ind;
+
+				std::vector<size_t> index_start(3,0);
+				std::vector<size_t> index_end(3);
+
+				index_start.resize(grid->masking_variable.dimensions.size());
+				index_end.resize(grid->masking_variable.dimensions.size());
+
+				for(int k=0; k<grid->masking_variable.dimensions.size(); ++k)
+				{
+					index_start[k] = grid->masking_variable.dimensions[k].start;
+					index_end[k] = grid->masking_variable.dimensions[k].end;
+				}
+				index_start[0] = 0;
+				index_end[0] = 1;
+
+				data_in.resize(index_px_end[0]*index_px_end[1]);
+				VMASK.getVar(index_start,index_end,&data_in[0]);
+
+				netCDF::NcVarAtt att;
+				int FillValue;
+
+				att = VMASK.getAtt("_FillValue");
+				att.getValues(&FillValue);
+		
+				for (int i=0; i<index_px_end[0]; ++i)
+				{
+					for (int j=0; j<index_px_end[1]; ++j)
+					{
+						if (data_in[index_px_end[1]*i+j] != FillValue)
+						{
+							reduced_FX.push_back(X[index_px_end[1]*i+j]);
+							reduced_FY.push_back(Y[index_px_end[1]*i+j]);
+							reduced_nodes_ind.push_back(index_px_end[1]*i+j);
+						}
+					}
+				}
+				grid->gridX=reduced_FX;
+				grid->gridY=reduced_FY;
+				grid->reduced_nodes_ind=reduced_nodes_ind;	            	
+			}
+			else // no masking of the Filled Value
+			{
+				grid->gridX=X;
+				grid->gridY=Y;
+			}
+            
+			std::cout<<"GRID : Triangulate starts\n";
+			BamgTriangulatex(&grid->pfindex,&grid->pfnels,&grid->gridX[0],&grid->gridY[0],grid->gridX.size());
+			std::cout<<"GRID : NUMTRIANGLES= "<< grid->pfnels <<"\n";
+			std::cout<<"GRID : Triangulate done\n";
+		}
+		else
+		{
+			grid->gridX=X;
+			grid->gridY=Y;
+		}
+	//	break;
+	//
+    //default:
+    //   std::cout << "invalid ocean initialisation"<<"\n";
+    //    throw std::logic_error("invalid ocean forcing");
+	}	
 		
 }
 
@@ -5082,10 +5257,48 @@ FiniteElement::coriolis()
     }
 }
 
+
 void
-FiniteElement::bathymetry()
+FiniteElement::bathymetry(bool reload)//(double const& u, double const& v)
 {
-    // Interpolation of the bathymetry
+    switch (M_bathymetry_type)
+    {
+        case setup::BathymetryType::CONSTANT:
+            this->constantBathymetry();
+            break;
+        case setup::BathymetryType::ETOPO:
+            this->etopoBathymetry(reload);
+            break;
+
+        default:
+            std::cout << "invalid bathymetry"<<"\n";
+            throw std::logic_error("invalid bathymetry");
+    }
+}
+
+void
+FiniteElement::constantBathymetry()
+{
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        M_element_depth[i] = vm["simul.constant_bathymetry"].as<double>();
+    }
+}
+
+void
+FiniteElement::etopoBathymetry(bool reload)
+{
+    if ((current_time == time_init) || reload)
+    {
+        this->loadDataset(&M_etopo_elements_dataset);
+    }
+
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        M_element_depth[i] = -M_etopo_elements_dataset.variables[0].data2[0][i];
+	}
+#if 0
+	// Interpolation of the bathymetry
     if (vm["simul.Lemieux_basal_k2"].as<double>() > 0 )
     {
         double* depth_out;
@@ -5105,6 +5318,7 @@ FiniteElement::bathymetry()
             M_element_depth[i] = depth_out[i];
         }
     }
+#endif
 }
 
 void
@@ -5361,26 +5575,19 @@ FiniteElement::latLon2XY(double const& lat, double const& lon, mapx_class* map, 
     return xy;
 }
 
-double
-FiniteElement::latLon2X(double const& lat, double const& lon, mapx_class* map, std::string const& configfile)
+std::vector<double>
+FiniteElement::XY2latLon(double const& x, double const& y, mapx_class* map, std::string const& configfile)
 {
-    double x;
-    double y;
+    std::vector<double> latlon(2);
+    double lat;
+    double lon;
 
-    int status = forward_mapx(map,lat,lon,&x,&y);
+    int status = inverse_mapx(map,x,y,&lat,&lon);
 
-    return x;
-}
+    latlon[0] = lat;
+    latlon[1] = lon;
 
-double
-FiniteElement::latLon2Y(double const& lat, double const& lon, mapx_class* map, std::string const& configfile)
-{
-    double x;
-    double y;
-
-    int status = forward_mapx(map,lat,lon,&x,&y);
-
-    return y;
+    return latlon;
 }
 
 void
@@ -5502,6 +5709,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
     exporter.writeField(outbin, M_damage, "Damage");
     exporter.writeField(outbin, M_sst, "SST");
     exporter.writeField(outbin, M_sss, "SSS");
+	exporter.writeField(outbin, M_element_depth, "bathy");
     outbin.close();
 
     fileout = (boost::format( "%1%/matlab/field_%2%.dat" )
