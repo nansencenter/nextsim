@@ -247,6 +247,7 @@ GmshMesh::readFromFile(std::string const& filename)
     // we are done reading the MSH file
 
     // create local dofs
+    this->nodalGrid();
 }
 
 void
@@ -400,31 +401,214 @@ GmshMesh::stereographicProjection()
     close_mapx(map);
 }
 
+void
+GmshMesh::nodalGrid()
+{
+    std::vector<int> ghosts_nodes_f;
+    std::vector<int> ghosts_nodes_s;
+    std::vector<int> ghosts_nodes_t;
+
+    for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
+    {
+        if (it->is_ghost)
+        {
+            for (int const& index : it->indices)
+            {
+                if ((std::find(ghosts_nodes_f.begin(),ghosts_nodes_f.end(),index) == ghosts_nodes_f.end()))
+                {
+                    ghosts_nodes_f.push_back(index);
+                }
+            }
+        }
+    }
+
+    for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
+    {
+        if (!it->is_ghost)
+        {
+            for (int const& index : it->indices)
+            {
+                if ((std::find(M_local_dof_without_ghost.begin(),M_local_dof_without_ghost.end(),index) == M_local_dof_without_ghost.end())
+                    && (std::find(ghosts_nodes_f.begin(),ghosts_nodes_f.end(),index) == ghosts_nodes_f.end()))
+                {
+                    M_local_dof_without_ghost.push_back(index);
+                }
+
+
+                if ((it->ghosts.size() > 0) && (std::find(ghosts_nodes_f.begin(),ghosts_nodes_f.end(),index) != ghosts_nodes_f.end()))
+                {
+                    int neigh = *std::min_element(it->ghosts.begin(),it->ghosts.end());
+                    int min_id = std::min(neigh,it->partition);
+                    int max_id = std::max(neigh,it->partition);
+
+                    if (this->comm().rank() == min_id)
+                    {
+                        M_local_dof_without_ghost.push_back(index);
+                    }
+                    else if (this->comm().rank() == max_id)
+                    {
+                        ghosts_nodes_s.push_back(index);
+                    }
+                }
+            }
+        }
+    }
+
+    std::sort(ghosts_nodes_f.begin(),ghosts_nodes_f.end());
+
+    std::sort(ghosts_nodes_s.begin(), ghosts_nodes_s.end());
+    ghosts_nodes_s.erase(std::unique( ghosts_nodes_s.begin(), ghosts_nodes_s.end() ), ghosts_nodes_s.end());
+
+    std::sort(M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.end());
+    M_local_dof_without_ghost.erase(std::unique( M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.end() ), M_local_dof_without_ghost.end());
+
+
+    for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
+    {
+        if (((it->is_ghost) && (this->comm().rank() > it->partition)) && (it->ghosts.size() > 0) )
+        {
+            for (int const& index : it->indices)
+            {
+                if ((std::find(ghosts_nodes_t.begin(),ghosts_nodes_t.end(),index) == ghosts_nodes_t.end())
+                    && (std::find(ghosts_nodes_s.begin(),ghosts_nodes_s.end(),index) == ghosts_nodes_s.end()))
+                {
+                    ghosts_nodes_t.push_back(index);
+                }
+            }
+        }
+    }
+
+    std::sort(ghosts_nodes_t.begin(),ghosts_nodes_t.end());
+
+
+    std::vector<int> diff_nodes;
+    std::set_difference(ghosts_nodes_f.begin(), ghosts_nodes_f.end(),
+                        M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.end(),
+                        std::back_inserter(diff_nodes));
+
+    std::set_difference(diff_nodes.begin(), diff_nodes.end(),
+                        ghosts_nodes_t.begin(), ghosts_nodes_t.end(),
+                        std::back_inserter(M_local_ghost));
+
+
+    std::copy_n(M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.size(), std::back_inserter(M_local_dof_with_ghost));
+    std::copy_n(M_local_ghost.begin(), M_local_ghost.size(), std::back_inserter(M_local_dof_with_ghost));
+
+    for (int k=0; k<M_local_dof_with_ghost.size(); ++k)
+    {
+        M_transfer_map.insert(position(M_local_dof_with_ghost[k],k+1));
+    }
+
+#if 0
+    std::vector<int> to_remove;
+    int counter = 0;
+
+    for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
+    {
+        if ((M_comm.rank() <= it->partition))
+        {
+            bool _test = false;
+
+            for (int i=0; i<3; ++i)
+            {
+                if (M_transfer_map.left.find(it->indices[i]) == M_transfer_map.left.end())
+                {
+                    _test = true;
+                    break;
+                }
+            }
+
+            if (_test)
+            {
+                std::cout<<"-------- REMOVE INDEX "<< it->number <<"\n";
+                //it = M_triangles.erase(it);
+                to_remove.push_back();
+                std::cout<<"Remove done\n";
+                //continue;
+            }
+
+        }
+    }
+#endif
+
+}
+
 std::vector<int>
 GmshMesh::indexTr() const
 {
-    std::vector<int> index(3*M_num_triangles);
-    int cpt = 0;
+    std::vector<int> index;//(3*M_num_triangles);
+    //int cpt = 0;
     for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
     {
-        index[3*cpt] = it->indices[0];//it->first;
-        index[3*cpt+1] = it->indices[1];
-        index[3*cpt+2] = it->indices[2];
-        ++cpt;
+        //bool elt_valid = this->isValid(*it);
+        //std::cout<<"--------INDEX "<< it->number <<" isvalid= "<< elt_valid <<"\n";
+
+        if ((M_comm.rank() <= it->partition)) //&& (elt_valid))
+        {
+            bool _test = false;
+
+            for (int i=0; i<3; ++i)
+            {
+                if (M_transfer_map.left.find(it->indices[i]) == M_transfer_map.left.end())
+                {
+                    _test = true;
+                    break;
+                }
+            }
+
+            if (_test)
+                continue;
+
+            std::cout<<"--------INDEX "<< it->number <<"\n";
+            for (int i=0; i<3; ++i)
+            {
+                index.push_back(M_transfer_map.left.find(it->indices[i])->second);
+            }
+        }
+
+        // index[3*cpt] = it->indices[0];//it->first;
+        // index[3*cpt+1] = it->indices[1];
+        // index[3*cpt+2] = it->indices[2];
+        // ++cpt;
     }
 
     return index;
 }
 
+bool
+GmshMesh::isValid(element_type const& elt) const
+{
+    if (M_comm.rank() == elt.partition)
+        return true;
+
+    bool _test = true;
+
+    for (int i=0; i<3; ++i)
+    {
+        //_test = ((std::binary_search(M_local_ghost.begin(),M_local_ghost.end(),elt.indices[i])) && (_test));
+        //_test = ((std::binary_search(M_local_ghost.begin(),M_local_ghost.end(),elt.indices[i])) && _test);
+        _test = ((std::binary_search(M_local_dof_with_ghost.begin(),M_local_dof_with_ghost.end(),elt.indices[i])) && _test);
+        //_test = ((M_transfer_map.left.find(elt.indices[i]) != M_transfer_map.left.end()) || _test);
+        //index.push_back(M_transfer_map.left.find(it->indices[i])->second);
+
+        //std::cout<<"CoordIDX= "<< elt.indices[i] << " test= "<< _test <<"\n";
+    }
+
+    return _test;
+}
+
+
 std::vector<double>
 GmshMesh::coordX() const
 {
-    std::vector<double> x(M_num_nodes);
-    int cpt = 0;
-    for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
+    //std::vector<double> x(M_num_nodes);
+    std::vector<double> x(M_local_dof_with_ghost.size());
+    //int cpt = 0;
+    //for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
+    for (int cpt=0; cpt<M_local_dof_with_ghost.size(); ++cpt)
     {
-        x[cpt] = it->coords[0];
-        ++cpt;
+        x[cpt] = M_nodes[M_local_dof_with_ghost[cpt]-1].coords[0];
+        //++cpt;
     }
 
     return x;
@@ -433,12 +617,14 @@ GmshMesh::coordX() const
 std::vector<double>
 GmshMesh::coordY() const
 {
-    std::vector<double> y(M_num_nodes);
-    int cpt = 0;
-    for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
+    //std::vector<double> y(M_num_nodes);
+    std::vector<double> y(M_local_dof_with_ghost.size());
+    //int cpt = 0;
+    //for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
+    for (int cpt=0; cpt<M_local_dof_with_ghost.size(); ++cpt)
     {
-        y[cpt] = it->coords[1];
-        ++cpt;
+        y[cpt] = M_nodes[M_local_dof_with_ghost[cpt]-1].coords[1];
+        //++cpt;
     }
 
     return y;

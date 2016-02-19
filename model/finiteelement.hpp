@@ -16,6 +16,7 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/version.hpp>
 #include <boost/format.hpp>
+#include <boost/bimap.hpp>
 #include <BamgConvertMeshx.h>
 #include <BamgTriangulatex.h>
 #include <Bamgx.h>
@@ -37,6 +38,19 @@ extern "C"
 
 namespace Nextsim
 {
+template< class MapType >
+void print_map(const MapType & map,
+               const std::string & separator,
+               std::ostream & os )
+{
+    typedef typename MapType::const_iterator const_iterator;
+
+    for( const_iterator i = map.begin(), iend = map.end(); i != iend; ++i )
+    {
+        os << i->first << separator << i->second << std::endl;
+    }
+}
+
 class FiniteElement
 {
 public:
@@ -53,6 +67,13 @@ public:
     typedef boost::shared_ptr<vector_type> vector_ptrtype;
     typedef GraphCSR graph_type;
     typedef boost::shared_ptr<graph_type> graph_ptrtype;
+
+    // typedef boost::bimap<int,int> bimap_type;
+    // typedef bimap_type::value_type position;
+
+    typedef GmshMesh::bimap_type bimap_type;
+    typedef GmshMesh::position position;
+
 
     FiniteElement();
 

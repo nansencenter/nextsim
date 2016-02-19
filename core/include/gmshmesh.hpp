@@ -15,6 +15,7 @@
 #include <iomanip>
 #include <algorithm>
 #include <assert.hpp>
+#include <boost/bimap.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string/trim.hpp>
 
@@ -157,6 +158,10 @@ public:
     typedef Nextsim::entities::GMSHPoint point_type;
     typedef Nextsim::entities::GMSHElement element_type;
 
+    typedef boost::bimap<int,int> bimap_type;
+    typedef bimap_type::value_type position;
+
+
     GmshMesh( Communicator const& comm = Environment::comm() );
 
     GmshMesh(std::vector<point_type> const& nodes,
@@ -167,6 +172,7 @@ public:
     void readFromFile(std::string const& filename);
     void writeTofile(std::string const& filename);
     void move(std::vector<double> const& um, double factor);
+    void nodalGrid();
 
     Communicator const& comm() const { return M_comm; }
     std::string const& version() const {return M_version;}
@@ -192,6 +198,12 @@ public:
     void setNumEdges(int const& nlns) {M_num_edges=nlns;}
     void setNumTriangles(int const& ntrs) {M_num_triangles=ntrs;}
     void stereographicProjection();
+
+    std::vector<int> const& localDofWithoutGhost() const {return M_local_dof_without_ghost;}
+    std::vector<int> const& localDofWithGhost() const {return M_local_dof_with_ghost;}
+    std::vector<int> const& localGhost() const {return M_local_ghost;}
+    bimap_type const& transferMap() const {return M_transfer_map;}
+    bool isValid(element_type const& elt) const;
 
     std::vector<int> indexTr() const;
     std::vector<double> coordX() const;
@@ -221,7 +233,12 @@ private:
 
     std::vector<int> M_local_dof_with_ghost;
     std::vector<int> M_local_dof_without_ghost;
-    std::vector<int> M_local_dof_ghost;
+    std::vector<int> M_local_ghost;
+    bimap_type M_transfer_map;
+
+    // std::vector<int> local_node_without_ghost;
+    // std::vector<int> local_node_with_ghost;
+    // std::vector<int> local_ghost;
 };
 
 } // Nextsim

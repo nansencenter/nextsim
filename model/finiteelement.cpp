@@ -31,7 +31,7 @@ void
 FiniteElement::init()
 {
     std::cout <<"GMSH VERSION= "<< M_mesh.version() <<"\n";
-    M_mesh.setOrdering("bamg");
+    //M_mesh.setOrdering("bamg");
 
     M_mesh_filename = vm["simul.mesh_filename"].as<std::string>();
 
@@ -86,24 +86,82 @@ FiniteElement::init()
     M_mesh.readFromFile(M_mesh_filename);
 
 
+    this->initConstant();
+    this->initBamg();
+
+
+
+    M_mesh.comm().barrier();
+    if (M_mesh.comm().rank() == 0)
+    {
+        std::cout<<"************00************\n";
+        for (int const& index : M_mesh.localDofWithoutGhost())
+            std::cout<<"INDEXWHG "<< index <<"\n";
+
+        std::cout<<"************01************\n";
+        for (int const& index : M_mesh.localGhost())
+            std::cout<<"INDEXGHT "<< index <<"\n";
+
+        std::cout<<"************02************\n";
+        for (int const& index : M_mesh.localDofWithGhost())
+            std::cout<<"INDEXWG  "<< index <<"\n";
+    }
+
+    M_mesh.comm().barrier();
+    if (M_mesh.comm().rank() == 1)
+    {
+        std::cout<<"************10************\n";
+        for (int const& index : M_mesh.localDofWithoutGhost())
+            std::cout<<"INDEXWHG "<< index <<"\n";
+
+        std::cout<<"************11************\n";
+        for (int const& index : M_mesh.localGhost())
+            std::cout<<"INDEXGHT "<< index <<"\n";
+
+        std::cout<<"************12************\n";
+        for (int const& index : M_mesh.localDofWithGhost())
+            std::cout<<"INDEXWG  "<< index <<"\n";
+    }
+
+    M_mesh.comm().barrier();
+    if (M_mesh.comm().rank() == 2)
+    {
+        std::cout<<"************20************\n";
+        for (int const& index : M_mesh.localDofWithoutGhost())
+            std::cout<<"INDEXWHG "<< index <<"\n";
+
+        std::cout<<"************21************\n";
+        for (int const& index : M_mesh.localGhost())
+            std::cout<<"INDEXGHT "<< index <<"\n";
+
+        std::cout<<"************22************\n";
+        for (int const& index : M_mesh.localDofWithGhost())
+            std::cout<<"INDEXWG "<< index <<"\n";
+    }
+
+
+#if 0
     M_mesh.comm().barrier();
     //std::cout<<"*********Process "<< M_mesh.comm().rank() <<"\n";
-    std::vector<int> local_node_num;
-    std::vector<int> local_node_num_whtg;
-    std::vector<int> ghosts_nodes;
-    std::vector<int> test_ghosts_nodes;
+    std::vector<int> local_node_without_ghost;
+    std::vector<int> local_node_with_ghost;
+    std::vector<int> local_ghost;
+    std::vector<int> ghosts_nodes_f;
+    std::vector<int> ghosts_nodes_s;
+    std::vector<int> ghosts_nodes_t;
 
 
     // ----------------------------------------------------------------------------------
+
     for (auto it=M_mesh.triangles().begin(), end=M_mesh.triangles().end(); it!=end; ++it)
     {
         if (it->is_ghost)
         {
             for (int const& index : it->indices)
             {
-                if ((std::find(ghosts_nodes.begin(),ghosts_nodes.end(),index) == ghosts_nodes.end()))
+                if ((std::find(ghosts_nodes_f.begin(),ghosts_nodes_f.end(),index) == ghosts_nodes_f.end()))
                 {
-                    ghosts_nodes.push_back(index);
+                    ghosts_nodes_f.push_back(index);
                 }
             }
         }
@@ -115,14 +173,14 @@ FiniteElement::init()
         {
             for (int const& index : it->indices)
             {
-                if ((std::find(local_node_num.begin(),local_node_num.end(),index) == local_node_num.end())
-                    && (std::find(ghosts_nodes.begin(),ghosts_nodes.end(),index) == ghosts_nodes.end()))
+                if ((std::find(local_node_without_ghost.begin(),local_node_without_ghost.end(),index) == local_node_without_ghost.end())
+                    && (std::find(ghosts_nodes_f.begin(),ghosts_nodes_f.end(),index) == ghosts_nodes_f.end()))
                 {
-                    local_node_num.push_back(index);
+                    local_node_without_ghost.push_back(index);
                 }
 
 
-                if ((it->ghosts.size() > 0) && (std::find(ghosts_nodes.begin(),ghosts_nodes.end(),index) != ghosts_nodes.end()))
+                if ((it->ghosts.size() > 0) && (std::find(ghosts_nodes_f.begin(),ghosts_nodes_f.end(),index) != ghosts_nodes_f.end()))
                 {
                     int neigh = *std::min_element(it->ghosts.begin(),it->ghosts.end());
                     int min_id = std::min(neigh,it->partition);
@@ -130,77 +188,71 @@ FiniteElement::init()
 
                     if (M_mesh.comm().rank() == min_id)
                     {
-                        local_node_num.push_back(index);
+                        local_node_without_ghost.push_back(index);
                     }
                     else if (M_mesh.comm().rank() == max_id)
                     {
-                        test_ghosts_nodes.push_back(index);
+                        ghosts_nodes_s.push_back(index);
                     }
                 }
             }
         }
     }
 
-    std::sort(local_node_num.begin(), local_node_num.end());
-    local_node_num.erase(std::unique( local_node_num.begin(), local_node_num.end() ), local_node_num.end());
+    std::sort(ghosts_nodes_f.begin(),ghosts_nodes_f.end());
 
-    std::sort(test_ghosts_nodes.begin(), test_ghosts_nodes.end());
-    test_ghosts_nodes.erase(std::unique( test_ghosts_nodes.begin(), test_ghosts_nodes.end() ), test_ghosts_nodes.end());
+    std::sort(ghosts_nodes_s.begin(), ghosts_nodes_s.end());
+    ghosts_nodes_s.erase(std::unique( ghosts_nodes_s.begin(), ghosts_nodes_s.end() ), ghosts_nodes_s.end());
 
-
-    // std::sort(local_node_num.begin(),local_node_num.end());
-    std::sort(ghosts_nodes.begin(),ghosts_nodes.end());
+    std::sort(local_node_without_ghost.begin(), local_node_without_ghost.end());
+    local_node_without_ghost.erase(std::unique( local_node_without_ghost.begin(), local_node_without_ghost.end() ), local_node_without_ghost.end());
 
 
-
-    std::vector<int> just_ghosts_nodes;
     for (auto it=M_mesh.triangles().begin(), end=M_mesh.triangles().end(); it!=end; ++it)
     {
-        //if ((it->is_ghost) && (M_mesh.comm().rank() == it->partition))
-        //if ((!it->is_ghost) || ((it->is_ghost) && (M_mesh.comm().rank() < it->partition)) ) //&& (M_mesh.comm().rank() < it->partition))
-
-        //if (((!it->is_ghost) || (M_mesh.comm().rank() < it->partition)) ) //&& (M_mesh.comm().rank() < it->partition))
-        if (((it->is_ghost) && (M_mesh.comm().rank() > it->partition)) && (it->ghosts.size() > 0) ) //&& (M_mesh.comm().rank() < it->partition))
+        if (((it->is_ghost) && (M_mesh.comm().rank() > it->partition)) && (it->ghosts.size() > 0) )
         {
             for (int const& index : it->indices)
             {
-                if ((std::find(just_ghosts_nodes.begin(),just_ghosts_nodes.end(),index) == just_ghosts_nodes.end())
-                    && (std::find(test_ghosts_nodes.begin(),test_ghosts_nodes.end(),index) == test_ghosts_nodes.end()))
+                if ((std::find(ghosts_nodes_t.begin(),ghosts_nodes_t.end(),index) == ghosts_nodes_t.end())
+                    && (std::find(ghosts_nodes_s.begin(),ghosts_nodes_s.end(),index) == ghosts_nodes_s.end()))
                 {
-                    just_ghosts_nodes.push_back(index);
+                    ghosts_nodes_t.push_back(index);
                 }
             }
         }
     }
-    std::sort(just_ghosts_nodes.begin(),just_ghosts_nodes.end());
+
+    std::sort(ghosts_nodes_t.begin(),ghosts_nodes_t.end());
 
 
     std::vector<int> diff_nodes;
-    std::set_difference(ghosts_nodes.begin(), ghosts_nodes.end(),
-                        local_node_num.begin(), local_node_num.end(),
+    std::set_difference(ghosts_nodes_f.begin(), ghosts_nodes_f.end(),
+                        local_node_without_ghost.begin(), local_node_without_ghost.end(),
                         std::back_inserter(diff_nodes));
 
+    std::set_difference(diff_nodes.begin(), diff_nodes.end(),
+                        ghosts_nodes_t.begin(), ghosts_nodes_t.end(),
+                        std::back_inserter(local_ghost));
 
-    // std::vector<int> egain_diff_nodes;
-    // std::set_difference(ghosts_nodes.begin(), ghosts_nodes.end(),
-    //                     test_ghosts_nodes.begin(), test_ghosts_nodes.end(),
-    //                     std::back_inserter(egain_diff_nodes));
 
+    std::copy_n(local_node_without_ghost.begin(), local_node_without_ghost.size(), std::back_inserter(local_node_with_ghost));
+    std::copy_n(local_ghost.begin(), local_ghost.size(), std::back_inserter(local_node_with_ghost));
 
 #if 1
     M_mesh.comm().barrier();
     if (M_mesh.comm().rank() == 0)
     {
-        std::cout<<"************0************\n";
-        for (int const& index : local_node_num)
+        std::cout<<"************00************\n";
+        for (int const& index : local_node_without_ghost)
             std::cout<<"INDEX "<< index <<"\n";
 
-        std::cout<<"************0************\n";
-        for (int const& index : diff_nodes)
+        std::cout<<"************01************\n";
+        for (int const& index : local_ghost)
             std::cout<<"INDEXDIFF "<< index <<"\n";
 
-        std::cout<<"-------------------------\n";
-        for (int const& index : just_ghosts_nodes)
+        std::cout<<"************02************\n";
+        for (int const& index : local_node_with_ghost)
             std::cout<<"INDEXGHT "<< index <<"\n";
 
         // std::cout<<"************0************\n";
@@ -212,16 +264,16 @@ FiniteElement::init()
     M_mesh.comm().barrier();
     if (M_mesh.comm().rank() == 1)
     {
-        std::cout<<"************1************\n";
-        for (int const& index : local_node_num)
+        std::cout<<"************10************\n";
+        for (int const& index : local_node_without_ghost)
             std::cout<<"INDEX "<< index <<"\n";
 
-        std::cout<<"************1************\n";
-        for (int const& index : diff_nodes)
+        std::cout<<"************11************\n";
+        for (int const& index : local_ghost)
             std::cout<<"INDEXDIFF "<< index <<"\n";
 
-        std::cout<<"-------------------------\n";
-        for (int const& index : just_ghosts_nodes)
+        std::cout<<"************12************\n";
+        for (int const& index : local_node_with_ghost)
             std::cout<<"INDEXGHT "<< index <<"\n";
 
         // std::cout<<"************1************\n";
@@ -232,51 +284,183 @@ FiniteElement::init()
     M_mesh.comm().barrier();
     if (M_mesh.comm().rank() == 2)
     {
-        std::cout<<"************2************\n";
-        for (int const& index : local_node_num)
+        std::cout<<"************20************\n";
+        for (int const& index : local_node_without_ghost)
             std::cout<<"INDEX "<< index <<"\n";
 
-        std::cout<<"************2************\n";
-        for (int const& index : diff_nodes)
+        std::cout<<"************21************\n";
+        for (int const& index : local_ghost)
             std::cout<<"INDEXDIFF "<< index <<"\n";
 
-        std::cout<<"-------------------------\n";
-        for (int const& index : just_ghosts_nodes)
+        std::cout<<"************22************\n";
+        for (int const& index : local_node_with_ghost)
             std::cout<<"INDEXGHT "<< index <<"\n";
     }
+
+    // M_mesh.comm().barrier();
+    // if (M_mesh.comm().rank() == 3)
+    // {
+    //     std::cout<<"************20************\n";
+    //     for (int const& index : local_node_without_ghost)
+    //         std::cout<<"INDEX "<< index <<"\n";
+
+    //     std::cout<<"************21************\n";
+    //     for (int const& index : local_ghost)
+    //         std::cout<<"INDEXDIFF "<< index <<"\n";
+
+    //     std::cout<<"************22************\n";
+    //     for (int const& index : local_node_with_ghost)
+    //         std::cout<<"INDEXGHT "<< index <<"\n";
+    // }
+
 
     // ----------------------------------------------------------------------------------
 #endif
 
 
-#if 0
+#endif
+
+    M_mesh.comm().barrier();
+
     int rank = M_mesh.comm().rank();
+
+#if 1
+    //int rank = M_mesh.comm().rank();
 
     if (rank == 1)
     {
         for (auto it=M_mesh.triangles().begin(), end=M_mesh.triangles().end(); it!=end; ++it)
         {
-            //std::cout<<"-------------------"<< cpt << "-------------------"<<"\n";
-            std::cout<<"it->rank                = "<< M_mesh.comm().rank() <<"\n";
-            std::cout<<"it->number              = "<< it->number <<"\n";
-            //std::cout<<"it->type                = "<< it->type <<"\n";
-            //std::cout<<"it->physical            = "<< it->physical <<"\n";
-            //std::cout<<"it->elementary          = "<< it->elementary <<"\n";
-            std::cout<<"it->numPartitions       = "<< it->numPartitions <<"\n";
-            std::cout<<"it->partition           = "<< it->partition <<"\n";
-            std::cout<<"it->is_ghost            = "<< it->is_ghost <<"\n";
-            std::cout<<"it->ghosts              = "<<"\n";
-
-            for (int k=0; k<it->ghosts.size(); ++k)
+            //if ((it->is_ghost) && (it->partition > rank))
+            //if ((!it->is_ghost) || (it->partition <= rank))
+            //if (it->partition >= rank)
+            if ((it->partition >= rank) && (it->number == 33) || (it->number == 40))
             {
-                std::cout<<"                    ghosts["<< k <<"]= "<< it->ghosts[k] <<"\n";
-            }
+                //std::cout<<"-------------------"<< cpt << "-------------------"<<"\n";
+                std::cout<<"it->rank                = "<< M_mesh.comm().rank() <<"\n";
+                std::cout<<"it->number              = "<< it->number <<"\n";
+                //std::cout<<"it->type                = "<< it->type <<"\n";
+                //std::cout<<"it->physical            = "<< it->physical <<"\n";
+                //std::cout<<"it->elementary          = "<< it->elementary <<"\n";
+                std::cout<<"it->numPartitions       = "<< it->numPartitions <<"\n";
+                std::cout<<"it->partition           = "<< it->partition <<"\n";
+                std::cout<<"it->is_ghost            = "<< it->is_ghost <<"\n";
+                std::cout<<"it->ghosts              = "<<"\n";
 
-            //std::cout<<"it->is_on_processor     = "<< it->is_on_processor <<"\n";
-            //std::cout<<"it->ghost_partition_id  = "<< it->ghost_partition_id <<"\n";
+                for (int k=0; k<it->ghosts.size(); ++k)
+                {
+                    std::cout<<"                    ghosts["<< k <<"]= "<< it->ghosts[k] <<"\n";
+                }
+
+                //std::cout<<"it->is_on_processor     = "<< it->is_on_processor <<"\n";
+                //std::cout<<"it->ghost_partition_id  = "<< it->ghost_partition_id <<"\n";
+            }
         }
     }
 #endif
+
+
+#if 0
+    if (rank == 0)
+    {
+        typedef boost::bimap< std::string, int > results_bimap;
+        typedef results_bimap::value_type positionstr;
+
+        results_bimap results;
+        results.insert( positionstr("Argentina"    ,1) );
+        results.insert( positionstr("Spain"        ,2) );
+        results.insert( positionstr("Germany"      ,3) );
+        results.insert( positionstr("France"       ,4) );
+
+        std::cout << "The number of countries is " << results.size()
+                  << std::endl;
+
+        std::cout << "The winner is " << results.right.at(1)
+                  << std::endl
+                  << std::endl;
+
+        std::cout << "Countries names ordered by their final position:"
+                  << std::endl;
+
+        // results.right works like a std::map< int, std::string >
+
+        print_map( results.right, ") ", std::cout );
+
+        std::cout << std::endl
+                  << "Countries names ordered alphabetically along with"
+            "their final position:"
+                  << std::endl;
+
+        // results.left works like a std::map< std::string, int >
+
+        print_map( results.left, " ends in position ", std::cout );
+    }
+ #endif
+
+    // bimap_type transfer_map;
+    // for (int k=0; k<local_node_with_ghost.size(); ++k)
+    // {
+    //     transfer_map.insert(position(local_node_with_ghost[k],k));
+    // }
+
+
+    if (rank == 0)
+    {
+        // int test1_ = M_mesh.transferMap().left.find(14)->second;
+        // std::cout<<"___test1= "<< test1_ <<"\n";
+
+        // int test2_ = M_mesh.transferMap().right.find(3)->second;
+        // std::cout<<"___test2= "<< test2_ <<"\n";
+
+
+        auto indextr = M_mesh.indexTr();
+        std::cout<<"Number of triangles= "<< indextr.size()/3 <<"\n";
+
+        for (int i=0; i<indextr.size(); ++i)
+        {
+            bool toto = (i % 3);
+            if (!toto)
+                std::cout<<"TR "<< i/3 <<"\n";
+
+            std::cout<<"Local: "<< indextr[i] << " and Global: "<< M_mesh.transferMap().right.find(indextr[i])->second <<"\n";
+        }
+
+        // if (M_mesh.transferMap().left.find(19) == M_mesh.transferMap().left.end())
+        // {
+        //     std::cout<<"TOTO\n";
+        // }
+
+        // std::cout<<"CRASH= "<< M_mesh.transferMap().left.find(19)->second <<"\n";
+
+        auto xc = M_mesh.coordX();
+        auto yc = M_mesh.coordY();
+
+        for (int i=0; i<xc.size(); ++i)
+        {
+            std::cout<<"COORD["<< i <<"]= ("<< xc[i] << ","<< yc[i] <<")\n";
+        }
+
+        int nelet = indextr.size()/3;
+
+        std::cout<<"NUM ELEMENTS= "<< nelet <<"\n";
+
+        std::cout<<"Convert MESH starts\n";
+        BamgConvertMeshx(
+                         bamgmesh,bamggeom,
+                         &indextr[0],&xc[0],&yc[0],
+                         M_mesh.localDofWithGhost().size(), nelet
+                         );
+        std::cout<<"Convert MESH done\n";
+
+
+    }
+
+
+
+
+
+
+
 
 
 #if 0
