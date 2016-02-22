@@ -72,6 +72,7 @@ public:
                const size_type n_l,
                graphmpi_type const& graph );
 
+    void initLocalToGlobalMapping(graphmpi_type const& graph);
 
     void zero();
 

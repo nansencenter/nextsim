@@ -41,6 +41,7 @@ public:
 
 	typedef std::size_t size_type;
     typedef double value_type;
+    typedef GraphCSRMPI graphmpi_type;
 
     VectorPetsc( Communicator const& comm = Environment::comm() );
 
@@ -53,6 +54,11 @@ public:
     Vec& vec ();
 
     void init( const size_type n, bool fast = false );
+
+    void init( const size_type n,
+               size_type n_l,
+               graphmpi_type const& graph,
+               bool fast = false );
 
     void zero();
 
@@ -126,6 +132,8 @@ public:
 private:
 
 	Vec M_vec;
+    Vec M_vecLocal;
+    VecScatter M_vecScatter;
 	Communicator M_comm;
 	bool M_is_initialized;
 	bool M_is_closed;

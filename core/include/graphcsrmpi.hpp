@@ -21,17 +21,20 @@ public:
 
 	GraphCSRMPI(std::vector<int> const& d_nnz,
                 std::vector<int> const& o_nnz,
-                std::vector<int> const& global);
+                std::vector<int> const& global_without_ghost,
+                std::vector<int> const& global_with_ghost);
 
 	std::vector<int> const& nNzOnProc() const {return M_dnnz;}
     std::vector<int> const& nNzOffProc() const {return M_onnz;}
-    std::vector<int> const& globalIndices() const {return M_global;}
+    std::vector<int> const& globalIndicesWithoutGhost() const {return M_global_without_ghost;}
+    std::vector<int> const& globalIndicesWithGhost() const {return M_global_with_ghost;}
 
 private:
 
 	std::vector<int> M_dnnz;
     std::vector<int> M_onnz;
-    std::vector<int> M_global;
+    std::vector<int> M_global_without_ghost;
+    std::vector<int> M_global_with_ghost;
 };
 
 } // Nextsim

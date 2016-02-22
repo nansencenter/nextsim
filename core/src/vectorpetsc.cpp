@@ -81,6 +81,76 @@ VectorPetsc::init( const size_type n, bool fast )
 }
 
 void
+VectorPetsc::init( const size_type n,
+                   size_type n_l,
+                   graphmpi_type const& graph,
+                   bool fast )
+{
+    int ierr=0;
+    int petsc_n=static_cast<int>( n );
+    int petsc_n_localWithoutGhost=static_cast<int>( n_l );
+    int petsc_n_localWithGhost=static_cast<int>( graph.globalIndicesWithGhost().size() );
+
+    ierr = VecCreateMPI ( M_comm, petsc_n_localWithoutGhost, petsc_n,
+                          &this->M_vec );
+    CHKERRABORT( M_comm,ierr );
+
+    // localToGlobalMapping
+    IS is;
+    ISLocalToGlobalMapping isLocToGlobMap;
+
+    PetscInt *idx;
+    PetscInt n_idx =  graph.globalIndicesWithoutGhost().size();
+    idx = new PetscInt[n_idx];
+    std::copy( graph.globalIndicesWithoutGhost().begin(),
+               graph.globalIndicesWithoutGhost().end(),
+               idx );
+
+    ierr = ISCreateGeneral( M_comm, n_idx, idx, PETSC_COPY_VALUES, &is );
+    CHKERRABORT( M_comm,ierr );
+
+    // create LocalToGlobalMapping
+    ierr=ISLocalToGlobalMappingCreateIS( is, &isLocToGlobMap );
+    CHKERRABORT( M_comm,ierr );
+    ierr=VecSetLocalToGlobalMapping( this->vec(),isLocToGlobMap );
+    CHKERRABORT( M_comm,ierr );
+
+    // create local vector
+    ierr = VecCreateSeq ( PETSC_COMM_SELF, petsc_n_localWithGhost, &  M_vecLocal );
+    CHKERRABORT( M_comm,ierr );
+
+    // create vecScatter
+    IS isLoc;
+    ierr = ISCreateStride( PETSC_COMM_SELF,n_idx,0,1,&isLoc );
+    CHKERRABORT( M_comm,ierr );
+    ierr = VecScatterCreate( this->vec(), is,
+                             M_vecLocal, isLoc,
+                             &M_vecScatter );
+    CHKERRABORT( M_comm,ierr );
+
+    // Clean up
+    ierr = ISDestroy( &is );
+    CHKERRABORT( M_comm,ierr );
+    ierr = ISLocalToGlobalMappingDestroy( &isLocToGlobMap );
+    CHKERRABORT( M_comm,ierr );
+    ierr = ISDestroy ( &isLoc );
+    CHKERRABORT( M_comm,ierr );
+
+    delete[] idx;
+
+    ierr = VecSetFromOptions ( M_vec );
+	CHKERRABORT( M_comm,ierr );
+
+    ierr = VecSetFromOptions( M_vecLocal );
+    CHKERRABORT( M_comm,ierr );
+
+	M_is_initialized = true;
+
+    if (fast == false)
+        this->zero();
+}
+
+void
 VectorPetsc::zero()
 {
 	ASSERT(M_is_initialized, "VectorPetsc not initialized");

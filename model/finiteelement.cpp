@@ -5573,19 +5573,33 @@ FiniteElement::createGraph(BamgMesh const* bamg_mesh)
     o_nnz.resize(2*o_nnz_count);
     std::copy_n(o_nnz.begin(), o_nnz_count, o_nnz.begin() + o_nnz_count);
 
-    std::vector<int> global_indices = M_mesh.localDofWithoutGhost();
-    int glsize = global_indices.size();
-    global_indices.resize(2*glsize);
 
     int sM = M_mesh.numNodes();
 
-    for (int gl=0; gl<glsize; ++gl)
-        global_indices[gl] = global_indices[gl]-1;
+    std::vector<int> global_indices_with_ghost = M_mesh.localDofWithGhost();
+    int glsize = global_indices_with_ghost.size();
+    global_indices_with_ghost.resize(2*glsize);
 
     for (int gl=0; gl<glsize; ++gl)
-        global_indices[gl+glsize] = global_indices[gl] + sM ;
+        global_indices_with_ghost[gl] = global_indices_with_ghost[gl]-1;
 
-    M_graphmpi = graphmpi_type(d_nnz, o_nnz, global_indices);
+    for (int gl=0; gl<glsize; ++gl)
+        global_indices_with_ghost[gl+glsize] = global_indices_with_ghost[gl] + sM ;
+
+
+
+    std::vector<int> global_indices_without_ghost = M_mesh.localDofWithoutGhost();
+    glsize = global_indices_without_ghost.size();
+    global_indices_without_ghost.resize(2*glsize);
+
+    for (int gl=0; gl<glsize; ++gl)
+        global_indices_without_ghost[gl] = global_indices_without_ghost[gl]-1;
+
+    for (int gl=0; gl<glsize; ++gl)
+        global_indices_without_ghost[gl+glsize] = global_indices_without_ghost[gl] + sM ;
+
+
+    M_graphmpi = graphmpi_type(d_nnz, o_nnz, global_indices_without_ghost, global_indices_with_ghost);
 
 
 

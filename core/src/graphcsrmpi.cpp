@@ -14,16 +14,19 @@ GraphCSRMPI::GraphCSRMPI()
 	:
 	M_dnnz(),
     M_onnz(),
-    M_global()
+    M_global_without_ghost(),
+    M_global_with_ghost()
 {}
 
 GraphCSRMPI::GraphCSRMPI(std::vector<int> const& d_nnz,
                          std::vector<int> const& o_nnz,
-                         std::vector<int> const& global)
+                         std::vector<int> const& global_without_ghost,
+                         std::vector<int> const& global_with_ghost)
 	:
 	M_dnnz(d_nnz),
     M_onnz(o_nnz),
-    M_global(global)
+    M_global_without_ghost(global_without_ghost),
+    M_global_with_ghost(global_with_ghost)
 {}
 
 

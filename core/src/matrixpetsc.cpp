@@ -233,85 +233,22 @@ MatrixPetsc::init( const size_type m,
 
     CHKERRABORT( M_comm,ierr );
 
-    ierr = MatMPIAIJSetPreallocation( this->mat(), 0, dnz, 0, dnzOffProc );
-    CHKERRABORT( M_comm,ierr );
+    // ierr = MatMPIAIJSetPreallocation( this->mat(), 0, dnz, 0, dnzOffProc );
+    // CHKERRABORT( M_comm,ierr );
 
     // free
     delete[] dnzOffProc;
 
-
-    //--------------------------------------------------------------
-    IS isRow;
-    IS isCol;
-    ISLocalToGlobalMapping isLocToGlobMapRow;
-    ISLocalToGlobalMapping isLocToGlobMapCol;
-
-    PetscInt *idxRow;
-    PetscInt *idxCol;
-    PetscInt n_idxRow =  graph.globalIndices().size();
-    PetscInt n_idxCol =  graph.globalIndices().size();
-    idxRow = new PetscInt[n_idxRow];
-    idxCol = new PetscInt[n_idxCol];
-    std::copy( graph.globalIndices().begin(),
-               graph.globalIndices().end(),
-               idxRow );
-    std::copy( graph.globalIndices().begin(),
-               graph.globalIndices().end(),
-               idxCol );
-
-    ierr = ISCreateGeneral( M_comm, n_idxRow, idxRow, PETSC_COPY_VALUES, &isRow );
-    CHKERRABORT( M_comm,ierr );
-
-    ierr = ISCreateGeneral( M_comm, n_idxCol, idxCol, PETSC_COPY_VALUES, &isCol );
-    CHKERRABORT( M_comm,ierr );
-
-    ierr=ISLocalToGlobalMappingCreateIS( isRow, &isLocToGlobMapRow );
-    CHKERRABORT( M_comm,ierr );
-
-    ierr=ISLocalToGlobalMappingCreateIS( isCol, &isLocToGlobMapCol );
-    CHKERRABORT( M_comm,ierr );
-
-    ierr = MatSetLocalToGlobalMapping( this->mat(),isLocToGlobMapRow,isLocToGlobMapCol );
-    CHKERRABORT( M_comm,ierr );
-
-    // Clean up
-    ierr = ISDestroy( &isRow );
-    CHKERRABORT( M_comm,ierr );
-
-    ierr = ISDestroy( &isCol );
-    CHKERRABORT( M_comm,ierr );
-
-    ierr = ISLocalToGlobalMappingDestroy( &isLocToGlobMapRow );
-    CHKERRABORT( M_comm,ierr );
-
-    ierr = ISLocalToGlobalMappingDestroy( &isLocToGlobMapCol );
-    CHKERRABORT( M_comm,ierr );
-
-    delete[] idxRow;
-    delete[] idxCol;
-    //--------------------------------------------------------------
-
+    this->initLocalToGlobalMapping(graph);
 
     ierr = MatSetFromOptions( this->mat() );
     CHKERRABORT( this->comm(),ierr );
 
     ierr = MatSetOption( M_mat,MAT_KEEP_NONZERO_PATTERN,PETSC_TRUE );
     // //MatSetOption( M_mat,MAT_IGNORE_ZERO_ENTRIES,PETSC_FALSE );
-    // //MatSetOption( M_mat,MAT_IGNORE_LOWER_TRIANGULAR,PETSC_TRUE );
     CHKERRABORT( M_comm, ierr );
 
-
-
-
     this->zero();
-
-
-
-
-
-
-
-
 
 #if 0
     int ierr = 0;
@@ -358,6 +295,61 @@ MatrixPetsc::init( const size_type m,
 }
 
 void
+MatrixPetsc::initLocalToGlobalMapping(graphmpi_type const& graph)
+{
+    int ierr = 0;
+    IS isRow;
+    IS isCol;
+    ISLocalToGlobalMapping isLocToGlobMapRow;
+    ISLocalToGlobalMapping isLocToGlobMapCol;
+
+    PetscInt *idxRow;
+    PetscInt *idxCol;
+    PetscInt n_idxRow =  graph.globalIndicesWithoutGhost().size();
+    PetscInt n_idxCol =  graph.globalIndicesWithoutGhost().size();
+    idxRow = new PetscInt[n_idxRow];
+    idxCol = new PetscInt[n_idxCol];
+    std::copy( graph.globalIndicesWithoutGhost().begin(),
+               graph.globalIndicesWithoutGhost().end(),
+               idxRow );
+
+    std::copy( graph.globalIndicesWithoutGhost().begin(),
+               graph.globalIndicesWithoutGhost().end(),
+               idxCol );
+
+    ierr = ISCreateGeneral( M_comm, n_idxRow, idxRow, PETSC_COPY_VALUES, &isRow );
+    CHKERRABORT( M_comm,ierr );
+
+    ierr = ISCreateGeneral( M_comm, n_idxCol, idxCol, PETSC_COPY_VALUES, &isCol );
+    CHKERRABORT( M_comm,ierr );
+
+    ierr=ISLocalToGlobalMappingCreateIS( isRow, &isLocToGlobMapRow );
+    CHKERRABORT( M_comm,ierr );
+
+    ierr=ISLocalToGlobalMappingCreateIS( isCol, &isLocToGlobMapCol );
+    CHKERRABORT( M_comm,ierr );
+
+    ierr = MatSetLocalToGlobalMapping( this->mat(),isLocToGlobMapRow,isLocToGlobMapCol );
+    CHKERRABORT( M_comm,ierr );
+
+    // Clean up
+    ierr = ISDestroy( &isRow );
+    CHKERRABORT( M_comm,ierr );
+
+    ierr = ISDestroy( &isCol );
+    CHKERRABORT( M_comm,ierr );
+
+    ierr = ISLocalToGlobalMappingDestroy( &isLocToGlobMapRow );
+    CHKERRABORT( M_comm,ierr );
+
+    ierr = ISLocalToGlobalMappingDestroy( &isLocToGlobMapCol );
+    CHKERRABORT( M_comm,ierr );
+
+    delete[] idxRow;
+    delete[] idxCol;
+}
+
+void
 MatrixPetsc::zero()
 {
     ASSERT(M_is_initialized, "MatrixPetsc not properly initialized");
@@ -395,7 +387,7 @@ MatrixPetsc::setValue(size_type const& i, size_type const& j, value_type const& 
 
     PetscScalar petsc_value = static_cast<PetscScalar>( value );
     ierr = MatSetValuesLocal( M_mat, 1, &i_val, 1, &j_val,
-                         &petsc_value, INSERT_VALUES );
+                              &petsc_value, INSERT_VALUES );
     CHKERRABORT( M_comm,ierr );
 }
 
@@ -407,8 +399,8 @@ MatrixPetsc::addValue(size_type const& i, size_type const& j, value_type const& 
     int ierr=0, i_val=i, j_val=j;
 
     PetscScalar petsc_value = static_cast<PetscScalar>( value );
-    ierr = MatSetValues( M_mat, 1, &i_val, 1, &j_val,
-                         &petsc_value, ADD_VALUES );
+    ierr = MatSetValuesLocal( M_mat, 1, &i_val, 1, &j_val,
+                              &petsc_value, ADD_VALUES );
     CHKERRABORT( M_comm,ierr );
 }
 
@@ -421,11 +413,11 @@ MatrixPetsc::setMatrix(int* rows, int nrows,
 
     int ierr=0;
 
-    ierr = MatSetValues( M_mat,
-                         nrows, /*( int* )*/ rows,
-                         ncols, /*( int* )*/ cols,
-                         /*( PetscScalar* )*/ data,
-                         INSERT_VALUES );
+    ierr = MatSetValuesLocal( M_mat,
+                              nrows, /*( int* )*/ rows,
+                              ncols, /*( int* )*/ cols,
+                              /*( PetscScalar* )*/ data,
+                              INSERT_VALUES );
 
     CHKERRABORT( M_comm,ierr );
 }
@@ -439,11 +431,11 @@ MatrixPetsc::addMatrix(int* rows, int nrows,
 
     int ierr=0;
 
-    ierr = MatSetValues( M_mat,
-                         nrows, /*( int* )*/ rows,
-                         ncols, /*( int* )*/ cols,
-                         /*( PetscScalar* )*/ data,
-                         ADD_VALUES );
+    ierr = MatSetValuesLocal( M_mat,
+                              nrows, /*( int* )*/ rows,
+                              ncols, /*( int* )*/ cols,
+                              /*( PetscScalar* )*/ data,
+                              ADD_VALUES );
 
     CHKERRABORT( M_comm,ierr );
 }
