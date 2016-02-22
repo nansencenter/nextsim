@@ -324,7 +324,7 @@ FiniteElement::init()
 
     int rank = M_mesh.comm().rank();
 
-#if 1
+#if 0
     //int rank = M_mesh.comm().rank();
 
     if (rank == 1)
@@ -404,14 +404,13 @@ FiniteElement::init()
     // }
 
 
-    if (rank == 0)
+    if (1)//(rank == 1)
     {
         // int test1_ = M_mesh.transferMap().left.find(14)->second;
         // std::cout<<"___test1= "<< test1_ <<"\n";
 
         // int test2_ = M_mesh.transferMap().right.find(3)->second;
         // std::cout<<"___test2= "<< test2_ <<"\n";
-
 
         auto indextr = M_mesh.indexTr();
         std::cout<<"Number of triangles= "<< indextr.size()/3 <<"\n";
@@ -452,6 +451,71 @@ FiniteElement::init()
                          );
         std::cout<<"Convert MESH done\n";
 
+        auto bxc = M_mesh.bCoordX();
+        auto byc = M_mesh.bCoordY();
+
+        std::cout<<"bCoordX= "<< bxc.size() <<"\n";
+
+        for (int i=0; i<bxc.size(); ++i)
+        {
+            std::cout<<"BCOORD["<< i <<"]= ("<< bxc[i] << ","<< byc[i] <<")\n";
+        }
+
+        for (auto it=M_mesh.edges().begin(), end=M_mesh.edges().end(); it!=end; ++it)
+        {
+            if (it->physical==M_flag_fix)
+            {
+                M_dirichlet_flags.push_back(it->indices[0]-1);
+                M_dirichlet_flags.push_back(it->indices[1]-1);
+            }
+
+
+            // //std::cout<<"-------------------"<< cpt << "-------------------"<<"\n";
+            // std::cout<<"-----------------------------------------------------\n";
+            // std::cout<<"it->rank                = "<< M_mesh.comm().rank() <<"\n";
+            // std::cout<<"it->number              = "<< it->number <<"\n";
+            // std::cout<<"it->type                = "<< it->type <<"\n";
+            // std::cout<<"it->physical            = "<< it->physical <<"\n";
+            // std::cout<<"it->elementary          = "<< it->elementary <<"\n";
+            // std::cout<<"it->numPartitions       = "<< it->numPartitions <<"\n";
+            // std::cout<<"it->partition           = "<< it->partition <<"\n";
+            // std::cout<<"it->is_ghost            = "<< it->is_ghost <<"\n";
+            // //std::cout<<"it->ghosts              = "<<"\n";
+        }
+
+        std::sort(M_dirichlet_flags.begin(), M_dirichlet_flags.end());
+        M_dirichlet_flags.erase(std::unique( M_dirichlet_flags.begin(), M_dirichlet_flags.end() ), M_dirichlet_flags.end());
+
+
+        // std::cout<<"NodalConnectivitySize[0]= "<< bamgmesh->NodalConnectivitySize[0] <<"\n";
+        // std::cout<<"NodalConnectivitySize[1]= "<< bamgmesh->NodalConnectivitySize[1] <<"\n";
+        this->createGraph(bamgmesh);
+
+        int s_m = M_mesh.localDofWithoutGhost().size();
+        int s_M = M_mesh.numNodes();
+
+        int gsize = boost::mpi::all_reduce(M_mesh.comm(), s_m, std::plus<int>());
+        if (rank == 0)
+            std::cout<<"Global size= "<< gsize << " and "<< s_M <<"\n";
+
+        M_matrix = matrix_ptrtype(new matrix_type());
+
+        if (rank == 0)
+            std::cout<<"--------------start\n";
+        M_matrix->init(2*s_M,2*s_M,2*s_m,2*s_m,M_graphmpi);
+
+        int ss_m = M_mesh.localDofWithGhost().size();
+        for (int al=0; al<2*s_m; ++al)
+        {
+            M_matrix->setValue(al,al,1.);
+        }
+
+        M_matrix->close();
+
+        //M_matrix->setValue(0,0,1.);
+
+        if (rank == 0)
+            std::cout<<"--------------done\n";
 
     }
 
@@ -5407,6 +5471,189 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     auto NNZ = M_graph.nNz();
     std::cout<<"ACCUMULATE= "<< std::accumulate(NNZ.begin(),NNZ.end(),0) <<"\n";
 #endif
+#endif
+}
+
+void
+FiniteElement::createGraph(BamgMesh const* bamg_mesh)
+{
+
+    auto M_local_ghost = M_mesh.localGhost();
+    auto M_transfer_map = M_mesh.transferMap();
+
+    std::cout<<"NodalConnectivitySize[0]= "<< bamg_mesh->NodalConnectivitySize[0] <<"\n";
+    std::cout<<"NodalConnectivitySize[1]= "<< bamg_mesh->NodalConnectivitySize[1] <<"\n";
+
+    int Nd = bamg_mesh->NodalConnectivitySize[1];
+    std::vector<int> dz;
+    std::vector<int> ddz_j;
+    std::vector<int> ddz_i;
+
+    std::vector<int> d_nnz;
+    std::vector<int> o_nnz;
+
+    for (int i=0; i<bamgmesh->NodalConnectivitySize[0]; ++i)
+    {
+
+        int counter_dnnz = 0;
+        int counter_onnz = 0;
+
+        int Ncc = bamgmesh->NodalConnectivity[Nd*(i+1)-1];
+        int gid = M_transfer_map.right.find(i+1)->second;
+        if (std::find(M_local_ghost.begin(),M_local_ghost.end(),gid) == M_local_ghost.end())
+        {
+            std::cout<<"-----------------Row "<< i << " or "<< gid <<"\n";
+            for (int j=0; j<Ncc; ++j)
+            {
+                int currentr = bamgmesh->NodalConnectivity[Nd*i+j];
+
+                int gid2 = M_transfer_map.right.find(currentr)->second;
+                if (std::find(M_local_ghost.begin(),M_local_ghost.end(),gid2) == M_local_ghost.end())
+                    ++counter_dnnz;
+                else
+                    ++counter_onnz;
+
+                //std::cout<<"Connect["<< j <<"]= "<< currentr << " or "<< M_transfer_map.right.find(currentr)->second <<"\n";
+            }
+
+            // std::cout<<"--------dnnz  = "<< counter_dnnz <<"\n";
+            // std::cout<<"--------onnz  = "<< counter_onnz <<"\n";
+            // std::cout<<"--------before= "<< 2*(Ncc+1) <<"\n";
+
+            d_nnz.push_back(2*(counter_dnnz+1));
+            o_nnz.push_back(2*(counter_onnz));
+
+            std::cout<<"--------dnnz  = "<< 2*(counter_dnnz+1) <<"\n";
+            std::cout<<"--------onnz  = "<< 2*(counter_onnz) <<"\n";
+            std::cout<<"--------before= "<< 2*(Ncc+1) <<"\n";
+
+
+
+        }
+
+        int Nc = bamgmesh->NodalConnectivity[Nd*(i+1)-1];
+        dz.push_back(2*(Nc+1));
+
+        std::vector<int> local_ddz;
+        local_ddz.push_back(i);
+
+        for (int j=0; j<Nc; ++j)
+        {
+            local_ddz.push_back(bamgmesh->NodalConnectivity[Nd*i+j]-1);
+        }
+        std::sort(local_ddz.begin(),local_ddz.end());
+
+        ddz_i.push_back(ddz_j.size());
+
+        for (int const& k : local_ddz)
+        {
+            ddz_j.push_back(k);
+        }
+
+        for (int const& k : local_ddz)
+        {
+            ddz_j.push_back(k+M_num_nodes);
+        }
+
+#if 0
+        for (int j=0; j<Nc; ++j)
+        {
+            std::cout<<"Connectivity["<< Nd*i+j <<"]= "<< bamgmesh->NodalConnectivity[Nd*i+j]-1 <<"\n";
+        }
+#endif
+    }
+
+
+
+    auto d_nnz_count = d_nnz.size();
+    d_nnz.resize(2*d_nnz_count);
+    std::copy_n(d_nnz.begin(), d_nnz_count, d_nnz.begin() + d_nnz_count);
+
+    auto o_nnz_count = o_nnz.size();
+    o_nnz.resize(2*o_nnz_count);
+    std::copy_n(o_nnz.begin(), o_nnz_count, o_nnz.begin() + o_nnz_count);
+
+    std::vector<int> global_indices = M_mesh.localDofWithoutGhost();
+    int glsize = global_indices.size();
+    global_indices.resize(2*glsize);
+
+    int sM = M_mesh.numNodes();
+
+    for (int gl=0; gl<glsize; ++gl)
+        global_indices[gl] = global_indices[gl]-1;
+
+    for (int gl=0; gl<glsize; ++gl)
+        global_indices[gl+glsize] = global_indices[gl] + sM ;
+
+    M_graphmpi = graphmpi_type(d_nnz, o_nnz, global_indices);
+
+
+
+
+
+    auto mindzit = std::min_element(dz.begin(),dz.end());
+    auto maxdzit = std::max_element(dz.begin(),dz.end());
+
+    std::cout<<"************MINDZ= "<< *mindzit << " at "<< std::distance(dz.begin(), mindzit) << "\n";
+    std::cout<<"************MAXDZ= "<< *maxdzit << " at "<< std::distance(dz.begin(), maxdzit) <<"\n";
+
+    auto dzu_count = dz.size();
+    dz.resize(2*dzu_count);
+    std::copy_n(dz.begin(), dzu_count, dz.begin() + dzu_count);
+
+    int ddzi_count = ddz_i.size();
+    ddz_i.resize(2*ddzi_count+1,0);
+    ddz_i[ddzi_count] = ddz_i[ddzi_count-1] + dz[ddzi_count-1];
+
+    for (int ll=0; ll<ddzi_count; ++ll)
+    {
+        ddz_i[ddzi_count+1+ll] = ddz_i[ddzi_count+ll] + dz[ll];
+    }
+
+    auto ddzj_count = ddz_j.size();
+    ddz_j.resize(2*ddzj_count);
+    std::copy_n(ddz_j.begin(), ddzj_count, ddz_j.begin() + ddzj_count);
+
+    //std::vector<double> ddz_data(ddz_j.size(),0.);
+    //M_graph = graph_type(dz,ddz_i,ddz_j,ddz_data);
+
+    std::cout<<"\n";
+    std::cout<<"GRAPHCSR INFO: MIN NZ (per row)      = "<< *std::min_element(dz.begin(),dz.end()) <<"\n";
+    std::cout<<"GRAPHCSR INFO: MAX NZ (per row)      = "<< *std::max_element(dz.begin(),dz.end()) <<"\n";
+    std::cout<<"GRAPHCSR INFO: NNZ (total)           = "<< ddz_j.size() <<"\n";
+    std::cout<<"\n";
+
+
+ #if 0
+    auto NNZ = M_graph.nNz();
+    double minNNZ = *std::min_element(NNZ.begin(),NNZ.end());
+    double maxNNZ = *std::max_element(NNZ.begin(),NNZ.end());
+
+    std::cout<<"sizeNNZ= "<< NNZ.size() <<"\n";
+    std::cout<<"minNNZ= "<< minNNZ <<"\n";
+    std::cout<<"maxNNZ= "<< maxNNZ <<"\n";
+
+    auto DDZI = M_graph.ia();
+    auto DDZJ = M_graph.ja();
+
+    int minDDZI = *std::min_element(DDZI.begin(),DDZI.end());
+    int maxDDZI = *std::max_element(DDZI.begin(),DDZI.end());
+
+    int minDDZJ = *std::min_element(DDZJ.begin(),DDZJ.end());
+    int maxDDZJ = *std::max_element(DDZJ.begin(),DDZJ.end());
+
+    std::cout<<"sizeDDZI= "<< DDZI.size() <<"\n";
+    std::cout<<"minDDZI= "<< minDDZI <<"\n";
+    std::cout<<"maxDDZI= "<< maxDDZI <<"\n";
+
+    std::cout<<"ACCUMULATE= "<< std::accumulate(NNZ.begin(),NNZ.end(),0) <<"\n";
+
+    std::cout<<"sizeDDZJ= "<< DDZJ.size() <<"\n";
+    std::cout<<"minDDZJ= "<< minDDZJ <<"\n";
+    std::cout<<"maxDDZJ= "<< maxDDZJ <<"\n";
+
+    auto NNZ = M_graph.nNz();
+    std::cout<<"ACCUMULATE= "<< std::accumulate(NNZ.begin(),NNZ.end(),0) <<"\n";
 #endif
 }
 

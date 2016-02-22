@@ -182,6 +182,182 @@ MatrixPetsc::init( const size_type m, const size_type n, graph_type const& graph
 }
 
 void
+MatrixPetsc::init( const size_type m,
+                   const size_type n,
+                   const size_type m_l,
+                   const size_type n_l,
+                   graphmpi_type const& graph )
+{
+    if (m==0 || n==0)
+		return;
+
+    {
+        if (M_is_initialized)
+            this->clear();
+    }
+
+    M_is_initialized = true;
+
+    int ierr     = 0;
+    int m_global = static_cast<int>( m );
+    int n_global = static_cast<int>( n );
+    int m_local  = static_cast<int>( m_l );
+    int n_local  = static_cast<int>( n_l );
+
+    PetscInt *dnz;
+    PetscInt n_dnz = graph.nNzOnProc().size();
+    //std::cout << "\n n_ndz = " << n_dnz << std::endl;
+    dnz = new PetscInt[n_dnz];
+    std::copy( graph.nNzOnProc().begin(),
+               graph.nNzOnProc().end(),
+               dnz );
+
+
+    PetscInt *dnzOffProc;
+    PetscInt n_dnzOffProc = graph.nNzOffProc().size();
+    dnzOffProc = new PetscInt[ n_dnzOffProc ];
+    std::copy( graph.nNzOffProc().begin(),
+               graph.nNzOffProc().end(),
+               dnzOffProc );
+
+    if ( n_dnzOffProc==0 )
+        dnzOffProc = PETSC_NULL;
+
+
+    ierr = MatCreateAIJ ( M_comm,
+                          m_local, n_local,
+                          m_global, n_global,
+                          /*PETSC_DECIDE*//*n_dnz*/0, /*PETSC_NULL*/dnz,
+                          /*PETSC_DECIDE*/0/*n_dnzOffProc*/, dnzOffProc,
+                          &this->M_mat);
+
+    CHKERRABORT( M_comm,ierr );
+
+    ierr = MatMPIAIJSetPreallocation( this->mat(), 0, dnz, 0, dnzOffProc );
+    CHKERRABORT( M_comm,ierr );
+
+    // free
+    delete[] dnzOffProc;
+
+
+    //--------------------------------------------------------------
+    IS isRow;
+    IS isCol;
+    ISLocalToGlobalMapping isLocToGlobMapRow;
+    ISLocalToGlobalMapping isLocToGlobMapCol;
+
+    PetscInt *idxRow;
+    PetscInt *idxCol;
+    PetscInt n_idxRow =  graph.globalIndices().size();
+    PetscInt n_idxCol =  graph.globalIndices().size();
+    idxRow = new PetscInt[n_idxRow];
+    idxCol = new PetscInt[n_idxCol];
+    std::copy( graph.globalIndices().begin(),
+               graph.globalIndices().end(),
+               idxRow );
+    std::copy( graph.globalIndices().begin(),
+               graph.globalIndices().end(),
+               idxCol );
+
+    ierr = ISCreateGeneral( M_comm, n_idxRow, idxRow, PETSC_COPY_VALUES, &isRow );
+    CHKERRABORT( M_comm,ierr );
+
+    ierr = ISCreateGeneral( M_comm, n_idxCol, idxCol, PETSC_COPY_VALUES, &isCol );
+    CHKERRABORT( M_comm,ierr );
+
+    ierr=ISLocalToGlobalMappingCreateIS( isRow, &isLocToGlobMapRow );
+    CHKERRABORT( M_comm,ierr );
+
+    ierr=ISLocalToGlobalMappingCreateIS( isCol, &isLocToGlobMapCol );
+    CHKERRABORT( M_comm,ierr );
+
+    ierr = MatSetLocalToGlobalMapping( this->mat(),isLocToGlobMapRow,isLocToGlobMapCol );
+    CHKERRABORT( M_comm,ierr );
+
+    // Clean up
+    ierr = ISDestroy( &isRow );
+    CHKERRABORT( M_comm,ierr );
+
+    ierr = ISDestroy( &isCol );
+    CHKERRABORT( M_comm,ierr );
+
+    ierr = ISLocalToGlobalMappingDestroy( &isLocToGlobMapRow );
+    CHKERRABORT( M_comm,ierr );
+
+    ierr = ISLocalToGlobalMappingDestroy( &isLocToGlobMapCol );
+    CHKERRABORT( M_comm,ierr );
+
+    delete[] idxRow;
+    delete[] idxCol;
+    //--------------------------------------------------------------
+
+
+    ierr = MatSetFromOptions( this->mat() );
+    CHKERRABORT( this->comm(),ierr );
+
+    ierr = MatSetOption( M_mat,MAT_KEEP_NONZERO_PATTERN,PETSC_TRUE );
+    // //MatSetOption( M_mat,MAT_IGNORE_ZERO_ENTRIES,PETSC_FALSE );
+    // //MatSetOption( M_mat,MAT_IGNORE_LOWER_TRIANGULAR,PETSC_TRUE );
+    CHKERRABORT( M_comm, ierr );
+
+
+
+
+    this->zero();
+
+
+
+
+
+
+
+
+
+#if 0
+    int ierr = 0;
+    int nrow = static_cast<int> (m);
+    int ncol = static_cast<int> (n);
+
+#if 1
+    ierr = MatCreateSeqAIJ ( M_comm, nrow, ncol,
+                             0,
+                             (int*) graph.nNz().data(),
+                             &M_mat );
+
+    CHKERRABORT( M_comm, ierr );
+
+    ierr = MatSeqAIJSetPreallocationCSR( M_mat,
+                                         (int*) graph.ia().data(),
+                                         (int*) graph.ja().data(),
+                                         graph.a().data() );
+
+    CHKERRABORT( M_comm, ierr );
+#endif
+
+    ierr = MatSetFromOptions ( M_mat );
+    CHKERRABORT( M_comm, ierr );
+
+    ierr = MatSetOption( M_mat,MAT_KEEP_NONZERO_PATTERN,PETSC_TRUE );
+    MatSetOption( M_mat,MAT_IGNORE_ZERO_ENTRIES,PETSC_FALSE );
+    //MatSetOption( M_mat,MAT_IGNORE_LOWER_TRIANGULAR,PETSC_TRUE );
+    CHKERRABORT( M_comm, ierr );
+
+    //ierr = MatSetOption( M_mat,MAT_SPD,PETSC_FALSE );
+    ierr = MatSetOption ( M_mat, MAT_SYMMETRIC, PETSC_TRUE );
+    ierr = MatSetOption ( M_mat,MAT_SYMMETRY_ETERNAL,PETSC_TRUE );
+    CHKERRABORT( M_comm, ierr );
+
+    // generates an error for new matrix entry
+    ierr = MatSetOption ( M_mat, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_TRUE );
+    CHKERRABORT( M_comm, ierr );
+
+    M_is_initialized = true;
+
+    //this->zero();
+#endif
+}
+
+void
 MatrixPetsc::zero()
 {
     ASSERT(M_is_initialized, "MatrixPetsc not properly initialized");
@@ -191,7 +367,7 @@ MatrixPetsc::zero()
     MatAssembled( M_mat, &is_assembled );
 
     //std::cout<<"Assemble= "<< is_assembled <<"\n";
-    if ( is_assembled )
+    //if ( is_assembled )
     {
         ierr = MatZeroEntries( M_mat );
         CHKERRABORT( M_comm,ierr );
@@ -218,7 +394,7 @@ MatrixPetsc::setValue(size_type const& i, size_type const& j, value_type const& 
     int ierr=0, i_val=i, j_val=j;
 
     PetscScalar petsc_value = static_cast<PetscScalar>( value );
-    ierr = MatSetValues( M_mat, 1, &i_val, 1, &j_val,
+    ierr = MatSetValuesLocal( M_mat, 1, &i_val, 1, &j_val,
                          &petsc_value, INSERT_VALUES );
     CHKERRABORT( M_comm,ierr );
 }

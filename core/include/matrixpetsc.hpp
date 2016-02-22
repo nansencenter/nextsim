@@ -11,6 +11,7 @@
 
 #include <environment.hpp>
 #include <graphcsr.hpp>
+#include <graphcsrmpi.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <assert.hpp>
@@ -48,6 +49,7 @@ class MatrixPetsc
 public:
 
     typedef GraphCSR graph_type;
+    typedef GraphCSRMPI graphmpi_type;
     typedef std::size_t size_type;
     typedef double value_type;
 
@@ -63,6 +65,13 @@ public:
 
     void init( const size_type m, const size_type n, const size_type nnz );
     void init( const size_type m, const size_type n, graph_type const& graph );
+
+    void init( const size_type m,
+               const size_type n,
+               const size_type m_l,
+               const size_type n_l,
+               graphmpi_type const& graph );
+
 
     void zero();
 

@@ -499,11 +499,12 @@ GmshMesh::nodalGrid()
         M_transfer_map.insert(position(M_local_dof_with_ghost[k],k+1));
     }
 
-#if 0
-    std::vector<int> to_remove;
-    int counter = 0;
+#if 1
 
-    for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
+    std::vector<element_type> _triangles = M_triangles;
+    M_triangles.resize(0);
+
+    for (auto it=_triangles.begin(), end=_triangles.end(); it!=end; ++it)
     {
         if ((M_comm.rank() <= it->partition))
         {
@@ -519,16 +520,13 @@ GmshMesh::nodalGrid()
             }
 
             if (_test)
-            {
-                std::cout<<"-------- REMOVE INDEX "<< it->number <<"\n";
-                //it = M_triangles.erase(it);
-                to_remove.push_back();
-                std::cout<<"Remove done\n";
-                //continue;
-            }
+                continue;
 
+            M_triangles.push_back(*it);
         }
     }
+
+    M_num_triangles = M_triangles.size();
 #endif
 
 }
@@ -542,7 +540,7 @@ GmshMesh::indexTr() const
     {
         //bool elt_valid = this->isValid(*it);
         //std::cout<<"--------INDEX "<< it->number <<" isvalid= "<< elt_valid <<"\n";
-
+#if 0
         if ((M_comm.rank() <= it->partition)) //&& (elt_valid))
         {
             bool _test = false;
@@ -564,6 +562,12 @@ GmshMesh::indexTr() const
             {
                 index.push_back(M_transfer_map.left.find(it->indices[i])->second);
             }
+        }
+#endif
+
+        for (int i=0; i<3; ++i)
+        {
+            index.push_back(M_transfer_map.left.find(it->indices[i])->second);
         }
 
         // index[3*cpt] = it->indices[0];//it->first;
@@ -695,6 +699,7 @@ GmshMesh::bCoordY() const
 
         for (int i=0; i<3; ++i)
         {
+            //y += M_nodes[it->indices[i]-1].coords[1];
             y += M_nodes[it->indices[i]-1].coords[1];
         }
 

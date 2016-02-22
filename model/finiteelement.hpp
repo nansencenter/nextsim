@@ -26,6 +26,7 @@
 #include <pwl_interp_2d_scattered.hpp>
 #include <gmshmesh.hpp>
 #include <graphcsr.hpp>
+#include <graphcsrmpi.hpp>
 #include "enums.hpp"
 #include <netcdf>
 #include <omp.h>
@@ -38,6 +39,9 @@ extern "C"
 
 namespace Nextsim
 {
+
+    //namespace mpi boost::mpi;
+
 template< class MapType >
 void print_map(const MapType & map,
                const std::string & separator,
@@ -67,6 +71,9 @@ public:
     typedef boost::shared_ptr<vector_type> vector_ptrtype;
     typedef GraphCSR graph_type;
     typedef boost::shared_ptr<graph_type> graph_ptrtype;
+
+    typedef GraphCSRMPI graphmpi_type;
+    typedef boost::shared_ptr<graphmpi_type> graphmpi_ptrtype;
 
     // typedef boost::bimap<int,int> bimap_type;
     // typedef bimap_type::value_type position;
@@ -147,6 +154,7 @@ public:
 
     void PwlInterp2D();
     void importBamg(BamgMesh const* bamg_mesh);
+    void createGraph(BamgMesh const* bamg_mesh);
     void initSimulation();
     void tensors();
     void cohesion();
@@ -160,6 +168,7 @@ private:
     po::variables_map vm;
     mesh_type M_mesh;
     graph_type M_graph;
+    graphmpi_type M_graphmpi;
     mesh_type M_mesh_init;
     mesh_type M_mesh_previous;
     solver_ptrtype M_solver;
