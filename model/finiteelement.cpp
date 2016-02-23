@@ -80,19 +80,33 @@ FiniteElement::init()
             throw std::logic_error("invalid domain type");
     }
 
-    std::cout<<"start\n";
+    //std::cout<<"start\n";
     //M_mesh_filename = "parbigarctic10km.msh";
-    M_mesh_filename = "par3hypercube.msh";
+    //M_mesh_filename = "par3hypercube.msh";
+    M_mesh_filename = "par3bigarctic10km.msh";
+
     M_mesh.readFromFile(M_mesh_filename);
 
+    M_comm = M_mesh.comm();
+    M_rank = M_comm.rank();
+
+    M_mesh.stereographicProjection();
+
+    M_elements = M_mesh.triangles();
+    M_ndof = M_mesh.numNodes();
+    M_local_ndof = M_mesh.localDofWithoutGhost().size();
 
     this->initConstant();
     this->initBamg();
 
+    int gsize = boost::mpi::all_reduce(M_comm, M_local_ndof, std::plus<int>());
+    if (M_rank == 0)
+        std::cout<<"Global size= "<< gsize << " and "<< M_ndof <<"\n";
 
 
-    M_mesh.comm().barrier();
-    if (M_mesh.comm().rank() == 0)
+#if 0
+    M_comm.barrier();
+    if (M_rank == 0)
     {
         std::cout<<"************00************\n";
         for (int const& index : M_mesh.localDofWithoutGhost())
@@ -107,8 +121,8 @@ FiniteElement::init()
             std::cout<<"INDEXWG  "<< index <<"\n";
     }
 
-    M_mesh.comm().barrier();
-    if (M_mesh.comm().rank() == 1)
+    M_comm.barrier();
+    if (M_rank == 1)
     {
         std::cout<<"************10************\n";
         for (int const& index : M_mesh.localDofWithoutGhost())
@@ -123,8 +137,8 @@ FiniteElement::init()
             std::cout<<"INDEXWG  "<< index <<"\n";
     }
 
-    M_mesh.comm().barrier();
-    if (M_mesh.comm().rank() == 2)
+    M_comm.barrier();
+    if (M_rank == 2)
     {
         std::cout<<"************20************\n";
         for (int const& index : M_mesh.localDofWithoutGhost())
@@ -138,206 +152,22 @@ FiniteElement::init()
         for (int const& index : M_mesh.localDofWithGhost())
             std::cout<<"INDEXWG "<< index <<"\n";
     }
-
-
-#if 0
-    M_mesh.comm().barrier();
-    //std::cout<<"*********Process "<< M_mesh.comm().rank() <<"\n";
-    std::vector<int> local_node_without_ghost;
-    std::vector<int> local_node_with_ghost;
-    std::vector<int> local_ghost;
-    std::vector<int> ghosts_nodes_f;
-    std::vector<int> ghosts_nodes_s;
-    std::vector<int> ghosts_nodes_t;
-
-
-    // ----------------------------------------------------------------------------------
-
-    for (auto it=M_mesh.triangles().begin(), end=M_mesh.triangles().end(); it!=end; ++it)
-    {
-        if (it->is_ghost)
-        {
-            for (int const& index : it->indices)
-            {
-                if ((std::find(ghosts_nodes_f.begin(),ghosts_nodes_f.end(),index) == ghosts_nodes_f.end()))
-                {
-                    ghosts_nodes_f.push_back(index);
-                }
-            }
-        }
-    }
-
-    for (auto it=M_mesh.triangles().begin(), end=M_mesh.triangles().end(); it!=end; ++it)
-    {
-        if (!it->is_ghost)
-        {
-            for (int const& index : it->indices)
-            {
-                if ((std::find(local_node_without_ghost.begin(),local_node_without_ghost.end(),index) == local_node_without_ghost.end())
-                    && (std::find(ghosts_nodes_f.begin(),ghosts_nodes_f.end(),index) == ghosts_nodes_f.end()))
-                {
-                    local_node_without_ghost.push_back(index);
-                }
-
-
-                if ((it->ghosts.size() > 0) && (std::find(ghosts_nodes_f.begin(),ghosts_nodes_f.end(),index) != ghosts_nodes_f.end()))
-                {
-                    int neigh = *std::min_element(it->ghosts.begin(),it->ghosts.end());
-                    int min_id = std::min(neigh,it->partition);
-                    int max_id = std::max(neigh,it->partition);
-
-                    if (M_mesh.comm().rank() == min_id)
-                    {
-                        local_node_without_ghost.push_back(index);
-                    }
-                    else if (M_mesh.comm().rank() == max_id)
-                    {
-                        ghosts_nodes_s.push_back(index);
-                    }
-                }
-            }
-        }
-    }
-
-    std::sort(ghosts_nodes_f.begin(),ghosts_nodes_f.end());
-
-    std::sort(ghosts_nodes_s.begin(), ghosts_nodes_s.end());
-    ghosts_nodes_s.erase(std::unique( ghosts_nodes_s.begin(), ghosts_nodes_s.end() ), ghosts_nodes_s.end());
-
-    std::sort(local_node_without_ghost.begin(), local_node_without_ghost.end());
-    local_node_without_ghost.erase(std::unique( local_node_without_ghost.begin(), local_node_without_ghost.end() ), local_node_without_ghost.end());
-
-
-    for (auto it=M_mesh.triangles().begin(), end=M_mesh.triangles().end(); it!=end; ++it)
-    {
-        if (((it->is_ghost) && (M_mesh.comm().rank() > it->partition)) && (it->ghosts.size() > 0) )
-        {
-            for (int const& index : it->indices)
-            {
-                if ((std::find(ghosts_nodes_t.begin(),ghosts_nodes_t.end(),index) == ghosts_nodes_t.end())
-                    && (std::find(ghosts_nodes_s.begin(),ghosts_nodes_s.end(),index) == ghosts_nodes_s.end()))
-                {
-                    ghosts_nodes_t.push_back(index);
-                }
-            }
-        }
-    }
-
-    std::sort(ghosts_nodes_t.begin(),ghosts_nodes_t.end());
-
-
-    std::vector<int> diff_nodes;
-    std::set_difference(ghosts_nodes_f.begin(), ghosts_nodes_f.end(),
-                        local_node_without_ghost.begin(), local_node_without_ghost.end(),
-                        std::back_inserter(diff_nodes));
-
-    std::set_difference(diff_nodes.begin(), diff_nodes.end(),
-                        ghosts_nodes_t.begin(), ghosts_nodes_t.end(),
-                        std::back_inserter(local_ghost));
-
-
-    std::copy_n(local_node_without_ghost.begin(), local_node_without_ghost.size(), std::back_inserter(local_node_with_ghost));
-    std::copy_n(local_ghost.begin(), local_ghost.size(), std::back_inserter(local_node_with_ghost));
-
-#if 1
-    M_mesh.comm().barrier();
-    if (M_mesh.comm().rank() == 0)
-    {
-        std::cout<<"************00************\n";
-        for (int const& index : local_node_without_ghost)
-            std::cout<<"INDEX "<< index <<"\n";
-
-        std::cout<<"************01************\n";
-        for (int const& index : local_ghost)
-            std::cout<<"INDEXDIFF "<< index <<"\n";
-
-        std::cout<<"************02************\n";
-        for (int const& index : local_node_with_ghost)
-            std::cout<<"INDEXGHT "<< index <<"\n";
-
-        // std::cout<<"************0************\n";
-        // for (int const& index : egain_diff_nodes)
-        //     std::cout<<"INDEXDIFF "<< index <<"\n";
-
-    }
-
-    M_mesh.comm().barrier();
-    if (M_mesh.comm().rank() == 1)
-    {
-        std::cout<<"************10************\n";
-        for (int const& index : local_node_without_ghost)
-            std::cout<<"INDEX "<< index <<"\n";
-
-        std::cout<<"************11************\n";
-        for (int const& index : local_ghost)
-            std::cout<<"INDEXDIFF "<< index <<"\n";
-
-        std::cout<<"************12************\n";
-        for (int const& index : local_node_with_ghost)
-            std::cout<<"INDEXGHT "<< index <<"\n";
-
-        // std::cout<<"************1************\n";
-        // for (int const& index : egain_diff_nodes)
-        //     std::cout<<"INDEXDIFF "<< index <<"\n";
-    }
-
-    M_mesh.comm().barrier();
-    if (M_mesh.comm().rank() == 2)
-    {
-        std::cout<<"************20************\n";
-        for (int const& index : local_node_without_ghost)
-            std::cout<<"INDEX "<< index <<"\n";
-
-        std::cout<<"************21************\n";
-        for (int const& index : local_ghost)
-            std::cout<<"INDEXDIFF "<< index <<"\n";
-
-        std::cout<<"************22************\n";
-        for (int const& index : local_node_with_ghost)
-            std::cout<<"INDEXGHT "<< index <<"\n";
-    }
-
-    // M_mesh.comm().barrier();
-    // if (M_mesh.comm().rank() == 3)
-    // {
-    //     std::cout<<"************20************\n";
-    //     for (int const& index : local_node_without_ghost)
-    //         std::cout<<"INDEX "<< index <<"\n";
-
-    //     std::cout<<"************21************\n";
-    //     for (int const& index : local_ghost)
-    //         std::cout<<"INDEXDIFF "<< index <<"\n";
-
-    //     std::cout<<"************22************\n";
-    //     for (int const& index : local_node_with_ghost)
-    //         std::cout<<"INDEXGHT "<< index <<"\n";
-    // }
-
-
-    // ----------------------------------------------------------------------------------
 #endif
 
-
-#endif
-
-    M_mesh.comm().barrier();
-
-    int rank = M_mesh.comm().rank();
+    M_comm.barrier();
 
 #if 0
-    //int rank = M_mesh.comm().rank();
-
-    if (rank == 1)
+    if (M_rank == 1)
     {
         for (auto it=M_mesh.triangles().begin(), end=M_mesh.triangles().end(); it!=end; ++it)
         {
-            //if ((it->is_ghost) && (it->partition > rank))
-            //if ((!it->is_ghost) || (it->partition <= rank))
-            //if (it->partition >= rank)
-            if ((it->partition >= rank) && (it->number == 33) || (it->number == 40))
+            //if ((it->is_ghost) && (it->partition > M_rank))
+            //if ((!it->is_ghost) || (it->partition <= M_rank))
+            //if (it->partition >= M_rank)
+            if ((it->partition >= M_rank) && (it->number == 33) || (it->number == 40))
             {
                 //std::cout<<"-------------------"<< cpt << "-------------------"<<"\n";
-                std::cout<<"it->rank                = "<< M_mesh.comm().rank() <<"\n";
+                std::cout<<"it->rank                = "<< M_rank <<"\n";
                 std::cout<<"it->number              = "<< it->number <<"\n";
                 //std::cout<<"it->type                = "<< it->type <<"\n";
                 //std::cout<<"it->physical            = "<< it->physical <<"\n";
@@ -359,52 +189,7 @@ FiniteElement::init()
     }
 #endif
 
-
-#if 0
-    if (rank == 0)
-    {
-        typedef boost::bimap< std::string, int > results_bimap;
-        typedef results_bimap::value_type positionstr;
-
-        results_bimap results;
-        results.insert( positionstr("Argentina"    ,1) );
-        results.insert( positionstr("Spain"        ,2) );
-        results.insert( positionstr("Germany"      ,3) );
-        results.insert( positionstr("France"       ,4) );
-
-        std::cout << "The number of countries is " << results.size()
-                  << std::endl;
-
-        std::cout << "The winner is " << results.right.at(1)
-                  << std::endl
-                  << std::endl;
-
-        std::cout << "Countries names ordered by their final position:"
-                  << std::endl;
-
-        // results.right works like a std::map< int, std::string >
-
-        print_map( results.right, ") ", std::cout );
-
-        std::cout << std::endl
-                  << "Countries names ordered alphabetically along with"
-            "their final position:"
-                  << std::endl;
-
-        // results.left works like a std::map< std::string, int >
-
-        print_map( results.left, " ends in position ", std::cout );
-    }
- #endif
-
-    // bimap_type transfer_map;
-    // for (int k=0; k<local_node_with_ghost.size(); ++k)
-    // {
-    //     transfer_map.insert(position(local_node_with_ghost[k],k));
-    // }
-
-
-    if (1)//(rank == 1)
+    if (1)//(M_rank == 1)
     {
         // int test1_ = M_mesh.transferMap().left.find(14)->second;
         // std::cout<<"___test1= "<< test1_ <<"\n";
@@ -415,20 +200,19 @@ FiniteElement::init()
         auto indextr = M_mesh.indexTr();
         std::cout<<"Number of triangles= "<< indextr.size()/3 <<"\n";
 
-        for (int i=0; i<indextr.size(); ++i)
-        {
-            bool toto = (i % 3);
-            if (!toto)
-                std::cout<<"TR "<< i/3 <<"\n";
+        // for (int i=0; i<indextr.size(); ++i)
+        // {
+        //     bool toto = (i % 3);
+        //     if (!toto)
+        //         std::cout<<"TR "<< i/3 <<"\n";
 
-            std::cout<<"Local: "<< indextr[i] << " and Global: "<< M_mesh.transferMap().right.find(indextr[i])->second <<"\n";
-        }
+        //     std::cout<<"Local: "<< indextr[i] << " and Global: "<< M_mesh.transferMap().right.find(indextr[i])->second <<"\n";
+        // }
 
         // if (M_mesh.transferMap().left.find(19) == M_mesh.transferMap().left.end())
         // {
         //     std::cout<<"TOTO\n";
         // }
-
         // std::cout<<"CRASH= "<< M_mesh.transferMap().left.find(19)->second <<"\n";
 
         auto xc = M_mesh.coordX();
@@ -436,7 +220,8 @@ FiniteElement::init()
 
         for (int i=0; i<xc.size(); ++i)
         {
-            std::cout<<"COORD["<< i <<"]= ("<< xc[i] << ","<< yc[i] <<")\n";
+            if (i < 20)
+                std::cout<<"COORD["<< i <<"]= ("<< xc[i] << ","<< yc[i] <<")\n";
         }
 
         int nelet = indextr.size()/3;
@@ -458,7 +243,8 @@ FiniteElement::init()
 
         for (int i=0; i<bxc.size(); ++i)
         {
-            std::cout<<"BCOORD["<< i <<"]= ("<< bxc[i] << ","<< byc[i] <<")\n";
+            if (i < 20)
+                std::cout<<"BCOORD["<< i <<"]= ("<< bxc[i] << ","<< byc[i] <<")\n";
         }
 
         for (auto it=M_mesh.edges().begin(), end=M_mesh.edges().end(); it!=end; ++it)
@@ -472,7 +258,7 @@ FiniteElement::init()
 
             // //std::cout<<"-------------------"<< cpt << "-------------------"<<"\n";
             // std::cout<<"-----------------------------------------------------\n";
-            // std::cout<<"it->rank                = "<< M_mesh.comm().rank() <<"\n";
+            // std::cout<<"it->rank                = "<< M_rank <<"\n";
             // std::cout<<"it->number              = "<< it->number <<"\n";
             // std::cout<<"it->type                = "<< it->type <<"\n";
             // std::cout<<"it->physical            = "<< it->physical <<"\n";
@@ -486,37 +272,46 @@ FiniteElement::init()
         std::sort(M_dirichlet_flags.begin(), M_dirichlet_flags.end());
         M_dirichlet_flags.erase(std::unique( M_dirichlet_flags.begin(), M_dirichlet_flags.end() ), M_dirichlet_flags.end());
 
+        std::cout<<"Dirichlet flags= "<< M_dirichlet_flags.size() <<"\n";
 
         // std::cout<<"NodalConnectivitySize[0]= "<< bamgmesh->NodalConnectivitySize[0] <<"\n";
         // std::cout<<"NodalConnectivitySize[1]= "<< bamgmesh->NodalConnectivitySize[1] <<"\n";
+
         this->createGraph(bamgmesh);
 
-        int s_m = M_mesh.localDofWithoutGhost().size();
-        int s_M = M_mesh.numNodes();
-
-        int gsize = boost::mpi::all_reduce(M_mesh.comm(), s_m, std::plus<int>());
-        if (rank == 0)
-            std::cout<<"Global size= "<< gsize << " and "<< s_M <<"\n";
 
         M_matrix = matrix_ptrtype(new matrix_type());
 
-        if (rank == 0)
+        if (M_rank == 0)
             std::cout<<"--------------start\n";
-        M_matrix->init(2*s_M,2*s_M,2*s_m,2*s_m,M_graphmpi);
 
-        int ss_m = M_mesh.localDofWithGhost().size();
-        for (int al=0; al<2*s_m; ++al)
+        M_matrix->init(2*M_ndof,2*M_ndof,
+                       2*M_local_ndof,2*M_local_ndof,
+                       M_graphmpi);
+
+        // int ss_m = M_mesh.localDofWithGhost().size();
+
+        //if (M_rank == 2)
+        for (int al=0; al<2*M_local_ndof; ++al)
         {
+            //double vl = M_mesh.transferMap().right.find(al+1)->second-1;
             M_matrix->setValue(al,al,1.);
         }
 
         M_matrix->close();
 
+        M_vector = vector_ptrtype(new vector_type());
+        M_vector->init(2*M_ndof,2*M_local_ndof,M_graphmpi);
+        M_vector->setOnes();
+        M_vector->close();
+
         //M_matrix->setValue(0,0,1.);
 
-        if (rank == 0)
+        if (M_rank == 0)
             std::cout<<"--------------done\n";
 
+#if 0
+#endif
     }
 
 
@@ -5481,8 +5276,8 @@ FiniteElement::createGraph(BamgMesh const* bamg_mesh)
     auto M_local_ghost = M_mesh.localGhost();
     auto M_transfer_map = M_mesh.transferMap();
 
-    std::cout<<"NodalConnectivitySize[0]= "<< bamg_mesh->NodalConnectivitySize[0] <<"\n";
-    std::cout<<"NodalConnectivitySize[1]= "<< bamg_mesh->NodalConnectivitySize[1] <<"\n";
+    // std::cout<<"NodalConnectivitySize[0]= "<< bamg_mesh->NodalConnectivitySize[0] <<"\n";
+    // std::cout<<"NodalConnectivitySize[1]= "<< bamg_mesh->NodalConnectivitySize[1] <<"\n";
 
     int Nd = bamg_mesh->NodalConnectivitySize[1];
     std::vector<int> dz;
@@ -5502,7 +5297,7 @@ FiniteElement::createGraph(BamgMesh const* bamg_mesh)
         int gid = M_transfer_map.right.find(i+1)->second;
         if (std::find(M_local_ghost.begin(),M_local_ghost.end(),gid) == M_local_ghost.end())
         {
-            std::cout<<"-----------------Row "<< i << " or "<< gid <<"\n";
+            //std::cout<<"-----------------Row "<< i << " or "<< gid <<"\n";
             for (int j=0; j<Ncc; ++j)
             {
                 int currentr = bamgmesh->NodalConnectivity[Nd*i+j];
@@ -5523,37 +5318,42 @@ FiniteElement::createGraph(BamgMesh const* bamg_mesh)
             d_nnz.push_back(2*(counter_dnnz+1));
             o_nnz.push_back(2*(counter_onnz));
 
-            std::cout<<"--------dnnz  = "<< 2*(counter_dnnz+1) <<"\n";
-            std::cout<<"--------onnz  = "<< 2*(counter_onnz) <<"\n";
-            std::cout<<"--------before= "<< 2*(Ncc+1) <<"\n";
+            // std::cout<<"--------dnnz  = "<< 2*(counter_dnnz+1) <<"\n";
+            // std::cout<<"--------onnz  = "<< 2*(counter_onnz) <<"\n";
+            // std::cout<<"--------before= "<< 2*(Ncc+1) <<"\n";
 
 
 
         }
 
-        int Nc = bamgmesh->NodalConnectivity[Nd*(i+1)-1];
-        dz.push_back(2*(Nc+1));
-
-        std::vector<int> local_ddz;
-        local_ddz.push_back(i);
-
-        for (int j=0; j<Nc; ++j)
+#if 1
+        if (std::find(M_local_ghost.begin(),M_local_ghost.end(),gid) == M_local_ghost.end())
         {
-            local_ddz.push_back(bamgmesh->NodalConnectivity[Nd*i+j]-1);
-        }
-        std::sort(local_ddz.begin(),local_ddz.end());
+            int Nc = bamgmesh->NodalConnectivity[Nd*(i+1)-1];
+            dz.push_back(2*(Nc+1));
 
-        ddz_i.push_back(ddz_j.size());
+            std::vector<int> local_ddz;
+            local_ddz.push_back(i);
 
-        for (int const& k : local_ddz)
-        {
-            ddz_j.push_back(k);
-        }
+            for (int j=0; j<Nc; ++j)
+            {
+                local_ddz.push_back(bamgmesh->NodalConnectivity[Nd*i+j]-1);
+            }
+            std::sort(local_ddz.begin(),local_ddz.end());
 
-        for (int const& k : local_ddz)
-        {
-            ddz_j.push_back(k+M_num_nodes);
+            ddz_i.push_back(ddz_j.size());
+
+            for (int const& k : local_ddz)
+            {
+                ddz_j.push_back(k);
+            }
+
+            for (int const& k : local_ddz)
+            {
+                ddz_j.push_back(k+M_num_nodes);
+            }
         }
+#endif
 
 #if 0
         for (int j=0; j<Nc; ++j)
@@ -5587,7 +5387,6 @@ FiniteElement::createGraph(BamgMesh const* bamg_mesh)
         global_indices_with_ghost[gl+glsize] = global_indices_with_ghost[gl] + sM ;
 
 
-
     std::vector<int> global_indices_without_ghost = M_mesh.localDofWithoutGhost();
     glsize = global_indices_without_ghost.size();
     global_indices_without_ghost.resize(2*glsize);
@@ -5605,11 +5404,12 @@ FiniteElement::createGraph(BamgMesh const* bamg_mesh)
 
 
 
-    auto mindzit = std::min_element(dz.begin(),dz.end());
-    auto maxdzit = std::max_element(dz.begin(),dz.end());
+    // auto mindzit = std::min_element(dz.begin(),dz.end());
+    // auto maxdzit = std::max_element(dz.begin(),dz.end());
 
-    std::cout<<"************MINDZ= "<< *mindzit << " at "<< std::distance(dz.begin(), mindzit) << "\n";
-    std::cout<<"************MAXDZ= "<< *maxdzit << " at "<< std::distance(dz.begin(), maxdzit) <<"\n";
+    // std::cout<<"************MINDZ= "<< *mindzit << " at "<< std::distance(dz.begin(), mindzit) << "\n";
+    // std::cout<<"************MAXDZ= "<< *maxdzit << " at "<< std::distance(dz.begin(), maxdzit) <<"\n";
+
 
     auto dzu_count = dz.size();
     dz.resize(2*dzu_count);
@@ -5632,9 +5432,9 @@ FiniteElement::createGraph(BamgMesh const* bamg_mesh)
     //M_graph = graph_type(dz,ddz_i,ddz_j,ddz_data);
 
     std::cout<<"\n";
-    std::cout<<"GRAPHCSR INFO: MIN NZ (per row)      = "<< *std::min_element(dz.begin(),dz.end()) <<"\n";
-    std::cout<<"GRAPHCSR INFO: MAX NZ (per row)      = "<< *std::max_element(dz.begin(),dz.end()) <<"\n";
-    std::cout<<"GRAPHCSR INFO: NNZ (total)           = "<< ddz_j.size() <<"\n";
+    std::cout<<"["<< M_rank <<"] GRAPHCSR INFO: MIN NZ (per row)      = "<< *std::min_element(dz.begin(),dz.end()) <<"\n";
+    std::cout<<"["<< M_rank <<"] GRAPHCSR INFO: MAX NZ (per row)      = "<< *std::max_element(dz.begin(),dz.end()) <<"\n";
+    std::cout<<"["<< M_rank <<"] GRAPHCSR INFO: NNZ (total)           = "<< ddz_j.size() <<"\n";
     std::cout<<"\n";
 
 

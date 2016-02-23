@@ -233,8 +233,8 @@ MatrixPetsc::init( const size_type m,
 
     CHKERRABORT( M_comm,ierr );
 
-    // ierr = MatMPIAIJSetPreallocation( this->mat(), 0, dnz, 0, dnzOffProc );
-    // CHKERRABORT( M_comm,ierr );
+    ierr = MatMPIAIJSetPreallocation( this->mat(), 0, dnz, 0, dnzOffProc );
+    CHKERRABORT( M_comm,ierr );
 
     // free
     delete[] dnzOffProc;

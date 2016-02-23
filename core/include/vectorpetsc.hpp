@@ -128,6 +128,8 @@ public:
 
 	bool closed() const { return M_is_closed; }
 
+    void localize();
+
 
 private:
 

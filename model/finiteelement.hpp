@@ -85,6 +85,7 @@ public:
     FiniteElement();
 
     mesh_type const& mesh() const {return M_mesh;}
+    Communicator const& comm() const {return M_comm;}
 
     solver_ptrtype const& solverPtr() const {return M_solver;}
     matrix_ptrtype const& matrixPtr() const {return M_matrix;}
@@ -183,7 +184,11 @@ private:
     std::vector<element_type> M_elements;
 
     int M_num_nodes;
+    int M_ndof;
+    int M_local_ndof;
     int M_num_elements;
+    int M_rank;
+    Communicator M_comm;
 
     std::vector<int> M_boundary_flags;
     std::vector<int> M_dirichlet_flags;

@@ -422,14 +422,19 @@ GmshMesh::nodalGrid()
         }
     }
 
+    //if (this->comm().rank() == 0)
+    //std::cout<<"Starting\n";
+
     for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
     {
         if (!it->is_ghost)
         {
             for (int const& index : it->indices)
             {
-                if ((std::find(M_local_dof_without_ghost.begin(),M_local_dof_without_ghost.end(),index) == M_local_dof_without_ghost.end())
-                    && (std::find(ghosts_nodes_f.begin(),ghosts_nodes_f.end(),index) == ghosts_nodes_f.end()))
+                // if ((std::find(M_local_dof_without_ghost.begin(),M_local_dof_without_ghost.end(),index) == M_local_dof_without_ghost.end())
+                //     && (std::find(ghosts_nodes_f.begin(),ghosts_nodes_f.end(),index) == ghosts_nodes_f.end()))
+
+                if ((std::find(ghosts_nodes_f.begin(),ghosts_nodes_f.end(),index) == ghosts_nodes_f.end()))
                 {
                     M_local_dof_without_ghost.push_back(index);
                 }
@@ -453,6 +458,10 @@ GmshMesh::nodalGrid()
             }
         }
     }
+
+    //if (this->comm().rank() == 0)
+    //std::cout<<"Done\n";
+
 
     std::sort(ghosts_nodes_f.begin(),ghosts_nodes_f.end());
 

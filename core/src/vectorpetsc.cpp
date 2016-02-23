@@ -162,6 +162,9 @@ VectorPetsc::zero()
 
 	ierr = VecSet ( M_vec, z );
 	CHKERRABORT( M_comm,ierr );
+
+    ierr = VecSet ( M_vecLocal, z );
+    CHKERRABORT( M_comm,ierr );
 }
 
 void
@@ -186,6 +189,21 @@ VectorPetsc::close()
 	CHKERRABORT( M_comm,ierr );
 
 	M_is_closed = true;
+
+    this->localize();
+}
+
+void
+VectorPetsc::localize()
+{
+    int ierr = 0;
+
+    // Perform the scatter
+    ierr = VecScatterBegin( M_vecScatter, this->vec(), M_vecLocal, INSERT_VALUES, SCATTER_FORWARD );
+    CHKERRABORT( M_comm,ierr );
+
+    ierr = VecScatterEnd  ( M_vecScatter, this->vec(), M_vecLocal, INSERT_VALUES, SCATTER_FORWARD );
+    CHKERRABORT( M_comm,ierr );
 }
 
 void
@@ -210,7 +228,7 @@ VectorPetsc::set(size_type i, const value_type& value)
 	int i_val = static_cast<int>( i );
 	PetscScalar petsc_value = static_cast<PetscScalar>( value );
 
-	ierr = VecSetValues ( M_vec, 1, &i_val, &petsc_value, INSERT_VALUES );
+	ierr = VecSetValuesLocal ( M_vec, 1, &i_val, &petsc_value, INSERT_VALUES );
 	CHKERRABORT( M_comm,ierr );
 }
 
@@ -221,7 +239,7 @@ VectorPetsc::setVector(int* i, int n, value_type* v)
 	if ( n == 0 ) return;
 #endif
 	int ierr=0;
-	ierr = VecSetValues ( M_vec, n, i, v, INSERT_VALUES );
+	ierr = VecSetValuesLocal ( M_vec, n, i, v, INSERT_VALUES );
 	CHKERRABORT( M_comm,ierr );
 }
 
@@ -247,7 +265,7 @@ VectorPetsc::add(size_type i, const value_type& value)
 	int i_val = static_cast<int>( i );
 	PetscScalar petsc_value = static_cast<PetscScalar>( value );
 
-	ierr = VecSetValues ( M_vec, 1, &i_val, &petsc_value, ADD_VALUES );
+	ierr = VecSetValuesLocal ( M_vec, 1, &i_val, &petsc_value, ADD_VALUES );
 	CHKERRABORT( M_comm,ierr );
 }
 
@@ -258,7 +276,7 @@ VectorPetsc::addVector(int* i, int n, value_type* v)
 	if ( n == 0 ) return;
 #endif
 	int ierr=0;
-	ierr = VecSetValues ( M_vec, n, i, v, ADD_VALUES );
+	ierr = VecSetValuesLocal ( M_vec, n, i, v, ADD_VALUES );
 	CHKERRABORT( M_comm,ierr );
 }
 
@@ -456,12 +474,12 @@ VectorPetsc::operator () (const size_type i) const
 	int ierr=0;
 	PetscScalar *values, value=0.;
 
-	ierr = VecGetArray( M_vec, &values );
+	ierr = VecGetArray( M_vecLocal, &values );
 	CHKERRABORT( M_comm,ierr );
 
 	value = values[i];
 
-	ierr = VecRestoreArray ( M_vec, &values );
+	ierr = VecRestoreArray ( M_vecLocal, &values );
 	CHKERRABORT( M_comm,ierr );
 
 	return static_cast<value_type>( value );
@@ -476,12 +494,12 @@ VectorPetsc::operator () (const size_type i)
 	int ierr=0;
 	PetscScalar *values;
 
-	ierr = VecGetArray( M_vec, &values );
+	ierr = VecGetArray( M_vecLocal, &values );
 	CHKERRABORT( M_comm,ierr );
 
 	PetscScalar& value = values[i];
 
-	ierr = VecRestoreArray ( M_vec, &values );
+	ierr = VecRestoreArray ( M_vecLocal, &values );
 	CHKERRABORT( M_comm,ierr );
 
 	return static_cast<value_type&>( value );
@@ -658,6 +676,11 @@ VectorPetsc::clear()
 	{
 		ierr = VecDestroy(&M_vec);
 		CHKERRABORT( M_comm,ierr );
+
+        ierr = VecDestroy( &M_vecLocal );
+        CHKERRABORT( M_comm,ierr );
+        ierr = VecScatterDestroy( &M_vecScatter );
+        CHKERRABORT( M_comm,ierr );
 	}
 
 	M_is_initialized = true;
