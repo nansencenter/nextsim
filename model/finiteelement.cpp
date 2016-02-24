@@ -4668,7 +4668,7 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 	
 	std::vector<double> XTIME(1);
 	std::vector<size_t> index_start(1);
-	std::vector<size_t> index_end(1);
+	std::vector<size_t> index_count(1);
 	
 	int index = 0;
 	
@@ -4722,7 +4722,7 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 
 	if(dataset->nb_timestep_day>0)
 	{
-		XTIME.resize(dataset->time.dimensions[0].end);
+		XTIME.resize(dataset->time.dimensions[0].end-dataset->time.dimensions[0].start);
 		
     	netCDF::NcVar VTIME = dataFile.getVar(dataset->time.name);
 
@@ -4789,21 +4789,21 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
         for(int j=0; j<dataset->variables.size(); ++j)
         {
             index_start.resize(dataset->variables[j].dimensions.size());
-            index_end.resize(dataset->variables[j].dimensions.size());
+            index_count.resize(dataset->variables[j].dimensions.size());
 
             for(int k=0; k<dataset->variables[j].dimensions.size(); ++k)
             {
                 index_start[k] = dataset->variables[j].dimensions[k].start;
-                index_end[k] = dataset->variables[j].dimensions[k].end;
+                index_count[k] = dataset->variables[j].dimensions[k].end-dataset->variables[j].dimensions[k].start;
             }
 			
 			if(dataset->nb_timestep_day>0)
 			{
             	index_start[0] = index;
-            	index_end[0] = 1;
+            	index_count[0] = 1;
 			}
 			
-            dataset->variables[j].NcVar.getVar(index_start,index_end,&data_in_tmp[0]);
+            dataset->variables[j].NcVar.getVar(index_start,index_count,&data_in_tmp[0]);
 			
             // Need to multiply with scale factor and add offset - these are stored as variable attributes
             scale_factor=1.;
@@ -4931,20 +4931,20 @@ FiniteElement::loadGrid(Grid *grid)
 	if(grid->latitude.dimensions.size()==1)
 	{
 		// read in coordinates
-		std::vector<size_t> index_x_end(1);
-		std::vector<size_t> index_y_end(1);
+		std::vector<size_t> index_x_count(1);
+		std::vector<size_t> index_y_count(1);
 
 		std::vector<size_t> index_x_start(1);
 		std::vector<size_t> index_y_start(1);
 		
-		index_y_start[0] = 0;
-		index_y_end[0] = grid->dimension_y.end;
+		index_y_start[0] = grid->dimension_y.start;
+		index_y_count[0] = grid->dimension_y.end-grid->dimension_y.start;
 
-		index_x_start[0] = 0;
-		index_x_end[0] = grid->dimension_x.end;
+		index_x_start[0] = grid->dimension_x.start;
+		index_x_count[0] = grid->dimension_x.end-grid->dimension_x.start;
 		
-		std::vector<double> LAT(index_y_end[0]);
-		std::vector<double> LON(index_x_end[0]);
+		std::vector<double> LAT(index_y_count[0]);
+		std::vector<double> LON(index_x_count[0]);
 
 		std::cout<<"GRID : READ NETCDF starts\n";
 		netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
@@ -4952,8 +4952,8 @@ FiniteElement::loadGrid(Grid *grid)
 		netCDF::NcVar VLON = dataFile.getVar(grid->longitude.name);
 		std::cout<<"GRID : READ NETCDF done\n";
 
-		VLAT.getVar(index_y_start,index_y_end,&LAT[0]);
-		VLON.getVar(index_x_start,index_x_end,&LON[0]);
+		VLAT.getVar(index_y_start,index_y_count,&LAT[0]);
+		VLON.getVar(index_x_start,index_x_count,&LON[0]);
 
 		grid->gridY=LAT;
 		grid->gridX=LON;
@@ -4963,34 +4963,34 @@ FiniteElement::loadGrid(Grid *grid)
 //		break;
 //    	case 2:
 		// read in coordinates
-		std::vector<size_t> index_px_end(2);
-		std::vector<size_t> index_py_end(2);
+		std::vector<size_t> index_px_count(2);
+		std::vector<size_t> index_py_count(2);
 
 		std::vector<size_t> index_px_start(2);
 		std::vector<size_t> index_py_start(2);
 
-		index_py_start[0] = 0;
-		index_py_start[1] = 0;
+		index_py_start[0] = grid->dimension_y.start;
+		index_py_start[1] = grid->dimension_x.start;
 
-		index_py_end[0] = grid->dimension_y.end;
-		index_py_end[1] = grid->dimension_x.end;
+		index_py_count[0] = grid->dimension_y.end-grid->dimension_y.start;
+		index_py_count[1] = grid->dimension_x.end-grid->dimension_x.start;
 
-		index_px_start[0] = 0;
-		index_px_start[1] = 0;
+		index_px_start[0] = grid->dimension_y.start;
+		index_px_start[1] = grid->dimension_x.start;
 
-		index_px_end[0] = grid->dimension_y.end;
-		index_px_end[1] = grid->dimension_x.end;
+		index_px_count[0] = grid->dimension_y.end-grid->dimension_y.start;
+		index_px_count[1] = grid->dimension_x.end-grid->dimension_x.start;
 
 		if(grid->interpolation_method==setup::InterpolationType::InterpFromGridToMesh)
 		{
-			index_py_end[1] = 1;
-			index_px_end[0] = 1;
+			index_py_count[1] = 1;
+			index_px_count[0] = 1;
 		}
 
-		std::vector<double> XLAT(index_px_end[0]*index_px_end[1]);
-		std::vector<double> XLON(index_px_end[0]*index_px_end[1]);
-		std::vector<double> YLAT(index_py_end[0]*index_py_end[1]);
-		std::vector<double> YLON(index_py_end[0]*index_py_end[1]);
+		std::vector<double> XLAT(index_px_count[0]*index_px_count[1]);
+		std::vector<double> XLON(index_px_count[0]*index_px_count[1]);
+		std::vector<double> YLAT(index_py_count[0]*index_py_count[1]);
+		std::vector<double> YLON(index_py_count[0]*index_py_count[1]);
 
 		std::cout<<"GRID : READ NETCDF starts\n";
 		netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
@@ -4998,14 +4998,14 @@ FiniteElement::loadGrid(Grid *grid)
 		netCDF::NcVar VLON = dataFile.getVar(grid->longitude.name);
 		std::cout<<"GRID : READ NETCDF done\n";
 
-		VLAT.getVar(index_px_start,index_px_end,&XLAT[0]);
-		VLON.getVar(index_px_start,index_px_end,&XLON[0]);
+		VLAT.getVar(index_px_start,index_px_count,&XLAT[0]);
+		VLON.getVar(index_px_start,index_px_count,&XLON[0]);
 
-		VLAT.getVar(index_py_start,index_py_end,&YLAT[0]);
-		VLON.getVar(index_py_start,index_py_end,&YLON[0]);
+		VLAT.getVar(index_py_start,index_py_count,&YLAT[0]);
+		VLON.getVar(index_py_start,index_py_count,&YLON[0]);
 
-		std::vector<double> X(index_px_end[0]*index_px_end[1]);
-		std::vector<double> Y(index_py_end[0]*index_py_end[1]);
+		std::vector<double> X(index_px_count[0]*index_px_count[1]);
+		std::vector<double> Y(index_py_count[0]*index_py_count[1]);
 
 		mapx_class *map;
 		std::string configfile = (boost::format( "%1%/%2%/%3%" )
@@ -5018,19 +5018,19 @@ FiniteElement::loadGrid(Grid *grid)
 		str.push_back('\0');
 		map = init_mapx(&str[0]);
 
-		for (int i=0; i<index_px_end[0]; ++i)
+		for (int i=0; i<index_px_count[0]; ++i)
 		{
-			for (int j=0; j<index_px_end[1]; ++j)
+			for (int j=0; j<index_px_count[1]; ++j)
 			{
-				X[index_px_end[1]*i+j]=latLon2XY(XLAT[index_px_end[1]*i+j], XLON[index_px_end[1]*i+j], map, configfile)[0];
+				X[index_px_count[1]*i+j]=latLon2XY(XLAT[index_px_count[1]*i+j], XLON[index_px_count[1]*i+j], map, configfile)[0];
 			}
 		}
 
-		for (int i=0; i<index_py_end[0]; ++i)
+		for (int i=0; i<index_py_count[0]; ++i)
 		{
-			for (int j=0; j<index_py_end[1]; ++j)
+			for (int j=0; j<index_py_count[1]; ++j)
 			{
-				Y[index_py_end[1]*i+j]=latLon2XY(YLAT[index_py_end[1]*i+j], YLON[index_py_end[1]*i+j], map, configfile)[1];
+				Y[index_py_count[1]*i+j]=latLon2XY(YLAT[index_py_count[1]*i+j], YLON[index_py_count[1]*i+j], map, configfile)[1];
 			}
 		}
 
@@ -5050,21 +5050,21 @@ FiniteElement::loadGrid(Grid *grid)
 				std::vector<int> reduced_nodes_ind;
 
 				std::vector<size_t> index_start(3,0);
-				std::vector<size_t> index_end(3);
+				std::vector<size_t> index_count(3);
 
 				index_start.resize(grid->masking_variable.dimensions.size());
-				index_end.resize(grid->masking_variable.dimensions.size());
+				index_count.resize(grid->masking_variable.dimensions.size());
 
 				for(int k=0; k<grid->masking_variable.dimensions.size(); ++k)
 				{
 					index_start[k] = grid->masking_variable.dimensions[k].start;
-					index_end[k] = grid->masking_variable.dimensions[k].end;
+					index_count[k] = grid->masking_variable.dimensions[k].end-grid->masking_variable.dimensions[k].start;
 				}
 				index_start[0] = 0;
-				index_end[0] = 1;
+				index_count[0] = 1;
 
-				data_in.resize(index_px_end[0]*index_px_end[1]);
-				VMASK.getVar(index_start,index_end,&data_in[0]);
+				data_in.resize(index_px_count[0]*index_px_count[1]);
+				VMASK.getVar(index_start,index_count,&data_in[0]);
 
 				netCDF::NcVarAtt att;
 				int FillValue;
@@ -5072,15 +5072,15 @@ FiniteElement::loadGrid(Grid *grid)
 				att = VMASK.getAtt("_FillValue");
 				att.getValues(&FillValue);
 		
-				for (int i=0; i<index_px_end[0]; ++i)
+				for (int i=0; i<index_px_count[0]; ++i)
 				{
-					for (int j=0; j<index_px_end[1]; ++j)
+					for (int j=0; j<index_px_count[1]; ++j)
 					{
-						if (data_in[index_px_end[1]*i+j] != FillValue)
+						if (data_in[index_px_count[1]*i+j] != FillValue)
 						{
-							reduced_FX.push_back(X[index_px_end[1]*i+j]);
-							reduced_FY.push_back(Y[index_px_end[1]*i+j]);
-							reduced_nodes_ind.push_back(index_px_end[1]*i+j);
+							reduced_FX.push_back(X[index_px_count[1]*i+j]);
+							reduced_FY.push_back(Y[index_px_count[1]*i+j]);
+							reduced_nodes_ind.push_back(index_px_count[1]*i+j);
 						}
 					}
 				}
