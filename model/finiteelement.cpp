@@ -5063,10 +5063,10 @@ FiniteElement::loadGrid(Grid *grid)
 				index_start[0] = 0;
 				index_count[0] = 1;
 				
-				if((index_px_count[0]!=index_count[1]) || (index_px_count[1]!=index_count[2]))
+				if((index_px_count[0]!=index_count[grid->masking_variable.dimensions.size()-2]) || (index_px_count[1]!=index_count[grid->masking_variable.dimensions.size()-1]))
 				{
-                    std::cout << "index_px_count[0] = " << index_px_count[0] << " index_count[1] = " << index_count[1] <<"\n";
-					std::cout << "index_px_count[1] = " << index_px_count[1] << " index_count[2] = " << index_count[2] <<"\n";
+                    std::cout << "index_px_count[0] = " << index_px_count[0] << " index_count[grid->masking_variable.dimensions.size()-2] = " << index_count[grid->masking_variable.dimensions.size()-2] <<"\n";
+					std::cout << "index_px_count[1] = " << index_px_count[1] << " index_count[grid->masking_variable.dimensions.size()-1] = " << index_count[grid->masking_variable.dimensions.size()-1] <<"\n";
                     throw std::logic_error("Not the same dimension for the masking variable and the grid!!");
 				}
 					
