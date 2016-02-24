@@ -5062,7 +5062,14 @@ FiniteElement::loadGrid(Grid *grid)
 				}
 				index_start[0] = 0;
 				index_count[0] = 1;
-
+				
+				if((index_px_count[0]!=index_count[1]) || (index_px_count[1]!=index_count[2]))
+				{
+                    std::cout << "index_px_count[0] = " << index_px_count[0] << " index_count[1] = " << index_count[1] <<"\n";
+					std::cout << "index_px_count[1] = " << index_px_count[1] << " index_count[2] = " << index_count[2] <<"\n";
+                    throw std::logic_error("Not the same dimension for the masking variable and the grid!!");
+				}
+					
 				data_in.resize(index_px_count[0]*index_px_count[1]);
 				VMASK.getVar(index_start,index_count,&data_in[0]);
 
