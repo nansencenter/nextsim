@@ -70,6 +70,10 @@ public:
     static po::variables_map const& vm() { return vmenv; }
 
     static fs::path const& nextsimDir() { return nextsimdirenv; }
+	
+    static fs::path const& simdataDir() { return simdatadirenv; }
+	
+	static fs::path const& simforecastDir() { return simforecastdirenv; }
 
     static MemoryUsage logMemoryUsage(std::string const& message);
 
@@ -79,6 +83,8 @@ private:
     static Communicator mpicomm;
     static po::variables_map vmenv;
     static fs::path nextsimdirenv;
+    static fs::path simdatadirenv;
+    static fs::path simforecastdirenv;
 
 };
 
