@@ -4910,13 +4910,16 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 		str.push_back('\0');
 		map = init_mapx(&str[0]);
 
-		std::vector<double> tmp_latlon(2);
+		double lat, lon;
 		
 		for (int i=0; i<dataset->target_size; ++i)
 		{
-			tmp_latlon = XY2latLon(RX[i], RY[i], map, configfile);
-			RY[i]=tmp_latlon[0];
-			RX[i]=tmp_latlon[1];
+			inverse_mapx(map,RX[i],RY[i],&lat,&lon);
+			RY[i]=lat;
+			RX[i]=lon;
+			//tmp_latlon = XY2latLon(RX[i], RY[i], map, configfile);
+			//RY[i]=tmp_latlon[0];
+			//RX[i]=tmp_latlon[1];
 		}
 	}
 
@@ -5069,11 +5072,15 @@ FiniteElement::loadGrid(Grid *grid)
 		str.push_back('\0');
 		map = init_mapx(&str[0]);
 
+	    double x;
+	    double y;
+
 		for (int i=0; i<index_px_count[0]; ++i)
 		{
 			for (int j=0; j<index_px_count[1]; ++j)
 			{
-				X[index_px_count[1]*i+j]=latLon2XY(XLAT[index_px_count[1]*i+j], XLON[index_px_count[1]*i+j], map, configfile)[0];
+			    forward_mapx(map,XLAT[index_px_count[1]*i+j],XLON[index_px_count[1]*i+j],&x,&y);
+				X[index_px_count[1]*i+j]=x;
 			}
 		}
 
@@ -5081,7 +5088,8 @@ FiniteElement::loadGrid(Grid *grid)
 		{
 			for (int j=0; j<index_py_count[1]; ++j)
 			{
-				Y[index_py_count[1]*i+j]=latLon2XY(YLAT[index_py_count[1]*i+j], YLON[index_py_count[1]*i+j], map, configfile)[1];
+				forward_mapx(map,YLAT[index_py_count[1]*i+j],YLON[index_py_count[1]*i+j],&x,&y);
+				Y[index_py_count[1]*i+j]=y;
 			}
 		}
 
@@ -5642,7 +5650,7 @@ FiniteElement::XY2latLon(double const& x, double const& y, mapx_class* map, std:
     double lon;
 
     int status = inverse_mapx(map,x,y,&lat,&lon);
-
+	
     latlon[0] = lat;
     latlon[1] = lon;
 
