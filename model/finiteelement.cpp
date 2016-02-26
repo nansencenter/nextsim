@@ -1193,7 +1193,7 @@ FiniteElement::hminVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) co
         }
 
         measure.resize(j);
-        hmin[i] = std::sqrt(std::sqrt(2.)*(*std::min_element(measure.begin(),measure.end()))*0.9);
+        hmin[i] = std::sqrt(2.)*std::sqrt(*std::min_element(measure.begin(),measure.end()))*0.9;
     }
 
     return hmin;
@@ -1260,6 +1260,8 @@ void
 FiniteElement::regrid(bool step)
 {
     double displacement_factor = 2.;
+	int substep_nb=1;
+	int step_order=-1;
     bool flip = true;
     int substep = 0;
 
@@ -1275,6 +1277,7 @@ FiniteElement::regrid(bool step)
         {
             ++substep;
             displacement_factor /= 2.;
+			step_order++;
             flip = this->flip(M_mesh,M_UM,displacement_factor);
 
             if (substep > 1)
@@ -1283,9 +1286,13 @@ FiniteElement::regrid(bool step)
 
         std::cout<<"displacement_factor= "<< displacement_factor <<"\n";
 
-        M_mesh.move(M_UM,displacement_factor);
-
-
+		substep_nb=std::pow(2,step_order);
+		
+		if(substep_nb!=1)
+		{
+			std::cout<< substep_nb << "substeps will be needed for the remeshing!" <<"\n";
+			std::cout<< "Warning: It is probably due to very high ice speed, check your fields!\n";
+		}
 
 #if 0
         cout << "\n";
@@ -1332,355 +1339,376 @@ FiniteElement::regrid(bool step)
                      );
 #endif
 
+	for (int substep_i = 0; substep_i < substep_nb; substep_i++ )
+	{
+		M_mesh.move(M_UM,displacement_factor);
+	    for (int id=0; id<bamgmesh->VerticesSize[0]; ++id)
+	    {
+	        bamgmesh->Vertices[3*id] = M_mesh.coordX()[id];
+			bamgmesh->Vertices[3*id+1] = M_mesh.coordY()[id] ;
+	    }
 
-    if(M_mesh_type==setup::MeshType::FROM_SPLIT)
-    {
-        if(step==0)
-        {
-            // step 1 (only for the first time step): Start by having bamg 'clean' the mesh with KeepVertices=0
-            bamgopt->KeepVertices=0;
-            this->adaptMesh();
-            bamgopt->KeepVertices=1;
-        }
+		if(M_mesh_type==setup::MeshType::FROM_SPLIT)
+		{
+			if(step==0)
+			{
+				// step 1 (only for the first time step): Start by having bamg 'clean' the mesh with KeepVertices=0
+				bamgopt->KeepVertices=0;
+				this->adaptMesh();
+				bamgopt->KeepVertices=1;
+			}
 
-        // Interpolate hminVertices and hmaxVertices onto the current mesh
+			// Interpolate hminVertices and hmaxVertices onto the current mesh
 
-        // NODAL INTERPOLATION
-        int init_num_nodes = M_mesh_init.numNodes();
-        double* interp_Vertices_in;
-        interp_Vertices_in = new double[2*init_num_nodes];
+			// NODAL INTERPOLATION
+			int init_num_nodes = M_mesh_init.numNodes();
+			double* interp_Vertices_in;
+			interp_Vertices_in = new double[2*init_num_nodes];
 
-        double* interp_Vertices_out;
+			double* interp_Vertices_out;
 
-        for (int i=0; i<init_num_nodes; ++i)
-        {
-            interp_Vertices_in[2*i]   = M_hminVertices[i];
-            interp_Vertices_in[2*i+1] = M_hmaxVertices[i];
-        }
+			for (int i=0; i<init_num_nodes; ++i)
+			{
+				interp_Vertices_in[2*i]   = M_hminVertices[i];
+				interp_Vertices_in[2*i+1] = M_hmaxVertices[i];
+			}
 
-        InterpFromMeshToMesh2dx(&interp_Vertices_out,
-                            &M_mesh_init.indexTr()[0],&M_mesh_init.coordX()[0],&M_mesh_init.coordY()[0],
-                            M_mesh_init.numNodes(),M_mesh_init.numTriangles(),
-                            interp_Vertices_in,
-                            M_mesh_init.numNodes(),2,
-                            &M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
-                            false);
+			InterpFromMeshToMesh2dx(&interp_Vertices_out,
+			&M_mesh_init.indexTr()[0],&M_mesh_init.coordX()[0],&M_mesh_init.coordY()[0],
+			M_mesh_init.numNodes(),M_mesh_init.numTriangles(),
+			interp_Vertices_in,
+			M_mesh_init.numNodes(),2,
+			&M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
+			false);
 
-        bamgopt->hminVertices = new double[M_mesh.numNodes()];
-        bamgopt->hmaxVertices = new double[M_mesh.numNodes()];
+			bamgopt->hminVertices = new double[M_mesh.numNodes()];
+			bamgopt->hmaxVertices = new double[M_mesh.numNodes()];
 
-        for (int i=0; i<M_mesh.numNodes(); ++i)
-        {
-            bamgopt->hminVertices[i] = interp_Vertices_out[2*i];
-            bamgopt->hmaxVertices[i] = interp_Vertices_out[2*i+1];
-        }
-    }
+			for (int i=0; i<M_mesh.numNodes(); ++i)
+			{
+				bamgopt->hminVertices[i] = interp_Vertices_out[2*i];
+				bamgopt->hmaxVertices[i] = interp_Vertices_out[2*i+1];
+			}
+		}
 
-    this->adaptMesh();
+		this->adaptMesh();
 
-    if (step)
-    {
-        int prv_num_elements = M_mesh_previous.numTriangles();
-        int prv_num_nodes = M_mesh_previous.numNodes();
+		if (step)
+		{
+			int prv_num_elements = M_mesh_previous.numTriangles();
+			int prv_num_nodes = M_mesh_previous.numNodes();
 
-        // ELEMENT INTERPOLATION With Cavities
-        double* interp_elt_in;
-        int nb_var=12;
-        interp_elt_in = new double[nb_var*prv_num_elements];
+			// ELEMENT INTERPOLATION With Cavities
+			double* interp_elt_in;
+			int nb_var=12;
+			interp_elt_in = new double[nb_var*prv_num_elements];
 
-        double* interp_elt_out;
+			double* interp_elt_out;
 
-        std::cout<<"ELEMENT: Interp starts\n";
+			std::cout<<"ELEMENT: Interp starts\n";
 
-        int tmp_nb_var=0;
-        for (int i=0; i<prv_num_elements; ++i)
-        {
-            tmp_nb_var=0;
+			int tmp_nb_var=0;
+			for (int i=0; i<prv_num_elements; ++i)
+			{
+				tmp_nb_var=0;
 
 
-            // concentration
-            interp_elt_in[nb_var*i+tmp_nb_var] = M_conc[i];
-            tmp_nb_var++;
+				// concentration
+				interp_elt_in[nb_var*i+tmp_nb_var] = M_conc[i];
+				tmp_nb_var++;
 
-            // thickness
-            interp_elt_in[nb_var*i+tmp_nb_var] = M_thick[i];
-            tmp_nb_var++;
+				// thickness
+				interp_elt_in[nb_var*i+tmp_nb_var] = M_thick[i];
+				tmp_nb_var++;
 
-            // snow thickness
-            interp_elt_in[nb_var*i+tmp_nb_var] = M_snow_thick[i];
-            tmp_nb_var++;
+				// snow thickness
+				interp_elt_in[nb_var*i+tmp_nb_var] = M_snow_thick[i];
+				tmp_nb_var++;
 
-            // integrated_stress1
-            interp_elt_in[nb_var*i+tmp_nb_var] = M_sigma[3*i]*M_thick[i];
-            tmp_nb_var++;
+				// integrated_stress1
+				interp_elt_in[nb_var*i+tmp_nb_var] = M_sigma[3*i]*M_thick[i];
+				tmp_nb_var++;
 
-            // integrated_stress2
-            interp_elt_in[nb_var*i+tmp_nb_var] = M_sigma[3*i+1]*M_thick[i];
-            tmp_nb_var++;
+				// integrated_stress2
+				interp_elt_in[nb_var*i+tmp_nb_var] = M_sigma[3*i+1]*M_thick[i];
+				tmp_nb_var++;
 
-            // integrated_stress3
-            interp_elt_in[nb_var*i+tmp_nb_var] = M_sigma[3*i+2]*M_thick[i];
-            tmp_nb_var++;
+				// integrated_stress3
+				interp_elt_in[nb_var*i+tmp_nb_var] = M_sigma[3*i+2]*M_thick[i];
+				tmp_nb_var++;
 
-            // compliance
-            interp_elt_in[nb_var*i+tmp_nb_var] = 1./(1.-M_damage[i]);
-            tmp_nb_var++;
+				// compliance
+				interp_elt_in[nb_var*i+tmp_nb_var] = 1./(1.-M_damage[i]);
+				tmp_nb_var++;
 
-            // divergence_rate
-            interp_elt_in[nb_var*i+tmp_nb_var] = M_divergence_rate[i];
-            tmp_nb_var++;
+				// divergence_rate
+				interp_elt_in[nb_var*i+tmp_nb_var] = M_divergence_rate[i];
+				tmp_nb_var++;
 
-            // h_ridged_thin_ice
-            interp_elt_in[nb_var*i+tmp_nb_var] = M_h_ridged_thin_ice[i];
-            tmp_nb_var++;
+				// h_ridged_thin_ice
+				interp_elt_in[nb_var*i+tmp_nb_var] = M_h_ridged_thin_ice[i];
+				tmp_nb_var++;
 
-            // h_ridged_thick_ice
-            interp_elt_in[nb_var*i+tmp_nb_var] = M_h_ridged_thick_ice[i];
-            tmp_nb_var++;
+				// h_ridged_thick_ice
+				interp_elt_in[nb_var*i+tmp_nb_var] = M_h_ridged_thick_ice[i];
+				tmp_nb_var++;
 
-            // random_number
-            interp_elt_in[nb_var*i+tmp_nb_var] = M_random_number[i];
-            tmp_nb_var++;
+				// random_number
+				interp_elt_in[nb_var*i+tmp_nb_var] = M_random_number[i];
+				tmp_nb_var++;
 
-            // Ice surface temperature
-            interp_elt_in[nb_var*i+tmp_nb_var] = M_tsurf[i];
-            tmp_nb_var++;
+				// Ice surface temperature
+				interp_elt_in[nb_var*i+tmp_nb_var] = M_tsurf[i];
+				tmp_nb_var++;
 
-            if(tmp_nb_var>nb_var)
-            {
-                throw std::logic_error("tmp_nb_var not equal to nb_var");
-            }
-        }
+				if(tmp_nb_var>nb_var)
+				{
+					throw std::logic_error("tmp_nb_var not equal to nb_var");
+				}
+			}
 
 #if 1
-        double* surface_previous = new double[prv_num_elements];
-        double* surface = new double[M_num_elements];
+			double* surface_previous = new double[prv_num_elements];
+			double* surface = new double[M_num_elements];
 
-        int cpt = 0;
-        for (auto it=M_mesh_previous.triangles().begin(), end=M_mesh_previous.triangles().end(); it!=end; ++it)
-        {
-            surface_previous[cpt] = this->measure(*it,M_mesh_previous);
-            ++cpt;
-        }
+			int cpt = 0;
+			for (auto it=M_mesh_previous.triangles().begin(), end=M_mesh_previous.triangles().end(); it!=end; ++it)
+			{
+				surface_previous[cpt] = this->measure(*it,M_mesh_previous);
+				++cpt;
+			}
 
-        cpt = 0;
-        for (auto it=M_mesh.triangles().begin(), end=M_mesh.triangles().end(); it!=end; ++it)
-        {
-            surface[cpt] = M_surface[cpt];
-            ++cpt;
-        }
+			cpt = 0;
+			for (auto it=M_mesh.triangles().begin(), end=M_mesh.triangles().end(); it!=end; ++it)
+			{
+				surface[cpt] = this->measure(*it,M_mesh);
+				++cpt;
+			}
 
-        // The interpolation with the cavities still needs to be tested on a long run.
-        // By default, we then use the non-conservative MeshToMesh interpolation
+			// The interpolation with the cavities still needs to be tested on a long run.
+			// By default, we then use the non-conservative MeshToMesh interpolation
 
-        InterpFromMeshToMesh2dCavities(&interp_elt_out,interp_elt_in,nb_var,
-             surface_previous, surface, bamgmesh_previous, bamgmesh);
+			InterpFromMeshToMesh2dCavities(&interp_elt_out,interp_elt_in,nb_var,
+			surface_previous, surface, bamgmesh_previous, bamgmesh);
 #endif
 
 #if 0
-        InterpFromMeshToMesh2dx(&interp_elt_out,
-                                &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
-                                M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-                                interp_elt_in,
-                                M_mesh_previous.numTriangles(),nb_var,
-                                &M_mesh.bcoordX()[0],&M_mesh.bcoordY()[0],M_mesh.numTriangles(),
-                                false);
+			InterpFromMeshToMesh2dx(&interp_elt_out,
+			&M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
+			M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
+			interp_elt_in,
+			M_mesh_previous.numTriangles(),nb_var,
+			&M_mesh.bcoordX()[0],&M_mesh.bcoordY()[0],M_mesh.numTriangles(),
+			false);
 #endif
 
-        M_conc.assign(M_num_elements,0.);
-        M_thick.assign(M_num_elements,0.);
-        M_snow_thick.assign(M_num_elements,0.);
-        M_sigma.assign(3*M_num_elements,0.);
-        M_damage.assign(M_num_elements,0.);
+			M_conc.assign(M_num_elements,0.);
+			M_thick.assign(M_num_elements,0.);
+			M_snow_thick.assign(M_num_elements,0.);
+			M_sigma.assign(3*M_num_elements,0.);
+			M_damage.assign(M_num_elements,0.);
 
-        M_divergence_rate.assign(M_num_elements,0.);
-        M_h_ridged_thin_ice.assign(M_num_elements,0.);
-        M_h_ridged_thick_ice.assign(M_num_elements,0.);
+			M_divergence_rate.assign(M_num_elements,0.);
+			M_h_ridged_thin_ice.assign(M_num_elements,0.);
+			M_h_ridged_thick_ice.assign(M_num_elements,0.);
 
-        M_random_number.resize(M_num_elements);
+			M_random_number.resize(M_num_elements);
 
-        M_tsurf.assign(M_num_elements,0.);
+			M_tsurf.assign(M_num_elements,0.);
 
-        for (int i=0; i<M_num_elements; ++i)
-        {
-            tmp_nb_var=0;
+			for (int i=0; i<M_num_elements; ++i)
+			{
+				tmp_nb_var=0;
 
-            // concentration
-            M_conc[i] = std::max(0., std::min(1.,interp_elt_out[nb_var*i+tmp_nb_var]));
-            tmp_nb_var++;
+				// concentration
+				M_conc[i] = std::max(0., std::min(1.,interp_elt_out[nb_var*i+tmp_nb_var]));
+				tmp_nb_var++;
 
-            // thickness
-            M_thick[i] = std::max(0., interp_elt_out[nb_var*i+tmp_nb_var]);
-            tmp_nb_var++;
+				// thickness
+				M_thick[i] = std::max(0., interp_elt_out[nb_var*i+tmp_nb_var]);
+				tmp_nb_var++;
 
-            // snow thickness
-            M_snow_thick[i] = std::max(0., interp_elt_out[nb_var*i+tmp_nb_var]);
-            tmp_nb_var++;
+				// snow thickness
+				M_snow_thick[i] = std::max(0., interp_elt_out[nb_var*i+tmp_nb_var]);
+				tmp_nb_var++;
 
-            if (M_thick[i] != 0.)
-            {
-                // integrated_stress1
-                M_sigma[3*i] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
-                tmp_nb_var++;
+				if (M_thick[i] != 0.)
+				{
+					// integrated_stress1
+					M_sigma[3*i] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
+					tmp_nb_var++;
 
-                // integrated_stress2
-                M_sigma[3*i+1] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
-                tmp_nb_var++;
+					// integrated_stress2
+					M_sigma[3*i+1] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
+					tmp_nb_var++;
 
-                // integrated_stress3
-                M_sigma[3*i+2] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
-                tmp_nb_var++;    
-            }
-            else
-            {
-                tmp_nb_var+=3;
-            }
+					// integrated_stress3
+					M_sigma[3*i+2] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
+					tmp_nb_var++;    
+				}
+				else
+				{
+					tmp_nb_var+=3;
+				}
 
-            // compliance
-            if (interp_elt_out[nb_var*i+tmp_nb_var] != 0.)
-            {
-                M_damage[i] = std::max(0., std::min(1.,1.-1./interp_elt_out[nb_var*i+tmp_nb_var]));
-                tmp_nb_var++;
-            }
-            else
-            {
-                M_damage[i] = 0.;
-                tmp_nb_var++;
-            }
+				// compliance
+				if (interp_elt_out[nb_var*i+tmp_nb_var] != 0.)
+				{
+					M_damage[i] = std::max(0., std::min(1.,1.-1./interp_elt_out[nb_var*i+tmp_nb_var]));
+					tmp_nb_var++;
+				}
+				else
+				{
+					M_damage[i] = 0.;
+					tmp_nb_var++;
+				}
 
-            // divergence_rate
-            M_divergence_rate[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-            tmp_nb_var++;
+				// divergence_rate
+				M_divergence_rate[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+				tmp_nb_var++;
 
-            // // h_ridged_thin_ice
-            M_h_ridged_thin_ice[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-            tmp_nb_var++;
+				// // h_ridged_thin_ice
+				M_h_ridged_thin_ice[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+				tmp_nb_var++;
 
-            // h_ridged_thick_ice
-            M_h_ridged_thick_ice[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-            tmp_nb_var++;
+				// h_ridged_thick_ice
+				M_h_ridged_thick_ice[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+				tmp_nb_var++;
 
-            // random_number
-            M_random_number[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-            //M_random_number[i] = std::max(0., std::min(1.,interp_elt_in[11*i+tmp_nb_var]));
-            tmp_nb_var++;
+				// random_number
+				M_random_number[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+				//M_random_number[i] = std::max(0., std::min(1.,interp_elt_in[11*i+tmp_nb_var]));
+				tmp_nb_var++;
 
-            // Ice surface temperature
-            M_tsurf[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-            tmp_nb_var++;
+				// Ice surface temperature
+				M_tsurf[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+				tmp_nb_var++;
 
-            if(tmp_nb_var!=nb_var)
-            {
-                throw std::logic_error("tmp_nb_var not equal to nb_var");
-            }
-        }
+				if(tmp_nb_var!=nb_var)
+				{
+					throw std::logic_error("tmp_nb_var not equal to nb_var");
+				}
+			}
 
-        std::cout<<"ELEMENT: Interp done\n";
+			std::cout<<"ELEMENT: Interp done\n";
 
-        // ELEMENT INTERPOLATION FOR SLAB OCEAN FROM OLD MESH ON ITS ORIGINAL POSITION
-        double* interp_elt_slab_in;
-        nb_var=2;
-        interp_elt_slab_in = new double[nb_var*prv_num_elements];
+			// ELEMENT INTERPOLATION FOR SLAB OCEAN FROM OLD MESH ON ITS ORIGINAL POSITION
+			double* interp_elt_slab_in;
+			nb_var=2;
+			interp_elt_slab_in = new double[nb_var*prv_num_elements];
 
-        double* interp_elt_slab_out;
+			double* interp_elt_slab_out;
 
-        std::cout<<"ELEMENT SLAB: Interp starts\n";
+			std::cout<<"ELEMENT SLAB: Interp starts\n";
 
-        M_mesh_previous.move(M_UM,-displacement_factor);
+			M_mesh_previous.move(M_UM,-displacement_factor);
 
-        for (int i=0; i<prv_num_elements; ++i)
-        {
-            // Sea surface temperature
-            interp_elt_slab_in[nb_var*i+0] = M_sst[i];
+			for (int i=0; i<prv_num_elements; ++i)
+			{
+				// Sea surface temperature
+				interp_elt_slab_in[nb_var*i+0] = M_sst[i];
 
-            // Sea surface salinity
-            interp_elt_slab_in[nb_var*i+1] = M_sss[i];
-        }
+				// Sea surface salinity
+				interp_elt_slab_in[nb_var*i+1] = M_sss[i];
+			}
 
-        InterpFromMeshToMesh2dx(&interp_elt_slab_out,
-                                &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
-                                M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-                                interp_elt_slab_in,
-                                M_mesh_previous.numTriangles(),nb_var,
-                                &M_mesh.bcoordX()[0],&M_mesh.bcoordY()[0],M_mesh.numTriangles(),
-                                false);
+			InterpFromMeshToMesh2dx(&interp_elt_slab_out,
+			&M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
+			M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
+			interp_elt_slab_in,
+			M_mesh_previous.numTriangles(),nb_var,
+			&M_mesh.bcoordX()[0],&M_mesh.bcoordY()[0],M_mesh.numTriangles(),
+			false);
 
-        M_sst.resize(M_num_elements);
-        M_sss.resize(M_num_elements);
+			M_sst.resize(M_num_elements);
+			M_sss.resize(M_num_elements);
 
-        for (int i=0; i<M_mesh.numTriangles(); ++i)
-        {
-            // Sea surface temperature
-            M_sst[i] = interp_elt_slab_out[nb_var*i+0];
+			for (int i=0; i<M_mesh.numTriangles(); ++i)
+			{
+				// Sea surface temperature
+				M_sst[i] = interp_elt_slab_out[nb_var*i+0];
 
-            // Sea surface salinity
-            M_sss[i] = interp_elt_slab_out[nb_var*i+1];
-        }
+				// Sea surface salinity
+				M_sss[i] = interp_elt_slab_out[nb_var*i+1];
+			}
 
-        M_mesh_previous.move(M_UM,displacement_factor);
-        std::cout<<"ELEMENT SLAB: Interp done\n";
+			M_mesh_previous.move(M_UM,displacement_factor);
+			std::cout<<"ELEMENT SLAB: Interp done\n";
 
-        // NODAL INTERPOLATION
-        double* interp_in;
-        interp_in = new double[6*prv_num_nodes];
+			// NODAL INTERPOLATION
+			nb_var=8;
+			double* interp_in;
+			interp_in = new double[nb_var*prv_num_nodes];
 
-        double* interp_out;
+			double* interp_out;
 
-        std::cout<<"NODAL: Interp starts\n";
+			std::cout<<"NODAL: Interp starts\n";
 
-        for (int i=0; i<prv_num_nodes; ++i)
-        {
-            // VT
-            interp_in[6*i] = M_VT[i];
-            interp_in[6*i+1] = M_VT[i+prv_num_nodes];
+			for (int i=0; i<prv_num_nodes; ++i)
+			{
+				// VT
+				interp_in[nb_var*i] = M_VT[i];
+				interp_in[nb_var*i+1] = M_VT[i+prv_num_nodes];
 
-            // VTM
-            interp_in[6*i+2] = M_VTM[i];
-            interp_in[6*i+3] = M_VTM[i+prv_num_nodes];
+				// VTM
+				interp_in[nb_var*i+2] = M_VTM[i];
+				interp_in[nb_var*i+3] = M_VTM[i+prv_num_nodes];
 
-            // VTMM
-            interp_in[6*i+4] = M_VTMM[i];
-            interp_in[6*i+5] = M_VTMM[i+prv_num_nodes];
-        }
+				// VTMM
+				interp_in[nb_var*i+4] = M_VTMM[i];
+				interp_in[nb_var*i+5] = M_VTMM[i+prv_num_nodes];
+			
+				// UM
+				interp_in[nb_var*i+6] = M_UM[i];
+				interp_in[nb_var*i+7] = M_UM[i+prv_num_nodes];
+			}
 
-        InterpFromMeshToMesh2dx(&interp_out,
-                                &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
-                                M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-                                interp_in,
-                                M_mesh_previous.numNodes(),6,
-                                &M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
-                                false);
+			InterpFromMeshToMesh2dx(&interp_out,
+			&M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
+			M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
+			interp_in,
+			M_mesh_previous.numNodes(),nb_var,
+			&M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
+			false);
 
-        M_VT.assign(2*M_num_nodes,0.);
-        M_VTM.assign(2*M_num_nodes,0.);
-        M_VTMM.assign(2*M_num_nodes,0.);
-        M_UM.assign(2*M_num_nodes,0.);
+			M_VT.assign(2*M_num_nodes,0.);
+			M_VTM.assign(2*M_num_nodes,0.);
+			M_VTMM.assign(2*M_num_nodes,0.);
+			M_UM.assign(2*M_num_nodes,0.);
 
-        for (int i=0; i<M_num_nodes; ++i)
-        {
-            // VT
-            M_VT[i] = interp_out[6*i];
-            M_VT[i+M_num_nodes] = interp_out[6*i+1];
+			for (int i=0; i<M_num_nodes; ++i)
+			{
+				// VT
+				M_VT[i] = interp_out[nb_var*i];
+				M_VT[i+M_num_nodes] = interp_out[nb_var*i+1];
 
-            // VTM
-            M_VTM[i] = interp_out[6*i+2];
-            M_VTM[i+M_num_nodes] = interp_out[6*i+3];
+				// VTM
+				M_VTM[i] = interp_out[nb_var*i+2];
+				M_VTM[i+M_num_nodes] = interp_out[nb_var*i+3];
 
-            // VTMM
-            M_VTMM[i] = interp_out[6*i+4];
-            M_VTMM[i+M_num_nodes] = interp_out[6*i+5];
+				// VTMM
+				M_VTMM[i] = interp_out[nb_var*i+4];
+				M_VTMM[i+M_num_nodes] = interp_out[nb_var*i+5];
 
-            // UM
-            M_UM[i] = 0.;
-            M_UM[i+M_num_nodes] = 0.;
-        }
+				// UM
+				M_UM[i] = interp_out[nb_var*i+6];
+				M_UM[i+M_num_nodes] = interp_out[nb_var*i+7];
+			}
 
-        std::cout<<"NODAL: Interp done\n";
+			std::cout<<"NODAL: Interp done\n";
 
-    }
+		}
+	}
 
     if (step)
     {
+		for (int i=0; i<M_num_nodes; ++i)
+		{
+			// UM
+			M_UM[i] = 0.;
+			M_UM[i+M_num_nodes] = 0.;
+		}
+
         //M_matrix->init(2*M_num_nodes,2*M_num_nodes,22);
         M_matrix->init(2*M_num_nodes,2*M_num_nodes,M_graph);
         M_vector->resize(2*M_num_nodes);
@@ -5684,9 +5712,15 @@ FiniteElement::exportResults(int step, bool export_mesh)
 
         std::cout<<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
 
+		// move the mesh for the export
+		M_mesh.move(M_UM,1.);
+
         std::fstream meshbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
         exporter.writeMesh(meshbin, M_mesh);
         meshbin.close();
+
+		// move it back after the export
+		M_mesh.move(M_UM,-1.);
 
         fileout = (boost::format( "%1%/matlab/mesh_%2%.dat" )
                % Environment::nextsimDir().string()
