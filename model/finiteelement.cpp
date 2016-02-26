@@ -5627,36 +5627,6 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
 #endif
 }
 
-std::vector<double>
-FiniteElement::latLon2XY(double const& lat, double const& lon, mapx_class* map, std::string const& configfile)
-{
-    std::vector<double> xy(2);
-    double x;
-    double y;
-
-    int status = forward_mapx(map,lat,lon,&x,&y);
-
-    xy[0] = x;
-    xy[1] = y;
-
-    return xy;
-}
-
-std::vector<double>
-FiniteElement::XY2latLon(double const& x, double const& y, mapx_class* map, std::string const& configfile)
-{
-    std::vector<double> latlon(2);
-    double lat;
-    double lon;
-
-    int status = inverse_mapx(map,x,y,&lat,&lon);
-	
-    latlon[0] = lat;
-    latlon[1] = lon;
-
-    return latlon;
-}
-
 void
 FiniteElement::exportResults(int step, bool export_mesh)
 {
