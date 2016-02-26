@@ -4295,8 +4295,8 @@ FiniteElement::run()
             if ((minang < vm["simul.regrid_angle"].as<double>()) || (pcpt ==0) )
             {
                 M_regrid = true;
-                //chrono.restart();
-                //std::cout<<"Regriding starts\n";
+                std::cout<<"Regriding starts\n";
+				//chrono.restart();
                 this->regrid(pcpt);
                 //std::cout<<"Regriding done in "<< chrono.elapsed() <<"s\n";
             }
@@ -4648,6 +4648,7 @@ FiniteElement::forcingOcean(bool reload)//(double const& u, double const& v)
 void
 FiniteElement::constantOcean()
 {
+	std::cout<<"Constant Ocean\n";
     for (int i=0; i<M_num_nodes; ++i)
     {
         M_ocean[i] = Voce_coef*vm["simul.constant_ocean_v"].as<double>();
@@ -5213,6 +5214,7 @@ FiniteElement::initIce()
 void
 FiniteElement::constantIce()
 {
+	std::cout<<"Constant Ice\n";
     std::fill(M_conc.begin(), M_conc.end(), vm["simul.init_concentration"].as<double>());
     std::fill(M_thick.begin(), M_thick.end(), vm["simul.init_thickness"].as<double>());
     std::fill(M_snow_thick.begin(), M_snow_thick.end(), vm["simul.init_snow_thickness"].as<double>());
