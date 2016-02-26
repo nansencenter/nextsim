@@ -140,13 +140,16 @@ FiniteElement::init()
             M_hminVertices = this->hminVertices(M_mesh_init, bamgmesh);
             M_hmaxVertices = this->hmaxVertices(M_mesh_init, bamgmesh);
 
-            bamgopt->hminVertices = new double[M_mesh_init.numNodes()];
-            bamgopt->hmaxVertices = new double[M_mesh_init.numNodes()];
-            for (int i=0; i<M_mesh_init.numNodes(); ++i)
-            {
-                bamgopt->hminVertices[i] = M_hminVertices[i];
-                bamgopt->hmaxVertices[i] = M_hmaxVertices[i];
-            }
+			bamgopt->hminVertices=&M_hminVertices[0];
+			bamgopt->hmaxVertices=&M_hmaxVertices[0];
+				
+            //bamgopt->hminVertices = new double[M_mesh_init.numNodes()];
+            //bamgopt->hmaxVertices = new double[M_mesh_init.numNodes()];
+            //for (int i=0; i<M_mesh_init.numNodes(); ++i)
+            //{
+            //    bamgopt->hminVertices[i] = M_hminVertices[i];
+            //    bamgopt->hmaxVertices[i] = M_hmaxVertices[i];
+            //}
             break;
         default:
             std::cout << "invalid mesh type"<<"\n";
@@ -1245,6 +1248,9 @@ FiniteElement::regrid(bool step)
 
     if (step)
     {
+        chrono.restart();
+        std::cout<<"Flip starts\n";
+        
         while (flip)
         {
             ++substep;
@@ -1265,6 +1271,8 @@ FiniteElement::regrid(bool step)
 			std::cout<< substep_nb << "substeps will be needed for the remeshing!" <<"\n";
 			std::cout<< "Warning: It is probably due to very high ice speed, check your fields!\n";
 		}
+		
+        std::cout<<"Flip done in "<< chrono.elapsed() <<"s\n";
 
 #if 0
         cout << "\n";
@@ -1330,12 +1338,18 @@ FiniteElement::regrid(bool step)
 				bamgopt->KeepVertices=1;
 			}
 
+	        chrono.restart();
+	        std::cout<<"Interpolate hminVertices starts\n";
 			// Interpolate hminVertices and hmaxVertices onto the current mesh
 
 			// NODAL INTERPOLATION
 			int init_num_nodes = M_mesh_init.numNodes();
-			double* interp_Vertices_in;
-			interp_Vertices_in = new double[2*init_num_nodes];
+			
+			// memory leak:
+			//double* interp_Vertices_in;
+			//interp_Vertices_in = new double[2*init_num_nodes];
+			// To avoid memory leak:
+			std::vector<double> interp_Vertices_in(2*init_num_nodes);
 
 			double* interp_Vertices_out;
 
@@ -1348,32 +1362,42 @@ FiniteElement::regrid(bool step)
 			InterpFromMeshToMesh2dx(&interp_Vertices_out,
 			&M_mesh_init.indexTr()[0],&M_mesh_init.coordX()[0],&M_mesh_init.coordY()[0],
 			M_mesh_init.numNodes(),M_mesh_init.numTriangles(),
-			interp_Vertices_in,
+			&interp_Vertices_in[0],
 			M_mesh_init.numNodes(),2,
 			&M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
 			false);
 
-			bamgopt->hminVertices = new double[M_mesh.numNodes()];
-			bamgopt->hmaxVertices = new double[M_mesh.numNodes()];
+			//bamgopt->hminVertices = new double[M_mesh.numNodes()];
+			//bamgopt->hmaxVertices = new double[M_mesh.numNodes()];
 
 			for (int i=0; i<M_mesh.numNodes(); ++i)
 			{
 				bamgopt->hminVertices[i] = interp_Vertices_out[2*i];
 				bamgopt->hmaxVertices[i] = interp_Vertices_out[2*i+1];
 			}
+			std::cout<<"Interpolate hmin done in "<< chrono.elapsed() <<"s\n";
 		}
 
+        chrono.restart();
+        std::cout<<"AdaptMesh starts\n";
 		this->adaptMesh();
+		std::cout<<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
 
 		if (step)
 		{
 			int prv_num_elements = M_mesh_previous.numTriangles();
 			int prv_num_nodes = M_mesh_previous.numNodes();
 
+	        chrono.restart();
+	        std::cout<<"Element Interp starts\n";
 			// ELEMENT INTERPOLATION With Cavities
-			double* interp_elt_in;
 			int nb_var=12;
-			interp_elt_in = new double[nb_var*prv_num_elements];
+			
+			// memory leak:
+			//double* interp_elt_in;
+			//interp_elt_in = new double[nb_var*prv_num_elements];
+			// To avoid memory leak:
+			std::vector<double> interp_elt_in(nb_var*prv_num_elements);
 
 			double* interp_elt_out;
 
@@ -1440,8 +1464,12 @@ FiniteElement::regrid(bool step)
 			}
 
 #if 1
-			double* surface_previous = new double[prv_num_elements];
-			double* surface = new double[M_num_elements];
+			// memory leak:
+			//double* surface_previous = new double[prv_num_elements];
+			//double* surface = new double[M_num_elements];
+			// To avoid memory leak:
+			std::vector<double> surface_previous(prv_num_elements);
+			std::vector<double> surface(M_num_elements);
 
 			int cpt = 0;
 			for (auto it=M_mesh_previous.triangles().begin(), end=M_mesh_previous.triangles().end(); it!=end; ++it)
@@ -1460,8 +1488,8 @@ FiniteElement::regrid(bool step)
 			// The interpolation with the cavities still needs to be tested on a long run.
 			// By default, we then use the non-conservative MeshToMesh interpolation
 
-			InterpFromMeshToMesh2dCavities(&interp_elt_out,interp_elt_in,nb_var,
-			surface_previous, surface, bamgmesh_previous, bamgmesh);
+			InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_elt_in[0],nb_var,
+			&surface_previous[0], &surface[0], bamgmesh_previous, bamgmesh);
 #endif
 
 #if 0
@@ -1563,11 +1591,17 @@ FiniteElement::regrid(bool step)
 			}
 
 			std::cout<<"ELEMENT: Interp done\n";
+			std::cout<<"Element Interp done in "<< chrono.elapsed() <<"s\n";
 
+	        chrono.restart();
+	        std::cout<<"Slab Interp starts\n";
 			// ELEMENT INTERPOLATION FOR SLAB OCEAN FROM OLD MESH ON ITS ORIGINAL POSITION
-			double* interp_elt_slab_in;
 			nb_var=2;
-			interp_elt_slab_in = new double[nb_var*prv_num_elements];
+			
+			// memory leak:
+			//double* interp_elt_slab_in;
+			//interp_elt_slab_in = new double[nb_var*prv_num_elements];
+			std::vector<double> interp_elt_slab_in(nb_var*prv_num_elements);
 
 			double* interp_elt_slab_out;
 
@@ -1587,7 +1621,7 @@ FiniteElement::regrid(bool step)
 			InterpFromMeshToMesh2dx(&interp_elt_slab_out,
 			&M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
 			M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-			interp_elt_slab_in,
+			&interp_elt_slab_in[0],
 			M_mesh_previous.numTriangles(),nb_var,
 			&M_mesh.bcoordX()[0],&M_mesh.bcoordY()[0],M_mesh.numTriangles(),
 			false);
@@ -1606,14 +1640,20 @@ FiniteElement::regrid(bool step)
 
 			M_mesh_previous.move(M_UM,displacement_factor);
 			std::cout<<"ELEMENT SLAB: Interp done\n";
+			std::cout<<"Slab Interp done in "<< chrono.elapsed() <<"s\n";
 
 			// NODAL INTERPOLATION
 			nb_var=8;
-			double* interp_in;
-			interp_in = new double[nb_var*prv_num_nodes];
+			
+			// memory leak:
+			//double* interp_in;
+			//interp_in = new double[nb_var*prv_num_nodes];
+			std::vector<double> interp_in(nb_var*prv_num_nodes);
 
 			double* interp_out;
 
+	        chrono.restart();
+	        std::cout<<"Nodal Interp starts\n";
 			std::cout<<"NODAL: Interp starts\n";
 
 			for (int i=0; i<prv_num_nodes; ++i)
@@ -1638,7 +1678,7 @@ FiniteElement::regrid(bool step)
 			InterpFromMeshToMesh2dx(&interp_out,
 			&M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
 			M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-			interp_in,
+			&interp_in[0],
 			M_mesh_previous.numNodes(),nb_var,
 			&M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
 			false);
@@ -1668,7 +1708,7 @@ FiniteElement::regrid(bool step)
 			}
 
 			std::cout<<"NODAL: Interp done\n";
-
+			std::cout<<"Nodal interp done in "<< chrono.elapsed() <<"s\n";
 		}
 	}
 
@@ -4255,10 +4295,10 @@ FiniteElement::run()
             if ((minang < vm["simul.regrid_angle"].as<double>()) || (pcpt ==0) )
             {
                 M_regrid = true;
-                chrono.restart();
-                std::cout<<"Regriding starts\n";
+                //chrono.restart();
+                //std::cout<<"Regriding starts\n";
                 this->regrid(pcpt);
-                std::cout<<"Regriding done in "<< chrono.elapsed() <<"s\n";
+                //std::cout<<"Regriding done in "<< chrono.elapsed() <<"s\n";
             }
         }
 
@@ -4743,8 +4783,10 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 	if(dataset->grid->reduced_nodes_ind.size()!=0)
 		reduced_MN=dataset->grid->reduced_nodes_ind.size();
 	
-    double* data_in = new double[N_data*nb_forcing_step*reduced_MN];
-
+	// Memory leak:
+    //double* data_in = new double[N_data*nb_forcing_step*reduced_MN];
+    std::vector<double> data_in(N_data*nb_forcing_step*reduced_MN);
+	
     std::vector<double> data_in_tmp(MN);
 
     netCDF::NcVarAtt att;
