@@ -1240,9 +1240,6 @@ FiniteElement::regrid(bool step)
     bool flip = true;
     int substep = 0;
 
-    double* hmin_vertices;
-    double* hmax_vertices;
-
     std::vector<double> hmin_vertices_first;
     std::vector<double> hmax_vertices_first;
 
@@ -1375,6 +1372,8 @@ FiniteElement::regrid(bool step)
 				bamgopt->hminVertices[i] = interp_Vertices_out[2*i];
 				bamgopt->hmaxVertices[i] = interp_Vertices_out[2*i+1];
 			}
+			
+			xDelete<double>(interp_Vertices_out);
 			std::cout<<"Interpolate hmin done in "<< chrono.elapsed() <<"s\n";
 		}
 
@@ -1589,6 +1588,8 @@ FiniteElement::regrid(bool step)
 					throw std::logic_error("tmp_nb_var not equal to nb_var");
 				}
 			}
+			
+			xDelete<double>(interp_elt_out);
 
 			std::cout<<"ELEMENT: Interp done\n";
 			std::cout<<"Element Interp done in "<< chrono.elapsed() <<"s\n";
@@ -1637,6 +1638,8 @@ FiniteElement::regrid(bool step)
 				// Sea surface salinity
 				M_sss[i] = interp_elt_slab_out[nb_var*i+1];
 			}
+			
+			xDelete<double>(interp_elt_slab_out);
 
 			M_mesh_previous.move(M_UM,displacement_factor);
 			std::cout<<"ELEMENT SLAB: Interp done\n";
@@ -1706,6 +1709,8 @@ FiniteElement::regrid(bool step)
 				M_UM[i] = interp_out[nb_var*i+6];
 				M_UM[i+M_num_nodes] = interp_out[nb_var*i+7];
 			}
+			
+			xDelete<double>(interp_out);
 
 			std::cout<<"NODAL: Interp done\n";
 			std::cout<<"Nodal interp done in "<< chrono.elapsed() <<"s\n";
@@ -4954,6 +4959,8 @@ std::cout<<"after interp " <<"\n";
             dataset->variables[j].data2[fstep]=tmp_interpolated_field;
         }
     }
+	
+	xDelete<double>(data_out);
 
     std::cout<<"end load" <<"\n";
 }
