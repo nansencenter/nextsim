@@ -68,7 +68,6 @@ public:
         double a;
         double b;
         std::string Units;
-        netCDF::NcVar NcVar;
         std::vector<std::vector<double>> data2;
     } Variable;
 

@@ -284,7 +284,6 @@ FiniteElement::initSimulation()
 
 	// ---------------------------------
 	// Definition of the grids and datasets used in the code
-    netCDF::NcVar NcVar_tmp;
 	
     std::vector<std::vector<double>> data2_tmp;
     data2_tmp.resize(2);
@@ -326,7 +325,6 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "degree_north",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
 
@@ -336,7 +334,6 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "degree_east",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
 
@@ -346,7 +343,6 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "hours",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
 
@@ -362,7 +358,6 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "m/s",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
 
@@ -372,7 +367,6 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "m/s",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
 	
@@ -427,7 +421,6 @@ FiniteElement::initSimulation()
         a:1.,
         b:-273.15,
         Units:"C",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	}; // T2M
     Variable mixrat={
@@ -436,7 +429,6 @@ FiniteElement::initSimulation()
         a:1.,
         b:0.,
         Units:"",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	}; // Q2M
     Variable mslp={
@@ -445,7 +437,6 @@ FiniteElement::initSimulation()
         a:1e2,
         b:0.,
         Units:"Pa",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	}; //PSFC, a=1.
     Variable Qsw_in={
@@ -454,7 +445,6 @@ FiniteElement::initSimulation()
         a:1.,
         b:0.,
         Units:"W/m^2",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
     Variable Qlw_in={
@@ -463,7 +453,6 @@ FiniteElement::initSimulation()
         a:1.,
         b:0.,
         Units:"W/m^2",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
     Variable snowfr={
@@ -472,7 +461,6 @@ FiniteElement::initSimulation()
         a:1.,
         b:0.,
         Units:"",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
     Variable precip={
@@ -481,7 +469,6 @@ FiniteElement::initSimulation()
         a:nb_timestep_day/(24.*3600),
         b:0.,
         Units:"kg/m^2/s",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
 
@@ -560,7 +547,6 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "degree_north",
-        NcVar: NcVar_tmp,
         data2: data2_tmp};
 
     Variable topaz_longitude={
@@ -569,7 +555,6 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "degree_east",
-        NcVar: NcVar_tmp,
         data2: data2_tmp};
 
     Variable topaz_time={
@@ -578,7 +563,6 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "hours",
-        NcVar: NcVar_tmp,
         data2: data2_tmp};
 
     Variable u={
@@ -587,7 +571,6 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "m/s",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
 
@@ -597,7 +580,6 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "m/s",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
 
@@ -607,7 +589,6 @@ FiniteElement::initSimulation()
 		a: 1.,
 		b: 0.,
 		Units: "m/s",
-		NcVar: NcVar_tmp,
 		data2: data2_tmp
 	};
 		
@@ -617,7 +598,6 @@ FiniteElement::initSimulation()
 		a: 1.,
 		b: 0.,
 		Units: "deg celsius",
-		NcVar: NcVar_tmp,
 		data2: data2_tmp
 	};
 
@@ -627,7 +607,6 @@ FiniteElement::initSimulation()
 		a: 1.,
 		b: 0.,
 		Units: "",
-		NcVar: NcVar_tmp,
 		data2: data2_tmp
 	};
 
@@ -637,7 +616,6 @@ FiniteElement::initSimulation()
 		a: 1.,
 		b: 0.,
 		Units: "m",
-		NcVar: NcVar_tmp,
 		data2: data2_tmp
 	};
 	
@@ -647,7 +625,6 @@ FiniteElement::initSimulation()
 		a: 1.,
 		b: 0.,
 		Units: "",
-		NcVar: NcVar_tmp,
 		data2: data2_tmp
 	};
 
@@ -657,7 +634,6 @@ FiniteElement::initSimulation()
 		a: 1.,
 		b: 0.,
 		Units: "m",
-		NcVar: NcVar_tmp,
 		data2: data2_tmp
 	};
 
@@ -667,7 +643,6 @@ FiniteElement::initSimulation()
 		a: 1.,
 		b: 0.,
 		Units: "m",
-		NcVar: NcVar_tmp,
 		data2: data2_tmp
 	};
 
@@ -787,7 +762,6 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "degree_north",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
 
@@ -797,7 +771,6 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "degree_east",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
 	
@@ -828,7 +801,6 @@ FiniteElement::initSimulation()
         a:1.,
         b:0.,
         Units:"m",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	}; 
 
@@ -4744,9 +4716,10 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 
     netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
 
+	std::vector<netCDF::NcVar> NcVars(dataset->variables.size());
 
     for(int j=0; j<dataset->variables.size(); ++j)
-        dataset->variables[j].NcVar = dataFile.getVar(dataset->variables[j].name);
+        NcVars[j] = dataFile.getVar(dataset->variables[j].name);
 
 	if(dataset->nb_timestep_day>0)
 	{
@@ -4831,13 +4804,13 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
             	index_count[0] = 1;
 			}
 			
-            dataset->variables[j].NcVar.getVar(index_start,index_count,&data_in_tmp[0]);
+            NcVars[j].getVar(index_start,index_count,&data_in_tmp[0]);
 			
             // Need to multiply with scale factor and add offset - these are stored as variable attributes
             scale_factor=1.;
             try
             {
-                att = dataset->variables[j].NcVar.getAtt("scale_factor");
+                att = NcVars[j].getAtt("scale_factor");
                 att.getValues(&scale_factor);
             }
             catch(netCDF::exceptions::NcException& e)
@@ -4846,7 +4819,7 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
             add_offset=0.;
             try
             {
-                att = dataset->variables[j].NcVar.getAtt("add_offset");
+                att = NcVars[j].getAtt("add_offset");
                 att.getValues(&add_offset);
             }
             catch(netCDF::exceptions::NcException& e)
