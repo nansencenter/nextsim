@@ -375,7 +375,7 @@ FiniteElement::initSimulation()
 	
 	M_asr_grid={
 		interpolation_method: setup::InterpolationType::InterpFromGridToMesh,
-	    //interp_type : TriangleInterpEnum,
+	    //interp_type : TriangleInterpEnum,  // slower
 	    interp_type : BilinearInterpEnum,
 	    //interp_type : NearestInterpEnum,
 		
@@ -745,7 +745,7 @@ FiniteElement::initSimulation()
 
     Dimension etopo_dimension_y={
         name:"y",
-        start:0,
+        start:7200,//0, approx 60 deg North
         end:10801
 	};
 
@@ -779,8 +779,8 @@ FiniteElement::initSimulation()
 	
 	M_etopo_grid={
 		interpolation_method: setup::InterpolationType::InterpFromGridToMesh,
-	    interp_type : TriangleInterpEnum,
-	    //interp_type : BilinearInterpEnum,
+	    //interp_type : TriangleInterpEnum, // slower
+	    interp_type : BilinearInterpEnum,
 	    //interp_type : NearestInterpEnum,
 		dirname:"data",
 		filename:"ETOPO1_Ice_g_gmt4.grd",
@@ -1318,21 +1318,41 @@ FiniteElement::regrid(bool step)
 
 	for (int substep_i = 0; substep_i < substep_nb; substep_i++ )
 	{
-		M_mesh.move(M_UM,displacement_factor);
-	    for (int id=0; id<bamgmesh->VerticesSize[0]; ++id)
-	    {
-	        bamgmesh->Vertices[3*id] = M_mesh.coordX()[id];
-			bamgmesh->Vertices[3*id+1] = M_mesh.coordY()[id] ;
-	    }
-
+		if(step)
+		{
+	        chrono.restart();
+	        std::cout<<"Move starts\n";
+			M_mesh.move(M_UM,displacement_factor);
+			std::cout<<"Move done in "<< chrono.elapsed() <<"s\n";
+			
+			
+			
+	        chrono.restart();
+	        std::cout<<"Move bamgmesh->Vertices starts\n";			
+		    auto RX = M_mesh.coordX();
+		    auto RY = M_mesh.coordY();
+			
+			for (int id=0; id<bamgmesh->VerticesSize[0]; ++id)
+	    	{
+	        	bamgmesh->Vertices[3*id] = RX[id];
+				bamgmesh->Vertices[3*id+1] = RY[id] ;
+	    	}
+			std::cout<<"Move bamgmesh->Vertices done in "<< chrono.elapsed() <<"s\n";
+		}
+		
+		
 		if(M_mesh_type==setup::MeshType::FROM_SPLIT)
 		{
 			if(step==0)
 			{
+		        chrono.restart();
+		        std::cout<<"First adaptation starts\n";
 				// step 1 (only for the first time step): Start by having bamg 'clean' the mesh with KeepVertices=0
 				bamgopt->KeepVertices=0;
 				this->adaptMesh();
 				bamgopt->KeepVertices=1;
+				std::cout<<"First adaptation done in "<< chrono.elapsed() <<"s\n";
+				
 			}
 
 	        chrono.restart();
@@ -1778,7 +1798,7 @@ FiniteElement::regrid(bool step)
 
 void
 FiniteElement::adaptMesh()
-{
+{	
     *bamgmesh_previous = *bamgmesh;
     *bamggeom_previous = *bamggeom;
     *bamgopt_previous = *bamgopt;
@@ -4308,7 +4328,11 @@ FiniteElement::run()
         }
 
         if (pcpt == 0)
+		{
+            chrono.restart();
             this->initSimulation();
+			std::cout<<"initSimulation done in "<< chrono.elapsed() <<"s\n";
+		}
 
         if ((pcpt==0) || (M_regrid))
         {
@@ -4331,7 +4355,7 @@ FiniteElement::run()
         chrono.restart();
         std::cout<<"forcingAtmosphere starts\n";
         this->forcingAtmosphere(M_regrid);
-        std::cout<<"forcingAtmosphere done in "<< chrono.elapsed() <<"s\n";
+		std::cout<<"forcingAtmosphere done in "<< chrono.elapsed() <<"s\n";
 
         chrono.restart();
         std::cout<<"forcingOcean starts\n";
