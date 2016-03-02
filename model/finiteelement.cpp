@@ -140,13 +140,16 @@ FiniteElement::init()
             M_hminVertices = this->hminVertices(M_mesh_init, bamgmesh);
             M_hmaxVertices = this->hmaxVertices(M_mesh_init, bamgmesh);
 
-            bamgopt->hminVertices = new double[M_mesh_init.numNodes()];
-            bamgopt->hmaxVertices = new double[M_mesh_init.numNodes()];
-            for (int i=0; i<M_mesh_init.numNodes(); ++i)
-            {
-                bamgopt->hminVertices[i] = M_hminVertices[i];
-                bamgopt->hmaxVertices[i] = M_hmaxVertices[i];
-            }
+			bamgopt->hminVertices=&M_hminVertices[0];
+			bamgopt->hmaxVertices=&M_hmaxVertices[0];
+				
+            //bamgopt->hminVertices = new double[M_mesh_init.numNodes()];
+            //bamgopt->hmaxVertices = new double[M_mesh_init.numNodes()];
+            //for (int i=0; i<M_mesh_init.numNodes(); ++i)
+            //{
+            //    bamgopt->hminVertices[i] = M_hminVertices[i];
+            //    bamgopt->hmaxVertices[i] = M_hmaxVertices[i];
+            //}
             break;
         default:
             std::cout << "invalid mesh type"<<"\n";
@@ -290,7 +293,6 @@ FiniteElement::initSimulation()
 
 	// ---------------------------------
 	// Definition of the grids and datasets used in the code
-    netCDF::NcVar NcVar_tmp;
 	
     std::vector<std::vector<double>> data2_tmp;
     data2_tmp.resize(2);
@@ -332,7 +334,6 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "degree_north",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
 
@@ -342,7 +343,6 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "degree_east",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
 
@@ -352,7 +352,6 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "hours",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
 
@@ -368,7 +367,6 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "m/s",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
 
@@ -378,13 +376,12 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "m/s",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
 	
 	M_asr_grid={
 		interpolation_method: setup::InterpolationType::InterpFromGridToMesh,
-	    //interp_type : TriangleInterpEnum,
+	    //interp_type : TriangleInterpEnum,  // slower
 	    interp_type : BilinearInterpEnum,
 	    //interp_type : NearestInterpEnum,
 		
@@ -433,7 +430,6 @@ FiniteElement::initSimulation()
         a:1.,
         b:-273.15,
         Units:"C",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	}; // T2M
     Variable mixrat={
@@ -442,7 +438,6 @@ FiniteElement::initSimulation()
         a:1.,
         b:0.,
         Units:"",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	}; // Q2M
     Variable mslp={
@@ -451,7 +446,6 @@ FiniteElement::initSimulation()
         a:1e2,
         b:0.,
         Units:"Pa",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	}; //PSFC, a=1.
     Variable Qsw_in={
@@ -460,7 +454,6 @@ FiniteElement::initSimulation()
         a:1.,
         b:0.,
         Units:"W/m^2",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
     Variable Qlw_in={
@@ -469,7 +462,6 @@ FiniteElement::initSimulation()
         a:1.,
         b:0.,
         Units:"W/m^2",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
     Variable snowfr={
@@ -478,7 +470,6 @@ FiniteElement::initSimulation()
         a:1.,
         b:0.,
         Units:"",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
     Variable precip={
@@ -487,7 +478,6 @@ FiniteElement::initSimulation()
         a:nb_timestep_day/(24.*3600),
         b:0.,
         Units:"kg/m^2/s",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
 
@@ -566,7 +556,6 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "degree_north",
-        NcVar: NcVar_tmp,
         data2: data2_tmp};
 
     Variable topaz_longitude={
@@ -575,7 +564,6 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "degree_east",
-        NcVar: NcVar_tmp,
         data2: data2_tmp};
 
     Variable topaz_time={
@@ -584,7 +572,6 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "hours",
-        NcVar: NcVar_tmp,
         data2: data2_tmp};
 
     Variable u={
@@ -593,7 +580,6 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "m/s",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
 
@@ -603,7 +589,6 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "m/s",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
 
@@ -613,7 +598,6 @@ FiniteElement::initSimulation()
 		a: 1.,
 		b: 0.,
 		Units: "m/s",
-		NcVar: NcVar_tmp,
 		data2: data2_tmp
 	};
 		
@@ -623,7 +607,6 @@ FiniteElement::initSimulation()
 		a: 1.,
 		b: 0.,
 		Units: "deg celsius",
-		NcVar: NcVar_tmp,
 		data2: data2_tmp
 	};
 
@@ -633,7 +616,6 @@ FiniteElement::initSimulation()
 		a: 1.,
 		b: 0.,
 		Units: "",
-		NcVar: NcVar_tmp,
 		data2: data2_tmp
 	};
 
@@ -643,7 +625,6 @@ FiniteElement::initSimulation()
 		a: 1.,
 		b: 0.,
 		Units: "m",
-		NcVar: NcVar_tmp,
 		data2: data2_tmp
 	};
 	
@@ -653,7 +634,6 @@ FiniteElement::initSimulation()
 		a: 1.,
 		b: 0.,
 		Units: "",
-		NcVar: NcVar_tmp,
 		data2: data2_tmp
 	};
 
@@ -663,7 +643,6 @@ FiniteElement::initSimulation()
 		a: 1.,
 		b: 0.,
 		Units: "m",
-		NcVar: NcVar_tmp,
 		data2: data2_tmp
 	};
 
@@ -673,7 +652,6 @@ FiniteElement::initSimulation()
 		a: 1.,
 		b: 0.,
 		Units: "m",
-		NcVar: NcVar_tmp,
 		data2: data2_tmp
 	};
 
@@ -773,7 +751,7 @@ FiniteElement::initSimulation()
 
     Dimension etopo_dimension_y={
         name:"y",
-        start:0,
+        start:7200,//0, approx 60 deg North
         end:10801
 	};
 
@@ -793,7 +771,6 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "degree_north",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
 
@@ -803,14 +780,13 @@ FiniteElement::initSimulation()
         a: 1.,
         b: 0.,
         Units: "degree_east",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	};
 	
 	M_etopo_grid={
 		interpolation_method: setup::InterpolationType::InterpFromGridToMesh,
-	    interp_type : TriangleInterpEnum,
-	    //interp_type : BilinearInterpEnum,
+	    //interp_type : TriangleInterpEnum, // slower
+	    interp_type : BilinearInterpEnum,
 	    //interp_type : NearestInterpEnum,
 		dirname:"data",
 		filename:"ETOPO1_Ice_g_gmt4.grd",
@@ -834,7 +810,6 @@ FiniteElement::initSimulation()
         a:1.,
         b:0.,
         Units:"m",
-        NcVar: NcVar_tmp,
         data2: data2_tmp
 	}; 
 
@@ -1273,14 +1248,14 @@ FiniteElement::regrid(bool step)
     bool flip = true;
     int substep = 0;
 
-    double* hmin_vertices;
-    double* hmax_vertices;
-
     std::vector<double> hmin_vertices_first;
     std::vector<double> hmax_vertices_first;
 
     if (step)
     {
+        chrono.restart();
+        std::cout<<"Flip starts\n";
+        
         while (flip)
         {
             ++substep;
@@ -1301,6 +1276,8 @@ FiniteElement::regrid(bool step)
 			std::cout<< substep_nb << "substeps will be needed for the remeshing!" <<"\n";
 			std::cout<< "Warning: It is probably due to very high ice speed, check your fields!\n";
 		}
+		
+        std::cout<<"Flip done in "<< chrono.elapsed() <<"s\n";
 
 #if 0
         cout << "\n";
@@ -1349,29 +1326,55 @@ FiniteElement::regrid(bool step)
 
 	for (int substep_i = 0; substep_i < substep_nb; substep_i++ )
 	{
-		M_mesh.move(M_UM,displacement_factor);
-	    for (int id=0; id<bamgmesh->VerticesSize[0]; ++id)
-	    {
-	        bamgmesh->Vertices[3*id] = M_mesh.coordX()[id];
-			bamgmesh->Vertices[3*id+1] = M_mesh.coordY()[id] ;
-	    }
-
+		if(step)
+		{
+	        chrono.restart();
+	        std::cout<<"Move starts\n";
+			M_mesh.move(M_UM,displacement_factor);
+			std::cout<<"Move done in "<< chrono.elapsed() <<"s\n";
+			
+			
+			
+	        chrono.restart();
+	        std::cout<<"Move bamgmesh->Vertices starts\n";			
+		    auto RX = M_mesh.coordX();
+		    auto RY = M_mesh.coordY();
+			
+			for (int id=0; id<bamgmesh->VerticesSize[0]; ++id)
+	    	{
+	        	bamgmesh->Vertices[3*id] = RX[id];
+				bamgmesh->Vertices[3*id+1] = RY[id] ;
+	    	}
+			std::cout<<"Move bamgmesh->Vertices done in "<< chrono.elapsed() <<"s\n";
+		}
+		
+		
 		if(M_mesh_type==setup::MeshType::FROM_SPLIT)
 		{
 			if(step==0)
 			{
+		        chrono.restart();
+		        std::cout<<"First adaptation starts\n";
 				// step 1 (only for the first time step): Start by having bamg 'clean' the mesh with KeepVertices=0
 				bamgopt->KeepVertices=0;
 				this->adaptMesh();
 				bamgopt->KeepVertices=1;
+				std::cout<<"First adaptation done in "<< chrono.elapsed() <<"s\n";
+				
 			}
 
+	        chrono.restart();
+	        std::cout<<"Interpolate hminVertices starts\n";
 			// Interpolate hminVertices and hmaxVertices onto the current mesh
 
 			// NODAL INTERPOLATION
 			int init_num_nodes = M_mesh_init.numNodes();
-			double* interp_Vertices_in;
-			interp_Vertices_in = new double[2*init_num_nodes];
+			
+			// memory leak:
+			//double* interp_Vertices_in;
+			//interp_Vertices_in = new double[2*init_num_nodes];
+			// To avoid memory leak:
+			std::vector<double> interp_Vertices_in(2*init_num_nodes);
 
 			double* interp_Vertices_out;
 
@@ -1384,32 +1387,44 @@ FiniteElement::regrid(bool step)
 			InterpFromMeshToMesh2dx(&interp_Vertices_out,
 			&M_mesh_init.indexTr()[0],&M_mesh_init.coordX()[0],&M_mesh_init.coordY()[0],
 			M_mesh_init.numNodes(),M_mesh_init.numTriangles(),
-			interp_Vertices_in,
+			&interp_Vertices_in[0],
 			M_mesh_init.numNodes(),2,
 			&M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
 			false);
 
-			bamgopt->hminVertices = new double[M_mesh.numNodes()];
-			bamgopt->hmaxVertices = new double[M_mesh.numNodes()];
+			//bamgopt->hminVertices = new double[M_mesh.numNodes()];
+			//bamgopt->hmaxVertices = new double[M_mesh.numNodes()];
 
 			for (int i=0; i<M_mesh.numNodes(); ++i)
 			{
 				bamgopt->hminVertices[i] = interp_Vertices_out[2*i];
 				bamgopt->hmaxVertices[i] = interp_Vertices_out[2*i+1];
 			}
+			
+			xDelete<double>(interp_Vertices_out);
+			std::cout<<"Interpolate hmin done in "<< chrono.elapsed() <<"s\n";
 		}
 
+        chrono.restart();
+        std::cout<<"AdaptMesh starts\n";
 		this->adaptMesh();
+		std::cout<<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
 
 		if (step)
 		{
 			int prv_num_elements = M_mesh_previous.numTriangles();
 			int prv_num_nodes = M_mesh_previous.numNodes();
 
+	        chrono.restart();
+	        std::cout<<"Element Interp starts\n";
 			// ELEMENT INTERPOLATION With Cavities
-			double* interp_elt_in;
 			int nb_var=12;
-			interp_elt_in = new double[nb_var*prv_num_elements];
+			
+			// memory leak:
+			//double* interp_elt_in;
+			//interp_elt_in = new double[nb_var*prv_num_elements];
+			// To avoid memory leak:
+			std::vector<double> interp_elt_in(nb_var*prv_num_elements);
 
 			double* interp_elt_out;
 
@@ -1476,8 +1491,12 @@ FiniteElement::regrid(bool step)
 			}
 
 #if 1
-			double* surface_previous = new double[prv_num_elements];
-			double* surface = new double[M_num_elements];
+			// memory leak:
+			//double* surface_previous = new double[prv_num_elements];
+			//double* surface = new double[M_num_elements];
+			// To avoid memory leak:
+			std::vector<double> surface_previous(prv_num_elements);
+			std::vector<double> surface(M_num_elements);
 
 			int cpt = 0;
 			for (auto it=M_mesh_previous.triangles().begin(), end=M_mesh_previous.triangles().end(); it!=end; ++it)
@@ -1496,8 +1515,8 @@ FiniteElement::regrid(bool step)
 			// The interpolation with the cavities still needs to be tested on a long run.
 			// By default, we then use the non-conservative MeshToMesh interpolation
 
-			InterpFromMeshToMesh2dCavities(&interp_elt_out,interp_elt_in,nb_var,
-			surface_previous, surface, bamgmesh_previous, bamgmesh);
+			InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_elt_in[0],nb_var,
+			&surface_previous[0], &surface[0], bamgmesh_previous, bamgmesh);
 #endif
 
 #if 0
@@ -1597,13 +1616,21 @@ FiniteElement::regrid(bool step)
 					throw std::logic_error("tmp_nb_var not equal to nb_var");
 				}
 			}
+			
+			xDelete<double>(interp_elt_out);
 
 			std::cout<<"ELEMENT: Interp done\n";
+			std::cout<<"Element Interp done in "<< chrono.elapsed() <<"s\n";
 
+	        chrono.restart();
+	        std::cout<<"Slab Interp starts\n";
 			// ELEMENT INTERPOLATION FOR SLAB OCEAN FROM OLD MESH ON ITS ORIGINAL POSITION
-			double* interp_elt_slab_in;
 			nb_var=2;
-			interp_elt_slab_in = new double[nb_var*prv_num_elements];
+			
+			// memory leak:
+			//double* interp_elt_slab_in;
+			//interp_elt_slab_in = new double[nb_var*prv_num_elements];
+			std::vector<double> interp_elt_slab_in(nb_var*prv_num_elements);
 
 			double* interp_elt_slab_out;
 
@@ -1623,7 +1650,7 @@ FiniteElement::regrid(bool step)
 			InterpFromMeshToMesh2dx(&interp_elt_slab_out,
 			&M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
 			M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-			interp_elt_slab_in,
+			&interp_elt_slab_in[0],
 			M_mesh_previous.numTriangles(),nb_var,
 			&M_mesh.bcoordX()[0],&M_mesh.bcoordY()[0],M_mesh.numTriangles(),
 			false);
@@ -1639,17 +1666,25 @@ FiniteElement::regrid(bool step)
 				// Sea surface salinity
 				M_sss[i] = interp_elt_slab_out[nb_var*i+1];
 			}
+			
+			xDelete<double>(interp_elt_slab_out);
 
 			M_mesh_previous.move(M_UM,displacement_factor);
 			std::cout<<"ELEMENT SLAB: Interp done\n";
+			std::cout<<"Slab Interp done in "<< chrono.elapsed() <<"s\n";
 
 			// NODAL INTERPOLATION
 			nb_var=8;
-			double* interp_in;
-			interp_in = new double[nb_var*prv_num_nodes];
+			
+			// memory leak:
+			//double* interp_in;
+			//interp_in = new double[nb_var*prv_num_nodes];
+			std::vector<double> interp_in(nb_var*prv_num_nodes);
 
 			double* interp_out;
 
+	        chrono.restart();
+	        std::cout<<"Nodal Interp starts\n";
 			std::cout<<"NODAL: Interp starts\n";
 
 			for (int i=0; i<prv_num_nodes; ++i)
@@ -1674,7 +1709,7 @@ FiniteElement::regrid(bool step)
 			InterpFromMeshToMesh2dx(&interp_out,
 			&M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
 			M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-			interp_in,
+			&interp_in[0],
 			M_mesh_previous.numNodes(),nb_var,
 			&M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
 			false);
@@ -1702,9 +1737,11 @@ FiniteElement::regrid(bool step)
 				M_UM[i] = interp_out[nb_var*i+6];
 				M_UM[i+M_num_nodes] = interp_out[nb_var*i+7];
 			}
+			
+			xDelete<double>(interp_out);
 
 			std::cout<<"NODAL: Interp done\n";
-
+			std::cout<<"Nodal interp done in "<< chrono.elapsed() <<"s\n";
 		}
 	}
 
@@ -1769,7 +1806,7 @@ FiniteElement::regrid(bool step)
 
 void
 FiniteElement::adaptMesh()
-{
+{	
     *bamgmesh_previous = *bamgmesh;
     *bamggeom_previous = *bamggeom;
     *bamgopt_previous = *bamgopt;
@@ -4298,15 +4335,19 @@ FiniteElement::run()
             if ((minang < vm["simul.regrid_angle"].as<double>()) || (pcpt ==0) )
             {
                 M_regrid = true;
-                chrono.restart();
                 std::cout<<"Regriding starts\n";
+				//chrono.restart();
                 this->regrid(pcpt);
-                std::cout<<"Regriding done in "<< chrono.elapsed() <<"s\n";
+                //std::cout<<"Regriding done in "<< chrono.elapsed() <<"s\n";
             }
         }
 
         if (pcpt == 0)
+		{
+            chrono.restart();
             this->initSimulation();
+			std::cout<<"initSimulation done in "<< chrono.elapsed() <<"s\n";
+		}
         
         // Read in the new buoys and output
         if (M_drifter_type == setup::DrifterType::IABP && std::fmod(current_time,0.5) == 0)
@@ -4337,7 +4378,7 @@ FiniteElement::run()
         chrono.restart();
         std::cout<<"forcingAtmosphere starts\n";
         this->forcingAtmosphere(M_regrid);
-        std::cout<<"forcingAtmosphere done in "<< chrono.elapsed() <<"s\n";
+		std::cout<<"forcingAtmosphere done in "<< chrono.elapsed() <<"s\n";
 
         chrono.restart();
         std::cout<<"forcingOcean starts\n";
@@ -4666,6 +4707,7 @@ FiniteElement::forcingOcean(bool reload)//(double const& u, double const& v)
 void
 FiniteElement::constantOcean()
 {
+	std::cout<<"Constant Ocean\n";
     for (int i=0; i<M_num_nodes; ++i)
     {
         M_ocean[i] = Voce_coef*vm["simul.constant_ocean_v"].as<double>();
@@ -4774,9 +4816,10 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 
     netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
 
+	std::vector<netCDF::NcVar> NcVars(dataset->variables.size());
 
     for(int j=0; j<dataset->variables.size(); ++j)
-        dataset->variables[j].NcVar = dataFile.getVar(dataset->variables[j].name);
+        NcVars[j] = dataFile.getVar(dataset->variables[j].name);
 
 	if(dataset->nb_timestep_day>0)
 	{
@@ -4800,8 +4843,10 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 	if(dataset->grid->reduced_nodes_ind.size()!=0)
 		reduced_MN=dataset->grid->reduced_nodes_ind.size();
 	
-    double* data_in = new double[N_data*nb_forcing_step*reduced_MN];
-
+	// Memory leak:
+    //double* data_in = new double[N_data*nb_forcing_step*reduced_MN];
+    std::vector<double> data_in(N_data*nb_forcing_step*reduced_MN);
+	
     std::vector<double> data_in_tmp(MN);
 
     netCDF::NcVarAtt att;
@@ -4861,13 +4906,13 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
             	index_count[0] = 1;
 			}
 			
-            dataset->variables[j].NcVar.getVar(index_start,index_count,&data_in_tmp[0]);
+            NcVars[j].getVar(index_start,index_count,&data_in_tmp[0]);
 			
             // Need to multiply with scale factor and add offset - these are stored as variable attributes
             scale_factor=1.;
             try
             {
-                att = dataset->variables[j].NcVar.getAtt("scale_factor");
+                att = NcVars[j].getAtt("scale_factor");
                 att.getValues(&scale_factor);
             }
             catch(netCDF::exceptions::NcException& e)
@@ -4876,7 +4921,7 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
             add_offset=0.;
             try
             {
-                att = dataset->variables[j].NcVar.getAtt("add_offset");
+                att = NcVars[j].getAtt("add_offset");
                 att.getValues(&add_offset);
             }
             catch(netCDF::exceptions::NcException& e)
@@ -4919,13 +4964,16 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 		str.push_back('\0');
 		map = init_mapx(&str[0]);
 
-		std::vector<double> tmp_latlon(2);
+		double lat, lon;
 		
 		for (int i=0; i<dataset->target_size; ++i)
 		{
-			tmp_latlon = XY2latLon(RX[i], RY[i], map, configfile);
-			RY[i]=tmp_latlon[0];
-			RX[i]=tmp_latlon[1];
+			inverse_mapx(map,RX[i],RY[i],&lat,&lon);
+			RY[i]=lat;
+			RX[i]=lon;
+			//tmp_latlon = XY2latLon(RX[i], RY[i], map, configfile);
+			//RY[i]=tmp_latlon[0];
+			//RX[i]=tmp_latlon[1];
 		}
 	}
 
@@ -4968,6 +5016,8 @@ std::cout<<"after interp " <<"\n";
             dataset->variables[j].data2[fstep]=tmp_interpolated_field;
         }
     }
+	
+	xDelete<double>(data_out);
 
     std::cout<<"end load" <<"\n";
 }
@@ -5076,11 +5126,15 @@ FiniteElement::loadGrid(Grid *grid)
 		str.push_back('\0');
 		map = init_mapx(&str[0]);
 
+	    double x;
+	    double y;
+
 		for (int i=0; i<index_px_count[0]; ++i)
 		{
 			for (int j=0; j<index_px_count[1]; ++j)
 			{
-				X[index_px_count[1]*i+j]=latLon2XY(XLAT[index_px_count[1]*i+j], XLON[index_px_count[1]*i+j], map, configfile)[0];
+			    forward_mapx(map,XLAT[index_px_count[1]*i+j],XLON[index_px_count[1]*i+j],&x,&y);
+				X[index_px_count[1]*i+j]=x;
 			}
 		}
 
@@ -5088,7 +5142,8 @@ FiniteElement::loadGrid(Grid *grid)
 		{
 			for (int j=0; j<index_py_count[1]; ++j)
 			{
-				Y[index_py_count[1]*i+j]=latLon2XY(YLAT[index_py_count[1]*i+j], YLON[index_py_count[1]*i+j], map, configfile)[1];
+				forward_mapx(map,YLAT[index_py_count[1]*i+j],YLON[index_py_count[1]*i+j],&x,&y);
+				Y[index_py_count[1]*i+j]=y;
 			}
 		}
 
@@ -5228,6 +5283,7 @@ FiniteElement::initIce()
 void
 FiniteElement::constantIce()
 {
+	std::cout<<"Constant Ice\n";
     std::fill(M_conc.begin(), M_conc.end(), vm["simul.init_concentration"].as<double>());
     std::fill(M_thick.begin(), M_thick.end(), vm["simul.init_thickness"].as<double>());
     std::fill(M_snow_thick.begin(), M_snow_thick.end(), vm["simul.init_snow_thickness"].as<double>());
@@ -5752,36 +5808,6 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     auto NNZ = M_graph.nNz();
     std::cout<<"ACCUMULATE= "<< std::accumulate(NNZ.begin(),NNZ.end(),0) <<"\n";
 #endif
-}
-
-std::vector<double>
-FiniteElement::latLon2XY(double const& lat, double const& lon, mapx_class* map, std::string const& configfile)
-{
-    std::vector<double> xy(2);
-    double x;
-    double y;
-
-    int status = forward_mapx(map,lat,lon,&x,&y);
-
-    xy[0] = x;
-    xy[1] = y;
-
-    return xy;
-}
-
-std::vector<double>
-FiniteElement::XY2latLon(double const& x, double const& y, mapx_class* map, std::string const& configfile)
-{
-    std::vector<double> latlon(2);
-    double lat;
-    double lon;
-
-    int status = inverse_mapx(map,x,y,&lat,&lon);
-
-    latlon[0] = lat;
-    latlon[1] = lon;
-
-    return latlon;
 }
 
 void

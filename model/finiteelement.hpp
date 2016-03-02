@@ -68,7 +68,6 @@ public:
         double a;
         double b;
         std::string Units;
-        netCDF::NcVar NcVar;
         std::vector<std::vector<double>> data2;
     } Variable;
 
@@ -180,9 +179,6 @@ public:
 
     std::vector<double> hminVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const;
     std::vector<double> hmaxVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const;
-
-    std::vector<double> latLon2XY(double const& lat, double const& lon, mapx_class* map, std::string const& configfile);
-    std::vector<double> XY2latLon(double const& x, double const& y, mapx_class* map, std::string const& configfile);
 
     void initBamg();
     void initConstant();
