@@ -404,7 +404,7 @@ private:
 	void constantBathymetry();
 
     void equallySpacedDrifter();
-    void outputIABPDrifter(std::fstream &iabp_out);
+    void outputDrifter(std::fstream &iabp_out);
     void initIABPDrifter();
     void updateIABPDrifter();
 

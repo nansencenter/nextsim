@@ -1243,8 +1243,8 @@ void
 FiniteElement::regrid(bool step)
 {
     double displacement_factor = 2.;
-	int substep_nb=1;
-	int step_order=-1;
+    int substep_nb=1;
+    int step_order=-1;
     bool flip = true;
     int substep = 0;
 
@@ -4305,10 +4305,14 @@ FiniteElement::run()
 
     // Open the output file for drifters
     // TODO: Is this the right place to open the file?
-    // TODO: Hard-coded file name and place!
-    std::fstream iabp_out;
+    std::fstream drifters_out;
     if (M_drifter_type == setup::DrifterType::IABP )
-        iabp_out.open("IABP_buoys_out.txt", std::fstream::out );
+    {
+        // We should tag the file name with the init time in case of a re-start.
+        std::stringstream filename;
+        filename << Environment::nextsimDir().string() << "/matlab/drifters_out_" << time_init << ".txt";
+        drifters_out.open(filename.str(), std::fstream::out);
+    }
 
     // main loop for nextsim program
     while (is_running)
@@ -4354,7 +4358,7 @@ FiniteElement::run()
         {
             this->updateIABPDrifter();
             // TODO: Do we want to output drifters at a different time interval?
-            this->outputIABPDrifter(iabp_out);
+            this->outputDrifter(drifters_out);
         }
 
         if ((pcpt==0) || (M_regrid))
@@ -4453,7 +4457,7 @@ FiniteElement::run()
     if (M_drifter_type == setup::DrifterType::IABP)
     {
         M_iabp_file.close();
-        iabp_out.close();
+        drifters_out.close();
     }
 }
 
@@ -5484,19 +5488,18 @@ FiniteElement::nodesToElements(double const* depth, std::vector<double>& v)
     }
 }
 
-// A simple function to output the IABP drifters in the model
+// A simple function to output the drifters in the model, IABP or otherwise
 // The output could well be prettier!
 void
-FiniteElement::outputIABPDrifter(std::fstream &iabp_out)
+FiniteElement::outputDrifter(std::fstream &drifters_out)
 {
     // Initialize the map
-    // TODO: Hard-coded file and directory!
     mapx_class *map;
-    std::string configfile = (boost::format( "%1%/%2%/%3%" )
+    std::string configfile = (boost::format( "%1%/%2%/%3%" ) 
             % Environment::nextsimDir().string()
-                    % "data"
-                            % "NpsNextsim.mpp"
-                                    ).str();
+            % "data"
+            % "NpsNextsim.mpp"
+    ).str();
 
     std::vector<char> str(configfile.begin(), configfile.end());
     str.push_back('\0');
@@ -5507,7 +5510,7 @@ FiniteElement::outputIABPDrifter(std::fstream &iabp_out)
     {
         double lat, lon;
         inverse_mapx(map,it->second[0],it->second[1],&lat,&lon);
-        iabp_out << to_date_time_string(current_time) << " " << it->first << " " << lat << " " << lon << endl;
+        drifters_out << to_date_time_string(current_time) << " " << it->first << " " << lat << " " << lon << endl;
     }
 
     close_mapx(map);
@@ -5518,13 +5521,12 @@ void
 FiniteElement::updateIABPDrifter()
 {
     // Initialize the map
-    // TODO: Hard-coded file and directory!
     mapx_class *map;
     std::string configfile = (boost::format( "%1%/%2%/%3%" )
             % Environment::nextsimDir().string()
-                    % "data"
-                            % "NpsNextsim.mpp"
-                                    ).str();
+            % "data"
+            % "NpsNextsim.mpp"
+    ).str();
 
     std::vector<char> str(configfile.begin(), configfile.end());
     str.push_back('\0');
@@ -5585,8 +5587,7 @@ FiniteElement::updateIABPDrifter()
 void
 FiniteElement::initIABPDrifter()
 {
-    // TODO: Hard-coded file name and placement!
-    M_iabp_file.open("IABP_buoys.txt", std::fstream::in);
+    M_iabp_file.open(Environment::nextsimDir().string() + "/data/IABP_buoys.txt", std::fstream::in);
 
     int pos;    // To be able to rewind one line
     double time = dateStr2Num("1979-01-01");
@@ -5611,6 +5612,8 @@ FiniteElement::initIABPDrifter()
 void
 FiniteElement::equallySpacedDrifter()
 {
+    std::cout << "equally spaced drifters not yet implemented" << endl;
+    throw std::logic_error("equally spaced drifters not yet implemented");
     /*if (M_drifter.size() ==0)
         M_drifter.resize(M_num_elements);
 
