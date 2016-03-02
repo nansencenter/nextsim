@@ -61,8 +61,9 @@ namespace setup
 
     enum class DrifterType
     {
-        EQUALLYSPACED = 0,
-        IABP          = 1
+        NONE          = 0,
+        EQUALLYSPACED = 1,
+        IABP          = 2
     };
 
     enum class DomainType

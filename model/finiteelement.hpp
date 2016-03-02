@@ -241,7 +241,7 @@ private:
     setup::AtmosphereType M_atmosphere_type;
     setup::OceanType M_ocean_type;
     setup::IceType M_ice_type;
-	setup::BathymetryType M_bathymetry_type;
+    setup::BathymetryType M_bathymetry_type;
 
     setup::IceCategoryType M_ice_cat_type;
     setup::DrifterType M_drifter_type;
@@ -384,7 +384,8 @@ private:
     std::vector<double> M_mld;          // Mixed-layer depth [m]
 
     // Drifters
-    std::vector<double> M_drifter;
+    boost::unordered_map<int, std::array<double,2>> M_drifter; // Drifters are kept in an unordered map containing number and coordinates
+    std::fstream M_iabp_file;             // The file we read the IABP buoy data from
 
     // Prognostic ice variables
     std::vector<double> M_conc;         // Ice concentration
@@ -407,6 +408,9 @@ private:
 	void constantBathymetry();
 
     void equallySpacedDrifter();
+    void outputIABPDrifter(std::fstream &iabp_out);
+    void initIABPDrifter();
+    void updateIABPDrifter();
 
     void asrAtmosphere(bool reload);
     void topazOcean(bool reload);

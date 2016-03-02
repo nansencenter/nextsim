@@ -191,6 +191,12 @@ FiniteElement::init()
         ("constant", setup::BathymetryType::CONSTANT)
         ("etopo", setup::BathymetryType::ETOPO);
     M_bathymetry_type = str2bathymetry.find(vm["setup.bathymetry-type"].as<std::string>())->second;
+	
+    const boost::unordered_map<const std::string, setup::DrifterType> str2drifter = boost::assign::map_list_of
+        ("none", setup::DrifterType::NONE)
+        ("equallyspaced", setup::DrifterType::EQUALLYSPACED)
+        ("iabp", setup::DrifterType::IABP);
+    M_drifter_type = str2drifter.find(vm["setup.drifter-type"].as<std::string>())->second;
 
 }
 
@@ -854,6 +860,8 @@ FiniteElement::initSimulation()
     this->initIce();
 
     this->initSlabOcean();
+
+    this->initDrifter();
 
 }
 
@@ -4258,6 +4266,13 @@ FiniteElement::run()
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
     }
 
+    // Open the output file for drifters
+    // TODO: Is this the right place to open the file?
+    // TODO: Hard-coded file name and place!
+    std::fstream iabp_out;
+    if (M_drifter_type == setup::DrifterType::IABP )
+        iabp_out.open("IABP_buoys_out.txt", std::fstream::out );
+
     // main loop for nextsim program
     while (is_running)
     {
@@ -4292,6 +4307,14 @@ FiniteElement::run()
 
         if (pcpt == 0)
             this->initSimulation();
+        
+        // Read in the new buoys and output
+        if (M_drifter_type == setup::DrifterType::IABP && std::fmod(current_time,0.5) == 0)
+        {
+            this->updateIABPDrifter();
+            // TODO: Do we want to output drifters at a different time interval?
+            this->outputIABPDrifter(iabp_out);
+        }
 
         if ((pcpt==0) || (M_regrid))
         {
@@ -4384,6 +4407,13 @@ FiniteElement::run()
 
     this->exportResults(1000);
     std::cout<<"TIMER total = " << chrono_tot.elapsed() <<"s\n";
+
+    // Don't forget to close the iabp file!
+    if (M_drifter_type == setup::DrifterType::IABP)
+    {
+        M_iabp_file.close();
+        iabp_out.close();
+    }
 }
 
 void
@@ -5269,8 +5299,15 @@ FiniteElement::initDrifter()
 {
     switch (M_drifter_type)
     {
+        case setup::DrifterType::NONE:
+            break;
+
         case setup::DrifterType::EQUALLYSPACED:
             this->equallySpacedDrifter();
+            break;
+
+        case setup::DrifterType::IABP:
+            this->initIABPDrifter();
             break;
 
         default:
@@ -5391,13 +5428,135 @@ FiniteElement::nodesToElements(double const* depth, std::vector<double>& v)
     }
 }
 
+// A simple function to output the IABP drifters in the model
+// The output could well be prettier!
+void
+FiniteElement::outputIABPDrifter(std::fstream &iabp_out)
+{
+    // Initialize the map
+    // TODO: Hard-coded file and directory!
+    mapx_class *map;
+    std::string configfile = (boost::format( "%1%/%2%/%3%" )
+            % Environment::nextsimDir().string()
+                    % "data"
+                            % "NpsNextsim.mpp"
+                                    ).str();
+
+    std::vector<char> str(configfile.begin(), configfile.end());
+    str.push_back('\0');
+    map = init_mapx(&str[0]);
+
+    // Loop over the map and output
+    for ( auto it = M_drifter.begin(); it != M_drifter.end(); ++it )
+    {
+        std::vector<double> latlon = XY2latLon(it->second[0], it->second[1], map, configfile);
+        iabp_out << to_date_time_string(current_time) << " " << it->first << " " << latlon[0] << " " << latlon[1] << endl;
+    }
+
+    close_mapx(map);
+}
+
+// Add the buoys that have been put into the ice and remove dead ones
+void
+FiniteElement::updateIABPDrifter()
+{
+    // Initialize the map
+    // TODO: Hard-coded file and directory!
+    mapx_class *map;
+    std::string configfile = (boost::format( "%1%/%2%/%3%" )
+            % Environment::nextsimDir().string()
+                    % "data"
+                            % "NpsNextsim.mpp"
+                                    ).str();
+
+    std::vector<char> str(configfile.begin(), configfile.end());
+    str.push_back('\0');
+    map = init_mapx(&str[0]);
+
+    // Read the current buoys from file
+    int pos;    // To be able to rewind one line
+    double time = current_time;
+    std::vector<int> keepers;
+    while ( time == current_time )
+    {
+        // Remember where we were
+        pos = M_iabp_file.tellg();
+
+        // Read the next line
+        int year, month, day, hour, number;
+        double lat, lon;
+        M_iabp_file >> year >> month >> day >> hour >> number >> lat >> lon;
+        std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
+        time = dateStr2Num(date) + hour/24.;
+
+        // Remember which buoys are in the ice according to IABP
+        keepers.push_back(number);
+
+        // Project and add the buoy to the map if it's missing
+        if ( M_drifter.count(number) == 0 )
+        {
+            std::vector<double> XY = latLon2XY(lat,lon,map,configfile);
+            M_drifter.emplace(number, std::array<double,2>{XY[0], XY[1]});
+
+        }
+    }
+    close_mapx(map);
+
+    // Go through the M_drifter map and throw out the ones which IABP doesn't
+    // report as being in the ice anymore
+    for ( auto model = M_drifter.begin(); model != M_drifter.end(); ++model )
+    {
+        bool keep = false;
+        // Check against all the buoys we want to keep
+        for ( auto obs = keepers.begin(); obs != keepers.end(); ++obs )
+        {
+            if ( model->first == *obs )
+            {
+                keep = true;
+                break;
+            }
+        }
+        
+        if ( ! keep )
+            M_drifter.erase(model->first);
+    }
+}
+
+// Initialise by reading all the data from '79 up to time_init
+// This is too slow, but only happens once so I won't try to optimise that for now
+void
+FiniteElement::initIABPDrifter()
+{
+    // TODO: Hard-coded file name and placement!
+    M_iabp_file.open("IABP_buoys.txt", std::fstream::in);
+
+    int pos;    // To be able to rewind one line
+    double time = dateStr2Num("1979-01-01");
+    while ( time < time_init )
+    {
+        // Remember where we were
+        pos = M_iabp_file.tellg();
+
+        // Read the next line
+        int year, month, day, hour, number;
+        double lat, lon;
+        M_iabp_file >> year >> month >> day >> hour >> number >> lat >> lon;
+        std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
+
+        time = dateStr2Num(date) + hour/24.;
+    }
+
+    // We must rewind one line so that updateIABPDrifter works correctly
+    M_iabp_file.seekg(pos);
+}
+
 void
 FiniteElement::equallySpacedDrifter()
 {
-    if (M_drifter.size() ==0)
+    /*if (M_drifter.size() ==0)
         M_drifter.resize(M_num_elements);
 
-    std::fill(M_drifter.begin(), M_drifter.end(), 0.);
+    std::fill(M_drifter.begin(), M_drifter.end(), 0.);*/
 }
 
 void
