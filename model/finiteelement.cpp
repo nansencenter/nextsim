@@ -5505,8 +5505,9 @@ FiniteElement::outputIABPDrifter(std::fstream &iabp_out)
     // Loop over the map and output
     for ( auto it = M_drifter.begin(); it != M_drifter.end(); ++it )
     {
-        std::vector<double> latlon = XY2latLon(it->second[0], it->second[1], map, configfile);
-        iabp_out << to_date_time_string(current_time) << " " << it->first << " " << latlon[0] << " " << latlon[1] << endl;
+        double lat, lon;
+        inverse_mapx(map,it->second[0],it->second[1],&lat,&lon);
+        iabp_out << to_date_time_string(current_time) << " " << it->first << " " << lat << " " << lon << endl;
     }
 
     close_mapx(map);
@@ -5551,8 +5552,9 @@ FiniteElement::updateIABPDrifter()
         // Project and add the buoy to the map if it's missing
         if ( M_drifter.count(number) == 0 )
         {
-            std::vector<double> XY = latLon2XY(lat,lon,map,configfile);
-            M_drifter.emplace(number, std::array<double,2>{XY[0], XY[1]});
+            double x, y;
+            forward_mapx(map,lat,lon,&x,&y);
+            M_drifter.emplace(number, std::array<double,2>{x, y});
 
         }
     }
