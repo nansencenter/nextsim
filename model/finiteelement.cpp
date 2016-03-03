@@ -1260,7 +1260,7 @@ FiniteElement::regrid(bool step)
         {
             ++substep;
             displacement_factor /= 2.;
-			step_order++;
+            step_order++;
             flip = this->flip(M_mesh,M_UM,displacement_factor);
 
             if (substep > 1)
@@ -1742,6 +1742,74 @@ FiniteElement::regrid(bool step)
 
 			std::cout<<"NODAL: Interp done\n";
 			std::cout<<"Nodal interp done in "<< chrono.elapsed() <<"s\n";
+
+                        // Drifters - if requested
+                        if ( M_drifter_type != setup::DrifterType::NONE )
+                        {
+                            chrono.restart();
+                            std::cout<<"Drifter starts\n";
+                            std::cout<<"DRIFTER: Interp starts\n";
+
+                            // Assemble the coordinates from the unordered_map
+                            std::vector<double> drifter_X(M_drifter.size());
+                            std::vector<double> drifter_Y(M_drifter.size());
+                            int j=0;
+                            for ( auto it = M_drifter.begin(); it != M_drifter.end(); ++it )
+                            {
+                                drifter_X[j] = it->second[0];
+                                drifter_Y[j] = it->second[1];
+                                ++j;
+                            }
+
+                            // Interpolate the velocity and concentration onto the drifter positions
+                            nb_var=2;
+                            std::vector<double> interp_drifter_in(nb_var*prv_num_nodes);
+                            double* interp_drifter_out;
+                            double* interp_drifter_c_out;
+
+                            for (int i=0; i<M_num_nodes; ++i)
+                            {
+				interp_drifter_in[i] = M_UM[i];
+				interp_drifter_in[i] = M_UM[i+prv_num_nodes];
+                            }
+                                
+                            // Interpolate the velocity
+                            InterpFromMeshToMesh2dx(&interp_drifter_out,
+                                &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
+                                M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
+                                &interp_drifter_in[0],
+                                M_mesh_previous.numNodes(),nb_var,
+                                &drifter_X[0],&drifter_Y[0],M_drifter.size(),
+                                false);
+
+                            // Interpolate the concentration - take advantage of the fact that interp_elt_in already exists
+                            // and the first set of numbers are the concentration
+                            InterpFromMeshToMesh2dx(&interp_drifter_c_out,
+                                &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
+                                M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
+                                &interp_elt_in[0],
+                                M_mesh_previous.numTriangles(),1,
+                                &drifter_X[0],&drifter_Y[0],M_drifter.size(),
+                                false);
+
+                            // Rebuild the M_drifter map
+                            double clim = vm["simul.drift_limit_concentration"].as<double>();
+                            j=0;
+                            for ( auto it = M_drifter.begin(); it != M_drifter.end(); ++it )
+                            {
+                                if ( interp_drifter_c_out[j] > clim )
+                                    M_drifter[it->first] = std::array<double,2> {interp_drifter_out[j], interp_drifter_out[j+M_drifter.size()]};
+                                // Throw out drifters that drift out of the ice
+                                else
+                                    M_drifter.erase(it->first);
+                            }
+
+                            xDelete<double>(interp_drifter_out);
+                            xDelete<double>(interp_drifter_c_out);
+
+                            std::cout<<"DRIFTER: Interp done\n";
+                            std::cout<<"Drifter interp done in "<< chrono.elapsed() <<"s\n";
+                        }
 		}
 	}
 
