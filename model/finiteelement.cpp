@@ -1795,13 +1795,17 @@ FiniteElement::regrid(bool step)
                             // Rebuild the M_drifter map
                             double clim = vm["simul.drift_limit_concentration"].as<double>();
                             j=0;
-                            for ( auto it = M_drifter.begin(); it != M_drifter.end(); ++it )
+                            for ( auto it = M_drifter.begin(); it != M_drifter.end(); /* ++it is not allowed here, because we use 'erase' */ )
                             {
                                 if ( interp_drifter_c_out[j] > clim )
+                                {
                                     M_drifter[it->first] = std::array<double,2> {it->second[0]+interp_drifter_out[j], it->second[1]+interp_drifter_out[j+M_drifter.size()]};
-                                // Throw out drifters that drift out of the ice
-                                else
-                                    M_drifter.erase(it->first);
+                                    ++it;
+                                } else {
+                                    // Throw out drifters that drift out of the ice
+                                    it = M_drifter.erase(it);
+                                }
+                                ++j;
                             }
 
                             xDelete<double>(interp_drifter_out);
@@ -5606,13 +5610,22 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
 
     // Loop over the map and output
     j=0;
+    boost::gregorian::date           date = Nextsim::parse_date( current_time );
+    boost::posix_time::time_duration time = Nextsim::parse_time( current_time );
     for ( auto it = M_drifter.begin(); it != M_drifter.end(); ++it )
     {
         double lat, lon;
         inverse_mapx(map,it->second[0]+interp_drifter_out[j],it->second[1]+interp_drifter_out[j+M_drifter.size()],&lat,&lon);
         j++;
 
-        drifters_out << to_date_time_string(current_time) << " " << it->first << " " << lat << " " << lon << endl;
+        drifters_out << setw(4) << date.year() 
+            << " " << setw( 2) << date.month().as_number() 
+            << " " << setw( 2) << date.day().as_number() 
+            << " " << setw( 2) << time.hours() 
+            << " " << setw(16) << it->first 
+            << fixed << setprecision(5)
+            << " " << setw( 8) << lat 
+            << " " << setw(10) << lon << endl;
     }
 
     xDelete<double>(interp_drifter_out);
@@ -5667,7 +5680,7 @@ FiniteElement::updateIABPDrifter()
 
     // Go through the M_drifter map and throw out the ones which IABP doesn't
     // report as being in the ice anymore
-    for ( auto model = M_drifter.begin(); model != M_drifter.end(); ++model )
+    for ( auto model = M_drifter.begin(); model != M_drifter.end(); /* ++model is not allowed here, because we use 'erase' */ )
     {
         bool keep = false;
         // Check against all the buoys we want to keep
@@ -5680,8 +5693,11 @@ FiniteElement::updateIABPDrifter()
             }
         }
         
+        // Delete or advance the iterator
         if ( ! keep )
-            M_drifter.erase(model->first);
+            model = M_drifter.erase(model);
+        else
+            ++model;
     }
 }
 
