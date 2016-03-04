@@ -1798,7 +1798,7 @@ FiniteElement::regrid(bool step)
                             for ( auto it = M_drifter.begin(); it != M_drifter.end(); ++it )
                             {
                                 if ( interp_drifter_c_out[j] > clim )
-                                    M_drifter[it->first] = std::array<double,2> {interp_drifter_out[j], interp_drifter_out[j+M_drifter.size()]};
+                                    M_drifter[it->first] = std::array<double,2> {it->second[0]+interp_drifter_out[j], it->second[1]+interp_drifter_out[j+M_drifter.size()]};
                                 // Throw out drifters that drift out of the ice
                                 else
                                     M_drifter.erase(it->first);
@@ -5573,14 +5573,49 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
     str.push_back('\0');
     map = init_mapx(&str[0]);
 
+    // Assemble the coordinates from the unordered_map
+    std::vector<double> drifter_X(M_drifter.size());
+    std::vector<double> drifter_Y(M_drifter.size());
+    int j=0;
+    for ( auto it = M_drifter.begin(); it != M_drifter.end(); ++it )
+    {
+        drifter_X[j] = it->second[0];
+        drifter_Y[j] = it->second[1];
+        ++j;
+    }
+
+    // Interpolate the velocity onto the drifter positions
+    int nb_var=2;
+    std::vector<double> interp_drifter_in(nb_var*M_mesh.numNodes());
+    double* interp_drifter_out;
+
+    for (int i=0; i<M_num_nodes; ++i)
+    {
+        interp_drifter_in[i] = M_UM[i];
+        interp_drifter_in[i] = M_UM[i+M_mesh.numNodes()];
+    }
+        
+    // Interpolate the velocity
+    InterpFromMeshToMesh2dx(&interp_drifter_out,
+        &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
+        M_mesh.numNodes(),M_mesh.numTriangles(),
+        &interp_drifter_in[0],
+        M_mesh.numNodes(),nb_var,
+        &drifter_X[0],&drifter_Y[0],M_drifter.size(),
+        false);
+
     // Loop over the map and output
+    j=0;
     for ( auto it = M_drifter.begin(); it != M_drifter.end(); ++it )
     {
         double lat, lon;
-        inverse_mapx(map,it->second[0],it->second[1],&lat,&lon);
+        inverse_mapx(map,it->second[0]+interp_drifter_out[j],it->second[1]+interp_drifter_out[j+M_drifter.size()],&lat,&lon);
+        j++;
+
         drifters_out << to_date_time_string(current_time) << " " << it->first << " " << lat << " " << lon << endl;
     }
 
+    xDelete<double>(interp_drifter_out);
     close_mapx(map);
 }
 
