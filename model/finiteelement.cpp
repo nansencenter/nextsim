@@ -1392,8 +1392,10 @@ FiniteElement::regrid(bool step)
 			&M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
 			false);
 
-			//bamgopt->hminVertices = new double[M_mesh.numNodes()];
-			//bamgopt->hmaxVertices = new double[M_mesh.numNodes()];
+                        delete [] bamgopt->hminVertices;
+			bamgopt->hminVertices = new double[M_mesh.numNodes()];
+                        delete [] bamgopt->hmaxVertices;
+			bamgopt->hmaxVertices = new double[M_mesh.numNodes()];
 
 			for (int i=0; i<M_mesh.numNodes(); ++i)
 			{
