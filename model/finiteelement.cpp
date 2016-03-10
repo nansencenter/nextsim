@@ -4337,14 +4337,10 @@ FiniteElement::thermo()
 void
 FiniteElement::run()
 {
-    // Initialise grid and forcing
-    this->init();
-
     // Initialise time
     int ind;
     int pcpt = 0;
     int niter = 0;
-    current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
 
     std::cout<<"TIMESTEP= "<< time_step <<"\n";
     std::cout<<"DURATION= "<< duration <<"\n";
@@ -4369,6 +4365,10 @@ FiniteElement::run()
     double minang = 0.;
     bool is_running = true;
 
+    // Initialise grid and forcing
+    this->init();
+    current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
+
     // Check the minimum angle of the grid
     minang = this->minAngle(M_mesh);
     if (minang < vm["simul.regrid_angle"].as<double>())
@@ -4376,6 +4376,14 @@ FiniteElement::run()
         std::cout<<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
     }
+
+    // Do one regrid to get the mesh right
+    this->regrid(pcpt);
+
+    // Initialise variables
+    chrono.restart();
+    this->initSimulation();
+    std::cout<<"initSimulation done in "<< chrono.elapsed() <<"s\n";
 
     // Open the output file for drifters
     // TODO: Is this the right place to open the file?
@@ -4403,14 +4411,14 @@ FiniteElement::run()
         // step 0: preparation
         // remeshing and remapping of the prognostic variables
 
-        M_regrid = false;
+        M_regrid = (pcpt==0); // The first time step we behave as if we just did a regrid
 
         if (vm["simul.regrid"].as<std::string>() == "bamg")
         {
             minang = this->minAngle(M_mesh,M_UM,displacement_factor);
             //std::cout<<"REGRID ANGLE= "<< minang <<"\n";
 
-            if ((minang < vm["simul.regrid_angle"].as<double>()) || (pcpt ==0) )
+            if ( minang < vm["simul.regrid_angle"].as<double>() )
             {
                 M_regrid = true;
                 std::cout<<"Regriding starts\n";
@@ -4419,13 +4427,6 @@ FiniteElement::run()
                 //std::cout<<"Regriding done in "<< chrono.elapsed() <<"s\n";
             }
         }
-
-        if (pcpt == 0)
-		{
-            chrono.restart();
-            this->initSimulation();
-			std::cout<<"initSimulation done in "<< chrono.elapsed() <<"s\n";
-		}
         
         // Read in the new buoys and output
         if (M_drifter_type == setup::DrifterType::IABP && std::fmod(current_time,0.5) == 0)
@@ -4435,7 +4436,7 @@ FiniteElement::run()
             this->outputDrifter(drifters_out);
         }
 
-        if ((pcpt==0) || (M_regrid))
+        if ( M_regrid )
         {
             chrono.restart();
             std::cout<<"tensors starts\n";
