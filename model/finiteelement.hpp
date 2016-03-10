@@ -133,7 +133,8 @@ public:
     vector_type const& rhs() const {return *M_vector;}
     vector_type const& solution() const {return *M_solution;}
 
-    void init();
+    void initMesh();
+    void initDatasets();
     void createGMSHMesh(std::string const& geofilename);
     double jacobian(element_type const& element, mesh_type const& mesh) const;
     double jacobian(element_type const& element, mesh_type const& mesh,
@@ -197,7 +198,8 @@ public:
 
     void PwlInterp2D();
     void importBamg(BamgMesh const* bamg_mesh);
-    void initSimulation();
+    void initVariables();
+    void initModelState();
     void tensors();
     void cohesion();
     void updateVelocity();

@@ -29,7 +29,7 @@ FiniteElement::FiniteElement()
 
 // Initialisation of the mesh and forcing
 void
-FiniteElement::init()
+FiniteElement::initMesh()
 {
     std::cout <<"GMSH VERSION= "<< M_mesh.version() <<"\n";
     M_mesh.setOrdering("bamg");
@@ -88,8 +88,6 @@ FiniteElement::init()
     // createGMSHMesh("hypercube.geo");
     // //M_mesh.setOrdering("gmsh");
     // M_mesh.readFromFile("hypercube.msh");
-    std::cout<<"START CONSTANTS\n";
-    this->initConstant();
     this->initBamg();
 
     std::cout<<"Convert MESH starts\n";
@@ -162,52 +160,27 @@ FiniteElement::init()
     M_num_elements = M_mesh.numTriangles();
     M_num_nodes = M_mesh.numNodes();
 
+    // Check the minimum angle of the grid
+    double minang = this->minAngle(M_mesh);
+    if (minang < vm["simul.regrid_angle"].as<double>())
+    {
+        std::cout<<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
+        throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
+    }
+}
+
+// Initialise size of all physical variables with values set to zero
+void
+FiniteElement::initVariables()
+{
+    chrono_tot.restart();
+
     M_solver = solver_ptrtype(new solver_type());
     M_matrix = matrix_ptrtype(new matrix_type());
     M_vector = vector_ptrtype(new vector_type());
     M_solution = vector_ptrtype(new vector_type());
 
     M_reuse_prec = true;
-
-    M_ice_cat_type = setup::IceCategoryType::CLASSIC;
-
-    const boost::unordered_map<const std::string, setup::AtmosphereType> str2atmosphere = boost::assign::map_list_of
-        ("constant", setup::AtmosphereType::CONSTANT)
-        ("asr", setup::AtmosphereType::ASR);
-    M_atmosphere_type = str2atmosphere.find(vm["setup.atmosphere-type"].as<std::string>())->second;
-
-    //std::cout<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
-
-    const boost::unordered_map<const std::string, setup::OceanType> str2ocean = boost::assign::map_list_of
-        ("constant", setup::OceanType::CONSTANT)
-        ("topaz", setup::OceanType::TOPAZR);
-    M_ocean_type = str2ocean.find(vm["setup.ocean-type"].as<std::string>())->second;
-
-    //std::cout<<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
-
-    const boost::unordered_map<const std::string, setup::IceType> str2conc = boost::assign::map_list_of
-        ("constant", setup::IceType::CONSTANT)
-        ("topaz", setup::IceType::TOPAZ4);
-    M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
-	
-    const boost::unordered_map<const std::string, setup::BathymetryType> str2bathymetry = boost::assign::map_list_of
-        ("constant", setup::BathymetryType::CONSTANT)
-        ("etopo", setup::BathymetryType::ETOPO);
-    M_bathymetry_type = str2bathymetry.find(vm["setup.bathymetry-type"].as<std::string>())->second;
-	
-    const boost::unordered_map<const std::string, setup::DrifterType> str2drifter = boost::assign::map_list_of
-        ("none", setup::DrifterType::NONE)
-        ("equallyspaced", setup::DrifterType::EQUALLYSPACED)
-        ("iabp", setup::DrifterType::IABP);
-    M_drifter_type = str2drifter.find(vm["setup.drifter-type"].as<std::string>())->second;
-
-}
-
-// Initialise all physical variables to propper initial conditions
-void
-FiniteElement::initSimulation()
-{
-    chrono_tot.restart();
 
     //M_matrix->init(2*M_num_nodes,2*M_num_nodes,22);
     M_matrix->init(2*M_num_nodes,2*M_num_nodes,M_graph);
@@ -241,8 +214,9 @@ FiniteElement::initSimulation()
 
     M_bathy_depth.resize(M_mesh_init.numNodes(),200.);
 
-    M_hminVertices.resize(M_mesh_init.numNodes(),1e-100);
-    M_hmaxVertices.resize(M_mesh_init.numNodes(),1e100);
+    // These have already been set when initialising the mesh in initMesh()
+    // M_hminVertices.resize(M_mesh_init.numNodes(),1e-100);
+    // M_hmaxVertices.resize(M_mesh_init.numNodes(),1e100);
 
     M_UM.resize(2*M_num_nodes,0.);
 
@@ -291,8 +265,25 @@ FiniteElement::initSimulation()
 
     M_fcor.resize(M_num_elements);
 
-	// ---------------------------------
-	// Definition of the grids and datasets used in the code
+}
+
+void
+FiniteElement::initModelState()
+{
+    // Initialise the physical state of the model
+    
+    this->initIce();
+
+    this->initSlabOcean();
+
+    this->initDrifter();
+}
+
+void
+FiniteElement::initDatasets()
+{
+    // ---------------------------------
+    // Definition of the grids and datasets used in the code
 	
     std::vector<std::vector<double>> data2_tmp;
     data2_tmp.resize(2);
@@ -830,14 +821,7 @@ FiniteElement::initSimulation()
 	// Loading the grids once
     loadGrid(&M_asr_grid);
     loadGrid(&M_topaz_grid);
-	loadGrid(&M_etopo_grid);
-
-    this->initIce();
-
-    this->initSlabOcean();
-
-    this->initDrifter();
-
+    loadGrid(&M_etopo_grid);
 }
 
 void
@@ -930,6 +914,38 @@ FiniteElement::initConstant()
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     tan_phi = vm["simul.tan_phi"].as<double>();
     ridge_h = vm["simul.ridge_h"].as<double>();
+
+    M_ice_cat_type = setup::IceCategoryType::CLASSIC;
+
+    const boost::unordered_map<const std::string, setup::AtmosphereType> str2atmosphere = boost::assign::map_list_of
+        ("constant", setup::AtmosphereType::CONSTANT)
+        ("asr", setup::AtmosphereType::ASR);
+    M_atmosphere_type = str2atmosphere.find(vm["setup.atmosphere-type"].as<std::string>())->second;
+
+    //std::cout<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
+
+    const boost::unordered_map<const std::string, setup::OceanType> str2ocean = boost::assign::map_list_of
+        ("constant", setup::OceanType::CONSTANT)
+        ("topaz", setup::OceanType::TOPAZR);
+    M_ocean_type = str2ocean.find(vm["setup.ocean-type"].as<std::string>())->second;
+
+    //std::cout<<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
+
+    const boost::unordered_map<const std::string, setup::IceType> str2conc = boost::assign::map_list_of
+        ("constant", setup::IceType::CONSTANT)
+        ("topaz", setup::IceType::TOPAZ4);
+    M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
+	
+    const boost::unordered_map<const std::string, setup::BathymetryType> str2bathymetry = boost::assign::map_list_of
+        ("constant", setup::BathymetryType::CONSTANT)
+        ("etopo", setup::BathymetryType::ETOPO);
+    M_bathymetry_type = str2bathymetry.find(vm["setup.bathymetry-type"].as<std::string>())->second;
+	
+    const boost::unordered_map<const std::string, setup::DrifterType> str2drifter = boost::assign::map_list_of
+        ("none", setup::DrifterType::NONE)
+        ("equallyspaced", setup::DrifterType::EQUALLYSPACED)
+        ("iabp", setup::DrifterType::IABP);
+    M_drifter_type = str2drifter.find(vm["setup.drifter-type"].as<std::string>())->second;
 }
 
 void
@@ -4337,10 +4353,14 @@ FiniteElement::thermo()
 void
 FiniteElement::run()
 {
-    // Initialise time
+    // Initialise everything that doesn't depend on the mesh (constants, data set description, and time)
+    this->initConstant();
+    this->initDatasets();
+
     int ind;
     int pcpt = 0;
     int niter = 0;
+    current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
 
     std::cout<<"TIMESTEP= "<< time_step <<"\n";
     std::cout<<"DURATION= "<< duration <<"\n";
@@ -4365,24 +4385,15 @@ FiniteElement::run()
     double minang = 0.;
     bool is_running = true;
 
-    // Initialise grid and forcing
-    this->init();
-    current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
-
-    // Check the minimum angle of the grid
-    minang = this->minAngle(M_mesh);
-    if (minang < vm["simul.regrid_angle"].as<double>())
-    {
-        std::cout<<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
-        throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
-    }
-
+    // Initialise the mesh
+    this->initMesh();
     // Do one regrid to get the mesh right
     this->regrid(pcpt);
 
     // Initialise variables
     chrono.restart();
-    this->initSimulation();
+    this->initVariables();
+    this->initModelState();
     std::cout<<"initSimulation done in "<< chrono.elapsed() <<"s\n";
 
     // Open the output file for drifters
