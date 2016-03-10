@@ -208,6 +208,9 @@ public:
     void updateSeq();
     void exportResults(int step, bool export_mesh = true);
 
+    void writeRestart(int step);
+    void readRestart(int step);
+
 private:
     po::variables_map vm;
     mesh_type M_mesh;
@@ -302,6 +305,7 @@ private:
     double days_in_sec;
     double time_init;
     double output_time_step;
+    double restart_time_step;
     double time_step;
     double duration;
     double spinup_duration;

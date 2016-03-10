@@ -879,6 +879,7 @@ FiniteElement::initConstant()
     days_in_sec = 24.0*3600.0;
     time_init = dateStr2Num(vm["simul.time_init"].as<std::string>());
     output_time_step =  days_in_sec/vm["simul.output_per_day"].as<int>();
+    restart_time_step =  vm["simul.restart_time_step"].as<double>()*days_in_sec;
 
     time_step = vm["simul.timestep"].as<double>();
     duration = (vm["simul.duration"].as<double>())*days_in_sec;
@@ -4385,16 +4386,22 @@ FiniteElement::run()
     double minang = 0.;
     bool is_running = true;
 
-    // Initialise the mesh
-    this->initMesh();
-    // Do one regrid to get the mesh right
-    this->regrid(pcpt);
 
-    // Initialise variables
-    chrono.restart();
-    this->initVariables();
-    this->initModelState();
-    std::cout<<"initSimulation done in "<< chrono.elapsed() <<"s\n";
+    bool restart = vm["simul.use_restart"].as<bool>();
+    if ( restart )
+        this->readRestart(vm["simul.step_nb"].as<int>());
+    else {
+        // Initialise the mesh
+        this->initMesh();
+        // Do one regrid to get the mesh right
+        this->regrid(pcpt);
+
+        // Initialise variables
+        chrono.restart();
+        this->initVariables();
+        this->initModelState();
+        std::cout<<"initSimulation done in "<< chrono.elapsed() <<"s\n";
+    }
 
     // Open the output file for drifters
     // TODO: Is this the right place to open the file?
@@ -4422,7 +4429,9 @@ FiniteElement::run()
         // step 0: preparation
         // remeshing and remapping of the prognostic variables
 
-        M_regrid = (pcpt==0); // The first time step we behave as if we just did a regrid
+        // The first time step (after restart) we behave as if we just did a regrid
+        M_regrid = (pcpt==0) || restart;
+        restart = false;
 
         if (vm["simul.regrid"].as<std::string>() == "bamg")
         {
@@ -4545,6 +4554,21 @@ FiniteElement::run()
         M_iabp_file.close();
         drifters_out.close();
     }
+
+    if ( fmod((pcpt+1)*time_step,restart_time_step) == 0)
+        this->writeRestart((int) (pcpt+1)*time_step/restart_time_step);
+}
+
+void
+FiniteElement::writeRestart(int step)
+{
+    throw std::logic_error("Restart not yet implemented");
+}
+
+void
+FiniteElement::readRestart(int step)
+{
+    throw std::logic_error("Restart not yet implemented");
 }
 
 void
