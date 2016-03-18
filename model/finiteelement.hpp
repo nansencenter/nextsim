@@ -133,7 +133,7 @@ public:
     vector_type const& rhs() const {return *M_vector;}
     vector_type const& solution() const {return *M_solution;}
 
-    void initMesh();
+    void initMesh(setup::DomainType domain_type, std::string mesh_filename, setup::MeshType mesh_type);
     void initDatasets();
     void createGMSHMesh(std::string const& geofilename);
     double jacobian(element_type const& element, mesh_type const& mesh) const;
@@ -208,8 +208,8 @@ public:
     void updateSeq();
     void exportResults(int step, bool export_mesh = true);
 
-    void writeRestart(int step);
-    void readRestart(int step);
+    void writeRestart(int pcpt, int step);
+    void readRestart(int &pcpt, int step);
 
 private:
     po::variables_map vm;

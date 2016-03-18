@@ -29,33 +29,9 @@ FiniteElement::FiniteElement()
 
 // Initialisation of the mesh and forcing
 void
-FiniteElement::initMesh()
+FiniteElement::initMesh(setup::DomainType domain_type, std::string mesh_filename, setup::MeshType mesh_type)
 {
-    std::cout <<"GMSH VERSION= "<< M_mesh.version() <<"\n";
-    M_mesh.setOrdering("bamg");
-
-    M_mesh_filename = vm["simul.mesh_filename"].as<std::string>();
-
-    const boost::unordered_map<const std::string, setup::DomainType> str2domain = boost::assign::map_list_of
-        ("bigarctic10km.msh", setup::DomainType::BIGARCTIC)
-        ("topazreducedsplit2.msh", setup::DomainType::DEFAULT)
-        ("topazreducedsplit4.msh", setup::DomainType::DEFAULT)
-        ("topazreducedsplit8.msh", setup::DomainType::DEFAULT)
-        ("simplesquaresplit2.msh", setup::DomainType::DEFAULT);
-
-
-    M_domain_type = str2domain.find(M_mesh_filename)->second;
-
-    const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
-        ("bigarctic10km.msh", setup::MeshType::FROM_GMSH)
-        ("topazreducedsplit2.msh", setup::MeshType::FROM_SPLIT)
-        ("topazreducedsplit4.msh", setup::MeshType::FROM_SPLIT)
-        ("topazreducedsplit8.msh", setup::MeshType::FROM_SPLIT)
-        ("simplesquaresplit2.msh", setup::MeshType::FROM_SPLIT);
-
-    M_mesh_type = str2mesh.find(M_mesh_filename)->second;
-
-    switch (M_domain_type)
+    switch (domain_type)
     {
         case setup::DomainType::DEFAULT:
             M_flag_fix = 10000; // free = [10001 10002];
@@ -80,7 +56,7 @@ FiniteElement::initMesh()
             throw std::logic_error("invalid domain type");
     }
 
-    M_mesh.readFromFile(M_mesh_filename);
+    M_mesh.readFromFile(mesh_filename);
 
     M_mesh.stereographicProjection();
     // M_mesh.writeTofile("copy_init_mesh.msh");
@@ -124,7 +100,7 @@ FiniteElement::initMesh()
     std::cout<<"MESH: HMAX= "<< h[1] <<"\n";
     std::cout<<"MESH: RES = "<< this->resolution(M_mesh) <<"\n";
 
-    switch (M_mesh_type)
+    switch (mesh_type)
     {
         case setup::MeshType::FROM_GMSH:
             // For the other meshes, we use a constant hmin and hmax
@@ -159,14 +135,6 @@ FiniteElement::initMesh()
 
     M_num_elements = M_mesh.numTriangles();
     M_num_nodes = M_mesh.numNodes();
-
-    // Check the minimum angle of the grid
-    double minang = this->minAngle(M_mesh);
-    if (minang < vm["simul.regrid_angle"].as<double>())
-    {
-        std::cout<<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
-        throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
-    }
 }
 
 // Initialise size of all physical variables with values set to zero
@@ -212,7 +180,7 @@ FiniteElement::initVariables()
     M_sst.resize(M_num_elements);
     M_sss.resize(M_num_elements);
 
-    M_bathy_depth.resize(M_mesh_init.numNodes(),200.);
+    // M_bathy_depth.resize(M_mesh_init.numNodes(),200.);
 
     // These have already been set when initialising the mesh in initMesh()
     // M_hminVertices.resize(M_mesh_init.numNodes(),1e-100);
@@ -264,6 +232,10 @@ FiniteElement::initVariables()
     M_surface.resize(M_num_elements);
 
     M_fcor.resize(M_num_elements);
+
+    M_Cohesion.resize(M_num_elements);
+    M_Compressive_strength.resize(M_num_elements);
+    M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
 
 }
 
@@ -879,11 +851,11 @@ FiniteElement::initConstant()
     days_in_sec = 24.0*3600.0;
     time_init = dateStr2Num(vm["simul.time_init"].as<std::string>());
     output_time_step =  days_in_sec/vm["simul.output_per_day"].as<int>();
-    restart_time_step =  vm["simul.restart_time_step"].as<double>()*days_in_sec;
 
     time_step = vm["simul.timestep"].as<double>();
     duration = (vm["simul.duration"].as<double>())*days_in_sec;
     spinup_duration = (vm["simul.spinup_duration"].as<double>())*days_in_sec;
+    restart_time_step =  time_step*vm["setup.restart_time_step"].as<double>();
 
     divergence_min = (1./days_in_sec)*vm["simul.divergence_min"].as<double>();
     compression_factor = vm["simul.compression_factor"].as<double>();
@@ -947,6 +919,30 @@ FiniteElement::initConstant()
         ("equallyspaced", setup::DrifterType::EQUALLYSPACED)
         ("iabp", setup::DrifterType::IABP);
     M_drifter_type = str2drifter.find(vm["setup.drifter-type"].as<std::string>())->second;
+
+    std::cout <<"GMSH VERSION= "<< M_mesh.version() <<"\n";
+    M_mesh.setOrdering("bamg");
+
+    M_mesh_filename = vm["simul.mesh_filename"].as<std::string>();
+
+    const boost::unordered_map<const std::string, setup::DomainType> str2domain = boost::assign::map_list_of
+        ("bigarctic10km.msh", setup::DomainType::BIGARCTIC)
+        ("topazreducedsplit2.msh", setup::DomainType::DEFAULT)
+        ("topazreducedsplit4.msh", setup::DomainType::DEFAULT)
+        ("topazreducedsplit8.msh", setup::DomainType::DEFAULT)
+        ("simplesquaresplit2.msh", setup::DomainType::DEFAULT);
+
+
+    M_domain_type = str2domain.find(M_mesh_filename)->second;
+
+    const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
+        ("bigarctic10km.msh", setup::MeshType::FROM_GMSH)
+        ("topazreducedsplit2.msh", setup::MeshType::FROM_SPLIT)
+        ("topazreducedsplit4.msh", setup::MeshType::FROM_SPLIT)
+        ("topazreducedsplit8.msh", setup::MeshType::FROM_SPLIT)
+        ("simplesquaresplit2.msh", setup::MeshType::FROM_SPLIT);
+
+    M_mesh_type = str2mesh.find(M_mesh_filename)->second;
 }
 
 void
@@ -1888,7 +1884,7 @@ FiniteElement::regrid(bool step)
     M_topaz_nodes_dataset.target_size=M_num_nodes;
     M_topaz_elements_dataset.target_size=M_num_elements;
     M_ice_topaz_elements_dataset.target_size=M_num_elements;
-	M_etopo_elements_dataset.target_size=M_num_elements;
+    M_etopo_elements_dataset.target_size=M_num_elements;
 
     M_Cohesion.resize(M_num_elements);
     M_Compressive_strength.resize(M_num_elements);
@@ -4358,7 +4354,6 @@ FiniteElement::run()
     this->initConstant();
     this->initDatasets();
 
-    int ind;
     int pcpt = 0;
     int niter = 0;
     current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
@@ -4386,13 +4381,23 @@ FiniteElement::run()
     double minang = 0.;
     bool is_running = true;
 
+    // Initialise the mesh
+    this->initMesh(M_domain_type, M_mesh_filename, M_mesh_type);
 
-    bool restart = vm["simul.use_restart"].as<bool>();
-    if ( restart )
-        this->readRestart(vm["simul.step_nb"].as<int>());
-    else {
-        // Initialise the mesh
-        this->initMesh();
+    // Check the minimum angle of the grid
+    minang = this->minAngle(M_mesh);
+    if (minang < vm["simul.regrid_angle"].as<double>())
+    {
+        std::cout<<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
+        throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
+    }
+
+    bool Restart = vm["setup.use_restart"].as<bool>();
+    if ( Restart )
+    {
+        this->readRestart(pcpt, vm["setup.step_nb"].as<int>());
+        current_time = time_init + pcpt*time_step/(24*3600.0);
+    } else {
         // Do one regrid to get the mesh right
         this->regrid(pcpt);
 
@@ -4410,7 +4415,7 @@ FiniteElement::run()
     {
         // We should tag the file name with the init time in case of a re-start.
         std::stringstream filename;
-        filename << Environment::nextsimDir().string() << "/matlab/drifters_out_" << time_init << ".txt";
+        filename << Environment::nextsimDir().string() << "/matlab/drifters_out_" << current_time << ".txt";
         drifters_out.open(filename.str(), std::fstream::out);
     }
 
@@ -4429,9 +4434,8 @@ FiniteElement::run()
         // step 0: preparation
         // remeshing and remapping of the prognostic variables
 
-        // The first time step (after restart) we behave as if we just did a regrid
-        M_regrid = (pcpt==0) || restart;
-        restart = false;
+        // The first time step we behave as if we just did a regrid
+        M_regrid = (pcpt==0);
 
         if (vm["simul.regrid"].as<std::string>() == "bamg")
         {
@@ -4456,7 +4460,7 @@ FiniteElement::run()
             this->outputDrifter(drifters_out);
         }
 
-        if ( M_regrid )
+        if ( M_regrid || Restart )
         {
             chrono.restart();
             std::cout<<"tensors starts\n";
@@ -4476,18 +4480,20 @@ FiniteElement::run()
 
         chrono.restart();
         std::cout<<"forcingAtmosphere starts\n";
-        this->forcingAtmosphere(M_regrid);
+        this->forcingAtmosphere(M_regrid||Restart);
 		std::cout<<"forcingAtmosphere done in "<< chrono.elapsed() <<"s\n";
 
         chrono.restart();
         std::cout<<"forcingOcean starts\n";
-        this->forcingOcean(M_regrid);
+        this->forcingOcean(M_regrid||Restart);
         std::cout<<"forcingOcean done in "<< chrono.elapsed() <<"s\n";
 
         chrono.restart();
         std::cout<<"bathymetry starts\n";
-        this->bathymetry(M_regrid);
+        this->bathymetry(M_regrid||Restart);
         std::cout<<"bathymetry done in "<< chrono.elapsed() <<"s\n";
+
+        Restart = false;
 
 #if 1
         if (pcpt == 0)
@@ -4496,7 +4502,6 @@ FiniteElement::run()
             std::cout<<"first export starts\n";
             this->exportResults(0);
             std::cout<<"first export done in " << chrono.elapsed() <<"s\n";
-            ind=1;
         }
 #endif
 
@@ -4536,13 +4541,19 @@ FiniteElement::run()
     {
         chrono.restart();
         std::cout<<"export starts\n";
-        this->exportResults(ind);
+        this->exportResults((int) (pcpt+1)*time_step/output_time_step);
         std::cout<<"export done in " << chrono.elapsed() <<"s\n";
-        ind+=1;
     }
 
 #endif
         ++pcpt;
+
+    if ( fmod(pcpt*time_step,restart_time_step) == 0)
+    {
+        std::cout << "Writing restart file after time step " <<  pcpt-1 << endl;
+        this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
+    }
+
     }
 
     this->exportResults(1000);
@@ -4554,21 +4565,252 @@ FiniteElement::run()
         M_iabp_file.close();
         drifters_out.close();
     }
-
-    if ( fmod((pcpt+1)*time_step,restart_time_step) == 0)
-        this->writeRestart((int) (pcpt+1)*time_step/restart_time_step);
 }
 
 void
-FiniteElement::writeRestart(int step)
+FiniteElement::writeRestart(int pcpt, int step)
 {
-    throw std::logic_error("Restart not yet implemented");
+    Exporter exporter;
+    std::string filename;
+
+    // === Start with the mesh ===
+    // First the data
+    filename = (boost::format( "%1%/restart/mesh_%2%.bin" )
+            % Environment::nextsimDir().string()
+            % step ).str();
+
+    std::fstream meshbin(filename, std::ios::binary | std::ios::out | std::ios::trunc);
+    exporter.writeMesh(meshbin, M_mesh);
+    meshbin.close();
+
+    // Then the record
+    filename = (boost::format( "%1%/restart/mesh_%2%.dat" )
+           % Environment::nextsimDir().string()
+           % step ).str();
+
+    std::fstream meshrecord(filename, std::ios::out | std::ios::trunc);
+    exporter.writeRecord(meshrecord,"mesh");
+    meshrecord.close();
+
+    // === Write the prognostic variables ===
+    // First the data
+    filename = (boost::format( "%1%/restart/field_%2%.bin" )
+               % Environment::nextsimDir().string()
+               % step ).str();
+    std::fstream outbin(filename, std::ios::binary | std::ios::out | std::ios::trunc );
+
+    std::vector<int> misc_int(2);
+    misc_int[0] = pcpt;
+    misc_int[1] = M_flag_fix;
+    exporter.writeField(outbin, misc_int, "Misc_int");
+    exporter.writeField(outbin, M_dirichlet_flags, "Dirichlet");
+    exporter.writeField(outbin, M_VT, "M_VT");
+    exporter.writeField(outbin, M_VTM, "M_VTM");
+    exporter.writeField(outbin, M_VTMM, "M_VTMM");
+    exporter.writeField(outbin, M_conc, "Concentration");
+    exporter.writeField(outbin, M_thick, "Thickness");
+    exporter.writeField(outbin, M_snow_thick, "Snow");
+    exporter.writeField(outbin, M_damage, "Damage");
+    exporter.writeField(outbin, M_tsurf, "Tsurf");
+    exporter.writeField(outbin, M_sst, "SST");
+    exporter.writeField(outbin, M_sss, "SSS");
+
+    if (M_drifter_type == setup::DrifterType::IABP)
+    {
+        std::vector<int> drifter_no(M_drifter.size());
+        std::vector<double> drifter_x(M_drifter.size());
+        std::vector<double> drifter_y(M_drifter.size());
+
+        int j=0;
+        for ( auto it = M_drifter.begin(); it != M_drifter.end(); ++it )
+        {
+            drifter_no[j] = it->first;
+            drifter_x[j] = it->second[0];
+            drifter_y[j] = it->second[1];
+            ++j;
+        }
+
+        exporter.writeField(outbin, drifter_no, "Drifter_no");
+        exporter.writeField(outbin, drifter_x, "Drifter_x");
+        exporter.writeField(outbin, drifter_y, "Drifter_y");
+    }
+
+    outbin.close();
+
+    // Then the record
+    filename = (boost::format( "%1%/restart/field_%2%.dat" )
+               % Environment::nextsimDir().string()
+               % step ).str();
+    std::fstream outrecord(filename, std::ios::out | std::ios::trunc);
+    exporter.writeRecord(outrecord);
+    outrecord.close();
 }
 
 void
-FiniteElement::readRestart(int step)
+FiniteElement::readRestart(int &pcpt, int step)
 {
-    throw std::logic_error("Restart not yet implemented");
+    Exporter exp_field, exp_mesh;
+    std::string filename;
+    boost::unordered_map<std::string, std::vector<int>>    field_map_int; 
+    boost::unordered_map<std::string, std::vector<double>> field_map_dbl;
+
+    // === Read in the mesh restart files ===
+    // Start with the record
+    filename = (boost::format( "%1%/restart/mesh_%2%.dat" )
+               % Environment::nextsimDir().string()
+               % step ).str();
+    std::ifstream meshrecord(filename);
+
+    exp_mesh.readRecord(meshrecord);
+    meshrecord.close();
+
+    // Then onto the data itself
+    filename = (boost::format( "%1%/restart/mesh_%2%.bin" )
+               % Environment::nextsimDir().string()
+               % step ).str();
+    std::fstream meshbin(filename, std::ios::binary | std::ios::in );
+    exp_mesh.loadFile(meshbin, field_map_int, field_map_dbl);
+    meshbin.close();
+
+    std::vector<int>   indexTr = field_map_int["Elements"];
+    std::vector<double> coordX = field_map_dbl["Nodes_x"];
+    std::vector<double> coordY = field_map_dbl["Nodes_y"];
+
+    // === Read in the prognostic variables ===
+    // Start with the record
+    filename = (boost::format( "%1%/restart/field_%2%.dat" )
+               % Environment::nextsimDir().string()
+               % step ).str();
+    std::ifstream inrecord(filename);
+
+    exp_field.readRecord(inrecord);
+    inrecord.close();
+
+    // Then onto the data itself
+    filename = (boost::format( "%1%/restart/field_%2%.bin" )
+               % Environment::nextsimDir().string()
+               % step ).str();
+    std::fstream inbin(filename, std::ios::binary | std::ios::in );
+    field_map_int.clear();
+    field_map_dbl.clear();
+    exp_field.loadFile(inbin, field_map_int, field_map_dbl);
+    inbin.close();
+
+    // === Recreate the mesh ===
+    // Create bamgmesh and bamggeom
+    BamgConvertMeshx(
+            bamgmesh,bamggeom,
+	    &indexTr[0],&coordX[0],&coordY[0],
+	    coordX.size(), indexTr.size()/3.
+            );
+
+    // Fix boundaries
+    pcpt       = field_map_int["Misc_int"].at(0);
+    M_flag_fix = field_map_int["Misc_int"].at(1);
+    std::vector<int> dirichlet_flags = field_map_int["Dirichlet"];
+    for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
+    {
+        int fnd = bamgmesh->Edges[3*edg]-1;
+        if ((std::binary_search(dirichlet_flags.begin(),dirichlet_flags.end(),fnd)))
+        {
+            bamggeom->Edges[3*edg+2] = M_flag_fix;
+            bamgmesh->Edges[3*edg+2] = M_flag_fix;
+        }
+    }
+
+    // Import the bamg structs
+    this->importBamg(bamgmesh);
+
+    M_elements = M_mesh.triangles();
+    M_nodes = M_mesh.nodes();
+
+    M_num_elements = M_mesh.numTriangles();
+    M_num_nodes = M_mesh.numNodes();
+
+    // Initialise all the variables to zero
+    this->initVariables();
+
+    // update dirichlet nodes
+    M_boundary_flags.resize(0);
+    M_dirichlet_flags.resize(0);
+    for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
+    {
+        M_boundary_flags.push_back(bamgmesh->Edges[3*edg]-1);
+        if (bamgmesh->Edges[3*edg+2] == M_flag_fix)
+            M_dirichlet_flags.push_back(bamgmesh->Edges[3*edg]-1);
+    }
+
+    std::sort(M_dirichlet_flags.begin(), M_dirichlet_flags.end());
+    std::sort(M_boundary_flags.begin(), M_boundary_flags.end());
+
+    M_neumann_flags.resize(0);
+    std::set_difference(M_boundary_flags.begin(), M_boundary_flags.end(),
+                        M_dirichlet_flags.begin(), M_dirichlet_flags.end(),
+                        std::back_inserter(M_neumann_flags));
+
+    M_dirichlet_nodes.resize(2*(M_dirichlet_flags.size()));
+    for (int i=0; i<M_dirichlet_flags.size(); ++i)
+    {
+        M_dirichlet_nodes[2*i] = M_dirichlet_flags[i];
+        M_dirichlet_nodes[2*i+1] = M_dirichlet_flags[i]+M_num_nodes;
+    }
+
+    M_neumann_nodes.resize(2*(M_neumann_flags.size()));
+    for (int i=0; i<M_neumann_flags.size(); ++i)
+    {
+        M_neumann_nodes[2*i] = M_neumann_flags[i];
+        M_neumann_nodes[2*i+1] = M_neumann_flags[i]+M_num_nodes;
+    }
+
+    M_surface.assign(M_num_elements,0.);
+    int cpt = 0;
+    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
+    {
+        M_surface[cpt] = this->measure(*it,M_mesh);
+        ++cpt;
+    }
+
+    // === Set the prognostic variables ===
+    M_VT         = field_map_dbl["M_VT"];
+    M_VTM        = field_map_dbl["M_VTM"];
+    M_VTMM       = field_map_dbl["M_VTMM"];
+    M_conc       = field_map_dbl["Concentration"];
+    M_thick      = field_map_dbl["Thickness"];
+    M_snow_thick = field_map_dbl["Snow"];
+    M_damage     = field_map_dbl["Damage"];
+    M_tsurf      = field_map_dbl["Tsurf"];
+    M_sst        = field_map_dbl["SST"];
+    M_sss        = field_map_dbl["SSS"];
+
+    if (M_drifter_type == setup::DrifterType::IABP)
+    {
+        try
+        {
+            std::vector<int>    drifter_no = field_map_int["Drifter_no"];
+            std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
+            std::vector<double> drifter_y  = field_map_dbl["Drifter_y"];
+
+            for ( int i=0; i<drifter_no.size(); ++i )
+            {
+                M_drifter.emplace(drifter_no[i], std::array<double,2>{drifter_x[i], drifter_y[i]});
+            }
+        }
+        catch (exception &e)
+        {
+            std::cout << "Warning: Couldn't read drifter positions from restart file.\n";
+        }
+    }
+
+    inbin.close();
+
+    // Set the target size for the data sets
+    M_asr_nodes_dataset.target_size=M_num_nodes;
+    M_asr_elements_dataset.target_size=M_num_elements;
+    M_topaz_nodes_dataset.target_size=M_num_nodes;
+    M_topaz_elements_dataset.target_size=M_num_elements;
+    M_ice_topaz_elements_dataset.target_size=M_num_elements;
+    M_etopo_elements_dataset.target_size=M_num_elements;
+
 }
 
 void
@@ -4741,8 +4983,11 @@ FiniteElement::asrAtmosphere(bool reload)
         else
             std::cout<<"forcing not available for the current date: load data from ASR\n";
 
+        std::cout << "Elements\n";
         this->loadDataset(&M_asr_elements_dataset);
+        std::cout << "Nodes\n";
         this->loadDataset(&M_asr_nodes_dataset);
+        std::cout << "Done\n";
 
         //std::cout<<"forcing not available for the current date\n";
         //throw std::logic_error("forcing not available for the current date");
@@ -6097,7 +6342,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
     exporter.writeField(outbin, M_damage, "Damage");
     exporter.writeField(outbin, M_sst, "SST");
     exporter.writeField(outbin, M_sss, "SSS");
-	exporter.writeField(outbin, M_element_depth, "bathy");
+    exporter.writeField(outbin, M_element_depth, "bathy");
     outbin.close();
 
     fileout = (boost::format( "%1%/matlab/field_%2%.dat" )

@@ -16,6 +16,7 @@
 #include <vector>
 #include <gmshmesh.hpp>
 #include <boost/format.hpp>
+#include <boost/unordered_map.hpp>
 
 namespace Nextsim
 {
@@ -38,11 +39,16 @@ public:
 	void writeField(std::fstream& out, std::vector<Type> const& field, std::string const& name);
 	void writeRecord(std::fstream& out, std::string const& rtype = "field");
 
+    void loadFile(std::fstream &in, boost::unordered_map<std::string, std::vector<int>> &field_map_int, boost::unordered_map<std::string, std::vector<double>> &field_map_dbl);
+    void readRecord(std::ifstream &in);
+
 private:
 
     std::vector<std::string> M_mrecord;
     std::vector<std::string> M_frecord;
 
+    std::vector<int> M_type_record;
+    std::vector<std::string> M_name_record;
 };
 } // Nextsim
 #endif

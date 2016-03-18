@@ -111,6 +111,44 @@ Exporter::writeRecord(std::fstream& out, std::string const& rtype)
 	}
 }
 
+void
+Exporter::readRecord(std::ifstream &in)
+{
+    std::string name;
+    int type;
+    while ( in >> name >> type )
+    {
+        M_name_record.push_back(name);
+        M_type_record.push_back(type);
+    }
+}
+
+void
+Exporter::loadFile(std::fstream &in, boost::unordered_map<std::string, std::vector<int>> &field_map_int, boost::unordered_map<std::string, std::vector<double>> &field_map_dbl)
+{
+    int reclen;
+    for ( int i=0; i<M_type_record.size(); ++i )
+    {
+        in.read((char*) &reclen, sizeof(reclen));
+        if ( M_type_record[i] == sizeof(double) )
+        {
+            std::vector<double> dvec(reclen);
+            in.read((char*) &dvec[0], reclen*sizeof(double));
+            field_map_dbl.emplace(M_name_record[i], dvec);
+        }
+        else if ( M_type_record[i] == sizeof(int) )
+        {
+            std::vector<int> ivec(reclen);
+            in.read((char*) &ivec[0], reclen*sizeof(int));
+            field_map_int.emplace(M_name_record[i], ivec);
+        }
+        else
+        {
+            throw std::logic_error("unknown type in file");
+        }
+    }
+}
+
 template void Exporter::writeField<double>(std::fstream&, std::vector<double> const&, std::string const&);
 template void Exporter::writeField<int>(std::fstream&, std::vector<int> const&, std::string const&);
 
