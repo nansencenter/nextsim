@@ -14,7 +14,9 @@ namespace Nextsim
 Exporter::Exporter()
 	:
 	M_mrecord(),
-    M_frecord()
+    M_frecord(),
+    M_type_record(),
+    M_name_record()
 {}
 
 template<typename Type>
