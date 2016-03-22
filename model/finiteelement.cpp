@@ -4405,6 +4405,8 @@ FiniteElement::run()
         chrono.restart();
         this->initVariables();
         this->initModelState();
+        // Write out restart state (mostly for debugging)
+        this->writeRestart(pcpt, 0);
         std::cout<<"initSimulation done in "<< chrono.elapsed() <<"s\n";
     }
 
@@ -4424,8 +4426,8 @@ FiniteElement::run()
     {
         is_running = ((pcpt+1)*time_step) < duration;
 
-        // if (pcpt > 35)
-        //     is_running = false;
+        if (pcpt > 20)
+            is_running = false;
 
         current_time = time_init + pcpt*time_step/(24*3600.0);
         //std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
@@ -4603,17 +4605,24 @@ FiniteElement::writeRestart(int pcpt, int step)
     misc_int[0] = pcpt;
     misc_int[1] = M_flag_fix;
     exporter.writeField(outbin, misc_int, "Misc_int");
-    exporter.writeField(outbin, M_dirichlet_flags, "Dirichlet");
+    exporter.writeField(outbin, M_dirichlet_flags, "M_dirichlet_flags");
+
+    exporter.writeField(outbin, M_conc, "M_conc");
+    exporter.writeField(outbin, M_thick, "M_thick");
+    exporter.writeField(outbin, M_snow_thick, "M_snow_thick");
+    exporter.writeField(outbin, M_sigma, "M_sigma");
+    exporter.writeField(outbin, M_damage, "M_damage");
+    exporter.writeField(outbin, M_divergence_rate, "M_divergence_rate");
+    exporter.writeField(outbin, M_h_ridged_thin_ice, "M_h_ridged_thin_ice");
+    exporter.writeField(outbin, M_h_ridged_thick_ice, "M_h_ridged_thick_ice");
+    exporter.writeField(outbin, M_random_number, "M_random_number");
+    exporter.writeField(outbin, M_tsurf, "M_tsurf");
+    exporter.writeField(outbin, M_sst, "M_sst");
+    exporter.writeField(outbin, M_sss, "M_sss");
     exporter.writeField(outbin, M_VT, "M_VT");
     exporter.writeField(outbin, M_VTM, "M_VTM");
     exporter.writeField(outbin, M_VTMM, "M_VTMM");
-    exporter.writeField(outbin, M_conc, "Concentration");
-    exporter.writeField(outbin, M_thick, "Thickness");
-    exporter.writeField(outbin, M_snow_thick, "Snow");
-    exporter.writeField(outbin, M_damage, "Damage");
-    exporter.writeField(outbin, M_tsurf, "Tsurf");
-    exporter.writeField(outbin, M_sst, "SST");
-    exporter.writeField(outbin, M_sss, "SSS");
+    exporter.writeField(outbin, M_UM, "M_UM");
 
     if (M_drifter_type == setup::DrifterType::IABP)
     {
@@ -4707,7 +4716,7 @@ FiniteElement::readRestart(int &pcpt, int step)
     // Fix boundaries
     pcpt       = field_map_int["Misc_int"].at(0);
     M_flag_fix = field_map_int["Misc_int"].at(1);
-    std::vector<int> dirichlet_flags = field_map_int["Dirichlet"];
+    std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
     for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
     {
         int fnd = bamgmesh->Edges[3*edg]-1;
@@ -4771,16 +4780,22 @@ FiniteElement::readRestart(int &pcpt, int step)
     }
 
     // === Set the prognostic variables ===
+    M_conc       = field_map_dbl["M_conc"];
+    M_thick      = field_map_dbl["M_thick"];
+    M_snow_thick = field_map_dbl["M_snow_thick"];
+    M_sigma      = field_map_dbl["M_sigma"];
+    M_damage     = field_map_dbl["M_damage"];
+    M_divergence_rate    = field_map_dbl["M_divergence_rate"];
+    M_h_ridged_thin_ice  = field_map_dbl["M_h_ridged_thin_ice"];
+    M_h_ridged_thick_ice = field_map_dbl["M_h_ridged_thick_ice"];
+    M_random_number      = field_map_dbl["M_random_number"];
+    M_tsurf      = field_map_dbl["M_tsurf"];
+    M_sst        = field_map_dbl["M_sst"];
+    M_sss        = field_map_dbl["M_sss"];
     M_VT         = field_map_dbl["M_VT"];
     M_VTM        = field_map_dbl["M_VTM"];
     M_VTMM       = field_map_dbl["M_VTMM"];
-    M_conc       = field_map_dbl["Concentration"];
-    M_thick      = field_map_dbl["Thickness"];
-    M_snow_thick = field_map_dbl["Snow"];
-    M_damage     = field_map_dbl["Damage"];
-    M_tsurf      = field_map_dbl["Tsurf"];
-    M_sst        = field_map_dbl["SST"];
-    M_sss        = field_map_dbl["SSS"];
+    M_UM         = field_map_dbl["M_UM"];
 
     if (M_drifter_type == setup::DrifterType::IABP)
     {
@@ -6333,16 +6348,14 @@ FiniteElement::exportResults(int step, bool export_mesh)
     std::cout<<"BINARY: Exporter Filename= "<< fileout <<"\n";
 
     std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
-    exporter.writeField(outbin, M_mld, "mld");
-    exporter.writeField(outbin, M_VT, "Velocity");
+    exporter.writeField(outbin, M_VT, "M_VT");
     exporter.writeField(outbin, M_conc, "Concentration");
     exporter.writeField(outbin, M_thick, "Thickness");
-    exporter.writeField(outbin, M_wind, "Wind");
-    exporter.writeField(outbin, M_ocean, "Ocean");
+    exporter.writeField(outbin, M_snow_thick, "Snow");
     exporter.writeField(outbin, M_damage, "Damage");
+    exporter.writeField(outbin, M_tsurf, "Tsurf");
     exporter.writeField(outbin, M_sst, "SST");
     exporter.writeField(outbin, M_sss, "SSS");
-    exporter.writeField(outbin, M_element_depth, "bathy");
     outbin.close();
 
     fileout = (boost::format( "%1%/matlab/field_%2%.dat" )
