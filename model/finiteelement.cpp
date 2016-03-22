@@ -4428,8 +4428,8 @@ FiniteElement::run()
     {
         is_running = ((pcpt+1)*time_step) < duration;
 
-        if (pcpt > 20)
-            is_running = false;
+        // if (pcpt > 20)
+        //     is_running = false;
 
         current_time = time_init + pcpt*time_step/(24*3600.0);
         //std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
