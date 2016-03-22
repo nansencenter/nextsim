@@ -3842,6 +3842,7 @@ FiniteElement::thermo()
         // 1) Initialization of the temporary variables
 
         double  hi=0.;     // Ice thickness (slab)
+        double  hi_old=0.; // Ice thickness at the start of the time step (slab)
         double  hs=0.;     // Snow thickness (slab)
 
         double  del_hi=0.; // Change in ice thickness (slab only)
@@ -3956,6 +3957,7 @@ FiniteElement::thermo()
         if ( M_conc[i] <=0. )
         {
             hi      = 0.;
+            hi_old  = 0.;
             hs      = 0.;
             M_tsurf[i] = 0.;
             Qio     = 0.;
@@ -3963,8 +3965,9 @@ FiniteElement::thermo()
             Qai     = 0.;
         } else {
             /* Calculate the slab thickness */
-            hi = M_thick[i]/M_conc[i];
-            hs = M_snow_thick[i]/M_conc[i];
+            hi     = M_thick[i]/M_conc[i];
+            hi_old = M_thick[i]/M_conc[i];
+            hs     = M_snow_thick[i]/M_conc[i];
 
             /* Local variables */
             double albedo;
@@ -4160,7 +4163,7 @@ FiniteElement::thermo()
         // 5) Ice growth over open water and lateral melt (thermoOW in matlab)
 
         /* Local variables */
-        double hi_old, tw_new, tfrw, newice, del_c, newsnow, h0;
+        double tw_new, tfrw, newice, del_c, newsnow, h0;
         
         /* dT/dt due to heatflux atmos.-ocean */
         tw_new = M_sst[i] - Qow*time_step/(M_mld[i]*physical::rhow*physical::cpw);
@@ -4177,7 +4180,6 @@ FiniteElement::thermo()
         }
 
         /* Decide the change in ice fraction (del_c) */
-        hi_old = hi-del_hi;
         /* Initialise to be safe */
         del_c = 0.;
         newsnow = 0.;
