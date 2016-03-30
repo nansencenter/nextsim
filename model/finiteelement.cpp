@@ -82,19 +82,26 @@ FiniteElement::init()
 
     //std::cout<<"start\n";
     //M_mesh_filename = "parbigarctic10km.msh";
-    //M_mesh_filename = "par3hypercube.msh";
-    M_mesh_filename = "par3bigarctic10km.msh";
+    M_mesh_filename = "par3hypercube.msh";
+    //M_mesh_filename = "partesthypercube.msh";
+    //M_mesh_filename = "par3bigarctic10km.msh";
+
+    //M_mesh_filename = "hypercube.msh";
 
     M_mesh.readFromFile(M_mesh_filename);
 
     M_comm = M_mesh.comm();
     M_rank = M_comm.rank();
 
-    M_mesh.stereographicProjection();
+    //M_mesh.stereographicProjection();
 
     M_elements = M_mesh.triangles();
+    M_nodes = M_mesh.nodes();
+    M_num_elements = M_mesh.numTriangles();
     M_ndof = M_mesh.numNodes();
     M_local_ndof = M_mesh.localDofWithoutGhost().size();
+    M_local_ndof_ghost = M_mesh.localDofWithGhost().size();
+    M_num_nodes = M_local_ndof;
 
     this->initConstant();
     this->initBamg();
@@ -104,7 +111,7 @@ FiniteElement::init()
         std::cout<<"Global size= "<< gsize << " and "<< M_ndof <<"\n";
 
 
-#if 0
+#if 1
     M_comm.barrier();
     if (M_rank == 0)
     {
@@ -116,9 +123,9 @@ FiniteElement::init()
         for (int const& index : M_mesh.localGhost())
             std::cout<<"INDEXGHT "<< index <<"\n";
 
-        std::cout<<"************02************\n";
-        for (int const& index : M_mesh.localDofWithGhost())
-            std::cout<<"INDEXWG  "<< index <<"\n";
+        // std::cout<<"************02************\n";
+        // for (int const& index : M_mesh.localDofWithGhost())
+        //     std::cout<<"INDEXWG  "<< index <<"\n";
     }
 
     M_comm.barrier();
@@ -128,13 +135,13 @@ FiniteElement::init()
         for (int const& index : M_mesh.localDofWithoutGhost())
             std::cout<<"INDEXWHG "<< index <<"\n";
 
-        std::cout<<"************11************\n";
-        for (int const& index : M_mesh.localGhost())
-            std::cout<<"INDEXGHT "<< index <<"\n";
+        // std::cout<<"************11************\n";
+        // for (int const& index : M_mesh.localGhost())
+        //     std::cout<<"INDEXGHT "<< index <<"\n";
 
-        std::cout<<"************12************\n";
-        for (int const& index : M_mesh.localDofWithGhost())
-            std::cout<<"INDEXWG  "<< index <<"\n";
+        // std::cout<<"************12************\n";
+        // for (int const& index : M_mesh.localDofWithGhost())
+        //     std::cout<<"INDEXWG  "<< index <<"\n";
     }
 
     M_comm.barrier();
@@ -144,203 +151,50 @@ FiniteElement::init()
         for (int const& index : M_mesh.localDofWithoutGhost())
             std::cout<<"INDEXWHG "<< index <<"\n";
 
-        std::cout<<"************21************\n";
-        for (int const& index : M_mesh.localGhost())
-            std::cout<<"INDEXGHT "<< index <<"\n";
+        // std::cout<<"************21************\n";
+        // for (int const& index : M_mesh.localGhost())
+        //     std::cout<<"INDEXGHT "<< index <<"\n";
 
-        std::cout<<"************22************\n";
-        for (int const& index : M_mesh.localDofWithGhost())
-            std::cout<<"INDEXWG "<< index <<"\n";
+        // std::cout<<"************22************\n";
+        // for (int const& index : M_mesh.localDofWithGhost())
+        //     std::cout<<"INDEXWG "<< index <<"\n";
     }
 #endif
 
-    M_comm.barrier();
+#if 1
 
-#if 0
-    if (M_rank == 1)
-    {
-        for (auto it=M_mesh.triangles().begin(), end=M_mesh.triangles().end(); it!=end; ++it)
-        {
-            //if ((it->is_ghost) && (it->partition > M_rank))
-            //if ((!it->is_ghost) || (it->partition <= M_rank))
-            //if (it->partition >= M_rank)
-            if ((it->partition >= M_rank) && (it->number == 33) || (it->number == 40))
-            {
-                //std::cout<<"-------------------"<< cpt << "-------------------"<<"\n";
-                std::cout<<"it->rank                = "<< M_rank <<"\n";
-                std::cout<<"it->number              = "<< it->number <<"\n";
-                //std::cout<<"it->type                = "<< it->type <<"\n";
-                //std::cout<<"it->physical            = "<< it->physical <<"\n";
-                //std::cout<<"it->elementary          = "<< it->elementary <<"\n";
-                std::cout<<"it->numPartitions       = "<< it->numPartitions <<"\n";
-                std::cout<<"it->partition           = "<< it->partition <<"\n";
-                std::cout<<"it->is_ghost            = "<< it->is_ghost <<"\n";
-                std::cout<<"it->ghosts              = "<<"\n";
+#if 1
+    auto indextr = M_mesh.indexTr();
+    std::cout<<"Number of triangles= "<< indextr.size()/3 <<"\n";
 
-                for (int k=0; k<it->ghosts.size(); ++k)
-                {
-                    std::cout<<"                    ghosts["<< k <<"]= "<< it->ghosts[k] <<"\n";
-                }
+    auto xc = M_mesh.coordX();
+    auto yc = M_mesh.coordY();
+    // for (int i=0; i<xc.size(); ++i)
+    // {
+    //     if (i < 20)
+    //         std::cout<<"COORD["<< i <<"]= ("<< xc[i] << ","<< yc[i] <<")\n";
+    // }
 
-                //std::cout<<"it->is_on_processor     = "<< it->is_on_processor <<"\n";
-                //std::cout<<"it->ghost_partition_id  = "<< it->ghost_partition_id <<"\n";
-            }
-        }
-    }
-#endif
-
-    if (1)//(M_rank == 1)
-    {
-        // int test1_ = M_mesh.transferMap().left.find(14)->second;
-        // std::cout<<"___test1= "<< test1_ <<"\n";
-
-        // int test2_ = M_mesh.transferMap().right.find(3)->second;
-        // std::cout<<"___test2= "<< test2_ <<"\n";
-
-        auto indextr = M_mesh.indexTr();
-        std::cout<<"Number of triangles= "<< indextr.size()/3 <<"\n";
-
-        // for (int i=0; i<indextr.size(); ++i)
-        // {
-        //     bool toto = (i % 3);
-        //     if (!toto)
-        //         std::cout<<"TR "<< i/3 <<"\n";
-
-        //     std::cout<<"Local: "<< indextr[i] << " and Global: "<< M_mesh.transferMap().right.find(indextr[i])->second <<"\n";
-        // }
-
-        // if (M_mesh.transferMap().left.find(19) == M_mesh.transferMap().left.end())
-        // {
-        //     std::cout<<"TOTO\n";
-        // }
-        // std::cout<<"CRASH= "<< M_mesh.transferMap().left.find(19)->second <<"\n";
-
-        auto xc = M_mesh.coordX();
-        auto yc = M_mesh.coordY();
-
-        for (int i=0; i<xc.size(); ++i)
-        {
-            if (i < 20)
-                std::cout<<"COORD["<< i <<"]= ("<< xc[i] << ","<< yc[i] <<")\n";
-        }
-
-        int nelet = indextr.size()/3;
-
-        std::cout<<"NUM ELEMENTS= "<< nelet <<"\n";
-
-        std::cout<<"Convert MESH starts\n";
-        BamgConvertMeshx(
-                         bamgmesh,bamggeom,
-                         &indextr[0],&xc[0],&yc[0],
-                         M_mesh.localDofWithGhost().size(), nelet
-                         );
-        std::cout<<"Convert MESH done\n";
-
-        auto bxc = M_mesh.bCoordX();
-        auto byc = M_mesh.bCoordY();
-
-        std::cout<<"bCoordX= "<< bxc.size() <<"\n";
-
-        for (int i=0; i<bxc.size(); ++i)
-        {
-            if (i < 20)
-                std::cout<<"BCOORD["<< i <<"]= ("<< bxc[i] << ","<< byc[i] <<")\n";
-        }
-
-        for (auto it=M_mesh.edges().begin(), end=M_mesh.edges().end(); it!=end; ++it)
-        {
-            if (it->physical==M_flag_fix)
-            {
-                M_dirichlet_flags.push_back(it->indices[0]-1);
-                M_dirichlet_flags.push_back(it->indices[1]-1);
-            }
-
-
-            // //std::cout<<"-------------------"<< cpt << "-------------------"<<"\n";
-            // std::cout<<"-----------------------------------------------------\n";
-            // std::cout<<"it->rank                = "<< M_rank <<"\n";
-            // std::cout<<"it->number              = "<< it->number <<"\n";
-            // std::cout<<"it->type                = "<< it->type <<"\n";
-            // std::cout<<"it->physical            = "<< it->physical <<"\n";
-            // std::cout<<"it->elementary          = "<< it->elementary <<"\n";
-            // std::cout<<"it->numPartitions       = "<< it->numPartitions <<"\n";
-            // std::cout<<"it->partition           = "<< it->partition <<"\n";
-            // std::cout<<"it->is_ghost            = "<< it->is_ghost <<"\n";
-            // //std::cout<<"it->ghosts              = "<<"\n";
-        }
-
-        std::sort(M_dirichlet_flags.begin(), M_dirichlet_flags.end());
-        M_dirichlet_flags.erase(std::unique( M_dirichlet_flags.begin(), M_dirichlet_flags.end() ), M_dirichlet_flags.end());
-
-        std::cout<<"Dirichlet flags= "<< M_dirichlet_flags.size() <<"\n";
-
-        // std::cout<<"NodalConnectivitySize[0]= "<< bamgmesh->NodalConnectivitySize[0] <<"\n";
-        // std::cout<<"NodalConnectivitySize[1]= "<< bamgmesh->NodalConnectivitySize[1] <<"\n";
-
-        this->createGraph(bamgmesh);
-
-
-        M_matrix = matrix_ptrtype(new matrix_type());
-
-        if (M_rank == 0)
-            std::cout<<"--------------start\n";
-
-        M_matrix->init(2*M_ndof,2*M_ndof,
-                       2*M_local_ndof,2*M_local_ndof,
-                       M_graphmpi);
-
-        // int ss_m = M_mesh.localDofWithGhost().size();
-
-        //if (M_rank == 2)
-        for (int al=0; al<2*M_local_ndof; ++al)
-        {
-            //double vl = M_mesh.transferMap().right.find(al+1)->second-1;
-            M_matrix->setValue(al,al,1.);
-        }
-
-        M_matrix->close();
-
-        M_vector = vector_ptrtype(new vector_type());
-        M_vector->init(2*M_ndof,2*M_local_ndof,M_graphmpi);
-        M_vector->setOnes();
-        M_vector->close();
-
-        //M_matrix->setValue(0,0,1.);
-
-        if (M_rank == 0)
-            std::cout<<"--------------done\n";
-
-#if 0
-#endif
-    }
-
-
-
-
-
-
-
-
-
-#if 0
-    M_mesh.stereographicProjection();
-    // M_mesh.writeTofile("copy_init_mesh.msh");
-
-    // createGMSHMesh("hypercube.geo");
-    // //M_mesh.setOrdering("gmsh");
-    // M_mesh.readFromFile("hypercube.msh");
-    std::cout<<"START CONSTANTS\n";
-    this->initConstant();
-    this->initBamg();
+    int nelet = indextr.size()/3;
+    std::cout<<"NUM ELEMENTS= "<< nelet << " = "<< M_num_elements <<"\n";
 
     std::cout<<"Convert MESH starts\n";
     BamgConvertMeshx(
                      bamgmesh,bamggeom,
-                     &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-                     M_mesh.numNodes(), M_mesh.numTriangles()
+                     &indextr[0],&xc[0],&yc[0],
+                     M_mesh.localDofWithGhost().size(), nelet
                      );
     std::cout<<"Convert MESH done\n";
 
+    auto bxc = M_mesh.bCoordX();
+    auto byc = M_mesh.bCoordY();
+
+    std::cout<<"bCoordX= "<< bxc.size() <<"\n";
+    // for (int i=0; i<bxc.size(); ++i)
+    // {
+    //     if (i < 20)
+    //         std::cout<<"BCOORD["<< i <<"]= ("<< bxc[i] << ","<< byc[i] <<")\n";
+    // }
 
     for (auto it=M_mesh.edges().begin(), end=M_mesh.edges().end(); it!=end; ++it)
     {
@@ -354,56 +208,13 @@ FiniteElement::init()
     std::sort(M_dirichlet_flags.begin(), M_dirichlet_flags.end());
     M_dirichlet_flags.erase(std::unique( M_dirichlet_flags.begin(), M_dirichlet_flags.end() ), M_dirichlet_flags.end());
 
-    importBamg(bamgmesh);
+    std::cout<<"Dirichlet flags= "<< M_dirichlet_flags.size() <<"\n";
 
-    M_mesh_init = M_mesh;
+    this->createGraph(bamgmesh);
+#endif
 
-    M_edges = M_mesh.edges();
 
-    // Definition of the hmin, hmax, hminVertices or hmaxVertices
-    auto h = this->minMaxSide(M_mesh);
-
-    std::cout<<"MESH: HMIN= "<< h[0] <<"\n";
-    std::cout<<"MESH: HMAX= "<< h[1] <<"\n";
-    std::cout<<"MESH: RES = "<< this->resolution(M_mesh) <<"\n";
-
-    switch (M_mesh_type)
-    {
-        case setup::MeshType::FROM_GMSH:
-            // For the other meshes, we use a constant hmin and hmax
-            bamgopt->hmin = h[0];
-            bamgopt->hmax = h[1];
-            break;
-        case setup::MeshType::FROM_SPLIT:
-            bamgopt->hmin = h[0];
-            bamgopt->hmax = h[1];
-
-            M_hminVertices = this->hminVertices(M_mesh_init, bamgmesh);
-            M_hmaxVertices = this->hmaxVertices(M_mesh_init, bamgmesh);
-
-            bamgopt->hminVertices = new double[M_mesh_init.numNodes()];
-            bamgopt->hmaxVertices = new double[M_mesh_init.numNodes()];
-            for (int i=0; i<M_mesh_init.numNodes(); ++i)
-            {
-                bamgopt->hminVertices[i] = M_hminVertices[i];
-                bamgopt->hmaxVertices[i] = M_hmaxVertices[i];
-            }
-            break;
-        default:
-            std::cout << "invalid mesh type"<<"\n";
-            throw std::logic_error("invalid mesh type");
-    }
-
-    M_elements = M_mesh.triangles();
-    M_nodes = M_mesh.nodes();
-
-    M_num_elements = M_mesh.numTriangles();
-    M_num_nodes = M_mesh.numNodes();
-
-    M_solver = solver_ptrtype(new solver_type());
-    M_matrix = matrix_ptrtype(new matrix_type());
-    M_vector = vector_ptrtype(new vector_type());
-    M_solution = vector_ptrtype(new vector_type());
+#if 1
 
     M_reuse_prec = true;
 
@@ -458,6 +269,44 @@ FiniteElement::init()
     // init options for interpolation from mesh to mesh
     // options = new Options();
 #endif
+
+#if 1
+
+    M_solver = solver_ptrtype(new solver_type());
+    M_matrix = matrix_ptrtype(new matrix_type());
+    //M_matrix_seq = matrix_ptrtype(new matrix_type());
+    M_vector = vector_ptrtype(new vector_type());
+    M_solution = vector_ptrtype(new vector_type());
+
+
+    if (M_rank == 0)
+        std::cout<<"--------------start\n";
+
+    M_matrix->init(M_ndof,M_ndof,
+                   M_local_ndof,M_local_ndof,
+                   M_graph,
+                   M_graphmpi);
+
+    // M_vector->init(2*M_ndof,2*M_local_ndof,M_graphmpi);
+    // M_vector->setOnes();
+    // M_vector->close();
+
+    std::cout<<"\n";
+    std::cout<<"["<< M_rank <<"] SIZE INFO: "<< M_local_ndof << " / "<< M_ndof <<"\n";
+    std::cout<<"["<< M_rank <<"] ROWS INFO: "<< M_matrix->rowStart() << " / "<< M_matrix->rowStop() <<"\n";
+    std::cout<<"\n";
+
+    //if (M_rank == 0)
+    this->laplacian();
+    //this->laplacianSeq();
+    //M_matrix->close();
+
+
+    if (M_rank == 0)
+        std::cout<<"--------------done\n";
+#endif
+
+#endif
 }
 
 // Initialise all physical variables to propper initial conditions
@@ -467,9 +316,9 @@ FiniteElement::initSimulation()
     chrono_tot.restart();
 
     //M_matrix->init(2*M_num_nodes,2*M_num_nodes,22);
-    M_matrix->init(2*M_num_nodes,2*M_num_nodes,M_graph);
-    M_vector->init(2*M_num_nodes);
-    M_solution->init(2*M_num_nodes);
+    // M_matrix->init(2*M_num_nodes,2*M_num_nodes,M_graph);
+    // M_vector->init(2*M_num_nodes);
+    // M_solution->init(2*M_num_nodes);
 
     M_VT.resize(2*M_num_nodes,0.);
     M_VTM.resize(2*M_num_nodes,0.);
@@ -1035,7 +884,7 @@ FiniteElement::regrid(bool step)
         std::cout<<"TIMER INTERPOLATION = hminVertices, hmaxVertices" << chrono.elapsed() <<"s\n";
     }
 
-    this->adaptMesh();
+    //this->adaptMesh();
 
     if (step)
     {
@@ -1244,10 +1093,10 @@ FiniteElement::regrid(bool step)
     if (step)
     {
         //M_matrix->init(2*M_num_nodes,2*M_num_nodes,22);
-        M_matrix->init(2*M_num_nodes,2*M_num_nodes,M_graph);
-        M_vector->resize(2*M_num_nodes);
-        M_solution->resize(2*M_num_nodes);
-        M_reuse_prec = false;
+        // M_matrix->init(2*M_num_nodes,2*M_num_nodes,M_graph);
+        // M_vector->resize(2*M_num_nodes);
+        // M_solution->resize(2*M_num_nodes);
+        // M_reuse_prec = false;
 
         M_vector_reduction.resize(2*M_num_nodes,0.);
         M_valid_conc.resize(2*M_num_nodes,false);
@@ -1379,8 +1228,18 @@ FiniteElement::adaptMesh()
 void
 FiniteElement::assemble()
 {
-    M_matrix->zero();
-    M_vector->zero();
+    //M_matrix->zero();
+    //M_vector->zero();
+
+    M_matrix->init(2*M_ndof,2*M_ndof,
+                   2*M_local_ndof,2*M_local_ndof,
+                   M_graph,
+                   M_graphmpi);
+
+    // M_matrix->zero();
+    // M_matrix->close();
+
+ #if 0
 
     std::vector<int> rhsindices(2*M_num_nodes);
     std::iota(rhsindices.begin(), rhsindices.end(), 0);
@@ -1392,16 +1251,19 @@ FiniteElement::assemble()
 
     std::vector<int> extended_dirichlet_nodes = M_dirichlet_nodes;
 
+    auto M_transfer_map = M_mesh.transferMap();
+    auto M_local_ghost = M_mesh.localGhost();
+
     std::cout<<"Assembling starts\n";
     chrono.restart();
 
     int thread_id;
     int total_threads;
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
+    int max_threads = 1;//omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
     //std::cout<<"MAX THREADS= "<< max_threads <<"\n";
 
-#pragma omp parallel for num_threads(max_threads) private(thread_id)
+    //#pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
         // if(thread_id == 0)
@@ -1494,8 +1356,14 @@ FiniteElement::assemble()
             /* Column corresponding to indice j (we also assemble terms in col+1) */
             //col = (mwIndex)it[2*j]-1; /* -1 to use the indice convention of C */
 
-            index_u = (M_elements[cpt]).indices[j]-1;
-            index_v = (M_elements[cpt]).indices[j]-1+M_num_nodes;
+            // index_u = (M_elements[cpt]).indices[j]-1;
+            // index_v = (M_elements[cpt]).indices[j]-1+M_num_nodes;
+
+            index_u = (M_elements[cpt]).indices[j];
+            index_u = M_transfer_map.left.find(index_u)->second-1;
+            index_v = index_u+M_num_nodes;
+
+
 
             for(int i=0; i<3; i++)
             {
@@ -1541,34 +1409,40 @@ FiniteElement::assemble()
 
                 fvdata[2*i+1] += surface_e*( mloc*( +coef_Voce*std::sin(ocean_turning_angle_rad)*(M_ocean[index_u]-M_VT[index_u])-coef_C*M_Vcor[index_u]) )
                               +surface_e*( mloc*( coef_Vair*M_wind[index_v]+coef_Voce*std::cos(ocean_turning_angle_rad)*M_ocean[index_v]+coef_Y+coef_V*M_VT[index_v]) - b0tj_sigma_hv/3);
-
             }
 
             rcindices[2*j] = index_u;
             rcindices[2*j+1] = index_v;
         }
 
-        // if (cpt == 0)
-        //     for (int i=0; i<6; ++i)
-        //     {
-        //         for (int j=0; j<6; ++j)
-        //         {
-        //             std::cout<< std::left << std::setw(12) << data[6*i+j] <<"  ";
-        //         }
-        //         std::cout<<"\n";
-        //     }
+        if ((cpt < 0) && (M_rank == 2))
+            for (int i=0; i<6; ++i)
+            {
+                for (int j=0; j<6; ++j)
+                {
+                    std::cout<< std::left << std::setw(12) << data[6*i+j] <<"  ";
+                }
+                std::cout<<"\n";
+            }
+
+        // M_matrix->addMatrix(&rcindices[0], rcindices.size(),
+        //                     &rcindices[0], rcindices.size(), &data[0]);
+
+
+
 // #pragma omp critical(updatematrix)
 //         {
 //             M_matrix->addMatrix(&rcindices[0], rcindices.size(),
 //                                 &rcindices[0], rcindices.size(), &data[0]);
 //         }
 
+#if 1
         for (int idf=0; idf<rcindices.size(); ++idf)
         {
-#pragma omp atomic
-            rhsdata[rcindices[idf]] += fvdata[idf];
+            //#pragma omp atomic
+            //rhsdata[rcindices[idf]] += fvdata[idf];
 
-#if 1
+#if 0
             int indexr = rcindices[idf];
             for (int idj=0; idj<rcindices.size(); ++idj)
             {
@@ -1586,17 +1460,20 @@ FiniteElement::assemble()
                     }
                 }
 
-#pragma omp atomic
-                lhsdata[start+colind] += data[6*idf+idj];
+                //#pragma omp atomic
+                //lhsdata[start+colind] += data[6*idf+idj];
             }
 #endif
         }
 
+#if 0
         if((M_conc[cpt]>0.))
         {
             for (int const& idn : rcindices)
                 M_valid_conc[idn] = true;
         }
+#endif
+#endif
 
 #if 0
 #pragma omp critical(updatematrix)
@@ -1608,45 +1485,63 @@ FiniteElement::assemble()
 #endif
     }
 
+#if 0
     // update petsc matrix
     boost::mpi::timer petsc_chrono;
     petsc_chrono.restart();
-#pragma omp parallel for num_threads(max_threads)
-    for (int cptpm=0; cptpm<2*M_num_nodes; ++cptpm)
-    {
-        int rnnz = M_graph.nNz()[cptpm];
-        std::vector<int> lrcindices(rnnz);
-        std::vector<double> ldata(rnnz);
-        int start = M_graph.ia()[cptpm];
-        //std::cout<<"Looking for "<< indexc << " in array of size "<< rnnz << " started by "<< start <<"\n";
-        for (int io=start; io<start+rnnz; ++io)
-        {
-            lrcindices[io-start] = M_graph.ja()[io];
-            ldata[io-start] = lhsdata[io];
-        }
-#if 0
-        if (cptpm < 10)
-        {
-            std::cout<<"**************Row "<< cptpm <<"*************\n";
-            for (int j=0; j<rnnz; ++j)
-            {
-                std::cout<< std::left << std::setw(12) << ldata[j] <<" for indice "<< lrcindices[j] <<"\n";
-            }
-        }
-#endif
-        M_matrix->setMatrix(&cptpm, 1,
-                            &lrcindices[0], lrcindices.size(),
-                            &ldata[0]);
-    }
-    std::cout<<"SET PETSC MATRIX done in " << petsc_chrono.elapsed() <<"s\n";
-    lhsdata.resize(0);
+    max_threads = 1;
+    //#pragma omp parallel for num_threads(max_threads)
+    //for (int cptpm=0; cptpm<2*M_num_nodes; ++cptpm)
 
-    // close petsc matrix
+    std::cout<<"M_num_nodes= "<< M_num_nodes <<"\n";
+
+    for (int cptpm=0; cptpm<M_num_nodes; ++cptpm)
+    {
+        //int gid = M_transfer_map.right.find(cptpm+1)->second;
+        if (1)//(std::find(M_local_ghost.begin(),M_local_ghost.end(),gid) == M_local_ghost.end())
+        {
+            int rnnz = M_graph.nNz()[cptpm];
+            std::vector<int> lrcindices(rnnz);
+            std::vector<double> ldata(rnnz);
+            int start = M_graph.ia()[cptpm];
+            //std::cout<<"Looking for "<< indexc << " in array of size "<< rnnz << " started by "<< start <<"\n";
+            for (int io=start; io<start+rnnz; ++io)
+            {
+                lrcindices[io-start] = M_graph.ja()[io];
+                ldata[io-start] = lhsdata[io];
+            }
+#if 0
+            if (cptpm < 10)
+            {
+                std::cout<<"**************Row "<< cptpm <<"*************\n";
+                for (int j=0; j<rnnz; ++j)
+                {
+                    std::cout<< std::left << std::setw(12) << ldata[j] <<" for indice "<< lrcindices[j] <<"\n";
+                }
+            }
+#endif
+            M_matrix->addMatrix(&cptpm, 1,
+                                &lrcindices[0], lrcindices.size(),
+                                &ldata[0]);
+
+            //M_matrix->close();
+        }
+    }
+#endif
+
+    //std::cout<<"SET PETSC MATRIX done in " << petsc_chrono.elapsed() <<"s\n";
+    std::cout<<"SET PETSC MATRIX done in " << chrono.elapsed() <<"s\n";
+    //lhsdata.resize(0);
+
+    //close petsc matrix
     M_matrix->close();
 
+
     // update petsc vector and close it
-    M_vector->addVector(&rhsindices[0], rhsindices.size(), &rhsdata[0]);
-    M_vector->close();
+    //M_vector->addVector(&rhsindices[0], rhsindices.size(), &rhsdata[0]);
+    //M_vector->close();
+
+#if 0
 
     std::cout<<"Assembling done\n";
     std::cout<<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
@@ -1676,6 +1571,321 @@ FiniteElement::assemble()
 
     //M_matrix->printMatlab("stiffness.m");
     //M_vector->printMatlab("rhs.m");
+#endif
+
+#endif
+}
+
+void
+FiniteElement::laplacian()
+{
+    auto M_transfer_map = M_mesh.transferMap();
+    auto M_local_ghost = M_mesh.localGhost();
+
+    chrono.restart();
+    int cpt = 0;
+    std::cout<<"Assembling starts\n";
+    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
+    {
+        // if (cpt <10)
+        //     std::cout<<"***Element "<< it->first <<"\n";
+
+        double area = measure(*it, M_mesh);
+        std::vector<double> x(3);
+        std::vector<double> y(3);
+        std::vector<double> data;//(9);
+        //std::vector<double> mass_data(9);
+
+        //std::cout<<"------------------------------\n";
+        std::vector<int> rcindices(3);
+
+#if 0
+        for (int s=0; s<rcindices.size(); ++s)
+        {
+            int index_u = it->indices[s];
+            index_u = M_transfer_map.left.find(index_u)->second-1;
+            rcindices[s] = index_u;
+
+            //std::cout<<"\n";
+            //std::cout<<"["<< M_rank <<"]["<< s <<"]["<< it->indices[s] << " -> " << index_u <<"]\n";
+            //std::cout<<"\n";
+
+        }
+#endif
+        std::vector<int> rindices;//(3);
+        std::vector<int> cindices;//(3);
+
+
+        for (int s=0; s<3; ++s)
+        {
+            int index_u = it->indices[s];
+            index_u = M_transfer_map.left.find(index_u)->second-1;
+
+            if (std::find(M_local_ghost.begin(),M_local_ghost.end(),it->indices[s]) == M_local_ghost.end())
+                rindices.push_back(index_u);
+
+            //if (std::find(M_local_ghost.begin(),M_local_ghost.end(),it->indices[s]) == M_local_ghost.end())
+            cindices.push_back(index_u);
+        }
+
+#if 1
+        // index_u = (M_elements[cpt]).indices[j];
+        // index_u = M_transfer_map.left.find(index_u)->second-1;
+        // index_v = index_u+M_num_nodes;
+
+
+        double m_jk = 0;
+        //double mass_jk = 0;
+
+        std::vector<double> fvdata(3);
+        double f_j = 0;
+        double x_b = 0;
+        double y_b = 0;
+
+        for (int i=0; i<3; ++i)
+        {
+            // x[i] = M_nodes.find(it->second.indices[i])->second.coords[0];
+            // y[i] = M_nodes.find(it->second.indices[i])->second.coords[1];
+
+            x[i] = M_nodes[it->indices[i]-1].coords[0];
+            y[i] = M_nodes[it->indices[i]-1].coords[1];
+
+            x_b += x[i];
+            y_b += y[i];
+        }
+        x_b = x_b/3.0;
+        y_b = y_b/3.0;
+
+        int lc = 0;
+        for (int j=0; j<3; ++j)
+        {
+
+            // int index_u = it->indices[j];
+            // index_u = M_transfer_map.left.find(index_u)->second-1;
+
+            if (std::find(M_local_ghost.begin(),M_local_ghost.end(),it->indices[j]) == M_local_ghost.end())
+            {
+                //rindices.push_back(index_u);
+
+                f_j = 0;
+                // x-axis
+                int jp1 = (j+1)%3;
+                int jp2 = (j+2)%3;
+
+                for (int k=0; k<3; ++k)
+                {
+                    if (1)//(std::find(M_local_ghost.begin(),M_local_ghost.end(),it->indices[k]) == M_local_ghost.end())
+                    {
+                        // int index_v = it->indices[k];
+                        // index_v = M_transfer_map.left.find(index_v)->second-1;
+                        // cindices.push_back(index_v);
+
+                        // y-axis
+                        int kp1 = (k+1)%3;
+                        int kp2 = (k+2)%3;
+
+                        m_jk = (y[jp1]-y[jp2])*(y[kp1]-y[kp2])+(x[jp1]-x[jp2])*(x[kp1]-x[kp2]);
+                        m_jk = m_jk/(4.0*area);
+
+                        //add mass matrix contribution
+                        //m_jk += ((j == k) ? 2.0 : 1.0)*area/12.0;
+                        //mass_jk = ((j == k) ? 2.0 : 1.0)*area/12.0;
+
+                        //data[lc] = 1.;//m_jk;
+                        data.push_back(m_jk);
+
+                        //mass_data[lc] = mass_jk;
+
+                        ++lc;
+
+                        // if (cpt <1)
+                        //     std::cout<<"DATA["<< j << ","<< k <<"]= "<< m_jk <<"\n";
+
+                        //compute right-hand side contribution
+                        //f_j += ((j == k) ? 2.0 : 1.0)*2.0*PI*PI*std::sin(PI*x[k])*std::sin(PI*y[k]);
+                    }
+                }
+#if 0
+                //f_j = f_j*area/12.0;
+                f_j = 2*PI*PI*std::sin(PI*x_b)*std::sin(PI*y_b);
+                //f_j = 2*PI*PI*std::sin(PI*x[j])*std::sin(PI*y[j]);
+                f_j = f_j*area/3.0;
+                fvdata[j] = f_j;
+#endif
+            }
+
+        }
+
+        //std::vector<double> testdata(rindices.size()*cindices.size(),1.);
+
+        // for (int al=0; al<data.size(); ++al)
+        // {
+        //     std::cout<<"DATA["<< al <<"]= "<< data[al] <<"\n";
+        // }
+
+        // std::cout<<"SIZE DATA= "<< data.size() <<"\n";
+        // std::cout<<"SIZE ROW = "<< rindices.size() <<"\n";
+        // std::cout<<"SIZE COL = "<< cindices.size() <<"\n";
+
+        //if (M_rank == 0)
+        M_matrix->addMatrix(&rindices[0], rindices.size(),
+                            &cindices[0], cindices.size(), &data[0]);
+
+        // M_matrix->addMatrix(&rcindices[0], rcindices.size(),
+        //                     &rcindices[0], rcindices.size(), &data[0]);
+
+
+        // M_mass->addMatrix(&rcindices[0], rcindices.size(),
+        //                   &rcindices[0], rcindices.size(), &mass_data[0]);
+
+
+        //M_vector->addVector(&rcindices[0], rcindices.size(), &fvdata[0]);
+
+        ++cpt;
+#endif
+    }
+
+    // if (M_rank == 0)
+    //     M_matrix->setValue(0,9,1.);
+
+    M_matrix->close();
+
+    std::cout<<"[PETSC MATRIX] CLOSED      = "<< M_matrix->closed() <<"\n";
+    //std::cout<<"[PETSC MATRIX] SIZE        = "<< M_matrix->size1() << " " << M_matrix->size2() <<"\n";
+    //std::cout<<"[PETSC MATRIX] SYMMETRIC   = "<< M_matrix->isSymmetric() <<"\n";
+    //std::cout<<"[PETSC MATRIX] NORM        = "<< M_matrix->linftyNorm() <<"\n";
+
+    //if (M_rank == 0)
+    //M_matrix->printMatlab("x1testmt.m");
+
+    //std::cout<<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
+    std::cout<<"Assembling done\n";
+    std::cout<<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
+
+
+}
+
+void
+FiniteElement::laplacianSeq()
+{
+    chrono.restart();
+    int cpt = 0;
+    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
+    {
+        // if (cpt <10)
+        //     std::cout<<"***Element "<< it->first <<"\n";
+
+        double area = measure(*it,M_mesh);
+        std::vector<double> x(3);
+        std::vector<double> y(3);
+        std::vector<double> data(9);
+        //std::vector<double> mass_data(9);
+
+        std::vector<int> rcindices(3);
+        for (int s=0; s<rcindices.size(); ++s)
+            rcindices[s] = it->indices[s]-1;
+
+        double m_jk = 0;
+        //double mass_jk = 0;
+
+        std::vector<double> fvdata(3);
+        double f_j = 0;
+        double x_b = 0;
+        double y_b = 0;
+
+        for (int i=0; i<3; ++i)
+        {
+            // x[i] = M_nodes.find(it->second.indices[i])->second.coords[0];
+            // y[i] = M_nodes.find(it->second.indices[i])->second.coords[1];
+
+            x[i] = M_nodes[it->indices[i]-1].coords[0];
+            y[i] = M_nodes[it->indices[i]-1].coords[1];
+
+            x_b += x[i];
+            y_b += y[i];
+        }
+        x_b = x_b/3.0;
+        y_b = y_b/3.0;
+
+        int lc = 0;
+        for (int j=0; j<3; ++j)
+        {
+            f_j = 0;
+            // x-axis
+            int jp1 = (j+1)%3;
+            int jp2 = (j+2)%3;
+
+            for (int k=0; k<3; ++k)
+            {
+                // y-axis
+                int kp1 = (k+1)%3;
+                int kp2 = (k+2)%3;
+
+                m_jk = (y[jp1]-y[jp2])*(y[kp1]-y[kp2])+(x[jp1]-x[jp2])*(x[kp1]-x[kp2]);
+                m_jk = m_jk/(4.0*area);
+
+                //add mass matrix contribution
+                //m_jk += ((j == k) ? 2.0 : 1.0)*area/12.0;
+                //mass_jk = ((j == k) ? 2.0 : 1.0)*area/12.0;
+
+                data[lc] = m_jk;
+
+                //mass_data[lc] = mass_jk;
+
+                ++lc;
+
+                // if (cpt <1)
+                //     std::cout<<"DATA["<< j << ","<< k <<"]= "<< m_jk <<"\n";
+
+                //compute right-hand side contribution
+                //f_j += ((j == k) ? 2.0 : 1.0)*2.0*PI*PI*std::sin(PI*x[k])*std::sin(PI*y[k]);
+            }
+
+            //f_j = f_j*area/12.0;
+            f_j = 2*PI*PI*std::sin(PI*x_b)*std::sin(PI*y_b);
+            //f_j = 2*PI*PI*std::sin(PI*x[j])*std::sin(PI*y[j]);
+            f_j = f_j*area/3.0;
+            fvdata[j] = f_j;
+        }
+
+        M_matrix_seq->addMatrix(&rcindices[0], rcindices.size(),
+                                &rcindices[0], rcindices.size(), &data[0]);
+
+        // M_mass->addMatrix(&rcindices[0], rcindices.size(),
+        //                   &rcindices[0], rcindices.size(), &mass_data[0]);
+
+        //M_vector->addVector(&rcindices[0], rcindices.size(), &fvdata[0]);
+
+        ++cpt;
+    }
+
+    M_matrix_seq->close();
+
+    std::cout<<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
+
+    //M_mass->close();
+
+    // apply homogeneous dirichlet boundary conditions
+    // chrono.restart();
+    // M_matrix->on(dirichlet_flags,*M_vector);
+    // std::cout<<"TIMER DBCA= " << chrono.elapsed() <<"s\n";
+
+    std::cout<<"[PETSC MATRIX] CLOSED      = "<< M_matrix_seq->closed() <<"\n";
+    std::cout<<"[PETSC MATRIX] SIZE        = "<< M_matrix_seq->size1() << " " << M_matrix_seq->size2() <<"\n";
+    std::cout<<"[PETSC MATRIX] SYMMETRIC   = "<< M_matrix_seq->isSymmetric() <<"\n";
+    //std::cout<<"[PETSC MATRIX] NORM        = "<< M_matrix_seq->linftyNorm() <<"\n";
+
+    M_matrix_seq->printMatlab("matrixseq.m");
+
+#if 0
+    //M_matrix->printScreen();
+    M_matrix->printMatlab("stiffness.m");
+    M_vector->printMatlab("rhs.m");
+
+    vector_type v(M_num_nodes);
+    M_matrix->diagonal(v);
+    v.printMatlab("diag.m");
+#endif
 }
 
 void
@@ -1717,6 +1927,9 @@ FiniteElement::assembleSeq()
     std::vector<double> data(36);
     std::vector<double> fvdata(6),fvdata_reduction(6);
     std::vector<int> rcindices(6), rcindices_i(6);
+
+    auto M_transfer_map = M_mesh.transferMap();
+    auto M_local_ghost = M_mesh.localGhost();
 
     double duu, dvu, duv, dvv, fuu, fvv;
     int index_u, index_v;
@@ -1935,8 +2148,13 @@ FiniteElement::assembleSeq()
             fuu=0.;
             fvv=0.;
 
-            int index_u = it->indices[j]-1;
-            int index_v = it->indices[j]-1+M_num_nodes;
+            // int index_u = it->indices[j]-1;
+            // int index_v = it->indices[j]-1+M_num_nodes;
+
+            int index_u = (M_elements[cpt]).indices[j];
+            index_u = M_transfer_map.left.find(index_u)->second-1;
+            int index_v = index_u+M_num_nodes;
+
 
             for(int i=0; i<3; i++)
             {
@@ -3034,6 +3252,7 @@ FiniteElement::run()
 {
     // Initialise grid and forcing
     this->init();
+
 #if 0
     // Initialise time
     int ind;
@@ -3059,12 +3278,13 @@ FiniteElement::run()
 
     std::cout<<"INIT TIME= "<< to_iso_string(epoch) <<"\n";
 
+
     double displacement_factor = 1.;
     double minang = 0.;
     bool is_running = true;
 
     // Check the minimum angle of the grid
-    minang = this->minAngle(M_mesh);
+    minang = 20.;//this->minAngle(M_mesh);
     if (minang < vm["simul.regrid_angle"].as<double>())
     {
         std::cout<<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
@@ -3079,6 +3299,10 @@ FiniteElement::run()
         // if (pcpt > 35)
         //     is_running = false;
 
+        if (pcpt == 0)
+            is_running = false;
+
+
         current_time = time_init + pcpt*time_step/(24*3600.0);
         //std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
         std::cout<<"TIME STEP "<< pcpt << " for "<< current_time << " + "<< pcpt*time_step/(24*3600.0) <<"\n";
@@ -3088,6 +3312,7 @@ FiniteElement::run()
 
         M_regrid = false;
 
+#if 0
         if (vm["simul.regrid"].as<std::string>() == "bamg")
         {
             minang = this->minAngle(M_mesh,M_UM,displacement_factor);
@@ -3102,7 +3327,7 @@ FiniteElement::run()
                 std::cout<<"Regriding done in "<< chrono.elapsed() <<"s\n";
             }
         }
-
+#endif
         if (pcpt == 0)
             this->initSimulation();
 
@@ -3110,8 +3335,8 @@ FiniteElement::run()
         {
             std::cout<<"forcingThermo starts\n";
             this->forcingThermo(0.,0.);
-            std::cout<<"bathymetry starts\n";
-            this->bathymetry();
+            //std::cout<<"bathymetry starts\n";
+            //this->bathymetry();
             std::cout<<"tensors starts\n";
             this->tensors();
             std::cout<<"cohesion starts\n";
@@ -3135,7 +3360,7 @@ FiniteElement::run()
         this->computeFactors(pcpt);
         std::cout<<"computeFactors done in "<< chrono.elapsed() <<"s\n";
 
-#if 1
+#if 0
         if (pcpt == 0)
         {
             chrono.restart();
@@ -3146,9 +3371,9 @@ FiniteElement::run()
         }
 #endif
 
-
-
         this->assemble();
+
+#if 0
         this->solve();
 
         chrono.restart();
@@ -3173,11 +3398,12 @@ FiniteElement::run()
     }
 
 #endif
-        ++pcpt;
+    ++pcpt;
+#endif
     }
 
-    this->exportResults(1000);
-    std::cout<<"TIMER total = " << chrono_tot.elapsed() <<"s\n";
+    // this->exportResults(1000);
+    // std::cout<<"TIMER total = " << chrono_tot.elapsed() <<"s\n";
 #endif
 }
 
@@ -3299,9 +3525,10 @@ FiniteElement::computeFactors(int pcpt)
     int nind;
 #endif
 
+    auto M_transfer_map = M_mesh.transferMap();
     int thread_id;
     int total_threads;
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
+    int max_threads = 1;//omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
     std::cout<<"Using "<< max_threads << " threads" <<"\n";
 
@@ -3317,7 +3544,8 @@ FiniteElement::computeFactors(int pcpt)
 
         for (int i=0; i<3; ++i)
         {
-            nind = (M_elements[cpt]).indices[i]-1;
+            nind = (M_elements[cpt]).indices[i];
+            nind = M_transfer_map.left.find(nind)->second-1;
             welt_oce_ice += std::sqrt(std::pow(M_VT[nind]-M_ocean[nind],2.)+std::pow(M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes],2.));
             welt_air_ice += std::sqrt(std::pow(M_VT[nind]-M_wind [nind],2.)+std::pow(M_VT[nind+M_num_nodes]-M_wind [nind+M_num_nodes],2.));
             welt_ice += std::sqrt(std::pow(M_VT[nind],2.)+std::pow(M_VT[nind+M_num_nodes],2.));
@@ -3337,6 +3565,8 @@ FiniteElement::computeFactors(int pcpt)
         M_Voce_factor[cpt] = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*M_norm_Voce_ice[cpt]));
         M_Voce_factor[cpt] *= (vm["simul.rho_water"].as<double>());
 
+#if 0
+#endif
         //std::cout <<"Coeff= "<< M_norm_Vice[cpt] <<"\n";
         //std::cout <<"Coeff= "<< M_element_ssh[cpt] <<"\n";
     }
@@ -5295,7 +5525,7 @@ FiniteElement::createGraph(BamgMesh const* bamg_mesh)
 
         int Ncc = bamgmesh->NodalConnectivity[Nd*(i+1)-1];
         int gid = M_transfer_map.right.find(i+1)->second;
-        if (std::find(M_local_ghost.begin(),M_local_ghost.end(),gid) == M_local_ghost.end())
+        //if (std::find(M_local_ghost.begin(),M_local_ghost.end(),gid) == M_local_ghost.end())
         {
             //std::cout<<"-----------------Row "<< i << " or "<< gid <<"\n";
             for (int j=0; j<Ncc; ++j)
@@ -5315,22 +5545,23 @@ FiniteElement::createGraph(BamgMesh const* bamg_mesh)
             // std::cout<<"--------onnz  = "<< counter_onnz <<"\n";
             // std::cout<<"--------before= "<< 2*(Ncc+1) <<"\n";
 
-            d_nnz.push_back(2*(counter_dnnz+1));
-            o_nnz.push_back(2*(counter_onnz));
+            // d_nnz.push_back(2*(counter_dnnz+1));
+            // o_nnz.push_back(2*(counter_onnz));
+
+            d_nnz.push_back(counter_dnnz+1);
+            o_nnz.push_back(counter_onnz);
 
             // std::cout<<"--------dnnz  = "<< 2*(counter_dnnz+1) <<"\n";
             // std::cout<<"--------onnz  = "<< 2*(counter_onnz) <<"\n";
             // std::cout<<"--------before= "<< 2*(Ncc+1) <<"\n";
-
-
-
         }
 
 #if 1
-        if (std::find(M_local_ghost.begin(),M_local_ghost.end(),gid) == M_local_ghost.end())
+        //if (std::find(M_local_ghost.begin(),M_local_ghost.end(),gid) == M_local_ghost.end())
         {
             int Nc = bamgmesh->NodalConnectivity[Nd*(i+1)-1];
-            dz.push_back(2*(Nc+1));
+            //dz.push_back(2*(Nc+1));
+            dz.push_back(Nc+1);
 
             std::vector<int> local_ddz;
             local_ddz.push_back(i);
@@ -5346,12 +5577,16 @@ FiniteElement::createGraph(BamgMesh const* bamg_mesh)
             for (int const& k : local_ddz)
             {
                 ddz_j.push_back(k);
+                if ((M_rank == 0) && (i == 0))
+                {
+                    std::cout<<"GLOBAL["<< M_transfer_map.right.find(i+1)->second-1 <<"]: PUSH_BACK "<< k << " -> "<< M_transfer_map.right.find(k+1)->second-1 <<"\n";
+                }
             }
 
-            for (int const& k : local_ddz)
-            {
-                ddz_j.push_back(k+M_num_nodes);
-            }
+            // for (int const& k : local_ddz)
+            // {
+            //     ddz_j.push_back(k+M_num_nodes);
+            // }
         }
 #endif
 
@@ -5364,38 +5599,37 @@ FiniteElement::createGraph(BamgMesh const* bamg_mesh)
     }
 
 
+    // auto d_nnz_count = d_nnz.size();
+    // d_nnz.resize(2*d_nnz_count);
+    // std::copy_n(d_nnz.begin(), d_nnz_count, d_nnz.begin() + d_nnz_count);
 
-    auto d_nnz_count = d_nnz.size();
-    d_nnz.resize(2*d_nnz_count);
-    std::copy_n(d_nnz.begin(), d_nnz_count, d_nnz.begin() + d_nnz_count);
-
-    auto o_nnz_count = o_nnz.size();
-    o_nnz.resize(2*o_nnz_count);
-    std::copy_n(o_nnz.begin(), o_nnz_count, o_nnz.begin() + o_nnz_count);
+    // auto o_nnz_count = o_nnz.size();
+    // o_nnz.resize(2*o_nnz_count);
+    // std::copy_n(o_nnz.begin(), o_nnz_count, o_nnz.begin() + o_nnz_count);
 
 
     int sM = M_mesh.numNodes();
 
     std::vector<int> global_indices_with_ghost = M_mesh.localDofWithGhost();
     int glsize = global_indices_with_ghost.size();
-    global_indices_with_ghost.resize(2*glsize);
+    // global_indices_with_ghost.resize(2*glsize);
 
     for (int gl=0; gl<glsize; ++gl)
         global_indices_with_ghost[gl] = global_indices_with_ghost[gl]-1;
 
-    for (int gl=0; gl<glsize; ++gl)
-        global_indices_with_ghost[gl+glsize] = global_indices_with_ghost[gl] + sM ;
+    // for (int gl=0; gl<glsize; ++gl)
+    //     global_indices_with_ghost[gl+glsize] = global_indices_with_ghost[gl] + sM ;
 
 
     std::vector<int> global_indices_without_ghost = M_mesh.localDofWithoutGhost();
     glsize = global_indices_without_ghost.size();
-    global_indices_without_ghost.resize(2*glsize);
+    // global_indices_without_ghost.resize(2*glsize);
 
     for (int gl=0; gl<glsize; ++gl)
         global_indices_without_ghost[gl] = global_indices_without_ghost[gl]-1;
 
-    for (int gl=0; gl<glsize; ++gl)
-        global_indices_without_ghost[gl+glsize] = global_indices_without_ghost[gl] + sM ;
+    // for (int gl=0; gl<glsize; ++gl)
+    //     global_indices_without_ghost[gl+glsize] = global_indices_without_ghost[gl] + sM ;
 
 
     M_graphmpi = graphmpi_type(d_nnz, o_nnz, global_indices_without_ghost, global_indices_with_ghost);
@@ -5411,30 +5645,44 @@ FiniteElement::createGraph(BamgMesh const* bamg_mesh)
     // std::cout<<"************MAXDZ= "<< *maxdzit << " at "<< std::distance(dz.begin(), maxdzit) <<"\n";
 
 
-    auto dzu_count = dz.size();
-    dz.resize(2*dzu_count);
-    std::copy_n(dz.begin(), dzu_count, dz.begin() + dzu_count);
+    // auto dzu_count = dz.size();
+    // dz.resize(2*dzu_count);
+    // std::copy_n(dz.begin(), dzu_count, dz.begin() + dzu_count);
 
+    // int ddzi_count = ddz_i.size();
+    // ddz_i.resize(2*ddzi_count+1,0);
+    // ddz_i[ddzi_count] = ddz_i[ddzi_count-1] + dz[ddzi_count-1];
+
+    // for (int ll=0; ll<ddzi_count; ++ll)
+    // {
+    //     ddz_i[ddzi_count+1+ll] = ddz_i[ddzi_count+ll] + dz[ll];
+    // }
+
+    // auto ddzj_count = ddz_j.size();
+    // ddz_j.resize(2*ddzj_count);
+    // std::copy_n(ddz_j.begin(), ddzj_count, ddz_j.begin() + ddzj_count);
+
+    // to be deleted
     int ddzi_count = ddz_i.size();
-    ddz_i.resize(2*ddzi_count+1,0);
+    ddz_i.resize(ddzi_count+1,0);
     ddz_i[ddzi_count] = ddz_i[ddzi_count-1] + dz[ddzi_count-1];
+    // endd
 
-    for (int ll=0; ll<ddzi_count; ++ll)
-    {
-        ddz_i[ddzi_count+1+ll] = ddz_i[ddzi_count+ll] + dz[ll];
-    }
-
-    auto ddzj_count = ddz_j.size();
-    ddz_j.resize(2*ddzj_count);
-    std::copy_n(ddz_j.begin(), ddzj_count, ddz_j.begin() + ddzj_count);
-
-    //std::vector<double> ddz_data(ddz_j.size(),0.);
-    //M_graph = graph_type(dz,ddz_i,ddz_j,ddz_data);
+    std::vector<double> ddz_data(ddz_j.size(),1.);
+    M_graph = graph_type(dz,ddz_i,ddz_j,ddz_data);
 
     std::cout<<"\n";
     std::cout<<"["<< M_rank <<"] GRAPHCSR INFO: MIN NZ (per row)      = "<< *std::min_element(dz.begin(),dz.end()) <<"\n";
     std::cout<<"["<< M_rank <<"] GRAPHCSR INFO: MAX NZ (per row)      = "<< *std::max_element(dz.begin(),dz.end()) <<"\n";
     std::cout<<"["<< M_rank <<"] GRAPHCSR INFO: NNZ (total)           = "<< ddz_j.size() <<"\n";
+    std::cout<<"\n";
+
+
+    std::cout<<"\n";
+    std::cout<<"["<< M_rank <<"] GRAPHCSR INFO: MIN NZ ON-DIAGONAL (per row)     = "<< *std::min_element(d_nnz.begin(),d_nnz.end()) <<"\n";
+    std::cout<<"["<< M_rank <<"] GRAPHCSR INFO: MAX NZ ON-DIAGONAL (per row)     = "<< *std::max_element(d_nnz.begin(),d_nnz.end()) <<"\n";
+    std::cout<<"["<< M_rank <<"] GRAPHCSR INFO: MIN NZ OFF-DIAGONAL (per row)    = "<< *std::min_element(o_nnz.begin(),o_nnz.end()) <<"\n";
+    std::cout<<"["<< M_rank <<"] GRAPHCSR INFO: MAX NZ OFF-DIAGONAL (per row)    = "<< *std::max_element(o_nnz.begin(),o_nnz.end()) <<"\n";
     std::cout<<"\n";
 
 

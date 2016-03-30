@@ -70,6 +70,7 @@ public:
                const size_type n,
                const size_type m_l,
                const size_type n_l,
+               graph_type const& graphloc,
                graphmpi_type const& graph );
 
     void initLocalToGlobalMapping(graphmpi_type const& graph);
@@ -119,6 +120,11 @@ public:
     void on(std::vector<int> const& flags, VectorPetsc& rhs);
 
     value_type energy(VectorPetsc& u) const;
+
+    size_type rowStart() const;
+
+    size_type rowStop() const;
+
 
 private:
 

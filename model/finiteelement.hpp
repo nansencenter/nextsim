@@ -113,6 +113,8 @@ public:
     void adaptMesh();
 
     void assemble();
+    void laplacian();
+    void laplacianSeq();
     void assembleSeq();
     void solve();
     void run();
@@ -174,6 +176,7 @@ private:
     mesh_type M_mesh_previous;
     solver_ptrtype M_solver;
     matrix_ptrtype M_matrix;
+    matrix_ptrtype M_matrix_seq;
     //matrix_ptrtype M_mass;
     vector_ptrtype M_vector;
     vector_ptrtype M_solution;
@@ -186,6 +189,7 @@ private:
     int M_num_nodes;
     int M_ndof;
     int M_local_ndof;
+    int M_local_ndof_ghost;
     int M_num_elements;
     int M_rank;
     Communicator M_comm;

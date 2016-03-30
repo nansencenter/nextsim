@@ -13,11 +13,13 @@
 #include <sstream>
 #include <fstream>
 #include <iomanip>
+#include <vector>
 #include <algorithm>
 #include <assert.hpp>
 #include <boost/bimap.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string/trim.hpp>
+#include <boost/mpi/collectives.hpp>
 
 #include <environment.hpp>
 //#include <GModel.h>
@@ -202,7 +204,9 @@ public:
     std::vector<int> const& localDofWithoutGhost() const {return M_local_dof_without_ghost;}
     std::vector<int> const& localDofWithGhost() const {return M_local_dof_with_ghost;}
     std::vector<int> const& localGhost() const {return M_local_ghost;}
-    bimap_type const& transferMap() const {return M_transfer_map;}
+    //bimap_type const& transferMap() const {return M_transfer_map;}
+    bimap_type const& transferMap() const {return M_transfer_map_reordered;}
+    bimap_type const& transferMapReordered() const {return M_transfer_map_reordered;}
     bool isValid(element_type const& elt) const;
 
     std::vector<int> indexTr() const;
@@ -235,6 +239,7 @@ private:
     std::vector<int> M_local_dof_without_ghost;
     std::vector<int> M_local_ghost;
     bimap_type M_transfer_map;
+    bimap_type M_transfer_map_reordered;
 
     // std::vector<int> local_node_without_ghost;
     // std::vector<int> local_node_with_ghost;

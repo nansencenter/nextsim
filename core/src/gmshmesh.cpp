@@ -7,6 +7,13 @@
  */
 
 #include <gmshmesh.hpp>
+#include <boost/mpi.hpp>
+#include <boost/serialization/string.hpp>
+#include <vector>
+#include <string>
+#include <iterator>
+#include <algorithm>
+#include <iostream>
 
 namespace Nextsim
 {
@@ -247,7 +254,8 @@ GmshMesh::readFromFile(std::string const& filename)
     // we are done reading the MSH file
 
     // create local dofs
-    this->nodalGrid();
+    if (M_comm.size() > 1)
+        this->nodalGrid();
 }
 
 void
@@ -503,9 +511,74 @@ GmshMesh::nodalGrid()
     std::copy_n(M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.size(), std::back_inserter(M_local_dof_with_ghost));
     std::copy_n(M_local_ghost.begin(), M_local_ghost.size(), std::back_inserter(M_local_dof_with_ghost));
 
+    // for (int k=0; k<M_local_dof_with_ghost.size(); ++k)
+    // {
+    //     M_transfer_map.insert(position(M_local_dof_with_ghost[k],k+1));
+    // }
+
+
+    // gather operations for global renumbering
+    std::vector<std::vector<int>> renumbering;
+    boost::mpi::all_gather(M_comm,
+                           M_local_dof_without_ghost,
+                           renumbering);
+
+    //std::cout<<"GMSH["<< M_comm.rank() <<"]: "<< renumbering.size() <<"\n";
+
+    //std::cout<<"GMSH["<< M_comm.rank() <<"]: "<< M_local_dof_without_ghost.size() <<"\n";
+    //std::cout<<"GMSH["<< M_comm.rank() <<"]: "<< M_local_dof_without_ghost.size() <<"\n";
+
+    bimap_type reorder;
+    std::vector<point_type> _nodes = M_nodes;
+
+    std::cout<<"["<< M_comm.rank() <<"]: " << " M_num_nodes= "<< M_num_nodes <<"\n";
+
+    int cpts = 0;
+    int cpts_dom = 0;
+    //if (M_comm.rank() == 1)
+    for (int ii=0; ii<M_comm.size(); ++ii)
+    {
+        for (int jj=0; jj<renumbering[ii].size(); ++jj)
+        {
+            reorder.insert(position(renumbering[ii][jj],cpts+1));
+
+            // add new contribution
+            int sr = renumbering[ii].size();
+            //reorder.insert(position(renumbering[ii][jj]+M_num_nodes,cpts+1+sr));
+
+            //M_transfer_map_reordered.insert(position(M_local_dof_with_ghost[k],k+1));
+            if (M_comm.rank() == 0)
+            {
+                std::cout<<"MAPPING["<< cpts+1+cpts_dom <<"]= "<< renumbering[ii][jj] <<"\t \t";
+                std::cout<<"MAPPING["<< cpts+1+sr+cpts_dom <<"]= "<< renumbering[ii][jj]+M_num_nodes <<"\n";
+            }
+
+            M_nodes[cpts] = _nodes[renumbering[ii][jj]-1];
+            //M_nodes[cpts].id = _nodes[renumbering[ii][jj]].id;
+            //M_nodes[cpts].coords = _nodes[renumbering[ii][jj]].coords;
+            ++cpts;
+        }
+
+        cpts_dom += renumbering[ii].size();
+    }
+
+    //std::cout<<"CPT= "<< cpts <<"\n";
+
+    // end
+
     for (int k=0; k<M_local_dof_with_ghost.size(); ++k)
     {
         M_transfer_map.insert(position(M_local_dof_with_ghost[k],k+1));
+
+        int rdof = reorder.left.find(M_local_dof_with_ghost[k])->second;
+        M_transfer_map_reordered.insert(position(rdof,k+1));
+
+        M_local_dof_with_ghost[k] = rdof;
+
+        if (k < M_local_dof_without_ghost.size())
+            M_local_dof_without_ghost[k] = rdof;
+        else
+            M_local_ghost[k-M_local_dof_without_ghost.size()] = rdof;
     }
 
 #if 1
@@ -531,12 +604,22 @@ GmshMesh::nodalGrid()
             if (_test)
                 continue;
 
+
+            // new add
+            for (int i=0; i<3; ++i)
+            {
+                it->indices[i] = reorder.left.find(it->indices[i])->second;
+            }
+            // end
+
             M_triangles.push_back(*it);
         }
     }
 
     M_num_triangles = M_triangles.size();
 #endif
+
+    //std::cout<<"RED DONE\n";
 
 }
 
@@ -576,7 +659,8 @@ GmshMesh::indexTr() const
 
         for (int i=0; i<3; ++i)
         {
-            index.push_back(M_transfer_map.left.find(it->indices[i])->second);
+            //index.push_back(M_transfer_map.left.find(it->indices[i])->second);
+            index.push_back(M_transfer_map_reordered.left.find(it->indices[i])->second);
         }
 
         // index[3*cpt] = it->indices[0];//it->first;
