@@ -3845,6 +3845,8 @@ FiniteElement::thermo()
         double  hi_old=0.; // Ice thickness at the start of the time step (slab)
         double  hs=0.;     // Snow thickness (slab)
 
+        double  c_old=0;   // Ice concentration at the start of the time step
+
         double  del_hi=0.; // Change in ice thickness (slab only)
 
         double  evap=0.;   // Evaporation
@@ -3959,6 +3961,7 @@ FiniteElement::thermo()
             hi      = 0.;
             hi_old  = 0.;
             hs      = 0.;
+            c_old   = 0.;
             M_tsurf[i] = 0.;
             Qio     = 0.;
             del_hi  = 0.;
@@ -3968,6 +3971,7 @@ FiniteElement::thermo()
             hi     = M_thick[i]/M_conc[i];
             hi_old = M_thick[i]/M_conc[i];
             hs     = M_snow_thick[i]/M_conc[i];
+            c_old  = M_conc[i];
 
             /* Local variables */
             double albedo;
@@ -4138,16 +4142,17 @@ FiniteElement::thermo()
             del_hi = del_ht+del_hb;
             hi     = hi + del_hi;
 
-            /* Make sure we don't get too small hi_new */
-            if ( hi < hmin )
-            {
-                del_hi  = del_hi-hi;
-                Qio     = Qio + hi*qi/time_step + hs*qs/time_step;
+            // This is done below
+            // /* Make sure we don't get too small hi_new */
+            // if ( hi < physical::hmin )
+            // {
+            //     del_hi  = del_hi-hi;
+            //     Qio     = Qio + hi*qi/time_step + hs*qs/time_step;
 
-                hi      = 0.;
-                hs      = 0.;
-                M_tsurf[i] = 0.;
-            }
+            //     hi      = 0.;
+            //     hs      = 0.;
+            //     M_tsurf[i] = 0.;
+            // }
 
             /* Snow-to-ice conversion */
             draft = ( hi*physical::rhoi + hs*physical::rhos ) / physical::rhow;
@@ -4174,7 +4179,7 @@ FiniteElement::thermo()
         {
             newice  = (1.-M_conc[i])*(tfrw-tw_new)*M_mld[i]*physical::rhow*physical::cpw/qi;
             Qow  = -(tfrw-M_sst[i])*M_mld[i]*physical::rhow*physical::cpw/time_step;
-            evap = 0.;
+            // evap = 0.;
         } else {
             newice  = 0.;
         }
@@ -4237,11 +4242,12 @@ FiniteElement::thermo()
                     /* Use the fraction PhiM of (1-c)*Qow to melt laterally */
                     del_c = PhiM*(1.-M_conc[i])*std::min(0.,Qow)*time_step/( hi*qi+hs*qs );
                     /* Deliver the fraction (1-PhiM) of Qow to the ocean */
-                    /* + Deliver excess energy to the ocean when there's no ice left */
-                    Qow = (1.-PhiM)*Qow
-                            + std::min(0., std::max(0.,M_conc[i]+del_c)*( hi*qi+hs*qs )/time_step);
-                    /* Don't suffer negative c! */
-                    del_c = std::max(del_c, -M_conc[i]);
+                    Qow = (1.-PhiM)*Qow;
+                    // This is handled below
+                    // /* + Deliver excess energy to the ocean when there's no ice left */
+                    //         + std::min(0., std::max(0.,M_conc[i]+del_c)*( hi*qi+hs*qs )/time_step);
+                    // /* Don't suffer negative c! */
+                    // del_c = std::max(del_c, -M_conc[i]);
                     break;
                 default :
                     std::cout << "newice_type = " << newice_type << "\n";
@@ -4261,25 +4267,29 @@ FiniteElement::thermo()
         /* We conserve volume and energy */
         if ( M_conc[i] >= physical::cmin )
         {
-            hi = ( hi*(M_conc[i]-del_c) + newice )/M_conc[i];
+            hi = ( hi*(c_old) + newice )/M_conc[i];
             if ( del_c < 0. )
             {
                 /* We conserve the snow height, but melt away snow as the concentration decreases */
                 Qow = Qow + del_c*hs*qs/time_step;
             } else {
                 /* Snow volume is conserved as concentration increases */
-                hs  = ( hs*(M_conc[i]-del_c) + newsnow )/M_conc[i];
+                hs  = ( hs*(c_old) + newsnow )/M_conc[i];
             }
         }
 
         /* Check limits */
-        if ( M_conc[i] < cmin || hi < hmin )
+        if ( M_conc[i] < physical::cmin || hi < physical::hmin )
         {
             //Qow    = Qow + (M_conc[i]-del_c)*hi*qi/time_step + (M_conc[i]-del_c)*hs*qs/time_step; 
             //SYL: is this commented line right??
             // I think irt is wrong as we already modify Qow, I would do:
-            Qow    = Qow + M_conc[i]*hi*qi/time_step + M_conc[i]*hs*qs/time_step;
-            M_conc[i] = 0.;
+            // Qow    = Qow + M_conc[i]*hi*qi/time_step + M_conc[i]*hs*qs/time_step;
+            // Extract heat from the ocean corresponding to the heat in all the
+            // ice and snow present at the start of the time step. 
+            Qow    = Qow + c_old*hi*qi/time_step + c_old*hs*qs/time_step;
+            M_conc[i]  = 0.;
+            M_tsurf[i] = 0.;
             hi     = 0.;
             hs     = 0.;
         }
@@ -4428,8 +4438,8 @@ FiniteElement::run()
     {
         is_running = ((pcpt+1)*time_step) < duration;
 
-        // if (pcpt > 20)
-        //     is_running = false;
+        if (pcpt > 21)
+            is_running = false;
 
         current_time = time_init + pcpt*time_step/(24*3600.0);
         //std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
