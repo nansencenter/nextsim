@@ -3969,7 +3969,7 @@ FiniteElement::thermo()
         } else {
             /* Calculate the slab thickness */
             hi     = M_thick[i]/M_conc[i];
-            hi_old = M_thick[i]/M_conc[i];
+            hi_old = hi;
             hs     = M_snow_thick[i]/M_conc[i];
             c_old  = M_conc[i];
 
@@ -3982,7 +3982,7 @@ FiniteElement::thermo()
             double Qic, del_hs, del_ht, del_hb, draft;
 
             double Qlw_out, dQlwdT;
-            double tairK, sphuma, sphumi;
+            double tairK, sphumi;
             double rhoair, Qsh, dQshdT;
             double Qlh, dsphumidT, dQlhdT;
 
@@ -4072,7 +4072,7 @@ FiniteElement::thermo()
 
                 /* Density of air */
                 tairK  = M_tair[i] + physical::tfrwK;
-                rhoair = M_mslp[i]/(Ra*tairK) * (1.+sphuma)/(1.+1.609*sphuma);
+                rhoair = M_mslp[i]/(physical::Ra*tairK) * (1.+sphuma)/(1.+1.609*sphuma);
 
                 /* Sensible heat flux and derivative */
                 Qsh    = drag_ice_t * rhoair * physical::cpa * wspeed*( M_tsurf[i] - M_tair[i] );
@@ -4364,11 +4364,11 @@ FiniteElement::run()
 {
     // Initialise everything that doesn't depend on the mesh (constants, data set description, and time)
     this->initConstant();
+    current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
     this->initDatasets();
 
     int pcpt = 0;
     int niter = 0;
-    current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
 
     std::cout<<"TIMESTEP= "<< time_step <<"\n";
     std::cout<<"DURATION= "<< duration <<"\n";
@@ -4438,8 +4438,8 @@ FiniteElement::run()
     {
         is_running = ((pcpt+1)*time_step) < duration;
 
-        if (pcpt > 21)
-            is_running = false;
+        // if (pcpt > 21)
+        //     is_running = false;
 
         current_time = time_init + pcpt*time_step/(24*3600.0);
         //std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
