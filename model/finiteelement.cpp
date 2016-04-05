@@ -855,7 +855,12 @@ FiniteElement::initConstant()
     time_step = vm["simul.timestep"].as<double>();
     duration = (vm["simul.duration"].as<double>())*days_in_sec;
     spinup_duration = (vm["simul.spinup_duration"].as<double>())*days_in_sec;
-    restart_time_step =  time_step*vm["setup.restart_time_step"].as<double>();
+    restart_time_step =  vm["setup.restart_time_step"].as<double>()*days_in_sec;
+    if ( fmod(restart_time_step,time_step) != 0)
+    {
+        std::cout << restart_time_step << " " << time_step << endl;
+        throw std::logic_error("restart_time_step not an integer multiple of time_step");
+    }
 
     divergence_min = (1./days_in_sec)*vm["simul.divergence_min"].as<double>();
     compression_factor = vm["simul.compression_factor"].as<double>();
@@ -4404,7 +4409,8 @@ FiniteElement::run()
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
     }
 
-    bool Restart = vm["setup.use_restart"].as<bool>();
+    bool Restart       = vm["setup.use_restart"].as<bool>();
+    bool write_restart = vm["setup.write_restart"].as<bool>();
     if ( Restart )
     {
         this->readRestart(pcpt, vm["setup.step_nb"].as<int>());

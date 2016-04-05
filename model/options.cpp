@@ -37,6 +37,7 @@ namespace Nextsim
             ("setup.bathymetry-type", po::value<std::string>()->default_value( "etopo" ), "")
             ("setup.drifter-type", po::value<std::string>()->default_value( "none" ), "")
             ("setup.use_restart", po::value<bool>()->default_value( false ), "")
+            ("setup.write_restart", po::value<bool>()->default_value( false ), "")
             ("setup.restart_time_step", po::value<double>()->default_value( 20 ), "days")
             ("setup.step_nb", po::value<int>()->default_value( 0 ), "")
 
@@ -159,7 +160,7 @@ namespace Nextsim
             ("simul.constant_Fdw", po::value<double>()->default_value( 0. ), "")
             ("simul.constant_ocean_u", po::value<double>()->default_value( 0. ), "")
             ("simul.constant_ocean_v", po::value<double>()->default_value( 0. ), "")
-			("simul.constant_bathymetry", po::value<double>()->default_value( 200. ), "")
+            ("simul.constant_bathymetry", po::value<double>()->default_value( 200. ), "")
             ;
         return desc;
     }
