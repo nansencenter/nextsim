@@ -8,11 +8,11 @@ fi
 
 # Test wether we get the same results with a different number of threads
 
-# The first input can be the config file
+# The first input can be the config file - but use nextsim.cfg if the first input is empty
 cfgfile=$1
 : ${cfgfile:="nextsim.cfg"}
 
-# The second input can be the executable file
+# The second input can be the executable file - but use bin/nextsim.exec if the second input is empty
 execfile=$2
 : ${execfile:="bin/nextsim.exec"}
 
@@ -21,7 +21,7 @@ OMP_NUM_THREADS=1 $execfile --simul.duration=0.25 --simul.output_per_day=4 --con
 
 # Save the old final files
 mkdir -p ../matlab/omp_test
-mv ../matlab/*_1000.??? ../matlab/omp_test
+mv ../matlab/*_1000.??? ../matlab/omp_test/
 
 # Run with 8 threads
 OMP_NUM_THREADS=8 $execfile --simul.duration=0.25 --simul.ouput_per_day=4 --config-file=$cfgfile #|| exit 5
