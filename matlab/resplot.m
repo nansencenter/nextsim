@@ -1,6 +1,6 @@
-function resplot(step)
+function resplot(field,step)
 
-clearvars -except step;
+% clearvars -except step;
 
 % mc_script=['mu',num2str(step)];
 % mx_script=['mx',num2str(step)];
@@ -22,7 +22,7 @@ clearvars -except step;
 % patch(x,y,c,'FaceColor','flat','EdgeColor','none')
 % caxis([min(var_mc), max(var_mc)])
 
-field='Velocity';
+%field='Velocity';
 %field='mld';
 %field='Concentration';
 %field='Thickness';

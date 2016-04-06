@@ -156,6 +156,7 @@ public:
     void error();
 
     void thermo();
+    void thermoIce0(int i, double wspeed, double sphuma, double &hi, double &hs, double &hi_old, double &Qio, double &del_hi);
 
     Dataset M_asr_nodes_dataset;
     Dataset M_asr_elements_dataset;
