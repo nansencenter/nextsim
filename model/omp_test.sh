@@ -35,9 +35,9 @@ diff -qs ../matlab/omp_test/mesh_1000.bin ../matlab/mesh_1000.bin
 
 if [ $results -gt 0 ]
 then
-	echo "Restart DOES NOT produce bit-wise identical results"
+	echo "Different threads DO NOT produce bit-wise identical results"
 else
-	echo "Restart produces bit-wise identical results"
+	echo "Different threads produce bit-wise identical results"
 fi
 
 
