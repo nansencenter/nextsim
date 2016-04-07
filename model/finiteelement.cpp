@@ -856,7 +856,12 @@ FiniteElement::initConstant()
     time_step = vm["simul.timestep"].as<double>();
     duration = (vm["simul.duration"].as<double>())*days_in_sec;
     spinup_duration = (vm["simul.spinup_duration"].as<double>())*days_in_sec;
-    restart_time_step =  time_step*vm["setup.restart_time_step"].as<double>();
+    restart_time_step =  vm["setup.restart_time_step"].as<double>()*days_in_sec;
+    if ( fmod(restart_time_step,time_step) != 0)
+    {
+        std::cout << restart_time_step << " " << time_step << endl;
+        throw std::logic_error("restart_time_step not an integer multiple of time_step");
+    }
 
     divergence_min = (1./days_in_sec)*vm["simul.divergence_min"].as<double>();
     compression_factor = vm["simul.compression_factor"].as<double>();
@@ -1061,6 +1066,7 @@ double
 FiniteElement::minAngle(mesh_type const& mesh) const
 {
     std::vector<double> all_min_angle(mesh.numTriangles());
+    double min_angle;
 
 #if 0
     int cpt = 0;
@@ -1082,7 +1088,8 @@ FiniteElement::minAngle(mesh_type const& mesh) const
     }
 #endif
 
-    return *std::min_element(all_min_angle.begin(),all_min_angle.end());
+    min_angle = *std::min_element(all_min_angle.begin(),all_min_angle.end());
+    return min_angle;
 }
 
 double
@@ -4473,8 +4480,9 @@ FiniteElement::run()
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
     }
 
-    bool Restart = vm["setup.use_restart"].as<bool>();
-    if ( Restart )
+    bool use_restart   = vm["setup.use_restart"].as<bool>();
+    bool write_restart = vm["setup.write_restart"].as<bool>();
+    if ( use_restart )
     {
         this->readRestart(pcpt, vm["setup.step_nb"].as<int>());
         current_time = time_init + pcpt*time_step/(24*3600.0);
@@ -4541,7 +4549,7 @@ FiniteElement::run()
             this->outputDrifter(drifters_out);
         }
 
-        if ( M_regrid || Restart )
+        if ( M_regrid || use_restart )
         {
             chrono.restart();
             std::cout<<"tensors starts\n";
@@ -4561,20 +4569,20 @@ FiniteElement::run()
 
         chrono.restart();
         std::cout<<"forcingAtmosphere starts\n";
-        this->forcingAtmosphere(M_regrid||Restart);
+        this->forcingAtmosphere(M_regrid||use_restart);
 		std::cout<<"forcingAtmosphere done in "<< chrono.elapsed() <<"s\n";
 
         chrono.restart();
         std::cout<<"forcingOcean starts\n";
-        this->forcingOcean(M_regrid||Restart);
+        this->forcingOcean(M_regrid||use_restart);
         std::cout<<"forcingOcean done in "<< chrono.elapsed() <<"s\n";
 
         chrono.restart();
         std::cout<<"bathymetry starts\n";
-        this->bathymetry(M_regrid||Restart);
+        this->bathymetry(M_regrid||use_restart);
         std::cout<<"bathymetry done in "<< chrono.elapsed() <<"s\n";
 
-        Restart = false;
+        use_restart = false;
 
 #if 1
         if (pcpt == 0)
@@ -5450,6 +5458,8 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 			//RY[i]=tmp_latlon[0];
 			//RX[i]=tmp_latlon[1];
 		}
+
+		close_mapx(map);
 	}
 
     std::cout<<"before interp " <<"\n";
