@@ -156,7 +156,8 @@ public:
     void error();
 
     void thermo();
-    void thermoIce0(int i, double wspeed, double sphuma, double &hi, double &hs, double &hi_old, double &Qio, double &del_hi);
+    void thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols,
+            double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf);
 
     Dataset M_asr_nodes_dataset;
     Dataset M_asr_elements_dataset;
@@ -402,6 +403,7 @@ private:
 	
 	// Non-prognostic variables used to speed up the convergence of a non-linear equation in thermodynamics
     std::vector<double> M_tsurf;        // Ice surface temperature [C]
+    std::vector<double> M_tsurf_thin;   // Ice surface temperature of thin ice [C]
 	
 
 private:
