@@ -4506,6 +4506,8 @@ FiniteElement::run()
         std::stringstream filename;
         filename << Environment::nextsimDir().string() << "/matlab/drifters_out_" << current_time << ".txt";
         drifters_out.open(filename.str(), std::fstream::out);
+        if ( ! drifters_out.good() )
+            throw std::runtime_error("Cannot write to file: " + filename.str());
     }
 
     // main loop for nextsim program
@@ -4669,6 +4671,8 @@ FiniteElement::writeRestart(int pcpt, int step)
             % step ).str();
 
     std::fstream meshbin(filename, std::ios::binary | std::ios::out | std::ios::trunc);
+    if ( ! meshbin.good() )
+        throw std::runtime_error("Cannot write to file: " + filename);
     exporter.writeMesh(meshbin, M_mesh);
     meshbin.close();
 
@@ -4678,6 +4682,8 @@ FiniteElement::writeRestart(int pcpt, int step)
            % step ).str();
 
     std::fstream meshrecord(filename, std::ios::out | std::ios::trunc);
+    if ( ! meshrecord.good() )
+        throw std::runtime_error("Cannot write to file: " + filename);
     exporter.writeRecord(meshrecord,"mesh");
     meshrecord.close();
 
@@ -4687,6 +4693,8 @@ FiniteElement::writeRestart(int pcpt, int step)
                % Environment::nextsimDir().string()
                % step ).str();
     std::fstream outbin(filename, std::ios::binary | std::ios::out | std::ios::trunc );
+    if ( ! outbin.good() )
+        throw std::runtime_error("Cannot write to file: " + filename);
 
     std::vector<int> misc_int(2);
     misc_int[0] = pcpt;
@@ -4745,6 +4753,8 @@ FiniteElement::writeRestart(int pcpt, int step)
                % Environment::nextsimDir().string()
                % step ).str();
     std::fstream outrecord(filename, std::ios::out | std::ios::trunc);
+    if ( ! outrecord.good() )
+        throw std::runtime_error("Cannot write to file: " + filename);
     exporter.writeRecord(outrecord);
     outrecord.close();
 }
@@ -4763,6 +4773,8 @@ FiniteElement::readRestart(int &pcpt, int step)
                % Environment::nextsimDir().string()
                % step ).str();
     std::ifstream meshrecord(filename);
+    if ( ! meshrecord.good() )
+        throw std::runtime_error("File not found: " + filename);
 
     exp_mesh.readRecord(meshrecord);
     meshrecord.close();
@@ -4772,6 +4784,8 @@ FiniteElement::readRestart(int &pcpt, int step)
                % Environment::nextsimDir().string()
                % step ).str();
     std::fstream meshbin(filename, std::ios::binary | std::ios::in );
+    if ( ! meshbin.good() )
+        throw std::runtime_error("File not found: " + filename);
     exp_mesh.loadFile(meshbin, field_map_int, field_map_dbl);
     meshbin.close();
 
@@ -4785,6 +4799,8 @@ FiniteElement::readRestart(int &pcpt, int step)
                % Environment::nextsimDir().string()
                % step ).str();
     std::ifstream inrecord(filename);
+    if ( ! inrecord.good() )
+        throw std::runtime_error("File not found: " + filename);
 
     exp_field.readRecord(inrecord);
     inrecord.close();
@@ -4794,6 +4810,8 @@ FiniteElement::readRestart(int &pcpt, int step)
                % Environment::nextsimDir().string()
                % step ).str();
     std::fstream inbin(filename, std::ios::binary | std::ios::in );
+    if ( ! inbin.good() )
+        throw std::runtime_error("File not found: " + filename);
     field_map_int.clear();
     field_map_dbl.clear();
     exp_field.loadFile(inbin, field_map_int, field_map_dbl);
@@ -6119,7 +6137,10 @@ FiniteElement::updateIABPDrifter()
 void
 FiniteElement::initIABPDrifter()
 {
-    M_iabp_file.open(Environment::nextsimDir().string() + "/data/IABP_buoys.txt", std::fstream::in);
+    std::string filename = Environment::nextsimDir().string() + "/data/IABP_buoys.txt";
+    M_iabp_file.open(filename, std::fstream::in);
+    if ( ! M_iabp_file.good() )
+        throw std::runtime_error("File not found: " + filename);
 
     int pos;    // To be able to rewind one line
     double time = dateStr2Num("1979-01-01");
@@ -6438,6 +6459,9 @@ FiniteElement::exportResults(int step, bool export_mesh)
 		M_mesh.move(M_UM,1.);
 
         std::fstream meshbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
+        if ( ! meshbin.good() )
+            throw std::runtime_error("Cannot write to file: " + fileout);
+
         exporter.writeMesh(meshbin, M_mesh);
         meshbin.close();
 
@@ -6451,6 +6475,8 @@ FiniteElement::exportResults(int step, bool export_mesh)
         std::cout<<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
 
         std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
+        if ( ! outrecord.good() )
+            throw std::runtime_error("Cannot write to file: " + fileout);
         exporter.writeRecord(outrecord,"mesh");
         outrecord.close();
     }
@@ -6463,6 +6489,8 @@ FiniteElement::exportResults(int step, bool export_mesh)
     std::cout<<"BINARY: Exporter Filename= "<< fileout <<"\n";
 
     std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
+    if ( ! outbin.good() )
+        throw std::runtime_error("Cannot write to file: " + fileout);
     exporter.writeField(outbin, M_VT, "M_VT");
     exporter.writeField(outbin, M_conc, "Concentration");
     exporter.writeField(outbin, M_thick, "Thickness");
@@ -6497,6 +6525,8 @@ FiniteElement::exportResults(int step, bool export_mesh)
     std::cout<<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
 
     std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
+    if ( ! outrecord.good() )
+        throw std::runtime_error("Cannot write to file: " + fileout);
     exporter.writeRecord(outrecord);
     outrecord.close();
 #endif

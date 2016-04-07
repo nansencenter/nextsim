@@ -1,4 +1,6 @@
-function resplot(field,step)
+function resplot(field,step,dir)
+
+if nargin==2, dir=''; end
 
 % clearvars -except step;
 
@@ -34,7 +36,7 @@ function resplot(field,step)
 %field='Voce_factor';
 %field='Damage';
 %field='bathy';
-[mesh_out,data_out] = neXtSIM_bin_revert('', step);
+[mesh_out,data_out] = neXtSIM_bin_revert(dir, step);
 
 % reshape
 var_mx=mesh_out.Nodes_x(mesh_out.Elements);
