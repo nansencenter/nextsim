@@ -67,8 +67,8 @@ VectorPetsc::init( const size_type n, bool fast )
 	int ierr=0;
 	int petsc_n=static_cast<int>( n );
 
-	//ierr = VecCreateSeq ( PETSC_COMM_SELF, petsc_n, &M_vec );
-	ierr = VecCreateSeq ( M_comm, petsc_n, &M_vec );
+	ierr = VecCreateSeq ( PETSC_COMM_SELF, petsc_n, &M_vec );
+	//ierr = VecCreateSeq ( M_comm, petsc_n, &M_vec );
 	CHKERRABORT( M_comm,ierr );
 
 	ierr = VecSetFromOptions ( M_vec );
@@ -535,6 +535,20 @@ VectorPetsc::size() const
 
 	int petsc_size=0;
 	int ierr = VecGetSize( M_vec, &petsc_size );
+	CHKERRABORT( M_comm,ierr );
+	return static_cast<size_type>( petsc_size );
+}
+
+typename VectorPetsc::size_type
+VectorPetsc::localsize() const
+{
+	ASSERT(M_is_initialized, "VectorPetsc not initialized");
+
+	if ( !M_is_initialized )
+		return 0;
+
+	int petsc_size=0;
+	int ierr = VecGetLocalSize( M_vecLocal, &petsc_size );
 	CHKERRABORT( M_comm,ierr );
 	return static_cast<size_type>( petsc_size );
 }

@@ -111,6 +111,7 @@ public:
     VectorPetsc& operator -= (const VectorPetsc& v_in);
 
 	size_type size() const;
+    size_type localsize() const;
 
     void printScreen() const;
 

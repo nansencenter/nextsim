@@ -24,6 +24,8 @@ public:
                 std::vector<int> const& global_without_ghost,
                 std::vector<int> const& global_with_ghost);
 
+    GraphCSRMPI(GraphCSRMPI const& g);
+
 	std::vector<int> const& nNzOnProc() const {return M_dnnz;}
     std::vector<int> const& nNzOffProc() const {return M_onnz;}
     std::vector<int> const& globalIndicesWithoutGhost() const {return M_global_without_ghost;}

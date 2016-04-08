@@ -29,5 +29,12 @@ GraphCSRMPI::GraphCSRMPI(std::vector<int> const& d_nnz,
     M_global_with_ghost(global_with_ghost)
 {}
 
+GraphCSRMPI::GraphCSRMPI(GraphCSRMPI const& g)
+    :
+    M_dnnz(g.M_dnnz),
+    M_onnz(g.M_onnz),
+    M_global_without_ghost(g.M_global_without_ghost),
+    M_global_with_ghost(g.M_global_with_ghost)
+{}
 
 } // Nextsim

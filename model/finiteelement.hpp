@@ -182,7 +182,8 @@ private:
     vector_ptrtype M_solution;
     vector_ptrtype M_exact;
 
-    std::vector<point_type> M_nodes;
+    std::map<int, point_type > M_nodes;
+    //std::vector<point_type> M_nodes;
     std::vector<element_type> M_edges;
     std::vector<element_type> M_elements;
 

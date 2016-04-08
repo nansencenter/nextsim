@@ -404,6 +404,16 @@ SolverPetsc::setPetscPreconditionerType()
         CHKERRABORT( M_comm,ierr );
         return;
 
+    case ML_PRECOND:
+        ierr = PCSetType ( M_pc, ( char* ) PCML );
+        CHKERRABORT( M_comm,ierr );
+        return;
+
+    case GAMG_PRECOND:
+        ierr = PCSetType ( M_pc, ( char* ) PCGAMG );
+        CHKERRABORT( M_comm,ierr );
+        return;
+
     default:
         std::cerr << "ERROR:  Unsupported PETSC Preconditioner: "
                   << this->preconditionerType()       << std::endl

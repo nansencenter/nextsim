@@ -186,9 +186,10 @@ MatrixPetsc::init( const size_type m,
                    const size_type n,
                    const size_type m_l,
                    const size_type n_l,
-                   graph_type const& graphloc,
                    graphmpi_type const& graph )
 {
+    this->setGraph(graph);
+
     if (m==0 || n==0)
 		return;
 
@@ -319,12 +320,12 @@ MatrixPetsc::initLocalToGlobalMapping(graphmpi_type const& graph)
 
     PetscInt *idxRow;
     PetscInt *idxCol;
-    PetscInt n_idxRow =  graph.globalIndicesWithGhost().size();
+    PetscInt n_idxRow =  graph.globalIndicesWithoutGhost().size();
     PetscInt n_idxCol =  graph.globalIndicesWithGhost().size();
     idxRow = new PetscInt[n_idxRow];
     idxCol = new PetscInt[n_idxCol];
-    std::copy( graph.globalIndicesWithGhost().begin(),
-               graph.globalIndicesWithGhost().end(),
+    std::copy( graph.globalIndicesWithoutGhost().begin(),
+               graph.globalIndicesWithoutGhost().end(),
                idxRow );
 
     std::copy( graph.globalIndicesWithGhost().begin(),
@@ -745,7 +746,7 @@ MatrixPetsc::diagonal( VectorPetsc& out ) const
 }
 
 void
-MatrixPetsc::on(std::vector<int> const& flags, VectorPetsc& rhs)
+MatrixPetsc::on(std::vector<int> const& flags, VectorPetsc& rhs/*, graphmpi_type const& graph*/)
 {
     ASSERT(M_is_initialized, "MatrixPetsc not properly initialized");
 
@@ -754,8 +755,13 @@ MatrixPetsc::on(std::vector<int> const& flags, VectorPetsc& rhs)
     this->close();
     // apply homogeneous dirichlet boundary conditions
     VectorPetsc values;
-    values.init(rhs.size());
-    //values.zero();
+    //values.init(rhs.size());
+
+    values.init(rhs.size(),M_graph.globalIndicesWithoutGhost().size(),M_graph);
+    values.zero();
+
+    // std::cout<<"["<< M_comm.rank() <<"] global size= "<< rhs.size() <<"\n";
+    // std::cout<<"["<< M_comm.rank() <<"] local size = "<< rhs.localsize() <<"\n";
 
 #if (PETSC_VERSION_MAJOR >= 3) && (PETSC_VERSION_MINOR > 0)
     MatSetOption( M_mat,MAT_KEEP_NONZERO_PATTERN,PETSC_TRUE );
@@ -765,7 +771,12 @@ MatrixPetsc::on(std::vector<int> const& flags, VectorPetsc& rhs)
     MatSetOption( M_mat,MAT_KEEP_ZEROED_ROWS );
 #endif
 
-    MatZeroRowsColumns(M_mat, flags.size(), flags.data(), 1.0, values.vec(), rhs.vec() );
+    // for (int i=0; i<flags.size();++i)
+    //     std::cout<<"["<< M_comm.rank() <<"] flags["<< i <<"]= "<< flags[i] <<"\n";
+
+    MatZeroRowsColumnsLocal(M_mat, flags.size(), flags.data(), 1.0, values.vec(), rhs.vec() );
+
+    //std::cout<<"["<< M_comm.rank() <<"] flags size = "<< flags.size() <<"\n";
 
 #if 0
     // first step: elimination of dirichlet rows

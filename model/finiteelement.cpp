@@ -82,26 +82,34 @@ FiniteElement::init()
 
     //std::cout<<"start\n";
     //M_mesh_filename = "parbigarctic10km.msh";
-    M_mesh_filename = "par3hypercube.msh";
+    //M_mesh_filename = "par3hypercube.msh";
     //M_mesh_filename = "partesthypercube.msh";
     //M_mesh_filename = "par3bigarctic10km.msh";
+    M_mesh_filename = "par4bigarctic10km.msh";
+    //M_mesh_filename = "par8bigarctic10km.msh";
 
     //M_mesh_filename = "hypercube.msh";
 
     M_mesh.readFromFile(M_mesh_filename);
 
+    M_mesh.stereographicProjection();
+
     M_comm = M_mesh.comm();
     M_rank = M_comm.rank();
 
-    //M_mesh.stereographicProjection();
+    //M_mesh.writeTofile((boost::format( "localmesh_%1%.msh" ) % M_rank ).str());
 
     M_elements = M_mesh.triangles();
     M_nodes = M_mesh.nodes();
+
     M_num_elements = M_mesh.numTriangles();
-    M_ndof = M_mesh.numNodes();
-    M_local_ndof = M_mesh.localDofWithoutGhost().size();
-    M_local_ndof_ghost = M_mesh.localDofWithGhost().size();
-    M_num_nodes = M_local_ndof;
+    M_ndof = M_mesh.numGlobalNodes();
+
+    M_local_ndof = M_mesh.numLocalNodesWithoutGhost();
+    M_local_ndof_ghost = M_mesh.numLocalNodesWithGhost();
+
+    //M_num_nodes = M_local_ndof;
+    M_num_nodes = M_local_ndof_ghost;
 
     this->initConstant();
     this->initBamg();
@@ -110,18 +118,17 @@ FiniteElement::init()
     if (M_rank == 0)
         std::cout<<"Global size= "<< gsize << " and "<< M_ndof <<"\n";
 
-
 #if 1
     M_comm.barrier();
     if (M_rank == 0)
     {
-        std::cout<<"************00************\n";
-        for (int const& index : M_mesh.localDofWithoutGhost())
-            std::cout<<"INDEXWHG "<< index <<"\n";
+        // std::cout<<"************00************\n";
+        // for (int const& index : M_mesh.localDofWithoutGhost())
+        //     std::cout<<"INDEXWHG "<< index <<"\n";
 
-        std::cout<<"************01************\n";
-        for (int const& index : M_mesh.localGhost())
-            std::cout<<"INDEXGHT "<< index <<"\n";
+        // std::cout<<"************01************\n";
+        // for (int const& index : M_mesh.localGhost())
+        //     std::cout<<"INDEXGHT "<< index <<"\n";
 
         // std::cout<<"************02************\n";
         // for (int const& index : M_mesh.localDofWithGhost())
@@ -131,9 +138,9 @@ FiniteElement::init()
     M_comm.barrier();
     if (M_rank == 1)
     {
-        std::cout<<"************10************\n";
-        for (int const& index : M_mesh.localDofWithoutGhost())
-            std::cout<<"INDEXWHG "<< index <<"\n";
+        // std::cout<<"************10************\n";
+        // for (int const& index : M_mesh.localDofWithoutGhost())
+        //     std::cout<<"INDEXWHG "<< index <<"\n";
 
         // std::cout<<"************11************\n";
         // for (int const& index : M_mesh.localGhost())
@@ -147,9 +154,9 @@ FiniteElement::init()
     M_comm.barrier();
     if (M_rank == 2)
     {
-        std::cout<<"************20************\n";
-        for (int const& index : M_mesh.localDofWithoutGhost())
-            std::cout<<"INDEXWHG "<< index <<"\n";
+        // std::cout<<"************20************\n";
+        // for (int const& index : M_mesh.localDofWithoutGhost())
+        //     std::cout<<"INDEXWHG "<< index <<"\n";
 
         // std::cout<<"************21************\n";
         // for (int const& index : M_mesh.localGhost())
@@ -161,58 +168,94 @@ FiniteElement::init()
     }
 #endif
 
-#if 1
-
-#if 1
     auto indextr = M_mesh.indexTr();
     std::cout<<"Number of triangles= "<< indextr.size()/3 <<"\n";
 
+    // if (M_rank == 0)
+    // {
+    //     // std::cout<<"************00************\n";
+    //     for (int const& index : indextr)
+    //         std::cout<<"INDEX "<< index <<"\n";
+    // }
+
+
     auto xc = M_mesh.coordX();
     auto yc = M_mesh.coordY();
-    // for (int i=0; i<xc.size(); ++i)
-    // {
-    //     if (i < 20)
-    //         std::cout<<"COORD["<< i <<"]= ("<< xc[i] << ","<< yc[i] <<")\n";
-    // }
+
+    if (M_comm.rank() == 2)
+        for (int i=0; i<xc.size(); ++i)
+        {
+            if (i < 20)
+                std::cout<<"COORD["<< i <<"]= ("<< xc[i] << ","<< yc[i] <<")\n";
+        }
 
     int nelet = indextr.size()/3;
     std::cout<<"NUM ELEMENTS= "<< nelet << " = "<< M_num_elements <<"\n";
 
     std::cout<<"Convert MESH starts\n";
+    // BamgConvertMeshx(
+    //                  bamgmesh,bamggeom,
+    //                  &indextr[0],&xc[0],&yc[0],
+    //                  /*M_mesh.localDofWithGhost().size()*/M_local_ndof_ghost, nelet
+    //                  );
+
     BamgConvertMeshx(
                      bamgmesh,bamggeom,
-                     &indextr[0],&xc[0],&yc[0],
-                     M_mesh.localDofWithGhost().size(), nelet
+                     &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
+                     M_mesh.numNodes(), M_mesh.numTriangles()
                      );
+
     std::cout<<"Convert MESH done\n";
 
     auto bxc = M_mesh.bCoordX();
     auto byc = M_mesh.bCoordY();
 
     std::cout<<"bCoordX= "<< bxc.size() <<"\n";
-    // for (int i=0; i<bxc.size(); ++i)
-    // {
-    //     if (i < 20)
-    //         std::cout<<"BCOORD["<< i <<"]= ("<< bxc[i] << ","<< byc[i] <<")\n";
-    // }
+
+    if (M_comm.rank() == 0)
+        for (int i=0; i<bxc.size(); ++i)
+        {
+            if (i < 20)
+                std::cout<<"BCOORD["<< i <<"]= ("<< bxc[i] << ","<< byc[i] <<")\n";
+        }
 
     for (auto it=M_mesh.edges().begin(), end=M_mesh.edges().end(); it!=end; ++it)
     {
+        //if (it->physical==1)
         if (it->physical==M_flag_fix)
         {
-            M_dirichlet_flags.push_back(it->indices[0]-1);
-            M_dirichlet_flags.push_back(it->indices[1]-1);
+            //M_dirichlet_flags.push_back(it->indices[0]-1);
+            //M_dirichlet_flags.push_back(it->indices[1]-1);
+
+            for (int s=0; s<2; ++s)
+            {
+                if (it->ghosts[s] == 0)
+                {
+                    M_dirichlet_flags.push_back(it->indices[s]-1);
+                }
+            }
         }
     }
 
     std::sort(M_dirichlet_flags.begin(), M_dirichlet_flags.end());
     M_dirichlet_flags.erase(std::unique( M_dirichlet_flags.begin(), M_dirichlet_flags.end() ), M_dirichlet_flags.end());
 
-    std::cout<<"Dirichlet flags= "<< M_dirichlet_flags.size() <<"\n";
+    //std::cout<<"["<< M_comm.rank() <<"] " << "Dirichlet flags= "<< M_dirichlet_flags.size() <<"\n";
+
+
+    M_dirichlet_nodes.resize(2*(M_dirichlet_flags.size()));
+    for (int i=0; i<M_dirichlet_flags.size(); ++i)
+    {
+        M_dirichlet_nodes[2*i] = M_dirichlet_flags[i];
+        M_dirichlet_nodes[2*i+1] = M_dirichlet_flags[i]+M_local_ndof;
+    }
+
+    //std::cout<<"["<< M_comm.rank() <<"] " << "Dirichlet nodes= "<< M_dirichlet_nodes.size() <<"\n";
+
 
     this->createGraph(bamgmesh);
-#endif
 
+#if 1
 
 #if 1
 
@@ -270,8 +313,6 @@ FiniteElement::init()
     // options = new Options();
 #endif
 
-#if 1
-
     M_solver = solver_ptrtype(new solver_type());
     M_matrix = matrix_ptrtype(new matrix_type());
     //M_matrix_seq = matrix_ptrtype(new matrix_type());
@@ -279,31 +320,35 @@ FiniteElement::init()
     M_solution = vector_ptrtype(new vector_type());
 
 
-    if (M_rank == 0)
-        std::cout<<"--------------start\n";
+#if 1
 
-    M_matrix->init(M_ndof,M_ndof,
-                   M_local_ndof,M_local_ndof,
-                   M_graph,
+    // if (M_rank == 0)
+    //     std::cout<<"--------------start\n";
+
+    M_matrix->init(2*M_ndof,2*M_ndof,
+                   2*M_local_ndof,2*M_local_ndof,
+                   /*M_graph,*/
                    M_graphmpi);
 
-    // M_vector->init(2*M_ndof,2*M_local_ndof,M_graphmpi);
-    // M_vector->setOnes();
+    M_vector->init(2*M_ndof,2*M_local_ndof,M_graphmpi);
+    //M_vector->setOnes();
     // M_vector->close();
+    M_solution->init(2*M_ndof,2*M_local_ndof,M_graphmpi);
 
-    std::cout<<"\n";
-    std::cout<<"["<< M_rank <<"] SIZE INFO: "<< M_local_ndof << " / "<< M_ndof <<"\n";
-    std::cout<<"["<< M_rank <<"] ROWS INFO: "<< M_matrix->rowStart() << " / "<< M_matrix->rowStop() <<"\n";
-    std::cout<<"\n";
+    // std::cout<<"\n";
+    // std::cout<<"["<< M_rank <<"] SIZE INFO: "<< M_local_ndof << " / "<< M_ndof <<"\n";
+    // std::cout<<"["<< M_rank <<"] ROWS INFO: "<< M_matrix->rowStart() << " / "<< M_matrix->rowStop() <<"\n";
+    // std::cout<<"\n";
 
     //if (M_rank == 0)
-    this->laplacian();
+    //this->laplacian();
     //this->laplacianSeq();
     //M_matrix->close();
 
 
-    if (M_rank == 0)
-        std::cout<<"--------------done\n";
+    // if (M_rank == 0)
+    //     std::cout<<"--------------done\n";
+
 #endif
 
 #endif
@@ -315,7 +360,7 @@ FiniteElement::initSimulation()
 {
     chrono_tot.restart();
 
-    //M_matrix->init(2*M_num_nodes,2*M_num_nodes,22);
+    // M_matrix->init(2*M_num_nodes,2*M_num_nodes,22);
     // M_matrix->init(2*M_num_nodes,2*M_num_nodes,M_graph);
     // M_vector->init(2*M_num_nodes);
     // M_solution->init(2*M_num_nodes);
@@ -324,7 +369,8 @@ FiniteElement::initSimulation()
     M_VTM.resize(2*M_num_nodes,0.);
     M_VTMM.resize(2*M_num_nodes,0.);
     M_vector_reduction.resize(2*M_num_nodes,0.);
-    M_valid_conc.resize(2*M_num_nodes,false);
+    //M_valid_conc.resize(2*M_num_nodes,false);
+    M_valid_conc.resize(2*M_local_ndof,false);
 
     M_wind.resize(2*M_num_nodes);
     M_ocean.resize(2*M_num_nodes);
@@ -517,9 +563,9 @@ FiniteElement::createGMSHMesh(std::string const& geofilename)
 double
 FiniteElement::jacobian(element_type const& element, mesh_type const& mesh) const
 {
-    std::vector<double> vertex_0 = mesh.nodes()[element.indices[0]-1].coords;
-    std::vector<double> vertex_1 = mesh.nodes()[element.indices[1]-1].coords;
-    std::vector<double> vertex_2 = mesh.nodes()[element.indices[2]-1].coords;
+    std::vector<double> vertex_0 = mesh.nodes().find(element.indices[0])->second.coords;
+    std::vector<double> vertex_1 = mesh.nodes().find(element.indices[1])->second.coords;
+    std::vector<double> vertex_2 = mesh.nodes().find(element.indices[2])->second.coords;
 
     double jac = (vertex_1[0]-vertex_0[0])*(vertex_2[1]-vertex_0[1]);
     jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);
@@ -531,9 +577,13 @@ double
 FiniteElement::jacobian(element_type const& element, mesh_type const& mesh,
                         std::vector<double> const& um, double factor) const
 {
-    std::vector<double> vertex_0 = mesh.nodes()[element.indices[0]-1].coords;
-    std::vector<double> vertex_1 = mesh.nodes()[element.indices[1]-1].coords;
-    std::vector<double> vertex_2 = mesh.nodes()[element.indices[2]-1].coords;
+    // std::vector<double> vertex_0 = mesh.nodes()[element.indices[0]-1].coords;
+    // std::vector<double> vertex_1 = mesh.nodes()[element.indices[1]-1].coords;
+    // std::vector<double> vertex_2 = mesh.nodes()[element.indices[2]-1].coords;
+
+    std::vector<double> vertex_0 = mesh.nodes().find(element.indices[0])->second.coords;
+    std::vector<double> vertex_1 = mesh.nodes().find(element.indices[1])->second.coords;
+    std::vector<double> vertex_2 = mesh.nodes().find(element.indices[2])->second.coords;
 
     for (int i=0; i<2; ++i)
     {
@@ -551,9 +601,13 @@ FiniteElement::jacobian(element_type const& element, mesh_type const& mesh,
 std::vector<double>
 FiniteElement::sides(element_type const& element, mesh_type const& mesh) const
 {
-    std::vector<double> vertex_0 = mesh.nodes()[element.indices[0]-1].coords;
-    std::vector<double> vertex_1 = mesh.nodes()[element.indices[1]-1].coords;
-    std::vector<double> vertex_2 = mesh.nodes()[element.indices[2]-1].coords;
+    // std::vector<double> vertex_0 = mesh.nodes()[element.indices[0]-1].coords;
+    // std::vector<double> vertex_1 = mesh.nodes()[element.indices[1]-1].coords;
+    // std::vector<double> vertex_2 = mesh.nodes()[element.indices[2]-1].coords;
+
+    std::vector<double> vertex_0 = mesh.nodes().find(element.indices[0])->second.coords;
+    std::vector<double> vertex_1 = mesh.nodes().find(element.indices[1])->second.coords;
+    std::vector<double> vertex_2 = mesh.nodes().find(element.indices[2])->second.coords;
 
     std::vector<double> side(3);
 
@@ -735,8 +789,8 @@ FiniteElement::shapeCoeff(element_type const& element, mesh_type const& mesh) co
 
     for (int i=0; i<3; ++i)
     {
-        x[i] = mesh.nodes()[element.indices[i]-1].coords[0];
-        y[i] = mesh.nodes()[element.indices[i]-1].coords[1];
+        x[i] = mesh.nodes().find(element.indices[i])->second.coords[0];
+        y[i] = mesh.nodes().find(element.indices[i])->second.coords[1];
     }
 
     std::vector<double> coeff(6);
@@ -1099,7 +1153,8 @@ FiniteElement::regrid(bool step)
         // M_reuse_prec = false;
 
         M_vector_reduction.resize(2*M_num_nodes,0.);
-        M_valid_conc.resize(2*M_num_nodes,false);
+        //M_valid_conc.resize(2*M_num_nodes,false);
+        M_valid_conc.resize(2*M_local_ndof,false);
 
         M_wind.assign(2*M_num_nodes,0.);
         M_ocean.assign(2*M_num_nodes,0.);
@@ -1228,31 +1283,42 @@ FiniteElement::adaptMesh()
 void
 FiniteElement::assemble()
 {
-    //M_matrix->zero();
-    //M_vector->zero();
+    M_matrix->zero();
+    M_vector->zero();
 
-    M_matrix->init(2*M_ndof,2*M_ndof,
-                   2*M_local_ndof,2*M_local_ndof,
-                   M_graph,
-                   M_graphmpi);
-
-    // M_matrix->zero();
-    // M_matrix->close();
-
- #if 0
-
+#if 0
     std::vector<int> rhsindices(2*M_num_nodes);
     std::iota(rhsindices.begin(), rhsindices.end(), 0);
     std::vector<double> rhsdata(2*M_num_nodes, 0.);
 
-#if 1
     std::vector<double> lhsdata(M_graph.ja().size(), 0.);
 #endif
 
+
+#if 1
+
+    double coef_V, coef_Voce, coef_Vair, coef_basal, coef_X, coef_Y, coef_C;
+    double coef = 0;
+    double coef_P = 0.;
+    double mass_e = 0.;
+    double surface_e = 0.;
+    double g_ssh_e_x = 0.;
+    double g_ssh_e = 0.;
+    double g_ssh_e_y = 0.;
+    double tmp_thick, tmp_conc;
+
+    //std::vector<double> sigma_P(3,0.); /* temporary variable for the resistance to the compression */
+    double b0tj_sigma_hu = 0.;
+    double b0tj_sigma_hv = 0.;
+    double mloc = 0.;
+
+    double duu, dvu, duv, dvv;
+    int index_u, index_v;
+
     std::vector<int> extended_dirichlet_nodes = M_dirichlet_nodes;
 
-    auto M_transfer_map = M_mesh.transferMap();
-    auto M_local_ghost = M_mesh.localGhost();
+    // auto M_transfer_map = M_mesh.transferMap();
+    // auto M_local_ghost = M_mesh.localGhost();
 
     std::cout<<"Assembling starts\n";
     chrono.restart();
@@ -1272,29 +1338,6 @@ FiniteElement::assemble()
         //     total_threads = omp_get_num_threads();
         //     std::cout<<"Total number of threads are "<< total_threads <<"\n";
         // }
-
-        double coef_V, coef_Voce, coef_Vair, coef_basal, coef_X, coef_Y, coef_C;
-        double coef = 0;
-        double coef_P = 0.;
-        double mass_e = 0.;
-        double surface_e = 0.;
-        double g_ssh_e_x = 0.;
-        double g_ssh_e = 0.;
-        double g_ssh_e_y = 0.;
-        double tmp_thick, tmp_conc;
-
-        //std::vector<double> sigma_P(3,0.); /* temporary variable for the resistance to the compression */
-        //std::vector<double> B0Tj_sigma_h(2,0);
-        double b0tj_sigma_hu = 0.;
-        double b0tj_sigma_hv = 0.;
-        double mloc = 0.;
-
-        std::vector<double> data(36);
-        std::vector<double> fvdata(6,0.);
-        std::vector<int> rcindices(6);
-
-        double duu, dvu, duv, dvv;
-        int index_u, index_v;
 
         tmp_thick=(0.05>M_thick[cpt]) ? 0.05 : M_thick[cpt];
         tmp_conc=(0.01>M_conc[cpt]) ? 0.01 : M_conc[cpt];
@@ -1318,9 +1361,12 @@ FiniteElement::assemble()
         g_ssh_e_y = 0.;
         for(int i=0; i<3; i++)
         {
-            g_ssh_e = (vm["simul.gravity"].as<double>())*M_ssh[(M_elements[cpt]).indices[i]-1] /*g_ssh*/;   /* g*ssh at the node k of the element e */
-            g_ssh_e_x += M_shape_coeff[cpt][i]*g_ssh_e; /* x derivative of g*ssh */
-            g_ssh_e_y += M_shape_coeff[cpt][i+3]*g_ssh_e; /* y derivative of g*ssh */
+            //if ((M_elements[cpt]).ghosts[i]==0)
+            {
+                g_ssh_e = (vm["simul.gravity"].as<double>())*M_ssh[(M_elements[cpt]).indices[i]-1] /*g_ssh*/;   /* g*ssh at the node k of the element e */
+                g_ssh_e_x += M_shape_coeff[cpt][i]*g_ssh_e; /* x derivative of g*ssh */
+                g_ssh_e_y += M_shape_coeff[cpt][i+3]*g_ssh_e; /* y derivative of g*ssh */
+            }
         }
 
         coef_C     = mass_e*M_fcor[cpt];              /* for the Coriolis term */
@@ -1343,6 +1389,33 @@ FiniteElement::assemble()
             std::cout<<"coef_basal= "<< coef_basal <<"\n";
         }
 
+        std::vector<int> rindices;
+        std::vector<int> cindices;
+
+        for (int s=0; s<3; ++s)
+        {
+            int index_u = (M_elements[cpt]).indices[s]-1;
+
+            if ((M_elements[cpt]).ghosts[s] == 0)
+            {
+                rindices.push_back(index_u);
+                rindices.push_back(index_u+M_local_ndof);
+            }
+
+            cindices.push_back(index_u);
+            cindices.push_back(index_u+M_local_ndof_ghost);
+        }
+
+        int nlrow = rindices.size();
+        int nlcol = cindices.size();
+
+        std::vector<double> data(nlrow*nlcol,0.);
+        std::vector<double> fvdata(nlrow);
+
+
+        int l_j = -1;
+
+
         /* Loop over the 6 by 6 components of the finite element intergrale
          * this is done smartly by looping over j=0:2 and i=0:2
          * col = (mwIndex)it[2*j]-1  , row = (mwIndex)it[2*i]-1;
@@ -1356,221 +1429,183 @@ FiniteElement::assemble()
             /* Column corresponding to indice j (we also assemble terms in col+1) */
             //col = (mwIndex)it[2*j]-1; /* -1 to use the indice convention of C */
 
-            // index_u = (M_elements[cpt]).indices[j]-1;
-            // index_v = (M_elements[cpt]).indices[j]-1+M_num_nodes;
-
-            index_u = (M_elements[cpt]).indices[j];
-            index_u = M_transfer_map.left.find(index_u)->second-1;
+            index_u = (M_elements[cpt]).indices[j]-1;
+            //index_v = index_u+M_local_ndof;
             index_v = index_u+M_num_nodes;
 
-
-
-            for(int i=0; i<3; i++)
+            if ((M_elements[cpt]).ghosts[j]==0)
             {
-                /* Row corresponding to indice i (we also assemble terms in row+1) */
-                //row = (mwIndex)it[2*i]-1; /* -1 to use the indice convention of C */
+                l_j = l_j + 1;
 
-                /* Select the nodal weight values from M_loc */
-                mloc = M_Mass[3*j+i];
-
-                b0tj_sigma_hu = 0.;
-                b0tj_sigma_hv = 0.;
-
-                for(int k=0; k<3; k++)
+                for(int i=0; i<3; i++)
                 {
-                    b0tj_sigma_hu += M_B0T[cpt][k*6+2*i]*(M_sigma[3*cpt+k]*tmp_thick/*+sigma_P[k]*/);
-                    b0tj_sigma_hv += M_B0T[cpt][k*6+2*i+1]*(M_sigma[3*cpt+k]*tmp_thick/*+sigma_P[k]*/);
+                    /* Row corresponding to indice i (we also assemble terms in row+1) */
+                    //row = (mwIndex)it[2*i]-1; /* -1 to use the indice convention of C */
+
+                    /* Select the nodal weight values from M_loc */
+                    mloc = M_Mass[3*j+i];
+
+                    b0tj_sigma_hu = 0.;
+                    b0tj_sigma_hv = 0.;
+
+                    for(int k=0; k<3; k++)
+                    {
+                        b0tj_sigma_hu += M_B0T[cpt][k*6+2*i]*(M_sigma[3*cpt+k]*tmp_thick/*+sigma_P[k]*/);
+                        b0tj_sigma_hv += M_B0T[cpt][k*6+2*i+1]*(M_sigma[3*cpt+k]*tmp_thick/*+sigma_P[k]*/);
+                    }
+
+                    /* ---------- UU component */
+                    duu = surface_e*( mloc*(coef_Vair+coef_Voce*std::cos(ocean_turning_angle_rad)+coef_V+coef_basal)
+                                      +M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i)*6+2*j]*coef_P);
+
+                    /* ---------- VU component */
+                    dvu = surface_e*(+M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j]*coef_P);
+
+                    /* ---------- UV component */
+                    duv = surface_e*(+M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j+1]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i)*6+2*j+1]*coef_P);
+
+                    /* ---------- VV component */
+                    dvv = surface_e*( mloc*(coef_Vair+coef_Voce*std::cos(ocean_turning_angle_rad)+coef_V+coef_basal)
+                                      +M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j+1]*coef_P);
+
+
+                    data[(2*l_j  )*6+2*i  ] = duu;
+                    data[(2*l_j+1)*6+2*i  ] = dvu;
+                    data[(2*l_j  )*6+2*i+1] = duv;
+                    data[(2*l_j+1)*6+2*i+1] = dvv;
+
+                    //if ((cpt == 2) && (M_comm.rank() == 1))
+                    if ((M_comm.rank() == 100))
+                    {
+                        std::cout<<"--------------------------------------\n";
+                        if (duu > 1.e+20)
+                        {
+                            std::cout<<"duu= "<< duu <<"\n";
+                            std::cout<<"------mloc= "<< coef_basal <<"\n";
+                        }
+
+                        if (dvu > 1.e+20)
+                            std::cout<<"dvu= "<< dvu <<"\n";
+
+                        if (duv > 1.e+20)
+                            std::cout<<"duv= "<< duv <<"\n";
+
+                        if (dvv > 1.e+20)
+                            std::cout<<"dvv= "<< dvv <<"\n";
+                    }
+
+
+                    fvdata[2*l_j] += surface_e*( mloc*( coef_Vair*M_wind[index_u]+coef_Voce*std::cos(ocean_turning_angle_rad)*M_ocean[index_u]+coef_X+coef_V*M_VT[index_u]) /*- b0tj_sigma_hu/3*/)
+                        +surface_e*( mloc*( -coef_Voce*std::sin(ocean_turning_angle_rad)*(M_ocean[index_v]-M_VT[index_v])+coef_C*M_Vcor[index_v]) );
+
+
+                    fvdata[2*l_j+1] += surface_e*( mloc*( +coef_Voce*std::sin(ocean_turning_angle_rad)*(M_ocean[index_u]-M_VT[index_u])-coef_C*M_Vcor[index_u]) )
+                        +surface_e*( mloc*( coef_Vair*M_wind[index_v]+coef_Voce*std::cos(ocean_turning_angle_rad)*M_ocean[index_v]+coef_Y+coef_V*M_VT[index_v]) /*- b0tj_sigma_hv/3*/);
                 }
-
-                /* ---------- UU component */
-                duu = surface_e*( mloc*(coef_Vair+coef_Voce*std::cos(ocean_turning_angle_rad)+coef_V+coef_basal)
-                                  +M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i)*6+2*j]*coef_P);
-
-                /* ---------- VU component */
-                dvu = surface_e*(+M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j]*coef_P);
-
-                /* ---------- UV component */
-                duv = surface_e*(+M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j+1]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i)*6+2*j+1]*coef_P);
-
-                /* ---------- VV component */
-                dvv = surface_e*( mloc*(coef_Vair+coef_Voce*std::cos(ocean_turning_angle_rad)+coef_V+coef_basal)
-                                  +M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j+1]*coef_P);
-
-
-                data[(2*i  )*6+2*j  ] = duu;
-                data[(2*i+1)*6+2*j  ] = dvu;
-                data[(2*i  )*6+2*j+1] = duv;
-                data[(2*i+1)*6+2*j+1] = dvv;
-
-
-                fvdata[2*i] += surface_e*( mloc*( coef_Vair*M_wind[index_u]+coef_Voce*std::cos(ocean_turning_angle_rad)*M_ocean[index_u]+coef_X+coef_V*M_VT[index_u]) - b0tj_sigma_hu/3)
-                               +surface_e*( mloc*( -coef_Voce*std::sin(ocean_turning_angle_rad)*(M_ocean[index_v]-M_VT[index_v])+coef_C*M_Vcor[index_v]) );
-
-
-                fvdata[2*i+1] += surface_e*( mloc*( +coef_Voce*std::sin(ocean_turning_angle_rad)*(M_ocean[index_u]-M_VT[index_u])-coef_C*M_Vcor[index_u]) )
-                              +surface_e*( mloc*( coef_Vair*M_wind[index_v]+coef_Voce*std::cos(ocean_turning_angle_rad)*M_ocean[index_v]+coef_Y+coef_V*M_VT[index_v]) - b0tj_sigma_hv/3);
             }
 
-            rcindices[2*j] = index_u;
-            rcindices[2*j+1] = index_v;
+            //rcindices[2*j] = index_u;
+            //rcindices[2*j+1] = index_v;
         }
 
-        if ((cpt < 0) && (M_rank == 2))
-            for (int i=0; i<6; ++i)
-            {
-                for (int j=0; j<6; ++j)
-                {
-                    std::cout<< std::left << std::setw(12) << data[6*i+j] <<"  ";
-                }
-                std::cout<<"\n";
-            }
+        M_matrix->addMatrix(&rindices[0], rindices.size(),
+                            &cindices[0], cindices.size(), &data[0]);
 
-        // M_matrix->addMatrix(&rcindices[0], rcindices.size(),
-        //                     &rcindices[0], rcindices.size(), &data[0]);
+        M_vector->addVector(&rindices[0], rindices.size(), &fvdata[0]);
 
+        //if ((cpt < 0) && (M_rank == 2))
+        // if ((M_rank == 0))
+        //     for (int i=0; i<6; ++i)
+        //     {
+        //         for (int j=0; j<6; ++j)
+        //         {
+        //             std::cout<< std::left << std::setw(12) << data[6*i+j] <<"  ";
+        //         }
+        //         std::cout<<"\n";
+        //     }
 
+        // if ((M_rank == 2))
+        // {
+        //     std::cout<<"-------------------------------------------\n";
 
-// #pragma omp critical(updatematrix)
-//         {
-//             M_matrix->addMatrix(&rcindices[0], rcindices.size(),
-//                                 &rcindices[0], rcindices.size(), &data[0]);
-//         }
+        //     for (int i=0; i<nlrow; ++i)
+        //     {
+        //         for (int j=0; j<nlcol; ++j)
+        //         {
+        //             std::cout<< std::left << std::setw(12) << data[nlcol*i+j] <<"  ";
+        //         }
+        //         std::cout<<"\n";
+        //     }
+        // }
 
 #if 1
-        for (int idf=0; idf<rcindices.size(); ++idf)
-        {
-            //#pragma omp atomic
-            //rhsdata[rcindices[idf]] += fvdata[idf];
-
-#if 0
-            int indexr = rcindices[idf];
-            for (int idj=0; idj<rcindices.size(); ++idj)
-            {
-                int indexc = rcindices[idj];
-                int rnnz = M_graph.nNz()[indexr];
-                int start = M_graph.ia()[indexr];
-                int colind = 0;
-
-                for (int io=start; io<start+rnnz; ++io)
-                {
-                    if (M_graph.ja()[io] == indexc)
-                    {
-                        colind = io-start;
-                        break;
-                    }
-                }
-
-                //#pragma omp atomic
-                //lhsdata[start+colind] += data[6*idf+idj];
-            }
-#endif
-        }
-
-#if 0
         if((M_conc[cpt]>0.))
         {
-            for (int const& idn : rcindices)
+            //std::cout<<"["<< M_comm.rank() <<"] " << " REALLY HERE\n";
+            for (int const& idn : rindices)
                 M_valid_conc[idn] = true;
         }
 #endif
-#endif
 
-#if 0
-#pragma omp critical(updatematrix)
-        {
-            M_matrix->addMatrix(&rcindices[0], rcindices.size(),
-                                &rcindices[0], rcindices.size(), &data[0]);
-        }
-//#pragma omp end critical
-#endif
     }
 
-#if 0
-    // update petsc matrix
-    boost::mpi::timer petsc_chrono;
-    petsc_chrono.restart();
-    max_threads = 1;
-    //#pragma omp parallel for num_threads(max_threads)
-    //for (int cptpm=0; cptpm<2*M_num_nodes; ++cptpm)
-
-    std::cout<<"M_num_nodes= "<< M_num_nodes <<"\n";
-
-    for (int cptpm=0; cptpm<M_num_nodes; ++cptpm)
-    {
-        //int gid = M_transfer_map.right.find(cptpm+1)->second;
-        if (1)//(std::find(M_local_ghost.begin(),M_local_ghost.end(),gid) == M_local_ghost.end())
-        {
-            int rnnz = M_graph.nNz()[cptpm];
-            std::vector<int> lrcindices(rnnz);
-            std::vector<double> ldata(rnnz);
-            int start = M_graph.ia()[cptpm];
-            //std::cout<<"Looking for "<< indexc << " in array of size "<< rnnz << " started by "<< start <<"\n";
-            for (int io=start; io<start+rnnz; ++io)
-            {
-                lrcindices[io-start] = M_graph.ja()[io];
-                ldata[io-start] = lhsdata[io];
-            }
-#if 0
-            if (cptpm < 10)
-            {
-                std::cout<<"**************Row "<< cptpm <<"*************\n";
-                for (int j=0; j<rnnz; ++j)
-                {
-                    std::cout<< std::left << std::setw(12) << ldata[j] <<" for indice "<< lrcindices[j] <<"\n";
-                }
-            }
-#endif
-            M_matrix->addMatrix(&cptpm, 1,
-                                &lrcindices[0], lrcindices.size(),
-                                &ldata[0]);
-
-            //M_matrix->close();
-        }
-    }
-#endif
-
-    //std::cout<<"SET PETSC MATRIX done in " << petsc_chrono.elapsed() <<"s\n";
-    std::cout<<"SET PETSC MATRIX done in " << chrono.elapsed() <<"s\n";
-    //lhsdata.resize(0);
+#if 1
 
     //close petsc matrix
     M_matrix->close();
 
-
-    // update petsc vector and close it
-    //M_vector->addVector(&rhsindices[0], rhsindices.size(), &rhsdata[0]);
-    //M_vector->close();
-
-#if 0
+    //close petsc vector
+    M_vector->close();
 
     std::cout<<"Assembling done\n";
     std::cout<<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
 
     // extended dirichlet nodes (add nodes where M_conc <= 0)
-    for (int i=0; i<2*M_num_nodes; ++i)
+    //for (int i=0; i<2*M_num_nodes; ++i)
+    for (int i=0; i<2*M_local_ndof; ++i)
     {
         if(!M_valid_conc[i])
         {
-            //M_matrix->setValue(i, i, 1000000000000000.);
-            //M_vector->set(i, 0.);
+            //std::cout<<"["<< M_comm.rank() <<"] " << " REALLY HERE\n";
+            M_matrix->setValue(i, i, 1000000000000000.);
+            M_vector->set(i, 0.);
             extended_dirichlet_nodes.push_back(i);
         }
     }
+
     std::sort(extended_dirichlet_nodes.begin(), extended_dirichlet_nodes.end());
     extended_dirichlet_nodes.erase(std::unique( extended_dirichlet_nodes.begin(), extended_dirichlet_nodes.end() ), extended_dirichlet_nodes.end());
 
     chrono.restart();
-    //M_matrix->on(M_dirichlet_nodes,*M_vector);
-    M_matrix->on(extended_dirichlet_nodes,*M_vector);
+    M_matrix->on(extended_dirichlet_nodes,*M_vector/*,M_graphmpi*/);
     std::cout<<"TIMER DBCA= " << chrono.elapsed() <<"s\n";
 
     std::cout<<"[PETSC MATRIX] CLOSED      = "<< M_matrix->closed() <<"\n";
     std::cout<<"[PETSC MATRIX] SIZE        = "<< M_matrix->size1() << " " << M_matrix->size2() <<"\n";
-    std::cout<<"[PETSC MATRIX] SYMMETRIC   = "<< M_matrix->isSymmetric() <<"\n";
-    std::cout<<"[PETSC MATRIX] NORM        = "<< M_matrix->linftyNorm() <<"\n";
+    //std::cout<<"[PETSC MATRIX] SYMMETRIC   = "<< M_matrix->isSymmetric() <<"\n";
+    //std::cout<<"[PETSC MATRIX] NORM        = "<< M_matrix->linftyNorm() <<"\n";
 
-    //M_matrix->printMatlab("stiffness.m");
-    //M_vector->printMatlab("rhs.m");
+    //M_matrix->printMatlab("Astiffness.m");
+    //M_vector->printMatlab("Frhs.m");
+
+
+    chrono.restart();
+    //ksp.solve(M_matrix, M_solution, M_vector);
+    M_solver->solve(_matrix=M_matrix,
+                    _solution=M_solution,
+                    _rhs=M_vector,
+                    _ksp=vm["solver.ksp-type"].as<std::string>()/*"preonly"*/,
+                    _pc=vm["solver.pc-type"].as<std::string>()/*"cholesky"*/,
+                    _pcfactormatsolverpackage=vm["solver.mat-package-type"].as<std::string>()/*"cholmod"*/,
+                    _reuse_prec=true,
+                    _rebuild=M_regrid
+                    );
+
+    std::cout<<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";
+
+    M_solution->close();
+
+    M_solution->printMatlab("lsolution.m");
 #endif
 
 #endif
@@ -1579,21 +1614,27 @@ FiniteElement::assemble()
 void
 FiniteElement::laplacian()
 {
-    auto M_transfer_map = M_mesh.transferMap();
-    auto M_local_ghost = M_mesh.localGhost();
+    // auto M_transfer_map = M_mesh.transferMap();
+    // auto M_local_ghost = M_mesh.localGhost();
+    // std::sort(M_local_ghost.begin(),M_local_ghost.end());
+
+    // std::cout<<"["<< M_comm.rank() <<"] M_local_ndof= "<< M_local_ndof <<"\n";
+    // std::cout<<"["<< M_comm.rank() <<"] M_local_ndof_ghost= "<< M_local_ndof_ghost <<"\n";
 
     chrono.restart();
     int cpt = 0;
     std::cout<<"Assembling starts\n";
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
     {
-        // if (cpt <10)
-        //     std::cout<<"***Element "<< it->first <<"\n";
+        // if (cpt == 0)
+        //     std::cout<<"**************************Element "<< cpt <<"\n";
+        // //std::cout<<"***Element "<< it->first <<"\n";
 
         double area = measure(*it, M_mesh);
         std::vector<double> x(3);
         std::vector<double> y(3);
-        std::vector<double> data;//(9);
+        //std::vector<double> data;//(9);
+        //std::vector<double> data(36,0.);//(9);
         //std::vector<double> mass_data(9);
 
         //std::cout<<"------------------------------\n";
@@ -1615,18 +1656,39 @@ FiniteElement::laplacian()
         std::vector<int> rindices;//(3);
         std::vector<int> cindices;//(3);
 
-
         for (int s=0; s<3; ++s)
         {
-            int index_u = it->indices[s];
-            index_u = M_transfer_map.left.find(index_u)->second-1;
-
-            if (std::find(M_local_ghost.begin(),M_local_ghost.end(),it->indices[s]) == M_local_ghost.end())
-                rindices.push_back(index_u);
+            int index_u = it->indices[s]-1;
+            int index_v = index_u+M_local_ndof_ghost;
+            //index_u = M_transfer_map.left.find(index_u)->second-1;
 
             //if (std::find(M_local_ghost.begin(),M_local_ghost.end(),it->indices[s]) == M_local_ghost.end())
+            //if (!std::binary_search(M_local_ghost.begin(),M_local_ghost.end(),it->indices[s]))
+            if (it->ghosts[s] == 1)
+            {
+                // if (M_comm.rank()==0)
+                // {
+                //     std::cout<<"*******************************\n";
+                //     std::cout<<"SUMMARY "<< index_u << " ---> "<< it->ghosts[s] <<"\n";
+                // }
+            }
+            else
+            {
+                rindices.push_back(index_u);
+                rindices.push_back(index_u+M_local_ndof);
+                //rindices.push_back(index_v);
+            }
+
+            //if (std::find(M_local_ghost.begin(),M_local_ghost.end(),it->indices[s]) == M_local_ghost.end())
+
             cindices.push_back(index_u);
+            cindices.push_back(index_u+M_local_ndof_ghost);
         }
+
+        int nlrow = rindices.size();
+        int nlcol = cindices.size();
+
+        std::vector<double> data(nlrow*nlcol,0.);
 
 #if 1
         // index_u = (M_elements[cpt]).indices[j];
@@ -1637,7 +1699,9 @@ FiniteElement::laplacian()
         double m_jk = 0;
         //double mass_jk = 0;
 
-        std::vector<double> fvdata(3);
+        //std::vector<double> fvdata(3);
+        std::vector<double> fvdata(nlrow);
+
         double f_j = 0;
         double x_b = 0;
         double y_b = 0;
@@ -1647,8 +1711,12 @@ FiniteElement::laplacian()
             // x[i] = M_nodes.find(it->second.indices[i])->second.coords[0];
             // y[i] = M_nodes.find(it->second.indices[i])->second.coords[1];
 
-            x[i] = M_nodes[it->indices[i]-1].coords[0];
-            y[i] = M_nodes[it->indices[i]-1].coords[1];
+            // x[i] = M_nodes[it->indices[i]-1].coords[0];
+            // y[i] = M_nodes[it->indices[i]-1].coords[1];
+
+            x[i] = M_nodes.find(it->indices[i])->second.coords[0];
+            y[i] = M_nodes.find(it->indices[i])->second.coords[1];
+
 
             x_b += x[i];
             y_b += y[i];
@@ -1657,15 +1725,22 @@ FiniteElement::laplacian()
         y_b = y_b/3.0;
 
         int lc = 0;
+
+        int l_j = -1;
+
         for (int j=0; j<3; ++j)
         {
 
             // int index_u = it->indices[j];
             // index_u = M_transfer_map.left.find(index_u)->second-1;
 
-            if (std::find(M_local_ghost.begin(),M_local_ghost.end(),it->indices[j]) == M_local_ghost.end())
+            //if (std::find(M_local_ghost.begin(),M_local_ghost.end(),it->indices[j]) == M_local_ghost.end())
+            //if (!std::binary_search(M_local_ghost.begin(),M_local_ghost.end(),it->indices[j]))
+            if (it->ghosts[j]==0)
             {
                 //rindices.push_back(index_u);
+
+                l_j = l_j + 1;
 
                 f_j = 0;
                 // x-axis
@@ -1692,7 +1767,19 @@ FiniteElement::laplacian()
                         //mass_jk = ((j == k) ? 2.0 : 1.0)*area/12.0;
 
                         //data[lc] = 1.;//m_jk;
-                        data.push_back(m_jk);
+                        // data.push_back(m_jk);
+                        // //data.push_back(1.);
+                        // data.push_back(0.);
+                        // data.push_back(0.);
+                        // data.push_back(0.);
+
+                        data[(2*l_j  )*6+2*k  ] = m_jk;
+                        data[(2*l_j+1)*6+2*k  ] = 0.;
+                        data[(2*l_j  )*6+2*k+1] = 0.;
+                        data[(2*l_j+1)*6+2*k+1] = m_jk;
+
+
+                        //data.push_back((m_jk+1.));
 
                         //mass_data[lc] = mass_jk;
 
@@ -1705,12 +1792,14 @@ FiniteElement::laplacian()
                         //f_j += ((j == k) ? 2.0 : 1.0)*2.0*PI*PI*std::sin(PI*x[k])*std::sin(PI*y[k]);
                     }
                 }
-#if 0
+#if 1
                 //f_j = f_j*area/12.0;
                 f_j = 2*PI*PI*std::sin(PI*x_b)*std::sin(PI*y_b);
                 //f_j = 2*PI*PI*std::sin(PI*x[j])*std::sin(PI*y[j]);
                 f_j = f_j*area/3.0;
-                fvdata[j] = f_j;
+                //fvdata[j] = f_j;
+                fvdata[2*l_j] = f_j;
+                fvdata[2*l_j+1] = f_j;
 #endif
             }
 
@@ -1727,9 +1816,30 @@ FiniteElement::laplacian()
         // std::cout<<"SIZE ROW = "<< rindices.size() <<"\n";
         // std::cout<<"SIZE COL = "<< cindices.size() <<"\n";
 
-        //if (M_rank == 0)
-        M_matrix->addMatrix(&rindices[0], rindices.size(),
-                            &cindices[0], cindices.size(), &data[0]);
+        //if (M_rank == 0 && cpt == 0)
+        {
+            // std::cout<<"---------------------------------\n";
+
+            // for (int const& index : rindices)
+            //     std::cout<<"LOCAL ROW "<< index <<"\n";
+
+            // for (int const& index : cindices)
+            //     std::cout<<"COL "<< index <<"\n";
+
+            // for (int i=0; i<6; ++i)
+            // {
+            //     for (int j=0; j<6; ++j)
+            //     {
+            //         std::cout<< std::left << std::setw(12) << data[6*i+j] <<"  ";
+            //     }
+            //     std::cout<<"\n";
+            // }
+
+
+
+            M_matrix->addMatrix(&rindices[0], rindices.size(),
+                                &cindices[0], cindices.size(), &data[0]);
+        }
 
         // M_matrix->addMatrix(&rcindices[0], rcindices.size(),
         //                     &rcindices[0], rcindices.size(), &data[0]);
@@ -1740,6 +1850,8 @@ FiniteElement::laplacian()
 
 
         //M_vector->addVector(&rcindices[0], rcindices.size(), &fvdata[0]);
+        M_vector->addVector(&rindices[0], rindices.size(), &fvdata[0]);
+
 
         ++cpt;
 #endif
@@ -1748,6 +1860,7 @@ FiniteElement::laplacian()
     // if (M_rank == 0)
     //     M_matrix->setValue(0,9,1.);
 
+#if 1
     M_matrix->close();
 
     std::cout<<"[PETSC MATRIX] CLOSED      = "<< M_matrix->closed() <<"\n";
@@ -1755,14 +1868,48 @@ FiniteElement::laplacian()
     //std::cout<<"[PETSC MATRIX] SYMMETRIC   = "<< M_matrix->isSymmetric() <<"\n";
     //std::cout<<"[PETSC MATRIX] NORM        = "<< M_matrix->linftyNorm() <<"\n";
 
+    // if (M_rank == 0)
+    //     M_matrix->printMatlab("x1testmt.m");
+
     //if (M_rank == 0)
-    //M_matrix->printMatlab("x1testmt.m");
+    //M_matrix->printMatlab("laplacian.m");
+
 
     //std::cout<<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
     std::cout<<"Assembling done\n";
     std::cout<<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
+#endif
+
+    M_vector->close();
+
+    // for (int i=0; i<M_dirichlet_nodes.size();++i)
+    //     std::cout<<"["<< M_comm.rank() <<"] flags["<< i <<"]= "<< M_dirichlet_nodes[i] <<"\n";
+
+    chrono.restart();
+    M_matrix->on(M_dirichlet_nodes,*M_vector/*,M_graphmpi*/);
+    std::cout<<"TIMER DBCA= " << chrono.elapsed() <<"s\n";
+
+    // M_matrix->printMatlab("laplacian.m");
+    // M_vector->printMatlab("lvector.m");
+
+    chrono.restart();
+    //ksp.solve(M_matrix, M_solution, M_vector);
+    M_solver->solve(_matrix=M_matrix,
+                    _solution=M_solution,
+                    _rhs=M_vector,
+                    _ksp=vm["solver.ksp-type"].as<std::string>()/*"preonly"*/,
+                    _pc=vm["solver.pc-type"].as<std::string>()/*"cholesky"*/,
+                    _pcfactormatsolverpackage=vm["solver.mat-package-type"].as<std::string>()/*"cholmod"*/,
+                    _reuse_prec=true,
+                    _rebuild=M_regrid
+                    );
+
+    std::cout<<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";
 
 
+    M_solution->close();
+
+    M_solution->printMatlab("lsolution.m");
 }
 
 void
@@ -1798,8 +1945,12 @@ FiniteElement::laplacianSeq()
             // x[i] = M_nodes.find(it->second.indices[i])->second.coords[0];
             // y[i] = M_nodes.find(it->second.indices[i])->second.coords[1];
 
-            x[i] = M_nodes[it->indices[i]-1].coords[0];
-            y[i] = M_nodes[it->indices[i]-1].coords[1];
+            // x[i] = M_nodes[it->indices[i]-1].coords[0];
+            // y[i] = M_nodes[it->indices[i]-1].coords[1];
+
+            x[i] = M_nodes.find(it->indices[i])->second.coords[0];
+            y[i] = M_nodes.find(it->indices[i])->second.coords[1];
+
 
             x_b += x[i];
             y_b += y[i];
@@ -2336,7 +2487,7 @@ FiniteElement::assembleSeq()
     std::cout<<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
 
     chrono.restart();
-    M_matrix->on(M_dirichlet_nodes,*M_vector);
+    //M_matrix->on(M_dirichlet_nodes,*M_vector);
     std::cout<<"TIMER DBCA= " << chrono.elapsed() <<"s\n";
 
     M_matrix->printMatlab("matrixseq.m");
@@ -3253,7 +3404,7 @@ FiniteElement::run()
     // Initialise grid and forcing
     this->init();
 
-#if 0
+#if 1
     // Initialise time
     int ind;
     int pcpt = 0;
@@ -3478,8 +3629,12 @@ FiniteElement::error()
             // x[i] = M_nodes.find(it->second.indices[i])->second.coords[0];
             // y[i] = M_nodes.find(it->second.indices[i])->second.coords[1];
 
-            x[i] = M_nodes[it->indices[i]-1].coords[0];
-            y[i] = M_nodes[it->indices[i]-1].coords[1];
+            // x[i] = M_nodes[it->indices[i]-1].coords[0];
+            // y[i] = M_nodes[it->indices[i]-1].coords[1];
+
+            x[i] = M_nodes.find(it->indices[i])->second.coords[0];
+            y[i] = M_nodes.find(it->indices[i])->second.coords[1];
+
         }
 
         int lc = 0;
@@ -3544,13 +3699,17 @@ FiniteElement::computeFactors(int pcpt)
 
         for (int i=0; i<3; ++i)
         {
-            nind = (M_elements[cpt]).indices[i];
-            nind = M_transfer_map.left.find(nind)->second-1;
-            welt_oce_ice += std::sqrt(std::pow(M_VT[nind]-M_ocean[nind],2.)+std::pow(M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes],2.));
-            welt_air_ice += std::sqrt(std::pow(M_VT[nind]-M_wind [nind],2.)+std::pow(M_VT[nind+M_num_nodes]-M_wind [nind+M_num_nodes],2.));
-            welt_ice += std::sqrt(std::pow(M_VT[nind],2.)+std::pow(M_VT[nind+M_num_nodes],2.));
+            nind = (M_elements[cpt]).indices[i]-1;
+            //nind = M_transfer_map.left.find(nind)->second-1;
 
-            welt_ssh += M_ssh[nind];
+            //if ((M_elements[cpt]).ghosts[i]==0)
+            {
+                welt_oce_ice += std::sqrt(std::pow(M_VT[nind]-M_ocean[nind],2.)+std::pow(M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes],2.));
+                welt_air_ice += std::sqrt(std::pow(M_VT[nind]-M_wind [nind],2.)+std::pow(M_VT[nind+M_num_nodes]-M_wind [nind+M_num_nodes],2.));
+                welt_ice += std::sqrt(std::pow(M_VT[nind],2.)+std::pow(M_VT[nind+M_num_nodes],2.));
+
+                welt_ssh += M_ssh[nind];
+            }
         }
 
         M_norm_Voce_ice[cpt] = welt_oce_ice/3.;
@@ -5525,9 +5684,10 @@ FiniteElement::createGraph(BamgMesh const* bamg_mesh)
 
         int Ncc = bamgmesh->NodalConnectivity[Nd*(i+1)-1];
         int gid = M_transfer_map.right.find(i+1)->second;
-        //if (std::find(M_local_ghost.begin(),M_local_ghost.end(),gid) == M_local_ghost.end())
+        if (std::find(M_local_ghost.begin(),M_local_ghost.end(),gid) == M_local_ghost.end())
         {
             //std::cout<<"-----------------Row "<< i << " or "<< gid <<"\n";
+
             for (int j=0; j<Ncc; ++j)
             {
                 int currentr = bamgmesh->NodalConnectivity[Nd*i+j];
@@ -5545,18 +5705,20 @@ FiniteElement::createGraph(BamgMesh const* bamg_mesh)
             // std::cout<<"--------onnz  = "<< counter_onnz <<"\n";
             // std::cout<<"--------before= "<< 2*(Ncc+1) <<"\n";
 
-            // d_nnz.push_back(2*(counter_dnnz+1));
-            // o_nnz.push_back(2*(counter_onnz));
+            d_nnz.push_back(2*(counter_dnnz+1));
+            o_nnz.push_back(2*(counter_onnz));
 
-            d_nnz.push_back(counter_dnnz+1);
-            o_nnz.push_back(counter_onnz);
+            // d_nnz.push_back(counter_dnnz+1);
+            // o_nnz.push_back(counter_onnz);
 
             // std::cout<<"--------dnnz  = "<< 2*(counter_dnnz+1) <<"\n";
             // std::cout<<"--------onnz  = "<< 2*(counter_onnz) <<"\n";
+
+
             // std::cout<<"--------before= "<< 2*(Ncc+1) <<"\n";
         }
 
-#if 1
+#if 0
         //if (std::find(M_local_ghost.begin(),M_local_ghost.end(),gid) == M_local_ghost.end())
         {
             int Nc = bamgmesh->NodalConnectivity[Nd*(i+1)-1];
@@ -5599,14 +5761,16 @@ FiniteElement::createGraph(BamgMesh const* bamg_mesh)
     }
 
 
-    // auto d_nnz_count = d_nnz.size();
-    // d_nnz.resize(2*d_nnz_count);
-    // std::copy_n(d_nnz.begin(), d_nnz_count, d_nnz.begin() + d_nnz_count);
+    auto d_nnz_count = d_nnz.size();
+    d_nnz.resize(2*d_nnz_count);
+    std::copy_n(d_nnz.begin(), d_nnz_count, d_nnz.begin() + d_nnz_count);
 
-    // auto o_nnz_count = o_nnz.size();
-    // o_nnz.resize(2*o_nnz_count);
-    // std::copy_n(o_nnz.begin(), o_nnz_count, o_nnz.begin() + o_nnz_count);
+    auto o_nnz_count = o_nnz.size();
+    o_nnz.resize(2*o_nnz_count);
+    std::copy_n(o_nnz.begin(), o_nnz_count, o_nnz.begin() + o_nnz_count);
 
+    // std::cout<<"["<< M_comm.rank() <<"] dnnz.size()="<< d_nnz.size() <<"\n";
+    // std::cout<<"["<< M_comm.rank() <<"] onnz.size()="<< o_nnz.size() <<"\n";
 
     int sM = M_mesh.numNodes();
 
@@ -5662,6 +5826,7 @@ FiniteElement::createGraph(BamgMesh const* bamg_mesh)
     // ddz_j.resize(2*ddzj_count);
     // std::copy_n(ddz_j.begin(), ddzj_count, ddz_j.begin() + ddzj_count);
 
+#if 0
     // to be deleted
     int ddzi_count = ddz_i.size();
     ddz_i.resize(ddzi_count+1,0);
@@ -5671,12 +5836,13 @@ FiniteElement::createGraph(BamgMesh const* bamg_mesh)
     std::vector<double> ddz_data(ddz_j.size(),1.);
     M_graph = graph_type(dz,ddz_i,ddz_j,ddz_data);
 
+
     std::cout<<"\n";
     std::cout<<"["<< M_rank <<"] GRAPHCSR INFO: MIN NZ (per row)      = "<< *std::min_element(dz.begin(),dz.end()) <<"\n";
     std::cout<<"["<< M_rank <<"] GRAPHCSR INFO: MAX NZ (per row)      = "<< *std::max_element(dz.begin(),dz.end()) <<"\n";
     std::cout<<"["<< M_rank <<"] GRAPHCSR INFO: NNZ (total)           = "<< ddz_j.size() <<"\n";
     std::cout<<"\n";
-
+#endif
 
     std::cout<<"\n";
     std::cout<<"["<< M_rank <<"] GRAPHCSR INFO: MIN NZ ON-DIAGONAL (per row)     = "<< *std::min_element(d_nnz.begin(),d_nnz.end()) <<"\n";

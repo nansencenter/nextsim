@@ -70,7 +70,6 @@ public:
                const size_type n,
                const size_type m_l,
                const size_type n_l,
-               graph_type const& graphloc,
                graphmpi_type const& graph );
 
     void initLocalToGlobalMapping(graphmpi_type const& graph);
@@ -118,6 +117,7 @@ public:
     void diagonal( VectorPetsc& out ) const;
 
     void on(std::vector<int> const& flags, VectorPetsc& rhs);
+    //void on(std::vector<int> const& flags, VectorPetsc& rhs, graphmpi_type const& graph);
 
     value_type energy(VectorPetsc& u) const;
 
@@ -125,12 +125,23 @@ public:
 
     size_type rowStop() const;
 
+    graphmpi_type const& graph() const
+    {
+        return M_graph;
+    }
+
+    void setGraph( graphmpi_type const& graph )
+    {
+        M_graph = graph;
+    }
+
 
 private:
 
     Mat M_mat;
     Communicator M_comm;
     bool M_is_initialized;
+    graphmpi_type M_graph;
 
 };
 
