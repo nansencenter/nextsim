@@ -114,16 +114,16 @@ FiniteElement::initMesh(setup::DomainType domain_type, std::string mesh_filename
             M_hminVertices = this->hminVertices(M_mesh_init, bamgmesh);
             M_hmaxVertices = this->hmaxVertices(M_mesh_init, bamgmesh);
 
-			bamgopt->hminVertices=&M_hminVertices[0];
-			bamgopt->hmaxVertices=&M_hmaxVertices[0];
+			//bamgopt->hminVertices=&M_hminVertices[0];
+			//bamgopt->hmaxVertices=&M_hmaxVertices[0];
 				
-            //bamgopt->hminVertices = new double[M_mesh_init.numNodes()];
-            //bamgopt->hmaxVertices = new double[M_mesh_init.numNodes()];
-            //for (int i=0; i<M_mesh_init.numNodes(); ++i)
-            //{
-            //    bamgopt->hminVertices[i] = M_hminVertices[i];
-            //    bamgopt->hmaxVertices[i] = M_hmaxVertices[i];
-            //}
+            bamgopt->hminVertices = new double[M_mesh_init.numNodes()];
+            bamgopt->hmaxVertices = new double[M_mesh_init.numNodes()];
+            for (int i=0; i<M_mesh_init.numNodes(); ++i)
+            {
+                bamgopt->hminVertices[i] = M_hminVertices[i];
+                bamgopt->hmaxVertices[i] = M_hmaxVertices[i];
+            }
             break;
         default:
             std::cout << "invalid mesh type"<<"\n";
@@ -930,7 +930,6 @@ FiniteElement::initConstant()
     M_drifter_type = str2drifter.find(vm["setup.drifter-type"].as<std::string>())->second;
 
     std::cout <<"GMSH VERSION= "<< M_mesh.version() <<"\n";
-    M_mesh.setOrdering("bamg");
 
     M_mesh_filename = vm["simul.mesh_filename"].as<std::string>();
 
@@ -940,7 +939,6 @@ FiniteElement::initConstant()
         ("topazreducedsplit4.msh", setup::DomainType::DEFAULT)
         ("topazreducedsplit8.msh", setup::DomainType::DEFAULT)
         ("simplesquaresplit2.msh", setup::DomainType::DEFAULT);
-
 
     M_domain_type = str2domain.find(M_mesh_filename)->second;
 
@@ -952,6 +950,13 @@ FiniteElement::initConstant()
         ("simplesquaresplit2.msh", setup::MeshType::FROM_SPLIT);
 
     M_mesh_type = str2mesh.find(M_mesh_filename)->second;
+
+    if (M_mesh_type == setup::MeshType::FROM_SPLIT)
+        M_mesh.setOrdering("bamg");
+    else if (M_mesh_type == setup::MeshType::FROM_GMSH)
+        M_mesh.setOrdering("gmsh");
+    else
+        throw std::logic_error("Unknown setup::MeshType");
 }
 
 void
@@ -4510,6 +4515,9 @@ FiniteElement::run()
             throw std::runtime_error("Cannot write to file: " + filename.str());
     }
 
+    // Debug file that records the time step
+    std::fstream pcpt_file;
+    pcpt_file.open("Timestep.txt", std::ios::out | std::ios::trunc);
     // main loop for nextsim program
     while (is_running)
     {
@@ -4638,6 +4646,8 @@ FiniteElement::run()
 
 #endif
         ++pcpt;
+        pcpt_file << pcpt << endl;
+        pcpt_file.seekp(0);
 
     if ( fmod(pcpt*time_step,restart_time_step) == 0)
     {
@@ -4646,6 +4656,8 @@ FiniteElement::run()
     }
 
     }
+
+    pcpt_file.close();
 
     this->exportResults(1000);
     std::cout<<"TIMER total = " << chrono_tot.elapsed() <<"s\n";
