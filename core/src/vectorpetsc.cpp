@@ -100,10 +100,10 @@ VectorPetsc::init( const size_type n,
     ISLocalToGlobalMapping isLocToGlobMap;
 
     PetscInt *idx;
-    PetscInt n_idx =  graph.globalIndicesWithoutGhost().size();
+    PetscInt n_idx =  graph.globalIndicesWithGhost().size();
     idx = new PetscInt[n_idx];
-    std::copy( graph.globalIndicesWithoutGhost().begin(),
-               graph.globalIndicesWithoutGhost().end(),
+    std::copy( graph.globalIndicesWithGhost().begin(),
+               graph.globalIndicesWithGhost().end(),
                idx );
 
     ierr = ISCreateGeneral( M_comm, n_idx, idx, PETSC_COPY_VALUES, &is );
@@ -706,8 +706,8 @@ VectorPetsc::container()
 {
     ASSERT(M_is_initialized, "VectorPetsc not initialized");
 
-    std::vector<value_type> contnr(this->size());
-    for (int i=0; i<this->size(); ++i)
+    std::vector<value_type> contnr(this->localsize());
+    for (int i=0; i<this->localsize(); ++i)
     {
         contnr[i] = this->operator()(i);
     }
