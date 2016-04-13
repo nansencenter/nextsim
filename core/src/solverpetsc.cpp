@@ -156,7 +156,7 @@ SolverPetsc::solveLinearSystem(matrix_ptrtype const& matrix,
         ierr = KSPView( M_ksp, PETSC_VIEWER_STDOUT_WORLD );
     }
 
-    if (Environment::vm()["solver.ksp-convergence-info"]. as<bool>())
+    if (Environment::vm()["solver.ksp-convergence-info"]. as<bool>() && M_comm.rank()==0)
     {
         std::cout<< "[solverpetsc] #OF ITERATIONS   = " << M_iteration << "\n";
         std::cout<< "[solverpetsc] RESIDUAL NORN    = " << M_residual << "\n";

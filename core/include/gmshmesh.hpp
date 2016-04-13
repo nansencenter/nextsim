@@ -77,6 +77,7 @@ public:
                  int _numPartitions,
                  int _partition,
                  std::vector<int> const& _ghosts,
+                 std::vector<bool> const& _ghostNodes,
                  int _numVertices,
                  std::vector<int> const& _indices,
                  int worldcommrank,
@@ -89,6 +90,7 @@ public:
         numPartitions( _numPartitions ),
         partition( (_partition % worldcommsize) ),
         ghosts( _ghosts ),
+        ghostNodes( _ghostNodes ),
         is_on_processor( false ),
         is_ghost( false ),
         ghost_partition_id( partition ),
@@ -142,6 +144,7 @@ public:
     int numPartitions;
     int partition;
     std::vector<int> ghosts;
+    std::vector<bool> ghostNodes;
     bool is_on_processor;
     bool is_ghost;
     int ghost_partition_id;
@@ -228,6 +231,11 @@ public:
 
     std::vector<double> meanLat() const;
     std::vector<double> meanLon() const;
+
+    std::vector<int> indexTrPartition() const;
+    std::vector<double> coordXPartition() const;
+    std::vector<double> coordYPartition() const;
+
 
 private:
 

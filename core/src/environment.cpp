@@ -19,7 +19,7 @@ Environment::Environment( int& argc, char** &argv )
     mpicomm = Communicator::commSelf();
 
     char * senv;
-	
+
 	senv = ::getenv( "NEXTSIMDIR" );
     if ( (senv == NULL) || (senv[0] == '\0') )
     {
@@ -27,7 +27,7 @@ Environment::Environment( int& argc, char** &argv )
         throw std::logic_error("invalid environment variable");
     }
     nextsimdirenv = fs::path(std::string(senv));
-	
+
 	senv = ::getenv( "SIMDATADIR" );
     if ( (senv == NULL) || (senv[0] == '\0') )
     {
@@ -35,7 +35,7 @@ Environment::Environment( int& argc, char** &argv )
         throw std::logic_error("invalid environment variable");
     }
     simdatadirenv = fs::path(std::string(senv));
-	
+
 	senv = ::getenv( "SIMFORECASTDIR" );
     if ( (senv == NULL) || (senv[0] == '\0') )
     {
@@ -58,7 +58,7 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
 
 
     char * senv;
-		
+
 	senv = ::getenv( "NEXTSIMDIR" );
     if ( (senv == NULL) || (senv[0] == '\0') )
     {
@@ -74,7 +74,7 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
         throw std::logic_error("invalid environment variable");
     }
     simdatadirenv = fs::path(std::string(senv));
-	
+
 	senv = ::getenv( "SIMFORECASTDIR" );
     if ( (senv == NULL) || (senv[0] == '\0') )
     {
@@ -129,7 +129,9 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
             {
                 if ( fs::exists( vmenv["config-file"].as<std::string>() ) )
                 {
-                    std::cout << "Reading " << vmenv["config-file"].as<std::string>() << "...\n";
+                    if (this->comm().rank()==0)
+                        std::cout << "Reading " << vmenv["config-file"].as<std::string>() << "...\n";
+
                     std::ifstream ifs( vmenv["config-file"].as<std::string>().c_str() );
                     po::store( parse_config_file( ifs, desc, true ), vmenv );
                     //po::notify( vmenv );

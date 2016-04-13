@@ -50,7 +50,9 @@ void
 GmshMesh::readFromFile(std::string const& filename)
 {
     std::string gmshmshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
-    std::cout<<"Reading Msh file "<< gmshmshfile <<"\n";
+
+    if (M_comm.rank() == 0)
+        std::cout<<"Reading Msh file "<< gmshmshfile <<"\n";
 
     std::ifstream __is ( gmshmshfile.c_str() );
 
@@ -108,7 +110,8 @@ GmshMesh::readFromFile(std::string const& filename)
     M_num_nodes = __n;
 
     //std::map<int, Nextsim::entities::GMSHPoint > gmshpts;
-    std::cout << "Reading "<< __n << " nodes\n";
+    if (M_comm.rank() == 0)
+        std::cout << "Reading "<< __n << " nodes\n";
 
     M_nodes_vec.resize(__n);
     std::vector<double> coords(3,0);
@@ -144,7 +147,8 @@ GmshMesh::readFromFile(std::string const& filename)
 
     //M_num_elements = numElements;
 
-    std::cout << "Reading " << numElements << " elements...\n";
+    if (M_comm.rank() == 0)
+        std::cout << "Reading " << numElements << " elements...\n";
     //std::list<Nextsim::entities::GMSHElement> __et; // tags in each element
     std::map<int,int> __gt;
 
@@ -155,6 +159,7 @@ GmshMesh::readFromFile(std::string const& filename)
     {
         int number, type, physical = 0, elementary = 0, numVertices;
         std::vector<int> ghosts;
+        std::vector<bool> ghostNodes;
         int numTags;
         int partition = (this->comm().size()>1)?this->comm().rank():0;
 
@@ -203,6 +208,7 @@ GmshMesh::readFromFile(std::string const& filename)
                                                 numPartitions,
                                                 partition,
                                                 ghosts,
+                                                ghostNodes,
                                                 numVertices,
                                                 indices,
                                                 this->comm().rank(),
@@ -236,7 +242,7 @@ GmshMesh::readFromFile(std::string const& filename)
     {
         const char* name;
         MElement::getInfoMSH( it.first, &name );
-        std::cout << "Read " << it.second << " " << name << " elements\n";
+        std::cout<<"["<< M_comm.rank() <<"] " << " Read " << it.second << " " << name << " elements\n";
 
         if (std::string(name) == "Triangle 3")
             M_num_triangles = it.second;
@@ -251,13 +257,13 @@ GmshMesh::readFromFile(std::string const& filename)
 
     // we are done reading the MSH file
 
-    std::cout<<"nodalGrid starts\n";
+    //std::cout<<"nodalGrid starts\n";
 
     // create local dofs
     if (M_comm.size() > 1)
         this->nodalGrid();
 
-    std::cout<<"nodalGrid done\n";
+    //std::cout<<"nodalGrid done\n";
 }
 
 void
@@ -341,16 +347,26 @@ GmshMesh::writeTofile(std::string const& filename)
 void
 GmshMesh::move(std::vector<double> const& um, double factor)
 {
-#if 0
+#if 1
     if ((um.size() != 0) && (factor != 0))
     {
         ASSERT(2*M_nodes.size()==um.size(),"invalid size of displacement vector");
 
-        for (int i=0; i<M_nodes.size(); ++i)
+        //for (int i=0; i<M_nodes.size(); ++i)
+        int cpt = 0;
+        for (auto it=M_nodes.begin(), en=M_nodes.end(); it!=en; ++it)
         {
             //std::cout<<"ADDED= "<< factor*um[2*(element.indices[i]-1)] <<"\n";
-            M_nodes[i].coords[0] += factor*um[i];
-            M_nodes[i].coords[1] += factor*um[i+M_num_nodes];
+            //M_nodes[i].coords[0] += factor*um[i];
+            //M_nodes[i].coords[1] += factor*um[i+M_num_nodes];
+
+            // M_nodes.find(i+1)->second.coords[0] += factor*um[i];
+            // M_nodes.find(i+1)->second.coords[1] += factor*um[i+M_num_nodes];
+
+            it->second.coords[0] += factor*um[cpt];
+            it->second.coords[1] += factor*um[cpt+M_num_nodes];
+
+            ++cpt;
         }
     }
 #endif
@@ -638,7 +654,8 @@ GmshMesh::nodalGrid()
             if (_test)
                 continue;
 
-            it->ghosts.assign(3,0);
+            //it->ghosts.assign(3,0);
+            it->ghostNodes.assign(3,false);
 
             // new add
             for (int i=0; i<3; ++i)
@@ -648,11 +665,10 @@ GmshMesh::nodalGrid()
                 //it->indices[i] = reorder.left.find(it->indices[i])->second;
                 it->indices[i] = M_transfer_map.left.find(it->indices[i])->second;
 
-                //it->ghosts[i] = 0;
-
                 if (std::binary_search(M_local_ghost.begin(),M_local_ghost.end(),rdof))
                 {
-                    it->ghosts[i] = 1;
+                    //it->ghosts[i] = 1;
+                    it->ghostNodes[i] = true;
 
                     // if (M_comm.rank()==0)
                     // {
@@ -673,7 +689,8 @@ GmshMesh::nodalGrid()
     // reorder edge nodes
     for (auto it=M_edges.begin(), end=M_edges.end(); it!=end; ++it)
     {
-        it->ghosts.assign(2,0);
+        //it->ghosts.assign(2,0);
+        it->ghostNodes.assign(2,false);
 
         for (int i=0; i<2; ++i)
         {
@@ -683,7 +700,8 @@ GmshMesh::nodalGrid()
 
             if (std::binary_search(M_local_ghost.begin(),M_local_ghost.end(),rdof))
             {
-                it->ghosts[i] = 1;
+                //it->ghosts[i] = 1;
+                it->ghostNodes[i] = true;
 
                 // if (M_comm.rank()==1)
                 // {
@@ -927,5 +945,72 @@ GmshMesh::meanLat() const
     return mean_lat;
 }
 
+std::vector<int>
+GmshMesh::indexTrPartition() const
+{
+    std::vector<int> index;//(3*M_num_triangles);
+    //int cpt = 0;
+    for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
+    {
+        if (!it->is_ghost)
+        {
+            for (int i=0; i<3; ++i)
+            {
+                index.push_back(it->indices[i]);
+            }
+
+            // index[3*cpt] = it->indices[0];//it->first;
+            // index[3*cpt+1] = it->indices[1];
+            // index[3*cpt+2] = it->indices[2];
+            // ++cpt;
+        }
+    }
+
+    return index;
+}
+
+std::vector<double>
+GmshMesh::coordXPartition() const
+{
+    std::vector<double> x(M_nldof_without_ghost);
+    int cpt = 0;
+    for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
+    {
+        if (cpt < M_nldof_without_ghost)
+        {
+            x[cpt] = it->second.coords[0];
+        }
+        else
+        {
+            break;
+        }
+
+        ++cpt;
+    }
+
+    return x;
+}
+
+std::vector<double>
+GmshMesh::coordYPartition() const
+{
+    std::vector<double> y(M_nldof_without_ghost);
+    int cpt = 0;
+    for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
+    {
+        if (cpt < M_nldof_without_ghost)
+        {
+            y[cpt] = it->second.coords[1];
+        }
+        else
+        {
+            break;
+        }
+
+        ++cpt;
+    }
+
+    return y;
+}
 
 } // Nextsim
