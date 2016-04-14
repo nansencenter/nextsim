@@ -1586,9 +1586,9 @@ FiniteElement::regrid(bool step)
 
 			M_tsurf.assign(M_num_elements,0.);
 
-                        M_h_thin.assign(M_num_elements,0.);
-                        M_hs_thin.assign(M_num_elements,0.);
-                        M_tsurf_thin.assign(M_num_elements,0.);
+            M_h_thin.assign(M_num_elements,0.);
+            M_hs_thin.assign(M_num_elements,0.);
+            M_tsurf_thin.assign(M_num_elements,0.);
 
 			for (int i=0; i<M_num_elements; ++i)
 			{
@@ -4517,7 +4517,7 @@ FiniteElement::run()
 
     // Debug file that records the time step
     std::fstream pcpt_file;
-    pcpt_file.open("Timestep.txt", std::ios::out | std::ios::trunc);
+    pcpt_file.open("Timestamp.txt", std::ios::out | std::ios::trunc);
     // main loop for nextsim program
     while (is_running)
     {
@@ -4546,6 +4546,7 @@ FiniteElement::run()
                 M_regrid = true;
                 std::cout<<"Regriding starts\n";
 				//chrono.restart();
+                // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
                 this->regrid(pcpt);
                 //std::cout<<"Regriding done in "<< chrono.elapsed() <<"s\n";
             }
@@ -4645,9 +4646,11 @@ FiniteElement::run()
     }
 
 #endif
-        ++pcpt;
-        pcpt_file << pcpt << endl;
-        pcpt_file.seekp(0);
+
+    ++pcpt;
+    pcpt_file << pcpt << endl;
+    pcpt_file << to_date_string(time_init + pcpt*time_step/(24*3600.0)) << endl; // current time
+    pcpt_file.seekp(0);
 
     if ( fmod(pcpt*time_step,restart_time_step) == 0)
     {
@@ -5274,6 +5277,7 @@ void
 FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 {
 
+    // Initialise counters etc.
 	std::string current_timestr = "";
 	int nb_forcing_step =1;
 	
@@ -5286,6 +5290,7 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 	// interp_type for grid to mesh interpolation
 	int interp_type = dataset->grid->interp_type;
 	
+    // create dataset->ftime_range for data sets which need to be interpolated in time
 	if(dataset->nb_timestep_day>0)
 	{
 		current_timestr = to_date_string_ym(current_time);
@@ -5313,38 +5318,8 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 
 		nb_forcing_step = dataset->ftime_range.size();
 	}
-	
-    std::string filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
-                                % Environment::nextsimDir().string()
-                                % dataset->dirname
-                                % dataset->prefix
-                                % current_timestr
-                                % dataset->postfix
-                                ).str();
 
-    std::cout<<"FILE= "<< filename <<"\n";
-	std::cout<<"NB_FORCING_STEP= "<< nb_forcing_step <<"\n";
-
-    if ( ! boost::filesystem::exists(filename) )
-        throw std::runtime_error("File not found: " + filename);
-    netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
-
-	std::vector<netCDF::NcVar> NcVars(dataset->variables.size());
-
-    for(int j=0; j<dataset->variables.size(); ++j)
-        NcVars[j] = dataFile.getVar(dataset->variables[j].name);
-
-	if(dataset->nb_timestep_day>0)
-	{
-		XTIME.resize(dataset->time.dimensions[0].end-dataset->time.dimensions[0].start);
-		
-    	netCDF::NcVar VTIME = dataFile.getVar(dataset->time.name);
-
-    	VTIME.getVar(&XTIME[0]);
-
-    	std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string(dataset->reference_date); });
-	}
-
+    // Initialise variables for the fields
     std::vector<double> tmp_interpolated_field(dataset->target_size);
 
     int N_data =dataset->variables.size();
@@ -5362,48 +5337,71 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 	
     std::vector<double> data_in_tmp(MN);
 
+    // Attributes (scaling and offset)
     netCDF::NcVarAtt att;
     double scale_factor;
     double add_offset;
 
+    std::cout<<"NB_FORCING_STEP= "<< nb_forcing_step <<"\n";
+
+    // Read in data one time step at a time
     for (int fstep=0; fstep < nb_forcing_step; ++fstep)
     {
+        // Define variables for this scope
+        std::vector<netCDF::NcVar> NcVars(dataset->variables.size());
+        double ftime;
+        std::string filename;
+
+        // Filename depends on the date for time varying data
 		if(dataset->nb_timestep_day>0)
 		{
-			double ftime = dataset->ftime_range[fstep];
+            ftime = dataset->ftime_range[fstep];
+            std::string f_timestr = to_date_string_ym(std::floor(ftime));
+            std::cout<<"F_TIMESTR= "<< f_timestr <<"\n";
 
-			if (to_date_string_ym(std::floor(ftime)) != to_date_string_ym(current_time))
-			{
-				std::string f_timestr = to_date_string_ym(std::floor(ftime));
-				std::cout<<"F_TIMESTR= "<< f_timestr <<"\n";
-
-				filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
-					% Environment::nextsimDir().string()
-						% dataset->dirname
-							% dataset->prefix
-								% f_timestr
-									% dataset->postfix
-										).str();
-
-				std::cout<<"FILENAME= "<< filename <<"\n";
-
-				netCDF::NcFile fdataFile(filename, netCDF::NcFile::read);
-				netCDF::NcVar FVTIME = dataFile.getVar(dataset->time.name);
-				FVTIME.getVar(&XTIME[0]);
-				std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string(dataset->reference_date); });
-
-				// for (int i=0; i<31; ++i)
-				// {
-				//     std::cout<<"TIME["<< i <<"]= "<< XTIME[i] <<"\n";
-				// }
-			}
-
-			auto it = std::find(XTIME.begin(), XTIME.end(), ftime);
-			index = std::distance(XTIME.begin(),it);
-			std::cout<<"FIND "<< ftime <<" in index "<< index <<"\n";
+            filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
+                % Environment::nextsimDir().string()
+                    % dataset->dirname
+                        % dataset->prefix
+                            % f_timestr
+                                % dataset->postfix
+                                    ).str();
 		}
+        else
+        {
+            filename = (boost::format( "%1%/%2%/%3%%4%" )
+                                        % Environment::nextsimDir().string()
+                                        % dataset->dirname
+                                        % dataset->prefix
+                                        % dataset->postfix
+                                        ).str();
+        }
+
+        std::cout<<"FILENAME= "<< filename <<"\n";
+        if ( ! boost::filesystem::exists(filename) )
+            throw std::runtime_error("File not found: " + filename);
+
+        // Open the netcdf file
+        netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
+
+        // Find the right time slice
+        if (dataset->nb_timestep_day>0)
+        {
+            // Set the time range XTIME
+            netCDF::NcVar FVTIME = dataFile.getVar(dataset->time.name);
+            XTIME.resize(dataset->time.dimensions[0].end-dataset->time.dimensions[0].start);
+            FVTIME.getVar(&XTIME[0]);
+            std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string(dataset->reference_date); });
+
+            auto it = std::find(XTIME.begin(), XTIME.end(), ftime);
+            index = std::distance(XTIME.begin(),it);
+            std::cout<<"FIND "<< ftime <<" in index "<< index <<"\n";
+        }
+
         for(int j=0; j<dataset->variables.size(); ++j)
         {
+            NcVars[j] = dataFile.getVar(dataset->variables[j].name);
+
             index_start.resize(dataset->variables[j].dimensions.size());
             index_count.resize(dataset->variables[j].dimensions.size());
 
@@ -6503,6 +6501,9 @@ FiniteElement::exportResults(int step, bool export_mesh)
     std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
     if ( ! outbin.good() )
         throw std::runtime_error("Cannot write to file: " + fileout);
+    std::vector<double> timevec(1);
+    timevec[0] = current_time;
+    exporter.writeField(outbin, timevec, "Time");
     exporter.writeField(outbin, M_VT, "M_VT");
     exporter.writeField(outbin, M_conc, "Concentration");
     exporter.writeField(outbin, M_thick, "Thickness");
