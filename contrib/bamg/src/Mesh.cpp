@@ -780,7 +780,7 @@ namespace bamg {
 		bamgmesh->ElementConnectivitySize[0]=nbt-nbtout;
 		bamgmesh->ElementConnectivitySize[1]=3;
 		bamgmesh->ElementConnectivity=new double[3*(nbt-nbtout)];
-		for (i=0;i<3*(nbt-nbtout);i++) bamgmesh->ElementConnectivity[i]=NAN;
+		for (i=0;i<3*(nbt-nbtout);i++) bamgmesh->ElementConnectivity[i]=0;
 		num=0;
 		for (i=0;i<nbt;i++){
 			if (reft[i]>=0){
@@ -800,7 +800,7 @@ namespace bamg {
 		bamgmesh->NodalElementConnectivitySize[0]=nbv;
 		bamgmesh->NodalElementConnectivitySize[1]=connectivitymax_1;
 		bamgmesh->NodalElementConnectivity=new double[connectivitymax_1*nbv];
-		for (i=0;i<connectivitymax_1*nbv;i++) bamgmesh->NodalElementConnectivity[i]=NAN;
+		for (i=0;i<connectivitymax_1*nbv;i++) bamgmesh->NodalElementConnectivity[i]=0;
 		for (i=0;i<nbv;i++){
 			k=0;
 			for(j=head_1[i];j!=-1;j=next_1[j]){
