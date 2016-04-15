@@ -16,14 +16,12 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/version.hpp>
 #include <boost/format.hpp>
-#include <boost/bimap.hpp>
 #include <BamgConvertMeshx.h>
 #include <BamgTriangulatex.h>
 #include <Bamgx.h>
 #include <InterpFromMeshToMesh2dCavities.h>
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromGridToMeshx.h>
-#include <pwl_interp_2d_scattered.hpp>
 #include <gmshmesh.hpp>
 #include <graphcsr.hpp>
 #include <graphcsrmpi.hpp>
@@ -39,21 +37,6 @@ extern "C"
 
 namespace Nextsim
 {
-
-    //namespace mpi boost::mpi;
-
-template< class MapType >
-void print_map(const MapType & map,
-               const std::string & separator,
-               std::ostream & os )
-{
-    typedef typename MapType::const_iterator const_iterator;
-
-    for( const_iterator i = map.begin(), iend = map.end(); i != iend; ++i )
-    {
-        os << i->first << separator << i->second << std::endl;
-    }
-}
 
 class FiniteElement
 {
@@ -75,17 +58,74 @@ public:
     typedef GraphCSRMPI graphmpi_type;
     typedef boost::shared_ptr<graphmpi_type> graphmpi_ptrtype;
 
-    // typedef boost::bimap<int,int> bimap_type;
-    // typedef bimap_type::value_type position;
+    typedef struct Dimension
+    {
+        std::string name;
+        int start;
+        int end;
+    } Dimesion;
 
-    typedef GmshMesh::bimap_type bimap_type;
-    typedef GmshMesh::position position;
+    typedef struct Variable
+    {
+        std::string name;
+        std::vector<Dimension> dimensions;
+        double a;
+        double b;
+        std::string Units;
+        std::vector<std::vector<double>> data2;
+    } Variable;
 
+    typedef struct Grid
+    {
+        setup::InterpolationType interpolation_method;
+		int interp_type;
+        std::string dirname;
+        std::string filename;
+
+        Variable latitude;
+        Variable longitude;
+
+        Dimension dimension_x;
+        Dimension dimension_y;
+
+        std::string mpp_file;
+        double rotation_angle;
+		bool interpolation_in_latlon;
+
+		bool masking;
+		Variable masking_variable;
+		std::vector<int> reduced_nodes_ind;
+
+        int* pfindex;
+        int pfnels;
+        std::vector<double> gridX;
+        std::vector<double> gridY;
+
+        std::vector<double> gridLAT;
+        std::vector<double> gridLON;
+    } Grid;
+
+    typedef struct Dataset
+    {
+        std::string dirname;
+        std::string prefix;
+        std::string postfix;
+        std::string reference_date;
+
+        std::vector<Variable> variables;
+        int target_size;
+        Grid *grid;
+
+        int nb_timestep_day;
+        Variable time;
+        Dimension dimension_time;
+
+        std::vector<double> ftime_range;
+    } Dataset;
 
     FiniteElement();
 
     mesh_type const& mesh() const {return M_mesh;}
-    Communicator const& comm() const {return M_comm;}
 
     solver_ptrtype const& solverPtr() const {return M_solver;}
     matrix_ptrtype const& matrixPtr() const {return M_matrix;}
@@ -97,7 +137,8 @@ public:
     vector_type const& rhs() const {return *M_vector;}
     vector_type const& solution() const {return *M_solution;}
 
-    void init();
+    void initMesh(setup::DomainType domain_type, std::string mesh_filename, setup::MeshType mesh_type);
+    void initDatasets();
     void createGMSHMesh(std::string const& geofilename);
     double jacobian(element_type const& element, mesh_type const& mesh) const;
     double jacobian(element_type const& element, mesh_type const& mesh,
@@ -112,13 +153,27 @@ public:
     void regrid(bool step = true);
     void adaptMesh();
 
-    void assemble();
-    void laplacian();
-    void laplacianSeq();
-    void assembleSeq();
+    void assemble(int cpt);
+    void assembleSeq(int cpt);
     void solve();
     void run();
     void error();
+
+    void thermo();
+    void thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols,
+            double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf);
+
+    Dataset M_asr_nodes_dataset;
+    Dataset M_asr_elements_dataset;
+    Dataset M_topaz_nodes_dataset;
+    Dataset M_topaz_elements_dataset;
+	Dataset M_ice_topaz_elements_dataset;
+    Dataset M_etopo_elements_dataset;
+
+
+    Grid M_asr_grid;
+    Grid M_topaz_grid;
+	Grid M_etopo_grid;
 
     double minAngles(element_type const& element, mesh_type const& mesh) const;
     double minAngle(mesh_type const& mesh) const;
@@ -132,33 +187,26 @@ public:
     std::vector<double> hminVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const;
     std::vector<double> hmaxVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const;
 
-    std::vector<double> latLon2XY(double const& lat, double const& lon, mapx_class* map, std::string const& configfile);
-    double latLon2X(double const& lat, double const& lon, mapx_class* map, std::string const& configfile);
-    double latLon2Y(double const& lat, double const& lon, mapx_class* map, std::string const& configfile);
-
-    void computeFactors(int cpt);
-    void computeFactorsSeq(int cpt);
     void initBamg();
     void initConstant();
     void forcing();
-    void forcingWind(bool reload);//(double const& u, double const& v);
-    void forcingOcean(bool reload);//(double const& u, double const& v);
-    void forcingThermo(double const& u, double const& v);
+    void forcingAtmosphere(bool reload);
+    void forcingOcean(bool reload);
+	void bathymetry(bool reload);
 
-    void initConcentration();
-    void initThickness();
-    void initDamage();
-    void initSnowThickness();
+    void initIce();
     void initThermodynamics();
+    void initSlabOcean();
     void initDrifter();
-    void bathymetry();
+    void coriolis();
     void timeInterpolation(int step);
     void nodesToElements(double const* depth, std::vector<double>& v);
 
     void PwlInterp2D();
     void importBamg(BamgMesh const* bamg_mesh);
     void createGraph(BamgMesh const* bamg_mesh);
-    void initSimulation();
+    void initVariables();
+    void initModelState();
     void tensors();
     void cohesion();
     void updateVelocity();
@@ -166,6 +214,9 @@ public:
     void update();
     void updateSeq();
     void exportResults(int step, bool export_mesh = true);
+
+    void writeRestart(int pcpt, int step);
+    void readRestart(int &pcpt, int step);
 
 private:
     po::variables_map vm;
@@ -176,7 +227,6 @@ private:
     mesh_type M_mesh_previous;
     solver_ptrtype M_solver;
     matrix_ptrtype M_matrix;
-    matrix_ptrtype M_matrix_seq;
     //matrix_ptrtype M_mass;
     vector_ptrtype M_vector;
     vector_ptrtype M_solution;
@@ -188,10 +238,11 @@ private:
     std::vector<element_type> M_elements;
 
     int M_num_nodes;
+    int M_num_elements;
+
     int M_ndof;
     int M_local_ndof;
     int M_local_ndof_ghost;
-    int M_num_elements;
     int M_rank;
     Communicator M_comm;
 
@@ -203,15 +254,12 @@ private:
 
     boost::mpi::timer chrono, chrono_tot;
 
-    setup::WindType M_wind_type;
+    setup::AtmosphereType M_atmosphere_type;
     setup::OceanType M_ocean_type;
-    setup::ThermoType M_thermo_type;
+    setup::IceType M_ice_type;
+    setup::BathymetryType M_bathymetry_type;
 
-    setup::IceCategoryType M_ice_type;
-    setup::ConcentrationType M_conc_type;
-    setup::ThicknessType M_thick_type;
-    setup::DamageType M_damage_type;
-    setup::SnowThicknessType M_snow_thick_type;
+    setup::IceCategoryType M_ice_cat_type;
     setup::DrifterType M_drifter_type;
     setup::DomainType M_domain_type;
     setup::MeshType M_mesh_type;
@@ -224,6 +272,7 @@ private:
     std::vector<bool> M_valid_conc;
 
 
+    std::vector<double> M_surface;
     std::vector<double> M_sigma;
     std::vector<double> M_divergence_rate;
     //std::vector<double> M_UT;
@@ -231,7 +280,6 @@ private:
     std::vector<double> M_VT;
     std::vector<double> M_VTM;
     std::vector<double> M_VTMM;
-    std::vector<double> M_Vcor;
 
     std::vector<double> M_bathy_depth;
 
@@ -244,15 +292,11 @@ private:
     std::vector<double> M_basal_factor;
     std::vector<double> M_water_elements;
     std::vector<double> M_ssh;
-    std::vector<double> M_element_ssh;
     std::vector<double> M_h_thin;
     std::vector<double> M_hs_thin;
     std::vector<double> M_h_ridged_thin_ice;
     std::vector<double> M_h_ridged_thick_ice;
 
-    std::vector<double> M_norm_Voce_ice;
-    std::vector<double> M_norm_Vair_ice;
-    std::vector<double> M_norm_Vice;
     std::vector<double> M_fcor;
 
     std::vector<double> M_Dunit;
@@ -276,6 +320,7 @@ private:
     double days_in_sec;
     double time_init;
     double output_time_step;
+    double restart_time_step;
     double time_step;
     double duration;
     double spinup_duration;
@@ -286,10 +331,10 @@ private:
     double ridging_exponent;
     double quad_drag_coef_air;
     double quad_drag_coef_water;
-    double ssh_coef;
     double time_relaxation_damage;
+    double deltaT_relaxation_damage;
     //double water_depth;
-    double critical_h;
+    double ssh_coef;
     double Vair_coef;
     double Voce_coef;
 
@@ -313,22 +358,6 @@ private:
     double current_time;
     bool M_reuse_prec;
     bool M_regrid;
-    int M_cpt;
-
-private:
-
-    std::vector<double> M_ftime_wind_range;
-    std::vector<std::vector<double>> M_vair;
-    std::vector<double> M_ftime_ocean_range;
-    std::vector<std::vector<double>> M_voce;
-    std::vector<std::vector<double>> M_vssh;
-
-private:
-
-    int* M_pfindex;
-    int M_pfnels;
-    std::vector<double> M_topaz_gridX;
-    std::vector<double> M_topaz_gridY;
 
 private:
 
@@ -353,38 +382,61 @@ private:
     //Options *options;
 
 private:
-    std::vector<double> M_wind;
-    std::vector<double> M_ocean;
-    std::vector<double> M_thermo;
 
-    std::vector<double> M_conc;
-    std::vector<double> M_thick;
-    std::vector<double> M_damage;
-    std::vector<double> M_snow_thick;
-    std::vector<double> M_drifter;
+    // Thermodynamic and dynamic forcing
+    // Atmosphere
+    std::vector<double> M_wind;         // Surface wind [m/s]
+    std::vector<double> M_tair;         // 2 m temperature [C]
+    std::vector<double> M_mixrat;       // Mixing ratio
+    std::vector<double> M_dair;         // 2 m dew point [C]
+    std::vector<double> M_mslp;         // Atmospheric pressure [Pa]
+    std::vector<double> M_Qsw_in;       // Incoming short-wave radiation [W/m2]
+    std::vector<double> M_Qlw_in;       // Incoming long-wave radiation [W/m2]
+    std::vector<double> M_precip;       // Total precipitation [m]
+    std::vector<double> M_snowfr;       // Fraction of precipitation that is snow
+    // Ocean
+    std::vector<double> M_ocean;        // "Geostrophic" ocean currents [m/s]
+    std::vector<double> M_ocean_temp;   // Ocean temperature in top layer [C]
+    std::vector<double> M_ocean_salt;   // Ocean salinity in top layer [C]
+    std::vector<double> M_mld;          // Mixed-layer depth [m]
+
+    // Drifters
+    boost::unordered_map<int, std::array<double,2>> M_drifter; // Drifters are kept in an unordered map containing number and coordinates
+    std::fstream M_iabp_file;             // The file we read the IABP buoy data from
+
+    // Prognostic ice variables
+    std::vector<double> M_conc;         // Ice concentration
+    std::vector<double> M_thick;        // Effective ice thickness [m]
+    std::vector<double> M_damage;       // Ice damage
+    std::vector<double> M_snow_thick;   // Effective snow thickness [m]
+
+	// Prognostic slab ocean variables
+    std::vector<double> M_sst;          // Sea-surface temperature [C]
+    std::vector<double> M_sss;          // Sea-surface salinity [psu]
+
+	// Non-prognostic variables used to speed up the convergence of a non-linear equation in thermodynamics
+    std::vector<double> M_tsurf;        // Ice surface temperature [C]
+    std::vector<double> M_tsurf_thin;   // Ice surface temperature of thin ice [C]
+
 
 private:
-    void constantWind(double const& u, double const& v);
-    void constantOcean(double const& u, double const& v);
-    void constantThermo(double const& u, double const& v);
+    void constantAtmosphere();
+    void constantOcean();
+    void constantIce();
+	void constantBathymetry();
 
-    void constantConc();
-    void constantThick();
-    void constantDamage();
-    void constantSnowThick();
     void equallySpacedDrifter();
+    void outputDrifter(std::fstream &iabp_out);
+    void initIABPDrifter();
+    void updateIABPDrifter();
 
-    void topazConc();
-    void topazThick();
-    void topazSnowThick();
+    void asrAtmosphere(bool reload);
+    void topazOcean(bool reload);
+    void topazIce();
+	void etopoBathymetry(bool reload);
 
-    void asrWind(bool reload);//(double const& u, double const& v);
-    void loadAsrWind();//(double const& u, double const& v);
-
-    void topazOcean(bool reload);//(double const& u, double const& v);
-    void loadTopazOcean();//(double const& u, double const& v);
-    void gridTopazOcean();
-
+    void loadDataset(Dataset *dataset);//(double const& u, double const& v);
+    void loadGrid(Grid *grid);
 };
 } // Nextsim
 #endif

@@ -255,7 +255,7 @@ namespace bamg {
 		long i1,i2,i3;
 		long i;
 		Metric M1(1);
-		int verbose=0/*7*/;
+		int verbose=7;
 		bool* nodeflags=NULL;
 
 		nbv=nods;

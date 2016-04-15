@@ -11,7 +11,14 @@ namespace Nextsim
 {
 namespace setup
 {
-    enum class WindType
+    enum class InterpolationType
+    {
+        InterpFromGridToMesh = 0,
+        InterpFromMeshToMesh2dx = 1,
+        InterpFromMeshToMesh2dCavities = 2,
+    };
+
+    enum class AtmosphereType
     {
         CONSTANT = 0,
         ASR      = 1,
@@ -28,15 +35,7 @@ namespace setup
 		MITGCM   = 3
     };
 
-	enum class ThermoType
-	{
-		CONSTANT = 0,
-		ASR      = 1,
-		ERA      = 2,
-		ASRFINAL = 4
-	};
-
-    enum class ConcentrationType
+    enum class IceType
 	{
 		CONSTANT  = 0,
 		AMSRE     = 1,
@@ -46,22 +45,11 @@ namespace setup
         TOPAZ4F   = 6,
         MITGCM    = 7
 	};
-
-    enum class ThicknessType
-    {
-        CONSTANT  = 0,
-        SMOS      = 1,
-        ARBITRARY = 2,
-        ICESAT    = 3,
-        TOPAZ4    = 4,
-        MITGCM    = 5
-    };
-
-    enum class DamageType
+	
+    enum class BathymetryType
     {
         CONSTANT = 0,
-        RGPS     = 1,
-        RCONC    = 2
+        ETOPO    = 1
     };
 
     enum class IceCategoryType
@@ -71,18 +59,11 @@ namespace setup
         MULTI       = 2
     };
 
-    enum class SnowThicknessType
-    {
-        CONSTANT  = 0,
-        ARBITRARY = 1,
-        TOPAZ4    = 2,
-        MITGCM    = 3
-    };
-
     enum class DrifterType
     {
-        EQUALLYSPACED = 0,
-        IABP          = 1
+        NONE          = 0,
+        EQUALLYSPACED = 1,
+        IABP          = 2
     };
 
     enum class DomainType

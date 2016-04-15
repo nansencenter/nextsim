@@ -63,7 +63,7 @@ int InterpFromGridToMeshx(double* &data_mesh,double* x_in, int x_rows, double* y
 	gate.x             = x;
 	gate.y             = y;
 	gate.nods          = nods;
-	//gate.data_mesh     = data_mesh;
+	gate.data_mesh     = data_mesh;
 	gate.data          = data;
 	gate.default_value = default_value;
 	gate.interp        = interpenum;
@@ -71,7 +71,11 @@ int InterpFromGridToMeshx(double* &data_mesh,double* x_in, int x_rows, double* y
 	gate.N             = N;
 	gate.N_data        = N_data;
 
-	InterpFromGridToMeshxt(gate,data_mesh);
+	/*launch the thread manager with InterpFromGridToMeshxt as a core: */
+	LaunchThread(InterpFromGridToMeshxt,(void*)&gate,_NUMTHREADS_);
+	//_printf_("\r      interpolation progress: "<<fixed<<setw(6)<<setprecision(2)<<100.<<"%  \n");
+
+	//InterpFromGridToMeshxt(gate,data_mesh);
 	//_printf_("\r      interpolation progress: "<<fixed<<setw(6)<<setprecision(2)<<100.<<"%  \n");
 
 	// for (int k=0; k<10; ++k)
@@ -80,6 +84,8 @@ int InterpFromGridToMeshx(double* &data_mesh,double* x_in, int x_rows, double* y
 	/*Assign output pointers:*/
 	//*pdata_mesh=data_mesh;
 
+        xDelete<double>(x);
+        xDelete<double>(y);
 	return 1;
 }
 /*}}}*/
@@ -138,7 +144,7 @@ int InterpFromGridToMeshxt(InterpFromGridToMeshxThreadStruct gate, double* data_
 			 */
 			x1=x[n]; x2=x[n+1];
 			y1=y[m]; y2=y[m+1];
-			
+
 			for(j=0;j<N_data;j++) {
 
 				Q11=data[N_data*(m*N+n)			+j];
@@ -163,7 +169,7 @@ int InterpFromGridToMeshxt(InterpFromGridToMeshxThreadStruct gate, double* data_
 				if(xIsNan<double>(data_value)) data_value=default_value;
 				data_mesh[N_data*i+j] = data_value;
 			}
-		}	
+		}
 		else
 		{
 			data_value=default_value;
@@ -172,6 +178,109 @@ int InterpFromGridToMeshxt(InterpFromGridToMeshxThreadStruct gate, double* data_
 	}
 
 	return 1;
+}/*}}}*/
+
+void* InterpFromGridToMeshxt(void* vpthread_handle){
+
+	/*gate variables :*/
+	InterpFromGridToMeshxThreadStruct *gate    = NULL;
+	pthread_handle                    *handle  = NULL;
+	int my_thread;
+	int num_threads;
+	int i0,i1;
+
+	/*intermediary: */
+	int    i,j,m,n;
+	double x_grid;
+	double y_grid;
+	double data_value;
+	double x1,x2,y1,y2;
+	double Q11,Q12,Q21,Q22;
+
+	/*recover handle and gate: */
+	handle=(pthread_handle*)vpthread_handle;
+	gate=(InterpFromGridToMeshxThreadStruct*)handle->gate;
+	my_thread=handle->id;
+	num_threads=handle->num;
+
+	/*recover parameters :*/
+	double *x_mesh                = gate->x_mesh;
+	double *y_mesh                = gate->y_mesh;
+	int     x_rows                = gate->x_rows;
+	int     y_rows                = gate->y_rows;
+	double *x                     = gate->x;
+	double *y                     = gate->y;
+	int     nods                  = gate->nods;
+	double *data_mesh             = gate->data_mesh;
+	double *data                  = gate->data;
+	double  default_value         = gate->default_value;
+	int     interpenum            = gate->interp;
+	int     M                     = gate->M;
+	int     N                     = gate->N;
+	int     N_data                = gate->N_data;
+
+	bool debug = M*N>1? true:false;
+
+	//for (i=0;i<nods;i++) {
+	PartitionRange(&i0,&i1,nods,num_threads,my_thread);
+	for (i=i0;i<i1;i++) {
+		//if(debug && my_thread==0)
+		//	_printf_("\r      interpolation progress: "<<setw(6)<<setprecision(2)<<double(i)/double(nods)*100<<"%   ");
+
+		x_grid=*(x_mesh+i);
+		y_grid=*(y_mesh+i);
+
+		/*Find indices m and n into y and x, for which  y(m)<=y_grids<=y(m+1) and x(n)<=x_grid<=x(n+1)*/
+		if(findindices(&n,&m,x,x_rows, y,y_rows, x_grid,y_grid))
+		{
+
+			/*    Q12             Q22
+			 * y2 x---------+-----x
+			 *    |         |     |
+			 *    |         |P    |
+			 *    |---------+-----|
+			 *    |         |     |
+			 *    |         |     |
+			 * y1 x---------+-----x Q21
+			 *    x1                 x2
+			 *
+			 */
+			x1=x[n]; x2=x[n+1];
+			y1=y[m]; y2=y[m+1];
+
+			for(j=0;j<N_data;j++) {
+
+				Q11=data[N_data*(m*N+n)			+j];
+				Q12=data[N_data*((m+1)*N+n)		+j];
+				Q21=data[N_data*(m*N+n+1)		+j];
+				Q22=data[N_data*((m+1)*N+n+1)	+j];
+
+				switch(interpenum){
+					case TriangleInterpEnum:
+						data_value=triangleinterp(x1,x2,y1,y2,Q11,Q12,Q21,Q22,x_grid,y_grid);
+						break;
+					case BilinearInterpEnum:
+						data_value=bilinearinterp(x1,x2,y1,y2,Q11,Q12,Q21,Q22,x_grid,y_grid);
+						break;
+					case NearestInterpEnum:
+						data_value=nearestinterp(x1,x2,y1,y2, Q11,Q12,Q21,Q22,x_grid,y_grid);
+						break;
+					default:
+						_printf_("Interpolation " << EnumToStringx(interpenum) << " not supported yet\n");
+						return NULL; /*WARNING: no error because it would blow up the multithreading!*/
+				}
+				if(xIsNan<double>(data_value)) data_value=default_value;
+				data_mesh[N_data*i+j] = data_value;
+			}
+		}
+		else
+		{
+			data_value=default_value;
+			for(j=0;j<N_data;j++) data_mesh[N_data*i+j] = data_value;
+		}
+	}
+
+	return NULL;
 }/*}}}*/
 
 /*findindices {{{*/
