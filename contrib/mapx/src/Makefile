@@ -17,7 +17,7 @@ CCFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthr
 ifeq ($(KERNEL),Linux)
 	CCFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include -I /usr/lib/openmpi/include
 	LDFLAGS += -shared -Wl,-soname,libmapx.so.1
-	LDFLAGS += -lm -ldl -lhwloc
+	LDFLAGS += -lm -ldl #-lhwloc
 else
 
 	ifeq ($(CC),clang)

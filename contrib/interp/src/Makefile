@@ -18,7 +18,7 @@ CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pth
 ifeq ($(KERNEL),Linux)
 	CXXFLAGS += -I $(NEXTSIMDIR)/contrib/interp/include -I /usr/lib/openmpi/include
 	LDFLAGS += -shared -Wl,-soname,libinterp.so.1
-	LDFLAGS += -lm -ldl -lhwloc
+	LDFLAGS += -lm -ldl #-lhwloc
 else
 
 	ifeq ($(CXX),clang)
