@@ -999,10 +999,12 @@ FiniteElement::initConstant()
     //std::cout <<"GMSH VERSION= "<< M_mesh.version() <<"\n";
     M_mesh.setOrdering("bamg");
 
-    M_mesh_filename = "par4bigarctic10km.msh";//vm["simul.mesh_filename"].as<std::string>();
+    //M_mesh_filename = "par8bigarctic10km.msh";//vm["simul.mesh_filename"].as<std::string>();
+    M_mesh_filename = vm["simul.mesh_filename"].as<std::string>();
 
+#if 0
     const boost::unordered_map<const std::string, setup::DomainType> str2domain = boost::assign::map_list_of
-        ("par4bigarctic10km.msh", setup::DomainType::BIGARCTIC)
+        ("par8bigarctic10km.msh", setup::DomainType::BIGARCTIC)
         ("topazreducedsplit2.msh", setup::DomainType::DEFAULT)
         ("topazreducedsplit4.msh", setup::DomainType::DEFAULT)
         ("topazreducedsplit8.msh", setup::DomainType::DEFAULT)
@@ -1012,13 +1014,34 @@ FiniteElement::initConstant()
     M_domain_type = str2domain.find(M_mesh_filename)->second;
 
     const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
-        ("par4bigarctic10km.msh", setup::MeshType::FROM_GMSH)
+        ("par8bigarctic10km.msh", setup::MeshType::FROM_GMSH)
         ("topazreducedsplit2.msh", setup::MeshType::FROM_SPLIT)
         ("topazreducedsplit4.msh", setup::MeshType::FROM_SPLIT)
         ("topazreducedsplit8.msh", setup::MeshType::FROM_SPLIT)
         ("simplesquaresplit2.msh", setup::MeshType::FROM_SPLIT);
 
     M_mesh_type = str2mesh.find(M_mesh_filename)->second;
+#endif
+
+    if (M_mesh_filename.find("plit") != std::string::npos)
+    {
+        M_domain_type = setup::DomainType::DEFAULT;
+        M_mesh_type = setup::MeshType::FROM_SPLIT;
+    }
+    else
+    {
+        M_domain_type = setup::DomainType::BIGARCTIC;
+        M_mesh_type = setup::MeshType::FROM_GMSH;
+    }
+
+    if (M_mesh_filename.substr(3,1) != std::to_string(Environment::comm().size()))
+    {
+        std::cout<<"the number of processor cores does not match the number of mesh partitions: "
+                 << std::to_string(Environment::comm().size()) <<" != " << M_mesh_filename.substr(3,1) <<"\n";
+
+        throw std::logic_error("invalid number of processor cores or number of mesh partitions");
+    }
+
 }
 
 void
@@ -2502,6 +2525,7 @@ FiniteElement::assemble(int pcpt)
         std::cout <<"TIMER DBCA= " << chrono.elapsed() <<"s\n";
     //std::cout<<"[" << M_rank <<"] " <<"TIMER DBCA= " << chrono.elapsed() <<"s\n";
 
+#if 0
     int S1 = M_matrix->size1();
     int S2 = M_matrix->size2();
     double _norm = M_matrix->linftyNorm();
@@ -2517,6 +2541,7 @@ FiniteElement::assemble(int pcpt)
         std::cout<<"[PETSC MATRIX] NORM            = "<< _norm <<"\n";
         std::cout<<"[PETSC VECTOR] NORM            = "<< _l2norm <<"\n";
     }
+#endif
 
     //M_matrix->printMatlab("stiffness.m");
     //M_vector->printMatlab("rhs.m");

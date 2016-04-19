@@ -6,7 +6,6 @@ else
 	LIBRARYNAME=libnextsim.dylib
 endif
 
-#NEXTSIMDIR=..
 LIB=$(LIBRARYNAME)
 OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
@@ -14,71 +13,54 @@ LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
 
 CXX = g++
-CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -pthread -fopenmp -v
+CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v
 
-#-fvisibility=hidden
+CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I /usr/local/include -I $(OPENMPI_INCLUDE_DIR)/
+CXXFLAGS += -I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I $(GMSH_DIR)/include/gmsh
+CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
 
 ifeq ($(KERNEL),Linux)
-	#CXX = g++-4.8
 	#CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -lm -pthread -v #-MMD -MP
-	CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I $(NEXTSIMDIR)/contrib/mapx/include -I /usr/lib/openmpi/include
-	CXXFLAGS += -I $(PETSC_DIR)/include
-	LDFLAGS += -shared -Wl,-soname,libnextsim.so.1 -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi -lmpi_cxx -lmpi -lm -ldl -lhwloc
-	LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
-	LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
+
+	LDFLAGS += -shared -Wl,-soname,libnextsim.so.1
+
 else
 
 	ifeq ($(CXX),clang)
-	CXXFLAGS += -stdlib=libc++
+		CXXFLAGS += -stdlib=libc++
 	endif
 
-	CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I /usr/local/include -I /opt/local/include/openmpi-mp
-	CXXFLAGS += -I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I $(GMSH_DIR)/include/gmsh
-	CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
 	LDFLAGS += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,$(LIBRARYDIR)$(LIBRARYNAME)
 
-	LDFLAGS += -Wl,-rpath,/usr/local/lib -Wl,-rpath,/opt/local/lib/openmpi-mp
-	LDFLAGS += -L /usr/local/lib -L /opt/local/lib/openmpi-mp -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
+	#LDFLAGS += -Wl,-rpath,/usr/local/lib #-Wl,-rpath,$(OPENMPI_LIB_DIR)/
+	#LDFLAGS += -L /usr/local/lib #-L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
 
 	ifeq ($(CXX),clang)
-	LDFLAGS += -stdlib=libc++
+		LDFLAGS += -stdlib=libc++
 	endif
 
-	LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib
-	LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi
-	LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
-	LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
-
-	LDFLAGS += -Wl,-rpath,$(GMSH_DIR)/lib
-	LDFLAGS += -L $(GMSH_DIR)/lib -lGmsh
-
-	LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
-
 endif
+
+LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
+LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
+
+LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib
+LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi
+LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
+LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
+
+LDFLAGS += -Wl,-rpath,$(GMSH_DIR)/lib
+LDFLAGS += -L $(GMSH_DIR)/lib -lGmsh
+
+LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
+
 
 # C++ files
 CXXSRCDIR=.
 CXXSRC=$(wildcard $(CXXSRCDIR)/*.cpp)
-# OBJS=$(CXXSRC:.cpp=.o)
-# DEPS=$(CXXSRC:.cpp=.d)
-
-# OBJS=$(join $(addsuffix $(OBJECTDIR), $(dir $(CXXSRC))), $(notdir $(CXXSRC:.cpp=.o)))
-# DEPS=$(join $(addsuffix $(DEPENDDIR), $(dir $(CXXSRC))), $(notdir $(CXXSRC:.cpp=.d)))
 
 OBJS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.o)
 DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
-
-
-# C files
-# CCSRCDIR=src
-# CCSRC=$(wildcard $(CCSRCDIR)/*.c)
-# CCOBJS=$(CCSRC:.c=.o)
-# CCDEPS=$(CCSRC:.c=.d)
-
-# CCOBJS:=$(addprefix $(OBJECTDIR), $(CCOBJS))
-# CCDEPS:=$(addprefix $(OBJECTDIR), $(CCDEPS))
-
-
 
 # Rules to always execute.
 .PHONY: all clean mrproper
@@ -92,13 +74,6 @@ clean:
 
 mrproper: clean
 	$(RM) $(LIBRARYDIR)$(LIBRARYNAME)
-
-
-# default: $(CCOBJS)
-# 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
-
-# $(OBJECTDIR)%.o: %.c
-# 	$(CC) -o $@ -c $< $(CFLAGS)
 
 # Rule for making the actual target
 ifeq ($(KERNEL),Linux)

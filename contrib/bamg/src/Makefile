@@ -6,20 +6,18 @@ else
 	LIBRARYNAME=libbamg.dylib
 endif
 
-#NEXTSIMDIR=../..
 LIB=$(LIBRARYNAME)
 OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
 LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
 CXX = g++
-#CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -pthread -v
 CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -v -D_MULTITHREADING_
 
 ifeq ($(KERNEL),Linux)
 	CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include -I /usr/lib/openmpi/include
 	LDFLAGS += -shared -Wl,-soname,libbamg.so.1
-	LDFLAGS += -lm -ldl -lhwloc
+	LDFLAGS += -lm -ldl #-lhwloc
 else
 
 	ifeq ($(CXX),clang)
