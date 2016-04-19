@@ -6,7 +6,6 @@ else
 	LIBRARYNAME=libinterp.dylib
 endif
 
-#NEXTSIMDIR=../..
 LIB=$(LIBRARYNAME)
 OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
@@ -26,7 +25,6 @@ else
 	CXXFLAGS += -stdlib=libc++
 	endif
 
-	#CXXFLAGS += -I $(NEXTSIMDIR)/contrib/interp/include -I /usr/local/include
 	CXXFLAGS += -I $(NEXTSIMDIR)/contrib/interp/include -I /usr/local/include
 	LDFLAGS += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,$(LIBRARYDIR)$(LIBRARYNAME)
 	LDFLAGS += -ldl -lstdc++
