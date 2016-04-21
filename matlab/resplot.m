@@ -1,6 +1,8 @@
-function resplot(step)
+function resplot(field,step,dir)
 
-clearvars -except step;
+if nargin==2, dir=''; end
+
+% clearvars -except step;
 
 % mc_script=['mu',num2str(step)];
 % mx_script=['mx',num2str(step)];
@@ -22,7 +24,7 @@ clearvars -except step;
 % patch(x,y,c,'FaceColor','flat','EdgeColor','none')
 % caxis([min(var_mc), max(var_mc)])
 
-field='Velocity';
+%field='Velocity';
 %field='mld';
 %field='Concentration';
 %field='Thickness';
@@ -34,7 +36,7 @@ field='Velocity';
 %field='Voce_factor';
 %field='Damage';
 %field='bathy';
-[mesh_out,data_out] = neXtSIM_bin_revert('', step);
+[mesh_out,data_out] = neXtSIM_bin_revert(dir, step);
 
 % reshape
 var_mx=mesh_out.Nodes_x(mesh_out.Elements);

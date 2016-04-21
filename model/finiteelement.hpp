@@ -133,7 +133,8 @@ public:
     vector_type const& rhs() const {return *M_vector;}
     vector_type const& solution() const {return *M_solution;}
 
-    void init();
+    void initMesh(setup::DomainType domain_type, std::string mesh_filename, setup::MeshType mesh_type);
+    void initDatasets();
     void createGMSHMesh(std::string const& geofilename);
     double jacobian(element_type const& element, mesh_type const& mesh) const;
     double jacobian(element_type const& element, mesh_type const& mesh,
@@ -155,6 +156,8 @@ public:
     void error();
 
     void thermo();
+    void thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols,
+            double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf);
 
     Dataset M_asr_nodes_dataset;
     Dataset M_asr_elements_dataset;
@@ -197,7 +200,8 @@ public:
 
     void PwlInterp2D();
     void importBamg(BamgMesh const* bamg_mesh);
-    void initSimulation();
+    void initVariables();
+    void initModelState();
     void tensors();
     void cohesion();
     void updateVelocity();
@@ -205,6 +209,9 @@ public:
     void update();
     void updateSeq();
     void exportResults(int step, bool export_mesh = true);
+
+    void writeRestart(int pcpt, int step);
+    void readRestart(int &pcpt, int step);
 
 private:
     po::variables_map vm;
@@ -237,7 +244,7 @@ private:
     setup::AtmosphereType M_atmosphere_type;
     setup::OceanType M_ocean_type;
     setup::IceType M_ice_type;
-	setup::BathymetryType M_bathymetry_type;
+    setup::BathymetryType M_bathymetry_type;
 
     setup::IceCategoryType M_ice_cat_type;
     setup::DrifterType M_drifter_type;
@@ -300,6 +307,7 @@ private:
     double days_in_sec;
     double time_init;
     double output_time_step;
+    double restart_time_step;
     double time_step;
     double duration;
     double spinup_duration;
@@ -380,7 +388,8 @@ private:
     std::vector<double> M_mld;          // Mixed-layer depth [m]
 
     // Drifters
-    std::vector<double> M_drifter;
+    boost::unordered_map<int, std::array<double,2>> M_drifter; // Drifters are kept in an unordered map containing number and coordinates
+    std::fstream M_iabp_file;             // The file we read the IABP buoy data from
 
     // Prognostic ice variables
     std::vector<double> M_conc;         // Ice concentration
@@ -394,6 +403,7 @@ private:
 	
 	// Non-prognostic variables used to speed up the convergence of a non-linear equation in thermodynamics
     std::vector<double> M_tsurf;        // Ice surface temperature [C]
+    std::vector<double> M_tsurf_thin;   // Ice surface temperature of thin ice [C]
 	
 
 private:
@@ -403,6 +413,9 @@ private:
 	void constantBathymetry();
 
     void equallySpacedDrifter();
+    void outputDrifter(std::fstream &iabp_out);
+    void initIABPDrifter();
+    void updateIABPDrifter();
 
     void asrAtmosphere(bool reload);
     void topazOcean(bool reload);

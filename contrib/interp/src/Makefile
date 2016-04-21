@@ -6,7 +6,6 @@ else
 	LIBRARYNAME=libinterp.dylib
 endif
 
-#NEXTSIMDIR=../..
 LIB=$(LIBRARYNAME)
 OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
@@ -19,14 +18,13 @@ CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pth
 ifeq ($(KERNEL),Linux)
 	CXXFLAGS += -I $(NEXTSIMDIR)/contrib/interp/include -I /usr/lib/openmpi/include
 	LDFLAGS += -shared -Wl,-soname,libinterp.so.1
-	LDFLAGS += -lm -ldl -lhwloc
+	LDFLAGS += -lm -ldl #-lhwloc
 else
 
 	ifeq ($(CXX),clang)
 	CXXFLAGS += -stdlib=libc++
 	endif
 
-	#CXXFLAGS += -I $(NEXTSIMDIR)/contrib/interp/include -I /usr/local/include
 	CXXFLAGS += -I $(NEXTSIMDIR)/contrib/interp/include -I /usr/local/include
 	LDFLAGS += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,$(LIBRARYDIR)$(LIBRARYNAME)
 	LDFLAGS += -ldl -lstdc++

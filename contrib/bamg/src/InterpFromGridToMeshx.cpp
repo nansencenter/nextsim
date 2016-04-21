@@ -84,6 +84,8 @@ int InterpFromGridToMeshx(double* &data_mesh,double* x_in, int x_rows, double* y
 	/*Assign output pointers:*/
 	//*pdata_mesh=data_mesh;
 
+        xDelete<double>(x);
+        xDelete<double>(y);
 	return 1;
 }
 /*}}}*/

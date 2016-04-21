@@ -58,7 +58,7 @@ namespace bamg {
 		int verbose;
 		nbcurves=0;
 
-		double Hmin = HUGE_VAL;// the infinie value 
+		double Hmin = HUGE_VAL;// the infinie value
 		int i,j,n,i0,i1,i2,i3;
 
 		/*initialize some variables*/
@@ -98,7 +98,7 @@ namespace bamg {
 			pmax += offset;
 			/*coefIcoor is the coefficient used for integer coordinates:
 			 *                       (x-pmin.x)
-			 * Icoor x = (2^30 -1) ------------ 
+			 * Icoor x = (2^30 -1) ------------
 			 *                          D
 			 * where D is the longest side of the domain (direction x or y)
 			 * so that (x-pmin.x)/D is in ]0 1[
@@ -153,11 +153,11 @@ namespace bamg {
 				verticeslength[i2] += l12;
 			}
 
-			// definition the default of the given mesh size 
+			// definition the default of the given mesh size
 			for (i=0;i<nbv;i++) {
-				if (vertices[i].color > 0) 
+				if (vertices[i].color > 0)
 				 vertices[i].m=Metric(verticeslength[i] /(double) vertices[i].color);
-				else 
+				else
 				 vertices[i].m=Metric(Hmin);
 			}
 			delete [] verticeslength;
@@ -171,7 +171,7 @@ namespace bamg {
 		if(bamgopts->hVertices && bamgopts->hVerticesSize[0]==nbv){
 			if(verbose>5) _printf_("      processing hVertices\n");
 			for (i=0;i< nbv;i++){
-				if (!isnan(bamgopts->hVertices[i])){
+				if (!std::isnan(bamgopts->hVertices[i])){
 					vertices[i].m=Metric((double)bamgopts->hVertices[i]);
 				}
 			}
@@ -215,7 +215,7 @@ namespace bamg {
 			if(verbose>5) _printf_("      processing Corners");
 			if (bamggeom->CornersSize[1]!=1) _error_("Corners should have 1 column");
 			n=bamggeom->CornersSize[0];
-			for (i=0;i<n;i++) {     
+			for (i=0;i<n;i++) {
 				j=(int)bamggeom->Corners[i]-1; //for C indexing
 				if (j>nbv-1 || j<0) _error_("Bad corner definition: should in [0 " << nbv << "]");
 				/*Required => at the same time SetRequired and SetCorner*/
@@ -229,7 +229,7 @@ namespace bamg {
 			if(verbose>5) _printf_("      processing RequiredVertices\n");
 			if (bamggeom->RequiredVerticesSize[1]!=1) _error_("RequiredVertices should have 1 column");
 			n=bamggeom->RequiredVerticesSize[0];
-			for (i=0;i<n;i++) {     
+			for (i=0;i<n;i++) {
 				j=(int)bamggeom->RequiredVertices[i]-1; //for C indexing
 				if (j>nbv-1 || j<0) _error_("Bad RequiredVerticess  definition: should in [0 " << nbv << "]");
 				vertices[j].SetRequired();
@@ -241,10 +241,10 @@ namespace bamg {
 			if(verbose>5) _printf_("      processing RequiredEdges\n");
 			if (bamggeom->RequiredEdgesSize[1]!=1) _error_("RequiredEdges should have 1 column");
 			n=bamggeom->RequiredEdgesSize[0];
-			for (i=0;i<n;i++) {     
+			for (i=0;i<n;i++) {
 				j=(int)bamggeom->RequiredEdges[i]-1; //for C indexing
 				if (j>nbe-1 || j<0) _error_("Bad RequiredEdges definition: should in [0 " << nbe << "]");
-				edges[j].SetRequired();  
+				edges[j].SetRequired();
 			}
 		}
 
@@ -463,12 +463,12 @@ namespace bamg {
 			  these coordinates are used by the quadtree to group
 			  the vertices by groups of 5:
 			  All the coordinates are transformed to ]0,1[^2
-			  then, the integer coordinates are computed using 
+			  then, the integer coordinates are computed using
 			  the transformation ]0,1[^2 -> [0 2^30-1[^2 for a quadtree of depth 30*/
-			vertices[i].i=R2ToI2(vertices[i].r); 
+			vertices[i].i=R2ToI2(vertices[i].r);
 
 			/*find nearest vertex already present in the quadtree (NULL if empty)*/
-			BamgVertex* v=quadtree.NearestVertex(vertices[i].i.x,vertices[i].i.y); 
+			BamgVertex* v=quadtree.NearestVertex(vertices[i].i.x,vertices[i].i.y);
 
 			/*if there is a vertex found that is to close to vertices[i] -> error*/
 			if( v && Norme1(v->r - vertices[i].r) < eps ){
@@ -512,22 +512,22 @@ namespace bamg {
 		 *       next_F[i]= head_F[j];
 		 *       head_F[j]=i;
 		 *    }
-		 * 
+		 *
 		 *    Then, we can go through all the elements that have for image j:
 		 *    for(i=head_F[j]; i!=-1; i=next_F[i])
 		 *    initialization of i by i=head_F[j]
 		 *    stop the loop when i=-1 (end of the chain)
 		 *    iterate using i=next_F[i] (next element that have for image j)
-		 * 
+		 *
 		 * 2. How to use this algorithm here?
-		 * 
+		 *
 		 * Here F is a function that associates two vertices v0 and v1 for a given edge E
 		 * We want to build the reciprocal function: what are the edges that contains
 		 * a vertex v?
 		 * To do so, we use the same chaining algorithm but there is a difficulty
-		 * coming from the fact that for F we have a couple of vertices and not one 
+		 * coming from the fact that for F we have a couple of vertices and not one
 		 * vertex.
-		 * To overcome this difficulty, we use a global indexing exactly like in 
+		 * To overcome this difficulty, we use a global indexing exactly like in
 		 * C/C++ so that
 		 * a member of a 2-column-table can be described by one index p=i*2+j
 		 * i=(int)p/2 line number of p
@@ -571,13 +571,13 @@ namespace bamg {
 
 		//sort head_v by order of increasing edges angle
 		for (i=0;i<nbv;i++) {
-			int exch=1,ord=0;      
+			int exch=1,ord=0;
 
 			//exchange vertices position in head_v and next_p till tey are sorted
 			while (exch){
-				long *p=head_v+i;               
-				long *po=p;                     
-				long  n=*p;                     
+				long *p=head_v+i;
+				long *po=p;
+				long  n=*p;
 				float angleold=-1000 ; // angle = - infinity
 				ord=0; exch=0;
 
@@ -589,16 +589,16 @@ namespace bamg {
 					long* pn=next_p+n;
 
 					//Next vertex index
-					n=*pn;                       
+					n=*pn;
 
 					//compute angle between horizontal axis and v0->v1
-					float angle = j1 ? OppositeAngle(eangle[i1]):  eangle[i1]; 
+					float angle = j1 ? OppositeAngle(eangle[i1]):  eangle[i1];
 
 					//exchange if the current edge angle is smaller than the previous one
 					if (angleold > angle){
 						exch=1;
 						*pn=*po;  // next_p[n] = n + 1
-						*po=*p;   // 
+						*po=*p;   //
 						*p=n;     // next_p[n+1] = n
 						po=pn;    // po now point toward pn (invert next and current)
 					}
@@ -613,16 +613,16 @@ namespace bamg {
 			}
 
 			// angular test on current vertex to guess whether it is a corner (ord = number of edges holding i)
-			// if(ord==2) { 
+			// if(ord==2) {
 			// 	long  n1 = head_v[i];
 			// 	long  n2 = next_p[n1];
 			// 	long  i1 = n1/2, i2 = n2/2; // edge number
-			// 	long  j1 = n1%2, j2 = n2%2; // vertex in the edge 
+			// 	long  j1 = n1%2, j2 = n2%2; // vertex in the edge
 			// 	float angle1=  j1 ? OppositeAngle(eangle[i1]) : eangle[i1];
 			// 	float angle2= !j2 ? OppositeAngle(eangle[i2]) : eangle[i2];
 			// 	float da12 = Abs(angle2-angle1);
 			// 	if (( da12 >= MaxCornerAngle ) && (da12 <= 2*Pi -MaxCornerAngle)) {
-			// 		vertices[i].SetCorner() ; 
+			// 		vertices[i].SetCorner() ;
 			// 	}
 			// 	// if the edge type/referencenumber a changing then is SetRequired();
 			// 	if (edges[i1].type != edges[i2].type || edges[i1].Required()){
@@ -638,7 +638,7 @@ namespace bamg {
 
 			/*close the list around the vertex to have a circular loop*/
 			long no=-1, ne = head_v[i];
-			while (ne >=0) ne = next_p[no=ne];        
+			while (ne >=0) ne = next_p[no=ne];
 			if(no>=0) next_p[no] = head_v[i];
 		}
 
@@ -648,7 +648,7 @@ namespace bamg {
 		for (i=0;i<nbe;i++){
 			for (j=0;j<2;j++){
 
-				long n1 = next_p[k++]; 
+				long n1 = next_p[k++];
 				long i1 = n1/2 ,j1=n1%2;
 
 				if( edges[i1].v[j1] != edges[i].v[j]) _error_("Problem while processing edges: check the edge list");
@@ -681,7 +681,7 @@ namespace bamg {
 						tg = tg *(lAB/ltg);
 						ltg= lAB;
 					}
-					//else:  a Corner no tangent => nothing to do    
+					//else:  a Corner no tangent => nothing to do
 				}
 				else{
 					//tangent has already been computed
@@ -696,7 +696,7 @@ namespace bamg {
 			}
 			if (ltg2[0]!=0) edges[i].SetTgA();
 			if (ltg2[1]!=0) edges[i].SetTgB();
-		} 
+		}
 
 		/* generation of  all curves (from corner to corner)*/
 		/*We proceed in 2 steps: first allocate, second build*/
@@ -712,22 +712,22 @@ namespace bamg {
 			for (int level=0;level<2 && nb_marked_edges!=nbe;level++){
 				for (i=0;i<nbe;i++){
 
-					GeomEdge & ei=edges[i];   
+					GeomEdge & ei=edges[i];
 					for(j=0;j<2;j++){
 						/*If current edge ei is unmarked and (level=1 or vertex i is required (corner)):
 						 * we do have the first edge of a new curve*/
-						if (!ei.Mark() && (level || ei[j].Required())) { 
+						if (!ei.Mark() && (level || ei[j].Required())) {
 							int k0=j,k1;
 							GeomEdge   *e=&ei;
-							GeomVertex *a=(*e)(k0); // begin 
+							GeomVertex *a=(*e)(k0); // begin
 							if(curves){
 								curves[nbcurves].FirstEdge=e;
 								curves[nbcurves].FirstVertexIndex=k0;
 							}
 							int nee=0;
-							for(;;){ 
+							for(;;){
 								nee++;
-								k1 = 1-k0; // next vertex of the edge 
+								k1 = 1-k0; // next vertex of the edge
 								e->SetMark();
 								nb_marked_edges++;
 								e->CurveNumber=nbcurves;
@@ -751,12 +751,12 @@ namespace bamg {
 							if(level) a->SetRequired();
 						}
 					}
-				} 
+				}
 			}
 			_assert_(nb_marked_edges && nbe);
 			//allocate if first step
 			if(step==0) curves=new Curve[nbcurves];
-		} 
+		}
 
 		/*clean up*/
 		delete [] next_p;
@@ -797,7 +797,7 @@ retry:
 		GeomEdge *eg0=on, *eg1=on;
 
 		//Get edge direction and swap v0 and v1 if necessary
-		R2 Ag=(R2)(*on)[0],Bg=(R2)(*on)[1],AB=Bg-Ag; 
+		R2 Ag=(R2)(*on)[0],Bg=(R2)(*on)[1],AB=Bg-Ag;
 		int OppositeSens = (V01,AB)<0;
 		int direction0=0,direction1=1;
 		if (OppositeSens) s=1-s,Exchange(vg0,vg1),Exchange(V0,V1);
@@ -813,7 +813,7 @@ retry:
 		ge[bge] = e.GeomEdgeHook;
 		directionge[bge]=1;
 
-		while(eg0!=(GeomEdge*)vg0 && (*eg0)(direction0)!=(GeomVertex*)vg0){ 
+		while(eg0!=(GeomEdge*)vg0 && (*eg0)(direction0)!=(GeomVertex*)vg0){
 			if (bge<=0) {
 				if(NbTry) {
 					_printf_("Fatal Error: on the class Mesh before call Geometry::ProjectOnCurve\n");
@@ -831,8 +831,8 @@ retry:
 			_assert_(bge>=0 && bge<=mxe);
 			direction0 = 1-( directionge[bge] = tmpge->AdjVertexIndex[direction0]);
 		}
-		while (eg1 != (GeomEdge*) vg1  &&  (*eg1)(direction1) != (GeomVertex*) vg1) { 
-			if(tge>=mxe ) { 
+		while (eg1 != (GeomEdge*) vg1  &&  (*eg1)(direction1) != (GeomVertex*) vg1) {
+			if(tge>=mxe ) {
 				_printf_("WARNING: on the class Mesh before call Geometry::ProjectOnCurve is having issues (isn't it Eric?)\n");
 				NbTry++;
 				if (NbTry<2) goto retry;
@@ -856,7 +856,7 @@ retry:
 		 vg1=VertexOnGeom(*(BamgVertex*) vg1,*eg1,direction1);
 
 		double sg;
-		if (eg0 == eg1) { 
+		if (eg0 == eg1) {
 			double s0=vg0,s1=vg1;
 			sg =  s0*(1.0-s) +  s*s1;
 			on=eg0;
@@ -871,7 +871,7 @@ retry:
 				BB =  (*ge[i])[directionge[i]];
 				lge[i]=ll += Norme2(AA-BB);
 				AA=BB ;}
-				lge[tge]=ll+=Norme2(AA-V1); 
+				lge[tge]=ll+=Norme2(AA-V1);
 				// search the geometrical edge
 				_assert_(s<=1.0);
 				double ls= s*ll;
@@ -885,12 +885,12 @@ retry:
 					i++,s0=1-(s1=directionge[i]),l0=l1;
 				}
 				on=ge[i];
-				if (i==tge) 
+				if (i==tge)
 				 s1=vg1;
 
 				s  =(ls-l0)/(l1-l0);
-				sg =s0*(1.0-s)+s*s1;    
-		} 
+				sg =s0*(1.0-s)+s*s1;
+		}
 		_assert_(on);
 		V.r= on->F(sg);
 		GV=VertexOnGeom(V,*on,sg);
@@ -900,7 +900,7 @@ retry:
 	I2 Geometry::R2ToI2(const R2 & P) const {/*{{{*/
 		/*coefIcoor is the coefficient used for integer coordinates:
 		 *                       (x-pmin.x)
-		 * Icoor x = (2^30 -1) ------------ 
+		 * Icoor x = (2^30 -1) ------------
 		 *                          D
 		 * where D is the longest side of the domain (direction x or y)
 		 * so that (x-pmin.x)/D is in ]0 1[
@@ -912,4 +912,4 @@ retry:
 	void Geometry::UnMarkEdges() {/*{{{*/
 		for (int i=0;i<nbe;i++) edges[i].SetUnMark();
 	}/*}}}*/
-} 
+}
