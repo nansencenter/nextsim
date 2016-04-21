@@ -69,6 +69,10 @@ This README would normally document whatever steps are necessary to get your app
 	5) From petsc directory, type: “./pconfigure.sh” (sudo password is required during the process)
 	6) From petsc directory, follow the instruction for the rest of the compilation (something like: “make PETSC_DIR=/Users/syloui/Developer/petsc-3.6.1 PETSC_ARCH=arch-darwin-c-opt all”, “sudo make PETSC_DIR=/Users/syloui/Developer/petsc-3.6.1 PETSC_ARCH=arch-darwin-c-opt install” and “make PETSC_DIR=/opt/local/petsc PETSC_ARCH="" test”)
 
+Note: for debugging, use another copy of petsc compiled with --download-mpich and --with-debugging and using another path, for example using export PETSC_PREFIX=/opt/local/petsc-debug. Set this path in your .bashprofile by using export PETSC_DIR=/opt/local/petsc-debug before recompiling the whole neXtSIM code (core + model).
+
+You can run the code with the options: 
+-malloc_debug for memory error
 
 ####### Install netcdf #######
 1) instal hdf5 via macport: "sudo port install hdf5"
@@ -134,3 +138,12 @@ sudo ln -sf /opt/local/lib/openmpi-gcc48 /opt/local/lib/openmpi-mp
 ## run
 
 # type “bin/nextsim.exec” from the nextsim/research directory
+
+##-------Debugging-------
+
+# install gdb on mac following those links:
+http://www.patosai.com/blog/post/installing-gdb-on-mac-os-x-yosemite
+
+# install valgrind on mac following those links:
+http://ranf.tl/2014/11/28/valgrind-on-mac-os-x-10-10-yosemite/
+http://superuser.com/questions/630674/valgrind-installation-errors-on-osx-10-8
