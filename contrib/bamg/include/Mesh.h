@@ -57,13 +57,13 @@ namespace bamg {
 			Mesh(const Mesh &,const int *flag,const int *bb,BamgOpts* bamgopts); // truncature
 			Mesh(long maxnbv,Mesh & BT,BamgOpts* bamgopts,int keepBackVertices=1);
 			Mesh(long maxnbv,Geometry & G,BamgOpts* bamgopts);
-			~Mesh(); 
+			~Mesh();
 
 			//Operators
-			const BamgVertex &operator[](long i) const { return vertices[i];  };
-			BamgVertex       &operator[](long i) { return vertices[i];        };
-			const Triangle   &operator()(long i) const { return triangles[i]; };
-			Triangle         &operator()(long  i) { return triangles[i];             };
+			const BamgVertex &operator[](unsigned long i) const { return vertices[i];  };
+			BamgVertex       &operator[](unsigned long i) { return vertices[i];        };
+			const Triangle   &operator()(unsigned long i) const { return triangles[i]; };
+			Triangle         &operator()(unsigned long i) { return triangles[i];       };
 
 			//Methods
 			void SetIntCoor(const char * from =0);
@@ -85,7 +85,7 @@ namespace bamg {
 			long SplitInternalEdgeWithBorderVertices();
 			void MakeBamgQuadtree();
 			void NewPoints(Mesh &,BamgOpts* bamgopts,int KeepVertices=1);
-			long InsertNewPoints(long nbvold,long & NbTSwap,bool random); 
+			long InsertNewPoints(long nbvold,long & NbTSwap,bool random);
 			void TrianglesRenumberBySubDomain(bool justcompress=false);
 			Metric MetricAt (const R2 &) const;
 			void SmoothingVertex(int =3,double=0.3);
@@ -145,7 +145,7 @@ namespace bamg {
 		int j=i;i=on->AdjVertexIndex[i];on=on->Adj[j];
 	}
 	inline double qualite(const BamgVertex &va,const BamgVertex &vb,const BamgVertex &vc){
-		double ret; 
+		double ret;
 		I2 ia=va,ib=vb,ic=vc;
 		I2 ab=ib-ia,bc=ic-ib,ac=ic-ia;
 		Icoor2 deta=Det(ab,ac);

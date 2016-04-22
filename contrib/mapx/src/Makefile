@@ -6,27 +6,24 @@ else
 	LIBRARYNAME=libmapx.dylib
 endif
 
-#NEXTSIMDIR=../..
 LIB=$(LIBRARYNAME)
 OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
 LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
 CC = gcc
-#CCFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -pthread -v
 CCFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -v
 
 ifeq ($(KERNEL),Linux)
 	CCFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include -I /usr/lib/openmpi/include
 	LDFLAGS += -shared -Wl,-soname,libmapx.so.1
-	LDFLAGS += -lm -ldl -lhwloc
+	LDFLAGS += -lm -ldl #-lhwloc
 else
 
 	ifeq ($(CC),clang)
 	CCFLAGS += -stdlib=libc++
 	endif
 
-	#CCFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include -I /usr/local/include
 	CCFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include -I /usr/local/include
 	LDFLAGS += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,$(LIBRARYDIR)$(LIBRARYNAME)
 	LDFLAGS += -ldl -lstdc++
