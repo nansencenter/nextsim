@@ -1937,6 +1937,14 @@ FiniteElement::regrid(bool step)
 void
 FiniteElement::adaptMesh()
 {
+    delete bamgopt_previous;
+    delete bamggeom_previous;
+    delete bamgmesh_previous;
+
+    bamgopt_previous = new BamgOpts();
+    bamggeom_previous = new BamgGeom();
+    bamgmesh_previous = new BamgMesh();
+
     *bamgmesh_previous = *bamgmesh;
     *bamggeom_previous = *bamggeom;
     *bamgopt_previous = *bamgopt;
@@ -4639,27 +4647,26 @@ FiniteElement::run()
 
 #if 1
 
-    if(fmod((pcpt+1)*time_step,output_time_step) == 0)
-    {
-        chrono.restart();
-        std::cout<<"export starts\n";
-        this->exportResults((int) (pcpt+1)*time_step/output_time_step);
-        std::cout<<"export done in " << chrono.elapsed() <<"s\n";
-    }
+        if(fmod((pcpt+1)*time_step,output_time_step) == 0)
+        {
+            chrono.restart();
+            std::cout<<"export starts\n";
+            this->exportResults((int) (pcpt+1)*time_step/output_time_step);
+            std::cout<<"export done in " << chrono.elapsed() <<"s\n";
+        }
 
 #endif
 
-    ++pcpt;
-    pcpt_file << pcpt << endl;
-    pcpt_file << to_date_string(time_init + pcpt*time_step/(24*3600.0)) << endl; // current time
-    pcpt_file.seekp(0);
+        ++pcpt;
+        pcpt_file << pcpt << endl;
+        pcpt_file << to_date_string(time_init + pcpt*time_step/(24*3600.0)) << endl; // current time
+        pcpt_file.seekp(0);
 
-    if ( fmod(pcpt*time_step,restart_time_step) == 0)
-    {
-        std::cout << "Writing restart file after time step " <<  pcpt-1 << endl;
-        this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
-    }
-
+        if ( fmod(pcpt*time_step,restart_time_step) == 0)
+        {
+            std::cout << "Writing restart file after time step " <<  pcpt-1 << endl;
+            this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
+        }
     }
 
     pcpt_file.close();
@@ -4673,6 +4680,8 @@ FiniteElement::run()
         M_iabp_file.close();
         drifters_out.close();
     }
+
+    this->clear();
 }
 
 void
@@ -6545,5 +6554,24 @@ FiniteElement::exportResults(int step, bool export_mesh)
     exporter.writeRecord(outrecord);
     outrecord.close();
 #endif
+}
+
+void
+FiniteElement::clear()
+{
+    delete[] M_topaz_grid.pfindex;
+
+    delete bamgmesh;
+    delete bamggeom;
+    delete bamgopt;
+
+    delete bamgmesh_previous;
+    delete bamggeom_previous;
+    delete bamgopt_previous;
+
+    M_matrix->clear();
+    M_vector->clear();
+    M_solution->clear();
+    M_solver->clear();
 }
 } // Nextsim

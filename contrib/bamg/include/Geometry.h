@@ -15,7 +15,7 @@ namespace bamg {
 	class GeomSubDomain;
 	class Edge;
 
-	class Geometry { 
+	class Geometry {
 
 		public:
 
@@ -34,16 +34,16 @@ namespace bamg {
 			double         MaxCornerAngle;
 
 			//Constructor/Destructors
-			~Geometry(); 
+			~Geometry();
 			Geometry();
 			Geometry(const Geometry & Gh);
 			Geometry(BamgGeom* bamggeom, BamgOpts* bamgopts);
 
 			//Operators
-			const GeomVertex &operator[](long i) const { return vertices[i]; };
-			GeomVertex       &operator[](long i) { return vertices[i];       };
-			const GeomEdge   &operator()(long i) const { return edges[i];    };
-			GeomEdge         &operator()(long  i) { return edges[i];         };
+			const GeomVertex &operator[](unsigned long i) const { return vertices[i]; };
+			GeomVertex       &operator[](unsigned long i) { return vertices[i];       };
+			const GeomEdge   &operator()(unsigned long i) const { return edges[i];    };
+			GeomEdge         &operator()(unsigned long i) { return edges[i];          };
 
 			//Methods
 			void             Echo();

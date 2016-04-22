@@ -87,16 +87,16 @@ public:
         std::string mpp_file;
         double rotation_angle;
 		bool interpolation_in_latlon;
-		
+
 		bool masking;
 		Variable masking_variable;
 		std::vector<int> reduced_nodes_ind;
-		
+
         int* pfindex;
         int pfnels;
         std::vector<double> gridX;
         std::vector<double> gridY;
-		
+
         std::vector<double> gridLAT;
         std::vector<double> gridLON;
     } Grid;
@@ -107,15 +107,15 @@ public:
         std::string prefix;
         std::string postfix;
         std::string reference_date;
-        
+
         std::vector<Variable> variables;
         int target_size;
         Grid *grid;
-		
+
         int nb_timestep_day;
         Variable time;
         Dimension dimension_time;
-		
+
         std::vector<double> ftime_range;
     } Dataset;
 
@@ -165,7 +165,7 @@ public:
     Dataset M_topaz_elements_dataset;
 	Dataset M_ice_topaz_elements_dataset;
     Dataset M_etopo_elements_dataset;
-	
+
 
     Grid M_asr_grid;
     Grid M_topaz_grid;
@@ -212,6 +212,8 @@ public:
 
     void writeRestart(int pcpt, int step);
     void readRestart(int &pcpt, int step);
+
+    void clear();
 
 private:
     po::variables_map vm;
@@ -396,15 +398,15 @@ private:
     std::vector<double> M_thick;        // Effective ice thickness [m]
     std::vector<double> M_damage;       // Ice damage
     std::vector<double> M_snow_thick;   // Effective snow thickness [m]
-	
+
 	// Prognostic slab ocean variables
     std::vector<double> M_sst;          // Sea-surface temperature [C]
     std::vector<double> M_sss;          // Sea-surface salinity [psu]
-	
+
 	// Non-prognostic variables used to speed up the convergence of a non-linear equation in thermodynamics
     std::vector<double> M_tsurf;        // Ice surface temperature [C]
     std::vector<double> M_tsurf_thin;   // Ice surface temperature of thin ice [C]
-	
+
 
 private:
     void constantAtmosphere();
