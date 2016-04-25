@@ -37,9 +37,9 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* data,int N_data
 
 int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* bamgmesh_old,BamgMesh* bamgmesh_new);
 
-int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area, 
-			int nb_dead_elements, int nb_born_elements, int nb_variables, 
-			ulong* dead_elements, ulong* born_elements, ulong* PreviousNumbering, 
+int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
+			int nb_dead_elements, int nb_born_elements, int nb_variables,
+			ulong* dead_elements, ulong* born_elements, ulong* PreviousNumbering,
 			double* IntMatrix_in, BamgMesh* bamgmesh_old, BamgMesh* bamgmesh_new, int debug_born_elements_i);
 
 #endif
