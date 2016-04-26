@@ -113,14 +113,6 @@ export DYLD_LIBRARY_PATH=NEXTSIMDIR/lib:$DYLD_LIBRARY_PATH
 
 # Open a new command window
 
-# Either modify the Makefile to have the right link to openmpi or do the following:
-
-sudo rm -rf /opt/local/include/openmpi-mp
-sudo ln -sf /opt/local/include/openmpi-gcc48 /opt/local/include/openmpi-mp
-
-sudo rm -rf /opt/local/lib/openmpi-mp
-sudo ln -sf /opt/local/lib/openmpi-gcc48 /opt/local/lib/openmpi-mp
-
 # Type make in nextsim
 
 ## For the mode application (run nextsim)
