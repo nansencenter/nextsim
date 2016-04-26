@@ -86,9 +86,13 @@ This README would normally document whatever steps are necessary to get your app
 2) In the gmsh directory do
 
 mkdir lib
+
 cd lib
+
 cmake -DDEFAULT=0 -DENABLE_BUILD_LIB=1 ..
+
 make -j 32 lib
+
 sudo make install/fast
 
 ####### Set the PATH correctly #######
