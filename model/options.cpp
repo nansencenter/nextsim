@@ -161,6 +161,7 @@ namespace Nextsim
             ("simul.constant_ocean_u", po::value<double>()->default_value( 0. ), "")
             ("simul.constant_ocean_v", po::value<double>()->default_value( 0. ), "")
             ("simul.constant_bathymetry", po::value<double>()->default_value( 200. ), "")
+            ("simul.use_thermo_forcing", po::value<bool>()->default_value( true ), "")
             ;
         return desc;
     }

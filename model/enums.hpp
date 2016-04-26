@@ -43,7 +43,8 @@ namespace setup
         ARBITRARY = 4,
         AMSRE2    = 5,
         TOPAZ4F   = 6,
-        MITGCM    = 7
+        MITGCM    = 7,
+        TARGET    = 8
 	};
 	
     enum class BathymetryType

@@ -220,9 +220,9 @@ FiniteElement::initVariables()
     for (int i=0; i<M_num_elements; ++i)
     {
         M_divergence_rate[i] = 0.;
-        M_sigma[i]=0.;
-        M_sigma[i+M_num_elements]=0.;
-        M_sigma[i+2*M_num_elements]=0.;
+        M_sigma[3*i]=0.;
+        M_sigma[3*i+1]=0.;
+        M_sigma[3*i+2]=0.;
         if ((M_conc[i] <= 0.) || (M_thick[i] <= 0.) )
         {
             M_conc[i] = 0.;
@@ -794,9 +794,14 @@ FiniteElement::initDatasets()
 	};
 
 	// Loading the grids once
-    loadGrid(&M_asr_grid);
-    loadGrid(&M_topaz_grid);
-    loadGrid(&M_etopo_grid);
+    if(M_atmosphere_type==setup::AtmosphereType::ASR)
+        loadGrid(&M_asr_grid);
+    
+    if(M_ocean_type==setup::OceanType::TOPAZR || M_ice_type==setup::IceType::TOPAZ4)
+        loadGrid(&M_topaz_grid);
+    
+    if(M_bathymetry_type==setup::BathymetryType::ETOPO)
+        loadGrid(&M_etopo_grid);
 }
 
 void
@@ -917,6 +922,7 @@ FiniteElement::initConstant()
 
     const boost::unordered_map<const std::string, setup::IceType> str2conc = boost::assign::map_list_of
         ("constant", setup::IceType::CONSTANT)
+        ("target", setup::IceType::TARGET)
         ("topaz", setup::IceType::TOPAZ4);
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
 
@@ -1423,9 +1429,9 @@ FiniteElement::regrid(bool step)
 			&M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
 			false);
 
-                        delete [] bamgopt->hminVertices;
+            delete [] bamgopt->hminVertices;
 			bamgopt->hminVertices = new double[M_mesh.numNodes()];
-                        delete [] bamgopt->hmaxVertices;
+            delete [] bamgopt->hmaxVertices;
 			bamgopt->hmaxVertices = new double[M_mesh.numNodes()];
 
 			for (int i=0; i<M_mesh.numNodes(); ++i)
@@ -3178,8 +3184,8 @@ FiniteElement::update()
         double ridged_thin_ice_volume, ridged_thick_ice_volume;
 
         /* invariant of the internal stress tensor and some variables used for the damaging process*/
-        double sigma_s, sigma_n;
-        double tract_max;
+        double sigma_s, sigma_n, sigma_1, sigma_2;
+        double tract_max, q, sigma_c, sigma_t;
         double tmp, sigma_target;
 
         /* some variables used for the ice redistribution*/
@@ -3254,61 +3260,87 @@ FiniteElement::update()
          *======================================================================
          */
 
-        /* Compute the shear and normal stress, which are two invariants of the internal stress tensor */
+         /* Compute the shear and normal stress, which are two invariants of the internal stress tensor */
 
-        sigma_s=std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
-        sigma_n=           (sigma_pred[0]+sigma_pred[1])/2.;
+         sigma_s=std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
+         sigma_n=           (sigma_pred[0]+sigma_pred[1])/2.;
 
-        /* minimum and maximum normal stress */
-        tract_max=tract_coef*M_Cohesion[cpt]/tan_phi;
+         sigma_1 = -sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
+         sigma_2 = -sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
 
-        /* Correction of the damage */
+         q=std::pow(std::pow(std::pow(tan_phi,2.)+1.,.5)+tan_phi,2.);
+         sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1.,.5)-tan_phi);
 
-        if((sigma_n>tract_max) || (sigma_n<(-M_Compressive_strength[cpt])))
-        {
-            if(sigma_n>tract_max)
-            {
-                sigma_target=tract_max;
-            }
-            else
-            {
-                sigma_target=-M_Compressive_strength[cpt];
-            }
+         sigma_t=-sigma_c/q;
 
-            tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
+         //std::cout<<"sigma_n= "<< sigma_n <<"\n";
 
-            if(tmp>M_damage[cpt])
-            {
-                M_damage[cpt]=tmp;
-            }
-        }
+         /* minimum and maximum normal stress */
+         tract_max=tract_coef*M_Cohesion[cpt]/tan_phi;
 
-        if(sigma_s>M_Cohesion[cpt]-sigma_n*tan_phi)
-        {
-            tmp=1.0-M_Cohesion[cpt]/(sigma_s+sigma_n*tan_phi)*(1.0-old_damage);
+         /* Correction of the damage */
 
-            if(tmp>M_damage[cpt])
-            {
-                M_damage[cpt]=tmp;
-            }
-        }
+         if(sigma_n<(-M_Compressive_strength[cpt]))
+         {
+             sigma_target=-M_Compressive_strength[cpt];
 
-        /*
-         * Diagnostic:
-         * Recompute the internal stress
-         */
-        for(i=0;i<3;i++)
-        {
-            if(old_damage<1.0)
-            {
-                M_sigma[3*cpt+i] = (1.-M_damage[cpt])/(1.-old_damage)*M_sigma[3*cpt+i] ;
-            }
-            else
-            {
-                M_sigma[3*cpt+i] = 0. ;
-            }
-        }
+             tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
 
+             if(tmp>M_damage[cpt])
+             {
+                 M_damage[cpt]=tmp;
+             }
+         } 
+
+#if 1
+         if((sigma_1<=0.) && (sigma_2<sigma_t))
+         {
+             sigma_target=sigma_t;
+
+             tmp=1.0-sigma_target/sigma_2*(1.0-old_damage);
+
+             if(tmp>M_damage[cpt])
+             {
+                 M_damage[cpt]=tmp;
+             }
+         }
+
+         if((sigma_1>0.) && ((sigma_1-q*sigma_2)>sigma_c))
+         {
+             sigma_target=sigma_c;
+        
+             tmp=1.0-sigma_target/(sigma_1-q*sigma_2)*(1.0-old_damage);
+
+             if(tmp>M_damage[cpt])
+             {
+                 M_damage[cpt]=tmp;
+             }
+         }
+#endif
+        
+#if 0  
+         if(sigma_n>tract_max)
+         {
+             sigma_target=tract_max;
+
+             tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
+
+             if(tmp>M_damage[cpt])
+             {
+                 M_damage[cpt]=tmp;
+             }
+         }
+
+         if(sigma_s>M_Cohesion[cpt]-sigma_n*tan_phi)
+         {
+             tmp=1.0-M_Cohesion[cpt]/(sigma_s+sigma_n*tan_phi)*(1.0-old_damage);
+
+             if(tmp>M_damage[cpt])
+             {
+                 M_damage[cpt]=tmp;
+             }
+         }
+#endif
 
         /*======================================================================
          * Update:
@@ -3475,8 +3507,8 @@ FiniteElement::updateSeq()
     double ridged_thin_ice_volume, ridged_thick_ice_volume;
 
     /* invariant of the internal stress tensor and some variables used for the damaging process*/
-    double sigma_s, sigma_n;
-    double tract_max;
+    double sigma_s, sigma_n, sigma_1, sigma_2;
+    double tract_max, q, sigma_c, sigma_t;
     double tmp, sigma_target;
 
     /* some variables used for the ice redistribution*/
@@ -3606,6 +3638,14 @@ FiniteElement::updateSeq()
         sigma_s=std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
         sigma_n=           (sigma_pred[0]+sigma_pred[1])/2.;
 
+        sigma_1 = -sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
+        sigma_2 = -sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
+
+        q=std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
+        sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
+
+        sigma_t=-sigma_c/q;
+
         //std::cout<<"sigma_n= "<< sigma_n <<"\n";
 
         /* minimum and maximum normal stress */
@@ -3613,16 +3653,47 @@ FiniteElement::updateSeq()
 
         /* Correction of the damage */
 
-        if((sigma_n>tract_max) || (sigma_n<(-M_Compressive_strength[cpt])))
+        if(sigma_n<(-M_Compressive_strength[cpt]))
         {
-            if(sigma_n>tract_max)
+            sigma_target=-M_Compressive_strength[cpt];
+    
+            tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
+
+            if(tmp>M_damage[cpt])
             {
-                sigma_target=tract_max;
+                M_damage[cpt]=tmp;
             }
-            else
+        }
+#if 1
+        if(sigma_1<0 && sigma_2<sigma_t)
+        {
+            sigma_target=sigma_t;
+
+            tmp=1.0-sigma_target/sigma_2*(1.0-old_damage);
+
+            if(tmp>M_damage[cpt])
             {
-                sigma_target=-M_Compressive_strength[cpt];
+                M_damage[cpt]=tmp;
             }
+        }
+
+        if(sigma_1>0. && sigma_1-q*sigma_2>sigma_c)
+        {
+            sigma_target=sigma_c;
+            
+            tmp=1.0-sigma_target/(sigma_1-q*sigma_2)*(1.0-old_damage);
+
+            if(tmp>M_damage[cpt])
+            {
+                M_damage[cpt]=tmp;
+            }
+        }
+#endif
+        
+#if 0        
+        if(sigma_n>tract_max)
+        {
+            sigma_target=tract_max;
 
             tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
 
@@ -3641,6 +3712,7 @@ FiniteElement::updateSeq()
                 M_damage[cpt]=tmp;
             }
         }
+#endif       
 
         /*
          * Diagnostic:
@@ -3648,7 +3720,7 @@ FiniteElement::updateSeq()
          */
         for(i=0;i<3;i++)
         {
-            if(old_damage<1.0)
+            if(old_damage<1.0 && old_conc>0.)
             {
                 M_sigma[3*cpt+i] = (1.-M_damage[cpt])/(1.-old_damage)*M_sigma[3*cpt+i] ;
             }
@@ -3672,7 +3744,7 @@ FiniteElement::updateSeq()
         tmp-= 1000*time_step/M_time_relaxation_damage[cpt];
         tmp=((tmp>1.)?(tmp):(1.));
         M_damage[cpt]=-1./tmp + 1.;
-
+        
         /*======================================================================
          * Update:
          * Ice and snow thickness, and concentration using a Lagrangian or an Eulerian scheme
@@ -4618,11 +4690,14 @@ FiniteElement::run()
         //======================================================================
         // Do the thermodynamics
         //======================================================================
-        chrono.restart();
-        std::cout<<"thermo starts\n";
-        this->thermo();
-        std::cout<<"thermo done in "<< chrono.elapsed() <<"s\n";
-
+        if(vm["simul.use_thermo_forcing"].as<bool>())
+        {
+            chrono.restart();
+            std::cout<<"thermo starts\n";
+            this->thermo();
+            std::cout<<"thermo done in "<< chrono.elapsed() <<"s\n";
+        }
+        
         //======================================================================
         // Assemble the matrix
         //======================================================================
@@ -5797,6 +5872,9 @@ FiniteElement::initIce()
         case setup::IceType::CONSTANT:
             this->constantIce();
             break;
+        case setup::IceType::TARGET:
+            this->targetIce();
+            break;
         case setup::IceType::TOPAZ4:
             this->topazIce();
             break;
@@ -5816,6 +5894,48 @@ FiniteElement::constantIce()
     std::fill(M_thick.begin(), M_thick.end(), vm["simul.init_thickness"].as<double>());
     std::fill(M_snow_thick.begin(), M_snow_thick.end(), vm["simul.init_snow_thickness"].as<double>());
     std::fill(M_damage.begin(), M_damage.end(), 0.);
+}
+
+void
+FiniteElement::targetIce()
+{
+    double y_max=300000.;
+    double x_max=350000.;
+    double x_min=200000.;
+    
+	double tmp_var;
+    
+    auto RX = M_mesh.bcoordX();
+    auto RY = M_mesh.bcoordY();
+    
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        tmp_var = (RY[i]<=y_max)*(RX[i]<=x_max)*(RX[i]>=x_min);
+        
+        std::cout<<"RX: "<< RX[i] << "RY: "<< RY[i] << "tmp_var: " << tmp_var << "\n";
+        
+        M_conc[i]  = vm["simul.init_concentration"].as<double>()*tmp_var;
+		M_thick[i] = vm["simul.init_thickness"].as<double>()*tmp_var;
+		M_snow_thick[i] = vm["simul.init_snow_thickness"].as<double>()*tmp_var;
+        M_damage[i]=0.;
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+            M_damage[i]=1.;
+        }
+        if(M_thick[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+            M_damage[i]=1.;
+        }
+
+		
+        
+    }
 }
 
 void
@@ -6539,6 +6659,27 @@ FiniteElement::exportResults(int step, bool export_mesh)
         }
         exporter.writeField(outbin, conc_thin, "Concentration_thin_ice");
     }
+    
+    // EXPORT sigma1 sigma2
+    std::vector<double> sigma1(M_mesh.numTriangles());
+    std::vector<double> sigma2(M_mesh.numTriangles());
+    double sigma_s, sigma_n;
+    std::vector<double> sigma_pred(3);
+    
+    for ( int i=0; i<M_mesh.numTriangles(); ++i )
+    {
+        sigma_pred[0]=M_sigma[3*i];
+        sigma_pred[1]=M_sigma[3*i+1];
+        sigma_pred[2]=M_sigma[3*i+2];
+        
+        sigma_s=std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
+        sigma_n=           (sigma_pred[0]+sigma_pred[1])/2.;
+        
+        sigma1[i] = -sigma_n+sigma_s;
+        sigma2[i] = -sigma_n-sigma_s;
+    }
+    exporter.writeField(outbin, sigma1, "sigma1");
+    exporter.writeField(outbin, sigma2, "sigma2");
 
     outbin.close();
 

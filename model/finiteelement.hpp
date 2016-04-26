@@ -414,6 +414,8 @@ private:
     void constantIce();
 	void constantBathymetry();
 
+    void targetIce();
+
     void equallySpacedDrifter();
     void outputDrifter(std::fstream &iabp_out);
     void initIABPDrifter();
