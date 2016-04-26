@@ -97,16 +97,19 @@ sudo make install/fast
 
 # for nextSIM in C++
 export NEXTSIMDIR=$HOME/Developer/nextsim/
+
 export GMSH_DIR=/usr/local/
 
 export NETCDF_DIR=/opt/local/netcdf-cxx
 
 export PETSC_DIR=/opt/local/petsc
+
 export PETSC_ARCH=arch-darwin-c-opt
 
 export BOOST_DIR=/opt/local/boost
 
 export DYLD_LIBRARY_PATH="/opt/local/boost/lib"
+
 export DYLD_LIBRARY_PATH=NEXTSIMDIR/lib:$DYLD_LIBRARY_PATH
 
 ##-------  Compile neXtSIM itself --------- 
