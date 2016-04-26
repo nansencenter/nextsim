@@ -3279,7 +3279,6 @@ FiniteElement::update()
          tract_max=tract_coef*M_Cohesion[cpt]/tan_phi;
 
          /* Correction of the damage */
-
          if(sigma_n<(-M_Compressive_strength[cpt]))
          {
              sigma_target=-M_Compressive_strength[cpt];
@@ -3291,8 +3290,8 @@ FiniteElement::update()
                  M_damage[cpt]=tmp;
              }
          } 
-
-#if 1
+         
+#if 0
          if((sigma_1<=0.) && (sigma_2<sigma_t))
          {
              sigma_target=sigma_t;
@@ -3318,7 +3317,7 @@ FiniteElement::update()
          }
 #endif
         
-#if 0  
+#if 1  
          if(sigma_n>tract_max)
          {
              sigma_target=tract_max;
@@ -3341,6 +3340,21 @@ FiniteElement::update()
              }
          }
 #endif
+        /*
+         * Diagnostic:
+         * Recompute the internal stress
+         */
+        for(i=0;i<3;i++)
+        {
+            if(old_damage<1.0)
+            {
+                M_sigma[3*cpt+i] = (1.-M_damage[cpt])/(1.-old_damage)*M_sigma[3*cpt+i] ;
+            }
+            else
+            {
+                M_sigma[3*cpt+i] = 0. ;
+            }
+        }
 
         /*======================================================================
          * Update:
@@ -3652,7 +3666,6 @@ FiniteElement::updateSeq()
         tract_max=tract_coef*M_Cohesion[cpt]/tan_phi;
 
         /* Correction of the damage */
-
         if(sigma_n<(-M_Compressive_strength[cpt]))
         {
             sigma_target=-M_Compressive_strength[cpt];
@@ -3664,7 +3677,7 @@ FiniteElement::updateSeq()
                 M_damage[cpt]=tmp;
             }
         }
-#if 1
+#if 0
         if(sigma_1<0 && sigma_2<sigma_t)
         {
             sigma_target=sigma_t;
@@ -3690,11 +3703,11 @@ FiniteElement::updateSeq()
         }
 #endif
         
-#if 0        
+#if 1        
         if(sigma_n>tract_max)
         {
             sigma_target=tract_max;
-
+            
             tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
 
             if(tmp>M_damage[cpt])
@@ -3720,7 +3733,7 @@ FiniteElement::updateSeq()
          */
         for(i=0;i<3;i++)
         {
-            if(old_damage<1.0 && old_conc>0.)
+            if(old_damage<1.0)
             {
                 M_sigma[3*cpt+i] = (1.-M_damage[cpt])/(1.-old_damage)*M_sigma[3*cpt+i] ;
             }
