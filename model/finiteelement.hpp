@@ -25,6 +25,7 @@
 #include <gmshmesh.hpp>
 #include <graphcsr.hpp>
 #include "enums.hpp"
+#include <debug.hpp>
 #include <netcdf>
 #include <omp.h>
 
@@ -150,7 +151,6 @@ public:
     void adaptMesh();
 
     void assemble(int cpt);
-    void assembleSeq(int cpt);
     void solve();
     void run();
     void error();
@@ -207,7 +207,6 @@ public:
     void updateVelocity();
     void scalingVelocity();
     void update();
-    void updateSeq();
     void exportResults(int step, bool export_mesh = true);
 
     void writeRestart(int pcpt, int step);
@@ -252,6 +251,8 @@ private:
     setup::DrifterType M_drifter_type;
     setup::DomainType M_domain_type;
     setup::MeshType M_mesh_type;
+
+    LogLevel M_log_level;
 
     std::string M_mesh_filename;
 

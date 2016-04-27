@@ -56,7 +56,7 @@ FiniteElement::initMesh(setup::DomainType domain_type, std::string mesh_filename
             throw std::logic_error("invalid domain type");
     }
 
-    // M_mesh.setOrdering("bamg"); // This is already done in initConstant
+    //M_mesh.setOrdering("bamg");
 
     M_mesh.readFromFile(mesh_filename);
 
@@ -68,13 +68,13 @@ FiniteElement::initMesh(setup::DomainType domain_type, std::string mesh_filename
     // M_mesh.readFromFile("hypercube.msh");
     this->initBamg();
 
-    std::cout<<"Convert MESH starts\n";
+    LOG(DEBUG) <<"Convert MESH starts\n";
     BamgConvertMeshx(
                      bamgmesh,bamggeom,
                      &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
                      M_mesh.numNodes(), M_mesh.numTriangles()
                      );
-    std::cout<<"Convert MESH done\n";
+    LOG(DEBUG) <<"Convert MESH done\n";
 
 
     for (auto it=M_mesh.edges().begin(), end=M_mesh.edges().end(); it!=end; ++it)
@@ -98,9 +98,9 @@ FiniteElement::initMesh(setup::DomainType domain_type, std::string mesh_filename
     // Definition of the hmin, hmax, hminVertices or hmaxVertices
     auto h = this->minMaxSide(M_mesh);
 
-    std::cout<<"MESH: HMIN= "<< h[0] <<"\n";
-    std::cout<<"MESH: HMAX= "<< h[1] <<"\n";
-    std::cout<<"MESH: RES = "<< this->resolution(M_mesh) <<"\n";
+    LOG(DEBUG) <<"MESH: HMIN= "<< h[0] <<"\n";
+    LOG(DEBUG) <<"MESH: HMAX= "<< h[1] <<"\n";
+    LOG(DEBUG) <<"MESH: RES = "<< this->resolution(M_mesh) <<"\n";
 
     switch (mesh_type)
     {
@@ -115,9 +115,6 @@ FiniteElement::initMesh(setup::DomainType domain_type, std::string mesh_filename
 
             M_hminVertices = this->hminVertices(M_mesh_init, bamgmesh);
             M_hmaxVertices = this->hmaxVertices(M_mesh_init, bamgmesh);
-
-			//bamgopt->hminVertices=&M_hminVertices[0];
-			//bamgopt->hmaxVertices=&M_hmaxVertices[0];
 
             bamgopt->hminVertices = new double[M_mesh_init.numNodes()];
             bamgopt->hmaxVertices = new double[M_mesh_init.numNodes()];
@@ -861,7 +858,7 @@ FiniteElement::initConstant()
     restart_time_step =  vm["setup.restart_time_step"].as<double>()*days_in_sec;
     if ( fmod(restart_time_step,time_step) != 0)
     {
-        std::cout << restart_time_step << " " << time_step << endl;
+        std::cout << restart_time_step << " " << time_step << "\n";
         throw std::logic_error("restart_time_step not an integer multiple of time_step");
     }
 
@@ -931,7 +928,7 @@ FiniteElement::initConstant()
         ("iabp", setup::DrifterType::IABP);
     M_drifter_type = str2drifter.find(vm["setup.drifter-type"].as<std::string>())->second;
 
-    std::cout <<"GMSH VERSION= "<< M_mesh.version() <<"\n";
+    //LOG(DEBUG) <<"GMSH VERSION= "<< M_mesh.version() <<"\n";
 
     M_mesh_filename = vm["simul.mesh_filename"].as<std::string>();
 
@@ -959,6 +956,16 @@ FiniteElement::initConstant()
         M_mesh.setOrdering("gmsh");
     else
         throw std::logic_error("Unknown setup::MeshType");
+
+
+    const boost::unordered_map<const std::string, LogLevel> str2log = boost::assign::map_list_of
+        ("info", INFO)
+        ("warning", WARNING)
+        ("debug", DEBUG)
+        ("error", ERROR);
+
+    M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
+
 }
 
 void
@@ -1285,7 +1292,7 @@ FiniteElement::regrid(bool step)
     if (step)
     {
         chrono.restart();
-        std::cout<<"Flip starts\n";
+        LOG(DEBUG) <<"Flip starts\n";
 
         while (flip)
         {
@@ -1295,39 +1302,21 @@ FiniteElement::regrid(bool step)
             flip = this->flip(M_mesh,M_UM,displacement_factor);
 
             if (substep > 1)
-                std::cout<<"FLIP DETECTED "<< substep-1 <<"\n";
+                LOG(DEBUG) <<"FLIP DETECTED "<< substep-1 <<"\n";
         }
 
-        std::cout<<"displacement_factor= "<< displacement_factor <<"\n";
+        LOG(DEBUG) <<"displacement_factor= "<< displacement_factor <<"\n";
 
 		substep_nb=std::pow(2,step_order);
 
 		if(substep_nb!=1)
 		{
-			std::cout<< substep_nb << "substeps will be needed for the remeshing!" <<"\n";
-			std::cout<< "Warning: It is probably due to very high ice speed, check your fields!\n";
+			LOG(WARNING) << substep_nb << "substeps will be needed for the remeshing!" <<"\n";
+			LOG(WARNING) << "Warning: It is probably due to very high ice speed, check your fields!\n";
 		}
 
-        std::cout<<"Flip done in "<< chrono.elapsed() <<"s\n";
+        LOG(DEBUG) <<"Flip done in "<< chrono.elapsed() <<"s\n";
 
-#if 0
-        cout << "\n";
-        cout << "     K      Xi(K)       Yi(K)       Zi(K)       Z(X,Y)\n";
-        cout << "\n";
-        //for (int k = 0; k < bamgmeshout->VerticesSize[0]; k++ )
-        for (int k = 0; k < M_mesh_init.numNodes(); k++ )
-        {
-            //ze = xyi[0+k*2] + 2.0 * xyi[1+k*2];
-            cout << "  " << setw(4) << k
-                 << "  " << setw(10) << M_mesh_init.coordX()[k]
-                 << "  " << setw(10) << M_mesh_init.coordY()[k]
-                //<< "  " << setw(10) << bamgopt->hminVertices[k]
-                //<< "  " << setw(10) << bamgopt->hmaxVertices[k] << "\n";
-                 << "  " << setw(10) << hmin_vertices[k]
-                 << "  " << setw(10) << hmax_vertices[k] << "\n";
-            //<< "  " << setw(10) << data_in[k] << "\n";
-        }
-#endif
         // if (bamgopt->KeepVertices!=0)
         //     bamgopt->KeepVertices=0;
     }
@@ -1347,27 +1336,20 @@ FiniteElement::regrid(bool step)
         bamgopt->hmaxVertices[i] = (step) ? hmax_vertices[i] : hmax_vertices_first[i];
     }
 #endif
-#if 0
-    BamgConvertMeshx(
-                     bamgmesh_previous,bamggeom_previous,
-                     &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-                     M_mesh.numNodes(), M_mesh.numTriangles()
-                     );
-#endif
 
 	for (int substep_i = 0; substep_i < substep_nb; substep_i++ )
 	{
 		if(step)
 		{
 	        chrono.restart();
-	        std::cout<<"Move starts\n";
+	        LOG(DEBUG) <<"Move starts\n";
 			M_mesh.move(M_UM,displacement_factor);
-			std::cout<<"Move done in "<< chrono.elapsed() <<"s\n";
+			LOG(DEBUG) <<"Move done in "<< chrono.elapsed() <<"s\n";
 
 
 
 	        chrono.restart();
-	        std::cout<<"Move bamgmesh->Vertices starts\n";
+	        LOG(DEBUG) <<"Move bamgmesh->Vertices starts\n";
 		    auto RX = M_mesh.coordX();
 		    auto RY = M_mesh.coordY();
 
@@ -1376,7 +1358,7 @@ FiniteElement::regrid(bool step)
 	        	bamgmesh->Vertices[3*id] = RX[id];
 				bamgmesh->Vertices[3*id+1] = RY[id] ;
 	    	}
-			std::cout<<"Move bamgmesh->Vertices done in "<< chrono.elapsed() <<"s\n";
+			LOG(DEBUG) <<"Move bamgmesh->Vertices done in "<< chrono.elapsed() <<"s\n";
 		}
 
 
@@ -1385,17 +1367,17 @@ FiniteElement::regrid(bool step)
 			if(step==0)
 			{
 		        chrono.restart();
-		        std::cout<<"First adaptation starts\n";
+		        LOG(DEBUG) <<"First adaptation starts\n";
 				// step 1 (only for the first time step): Start by having bamg 'clean' the mesh with KeepVertices=0
 				bamgopt->KeepVertices=0;
 				this->adaptMesh();
 				bamgopt->KeepVertices=1;
-				std::cout<<"First adaptation done in "<< chrono.elapsed() <<"s\n";
+				LOG(DEBUG) <<"First adaptation done in "<< chrono.elapsed() <<"s\n";
 
 			}
 
 	        chrono.restart();
-	        std::cout<<"Interpolate hminVertices starts\n";
+	        LOG(DEBUG) <<"Interpolate hminVertices starts\n";
 			// Interpolate hminVertices and hmaxVertices onto the current mesh
 
 			// NODAL INTERPOLATION
@@ -1435,13 +1417,13 @@ FiniteElement::regrid(bool step)
 			}
 
 			xDelete<double>(interp_Vertices_out);
-			std::cout<<"Interpolate hmin done in "<< chrono.elapsed() <<"s\n";
+			LOG(DEBUG) <<"Interpolate hmin done in "<< chrono.elapsed() <<"s\n";
 		}
 
         chrono.restart();
-        std::cout<<"AdaptMesh starts\n";
+        LOG(INFO) <<"AdaptMesh starts\n";
 		this->adaptMesh();
-		std::cout<<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
+		LOG(INFO) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
 
 		if (step)
 		{
@@ -1449,19 +1431,16 @@ FiniteElement::regrid(bool step)
 			int prv_num_nodes = M_mesh_previous.numNodes();
 
 	        chrono.restart();
-	        std::cout<<"Element Interp starts\n";
+	        LOG(DEBUG) <<"Element Interp starts\n";
 			// ELEMENT INTERPOLATION With Cavities
 			int nb_var=15;
 
-			// memory leak:
-			//double* interp_elt_in;
-			//interp_elt_in = new double[nb_var*prv_num_elements];
 			// To avoid memory leak:
 			std::vector<double> interp_elt_in(nb_var*prv_num_elements);
 
 			double* interp_elt_out;
 
-			std::cout<<"ELEMENT: Interp starts\n";
+			LOG(DEBUG) <<"ELEMENT: Interp starts\n";
 
 			int tmp_nb_var=0;
 			for (int i=0; i<prv_num_elements; ++i)
@@ -1535,10 +1514,6 @@ FiniteElement::regrid(bool step)
 				}
 			}
 
-#if 1
-			// memory leak:
-			//double* surface_previous = new double[prv_num_elements];
-			//double* surface = new double[M_num_elements];
 			// To avoid memory leak:
 			std::vector<double> surface_previous(prv_num_elements);
 			std::vector<double> surface(M_num_elements);
@@ -1562,7 +1537,6 @@ FiniteElement::regrid(bool step)
 
 			InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_elt_in[0],nb_var,
 			&surface_previous[0], &surface[0], bamgmesh_previous, bamgmesh);
-#endif
 
 #if 0
 			InterpFromMeshToMesh2dx(&interp_elt_out,
@@ -1680,11 +1654,11 @@ FiniteElement::regrid(bool step)
 
 			xDelete<double>(interp_elt_out);
 
-			std::cout<<"ELEMENT: Interp done\n";
-			std::cout<<"Element Interp done in "<< chrono.elapsed() <<"s\n";
+			LOG(DEBUG) <<"ELEMENT: Interp done\n";
+			LOG(DEBUG) <<"Element Interp done in "<< chrono.elapsed() <<"s\n";
 
 	        chrono.restart();
-	        std::cout<<"Slab Interp starts\n";
+	        LOG(DEBUG) <<"Slab Interp starts\n";
 			// ELEMENT INTERPOLATION FOR SLAB OCEAN FROM OLD MESH ON ITS ORIGINAL POSITION
 			nb_var=2;
 
@@ -1695,7 +1669,7 @@ FiniteElement::regrid(bool step)
 
 			double* interp_elt_slab_out;
 
-			std::cout<<"ELEMENT SLAB: Interp starts\n";
+			LOG(DEBUG) <<"ELEMENT SLAB: Interp starts\n";
 
 			M_mesh_previous.move(M_UM,-displacement_factor);
 
@@ -1731,8 +1705,8 @@ FiniteElement::regrid(bool step)
 			xDelete<double>(interp_elt_slab_out);
 
 			M_mesh_previous.move(M_UM,displacement_factor);
-			std::cout<<"ELEMENT SLAB: Interp done\n";
-			std::cout<<"Slab Interp done in "<< chrono.elapsed() <<"s\n";
+			LOG(DEBUG) <<"ELEMENT SLAB: Interp done\n";
+			LOG(DEBUG) <<"Slab Interp done in "<< chrono.elapsed() <<"s\n";
 
 			// NODAL INTERPOLATION
 			nb_var=8;
@@ -1745,8 +1719,8 @@ FiniteElement::regrid(bool step)
 			double* interp_out;
 
 	        chrono.restart();
-	        std::cout<<"Nodal Interp starts\n";
-			std::cout<<"NODAL: Interp starts\n";
+	        LOG(DEBUG) <<"Nodal Interp starts\n";
+			LOG(DEBUG) <<"NODAL: Interp starts\n";
 
 			for (int i=0; i<prv_num_nodes; ++i)
 			{
@@ -1801,15 +1775,15 @@ FiniteElement::regrid(bool step)
 
 			xDelete<double>(interp_out);
 
-			std::cout<<"NODAL: Interp done\n";
-			std::cout<<"Nodal interp done in "<< chrono.elapsed() <<"s\n";
+			LOG(DEBUG) <<"NODAL: Interp done\n";
+			LOG(DEBUG) <<"Nodal interp done in "<< chrono.elapsed() <<"s\n";
 
                         // Drifters - if requested
-                        if ( M_drifter_type != setup::DrifterType::NONE )
+            if ( M_drifter_type != setup::DrifterType::NONE )
                         {
                             chrono.restart();
-                            std::cout<<"Drifter starts\n";
-                            std::cout<<"DRIFTER: Interp starts\n";
+                            LOG(DEBUG) <<"Drifter starts\n";
+                            LOG(DEBUG) <<"DRIFTER: Interp starts\n";
 
                             // Assemble the coordinates from the unordered_map
                             std::vector<double> drifter_X(M_drifter.size());
@@ -1872,8 +1846,8 @@ FiniteElement::regrid(bool step)
                             xDelete<double>(interp_drifter_out);
                             xDelete<double>(interp_drifter_c_out);
 
-                            std::cout<<"DRIFTER: Interp done\n";
-                            std::cout<<"Drifter interp done in "<< chrono.elapsed() <<"s\n";
+                            LOG(DEBUG) <<"DRIFTER: Interp done\n";
+                            LOG(DEBUG) <<"Drifter interp done in "<< chrono.elapsed() <<"s\n";
                         }
 		}
 	}
@@ -1949,38 +1923,18 @@ FiniteElement::adaptMesh()
     *bamggeom_previous = *bamggeom;
     *bamgopt_previous = *bamgopt;
 
-
     int fnd = 0;
-    //int snd = 0;
 
-#if 1
     for (int edg=0; edg<bamgmesh_previous->EdgesSize[0]; ++edg)
     {
         fnd = bamgmesh_previous->Edges[3*edg]-1;
-        //snd = bamgmesh_previous->Edges[3*edg+1]-1;
 
-        // if ((std::binary_search(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),fnd))
-        //     || (std::binary_search(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),snd)))
         if ((std::binary_search(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),fnd)))
         {
             bamggeom_previous->Edges[3*edg+2] = M_flag_fix;
             bamgmesh_previous->Edges[3*edg+2] = M_flag_fix;
         }
     }
-
-    // for (const int& edg : M_dirichlet_flags)
-    // {
-    //     std::cout<<"BEFORE["<< edg << "]= ("<< M_mesh.coordX()[edg] <<","<< M_mesh.coordY()[edg] <<")\n";
-    // }
-
-    //std::sort(vec.begin(), vec.end());
-    // for (int i=0; i<vec.size(); ++i)
-    // {
-    //     //std::cout<<"VEC["<< i <<"]= "<< vec[i] <<"\n";
-    //     //std::cout<<"INIT["<< vec[i] << "]= ("<< M_mesh.coordX()[vec[i]] <<","<< M_mesh.coordY()[vec[i]] <<")\n";
-    // }
-#endif
-
 
     //Environment::logMemoryUsage("before adaptMesh");
     Bamgx(bamgmesh,bamggeom,bamgmesh_previous,bamggeom_previous,bamgopt_previous);
@@ -2008,9 +1962,7 @@ FiniteElement::adaptMesh()
     //M_dirichlet_flags.erase( std::unique(M_dirichlet_flags.begin(), M_dirichlet_flags.end() ), M_dirichlet_flags.end());
 
     std::sort(M_boundary_flags.begin(), M_boundary_flags.end());
-    //std::cout<<"Boundary size 1= "<< M_boundary_flags.size() <<"\n";
     //M_boundary_flags.erase(std::unique(M_boundary_flags.begin(), M_boundary_flags.end() ), M_boundary_flags.end());
-    //std::cout<<"Boundary size 2= "<< M_boundary_flags.size() <<"\n";
 
     M_neumann_flags.resize(0);
     std::set_difference(M_boundary_flags.begin(), M_boundary_flags.end(),
@@ -2094,7 +2046,7 @@ FiniteElement::assemble(int pcpt)
     double sin_ocean_turning_angle=std::sin(ocean_turning_angle_rad);
 
     // ---------- Assembling starts -----------
-    std::cout<<"Assembling starts\n";
+    LOG(INFO) <<"Assembling starts\n";
     chrono.restart();
 
     int thread_id;
@@ -2378,7 +2330,7 @@ FiniteElement::assemble(int pcpt)
                             &lrcindices[0], lrcindices.size(),
                             &ldata[0]);
     }
-    std::cout<<"SET PETSC MATRIX done in " << petsc_chrono.elapsed() <<"s\n";
+    LOG(DEBUG) <<"SET PETSC MATRIX done in " << petsc_chrono.elapsed() <<"s\n";
     lhsdata.resize(0);
 
     // close petsc matrix
@@ -2388,8 +2340,8 @@ FiniteElement::assemble(int pcpt)
     M_vector->addVector(&rhsindices[0], rhsindices.size(), &rhsdata[0]);
     M_vector->close();
 
-    std::cout<<"Assembling done\n";
-    std::cout<<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
+    LOG(INFO) <<"Assembling done in "<< chrono.elapsed() <<"s\n";
+    //LOG(DEBUG) <<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
 
     // extended dirichlet nodes (add nodes where M_conc <= 0)
     for (int i=0; i<2*M_num_nodes; ++i)
@@ -2407,532 +2359,15 @@ FiniteElement::assemble(int pcpt)
     chrono.restart();
     //M_matrix->on(M_dirichlet_nodes,*M_vector);
     M_matrix->on(extended_dirichlet_nodes,*M_vector);
-    std::cout<<"TIMER DBCA= " << chrono.elapsed() <<"s\n";
+    LOG(DEBUG) <<"TIMER DBCA= " << chrono.elapsed() <<"s\n";
 
-    std::cout<<"[PETSC MATRIX] CLOSED      = "<< M_matrix->closed() <<"\n";
-    std::cout<<"[PETSC MATRIX] SIZE        = "<< M_matrix->size1() << " " << M_matrix->size2() <<"\n";
-    std::cout<<"[PETSC MATRIX] SYMMETRIC   = "<< M_matrix->isSymmetric() <<"\n";
-    std::cout<<"[PETSC MATRIX] NORM        = "<< M_matrix->linftyNorm() <<"\n";
-
-    //M_matrix->printMatlab("stiffness.m");
-    //M_vector->printMatlab("rhs.m");
-}
-
-void
-FiniteElement::assembleSeq(int pcpt)
-{
-    double coef_V, coef_Voce, coef_Vair, coef_basal, coef_X, coef_Y, coef_C;
-    double coef = 0;
-    double coef_P = 0.;
-    double mass_e = 0.;
-    double surface_e = 0.;
-    double g_ssh_e_x = 0.;
-    double g_ssh_e = 0.;
-    double g_ssh_e_y = 0.;
-
-    double tmp_thick, tmp_conc;
-
-    //std::vector<double> B0T(18,0);
-    // std::vector<double> B0Tj_Dunit(6,0);
-    // std::vector<double> B0Tj_Dunit_B0Ti(4,0);
-    // std::vector<double> B0T_Dunit_B0T(36,0);
-    // std::vector<double> B0Tj_Dunit_comp(6,0);
-    // std::vector<double> B0Tj_Dunit_comp_B0Ti(4,0);
-    // std::vector<double> B0T_Dunit_comp_B0T(36,0);
-
-    std::vector<double> sigma_P(3,0); /* temporary variable for the resistance to the compression */
-    std::vector<double> B0Tj_sigma_h(2,0);
-
-    // double B0Tj_Dunit_tmp0, B0Tj_Dunit_tmp1;
-    // double B0Tj_Dunit_B0Ti_tmp0, B0Tj_Dunit_B0Ti_tmp1, B0Tj_Dunit_B0Ti_tmp2, B0Tj_Dunit_B0Ti_tmp3;
-    // double B0Tj_Dunit_comp_tmp0, B0Tj_Dunit_comp_tmp1;
-    // double B0Tj_Dunit_comp_B0Ti_tmp0, B0Tj_Dunit_comp_B0Ti_tmp1, B0Tj_Dunit_comp_B0Ti_tmp2, B0Tj_Dunit_comp_B0Ti_tmp3;
-    double mloc;
-
-    std::vector<double> B0Tj_Dunit_B0Ti(4,0);
-    std::vector<double> B0Tj_Dunit_comp_B0Ti(4,0);
-    // std::vector<double> B0T_Dunit_B0T(36,0);
-    // std::vector<double> B0T_Dunit_comp_B0T(36,0);
-
-    std::vector<double> data(36);
-    std::vector<double> fvdata(6),fvdata_reduction(6);
-    std::vector<int> rcindices(6), rcindices_i(6);
-
-    double duu, dvu, duv, dvv, fuu, fvv;
-    int index_u, index_v;
-
-    for (int i=0; i<2*M_num_nodes; ++i)
-        M_vector_reduction[i]=0.;
-
-    M_matrix->zero();
-    M_vector->zero();
-
-    std::vector<int> rhsindices(2*M_num_nodes);
-    std::iota(rhsindices.begin(), rhsindices.end(), 0);
-    std::vector<double> rhsdata(2*M_num_nodes, 0.);
-
-    // coriolis term
-    double beta0;
-    double beta1;
-    double beta2;
-    if (pcpt > 1)
+    if (M_log_level == DEBUG)
     {
-        // Adams-Bashfort 3 (AB3)
-        beta0 = 23./12;
-        beta1 =-16./12;
-        beta2 =  5./12;
+        LOG(DEBUG) <<"[PETSC MATRIX] CLOSED      = "<< M_matrix->closed() <<"\n";
+        LOG(DEBUG) <<"[PETSC MATRIX] SIZE        = "<< M_matrix->size1() << " " << M_matrix->size2() <<"\n";
+        LOG(DEBUG) <<"[PETSC MATRIX] SYMMETRIC   = "<< M_matrix->isSymmetric() <<"\n";
+        LOG(DEBUG) <<"[PETSC MATRIX] NORM        = "<< M_matrix->linftyNorm() <<"\n";
     }
-    else if (pcpt == 1)
-    {
-        // Adams-Bashfort 2 (AB2)
-        beta0 = 3/2;
-        beta1 =-1/2;
-        beta2 = 0  ;
-    }
-    else if (pcpt == 0)
-    {
-        // Euler explicit (Fe)
-        beta0 = 1 ;
-        beta1 = 0 ;
-        beta2 = 0 ;
-    }
-
-    double cos_ocean_turning_angle=std::cos(ocean_turning_angle_rad);
-    double sin_ocean_turning_angle=std::sin(ocean_turning_angle_rad);
-
-    std::cout<<"Assembling starts\n";
-    chrono.restart();
-    int cpt = 0;
-    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
-    {
-#if 0
-        //chrono.restart();
-        //std::vector<double> shapecoeff = this->shapeCoeff(*it,M_mesh);
-        // if (cpt==0)
-        //     std::cout<<"SHAPECOEFF elapsed in "<< chrono.elapsed() <<"s\n";
-
-        for (int i=0; i<18; ++i)
-        {
-            if (i < 3)
-            {
-                B0T[2*i] = M_shape_coeff[cpt][i];
-                B0T[12+2*i] = M_shape_coeff[cpt][i+3];
-                B0T[13+2*i] = M_shape_coeff[cpt][i];
-            }
-            else if (i < 6)
-            {
-                B0T[2*i+1] = M_shape_coeff[cpt][i];
-            }
-        }
-#endif
-        //std::cout<<"\n";
-        // if (cpt == 0)
-        //     for (int i=0; i<3; ++i)
-        //     {
-        //         for (int j=0; j<6; ++j)
-        //         {
-        //             std::cout<< std::left << std::setw(12) << B0T[6*i+j] <<"  ";
-        //         }
-        //         std::cout<<"\n";
-        //     }
-
-        // Factor compute now within assemble
-        double welt_oce_ice = 0.;
-        double welt_air_ice = 0.;
-        double welt_ice = 0.;
-        double welt_ssh = 0.;
-        int nind;
-
-        for (int i=0; i<3; ++i)
-        {
-            nind = (M_elements[cpt]).indices[i]-1;
-            welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
-            welt_air_ice += std::hypot(M_VT[nind]-M_wind [nind],M_VT[nind+M_num_nodes]-M_wind [nind+M_num_nodes]);
-            welt_ice += std::hypot(M_VT[nind],M_VT[nind+M_num_nodes]);
-
-            welt_ssh += M_ssh[nind];
-        }
-
-        double norm_Voce_ice = welt_oce_ice/3.;
-        double norm_Vair_ice = welt_air_ice/3.;
-        double norm_Vice = welt_ice/3.;
-
-        double element_ssh = welt_ssh/3.;
-
-        double coef_Vair = (vm["simul.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*norm_Vair_ice));
-        coef_Vair *= (vm["simul.rho_air"].as<double>());
-
-        double coef_Voce = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
-        coef_Voce *= (vm["simul.rho_water"].as<double>());
-
-
-        double critical_h = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
-        double _coef = std::max(0., M_thick[cpt]-critical_h);
-        double coef_basal = quad_drag_coef_air*basal_k2/(basal_drag_coef_air*(norm_Vice+basal_u_0));
-        coef_basal *= _coef*std::exp(-basal_Cb*(1.-M_conc[cpt]));
-
-        tmp_thick=(0.05>M_thick[cpt]) ? 0.05 : M_thick[cpt];
-        tmp_conc=(0.01>M_conc[cpt]) ? 0.01 : M_conc[cpt];
-
-        coef = young*(1.-M_damage[cpt])*tmp_thick*std::exp(ridging_exponent*(1.-tmp_conc));
-
-        coef_P = 0.;
-        if(M_divergence_rate[cpt] < 0.)
-        {
-            coef_P = compression_factor*std::pow(tmp_thick,exponent_compression_factor)*std::exp(ridging_exponent*(1.-tmp_conc));
-            coef_P = coef_P/(std::abs(M_divergence_rate[cpt])+divergence_min);
-            //std::cout<<"Coeff= "<< coef_P <<"\n";
-        }
-
-        sigma_P[0]=0.;
-        sigma_P[1]=0.;
-        sigma_P[2]=0.;
-
-        /* Compute the value that only depends on the element */
-        mass_e = rhoi*tmp_thick + rhos*M_snow_thick[cpt];
-        mass_e = (tmp_conc > 0.) ? (mass_e/tmp_conc):0.;
-        surface_e = M_surface[cpt];
-
-        // /* compute the x and y derivative of g*ssh */
-        g_ssh_e_x = 0.;
-        g_ssh_e_y = 0.;
-        for(int i=0; i<3; i++)
-        {
-            g_ssh_e = (vm["simul.gravity"].as<double>())*M_ssh[it->indices[i]-1] /*g_ssh*/;   /* g*ssh at the node k of the element e */
-            g_ssh_e_x += M_shape_coeff[cpt][i]*g_ssh_e; /* x derivative of g*ssh */
-            g_ssh_e_y += M_shape_coeff[cpt][i+3]*g_ssh_e; /* y derivative of g*ssh */
-        }
-
-        coef_C     = mass_e*M_fcor[cpt];              /* for the Coriolis term */
-        coef_V     = mass_e/time_step;             /* for the inertial term */
-        coef_X     = - mass_e*g_ssh_e_x;              /* for the ocean slope */
-        coef_Y     = - mass_e*g_ssh_e_y;              /* for the ocean slope */
-
-        if (cpt < 0)
-        {
-            std::cout<<"************************\n";
-            std::cout<<"Coef_C    = "<< coef_C <<"\n";
-            std::cout<<"Coef_V    = "<< coef_V <<"\n";
-            std::cout<<"Coef_X    = "<< coef_X <<"\n";
-            std::cout<<"Coef_Y    = "<< coef_Y <<"\n";
-            std::cout<<"coef_Vair = "<< coef_Vair <<"\n";
-            std::cout<<"coef_Voce = "<< coef_Voce <<"\n";
-            std::cout<<"coef_basal= "<< coef_basal <<"\n";
-        }
-#if 0
-        for(int j=0; j<3; j++)
-        {
-
-            /* The rigidity matrix that will be multiplied by E and by the surface
-             * is given by the product B0'*matrix.Dunit*B0
-             * This product is computed for the indices:
-             * 2*i  ,2*j   -> B0Tj_Dunit_B0Ti[0]
-             * 2*i  ,2*j+1 -> B0Tj_Dunit_B0Ti[1]
-             * 2*i+1,2*j   -> B0Tj_Dunit_B0Ti[2]
-             * 2*i+1,2*j+1 -> B0Tj_Dunit_B0Ti[3] */
-
-            /* new version without assembling zero */
-            for(int i=0; i<3; i++)
-            {
-                /* product of the first line of B0T' and the matrix Dunit */
-                B0Tj_Dunit_tmp0 = 0.;
-                B0Tj_Dunit_tmp1 = 0.;
-
-                B0Tj_Dunit_comp_tmp0 = 0.;
-                B0Tj_Dunit_comp_tmp1 = 0.;
-
-                for(int kk=0; kk<3; kk++)
-                {
-                    B0Tj_Dunit_tmp0 += M_B0T[cpt][kk*6+2*j]*M_Dunit[3*i+kk];
-                    B0Tj_Dunit_tmp1 += M_B0T[cpt][kk*6+2*j+1]*M_Dunit[3*i+kk];
-
-                    B0Tj_Dunit_comp_tmp0 += M_B0T[cpt][kk*6+2*j]*M_Dunit_comp[3*i+kk];
-                    B0Tj_Dunit_comp_tmp1 += M_B0T[cpt][kk*6+2*j+1]*M_Dunit_comp[3*i+kk];
-                }
-
-                B0Tj_Dunit[2*i] = B0Tj_Dunit_tmp0;
-                B0Tj_Dunit[2*i+1] = B0Tj_Dunit_tmp1;
-
-                B0Tj_Dunit_comp[2*i] = B0Tj_Dunit_comp_tmp0;
-                B0Tj_Dunit_comp[2*i+1] = B0Tj_Dunit_comp_tmp1;
-            }
-
-            for(int i=0; i<3; i++)
-            {
-                /* The rigidity matrix */
-                /* scalar product of B0Ti_Dunit and the first column of B0T */
-                B0Tj_Dunit_B0Ti_tmp0 = 0.;
-                B0Tj_Dunit_B0Ti_tmp1 = 0.;
-                B0Tj_Dunit_B0Ti_tmp2 = 0.;
-                B0Tj_Dunit_B0Ti_tmp3 = 0.;
-
-                /* scalar product of B0Ti_Dunit_comp and the first column of B0T */
-                B0Tj_Dunit_comp_B0Ti_tmp0 = 0.;
-                B0Tj_Dunit_comp_B0Ti_tmp1 = 0.;
-                B0Tj_Dunit_comp_B0Ti_tmp2 = 0.;
-                B0Tj_Dunit_comp_B0Ti_tmp3 = 0.;
-
-                for(int kk=0; kk<3; kk++)
-                {
-                    B0Tj_Dunit_B0Ti_tmp0 += B0Tj_Dunit[2*kk]*M_B0T[cpt][kk*6+2*i];
-                    B0Tj_Dunit_B0Ti_tmp1 += B0Tj_Dunit[2*kk]*M_B0T[cpt][kk*6+2*i+1];
-                    B0Tj_Dunit_B0Ti_tmp2 += B0Tj_Dunit[2*kk+1]*M_B0T[cpt][kk*6+2*i];
-                    B0Tj_Dunit_B0Ti_tmp3 += B0Tj_Dunit[2*kk+1]*M_B0T[cpt][kk*6+2*i+1];
-
-                    B0Tj_Dunit_comp_B0Ti_tmp0 += B0Tj_Dunit_comp[2*kk]*M_B0T[cpt][kk*6+2*i];
-                    B0Tj_Dunit_comp_B0Ti_tmp1 += B0Tj_Dunit_comp[2*kk]*M_B0T[cpt][kk*6+2*i+1];
-                    B0Tj_Dunit_comp_B0Ti_tmp2 += B0Tj_Dunit_comp[2*kk+1]*M_B0T[cpt][kk*6+2*i];
-                    B0Tj_Dunit_comp_B0Ti_tmp3 += B0Tj_Dunit_comp[2*kk+1]*M_B0T[cpt][kk*6+2*i+1];
-                }
-
-                B0T_Dunit_B0T[(2*i)*6+2*j] = B0Tj_Dunit_B0Ti_tmp0;
-                B0T_Dunit_B0T[(2*i+1)*6+2*j] = B0Tj_Dunit_B0Ti_tmp1;
-                B0T_Dunit_B0T[(2*i)*6+2*j+1] = B0Tj_Dunit_B0Ti_tmp2;
-                B0T_Dunit_B0T[(2*i+1)*6+2*j+1] = B0Tj_Dunit_B0Ti_tmp3;
-
-                B0T_Dunit_comp_B0T[(2*i)*6+2*j] = B0Tj_Dunit_comp_B0Ti_tmp0;
-                B0T_Dunit_comp_B0T[(2*i+1)*6+2*j] = B0Tj_Dunit_comp_B0Ti_tmp1;
-                B0T_Dunit_comp_B0T[(2*i)*6+2*j+1] = B0Tj_Dunit_comp_B0Ti_tmp2;
-                B0T_Dunit_comp_B0T[(2*i+1)*6+2*j+1] = B0Tj_Dunit_comp_B0Ti_tmp3;
-            }
-        }
-
-        /*
-         * B0T_Dunit_B0T should be symmetric but is not exactly after the calcultation here above
-         * because the sequence of operation is not the same for the component i,j and j,i.
-         * We force the matrix to be symmetric by copying the upper part onto the lower part
-         */
-        for(int i=1; i<6; i++)
-        {
-            for(int j=0; j<i; j++)
-            {
-                B0T_Dunit_B0T[i*6+j] = B0T_Dunit_B0T[j*6+i];
-                B0T_Dunit_comp_B0T[i*6+j] = B0T_Dunit_comp_B0T[j*6+i];
-            }
-        }
-#endif
-        /* Loop over the 6 by 6 components of the finite element intergrale
-         * this is done smartly by looping over j=0:2 and i=0:2
-         * col = (mwIndex)it[2*j]-1  , row = (mwIndex)it[2*i]-1;
-         * col  , row   -> UU component
-         * col  , row+1 -> VU component
-         * col+1, row   -> VV component
-         * col+1, row+1 -> UV component */
-
-        // std::vector<double> data(36);
-        // std::vector<double> fvdata(6);
-        // std::vector<int> rcindices(6);
-
-        for(int i=0; i<3; i++)
-        {
-            fvdata[2*i]=0.;
-            fvdata[2*i+1]=0.;
-        }
-
-        for(int j=0; j<3; j++)
-        {
-            /* Column corresponding to indice j (we also assemble terms in col+1) */
-            //col = (mwIndex)it[2*j]-1; /* -1 to use the indice convention of C */
-            fuu=0.;
-            fvv=0.;
-
-            int index_u = it->indices[j]-1;
-            int index_v = it->indices[j]-1+M_num_nodes;
-
-            for(int i=0; i<3; i++)
-            {
-                int index_u_i = it->indices[i]-1;
-                int index_v_i = it->indices[i]-1+M_num_nodes;
-                /* Row corresponding to indice i (we also assemble terms in row+1) */
-                //row = (mwIndex)it[2*i]-1; /* -1 to use the indice convention of C */
-
-                B0Tj_Dunit_B0Ti[0] = M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j];
-                B0Tj_Dunit_B0Ti[1] = M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j];
-                B0Tj_Dunit_B0Ti[2] = M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j+1];
-                B0Tj_Dunit_B0Ti[3] = M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j+1];
-
-                B0Tj_Dunit_comp_B0Ti[0] = M_B0T_Dunit_comp_B0T[cpt][(2*i)*6+2*j];
-                B0Tj_Dunit_comp_B0Ti[1] = M_B0T_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j];
-                B0Tj_Dunit_comp_B0Ti[2] = M_B0T_Dunit_comp_B0T[cpt][(2*i)*6+2*j+1];
-                B0Tj_Dunit_comp_B0Ti[3] = M_B0T_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j+1];
-
-                /* Select the nodal weight values from M_loc */
-                mloc = M_Mass[3*j+i];
-
-                B0Tj_sigma_h[0] = 0.;
-                B0Tj_sigma_h[1] = 0.;
-
-                for(int k=0; k<3; k++)
-                {
-                    B0Tj_sigma_h[0] += M_B0T[cpt][k*6+2*i]*(M_sigma[3*cpt+k]*tmp_thick+sigma_P[k]);
-                    B0Tj_sigma_h[1] += M_B0T[cpt][k*6+2*i+1]*(M_sigma[3*cpt+k]*tmp_thick+sigma_P[k]);
-                }
-
-                /* ---------- UU component */
-                duu = surface_e*( mloc*(coef_Vair+coef_Voce*cos_ocean_turning_angle+coef_V+coef_basal)+B0Tj_Dunit_B0Ti[0]*coef*time_step+B0Tj_Dunit_comp_B0Ti[0]*coef_P);
-
-                /* ---------- VU component */
-                dvu = surface_e*(+B0Tj_Dunit_B0Ti[1]*coef*time_step+B0Tj_Dunit_comp_B0Ti[1]*coef_P);
-
-                /* ---------- UV component */
-                duv = surface_e*(+B0Tj_Dunit_B0Ti[2]*coef*time_step+B0Tj_Dunit_comp_B0Ti[2]*coef_P);
-
-                /* ---------- VV component */
-                dvv = surface_e*( mloc*(coef_Vair+coef_Voce*cos_ocean_turning_angle+coef_V+coef_basal)+B0Tj_Dunit_B0Ti[3]*coef*time_step+B0Tj_Dunit_comp_B0Ti[3]*coef_P);
-
-                // if (cpt == 1)
-                // {
-                //     std::cout<<"duu= "<< duu <<"\n";
-                //     std::cout<<"dvu= "<< dvu <<"\n";
-                //     std::cout<<"duv= "<< duv <<"\n";
-                //     std::cout<<"dvv= "<< dvv <<"\n";
-                // }
-
-                // data[12*i+2*j] = duu;
-                // data[12*i+2*j+1] = duv;
-                // data[(12*i+2*j)+6] = dvu;
-                // data[(12*i+2*j+1)+6] = dvv;
-
-                data[(2*i  )*6+2*j  ] = duu;
-                data[(2*i+1)*6+2*j  ] = dvu;
-                data[(2*i  )*6+2*j+1] = duv;
-                data[(2*i+1)*6+2*j+1] = dvv;
-
-#if 0
-                fuu += surface_e*( mloc*( coef_Vair*M_wind[index_u]+coef_Voce*cos_ocean_turning_angle*M_ocean[index_u]+coef_X+coef_V*M_VT[index_u]) - B0Tj_sigma_h[0]/3);
-                fuu += surface_e*( mloc*( -coef_Voce*sin_ocean_turning_angle*(M_ocean[index_u]-M_VT[index_u])-coef_C*M_Vcor[index_u]) );
-
-                fvv += surface_e*( mloc*( coef_Vair*M_wind[index_v]+coef_Voce*cos_ocean_turning_angle*M_ocean[index_v]+coef_Y+coef_V*M_VT[index_v]) - B0Tj_sigma_h[1]/3);
-                fvv += surface_e*( mloc*( -coef_Voce*sin_ocean_turning_angle*(M_ocean[index_v]-M_VT[index_v])-coef_C*M_Vcor[index_v]) );
-#endif
-
-                double Vcor_index_u=beta0*M_VT[index_u] + beta1*M_VTM[index_u] + beta2*M_VTMM[index_u];
-
-                fvdata[2*i] += surface_e*( mloc*( coef_Vair*M_wind[index_u]+coef_Voce*cos_ocean_turning_angle*M_ocean[index_u]+coef_X+coef_V*M_VT[index_u]) - B0Tj_sigma_h[0]/3);
-                fvdata[2*i+1] += surface_e*( mloc*( +coef_Voce*sin_ocean_turning_angle*(M_ocean[index_u]-M_VT[index_u])-coef_C*Vcor_index_u) );
-
-                double Vcor_index_v=beta0*M_VT[index_v] + beta1*M_VTM[index_v] + beta2*M_VTMM[index_v];
-
-                fvdata[2*i] += surface_e*( mloc*( -coef_Voce*sin_ocean_turning_angle*(M_ocean[index_v]-M_VT[index_v])+coef_C*Vcor_index_v) );
-                fvdata[2*i+1] += surface_e*( mloc*( coef_Vair*M_wind[index_v]+coef_Voce*cos_ocean_turning_angle*M_ocean[index_v]+coef_Y+coef_V*M_VT[index_v]) - B0Tj_sigma_h[1]/3);
-
-
-                rcindices_i[2*i] = index_u_i;
-                rcindices_i[2*i+1] = index_v_i;
-                #if 0
-                M_matrix->addValue(index_u_i,index_u, duu);
-                M_matrix->addValue(index_v_i,index_u, dvu);
-
-                M_matrix->addValue(index_u_i,index_v, duv);
-                M_matrix->addValue(index_v_i,index_v, dvv);
-
-
-                M_vector->add(index_u_i, fvdata[2*i]);
-                M_vector->add(index_v_i, fvdata[2*i+1]);
-                #endif
-            }
-
-            if (cpt < 0)
-            {
-                std::cout<<"**********************************\n";
-                std::cout<<"mloc        = "<< mloc <<"\n";
-                std::cout<<"coef_Vair   = "<< coef_Vair <<"\n";
-                std::cout<<"coef_Voce   = "<< coef_Voce <<"\n";
-                std::cout<<"coef_X      = "<< coef_X <<"\n";
-                std::cout<<"coef_Y      = "<< coef_Y <<"\n";
-                std::cout<<"coef_V      = "<< coef_V <<"\n";
-                std::cout<<"wind U      = "<< M_wind[it->indices[j]-1] <<"\n";
-                std::cout<<"wind V      = "<< M_wind[it->indices[j]-1+M_num_nodes] <<"\n";
-            }
-
-            // std::cout<<"**********************************\n";
-            // std::cout<<"fuu= "<< fuu <<"\n";
-            // std::cout<<"fvv= "<< fvv <<"\n";
-
-            //fvdata[2*j] = fuu;
-            //fvdata[2*j+1] = fvv;
-
-            fvdata_reduction[2*j] = 1.;
-            fvdata_reduction[2*j+1] = 1.;
-
-            rcindices[2*j] = index_u;
-            rcindices[2*j+1] = index_v;
-
-            //M_vector->addVector(&rcindices_i[0], rcindices_i.size(), &fvdata[0]);
-        }
-
-        // if (cpt == 0)
-        //     for (int i=0; i<6; ++i)
-        //     {
-        //         for (int j=0; j<6; ++j)
-        //         {
-        //             std::cout<< std::left << std::setw(12) << data[6*i+j] <<"  ";
-        //         }
-        //         std::cout<<"\n";
-        //     }
-
-        // if (cpt == 0)
-        //     for(int k=0; k<6; k++)
-        //         std::cout<<"INDEX["<< rcindices[k] <<"]\n";
-
-        M_matrix->addMatrix(&rcindices_i[0], rcindices_i.size(),
-                            &rcindices[0], rcindices.size(), &data[0]);
-
-
-        //M_vector->addVector(&rcindices_i[0], rcindices_i.size(), &fvdata[0]);
-
-#if 1
-        for (int idf=0; idf<rcindices_i.size(); ++idf)
-        {
-            rhsdata[rcindices_i[idf]] += fvdata[idf];
-        }
-#endif
-        if((M_conc[cpt]>0.))
-        {
-            M_vector_reduction[rcindices[0]]=1.;
-            M_vector_reduction[rcindices[1]]=1.;
-            M_vector_reduction[rcindices[2]]=1.;
-            M_vector_reduction[rcindices[3]]=1.;
-            M_vector_reduction[rcindices[4]]=1.;
-            M_vector_reduction[rcindices[5]]=1.;
-        }
-
-        ++cpt;
-    }
-
-
-
-    M_vector->addVector(&rhsindices[0], rhsindices.size(), &rhsdata[0]);
-
-    for (int i=0; i<2*M_num_nodes; ++i)
-    {
-        if(M_vector_reduction[i]==0.)
-        {
-            M_matrix->setValue(i, i, 1000000000000000.);
-
-            M_vector->set(i, 0.);
-        }
-    }
-
-    M_vector->close();
-    //M_vector->printMatlab("vectorseq.m");
-
-    M_matrix->close();
-    //M_matrix->printMatlab("matrixseq.m");
-    std::cout<<"Assembling done\n";
-    std::cout<<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
-
-    chrono.restart();
-    M_matrix->on(M_dirichlet_nodes,*M_vector);
-    std::cout<<"TIMER DBCA= " << chrono.elapsed() <<"s\n";
-
-    M_matrix->printMatlab("matrixseq.m");
-    M_vector->printMatlab("vectorseq.m");
-
-    std::cout<<"[PETSC MATRIX] CLOSED      = "<< M_matrix->closed() <<"\n";
-    std::cout<<"[PETSC MATRIX] SIZE        = "<< M_matrix->size1() << " " << M_matrix->size2() <<"\n";
-    std::cout<<"[PETSC MATRIX] SYMMETRIC   = "<< M_matrix->isSymmetric() <<"\n";
-    std::cout<<"[PETSC MATRIX] NORM        = "<< M_matrix->linftyNorm() <<"\n";
 
     //M_matrix->printMatlab("stiffness.m");
     //M_vector->printMatlab("rhs.m");
@@ -3142,8 +2577,8 @@ FiniteElement::update()
         M_UM[nd] = UM_P[nd];
     }
 
-    std::cout<<"VT MIN= "<< *std::min_element(M_VT.begin(),M_VT.end()) <<"\n";
-    std::cout<<"VT MAX= "<< *std::max_element(M_VT.begin(),M_VT.end()) <<"\n";
+    LOG(DEBUG) <<"VT MIN= "<< *std::min_element(M_VT.begin(),M_VT.end()) <<"\n";
+    LOG(DEBUG) <<"VT MAX= "<< *std::max_element(M_VT.begin(),M_VT.end()) <<"\n";
 
     int thread_id;
     int total_threads;
@@ -3449,373 +2884,9 @@ FiniteElement::update()
 }
 
 void
-FiniteElement::updateSeq()
-{
-    double old_thick;
-    double old_snow_thick;
-    double old_conc;
-    double old_damage;
-    double old_h_ridged_thick_ice;
-
-    double old_h_thin;
-    double old_hs_thin;
-    double old_h_ridged_thin_ice;
-
-    /* deformation, deformation rate and internal stress tensor and temporary variables */
-    double epsilon_veloc_i;
-    std::vector<double> epsilon_veloc(3);
-    std::vector<double> sigma_pred(3);
-    double sigma_dot_i;
-
-    /* some variables used for the advection*/
-    double surface, surface_new, ar, ar_new;
-    double ice_surface, ice_volume, snow_volume;
-    double thin_ice_surface, thin_ice_volume, thin_snow_volume;
-    double ridging_thin_ice, ridging_thick_ice, ridging_snow_thin_ice;
-    double ridged_thin_ice_volume, ridged_thick_ice_volume;
-
-    /* invariant of the internal stress tensor and some variables used for the damaging process*/
-    double sigma_s, sigma_n;
-    double tract_max;
-    double tmp, sigma_target;
-
-    /* some variables used for the ice redistribution*/
-    double tanalpha, rtanalpha, del_v, del_c, del_vs, new_v_thin;
-
-    /* Indices loop*/
-    int i,j;
-
-    bool to_be_updated;
-
-    /* set constants for the ice redistribution */
-	tanalpha  = h_thin_max/c_thin_max;
-	rtanalpha = 1./tanalpha;
-
-    std::vector<double> UM_P = M_UM;
-
-    //std::cout<<"CURRENT: DIRICHLET NODES= "<< M_dirichlet_flags.size() <<"\n";
-    //std::cout<<"CURRENT: NEUMANN   NODES= "<< M_neumann_flags.size() <<"\n";
-
-    // std::cout<<"UM MIN B= "<< *std::min_element(M_UM.begin(),M_UM.end()) <<"\n";
-    // std::cout<<"UM MAX B= "<< *std::max_element(M_UM.begin(),M_UM.end()) <<"\n";
-
-    for (int nd=0; nd<M_UM.size(); ++nd)
-    {
-        M_UM[nd] += time_step*M_VT[nd];
-    }
-
-    for (const int& nd : M_neumann_nodes)
-    {
-        M_UM[nd] = UM_P[nd];
-    }
-
-    // std::cout<<"UM MIN A= "<< *std::min_element(M_UM.begin(),M_UM.end()) <<"\n";
-    // std::cout<<"UM MAX A= "<< *std::max_element(M_UM.begin(),M_UM.end()) <<"\n";
-
-    // std::cout<<"VT MIN= "<< *std::min_element(M_VT.begin(),M_VT.end()) <<"\n";
-    // std::cout<<"VT MAX= "<< *std::max_element(M_VT.begin(),M_VT.end()) <<"\n";
-
-    // std::cout<<"Jacobian init   = "<< this->measure(*M_elements.begin(),M_mesh, UM_P) <<"\n";
-    // std::cout<<"Jacobian current= "<< this->measure(*M_elements.begin(),M_mesh,M_UM) <<"\n";
-
-    int cpt = 0;
-    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
-    {
-        // Temporary memory
-        old_thick = M_thick[cpt];
-        old_snow_thick = M_snow_thick[cpt];
-        old_conc = M_conc[cpt];
-        old_damage = M_damage[cpt];
-        old_h_ridged_thick_ice=M_h_ridged_thick_ice[cpt];
-
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        {
-            old_h_thin = M_h_thin[cpt];
-            old_hs_thin=M_hs_thin[cpt];
-            old_h_ridged_thin_ice=M_h_ridged_thin_ice[cpt];
-        }
-
-#if 0
-        std::vector<double> shapecoeff = this->shapeCoeff(*it,M_mesh);
-
-        for (i=0; i<18; ++i)
-        {
-            if (i < 3)
-            {
-                B0T[2*i] = shapecoeff[i];
-                B0T[12+2*i] = shapecoeff[i+3];
-                B0T[13+2*i] = shapecoeff[i];
-            }
-            else if (i < 6)
-            {
-                B0T[2*i+1] = shapecoeff[i];
-            }
-        }
-#endif
-
-        /*======================================================================
-         * Diagnostic:
-         * Elastic deformation and instantaneous deformation rate
-         *======================================================================
-         */
-
-        /* Compute the elastic deformation and the instantaneous deformation rate */
-        for(i=0;i<3;i++)
-        {
-            epsilon_veloc_i = 0.0;
-            for(j=0;j<3;j++)
-            {
-                /* deformation */
-                //col = (mwIndex)it[j]-1;
-                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j]*M_VT[it->indices[j]-1]  ;
-                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j + 1]*M_VT[it->indices[j]-1+M_num_nodes]  ;
-            }
-
-            epsilon_veloc[i] = epsilon_veloc_i;
-        }
-
-        M_divergence_rate[cpt]= (epsilon_veloc[0]+epsilon_veloc[1]);
-
-        //std::cout<<"Rate= "<< M_divergence_rate[cpt] <<"\n";
-
-        /*======================================================================
-         * Update the internal stress
-         *======================================================================
-         */
-
-        for(i=0;i<3;i++)
-        {
-            sigma_dot_i = 0.0;
-            for(j=0;j<3;j++)
-            {
-                sigma_dot_i += std::exp(ridging_exponent*(1.-old_conc))*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
-            }
-
-            //M_sigma[3*cpt+i] = M_sigma[3*cpt+i] + time_step*sigma_dot_i;
-            M_sigma[3*cpt+i] += time_step*sigma_dot_i;
-            sigma_pred[i]    = M_sigma[3*cpt+i] + time_step*sigma_dot_i;
-        }
-
-        /*======================================================================
-         * Correct the internal stress and the damage
-         *======================================================================
-         */
-
-        /* Compute the shear and normal stress, which are two invariants of the internal stress tensor */
-
-        sigma_s=std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
-        sigma_n=           (sigma_pred[0]+sigma_pred[1])/2.;
-
-        //std::cout<<"sigma_n= "<< sigma_n <<"\n";
-
-        /* minimum and maximum normal stress */
-        tract_max=tract_coef*M_Cohesion[cpt]/tan_phi;
-
-        /* Correction of the damage */
-
-        if((sigma_n>tract_max) || (sigma_n<(-M_Compressive_strength[cpt])))
-        {
-            if(sigma_n>tract_max)
-            {
-                sigma_target=tract_max;
-            }
-            else
-            {
-                sigma_target=-M_Compressive_strength[cpt];
-            }
-
-            tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
-
-            if(tmp>M_damage[cpt])
-            {
-                M_damage[cpt]=tmp;
-            }
-        }
-
-        if(sigma_s>M_Cohesion[cpt]-sigma_n*tan_phi)
-        {
-            tmp=1.0-M_Cohesion[cpt]/(sigma_s+sigma_n*tan_phi)*(1.0-old_damage);
-
-            if(tmp>M_damage[cpt])
-            {
-                M_damage[cpt]=tmp;
-            }
-        }
-
-        /*
-         * Diagnostic:
-         * Recompute the internal stress
-         */
-        for(i=0;i<3;i++)
-        {
-            if(old_damage<1.0)
-            {
-                M_sigma[3*cpt+i] = (1.-M_damage[cpt])/(1.-old_damage)*M_sigma[3*cpt+i] ;
-            }
-            else
-            {
-                M_sigma[3*cpt+i] = 0. ;
-            }
-        }
-
-
-        /*======================================================================
-         * Update:
-         * Ice damage
-         * We use now a constant healing rate defined as 1/time_recovery_damage
-         * so that we are now able to reset the damage to 0.
-         * otherwise, it will never heal completely.
-         * time_recovery_damage still depends on the temperature when themodynamics is activated.
-         *======================================================================
-         */
-        tmp=1./(1.-M_damage[cpt]);
-        tmp-= 1000*time_step/M_time_relaxation_damage[cpt];
-        tmp=((tmp>1.)?(tmp):(1.));
-        M_damage[cpt]=-1./tmp + 1.;
-
-        /*======================================================================
-         * Update:
-         * Ice and snow thickness, and concentration using a Lagrangian or an Eulerian scheme
-         *======================================================================
-         */
-
-        to_be_updated=false;
-        if( M_divergence_rate[cpt]!=0.)
-            to_be_updated=true;
-
-        /* For the Lagrangian scheme, we do not update the variables for the elements having one node on the open boundary. */
-        if(std::find(M_neumann_flags.begin(),M_neumann_flags.end(),it->indices[0]-1) != M_neumann_flags.end() ||
-           std::find(M_neumann_flags.begin(),M_neumann_flags.end(),it->indices[1]-1) != M_neumann_flags.end() ||
-           std::find(M_neumann_flags.begin(),M_neumann_flags.end(),it->indices[2]-1) != M_neumann_flags.end())
-            to_be_updated=false;
-
-        if((old_conc>0.)  && to_be_updated)
-        {
-            surface = this->measure(*it,M_mesh, UM_P);
-            surface_new = this->measure(*it,M_mesh,M_UM);
-
-            // std::cout<<"SURFACE    = "<< std::setprecision(18) << surface <<"\n";
-            // std::cout<<"SURFACE_NEW= "<< std::setprecision(18) << surface_new <<"\n";
-
-            ice_surface = old_conc*surface;
-            ice_volume = old_thick*surface;
-            snow_volume = old_snow_thick*surface;
-            ridged_thick_ice_volume = old_h_ridged_thick_ice*surface;
-
-            M_conc[cpt]    = ice_surface/surface_new;
-            M_thick[cpt]   = ice_volume/surface_new;
-            M_snow_thick[cpt]   = snow_volume/surface_new;
-            M_h_ridged_thick_ice[cpt]   =   ridged_thick_ice_volume/surface_new;
-
-            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-            {
-                thin_ice_volume = old_h_thin*surface;
-                thin_snow_volume = old_hs_thin*surface;
-                ridged_thin_ice_volume = old_h_ridged_thin_ice*surface;
-
-                M_h_thin[cpt]        = thin_ice_volume/surface_new;
-                M_hs_thin[cpt]   = thin_snow_volume/surface_new;
-                M_h_ridged_thin_ice[cpt]    =   ridged_thin_ice_volume/surface_new;
-            }
-
-            /* Ridging scheme */
-            if(surface_new<surface)
-            {
-                if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-                {
-                    ridging_thin_ice=(surface-surface_new)/surface_new*old_h_thin;
-                    ridging_snow_thin_ice=(surface-surface_new)/surface_new*old_hs_thin;
-
-                    ridging_thin_ice=((ridging_thin_ice<old_h_thin)?(ridging_thin_ice):(old_h_thin));
-                    ridging_snow_thin_ice=((ridging_snow_thin_ice<old_hs_thin)?(ridging_snow_thin_ice):(old_hs_thin)) ;
-
-                    M_thick[cpt] += ridging_thin_ice ;
-                    M_h_thin[cpt] -= ridging_thin_ice ;
-
-                    M_snow_thick[cpt] += ridging_snow_thin_ice ;
-                    M_hs_thin[cpt] -= ridging_snow_thin_ice ;
-
-                    M_h_ridged_thin_ice[cpt] += ridging_thin_ice;
-                    M_conc[cpt] += ridging_thin_ice/ridge_h;
-
-                    /* upper bounds (only for the concentration) */
-                    ridging_thin_ice = ((M_conc[cpt]<1.)?(0.):(M_h_thin[cpt])) ;
-                    ridging_snow_thin_ice = ((M_conc[cpt]<1.)?(0.):(M_hs_thin[cpt])) ;
-
-                    M_snow_thick[cpt] += ridging_snow_thin_ice ;
-                    M_hs_thin[cpt] -= ridging_snow_thin_ice ;
-
-                    M_thick[cpt] += ridging_thin_ice;
-                    M_h_thin[cpt] -= ridging_thin_ice;
-                }
-                /* upper bounds (only for the concentration) */
-                ridging_thick_ice=((M_conc[cpt]<1.)?(0.):(M_thick[cpt]*(M_conc[cpt]-1.)));
-                M_conc[cpt] = ((M_conc[cpt]<1.)?(M_conc[cpt]):(1.)) ;
-            }
-
-            /* lower bounds */
-            M_conc[cpt] = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
-            M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
-            M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
-
-            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-            {
-                M_h_thin[cpt]    = ((M_h_thin[cpt]>0.)?(M_h_thin[cpt] ):(0.)) ;
-                M_hs_thin[cpt]   = ((M_hs_thin[cpt]>0.)?(M_hs_thin[cpt]):(0.)) ;
-            }
-        }
-
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        {
-            /* Compute the redistribution of thin ice. */
-            /* Returns the change in volume and concentration of thick ice as well as the
-             * change in volume of thin ice. It is called after the
-             * dynamics are done. */
-
-            if(M_h_thin[cpt]>0.)
-            {
-                thin_ice_redistribute(M_h_thin[cpt], M_hs_thin[cpt], 0., M_conc[cpt],
-                                      tanalpha, rtanalpha, h_thin_max, &new_v_thin, &del_v, &del_c, &del_vs);
-
-                M_conc[cpt]       += del_c;
-
-                M_thick[cpt]           += del_v;
-                M_h_thin[cpt]      -= del_v;
-
-                M_snow_thick[cpt]      += del_vs;
-                M_hs_thin[cpt] -= del_vs;
-            }
-            else
-            {
-                M_snow_thick[cpt] += M_hs_thin[cpt];
-                M_hs_thin[cpt] = 0. ;
-            }
-        }
-
-        ++cpt;
-    }
-
-    // std::cout<<"****************************\n";
-    // std::cout<<"SIGMA MIN= "<< *std::min_element(M_sigma.begin(),M_sigma.end()) <<"\n";
-    // std::cout<<"SIGMA MAX= "<< *std::max_element(M_sigma.begin(),M_sigma.end()) <<"\n";
-
-#if 0
-    std::cout<<"****************************\n";
-    std::cout<<"THICK MIN= "<< *std::min_element(M_thick.begin(),M_thick.end()) <<"\n";
-    std::cout<<"THICK MAX= "<< *std::max_element(M_thick.begin(),M_thick.end()) <<"\n";
-
-    auto it = std::max_element(M_thick.begin(),M_thick.end());
-    std::cout << "MAX ELEMENT AT: " << std::distance(M_thick.begin(), it) << '\n';
-#endif
-
-}
-
-void
 FiniteElement::solve()
 {
-    //SolverPetsc ksp;
     chrono.restart();
-    //ksp.solve(M_matrix, M_solution, M_vector);
     M_solver->solve(_matrix=M_matrix,
                     _solution=M_solution,
                     _rhs=M_vector,
@@ -3826,10 +2897,9 @@ FiniteElement::solve()
                     _rebuild=M_regrid
                     );
 
-    std::cout<<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";
+    LOG(INFO) <<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";
 
     //M_solution->printMatlab("solution.m");
-
     //Environment::logMemoryUsage("");
 }
 
@@ -3930,7 +3000,7 @@ FiniteElement::thermo()
 
 		if(M_mld[i]<=0.)
 		{
-            std::cout << "M_mld[i] = " << M_mld[i] << "\n";
+            LOG(DEBUG) << "M_mld[i] = " << M_mld[i] << "\n";
             throw std::logic_error("negative or 0 mld, Oups!!");
 		}
 
@@ -4396,7 +3466,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
 
         if(nb_iter_while>10)
         {
-            std::cout << "nb_iter_while = " << nb_iter_while << "\n";
+            LOG(DEBUG) << "nb_iter_while = " << nb_iter_while << "\n";
             throw std::logic_error("nb_iter_while larger than 10");
         }
 
@@ -4461,24 +3531,8 @@ FiniteElement::run()
     int pcpt = 0;
     int niter = 0;
 
-    std::cout<<"TIMESTEP= "<< time_step <<"\n";
-    std::cout<<"DURATION= "<< duration <<"\n";
-#if 0
-    gregorian::date epoch = date_time::parse_date<gregorian::date>(
-                                                                   vm["simul.time_init"].as<std::string>(),
-                                                                   //date_time::ymd_order_dmy
-                                                                   date_time::ymd_order_iso
-                                                                   );
-
-    std::string time_init_ym = to_iso_string(epoch).substr(0,6);
-    std::string init_topaz_file = (boost::format( "TP4DAILY_%1%_3m.nc" ) % time_init_ym ).str();
-    std::cout<<"INIT_TOPAZ_FILE "<< init_topaz_file <<"\n";
-
-    std::string init_mit_file = (boost::format( "MITgcm_%1%_3m.nc" ) % time_init_ym ).str();
-    std::cout<<"INIT_MIT_FILE "<< init_mit_file <<"\n";
-
-    std::cout<<"INIT TIME= "<< to_iso_string(epoch) <<"\n";
-#endif
+    LOG(INFO) <<"TIMESTEP= "<< time_step <<"\n";
+    LOG(INFO) <<"DURATION= "<< duration <<"\n";
 
     double displacement_factor = 1.;
     double minang = 0.;
@@ -4491,7 +3545,7 @@ FiniteElement::run()
     minang = this->minAngle(M_mesh);
     if (minang < vm["simul.regrid_angle"].as<double>())
     {
-        std::cout<<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
+        LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
     }
 
@@ -4509,7 +3563,7 @@ FiniteElement::run()
         chrono.restart();
         this->initVariables();
         this->initModelState();
-        std::cout<<"initSimulation done in "<< chrono.elapsed() <<"s\n";
+        LOG(DEBUG) <<"initSimulation done in "<< chrono.elapsed() <<"s\n";
     }
 
     // Open the output file for drifters
@@ -4538,7 +3592,7 @@ FiniteElement::run()
 
         current_time = time_init + pcpt*time_step/(24*3600.0);
         //std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
-        std::cout<<"TIME STEP "<< pcpt << " for "<< current_time << " + "<< pcpt*time_step/(24*3600.0) <<"\n";
+        std::cout<<"-----------------------TIME STEP "<< pcpt << " : "<< current_time << " + "<< pcpt*time_step/(24*3600.0) <<"\n";
 
         // step 0: preparation
         // remeshing and remapping of the prognostic variables
@@ -4549,16 +3603,16 @@ FiniteElement::run()
         if (vm["simul.regrid"].as<std::string>() == "bamg")
         {
             minang = this->minAngle(M_mesh,M_UM,displacement_factor);
-            //std::cout<<"REGRID ANGLE= "<< minang <<"\n";
+            LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
 
             if ( minang < vm["simul.regrid_angle"].as<double>() )
             {
                 M_regrid = true;
-                std::cout<<"Regriding starts\n";
-				//chrono.restart();
+                LOG(DEBUG) <<"Regriding starts\n";
+				chrono.restart();
                 // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
                 this->regrid(pcpt);
-                //std::cout<<"Regriding done in "<< chrono.elapsed() <<"s\n";
+                LOG(DEBUG) <<"Regriding done in "<< chrono.elapsed() <<"s\n";
             }
         }
 
@@ -4573,35 +3627,35 @@ FiniteElement::run()
         if ( M_regrid || use_restart )
         {
             chrono.restart();
-            std::cout<<"tensors starts\n";
+            LOG(DEBUG) <<"tensors starts\n";
             this->tensors();
-            std::cout<<"tensors done in "<< chrono.elapsed() <<"s\n";
+            LOG(DEBUG) <<"tensors done in "<< chrono.elapsed() <<"s\n";
             chrono.restart();
-            std::cout<<"cohesion starts\n";
+            LOG(DEBUG) <<"cohesion starts\n";
             this->cohesion();
-            std::cout<<"cohesion done in "<< chrono.elapsed() <<"s\n";
+            LOG(DEBUG) <<"cohesion done in "<< chrono.elapsed() <<"s\n";
             chrono.restart();
-            std::cout<<"Coriolis starts\n";
+            LOG(DEBUG) <<"Coriolis starts\n";
             this->coriolis();
-            std::cout<<"Coriolis done in "<< chrono.elapsed() <<"s\n";
+            LOG(DEBUG) <<"Coriolis done in "<< chrono.elapsed() <<"s\n";
         }
 
         this->timeInterpolation(pcpt);
 
         chrono.restart();
-        std::cout<<"forcingAtmosphere starts\n";
+        LOG(DEBUG) <<"forcingAtmosphere starts\n";
         this->forcingAtmosphere(M_regrid||use_restart);
-		std::cout<<"forcingAtmosphere done in "<< chrono.elapsed() <<"s\n";
+		LOG(DEBUG) <<"forcingAtmosphere done in "<< chrono.elapsed() <<"s\n";
 
         chrono.restart();
-        std::cout<<"forcingOcean starts\n";
+        LOG(DEBUG) <<"forcingOcean starts\n";
         this->forcingOcean(M_regrid||use_restart);
-        std::cout<<"forcingOcean done in "<< chrono.elapsed() <<"s\n";
+        LOG(DEBUG) <<"forcingOcean done in "<< chrono.elapsed() <<"s\n";
 
         chrono.restart();
-        std::cout<<"bathymetry starts\n";
+        LOG(DEBUG) <<"bathymetry starts\n";
         this->bathymetry(M_regrid||use_restart);
-        std::cout<<"bathymetry done in "<< chrono.elapsed() <<"s\n";
+        LOG(DEBUG) <<"bathymetry done in "<< chrono.elapsed() <<"s\n";
 
         use_restart = false;
 
@@ -4609,9 +3663,9 @@ FiniteElement::run()
         if (pcpt == 0)
         {
             chrono.restart();
-            std::cout<<"first export starts\n";
+            LOG(DEBUG) <<"first export starts\n";
             this->exportResults(0);
-            std::cout<<"first export done in " << chrono.elapsed() <<"s\n";
+            LOG(DEBUG) <<"first export done in " << chrono.elapsed() <<"s\n";
         }
 #endif
 
@@ -4619,9 +3673,9 @@ FiniteElement::run()
         // Do the thermodynamics
         //======================================================================
         chrono.restart();
-        std::cout<<"thermo starts\n";
+        LOG(DEBUG) <<"thermo starts\n";
         this->thermo();
-        std::cout<<"thermo done in "<< chrono.elapsed() <<"s\n";
+        LOG(DEBUG) <<"thermo done in "<< chrono.elapsed() <<"s\n";
 
         //======================================================================
         // Assemble the matrix
@@ -4636,35 +3690,35 @@ FiniteElement::run()
         this->solve();
 
         chrono.restart();
-        std::cout<<"updateVelocity starts\n";
+        LOG(DEBUG) <<"updateVelocity starts\n";
         this->updateVelocity();
-        std::cout<<"updateVelocity done in "<< chrono.elapsed() <<"s\n";
+        LOG(DEBUG) <<"updateVelocity done in "<< chrono.elapsed() <<"s\n";
 
         chrono.restart();
-        std::cout<<"update starts\n";
+        LOG(DEBUG) <<"update starts\n";
         this->update();
-        std::cout<<"update done in "<< chrono.elapsed() <<"s\n";
+        LOG(DEBUG) <<"update done in "<< chrono.elapsed() <<"s\n";
 
 #if 1
 
         if(fmod((pcpt+1)*time_step,output_time_step) == 0)
         {
             chrono.restart();
-            std::cout<<"export starts\n";
+            LOG(DEBUG) <<"export starts\n";
             this->exportResults((int) (pcpt+1)*time_step/output_time_step);
-            std::cout<<"export done in " << chrono.elapsed() <<"s\n";
+            LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
         }
 
 #endif
 
         ++pcpt;
-        pcpt_file << pcpt << endl;
-        pcpt_file << to_date_string(time_init + pcpt*time_step/(24*3600.0)) << endl; // current time
+        pcpt_file << pcpt << "\n";
+        pcpt_file << to_date_string(time_init + pcpt*time_step/(24*3600.0)) << "\n"; // current time
         pcpt_file.seekp(0);
 
         if ( fmod(pcpt*time_step,restart_time_step) == 0)
         {
-            std::cout << "Writing restart file after time step " <<  pcpt-1 << endl;
+            std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
             this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
         }
     }
@@ -4672,7 +3726,7 @@ FiniteElement::run()
     pcpt_file.close();
 
     this->exportResults(1000);
-    std::cout<<"TIMER total = " << chrono_tot.elapsed() <<"s\n";
+    LOG(INFO) <<"TIMER total = " << chrono_tot.elapsed() <<"s\n";
 
     // Don't forget to close the iabp file!
     if (M_drifter_type == setup::DrifterType::IABP)
@@ -5114,28 +4168,28 @@ FiniteElement::constantAtmosphere()
     }
 
     M_tair.assign(M_num_elements,vm["simul.constant_tair"].as<double>());
-    std::cout << "simul.constant_tair:   " << vm["simul.constant_tair"].as<double>() << "\n";
+    LOG(DEBUG) << "simul.constant_tair:   " << vm["simul.constant_tair"].as<double>() << "\n";
 
     M_dair.assign(M_num_elements,vm["simul.constant_dair"].as<double>());
-    std::cout << "simul.constant_dair:   " << vm["simul.constant_dair"].as<double>() << "\n";
+    LOG(DEBUG) << "simul.constant_dair:   " << vm["simul.constant_dair"].as<double>() << "\n";
 
     M_mixrat.assign(M_num_elements,vm["simul.constant_mixrat"].as<double>());
-    std::cout << "simul.constant_mixrat: " << vm["simul.constant_mixrat"].as<double>() << "\n";
+    LOG(DEBUG) << "simul.constant_mixrat: " << vm["simul.constant_mixrat"].as<double>() << "\n";
 
     M_mslp.assign(M_num_elements,vm["simul.constant_mslp"].as<double>());
-    std::cout << "simul.constant_mslp:   " << vm["simul.constant_mslp"].as<double>() << "\n";
+    LOG(DEBUG) << "simul.constant_mslp:   " << vm["simul.constant_mslp"].as<double>() << "\n";
 
     M_Qsw_in.assign(M_num_elements,vm["simul.constant_Qsw_in"].as<double>());
-    std::cout << "simul.constant_Qsw_in: " << vm["simul.constant_Qsw_in"].as<double>() << "\n";
+    LOG(DEBUG) << "simul.constant_Qsw_in: " << vm["simul.constant_Qsw_in"].as<double>() << "\n";
 
     M_Qlw_in.assign(M_num_elements,vm["simul.constant_Qlw_in"].as<double>());
-    std::cout << "simul.constant_Qlw_in: " << vm["simul.constant_Qlw_in"].as<double>() << "\n";
+    LOG(DEBUG) << "simul.constant_Qlw_in: " << vm["simul.constant_Qlw_in"].as<double>() << "\n";
 
     M_precip.assign(M_num_elements,vm["simul.constant_precip"].as<double>());
-    std::cout << "simul.constant_precip: " << vm["simul.constant_precip"].as<double>() << "\n";
+    LOG(DEBUG) << "simul.constant_precip: " << vm["simul.constant_precip"].as<double>() << "\n";
 
     M_snowfr.assign(M_num_elements,vm["simul.constant_snowfr"].as<double>());
-    std::cout << "simul.constant_snowfr: " << vm["simul.constant_snowfr"].as<double>() << "\n";
+    LOG(DEBUG) << "simul.constant_snowfr: " << vm["simul.constant_snowfr"].as<double>() << "\n";
 }
 
 void
@@ -5149,11 +4203,11 @@ FiniteElement::asrAtmosphere(bool reload)
         else
             std::cout<<"forcing not available for the current date: load data from ASR\n";
 
-        std::cout << "Elements\n";
+        LOG(DEBUG) << "Elements\n";
         this->loadDataset(&M_asr_elements_dataset);
-        std::cout << "Nodes\n";
+        LOG(DEBUG) << "Nodes\n";
         this->loadDataset(&M_asr_nodes_dataset);
-        std::cout << "Done\n";
+        LOG(DEBUG) << "Done\n";
 
         //std::cout<<"forcing not available for the current date\n";
         //throw std::logic_error("forcing not available for the current date");
@@ -5164,8 +4218,8 @@ FiniteElement::asrAtmosphere(bool reload)
     fcoeff[0] = std::abs(current_time-M_asr_elements_dataset.ftime_range[1])/fdt;
     fcoeff[1] = std::abs(current_time-M_asr_elements_dataset.ftime_range[0])/fdt;
 
-    std::cout<<"LINEAR COEFF 1= "<< fcoeff[0] <<"\n";
-    std::cout<<"LINEAR COEFF 2= "<< fcoeff[1] <<"\n";
+    LOG(DEBUG) <<"LINEAR COEFF 1= "<< fcoeff[0] <<"\n";
+    LOG(DEBUG) <<"LINEAR COEFF 2= "<< fcoeff[1] <<"\n";
 
     double angle_stereo_mesh = -45;
     double angle_stereo_ASR = -175;
@@ -5177,7 +4231,7 @@ FiniteElement::asrAtmosphere(bool reload)
     double u10_tmp[2];
     double v10_tmp[2];
 
-    std::cout<<"lbefore uv\n";
+    LOG(DEBUG) <<"lbefore uv\n";
     for (int i=0; i<M_num_nodes; ++i)
     {
         for(int j=0; j<2; ++j)
@@ -5190,10 +4244,10 @@ FiniteElement::asrAtmosphere(bool reload)
         M_wind[i+M_num_nodes] = Vair_coef*(fcoeff[0]*v10_tmp[0] + fcoeff[1]*v10_tmp[1]);
 
         // if (i<20)
-        //     std::cout<<"data_out["<< i << "]= "<< M_wind[i] << " and "<< M_wind[i+M_num_nodes] <<"\n";
+        //     LOG(DEBUG)<<"data_out["<< i << "]= "<< M_wind[i] << " and "<< M_wind[i+M_num_nodes] <<"\n";
     }
 
-    std::cout<<"lbefore thermo\n";
+    LOG(DEBUG) <<"lbefore thermo\n";
 
     for (int i=0; i<M_num_elements; ++i)
     {
@@ -5207,7 +4261,7 @@ FiniteElement::asrAtmosphere(bool reload)
     }
 
     M_dair.assign(M_num_elements,vm["simul.constant_dair"].as<double>());
-    std::cout << "simul.constant_dair:   " << vm["simul.constant_dair"].as<double>() << "\n";
+    LOG(DEBUG) << "simul.constant_dair:   " << vm["simul.constant_dair"].as<double>() << "\n";
 }
 
 void
@@ -5232,7 +4286,7 @@ FiniteElement::forcingOcean(bool reload)//(double const& u, double const& v)
 void
 FiniteElement::constantOcean()
 {
-	std::cout<<"Constant Ocean\n";
+	LOG(DEBUG) <<"Constant Ocean\n";
     for (int i=0; i<M_num_nodes; ++i)
     {
         M_ocean[i] = Voce_coef*vm["simul.constant_ocean_v"].as<double>();
@@ -5324,7 +4378,7 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 
 		for (int i=0; i<dataset->ftime_range.size(); ++i)
 		{
-			std::cout<<"TIMEVEC["<< i <<"]= "<< dataset->ftime_range[i] <<"\n";
+			LOG(DEBUG) <<"TIMEVEC["<< i <<"]= "<< dataset->ftime_range[i] <<"\n";
 		}
 
 		nb_forcing_step = dataset->ftime_range.size();
@@ -5353,7 +4407,7 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
     double scale_factor;
     double add_offset;
 
-    std::cout<<"NB_FORCING_STEP= "<< nb_forcing_step <<"\n";
+    LOG(DEBUG) <<"NB_FORCING_STEP= "<< nb_forcing_step <<"\n";
 
     // Read in data one time step at a time
     for (int fstep=0; fstep < nb_forcing_step; ++fstep)
@@ -5368,7 +4422,7 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 		{
             ftime = dataset->ftime_range[fstep];
             std::string f_timestr = to_date_string_ym(std::floor(ftime));
-            std::cout<<"F_TIMESTR= "<< f_timestr <<"\n";
+            LOG(DEBUG) <<"F_TIMESTR= "<< f_timestr <<"\n";
 
             filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                         % Environment::simdataDir().string()
@@ -5406,7 +4460,7 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 
             auto it = std::find(XTIME.begin(), XTIME.end(), ftime);
             index = std::distance(XTIME.begin(),it);
-            std::cout<<"FIND "<< ftime <<" in index "<< index <<"\n";
+            LOG(DEBUG) <<"FIND "<< ftime <<" in index "<< index <<"\n";
         }
 
         for(int j=0; j<dataset->variables.size(); ++j)
@@ -5501,7 +4555,7 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 		close_mapx(map);
 	}
 
-    std::cout<<"before interp " <<"\n";
+    LOG(DEBUG) <<"before interp " <<"\n";
 
     switch(dataset->grid->interpolation_method)
     {
@@ -5525,7 +4579,7 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
             throw std::logic_error("invalid interpolation type");
     }
 
-std::cout<<"after interp " <<"\n";
+LOG(DEBUG) <<"after interp " <<"\n";
 
     for (int fstep=0; fstep < nb_forcing_step; ++fstep)
     {
@@ -5543,14 +4597,14 @@ std::cout<<"after interp " <<"\n";
 
 	xDelete<double>(data_out);
 
-    std::cout<<"end load" <<"\n";
+    LOG(DEBUG) <<"end load" <<"\n";
 }
 
 void
 FiniteElement::loadGrid(Grid *grid)
 {
     std::string current_timestr = to_date_string_ym(current_time);
-    std::cout<<"TIMESTR= "<< current_timestr <<"\n";
+    LOG(DEBUG) <<"TIMESTR= "<< current_timestr <<"\n";
     std::string filename = (boost::format( "%1%/%2%/%3%" )
                             % Environment::simdataDir().string()
                             % grid->dirname
@@ -5578,13 +4632,13 @@ FiniteElement::loadGrid(Grid *grid)
 		std::vector<double> LAT(index_y_count[0]);
 		std::vector<double> LON(index_x_count[0]);
 
-		std::cout<<"GRID : READ NETCDF starts\n";
+		LOG(DEBUG) <<"GRID : READ NETCDF starts\n";
                 if ( ! boost::filesystem::exists(filename) )
                     throw std::runtime_error("File not found: " + filename);
 		netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
 		netCDF::NcVar VLAT = dataFile.getVar(grid->latitude.name);
 		netCDF::NcVar VLON = dataFile.getVar(grid->longitude.name);
-		std::cout<<"GRID : READ NETCDF done\n";
+		LOG(DEBUG) <<"GRID : READ NETCDF done\n";
 
 		VLAT.getVar(index_y_start,index_y_count,&LAT[0]);
 		VLON.getVar(index_x_start,index_x_count,&LON[0]);
@@ -5626,13 +4680,13 @@ FiniteElement::loadGrid(Grid *grid)
 		std::vector<double> YLAT(index_py_count[0]*index_py_count[1]);
 		std::vector<double> YLON(index_py_count[0]*index_py_count[1]);
 
-		std::cout<<"GRID : READ NETCDF starts\n";
+		LOG(DEBUG) <<"GRID : READ NETCDF starts\n";
                 if ( ! boost::filesystem::exists(filename) )
                     throw std::runtime_error("File not found: " + filename);
 		netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
 		netCDF::NcVar VLAT = dataFile.getVar(grid->latitude.name);
 		netCDF::NcVar VLON = dataFile.getVar(grid->longitude.name);
-		std::cout<<"GRID : READ NETCDF done\n";
+		LOG(DEBUG) <<"GRID : READ NETCDF done\n";
 
 		VLAT.getVar(index_px_start,index_px_count,&XLAT[0]);
 		VLON.getVar(index_px_start,index_px_count,&XLON[0]);
@@ -5706,8 +4760,8 @@ FiniteElement::loadGrid(Grid *grid)
 
 				if((index_px_count[0]!=index_count[grid->masking_variable.dimensions.size()-2]) || (index_px_count[1]!=index_count[grid->masking_variable.dimensions.size()-1]))
 				{
-                    std::cout << "index_px_count[0] = " << index_px_count[0] << " index_count[grid->masking_variable.dimensions.size()-2] = " << index_count[grid->masking_variable.dimensions.size()-2] <<"\n";
-					std::cout << "index_px_count[1] = " << index_px_count[1] << " index_count[grid->masking_variable.dimensions.size()-1] = " << index_count[grid->masking_variable.dimensions.size()-1] <<"\n";
+                    LOG(DEBUG) << "index_px_count[0] = " << index_px_count[0] << " index_count[grid->masking_variable.dimensions.size()-2] = " << index_count[grid->masking_variable.dimensions.size()-2] <<"\n";
+					LOG(DEBUG) << "index_px_count[1] = " << index_px_count[1] << " index_count[grid->masking_variable.dimensions.size()-1] = " << index_count[grid->masking_variable.dimensions.size()-1] <<"\n";
                     throw std::logic_error("Not the same dimension for the masking variable and the grid!!");
 				}
 
@@ -5742,10 +4796,10 @@ FiniteElement::loadGrid(Grid *grid)
 				grid->gridY=Y;
 			}
 
-			std::cout<<"GRID : Triangulate starts\n";
+			LOG(DEBUG) <<"GRID : Triangulate starts\n";
 			BamgTriangulatex(&grid->pfindex,&grid->pfnels,&grid->gridX[0],&grid->gridY[0],grid->gridX.size());
-			std::cout<<"GRID : NUMTRIANGLES= "<< grid->pfnels <<"\n";
-			std::cout<<"GRID : Triangulate done\n";
+			LOG(DEBUG) <<"GRID : NUMTRIANGLES= "<< grid->pfnels <<"\n";
+			LOG(DEBUG) <<"GRID : Triangulate done\n";
 		}
 		else
 		{
@@ -5811,7 +4865,7 @@ FiniteElement::initIce()
 void
 FiniteElement::constantIce()
 {
-	std::cout<<"Constant Ice\n";
+	LOG(DEBUG) <<"Constant Ice\n";
     std::fill(M_conc.begin(), M_conc.end(), vm["simul.init_concentration"].as<double>());
     std::fill(M_thick.begin(), M_thick.end(), vm["simul.init_thickness"].as<double>());
     std::fill(M_snow_thick.begin(), M_snow_thick.end(), vm["simul.init_snow_thickness"].as<double>());
@@ -5836,8 +4890,8 @@ FiniteElement::topazIce()
     fcoeff[0] = std::abs(current_time-M_ice_topaz_elements_dataset.ftime_range[1])/fdt;
     fcoeff[1] = std::abs(current_time-M_ice_topaz_elements_dataset.ftime_range[0])/fdt;
 
-    std::cout<<"TOPAZ LINEAR COEFF 1= "<< fcoeff[0] <<"\n";
-    std::cout<<"TOPAZ LINEAR COEFF 2= "<< fcoeff[1] <<"\n";
+    LOG(DEBUG) <<"TOPAZ LINEAR COEFF 1= "<< fcoeff[0] <<"\n";
+    LOG(DEBUG) <<"TOPAZ LINEAR COEFF 2= "<< fcoeff[1] <<"\n";
 
 	double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -6077,7 +5131,7 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
             << " " << setw(16) << it->first
             << fixed << setprecision(5)
             << " " << setw( 8) << lat
-            << " " << setw(10) << lon << endl;
+            << " " << setw(10) << lon << "\n";
     }
 
     xDelete<double>(interp_drifter_out);
@@ -6186,7 +5240,7 @@ FiniteElement::initIABPDrifter()
 void
 FiniteElement::equallySpacedDrifter()
 {
-    std::cout << "equally spaced drifters not yet implemented" << endl;
+    LOG(DEBUG) << "equally spaced drifters not yet implemented" << "\n";
     throw std::logic_error("equally spaced drifters not yet implemented");
     /*if (M_drifter.size() ==0)
         M_drifter.resize(M_num_elements);
@@ -6197,9 +5251,7 @@ FiniteElement::equallySpacedDrifter()
 void
 FiniteElement::importBamg(BamgMesh const* bamg_mesh)
 {
-    //mesh_type mesh;
     std::vector<point_type> mesh_nodes;
-    //std::vector<element_type> mesh_edges;
     std::vector<element_type> mesh_triangles;
     std::vector<double> coords(3,0);
 
@@ -6217,27 +5269,6 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     int type = 2;
     int physical = 0;
     int elementary = 0;
- #if 0
-    int numVertices = 2;
-    std::vector<int> edges(numVertices);
-
-    for (int edg=0; edg<bamg_mesh->EdgesSize[0]; ++edg)
-    {
-        edges[0] = bamg_mesh->Edges[3*edg];
-        edges[1] = bamg_mesh->Edges[3*edg+1];
-        //std::cout<< "Edges= "<< bamg_mesh->Edges[3*edg+2] <<"\n";
-
-        element_type gmshElt( edg,
-                              type,
-                              physical,
-                              elementary,
-                              numVertices,
-                              edges );
-
-        //mesh_edges.insert(std::make_pair(edg,gmshElt));
-        mesh_edges.push_back(gmshElt);
-    }
-#endif
 
     int numVertices = 3;
     std::vector<int> indices(numVertices);
@@ -6255,17 +5286,14 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
                               numVertices,
                               indices );
 
-        //mesh_triangles.insert(std::make_pair(tr,gmshElt));
         mesh_triangles.push_back(gmshElt);
     }
 
-    std::cout<<"\n";
-    std::cout<<"INFO: Previous  NumNodes     = "<< M_mesh.numNodes() <<"\n";
-    std::cout<<"INFO: Previous  NumTriangles = "<< M_mesh.numTriangles() <<"\n";
-    //std::cout<<"INFO: Previous  NumEdges     = "<< M_mesh.numEdges() <<"\n";
+    LOG(DEBUG) <<"\n";
+    LOG(DEBUG) <<"INFO: Previous  NumNodes     = "<< M_mesh.numNodes() <<"\n";
+    LOG(DEBUG) <<"INFO: Previous  NumTriangles = "<< M_mesh.numTriangles() <<"\n";
 
     M_mesh_previous = M_mesh;
-    //M_mesh = mesh_type(mesh_nodes,mesh_edges,mesh_triangles);
     M_mesh = mesh_type(mesh_nodes,mesh_triangles);
     //M_mesh.writeTofile("out.msh");
 
@@ -6275,11 +5303,10 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     M_num_elements = M_mesh.numTriangles();
     M_num_nodes = M_mesh.numNodes();
 
-    std::cout<<"\n";
-    std::cout<<"INFO: Current  NumNodes      = "<< M_mesh.numNodes() <<"\n";
-    std::cout<<"INFO: Current  NumTriangles  = "<< M_mesh.numTriangles() <<"\n";
-    //std::cout<<"INFO: Current  NumEdges      = "<< M_mesh.numEdges() <<"\n";
-    std::cout<<"\n";
+    LOG(DEBUG) <<"\n";
+    LOG(DEBUG) <<"INFO: Current  NumNodes      = "<< M_mesh.numNodes() <<"\n";
+    LOG(DEBUG) <<"INFO: Current  NumTriangles  = "<< M_mesh.numTriangles() <<"\n";
+    LOG(DEBUG) <<"\n";
 
     // std::cout<<"NodalConnectivitySize[0]= "<< bamg_mesh->NodalConnectivitySize[0] <<"\n";
     // std::cout<<"NodalConnectivitySize[1]= "<< bamg_mesh->NodalConnectivitySize[1] <<"\n";
@@ -6349,11 +5376,11 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     std::vector<double> ddz_data(ddz_j.size(),0.);
     M_graph = graph_type(dz,ddz_i,ddz_j,ddz_data);
 
-    std::cout<<"\n";
-    std::cout<<"GRAPHCSR INFO: MIN NZ (per row)      = "<< *std::min_element(dz.begin(),dz.end()) <<"\n";
-    std::cout<<"GRAPHCSR INFO: MAX NZ (per row)      = "<< *std::max_element(dz.begin(),dz.end()) <<"\n";
-    std::cout<<"GRAPHCSR INFO: NNZ (total)           = "<< ddz_j.size() <<"\n";
-    std::cout<<"\n";
+    LOG(DEBUG) <<"\n";
+    LOG(DEBUG) <<"GRAPHCSR INFO: MIN NZ (per row)      = "<< *std::min_element(dz.begin(),dz.end()) <<"\n";
+    LOG(DEBUG) <<"GRAPHCSR INFO: MAX NZ (per row)      = "<< *std::max_element(dz.begin(),dz.end()) <<"\n";
+    LOG(DEBUG) <<"GRAPHCSR INFO: NNZ (total)           = "<< ddz_j.size() <<"\n";
+    LOG(DEBUG) <<"\n";
 
 
 #if 0
@@ -6392,79 +5419,6 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
 void
 FiniteElement::exportResults(int step, bool export_mesh)
 {
-#if 0
-    vector_type mx;
-    mx.init(3*M_num_elements);
-    vector_type my;
-    my.init(3*M_num_elements);
-    vector_type mc;
-    mc.init(3*M_num_elements);
-    vector_type mh;
-    mh.init(3*M_num_elements);
-    vector_type mhs;
-    mhs.init(3*M_num_elements);
-    vector_type mssh;
-    mssh.init(3*M_num_elements);
-    vector_type mu;
-    mu.init(3*M_num_elements);
-    vector_type mv;
-    mv.init(3*M_num_elements);
-
-    int cpt = 0;
-    double sum_u = 0.;
-    double sum_v = 0.;
-    double sum_ssh = 0.;
-    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
-    {
-        sum_u = 0.;
-        sum_v = 0.;
-        //sum_ssh = 0.;
-        for (int j=0; j<3; ++j)
-        {
-            // export ocean field
-            // sum_u += M_ocean[it->indices[j]-1];
-            // sum_v += M_ocean[it->indices[j]-1+M_num_nodes];
-
-            // export wind field
-            // sum_u += M_wind[it->indices[j]-1];
-            // sum_v += M_wind[it->indices[j]-1+M_num_nodes];
-
-            // export velocity
-            sum_u += M_VT[it->indices[j]-1];
-            sum_v += M_VT[it->indices[j]-1+M_num_nodes];
-            sum_ssh += M_ssh[it->indices[j]-1];
-        }
-        sum_u /= 3.;
-        sum_v /= 3.;
-        sum_ssh /= 3.;
-
-        for (int i=0; i<3; ++i)
-        {
-            mc(3*cpt+i) = M_conc[cpt];
-            mh(3*cpt+i) = M_thick[cpt];
-            mhs(3*cpt+i) = M_snow_thick[cpt];
-            mssh(3*cpt+i) = sum_ssh;
-            mu(3*cpt+i) = sum_u;
-            mv(3*cpt+i) = sum_v;
-            mx(3*cpt+i) = M_nodes[it->indices[i]-1].coords[0];
-            my(3*cpt+i) = M_nodes[it->indices[i]-1].coords[1];
-        }
-
-        ++cpt;
-    }
-
-    std::string step_str = boost::lexical_cast<std::string>(step)+".m";
-    mx.printMatlab("mx" + step_str);
-    my.printMatlab("my" + step_str);
-    mc.printMatlab("mc" + step_str);
-    mh.printMatlab("mh" + step_str);
-    mhs.printMatlab("mhs" + step_str);
-    mssh.printMatlab("mssh" + step_str);
-    mu.printMatlab("mu" + step_str);
-    mv.printMatlab("mv" + step_str);
-#endif
-
-#if 1
     Exporter exporter;
     std::string fileout;
 
@@ -6474,7 +5428,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
                    % Environment::nextsimDir().string()
                    % step ).str();
 
-        std::cout<<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
+        LOG(INFO) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
 
 		// move the mesh for the export
 		M_mesh.move(M_UM,1.);
@@ -6493,7 +5447,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
                % Environment::nextsimDir().string()
                % step ).str();
 
-        std::cout<<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
+        LOG(INFO) <<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
 
         std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
         if ( ! outrecord.good() )
@@ -6507,7 +5461,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
                % Environment::nextsimDir().string()
                % step ).str();
 
-    std::cout<<"BINARY: Exporter Filename= "<< fileout <<"\n";
+    LOG(INFO) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
 
     std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
     if ( ! outbin.good() )
@@ -6546,14 +5500,13 @@ FiniteElement::exportResults(int step, bool export_mesh)
                % Environment::nextsimDir().string()
                % step ).str();
 
-    std::cout<<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
+    LOG(INFO) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
 
     std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
     if ( ! outrecord.good() )
         throw std::runtime_error("Cannot write to file: " + fileout);
     exporter.writeRecord(outrecord);
     outrecord.close();
-#endif
 }
 
 void
