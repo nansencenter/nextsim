@@ -56,7 +56,7 @@ FiniteElement::initMesh(setup::DomainType domain_type, std::string mesh_filename
             throw std::logic_error("invalid domain type");
     }
 
-    // M_mesh.setOrdering("bamg"); // This is already done in initConstant
+    M_mesh.setOrdering("bamg");
 
     M_mesh.readFromFile(mesh_filename);
 
