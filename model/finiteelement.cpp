@@ -3263,36 +3263,35 @@ FiniteElement::update()
          /* Compute the shear and normal stress, which are two invariants of the internal stress tensor */
 
          sigma_s=std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
-         sigma_n=           (sigma_pred[0]+sigma_pred[1])/2.;
+         sigma_n=-          (sigma_pred[0]+sigma_pred[1])/2.;
 
-         sigma_1 = -sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
-         sigma_2 = -sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
+         sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
+         sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
 
-         q=std::pow(std::pow(std::pow(tan_phi,2.)+1.,.5)+tan_phi,2.);
-         sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1.,.5)-tan_phi);
+         q=std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
+         sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
 
          sigma_t=-sigma_c/q;
 
          //std::cout<<"sigma_n= "<< sigma_n <<"\n";
 
          /* minimum and maximum normal stress */
-         tract_max=tract_coef*M_Cohesion[cpt]/tan_phi;
+         tract_max=-tract_coef*M_Cohesion[cpt]/tan_phi;
 
          /* Correction of the damage */
-         if(sigma_n<(-M_Compressive_strength[cpt]))
+         if(sigma_n>M_Compressive_strength[cpt])
          {
-             sigma_target=-M_Compressive_strength[cpt];
-
+             sigma_target=M_Compressive_strength[cpt];
+    
              tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
 
              if(tmp>M_damage[cpt])
              {
                  M_damage[cpt]=tmp;
              }
-         } 
-         
-#if 0
-         if((sigma_1<=0.) && (sigma_2<sigma_t))
+         }
+ #if 0
+         if(sigma_1<0 && sigma_2<sigma_t)
          {
              sigma_target=sigma_t;
 
@@ -3303,11 +3302,12 @@ FiniteElement::update()
                  M_damage[cpt]=tmp;
              }
          }
-
-         if((sigma_1>0.) && ((sigma_1-q*sigma_2)>sigma_c))
+ #endif
+ #if 1
+         if(sigma_1-q*sigma_2>sigma_c)
          {
              sigma_target=sigma_c;
-        
+            
              tmp=1.0-sigma_target/(sigma_1-q*sigma_2)*(1.0-old_damage);
 
              if(tmp>M_damage[cpt])
@@ -3315,13 +3315,13 @@ FiniteElement::update()
                  M_damage[cpt]=tmp;
              }
          }
-#endif
+ #endif
         
-#if 1  
-         if(sigma_n>tract_max)
+ #if 1        
+         if(sigma_n<tract_max)
          {
              sigma_target=tract_max;
-
+            
              tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
 
              if(tmp>M_damage[cpt])
@@ -3329,7 +3329,9 @@ FiniteElement::update()
                  M_damage[cpt]=tmp;
              }
          }
-
+ #endif
+        
+ #if 0   
          if(sigma_s>M_Cohesion[cpt]-sigma_n*tan_phi)
          {
              tmp=1.0-M_Cohesion[cpt]/(sigma_s+sigma_n*tan_phi)*(1.0-old_damage);
@@ -3339,7 +3341,7 @@ FiniteElement::update()
                  M_damage[cpt]=tmp;
              }
          }
-#endif
+ #endif
         /*
          * Diagnostic:
          * Recompute the internal stress
@@ -3650,10 +3652,10 @@ FiniteElement::updateSeq()
         /* Compute the shear and normal stress, which are two invariants of the internal stress tensor */
 
         sigma_s=std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
-        sigma_n=           (sigma_pred[0]+sigma_pred[1])/2.;
+        sigma_n=-          (sigma_pred[0]+sigma_pred[1])/2.;
 
-        sigma_1 = -sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
-        sigma_2 = -sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
+        sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
+        sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
 
         q=std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
         sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
@@ -3663,12 +3665,12 @@ FiniteElement::updateSeq()
         //std::cout<<"sigma_n= "<< sigma_n <<"\n";
 
         /* minimum and maximum normal stress */
-        tract_max=tract_coef*M_Cohesion[cpt]/tan_phi;
+        tract_max=-tract_coef*M_Cohesion[cpt]/tan_phi;
 
         /* Correction of the damage */
-        if(sigma_n<(-M_Compressive_strength[cpt]))
+        if(sigma_n>M_Compressive_strength[cpt])
         {
-            sigma_target=-M_Compressive_strength[cpt];
+            sigma_target=M_Compressive_strength[cpt];
     
             tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
 
@@ -3689,8 +3691,9 @@ FiniteElement::updateSeq()
                 M_damage[cpt]=tmp;
             }
         }
-
-        if(sigma_1>0. && sigma_1-q*sigma_2>sigma_c)
+#endif
+#if 1
+        if(sigma_1-q*sigma_2>sigma_c)
         {
             sigma_target=sigma_c;
             
@@ -3704,7 +3707,7 @@ FiniteElement::updateSeq()
 #endif
         
 #if 1        
-        if(sigma_n>tract_max)
+        if(sigma_n<tract_max)
         {
             sigma_target=tract_max;
             
@@ -3715,7 +3718,9 @@ FiniteElement::updateSeq()
                 M_damage[cpt]=tmp;
             }
         }
-
+#endif
+        
+#if 0   
         if(sigma_s>M_Cohesion[cpt]-sigma_n*tan_phi)
         {
             tmp=1.0-M_Cohesion[cpt]/(sigma_s+sigma_n*tan_phi)*(1.0-old_damage);
