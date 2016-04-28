@@ -9,6 +9,7 @@
 #include "./Mesh.h"
 #include "./shared.h"
 #include "./typedefs.h"
+#include <cmath>
 //#include "../../toolkits/toolkits.h"
 //#include "../../classes/classes.h"
 //#include "../../bamg/bamgobjects.h"
@@ -73,22 +74,23 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
     if (verbosity>1) _printf_("   Interp Cavities: copy...\n");
 
     /* Copy the values of the old to the corresponding new elements*/
-    ulong new_element_i;
-    ulong old_element_i;
-    for(ulong i=0; i<gate.nb_matching_elements; i++)
+    double new_element_i;
+    double old_element_i;
+    for(int i=0; i<gate.nb_matching_elements; i++)
     {
         new_element_i=gate.new_elements[i];
         old_element_i=gate.old_elements[i];
+
         for(int j=0; j<nb_variables; j++)
-            IntMatrix_out[(new_element_i-1)*nb_variables+j]=IntMatrix_in[(old_element_i-1)*nb_variables+j];
+	        IntMatrix_out[((int)new_element_i-1)*nb_variables+j]=IntMatrix_in[((int)old_element_i-1)*nb_variables+j];
     }
 
     if (verbosity>1) _printf_("   Interp Cavities: initialize intermediary...\n");
-    ulong  *dead_elements = xNew<ulong>(gate.max_size_dead_cavity);
-    ulong  *born_elements = xNew<ulong>(gate.max_size_born_cavity);
+    double  *dead_elements = xNew<double>(gate.max_size_dead_cavity);
+    double  *born_elements = xNew<double>(gate.max_size_born_cavity);
     if (verbosity>1) _printf_("nb_dead_elements, nb_born_elements, tmp_element" << "\n");
-    ulong nb_dead_elements, nb_born_elements;
-    ulong tmp_element;
+    int nb_dead_elements, nb_born_elements;
+    double tmp_element;
     double integrated_area, new_integrated_area, correction_factor;
 
     // integrated_variables is used with method 0
@@ -103,46 +105,46 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
 
     if (verbosity>1) _printf_("   Interp Cavities: loop1...\n");
 
-    for(ulong cavity_id=0; cavity_id< gate.nb_cavities; cavity_id++)
+    for(int cavity_id=0; cavity_id< gate.nb_cavities; cavity_id++)
     {
-        if (verbosity>1) _printf_("   Interp Cavities: enter loop1...\n");
-        nb_dead_elements= gate.size_dead_cavity[cavity_id];
-        nb_born_elements= gate.size_born_cavity[cavity_id];
+	    if (verbosity>1) _printf_("   Interp Cavities: enter loop1...\n");
+	    nb_dead_elements= gate.size_dead_cavity[cavity_id];
+	    nb_born_elements= gate.size_born_cavity[cavity_id];
 
-        if (nb_dead_elements<1)  _error_("nb_dead_elements should not be larger than 1. Here it is: " << nb_dead_elements<<" ");
-        if (nb_born_elements<1)  _error_("nb_born_elements should not be larger than 1. Here it is: " << nb_born_elements<<" ");
+	    if (nb_dead_elements<1)  _error_("nb_dead_elements should not be larger than 1. Here it is: " << nb_dead_elements<<" ");
+	    if (nb_born_elements<1)  _error_("nb_born_elements should not be larger than 1. Here it is: " << nb_born_elements<<" ");
 
-        if (verbosity>1) _printf_("   Interp Cavities: init...\n");
-        /* Initialization */
-        integrated_area=0.;
+	    if (verbosity>1) _printf_("   Interp Cavities: init...\n");
+	    /* Initialization */
+	    integrated_area=0.;
         new_integrated_area=0.;
         for(int i=0; i<nb_variables; i++)
-            integrated_variables[i]=0.;
+	        integrated_variables[i]=0.;
 
         for(int i=0; i<gate.max_size_born_cavity; i++)
         {
-            tmp_integrated_area[i] = 0.;
-            for(int j=0; j<nb_variables; j++)
-                tmp_mean_variables[i*nb_variables+j]=0.;
+	        tmp_integrated_area[i] = 0.;
+	        for(int j=0; j<nb_variables; j++)
+		        tmp_mean_variables[i*nb_variables+j]=0.;
         }
 
         if (verbosity>1) _printf_("   Interp Cavities: integrated area, nb_dead_elements:" << nb_dead_elements << "\n");
 
-        for(ulong i=0; i<nb_dead_elements; i++)
+        for(int i=0; i<nb_dead_elements; i++)
         {
             tmp_element=gate.element_dead_cavity[cavity_id*gate.max_size_dead_cavity+i];
             if (verbosity>1) _printf_("tmp_element: " << tmp_element << "\n");
 
             dead_elements[i]=tmp_element;
-            integrated_area+=surface_old[tmp_element-1];
+            integrated_area+=surface_old[(int)tmp_element-1];
         }
 
         if (verbosity>1) _printf_("   Interp Cavities: integrated area...\n");
-        for(ulong i=0; i<nb_born_elements; i++)
+        for(int i=0; i<nb_born_elements; i++)
         {
             tmp_element=gate.element_born_cavity[cavity_id*gate.max_size_born_cavity+i];
             born_elements[i]=tmp_element;
-            new_integrated_area+=surface_new[tmp_element-1];
+            new_integrated_area+=surface_new[(int)tmp_element-1];
         }
 
         if (new_integrated_area<=0.)  _error_("new_integrated_area should not be larger than 0. Here it is: " << new_integrated_area<<" ");
@@ -165,19 +167,21 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
             if (verbosity>1) _printf_("   Interp Cavities: integrated_variables..\n");
 
 
-            for(ulong i=0; i<nb_dead_elements; i++)
+            for(int i=0; i<nb_dead_elements; i++)
             {
-                tmp_element=dead_elements[i];
-                for(int j=0; j<nb_variables; j++)
-                    integrated_variables[j]+=surface_old[tmp_element-1]*IntMatrix_in[(tmp_element-1)*nb_variables+j];
+	            tmp_element=dead_elements[i];
+
+	            for(int j=0; j<nb_variables; j++)
+		            integrated_variables[j]+=surface_old[(int)tmp_element-1]*IntMatrix_in[((int)tmp_element-1)*nb_variables+j];
             }
 
             if (verbosity>1) _printf_("   Interp Cavities: InrMatrix_out..\n");
-            for(ulong i=0; i<nb_born_elements; i++)
+            for(int i=0; i<nb_born_elements; i++)
             {
-                tmp_element=born_elements[i];
-                for(int j=0; j<nb_variables; j++)
-                    IntMatrix_out[(tmp_element-1)*nb_variables+j]=integrated_variables[j]/integrated_area*correction_factor;
+	            tmp_element=born_elements[i];
+
+	            for(int j=0; j<nb_variables; j++)
+		            IntMatrix_out[((int)tmp_element-1)*nb_variables+j]=integrated_variables[j]/integrated_area*correction_factor;
             }
         }
         else
@@ -189,24 +193,25 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
 
             /* Sanity check
               does the integrated area corresponds to the area of the born element*/
-            for(ulong i=0; i<nb_born_elements; i++)
+            for(int i=0; i<nb_born_elements; i++)
             {
-                area_error=fabs(tmp_integrated_area[i]-surface_new[born_elements[i]-1]);
-                if(area_error>area_error_tolerance)
-                {
-                    _printf_("tmp_integrated_area[i]=" << tmp_integrated_area[i] << "\n");
-                    _printf_("surface_new[born_elements[i]-1]=" << surface_new[born_elements[i]-1] << "\n");
-                    _printf_("area_error=" << area_error << "\n");
+	            area_error=fabs(tmp_integrated_area[i]-surface_new[(int)born_elements[i]-1]);
+	            if(area_error>area_error_tolerance)
+	            {
+		            _printf_("tmp_integrated_area[i]=" << tmp_integrated_area[i] << "\n");
+		            _printf_("surface_new[born_elements[i]-1]=" << surface_new[(int)born_elements[i]-1] << "\n");
+		            _printf_("area_error=" << area_error << "\n");
                     _printf_("area_error_tolerance=" << area_error_tolerance << "\n");
                     _error_("Conservation issue!!! The area of the new element does not match with the sum of the triangle intersections...");
                 }
             }
 
-            for(ulong i=0; i<nb_born_elements; i++)
+            for(int i=0; i<nb_born_elements; i++)
             {
                 tmp_element=born_elements[i];
+
                 for(int j=0; j<nb_variables; j++)
-                    IntMatrix_out[(tmp_element-1)*nb_variables+j]=tmp_mean_variables[i*nb_variables+j]*correction_factor;
+	                IntMatrix_out[((int)tmp_element-1)*nb_variables+j]=tmp_mean_variables[i*nb_variables+j]*correction_factor;
             }
         }
     }
@@ -216,20 +221,20 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
 
 
     // destroy temporary arrays
-    xDelete<ulong>(dead_elements);
-    xDelete<ulong>(born_elements);
+    xDelete<double>(dead_elements);
+    xDelete<double>(born_elements);
 
     xDelete<double>(integrated_variables);
     xDelete<double>(tmp_mean_variables);
     xDelete<double>(tmp_integrated_area);
 
-    xDelete<ulong>(gate.PreviousNumbering);
-    xDelete<ulong>(gate.old_elements);
-    xDelete<ulong>(gate.new_elements);
-    xDelete<ulong>(gate.size_born_cavity);
-    xDelete<ulong>(gate.size_dead_cavity);
-    xDelete<ulong>(gate.element_born_cavity);
-    xDelete<ulong>(gate.element_dead_cavity);
+    xDelete<double>(gate.PreviousNumbering);
+    xDelete<double>(gate.old_elements);
+    xDelete<double>(gate.new_elements);
+    xDelete<int>(gate.size_born_cavity);
+    xDelete<int>(gate.size_dead_cavity);
+    xDelete<double>(gate.element_born_cavity);
+    xDelete<double>(gate.element_dead_cavity);
 
     /*---- end of the interpolation cavity by cavity      ------*/
 	*pdata_interp=IntMatrix_out;
@@ -246,24 +251,24 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
     if (verbosity>1) _printf_("   Detect_cavities: Read input...\n");
 	/*---------- Input  ----------*/
 
-	double *bamg_mesh_Triangles                 = bamgmesh_old->Triangles;
+    double *bamg_mesh_Triangles                 = bamgmesh_old->Triangles;
     double *bamg_mesh_NodalElementConnectivity  = bamgmesh_old->NodalElementConnectivity;
     double *bamg_mesh_NodalConnectivity         = bamgmesh_old->NodalConnectivity ;
     double *bamg_mesh_ElementConnectivity       = bamgmesh_old->ElementConnectivity;
 
-    ulong bamg_mesh_Nn                         = (ulong)bamgmesh_old->VerticesSize[0];
-    ulong bamg_mesh_NNodalConnectivity         = (ulong)bamgmesh_old->NodalConnectivitySize[1];
-    ulong bamg_mesh_NNodalElementConnectivity  = (ulong)bamgmesh_old->NodalElementConnectivitySize[1];
-    ulong bamg_mesh_Ne                         = (ulong)bamgmesh_old->TrianglesSize[0];
-    ulong bamg_mesh_NVerticesOnGeomVertex      = (ulong)bamgmesh_old->VerticesOnGeomVertexSize[0];
+    int bamg_mesh_Nn                         = bamgmesh_old->VerticesSize[0];
+    int bamg_mesh_NNodalConnectivity         = bamgmesh_old->NodalConnectivitySize[1];
+    int bamg_mesh_NNodalElementConnectivity  = bamgmesh_old->NodalElementConnectivitySize[1];
+    int bamg_mesh_Ne                         = bamgmesh_old->TrianglesSize[0];
+    int bamg_mesh_NVerticesOnGeomVertex      = bamgmesh_old->VerticesOnGeomVertexSize[0];
 
     double *new_bamg_mesh_Triangles             = bamgmesh_new->Triangles;
     double *new_bamg_mesh_ElementConnectivity   = bamgmesh_new->ElementConnectivity;
     double *new_bamg_mesh_PreviousNumbering     = bamgmesh_new->PreviousNumbering;
 
-    ulong new_bamg_mesh_Nn                     = (ulong)bamgmesh_new->VerticesSize[0];
-    ulong new_bamg_mesh_NVerticesOnGeomVertex  = (ulong)bamgmesh_new->VerticesOnGeomVertexSize[0];
-    ulong new_bamg_mesh_Ne                     = (ulong)bamgmesh_new->TrianglesSize[0];
+    int new_bamg_mesh_Nn                     = bamgmesh_new->VerticesSize[0];
+    int new_bamg_mesh_NVerticesOnGeomVertex  = bamgmesh_new->VerticesOnGeomVertexSize[0];
+    int new_bamg_mesh_Ne                     = bamgmesh_new->TrianglesSize[0];
 
 
     if (verbosity>1) _printf_("   bamg_mesh_Nn = " << bamg_mesh_Nn << "\n");
@@ -283,38 +288,41 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 
 
     /*---------- Output arrays      ----------*/
-    ulong  *PreviousNumbering = xNew<ulong>(new_bamg_mesh_Nn);
+    double  *PreviousNumbering = xNew<double>(new_bamg_mesh_Nn);
 
     /*---------- Intermediary arrays---------- */
-    ulong *tmp_old_elements = xNew<ulong>(bamg_mesh_Ne);
-    ulong *tmp_new_elements = xNew<ulong>(new_bamg_mesh_Ne);
-    long  *cavity_number_dead = xNew<long>(bamg_mesh_Ne);
-    long  *cavity_number_born = xNew<long>(new_bamg_mesh_Ne);
-    long  *is_born_element_to_treat = xNew<long>(new_bamg_mesh_Ne); /* boolean to know if the born element is to be treated */
-    long  *is_dead_element_to_treat = xNew<long>(bamg_mesh_Ne);   /* boolean to know if the dead element is to be treated */
+    double *tmp_old_elements = xNew<double>(bamg_mesh_Ne);
+    double *tmp_new_elements = xNew<double>(new_bamg_mesh_Ne);
+    double  *cavity_number_dead = xNew<double>(bamg_mesh_Ne);
+    int  *cavity_number_born = xNew<int>(new_bamg_mesh_Ne);
+    int  *is_born_element_to_treat = xNew<int>(new_bamg_mesh_Ne); /* boolean to know if the born element is to be treated */
+    int  *is_dead_element_to_treat = xNew<int>(bamg_mesh_Ne);   /* boolean to know if the dead element is to be treated */
 
     if (verbosity>1) _printf_("   Detect_cavities: Initialize local variables...\n");
     /*---------- Local variables    ----------*/
     int l, l0, l1, l2, j_next;
 
-    ulong nb_matching_elements, nb_cavities;
-    ulong max_size_born_cavity, max_size_dead_cavity;
+    int nb_matching_elements, nb_cavities;
+    int max_size_born_cavity, max_size_dead_cavity;
 
     int edge_node_1, edge_node_2;
-    ulong Previous_edge_node_1, Previous_edge_node_2;
-    ulong tmp_node_1, tmp_node_2;
-    int Previous_connected_element;
-    ulong tmp_born, tmp_dead;
-    ulong Previous_num_node[3], Previous_connected_element_num_node[3];
-    ulong max_candidate_element_to_treat=10000, number_candidate_element_to_treat, number_candidate_element_treated;
-    ulong  *candidate_element_to_treat = xNew<ulong>(max_candidate_element_to_treat);   /* boolean to know if the dead element is to be treated */
+    int Previous_edge_node_1, Previous_edge_node_2;
+    int tmp_node_1, tmp_node_2;
+    double Previous_connected_element;
+    int tmp_born, tmp_dead;
+    double Previous_num_node[3], Previous_connected_element_num_node[3];
+    int max_candidate_element_to_treat=10000, number_candidate_element_to_treat, number_candidate_element_treated;
+
+    int  *candidate_element_to_treat = xNew<int>(max_candidate_element_to_treat);   /* boolean to know if the dead element is to be treated */
 
     int candidate_dead_element[2], nb_candidate_dead_element;
     int nb_dead, nb_born, nb_connected_nodes;
-    ulong neighbour;
-    long new_cavity_number;
-    int i_dead_element_node_1, dead_element_node_1;
-    int i_dead_element_node_2, dead_element_node_2;
+    int neighbour;
+    double neighbour_double;
+    int new_cavity_number;
+    int i_dead_element_node_1;
+    int i_dead_element_node_2;
+    double dead_element_node_1, dead_element_node_2;
     int i_dead_element, max_cavity_size;
 
     int found_intersect;
@@ -328,16 +336,16 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
     /*  Bamg adds these nodes at the beginning of the list of nodes. */
     /*  In our case, these nodes are always the same as the boundary is not */
     /*  moving nor adapted. */
-    for (ulong i=0; i<new_bamg_mesh_NVerticesOnGeomVertex; i++)
+    for (int i=0; i<new_bamg_mesh_NVerticesOnGeomVertex; i++)
     {
-	    if (verbosity>1) _printf_(" i " << i << "(ulong) new_bamg_mesh_PreviousNumbering[i] " << (ulong) new_bamg_mesh_PreviousNumbering[i] << "\n");
-	    PreviousNumbering[i]=i+1;
+	    if (verbosity>1) _printf_(" i " << i << "(ulong) new_bamg_mesh_PreviousNumbering[i] " << new_bamg_mesh_PreviousNumbering[i] << "\n");
+	    PreviousNumbering[i]=double(i)+1;
     }
     if (verbosity>1) _printf_("   Detect_cavities: loop1...\n");
-    for (ulong i=new_bamg_mesh_NVerticesOnGeomVertex; i<new_bamg_mesh_Nn; i++)
+    for (int i=new_bamg_mesh_NVerticesOnGeomVertex; i<new_bamg_mesh_Nn; i++)
     {
-	    if (verbosity>1) _printf_(" i " << i << "(ulong) new_bamg_mesh_PreviousNumbering[i] " << (ulong) new_bamg_mesh_PreviousNumbering[i] << "\n");
-	    PreviousNumbering[i]=(ulong) new_bamg_mesh_PreviousNumbering[i];
+	    if (verbosity>1) _printf_(" i " << i << "(ulong) new_bamg_mesh_PreviousNumbering[i] " << new_bamg_mesh_PreviousNumbering[i] << "\n");
+	    PreviousNumbering[i]=new_bamg_mesh_PreviousNumbering[i];
     }
 
 
@@ -345,7 +353,7 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
     /*  To find the correspondance between the new and old elements */
     nb_matching_elements=0;
 
-    for (ulong i=0; i<new_bamg_mesh_Ne; i++)
+    for (int i=0; i<new_bamg_mesh_Ne; i++)
     {
 	    /*       if (verbosity>1) _printf_("   Detect_cavities: Previous_num_node...\n");
 
@@ -366,7 +374,8 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 		       _printf_("   new_bamg_mesh_Triangles = " << new_bamg_mesh_Triangles[4*i+j] << "\n");
 		       _printf_("   new_bamg_mesh_Triangles = " << (ulong) new_bamg_mesh_Triangles[4*i+j] << "\n");
 		       _printf_("   Previous = " << PreviousNumbering[(ulong) new_bamg_mesh_Triangles[4*i+j]-1] << "\n");*/
-		    Previous_num_node[j]=PreviousNumbering[(ulong) new_bamg_mesh_Triangles[4*i+j]-1];
+
+		    Previous_num_node[j]=PreviousNumbering[(int)new_bamg_mesh_Triangles[4*i+j]-1];
 	    }
 	    found_intersect=0;
 	    if((Previous_num_node[0]>0) && (Previous_num_node[1]>0) && (Previous_num_node[2]>0))
@@ -377,14 +386,16 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 			    for (int k=0; (k<bamg_mesh_NNodalElementConnectivity)  && (found_intersect==0); k++)
 			    {
 				    // if (verbosity>1) _printf_("   Detect_cavities: loop k...\n");
-				    Previous_connected_element=(ulong) bamg_mesh_NodalElementConnectivity[(Previous_num_node[j]-1)*bamg_mesh_NNodalElementConnectivity+k];
+				    Previous_connected_element=bamg_mesh_NodalElementConnectivity[((int)Previous_num_node[j]-1)*bamg_mesh_NNodalElementConnectivity+k];
 
 				    /* If NaN in matlab (0 after calling uint32)  */
-				    if(Previous_connected_element==0)
+				    if (std::isnan(Previous_connected_element))
 					    break;
 
 				    for (l=0; l<3; l++)
-					    Previous_connected_element_num_node[l]=(ulong) bamg_mesh_Triangles[(Previous_connected_element-1)*4+l];
+				    {
+					    Previous_connected_element_num_node[l]=bamg_mesh_Triangles[((int)Previous_connected_element-1)*4+l];
+				    }
 
 				    for (l=0; (l<3)  && (found_intersect==0); l++)
 				    {
@@ -396,7 +407,7 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 					    if((Previous_connected_element_num_node[0]==Previous_num_node[l0]) && (Previous_connected_element_num_node[1]==Previous_num_node[l1]) && (Previous_connected_element_num_node[2]==Previous_num_node[l2]))
 					    {
 						    tmp_old_elements[nb_matching_elements]=Previous_connected_element;
-						    tmp_new_elements[nb_matching_elements]=i+1;
+						    tmp_new_elements[nb_matching_elements]=double(i)+1;
 						    nb_matching_elements=nb_matching_elements+1;
 						    found_intersect=1;
 					    }
@@ -409,17 +420,17 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
     if (verbosity>1) _printf_("   Detect_cavities: reducing the old_elements and new_elements arrays...\n");
     /* reducing the old_elements and new_elements arrays */
     /*---------- Output arrays      ---------- */
-    ulong *old_elements = xNew<ulong>(nb_matching_elements);
-    ulong *new_elements = xNew<ulong>(nb_matching_elements);
+    double *old_elements = xNew<double>(nb_matching_elements);
+    double *new_elements = xNew<double>(nb_matching_elements);
 
     /*---------- Intermediary arrays---------- */
-    ulong *is_not_dead = xNew<ulong>(bamg_mesh_Ne);
-    ulong *is_not_born = xNew<ulong>(new_bamg_mesh_Ne);
+    std::vector<double> is_not_dead(bamg_mesh_Ne,0.);
+    std::vector<double> is_not_born(new_bamg_mesh_Ne,0.);
 
-    ulong *ind_dead = xNew<ulong>(bamg_mesh_Ne);
-    ulong *ind_born = xNew<ulong>(new_bamg_mesh_Ne);
+    std::vector<double> ind_dead(bamg_mesh_Ne,0.);
+    std::vector<double> ind_born(new_bamg_mesh_Ne,0.);
 
-    ulong *boundary_between_two_cavities = xNew<ulong>(bamg_mesh_Ne*3);
+    double *boundary_between_two_cavities = xNew<double>(bamg_mesh_Ne*3);
 
     if (verbosity>1) _printf_("   nb_matching_elements = " << nb_matching_elements << "\n");
 
@@ -429,38 +440,38 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 	    old_elements[i]=tmp_old_elements[i];
 	    new_elements[i]=tmp_new_elements[i];
 
-	    is_not_dead[tmp_old_elements[i]-1]=1;
-	    is_not_born[tmp_new_elements[i]-1]=1;
+	    is_not_dead[(int)tmp_old_elements[i]-1]=1.;
+	    is_not_born[(int)tmp_new_elements[i]-1]=1.;
     }
 
     if (verbosity>1) _printf_("   Detect_cavities: destroy...\n");
     /* destroy the temporary matrix */
-    xDelete<ulong>(tmp_old_elements);
-    xDelete<ulong>(tmp_new_elements);
+    xDelete<double>(tmp_old_elements);
+    xDelete<double>(tmp_new_elements);
 
     if (verbosity>1) _printf_("   Detect_cavities: loop3...\n");
     /*  The old elements without correspondance are called "dead element" */
     /*  The new elements without correspondance are called "born element" */
     nb_dead=0;
-    for (ulong i=0; i<bamg_mesh_Ne; i++)
+    for (int i=0; i<bamg_mesh_Ne; i++)
     {
-	    cavity_number_dead[i]=0;
-	    if(is_not_dead[i]!=1)
+	    cavity_number_dead[i]=0.;
+	    if(is_not_dead[i]!=1.)
 	    {
-		    ind_dead[nb_dead]=i+1;
-		    cavity_number_dead[i]=-1;
+		    ind_dead[nb_dead]=double(i)+1;
+		    cavity_number_dead[i]=-1.;
 		    nb_dead++;
 	    }
     }
 
     if (verbosity>1) _printf_("   Detect_cavities: loop4...\n");
     nb_born=0;
-    for (ulong i=0; i<new_bamg_mesh_Ne; i++)
+    for (int i=0; i<new_bamg_mesh_Ne; i++)
     {
 	    cavity_number_born[i]=0;
-	    if(is_not_born[i]!=1)
+	    if(is_not_born[i]!=1.)
 	    {
-		    ind_born[nb_born]=i+1;
+		    ind_born[nb_born]=double(i)+1;
 		    cavity_number_born[i]=-1;
 		    nb_born++;
 	    }
@@ -469,17 +480,14 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
     if (verbosity>1) _printf_("   nb_born = " << nb_born << "\n");
 
     if (verbosity>1) _printf_("   Detect_cavities: destroy2...\n");
-    /* destroy the temporary matrix */
-    xDelete<ulong>(is_not_dead);
-    xDelete<ulong>(is_not_born);
 
     if (verbosity>1) _printf_("   Detect_cavities: detect the cavities...\n");
     /*  Loop that detect the cavities */
     new_cavity_number=0;
-    for (ulong i_born=0; i_born<nb_born; i_born++)
+    for (int i_born=0; i_born<nb_born; i_born++)
     {
 	    /*  first element to be checked */
-	    tmp_born=ind_born[i_born];
+	    tmp_born=(int)ind_born[i_born];
 
 	    /*  if the born element is already treated, do nothing */
 	    if(cavity_number_born[tmp_born-1]!=-1)
@@ -491,10 +499,10 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 	    /*  we will store the candidate element to treat in an expandable vector, whose */
 	    /*  initial size is max_candidate_element_to_treat */
 	    number_candidate_element_to_treat=0;
-	    for (ulong i=0; i<max_candidate_element_to_treat; i++)
+	    for (int i=0; i<max_candidate_element_to_treat; i++)
 		    candidate_element_to_treat[i]=0;
 
-	    for (ulong i=0; i<new_bamg_mesh_Ne; i++)
+	    for (int i=0; i<new_bamg_mesh_Ne; i++)
 		    is_born_element_to_treat[i]=0;
 
 	    /*  Initialization with this first element */
@@ -515,21 +523,23 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 		    /*  Loop over the neighbours, */
 		    for (int j_born=0; j_born<3; j_born++)
 		    {
-			    neighbour=(ulong) new_bamg_mesh_ElementConnectivity[(tmp_born-1)*3+j_born];
+			    neighbour_double=new_bamg_mesh_ElementConnectivity[(tmp_born-1)*3+j_born];
+			    neighbour=(int)neighbour_double;
 
 			    /*  if neighbour exists and is already detected in this cavity, do nothing */
-			    if(neighbour>0)
+			    if (!std::isnan(neighbour_double))
 			    {
 				    if(cavity_number_born[neighbour-1]==new_cavity_number)
 					    continue;
 			    }
+
 			    /*  if the edge exists in the old mesh */
 			    /*  the edge j goes from node j to node jnext */
 			    edge_node_1 = next(j_born);
 			    edge_node_2 =next(edge_node_1);
 
-			    Previous_edge_node_1=PreviousNumbering[(ulong) new_bamg_mesh_Triangles[(tmp_born-1)*4+edge_node_1]-1];
-			    Previous_edge_node_2=PreviousNumbering[(ulong) new_bamg_mesh_Triangles[(tmp_born-1)*4+edge_node_2]-1];
+			    Previous_edge_node_1=PreviousNumbering[(int)new_bamg_mesh_Triangles[(tmp_born-1)*4+edge_node_1]-1];
+			    Previous_edge_node_2=PreviousNumbering[(int)new_bamg_mesh_Triangles[(tmp_born-1)*4+edge_node_2]-1];
 
 			    // _printf_("   Previous_edge_node_1 = " << Previous_edge_node_1 << "\n");
 			    // _printf_("   Previous_edge_node_2 = " << Previous_edge_node_2 << "\n");
@@ -539,11 +549,12 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 				    /*  the last indices in the connectivity vector is the number */
 				    /*  of connected nodes */
 
-				    nb_connected_nodes=(ulong) bamg_mesh_NodalConnectivity[(Previous_edge_node_1-1)*bamg_mesh_NNodalConnectivity+bamg_mesh_NNodalConnectivity-1];
+				    nb_connected_nodes=(int)bamg_mesh_NodalConnectivity[(Previous_edge_node_1-1)*bamg_mesh_NNodalConnectivity+bamg_mesh_NNodalConnectivity-1];
 
 				    found_intersect=0;
+				    double _edge_node_2 = (double)Previous_edge_node_2;
 				    for (int i=0; i<nb_connected_nodes; i++)
-					    if((ulong) bamg_mesh_NodalConnectivity[(Previous_edge_node_1-1)*bamg_mesh_NNodalConnectivity+i]==Previous_edge_node_2)
+					    if(bamg_mesh_NodalConnectivity[(Previous_edge_node_1-1)*bamg_mesh_NNodalConnectivity+i]==_edge_node_2)
 					    {
 						    found_intersect=1;
 						    break;
@@ -564,21 +575,21 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 					    /* searching for candidates */
 					    for (i_dead_element_node_1=0; i_dead_element_node_1<bamg_mesh_NNodalElementConnectivity; i_dead_element_node_1++)
 					    {
-						    dead_element_node_1=(ulong) bamg_mesh_NodalElementConnectivity[(Previous_edge_node_1-1)*bamg_mesh_NNodalElementConnectivity+i_dead_element_node_1];
+						    dead_element_node_1=bamg_mesh_NodalElementConnectivity[(Previous_edge_node_1-1)*bamg_mesh_NNodalElementConnectivity+i_dead_element_node_1];
 
 						    if(dead_element_node_1==0)
 							    break;
 
 						    for (i_dead_element_node_2=0; i_dead_element_node_2<bamg_mesh_NNodalElementConnectivity; i_dead_element_node_2++)
 						    {
-							    dead_element_node_2=(ulong) bamg_mesh_NodalElementConnectivity[(Previous_edge_node_2-1)*bamg_mesh_NNodalElementConnectivity+i_dead_element_node_2];
+							    dead_element_node_2=bamg_mesh_NodalElementConnectivity[(Previous_edge_node_2-1)*bamg_mesh_NNodalElementConnectivity+i_dead_element_node_2];
 
-							    if(dead_element_node_2==0)
+							    if(dead_element_node_2==0.)
 								    break;
 
 							    if(dead_element_node_1==dead_element_node_2)
 							    {
-								    candidate_dead_element[nb_candidate_dead_element]=dead_element_node_1;
+								    candidate_dead_element[nb_candidate_dead_element]=(int)dead_element_node_1;
 								    nb_candidate_dead_element++;
 								    // _printf_("   nb_candidate_dead_element = " << nb_candidate_dead_element << "\n");
 								    // _printf_("   dead_element_node_1 = " << dead_element_node_1 << "\n");
@@ -603,8 +614,8 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 							    edge_node_1=next(j);
 							    edge_node_2=next(edge_node_1);
 
-							    tmp_node_1=(ulong) bamg_mesh_Triangles[(tmp_dead-1)*4+edge_node_1];
-							    tmp_node_2=(ulong) bamg_mesh_Triangles[(tmp_dead-1)*4+edge_node_2];
+							    tmp_node_1=(int)bamg_mesh_Triangles[(tmp_dead-1)*4+edge_node_1];
+							    tmp_node_2=(int)bamg_mesh_Triangles[(tmp_dead-1)*4+edge_node_2];
 
 							    if( (tmp_node_1==Previous_edge_node_1) && (tmp_node_2==Previous_edge_node_2))
 								    break;
@@ -612,10 +623,10 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 
 						    if(j<3)
 						    {
-							    if(cavity_number_dead[tmp_dead-1]==-1)
-								    cavity_number_dead[tmp_dead-1]=new_cavity_number;
+							    if(cavity_number_dead[tmp_dead-1]==-1.)
+								    cavity_number_dead[tmp_dead-1]=(double)new_cavity_number;
 
-							    boundary_between_two_cavities[(tmp_dead-1)*3+j]=1;
+							    boundary_between_two_cavities[(tmp_dead-1)*3+j]=1.;
 							    break;
 						    }
 					    }
@@ -624,11 +635,11 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 			    } /* end of the if */
 
 			    /*  if no neighbour, do nothing */
-			    if(neighbour==0)
+			    if (std::isnan(neighbour_double))
 				    continue;
 
 			    /*  if neighbour is not born, do nothing */
-			    if(cavity_number_born[neighbour-1]==0)
+			    if(cavity_number_born[neighbour-1]==0.)
 				    continue;
 
 			    /*  if neighbour is already selected to be treated */
@@ -651,20 +662,20 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 
     if (verbosity>1) _printf_("   Detect_cavities: define their cavity number...\n");
     /*  New loop on the dead element to define their cavity number. */
-    for (ulong i_dead=0; i_dead<nb_dead; i_dead++)
+    for (int i_dead=0; i_dead<nb_dead; i_dead++)
     {
 	    /*  first element to be checked */
-	    tmp_dead=ind_dead[i_dead];
+	    tmp_dead=(int)ind_dead[i_dead];
 
 	    /*  We want to start from a dead element that has already be assigned to */
 	    /*  a cavity. */
 
 	    /*  if the dead element is not already treated, do nothing. It will be */
 	    /*  treated from another element */
-	    if(cavity_number_dead[tmp_dead-1]==-1)
+	    if(cavity_number_dead[tmp_dead-1]==-1.)
 		    continue;
 
-	    new_cavity_number=cavity_number_dead[tmp_dead-1];
+	    new_cavity_number=(int)cavity_number_dead[tmp_dead-1];
 
 	    /*  we will store the candidate element to treat in an expandable vector, whose */
 	    /*  initial size is max_candidate_element_to_treat */
@@ -688,22 +699,23 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 		    tmp_dead=candidate_element_to_treat[number_candidate_element_treated];
 		    number_candidate_element_treated++;
 
-		    cavity_number_dead[tmp_dead-1]=new_cavity_number;
+		    cavity_number_dead[tmp_dead-1]=(double)new_cavity_number;
 
 		    for (int j_dead=0; j_dead<3; j_dead++)
 		    {
-			    neighbour=(ulong) bamg_mesh_ElementConnectivity[(tmp_dead-1)*3+j_dead];
+			    neighbour_double = bamg_mesh_ElementConnectivity[(tmp_dead-1)*3+j_dead];
+			    neighbour=(int)neighbour_double;
 
 			    /*  if no neighbour, do nothing */
-			    if(neighbour==0)
+			    if (std::isnan(neighbour_double))
 				    continue;
 
 			    /*  if neighbour is already treated, do nothing */
-			    if(cavity_number_dead[neighbour-1]!=-1)
+			    if(cavity_number_dead[neighbour-1]!=-1.)
 				    continue;
 
 			    /*  if the edge corresponds to the boudary between two cavities */
-			    if(boundary_between_two_cavities[(tmp_dead-1)*3+j_dead]==1)
+			    if(boundary_between_two_cavities[(tmp_dead-1)*3+j_dead]==1.)
 				    continue;
 
 			    /*  if neighbour is already selected to be treated */
@@ -720,20 +732,20 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 	    } /*  end of the while loop */
     } /*  end of the loop of the dead elements */
 
-    ulong *size_born_cavity = xNew<ulong>(nb_cavities);
-    ulong *size_dead_cavity = xNew<ulong>(nb_cavities);
+    int *size_born_cavity = xNew<int>(nb_cavities);
+    int *size_dead_cavity = xNew<int>(nb_cavities);
 
-    for (ulong i_born=0; i_born<nb_cavities; i_born++)
+    for (int i_born=0; i_born<nb_cavities; i_born++)
 	    size_born_cavity[i_born]=0;
 
-    for (ulong i_dead=0; i_dead<nb_cavities; i_dead++)
+    for (int i_dead=0; i_dead<nb_cavities; i_dead++)
 	    size_dead_cavity[i_dead]=0;
 
 
     if (verbosity>1) _printf_("   Detect_cavities: loop6...\n");
-    for (ulong i_born=0; i_born<nb_born; i_born++)
+    for (int i_born=0; i_born<nb_born; i_born++)
     {
-	    new_cavity_number=cavity_number_born[ind_born[i_born]-1];
+	    new_cavity_number=cavity_number_born[(int)ind_born[i_born]-1];
 
 	    if(new_cavity_number<0)
 		    _error_("A born element has not been assigned to a cavity");
@@ -744,9 +756,9 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 
     bool not_all_dead_assigned=0;
     if (verbosity>1) _printf_("   Detect_cavities: loop7...\n");
-    for (ulong i_dead=0; i_dead<nb_dead; i_dead++)
+    for (int i_dead=0; i_dead<nb_dead; i_dead++)
     {
-	    new_cavity_number=cavity_number_dead[ind_dead[i_dead]-1];
+	    new_cavity_number=cavity_number_dead[(int)ind_dead[i_dead]-1];
 	    if (verbosity>1) _printf_("i_dead:" << i_dead << ", ind_dead[i_dead]:" << ind_dead[i_dead] << ", new_cavity_number: " << new_cavity_number <<"\n");
 
 	    if(new_cavity_number<0)
@@ -764,7 +776,7 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
     if (verbosity>1) _printf_("   Detect_cavities: loop8...\n");
     max_size_born_cavity=0;
     max_size_dead_cavity=0;
-    for (ulong i=0; i<nb_cavities; i++)
+    for (int i=0; i<nb_cavities; i++)
     {
 	    if(max_size_born_cavity<size_born_cavity[i])
 		    max_size_born_cavity= size_born_cavity[i];
@@ -782,13 +794,13 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
     if (verbosity>1) _printf_("  nb_cavities*max_size_born_cavity" << nb_cavities*max_size_born_cavity << "\n");
     if (verbosity>1) _printf_("  nb_cavities*max_size_dead_cavity" << nb_cavities*max_size_dead_cavity << "\n");
 
-    ulong *element_born_cavity = xNew<ulong>(nb_cavities*max_size_born_cavity);
-    ulong *element_dead_cavity = xNew<ulong>(nb_cavities*max_size_dead_cavity);
+    double *element_born_cavity = xNew<double>(nb_cavities*max_size_born_cavity);
+    double *element_dead_cavity = xNew<double>(nb_cavities*max_size_dead_cavity);
 
     if (verbosity>1) _printf_("   Detect_cavities: loop9...\n");
-    for (ulong i_born=0; i_born<nb_born; i_born++)
+    for (int i_born=0; i_born<nb_born; i_born++)
     {
-	    new_cavity_number=cavity_number_born[ind_born[i_born]-1];
+	    new_cavity_number=cavity_number_born[(int)ind_born[i_born]-1];
 
 	    if(new_cavity_number>0)
 	    {
@@ -799,9 +811,9 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
     }
 
     if (verbosity>1) _printf_("   Detect_cavities: loop10...\n");
-    for (ulong i_dead=0; i_dead<nb_dead; i_dead++)
+    for (int i_dead=0; i_dead<nb_dead; i_dead++)
     {
-	    new_cavity_number=cavity_number_dead[ind_dead[i_dead]-1];
+	    new_cavity_number=cavity_number_dead[(int)ind_dead[i_dead]-1];
 
 	    if(new_cavity_number>0)
 	    {
@@ -813,16 +825,13 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 
     if (verbosity>1) _printf_("   Detect_cavities: destroy final...\n");
     /* destroy the temporary matrix */
-    xDelete<ulong>(ind_dead);
-    xDelete<ulong>(ind_born);
-    xDelete<ulong>(boundary_between_two_cavities);
+    xDelete<double>(boundary_between_two_cavities);
+    xDelete<double>(cavity_number_dead);
 
-    xDelete<long>(cavity_number_dead);
-    xDelete<long>(cavity_number_born);
-    xDelete<long>(is_born_element_to_treat);
-    xDelete<long>(is_dead_element_to_treat);
-
-    xDelete<ulong>(candidate_element_to_treat);
+    xDelete<int>(cavity_number_born);
+    xDelete<int>(is_born_element_to_treat);
+    xDelete<int>(is_dead_element_to_treat);
+    xDelete<int>(candidate_element_to_treat);
 
     // destroy temporary arrays
 
@@ -849,7 +858,7 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 
 int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
             int nb_dead_elements, int nb_born_elements, int nb_variables,
-            ulong* dead_elements, ulong* born_elements, ulong* PreviousNumbering,
+            double* dead_elements, double* born_elements, double* PreviousNumbering,
             double* IntMatrix_in, BamgMesh* bamgmesh_old, BamgMesh* bamgmesh_new, int debug_born_elements_i){
 
     /*---------- Input  ----------*/

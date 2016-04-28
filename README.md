@@ -127,17 +127,13 @@ sudo ln -sf /opt/local/lib/openmpi-gcc48 /opt/local/lib/openmpi-mp
 
 # Type make in nextsim
 
-## For the mode application (run nextsim)
+##------- For the model application -------
 
 # go to nextsim/model
 
 # Type make
 
-# Go to bin, type ./nextsim.exec
-
-## run
-
-# type “bin/nextsim.exec” from the nextsim/research directory
+# type “bin/nextsim.exec”
 
 ##-------Debugging-------
 
