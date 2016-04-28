@@ -2619,8 +2619,8 @@ FiniteElement::update()
         double ridged_thin_ice_volume, ridged_thick_ice_volume;
 
         /* invariant of the internal stress tensor and some variables used for the damaging process*/
-        double sigma_s, sigma_n;
-        double tract_max;
+        double sigma_s, sigma_n, sigma_1, sigma_2;
+        double tract_max, sigma_t, sigma_c, q;
         double tmp, sigma_target;
 
         /* some variables used for the ice redistribution*/
@@ -5603,10 +5603,10 @@ FiniteElement::exportResults(int step, bool export_mesh)
         sigma_pred[2]=M_sigma[3*i+2];
         
         sigma_s=std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
-        sigma_n=           (sigma_pred[0]+sigma_pred[1])/2.;
+        sigma_n= -         (sigma_pred[0]+sigma_pred[1])/2.;
         
-        sigma1[i] = -sigma_n+sigma_s;
-        sigma2[i] = -sigma_n-sigma_s;
+        sigma1[i] = sigma_n+sigma_s;
+        sigma2[i] = sigma_n-sigma_s;
     }
     exporter.writeField(outbin, sigma1, "sigma1");
     exporter.writeField(outbin, sigma2, "sigma2");
