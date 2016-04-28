@@ -56,8 +56,6 @@ FiniteElement::initMesh(setup::DomainType domain_type, std::string mesh_filename
             throw std::logic_error("invalid domain type");
     }
 
-    //M_mesh.setOrdering("bamg");
-
     M_mesh.readFromFile(mesh_filename);
 
     M_mesh.stereographicProjection();
@@ -958,7 +956,7 @@ FiniteElement::initConstant()
     if (M_mesh_type == setup::MeshType::FROM_SPLIT)
         M_mesh.setOrdering("bamg");
     else if (M_mesh_type == setup::MeshType::FROM_GMSH)
-        M_mesh.setOrdering("gmsh");
+        M_mesh.setOrdering("bamg"); /* The .msh files bigarctic.msh,... that are on Johansen are actually using the bamg ordering*/
     else
         throw std::logic_error("Unknown setup::MeshType");
 
