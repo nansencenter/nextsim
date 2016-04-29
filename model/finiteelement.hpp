@@ -365,6 +365,7 @@ private:
     // BamgMesh *bamgmeshout;
     // BamgGeom *bamggeomout;
 
+    BamgOpts *bamgopt_previous;
     BamgMesh *bamgmesh_previous;
     BamgGeom *bamggeom_previous;
 

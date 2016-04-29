@@ -836,6 +836,7 @@ FiniteElement::initBamg()
     bamggeom = new BamgGeom();
     bamgmesh = new BamgMesh();
 
+    bamgopt_previous = new BamgOpts();
     bamggeom_previous = new BamgGeom();
     bamgmesh_previous = new BamgMesh();
 
@@ -1408,9 +1409,9 @@ FiniteElement::regrid(bool step)
 			&M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
 			false);
 
-            delete[] bamgopt->hminVertices;
+            //delete [] bamgopt->hminVertices;
 			bamgopt->hminVertices = new double[M_mesh.numNodes()];
-            delete[] bamgopt->hmaxVertices;
+            //delete [] bamgopt->hmaxVertices;
 			bamgopt->hmaxVertices = new double[M_mesh.numNodes()];
 
 			for (int i=0; i<M_mesh.numNodes(); ++i)
@@ -1914,14 +1915,17 @@ FiniteElement::regrid(bool step)
 void
 FiniteElement::adaptMesh()
 {
+    delete bamgopt_previous;
     delete bamggeom_previous;
     delete bamgmesh_previous;
 
+    bamgopt_previous = new BamgOpts();
     bamggeom_previous = new BamgGeom();
     bamgmesh_previous = new BamgMesh();
 
     *bamgmesh_previous = *bamgmesh;
     *bamggeom_previous = *bamggeom;
+    *bamgopt_previous = *bamgopt;
 
     int fnd = 0;
 
@@ -1937,7 +1941,7 @@ FiniteElement::adaptMesh()
     }
 
     //Environment::logMemoryUsage("before adaptMesh");
-    Bamgx(bamgmesh,bamggeom,bamgmesh_previous,bamggeom_previous,bamgopt);
+    Bamgx(bamgmesh,bamggeom,bamgmesh_previous,bamggeom_previous,bamgopt_previous);
     //Environment::logMemoryUsage("after adaptMesh");
     this->importBamg(bamgmesh);
 
@@ -5631,6 +5635,7 @@ FiniteElement::clear()
 
     delete bamgmesh_previous;
     delete bamggeom_previous;
+    delete bamgopt_previous;
 
     M_matrix->clear();
     M_vector->clear();
