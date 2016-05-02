@@ -358,6 +358,8 @@ FiniteElement::initDatasets()
 		mpp_file: "NpsASR.mpp",
 		rotation_angle: diff_angle,
 		interpolation_in_latlon: false,
+        
+        loaded: false,
 
 		masking: false
 	};
@@ -375,6 +377,8 @@ FiniteElement::initDatasets()
         variables: variables_tmp0,
         target_size: M_num_nodes,
         grid: &M_asr_grid,
+            
+        reloaded: false,
 
         nb_timestep_day: 8,
         time: asr_time,
@@ -460,6 +464,8 @@ FiniteElement::initDatasets()
         variables: variables_tmp1,
         target_size:M_num_elements,
         grid: &M_asr_grid,
+            
+        reloaded: false,
 
         nb_timestep_day: 8,
         time: asr_time,
@@ -633,6 +639,8 @@ FiniteElement::initDatasets()
         rotation_angle: 0.,
 		interpolation_in_latlon: false,
 
+        loaded: false,
+
 		masking: true,
 		masking_variable: sss
 	};
@@ -651,7 +659,9 @@ FiniteElement::initDatasets()
         variables: variables_tmp2,
         target_size: M_num_nodes,
         grid: &M_topaz_grid,
-
+            
+        reloaded: false,
+        
         nb_timestep_day: 1,
         time: topaz_time,
         dimension_time: topaz_dimension_time
@@ -674,9 +684,11 @@ FiniteElement::initDatasets()
         target_size: M_num_elements,
         grid: &M_topaz_grid,
 
+        reloaded: false,
+
         nb_timestep_day: 1,
         time: topaz_time,
-        dimension_time: topaz_dimension_time
+        dimension_time: topaz_dimension_time        
 	};
 
     M_topaz_elements_dataset.ftime_range.resize(2,0.);
@@ -695,6 +707,8 @@ FiniteElement::initDatasets()
         variables: variables_tmp4,
         target_size: M_num_elements,
         grid: &M_topaz_grid,
+        
+        reloaded: false,
 
 		nb_timestep_day: 1,
 	    time: topaz_time,
@@ -762,6 +776,8 @@ FiniteElement::initDatasets()
 		rotation_angle: 0.,
 		interpolation_in_latlon: true,
 
+        loaded: false,
+
 		masking: false
 	};
 
@@ -786,17 +802,9 @@ FiniteElement::initDatasets()
         variables: variables_tmp5,
         target_size:M_num_elements,
         grid: &M_etopo_grid,
+            
+        reloaded: false
 	};
-
-	// Loading the grids once
-    if(M_atmosphere_type==setup::AtmosphereType::ASR)
-        loadGrid(&M_asr_grid);
-    
-    if(M_ocean_type==setup::OceanType::TOPAZR || M_ice_type==setup::IceType::TOPAZ4)
-        loadGrid(&M_topaz_grid);
-    
-    if(M_bathymetry_type==setup::BathymetryType::ETOPO)
-        loadGrid(&M_etopo_grid);
 }
 
 void
@@ -4391,6 +4399,10 @@ void
 FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 {
 
+    // Load grid if unloaded
+    if(!dataset->grid->loaded)
+        loadGrid(dataset->grid);
+        
     // Initialise counters etc.
 	std::string current_timestr = "";
 	int nb_forcing_step =1;
@@ -4855,6 +4867,8 @@ FiniteElement::loadGrid(Grid *grid)
 			grid->gridX=X;
 			grid->gridY=Y;
 		}
+        
+    grid->loaded=true;
 	//	break;
 	//
     //default:

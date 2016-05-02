@@ -89,6 +89,8 @@ public:
         double rotation_angle;
 		bool interpolation_in_latlon;
 
+        bool loaded;
+
 		bool masking;
 		Variable masking_variable;
 		std::vector<int> reduced_nodes_ind;
@@ -112,6 +114,8 @@ public:
         std::vector<Variable> variables;
         int target_size;
         Grid *grid;
+        
+        bool reloaded;
 
         int nb_timestep_day;
         Variable time;
