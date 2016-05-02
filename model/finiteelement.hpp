@@ -190,9 +190,9 @@ public:
     void initBamg();
     void initConstant();
     void forcing();
-    void forcingAtmosphere(bool reload);
-    void forcingOcean(bool reload);
-	void bathymetry(bool reload);
+    void forcingAtmosphere();
+    void forcingOcean();
+	void bathymetry();
 
     void initIce();
     void initThermodynamics();
@@ -426,10 +426,10 @@ private:
     void initIABPDrifter();
     void updateIABPDrifter();
 
-    void asrAtmosphere(bool reload);
-    void topazOcean(bool reload);
+    void asrAtmosphere();
+    void topazOcean();
     void topazIce();
-	void etopoBathymetry(bool reload);
+	void etopoBathymetry();
 
     void loadDataset(Dataset *dataset);//(double const& u, double const& v);
     void loadGrid(Grid *grid);

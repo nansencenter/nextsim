@@ -1915,6 +1915,13 @@ FiniteElement::regrid(bool step)
     M_ice_topaz_elements_dataset.target_size=M_num_elements;
     M_etopo_elements_dataset.target_size=M_num_elements;
 
+    M_asr_nodes_dataset.reloaded=false;
+    M_asr_elements_dataset.reloaded=false;
+    M_topaz_nodes_dataset.reloaded=false;
+    M_topaz_elements_dataset.reloaded=false;
+    M_ice_topaz_elements_dataset.reloaded=false;
+    M_etopo_elements_dataset.reloaded=false;
+
     M_Cohesion.resize(M_num_elements);
     M_Compressive_strength.resize(M_num_elements);
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
@@ -3698,17 +3705,17 @@ FiniteElement::run()
 
         chrono.restart();
         LOG(DEBUG) <<"forcingAtmosphere starts\n";
-        this->forcingAtmosphere(M_regrid||use_restart);
+        this->forcingAtmosphere();
 		LOG(DEBUG) <<"forcingAtmosphere done in "<< chrono.elapsed() <<"s\n";
 
         chrono.restart();
         LOG(DEBUG) <<"forcingOcean starts\n";
-        this->forcingOcean(M_regrid||use_restart);
+        this->forcingOcean();
         LOG(DEBUG) <<"forcingOcean done in "<< chrono.elapsed() <<"s\n";
 
         chrono.restart();
         LOG(DEBUG) <<"bathymetry starts\n";
-        this->bathymetry(M_regrid||use_restart);
+        this->bathymetry();
         LOG(DEBUG) <<"bathymetry done in "<< chrono.elapsed() <<"s\n";
 
         use_restart = false;
@@ -4198,7 +4205,7 @@ FiniteElement::error()
 }
 
 void
-FiniteElement::forcingAtmosphere(bool reload)//(double const& u, double const& v)
+FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
 {
     switch (M_atmosphere_type)
     {
@@ -4206,7 +4213,7 @@ FiniteElement::forcingAtmosphere(bool reload)//(double const& u, double const& v
             this->constantAtmosphere();
             break;
         case setup::AtmosphereType::ASR:
-            this->asrAtmosphere(reload);
+            this->asrAtmosphere();
             break;
 
         default:
@@ -4250,24 +4257,20 @@ FiniteElement::constantAtmosphere()
 }
 
 void
-FiniteElement::asrAtmosphere(bool reload)
+FiniteElement::asrAtmosphere()
 {
-
-    if ((current_time < M_asr_elements_dataset.ftime_range[0]) || (M_asr_elements_dataset.ftime_range[1] < current_time) || (current_time == time_init) || reload)
+    if ((current_time < M_asr_elements_dataset.ftime_range[0]) || (M_asr_elements_dataset.ftime_range[1] < current_time) || !M_asr_elements_dataset.reloaded)
     {
-        if (current_time == time_init)
-            std::cout<<"load forcing from ASR for initial time\n";
-        else
-            std::cout<<"forcing not available for the current date: load data from ASR\n";
-
         LOG(DEBUG) << "Elements\n";
         this->loadDataset(&M_asr_elements_dataset);
+        LOG(DEBUG) << "Done\n";
+    }
+    
+    if ((current_time < M_asr_nodes_dataset.ftime_range[0]) || (M_asr_nodes_dataset.ftime_range[1] < current_time) || !M_asr_nodes_dataset.reloaded)
+    {
         LOG(DEBUG) << "Nodes\n";
         this->loadDataset(&M_asr_nodes_dataset);
         LOG(DEBUG) << "Done\n";
-
-        //std::cout<<"forcing not available for the current date\n";
-        //throw std::logic_error("forcing not available for the current date");
     }
 
     double fdt = std::abs(M_asr_elements_dataset.ftime_range[1]-M_asr_elements_dataset.ftime_range[0]);
@@ -4322,7 +4325,7 @@ FiniteElement::asrAtmosphere(bool reload)
 }
 
 void
-FiniteElement::forcingOcean(bool reload)//(double const& u, double const& v)
+FiniteElement::forcingOcean()//(double const& u, double const& v)
 {
     switch (M_ocean_type)
     {
@@ -4330,7 +4333,7 @@ FiniteElement::forcingOcean(bool reload)//(double const& u, double const& v)
             this->constantOcean();
             break;
         case setup::OceanType::TOPAZR:
-            this->topazOcean(reload);
+            this->topazOcean();
             break;
 
 
@@ -4354,21 +4357,13 @@ FiniteElement::constantOcean()
 }
 
 void
-FiniteElement::topazOcean(bool reload)
+FiniteElement::topazOcean()
 {
-    if ((current_time < M_topaz_nodes_dataset.ftime_range[0]) || (M_topaz_nodes_dataset.ftime_range[1] < current_time) || (current_time == time_init) || reload)
-    {
-        if (current_time == time_init)
-            std::cout<<"load forcing from TOPAZ for initial time\n";
-        else
-            std::cout<<"forcing not available for the current date: load data from TOPAZ\n";
-
-        this->loadDataset(&M_topaz_nodes_dataset);
+    if ((current_time < M_topaz_elements_dataset.ftime_range[0]) || (M_topaz_elements_dataset.ftime_range[1] < current_time) || !M_topaz_elements_dataset.reloaded)
         this->loadDataset(&M_topaz_elements_dataset);
 
-        //std::cout<<"forcing not available for the current date\n";
-        //throw std::logic_error("forcing not available for the current date");
-    }
+    if ((current_time < M_topaz_nodes_dataset.ftime_range[0]) || (M_topaz_nodes_dataset.ftime_range[1] < current_time) || !M_topaz_nodes_dataset.reloaded)
+        this->loadDataset(&M_topaz_nodes_dataset);
 
     double fdt = std::abs(M_topaz_nodes_dataset.ftime_range[1]-M_topaz_nodes_dataset.ftime_range[0]);
     std::vector<double> fcoeff(2);
@@ -4657,6 +4652,8 @@ LOG(DEBUG) <<"after interp " <<"\n";
     }
 
 	xDelete<double>(data_out);
+    
+    dataset->reloaded=true;
 
     LOG(DEBUG) <<"end load" <<"\n";
 }
@@ -4888,7 +4885,7 @@ FiniteElement::initSlabOcean()
             std::fill(M_sss.begin(), M_sss.end(), -1.8/physical::mu);
             break;
         case setup::OceanType::TOPAZR:
-            this->topazOcean(1); // This is lazy re-use of code
+            this->topazOcean(); // This is lazy re-use of code
             for ( int i=0; i<M_num_elements; ++i)
             {
                 // Make sure the erroneous salinity and temperature don't screw up the initialisation too badly
@@ -4973,25 +4970,15 @@ FiniteElement::targetIce()
             M_conc[i]=0.;
             M_snow_thick[i]=0.;
             M_damage[i]=1.;
-        }
-
-		
-        
+        }   
     }
 }
 
 void
 FiniteElement::topazIce()
 {
-    if ((current_time < M_ice_topaz_elements_dataset.ftime_range[0]) || (M_ice_topaz_elements_dataset.ftime_range[1] < current_time) || (current_time == time_init))
-    {
-        if (current_time == time_init)
-            std::cout<<"load ice state from TOPAZ for initial time\n";
-        else
-            std::cout<<" ice state not available for the current date: load data from TOPAZ\n";
-
+    if (!M_ice_topaz_elements_dataset.reloaded)
         this->loadDataset(&M_ice_topaz_elements_dataset);
-    }
 
     double fdt = std::abs(M_ice_topaz_elements_dataset.ftime_range[1]-M_ice_topaz_elements_dataset.ftime_range[0]);
     std::vector<double> fcoeff(2);
@@ -5077,7 +5064,7 @@ FiniteElement::coriolis()
 
 
 void
-FiniteElement::bathymetry(bool reload)//(double const& u, double const& v)
+FiniteElement::bathymetry()//(double const& u, double const& v)
 {
     switch (M_bathymetry_type)
     {
@@ -5085,7 +5072,7 @@ FiniteElement::bathymetry(bool reload)//(double const& u, double const& v)
             this->constantBathymetry();
             break;
         case setup::BathymetryType::ETOPO:
-            this->etopoBathymetry(reload);
+            this->etopoBathymetry();
             break;
 
         default:
@@ -5104,12 +5091,10 @@ FiniteElement::constantBathymetry()
 }
 
 void
-FiniteElement::etopoBathymetry(bool reload)
+FiniteElement::etopoBathymetry()
 {
-    if ((current_time == time_init) || reload)
-    {
+    if (!M_etopo_elements_dataset.reloaded)
         this->loadDataset(&M_etopo_elements_dataset);
-    }
 
     for (int i=0; i<M_num_elements; ++i)
     {
