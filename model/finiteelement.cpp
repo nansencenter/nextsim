@@ -1409,9 +1409,9 @@ FiniteElement::regrid(bool step)
 			&M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
 			false);
 
-            //delete [] bamgopt->hminVertices;
+            // No need to deallocate the memory related to hminVertices and hmaxVertices, 
+            // as it is done when deleting bamgopt_previous in adaptMesh 
 			bamgopt->hminVertices = new double[M_mesh.numNodes()];
-            //delete [] bamgopt->hmaxVertices;
 			bamgopt->hmaxVertices = new double[M_mesh.numNodes()];
 
 			for (int i=0; i<M_mesh.numNodes(); ++i)
