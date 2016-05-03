@@ -3604,7 +3604,6 @@ FiniteElement::run()
     if ( use_restart )
     {
         this->readRestart(pcpt, vm["setup.step_nb"].as<int>());
-        current_time = time_init + pcpt*time_step/(24*3600.0);
     } else {
         // Do one regrid to get the mesh right
         this->regrid(pcpt);
@@ -3633,6 +3632,7 @@ FiniteElement::run()
     std::fstream pcpt_file;
     pcpt_file.open("Timestamp.txt", std::ios::out | std::ios::trunc);
     // main loop for nextsim program
+    current_time = time_init + pcpt*time_step/(24*3600.0);
     while (is_running)
     {
         is_running = ((pcpt+1)*time_step) < duration;
@@ -3640,7 +3640,6 @@ FiniteElement::run()
         // if (pcpt > 21)
         //     is_running = false;
 
-        current_time = time_init + pcpt*time_step/(24*3600.0);
         //std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
         std::cout<<"---------------------- TIME STEP "<< pcpt << " : "
                  << time_init << " + "<< pcpt*time_step/(24*3600.0);
@@ -3762,22 +3761,23 @@ FiniteElement::run()
         this->update();
         LOG(DEBUG) <<"update done in "<< chrono.elapsed() <<"s\n";
 
+        ++pcpt;
+        current_time = time_init + pcpt*time_step/(24*3600.0);
+        pcpt_file << pcpt << "\n";
+        pcpt_file << to_date_string(current_time) << "\n";
+        pcpt_file.seekp(0);
+
 #if 1
 
-        if(fmod((pcpt+1)*time_step,output_time_step) == 0)
+        if(fmod(pcpt*time_step,output_time_step) == 0)
         {
             chrono.restart();
             LOG(DEBUG) <<"export starts\n";
-            this->exportResults((int) (pcpt+1)*time_step/output_time_step);
+            this->exportResults((int) pcpt*time_step/output_time_step);
             LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
         }
 
 #endif
-
-        ++pcpt;
-        pcpt_file << pcpt << "\n";
-        pcpt_file << to_date_string(time_init + pcpt*time_step/(24*3600.0)) << "\n"; // current time
-        pcpt_file.seekp(0);
 
         if ( fmod(pcpt*time_step,restart_time_step) == 0)
         {

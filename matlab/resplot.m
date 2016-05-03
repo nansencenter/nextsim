@@ -75,4 +75,8 @@ for i=1:length(c)
     colorbar
 end
 
+font_size=12;
+textstring=datestr(data_out.Time + datenum('1-jan-1900'));
+text(0.65, 0.95,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
+
 end

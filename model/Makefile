@@ -33,6 +33,8 @@ else
 
 endif
 
+LDFLAGS += -L /usr/local/lib
+
 LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
 LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
 
