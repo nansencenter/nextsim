@@ -426,13 +426,12 @@ private:
     void initIABPDrifter();
     void updateIABPDrifter();
 
+#if 0
     void asrAtmosphere();
     void topazOcean();
     void topazIce();
 	void etopoBathymetry();
-
-    void loadDataset(Dataset *dataset);//(double const& u, double const& v);
-    void loadGrid(Grid *grid);
+#endif
 };
 } // Nextsim
 #endif

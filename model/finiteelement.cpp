@@ -4212,10 +4212,11 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
         case setup::AtmosphereType::CONSTANT:
             this->constantAtmosphere();
             break;
+#if 0
         case setup::AtmosphereType::ASR:
             this->asrAtmosphere();
             break;
-
+#endif
         default:
             std::cout << "invalid wind forcing"<<"\n";
             throw std::logic_error("invalid wind forcing");
@@ -4256,6 +4257,7 @@ FiniteElement::constantAtmosphere()
     LOG(DEBUG) << "simul.constant_snowfr: " << vm["simul.constant_snowfr"].as<double>() << "\n";
 }
 
+#if 0
 void
 FiniteElement::asrAtmosphere()
 {
@@ -4323,7 +4325,7 @@ FiniteElement::asrAtmosphere()
     M_dair.assign(M_num_elements,vm["simul.constant_dair"].as<double>());
     LOG(DEBUG) << "simul.constant_dair:   " << vm["simul.constant_dair"].as<double>() << "\n";
 }
-
+#endif
 void
 FiniteElement::forcingOcean()//(double const& u, double const& v)
 {
@@ -4332,16 +4334,18 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
         case setup::OceanType::CONSTANT:
             this->constantOcean();
             break;
+#if 0
         case setup::OceanType::TOPAZR:
             this->topazOcean();
             break;
-
+#endif
 
         default:
             std::cout << "invalid ocean forcing"<<"\n";
             throw std::logic_error("invalid ocean forcing");
     }
 }
+
 
 void
 FiniteElement::constantOcean()
@@ -4356,6 +4360,7 @@ FiniteElement::constantOcean()
     M_mld.assign(M_num_elements,vm["simul.constant_mld"].as<double>());
 }
 
+#if 0
 void
 FiniteElement::topazOcean()
 {
@@ -4389,7 +4394,9 @@ FiniteElement::topazOcean()
 		M_mld[i] = std::max(vm["simul.constant_mld"].as<double>(), fcoeff[0]*M_topaz_elements_dataset.variables[2].data2[0][i] + fcoeff[1]*M_topaz_elements_dataset.variables[2].data2[1][i]);
 	}
 }
+#endif
 
+#if 0
 void
 FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 {
@@ -4874,6 +4881,7 @@ FiniteElement::loadGrid(Grid *grid)
 	}
 
 }
+#endif
 
 void
 FiniteElement::initSlabOcean()
@@ -4884,7 +4892,9 @@ FiniteElement::initSlabOcean()
             std::fill(M_sst.begin(), M_sst.end(), -1.8);
             std::fill(M_sss.begin(), M_sss.end(), -1.8/physical::mu);
             break;
+#if 0
         case setup::OceanType::TOPAZR:
+
             this->topazOcean(); // This is lazy re-use of code
             for ( int i=0; i<M_num_elements; ++i)
             {
@@ -4893,7 +4903,9 @@ FiniteElement::initSlabOcean()
                 M_sss[i] = std::max(physical::si, M_ocean_salt[i]);
                 M_sst[i] = std::max(M_sss[i]*physical::mu, M_ocean_temp[i]);
             }
+
             break;
+            #endif
 
 
 
@@ -4914,10 +4926,11 @@ FiniteElement::initIce()
         case setup::IceType::TARGET:
             this->targetIce();
             break;
+#if 0
         case setup::IceType::TOPAZ4:
-            this->topazIce();
+        this->topazIce();
             break;
-
+#endif
 
         default:
             std::cout << "invalid initialization of the ice"<<"\n";
@@ -4973,7 +4986,7 @@ FiniteElement::targetIce()
         }   
     }
 }
-
+#if 0
 void
 FiniteElement::topazIce()
 {
@@ -5013,6 +5026,7 @@ FiniteElement::topazIce()
 		M_damage[i]=0.;
 	}
 }
+#endif
 
 void
 FiniteElement::initThermodynamics()
@@ -5071,10 +5085,11 @@ FiniteElement::bathymetry()//(double const& u, double const& v)
         case setup::BathymetryType::CONSTANT:
             this->constantBathymetry();
             break;
+#if 0
         case setup::BathymetryType::ETOPO:
             this->etopoBathymetry();
             break;
-
+#endif
         default:
             std::cout << "invalid bathymetry"<<"\n";
             throw std::logic_error("invalid bathymetry");
@@ -5090,6 +5105,7 @@ FiniteElement::constantBathymetry()
     }
 }
 
+#if 0
 void
 FiniteElement::etopoBathymetry()
 {
@@ -5123,6 +5139,7 @@ FiniteElement::etopoBathymetry()
     }
 #endif
 }
+#endif
 
 void
 FiniteElement::timeInterpolation(int step)
