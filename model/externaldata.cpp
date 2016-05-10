@@ -27,7 +27,6 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
 	:
     M_dataset( dataset ),
     M_VariableId( VariableId ),
-    M_is_initialized( false ),
     M_current_time( 0. )
 {
     M_datasetname = (boost::format( "%1%...%2%" )
@@ -38,67 +37,68 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
     fcoeff.resize(2);
 }
 
+ExternalData::ExternalData( double ConstantValue )
+	:
+    M_is_constant( true ),
+    M_constant_value( ConstantValue ),
+    M_current_time( 0. )
+{}
+
 ExternalData::~ExternalData()
 {
 	this->clear();
 }
 
-void ExternalData::settime( const double current_time )
-{
-    M_current_time = current_time;
-    M_is_initialized = true;
-}
-
-void ExternalData::check_and_reload(GmshMesh const& M_mesh)
-{
-    std::cout << "Before Assert" << "\n";
-    
-	ASSERT(M_is_initialized, "ExternalData not initialized");
-	
-    std::cout << "After Assert" << "\n";
-    
-    bool to_be_reloaded=false;
-    
-    if(M_dataset->nb_timestep_day>0) 
+void ExternalData::check_and_reload(GmshMesh const& M_mesh, const double current_time)
+{    
+    if(!M_is_constant)
     {
-        to_be_reloaded=((M_current_time < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < M_current_time) || !M_dataset->reloaded);
-    }
-    else    
-        to_be_reloaded=!M_dataset->reloaded;
-    
-    if (to_be_reloaded)
-    {
-        std::cout << "Load " << M_datasetname << "\n";
-        loadDataset(M_dataset, M_mesh);
-        std::cout << "Done\n";
-    }
-    else
-        std::cout << "Nothing to reload\n";
+        M_current_time = current_time;
         
+        bool to_be_reloaded=false;
+    
+        if(M_dataset->nb_timestep_day>0) 
+        {
+            to_be_reloaded=((M_current_time < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < M_current_time) || !M_dataset->reloaded);
+        }
+        else    
+            to_be_reloaded=!M_dataset->reloaded;
+    
+        if (to_be_reloaded)
+        {
+            std::cout << "Load " << M_datasetname << "\n";
+            loadDataset(M_dataset, M_mesh);
+            std::cout << "Done\n";
+        }
+    }       
 }
 
 typename ExternalData::value_type
 ExternalData::operator [] (const size_type i)
 {
-    ASSERT(i < M_dataset->target_size, "invalid index");
-    
     value_type value;
     
-	if(M_dataset->nb_timestep_day>0)
-	{
-        fdt = std::abs(M_dataset->ftime_range[1]-M_dataset->ftime_range[0]);
-        fcoeff[0] = std::abs(M_current_time-M_dataset->ftime_range[1])/fdt;
-        fcoeff[1] = std::abs(M_current_time-M_dataset->ftime_range[0])/fdt;
-    
-        std::cout <<"LINEAR COEFF 1= "<< fcoeff[0] <<"\n";
-        std::cout <<"LINEAR COEFF 2= "<< fcoeff[1] <<"\n";
-    
-        value =  fcoeff[0]*M_dataset->variables[M_VariableId].data2[0][i] + 
-                            fcoeff[1]*M_dataset->variables[M_VariableId].data2[1][i];
-    }
+    if(M_is_constant)
+        value = M_constant_value;
     else
-    {
-        value =  -M_dataset->variables[M_VariableId].data2[0][i];
+    {     
+        ASSERT(i < M_dataset->target_size, "invalid index"); 
+        if(M_dataset->nb_timestep_day>0)
+        {
+            fdt = std::abs(M_dataset->ftime_range[1]-M_dataset->ftime_range[0]);
+            fcoeff[0] = std::abs(M_current_time-M_dataset->ftime_range[1])/fdt;
+            fcoeff[1] = std::abs(M_current_time-M_dataset->ftime_range[0])/fdt;
+    
+            //std::cout <<"LINEAR COEFF 1= "<< fcoeff[0] <<"\n";
+            //std::cout <<"LINEAR COEFF 2= "<< fcoeff[1] <<"\n";
+    
+            value =  fcoeff[0]*M_dataset->variables[M_VariableId].data2[0][i] + 
+                fcoeff[1]*M_dataset->variables[M_VariableId].data2[1][i];
+        }
+        else
+        {
+            value =  -M_dataset->variables[M_VariableId].data2[0][i];
+        }
     }
 
 	return static_cast<value_type>( value );

@@ -118,6 +118,8 @@ public:
     ExternalData();
 
     ExternalData(Dataset *dataset, GmshMesh const& Mesh, int VariableId );
+    
+    ExternalData(double ConstantValue );
 
 	~ExternalData();
 #if 0
@@ -126,10 +128,8 @@ public:
     void resize(const size_type n, bool fast = false);
 
 	void close();
-#endif
-    void settime( const double current_time );
-    
-    void check_and_reload(GmshMesh const& Mesh );
+#endif    
+    void check_and_reload(GmshMesh const& Mesh, const double current_time );
     
 	value_type operator[] (const size_type i);
 
@@ -155,9 +155,9 @@ public:
 private:
     std::string M_datasetname;
     int M_VariableId;
-	bool M_is_initialized;
     double M_current_time;
-    
+    bool M_is_constant;
+    double M_constant_value;
 
 };
 

@@ -321,14 +321,28 @@ private:
     // Thermodynamic and dynamic forcing
     // Atmosphere
     std::vector<double> M_wind;         // Surface wind [m/s]
+#if 0
     std::vector<double> M_tair;         // 2 m temperature [C]
     std::vector<double> M_mixrat;       // Mixing ratio
-    std::vector<double> M_dair;         // 2 m dew point [C]
     std::vector<double> M_mslp;         // Atmospheric pressure [Pa]
     std::vector<double> M_Qsw_in;       // Incoming short-wave radiation [W/m2]
     std::vector<double> M_Qlw_in;       // Incoming long-wave radiation [W/m2]
     std::vector<double> M_precip;       // Total precipitation [m]
     std::vector<double> M_snowfr;       // Fraction of precipitation that is snow
+    std::vector<double> M_dair;         // 2 m dew point [C]
+#endif
+    
+    
+    external_data M_tair;         // 2 m temperature [C]
+    external_data M_mixrat;       // Mixing ratio
+    external_data M_mslp;         // Atmospheric pressure [Pa]
+    external_data M_Qsw_in;       // Incoming short-wave radiation [W/m2]
+    external_data M_Qlw_in;       // Incoming long-wave radiation [W/m2]
+    external_data M_precip;       // Total precipitation [m]
+    external_data M_snowfr;       // Fraction of precipitation that is snow
+    external_data M_dair;         // 2 m dew point [C]
+    
+    
     // Ocean
     std::vector<double> M_ocean;        // "Geostrophic" ocean currents [m/s]
     std::vector<double> M_ocean_temp;   // Ocean temperature in top layer [C]
