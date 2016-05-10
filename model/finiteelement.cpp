@@ -5641,6 +5641,19 @@ FiniteElement::exportResults(int step, bool export_mesh)
 }
 
 void
+FiniteElement::applyWim()
+{
+    // instantiation of wim
+    Wim::WimDiscr<double> wim(vm);
+
+    // initialization of wim2d
+    wim.init();
+
+    // run the simulation
+    wim.run();
+}
+
+void
 FiniteElement::clear()
 {
     delete[] M_topaz_grid.pfindex;
