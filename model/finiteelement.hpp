@@ -11,23 +11,22 @@
 #define __FiniteElement_HPP 1
 
 #include <solverpetsc.hpp>
+#include <boost/ptr_container/ptr_vector.hpp>
 #include <boost/program_options.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/assign/list_of.hpp>
 #include <boost/version.hpp>
 #include <boost/format.hpp>
 #include <BamgConvertMeshx.h>
-#include <BamgTriangulatex.h>
 #include <Bamgx.h>
 #include <InterpFromMeshToMesh2dCavities.h>
 #include <InterpFromMeshToMesh2dx.h>
-#include <InterpFromGridToMeshx.h>
 #include <gmshmesh.hpp>
 #include <graphcsr.hpp>
 #include "enums.hpp"
 #include <debug.hpp>
-#include <netcdf>
 #include <omp.h>
+#include <externaldata.hpp>
 
 extern "C"
 {
@@ -54,76 +53,14 @@ public:
     typedef boost::shared_ptr<vector_type> vector_ptrtype;
     typedef GraphCSR graph_type;
     typedef boost::shared_ptr<graph_type> graph_ptrtype;
-
-    typedef struct Dimension
-    {
-        std::string name;
-        int start;
-        int end;
-    } Dimesion;
-
-    typedef struct Variable
-    {
-        std::string name;
-        std::vector<Dimension> dimensions;
-        double a;
-        double b;
-        std::string Units;
-        std::vector<std::vector<double>> data2;
-    } Variable;
-
-    typedef struct Grid
-    {
-        setup::InterpolationType interpolation_method;
-		int interp_type;
-        std::string dirname;
-        std::string filename;
-
-        Variable latitude;
-        Variable longitude;
-
-        Dimension dimension_x;
-        Dimension dimension_y;
-
-        std::string mpp_file;
-        double rotation_angle;
-		bool interpolation_in_latlon;
-
-        bool loaded;
-
-		bool masking;
-		Variable masking_variable;
-		std::vector<int> reduced_nodes_ind;
-
-        int* pfindex;
-        int pfnels;
-        std::vector<double> gridX;
-        std::vector<double> gridY;
-
-        std::vector<double> gridLAT;
-        std::vector<double> gridLON;
-    } Grid;
-
-    typedef struct Dataset
-    {
-        std::string dirname;
-        std::string prefix;
-        std::string postfix;
-        std::string reference_date;
-
-        std::vector<Variable> variables;
-        int target_size;
-        Grid *grid;
-        
-        bool reloaded;
-
-        int nb_timestep_day;
-        Variable time;
-        Dimension dimension_time;
-
-        std::vector<double> ftime_range;
-    } Dataset;
-
+    
+    typedef ExternalData external_data;
+    typedef ExternalData::Dataset Dataset;
+    typedef ExternalData::Grid Grid;
+    typedef ExternalData::Dimension Dimension;
+    typedef ExternalData::Variable Variable;
+    typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
+    
     FiniteElement();
 
     mesh_type const& mesh() const {return M_mesh;}
@@ -280,7 +217,8 @@ private:
     std::vector<double> M_hminVertices;
     std::vector<double> M_hmaxVertices;
 
-    std::vector<double> M_element_depth;
+    //std::vector<double> M_element_depth;
+    external_data M_element_depth;
     std::vector<double> M_Vair_factor;
     std::vector<double> M_Voce_factor;
     std::vector<double> M_basal_factor;
@@ -290,6 +228,9 @@ private:
     std::vector<double> M_hs_thin;
     std::vector<double> M_h_ridged_thin_ice;
     std::vector<double> M_h_ridged_thick_ice;
+    
+    //externaldata_ptr_vector M_external_data;
+    std::vector<external_data*> M_external_data;
 
     std::vector<double> M_fcor;
 

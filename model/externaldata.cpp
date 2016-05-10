@@ -20,10 +20,12 @@
 namespace Nextsim
 {
 
+ExternalData::ExternalData( )
+{}
+
 ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId )
 	:
     M_dataset( dataset ),
-    M_mesh( mesh ),
     M_VariableId( VariableId ),
     M_is_initialized( false ),
     M_current_time( 0. )
@@ -47,29 +49,57 @@ void ExternalData::settime( const double current_time )
     M_is_initialized = true;
 }
 
-typename ExternalData::value_type
-ExternalData::operator () (const size_type i)
+void ExternalData::check_and_reload(GmshMesh const& M_mesh)
 {
+    std::cout << "Before Assert" << "\n";
+    
 	ASSERT(M_is_initialized, "ExternalData not initialized");
 	
-    if ((M_current_time < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < M_current_time) || !M_dataset->reloaded)
+    std::cout << "After Assert" << "\n";
+    
+    bool to_be_reloaded=false;
+    
+    if(M_dataset->nb_timestep_day>0) 
     {
-        //LOG(DEBUG) << "Load " << M_datasetname << "\n";
-        loadDataset(M_dataset, M_mesh);
-        //LOG(DEBUG) << "Done\n";
-        
-        fdt = std::abs(M_dataset->ftime_range[1]-M_dataset->ftime_range[0]);
+        to_be_reloaded=((M_current_time < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < M_current_time) || !M_dataset->reloaded);
     }
+    else    
+        to_be_reloaded=!M_dataset->reloaded;
     
-    fcoeff[0] = std::abs(M_current_time-M_dataset->ftime_range[1])/fdt;
-    fcoeff[1] = std::abs(M_current_time-M_dataset->ftime_range[0])/fdt;
-    
-    //LOG(DEBUG) <<"LINEAR COEFF 1= "<< fcoeff[0] <<"\n";
-    //LOG(DEBUG) <<"LINEAR COEFF 2= "<< fcoeff[1] <<"\n";
-    
-    ASSERT(i < M_dataset->target_size, "invalid index");
+    if (to_be_reloaded)
+    {
+        std::cout << "Load " << M_datasetname << "\n";
+        loadDataset(M_dataset, M_mesh);
+        std::cout << "Done\n";
+    }
+    else
+        std::cout << "Nothing to reload\n";
+        
+}
 
-	value_type value = fcoeff[0]*M_dataset->variables[M_VariableId].data2[0][i] + fcoeff[1]*M_dataset->variables[M_VariableId].data2[1][i];
+typename ExternalData::value_type
+ExternalData::operator [] (const size_type i)
+{
+    ASSERT(i < M_dataset->target_size, "invalid index");
+    
+    value_type value;
+    
+	if(M_dataset->nb_timestep_day>0)
+	{
+        fdt = std::abs(M_dataset->ftime_range[1]-M_dataset->ftime_range[0]);
+        fcoeff[0] = std::abs(M_current_time-M_dataset->ftime_range[1])/fdt;
+        fcoeff[1] = std::abs(M_current_time-M_dataset->ftime_range[0])/fdt;
+    
+        std::cout <<"LINEAR COEFF 1= "<< fcoeff[0] <<"\n";
+        std::cout <<"LINEAR COEFF 2= "<< fcoeff[1] <<"\n";
+    
+        value =  fcoeff[0]*M_dataset->variables[M_VariableId].data2[0][i] + 
+                            fcoeff[1]*M_dataset->variables[M_VariableId].data2[1][i];
+    }
+    else
+    {
+        value =  -M_dataset->variables[M_VariableId].data2[0][i];
+    }
 
 	return static_cast<value_type>( value );
 }
@@ -118,7 +148,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& M_mesh)//(double con
 
 		for (int i=0; i<dataset->ftime_range.size(); ++i)
 		{
-			//LOG(DEBUG) <<"TIMEVEC["<< i <<"]= "<< dataset->ftime_range[i] <<"\n";
+			std::cout <<"TIMEVEC["<< i <<"]= "<< dataset->ftime_range[i] <<"\n";
 		}
 
 		nb_forcing_step = dataset->ftime_range.size();
@@ -147,7 +177,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& M_mesh)//(double con
     double scale_factor;
     double add_offset;
 
-    //LOG(DEBUG) <<"NB_FORCING_STEP= "<< nb_forcing_step <<"\n";
+    std::cout <<"NB_FORCING_STEP= "<< nb_forcing_step <<"\n";
 
     // Read in data one time step at a time
     for (int fstep=0; fstep < nb_forcing_step; ++fstep)
@@ -162,7 +192,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& M_mesh)//(double con
 		{
             ftime = dataset->ftime_range[fstep];
             std::string f_timestr = to_date_string_ym(std::floor(ftime));
-            //LOG(DEBUG) <<"F_TIMESTR= "<< f_timestr <<"\n";
+            std::cout <<"F_TIMESTR= "<< f_timestr <<"\n";
 
             filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                         % Environment::simdataDir().string()
@@ -200,7 +230,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& M_mesh)//(double con
 
             auto it = std::find(XTIME.begin(), XTIME.end(), ftime);
             index = std::distance(XTIME.begin(),it);
-            //LOG(DEBUG) <<"FIND "<< ftime <<" in index "<< index <<"\n";
+            std::cout <<"FIND "<< ftime <<" in index "<< index <<"\n";
         }
 
         for(int j=0; j<dataset->variables.size(); ++j)
@@ -295,31 +325,31 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& M_mesh)//(double con
 		close_mapx(map);
 	}
 
-    //LOG(DEBUG) <<"before interp " <<"\n";
+    std::cout <<"before interp " <<"\n";
 
     switch(dataset->grid->interpolation_method)
     {
-        case setup::InterpolationType::InterpFromGridToMesh:
+        case InterpolationType::FromGridToMesh:
             InterpFromGridToMeshx(  data_out, &dataset->grid->gridX[0], dataset->grid->gridX.size(), &dataset->grid->gridY[0], dataset->grid->gridY.size(),
                                   &data_in[0], dataset->grid->gridY.size(), dataset->grid->gridX.size(),
                                   dataset->variables.size()*nb_forcing_step,
                                  &RX[0], &RY[0], dataset->target_size, 1.0, interp_type);
         break;
-        case setup::InterpolationType::InterpFromMeshToMesh2dx:
+        case InterpolationType::FromMeshToMesh2dx:
             InterpFromMeshToMesh2dx(&data_out,
-                                        dataset->grid->pfindex,&dataset->grid->gridX[0],&dataset->grid->gridY[0],
+                                dataset->grid->pfindex,&dataset->grid->gridX[0],&dataset->grid->gridY[0],
                                         dataset->grid->gridX.size(),dataset->grid->pfnels,
                                         &data_in[0],
                                         dataset->grid->gridX.size(),N_data*nb_forcing_step,
                                         &RX[0], &RY[0], dataset->target_size,
-                                        false /*options*/);
+                                        false);
         break;
         default:
             std::cout << "invalid interpolation type:" <<"\n";
             throw std::logic_error("invalid interpolation type");
     }
 
-//LOG(DEBUG) <<"after interp " <<"\n";
+std::cout <<"after interp " <<"\n";
 
     for (int fstep=0; fstep < nb_forcing_step; ++fstep)
     {
@@ -339,14 +369,14 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& M_mesh)//(double con
     
     dataset->reloaded=true;
 
-    //LOG(DEBUG) <<"end load" <<"\n";
+    std::cout <<"end load" <<"\n";
 }
 
 void
 ExternalData::loadGrid(Grid *grid)
 {
     std::string current_timestr = to_date_string_ym(M_current_time);
-    //LOG(DEBUG) <<"TIMESTR= "<< current_timestr <<"\n";
+    std::cout <<"TIMESTR= "<< current_timestr <<"\n";
     std::string filename = (boost::format( "%1%/%2%/%3%" )
                             % Environment::simdataDir().string()
                             % grid->dirname
@@ -374,13 +404,13 @@ ExternalData::loadGrid(Grid *grid)
 		std::vector<double> LAT(index_y_count[0]);
 		std::vector<double> LON(index_x_count[0]);
 
-		//LOG(DEBUG) <<"GRID : READ NETCDF starts\n";
+		std::cout <<"GRID : READ NETCDF starts\n";
                 if ( ! boost::filesystem::exists(filename) )
                     throw std::runtime_error("File not found: " + filename);
 		netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
 		netCDF::NcVar VLAT = dataFile.getVar(grid->latitude.name);
 		netCDF::NcVar VLON = dataFile.getVar(grid->longitude.name);
-		//LOG(DEBUG) <<"GRID : READ NETCDF done\n";
+		std::cout <<"GRID : READ NETCDF done\n";
 
 		VLAT.getVar(index_y_start,index_y_count,&LAT[0]);
 		VLON.getVar(index_x_start,index_x_count,&LON[0]);
@@ -411,7 +441,7 @@ ExternalData::loadGrid(Grid *grid)
 		index_px_count[0] = grid->dimension_y.end-grid->dimension_y.start;
 		index_px_count[1] = grid->dimension_x.end-grid->dimension_x.start;
 
-		if(grid->interpolation_method==setup::InterpolationType::InterpFromGridToMesh)
+		if(grid->interpolation_method==InterpolationType::FromGridToMesh)
 		{
 			index_py_count[1] = 1;
 			index_px_count[0] = 1;
@@ -422,13 +452,13 @@ ExternalData::loadGrid(Grid *grid)
 		std::vector<double> YLAT(index_py_count[0]*index_py_count[1]);
 		std::vector<double> YLON(index_py_count[0]*index_py_count[1]);
 
-		//LOG(DEBUG) <<"GRID : READ NETCDF starts\n";
+		std::cout <<"GRID : READ NETCDF starts\n";
                 if ( ! boost::filesystem::exists(filename) )
                     throw std::runtime_error("File not found: " + filename);
 		netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
 		netCDF::NcVar VLAT = dataFile.getVar(grid->latitude.name);
 		netCDF::NcVar VLON = dataFile.getVar(grid->longitude.name);
-		//LOG(DEBUG) <<"GRID : READ NETCDF done\n";
+		std::cout <<"GRID : READ NETCDF done\n";
 
 		VLAT.getVar(index_px_start,index_px_count,&XLAT[0]);
 		VLON.getVar(index_px_start,index_px_count,&XLON[0]);
@@ -473,7 +503,7 @@ ExternalData::loadGrid(Grid *grid)
 
 		close_mapx(map);
 
-		if(grid->interpolation_method==setup::InterpolationType::InterpFromMeshToMesh2dx)
+		if(grid->interpolation_method==InterpolationType::FromMeshToMesh2dx)
 		{
 			if(grid->masking){
 				netCDF::NcVar VMASK;
@@ -502,8 +532,8 @@ ExternalData::loadGrid(Grid *grid)
 
 				if((index_px_count[0]!=index_count[grid->masking_variable.dimensions.size()-2]) || (index_px_count[1]!=index_count[grid->masking_variable.dimensions.size()-1]))
 				{
-                    //LOG(DEBUG) << "index_px_count[0] = " << index_px_count[0] << " index_count[grid->masking_variable.dimensions.size()-2] = " << index_count[grid->masking_variable.dimensions.size()-2] <<"\n";
-					//LOG(DEBUG) << "index_px_count[1] = " << index_px_count[1] << " index_count[grid->masking_variable.dimensions.size()-1] = " << index_count[grid->masking_variable.dimensions.size()-1] <<"\n";
+                    std::cout << "index_px_count[0] = " << index_px_count[0] << " index_count[grid->masking_variable.dimensions.size()-2] = " << index_count[grid->masking_variable.dimensions.size()-2] <<"\n";
+					std::cout << "index_px_count[1] = " << index_px_count[1] << " index_count[grid->masking_variable.dimensions.size()-1] = " << index_count[grid->masking_variable.dimensions.size()-1] <<"\n";
                     throw std::logic_error("Not the same dimension for the masking variable and the grid!!");
 				}
 
@@ -538,10 +568,10 @@ ExternalData::loadGrid(Grid *grid)
 				grid->gridY=Y;
 			}
 
-			//LOG(DEBUG) <<"GRID : Triangulate starts\n";
+			std::cout <<"GRID : Triangulate starts\n";
 			BamgTriangulatex(&grid->pfindex,&grid->pfnels,&grid->gridX[0],&grid->gridY[0],grid->gridX.size());
-			//LOG(DEBUG) <<"GRID : NUMTRIANGLES= "<< grid->pfnels <<"\n";
-			//LOG(DEBUG) <<"GRID : Triangulate done\n";
+			std::cout <<"GRID : NUMTRIANGLES= "<< grid->pfnels <<"\n";
+			std::cout <<"GRID : Triangulate done\n";
 		}
 		else
 		{
@@ -549,14 +579,14 @@ ExternalData::loadGrid(Grid *grid)
 			grid->gridY=Y;
 		}
         
-    grid->loaded=true;
 	//	break;
 	//
     //default:
     //   std::cout << "invalid ocean initialisation"<<"\n";
     //    throw std::logic_error("invalid ocean forcing");
 	}
-
+    
+    grid->loaded=true;
 }
 
 void

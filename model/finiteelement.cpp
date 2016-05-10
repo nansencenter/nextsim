@@ -185,7 +185,7 @@ FiniteElement::initVariables()
 
     M_UM.resize(2*M_num_nodes,0.);
 
-    M_element_depth.resize(M_num_elements);
+    //M_element_depth.resize(M_num_elements);
 
     M_h_thin.assign(M_num_elements,0.);
     M_hs_thin.assign(M_num_elements,0.);
@@ -341,7 +341,7 @@ FiniteElement::initDatasets()
 	};
 
 	M_asr_grid={
-		interpolation_method: setup::InterpolationType::InterpFromGridToMesh,
+		interpolation_method: InterpolationType::FromGridToMesh,
 	    //interp_type : TriangleInterpEnum,  // slower
 	    interp_type : BilinearInterpEnum,
 	    //interp_type : NearestInterpEnum,
@@ -624,7 +624,7 @@ FiniteElement::initDatasets()
 
 
     M_topaz_grid={
-        interpolation_method: setup::InterpolationType::InterpFromMeshToMesh2dx,
+        interpolation_method: InterpolationType::FromMeshToMesh2dx,
 		interp_type: -1,
         dirname: "data",
         filename: "TP4DAILY_200803_3m.nc",
@@ -759,7 +759,7 @@ FiniteElement::initDatasets()
 	};
 
 	M_etopo_grid={
-		interpolation_method: setup::InterpolationType::InterpFromGridToMesh,
+		interpolation_method: InterpolationType::FromGridToMesh,
 	    //interp_type : TriangleInterpEnum, // slower
 	    interp_type : BilinearInterpEnum,
 	    //interp_type : NearestInterpEnum,
@@ -803,8 +803,11 @@ FiniteElement::initDatasets()
         target_size:M_num_elements,
         grid: &M_etopo_grid,
             
-        reloaded: false
+        reloaded: false,
+        
+        nb_timestep_day: 0
 	};
+        
 }
 
 void
@@ -1901,7 +1904,7 @@ FiniteElement::regrid(bool step)
         M_mld.resize(M_num_elements);
 
 		// bathy
-        M_element_depth.resize(M_num_elements);
+        //M_element_depth.resize(M_num_elements);
 
         M_ssh.assign(M_num_nodes,0.);
 
@@ -2113,8 +2116,9 @@ FiniteElement::assemble(int pcpt)
         double coef_Voce = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
         coef_Voce *= (vm["simul.rho_water"].as<double>());
 
-
+        
         double critical_h = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
+
         double _coef = std::max(0., M_thick[cpt]-critical_h);
         double coef_basal = quad_drag_coef_air*basal_k2/(basal_drag_coef_air*(norm_Vice+basal_u_0));
         coef_basal *= _coef*std::exp(-basal_Cb*(1.-M_conc[cpt]));
@@ -3713,10 +3717,22 @@ FiniteElement::run()
         this->forcingOcean();
         LOG(DEBUG) <<"forcingOcean done in "<< chrono.elapsed() <<"s\n";
 
-        chrono.restart();
-        LOG(DEBUG) <<"bathymetry starts\n";
-        this->bathymetry();
-        LOG(DEBUG) <<"bathymetry done in "<< chrono.elapsed() <<"s\n";
+        if (pcpt == 0)
+        {
+            chrono.restart();
+            LOG(DEBUG) <<"bathymetry starts\n";
+            this->bathymetry();
+            LOG(DEBUG) <<"bathymetry done in "<< chrono.elapsed() <<"s\n";
+        }
+
+        for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
+        {
+            LOG(DEBUG) <<"check_and_reload\n";
+            (*it)->check_and_reload(M_mesh);
+            LOG(DEBUG) <<"check_and_reload done\n";
+        }
+        
+        //M_element_depth.check_and_reload(M_mesh);
 
         use_restart = false;
 
@@ -4622,13 +4638,13 @@ FiniteElement::loadDataset(Dataset *dataset)//(double const& u, double const& v)
 
     switch(dataset->grid->interpolation_method)
     {
-        case setup::InterpolationType::InterpFromGridToMesh:
+        case setup::InterpolationType::FromGridToMesh:
             InterpFromGridToMeshx(  data_out, &dataset->grid->gridX[0], dataset->grid->gridX.size(), &dataset->grid->gridY[0], dataset->grid->gridY.size(),
                                   &data_in[0], dataset->grid->gridY.size(), dataset->grid->gridX.size(),
                                   dataset->variables.size()*nb_forcing_step,
                                  &RX[0], &RY[0], dataset->target_size, 1.0, interp_type);
         break;
-        case setup::InterpolationType::InterpFromMeshToMesh2dx:
+        case setup::InterpolationType::FromMeshToMesh2dx:
             InterpFromMeshToMesh2dx(&data_out,
                                         dataset->grid->pfindex,&dataset->grid->gridX[0],&dataset->grid->gridY[0],
                                         dataset->grid->gridX.size(),dataset->grid->pfnels,
@@ -4734,7 +4750,7 @@ FiniteElement::loadGrid(Grid *grid)
 		index_px_count[0] = grid->dimension_y.end-grid->dimension_y.start;
 		index_px_count[1] = grid->dimension_x.end-grid->dimension_x.start;
 
-		if(grid->interpolation_method==setup::InterpolationType::InterpFromGridToMesh)
+		if(grid->interpolation_method==setup::InterpolationType::FromGridToMesh)
 		{
 			index_py_count[1] = 1;
 			index_px_count[0] = 1;
@@ -4796,7 +4812,7 @@ FiniteElement::loadGrid(Grid *grid)
 
 		close_mapx(map);
 
-		if(grid->interpolation_method==setup::InterpolationType::InterpFromMeshToMesh2dx)
+		if(grid->interpolation_method==setup::InterpolationType::FromMeshToMesh2dx)
 		{
 			if(grid->masking){
 				netCDF::NcVar VMASK;
@@ -5076,26 +5092,27 @@ FiniteElement::coriolis()
     }
 }
 
-
 void
 FiniteElement::bathymetry()//(double const& u, double const& v)
 {
     switch (M_bathymetry_type)
     {
+#if 0
         case setup::BathymetryType::CONSTANT:
             this->constantBathymetry();
             break;
-#if 0
-        case setup::BathymetryType::ETOPO:
-            this->etopoBathymetry();
-            break;
 #endif
+        case setup::BathymetryType::ETOPO:
+            M_element_depth=ExternalData(&M_etopo_elements_dataset,M_mesh,0);
+            M_element_depth.settime(current_time);
+            M_external_data.push_back(&M_element_depth);
+            break;
         default:
             std::cout << "invalid bathymetry"<<"\n";
             throw std::logic_error("invalid bathymetry");
     }
 }
-
+#if 0
 void
 FiniteElement::constantBathymetry()
 {
@@ -5105,7 +5122,6 @@ FiniteElement::constantBathymetry()
     }
 }
 
-#if 0
 void
 FiniteElement::etopoBathymetry()
 {
