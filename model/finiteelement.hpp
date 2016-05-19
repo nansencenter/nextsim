@@ -24,6 +24,7 @@
 #include <InterpFromGridToMeshx.h>
 #include <gmshmesh.hpp>
 #include <graphcsr.hpp>
+#include <wimdiscr.hpp>
 #include "enums.hpp"
 #include <debug.hpp>
 #include <netcdf>
@@ -212,6 +213,7 @@ public:
     void writeRestart(int pcpt, int step);
     void readRestart(int &pcpt, int step);
 
+    void applyWim();
     void clear();
 
 private:
