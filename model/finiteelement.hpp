@@ -320,8 +320,9 @@ private:
 
     // Thermodynamic and dynamic forcing
     // Atmosphere
-    std::vector<double> M_wind;         // Surface wind [m/s]
+    
 #if 0
+    std::vector<double> M_wind;         // Surface wind [m/s]
     std::vector<double> M_tair;         // 2 m temperature [C]
     std::vector<double> M_mixrat;       // Mixing ratio
     std::vector<double> M_mslp;         // Atmospheric pressure [Pa]
@@ -332,7 +333,7 @@ private:
     std::vector<double> M_dair;         // 2 m dew point [C]
 #endif
     
-    
+    external_data M_wind;         // Surface wind [m/s]
     external_data M_tair;         // 2 m temperature [C]
     external_data M_mixrat;       // Mixing ratio
     external_data M_mslp;         // Atmospheric pressure [Pa]
@@ -369,10 +370,8 @@ private:
 
 
 private:
-    void constantAtmosphere();
     void constantOcean();
     void constantIce();
-	void constantBathymetry();
 
     void targetIce();
 

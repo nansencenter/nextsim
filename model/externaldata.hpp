@@ -78,6 +78,8 @@ public:
 
         std::string mpp_file;
         double rotation_angle;
+        double cos_m_diff_angle;
+        double sin_m_diff_angle;
 		bool interpolation_in_latlon;
 
         bool loaded;
@@ -119,7 +121,14 @@ public:
 
     ExternalData(Dataset *dataset, GmshMesh const& Mesh, int VariableId );
     
+    ExternalData(Dataset *dataset, GmshMesh const& Mesh, int VariableId, int VariableIdbis );
+    
+    ExternalData(int VariableId0, int VariableId1);
+    
     ExternalData(double ConstantValue );
+    
+    ExternalData(double ConstantValue, double ConstantValuebis );
+    
 
 	~ExternalData();
 #if 0
@@ -158,7 +167,9 @@ private:
     double M_current_time;
     bool M_is_constant;
     double M_constant_value;
-
+    double M_constant_valuebis;
+    bool M_is_vector;
+    int M_VariableIdbis;
 };
 
 } // Nextsim

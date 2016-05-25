@@ -158,9 +158,9 @@ FiniteElement::initVariables()
     M_vector_reduction.resize(2*M_num_nodes,0.);
     M_valid_conc.resize(2*M_num_nodes,false);
 
-    M_wind.resize(2*M_num_nodes);
     M_ocean.resize(2*M_num_nodes);
 #if 0
+    M_wind.resize(2*M_num_nodes);
     M_tair.resize(M_num_elements);
     M_mixrat.resize(M_num_elements);
     M_mslp.resize(M_num_elements);
@@ -359,6 +359,8 @@ FiniteElement::initDatasets()
 
 		mpp_file: "NpsASR.mpp",
 		rotation_angle: diff_angle,
+        cos_m_diff_angle: std::cos(-diff_angle),
+        sin_m_diff_angle: std::sin(-diff_angle),
 		interpolation_in_latlon: false,
         
         loaded: false,
@@ -639,6 +641,8 @@ FiniteElement::initDatasets()
 
         mpp_file: "NpsNextsim.mpp",
         rotation_angle: 0.,
+        cos_m_diff_angle: std::cos(-0.),
+        sin_m_diff_angle: std::sin(-0.),
 		interpolation_in_latlon: false,
 
         loaded: false,
@@ -776,6 +780,8 @@ FiniteElement::initDatasets()
 
 		mpp_file: "",
 		rotation_angle: 0.,
+        cos_m_diff_angle: std::cos(-0.),
+        sin_m_diff_angle: std::sin(-0.),
 		interpolation_in_latlon: true,
 
         loaded: false,
@@ -786,7 +792,7 @@ FiniteElement::initDatasets()
     Variable z={
         name:"z",
         dimensions: dimensions_etopo,
-        a:1.,
+        a:-1.,
         b:0.,
         Units:"m",
         data2: data2_tmp
@@ -1887,11 +1893,11 @@ FiniteElement::regrid(bool step)
         M_vector_reduction.resize(2*M_num_nodes,0.);
         M_valid_conc.resize(2*M_num_nodes,false);
 
-        M_wind.resize(2*M_num_nodes);
         M_ocean.resize(2*M_num_nodes);
 
         // Atmo
 #if 0
+        M_wind.resize(2*M_num_nodes);
         M_tair.resize(M_num_elements);
         M_mixrat.resize(M_num_elements);
         M_mslp.resize(M_num_elements);
@@ -2101,12 +2107,14 @@ FiniteElement::assemble(int pcpt)
         for (int i=0; i<3; ++i)
         {
             nind = (M_elements[cpt]).indices[i]-1;
+            
             welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
             welt_air_ice += std::hypot(M_VT[nind]-M_wind [nind],M_VT[nind+M_num_nodes]-M_wind [nind+M_num_nodes]);
             welt_ice += std::hypot(M_VT[nind],M_VT[nind+M_num_nodes]);
 
             welt_ssh += M_ssh[nind];
         }
+        
 
         double norm_Voce_ice = welt_oce_ice/3.;
         double norm_Vair_ice = welt_air_ice/3.;
@@ -3711,8 +3719,6 @@ FiniteElement::run()
 
         this->timeInterpolation(pcpt);
 
-
-        this->constantAtmosphere();
         if (pcpt == 0)
         {
             chrono.restart();
@@ -3736,6 +3742,21 @@ FiniteElement::run()
 
         for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
             (*it)->check_and_reload(M_mesh,current_time);
+        
+        
+        //LOG(DEBUG) <<"M_wind[1] "<< M_wind[0] <<"\n"; 
+        //LOG(DEBUG) <<"M_wind[1] "<< M_wind[0+M_num_nodes] <<"\n"; 
+        //LOG(DEBUG) <<"M_tair[1] "<< M_tair[0] <<"\n";  
+        //LOG(DEBUG) <<"M_tair[1] "<< M_tair[M_num_elements-1] <<"\n";  
+        LOG(DEBUG) <<"M_element_depth[1] "<< M_element_depth[0] <<"\n"; 
+        
+        LOG(DEBUG) <<"M_tair[1] "<< M_tair[0] <<"\n";  
+        LOG(DEBUG) <<"M_tair[M_num_elements-1] "<< M_tair[M_num_elements-1] <<"\n";         
+        
+        LOG(DEBUG) <<"M_wind[0] "<< M_wind[0] <<"\n"; 
+        LOG(DEBUG) <<"M_wind[1] "<< M_wind[1] <<"\n"; 
+        LOG(DEBUG) <<"M_wind[0+M_num_nodes] "<< M_wind[0+M_num_nodes] <<"\n"; 
+        LOG(DEBUG) <<"M_wind[1+M_num_nodes] "<< M_wind[1+M_num_nodes] <<"\n";
         
         use_restart = false;
 
@@ -4227,16 +4248,39 @@ void
 FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
 {
     switch (M_atmosphere_type)
-    {
-#if 0
-        
+    {    
         case setup::AtmosphereType::CONSTANT:
-            this->constantAtmosphere();
-            break;
-#endif
-#if 1
-        case setup::AtmosphereType::ASR:
-            //this->asrAtmosphere();
+            M_wind=ExternalData(vm["simul.constant_wind_u"].as<double>(),vm["simul.constant_wind_v"].as<double>());
+            M_external_data.push_back(&M_wind);
+        
+            M_tair=ExternalData(vm["simul.constant_tair"].as<double>());
+            M_external_data.push_back(&M_tair);
+        
+            M_mixrat=ExternalData(vm["simul.constant_mixrat"].as<double>());
+            M_external_data.push_back(&M_mixrat);
+        
+            M_mslp=ExternalData(vm["simul.constant_mslp"].as<double>());
+            M_external_data.push_back(&M_mslp);
+        
+            M_Qsw_in=ExternalData(vm["simul.constant_Qsw_in"].as<double>());
+            M_external_data.push_back(&M_Qsw_in);
+        
+            M_Qlw_in=ExternalData(vm["simul.constant_Qlw_in"].as<double>());
+            M_external_data.push_back(&M_Qlw_in);
+        
+            M_snowfr=ExternalData(vm["simul.constant_snowfr"].as<double>());
+            M_external_data.push_back(&M_snowfr);
+        
+            M_precip=ExternalData(vm["simul.constant_precip"].as<double>());
+            M_external_data.push_back(&M_precip);   
+        
+            M_dair=ExternalData(vm["simul.constant_dair"].as<double>());
+            M_external_data.push_back(&M_dair);
+        break;
+
+        case setup::AtmosphereType::ASR:    
+            M_wind=ExternalData(&M_asr_nodes_dataset,M_mesh,0,1);
+            M_external_data.push_back(&M_wind);
             
             M_tair=ExternalData(&M_asr_elements_dataset,M_mesh,0);
             M_external_data.push_back(&M_tair);
@@ -4261,51 +4305,13 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             
             M_dair=ExternalData(vm["simul.constant_dair"].as<double>());
             M_external_data.push_back(&M_dair);   
-            break;
-#endif
+        break;
+
         default:
             std::cout << "invalid wind forcing"<<"\n";
             throw std::logic_error("invalid wind forcing");
     }
 }
-
-void
-FiniteElement::constantAtmosphere()
-{
-    for (int i=0; i<M_num_nodes; ++i)
-    {
-        M_wind[i]             = Vair_coef*vm["simul.constant_wind_u"].as<double>();
-        M_wind[i+M_num_nodes] = Vair_coef*vm["simul.constant_wind_v"].as<double>();
-    }
-#if 0
-
-    M_tair.assign(M_num_elements,vm["simul.constant_tair"].as<double>());
-    LOG(DEBUG) << "simul.constant_tair:   " << vm["simul.constant_tair"].as<double>() << "\n";
-
-    M_mixrat.assign(M_num_elements,vm["simul.constant_mixrat"].as<double>());
-    LOG(DEBUG) << "simul.constant_mixrat: " << vm["simul.constant_mixrat"].as<double>() << "\n";
-
-    M_mslp.assign(M_num_elements,vm["simul.constant_mslp"].as<double>());
-    LOG(DEBUG) << "simul.constant_mslp:   " << vm["simul.constant_mslp"].as<double>() << "\n";
-
-    M_Qsw_in.assign(M_num_elements,vm["simul.constant_Qsw_in"].as<double>());
-    LOG(DEBUG) << "simul.constant_Qsw_in: " << vm["simul.constant_Qsw_in"].as<double>() << "\n";
-
-    M_Qlw_in.assign(M_num_elements,vm["simul.constant_Qlw_in"].as<double>());
-    LOG(DEBUG) << "simul.constant_Qlw_in: " << vm["simul.constant_Qlw_in"].as<double>() << "\n";
-
-    M_precip.assign(M_num_elements,vm["simul.constant_precip"].as<double>());
-    LOG(DEBUG) << "simul.constant_precip: " << vm["simul.constant_precip"].as<double>() << "\n";
-
-    M_snowfr.assign(M_num_elements,vm["simul.constant_snowfr"].as<double>());
-    LOG(DEBUG) << "simul.constant_snowfr: " << vm["simul.constant_snowfr"].as<double>() << "\n";
-    
-    M_dair.assign(M_num_elements,vm["simul.constant_dair"].as<double>());
-    LOG(DEBUG) << "simul.constant_dair:   " << vm["simul.constant_dair"].as<double>() << "\n";
-#endif
-
-}
-
 
 #if 0
 void
@@ -4647,11 +4653,10 @@ FiniteElement::bathymetry()//(double const& u, double const& v)
 {
     switch (M_bathymetry_type)
     {
-#if 0
         case setup::BathymetryType::CONSTANT:
-            this->constantBathymetry();
+            M_element_depth=ExternalData(vm["simul.constant_bathymetry"].as<double>());
+            M_external_data.push_back(&M_element_depth);
             break;
-#endif
         case setup::BathymetryType::ETOPO:
             M_element_depth=ExternalData(&M_etopo_elements_dataset,M_mesh,0);
             M_external_data.push_back(&M_element_depth);

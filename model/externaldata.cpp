@@ -25,8 +25,27 @@ ExternalData::ExternalData( )
 
 ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId )
 	:
+    M_is_constant( false ),
     M_dataset( dataset ),
     M_VariableId( VariableId ),
+    M_is_vector( false ),
+    M_current_time( 0. )
+{
+    M_datasetname = (boost::format( "%1%...%2%" )
+                    % M_dataset->prefix
+                    % M_dataset->postfix
+                    ).str();
+    
+    fcoeff.resize(2);
+}
+
+ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, int VariableIdbis)
+	:
+    M_is_constant( false ),
+    M_dataset( dataset ),
+    M_VariableId( VariableId ),
+    M_VariableIdbis( VariableIdbis ),
+    M_is_vector( true ),
     M_current_time( 0. )
 {
     M_datasetname = (boost::format( "%1%...%2%" )
@@ -41,6 +60,16 @@ ExternalData::ExternalData( double ConstantValue )
 	:
     M_is_constant( true ),
     M_constant_value( ConstantValue ),
+    M_is_vector( false ),
+    M_current_time( 0. )
+{}
+    
+ExternalData::ExternalData( double ConstantValue, double ConstantValuebis )
+	:
+    M_is_constant( true ),
+    M_constant_value( ConstantValue ),
+    M_constant_valuebis( ConstantValuebis ),
+    M_is_vector( true ),
     M_current_time( 0. )
 {}
 
@@ -77,12 +106,16 @@ typename ExternalData::value_type
 ExternalData::operator [] (const size_type i)
 {
     value_type value;
+    value_type valuebis;
+    size_type i_tmp;
     
     if(M_is_constant)
+    {
+        // for the moment same value is given to all the components
         value = M_constant_value;
+    }
     else
     {     
-        ASSERT(i < M_dataset->target_size, "invalid index"); 
         if(M_dataset->nb_timestep_day>0)
         {
             fdt = std::abs(M_dataset->ftime_range[1]-M_dataset->ftime_range[0]);
@@ -91,13 +124,65 @@ ExternalData::operator [] (const size_type i)
     
             //std::cout <<"LINEAR COEFF 1= "<< fcoeff[0] <<"\n";
             //std::cout <<"LINEAR COEFF 2= "<< fcoeff[1] <<"\n";
-    
-            value =  fcoeff[0]*M_dataset->variables[M_VariableId].data2[0][i] + 
-                fcoeff[1]*M_dataset->variables[M_VariableId].data2[1][i];
+            
+            if(!M_is_vector)
+            {
+                ASSERT(i < M_dataset->target_size, "invalid index"); 
+                value =  fcoeff[0]*M_dataset->variables[M_VariableId].data2[0][i] + 
+                    fcoeff[1]*M_dataset->variables[M_VariableId].data2[1][i];
+            }
+            else
+            {
+                ASSERT(i < 2*M_dataset->target_size, "invalid index"); 
+
+                if(i < M_dataset->target_size)
+                {
+                    i_tmp=i;
+                    value = fcoeff[0]*M_dataset->variables[M_VariableId].data2[0][i_tmp] + 
+                        fcoeff[1]*M_dataset->variables[M_VariableId].data2[1][i_tmp];
+                    valuebis = fcoeff[0]*M_dataset->variables[M_VariableIdbis].data2[0][i_tmp] + 
+                        fcoeff[1]*M_dataset->variables[M_VariableIdbis].data2[1][i_tmp];
+                    
+                    value =  M_dataset->grid->cos_m_diff_angle*value+M_dataset->grid->sin_m_diff_angle*valuebis;
+                }
+                else
+                {
+                    i_tmp=i-M_dataset->target_size;
+                    value = fcoeff[0]*M_dataset->variables[M_VariableId].data2[0][i_tmp] + 
+                        fcoeff[1]*M_dataset->variables[M_VariableId].data2[1][i_tmp];
+                    valuebis = fcoeff[0]*M_dataset->variables[M_VariableIdbis].data2[0][i_tmp] + 
+                        fcoeff[1]*M_dataset->variables[M_VariableIdbis].data2[1][i_tmp];
+                    
+                    value = -M_dataset->grid->sin_m_diff_angle*value+M_dataset->grid->cos_m_diff_angle*valuebis;
+                }
+            }
         }
         else
         {
-            value =  -M_dataset->variables[M_VariableId].data2[0][i];
+            if(!M_is_vector)
+            {
+                ASSERT(i < M_dataset->target_size, "invalid index"); 
+                value =  M_dataset->variables[M_VariableId].data2[0][i];
+            }
+            else
+            {
+                ASSERT(i < 2*M_dataset->target_size, "invalid index"); 
+                                
+                if(i < M_dataset->target_size)
+                {
+                    i_tmp=i;
+                    value = M_dataset->variables[M_VariableId].data2[0][i_tmp];
+                    valuebis = M_dataset->variables[M_VariableIdbis].data2[0][i_tmp];
+                    value =  M_dataset->grid->cos_m_diff_angle*value+M_dataset->grid->sin_m_diff_angle*valuebis;
+                }
+                else
+                {
+                    i_tmp=i-M_dataset->target_size;
+                    value = M_dataset->variables[M_VariableId].data2[0][i_tmp];
+                    valuebis = M_dataset->variables[M_VariableIdbis].data2[0][i_tmp];
+                    value = -M_dataset->grid->sin_m_diff_angle*value+M_dataset->grid->cos_m_diff_angle*valuebis;
+                }
+            }   
         }
     }
 
