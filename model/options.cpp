@@ -9,6 +9,7 @@
 
 
 #include <boost/program_options.hpp>
+#include <constants.hpp>
 
 namespace po = boost::program_options;
 
@@ -153,7 +154,6 @@ namespace Nextsim
             ("simul.constant_Qlw_in", po::value<double>()->default_value( 250. ), "")
             ("simul.constant_precip", po::value<double>()->default_value( 1e-5 ), "")
             ("simul.constant_snowfr", po::value<double>()->default_value( 0.9 ), "")
-            ("simul.constant_mld", po::value<double>()->default_value( 9. ), "")
             ("simul.ocean_nudge", po::value<bool>()->default_value( false ), "")
             ("simul.ocean_nudge_timeT", po::value<double>()->default_value( 30*days_in_sec), "")
             ("simul.ocean_nudge_timeS", po::value<double>()->default_value( 30*days_in_sec), "")
@@ -161,6 +161,10 @@ namespace Nextsim
             ("simul.constant_Fdw", po::value<double>()->default_value( 0. ), "")
             ("simul.constant_ocean_u", po::value<double>()->default_value( 0. ), "")
             ("simul.constant_ocean_v", po::value<double>()->default_value( 0. ), "")
+            ("simul.constant_ssh", po::value<double>()->default_value( 0. ), "")
+            ("simul.constant_ocean_temp", po::value<double>()->default_value( -1.8 ), "")
+            ("simul.constant_ocean_salt", po::value<double>()->default_value( -1.8/physical::mu ), "")
+            ("simul.constant_mld", po::value<double>()->default_value( 9. ), "")
             ("simul.constant_bathymetry", po::value<double>()->default_value( 200. ), "")
             ("simul.use_thermo_forcing", po::value<bool>()->default_value( true ), "")
             ;

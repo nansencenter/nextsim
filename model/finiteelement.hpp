@@ -136,7 +136,6 @@ public:
     void initSlabOcean();
     void initDrifter();
     void coriolis();
-    void timeInterpolation(int step);
     void nodesToElements(double const* depth, std::vector<double>& v);
 
     void PwlInterp2D();
@@ -223,7 +222,6 @@ private:
     std::vector<double> M_Voce_factor;
     std::vector<double> M_basal_factor;
     std::vector<double> M_water_elements;
-    std::vector<double> M_ssh;
     std::vector<double> M_h_thin;
     std::vector<double> M_hs_thin;
     std::vector<double> M_h_ridged_thin_ice;
@@ -317,19 +315,6 @@ private:
 
     // Thermodynamic and dynamic forcing
     // Atmosphere
-    
-#if 0
-    std::vector<double> M_wind;         // Surface wind [m/s]
-    std::vector<double> M_tair;         // 2 m temperature [C]
-    std::vector<double> M_mixrat;       // Mixing ratio
-    std::vector<double> M_mslp;         // Atmospheric pressure [Pa]
-    std::vector<double> M_Qsw_in;       // Incoming short-wave radiation [W/m2]
-    std::vector<double> M_Qlw_in;       // Incoming long-wave radiation [W/m2]
-    std::vector<double> M_precip;       // Total precipitation [m]
-    std::vector<double> M_snowfr;       // Fraction of precipitation that is snow
-    std::vector<double> M_dair;         // 2 m dew point [C]
-#endif
-    
     external_data M_wind;         // Surface wind [m/s]
     external_data M_tair;         // 2 m temperature [C]
     external_data M_mixrat;       // Mixing ratio
@@ -340,12 +325,13 @@ private:
     external_data M_snowfr;       // Fraction of precipitation that is snow
     external_data M_dair;         // 2 m dew point [C]
     
-    
     // Ocean
-    std::vector<double> M_ocean;        // "Geostrophic" ocean currents [m/s]
-    std::vector<double> M_ocean_temp;   // Ocean temperature in top layer [C]
-    std::vector<double> M_ocean_salt;   // Ocean salinity in top layer [C]
-    std::vector<double> M_mld;          // Mixed-layer depth [m]
+    external_data M_ocean;        // "Geostrophic" ocean currents [m/s]
+    external_data M_ssh;          // Sea surface elevation [m]
+    
+    external_data M_ocean_temp;   // Ocean temperature in top layer [C]
+    external_data M_ocean_salt;   // Ocean salinity in top layer [C]
+    external_data M_mld;          // Mixed-layer depth [m]
 
     // Drifters
     boost::unordered_map<int, std::array<double,2>> M_drifter; // Drifters are kept in an unordered map containing number and coordinates
@@ -367,10 +353,9 @@ private:
 
 
 private:
-    void constantOcean();
     void constantIce();
-
     void targetIce();
+    void topazIce();
 
     void equallySpacedDrifter();
     void outputDrifter(std::fstream &iabp_out);
@@ -378,8 +363,6 @@ private:
     void updateIABPDrifter();
 
 #if 0
-    void asrAtmosphere();
-    void topazOcean();
     void topazIce();
 	void etopoBathymetry();
 #endif
