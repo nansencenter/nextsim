@@ -269,9 +269,6 @@ private:
     double time_relaxation_damage;
     double deltaT_relaxation_damage;
     //double water_depth;
-    double ssh_coef;
-    double Vair_coef;
-    double Voce_coef;
 
     double basal_k2;
     double basal_drag_coef_air;

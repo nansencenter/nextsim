@@ -123,12 +123,21 @@ public:
     
     ExternalData(Dataset *dataset, GmshMesh const& Mesh, int VariableId, int VariableIdbis );
     
-    ExternalData(int VariableId0, int VariableId1);
+    ExternalData(Dataset *dataset, GmshMesh const& Mesh, int VariableId, 
+        double SpinUpStartingTime, double SpinUpDuration  );
+    
+    ExternalData(Dataset *dataset, GmshMesh const& Mesh, int VariableId, int VariableIdbis, 
+        double SpinUpStartingTime, double SpinUpDuration  );
     
     ExternalData(double ConstantValue );
     
     ExternalData(double ConstantValue, double ConstantValuebis );
     
+    ExternalData(double ConstantValue, 
+        double SpinUpStartingTime, double SpinUpDuration  );
+    
+    ExternalData(double ConstantValue, double ConstantValuebis, 
+        double SpinUpStartingTime, double SpinUpDuration  );
 
 	~ExternalData();
 #if 0
@@ -170,6 +179,9 @@ private:
     double M_constant_valuebis;
     bool M_is_vector;
     int M_VariableIdbis;
+    double M_SpinUpStartingTime;
+    double M_SpinUpDuration;
+    double M_factor;
 };
 
 } // Nextsim

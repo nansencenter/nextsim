@@ -4280,6 +4280,7 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
 
         case setup::AtmosphereType::ASR:    
             M_wind=ExternalData(&M_asr_nodes_dataset,M_mesh,0,1);
+            M_wind=ExternalData(&M_asr_nodes_dataset,M_mesh,0,1, time_init, spinup_duration);
             M_external_data.push_back(&M_wind);
             
             M_tair=ExternalData(&M_asr_elements_dataset,M_mesh,0);
@@ -4710,21 +4711,6 @@ FiniteElement::etopoBathymetry()
 #endif
 }
 #endif
-
-void
-FiniteElement::timeInterpolation(int step)
-{
-    Vair_coef = 1.;
-    Voce_coef = 1.;
-    ssh_coef = 1.;
-
-    if (((step+1)*time_step) < spinup_duration)
-    {
-        Vair_coef = ((step+1)*time_step)/spinup_duration;
-        Voce_coef = ((step+1)*time_step)/spinup_duration;
-        ssh_coef = ((step+1)*time_step)/spinup_duration;
-    }
-}
 
 void
 FiniteElement::nodesToElements(double const* depth, std::vector<double>& v)

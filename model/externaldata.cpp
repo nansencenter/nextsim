@@ -29,7 +29,9 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
     M_dataset( dataset ),
     M_VariableId( VariableId ),
     M_is_vector( false ),
-    M_current_time( 0. )
+    M_current_time( 0. ),
+    M_SpinUpStartingTime( 0. ),
+    M_SpinUpDuration( 0. )
 {
     M_datasetname = (boost::format( "%1%...%2%" )
                     % M_dataset->prefix
@@ -39,39 +41,64 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
     fcoeff.resize(2);
 }
 
+        
 ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, int VariableIdbis)
 	:
-    M_is_constant( false ),
-    M_dataset( dataset ),
-    M_VariableId( VariableId ),
-    M_VariableIdbis( VariableIdbis ),
-    M_is_vector( true ),
-    M_current_time( 0. )
-{
-    M_datasetname = (boost::format( "%1%...%2%" )
-                    % M_dataset->prefix
-                    % M_dataset->postfix
-                    ).str();
-    
-    fcoeff.resize(2);
-}
+    ExternalData(dataset, mesh, VariableId )
+    {
+        M_VariableIdbis= VariableIdbis ;
+        M_is_vector= true ;
+    }
+
+ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, double SpinUpStartingTime, double SpinUpDuration )
+	:
+    ExternalData(dataset, mesh, VariableId )
+    {
+        M_SpinUpStartingTime= SpinUpStartingTime ;
+        M_SpinUpDuration= SpinUpDuration ;
+    }
+
+    ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, int VariableIdbis, double SpinUpStartingTime, double SpinUpDuration )
+    	:
+        ExternalData(dataset, mesh, VariableId, VariableIdbis )
+        {
+            M_SpinUpStartingTime= SpinUpStartingTime ;
+            M_SpinUpDuration= SpinUpDuration ;
+        }
 
 ExternalData::ExternalData( double ConstantValue )
 	:
     M_is_constant( true ),
     M_constant_value( ConstantValue ),
     M_is_vector( false ),
-    M_current_time( 0. )
-{}
+    M_current_time( 0. ),
+    M_SpinUpStartingTime( 0. ),
+    M_SpinUpDuration( 0. )
+    {}
     
 ExternalData::ExternalData( double ConstantValue, double ConstantValuebis )
 	:
-    M_is_constant( true ),
-    M_constant_value( ConstantValue ),
-    M_constant_valuebis( ConstantValuebis ),
-    M_is_vector( true ),
-    M_current_time( 0. )
-{}
+    ExternalData( ConstantValue )
+    {
+        M_constant_valuebis= ConstantValuebis ;
+        M_is_vector= true ;
+    }
+    
+ExternalData::ExternalData( double ConstantValue, double SpinUpStartingTime, double SpinUpDuration )
+	:
+    ExternalData( ConstantValue )
+    {
+        M_SpinUpStartingTime= SpinUpStartingTime ;
+        M_SpinUpDuration= SpinUpDuration ;
+    }
+
+ExternalData::ExternalData( double ConstantValue, double ConstantValuebis, double SpinUpStartingTime, double SpinUpDuration )
+	:
+    ExternalData( ConstantValue, ConstantValuebis )
+    {
+        M_SpinUpStartingTime= SpinUpStartingTime ;
+        M_SpinUpDuration= SpinUpDuration ;
+    }
 
 ExternalData::~ExternalData()
 {
@@ -84,6 +111,12 @@ void ExternalData::check_and_reload(GmshMesh const& M_mesh, const double current
     {
         M_current_time = current_time;
         
+        M_factor=1.;
+        if((M_current_time-M_SpinUpStartingTime)<M_SpinUpDuration)
+        {
+            M_factor=(M_current_time-M_SpinUpStartingTime)/M_SpinUpDuration;
+        }    
+                
         bool to_be_reloaded=false;
     
         if(M_dataset->nb_timestep_day>0) 
@@ -128,8 +161,9 @@ ExternalData::operator [] (const size_type i)
             if(!M_is_vector)
             {
                 ASSERT(i < M_dataset->target_size, "invalid index"); 
-                value =  fcoeff[0]*M_dataset->variables[M_VariableId].data2[0][i] + 
-                    fcoeff[1]*M_dataset->variables[M_VariableId].data2[1][i];
+                value =  M_factor*
+                    (fcoeff[0]*M_dataset->variables[M_VariableId].data2[0][i] + 
+                     fcoeff[1]*M_dataset->variables[M_VariableId].data2[1][i]);
             }
             else
             {
@@ -143,7 +177,8 @@ ExternalData::operator [] (const size_type i)
                     valuebis = fcoeff[0]*M_dataset->variables[M_VariableIdbis].data2[0][i_tmp] + 
                         fcoeff[1]*M_dataset->variables[M_VariableIdbis].data2[1][i_tmp];
                     
-                    value =  M_dataset->grid->cos_m_diff_angle*value+M_dataset->grid->sin_m_diff_angle*valuebis;
+                    value =  M_factor*
+                        (M_dataset->grid->cos_m_diff_angle*value+M_dataset->grid->sin_m_diff_angle*valuebis);
                 }
                 else
                 {
@@ -153,7 +188,8 @@ ExternalData::operator [] (const size_type i)
                     valuebis = fcoeff[0]*M_dataset->variables[M_VariableIdbis].data2[0][i_tmp] + 
                         fcoeff[1]*M_dataset->variables[M_VariableIdbis].data2[1][i_tmp];
                     
-                    value = -M_dataset->grid->sin_m_diff_angle*value+M_dataset->grid->cos_m_diff_angle*valuebis;
+                    value = M_factor*
+                        (-M_dataset->grid->sin_m_diff_angle*value+M_dataset->grid->cos_m_diff_angle*valuebis);
                 }
             }
         }
@@ -162,7 +198,7 @@ ExternalData::operator [] (const size_type i)
             if(!M_is_vector)
             {
                 ASSERT(i < M_dataset->target_size, "invalid index"); 
-                value =  M_dataset->variables[M_VariableId].data2[0][i];
+                value =  M_factor*M_dataset->variables[M_VariableId].data2[0][i];
             }
             else
             {
@@ -173,14 +209,16 @@ ExternalData::operator [] (const size_type i)
                     i_tmp=i;
                     value = M_dataset->variables[M_VariableId].data2[0][i_tmp];
                     valuebis = M_dataset->variables[M_VariableIdbis].data2[0][i_tmp];
-                    value =  M_dataset->grid->cos_m_diff_angle*value+M_dataset->grid->sin_m_diff_angle*valuebis;
+                    value =  M_factor*
+                        (M_dataset->grid->cos_m_diff_angle*value+M_dataset->grid->sin_m_diff_angle*valuebis);
                 }
                 else
                 {
                     i_tmp=i-M_dataset->target_size;
                     value = M_dataset->variables[M_VariableId].data2[0][i_tmp];
                     valuebis = M_dataset->variables[M_VariableIdbis].data2[0][i_tmp];
-                    value = -M_dataset->grid->sin_m_diff_angle*value+M_dataset->grid->cos_m_diff_angle*valuebis;
+                    value = M_factor*
+                        (-M_dataset->grid->sin_m_diff_angle*value+M_dataset->grid->cos_m_diff_angle*valuebis);
                 }
             }   
         }
