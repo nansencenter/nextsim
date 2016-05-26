@@ -795,7 +795,6 @@ FiniteElement::initDatasets()
         
         nb_timestep_day: 0
 	};
-        
 }
 
 void
@@ -1407,8 +1406,8 @@ FiniteElement::regrid(bool step)
 			&M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
 			false);
 
-            // No need to deallocate the memory related to hminVertices and hmaxVertices, 
-            // as it is done when deleting bamgopt_previous in adaptMesh 
+            // No need to deallocate the memory related to hminVertices and hmaxVertices,
+            // as it is done when deleting bamgopt_previous in adaptMesh
 			bamgopt->hminVertices = new double[M_mesh.numNodes()];
 			bamgopt->hmaxVertices = new double[M_mesh.numNodes()];
 
@@ -2698,7 +2697,7 @@ FiniteElement::update()
         if(sigma_n>M_Compressive_strength[cpt])
         {
             sigma_target=M_Compressive_strength[cpt];
-    
+
             tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
 
             if(tmp>M_damage[cpt])
@@ -2723,7 +2722,7 @@ FiniteElement::update()
         if(sigma_1-q*sigma_2>sigma_c)
         {
             sigma_target=sigma_c;
-            
+
             tmp=1.0-sigma_target/(sigma_1-q*sigma_2)*(1.0-old_damage);
 
             if(tmp>M_damage[cpt])
@@ -2732,12 +2731,12 @@ FiniteElement::update()
             }
         }
 #endif
-        
-#if 1        
+
+#if 1
         if(sigma_n<tract_max)
         {
             sigma_target=tract_max;
-            
+
             tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
 
             if(tmp>M_damage[cpt])
@@ -2746,8 +2745,8 @@ FiniteElement::update()
             }
         }
 #endif
-        
-#if 0   
+
+#if 0
         if(sigma_s>M_Cohesion[cpt]-sigma_n*tan_phi)
         {
             tmp=1.0-M_Cohesion[cpt]/(sigma_s+sigma_n*tan_phi)*(1.0-old_damage);
@@ -2757,7 +2756,7 @@ FiniteElement::update()
                 M_damage[cpt]=tmp;
             }
         }
-#endif       
+#endif
 
         /*
          * Diagnostic:
@@ -2789,7 +2788,7 @@ FiniteElement::update()
         tmp-= 1000*time_step/M_time_relaxation_damage[cpt];
         tmp=((tmp>1.)?(tmp):(1.));
         M_damage[cpt]=-1./tmp + 1.;
-        
+
         /*======================================================================
          * Update:
          * Ice and snow thickness, and concentration using a Lagrangian or an Eulerian scheme
@@ -3554,6 +3553,10 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
 void
 FiniteElement::run()
 {
+    LOG(INFO) << "-----------------------Simulation started on "<< current_time_local() <<"\n";
+
+    std::string current_time_system = current_time_local();
+
     // Initialise everything that doesn't depend on the mesh (constants, data set description, and time)
     this->initConstant();
     current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
@@ -3601,7 +3604,7 @@ FiniteElement::run()
         for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
             (*it)->check_and_reload(M_mesh,time_init);
         LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
-        
+
     } else {
         // Do one regrid to get the mesh right
         this->regrid(pcpt);
@@ -3646,6 +3649,7 @@ FiniteElement::run()
     std::fstream pcpt_file;
     pcpt_file.open("Timestamp.txt", std::ios::out | std::ios::trunc);
     // main loop for nextsim program
+    current_time = time_init + pcpt*time_step/(24*3600.0);
     while (is_running)
     {
         is_running = ((pcpt+1)*time_step) < duration;
@@ -3653,9 +3657,18 @@ FiniteElement::run()
         // if (pcpt > 21)
         //     is_running = false;
 
-        current_time = time_init + pcpt*time_step/(24*3600.0);
         //std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
-        std::cout<<"-----------------------TIME STEP "<< pcpt << " : "<< current_time << " + "<< pcpt*time_step/(24*3600.0) <<"\n";
+        std::cout<<"---------------------- TIME STEP "<< pcpt << " : "
+                 << time_init << " + "<< pcpt*time_step/(24*3600.0);
+
+
+        if (!(pcpt % 20))
+        {
+            std::cout<<" ---------- progression: ("<< 100.0*(pcpt*time_step/duration) <<"%)"
+                     <<" ---------- time spent: "<< time_spent(current_time_system);
+        }
+
+        std::cout <<"\n";
 
         // step 0: preparation
         // remeshing and remapping of the prognostic variables
@@ -3754,22 +3767,23 @@ FiniteElement::run()
         this->update();
         LOG(DEBUG) <<"update done in "<< chrono.elapsed() <<"s\n";
 
+        ++pcpt;
+        current_time = time_init + pcpt*time_step/(24*3600.0);
+        pcpt_file << pcpt << "\n";
+        pcpt_file << to_date_string(current_time) << "\n";
+        pcpt_file.seekp(0);
+
 #if 1
 
-        if(fmod((pcpt+1)*time_step,output_time_step) == 0)
+        if(fmod(pcpt*time_step,output_time_step) == 0)
         {
             chrono.restart();
             LOG(DEBUG) <<"export starts\n";
-            this->exportResults((int) (pcpt+1)*time_step/output_time_step);
+            this->exportResults((int) pcpt*time_step/output_time_step);
             LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
         }
 
 #endif
-
-        ++pcpt;
-        pcpt_file << pcpt << "\n";
-        pcpt_file << to_date_string(time_init + pcpt*time_step/(24*3600.0)) << "\n"; // current time
-        pcpt_file.seekp(0);
 
         if ( fmod(pcpt*time_step,restart_time_step) == 0)
         {
@@ -3791,6 +3805,8 @@ FiniteElement::run()
     }
 
     this->clear();
+
+    LOG(INFO) << "-----------------------Simulation done on "<< current_time_local() <<"\n";
 }
 
 void
@@ -4385,18 +4401,18 @@ FiniteElement::targetIce()
     double y_max=300000.;
     double x_max=350000.;
     double x_min=200000.;
-    
+
 	double tmp_var;
-    
+
     auto RX = M_mesh.bcoordX();
     auto RY = M_mesh.bcoordY();
-    
+
     for (int i=0; i<M_num_elements; ++i)
     {
         tmp_var = (RY[i]<=y_max)*(RX[i]<=x_max)*(RX[i]>=x_min);
-        
+
         std::cout<<"RX: "<< RX[i] << "RY: "<< RY[i] << "tmp_var: " << tmp_var << "\n";
-        
+
         M_conc[i]  = vm["simul.init_concentration"].as<double>()*tmp_var;
 		M_thick[i] = vm["simul.init_thickness"].as<double>()*tmp_var;
 		M_snow_thick[i] = vm["simul.init_snow_thickness"].as<double>()*tmp_var;
@@ -5013,22 +5029,22 @@ FiniteElement::exportResults(int step, bool export_mesh)
         }
         exporter.writeField(outbin, conc_thin, "Concentration_thin_ice");
     }
-    
+
     // EXPORT sigma1 sigma2
     std::vector<double> sigma1(M_mesh.numTriangles());
     std::vector<double> sigma2(M_mesh.numTriangles());
     double sigma_s, sigma_n;
     std::vector<double> sigma_pred(3);
-    
+
     for ( int i=0; i<M_mesh.numTriangles(); ++i )
     {
         sigma_pred[0]=M_sigma[3*i];
         sigma_pred[1]=M_sigma[3*i+1];
         sigma_pred[2]=M_sigma[3*i+2];
-        
+
         sigma_s=std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
         sigma_n= -         (sigma_pred[0]+sigma_pred[1])/2.;
-        
+
         sigma1[i] = sigma_n+sigma_s;
         sigma2[i] = sigma_n-sigma_s;
     }
@@ -5048,6 +5064,19 @@ FiniteElement::exportResults(int step, bool export_mesh)
         throw std::runtime_error("Cannot write to file: " + fileout);
     exporter.writeRecord(outrecord);
     outrecord.close();
+}
+
+void
+FiniteElement::applyWim()
+{
+    // instantiation of wim
+    Wim::WimDiscr<double> wim(vm);
+
+    // initialization of wim2d
+    wim.init();
+
+    // run the simulation
+    wim.run();
 }
 
 void

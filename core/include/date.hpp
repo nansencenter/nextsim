@@ -15,11 +15,11 @@
 
 namespace gregorian = boost::gregorian;
 namespace date_time = boost::date_time;
+namespace posix_time = boost::posix_time;
 
 namespace Nextsim
 {
-inline double
-dateStr2Num(std::string const& datestr)
+inline double dateStr2Num(std::string const& datestr)
 {
 	gregorian::date epoch = date_time::parse_date<gregorian::date>( "1900-01-01", date_time::ymd_order_iso);
 	gregorian::date date = date_time::parse_date<gregorian::date>( datestr, date_time::ymd_order_iso);
@@ -107,6 +107,26 @@ inline double from_date_time_string( const std::string& value )
     double milliseconds = static_cast<double>(t.time_of_day().total_milliseconds());
 
     return date + (milliseconds / 24.0 / 60.0 / 60.0 / 1000.0);
+}
+
+inline std::string current_time_local()
+{
+    posix_time::ptime today_local(gregorian::day_clock::local_day(), posix_time::second_clock::local_time().time_of_day());
+    return posix_time::to_simple_string(today_local);
+}
+
+inline std::string current_time_UTC()
+{
+    posix_time::ptime today_utc(gregorian::day_clock::universal_day(), posix_time::second_clock::universal_time().time_of_day());
+    return posix_time::to_simple_string(today_utc);
+}
+
+inline std::string time_spent( const std::string& value )
+{
+    posix_time::ptime epoch = posix_time::time_from_string( value );
+    posix_time::ptime today_local(gregorian::day_clock::local_day(), posix_time::second_clock::local_time().time_of_day());
+    posix_time::time_duration diff = today_local - epoch;
+    return posix_time::to_simple_string(diff);
 }
 
 } // Nextsim
