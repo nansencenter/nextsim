@@ -256,7 +256,6 @@ private:
     double restart_time_step;
     double time_step;
     double duration;
-    double spinup_duration;
     double divergence_min;
     double compression_factor;
     double exponent_compression_factor;

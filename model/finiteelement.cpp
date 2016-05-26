@@ -856,7 +856,6 @@ FiniteElement::initConstant()
 
     time_step = vm["simul.timestep"].as<double>();
     duration = (vm["simul.duration"].as<double>())*days_in_sec;
-    spinup_duration = (vm["simul.spinup_duration"].as<double>())*days_in_sec;
     restart_time_step =  vm["setup.restart_time_step"].as<double>()*days_in_sec;
     if ( fmod(restart_time_step,time_step) != 0)
     {
@@ -3691,7 +3690,7 @@ FiniteElement::run()
         chrono.restart();
         LOG(DEBUG) <<"check_and_reload starts\n";
         for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
-            (*it)->check_and_reload(M_mesh,current_time);
+            (*it)->check_and_reload(M_mesh,current_time+time_step/(24*3600.0));
         LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
         
         use_restart = false;
@@ -4189,7 +4188,7 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             M_wind=ExternalData(
                 vm["simul.constant_wind_u"].as<double>(),
                 vm["simul.constant_wind_v"].as<double>(),
-                time_init, spinup_duration);
+                time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_wind);
         
             M_tair=ExternalData(vm["simul.constant_tair"].as<double>());
@@ -4220,7 +4219,7 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
         case setup::AtmosphereType::ASR:    
             M_wind=ExternalData(
                 &M_asr_nodes_dataset,M_mesh,0 ,1 , 
-                time_init, spinup_duration);
+                time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_wind);
             
             M_tair=ExternalData(&M_asr_elements_dataset,M_mesh,0);
@@ -4263,11 +4262,11 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             M_ocean=ExternalData(
                 vm["simul.constant_ocean_v"].as<double>(),
                 vm["simul.constant_ocean_v"].as<double>(),
-                time_init, spinup_duration);
+                time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_ocean);
             
             M_ssh=ExternalData(vm["simul.constant_ssh"].as<double>(),
-                time_init, spinup_duration);
+                time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_ssh);
             
             M_ocean_temp=ExternalData(vm["simul.constant_ocean_temp"].as<double>());
@@ -4282,12 +4281,12 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
         case setup::OceanType::TOPAZR:
             M_ocean=ExternalData(
                 &M_topaz_nodes_dataset, M_mesh, 0, 1,
-                time_init, spinup_duration);
+                time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_ocean);
         
             M_ssh=ExternalData(
                 &M_topaz_nodes_dataset, M_mesh, 2,
-                time_init, spinup_duration);
+                time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_ssh);
         
             M_ocean_temp=ExternalData(&M_topaz_elements_dataset, M_mesh, 0);
