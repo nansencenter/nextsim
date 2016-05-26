@@ -24,7 +24,7 @@ mkdir -p ../matlab/restart_test
 mv ../matlab/*_1000.??? ../matlab/restart_test/
 
 # Run with a restart
-$execfile --setup.use_restart=true -setup.step_nb=1 --simul.duration=0.5 --setup.write_restart=false --simul.ouput_per_day=4 --config-file=$cfgfile #|| exit 5
+$execfile --setup.use_restart=true --setup.step_nb=1 --simul.duration=0.5 --setup.write_restart=false --simul.ouput_per_day=4 --config-file=$cfgfile #|| exit 5
 
 # Test for diff
 results=0

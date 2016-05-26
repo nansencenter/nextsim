@@ -3586,6 +3586,22 @@ FiniteElement::run()
     {
         this->readRestart(pcpt, vm["setup.step_nb"].as<int>());
         current_time = time_init + pcpt*time_step/(24*3600.0);
+        
+        LOG(DEBUG) <<"Initialize forcingAtmosphere\n";
+        this->forcingAtmosphere();
+        
+        LOG(DEBUG) <<"Initialize forcingOcean\n";
+        this->forcingOcean();
+
+        LOG(DEBUG) <<"Initialize bathymetry\n";
+        this->bathymetry();
+        
+        chrono.restart();
+        LOG(DEBUG) <<"check_and_reload starts\n";
+        for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
+            (*it)->check_and_reload(M_mesh,time_init);
+        LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
+        
     } else {
         // Do one regrid to get the mesh right
         this->regrid(pcpt);
