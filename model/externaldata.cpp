@@ -37,11 +37,11 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
                     % M_dataset->prefix
                     % M_dataset->postfix
                     ).str();
-    
+
     fcoeff.resize(2);
 }
 
-        
+
 ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, int VariableIdbis)
 	:
     ExternalData(dataset, mesh, VariableId )
@@ -75,7 +75,7 @@ ExternalData::ExternalData( double ConstantValue )
     M_SpinUpStartingTime( 0. ),
     M_SpinUpDuration( 0. )
     {}
-    
+
 ExternalData::ExternalData( double ConstantValue, double ConstantValuebis )
 	:
     ExternalData( ConstantValue )
@@ -83,7 +83,7 @@ ExternalData::ExternalData( double ConstantValue, double ConstantValuebis )
         M_constant_valuebis= ConstantValuebis ;
         M_is_vector= true ;
     }
-    
+
 ExternalData::ExternalData( double ConstantValue, double SpinUpStartingTime, double SpinUpDuration )
 	:
     ExternalData( ConstantValue )
@@ -105,34 +105,34 @@ ExternalData::~ExternalData()
 	this->clear();
 }
 
-void ExternalData::check_and_reload(GmshMesh const& M_mesh, const double current_time)
-{    
+void ExternalData::check_and_reload(GmshMesh const& mesh, const double current_time)
+{
     if(!M_is_constant)
     {
         M_current_time = current_time;
-        
+
         M_factor=1.;
         if((M_current_time-M_SpinUpStartingTime)<M_SpinUpDuration)
         {
             M_factor=(M_current_time-M_SpinUpStartingTime)/M_SpinUpDuration;
-        }    
-                
+        }
+
         bool to_be_reloaded=false;
-    
-        if(M_dataset->nb_timestep_day>0) 
+
+        if(M_dataset->nb_timestep_day>0)
         {
             to_be_reloaded=((M_current_time < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < M_current_time) || !M_dataset->reloaded);
         }
-        else    
+        else
             to_be_reloaded=!M_dataset->reloaded;
-    
+
         if (to_be_reloaded)
         {
             std::cout << "Load " << M_datasetname << "\n";
-            loadDataset(M_dataset, M_mesh);
+            loadDataset(M_dataset, mesh);
             std::cout << "Done\n";
         }
-    }       
+    }
 }
 
 typename ExternalData::value_type
@@ -141,53 +141,53 @@ ExternalData::operator [] (const size_type i)
     value_type value;
     value_type valuebis;
     size_type i_tmp;
-    
+
     if(M_is_constant)
     {
         // for the moment same value is given to all the components
         value = M_constant_value;
     }
     else
-    {     
+    {
         if(M_dataset->nb_timestep_day>0)
         {
             fdt = std::abs(M_dataset->ftime_range[1]-M_dataset->ftime_range[0]);
             fcoeff[0] = std::abs(M_current_time-M_dataset->ftime_range[1])/fdt;
             fcoeff[1] = std::abs(M_current_time-M_dataset->ftime_range[0])/fdt;
-    
+
             //std::cout <<"LINEAR COEFF 1= "<< fcoeff[0] <<"\n";
             //std::cout <<"LINEAR COEFF 2= "<< fcoeff[1] <<"\n";
-            
+
             if(!M_is_vector)
             {
-                ASSERT(i < M_dataset->target_size, "invalid index"); 
+                ASSERT(i < M_dataset->target_size, "invalid index");
                 value =  M_factor*
-                    (fcoeff[0]*M_dataset->variables[M_VariableId].data2[0][i] + 
+                    (fcoeff[0]*M_dataset->variables[M_VariableId].data2[0][i] +
                      fcoeff[1]*M_dataset->variables[M_VariableId].data2[1][i]);
             }
             else
             {
-                ASSERT(i < 2*M_dataset->target_size, "invalid index"); 
+                ASSERT(i < 2*M_dataset->target_size, "invalid index");
 
                 if(i < M_dataset->target_size)
                 {
                     i_tmp=i;
-                    value = fcoeff[0]*M_dataset->variables[M_VariableId].data2[0][i_tmp] + 
+                    value = fcoeff[0]*M_dataset->variables[M_VariableId].data2[0][i_tmp] +
                         fcoeff[1]*M_dataset->variables[M_VariableId].data2[1][i_tmp];
-                    valuebis = fcoeff[0]*M_dataset->variables[M_VariableIdbis].data2[0][i_tmp] + 
+                    valuebis = fcoeff[0]*M_dataset->variables[M_VariableIdbis].data2[0][i_tmp] +
                         fcoeff[1]*M_dataset->variables[M_VariableIdbis].data2[1][i_tmp];
-                    
+
                     value =  M_factor*
                         (M_dataset->grid->cos_m_diff_angle*value+M_dataset->grid->sin_m_diff_angle*valuebis);
                 }
                 else
                 {
                     i_tmp=i-M_dataset->target_size;
-                    value = fcoeff[0]*M_dataset->variables[M_VariableId].data2[0][i_tmp] + 
+                    value = fcoeff[0]*M_dataset->variables[M_VariableId].data2[0][i_tmp] +
                         fcoeff[1]*M_dataset->variables[M_VariableId].data2[1][i_tmp];
-                    valuebis = fcoeff[0]*M_dataset->variables[M_VariableIdbis].data2[0][i_tmp] + 
+                    valuebis = fcoeff[0]*M_dataset->variables[M_VariableIdbis].data2[0][i_tmp] +
                         fcoeff[1]*M_dataset->variables[M_VariableIdbis].data2[1][i_tmp];
-                    
+
                     value = M_factor*
                         (-M_dataset->grid->sin_m_diff_angle*value+M_dataset->grid->cos_m_diff_angle*valuebis);
                 }
@@ -197,13 +197,13 @@ ExternalData::operator [] (const size_type i)
         {
             if(!M_is_vector)
             {
-                ASSERT(i < M_dataset->target_size, "invalid index"); 
+                ASSERT(i < M_dataset->target_size, "invalid index");
                 value =  M_factor*M_dataset->variables[M_VariableId].data2[0][i];
             }
             else
             {
-                ASSERT(i < 2*M_dataset->target_size, "invalid index"); 
-                                
+                ASSERT(i < 2*M_dataset->target_size, "invalid index");
+
                 if(i < M_dataset->target_size)
                 {
                     i_tmp=i;
@@ -220,7 +220,7 @@ ExternalData::operator [] (const size_type i)
                     value = M_factor*
                         (-M_dataset->grid->sin_m_diff_angle*value+M_dataset->grid->cos_m_diff_angle*valuebis);
                 }
-            }   
+            }
         }
     }
 
@@ -228,13 +228,13 @@ ExternalData::operator [] (const size_type i)
 }
 
 void
-ExternalData::loadDataset(Dataset *dataset, GmshMesh const& M_mesh)//(double const& u, double const& v)
+ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const& u, double const& v)
 {
 
     // Load grid if unloaded
     if(!dataset->grid->loaded)
         loadGrid(dataset->grid);
-        
+
     // Initialise counters etc.
 	std::string current_timestr = "";
 	int nb_forcing_step =1;
@@ -411,13 +411,13 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& M_mesh)//(double con
     double* data_out;
     double tmp_data;
 
-    auto RX = M_mesh.coordX(dataset->grid->rotation_angle);
-    auto RY = M_mesh.coordY(dataset->grid->rotation_angle);
+    auto RX = mesh.coordX(dataset->grid->rotation_angle);
+    auto RY = mesh.coordY(dataset->grid->rotation_angle);
 
-    if(dataset->target_size==M_mesh.numTriangles())
+    if(dataset->target_size==mesh.numTriangles())
     {
-    	RX = M_mesh.bcoordX(dataset->grid->rotation_angle);
-        RY = M_mesh.bcoordY(dataset->grid->rotation_angle);
+    	RX = mesh.bcoordX(dataset->grid->rotation_angle);
+        RY = mesh.bcoordY(dataset->grid->rotation_angle);
     }
 
 	if(dataset->grid->interpolation_in_latlon)
@@ -489,7 +489,7 @@ std::cout <<"after interp " <<"\n";
     }
 
 	xDelete<double>(data_out);
-    
+
     dataset->reloaded=true;
 
     std::cout <<"end load" <<"\n";
@@ -701,14 +701,14 @@ ExternalData::loadGrid(Grid *grid)
 			grid->gridX=X;
 			grid->gridY=Y;
 		}
-        
+
 	//	break;
 	//
     //default:
     //   std::cout << "invalid ocean initialisation"<<"\n";
     //    throw std::logic_error("invalid ocean forcing");
 	}
-    
+
     grid->loaded=true;
 }
 

@@ -18,7 +18,7 @@
 #include <InterpFromMeshToMesh2dx.h>
 #include <BamgTriangulatex.h>
 #include <netcdf>
-     
+
 
 
 /**
@@ -37,7 +37,7 @@ namespace Nextsim
         FromMeshToMesh2dx = 1,
         FromMeshToMesh2dCavities = 2,
     };
-    
+
 class ExternalData
 {
 
@@ -45,7 +45,7 @@ public:
 
 	typedef std::size_t size_type;
     typedef double value_type;
-    
+
     typedef struct Dimension
     {
         std::string name;
@@ -107,7 +107,7 @@ public:
         std::vector<Variable> variables;
         int target_size;
         Grid *grid;
-        
+
         bool reloaded;
 
         int nb_timestep_day;
@@ -119,24 +119,24 @@ public:
 
     ExternalData();
 
-    ExternalData(Dataset *dataset, GmshMesh const& Mesh, int VariableId );
-    
-    ExternalData(Dataset *dataset, GmshMesh const& Mesh, int VariableId, int VariableIdbis );
-    
-    ExternalData(Dataset *dataset, GmshMesh const& Mesh, int VariableId, 
+    ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId );
+
+    ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId, int VariableIdbis );
+
+    ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId,
         double SpinUpStartingTime, double SpinUpDuration  );
-    
-    ExternalData(Dataset *dataset, GmshMesh const& Mesh, int VariableId, int VariableIdbis, 
+
+    ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId, int VariableIdbis,
         double SpinUpStartingTime, double SpinUpDuration  );
-    
+
     ExternalData(double ConstantValue );
-    
+
     ExternalData(double ConstantValue, double ConstantValuebis );
-    
-    ExternalData(double ConstantValue, 
+
+    ExternalData(double ConstantValue,
         double SpinUpStartingTime, double SpinUpDuration  );
-    
-    ExternalData(double ConstantValue, double ConstantValuebis, 
+
+    ExternalData(double ConstantValue, double ConstantValuebis,
         double SpinUpStartingTime, double SpinUpDuration  );
 
 	~ExternalData();
@@ -146,15 +146,15 @@ public:
     void resize(const size_type n, bool fast = false);
 
 	void close();
-#endif    
-    void check_and_reload(GmshMesh const& Mesh, const double current_time );
-    
+#endif
+    void check_and_reload(GmshMesh const& mesh, const double current_time );
+
 	value_type operator[] (const size_type i);
 
 	void clear();
-    
-    void loadDataset(Dataset *dataset, GmshMesh const& Mesh);//(double const& u, double const& v);
-    
+
+    void loadDataset(Dataset *dataset, GmshMesh const& mesh);//(double const& u, double const& v);
+
     void loadGrid(Grid *grid);
 
 #if 0
