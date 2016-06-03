@@ -29,7 +29,7 @@ FiniteElement::FiniteElement()
 
 // Initialisation of the mesh and forcing
 void
-FiniteElement::initMesh(setup::DomainType domain_type, std::string mesh_filename, setup::MeshType mesh_type)
+FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType const& mesh_type)
 {
     switch (domain_type)
     {
@@ -56,9 +56,28 @@ FiniteElement::initMesh(setup::DomainType domain_type, std::string mesh_filename
             throw std::logic_error("invalid domain type");
     }
 
-    M_mesh.readFromFile(mesh_filename);
+    if (vm["simul.wim_grid"].as<bool>())
+    {
+        LOG(INFO) <<"Using wim grid\n";
 
-    M_mesh.stereographicProjection();
+        M_mesh.writeGeometry("wimsemistructured.geo",
+                             vm["wim.nx"].as<int>(), vm["wim.ny"].as<int>(),
+                             vm["wim.xmin"].as<double>(), vm["wim.ymin"].as<double>(),
+                             vm["wim.dx"].as<double>(), vm["wim.dy"].as<double>());
+
+        this->createGMSHMesh("wimsemistructured.geo");
+        M_mesh.setOrdering("gmsh");
+
+        M_mesh_filename = "wimsemistructured.msh";
+        M_domain_type = setup::DomainType::WIM;
+        M_mesh_type = setup::MeshType::FROM_GMSH;
+        M_flag_fix = 100; // free = 1;
+    }
+
+    M_mesh.readFromFile(M_mesh_filename);
+
+    if (!vm["simul.wim_grid"].as<bool>())
+        M_mesh.stereographicProjection();
     // M_mesh.writeTofile("copy_init_mesh.msh");
 
     // createGMSHMesh("hypercube.geo");
@@ -235,6 +254,7 @@ FiniteElement::initVariables()
     M_Compressive_strength.resize(M_num_elements);
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
 
+    M_tau.resize(2*M_num_nodes,0.);
 }
 
 void
@@ -247,6 +267,9 @@ FiniteElement::initModelState()
     this->initSlabOcean();
 
     this->initDrifter();
+
+    if (vm["simul.use_wim"].as<bool>())
+        this->initNFloes();
 }
 
 void
@@ -981,8 +1004,10 @@ FiniteElement::createGMSHMesh(std::string const& geofilename)
     {
         //std::cout<<"NOT FOUND " << fs::absolute( gmshgeofile ).string() <<"\n";
         std::ostringstream gmshstr;
+        //gmshstr << BOOST_PP_STRINGIZE( GMSH_EXECUTABLE )
+
         gmshstr << BOOST_PP_STRINGIZE( GMSH_EXECUTABLE )
-                << " -" << 2 << " -part " << 1 << " -clmax " << vm["simul.hsize"].as<double>() << " " << gmshgeofile;
+                << " -" << 2 << " " << gmshgeofile;
 
         std::cout << "[Gmsh::generate] execute '" <<  gmshstr.str() << "'\n";
         auto err = ::system( gmshstr.str().c_str() );
@@ -1402,12 +1427,12 @@ FiniteElement::regrid(bool step)
 			}
 
 			InterpFromMeshToMesh2dx(&interp_Vertices_out,
-			&M_mesh_init.indexTr()[0],&M_mesh_init.coordX()[0],&M_mesh_init.coordY()[0],
-			M_mesh_init.numNodes(),M_mesh_init.numTriangles(),
-			&interp_Vertices_in[0],
-			M_mesh_init.numNodes(),2,
-			&M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
-			false);
+                                    &M_mesh_init.indexTr()[0],&M_mesh_init.coordX()[0],&M_mesh_init.coordY()[0],
+                                    M_mesh_init.numNodes(),M_mesh_init.numTriangles(),
+                                    &interp_Vertices_in[0],
+                                    M_mesh_init.numNodes(),2,
+                                    &M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
+                                    false);
 
             // No need to deallocate the memory related to hminVertices and hmaxVertices,
             // as it is done when deleting bamgopt_previous in adaptMesh
@@ -1438,6 +1463,17 @@ FiniteElement::regrid(bool step)
 	        LOG(DEBUG) <<"Element Interp starts\n";
 			// ELEMENT INTERPOLATION With Cavities
 			int nb_var=15;
+
+            // coupling with wim
+            bool nfloes_interp = (vm["simul.use_wim"].as<bool>()) && (!vm["wim.nfloesgridtomesh"].as<bool>());
+
+            if (nfloes_interp)
+                std::cout<<"IN REGRID: "<< "interpolate nfloes\n";
+            else
+                std::cout<<"IN REGRID: "<< "do not interpolate nfloes\n";
+
+            if (nfloes_interp)
+                nb_var++;
 
 			// To avoid memory leak:
 			std::vector<double> interp_elt_in(nb_var*prv_num_elements);
@@ -1512,6 +1548,13 @@ FiniteElement::regrid(bool step)
 				interp_elt_in[nb_var*i+tmp_nb_var] = M_tsurf_thin[i];
 				tmp_nb_var++;
 
+                // Nfloes from wim model
+                if (nfloes_interp)
+                {
+                    interp_elt_in[nb_var*i+tmp_nb_var] = M_nfloes[i];
+                    tmp_nb_var++;
+                }
+
 				if(tmp_nb_var>nb_var)
 				{
 					throw std::logic_error("tmp_nb_var not equal to nb_var");
@@ -1540,16 +1583,16 @@ FiniteElement::regrid(bool step)
 			// By default, we then use the non-conservative MeshToMesh interpolation
 
 			InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_elt_in[0],nb_var,
-			&surface_previous[0], &surface[0], bamgmesh_previous, bamgmesh);
+                                           &surface_previous[0], &surface[0], bamgmesh_previous, bamgmesh);
 
 #if 0
 			InterpFromMeshToMesh2dx(&interp_elt_out,
-			&M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
-			M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-			interp_elt_in,
-			M_mesh_previous.numTriangles(),nb_var,
-			&M_mesh.bcoordX()[0],&M_mesh.bcoordY()[0],M_mesh.numTriangles(),
-			false);
+                                    &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
+                                    M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
+                                    interp_elt_in,
+                                    M_mesh_previous.numTriangles(),nb_var,
+                                    &M_mesh.bcoordX()[0],&M_mesh.bcoordY()[0],M_mesh.numTriangles(),
+                                    false);
 #endif
 
 			M_conc.assign(M_num_elements,0.);
@@ -1569,6 +1612,9 @@ FiniteElement::regrid(bool step)
             M_h_thin.assign(M_num_elements,0.);
             M_hs_thin.assign(M_num_elements,0.);
             M_tsurf_thin.assign(M_num_elements,0.);
+
+            if (nfloes_interp)
+                M_nfloes.assign(M_num_elements,0.);
 
 			for (int i=0; i<M_num_elements; ++i)
 			{
@@ -1650,6 +1696,13 @@ FiniteElement::regrid(bool step)
 				M_tsurf_thin[i] = interp_elt_out[nb_var*i+tmp_nb_var];
 				tmp_nb_var++;
 
+                // Nfloes from wim model
+                if (nfloes_interp)
+                {
+                    M_nfloes[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+                    tmp_nb_var++;
+                }
+
 				if(tmp_nb_var!=nb_var)
 				{
 					throw std::logic_error("tmp_nb_var not equal to nb_var");
@@ -1687,12 +1740,12 @@ FiniteElement::regrid(bool step)
 			}
 
 			InterpFromMeshToMesh2dx(&interp_elt_slab_out,
-			&M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
-			M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-			&interp_elt_slab_in[0],
-			M_mesh_previous.numTriangles(),nb_var,
-			&M_mesh.bcoordX()[0],&M_mesh.bcoordY()[0],M_mesh.numTriangles(),
-			false);
+                                    &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
+                                    M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
+                                    &interp_elt_slab_in[0],
+                                    M_mesh_previous.numTriangles(),nb_var,
+                                    &M_mesh.bcoordX()[0],&M_mesh.bcoordY()[0],M_mesh.numTriangles(),
+                                    false);
 
 			M_sst.resize(M_num_elements);
 			M_sss.resize(M_num_elements);
@@ -1746,12 +1799,12 @@ FiniteElement::regrid(bool step)
 			}
 
 			InterpFromMeshToMesh2dx(&interp_out,
-			&M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
-			M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-			&interp_in[0],
-			M_mesh_previous.numNodes(),nb_var,
-			&M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
-			false);
+                                    &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
+                                    M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
+                                    &interp_in[0],
+                                    M_mesh_previous.numNodes(),nb_var,
+                                    &M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
+                                    false);
 
 			M_VT.assign(2*M_num_nodes,0.);
 			M_VTM.assign(2*M_num_nodes,0.);
@@ -1782,77 +1835,77 @@ FiniteElement::regrid(bool step)
 			LOG(DEBUG) <<"NODAL: Interp done\n";
 			LOG(DEBUG) <<"Nodal interp done in "<< chrono.elapsed() <<"s\n";
 
-                        // Drifters - if requested
+            // Drifters - if requested
             if ( M_drifter_type != setup::DrifterType::NONE )
-                        {
-                            chrono.restart();
-                            LOG(DEBUG) <<"Drifter starts\n";
-                            LOG(DEBUG) <<"DRIFTER: Interp starts\n";
+            {
+                chrono.restart();
+                LOG(DEBUG) <<"Drifter starts\n";
+                LOG(DEBUG) <<"DRIFTER: Interp starts\n";
 
-                            // Assemble the coordinates from the unordered_map
-                            std::vector<double> drifter_X(M_drifter.size());
-                            std::vector<double> drifter_Y(M_drifter.size());
-                            int j=0;
-                            for ( auto it = M_drifter.begin(); it != M_drifter.end(); ++it )
-                            {
-                                drifter_X[j] = it->second[0];
-                                drifter_Y[j] = it->second[1];
-                                ++j;
-                            }
+                // Assemble the coordinates from the unordered_map
+                std::vector<double> drifter_X(M_drifter.size());
+                std::vector<double> drifter_Y(M_drifter.size());
+                int j=0;
+                for ( auto it = M_drifter.begin(); it != M_drifter.end(); ++it )
+                {
+                    drifter_X[j] = it->second[0];
+                    drifter_Y[j] = it->second[1];
+                    ++j;
+                }
 
-                            // Interpolate the velocity and concentration onto the drifter positions
-                            nb_var=2;
-                            std::vector<double> interp_drifter_in(nb_var*prv_num_nodes);
-                            double* interp_drifter_out;
-                            double* interp_drifter_c_out;
+                // Interpolate the velocity and concentration onto the drifter positions
+                nb_var=2;
+                std::vector<double> interp_drifter_in(nb_var*prv_num_nodes);
+                double* interp_drifter_out;
+                double* interp_drifter_c_out;
 
-                            for (int i=0; i<M_num_nodes; ++i)
-                            {
-				interp_drifter_in[i] = M_UM[i];
-				interp_drifter_in[i] = M_UM[i+prv_num_nodes];
-                            }
+                for (int i=0; i<M_num_nodes; ++i)
+                {
+                    interp_drifter_in[i] = M_UM[i];
+                    interp_drifter_in[i] = M_UM[i+prv_num_nodes];
+                }
 
-                            // Interpolate the velocity
-                            InterpFromMeshToMesh2dx(&interp_drifter_out,
-                                &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
-                                M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-                                &interp_drifter_in[0],
-                                M_mesh_previous.numNodes(),nb_var,
-                                &drifter_X[0],&drifter_Y[0],M_drifter.size(),
-                                false);
+                // Interpolate the velocity
+                InterpFromMeshToMesh2dx(&interp_drifter_out,
+                                        &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
+                                        M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
+                                        &interp_drifter_in[0],
+                                        M_mesh_previous.numNodes(),nb_var,
+                                        &drifter_X[0],&drifter_Y[0],M_drifter.size(),
+                                        false);
 
-                            // Interpolate the concentration - take advantage of the fact that interp_elt_in already exists
-                            // and the first set of numbers are the concentration
-                            InterpFromMeshToMesh2dx(&interp_drifter_c_out,
-                                &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
-                                M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-                                &interp_elt_in[0],
-                                M_mesh_previous.numTriangles(),1,
-                                &drifter_X[0],&drifter_Y[0],M_drifter.size(),
-                                false);
+                // Interpolate the concentration - take advantage of the fact that interp_elt_in already exists
+                // and the first set of numbers are the concentration
+                InterpFromMeshToMesh2dx(&interp_drifter_c_out,
+                                        &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
+                                        M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
+                                        &interp_elt_in[0],
+                                        M_mesh_previous.numTriangles(),1,
+                                        &drifter_X[0],&drifter_Y[0],M_drifter.size(),
+                                        false);
 
-                            // Rebuild the M_drifter map
-                            double clim = vm["simul.drift_limit_concentration"].as<double>();
-                            j=0;
-                            for ( auto it = M_drifter.begin(); it != M_drifter.end(); /* ++it is not allowed here, because we use 'erase' */ )
-                            {
-                                if ( interp_drifter_c_out[j] > clim )
-                                {
-                                    M_drifter[it->first] = std::array<double,2> {it->second[0]+interp_drifter_out[j], it->second[1]+interp_drifter_out[j+M_drifter.size()]};
-                                    ++it;
-                                } else {
-                                    // Throw out drifters that drift out of the ice
-                                    it = M_drifter.erase(it);
-                                }
-                                ++j;
-                            }
+                // Rebuild the M_drifter map
+                double clim = vm["simul.drift_limit_concentration"].as<double>();
+                j=0;
+                for ( auto it = M_drifter.begin(); it != M_drifter.end(); /* ++it is not allowed here, because we use 'erase' */ )
+                {
+                    if ( interp_drifter_c_out[j] > clim )
+                    {
+                        M_drifter[it->first] = std::array<double,2> {it->second[0]+interp_drifter_out[j], it->second[1]+interp_drifter_out[j+M_drifter.size()]};
+                        ++it;
+                    } else {
+                        // Throw out drifters that drift out of the ice
+                        it = M_drifter.erase(it);
+                    }
+                    ++j;
+                }
 
-                            xDelete<double>(interp_drifter_out);
-                            xDelete<double>(interp_drifter_c_out);
+                xDelete<double>(interp_drifter_out);
+                xDelete<double>(interp_drifter_c_out);
 
-                            LOG(DEBUG) <<"DRIFTER: Interp done\n";
-                            LOG(DEBUG) <<"Drifter interp done in "<< chrono.elapsed() <<"s\n";
-                        }
+                LOG(DEBUG) <<"DRIFTER: Interp done\n";
+                LOG(DEBUG) <<"Drifter interp done in "<< chrono.elapsed() <<"s\n";
+            }
 		}
 	}
 
@@ -2221,22 +2274,24 @@ FiniteElement::assemble(int pcpt)
                 data[(2*i+1)*6+2*j+1] = dvv;
 
 
-                fvdata[2*i] += surface_e*( mloc*( coef_Vair*M_wind[index_u]
-                                                +coef_Voce*cos_ocean_turning_angle*M_ocean[index_u]
-                                                +coef_X
-                                                +coef_V*M_VT[index_u]
-                                                -coef_Voce*sin_ocean_turning_angle*(M_ocean[index_v]-M_VT[index_v])
-                                                +coef_C*Vcor_index_v)
-                                - b0tj_sigma_hu/3);
+                fvdata[2*i] += surface_e*( mloc*( +M_tau[index_u]
+                                                  +coef_Vair*M_wind[index_u]
+                                                  +coef_Voce*cos_ocean_turning_angle*M_ocean[index_u]
+                                                  +coef_X
+                                                  +coef_V*M_VT[index_u]
+                                                  -coef_Voce*sin_ocean_turning_angle*(M_ocean[index_v]-M_VT[index_v])
+                                                  +coef_C*Vcor_index_v)
+                                           - b0tj_sigma_hu/3);
 
 
-                fvdata[2*i+1] += surface_e*( mloc*( +coef_Vair*M_wind[index_v]
+                fvdata[2*i+1] += surface_e*( mloc*( +M_tau[index_v]
+                                                    +coef_Vair*M_wind[index_v]
                                                     +coef_Voce*cos_ocean_turning_angle*M_ocean[index_v]
                                                     +coef_Y
                                                     +coef_V*M_VT[index_v]
                                                     +coef_Voce*sin_ocean_turning_angle*(M_ocean[index_u]-M_VT[index_u])
                                                     -coef_C*Vcor_index_u)
-                                - b0tj_sigma_hv/3);
+                                             - b0tj_sigma_hv/3);
 
             }
 
@@ -3589,7 +3644,7 @@ FiniteElement::run()
     bool is_running = true;
 
     // Initialise the mesh
-    this->initMesh(M_domain_type, M_mesh_filename, M_mesh_type);
+    this->initMesh(M_domain_type, M_mesh_type);
 
     // Check the minimum angle of the grid
     minang = this->minAngle(M_mesh);
@@ -3605,7 +3660,9 @@ FiniteElement::run()
     {
         this->readRestart(pcpt, vm["setup.step_nb"].as<int>());
         current_time = time_init + pcpt*time_step/(24*3600.0);
-    } else {
+    }
+    else
+    {
         // Do one regrid to get the mesh right
         this->regrid(pcpt);
 
@@ -3654,6 +3711,12 @@ FiniteElement::run()
 
         std::cout <<"\n";
 
+        M_run_wim = !(pcpt % vm["wim.couplingfreq"].as<int>());
+
+        // coupling with wim (exchange from nextsim to wim)
+        if (vm["simul.use_wim"].as<bool>())
+            this->nextsimToWim(pcpt);
+
         // step 0: preparation
         // remeshing and remapping of the prognostic variables
 
@@ -3675,6 +3738,11 @@ FiniteElement::run()
                 LOG(DEBUG) <<"Regriding done in "<< chrono.elapsed() <<"s\n";
             }
         }
+
+        // coupling with wim (exchange from wim to nextsim)
+        if (vm["simul.use_wim"].as<bool>())
+            this->wimToNextsim(pcpt);
+
 
         // Read in the new buoys and output
         if (M_drifter_type == setup::DrifterType::IABP && std::fmod(current_time,0.5) == 0)
@@ -3763,7 +3831,6 @@ FiniteElement::run()
         LOG(DEBUG) <<"update done in "<< chrono.elapsed() <<"s\n";
 
 #if 1
-
         if(fmod((pcpt+1)*time_step,output_time_step) == 0)
         {
             chrono.restart();
@@ -3771,7 +3838,6 @@ FiniteElement::run()
             this->exportResults((int) (pcpt+1)*time_step/output_time_step);
             LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
         }
-
 #endif
 
         ++pcpt;
@@ -4935,7 +5001,31 @@ FiniteElement::constantIce()
 {
 	LOG(DEBUG) <<"Constant Ice\n";
     std::fill(M_conc.begin(), M_conc.end(), vm["simul.init_concentration"].as<double>());
-    std::fill(M_thick.begin(), M_thick.end(), vm["simul.init_thickness"].as<double>());
+
+    if (vm["simul.use_wim"].as<bool>())
+    {
+        auto Bx = M_mesh.bcoordX();
+
+        double xmin = vm["wim.xmin"].as<double>();
+        double xmax = vm["wim.xmin"].as<double>() + (vm["wim.nx"].as<int>())*vm["wim.dx"].as<double>();
+        double xedge = xmin + 0.3*(xmax-xmin);
+
+        for (int i=0; i<M_conc.size(); ++i)
+        {
+            if (Bx[i] < xedge)
+                M_conc[i] = 0.;
+        }
+
+        for (int i=0; i<M_thick.size(); ++i)
+        {
+            M_thick[i] = (vm["simul.init_thickness"].as<double>())*M_conc[i];
+        }
+    }
+    else
+    {
+        std::fill(M_thick.begin(), M_thick.end(), vm["simul.init_thickness"].as<double>());
+    }
+
     std::fill(M_snow_thick.begin(), M_snow_thick.end(), vm["simul.init_snow_thickness"].as<double>());
     std::fill(M_damage.begin(), M_damage.end(), 0.);
 }
@@ -4976,9 +5066,6 @@ FiniteElement::targetIce()
             M_snow_thick[i]=0.;
             M_damage[i]=1.;
         }
-
-
-
     }
 }
 
@@ -5139,6 +5226,17 @@ FiniteElement::etopoBathymetry(bool reload)
         }
     }
 #endif
+}
+
+void
+FiniteElement::initNFloes()
+{
+    M_nfloes.resize(M_num_elements);
+
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        M_nfloes[i] = M_conc[i]/std::pow(vm["wim.dfloepackinit"].as<double>(),2.);
+    }
 }
 
 void
@@ -5588,6 +5686,13 @@ FiniteElement::exportResults(int step, bool export_mesh)
     exporter.writeField(outbin, M_sst, "SST");
     exporter.writeField(outbin, M_sss, "SSS");
 
+    if (vm["simul.use_wim"].as<bool>())
+    {
+        exporter.writeField(outbin, M_tau, "Stresses");
+        exporter.writeField(outbin, M_nfloes, "Nfloes");
+        exporter.writeField(outbin, M_dfloe, "Dfloe");
+    }
+
     if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
     {
         exporter.writeField(outbin, M_h_thin, "Thin_ice");
@@ -5641,16 +5746,280 @@ FiniteElement::exportResults(int step, bool export_mesh)
 }
 
 void
-FiniteElement::applyWim()
+FiniteElement::nextsimToWim(bool step)
 {
-    // instantiation of wim
-    Wim::WimDiscr<double> wim(vm);
+    if (M_run_wim)
+    {
+        chrono.restart();
+        LOG(DEBUG) <<"Element Interp starts\n";
+        // ELEMENT INTERPOLATION (c, h, Nfloes)
+        int nb_var=3;
 
-    // initialization of wim2d
-    wim.init();
+        std::vector<double> interp_elt_in(nb_var*M_num_elements);
 
-    // run the simulation
-    wim.run();
+        double* interp_elt_out;
+
+        LOG(DEBUG) <<"ELEMENT: Interp starts\n";
+
+        int tmp_nb_var=0;
+        for (int i=0; i<M_num_elements; ++i)
+        {
+            tmp_nb_var=0;
+
+            // concentration
+            interp_elt_in[nb_var*i+tmp_nb_var] = M_conc[i];
+            tmp_nb_var++;
+
+            // thickness
+            interp_elt_in[nb_var*i+tmp_nb_var] = M_thick[i];
+            tmp_nb_var++;
+
+            // Nfloes
+            interp_elt_in[nb_var*i+tmp_nb_var] = M_nfloes[i];
+            tmp_nb_var++;
+
+            if(tmp_nb_var>nb_var)
+            {
+                throw std::logic_error("tmp_nb_var not equal to nb_var");
+            }
+        }
+
+        // interpolation from mesh to grid
+        double xmin = (vm["wim.xmin"].as<double>() + 0.5*vm["wim.dx"].as<double>());
+        double ymax = (vm["wim.ymin"].as<double>() + (vm["wim.ny"].as<int>()-1+0.5)*vm["wim.dy"].as<double>());
+        double dx = vm["wim.dx"].as<double>();
+        double dy = vm["wim.dy"].as<double>();
+
+        int num_elements_grid = (vm["wim.nx"].as<int>())*(vm["wim.ny"].as<int>());
+
+        InterpFromMeshToGridx(interp_elt_out,
+                              &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
+                              M_mesh.numNodes(),M_mesh.numTriangles(),
+                              &interp_elt_in[0],
+                              M_mesh.numTriangles(),nb_var,
+                              xmin,ymax,
+                              dx,dy,
+                              vm["wim.nx"].as<int>(),vm["wim.ny"].as<int>(),
+                              0.);
+
+
+        if (!step)
+        {
+            M_icec_grid.assign(num_elements_grid,0.);
+            M_iceh_grid.assign(num_elements_grid,0.);
+            M_nfloes_grid.assign(num_elements_grid,0.);
+
+            M_taux_grid.assign(num_elements_grid,0.);
+            M_tauy_grid.assign(num_elements_grid,0.);
+        }
+
+        for (int i=0; i<num_elements_grid; ++i)
+        {
+            tmp_nb_var=0;
+
+            // concentration
+            M_icec_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+            tmp_nb_var++;
+
+            // thickness
+            M_iceh_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+            tmp_nb_var++;
+
+            // Nfloes
+            M_nfloes_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+            tmp_nb_var++;
+
+            if(tmp_nb_var>nb_var)
+            {
+                throw std::logic_error("tmp_nb_var not equal to nb_var");
+            }
+        }
+
+        xDelete<double>(interp_elt_out);
+
+#if 0
+        std::cout<<"MIN ICEC= "<< *std::min_element(M_conc.begin(),M_conc.end()) <<"\n";
+        std::cout<<"MAX ICEC= "<< *std::max_element(M_conc.begin(),M_conc.end()) <<"\n";
+
+        std::cout<<"MIN ICEH= "<< *std::min_element(M_thick.begin(),M_thick.end()) <<"\n";
+        std::cout<<"MAX ICEH= "<< *std::max_element(M_thick.begin(),M_thick.end()) <<"\n";
+
+        std::cout<<"MIN NFLOES= "<< *std::min_element(M_nfloes.begin(),M_nfloes.end()) <<"\n";
+        std::cout<<"MAX NFLOES= "<< *std::max_element(M_nfloes.begin(),M_nfloes.end()) <<"\n";
+
+        std::cout<<"--------------------------------------------\n";
+
+        std::cout<<"MIN ICEC= "<< *std::min_element(M_icec_grid.begin(),M_icec_grid.end()) <<"\n";
+        std::cout<<"MAX ICEC= "<< *std::max_element(M_icec_grid.begin(),M_icec_grid.end()) <<"\n";
+
+        std::cout<<"MIN ICEH= "<< *std::min_element(M_iceh_grid.begin(),M_iceh_grid.end()) <<"\n";
+        std::cout<<"MAX ICEH= "<< *std::max_element(M_iceh_grid.begin(),M_iceh_grid.end()) <<"\n";
+
+        std::cout<<"MIN NFLOES= "<< *std::min_element(M_nfloes_grid.begin(),M_nfloes_grid.end()) <<"\n";
+        std::cout<<"MAX NFLOES= "<< *std::max_element(M_nfloes_grid.begin(),M_nfloes_grid.end()) <<"\n";
+#endif
+
+
+#if 0
+        auto RX = M_mesh.coordX();
+        auto RY = M_mesh.coordY();
+
+        std::cout<<"MIN BOUND MESHX= "<< *std::min_element(RX.begin(),RX.end()) <<"\n";
+        std::cout<<"MAX BOUND MESHX= "<< *std::max_element(RX.begin(),RX.end()) <<"\n";
+
+        std::cout<<"MIN BOUND MESHY= "<< *std::min_element(RY.begin(),RY.end()) <<"\n";
+        std::cout<<"MAX BOUND MESHY= "<< *std::max_element(RY.begin(),RY.end()) <<"\n";
+
+        std::cout<<"------------------------------------------\n";
+
+        std::cout<<"MIN BOUND GRIDX= "<< (vm["wim.xmin"].as<double>()) <<"\n";
+        std::cout<<"MAX BOUND GRIDX= "<< (vm["wim.xmin"].as<double>()+vm["wim.dx"].as<double>()*vm["wim.nx"].as<int>()) <<"\n";
+
+        std::cout<<"MIN BOUND GRIDY= "<< (vm["wim.ymin"].as<double>()) <<"\n";
+        std::cout<<"MAX BOUND GRIDY= "<< (vm["wim.ymin"].as<double>()+vm["wim.dy"].as<double>()*vm["wim.ny"].as<int>()) <<"\n";
+#endif
+    }
+}//
+
+void
+FiniteElement::wimToNextsim(bool step)
+{
+    if (M_run_wim)
+    {
+        // instantiation of wim
+        Wim::WimDiscr<double> wim(vm);
+
+        // initialization of wim
+        wim.init();
+
+        // run wim
+        wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid);
+
+        M_taux_grid = wim.getTaux();
+        M_tauy_grid = wim.getTauy();
+        M_nfloes_grid = wim.getNFloes();
+    }
+
+    if (M_run_wim || M_regrid)
+    {
+        int nx = vm["wim.nx"].as<int>();
+        int ny = vm["wim.ny"].as<int>();
+
+        std::vector<double> X(nx);
+        std::vector<double> Y(ny);
+
+        for (int i = 0; i < nx; i++)
+            X[i] = vm["wim.xmin"].as<double>() + (i+0.5)*vm["wim.dx"].as<double>();
+
+        for (int j = 0; j < ny; j++)
+            Y[j] = vm["wim.ymin"].as<double>() + (j+0.5)*vm["wim.dy"].as<double>();
+
+        chrono.restart();
+        LOG(DEBUG) <<"Nodal Interp starts\n";
+        LOG(DEBUG) <<"NODAL: Interp starts\n";
+
+        int num_elements_grid = nx*ny;
+
+        // NODAL INTERPOLATION
+        int nb_var=2;
+        std::vector<double> interp_in(nb_var*num_elements_grid,0.);
+        double* interp_out;
+
+        for (int i=0; i<num_elements_grid; ++i)
+        {
+            // tau (taux and tauy)
+            interp_in[nb_var*i] = M_taux_grid[i];
+            interp_in[nb_var*i+1] = M_tauy_grid[i];
+        }
+
+        // int interptype = TriangleInterpEnum;
+        int interptype = BilinearInterpEnum;
+        //int interptype = NearestInterpEnum;
+
+        InterpFromGridToMeshx(interp_out,
+                              &X[0], vm["wim.nx"].as<int>(),
+                              &Y[0], vm["wim.ny"].as<int>(),
+                              &interp_in[0],
+                              vm["wim.ny"].as<int>(), vm["wim.nx"].as<int>(),
+                              nb_var,
+                              &M_mesh.coordX()[0], &M_mesh.coordY()[0], M_num_nodes,0.,interptype,true);
+
+        if ((!step) || M_regrid)
+            M_tau.assign(2*M_num_nodes,0);
+
+        for (int i=0; i<M_num_nodes; ++i)
+        {
+            // tau
+            M_tau[i] = interp_out[nb_var*i];
+            M_tau[i+M_num_nodes] = interp_out[nb_var*i+1];
+        }
+
+        xDelete<double>(interp_out);
+
+#if 0
+        std::cout<<"arrived here\n";
+        std::cout<<"MIN TAUX GRID= "<< *std::min_element(M_taux_grid.begin(),M_taux_grid.end()) <<"\n";
+        std::cout<<"MAX TAUX GRID= "<< *std::max_element(M_taux_grid.begin(),M_taux_grid.end()) <<"\n";
+
+        std::cout<<"MIN TAUY GRID= "<< *std::min_element(M_tauy_grid.begin(),M_tauy_grid.end()) <<"\n";
+        std::cout<<"MAX TAUY GRID= "<< *std::max_element(M_tauy_grid.begin(),M_tauy_grid.end()) <<"\n";
+
+        std::cout<<"--------------------------------------------\n";
+
+        std::cout<<"MIN TAUX= "<< *std::min_element(M_tau.begin(),M_tau.begin()+M_num_nodes) <<"\n";
+        std::cout<<"MAX TAUX= "<< *std::max_element(M_tau.begin(),M_tau.begin()+M_num_nodes) <<"\n";
+
+        std::cout<<"MAX TAUY= "<< *std::min_element(M_tau.begin()+M_num_nodes,M_tau.end()) <<"\n";
+        std::cout<<"MAX TAUY= "<< *std::max_element(M_tau.begin()+M_num_nodes,M_tau.end()) <<"\n";
+#endif
+
+        if (M_run_wim || (M_regrid && vm["wim.nfloesgridtomesh"].as<bool>()))
+        {
+            // interpolate nfloes if needed
+            InterpFromGridToMeshx(interp_out,
+                                  &X[0], vm["wim.nx"].as<int>(),
+                                  &Y[0], vm["wim.ny"].as<int>(),
+                                  &M_nfloes_grid[0],
+                                  vm["wim.ny"].as<int>(), vm["wim.nx"].as<int>(),
+                                  1,
+                                  &M_mesh.bcoordX()[0], &M_mesh.bcoordY()[0], M_num_elements,0.,interptype,true);
+
+            if (M_regrid)
+                M_nfloes.resize(M_num_elements);
+
+            for (int i=0; i<M_num_elements; ++i)
+            {
+                // nfloes
+                M_nfloes[i] = interp_out[i];
+            }
+
+            xDelete<double>(interp_out);
+
+#if 0
+            std::cout<<"MIN NFLOES GRID= "<< *std::min_element(M_nfloes_grid.begin(),M_nfloes_grid.end()) <<"\n";
+            std::cout<<"MAX NFLOES GRID= "<< *std::max_element(M_nfloes_grid.begin(),M_nfloes_grid.end()) <<"\n";
+
+            std::cout<<"--------------------------------------------\n";
+
+            std::cout<<"MIN NFLOES= "<< *std::min_element(M_nfloes.begin(),M_nfloes.end()) <<"\n";
+            std::cout<<"MAX NFLOES= "<< *std::max_element(M_nfloes.begin(),M_nfloes.end()) <<"\n";
+#endif
+        }
+    }
+
+    M_dfloe.assign(M_num_elements,0.);
+
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        if (M_nfloes[i] > 0)
+            M_dfloe[i] = std::sqrt(M_conc[i]/M_nfloes[i]);
+
+        if (M_dfloe[i] > vm["wim.dfloepackthresh"].template as<double>())
+            M_dfloe[i] = vm["wim.dfloepackinit"].template as<double>();
+
+        if (M_conc[i] < vm["wim.cicemin"].template as<double>())
+            M_dfloe[i] = 0.;
+    }
 }
 
 void

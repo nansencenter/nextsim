@@ -46,7 +46,7 @@ namespace setup
         MITGCM    = 7,
         TARGET    = 8
 	};
-	
+
     enum class BathymetryType
     {
         CONSTANT = 0,
@@ -74,7 +74,8 @@ namespace setup
         BERINGKARA     = 2,
         BIGKARA        = 3,
         ARCTIC         = 4,
-        BIGARCTIC      = 5
+        BIGARCTIC      = 5,
+        WIM            = 6
     };
 
     enum class MeshType

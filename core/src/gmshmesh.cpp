@@ -334,6 +334,62 @@ GmshMesh::writeTofile(std::string const& filename)
 }
 
 void
+GmshMesh::writeGeometry(std::string const& geofile, int nx, int ny, double xmin, double ymin, double dx, double dy)
+{
+    std::string gmshgeofile = Environment::nextsimDir().string() + "/mesh/" + geofile;
+    std::fstream gmshfile(gmshgeofile, std::ios::out | std::ios::trunc);
+
+    if (gmshfile.is_open())
+    {
+
+        gmshfile << "General.ExpertMode = 1;\n"
+                 << "Mesh.MshFileVersion = " << 2.2 << ";\n"
+                 << "Mesh.CharacteristicLengthExtendFromBoundary = 1;\n"
+                 << "Mesh.CharacteristicLengthFromPoints = 1;\n"
+                 << "Mesh.ElementOrder = 1;\n"
+                 << "Mesh.SecondOrderIncomplete = 0;\n"
+                 << "Mesh.Algorithm = 6;\n"
+                 << "Mesh.RecombinationAlgorithm = 0;\n";
+
+        gmshfile <<"h = "<< 1. <<";\n"
+                 << "nx = "<< nx <<";\n"
+                 << "ny = "<< ny <<";\n"
+                 << "xmin = "<< xmin <<";\n"
+                 << "xmax = "<< xmin + nx*dx <<";\n"
+                 << "ymin = "<< ymin <<";\n"
+                 << "ymax = "<< ymin + ny*dy <<";\n";
+
+        gmshfile << "Point(1) = {xmin,ymin,0.0,h};\n"
+                 << "Point(2) = {xmax,ymin,0.0,h};\n"
+                 << "Point(3) = {xmax,ymax,0.0,h};\n"
+                 << "Point(4) = {xmin,ymax,0.0,h}\n;";
+
+        gmshfile << "Line(1) = {4,1};\n"
+                 << "Line(2) = {1,2};\n"
+                 << "Line(3) = {2,3};\n"
+                 << "Line(4) = {3,4};\n"
+                 << "Line Loop(5) = {1,2,3,4};\n"
+                 << "Plane Surface(6) = {5};\n";
+
+        gmshfile << "Physical Line(100) = {2,3,4};\n"
+                 << "Physical Line(200) = {1};\n"
+                 << "Physical Surface(6) = {6};\n";
+
+        gmshfile << "\n"
+                 << "Transfinite Line {1,3} = ny + 1 Using Progression 1.0;\n"
+                 << "Transfinite Line {2,4} = nx + 1 Using Progression 1.0;\n"
+                 << "\n"
+                 << "Transfinite Surface {6} = {1,2,3,4};\n";
+    }
+    else
+    {
+        std::cout << "Cannot open " << gmshgeofile  << "\n";
+        std::cerr << "error: open file " << gmshgeofile << " for output failed!" <<"\n";
+        std::abort();
+    }
+}
+
+void
 GmshMesh::move(std::vector<double> const& um, double factor)
 {
     if ((um.size() != 0) && (factor != 0))

@@ -105,6 +105,7 @@ public:
 
     void readFromFile(std::string const& filename);
     void writeTofile(std::string const& filename);
+    void writeGeometry(std::string const& geofile, int nx, int ny, double xmin, double ymin, double dx, double dy);
     void move(std::vector<double> const& um, double factor);
 
     std::string const& version() const {return M_version;}

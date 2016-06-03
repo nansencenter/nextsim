@@ -22,6 +22,7 @@
 #include <InterpFromMeshToMesh2dCavities.h>
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromGridToMeshx.h>
+#include <InterpFromMeshToGridx.h>
 #include <gmshmesh.hpp>
 #include <graphcsr.hpp>
 #include <wimdiscr.hpp>
@@ -135,7 +136,7 @@ public:
     vector_type const& rhs() const {return *M_vector;}
     vector_type const& solution() const {return *M_solution;}
 
-    void initMesh(setup::DomainType domain_type, std::string mesh_filename, setup::MeshType mesh_type);
+    void initMesh(setup::DomainType const& domain_type, setup::MeshType const& mesh_type);
     void initDatasets();
     void createGMSHMesh(std::string const& geofilename);
     double jacobian(element_type const& element, mesh_type const& mesh) const;
@@ -196,6 +197,7 @@ public:
     void initSlabOcean();
     void initDrifter();
     void coriolis();
+    void initNFloes();
     void timeInterpolation(int step);
     void nodesToElements(double const* depth, std::vector<double>& v);
 
@@ -213,7 +215,8 @@ public:
     void writeRestart(int pcpt, int step);
     void readRestart(int &pcpt, int step);
 
-    void applyWim();
+    void nextsimToWim(bool step);
+    void wimToNextsim(bool step);
     void clear();
 
 private:
@@ -303,6 +306,18 @@ private:
     std::vector<double> M_Compressive_strength;
     std::vector<double> M_time_relaxation_damage;
 
+    // variables needed for coupling with wim
+    std::vector<double> M_nfloes;
+    std::vector<double> M_dfloe;
+    std::vector<double> M_tau;
+
+    std::vector<double> M_icec_grid;
+    std::vector<double> M_iceh_grid;
+    std::vector<double> M_nfloes_grid;
+
+    std::vector<double> M_taux_grid;
+    std::vector<double> M_tauy_grid;
+
 private:
 
     double nu0;
@@ -350,6 +365,7 @@ private:
     double current_time;
     bool M_reuse_prec;
     bool M_regrid;
+    bool M_run_wim;
 
 private:
 

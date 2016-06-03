@@ -10,7 +10,7 @@
 #include "./isnan.h"
 /*}}}*/
 
-int InterpFromGridToMeshx(double* &data_mesh,double* x_in, int x_rows, double* y_in, int y_rows, double* data, int M, int N, int N_data, double* x_mesh, double* y_mesh, int nods,double default_value, int interpenum){
+int InterpFromGridToMeshx(double* &data_mesh,double* x_in, int x_rows, double* y_in, int y_rows, double* data, int M, int N, int N_data, double* x_mesh, double* y_mesh, int nods,double default_value, int interpenum, bool row_major){
 
 	/*Intermediary*/
 	double* x=NULL;
@@ -70,6 +70,7 @@ int InterpFromGridToMeshx(double* &data_mesh,double* x_in, int x_rows, double* y
 	gate.M             = M;
 	gate.N             = N;
 	gate.N_data        = N_data;
+	gate.row_major     = row_major;
 
 	/*launch the thread manager with InterpFromGridToMeshxt as a core: */
 	LaunchThread(InterpFromGridToMeshxt,(void*)&gate,_NUMTHREADS_);
@@ -218,6 +219,7 @@ void* InterpFromGridToMeshxt(void* vpthread_handle){
 	int     M                     = gate->M;
 	int     N                     = gate->N;
 	int     N_data                = gate->N_data;
+	bool    row_major             = gate->row_major;
 
 	bool debug = M*N>1? true:false;
 
@@ -250,10 +252,20 @@ void* InterpFromGridToMeshxt(void* vpthread_handle){
 
 			for(j=0;j<N_data;j++) {
 
-				Q11=data[N_data*(m*N+n)			+j];
-				Q12=data[N_data*((m+1)*N+n)		+j];
-				Q21=data[N_data*(m*N+n+1)		+j];
-				Q22=data[N_data*((m+1)*N+n+1)	+j];
+				if (row_major)
+				{
+					Q11=data[N_data*(n*M+m)			+j];
+					Q12=data[N_data*(n*M+m+1)		+j];
+					Q21=data[N_data*((n+1)*M+m)		+j];
+					Q22=data[N_data*((n+1)*M+m+1)	+j];
+				}
+				else
+				{
+					Q11=data[N_data*(m*N+n)			+j];
+					Q12=data[N_data*((m+1)*N+n)		+j];
+					Q21=data[N_data*(m*N+n+1)		+j];
+					Q22=data[N_data*((m+1)*N+n+1)	+j];
+				}
 
 				switch(interpenum){
 					case TriangleInterpEnum:
