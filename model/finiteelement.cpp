@@ -4,6 +4,7 @@
  * @file   finiteelement.cpp
  * @author Abdoulaye Samake <abdoulaye.samake@nersc.no>
  * @author Sylvain Bouillon <sylvain.bouillon@nersc.no>
+ * @author Einar Olason <einar.olason@nersc.no>
  * @date   Mon Aug 24 11:02:45 2015
  */
 
@@ -70,7 +71,7 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
 
         M_mesh_filename = "wimsemistructured.msh";
         M_domain_type = setup::DomainType::WIM;
-        M_mesh_type = setup::MeshType::FROM_GMSH;
+        M_mesh_type = setup::MeshType::FROM_SPLIT;
         M_flag_fix = 100; // free = 1;
     }
 

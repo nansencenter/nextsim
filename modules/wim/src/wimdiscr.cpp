@@ -47,12 +47,23 @@ void WimDiscr<T>::gridProssessing()
             SCVX_array[i][j] = dx;
             SCP2_array[i][j] = dx*dy;
             SCP2I_array[i][j] = 1./(dx*dy);
+#if 0
+            if (i==nx-1)
+            {
+                LANDMASK_array[i][j] = 1.;
+            }
+
+            if ((j==0) || (j==ny-1))
+            {
+                LANDMASK_array[i][j] = 1.;
+                LANDMASK_array[i][j] = 1.;
+            }
+#endif
         }
     }
 
     if (vm["wim.exportresults"].template as<bool>())
     {
-
         std::string str = vm["wim.outparentdir"].template as<std::string>();
 
         char * senv = ::getenv( "WIM2D_PATH" );
@@ -116,8 +127,8 @@ void WimDiscr<T>::gridProssessing()
         std::string fileoutb = (boost::format( "%1%/wim_grid.b" ) % path.string()).str();
         std::fstream outb(fileoutb, std::ios::out | std::ios::trunc);
 
-        std::string nxstr = std::string(3-std::to_string(nx).length(),'0') + std::to_string(nx);
-        std::string nystr = std::string(3-std::to_string(ny).length(),'0') + std::to_string(ny);
+        std::string nxstr = std::string(4-std::to_string(nx).length(),'0') + std::to_string(nx);
+        std::string nystr = std::string(4-std::to_string(ny).length(),'0') + std::to_string(ny);
 
         // std::cout<<"-----------nx= "<< nxstr <<"\n";
         // std::cout<<"-----------ny= "<< nystr <<"\n";
@@ -646,6 +657,7 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
         }
     }
 
+    //dt = cfl*std::min(dx,dy)/amax;
     dt = cfl*dx/amax;
     //ncs = std::ceil(nwavedirn/2);
     ncs = std::round(nwavedirn/2);
@@ -973,8 +985,11 @@ void WimDiscr<T>::timeStep()
     //     for (int j = 0; j < ny; j++)
     //         std::cout<<"Hs["<< i << "," << j << "]= "<< Hs[i][j] <<"\n";
 
-    std::cout<<"Hs_max= "<< *std::max_element(Hs.data(), Hs.data()+Hs.num_elements()) <<"\n";
-    std::cout<<"Hs_min= "<< *std::min_element(Hs.data(), Hs.data()+Hs.num_elements()) <<"\n";
+    // std::cout<<"Hs_max= "<< *std::max_element(Hs.data(), Hs.data()+Hs.num_elements()) <<"\n";
+    // std::cout<<"Hs_min= "<< *std::min_element(Hs.data(), Hs.data()+Hs.num_elements()) <<"\n";
+
+    std::cout<<"taux_min= "<< *std::min_element(tau_x.begin(), tau_x.end()) <<"\n";
+    std::cout<<"taux_max= "<< *std::max_element(tau_x.begin(), tau_x.end()) <<"\n";
 
     // std::cout<<"------------------------------------------------------\n";
     // std::cout<<"dfloe_max= "<< *std::max_element(dfloe.data(), dfloe.data()+dfloe.num_elements()) <<"\n";
@@ -995,12 +1010,18 @@ void WimDiscr<T>::run(std::vector<value_type> const& ice_c, std::vector<value_ty
 
     //duration = 1.0e3*x_ext/u_ref;
     duration = vm["wim.duration"].template as<double>();
-    std::cout<<"duration= "<< duration <<"\n";
-    std::cout<<"dt= "<< dt <<"\n";
+
+    //duration = (vm["simul.timestep"].as<double>())*(vm["wim.couplingfreq"].as<int>());
 
     //nt = std::floor(duration/dt);
     nt = std::round(duration/dt);
+    //nt = std::ceil(duration/dt);
+    //dt = duration/nt;//reduce time step slightly to make duration an integer multiple of dt
+
+    std::cout<<"duration= "<< duration <<"\n";
+    std::cout<<"dt= "<< dt <<"\n";
     std::cout<<"nt= "<< nt <<"\n";
+
     int cpt = 0;
 
     while (cpt < nt)
@@ -1888,7 +1909,7 @@ void WimDiscr<T>::exportResults(size_type const& timestp, value_type const& t_ou
     if ( !fs::exists(path) )
         fs::create_directories(path);
 
-    std::string timestpstr = std::string(3-std::to_string(timestp).length(),'0') + std::to_string(timestp);
+    std::string timestpstr = std::string(4-std::to_string(timestp).length(),'0') + std::to_string(timestp);
 
     std::string fileout = (boost::format( "%1%/wim_prog%2%.a" ) % path.string() % timestpstr).str();
     std::fstream out(fileout, std::ios::binary | std::ios::out | std::ios::trunc);

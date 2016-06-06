@@ -4,6 +4,7 @@
  * @file   enums.hpp
  * @author Abdoulaye Samake <abdoulaye.samake@nersc.no>
  * @author Sylvain Bouillon <sylvain.bouillon@nersc.no>
+ * @author Einar Olason <einar.olason@nersc.no>
  * @date   Mon Oct 12 12:04:59 2015
  */
 
