@@ -4457,6 +4457,7 @@ FiniteElement::constantIce()
 {
 	LOG(DEBUG) <<"Constant Ice\n";
     std::fill(M_conc.begin(), M_conc.end(), vm["simul.init_concentration"].as<double>());
+    std::fill(M_thick.begin(), M_thick.end(), vm["simul.init_thickness"].as<double>());
 
     if (vm["simul.use_wim"].as<bool>())
     {
@@ -4469,17 +4470,11 @@ FiniteElement::constantIce()
         for (int i=0; i<M_conc.size(); ++i)
         {
             if (Bx[i] < xedge)
+            {
                 M_conc[i] = 0.;
+                M_thick[i] = 0.;
+            }
         }
-
-        for (int i=0; i<M_thick.size(); ++i)
-        {
-            M_thick[i] = (vm["simul.init_thickness"].as<double>())*M_conc[i];
-        }
-    }
-    else
-    {
-        std::fill(M_thick.begin(), M_thick.end(), vm["simul.init_thickness"].as<double>());
     }
 
     std::fill(M_snow_thick.begin(), M_snow_thick.end(), vm["simul.init_snow_thickness"].as<double>());

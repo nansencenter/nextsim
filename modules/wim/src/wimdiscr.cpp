@@ -413,7 +413,7 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
 
     // ag
     ag = ap;
-    std::for_each(ag.begin(), ag.end(), [&](value_type& f){ f = f/2 ; });
+    std::for_each(ag.begin(), ag.end(), [&](value_type& f){ f = f/2. ; });
 
 
     x0 = X_array[0][0];
@@ -484,7 +484,7 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
                 {
                     chi = PI*(wavedir[dn]-mwd[i][j])/180.0;
                     if (std::cos(chi) > 0.)
-                        theta_fac[dn] = 2.0*std::pow(cos(chi),2.)/PI;
+                        theta_fac[dn] = 2.0*std::pow(std::cos(chi),2.)/PI;
                     else
                         theta_fac[dn] = 0.;
                 }
@@ -527,28 +527,28 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
             else
             {
                 icec[i][j] = ice_c[ny*i+j];
-
-                iceh[i][j] = 0.;
-
-                if (ice_c[ny*i+j] > 0)
-                    iceh[i][j] = ice_h[ny*i+j]/ice_c[ny*i+j];
+                nfloes[ny*i+j] = n_floes[ny*i+j];
 
                 dfloe[ny*i+j] = 0.;
 
-                if (n_floes[ny*i+j] > 0)
-                    dfloe[ny*i+j] = std::sqrt(ice_c[ny*i+j]/n_floes[ny*i+j]);
+                if (icec[i][j] < vm["wim.cicemin"].template as<double>())
+                {
+                    ice_mask[i][j] = 0.;
+                    icec[i][j] = 0.;
+                    iceh[i][j] = 0.;
+                    nfloes[ny*i+j] = 0.;
+                }
+                else
+                {
+                    ice_mask[i][j] = 1.;
+
+                    iceh[i][j] = ice_h[ny*i+j]/icec[i][j];
+
+                    dfloe[ny*i+j] = std::sqrt(icec[i][j]/nfloes[ny*i+j]);
+                }
 
                 if (dfloe[ny*i+j] > dfloe_pack_thresh)
                     dfloe[ny*i+j] = dfloe_pack_init;
-
-
-                if (icec[i][j] < vm["wim.cicemin"].template as<double>())
-                    dfloe[ny*i+j] = 0.;
-
-                if (icec[i][j] < vm["wim.cicemin"].template as<double>())
-                    ice_mask[i][j] = 0.;
-                else
-                    ice_mask[i][j] = 1.;
 
                 //std::cout<<"----------------------complex case\n";
             }
@@ -556,6 +556,31 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
             //std::cout<<"ICE_MASK["<< i  << "," << j << "]= " << ice_mask[i][j] <<"\n";
         }
     }
+
+
+    std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n";
+    std::cout<<"icec_max= "<< *std::max_element(icec.data(), icec.data()+icec.num_elements()) <<"\n";
+    std::cout<<"icec_min= "<< *std::min_element(icec.data(), icec.data()+icec.num_elements()) <<"\n";
+    std::cout<<"icec_acc= "<< std::accumulate(icec.data(), icec.data()+icec.num_elements(),0.) <<"\n";
+
+    std::cout<<"--------------------------------------------------------\n";
+
+    std::cout<<"iceh_max= "<< *std::max_element(iceh.data(), iceh.data()+iceh.num_elements()) <<"\n";
+    std::cout<<"iceh_min= "<< *std::min_element(iceh.data(), iceh.data()+iceh.num_elements()) <<"\n";
+    std::cout<<"iceh_acc= "<< std::accumulate(iceh.data(), iceh.data()+iceh.num_elements(),0.) <<"\n";
+
+    std::cout<<"--------------------------------------------------------\n";
+
+    std::cout<<"dfloe_max= "<< *std::max_element(dfloe.begin(), dfloe.end()) <<"\n";
+    std::cout<<"dfloe_min= "<< *std::min_element(dfloe.begin(), dfloe.end()) <<"\n";
+    std::cout<<"dfloe_acc= "<< std::accumulate(dfloe.begin(), dfloe.end(),0.) <<"\n";
+
+    std::cout<<"--------------------------------------------------------\n";
+
+    std::cout<<"nfloes_max= "<< *std::max_element(n_floes.begin(), n_floes.end()) <<"\n";
+    std::cout<<"nfloes_min= "<< *std::min_element(n_floes.begin(), n_floes.end()) <<"\n";
+    std::cout<<"nfloes_acc= "<< std::accumulate(n_floes.begin(), n_floes.end(),0.) <<"\n";
+
 
     //std::cout<<"big loop starts\n";
     for (int fq = 0; fq < nwavefreq; fq++)
@@ -657,8 +682,7 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
         }
     }
 
-    //dt = cfl*std::min(dx,dy)/amax;
-    dt = cfl*dx/amax;
+    dt = cfl*std::min(dx,dy)/amax;
     //ncs = std::ceil(nwavedirn/2);
     ncs = std::round(nwavedirn/2);
 }
@@ -692,7 +716,7 @@ void WimDiscr<T>::timeStep()
         {
             for (int j = 0; j < nwavedirn; j++)
             {
-                adv_dir = (-PI/180)*(wavedir[j]+90.);
+                adv_dir = (-PI/180.)*(wavedir[j]+90.);
 
                 if (std::cos(adv_dir) >= 0.)
                 {
@@ -969,7 +993,7 @@ void WimDiscr<T>::timeStep()
                 dfloe[ny*i+j] = 0;
             }
 
-            nfloes[ny*i+j] = 0.;
+            //nfloes[ny*i+j] = 0.;
 
             if (dfloe[ny*i+j] > 0.)
                 nfloes[ny*i+j] = icec[i][j]/std::pow(dfloe[ny*i+j],2.);
@@ -1013,12 +1037,13 @@ void WimDiscr<T>::run(std::vector<value_type> const& ice_c, std::vector<value_ty
 
     //duration = (vm["simul.timestep"].as<double>())*(vm["wim.couplingfreq"].as<int>());
 
-    //nt = std::floor(duration/dt);
-    nt = std::round(duration/dt);
+    nt = std::floor(duration/dt);
+    //nt = std::round(duration/dt);
     //nt = std::ceil(duration/dt);
-    //dt = duration/nt;//reduce time step slightly to make duration an integer multiple of dt
+    dt = duration/nt;//reduce time step slightly to make duration an integer multiple of dt
 
     std::cout<<"duration= "<< duration <<"\n";
+    std::cout<<"amax= "<< amax <<"\n";
     std::cout<<"dt= "<< dt <<"\n";
     std::cout<<"nt= "<< nt <<"\n";
 
@@ -1070,7 +1095,7 @@ void WimDiscr<T>::floeScaling(value_type const& dmax, value_type& dave)
         for (int m=0; m<mm+1; ++m)
         {
             n = (1.0-fragility)*std::pow((fragility*std::pow(xi,2.)),m);
-            nd = n/(std::pow(xi,m));
+            nd = n/(std::pow(xi,double(m)));
             nsum += n;
             ndsum += nd;
             dfac = ndsum/nsum;
