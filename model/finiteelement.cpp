@@ -29,9 +29,9 @@ FiniteElement::FiniteElement()
 
 // Initialisation of the mesh and forcing
 void
-FiniteElement::initMesh(setup::DomainType domain_type, std::string mesh_filename, setup::MeshType mesh_type)
+FiniteElement::initMesh()
 {
-    switch (domain_type)
+    switch (M_domain_type)
     {
         case setup::DomainType::DEFAULT:
             M_flag_fix = 10000; // free = [10001 10002];
@@ -56,18 +56,32 @@ FiniteElement::initMesh(setup::DomainType domain_type, std::string mesh_filename
             throw std::logic_error("invalid domain type");
     }
 
+    M_mesh = mesh_type();
 
-    //std::cout<<"ORDERING= "<< M_mesh.ordering() <<"\n";
     M_mesh.setOrdering("gmsh");
 
-    M_mesh.readFromFile(mesh_filename);
+#if 1
+    chrono.restart();
+    M_mesh.readFromFile(M_mesh_filename);
+    std::cout<<"Reading mesh done in "<< chrono.elapsed() <<"s\n";
 
-    M_mesh.stereographicProjection();
+
+    //M_mesh.stereographicProjection();
     // M_mesh.writeTofile("copy_init_mesh.msh");
 
-    // createGMSHMesh("hypercube.geo");
-    // //M_mesh.setOrdering("gmsh");
-    // M_mesh.readFromFile("hypercube.msh");
+    if (M_mesh.comm().rank() == 0)
+    {
+        std::cout<<"----------------------starts\n";
+        M_mesh_root = mesh_type_root(M_mesh.nodesRoot(), M_mesh.edgesRoot(), M_mesh.trianglesRoot());
+        std::cout<<"M_mesh_root.numNodes()= "<< M_mesh_root.numNodes() <<"\n";
+        std::cout<<"----------------------done\n";
+        M_mesh.clearRoot();
+
+        M_mesh_init_root = M_mesh_root;
+    }
+
+#endif
+
     this->initBamg();
 
     //std::cout<<"Convert MESH starts\n";
@@ -151,7 +165,7 @@ FiniteElement::initMesh(setup::DomainType domain_type, std::string mesh_filename
     // std::cout<<"MESH: HMAX= "<< h[1] <<"\n";
     // std::cout<<"MESH: RES = "<< this->resolution(M_mesh) <<"\n";
 
-    switch (mesh_type)
+    switch (M_mesh_type)
     {
         case setup::MeshType::FROM_GMSH:
             // For the other meshes, we use a constant hmin and hmax
@@ -194,6 +208,14 @@ FiniteElement::initMesh(setup::DomainType domain_type, std::string mesh_filename
     //M_num_nodes = M_local_ndof;
     M_num_nodes = M_local_ndof_ghost;
 
+    //M_comm.barrier();
+    //std::cout<<"["<< M_rank << "] M_num_elements= "<< M_mesh.numTriangles() <<"\n";
+    std::cout<<"["<< M_rank << "] M_num_elements  =   "<< M_ndof <<"\n";
+    //std::cout<<"["<< M_rank << "] M_num_elements 1= "<< M_nodes.size() <<"\n";
+    // //int gsize = boost::mpi::all_reduce(M_comm, cpt, std::plus<int>());
+    // int gsize = boost::mpi::all_reduce(M_comm, M_mesh.numTriangles(), std::plus<int>());
+    // if (M_rank == 0)
+    //     std::cout<<"Global M_num_elements= "<< gsize <<"\n";
 }
 
 // Initialise size of all physical variables with values set to zero
@@ -901,9 +923,9 @@ FiniteElement::initBamg()
     bamggeom = new BamgGeom();
     bamgmesh = new BamgMesh();
 
-    bamgopt_previous = new BamgOpts();
-    bamggeom_previous = new BamgGeom();
-    bamgmesh_previous = new BamgMesh();
+    // bamgopt_previous = new BamgOpts();
+    // bamggeom_previous = new BamgGeom();
+    // bamgmesh_previous = new BamgMesh();
 
     bamgopt->Check();
 }
@@ -996,32 +1018,20 @@ FiniteElement::initConstant()
         ("iabp", setup::DrifterType::IABP);
     M_drifter_type = str2drifter.find(vm["setup.drifter-type"].as<std::string>())->second;
 
+    const boost::unordered_map<const std::string, LogLevel> str2log = boost::assign::map_list_of
+        ("info", INFO)
+        ("warning", WARNING)
+        ("debug", DEBUG)
+        ("error", ERROR);
+
+    M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
+
     //std::cout <<"GMSH VERSION= "<< M_mesh.version() <<"\n";
     M_mesh.setOrdering("bamg");
 
     //M_mesh_filename = "par8bigarctic10km.msh";//vm["simul.mesh_filename"].as<std::string>();
     M_mesh_filename = vm["simul.mesh_filename"].as<std::string>();
 
-#if 0
-    const boost::unordered_map<const std::string, setup::DomainType> str2domain = boost::assign::map_list_of
-        ("par8bigarctic10km.msh", setup::DomainType::BIGARCTIC)
-        ("topazreducedsplit2.msh", setup::DomainType::DEFAULT)
-        ("topazreducedsplit4.msh", setup::DomainType::DEFAULT)
-        ("topazreducedsplit8.msh", setup::DomainType::DEFAULT)
-        ("simplesquaresplit2.msh", setup::DomainType::DEFAULT);
-
-
-    M_domain_type = str2domain.find(M_mesh_filename)->second;
-
-    const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
-        ("par8bigarctic10km.msh", setup::MeshType::FROM_GMSH)
-        ("topazreducedsplit2.msh", setup::MeshType::FROM_SPLIT)
-        ("topazreducedsplit4.msh", setup::MeshType::FROM_SPLIT)
-        ("topazreducedsplit8.msh", setup::MeshType::FROM_SPLIT)
-        ("simplesquaresplit2.msh", setup::MeshType::FROM_SPLIT);
-
-    M_mesh_type = str2mesh.find(M_mesh_filename)->second;
-#endif
 
     if (M_mesh_filename.find("plit") != std::string::npos)
     {
@@ -1156,7 +1166,6 @@ double
 FiniteElement::minAngle(mesh_type const& mesh) const
 {
     std::vector<double> all_min_angle(mesh.numTriangles());
-    double min_angle;
 
 #if 1
     int cpt = 0;
@@ -1178,8 +1187,8 @@ FiniteElement::minAngle(mesh_type const& mesh) const
     }
 #endif
 
-    min_angle = *std::min_element(all_min_angle.begin(),all_min_angle.end());
-    return min_angle;
+    double min_angle = *std::min_element(all_min_angle.begin(),all_min_angle.end());
+    return boost::mpi::all_reduce(M_comm, min_angle, boost::mpi::minimum<double>());
 }
 
 double
@@ -1211,7 +1220,8 @@ FiniteElement::minAngle(mesh_type const& mesh, std::vector<double> const& um, do
     }
 #endif
 
-    return *std::min_element(all_min_angle.begin(),all_min_angle.end());
+    double min_angle = *std::min_element(all_min_angle.begin(),all_min_angle.end());
+    return boost::mpi::all_reduce(M_comm, min_angle, boost::mpi::minimum<double>());
 #endif
 }
 
@@ -1354,11 +1364,9 @@ FiniteElement::shapeCoeff(element_type const& element, mesh_type const& mesh) co
     return coeff;
 }
 
-
 void
 FiniteElement::regrid(bool step)
 {
-#if 0
     double displacement_factor = 2.;
     int substep_nb=1;
     int step_order=-1;
@@ -1384,9 +1392,14 @@ FiniteElement::regrid(bool step)
                 std::cout<<"FLIP DETECTED "<< substep-1 <<"\n";
         }
 
-        std::cout<<"displacement_factor= "<< displacement_factor <<"\n";
+        //std::cout<<"displacement_factor= "<< displacement_factor <<"\n";
+        int step_order_out = step_order;
+        boost::mpi::reduce(M_comm, step_order, step_order_out, boost::mpi::maximum<int>(), 0);
+        step_order = step_order_out;
 
-        substep_nb=std::pow(2,step_order);
+        std::cout<<"["<< M_rank <<"] " << "STEP ORDER= "<< step_order_out <<"\n";
+
+        substep_nb = std::pow(2,step_order);
 
         if(substep_nb!=1)
         {
@@ -1396,51 +1409,51 @@ FiniteElement::regrid(bool step)
 
         std::cout<<"Flip done in "<< chrono.elapsed() <<"s\n";
 
-#if 0
-        cout << "\n";
-        cout << "     K      Xi(K)       Yi(K)       Zi(K)       Z(X,Y)\n";
-        cout << "\n";
-        //for (int k = 0; k < bamgmeshout->VerticesSize[0]; k++ )
-        for (int k = 0; k < M_mesh_init.numNodes(); k++ )
-        {
-            //ze = xyi[0+k*2] + 2.0 * xyi[1+k*2];
-            cout << "  " << setw(4) << k
-                 << "  " << setw(10) << M_mesh_init.coordX()[k]
-                 << "  " << setw(10) << M_mesh_init.coordY()[k]
-                //<< "  " << setw(10) << bamgopt->hminVertices[k]
-                //<< "  " << setw(10) << bamgopt->hmaxVertices[k] << "\n";
-                 << "  " << setw(10) << hmin_vertices[k]
-                 << "  " << setw(10) << hmax_vertices[k] << "\n";
-            //<< "  " << setw(10) << data_in[k] << "\n";
-        }
-#endif
         // if (bamgopt->KeepVertices!=0)
         //     bamgopt->KeepVertices=0;
     }
 
-#if 0
-    else
+    if (step)
     {
-        hmin_vertices_first = this->hminVertices(M_mesh, bamgmesh);
-        hmax_vertices_first = this->hmaxVertices(M_mesh, bamgmesh);
+        std::vector<double> um_local(2*M_local_ndof,0.);
+        for (int i=0; i<M_local_ndof; ++i)
+        {
+            um_local[i] = M_UM[i];
+            um_local[i+M_local_ndof] = M_UM[i+M_num_nodes];
+        }
+
+        // std::cout<<"["<< M_rank << "] M_num_nodes= "<< 2*M_local_ndof <<"\n";
+
+        // if (M_rank==0)
+        //     std::cout<<"REF= "<< 2*M_ndof <<"\n";
+
+        std::vector<int> sizes(M_comm.size());
+        boost::mpi::gather(M_comm, 2*M_local_ndof, sizes, 0);
+
+        if (M_rank == 0)
+        {
+            for (int i=0; i<sizes.size(); ++i)
+                std::cout<<"sizes["<< i <<"]= "<< sizes[i] <<"\n";
+        }
+
+        std::vector<double> um_gather;
+
+        chrono.restart();
+        if (M_rank == 0)
+        {
+            um_gather.resize(2*M_ndof);
+            boost::mpi::gatherv(M_comm, um_local, &um_gather[0], sizes, 0);
+        }
+        else
+        {
+            boost::mpi::gatherv(M_comm, um_local, 0);
+        }
+
+        if (M_rank == 0)
+            std::cout<<"GATHERV done in "<< chrono.elapsed() <<"s\n";
     }
 
-    bamgopt->hminVertices = new double[M_mesh.numNodes()];
-    bamgopt->hmaxVertices = new double[M_mesh.numNodes()];
-
-    for (int i=0; i<M_mesh.numNodes();++i)
-    {
-        bamgopt->hminVertices[i] = (step) ? hmin_vertices[i] : hmin_vertices_first[i];
-        bamgopt->hmaxVertices[i] = (step) ? hmax_vertices[i] : hmax_vertices_first[i];
-    }
-#endif
 #if 0
-    BamgConvertMeshx(
-                     bamgmesh_previous,bamggeom_previous,
-                     &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-                     M_mesh.numNodes(), M_mesh.numTriangles()
-                     );
-#endif
 
     for (int substep_i = 0; substep_i < substep_nb; substep_i++ )
     {
@@ -2012,22 +2025,25 @@ FiniteElement::regrid(bool step)
     }
 #endif
 
-    // chrono.restart();
-    // std::cout<<"AdaptMesh starts\n";
-    this->adaptMesh();
-    // std::cout<<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
+    if (!step)
+    {
+        // chrono.restart();
+        // std::cout<<"AdaptMesh starts\n";
+        this->adaptMesh();
+        // std::cout<<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
 
 
-    M_asr_nodes_dataset.target_size=M_num_nodes;
-    M_asr_elements_dataset.target_size=M_num_elements;
-    M_topaz_nodes_dataset.target_size=M_num_nodes;
-    M_topaz_elements_dataset.target_size=M_num_elements;
-    M_ice_topaz_elements_dataset.target_size=M_num_elements;
-    M_etopo_elements_dataset.target_size=M_num_elements;
+        M_asr_nodes_dataset.target_size=M_num_nodes;
+        M_asr_elements_dataset.target_size=M_num_elements;
+        M_topaz_nodes_dataset.target_size=M_num_nodes;
+        M_topaz_elements_dataset.target_size=M_num_elements;
+        M_ice_topaz_elements_dataset.target_size=M_num_elements;
+        M_etopo_elements_dataset.target_size=M_num_elements;
 
-    M_Cohesion.resize(M_num_elements);
-    M_Compressive_strength.resize(M_num_elements);
-    M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
+        M_Cohesion.resize(M_num_elements);
+        M_Compressive_strength.resize(M_num_elements);
+        M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
+    }
 }
 
 void
@@ -4600,6 +4616,11 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
 void
 FiniteElement::run()
 {
+    if (M_rank==0)
+        LOG(INFO) << "-----------------------Simulation started on "<< current_time_local() <<"\n";
+
+    std::string current_time_system = current_time_local();
+
     // Initialise everything that doesn't depend on the mesh (constants, data set description, and time)
     this->initConstant();
     current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
@@ -4610,39 +4631,26 @@ FiniteElement::run()
 
     if (M_rank==0)
     {
-        std::cout<<"TIMESTEP= "<< time_step <<"\n";
-        std::cout<<"DURATION= "<< duration <<"\n";
+        LOG(INFO) <<"TIMESTEP= "<< time_step <<"\n";
+        LOG(INFO) <<"DURATION= "<< duration <<"\n";
     }
-
-#if 0
-    gregorian::date epoch = date_time::parse_date<gregorian::date>(
-                                                                   vm["simul.time_init"].as<std::string>(),
-                                                                   //date_time::ymd_order_dmy
-                                                                   date_time::ymd_order_iso
-                                                                   );
-
-    std::string time_init_ym = to_iso_string(epoch).substr(0,6);
-    std::string init_topaz_file = (boost::format( "TP4DAILY_%1%_3m.nc" ) % time_init_ym ).str();
-    std::cout<<"INIT_TOPAZ_FILE "<< init_topaz_file <<"\n";
-
-    std::string init_mit_file = (boost::format( "MITgcm_%1%_3m.nc" ) % time_init_ym ).str();
-    std::cout<<"INIT_MIT_FILE "<< init_mit_file <<"\n";
-
-    std::cout<<"INIT TIME= "<< to_iso_string(epoch) <<"\n";
-#endif
 
     double displacement_factor = 1.;
     double minang = 0.;
     bool is_running = true;
 
     // Initialise the mesh
-    this->initMesh(M_domain_type, M_mesh_filename, M_mesh_type);
+    this->initMesh();
 
     // Check the minimum angle of the grid
     minang = this->minAngle(M_mesh);
+
+    if (M_rank == 0)
+        std::cout<<"MIN ANGLE= "<< minang <<"\n";
+
     if (minang < vm["simul.regrid_angle"].as<double>())
     {
-        std::cout<<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
+        LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
     }
 
@@ -4710,10 +4718,14 @@ FiniteElement::run()
         {
             minang = this->minAngle(M_mesh,M_UM,displacement_factor);
             //std::cout<<"[" << M_rank <<"] " <<" REGRID ANGLE= "<< minang <<"\n";
+            if (M_rank == 0)
+                std::cout<<"REGRID ANGLE= "<< minang <<"\n";
 
-            if (0)//( minang < vm["simul.regrid_angle"].as<double>() )
+
+            //if (0)//( minang < vm["simul.regrid_angle"].as<double>() )
+            if (pcpt == 1)
             {
-                M_regrid = true;
+                //M_regrid = true;
                 std::cout<<"Regriding starts\n";
 				//chrono.restart();
                 this->regrid(pcpt);
@@ -4837,7 +4849,7 @@ FiniteElement::run()
         M_regrid = false;
     }
 
-#if 1
+#if 0
     this->exportResults(1000);
 #endif
 
@@ -4850,6 +4862,9 @@ FiniteElement::run()
         M_iabp_file.close();
         drifters_out.close();
     }
+
+    if (M_rank==0)
+        LOG(INFO) << "-----------------------Simulation done on "<< current_time_local() <<"\n";
 }
 
 void
@@ -6690,6 +6705,27 @@ FiniteElement::createGraph(BamgMesh const* bamg_mesh)
     std::cout<<"["<< M_comm.rank() <<"] GRAPHCSR INFO: MIN NZ OFF-DIAGONAL (per row)    = "<< *std::min_element(o_nnz.begin(),o_nnz.end()) <<"\n";
     std::cout<<"["<< M_comm.rank() <<"] GRAPHCSR INFO: MAX NZ OFF-DIAGONAL (per row)    = "<< *std::max_element(o_nnz.begin(),o_nnz.end()) <<"\n";
     std::cout<<"\n";
+
+
+#if 0
+    M_comm.barrier();
+
+    if (M_rank == 1)
+    {
+        std::cout<<"************00************\n";
+        for (int const& index : global_indices_without_ghost)
+            std::cout<<"WITHOUT GHOST "<< index+1 <<"\n";
+
+        std::cout<<"************01************\n";
+        for (int const& index : global_indices_with_ghost)
+            std::cout<<"WITH GHOST    "<< index+1 <<"\n";
+
+        std::cout<<"************02************\n";
+        for (int const& index : M_local_ghost)
+            std::cout<<"GHOST         "<< index <<"\n";
+    }
+#endif
+
 }
 
 void

@@ -28,10 +28,11 @@ typedef struct{
 	int                 nods;
 	double*             x_mesh;
 	double*             y_mesh;
-	double* data_mesh;
+	double*             data_mesh;
+	bool                row_major;
 } InterpFromGridToMeshxThreadStruct;
 
-int    InterpFromGridToMeshx(double* &data_mesh,double* x, int x_rows, double* y, int y_rows, double* data, int M, int N, int N_data, double* x_mesh, double* y_mesh, int nods, double default_value, int interpenum=BilinearInterpEnum);
+int    InterpFromGridToMeshx(double* &data_mesh,double* x, int x_rows, double* y, int y_rows, double* data, int M, int N, int N_data, double* x_mesh, double* y_mesh, int nods, double default_value, int interpenum=BilinearInterpEnum, bool row_major=false);
 
 int InterpFromGridToMeshxt(InterpFromGridToMeshxThreadStruct gate, double* data_mesh);
 void*  InterpFromGridToMeshxt(void* vInterpFromGridToMeshxThreadStruct);

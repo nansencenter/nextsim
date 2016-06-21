@@ -23,10 +23,12 @@
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromGridToMeshx.h>
 #include <gmshmesh.hpp>
+#include <gmshmeshseq.hpp>
 #include <graphcsr.hpp>
 #include <graphcsrmpi.hpp>
 #include "enums.hpp"
 #include <netcdf>
+#include <debug.hpp>
 #include <omp.h>
 
 extern "C"
@@ -46,6 +48,7 @@ public:
     typedef typename GmshMesh::element_type element_type;
 
     typedef GmshMesh mesh_type;
+    typedef GmshMeshSeq mesh_type_root;
     typedef SolverPetsc solver_type;
     typedef boost::shared_ptr<solver_type> solver_ptrtype;
     typedef MatrixPetsc matrix_type;
@@ -137,7 +140,7 @@ public:
     vector_type const& rhs() const {return *M_vector;}
     vector_type const& solution() const {return *M_solution;}
 
-    void initMesh(setup::DomainType domain_type, std::string mesh_filename, setup::MeshType mesh_type);
+    void initMesh();
     void initDatasets();
     void createGMSHMesh(std::string const& geofilename);
     double jacobian(element_type const& element, mesh_type const& mesh) const;
@@ -145,7 +148,7 @@ public:
                     std::vector<double> const& um, double factor = 1.) const;
     std::vector<double> sides(element_type const& element, mesh_type const& mesh) const;
     std::vector<double> minMaxSide(mesh_type const& mesh) const;
-    //void movedMesh(std::vector<double> const& um, double factor = 0);
+
     double measure(element_type const& element, mesh_type const& mesh) const;
     double measure(element_type const& element, mesh_type const& mesh,
                    std::vector<double> const& um, double factor = 1.) const;
@@ -311,6 +314,8 @@ private:
     std::vector<double> M_Compressive_strength;
     std::vector<double> M_time_relaxation_damage;
 
+    LogLevel M_log_level;
+
 private:
 
     double nu0;
@@ -361,25 +366,31 @@ private:
 
 private:
 
-    // bamgopt_ptrtype bamgopt;
-    // bamgmesh_ptrtype bamgmesh;
-    // bamggeom_ptrtype bamggeom;
-
-    // bamgmesh_ptrtype bamgmeshout;
-    // bamggeom_ptrtype bamggeomout;
-
     BamgOpts *bamgopt;
     BamgMesh *bamgmesh;
     BamgGeom *bamggeom;
 
-    // BamgMesh *bamgmeshout;
-    // BamgGeom *bamggeomout;
-
-    BamgOpts *bamgopt_previous;
-    BamgMesh *bamgmesh_previous;
-    BamgGeom *bamggeom_previous;
+    // BamgOpts *bamgopt_previous;
+    // BamgMesh *bamgmesh_previous;
+    // BamgGeom *bamggeom_previous;
 
     //Options *options;
+
+private: // only on root process (rank 0)
+
+    mesh_type_root M_mesh_root;
+    mesh_type_root M_mesh_init_root;
+    mesh_type_root M_mesh_previous_root;
+
+    BamgOpts *bamgopt_root;
+    BamgMesh *bamgmesh_root;
+    BamgGeom *bamggeom_root;
+
+    BamgOpts *bamgopt_previous_root;
+    BamgMesh *bamgmesh_previous_root;
+    BamgGeom *bamggeom_previous_root;
+
+
 
 private:
 

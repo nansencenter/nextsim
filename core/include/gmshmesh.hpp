@@ -22,8 +22,9 @@
 #include <boost/mpi/collectives.hpp>
 
 #include <environment.hpp>
+#include <entities.hpp>
+//#include <MElement.h>
 //#include <GModel.h>
-#include <MElement.h>
 
 extern "C"
 {
@@ -33,127 +34,6 @@ extern "C"
 
 namespace Nextsim
 {
-
-namespace entities
-{
-class GMSHPoint
-{
-public:
-
-    GMSHPoint()
-        :
-        id(0),
-        coords()
-    {}
-
-    std::vector<double> coords;
-    int id;
-};
-
-class GMSHElement
-{
-public:
-
-    GMSHElement()
-        :
-        number( 0 ),
-        type( MSH_PNT ),
-        physical( 0 ),
-        elementary( 0 ),
-        numPartitions( 1 ),
-        partition( 0 ),
-        ghosts(),
-        is_on_processor( false ),
-        is_ghost( false ),
-        ghost_partition_id( -1 ),
-        numVertices(0),
-        indices()
-    {}
-
-    GMSHElement( int n,
-                 int t,
-                 int p,
-                 int e,
-                 int _numPartitions,
-                 int _partition,
-                 std::vector<int> const& _ghosts,
-                 std::vector<bool> const& _ghostNodes,
-                 int _numVertices,
-                 std::vector<int> const& _indices,
-                 int worldcommrank,
-                 int worldcommsize)
-        :
-        number( n ),
-        type( t ),
-        physical( p ),
-        elementary( e ),
-        numPartitions( _numPartitions ),
-        partition( (_partition % worldcommsize) ),
-        ghosts( _ghosts ),
-        ghostNodes( _ghostNodes ),
-        is_on_processor( false ),
-        is_ghost( false ),
-        ghost_partition_id( partition ),
-        numVertices( _numVertices ),
-        indices( _indices )
-    {
-        setPartition(worldcommrank,worldcommsize);
-    }
-
-
-    bool isOnProcessor() const { return is_on_processor; }
-    bool isGhost() const { return is_ghost; }
-    int ghostPartitionId() const { return ghost_partition_id; }
-
-    void setPartition(int worldcommrank, int worldcommsize)
-    {
-        // maybe proc id not start to 0
-        for ( auto _itghost=ghosts.begin(),_enghost=ghosts.end() ; _itghost!=_enghost ; ++_itghost )
-            *_itghost = ( (*_itghost) % worldcommsize);
-
-        if ( worldcommsize == 1 )
-        {
-            is_on_processor = true;
-            is_ghost = false;
-        }
-        else if ( worldcommrank == partition )
-        {
-            is_on_processor = true;
-            is_ghost = false;
-        }
-        else
-        {
-            // is the element a ghost cell
-            // look into ghosts if 'partition' is present
-            auto it = std::find( ghosts.begin(), ghosts.end(), worldcommrank );
-            if ( it != ghosts.end() )
-            {
-                is_on_processor = true;
-                is_ghost = true;
-                ghost_partition_id = partition;
-            }
-        }
-    }
-
-    int number;
-    int type;
-    int physical;
-    int elementary;
-
-    // partitioning info
-    int numPartitions;
-    int partition;
-    std::vector<int> ghosts;
-    std::vector<bool> ghostNodes;
-    bool is_on_processor;
-    bool is_ghost;
-    int ghost_partition_id;
-
-    // vertices
-    int numVertices;
-    std::vector<int> indices;
-};
-}
 
 class GmshMesh
 {
@@ -167,6 +47,8 @@ public:
 
 
     GmshMesh( Communicator const& comm = Environment::comm() );
+
+    GmshMesh( GmshMesh const& mesh );
 
     GmshMesh(std::vector<point_type> const& nodes,
              std::vector<element_type> const& edges,
@@ -184,6 +66,13 @@ public:
     std::map<int, point_type > const& nodes() const {return M_nodes;}
     std::vector<element_type> const& triangles() const {return M_triangles;}
     std::vector<element_type> const& edges() const {return M_edges;}
+
+    // only on root process (rank 0)
+    std::vector<point_type> const& nodesRoot() const {return M_nodes_root;}
+    std::vector<element_type> const& trianglesRoot() const {return M_triangles_root;}
+    std::vector<element_type> const& edgesRoot() const {return M_edges_root;}
+
+    void clearRoot();
 
     int numGlobalNodes() const {return M_global_num_nodes;}
     int numNodes() const {return M_num_nodes;}
@@ -247,6 +136,10 @@ private:
     std::map<int, point_type > M_nodes;
     std::vector<element_type> M_triangles;
     std::vector<element_type> M_edges;
+
+    std::vector<point_type> M_nodes_root;
+    std::vector<element_type> M_triangles_root;
+    std::vector<element_type> M_edges_root;
 
     int M_global_num_nodes;
     int M_num_nodes;
