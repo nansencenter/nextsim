@@ -53,6 +53,13 @@ template<typename T=float> class WimDiscr
 
 public:
 
+    WimDiscr()
+        :
+        vm(),
+        nx(),
+        ny()
+    {}
+
     WimDiscr(po::variables_map const& vmin)
         :
         vm(vmin),
@@ -68,13 +75,15 @@ public:
 
     void assign(std::vector<value_type> const& ice_c = std::vector<value_type>(),
                 std::vector<value_type> const& ice_h = std::vector<value_type>(),
-                std::vector<value_type> const& n_floes = std::vector<value_type>());
+                std::vector<value_type> const& n_floes = std::vector<value_type>(),
+                bool step = false);
 
-    void timeStep();
+    void timeStep(bool step = false);
 
     void run(std::vector<value_type> const& ice_c = std::vector<value_type>(),
              std::vector<value_type> const& ice_h = std::vector<value_type>(),
-             std::vector<value_type> const& n_floes = std::vector<value_type>());
+             std::vector<value_type> const& n_floes = std::vector<value_type>(),
+             bool step = false);
 
     void floeScaling(value_type const& dmax, value_type& dave);
     void advAttenSimple(array3_type& Sdir, array2_type& Sfreq,array2_type& taux_omega,array2_type& tauy_omega, array2_type const& ag2d_eff);
@@ -100,7 +109,7 @@ public:
 
 private:
 
-    po::variables_map const& vm;
+    po::variables_map vm;
     int nx, ny, nxext, nyext, nbdy, nbdx;
     array2_type X_array, Y_array, SCUY_array, SCVX_array, SCP2_array, SCP2I_array, LANDMASK_array;
 
@@ -126,6 +135,7 @@ private:
     std::vector<value_type> dfloe, nfloes, tau_x, tau_y;
 
     boost::mpi::timer chrono;
+    int fcpt;
 
 };
 

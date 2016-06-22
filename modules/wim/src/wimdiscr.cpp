@@ -47,7 +47,7 @@ void WimDiscr<T>::gridProssessing()
             SCVX_array[i][j] = dx;
             SCP2_array[i][j] = dx*dy;
             SCP2I_array[i][j] = 1./(dx*dy);
-#if 0
+#if 1
             if (i==nx-1)
             {
                 LANDMASK_array[i][j] = 1.;
@@ -55,7 +55,6 @@ void WimDiscr<T>::gridProssessing()
 
             if ((j==0) || (j==ny-1))
             {
-                LANDMASK_array[i][j] = 1.;
                 LANDMASK_array[i][j] = 1.;
             }
 #endif
@@ -280,7 +279,7 @@ void WimDiscr<T>::init()
 }
 
 template<typename T>
-void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value_type> const& ice_h, std::vector<value_type> const& n_floes) // reset
+void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value_type> const& ice_h, std::vector<value_type> const& n_floes, bool step) // reset
 {
     wt_simp.resize(nwavefreq);
     wt_om.resize(nwavefreq);
@@ -294,7 +293,11 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
     steady_mask.resize(boost::extents[nx][ny]);
     wave_mask.resize(boost::extents[nx][ny]);
 
-    sdf_dir.resize(boost::extents[nx][ny][nwavedirn][nwavefreq]);
+    if (!step)
+    {
+        sdf_dir.resize(boost::extents[nx][ny][nwavedirn][nwavefreq]);
+    }
+
     sdf_inc.resize(boost::extents[nx][ny][nwavedirn][nwavefreq]);
 
     ag_eff.resize(boost::extents[nx][ny][nwavefreq]);
@@ -353,6 +356,7 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
         for (int i = 0; i < nwavefreq; i++)
         {
             freq_vec[i] = fmin+i*df;
+            //freq_vec[i] = fmax-i*df;
         }
     }
 
@@ -501,10 +505,8 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
                     //     adv_dir = (-PI/180.0)*(wavedir[dn]+90.0);
                 }
             }
-
         }
     }
-
 
     x_edge = 0.5*(x0+xmax)-0.7*(0.5*(xmax-x0));
 
@@ -554,10 +556,14 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
             }
 
             //std::cout<<"ICE_MASK["<< i  << "," << j << "]= " << ice_mask[i][j] <<"\n";
+            //ice_mask[i][j] = (1-wtr_mask[i][j])*(1-LANDMASK_array[i][j]);
+
+            if ((LANDMASK_array[i][j] == 1.) /*&& (!step)*/)
+                ice_mask[i][j] = 0.;
         }
     }
 
-
+#if 0
     std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n";
     std::cout<<"icec_max= "<< *std::max_element(icec.data(), icec.data()+icec.num_elements()) <<"\n";
     std::cout<<"icec_min= "<< *std::min_element(icec.data(), icec.data()+icec.num_elements()) <<"\n";
@@ -580,7 +586,7 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
     std::cout<<"nfloes_max= "<< *std::max_element(n_floes.begin(), n_floes.end()) <<"\n";
     std::cout<<"nfloes_min= "<< *std::min_element(n_floes.begin(), n_floes.end()) <<"\n";
     std::cout<<"nfloes_acc= "<< std::accumulate(n_floes.begin(), n_floes.end(),0.) <<"\n";
-
+#endif
 
     //std::cout<<"big loop starts\n";
     for (int fq = 0; fq < nwavefreq; fq++)
@@ -662,33 +668,42 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
 
     //int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
-    std::fill( sdf_dir.data(), sdf_dir.data() + sdf_dir.num_elements(), 0. );
-    //#pragma omp parallel for num_threads(max_threads) collapse(4)
-    for (int i = 0; i < nwavefreq; i++)
+    if (!step)
     {
-        for (int j = 0; j < nwavedirn; j++)
+        std::fill( sdf_dir.data(), sdf_dir.data() + sdf_dir.num_elements(), 0. );
+
+        //#pragma omp parallel for num_threads(max_threads) collapse(4)
+        for (int i = 0; i < nwavefreq; i++)
         {
-            for (int k = 0; k < nx; k++)
+            for (int j = 0; j < nwavedirn; j++)
             {
-                for (int l = 0; l < ny; l++)
+                for (int k = 0; k < nx; k++)
                 {
-                    if (wave_mask[k][l] == 1.)
+                    for (int l = 0; l < ny; l++)
                     {
-                        sdf_dir[k][l][j][i] = sdf_inc[k][l][j][i];
-                        //std::cout<<"sdf_dir[k][l][j][i]= "<< sdf_dir[k][l][j][i] <<"\n";
+                        if (wave_mask[k][l] == 1.)
+                        {
+                            sdf_dir[k][l][j][i] = sdf_inc[k][l][j][i];
+                            //std::cout<<"sdf_dir[k][l][j][i]= "<< sdf_dir[k][l][j][i] <<"\n";
+                        }
                     }
                 }
             }
         }
     }
 
-    dt = cfl*std::min(dx,dy)/amax;
+    //dt = cfl*std::min(dx,dy)/amax;
+    amax = *std::max_element(ag_eff.data(),ag_eff.data() + ag_eff.num_elements());
+    std::cout<<"dx= "<< dx <<"\n";
+    std::cout<<"amax= "<< amax <<"\n";
+    std::cout<<"cfl= "<< cfl <<"\n";
+    dt = cfl*dx/amax;
     //ncs = std::ceil(nwavedirn/2);
     ncs = std::round(nwavedirn/2);
 }
 
 template<typename T>
-void WimDiscr<T>::timeStep()
+void WimDiscr<T>::timeStep(bool step)
 {
     std::fill( tau_x.begin(), tau_x.end(), 0. );
     std::fill( tau_y.begin(), tau_y.end(), 0. );
@@ -1021,9 +1036,9 @@ void WimDiscr<T>::timeStep()
 }
 
 template<typename T>
-void WimDiscr<T>::run(std::vector<value_type> const& ice_c, std::vector<value_type> const& ice_h, std::vector<value_type> const& n_floes)
+void WimDiscr<T>::run(std::vector<value_type> const& ice_c, std::vector<value_type> const& ice_h, std::vector<value_type> const& n_floes, bool step)
 {
-    this->assign(ice_c,ice_h,n_floes);
+    this->assign(ice_c,ice_h,n_floes,step);
 
     value_type duration;
     int nt;
@@ -1035,7 +1050,7 @@ void WimDiscr<T>::run(std::vector<value_type> const& ice_c, std::vector<value_ty
     //duration = 1.0e3*x_ext/u_ref;
     duration = vm["wim.duration"].template as<double>();
 
-    //duration = (vm["simul.timestep"].as<double>())*(vm["wim.couplingfreq"].as<int>());
+    duration = (vm["simul.timestep"].as<double>())*(vm["wim.couplingfreq"].as<int>());
 
     nt = std::floor(duration/dt);
     //nt = std::round(duration/dt);
@@ -1048,16 +1063,19 @@ void WimDiscr<T>::run(std::vector<value_type> const& ice_c, std::vector<value_ty
     std::cout<<"nt= "<< nt <<"\n";
 
     int cpt = 0;
+    if (!step)
+        fcpt = 0;
 
     while (cpt < nt)
     {
         std::cout <<  ":[WIM2D TIME STEP]^"<< cpt+1 <<"\n";
-        value_type t_out = dt*cpt;
+        value_type t_out = dt*fcpt;
 
-        critter = !(cpt % vm["wim.reps"].template as<int>()) && (vm["wim.checkprog"].template as<bool>());
+        //critter = !(cpt % vm["wim.reps"].template as<int>()) && (vm["wim.checkprog"].template as<bool>());
+        critter = !(fcpt % 50) && (vm["wim.checkprog"].template as<bool>());
 
         if ((vm["wim.exportresults"].template as<bool>()) && (critter))
-            exportResults(cpt,t_out);
+            exportResults(fcpt,t_out);
 
         // if (cpt == 30)
         // {
@@ -1067,9 +1085,10 @@ void WimDiscr<T>::run(std::vector<value_type> const& ice_c, std::vector<value_ty
 
         // }
 
-        timeStep();
+        timeStep(step);
 
         ++cpt;
+        ++fcpt;
     }
 
     std::cout<<"Running done in "<< chrono.elapsed() <<"s\n";

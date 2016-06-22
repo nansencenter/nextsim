@@ -65,6 +65,8 @@ public:
     typedef ExternalData::Variable Variable;
     typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
 
+    typedef Wim::WimDiscr<double> wim_type;
+
     FiniteElement();
 
     mesh_type const& mesh() const {return M_mesh;}
@@ -252,6 +254,7 @@ private:
     std::vector<double> M_time_relaxation_damage;
 
     // variables needed for coupling with wim
+    wim_type wim;
     std::vector<double> M_nfloes;
     std::vector<double> M_dfloe;
     std::vector<double> M_tau;

@@ -355,9 +355,9 @@ GmshMesh::writeGeometry(std::string const& geofile, int nx, int ny, double xmin,
                  << "nx = "<< nx <<";\n"
                  << "ny = "<< ny <<";\n"
                  << "xmin = "<< xmin <<";\n"
-                 << "xmax = "<< xmin + nx*dx <<";\n"
+                 << "xmax = "<< xmin + (nx-1)*dx <<";\n"
                  << "ymin = "<< ymin <<";\n"
-                 << "ymax = "<< ymin + ny*dy <<";\n";
+                 << "ymax = "<< ymin + (ny-1)*dy <<";\n";
 
         gmshfile << "Point(1) = {xmin,ymin,0.0,h};\n"
                  << "Point(2) = {xmax,ymin,0.0,h};\n"
