@@ -143,15 +143,26 @@ public:
     void initMesh();
     void initDatasets();
     void createGMSHMesh(std::string const& geofilename);
+
     double jacobian(element_type const& element, mesh_type const& mesh) const;
+
+    double jacobian(element_type const& element, mesh_type_root const& mesh) const;
+
     double jacobian(element_type const& element, mesh_type const& mesh,
                     std::vector<double> const& um, double factor = 1.) const;
-    std::vector<double> sides(element_type const& element, mesh_type const& mesh) const;
-    std::vector<double> minMaxSide(mesh_type const& mesh) const;
 
-    double measure(element_type const& element, mesh_type const& mesh) const;
+    std::vector<double> sides(element_type const& element, mesh_type const& mesh) const;
+
+    std::vector<double> sides(element_type const& element, mesh_type_root const& mesh) const;
+
+    std::vector<double> minMaxSide(mesh_type_root const& mesh) const;
+
+    template<typename FEMeshType>
+    double measure(element_type const& element, FEMeshType const& mesh) const;
+
     double measure(element_type const& element, mesh_type const& mesh,
                    std::vector<double> const& um, double factor = 1.) const;
+
     std::vector<double> shapeCoeff(element_type const& element, mesh_type const& mesh) const;
     void regrid(bool step = true);
     void adaptMesh();
@@ -185,10 +196,10 @@ public:
 
     bool flip(mesh_type const& mesh, std::vector<double> const& um, double factor) const;
 
-    double resolution(mesh_type const& mesh) const;
+    double resolution(mesh_type_root const& mesh) const;
 
-    std::vector<double> hminVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const;
-    std::vector<double> hmaxVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const;
+    std::vector<double> hminVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mesh) const;
+    std::vector<double> hmaxVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mesh) const;
 
     void initBamg();
     void initConstant();
@@ -208,6 +219,7 @@ public:
     void PwlInterp2D();
     void importBamg(BamgMesh const* bamg_mesh);
     void createGraph(BamgMesh const* bamg_mesh);
+    void assignVariables();
     void initVariables();
     void initModelState();
     void tensors();
@@ -220,6 +232,12 @@ public:
 
     void writeRestart(int pcpt, int step);
     void readRestart(int &pcpt, int step);
+
+    void rootMeshProcessing();
+
+    void distributedMeshProcessing();
+
+    void interpVertices();
 
 private:
     po::variables_map vm;
@@ -382,13 +400,14 @@ private: // only on root process (rank 0)
     mesh_type_root M_mesh_init_root;
     mesh_type_root M_mesh_previous_root;
 
-    BamgOpts *bamgopt_root;
+    std::vector<int> M_dirichlet_flags_root;
+
     BamgMesh *bamgmesh_root;
     BamgGeom *bamggeom_root;
 
-    BamgOpts *bamgopt_previous_root;
-    BamgMesh *bamgmesh_previous_root;
-    BamgGeom *bamggeom_previous_root;
+    BamgOpts *bamgopt_previous;
+    BamgMesh *bamgmesh_previous;
+    BamgGeom *bamggeom_previous;
 
 
 

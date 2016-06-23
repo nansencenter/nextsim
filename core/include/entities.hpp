@@ -52,6 +52,21 @@ public:
         indices()
     {}
 
+	GMSHElement( int n,
+	             int t,
+	             int p,
+	             int e,
+	             int _numVertices,
+	             std::vector<int> const& _indices )
+        :
+        number( n ),
+        type( t ),
+        physical( p ),
+        elementary( e ),
+        numVertices( _numVertices ),
+        indices( _indices )
+    {}
+
     GMSHElement( int n,
                  int t,
                  int p,

@@ -8,10 +8,14 @@
 
 #include <gmshmeshseq.hpp>
 
+#define GMSH_EXECUTABLE gmsh
+
 namespace Nextsim
 {
 GmshMeshSeq::GmshMeshSeq()
     :
+    M_version("2.2"),
+    M_ordering("gmsh"),
     M_nodes(),
     M_triangles(),
     M_edges(),
@@ -31,6 +35,212 @@ GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
     M_num_triangles(triangles.size()),
     M_num_edges(edges.size())
 {}
+
+void
+GmshMeshSeq::readFromFile(std::string const& filename)
+{
+    std::string gmshmshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
+    std::cout<<"Reading Msh file "<< gmshmshfile <<"\n";
+
+    std::ifstream __is ( gmshmshfile.c_str() );
+
+    if ( !__is.is_open() )
+    {
+        std::ostringstream ostr;
+        std::cout << "Invalid file name " << gmshmshfile << " (file not found)\n";
+        ostr << "Invalid file name " << gmshmshfile << " (file not found)\n";
+        throw std::invalid_argument( ostr.str() );
+    }
+
+    char __buf[256];
+    __is >> __buf;
+
+    std::string theversion;
+
+    double version = 2.2;
+
+    if (std::string( __buf ) == "$MeshFormat")
+    {
+        int format, size;
+        __is >> theversion >> format >> size;
+        std::cout << "GMSH mesh file version : " << theversion << " format: " << (format?"binary":"ascii") << \
+            " size of double: " << size << "\n";
+
+        ASSERT(boost::lexical_cast<double>( theversion ) >= 2, "Nextsim supports only Gmsh version >= 2");
+
+        version = boost::lexical_cast<double>( theversion );
+
+        __is >> __buf;
+
+        ASSERT(std::string( __buf ) == "$EndMeshFormat","invalid file format entry");
+
+        __is >> __buf;
+
+        std::cout << "[importergmsh] " << __buf << " (expect $PhysicalNames)\n";
+
+    }
+
+    // Read NODES
+
+    //std::cout << "buf: "<< __buf << "\n";
+
+    if ( !( std::string( __buf ) == "$NOD" ||
+            std::string( __buf ) == "$Nodes" ||
+            std::string( __buf ) == "$ParametricNodes") )
+    {
+        std::cout<< "invalid nodes string '" << __buf << "' in gmsh importer. It should be either $Nodes.\n";
+    }
+
+    bool has_parametric_nodes = ( std::string( __buf ) == "$ParametricNodes" );
+    unsigned int __n;
+    __is >> __n;
+
+    M_num_nodes = __n;
+
+    //std::map<int, Nextsim::entities::GMSHPoint > gmshpts;
+    std::cout << "Reading "<< __n << " nodes\n";
+
+    M_nodes.resize(__n);
+    std::vector<double> coords(3,0);
+
+    for ( unsigned int __i = 0; __i < __n; ++__i )
+    {
+        int id = 0;
+
+        __is >> id
+             >> coords[0]
+             >> coords[1]
+             >> coords[2];
+
+        M_nodes[id-1].id = id;
+        M_nodes[id-1].coords = coords;
+    }
+
+    __is >> __buf;
+    //std::cout << "buf: "<< __buf << "\n";
+
+    // make sure that we have read all the points
+
+    ASSERT(std::string( __buf ) == "$EndNodes","invalid end nodes string");
+
+    // Read ELEMENTS
+
+    __is >> __buf;
+
+    ASSERT(std::string( __buf ) == "$Elements","invalid elements string");
+
+    int numElements;
+    __is >> numElements;
+
+    //M_num_elements = numElements;
+
+    std::cout << "Reading " << numElements << " elements...\n";
+    //std::list<Nextsim::entities::GMSHElement> __et; // tags in each element
+    std::map<int,int> __gt;
+
+    int cpt_edge = 0;
+    int cpt_triangle = 0;
+
+    for(int i = 0; i < numElements; i++)
+    {
+        int number, type, physical = 0, elementary = 0, numVertices;
+        int numTags;
+
+        __is >> number  // elm-number
+             >> type // elm-type
+             >> numTags; // number-of-tags
+
+        for(int j = 0; j < numTags; j++)
+        {
+            int tag;
+            __is >> tag;
+            if(j == 0) physical = tag;
+            else if(j == 1) elementary = tag;
+        }
+
+        numVertices = MElement::getInfoMSH(type);
+
+        ASSERT(numVertices!=0,"unknown number of vertices for element type");
+
+        std::vector<int> indices(numVertices);
+        for(int j = 0; j < numVertices; j++)
+        {
+            __is >> indices[j];
+            // check
+            //indices[j] = indices[j]-1;
+        }
+
+        if (M_ordering=="bamg")
+        {
+            std::next_permutation(indices.begin()+1,indices.end());
+        }
+
+        // Nextsim::entities::GMSHElement gmshElt( number,
+        //                                         type,
+        //                                         physical,
+        //                                         elementary,
+        //                                         numVertices,
+        //                                         indices );
+
+        //__et.push_back( gmshElt );
+        //M_elements.insert(std::make_pair(number,gmshElt));
+
+        if (type == 2)
+        {
+            Nextsim::entities::GMSHElement gmshElt( cpt_triangle,
+                                                    type,
+                                                    physical,
+                                                    elementary,
+                                                    numVertices,
+                                                    indices );
+
+            //M_triangles.insert(std::make_pair(number,gmshElt));
+            M_triangles.push_back(gmshElt);
+
+            ++cpt_triangle;
+        }
+        else if (type == 1)
+        {
+            Nextsim::entities::GMSHElement gmshElt( cpt_edge,
+                                                    type,
+                                                    physical,
+                                                    elementary,
+                                                    numVertices,
+                                                    indices );
+
+            //M_edges.insert(std::make_pair(number,gmshElt));
+            M_edges.push_back(gmshElt);
+
+            ++cpt_edge;
+        }
+
+
+        if ( __gt.find( type ) != __gt.end() )
+            ++__gt[ type ];
+        else
+            __gt[type]=1;
+
+    } // element description loop
+
+    for ( auto const& it : __gt )
+    {
+        const char* name;
+        MElement::getInfoMSH( it.first, &name );
+        std::cout << "Read " << it.second << " " << name << " elements\n";
+
+        if (std::string(name) == "Triangle 3")
+            M_num_triangles = it.second;
+        else if (std::string(name) == "Line 2")
+            M_num_edges = it.second;
+    }
+
+    // make sure that we have read everything
+    __is >> __buf;
+
+    ASSERT(std::string( __buf ) == "$EndElements","invalid end elements string");
+
+    // we are done reading the MSH file
+}
 
 void
 GmshMeshSeq::writeTofile(std::string const& filename)
@@ -92,6 +302,48 @@ GmshMeshSeq::writeTofile(std::string const& filename)
         std::cout << "Cannot open " << gmshmshfile  << "\n";
         std::cerr << "error: open file " << gmshmshfile << " for output failed!" <<"\n";
         std::abort();
+    }
+}
+
+void
+GmshMeshSeq::partition(std::string const& filename, std::string const& partitioner)
+{
+    std::string mshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
+
+    if (fs::exists(mshfile))
+    {
+        //std::cout<<"NOT FOUND " << fs::absolute( mshfile ).string() <<"\n";
+
+        int partint;
+        if (partitioner == "chaco")
+        {
+            partint = 1;
+        }
+        else if (partitioner == "metis")
+        {
+            partint = 2;
+        }
+        else
+        {
+            throw std::logic_error("invalid partitioner");
+        }
+
+        std::ostringstream gmshstr;
+        gmshstr << BOOST_PP_STRINGIZE( gmsh )
+                << " -" << 2
+                << " -part " << Environment::comm().size()
+            //<< " -string " << "\"Mesh.Partitioner=1;\""
+                << " -string " << "\"Mesh.Partitioner="<< partint <<";\""
+            //<< " -string " << "\"Mesh.ColorCarousel=3;\""
+                << " " << mshfile;
+
+        std::cout<<"JUST HERE "<< "\"Mesh.Partitioner=1;\"" <<"\n";
+        std::cout << "[Gmsh::generate] execute '" <<  gmshstr.str() << "'\n";
+        auto err = ::system( gmshstr.str().c_str() );
+    }
+    else
+    {
+        std::cout << "Cannot found " << mshfile <<"\n";
     }
 }
 

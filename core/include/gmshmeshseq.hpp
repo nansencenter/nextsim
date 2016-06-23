@@ -42,8 +42,13 @@ public:
                 std::vector<element_type> const& edges,
                 std::vector<element_type> const& triangles);
 
+    void readFromFile(std::string const& filename);
     void writeTofile(std::string const& filename);
+    void partition(std::string const& filename, std::string const& partitioner = "chaco");
     void move(std::vector<double> const& um, double factor);
+
+    std::string const& version() const {return M_version;}
+    std::string const& ordering() const {return M_ordering;}
 
     std::vector<point_type> const& nodes() const {return M_nodes;}
     std::vector<element_type> const& triangles() const {return M_triangles;}
@@ -52,6 +57,8 @@ public:
     int numNodes() const {return M_num_nodes;}
     int numTriangles() const {return M_num_triangles;}
     int numEdges() const {return M_num_edges;}
+
+    void setOrdering(std::string const& order) {M_ordering=order;}
 
     void setNodes(std::vector<point_type> const& nodes) {M_nodes=nodes;}
     void setEdges(std::vector<element_type> const& edges) {M_edges=edges;}
@@ -81,6 +88,8 @@ public:
 
 private:
 
+    std::string M_version;
+    std::string M_ordering;
     std::vector<point_type> M_nodes;
     std::vector<element_type> M_triangles;
     std::vector<element_type> M_edges;
