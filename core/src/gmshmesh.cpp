@@ -26,9 +26,6 @@ GmshMesh::GmshMesh(Communicator const& comm)
     M_triangles(),
     M_edges(),
     M_nodes_vec(),
-    M_nodes_root(),
-    M_triangles_root(),
-    M_edges_root(),
     M_num_nodes(0),
     M_num_triangles(0),
     M_num_edges(0),
@@ -36,7 +33,9 @@ GmshMesh::GmshMesh(Communicator const& comm)
     M_nldof_without_ghost(),
     M_nlghost(),
     M_transfer_map(),
-    M_transfer_map_reordered()
+    M_transfer_map_reordered(),
+    M_reorder_map_nodes(),
+    M_reorder_map_elements()
 {}
 
 GmshMesh::GmshMesh(GmshMesh const& mesh)
@@ -48,9 +47,6 @@ GmshMesh::GmshMesh(GmshMesh const& mesh)
     M_triangles(mesh.M_triangles),
     M_edges(mesh.M_edges),
     M_nodes_vec(mesh.M_nodes_vec),
-    M_nodes_root(mesh.M_nodes_root),
-    M_triangles_root(mesh.M_triangles_root),
-    M_edges_root(mesh.M_edges_root),
     M_num_nodes(mesh.M_num_nodes),
     M_num_triangles(mesh.M_num_triangles),
     M_num_edges(mesh.M_num_edges),
@@ -58,9 +54,12 @@ GmshMesh::GmshMesh(GmshMesh const& mesh)
     M_nldof_without_ghost(mesh.M_nldof_without_ghost),
     M_nlghost(mesh.M_nlghost),
     M_transfer_map(mesh.M_transfer_map),
-    M_transfer_map_reordered(mesh.M_transfer_map_reordered)
+    M_transfer_map_reordered(mesh.M_transfer_map_reordered),
+    M_reorder_map_nodes(mesh.M_reorder_map_nodes),
+    M_reorder_map_elements(mesh.M_reorder_map_elements)
 {}
 
+#if 0
 GmshMesh::GmshMesh(std::vector<point_type> const& nodes,
                    std::vector<element_type> const& edges,
                    std::vector<element_type> const& triangles,
@@ -76,6 +75,7 @@ GmshMesh::GmshMesh(std::vector<point_type> const& nodes,
     M_num_triangles(triangles.size()),
     M_num_edges(edges.size())
 {}
+#endif
 
 void
 GmshMesh::readFromFile(std::string const& filename)
@@ -248,14 +248,6 @@ GmshMesh::readFromFile(std::string const& filename)
 
         //M_triangles.insert(std::make_pair(number,gmshElt));
 
-        // tore global mesh on the master process (rank 0) for regridding and interpolation
-        // if (this->comm().rank() == 0)
-        // {
-        //     if (type == 2)
-        //         M_triangles_root.push_back(gmshElt);
-        //     else if (type == 1)
-        //         M_edges_root.push_back(gmshElt);
-        // }
 
         if (gmshElt.isOnProcessor() == false)
             continue;
@@ -304,8 +296,6 @@ GmshMesh::readFromFile(std::string const& filename)
         this->nodalGrid();
 
     //std::cout<<"nodalGrid done\n";
-
-    //std::cout<<"HUMMMM= "<< cpt_triangle <<"\n";
 }
 
 void
@@ -542,7 +532,7 @@ GmshMesh::nodalGrid()
     std::copy_n(M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.size(), std::back_inserter(M_local_dof_with_ghost));
     std::copy_n(M_local_ghost.begin(), M_local_ghost.size(), std::back_inserter(M_local_dof_with_ghost));
 
-    // gather operations for global renumbering
+    // gather operations for global node renumbering
     std::vector<std::vector<int>> renumbering;
     boost::mpi::all_gather(M_comm,
                            M_local_dof_without_ghost,
@@ -550,11 +540,7 @@ GmshMesh::nodalGrid()
 
     //bimap_type reorder;
     std::map<int,int> reorder;
-    //std::map<int,int> reorder_root;
 
-    // global mesh only on root process (rank 0)
-    // if (M_comm.rank() == 0)
-    //     M_nodes_root.resize(M_nodes_vec.size());
 
     int cpts = 0;
     int cpts_dom = 0;
@@ -569,13 +555,14 @@ GmshMesh::nodalGrid()
             reorder[renumbering[ii][jj]] = cpts+1+cpts_dom;
 
             //reorder_root[renumbering[ii][jj]] = cpts+1;
+            M_reorder_map_nodes.insert(position(renumbering[ii][jj],cpts+1));
 
             // add second component for velocity
             reorder[renumbering[ii][jj]+M_num_nodes] = cpts+1+sr+cpts_dom;
 
             if (M_comm.rank() == 0)
             {
-                //std::cout<<"MAPPING["<< cpts+1 <<"]= "<< renumbering[ii][jj] <<"\n";
+                //std::cout<<"TEST MAPPING["<< cpts+1 <<"]= "<< renumbering[ii][jj] <<"\n";
                 //std::cout<<"MAPPING["<< cpts+1+sr+cpts_dom <<"]= "<< renumbering[ii][jj]+M_num_nodes <<"\n";
                 //M_nodes_root[cpts] = M_nodes_vec[renumbering[ii][jj]-1];
             }
@@ -632,6 +619,7 @@ GmshMesh::nodalGrid()
     M_global_num_nodes = M_num_nodes;
     M_num_nodes = M_nodes.size();
 
+    std::vector<int> triangles_num_without_ghost;
 
     std::vector<element_type> _triangles = M_triangles;
     M_triangles.resize(0);
@@ -680,11 +668,43 @@ GmshMesh::nodalGrid()
             // end
 
             M_triangles.push_back(*it);
+
+            if (M_comm.rank() == it->partition)
+            {
+                triangles_num_without_ghost.push_back(it->number);
+            }
         }
     }
 
     M_num_triangles = M_triangles.size();
 
+    // --------------------------------BEGINNING-------------------------
+
+    // elements in partition first and ghost at the end
+    _triangles = M_triangles;
+
+    M_triangles.resize(0);
+
+    M_num_triangles_without_ghost = 0;
+
+    for (auto it=_triangles.begin(), end=_triangles.end(); it!=end; ++it)
+    {
+        if (M_comm.rank() == it->partition)
+        {
+            M_triangles.push_back(*it);
+            ++M_num_triangles_without_ghost;
+        }
+    }
+
+    for (auto it=_triangles.begin(), end=_triangles.end(); it!=end; ++it)
+    {
+        if (M_comm.rank() != it->partition)
+        {
+            M_triangles.push_back(*it);
+        }
+    }
+
+    // --------------------------------END-------------------------------
 
     // reorder edge nodes
     for (auto it=M_edges.begin(), end=M_edges.end(); it!=end; ++it)
@@ -711,36 +731,38 @@ GmshMesh::nodalGrid()
         }
     }
 
-    // // reorder global mesh (only on root process (rank 0))
-    // if (this->comm().rank() == 0)
-    // {
-    //     for (auto it=M_edges_root.begin(), end=M_edges_root.end(); it!=end; ++it)
-    //     {
-    //         for (int i=0; i<2; ++i)
-    //         {
-    //             it->indices[i] = reorder_root.find(it->indices[i])->second;
-    //         }
-    //     } // edges
 
-    //     for (auto it=M_triangles_root.begin(), end=M_triangles_root.end(); it!=end; ++it)
-    //     {
-    //         for (int i=0; i<3; ++i)
-    //         {
-    //             it->indices[i] = reorder_root.find(it->indices[i])->second;
-    //         }
-    //     } // triangles
-    // }
 
-    // // deallocate temporary vector (global nodes on each process)
-    // M_nodes_vec.resize(0);
-}
+    // --------------------------------BEGINNING-------------------------
 
-void
-GmshMesh::clearRoot()
-{
-    M_nodes_root.resize(0);
-    M_edges_root.resize(0);
-    M_triangles_root.resize(0);
+    renumbering.resize(0);
+    //std::cout<<"renumbering.size= "<< renumbering.size() <<"\n";
+
+    // gather operations for global element renumbering
+    boost::mpi::all_gather(M_comm,
+                           triangles_num_without_ghost,
+                           renumbering);
+
+    cpts = 0;
+    cpts_dom = 0;
+
+    for (int ii=0; ii<M_comm.size(); ++ii)
+    {
+        for (int jj=0; jj<renumbering[ii].size(); ++jj)
+        {
+            M_reorder_map_elements.insert(position(renumbering[ii][jj],cpts+1));
+
+            // if (this->comm().rank() == 0)
+            //     std::cout<<"MAPPING: "<< renumbering[ii][jj] << "   --->   " << cpts+1 <<"\n";
+
+            ++cpts;
+        }
+
+        cpts_dom += renumbering[ii].size();
+    }
+    // --------------------------------END-------------------------------
+
+    //std::cout<<"["<< this->comm().rank() << "] M_num_elements= "<< triangles_num_without_ghost.size() <<"\n";
 }
 
 std::vector<int>

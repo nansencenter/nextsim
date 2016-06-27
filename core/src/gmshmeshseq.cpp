@@ -8,8 +8,6 @@
 
 #include <gmshmeshseq.hpp>
 
-#define GMSH_EXECUTABLE gmsh
-
 namespace Nextsim
 {
 GmshMeshSeq::GmshMeshSeq()
@@ -335,6 +333,7 @@ GmshMeshSeq::partition(std::string const& filename, std::string const& partition
             //<< " -string " << "\"Mesh.Partitioner=1;\""
                 << " -string " << "\"Mesh.Partitioner="<< partint <<";\""
             //<< " -string " << "\"Mesh.ColorCarousel=3;\""
+                << " -string " << "\"General.Verbosity=5;\""
                 << " " << mshfile;
 
         std::cout<<"JUST HERE "<< "\"Mesh.Partitioner=1;\"" <<"\n";
@@ -358,6 +357,38 @@ GmshMeshSeq::move(std::vector<double> const& um, double factor)
         {
             M_nodes[i].coords[0] += factor*um[i];
             M_nodes[i].coords[1] += factor*um[i+M_num_nodes];
+        }
+    }
+}
+
+void
+GmshMeshSeq::reorder(bimap_type const& rmap_nodes, bimap_type const& rmap_elements)
+{
+    ASSERT(rmap_nodes.size()==M_num_nodes,"invalid size of reorder mapping (nodes)");
+    ASSERT(rmap_elements.size()==M_num_triangles,"invalid size of reorder mapping (nodes)");
+
+    auto _nodes = M_nodes;
+
+    for (int i=0; i<M_nodes.size(); ++i)
+    {
+        int ri = rmap_nodes.right.find(i+1)->second-1;
+        M_nodes[i].coords[0] = _nodes[ri].coords[0];
+        M_nodes[i].coords[1] = _nodes[ri].coords[1];
+    }
+
+    auto _triangles = M_triangles;
+
+    for (int i=0; i<M_num_triangles; ++i)
+    {
+        int ri = rmap_elements.right.find(i+1)->second-1;
+        M_triangles[i] = _triangles[ri];
+    }
+
+    for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
+    {
+        for (int i=0; i<3; ++i)
+        {
+            it->indices[i] = rmap_nodes.left.find(it->indices[i])->second;
         }
     }
 }

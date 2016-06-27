@@ -36,6 +36,10 @@ public:
     typedef Nextsim::entities::GMSHPoint point_type;
     typedef Nextsim::entities::GMSHElement element_type;
 
+    typedef boost::bimap<int,int> bimap_type;
+    typedef bimap_type::value_type position;
+
+
     GmshMeshSeq();
 
     GmshMeshSeq(std::vector<point_type> const& nodes,
@@ -46,6 +50,7 @@ public:
     void writeTofile(std::string const& filename);
     void partition(std::string const& filename, std::string const& partitioner = "chaco");
     void move(std::vector<double> const& um, double factor);
+    void reorder(bimap_type const& rmap_nodes, bimap_type const& rmap_elements);
 
     std::string const& version() const {return M_version;}
     std::string const& ordering() const {return M_ordering;}

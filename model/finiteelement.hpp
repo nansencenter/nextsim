@@ -194,7 +194,8 @@ public:
 
     double minAngle(mesh_type const& mesh, std::vector<double> const& um, double factor) const;
 
-    bool flip(mesh_type const& mesh, std::vector<double> const& um, double factor) const;
+    template<typename FEMeshType>
+    bool flip(FEMeshType const& mesh, std::vector<double> const& um, double factor) const;
 
     double resolution(mesh_type_root const& mesh) const;
 
@@ -235,7 +236,9 @@ public:
 
     void rootMeshProcessing();
 
-    void distributedMeshProcessing();
+    void rootMeshRenumbering();
+
+    void distributedMeshProcessing(bool start = false);
 
     void interpVertices();
 
@@ -264,6 +267,7 @@ private:
     int M_ndof;
     int M_local_ndof;
     int M_local_ndof_ghost;
+    int M_local_nelements;
     int M_rank;
     Communicator M_comm;
 

@@ -50,10 +50,10 @@ public:
 
     GmshMesh( GmshMesh const& mesh );
 
-    GmshMesh(std::vector<point_type> const& nodes,
-             std::vector<element_type> const& edges,
-             std::vector<element_type> const& triangles,
-             Communicator const& comm = Environment::comm());
+    // GmshMesh(std::vector<point_type> const& nodes,
+    //          std::vector<element_type> const& edges,
+    //          std::vector<element_type> const& triangles,
+    //          Communicator const& comm = Environment::comm());
 
     void readFromFile(std::string const& filename);
     void writeTofile(std::string const& filename);
@@ -67,13 +67,6 @@ public:
     std::vector<element_type> const& triangles() const {return M_triangles;}
     std::vector<element_type> const& edges() const {return M_edges;}
 
-    // only on root process (rank 0)
-    std::vector<point_type> const& nodesRoot() const {return M_nodes_root;}
-    std::vector<element_type> const& trianglesRoot() const {return M_triangles_root;}
-    std::vector<element_type> const& edgesRoot() const {return M_edges_root;}
-
-    void clearRoot();
-
     int numGlobalNodes() const {return M_global_num_nodes;}
     int numNodes() const {return M_num_nodes;}
     int numTriangles() const {return M_num_triangles;}
@@ -82,6 +75,8 @@ public:
     int numLocalNodesWithoutGhost() const {return M_nldof_without_ghost;}
     int numLocalNodesWithGhost() const {return M_nldof_with_ghost;}
     int numLocalGhost() const {return M_nlghost;}
+
+    int numTrianglesWithoutGhost() const {return M_num_triangles_without_ghost;}
 
     void setCommunicator(Communicator const& comm) {M_comm=comm;}
     void setOrdering(std::string const& order) {M_ordering=order;}
@@ -103,6 +98,9 @@ public:
     //bimap_type const& transferMap() const {return M_transfer_map;}
     bimap_type const& transferMap() const {return M_transfer_map_reordered;}
     bimap_type const& transferMapReordered() const {return M_transfer_map_reordered;}
+
+    bimap_type const& mapNodes() const {return M_reorder_map_nodes;}
+    bimap_type const& mapElements() const {return M_reorder_map_elements;}
 
     std::vector<int> indexTr() const;
 
@@ -137,10 +135,6 @@ private:
     std::vector<element_type> M_triangles;
     std::vector<element_type> M_edges;
 
-    std::vector<point_type> M_nodes_root;
-    std::vector<element_type> M_triangles_root;
-    std::vector<element_type> M_edges_root;
-
     int M_global_num_nodes;
     int M_num_nodes;
     int M_num_triangles;
@@ -150,11 +144,17 @@ private:
     int M_nldof_without_ghost;
     int M_nlghost;
 
+    int M_num_triangles_without_ghost;
+
     std::vector<int> M_local_dof_with_ghost;
     std::vector<int> M_local_dof_without_ghost;
     std::vector<int> M_local_ghost;
+
     bimap_type M_transfer_map;
     bimap_type M_transfer_map_reordered;
+
+    bimap_type M_reorder_map_nodes;
+    bimap_type M_reorder_map_elements;
 };
 
 } // Nextsim
