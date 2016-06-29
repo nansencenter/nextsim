@@ -167,6 +167,9 @@ public:
     void regrid(bool step = true);
     void adaptMesh();
 
+    void gatherFieldsElement(std::vector<double>& interp_elt_in_elements);
+    void scatterFieldsElement(double* interp_elt_out);
+
     void assemble(int cpt);
     void assembleSeq(int cpt);
     void solve();
@@ -270,6 +273,8 @@ private:
     int M_local_nelements;
     int M_rank;
     Communicator M_comm;
+
+    int M_nb_var_element;
 
     std::vector<int> M_boundary_flags;
     std::vector<int> M_dirichlet_flags;

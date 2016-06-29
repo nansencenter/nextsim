@@ -26,12 +26,17 @@ GmshMesh::GmshMesh(Communicator const& comm)
     M_triangles(),
     M_edges(),
     M_nodes_vec(),
+    M_local_dof_with_ghost(),
+    M_local_dof_without_ghost(),
+    M_local_ghost(),
+    M_triangles_id_with_ghost(),
     M_num_nodes(0),
     M_num_triangles(0),
     M_num_edges(0),
     M_nldof_with_ghost(),
     M_nldof_without_ghost(),
     M_nlghost(),
+    M_num_triangles_without_ghost(),
     M_transfer_map(),
     M_transfer_map_reordered(),
     M_reorder_map_nodes(),
@@ -47,12 +52,17 @@ GmshMesh::GmshMesh(GmshMesh const& mesh)
     M_triangles(mesh.M_triangles),
     M_edges(mesh.M_edges),
     M_nodes_vec(mesh.M_nodes_vec),
+    M_local_dof_with_ghost(mesh.M_local_dof_with_ghost),
+    M_local_dof_without_ghost(mesh.M_local_dof_without_ghost),
+    M_local_ghost(mesh.M_local_ghost),
+    M_triangles_id_with_ghost(mesh.M_triangles_id_with_ghost),
     M_num_nodes(mesh.M_num_nodes),
     M_num_triangles(mesh.M_num_triangles),
     M_num_edges(mesh.M_num_edges),
     M_nldof_with_ghost(mesh.M_nldof_with_ghost),
     M_nldof_without_ghost(mesh.M_nldof_without_ghost),
     M_nlghost(mesh.M_nlghost),
+    M_num_triangles_without_ghost(mesh.M_num_triangles_without_ghost),
     M_transfer_map(mesh.M_transfer_map),
     M_transfer_map_reordered(mesh.M_transfer_map_reordered),
     M_reorder_map_nodes(mesh.M_reorder_map_nodes),
@@ -585,11 +595,13 @@ GmshMesh::nodalGrid()
 
     for (int k=0; k<local_dof_with_ghost.size(); ++k)
     {
+        // mapping from old global numbering to local numbering
         M_transfer_map.insert(position(local_dof_with_ghost[k],k+1));
 
         int rdof = reorder.find(local_dof_with_ghost[k])->second;
         int rdofv = reorder.find(local_dof_with_ghost[k]+M_num_nodes)->second;
 
+        // mapping from new global numbering to local numbering
         M_transfer_map_reordered.insert(position(rdof,k+1));
 
         M_local_dof_with_ghost[k] = rdof;
@@ -692,6 +704,7 @@ GmshMesh::nodalGrid()
         if (M_comm.rank() == it->partition)
         {
             M_triangles.push_back(*it);
+            M_triangles_id_with_ghost.push_back(it->number);
             ++M_num_triangles_without_ghost;
         }
     }
@@ -701,6 +714,7 @@ GmshMesh::nodalGrid()
         if (M_comm.rank() != it->partition)
         {
             M_triangles.push_back(*it);
+            M_triangles_id_with_ghost.push_back(it->number);
         }
     }
 

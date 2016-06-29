@@ -70,7 +70,7 @@ FiniteElement::initMesh()
 
     this->distributedMeshProcessing(true);
 
-    this->rootMeshRenumbering();
+    //this->rootMeshRenumbering();
 }
 
 void
@@ -1575,6 +1575,338 @@ FiniteElement::interpVertices()
 }
 
 void
+FiniteElement::gatherFieldsElement(std::vector<double>& interp_elt_in_elements)
+{
+    std::vector<int> sizes_elements(M_comm.size());
+    boost::mpi::gather(M_comm, M_local_nelements, sizes_elements, 0);
+
+    // if (M_rank == 0)
+    // {
+    //     for (int i=0; i<sizes_elements.size(); ++i)
+    //         std::cout<<"sizes_elements["<< i <<"]= "<< sizes_elements[i] <<"\n";
+    // }
+
+    int prv_num_nodes = M_local_ndof;//M_mesh_previous_root.numTriangles();
+    int prv_num_elements = M_local_nelements;//M_mesh_previous_root.numNodes();
+
+    chrono.restart();
+    //std::cout<<"Element Interp starts\n";
+    // ELEMENT INTERPOLATION With Cavities
+    M_nb_var_element=15;
+
+    std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = M_nb_var_element*f; });
+
+    std::vector<double> interp_elt_in_local(M_nb_var_element*prv_num_elements);
+
+    //double* interp_elt_out;
+
+    std::cout<<"ELEMENT: Interp starts\n";
+
+    int tmp_nb_var=0;
+    for (int i=0; i<prv_num_elements; ++i)
+    {
+        tmp_nb_var=0;
+
+        // concentration
+        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_conc[i];
+        tmp_nb_var++;
+
+        // thickness
+        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_thick[i];
+        tmp_nb_var++;
+
+        // snow thickness
+        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_snow_thick[i];
+        tmp_nb_var++;
+
+        // integrated_stress1
+        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_sigma[3*i]*M_thick[i];
+        tmp_nb_var++;
+
+        // integrated_stress2
+        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_sigma[3*i+1]*M_thick[i];
+        tmp_nb_var++;
+
+        // integrated_stress3
+        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_sigma[3*i+2]*M_thick[i];
+        tmp_nb_var++;
+
+        // compliance
+        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = 1./(1.-M_damage[i]);
+        tmp_nb_var++;
+
+        // divergence_rate
+        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_divergence_rate[i];
+        tmp_nb_var++;
+
+        // h_ridged_thin_ice
+        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_h_ridged_thin_ice[i];
+        tmp_nb_var++;
+
+        // h_ridged_thick_ice
+        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_h_ridged_thick_ice[i];
+        tmp_nb_var++;
+
+        // random_number
+        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_random_number[i];
+        tmp_nb_var++;
+
+        // Ice surface temperature
+        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_tsurf[i];
+        tmp_nb_var++;
+
+        // thin ice thickness
+        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_h_thin[i];
+        tmp_nb_var++;
+
+        // snow on thin ice
+        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_hs_thin[i];
+        tmp_nb_var++;
+
+        // Ice surface temperature for thin ice
+        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_tsurf_thin[i];
+        tmp_nb_var++;
+
+        if(tmp_nb_var>M_nb_var_element)
+        {
+            throw std::logic_error("tmp_nb_var not equal to nb_var");
+        }
+    }
+
+    std::cout<<"ELEMENT: Interp done in "<< chrono.elapsed() <<"\n";
+    //std::vector<double> interp_elt_in_elements;
+
+    chrono.restart();
+    if (M_rank == 0)
+    {
+        //std::cout<<"M_mesh_root.numTriangles()= "<< M_mesh_root.numTriangles() <<"\n";
+        interp_elt_in_elements.resize(M_nb_var_element*M_mesh_previous_root.numTriangles());
+        boost::mpi::gatherv(M_comm, interp_elt_in_local, &interp_elt_in_elements[0], sizes_elements, 0);
+    }
+    else
+    {
+        boost::mpi::gatherv(M_comm, interp_elt_in_local, 0);
+    }
+
+    //if (M_rank == 0)
+    std::cout<<"["<< M_rank <<"]: " <<"GATHERV2 done in "<< chrono.elapsed() <<"s\n";
+
+
+    if (M_rank == 0)
+    {
+        auto rmap_elements = M_mesh.mapElements();
+        auto interp_elt_in_elements_nrd = interp_elt_in_elements;
+
+        for (int i=0; i<M_mesh_previous_root.numTriangles(); ++i)
+        {
+            int ri = rmap_elements.right.find(i+1)->second-1;
+
+            for (int j=0; j<M_nb_var_element; ++j)
+            {
+                interp_elt_in_elements[M_nb_var_element*i+j] = interp_elt_in_elements_nrd[M_nb_var_element*ri+j];
+            }
+        }
+    }
+}
+
+void
+FiniteElement::scatterFieldsElement(double* interp_elt_out)
+{
+    std::vector<int> sizes_elements(M_comm.size());
+    boost::mpi::gather(M_comm, M_num_elements, sizes_elements, 0);
+
+    std::vector<int> id_elements;
+    int out_size;
+
+    chrono.restart();
+    if (M_rank == 0)
+    {
+        //um_root.resize(2*M_ndof);
+        out_size = std::accumulate(sizes_elements.begin(),sizes_elements.end(),0);
+        id_elements.resize(out_size);
+
+        boost::mpi::gatherv(M_comm, M_mesh.trianglesIdWithGhost(), &id_elements[0], sizes_elements, 0);
+    }
+    else
+    {
+        boost::mpi::gatherv(M_comm, M_mesh.trianglesIdWithGhost(), 0);
+    }
+
+    //if (M_rank == 0)
+    std::cout<<"GATHERV3 done in "<< chrono.elapsed() <<"s\n";
+
+    std::vector<double> in_elt_values;
+
+    if (M_rank == 0)
+    {
+        in_elt_values.resize(M_nb_var_element*out_size);
+        int cpts_dom = 0;
+
+        //std::cout<<"OUT SIZE= "<< M_nb_var_element*out_size <<"\n";
+        //int ss;
+
+        for (int ii=0; ii<M_comm.size(); ++ii)
+        {
+            for (int jj=0; jj<sizes_elements[ii]; ++jj)
+            {
+                //int ri = rmap_elements.right.find(i+1)->second-1;
+                int ri = id_elements[jj]-1;
+
+                for (int kk=0; kk<M_nb_var_element; ++kk)
+                {
+                    in_elt_values[M_nb_var_element*(jj+cpts_dom)+kk] = interp_elt_out[M_nb_var_element*ri+kk];
+                    //ss = M_nb_var_element*(jj+cpts_dom)+kk;
+                }
+            }
+
+            cpts_dom += sizes_elements[ii];
+        }
+
+        //std::cout<<"LAST SS= "<< ss <<"\n";
+
+        //std::cout<<"Min val= "<< *std::min_element(in_elt_values.begin(), in_elt_values.end()) <<"\n";
+        //std::cout<<"Max val= "<< *std::max_element(in_elt_values.begin(), in_elt_values.end()) <<"\n";
+    }
+
+    std::vector<double> out_elt_values(M_nb_var_element*M_num_elements);
+
+    chrono.restart();
+    if (M_rank == 0)
+    {
+        std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = M_nb_var_element*f; });
+        //um_root.resize(2*M_ndof);
+        //out_size = std::accumulate(sizes_elements.begin(),sizes_elements.end(),0);
+        //id_elements.resize(out_size);
+
+        boost::mpi::scatterv(M_comm, in_elt_values, sizes_elements, &out_elt_values[0], 0);
+
+    }
+    else
+    {
+        boost::mpi::scatterv(M_comm, &out_elt_values[0], M_nb_var_element*M_num_elements, 0);
+    }
+
+    //if (M_rank == 0)
+    std::cout<<"SCATTERV3 done in "<< chrono.elapsed() <<"s\n";
+
+    // std::cout<<"["<< M_rank <<"]: " <<"Min val= "<< *std::min_element(out_elt_values.begin(), out_elt_values.end()) <<"\n";
+    // std::cout<<"["<< M_rank <<"]: " <<"Max val= "<< *std::max_element(out_elt_values.begin(), out_elt_values.end()) <<"\n";
+
+
+    M_conc.assign(M_num_elements,0.);
+    M_thick.assign(M_num_elements,0.);
+    M_snow_thick.assign(M_num_elements,0.);
+    M_sigma.assign(3*M_num_elements,0.);
+    M_damage.assign(M_num_elements,0.);
+
+    M_divergence_rate.assign(M_num_elements,0.);
+    M_h_ridged_thin_ice.assign(M_num_elements,0.);
+    M_h_ridged_thick_ice.assign(M_num_elements,0.);
+
+    M_random_number.resize(M_num_elements);
+
+    M_tsurf.assign(M_num_elements,0.);
+
+    M_h_thin.assign(M_num_elements,0.);
+    M_hs_thin.assign(M_num_elements,0.);
+    M_tsurf_thin.assign(M_num_elements,0.);
+
+#if 1
+    int tmp_nb_var=0;
+
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        tmp_nb_var=0;
+
+        // concentration
+        M_conc[i] = std::max(0., std::min(1.,out_elt_values[M_nb_var_element*i+tmp_nb_var]));
+        tmp_nb_var++;
+
+        // thickness
+        M_thick[i] = std::max(0., out_elt_values[M_nb_var_element*i+tmp_nb_var]);
+        tmp_nb_var++;
+
+        // snow thickness
+        M_snow_thick[i] = std::max(0., out_elt_values[M_nb_var_element*i+tmp_nb_var]);
+        tmp_nb_var++;
+
+        if (M_thick[i] != 0.)
+        {
+            // integrated_stress1
+            M_sigma[3*i] = out_elt_values[M_nb_var_element*i+tmp_nb_var]/M_thick[i];
+            tmp_nb_var++;
+
+            // integrated_stress2
+            M_sigma[3*i+1] = out_elt_values[M_nb_var_element*i+tmp_nb_var]/M_thick[i];
+            tmp_nb_var++;
+
+            // integrated_stress3
+            M_sigma[3*i+2] = out_elt_values[M_nb_var_element*i+tmp_nb_var]/M_thick[i];
+            tmp_nb_var++;
+        }
+        else
+        {
+            tmp_nb_var+=3;
+        }
+
+        // compliance
+        if (out_elt_values[M_nb_var_element*i+tmp_nb_var] != 0.)
+        {
+            M_damage[i] = std::max(0., std::min(1.,1.-1./out_elt_values[M_nb_var_element*i+tmp_nb_var]));
+            tmp_nb_var++;
+        }
+        else
+        {
+            M_damage[i] = 0.;
+            tmp_nb_var++;
+        }
+
+        // divergence_rate
+        M_divergence_rate[i] = out_elt_values[M_nb_var_element*i+tmp_nb_var];
+        tmp_nb_var++;
+
+        // // h_ridged_thin_ice
+        M_h_ridged_thin_ice[i] = out_elt_values[M_nb_var_element*i+tmp_nb_var];
+        tmp_nb_var++;
+
+        // h_ridged_thick_ice
+        M_h_ridged_thick_ice[i] = out_elt_values[M_nb_var_element*i+tmp_nb_var];
+        tmp_nb_var++;
+
+        // random_number
+        M_random_number[i] = out_elt_values[M_nb_var_element*i+tmp_nb_var];
+        //M_random_number[i] = std::max(0., std::min(1.,interp_elt_in[11*i+tmp_nb_var]));
+        tmp_nb_var++;
+
+        // Ice surface temperature
+        M_tsurf[i] = out_elt_values[M_nb_var_element*i+tmp_nb_var];
+        tmp_nb_var++;
+
+        // thin ice thickness
+        M_h_thin[i] = out_elt_values[M_nb_var_element*i+tmp_nb_var];
+        tmp_nb_var++;
+
+        // snow on thin ice
+        M_hs_thin[i] = out_elt_values[M_nb_var_element*i+tmp_nb_var];
+        tmp_nb_var++;
+
+        // Ice surface temperature for thin ice
+        M_tsurf_thin[i] = out_elt_values[M_nb_var_element*i+tmp_nb_var];
+        tmp_nb_var++;
+
+        if(tmp_nb_var!=M_nb_var_element)
+        {
+            throw std::logic_error("tmp_nb_var not equal to nb_var");
+        }
+    }
+
+    //xDelete<double>(interp_elt_out);
+#endif
+
+}
+
+
+void
 FiniteElement::regrid(bool step)
 {
     // --------------------------------BEGINNING-------------------------
@@ -1617,11 +1949,11 @@ FiniteElement::regrid(bool step)
     }
 
     //if (M_rank == 0)
-    std::cout<<"GATHERV done in "<< chrono.elapsed() <<"s\n";
+    std::cout<<"GATHERV1 done in "<< chrono.elapsed() <<"s\n";
 
     // --------------------------------END-------------------------------
 
-#if 0
+#if 1
 
     double displacement_factor = 2.;
     int substep_nb=1;
@@ -1711,183 +2043,25 @@ FiniteElement::regrid(bool step)
     } // rank 0
 
 
+#if 1
     // --------------------------------BEGINNING-------------------------
 
-    std::vector<int> sizes_elements(M_comm.size());
-    boost::mpi::gather(M_comm, M_local_nelements, sizes_elements, 0);
 
-    // if (M_rank == 0)
-    // {
-    //     for (int i=0; i<sizes_elements.size(); ++i)
-    //         std::cout<<"sizes_elements["<< i <<"]= "<< sizes_elements[i] <<"\n";
-    // }
+    std::cout<<"["<< M_rank <<"]: " <<"BEFORE Min val= "<< *std::min_element(M_conc.begin(), M_conc.end()) <<"\n";
+    std::cout<<"["<< M_rank <<"]: " <<"BEFORE Max val= "<< *std::max_element(M_conc.begin(), M_conc.end()) <<"\n";
 
-
-#if 1
-    int prv_num_nodes = M_local_ndof;//M_mesh_previous_root.numTriangles();
-    int prv_num_elements = M_local_nelements;//M_mesh_previous_root.numNodes();
-
-    chrono.restart();
-    std::cout<<"Element Interp starts\n";
-    // ELEMENT INTERPOLATION With Cavities
-    int nb_var=15;
-
-    std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = nb_var*f; });
-
-    std::vector<double> interp_elt_in_local(nb_var*prv_num_elements);
-
-    //double* interp_elt_out;
-
-    std::cout<<"ELEMENT: Interp starts\n";
-
-    int tmp_nb_var=0;
-    for (int i=0; i<prv_num_elements; ++i)
-    {
-        tmp_nb_var=0;
-
-
-        // concentration
-        interp_elt_in_local[nb_var*i+tmp_nb_var] = M_conc[i];
-        tmp_nb_var++;
-
-        // thickness
-        interp_elt_in_local[nb_var*i+tmp_nb_var] = M_thick[i];
-        tmp_nb_var++;
-
-        // snow thickness
-        interp_elt_in_local[nb_var*i+tmp_nb_var] = M_snow_thick[i];
-        tmp_nb_var++;
-
-        // integrated_stress1
-        interp_elt_in_local[nb_var*i+tmp_nb_var] = M_sigma[3*i]*M_thick[i];
-        tmp_nb_var++;
-
-        // integrated_stress2
-        interp_elt_in_local[nb_var*i+tmp_nb_var] = M_sigma[3*i+1]*M_thick[i];
-        tmp_nb_var++;
-
-        // integrated_stress3
-        interp_elt_in_local[nb_var*i+tmp_nb_var] = M_sigma[3*i+2]*M_thick[i];
-        tmp_nb_var++;
-
-        // compliance
-        interp_elt_in_local[nb_var*i+tmp_nb_var] = 1./(1.-M_damage[i]);
-        tmp_nb_var++;
-
-        // divergence_rate
-        interp_elt_in_local[nb_var*i+tmp_nb_var] = M_divergence_rate[i];
-        tmp_nb_var++;
-
-        // h_ridged_thin_ice
-        interp_elt_in_local[nb_var*i+tmp_nb_var] = M_h_ridged_thin_ice[i];
-        tmp_nb_var++;
-
-        // h_ridged_thick_ice
-        interp_elt_in_local[nb_var*i+tmp_nb_var] = M_h_ridged_thick_ice[i];
-        tmp_nb_var++;
-
-        // random_number
-        interp_elt_in_local[nb_var*i+tmp_nb_var] = M_random_number[i];
-        tmp_nb_var++;
-
-        // Ice surface temperature
-        interp_elt_in_local[nb_var*i+tmp_nb_var] = M_tsurf[i];
-        tmp_nb_var++;
-
-        // thin ice thickness
-        interp_elt_in_local[nb_var*i+tmp_nb_var] = M_h_thin[i];
-        tmp_nb_var++;
-
-        // snow on thin ice
-        interp_elt_in_local[nb_var*i+tmp_nb_var] = M_hs_thin[i];
-        tmp_nb_var++;
-
-        // Ice surface temperature for thin ice
-        interp_elt_in_local[nb_var*i+tmp_nb_var] = M_tsurf_thin[i];
-        tmp_nb_var++;
-
-        if(tmp_nb_var>nb_var)
-        {
-            throw std::logic_error("tmp_nb_var not equal to nb_var");
-        }
-    }
 
 
     std::vector<double> interp_elt_in_elements;
 
-    chrono.restart();
-    if (M_rank == 0)
-    {
-        //std::cout<<"M_mesh_root.numTriangles()= "<< M_mesh_root.numTriangles() <<"\n";
-        interp_elt_in_elements.resize(nb_var*M_mesh_previous_root.numTriangles());
-        boost::mpi::gatherv(M_comm, interp_elt_in_local, &interp_elt_in_elements[0], sizes_elements, 0);
-    }
-    else
-    {
-        boost::mpi::gatherv(M_comm, interp_elt_in_local, 0);
-    }
+    this->gatherFieldsElement(interp_elt_in_elements);
 
-    //if (M_rank == 0)
-    std::cout<<"GATHERV done in "<< chrono.elapsed() <<"s\n";
+    std::cout<<"interp_elt_in_elements.size()= "<< interp_elt_in_elements.size() <<"\n";
 
-#endif
-
-    nb_var = 8;
-    interp_elt_in_local.assign(nb_var*prv_num_nodes,0.);
-
-    chrono.restart();
-    std::cout<<"Nodal Interp starts\n";
-    std::cout<<"NODAL: Interp starts\n";
-
-    for (int i=0; i<prv_num_nodes; ++i)
-    {
-        // VT
-        interp_elt_in_local[nb_var*i] = M_VT[i];
-        interp_elt_in_local[nb_var*i+1] = M_VT[i+M_num_nodes];
-
-        // VTM
-        interp_elt_in_local[nb_var*i+2] = M_VTM[i];
-        interp_elt_in_local[nb_var*i+3] = M_VTM[i+M_num_nodes];
-
-        // VTMM
-        interp_elt_in_local[nb_var*i+4] = M_VTMM[i];
-        interp_elt_in_local[nb_var*i+5] = M_VTMM[i+M_num_nodes];
-
-        // UM
-        interp_elt_in_local[nb_var*i+6] = M_UM[i];
-        interp_elt_in_local[nb_var*i+7] = M_UM[i+M_num_nodes];
-    }
-
-    std::vector<double> interp_elt_in_nodes;
-
-    chrono.restart();
-    if (M_rank == 0)
-    {
-        std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = nb_var*f; });
-
-        //std::cout<<"M_mesh_root.numTriangles()= "<< M_mesh_root.numTriangles() <<"\n";
-        interp_elt_in_nodes.resize(nb_var*M_mesh_previous_root.numNodes());
-        boost::mpi::gatherv(M_comm, interp_elt_in_local, &interp_elt_in_nodes[0], sizes_nodes, 0);
-    }
-    else
-    {
-        boost::mpi::gatherv(M_comm, interp_elt_in_local, 0);
-    }
-
-    //if (M_rank == 0)
-    std::cout<<"GATHERV done in "<< chrono.elapsed() <<"s\n";
-
-    // --------------------------------END-------------------------------
-
-    this->distributedMeshProcessing();
-
-    this->rootMeshRenumbering();
+    double* interp_elt_out;
 
     if (M_rank == 0)
     {
-        nb_var = 15;
-
-#if 0
         std::vector<double> surface_previous(M_mesh_previous_root.numTriangles());
         std::vector<double> surface(M_mesh_root.numTriangles());
 
@@ -1904,143 +2078,134 @@ FiniteElement::regrid(bool step)
             surface[cpt] = this->measure(*it,M_mesh_root);
             ++cpt;
         }
-#endif
-
-        double* interp_elt_out;
 
         // The interpolation with the cavities still needs to be tested on a long run.
         // By default, we then use the non-conservative MeshToMesh interpolation
 
-#if 0
-        InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_elt_in_elements[0],nb_var,
-                                       &surface_previous[0], &surface[0], bamgmesh_previous, bamgmesh_root);
-#endif
-
-#if 1
         chrono.restart();
-        std::cout<<"InterpFromMeshToMesh2dx starts\n";
-        InterpFromMeshToMesh2dx(&interp_elt_out,
-                                &M_mesh_previous_root.indexTr()[0],&M_mesh_previous_root.coordX()[0],&M_mesh_previous_root.coordY()[0],
-                                M_mesh_previous_root.numNodes(),M_mesh_previous_root.numTriangles(),
-                                &interp_elt_in_elements[0],
-                                M_mesh_previous_root.numTriangles(),nb_var,
-                                &M_mesh_root.bcoordX()[0],&M_mesh_root.bcoordY()[0],M_mesh_root.numTriangles(),
-                                false);
+        std::cout<<"InterpFromMeshToMesh2dCavities starts\n";
 
-        std::cout<<"InterpFromMeshToMesh2dx done in "<< chrono.elapsed() <<"\n";
-#endif
+        InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_elt_in_elements[0],M_nb_var_element,
+                                       &surface_previous[0], &surface[0], bamgmesh_previous, bamgmesh_root);
+
+        std::cout<<"InterpFromMeshToMesh2dCavities done in "<< chrono.elapsed() <<"\n";
+
+        // chrono.restart();
+        // std::cout<<"InterpFromMeshToMesh2dx starts\n";
+        // InterpFromMeshToMesh2dx(&interp_elt_out,
+        //                         &M_mesh_previous_root.indexTr()[0],&M_mesh_previous_root.coordX()[0],&M_mesh_previous_root.coordY()[0],
+        //                         M_mesh_previous_root.numNodes(),M_mesh_previous_root.numTriangles(),
+        //                         &interp_elt_in_elements[0],
+        //                         M_mesh_previous_root.numTriangles(),M_nb_var_element,
+        //                         &M_mesh_root.bcoordX()[0],&M_mesh_root.bcoordY()[0],M_mesh_root.numTriangles(),
+        //                         false);
+
+        // std::cout<<"InterpFromMeshToMesh2dx done in "<< chrono.elapsed() <<"\n";
+
+
+        // auto rmap_elements = M_mesh.mapElements();
+        // auto interp_elt_in_elements_nrd = interp_elt_in_elements;
+
+        // for (int i=0; i<M_mesh_root.numTriangles(); ++i)
+        // {
+        //     int ri = rmap_elements.right.find(i+1)->second-1;
+
+        //     for (int j=0; j<M_nb_var_element; ++j)
+        //     {
+        //         interp_elt_in_elements[M_nb_var_element*i+j] = interp_elt_in_elements_nrd[M_nb_var_element*ri+j];
+        //     }
+        // }
 
     } // rank 0
 
+    this->distributedMeshProcessing();
 
-    M_conc.assign(M_num_elements,0.);
-    M_thick.assign(M_num_elements,0.);
-    M_snow_thick.assign(M_num_elements,0.);
-    M_sigma.assign(3*M_num_elements,0.);
-    M_damage.assign(M_num_elements,0.);
+    this->scatterFieldsElement(interp_elt_out);
 
-    M_divergence_rate.assign(M_num_elements,0.);
-    M_h_ridged_thin_ice.assign(M_num_elements,0.);
-    M_h_ridged_thick_ice.assign(M_num_elements,0.);
-
-    M_random_number.resize(M_num_elements);
-
-    M_tsurf.assign(M_num_elements,0.);
-
-    M_h_thin.assign(M_num_elements,0.);
-    M_hs_thin.assign(M_num_elements,0.);
-    M_tsurf_thin.assign(M_num_elements,0.);
+    std::cout<<"["<< M_rank <<"]: " <<"AFTER Min val= "<< *std::min_element(M_conc.begin(), M_conc.end()) <<"\n";
+    std::cout<<"["<< M_rank <<"]: " <<"AFTER Max val= "<< *std::max_element(M_conc.begin(), M_conc.end()) <<"\n";
 
 
-    for (int i=0; i<M_num_elements; ++i)
-    {
-        tmp_nb_var=0;
+    //xDelete<double>(interp_elt_out);
 
-        // concentration
-        M_conc[i] = std::max(0., std::min(1.,interp_elt_out[nb_var*i+tmp_nb_var]));
-        tmp_nb_var++;
+    // nb_var = 8;
+    // interp_elt_in_local.assign(nb_var*prv_num_nodes,0.);
 
-        // thickness
-        M_thick[i] = std::max(0., interp_elt_out[nb_var*i+tmp_nb_var]);
-        tmp_nb_var++;
+    // chrono.restart();
+    // std::cout<<"Nodal Interp starts\n";
+    // std::cout<<"NODAL: Interp starts\n";
 
-        // snow thickness
-        M_snow_thick[i] = std::max(0., interp_elt_out[nb_var*i+tmp_nb_var]);
-        tmp_nb_var++;
+    // for (int i=0; i<prv_num_nodes; ++i)
+    // {
+    //     // VT
+    //     interp_elt_in_local[nb_var*i] = M_VT[i];
+    //     interp_elt_in_local[nb_var*i+1] = M_VT[i+M_num_nodes];
 
-        if (M_thick[i] != 0.)
-        {
-            // integrated_stress1
-            M_sigma[3*i] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
-            tmp_nb_var++;
+    //     // VTM
+    //     interp_elt_in_local[nb_var*i+2] = M_VTM[i];
+    //     interp_elt_in_local[nb_var*i+3] = M_VTM[i+M_num_nodes];
 
-            // integrated_stress2
-            M_sigma[3*i+1] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
-            tmp_nb_var++;
+    //     // VTMM
+    //     interp_elt_in_local[nb_var*i+4] = M_VTMM[i];
+    //     interp_elt_in_local[nb_var*i+5] = M_VTMM[i+M_num_nodes];
 
-            // integrated_stress3
-            M_sigma[3*i+2] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
-            tmp_nb_var++;
-        }
-        else
-        {
-            tmp_nb_var+=3;
-        }
+    //     // UM
+    //     interp_elt_in_local[nb_var*i+6] = M_UM[i];
+    //     interp_elt_in_local[nb_var*i+7] = M_UM[i+M_num_nodes];
+    // }
 
-        // compliance
-        if (interp_elt_out[nb_var*i+tmp_nb_var] != 0.)
-        {
-            M_damage[i] = std::max(0., std::min(1.,1.-1./interp_elt_out[nb_var*i+tmp_nb_var]));
-            tmp_nb_var++;
-        }
-        else
-        {
-            M_damage[i] = 0.;
-            tmp_nb_var++;
-        }
+    // std::vector<double> interp_elt_in_nodes;
 
-        // divergence_rate
-        M_divergence_rate[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-        tmp_nb_var++;
+    // chrono.restart();
+    // if (M_rank == 0)
+    // {
+    //     std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = nb_var*f; });
 
-        // // h_ridged_thin_ice
-        M_h_ridged_thin_ice[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-        tmp_nb_var++;
+    //     //std::cout<<"M_mesh_root.numTriangles()= "<< M_mesh_root.numTriangles() <<"\n";
+    //     interp_elt_in_nodes.resize(nb_var*M_mesh_previous_root.numNodes());
+    //     boost::mpi::gatherv(M_comm, interp_elt_in_local, &interp_elt_in_nodes[0], sizes_nodes, 0);
+    // }
+    // else
+    // {
+    //     boost::mpi::gatherv(M_comm, interp_elt_in_local, 0);
+    // }
 
-        // h_ridged_thick_ice
-        M_h_ridged_thick_ice[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-        tmp_nb_var++;
+    // //if (M_rank == 0)
+    // std::cout<<"GATHERV done in "<< chrono.elapsed() <<"s\n";
 
-        // random_number
-        M_random_number[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-        //M_random_number[i] = std::max(0., std::min(1.,interp_elt_in[11*i+tmp_nb_var]));
-        tmp_nb_var++;
+    // --------------------------------END-------------------------------
 
-        // Ice surface temperature
-        M_tsurf[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-        tmp_nb_var++;
+    // this->distributedMeshProcessing();
 
-        // thin ice thickness
-        M_h_thin[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // snow on thin ice
-        M_hs_thin[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // Ice surface temperature for thin ice
-        M_tsurf_thin[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        if(tmp_nb_var!=nb_var)
-        {
-            throw std::logic_error("tmp_nb_var not equal to nb_var");
-        }
-    }
-
-    xDelete<double>(interp_elt_out);
+    // this->rootMeshRenumbering();
 
 #endif
+
+
+
+
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 #if 0
