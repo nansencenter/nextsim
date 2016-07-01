@@ -4738,7 +4738,7 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
     for (int i=0; i<M_num_nodes; ++i)
     {
         interp_drifter_in[i] = M_UM[i];
-        interp_drifter_in[i+prv_num_nodes] = M_UM[i+M_mesh.numNodes()];
+        interp_drifter_in[i+M_mesh.numNodes()] = M_UM[i+M_mesh.numNodes()];
     }
 
     // Interpolate the velocity
