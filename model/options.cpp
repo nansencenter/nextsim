@@ -9,6 +9,7 @@
 
 
 #include <boost/program_options.hpp>
+#include <constants.hpp>
 
 namespace po = boost::program_options;
 
@@ -153,7 +154,6 @@ namespace Nextsim
             ("simul.constant_Qlw_in", po::value<double>()->default_value( 250. ), "")
             ("simul.constant_precip", po::value<double>()->default_value( 1e-5 ), "")
             ("simul.constant_snowfr", po::value<double>()->default_value( 0.9 ), "")
-            ("simul.constant_mld", po::value<double>()->default_value( 9. ), "")
             ("simul.ocean_nudge", po::value<bool>()->default_value( false ), "")
             ("simul.ocean_nudge_timeT", po::value<double>()->default_value( 30*days_in_sec), "")
             ("simul.ocean_nudge_timeS", po::value<double>()->default_value( 30*days_in_sec), "")
@@ -161,8 +161,14 @@ namespace Nextsim
             ("simul.constant_Fdw", po::value<double>()->default_value( 0. ), "")
             ("simul.constant_ocean_u", po::value<double>()->default_value( 0. ), "")
             ("simul.constant_ocean_v", po::value<double>()->default_value( 0. ), "")
+            ("simul.constant_ssh", po::value<double>()->default_value( 0. ), "")
+            ("simul.constant_ocean_temp", po::value<double>()->default_value( -1.8 ), "")
+            ("simul.constant_ocean_salt", po::value<double>()->default_value( -1.8/physical::mu ), "")
+            ("simul.constant_mld", po::value<double>()->default_value( 9. ), "")
             ("simul.constant_bathymetry", po::value<double>()->default_value( 200. ), "")
             ("simul.use_thermo_forcing", po::value<bool>()->default_value( true ), "")
+            ("simul.use_wim", po::value<bool>()->default_value( false ), "")
+            ("simul.wim_grid", po::value<bool>()->default_value( false ), "")
 
             // options for wim
             ("wim.nx", po::value<int>()->default_value( 150 ), "Record length in x direction")
@@ -193,10 +199,18 @@ namespace Nextsim
             ("wim.hsinc", po::value<double>()->default_value( 2. ), "")
             ("wim.tpinc", po::value<double>()->default_value( 12. ), "")
             ("wim.mwdinc", po::value<double>()->default_value( -90. ), "")
+            ("wim.tmin", po::value<double>()->default_value( 2.5 ), "")
+            ("wim.tmax", po::value<double>()->default_value( 25. ), "")
             ("wim.unifc", po::value<double>()->default_value( 0.7 ), "")
             ("wim.unifh", po::value<double>()->default_value( 2. ), "")
             ("wim.dfloepackinit", po::value<double>()->default_value( 300. ), "")
+            ("wim.dfloepackthresh", po::value<double>()->default_value( 400. ), "")
             ("wim.outparentdir", po::value<std::string>()->default_value( "." ), "Parent directory for the output files")
+            ("wim.dfloemin", po::value<double>()->default_value( 20. ), "")
+            ("wim.cicemin", po::value<double>()->default_value( 0.05 ), "")
+            ("wim.exportresults", po::value<bool>()->default_value( false ), "export results")
+            ("wim.nfloesgridtomesh", po::value<bool>()->default_value( true ), "")
+            ("wim.couplingfreq", po::value<int>()->default_value( 20 ), "")
             ;
         return desc;
     }

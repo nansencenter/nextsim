@@ -14,24 +14,6 @@ namespace Wim
 template<typename T>
 void WimDiscr<T>::gridProssessing()
 {
-    std::string str = vm["wim.outparentdir"].template as<std::string>();
-
-    char * senv = ::getenv( "WIM2D_PATH" );
-    if ( (str == ".") && (senv != NULL) && (senv[0] != '\0') )
-    {
-        str = std::string( senv ) + "/CXX";
-    }
-
-    fs::path path(str);
-    path /= "outputs/binaries";
-
-    if ( !fs::exists(path) )
-        fs::create_directories(path);
-
-
-    std::string fileout = (boost::format( "%1%/wim_grid.a" ) % path.string()).str();
-    std::fstream out(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
-
     X_array.resize(boost::extents[nx][ny]);
     Y_array.resize(boost::extents[nx][ny]);
     SCUY_array.resize(boost::extents[nx][ny]);
@@ -65,61 +47,118 @@ void WimDiscr<T>::gridProssessing()
             SCVX_array[i][j] = dx;
             SCP2_array[i][j] = dx*dy;
             SCP2I_array[i][j] = 1./(dx*dy);
+#if 1
+            if (i==nx-1)
+            {
+                LANDMASK_array[i][j] = 1.;
+            }
+
+            if ((j==0) || (j==ny-1))
+            {
+                LANDMASK_array[i][j] = 1.;
+            }
+#endif
+        }
+    }
+
+    if (vm["wim.exportresults"].template as<bool>())
+    {
+        std::string str = vm["wim.outparentdir"].template as<std::string>();
+
+        char * senv = ::getenv( "WIM2D_PATH" );
+        if ( (str == ".") && (senv != NULL) && (senv[0] != '\0') )
+        {
+            str = std::string( senv ) + "/CXX";
+        }
+
+        fs::path path(str);
+        path /= "outputs/binaries";
+
+        if ( !fs::exists(path) )
+            fs::create_directories(path);
+
+
+        std::string fileout = (boost::format( "%1%/wim_grid.a" ) % path.string()).str();
+        std::fstream out(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
+
+        if (out.is_open())
+        {
+            for (int i = 0; i < X_array.shape()[0]; i++)
+                for (int j = 0; j < X_array.shape()[1]; j++)
+                    out.write((char *)&X_array[i][j], sizeof(value_type));
+
+            for (int i = 0; i < Y_array.shape()[0]; i++)
+                for (int j = 0; j < Y_array.shape()[1]; j++)
+                    out.write((char *)&Y_array[i][j], sizeof(value_type));
+
+            for (int i = 0; i < SCUY_array.shape()[0]; i++)
+                for (int j = 0; j < SCUY_array.shape()[1]; j++)
+                    out.write((char *)&SCUY_array[i][j], sizeof(value_type));
+
+            for (int i = 0; i < SCVX_array.shape()[0]; i++)
+                for (int j = 0; j < SCVX_array.shape()[1]; j++)
+                    out.write((char *)&SCVX_array[i][j], sizeof(value_type));
+
+            for (int i = 0; i < SCP2_array.shape()[0]; i++)
+                for (int j = 0; j < SCP2_array.shape()[1]; j++)
+                    out.write((char *)&SCP2_array[i][j], sizeof(value_type));
+
+            for (int i = 0; i < SCP2I_array.shape()[0]; i++)
+                for (int j = 0; j < SCP2I_array.shape()[1]; j++)
+                    out.write((char *)&SCP2I_array[i][j], sizeof(value_type));
+
+            for (int i = 0; i < LANDMASK_array.shape()[0]; i++)
+                for (int j = 0; j < LANDMASK_array.shape()[1]; j++)
+                    out.write((char *)&LANDMASK_array[i][j], sizeof(value_type));
+
+            out.close();
+        }
+        else
+        {
+            std::cout << "Cannot open " << fileout  << "\n";
+            std::cerr << "error: open file " << fileout << " for output failed!" <<"\n";
+            std::abort();
+        }
+
+
+
+        // export the txt file for grid field information
+        std::string fileoutb = (boost::format( "%1%/wim_grid.b" ) % path.string()).str();
+        std::fstream outb(fileoutb, std::ios::out | std::ios::trunc);
+
+        std::string nxstr = std::string(4-std::to_string(nx).length(),'0') + std::to_string(nx);
+        std::string nystr = std::string(4-std::to_string(ny).length(),'0') + std::to_string(ny);
+
+        // std::cout<<"-----------nx= "<< nxstr <<"\n";
+        // std::cout<<"-----------ny= "<< nystr <<"\n";
+
+        if (outb.is_open())
+        {
+            outb << std::setw(15) << std::left << "07"  << "    Nrecs    # "<< "Number of records" <<"\n";
+            outb << std::setw(15) << std::left << "0"   << "    Norder   # "<< "Storage order [column-major (F/matlab) = 1; row-major (C) = 0]" <<"\n";
+            outb << std::setw(15) << std::left << nxstr << "    nx       # "<< "Record length in x direction (elements)" <<"\n";
+            outb << std::setw(15) << std::left << nystr << "    ny       # "<< "Record length in y direction (elements)" <<"\n";
+
+            outb <<"\n";
+
+            outb << "Record number and name:" <<"\n";
+            outb << std::setw(9) << std::left << "01" << "X" <<"\n";
+            outb << std::setw(9) << std::left << "02" << "Y" <<"\n";
+            outb << std::setw(9) << std::left << "03" << "scuy" <<"\n";
+            outb << std::setw(9) << std::left << "04" << "scvx" <<"\n";
+            outb << std::setw(9) << std::left << "05" << "scp2" <<"\n";
+            outb << std::setw(9) << std::left << "06" << "scp2i" <<"\n";
+            outb << std::setw(9) << std::left << "07" << "LANDMASK" <<"\n";
+        }
+        else
+        {
+            std::cout << "Cannot open " << fileoutb  << "\n";
+            std::cerr << "error: open file " << fileoutb << " for output failed!" <<"\n";
+            std::abort();
         }
     }
 
     std::cout<<"grid generation done in "<< chrono.elapsed() <<"s\n";
-
-    // //#pragma omp parallel for num_threads(max_threads) private(thread_id)
-    // #pragma omp parallel for num_threads(max_threads)
-    //     for (int cpt=0; cpt < 10; ++cpt)
-    //     {
-    //         if(thread_id == 0)
-    //         {
-    //             std::cout<< "\nMaster thread being called\n";
-    //             total_threads = omp_get_num_threads();
-    //             std::cout<<"Total number of threads are "<< total_threads <<"\n";
-    //         }
-    //     }
-
-    if (out.is_open())
-    {
-        for (int i = 0; i < X_array.shape()[0]; i++)
-            for (int j = 0; j < X_array.shape()[1]; j++)
-                out.write((char *)&X_array[i][j], sizeof(value_type));
-
-        for (int i = 0; i < Y_array.shape()[0]; i++)
-            for (int j = 0; j < Y_array.shape()[1]; j++)
-                out.write((char *)&Y_array[i][j], sizeof(value_type));
-
-        for (int i = 0; i < SCUY_array.shape()[0]; i++)
-            for (int j = 0; j < SCUY_array.shape()[1]; j++)
-                out.write((char *)&SCUY_array[i][j], sizeof(value_type));
-
-        for (int i = 0; i < SCVX_array.shape()[0]; i++)
-            for (int j = 0; j < SCVX_array.shape()[1]; j++)
-                out.write((char *)&SCVX_array[i][j], sizeof(value_type));
-
-        for (int i = 0; i < SCP2_array.shape()[0]; i++)
-            for (int j = 0; j < SCP2_array.shape()[1]; j++)
-                out.write((char *)&SCP2_array[i][j], sizeof(value_type));
-
-        for (int i = 0; i < SCP2I_array.shape()[0]; i++)
-            for (int j = 0; j < SCP2I_array.shape()[1]; j++)
-                out.write((char *)&SCP2I_array[i][j], sizeof(value_type));
-
-        for (int i = 0; i < LANDMASK_array.shape()[0]; i++)
-            for (int j = 0; j < LANDMASK_array.shape()[1]; j++)
-                out.write((char *)&LANDMASK_array[i][j], sizeof(value_type));
-
-        out.close();
-    }
-    else
-    {
-        std::cout << "Cannot open " << fileout  << "\n";
-        std::cerr << "error: open file " << fileout << " for output failed!" <<"\n";
-        std::abort();
-    }
 }
 
 template<typename T>
@@ -192,21 +231,29 @@ void WimDiscr<T>::init()
 	this->gridProssessing();
     //this->readGridFromFile("wim_grid.a");
 
+    // parameters
 	nwavedirn = vm["wim.nwavedirn"].template as<int>();
     nwavefreq = vm["wim.nwavefreq"].template as<int>();
     advdim = vm["wim.advdim"].template as<int>();
-
     ref_Hs_ice = vm["wim.refhsice"].template as<bool>();
     atten = vm["wim.atten"].template as<bool>();
     icevel = vm["wim.icevel"].template as<bool>();
     steady = vm["wim.steady"].template as<bool>();
     breaking = vm["wim.breaking"].template as<bool>();
-
     scatmod = vm["wim.scatmod"].template as<std::string>();
     advopt = vm["wim.advopt"].template as<std::string>();
-
     cfl = vm["wim.cfl"].template as<double>();
-
+    Hs_inc = vm["wim.hsinc"].template as<double>(); /* 2.0 */
+    Tp_inc = vm["wim.tpinc"].template as<double>(); /* 12.0 */
+    mwd_inc = vm["wim.mwdinc"].template as<double>(); /* -90. */ //-135.;//-90.;
+    Tmin = vm["wim.tmin"].template as<double>(); /* 2.5 */
+    Tmax = vm["wim.tmax"].template as<double>(); /* 25. */
+    unifc = vm["wim.unifc"].template as<double>(); /* 0.7 */
+    unifh = vm["wim.unifh"].template as<double>(); /* 2.0 */
+    dfloe_pack_init = vm["wim.dfloepackinit"].template as<double>(); /* 300.0 */
+    dfloe_pack_thresh = vm["wim.dfloepackthresh"].template as<double>(); /* 400.0 */
+    young = vm["wim.young"].template as<double>();
+    visc_rp = vm["wim.viscrp"].template as<double>();
     nbdx = vm["wim.nbdx"].template as<int>();
     nbdy = vm["wim.nbdy"].template as<int>();
 
@@ -216,12 +263,24 @@ void WimDiscr<T>::init()
     nxext = nx+2*nbdx;
     nyext = ny+2*nbdy;
 
-    wave_mask2.resize(boost::extents[nx][ny]);
-    wave_mask.resize(boost::extents[nx][ny]);
+    gravity = 9.81;
+    rhowtr = 1025.;
+    rhoice = 922.5;
+    poisson = 0.3;
+    dmin = 20.;
+    xi = 2.;
+    fragility = 0.9;
 
-    sdf_dir.resize(boost::extents[nx][ny][nwavedirn][nwavefreq]);
-    sdf_inc.resize(boost::extents[nx][ny][nwavedirn][nwavefreq]);
+    vbf = 0.1;
+    vb = vbf;
+    sigma_c  = (1.76e+6)*std::exp(-5.88*std::sqrt(vbf));
+    epsc = sigma_c/young;
+    flex_rig_coeff = young/(12.0*(1-std::pow(poisson,2.)));
+}
 
+template<typename T>
+void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value_type> const& ice_h, std::vector<value_type> const& n_floes, bool step) // reset
+{
     wt_simp.resize(nwavefreq);
     wt_om.resize(nwavefreq);
 
@@ -231,6 +290,15 @@ void WimDiscr<T>::init()
     ag.resize(nwavefreq);
     ap.resize(nwavefreq);
 
+    steady_mask.resize(boost::extents[nx][ny]);
+    wave_mask.resize(boost::extents[nx][ny]);
+
+    if (!step)
+    {
+        sdf_dir.resize(boost::extents[nx][ny][nwavedirn][nwavefreq]);
+    }
+
+    sdf_inc.resize(boost::extents[nx][ny][nwavedirn][nwavefreq]);
 
     ag_eff.resize(boost::extents[nx][ny][nwavefreq]);
     ap_eff.resize(boost::extents[nx][ny][nwavefreq]);
@@ -243,52 +311,33 @@ void WimDiscr<T>::init()
     damping.resize(boost::extents[nx][ny][nwavefreq]);
     disp_ratio.resize(boost::extents[nx][ny][nwavefreq]);
 
-
     ice_mask.resize(boost::extents[nx][ny]);
     wtr_mask.resize(boost::extents[nx][ny]);
 
-
     icec.resize(boost::extents[nx][ny]);
     iceh.resize(boost::extents[nx][ny]);
-    dfloe.resize(boost::extents[nx][ny]);
+    dfloe.resize(nx*ny);
+    nfloes.resize(nx*ny);
 
     atten_dim.resize(boost::extents[nx][ny]);
     damp_dim.resize(boost::extents[nx][ny]);
 
+    tau_x.resize(nx*ny);
+    tau_y.resize(nx*ny);
 
-    tau_x.resize(boost::extents[nx][ny]);
-    tau_y.resize(boost::extents[nx][ny]);
+    S_freq.resize(boost::extents[nx][ny]);
+    taux_om.resize(boost::extents[nx][ny]);
+    tauy_om.resize(boost::extents[nx][ny]);
+    hp.resize(boost::extents[nxext][nyext]);
 
     Hs.resize(boost::extents[nx][ny]);
     Tp.resize(boost::extents[nx][ny]);
     mwd.resize(boost::extents[nx][ny]);
 
-    //std::fill( wave_mask2.data(), wave_mask2.data() + wave_mask2.num_elements(), 10 );
-    // wave_mask2
+    //std::fill( steady_mask.data(), steady_mask.data() + steady_mask.num_elements(), 10 );
+    // steady_mask
     if (steady)
-        std::fill( &wave_mask2[0][0], &wave_mask2[3][0], 1. );
-
-    // parameters
-    Hs_inc = vm["wim.hsinc"].template as<double>(); /* 2.0 */
-    Tp_inc = vm["wim.tpinc"].template as<double>(); /* 12.0 */
-    mwd_inc = vm["wim.mwdinc"].template as<double>(); /* -90. */ //-135.;//-90.;
-    Tmin = 2.5;
-    Tmax = 25.;
-    gravity = 9.81;
-
-    unifc = vm["wim.unifc"].template as<double>(); /* 0.7 */
-    unifh = vm["wim.unifh"].template as<double>(); /* 2.0 */
-    dfloe_pack_init = vm["wim.dfloepackinit"].template as<double>(); /* 300.0 */
-
-    rhowtr = 1025.;
-    rhoice = 922.5;
-    poisson = 0.3;
-    dmin = 20.;
-    xi = 2.;
-    fragility = 0.9;
-
-    young = vm["wim.young"].template as<double>();
-    visc_rp = vm["wim.viscrp"].template as<double>();
+        std::fill( &steady_mask[0][0], &steady_mask[3][0], 1. );
 
     std::fill( disp_ratio.data(), disp_ratio.data() + disp_ratio.num_elements(), 1. );
 
@@ -307,6 +356,7 @@ void WimDiscr<T>::init()
         for (int i = 0; i < nwavefreq; i++)
         {
             freq_vec[i] = fmin+i*df;
+            //freq_vec[i] = fmax-i*df;
         }
     }
 
@@ -367,15 +417,15 @@ void WimDiscr<T>::init()
 
     // ag
     ag = ap;
-    std::for_each(ag.begin(), ag.end(), [&](value_type& f){ f = f/2 ; });
+    std::for_each(ag.begin(), ag.end(), [&](value_type& f){ f = f/2. ; });
 
 
     x0 = X_array[0][0];
-    xmax =X_array[nx-1][ny-1]; //x0+(nx-1)*dx;
+    xmax = X_array[nx-1][ny-1]; //x0+(nx-1)*dx;
 
     y0 = Y_array[0][0];
     ym = Y_array[0][0]+(ny-1)*dy;
-    value_type ymax = Y_array[nx-1][ny-1];
+    //value_type ymax = Y_array[nx-1][ny-1];
 
     x_edge = 0.5*(x0+xmax)-0.8*(0.5*(xmax-x0));
 
@@ -395,39 +445,7 @@ void WimDiscr<T>::init()
         }
     }
 
-    x_edge = 0.5*(x0+xmax)-0.7*(0.5*(xmax-x0));
-
-    std::cout<<"x0= "<< x0 <<"\n";
-    std::cout<<"xmax= "<< xmax <<"\n";
-    std::cout<<"x_edge= "<< x_edge <<"\n";
-
-    //value_type ymax = y0+(ny-1)*dy;
-    std::cout<<"y0= "<< y0 <<"\n";
-    std::cout<<"ymax= "<< ymax <<"\n";
-
-    // wtr_mask
-#pragma omp parallel for num_threads(max_threads) collapse(2)
-    for (int i = 0; i < nx; i++)
-    {
-        for (int j = 0; j < ny; j++)
-        {
-            if (X_array[i][j] < x_edge)
-                wtr_mask[i][j] = 1.;
-
-            ice_mask[i][j] = (1-wtr_mask[i][j])*(1-LANDMASK_array[i][j]);
-
-            icec[i][j] = unifc*ice_mask[i][j];
-            iceh[i][j] = unifh*ice_mask[i][j];
-            dfloe[i][j] = dfloe_pack_init*ice_mask[i][j];
-
-            //std::cout<<"ICE_MASK["<< i  << "," << j << "]= " << ice_mask[i][j] <<"\n";
-        }
-    }
-
     om = 2*PI*freq_vec[0];
-    // std::vector<value_type> Sfreq(nwavefreq);
-    // std::vector<value_type> theta_fac(nwavedirn,0.);
-    // value_type f1, f2, f3, t_m, om_m, chi;
 
 #pragma omp parallel for num_threads(max_threads) collapse(2)
     for (int i = 0; i < nx; i++)
@@ -470,7 +488,7 @@ void WimDiscr<T>::init()
                 {
                     chi = PI*(wavedir[dn]-mwd[i][j])/180.0;
                     if (std::cos(chi) > 0.)
-                        theta_fac[dn] = 2.0*std::pow(cos(chi),2.)/PI;
+                        theta_fac[dn] = 2.0*std::pow(std::cos(chi),2.)/PI;
                     else
                         theta_fac[dn] = 0.;
                 }
@@ -487,30 +505,88 @@ void WimDiscr<T>::init()
                     //     adv_dir = (-PI/180.0)*(wavedir[dn]+90.0);
                 }
             }
+        }
+    }
 
+    x_edge = 0.5*(x0+xmax)-0.7*(0.5*(xmax-x0));
+
+#pragma omp parallel for num_threads(max_threads) collapse(2)
+    for (int i = 0; i < nx; i++)
+    {
+        for (int j = 0; j < ny; j++)
+        {
+            if (X_array[i][j] < x_edge)
+                wtr_mask[i][j] = 1.;
+
+            ice_mask[i][j] = (1-wtr_mask[i][j])*(1-LANDMASK_array[i][j]);
+
+            if (ice_c.size() == 0)
+            {
+                icec[i][j] = unifc*ice_mask[i][j];
+                iceh[i][j] = unifh*ice_mask[i][j];
+                dfloe[ny*i+j] = dfloe_pack_init*ice_mask[i][j];
+            }
+            else
+            {
+                icec[i][j] = ice_c[ny*i+j];
+                nfloes[ny*i+j] = n_floes[ny*i+j];
+
+                dfloe[ny*i+j] = 0.;
+
+                if (icec[i][j] < vm["wim.cicemin"].template as<double>())
+                {
+                    ice_mask[i][j] = 0.;
+                    icec[i][j] = 0.;
+                    iceh[i][j] = 0.;
+                    nfloes[ny*i+j] = 0.;
+                }
+                else
+                {
+                    ice_mask[i][j] = 1.;
+
+                    iceh[i][j] = ice_h[ny*i+j]/icec[i][j];
+
+                    dfloe[ny*i+j] = std::sqrt(icec[i][j]/nfloes[ny*i+j]);
+                }
+
+                if (dfloe[ny*i+j] > dfloe_pack_thresh)
+                    dfloe[ny*i+j] = dfloe_pack_init;
+
+                //std::cout<<"----------------------complex case\n";
+            }
+
+            //std::cout<<"ICE_MASK["<< i  << "," << j << "]= " << ice_mask[i][j] <<"\n";
+            //ice_mask[i][j] = (1-wtr_mask[i][j])*(1-LANDMASK_array[i][j]);
+
+            if ((LANDMASK_array[i][j] == 1.) /*&& (!step)*/)
+                ice_mask[i][j] = 0.;
         }
     }
 
 #if 0
-    double params[5];
-    params[0] = young;
-    params[1] = gravity;
-    params[2] = rhowtr;
-    params[3] = rhoice;
-    params[4] = poisson;
+    std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n";
+    std::cout<<"icec_max= "<< *std::max_element(icec.data(), icec.data()+icec.num_elements()) <<"\n";
+    std::cout<<"icec_min= "<< *std::min_element(icec.data(), icec.data()+icec.num_elements()) <<"\n";
+    std::cout<<"icec_acc= "<< std::accumulate(icec.data(), icec.data()+icec.num_elements(),0.) <<"\n";
 
-    double outputs[8];
+    std::cout<<"--------------------------------------------------------\n";
+
+    std::cout<<"iceh_max= "<< *std::max_element(iceh.data(), iceh.data()+iceh.num_elements()) <<"\n";
+    std::cout<<"iceh_min= "<< *std::min_element(iceh.data(), iceh.data()+iceh.num_elements()) <<"\n";
+    std::cout<<"iceh_acc= "<< std::accumulate(iceh.data(), iceh.data()+iceh.num_elements(),0.) <<"\n";
+
+    std::cout<<"--------------------------------------------------------\n";
+
+    std::cout<<"dfloe_max= "<< *std::max_element(dfloe.begin(), dfloe.end()) <<"\n";
+    std::cout<<"dfloe_min= "<< *std::min_element(dfloe.begin(), dfloe.end()) <<"\n";
+    std::cout<<"dfloe_acc= "<< std::accumulate(dfloe.begin(), dfloe.end(),0.) <<"\n";
+
+    std::cout<<"--------------------------------------------------------\n";
+
+    std::cout<<"nfloes_max= "<< *std::max_element(n_floes.begin(), n_floes.end()) <<"\n";
+    std::cout<<"nfloes_min= "<< *std::min_element(n_floes.begin(), n_floes.end()) <<"\n";
+    std::cout<<"nfloes_acc= "<< std::accumulate(n_floes.begin(), n_floes.end(),0.) <<"\n";
 #endif
-
-    // for (int i=0; i<8; ++i)
-    //     outputs[i] = 1.;
-
-    // int thread_id;
-    // int total_threads;
-    // int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-
-    //std::cout<<"MAX THREADS= "<< max_threads <<"\n";
-    //#pragma omp parallel for num_threads(max_threads) private(thread_id) collapse(2)
 
     //std::cout<<"big loop starts\n";
     for (int fq = 0; fq < nwavefreq; fq++)
@@ -539,11 +615,7 @@ void WimDiscr<T>::init()
                     else
                         guess = 2*PI/wlng_ice[i][j][fq-1];
 
-
                     RTparam_outer(outputs,iceh[i][j],double(om),double(visc_rp),double(guess),params);
-                    // for (int i=0; i<8; ++i)
-                    //     outputs[i] = 1.;
-
 
                     value_type kice, kwtr, int_adm, modT, argR, argT;
 
@@ -594,32 +666,47 @@ void WimDiscr<T>::init()
         std::fill( damping.data(), damping.data() + damping.num_elements(), 0. );
     }
 
+    //int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
+    if (!step)
+    {
+        std::fill( sdf_dir.data(), sdf_dir.data() + sdf_dir.num_elements(), 0. );
+
+        //#pragma omp parallel for num_threads(max_threads) collapse(4)
+        for (int i = 0; i < nwavefreq; i++)
+        {
+            for (int j = 0; j < nwavedirn; j++)
+            {
+                for (int k = 0; k < nx; k++)
+                {
+                    for (int l = 0; l < ny; l++)
+                    {
+                        if (wave_mask[k][l] == 1.)
+                        {
+                            sdf_dir[k][l][j][i] = sdf_inc[k][l][j][i];
+                            //std::cout<<"sdf_dir[k][l][j][i]= "<< sdf_dir[k][l][j][i] <<"\n";
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    //dt = cfl*std::min(dx,dy)/amax;
+    amax = *std::max_element(ag_eff.data(),ag_eff.data() + ag_eff.num_elements());
+    std::cout<<"dx= "<< dx <<"\n";
+    std::cout<<"amax= "<< amax <<"\n";
+    std::cout<<"cfl= "<< cfl <<"\n";
     dt = cfl*dx/amax;
-
-    S_freq.resize(boost::extents[nx][ny]);
-    taux_om.resize(boost::extents[nx][ny]);
-    tauy_om.resize(boost::extents[nx][ny]);
-
-
-    hp.resize(boost::extents[nxext][nyext]);
     //ncs = std::ceil(nwavedirn/2);
     ncs = std::round(nwavedirn/2);
-
-    vbf = 0.1;
-    vb = vbf;
-
-    sigma_c  = (1.76e+6)*std::exp(-5.88*std::sqrt(vbf));
-    epsc = sigma_c/young;
-    flex_rig_coeff = young/(12.0*(1-std::pow(poisson,2.)));
 }
 
-
 template<typename T>
-void WimDiscr<T>::timeStep()
+void WimDiscr<T>::timeStep(bool step)
 {
-    std::fill( tau_x.data(), tau_x.data() + tau_x.num_elements(), 0. );
-    std::fill( tau_y.data(), tau_y.data() + tau_y.num_elements(), 0. );
+    std::fill( tau_x.begin(), tau_x.end(), 0. );
+    std::fill( tau_y.begin(), tau_y.end(), 0. );
 
     array2_type tmp1, mom0, mom2, var_strain, mom0w, mom2w;
     tmp1.resize(boost::extents[nx][ny]);
@@ -644,7 +731,7 @@ void WimDiscr<T>::timeStep()
         {
             for (int j = 0; j < nwavedirn; j++)
             {
-                adv_dir = (-PI/180)*(wavedir[j]+90.);
+                adv_dir = (-PI/180.)*(wavedir[j]+90.);
 
                 if (std::cos(adv_dir) >= 0.)
                 {
@@ -653,7 +740,7 @@ void WimDiscr<T>::timeStep()
                     {
                         for (int l = 0; l < ny; l++)
                         {
-                            if (wave_mask2[k][l] > 0.)
+                            if (steady_mask[k][l] > 0.)
                             {
                                 sdf_dir[k][l][j][i] = sdf_inc[k][l][j][i];
                                 //std::cout<<"sdf_dir[k][l][j][i]= "<< sdf_dir[k][l][j][i] <<"\n";
@@ -681,10 +768,10 @@ void WimDiscr<T>::timeStep()
                 value_type dave, c1d;
                 if ((ice_mask[i][j] == 1.) && (atten))
                 {
-                    if (dfloe[i][j] <200.)
-                        floeScaling(dfloe[i][j],dave);
+                    if (dfloe[ny*i+j] <200.)
+                        floeScaling(dfloe[ny*i+j],dave);
                     else
-                        dave = dfloe[i][j];
+                        dave = dfloe[ny*i+j];
 
                     // floes per unit length
                     c1d = icec[i][j]/dave;
@@ -714,7 +801,7 @@ void WimDiscr<T>::timeStep()
             }
         }
 
-        //std::cout<<"applied advection starts\n";
+        // std::cout<<"applied advection starts\n";
         if (scatmod == "dissipated")
         {
             advAttenSimple(sdf3d_dir_temp, S_freq, taux_om, tauy_om, ag2d_eff_temp);
@@ -723,7 +810,7 @@ void WimDiscr<T>::timeStep()
         {
             advAttenIsotropic(sdf3d_dir_temp, S_freq, taux_om, tauy_om, ag2d_eff_temp);
         }
-        //std::cout<<"applied advection done\n";
+        // std::cout<<"applied advection done\n";
 
         // update after application of advAttenSimple
 #pragma omp parallel for num_threads(max_threads) collapse(2)
@@ -743,14 +830,6 @@ void WimDiscr<T>::timeStep()
             }
         }
 
-        // for (int i = 0; i < nx; i++)
-        // {
-        //     for (int j = 0; j < ny; j++)
-        //     {
-        //         std::cout<<"iceh["<< i << "," << j << "]= "<< S_freq[i][j] <<"\n";
-        //     }
-        // }
-
         // integrate stress densities over frequency
 #pragma omp parallel for num_threads(max_threads) collapse(2)
         for (int i = 0; i < nx; i++)
@@ -758,10 +837,10 @@ void WimDiscr<T>::timeStep()
             for (int j = 0; j < ny; j++)
             {
                 tmp1[i][j] = rhowtr*gravity*taux_om[i][j]/ap_eff[i][j][fq];
-                tau_x[i][j] += wt_om[fq]*tmp1[i][j];
+                tau_x[ny*i+j] += wt_om[fq]*tmp1[i][j];
 
                 tmp1[i][j] = rhowtr*gravity*tauy_om[i][j]/ap_eff[i][j][fq];
-                tau_y[i][j] += wt_om[fq]*tmp1[i][j];
+                tau_y[ny*i+j] += wt_om[fq]*tmp1[i][j];
 
                 //std::cout<<"tau_x["<< i << "," << j << "]= "<< taux_om[i][j] <<"\n";
             }
@@ -857,9 +936,7 @@ void WimDiscr<T>::timeStep()
         }
     }
 
-    //std::cout<<"calculation starts\n";
     calcMWD();
-    //std::cout<<"calculation done\n";
 
     if (!(steady) && !(breaking))
     {
@@ -914,21 +991,27 @@ void WimDiscr<T>::timeStep()
                     else
                     {
                         jcrest = std::floor((om-ommin+dom)/dom);
-                        om1 = 2*PI*freq_vec[jcrest];
-                        lam1 = wlng_ice[i][j][jcrest];
-                        lam2 = wlng_ice[i][j][jcrest+1];
+                        // std::cout<<"jrest= "<< jcrest <<"\n";
+                        om1 = 2*PI*freq_vec[jcrest-1];
+                        lam1 = wlng_ice[i][j][jcrest-1];
+                        lam2 = wlng_ice[i][j][jcrest];
                         wlng_crest = lam1+(om-om1)*(lam2-lam1)/dom;
                     }
 
                     Dc = std::max<value_type>(dmin,wlng_crest/2.0);
-                    dfloe[i][j] = std::min<value_type>(Dc,dfloe[i][j]);
-                    //std::cout<<"DMAX= std::MAX("<< Dc << "," << dfloe[i][j] <<")\n";
+                    dfloe[ny*i+j] = std::min<value_type>(Dc,dfloe[ny*i+j]);
+                    //std::cout<<"DMAX= std::MAX("<< Dc << "," << dfloe[ny*i+j] <<")\n";
                 }
             }
             else if (wtr_mask[i][j] == 1.)
             {
-                dfloe[i][j] = 0;
+                dfloe[ny*i+j] = 0;
             }
+
+            //nfloes[ny*i+j] = 0.;
+
+            if (dfloe[ny*i+j] > 0.)
+                nfloes[ny*i+j] = icec[i][j]/std::pow(dfloe[ny*i+j],2.);
         }
     }
 
@@ -941,8 +1024,11 @@ void WimDiscr<T>::timeStep()
     //     for (int j = 0; j < ny; j++)
     //         std::cout<<"Hs["<< i << "," << j << "]= "<< Hs[i][j] <<"\n";
 
-    std::cout<<"Hs_max= "<< *std::max_element(Hs.data(), Hs.data()+Hs.num_elements()) <<"\n";
-    std::cout<<"Hs_min= "<< *std::min_element(Hs.data(), Hs.data()+Hs.num_elements()) <<"\n";
+    // std::cout<<"Hs_max= "<< *std::max_element(Hs.data(), Hs.data()+Hs.num_elements()) <<"\n";
+    // std::cout<<"Hs_min= "<< *std::min_element(Hs.data(), Hs.data()+Hs.num_elements()) <<"\n";
+
+    std::cout<<"taux_min= "<< *std::min_element(tau_x.begin(), tau_x.end()) <<"\n";
+    std::cout<<"taux_max= "<< *std::max_element(tau_x.begin(), tau_x.end()) <<"\n";
 
     // std::cout<<"------------------------------------------------------\n";
     // std::cout<<"dfloe_max= "<< *std::max_element(dfloe.data(), dfloe.data()+dfloe.num_elements()) <<"\n";
@@ -950,76 +1036,59 @@ void WimDiscr<T>::timeStep()
 }
 
 template<typename T>
-void WimDiscr<T>::run()
+void WimDiscr<T>::run(std::vector<value_type> const& ice_c, std::vector<value_type> const& ice_h, std::vector<value_type> const& n_floes, bool step)
 {
-    value_type x_ext, y_ext, u_ref, duration;
+    this->assign(ice_c,ice_h,n_floes,step);
+
+    value_type duration;
     int nt;
     bool critter;
 
     std::cout<<"Running starts\n";
-
     chrono.restart();
 
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-
-    std::fill( sdf_dir.data(), sdf_dir.data() + sdf_dir.num_elements(), 0. );
-
-    //#pragma omp parallel for num_threads(max_threads) collapse(4)
-    for (int i = 0; i < nwavefreq; i++)
-    {
-        for (int j = 0; j < nwavedirn; j++)
-        {
-            for (int k = 0; k < nx; k++)
-            {
-                for (int l = 0; l < ny; l++)
-                {
-                    if (wave_mask[k][l] == 1.)
-                    {
-                        sdf_dir[k][l][j][i] = sdf_inc[k][l][j][i];
-                        //std::cout<<"sdf_dir[k][l][j][i]= "<< sdf_dir[k][l][j][i] <<"\n";
-                    }
-                }
-            }
-        }
-    }
-
-    // value_type _min = *std::min_element(sdf_dir.data(),sdf_dir.data() + sdf_dir.num_elements());
-    // value_type _max = *std::max_element(sdf_dir.data(),sdf_dir.data() + sdf_dir.num_elements());
-    // std::cout<<"Min= " << _min <<"\n";
-    // std::cout<<"Max= " << _max <<"\n";
-
-    x_ext = nx*dx/1.e+03;
-    y_ext = ny*dy/1.e+03;
-    u_ref = amin + 0.7*(amax-amin);
     //duration = 1.0e3*x_ext/u_ref;
     duration = vm["wim.duration"].template as<double>();
 
-    std::cout<<"x_ext= "<< x_ext <<"\n";
-    std::cout<<"y_ext= "<< y_ext <<"\n";
-    std::cout<<"u_ref= "<< u_ref <<"\n";
+    duration = (vm["simul.timestep"].as<double>())*(vm["wim.couplingfreq"].as<int>());
+
+    nt = std::floor(duration/dt);
+    //nt = std::round(duration/dt);
+    //nt = std::ceil(duration/dt);
+    dt = duration/nt;//reduce time step slightly to make duration an integer multiple of dt
+
     std::cout<<"duration= "<< duration <<"\n";
+    std::cout<<"amax= "<< amax <<"\n";
     std::cout<<"dt= "<< dt <<"\n";
-
-    //nt = std::floor(duration/dt);
-    nt = std::round(duration/dt);
-
     std::cout<<"nt= "<< nt <<"\n";
 
     int cpt = 0;
-    //nt = 1;
+    if (!step)
+        fcpt = 0;
 
     while (cpt < nt)
     {
         std::cout <<  ":[WIM2D TIME STEP]^"<< cpt+1 <<"\n";
-        value_type t_out = dt*cpt;
+        value_type t_out = dt*fcpt;
 
-        critter = !(cpt % vm["wim.reps"].template as<int>()) && (vm["wim.checkprog"].template as<bool>());
-        if (critter)
-            exportResults(cpt,t_out);
+        //critter = !(cpt % vm["wim.reps"].template as<int>()) && (vm["wim.checkprog"].template as<bool>());
+        critter = !(fcpt % 50) && (vm["wim.checkprog"].template as<bool>());
 
-        timeStep();
+        if ((vm["wim.exportresults"].template as<bool>()) && (critter))
+            exportResults(fcpt,t_out);
+
+        // if (cpt == 30)
+        // {
+        //     for (int i = 0; i < nx; i++)
+        //         for (int j = 0; j < ny; j++)
+        //             std::cout<<"Hs["<< i << "," << j << "]= "<< Tp[i][j] /*- Tp.data()[ny*i+j]*/ <<"\n";
+
+        // }
+
+        timeStep(step);
 
         ++cpt;
+        ++fcpt;
     }
 
     std::cout<<"Running done in "<< chrono.elapsed() <<"s\n";
@@ -1045,7 +1114,7 @@ void WimDiscr<T>::floeScaling(value_type const& dmax, value_type& dave)
         for (int m=0; m<mm+1; ++m)
         {
             n = (1.0-fragility)*std::pow((fragility*std::pow(xi,2.)),m);
-            nd = n/(std::pow(xi,m));
+            nd = n/(std::pow(xi,double(m)));
             nsum += n;
             ndsum += nd;
             dfac = ndsum/nsum;
@@ -1075,7 +1144,6 @@ void WimDiscr<T>::advAttenSimple(array3_type& Sdir, array2_type& Sfreq, array2_t
 	for (int k = 0; k < nwavedirn; k++)
     {
         adv_dir = -PI*(90.0+wavedir[k])/180.0;
-        //std::cout<<"adv_dir= "<< std::cos(adv_dir) <<"\n";
         uwave = ag2d_eff;
         std::for_each(uwave.data(), uwave.data()+uwave.num_elements(), [&](value_type& f){ f *= std::cos(adv_dir); });
 
@@ -1095,10 +1163,7 @@ void WimDiscr<T>::advAttenSimple(array3_type& Sdir, array2_type& Sfreq, array2_t
             }
         }
 
-        // advection
-        //std::cout<<"--------weno started\n";
         waveAdvWeno(temp,uwave,vwave);
-        //std::cout<<"--------weno done\n";
 
         // copy from 2D temporary array to 3D input array
 #pragma omp parallel for num_threads(max_threads) collapse(2)
@@ -1107,7 +1172,6 @@ void WimDiscr<T>::advAttenSimple(array3_type& Sdir, array2_type& Sfreq, array2_t
             for (int j = 0; j < ny; j++)
             {
                 Sdir[i][j][k] = temp[i][j];
-                //std::cout<<"Sdir["<< i << "," << j << "]= "<< Sdir[i][j][k] <<"\n";
             }
         }
     }
@@ -1174,16 +1238,6 @@ void WimDiscr<T>::advAttenSimple(array3_type& Sdir, array2_type& Sfreq, array2_t
             //std::cout<<"taux_om["<< i << "," << j << "]= "<< taux_om[i][j] <<"\n";
         }
     }
-
-    // for (int k = 0; k < nwavedirn; k++)
-    //     for (int i = 0; i < nx; i++)
-    //     {
-    //         for (int j = 0; j < ny; j++)
-    //         {
-    //             std::cout<<"MASK= "<< Sdir[i][j][k] <<"\n";
-    //         }
-    //     }
-
 }
 
 
@@ -1275,7 +1329,7 @@ void WimDiscr<T>::advAttenIsotropic(array3_type& Sdir, array2_type& Sfreq, array
             {
                 ++cpt;
 
-                if (dfloe[i][j] < dfloe_pack_init)
+                if (dfloe[ny*i+j] < dfloe_pack_init)
                 {
                     q_scat = atten_dim[i][j];
                     q_abs = damp_dim[i][j];
@@ -1899,21 +1953,8 @@ void WimDiscr<T>::exportResults(size_type const& timestp, value_type const& t_ou
     if ( !fs::exists(path) )
         fs::create_directories(path);
 
-    // std::cout<<"Hs_max= "<< *std::max_element(Hs.data(), Hs.data()+Hs.num_elements()) <<"\n";
-    // std::cout<<"Hs_min= "<< *std::min_element(Hs.data(), Hs.data()+Hs.num_elements()) <<"\n";
+    std::string timestpstr = std::string(4-std::to_string(timestp).length(),'0') + std::to_string(timestp);
 
-    std::string timestpstr;
-
-    if (timestp < 10)
-        timestpstr = "00"+ std::to_string(timestp);
-    else if (timestp < 100)
-        timestpstr = "0"+ std::to_string(timestp);
-    else
-        timestpstr = std::to_string(timestp);
-
-    //std::cout<<"TIMESTEP= "<< timestpstr <<"\n";
-
-    //std::string fileout = (boost::format( "%1%/wim_prog%2%.a" ) % path.string() % timestp).str();
     std::string fileout = (boost::format( "%1%/wim_prog%2%.a" ) % path.string() % timestpstr).str();
     std::fstream out(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
 
@@ -1926,7 +1967,7 @@ void WimDiscr<T>::exportResults(size_type const& timestp, value_type const& t_ou
         for (int i = 0; i < iceh.shape()[0]; i++)
             for (int j = 0; j < iceh.shape()[1]; j++)
                 out.write((char *)&iceh[i][j], sizeof(value_type));
-
+#if 0
         for (int i = 0; i < dfloe.shape()[0]; i++)
             for (int j = 0; j < dfloe.shape()[1]; j++)
                 out.write((char *)&dfloe[i][j], sizeof(value_type));
@@ -1938,6 +1979,20 @@ void WimDiscr<T>::exportResults(size_type const& timestp, value_type const& t_ou
         for (int i = 0; i < tau_y.shape()[0]; i++)
             for (int j = 0; j < tau_y.shape()[1]; j++)
                 out.write((char *)&tau_y[i][j], sizeof(value_type));
+#endif
+
+        for (int i = 0; i < nx; i++)
+            for (int j = 0; j < ny; j++)
+                out.write((char *)&dfloe[ny*i+j], sizeof(value_type));
+
+        for (int i = 0; i < nx; i++)
+            for (int j = 0; j < ny; j++)
+                out.write((char *)&tau_x[ny*i+j], sizeof(value_type));
+
+        for (int i = 0; i < nx; i++)
+            for (int j = 0; j < ny; j++)
+                out.write((char *)&tau_y[ny*i+j], sizeof(value_type));
+
 
         for (int i = 0; i < Hs.shape()[0]; i++)
             for (int j = 0; j < Hs.shape()[1]; j++)
@@ -1957,15 +2012,13 @@ void WimDiscr<T>::exportResults(size_type const& timestp, value_type const& t_ou
     }
 
     // export the txt file for grid field information
-    //std::string fileoutb = (boost::format( "%1%/wim_prog%2%.b" ) % path.string() % timestp).str();
     std::string fileoutb = (boost::format( "%1%/wim_prog%2%.b" ) % path.string() % timestpstr).str();
     std::fstream outb(fileoutb, std::ios::out | std::ios::trunc);
-    //std::ofstream outb(fileoutb, std::ios::out | std::ios::trunc);
 
     if (outb.is_open())
     {
-        outb << std::setw(15) << std::left << 07    << "    Nrecs    # "<< "Number of records" <<"\n";
-        outb << std::setw(15) << std::left << 0     << "    Norder   # "<< "Storage order [column-major (F/matlab) = 1; row-major (C) = 0]" <<"\n";
+        outb << std::setw(15) << std::left << "07"  << "    Nrecs    # "<< "Number of records" <<"\n";
+        outb << std::setw(15) << std::left << "0"   << "    Norder   # "<< "Storage order [column-major (F/matlab) = 1; row-major (C) = 0]" <<"\n";
         outb << std::setw(15) << std::left << nx    << "    nx       # "<< "Record length in x direction (elements)" <<"\n";
         outb << std::setw(15) << std::left << ny    << "    ny       # "<< "Record length in y direction (elements)" <<"\n";
         outb << std::setw(15) << std::left << t_out << "    t_out    # "<< "Model time of output (s)" <<"\n";
@@ -1975,13 +2028,13 @@ void WimDiscr<T>::exportResults(size_type const& timestp, value_type const& t_ou
         outb <<"\n";
 
         outb << "Record number and name:" <<"\n";
-        outb << std::setw(15) << std::left << 01 << "          "<< "icec" <<"\n";
-        outb << std::setw(15) << std::left << 02 << "          "<< "iceh" <<"\n";
-        outb << std::setw(15) << std::left << 03 << "          "<< "Dmax" <<"\n";
-        outb << std::setw(15) << std::left << 04 << "          "<< "tau_x" <<"\n";
-        outb << std::setw(15) << std::left << 05 << "          "<< "tau_y" <<"\n";
-        outb << std::setw(15) << std::left << 06 << "          "<< "Hs" <<"\n";
-        outb << std::setw(15) << std::left << 07 << "          "<< "Tp" <<"\n";
+        outb << std::setw(9) << std::left << "01" << "icec" <<"\n";
+        outb << std::setw(9) << std::left << "02" << "iceh" <<"\n";
+        outb << std::setw(9) << std::left << "03" << "Dmax" <<"\n";
+        outb << std::setw(9) << std::left << "04" << "tau_x" <<"\n";
+        outb << std::setw(9) << std::left << "05" << "tau_y" <<"\n";
+        outb << std::setw(9) << std::left << "06" << "Hs" <<"\n";
+        outb << std::setw(9) << std::left << "07" << "Tp" <<"\n";
     }
     else
     {

@@ -4,6 +4,7 @@
  * @file   enums.hpp
  * @author Abdoulaye Samake <abdoulaye.samake@nersc.no>
  * @author Sylvain Bouillon <sylvain.bouillon@nersc.no>
+ * @author Einar Olason <einar.olason@nersc.no>
  * @date   Mon Oct 12 12:04:59 2015
  */
 
@@ -11,13 +12,6 @@ namespace Nextsim
 {
 namespace setup
 {
-    enum class InterpolationType
-    {
-        InterpFromGridToMesh = 0,
-        InterpFromMeshToMesh2dx = 1,
-        InterpFromMeshToMesh2dCavities = 2,
-    };
-
     enum class AtmosphereType
     {
         CONSTANT = 0,
@@ -46,7 +40,7 @@ namespace setup
         MITGCM    = 7,
         TARGET    = 8
 	};
-	
+
     enum class BathymetryType
     {
         CONSTANT = 0,
@@ -74,7 +68,8 @@ namespace setup
         BERINGKARA     = 2,
         BIGKARA        = 3,
         ARCTIC         = 4,
-        BIGARCTIC      = 5
+        BIGARCTIC      = 5,
+        WIM            = 6
     };
 
     enum class MeshType
