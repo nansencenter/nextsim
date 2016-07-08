@@ -86,6 +86,11 @@ VectorPetsc::init( const size_type n,
                    graphmpi_type const& graph,
                    bool fast )
 {
+    {
+        if (M_is_initialized)
+            this->clear();
+    }
+
     int ierr=0;
     int petsc_n=static_cast<int>( n );
     int petsc_n_localWithoutGhost=static_cast<int>( n_l );

@@ -336,7 +336,7 @@ GmshMeshSeq::partition(std::string const& filename, std::string const& partition
                 << " -string " << "\"General.Verbosity=5;\""
                 << " " << mshfile;
 
-        std::cout<<"JUST HERE "<< "\"Mesh.Partitioner=1;\"" <<"\n";
+        //std::cout<<"JUST HERE "<< "\"Mesh.Partitioner=1;\"" <<"\n";
         std::cout << "[Gmsh::generate] execute '" <<  gmshstr.str() << "'\n";
         auto err = ::system( gmshstr.str().c_str() );
     }

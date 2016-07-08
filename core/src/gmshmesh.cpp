@@ -573,7 +573,8 @@ GmshMesh::nodalGrid()
             if (M_comm.rank() == 0)
             {
                 //std::cout<<"TEST MAPPING["<< cpts+1 <<"]= "<< renumbering[ii][jj] <<"\n";
-                //std::cout<<"MAPPING["<< cpts+1+sr+cpts_dom <<"]= "<< renumbering[ii][jj]+M_num_nodes <<"\n";
+                //std::cout<<"MAPPING["<< cpts+cpts_dom <<"]= "<< renumbering[ii][jj] <<"\n";
+                //std::cout<<"MAPPING["<< cpts+sr+cpts_dom <<"]= "<< renumbering[ii][jj]+M_num_nodes <<"\n";
                 //M_nodes_root[cpts] = M_nodes_vec[renumbering[ii][jj]-1];
             }
 
@@ -775,6 +776,8 @@ GmshMesh::nodalGrid()
         cpts_dom += renumbering[ii].size();
     }
     // --------------------------------END-------------------------------
+
+    M_global_num_elements = M_reorder_map_elements.size();
 
     //std::cout<<"["<< this->comm().rank() << "] M_num_elements= "<< triangles_num_without_ghost.size() <<"\n";
 }

@@ -61,16 +61,9 @@ FiniteElement::initMesh()
     M_comm = M_mesh.comm();
     M_rank = M_comm.rank();
 
-    // if (1)//(M_rank == 0)
-    // {
-    //     std::cout<<"M_comm.size= "<< M_comm.size() <<"\n";
-    // }
-
     this->rootMeshProcessing();
 
     this->distributedMeshProcessing(true);
-
-    //this->rootMeshRenumbering();
 }
 
 void
@@ -92,10 +85,13 @@ FiniteElement::distributedMeshProcessing(bool start)
     }
 
     M_mesh.setOrdering("gmsh");
+    //M_mesh.setOrdering("bamg");
 
     chrono.restart();
     M_mesh.readFromFile(M_mesh_filename);
     std::cout<<"Reading mesh done in "<< chrono.elapsed() <<"s\n";
+
+    //M_mesh.stereographicProjection();
 
     if (!start)
     {
@@ -126,52 +122,190 @@ FiniteElement::distributedMeshProcessing(bool start)
 
     M_num_nodes = M_local_ndof_ghost;
 
+    this->bcMarkedNodes();
+
 #if 0
-    // M_comm.barrier();
-    std::cout<<"["<< M_rank << "] M_num_elements= "<< M_mesh.numTriangles() <<"\n";
-    //std::cout<<"["<< M_rank << "] M_num_elements  =   "<< M_ndof <<"\n";
-    // //std::cout<<"["<< M_rank << "] M_num_elements 1= "<< M_nodes.size() <<"\n";
-    // //int gsize = boost::mpi::all_reduce(M_comm, cpt, std::plus<int>());
-    int gsize = boost::mpi::all_reduce(M_comm, M_mesh.numTriangles(), std::plus<int>());
-    //int gsize = boost::mpi::all_reduce(M_comm, M_local_ndof, std::plus<int>());
-    if (M_rank == 0)
-        std::cout<<"Global M_num_elements= "<< gsize <<"\n";
+    for (auto it=M_mesh.edges().begin(), end=M_mesh.edges().end(); it!=end; ++it)
+    {
+        if (it->physical==M_flag_fix)
+        {
+            for (int s=0; s<2; ++s)
+            {
+                //if (it->ghosts[s] == 0)
+                if (!it->ghostNodes[s])
+                {
+                    M_dirichlet_flags.push_back(it->indices[s]-1);
+                }
+            }
+        }
+
+        if (!it->ghostNodes[0])
+            M_boundary_flags.push_back(it->indices[0]-1);
+
+        if (!it->ghostNodes[1])
+            M_boundary_flags.push_back(it->indices[1]-1);
+
+    }
+
+    std::sort(M_dirichlet_flags.begin(), M_dirichlet_flags.end());
+    M_dirichlet_flags.erase(std::unique( M_dirichlet_flags.begin(), M_dirichlet_flags.end() ), M_dirichlet_flags.end());
+
+
+    std::sort(M_boundary_flags.begin(), M_boundary_flags.end());
+    M_boundary_flags.erase(std::unique( M_boundary_flags.begin(), M_boundary_flags.end() ), M_boundary_flags.end());
+
+
+    std::set_difference(M_boundary_flags.begin(), M_boundary_flags.end(),
+                        M_dirichlet_flags.begin(), M_dirichlet_flags.end(),
+                        std::back_inserter(M_neumann_flags));
+
+
+    //M_local_ndof = M_mesh.numLocalNodesWithoutGhost();
+    //std::cout<<"M_local_ndof= "<< M_local_ndof <<"\n";
+
+    M_dirichlet_nodes.resize(2*(M_dirichlet_flags.size()));
+    for (int i=0; i<M_dirichlet_flags.size(); ++i)
+    {
+        M_dirichlet_nodes[2*i] = M_dirichlet_flags[i];
+        M_dirichlet_nodes[2*i+1] = M_dirichlet_flags[i]+M_local_ndof;
+    }
+    //std::cout<<"["<< M_comm.rank() <<"] " << "Dirichlet flags= "<< M_dirichlet_nodes.size() <<"\n";
+
+    M_neumann_nodes.resize(2*(M_neumann_flags.size()));
+    for (int i=0; i<M_neumann_flags.size(); ++i)
+    {
+        M_neumann_nodes[2*i] = M_neumann_flags[i];
+        M_neumann_nodes[2*i+1] = M_neumann_flags[i]+M_local_ndof;
+    }
+    //std::cout<<"["<< M_comm.rank() <<"] " << "Neumann flags= "<< M_neumann_nodes.size() <<"\n";
+
 #endif
 
     this->createGraph(bamgmesh);
+}
 
+void
+FiniteElement::bcMarkedNodes()
+{
+#if 0
+    // M_dirichlet_flags_root.resize(5);
+    // M_neumann_flags_root.resize(11);
 
-    // int cpt_cpt = 0;
-    // for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
+    M_dirichlet_flags_root = {2,3,11,12,13};
+    M_neumann_flags_root = {4,5,6,7,1,8,9,10,14,15,16};
+#endif
+
+    std::cout<<"["<< M_rank << "] NDOFS= "<< M_num_nodes << " --- "<< M_local_ndof <<"\n";
+
+    std::vector<int> flags_size_root(2);
+    if (M_rank == 0)
+    {
+        flags_size_root = {(int)M_dirichlet_flags_root.size(), (int)M_neumann_flags_root.size()};
+    }
+
+    boost::mpi::broadcast(M_comm, &flags_size_root[0], 2, 0);
+
+    //std::cout<<"["<< M_rank << "] DIRICHLET= "<< flags_size_root[0] <<"\n";
+    //std::cout<<"["<< M_rank << "] NEUMANN=   "<< flags_size_root[1] <<"\n";
+
+    int dir_size = flags_size_root[0];
+    int nmn_size = flags_size_root[1];
+
+    std::vector<int> flags_root;
+    if (M_rank == 0)
+    {
+        std::copy(M_dirichlet_flags_root.begin(), M_dirichlet_flags_root.end(), std::back_inserter(flags_root));
+        std::copy(M_neumann_flags_root.begin(), M_neumann_flags_root.end(), std::back_inserter(flags_root));
+
+#if 0
+        for (int i=0; i<M_dirichlet_flags_root.size(); ++i)
+        {
+            std::cout<<"M_dirichlet_flags_root["<< i <<"]= "<< M_dirichlet_flags_root[i] <<"\n";
+        }
+
+        for (int i=0; i<M_neumann_flags_root.size(); ++i)
+        {
+            std::cout<<"M_neumann_flags_root["<< i <<"]= "<< M_neumann_flags_root[i] <<"\n";
+        }
+
+        for (int i=0; i<flags_root.size(); ++i)
+        {
+            std::cout<<"flags_root["<< i <<"]= "<< flags_root[i] <<"\n";
+        }
+#endif
+    }
+
+    if (M_rank != 0)
+    {
+        flags_root.resize(dir_size+nmn_size);
+    }
+
+    // broadcast the dirichlet and neumann nodes from master process to other processes
+    boost::mpi::broadcast(M_comm, &flags_root[0], dir_size+nmn_size, 0);
+
+    auto transfer_bimap = M_mesh.transferMapIinit();
+
+    M_dirichlet_flags.resize(0);
+    M_neumann_flags.resize(0);
+
+    for (int i=0; i<flags_root.size(); ++i)
+    {
+        if (transfer_bimap.left.find(flags_root[i]) != transfer_bimap.left.end())
+        {
+            int lindex = transfer_bimap.left.find(flags_root[i])->second-1;
+
+            if (i < dir_size)
+            {
+                // exclude ghost nodes
+                if (lindex < M_local_ndof)
+                {
+                    M_dirichlet_flags.push_back(lindex);
+                    //std::cout<<"["<< M_comm.rank() <<"] " << "-----------------here  = "<< flags_root[i]  <<"\n";
+                }
+            }
+            else
+            {
+                // including ghost nodes
+                M_neumann_flags.push_back(lindex);
+                //std::cout<<"["<< M_comm.rank() <<"] " << "-----------------here  = "<< flags_root[i]  <<"\n";
+            }
+        }
+    }
+
+    std::cout<<"["<< M_comm.rank() <<"] " << "Dirichlet flags= "<< M_dirichlet_flags.size() <<"\n";
+    std::cout<<"["<< M_comm.rank() <<"] " << "Neumann flags  = "<< M_neumann_flags.size() <<"\n";
+
+    // if (M_rank == 1)
     // {
-    //     if ((M_rank == it->partition))
+    //     for (int i=0; i<flags_root.size(); ++i)
     //     {
-    //         ++cpt_cpt;
-
-    //         //std::cout<<"------------------------["<< M_rank << "] ELEMENT["<< cpt_cpt-1 <<"]= " << it->number <<"\n";
+    //         std::cout<<"flags_root["<< i <<"]= "<< flags_root[i] <<"\n";
     //     }
-
-    //     std::cout<<"------------------------["<< M_rank << "] ELEMENT= " << it->number <<"\n";
     // }
+    // std::cout<<"M_local_ndof= "<< M_local_ndof <<"\n";
 
-    //  std::cout<<"["<< M_rank << "] M_num_elements= "<< cpt_cpt <<"\n";
+    M_dirichlet_nodes.resize(2*(M_dirichlet_flags.size()));
+    for (int i=0; i<M_dirichlet_flags.size(); ++i)
+    {
+        M_dirichlet_nodes[2*i] = M_dirichlet_flags[i];
+        M_dirichlet_nodes[2*i+1] = M_dirichlet_flags[i]+M_num_nodes;
+    }
 
-    // int gsize = boost::mpi::all_reduce(M_comm, cpt_cpt, std::plus<int>());
-    // //int gsize = boost::mpi::all_reduce(M_comm, M_local_ndof, std::plus<int>());
-    // //if (M_rank == 0)
-    // std::cout<<"Global M_num_elements= "<< gsize <<"\n";
+
+    M_neumann_nodes.resize(2*(M_neumann_flags.size()));
+    for (int i=0; i<M_neumann_flags.size(); ++i)
+    {
+        M_neumann_nodes[2*i] = M_neumann_flags[i];
+        M_neumann_nodes[2*i+1] = M_neumann_flags[i]+M_num_nodes;
+    }
 
     // if (M_rank == 0)
     // {
-    //     auto _mesh = M_mesh_root;
-    //     _mesh.reorder(M_mesh.mapNodes(),M_mesh.mapElements());
-
-    //     // for (auto it=_mesh.triangles().begin(), end=_mesh.triangles().end(); it!=end; ++it)
-    //     // {
-    //     //     std::cout<<"LOCAL ELEMENTS= " << it->number <<"\n";
-    //     // }
+    //     for (int i=0; i<M_dirichlet_nodes.size(); ++i)
+    //     {
+    //         std::cout<<"M_dirichlet_nodes["<< i <<"]= "<< M_dirichlet_nodes[i] <<"\n";
+    //     }
     // }
-
 }
 
 void
@@ -179,15 +313,15 @@ FiniteElement::rootMeshProcessing()
 {
     if (M_rank == 0)
     {
-        M_mesh_root.setOrdering("bamg");
+        //M_mesh_root.setOrdering("bamg");
         std::cout<<"Reading root mesh starts\n";
         chrono.restart();
         M_mesh_root.readFromFile(M_mesh_filename);
         std::cout<<"Reading root mesh done in "<< chrono.elapsed() <<"s\n";
 
-        // chrono.restart();
-        // M_mesh_root.stereographicProjection();
-        // std::cout<<"Projection root mesh done in "<< chrono.elapsed() <<"s\n";
+        chrono.restart();
+        M_mesh_root.stereographicProjection();
+        std::cout<<"Projection root mesh done in "<< chrono.elapsed() <<"s\n";
 
         M_mesh_init_root = M_mesh_root;
 
@@ -200,18 +334,23 @@ FiniteElement::rootMeshProcessing()
 
         //M_flag_fix = 3;
 
+        //std::cout<<"M_flag_fix= "<< M_flag_fix <<"\n";
+
         for (auto it=M_mesh_root.edges().begin(), end=M_mesh_root.edges().end(); it!=end; ++it)
         {
             //if (it->physical==M_flag_fix)
-            if (it->elementary==M_flag_fix)
+            //if (it->elementary==M_flag_fix)
+            //if (it->physical==M_flag_fix)
+            //if ((it->physical==158) || (it->physical==159) || (it->physical==160) || (it->physical==161))
+            if (it->physical==M_flag_fix)
             {
-                M_dirichlet_flags_root.push_back(it->indices[0]-1);
-                M_dirichlet_flags_root.push_back(it->indices[1]-1);
+                M_dirichlet_flags_root.push_back(it->indices[0]/*-1*/);
+                M_dirichlet_flags_root.push_back(it->indices[1]/*-1*/);
             }
         }
 
         std::sort(M_dirichlet_flags_root.begin(), M_dirichlet_flags_root.end());
-        M_dirichlet_flags_root.erase(std::unique( M_dirichlet_flags_root.begin(), M_dirichlet_flags_root.end() ), M_dirichlet_flags_root.end());
+        M_dirichlet_flags_root.erase(std::unique(M_dirichlet_flags_root.begin(), M_dirichlet_flags_root.end() ), M_dirichlet_flags_root.end());
 
         // for (int i=0; i<M_dirichlet_flags_root.size(); ++i)
         // {
@@ -290,7 +429,7 @@ FiniteElement::rootMeshProcessing()
 
         // partition the mesh on root process (rank 0)
         chrono.restart();
-        M_mesh_root.partition(M_mesh_filename);
+        M_mesh_root.partition(M_mesh_filename,"chaco");
         std::cout<<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
     }
     else
@@ -340,11 +479,89 @@ FiniteElement::initVariables()
 
     M_reuse_prec = true;
 
-    //M_matrix->init(2*M_num_nodes,2*M_num_nodes,22);
+    M_VT.resize(2*M_num_nodes,0.);
+    M_VTM.resize(2*M_num_nodes,0.);
+    M_VTMM.resize(2*M_num_nodes,0.);
 
-    // M_matrix->init(2*M_num_nodes,2*M_num_nodes,M_graph);
-    // M_vector->init(2*M_num_nodes);
-    // M_solution->init(2*M_num_nodes);
+    // These have already been set when initialising the mesh in initMesh()
+    // M_hminVertices.resize(M_mesh_init.numNodes(),1e-100);
+    // M_hmaxVertices.resize(M_mesh_init.numNodes(),1e100);
+
+    M_h_thin.assign(M_num_elements,0.);
+    M_hs_thin.assign(M_num_elements,0.);
+    M_tsurf_thin.assign(M_num_elements,0.);
+
+    M_h_ridged_thin_ice.resize(M_num_elements,0.);
+    M_h_ridged_thick_ice.resize(M_num_elements,0.);
+
+    M_divergence_rate.resize(M_num_elements,0.);
+    M_sigma.resize(3*M_num_elements,0.);
+
+
+    M_random_number_root.resize(M_mesh.numGlobalElements());
+
+    if (M_rank == 0)
+    {
+        boost::minstd_rand intgen;
+        boost::uniform_01<boost::minstd_rand> gen(intgen);
+
+        for (int i=0; i<M_random_number_root.size(); ++i)
+        {
+            M_random_number_root[i] = gen();
+            //M_random_number_root[i] = static_cast <double> (std::rand()) / static_cast <double> (RAND_MAX);
+        }
+    }
+
+    if (M_rank == 0)
+    {
+        std::cout<<"Random MIN= "<< *std::min_element(M_random_number_root.begin(), M_random_number_root.end()) <<"\n";
+        std::cout<<"Random MAX= "<< *std::max_element(M_random_number_root.begin(), M_random_number_root.end()) <<"\n";
+    }
+
+    boost::mpi::broadcast(M_comm, &M_random_number_root[0], M_mesh.numGlobalElements(), 0);
+
+    M_comm.barrier();
+
+    M_random_number.resize(M_num_elements);
+    auto id_elements = M_mesh.trianglesIdWithGhost();
+
+    for (int i=0; i<M_random_number.size(); ++i)
+    {
+        M_random_number[i] = M_random_number_root[id_elements[i]-1];
+
+        //if (M_rank == 1)
+        //    std::cout<<"VALUE= "<< M_random_number[i] <<"\n";
+    }
+
+    M_conc.resize(M_num_elements);
+    M_thick.resize(M_num_elements);
+    M_damage.resize(M_num_elements);
+    M_snow_thick.resize(M_num_elements);
+    M_tsurf.resize(M_num_elements);
+
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        if ((M_conc[i] <= 0.) || (M_thick[i] <= 0.) )
+        {
+            M_conc[i] = 0.;
+            M_thick[i] = 0.;
+        }
+    }
+
+    this->assignVariables();
+}
+
+void
+FiniteElement::assignVariables()
+{
+    M_surface.assign(M_num_elements,0.);
+
+    int cpt = 0;
+    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
+    {
+        M_surface[cpt] = this->measure(*it,M_mesh);
+        ++cpt;
+    }
 
     M_matrix->init(2*M_ndof,2*M_ndof,
                    2*M_local_ndof,2*M_local_ndof,
@@ -353,12 +570,14 @@ FiniteElement::initVariables()
     M_vector->init(2*M_ndof,2*M_local_ndof,M_graphmpi);
     M_solution->init(2*M_ndof,2*M_local_ndof,M_graphmpi);
 
-    M_VT.resize(2*M_num_nodes,0.);
-    M_VTM.resize(2*M_num_nodes,0.);
-    M_VTMM.resize(2*M_num_nodes,0.);
+    M_UM.assign(2*M_num_nodes,0.);
+    M_ssh.resize(M_num_nodes,0.);
     M_vector_reduction.resize(2*M_num_nodes,0.);
     M_valid_conc.resize(2*M_local_ndof,false);
+    //M_valid_conc.resize(2*M_num_nodes,false);
 
+    M_element_depth.resize(M_num_elements);
+    M_fcor.resize(M_num_elements);
     M_wind.resize(2*M_num_nodes);
     M_ocean.resize(2*M_num_nodes);
 
@@ -378,78 +597,6 @@ FiniteElement::initVariables()
     M_sst.resize(M_num_elements);
     M_sss.resize(M_num_elements);
 
-    // M_bathy_depth.resize(M_mesh_init.numNodes(),200.);
-
-    // These have already been set when initialising the mesh in initMesh()
-    // M_hminVertices.resize(M_mesh_init.numNodes(),1e-100);
-    // M_hmaxVertices.resize(M_mesh_init.numNodes(),1e100);
-
-    M_UM.resize(2*M_num_nodes,0.);
-
-    M_element_depth.resize(M_num_elements);
-
-    M_h_thin.assign(M_num_elements,0.);
-    M_hs_thin.assign(M_num_elements,0.);
-    M_tsurf_thin.assign(M_num_elements,0.);
-
-    M_h_ridged_thin_ice.resize(M_num_elements,0.);
-    M_h_ridged_thick_ice.resize(M_num_elements,0.);
-
-    M_divergence_rate.resize(M_num_elements,0.);
-    M_sigma.resize(3*M_num_elements,0.);
-
-    M_random_number.resize(M_num_elements);
-    for (int i=0; i<M_random_number.size(); ++i)
-        M_random_number[i] = static_cast <double> (std::rand()) / static_cast <double> (RAND_MAX);
-
-
-    M_conc.resize(M_num_elements);
-    M_thick.resize(M_num_elements);
-    M_damage.resize(M_num_elements);
-    M_snow_thick.resize(M_num_elements);
-
-    M_sst.resize(M_num_elements);
-    M_sss.resize(M_num_elements);
-
-    M_tsurf.resize(M_num_elements);
-
-    for (int i=0; i<M_num_elements; ++i)
-    {
-        M_divergence_rate[i] = 0.;
-        M_sigma[i]=0.;
-        M_sigma[i+M_num_elements]=0.;
-        M_sigma[i+2*M_num_elements]=0.;
-        if ((M_conc[i] <= 0.) || (M_thick[i] <= 0.) )
-        {
-            M_conc[i] = 0.;
-            M_thick[i] = 0.;
-        }
-    }
-
-    M_ssh.resize(M_num_nodes,0.);
-
-    M_surface.resize(M_num_elements);
-
-    M_fcor.resize(M_num_elements);
-
-    M_Cohesion.resize(M_num_elements);
-    M_Compressive_strength.resize(M_num_elements);
-    M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
-
-    this->assignVariables();
-}
-
-void
-FiniteElement::assignVariables()
-{
-    M_surface.assign(M_num_elements,0.);
-
-    int cpt = 0;
-    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
-    {
-        M_surface[cpt] = this->measure(*it,M_mesh);
-        ++cpt;
-    }
 
     M_asr_nodes_dataset.target_size=M_num_nodes;
     M_asr_elements_dataset.target_size=M_num_elements;
@@ -457,6 +604,10 @@ FiniteElement::assignVariables()
     M_topaz_elements_dataset.target_size=M_num_elements;
     M_ice_topaz_elements_dataset.target_size=M_num_elements;
     M_etopo_elements_dataset.target_size=M_num_elements;
+
+    M_Cohesion.resize(M_num_elements);
+    M_Compressive_strength.resize(M_num_elements);
+    M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
 }
 
 void
@@ -1575,32 +1726,35 @@ FiniteElement::interpVertices()
 }
 
 void
-FiniteElement::gatherFieldsElement(std::vector<double>& interp_elt_in_elements)
+FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
 {
+    //chrono.restart();
+
+    //M_comm.barrier();
+
+    timer["gather"].first.elapsed();
+
+    std::cout<<"GATHER ELEMENT starts\n";
+
+    // timer["gather1"].first.elapsed();
+    // std::cout<<"["<< M_rank <<"]: " <<"GATHERV1 starts\n";
+
     std::vector<int> sizes_elements(M_comm.size());
     boost::mpi::gather(M_comm, M_local_nelements, sizes_elements, 0);
 
-    // if (M_rank == 0)
-    // {
-    //     for (int i=0; i<sizes_elements.size(); ++i)
-    //         std::cout<<"sizes_elements["<< i <<"]= "<< sizes_elements[i] <<"\n";
-    // }
+    //std::cout<<"["<< M_rank <<"]: " <<"GATHERV1 done in "<< timer["gather1"].first.elapsed() <<"s\n";
 
-    int prv_num_nodes = M_local_ndof;//M_mesh_previous_root.numTriangles();
-    int prv_num_elements = M_local_nelements;//M_mesh_previous_root.numNodes();
+    int prv_num_nodes = M_local_ndof;
+    int prv_num_elements = M_local_nelements;
 
-    chrono.restart();
-    //std::cout<<"Element Interp starts\n";
     // ELEMENT INTERPOLATION With Cavities
-    M_nb_var_element=15;
+    M_nb_var_element=1;
 
     std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = M_nb_var_element*f; });
 
     std::vector<double> interp_elt_in_local(M_nb_var_element*prv_num_elements);
 
-    //double* interp_elt_out;
-
-    std::cout<<"ELEMENT: Interp starts\n";
+    //std::cout<<"ELEMENT: Interp starts\n";
 
     int tmp_nb_var=0;
     for (int i=0; i<prv_num_elements; ++i)
@@ -1610,7 +1764,7 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_elt_in_elements)
         // concentration
         interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_conc[i];
         tmp_nb_var++;
-
+#if 0
         // thickness
         interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_thick[i];
         tmp_nb_var++;
@@ -1666,6 +1820,7 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_elt_in_elements)
         // Ice surface temperature for thin ice
         interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_tsurf_thin[i];
         tmp_nb_var++;
+#endif
 
         if(tmp_nb_var>M_nb_var_element)
         {
@@ -1673,55 +1828,62 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_elt_in_elements)
         }
     }
 
-    std::cout<<"ELEMENT: Interp done in "<< chrono.elapsed() <<"\n";
-    //std::vector<double> interp_elt_in_elements;
+    //std::cout<<"ELEMENT: Interp done in "<< chrono.elapsed() <<"\n";
 
-    chrono.restart();
+    //M_comm.barrier();
+
+    timer["gather2"].first.elapsed();
+    std::cout<<"["<< M_rank <<"]: " <<"GATHERV2 starts\n";
+
     if (M_rank == 0)
     {
-        //std::cout<<"M_mesh_root.numTriangles()= "<< M_mesh_root.numTriangles() <<"\n";
-        interp_elt_in_elements.resize(M_nb_var_element*M_mesh_previous_root.numTriangles());
-        boost::mpi::gatherv(M_comm, interp_elt_in_local, &interp_elt_in_elements[0], sizes_elements, 0);
+        interp_in_elements.resize(M_nb_var_element*M_mesh_previous_root.numTriangles());
+        boost::mpi::gatherv(M_comm, interp_elt_in_local, &interp_in_elements[0], sizes_elements, 0);
     }
     else
     {
         boost::mpi::gatherv(M_comm, interp_elt_in_local, 0);
     }
 
-    //if (M_rank == 0)
-    std::cout<<"["<< M_rank <<"]: " <<"GATHERV2 done in "<< chrono.elapsed() <<"s\n";
+    std::cout<<"["<< M_rank <<"]: " <<"GATHERV2 done in "<< timer["gather2"].first.elapsed() <<"s\n";
 
 
     if (M_rank == 0)
     {
         auto rmap_elements = M_mesh.mapElements();
-        auto interp_elt_in_elements_nrd = interp_elt_in_elements;
+        auto interp_in_elements_nrd = interp_in_elements;
 
         for (int i=0; i<M_mesh_previous_root.numTriangles(); ++i)
         {
-            int ri = rmap_elements.right.find(i+1)->second-1;
+            int ri = rmap_elements.left.find(i+1)->second-1;
 
             for (int j=0; j<M_nb_var_element; ++j)
             {
-                interp_elt_in_elements[M_nb_var_element*i+j] = interp_elt_in_elements_nrd[M_nb_var_element*ri+j];
+                interp_in_elements[M_nb_var_element*i+j] = interp_in_elements_nrd[M_nb_var_element*ri+j];
             }
         }
     }
+
+    //std::cout<<"GATHER ELEMENT done in "<< chrono.elapsed() <<"\n";
+    std::cout<<"["<< M_rank <<"]: " <<"----------GATHERV ELEMENT done in "<< timer["gather"].first.elapsed() <<"s\n";
 }
 
 void
 FiniteElement::scatterFieldsElement(double* interp_elt_out)
 {
+    chrono.restart();
+
+    std::cout<<"SCATTER ELEMENT starts\n";
+
     std::vector<int> sizes_elements(M_comm.size());
     boost::mpi::gather(M_comm, M_num_elements, sizes_elements, 0);
 
     std::vector<int> id_elements;
     int out_size;
 
-    chrono.restart();
+    //chrono.restart();
     if (M_rank == 0)
     {
-        //um_root.resize(2*M_ndof);
         out_size = std::accumulate(sizes_elements.begin(),sizes_elements.end(),0);
         id_elements.resize(out_size);
 
@@ -1733,7 +1895,7 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     }
 
     //if (M_rank == 0)
-    std::cout<<"GATHERV3 done in "<< chrono.elapsed() <<"s\n";
+    //std::cout<<"GATHERV3 done in "<< chrono.elapsed() <<"s\n";
 
     std::vector<double> in_elt_values;
 
@@ -1741,9 +1903,6 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     {
         in_elt_values.resize(M_nb_var_element*out_size);
         int cpts_dom = 0;
-
-        //std::cout<<"OUT SIZE= "<< M_nb_var_element*out_size <<"\n";
-        //int ss;
 
         for (int ii=0; ii<M_comm.size(); ++ii)
         {
@@ -1755,6 +1914,9 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
                 for (int kk=0; kk<M_nb_var_element; ++kk)
                 {
                     in_elt_values[M_nb_var_element*(jj+cpts_dom)+kk] = interp_elt_out[M_nb_var_element*ri+kk];
+
+                    //in_elt_values[M_nb_var_element*(jj+cpts_dom)+kk] = interp_elt_out[M_nb_var_element*ri+kk];
+
                     //ss = M_nb_var_element*(jj+cpts_dom)+kk;
                 }
             }
@@ -1770,24 +1932,18 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
 
     std::vector<double> out_elt_values(M_nb_var_element*M_num_elements);
 
-    chrono.restart();
+    //chrono.restart();
     if (M_rank == 0)
     {
         std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = M_nb_var_element*f; });
-        //um_root.resize(2*M_ndof);
-        //out_size = std::accumulate(sizes_elements.begin(),sizes_elements.end(),0);
-        //id_elements.resize(out_size);
-
         boost::mpi::scatterv(M_comm, in_elt_values, sizes_elements, &out_elt_values[0], 0);
-
     }
     else
     {
         boost::mpi::scatterv(M_comm, &out_elt_values[0], M_nb_var_element*M_num_elements, 0);
     }
 
-    //if (M_rank == 0)
-    std::cout<<"SCATTERV3 done in "<< chrono.elapsed() <<"s\n";
+    //std::cout<<"SCATTERV3 done in "<< chrono.elapsed() <<"s\n";
 
     // std::cout<<"["<< M_rank <<"]: " <<"Min val= "<< *std::min_element(out_elt_values.begin(), out_elt_values.end()) <<"\n";
     // std::cout<<"["<< M_rank <<"]: " <<"Max val= "<< *std::max_element(out_elt_values.begin(), out_elt_values.end()) <<"\n";
@@ -1811,7 +1967,7 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     M_hs_thin.assign(M_num_elements,0.);
     M_tsurf_thin.assign(M_num_elements,0.);
 
-#if 1
+
     int tmp_nb_var=0;
 
     for (int i=0; i<M_num_elements; ++i)
@@ -1822,6 +1978,7 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
         M_conc[i] = std::max(0., std::min(1.,out_elt_values[M_nb_var_element*i+tmp_nb_var]));
         tmp_nb_var++;
 
+#if 0
         // thickness
         M_thick[i] = std::max(0., out_elt_values[M_nb_var_element*i+tmp_nb_var]);
         tmp_nb_var++;
@@ -1893,6 +2050,7 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
         // Ice surface temperature for thin ice
         M_tsurf_thin[i] = out_elt_values[M_nb_var_element*i+tmp_nb_var];
         tmp_nb_var++;
+#endif
 
         if(tmp_nb_var!=M_nb_var_element)
         {
@@ -1900,15 +2058,238 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
         }
     }
 
-    //xDelete<double>(interp_elt_out);
-#endif
-
+    std::cout<<"SCATTER ELEMENT done in "<< chrono.elapsed() <<"s\n";
 }
 
+void
+FiniteElement::interpFieldsElement()
+{
+    std::vector<double> interp_in_elements;
+
+    this->gatherFieldsElement(interp_in_elements);
+
+    double* interp_elt_out;
+
+    if (M_rank == 0)
+    {
+        std::vector<double> surface_previous(M_mesh_previous_root.numTriangles());
+        std::vector<double> surface(M_mesh_root.numTriangles());
+
+        int cpt = 0;
+        for (auto it=M_mesh_previous_root.triangles().begin(), end=M_mesh_previous_root.triangles().end(); it!=end; ++it)
+        {
+            surface_previous[cpt] = this->measure(*it,M_mesh_previous_root);
+            ++cpt;
+        }
+
+        cpt = 0;
+        for (auto it=M_mesh_root.triangles().begin(), end=M_mesh_root.triangles().end(); it!=end; ++it)
+        {
+            surface[cpt] = this->measure(*it,M_mesh_root);
+            ++cpt;
+        }
+
+        // The interpolation with the cavities still needs to be tested on a long run.
+        // By default, we then use the non-conservative MeshToMesh interpolation
+
+        //chrono.restart();
+        //std::cout<<"InterpFromMeshToMesh2dCavities starts\n";
+
+        // InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_in_elements[0],M_nb_var_element,
+        //                                &surface_previous[0], &surface[0], bamgmesh_previous, bamgmesh_root);
+
+        //std::cout<<"InterpFromMeshToMesh2dCavities done in "<< chrono.elapsed() <<"\n";
+
+        // chrono.restart();
+        // std::cout<<"InterpFromMeshToMesh2dx starts\n";
+        InterpFromMeshToMesh2dx(&interp_elt_out,
+                                &M_mesh_previous_root.indexTr()[0],&M_mesh_previous_root.coordX()[0],&M_mesh_previous_root.coordY()[0],
+                                M_mesh_previous_root.numNodes(),M_mesh_previous_root.numTriangles(),
+                                &interp_in_elements[0],
+                                M_mesh_previous_root.numTriangles(),M_nb_var_element,
+                                &M_mesh_root.bcoordX()[0],&M_mesh_root.bcoordY()[0],M_mesh_root.numTriangles(),
+                                false);
+
+        // std::cout<<"InterpFromMeshToMesh2dx done in "<< chrono.elapsed() <<"\n";
+
+    } // rank 0
+
+
+    this->distributedMeshProcessing();
+
+    this->scatterFieldsElement(interp_elt_out);
+
+    if (M_rank == 0)
+    {
+        xDelete<double>(interp_elt_out);
+    }
+
+    // std::cout<<"["<< M_rank <<"]: " <<"AFTER Min val= "<< *std::min_element(M_conc.begin(), M_conc.end()) <<"\n";
+    // std::cout<<"["<< M_rank <<"]: " <<"AFTER Max val= "<< *std::max_element(M_conc.begin(), M_conc.end()) <<"\n";
+}
+
+void
+FiniteElement::interpFieldsNode(bimap_type const& rmap_nodes, std::vector<int> sizes_nodes)
+{
+    std::vector<int> indextr(3*M_prv_global_num_elements);
+    std::vector<double> coordX(M_prv_global_num_nodes);
+    std::vector<double> coordY(M_prv_global_num_nodes);
+
+    if (M_rank == 0)
+    {
+        indextr = M_mesh_previous_root.indexTr();
+        coordX = M_mesh_previous_root.coordX();
+        coordY = M_mesh_previous_root.coordY();
+    }
+
+    //chrono.restart();
+    //int ss = 3*(M_mesh.mapElements().size());
+
+    // mesh elements
+    boost::mpi::broadcast(M_comm, &indextr[0], 3*M_prv_global_num_elements, 0);
+
+    // mesh x-coordinates
+    boost::mpi::broadcast(M_comm, &coordX[0], M_prv_global_num_nodes, 0);
+
+    // mesh y-coordinates
+    boost::mpi::broadcast(M_comm, &coordY[0], M_prv_global_num_nodes, 0);
+
+
+    // std::cout<<"BROADCAST1 done in "<< chrono.elapsed() <<"s\n";
+
+    // if (M_rank == 1)
+    // {
+    //     for (int i=0; i<10; ++i)
+    //     {
+    //         std::cout<<"["<< M_rank <<"]: indextr["<< i <<"]= "<< indextr[i] <<"\n";
+    //     }
+    // }
+
+
+    M_nb_var_node = 8;
+    std::vector<double> interp_node_in_local(M_nb_var_node*M_prv_local_ndof,0.);
+
+    chrono.restart();
+    //std::cout<<"Nodal Interp starts\n";
+    //std::cout<<"NODAL: Interp starts\n";
+
+    for (int i=0; i<M_prv_local_ndof; ++i)
+    {
+        // VT
+        interp_node_in_local[M_nb_var_node*i] = M_VT[i];
+        interp_node_in_local[M_nb_var_node*i+1] = M_VT[i+M_prv_num_nodes];
+
+        // VTM
+        interp_node_in_local[M_nb_var_node*i+2] = M_VTM[i];
+        interp_node_in_local[M_nb_var_node*i+3] = M_VTM[i+M_prv_num_nodes];
+
+        // VTMM
+        interp_node_in_local[M_nb_var_node*i+4] = M_VTMM[i];
+        interp_node_in_local[M_nb_var_node*i+5] = M_VTMM[i+M_prv_num_nodes];
+
+        // UM
+        interp_node_in_local[M_nb_var_node*i+6] = M_UM[i];
+        interp_node_in_local[M_nb_var_node*i+7] = M_UM[i+M_prv_num_nodes];
+    }
+
+
+    std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = M_nb_var_node*f; });
+
+    //interp_in_nodes.resize(M_nb_var_node*M_prv_global_num_nodes);
+    std::vector<double> interp_in_nodes(M_nb_var_node*M_prv_global_num_nodes);
+
+    chrono.restart();
+
+    if (M_rank == 0)
+    {
+        boost::mpi::gatherv(M_comm, interp_node_in_local, &interp_in_nodes[0], sizes_nodes, 0);
+    }
+    else
+    {
+        boost::mpi::gatherv(M_comm, interp_node_in_local, 0);
+    }
+
+    boost::mpi::broadcast(M_comm, &interp_in_nodes[0], M_nb_var_node*M_prv_global_num_nodes, 0);
+
+    //std::cout<<"ALL_GATHER done in "<< chrono.elapsed() <<"s\n";
+
+    // if (M_rank == 1)
+    // {
+    //     for (int i=0; i<10; ++i)
+    //     {
+    //         std::cout<<"BEFORE out_values["<< i <<"]= "<< interp_in_nodes[i] <<"\n";
+    //     }
+    // }
+
+    auto interp_in_nodes_nrd = interp_in_nodes;
+
+    for (int i=0; i<M_prv_global_num_nodes; ++i)
+    {
+        int ri =  rmap_nodes.left.find(i+1)->second-1;
+
+        for (int j=0; j<M_nb_var_node; ++j)
+        {
+            interp_in_nodes[M_nb_var_node*i+j] = interp_in_nodes_nrd[M_nb_var_node*ri+j];
+        }
+    }
+
+    // if (M_rank == 1)
+    // {
+    //     for (int i=0; i<10; ++i)
+    //     {
+    //         std::cout<<"out_values["<< i <<"]= "<< interp_in_nodes[i] <<"\n";
+    //     }
+    // }
+
+    double* interp_out;
+
+    chrono.restart();
+
+    InterpFromMeshToMesh2dx(&interp_out,
+                            &indextr[0],&coordX[0],&coordY[0],
+                            M_prv_global_num_nodes,M_prv_global_num_elements,
+                            &interp_in_nodes[0],
+                            M_prv_global_num_nodes,M_nb_var_node,
+                            &M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
+                            false);
+
+    //std::cout<<"NODAL INTERPOLATION done in "<< chrono.elapsed() <<"s\n";
+
+    M_VT.assign(2*M_num_nodes,0.);
+    M_VTM.assign(2*M_num_nodes,0.);
+    M_VTMM.assign(2*M_num_nodes,0.);
+    M_UM.assign(2*M_num_nodes,0.);
+
+
+    for (int i=0; i<M_num_nodes; ++i)
+    {
+        // VT
+        M_VT[i] = interp_out[M_nb_var_node*i];
+        M_VT[i+M_num_nodes] = interp_out[M_nb_var_node*i+1];
+
+        // VTM
+        M_VTM[i] = interp_out[M_nb_var_node*i+2];
+        M_VTM[i+M_num_nodes] = interp_out[M_nb_var_node*i+3];
+
+        // VTMM
+        M_VTMM[i] = interp_out[M_nb_var_node*i+4];
+        M_VTMM[i+M_num_nodes] = interp_out[M_nb_var_node*i+5];
+
+        // UM
+        M_UM[i] = interp_out[M_nb_var_node*i+6];
+        M_UM[i+M_num_nodes] = interp_out[M_nb_var_node*i+7];
+    }
+
+    xDelete<double>(interp_out);
+}
 
 void
 FiniteElement::regrid(bool step)
 {
+    M_comm.barrier();
+
+    timer["regrid"].first.restart();
+
     // --------------------------------BEGINNING-------------------------
 
     std::vector<double> um_local(2*M_local_ndof,0.);
@@ -1918,21 +2299,11 @@ FiniteElement::regrid(bool step)
         um_local[i+M_local_ndof] = M_UM[i+M_num_nodes];
     }
 
-    // std::cout<<"["<< M_rank << "] M_num_nodes= "<< 2*M_local_ndof <<"\n";
-    // if (M_rank==0)
-    //     std::cout<<"REF= "<< 2*M_ndof <<"\n";
-
     std::vector<int> sizes_nodes(M_comm.size());
     boost::mpi::gather(M_comm, M_local_ndof, sizes_nodes, 0);
 
     std::vector<int> sizes_nodes_t = sizes_nodes;
     std::for_each(sizes_nodes_t.begin(), sizes_nodes_t.end(), [&](int& f){ f = 2*f; });
-
-    // if (M_rank == 0)
-    // {
-    //     for (int i=0; i<sizes_nodes.size(); ++i)
-    //         std::cout<<"sizes_nodes["<< i <<"]= "<< sizes_nodes[i] <<"\n";
-    // }
 
     // send displacement vector to the root process (rank 0)
     std::vector<double> um_root;
@@ -1948,8 +2319,25 @@ FiniteElement::regrid(bool step)
         boost::mpi::gatherv(M_comm, um_local, 0);
     }
 
+    if (M_rank == 0)
+    {
+        auto rmap_nodes = M_mesh.mapNodes();
+        int prv_global_num_nodes = M_mesh.numGlobalNodes();
+
+        auto interp_in_nodes_nrd = um_root;
+
+        for (int i=0; i<prv_global_num_nodes; ++i)
+        {
+            int ri =  rmap_nodes.left.find(i+1)->second-1;
+
+            um_root[i] = interp_in_nodes_nrd[2*ri];
+            um_root[i+prv_global_num_nodes] = interp_in_nodes_nrd[2*ri+1];
+        }
+    }
+
+
     //if (M_rank == 0)
-    std::cout<<"GATHERV1 done in "<< chrono.elapsed() <<"s\n";
+    //std::cout<<"GATHERV1 done in "<< chrono.elapsed() <<"s\n";
 
     // --------------------------------END-------------------------------
 
@@ -1971,7 +2359,7 @@ FiniteElement::regrid(bool step)
             ++substep;
             displacement_factor /= 2.;
             step_order++;
-            //flip = this->flip(M_mesh_root,M_UM,displacement_factor);
+
             flip = this->flip(M_mesh_root,um_root,displacement_factor);
 
             if (substep > 1)
@@ -2002,12 +2390,13 @@ FiniteElement::regrid(bool step)
         {
             //std::cout<<"substep_nb= "<< substep_nb <<"\n";
 
-            chrono.restart();
+            timer["movemesh"].first.restart();
             std::cout<<"Move starts\n";
             M_mesh_root.move(um_root,displacement_factor);
-            std::cout<<"Move done in "<< chrono.elapsed() <<"s\n";
+            std::cout<<"Move done in "<< timer["movemesh"].first.elapsed() <<"s\n";
 
-            chrono.restart();
+            //chrono.restart();
+            timer["movevertices"].first.restart();
             std::cout<<"Move bamgmesh->Vertices starts\n";
             auto RX = M_mesh_root.coordX();
             auto RY = M_mesh_root.coordY();
@@ -2018,728 +2407,93 @@ FiniteElement::regrid(bool step)
                 bamgmesh_root->Vertices[3*id+1] = RY[id] ;
             }
 
-            std::cout<<"Move bamgmesh->Vertices done in "<< chrono.elapsed() <<"s\n";
+            std::cout<<"Move bamgmesh->Vertices done in "<< timer["movevertices"].first.elapsed() <<"s\n";
 
             if(M_mesh_type==setup::MeshType::FROM_SPLIT)
             {
+                timer["interpvertices"].first.restart();
+                std::cout<<"Interp vertices starts\n";
                 this->interpVertices();
+                std::cout<<"Interp vertices done in "<< timer["interpvertices"].first.elapsed() <<"\n";
             }
 
-            chrono.restart();
+            timer["adaptmesh"].first.restart();
             std::cout<<"---TRUE AdaptMesh starts\n";
             this->adaptMesh();
-            std::cout<<"---TRUE AdaptMesh done in "<< chrono.elapsed() <<"s\n";
+            std::cout<<"---TRUE AdaptMesh done in "<< timer["adaptmesh"].first.elapsed() <<"s\n";
 
             // save mesh (only root process)
-            chrono.restart();
+            timer["savemesh"].first.restart();
+            std::cout<<"Saving mesh starts\n";
             M_mesh_root.writeTofile(M_mesh_filename);
-            std::cout<<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
+            std::cout<<"Saving mesh done in "<< timer["savemesh"].first.elapsed() <<"s\n";
 
             // partition the mesh on root process (rank 0)
-            chrono.restart();
-            M_mesh_root.partition(M_mesh_filename);
-            std::cout<<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
+            timer["meshpartition"].first.restart();
+            std::cout<<"Partitioning mesh starts\n";
+            M_mesh_root.partition(M_mesh_filename,"chaco");
+            std::cout<<"Partitioning mesh done in "<< timer["meshpartition"].first.elapsed() <<"s\n";
         }
     } // rank 0
 
-
-#if 1
     // --------------------------------BEGINNING-------------------------
 
-
-    std::cout<<"["<< M_rank <<"]: " <<"BEFORE Min val= "<< *std::min_element(M_conc.begin(), M_conc.end()) <<"\n";
-    std::cout<<"["<< M_rank <<"]: " <<"BEFORE Max val= "<< *std::max_element(M_conc.begin(), M_conc.end()) <<"\n";
-
-
-
-    std::vector<double> interp_elt_in_elements;
-
-    this->gatherFieldsElement(interp_elt_in_elements);
-
-    std::cout<<"interp_elt_in_elements.size()= "<< interp_elt_in_elements.size() <<"\n";
-
-    double* interp_elt_out;
-
-    if (M_rank == 0)
-    {
-        std::vector<double> surface_previous(M_mesh_previous_root.numTriangles());
-        std::vector<double> surface(M_mesh_root.numTriangles());
-
-        int cpt = 0;
-        for (auto it=M_mesh_previous_root.triangles().begin(), end=M_mesh_previous_root.triangles().end(); it!=end; ++it)
-        {
-            surface_previous[cpt] = this->measure(*it,M_mesh_previous_root);
-            ++cpt;
-        }
-
-        cpt = 0;
-        for (auto it=M_mesh_root.triangles().begin(), end=M_mesh_root.triangles().end(); it!=end; ++it)
-        {
-            surface[cpt] = this->measure(*it,M_mesh_root);
-            ++cpt;
-        }
-
-        // The interpolation with the cavities still needs to be tested on a long run.
-        // By default, we then use the non-conservative MeshToMesh interpolation
-
-        chrono.restart();
-        std::cout<<"InterpFromMeshToMesh2dCavities starts\n";
-
-        InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_elt_in_elements[0],M_nb_var_element,
-                                       &surface_previous[0], &surface[0], bamgmesh_previous, bamgmesh_root);
-
-        std::cout<<"InterpFromMeshToMesh2dCavities done in "<< chrono.elapsed() <<"\n";
-
-        // chrono.restart();
-        // std::cout<<"InterpFromMeshToMesh2dx starts\n";
-        // InterpFromMeshToMesh2dx(&interp_elt_out,
-        //                         &M_mesh_previous_root.indexTr()[0],&M_mesh_previous_root.coordX()[0],&M_mesh_previous_root.coordY()[0],
-        //                         M_mesh_previous_root.numNodes(),M_mesh_previous_root.numTriangles(),
-        //                         &interp_elt_in_elements[0],
-        //                         M_mesh_previous_root.numTriangles(),M_nb_var_element,
-        //                         &M_mesh_root.bcoordX()[0],&M_mesh_root.bcoordY()[0],M_mesh_root.numTriangles(),
-        //                         false);
-
-        // std::cout<<"InterpFromMeshToMesh2dx done in "<< chrono.elapsed() <<"\n";
-
-
-        // auto rmap_elements = M_mesh.mapElements();
-        // auto interp_elt_in_elements_nrd = interp_elt_in_elements;
-
-        // for (int i=0; i<M_mesh_root.numTriangles(); ++i)
-        // {
-        //     int ri = rmap_elements.right.find(i+1)->second-1;
-
-        //     for (int j=0; j<M_nb_var_element; ++j)
-        //     {
-        //         interp_elt_in_elements[M_nb_var_element*i+j] = interp_elt_in_elements_nrd[M_nb_var_element*ri+j];
-        //     }
-        // }
-
-    } // rank 0
-
-    this->distributedMeshProcessing();
-
-    this->scatterFieldsElement(interp_elt_out);
-
-    std::cout<<"["<< M_rank <<"]: " <<"AFTER Min val= "<< *std::min_element(M_conc.begin(), M_conc.end()) <<"\n";
-    std::cout<<"["<< M_rank <<"]: " <<"AFTER Max val= "<< *std::max_element(M_conc.begin(), M_conc.end()) <<"\n";
-
-
-    //xDelete<double>(interp_elt_out);
-
-    // nb_var = 8;
-    // interp_elt_in_local.assign(nb_var*prv_num_nodes,0.);
-
-    // chrono.restart();
-    // std::cout<<"Nodal Interp starts\n";
-    // std::cout<<"NODAL: Interp starts\n";
-
-    // for (int i=0; i<prv_num_nodes; ++i)
+    // if (M_rank == 1)
     // {
-    //     // VT
-    //     interp_elt_in_local[nb_var*i] = M_VT[i];
-    //     interp_elt_in_local[nb_var*i+1] = M_VT[i+M_num_nodes];
-
-    //     // VTM
-    //     interp_elt_in_local[nb_var*i+2] = M_VTM[i];
-    //     interp_elt_in_local[nb_var*i+3] = M_VTM[i+M_num_nodes];
-
-    //     // VTMM
-    //     interp_elt_in_local[nb_var*i+4] = M_VTMM[i];
-    //     interp_elt_in_local[nb_var*i+5] = M_VTMM[i+M_num_nodes];
-
-    //     // UM
-    //     interp_elt_in_local[nb_var*i+6] = M_UM[i];
-    //     interp_elt_in_local[nb_var*i+7] = M_UM[i+M_num_nodes];
+    //     std::cout<<"["<< M_rank <<"]: " <<"BEFORE Min val= "<< *std::min_element(M_conc.begin(), M_conc.end()) <<"\n";
+    //     std::cout<<"["<< M_rank <<"]: " <<"BEFORE Max val= "<< *std::max_element(M_conc.begin(), M_conc.end()) <<"\n";
     // }
 
-    // std::vector<double> interp_elt_in_nodes;
+    M_prv_local_ndof = M_local_ndof;
+    M_prv_num_nodes = M_num_nodes;
+    M_prv_num_elements = M_local_nelements;
+    bimap_type prv_rmap_nodes = M_mesh.mapNodes();
+    M_prv_global_num_nodes = M_mesh.numGlobalNodes();
+    M_prv_global_num_elements = M_mesh.numGlobalElements();
 
-    // chrono.restart();
-    // if (M_rank == 0)
+    //std::cout<<"VAL1= "<< M_prv_global_num_nodes <<"\n";
+    //std::cout<<"VAL2= "<< M_prv_global_num_elements <<"\n";
+
+    M_comm.barrier();
+
+    timer["felt"].first.restart();
+    this->interpFieldsElement();
+    std::cout<<"interpFieldsElement done in "<< timer["felt"].first.elapsed() <<"s\n";
+
+
+    // if (M_rank == 1)
     // {
-    //     std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = nb_var*f; });
-
-    //     //std::cout<<"M_mesh_root.numTriangles()= "<< M_mesh_root.numTriangles() <<"\n";
-    //     interp_elt_in_nodes.resize(nb_var*M_mesh_previous_root.numNodes());
-    //     boost::mpi::gatherv(M_comm, interp_elt_in_local, &interp_elt_in_nodes[0], sizes_nodes, 0);
+    //     std::cout<<"["<< M_rank <<"]: " <<"AFTER Min val= "<< *std::min_element(M_conc.begin(), M_conc.end()) <<"\n";
+    //     std::cout<<"["<< M_rank <<"]: " <<"AFTER Max val= "<< *std::max_element(M_conc.begin(), M_conc.end()) <<"\n";
     // }
-    // else
+
+
+    // if (M_rank == 1)
     // {
-    //     boost::mpi::gatherv(M_comm, interp_elt_in_local, 0);
+    //     std::cout<<"["<< M_rank <<"]: " <<"BEFORE Min val= "<< *std::min_element(M_VT.begin(), M_VT.end()) <<"\n";
+    //     std::cout<<"["<< M_rank <<"]: " <<"BEFORE Max val= "<< *std::max_element(M_VT.begin(), M_VT.end()) <<"\n";
     // }
 
-    // //if (M_rank == 0)
-    // std::cout<<"GATHERV done in "<< chrono.elapsed() <<"s\n";
+    timer["fnd"].first.restart();
+    this->interpFieldsNode(prv_rmap_nodes, sizes_nodes);
+    std::cout<<"interpFieldsNode done in "<< timer["fnd"].first.elapsed() <<"s\n";
+
+    // if (M_rank == 1)
+    // {
+    //     std::cout<<"["<< M_rank <<"]: " <<"AFTER Min val= "<< *std::min_element(M_VT.begin(), M_VT.end()) <<"\n";
+    //     std::cout<<"["<< M_rank <<"]: " <<"AFTER Max val= "<< *std::max_element(M_VT.begin(), M_VT.end()) <<"\n";
+    // }
+
 
     // --------------------------------END-------------------------------
 
-    // this->distributedMeshProcessing();
-
-    // this->rootMeshRenumbering();
-
 #endif
 
+    std::cout<<"TIMER REGRIDDING: this is done in "<< timer["regrid"].first.elapsed() <<"s\n";
 
+    M_comm.barrier();
 
-
-#endif
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#if 0
-
-    for (int substep_i = 0; substep_i < substep_nb; substep_i++ )
-    {
-        //std::cout<<"substep_nb= "<< substep_nb <<"\n";
-
-        if(step)
-        {
-            chrono.restart();
-            std::cout<<"Move starts\n";
-            M_mesh.move(M_UM,displacement_factor);
-            std::cout<<"Move done in "<< chrono.elapsed() <<"s\n";
-
-            chrono.restart();
-            std::cout<<"Move bamgmesh->Vertices starts\n";
-            auto RX = M_mesh.coordX();
-            auto RY = M_mesh.coordY();
-
-            for (int id=0; id<bamgmesh->VerticesSize[0]; ++id)
-            {
-                bamgmesh->Vertices[3*id] = RX[id];
-                bamgmesh->Vertices[3*id+1] = RY[id] ;
-            }
-            std::cout<<"Move bamgmesh->Vertices done in "<< chrono.elapsed() <<"s\n";
-        }
-
-
-        if(M_mesh_type==setup::MeshType::FROM_SPLIT)
-        {
-            if(step==0)
-            {
-                chrono.restart();
-                std::cout<<"First adaptation starts\n";
-                // step 1 (only for the first time step): Start by having bamg 'clean' the mesh with KeepVertices=0
-                bamgopt->KeepVertices=0;
-                this->adaptMesh();
-                bamgopt->KeepVertices=1;
-                std::cout<<"First adaptation done in "<< chrono.elapsed() <<"s\n";
-
-            }
-
-            this->interpVertices();
-        }
-
-
-
-        // chrono.restart();
-        // std::cout<<"AdaptMesh starts\n";
-        //this->adaptMesh();
-        // std::cout<<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
-
-        if (step)
-        {
-            int prv_num_elements = M_mesh_previous.numTriangles();
-            int prv_num_nodes = M_mesh_previous.numNodes();
-
-            chrono.restart();
-            std::cout<<"Element Interp starts\n";
-            // ELEMENT INTERPOLATION With Cavities
-            int nb_var=15;
-
-            // memory leak:
-            //double* interp_elt_in;
-            //interp_elt_in = new double[nb_var*prv_num_elements];
-            // To avoid memory leak:
-            std::vector<double> interp_elt_in(nb_var*prv_num_elements);
-
-            double* interp_elt_out;
-
-            std::cout<<"ELEMENT: Interp starts\n";
-
-            int tmp_nb_var=0;
-            for (int i=0; i<prv_num_elements; ++i)
-            {
-                tmp_nb_var=0;
-
-
-                // concentration
-                interp_elt_in[nb_var*i+tmp_nb_var] = M_conc[i];
-                tmp_nb_var++;
-
-                // thickness
-                interp_elt_in[nb_var*i+tmp_nb_var] = M_thick[i];
-                tmp_nb_var++;
-
-                // snow thickness
-                interp_elt_in[nb_var*i+tmp_nb_var] = M_snow_thick[i];
-                tmp_nb_var++;
-
-                // integrated_stress1
-                interp_elt_in[nb_var*i+tmp_nb_var] = M_sigma[3*i]*M_thick[i];
-                tmp_nb_var++;
-
-                // integrated_stress2
-                interp_elt_in[nb_var*i+tmp_nb_var] = M_sigma[3*i+1]*M_thick[i];
-                tmp_nb_var++;
-
-                // integrated_stress3
-                interp_elt_in[nb_var*i+tmp_nb_var] = M_sigma[3*i+2]*M_thick[i];
-                tmp_nb_var++;
-
-                // compliance
-                interp_elt_in[nb_var*i+tmp_nb_var] = 1./(1.-M_damage[i]);
-                tmp_nb_var++;
-
-                // divergence_rate
-                interp_elt_in[nb_var*i+tmp_nb_var] = M_divergence_rate[i];
-                tmp_nb_var++;
-
-                // h_ridged_thin_ice
-                interp_elt_in[nb_var*i+tmp_nb_var] = M_h_ridged_thin_ice[i];
-                tmp_nb_var++;
-
-                // h_ridged_thick_ice
-                interp_elt_in[nb_var*i+tmp_nb_var] = M_h_ridged_thick_ice[i];
-                tmp_nb_var++;
-
-                // random_number
-                interp_elt_in[nb_var*i+tmp_nb_var] = M_random_number[i];
-                tmp_nb_var++;
-
-                // Ice surface temperature
-                interp_elt_in[nb_var*i+tmp_nb_var] = M_tsurf[i];
-                tmp_nb_var++;
-
-                // thin ice thickness
-                interp_elt_in[nb_var*i+tmp_nb_var] = M_h_thin[i];
-                tmp_nb_var++;
-
-                // snow on thin ice
-                interp_elt_in[nb_var*i+tmp_nb_var] = M_hs_thin[i];
-                tmp_nb_var++;
-
-                // Ice surface temperature for thin ice
-                interp_elt_in[nb_var*i+tmp_nb_var] = M_tsurf_thin[i];
-                tmp_nb_var++;
-
-                if(tmp_nb_var>nb_var)
-                {
-                    throw std::logic_error("tmp_nb_var not equal to nb_var");
-                }
-            }
-
-#if 1
-            // memory leak:
-            //double* surface_previous = new double[prv_num_elements];
-            //double* surface = new double[M_num_elements];
-            // To avoid memory leak:
-            std::vector<double> surface_previous(prv_num_elements);
-            std::vector<double> surface(M_num_elements);
-
-            int cpt = 0;
-            for (auto it=M_mesh_previous.triangles().begin(), end=M_mesh_previous.triangles().end(); it!=end; ++it)
-            {
-                surface_previous[cpt] = this->measure(*it,M_mesh_previous);
-                ++cpt;
-            }
-
-            cpt = 0;
-            for (auto it=M_mesh.triangles().begin(), end=M_mesh.triangles().end(); it!=end; ++it)
-            {
-                surface[cpt] = this->measure(*it,M_mesh);
-                ++cpt;
-            }
-
-            // The interpolation with the cavities still needs to be tested on a long run.
-            // By default, we then use the non-conservative MeshToMesh interpolation
-
-            InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_elt_in[0],nb_var,
-                                           &surface_previous[0], &surface[0], bamgmesh_previous, bamgmesh);
-#endif
-
-#if 0
-            InterpFromMeshToMesh2dx(&interp_elt_out,
-                                    &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
-                                    M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-                                    interp_elt_in,
-                                    M_mesh_previous.numTriangles(),nb_var,
-                                    &M_mesh.bcoordX()[0],&M_mesh.bcoordY()[0],M_mesh.numTriangles(),
-                                    false);
-#endif
-
-            M_conc.assign(M_num_elements,0.);
-            M_thick.assign(M_num_elements,0.);
-            M_snow_thick.assign(M_num_elements,0.);
-            M_sigma.assign(3*M_num_elements,0.);
-            M_damage.assign(M_num_elements,0.);
-
-            M_divergence_rate.assign(M_num_elements,0.);
-            M_h_ridged_thin_ice.assign(M_num_elements,0.);
-            M_h_ridged_thick_ice.assign(M_num_elements,0.);
-
-            M_random_number.resize(M_num_elements);
-
-            M_tsurf.assign(M_num_elements,0.);
-
-            M_h_thin.assign(M_num_elements,0.);
-            M_hs_thin.assign(M_num_elements,0.);
-            M_tsurf_thin.assign(M_num_elements,0.);
-
-            for (int i=0; i<M_num_elements; ++i)
-            {
-                tmp_nb_var=0;
-
-                // concentration
-                M_conc[i] = std::max(0., std::min(1.,interp_elt_out[nb_var*i+tmp_nb_var]));
-                tmp_nb_var++;
-
-                // thickness
-                M_thick[i] = std::max(0., interp_elt_out[nb_var*i+tmp_nb_var]);
-                tmp_nb_var++;
-
-                // snow thickness
-                M_snow_thick[i] = std::max(0., interp_elt_out[nb_var*i+tmp_nb_var]);
-                tmp_nb_var++;
-
-                if (M_thick[i] != 0.)
-                {
-                    // integrated_stress1
-                    M_sigma[3*i] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
-                    tmp_nb_var++;
-
-                    // integrated_stress2
-                    M_sigma[3*i+1] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
-                    tmp_nb_var++;
-
-                    // integrated_stress3
-                    M_sigma[3*i+2] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
-                    tmp_nb_var++;
-                }
-                else
-                {
-                    tmp_nb_var+=3;
-                }
-
-                // compliance
-                if (interp_elt_out[nb_var*i+tmp_nb_var] != 0.)
-                {
-                    M_damage[i] = std::max(0., std::min(1.,1.-1./interp_elt_out[nb_var*i+tmp_nb_var]));
-                    tmp_nb_var++;
-                }
-                else
-                {
-                    M_damage[i] = 0.;
-                    tmp_nb_var++;
-                }
-
-                // divergence_rate
-                M_divergence_rate[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-                tmp_nb_var++;
-
-                // // h_ridged_thin_ice
-                M_h_ridged_thin_ice[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-                tmp_nb_var++;
-
-                // h_ridged_thick_ice
-                M_h_ridged_thick_ice[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-                tmp_nb_var++;
-
-                // random_number
-                M_random_number[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-                //M_random_number[i] = std::max(0., std::min(1.,interp_elt_in[11*i+tmp_nb_var]));
-                tmp_nb_var++;
-
-                // Ice surface temperature
-                M_tsurf[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-                tmp_nb_var++;
-
-                // thin ice thickness
-                M_h_thin[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-                tmp_nb_var++;
-
-                // snow on thin ice
-                M_hs_thin[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-                tmp_nb_var++;
-
-                // Ice surface temperature for thin ice
-                M_tsurf_thin[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-                tmp_nb_var++;
-
-                if(tmp_nb_var!=nb_var)
-                {
-                    throw std::logic_error("tmp_nb_var not equal to nb_var");
-                }
-            }
-
-            xDelete<double>(interp_elt_out);
-
-            std::cout<<"ELEMENT: Interp done\n";
-            std::cout<<"Element Interp done in "<< chrono.elapsed() <<"s\n";
-
-            chrono.restart();
-            std::cout<<"Slab Interp starts\n";
-            // ELEMENT INTERPOLATION FOR SLAB OCEAN FROM OLD MESH ON ITS ORIGINAL POSITION
-            nb_var=2;
-
-            // memory leak:
-            //double* interp_elt_slab_in;
-            //interp_elt_slab_in = new double[nb_var*prv_num_elements];
-            std::vector<double> interp_elt_slab_in(nb_var*prv_num_elements);
-
-            double* interp_elt_slab_out;
-
-            std::cout<<"ELEMENT SLAB: Interp starts\n";
-
-            M_mesh_previous.move(M_UM,-displacement_factor);
-
-            for (int i=0; i<prv_num_elements; ++i)
-            {
-                // Sea surface temperature
-                interp_elt_slab_in[nb_var*i+0] = M_sst[i];
-
-                // Sea surface salinity
-                interp_elt_slab_in[nb_var*i+1] = M_sss[i];
-            }
-
-            InterpFromMeshToMesh2dx(&interp_elt_slab_out,
-                                    &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
-                                    M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-                                    &interp_elt_slab_in[0],
-                                    M_mesh_previous.numTriangles(),nb_var,
-                                    &M_mesh.bCoordX()[0],&M_mesh.bCoordY()[0],M_mesh.numTriangles(),
-                                    false);
-
-            M_sst.resize(M_num_elements);
-            M_sss.resize(M_num_elements);
-
-            for (int i=0; i<M_mesh.numTriangles(); ++i)
-            {
-                // Sea surface temperature
-                M_sst[i] = interp_elt_slab_out[nb_var*i+0];
-
-                // Sea surface salinity
-                M_sss[i] = interp_elt_slab_out[nb_var*i+1];
-            }
-
-            xDelete<double>(interp_elt_slab_out);
-
-            M_mesh_previous.move(M_UM,displacement_factor);
-            std::cout<<"ELEMENT SLAB: Interp done\n";
-            std::cout<<"Slab Interp done in "<< chrono.elapsed() <<"s\n";
-
-            // NODAL INTERPOLATION
-            nb_var=8;
-
-            // memory leak:
-            //double* interp_in;
-            //interp_in = new double[nb_var*prv_num_nodes];
-            std::vector<double> interp_in(nb_var*prv_num_nodes);
-
-            double* interp_out;
-
-            chrono.restart();
-            std::cout<<"Nodal Interp starts\n";
-            std::cout<<"NODAL: Interp starts\n";
-
-            for (int i=0; i<prv_num_nodes; ++i)
-            {
-                // VT
-                interp_in[nb_var*i] = M_VT[i];
-                interp_in[nb_var*i+1] = M_VT[i+prv_num_nodes];
-
-                // VTM
-                interp_in[nb_var*i+2] = M_VTM[i];
-                interp_in[nb_var*i+3] = M_VTM[i+prv_num_nodes];
-
-                // VTMM
-                interp_in[nb_var*i+4] = M_VTMM[i];
-                interp_in[nb_var*i+5] = M_VTMM[i+prv_num_nodes];
-
-                // UM
-                interp_in[nb_var*i+6] = M_UM[i];
-                interp_in[nb_var*i+7] = M_UM[i+prv_num_nodes];
-            }
-
-            InterpFromMeshToMesh2dx(&interp_out,
-                                    &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
-                                    M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-                                    &interp_in[0],
-                                    M_mesh_previous.numNodes(),nb_var,
-                                    &M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
-                                    false);
-
-            M_VT.assign(2*M_num_nodes,0.);
-            M_VTM.assign(2*M_num_nodes,0.);
-            M_VTMM.assign(2*M_num_nodes,0.);
-            M_UM.assign(2*M_num_nodes,0.);
-
-            for (int i=0; i<M_num_nodes; ++i)
-            {
-                // VT
-                M_VT[i] = interp_out[nb_var*i];
-                M_VT[i+M_num_nodes] = interp_out[nb_var*i+1];
-
-                // VTM
-                M_VTM[i] = interp_out[nb_var*i+2];
-                M_VTM[i+M_num_nodes] = interp_out[nb_var*i+3];
-
-                // VTMM
-                M_VTMM[i] = interp_out[nb_var*i+4];
-                M_VTMM[i+M_num_nodes] = interp_out[nb_var*i+5];
-
-                // UM
-                M_UM[i] = interp_out[nb_var*i+6];
-                M_UM[i+M_num_nodes] = interp_out[nb_var*i+7];
-            }
-
-            xDelete<double>(interp_out);
-
-            std::cout<<"NODAL: Interp done\n";
-            std::cout<<"Nodal interp done in "<< chrono.elapsed() <<"s\n";
-
-            // Drifters - if requested
-            if ( M_drifter_type != setup::DrifterType::NONE )
-            {
-                chrono.restart();
-                std::cout<<"Drifter starts\n";
-                std::cout<<"DRIFTER: Interp starts\n";
-
-                // Assemble the coordinates from the unordered_map
-                std::vector<double> drifter_X(M_drifter.size());
-                std::vector<double> drifter_Y(M_drifter.size());
-                int j=0;
-                for ( auto it = M_drifter.begin(); it != M_drifter.end(); ++it )
-                {
-                    drifter_X[j] = it->second[0];
-                    drifter_Y[j] = it->second[1];
-                    ++j;
-                }
-
-                // Interpolate the velocity and concentration onto the drifter positions
-                nb_var=2;
-                std::vector<double> interp_drifter_in(nb_var*prv_num_nodes);
-                double* interp_drifter_out;
-                double* interp_drifter_c_out;
-
-                for (int i=0; i<M_num_nodes; ++i)
-                {
-                    interp_drifter_in[i] = M_UM[i];
-                    interp_drifter_in[i] = M_UM[i+prv_num_nodes];
-                }
-
-                // Interpolate the velocity
-                InterpFromMeshToMesh2dx(&interp_drifter_out,
-                                        &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
-                                        M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-                                        &interp_drifter_in[0],
-                                        M_mesh_previous.numNodes(),nb_var,
-                                        &drifter_X[0],&drifter_Y[0],M_drifter.size(),
-                                        false);
-
-                // Interpolate the concentration - take advantage of the fact that interp_elt_in already exists
-                // and the first set of numbers are the concentration
-                InterpFromMeshToMesh2dx(&interp_drifter_c_out,
-                                        &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
-                                        M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-                                        &interp_elt_in[0],
-                                        M_mesh_previous.numTriangles(),1,
-                                        &drifter_X[0],&drifter_Y[0],M_drifter.size(),
-                                        false);
-
-                // Rebuild the M_drifter map
-                double clim = vm["simul.drift_limit_concentration"].as<double>();
-                j=0;
-                for ( auto it = M_drifter.begin(); it != M_drifter.end(); /* ++it is not allowed here, because we use 'erase' */ )
-                {
-                    if ( interp_drifter_c_out[j] > clim )
-                    {
-                        M_drifter[it->first] = std::array<double,2> {it->second[0]+interp_drifter_out[j], it->second[1]+interp_drifter_out[j+M_drifter.size()]};
-                        ++it;
-                    } else {
-                        // Throw out drifters that drift out of the ice
-                        it = M_drifter.erase(it);
-                    }
-                    ++j;
-                }
-
-                xDelete<double>(interp_drifter_out);
-                xDelete<double>(interp_drifter_c_out);
-
-                std::cout<<"DRIFTER: Interp done\n";
-                std::cout<<"Drifter interp done in "<< chrono.elapsed() <<"s\n";
-            }
-        }
-#if 0
-#endif
-	}
-
-    if (0)//(step)
-    {
-        for (int i=0; i<M_num_nodes; ++i)
-        {
-            // UM
-            M_UM[i] = 0.;
-            M_UM[i+M_num_nodes] = 0.;
-        }
-
-        //M_matrix->init(2*M_num_nodes,2*M_num_nodes,22);
-        M_matrix->init(2*M_num_nodes,2*M_num_nodes,M_graph);
-        M_vector->resize(2*M_num_nodes);
-        M_solution->resize(2*M_num_nodes);
-        M_reuse_prec = false;
-
-        M_vector_reduction.resize(2*M_num_nodes,0.);
-        M_valid_conc.resize(2*M_local_ndof,false);
-
-        M_wind.resize(2*M_num_nodes);
-        M_ocean.resize(2*M_num_nodes);
-
-        // Atmo
-        M_tair.resize(M_num_elements);
-        M_dair.resize(M_num_elements);
-        M_mixrat.resize(M_num_elements);
-        M_mslp.resize(M_num_elements);
-        M_Qsw_in.resize(M_num_elements);
-        M_Qlw_in.resize(M_num_elements);
-        M_precip.resize(M_num_elements);
-        M_snowfr.resize(M_num_elements);
-
-        // Ocean
-        M_ocean_temp.resize(M_num_elements);
-        M_ocean_salt.resize(M_num_elements);
-        M_mld.resize(M_num_elements);
-
-        // bathy
-        M_element_depth.resize(M_num_elements);
-
-        M_ssh.assign(M_num_nodes,0.);
-
-        M_fcor.resize(M_num_elements);
-    }
-#endif
+    this->assignVariables();
 
     // if (!step)
     // {
@@ -2780,7 +2534,7 @@ FiniteElement::adaptMesh()
     // set dirichlet flags
     for (int edg=0; edg<bamgmesh_previous->EdgesSize[0]; ++edg)
     {
-        int fnd = bamgmesh_previous->Edges[3*edg]-1;
+        int fnd = bamgmesh_previous->Edges[3*edg]/*-1*/;
 
         if ((std::binary_search(M_dirichlet_flags_root.begin(),M_dirichlet_flags_root.end(),fnd)))
         {
@@ -2793,15 +2547,25 @@ FiniteElement::adaptMesh()
 
     this->importBamg(bamgmesh_root);
 
+    std::cout<<"FLAGS SIZE BEFORE= "<< M_dirichlet_flags_root.size() <<"\n";
+
     // update dirichlet nodes
     M_dirichlet_flags_root.resize(0);
-    for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
+    M_neumann_flags_root.resize(0);
+
+    for (int edg=0; edg<bamgmesh_root->EdgesSize[0]; ++edg)
     {
-        if (bamgmesh->Edges[3*edg+2] == M_flag_fix)
+        if (bamgmesh_root->Edges[3*edg+2] == M_flag_fix)
         {
-            M_dirichlet_flags_root.push_back(bamgmesh->Edges[3*edg]-1);
+            M_dirichlet_flags_root.push_back(bamgmesh_root->Edges[3*edg]/*-1*/);
+        }
+        else
+        {
+            M_neumann_flags_root.push_back(bamgmesh_root->Edges[3*edg]/*-1*/);
         }
     }
+
+    std::cout<<"FLAGS SIZE AFTER= "<< M_dirichlet_flags_root.size() <<"\n";
 
 #if 0
     *bamgmesh_previous = *bamgmesh;
@@ -2912,6 +2676,8 @@ FiniteElement::adaptMesh()
 void
 FiniteElement::assemble(int pcpt)
 {
+    M_comm.barrier();
+
     M_matrix->zero();
     M_vector->zero();
 
@@ -3048,6 +2814,8 @@ FiniteElement::assemble(int pcpt)
         coef_basal = quad_drag_coef_air*basal_k2/(basal_drag_coef_air*(norm_Vice+basal_u_0));
         coef_basal *= _coef*std::exp(-basal_Cb*(1.-M_conc[cpt]));
 
+        //std::cout<<"basal= "<< coef_basal <<"\n";
+
         //std::vector<double> sigma_P(3,0.); /* temporary variable for the resistance to the compression */
         //std::vector<double> B0Tj_sigma_h(2,0);
 
@@ -3087,7 +2855,8 @@ FiniteElement::assemble(int pcpt)
         coef_X     = - mass_e*g_ssh_e_x;              /* for the ocean slope */
         coef_Y     = - mass_e*g_ssh_e_y;              /* for the ocean slope */
 
-        if (cpt < 0)
+        //if (cpt < 0)
+        if (0)//((pcpt >= 65) && (cpt == 0))
         {
             std::cout<<"************************\n";
             std::cout<<"Coef_C    = "<< coef_C <<"\n";
@@ -3253,6 +3022,9 @@ FiniteElement::assemble(int pcpt)
         {
             for (int const& idn : rindices)
                 M_valid_conc[idn] = true;
+
+            // for (int const& idn : cindices)
+            //     M_valid_conc[idn] = true;
         }
 
         ++cpt;
@@ -3262,7 +3034,6 @@ FiniteElement::assemble(int pcpt)
     M_matrix->close();
 
     // close petsc vector
-    //M_vector->setOnes();
     M_vector->close();
 
     if (M_rank == 0)
@@ -3292,6 +3063,8 @@ FiniteElement::assemble(int pcpt)
     //M_matrix->on(M_dirichlet_nodes,*M_vector);
     //M_matrix->on(M_dirichlet_nodes,*M_vector);
     M_matrix->on(extended_dirichlet_nodes,*M_vector);
+
+    std::cout<<"[" << M_rank <<"] " <<"-------------------DIFF SIZE EXTENDED_DIRICHLET= " << extended_dirichlet_nodes.size()-M_dirichlet_nodes.size() <<"\n";
 
     if (M_rank==0)
         std::cout <<"TIMER DBCA= " << chrono.elapsed() <<"s\n";
@@ -4031,6 +3804,8 @@ FiniteElement::cohesion()
 void
 FiniteElement::update()
 {
+    M_comm.barrier();
+
     std::vector<double> UM_P = M_UM;
 
     for (int nd=0; nd<M_UM.size(); ++nd)
@@ -4038,26 +3813,20 @@ FiniteElement::update()
         M_UM[nd] += time_step*M_VT[nd];
     }
 
+    // for (int i=0; i<M_local_ndof; ++i)
+    // {
+    //     M_UM[i+M_num_nodes] += time_step*M_VT[i+M_num_nodes];
+    //     M_UM[i+M_num_nodes] += time_step*M_VT[i+M_num_nodes];
+    // }
+
     for (const int& nd : M_neumann_nodes)
     {
         M_UM[nd] = UM_P[nd];
     }
 
-    double min_elt = *std::min_element(M_VT.begin(),M_VT.end());
-    double max_elt = *std::max_element(M_VT.begin(),M_VT.end());
+    //std::cout<<"[" << M_rank <<"] " <<" Divergence_Rate MIN= "<< *std::min_element(M_divergence_rate.begin(),M_divergence_rate.end()) <<"\n";
+    //std::cout<<"[" << M_rank <<"] " <<" Divergence_Rate MAX= "<< *std::max_element(M_divergence_rate.begin(),M_divergence_rate.end()) <<"\n";
 
-    double gmin = boost::mpi::all_reduce(M_comm, min_elt, boost::mpi::minimum<double>());
-    double gmax = boost::mpi::all_reduce(M_comm, max_elt, boost::mpi::maximum<double>());
-
-
-    // std::cout<<"[" << M_rank <<"] " <<" VT MIN= "<< *std::min_element(M_VT.begin(),M_VT.end()) <<"\n";
-    // std::cout<<"[" << M_rank <<"] " <<" VT MAX= "<< *std::max_element(M_VT.begin(),M_VT.end()) <<"\n";
-
-    if (M_comm.rank()==0)
-    {
-        std::cout<<"VT MIN= "<< gmin <<"\n";
-        std::cout<<"VT MAX= "<< gmax <<"\n";
-    }
 
     double old_thick;
     double old_snow_thick;
@@ -4138,14 +3907,22 @@ FiniteElement::update()
             {
                 /* deformation */
                 //col = (mwIndex)it[j]-1;
-                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j]*M_VT[(M_elements[cpt]).indices[j]-1]  ;
-                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j + 1]*M_VT[(M_elements[cpt]).indices[j]-1+M_num_nodes]  ;
+
+                //if (!(M_elements[cpt]).ghostNodes[j])
+                {
+                    epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j]*M_VT[(M_elements[cpt]).indices[j]-1];
+                    epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j + 1]*M_VT[(M_elements[cpt]).indices[j]-1+M_num_nodes];
+                }
             }
 
             epsilon_veloc[i] = epsilon_veloc_i;
         }
 
         M_divergence_rate[cpt]= (epsilon_veloc[0]+epsilon_veloc[1]);
+
+        //if (((M_elements[cpt]).is_ghost) || ((M_elements[cpt]).partition != M_rank))
+        //if (((M_elements[cpt]).ghosts.size() != 0))
+        //    std::cout<<"[" << M_rank <<"] " <<"Divergence_Rate["<< (M_elements[cpt]).number <<"]= "<< M_divergence_rate[cpt] <<"\n";
 
         /*======================================================================
          * Update the internal stress
@@ -4261,6 +4038,7 @@ FiniteElement::update()
            std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[2]-1))
             to_be_updated=false;
 
+        //double test_val = this->measure(M_elements[cpt],M_mesh,UM_P);
         if((old_conc>0.)  && to_be_updated)
         {
             surface = this->measure(M_elements[cpt],M_mesh, UM_P);
@@ -4276,6 +4054,10 @@ FiniteElement::update()
             M_snow_thick[cpt]   = snow_volume/surface_new;
             M_h_ridged_thick_ice[cpt]   =   ridged_thick_ice_volume/surface_new;
 
+            //if (((M_elements[cpt]).ghosts.size() != 0))
+            //std::cout<<"[" << M_rank <<"] " <<"M_thick["<< (M_elements[cpt]).number <<"]= "<< M_thick[cpt] <<"\n";
+
+
             if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
             {
                 thin_ice_volume = old_h_thin*surface;
@@ -4287,6 +4069,7 @@ FiniteElement::update()
                 M_h_ridged_thin_ice[cpt]    =   ridged_thin_ice_volume/surface_new;
             }
 
+#if 1
             /* Ridging scheme */
             if(surface_new<surface)
             {
@@ -4321,6 +4104,7 @@ FiniteElement::update()
                 ridging_thick_ice=((M_conc[cpt]<1.)?(0.):(M_thick[cpt]*(M_conc[cpt]-1.)));
                 M_conc[cpt] = ((M_conc[cpt]<1.)?(M_conc[cpt]):(1.)) ;
             }
+#endif
 
             /* lower bounds */
             M_conc[cpt] = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
@@ -4334,6 +4118,10 @@ FiniteElement::update()
             }
         }
 
+        //if (((M_elements[cpt]).ghosts.size() != 0))
+        //   std::cout<<"[" << M_rank <<"] " <<"M_thick["<< (M_elements[cpt]).number <<"]= "<< test_val <<"\n";
+        //std::cout<<"[" << M_rank <<"] " <<"M_thick["<< (M_elements[cpt]).number <<"]= "<< M_thick[cpt] <<"\n";
+#if 1
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
             /* Compute the redistribution of thin ice. */
@@ -4360,6 +4148,7 @@ FiniteElement::update()
                 M_hs_thin[cpt] = 0. ;
             }
         }
+#endif
     }
 }
 
@@ -4728,6 +4517,7 @@ FiniteElement::updateSeq()
 void
 FiniteElement::solve()
 {
+    M_comm.barrier();
     //SolverPetsc ksp;
     chrono.restart();
     //ksp.solve(M_matrix, M_solution, M_vector);
@@ -4758,6 +4548,8 @@ FiniteElement::solve()
 void
 FiniteElement::thermo()
 {
+    M_comm.barrier();
+
     // There is now only one big loop for the thermodynamics so that we can use multithreading.
 
     // constant variables
@@ -5450,12 +5242,14 @@ FiniteElement::run()
     // main loop for nextsim program
     while (is_running)
     {
+        M_comm.barrier();
+
         is_running = ((pcpt+1)*time_step) < duration;
 
         // if (pcpt > 21)
         //     is_running = false;
 
-        if (pcpt == 1)
+        if (pcpt == 1000)
             is_running = false;
 
 
@@ -5480,13 +5274,21 @@ FiniteElement::run()
 
 
             //if (0)//( minang < vm["simul.regrid_angle"].as<double>() )
+            //if (pcpt == 1)
+            //if ( minang < vm["simul.regrid_angle"].as<double>() )
             if (pcpt == 1)
             {
-                //M_regrid = true;
+                this->exportResults(2000);
+
                 std::cout<<"Regriding starts\n";
 				chrono.restart();
                 this->regrid(pcpt);
                 std::cout<<"Regriding done in "<< chrono.elapsed() <<"s\n";
+
+                M_regrid = true;
+                //return;
+
+                this->exportResults(3000);
                 return;
             }
         }
@@ -5536,7 +5338,7 @@ FiniteElement::run()
 
         //use_restart = false;
 
-#if 0
+#if 1
         if (pcpt == 0)
         {
             chrono.restart();
@@ -5551,7 +5353,7 @@ FiniteElement::run()
         //======================================================================
         //chrono.restart();
         //std::cout<<"thermo starts\n";
-        //this->thermo();
+        this->thermo();
         //std::cout<<"thermo done in "<< chrono.elapsed() <<"s\n";
 
 
@@ -5576,6 +5378,16 @@ FiniteElement::run()
         //std::cout<<"update starts\n";
         this->update();
         //std::cout<<"update done in "<< chrono.elapsed() <<"s\n";
+
+        if(fmod((pcpt+1)*time_step,output_time_step) == 0)
+        {
+            chrono.restart();
+            //std::cout<<"export starts\n";
+            this->exportResults((int) (pcpt+1)*time_step/output_time_step);
+            //std::cout<<"export done in " << chrono.elapsed() <<"s\n";
+        }
+
+        //this->exportResults(1000);
 
         ++pcpt;
 
@@ -5615,7 +5427,7 @@ FiniteElement::run()
 #endif
     }
 
-#if 0
+#if 1
     this->exportResults(1000);
 #endif
 
@@ -5638,6 +5450,7 @@ FiniteElement::run()
 void
 FiniteElement::writeRestart(int pcpt, int step)
 {
+#if 0
     Exporter exporter;
     std::string filename;
 
@@ -5734,6 +5547,7 @@ FiniteElement::writeRestart(int pcpt, int step)
         throw std::runtime_error("Cannot write to file: " + filename);
     exporter.writeRecord(outrecord);
     outrecord.close();
+#endif
 }
 
 void
@@ -5938,6 +5752,49 @@ FiniteElement::updateVelocity()
     M_VTM = M_VT;
     M_VT = M_solution->container();
 
+    if (M_rank == 0)
+    {
+
+        // for (int i=0; i<M_graphmpi.globalIndicesWithoutGhost().size(); ++i)
+        // {
+        //     std::cout<< i <<" --- "<< M_graphmpi.globalIndicesWithoutGhost()[i] <<"\n";
+        // }
+
+
+        //for (int i=0; i<M_VT.size(); ++i)
+        // for (int i=0; i<2*M_local_ndof; ++i)
+        // {
+        //     std::cout<<"SOLUTION["<< i <<"]= "<< M_solution->operator()(i) <<"\n";
+        // }
+
+        // for (int i=0; i<M_VT.size(); ++i)
+        // {
+        //     std::cout<<"SOLUTION["<< i <<"]= "<< M_VT[i] <<"\n";
+        // }
+    }
+
+    double min_elt = *std::min_element(M_VT.begin(),M_VT.end());
+    double max_elt = *std::max_element(M_VT.begin(),M_VT.end());
+
+    double gmin = boost::mpi::all_reduce(M_comm, min_elt, boost::mpi::minimum<double>());
+    double gmax = boost::mpi::all_reduce(M_comm, max_elt, boost::mpi::maximum<double>());
+
+
+    //std::cout<<"[" << M_rank <<"] " <<" VT MIN= "<< *std::min_element(M_VT.begin(),M_VT.end()) <<"\n";
+    //std::cout<<"[" << M_rank <<"] " <<" VT MAX= "<< *std::max_element(M_VT.begin(),M_VT.end()) <<"\n";
+
+
+    // std::cout<<"----------------------------[" << M_rank <<"] " <<" VT MIN= "<< *std::min_element(M_thick.begin(),M_thick.end()) <<"\n";
+    // std::cout<<"----------------------------[" << M_rank <<"] " <<" VT MAX= "<< *std::max_element(M_thick.begin(),M_thick.end()) <<"\n";
+
+
+    if (M_comm.rank()==0)
+    {
+        std::cout<<"----------------------------VT MIN= "<< gmin <<"\n";
+        std::cout<<"----------------------------VT MAX= "<< gmax <<"\n";
+    }
+
+
 #if 0
     if (M_comm.rank()==0)
     {
@@ -5956,7 +5813,7 @@ FiniteElement::updateVelocity()
 
     // TODO (updateVelocity) Sylvain: This limitation cost about 1/10 of the solver time.
     // TODO (updateVelocity) Sylvain: We could add a term in the momentum equation to avoid the need of this limitation.
-    // std::vector<double> speed_c_scaling_test(bamgmesh->NodalElementConnectivitySize[0]);
+    //std::vector<double> speed_c_scaling_test(bamgmesh->NodalElementConnectivitySize[0]);
 #if 1
     int elt_num, i, j;
     double c_max_nodal_neighbour;
@@ -5985,7 +5842,7 @@ FiniteElement::updateVelocity()
         speed_c_scaling = std::min(1.,c_max_nodal_neighbour);
         //std::cout<<"c_max_nodal_neighbour["<< i <<"]= "<< c_max_nodal_neighbour <<"\n";
         //std::cout<<"speed_c_scaling["<< i <<"]= "<< speed_c_scaling <<"\n";
-        // speed_c_scaling_test[i] = speed_c_scaling;
+        //speed_c_scaling_test[i] = speed_c_scaling;
 
         // linear scaling of ice velocity
         M_VT[i] *= speed_c_scaling;
@@ -5993,8 +5850,8 @@ FiniteElement::updateVelocity()
     }
 #endif
 
-    // std::cout<<"MAX SPEED= "<< *std::max_element(speed_c_scaling_test.begin(),speed_c_scaling_test.end()) <<"\n";
-    // std::cout<<"MIN SPEED= "<< *std::min_element(speed_c_scaling_test.begin(),speed_c_scaling_test.end()) <<"\n";
+    //std::cout<<"MAX SPEED= "<< *std::max_element(speed_c_scaling_test.begin(),speed_c_scaling_test.end()) <<"\n";
+    //std::cout<<"MIN SPEED= "<< *std::min_element(speed_c_scaling_test.begin(),speed_c_scaling_test.end()) <<"\n";
 }
 
 void
@@ -6080,6 +5937,13 @@ FiniteElement::constantAtmosphere()
         M_wind[i]             = Vair_coef*vm["simul.constant_wind_u"].as<double>();
         M_wind[i+M_num_nodes] = Vair_coef*vm["simul.constant_wind_v"].as<double>();
     }
+
+    // for (int i=0; i<M_local_ndof; ++i)
+    // {
+    //     M_wind[i]             = Vair_coef*vm["simul.constant_wind_u"].as<double>();
+    //     //M_wind[i+M_num_nodes] = Vair_coef*vm["simul.constant_wind_v"].as<double>();
+    //     M_wind[i+M_local_ndof] = Vair_coef*vm["simul.constant_wind_v"].as<double>();
+    // }
 
     M_tair.assign(M_num_elements,vm["simul.constant_tair"].as<double>());
     //std::cout << "simul.constant_tair:   " << vm["simul.constant_tair"].as<double>() << "\n";
@@ -6987,6 +6851,8 @@ FiniteElement::etopoBathymetry(bool reload)
 void
 FiniteElement::timeInterpolation(int step)
 {
+    //M_comm.barrier();
+
     Vair_coef = 1.;
     Voce_coef = 1.;
     ssh_coef = 1.;
@@ -7656,41 +7522,315 @@ FiniteElement::exportResults(int step, bool export_mesh)
     mv.printMatlab("mv" + step_str);
 #endif
 
+    // velocity
 #if 1
-    Exporter exporter;
-    std::string fileout;
-
-    if (export_mesh)
+    std::vector<double> vt_local(2*M_local_ndof,0.);
+    for (int i=0; i<M_local_ndof; ++i)
     {
-        fileout = (boost::format( "%1%/matlab/mesh_%2%_%3%.bin" )
+        vt_local[2*i] = M_VT[i];
+        vt_local[2*i+1] = M_VT[i+M_num_nodes];
+    }
+
+    std::vector<int> sizes_nodes(M_comm.size());
+    boost::mpi::gather(M_comm, M_local_ndof, sizes_nodes, 0);
+
+    std::vector<int> sizes_nodes_t = sizes_nodes;
+    std::for_each(sizes_nodes_t.begin(), sizes_nodes_t.end(), [&](int& f){ f = 2*f; });
+
+    // send displacement vector to the root process (rank 0)
+    std::vector<double> vt_root;
+
+    chrono.restart();
+    if (M_rank == 0)
+    {
+        vt_root.resize(2*M_ndof);
+        boost::mpi::gatherv(M_comm, vt_local, &vt_root[0], sizes_nodes_t, 0);
+    }
+    else
+    {
+        boost::mpi::gatherv(M_comm, vt_local, 0);
+    }
+#endif
+
+    // fields defined on mesh elements
+#if 1
+
+    std::vector<int> sizes_elements(M_comm.size());
+    boost::mpi::gather(M_comm, M_local_nelements, sizes_elements, 0);
+
+    //std::cout<<"["<< M_rank <<"]: " <<"GATHERV1 done in "<< timer["gather1"].first.elapsed() <<"s\n";
+
+    // ELEMENT INTERPOLATION With Cavities
+    int nb_var_element=2;
+
+    std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = nb_var_element*f; });
+
+    std::vector<double> interp_elt_in_local(nb_var_element*M_local_nelements);
+
+    //std::cout<<"ELEMENT: Interp starts\n";
+
+    int tmp_nb_var=0;
+    for (int i=0; i<M_local_nelements; ++i)
+    {
+        tmp_nb_var=0;
+
+        // concentration
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_conc[i];
+        tmp_nb_var++;
+
+        // thickness
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_thick[i];
+        tmp_nb_var++;
+
+#if 0
+        // snow thickness
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_snow_thick[i];
+        tmp_nb_var++;
+
+        // integrated_stress1
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sigma[3*i]*M_thick[i];
+        tmp_nb_var++;
+
+        // integrated_stress2
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sigma[3*i+1]*M_thick[i];
+        tmp_nb_var++;
+
+        // integrated_stress3
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sigma[3*i+2]*M_thick[i];
+        tmp_nb_var++;
+
+        // compliance
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = 1./(1.-M_damage[i]);
+        tmp_nb_var++;
+
+        // divergence_rate
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_divergence_rate[i];
+        tmp_nb_var++;
+
+        // h_ridged_thin_ice
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_h_ridged_thin_ice[i];
+        tmp_nb_var++;
+
+        // h_ridged_thick_ice
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_h_ridged_thick_ice[i];
+        tmp_nb_var++;
+
+        // random_number
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_random_number[i];
+        tmp_nb_var++;
+
+        // Ice surface temperature
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_tsurf[i];
+        tmp_nb_var++;
+
+        // thin ice thickness
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_h_thin[i];
+        tmp_nb_var++;
+
+        // snow on thin ice
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_hs_thin[i];
+        tmp_nb_var++;
+
+        // Ice surface temperature for thin ice
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_tsurf_thin[i];
+        tmp_nb_var++;
+#endif
+
+        if(tmp_nb_var>nb_var_element)
+        {
+            throw std::logic_error("tmp_nb_var not equal to nb_var");
+        }
+    }
+
+    std::vector<double> interp_in_elements;
+    //M_comm.barrier();
+    if (M_rank == 0)
+    {
+        interp_in_elements.resize(nb_var_element*M_mesh_root.numTriangles());
+        boost::mpi::gatherv(M_comm, interp_elt_in_local, &interp_in_elements[0], sizes_elements, 0);
+    }
+    else
+    {
+        boost::mpi::gatherv(M_comm, interp_elt_in_local, 0);
+    }
+
+    std::vector<double> conc_root(M_mesh_root.numTriangles());
+    std::vector<double> thick_root(M_mesh_root.numTriangles());
+
+    if (M_rank == 0)
+    {
+        tmp_nb_var=0;
+        auto rmap_elements = M_mesh.mapElements();
+        //auto interp_in_elements_nrd = interp_in_elements;
+
+        for (int i=0; i<M_mesh_root.numTriangles(); ++i)
+        {
+            tmp_nb_var=0;
+            int ri = rmap_elements.left.find(i+1)->second-1;
+
+            // for (int j=0; j<nb_var_element; ++j)
+            // {
+            //     interp_in_elements[nb_var_element*i+j] = interp_in_elements_nrd[nb_var_element*ri+j];
+            // }
+
+            // concentration
+            conc_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+            tmp_nb_var++;
+
+            // thickness
+            thick_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+            tmp_nb_var++;
+        }
+    }
+
+#endif
+
+    if (M_rank == 0)
+    {
+#if 1
+        Exporter exporter;
+        std::string fileout;
+
+        if (export_mesh)
+        {
+            fileout = (boost::format( "%1%/matlab/mesh_%2%_%3%.bin" )
+                       % Environment::nextsimDir().string()
+                       % M_rank
+                       % step ).str();
+
+            std::cout<<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
+
+            // move the mesh for the export
+            //M_mesh.move(M_UM,1.);
+
+            std::fstream meshbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
+            if ( ! meshbin.good() )
+                throw std::runtime_error("Cannot write to file: " + fileout);
+
+            if (0)
+            {
+                auto rmap_nodes = M_mesh.mapNodes();
+                auto rmap_elements = M_mesh.mapElements();
+
+                // std::cout<<"Size nodes= "<< rmap_nodes.size() <<"\n";
+                // std::cout<<"Size elts = "<< rmap_elements.size() <<"\n";
+
+                auto meshr = M_mesh_root;
+                meshr.reorder(rmap_nodes,rmap_elements);
+                //exporter.writeMesh(meshbin, M_mesh);
+                //exporter.writeMesh(meshbin, M_mesh_root);
+                exporter.writeMesh(meshbin, meshr);
+                meshbin.close();
+            }
+
+            exporter.writeMesh(meshbin, M_mesh_root);
+            meshbin.close();
+
+            // move it back after the export
+            //M_mesh.move(M_UM,-1.);
+
+            fileout = (boost::format( "%1%/matlab/mesh_%2%_%3%.dat" )
+                       % Environment::nextsimDir().string()
+                       % M_rank
+                       % step ).str();
+
+            std::cout<<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
+
+            std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
+            if ( ! outrecord.good() )
+                throw std::runtime_error("Cannot write to file: " + fileout);
+
+            //if (M_comm.rank()==0)
+            {
+                exporter.writeRecord(outrecord,"mesh");
+                outrecord.close();
+            }
+        }
+
+
+        fileout = (boost::format( "%1%/matlab/field_%2%_%3%.bin" )
                    % Environment::nextsimDir().string()
                    % M_rank
                    % step ).str();
 
-        std::cout<<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
+        std::cout<<"BINARY: Exporter Filename= "<< fileout <<"\n";
 
-		// move the mesh for the export
-		//M_mesh.move(M_UM,1.);
-
-        std::fstream meshbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
-        if ( ! meshbin.good() )
+        std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
+        if ( ! outbin.good() )
             throw std::runtime_error("Cannot write to file: " + fileout);
+
+        //std::vector<double> _velocity(2*M_local_ndof);
+        // std::vector<double> _velocity(2*M_num_nodes,0.);
+        // for (int i=0; i<M_local_ndof; ++i)
+        // {
+        //     _velocity[i] = M_VT[i];
+        //     _velocity[i+M_num_nodes] = M_VT[i+M_num_nodes];
+        // }
+
+        auto rmap_nodes = M_mesh.mapNodes();
+        int prv_global_num_nodes = M_mesh.numGlobalNodes();
+
+        auto interp_in_nodes_nrd = vt_root;
+
+        for (int i=0; i<prv_global_num_nodes; ++i)
+        {
+            int ri =  rmap_nodes.left.find(i+1)->second-1;
+
+            vt_root[i] = interp_in_nodes_nrd[2*ri];
+            vt_root[i+prv_global_num_nodes] = interp_in_nodes_nrd[2*ri+1];
+
+            //if reorder mesh
+            //vt_root[i] = interp_in_nodes_nrd[2*i];
+            //vt_root[i+prv_global_num_nodes] = interp_in_nodes_nrd[2*i+1];
+
+            if ((vt_root[i] == 0) && (vt_root[i+prv_global_num_nodes] == 0))
+            {
+                //std::cout<<"vt_root["<< 2*i+j <<"]---["<< 2*ri+j <<"]" << ": global "<< ri <<"\n";
+                //std::cout<<"vt_root["<< i <<"]---["<< 2*ri <<"]" << ": global "<< ri <<"\n";
+                //std::cout<<"vt_root["<< i+prv_global_num_nodes <<"]---["<< 2*ri+1 <<"]" << ": global "<< 2*ri+1 <<"\n";
+            }
+        }
+
+
 
         //if (M_comm.rank()==0)
         {
-            exporter.writeMesh(meshbin, M_mesh);
-            meshbin.close();
+            //exporter.writeField(outbin, M_VT, "M_VT");
+            exporter.writeField(outbin, vt_root, "M_VT");
+            exporter.writeField(outbin, conc_root, "Concentration");
+            exporter.writeField(outbin, thick_root, "Thickness");
+            // exporter.writeField(outbin, M_snow_thick, "Snow");
+            // exporter.writeField(outbin, M_damage, "Damage");
+            // exporter.writeField(outbin, M_divergence_rate, "Divergence");
+            // exporter.writeField(outbin, M_tsurf, "Tsurf");
+            // exporter.writeField(outbin, M_sst, "SST");
+            // exporter.writeField(outbin, M_sss, "SSS");
+
+            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+            {
+                exporter.writeField(outbin, M_h_thin, "Thin_ice");
+                exporter.writeField(outbin, M_hs_thin, "Snow_thin_ice");
+                exporter.writeField(outbin, M_tsurf_thin, "Tsurf_thin_ice");
+
+                // Re-create the diagnostic variable 'concentration of thin ice'
+                std::vector<double> conc_thin(M_mesh.numTriangles());
+                double const rtanalpha = c_thin_max/h_thin_max;
+                for ( int i=0; i<M_mesh.numTriangles(); ++i )
+                {
+                    conc_thin[i] = std::min(std::min(M_h_thin[i]/physical::hmin, std::sqrt(2.*M_h_thin[i]*rtanalpha)), 1.-M_conc[i]);
+                }
+                exporter.writeField(outbin, conc_thin, "Concentration_thin_ice");
+            }
+
+            outbin.close();
         }
 
-		// move it back after the export
-		//M_mesh.move(M_UM,-1.);
-
-        fileout = (boost::format( "%1%/matlab/mesh_%2%_%3%.dat" )
+        fileout = (boost::format( "%1%/matlab/field_%2%_%3%.dat" )
                    % Environment::nextsimDir().string()
                    % M_rank
                    % step ).str();
 
-        std::cout<<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
+        std::cout<<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
 
         std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
         if ( ! outrecord.good() )
@@ -7698,78 +7838,12 @@ FiniteElement::exportResults(int step, bool export_mesh)
 
         //if (M_comm.rank()==0)
         {
-            exporter.writeRecord(outrecord,"mesh");
+            exporter.writeRecord(outrecord);
             outrecord.close();
         }
-    }
-
-
-    fileout = (boost::format( "%1%/matlab/field_%2%_%3%.bin" )
-               % Environment::nextsimDir().string()
-               % M_rank
-               % step ).str();
-
-    std::cout<<"BINARY: Exporter Filename= "<< fileout <<"\n";
-
-    std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
-    if ( ! outbin.good() )
-        throw std::runtime_error("Cannot write to file: " + fileout);
-
-    std::vector<double> _velocity(2*M_local_ndof);
-    for (int i=0; i<M_local_ndof; ++i)
-    {
-        _velocity[i] = M_VT[i];
-        _velocity[i+M_local_ndof] = M_VT[i+M_num_nodes];
-    }
-
-    //if (M_comm.rank()==0)
-    {
-        exporter.writeField(outbin, M_VT, "M_VT");
-        //exporter.writeField(outbin, _velocity, "M_VT");
-        exporter.writeField(outbin, M_conc, "Concentration");
-        exporter.writeField(outbin, M_thick, "Thickness");
-        exporter.writeField(outbin, M_snow_thick, "Snow");
-        exporter.writeField(outbin, M_damage, "Damage");
-        exporter.writeField(outbin, M_tsurf, "Tsurf");
-        exporter.writeField(outbin, M_sst, "SST");
-        exporter.writeField(outbin, M_sss, "SSS");
-
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        {
-            exporter.writeField(outbin, M_h_thin, "Thin_ice");
-            exporter.writeField(outbin, M_hs_thin, "Snow_thin_ice");
-            exporter.writeField(outbin, M_tsurf_thin, "Tsurf_thin_ice");
-
-            // Re-create the diagnostic variable 'concentration of thin ice'
-            std::vector<double> conc_thin(M_mesh.numTriangles());
-            double const rtanalpha = c_thin_max/h_thin_max;
-            for ( int i=0; i<M_mesh.numTriangles(); ++i )
-            {
-                conc_thin[i] = std::min(std::min(M_h_thin[i]/physical::hmin, std::sqrt(2.*M_h_thin[i]*rtanalpha)), 1.-M_conc[i]);
-            }
-            exporter.writeField(outbin, conc_thin, "Concentration_thin_ice");
-        }
-
-        outbin.close();
-    }
-
-    fileout = (boost::format( "%1%/matlab/field_%2%_%3%.dat" )
-               % Environment::nextsimDir().string()
-               % M_rank
-               % step ).str();
-
-    std::cout<<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
-
-    std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
-    if ( ! outrecord.good() )
-        throw std::runtime_error("Cannot write to file: " + fileout);
-
-    //if (M_comm.rank()==0)
-    {
-        exporter.writeRecord(outrecord);
-        outrecord.close();
-    }
 #endif
+
+    }
 
 #if 0
     int cpt = 0;

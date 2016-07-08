@@ -15,6 +15,7 @@
 #include <iomanip>
 #include <vector>
 #include <gmshmesh.hpp>
+#include <gmshmeshseq.hpp>
 #include <boost/format.hpp>
 #include <boost/unordered_map.hpp>
 
@@ -34,7 +35,8 @@ public:
 
     template<typename Type>
     void writeContainer(std::fstream& out, std::vector<Type> const& container);
-    void writeMesh(std::fstream& out, GmshMesh const& Mesh);
+    template<typename FEMeshType>
+    void writeMesh(std::fstream& out, FEMeshType const& Mesh);
     template<typename Type>
 	void writeField(std::fstream& out, std::vector<Type> const& field, std::string const& name);
 	void writeRecord(std::fstream& out, std::string const& rtype = "field");

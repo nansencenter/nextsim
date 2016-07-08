@@ -44,8 +44,9 @@ Exporter::writeContainer(std::fstream& out, std::vector<Type> const& container)
 	}
 }
 
+template<typename FEMeshType>
 void
-Exporter::writeMesh(std::fstream& out, GmshMesh const& Mesh)
+Exporter::writeMesh(std::fstream& out, FEMeshType const& Mesh)
 {
     std::string description;
 
@@ -153,5 +154,8 @@ Exporter::loadFile(std::fstream &in, boost::unordered_map<std::string, std::vect
 
 template void Exporter::writeField<double>(std::fstream&, std::vector<double> const&, std::string const&);
 template void Exporter::writeField<int>(std::fstream&, std::vector<int> const&, std::string const&);
+
+template void Exporter::writeMesh(std::fstream&, GmshMesh const& Mesh);
+template void Exporter::writeMesh(std::fstream&, GmshMeshSeq const& Mesh);
 
 } // Nextsim

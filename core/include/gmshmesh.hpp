@@ -76,6 +76,7 @@ public:
     int numLocalNodesWithGhost() const {return M_nldof_with_ghost;}
     int numLocalGhost() const {return M_nlghost;}
 
+    int numGlobalElements() const {return M_global_num_elements;}
     int numTrianglesWithoutGhost() const {return M_num_triangles_without_ghost;}
 
     void setCommunicator(Communicator const& comm) {M_comm=comm;}
@@ -97,9 +98,9 @@ public:
 
     std::vector<int> const& trianglesIdWithGhost() const {return M_triangles_id_with_ghost;}
 
-    //bimap_type const& transferMap() const {return M_transfer_map;}
+    bimap_type const& transferMapIinit() const {return M_transfer_map;}
     bimap_type const& transferMap() const {return M_transfer_map_reordered;}
-    bimap_type const& transferMapReordered() const {return M_transfer_map_reordered;}
+    //bimap_type const& transferMapReordered() const {return M_transfer_map_reordered;}
 
     bimap_type const& mapNodes() const {return M_reorder_map_nodes;}
     bimap_type const& mapElements() const {return M_reorder_map_elements;}
@@ -151,6 +152,7 @@ private:
     int M_nldof_without_ghost;
     int M_nlghost;
 
+    int M_global_num_elements;
     int M_num_triangles_without_ghost;
 
 

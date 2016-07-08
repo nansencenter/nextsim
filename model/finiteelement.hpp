@@ -30,6 +30,8 @@
 #include <netcdf>
 #include <debug.hpp>
 #include <omp.h>
+#include <boost/random/linear_congruential.hpp>
+#include <boost/random/uniform_01.hpp>
 
 extern "C"
 {
@@ -46,6 +48,7 @@ public:
 
     typedef typename GmshMesh::point_type point_type;
     typedef typename GmshMesh::element_type element_type;
+    typedef typename GmshMesh::bimap_type bimap_type;
 
     typedef GmshMesh mesh_type;
     typedef GmshMeshSeq mesh_type_root;
@@ -167,8 +170,11 @@ public:
     void regrid(bool step = true);
     void adaptMesh();
 
-    void gatherFieldsElement(std::vector<double>& interp_elt_in_elements);
+    void gatherFieldsElement(std::vector<double>& interp_in_elements);
     void scatterFieldsElement(double* interp_elt_out);
+    void interpFieldsElement();
+
+    void interpFieldsNode(bimap_type const& rmap_nodes, std::vector<int> sizes_nodes);
 
     void assemble(int cpt);
     void assembleSeq(int cpt);
@@ -245,6 +251,8 @@ public:
 
     void interpVertices();
 
+    void bcMarkedNodes();
+
 private:
     po::variables_map vm;
     mesh_type M_mesh;
@@ -275,6 +283,13 @@ private:
     Communicator M_comm;
 
     int M_nb_var_element;
+    int M_nb_var_node;
+
+    int M_prv_local_ndof;
+    int M_prv_num_nodes;
+    int M_prv_num_elements;
+    int M_prv_global_num_nodes;
+    int M_prv_global_num_elements;
 
     std::vector<int> M_boundary_flags;
     std::vector<int> M_dirichlet_flags;
@@ -283,6 +298,7 @@ private:
     std::vector<int> M_neumann_nodes;
 
     boost::mpi::timer chrono, chrono_tot;
+    std::map<std::string,std::pair<boost::mpi::timer,double> > timer;
 
     setup::AtmosphereType M_atmosphere_type;
     setup::OceanType M_ocean_type;
@@ -410,6 +426,8 @@ private: // only on root process (rank 0)
     mesh_type_root M_mesh_previous_root;
 
     std::vector<int> M_dirichlet_flags_root;
+    std::vector<int> M_neumann_flags_root;
+    std::vector<double> M_random_number_root;
 
     BamgMesh *bamgmesh_root;
     BamgGeom *bamggeom_root;
