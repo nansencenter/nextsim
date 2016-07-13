@@ -1859,10 +1859,10 @@ FiniteElement::regrid(bool step)
                 double* interp_drifter_out;
                 double* interp_drifter_c_out;
 
-                for (int i=0; i<M_num_nodes; ++i)
+                for (int i=0; i<prv_num_nodes; ++i)
                 {
-                    interp_drifter_in[i] = M_UM[i];
-                    interp_drifter_in[i+prv_num_nodes] = M_UM[i+prv_num_nodes];
+                    interp_drifter_in[nb_var*i]   = M_UM[i];
+                    interp_drifter_in[nb_var*i+1] = M_UM[i+prv_num_nodes];
                 }
 
                 // Interpolate the velocity
@@ -3611,8 +3611,6 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
 void
 FiniteElement::run()
 {
-    LOG(INFO) << "-----------------------Simulation started on "<< current_time_local() <<"\n";
-
     std::string current_time_system = current_time_local();
 
     // Initialise everything that doesn't depend on the mesh (constants, data set description, and time)
@@ -3622,6 +3620,8 @@ FiniteElement::run()
 
     int pcpt = 0;
     int niter = 0;
+
+    LOG(INFO) << "-----------------------Simulation started on "<< current_time_local() <<"\n";
 
     LOG(INFO) <<"TIMESTEP= "<< time_step <<"\n";
     LOG(INFO) <<"DURATION= "<< duration <<"\n";
@@ -3767,6 +3767,8 @@ FiniteElement::run()
         // coupling with wim (exchange from wim to nextsim)
         if (vm["simul.use_wim"].as<bool>())
             this->wimToNextsim(pcpt);
+        else if ( M_regrid || use_restart ) // We need to make sure M_tau is the right size
+            M_tau.resize(2*M_num_nodes,0.);
 
 
         // Read in the new buoys and output
@@ -4773,10 +4775,10 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
     std::vector<double> interp_drifter_in(nb_var*M_mesh.numNodes());
     double* interp_drifter_out;
 
-    for (int i=0; i<M_num_nodes; ++i)
+    for (int i=0; i<M_mesh.numNodes(); ++i)
     {
-        interp_drifter_in[i] = M_UM[i];
-        interp_drifter_in[i+M_mesh.numNodes()] = M_UM[i+M_mesh.numNodes()];
+        interp_drifter_in[nb_var*i]   = M_UM[i];
+        interp_drifter_in[nb_var*i+1] = M_UM[i+M_mesh.numNodes()];
     }
 
     // Interpolate the velocity
@@ -5657,6 +5659,10 @@ FiniteElement::clear()
     delete bamgmesh;
     delete bamggeom;
     delete bamgopt;
+    // We need to point these to NULL because 'delete bamgopt' clears the
+    // memory they were pointing to before
+    bamgopt_previous->hminVertices      = NULL;
+    bamgopt_previous->hmaxVertices      = NULL;
 
     delete bamgmesh_previous;
     delete bamggeom_previous;
