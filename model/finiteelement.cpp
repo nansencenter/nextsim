@@ -877,6 +877,7 @@ FiniteElement::initConstant()
     days_in_sec = 24.0*3600.0;
     time_init = dateStr2Num(vm["simul.time_init"].as<std::string>());
     output_time_step =  days_in_sec/vm["simul.output_per_day"].as<int>();
+    mooring_output_time_step =  vm["simul.mooring_output_timestep"].as<double>()*days_in_sec;
 
     time_step = vm["simul.timestep"].as<double>();
     duration = (vm["simul.duration"].as<double>())*days_in_sec;
@@ -3704,6 +3705,11 @@ FiniteElement::run()
             throw std::runtime_error("Cannot write to file: " + filename.str());
     }
 
+    // Initialise the moorings - if requested
+    bool use_moorings =  vm["simul.use_moorings"].as<bool>();
+    if ( use_moorings )
+        this->initMoorings();
+
     // Debug file that records the time step
     std::fstream pcpt_file;
     pcpt_file.open("Timestamp.txt", std::ios::out | std::ios::trunc);
@@ -3714,7 +3720,8 @@ FiniteElement::run()
         is_running = ((pcpt+1)*time_step) < duration;
 
         // if (pcpt > 21)
-        //     is_running = false;
+        if ( fmod((pcpt+1)*time_step,mooring_output_time_step) == 0 )
+            is_running = false;
 
         //std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
         std::cout<<"---------------------- TIME STEP "<< pcpt << " : "
@@ -3851,6 +3858,14 @@ FiniteElement::run()
             this->exportResults((int) pcpt*time_step/output_time_step);
             LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
         }
+
+        if ( use_moorings )
+        {
+            this->updateMoorings();
+            if ( fmod(pcpt*time_step,mooring_output_time_step) == 0 )
+                this->exportMoorings();
+        }
+
 #endif
 
         if ( fmod(pcpt*time_step,restart_time_step) == 0)
@@ -3875,6 +3890,29 @@ FiniteElement::run()
     this->clear();
 
     LOG(INFO) << "-----------------------Simulation done on "<< current_time_local() <<"\n";
+}
+
+void
+FiniteElement::initMoorings()
+{
+    std::cout << "initMoorings\n";
+    std::cout << vm["simul.use_moorings"].as<bool>() << endl;
+    std::cout << vm["simul.mooring_output_timestep"].as<double>() << endl;
+
+
+
+}
+
+void
+FiniteElement::updateMoorings()
+{
+    std::cout << "updateMoorings\n";
+}
+
+void
+FiniteElement::exportMoorings()
+{
+    std::cout << "exportMoorings\n";
 }
 
 void
