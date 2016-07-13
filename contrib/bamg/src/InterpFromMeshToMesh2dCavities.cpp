@@ -430,7 +430,8 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
     std::vector<double> ind_dead(bamg_mesh_Ne,0.);
     std::vector<double> ind_born(new_bamg_mesh_Ne,0.);
 
-    double *boundary_between_two_cavities = xNew<double>(bamg_mesh_Ne*3);
+    //double *boundary_between_two_cavities = xNew<double>(bamg_mesh_Ne*3);
+    std::vector<bool> boundary_between_two_cavities(bamg_mesh_Ne*3,false);
 
     if (verbosity>1) _printf_("   nb_matching_elements = " << nb_matching_elements << "\n");
 
@@ -626,7 +627,7 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 							    if(cavity_number_dead[tmp_dead-1]==-1.)
 								    cavity_number_dead[tmp_dead-1]=(double)new_cavity_number;
 
-							    boundary_between_two_cavities[(tmp_dead-1)*3+j]=1.;
+							    boundary_between_two_cavities[(tmp_dead-1)*3+j]=true;
 							    break;
 						    }
 					    }
@@ -715,7 +716,7 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 				    continue;
 
 			    /*  if the edge corresponds to the boudary between two cavities */
-			    if(boundary_between_two_cavities[(tmp_dead-1)*3+j_dead]==1.)
+			    if( boundary_between_two_cavities[(tmp_dead-1)*3+j_dead] )
 				    continue;
 
 			    /*  if neighbour is already selected to be treated */
@@ -825,7 +826,7 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 
     if (verbosity>1) _printf_("   Detect_cavities: destroy final...\n");
     /* destroy the temporary matrix */
-    xDelete<double>(boundary_between_two_cavities);
+    // xDelete<double>(boundary_between_two_cavities);
     xDelete<double>(cavity_number_dead);
 
     xDelete<int>(cavity_number_born);

@@ -3760,6 +3760,8 @@ FiniteElement::run()
         // coupling with wim (exchange from wim to nextsim)
         if (vm["simul.use_wim"].as<bool>())
             this->wimToNextsim(pcpt);
+        else if ( M_regrid || use_restart ) // We need to make sure M_tau is the right size
+            M_tau.resize(2*M_num_nodes,0.);
 
 
         // Read in the new buoys and output
@@ -5619,6 +5621,10 @@ FiniteElement::clear()
     delete bamgmesh;
     delete bamggeom;
     delete bamgopt;
+    // We need to point these to NULL because 'delete bamgopt' clears the
+    // memory they were pointing to before
+    bamgopt_previous->hminVertices      = NULL;
+    bamgopt_previous->hmaxVertices      = NULL;
 
     delete bamgmesh_previous;
     delete bamggeom_previous;
