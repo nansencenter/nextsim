@@ -98,8 +98,10 @@ public:
 
     std::vector<int> const& trianglesIdWithGhost() const {return M_triangles_id_with_ghost;}
 
-    bimap_type const& transferMapIinit() const {return M_transfer_map;}
+    bimap_type const& transferMapInit() const {return M_transfer_map;}
     bimap_type const& transferMap() const {return M_transfer_map_reordered;}
+
+    bimap_type const& transferMapElt() const {return M_transfer_map_elt;}
     //bimap_type const& transferMapReordered() const {return M_transfer_map_reordered;}
 
     bimap_type const& mapNodes() const {return M_reorder_map_nodes;}
@@ -158,6 +160,7 @@ private:
 
     bimap_type M_transfer_map;
     bimap_type M_transfer_map_reordered;
+    bimap_type M_transfer_map_elt;
 
     bimap_type M_reorder_map_nodes;
     bimap_type M_reorder_map_elements;

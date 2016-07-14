@@ -39,6 +39,7 @@ GmshMesh::GmshMesh(Communicator const& comm)
     M_num_triangles_without_ghost(),
     M_transfer_map(),
     M_transfer_map_reordered(),
+    M_transfer_map_elt(),
     M_reorder_map_nodes(),
     M_reorder_map_elements()
 {}
@@ -573,8 +574,8 @@ GmshMesh::nodalGrid()
             if (M_comm.rank() == 0)
             {
                 //std::cout<<"TEST MAPPING["<< cpts+1 <<"]= "<< renumbering[ii][jj] <<"\n";
-                //std::cout<<"MAPPING["<< cpts+cpts_dom <<"]= "<< renumbering[ii][jj] <<"\n";
-                //std::cout<<"MAPPING["<< cpts+sr+cpts_dom <<"]= "<< renumbering[ii][jj]+M_num_nodes <<"\n";
+                std::cout<<"MAPPING["<< cpts+cpts_dom+1 <<"]= "<< renumbering[ii][jj] <<"\n";
+                std::cout<<"MAPPING["<< cpts+sr+cpts_dom+1 <<"]= "<< renumbering[ii][jj]+M_num_nodes <<"\n";
                 //M_nodes_root[cpts] = M_nodes_vec[renumbering[ii][jj]-1];
             }
 
@@ -691,6 +692,36 @@ GmshMesh::nodalGrid()
 
     M_num_triangles = M_triangles.size();
 
+    // move renumbering of triangles here (previously at the end of this function)
+    // --------------------------------BEGINNING-------------------------
+    renumbering.resize(0);
+    //std::cout<<"renumbering.size= "<< renumbering.size() <<"\n";
+
+    // gather operations for global element renumbering
+    boost::mpi::all_gather(M_comm,
+                           triangles_num_without_ghost,
+                           renumbering);
+
+    cpts = 0;
+    cpts_dom = 0;
+
+    for (int ii=0; ii<M_comm.size(); ++ii)
+    {
+        for (int jj=0; jj<renumbering[ii].size(); ++jj)
+        {
+            M_reorder_map_elements.insert(position(renumbering[ii][jj],cpts+1));
+
+            //if (this->comm().rank() == 0)
+            // std::cout<<"MAPPING: "<< renumbering[ii][jj] << "   --->   " << cpts+1 <<"\n";
+
+            ++cpts;
+        }
+
+        cpts_dom += renumbering[ii].size();
+    }
+    // --------------------------------END-------------------------------
+
+
     // --------------------------------BEGINNING-------------------------
 
     // elements in partition first and ghost at the end
@@ -705,6 +736,8 @@ GmshMesh::nodalGrid()
         if (M_comm.rank() == it->partition)
         {
             M_triangles.push_back(*it);
+            //int ri = M_reorder_map_elements.left.find(it->number)->second;
+            //M_triangles_id_with_ghost.push_back(ri);
             M_triangles_id_with_ghost.push_back(it->number);
             ++M_num_triangles_without_ghost;
         }
@@ -715,8 +748,16 @@ GmshMesh::nodalGrid()
         if (M_comm.rank() != it->partition)
         {
             M_triangles.push_back(*it);
+            //int ri = M_reorder_map_elements.left.find(it->number)->second;
+            //M_triangles_id_with_ghost.push_back(ri);
             M_triangles_id_with_ghost.push_back(it->number);
         }
+    }
+
+    for (int k=0; k<M_triangles_id_with_ghost.size(); ++k)
+    {
+        // mapping from old global numbering to local numbering
+        M_transfer_map_elt.insert(position(M_triangles_id_with_ghost[k],k+1));
     }
 
     // --------------------------------END-------------------------------
@@ -749,32 +790,6 @@ GmshMesh::nodalGrid()
 
 
     // --------------------------------BEGINNING-------------------------
-
-    renumbering.resize(0);
-    //std::cout<<"renumbering.size= "<< renumbering.size() <<"\n";
-
-    // gather operations for global element renumbering
-    boost::mpi::all_gather(M_comm,
-                           triangles_num_without_ghost,
-                           renumbering);
-
-    cpts = 0;
-    cpts_dom = 0;
-
-    for (int ii=0; ii<M_comm.size(); ++ii)
-    {
-        for (int jj=0; jj<renumbering[ii].size(); ++jj)
-        {
-            M_reorder_map_elements.insert(position(renumbering[ii][jj],cpts+1));
-
-            // if (this->comm().rank() == 0)
-            //     std::cout<<"MAPPING: "<< renumbering[ii][jj] << "   --->   " << cpts+1 <<"\n";
-
-            ++cpts;
-        }
-
-        cpts_dom += renumbering[ii].size();
-    }
     // --------------------------------END-------------------------------
 
     M_global_num_elements = M_reorder_map_elements.size();

@@ -162,6 +162,7 @@ namespace Nextsim
             ("simul.constant_ocean_u", po::value<double>()->default_value( 0. ), "")
             ("simul.constant_ocean_v", po::value<double>()->default_value( 0. ), "")
             ("simul.constant_bathymetry", po::value<double>()->default_value( 200. ), "")
+            ("simul.maxiter", po::value<int>()->default_value( 1000 ), "")
             ;
         return desc;
     }

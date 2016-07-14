@@ -37,7 +37,7 @@ if nargin==2, dir=''; end
 %field='Damage';
 %field='bathy';
 
-for p=0:3
+for p=0:0
 
   [mesh_out,data_out] = neXtSIM_bin_revert(dir, p, step);
 
