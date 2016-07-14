@@ -91,8 +91,8 @@ void InterpFromMeshToGridx(double* &griddata,int* index_mesh, double* x_mesh, do
 	for (n=0;n<nels;n++){
 
 		/*display current iteration*/
-		if (debug && fmod((double)n,(double)100)==0)
-		 _printf_("\r      interpolation progress: "<<setw(6)<<setprecision(2)<<double(n)/double(nels)*100<<"%   ");
+		// if (debug && fmod((double)n,(double)100)==0)
+		//  _printf_("\r      interpolation progress: "<<setw(6)<<setprecision(2)<<double(n)/double(nels)*100<<"%   ");
 
 		/*Get extrema coordinates of current elements*/
 		x_tria_min=x_mesh[index_mesh[3*n+0]-1]; x_tria_max=x_tria_min;
@@ -178,8 +178,8 @@ void InterpFromMeshToGridx(double* &griddata,int* index_mesh, double* x_mesh, do
 			}
 		}
 	}
-	if (debug)
-	 _printf_("\r      interpolation progress: "<<fixed<<setw(6)<<setprecision(2)<<100.<<"%  \n");
+	// if (debug)
+	//  _printf_("\r      interpolation progress: "<<fixed<<setw(6)<<setprecision(2)<<100.<<"%  \n");
 
 	xDelete<double>(x_grid);
 	xDelete<double>(y_grid);

@@ -275,6 +275,7 @@ private:
     double days_in_sec;
     double time_init;
     double output_time_step;
+    double mooring_output_time_step;
     double restart_time_step;
     double time_step;
     double duration;
@@ -373,6 +374,20 @@ private:
     std::vector<double> M_tsurf;        // Ice surface temperature [C]
     std::vector<double> M_tsurf_thin;   // Ice surface temperature of thin ice [C]
 
+private:
+    // Variables for the moorings
+
+    bool M_use_moorings;
+
+    std::vector<double> M_conc_mean;    // Mean concentration (on the mesh)
+    std::vector<double> M_thick_mean;   // Mean ice thickness (on the mesh)
+    std::vector<double> M_snow_thick_mean;  // Mean snow thickness (on the mesh)
+    std::vector<double> M_VT_mean;      // Mean velocity (on the mesh)
+
+    std::vector<double> M_conc_grid;    // Mean concentration (on the grid)
+    std::vector<double> M_thick_grid;   // Mean ice thickness (on the grid)
+    std::vector<double> M_snow_thick_grid;  // Mean snow thickness (on the grid)
+    std::vector<double> M_VT_grid;      // Mean velocity (on the grid)
 
 private:
     void constantIce();
@@ -383,6 +398,11 @@ private:
     void outputDrifter(std::fstream &iabp_out);
     void initIABPDrifter();
     void updateIABPDrifter();
+
+    void updateMeans();
+    int initMoorings(int &ncols, int &nrows);
+    void updateMoorings(int grid_size, int ncols, int nrows);
+    void exportMoorings(int grid_size);
 
 #if 0
     void topazIce();
