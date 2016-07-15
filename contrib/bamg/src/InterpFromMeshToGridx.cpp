@@ -54,11 +54,14 @@ void InterpFromMeshToGridx(double* &griddata,int* index_mesh, double* x_mesh, do
 	debug=(bool)((double)nrows*ncols*nels >= 5*pow(10.,10.));
 
 	/*Initialize coordintes and griddata*/
-	for(i=0;i<nrows;i++){
+	/*for(i=0;i<nrows;i++){
 		for(j=0;j<ncols; j++){
-			griddata[i*ncols+j]=default_value;
+            griddata[i*nrows+j]=default_value;
 		}
-	}
+	}*/
+    for ( i=0; i<N_data*nrows*ncols; i++ )
+        griddata[i] = default_value;
+
 	/*figure out if x or y are flipped*/
 	if (xposting<0) xflip=1;
 	else xflip=0;

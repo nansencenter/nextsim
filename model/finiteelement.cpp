@@ -3975,6 +3975,9 @@ FiniteElement::updateMoorings(int grid_size, int ncols, int nrows)
     chrono.restart();
     LOG(DEBUG) <<"updateMoorings starts\n";
 
+    // Missing value number
+    double miss_val = -1e99;
+
     // ELEMENT INTERPOLATION (c, h, hs)
     int nb_var=3;
 
@@ -4023,7 +4026,7 @@ FiniteElement::updateMoorings(int grid_size, int ncols, int nrows)
                           xmin,ymax,
                           dx,dx,
                           nrows, ncols,
-                          0.);
+                          miss_val);
 
 
     // Add the output pointer value to the grid vectors
@@ -4057,7 +4060,8 @@ FiniteElement::updateMoorings(int grid_size, int ncols, int nrows)
 
         double grid_volume = 0.;
         for ( int i = grid_size; i<2*grid_size; i++ )
-            grid_volume += interp_elt_out[i];
+            if ( interp_elt_out[i] > miss_val )
+                grid_volume += interp_elt_out[i];
         grid_volume *= dx*dx;
 
         LOG(DEBUG) << "Interpolation error in accumulated volume: " << grid_volume-mesh_volume << "\n";
@@ -4092,7 +4096,7 @@ FiniteElement::updateMoorings(int grid_size, int ncols, int nrows)
                           xmin,ymax,
                           dx,dx,
                           nrows, ncols,
-                          0.);
+                          miss_val);
 
     // Add the output pointer value to the grid vector
     for (int i=0; i<grid_size; ++i)
