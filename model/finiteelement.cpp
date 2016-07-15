@@ -4023,7 +4023,8 @@ FiniteElement::updateMoorings(int grid_size, int ncols, int nrows)
                           xmin,ymax,
                           dx,dx,
                           nrows, ncols,
-                          -1.0e99);
+                          0.);
+
 
     // Add the output pointer value to the grid vectors
     for (int i=0; i<grid_size; ++i)
@@ -4046,6 +4047,22 @@ FiniteElement::updateMoorings(int grid_size, int ncols, int nrows)
         {
             throw std::logic_error("tmp_nb_var not equal to nb_var");
         }
+    }
+
+    if ( M_log_level >= DEBUG )
+    {
+        double mesh_volume = 0.;
+        for ( int i = 0; i != M_thick.size(); i++ )
+            mesh_volume += M_thick_mean[i]*measure(M_elements[i], M_mesh);
+
+        double grid_volume = 0.;
+        for ( int i = grid_size; i<2*grid_size; i++ )
+            grid_volume += interp_elt_out[i];
+        grid_volume *= dx*dx;
+
+        LOG(DEBUG) << "Interpolation error in accumulated volume: " << grid_volume-mesh_volume << "\n";
+        LOG(DEBUG) << "Fractional interpolation error in accumulated volume: "
+            << (grid_volume-mesh_volume)/mesh_volume << "\n";
     }
 
     xDelete<double>(interp_elt_out);
@@ -4075,7 +4092,7 @@ FiniteElement::updateMoorings(int grid_size, int ncols, int nrows)
                           xmin,ymax,
                           dx,dx,
                           nrows, ncols,
-                          -1.0e99);
+                          0.);
 
     // Add the output pointer value to the grid vector
     for (int i=0; i<grid_size; ++i)
@@ -4093,8 +4110,7 @@ FiniteElement::updateMoorings(int grid_size, int ncols, int nrows)
 void
 FiniteElement::exportMoorings(int grid_size)
 {
-    // double time_factor = 1./(1.+mooring_output_time_step/time_step);
-    double time_factor = time_step/(time_step+mooring_output_time_step);
+    double time_factor = time_step/mooring_output_time_step;
 
     // Divide the element values
     for (int i=0; i<grid_size; ++i)
@@ -4123,6 +4139,11 @@ FiniteElement::exportMoorings(int grid_size)
     std::copy(M_conc_grid.begin(), M_conc_grid.end(), ostream_iterator<float>(myfile, " "));
     myfile.close();
 
+    // Reset the grid
+    M_conc_grid.assign(grid_size,0.);
+    M_thick_grid.assign(grid_size,0.);
+    M_snow_thick_grid.assign(grid_size,0.);
+    M_VT_grid.assign(2*grid_size,0.);
 }
 
 void
