@@ -96,6 +96,7 @@ public:
     std::vector<int> const& localDofWithGhost() const {return M_local_dof_with_ghost;}
     std::vector<int> const& localGhost() const {return M_local_ghost;}
 
+    std::vector<int> const& localDofWithGhostInit() const {return M_local_dof_with_ghost_init;}
     std::vector<int> const& trianglesIdWithGhost() const {return M_triangles_id_with_ghost;}
 
     bimap_type const& transferMapInit() const {return M_transfer_map;}
@@ -141,6 +142,7 @@ private:
     std::vector<element_type> M_edges;
 
     std::vector<int> M_local_dof_with_ghost;
+    std::vector<int> M_local_dof_with_ghost_init;
     std::vector<int> M_local_dof_without_ghost;
     std::vector<int> M_local_ghost;
     std::vector<int> M_triangles_id_with_ghost;

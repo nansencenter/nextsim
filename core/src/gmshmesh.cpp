@@ -574,8 +574,8 @@ GmshMesh::nodalGrid()
             if (M_comm.rank() == 0)
             {
                 //std::cout<<"TEST MAPPING["<< cpts+1 <<"]= "<< renumbering[ii][jj] <<"\n";
-                std::cout<<"MAPPING["<< cpts+cpts_dom+1 <<"]= "<< renumbering[ii][jj] <<"\n";
-                std::cout<<"MAPPING["<< cpts+sr+cpts_dom+1 <<"]= "<< renumbering[ii][jj]+M_num_nodes <<"\n";
+                //std::cout<<"MAPPING["<< cpts+cpts_dom+1 <<"]= "<< renumbering[ii][jj] <<"\n";
+                //std::cout<<"MAPPING["<< cpts+sr+cpts_dom+1 <<"]= "<< renumbering[ii][jj]+M_num_nodes <<"\n";
                 //M_nodes_root[cpts] = M_nodes_vec[renumbering[ii][jj]-1];
             }
 
@@ -586,6 +586,7 @@ GmshMesh::nodalGrid()
     }
 
 
+    M_local_dof_with_ghost_init = M_local_dof_with_ghost;
     auto local_dof_with_ghost = M_local_dof_with_ghost;
 
     M_nldof_with_ghost = M_local_dof_with_ghost.size();

@@ -154,6 +154,9 @@ public:
     double jacobian(element_type const& element, mesh_type const& mesh,
                     std::vector<double> const& um, double factor = 1.) const;
 
+    double jacobian(element_type const& element, mesh_type_root const& mesh,
+                    std::vector<double> const& um, double factor = 1.) const;
+
     std::vector<double> sides(element_type const& element, mesh_type const& mesh) const;
 
     std::vector<double> sides(element_type const& element, mesh_type_root const& mesh) const;
@@ -163,21 +166,26 @@ public:
     template<typename FEMeshType>
     double measure(element_type const& element, FEMeshType const& mesh) const;
 
-    double measure(element_type const& element, mesh_type const& mesh,
+    template<typename FEMeshType>
+    double measure(element_type const& element, FEMeshType const& mesh,
                    std::vector<double> const& um, double factor = 1.) const;
 
     std::vector<double> shapeCoeff(element_type const& element, mesh_type const& mesh) const;
+
+    std::vector<double> shapeCoeff(element_type const& element, mesh_type_root const& mesh) const;
+
     void regrid(bool step = true);
     void adaptMesh();
 
+    void gatherSizes();
     void gatherFieldsElement(std::vector<double>& interp_in_elements);
     void scatterFieldsElement(double* interp_elt_out);
     void interpFieldsElement();
 
+    void gatherUM(std::vector<double>& um);
     void interpFieldsNode(bimap_type const& rmap_nodes, std::vector<int> sizes_nodes);
 
     void assemble(int cpt);
-    void assembleSeq(int cpt);
     void solve();
     void run();
     void error();
@@ -198,10 +206,14 @@ public:
     Grid M_topaz_grid;
 	Grid M_etopo_grid;
 
-    double minAngles(element_type const& element, mesh_type const& mesh) const;
-    double minAngle(mesh_type const& mesh) const;
+    template<typename FEMeshType>
+    double minAngles(element_type const& element, FEMeshType const& mesh) const;
 
-    double minAngle(mesh_type const& mesh, std::vector<double> const& um, double factor) const;
+    template<typename FEMeshType>
+    double minAngle(FEMeshType const& mesh) const;
+
+    template<typename FEMeshType>
+    double minAngle(FEMeshType const& mesh, std::vector<double> const& um, double factor) const;
 
     template<typename FEMeshType>
     bool flip(FEMeshType const& mesh, std::vector<double> const& um, double factor) const;
@@ -233,11 +245,13 @@ public:
     void initVariables();
     void initModelState();
     void tensors();
+    void tensorsOnRoot();
     void cohesion();
     void updateVelocity();
+    void speedScaling(std::vector<double>& speed_scaling);
     void scalingVelocity();
     void update();
-    void updateSeq();
+    void updateOnRoot();
     void exportResults(int step, bool export_mesh = true);
 
     void writeRestart(int pcpt, int step);
@@ -345,6 +359,13 @@ private:
 
     std::vector<double> M_fcor;
 
+    std::vector<int> M_sizes_nodes;
+    std::vector<int> M_sizes_nodes_with_ghost;
+    std::vector<int> M_sizes_elements;
+    std::vector<int> M_sizes_elements_with_ghost;
+    std::vector<int> M_id_nodes;
+    std::vector<double> M_speed_scaling;
+
     std::vector<double> M_Dunit;
     std::vector<double> M_Dunit_comp;
     std::vector<double> M_Mass;
@@ -425,9 +446,16 @@ private: // only on root process (rank 0)
     mesh_type_root M_mesh_init_root;
     mesh_type_root M_mesh_previous_root;
 
+    std::vector<double> M_UM_root;
     std::vector<int> M_dirichlet_flags_root;
     std::vector<int> M_neumann_flags_root;
+
+    std::vector<int> M_dirichlet_nodes_root;
+    std::vector<int> M_neumann_nodes_root;
+
     std::vector<double> M_random_number_root;
+
+    std::vector<std::vector<double>> M_B0T_root;
 
     BamgMesh *bamgmesh_root;
     BamgGeom *bamggeom_root;
