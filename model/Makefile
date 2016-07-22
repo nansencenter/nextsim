@@ -1,6 +1,7 @@
 KERNEL := $(shell uname -s)
 
 PROGNAME=nextsim.exec
+FPROGNAME=FWrap.x
 
 CXX = g++
 CXXFLAGS += -std=c++11 -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v -DHAVE_CONFIG_H -D_MULTITHREADING_
@@ -12,6 +13,8 @@ CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
 CXXFLAGS +=	-I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I .
 CXXFLAGS +=	-I $(NETCDF_DIR)/include -I $(GMSH_DIR)/include/gmsh
 
+FC = gfortran
+FFLAGS = -std=f2003 -fopenmp
 
 ifeq ($(KERNEL),Linux)
 	#CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -lm -pthread -v #-MMD -MP -lm -pthread -v
@@ -97,5 +100,12 @@ $(DEPENDDIR)%.d: %.cpp
 
 # The compilation depends on this Makefile.
 $(OBJS): Makefile
+
+# The frotran wrapper
+fortran: $(FPROGNAME)
+
+$(FPROGNAME): $(OBJS) finiteelement_mod.f90
+	#$(FC) $(FFLAGS) $(LDFLAGS) -c finiteelement_mod.f90
+	$(FC) $(FFLAGS) $(LDFLAGS) -o $(BINARYDIR)$@ $^ -lstdc++
 
 -include $(DEPS)
