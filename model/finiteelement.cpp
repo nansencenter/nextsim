@@ -182,15 +182,7 @@ FiniteElement::initVariables()
     M_sst.resize(M_num_elements);
     M_sss.resize(M_num_elements);
 
-    // M_bathy_depth.resize(M_mesh_init.numNodes(),200.);
-
-    // These have already been set when initialising the mesh in initMesh()
-    // M_hminVertices.resize(M_mesh_init.numNodes(),1e-100);
-    // M_hmaxVertices.resize(M_mesh_init.numNodes(),1e100);
-
     M_UM.resize(2*M_num_nodes,0.);
-
-    //M_element_depth.resize(M_num_elements);
 
     M_h_thin.assign(M_num_elements,0.);
     M_hs_thin.assign(M_num_elements,0.);
@@ -1346,26 +1338,7 @@ FiniteElement::regrid(bool step)
 		}
 
         LOG(DEBUG) <<"Flip done in "<< chrono.elapsed() <<"s\n";
-
-        // if (bamgopt->KeepVertices!=0)
-        //     bamgopt->KeepVertices=0;
     }
-#if 0
-    else
-    {
-        hmin_vertices_first = this->hminVertices(M_mesh, bamgmesh);
-        hmax_vertices_first = this->hmaxVertices(M_mesh, bamgmesh);
-    }
-
-    bamgopt->hminVertices = new double[M_mesh.numNodes()];
-    bamgopt->hmaxVertices = new double[M_mesh.numNodes()];
-
-    for (int i=0; i<M_mesh.numNodes();++i)
-    {
-        bamgopt->hminVertices[i] = (step) ? hmin_vertices[i] : hmin_vertices_first[i];
-        bamgopt->hmaxVertices[i] = (step) ? hmax_vertices[i] : hmax_vertices_first[i];
-    }
-#endif
 
 	for (int substep_i = 0; substep_i < substep_nb; substep_i++ )
 	{
@@ -1413,9 +1386,6 @@ FiniteElement::regrid(bool step)
 			// NODAL INTERPOLATION
 			int init_num_nodes = M_mesh_init.numNodes();
 
-			// memory leak:
-			//double* interp_Vertices_in;
-			//interp_Vertices_in = new double[2*init_num_nodes];
 			// To avoid memory leak:
 			std::vector<double> interp_Vertices_in(2*init_num_nodes);
 
@@ -1487,7 +1457,6 @@ FiniteElement::regrid(bool step)
 			for (int i=0; i<prv_num_elements; ++i)
 			{
 				tmp_nb_var=0;
-
 
 				// concentration
 				interp_elt_in[nb_var*i+tmp_nb_var] = M_conc[i];
@@ -1721,8 +1690,6 @@ FiniteElement::regrid(bool step)
 			nb_var=2;
 
 			// memory leak:
-			//double* interp_elt_slab_in;
-			//interp_elt_slab_in = new double[nb_var*prv_num_elements];
 			std::vector<double> interp_elt_slab_in(nb_var*prv_num_elements);
 
 			double* interp_elt_slab_out;
@@ -1769,9 +1736,6 @@ FiniteElement::regrid(bool step)
 			// NODAL INTERPOLATION
 			nb_var=8;
 
-			// memory leak:
-			//double* interp_in;
-			//interp_in = new double[nb_var*prv_num_nodes];
 			std::vector<double> interp_in(nb_var*prv_num_nodes);
 
 			double* interp_out;
@@ -2403,8 +2367,6 @@ FiniteElement::assemble(int pcpt)
     {
         if(!M_valid_conc[i])
         {
-            //M_matrix->setValue(i, i, 1000000000000000.);
-            //M_vector->set(i, 0.);
             extended_dirichlet_nodes.push_back(i);
         }
     }
@@ -4877,7 +4839,6 @@ FiniteElement::coriolis()
     for (int i=0; i<M_fcor.size(); ++i)
     {
         M_fcor[i] = 2*(vm["simul.omega"].as<double>())*std::sin(lat[i]*PI/180.);
-        //std::cout <<"Coeff= "<< M_fcor[i] <<"\n";
     }
 }
 
@@ -4960,9 +4921,6 @@ FiniteElement::initNFloes()
 void
 FiniteElement::nodesToElements(double const* depth, std::vector<double>& v)
 {
-    //std::vector<double> vc = v;
-    //v.resize(M_num_elements);
-
     int cpt = 0;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
     {
@@ -5430,8 +5388,8 @@ FiniteElement::exportResults(int step, bool export_mesh)
         sigma1[i] = sigma_n+sigma_s;
         sigma2[i] = sigma_n-sigma_s;
     }
-    exporter.writeField(outbin, sigma1, "sigma1");
-    exporter.writeField(outbin, sigma2, "sigma2");
+    exporter.writeField(outbin, sigma1, "Sigma1");
+    exporter.writeField(outbin, sigma2, "Sigma2");
 
     outbin.close();
 
@@ -5495,6 +5453,9 @@ FiniteElement::nextsimToWim(bool step)
 
         int num_elements_grid = (vm["wim.nx"].as<int>())*(vm["wim.ny"].as<int>());
 
+        // move the mesh for the interpolation on to the wim grid
+		M_mesh.move(M_UM,1.);
+
         InterpFromMeshToGridx(interp_elt_out,
                               &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
                               M_mesh.numNodes(),M_mesh.numTriangles(),
@@ -5504,6 +5465,9 @@ FiniteElement::nextsimToWim(bool step)
                               dx,dy,
                               vm["wim.nx"].as<int>(),vm["wim.ny"].as<int>(),
                               0.);
+
+        // move back the mesh after the interpolation
+		M_mesh.move(M_UM,-1.);
 
 
         if (!step)
@@ -5539,52 +5503,9 @@ FiniteElement::nextsimToWim(bool step)
         }
 
         xDelete<double>(interp_elt_out);
-
-#if 0
-        std::cout<<"MIN ICEC= "<< *std::min_element(M_conc.begin(),M_conc.end()) <<"\n";
-        std::cout<<"MAX ICEC= "<< *std::max_element(M_conc.begin(),M_conc.end()) <<"\n";
-
-        std::cout<<"MIN ICEH= "<< *std::min_element(M_thick.begin(),M_thick.end()) <<"\n";
-        std::cout<<"MAX ICEH= "<< *std::max_element(M_thick.begin(),M_thick.end()) <<"\n";
-
-        std::cout<<"MIN NFLOES= "<< *std::min_element(M_nfloes.begin(),M_nfloes.end()) <<"\n";
-        std::cout<<"MAX NFLOES= "<< *std::max_element(M_nfloes.begin(),M_nfloes.end()) <<"\n";
-
-        std::cout<<"--------------------------------------------\n";
-
-        std::cout<<"MIN ICEC= "<< *std::min_element(M_icec_grid.begin(),M_icec_grid.end()) <<"\n";
-        std::cout<<"MAX ICEC= "<< *std::max_element(M_icec_grid.begin(),M_icec_grid.end()) <<"\n";
-
-        std::cout<<"MIN ICEH= "<< *std::min_element(M_iceh_grid.begin(),M_iceh_grid.end()) <<"\n";
-        std::cout<<"MAX ICEH= "<< *std::max_element(M_iceh_grid.begin(),M_iceh_grid.end()) <<"\n";
-
-        std::cout<<"MIN NFLOES= "<< *std::min_element(M_nfloes_grid.begin(),M_nfloes_grid.end()) <<"\n";
-        std::cout<<"MAX NFLOES= "<< *std::max_element(M_nfloes_grid.begin(),M_nfloes_grid.end()) <<"\n";
-#endif
-
-
-#if 0
-        auto RX = M_mesh.coordX();
-        auto RY = M_mesh.coordY();
-
-        std::cout<<"MIN BOUND MESHX= "<< *std::min_element(RX.begin(),RX.end()) <<"\n";
-        std::cout<<"MAX BOUND MESHX= "<< *std::max_element(RX.begin(),RX.end()) <<"\n";
-
-        std::cout<<"MIN BOUND MESHY= "<< *std::min_element(RY.begin(),RY.end()) <<"\n";
-        std::cout<<"MAX BOUND MESHY= "<< *std::max_element(RY.begin(),RY.end()) <<"\n";
-
-        std::cout<<"------------------------------------------\n";
-
-        std::cout<<"MIN BOUND GRIDX= "<< (vm["wim.xmin"].as<double>()) <<"\n";
-        std::cout<<"MAX BOUND GRIDX= "<< (vm["wim.xmin"].as<double>()+vm["wim.dx"].as<double>()*vm["wim.nx"].as<int>()) <<"\n";
-
-        std::cout<<"MIN BOUND GRIDY= "<< (vm["wim.ymin"].as<double>()) <<"\n";
-        std::cout<<"MAX BOUND GRIDY= "<< (vm["wim.ymin"].as<double>()+vm["wim.dy"].as<double>()*vm["wim.ny"].as<int>()) <<"\n";
-#endif
     }
-}//
+}
 
-#if 0
 void
 FiniteElement::wimToNextsim(bool step)
 {
@@ -5593,7 +5514,6 @@ FiniteElement::wimToNextsim(bool step)
         if (!step)
         {
             // instantiation of wim
-            //Wim::WimDiscr<double> wim(vm);
             wim = wim_type(vm);
 
             // initialization of wim
@@ -5607,6 +5527,9 @@ FiniteElement::wimToNextsim(bool step)
         M_tauy_grid = wim.getTauy();
         M_nfloes_grid = wim.getNFloes();
     }
+
+    if (!M_regrid)
+        M_mesh.move(M_UM,1.);
 
     if (M_run_wim || M_regrid)
     {
@@ -5664,24 +5587,7 @@ FiniteElement::wimToNextsim(bool step)
 
         xDelete<double>(interp_out);
 
-#if 0
-        std::cout<<"arrived here\n";
-        std::cout<<"MIN TAUX GRID= "<< *std::min_element(M_taux_grid.begin(),M_taux_grid.end()) <<"\n";
-        std::cout<<"MAX TAUX GRID= "<< *std::max_element(M_taux_grid.begin(),M_taux_grid.end()) <<"\n";
-
-        std::cout<<"MIN TAUY GRID= "<< *std::min_element(M_tauy_grid.begin(),M_tauy_grid.end()) <<"\n";
-        std::cout<<"MAX TAUY GRID= "<< *std::max_element(M_tauy_grid.begin(),M_tauy_grid.end()) <<"\n";
-
-        std::cout<<"--------------------------------------------\n";
-
-        std::cout<<"MIN TAUX= "<< *std::min_element(M_tau.begin(),M_tau.begin()+M_num_nodes) <<"\n";
-        std::cout<<"MAX TAUX= "<< *std::max_element(M_tau.begin(),M_tau.begin()+M_num_nodes) <<"\n";
-
-        std::cout<<"MAX TAUY= "<< *std::min_element(M_tau.begin()+M_num_nodes,M_tau.end()) <<"\n";
-        std::cout<<"MAX TAUY= "<< *std::max_element(M_tau.begin()+M_num_nodes,M_tau.end()) <<"\n";
-#endif
-
-        if (M_run_wim || (M_regrid && vm["wim.nfloesgridtomesh"].as<bool>()))
+        if (M_run_wim || vm["wim.nfloesgridtomesh"].as<bool>())
         {
             // interpolate nfloes if needed
             InterpFromGridToMeshx(interp_out,
@@ -5702,18 +5608,11 @@ FiniteElement::wimToNextsim(bool step)
             }
 
             xDelete<double>(interp_out);
-
-#if 0
-            std::cout<<"MIN NFLOES GRID= "<< *std::min_element(M_nfloes_grid.begin(),M_nfloes_grid.end()) <<"\n";
-            std::cout<<"MAX NFLOES GRID= "<< *std::max_element(M_nfloes_grid.begin(),M_nfloes_grid.end()) <<"\n";
-
-            std::cout<<"--------------------------------------------\n";
-
-            std::cout<<"MIN NFLOES= "<< *std::min_element(M_nfloes.begin(),M_nfloes.end()) <<"\n";
-            std::cout<<"MAX NFLOES= "<< *std::max_element(M_nfloes.begin(),M_nfloes.end()) <<"\n";
-#endif
         }
     }
+
+    if (!M_regrid)
+        M_mesh.move(M_UM,-1.);
 
     M_dfloe.assign(M_num_elements,0.);
 
@@ -5729,162 +5628,6 @@ FiniteElement::wimToNextsim(bool step)
             M_dfloe[i] = 0.;
     }
 }
-#endif
-
-#if 1
-void
-FiniteElement::wimToNextsim(bool step)
-{
-    if (M_run_wim)
-    {
-
-        if (!step)
-        {
-            // instantiation of wim
-            //Wim::WimDiscr<double> wim(vm);
-            wim = wim_type(vm);
-
-            // initialization of wim
-            wim.init();
-        }
-
-        // run wim
-        wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, step);
-
-        M_taux_grid = wim.getTaux();
-        M_tauy_grid = wim.getTauy();
-        M_nfloes_grid = wim.getNFloes();
-    }
-
-    int nx = vm["wim.nx"].as<int>();
-    int ny = vm["wim.ny"].as<int>();
-
-    std::vector<double> X(nx);
-    std::vector<double> Y(ny);
-
-    for (int i = 0; i < nx; i++)
-        X[i] = vm["wim.xmin"].as<double>() + (i+0.5)*vm["wim.dx"].as<double>();
-
-    for (int j = 0; j < ny; j++)
-        Y[j] = vm["wim.ymin"].as<double>() + (j+0.5)*vm["wim.dy"].as<double>();
-
-    chrono.restart();
-    LOG(DEBUG) <<"Nodal Interp starts\n";
-    LOG(DEBUG) <<"NODAL: Interp starts\n";
-
-    int num_elements_grid = nx*ny;
-
-    // NODAL INTERPOLATION
-    int nb_var=2;
-    std::vector<double> interp_in(nb_var*num_elements_grid,0.);
-    double* interp_out;
-
-    for (int i=0; i<num_elements_grid; ++i)
-    {
-        // tau (taux and tauy)
-        interp_in[nb_var*i] = M_taux_grid[i];
-        interp_in[nb_var*i+1] = M_tauy_grid[i];
-    }
-
-    // int interptype = TriangleInterpEnum;
-    int interptype = BilinearInterpEnum;
-    //int interptype = NearestInterpEnum;
-
-    std::vector<double> RX;
-    std::vector<double> RY;
-
-    auto meshv = M_mesh;
-
-    if (!(M_run_wim || M_regrid))
-    {
-        meshv.move(M_UM,1.);
-    }
-
-    InterpFromGridToMeshx(interp_out,
-                          &X[0], vm["wim.nx"].as<int>(),
-                          &Y[0], vm["wim.ny"].as<int>(),
-                          &interp_in[0],
-                          vm["wim.ny"].as<int>(), vm["wim.nx"].as<int>(),
-                          nb_var,
-                          &meshv.coordX()[0], &meshv.coordY()[0], M_num_nodes,0.,interptype,true);
-
-    if ((!step) || M_regrid)
-        M_tau.assign(2*M_num_nodes,0);
-
-    for (int i=0; i<M_num_nodes; ++i)
-    {
-        // tau
-        M_tau[i] = interp_out[nb_var*i];
-        M_tau[i+M_num_nodes] = interp_out[nb_var*i+1];
-    }
-
-    xDelete<double>(interp_out);
-
-#if 0
-    std::cout<<"arrived here\n";
-    std::cout<<"MIN TAUX GRID= "<< *std::min_element(M_taux_grid.begin(),M_taux_grid.end()) <<"\n";
-    std::cout<<"MAX TAUX GRID= "<< *std::max_element(M_taux_grid.begin(),M_taux_grid.end()) <<"\n";
-
-    std::cout<<"MIN TAUY GRID= "<< *std::min_element(M_tauy_grid.begin(),M_tauy_grid.end()) <<"\n";
-    std::cout<<"MAX TAUY GRID= "<< *std::max_element(M_tauy_grid.begin(),M_tauy_grid.end()) <<"\n";
-
-    std::cout<<"--------------------------------------------\n";
-
-    std::cout<<"MIN TAUX= "<< *std::min_element(M_tau.begin(),M_tau.begin()+M_num_nodes) <<"\n";
-    std::cout<<"MAX TAUX= "<< *std::max_element(M_tau.begin(),M_tau.begin()+M_num_nodes) <<"\n";
-
-    std::cout<<"MAX TAUY= "<< *std::min_element(M_tau.begin()+M_num_nodes,M_tau.end()) <<"\n";
-    std::cout<<"MAX TAUY= "<< *std::max_element(M_tau.begin()+M_num_nodes,M_tau.end()) <<"\n";
-#endif
-
-    //if (M_run_wim || (M_regrid && vm["wim.nfloesgridtomesh"].as<bool>()))
-
-    // interpolate nfloes if needed
-    InterpFromGridToMeshx(interp_out,
-                          &X[0], vm["wim.nx"].as<int>(),
-                          &Y[0], vm["wim.ny"].as<int>(),
-                          &M_nfloes_grid[0],
-                          vm["wim.ny"].as<int>(), vm["wim.nx"].as<int>(),
-                          1,
-                          &meshv.bcoordX()[0], &meshv.bcoordY()[0], M_num_elements,0.,interptype,true);
-
-    if (M_regrid)
-        M_nfloes.resize(M_num_elements);
-
-    for (int i=0; i<M_num_elements; ++i)
-    {
-        // nfloes
-        M_nfloes[i] = interp_out[i];
-    }
-
-    xDelete<double>(interp_out);
-
-#if 0
-    std::cout<<"MIN NFLOES GRID= "<< *std::min_element(M_nfloes_grid.begin(),M_nfloes_grid.end()) <<"\n";
-    std::cout<<"MAX NFLOES GRID= "<< *std::max_element(M_nfloes_grid.begin(),M_nfloes_grid.end()) <<"\n";
-
-    std::cout<<"--------------------------------------------\n";
-
-    std::cout<<"MIN NFLOES= "<< *std::min_element(M_nfloes.begin(),M_nfloes.end()) <<"\n";
-    std::cout<<"MAX NFLOES= "<< *std::max_element(M_nfloes.begin(),M_nfloes.end()) <<"\n";
-#endif
-
-
-    M_dfloe.assign(M_num_elements,0.);
-
-    for (int i=0; i<M_num_elements; ++i)
-    {
-        if (M_nfloes[i] > 0)
-            M_dfloe[i] = std::sqrt(M_conc[i]/M_nfloes[i]);
-
-        if (M_dfloe[i] > vm["wim.dfloepackthresh"].template as<double>())
-            M_dfloe[i] = vm["wim.dfloepackinit"].template as<double>();
-
-        if (M_conc[i] < vm["wim.cicemin"].template as<double>())
-            M_dfloe[i] = 0.;
-    }
-}
-#endif
 
 void
 FiniteElement::clear()

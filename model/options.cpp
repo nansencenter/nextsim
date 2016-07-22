@@ -185,7 +185,7 @@ namespace Nextsim
             ("wim.refhsice", po::value<bool>()->default_value( false ), "Inside ice, Hs corresponds to water (=false) or ice (=true) displacement")
             ("wim.icevel", po::value<bool>()->default_value( false ), "Inside ice, use correct group velocity (=true), or water group velocity (=false)")
             ("wim.scatmod", po::value<std::string>()->default_value( "dissipated" ), "Scattered energy is dissipated (=dissipated), distributed isotropically (=isotropic)")
-            ("wim.advopt", po::value<std::string>()->default_value( "y-periodic" ), "Not periodic (=notperiodic), periodic in y only (=y-periodic), periodic in both x,y (=xy-periodic)")
+            ("wim.advopt", po::value<std::string>()->default_value( "notperiodic" ), "Not periodic (=notperiodic), periodic in y only (=y-periodic), periodic in both x,y (=xy-periodic)")
             ("wim.advdim", po::value<int>()->default_value( 2 ), "Dimension of advection scheme (1 or 2)")
             ("wim.nbdy", po::value<int>()->default_value( 3 ), "Size of the overlap for periodic boundary conditions")
             ("wim.nbdx", po::value<int>()->default_value( 3 ), "Size of the overlap for periodic boundary conditions")
