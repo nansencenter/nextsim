@@ -4052,6 +4052,7 @@ FiniteElement::updateMoorings(int grid_size, int ncols, int nrows)
         }
     }
 
+#if 0
     if ( M_log_level >= DEBUG )
     {
         double mesh_volume = 0.;
@@ -4068,6 +4069,7 @@ FiniteElement::updateMoorings(int grid_size, int ncols, int nrows)
         LOG(DEBUG) << "Fractional interpolation error in accumulated volume: "
             << (grid_volume-mesh_volume)/mesh_volume << "\n";
     }
+#endif
 
     xDelete<double>(interp_elt_out);
 
