@@ -874,6 +874,8 @@ FiniteElement::initConstant()
     time_step = vm["simul.timestep"].as<double>();
     duration = (vm["simul.duration"].as<double>())*days_in_sec;
     restart_time_step =  vm["setup.restart_time_step"].as<double>()*days_in_sec;
+    M_use_restart   = vm["setup.use_restart"].as<bool>();
+    M_write_restart = vm["setup.write_restart"].as<bool>();
     if ( fmod(restart_time_step,time_step) != 0)
     {
         std::cout << restart_time_step << " " << time_step << "\n";
@@ -3597,24 +3599,18 @@ FiniteElement::run()
     LOG(INFO) <<"TIMESTEP= "<< time_step <<"\n";
     LOG(INFO) <<"DURATION= "<< duration <<"\n";
 
-    double displacement_factor = 1.;
-    double minang = 0.;
-    bool is_running = true;
-
     // Initialise the mesh
     this->initMesh(M_domain_type, M_mesh_type);
 
     // Check the minimum angle of the grid
-    minang = this->minAngle(M_mesh);
+    double minang = this->minAngle(M_mesh);
     if (minang < vm["simul.regrid_angle"].as<double>())
     {
         LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
     }
 
-    bool use_restart   = vm["setup.use_restart"].as<bool>();
-    bool write_restart = vm["setup.write_restart"].as<bool>();
-    if ( use_restart )
+    if ( M_use_restart )
     {
         this->readRestart(pcpt, vm["setup.step_nb"].as<int>());
         current_time = time_init + pcpt*time_step/(24*3600.0);
@@ -3665,35 +3661,28 @@ FiniteElement::run()
 
     // Open the output file for drifters
     // TODO: Is this the right place to open the file?
-    std::fstream drifters_out;
     if (M_drifter_type == setup::DrifterType::IABP )
     {
         // We should tag the file name with the init time in case of a re-start.
         std::stringstream filename;
         filename << Environment::nextsimDir().string() << "/matlab/drifters_out_" << current_time << ".txt";
-        drifters_out.open(filename.str(), std::fstream::out);
-        if ( ! drifters_out.good() )
+        M_drifters_out.open(filename.str(), std::fstream::out);
+        if ( ! M_drifters_out.good() )
             throw std::runtime_error("Cannot write to file: " + filename.str());
     }
 
     // Initialise the moorings - if requested
-    int grid_size, ncols, nrows;
     if ( M_use_moorings )
-        grid_size = this->initMoorings(ncols, nrows);
+        M_grid_size = this->initMoorings(M_ncols, M_nrows);
 
     // Debug file that records the time step
     std::fstream pcpt_file;
     pcpt_file.open("Timestamp.txt", std::ios::out | std::ios::trunc);
     // main loop for nextsim program
     current_time = time_init + pcpt*time_step/(24*3600.0);
+    bool is_running = true;
     while (is_running)
     {
-        is_running = ((pcpt+1)*time_step) < duration;
-
-        // if (pcpt > 21)
-        // if ( fmod((pcpt+1)*time_step,mooring_output_time_step) == 0 )
-        //    is_running = false;
-
         //std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
         std::cout<<"---------------------- TIME STEP "<< pcpt << " : "
                  << time_init << " + "<< pcpt*time_step/(24*3600.0);
@@ -3707,155 +3696,12 @@ FiniteElement::run()
 
         std::cout <<"\n";
 
-        M_run_wim = !(pcpt % vm["wim.couplingfreq"].as<int>());
+        step(is_running, pcpt);
 
-        // coupling with wim (exchange from nextsim to wim)
-        if (vm["simul.use_wim"].as<bool>())
-            this->nextsimToWim(pcpt);
-
-        // step 0: preparation
-        // remeshing and remapping of the prognostic variables
-
-        // The first time step we behave as if we just did a regrid
-        M_regrid = (pcpt==0);
-
-        if (vm["simul.regrid"].as<std::string>() == "bamg")
-        {
-            minang = this->minAngle(M_mesh,M_UM,displacement_factor);
-            LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
-
-            if ( minang < vm["simul.regrid_angle"].as<double>() )
-            {
-                M_regrid = true;
-                // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
-                if ( M_use_moorings )
-                    this->updateMoorings(grid_size, ncols, nrows);
-                LOG(DEBUG) <<"Regriding starts\n";
-				chrono.restart();
-                this->regrid(pcpt);
-                LOG(DEBUG) <<"Regriding done in "<< chrono.elapsed() <<"s\n";
-            }
-        }
-
-        // coupling with wim (exchange from wim to nextsim)
-        if (vm["simul.use_wim"].as<bool>())
-            this->wimToNextsim(pcpt);
-        else if ( M_regrid || use_restart ) // We need to make sure M_tau is the right size
-            M_tau.resize(2*M_num_nodes,0.);
-
-
-        // Read in the new buoys and output
-        if (M_drifter_type == setup::DrifterType::IABP && std::fmod(current_time,0.5) == 0)
-        {
-            this->updateIABPDrifter();
-            // TODO: Do we want to output drifters at a different time interval?
-            this->outputDrifter(drifters_out);
-        }
-
-        if ( M_regrid || use_restart )
-        {
-            chrono.restart();
-            LOG(DEBUG) <<"tensors starts\n";
-            this->tensors();
-            LOG(DEBUG) <<"tensors done in "<< chrono.elapsed() <<"s\n";
-            chrono.restart();
-            LOG(DEBUG) <<"cohesion starts\n";
-            this->cohesion();
-            LOG(DEBUG) <<"cohesion done in "<< chrono.elapsed() <<"s\n";
-            chrono.restart();
-            LOG(DEBUG) <<"Coriolis starts\n";
-            this->coriolis();
-            LOG(DEBUG) <<"Coriolis done in "<< chrono.elapsed() <<"s\n";
-        }
-
-        chrono.restart();
-        LOG(DEBUG) <<"check_and_reload starts\n";
-        for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
-            (*it)->check_and_reload(M_mesh,current_time+time_step/(24*3600.0));
-        LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
-
-        use_restart = false;
-
-#if 1
-        if (pcpt == 0)
-        {
-            chrono.restart();
-            LOG(DEBUG) <<"first export starts\n";
-            this->exportResults(0);
-            LOG(DEBUG) <<"first export done in " << chrono.elapsed() <<"s\n";
-        }
-#endif
-
-        //======================================================================
-        // Do the thermodynamics
-        //======================================================================
-        if(vm["simul.use_thermo_forcing"].as<bool>())
-        {
-            chrono.restart();
-            LOG(DEBUG) <<"thermo starts\n";
-            this->thermo();
-            LOG(DEBUG) <<"thermo done in "<< chrono.elapsed() <<"s\n";
-        }
-
-        //======================================================================
-        // Assemble the matrix
-        //======================================================================
-
-        this->assemble(pcpt);
-
-        //======================================================================
-        // Solve the linear problem
-        //======================================================================
-
-        this->solve();
-
-        chrono.restart();
-        LOG(DEBUG) <<"updateVelocity starts\n";
-        this->updateVelocity();
-        LOG(DEBUG) <<"updateVelocity done in "<< chrono.elapsed() <<"s\n";
-
-        chrono.restart();
-        LOG(DEBUG) <<"update starts\n";
-        this->update();
-        LOG(DEBUG) <<"update done in "<< chrono.elapsed() <<"s\n";
-
-        ++pcpt;
         current_time = time_init + pcpt*time_step/(24*3600.0);
         pcpt_file << pcpt << "\n";
         pcpt_file << to_date_string(current_time) << "\n";
         pcpt_file.seekp(0);
-
-#if 1
-        if(fmod(pcpt*time_step,output_time_step) == 0)
-        {
-            chrono.restart();
-            LOG(DEBUG) <<"export starts\n";
-            this->exportResults((int) pcpt*time_step/output_time_step);
-            LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
-        }
-
-        if ( M_use_moorings )
-        {
-            this->updateMeans();
-            if ( fmod(pcpt*time_step,mooring_output_time_step) == 0 )
-            {
-                this->updateMoorings(grid_size, ncols, nrows);
-                M_conc_mean.assign(M_num_elements,0.);
-                M_thick_mean.assign(M_num_elements,0.);
-                M_snow_thick_mean.assign(M_num_elements,0.);
-                M_VT_mean.assign(2*M_num_nodes,0.);
-
-                this->exportMoorings(grid_size);
-            }
-        }
-
-#endif
-
-        if ( fmod(pcpt*time_step,restart_time_step) == 0)
-        {
-            std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
-            this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
-        }
     }
 
     pcpt_file.close();
@@ -3867,12 +3713,170 @@ FiniteElement::run()
     if (M_drifter_type == setup::DrifterType::IABP)
     {
         M_iabp_file.close();
-        drifters_out.close();
+        M_drifters_out.close();
     }
 
     this->clear();
 
     LOG(INFO) << "-----------------------Simulation done on "<< current_time_local() <<"\n";
+}
+
+// Take one time step
+void
+FiniteElement::step(bool &is_running, int &pcpt)
+{
+    is_running = (pcpt*time_step) < duration;
+
+    // if (pcpt > 21)
+    // if ( fmod((pcpt+1)*time_step,mooring_output_time_step) == 0 )
+    //    is_running = false;
+
+    M_run_wim = !(pcpt % vm["wim.couplingfreq"].as<int>());
+
+    // coupling with wim (exchange from nextsim to wim)
+    if (vm["simul.use_wim"].as<bool>())
+        this->nextsimToWim(pcpt);
+
+    // step 0: preparation
+    // remeshing and remapping of the prognostic variables
+
+    // The first time step we behave as if we just did a regrid
+    M_regrid = (pcpt==0);
+
+    if (vm["simul.regrid"].as<std::string>() == "bamg")
+    {
+        double displacement_factor = 1.;
+        double minang = this->minAngle(M_mesh,M_UM,displacement_factor);
+        LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
+
+        if ( minang < vm["simul.regrid_angle"].as<double>() )
+        {
+            M_regrid = true;
+            // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
+            if ( M_use_moorings )
+                this->updateMoorings(M_grid_size, M_ncols, M_nrows);
+            LOG(DEBUG) <<"Regriding starts\n";
+            chrono.restart();
+            this->regrid(pcpt);
+            LOG(DEBUG) <<"Regriding done in "<< chrono.elapsed() <<"s\n";
+        }
+    }
+
+    // coupling with wim (exchange from wim to nextsim)
+    if (vm["simul.use_wim"].as<bool>())
+        this->wimToNextsim(pcpt);
+    else if ( M_regrid || M_use_restart ) // We need to make sure M_tau is the right size
+        M_tau.resize(2*M_num_nodes,0.);
+
+
+    // Read in the new buoys and output
+    if (M_drifter_type == setup::DrifterType::IABP && std::fmod(current_time,0.5) == 0)
+    {
+        this->updateIABPDrifter();
+        // TODO: Do we want to output drifters at a different time interval?
+        this->outputDrifter(M_drifters_out);
+    }
+
+    if ( M_regrid || M_use_restart )
+    {
+        chrono.restart();
+        LOG(DEBUG) <<"tensors starts\n";
+        this->tensors();
+        LOG(DEBUG) <<"tensors done in "<< chrono.elapsed() <<"s\n";
+        chrono.restart();
+        LOG(DEBUG) <<"cohesion starts\n";
+        this->cohesion();
+        LOG(DEBUG) <<"cohesion done in "<< chrono.elapsed() <<"s\n";
+        chrono.restart();
+        LOG(DEBUG) <<"Coriolis starts\n";
+        this->coriolis();
+        LOG(DEBUG) <<"Coriolis done in "<< chrono.elapsed() <<"s\n";
+    }
+
+    chrono.restart();
+    LOG(DEBUG) <<"check_and_reload starts\n";
+    for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
+        (*it)->check_and_reload(M_mesh,current_time+time_step/(24*3600.0));
+    LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
+
+    M_use_restart = false;
+
+#if 1
+    if (pcpt == 0)
+    {
+        chrono.restart();
+        LOG(DEBUG) <<"first export starts\n";
+        this->exportResults(0);
+        LOG(DEBUG) <<"first export done in " << chrono.elapsed() <<"s\n";
+    }
+#endif
+
+    //======================================================================
+    // Do the thermodynamics
+    //======================================================================
+    if(vm["simul.use_thermo_forcing"].as<bool>())
+    {
+        chrono.restart();
+        LOG(DEBUG) <<"thermo starts\n";
+        this->thermo();
+        LOG(DEBUG) <<"thermo done in "<< chrono.elapsed() <<"s\n";
+    }
+
+    //======================================================================
+    // Assemble the matrix
+    //======================================================================
+
+    this->assemble(pcpt);
+
+    //======================================================================
+    // Solve the linear problem
+    //======================================================================
+
+    this->solve();
+
+    chrono.restart();
+    LOG(DEBUG) <<"updateVelocity starts\n";
+    this->updateVelocity();
+    LOG(DEBUG) <<"updateVelocity done in "<< chrono.elapsed() <<"s\n";
+
+    chrono.restart();
+    LOG(DEBUG) <<"update starts\n";
+    this->update();
+    LOG(DEBUG) <<"update done in "<< chrono.elapsed() <<"s\n";
+
+    ++pcpt;
+
+#if 1
+    if(fmod(pcpt*time_step,output_time_step) == 0)
+    {
+        chrono.restart();
+        LOG(DEBUG) <<"export starts\n";
+        this->exportResults((int) pcpt*time_step/output_time_step);
+        LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
+    }
+
+    if ( M_use_moorings )
+    {
+        this->updateMeans();
+        if ( fmod(pcpt*time_step,mooring_output_time_step) == 0 )
+        {
+            this->updateMoorings(M_grid_size, M_ncols, M_nrows);
+            M_conc_mean.assign(M_num_elements,0.);
+            M_thick_mean.assign(M_num_elements,0.);
+            M_snow_thick_mean.assign(M_num_elements,0.);
+            M_VT_mean.assign(2*M_num_nodes,0.);
+
+            this->exportMoorings(M_grid_size);
+        }
+    }
+
+#endif
+
+    if ( fmod(pcpt*time_step,restart_time_step) == 0)
+    {
+        std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
+        this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
+    }
 }
 
 // Add to the _mean vectors

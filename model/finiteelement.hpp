@@ -100,6 +100,9 @@ public:
     void assemble(int cpt);
     void solve();
     void run();
+    void init();
+    void step(bool &is_running, int &pcpt);
+    void finalise();
     void error();
 
     void thermo();
@@ -312,6 +315,9 @@ private:
     bool M_regrid;
     bool M_run_wim;
 
+    bool M_use_restart;
+    bool M_write_restart;
+
 private:
 
     // bamgopt_ptrtype bamgopt;
@@ -359,6 +365,7 @@ private:
     // Drifters
     boost::unordered_map<int, std::array<double,2>> M_drifter; // Drifters are kept in an unordered map containing number and coordinates
     std::fstream M_iabp_file;             // The file we read the IABP buoy data from
+    std::fstream M_drifters_out;    // The file we write our simulated drifter positions into
 
     // Prognostic ice variables
     std::vector<double> M_conc;         // Ice concentration
@@ -378,6 +385,7 @@ private:
     // Variables for the moorings
 
     bool M_use_moorings;
+    int M_grid_size, M_ncols, M_nrows;
 
     std::vector<double> M_conc_mean;    // Mean concentration (on the mesh)
     std::vector<double> M_thick_mean;   // Mean ice thickness (on the mesh)
