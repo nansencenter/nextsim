@@ -3586,13 +3586,73 @@ FiniteElement::run()
 {
     std::string current_time_system = current_time_local();
 
+    int pcpt = this->init();
+
+    // Debug file that records the time step
+    std::fstream pcpt_file;
+    pcpt_file.open("Timestamp.txt", std::ios::out | std::ios::trunc);
+
+    // main loop for nextsim program
+    current_time = time_init + pcpt*time_step/(24*3600.0);
+    bool is_running = true;
+    while (is_running)
+    {
+        //std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
+        std::cout<<"---------------------- TIME STEP "<< pcpt << " : "
+                 << time_init << " + "<< pcpt*time_step/(24*3600.0);
+
+
+        if (!(pcpt % 20))
+        {
+            std::cout<<" ---------- progression: ("<< 100.0*(pcpt*time_step/duration) <<"%)"
+                     <<" ---------- time spent: "<< time_spent(current_time_system);
+        }
+
+        std::cout <<"\n";
+
+        is_running = (pcpt*time_step) < duration;
+
+        // if (pcpt > 21)
+        // if ( fmod((pcpt+1)*time_step,mooring_output_time_step) == 0 )
+        //    is_running = false;
+
+        // **********************************************************************
+        // Take one time-step
+        // **********************************************************************
+        this->step(pcpt);
+
+        current_time = time_init + pcpt*time_step/(24*3600.0);
+        pcpt_file << pcpt << "\n";
+        pcpt_file << to_date_string(current_time) << "\n";
+        pcpt_file.seekp(0);
+    }
+
+    pcpt_file.close();
+
+    this->exportResults(1000);
+    LOG(INFO) <<"TIMER total = " << chrono_tot.elapsed() <<"s\n";
+
+    // Don't forget to close the iabp file!
+    if (M_drifter_type == setup::DrifterType::IABP)
+    {
+        M_iabp_file.close();
+        M_drifters_out.close();
+    }
+
+    this->clear();
+
+    LOG(INFO) << "-----------------------Simulation done on "<< current_time_local() <<"\n";
+}
+
+// Initialise everything
+int
+FiniteElement::init()
+{
     // Initialise everything that doesn't depend on the mesh (constants, data set description, and time)
+    int pcpt = 0;
     this->initConstant();
     current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
     this->initDatasets();
-
-    int pcpt = 0;
-    int niter = 0;
 
     LOG(INFO) << "-----------------------Simulation started on "<< current_time_local() <<"\n";
 
@@ -3612,7 +3672,7 @@ FiniteElement::run()
 
     if ( M_use_restart )
     {
-        this->readRestart(pcpt, vm["setup.step_nb"].as<int>());
+        pcpt = this->readRestart(vm["setup.step_nb"].as<int>());
         current_time = time_init + pcpt*time_step/(24*3600.0);
 
         LOG(DEBUG) <<"Initialize forcingAtmosphere\n";
@@ -3675,62 +3735,13 @@ FiniteElement::run()
     if ( M_use_moorings )
         M_grid_size = this->initMoorings(M_ncols, M_nrows);
 
-    // Debug file that records the time step
-    std::fstream pcpt_file;
-    pcpt_file.open("Timestamp.txt", std::ios::out | std::ios::trunc);
-    // main loop for nextsim program
-    current_time = time_init + pcpt*time_step/(24*3600.0);
-    bool is_running = true;
-    while (is_running)
-    {
-        //std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
-        std::cout<<"---------------------- TIME STEP "<< pcpt << " : "
-                 << time_init << " + "<< pcpt*time_step/(24*3600.0);
-
-
-        if (!(pcpt % 20))
-        {
-            std::cout<<" ---------- progression: ("<< 100.0*(pcpt*time_step/duration) <<"%)"
-                     <<" ---------- time spent: "<< time_spent(current_time_system);
-        }
-
-        std::cout <<"\n";
-
-        step(is_running, pcpt);
-
-        current_time = time_init + pcpt*time_step/(24*3600.0);
-        pcpt_file << pcpt << "\n";
-        pcpt_file << to_date_string(current_time) << "\n";
-        pcpt_file.seekp(0);
-    }
-
-    pcpt_file.close();
-
-    this->exportResults(1000);
-    LOG(INFO) <<"TIMER total = " << chrono_tot.elapsed() <<"s\n";
-
-    // Don't forget to close the iabp file!
-    if (M_drifter_type == setup::DrifterType::IABP)
-    {
-        M_iabp_file.close();
-        M_drifters_out.close();
-    }
-
-    this->clear();
-
-    LOG(INFO) << "-----------------------Simulation done on "<< current_time_local() <<"\n";
+    return pcpt;
 }
 
 // Take one time step
 void
-FiniteElement::step(bool &is_running, int &pcpt)
+FiniteElement::step(int &pcpt)
 {
-    is_running = (pcpt*time_step) < duration;
-
-    // if (pcpt > 21)
-    // if ( fmod((pcpt+1)*time_step,mooring_output_time_step) == 0 )
-    //    is_running = false;
-
     M_run_wim = !(pcpt % vm["wim.couplingfreq"].as<int>());
 
     // coupling with wim (exchange from nextsim to wim)
@@ -4219,8 +4230,8 @@ FiniteElement::writeRestart(int pcpt, int step)
     outrecord.close();
 }
 
-void
-FiniteElement::readRestart(int &pcpt, int step)
+int
+FiniteElement::readRestart(int step)
 {
     Exporter exp_field, exp_mesh;
     std::string filename;
@@ -4286,7 +4297,7 @@ FiniteElement::readRestart(int &pcpt, int step)
             );
 
     // Fix boundaries
-    pcpt       = field_map_int["Misc_int"].at(0);
+    int pcpt   = field_map_int["Misc_int"].at(0);
     M_flag_fix = field_map_int["Misc_int"].at(1);
     std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
     for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
@@ -4411,6 +4422,7 @@ FiniteElement::readRestart(int &pcpt, int step)
     M_ice_topaz_elements_dataset.target_size=M_num_elements;
     M_etopo_elements_dataset.target_size=M_num_elements;
 
+    return pcpt;
 }
 
 void

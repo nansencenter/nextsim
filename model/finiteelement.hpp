@@ -100,8 +100,8 @@ public:
     void assemble(int cpt);
     void solve();
     void run();
-    void init();
-    void step(bool &is_running, int &pcpt);
+    int init();
+    void step(int &pcpt);
     void finalise();
     void error();
 
@@ -160,7 +160,7 @@ public:
     void exportResults(int step, bool export_mesh = true);
 
     void writeRestart(int pcpt, int step);
-    void readRestart(int &pcpt, int step);
+    int readRestart(int step);
 
     void nextsimToWim(bool step);
     void wimToNextsim(bool step);
