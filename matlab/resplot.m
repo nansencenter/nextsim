@@ -77,6 +77,7 @@ end
 
 font_size=12;
 textstring=datestr(data_out.Time + datenum('1-jan-1900'));
-text(0.65, 0.95,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
+text(0.55, 0.95,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
+set(gca,'DataAspectRatio',[1 1 1], 'Color', [.7 .7 .7])
 
 end
