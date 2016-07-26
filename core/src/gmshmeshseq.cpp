@@ -332,6 +332,8 @@ GmshMeshSeq::partition(std::string const& filename, std::string const& partition
                 << " -part " << Environment::comm().size()
             //<< " -string " << "\"Mesh.Partitioner=1;\""
                 << " -string " << "\"Mesh.Partitioner="<< partint <<";\""
+                << " -string " << "\"Mesh.MetisAlgorithm="<< 2 <<";\""
+            //<< " -string " << "\"Mesh.MetisRefinementAlgorithm="<< 2 <<";\""
             //<< " -string " << "\"Mesh.ColorCarousel=3;\""
                 << " -string " << "\"General.Verbosity=5;\""
                 << " " << mshfile;

@@ -471,6 +471,25 @@ GmshMesh::nodalGrid()
                 }
             }
         }
+
+
+        // auto it_indices = it->indices;
+
+        // if ((std::find(it_indices.begin(),it_indices.end(),4879) != it_indices.end()))
+        // {
+        //     //std::cout<<"-------------------"<< cpt << "-------------------"<<"\n";
+        //     std::cout<<"---------------------------------------------------\n";
+        //     std::cout<<"it->rank                = "<< M_comm.rank() <<"\n";
+        //     std::cout<<"it->number              = "<< it->number <<"\n";
+        //     std::cout<<"it->type                = "<< it->type <<"\n";
+        //     std::cout<<"it->physical            = "<< it->physical <<"\n";
+        //     std::cout<<"it->elementary          = "<< it->elementary <<"\n";
+        //     std::cout<<"it->numPartitions       = "<< it->numPartitions <<"\n";
+        //     std::cout<<"it->partition           = "<< it->partition <<"\n";
+        //     std::cout<<"it->is_ghost            = "<< it->is_ghost <<"\n";
+        //     std::cout<<"ghost_partition_id      = "<< it->ghost_partition_id <<"\n";
+        //     std::cout<<"it->ghosts              = "<<"\n";
+        // }
     }
 
     for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
@@ -482,6 +501,8 @@ GmshMesh::nodalGrid()
                 if ((std::find(ghosts_nodes_f.begin(),ghosts_nodes_f.end(),index) == ghosts_nodes_f.end()))
                 {
                     M_local_dof_without_ghost.push_back(index);
+                    //if (index == 4879)
+                    //    std::cout<<"FIND THERE***********************\n";
                 }
 
                 if ((it->ghosts.size() > 0) && (std::find(ghosts_nodes_f.begin(),ghosts_nodes_f.end(),index) != ghosts_nodes_f.end()))
@@ -494,7 +515,7 @@ GmshMesh::nodalGrid()
                     {
                         M_local_dof_without_ghost.push_back(index);
                     }
-                    else if (this->comm().rank() == max_id)
+                    else //if (this->comm().rank() == max_id)
                     {
                         ghosts_nodes_s.push_back(index);
                     }
@@ -540,8 +561,8 @@ GmshMesh::nodalGrid()
                         std::back_inserter(M_local_ghost));
 
 
-    std::copy_n(M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.size(), std::back_inserter(M_local_dof_with_ghost));
-    std::copy_n(M_local_ghost.begin(), M_local_ghost.size(), std::back_inserter(M_local_dof_with_ghost));
+    // std::copy_n(M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.size(), std::back_inserter(M_local_dof_with_ghost));
+    // std::copy_n(M_local_ghost.begin(), M_local_ghost.size(), std::back_inserter(M_local_dof_with_ghost));
 
     // gather operations for global node renumbering
     std::vector<std::vector<int>> renumbering;
@@ -549,9 +570,64 @@ GmshMesh::nodalGrid()
                            M_local_dof_without_ghost,
                            renumbering);
 
+    // check the nodal partition starts
+    for (int ii=0; ii<renumbering.size(); ++ii)
+    {
+        for (int jj=0; jj<renumbering.size(); ++jj)
+        {
+            if (ii != jj)
+            {
+                std::vector<int> duplicated_dofs;
+
+                std::set_intersection(renumbering[ii].begin(),renumbering[ii].end(),
+                                      renumbering[jj].begin(),renumbering[jj].end(),
+                                      std::back_inserter(duplicated_dofs));
+
+                if (duplicated_dofs.size() == 0)
+                    continue;
+
+                //std::cout<<"intersection "<< ii <<" and "<< jj <<"\n";
+                for (int kk=0; kk<duplicated_dofs.size(); ++kk)
+                {
+                    //std::cout<<"duplicated_dofs["<< kk <<"]= "<< duplicated_dofs[kk] <<"\n";
+                    if (jj < ii)
+                    {
+                        renumbering[ii].erase(std::remove(renumbering[ii].begin(), renumbering[ii].end(), duplicated_dofs[kk]),
+                                              renumbering[ii].end());
+
+                        if (M_comm.rank() == ii)
+                            M_local_ghost.push_back(duplicated_dofs[kk]);
+                    }
+                }
+            }
+        }
+    }
+    // check the nodal partition end
+
+    M_local_dof_without_ghost = renumbering[M_comm.rank()];
+
+    std::sort(M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.end());
+    std::sort(M_local_ghost.begin(), M_local_ghost.end());
+
+    //std::cout<<"@@@@@@@@@@@@@@@M_local_dof_without_ghost.size()= "
+    //std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@["<< rank << "] NDOFS= "<< M_local_dof_without_ghost.size() <<"\n";
+
+    std::copy_n(M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.size(), std::back_inserter(M_local_dof_with_ghost));
+    std::copy_n(M_local_ghost.begin(), M_local_ghost.size(), std::back_inserter(M_local_dof_with_ghost));
+
+
+    if (0)//(rank == 0)
+    {
+        for (int ii=0; ii<M_comm.size(); ++ii)
+        {
+            std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@["<< M_comm.rank() << "] NDOFS["<< ii <<"]= "<< renumbering[ii].size() <<"\n";
+        }
+    }
+
     //bimap_type reorder;
     std::map<int,int> reorder;
 
+    std::vector<int> all_dofs;
 
     int cpts = 0;
     int cpts_dom = 0;
@@ -579,13 +655,39 @@ GmshMesh::nodalGrid()
                 //M_nodes_root[cpts] = M_nodes_vec[renumbering[ii][jj]-1];
             }
 
+            // if (M_comm.rank() == 0)
+            //     all_dofs.push_back(renumbering[ii][jj]);
+
             ++cpts;
         }
 
         cpts_dom += renumbering[ii].size();
     }
 
+    // test starts
+    if (0)//(M_comm.rank() == 0)
+    {
+        auto tmp_dofs = all_dofs;
 
+        std::sort(all_dofs.begin(), all_dofs.end());
+        all_dofs.erase(std::unique(all_dofs.begin(), all_dofs.end() ), all_dofs.end());
+
+        std::vector<int> duplicated_dofs;
+
+        std::sort(tmp_dofs.begin(), tmp_dofs.end());
+
+        std::set_difference(tmp_dofs.begin(), tmp_dofs.end(),
+                            all_dofs.begin(), all_dofs.end(),
+                            std::back_inserter(duplicated_dofs));
+
+        for (int i=0; i<duplicated_dofs.size(); ++i)
+        {
+            std::cout<<"*************************DUPLICATED_DOFS["<< i <<"]= "<< duplicated_dofs[i] <<"\n";
+        }
+    }
+    // test end
+
+#if 1
     M_local_dof_with_ghost_init = M_local_dof_with_ghost;
     auto local_dof_with_ghost = M_local_dof_with_ghost;
 
@@ -796,6 +898,7 @@ GmshMesh::nodalGrid()
     M_global_num_elements = M_reorder_map_elements.size();
 
     //std::cout<<"["<< this->comm().rank() << "] M_num_elements= "<< triangles_num_without_ghost.size() <<"\n";
+#endif
 }
 
 std::vector<int>

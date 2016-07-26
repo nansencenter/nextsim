@@ -43,6 +43,7 @@ namespace Nextsim
 
             ("simul.mesh_filename", po::value<std::string>()->default_value( "bigarctic10km.msh" ), "")
             ("simul.hsize", po::value<double>()->default_value( 0.01 ), "")
+            ("simul.partitioner", po::value<std::string>()->default_value( "chaco" ), "mesh partitioner")
             ("simul.verbose", po::value<int>()->default_value( 7 ), "")
             ("simul.log-level", po::value<std::string>()->default_value( "info" ), "")
             ("simul.time_init", po::value<std::string>()->default_value( "2008-Mar-05" ), "")

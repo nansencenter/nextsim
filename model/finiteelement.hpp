@@ -240,7 +240,7 @@ public:
 
     void PwlInterp2D();
     void importBamg(BamgMesh const* bamg_mesh);
-    void createGraph(BamgMesh const* bamg_mesh);
+    void createGraph();//(BamgMesh const* bamg_mesh);
     void assignVariables();
     void initVariables();
     void initModelState();
@@ -266,6 +266,8 @@ public:
     void interpVertices();
 
     void bcMarkedNodes();
+
+    void clear();
 
 private:
     po::variables_map vm;

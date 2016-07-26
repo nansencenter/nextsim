@@ -89,8 +89,10 @@ FiniteElement::distributedMeshProcessing(bool start)
 
     chrono.restart();
     M_mesh.readFromFile(M_mesh_filename);
+    //M_mesh.readFromFile("par4topazreducedsplit2.msh");
     std::cout<<"Reading mesh done in "<< chrono.elapsed() <<"s\n";
 
+#if 1
     if (!start)
     {
         delete bamggeom;
@@ -122,9 +124,10 @@ FiniteElement::distributedMeshProcessing(bool start)
 
     this->bcMarkedNodes();
 
-    this->createGraph(bamgmesh);
+    this->createGraph();//(bamgmesh);
 
     this->gatherSizes();
+#endif
 }
 
 void
@@ -378,7 +381,7 @@ FiniteElement::rootMeshProcessing()
 
         // partition the mesh on root process (rank 0)
         chrono.restart();
-        M_mesh_root.partition(M_mesh_filename,"chaco");
+        M_mesh_root.partition(M_mesh_filename,vm["simul.partitioner"].as<std::string>());
         std::cout<<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
     }
     else
@@ -2077,7 +2080,7 @@ FiniteElement::interpFieldsElement()
             ++cpt;
         }
 
-#if 0
+#if 1
         // The interpolation with the cavities still needs to be tested on a long run.
         // By default, we then use the non-conservative MeshToMesh interpolation
 
@@ -2090,7 +2093,12 @@ FiniteElement::interpFieldsElement()
         //std::cout<<"InterpFromMeshToMesh2dCavities done in "<< chrono.elapsed() <<"\n";
 #endif
 
-#if 1
+#if 0
+
+        std::cout<<"M_mesh_previous_root.indexTr().size()= "<< M_mesh_previous_root.indexTr().size() <<"\n";
+        std::cout<<"M_mesh_previous_root.numTriangles()  = "<< M_mesh_previous_root.numTriangles() <<"\n";
+
+
         // chrono.restart();
         // std::cout<<"InterpFromMeshToMesh2dx starts\n";
         InterpFromMeshToMesh2dx(&interp_elt_out,
@@ -2416,7 +2424,7 @@ FiniteElement::regrid(bool step)
             // partition the mesh on root process (rank 0)
             timer["meshpartition"].first.restart();
             std::cout<<"Partitioning mesh starts\n";
-            M_mesh_root.partition(M_mesh_filename,"chaco");
+            M_mesh_root.partition(M_mesh_filename,vm["simul.partitioner"].as<std::string>());
             std::cout<<"Partitioning mesh done in "<< timer["meshpartition"].first.elapsed() <<"s\n";
         }
     } // rank 0
@@ -2852,7 +2860,7 @@ FiniteElement::assemble(int pcpt)
     //M_matrix->on(M_dirichlet_nodes,*M_vector);
     M_matrix->on(extended_dirichlet_nodes,*M_vector);
 
-    std::cout<<"[" << M_rank <<"] " <<"-------------------DIFF SIZE EXTENDED_DIRICHLET= " << (int)extended_dirichlet_nodes.size()-(int)M_dirichlet_nodes.size() <<"\n";
+    //std::cout<<"[" << M_rank <<"] " <<"-------------------DIFF SIZE EXTENDED_DIRICHLET= " << (int)extended_dirichlet_nodes.size()-(int)M_dirichlet_nodes.size() <<"\n";
 
     if (M_rank==0)
         std::cout <<"TIMER DBCA= " << chrono.elapsed() <<"s\n";
@@ -4163,13 +4171,17 @@ FiniteElement::run()
         if (vm["simul.regrid"].as<std::string>() == "bamg")
         {
             minang = this->minAngle(M_mesh,M_UM,displacement_factor);
-            std::cout<<"[" << M_rank <<"] " <<" REGRID ANGLE= "<< minang <<"\n";
+            //std::cout<<"[" << M_rank <<"] " <<" REGRID ANGLE= "<< minang <<"\n";
+            if (M_rank == 0)
+                std::cout<<"----------------------------[" << M_rank <<"] " <<" REGRID ANGLE= "<< minang <<"\n";
 
             // if (M_rank == 0)
             // {
             //     //minang = this->minAngle(M_mesh_root,M_UM_root,1.e+03);
             //     std::cout<<"[" << M_rank <<"] " <<" REGRID ANGLE= "<< minang <<"\n";
             // }
+
+            bool force_regrid = !(pcpt%10);
 
             //if (0)//( minang < vm["simul.regrid_angle"].as<double>() )
             //if (pcpt == 1)
@@ -4328,6 +4340,8 @@ FiniteElement::run()
     // }
 
 #endif
+
+    this->clear();
 
     if (M_rank==0)
         LOG(INFO) << "-----------------------Simulation done on "<< current_time_local() <<"\n";
@@ -4642,6 +4656,7 @@ FiniteElement::updateVelocity()
     std::vector<double> speed_scaling;
     this->speedScaling(speed_scaling);
 
+    // linear scaling of ice velocity
     for (int i=0; i<M_num_nodes; ++i)
     {
         M_VT[i] *= speed_scaling[i];
@@ -4650,71 +4665,22 @@ FiniteElement::updateVelocity()
 
     M_speed_scaling = speed_scaling;
 
-    double min_elt = *std::min_element(M_VT.begin(),M_VT.end());
-    double max_elt = *std::max_element(M_VT.begin(),M_VT.end());
-
-    double gmin = boost::mpi::all_reduce(M_comm, min_elt, boost::mpi::minimum<double>());
-    double gmax = boost::mpi::all_reduce(M_comm, max_elt, boost::mpi::maximum<double>());
-
-    if (M_comm.rank()==0)
-    {
-        std::cout<<"----------------------------VT MIN= "<< gmin <<"\n";
-        std::cout<<"----------------------------VT MAX= "<< gmax <<"\n";
-    }
+    // double min_elt = *std::min_element(M_VT.begin(),M_VT.end());
+    // double max_elt = *std::max_element(M_VT.begin(),M_VT.end());
 
 
+    // std::cout<<"----------------------------[" << M_rank <<"] " <<" VT MIN= "<< min_elt <<"\n";
+    // std::cout<<"----------------------------[" << M_rank <<"] " <<" VT MAX= "<< max_elt <<"\n";
 
 
-    //std::cout<<"[" << M_rank <<"] " <<" VT MIN= "<< *std::min_element(M_VT.begin(),M_VT.end()) <<"\n";
-    //std::cout<<"[" << M_rank <<"] " <<" VT MAX= "<< *std::max_element(M_VT.begin(),M_VT.end()) <<"\n";
+    // double gmin = boost::mpi::all_reduce(M_comm, min_elt, boost::mpi::minimum<double>());
+    // double gmax = boost::mpi::all_reduce(M_comm, max_elt, boost::mpi::maximum<double>());
 
-    // std::cout<<"----------------------------[" << M_rank <<"] " <<" VT MIN= "<< *std::min_element(M_thick.begin(),M_thick.end()) <<"\n";
-    // std::cout<<"----------------------------[" << M_rank <<"] " <<" VT MAX= "<< *std::max_element(M_thick.begin(),M_thick.end()) <<"\n";
-
-    // TODO (updateVelocity) Sylvain: This limitation cost about 1/10 of the solver time.
-    // TODO (updateVelocity) Sylvain: We could add a term in the momentum equation to avoid the need of this limitation.
-    //std::vector<double> speed_c_scaling_test(bamgmesh->NodalElementConnectivitySize[0]);
-#if 0
-    int elt_num, i, j;
-    double c_max_nodal_neighbour;
-    double speed_c_scaling;
-
-    std::vector<double> cloc_elts(bamgmesh->NodalElementConnectivitySize[1]);
-
-    for (i=0; i<bamgmesh->NodalElementConnectivitySize[0]; ++i)
-    {
-        for (j=0; j<bamgmesh->NodalElementConnectivitySize[1]; ++j)
-        {
-            elt_num = bamgmesh->NodalElementConnectivity[bamgmesh->NodalElementConnectivitySize[1]*i+j]-1;
-
-            if ((0 <= elt_num) && (elt_num < M_mesh.numTriangles()) && (elt_num != NAN))
-            {
-                cloc_elts[j] = M_conc[elt_num];
-            }
-            else
-            {
-                break;
-            }
-        }
-
-        c_max_nodal_neighbour = *std::max_element(cloc_elts.begin(),cloc_elts.begin()+j-1);
-        c_max_nodal_neighbour /= vm["simul.drift_limit_concentration"].as<double>();
-        speed_c_scaling = std::min(1.,c_max_nodal_neighbour);
-        //std::cout<<"c_max_nodal_neighbour["<< i <<"]= "<< c_max_nodal_neighbour <<"\n";
-        //std::cout<<"speed_c_scaling["<< i <<"]= "<< speed_c_scaling <<"\n";
-        //speed_c_scaling_test[i] = speed_c_scaling;
-
-        // if (speed_c_scaling != 1.)
-        //     std::cout<<"----------------------------------------------FIND HERE\n";
-
-        // linear scaling of ice velocity
-        //M_VT[i] *= speed_c_scaling;
-        //M_VT[i+M_num_nodes] *= speed_c_scaling;
-    }
-#endif
-
-    //std::cout<<"MAX SPEED= "<< *std::max_element(speed_c_scaling_test.begin(),speed_c_scaling_test.end()) <<"\n";
-    //std::cout<<"MIN SPEED= "<< *std::min_element(speed_c_scaling_test.begin(),speed_c_scaling_test.end()) <<"\n";
+    // if (M_comm.rank()==0)
+    // {
+    //     std::cout<<"----------------------------VT MIN= "<< gmin <<"\n";
+    //     std::cout<<"----------------------------VT MAX= "<< gmax <<"\n";
+    // }
 }
 
 void
@@ -4788,10 +4754,6 @@ FiniteElement::speedScaling(std::vector<double>& speed_scaling)
             //std::cout<<"c_max_nodal_neighbour["<< i <<"]= "<< c_max_nodal_neighbour <<"\n";
             //std::cout<<"speed_c_scaling["<< i <<"]= "<< speed_c_scaling <<"\n";
             speed_scaling_vec[i] = speed_c_scaling;
-
-            // linear scaling of ice velocity
-            // M_VT[i] *= speed_c_scaling;
-            // M_VT[i+M_num_nodes] *= speed_c_scaling;
         }
 
         auto speed_scaling_vec_nrd = speed_scaling_vec;
@@ -4810,10 +4772,6 @@ FiniteElement::speedScaling(std::vector<double>& speed_scaling)
 
     if (M_rank == 0)
     {
-        // std::cout<<"speed_scaling size= "<< speed_scaling_vec.size() <<"\n";
-        // for (int i=0; i<M_comm.size(); ++i)
-        //     std::cout<<"M_sizes_nodes["<< i <<"]= "<< sizes_nodes[i] <<"\n";
-
         boost::mpi::scatterv(M_comm, speed_scaling_vec, sizes_nodes, &speed_scaling[0], 0);
     }
     else
@@ -6068,12 +6026,14 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
 }
 
 void
-FiniteElement::createGraph(BamgMesh const* bamg_mesh)
+FiniteElement::createGraph()//(BamgMesh const* bamg_mesh)
 {
+    M_comm.barrier();
+
     auto M_local_ghost = M_mesh.localGhost();
     auto M_transfer_map = M_mesh.transferMap();
 
-    int Nd = bamg_mesh->NodalConnectivitySize[1];
+    int Nd = bamgmesh->NodalConnectivitySize[1];
     std::vector<int> dz;
     std::vector<int> ddz_j;
     std::vector<int> ddz_i;
@@ -7310,6 +7270,38 @@ FiniteElement::updateOnRoot()
             throw std::logic_error("tmp_nb_var not equal to nb_var");
         }
     }
+}
+
+void
+FiniteElement::clear()
+{
+    M_comm.barrier();
+
+    delete[] M_topaz_grid.pfindex;
+
+    delete bamgmesh;
+    delete bamggeom;
+
+    if (M_mesh.comm().rank() == 0)
+    {
+        delete bamgopt;
+        delete bamggeom_root;
+        delete bamgmesh_root;
+
+        // We need to point these to NULL because 'delete bamgopt' clears the
+        // memory they were pointing to before
+        bamgopt_previous->hminVertices      = NULL;
+        bamgopt_previous->hmaxVertices      = NULL;
+
+        delete bamgopt_previous;
+        delete bamggeom_previous;
+        delete bamgmesh_previous;
+    }
+
+    M_matrix->clear();
+    M_vector->clear();
+    M_solution->clear();
+    M_solver->clear();
 }
 
 } // Nextsim
