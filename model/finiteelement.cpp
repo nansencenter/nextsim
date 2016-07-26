@@ -3632,6 +3632,15 @@ FiniteElement::run()
     this->exportResults(1000);
     LOG(INFO) <<"TIMER total = " << chrono_tot.elapsed() <<"s\n";
 
+    this->finalise();
+
+    LOG(INFO) << "-----------------------Simulation done on "<< current_time_local() <<"\n";
+}
+
+// Finalise everything
+void
+FiniteElement::finalise()
+{
     // Don't forget to close the iabp file!
     if (M_drifter_type == setup::DrifterType::IABP)
     {
@@ -3640,8 +3649,6 @@ FiniteElement::run()
     }
 
     this->clear();
-
-    LOG(INFO) << "-----------------------Simulation done on "<< current_time_local() <<"\n";
 }
 
 // Initialise everything
