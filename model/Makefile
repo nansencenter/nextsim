@@ -14,7 +14,7 @@ CXXFLAGS +=	-I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I .
 CXXFLAGS +=	-I $(NETCDF_DIR)/include -I $(GMSH_DIR)/include/gmsh
 
 FC = gfortran
-FFLAGS = -std=f2003 -fopenmp
+FFLAGS = -std=f2003 -fopenmp -lstdc++
 
 ifeq ($(KERNEL),Linux)
 	#CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -lm -pthread -v #-MMD -MP -lm -pthread -v
@@ -104,8 +104,7 @@ $(OBJS): Makefile
 # The frotran wrapper
 fortran: $(FPROGNAME)
 
-$(FPROGNAME): $(OBJS) finiteelement_mod.f90
-	#$(FC) $(FFLAGS) $(LDFLAGS) -c finiteelement_mod.f90
-	$(FC) $(FFLAGS) $(LDFLAGS) -o $(BINARYDIR)$@ $^ -lstdc++
+$(FPROGNAME): $(filter-out $(OBJECTDIR)$(CXXSRCDIR)/main.o, $(OBJS)) finiteelement_mod.f90
+	$(FC) $(FFLAGS) $(LDFLAGS) -o $(BINARYDIR)$@ $^ FE.f90
 
 -include $(DEPS)

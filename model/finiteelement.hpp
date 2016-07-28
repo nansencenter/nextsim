@@ -101,7 +101,7 @@ public:
     void solve();
     void run();
     int init();
-    void step(int &pcpt);
+    void step(int pcpt);
     void finalise();
     void error();
 

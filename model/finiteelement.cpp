@@ -1561,7 +1561,7 @@ FiniteElement::regrid(bool step)
 			InterpFromMeshToMesh2dx(&interp_elt_out,
                                     &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
                                     M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-                                    interp_elt_in,
+                                    &interp_elt_in[0],
                                     M_mesh_previous.numTriangles(),nb_var,
                                     &M_mesh.bcoordX()[0],&M_mesh.bcoordY()[0],M_mesh.numTriangles(),
                                     false);
@@ -3620,6 +3620,7 @@ FiniteElement::run()
         // Take one time-step
         // **********************************************************************
         this->step(pcpt);
+        ++pcpt;
 
         current_time = time_init + pcpt*time_step/(24*3600.0);
         pcpt_file << pcpt << "\n";
@@ -3701,10 +3702,12 @@ FiniteElement::init()
     else
     {
         // Do one regrid to get the mesh right
+        LOG(DEBUG) <<"Initial regrid\n";
         this->regrid(pcpt);
 
         // Initialise variables
         chrono.restart();
+        LOG(DEBUG) <<"Initialize variables\n";
         this->initVariables();
 
         LOG(DEBUG) <<"Initialize forcingAtmosphere\n";
@@ -3747,7 +3750,7 @@ FiniteElement::init()
 
 // Take one time step
 void
-FiniteElement::step(int &pcpt)
+FiniteElement::step(int pcpt)
 {
     M_run_wim = !(pcpt % vm["wim.couplingfreq"].as<int>());
 
