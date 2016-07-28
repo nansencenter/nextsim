@@ -1,6 +1,7 @@
-// Simple C-functions to instantiate a FinitElement class, call the run
-// function and delete the class. These are used to interface with fortran
-// through finiteelement_mod.f90
+// Simple C-functions to instantiate instances of the Environment and
+// FinitElement classes, call the run, init, step, and finalise functions, and
+// delete the class instances. These are used to interface with fortran through
+// finiteelement_mod.f90
 
 #include <finiteelement.hpp>
 
@@ -11,45 +12,46 @@ namespace Nextsim
 
 extern "C" {
 // Interface to instantiate a new object of the FiniteElement class
-    Nextsim::FiniteElement *CFE__new () {
+    Nextsim::FiniteElement *FiniteElementNew () {
         return new Nextsim::FiniteElement();
   }
 
 // Interface to instantiate a new object of the Environment class
-    Nextsim::Environment *Cenv__new () {
+    Nextsim::Environment *EnvironmentNew () {
+        // Still need to work out how to pass argv from Fortran
         int argc = 0;
         char **argv;
         return new Nextsim::Environment(argc, argv, Nextsim::descrOptions() );
   }
 
 // Interface to call the function 'run'
-  void CFE__run(Nextsim::FiniteElement *This) {
+  void FiniteElementRun(Nextsim::FiniteElement *This) {
         This->run();
   }
 
 // Interface to call the function 'init'
-  void CFE__init(Nextsim::FiniteElement *This, int *pcpt) {
+  void FiniteElementInit(Nextsim::FiniteElement *This, int *pcpt) {
         int pcpt_tmp = This->init();
         pcpt = &pcpt_tmp;
   }
 
 // Interface to call the function 'step'
-  void CFE__step(Nextsim::FiniteElement *This, int pcpt) {
+  void FiniteElementStep(Nextsim::FiniteElement *This, int pcpt) {
         This->step(pcpt);
   }
 
 // Interface to call the function 'finalise'
-  void CFE__finalise(Nextsim::FiniteElement *This) {
+  void FiniteElementFinalise(Nextsim::FiniteElement *This) {
         This->finalise();
   }
 
 // Interface to delete an instance of the FiniteElement class
-  void CFE__delete (Nextsim::FiniteElement *This) {
+  void FiniteElementDelete (Nextsim::FiniteElement *This) {
         delete This;
   }
 
 // Interface to delete an instance of the Environment class
-  void Cenv__delete (Nextsim::Environment *This) {
+  void EnvironmentDelete (Nextsim::Environment *This) {
         delete This;
   }
 }

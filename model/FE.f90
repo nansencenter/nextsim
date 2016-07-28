@@ -1,25 +1,19 @@
-! A dead-simple fortran (2003) wrapper to initiate a FiniteElement class, call
-! the run function and then delete the class.
-! 
-! An ESMF/CPL/etc compatable version needs to have 'init', 'step', and
-! 'finialize' calls ... but this requires some rewriting of the C++ code
+! A dead-simple Fortran (2003) wrapper to instantiate instances of the
+! Environment and FiniteElement classes, call 'init', 'step', and 'finialize',
+! and then to delete the class instances again.
 
 program main
 
-  ! The CFE_module module presents an interface to the C++ FiniteElement class
-  use CFE_module
+  ! The neXtSIM module presents an interface to the C++ FiniteElement class
+  use neXtSIM
 
-  type(CFE_type) :: FE, env
+  type(CXXClass) :: FE, env
 
   ! Local variables
   integer :: i, i_init
 
-  ! Instantiate the class
-  env = new_env()
-  FE = new()
-
-  ! write(*,*) "Hello from FORTRAN"
-  ! call run(FE)
+  ! Instantiate new instances of the classes
+  call new(env, FE)
 
   ! Initialise the model
   write(*,*) "Fortran call init"
@@ -39,10 +33,9 @@ program main
   call finalise(FE)
   write(*,*) "Fortran call finalise done"
 
-  write(*,*) 'Good bye from FORTRAN'
-
   ! Delete the class instance, now that we're done
-  call delete(FE)
-  call delete_env(env)
+  call delete(env, FE)
+
+  write(*,*) 'Good bye from FORTRAN'
 
 end program main
