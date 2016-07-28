@@ -115,7 +115,7 @@ contains
   subroutine Env_FE_new(env, FE)
     type(CXXclass), intent(out) :: env, FE
     env%object = EnvironmentNew()
-    FE%ovject  = FiniteElementNew()
+    FE%object  = FiniteElementNew()
   end subroutine Env_FE_new
 
   ! One delete subroutine for both the Environment and FiniteElement
