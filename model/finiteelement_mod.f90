@@ -3,7 +3,7 @@
 
 module neXtSIM
 
-  use, intrinsic :: ISO_C_Binding, only: C_int, C_ptr, C_NULL_ptr
+  use, intrinsic :: ISO_C_Binding, only: C_int, C_ptr, C_NULL_ptr, C_char, C_loc, C_null_char
   implicit none
 
   private
@@ -28,10 +28,11 @@ module neXtSIM
     end function FiniteElementNew
 
 ! Interface to instantiate a new instance of the Environment class
-    function EnvironmentNew() result(this) bind(C,name="EnvironmentNew")
+    function EnvironmentNew(argc, argv) result(this) bind(C,name="EnvironmentNew")
       import
       type(C_ptr) :: this
-      !integer(C_int), value :: a, b
+      integer(C_int), value :: argc
+      type(C_ptr) :: argv(*)
     end function EnvironmentNew
 
 ! Interface to delete an instance of the FiniteElement class
@@ -112,9 +113,19 @@ contains
   ! Instantiate a new instance of the Environment class first, then the
   ! FiniteElement class afterwards. This must always be done like this
   ! so I'm combining the two operations into one Fortran subroutine
-  subroutine Env_FE_new(env, FE)
+  subroutine Env_FE_new(env, FE, argc, argv)
     type(CXXclass), intent(out) :: env, FE
-    env%object = EnvironmentNew()
+    integer(C_int), intent(in) :: argc
+    character(len=128), intent(inout), target :: argv(argc+1)
+    type(C_ptr) :: argvp(argc+1)
+    integer :: i
+
+    do i=1,argc+1
+      argv(i) = trim(argv(i))//C_null_char
+      argvp(i) = C_loc(argv(i))
+    end do
+
+    env%object = EnvironmentNew(argc+1, argvp)
     FE%object  = FiniteElementNew()
   end subroutine Env_FE_new
 

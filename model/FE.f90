@@ -10,10 +10,19 @@ program main
   type(CXXClass) :: FE, env
 
   ! Local variables
-  integer :: i, i_init
+  integer :: i, i_init, argc
+  character(len=128), target, allocatable :: argv(:)
+
+  ! Read the command line arguments
+  argc = command_argument_count()
+  allocate(argv(argc+1))
+  do i=0, argc
+    call get_command_argument(i, argv(i+1))
+  end do
 
   ! Instantiate new instances of the classes
-  call new(env, FE)
+  write(*,*) "Fortran instantiate class instances"
+  call new(env, FE, argc, argv)
 
   ! Initialise the model
   write(*,*) "Fortran call init"

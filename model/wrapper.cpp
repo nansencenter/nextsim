@@ -14,45 +14,42 @@ extern "C" {
 // Interface to instantiate a new object of the FiniteElement class
     Nextsim::FiniteElement *FiniteElementNew () {
         return new Nextsim::FiniteElement();
-  }
+    }
 
 // Interface to instantiate a new object of the Environment class
-    Nextsim::Environment *EnvironmentNew () {
-        // Still need to work out how to pass argv from Fortran
-        int argc = 0;
-        char **argv;
+    Nextsim::Environment *EnvironmentNew (int argc, char **argv) {
         return new Nextsim::Environment(argc, argv, Nextsim::descrOptions() );
-  }
+    }
 
 // Interface to call the function 'run'
-  void FiniteElementRun(Nextsim::FiniteElement *This) {
+    void FiniteElementRun(Nextsim::FiniteElement *This) {
         This->run();
-  }
+    }
 
 // Interface to call the function 'init'
-  void FiniteElementInit(Nextsim::FiniteElement *This, int *pcpt) {
+    void FiniteElementInit(Nextsim::FiniteElement *This, int *pcpt) {
         int pcpt_tmp = This->init();
         pcpt = &pcpt_tmp;
-  }
+    }
 
 // Interface to call the function 'step'
-  void FiniteElementStep(Nextsim::FiniteElement *This, int pcpt) {
+    void FiniteElementStep(Nextsim::FiniteElement *This, int pcpt) {
         This->step(pcpt);
-  }
+    }
 
 // Interface to call the function 'finalise'
-  void FiniteElementFinalise(Nextsim::FiniteElement *This) {
+    void FiniteElementFinalise(Nextsim::FiniteElement *This) {
         This->finalise();
-  }
+    }
 
 // Interface to delete an instance of the FiniteElement class
-  void FiniteElementDelete (Nextsim::FiniteElement *This) {
+    void FiniteElementDelete (Nextsim::FiniteElement *This) {
         delete This;
-  }
+    }
 
 // Interface to delete an instance of the Environment class
-  void EnvironmentDelete (Nextsim::Environment *This) {
+    void EnvironmentDelete (Nextsim::Environment *This) {
         delete This;
-  }
+    }
 }
 
