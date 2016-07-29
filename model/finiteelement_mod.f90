@@ -116,14 +116,22 @@ contains
   subroutine Env_FE_new(env, FE, argc, argv)
     type(CXXclass), intent(out) :: env, FE
     integer(C_int), intent(in) :: argc
-    character(len=128), intent(inout), target :: argv(argc+1)
-    type(C_ptr) :: argvp(argc+1)
+    character(len=*), intent(inout), target :: argv(argc+1)
+    type(C_ptr) :: argvp(argc+2)
     integer :: i
+    character(len=128), target :: buffy
 
     do i=1,argc+1
       argv(i) = trim(argv(i))//C_null_char
       argvp(i) = C_loc(argv(i))
     end do
+
+    ! A strange work-around for a strange bug!
+	! I simply pass a larger array than the one that should be needed
+	! ... it appears that boost::mpi is addressing something beyond argc
+	! :^/
+    buffy = ""//C_null_char
+    argvp(argc+2) = C_loc(buffy(1:1))
 
     env%object = EnvironmentNew(argc+1, argvp)
     FE%object  = FiniteElementNew()
