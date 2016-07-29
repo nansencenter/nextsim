@@ -69,7 +69,7 @@ public:
         std::string name;
         int start;
         int end;
-    } Dimesion;
+    } Dimension;
 
     typedef struct Variable
     {
@@ -366,7 +366,7 @@ private:
     std::vector<int> M_sizes_elements;
     std::vector<int> M_sizes_elements_with_ghost;
     std::vector<int> M_id_nodes;
-    std::vector<double> M_speed_scaling;
+    //std::vector<double> M_speed_scaling;
 
     std::vector<double> M_Dunit;
     std::vector<double> M_Dunit_comp;

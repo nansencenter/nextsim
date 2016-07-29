@@ -88,8 +88,8 @@ FiniteElement::distributedMeshProcessing(bool start)
     //M_mesh.setOrdering("bamg");
 
     chrono.restart();
-    M_mesh.readFromFile(M_mesh_filename);
-    //M_mesh.readFromFile("par4topazreducedsplit2.msh");
+    //M_mesh.readFromFile(M_mesh_filename);
+    M_mesh.readFromFile("par4topazreducedsplit2.msh");
     std::cout<<"Reading mesh done in "<< chrono.elapsed() <<"s\n";
 
 #if 1
@@ -128,6 +128,8 @@ FiniteElement::distributedMeshProcessing(bool start)
 
     this->gatherSizes();
 #endif
+
+    std::cout<<"["<< M_rank << "] ELEMENTS= "<< M_mesh.numGlobalElements() << " --- "<< M_local_nelements <<"\n";
 }
 
 void
@@ -378,6 +380,11 @@ FiniteElement::rootMeshProcessing()
         chrono.restart();
         M_mesh_root.writeTofile(M_mesh_filename);
         std::cout<<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
+
+        std::string src_fname = Environment::nextsimDir().string() + "/mesh/" + M_mesh_filename;
+        std::string desc_fname = Environment::nextsimDir().string() + "/mesh/" + "seq_" + M_mesh_filename;
+        fs::copy_file(fs::path(src_fname), fs::path(desc_fname), fs::copy_option::overwrite_if_exists);
+
 
         // partition the mesh on root process (rank 0)
         chrono.restart();
@@ -2098,10 +2105,19 @@ FiniteElement::interpFieldsElement()
         std::cout<<"M_mesh_previous_root.indexTr().size()= "<< M_mesh_previous_root.indexTr().size() <<"\n";
         std::cout<<"M_mesh_previous_root.numTriangles()  = "<< M_mesh_previous_root.numTriangles() <<"\n";
 
+        auto indextr_ = M_mesh_previous_root.indexTr();
+        std::cout<<"["<< M_rank <<"]: " <<"Min index= "<< *std::min_element(indextr_.begin(), indextr_.end()) <<"\n";
+        std::cout<<"["<< M_rank <<"]: " <<"Max index= "<< *std::max_element(indextr_.begin(), indextr_.end()) <<"\n";
+
 
         // chrono.restart();
         // std::cout<<"InterpFromMeshToMesh2dx starts\n";
+
+        // bamg::Mesh* Th;
+        // Th = new bamg::Mesh(bamggeom_previous, bamgmesh_previous, bamgopt_previous);
+
         InterpFromMeshToMesh2dx(&interp_elt_out,
+                                //Th,&M_mesh_previous_root.coordX()[0],&M_mesh_previous_root.coordY()[0],
                                 &M_mesh_previous_root.indexTr()[0],&M_mesh_previous_root.coordX()[0],&M_mesh_previous_root.coordY()[0],
                                 M_mesh_previous_root.numNodes(),M_mesh_previous_root.numTriangles(),
                                 &interp_in_elements[0],
@@ -2289,8 +2305,8 @@ FiniteElement::gatherUM(std::vector<double>& um)
     std::vector<double> um_local(2*M_local_ndof,0.);
     for (int i=0; i<M_local_ndof; ++i)
     {
-        um_local[i] = M_UM[i];
-        um_local[i+M_local_ndof] = M_UM[i+M_num_nodes];
+        um_local[2*i] = M_UM[i];
+        um_local[2*i+1] = M_UM[i+M_num_nodes];
     }
 
     std::vector<int> sizes_nodes = M_sizes_nodes;
@@ -2416,10 +2432,25 @@ FiniteElement::regrid(bool step)
             std::cout<<"---TRUE AdaptMesh done in "<< timer["adaptmesh"].first.elapsed() <<"s\n";
 
             // save mesh (only root process)
+
+            std::string src_fname = Environment::nextsimDir().string() + "/mesh/" + M_mesh_filename;
+            std::string desc_fname = Environment::nextsimDir().string() + "/mesh/" + "prev_" + M_mesh_filename;
+            fs::copy_file(fs::path(src_fname), fs::path(desc_fname), fs::copy_option::overwrite_if_exists);
+
+            src_fname = Environment::nextsimDir().string() + "/mesh/" + "seq_" + M_mesh_filename;
+            desc_fname = Environment::nextsimDir().string() + "/mesh/" + "seq_prev_" + M_mesh_filename;
+            fs::copy_file(fs::path(src_fname), fs::path(desc_fname), fs::copy_option::overwrite_if_exists);
+
+
             timer["savemesh"].first.restart();
             std::cout<<"Saving mesh starts\n";
             M_mesh_root.writeTofile(M_mesh_filename);
             std::cout<<"Saving mesh done in "<< timer["savemesh"].first.elapsed() <<"s\n";
+
+            src_fname = Environment::nextsimDir().string() + "/mesh/" + M_mesh_filename;
+            desc_fname = Environment::nextsimDir().string() + "/mesh/" + "seq_" + M_mesh_filename;
+            fs::copy_file(fs::path(src_fname), fs::path(desc_fname), fs::copy_option::overwrite_if_exists);
+
 
             // partition the mesh on root process (rank 0)
             timer["meshpartition"].first.restart();
@@ -2489,7 +2520,8 @@ FiniteElement::adaptMesh()
 
     this->importBamg(bamgmesh_root);
 
-    std::cout<<"FLAGS SIZE BEFORE= "<< M_dirichlet_flags_root.size() <<"\n";
+    std::cout<<"CLOSED: FLAGS SIZE BEFORE= "<< M_dirichlet_flags_root.size() <<"\n";
+    std::cout<<"OPEN  : FLAGS SIZE BEFORE= "<< M_neumann_flags_root.size() <<"\n";
 
     // update dirichlet nodes
     M_dirichlet_flags_root.resize(0);
@@ -2524,7 +2556,9 @@ FiniteElement::adaptMesh()
     }
 
 
-    std::cout<<"FLAGS SIZE AFTER= "<< M_dirichlet_flags_root.size() <<"\n";
+    std::cout<<"CLOSED: FLAGS SIZE AFTER= "<< M_dirichlet_flags_root.size() <<"\n";
+    std::cout<<"OPEN  : FLAGS SIZE AFTER= "<< M_neumann_flags_root.size() <<"\n";
+
 }
 
 void
@@ -2601,10 +2635,11 @@ FiniteElement::assemble(int pcpt)
 
     // ---------- Assembling starts -----------
 
-    if (M_rank == 0)
-        std::cout<<"Assembling starts\n";
+    // if (M_rank == 0)
+    //     std::cout<<"Assembling starts\n";
 
-    chrono.restart();
+    //chrono.restart();
+    timer["assembly"].first.restart();
 
     int cpt = 0;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
@@ -2837,8 +2872,9 @@ FiniteElement::assemble(int pcpt)
 
     if (M_rank == 0)
     {
-        std::cout<<"Assembling done\n";
-        std::cout<<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
+        //std::cout<<"Assembling done\n";
+        //std::cout<<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
+        std::cout<<"TIMER ASSEMBLY= " << timer["assembly"].first.elapsed() <<"s\n";
     }
     //std::cout<<"[" << M_rank <<"] " <<" TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
 
@@ -2862,8 +2898,10 @@ FiniteElement::assemble(int pcpt)
 
     //std::cout<<"[" << M_rank <<"] " <<"-------------------DIFF SIZE EXTENDED_DIRICHLET= " << (int)extended_dirichlet_nodes.size()-(int)M_dirichlet_nodes.size() <<"\n";
 
-    if (M_rank==0)
-        std::cout <<"TIMER DBCA= " << chrono.elapsed() <<"s\n";
+    // if (M_rank==0)
+    //     std::cout <<"TIMER DBCA= " << chrono.elapsed() <<"s\n";
+
+
     //std::cout<<"[" << M_rank <<"] " <<"TIMER DBCA= " << chrono.elapsed() <<"s\n";
 
 #if 0
@@ -3428,6 +3466,8 @@ FiniteElement::solve()
         std::cout<<"TIMER SOLUTION= " << timer["solution"].first.elapsed() <<"s\n";
 
     //std::cout<<"[" << M_rank <<"] " <<"TIMER SOLUTION= " << timer["solution"].first.elapsed() <<"s\n";
+
+    M_comm.barrier();
 
     M_solution->close();
     //M_solution->printMatlab("solution.m");
@@ -4112,22 +4152,21 @@ FiniteElement::run()
         this->initVariables();
         this->initModelState();
 
-        //if (M_comm.rank()==0)
         std::cout<<"initSimulation done in "<< chrono.elapsed() <<"s\n";
     }
 
     // Open the output file for drifters
     // TODO: Is this the right place to open the file?
-    std::fstream drifters_out;
-    if (M_drifter_type == setup::DrifterType::IABP )
-    {
-        // We should tag the file name with the init time in case of a re-start.
-        std::stringstream filename;
-        filename << Environment::nextsimDir().string() << "/matlab/drifters_out_" << current_time << ".txt";
-        drifters_out.open(filename.str(), std::fstream::out);
-        if ( ! drifters_out.good() )
-            throw std::runtime_error("Cannot write to file: " + filename.str());
-    }
+    // std::fstream drifters_out;
+    // if (M_drifter_type == setup::DrifterType::IABP )
+    // {
+    //     // We should tag the file name with the init time in case of a re-start.
+    //     std::stringstream filename;
+    //     filename << Environment::nextsimDir().string() << "/matlab/drifters_out_" << current_time << ".txt";
+    //     drifters_out.open(filename.str(), std::fstream::out);
+    //     if ( ! drifters_out.good() )
+    //         throw std::runtime_error("Cannot write to file: " + filename.str());
+    // }
 #endif
 
 #if 1
@@ -4168,6 +4207,8 @@ FiniteElement::run()
         // The first time step we behave as if we just did a regrid
         M_regrid = (pcpt==0);
 
+        bool force_regrid = (!(pcpt % 30)) && (pcpt != 0);
+
         if (vm["simul.regrid"].as<std::string>() == "bamg")
         {
             minang = this->minAngle(M_mesh,M_UM,displacement_factor);
@@ -4181,13 +4222,11 @@ FiniteElement::run()
             //     std::cout<<"[" << M_rank <<"] " <<" REGRID ANGLE= "<< minang <<"\n";
             // }
 
-            bool force_regrid = !(pcpt%10);
-
             //if (0)//( minang < vm["simul.regrid_angle"].as<double>() )
             //if (pcpt == 1)
             if ( minang < vm["simul.regrid_angle"].as<double>() )
             {
-                this->exportResults(2000);
+                //this->exportResults(2000);
 
                 std::cout<<"UUMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM\n";
 
@@ -4199,7 +4238,7 @@ FiniteElement::run()
 
                 M_regrid = true;
 
-                this->exportResults(3000);
+                //this->exportResults(3000);
                 //return;
             }
         }
@@ -4207,12 +4246,12 @@ FiniteElement::run()
         M_comm.barrier();
 
         // Read in the new buoys and output
-        if (M_drifter_type == setup::DrifterType::IABP && std::fmod(current_time,0.5) == 0)
-        {
-            this->updateIABPDrifter();
-            // TODO: Do we want to output drifters at a different time interval?
-            this->outputDrifter(drifters_out);
-        }
+        // if (M_drifter_type == setup::DrifterType::IABP && std::fmod(current_time,0.5) == 0)
+        // {
+        //     this->updateIABPDrifter();
+        //     // TODO: Do we want to output drifters at a different time interval?
+        //     this->outputDrifter(drifters_out);
+        // }
 
         if ( M_regrid || use_restart )
         {
@@ -4305,10 +4344,7 @@ FiniteElement::run()
 
         ++pcpt;
 
-        //this->exportResults(pcpt);
-
 #if 0
-
         if(fmod((pcpt+1)*time_step,output_time_step) == 0)
         {
             chrono.restart();
@@ -4322,8 +4358,6 @@ FiniteElement::run()
             std::cout << "Writing restart file after time step " <<  pcpt-1 << endl;
             this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
         }
-
-        M_regrid = false;
 #endif
     }
 
@@ -4648,10 +4682,16 @@ FiniteElement::readRestart(int &pcpt, int step)
 void
 FiniteElement::updateVelocity()
 {
+    M_comm.barrier();
+
+    // timer["updatevelocity"].first.restart();
+
+    // if (M_rank == 0)
+    //     std::cout<<"UPDATEVELOCITY STARTS\n";
+
     M_VTMM = M_VTM;
     M_VTM = M_VT;
     M_VT = M_solution->container();
-
 
     std::vector<double> speed_scaling;
     this->speedScaling(speed_scaling);
@@ -4663,15 +4703,18 @@ FiniteElement::updateVelocity()
         M_VT[i+M_num_nodes] *= speed_scaling[i];
     }
 
-    M_speed_scaling = speed_scaling;
+    // if (M_rank == 0)
+    //     std::cout<<"TIMER UPDATEVELOCITY= " << timer["updatevelocity"].first.elapsed() <<"s\n";
+
+    //M_speed_scaling = speed_scaling;
 
     // double min_elt = *std::min_element(M_VT.begin(),M_VT.end());
     // double max_elt = *std::max_element(M_VT.begin(),M_VT.end());
 
+    // // std::cout<<"----------------------------[" << M_rank <<"] " <<" VT MIN= "<< min_elt <<"\n";
+    // // std::cout<<"----------------------------[" << M_rank <<"] " <<" VT MAX= "<< max_elt <<"\n";
 
-    // std::cout<<"----------------------------[" << M_rank <<"] " <<" VT MIN= "<< min_elt <<"\n";
-    // std::cout<<"----------------------------[" << M_rank <<"] " <<" VT MAX= "<< max_elt <<"\n";
-
+    // M_comm.barrier();
 
     // double gmin = boost::mpi::all_reduce(M_comm, min_elt, boost::mpi::minimum<double>());
     // double gmax = boost::mpi::all_reduce(M_comm, max_elt, boost::mpi::maximum<double>());
@@ -4686,6 +4729,8 @@ FiniteElement::updateVelocity()
 void
 FiniteElement::speedScaling(std::vector<double>& speed_scaling)
 {
+    M_comm.barrier();
+
     std::vector<int> sizes_elements = M_sizes_elements;
     std::vector<double> conc_local(M_local_nelements);
 
@@ -5945,10 +5990,9 @@ FiniteElement::equallySpacedDrifter()
 void
 FiniteElement::importBamg(BamgMesh const* bamg_mesh)
 {
-
-    mesh_type_root mesh;
+    //mesh_type_root mesh;
     std::vector<point_type> mesh_nodes;
-    std::vector<element_type> mesh_edges;
+    //std::vector<element_type> mesh_edges;
     std::vector<element_type> mesh_triangles;
     std::vector<double> coords(3,0);
 
@@ -5968,6 +6012,7 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     int physical = 0;
     int elementary = 0;
 
+#if 0
     int numVertices = 2;
     std::vector<int> edges(numVertices);
 
@@ -5987,8 +6032,9 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
         //mesh_edges.insert(std::make_pair(edg,gmshElt));
         mesh_edges.push_back(gmshElt);
     }
+#endif
 
-    numVertices = 3;
+    int numVertices = 3;
     std::vector<int> indices(numVertices);
 
     for (int tr=0; tr<bamg_mesh->TrianglesSize[0]; ++tr)
@@ -5997,7 +6043,7 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
         indices[1] = bamg_mesh->Triangles[4*tr+1];
         indices[2] = bamg_mesh->Triangles[4*tr+2];
 
-        element_type gmshElt( tr+1,
+        element_type gmshElt( tr,
                               type,
                               physical,
                               elementary,
@@ -6011,17 +6057,17 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     std::cout<<"\n";
     std::cout<<"INFO: Previous  NumNodes     = "<< M_mesh_root.numNodes() <<"\n";
     std::cout<<"INFO: Previous  NumTriangles = "<< M_mesh_root.numTriangles() <<"\n";
-    std::cout<<"INFO: Previous  NumEdges     = "<< M_mesh_root.numEdges() <<"\n";
+    //std::cout<<"INFO: Previous  NumEdges     = "<< M_mesh_root.numEdges() <<"\n";
 
     M_mesh_previous_root = M_mesh_root;
-    M_mesh_root = mesh_type_root(mesh_nodes,mesh_edges,mesh_triangles);
-    //M_mesh_root = mesh_type(mesh_nodes,mesh_triangles);
+    //M_mesh_root = mesh_type_root(mesh_nodes,mesh_edges,mesh_triangles);
+    M_mesh_root = mesh_type_root(mesh_nodes,mesh_triangles);
     //M_mesh.writeTofile("out.msh");
 
     std::cout<<"\n";
     std::cout<<"INFO: Current  NumNodes      = "<< M_mesh_root.numNodes() <<"\n";
     std::cout<<"INFO: Current  NumTriangles  = "<< M_mesh_root.numTriangles() <<"\n";
-    std::cout<<"INFO: Current  NumEdges      = "<< M_mesh_root.numEdges() <<"\n";
+    //std::cout<<"INFO: Current  NumEdges      = "<< M_mesh_root.numEdges() <<"\n";
     std::cout<<"\n";
 }
 
@@ -6160,7 +6206,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
     //boost::mpi::gather(M_comm, M_local_nelements, sizes_elements, 0);
 
     // ELEMENT INTERPOLATION With Cavities
-    int nb_var_element=15;
+    int nb_var_element=8;//15;
     std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = nb_var_element*f; });
     std::vector<double> interp_elt_in_local(nb_var_element*M_local_nelements);
 
@@ -6179,7 +6225,6 @@ FiniteElement::exportResults(int step, bool export_mesh)
         interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_thick[i];
         tmp_nb_var++;
 
-#if 1
         // snow thickness
         interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_snow_thick[i];
         tmp_nb_var++;
@@ -6204,6 +6249,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
         interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_divergence_rate[i];
         tmp_nb_var++;
 
+#if 0
         // h_ridged_thin_ice
         interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_h_ridged_thin_ice[i];
         tmp_nb_var++;
@@ -6259,13 +6305,13 @@ FiniteElement::exportResults(int step, bool export_mesh)
     std::vector<double> stress3(M_mesh_root.numTriangles());
     std::vector<double> damage(M_mesh_root.numTriangles());
     std::vector<double> divergence(M_mesh_root.numTriangles());
-    std::vector<double> ridged_thin(M_mesh_root.numTriangles());
-    std::vector<double> ridged_thick(M_mesh_root.numTriangles());
-    std::vector<double> random(M_mesh_root.numTriangles());
-    std::vector<double> tsurf(M_mesh_root.numTriangles());
-    std::vector<double> hthin(M_mesh_root.numTriangles());
-    std::vector<double> hsthin(M_mesh_root.numTriangles());
-    std::vector<double> tsurfthin(M_mesh_root.numTriangles());
+    // std::vector<double> ridged_thin(M_mesh_root.numTriangles());
+    // std::vector<double> ridged_thick(M_mesh_root.numTriangles());
+    // std::vector<double> random(M_mesh_root.numTriangles());
+    // std::vector<double> tsurf(M_mesh_root.numTriangles());
+    // std::vector<double> hthin(M_mesh_root.numTriangles());
+    // std::vector<double> hsthin(M_mesh_root.numTriangles());
+    // std::vector<double> tsurfthin(M_mesh_root.numTriangles());
 
     if (M_rank == 0)
     {
@@ -6315,6 +6361,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
             divergence[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
             tmp_nb_var++;
 
+#if 0
             // h_ridged_thin_ice
             ridged_thin[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
             tmp_nb_var++;
@@ -6342,6 +6389,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
             // Ice surface temperature for thin ice
             tsurfthin[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
             tmp_nb_var++;
+#endif
 
             if(tmp_nb_var>nb_var_element)
             {
@@ -6453,13 +6501,15 @@ FiniteElement::exportResults(int step, bool export_mesh)
         exporter.writeField(outbin, stress3, "Stress3");
         exporter.writeField(outbin, damage, "Damage");
         exporter.writeField(outbin, divergence, "Divergence");
-        exporter.writeField(outbin, ridged_thin, "Ridgedthin");
-        exporter.writeField(outbin, ridged_thick, "Ridgedthick");
-        exporter.writeField(outbin, random, "Random");
-        exporter.writeField(outbin, tsurf, "Tsurf");
-        exporter.writeField(outbin, hthin, "Hthin");
-        exporter.writeField(outbin, hsthin, "Hsthin");
-        exporter.writeField(outbin, tsurfthin, "Tsurfthin");
+        // exporter.writeField(outbin, ridged_thin, "Ridgedthin");
+        // exporter.writeField(outbin, ridged_thick, "Ridgedthick");
+        // exporter.writeField(outbin, random, "Random");
+        // exporter.writeField(outbin, tsurf, "Tsurf");
+        // exporter.writeField(outbin, hthin, "Hthin");
+        // exporter.writeField(outbin, hsthin, "Hsthin");
+        // exporter.writeField(outbin, tsurfthin, "Tsurfthin");
+
+
 
         // exporter.writeField(outbin, M_tsurf, "Tsurf");
         // exporter.writeField(outbin, M_sst, "SST");

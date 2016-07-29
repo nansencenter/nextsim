@@ -34,6 +34,27 @@ GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
     M_num_edges(edges.size())
 {}
 
+GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
+                         std::vector<element_type> const& triangles)
+    :
+    M_version("2.2"),
+    M_ordering("gmsh"),
+    M_nodes(nodes),
+    M_triangles(triangles),
+    M_num_nodes(nodes.size()),
+    M_num_triangles(triangles.size())
+{}
+
+GmshMeshSeq::GmshMeshSeq(GmshMeshSeq const& mesh)
+        :
+    M_version(mesh.M_version),
+    M_ordering(mesh.M_ordering),
+    M_nodes(mesh.M_nodes),
+    M_triangles(mesh.M_triangles),
+    M_num_nodes(mesh.M_num_nodes),
+    M_num_triangles(mesh.M_num_triangles)
+{}
+
 void
 GmshMeshSeq::readFromFile(std::string const& filename)
 {
@@ -332,7 +353,7 @@ GmshMeshSeq::partition(std::string const& filename, std::string const& partition
                 << " -part " << Environment::comm().size()
             //<< " -string " << "\"Mesh.Partitioner=1;\""
                 << " -string " << "\"Mesh.Partitioner="<< partint <<";\""
-                << " -string " << "\"Mesh.MetisAlgorithm="<< 2 <<";\""
+            //<< " -string " << "\"Mesh.MetisAlgorithm="<< 2 <<";\""
             //<< " -string " << "\"Mesh.MetisRefinementAlgorithm="<< 2 <<";\""
             //<< " -string " << "\"Mesh.ColorCarousel=3;\""
                 << " -string " << "\"General.Verbosity=5;\""

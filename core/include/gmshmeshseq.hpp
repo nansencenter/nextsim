@@ -46,6 +46,11 @@ public:
                 std::vector<element_type> const& edges,
                 std::vector<element_type> const& triangles);
 
+    GmshMeshSeq(std::vector<point_type> const& nodes,
+                std::vector<element_type> const& triangles);
+
+    GmshMeshSeq(GmshMeshSeq const& mesh);
+
     void readFromFile(std::string const& filename);
     void writeTofile(std::string const& filename);
     void partition(std::string const& filename, std::string const& partitioner = "chaco");

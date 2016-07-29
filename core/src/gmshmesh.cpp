@@ -586,6 +586,8 @@ GmshMesh::nodalGrid()
                 if (duplicated_dofs.size() == 0)
                     continue;
 
+                //std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@SIZE= "<< duplicated_dofs[0] <<"\n";
+
                 //std::cout<<"intersection "<< ii <<" and "<< jj <<"\n";
                 for (int kk=0; kk<duplicated_dofs.size(); ++kk)
                 {
@@ -843,6 +845,11 @@ GmshMesh::nodalGrid()
             //M_triangles_id_with_ghost.push_back(ri);
             M_triangles_id_with_ghost.push_back(it->number);
             ++M_num_triangles_without_ghost;
+
+            // if ((it->number==188165) || (it->number==48117) || (it->number==48119) )
+            // {
+            //     std::cout<<"FIND "<< it->number <<"\n";
+            // }
         }
     }
 
