@@ -79,30 +79,6 @@ module neXtSIM
 ! Module procedures
 !========================================================================
 
-  interface new
-    module procedure Env_FE_new
-  end interface new
-
-  interface delete
-    module procedure Env_FE_del
-  end interface delete
-
-  interface run
-    module procedure FE_run
-  end interface run
-
-  interface init
-    module procedure FE_init
-  end interface init
-
-  interface step
-    module procedure FE_step
-  end interface step
-
-  interface finalise
-    module procedure FE_finalise
-  end interface finalise
-
   public :: new, delete, finalise, step, init, run, CXXClass
 
 !========================================================================
@@ -113,7 +89,7 @@ contains
   ! Instantiate a new instance of the Environment class first, then the
   ! FiniteElement class afterwards. This must always be done like this
   ! so I'm combining the two operations into one Fortran subroutine
-  subroutine Env_FE_new(env, FE, argc, argv)
+  subroutine new(env, FE, argc, argv)
     type(CXXclass), intent(out) :: env, FE
     integer(C_int), intent(in) :: argc
     character(len=*), intent(inout), target :: argv(argc+1)
@@ -135,37 +111,37 @@ contains
 
     env%object = EnvironmentNew(argc+1, argvp)
     FE%object  = FiniteElementNew()
-  end subroutine Env_FE_new
+  end subroutine new
 
   ! One delete subroutine for both the Environment and FiniteElement
-  ! class instances to be consistent with Env_FE_new
-  subroutine Env_FE_del(env, FE)
+  ! class instances to be consistent with new
+  subroutine delete(env, FE)
     type(CXXClass), intent(inout) :: env, FE
     call FiniteElementDelete(FE%object)
     call EnvironmentDelete(env%object)
-  end subroutine Env_FE_del
+  end subroutine delete
 
   ! To be depricated
-  subroutine FE_run(this)
+  subroutine run(this)
     type(CXXClass), intent(in) :: this
     call FiniteElementRun(this%object)
-  end subroutine FE_run
+  end subroutine run
 
-  subroutine FE_init(this, pcpt)
+  subroutine init(this, pcpt)
     type(CXXClass), intent(inout) :: this
     integer, intent(out) :: pcpt
     call FiniteElementInit(this%object, pcpt)
-  end subroutine FE_init
+  end subroutine init
 
-  subroutine FE_step(this, pcpt)
+  subroutine step(this, pcpt)
     type(CXXClass), intent(inout) :: this
     integer, intent(in) :: pcpt
     call FiniteElementStep(this%object, pcpt)
-  end subroutine FE_step
+  end subroutine step
 
-  subroutine FE_finalise(this)
+  subroutine finalise(this)
     type(CXXClass), intent(inout) :: this
     call FiniteElementFinalise(this%object)
-  end subroutine FE_finalise
+  end subroutine finalise
 
 end module neXtSIM
