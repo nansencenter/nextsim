@@ -32,7 +32,7 @@ module neXtSIM
       import
       type(C_ptr) :: this
       integer(C_int), value :: argc
-      type(C_ptr) :: argv(*)
+      type(C_ptr), value :: argv
     end function EnvironmentNew
 
 ! Interface to delete an instance of the FiniteElement class
@@ -93,7 +93,8 @@ contains
     type(CXXclass), intent(out) :: env, FE
     integer(C_int), intent(in) :: argc
     character(len=*), intent(inout), target :: argv(argc+1)
-    type(C_ptr) :: argvp(argc+2)
+    type(C_ptr), target :: argvp(argc+1)
+    type(C_ptr) :: argvdp
     integer :: i
     character(len=128), target :: buffy
 
@@ -102,14 +103,9 @@ contains
       argvp(i) = C_loc(argv(i))
     end do
 
-    ! A strange work-around for a strange bug!
-	! I simply pass a larger array than the one that should be needed
-	! ... it appears that boost::mpi is addressing something beyond argc
-	! :^/
-    buffy = ""//C_null_char
-    argvp(argc+2) = C_loc(buffy(1:1))
-
-    env%object = EnvironmentNew(argc+1, argvp)
+    ! Must give the C-routine a double pointer!
+    argvdp = C_loc(argvp(1))
+    env%object = EnvironmentNew(argc+1, argvdp)
     FE%object  = FiniteElementNew()
   end subroutine new
 
