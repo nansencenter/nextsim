@@ -89,6 +89,7 @@ contains
   ! Instantiate a new instance of the Environment class first, then the
   ! FiniteElement class afterwards. This must always be done like this
   ! so I'm combining the two operations into one Fortran subroutine
+  ! NB!  ARGV MUST BE CONTIGUOUS ... or bad things may happen
   subroutine new(env, FE, argc, argv)
     type(CXXclass), intent(out) :: env, FE
     integer(C_int), intent(in) :: argc

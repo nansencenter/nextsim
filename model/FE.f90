@@ -14,6 +14,7 @@ program main
   character(len=128), target, allocatable :: argv(:)
 
   ! Read the command line arguments
+  ! argv is (and must be) contiguous
   argc = command_argument_count()
   allocate(argv(argc+1))
   do i=0, argc
