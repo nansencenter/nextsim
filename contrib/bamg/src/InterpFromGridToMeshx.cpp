@@ -21,12 +21,6 @@ int InterpFromGridToMeshx(double* &data_mesh,double* x_in, int x_rows, double* y
 	if ((M<2) || (N<2) || (nods<=0)){
 		_error_("nothing to be done according to the dimensions of input matrices and vectors.");
 	}
-	if (x_in[1]-x_in[0]<0){
-		_error_("x coordinate vector should be increasing.\n   use Matlab's command x=flipud(x), also flip the data matrix data=fliplr(data)");
-	}
-	if (y_in[1]-y_in[0]<0){
-		_error_("y coordinate vector should be increasing.\n   use Matlab's command y=flipud(y), also flip the data matrix data=flipud(data)");
-	}
 
 	/*Allocate output vector: */
 	data_mesh = new double[nods*N_data];
@@ -94,7 +88,7 @@ int InterpFromGridToMeshx(double* &data_mesh,double* x_in, int x_rows, double* y
 int InterpFromGridToMeshxt(InterpFromGridToMeshxThreadStruct gate, double* data_mesh){//(void* vpthread_handle){
 
 	/*intermediary: */
-	int    i,j,m,n;
+	int    i,j,m,n,m_min,m_max,n_min,n_max;
 	double x_grid;
 	double y_grid;
 	double data_value;
@@ -143,15 +137,33 @@ int InterpFromGridToMeshxt(InterpFromGridToMeshxThreadStruct gate, double* data_
 			 *    x1                 x2
 			 *
 			 */
-			x1=x[n]; x2=x[n+1];
-			y1=y[m]; y2=y[m+1];
+            if(x[n]<x[n+1])
+            {
+			    n_min=n; n_max=n+1;
+            }
+            else
+            {
+                n_min=n+1; n_max=n;
+            }
+             
+            if(y[m]<y[m+1])
+            {
+			    m_min=m; m_max=m+1;
+            }
+            else
+            {
+                m_min=n+1; m_max=m;
+            }
+                 
+            x1=x[n_min]; x2=x[n_max];
+            y1=y[m_min]; y2=y[m_max];
 
 			for(j=0;j<N_data;j++) {
 
-				Q11=data[N_data*(m*N+n)			+j];
-				Q12=data[N_data*((m+1)*N+n)		+j];
-				Q21=data[N_data*(m*N+n+1)		+j];
-				Q22=data[N_data*((m+1)*N+n+1)	+j];
+				Q11=data[N_data*(m_min*N+n_min)	+j];
+				Q12=data[N_data*(m_max*N+n_min)	+j];
+				Q21=data[N_data*(m_min*N+n_max)	+j];
+				Q22=data[N_data*(m_max*N+n_max)	+j];
 
 				switch(interpenum){
 					case TriangleInterpEnum:
@@ -191,7 +203,7 @@ void* InterpFromGridToMeshxt(void* vpthread_handle){
 	int i0,i1;
 
 	/*intermediary: */
-	int    i,j,m,n;
+	int    i,j,m,n,m_min,m_max,n_min,n_max;
 	double x_grid;
 	double y_grid;
 	double data_value;
@@ -247,24 +259,42 @@ void* InterpFromGridToMeshxt(void* vpthread_handle){
 			 *    x1                 x2
 			 *
 			 */
-			x1=x[n]; x2=x[n+1];
-			y1=y[m]; y2=y[m+1];
+             if(x[n]<x[n+1])
+             {
+ 			    n_min=n; n_max=n+1;
+             }
+             else
+             {
+                 n_min=n+1; n_max=n;
+             }
+         
+             if(y[m]<y[m+1])
+             {
+ 			    m_min=m; m_max=m+1;
+             }
+             else
+             {
+                 m_min=n+1; m_max=m;
+             }
+             
+             x1=x[n_min]; x2=x[n_max];
+             y1=y[m_min]; y2=y[m_max];
 
-			for(j=0;j<N_data;j++) {
+ 			for(j=0;j<N_data;j++) {
 
 				if (row_major)
 				{
-					Q11=data[N_data*(n*M+m)			+j];
-					Q12=data[N_data*(n*M+m+1)		+j];
-					Q21=data[N_data*((n+1)*M+m)		+j];
-					Q22=data[N_data*((n+1)*M+m+1)	+j];
+					Q11=data[N_data*(n_min*M+m_min)	+j];
+					Q12=data[N_data*(n_min*M+m_max)	+j];
+					Q21=data[N_data*(n_max*M+m_min)	+j];
+					Q22=data[N_data*(n_max*M+m_max)	+j];
 				}
 				else
 				{
-					Q11=data[N_data*(m*N+n)			+j];
-					Q12=data[N_data*((m+1)*N+n)		+j];
-					Q21=data[N_data*(m*N+n+1)		+j];
-					Q22=data[N_data*((m+1)*N+n+1)	+j];
+     				Q11=data[N_data*(m_min*N+n_min)	+j];
+     				Q12=data[N_data*(m_max*N+n_min)	+j];
+     				Q21=data[N_data*(m_min*N+n_max)	+j];
+     				Q22=data[N_data*(m_max*N+n_max)	+j];
 				}
 
 				switch(interpenum){
@@ -303,7 +333,7 @@ bool findindices(int* pn,int* pm,double* x,int x_rows, double* y,int y_rows, dou
 	int i;
 
 	for (i=0;i<x_rows-1;i++){
-		if ((x[i]<=xgrid) && (xgrid<x[i+1])){
+		if (((x[i]<=xgrid) && (xgrid<x[i+1])) || ((x[i]>=xgrid) && (xgrid>x[i+1])) ){
 			n=i;
 			foundx=true;
 			break;
@@ -315,7 +345,7 @@ bool findindices(int* pn,int* pm,double* x,int x_rows, double* y,int y_rows, dou
 	}
 
 	for (i=0;i<y_rows-1;i++){
-		if ((y[i]<=ygrid) && (ygrid<y[i+1])){
+		if (((y[i]<=ygrid) && (ygrid<y[i+1])) || ((y[i]>=ygrid) && (ygrid>y[i+1]))){
 			m=i;
 			foundy=true;
 			break;
