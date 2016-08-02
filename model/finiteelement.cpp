@@ -88,8 +88,8 @@ FiniteElement::distributedMeshProcessing(bool start)
     //M_mesh.setOrdering("bamg");
 
     chrono.restart();
-    //M_mesh.readFromFile(M_mesh_filename);
-    M_mesh.readFromFile("par4topazreducedsplit2.msh");
+    M_mesh.readFromFile(M_mesh_filename);
+    //M_mesh.readFromFile("par4topazreducedsplit2.msh");
     std::cout<<"Reading mesh done in "<< chrono.elapsed() <<"s\n";
 
 #if 1
@@ -102,12 +102,15 @@ FiniteElement::distributedMeshProcessing(bool start)
         bamgmesh = new BamgMesh();
     }
 
-    BamgConvertMeshx(
-                     bamgmesh,bamggeom,
-                     &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-                     M_mesh.numNodes(), M_mesh.numTriangles()
-                     );
 
+    if (1)//(M_comm.rank() == 3)
+    {
+        BamgConvertMeshx(
+                         bamgmesh,bamggeom,
+                         &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
+                         M_mesh.numNodes(), M_mesh.numTriangles()
+                         );
+    }
 
     M_elements = M_mesh.triangles();
     M_nodes = M_mesh.nodes();
@@ -129,7 +132,29 @@ FiniteElement::distributedMeshProcessing(bool start)
     this->gatherSizes();
 #endif
 
+    std::cout<<"["<< M_rank << "] NODES  = "<< M_mesh.numGlobalNodes() << " --- "<< M_local_ndof <<"\n";
+
+    //M_comm.barrier();
+
     std::cout<<"["<< M_rank << "] ELEMENTS= "<< M_mesh.numGlobalElements() << " --- "<< M_local_nelements <<"\n";
+
+    int num_nodes = boost::mpi::all_reduce(M_comm, M_local_ndof, std::plus<int>());
+    int num_elements = boost::mpi::all_reduce(M_comm, M_local_nelements, std::plus<int>());
+
+
+    if(M_mesh.numGlobalNodesFromSarialMesh() != num_nodes)
+    {
+        throw std::logic_error("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@Inconsistant NODAL PARTITIONS");
+    }
+
+
+    std::cout<<"COMPARE "<< M_mesh.numGlobalElementsFromSarialMesh() << " and "<< num_elements <<"\n";
+
+    if(M_mesh.numGlobalElementsFromSarialMesh() != num_elements)
+    {
+        throw std::logic_error("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@INCONSISTANT ELEMENT PARTITIONS");
+    }
+
 }
 
 void
@@ -381,9 +406,9 @@ FiniteElement::rootMeshProcessing()
         M_mesh_root.writeTofile(M_mesh_filename);
         std::cout<<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
 
-        std::string src_fname = Environment::nextsimDir().string() + "/mesh/" + M_mesh_filename;
-        std::string desc_fname = Environment::nextsimDir().string() + "/mesh/" + "seq_" + M_mesh_filename;
-        fs::copy_file(fs::path(src_fname), fs::path(desc_fname), fs::copy_option::overwrite_if_exists);
+        // std::string src_fname = Environment::nextsimDir().string() + "/mesh/" + M_mesh_filename;
+        // std::string desc_fname = Environment::nextsimDir().string() + "/mesh/" + "seq_" + M_mesh_filename;
+        // fs::copy_file(fs::path(src_fname), fs::path(desc_fname), fs::copy_option::overwrite_if_exists);
 
 
         // partition the mesh on root process (rank 0)
@@ -4343,6 +4368,8 @@ FiniteElement::run()
         }
 
         ++pcpt;
+
+        //this->exportResults(pcpt);
 
 #if 0
         if(fmod((pcpt+1)*time_step,output_time_step) == 0)

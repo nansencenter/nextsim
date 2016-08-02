@@ -68,6 +68,7 @@ public:
     std::vector<element_type> const& edges() const {return M_edges;}
 
     int numGlobalNodes() const {return M_global_num_nodes;}
+    int numGlobalNodesFromSarialMesh() const {return M_global_num_nodes_from_serial;}
     int numNodes() const {return M_num_nodes;}
     int numTriangles() const {return M_num_triangles;}
     int numEdges() const {return M_num_edges;}
@@ -77,6 +78,7 @@ public:
     int numLocalGhost() const {return M_nlghost;}
 
     int numGlobalElements() const {return M_global_num_elements;}
+    int numGlobalElementsFromSarialMesh() const {return M_global_num_elements_from_serial;}
     int numTrianglesWithoutGhost() const {return M_num_triangles_without_ghost;}
 
     void setCommunicator(Communicator const& comm) {M_comm=comm;}
@@ -148,6 +150,7 @@ private:
     std::vector<int> M_triangles_id_with_ghost;
 
     int M_global_num_nodes;
+    int M_global_num_nodes_from_serial;
     int M_num_nodes;
     int M_num_triangles;
     int M_num_edges;
@@ -157,6 +160,7 @@ private:
     int M_nlghost;
 
     int M_global_num_elements;
+    int M_global_num_elements_from_serial;
     int M_num_triangles_without_ghost;
 
 

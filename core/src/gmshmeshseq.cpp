@@ -351,11 +351,14 @@ GmshMeshSeq::partition(std::string const& filename, std::string const& partition
         gmshstr << BOOST_PP_STRINGIZE( gmsh )
                 << " -" << 2
                 << " -part " << Environment::comm().size()
-            //<< " -string " << "\"Mesh.Partitioner=1;\""
                 << " -string " << "\"Mesh.Partitioner="<< partint <<";\""
-            //<< " -string " << "\"Mesh.MetisAlgorithm="<< 2 <<";\""
-            //<< " -string " << "\"Mesh.MetisRefinementAlgorithm="<< 2 <<";\""
+                << " -string " << "\"Mesh.MetisAlgorithm="<< 2 <<";\"" // 1 = recursive (default), 2 = K-way
+                << " -string " << "\"Mesh.MetisRefinementAlgorithm="<< 2 <<";\""
             //<< " -string " << "\"Mesh.ColorCarousel=3;\""
+
+            //<< " -string " << "\"Mesh.ChacoParamINTERNAL_VERTICES=1;\""
+            //<< " -string " << "\"Mesh.ChacoParamREFINE_PARTITION=1;\""
+
                 << " -string " << "\"General.Verbosity=5;\""
                 << " " << mshfile;
 
