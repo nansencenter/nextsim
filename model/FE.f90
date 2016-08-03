@@ -6,12 +6,14 @@ program main
 
   ! The neXtSIM module presents an interface to the C++ FiniteElement class
   use neXtSIM
+  use, intrinsic :: ISO_C_Binding, only: C_double
 
   type(CXXClass) :: FE, env
 
   ! Local variables
   integer :: i, i_init, argc
   character(len=128), target, allocatable :: argv(:)
+  real(C_double), pointer :: conc(:,:)
 
   ! Read the command line arguments
   ! argv is (and must be) contiguous
@@ -37,6 +39,12 @@ program main
     call step(FE, i)
     write(*,*) "Step completed"
   end do
+
+  ! Get the concentration field
+  call getConc(FE, conc)
+  do i=1,size(conc,1)
+    write(10,*) (conc(i,j), j=1,size(conc,2))
+  enddo
 
   ! Finalise the model
   write(*,*) "Fortran call finalise"
