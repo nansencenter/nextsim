@@ -50,6 +50,7 @@ namespace Nextsim
             ("simul.duration", po::value<double>()->default_value( 1. ), "")
             ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "")
             ("simul.output_per_day", po::value<int>()->default_value( 24 ), "")
+            ("simul.ptime_per_day", po::value<int>()->default_value( 12 ), "")
             ("simul.output_timestep", po::value<double>()->default_value( 0.25 ), "")
             ("simul.diagnostics_frequency", po::value<int>()->default_value( 1 ), "")
             ("simul.save_forcing_field", po::value<bool>()->default_value( false ), "")

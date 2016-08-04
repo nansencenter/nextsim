@@ -359,7 +359,7 @@ GmshMeshSeq::partition(std::string const& filename, std::string const& partition
             //<< " -string " << "\"Mesh.ChacoParamINTERNAL_VERTICES=1;\""
             //<< " -string " << "\"Mesh.ChacoParamREFINE_PARTITION=1;\""
 
-                << " -string " << "\"General.Verbosity=5;\""
+                << " -string " << "\"General.Verbosity=0;\""
                 << " " << mshfile;
 
         //std::cout<<"JUST HERE "<< "\"Mesh.Partitioner=1;\"" <<"\n";

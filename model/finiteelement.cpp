@@ -87,12 +87,12 @@ FiniteElement::distributedMeshProcessing(bool start)
     M_mesh.setOrdering("gmsh");
     //M_mesh.setOrdering("bamg");
 
-    chrono.restart();
+    //chrono.restart();
+    LOG(INFO) <<"["<< M_rank <<"] " <<"filename= "<< M_mesh_filename <<"\n";
     M_mesh.readFromFile(M_mesh_filename);
     //M_mesh.readFromFile("par4topazreducedsplit2.msh");
-    std::cout<<"Reading mesh done in "<< chrono.elapsed() <<"s\n";
+    //std::cout<<"Reading mesh done in "<< chrono.elapsed() <<"s\n";
 
-#if 1
     if (!start)
     {
         delete bamggeom;
@@ -102,15 +102,11 @@ FiniteElement::distributedMeshProcessing(bool start)
         bamgmesh = new BamgMesh();
     }
 
-
-    if (1)//(M_comm.rank() == 3)
-    {
-        BamgConvertMeshx(
-                         bamgmesh,bamggeom,
-                         &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-                         M_mesh.numNodes(), M_mesh.numTriangles()
-                         );
-    }
+    BamgConvertMeshx(
+                     bamgmesh,bamggeom,
+                     &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
+                     M_mesh.numNodes(), M_mesh.numTriangles()
+                     );
 
     M_elements = M_mesh.triangles();
     M_nodes = M_mesh.nodes();
@@ -122,22 +118,18 @@ FiniteElement::distributedMeshProcessing(bool start)
     M_local_ndof_ghost = M_mesh.numLocalNodesWithGhost();
 
     M_local_nelements = M_mesh.numTrianglesWithoutGhost();
-
     M_num_nodes = M_local_ndof_ghost;
 
     this->bcMarkedNodes();
 
-    this->createGraph();//(bamgmesh);
+    this->createGraph();
 
     this->gatherSizes();
-#endif
 
-    std::cout<<"["<< M_rank << "] NODES  = "<< M_mesh.numGlobalNodes() << " --- "<< M_local_ndof <<"\n";
+    LOG(INFO) <<"["<< M_rank << "] NODES   = "<< M_mesh.numGlobalNodes() << " --- "<< M_local_ndof <<"\n";
+    LOG(INFO) <<"["<< M_rank << "] ELEMENTS= "<< M_mesh.numGlobalElements() << " --- "<< M_local_nelements <<"\n";
 
-    //M_comm.barrier();
-
-    std::cout<<"["<< M_rank << "] ELEMENTS= "<< M_mesh.numGlobalElements() << " --- "<< M_local_nelements <<"\n";
-
+#if 0
     int num_nodes = boost::mpi::all_reduce(M_comm, M_local_ndof, std::plus<int>());
     int num_elements = boost::mpi::all_reduce(M_comm, M_local_nelements, std::plus<int>());
 
@@ -147,13 +139,13 @@ FiniteElement::distributedMeshProcessing(bool start)
         throw std::logic_error("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@Inconsistant NODAL PARTITIONS");
     }
 
-
     std::cout<<"COMPARE "<< M_mesh.numGlobalElementsFromSarialMesh() << " and "<< num_elements <<"\n";
 
     if(M_mesh.numGlobalElementsFromSarialMesh() != num_elements)
     {
         throw std::logic_error("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@INCONSISTANT ELEMENT PARTITIONS");
     }
+#endif
 
 }
 
@@ -173,7 +165,7 @@ FiniteElement::bcMarkedNodes()
 
 #endif
 
-    std::cout<<"["<< M_rank << "] NDOFS= "<< M_num_nodes << " --- "<< M_local_ndof <<"\n";
+    //std::cout<<"["<< M_rank << "] NDOFS= "<< M_num_nodes << " --- "<< M_local_ndof <<"\n";
 
     std::vector<int> flags_size_root(2);
     if (M_rank == 0)
@@ -250,8 +242,9 @@ FiniteElement::bcMarkedNodes()
     std::sort(M_dirichlet_flags.begin(), M_dirichlet_flags.end());
     std::sort(M_neumann_flags.begin(), M_neumann_flags.end());
 
-    std::cout<<"["<< M_comm.rank() <<"] " << "Dirichlet flags= "<< M_dirichlet_flags.size() <<"\n";
-    std::cout<<"["<< M_comm.rank() <<"] " << "Neumann flags  = "<< M_neumann_flags.size() <<"\n";
+    LOG(DEBUG) <<"["<< M_comm.rank() <<"] " << "Dirichlet flags= "<< M_dirichlet_flags.size() <<"\n";
+    LOG(DEBUG) <<"["<< M_comm.rank() <<"] " << "Neumann flags  = "<< M_neumann_flags.size() <<"\n";
+
 
     // if (M_rank == 1)
     // {
@@ -292,26 +285,24 @@ FiniteElement::rootMeshProcessing()
     if (M_rank == 0)
     {
         M_mesh_root.setOrdering("bamg");
-        std::cout<<"Reading root mesh starts\n";
+        LOG(DEBUG) <<"Reading root mesh starts\n";
         chrono.restart();
         M_mesh_root.readFromFile(M_mesh_filename);
-        std::cout<<"Reading root mesh done in "<< chrono.elapsed() <<"s\n";
+        LOG(DEBUG) <<"Reading root mesh done in "<< chrono.elapsed() <<"s\n";
 
         chrono.restart();
         M_mesh_root.stereographicProjection();
-        std::cout<<"Projection root mesh done in "<< chrono.elapsed() <<"s\n";
+        LOG(DEBUG) <<"Projection root mesh done in "<< chrono.elapsed() <<"s\n";
 
         M_mesh_init_root = M_mesh_root;
 
-        std::cout<<"Convert mesh starts\n";
+        LOG(DEBUG) <<"Convert mesh starts\n";
         BamgConvertMeshx(
                          bamgmesh_root,bamggeom_root,
                          &M_mesh_root.indexTr()[0],&M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],
                          M_mesh_root.numNodes(), M_mesh_root.numTriangles()
                          );
 
-        //M_flag_fix = 3;
-        //std::cout<<"M_flag_fix= "<< M_flag_fix <<"\n";
 
         for (auto it=M_mesh_root.edges().begin(), end=M_mesh_root.edges().end(); it!=end; ++it)
         {
@@ -329,17 +320,17 @@ FiniteElement::rootMeshProcessing()
 
         // for (int i=0; i<M_dirichlet_flags_root.size(); ++i)
         // {
-        //     std::cout<<"M_dirichlet_flags_root["<< i <<"]= "<< M_dirichlet_flags_root[i] <<"\n";
+        //     LOG(DEBUG) <<"M_dirichlet_flags_root["<< i <<"]= "<< M_dirichlet_flags_root[i] <<"\n";
         // }
 
-        std::cout<<"Convert mesh done\n";
+        LOG(DEBUG) <<"Convert mesh done\n";
 
         // Definition of the hmin, hmax, hminVertices or hmaxVertices
         auto h = this->minMaxSide(M_mesh_root);
 
-        std::cout<<"MESH: HMIN= "<< h[0] <<"\n";
-        std::cout<<"MESH: HMAX= "<< h[1] <<"\n";
-        std::cout<<"MESH: RES = "<< this->resolution(M_mesh_root) <<"\n";
+        LOG(DEBUG) <<"MESH: HMIN= "<< h[0] <<"\n";
+        LOG(DEBUG) <<"MESH: HMAX= "<< h[1] <<"\n";
+        LOG(DEBUG) <<"MESH: RES = "<< this->resolution(M_mesh_root) <<"\n";
 
         //M_mesh_type = setup::MeshType::FROM_SPLIT;
 
@@ -357,11 +348,10 @@ FiniteElement::rootMeshProcessing()
             M_hminVertices = this->hminVertices(M_mesh_init_root, bamgmesh_root);
             M_hmaxVertices = this->hmaxVertices(M_mesh_init_root, bamgmesh_root);
 
-            std::cout<<"HMIN MIN= "<< *std::min_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
-            std::cout<<"HMIN MAX= "<< *std::max_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
-            std::cout<<"HMAX MIN= "<< *std::min_element(M_hmaxVertices.begin(), M_hmaxVertices.end()) <<"\n";
-            std::cout<<"HMAX MAX= "<< *std::max_element(M_hmaxVertices.begin(), M_hmaxVertices.end()) <<"\n";
-
+            // LOG(DEBUG) <<"HMIN MIN= "<< *std::min_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
+            // LOG(DEBUG) <<"HMIN MAX= "<< *std::max_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
+            // LOG(DEBUG) <<"HMAX MIN= "<< *std::min_element(M_hmaxVertices.begin(), M_hmaxVertices.end()) <<"\n";
+            // LOG(DEBUG) <<"HMAX MAX= "<< *std::max_element(M_hmaxVertices.begin(), M_hmaxVertices.end()) <<"\n";
 
             bamgopt->hminVertices = new double[M_mesh_init_root.numNodes()];
             bamgopt->hmaxVertices = new double[M_mesh_init_root.numNodes()];
@@ -372,7 +362,7 @@ FiniteElement::rootMeshProcessing()
             }
             break;
         default:
-            std::cout << "invalid mesh type"<<"\n";
+            LOG(DEBUG)  << "invalid mesh type"<<"\n";
             throw std::logic_error("invalid mesh type");
         }
 
@@ -380,12 +370,12 @@ FiniteElement::rootMeshProcessing()
         {
 
             chrono.restart();
-            std::cout<<"First adaptation starts\n";
+            LOG(DEBUG) <<"First adaptation starts\n";
             // step 1 (only for the first time step): Start by having bamg 'clean' the mesh with KeepVertices=0
             bamgopt->KeepVertices=0;
             this->adaptMesh();
             bamgopt->KeepVertices=1;
-            std::cout<<"First adaptation done in "<< chrono.elapsed() <<"s\n";
+            LOG(DEBUG) <<"First adaptation done in "<< chrono.elapsed() <<"s\n";
 
             chrono.restart();
             // Interpolate hminVertices and hmaxVertices onto the current mesh
@@ -393,18 +383,18 @@ FiniteElement::rootMeshProcessing()
         }
 
         chrono.restart();
-        std::cout<<"AdaptMesh starts\n";
+        LOG(DEBUG) <<"AdaptMesh starts\n";
         this->adaptMesh();
-        std::cout<<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
+        LOG(DEBUG) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
 
         // Add information on the number of partition to mesh filename
         M_mesh_filename = (boost::format( "par%1%%2%" ) % M_comm.size() % M_mesh_filename ).str();
-        std::cout<<"["<< M_rank <<"] " <<"filename= "<< M_mesh_filename <<"\n";
+        LOG(DEBUG) <<"["<< M_rank <<"] " <<"filename= "<< M_mesh_filename <<"\n";
 
         // save mesh (only root process)
         chrono.restart();
         M_mesh_root.writeTofile(M_mesh_filename);
-        std::cout<<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
+        LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
 
         // std::string src_fname = Environment::nextsimDir().string() + "/mesh/" + M_mesh_filename;
         // std::string desc_fname = Environment::nextsimDir().string() + "/mesh/" + "seq_" + M_mesh_filename;
@@ -414,13 +404,13 @@ FiniteElement::rootMeshProcessing()
         // partition the mesh on root process (rank 0)
         chrono.restart();
         M_mesh_root.partition(M_mesh_filename,vm["simul.partitioner"].as<std::string>());
-        std::cout<<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
+        LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
     }
     else
     {
         // Add information on the number of partition to mesh filename
         M_mesh_filename = (boost::format( "par%1%%2%" ) % M_comm.size() % M_mesh_filename ).str();
-        std::cout<<"["<< M_rank <<"] " <<"filename= "<< M_mesh_filename <<"\n";
+        // LOG(DEBUG) <<"["<< M_rank <<"] " <<"filename= "<< M_mesh_filename <<"\n";
     }
 }
 
@@ -492,11 +482,11 @@ FiniteElement::initVariables()
         }
     }
 
-    if (M_rank == 0)
-    {
-        std::cout<<"Random MIN= "<< *std::min_element(M_random_number_root.begin(), M_random_number_root.end()) <<"\n";
-        std::cout<<"Random MAX= "<< *std::max_element(M_random_number_root.begin(), M_random_number_root.end()) <<"\n";
-    }
+    // if (M_rank == 0)
+    // {
+    //     std::cout<<"Random MIN= "<< *std::min_element(M_random_number_root.begin(), M_random_number_root.end()) <<"\n";
+    //     std::cout<<"Random MAX= "<< *std::max_element(M_random_number_root.begin(), M_random_number_root.end()) <<"\n";
+    // }
 
     boost::mpi::broadcast(M_comm, &M_random_number_root[0], M_mesh.numGlobalElements(), 0);
 
@@ -1208,12 +1198,13 @@ FiniteElement::initConstant()
     days_in_sec = 24.0*3600.0;
     time_init = dateStr2Num(vm["simul.time_init"].as<std::string>());
     output_time_step =  days_in_sec/vm["simul.output_per_day"].as<int>();
+    ptime_step =  days_in_sec/vm["simul.ptime_per_day"].as<int>();
 
     time_step = vm["simul.timestep"].as<double>();
     duration = (vm["simul.duration"].as<double>())*days_in_sec;
     spinup_duration = (vm["simul.spinup_duration"].as<double>())*days_in_sec;
     restart_time_step =  vm["setup.restart_time_step"].as<double>()*days_in_sec;
-    if ( fmod(restart_time_step,time_step) != 0)
+    if (fmod(restart_time_step,time_step) != 0)
     {
         std::cout << restart_time_step << " " << time_step << endl;
         throw std::logic_error("restart_time_step not an integer multiple of time_step");
@@ -1677,7 +1668,7 @@ void
 FiniteElement::interpVertices()
 {
     chrono.restart();
-    std::cout<<"Interpolate hminVertices starts\n";
+    LOG(DEBUG) <<"Interpolate hminVertices starts\n";
     // Interpolate hminVertices and hmaxVertices onto the current mesh
 
     // NODAL INTERPOLATION
@@ -1711,7 +1702,7 @@ FiniteElement::interpVertices()
     }
 
     xDelete<double>(interp_Vertices_out);
-    std::cout<<"Interpolate hmin done in "<< chrono.elapsed() <<"s\n";
+    LOG(DEBUG) <<"Interpolate hmin done in "<< chrono.elapsed() <<"s\n";
 }
 
 void
@@ -1741,11 +1732,11 @@ FiniteElement::gatherSizes()
         M_sizes_elements_with_ghost[i] = fesizes[4*i+3];
     }
 
-    if (M_rank == 0)
-    {
-        for (int i=0; i<M_comm.size(); ++i)
-            std::cout<<"M_sizes_nodes["<< i <<"]= "<< M_sizes_nodes[i] <<"\n";
-    }
+    // if (M_rank == 0)
+    // {
+    //     for (int i=0; i<M_comm.size(); ++i)
+    //         std::cout<<"M_sizes_nodes["<< i <<"]= "<< M_sizes_nodes[i] <<"\n";
+    // }
 
     std::vector<int> sizes_nodes = M_sizes_nodes_with_ghost;
     //std::vector<int> M_id_nodes;
@@ -1773,7 +1764,7 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
 
     timer["gather"].first.restart();
 
-    std::cout<<"["<< M_rank <<"]: " <<"----------GATHER ELEMENT starts\n";
+    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------GATHER ELEMENT starts\n";
 
     int prv_num_nodes = M_local_ndof;
     int prv_num_elements = M_local_nelements;
@@ -1785,7 +1776,7 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
 
     std::vector<double> interp_elt_in_local(M_nb_var_element*prv_num_elements);
 
-    //std::cout<<"ELEMENT: Interp starts\n";
+    //LOG(DEBUG) <<"ELEMENT: Interp starts\n";
 
     int tmp_nb_var=0;
     for (int i=0; i<prv_num_elements; ++i)
@@ -1866,10 +1857,10 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
         }
     }
 
-    //std::cout<<"ELEMENT: Interp done in "<< chrono.elapsed() <<"\n";
+    //LOG(DEBUG) <<"ELEMENT: Interp done in "<< chrono.elapsed() <<"\n";
 
     //timer["gather2"].first.elapsed();
-    //std::cout<<"["<< M_rank <<"]: " <<"GATHERV2 starts\n";
+    //LOG(DEBUG) <<"["<< M_rank <<"]: " <<"GATHERV2 starts\n";
 
     if (M_rank == 0)
     {
@@ -1881,7 +1872,7 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
         boost::mpi::gatherv(M_comm, interp_elt_in_local, 0);
     }
 
-    //std::cout<<"["<< M_rank <<"]: " <<"GATHERV2 done in "<< timer["gather2"].first.elapsed() <<"s\n";
+    //LOG(DEBUG) <<"["<< M_rank <<"]: " <<"GATHERV2 done in "<< timer["gather2"].first.elapsed() <<"s\n";
 
 
     if (M_rank == 0)
@@ -1900,7 +1891,7 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
         }
     }
 
-    std::cout<<"["<< M_rank <<"]: " <<"----------GATHER ELEMENT done in "<< timer["gather"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------GATHER ELEMENT done in "<< timer["gather"].first.elapsed() <<"s\n";
 }
 
 void
@@ -1908,7 +1899,7 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
 {
     timer["scatter"].first.restart();
 
-    std::cout<<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT starts\n";
+    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT starts\n";
 
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
     std::vector<int> id_elements;
@@ -1958,8 +1949,8 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
         boost::mpi::scatterv(M_comm, &out_elt_values[0], M_nb_var_element*M_num_elements, 0);
     }
 
-    // std::cout<<"["<< M_rank <<"]: " <<"Min val= "<< *std::min_element(out_elt_values.begin(), out_elt_values.end()) <<"\n";
-    // std::cout<<"["<< M_rank <<"]: " <<"Max val= "<< *std::max_element(out_elt_values.begin(), out_elt_values.end()) <<"\n";
+    // LOG(DEBUG) <<"["<< M_rank <<"]: " <<"Min val= "<< *std::min_element(out_elt_values.begin(), out_elt_values.end()) <<"\n";
+    // LOG(DEBUG) <<"["<< M_rank <<"]: " <<"Max val= "<< *std::max_element(out_elt_values.begin(), out_elt_values.end()) <<"\n";
 
 
     M_conc.assign(M_num_elements,0.);
@@ -2077,7 +2068,7 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
         }
     }
 
-    std::cout<<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
 }
 
 void
@@ -2387,7 +2378,7 @@ FiniteElement::regrid(bool step)
     if (M_rank == 0)
     {
         chrono.restart();
-        std::cout<<"Flip starts\n";
+        LOG(DEBUG) <<"Flip starts\n";
 
         while (flip)
         {
@@ -2398,40 +2389,40 @@ FiniteElement::regrid(bool step)
             flip = this->flip(M_mesh_root,um_root,displacement_factor);
 
             if (substep > 1)
-                std::cout<<"FLIP DETECTED "<< substep-1 <<"\n";
+                LOG(DEBUG) <<"FLIP DETECTED "<< substep-1 <<"\n";
         }
 
-        std::cout<<"displacement_factor= "<< displacement_factor <<"\n";
+        LOG(DEBUG) <<"displacement_factor= "<< displacement_factor <<"\n";
 
         // int step_order_max = step_order;
         // boost::mpi::reduce(M_comm, step_order, step_order_max, boost::mpi::maximum<int>(), 0);
         // step_order = step_order_max;
 
-        std::cout<<"["<< M_rank <<"] " << "STEP ORDER= "<< step_order <<"\n";
+        LOG(DEBUG) <<"["<< M_rank <<"] " << "STEP ORDER= "<< step_order <<"\n";
 
         substep_nb = std::pow(2,step_order);
 
         if(substep_nb!=1)
         {
-            std::cout<< substep_nb << "substeps will be needed for the remeshing!" <<"\n";
-            std::cout<< "Warning: It is probably due to very high ice speed, check your fields!\n";
+            std::cout << substep_nb << "substeps will be needed for the remeshing!" <<"\n";
+            std::cout << "Warning: It is probably due to very high ice speed, check your fields!\n";
         }
 
-        std::cout<<"Flip done in "<< chrono.elapsed() <<"s\n";
+        LOG(DEBUG) <<"Flip done in "<< chrono.elapsed() <<"s\n";
 
         substep_nb = 1;
 
         for (int substep_i = 0; substep_i < substep_nb; substep_i++ )
         {
-            //std::cout<<"substep_nb= "<< substep_nb <<"\n";
+            //LOG(DEBUG) <<"substep_nb= "<< substep_nb <<"\n";
 
             timer["movemesh"].first.restart();
-            std::cout<<"Move starts\n";
+            LOG(DEBUG) <<"Move starts\n";
             M_mesh_root.move(um_root,displacement_factor);
-            std::cout<<"Move done in "<< timer["movemesh"].first.elapsed() <<"s\n";
+            LOG(DEBUG) <<"Move done in "<< timer["movemesh"].first.elapsed() <<"s\n";
 
             timer["movevertices"].first.restart();
-            std::cout<<"Move bamgmesh->Vertices starts\n";
+            LOG(DEBUG) <<"Move bamgmesh->Vertices starts\n";
             auto RX = M_mesh_root.coordX();
             auto RY = M_mesh_root.coordY();
 
@@ -2441,23 +2432,24 @@ FiniteElement::regrid(bool step)
                 bamgmesh_root->Vertices[3*id+1] = RY[id] ;
             }
 
-            std::cout<<"Move bamgmesh->Vertices done in "<< timer["movevertices"].first.elapsed() <<"s\n";
+            LOG(DEBUG) <<"Move bamgmesh->Vertices done in "<< timer["movevertices"].first.elapsed() <<"s\n";
 
             if(M_mesh_type==setup::MeshType::FROM_SPLIT)
             {
                 timer["interpvertices"].first.restart();
-                std::cout<<"Interp vertices starts\n";
+                LOG(DEBUG) <<"Interp vertices starts\n";
                 this->interpVertices();
-                std::cout<<"Interp vertices done in "<< timer["interpvertices"].first.elapsed() <<"\n";
+                LOG(DEBUG) <<"Interp vertices done in "<< timer["interpvertices"].first.elapsed() <<"\n";
             }
 
             timer["adaptmesh"].first.restart();
-            std::cout<<"---TRUE AdaptMesh starts\n";
+            LOG(DEBUG) <<"---TRUE AdaptMesh starts\n";
             this->adaptMesh();
-            std::cout<<"---TRUE AdaptMesh done in "<< timer["adaptmesh"].first.elapsed() <<"s\n";
+            LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< timer["adaptmesh"].first.elapsed() <<"s\n";
 
             // save mesh (only root process)
 
+#if 0
             std::string src_fname = Environment::nextsimDir().string() + "/mesh/" + M_mesh_filename;
             std::string desc_fname = Environment::nextsimDir().string() + "/mesh/" + "prev_" + M_mesh_filename;
             fs::copy_file(fs::path(src_fname), fs::path(desc_fname), fs::copy_option::overwrite_if_exists);
@@ -2465,23 +2457,24 @@ FiniteElement::regrid(bool step)
             src_fname = Environment::nextsimDir().string() + "/mesh/" + "seq_" + M_mesh_filename;
             desc_fname = Environment::nextsimDir().string() + "/mesh/" + "seq_prev_" + M_mesh_filename;
             fs::copy_file(fs::path(src_fname), fs::path(desc_fname), fs::copy_option::overwrite_if_exists);
-
+#endif
 
             timer["savemesh"].first.restart();
-            std::cout<<"Saving mesh starts\n";
+            LOG(DEBUG) <<"Saving mesh starts\n";
             M_mesh_root.writeTofile(M_mesh_filename);
-            std::cout<<"Saving mesh done in "<< timer["savemesh"].first.elapsed() <<"s\n";
+            LOG(DEBUG) <<"Saving mesh done in "<< timer["savemesh"].first.elapsed() <<"s\n";
 
+#if 0
             src_fname = Environment::nextsimDir().string() + "/mesh/" + M_mesh_filename;
             desc_fname = Environment::nextsimDir().string() + "/mesh/" + "seq_" + M_mesh_filename;
             fs::copy_file(fs::path(src_fname), fs::path(desc_fname), fs::copy_option::overwrite_if_exists);
-
+#endif
 
             // partition the mesh on root process (rank 0)
             timer["meshpartition"].first.restart();
-            std::cout<<"Partitioning mesh starts\n";
+            LOG(DEBUG) <<"Partitioning mesh starts\n";
             M_mesh_root.partition(M_mesh_filename,vm["simul.partitioner"].as<std::string>());
-            std::cout<<"Partitioning mesh done in "<< timer["meshpartition"].first.elapsed() <<"s\n";
+            LOG(DEBUG) <<"Partitioning mesh done in "<< timer["meshpartition"].first.elapsed() <<"s\n";
         }
     } // rank 0
 
@@ -2499,15 +2492,15 @@ FiniteElement::regrid(bool step)
 
     timer["felt"].first.restart();
     this->interpFieldsElement();
-    std::cout<<"interpFieldsElement done in "<< timer["felt"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"interpFieldsElement done in "<< timer["felt"].first.elapsed() <<"s\n";
 
     timer["fnd"].first.restart();
     this->interpFieldsNode(prv_rmap_nodes, sizes_nodes);
-    std::cout<<"interpFieldsNode done in "<< timer["fnd"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"interpFieldsNode done in "<< timer["fnd"].first.elapsed() <<"s\n";
 
     // --------------------------------END-------------------------------
 
-    std::cout<<"TIMER REGRIDDING: this is done in "<< timer["regrid"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"TIMER REGRIDDING: this is done in "<< timer["regrid"].first.elapsed() <<"s\n";
 
     M_comm.barrier();
 
@@ -2545,8 +2538,8 @@ FiniteElement::adaptMesh()
 
     this->importBamg(bamgmesh_root);
 
-    std::cout<<"CLOSED: FLAGS SIZE BEFORE= "<< M_dirichlet_flags_root.size() <<"\n";
-    std::cout<<"OPEN  : FLAGS SIZE BEFORE= "<< M_neumann_flags_root.size() <<"\n";
+    LOG(DEBUG) <<"CLOSED: FLAGS SIZE BEFORE= "<< M_dirichlet_flags_root.size() <<"\n";
+    LOG(DEBUG) <<"OPEN  : FLAGS SIZE BEFORE= "<< M_neumann_flags_root.size() <<"\n";
 
     // update dirichlet nodes
     M_dirichlet_flags_root.resize(0);
@@ -2581,8 +2574,8 @@ FiniteElement::adaptMesh()
     }
 
 
-    std::cout<<"CLOSED: FLAGS SIZE AFTER= "<< M_dirichlet_flags_root.size() <<"\n";
-    std::cout<<"OPEN  : FLAGS SIZE AFTER= "<< M_neumann_flags_root.size() <<"\n";
+    LOG(DEBUG) <<"CLOSED: FLAGS SIZE AFTER= "<< M_dirichlet_flags_root.size() <<"\n";
+    LOG(DEBUG) <<"OPEN  : FLAGS SIZE AFTER= "<< M_neumann_flags_root.size() <<"\n";
 
 }
 
@@ -3192,7 +3185,7 @@ FiniteElement::update()
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
         // std::cout<<"-------------------"<< cpt << "-------------------"<<"\n";
-        if (M_rank == 5)
+        if (0)//(M_rank == 5)
         {
             std::cout<<"--------------------------------------"<<"\n";
             std::cout<<"(M_elements[cpt]).rank                = "<< M_rank <<"\n";
@@ -4120,7 +4113,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
 void
 FiniteElement::run()
 {
-    if (M_rank==0)
+    if (M_comm.rank() == 0)
         LOG(INFO) << "-----------------------Simulation started on "<< current_time_local() <<"\n";
 
     std::string current_time_system = current_time_local();
@@ -4136,8 +4129,8 @@ FiniteElement::run()
 
     if (M_rank==0)
     {
-        LOG(INFO) <<"TIMESTEP= "<< time_step <<"\n";
-        LOG(INFO) <<"DURATION= "<< duration <<"\n";
+        LOG(DEBUG) <<"TIMESTEP= "<< time_step <<"\n";
+        LOG(DEBUG) <<"DURATION= "<< duration <<"\n";
     }
 
     double displacement_factor = 1.;
@@ -4165,7 +4158,7 @@ FiniteElement::run()
     if (0)//( use_restart )
     {
         this->readRestart(pcpt, vm["setup.step_nb"].as<int>());
-        current_time = time_init + pcpt*time_step/(24*3600.0);
+        current_time = time_init + pcpt*time_step/days_in_sec;
     }
     else
     {
@@ -4177,7 +4170,7 @@ FiniteElement::run()
         this->initVariables();
         this->initModelState();
 
-        std::cout<<"initSimulation done in "<< chrono.elapsed() <<"s\n";
+        LOG(DEBUG) <<"initSimulation done in "<< chrono.elapsed() <<"s\n";
     }
 
     // Open the output file for drifters
@@ -4193,12 +4186,28 @@ FiniteElement::run()
     //         throw std::runtime_error("Cannot write to file: " + filename.str());
     // }
 #endif
-
+    int rg_cpt = 0;
 #if 1
     // main loop for nextsim program
     while (is_running)
     {
         M_comm.barrier();
+
+        if (M_rank == 0)
+        {
+            std::cout <<"---------------------- TIME STEP "<< pcpt << " : "
+                      << time_init << " + "<< pcpt*time_step/days_in_sec;
+
+            //if (!((pcpt+1) % 36))
+            if(fmod(pcpt*time_step, ptime_step) == 0)
+            {
+                std::cout <<" ---------- progression: ("<< 100.0*(pcpt*time_step/duration) <<"%)"
+                          <<" ---------- time spent: "<< time_spent(current_time_system);
+            }
+
+            std::cout <<"\n";
+        }
+
 
         is_running = ((pcpt+1)*time_step) < duration;
 
@@ -4210,11 +4219,11 @@ FiniteElement::run()
             is_running = false;
 
 
-        current_time = time_init + pcpt*time_step/(24*3600.0);
+        current_time = time_init + pcpt*time_step/days_in_sec;
         //std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
 
-        if (M_rank==0)
-            std::cout<<"TIME STEP "<< pcpt << " for "<< current_time << " + "<< pcpt*time_step/(24*3600.0) <<"\n";
+        // if (M_rank==0)
+        //     LOG(INFO) <<"---------------------- TIME STEP "<< pcpt << " for "<< current_time << " + "<< pcpt*time_step/(24*3600.0) <<"\n";
 
         // step 0: preparation
         // remeshing and remapping of the prognostic variables
@@ -4238,8 +4247,9 @@ FiniteElement::run()
         {
             minang = this->minAngle(M_mesh,M_UM,displacement_factor);
             //std::cout<<"[" << M_rank <<"] " <<" REGRID ANGLE= "<< minang <<"\n";
+
             if (M_rank == 0)
-                std::cout<<"----------------------------[" << M_rank <<"] " <<" REGRID ANGLE= "<< minang <<"\n";
+                std::cout <<"---------------------- REGRID ANGLE= "<< minang <<"\n";
 
             // if (M_rank == 0)
             // {
@@ -4251,20 +4261,20 @@ FiniteElement::run()
             //if (pcpt == 1)
             if ( minang < vm["simul.regrid_angle"].as<double>() )
             {
-                //this->exportResults(2000);
-
-                std::cout<<"UUMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM\n";
-
+                this->exportResults(2000+rg_cpt);
+                // std::cout<<"UUMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM\n";
                 //return;
-                std::cout<<"Regriding starts\n";
+
+                LOG(DEBUG) <<"Regriding starts\n";
 				chrono.restart();
                 this->regrid(pcpt);
-                std::cout<<"Regriding done in "<< chrono.elapsed() <<"s\n";
+                LOG(DEBUG) <<"Regriding done in "<< chrono.elapsed() <<"s\n";
 
                 M_regrid = true;
 
-                //this->exportResults(3000);
+                this->exportResults(3000+rg_cpt);
                 //return;
+                ++rg_cpt;
             }
         }
 
@@ -5390,7 +5400,7 @@ FiniteElement::loadGrid(Grid *grid)
     std::string current_timestr = to_date_string_ym(current_time);
 
     if (M_comm.rank()==0)
-        std::cout<<"TIMESTR= "<< current_timestr <<"\n";
+        LOG(DEBUG) <<"TIMESTR= "<< current_timestr <<"\n";
 
     std::string filename = (boost::format( "%1%/%2%/%3%" )
                             //% Environment::nextsimDir().string()
@@ -6166,12 +6176,14 @@ FiniteElement::createGraph()//(BamgMesh const* bamg_mesh)
 
     M_graphmpi = graphmpi_type(d_nnz, o_nnz, global_indices_without_ghost, global_indices_with_ghost);
 
+#if 0
     std::cout<<"\n";
     std::cout<<"["<< M_comm.rank() <<"] GRAPHCSR INFO: MIN NZ ON-DIAGONAL (per row)     = "<< *std::min_element(d_nnz.begin(),d_nnz.end()) <<"\n";
     std::cout<<"["<< M_comm.rank() <<"] GRAPHCSR INFO: MAX NZ ON-DIAGONAL (per row)     = "<< *std::max_element(d_nnz.begin(),d_nnz.end()) <<"\n";
     std::cout<<"["<< M_comm.rank() <<"] GRAPHCSR INFO: MIN NZ OFF-DIAGONAL (per row)    = "<< *std::min_element(o_nnz.begin(),o_nnz.end()) <<"\n";
     std::cout<<"["<< M_comm.rank() <<"] GRAPHCSR INFO: MAX NZ OFF-DIAGONAL (per row)    = "<< *std::max_element(o_nnz.begin(),o_nnz.end()) <<"\n";
     std::cout<<"\n";
+#endif
 
     M_comm.barrier();
 

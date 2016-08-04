@@ -513,7 +513,7 @@ GmshMesh::nodalGrid()
 
     for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
     {
-        if (M_comm.rank() <= it->partition)
+        if (M_comm.rank() <= it->partition) // to check
         {
             bool is_found = false;
 
@@ -545,9 +545,6 @@ GmshMesh::nodalGrid()
     std::set_difference(all_local_nodes.begin(), all_local_nodes.end(),
                         M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.end(),
                         std::back_inserter(M_local_ghost));
-
-
-
 
 
     // check the nodal partitions
@@ -583,12 +580,6 @@ GmshMesh::nodalGrid()
                     if (duplicated_dofs.size() == 0)
                         continue;
 
-                    //std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@SIZE= "<< duplicated_dofs.size() <<"\n";
-                    // for (int i=0; i<duplicated_dofs.size(); ++i)
-                    //     std::cout<<"                                                  duplicated_dofs["<< i <<"]= "<< duplicated_dofs[i] <<"\n";
-
-                    //std::cout<<"intersection "<< ii <<" and "<< jj <<"\n";
-
                     for (int kk=0; kk<duplicated_dofs.size(); ++kk)
                     {
                         if (jj < ii)
@@ -610,50 +601,15 @@ GmshMesh::nodalGrid()
 
     } // check the nodal partition end
 
-
-
-#if 0
-    for (int i=0; i<M_local_dof_without_ghost.size(); ++i)
-    {
-        int j = M_local_dof_without_ghost[i];
-        //if ((j==6600) || (j==6601) || (j==6617))
-        //if ((j==3131) || (j==77370) || (j==48958))
-        if ((j==56426) || (j==38767) || (j==72536))
-            std::cout<<"@@@@@@@@@@@@@@@@@@@@@@["<< M_comm.rank() <<"] index = "<< j <<"\n";
-    }
-
-    for (int i=0; i<M_local_ghost.size(); ++i)
-    {
-        int j = M_local_ghost[i];
-        //if ((j==6600) || (j==6601) || (j==6617))
-        //if ((j==3131) || (j==77370) || (j==48958))
-        if ((j==56426) || (j==38767) || (j==72536))
-            std::cout<<"@@@@@@@@@@@@@@@@@@@@@@GHOSTS["<< M_comm.rank() <<"] index = "<< j <<"\n";
-    }
-#endif
-
-
     std::sort(M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.end());
     std::sort(M_local_ghost.begin(), M_local_ghost.end());
-
-    //std::cout<<"@@@@@@@@@@@@@@@M_local_dof_without_ghost.size()= "
-    //std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@["<< rank << "] NDOFS= "<< M_local_dof_without_ghost.size() <<"\n";
 
     std::copy_n(M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.size(), std::back_inserter(M_local_dof_with_ghost));
     std::copy_n(M_local_ghost.begin(), M_local_ghost.size(), std::back_inserter(M_local_dof_with_ghost));
 
-    if (0)//(rank == 0)
-    {
-        for (int ii=0; ii<M_comm.size(); ++ii)
-        {
-            std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@["<< M_comm.rank() << "] NDOFS["<< ii <<"]= "<< renumbering[ii].size() <<"\n";
-        }
-    }
 
     //bimap_type reorder;
     std::map<int,int> reorder;
-
-    //std::vector<int> all_dofs;
 
     int cpts = 0;
     int cpts_dom = 0;
@@ -673,6 +629,7 @@ GmshMesh::nodalGrid()
             // add second component for velocity
             reorder[renumbering[ii][jj]+M_num_nodes] = cpts+1+sr+cpts_dom;
 
+#if 0
             if (M_comm.rank() == 0)
             {
                 //std::cout<<"TEST MAPPING["<< cpts+1 <<"]= "<< renumbering[ii][jj] <<"\n";
@@ -680,6 +637,7 @@ GmshMesh::nodalGrid()
                 //std::cout<<"MAPPING["<< cpts+sr+cpts_dom+1 <<"]= "<< renumbering[ii][jj]+M_num_nodes <<"\n";
                 //M_nodes_root[cpts] = M_nodes_vec[renumbering[ii][jj]-1];
             }
+#endif
 
             ++cpts;
         }
@@ -745,33 +703,12 @@ GmshMesh::nodalGrid()
 
             for (int i=0; i<3; ++i)
             {
-                // if (/*(M_comm.rank() == 3) &&*/ (it->number == 188329))
-                // {
-                //     std::cout<<"-------------------------------------INDICES BEFORE["<< i <<"]= "<< it->indices[i] <<"\n";
-                //     //std::cout<<"-------------------------------------TESTING= "<< _test <<"\n";
-                // }
-
                 if ((M_transfer_map.left.find(it->indices[i]) == M_transfer_map.left.end()))
                 {
                     _test = true;
-
-                    // if (/*(M_comm.rank() == 3) && */(it->number == 188329))
-                    // {
-                    //     std::cout<<"-------------------------------------INDICES["<< i <<"]= "<< it->indices[i] <<"\n";
-                    //     std::cout<<"-------------------------------------TESTING= "<< _test <<"\n";
-                    // }
-
                     break;
                 }
             }
-
-            // //if (it->number == 63071)
-            // if (it->number == 188329)
-            // {
-            //     std::cout<<"["<< M_comm.rank() <<"]@@@@@@@@@@@@@@@@@@@@@BEFORE:ADD CONTRIBUTION\n";
-            //     //if (M_comm.rank() == 1)
-            //     //    M_triangles.push_back(*it);
-            // }
 
             if (_test)
                 continue;
@@ -788,17 +725,9 @@ GmshMesh::nodalGrid()
                 if (std::binary_search(M_local_ghost.begin(),M_local_ghost.end(),rdof))
                 {
                     it->ghostNodes[i] = true;
-
-                    // if (M_comm.rank()==0)
-                    // {
-                    //     std::cout<<"is_ghost "<< it->indices[i]-1 <<"\n";
-                    // }
                 }
             }
             // end
-
-            // if (it->number == 188329)
-            //     std::cout<<"["<< M_comm.rank() <<"]@@@@@@@@@@@@@@@@@@@@@AFTER:ADD CONTRIBUTION\n";
 
             M_triangles.push_back(*it);
 
@@ -844,7 +773,6 @@ GmshMesh::nodalGrid()
             for (int jj=0; jj<renumbering[ii].size(); ++jj)
             {
                 //M_reorder_map_elements.insert(position(renumbering[ii][jj],cpts+1));
-
                 all_trs.push_back(renumbering[ii][jj]);
                 ++cpts;
             }
@@ -871,7 +799,6 @@ GmshMesh::nodalGrid()
             }
         }
     }
-
     // --------------------------------END-------------------------------
 
 
@@ -900,17 +827,11 @@ GmshMesh::nodalGrid()
             }
         }
 
-
         if (M_comm.rank() == it->partition)
         {
             M_triangles.push_back(*it);
             M_triangles_id_with_ghost.push_back(it->number);
             ++M_num_triangles_without_ghost;
-
-            // if ((it->number==188165) || (it->number==48117) || (it->number==48119) )
-            // {
-            //     std::cout<<"FIND "<< it->number <<"\n";
-            // }
         }
     }
 
@@ -967,8 +888,6 @@ GmshMesh::nodalGrid()
             M_reorder_map_elements.insert(position(renumbering[ii][jj],cpts+1));
             ++cpts;
         }
-
-        //cpts_dom += renumbering[ii].size();
     }
     // --------------------------------END-------------------------------
 

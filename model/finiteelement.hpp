@@ -391,6 +391,7 @@ private:
     double days_in_sec;
     double time_init;
     double output_time_step;
+    double ptime_step;
     double restart_time_step;
     double time_step;
     double duration;
