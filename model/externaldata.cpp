@@ -23,12 +23,12 @@ namespace Nextsim
 ExternalData::ExternalData( )
 {}
 
-ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId )
+ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector )
 	:
     M_is_constant( false ),
     M_dataset( dataset ),
     M_VariableId( VariableId ),
-    M_is_vector( false ),
+    M_is_vector( is_vector ),
     M_current_time( 0. ),
     M_SpinUpStartingTime( 0. ),
     M_SpinUpDuration( 0. )
@@ -42,29 +42,13 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
 }
 
 
-ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, int VariableIdbis)
+ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector, double SpinUpStartingTime, double SpinUpDuration )
 	:
-    ExternalData(dataset, mesh, VariableId )
-    {
-        M_VariableIdbis= VariableIdbis ;
-        M_is_vector= true ;
-    }
-
-ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, double SpinUpStartingTime, double SpinUpDuration )
-	:
-    ExternalData(dataset, mesh, VariableId )
+    ExternalData(dataset, mesh, VariableId, is_vector )
     {
         M_SpinUpStartingTime= SpinUpStartingTime ;
         M_SpinUpDuration= SpinUpDuration ;
     }
-
-    ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, int VariableIdbis, double SpinUpStartingTime, double SpinUpDuration )
-    	:
-        ExternalData(dataset, mesh, VariableId, VariableIdbis )
-        {
-            M_SpinUpStartingTime= SpinUpStartingTime ;
-            M_SpinUpDuration= SpinUpDuration ;
-        }
 
 ExternalData::ExternalData( double ConstantValue )
 	:
@@ -77,7 +61,7 @@ ExternalData::ExternalData( double ConstantValue )
     {}
 
 ExternalData::ExternalData( double ConstantValue, double ConstantValuebis )
-	:
+    :
     ExternalData( ConstantValue )
     {
         M_constant_valuebis= ConstantValuebis ;
@@ -85,15 +69,15 @@ ExternalData::ExternalData( double ConstantValue, double ConstantValuebis )
     }
 
 ExternalData::ExternalData( double ConstantValue, double SpinUpStartingTime, double SpinUpDuration )
-	:
+    :
     ExternalData( ConstantValue )
     {
         M_SpinUpStartingTime= SpinUpStartingTime ;
         M_SpinUpDuration= SpinUpDuration ;
     }
-
+    
 ExternalData::ExternalData( double ConstantValue, double ConstantValuebis, double SpinUpStartingTime, double SpinUpDuration )
-	:
+    :
     ExternalData( ConstantValue, ConstantValuebis )
     {
         M_SpinUpStartingTime= SpinUpStartingTime ;
@@ -141,7 +125,7 @@ ExternalData::operator [] (const size_type i)
     value_type value;
     value_type valuebis;
     size_type i_tmp;
-
+    int VariableId_tmp;
     if(M_is_constant)
     {
         // for the moment same value is given to all the components
@@ -161,9 +145,8 @@ ExternalData::operator [] (const size_type i)
             if(!M_is_vector)
             {
                 ASSERT(i < M_dataset->target_size, "invalid index");
-                value =  M_factor*
-                    (fcoeff[0]*M_dataset->variables[M_VariableId].data2[0][i] +
-                     fcoeff[1]*M_dataset->variables[M_VariableId].data2[1][i]);
+                i_tmp=i;
+                VariableId_tmp=M_VariableId;
             }
             else
             {
@@ -172,33 +155,25 @@ ExternalData::operator [] (const size_type i)
                 if(i < M_dataset->target_size)
                 {
                     i_tmp=i;
-                    value = fcoeff[0]*M_dataset->variables[M_VariableId].data2[0][i_tmp] +
-                        fcoeff[1]*M_dataset->variables[M_VariableId].data2[1][i_tmp];
-                    valuebis = fcoeff[0]*M_dataset->variables[M_VariableIdbis].data2[0][i_tmp] +
-                        fcoeff[1]*M_dataset->variables[M_VariableIdbis].data2[1][i_tmp];
-
-                    value =  M_factor*
-                        (M_dataset->grid->cos_m_diff_angle*value+M_dataset->grid->sin_m_diff_angle*valuebis);
+                    VariableId_tmp=M_dataset->vectorial_variables[M_VariableId].components_Id[0];
                 }
                 else
                 {
                     i_tmp=i-M_dataset->target_size;
-                    value = fcoeff[0]*M_dataset->variables[M_VariableId].data2[0][i_tmp] +
-                        fcoeff[1]*M_dataset->variables[M_VariableId].data2[1][i_tmp];
-                    valuebis = fcoeff[0]*M_dataset->variables[M_VariableIdbis].data2[0][i_tmp] +
-                        fcoeff[1]*M_dataset->variables[M_VariableIdbis].data2[1][i_tmp];
-
-                    value = M_factor*
-                        (-M_dataset->grid->sin_m_diff_angle*value+M_dataset->grid->cos_m_diff_angle*valuebis);
+                    VariableId_tmp=M_dataset->vectorial_variables[M_VariableId].components_Id[1];                
                 }
             }
+            value =  M_factor*
+                (fcoeff[0]*M_dataset->variables[VariableId_tmp].data2[0][i_tmp] +
+                 fcoeff[1]*M_dataset->variables[VariableId_tmp].data2[1][i_tmp]);
         }
         else
         {
             if(!M_is_vector)
             {
                 ASSERT(i < M_dataset->target_size, "invalid index");
-                value =  M_factor*M_dataset->variables[M_VariableId].data2[0][i];
+                i_tmp=i;
+                VariableId_tmp=M_VariableId;
             }
             else
             {
@@ -207,20 +182,16 @@ ExternalData::operator [] (const size_type i)
                 if(i < M_dataset->target_size)
                 {
                     i_tmp=i;
-                    value = M_dataset->variables[M_VariableId].data2[0][i_tmp];
-                    valuebis = M_dataset->variables[M_VariableIdbis].data2[0][i_tmp];
-                    value =  M_factor*
-                        (M_dataset->grid->cos_m_diff_angle*value+M_dataset->grid->sin_m_diff_angle*valuebis);
+                    VariableId_tmp=M_dataset->vectorial_variables[M_VariableId].components_Id[0];
+                    
                 }
                 else
                 {
                     i_tmp=i-M_dataset->target_size;
-                    value = M_dataset->variables[M_VariableId].data2[0][i_tmp];
-                    valuebis = M_dataset->variables[M_VariableIdbis].data2[0][i_tmp];
-                    value = M_factor*
-                        (-M_dataset->grid->sin_m_diff_angle*value+M_dataset->grid->cos_m_diff_angle*valuebis);
+                    VariableId_tmp=M_dataset->vectorial_variables[M_VariableId].components_Id[1];
                 }
             }
+            value =  M_factor*M_dataset->variables[VariableId_tmp].data2[0][i_tmp]; 
         }
     }
 
@@ -407,37 +378,90 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 
 		}
     }
+    
+	mapx_class *mapNextsim;
+	std::string configfileNextsim = (boost::format( "%1%/%2%/%3%" )
+                              % Environment::nextsimDir().string()
+                              % "data"
+                              % "NpsNextsim.mpp"
+                              ).str();
 
-    double* data_out;
-    double tmp_data;
+	std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
+	strNextsim.push_back('\0');
+	mapNextsim = init_mapx(&strNextsim[0]);
+    
+	mapx_class *map;
+    double rotation_angle, cos_m_diff_angle, sin_m_diff_angle;
+    if(dataset->grid->mpp_file!="")
+    {
+	    std::string configfile = (boost::format( "%1%/%2%/%3%" )
+                              % Environment::nextsimDir().string()
+                              % dataset->grid->dirname
+                              % dataset->grid->mpp_file
+                              ).str();
 
-    auto RX = mesh.coordX(dataset->grid->rotation_angle);
-    auto RY = mesh.coordY(dataset->grid->rotation_angle);
+	    std::vector<char> str(configfile.begin(), configfile.end());
+	    str.push_back('\0');
+	    map = init_mapx(&str[0]);
+        rotation_angle = -(mapNextsim->rotation-map->rotation)*PI/180.;
+    }
+    else
+    {
+        rotation_angle=0.;
+    }
+    
+    cos_m_diff_angle=std::cos(-rotation_angle);
+    sin_m_diff_angle=std::sin(-rotation_angle);
+    
+    // ---------------------------------
+    // Transformation of the vectorial variables from the coordinate system of the data to the polar stereographic projection used in the model 
+    // Once we are in the polar stereographic projection, we can do spatial interpolation without bothering about the North Pole
+    
+    double tmp_data0, tmp_data1;
+    int j0, j1;
+    
+    if(rotation_angle!=0.)
+    {
+        for (int fstep=0; fstep < nb_forcing_step; ++fstep)
+        {
+            for(int j=0; j<dataset->vectorial_variables.size(); ++j)
+            {
+                j0=dataset->vectorial_variables[j].components_Id[0];
+                j1=dataset->vectorial_variables[j].components_Id[1];
+                
+                for (int i=0; i<dataset->target_size; ++i)
+                {
+                    tmp_data0=data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j0];
+                    tmp_data1=data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j1];
+                        
+                    data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j0]= cos_m_diff_angle*tmp_data0+sin_m_diff_angle*tmp_data1;
+                    data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j1]=-sin_m_diff_angle*tmp_data0+cos_m_diff_angle*tmp_data1;    
+                }
+            }
+        }
+    }
+    
+    // ---------------------------------
+    // Projection of the mesh positions into the coordinate system of the data before the interpolation 
+    // (either the lat,lon projection or a polar stereographic projection with another rotaion angle (for ASR))
+    // we should need to that also for the TOPAZ native grid, so that we could use a gridtomesh, now we use the latlon of the TOPAZ grid
+
+    auto RX = mesh.coordX(rotation_angle);
+    auto RY = mesh.coordY(rotation_angle);
 
     if(dataset->target_size==mesh.numTriangles())
     {
-    	RX = mesh.bcoordX(dataset->grid->rotation_angle);
-        RY = mesh.bcoordY(dataset->grid->rotation_angle);
+    	RX = mesh.bcoordX(rotation_angle);
+        RY = mesh.bcoordY(rotation_angle);
     }
 
 	if(dataset->grid->interpolation_in_latlon)
 	{
-		mapx_class *map;
-		std::string configfile = (boost::format( "%1%/%2%/%3%" )
-                                  % Environment::nextsimDir().string()
-                                  % "data"
-                                  % "NpsNextsim.mpp"
-                                  ).str();
-
-		std::vector<char> str(configfile.begin(), configfile.end());
-		str.push_back('\0');
-		map = init_mapx(&str[0]);
-
 		double lat, lon;
 
 		for (int i=0; i<dataset->target_size; ++i)
 		{
-			inverse_mapx(map,RX[i],RY[i],&lat,&lon);
+			inverse_mapx(mapNextsim,RX[i],RY[i],&lat,&lon);
 			RY[i]=lat;
 			RX[i]=lon;
 			//tmp_latlon = XY2latLon(RX[i], RY[i], map, configfile);
@@ -445,10 +469,20 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 			//RX[i]=tmp_latlon[1];
 		}
 
-		close_mapx(map);
 	}
+    
+    // closing maps
+    close_mapx(mapNextsim);
+    if(dataset->grid->mpp_file!="")
+    	close_mapx(map);
+    
+    // ---------------------------------
+    // Spatial interpolation
 
     std::cout <<"before interp " <<"\n";
+
+    double* data_out;
+    double tmp_data;
 
     switch(dataset->grid->interpolation_method)
     {
@@ -508,6 +542,7 @@ ExternalData::loadGrid(Grid *grid)
 
     //switch (grid->latitude.dimensions.size())
     //{
+    // Here only two cases are considered, either the 
     //    case 1:
 	if(grid->latitude.dimensions.size()==1)
 	{
@@ -566,6 +601,8 @@ ExternalData::loadGrid(Grid *grid)
 
 		if(grid->interpolation_method==InterpolationType::FromGridToMesh)
 		{
+            // We the initial grid is actually regular, we can still use FromGridToMesh 
+            // by only taking the first line and column into account (only used for ASR so far)
 			index_py_count[1] = 1;
 			index_px_count[0] = 1;
 		}
