@@ -3170,8 +3170,8 @@ FiniteElement::update()
     double ridged_thin_ice_volume, ridged_thick_ice_volume;
 
     /* invariant of the internal stress tensor and some variables used for the damaging process*/
-    double sigma_s, sigma_n;
-    double tract_max;
+    double sigma_s, sigma_n, sigma_1, sigma_2;
+    double tract_max, sigma_t, sigma_c, q;
     double tmp, sigma_target;
 
     /* some variables used for the ice redistribution*/
@@ -3219,13 +3219,13 @@ FiniteElement::update()
         old_snow_thick = M_snow_thick[cpt];
         old_conc = M_conc[cpt];
         old_damage = M_damage[cpt];
-        old_h_ridged_thick_ice=M_h_ridged_thick_ice[cpt];
+        old_h_ridged_thick_ice = M_h_ridged_thick_ice[cpt];
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
             old_h_thin = M_h_thin[cpt];
-            old_hs_thin=M_hs_thin[cpt];
-            old_h_ridged_thin_ice=M_h_ridged_thin_ice[cpt];
+            old_hs_thin = M_hs_thin[cpt];
+            old_h_ridged_thin_ice = M_h_ridged_thin_ice[cpt];
         }
 
         /*======================================================================
@@ -3273,7 +3273,7 @@ FiniteElement::update()
          */
 
         /* Compute the shear and normal stress, which are two invariants of the internal stress tensor */
-
+#if 0
         sigma_s=std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
         sigma_n=           (sigma_pred[0]+sigma_pred[1])/2.;
 
@@ -3310,6 +3310,61 @@ FiniteElement::update()
                 M_damage[cpt]=tmp;
             }
         }
+#endif
+
+#if 1
+        sigma_s=std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
+        sigma_n=-          (sigma_pred[0]+sigma_pred[1])/2.;
+
+        sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
+        sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
+
+        q=std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
+        sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
+
+        sigma_t=-sigma_c/q;
+
+        /* minimum and maximum normal stress */
+        tract_max=-tract_coef*M_Cohesion[cpt]/tan_phi;
+
+        /* Correction of the damage */
+        if(sigma_n>M_Compressive_strength[cpt])
+        {
+            sigma_target=M_Compressive_strength[cpt];
+
+            tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
+
+            if(tmp>M_damage[cpt])
+            {
+                M_damage[cpt]=tmp;
+            }
+        }
+
+
+        if(sigma_1-q*sigma_2>sigma_c)
+        {
+            sigma_target=sigma_c;
+
+            tmp=1.0-sigma_target/(sigma_1-q*sigma_2)*(1.0-old_damage);
+
+            if(tmp>M_damage[cpt])
+            {
+                M_damage[cpt]=tmp;
+            }
+        }
+
+        if(sigma_n<tract_max)
+        {
+            sigma_target=tract_max;
+
+            tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
+
+            if(tmp>M_damage[cpt])
+            {
+                M_damage[cpt]=tmp;
+            }
+        }
+#endif
 
         /*
          * Diagnostic:
@@ -4340,7 +4395,7 @@ FiniteElement::run()
         //======================================================================
         //chrono.restart();
         //std::cout<<"thermo starts\n";
-        this->thermo();
+        //this->thermo();
         //std::cout<<"thermo done in "<< chrono.elapsed() <<"s\n";
 
         //======================================================================
@@ -5070,7 +5125,7 @@ FiniteElement::forcingOcean(bool reload)//(double const& u, double const& v)
 void
 FiniteElement::constantOcean()
 {
-	std::cout<<"Constant Ocean\n";
+	LOG(DEBUG) <<"Constant Ocean\n";
     for (int i=0; i<M_num_nodes; ++i)
     {
         M_ocean[i] = Voce_coef*vm["simul.constant_ocean_v"].as<double>();
