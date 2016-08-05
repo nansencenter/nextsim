@@ -57,6 +57,7 @@ elseif(length(field_tmp)==2*Nn)
     c{1}=reshape(var_mc,[3,Ne]);
     var_mc=field_tmp(mesh_out.Elements+Nn);
     c{2}=reshape(var_mc,[3,Ne]);
+    c{3}=hypot(c{1},c{2})
 elseif(length(field_tmp)==Nn)
     var_mc=field_tmp(mesh_out.Elements);
     c{1}=reshape(var_mc,[3,Ne]);
