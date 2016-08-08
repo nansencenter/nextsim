@@ -51,6 +51,7 @@ public:
         std::string name;
         int start;
         int end;
+        bool cyclic; // if cyclic, then the first value will also be used for interpolation after the last value
     } Dimesion;
 
     typedef struct Variable
@@ -62,6 +63,12 @@ public:
         std::string Units;
         std::vector<std::vector<double>> data2;
     } Variable;
+    
+    typedef struct Vectorial_Variable
+    {
+        std::vector<int> components_Id;
+        bool east_west_oriented;
+    } Vectorial_Variable;
 
     typedef struct Grid
     {
@@ -77,9 +84,6 @@ public:
         Dimension dimension_y;
 
         std::string mpp_file;
-        double rotation_angle;
-        double cos_m_diff_angle;
-        double sin_m_diff_angle;
 		bool interpolation_in_latlon;
 
         bool loaded;
@@ -105,6 +109,7 @@ public:
         std::string reference_date;
 
         std::vector<Variable> variables;
+        std::vector<Vectorial_Variable> vectorial_variables;
         int target_size;
         Grid *grid;
 
@@ -119,14 +124,9 @@ public:
 
     ExternalData();
 
-    ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId );
+    ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId, bool is_vector );
 
-    ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId, int VariableIdbis );
-
-    ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId,
-        double SpinUpStartingTime, double SpinUpDuration  );
-
-    ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId, int VariableIdbis,
+    ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId, bool is_vector,
         double SpinUpStartingTime, double SpinUpDuration  );
 
     ExternalData(double ConstantValue );

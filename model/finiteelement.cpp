@@ -261,19 +261,22 @@ FiniteElement::initDatasets()
     Dimension asr_dimension_x={
         name:"x",
         start:0,
-        end:360
+        end:359,
+        cyclic:false
 	};
 
     Dimension asr_dimension_y={
         name:"y",
         start:0,
-        end:360
+        end:359,
+        cyclic:false
 	};
 
     Dimension asr_dimension_time={
         name:"time", // "Time"
         start:0,
-        end:248
+        end:247,
+        cyclic:false
 	};
 
     std::vector<Dimension> dimensions_asr_latlon(2);
@@ -315,11 +318,6 @@ FiniteElement::initDatasets()
         data2: data2_tmp
 	};
 
-    // rotate EB coordinates to fit the ASR coords
-    double angle_stereo_mesh = -45;
-    double angle_stereo_ASR = -175;
-    double diff_angle = -(angle_stereo_mesh-angle_stereo_ASR)*PI/180.;
-
     // conversion factors: xnew = a*x + b
     Variable u10={
         name: "U10", // U10M
@@ -338,7 +336,7 @@ FiniteElement::initDatasets()
         Units: "m/s",
         data2: data2_tmp
 	};
-
+    
 	M_asr_grid={
 		interpolation_method: InterpolationType::FromGridToMesh,
 	    //interp_type : TriangleInterpEnum,  // slower
@@ -355,10 +353,7 @@ FiniteElement::initDatasets()
 		dimension_y: asr_dimension_y,
 
 		mpp_file: "NpsASR.mpp",
-		rotation_angle: diff_angle,
-        cos_m_diff_angle: std::cos(-diff_angle),
-        sin_m_diff_angle: std::sin(-diff_angle),
-		interpolation_in_latlon: false,
+ 		interpolation_in_latlon: false,
 
         loaded: false,
 
@@ -368,6 +363,18 @@ FiniteElement::initDatasets()
     std::vector<Variable> variables_tmp0(2);
         variables_tmp0[0] = u10;
         variables_tmp0[1] = v10;
+            
+    std::vector<int> uv10_tmp0(2);
+        uv10_tmp0[0] = 0;
+        uv10_tmp0[1] = 1;
+    
+    Vectorial_Variable uv10={
+        components_Id: uv10_tmp0,
+        east_west_oriented: false // if false, then we assume it is oriented following the input grid
+    };
+            
+    std::vector<Vectorial_Variable> vectorial_variables_tmp0(1);
+        vectorial_variables_tmp0[0] = uv10;
 
     M_asr_nodes_dataset={
         dirname: "data",
@@ -376,6 +383,7 @@ FiniteElement::initDatasets()
         reference_date: "1901-01-01",
 
         variables: variables_tmp0,
+        vectorial_variables: vectorial_variables_tmp0,
         target_size: M_num_nodes,
         grid: &M_asr_grid,
 
@@ -455,6 +463,8 @@ FiniteElement::initDatasets()
     variables_tmp1[4] = Qlw_in;
     variables_tmp1[5] = snowfr;
     variables_tmp1[6] = precip;
+    
+    std::vector<Vectorial_Variable> vectorial_variables_tmp1(0);
 
     M_asr_elements_dataset={
         dirname:"data",
@@ -463,6 +473,7 @@ FiniteElement::initDatasets()
         reference_date: "1901-01-01",
 
         variables: variables_tmp1,
+        vectorial_variables: vectorial_variables_tmp1,
         target_size:M_num_elements,
         grid: &M_asr_grid,
 
@@ -475,29 +486,33 @@ FiniteElement::initDatasets()
 
     M_asr_elements_dataset.ftime_range.resize(2,0.);
 
-	// Definition of asr grid and datasets
+	// Definition of topaz grid and datasets
     Dimension topaz_dimension_x={
         name:"x",
         start:0,
-        end:761
+        end:760,
+        cyclic:false
 	};
 
     Dimension topaz_dimension_y={
         name:"y",
         start:0,
-        end:1101
+        end:1100,
+        cyclic:false
 	};
 
     Dimension topaz_dimension_time={
         name:"time", // "Time"
         start:0,
-        end:31
+        end:30,
+        cyclic:false
 	};
 
     Dimension topaz_dimension_depth={
         name:"depth", // "Time"
         start:0,
-        end:1
+        end:0,
+        cyclic:false
 	};
 
     std::vector<Dimension> dimensions_topaz_uv(4);
@@ -623,7 +638,6 @@ FiniteElement::initDatasets()
 		data2: data2_tmp
 	};
 
-
     M_topaz_grid={
         interpolation_method: InterpolationType::FromMeshToMesh2dx,
 		interp_type: -1,
@@ -637,9 +651,6 @@ FiniteElement::initDatasets()
         dimension_y: topaz_dimension_y,
 
         mpp_file: "NpsNextsim.mpp",
-        rotation_angle: 0.,
-        cos_m_diff_angle: std::cos(-0.),
-        sin_m_diff_angle: std::sin(-0.),
 		interpolation_in_latlon: false,
 
         loaded: false,
@@ -652,7 +663,19 @@ FiniteElement::initDatasets()
     variables_tmp2[0] = u;
     variables_tmp2[1] = v;
     variables_tmp2[2] = ssh;
-
+    
+    std::vector<int> uv_tmp0(2);
+        uv_tmp0[0] = 0;
+        uv_tmp0[1] = 1;
+    
+    Vectorial_Variable uv={
+        components_Id: uv_tmp0,
+        east_west_oriented: false // if false, then we assume it is oriented following the mpp_file defined for the grid
+	};
+    
+    std::vector<Vectorial_Variable> vectorial_variables_tmp2(1);
+    vectorial_variables_tmp2[0] = uv;
+    
     M_topaz_nodes_dataset={
         dirname: "data",
         prefix: "TP4DAILY_",
@@ -660,6 +683,7 @@ FiniteElement::initDatasets()
         reference_date: "1950-01-01",
 
         variables: variables_tmp2,
+        vectorial_variables: vectorial_variables_tmp2,
         target_size: M_num_nodes,
         grid: &M_topaz_grid,
 
@@ -676,6 +700,8 @@ FiniteElement::initDatasets()
     variables_tmp3[0] = sst;
     variables_tmp3[1] = sss;
     variables_tmp3[2] = mld;
+    
+    std::vector<Vectorial_Variable> vectorial_variables_tmp3(0);
 
     M_topaz_elements_dataset={
         dirname: "data",
@@ -684,6 +710,7 @@ FiniteElement::initDatasets()
         reference_date: "1950-01-01",
 
         variables: variables_tmp3,
+        vectorial_variables: vectorial_variables_tmp3,
         target_size: M_num_elements,
         grid: &M_topaz_grid,
 
@@ -700,7 +727,9 @@ FiniteElement::initDatasets()
     variables_tmp4[0] = conc;
     variables_tmp4[1] = thick;
     variables_tmp4[2] = snow_thick;
-
+    
+    std::vector<Vectorial_Variable> vectorial_variables_tmp4(0);
+    
     M_ice_topaz_elements_dataset={
         dirname: "data",
         prefix: "TP4DAILY_",
@@ -708,6 +737,7 @@ FiniteElement::initDatasets()
         reference_date: "1950-01-01",
 
         variables: variables_tmp4,
+        vectorial_variables: vectorial_variables_tmp4,
         target_size: M_num_elements,
         grid: &M_topaz_grid,
 
@@ -724,13 +754,15 @@ FiniteElement::initDatasets()
     Dimension etopo_dimension_x={
         name:"x",
         start:0,
-        end:21601
+        end:21600,
+        cyclic:false
 	};
 
     Dimension etopo_dimension_y={
         name:"y",
         start:7200,//0, approx 60 deg North
-        end:10801
+        end:10800,
+        cyclic:false
 	};
 
     std::vector<Dimension> dimensions_etopo_lon(1);
@@ -776,9 +808,6 @@ FiniteElement::initDatasets()
 		dimension_y: etopo_dimension_y,
 
 		mpp_file: "",
-		rotation_angle: 0.,
-        cos_m_diff_angle: std::cos(-0.),
-        sin_m_diff_angle: std::sin(-0.),
 		interpolation_in_latlon: true,
 
         loaded: false,
@@ -797,6 +826,8 @@ FiniteElement::initDatasets()
 
     std::vector<Variable> variables_tmp5(1);
     variables_tmp5[0] = z;
+    
+    std::vector<Vectorial_Variable> vectorial_variables_tmp5(0);
 
     M_etopo_elements_dataset={
         dirname:"data",
@@ -805,6 +836,7 @@ FiniteElement::initDatasets()
         reference_date: "",
 
         variables: variables_tmp5,
+        vectorial_variables: vectorial_variables_tmp5,
         target_size:M_num_elements,
         grid: &M_etopo_grid,
 
@@ -812,6 +844,147 @@ FiniteElement::initDatasets()
 
         nb_timestep_day: 0
 	};
+    
+	// Definition of ERAi grid and datasets
+    Dimension ERAi_dimension_x={
+        name:"x",
+        start:0,
+        end:719,
+        cyclic:true
+	};
+
+    Dimension ERAi_dimension_y={
+        name:"y",
+        start:0,
+        end:100,
+        cyclic:false
+	};
+    
+    Dimension ERAi_dimension_time={
+        name:"time", // "Time"
+        start:0,
+        end:123,
+        cyclic:false
+	};
+
+    std::vector<Dimension> dimensions_ERAi_lon(1);
+    dimensions_ERAi_lon[0] = ERAi_dimension_x;
+
+    std::vector<Dimension> dimensions_ERAi_lat(1);
+    dimensions_ERAi_lat[0] = ERAi_dimension_y;
+
+    std::vector<Dimension> dimensions_ERAi_time(1);
+    dimensions_ERAi_time[0] = ERAi_dimension_time;
+    
+    std::vector<Dimension> dimensions_ERAi(3);
+    dimensions_ERAi[0] = ERAi_dimension_time;
+    dimensions_ERAi[1] = ERAi_dimension_y;
+    dimensions_ERAi[2] = ERAi_dimension_x;
+
+
+    Variable ERAi_latitude={
+        name: "lat",
+        dimensions: dimensions_ERAi_lat,
+        a: 1.,
+        b: 0.,
+        Units: "degree_north",
+        data2: data2_tmp
+	};
+
+    Variable ERAi_longitude={
+        name: "lon",
+        dimensions: dimensions_ERAi_lon,
+        a: 1.,
+        b: 0.,
+        Units: "degree_east",
+        data2: data2_tmp
+	};
+    
+    Variable ERAi_time={
+        name: "time",
+        dimensions: dimensions_ERAi_time,
+        a: 1.,
+        b: 0.,
+        Units: "hours",
+        data2: data2_tmp
+	};
+
+	M_ERAi_grid={
+		interpolation_method: InterpolationType::FromGridToMesh,
+	    //interp_type : TriangleInterpEnum, // slower
+	    interp_type : BilinearInterpEnum,
+	    //interp_type : NearestInterpEnum,
+		dirname:"data",
+		filename:"erai.6h.200803.nc",
+
+		latitude: ERAi_latitude,
+		longitude: ERAi_longitude,
+
+		dimension_x: ERAi_dimension_x,
+		dimension_y: ERAi_dimension_y,
+
+		mpp_file: "",
+		interpolation_in_latlon: true,
+
+        loaded: false,
+
+		masking: false
+	};
+
+    // conversion factors: xnew = a*x + b
+    Variable ERAi_u10={
+        name: "10U", // U10M
+        dimensions: dimensions_ERAi,
+        a: 1.,
+        b: 0.,
+        Units: "m/s",
+        data2: data2_tmp
+	};
+
+    Variable ERAi_v10={
+        name: "10V", // U10M
+        dimensions: dimensions_ERAi,
+        a: 1.,
+        b: 0.,
+        Units: "m/s",
+        data2: data2_tmp
+	};
+
+    std::vector<Variable> variables_tmp6(2);
+    variables_tmp6[0] = ERAi_u10;
+    variables_tmp6[1] = ERAi_v10;
+
+    std::vector<int> ERAi_uv_tmp0(2);
+        ERAi_uv_tmp0[0] = 0;
+        ERAi_uv_tmp0[1] = 1;
+    
+    Vectorial_Variable ERAi_uv10={
+        components_Id: ERAi_uv_tmp0,
+        east_west_oriented: true // if false, then we assume it is oriented following the input grid
+	};
+
+    std::vector<Vectorial_Variable> vectorial_variables_tmp6(1);
+    vectorial_variables_tmp6[0] = ERAi_uv10;
+
+    M_ERAi_nodes_dataset={
+        dirname: "data",
+        prefix: "erai.6h.",
+        postfix:".nc",
+        reference_date: "2008-01-01",
+
+        variables: variables_tmp6,
+        vectorial_variables: vectorial_variables_tmp6,
+        target_size: M_num_nodes,
+        grid: &M_ERAi_grid,
+
+        reloaded: false,
+
+        nb_timestep_day: 4,
+        time: ERAi_time,
+        dimension_time: ERAi_dimension_time
+	};
+
+    M_ERAi_nodes_dataset.ftime_range.resize(2,0.);
 }
 
 void
@@ -920,7 +1093,8 @@ FiniteElement::initConstant()
 
     const boost::unordered_map<const std::string, setup::AtmosphereType> str2atmosphere = boost::assign::map_list_of
         ("constant", setup::AtmosphereType::CONSTANT)
-        ("asr", setup::AtmosphereType::ASR);
+        ("asr", setup::AtmosphereType::ASR)
+        ("erai_asr", setup::AtmosphereType::ERAi_ASR);
     M_atmosphere_type = str2atmosphere.find(vm["setup.atmosphere-type"].as<std::string>())->second;
 
     //std::cout<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
@@ -1903,6 +2077,7 @@ FiniteElement::regrid(bool step)
     M_topaz_elements_dataset.target_size=M_num_elements;
     M_ice_topaz_elements_dataset.target_size=M_num_elements;
     M_etopo_elements_dataset.target_size=M_num_elements;
+    M_ERAi_nodes_dataset.target_size=M_num_nodes;
 
     M_asr_nodes_dataset.reloaded=false;
     M_asr_elements_dataset.reloaded=false;
@@ -1910,6 +2085,7 @@ FiniteElement::regrid(bool step)
     M_topaz_elements_dataset.reloaded=false;
     M_ice_topaz_elements_dataset.reloaded=false;
     M_etopo_elements_dataset.reloaded=false;
+    M_ERAi_nodes_dataset.reloaded=false;
 
     M_Cohesion.resize(M_num_elements);
     M_Compressive_strength.resize(M_num_elements);
@@ -2229,12 +2405,10 @@ FiniteElement::assemble(int pcpt)
                 dvv = surface_e*( mloc*(coef_Vair+coef_Voce*cos_ocean_turning_angle+coef_V+coef_basal)
                                   +M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j+1]*coef_P);
 
-
                 data[(2*i  )*6+2*j  ] = duu;
                 data[(2*i+1)*6+2*j  ] = dvu;
                 data[(2*i  )*6+2*j+1] = duv;
                 data[(2*i+1)*6+2*j+1] = dvv;
-
 
                 fvdata[2*i] += surface_e*( mloc*( +M_tau[index_u]
                                                   +coef_Vair*M_wind[index_u]
@@ -2254,7 +2428,6 @@ FiniteElement::assemble(int pcpt)
                                                     +coef_Voce*sin_ocean_turning_angle*(M_ocean[index_u]-M_VT[index_u])
                                                     -coef_C*Vcor_index_u)
                                              - b0tj_sigma_hv/3);
-
             }
 
             rcindices[2*j] = index_u;
@@ -4431,6 +4604,7 @@ FiniteElement::readRestart(int step)
     M_topaz_elements_dataset.target_size=M_num_elements;
     M_ice_topaz_elements_dataset.target_size=M_num_elements;
     M_etopo_elements_dataset.target_size=M_num_elements;
+    M_ERAi_nodes_dataset.target_size=M_num_nodes;
 
     return pcpt;
 }
@@ -4581,29 +4755,60 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
 
         case setup::AtmosphereType::ASR:
             M_wind=ExternalData(
-                &M_asr_nodes_dataset,M_mesh,0 ,1 ,
+                &M_asr_nodes_dataset,M_mesh,0 ,true ,
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_wind);
 
-            M_tair=ExternalData(&M_asr_elements_dataset,M_mesh,0);
+            M_tair=ExternalData(&M_asr_elements_dataset,M_mesh,0,false);
             M_external_data.push_back(&M_tair);
 
-            M_mixrat=ExternalData(&M_asr_elements_dataset,M_mesh,1);
+            M_mixrat=ExternalData(&M_asr_elements_dataset,M_mesh,1,false);
             M_external_data.push_back(&M_mixrat);
 
-            M_mslp=ExternalData(&M_asr_elements_dataset,M_mesh,2);
+            M_mslp=ExternalData(&M_asr_elements_dataset,M_mesh,2,false);
             M_external_data.push_back(&M_mslp);
 
-            M_Qsw_in=ExternalData(&M_asr_elements_dataset,M_mesh,3);
+            M_Qsw_in=ExternalData(&M_asr_elements_dataset,M_mesh,3,false);
             M_external_data.push_back(&M_Qsw_in);
 
-            M_Qlw_in=ExternalData(&M_asr_elements_dataset,M_mesh,4);
+            M_Qlw_in=ExternalData(&M_asr_elements_dataset,M_mesh,4,false);
             M_external_data.push_back(&M_Qlw_in);
 
-            M_snowfr=ExternalData(&M_asr_elements_dataset,M_mesh,5);
+            M_snowfr=ExternalData(&M_asr_elements_dataset,M_mesh,5,false);
             M_external_data.push_back(&M_snowfr);
 
-            M_precip=ExternalData(&M_asr_elements_dataset,M_mesh,6);
+            M_precip=ExternalData(&M_asr_elements_dataset,M_mesh,6,false);
+            M_external_data.push_back(&M_precip);
+
+            M_dair=ExternalData(vm["simul.constant_dair"].as<double>());
+            M_external_data.push_back(&M_dair);
+        break;
+        
+        case setup::AtmosphereType::ERAi_ASR:
+            M_wind=ExternalData(
+                &M_ERAi_nodes_dataset,M_mesh,0,true ,
+                time_init, vm["simul.spinup_duration"].as<double>());
+            M_external_data.push_back(&M_wind);
+
+            M_tair=ExternalData(&M_asr_elements_dataset,M_mesh,0,false);
+            M_external_data.push_back(&M_tair);
+
+            M_mixrat=ExternalData(&M_asr_elements_dataset,M_mesh,1,false);
+            M_external_data.push_back(&M_mixrat);
+
+            M_mslp=ExternalData(&M_asr_elements_dataset,M_mesh,2,false);
+            M_external_data.push_back(&M_mslp);
+
+            M_Qsw_in=ExternalData(&M_asr_elements_dataset,M_mesh,3,false);
+            M_external_data.push_back(&M_Qsw_in);
+
+            M_Qlw_in=ExternalData(&M_asr_elements_dataset,M_mesh,4,false);
+            M_external_data.push_back(&M_Qlw_in);
+
+            M_snowfr=ExternalData(&M_asr_elements_dataset,M_mesh,5,false);
+            M_external_data.push_back(&M_snowfr);
+
+            M_precip=ExternalData(&M_asr_elements_dataset,M_mesh,6,false);
             M_external_data.push_back(&M_precip);
 
             M_dair=ExternalData(vm["simul.constant_dair"].as<double>());
@@ -4643,22 +4848,22 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             break;
         case setup::OceanType::TOPAZR:
             M_ocean=ExternalData(
-                &M_topaz_nodes_dataset, M_mesh, 0, 1,
+                &M_topaz_nodes_dataset, M_mesh, 0, true,
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_ocean);
 
             M_ssh=ExternalData(
-                &M_topaz_nodes_dataset, M_mesh, 2,
+                &M_topaz_nodes_dataset, M_mesh, 2, false,
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_ssh);
 
-            M_ocean_temp=ExternalData(&M_topaz_elements_dataset, M_mesh, 0);
+            M_ocean_temp=ExternalData(&M_topaz_elements_dataset, M_mesh, 0,false);
             M_external_data.push_back(&M_ocean_temp);
 
-            M_ocean_salt=ExternalData(&M_topaz_elements_dataset, M_mesh, 1);
+            M_ocean_salt=ExternalData(&M_topaz_elements_dataset, M_mesh, 1,false);
             M_external_data.push_back(&M_ocean_salt);
 
-            M_mld=ExternalData(&M_topaz_elements_dataset, M_mesh, 2);
+            M_mld=ExternalData(&M_topaz_elements_dataset, M_mesh, 2,false);
             M_external_data.push_back(&M_mld);
             // SYL: there was a capping of the mld at minimum vm["simul.constant_mld"].as<double>()
             // but Einar said it is not necessary, so it is not implemented
@@ -4786,13 +4991,13 @@ FiniteElement::targetIce()
 void
 FiniteElement::topazIce()
 {
-    external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0);
+    external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false);
     M_init_conc.check_and_reload(M_mesh,time_init);
 
-    external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1);
+    external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false);
     M_init_thick.check_and_reload(M_mesh,time_init);
 
-    external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2);
+    external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false);
     M_init_snow_thick.check_and_reload(M_mesh,time_init);
 
     double tmp_var;
@@ -4878,7 +5083,7 @@ FiniteElement::bathymetry()//(double const& u, double const& v)
             M_external_data.push_back(&M_element_depth);
             break;
         case setup::BathymetryType::ETOPO:
-            M_element_depth=ExternalData(&M_etopo_elements_dataset,M_mesh,0);
+            M_element_depth=ExternalData(&M_etopo_elements_dataset,M_mesh,0,false);
             M_external_data.push_back(&M_element_depth);
             break;
         default:
