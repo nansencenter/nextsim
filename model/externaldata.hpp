@@ -51,6 +51,7 @@ public:
         std::string name;
         int start;
         int end;
+        bool cyclic; // if cyclic, then the first value will also be used for interpolation after the last value
     } Dimesion;
 
     typedef struct Variable

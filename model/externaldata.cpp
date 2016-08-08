@@ -8,6 +8,8 @@
 
 #include <externaldata.hpp>
 #include <date.hpp>
+#include "./isnan.h"
+     
 
 /**
  * @class ExternalData
@@ -91,16 +93,16 @@ ExternalData::~ExternalData()
 
 void ExternalData::check_and_reload(GmshMesh const& mesh, const double current_time)
 {
+    M_current_time = current_time;
+    
+    M_factor=1.;
+    if((M_current_time-M_SpinUpStartingTime)<M_SpinUpDuration)
+    {
+        M_factor=(M_current_time-M_SpinUpStartingTime)/M_SpinUpDuration;
+    }
+    
     if(!M_is_constant)
     {
-        M_current_time = current_time;
-
-        M_factor=1.;
-        if((M_current_time-M_SpinUpStartingTime)<M_SpinUpDuration)
-        {
-            M_factor=(M_current_time-M_SpinUpStartingTime)/M_SpinUpDuration;
-        }
-
         bool to_be_reloaded=false;
 
         if(M_dataset->nb_timestep_day>0)
@@ -123,7 +125,6 @@ typename ExternalData::value_type
 ExternalData::operator [] (const size_type i)
 {
     value_type value;
-    value_type valuebis;
     size_type i_tmp;
     int VariableId_tmp;
     if(M_is_constant)
@@ -252,18 +253,42 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
     std::vector<double> tmp_interpolated_field(dataset->target_size);
 
     int N_data =dataset->variables.size();
-    int M  =dataset->grid->dimension_y.end;
-    int N  = dataset->grid->dimension_x.end;
+    int M  =dataset->grid->dimension_y.end-dataset->grid->dimension_y.start+1;
+    int N  = dataset->grid->dimension_x.end-dataset->grid->dimension_x.start+1;
+    
     int MN = M*N;
+	
+    int cyclic_N=N;
+    int cyclic_M=M;
+    
+    double delta_y=dataset->grid->gridY[M-1]-dataset->grid->gridY[M-2];
+    if(dataset->grid->dimension_y.cyclic)
+    {
+        cyclic_M=M+1;
+        dataset->grid->gridY.push_back(dataset->grid->gridY[M-1]+delta_y);
+    }
+    
+    double delta_x=dataset->grid->gridX[N-1]-dataset->grid->gridX[N-2];
+    if(dataset->grid->dimension_x.cyclic)
+    {
+        cyclic_N=N+1;
+        dataset->grid->gridX.push_back(dataset->grid->gridX[N-1]+delta_x);
+    }    
+    
+    int final_MN=cyclic_M*cyclic_N;
 
-	int reduced_MN=MN;
 	if(dataset->grid->reduced_nodes_ind.size()!=0)
-		reduced_MN=dataset->grid->reduced_nodes_ind.size();
+    {
+        if((dataset->grid->dimension_y.cyclic) || (dataset->grid->dimension_x.cyclic))
+            throw std::runtime_error("Using reduced grid and cyclic grid at the same time is not yet implemented");
+        
+    	final_MN=dataset->grid->reduced_nodes_ind.size();
+    }        
 
 	// Memory leak:
-    //double* data_in = new double[N_data*nb_forcing_step*reduced_MN];
-    std::vector<double> data_in(N_data*nb_forcing_step*reduced_MN);
-
+    //double* data_in = new double[N_data*nb_forcing_step*final_MN];
+    std::vector<double> data_in(N_data*nb_forcing_step*final_MN);
+    
     std::vector<double> data_in_tmp(MN);
 
     // Attributes (scaling and offset)
@@ -318,8 +343,16 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
         {
             // Set the time range XTIME
             netCDF::NcVar FVTIME = dataFile.getVar(dataset->time.name);
-            XTIME.resize(dataset->time.dimensions[0].end-dataset->time.dimensions[0].start);
-            FVTIME.getVar(&XTIME[0]);
+            
+            index_start.resize(1);
+            index_count.resize(1);
+            
+            index_start[0]=dataset->time.dimensions[0].start;
+            index_count[0]=(dataset->time.dimensions[0].end-dataset->time.dimensions[0].start)+1;
+            
+            XTIME.resize(index_count[0]);
+                        
+            FVTIME.getVar(index_start, index_count, &XTIME[0]);
             std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string(dataset->reference_date); });
 
             auto it = std::find(XTIME.begin(), XTIME.end(), ftime);
@@ -327,6 +360,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             std::cout <<"FIND "<< ftime <<" in index "<< index <<"\n";
         }
 
+        // Load each variable and copy its data into data_in
         for(int j=0; j<dataset->variables.size(); ++j)
         {
             NcVars[j] = dataFile.getVar(dataset->variables[j].name);
@@ -337,7 +371,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             for(int k=0; k<dataset->variables[j].dimensions.size(); ++k)
             {
                 index_start[k] = dataset->variables[j].dimensions[k].start;
-                index_count[k] = dataset->variables[j].dimensions[k].end-dataset->variables[j].dimensions[k].start;
+                index_count[k] = dataset->variables[j].dimensions[k].end-dataset->variables[j].dimensions[k].start+1;
             }
 
 			if(dataset->nb_timestep_day>0)
@@ -367,14 +401,67 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             catch(netCDF::exceptions::NcException& e)
             {}
 
+            // Copy the data in data_in
+
+            // If reduced_nodes is used
 			if(dataset->grid->reduced_nodes_ind.size()!=0)
 			{
-            	for (int i=0; i<(reduced_MN); ++i)
-                	data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=data_in_tmp[dataset->grid->reduced_nodes_ind[i]]*scale_factor + add_offset;
+            	for (int i=0; i<(final_MN); ++i)
+                {
+                    data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=
+                        data_in_tmp[dataset->grid->reduced_nodes_ind[i]]*scale_factor + add_offset;
+    				if(xIsNan<double>(data_in_tmp[dataset->grid->reduced_nodes_ind[i]]*scale_factor + add_offset)) 
+                    {
+            			_printf_("found NaN at"  << data_in_tmp[dataset->grid->reduced_nodes_ind[i]]<<  " "<<  dataset->grid->reduced_nodes_ind[i] <<  ", default_value is used\n");   
+    				}
+                }
 			}
-			else
-            	for (int i=0; i<(MN); ++i)
-                	data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=data_in_tmp[i]*scale_factor + add_offset;
+			else // if not reduced_node
+            {
+                // If one of the dimension is cyclic
+                if((dataset->grid->dimension_y.cyclic) || (dataset->grid->dimension_x.cyclic))
+                {
+                    for (int y_ind=0; y_ind<M; ++y_ind)
+                    {
+                        for (int x_ind=0; x_ind<N; ++x_ind)
+                        {
+                            int i=y_ind*N+x_ind;
+                            int cyclic_i=y_ind*cyclic_N+x_ind;
+                    
+                            data_in[(dataset->variables.size()*nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=data_in_tmp[i]*scale_factor + add_offset;
+                        }
+                    }
+                }
+                else // with no cyclic dimension, simply use the same indice i
+                {
+                    for (int i=0; i<(MN); ++i)
+                    {   	
+                        data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=data_in_tmp[i]*scale_factor + add_offset;
+        				if(xIsNan<double>(data_in_tmp[i]*scale_factor + add_offset))
+                        {
+                			_printf_("found NaN at"  << data_in_tmp[i] <<  " "<<  i <<  ", default_value is used\n");
+        				}
+                    }
+                }
+            }
+            
+            if(dataset->grid->dimension_y.cyclic)
+                for (int x_ind=0; x_ind<N; ++x_ind)
+                {
+                    int i=0*N+x_ind;
+                    int cyclic_i=(cyclic_M-1)*cyclic_N+x_ind;
+                    
+                    data_in[(dataset->variables.size()*nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=data_in_tmp[i]*scale_factor + add_offset;
+                }
+                
+            if(dataset->grid->dimension_x.cyclic)
+                for (int y_ind=0; y_ind<M; ++y_ind)
+                {
+                    int i=y_ind*N+0;
+                    int cyclic_i=y_ind*cyclic_N+(cyclic_N-1);
+                    
+                    data_in[(dataset->variables.size()*nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=data_in_tmp[i]*scale_factor + add_offset;
+                }
 
 		}
     }
@@ -416,26 +503,138 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
     // ---------------------------------
     // Transformation of the vectorial variables from the coordinate system of the data to the polar stereographic projection used in the model 
     // Once we are in the polar stereographic projection, we can do spatial interpolation without bothering about the North Pole
-    
-    double tmp_data0, tmp_data1;
+
+    double tmp_data0, tmp_data1, new_tmp_data0, new_tmp_data1;
+    double tmp_data0_deg, tmp_data1_deg;
+    double lat_tmp, lon_tmp, lat_tmp_bis, lon_tmp_bis;
+    double x_tmp, y_tmp, x_tmp_bis, y_tmp_bis;
+    double speed, new_speed;
     int j0, j1;
     
-    if(rotation_angle!=0.)
+    double R=6378273.; // Earth radius
+    double delta_t=1.; // 1 sec. This value needs to be small. 
+    
+    for (int fstep=0; fstep < nb_forcing_step; ++fstep)
     {
-        for (int fstep=0; fstep < nb_forcing_step; ++fstep)
+        for(int j=0; j<dataset->vectorial_variables.size(); ++j)
         {
-            for(int j=0; j<dataset->vectorial_variables.size(); ++j)
+            j0=dataset->vectorial_variables[j].components_Id[0];
+            j1=dataset->vectorial_variables[j].components_Id[1];
+            
+            if(dataset->vectorial_variables[j].east_west_oriented && dataset->grid->interpolation_method==InterpolationType::FromGridToMesh)
             {
-                j0=dataset->vectorial_variables[j].components_Id[0];
-                j1=dataset->vectorial_variables[j].components_Id[1];
+                int M=dataset->grid->gridY.size();
+                int N=dataset->grid->gridX.size();
                 
-                for (int i=0; i<dataset->target_size; ++i)
+                for (int y_ind=0; y_ind<M; ++y_ind)
+                {
+                    for (int x_ind=0; x_ind<N; ++x_ind)
+                    {
+                        int i=y_ind*N+x_ind;
+                
+                        // lat lon of the data
+                        lat_tmp=dataset->grid->gridY[y_ind];
+                        lon_tmp=dataset->grid->gridX[x_ind];
+                        
+                        // velocity in the east (component 0) and north direction (component 1) in m/s
+                        tmp_data0=data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j0];
+                        tmp_data1=data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j1];
+                        
+                        // velocity in the east (component 0) and north direction (component 1) in degree/s
+                        if(lat_tmp<90.)
+                        {
+                            tmp_data0_deg=tmp_data0/(R*std::cos(lat_tmp*PI/180.))*180./PI;
+                            tmp_data1_deg=tmp_data1/R*180./PI;
+                        }
+                        else
+                        {
+                            tmp_data0_deg=0.;
+                            tmp_data1_deg=0.;
+                        }   
+                        
+                        // position in lat, lon after delta_t
+                        lat_tmp_bis=lat_tmp+tmp_data1_deg*delta_t;
+                        lon_tmp_bis=lon_tmp+tmp_data0_deg*delta_t;
+                        
+                        lon_tmp_bis = lon_tmp_bis-360.*std::floor(lon_tmp_bis/(360.));
+                        
+                        // initial position x, y in meter
+        			    forward_mapx(mapNextsim,lat_tmp,lon_tmp,&x_tmp,&y_tmp);
+                        
+                        // position x, y after delta_t in meter
+                        forward_mapx(mapNextsim,lat_tmp_bis,lon_tmp_bis,&x_tmp_bis,&y_tmp_bis);
+                        
+                        // velocity in m/s
+                        new_tmp_data0= (x_tmp_bis-x_tmp)/delta_t;
+                        new_tmp_data1= (y_tmp_bis-y_tmp)/delta_t;
+                                          
+                        // normalisation
+                        speed=std::hypot(tmp_data0,tmp_data1);
+                        new_speed=std::hypot(new_tmp_data0,new_tmp_data1);
+                                                               
+                        if(new_speed>0.)
+                        {
+                            new_tmp_data0=new_tmp_data0/new_speed*speed;
+                            new_tmp_data1=new_tmp_data1/new_speed*speed;
+                        }
+                                                                        
+                        data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j0]= new_tmp_data0;
+                        data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j1]= new_tmp_data1;
+                    }
+                }
+                // Treat the case of the North Pole where east-north components are ill-defined
+                // We just take the mean of the velocity computed at a lower latitude in the polar stereo projection
+                
+                bool found_north_pole=false;
+                int y_ind, y_ind_m1;
+                if(dataset->grid->gridY[0]==90.)
+                {
+                    y_ind=0;
+                    y_ind_m1=y_ind+1;
+                    found_north_pole=true;
+                }
+                if(dataset->grid->gridY[M-1]==90.)
+                {
+                    y_ind=M-1;
+                    y_ind_m1=y_ind-1;
+                    found_north_pole=true;
+                }
+                if(found_north_pole=true)
+                {   
+                    tmp_data0=0.;
+                    tmp_data1=0.;
+                    // loop over the nearest latitude that is not 90 to compute the mean value
+                    for (int x_ind=0; x_ind<N; ++x_ind)
+                    {
+                        int i=y_ind_m1*N+x_ind;
+                        tmp_data0=tmp_data0+data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j0];
+                        tmp_data1=tmp_data1+data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j1];
+                    }
+                    tmp_data0=tmp_data0/N;
+                    tmp_data1=tmp_data1/N;
+                    
+                    // loop over the points defined at 90N
+                    for (int x_ind=0; x_ind<N; ++x_ind)
+                    {
+                        int i=y_ind*N+x_ind;
+                        data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j0]=tmp_data0;
+                        data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j1]=tmp_data1;
+                    }
+                }
+            }
+                
+            if(rotation_angle!=0.)
+            {
+                for (int i=0; i<final_MN; ++i)
                 {
                     tmp_data0=data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j0];
                     tmp_data1=data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j1];
-                        
-                    data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j0]= cos_m_diff_angle*tmp_data0+sin_m_diff_angle*tmp_data1;
-                    data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j1]=-sin_m_diff_angle*tmp_data0+cos_m_diff_angle*tmp_data1;    
+                                 
+                    new_tmp_data0= cos_m_diff_angle*tmp_data0+sin_m_diff_angle*tmp_data1;
+                    new_tmp_data1=-sin_m_diff_angle*tmp_data0+cos_m_diff_angle*tmp_data1; 
+                    
+                    data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j0]= new_tmp_data0;
+                    data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j1]= new_tmp_data1;    
                 }
             }
         }
@@ -490,7 +689,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             InterpFromGridToMeshx(  data_out, &dataset->grid->gridX[0], dataset->grid->gridX.size(), &dataset->grid->gridY[0], dataset->grid->gridY.size(),
                                   &data_in[0], dataset->grid->gridY.size(), dataset->grid->gridX.size(),
                                   dataset->variables.size()*nb_forcing_step,
-                                 &RX[0], &RY[0], dataset->target_size, 1.0, interp_type);
+                                 &RX[0], &RY[0], dataset->target_size, 100000000., interp_type); // We put an excessively high default value, so that it will most likely crashes when not finding data
         break;
         case InterpolationType::FromMeshToMesh2dx:
             InterpFromMeshToMesh2dx(&data_out,
@@ -505,6 +704,12 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             std::cout << "invalid interpolation type:" <<"\n";
             throw std::logic_error("invalid interpolation type");
     }
+    
+    if(dataset->grid->dimension_y.cyclic)
+        dataset->grid->gridY.pop_back();
+    
+    if(dataset->grid->dimension_x.cyclic)
+        dataset->grid->gridX.pop_back();
 
 std::cout <<"after interp " <<"\n";
 
@@ -554,10 +759,10 @@ ExternalData::loadGrid(Grid *grid)
 		std::vector<size_t> index_y_start(1);
 
 		index_y_start[0] = grid->dimension_y.start;
-		index_y_count[0] = grid->dimension_y.end-grid->dimension_y.start;
+		index_y_count[0] = grid->dimension_y.end-grid->dimension_y.start+1;
 
 		index_x_start[0] = grid->dimension_x.start;
-		index_x_count[0] = grid->dimension_x.end-grid->dimension_x.start;
+		index_x_count[0] = grid->dimension_x.end-grid->dimension_x.start+1;
 
 		std::vector<double> LAT(index_y_count[0]);
 		std::vector<double> LON(index_x_count[0]);
@@ -590,14 +795,14 @@ ExternalData::loadGrid(Grid *grid)
 		index_py_start[0] = grid->dimension_y.start;
 		index_py_start[1] = grid->dimension_x.start;
 
-		index_py_count[0] = grid->dimension_y.end-grid->dimension_y.start;
-		index_py_count[1] = grid->dimension_x.end-grid->dimension_x.start;
+		index_py_count[0] = grid->dimension_y.end-grid->dimension_y.start+1;
+		index_py_count[1] = grid->dimension_x.end-grid->dimension_x.start+1;
 
 		index_px_start[0] = grid->dimension_y.start;
 		index_px_start[1] = grid->dimension_x.start;
 
-		index_px_count[0] = grid->dimension_y.end-grid->dimension_y.start;
-		index_px_count[1] = grid->dimension_x.end-grid->dimension_x.start;
+		index_px_count[0] = grid->dimension_y.end-grid->dimension_y.start+1;
+		index_px_count[1] = grid->dimension_x.end-grid->dimension_x.start+1;
 
 		if(grid->interpolation_method==InterpolationType::FromGridToMesh)
 		{
@@ -625,7 +830,9 @@ ExternalData::loadGrid(Grid *grid)
 
 		VLAT.getVar(index_py_start,index_py_count,&YLAT[0]);
 		VLON.getVar(index_py_start,index_py_count,&YLON[0]);
-
+       
+        // projection
+                    
 		std::vector<double> X(index_px_count[0]*index_px_count[1]);
 		std::vector<double> Y(index_py_count[0]*index_py_count[1]);
 
@@ -685,7 +892,7 @@ ExternalData::loadGrid(Grid *grid)
 				for(int k=0; k<grid->masking_variable.dimensions.size(); ++k)
 				{
 					index_start[k] = grid->masking_variable.dimensions[k].start;
-					index_count[k] = grid->masking_variable.dimensions[k].end-grid->masking_variable.dimensions[k].start;
+					index_count[k] = grid->masking_variable.dimensions[k].end-grid->masking_variable.dimensions[k].start+1;
 				}
 				index_start[0] = 0;
 				index_count[0] = 1;

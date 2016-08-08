@@ -261,19 +261,22 @@ FiniteElement::initDatasets()
     Dimension asr_dimension_x={
         name:"x",
         start:0,
-        end:360
+        end:359,
+        cyclic:false
 	};
 
     Dimension asr_dimension_y={
         name:"y",
         start:0,
-        end:360
+        end:359,
+        cyclic:false
 	};
 
     Dimension asr_dimension_time={
         name:"time", // "Time"
         start:0,
-        end:248
+        end:247,
+        cyclic:false
 	};
 
     std::vector<Dimension> dimensions_asr_latlon(2);
@@ -487,25 +490,29 @@ FiniteElement::initDatasets()
     Dimension topaz_dimension_x={
         name:"x",
         start:0,
-        end:761
+        end:760,
+        cyclic:false
 	};
 
     Dimension topaz_dimension_y={
         name:"y",
         start:0,
-        end:1101
+        end:1100,
+        cyclic:false
 	};
 
     Dimension topaz_dimension_time={
         name:"time", // "Time"
         start:0,
-        end:31
+        end:30,
+        cyclic:false
 	};
 
     Dimension topaz_dimension_depth={
         name:"depth", // "Time"
         start:0,
-        end:1
+        end:0,
+        cyclic:false
 	};
 
     std::vector<Dimension> dimensions_topaz_uv(4);
@@ -747,13 +754,15 @@ FiniteElement::initDatasets()
     Dimension etopo_dimension_x={
         name:"x",
         start:0,
-        end:21601
+        end:21600,
+        cyclic:false
 	};
 
     Dimension etopo_dimension_y={
         name:"y",
         start:7200,//0, approx 60 deg North
-        end:10801
+        end:10800,
+        cyclic:false
 	};
 
     std::vector<Dimension> dimensions_etopo_lon(1);
@@ -840,19 +849,22 @@ FiniteElement::initDatasets()
     Dimension ERAi_dimension_x={
         name:"x",
         start:0,
-        end:719
+        end:719,
+        cyclic:true
 	};
 
     Dimension ERAi_dimension_y={
         name:"y",
         start:0,
-        end:100
+        end:100,
+        cyclic:false
 	};
     
     Dimension ERAi_dimension_time={
         name:"time", // "Time"
         start:0,
-        end:123
+        end:123,
+        cyclic:false
 	};
 
     std::vector<Dimension> dimensions_ERAi_lon(1);
@@ -958,7 +970,7 @@ FiniteElement::initDatasets()
         dirname: "data",
         prefix: "erai.6h.",
         postfix:".nc",
-        reference_date: "1901-01-01",
+        reference_date: "2008-01-01",
 
         variables: variables_tmp6,
         vectorial_variables: vectorial_variables_tmp6,
@@ -2393,12 +2405,10 @@ FiniteElement::assemble(int pcpt)
                 dvv = surface_e*( mloc*(coef_Vair+coef_Voce*cos_ocean_turning_angle+coef_V+coef_basal)
                                   +M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j+1]*coef_P);
 
-
                 data[(2*i  )*6+2*j  ] = duu;
                 data[(2*i+1)*6+2*j  ] = dvu;
                 data[(2*i  )*6+2*j+1] = duv;
                 data[(2*i+1)*6+2*j+1] = dvv;
-
 
                 fvdata[2*i] += surface_e*( mloc*( +M_tau[index_u]
                                                   +coef_Vair*M_wind[index_u]
@@ -2418,7 +2428,6 @@ FiniteElement::assemble(int pcpt)
                                                     +coef_Voce*sin_ocean_turning_angle*(M_ocean[index_u]-M_VT[index_u])
                                                     -coef_C*Vcor_index_u)
                                              - b0tj_sigma_hv/3);
-
             }
 
             rcindices[2*j] = index_u;
