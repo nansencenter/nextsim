@@ -55,19 +55,19 @@ This README would normally document whatever steps are necessary to get your app
 	7) From boost directory, type: “./binstall.sh” (sudo password is required during the process)
 
 ####### Install petsc #######
-	0) Desinstall other version of petsc by doing (It is better to restart from here if you had an upgrade of your os)
+        0) Download from http://www.mcs.anl.gov/petsc/download/
+	   or from http://ftp.mcs.anl.gov/pub/petsc/release-snapshots/
+            - choose 3.6.XX version
+        1) Check mpicc, mpicxx, mpiexec use correct version of gcc (gcc --version)
+	2) Uninstall other version of petsc by doing (It is better to restart from here if you had an upgrade of your os)
 			sudo rm -rf /opt/local/petsc
 		or by changing the prefix in pconfigure.sh, for example:
 			--prefix=/opt/local/petsc/3.6	
-	0bis) Desinstall older installation of suitesparse/cholmod/umfpack in /usr/local (It depends on how you installed it. For example you will have to type: make uninstall in SuiteSparse/, or to use: sudo brew remove suite-sparse)
-	1) Download the version 3.6.1 of petsc 
-	from http://www.mcs.anl.gov/petsc/download/
-	or from http://ftp.mcs.anl.gov/pub/petsc/release-snapshots/
-	2) copy the content of /nextsim/scripts/petsc/ in petsc directory
-	3) type the command “unset PETSC_DIR”
-	4) check if pconfigure.sh corresponds to your architecture and change the permission to make it executable.
-	5) From petsc directory, type: “./pconfigure.sh” (sudo password is required during the process)
-	6) From petsc directory, follow the instruction for the rest of the compilation (something like: “make PETSC_DIR=/Users/syloui/Developer/petsc-3.6.1 PETSC_ARCH=arch-darwin-c-opt all”, “sudo make PETSC_DIR=/Users/syloui/Developer/petsc-3.6.1 PETSC_ARCH=arch-darwin-c-opt install” and “make PETSC_DIR=/opt/local/petsc PETSC_ARCH="" test”)
+	3) copy the contents of /nextsim/scripts/petsc/ in petsc directory
+	4) type the command “unset PETSC_DIR”
+	5) check if pconfigure.sh corresponds to your architecture and change the permission to make it executable.
+	6) From petsc directory, type: “./pconfigure.sh” (sudo password is required during the process)
+	7) From petsc directory, follow the instruction for the rest of the compilation (something like: “make PETSC_DIR=/Users/syloui/Developer/petsc-3.6.1 PETSC_ARCH=arch-darwin-c-opt all”, “sudo make PETSC_DIR=/Users/syloui/Developer/petsc-3.6.1 PETSC_ARCH=arch-darwin-c-opt install” and “make PETSC_DIR=/opt/local/petsc PETSC_ARCH="" test”)
 
 Note: for debugging, use another copy of petsc compiled with --download-mpich and --with-debugging and using another path, for example using export PETSC_PREFIX=/opt/local/petsc-debug. Set this path in your .bashprofile by using export PETSC_DIR=/opt/local/petsc-debug before recompiling the whole neXtSIM code (core + model).
 
@@ -75,20 +75,46 @@ You can run the code with the options:
 -malloc_debug for memory error
 
 ####### Install netcdf #######
-1) instal hdf5 via macport: "sudo port install hdf5"
+1) install hdf5 via macport: "sudo port install hdf5"
 2) download latest stable c version of netcdf on http://www.unidata.ucar.edu/downloads/netcdf/index.jsp and unzip it
 3) copy configure_c.sh from /nextsim/scripts/netcdf
-4) From netcdf directory, type: “./configure_c.sh” then "make" "make check" and finally "sudo make install"
+4) From netcdf directory, type: “./configure_c.sh” then "make", "make check" and finally "sudo make install"
 5) download latest stable c-xx version of netcdf on http://www.unidata.ucar.edu/downloads/netcdf/index.jsp and unzip it
 6) copy configure_cxx.sh from /nextsim/scripts/netcdf
 7) From netcdf-cxx directory, type: “./configure_cxx.sh”then "make" "make check" and finally "sudo make install"
 
 ####### install gmsh from the source code #######
 
-1) Download the source code from http://geuz.org/gmsh/
+1) Download the source code from svn
+svn co https://onelab.info/svn/gmsh/trunk gmsh
+username: gmsh
+password: gmsh
 
 2) In the gmsh directory do
 
+i) full install (OSX):
+sudo port install cmake (make sure this is used and not ISSM version)
+mkdir Build
+edit CMakeLists.txt:
+* paste set(CMAKE_MACOSX_RPATH 1)
+  under set(CMAKE_LEGACY_CYGWIN_WIN32 0)
+* cd Build
+* cmake ..
+* ccmake .
+   change  CMAKE_BUILD_TYPE      to Release
+   change  CMAKE_INSTALL_PREFIX  to /opt/local/gmsh
+   change  ENABLE_BUILD_DYNAMIC  to ON
+   change  ENABLE_BUILD_LIB      to ON
+   change  ENABLE_BUILD_SHARED   to ON
+   "c" to configure
+   "g" to generate and exit
+* make -j8
+* sudo make install
+* shouldn't need to do this, but...
+   sudo mkdir /opt/local/gmsh/lib
+   sudo cp libGmsh.a *.dylib /opt/local/gmsh/lib
+
+ii) quick install:
 mkdir lib
 cd lib
 cmake -DDEFAULT=0 -DENABLE_BUILD_LIB=1 ..
@@ -101,7 +127,7 @@ sudo make install/fast
 
 # for nextSIM in C++
 export NEXTSIMDIR=$HOME/Developer/nextsim/
-export GMSH_DIR=/usr/local/
+export GMSH_DIR=/opt/local/gmsh or /usr/local
 
 export NETCDF_DIR=/opt/local/netcdf-cxx
 
