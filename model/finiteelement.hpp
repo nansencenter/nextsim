@@ -183,6 +183,8 @@ public:
     void interpFieldsElement();
 
     void gatherUM(std::vector<double>& um);
+    void gatherFieldsNode(std::vector<double>& interp_in_elements, bimap_type const& rmap_nodes, std::vector<int> sizes_nodes);
+    void scatterFieldsNode(double* interp_nd_out);
     void interpFieldsNode(bimap_type const& rmap_nodes, std::vector<int> sizes_nodes);
 
     void assemble(int cpt);

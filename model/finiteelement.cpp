@@ -2103,7 +2103,7 @@ FiniteElement::interpFieldsElement()
             ++cpt;
         }
 
-#if 1
+#if 0
         // The interpolation with the cavities still needs to be tested on a long run.
         // By default, we then use the non-conservative MeshToMesh interpolation
 
@@ -2116,14 +2116,14 @@ FiniteElement::interpFieldsElement()
         //std::cout<<"InterpFromMeshToMesh2dCavities done in "<< chrono.elapsed() <<"\n";
 #endif
 
-#if 0
+#if 1
 
-        std::cout<<"M_mesh_previous_root.indexTr().size()= "<< M_mesh_previous_root.indexTr().size() <<"\n";
-        std::cout<<"M_mesh_previous_root.numTriangles()  = "<< M_mesh_previous_root.numTriangles() <<"\n";
+        // std::cout<<"M_mesh_previous_root.indexTr().size()= "<< M_mesh_previous_root.indexTr().size() <<"\n";
+        // std::cout<<"M_mesh_previous_root.numTriangles()  = "<< M_mesh_previous_root.numTriangles() <<"\n";
 
-        auto indextr_ = M_mesh_previous_root.indexTr();
-        std::cout<<"["<< M_rank <<"]: " <<"Min index= "<< *std::min_element(indextr_.begin(), indextr_.end()) <<"\n";
-        std::cout<<"["<< M_rank <<"]: " <<"Max index= "<< *std::max_element(indextr_.begin(), indextr_.end()) <<"\n";
+        // auto indextr_ = M_mesh_previous_root.indexTr();
+        // std::cout<<"["<< M_rank <<"]: " <<"Min index= "<< *std::min_element(indextr_.begin(), indextr_.end()) <<"\n";
+        // std::cout<<"["<< M_rank <<"]: " <<"Max index= "<< *std::max_element(indextr_.begin(), indextr_.end()) <<"\n";
 
 
         // chrono.restart();
@@ -2164,8 +2164,177 @@ FiniteElement::interpFieldsElement()
 }
 
 void
+FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, bimap_type const& rmap_nodes, std::vector<int> sizes_nodes)
+{
+    timer["gather.node"].first.restart();
+
+    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------GATHER NODE starts\n";
+
+    M_nb_var_node = 8;
+    std::vector<double> interp_node_in_local(M_nb_var_node*M_prv_local_ndof,0.);
+
+    chrono.restart();
+    //std::cout<<"Nodal Interp starts\n";
+    //std::cout<<"NODAL: Interp starts\n";
+
+    for (int i=0; i<M_prv_local_ndof; ++i)
+    {
+        // VT
+        interp_node_in_local[M_nb_var_node*i] = M_VT[i];
+        interp_node_in_local[M_nb_var_node*i+1] = M_VT[i+M_prv_num_nodes];
+
+        // VTM
+        interp_node_in_local[M_nb_var_node*i+2] = M_VTM[i];
+        interp_node_in_local[M_nb_var_node*i+3] = M_VTM[i+M_prv_num_nodes];
+
+        // VTMM
+        interp_node_in_local[M_nb_var_node*i+4] = M_VTMM[i];
+        interp_node_in_local[M_nb_var_node*i+5] = M_VTMM[i+M_prv_num_nodes];
+
+        // UM
+        interp_node_in_local[M_nb_var_node*i+6] = M_UM[i];
+        interp_node_in_local[M_nb_var_node*i+7] = M_UM[i+M_prv_num_nodes];
+    }
+
+    std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = M_nb_var_node*f; });
+
+    if (M_rank == 0)
+    {
+        interp_in_nodes.resize(M_nb_var_node*M_prv_global_num_nodes);
+        boost::mpi::gatherv(M_comm, interp_node_in_local, &interp_in_nodes[0], sizes_nodes, 0);
+    }
+    else
+    {
+        boost::mpi::gatherv(M_comm, interp_node_in_local, 0);
+    }
+
+    if (M_rank == 0)
+    {
+        auto interp_in_nodes_nrd = interp_in_nodes;
+
+        for (int i=0; i<M_prv_global_num_nodes; ++i)
+        {
+            int ri =  rmap_nodes.left.find(i+1)->second-1;
+
+            for (int j=0; j<M_nb_var_node; ++j)
+            {
+                interp_in_nodes[M_nb_var_node*i+j] = interp_in_nodes_nrd[M_nb_var_node*ri+j];
+            }
+        }
+    }
+
+    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------GATHER NODE done in "<< timer["gather.node"].first.elapsed() <<"s\n";
+}
+
+void
+FiniteElement::scatterFieldsNode(double* interp_nd_out)
+{
+    timer["scatter.node"].first.restart();
+
+    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER NODE starts\n";
+
+    std::vector<double> in_nd_values;
+
+    if (M_rank == 0)
+    {
+        //auto rmap_nodes = M_mesh.mapNodes();
+        in_nd_values.resize(M_nb_var_node*M_id_nodes.size());
+
+        for (int i=0; i<M_id_nodes.size(); ++i)
+        {
+            //int ri = rmap_nodes.right.find(id_nodes[i])->second-1;
+            int ri = M_id_nodes[i]-1;
+
+            for (int j=0; j<M_nb_var_node; ++j)
+            {
+                in_nd_values[M_nb_var_node*i+j] = interp_nd_out[M_nb_var_node*ri+j];
+            }
+        }
+    }
+
+    std::vector<double> out_nd_values(M_nb_var_node*M_num_nodes);
+    std::vector<int> sizes_nodes = M_sizes_nodes_with_ghost;
+
+    if (M_rank == 0)
+    {
+        std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = M_nb_var_node*f; });
+        boost::mpi::scatterv(M_comm, in_nd_values, sizes_nodes, &out_nd_values[0], 0);
+    }
+    else
+    {
+        boost::mpi::scatterv(M_comm, &out_nd_values[0], M_nb_var_node*M_num_nodes, 0);
+    }
+
+
+    M_VT.assign(2*M_num_nodes,0.);
+    M_VTM.assign(2*M_num_nodes,0.);
+    M_VTMM.assign(2*M_num_nodes,0.);
+    M_UM.assign(2*M_num_nodes,0.);
+
+
+    for (int i=0; i<M_num_nodes; ++i)
+    {
+        // VT
+        M_VT[i] = out_nd_values[M_nb_var_node*i];
+        M_VT[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+1];
+
+        // VTM
+        M_VTM[i] = out_nd_values[M_nb_var_node*i+2];
+        M_VTM[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+3];
+
+        // VTMM
+        M_VTMM[i] = out_nd_values[M_nb_var_node*i+4];
+        M_VTMM[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+5];
+
+        // UM
+        M_UM[i] = out_nd_values[M_nb_var_node*i+6];
+        M_UM[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+7];
+    }
+
+
+    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER NODE done in "<< timer["scatter.node"].first.elapsed() <<"s\n";
+}
+
+void
 FiniteElement::interpFieldsNode(bimap_type const& rmap_nodes, std::vector<int> sizes_nodes)
 {
+
+    M_comm.barrier();
+
+    std::vector<double> interp_in_nodes;
+
+    this->gatherFieldsNode(interp_in_nodes, rmap_nodes, sizes_nodes);
+
+    M_comm.barrier();
+
+    double* interp_nd_out;
+
+    if (M_rank == 0)
+    {
+        InterpFromMeshToMesh2dx(&interp_nd_out,
+                                &M_mesh_previous_root.indexTr()[0],&M_mesh_previous_root.coordX()[0],&M_mesh_previous_root.coordY()[0],
+                                //M_prv_global_num_nodes,M_prv_global_num_elements,
+                                M_mesh_previous_root.numNodes(),M_mesh_previous_root.numTriangles(),
+                                &interp_in_nodes[0],
+                                //M_prv_global_num_nodes,M_nb_var_node,
+                                M_mesh_previous_root.numNodes(),M_nb_var_node,
+                                &M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],M_mesh_root.numNodes(),
+                                false);
+    }
+
+
+    this->scatterFieldsNode(interp_nd_out);
+
+    if (M_rank == 0)
+    {
+        xDelete<double>(interp_nd_out);
+    }
+
+    M_comm.barrier();
+
+
+
+#if 0
     M_comm.barrier();
 
     std::vector<int> indextr(3*M_prv_global_num_elements);
@@ -2313,6 +2482,7 @@ FiniteElement::interpFieldsNode(bimap_type const& rmap_nodes, std::vector<int> s
     xDelete<double>(interp_out);
 
     M_comm.barrier();
+#endif
 }
 
 void
@@ -4395,7 +4565,7 @@ FiniteElement::run()
         //======================================================================
         //chrono.restart();
         //std::cout<<"thermo starts\n";
-        //this->thermo();
+        this->thermo();
         //std::cout<<"thermo done in "<< chrono.elapsed() <<"s\n";
 
         //======================================================================
@@ -4419,6 +4589,7 @@ FiniteElement::run()
         //std::cout<<"update starts\n";
         this->update();
 
+        //std::cout<<"starts------------------------\n";
         //this->updateOnRoot();
 
         //return;
@@ -6753,6 +6924,8 @@ FiniteElement::updateOnRoot()
         std::cout<<"----------------------------[" << M_rank <<"] " <<" MIN ANGLE= "<< minang <<"\n";
     }
 
+#if 1
+
     std::vector<int> sizes_elements = M_sizes_elements;
     //boost::mpi::gather(M_comm, M_local_nelements, sizes_elements, 0);
     int nb_var_element=12;
@@ -6924,6 +7097,8 @@ FiniteElement::updateOnRoot()
 
     //std::cout<<"[" << M_rank <<"] " <<" Divergence_Rate MIN= "<< *std::min_element(M_divergence_rate.begin(),M_divergence_rate.end()) <<"\n";
     //std::cout<<"[" << M_rank <<"] " <<" Divergence_Rate MAX= "<< *std::max_element(M_divergence_rate.begin(),M_divergence_rate.end()) <<"\n";
+
+
 
     if (M_rank == 0)
     {
@@ -7414,6 +7589,7 @@ FiniteElement::updateOnRoot()
             throw std::logic_error("tmp_nb_var not equal to nb_var");
         }
     }
+#endif
 }
 
 void
