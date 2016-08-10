@@ -999,7 +999,7 @@ namespace Nextsim
 
          Dimension etopo_dimension_y={
              name:"y",
-             start:7200,//0, approx 60 deg North
+             start:0, approx 60 deg North
              end:10800,
              cyclic:false
      	};
@@ -1090,23 +1090,17 @@ namespace Nextsim
      { 
      	// Definition of dimensions
         dimension_x={
-             name:"x",
-             start:0,
-             end:719,
+             name:"lon",
              cyclic:true
      	};
 
         dimension_y={
-             name:"y",
-             start:0,
-             end:100,
+             name:"lat",
              cyclic:false
      	};
     
         dimension_time={
              name:"time", // "Time"
-             start:0,
-             end:123,
              cyclic:false
      	};
         

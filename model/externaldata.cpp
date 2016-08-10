@@ -255,8 +255,8 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
     std::vector<double> tmp_interpolated_field(dataset->target_size);
 
     int N_data =dataset->variables.size();
-    int M  =dataset->grid.dimension_y.end-dataset->grid.dimension_y.start+1;
-    int N  = dataset->grid.dimension_x.end-dataset->grid.dimension_x.start+1;
+    int M  =dataset->grid.M; 
+    int N  = dataset->grid.N; 
     
     int MN = M*N;
 	
@@ -344,6 +344,8 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
         // Open the netcdf file
         netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
 
+        netCDF::NcDim tmpDim;
+
         // Find the right time slice
         if (dataset->nb_timestep_day>0)
         {
@@ -353,8 +355,10 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             index_start.resize(1);
             index_count.resize(1);
             
-            index_start[0]=dataset->time.dimensions[0].start;
-            index_count[0]=(dataset->time.dimensions[0].end-dataset->time.dimensions[0].start)+1;
+            netCDF::NcDim timeDim = dataFile.getDim(dataset->time.name);
+            
+            index_start[0]=0;
+            index_count[0]=timeDim.getSize();
             
             XTIME.resize(index_count[0]);
                         
@@ -376,8 +380,10 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 
             for(int k=0; k<dataset->variables[j].dimensions.size(); ++k)
             {
-                index_start[k] = dataset->variables[j].dimensions[k].start;
-                index_count[k] = dataset->variables[j].dimensions[k].end-dataset->variables[j].dimensions[k].start+1;
+                tmpDim = dataFile.getDim(dataset->variables[j].dimensions[k].name);
+                
+                index_start[k] = 0;
+                index_count[k] = tmpDim.getSize();
             }
 
 			if(dataset->nb_timestep_day>0)
@@ -750,6 +756,22 @@ ExternalData::loadGrid(Grid *grid_ptr)
                             % grid_ptr->dirname
                             % grid_ptr->filename
                             ).str();
+    
+	std::cout <<"GRID : READ NETCDF starts\n";
+            if ( ! boost::filesystem::exists(filename) )
+                throw std::runtime_error("File not found: " + filename);
+	netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
+
+    netCDF::NcDim tmpDim;
+
+
+    std::cout <<grid_ptr->dimension_y.name <<"\n";
+    tmpDim = dataFile.getDim(grid_ptr->dimension_y.name);
+	grid_ptr->M  =  tmpDim.getSize();
+
+    std::cout <<grid_ptr->dimension_x.name <<"\n";
+    tmpDim = dataFile.getDim(grid_ptr->dimension_x.name);
+	grid_ptr->N  =  tmpDim.getSize();
 
     //switch (grid_ptr->latitude.dimensions.size())
     //{
@@ -763,20 +785,16 @@ ExternalData::loadGrid(Grid *grid_ptr)
 
 		std::vector<size_t> index_x_start(1);
 		std::vector<size_t> index_y_start(1);
+        
+		index_y_start[0] = 0;
+		index_y_count[0] = grid_ptr->M;
 
-		index_y_start[0] = grid_ptr->dimension_y.start;
-		index_y_count[0] = grid_ptr->dimension_y.end-grid_ptr->dimension_y.start+1;
-
-		index_x_start[0] = grid_ptr->dimension_x.start;
-		index_x_count[0] = grid_ptr->dimension_x.end-grid_ptr->dimension_x.start+1;
+		index_x_start[0] = 0;
+		index_x_count[0] = grid_ptr->N;
 
 		std::vector<double> LAT(index_y_count[0]);
 		std::vector<double> LON(index_x_count[0]);
-
-		std::cout <<"GRID : READ NETCDF starts\n";
-                if ( ! boost::filesystem::exists(filename) )
-                    throw std::runtime_error("File not found: " + filename);
-		netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
+		
 		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 		std::cout <<"GRID : READ NETCDF done\n";
@@ -798,17 +816,17 @@ ExternalData::loadGrid(Grid *grid_ptr)
 		std::vector<size_t> index_px_start(2);
 		std::vector<size_t> index_py_start(2);
 
-		index_py_start[0] = grid_ptr->dimension_y.start;
-		index_py_start[1] = grid_ptr->dimension_x.start;
+		index_py_start[0] = 0;
+		index_py_start[1] = 0;
 
-		index_py_count[0] = grid_ptr->dimension_y.end-grid_ptr->dimension_y.start+1;
-		index_py_count[1] = grid_ptr->dimension_x.end-grid_ptr->dimension_x.start+1;
+		index_py_count[0] = grid_ptr->M;
+		index_py_count[1] = grid_ptr->N;
 
-		index_px_start[0] = grid_ptr->dimension_y.start;
-		index_px_start[1] = grid_ptr->dimension_x.start;
+		index_px_start[0] = 0;
+		index_px_start[1] = 0;
 
-		index_px_count[0] = grid_ptr->dimension_y.end-grid_ptr->dimension_y.start+1;
-		index_px_count[1] = grid_ptr->dimension_x.end-grid_ptr->dimension_x.start+1;
+		index_px_count[0] = grid_ptr->M;
+		index_px_count[1] = grid_ptr->N;
 
 		if(grid_ptr->interpolation_method==InterpolationType::FromGridToMesh)
 		{
@@ -823,10 +841,6 @@ ExternalData::loadGrid(Grid *grid_ptr)
 		std::vector<double> YLAT(index_py_count[0]*index_py_count[1]);
 		std::vector<double> YLON(index_py_count[0]*index_py_count[1]);
 
-		std::cout <<"GRID : READ NETCDF starts\n";
-                if ( ! boost::filesystem::exists(filename) )
-                    throw std::runtime_error("File not found: " + filename);
-		netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
 		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 		std::cout <<"GRID : READ NETCDF done\n";
@@ -880,6 +894,7 @@ ExternalData::loadGrid(Grid *grid_ptr)
 		{
 			if(grid_ptr->masking){
 				netCDF::NcVar VMASK;
+                netCDF::NcDim tmpDim;
 
 				VMASK = dataFile.getVar(grid_ptr->masking_variable.name);
 
@@ -897,8 +912,9 @@ ExternalData::loadGrid(Grid *grid_ptr)
 
 				for(int k=0; k<grid_ptr->masking_variable.dimensions.size(); ++k)
 				{
-					index_start[k] = grid_ptr->masking_variable.dimensions[k].start;
-					index_count[k] = grid_ptr->masking_variable.dimensions[k].end-grid_ptr->masking_variable.dimensions[k].start+1;
+                    tmpDim = dataFile.getDim(grid_ptr->masking_variable.dimensions[k].name);
+                    index_start[k] = 0;
+					index_count[k] = tmpDim.getSize();;
 				}
 				index_start[0] = 0;
 				index_count[0] = 1;

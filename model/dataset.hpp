@@ -43,8 +43,6 @@ public:
     typedef struct Dimension
     {
         std::string name;
-        int start;
-        int end;
         bool cyclic; // if cyclic, then the first value will also be used for interpolation after the last value
     } Dimesion;
 
@@ -93,6 +91,9 @@ public:
 
         std::vector<double> gridLAT;
         std::vector<double> gridLON;
+        
+        int N;
+        int M;
     } Grid;
 #if 0
     typedef struct Dataset
