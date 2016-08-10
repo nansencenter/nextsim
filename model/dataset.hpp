@@ -11,11 +11,16 @@
 
 #include <environment.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
-
+#include <Bamgx.h>
+#include <InterpFromMeshToMesh2dCavities.h>
+#include <InterpFromMeshToMesh2dx.h>
+#include <InterpFromGridToMeshx.h>
+#include <InterpFromMeshToGridx.h>
 
 /**
  * @class DataSet
  * @brief Describe the dataset
+ * The structure of this class is inspired from the structure of mapx.h
  *
  * @see
  *
@@ -89,7 +94,7 @@ public:
         std::vector<double> gridLAT;
         std::vector<double> gridLON;
     } Grid;
-
+#if 0
     typedef struct Dataset
     {
         std::string dirname;
@@ -110,7 +115,35 @@ public:
 
         std::vector<double> ftime_range;
     } Dataset;
+#endif
+    DataSet();
 
+    DataSet(char *DatasetName,int target_size);
+    
+private:
+    Dimension dimension_x;
+    Dimension dimension_y;
+    Dimension dimension_z;
+    Dimension dimension_time;
+    
+public:
+    Grid grid;
+    
+    std::string dirname;
+    std::string prefix;
+    std::string postfix;
+    std::string reference_date;
+
+    std::vector<Variable> variables;
+    std::vector<Vectorial_Variable> vectorial_variables;
+    int target_size;
+    
+    bool reloaded;
+
+    int nb_timestep_day;
+    Variable time;
+
+    std::vector<double> ftime_range;
 };
 
 } // Nextsim

@@ -61,11 +61,7 @@ public:
 
     typedef ExternalData external_data;
     
-    typedef DataSet::Dataset Dataset;
-    typedef DataSet::Grid Grid;
-    typedef DataSet::Dimension Dimension;
-    typedef DataSet::Variable Variable;
-    typedef DataSet::Vectorial_Variable Vectorial_Variable;
+    typedef DataSet Dataset;
     
     typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
 
@@ -120,11 +116,6 @@ public:
 	Dataset M_ice_topaz_elements_dataset;
     Dataset M_etopo_elements_dataset;
     Dataset M_ERAi_nodes_dataset;
-
-    Grid M_asr_grid;
-    Grid M_topaz_grid;
-	Grid M_etopo_grid;
-    Grid M_ERAi_grid;
 
     double minAngles(element_type const& element, mesh_type const& mesh) const;
     double minAngle(mesh_type const& mesh) const;

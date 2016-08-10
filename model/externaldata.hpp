@@ -40,7 +40,8 @@ public:
 	typedef std::size_t size_type;
     typedef double value_type;
     
-    typedef DataSet::Dataset Dataset;
+    typedef DataSet Dataset;
+    
     typedef DataSet::Grid Grid;
     typedef DataSet::Dimension Dimension;
     typedef DataSet::Variable Variable;

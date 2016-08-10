@@ -252,6 +252,24 @@ void
 FiniteElement::initDatasets()
 {
     // ---------------------------------
+    // Definition of the datasets available in the code
+#if 0
+    M_asr_nodes_dataset=DataSet("asr_nodes",M_num_nodes);
+
+    M_asr_elements_dataset=DataSet("asr_elements",M_num_elements);
+    
+    M_topaz_nodes_dataset=DataSet("topaz_nodes",M_num_nodes);
+
+    M_topaz_elements_dataset=DataSet("topaz_elements",M_num_elements);
+    
+    M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements",M_num_elements);
+
+    M_etopo_elements_dataset=DataSet("etopo_elements",M_num_nodes);
+#endif
+    M_ERAi_nodes_dataset=DataSet("ERAi_nodes",M_num_nodes);
+    
+#if 0
+    // ---------------------------------
     // Definition of the grids and datasets used in the code
 
     std::vector<std::vector<double>> data2_tmp;
@@ -985,6 +1003,8 @@ FiniteElement::initDatasets()
 	};
 
     M_ERAi_nodes_dataset.ftime_range.resize(2,0.);
+    
+#endif    
 }
 
 void
@@ -1094,7 +1114,8 @@ FiniteElement::initConstant()
     const boost::unordered_map<const std::string, setup::AtmosphereType> str2atmosphere = boost::assign::map_list_of
         ("constant", setup::AtmosphereType::CONSTANT)
         ("asr", setup::AtmosphereType::ASR)
-        ("erai_asr", setup::AtmosphereType::ERAi_ASR);
+        ("erai_asr", setup::AtmosphereType::ERAi_ASR)
+        ("erai_constant", setup::AtmosphereType::ERAi_CONSTANT);
     M_atmosphere_type = str2atmosphere.find(vm["setup.atmosphere-type"].as<std::string>())->second;
 
     //std::cout<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
@@ -4814,6 +4835,37 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             M_dair=ExternalData(vm["simul.constant_dair"].as<double>());
             M_external_data.push_back(&M_dair);
         break;
+        
+        case setup::AtmosphereType::ERAi_CONSTANT:
+            M_wind=ExternalData(
+                &M_ERAi_nodes_dataset,M_mesh,0,true ,
+                time_init, vm["simul.spinup_duration"].as<double>());
+            M_external_data.push_back(&M_wind);
+
+            M_tair=ExternalData(vm["simul.constant_tair"].as<double>());
+            M_external_data.push_back(&M_tair);
+
+            M_mixrat=ExternalData(vm["simul.constant_mixrat"].as<double>());
+            M_external_data.push_back(&M_mixrat);
+
+            M_mslp=ExternalData(vm["simul.constant_mslp"].as<double>());
+            M_external_data.push_back(&M_mslp);
+
+            M_Qsw_in=ExternalData(vm["simul.constant_Qsw_in"].as<double>());
+            M_external_data.push_back(&M_Qsw_in);
+
+            M_Qlw_in=ExternalData(vm["simul.constant_Qlw_in"].as<double>());
+            M_external_data.push_back(&M_Qlw_in);
+
+            M_snowfr=ExternalData(vm["simul.constant_snowfr"].as<double>());
+            M_external_data.push_back(&M_snowfr);
+
+            M_precip=ExternalData(vm["simul.constant_precip"].as<double>());
+            M_external_data.push_back(&M_precip);
+
+            M_dair=ExternalData(vm["simul.constant_dair"].as<double>());
+            M_external_data.push_back(&M_dair);
+        break;
 
         default:
             std::cout << "invalid wind forcing"<<"\n";
@@ -5863,7 +5915,7 @@ FiniteElement::wimToNextsim(bool step)
 void
 FiniteElement::clear()
 {
-    delete[] M_topaz_grid.pfindex;
+    //delete[] M_topaz_grid.pfindex;
 
     delete bamgmesh;
     delete bamggeom;
