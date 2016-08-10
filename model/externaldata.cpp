@@ -10,6 +10,7 @@
 #include <date.hpp>
 #include "./isnan.h"
 #include <dataset.hpp>
+#include "mapx.h"
      
 
 /**
@@ -512,7 +513,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
     double speed, new_speed;
     int j0, j1;
     
-    double R=6378273.; // Earth radius
+    double R=mapx_Re_km*1000.; // Earth radius
     double delta_t=1.; // 1 sec. This value needs to be small. 
     
     for (int fstep=0; fstep < nb_forcing_step; ++fstep)
