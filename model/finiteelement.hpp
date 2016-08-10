@@ -31,6 +31,7 @@
 #include <debug.hpp>
 #include <omp.h>
 #include <externaldata.hpp>
+#include <gridoutput.hpp>
 
 extern "C"
 {
@@ -387,6 +388,7 @@ private:
     // Variables for the moorings
 
     bool M_use_moorings;
+    GridOutput M_moorings;
     int M_grid_size, M_ncols, M_nrows;
 
     std::vector<double> M_conc_mean;    // Mean concentration (on the mesh)
@@ -409,10 +411,9 @@ private:
     void initIABPDrifter();
     void updateIABPDrifter();
 
-    void updateMeans();
-    int initMoorings(int &ncols, int &nrows);
-    void updateMoorings(int grid_size, int ncols, int nrows);
-    void exportMoorings(int grid_size);
+    void updateMeans(GridOutput &means);
+    void initMoorings();
+    void exportMoorings(GridOutput &moorings);
 
 #if 0
     void topazIce();

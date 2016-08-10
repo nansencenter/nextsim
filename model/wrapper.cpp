@@ -51,11 +51,13 @@ extern "C" {
         delete This;
     }
 
+#if 0
 // Interfaces to access variables on the grid
     int FiniteElementGetNCols(Nextsim::FiniteElement *This) { return This->M_ncols; }
     int FiniteElementGetNRows(Nextsim::FiniteElement *This) { return This->M_nrows; }
     void FiniteElementUpdateMoorings(Nextsim::FiniteElement *This) { This->updateMoorings(This->M_grid_size, This->M_ncols, This->M_nrows); }
 
     double* FiniteElementGetConc(Nextsim::FiniteElement *This) { return &This->M_conc_grid[0]; }
+#endif
 }
 

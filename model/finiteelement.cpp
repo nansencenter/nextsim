@@ -1052,7 +1052,7 @@ FiniteElement::initConstant()
     if ( fmod(restart_time_step,time_step) != 0)
     {
         std::cout << restart_time_step << " " << time_step << "\n";
-        throw std::logic_error("restart_time_step not an integer multiple of time_step");
+        throw std::runtime_error("restart_time_step not an integer multiple of time_step");
     }
 
     divergence_min = (1./days_in_sec)*vm["simul.divergence_min"].as<double>();
@@ -2090,14 +2090,6 @@ FiniteElement::regrid(bool step)
     M_Cohesion.resize(M_num_elements);
     M_Compressive_strength.resize(M_num_elements);
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
-
-    if ( M_use_moorings )
-    {
-        M_conc_mean.assign(M_num_elements,0.);
-        M_thick_mean.assign(M_num_elements,0.);
-        M_snow_thick_mean.assign(M_num_elements,0.);
-        M_VT_mean.assign(2*M_num_nodes,0.);
-    }
 }
 
 void
@@ -3916,7 +3908,7 @@ FiniteElement::init()
 
     // Initialise the moorings - if requested
     if ( M_use_moorings )
-        M_grid_size = this->initMoorings(M_ncols, M_nrows);
+        this->initMoorings();
 
     return pcpt;
 }
@@ -3948,11 +3940,13 @@ FiniteElement::step(int pcpt)
             M_regrid = true;
             // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
             if ( M_use_moorings )
-                this->updateMoorings(M_grid_size, M_ncols, M_nrows);
+                M_moorings.updateGridMean(M_mesh);
             LOG(DEBUG) <<"Regriding starts\n";
             chrono.restart();
             this->regrid(pcpt);
             LOG(DEBUG) <<"Regriding done in "<< chrono.elapsed() <<"s\n";
+            if ( M_use_moorings )
+                M_moorings.resetMeshMean(M_mesh);
         }
     }
 
@@ -4051,16 +4045,13 @@ FiniteElement::step(int pcpt)
 
     if ( M_use_moorings )
     {
-        this->updateMeans();
+        this->updateMeans(M_moorings);
         if ( fmod(pcpt*time_step,mooring_output_time_step) == 0 )
         {
-            this->updateMoorings(M_grid_size, M_ncols, M_nrows);
-            M_conc_mean.assign(M_num_elements,0.);
-            M_thick_mean.assign(M_num_elements,0.);
-            M_snow_thick_mean.assign(M_num_elements,0.);
-            M_VT_mean.assign(2*M_num_nodes,0.);
-
-            this->exportMoorings(M_grid_size);
+            M_moorings.updateGridMean(M_mesh);
+            M_moorings.resetMeshMean(M_mesh);
+            this->exportMoorings(M_moorings);
+            M_moorings.resetGridMean();
         }
     }
 
@@ -4073,230 +4064,208 @@ FiniteElement::step(int pcpt)
     }
 }
 
-// Add to the _mean vectors
+// Add to the mean on the mesh 
 void
-FiniteElement::updateMeans()
+FiniteElement::updateMeans(GridOutput &means)
 {
     // Update elements
-    for (int i=0; i<M_num_elements; ++i)
+    for ( auto it=means.M_elemental_variables.begin(); it!=means.M_elemental_variables.end(); ++it )
     {
-        // concentration
-        M_conc_mean[i] += M_conc[i];
+        switch (it->variableID)
+        {
+            case (variableID::conc):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_conc[i]; break;
+                
+            case (variableID::thick):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_thick[i]; break;
 
-        // thickness
-        M_thick_mean[i] += M_thick[i];
+            case (variableID::damage):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_damage[i]; break;
 
-        // snow thickness
-        M_snow_thick_mean[i] += M_snow_thick[i];
+            case (variableID::snow_thick):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_snow_thick[i]; break;
+
+            default: std::logic_error("Updating of given variableID not implimented (elements)");
+        }
     }
 
     // Update nodes
-    for (int i=0; i<2*M_num_nodes; ++i)
+    for ( auto it=means.M_nodal_variables.begin(); it!=means.M_nodal_variables.end(); ++it )
     {
-        M_VT_mean[i] += M_VT[i];
-    }
+        switch (it->variableID)
+        {
+            case (variableID::VT_x):
+                for (int i=0; i<M_num_nodes; i++)
+                    it->data_mesh[i] += M_VT[i]; break;
 
+            case (variableID::VT_y):
+                for (int i=0; i<M_num_nodes; i++)
+                    it->data_mesh[i] += M_VT[i+M_num_nodes]; break;
+
+            default: std::logic_error("Updating of given variableID not implimented (nodes)");
+        }
+    }
 }
 
 // Initialise everything w.r.t. the moorings
-int
-FiniteElement::initMoorings(int &ncols, int &nrows)
+void
+FiniteElement::initMoorings()
 {
-    // Create/resize vectors to collect data that's on the mesh.
-    M_conc_mean.assign(M_num_elements,0.);
-    M_thick_mean.assign(M_num_elements,0.);
-    M_snow_thick_mean.assign(M_num_elements,0.);
-    M_VT_mean.assign(2*M_num_nodes,0.);
-
-    // Create/resize vectors to collect the gridded means
+    // Calculate the grid spacing (assuming a regular grid for now)
     auto RX = M_mesh.coordX();
     auto RY = M_mesh.coordY();
     auto xcoords = std::minmax_element( RX.begin(), RX.end() );
     auto ycoords = std::minmax_element( RY.begin(), RY.end() );
 
     double mooring_spacing = 1e3 * vm["simul.mooring_spacing"].as<double>();
-    ncols = int ( 0.5 + ( *xcoords.second - *xcoords.first )/mooring_spacing );
-    nrows = int ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
+    int ncols = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/mooring_spacing );
+    int nrows = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
     int grid_size = ncols*nrows;
 
-    M_conc_grid.assign(grid_size,0.);
-    M_thick_grid.assign(grid_size,0.);
-    M_snow_thick_grid.assign(grid_size,0.);
-    M_VT_grid.assign(2*grid_size,0.);
+    // Output dimensions
+    GridOutput::Dimension dimension_x={
+        name:"x",
+        start:0,
+        end:ncols
+    };
 
-    return grid_size;
+    GridOutput::Dimension dimension_y={
+        name:"y",
+        start:0,
+        end:nrows
+    };
 
-}
+    GridOutput::Dimension dimension_time={
+        name:"time",
+        start:0,
+        end:1
+    };
 
-// Interpolate from the mesh values to the grid
-void
-FiniteElement::updateMoorings(int grid_size, int ncols, int nrows)
-{
-    chrono.restart();
-    LOG(DEBUG) <<"updateMoorings starts\n";
+    std::vector<Dimension> dimensions(3);
+    dimensions[0] = dimension_x;
+    dimensions[1] = dimension_y;
+    dimensions[2] = dimension_time;
+    std::vector<Dimension> dimensions_time(1);
+    dimensions_time[0] = dimension_time;
 
-    // Missing value number
-    double miss_val = -1e99;
+    // Output and averaging grids
+    std::vector<double> data_nodes;
+    std::vector<double> data_elements;
+    std::vector<double> data_grid(grid_size);
 
-    // ELEMENT INTERPOLATION (c, h, hs)
-    int nb_var=3;
+    GridOutput::Variable time={
+        name: "time",
+        longName: "Time",
+        stdName: "time",
+        dimensions: dimensions_time,
+        sclFac: 1.,
+        addOff: 0.,
+        Units: "hours",
+        data_mesh: data_elements,
+        data_grid: data_grid
+    };
 
-    // Input vector and output pointer
-    std::vector<double> interp_elt_in(nb_var*M_num_elements);
-    double* interp_elt_out;
+    // Output variables - elements
+    GridOutput::Variable conc={
+        name:"sic",
+        longName:"Sea Ice Concentration",
+        stdName:"sea_ice_area_fraction",
+        dimensions: dimensions,
+        sclFac:1,
+        addOff:0,
+        Units:"",
+        data_mesh:data_elements,
+        data_grid:data_grid,
+        variableID: variableID::conc
+    };
 
-    LOG(DEBUG) <<"ELEMENT: Interp starts\n";
+    GridOutput::Variable thick={
+        name:"sih",
+        longName:"Sea Ice Thickness",
+        stdName:"sea_ice_thickness",
+        dimensions: dimensions,
+        sclFac:1,
+        addOff:0,
+        Units:"",
+        data_mesh:data_elements,
+        data_grid:data_grid,
+        variableID: variableID::thick
+    };
 
-    // Stuff the input vector
-    int tmp_nb_var=0;
-    for (int i=0; i<M_num_elements; ++i)
-    {
-        tmp_nb_var=0;
+    GridOutput::Variable snow_thick={
+        name:"sih",
+        longName:"Surface Snow Thickness",
+        stdName:"surface_snow_thickness",
+        dimensions: dimensions,
+        sclFac:1,
+        addOff:0,
+        Units:"",
+        data_mesh:data_elements,
+        data_grid:data_grid,
+        variableID: variableID::snow_thick
+    };
 
-        // concentration
-        interp_elt_in[nb_var*i+tmp_nb_var] = M_conc_mean[i];
-        tmp_nb_var++;
+    std::vector<GridOutput::Variable> elemental_variables(3);
+    elemental_variables[0] = conc;
+    elemental_variables[1] = thick;
+    elemental_variables[2] = snow_thick;
 
-        // thickness
-        interp_elt_in[nb_var*i+tmp_nb_var] = M_thick_mean[i];
-        tmp_nb_var++;
+    // Output variables - nodes
+    GridOutput::Variable siu={
+        name:"siu",
+        longName:"Sea Ice X-Velocity",
+        stdName:"sea_ice_x-velocity",
+        dimensions: dimensions,
+        sclFac:1,
+        addOff:0,
+        Units:"m s-1",
+        data_mesh:data_nodes,
+        data_grid:data_grid,
+        variableID: variableID::VT_x
+    };
 
-        // snow thickness
-        interp_elt_in[nb_var*i+tmp_nb_var] = M_snow_thick_mean[i];
-        tmp_nb_var++;
+    GridOutput::Variable siv={
+        name:"siv",
+        longName:"Sea Ice Y-Velocity",
+        stdName:"sea_ice_y-velocity",
+        dimensions: dimensions,
+        sclFac:1,
+        addOff:0,
+        Units:"m s-1",
+        data_mesh:data_nodes,
+        data_grid:data_grid,
+        variableID: variableID::VT_y
+    };
 
-        if(tmp_nb_var>nb_var)
-        {
-            throw std::logic_error("tmp_nb_var not equal to nb_var");
-        }
-    }
+    std::vector<GridOutput::Variable> nodal_variables(2);
+    nodal_variables[0] = siu;
+    nodal_variables[1] = siv;
 
-    // interpolation from mesh to grid
-    auto RX = M_mesh.coordX();
-    auto RY = M_mesh.coordY();
-    double xmin = *std::min_element( RX.begin(), RX.end() );
-    double ymax = *std::max_element( RY.begin(), RY.end() );
-    double dx = 1e3 * vm["simul.mooring_spacing"].as<double>();
-
-    InterpFromMeshToGridx(interp_elt_out,
-                          &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-                          M_mesh.numNodes(),M_mesh.numTriangles(),
-                          &interp_elt_in[0],
-                          M_mesh.numTriangles(),nb_var,
-                          xmin,ymax,
-                          dx,dx,
-                          nrows, ncols,
-                          miss_val);
-
-
-    // Add the output pointer value to the grid vectors
-    for (int i=0; i<grid_size; ++i)
-    {
-        tmp_nb_var=0;
-
-        // concentration
-        M_conc_grid[i] += interp_elt_out[nb_var*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // thickness
-        M_thick_grid[i] += interp_elt_out[nb_var*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // snow thickness
-        M_snow_thick_grid[i] += interp_elt_out[nb_var*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        if(tmp_nb_var>nb_var)
-        {
-            throw std::logic_error("tmp_nb_var not equal to nb_var");
-        }
-    }
-
-#if 0
-    if ( M_log_level >= DEBUG )
-    {
-        double mesh_volume = 0.;
-        for ( int i = 0; i != M_thick.size(); i++ )
-            mesh_volume += M_thick_mean[i]*measure(M_elements[i], M_mesh);
-
-        double grid_volume = 0.;
-        for ( int i = grid_size; i<2*grid_size; i++ )
-            if ( interp_elt_out[i] > miss_val )
-                grid_volume += interp_elt_out[i];
-        grid_volume *= dx*dx;
-
-        LOG(DEBUG) << "Interpolation error in accumulated volume: " << grid_volume-mesh_volume << "\n";
-        LOG(DEBUG) << "Fractional interpolation error in accumulated volume: "
-            << (grid_volume-mesh_volume)/mesh_volume << "\n";
-    }
-#endif
-
-    xDelete<double>(interp_elt_out);
-
-    // NODAL INTERPOLATION (c, h, hs)
-    nb_var=2;
-
-    // Input vector and output pointer
-    std::vector<double> interp_nod_in(nb_var*M_num_nodes);
-    double* interp_nod_out;
-
-    LOG(DEBUG) <<"NODAL: Interp starts\n";
-
-    // Stuff the input vector
-    for (int i=0; i<M_num_nodes; ++i)
-    {
-        interp_nod_in[nb_var*i]   = M_VT_mean[i];
-        interp_nod_in[nb_var*i+1] = M_VT_mean[i+M_num_nodes];
-    }
-
-    // interpolation from mesh to grid
-    InterpFromMeshToGridx(interp_nod_out,
-                          &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-                          M_mesh.numNodes(),M_mesh.numTriangles(),
-                          &interp_nod_in[0],
-                          M_mesh.numNodes(),nb_var,
-                          xmin,ymax,
-                          dx,dx,
-                          nrows, ncols,
-                          miss_val);
-
-    // Add the output pointer value to the grid vector
-    for (int i=0; i<grid_size; ++i)
-    {
-        M_VT_grid[i]           += interp_nod_out[nb_var*i];
-        M_VT_grid[i+grid_size] += interp_nod_out[nb_var*i+1];
-    }
-
-    xDelete<double>(interp_nod_out);
-
-    LOG(DEBUG) <<"updateMoorings done in "<< chrono.elapsed() <<"s\n";
-}
+    // Define the mooring dataset
+    M_moorings=GridOutput(ncols, nrows, mooring_spacing, nodal_variables, elemental_variables);
+} //initMoorings
 
 // Divide the grid values with the output timestep, save, and reset everything
 void
-FiniteElement::exportMoorings(int grid_size)
+FiniteElement::exportMoorings(GridOutput &moorings)
 {
     double time_factor = time_step/mooring_output_time_step;
 
-    // Divide the element values
-    for (int i=0; i<grid_size; ++i)
-    {
-        // concentration
-        M_conc_grid[i] *= time_factor;
+    // Multiply all the grid values with 'time_factor'
+    // Elements
+    for ( auto it=moorings.M_elemental_variables.begin(); it!=moorings.M_elemental_variables.end(); ++it )
+        for ( auto jt=it->data_grid.begin(); jt!=it->data_grid.end(); jt++ )
+            *jt *= time_factor;
 
-        // thickness
-        M_thick_grid[i] *= time_factor;
+    // Nodes
+    for ( auto it=moorings.M_nodal_variables.begin(); it!=moorings.M_nodal_variables.end(); ++it )
+        for ( auto jt=it->data_grid.begin(); jt!=it->data_grid.end(); jt++ )
+            *jt *= time_factor;
 
-        // snow thickness
-        M_snow_thick_grid[i] *= time_factor;
-    }
-
-    // Divide the nodal values
-    for (int i=0; i<grid_size; ++i)
-    {
-        M_VT_grid[i]           *= time_factor;
-        M_VT_grid[i+grid_size] *= time_factor;
-    }
 
     // Save to file - this is still just an ascii dump of one parameter!
 
@@ -4304,12 +4273,6 @@ FiniteElement::exportMoorings(int grid_size)
     myfile.open("Conc_grid.dat");
     std::copy(M_conc_grid.begin(), M_conc_grid.end(), ostream_iterator<float>(myfile, " "));
     myfile.close();
-
-    // Reset the grid
-    M_conc_grid.assign(grid_size,0.);
-    M_thick_grid.assign(grid_size,0.);
-    M_snow_thick_grid.assign(grid_size,0.);
-    M_VT_grid.assign(2*grid_size,0.);
 }
 
 void
