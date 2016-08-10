@@ -31,6 +31,7 @@
 #include <debug.hpp>
 #include <omp.h>
 #include <externaldata.hpp>
+#include <dataset.hpp>
 
 extern "C"
 {
@@ -59,11 +60,13 @@ public:
     typedef boost::shared_ptr<graph_type> graph_ptrtype;
 
     typedef ExternalData external_data;
-    typedef ExternalData::Dataset Dataset;
-    typedef ExternalData::Grid Grid;
-    typedef ExternalData::Dimension Dimension;
-    typedef ExternalData::Variable Variable;
-    typedef ExternalData::Vectorial_Variable Vectorial_Variable;
+    
+    typedef DataSet::Dataset Dataset;
+    typedef DataSet::Grid Grid;
+    typedef DataSet::Dimension Dimension;
+    typedef DataSet::Variable Variable;
+    typedef DataSet::Vectorial_Variable Vectorial_Variable;
+    
     typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
 
     typedef Wim::WimDiscr<double> wim_type;

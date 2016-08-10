@@ -9,6 +9,7 @@
 #include <externaldata.hpp>
 #include <date.hpp>
 #include "./isnan.h"
+#include <dataset.hpp>
      
 
 /**
