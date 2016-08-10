@@ -121,12 +121,12 @@ public:
 
     DataSet(char *DatasetName,int target_size);
     
-private:
+    public:
     Dimension dimension_x;
     Dimension dimension_y;
     Dimension dimension_z;
     Dimension dimension_time;
-    
+        
 public:
     Grid grid;
     

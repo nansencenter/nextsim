@@ -224,7 +224,6 @@ private:
     std::vector<double> M_hminVertices;
     std::vector<double> M_hmaxVertices;
 
-    //std::vector<double> M_element_depth;
     external_data M_element_depth;
     std::vector<double> M_Vair_factor;
     std::vector<double> M_Voce_factor;
@@ -408,10 +407,6 @@ private:
     void updateMoorings(int grid_size, int ncols, int nrows);
     void exportMoorings(int grid_size);
 
-#if 0
-    void topazIce();
-	void etopoBathymetry();
-#endif
 };
 } // Nextsim
 #endif

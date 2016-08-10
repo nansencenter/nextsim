@@ -262,14 +262,12 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 	
     int cyclic_N=N;
     int cyclic_M=M;
-    std::cout <<"1 \n";
     double delta_y=dataset->grid.gridY[M-1]-dataset->grid.gridY[M-2];
     if(dataset->grid.dimension_y.cyclic)
     {
         cyclic_M=M+1;
         dataset->grid.gridY.push_back(dataset->grid.gridY[M-1]+delta_y);
     }
-    std::cout <<"2 \n";
     
     double delta_x=dataset->grid.gridX[N-1]-dataset->grid.gridX[N-2];
     if(dataset->grid.dimension_x.cyclic)
@@ -277,7 +275,6 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
         cyclic_N=N+1;
         dataset->grid.gridX.push_back(dataset->grid.gridX[N-1]+delta_x);
     }    
-    std::cout <<"3 \n";
     
     int final_MN=cyclic_M*cyclic_N;
 
@@ -288,7 +285,6 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
         
     	final_MN=dataset->grid.reduced_nodes_ind.size();
     }        
-    std::cout <<"4 \n";
 
 	// Memory leak:
     //double* data_in = new double[N_data*nb_forcing_step*final_MN];
@@ -764,12 +760,9 @@ ExternalData::loadGrid(Grid *grid_ptr)
 
     netCDF::NcDim tmpDim;
 
-
-    std::cout <<grid_ptr->dimension_y.name <<"\n";
     tmpDim = dataFile.getDim(grid_ptr->dimension_y.name);
 	grid_ptr->M  =  tmpDim.getSize();
 
-    std::cout <<grid_ptr->dimension_x.name <<"\n";
     tmpDim = dataFile.getDim(grid_ptr->dimension_x.name);
 	grid_ptr->N  =  tmpDim.getSize();
 
