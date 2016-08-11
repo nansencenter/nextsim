@@ -1,4 +1,4 @@
-function plot_nextsim_c(field,step,domain,region_of_zoom,dir)
+function plot_nextsim_c(field,step,domain,region_of_zoom,is_sequential,dir)
 
 % clearvars -except step;
 %field='Velocity';
@@ -14,7 +14,7 @@ function plot_nextsim_c(field,step,domain,region_of_zoom,dir)
 %field='Damage';
 %field='bathy';
 
-if nargin==3, dir=''; end
+if nargin==5, dir=''; end
 
 %Here are a list of various options which can be set
 plot_grid           = 0;            % If not zero the mesh lines are ploted. If zoomed out only the mesh lines will be visible
@@ -30,8 +30,11 @@ visible             = 1;            % we display the figure on the screen (may b
 
 for p=0:0
 
-  [mesh_out,data_out] = neXtSIM_bin_revert(dir, p, step);
-
+  if(is_sequential)
+      [mesh_out,data_out] = neXtSIM_bin_revert(dir, [], step);
+  else
+      [mesh_out,data_out] = neXtSIM_bin_revert(dir, p, step);
+  end
   %reshape
   var_mx=mesh_out.Nodes_x(mesh_out.Elements);
   var_my=mesh_out.Nodes_y(mesh_out.Elements);
@@ -131,6 +134,8 @@ end;
 end
 
 function plot_coastlines_and_boundaries(domain)
+% The files defining the domain are on /Data/sim/data/mesh and have to be
+% in your matlab path
     if (strcmp(domain,'topaz'))
     load topazreducedsplit2.mat
     elseif (strcmp(domain,'mitgcm4km'))
