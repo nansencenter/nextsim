@@ -3414,27 +3414,24 @@ FiniteElement::initMoorings()
     // Output dimensions
     GridOutput::Dimension dimension_x={
         name:"x",
-        start:0,
-        end:ncols
+        cyclic:false
     };
 
     GridOutput::Dimension dimension_y={
         name:"y",
-        start:0,
-        end:nrows
+        cyclic:false
     };
 
     GridOutput::Dimension dimension_time={
         name:"time",
-        start:0,
-        end:1
+        cyclic:false
     };
 
-    std::vector<Dimension> dimensions(3);
+    std::vector<GridOutput::Dimension> dimensions(3);
     dimensions[0] = dimension_x;
     dimensions[1] = dimension_y;
     dimensions[2] = dimension_time;
-    std::vector<Dimension> dimensions_time(1);
+    std::vector<GridOutput::Dimension> dimensions_time(1);
     dimensions_time[0] = dimension_time;
 
     // Output and averaging grids

@@ -24,7 +24,7 @@ namespace Nextsim
     DataSet::DataSet( )
     {}
    
-   DataSet::DataSet(char *DatasetName, int target_size)
+   DataSet::DataSet(char const *DatasetName, int target_size)
    {
 //     Dataset *this;
 

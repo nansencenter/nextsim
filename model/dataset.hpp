@@ -119,7 +119,7 @@ public:
 #endif
     DataSet();
 
-    DataSet(char *DatasetName,int target_size);
+    DataSet(char const *DatasetName,int target_size);
     
     public:
     Dimension dimension_x;

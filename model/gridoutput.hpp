@@ -17,7 +17,7 @@
 #include <InterpFromMeshToGridx.h>
 #include <BamgTriangulatex.h>
 #include <netcdf>
-#include <externaldata.hpp>
+#include <dataset.hpp>
 
 /**
  * @class GridOutput
@@ -42,15 +42,12 @@ namespace Nextsim
         // Diagnostic variables
     };
 
-    class GridOutput: private ExternalData
+    class GridOutput
     {
         public:
 
-            //using ExternalData::Variable;
-            using ExternalData::Dimension;
-            using ExternalData::Grid;
-            //using ExternalData::Dataset;
-            using ExternalData::loadGrid;
+            typedef DataSet::Dimension Dimension;
+            typedef DataSet::Grid Grid;
     
             typedef struct Variable
             {
