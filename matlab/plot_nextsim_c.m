@@ -1,4 +1,4 @@
-function resplot(field,step,domain,dir)
+function plot_nextsim_c(field,step,domain,region_of_zoom,dir)
 
 % clearvars -except step;
 %field='Velocity';
@@ -18,13 +18,14 @@ if nargin==3, dir=''; end
 
 %Here are a list of various options which can be set
 plot_grid           = 0;            % If not zero the mesh lines are ploted. If zoomed out only the mesh lines will be visible
-plot_coastlines     = 1;            % When 1 the actual domain baoundaries are plotted, closed with black and opened in green
+plot_coastlines     = 1;            % When 1 the actual domain baoundaries are plotted, closed in light gray and opened in cyan. 
+                                    % Note though that plotting the coastlines makes the figure much heavier
 plot_date           = 0;            % 0 by default, 1 if we want to display the date on the figure
-font_size           = 16;           % Sets font size of colorbar and date
-background_color    = [1 1 1];      % white color by default
+font_size           = 14;           % Sets font size of colorbar and date
+background_color    = [0.8 0.8 0.8];% white color [1 1 1] by default. A substitute could be gray [0.5 0.5 0.5]
 save_figure         = 1;            % 0 (default) we do not save the figure
 figure_format       = 'png';        % can be pdf, tiff, png or jpeg
-pic_quality         = '-r600';      % Resolution for eps, pdf, tiff, and png
+pic_quality         = '-r300';      % Resolution for eps, pdf, tiff, and png
 visible             = 1;            % we display the figure on the screen (may be set to 0 when generating a large amount of figures)
 
 for p=0:0
@@ -34,7 +35,6 @@ for p=0:0
   %reshape
   var_mx=mesh_out.Nodes_x(mesh_out.Elements);
   var_my=mesh_out.Nodes_y(mesh_out.Elements);
-
   nr = size(var_mx,1);
   Ne=nr/3;
   Nn=length(mesh_out.Nodes_x);
@@ -46,13 +46,6 @@ for p=0:0
   mask_ice=find(mask>0);
   mask_water=find(mask==0);
   
-  %we generate the landmask from the grid informations
-  if strcmp(domain,'TOPAZ')
-    reduced_domain=1;
-  else
-    reduced_domain=0;
-  end;
- 
   %To treat the case of plotting the velocity (2D) field
   i=1; %always valid when the plotting a 1D field
   if strcmp(field,'M_VTu')
@@ -101,20 +94,20 @@ for p=0:0
   end;
   hold on;
 
-  %--------------------------------------------------------------------------------------------------------
-  % We arrange the figure in an "optimal" manner using subfunctions (appended at the bottom of this script)
-  %--------------------------------------------------------------------------------------------------------
+  %----------------------------------------------------------------------------------------------------------------------
+  % We arrange the figure in an "optimal" manner using subfunctions (you can check them out at the bottom of this script)
+  %----------------------------------------------------------------------------------------------------------------------
   %
-  set_region_adjustment(domain);
+  set_region_adjustment(domain,region_of_zoom);
   %
-  set_axis_colormap_colorbar(domain,field,v);
+  set_axis_colormap_colorbar(domain,field,v,region_of_zoom);
   %
-  set_figure_cosmetics(font_size,background_color);
+  set_figure_cosmetics(background_color,font_size);
   
   %We can now color the ocean in blue...
   patch(x(:,mask_water)/1000,y(:,mask_water)/1000,[0 0.021 0.53],'EdgeColor','none');
   
-  %We plot the coastlines and boundaries
+  %We plot the coastlines and boundaries (optional).
   if plot_coastlines == 1
       plot_coastlines_and_boundaries(domain);
   end;
@@ -123,7 +116,7 @@ for p=0:0
   % We save the figure (optional)
   %------------------------------
   if save_figure
-      filename = sprintf('neXtSIM_%s_%d',field,step);
+      filename=sprintf('neXtSIM_%s_%d',field,step);
       %Call export_fig to save figure
       if strcmp(figure_format,'png') || strcmp(figure_format,'jpg')
           if isempty(pic_quality)
@@ -138,11 +131,11 @@ end;
 end
 
 function plot_coastlines_and_boundaries(domain)
-    if (strcmp(domain,'TOPAZ'))
+    if (strcmp(domain,'topaz'))
     load topazreducedsplit2.mat
-    elseif (strcmp(domain,'MITgcm_4km'))
+    elseif (strcmp(domain,'mitgcm4km'))
     load MITgcm4kmsplit2.mat
-    elseif (strcmp(domain,'MITgcm_9km'))
+    elseif (strcmp(domain,'mitgcm9km'))
     load MITgcm9kmsplit2.mat
     end
     flag_boundary_fix=10000; %may need to be changed depending on the meshfile (here works for topaz and mit ones)
@@ -168,9 +161,9 @@ function plot_coastlines_and_boundaries(domain)
     %Plotting closed mesh boundaries (e.g. coastlines)
     plot(closed_boundaryX,closed_boundaryY,'Color',[0.3 0.3 0.3],'LineWidth',0.2);
     %Plotting open mesh boundaries
-    plot(free_boundaryX,free_boundaryY,'c','LineWidth',2);
+    plot(free_boundaryX,free_boundaryY,'g','LineWidth',2);
 end
-function set_axis_colormap_colorbar(domain,field,v)
+function set_axis_colormap_colorbar(domain,field,v,region_of_zoom)
     %We set the axis limits and the colormap
     if (strcmp(field,'Concentration'))
         caxis([0 1]);
@@ -191,12 +184,12 @@ function set_axis_colormap_colorbar(domain,field,v)
         colormap('blue2red');
     elseif strcmp(field,'Snow')
         caxis([0, 0.5]);
-        colormap('parula');
+        colormap('parula');  
     end;
 
     % We predefine the position of the colorbar (only made for TOPAZ and MITgcm) that fits well the
     % figure and we add it to the figure
-    if strcmp(domain,'TOPAZ')
+    if (strcmp(domain,'topaz') && isempty(region_of_zoom))
         colorbar_Xposition=0.715;
         colorbar_Yposition=0.65;
         width_scale_factor=0.5;
@@ -208,8 +201,10 @@ function set_axis_colormap_colorbar(domain,field,v)
         cpos(2) = colorbar_Yposition;
         cpos(3) = width_scale_factor*cpos(3);
         cpos(4) = height_scale_factor*cpos(4);
-        c.Position=cpos;
-    elseif strcmp(domain,'MITgcm')
+        c.Position = cpos;
+        name_colorbar = sprintf('%s',field);
+        c.Label.String = name_colorbar;
+    elseif ((strcmp(domain,'mitgcm4km')||strcmp(domain,'mitgcm9km')) && isempty(region_of_zoom))
         colorbar_Xposition=0.67;%(position in the left/right direction. to be modified by hand to your convenience)
         colorbar_Yposition=0.65;
         width_scale_factor=0.5;%(width of the colorbar. to be modified to your convenience)
@@ -222,76 +217,89 @@ function set_axis_colormap_colorbar(domain,field,v)
         cpos(3) = width_scale_factor*cpos(3);
         cpos(4) = height_scale_factor*cpos(4);
         c.Position=cpos;
+        name_colorbar = sprintf('%s',field);
+        c.Label.String = name_colorbar;
     else
         % We add a colorbar (settings below are (at least) good for MITgcm or Topaz setups)
         c=colorbar;
+        name_colorbar = sprintf('%s',field);
+        c.Label.String = name_colorbar;
     end;
 end    
-function set_region_adjustment(domain)
-        if strcmp(domain,'kara')
-            axis([700 1300 700 1300]);
-        elseif strcmp(domain,'arch')
-            %axis equal tight
-            axis([0 170 -20 290])
-            %axis([0 160 -20 290])
-        elseif strcmp(domain,'bigkara')
-            axis([600 2900 -800 1500]);
-        elseif strcmp(domain,'bk')
-            axis([550 2950 -800 1400]);
-        elseif strcmp(domain,'karagate')
-            axis([2000 2300 350 650]);
-        elseif strcmp(domain,'tipns')
-            axis([1050 1550 350 850]);
-        elseif strcmp(domain,'beaufort')
-            axis([-2450 300 -750 2000]);
-        elseif strcmp(domain,'tinykara')
-            axis([400,1400,450,1400]);
-        elseif strcmp(domain,'minykara')
-            axis([935,1010,1175,1250]);
-        elseif strcmp(domain,'arctic')
-            axis([-2450 1050 -1000 2500]);
-        elseif strcmp(domain,'bigarctic')
-            axis([-2450 2950 -2900 2500]);
-        elseif strcmp(domain,'square')
-            axis([-46 46 -46 46]);
-        elseif strcmp(domain,'squarebig')
-            axis([-460 460 -460 460]);
-        elseif strcmp(domain,'squaresmall')
-            axis([-46 46 -46 46]);
-        elseif strcmp(domain,'squaresmalltop')
-            axis([-15 15 16 46]);
-        elseif strcmp(domain,'MITgcm')
+function set_region_adjustment(domain,region_of_zoom)
+        %%first we adjust depending on the domain
+        if strcmp(domain,'topaz')
+            axis([-2800 3800 -4800 2250]);
+        elseif strcmp(domain,'mitgcm4km')||strcmp(domain,'mitgcm9km')
             axis([-3570 3720 -6100 3750]);
-        elseif strcmp(domain,'landfast')
-            axis([600 1800 700 1300]);
         elseif strcmp(domain,'4MIT')
             axis([-1300 350 -2500 -678]);
         elseif strcmp(domain,'BKF')
             axis equal tight
-        elseif strcmp(domain,'FramStrait')
-            axis([200 1200 -1400 0]);
-        elseif strcmp(domain,'TOPAZ')
-            axis([-2800 3800 -4800 2250]);
+        elseif strcmp(domain,'kara')
+            axis([700 1300 700 1300]);
+        elseif strcmp(domain,'bigkara')
+            axis([600 2900 -800 1500]);
+        elseif strcmp(domain,'bk')
+            axis([550 2950 -800 1400]);
+        elseif strcmp(domain,'arch')
+            %axis equal tight
+            axis([0 170 -20 290]);
+% Other domains we have been using but that I commented here below for now. Feel free to use though.        
+%         elseif strcmp(domain,'tinykara')
+%             axis([400,1400,450,1400]);
+%         elseif strcmp(domain,'minykara')
+%             axis([935,1010,1175,1250]);        
+%         elseif strcmp(domain,'square')
+%             axis([-46 46 -46 46]);
+%         elseif strcmp(domain,'squarebig')
+%             axis([-460 460 -460 460]);
+%         elseif strcmp(domain,'squaresmall')
+%             axis([-46 46 -46 46]);
+%         elseif strcmp(domain,'squaresmalltop')
+%             axis([-15 15 16 46]); 
+        end;
+        if ~isempty(region_of_zoom)
+            %%Then we adjust depending on chosen region to zoom in
+            if strcmp(region_of_zoom,'framstrait')
+                axis([200 1200 -1400 0]);
+            elseif strcmp(region_of_zoom,'naresstrait')
+                axis([-400 100 -950 -450]);
+            elseif strcmp(region_of_zoom,'karagate')
+                axis([1800 2300 350 650]);
+            elseif strcmp(region_of_zoom,'beaufort')
+                axis([-2450 -500 -750 1100]);
+            elseif strcmp(region_of_zoom,'central_arctic')
+                axis([-2450 1050 -1000 2300]);
+            elseif strcmp(region_of_zoom,'extended_arctic')
+                axis([-2450 2950 -2900 2500]);
+            elseif strcmp(region_of_zoom,'kara_landfast')
+                axis([600 1800 600 1200]);
+            elseif strcmp(region_of_zoom,'tip_novazem')
+                axis([1050 1550 250 700]);
+            else
+                error('This region of zoom does not exist')
+            end;
         end;
 end
-function set_figure_cosmetics(font_size,background_color)
+function set_figure_cosmetics(background_color,font_size)
 
         whitebg(background_color);
-        set(gcf,'InvertHardcopy','off'); %Makes the background be included when the file is saved
-
+        %set(gcf,'InvertHardcopy','off'); %Makes the background be included when the file is saved
+        set(gca,'XColor','k','YColor','k');
         box on;
-        set(gca,'Layer','top')
+        %set(gca,'Layer','top')
         set(gca,'XTickLabel',{})
         set(gca,'YTickLabel',{})
-        %set(gca, 'LooseInset', get(gca, 'TightInset'));
-
-        Tick_spacing=300;
+        %set(gca, 'LooseInset', get(gca, 'TightInset')); note: was used by philipp for his forecast plots
+        Tick_spacing=200;
         axis_tmp=axis;
-        set(gca,'XTick',[floor(axis_tmp(1)/Tick_spacing):1:ceil(axis_tmp(2)/Tick_spacing)]*Tick_spacing)
-        set(gca,'YTick',[floor(axis_tmp(3)/Tick_spacing):1:ceil(axis_tmp(4)/Tick_spacing)]*Tick_spacing)
-
+        set(gca,'XTick',(floor(axis_tmp(1)/Tick_spacing):1:ceil(axis_tmp(2)/Tick_spacing))*Tick_spacing)
+        set(gca,'YTick',(floor(axis_tmp(3)/Tick_spacing):1:ceil(axis_tmp(4)/Tick_spacing))*Tick_spacing)
         set(gca,'DataAspectRatio',[1 1 1],'LineWidth',0.3)
-
+        
+        %We set the size of the fonts used in all the text present on the
+        %figure
         allText   = findall(gcf, 'type', 'text');
         allAxes   = findall(gcf, 'type', 'axes');
         allFont   = [allText; allAxes];
