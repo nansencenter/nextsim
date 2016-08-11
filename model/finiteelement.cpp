@@ -275,7 +275,7 @@ FiniteElement::initDatasets()
     Dimension asr_dimension_time={
         name:"time", // "Time"
         start:0,
-        end:247,
+        end:239,
         cyclic:false
 	};
 
@@ -504,7 +504,7 @@ FiniteElement::initDatasets()
     Dimension topaz_dimension_time={
         name:"time", // "Time"
         start:0,
-        end:30,
+        end:29,
         cyclic:false
 	};
 
@@ -4049,8 +4049,8 @@ FiniteElement::step(int pcpt)
         if ( fmod(pcpt*time_step,mooring_output_time_step) == 0 )
         {
             M_moorings.updateGridMean(M_mesh);
-            M_moorings.resetMeshMean(M_mesh);
             this->exportMoorings(M_moorings);
+            M_moorings.resetMeshMean(M_mesh);
             M_moorings.resetGridMean();
         }
     }
@@ -4075,19 +4075,23 @@ FiniteElement::updateMeans(GridOutput &means)
         {
             case (variableID::conc):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += M_conc[i]; break;
+                    it->data_mesh[i] += M_conc[i];
+                break;
                 
             case (variableID::thick):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += M_thick[i]; break;
+                    it->data_mesh[i] += M_thick[i];
+                break;
 
             case (variableID::damage):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += M_damage[i]; break;
+                    it->data_mesh[i] += M_damage[i];
+                break;
 
             case (variableID::snow_thick):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += M_snow_thick[i]; break;
+                    it->data_mesh[i] += M_snow_thick[i];
+                break;
 
             default: std::logic_error("Updating of given variableID not implimented (elements)");
         }
@@ -4153,8 +4157,8 @@ FiniteElement::initMoorings()
     dimensions_time[0] = dimension_time;
 
     // Output and averaging grids
-    std::vector<double> data_nodes;
-    std::vector<double> data_elements;
+    std::vector<double> data_nodes(M_num_nodes);
+    std::vector<double> data_elements(M_num_elements);
     std::vector<double> data_grid(grid_size);
 
     GridOutput::Variable time={
@@ -4259,19 +4263,28 @@ FiniteElement::exportMoorings(GridOutput &moorings)
     // Elements
     for ( auto it=moorings.M_elemental_variables.begin(); it!=moorings.M_elemental_variables.end(); ++it )
         for ( auto jt=it->data_grid.begin(); jt!=it->data_grid.end(); jt++ )
-            *jt *= time_factor;
+            // We need to filter out the missing values so they remain the same for all output files
+            if ( *jt > moorings.M_miss_val )
+                *jt *= time_factor;
+            else
+                *jt = moorings.M_miss_val;
 
     // Nodes
     for ( auto it=moorings.M_nodal_variables.begin(); it!=moorings.M_nodal_variables.end(); ++it )
         for ( auto jt=it->data_grid.begin(); jt!=it->data_grid.end(); jt++ )
-            *jt *= time_factor;
+            // We need to filter out the missing values so they remain the same for all output files
+            if ( *jt > moorings.M_miss_val )
+                *jt *= time_factor;
+            else
+                *jt = moorings.M_miss_val;
 
 
     // Save to file - this is still just an ascii dump of one parameter!
 
+    std::cout << "Writing " << moorings.M_elemental_variables[0].name << " to file\n";
     std::ofstream myfile;
     myfile.open("Conc_grid.dat");
-    std::copy(M_conc_grid.begin(), M_conc_grid.end(), ostream_iterator<float>(myfile, " "));
+    std::copy(moorings.M_elemental_variables[0].data_grid.begin(), moorings.M_elemental_variables[0].data_grid.end(), ostream_iterator<float>(myfile, " "));
     myfile.close();
 }
 

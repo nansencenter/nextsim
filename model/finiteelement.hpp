@@ -389,17 +389,6 @@ private:
 
     bool M_use_moorings;
     GridOutput M_moorings;
-    int M_grid_size, M_ncols, M_nrows;
-
-    std::vector<double> M_conc_mean;    // Mean concentration (on the mesh)
-    std::vector<double> M_thick_mean;   // Mean ice thickness (on the mesh)
-    std::vector<double> M_snow_thick_mean;  // Mean snow thickness (on the mesh)
-    std::vector<double> M_VT_mean;      // Mean velocity (on the mesh)
-
-    std::vector<double> M_conc_grid;    // Mean concentration (on the grid)
-    std::vector<double> M_thick_grid;   // Mean ice thickness (on the grid)
-    std::vector<double> M_snow_thick_grid;  // Mean snow thickness (on the grid)
-    std::vector<double> M_VT_grid;      // Mean velocity (on the grid)
 
 private:
     void constantIce();

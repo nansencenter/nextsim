@@ -85,8 +85,9 @@ namespace Nextsim
             std::vector<Variable> M_nodal_variables;
             std::vector<Variable> M_elemental_variables;
 
-        private:
             double M_miss_val = -1e24;
+
+        private:
 
             void updateGridMeanWorker(GmshMesh const &mesh, int mesh_size, std::vector<Variable> &variables);
     };

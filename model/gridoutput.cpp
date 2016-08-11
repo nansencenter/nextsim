@@ -69,7 +69,6 @@ namespace Nextsim
         auto RY = mesh.coordY();
         double xmin = *std::min_element( RX.begin(), RX.end() );
         double ymax = *std::max_element( RY.begin(), RY.end() );
-        double dx = 1e3 * M_mooring_spacing;
 
         InterpFromMeshToGridx(interp_out,
                               &mesh.indexTr()[0],&mesh.coordX()[0],&mesh.coordY()[0],
@@ -77,7 +76,7 @@ namespace Nextsim
                               &interp_in[0],
                               mesh_size, nb_var,
                               xmin,ymax,
-                              dx,dx,
+                              M_mooring_spacing,M_mooring_spacing,
                               M_nrows, M_ncols,
                               M_miss_val);
 
@@ -93,24 +92,21 @@ namespace Nextsim
     // Set the _grid values back to zero
     void GridOutput::resetGridMean()
     {
-        for (int i=0; i<M_nrows*M_ncols; ++i)
-        {
-            for (int j=0; j<M_nodal_variables.size(); j++)
-                M_nodal_variables[j].data_grid[i] = 0.;
+        for (int i=0; i<M_nodal_variables.size(); i++)
+            M_nodal_variables[i].data_grid.assign(M_ncols*M_nrows, 0.);
 
-            for (int j=0; j<M_elemental_variables.size(); j++)
-                M_elemental_variables[j].data_grid[i] = 0.;
-        }
+        for (int i=0; i<M_elemental_variables.size(); i++)
+            M_elemental_variables[i].data_grid.assign(M_ncols*M_nrows, 0.);
     }
 
     // Set the _mesh values back to zero
     void GridOutput::resetMeshMean(GmshMesh const &mesh)
     {
-        for (int i=0; i<M_elemental_variables.size(); i++)
-            M_elemental_variables[i].data_mesh.assign(mesh.numTriangles(), 0.);
-
         for (int i=0; i<M_nodal_variables.size(); i++)
             M_nodal_variables[i].data_mesh.assign(mesh.numNodes(), 0.);
+
+        for (int i=0; i<M_elemental_variables.size(); i++)
+            M_elemental_variables[i].data_mesh.assign(mesh.numTriangles(), 0.);
     }
 
     // Save the _grid values to file ... this needs a lot of work, NetCDF etc.
