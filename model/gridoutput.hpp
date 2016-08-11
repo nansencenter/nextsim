@@ -42,21 +42,16 @@ namespace Nextsim
         // Diagnostic variables
     };
 
-    class GridOutput
+    class GridOutput: public DataSet
     {
         public:
 
-            typedef DataSet::Dimension Dimension;
-            typedef DataSet::Grid Grid;
-    
             typedef struct Variable
             {
                 std::string name;
                 std::string longName;
                 std::string stdName;
                 std::vector<Dimension> dimensions;
-                double sclFac;
-                double addOff;
                 std::string Units;
                 std::vector<double> data_mesh;
                 std::vector<double> data_grid;
@@ -67,7 +62,7 @@ namespace Nextsim
 
             GridOutput(int ncols, int nrows, double mooring_spacing, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
 
-            GridOutput(Grid grid, double mooring_spacing, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
+            GridOutput(Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
 
             ~GridOutput();
 
@@ -79,6 +74,7 @@ namespace Nextsim
             int M_ncols;
             int M_nrows;
             double M_mooring_spacing;
+            Grid M_grid;
             std::vector<Variable> M_nodal_variables;
             std::vector<Variable> M_elemental_variables;
 

@@ -7,6 +7,11 @@
  */
 
 #include <dataset.hpp>
+#include <date.hpp>
+extern "C"
+{
+#include <mapx.h>
+}
      
 
 /**
@@ -1169,5 +1174,234 @@ namespace Nextsim
      this->ftime_range.resize(2,0.);
 
    }
+
+void
+DataSet::loadGrid(Grid *grid_ptr)
+{
+    // std::string current_timestr = to_date_string_ym(M_current_time);
+    // std::cout <<"TIMESTR= "<< current_timestr <<"\n";
+    std::string filename = (boost::format( "%1%/%2%/%3%" )
+                            % Environment::simdataDir().string()
+                            % grid_ptr->dirname
+                            % grid_ptr->filename
+                            ).str();
+    
+	std::cout <<"GRID : READ NETCDF starts\n";
+            if ( ! boost::filesystem::exists(filename) )
+                throw std::runtime_error("File not found: " + filename);
+	netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
+
+    netCDF::NcDim tmpDim;
+
+    tmpDim = dataFile.getDim(grid_ptr->dimension_y.name);
+	grid_ptr->M  =  tmpDim.getSize();
+
+    tmpDim = dataFile.getDim(grid_ptr->dimension_x.name);
+	grid_ptr->N  =  tmpDim.getSize();
+
+    //switch (grid_ptr->latitude.dimensions.size())
+    //{
+    // Here only two cases are considered, either the 
+    //    case 1:
+	if(grid_ptr->latitude.dimensions.size()==1)
+	{
+		// read in coordinates
+		std::vector<size_t> index_x_count(1);
+		std::vector<size_t> index_y_count(1);
+
+		std::vector<size_t> index_x_start(1);
+		std::vector<size_t> index_y_start(1);
+        
+		index_y_start[0] = 0;
+		index_y_count[0] = grid_ptr->M;
+
+		index_x_start[0] = 0;
+		index_x_count[0] = grid_ptr->N;
+
+		std::vector<double> LAT(index_y_count[0]);
+		std::vector<double> LON(index_x_count[0]);
+		
+		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
+		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
+		std::cout <<"GRID : READ NETCDF done\n";
+
+		VLAT.getVar(index_y_start,index_y_count,&LAT[0]);
+		VLON.getVar(index_x_start,index_x_count,&LON[0]);
+
+		grid_ptr->gridY=LAT;
+		grid_ptr->gridX=LON;
+	}
+	else
+	{
+//		break;
+//    	case 2:
+		// read in coordinates
+		std::vector<size_t> index_px_count(2);
+		std::vector<size_t> index_py_count(2);
+
+		std::vector<size_t> index_px_start(2);
+		std::vector<size_t> index_py_start(2);
+
+		index_py_start[0] = 0;
+		index_py_start[1] = 0;
+
+		index_py_count[0] = grid_ptr->M;
+		index_py_count[1] = grid_ptr->N;
+
+		index_px_start[0] = 0;
+		index_px_start[1] = 0;
+
+		index_px_count[0] = grid_ptr->M;
+		index_px_count[1] = grid_ptr->N;
+
+		if(grid_ptr->interpolation_method==InterpolationType::FromGridToMesh)
+		{
+            // We the initial grid is actually regular, we can still use FromGridToMesh 
+            // by only taking the first line and column into account (only used for ASR so far)
+			index_py_count[1] = 1;
+			index_px_count[0] = 1;
+		}
+
+		std::vector<double> XLAT(index_px_count[0]*index_px_count[1]);
+		std::vector<double> XLON(index_px_count[0]*index_px_count[1]);
+		std::vector<double> YLAT(index_py_count[0]*index_py_count[1]);
+		std::vector<double> YLON(index_py_count[0]*index_py_count[1]);
+
+		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
+		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
+		std::cout <<"GRID : READ NETCDF done\n";
+
+		VLAT.getVar(index_px_start,index_px_count,&XLAT[0]);
+		VLON.getVar(index_px_start,index_px_count,&XLON[0]);
+
+		VLAT.getVar(index_py_start,index_py_count,&YLAT[0]);
+		VLON.getVar(index_py_start,index_py_count,&YLON[0]);
+       
+        // projection
+                    
+		std::vector<double> X(index_px_count[0]*index_px_count[1]);
+		std::vector<double> Y(index_py_count[0]*index_py_count[1]);
+
+		mapx_class *map;
+		std::string configfile = (boost::format( "%1%/%2%/%3%" )
+                                  % Environment::nextsimDir().string()
+                                  % grid_ptr->dirname
+                                  % grid_ptr->mpp_file
+                                  ).str();
+
+		std::vector<char> str(configfile.begin(), configfile.end());
+		str.push_back('\0');
+		map = init_mapx(&str[0]);
+
+	    double x;
+	    double y;
+
+		for (int i=0; i<index_px_count[0]; ++i)
+		{
+			for (int j=0; j<index_px_count[1]; ++j)
+			{
+			    forward_mapx(map,XLAT[index_px_count[1]*i+j],XLON[index_px_count[1]*i+j],&x,&y);
+				X[index_px_count[1]*i+j]=x;
+			}
+		}
+
+		for (int i=0; i<index_py_count[0]; ++i)
+		{
+			for (int j=0; j<index_py_count[1]; ++j)
+			{
+				forward_mapx(map,YLAT[index_py_count[1]*i+j],YLON[index_py_count[1]*i+j],&x,&y);
+				Y[index_py_count[1]*i+j]=y;
+			}
+		}
+
+		close_mapx(map);
+
+		if(grid_ptr->interpolation_method==InterpolationType::FromMeshToMesh2dx)
+		{
+			if(grid_ptr->masking){
+				netCDF::NcVar VMASK;
+                netCDF::NcDim tmpDim;
+
+				VMASK = dataFile.getVar(grid_ptr->masking_variable.name);
+
+				std::vector<double> data_in;
+
+				std::vector<double> reduced_FX;
+				std::vector<double> reduced_FY;
+				std::vector<int> reduced_nodes_ind;
+
+				std::vector<size_t> index_start(3,0);
+				std::vector<size_t> index_count(3);
+
+				index_start.resize(grid_ptr->masking_variable.dimensions.size());
+				index_count.resize(grid_ptr->masking_variable.dimensions.size());
+
+				for(int k=0; k<grid_ptr->masking_variable.dimensions.size(); ++k)
+				{
+                    tmpDim = dataFile.getDim(grid_ptr->masking_variable.dimensions[k].name);
+                    index_start[k] = 0;
+					index_count[k] = tmpDim.getSize();;
+				}
+				index_start[0] = 0;
+				index_count[0] = 1;
+
+				if((index_px_count[0]!=index_count[grid_ptr->masking_variable.dimensions.size()-2]) || (index_px_count[1]!=index_count[grid_ptr->masking_variable.dimensions.size()-1]))
+				{
+                    std::cout << "index_px_count[0] = " << index_px_count[0] << " index_count[grid_ptr->masking_variable.dimensions.size()-2] = " << index_count[grid_ptr->masking_variable.dimensions.size()-2] <<"\n";
+					std::cout << "index_px_count[1] = " << index_px_count[1] << " index_count[grid_ptr->masking_variable.dimensions.size()-1] = " << index_count[grid_ptr->masking_variable.dimensions.size()-1] <<"\n";
+                    throw std::logic_error("Not the same dimension for the masking variable and the grid!!");
+				}
+
+				data_in.resize(index_px_count[0]*index_px_count[1]);
+				VMASK.getVar(index_start,index_count,&data_in[0]);
+
+				netCDF::NcVarAtt att;
+				int FillValue;
+
+				att = VMASK.getAtt("_FillValue");
+				att.getValues(&FillValue);
+
+				for (int i=0; i<index_px_count[0]; ++i)
+				{
+					for (int j=0; j<index_px_count[1]; ++j)
+					{
+						if (data_in[index_px_count[1]*i+j] != FillValue)
+						{
+							reduced_FX.push_back(X[index_px_count[1]*i+j]);
+							reduced_FY.push_back(Y[index_px_count[1]*i+j]);
+							reduced_nodes_ind.push_back(index_px_count[1]*i+j);
+						}
+					}
+				}
+				grid_ptr->gridX=reduced_FX;
+				grid_ptr->gridY=reduced_FY;
+				grid_ptr->reduced_nodes_ind=reduced_nodes_ind;
+			}
+			else // no masking of the Filled Value
+			{
+				grid_ptr->gridX=X;
+				grid_ptr->gridY=Y;
+			}
+
+			std::cout <<"GRID : Triangulate starts\n";
+			BamgTriangulatex(&grid_ptr->pfindex,&grid_ptr->pfnels,&grid_ptr->gridX[0],&grid_ptr->gridY[0],grid_ptr->gridX.size());
+			std::cout <<"GRID : NUMTRIANGLES= "<< grid_ptr->pfnels <<"\n";
+			std::cout <<"GRID : Triangulate done\n";
+		}
+		else
+		{
+			grid_ptr->gridX=X;
+			grid_ptr->gridY=Y;
+		}
+
+	//	break;
+	//
+    //default:
+    //   std::cout << "invalid ocean initialisation"<<"\n";
+    //    throw std::logic_error("invalid ocean forcing");
+	}
+
+    grid_ptr->loaded=true;
+}
 
 } // Nextsim

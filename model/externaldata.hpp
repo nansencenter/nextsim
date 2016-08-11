@@ -16,7 +16,6 @@
 #include <Bamgx.h>
 #include <InterpFromGridToMeshx.h>
 #include <InterpFromMeshToMesh2dx.h>
-#include <BamgTriangulatex.h>
 #include <netcdf>
 #include <dataset.hpp>
 
@@ -32,7 +31,7 @@
 namespace Nextsim
 {
 
-class ExternalData
+class ExternalData: public DataSet
 {
 
 public:
@@ -42,10 +41,10 @@ public:
     
     typedef DataSet Dataset;
     
-    typedef DataSet::Grid Grid;
-    typedef DataSet::Dimension Dimension;
-    typedef DataSet::Variable Variable;
-    typedef DataSet::Vectorial_Variable Vectorial_Variable;
+    // typedef DataSet::Grid Grid;
+    // typedef DataSet::Dimension Dimension;
+    // typedef DataSet::Variable Variable;
+    // typedef DataSet::Vectorial_Variable Vectorial_Variable;
 
     ExternalData();
 
@@ -79,8 +78,6 @@ public:
 	void clear();
 
     void loadDataset(Dataset *dataset, GmshMesh const& mesh);//(double const& u, double const& v);
-
-    void loadGrid(Grid *grid);
 
 #if 0
 	size_type size() const;

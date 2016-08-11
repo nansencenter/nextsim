@@ -7,6 +7,7 @@
  */
 
 #include <gridoutput.hpp>
+#include <externaldata.hpp>
 
 /**
  * @class GridOutput
@@ -28,14 +29,19 @@ namespace Nextsim
             M_mooring_spacing(mooring_spacing),
             M_nodal_variables(nodal_variables),
             M_elemental_variables(elemental_variables)
-    {}
+    {
+        M_grid = Grid();
+        M_grid.loaded = false;
+    }
 
-    GridOutput::GridOutput(Grid grid, double mooring_spacing, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables)
+    GridOutput::GridOutput(Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables)
         :
-            M_mooring_spacing(mooring_spacing),
+            M_grid(grid),
             M_nodal_variables(nodal_variables),
             M_elemental_variables(elemental_variables)
-    {}
+    {
+        loadGrid(&M_grid);
+    }
 
     GridOutput::~GridOutput()
     {}

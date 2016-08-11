@@ -296,7 +296,7 @@ FiniteElement::initBamg()
     bamgopt->nbsmooth          = 3;
     bamgopt->omega             = 1.8;
     bamgopt->power             = 1.;
-    bamgopt->splitcorners      = 0; //the Devil!  Changed to 0, original 1 Phil
+    bamgopt->splitcorners      = 1; //the Devil!  Changed to 0, original 1 Phil
     bamgopt->geometricalmetric = 0;
     bamgopt->random            = true;
     bamgopt->verbose           = vm["simul.verbose"].as<int>();
@@ -3412,26 +3412,26 @@ FiniteElement::initMoorings()
     int grid_size = ncols*nrows;
 
     // Output dimensions
-    GridOutput::Dimension dimension_x={
+    DataSet::Dimension dimension_x={
         name:"x",
         cyclic:false
     };
 
-    GridOutput::Dimension dimension_y={
+    DataSet::Dimension dimension_y={
         name:"y",
         cyclic:false
     };
 
-    GridOutput::Dimension dimension_time={
+    DataSet::Dimension dimension_time={
         name:"time",
         cyclic:false
     };
 
-    std::vector<GridOutput::Dimension> dimensions(3);
+    std::vector<DataSet::Dimension> dimensions(3);
     dimensions[0] = dimension_x;
     dimensions[1] = dimension_y;
     dimensions[2] = dimension_time;
-    std::vector<GridOutput::Dimension> dimensions_time(1);
+    std::vector<DataSet::Dimension> dimensions_time(1);
     dimensions_time[0] = dimension_time;
 
     // Output and averaging grids
@@ -3444,8 +3444,6 @@ FiniteElement::initMoorings()
         longName: "Time",
         stdName: "time",
         dimensions: dimensions_time,
-        sclFac: 1.,
-        addOff: 0.,
         Units: "hours",
         data_mesh: data_elements,
         data_grid: data_grid
@@ -3457,8 +3455,6 @@ FiniteElement::initMoorings()
         longName:"Sea Ice Concentration",
         stdName:"sea_ice_area_fraction",
         dimensions: dimensions,
-        sclFac:1,
-        addOff:0,
         Units:"",
         data_mesh:data_elements,
         data_grid:data_grid,
@@ -3470,8 +3466,6 @@ FiniteElement::initMoorings()
         longName:"Sea Ice Thickness",
         stdName:"sea_ice_thickness",
         dimensions: dimensions,
-        sclFac:1,
-        addOff:0,
         Units:"",
         data_mesh:data_elements,
         data_grid:data_grid,
@@ -3483,8 +3477,6 @@ FiniteElement::initMoorings()
         longName:"Surface Snow Thickness",
         stdName:"surface_snow_thickness",
         dimensions: dimensions,
-        sclFac:1,
-        addOff:0,
         Units:"",
         data_mesh:data_elements,
         data_grid:data_grid,
@@ -3502,8 +3494,6 @@ FiniteElement::initMoorings()
         longName:"Sea Ice X-Velocity",
         stdName:"sea_ice_x-velocity",
         dimensions: dimensions,
-        sclFac:1,
-        addOff:0,
         Units:"m s-1",
         data_mesh:data_nodes,
         data_grid:data_grid,
@@ -3515,8 +3505,6 @@ FiniteElement::initMoorings()
         longName:"Sea Ice Y-Velocity",
         stdName:"sea_ice_y-velocity",
         dimensions: dimensions,
-        sclFac:1,
-        addOff:0,
         Units:"m s-1",
         data_mesh:data_nodes,
         data_grid:data_grid,
