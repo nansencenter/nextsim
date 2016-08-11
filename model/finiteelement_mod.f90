@@ -3,7 +3,7 @@
 
 module neXtSIM
 
-  use, intrinsic :: ISO_C_Binding, only: C_int, C_ptr, C_NULL_ptr, C_char, C_loc, C_null_char
+  use, intrinsic :: ISO_C_Binding, only: C_int, C_ptr, C_NULL_ptr, C_char, C_loc, C_null_char, c_f_pointer, C_double
   implicit none
 
   private
@@ -54,11 +54,11 @@ module neXtSIM
     end subroutine FiniteElementRun
 
 ! Interface to call the function 'init'
-    subroutine FiniteElementInit(this, pcpt) bind(C,name="FiniteElementInit")
+    function FiniteElementInit(this) result(pcpt) bind(C,name="FiniteElementInit")
       import
       type(C_ptr), value :: this
-      integer(C_int), value :: pcpt
-    end subroutine FiniteElementInit
+      integer(C_int) :: pcpt
+    end function FiniteElementInit
 
 ! Interface to call the function 'step'
     subroutine FiniteElementStep(this, pcpt) bind(C,name="FiniteElementStep")
@@ -73,6 +73,35 @@ module neXtSIM
       type(C_ptr), value :: this
     end subroutine FiniteElementFinalise
 
+! Interface to access variables on the grid
+    function FiniteElementGetNCols(this) result(ncols) bind(C,name="FiniteElementGetNCols")
+      import
+      type(C_ptr), value :: this
+      integer(C_int) :: ncols
+    end function FiniteElementGetNCols
+
+    function FiniteElementGetNRows(this) result(nrows) bind(C,name="FiniteElementGetNRows")
+      import
+      type(C_ptr), value :: this
+      integer(C_int) :: nrows
+    end function FiniteElementGetNRows
+
+    subroutine FiniteElementUpdateMoorings(this) bind(C,name="FiniteElementUpdateMoorings")
+      import
+      type(C_ptr), value :: this
+    end subroutine FiniteElementUpdateMoorings
+
+    subroutine FiniteElementResetMoorings(this) bind(C,name="FiniteElementUpdateMoorings")
+      import
+      type(C_ptr), value :: this
+    end subroutine FiniteElementResetMoorings
+
+    function FiniteElementGetConc(this) result(conc) bind(C,name="FiniteElementGetConc")
+      import
+      type(C_ptr), value :: this
+      type(C_ptr) :: conc
+    end function FiniteElementGetConc
+
   end interface
 
 !========================================================================
@@ -80,6 +109,7 @@ module neXtSIM
 !========================================================================
 
   public :: new, delete, finalise, step, init, run, CXXClass
+  public :: getConc
 
 !========================================================================
 contains
@@ -89,6 +119,7 @@ contains
   ! Instantiate a new instance of the Environment class first, then the
   ! FiniteElement class afterwards. This must always be done like this
   ! so I'm combining the two operations into one Fortran subroutine
+  ! NB!  ARGV MUST BE CONTIGUOUS ... or bad things may happen
   subroutine new(env, FE, argc, argv)
     type(CXXclass), intent(out) :: env, FE
     integer(C_int), intent(in) :: argc
@@ -126,7 +157,7 @@ contains
   subroutine init(this, pcpt)
     type(CXXClass), intent(inout) :: this
     integer, intent(out) :: pcpt
-    call FiniteElementInit(this%object, pcpt)
+    pcpt = FiniteElementInit(this%object)
   end subroutine init
 
   subroutine step(this, pcpt)
@@ -139,5 +170,23 @@ contains
     type(CXXClass), intent(inout) :: this
     call FiniteElementFinalise(this%object)
   end subroutine finalise
+
+  subroutine getConc(this, conc)
+    type(CXXClass), intent(in) :: this
+    real(C_double), pointer, intent(out) :: conc(:,:)
+
+    integer :: ncols, nrows
+    type(C_ptr) :: conc_cptr
+
+    call FiniteElementUpdateMoorings(this%object)
+    ncols = FiniteElementGetNCols(this%object)
+    nrows = FiniteElementGetNRows(this%object)
+
+
+    conc_cptr = FiniteElementGetConc(this%object)
+    call c_f_pointer(conc_cptr, conc, [ncols, nrows])
+
+    call FiniteElementResetMoorings(this%object)
+  end subroutine getConc
 
 end module neXtSIM

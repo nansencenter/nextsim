@@ -31,6 +31,7 @@
 #include <debug.hpp>
 #include <omp.h>
 #include <externaldata.hpp>
+#include <gridoutput.hpp>
 #include <dataset.hpp>
 
 extern "C"
@@ -382,17 +383,7 @@ private:
     // Variables for the moorings
 
     bool M_use_moorings;
-    int M_grid_size, M_ncols, M_nrows;
-
-    std::vector<double> M_conc_mean;    // Mean concentration (on the mesh)
-    std::vector<double> M_thick_mean;   // Mean ice thickness (on the mesh)
-    std::vector<double> M_snow_thick_mean;  // Mean snow thickness (on the mesh)
-    std::vector<double> M_VT_mean;      // Mean velocity (on the mesh)
-
-    std::vector<double> M_conc_grid;    // Mean concentration (on the grid)
-    std::vector<double> M_thick_grid;   // Mean ice thickness (on the grid)
-    std::vector<double> M_snow_thick_grid;  // Mean snow thickness (on the grid)
-    std::vector<double> M_VT_grid;      // Mean velocity (on the grid)
+    GridOutput M_moorings;
 
 private:
     void constantIce();
@@ -404,10 +395,9 @@ private:
     void initIABPDrifter();
     void updateIABPDrifter();
 
-    void updateMeans();
-    int initMoorings(int &ncols, int &nrows);
-    void updateMoorings(int grid_size, int ncols, int nrows);
-    void exportMoorings(int grid_size);
+    void updateMeans(GridOutput &means);
+    void initMoorings();
+    void exportMoorings(GridOutput &moorings);
 
 };
 } // Nextsim
