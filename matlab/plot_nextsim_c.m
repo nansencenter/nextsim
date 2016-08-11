@@ -51,7 +51,9 @@ for p=0:0
   
   %To treat the case of plotting the velocity (2D) field
   i=1; %always valid when the plotting a 1D field
-  if strcmp(field,'M_VTu')
+  if strcmp(field,'M_VT')
+      i=3;
+  elseif strcmp(field,'M_VTu')
       field='M_VT';
       i=1;
   elseif strcmp(field,'M_VTv')
@@ -71,6 +73,7 @@ for p=0:0
     v{1}=reshape(var_mc,[3,Ne]);
     var_mc=field_tmp(mesh_out.Elements+Nn);
     v{2}=reshape(var_mc,[3,Ne]);
+    v{3}=hypot(v{1},v{2})
   elseif(length(field_tmp)==Nn)
     var_mc=field_tmp(mesh_out.Elements);
     v{1}=reshape(var_mc,[3,Ne]);
