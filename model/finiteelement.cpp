@@ -266,6 +266,8 @@ FiniteElement::initDatasets()
     M_etopo_elements_dataset=DataSet("etopo_elements",M_num_nodes);
 
     M_ERAi_nodes_dataset=DataSet("ERAi_nodes",M_num_nodes);
+    
+    M_ERAi_elements_dataset=DataSet("ERAi_elements",M_num_elements);
 }
 
 void
@@ -375,8 +377,7 @@ FiniteElement::initConstant()
     const boost::unordered_map<const std::string, setup::AtmosphereType> str2atmosphere = boost::assign::map_list_of
         ("constant", setup::AtmosphereType::CONSTANT)
         ("asr", setup::AtmosphereType::ASR)
-        ("erai_asr", setup::AtmosphereType::ERAi_ASR)
-        ("erai_constant", setup::AtmosphereType::ERAi_CONSTANT);
+        ("erai", setup::AtmosphereType::ERAi);
     M_atmosphere_type = str2atmosphere.find(vm["setup.atmosphere-type"].as<std::string>())->second;
 
     //std::cout<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
@@ -722,6 +723,7 @@ FiniteElement::measure(element_type const& element, mesh_type const& mesh,
 {
     return (1./2)*std::abs(jacobian(element,mesh,um,factor));
 }
+
 
 std::vector<double>
 FiniteElement::shapeCoeff(element_type const& element, mesh_type const& mesh) const
@@ -1360,7 +1362,8 @@ FiniteElement::regrid(bool step)
     M_ice_topaz_elements_dataset.target_size=M_num_elements;
     M_etopo_elements_dataset.target_size=M_num_elements;
     M_ERAi_nodes_dataset.target_size=M_num_nodes;
-
+    M_ERAi_elements_dataset.target_size=M_num_elements;
+    
     M_asr_nodes_dataset.reloaded=false;
     M_asr_elements_dataset.reloaded=false;
     M_topaz_nodes_dataset.reloaded=false;
@@ -1368,6 +1371,7 @@ FiniteElement::regrid(bool step)
     M_ice_topaz_elements_dataset.reloaded=false;
     M_etopo_elements_dataset.reloaded=false;
     M_ERAi_nodes_dataset.reloaded=false;
+    M_ERAi_elements_dataset.reloaded=false;
 
     M_Cohesion.resize(M_num_elements);
     M_Compressive_strength.resize(M_num_elements);
@@ -2519,6 +2523,18 @@ FiniteElement::thermo()
             LOG(DEBUG) << "M_mld[i] = " << M_mld[i] << "\n";
             throw std::logic_error("negative or 0 mld, Oups!!");
 		}
+        
+        // definition of the fraction of snow
+        double tmp_snowfr;
+        if(M_snowfr.M_initialized)
+            tmp_snowfr=M_snowfr[i];
+        else
+        {
+            if(M_tair[i]<0)
+                tmp_snowfr=1.;
+            else            
+                tmp_snowfr=0.;
+        }
 
 
         // -------------------------------------------------
@@ -2589,15 +2605,27 @@ FiniteElement::thermo()
         evap = Qlh/(physical::rhofw*Lv);
 
         // Sum them up
-        Qow = -M_Qsw_in[i]*(1.-ocean_albedo) - M_Qlw_in[i] + Qlw_out + Qsh + Qlh;
+        double tmp_Qlw_in;
+        if(M_Qlw_in.M_initialized)
+            tmp_Qlw_in=M_Qlw_in[i];
+        else
+        {
+        	double tsa = M_tsurf[i] + tfrwK;
+        	double taa = M_tair[i]  + tfrwK;
+        	tmp_Qlw_in = sigma_sb*pow(taa,4) \
+        			*( 1. - 0.261*exp(-7.77e-4*std::pow(taa-tfrwK,2)) ) \
+        			*( 1. + 0.275*M_tcc[i] );
+        }
+            
+        Qow = -M_Qsw_in[i]*(1.-ocean_albedo) - tmp_Qlw_in + Qlw_out + Qsh + Qlh;
 
         // -------------------------------------------------
         // 4) Thickness change of the ice slab (thermoIce0 in matlab)
 
-        this->thermoIce0(i, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], hi, hs, hi_old, Qio, del_hi, M_tsurf[i]);
+        this->thermoIce0(i, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], hi, hs, hi_old, Qio, del_hi, M_tsurf[i],tmp_Qlw_in,tmp_snowfr);
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
-            this->thermoIce0(i, wspeed, sphuma, old_conc_thin, M_h_thin[i], M_hs_thin[i], hi_thin, hs_thin, hi_thin_old, Qio_thin, del_hi_thin, M_tsurf_thin[i]);
+            this->thermoIce0(i, wspeed, sphuma, old_conc_thin, M_h_thin[i], M_hs_thin[i], hi_thin, hs_thin, hi_thin_old, Qio_thin, del_hi_thin, M_tsurf_thin[i],tmp_Qlw_in,tmp_snowfr);
             M_h_thin[i]  = hi_thin * old_conc_thin;
             M_hs_thin[i] = hs_thin * old_conc_thin;
         }
@@ -2804,7 +2832,7 @@ FiniteElement::thermo()
 // We should add a new one (like Winton) at some point
 void
 FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols,
-        double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf)
+        double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double tmp_Qlw_in, double tmp_snowfr)
 {
 
     // Constants
@@ -2961,7 +2989,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
             subl    = Qlh/(physical::Lf+physical::Lv0);
 
             /* Sum them up */
-            Qai = Qsw - M_Qlw_in[i] + Qout;
+            Qai = Qsw - tmp_Qlw_in + Qout;
 
             // -------------------------------------------------
             /* Recalculate Tsurf */
@@ -3000,7 +3028,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         del_ht = std::min(hs+del_hs,0.)*qs/qi;
         /* Can't have negative hs! */
         del_hs = std::max(del_hs,-hs);
-        hs  = hs + del_hs + M_precip[i]*M_snowfr[i]/physical::rhos*time_step;
+        hs  = hs + del_hs + M_precip[i]*tmp_snowfr/physical::rhos*time_step;
 
         /* Heatflux from ocean */
         /* Use all excess heat to melt or grow ice. This is not
@@ -3887,6 +3915,7 @@ FiniteElement::readRestart(int step)
     M_ice_topaz_elements_dataset.target_size=M_num_elements;
     M_etopo_elements_dataset.target_size=M_num_elements;
     M_ERAi_nodes_dataset.target_size=M_num_nodes;
+    M_ERAi_elements_dataset.target_size=M_num_elements;
 
     return pcpt;
 }
@@ -4062,70 +4091,46 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             M_precip=ExternalData(&M_asr_elements_dataset,M_mesh,6,false);
             M_external_data.push_back(&M_precip);
 
-            M_dair=ExternalData(vm["simul.constant_dair"].as<double>());
+            M_dair=ExternalData(-1.);
             M_external_data.push_back(&M_dair);
         break;
         
-        case setup::AtmosphereType::ERAi_ASR:
+        case setup::AtmosphereType::ERAi:
             M_wind=ExternalData(
                 &M_ERAi_nodes_dataset,M_mesh,0,true ,
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_wind);
 
-            M_tair=ExternalData(&M_asr_elements_dataset,M_mesh,0,false);
+            /*
+            variables[0] = tair;
+            variables[1] = dair;
+            variables[2] = mslp;
+            variables[3] = Qsw_in;
+            variables[4] = tcc;
+            variables[5] = precip;
+            */
+
+            M_tair=ExternalData(&M_ERAi_elements_dataset,M_mesh,0,false);
             M_external_data.push_back(&M_tair);
 
-            M_mixrat=ExternalData(&M_asr_elements_dataset,M_mesh,1,false);
-            M_external_data.push_back(&M_mixrat);
+            M_dair=ExternalData(&M_ERAi_elements_dataset,M_mesh,1,false);
+            M_external_data.push_back(&M_dair);
 
-            M_mslp=ExternalData(&M_asr_elements_dataset,M_mesh,2,false);
+            M_mslp=ExternalData(&M_ERAi_elements_dataset,M_mesh,2,false);
             M_external_data.push_back(&M_mslp);
 
-            M_Qsw_in=ExternalData(&M_asr_elements_dataset,M_mesh,3,false);
+            M_Qsw_in=ExternalData(&M_ERAi_elements_dataset,M_mesh,3,false);
             M_external_data.push_back(&M_Qsw_in);
 
-            M_Qlw_in=ExternalData(&M_asr_elements_dataset,M_mesh,4,false);
-            M_external_data.push_back(&M_Qlw_in);
+            M_tcc=ExternalData(&M_ERAi_elements_dataset,M_mesh,4,false);
+            M_external_data.push_back(&M_tcc);
 
-            M_snowfr=ExternalData(&M_asr_elements_dataset,M_mesh,5,false);
-            M_external_data.push_back(&M_snowfr);
-
-            M_precip=ExternalData(&M_asr_elements_dataset,M_mesh,6,false);
+            M_precip=ExternalData(&M_ERAi_elements_dataset,M_mesh,5,false);
             M_external_data.push_back(&M_precip);
 
-            M_dair=ExternalData(vm["simul.constant_dair"].as<double>());
-            M_external_data.push_back(&M_dair);
-        break;
-        
-        case setup::AtmosphereType::ERAi_CONSTANT:
-            M_wind=ExternalData(
-                &M_ERAi_nodes_dataset,M_mesh,0,true ,
-                time_init, vm["simul.spinup_duration"].as<double>());
-            M_external_data.push_back(&M_wind);
-
-            M_tair=ExternalData(vm["simul.constant_tair"].as<double>());
-            M_external_data.push_back(&M_tair);
-
-            M_mixrat=ExternalData(vm["simul.constant_mixrat"].as<double>());
+            M_mixrat=ExternalData(-1.);
             M_external_data.push_back(&M_mixrat);
 
-            M_mslp=ExternalData(vm["simul.constant_mslp"].as<double>());
-            M_external_data.push_back(&M_mslp);
-
-            M_Qsw_in=ExternalData(vm["simul.constant_Qsw_in"].as<double>());
-            M_external_data.push_back(&M_Qsw_in);
-
-            M_Qlw_in=ExternalData(vm["simul.constant_Qlw_in"].as<double>());
-            M_external_data.push_back(&M_Qlw_in);
-
-            M_snowfr=ExternalData(vm["simul.constant_snowfr"].as<double>());
-            M_external_data.push_back(&M_snowfr);
-
-            M_precip=ExternalData(vm["simul.constant_precip"].as<double>());
-            M_external_data.push_back(&M_precip);
-
-            M_dair=ExternalData(vm["simul.constant_dair"].as<double>());
-            M_external_data.push_back(&M_dair);
         break;
 
         default:

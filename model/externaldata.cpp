@@ -23,8 +23,9 @@
 
 namespace Nextsim
 {
-
-ExternalData::ExternalData( )
+    
+ExternalData::ExternalData( ): 
+M_initialized(false)
 {}
 
 ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector )
@@ -35,7 +36,8 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
     M_is_vector( is_vector ),
     M_current_time( 0. ),
     M_SpinUpStartingTime( 0. ),
-    M_SpinUpDuration( 0. )
+    M_SpinUpDuration( 0. ),
+    M_initialized(true)
 {
     M_datasetname = (boost::format( "%1%...%2%" )
                     % M_dataset->prefix
@@ -61,7 +63,8 @@ ExternalData::ExternalData( double ConstantValue )
     M_is_vector( false ),
     M_current_time( 0. ),
     M_SpinUpStartingTime( 0. ),
-    M_SpinUpDuration( 0. )
+    M_SpinUpDuration( 0. ),
+    M_initialized(true)
     {}
 
 ExternalData::ExternalData( double ConstantValue, double ConstantValuebis )

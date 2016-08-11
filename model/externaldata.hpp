@@ -47,6 +47,8 @@ public:
     typedef DataSet::Variable Variable;
     typedef DataSet::Vectorial_Variable Vectorial_Variable;
 
+    typedef void (* vFunctionCall)(value_type args);
+
     ExternalData();
 
     ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId, bool is_vector );
@@ -94,6 +96,7 @@ public:
     double fdt;
     std::vector<double> fcoeff;
     Dataset *M_dataset;
+    bool M_initialized;
 
 private:
     std::string M_datasetname;

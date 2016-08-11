@@ -16,10 +16,9 @@ namespace setup
     {
         CONSTANT = 0,
         ASR      = 1,
-        ERAi_ASR = 2,
+        ERAi     = 2,
         EC       = 3,
-        ASRFINAL = 4,
-        ERAi_CONSTANT = 5
+        ASRFINAL = 4
     };
 
 	enum class OceanType
