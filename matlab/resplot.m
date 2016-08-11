@@ -36,7 +36,7 @@ if nargin==2, dir=''; end
 %field='Voce_factor';
 %field='Damage';
 %field='bathy';
-[mesh_out,data_out] = neXtSIM_bin_revert(dir, step);
+[mesh_out,data_out] = neXtSIM_bin_revert(dir,[], step);
 
 % reshape
 var_mx=mesh_out.Nodes_x(mesh_out.Elements);
@@ -74,11 +74,11 @@ for i=1:length(c)
         caxis([min_value, max_value])
     end
     colorbar
+    
+    font_size=12;
+    textstring=datestr(data_out.Time + datenum('1-jan-1900'));
+    text(0.55, 0.95,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
+    set(gca,'DataAspectRatio',[1 1 1], 'Color', [.7 .7 .7])
 end
-
-font_size=12;
-textstring=datestr(data_out.Time + datenum('1-jan-1900'));
-text(0.55, 0.95,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
-set(gca,'DataAspectRatio',[1 1 1], 'Color', [.7 .7 .7])
 
 end

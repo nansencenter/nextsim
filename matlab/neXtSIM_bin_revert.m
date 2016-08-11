@@ -12,11 +12,18 @@ nVarargs = length(varargin);
 if nVarargs >= 1, save_flag = varargin{1}; end
 if nVarargs >= 2, error('Too many inputs'), end
 
-field_info  = [ filename 'field_' num2str(proc) '_' num2str(step) '.dat'];
-field_data  = [ filename 'field_' num2str(proc) '_' num2str(step) '.bin'];
+if(isempty(proc))
+    field_info  = [ filename 'field_' num2str(step) '.dat'];
+    field_data  = [ filename 'field_' num2str(step) '.bin'];
+    mesh_info   = [ filename 'mesh_' num2str(step) '.dat'];
+    mesh_data   = [ filename 'mesh_' num2str(step) '.bin'];
+else    
+    field_info  = [ filename 'field_' num2str(proc) '_' num2str(step) '.dat'];
+    field_data  = [ filename 'field_' num2str(proc) '_' num2str(step) '.bin'];
+    mesh_info   = [ filename 'mesh_' num2str(proc) '_' num2str(step) '.dat'];
+    mesh_data   = [ filename 'mesh_' num2str(proc) '_' num2str(step) '.bin'];
+end
 
-mesh_info  = [ filename 'mesh_' num2str(proc) '_' num2str(step) '.dat'];
-mesh_data  = [ filename 'mesh_' num2str(proc) '_' num2str(step) '.bin'];
 
 %Getting mesh
 mesh_out=read_bin_export(mesh_info,mesh_data);
