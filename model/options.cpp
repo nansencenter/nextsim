@@ -9,6 +9,7 @@
 
 
 #include <boost/program_options.hpp>
+#include <constants.hpp>
 
 namespace po = boost::program_options;
 
@@ -58,8 +59,8 @@ namespace Nextsim
             ("simul.use_ship", po::value<bool>()->default_value( false ), "")
             ("simul.use_moorings", po::value<bool>()->default_value( false ), "")
             ("simul.mooring_names", po::value<std::vector<std::string>>()->multitoken()->zero_tokens()->composing(), "")
-            ("simul.mooring_spacing", po::value<double>()->default_value( std::numeric_limits<double>::infinity() ), "")
-            ("simul.moorings_output_timestep", po::value<double>()->default_value( std::numeric_limits<double>::infinity() ), "")
+            ("simul.mooring_spacing", po::value<double>()->default_value( 10 ), "km")
+            ("simul.mooring_output_timestep", po::value<double>()->default_value( 1 ), "days")
             ("simul.slim_bin.use", po::value<bool>()->default_value( false ), "")
             ("simul.slim_bin.names", po::value<std::vector<std::string>>()->multitoken()->zero_tokens()->composing(), "")
             ("simul.slim_bin.output_timestep", po::value<double>()->default_value( std::numeric_limits<double>::infinity() ), "")
@@ -163,6 +164,11 @@ namespace Nextsim
             ("simul.constant_Fdw", po::value<double>()->default_value( 0. ), "")
             ("simul.constant_ocean_u", po::value<double>()->default_value( 0. ), "")
             ("simul.constant_ocean_v", po::value<double>()->default_value( 0. ), "")
+            ("simul.constant_ssh", po::value<double>()->default_value( 0. ), "")
+            ("simul.constant_ocean_temp", po::value<double>()->default_value( -1.8 ), "")
+            ("simul.constant_ocean_salt", po::value<double>()->default_value( -1.8/physical::mu ), "")
+            ("simul.constant_mld", po::value<double>()->default_value( 9. ), "")
+            ("simul.use_thermo_forcing", po::value<bool>()->default_value( true ), "")
             ("simul.constant_bathymetry", po::value<double>()->default_value( 200. ), "")
             ("simul.maxiteration", po::value<int>()->default_value( 1e+8 ), "")
             ;
