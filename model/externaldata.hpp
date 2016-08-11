@@ -18,7 +18,7 @@
 #include <InterpFromMeshToMesh2dx.h>
 #include <BamgTriangulatex.h>
 #include <netcdf>
-
+#include <dataset.hpp>
 
 
 /**
@@ -31,12 +31,6 @@
 
 namespace Nextsim
 {
-    enum InterpolationType
-    {
-        FromGridToMesh = 0,
-        FromMeshToMesh2dx = 1,
-        FromMeshToMesh2dCavities = 2,
-    };
 
 class ExternalData
 {
@@ -45,82 +39,13 @@ public:
 
 	typedef std::size_t size_type;
     typedef double value_type;
-
-    typedef struct Dimension
-    {
-        std::string name;
-        int start;
-        int end;
-        bool cyclic; // if cyclic, then the first value will also be used for interpolation after the last value
-    } Dimesion;
-
-    typedef struct Variable
-    {
-        std::string name;
-        std::vector<Dimension> dimensions;
-        double a;
-        double b;
-        std::string Units;
-        std::vector<std::vector<double>> data2;
-    } Variable;
     
-    typedef struct Vectorial_Variable
-    {
-        std::vector<int> components_Id;
-        bool east_west_oriented;
-    } Vectorial_Variable;
-
-    typedef struct Grid
-    {
-        InterpolationType interpolation_method;
-		int interp_type;
-        std::string dirname;
-        std::string filename;
-
-        Variable latitude;
-        Variable longitude;
-
-        Dimension dimension_x;
-        Dimension dimension_y;
-
-        std::string mpp_file;
-		bool interpolation_in_latlon;
-
-        bool loaded;
-
-		bool masking;
-		Variable masking_variable;
-		std::vector<int> reduced_nodes_ind;
-
-        int* pfindex;
-        int pfnels;
-        std::vector<double> gridX;
-        std::vector<double> gridY;
-
-        std::vector<double> gridLAT;
-        std::vector<double> gridLON;
-    } Grid;
-
-    typedef struct Dataset
-    {
-        std::string dirname;
-        std::string prefix;
-        std::string postfix;
-        std::string reference_date;
-
-        std::vector<Variable> variables;
-        std::vector<Vectorial_Variable> vectorial_variables;
-        int target_size;
-        Grid *grid;
-
-        bool reloaded;
-
-        int nb_timestep_day;
-        Variable time;
-        Dimension dimension_time;
-
-        std::vector<double> ftime_range;
-    } Dataset;
+    typedef DataSet Dataset;
+    
+    typedef DataSet::Grid Grid;
+    typedef DataSet::Dimension Dimension;
+    typedef DataSet::Variable Variable;
+    typedef DataSet::Vectorial_Variable Vectorial_Variable;
 
     ExternalData();
 

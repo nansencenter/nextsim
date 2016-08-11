@@ -32,6 +32,7 @@
 #include <omp.h>
 #include <externaldata.hpp>
 #include <gridoutput.hpp>
+#include <dataset.hpp>
 
 extern "C"
 {
@@ -60,11 +61,9 @@ public:
     typedef boost::shared_ptr<graph_type> graph_ptrtype;
 
     typedef ExternalData external_data;
-    typedef ExternalData::Dataset Dataset;
-    typedef ExternalData::Grid Grid;
-    typedef ExternalData::Dimension Dimension;
-    typedef ExternalData::Variable Variable;
-    typedef ExternalData::Vectorial_Variable Vectorial_Variable;
+    
+    typedef DataSet Dataset;
+    
     typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
 
     typedef Wim::WimDiscr<double> wim_type;
@@ -118,11 +117,6 @@ public:
 	Dataset M_ice_topaz_elements_dataset;
     Dataset M_etopo_elements_dataset;
     Dataset M_ERAi_nodes_dataset;
-
-    Grid M_asr_grid;
-    Grid M_topaz_grid;
-	Grid M_etopo_grid;
-    Grid M_ERAi_grid;
 
     double minAngles(element_type const& element, mesh_type const& mesh) const;
     double minAngle(mesh_type const& mesh) const;
@@ -231,7 +225,6 @@ private:
     std::vector<double> M_hminVertices;
     std::vector<double> M_hmaxVertices;
 
-    //std::vector<double> M_element_depth;
     external_data M_element_depth;
     std::vector<double> M_Vair_factor;
     std::vector<double> M_Voce_factor;
@@ -404,10 +397,6 @@ private:
     void initMoorings();
     void exportMoorings(GridOutput &moorings);
 
-#if 0
-    void topazIce();
-	void etopoBathymetry();
-#endif
 };
 } // Nextsim
 #endif
