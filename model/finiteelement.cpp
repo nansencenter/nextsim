@@ -548,8 +548,6 @@ FiniteElement::assignVariables()
     M_valid_conc.resize(M_local_ndof,false);
 
     M_fcor.resize(M_num_elements);
-    // M_sst.resize(M_num_elements);
-    // M_sss.resize(M_num_elements);
 
     M_asr_nodes_dataset.target_size=M_num_nodes;
     M_asr_elements_dataset.target_size=M_num_elements;
@@ -1925,14 +1923,7 @@ FiniteElement::gatherSizes()
         M_sizes_elements_with_ghost[i] = fesizes[4*i+3];
     }
 
-    // if (M_rank == 0)
-    // {
-    //     for (int i=0; i<M_comm.size(); ++i)
-    //         std::cout<<"M_sizes_nodes["<< i <<"]= "<< M_sizes_nodes[i] <<"\n";
-    // }
-
     std::vector<int> sizes_nodes = M_sizes_nodes_with_ghost;
-    //std::vector<int> M_id_nodes;
 
     if (M_rank == 0)
     {
@@ -1947,7 +1938,6 @@ FiniteElement::gatherSizes()
     }
 
     M_comm.barrier();
-
 }
 
 void
@@ -3107,9 +3097,10 @@ FiniteElement::assemble(int pcpt)
             std::cout<<"coef_basal= "<< coef_basal <<"\n";
         }
 
-        std::vector<int> rindices_u;
-        std::vector<int> rindices;
-        std::vector<int> cindices;
+        //std::vector<int> rindices_u;
+        std::vector<int> rindices(6); //new
+        std::vector<int> cindices(6);
+        int vs = 0;
 
         for (int s=0; s<3; ++s)
         {
@@ -3117,14 +3108,27 @@ FiniteElement::assemble(int pcpt)
 
             if (!it->ghostNodes[s])
             {
-                rindices_u.push_back(index_u);
-                rindices.push_back(index_u);
-                rindices.push_back(index_u+M_local_ndof);
+                // rindices_u.push_back(index_u);
+                // rindices.push_back(index_u);
+                // rindices.push_back(index_u+M_local_ndof);
+
+                rindices[2*vs] = index_u;
+                rindices[2*vs+1] = index_u+M_local_ndof;
+                ++vs;
+
+                if((M_conc[cpt]>0.))
+                {
+                    M_valid_conc[index_u] = true;
+                }
             }
 
-            cindices.push_back(index_u);
-            cindices.push_back(index_u+M_local_ndof_ghost);
+            //cindices.push_back(index_u);
+            //cindices.push_back(index_u+M_local_ndof_ghost);
+            cindices[2*s] = index_u;
+            cindices[2*s+1] = index_u+M_local_ndof_ghost;
         }
+
+        rindices.resize(2*vs);
 
         int nlrow = rindices.size();
         int nlcol = cindices.size();
@@ -3238,11 +3242,13 @@ FiniteElement::assemble(int pcpt)
             }
         }
 
+#if 0
         if((M_conc[cpt]>0.))
         {
             for (int const& idn : rindices_u)
                 M_valid_conc[idn] = true;
         }
+#endif
 
         ++cpt;
     }
@@ -4665,7 +4671,6 @@ FiniteElement::run()
             std::cout <<"---------------------- TIME STEP "<< pcpt << " : "
                       << time_init << " + "<< pcpt*time_step/days_in_sec;
 
-            //if (!((pcpt+1) % 36))
             if(fmod(pcpt*time_step, ptime_step) == 0)
             {
                 std::cout <<" ---------- progression: ("<< 100.0*(pcpt*time_step/duration) <<"%)"
@@ -4678,19 +4683,11 @@ FiniteElement::run()
 
         is_running = ((pcpt+1)*time_step) < duration;
 
-        // if (pcpt > 21)
-        //     is_running = false;
-
-        //if (pcpt == 0)
         if (pcpt == niter)
             is_running = false;
 
 
         current_time = time_init + pcpt*time_step/days_in_sec;
-        //std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
-
-        // if (M_rank==0)
-        //     LOG(INFO) <<"---------------------- TIME STEP "<< pcpt << " for "<< current_time << " + "<< pcpt*time_step/(24*3600.0) <<"\n";
 
         // step 0: preparation
         // remeshing and remapping of the prognostic variables
@@ -4721,17 +4718,9 @@ FiniteElement::run()
                 std::cout <<"REGRID ANGLE= "<< minang <<"\n";
             }
 
-            // if (M_rank == 0)
-            // {
-            //     //minang = this->minAngle(M_mesh_root,M_UM_root,1.e+03);
-            //     std::cout<<"[" << M_rank <<"] " <<" REGRID ANGLE= "<< minang <<"\n";
-            // }
-
-            //if (0)//( minang < vm["simul.regrid_angle"].as<double>() )
-            //if (pcpt == 1)
             if ( minang < vm["simul.regrid_angle"].as<double>() )
             {
-                this->exportResults(2000+rg_cpt);
+                //this->exportResults(2000+rg_cpt);
                 // std::cout<<"UUMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM\n";
                 //return;
 
@@ -4745,7 +4734,7 @@ FiniteElement::run()
 
                 M_regrid = true;
 
-                this->exportResults(3000+rg_cpt);
+                //this->exportResults(3000+rg_cpt);
                 //return;
                 ++rg_cpt;
             }
@@ -4754,65 +4743,29 @@ FiniteElement::run()
         M_comm.barrier();
 
         // Read in the new buoys and output
-        if (M_drifter_type == setup::DrifterType::IABP && std::fmod(current_time,0.5) == 0)
-        {
-            this->updateIABPDrifter();
-            // TODO: Do we want to output drifters at a different time interval?
-            this->outputDrifter(M_drifters_out);
-        }
+        // if (M_drifter_type == setup::DrifterType::IABP && std::fmod(current_time,0.5) == 0)
+        // {
+        //     this->updateIABPDrifter();
+        //     // TODO: Do we want to output drifters at a different time interval?
+        //     this->outputDrifter(M_drifters_out);
+        // }
 
         if ( M_regrid || use_restart )
         {
-            chrono.restart();
-            //std::cout<<"tensors starts\n";
             this->tensors();
-
             //this->tensorsOnRoot();
-            //std::cout<<"tensors done in "<< chrono.elapsed() <<"s\n";
-            // chrono.restart();
-            //std::cout<<"cohesion starts\n";
             this->cohesion();
-            //std::cout<<"cohesion done in "<< chrono.elapsed() <<"s\n";
-            // chrono.restart();
-            //std::cout<<"Coriolis starts\n";
             this->coriolis();
-            //std::cout<<"Coriolis done in "<< chrono.elapsed() <<"s\n";
         }
 
         for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
             (*it)->check_and_reload(M_mesh,current_time+time_step/(24*3600.0));
 
-#if 0
-        this->timeInterpolation(pcpt);
 
-        //chrono.restart();
-        //std::cout<<"forcingAtmosphere starts\n";
-        this->forcingAtmosphere(M_regrid||use_restart);
-		//std::cout<<"forcingAtmosphere done in "<< chrono.elapsed() <<"s\n";
-
-        //chrono.restart();
-        //std::cout<<"forcingOcean starts\n";
-        this->forcingOcean(M_regrid||use_restart);
-        //std::cout<<"forcingOcean done in "<< chrono.elapsed() <<"s\n";
-
-        //chrono.restart();
-        //std::cout<<"bathymetry starts\n";
-        this->bathymetry(M_regrid||use_restart);
-        //std::cout<<"bathymetry done in "<< chrono.elapsed() <<"s\n";
-
-        //use_restart = false;
-#endif
-
-
-#if 1
         if (pcpt == 0)
         {
-            chrono.restart();
-            //std::cout<<"first export starts\n";
             this->exportResults(0);
-            //std::cout<<"first export done in " << chrono.elapsed() <<"s\n";
         }
-#endif
 
         //======================================================================
         // Do the thermodynamics
@@ -4825,43 +4778,27 @@ FiniteElement::run()
             LOG(DEBUG) <<"thermo done in "<< chrono.elapsed() <<"s\n";
         }
 
-
         //======================================================================
         // Assemble the matrix
         //======================================================================
-
         this->assemble(pcpt);
 
         //======================================================================
         // Solve the linear problem
         //======================================================================
-
         this->solve();
 
-        //chrono.restart();
-        //std::cout<<"updateVelocity starts\n";
+
         this->updateVelocity();
-        //std::cout<<"updateVelocity done in "<< chrono.elapsed() <<"s\n";
 
-        //chrono.restart();
-        //std::cout<<"update starts\n";
+
         this->update();
-
-        //std::cout<<"starts------------------------\n";
         //this->updateOnRoot();
-
-        //return;
-        //std::cout<<"update done in "<< chrono.elapsed() <<"s\n";
 
         if(fmod((pcpt+1)*time_step,output_time_step) == 0)
         {
-            chrono.restart();
-            //std::cout<<"export starts\n";
             this->exportResults((int) (pcpt+1)*time_step/output_time_step);
-            //std::cout<<"export done in " << chrono.elapsed() <<"s\n";
         }
-#if 0
-#endif
 
         ++pcpt;
 
@@ -5329,7 +5266,6 @@ FiniteElement::speedScaling(std::vector<double>& speed_scaling)
 
         for (int i=0; i<M_id_nodes.size(); ++i)
         {
-            //int ri = rmap_elements.right.find(M_id_nodes[i])->second-1;
             int ri = M_id_nodes[i]-1;
             speed_scaling_vec[i] = speed_scaling_vec_nrd[ri];
         }
