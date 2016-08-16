@@ -10,12 +10,20 @@
 
 #include <boost/program_options.hpp>
 #include <constants.hpp>
+#include <wimoptions.hpp>
 
 namespace po = boost::program_options;
+
+// namespace Wim
+// {
+//     po::options_description descrWimOptions();
+// }
 
 double const days_in_sec = 24.0*3600.0;
 namespace Nextsim
 {
+    //po::options_description _test = descrWimOptions();
+
     po::options_description
     descrOptions()
     {
@@ -169,7 +177,9 @@ namespace Nextsim
             ("simul.use_thermo_forcing", po::value<bool>()->default_value( true ), "")
             ("simul.use_wim", po::value<bool>()->default_value( false ), "")
             ("simul.wim_grid", po::value<bool>()->default_value( false ), "")
+            ("simul.maxiteration", po::value<int>()->default_value( 1e+8 ), "")
 
+#if 0
             // options for wim
             ("wim.nx", po::value<int>()->default_value( 150 ), "Record length in x direction")
             ("wim.ny", po::value<int>()->default_value( 4 ), "Record length in y direction")
@@ -211,8 +221,9 @@ namespace Nextsim
             ("wim.exportresults", po::value<bool>()->default_value( false ), "export results")
             ("wim.nfloesgridtomesh", po::value<bool>()->default_value( true ), "")
             ("wim.couplingfreq", po::value<int>()->default_value( 20 ), "")
+#endif
             ;
-        return desc;
+        return desc.add( Wim::descrWimOptions() );
     }
 
 } // Nextsim

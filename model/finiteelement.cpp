@@ -336,7 +336,7 @@ FiniteElement::initDatasets()
         Units: "m/s",
         data2: data2_tmp
 	};
-    
+
 	M_asr_grid={
 		interpolation_method: InterpolationType::FromGridToMesh,
 	    //interp_type : TriangleInterpEnum,  // slower
@@ -363,16 +363,16 @@ FiniteElement::initDatasets()
     std::vector<Variable> variables_tmp0(2);
         variables_tmp0[0] = u10;
         variables_tmp0[1] = v10;
-            
+
     std::vector<int> uv10_tmp0(2);
         uv10_tmp0[0] = 0;
         uv10_tmp0[1] = 1;
-    
+
     Vectorial_Variable uv10={
         components_Id: uv10_tmp0,
         east_west_oriented: false // if false, then we assume it is oriented following the input grid
     };
-            
+
     std::vector<Vectorial_Variable> vectorial_variables_tmp0(1);
         vectorial_variables_tmp0[0] = uv10;
 
@@ -463,7 +463,7 @@ FiniteElement::initDatasets()
     variables_tmp1[4] = Qlw_in;
     variables_tmp1[5] = snowfr;
     variables_tmp1[6] = precip;
-    
+
     std::vector<Vectorial_Variable> vectorial_variables_tmp1(0);
 
     M_asr_elements_dataset={
@@ -663,19 +663,19 @@ FiniteElement::initDatasets()
     variables_tmp2[0] = u;
     variables_tmp2[1] = v;
     variables_tmp2[2] = ssh;
-    
+
     std::vector<int> uv_tmp0(2);
         uv_tmp0[0] = 0;
         uv_tmp0[1] = 1;
-    
+
     Vectorial_Variable uv={
         components_Id: uv_tmp0,
         east_west_oriented: false // if false, then we assume it is oriented following the mpp_file defined for the grid
 	};
-    
+
     std::vector<Vectorial_Variable> vectorial_variables_tmp2(1);
     vectorial_variables_tmp2[0] = uv;
-    
+
     M_topaz_nodes_dataset={
         dirname: "data",
         prefix: "TP4DAILY_",
@@ -700,7 +700,7 @@ FiniteElement::initDatasets()
     variables_tmp3[0] = sst;
     variables_tmp3[1] = sss;
     variables_tmp3[2] = mld;
-    
+
     std::vector<Vectorial_Variable> vectorial_variables_tmp3(0);
 
     M_topaz_elements_dataset={
@@ -727,9 +727,9 @@ FiniteElement::initDatasets()
     variables_tmp4[0] = conc;
     variables_tmp4[1] = thick;
     variables_tmp4[2] = snow_thick;
-    
+
     std::vector<Vectorial_Variable> vectorial_variables_tmp4(0);
-    
+
     M_ice_topaz_elements_dataset={
         dirname: "data",
         prefix: "TP4DAILY_",
@@ -826,7 +826,7 @@ FiniteElement::initDatasets()
 
     std::vector<Variable> variables_tmp5(1);
     variables_tmp5[0] = z;
-    
+
     std::vector<Vectorial_Variable> vectorial_variables_tmp5(0);
 
     M_etopo_elements_dataset={
@@ -844,7 +844,7 @@ FiniteElement::initDatasets()
 
         nb_timestep_day: 0
 	};
-    
+
 	// Definition of ERAi grid and datasets
     Dimension ERAi_dimension_x={
         name:"x",
@@ -859,7 +859,7 @@ FiniteElement::initDatasets()
         end:100,
         cyclic:false
 	};
-    
+
     Dimension ERAi_dimension_time={
         name:"time", // "Time"
         start:0,
@@ -875,7 +875,7 @@ FiniteElement::initDatasets()
 
     std::vector<Dimension> dimensions_ERAi_time(1);
     dimensions_ERAi_time[0] = ERAi_dimension_time;
-    
+
     std::vector<Dimension> dimensions_ERAi(3);
     dimensions_ERAi[0] = ERAi_dimension_time;
     dimensions_ERAi[1] = ERAi_dimension_y;
@@ -899,7 +899,7 @@ FiniteElement::initDatasets()
         Units: "degree_east",
         data2: data2_tmp
 	};
-    
+
     Variable ERAi_time={
         name: "time",
         dimensions: dimensions_ERAi_time,
@@ -957,7 +957,7 @@ FiniteElement::initDatasets()
     std::vector<int> ERAi_uv_tmp0(2);
         ERAi_uv_tmp0[0] = 0;
         ERAi_uv_tmp0[1] = 1;
-    
+
     Vectorial_Variable ERAi_uv10={
         components_Id: ERAi_uv_tmp0,
         east_west_oriented: true // if false, then we assume it is oriented following the input grid
@@ -1612,7 +1612,7 @@ FiniteElement::regrid(bool step)
 			int nb_var=15;
 
             // coupling with wim
-            bool nfloes_interp = (vm["simul.use_wim"].as<bool>()) && (!vm["wim.nfloesgridtomesh"].as<bool>());
+            bool nfloes_interp = (vm["simul.use_wim"].as<bool>()) && (!vm["nextwim.nfloesgridtomesh"].as<bool>());
 
             if (nfloes_interp)
                 std::cout<<"IN REGRID: "<< "interpolate nfloes\n";
@@ -2559,6 +2559,7 @@ FiniteElement::assemble(int pcpt)
         LOG(DEBUG) <<"[PETSC MATRIX] SIZE        = "<< M_matrix->size1() << " " << M_matrix->size2() <<"\n";
         LOG(DEBUG) <<"[PETSC MATRIX] SYMMETRIC   = "<< M_matrix->isSymmetric() <<"\n";
         LOG(DEBUG) <<"[PETSC MATRIX] NORM        = "<< M_matrix->linftyNorm() <<"\n";
+        LOG(DEBUG) <<"[PETSC VECTOR] NORM        = "<< M_vector->l2Norm() <<"\n";
     }
 
     //M_matrix->printMatlab("stiffness.m");
@@ -3760,6 +3761,7 @@ FiniteElement::run()
     std::string current_time_system = current_time_local();
 
     int pcpt = this->init();
+    int niter = vm["simul.maxiteration"].as<int>();
 
     // Debug file that records the time step
     std::fstream pcpt_file;
@@ -3788,6 +3790,9 @@ FiniteElement::run()
         // if (pcpt > 21)
         // if ( fmod((pcpt+1)*time_step,mooring_output_time_step) == 0 )
         //    is_running = false;
+
+        if (pcpt == niter)
+            is_running = false;
 
         // **********************************************************************
         // Take one time-step
@@ -3925,7 +3930,7 @@ FiniteElement::init()
 void
 FiniteElement::step(int pcpt)
 {
-    M_run_wim = !(pcpt % vm["wim.couplingfreq"].as<int>());
+    M_run_wim = !(pcpt % vm["nextwim.couplingfreq"].as<int>());
 
     // coupling with wim (exchange from nextsim to wim)
     if (vm["simul.use_wim"].as<bool>())
@@ -4783,7 +4788,7 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             M_dair=ExternalData(vm["simul.constant_dair"].as<double>());
             M_external_data.push_back(&M_dair);
         break;
-        
+
         case setup::AtmosphereType::ERAi_ASR:
             M_wind=ExternalData(
                 &M_ERAi_nodes_dataset,M_mesh,0,true ,
