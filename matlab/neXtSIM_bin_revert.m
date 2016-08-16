@@ -1,7 +1,7 @@
-function [mesh_out,data_out] = neXtSIM_bin_revert(filename, step,varargin)
+function [mesh_out,data_out] = neXtSIM_bin_revert(filename, proc, step,varargin)
 
 %Sylvain: Created 20160105 to take a binary file and revert it to a slim_out.
-%Only works for binary files created by neXtSIM 
+%Only works for binary files created by neXtSIM
 %example,
 %>> neXtSIM_bin_revert('',0)
 
@@ -12,11 +12,18 @@ nVarargs = length(varargin);
 if nVarargs >= 1, save_flag = varargin{1}; end
 if nVarargs >= 2, error('Too many inputs'), end
 
-field_info  = [ filename 'field_' num2str(step) '.dat'];
-field_data  = [ filename 'field_' num2str(step) '.bin'];
+if(isempty(proc))
+    field_info  = [ filename 'field_' num2str(step) '.dat'];
+    field_data  = [ filename 'field_' num2str(step) '.bin'];
+    mesh_info   = [ filename 'mesh_' num2str(step) '.dat'];
+    mesh_data   = [ filename 'mesh_' num2str(step) '.bin'];
+else    
+    field_info  = [ filename 'field_' num2str(proc) '_' num2str(step) '.dat'];
+    field_data  = [ filename 'field_' num2str(proc) '_' num2str(step) '.bin'];
+    mesh_info   = [ filename 'mesh_' num2str(proc) '_' num2str(step) '.dat'];
+    mesh_data   = [ filename 'mesh_' num2str(proc) '_' num2str(step) '.bin'];
+end
 
-mesh_info  = [ filename 'mesh_' num2str(step) '.dat'];
-mesh_data  = [ filename 'mesh_' num2str(step) '.bin'];
 
 %Getting mesh
 mesh_out=read_bin_export(mesh_info,mesh_data);
@@ -30,8 +37,8 @@ function out=read_bin_export(file_info,file_data)
 %Getting info
 fileID = fopen(file_info,'r');
 info_tmp=textscan(fileID,'%s %d');
-data_names=info_tmp{1}
-data_types=info_tmp{2}
+data_names=info_tmp{1};
+data_types=info_tmp{2};
 fclose(fileID);
 
 fileID = fopen(file_data,'r');

@@ -31,6 +31,8 @@
 #include <debug.hpp>
 #include <omp.h>
 #include <externaldata.hpp>
+#include <gridoutput.hpp>
+#include <dataset.hpp>
 
 extern "C"
 {
@@ -59,11 +61,9 @@ public:
     typedef boost::shared_ptr<graph_type> graph_ptrtype;
 
     typedef ExternalData external_data;
-    typedef ExternalData::Dataset Dataset;
-    typedef ExternalData::Grid Grid;
-    typedef ExternalData::Dimension Dimension;
-    typedef ExternalData::Variable Variable;
-    typedef ExternalData::Vectorial_Variable Vectorial_Variable;
+    
+    typedef DataSet Dataset;
+    
     typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
 
     typedef Wim::WimDiscr<double> wim_type;
@@ -108,7 +108,7 @@ public:
 
     void thermo();
     void thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols,
-            double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf);
+            double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double tmp_Qlw_in, double tmp_snowfr);
 
     Dataset M_asr_nodes_dataset;
     Dataset M_asr_elements_dataset;
@@ -117,11 +117,7 @@ public:
 	Dataset M_ice_topaz_elements_dataset;
     Dataset M_etopo_elements_dataset;
     Dataset M_ERAi_nodes_dataset;
-
-    Grid M_asr_grid;
-    Grid M_topaz_grid;
-	Grid M_etopo_grid;
-    Grid M_ERAi_grid;
+    Dataset M_ERAi_elements_dataset;
 
     double minAngles(element_type const& element, mesh_type const& mesh) const;
     double minAngle(mesh_type const& mesh) const;
@@ -230,7 +226,6 @@ private:
     std::vector<double> M_hminVertices;
     std::vector<double> M_hmaxVertices;
 
-    //std::vector<double> M_element_depth;
     external_data M_element_depth;
     std::vector<double> M_Vair_factor;
     std::vector<double> M_Voce_factor;
@@ -352,6 +347,7 @@ private:
     external_data M_mslp;         // Atmospheric pressure [Pa]
     external_data M_Qsw_in;       // Incoming short-wave radiation [W/m2]
     external_data M_Qlw_in;       // Incoming long-wave radiation [W/m2]
+    external_data M_tcc;       // Incoming long-wave radiation [W/m2]
     external_data M_precip;       // Total precipitation [m]
     external_data M_snowfr;       // Fraction of precipitation that is snow
     external_data M_dair;         // 2 m dew point [C]
@@ -387,17 +383,7 @@ private:
     // Variables for the moorings
 
     bool M_use_moorings;
-    int M_grid_size, M_ncols, M_nrows;
-
-    std::vector<double> M_conc_mean;    // Mean concentration (on the mesh)
-    std::vector<double> M_thick_mean;   // Mean ice thickness (on the mesh)
-    std::vector<double> M_snow_thick_mean;  // Mean snow thickness (on the mesh)
-    std::vector<double> M_VT_mean;      // Mean velocity (on the mesh)
-
-    std::vector<double> M_conc_grid;    // Mean concentration (on the grid)
-    std::vector<double> M_thick_grid;   // Mean ice thickness (on the grid)
-    std::vector<double> M_snow_thick_grid;  // Mean snow thickness (on the grid)
-    std::vector<double> M_VT_grid;      // Mean velocity (on the grid)
+    GridOutput M_moorings;
 
 private:
     void constantIce();
@@ -409,15 +395,10 @@ private:
     void initIABPDrifter();
     void updateIABPDrifter();
 
-    void updateMeans();
-    int initMoorings(int &ncols, int &nrows);
-    void updateMoorings(int grid_size, int ncols, int nrows);
-    void exportMoorings(int grid_size);
+    void updateMeans(GridOutput &means);
+    void initMoorings();
+    void exportMoorings(GridOutput &moorings);
 
-#if 0
-    void topazIce();
-	void etopoBathymetry();
-#endif
 };
 } // Nextsim
 #endif
