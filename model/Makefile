@@ -8,7 +8,8 @@ CXXFLAGS += -std=c++11 -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fope
 
 CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I $(NEXTSIMDIR)/contrib/bamg/include
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include -I $(NEXTSIMDIR)/contrib/interp/include
-CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
+#CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
+CXXFLAGS += -I $(WIM2D_PATH)/CXX/include
 CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
 CXXFLAGS +=	-I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I .
 CXXFLAGS +=	-I $(NETCDF_DIR)/include -I $(GMSH_DIR)/include/gmsh
@@ -37,6 +38,10 @@ else
 
 endif
 
+LDFLAGS += -Wl,-rpath,$(WIM2D_PATH)/CXX/lib
+LDFLAGS += -L $(WIM2D_PATH)/CXX/lib -lwim
+
+
 LDFLAGS += -L /usr/local/lib
 
 LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
@@ -54,7 +59,7 @@ LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
 LDFLAGS += -L $(NEXTSIMDIR)/lib -linterp
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
-LDFLAGS += -L $(NEXTSIMDIR)/lib -lwim
+#LDFLAGS += -L $(NEXTSIMDIR)/lib -lwim
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lnextsim
 
 

@@ -255,17 +255,17 @@ FiniteElement::initDatasets()
     M_asr_nodes_dataset=DataSet("asr_nodes",M_num_nodes);
 
     M_asr_elements_dataset=DataSet("asr_elements",M_num_elements);
-    
+
     M_topaz_nodes_dataset=DataSet("topaz_nodes",M_num_nodes);
 
     M_topaz_elements_dataset=DataSet("topaz_elements",M_num_elements);
-    
+
     M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements",M_num_elements);
 
     M_etopo_elements_dataset=DataSet("etopo_elements",M_num_nodes);
 
     M_ERAi_nodes_dataset=DataSet("ERAi_nodes",M_num_nodes);
-    
+
     M_ERAi_elements_dataset=DataSet("ERAi_elements",M_num_elements);
 }
 
@@ -895,7 +895,7 @@ FiniteElement::regrid(bool step)
 			int nb_var=15;
 
             // coupling with wim
-            bool nfloes_interp = (vm["simul.use_wim"].as<bool>()) && (!vm["wim.nfloesgridtomesh"].as<bool>());
+            bool nfloes_interp = (vm["simul.use_wim"].as<bool>()) && (!vm["nextwim.nfloesgridtomesh"].as<bool>());
 
             if (nfloes_interp)
                 std::cout<<"IN REGRID: "<< "interpolate nfloes\n";
@@ -1362,7 +1362,7 @@ FiniteElement::regrid(bool step)
     M_etopo_elements_dataset.target_size=M_num_elements;
     M_ERAi_nodes_dataset.target_size=M_num_nodes;
     M_ERAi_elements_dataset.target_size=M_num_elements;
-    
+
     M_asr_nodes_dataset.reloaded=false;
     M_asr_elements_dataset.reloaded=false;
     M_topaz_nodes_dataset.reloaded=false;
@@ -1836,6 +1836,7 @@ FiniteElement::assemble(int pcpt)
         LOG(DEBUG) <<"[PETSC MATRIX] SIZE        = "<< M_matrix->size1() << " " << M_matrix->size2() <<"\n";
         LOG(DEBUG) <<"[PETSC MATRIX] SYMMETRIC   = "<< M_matrix->isSymmetric() <<"\n";
         LOG(DEBUG) <<"[PETSC MATRIX] NORM        = "<< M_matrix->linftyNorm() <<"\n";
+        LOG(DEBUG) <<"[PETSC VECTOR] NORM        = "<< M_vector->l2Norm() <<"\n";
     }
 
     //M_matrix->printMatlab("stiffness.m");
@@ -2514,7 +2515,7 @@ FiniteElement::thermo()
             LOG(DEBUG) << "M_mld[i] = " << M_mld[i] << "\n";
             throw std::logic_error("negative or 0 mld, Oups!!");
 		}
-        
+
         // definition of the fraction of snow
         double tmp_snowfr;
         if(M_snowfr.M_initialized)
@@ -2523,7 +2524,7 @@ FiniteElement::thermo()
         {
             if(M_tair[i]<0)
                 tmp_snowfr=1.;
-            else            
+            else
                 tmp_snowfr=0.;
         }
 
@@ -2607,7 +2608,7 @@ FiniteElement::thermo()
         			*( 1. - 0.261*exp(-7.77e-4*std::pow(taa-tfrwK,2)) ) \
         			*( 1. + 0.275*M_tcc[i] );
         }
-            
+
         Qow = -M_Qsw_in[i]*(1.-ocean_albedo) - tmp_Qlw_in + Qlw_out + Qsh + Qlh;
 
         // -------------------------------------------------
@@ -3061,6 +3062,7 @@ FiniteElement::run()
     std::string current_time_system = current_time_local();
 
     int pcpt = this->init();
+    int niter = vm["simul.maxiteration"].as<int>();
 
     // Debug file that records the time step
     std::fstream pcpt_file;
@@ -3089,6 +3091,9 @@ FiniteElement::run()
         // if (pcpt > 21)
         // if ( fmod((pcpt+1)*time_step,mooring_output_time_step) == 0 )
         //    is_running = false;
+
+        if (pcpt == niter)
+            is_running = false;
 
         // **********************************************************************
         // Take one time-step
@@ -3226,7 +3231,7 @@ FiniteElement::init()
 void
 FiniteElement::step(int pcpt)
 {
-    M_run_wim = !(pcpt % vm["wim.couplingfreq"].as<int>());
+    M_run_wim = !(pcpt % vm["nextwim.couplingfreq"].as<int>());
 
     // coupling with wim (exchange from nextsim to wim)
     if (vm["simul.use_wim"].as<bool>())
@@ -3373,7 +3378,7 @@ FiniteElement::step(int pcpt)
     }
 }
 
-// Add to the mean on the mesh 
+// Add to the mean on the mesh
 void
 FiniteElement::updateMeans(GridOutput &means)
 {
@@ -3386,7 +3391,7 @@ FiniteElement::updateMeans(GridOutput &means)
                 for (int i=0; i<M_num_elements; i++)
                     it->data_mesh[i] += M_conc[i];
                 break;
-                
+
             case (variableID::thick):
                 for (int i=0; i<M_num_elements; i++)
                     it->data_mesh[i] += M_thick[i];
@@ -4066,7 +4071,7 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             M_dair=ExternalData(-1.);
             M_external_data.push_back(&M_dair);
         break;
-        
+
         case setup::AtmosphereType::ERAi:
             M_wind=ExternalData(
                 &M_ERAi_nodes_dataset,M_mesh,0,true ,
