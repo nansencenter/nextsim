@@ -7,7 +7,6 @@
  */
 
 #include <wimdiscr.hpp>
-#include "wimdate.hpp"
 
 namespace Wim
 {
