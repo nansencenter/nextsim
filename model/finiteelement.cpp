@@ -231,7 +231,7 @@ FiniteElement::initVariables()
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
 
     M_tau.resize(2*M_num_nodes,0.);
-}
+}//end initVariables
 
 void
 FiniteElement::initModelState()
@@ -262,7 +262,7 @@ FiniteElement::initDatasets()
 
     M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements",M_num_elements);
 
-    M_etopo_elements_dataset=DataSet("etopo_elements",M_num_nodes);
+    M_etopo_elements_dataset=DataSet("etopo_elements",M_num_elements);//M_num_nodes);
 
     M_ERAi_nodes_dataset=DataSet("ERAi_nodes",M_num_nodes);
 
@@ -923,7 +923,9 @@ FiniteElement::regrid(bool step)
 			int nb_var=15;
 
             // coupling with wim
-            bool nfloes_interp = (vm["simul.use_wim"].as<bool>()) && (!vm["nextwim.nfloesgridtomesh"].as<bool>());
+            // - only interpolate if not at a coupling time step
+            // - else nfloes will just be overwritten with wimToNextsim()
+            bool nfloes_interp = (vm["simul.use_wim"].as<bool>()) && (!M_run_wim);
 
             if (nfloes_interp)
                 std::cout<<"IN REGRID: "<< "interpolate nfloes\n";
@@ -3283,10 +3285,10 @@ FiniteElement::step(int pcpt)
             // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
             if ( M_use_moorings )
                 M_moorings.updateGridMean(M_mesh);
-            LOG(DEBUG) <<"Regriding starts\n";
+            LOG(DEBUG) <<"Regridding starts\n";
             chrono.restart();
             this->regrid(pcpt);
-            LOG(DEBUG) <<"Regriding done in "<< chrono.elapsed() <<"s\n";
+            LOG(DEBUG) <<"Regridding done in "<< chrono.elapsed() <<"s\n";
             if ( M_use_moorings )
                 M_moorings.resetMeshMean(M_mesh);
         }
@@ -5061,44 +5063,55 @@ FiniteElement::wimToNextsim(bool step)
         int num_elements_grid = nx*ny;
 
         // NODAL INTERPOLATION
-        int nb_var=2;
-        std::vector<double> interp_in(nb_var*num_elements_grid,0.);
-        double* interp_out;
+        // - taux and tauy from waves
+        if ((!step) || M_regrid)
+           //initialisation or after regridding (need to reset sizes)
+            M_tau.assign(2*M_num_nodes,0);
 
-        for (int i=0; i<num_elements_grid; ++i)
-        {
-            // tau (taux and tauy)
-            interp_in[nb_var*i] = M_taux_grid[i];
-            interp_in[nb_var*i+1] = M_tauy_grid[i];
-        }
-
+        // Set type of interpolation for grid-to-mesh
         // int interptype = TriangleInterpEnum;
         int interptype = BilinearInterpEnum;
         //int interptype = NearestInterpEnum;
 
-        InterpFromGridToMeshx(interp_out,
-                              &X[0], vm["wim.nx"].as<int>(),
-                              &Y[0], vm["wim.ny"].as<int>(),
-                              &interp_in[0],
-                              vm["wim.ny"].as<int>(), vm["wim.nx"].as<int>(),
-                              nb_var,
-                              &M_mesh.coordX()[0], &M_mesh.coordY()[0], M_num_nodes,0.,interptype,true);
+        if (vm["nextwim.applywavestress"].as<bool>())
+           {
+           // can turn off effect of wave stress for testing
+           // - if this is not done, we currently interp tau_x,tau_y each time step
+           // TODO rethink this? (let them be advected? - this could lead to instability perhaps)
+           int nb_var=2;
+           std::vector<double> interp_in(nb_var*num_elements_grid,0.);
+           double* interp_out;
 
-        if ((!step) || M_regrid)
-            M_tau.assign(2*M_num_nodes,0);
+           for (int i=0; i<num_elements_grid; ++i)
+           {
+               // tau (taux and tauy)
+               interp_in[nb_var*i] = M_taux_grid[i];
+               interp_in[nb_var*i+1] = M_tauy_grid[i];
+           }
 
-        for (int i=0; i<M_num_nodes; ++i)
+           InterpFromGridToMeshx(interp_out,
+                                 &X[0], vm["wim.nx"].as<int>(),
+                                 &Y[0], vm["wim.ny"].as<int>(),
+                                 &interp_in[0],
+                                 vm["wim.ny"].as<int>(), vm["wim.nx"].as<int>(),
+                                 nb_var,
+                                 &M_mesh.coordX()[0], &M_mesh.coordY()[0], M_num_nodes,0.,interptype,true);
+
+           //assign taux,tauy
+           for (int i=0; i<M_num_nodes; ++i)
+           {
+               // tau
+               M_tau[i] = interp_out[nb_var*i];
+               M_tau[i+M_num_nodes] = interp_out[nb_var*i+1];
+           }
+
+           xDelete<double>(interp_out);
+        }//interp taux,tauy
+
+        if (M_run_wim)
         {
-            // tau
-            M_tau[i] = interp_out[nb_var*i];
-            M_tau[i+M_num_nodes] = interp_out[nb_var*i+1];
-        }
-
-        xDelete<double>(interp_out);
-
-        if (M_run_wim || vm["wim.nfloesgridtomesh"].as<bool>())
-        {
-            // interpolate nfloes if needed
+            // interpolate nfloes
+            double* interp_out;
             InterpFromGridToMeshx(interp_out,
                                   &X[0], vm["wim.nx"].as<int>(),
                                   &Y[0], vm["wim.ny"].as<int>(),
@@ -5123,6 +5136,7 @@ FiniteElement::wimToNextsim(bool step)
     if (!M_regrid)
         M_mesh.move(M_UM,-1.);
 
+    // set dfloe each time step (can be changed due to advection of nfloes by nextsim)
     M_dfloe.assign(M_num_elements,0.);
 
     for (int i=0; i<M_num_elements; ++i)
@@ -5136,7 +5150,7 @@ FiniteElement::wimToNextsim(bool step)
         if (M_conc[i] < vm["wim.cicemin"].template as<double>())
             M_dfloe[i] = 0.;
     }
-}
+}//wimToNextsim
 
 void
 FiniteElement::clear()
