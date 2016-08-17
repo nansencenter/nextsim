@@ -67,6 +67,12 @@ inline std::string to_date_string_ym( double date_time )
     return (boost::format( "%1%%2%" ) % dt.year() % boost::io::group(std::setw(2), std::setfill('0'), dt.month().as_number())).str();
 }
 
+inline std::string to_date_string_y( double date_time )
+{
+    boost::gregorian::date dt = Nextsim::parse_date( date_time );
+    return (boost::format( "%1%" ) % dt.year()).str();
+}
+
 inline double from_date_string( const std::string& value )
 {
     //boost::gregorian::date epoch = boost::date_time::parse_date<boost::gregorian::date>( "1899-12-30", boost::date_time::ymd_order_iso);

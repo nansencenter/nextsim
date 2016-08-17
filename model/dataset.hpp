@@ -55,7 +55,7 @@ public:
         std::string Units;
         std::vector<std::vector<double>> data2;
     } Variable;
-    
+
     typedef struct Vectorial_Variable
     {
         std::vector<int> components_Id;
@@ -67,7 +67,9 @@ public:
         InterpolationType interpolation_method;
 		int interp_type;
         std::string dirname;
-        std::string filename;
+        //std::string filename;
+        std::string prefix;
+        std::string postfix;
 
         Variable latitude;
         Variable longitude;
@@ -91,7 +93,7 @@ public:
 
         std::vector<double> gridLAT;
         std::vector<double> gridLON;
-        
+
         int N;
         int M;
     } Grid;
@@ -120,16 +122,16 @@ public:
     DataSet();
 
     DataSet(char const *DatasetName,int target_size);
-    
+
     public:
     Dimension dimension_x;
     Dimension dimension_y;
     Dimension dimension_z;
     Dimension dimension_time;
-        
+
 public:
     Grid grid;
-    
+
     std::string dirname;
     std::string prefix;
     std::string postfix;
@@ -138,13 +140,16 @@ public:
     std::vector<Variable> variables;
     std::vector<Vectorial_Variable> vectorial_variables;
     int target_size;
-    
+
     bool reloaded;
 
     int nb_timestep_day;
     Variable time;
 
     std::vector<double> ftime_range;
+
+    // name of the dataSet
+    std::string name;
 };
 
 } // Nextsim

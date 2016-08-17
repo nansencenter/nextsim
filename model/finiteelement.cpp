@@ -409,6 +409,7 @@ FiniteElement::initConstant()
 
     M_mesh_filename = vm["simul.mesh_filename"].as<std::string>();
 
+#if 0
     const boost::unordered_map<const std::string, setup::DomainType> str2domain = boost::assign::map_list_of
         ("bigarctic10km.msh", setup::DomainType::BIGARCTIC)
         ("topazreducedsplit2.msh", setup::DomainType::DEFAULT)
@@ -426,11 +427,38 @@ FiniteElement::initConstant()
         ("simplesquaresplit2.msh", setup::MeshType::FROM_SPLIT);
 
     M_mesh_type = str2mesh.find(M_mesh_filename)->second;
+#endif
+
+    if (M_mesh_filename.find("split") != std::string::npos)
+    {
+        M_domain_type = setup::DomainType::DEFAULT;
+        M_mesh_type = setup::MeshType::FROM_SPLIT;
+    }
+    else if (M_mesh_filename.find("arctic") != std::string::npos)
+    {
+        if (M_mesh_filename.find("bigarctic") != std::string::npos)
+        {
+            M_domain_type = setup::DomainType::BIGARCTIC;
+        }
+        else
+        {
+            M_domain_type = setup::DomainType::ARCTIC;
+        }
+
+        M_mesh_type = setup::MeshType::FROM_GMSH;
+    }
 
     if (M_mesh_type == setup::MeshType::FROM_SPLIT)
+    {
         M_mesh.setOrdering("bamg");
+    }
     else if (M_mesh_type == setup::MeshType::FROM_GMSH)
-        M_mesh.setOrdering("bamg"); /* The .msh files bigarctic.msh,... that are on Johansen are actually using the bamg ordering*/
+    {
+        if (M_domain_type != setup::DomainType::ARCTIC)
+        {
+            M_mesh.setOrdering("bamg"); /* The .msh files bigarctic.msh,... that are on Johansen are actually using the bamg ordering*/
+        }
+    }
     else
         throw std::logic_error("Unknown setup::MeshType");
 
@@ -1515,7 +1543,7 @@ FiniteElement::assemble(int pcpt)
     double sin_ocean_turning_angle=std::sin(ocean_turning_angle_rad);
 
     // ---------- Assembling starts -----------
-    LOG(INFO) <<"Assembling starts\n";
+    LOG(DEBUG) <<"Assembling starts\n";
     chrono.restart();
 
     int thread_id;
@@ -1811,8 +1839,8 @@ FiniteElement::assemble(int pcpt)
     M_vector->addVector(&rhsindices[0], rhsindices.size(), &rhsdata[0]);
     M_vector->close();
 
-    LOG(INFO) <<"Assembling done in "<< chrono.elapsed() <<"s\n";
-    //LOG(DEBUG) <<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
+    //LOG(DEBUG) <<"Assembling done in "<< chrono.elapsed() <<"s\n";
+    LOG(INFO) <<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
 
     // extended dirichlet nodes (add nodes where M_conc <= 0)
     for (int i=0; i<2*M_num_nodes; ++i)
