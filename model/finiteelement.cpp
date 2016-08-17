@@ -3255,10 +3255,10 @@ FiniteElement::step(int pcpt)
             // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
             if ( M_use_moorings )
                 M_moorings.updateGridMean(M_mesh);
-            LOG(DEBUG) <<"Regriding starts\n";
+            LOG(DEBUG) <<"Regridding starts\n";
             chrono.restart();
             this->regrid(pcpt);
-            LOG(DEBUG) <<"Regriding done in "<< chrono.elapsed() <<"s\n";
+            LOG(DEBUG) <<"Regridding done in "<< chrono.elapsed() <<"s\n";
             if ( M_use_moorings )
                 M_moorings.resetMeshMean(M_mesh);
         }
@@ -5068,7 +5068,7 @@ FiniteElement::wimToNextsim(bool step)
 
         xDelete<double>(interp_out);
 
-        if (M_run_wim || vm["wim.nfloesgridtomesh"].as<bool>())
+        if (M_run_wim || vm["nextwim.nfloesgridtomesh"].as<bool>())
         {
             // interpolate nfloes if needed
             InterpFromGridToMeshx(interp_out,
