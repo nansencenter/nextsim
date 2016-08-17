@@ -7,12 +7,13 @@
  */
 
 #include <wimdiscr.hpp>
+#include "wimdate.hpp"
 
 namespace Wim
 {
 
 template<typename T>
-void WimDiscr<T>::gridProssessing()
+void WimDiscr<T>::gridProcessing()
 {
     X_array.resize(boost::extents[nx][ny]);
     Y_array.resize(boost::extents[nx][ny]);
@@ -28,6 +29,8 @@ void WimDiscr<T>::gridProssessing()
     x0 = vm["wim.xmin"].template as<double>();
     y0 = vm["wim.ymin"].template as<double>();
 
+    // int thread_id;
+    // int total_threads;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
     // std::cout<<"MAX THREADS= "<< max_threads <<"\n";
 
@@ -45,32 +48,39 @@ void WimDiscr<T>::gridProssessing()
             SCVX_array[i][j] = dx;
             SCP2_array[i][j] = dx*dy;
             SCP2I_array[i][j] = 1./(dx*dy);
-#if 1
-            if (i==nx-1)
+
+            //add land on 3 edges (upper,lower,RH)
+            if (vm["wim.landon3edges"].template as<bool>())
             {
-                LANDMASK_array[i][j] = 1.;
+               if (i==nx-1)
+               {
+                   LANDMASK_array[i][j] = 1.;
+               }
+
+               if ((j==0) || (j==ny-1))
+               {
+                   LANDMASK_array[i][j] = 1.;
+               }
             }
 
-            if ((j==0) || (j==ny-1))
-            {
-                LANDMASK_array[i][j] = 1.;
-            }
-#endif
         }
     }
 
-    if (vm["wim.exportresults"].template as<bool>())
+    bool critter = (vm["wim.checkprog"].template as<bool>())
+               || (vm["nextwim.exportresults"].template as<bool>());
+    if (critter)
     {
+       //save grid to binary
         std::string str = vm["wim.outparentdir"].template as<std::string>();
 
-        char * senv = ::getenv( "WIM2D_PATH" );
-        if ( (str == ".") && (senv != NULL) && (senv[0] != '\0') )
-        {
-            str = std::string( senv ) + "/CXX";
-        }
+        //char * senv = ::getenv( "WIM2D_PATH" );
+        //if ( (str == ".") && (senv != NULL) && (senv[0] != '\0') )
+        //{
+        //    str = std::string( senv ) + "/CXX";
+        //}
 
         fs::path path(str);
-        path /= "outputs/binaries";
+        path /= "binaries";
 
         if ( !fs::exists(path) )
             fs::create_directories(path);
@@ -126,6 +136,9 @@ void WimDiscr<T>::gridProssessing()
 
         std::string nxstr = std::string(4-std::to_string(nx).length(),'0') + std::to_string(nx);
         std::string nystr = std::string(4-std::to_string(ny).length(),'0') + std::to_string(ny);
+
+        // std::cout<<"-----------nx= "<< nxstr <<"\n";
+        // std::cout<<"-----------ny= "<< nystr <<"\n";
 
         if (outb.is_open())
         {
@@ -222,21 +235,23 @@ void WimDiscr<T>::readGridFromFile(std::string const& filein)
 template<typename T>
 void WimDiscr<T>::init()
 {
-	// wim grid generation
-	this->gridProssessing();
+    // wim grid generation
+    this->gridProcessing();
+    //std::cout<<"\nHI\n";
     //this->readGridFromFile("wim_grid.a");
 
     // parameters
-	nwavedirn = vm["wim.nwavedirn"].template as<int>();
+    nwavedirn = vm["wim.nwavedirn"].template as<int>();
     nwavefreq = vm["wim.nwavefreq"].template as<int>();
     advdim = vm["wim.advdim"].template as<int>();
     ref_Hs_ice = vm["wim.refhsice"].template as<bool>();
     atten = vm["wim.atten"].template as<bool>();
-    icevel = vm["wim.icevel"].template as<bool>();
+    useicevel = vm["wim.useicevel"].template as<bool>();
     steady = vm["wim.steady"].template as<bool>();
     breaking = vm["wim.breaking"].template as<bool>();
     scatmod = vm["wim.scatmod"].template as<std::string>();
     advopt = vm["wim.advopt"].template as<std::string>();
+    fsdopt = vm["wim.fsdopt"].template as<std::string>();
     cfl = vm["wim.cfl"].template as<double>();
     Hs_inc = vm["wim.hsinc"].template as<double>(); /* 2.0 */
     Tp_inc = vm["wim.tpinc"].template as<double>(); /* 12.0 */
@@ -249,14 +264,30 @@ void WimDiscr<T>::init()
     dfloe_pack_thresh = vm["wim.dfloepackthresh"].template as<double>(); /* 400.0 */
     young = vm["wim.young"].template as<double>();
     visc_rp = vm["wim.viscrp"].template as<double>();
-    nbdx = vm["wim.nbdx"].template as<int>();
-    nbdy = vm["wim.nbdy"].template as<int>();
+    wim_itest = vm["wim.itest"].template as<int>();
+    wim_jtest = vm["wim.jtest"].template as<int>();
+    std::cout<<"\nitest,jtest: "<<wim_itest<<","<<wim_jtest<<"\n";
+
+    //nghost==3 needs padVar (boundary conditions) between prediction/advection step
+    //nghost>3 doesn't
+    //nghost<3 is not possible
+    nghost  = 4;
+    nbdx    = nghost;
+    nbdy    = nghost;
+
+    if (useicevel)
+    {
+      std::cerr << std::endl
+      << "useicevel=true not implemented"
+      << std::endl;
+      std::abort();
+    }
 
     if (advdim == 1)
         nbdy = 0;
 
     nxext = nx+2*nbdx;
-    nyext = ny+2*nbdy;
+    nyext = ny+2*nbdy;//ny if advdim==1
 
     gravity = 9.81;
     rhowtr = 1025.;
@@ -266,10 +297,10 @@ void WimDiscr<T>::init()
     xi = 2.;
     fragility = 0.9;
 
-    vbf = 0.1;
+    vbf = 0.1;//brine volume fraction
     vb = vbf;
-    sigma_c  = (1.76e+6)*std::exp(-5.88*std::sqrt(vbf));
-    epsc = sigma_c/young;
+    sigma_c  = (1.76e+6)*std::exp(-5.88*std::sqrt(vbf));//flexural strength (Pa)
+    epsc = sigma_c/young;//breaking strain
     flex_rig_coeff = young/(12.0*(1-std::pow(poisson,2.)));
 }
 
@@ -314,6 +345,7 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
     dfloe.resize(nx*ny);
     nfloes.resize(nx*ny);
 
+    dave.resize(boost::extents[nx][ny]);
     atten_dim.resize(boost::extents[nx][ny]);
     damp_dim.resize(boost::extents[nx][ny]);
 
@@ -329,6 +361,7 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
     Tp.resize(boost::extents[nx][ny]);
     mwd.resize(boost::extents[nx][ny]);
 
+    //std::fill( steady_mask.data(), steady_mask.data() + steady_mask.num_elements(), 10 );
     // steady_mask
     if (steady)
         std::fill( &steady_mask[0][0], &steady_mask[3][0], 1. );
@@ -372,7 +405,7 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
     }
 
 
-    // wt_simp
+    // wt_simp (weights for Simpson's rule)
     if (nwavefreq >1)
     {
         std::fill(wt_simp.begin(), wt_simp.end(), 2.);
@@ -387,6 +420,7 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
         }
 
         dom   = 2*PI*(freq_vec[nwavefreq-1]-freq_vec[0])/(nwavefreq-1);
+        //wt_om = dom*wt_simp/3.0;
         wt_om = wt_simp;
         std::for_each(wt_om.begin(), wt_om.end(), [&](value_type& f){ f = dom*f/3.0; });
     }
@@ -413,16 +447,20 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
     std::for_each(ag.begin(), ag.end(), [&](value_type& f){ f = f/2. ; });
 
 
+    //====================================================
+    //ideal ice/waves TODO sep function
     x0 = X_array[0][0];
     xmax = X_array[nx-1][ny-1]; //x0+(nx-1)*dx;
 
     y0 = Y_array[0][0];
     ym = Y_array[0][0]+(ny-1)*dy;
+    //value_type ymax = Y_array[nx-1][ny-1];
 
     x_edge = 0.5*(x0+xmax)-0.8*(0.5*(xmax-x0));
 
+    //std::cout<<Hs_inc<<" "<<Tp_inc<<" "<<mwd_inc<<std::endl;
+    //std::exit(1);
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-
 #pragma omp parallel for num_threads(max_threads) collapse(2)
     for (int i = 0; i < nx; i++)
     {
@@ -434,10 +472,16 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
                 Hs[i][j] = Hs_inc;
                 Tp[i][j] = Tp_inc;
                 mwd[i][j] = mwd_inc;
+                //std::cout<<Hs[i][j]<<" "<<Tp[i][j]<<" "<<mwd[i][j];
             }
         }
     }
+    //end: ideal ice/waves TODO sep function
+    //====================================================
 
+
+    //====================================================
+    //set incident wave spec TODO sep function
     om = 2*PI*freq_vec[0];
 
 #pragma omp parallel for num_threads(max_threads) collapse(2)
@@ -477,13 +521,30 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
             }
             else
             {
+                value_type dtheta = std::abs(wavedir[1]-wavedir[0]);
+
+                //if (mwd[i][j]!=0.)
+                //   std::cout<<"dir-frac ("<<i<<","<<j<<")"<<std::endl;
                 for (int dn = 0; dn < nwavedirn; dn++)
                 {
+#if 0
+                    //less accurate way of calculating spreading
+                    //(sample cos^2 at mid-point of interval)
                     chi = PI*(wavedir[dn]-mwd[i][j])/180.0;
                     if (std::cos(chi) > 0.)
                         theta_fac[dn] = 2.0*std::pow(std::cos(chi),2.)/PI;
                     else
                         theta_fac[dn] = 0.;
+#else
+                    //more accurate way of calculating spreading
+                    //(integrate cos^2 over interval)
+                    theta_fac[dn] = thetaDirFrac(wavedir[dn]-dtheta/2.,dtheta,mwd[i][j]);
+                    theta_fac[dn] = theta_fac[dn]*180./(PI*dtheta);
+#endif
+
+                    //if (Hs[i][j]!=0.)
+                    //   std::cout<<wavedir[dn]<<" "<<mwd[i][j]<<" "
+                    //            <<theta_fac[dn]<<std::endl;
                 }
             }
 
@@ -500,7 +561,12 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
             }
         }
     }
+    //end: set incident wave spec TODO sep function
+    //====================================================
 
+
+    //====================================================
+    //ideal ice conditions TODO sep function
     x_edge = 0.5*(x0+xmax)-0.7*(0.5*(xmax-x0));
 
 #pragma omp parallel for num_threads(max_threads) collapse(2)
@@ -513,13 +579,13 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
 
             ice_mask[i][j] = (1-wtr_mask[i][j])*(1-LANDMASK_array[i][j]);
 
-            if (ice_c.size() == 0) // non-coupling
+            if (ice_c.size() == 0)
             {
                 icec[i][j] = unifc*ice_mask[i][j];
                 iceh[i][j] = unifh*ice_mask[i][j];
                 dfloe[ny*i+j] = dfloe_pack_init*ice_mask[i][j];
             }
-            else // with coupling
+            else
             {
                 icec[i][j] = ice_c[ny*i+j];
                 nfloes[ny*i+j] = n_floes[ny*i+j];
@@ -536,20 +602,27 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
                 else
                 {
                     ice_mask[i][j] = 1.;
+
                     iceh[i][j] = ice_h[ny*i+j]/icec[i][j];
+
                     dfloe[ny*i+j] = std::sqrt(icec[i][j]/nfloes[ny*i+j]);
                 }
 
                 if (dfloe[ny*i+j] > dfloe_pack_thresh)
                     dfloe[ny*i+j] = dfloe_pack_init;
+
+                //std::cout<<"----------------------complex case\n";
             }
 
-            ice_mask[i][j] = (ice_mask[i][j])*(1-wtr_mask[i][j])*(1-LANDMASK_array[i][j]);
+            //std::cout<<"ICE_MASK["<< i  << "," << j << "]= " << ice_mask[i][j] <<"\n";
+            //ice_mask[i][j] = (1-wtr_mask[i][j])*(1-LANDMASK_array[i][j]);
 
-            // if ((LANDMASK_array[i][j] == 1.) /*&& (!step)*/)
-            //     ice_mask[i][j] = 0.;
+            if ((LANDMASK_array[i][j] == 1.) /*&& (!step)*/)
+                ice_mask[i][j] = 0.;
         }
     }
+    //end: ideal ice conditions TODO sep function
+    //====================================================
 
 #if 0
     std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n";
@@ -576,6 +649,7 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
     std::cout<<"nfloes_acc= "<< std::accumulate(n_floes.begin(), n_floes.end(),0.) <<"\n";
 #endif
 
+    //std::cout<<"attenuation loop starts (big loop)\n";
     for (int fq = 0; fq < nwavefreq; fq++)
     {
 #pragma omp parallel for num_threads(max_threads) collapse(2)
@@ -616,15 +690,27 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
                     argT = outputs[7];
 
                     disp_ratio[i][j][fq] = (kice*modT)/kwtr;
-                    wlng_ice[i][j][fq] = 2*PI/kice;
-
-                    ag_eff[i][j][fq] = ag[fq];
-                    ap_eff[i][j][fq] = ap[fq];
-
-                    if (icevel)
+                    //wavelength to use in ice
+                    if (1)
                     {
-                        wlng_ice[i][j][fq] = wlng[fq];
+                       //use ice wavelength TODO make an option?
+                       wlng_ice[i][j][fq] = 2*PI/kice;
                     }
+                    else
+                    {
+                       //use water wavelength instead of ice wavelength
+                       wlng_ice[i][j][fq] = wlng[fq];
+                    }
+
+                    //group and phase velocities to use in ice
+                    if (!useicevel)
+                    {
+                       //water group and phase velocities
+                       //(ice ones not implemented)
+                       ag_eff[i][j][fq] = ag[fq];
+                       ap_eff[i][j][fq] = ap[fq];
+                    }
+
                 }
                 else
                 {
@@ -645,6 +731,7 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
             amin = *std::min_element(ag_eff.data(),ag_eff.data() + ag_eff.num_elements());
         }
     }
+    //std::cout<<"big loop done\n";
 
     if (!atten)
     {
@@ -652,6 +739,12 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
         std::fill( damping.data(), damping.data() + damping.num_elements(), 0. );
     }
 
+    //int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
+
+
+    // ========================================================================
+    // initialise sdf_dir from sdf_inc
+    // - only do this if step==0
     if (!step)
     {
         std::fill( sdf_dir.data(), sdf_dir.data() + sdf_dir.num_elements(), 0. );
@@ -668,20 +761,34 @@ void WimDiscr<T>::assign(std::vector<value_type> const& ice_c, std::vector<value
                         if (wave_mask[k][l] == 1.)
                         {
                             sdf_dir[k][l][j][i] = sdf_inc[k][l][j][i];
+                            //std::cout<<"sdf_dir[k][l][j][i]= "<< sdf_dir[k][l][j][i] <<"\n";
                         }
                     }
                 }
             }
         }
     }
+    // end: initialise sdf_dir from sdf_inc
+    // ========================================================================
+
 
     //dt = cfl*std::min(dx,dy)/amax;
+    amax = *std::max_element(ag_eff.data(),ag_eff.data() + ag_eff.num_elements());
     std::cout<<"dx= "<< dx <<"\n";
     std::cout<<"amax= "<< amax <<"\n";
     std::cout<<"cfl= "<< cfl <<"\n";
     dt = cfl*dx/amax;
+
+    //reduce time step slightly to make duration an integer multiple of dt
+    duration = vm["wim.duration"].template as<double>();
+    nt = std::ceil(duration/dt);
+    dt = duration/nt;
+
+
+    //ncs = std::ceil(nwavedirn/2);
     ncs = std::round(nwavedirn/2);
-}
+}//end: init()
+
 
 template<typename T>
 void WimDiscr<T>::timeStep(bool step)
@@ -698,13 +805,57 @@ void WimDiscr<T>::timeStep(bool step)
     mom2w.resize(boost::extents[nx][ny]);
 
     value_type E_tot, sig_strain, Pstrain, P_crit, wlng_crest, Dc;
-    value_type adv_dir, F, kicel, om, ommin, ommax, om1, lam1, lam2, dom, dave, c1d, tmp;
+    value_type adv_dir, F, kicel, om, ommin, ommax, om1, lam1, lam2, dom, c1d, tmp;
     int jcrest;
-    bool break_criterion;
+    bool break_criterion,test_ij;
+
+    value_type t_step = cpt*dt;//seconds from start time
+    std::string timestpstr = ptime(init_time_str, t_step);
+
+    // dump local diagnostic file
+    // - directory to put it
+    std::string outdir = vm["wim.outparentdir"].template as<std::string>();
+    fs::path path(outdir);
+    path /= "diagnostics/local";
+    if ( !fs::exists(path) )
+        fs::create_directories(path);
+
+    //set file name and open
+    std::string diagfile   = (boost::format( "%1%/WIMdiagnostics_local%2%.txt" )
+            % path.string() % timestpstr).str();
+
+    if ( dumpDiag )
+    {
+
+       std::fstream diagID(diagfile, std::ios::out | std::ios::trunc);
+       if (diagID.is_open())
+       {
+         //
+         //diagID << "20150101" << " # date";
+         //diagID << "04:06:35" << " # time";
+         //diagID << "042003" << " # model day";
+         //diagID << "14794.52055" << " # model second";
+         diagID << timestpstr << " # model time\n";
+         diagID << std::setw(16) << std::left
+            << wim_itest << " # itest\n";
+         diagID << std::setw(16) << std::left
+            << wim_jtest << " # jtest\n";
+         diagID << std::setw(16) << std::left
+            << ice_mask[wim_itest][wim_jtest] << " # ICE_MASK\n";
+       }
+       else
+       {
+         std::cout << "Cannot open " << diagfile  << "\n";
+         std::cerr << "error: open file " << diagfile << " for output failed!" <<"\n";
+         std::abort();
+       }
+       diagID.close();
+    }//end dumpDiag
 
     dom = 2*PI*(freq_vec[nwavefreq-1]-freq_vec[0])/(nwavefreq-1);
 
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
+
 
     if (vm["wim.steady"].template as<bool>())
     {
@@ -724,6 +875,7 @@ void WimDiscr<T>::timeStep(bool step)
                             if (steady_mask[k][l] > 0.)
                             {
                                 sdf_dir[k][l][j][i] = sdf_inc[k][l][j][i];
+                                //std::cout<<"sdf_dir[k][l][j][i]= "<< sdf_dir[k][l][j][i] <<"\n";
                             }
                         }
                     }
@@ -733,7 +885,55 @@ void WimDiscr<T>::timeStep(bool step)
         }
     }
 
-    dave = 0;
+    //calc mean floe size outside of frequency loop;
+    std::fill( dave.data(), dave.data() + dave.num_elements(), 0. );
+#pragma omp parallel for num_threads(max_threads) collapse(2)
+    for (int i = 0; i < nx; i++)
+    {
+       for (int j = 0; j < ny; j++)
+       {
+          if (ice_mask[i][j] == 1.)
+          {
+             if (dfloe[ny*i+j] <200.)
+             {
+                if ( fsdopt == "RG" )
+                {
+                    floeScaling(dfloe[ny*i+j],1,dave[i][j]);
+                }
+                else if ( fsdopt == "PowerLawSmooth" )
+                {
+                    floeScalingSmooth(dfloe[ny*i+j],1,dave[i][j]);
+                }
+             }
+             else
+             {
+                //just use uniform dist
+                dave[i][j] = dfloe[ny*i+j];
+             }
+          }
+
+
+          test_ij = (i==wim_itest) && (j==wim_jtest);
+          if ( dumpDiag && test_ij )
+          {
+             std::fstream diagID(diagfile, std::ios::out | std::ios::app);
+             diagID << "\nIce info: pre-breaking\n";
+             diagID << std::setw(16) << std::left
+                << icec[i][j] << " # conc\n";
+             diagID << std::setw(16) << std::left
+                << iceh[i][j] << " # h, m\n";
+             diagID << std::setw(16) << std::left
+                << dave[i][j] << " # D_av, m\n";
+             diagID << std::setw(16) << std::left
+                << dfloe[ny*i+j] << " # D_max, m\n";
+
+             if (atten)
+               diagID << "\n# period, s | atten_dim, m^{-1}| damp_dim, m^{-1}\n";
+
+             diagID.close();
+          }
+       }
+    }//end spatial loop i - have dave
 
     for (int fq = 0; fq < nwavefreq; fq++)
     {
@@ -745,25 +945,30 @@ void WimDiscr<T>::timeStep(bool step)
         {
             for (int j = 0; j < ny; j++)
             {
-                value_type dave, c1d;
+                value_type c1d;
                 if ((ice_mask[i][j] == 1.) && (atten))
                 {
-                    if (dfloe[ny*i+j] <200.)
-                        floeScaling(dfloe[ny*i+j],dave);
-                    else
-                        dave = dfloe[ny*i+j];
-
                     // floes per unit length
-                    c1d = icec[i][j]/dave;
+                    c1d = icec[i][j]/dave[i][j];
 
                     // scattering
                     atten_dim[i][j] = atten_nond[i][j][fq]*c1d;
 
                     // damping
                     damp_dim[i][j] = 2*damping[i][j][fq]*icec[i][j];
-                }
+
+                    test_ij = (i==wim_itest) && (j==wim_jtest);
+                    if ( dumpDiag && test_ij )
+                    {
+                       std::fstream diagID(diagfile, std::ios::out | std::ios::app);
+                       diagID << vec_period[fq] << "   "
+                              << atten_dim[i][j] << "   "
+                              << damp_dim[i][j] << "\n";
+                       diagID.close();
+                    }
+                }//end of ice check
             }
-        }
+        }//end of spatial loop i
 
 
         // copy for application of advAttenSimple
@@ -781,6 +986,7 @@ void WimDiscr<T>::timeStep(bool step)
             }
         }
 
+        // std::cout<<"applied advection starts\n";
         if (scatmod == "dissipated")
         {
             advAttenSimple(sdf3d_dir_temp, S_freq, taux_om, tauy_om, ag2d_eff_temp);
@@ -789,6 +995,7 @@ void WimDiscr<T>::timeStep(bool step)
         {
             advAttenIsotropic(sdf3d_dir_temp, S_freq, taux_om, tauy_om, ag2d_eff_temp);
         }
+        // std::cout<<"applied advection done\n";
 
         // update after application of advAttenSimple
 #pragma omp parallel for num_threads(max_threads) collapse(2)
@@ -801,7 +1008,10 @@ void WimDiscr<T>::timeStep(bool step)
                 for (int dn = 0; dn < nwavedirn; dn++)
                 {
                     sdf_dir[i][j][dn][fq] = sdf3d_dir_temp[i][j][dn];
+                    // std::cout<<"AFTER: SDIR["<< i << "," << j << "]= "<< sdf_dir[i][j][dn][fq] <<"\n";
                 }
+
+                //std::cout<<"AFTER: taux_om["<< i << "," << j << "]= "<< taux_om[i][j] <<"\n";
             }
         }
 
@@ -868,12 +1078,18 @@ void WimDiscr<T>::timeStep(bool step)
     // std::cout<<"Min f= " << _min <<"\n";
     // std::cout<<"Max f= " << _max <<"\n";
 
+
+    // for (int i = 0; i < nx; i++)
+    //     for (int j = 0; j < ny; j++)
+    //         std::cout << "VRT[" << i << "," << j << "]= " << var_strain[i][j] <<"\n";
+
     std::fill( Tp.data(), Tp.data() + Tp.num_elements(), 0. );
 
     if (ref_Hs_ice)
     {
         Hs = mom0;
         std::for_each(Hs.data(), Hs.data()+Hs.num_elements(), [&](value_type& f){ f = 4*std::sqrt(f); });
+        // std::fill( Tp.data(), Tp.data() + Tp.num_elements(), 0. );
 
 #pragma omp parallel for num_threads(max_threads) collapse(2)
         for (int i = 0; i < nx; i++)
@@ -890,27 +1106,70 @@ void WimDiscr<T>::timeStep(bool step)
         Hs = mom0w;
         std::for_each(Hs.data(), Hs.data()+Hs.num_elements(), [&](value_type& f){ f = 4*std::sqrt(f); });
 
+        // std::fill( Tp.data(), Tp.data() + Tp.num_elements(), 0. );
+        //std::fill( Hs.data(), Hs.data() + Hs.num_elements(), 0. );
+
 #pragma omp parallel for num_threads(max_threads) collapse(2)
         for (int i = 0; i < nx; i++)
         {
             for (int j = 0; j < ny; j++)
             {
+                //Hs[i][j] = 4*std::sqrt(mom0w[i][j]);
                 if (mom2w[i][j] > 0.)
                     Tp[i][j] = 2*PI*std::sqrt(mom0w[i][j]/mom2w[i][j]);
             }
         }
     }
 
+    //update mwd
     calcMWD();
+
+    if ( dumpDiag )
+    {
+       int i =  wim_itest;
+       int j =  wim_jtest;
+       std::fstream diagID(diagfile, std::ios::out | std::ios::app);
+
+       diagID << std::setw(16) << std::left
+          << mom0w[i][j] << " # mom0w, m^2\n";
+       diagID << std::setw(16) << std::left
+          << mom2w[i][j] <<" # mom2w, m^2/s^2\n";
+       diagID << std::setw(16) << std::left
+          << mom0[i][j] <<" # mom0, m^2\n";
+       diagID << std::setw(16) << std::left
+          << mom2[i][j] <<" # mom2, m^2/s^2\n";
+       diagID << std::setw(16) << std::left
+          << Hs[i][j] <<" # Hs, m\n";
+       diagID << std::setw(16) << std::left
+          << Tp[i][j] <<" # Tp, s\n";
+       diagID << std::setw(16) << std::left
+          << mwd[i][j] <<" # mwd, deg\n";
+       diagID << std::setw(16) << std::left
+          << tau_x[ny*i+j] <<" # tau_x, Pa\n";
+       diagID << std::setw(16) << std::left
+          << tau_y[ny*i+j] <<" # tau_y, Pa\n";
+       diagID.close();
+    }
+
 
     if (!(steady) && !(breaking))
     {
-        auto Hs_tmp = Hs;
-        std::for_each(Hs_tmp.data(), Hs_tmp.data()+Hs_tmp.num_elements(), [&](value_type& f){ f *= f; });
-        E_tot = std::accumulate(Hs_tmp.data(), Hs_tmp.data()+Hs_tmp.num_elements(),0.);
+       //check energy conservation
+       auto temparray = Hs;
+       std::for_each(
+             temparray.data(), temparray.data()+temparray.num_elements(),
+             [&](value_type& f){ f *= f; });
+       E_tot = std::accumulate(
+             temparray.data(), temparray.data()+temparray.num_elements(),0.);
+
+        // std::fill( var_strain.data(), var_strain.data()+var_strain.num_elements(), 1. );
+        // E_tot = std::accumulate(var_strain.data(), var_strain.data()+var_strain.num_elements(),0.);
+        // std::cout<<"Sum= "<< E_tot <<"\n";
     }
 
     // finally do floe breaking
+
+    //std::cout<<"max_threads= "<< max_threads <<"\n";
 
 #pragma omp parallel for num_threads(max_threads) collapse(2)
     for (int i = 0; i < nx; i++)
@@ -918,10 +1177,14 @@ void WimDiscr<T>::timeStep(bool step)
         for (int j = 0; j < ny; j++)
         {
             value_type E_tot, sig_strain, Pstrain, P_crit, wlng_crest, Dc;
-            value_type adv_dir, F, kicel, om, ommin, ommax, om1, lam1, lam2, /*dom,*/ dave, c1d, tmp;
+            value_type adv_dir, F, kicel, om, ommin, ommax, om1, lam1, lam2, c1d, tmp;
             int jcrest;
             bool break_criterion;
 
+            //std::cout << "MASK[" << i << "," << j << "]= " << ice_mask[i][j] << " and "<< mom0[i][j]  <<"\n";
+
+            Pstrain      = 0.;
+            P_crit       = std::exp(-1.0);
             if ((ice_mask[i][j] == 1.) && (mom0[i][j] >= 0.))
             {
                 // significant strain amp
@@ -930,12 +1193,12 @@ void WimDiscr<T>::timeStep(bool step)
                 // probability of critical strain
                 // being exceeded from Rayleigh distribution
                 Pstrain = std::exp( -std::pow(epsc,2.)/(2*var_strain[i][j]) );
-                P_crit = std::exp(-1.0);
 
                 break_criterion = (Pstrain >= P_crit) && breaking;
 
                 if (break_criterion)
                 {
+                    //std::cout << "TP[" << i << "," << j << "]= " << Tp[i][j] <<"\n";
                     om    = 2*PI/Tp[i][j];
                     ommin = 2*PI*freq_vec[0];
                     ommax = 2*PI*freq_vec[nwavefreq-1];
@@ -947,6 +1210,7 @@ void WimDiscr<T>::timeStep(bool step)
                     else
                     {
                         jcrest = std::floor((om-ommin+dom)/dom);
+                        // std::cout<<"jrest= "<< jcrest <<"\n";
                         om1 = 2*PI*freq_vec[jcrest-1];
                         lam1 = wlng_ice[i][j][jcrest-1];
                         lam2 = wlng_ice[i][j][jcrest];
@@ -957,18 +1221,35 @@ void WimDiscr<T>::timeStep(bool step)
                     dfloe[ny*i+j] = std::min<value_type>(Dc,dfloe[ny*i+j]);
                     //std::cout<<"DMAX= std::MAX("<< Dc << "," << dfloe[ny*i+j] <<")\n";
                 }
-            }
+            }//end test for ice and waves
             else if (wtr_mask[i][j] == 1.)
             {
                 dfloe[ny*i+j] = 0;
             }
 
-            nfloes[ny*i+j] = 0.;
+            //nfloes[ny*i+j] = 0.;
 
             if (dfloe[ny*i+j] > 0.)
                 nfloes[ny*i+j] = icec[i][j]/std::pow(dfloe[ny*i+j],2.);
+
+            test_ij  = (i==wim_itest)&&(j==wim_jtest);
+            if (dumpDiag && (ice_mask[i][j] == 1.) && test_ij)
+            {
+               //dump diagnostic even if no waves (but only if ice)
+               std::fstream diagID(diagfile, std::ios::out | std::ios::app);
+               diagID << "\nIce info: post-breaking\n";
+               diagID << std::setw(16) << std::left
+                  << Pstrain << " # P_strain\n";
+               diagID << std::setw(16) << std::left
+                  << P_crit << " # P_crit\n";
+               diagID << std::setw(16) << std::left
+                  << wlng_crest << " # peak wavelength, m\n";
+               diagID << std::setw(16) << std::left
+                  << dfloe[ny*i+j] << " # D_max, m\n";
+               diagID.close();
+            }
         }
-    }
+    }//end spatial loop i
 
 
     // for (int i = 0; i < nx; i++)
@@ -982,8 +1263,12 @@ void WimDiscr<T>::timeStep(bool step)
     // std::cout<<"Hs_max= "<< *std::max_element(Hs.data(), Hs.data()+Hs.num_elements()) <<"\n";
     // std::cout<<"Hs_min= "<< *std::min_element(Hs.data(), Hs.data()+Hs.num_elements()) <<"\n";
 
-    std::cout<<"taux_min= "<< *std::min_element(tau_x.begin(), tau_x.end()) <<"\n";
-    std::cout<<"taux_max= "<< *std::max_element(tau_x.begin(), tau_x.end()) <<"\n";
+    double taux_min  = *std::min_element(tau_x.begin(), tau_x.end());
+    std::cout<<"taux_min= "
+             <<std::setprecision(10)<< taux_min <<"\n";
+    double taux_max  = *std::max_element(tau_x.begin(), tau_x.end());
+    std::cout<<"taux_max= "
+             <<std::setprecision(10)<< taux_max <<"\n";
 
     // std::cout<<"------------------------------------------------------\n";
     // std::cout<<"dfloe_max= "<< *std::max_element(dfloe.data(), dfloe.data()+dfloe.num_elements()) <<"\n";
@@ -993,43 +1278,50 @@ void WimDiscr<T>::timeStep(bool step)
 template<typename T>
 void WimDiscr<T>::run(std::vector<value_type> const& ice_c, std::vector<value_type> const& ice_h, std::vector<value_type> const& n_floes, bool step)
 {
+    std::cout << "-----------------------Simulation started on "<< current_time_local() <<"\n";
+
+    //init_time_str is human readable time eg "2015-01-01 00:00:00"
+    //init_time is "formal" time format eg "20150101T000000Z"
+    init_time_str = vm["wim.initialtime"].as<std::string>();
+    std::string init_time = ptime(init_time_str);
+    std::cout<<"---------------INITIAL TIME= "<< init_time <<"\n";
+
     this->assign(ice_c,ice_h,n_floes,step);
 
-    value_type duration;
-    int nt;
     bool critter;
 
     std::cout<<"Running starts\n";
     chrono.restart();
-
-    //duration = 1.0e3*x_ext/u_ref;
-    duration = vm["wim.duration"].template as<double>();
-    duration = (vm["simul.timestep"].as<double>())*(vm["wim.couplingfreq"].as<int>());
-
-    //nt = std::floor(duration/dt);
-    //nt = std::round(duration/dt);
-    nt = std::ceil(duration/dt);
-    dt = duration/nt;//reduce time step slightly to make duration an integer multiple of dt
 
     std::cout<<"duration= "<< duration <<"\n";
     std::cout<<"amax= "<< amax <<"\n";
     std::cout<<"dt= "<< dt <<"\n";
     std::cout<<"nt= "<< nt <<"\n";
 
-    int cpt = 0;
-    if (!step)
-        fcpt = 0;
+
+    //if (vm["wim.checkinit"].template as<bool>())
+        exportResults("init",0);
+
+    if ((!vm["nextwim.docoupling"].template as<bool>()) || (!step))
+        cpt = 0;
 
     while (cpt < nt)
     {
         std::cout <<  ":[WIM2D TIME STEP]^"<< cpt+1 <<"\n";
-        value_type t_out = dt*fcpt;
+        value_type t_out = dt*cpt;
 
-        //critter = !(cpt % vm["wim.reps"].template as<int>()) && (vm["wim.checkprog"].template as<bool>());
-        critter = !(fcpt % 50) && (vm["wim.checkprog"].template as<bool>());
+        critter = !(cpt % vm["wim.dumpfreq"].template as<int>())
+           && (vm["wim.checkprog"].template as<bool>());
+        dumpDiag  = !(cpt % vm["wim.dumpfreq"].template as<int>())
+           && (wim_itest>0) && (wim_jtest>0);
 
-        if ((vm["wim.exportresults"].template as<bool>()) && (critter))
-            exportResults(fcpt,t_out);
+        if ( critter )
+        {
+            if (vm["nextwim.exportresults"].template as <bool>())
+                exportResults("prog",t_out);//global counter from nextsim
+           //else
+           //exportResults(cpt,t_out);//local counter from wim
+        }
 
         // if (cpt == 30)
         // {
@@ -1041,44 +1333,95 @@ void WimDiscr<T>::run(std::vector<value_type> const& ice_c, std::vector<value_ty
 
         timeStep(step);
 
-        ++cpt;
-        ++fcpt;
+        ++cpt;//local counter incremented in wim.run()
     }
 
+    //if (vm["wim.checkfinal"].template as<bool>())
+       exportResults("out",nt*dt);
+
+    // save diagnostic file
+    save_log(nt*dt);
+
     std::cout<<"Running done in "<< chrono.elapsed() <<"s\n";
+
+    std::cout << "-----------------------Simulation completed on "<< current_time_local() <<"\n";
 }
 
 template<typename T>
-void WimDiscr<T>::floeScaling(value_type const& dmax, value_type& dave)
+void WimDiscr<T>::floeScaling(
+      value_type const& dmax, int const& moment, value_type& dave_)
 {
-    int mm = 0;
-    value_type n, nsum, nd, ndsum, r, dfac;
+    value_type nm,nm1,dm,nsum,ndsum,r;
 
-    r = dmax/dmin;
-    n = nsum = nd = ndsum = dfac = 0;
+    int mm;
+    value_type ffac     = fragility*std::pow(xi,2);
 
-    while (r > xi)
+    dave_ = std::max(std::pow(dmin,moment),std::pow(dmax,moment));
+    if (dmax>=xi*dmin)
     {
-        r  = r/xi;
-        ++mm;
+       //determine number of breaks
+       r    = dmax/dmin;
+       mm   = 0;
+       while (r >= xi)
+       {
+          //r<2,mm=0 => doesn't break in 2
+          //dave stays at dmax^moment;
+          r  = r/xi;
+          ++mm;
+       }
+
+       if (mm > 0)
+       {
+          nm1   = 1.;
+          dm    = dmax; //floe length
+          nsum  = 0.;   //eventually \sum_m=0^mm.n_m
+          ndsum = 0.;   //eventually \sum_m=0^mm.n_m.d_m^moment
+
+          for (int m=0; m<mm; ++m)
+          {
+              //no of floes of length dm;
+              nm     = nm1*(1-fragility);
+              nsum  += nm;
+              ndsum += nm*std::pow(dm,moment);
+              //std::cout<<"nsum,dm: "<<nsum<<" , "<<dm<<"\n";
+
+              nm1   *= ffac;
+              dm    /= xi;
+          }
+
+          //m=mm:
+          nsum   += nm1;
+          ndsum  += nm1*std::pow(dm,moment);
+          dave_   = ndsum/nsum;
+          //std::cout<<"nsum,dm: "<<nsum<<" , "<<dm<<"\n";
+       }
     }
+}
 
-    if (mm > 0)
+template<typename T>
+void WimDiscr<T>::floeScalingSmooth(
+      value_type const& dmax,int const& moment, value_type& dave_)
+{
+    value_type fsd_exp,b,A;
+
+    fsd_exp = 2+log(fragility)/log(xi);//power law exponent: P(d>D)=(D_min/D)^fsd_exp;
+    b       = moment-fsd_exp;
+
+    // calculate <D^moment> from Dmax
+    // - uniform dist for larger floes
+    dave_ = std::pow(dmax,moment);
+
+    if (dmax<=dmin)
     {
-        for (int m=0; m<mm+1; ++m)
-        {
-            n = (1.0-fragility)*std::pow((fragility*std::pow(xi,2.)),m);
-            nd = n/(std::pow(xi,double(m)));
-            nsum += n;
-            ndsum += nd;
-            dfac = ndsum/nsum;
-        }
-
-        dave = dfac*dmax;
+       // small floes
+       dave_ = std::pow(dmin,moment);
     }
     else
     {
-        dave = dmin;
+       // bigger floes
+       A     = (fsd_exp*std::exp(fsd_exp*(std::log(dmin)+std::log(dmax))));
+       A     = A/(std::exp(fsd_exp*std::log(dmax))-std::exp(fsd_exp*std::log(dmin)));
+       dave_ = -(A/b)*(std::exp(b*std::log(dmin))-exp(b*std::log(dmax)));
     }
 }
 
@@ -1189,6 +1532,7 @@ void WimDiscr<T>::advAttenSimple(array3_type& Sdir, array2_type& Sfreq, array2_t
             {
                 Sfreq[i][j] += wt_theta[wnd]*Sdir[i][j][wnd];
             }
+            //std::cout<<"taux_om["<< i << "," << j << "]= "<< taux_om[i][j] <<"\n";
         }
     }
 }
@@ -1432,78 +1776,77 @@ void WimDiscr<T>::waveAdvWeno(array2_type& h, array2_type const& u, array2_type 
     array2_type hp_temp;
     hp_temp.resize(boost::extents[nx][ny]);
 
-	padVar(u, u_pad);
-	padVar(v, v_pad);
-	padVar(SCP2_array, scp2_pad);
+    padVar(u, u_pad);
+    padVar(v, v_pad);
+    padVar(SCP2_array, scp2_pad);
     padVar(SCP2I_array, scp2i_pad);
     padVar(SCUY_array, scuy_pad);
     padVar(SCVX_array, scvx_pad);
     padVar(h, h_pad);
+      // TODO in fortran/matlab code,
+      // h is treated differently from u,v etc
+      // - they are always doubly periodic BC's
+      // - may need to check with other BS's
 
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
     // prediction step
     weno3pdV2(h_pad, u_pad, v_pad, scuy_pad, scvx_pad, scp2i_pad, scp2_pad, sao);
 
-#pragma omp parallel for num_threads(max_threads) collapse(2)
-    for (int i = 0; i < nx; i++)
+    if (nghost==3)
     {
-        for (int j = 0; j < ny; j++)
-        {
-            hp[i+nbdx][j+nbdy] = h_pad[i+nbdx][j+nbdy]+dt*sao[i+nbdx][j+nbdy];
-        }
-    }
-
+       // if only using nghost==3, need to apply boundary conditions
+       // before correction step
 #pragma omp parallel for num_threads(max_threads) collapse(2)
-    for (int i = 0; i < nx; i++)
-    {
-        for (int j = 0; j < ny; j++)
-        {
-            hp_temp[i][j] = hp[i+nbdx][j+nbdy];
-        }
-    }
+       for (int i = 0; i < nx; i++)
+       {
+           for (int j = 0; j < ny; j++)
+           {
+               hp[i+nbdx][j+nbdy] = h_pad[i+nbdx][j+nbdy]+dt*sao[i+nbdx][j+nbdy];
+               hp_temp[i][j]      = hp[i+nbdx][j+nbdy];
+           }
+       }
 
-    padVar(hp_temp,hp);
+       padVar(hp_temp,hp);//apply boundary conditions
+    }
+    else if (nghost>3)
+    {
+       // if using nghost>3, don't need to apply boundary conditions
+       //  before correction step,
+       // but need to loop over full padded domain
+
+       //std::cout<<"not using padVar\n";
+#pragma omp parallel for num_threads(max_threads) collapse(2)
+       for (int i = 0; i < nxext; i++)
+       {
+           for (int j = 0; j < nyext; j++)
+           {
+               hp[i][j] = h_pad[i][j]+dt*sao[i][j];
+           }
+       }
+    }
+    else
+    {
+       std::cerr<<std::endl
+                <<"Advection (WENO): 'nghost' should be >=3"
+                <<std::endl;
+       std::abort();
+    }
 
     // correction step
     weno3pdV2(hp, u_pad, v_pad, scuy_pad, scvx_pad, scp2i_pad, scp2_pad, sao);
 
-#if 0
-    for (int i = 0; i < nxext; i++)
-    {
-        for (int j = 0; j < nyext; j++)
-        {
-            h_pad[i][j] = 0.5*(h_pad[i][j]+hp[i][j]+dt*sao[i][j]);
-        }
-    }
 
-    for (int i = nbdx; i < nx+nbdx; i++)
-    {
-        for (int j = nbdy; j < ny+nbdy; j++)
-        {
-            h[i-nbdx][j-nbdy] = h_pad[i][j];
-
-            // mask land (no waves on land)
-            h[i-nbdx][j-nbdy] = h[i-nbdx][j-nbdy]*(1-LANDMASK_array[i-nbdx][j-nbdy]);
-        }
-    }
-#endif
-
+    //final output
 #pragma omp parallel for num_threads(max_threads) collapse(2)
     for (int i = 0; i < nx; i++)
     {
         for (int j = 0; j < ny; j++)
         {
             h[i][j] = 0.5*(h_pad[i+nbdx][j+nbdy]+hp[i+nbdx][j+nbdy]+dt*sao[i+nbdx][j+nbdy]);
-        }
-    }
 
-#pragma omp parallel for num_threads(max_threads) collapse(2)
-    for (int i = 0; i < nx; i++)
-    {
-        for (int j = 0; j < ny; j++)
-        {
-            h[i][j] = h[i][j]*(1-LANDMASK_array[i][j]);
+            //mask land cells
+            h[i][j] *= 1-LANDMASK_array[i][j];
         }
     }
 }
@@ -1531,11 +1874,11 @@ void WimDiscr<T>::weno3pdV2(array2_type const& gin, array2_type const& u, array2
 
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
-    // fluxes in x directional
+    // fluxes in x direction
 #pragma omp parallel for num_threads(max_threads) collapse(2)
-    for (int i = nbdx-1; i < nx+nbdx+2; i++)
+    for (int i = 2; i < nxext-1; i++)
     {
-        for (int j = nbdy-ymargin; j < ny+nbdy+ymargin; j++)
+        for (int j = 0; j < nyext; j++)
         {
             value_type q0, q1, a0, a1, q;
             int im1, im2, ip1, jm1, jm2, jp1, ymargin;
@@ -1577,9 +1920,9 @@ void WimDiscr<T>::weno3pdV2(array2_type const& gin, array2_type const& u, array2
     if (advdim == 2)
     {
 #pragma omp parallel for num_threads(max_threads) collapse(2)
-        for (int i = nbdx-1; i < nx+nbdx+1; i++)
+        for (int i = 0; i < nxext; i++)
         {
-            for (int j = nbdy-1; j < ny+nbdy+2; j++)
+            for (int j = 2; j < nyext-1; j++)
             {
                 value_type q0, q1, a0, a1, q;
                 int im1, im2, ip1, jm1, jm2, jp1, ymargin;
@@ -1612,9 +1955,9 @@ void WimDiscr<T>::weno3pdV2(array2_type const& gin, array2_type const& u, array2
 
     // update field with low order fluxes
 #pragma omp parallel for num_threads(max_threads) collapse(2)
-    for (int i = nbdx-1; i < nx+nbdx+1; i++)
+    for (int i = 0; i < nxext-1; i++)
     {
-        for (int j = nbdy-ymargin; j < ny+nbdy+ymargin; j++)
+        for (int j = 0; j < nyext-ymargin; j++)//nyext-1 if 2d advection; else nyext
         {
             if (advdim == 2)
             {
@@ -1631,11 +1974,13 @@ void WimDiscr<T>::weno3pdV2(array2_type const& gin, array2_type const& u, array2
 
     // // obtain fluxes with limited high order correction fluxes
 #pragma omp parallel for num_threads(max_threads) collapse(2)
-    for (int i = nbdx; i < nx+nbdx+1; i++)
+    for (int i = 1; i < nxext; i++)
     {
-        for (int j = nbdy; j < ny+nbdy; j++)
+        for (int j = 0; j < nyext; j++)
         {
-            fuh[i][j] = ful[i][j]+std::max(-q*gt[i][j]*scp2[i][j],std::min(q*gt[i-1][j]*scp2[i-1][j],fuh[i][j]));
+            fuh[i][j] = ful[i][j]+
+               std::max(-q*gt[i][j]*scp2[i][j],
+                        std::min(q*gt[i-1][j]*scp2[i-1][j],fuh[i][j]));
         }
     }
 
@@ -1643,11 +1988,13 @@ void WimDiscr<T>::weno3pdV2(array2_type const& gin, array2_type const& u, array2
     if (advdim == 2)
     {
 #pragma omp parallel for num_threads(max_threads) collapse(2)
-        for (int i = nbdx; i < nx+nbdx; i++)
+        for (int i = 0; i < nxext; i++)
         {
-            for (int j = nbdy; j < ny+nbdy+1; j++)
+            for (int j = 1; j < nyext; j++)
             {
-                fvh[i][j]=fvl[i][j]+std::max(-q*gt[i][j]*scp2[i][j],std::min(q*gt[i][j-1]*scp2[i][j-1],fvh[i][j]));
+                fvh[i][j]=fvl[i][j]+
+                   std::max(-q*gt[i][j]*scp2[i][j],
+                            std::min(q*gt[i][j-1]*scp2[i][j-1],fvh[i][j]));
             }
         }
     }
@@ -1655,9 +2002,9 @@ void WimDiscr<T>::weno3pdV2(array2_type const& gin, array2_type const& u, array2
 #if 1
     // compute the spatial advective operator
 #pragma omp parallel for num_threads(max_threads) collapse(2)
-    for (int i = nbdx; i < nx+nbdx; i++)
+    for (int i = 0; i < nxext-1; i++)
     {
-        for (int j = nbdy; j < ny+nbdy; j++)
+        for (int j = 0; j < nyext-ymargin; j++)
         {
             if (advdim == 2)
             {
@@ -1693,15 +2040,18 @@ void WimDiscr<T>::padVar(array2_type const& u, array2_type& upad)
 
             if (advdim == 1)
             {
-                // make periodic in i
-                if ((i < nbdx) && (nbdy-1 < j) && (j < ny+nbdy))
+                if (advopt != "notperiodic")
                 {
-                    upad[i][j] = u[nx-nbdx+i][j-nbdy];
-                }
+                   // make periodic in i
+                   if ((i < nbdx) && (nbdy-1 < j) && (j < ny+nbdy))
+                   {
+                       upad[i][j] = u[nx-nbdx+i][j-nbdy];
+                   }
 
-                if ((nx+nbdx-1 < i) && (nbdy-1 < j) && (j < ny+nbdy))
-                {
-                    upad[i][j] = u[i-nx-nbdx][j-nbdy];
+                   if ((nx+nbdx-1 < i) && (nbdy-1 < j) && (j < ny+nbdy))
+                   {
+                       upad[i][j] = u[i-nx-nbdx][j-nbdy];
+                   }
                 }
             }
             else if (advdim == 2)
@@ -1765,13 +2115,12 @@ void WimDiscr<T>::padVar(array2_type const& u, array2_type& upad)
 template<typename T>
 void WimDiscr<T>::calcMWD()
 {
-    value_type adv_dir, wt_theta, om;
-    array2_type cmom0,cmom_dir,CSfreq, cmom_dir0, CF;
+    value_type adv_dir, wt_theta, om, CF;
+    array2_type cmom0,cmom_dir,CSfreq, cmom_dir0;
     cmom0.resize(boost::extents[nx][ny]);
     cmom_dir.resize(boost::extents[nx][ny]);
     CSfreq.resize(boost::extents[nx][ny]);
     cmom_dir0.resize(boost::extents[nx][ny]);
-    CF.resize(boost::extents[nx][ny]);
 
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
@@ -1804,7 +2153,7 @@ void WimDiscr<T>::calcMWD()
                     cmom_dir0[i][j] += wt_theta*sdf_dir[i][j][dn][fq]*adv_dir;
                 }
             }
-        }
+        }//end loop over directions (still in freq loop)
 
 #pragma omp parallel for num_threads(max_threads) collapse(2)
         for (int i = 0; i < nx; i++)
@@ -1812,16 +2161,17 @@ void WimDiscr<T>::calcMWD()
             for (int j = 0; j < ny; j++)
             {
                 if (ref_Hs_ice)
-                    CF[i][j] = disp_ratio[i][j][fq];
+                    CF = std::pow(disp_ratio[i][j][fq],2);
                 else
-                    CF[i][j] = 1;
+                    CF = 1.;
 
-                cmom0[i][j] += std::abs(wt_om[fq]*std::pow(CF[i][j],2.)*CSfreq[i][j]);
-                cmom_dir[i][j] += std::abs(wt_om[fq]*std::pow(CF[i][j],2.)*cmom_dir0[i][j]);
+                cmom0[i][j]    += std::abs(wt_om[fq]*CF*CSfreq[i][j]);
+                cmom_dir[i][j] += std::abs(wt_om[fq]*CF*cmom_dir0[i][j]);
             }
-        }
-    }
+        }//end spatial loop i
+    }//end freq loop
 
+    //assign mwd
     std::fill( mwd.data(), mwd.data() + mwd.num_elements(), 0. );
 
 #pragma omp parallel for num_threads(max_threads) collapse(2)
@@ -1832,8 +2182,65 @@ void WimDiscr<T>::calcMWD()
             if (cmom0[i][j] > 0.)
                 mwd[i][j] = -90.-180*(cmom_dir[i][j]/cmom0[i][j])/PI;
         }
+    }//end spatial loop i
+
+}//end calcMWD
+
+template<typename T>
+typename WimDiscr<T>::value_type
+WimDiscr<T>::thetaDirFrac(value_type const& th1_, value_type const& dtheta_, value_type const& mwd_)
+{
+    value_type mwd = thetaInRange(mwd_,th1_);   // th1_<=mwd<th1_+360
+    value_type th2   = th1_ + dtheta_;
+
+    if ((mwd > th2) && ((mwd - th2) > std::abs(mwd-360-th1_)))
+    {
+        mwd   = mwd - 360.;
     }
 
+    value_type th1 = std::max<value_type>(mwd-90.,th1_);
+    th2 = std::min<value_type>(mwd+90.,th2);
+    th2 = std::max<value_type>(th1,th2); //!make th2>=th1
+
+    value_type chi1 = PI*(th1-mwd)/180.;
+    value_type chi2 = PI*(th2-mwd)/180.;
+
+    value_type theta_dirfrac  = 2*(chi2-chi1)+std::sin(2*chi2)-std::sin(2*chi1);
+    theta_dirfrac  = theta_dirfrac/(2*PI);
+
+    return theta_dirfrac;
+}
+
+template<typename T>
+typename WimDiscr<T>::value_type
+WimDiscr<T>::thetaInRange(value_type const& th_, value_type const& th1)
+{
+    value_type th2, dth, th;
+    int njump;
+
+    th2   = th1 + 360.;
+    if (th_ < th1)
+    {
+        dth   = th1 - th_;
+        njump = std::ceil(dth/360.);
+        th    = th_ + njump*360.;
+    }
+    else if (th_ > th2)
+    {
+        dth   = th_ - th2;
+        njump = std::ceil(dth/360.);
+        th = th_ - njump*360.;
+    }
+    else if (th_ == th2)
+    {
+        th = th1;
+    }
+    else
+    {
+        th = th_;
+    }
+
+    return th;
 }
 
 template<typename T>
@@ -1889,105 +2296,160 @@ void WimDiscr<T>::readDataFromFile(std::string const& filein)
 }
 
 template<typename T>
-void WimDiscr<T>::exportResults(size_type const& timestp, value_type const& t_out) const
+void WimDiscr<T>::exportResults(std::string const& output_type,
+                                 value_type const& t_out) const
 {
 
     std::string str = vm["wim.outparentdir"].template as<std::string>();
 
-    char * senv = ::getenv( "WIM2D_PATH" );
-    if ( (str == ".") && (senv != NULL) && (senv[0] != '\0') )
-    {
-        str = std::string( senv ) + "/CXX";
-    }
+    //char * senv = ::getenv( "WIM2D_PATH" );
+    //if ( (str == ".") && (senv != NULL) && (senv[0] != '\0') )
+    //{
+    //    str = std::string( senv ) + "/CXX";
+    //}
 
     fs::path path(str);
-    path /= "outputs/binaries/prog";
+    std::string init_time  = ptime(init_time_str);
+    std::string timestpstr = ptime(init_time_str, t_out);
+    std::string fileout,fileoutb;
+    if ( output_type == "prog" )
+    {
+       path   /= "binaries/prog";
+       fileout = (boost::format( "%1%/wim_prog%2%" ) % path.string() % timestpstr).str();
+    }
+    else if ( output_type == "out" )
+    {
+       path   /= "binaries";
+       fileout = (boost::format( "%1%/wim_out%2%" ) % path.string() % timestpstr).str();
+    }
+    else if ( output_type == "init" )
+    {
+       path   /= "binaries";
+       fileout = (boost::format( "%1%/wim_init%2%" ) % path.string() % init_time).str();
+    }
 
+    fileoutb   = fileout+".b";
+    fileout    = fileout+".a";
     if ( !fs::exists(path) )
         fs::create_directories(path);
 
-    std::string timestpstr = std::string(4-std::to_string(timestp).length(),'0') + std::to_string(timestp);
-
-    std::string fileout = (boost::format( "%1%/wim_prog%2%.a" ) % path.string() % timestpstr).str();
     std::fstream out(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
-
     if (out.is_open())
     {
-        for (int i = 0; i < icec.shape()[0]; i++)
-            for (int j = 0; j < icec.shape()[1]; j++)
-                out.write((char *)&icec[i][j], sizeof(value_type));
+       if ( output_type == "init" )
+       {
+           for (int i = 0; i < icec.shape()[0]; i++)
+               for (int j = 0; j < icec.shape()[1]; j++)
+                   out.write((char *)&icec[i][j], sizeof(value_type));
 
-        for (int i = 0; i < iceh.shape()[0]; i++)
-            for (int j = 0; j < iceh.shape()[1]; j++)
-                out.write((char *)&iceh[i][j], sizeof(value_type));
-#if 0
-        for (int i = 0; i < dfloe.shape()[0]; i++)
-            for (int j = 0; j < dfloe.shape()[1]; j++)
-                out.write((char *)&dfloe[i][j], sizeof(value_type));
+           for (int i = 0; i < iceh.shape()[0]; i++)
+               for (int j = 0; j < iceh.shape()[1]; j++)
+                   out.write((char *)&iceh[i][j], sizeof(value_type));
+       }
 
-        for (int i = 0; i < tau_x.shape()[0]; i++)
-            for (int j = 0; j < tau_x.shape()[1]; j++)
-                out.write((char *)&tau_x[i][j], sizeof(value_type));
+       for (int i = 0; i < nx; i++)
+           for (int j = 0; j < ny; j++)
+               out.write((char *)&dfloe[ny*i+j], sizeof(value_type));
 
-        for (int i = 0; i < tau_y.shape()[0]; i++)
-            for (int j = 0; j < tau_y.shape()[1]; j++)
-                out.write((char *)&tau_y[i][j], sizeof(value_type));
-#endif
+       if ( output_type == "init" )
+       {
+          for (int i = 0; i < nx; i++)
+              for (int j = 0; j < ny; j++)
+                  out.write((char *)&tau_x[ny*i+j], sizeof(value_type));
 
-        for (int i = 0; i < nx; i++)
-            for (int j = 0; j < ny; j++)
-                out.write((char *)&dfloe[ny*i+j], sizeof(value_type));
-
-        for (int i = 0; i < nx; i++)
-            for (int j = 0; j < ny; j++)
-                out.write((char *)&tau_x[ny*i+j], sizeof(value_type));
-
-        for (int i = 0; i < nx; i++)
-            for (int j = 0; j < ny; j++)
-                out.write((char *)&tau_y[ny*i+j], sizeof(value_type));
+          for (int i = 0; i < nx; i++)
+              for (int j = 0; j < ny; j++)
+                  out.write((char *)&tau_y[ny*i+j], sizeof(value_type));
+       }
 
 
-        for (int i = 0; i < Hs.shape()[0]; i++)
-            for (int j = 0; j < Hs.shape()[1]; j++)
-                out.write((char *)&Hs[i][j], sizeof(value_type));
+       for (int i = 0; i < Hs.shape()[0]; i++)
+           for (int j = 0; j < Hs.shape()[1]; j++)
+               out.write((char *)&Hs[i][j], sizeof(value_type));
 
-        for (int i = 0; i < Tp.shape()[0]; i++)
-            for (int j = 0; j < Tp.shape()[1]; j++)
-                out.write((char *)&Tp[i][j], sizeof(value_type));
+       for (int i = 0; i < Tp.shape()[0]; i++)
+           for (int j = 0; j < Tp.shape()[1]; j++)
+               out.write((char *)&Tp[i][j], sizeof(value_type));
 
-        out.close();
+       for (int i = 0; i < mwd.shape()[0]; i++)
+           for (int j = 0; j < mwd.shape()[1]; j++)
+               out.write((char *)&mwd[i][j], sizeof(value_type));
+
+       out.close();
     }
     else
     {
-        std::cout << "Cannot open " << fileout  << "\n";
-        std::cerr << "error: open file " << fileout << " for output failed!" <<"\n";
-        std::abort();
+       std::cout << "Cannot open " << fileout  << "\n";
+       std::cerr << "error: open file " << fileout << " for output failed!" <<"\n";
+       std::abort();
     }
 
     // export the txt file for grid field information
-    std::string fileoutb = (boost::format( "%1%/wim_prog%2%.b" ) % path.string() % timestpstr).str();
     std::fstream outb(fileoutb, std::ios::out | std::ios::trunc);
 
     if (outb.is_open())
     {
-        outb << std::setw(15) << std::left << "07"  << "    Nrecs    # "<< "Number of records" <<"\n";
+        outb << std::setw(15) << std::left << "06"  << "    Nrecs    # "<< "Number of records" <<"\n";
         outb << std::setw(15) << std::left << "0"   << "    Norder   # "<< "Storage order [column-major (F/matlab) = 1; row-major (C) = 0]" <<"\n";
         outb << std::setw(15) << std::left << nx    << "    nx       # "<< "Record length in x direction (elements)" <<"\n";
         outb << std::setw(15) << std::left << ny    << "    ny       # "<< "Record length in y direction (elements)" <<"\n";
-        outb << std::setw(15) << std::left << t_out << "    t_out    # "<< "Model time of output (s)" <<"\n";
-        //outb << std::setw(15) << std::left << nwavefreq << "          "<< "Number of wave frequencies" <<"\n";
-        //outb << std::setw(15) << std::left << nwavedirn << "          "<< "Number of wave directions" <<"\n";
 
         outb <<"\n";
+        outb << std::left << init_time << "    t_start    # "<< "Model time of WIM call" <<"\n";
+        outb << std::left << timestpstr << "    t_out    # "<< "Model time of output" <<"\n";
 
+        outb <<"\n";
         outb << "Record number and name:" <<"\n";
-        outb << std::setw(9) << std::left << "01" << "icec" <<"\n";
-        outb << std::setw(9) << std::left << "02" << "iceh" <<"\n";
-        outb << std::setw(9) << std::left << "03" << "Dmax" <<"\n";
-        outb << std::setw(9) << std::left << "04" << "tau_x" <<"\n";
-        outb << std::setw(9) << std::left << "05" << "tau_y" <<"\n";
-        outb << std::setw(9) << std::left << "06" << "Hs" <<"\n";
-        outb << std::setw(9) << std::left << "07" << "Tp" <<"\n";
+
+        int recno = 1;
+        std::string rstr;
+
+        if ( output_type == "init" )
+        {
+           rstr   = std::string(2-std::to_string(recno).length(),'0')
+              + std::to_string(recno);
+           outb << std::setw(9) << rstr << "icec" <<"\n";
+           ++recno;
+           //
+           rstr   = std::string(2-std::to_string(recno).length(),'0')
+              + std::to_string(recno);
+           outb << std::setw(9) << rstr << "iceh" <<"\n";
+           ++recno;
+        }
+
+        rstr   = std::string(2-std::to_string(recno).length(),'0')
+           + std::to_string(recno);
+        outb << std::setw(9) << rstr << "Dmax" <<"\n";
+        ++recno;
+
+        if ( output_type != "init" )
+        {
+           rstr   = std::string(2-std::to_string(recno).length(),'0')
+              + std::to_string(recno);
+           outb << std::setw(9) << rstr << "tau_x" <<"\n";
+           ++recno;
+           //
+           rstr   = std::string(2-std::to_string(recno).length(),'0')
+              + std::to_string(recno);
+           outb << std::setw(9) << rstr << "tau_y" <<"\n";
+           ++recno;
+        }
+
+        rstr   = std::string(2-std::to_string(recno).length(),'0')
+           + std::to_string(recno);
+        outb << std::setw(9) << rstr << "Hs" <<"\n";
+        ++recno;
+        //
+        rstr   = std::string(2-std::to_string(recno).length(),'0')
+           + std::to_string(recno);
+        outb << std::setw(9) << rstr << "Tp" <<"\n";
+        ++recno;
+        //
+        rstr   = std::string(2-std::to_string(recno).length(),'0')
+           + std::to_string(recno);
+        outb << std::setw(9) << rstr << "mwd" <<"\n";
+        ++recno;
+        outb.close();
     }
     else
     {
@@ -1995,6 +2457,144 @@ void WimDiscr<T>::exportResults(size_type const& timestp, value_type const& t_ou
         std::cerr << "error: open file " << fileoutb << " for output failed!" <<"\n";
         std::abort();
     }
+}
+
+template<typename T>
+void WimDiscr<T>::save_log(value_type const& t_out) const
+{
+    std::string str = vm["wim.outparentdir"].template as<std::string>();
+    fs::path path(str);
+    path /= "diagnostics/global";
+    if ( !fs::exists(path) )
+       fs::create_directories(path);
+
+    std::string init_time  = ptime(init_time_str);
+    std::string timestpstr = ptime(init_time_str, t_out);
+    std::string fileout    = (boost::format( "%1%/WIMdiagnostics%2%.txt" ) % path.string() % init_time).str();
+
+    std::fstream out(fileout, std::ios::out | std::ios::trunc);
+    if ( !out.is_open() )
+    {
+        std::cout << "Cannot open " << fileout  << "\n";
+        std::cerr << "error: open file " << fileout << " for output failed!" <<"\n";
+        std::abort();
+    }
+
+    out << "***********************************************\n";
+    out << "Outer subroutine:\n";
+    out << ">> " << "wimdiscr.cpp\n\n";
+    out << std::left << std::setw(32) << "Start time:  " << init_time << "\n";
+    out << std::left << std::setw(32) << "Output time: " << timestpstr << "\n";
+    out << "***********************************************\n";
+
+    out << "\n***********************************************\n";
+    out << "Main parameters:" << "\n";
+    out << std::left << std::setw(32) << "SCATMOD:" << scatmod << "\n";
+    out << std::left << std::setw(32) << "ADV_DIM:" << advdim << "\n";
+    out << std::left << std::setw(32) << "ADV_OPT:" << advopt << "\n";
+#if 0
+    //TODO implement brkopt
+    out << std::left << std::setw(32) << "BRK_OPT:" << brkopt << "\n";
+    if (BRK_OPT.eq.0) then
+       write(fid,'(a)'),'(No breaking)'
+    elseif (BRK_OPT.eq.1) then
+       write(fid,'(a)'),'(Williams et al, 2013, Oc Mod)'
+    elseif (BRK_OPT.eq.2) then
+       write(fid,'(a)'),'(Marchenko)'
+    elseif (BRK_OPT.eq.3) then
+       write(fid,'(a)'),'(Mohr-Coulomb)'
+    end if
+#endif
+    out << std::left << std::setw(32) << "STEADY:" << steady << "\n";
+    out << std::left << std::setw(32) << "DO_ATTEN:" << atten << "\n";
+    out << "***********************************************\n";
+
+    out << "\n***********************************************\n";
+    out << "Other integer parameters:" << "\n";
+    out << std::left << std::setw(32) << "FSD_OPT:" << fsdopt << "\n";
+    out << "***********************************************\n";
+
+    out << "\n***********************************************\n";
+    out << "WIM parameters:" << "\n";
+    out << std::left << std::setw(32) << "Brine volume fraction:" << vbf << "\n";
+    out << std::left << std::setw(32) << "Youngs modulus (Pa):" << young << "\n";
+    out << std::left << std::setw(32) << "Flexural strength (Pa):" << sigma_c << "\n";
+//    out << std::left << std::setw(32) << "Breaking stress (Pa):" << stress_c << "\n";
+    out << std::left << std::setw(32) << "Breaking strain:" << epsc << "\n";
+    out << std::left << std::setw(32) << "Damping (Pa.s/m):" << visc_rp << "\n";
+    out << "***********************************************\n";
+
+    out << "\n***********************************************\n";
+    out << "Other parameters:" << "\n";
+    out << std::left << std::setw(32) << "Time step (s):" << dt << "\n";
+    out << std::left << std::setw(32) << "CFL number:" << cfl << "\n";
+    out << std::left << std::setw(32) << "Max wave group vel (m/s):" << amax << "\n";
+    out << std::left << std::setw(32) << "Number of time steps:" << nt << "\n";
+    out << std::left << std::setw(32) << "Time interval (h):" << duration/60.0/60.0 << "\n";
+    out << "***********************************************\n";
+
+    out << "\n***********************************************\n";
+    out << std::left << std::setw(32) << "Grid dimensions:" << nx << ", " << ny << "\n";
+    out << std::left << std::setw(32) << "Spatial resolution (km):" << dx/1.0e3 << ", " << dy/1.0e3 << "\n";
+    out << std::left << std::setw(32) << "Extent of domain (km):" << nx*dx/1.e3 << ", " << ny*dy/1.e3 << "\n";
+    out << std::left << std::setw(32) << "Minimum period (s):" << 1.0/freq_vec[nwavefreq-1] << "\n";
+    out << std::left << std::setw(32) << "Maximum period (s):" << 1.0/freq_vec[0] << "\n";
+    out << std::left << std::setw(32) << "Number of wave frequencies:" << nwavefreq << "\n";
+    out << std::left << std::setw(32) << "Number of wave directions:"  << nwavedirn << "\n";
+    out << std::left << std::setw(32) << "Directional resolution (deg):" << 360.0/nwavedirn << "\n";
+    out << "***********************************************\n";
+
+    value_type taux_min  = *std::min_element(tau_x.begin(), tau_x.end());
+    value_type taux_max  = *std::max_element(tau_x.begin(), tau_x.end());
+    value_type tauy_min  = *std::min_element(tau_y.begin(), tau_y.end());
+    value_type tauy_max  = *std::max_element(tau_y.begin(), tau_y.end());
+
+    //MIZ diagnostics
+    value_type Dmax_min = 10.e3;
+    value_type Dmax_max = 0.e3;
+    int Nmiz   = 0;
+
+    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
+#pragma omp parallel for num_threads(max_threads) collapse(1)
+    for (int j = 0; j < dfloe.size(); j++)
+    {
+       if ((dfloe[j]<dfloe_pack_init)&&(dfloe[j]>0))
+       {
+          ++Nmiz;
+          Dmax_min   = std::min(dfloe[j],Dmax_min);
+          Dmax_max   = std::max(dfloe[j],Dmax_max);
+       }
+    }
+
+#define WIMDIAG1D
+#if defined (WIMDIAG1D)
+    //this definition of MIZ only works in 1d geometries
+    value_type W_miz;
+    if ( ny == 1 )
+    {
+       W_miz = (Nmiz*dx);
+    }
+    else if ( vm["wim.landon3edges"].template as<bool>() )
+    {
+       W_miz = (Nmiz*dx)/(ny-2);
+    }
+    else
+    {
+       W_miz = (Nmiz*dx)/ny;
+    }
+#endif
+
+    out << "\n***********************************************\n";
+    out << "Diagnostics:\n";
+#if defined (WIMDIAG1D)
+    out << std::left << std::setw(32) << "MIZ width (km):"         << W_miz/1.e3 << "\n";
+#endif
+    out << std::left << std::setw(32) << "Dmax range in MIZ (m):"  << Dmax_min << ", " << Dmax_max << "\n";
+    out << std::left << std::setw(32) << "tau_x range (Pa):"       << taux_min << ", " << taux_max << "\n";
+    out << std::left << std::setw(32) << "tau_y range (Pa):"       << tauy_min << ", " << tauy_max << "\n";
+    out << "***********************************************\n";
+
+    out.close();
 }
 
 // instantiate wim class for type float
