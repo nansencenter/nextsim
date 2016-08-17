@@ -231,7 +231,7 @@ FiniteElement::initVariables()
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
 
     M_tau.resize(2*M_num_nodes,0.);
-}
+}//end initVariables
 
 void
 FiniteElement::initModelState()
@@ -262,7 +262,7 @@ FiniteElement::initDatasets()
 
     M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements",M_num_elements);
 
-    M_etopo_elements_dataset=DataSet("etopo_elements",M_num_nodes);
+    M_etopo_elements_dataset=DataSet("etopo_elements",M_num_elements);//M_num_nodes);
 
     M_ERAi_nodes_dataset=DataSet("ERAi_nodes",M_num_nodes);
 
