@@ -25,6 +25,8 @@ ifeq ($(KERNEL),Linux)
 	CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include -I /usr/lib/openmpi/include
 	LDFLAGS += -shared -Wl,-soname,libwim.so.1
 	LDFLAGS += -lm -ldl #-lhwloc
+	LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib
+	LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi -lboost_date_time
 else
 
 	ifeq ($(CXX),clang)
@@ -34,6 +36,8 @@ else
 	CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include -I /usr/local/include
 	LDFLAGS += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,$(LIBRARYDIR)$(LIBRARYNAME)
 	LDFLAGS += -ldl -lstdc++
+	LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib
+	LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi -lboost_date_time
 
 	ifeq ($(CXX),clang)
 	LDFLAGS += -stdlib=libc++
