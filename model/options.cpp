@@ -22,7 +22,7 @@ namespace po = boost::program_options;
 double const days_in_sec = 24.0*3600.0;
 namespace Nextsim
 {
-    //po::options_description _test = descrWimOptions();
+    //po::options_description _wimopt = descrWimOptions();
 
     po::options_description
     descrOptions()

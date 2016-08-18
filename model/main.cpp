@@ -7,7 +7,7 @@
  */
 
 #include <finiteelement.hpp>
-#include<wimoptions.hpp>
+//#include<wimoptions.hpp>
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
