@@ -16,6 +16,8 @@
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromGridToMeshx.h>
 #include <InterpFromMeshToGridx.h>
+#include <netcdf>
+#include <BamgTriangulatex.h>
 
 /**
  * @class DataSet
@@ -147,6 +149,8 @@ public:
     Variable time;
 
     std::vector<double> ftime_range;
+
+    void loadGrid(Grid *grid, int current_time);
 
     // name of the dataSet
     std::string name;
