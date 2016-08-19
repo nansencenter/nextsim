@@ -23,3 +23,4 @@ model/libboost_mpi.dylib
 model/libboost_program_options.dylib
 model/libboost_serialization.dylib
 model/libboost_system.dylib
+nextsim_pierre.cfg
