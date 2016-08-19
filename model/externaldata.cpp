@@ -27,7 +27,8 @@ extern "C"
 namespace Nextsim
 {
 
-ExternalData::ExternalData( )
+ExternalData::ExternalData( ):
+M_initialized(false)
 {}
 
 ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector )
@@ -38,7 +39,8 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
     M_is_vector( is_vector ),
     M_current_time( 0. ),
     M_SpinUpStartingTime( 0. ),
-    M_SpinUpDuration( 0. )
+    M_SpinUpDuration( 0. ),
+    M_initialized(true)
 {
     M_datasetname = (boost::format( "%1%...%2%" )
                     % M_dataset->prefix
@@ -64,7 +66,8 @@ ExternalData::ExternalData( double ConstantValue )
     M_is_vector( false ),
     M_current_time( 0. ),
     M_SpinUpStartingTime( 0. ),
-    M_SpinUpDuration( 0. )
+    M_SpinUpDuration( 0. ),
+    M_initialized(true)
     {}
 
 ExternalData::ExternalData( double ConstantValue, double ConstantValuebis )
@@ -82,7 +85,7 @@ ExternalData::ExternalData( double ConstantValue, double SpinUpStartingTime, dou
         M_SpinUpStartingTime= SpinUpStartingTime ;
         M_SpinUpDuration= SpinUpDuration ;
     }
-    
+
 ExternalData::ExternalData( double ConstantValue, double ConstantValuebis, double SpinUpStartingTime, double SpinUpDuration )
     :
     ExternalData( ConstantValue, ConstantValuebis )
@@ -99,13 +102,13 @@ ExternalData::~ExternalData()
 void ExternalData::check_and_reload(GmshMesh const& mesh, const double current_time)
 {
     M_current_time = current_time;
-    
+
     M_factor=1.;
     if((M_current_time-M_SpinUpStartingTime)<M_SpinUpDuration)
     {
         M_factor=(M_current_time-M_SpinUpStartingTime)/M_SpinUpDuration;
     }
-    
+
     if(!M_is_constant)
     {
         bool to_be_reloaded=false;
@@ -166,7 +169,7 @@ ExternalData::operator [] (const size_type i)
                 else
                 {
                     i_tmp=i-M_dataset->target_size;
-                    VariableId_tmp=M_dataset->vectorial_variables[M_VariableId].components_Id[1];                
+                    VariableId_tmp=M_dataset->vectorial_variables[M_VariableId].components_Id[1];
                 }
             }
             value =  M_factor*
@@ -189,7 +192,7 @@ ExternalData::operator [] (const size_type i)
                 {
                     i_tmp=i;
                     VariableId_tmp=M_dataset->vectorial_variables[M_VariableId].components_Id[0];
-                    
+
                 }
                 else
                 {
@@ -197,7 +200,7 @@ ExternalData::operator [] (const size_type i)
                     VariableId_tmp=M_dataset->vectorial_variables[M_VariableId].components_Id[1];
                 }
             }
-            value =  M_factor*M_dataset->variables[VariableId_tmp].data2[0][i_tmp]; 
+            value =  M_factor*M_dataset->variables[VariableId_tmp].data2[0][i_tmp];
         }
     }
 
@@ -207,7 +210,7 @@ ExternalData::operator [] (const size_type i)
 void
 ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const& u, double const& v)
 {
-
+    //std::cout<<"------------------------------------loadDataset for "<< dataset->name <<"\n";
     // Load grid if unloaded
     if(!dataset->grid.loaded)
         loadGrid(&(dataset->grid));
@@ -246,10 +249,10 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 			dataset->ftime_range.push_back(dt);
 		}
 
-		for (int i=0; i<dataset->ftime_range.size(); ++i)
-		{
-			std::cout <<"TIMEVEC["<< i <<"]= "<< dataset->ftime_range[i] <<"\n";
-		}
+		// for (int i=0; i<dataset->ftime_range.size(); ++i)
+		// {
+		// 	std::cout <<"TIMEVEC["<< i <<"]= "<< dataset->ftime_range[i] <<"\n";
+		// }
 
 		nb_forcing_step = dataset->ftime_range.size();
 	}
@@ -258,11 +261,11 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
     std::vector<double> tmp_interpolated_field(dataset->target_size);
 
     int N_data =dataset->variables.size();
-    int M  =dataset->grid.M; 
-    int N  = dataset->grid.N; 
-    
+    int M  =dataset->grid.M;
+    int N  = dataset->grid.N;
+
     int MN = M*N;
-	
+
     int cyclic_N=N;
     int cyclic_M=M;
     double delta_y=dataset->grid.gridY[M-1]-dataset->grid.gridY[M-2];
@@ -271,37 +274,37 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
         cyclic_M=M+1;
         dataset->grid.gridY.push_back(dataset->grid.gridY[M-1]+delta_y);
     }
-    
+
     double delta_x=dataset->grid.gridX[N-1]-dataset->grid.gridX[N-2];
     if(dataset->grid.dimension_x.cyclic)
     {
         cyclic_N=N+1;
         dataset->grid.gridX.push_back(dataset->grid.gridX[N-1]+delta_x);
-    }    
-    
+    }
+
     int final_MN=cyclic_M*cyclic_N;
 
 	if(dataset->grid.reduced_nodes_ind.size()!=0)
     {
         if((dataset->grid.dimension_y.cyclic) || (dataset->grid.dimension_x.cyclic))
             throw std::runtime_error("Using reduced grid and cyclic grid at the same time is not yet implemented");
-        
+
     	final_MN=dataset->grid.reduced_nodes_ind.size();
-    }        
+    }
 
 	// Memory leak:
     //double* data_in = new double[N_data*nb_forcing_step*final_MN];
     std::vector<double> data_in(N_data*nb_forcing_step*final_MN);
-    
+
     std::vector<double> data_in_tmp(MN);
-    std::cout <<" \n";
+    //std::cout <<" \n";
 
     // Attributes (scaling and offset)
     netCDF::NcVarAtt att;
     double scale_factor;
     double add_offset;
 
-    std::cout <<"NB_FORCING_STEP= "<< nb_forcing_step <<"\n";
+    //std::cout <<"NB_FORCING_STEP= "<< nb_forcing_step <<"\n";
 
     // Read in data one time step at a time
     for (int fstep=0; fstep < nb_forcing_step; ++fstep)
@@ -340,6 +343,13 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
         if ( ! boost::filesystem::exists(filename) )
             throw std::runtime_error("File not found: " + filename);
 
+        // change the reference_date if erai forcing according to the xxxx-01-01, where xxxx is the current year
+        if ((dataset->name).find("ERAi") != std::string::npos)
+        {
+            dataset->reference_date = to_date_string_y(std::floor(ftime)) + "-01-01";
+            //std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@DETECT ERAi: Dataset->reference_date= "<< dataset->reference_date <<"\n";
+        }
+
         // Open the netcdf file
         netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
 
@@ -350,37 +360,36 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
         {
             // Set the time range XTIME
             netCDF::NcVar FVTIME = dataFile.getVar(dataset->time.name);
-            
+
             index_start.resize(1);
             index_count.resize(1);
-            
+
             netCDF::NcDim timeDim = dataFile.getDim(dataset->time.name);
-            
+
             index_start[0]=0;
             index_count[0]=timeDim.getSize();
-            
+
             XTIME.resize(index_count[0]);
-                        
+
             FVTIME.getVar(index_start, index_count, &XTIME[0]);
             std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string(dataset->reference_date); });
 
             auto it = std::find(XTIME.begin(), XTIME.end(), ftime);
             index = std::distance(XTIME.begin(),it);
-            std::cout <<"FIND "<< ftime <<" in index "<< index <<"\n";
+            //std::cout <<"FIND "<< ftime <<" in index "<< index <<"\n";
         }
 
         // Load each variable and copy its data into data_in
         for(int j=0; j<dataset->variables.size(); ++j)
         {
             NcVars[j] = dataFile.getVar(dataset->variables[j].name);
-
             index_start.resize(dataset->variables[j].dimensions.size());
             index_count.resize(dataset->variables[j].dimensions.size());
 
             for(int k=0; k<dataset->variables[j].dimensions.size(); ++k)
             {
                 tmpDim = dataFile.getDim(dataset->variables[j].dimensions[k].name);
-                
+
                 index_start[k] = 0;
                 index_count[k] = tmpDim.getSize();
             }
@@ -421,9 +430,9 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                 {
                     data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=
                         data_in_tmp[dataset->grid.reduced_nodes_ind[i]]*scale_factor + add_offset;
-    				if(xIsNan<double>(data_in_tmp[dataset->grid.reduced_nodes_ind[i]]*scale_factor + add_offset)) 
+    				if(xIsNan<double>(data_in_tmp[dataset->grid.reduced_nodes_ind[i]]*scale_factor + add_offset))
                     {
-            			_printf_("found NaN at"  << data_in_tmp[dataset->grid.reduced_nodes_ind[i]]<<  " "<<  dataset->grid.reduced_nodes_ind[i] <<  ", default_value is used\n");   
+            			_printf_("found NaN at"  << data_in_tmp[dataset->grid.reduced_nodes_ind[i]]<<  " "<<  dataset->grid.reduced_nodes_ind[i] <<  ", default_value is used\n");
     				}
                 }
 			}
@@ -438,7 +447,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                         {
                             int i=y_ind*N+x_ind;
                             int cyclic_i=y_ind*cyclic_N+x_ind;
-                    
+
                             data_in[(dataset->variables.size()*nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=data_in_tmp[i]*scale_factor + add_offset;
                         }
                     }
@@ -446,7 +455,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                 else // with no cyclic dimension, simply use the same indice i
                 {
                     for (int i=0; i<(MN); ++i)
-                    {   	
+                    {
                         data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=data_in_tmp[i]*scale_factor + add_offset;
         				if(xIsNan<double>(data_in_tmp[i]*scale_factor + add_offset))
                         {
@@ -455,28 +464,28 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                     }
                 }
             }
-            
+
             if(dataset->grid.dimension_y.cyclic)
                 for (int x_ind=0; x_ind<N; ++x_ind)
                 {
                     int i=0*N+x_ind;
                     int cyclic_i=(cyclic_M-1)*cyclic_N+x_ind;
-                    
+
                     data_in[(dataset->variables.size()*nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=data_in_tmp[i]*scale_factor + add_offset;
                 }
-                
+
             if(dataset->grid.dimension_x.cyclic)
                 for (int y_ind=0; y_ind<M; ++y_ind)
                 {
                     int i=y_ind*N+0;
                     int cyclic_i=y_ind*cyclic_N+(cyclic_N-1);
-                    
+
                     data_in[(dataset->variables.size()*nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=data_in_tmp[i]*scale_factor + add_offset;
                 }
 
 		}
     }
-    
+
 	mapx_class *mapNextsim;
 	std::string configfileNextsim = (boost::format( "%1%/%2%/%3%" )
                               % Environment::nextsimDir().string()
@@ -487,7 +496,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 	std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
 	strNextsim.push_back('\0');
 	mapNextsim = init_mapx(&strNextsim[0]);
-    
+
 	mapx_class *map;
     double rotation_angle, cos_m_diff_angle, sin_m_diff_angle;
     if(dataset->grid.mpp_file!="")
@@ -507,12 +516,12 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
     {
         rotation_angle=0.;
     }
-    
+
     cos_m_diff_angle=std::cos(-rotation_angle);
     sin_m_diff_angle=std::sin(-rotation_angle);
-    
+
     // ---------------------------------
-    // Transformation of the vectorial variables from the coordinate system of the data to the polar stereographic projection used in the model 
+    // Transformation of the vectorial variables from the coordinate system of the data to the polar stereographic projection used in the model
     // Once we are in the polar stereographic projection, we can do spatial interpolation without bothering about the North Pole
 
     double tmp_data0, tmp_data1, new_tmp_data0, new_tmp_data1;
@@ -521,36 +530,36 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
     double x_tmp, y_tmp, x_tmp_bis, y_tmp_bis;
     double speed, new_speed;
     int j0, j1;
-    
+
     double R=mapx_Re_km*1000.; // Earth radius
-    double delta_t=1.; // 1 sec. This value needs to be small. 
-    
+    double delta_t=1.; // 1 sec. This value needs to be small.
+
     for (int fstep=0; fstep < nb_forcing_step; ++fstep)
     {
         for(int j=0; j<dataset->vectorial_variables.size(); ++j)
         {
             j0=dataset->vectorial_variables[j].components_Id[0];
             j1=dataset->vectorial_variables[j].components_Id[1];
-            
+
             if(dataset->vectorial_variables[j].east_west_oriented && dataset->grid.interpolation_method==InterpolationType::FromGridToMesh)
             {
                 int M=dataset->grid.gridY.size();
                 int N=dataset->grid.gridX.size();
-                
+
                 for (int y_ind=0; y_ind<M; ++y_ind)
                 {
                     for (int x_ind=0; x_ind<N; ++x_ind)
                     {
                         int i=y_ind*N+x_ind;
-                
+
                         // lat lon of the data
                         lat_tmp=dataset->grid.gridY[y_ind];
                         lon_tmp=dataset->grid.gridX[x_ind];
-                        
+
                         // velocity in the east (component 0) and north direction (component 1) in m/s
                         tmp_data0=data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j0];
                         tmp_data1=data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j1];
-                        
+
                         // velocity in the east (component 0) and north direction (component 1) in degree/s
                         if(lat_tmp<90.)
                         {
@@ -561,41 +570,41 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                         {
                             tmp_data0_deg=0.;
                             tmp_data1_deg=0.;
-                        }   
-                        
+                        }
+
                         // position in lat, lon after delta_t
                         lat_tmp_bis=lat_tmp+tmp_data1_deg*delta_t;
                         lon_tmp_bis=lon_tmp+tmp_data0_deg*delta_t;
-                        
+
                         lon_tmp_bis = lon_tmp_bis-360.*std::floor(lon_tmp_bis/(360.));
-                        
+
                         // initial position x, y in meter
         			    forward_mapx(mapNextsim,lat_tmp,lon_tmp,&x_tmp,&y_tmp);
-                        
+
                         // position x, y after delta_t in meter
                         forward_mapx(mapNextsim,lat_tmp_bis,lon_tmp_bis,&x_tmp_bis,&y_tmp_bis);
-                        
+
                         // velocity in m/s
                         new_tmp_data0= (x_tmp_bis-x_tmp)/delta_t;
                         new_tmp_data1= (y_tmp_bis-y_tmp)/delta_t;
-                                          
+
                         // normalisation
                         speed=std::hypot(tmp_data0,tmp_data1);
                         new_speed=std::hypot(new_tmp_data0,new_tmp_data1);
-                                                               
+
                         if(new_speed>0.)
                         {
                             new_tmp_data0=new_tmp_data0/new_speed*speed;
                             new_tmp_data1=new_tmp_data1/new_speed*speed;
                         }
-                                                                        
+
                         data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j0]= new_tmp_data0;
                         data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j1]= new_tmp_data1;
                     }
                 }
                 // Treat the case of the North Pole where east-north components are ill-defined
                 // We just take the mean of the velocity computed at a lower latitude in the polar stereo projection
-                
+
                 bool found_north_pole=false;
                 int y_ind, y_ind_m1;
                 if(dataset->grid.gridY[0]==90.)
@@ -611,7 +620,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                     found_north_pole=true;
                 }
                 if(found_north_pole=true)
-                {   
+                {
                     tmp_data0=0.;
                     tmp_data1=0.;
                     // loop over the nearest latitude that is not 90 to compute the mean value
@@ -623,7 +632,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                     }
                     tmp_data0=tmp_data0/N;
                     tmp_data1=tmp_data1/N;
-                    
+
                     // loop over the points defined at 90N
                     for (int x_ind=0; x_ind<N; ++x_ind)
                     {
@@ -633,26 +642,26 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                     }
                 }
             }
-                
+
             if(rotation_angle!=0.)
             {
                 for (int i=0; i<final_MN; ++i)
                 {
                     tmp_data0=data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j0];
                     tmp_data1=data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j1];
-                                 
+
                     new_tmp_data0= cos_m_diff_angle*tmp_data0+sin_m_diff_angle*tmp_data1;
-                    new_tmp_data1=-sin_m_diff_angle*tmp_data0+cos_m_diff_angle*tmp_data1; 
-                    
+                    new_tmp_data1=-sin_m_diff_angle*tmp_data0+cos_m_diff_angle*tmp_data1;
+
                     data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j0]= new_tmp_data0;
-                    data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j1]= new_tmp_data1;    
+                    data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j1]= new_tmp_data1;
                 }
             }
         }
     }
-    
+
     // ---------------------------------
-    // Projection of the mesh positions into the coordinate system of the data before the interpolation 
+    // Projection of the mesh positions into the coordinate system of the data before the interpolation
     // (either the lat,lon projection or a polar stereographic projection with another rotaion angle (for ASR))
     // we should need to that also for the TOPAZ native grid, so that we could use a gridtomesh, now we use the latlon of the TOPAZ grid
 
@@ -680,16 +689,16 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 		}
 
 	}
-    
+
     // closing maps
     close_mapx(mapNextsim);
     if(dataset->grid.mpp_file!="")
     	close_mapx(map);
-    
+
     // ---------------------------------
     // Spatial interpolation
 
-    std::cout <<"before interp " <<"\n";
+    //std::cout <<"before interp " <<"\n";
 
     double* data_out;
     double tmp_data;
@@ -715,14 +724,14 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             std::cout << "invalid interpolation type:" <<"\n";
             throw std::logic_error("invalid interpolation type");
     }
-    
+
     if(dataset->grid.dimension_y.cyclic)
         dataset->grid.gridY.pop_back();
-    
+
     if(dataset->grid.dimension_x.cyclic)
         dataset->grid.gridX.pop_back();
 
-std::cout <<"after interp " <<"\n";
+    //std::cout <<"after interp " <<"\n";
 
     for (int fstep=0; fstep < nb_forcing_step; ++fstep)
     {
@@ -742,7 +751,248 @@ std::cout <<"after interp " <<"\n";
 
     dataset->reloaded=true;
 
-    std::cout <<"end load" <<"\n";
+    //std::cout <<"end load" <<"\n";
+}
+
+void
+ExternalData::loadGrid(Grid *grid_ptr)
+{
+    //std::cout<<"---------------------fist loading ...\n";
+    std::string current_timestr = to_date_string_ym(M_current_time);
+    std::cout <<"TIMESTR= "<< current_timestr <<"\n";
+
+    // the ETOPO forcing filename does not contain the information on year and month
+    if ((grid_ptr->prefix).find("ETOPO1_Ice") != std::string::npos)
+    {
+        current_timestr = "";
+    }
+
+    std::string filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
+                            % Environment::simdataDir().string()
+                            % grid_ptr->dirname
+                            % grid_ptr->prefix
+                            % current_timestr
+                            % grid_ptr->postfix
+                            ).str();
+
+    std::cout<<"GRID : FILENAME = "<< filename <<"\n";
+
+	std::cout <<"GRID : READ NETCDF starts\n";
+    if ( ! boost::filesystem::exists(filename) )
+        throw std::runtime_error("File not found: " + filename);
+
+	netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
+    netCDF::NcDim tmpDim;
+
+    tmpDim = dataFile.getDim(grid_ptr->dimension_y.name);
+	grid_ptr->M  =  tmpDim.getSize();
+
+    tmpDim = dataFile.getDim(grid_ptr->dimension_x.name);
+	grid_ptr->N  =  tmpDim.getSize();
+
+    //switch (grid_ptr->latitude.dimensions.size())
+    //{
+    // Here only two cases are considered, either the
+    //    case 1:
+	if(grid_ptr->latitude.dimensions.size()==1)
+	{
+		// read in coordinates
+		std::vector<size_t> index_x_count(1);
+		std::vector<size_t> index_y_count(1);
+
+		std::vector<size_t> index_x_start(1);
+		std::vector<size_t> index_y_start(1);
+
+		index_y_start[0] = 0;
+		index_y_count[0] = grid_ptr->M;
+
+		index_x_start[0] = 0;
+		index_x_count[0] = grid_ptr->N;
+
+		std::vector<double> LAT(index_y_count[0]);
+		std::vector<double> LON(index_x_count[0]);
+
+		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
+		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
+		std::cout <<"GRID : READ NETCDF done\n";
+
+		VLAT.getVar(index_y_start,index_y_count,&LAT[0]);
+		VLON.getVar(index_x_start,index_x_count,&LON[0]);
+
+		grid_ptr->gridY=LAT;
+		grid_ptr->gridX=LON;
+	}
+	else
+	{
+//		break;
+//    	case 2:
+		// read in coordinates
+		std::vector<size_t> index_px_count(2);
+		std::vector<size_t> index_py_count(2);
+
+		std::vector<size_t> index_px_start(2);
+		std::vector<size_t> index_py_start(2);
+
+		index_py_start[0] = 0;
+		index_py_start[1] = 0;
+
+		index_py_count[0] = grid_ptr->M;
+		index_py_count[1] = grid_ptr->N;
+
+		index_px_start[0] = 0;
+		index_px_start[1] = 0;
+
+		index_px_count[0] = grid_ptr->M;
+		index_px_count[1] = grid_ptr->N;
+
+		if(grid_ptr->interpolation_method==InterpolationType::FromGridToMesh)
+		{
+            // We the initial grid is actually regular, we can still use FromGridToMesh
+            // by only taking the first line and column into account (only used for ASR so far)
+			index_py_count[1] = 1;
+			index_px_count[0] = 1;
+		}
+
+		std::vector<double> XLAT(index_px_count[0]*index_px_count[1]);
+		std::vector<double> XLON(index_px_count[0]*index_px_count[1]);
+		std::vector<double> YLAT(index_py_count[0]*index_py_count[1]);
+		std::vector<double> YLON(index_py_count[0]*index_py_count[1]);
+
+		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
+		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
+		std::cout <<"GRID : READ NETCDF done\n";
+
+		VLAT.getVar(index_px_start,index_px_count,&XLAT[0]);
+		VLON.getVar(index_px_start,index_px_count,&XLON[0]);
+
+		VLAT.getVar(index_py_start,index_py_count,&YLAT[0]);
+		VLON.getVar(index_py_start,index_py_count,&YLON[0]);
+
+        // projection
+
+		std::vector<double> X(index_px_count[0]*index_px_count[1]);
+		std::vector<double> Y(index_py_count[0]*index_py_count[1]);
+
+		mapx_class *map;
+		std::string configfile = (boost::format( "%1%/%2%/%3%" )
+                                  % Environment::nextsimDir().string()
+                                  % grid_ptr->dirname
+                                  % grid_ptr->mpp_file
+                                  ).str();
+
+		std::vector<char> str(configfile.begin(), configfile.end());
+		str.push_back('\0');
+		map = init_mapx(&str[0]);
+
+	    double x;
+	    double y;
+
+		for (int i=0; i<index_px_count[0]; ++i)
+		{
+			for (int j=0; j<index_px_count[1]; ++j)
+			{
+			    forward_mapx(map,XLAT[index_px_count[1]*i+j],XLON[index_px_count[1]*i+j],&x,&y);
+				X[index_px_count[1]*i+j]=x;
+			}
+		}
+
+		for (int i=0; i<index_py_count[0]; ++i)
+		{
+			for (int j=0; j<index_py_count[1]; ++j)
+			{
+				forward_mapx(map,YLAT[index_py_count[1]*i+j],YLON[index_py_count[1]*i+j],&x,&y);
+				Y[index_py_count[1]*i+j]=y;
+			}
+		}
+
+		close_mapx(map);
+
+		if(grid_ptr->interpolation_method==InterpolationType::FromMeshToMesh2dx)
+		{
+			if(grid_ptr->masking){
+				netCDF::NcVar VMASK;
+                netCDF::NcDim tmpDim;
+
+				VMASK = dataFile.getVar(grid_ptr->masking_variable.name);
+
+				std::vector<double> data_in;
+
+				std::vector<double> reduced_FX;
+				std::vector<double> reduced_FY;
+				std::vector<int> reduced_nodes_ind;
+
+				std::vector<size_t> index_start(3,0);
+				std::vector<size_t> index_count(3);
+
+				index_start.resize(grid_ptr->masking_variable.dimensions.size());
+				index_count.resize(grid_ptr->masking_variable.dimensions.size());
+
+				for(int k=0; k<grid_ptr->masking_variable.dimensions.size(); ++k)
+				{
+                    tmpDim = dataFile.getDim(grid_ptr->masking_variable.dimensions[k].name);
+                    index_start[k] = 0;
+					index_count[k] = tmpDim.getSize();;
+				}
+				index_start[0] = 0;
+				index_count[0] = 1;
+
+				if((index_px_count[0]!=index_count[grid_ptr->masking_variable.dimensions.size()-2]) || (index_px_count[1]!=index_count[grid_ptr->masking_variable.dimensions.size()-1]))
+				{
+                    std::cout << "index_px_count[0] = " << index_px_count[0] << " index_count[grid_ptr->masking_variable.dimensions.size()-2] = " << index_count[grid_ptr->masking_variable.dimensions.size()-2] <<"\n";
+					std::cout << "index_px_count[1] = " << index_px_count[1] << " index_count[grid_ptr->masking_variable.dimensions.size()-1] = " << index_count[grid_ptr->masking_variable.dimensions.size()-1] <<"\n";
+                    throw std::logic_error("Not the same dimension for the masking variable and the grid!!");
+				}
+
+				data_in.resize(index_px_count[0]*index_px_count[1]);
+				VMASK.getVar(index_start,index_count,&data_in[0]);
+
+				netCDF::NcVarAtt att;
+				int FillValue;
+
+				att = VMASK.getAtt("_FillValue");
+				att.getValues(&FillValue);
+
+				for (int i=0; i<index_px_count[0]; ++i)
+				{
+					for (int j=0; j<index_px_count[1]; ++j)
+					{
+						if (data_in[index_px_count[1]*i+j] != FillValue)
+						{
+							reduced_FX.push_back(X[index_px_count[1]*i+j]);
+							reduced_FY.push_back(Y[index_px_count[1]*i+j]);
+							reduced_nodes_ind.push_back(index_px_count[1]*i+j);
+						}
+					}
+				}
+				grid_ptr->gridX=reduced_FX;
+				grid_ptr->gridY=reduced_FY;
+				grid_ptr->reduced_nodes_ind=reduced_nodes_ind;
+			}
+			else // no masking of the Filled Value
+			{
+				grid_ptr->gridX=X;
+				grid_ptr->gridY=Y;
+			}
+
+			std::cout <<"GRID : Triangulate starts\n";
+			BamgTriangulatex(&grid_ptr->pfindex,&grid_ptr->pfnels,&grid_ptr->gridX[0],&grid_ptr->gridY[0],grid_ptr->gridX.size());
+			std::cout <<"GRID : NUMTRIANGLES= "<< grid_ptr->pfnels <<"\n";
+			std::cout <<"GRID : Triangulate done\n";
+		}
+		else
+		{
+			grid_ptr->gridX=X;
+			grid_ptr->gridY=Y;
+		}
+
+	//	break;
+	//
+    //default:
+    //   std::cout << "invalid ocean initialisation"<<"\n";
+    //    throw std::logic_error("invalid ocean forcing");
+	}
+
+    grid_ptr->loaded=true;
 }
 
 void

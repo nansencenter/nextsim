@@ -28,7 +28,7 @@ This README would normally document whatever steps are necessary to get your app
 * Repo owner or admin
 * Other community or team contact
 
-### Installation (that has worked with osX 10.10) ###
+### Installation (that has worked with osX 10.10 and 10.11) ###
 
 ##------- Installation of the needed compilers ----------
 
@@ -48,17 +48,19 @@ This README would normally document whatever steps are necessary to get your app
 ####### Install boost #######
 	1) Download version 1.55 of boost on http://www.boost.org (It is better to restart from here if you had an upgrade of your os)
 	2) copy bconfigure.sh and binstall.sh from /nextsim/scripts/boost/ to your boost directory
-	3) Add the line “using mpi ;” at the end of the file tools/build/v2/user-config.jam (This file could also be copied in your home directory for boost from the version 1.56)
+	3) Add the line “using mpi ;” at the end of the file tools/build/v2/user-config.jam 
+	NOte: if you install the version 1.56 or more recent of Boost, the file user-config.jam is locate in tools/build/example and you NEED to copy this file in your home directory before the compilation.
 	4) type the command “unset BOOST_DIR”
 	5) check if bconfigure.sh corresponds to your architecture
 	6) From boost directory, type: “./bconfigure.sh”
 	7) From boost directory, type: “./binstall.sh” (sudo password is required during the process)
 
 ####### Install petsc #######
-        0) Download from http://www.mcs.anl.gov/petsc/download/
+    First, install cmake with macports if not already installed: "sudo port install cmake" (note: make sure this is used and not ISSM version)
+    0) Download from http://www.mcs.anl.gov/petsc/download/
 	   or from http://ftp.mcs.anl.gov/pub/petsc/release-snapshots/
             - choose 3.6.XX version
-        1) Check mpicc, mpicxx, mpiexec use correct version of gcc (gcc --version)
+    1) Check mpicc, mpicxx, mpiexec use correct version of gcc (gcc --version)
 	2) Uninstall other version of petsc by doing (It is better to restart from here if you had an upgrade of your os)
 			sudo rm -rf /opt/local/petsc
 		or by changing the prefix in pconfigure.sh, for example:
@@ -93,7 +95,6 @@ password: gmsh
 2) In the gmsh directory do
 
 i) full install (OSX):
-sudo port install cmake (make sure this is used and not ISSM version)
 mkdir Build
 edit CMakeLists.txt:
 * paste set(CMAKE_MACOSX_RPATH 1)
@@ -151,15 +152,15 @@ sudo ln -sf /opt/local/include/openmpi-gcc48 /opt/local/include/openmpi-mp
 sudo rm -rf /opt/local/lib/openmpi-mp
 sudo ln -sf /opt/local/lib/openmpi-gcc48 /opt/local/lib/openmpi-mp
 
-# Type make in nextsim
+# Go to $NEXTSIM_DIR and type "make"
 
 ##------- For the model application -------
 
-# go to nextsim/model
+# go to $NEXTSIM_DIR/model
 
-# Type make
+# Type "make"
 
-# type “bin/nextsim.exec”
+# type “bin/nextsim.exec --configfile=nextsim.cfg”
 
 ##-------Debugging-------
 

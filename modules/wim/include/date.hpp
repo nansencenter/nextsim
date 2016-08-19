@@ -17,7 +17,7 @@ namespace gregorian = boost::gregorian;
 namespace date_time = boost::date_time;
 namespace posix_time = boost::posix_time;
 
-namespace Nextsim
+namespace Wim
 {
 inline double dateStr2Num(std::string const& datestr)
 {
@@ -52,7 +52,7 @@ inline boost::posix_time::time_duration parse_time( double date_time )
 
 inline std::string to_date_string( double date_time )
 {
-    boost::gregorian::date dt = Nextsim::parse_date( date_time );
+    boost::gregorian::date dt = Wim::parse_date( date_time );
     //return (boost::format( "%4-%02d-%02d" ) % dt.year() % dt.month().as_number() % dt.day().as_number()).str();
     //return (boost::format( "%1%-%2%-%3%" ) % dt.year() % dt.month().as_number() % dt.day().as_number()).str();
     return (boost::format( "%1%-%2%-%3%" ) % dt.year() % dt.month().as_number() % dt.day().as_number()).str();
@@ -60,17 +60,11 @@ inline std::string to_date_string( double date_time )
 
 inline std::string to_date_string_ym( double date_time )
 {
-    boost::gregorian::date dt = Nextsim::parse_date( date_time );
+    boost::gregorian::date dt = Wim::parse_date( date_time );
     //return (boost::format( "%4-%02d-%02d" ) % dt.year() % dt.month().as_number() % dt.day().as_number()).str();
     //return (boost::format( "%1%-%2%-%3%" ) % dt.year() % dt.month().as_number() % dt.day().as_number()).str();
     //return (boost::format( "%1%%2%" ) % dt.year() % dt.month().as_number()).str();
     return (boost::format( "%1%%2%" ) % dt.year() % boost::io::group(std::setw(2), std::setfill('0'), dt.month().as_number())).str();
-}
-
-inline std::string to_date_string_y( double date_time )
-{
-    boost::gregorian::date dt = Nextsim::parse_date( date_time );
-    return (boost::format( "%1%" ) % dt.year()).str();
 }
 
 inline double from_date_string( const std::string& value )
@@ -85,8 +79,8 @@ inline double from_date_string( const std::string& value )
 
 inline std::string to_date_time_string( double date_time )
 {
-    boost::gregorian::date date_part = Nextsim::parse_date( date_time );
-    boost::posix_time::time_duration time_part = Nextsim::parse_time( date_time );
+    boost::gregorian::date date_part = Wim::parse_date( date_time );
+    boost::posix_time::time_duration time_part = Wim::parse_time( date_time );
 
     long long fractional_seconds = time_part.fractional_seconds();
     boost::date_time::time_resolutions resolution = time_part.resolution();
@@ -135,5 +129,18 @@ inline std::string time_spent( const std::string& value )
     return posix_time::to_simple_string(diff);
 }
 
-} // Nextsim
+inline std::string ptime( const std::string& value, double time_in_seconds = 0)
+{
+    // boost::posix_time::time_duration td(0,0,9300);
+
+    // std::cout<<"hours   = "<< td.hours() <<"\n";
+    // std::cout<<"minutes = " << td.minutes() <<"\n";
+    // std::cout<<"seconds = "<< td.seconds() <<"\n";
+
+    boost::posix_time::ptime posixtime = boost::posix_time::time_from_string( value );
+    posixtime += boost::posix_time::time_duration(0,0,time_in_seconds);
+    return to_iso_string(posixtime) + "Z";
+}
+
+} // Wim
 #endif

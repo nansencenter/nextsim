@@ -108,7 +108,7 @@ public:
 
     void thermo();
     void thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols,
-            double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf);
+            double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double tmp_Qlw_in, double tmp_snowfr);
 
     Dataset M_asr_nodes_dataset;
     Dataset M_asr_elements_dataset;
@@ -117,6 +117,7 @@ public:
 	Dataset M_ice_topaz_elements_dataset;
     Dataset M_etopo_elements_dataset;
     Dataset M_ERAi_nodes_dataset;
+    Dataset M_ERAi_elements_dataset;
 
     double minAngles(element_type const& element, mesh_type const& mesh) const;
     double minAngle(mesh_type const& mesh) const;
@@ -346,6 +347,7 @@ private:
     external_data M_mslp;         // Atmospheric pressure [Pa]
     external_data M_Qsw_in;       // Incoming short-wave radiation [W/m2]
     external_data M_Qlw_in;       // Incoming long-wave radiation [W/m2]
+    external_data M_tcc;       // Incoming long-wave radiation [W/m2]
     external_data M_precip;       // Total precipitation [m]
     external_data M_snowfr;       // Fraction of precipitation that is snow
     external_data M_dair;         // 2 m dew point [C]

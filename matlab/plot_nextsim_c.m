@@ -18,12 +18,12 @@ if nargin==5, dir=''; end
 
 %Here are a list of various options which can be set
 plot_grid           = 0;            % If not zero the mesh lines are ploted. If zoomed out only the mesh lines will be visible
-plot_coastlines     = 1;            % When 1 the actual domain baoundaries are plotted, closed in light gray and opened in cyan. 
-                                    % Note though that plotting the coastlines makes the figure much heavier
+plot_coastlines     = 0;            % When 1 the actual domain baoundaries are plotted, closed in light gray and opened in cyan. 
+                                    % Note though that plotting the coastlines or the grid makes the figure much heavier
 plot_date           = 0;            % 0 by default, 1 if we want to display the date on the figure
 font_size           = 14;           % Sets font size of colorbar and date
-background_color    = [0.8 0.8 0.8];% white color [1 1 1] by default. A substitute could be gray [0.5 0.5 0.5]
-save_figure         = 1;            % 0 (default) we do not save the figure
+background_color    = [0.85 0.85 0.85];% white color [1 1 1] by default. A substitute could be gray [0.5 0.5 0.5]
+save_figure         = 0;            % 0 (default) we do not save the figure
 figure_format       = 'png';        % can be pdf, tiff, png or jpeg
 pic_quality         = '-r300';      % Resolution for eps, pdf, tiff, and png
 visible             = 1;            % we display the figure on the screen (may be set to 0 when generating a large amount of figures)
@@ -122,6 +122,7 @@ for p=0:0
   % We save the figure (optional)
   %------------------------------
   if save_figure
+      set(fig,'Color',[1 1 1]);
       filename=sprintf('neXtSIM_%s_%d',field,step);
       %Call export_fig to save figure
       if strcmp(figure_format,'png') || strcmp(figure_format,'jpg')
@@ -172,34 +173,49 @@ function plot_coastlines_and_boundaries(domain)
     plot(free_boundaryX,free_boundaryY,'g','LineWidth',2);
 end
 function set_axis_colormap_colorbar(domain,field,v,region_of_zoom)
-    %We set the axis limits and the colormap
+    
+    %We set the axis limits, the colormap and set the name for the colorbar
     if (strcmp(field,'Concentration'))
         caxis([0 1]);
         load('ice_conc_cmap64.mat')
         colormap(ice_conc_cmap64);
+        name_colorbar='Concentration';
     elseif (strcmp(field,'Thickness'))
         caxis([0, 4]);
         colormap('parula');
+        name_colorbar='Thickness (m)';
     elseif strcmp(field,'Damage')
         caxis([0.995, 1]);
         load('ice_damage_cmap128.mat')
         colormap(ice_damage_cmap128);
-    elseif strcmp(field,'M_VT')
+        name_colorbar='Damage';
+    elseif (strcmp(field,'M_VT'))
+        caxis([0, 0.25]);
+        colormap('blue2red');
+        name_colorbar='Speed (m/s)';
+    elseif (strcmp(field,'M_VTu'))
         caxis([-0.10, 0.10]);
         colormap('blue2red');
+        name_colorbar='Speed Ux (m/s)';
+    elseif (strcmp(field,'M_VTv'))
+        caxis([-0.10, 0.10]);
+        colormap('blue2red');
+        name_colorbar='Speed Uy (m/s)';
     elseif strcmp(field,'Divergence')
         caxis([min(min(v{:})), max(max(v{:}))]);
         colormap('blue2red');
+        name_colorbar='Divergence rate (/day)';
     elseif strcmp(field,'Snow')
         caxis([0, 0.5]);
-        colormap('parula');  
+        colormap('parula');
+        name_colorbar='Snow thickness (m)';
     end;
 
     % We predefine the position of the colorbar (only made for TOPAZ and MITgcm) that fits well the
     % figure and we add it to the figure
     if (strcmp(domain,'topaz') && isempty(region_of_zoom))
         colorbar_Xposition=0.715;
-        colorbar_Yposition=0.65;
+        colorbar_Yposition=0.63;
         width_scale_factor=0.5;
         height_scale_factor=0.3;
         % We add a colorbar (settings below are (at least) good for MITgcm or Topaz setups)
@@ -210,8 +226,8 @@ function set_axis_colormap_colorbar(domain,field,v,region_of_zoom)
         cpos(3) = width_scale_factor*cpos(3);
         cpos(4) = height_scale_factor*cpos(4);
         c.Position = cpos;
-        name_colorbar = sprintf('%s',field);
-        c.Label.String = name_colorbar;
+        set(get(c,'title'),'string',name_colorbar);
+        
     elseif ((strcmp(domain,'mitgcm4km')||strcmp(domain,'mitgcm9km')) && isempty(region_of_zoom))
         colorbar_Xposition=0.67;%(position in the left/right direction. to be modified by hand to your convenience)
         colorbar_Yposition=0.65;
@@ -224,14 +240,13 @@ function set_axis_colormap_colorbar(domain,field,v,region_of_zoom)
         cpos(2) = colorbar_Yposition;
         cpos(3) = width_scale_factor*cpos(3);
         cpos(4) = height_scale_factor*cpos(4);
-        c.Position=cpos;
-        name_colorbar = sprintf('%s',field);
-        c.Label.String = name_colorbar;
+        c.Position=cpos;    
+        set(get(c,'title'),'string',name_colorbar);
+    
     else
         % We add a colorbar (settings below are (at least) good for MITgcm or Topaz setups)
         c=colorbar;
-        name_colorbar = sprintf('%s',field);
-        c.Label.String = name_colorbar;
+        set(get(c,'title'),'string',name_colorbar);
     end;
 end    
 function set_region_adjustment(domain,region_of_zoom)

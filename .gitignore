@@ -16,3 +16,10 @@ objs/
 bin/
 .deps
 *.grd
+model/out_cpp
+model/libboost_date_time.dylib
+model/libboost_filesystem.dylib
+model/libboost_mpi.dylib
+model/libboost_program_options.dylib
+model/libboost_serialization.dylib
+model/libboost_system.dylib

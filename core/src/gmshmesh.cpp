@@ -423,7 +423,7 @@ GmshMesh::stereographicProjection()
 
     for (auto it=M_nodes.begin(), en=M_nodes.end(); it!=en; ++it)
     {
-        //compute latitude and longitude from cartesian coordinates
+        //compute latitude and longitude from cartesian coordinates (geocentric coordinates)
         double _x = it->coords[0];
         double _y = it->coords[1];
         double _z = it->coords[2];

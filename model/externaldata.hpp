@@ -38,13 +38,15 @@ public:
 
 	typedef std::size_t size_type;
     typedef double value_type;
-    
+
     typedef DataSet Dataset;
     
     // typedef DataSet::Grid Grid;
     // typedef DataSet::Dimension Dimension;
     // typedef DataSet::Variable Variable;
     // typedef DataSet::Vectorial_Variable Vectorial_Variable;
+
+    typedef void (* vFunctionCall)(value_type args);
 
     ExternalData();
 
@@ -91,6 +93,7 @@ public:
     double fdt;
     std::vector<double> fcoeff;
     Dataset *M_dataset;
+    bool M_initialized;
 
 private:
     std::string M_datasetname;
