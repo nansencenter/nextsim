@@ -135,7 +135,7 @@ namespace Nextsim
     void GridOutput::initArbitraryGrid(Grid grid)
     {
         M_grid = grid;
-        loadGrid(&M_grid);
+        loadGrid(&M_grid, -1); // We don't expect there to be a time dependence for which grid to load
 
         M_ncols = -1;
         M_nrows = -1;

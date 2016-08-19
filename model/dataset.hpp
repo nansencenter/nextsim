@@ -150,7 +150,7 @@ public:
 
     std::vector<double> ftime_range;
 
-    void loadGrid(Grid *grid);
+    void loadGrid(Grid *grid, int current_time);
 
     // name of the dataSet
     std::string name;

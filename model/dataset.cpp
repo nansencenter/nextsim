@@ -1355,21 +1355,40 @@ namespace Nextsim
    }
 
 void
-DataSet::loadGrid(Grid *grid_ptr)
+DataSet::loadGrid(Grid *grid_ptr, int current_time)
 {
-    // std::string current_timestr = to_date_string_ym(M_current_time);
-    // std::cout <<"TIMESTR= "<< current_timestr <<"\n";
-    std::string filename = (boost::format( "%1%/%2%/%3%" )
+    //std::cout<<"---------------------fist loading ...\n";
+    std::string current_timestr;
+    if ( current_time > 0 )
+    {
+        current_timestr = to_date_string_ym(current_time);
+        std::cout <<"TIMESTR= "<< current_timestr <<"\n";
+    }
+    else
+        current_timestr = "";
+
+
+    // the ETOPO forcing filename does not contain the information on year and month
+    if ((grid_ptr->prefix).find("ETOPO1_Ice") != std::string::npos)
+    {
+        current_timestr = "";
+    }
+
+    std::string filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                             % Environment::simdataDir().string()
                             % grid_ptr->dirname
-                            % grid_ptr->filename
+                            % grid_ptr->prefix
+                            % current_timestr
+                            % grid_ptr->postfix
                             ).str();
-    
-	std::cout <<"GRID : READ NETCDF starts\n";
-            if ( ! boost::filesystem::exists(filename) )
-                throw std::runtime_error("File not found: " + filename);
-	netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
 
+    std::cout<<"GRID : FILENAME = "<< filename <<"\n";
+
+	std::cout <<"GRID : READ NETCDF starts\n";
+    if ( ! boost::filesystem::exists(filename) )
+        throw std::runtime_error("File not found: " + filename);
+
+	netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
     netCDF::NcDim tmpDim;
 
     tmpDim = dataFile.getDim(grid_ptr->dimension_y.name);
@@ -1380,7 +1399,7 @@ DataSet::loadGrid(Grid *grid_ptr)
 
     //switch (grid_ptr->latitude.dimensions.size())
     //{
-    // Here only two cases are considered, either the 
+    // Here only two cases are considered, either the
     //    case 1:
 	if(grid_ptr->latitude.dimensions.size()==1)
 	{
@@ -1390,7 +1409,7 @@ DataSet::loadGrid(Grid *grid_ptr)
 
 		std::vector<size_t> index_x_start(1);
 		std::vector<size_t> index_y_start(1);
-        
+
 		index_y_start[0] = 0;
 		index_y_count[0] = grid_ptr->M;
 
@@ -1399,7 +1418,7 @@ DataSet::loadGrid(Grid *grid_ptr)
 
 		std::vector<double> LAT(index_y_count[0]);
 		std::vector<double> LON(index_x_count[0]);
-		
+
 		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 		std::cout <<"GRID : READ NETCDF done\n";
@@ -1435,7 +1454,7 @@ DataSet::loadGrid(Grid *grid_ptr)
 
 		if(grid_ptr->interpolation_method==InterpolationType::FromGridToMesh)
 		{
-            // We the initial grid is actually regular, we can still use FromGridToMesh 
+            // We the initial grid is actually regular, we can still use FromGridToMesh
             // by only taking the first line and column into account (only used for ASR so far)
 			index_py_count[1] = 1;
 			index_px_count[0] = 1;
@@ -1455,9 +1474,9 @@ DataSet::loadGrid(Grid *grid_ptr)
 
 		VLAT.getVar(index_py_start,index_py_count,&YLAT[0]);
 		VLON.getVar(index_py_start,index_py_count,&YLON[0]);
-       
+
         // projection
-                    
+
 		std::vector<double> X(index_px_count[0]*index_px_count[1]);
 		std::vector<double> Y(index_py_count[0]*index_py_count[1]);
 
