@@ -3330,7 +3330,8 @@ FiniteElement::step(int pcpt)
         if ( fmod(pcpt*time_step,mooring_output_time_step) == 0 )
         {
             M_moorings.updateGridMean(M_mesh);
-            this->exportMoorings(M_moorings);
+            M_moorings.exportGridMeans("_grid.dat", time_step, mooring_output_time_step);
+
             M_moorings.resetMeshMean(M_mesh);
             M_moorings.resetGridMean();
         }
@@ -3354,22 +3355,22 @@ FiniteElement::updateMeans(GridOutput &means)
     {
         switch (it->variableID)
         {
-            case (variableID::conc):
+            case (GridOutput::variableID::conc):
                 for (int i=0; i<M_num_elements; i++)
                     it->data_mesh[i] += M_conc[i];
                 break;
                 
-            case (variableID::thick):
+            case (GridOutput::variableID::thick):
                 for (int i=0; i<M_num_elements; i++)
                     it->data_mesh[i] += M_thick[i];
                 break;
 
-            case (variableID::damage):
+            case (GridOutput::variableID::damage):
                 for (int i=0; i<M_num_elements; i++)
                     it->data_mesh[i] += M_damage[i];
                 break;
 
-            case (variableID::snow_thick):
+            case (GridOutput::variableID::snow_thick):
                 for (int i=0; i<M_num_elements; i++)
                     it->data_mesh[i] += M_snow_thick[i];
                 break;
@@ -3383,13 +3384,15 @@ FiniteElement::updateMeans(GridOutput &means)
     {
         switch (it->variableID)
         {
-            case (variableID::VT_x):
+            case (GridOutput::variableID::VT_x):
                 for (int i=0; i<M_num_nodes; i++)
-                    it->data_mesh[i] += M_VT[i]; break;
+                    it->data_mesh[i] += 1;
+                break; //M_VT[i]; break;
 
-            case (variableID::VT_y):
+            case (GridOutput::variableID::VT_y):
                 for (int i=0; i<M_num_nodes; i++)
-                    it->data_mesh[i] += M_VT[i+M_num_nodes]; break;
+                    it->data_mesh[i] += 0;
+                break; //M_VT[i+M_num_nodes]; break;
 
             default: std::logic_error("Updating of given variableID not implimented (nodes)");
         }
@@ -3407,8 +3410,8 @@ FiniteElement::initMoorings()
     auto ycoords = std::minmax_element( RY.begin(), RY.end() );
 
     double mooring_spacing = 1e3 * vm["simul.mooring_spacing"].as<double>();
-    int ncols = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/mooring_spacing );
-    int nrows = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
+    int nrows = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/mooring_spacing );
+    int ncols = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
     int grid_size = ncols*nrows;
 
     // Output dimensions
@@ -3431,23 +3434,18 @@ FiniteElement::initMoorings()
     dimensions[0] = dimension_x;
     dimensions[1] = dimension_y;
     dimensions[2] = dimension_time;
+
     std::vector<DataSet::Dimension> dimensions_time(1);
     dimensions_time[0] = dimension_time;
+
+    std::vector<DataSet::Dimension> dimensions_2d(2);
+    dimensions_2d[0] = dimension_x;
+    dimensions_2d[1] = dimension_y;
 
     // Output and averaging grids
     std::vector<double> data_nodes(M_num_nodes);
     std::vector<double> data_elements(M_num_elements);
     std::vector<double> data_grid(grid_size);
-
-    GridOutput::Variable time={
-        name: "time",
-        longName: "Time",
-        stdName: "time",
-        dimensions: dimensions_time,
-        Units: "hours",
-        data_mesh: data_elements,
-        data_grid: data_grid
-    };
 
     // Output variables - elements
     GridOutput::Variable conc={
@@ -3458,7 +3456,7 @@ FiniteElement::initMoorings()
         Units:"",
         data_mesh:data_elements,
         data_grid:data_grid,
-        variableID: variableID::conc
+        variableID: GridOutput::variableID::conc
     };
 
     GridOutput::Variable thick={
@@ -3469,18 +3467,18 @@ FiniteElement::initMoorings()
         Units:"",
         data_mesh:data_elements,
         data_grid:data_grid,
-        variableID: variableID::thick
+        variableID: GridOutput::variableID::thick
     };
 
     GridOutput::Variable snow_thick={
-        name:"sih",
+        name:"snh",
         longName:"Surface Snow Thickness",
         stdName:"surface_snow_thickness",
         dimensions: dimensions,
         Units:"",
         data_mesh:data_elements,
         data_grid:data_grid,
-        variableID: variableID::snow_thick
+        variableID: GridOutput::variableID::snow_thick
     };
 
     std::vector<GridOutput::Variable> elemental_variables(3);
@@ -3491,68 +3489,78 @@ FiniteElement::initMoorings()
     // Output variables - nodes
     GridOutput::Variable siu={
         name:"siu",
-        longName:"Sea Ice X-Velocity",
-        stdName:"sea_ice_x-velocity",
+        longName:"Sea Ice U-Velocity",
+        stdName:"sea_ice_u-velocity",
         dimensions: dimensions,
         Units:"m s-1",
         data_mesh:data_nodes,
         data_grid:data_grid,
-        variableID: variableID::VT_x
+        variableID: GridOutput::variableID::VT_x
     };
 
     GridOutput::Variable siv={
         name:"siv",
-        longName:"Sea Ice Y-Velocity",
-        stdName:"sea_ice_y-velocity",
+        longName:"Sea Ice V-Velocity",
+        stdName:"sea_ice_v-velocity",
         dimensions: dimensions,
         Units:"m s-1",
         data_mesh:data_nodes,
         data_grid:data_grid,
-        variableID: variableID::VT_y
+        variableID: GridOutput::variableID::VT_y
     };
 
     std::vector<GridOutput::Variable> nodal_variables(2);
     nodal_variables[0] = siu;
     nodal_variables[1] = siv;
 
+    // The vectorial variables are (always on the nodes) ...
+    std::vector<int> siuv_id(2);
+    siuv_id[0] = 0;
+    siuv_id[1] = 1;
+
+    DataSet::Vectorial_Variable siuv{
+        components_Id: siuv_id,
+        east_west_oriented: true // the output should be u, v, not x, y
+    };
+
+    std::vector<DataSet::Vectorial_Variable> vectorial_variables(1);
+    vectorial_variables[0] = siuv;
+
     // Define the mooring dataset
-    M_moorings=GridOutput(ncols, nrows, mooring_spacing, nodal_variables, elemental_variables);
+    M_moorings = GridOutput(ncols, nrows, mooring_spacing, nodal_variables, elemental_variables, vectorial_variables);
+    
+#if 0
+    // Prepare the moorings grid for output
+    GridOutput::Variable lat={
+        name: "lat",
+        longName: "Latitude",
+        stdName: "latitude",
+        dimensions: dimensions_2d,
+        Units: "degrees",
+        data_mesh: M_mesh.lat(),
+        data_grid: data_grid
+    };
+
+    GridOutput::Variable lon={
+        name: "lon",
+        longName: "Longitude",
+        stdName: "longitude",
+        dimensions: dimensions_2d,
+        Units: "degrees",
+        data_mesh: M_mesh.lon(),
+        data_grid: data_grid
+    };
+
+    std::vector<GridOutput::Variable> grid_variables(2);
+    grid_variables[0] = lon;
+    grid_variables[1] = lat;
+
+    M_moorings_grid = GridOutput(ncols, nrows, mooring_spacing, grid_variables, GridOutput::variableKind::nodal);
+    M_moorings_grid.updateGridMean(M_mesh);
+    M_moorings_grid.exportGridMeans("_grid.dat", 1., 1.);
+#endif
+
 } //initMoorings
-
-// Divide the grid values with the output timestep, save, and reset everything
-void
-FiniteElement::exportMoorings(GridOutput &moorings)
-{
-    double time_factor = time_step/mooring_output_time_step;
-
-    // Multiply all the grid values with 'time_factor'
-    // Elements
-    for ( auto it=moorings.M_elemental_variables.begin(); it!=moorings.M_elemental_variables.end(); ++it )
-        for ( auto jt=it->data_grid.begin(); jt!=it->data_grid.end(); jt++ )
-            // We need to filter out the missing values so they remain the same for all output files
-            if ( *jt > moorings.M_miss_val )
-                *jt *= time_factor;
-            else
-                *jt = moorings.M_miss_val;
-
-    // Nodes
-    for ( auto it=moorings.M_nodal_variables.begin(); it!=moorings.M_nodal_variables.end(); ++it )
-        for ( auto jt=it->data_grid.begin(); jt!=it->data_grid.end(); jt++ )
-            // We need to filter out the missing values so they remain the same for all output files
-            if ( *jt > moorings.M_miss_val )
-                *jt *= time_factor;
-            else
-                *jt = moorings.M_miss_val;
-
-
-    // Save to file - this is still just an ascii dump of one parameter!
-
-    std::cout << "Writing " << moorings.M_elemental_variables[0].name << " to file\n";
-    std::ofstream myfile;
-    myfile.open("Conc_grid.dat");
-    std::copy(moorings.M_elemental_variables[0].data_grid.begin(), moorings.M_elemental_variables[0].data_grid.end(), ostream_iterator<float>(myfile, " "));
-    myfile.close();
-}
 
 void
 FiniteElement::writeRestart(int pcpt, int step)

@@ -382,6 +382,7 @@ private:
 
     bool M_use_moorings;
     GridOutput M_moorings;
+    GridOutput M_moorings_grid;
 
 private:
     void constantIce();
@@ -395,7 +396,6 @@ private:
 
     void updateMeans(GridOutput &means);
     void initMoorings();
-    void exportMoorings(GridOutput &moorings);
 
 };
 } // Nextsim

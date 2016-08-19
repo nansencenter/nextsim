@@ -58,6 +58,7 @@ namespace Nextsim
             ("simul.use_moorings", po::value<bool>()->default_value( false ), "")
             ("simul.mooring_names", po::value<std::vector<std::string>>()->multitoken()->zero_tokens()->composing(), "")
             ("simul.mooring_spacing", po::value<double>()->default_value( 10 ), "km")
+            ("simul.mooring_grid_file", po::value<std::string>()->default_value( "" ), "")
             ("simul.mooring_output_timestep", po::value<double>()->default_value( 1 ), "days")
             ("simul.slim_bin.use", po::value<bool>()->default_value( false ), "")
             ("simul.slim_bin.names", po::value<std::vector<std::string>>()->multitoken()->zero_tokens()->composing(), "")
