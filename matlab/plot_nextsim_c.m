@@ -18,9 +18,9 @@ if nargin==5, dir=''; end
 
 %Here are a list of various options which can be set
 plot_grid           = 0;            % If not zero the mesh lines are ploted. If zoomed out only the mesh lines will be visible
-plot_coastlines     = 1;            % When 1 the actual domain baoundaries are plotted, closed in light gray and opened in cyan. 
+plot_coastlines     = 0;            % When 1 the actual domain baoundaries are plotted, closed in light gray and opened in cyan. 
                                     % Note though that plotting the coastlines or the grid makes the figure much heavier
-plot_date           = 0;            % 0 by default, 1 if we want to display the date on the figure
+plot_date           = 1;            % 0 by default, 1 if we want to display the date on the figure
 font_size           = 14;           % Sets font size of colorbar and date
 background_color    = [0.85 0.85 0.85];% white color [1 1 1] by default. A substitute could be gray [0.5 0.5 0.5]
 save_figure         = 0;            % 0 (default) we do not save the figure
@@ -108,7 +108,7 @@ for p=0:0
   %
   set_axis_colormap_colorbar(domain,field,v,region_of_zoom);
   %
-  set_figure_cosmetics(background_color,font_size);
+  set_figure_cosmetics(data_out,domain,region_of_zoom,plot_date,background_color,font_size);
   
   %We can now color the ocean in blue...
   patch(x(:,mask_water)/1000,y(:,mask_water)/1000,[0 0.021 0.53],'EdgeColor','none');
@@ -307,8 +307,22 @@ function set_region_adjustment(domain,region_of_zoom)
             end;
         end;
 end
-function set_figure_cosmetics(background_color,font_size)
+function set_figure_cosmetics(data_out,domain,region_of_zoom,plot_date,background_color,font_size)
 
+        %Adds date
+        if plot_date == 1 && isfield(data_out,'Time')
+            date=data_out.Time+datenum(1900,1,1,0,3,20);
+            textstring = datestr(date,'yyyy/mm/dd HH:MM');
+            if strcmp(domain,'4MIT') || strcmp(domain,'BKF')
+                text(0.025, 0.1,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
+            elseif strcmp(domain,'arch') 
+                text(0.1, 0.03,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
+            elseif strcmp(domain,'topaz_matthias') || strcmp(region_of_zoom,'central_arctic')
+                text(0.027, 0.95,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
+            else
+                text(0.2, 0.95,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
+            end;
+        end;
         whitebg(background_color);
         %set(gcf,'InvertHardcopy','off'); %Makes the background be included when the file is saved
         set(gca,'XColor','k','YColor','k');
