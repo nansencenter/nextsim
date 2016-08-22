@@ -89,6 +89,7 @@ namespace Nextsim
             int M_ncols;
             int M_nrows;
             double M_mooring_spacing;
+            int M_grid_size;
             Grid M_grid;
             std::vector<Variable> M_nodal_variables;
             std::vector<Variable> M_elemental_variables;

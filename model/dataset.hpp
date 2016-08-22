@@ -32,6 +32,7 @@ namespace Nextsim
 {
     enum InterpolationType
     {
+        None = -1,
         FromGridToMesh = 0,
         FromMeshToMesh2dx = 1,
         FromMeshToMesh2dCavities = 2,

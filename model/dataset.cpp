@@ -1428,6 +1428,10 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time)
 
 		grid_ptr->gridY=LAT;
 		grid_ptr->gridX=LON;
+
+        // Save lon and lat for possible output
+        grid_ptr->gridLAT=LAT;
+        grid_ptr->gridLON=LON;
 	}
 	else
 	{
@@ -1591,6 +1595,10 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time)
 			grid_ptr->gridX=X;
 			grid_ptr->gridY=Y;
 		}
+
+        // Save lon and lat for possible output
+        grid_ptr->gridLAT=XLAT;
+        grid_ptr->gridLON=YLON;
 
 	//	break;
 	//

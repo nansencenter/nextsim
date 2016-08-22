@@ -3449,13 +3449,13 @@ FiniteElement::updateMeans(GridOutput &means)
         {
             case (GridOutput::variableID::VT_x):
                 for (int i=0; i<M_num_nodes; i++)
-                    it->data_mesh[i] += 1;
-                break; //M_VT[i]; break;
+                    it->data_mesh[i] += M_VT[i];
+                break;
 
             case (GridOutput::variableID::VT_y):
                 for (int i=0; i<M_num_nodes; i++)
-                    it->data_mesh[i] += 0;
-                break; //M_VT[i+M_num_nodes]; break;
+                    it->data_mesh[i] += M_VT[i+M_num_nodes];
+                break;
 
             default: std::logic_error("Updating of given variableID not implimented (nodes)");
         }
@@ -3466,17 +3466,6 @@ FiniteElement::updateMeans(GridOutput &means)
 void
 FiniteElement::initMoorings()
 {
-    // Calculate the grid spacing (assuming a regular grid for now)
-    auto RX = M_mesh.coordX();
-    auto RY = M_mesh.coordY();
-    auto xcoords = std::minmax_element( RX.begin(), RX.end() );
-    auto ycoords = std::minmax_element( RY.begin(), RY.end() );
-
-    double mooring_spacing = 1e3 * vm["simul.mooring_spacing"].as<double>();
-    int nrows = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/mooring_spacing );
-    int ncols = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
-    int grid_size = ncols*nrows;
-
     // Output dimensions
     DataSet::Dimension dimension_x={
         name:"x",
@@ -3497,18 +3486,11 @@ FiniteElement::initMoorings()
     dimensions[0] = dimension_x;
     dimensions[1] = dimension_y;
     dimensions[2] = dimension_time;
-
-    std::vector<DataSet::Dimension> dimensions_time(1);
-    dimensions_time[0] = dimension_time;
-
-    std::vector<DataSet::Dimension> dimensions_2d(2);
-    dimensions_2d[0] = dimension_x;
-    dimensions_2d[1] = dimension_y;
-
+    
     // Output and averaging grids
     std::vector<double> data_nodes(M_num_nodes);
     std::vector<double> data_elements(M_num_elements);
-    std::vector<double> data_grid(grid_size);
+    std::vector<double> data_grid;
 
     // Output variables - elements
     GridOutput::Variable conc={
@@ -3589,11 +3571,86 @@ FiniteElement::initMoorings()
     std::vector<DataSet::Vectorial_Variable> vectorial_variables(1);
     vectorial_variables[0] = siuv;
 
+#if 0
+    // Calculate the grid spacing (assuming a regular grid for now)
+    auto RX = M_mesh.coordX();
+    auto RY = M_mesh.coordY();
+    auto xcoords = std::minmax_element( RX.begin(), RX.end() );
+    auto ycoords = std::minmax_element( RY.begin(), RY.end() );
+
+    double mooring_spacing = 1e3 * vm["simul.mooring_spacing"].as<double>();
+    int nrows = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/mooring_spacing );
+    int ncols = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
+
     // Define the mooring dataset
     M_moorings = GridOutput(ncols, nrows, mooring_spacing, nodal_variables, elemental_variables, vectorial_variables);
-    
+#else
+    // Read the grid in from file
+    std::vector<DataSet::Dimension> dimensions_latlon(2);
+    dimensions_latlon[0] = dimension_y;
+    dimensions_latlon[1] = dimension_x;
+
+    std::vector<std::vector<double>> data2_tmp;
+    data2_tmp.resize(2);
+
+    DataSet::Variable latitude={
+        name: "latitude",
+        dimensions: dimensions_latlon,
+        a: 1.,
+        b: 0.,
+        Units: "degree_north",
+        data2: data2_tmp};
+
+    DataSet::Variable longitude={
+        name: "longitude",
+        dimensions: dimensions_latlon,
+        a: 1.,
+        b: 0.,
+        Units: "degree_east",
+        data2: data2_tmp};
+
+    DataSet::Grid grid={
+        interpolation_method: InterpolationType::None,
+        interp_type: -1,
+        dirname: "data",
+        //filename: "TP4DAILY_200803_3m.nc",
+        prefix:"TP4DAILY_200803",
+        postfix: "_3m.nc",
+
+        latitude: latitude,
+        longitude: longitude,
+
+        dimension_x: dimension_x,
+        dimension_y: dimension_y,
+
+        mpp_file: "NpsNextsim.mpp",
+        interpolation_in_latlon: false,
+
+        loaded: false,
+
+        masking: false,
+        masking_variable: latitude
+    };
+
+    // Define the mooring dataset
+    M_moorings = GridOutput(grid, nodal_variables, elemental_variables, vectorial_variables);
+
+    // Save the grid info - this is still just an ascii dump!
+    std::ofstream myfile;
+    myfile.open("lon_grid.dat");
+    std::copy(M_moorings.M_grid.gridLON.begin(), M_moorings.M_grid.gridLON.end(), ostream_iterator<float>(myfile," "));
+    myfile.close();
+    myfile.open("lat_grid.dat");
+    std::copy(M_moorings.M_grid.gridLAT.begin(), M_moorings.M_grid.gridLAT.end(), ostream_iterator<float>(myfile," "));
+    myfile.close();
+#endif
+
 #if 0
     // Prepare the moorings grid for output
+    std::vector<DataSet::Dimension> dimensions_2d(2);
+    dimensions_2d[0] = dimension_x;
+    dimensions_2d[1] = dimension_y;
+
     GridOutput::Variable lat={
         name: "lat",
         longName: "Latitude",

@@ -127,9 +127,12 @@ namespace Nextsim
         M_ncols = ncols;
         M_nrows = nrows;
         M_mooring_spacing = mooring_spacing;
+        M_grid_size = M_ncols*M_nrows;
 
         M_grid = Grid();
         M_grid.loaded = false;
+
+        this->resetGridMean();
     }
 
     void GridOutput::initArbitraryGrid(Grid grid)
@@ -140,6 +143,9 @@ namespace Nextsim
         M_ncols = -1;
         M_nrows = -1;
         M_mooring_spacing = -1.;
+        M_grid_size = M_grid.gridX.size();
+
+        this->resetGridMean();
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -190,9 +196,9 @@ namespace Nextsim
                                   &mesh.indexTr()[0],&mesh.coordX()[0],&mesh.coordY()[0],
                                   mesh.numNodes(),mesh.numTriangles(),
                                   &interp_in[0],
-                                  M_grid.gridX.size(),nb_var,
-                                  &M_grid.gridX[0],&M_grid.gridY[0],source_size,
-                                  false);
+                                  source_size,nb_var,
+                                  &M_grid.gridX[0],&M_grid.gridY[0],M_grid_size,
+                                  true, M_miss_val);
         else if ( M_ncols>0 & M_nrows>0 & M_mooring_spacing>0 )
             InterpFromMeshToGridx(interp_out,
                                   &mesh.indexTr()[0],&mesh.coordX()[0],&mesh.coordY()[0],
@@ -207,9 +213,9 @@ namespace Nextsim
             std::logic_error("GridOutput::updateGridMeanWorker: No grid loaded and one of M_ncols, M_nrows, or M_mooring_spacing not set properly.");
 
         // Add the output pointer value to the grid vectors
-        for (int i=0; i<M_nrows*M_ncols; ++i)
-            for (int j=0; j<nb_var; j++)
-                variables[j].data_grid[i] += interp_out[nb_var*i+j];
+        for (int i=0; i<nb_var; i++)
+            for (int j=0; j<M_grid_size; ++j)
+                variables[i].data_grid[j] += interp_out[nb_var*j+i];
 
         xDelete<double>(interp_out);
     }
@@ -288,10 +294,10 @@ namespace Nextsim
     void GridOutput::resetGridMean()
     {
         for (int i=0; i<M_nodal_variables.size(); i++)
-            M_nodal_variables[i].data_grid.assign(M_ncols*M_nrows, 0.);
+            M_nodal_variables[i].data_grid.assign(M_grid_size, 0.);
 
         for (int i=0; i<M_elemental_variables.size(); i++)
-            M_elemental_variables[i].data_grid.assign(M_ncols*M_nrows, 0.);
+            M_elemental_variables[i].data_grid.assign(M_grid_size, 0.);
     }
 
     // Set the _mesh values back to zero
