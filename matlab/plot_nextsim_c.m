@@ -18,7 +18,7 @@ if nargin==5, dir=''; end
 
 %Here are a list of various options which can be set
 plot_grid           = 0;            % If not zero the mesh lines are ploted. If zoomed out only the mesh lines will be visible
-plot_coastlines     = 0;            % When 1 the actual domain baoundaries are plotted, closed in light gray and opened in cyan. 
+plot_coastlines     = 1;            % When 1 the actual domain baoundaries are plotted, closed in light gray and opened in cyan. 
                                     % Note though that plotting the coastlines or the grid makes the figure much heavier
 plot_date           = 0;            % 0 by default, 1 if we want to display the date on the figure
 font_size           = 14;           % Sets font size of colorbar and date
@@ -142,6 +142,8 @@ function plot_coastlines_and_boundaries(domain)
 % in your matlab path
     if (strcmp(domain,'topaz'))
     load topazreducedsplit2.mat
+    elseif (strcmp(domain,'topaz_matthias'))
+    load topaz_matthias_split2.mat   
     elseif (strcmp(domain,'mitgcm4km'))
     load MITgcm4kmsplit2.mat
     elseif (strcmp(domain,'mitgcm9km'))
@@ -293,7 +295,7 @@ function set_region_adjustment(domain,region_of_zoom)
             elseif strcmp(region_of_zoom,'beaufort')
                 axis([-2450 -500 -750 1100]);
             elseif strcmp(region_of_zoom,'central_arctic')
-                axis([-2450 1050 -1000 2300]);
+                axis([-2450 1050 -1250 2050]);
             elseif strcmp(region_of_zoom,'extended_arctic')
                 axis([-2450 2950 -2900 2500]);
             elseif strcmp(region_of_zoom,'kara_landfast')
