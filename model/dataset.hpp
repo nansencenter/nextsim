@@ -84,6 +84,7 @@ public:
 		bool interpolation_in_latlon;
 
         bool loaded;
+        bool monthly_dataset;
 
 		bool masking;
 		Variable masking_variable;

@@ -139,6 +139,7 @@ namespace Nextsim
       		interpolation_in_latlon: false,
 
              loaded: false,
+             monthly_dataset:true,
 
      		masking: false
      	};
@@ -271,6 +272,7 @@ namespace Nextsim
       		interpolation_in_latlon: false,
 
              loaded: false,
+             monthly_dataset:true,
 
      		masking: false
      	};
@@ -524,6 +526,7 @@ namespace Nextsim
      		interpolation_in_latlon: false,
 
              loaded: false,
+             monthly_dataset:true,
 
      		masking: true,
      		masking_variable: sss
@@ -725,6 +728,7 @@ namespace Nextsim
      		interpolation_in_latlon: false,
 
              loaded: false,
+             monthly_dataset:true,
 
      		masking: true,
      		masking_variable: sss
@@ -916,6 +920,7 @@ namespace Nextsim
      		interpolation_in_latlon: false,
 
              loaded: false,
+             monthly_dataset:true,
 
      		masking: true,
      		masking_variable: sss
@@ -942,6 +947,113 @@ namespace Nextsim
 
      		this->nb_timestep_day= 1;
      	    this->time= time;
+     }
+     else if (strcmp (DatasetName, "asi_elements") == 0)
+     {
+     	// Definition of topaz grid and datasets
+         Dimension dimension_x={
+             name:"x",
+             cyclic:false
+     	};
+
+         Dimension dimension_y={
+             name:"y",
+             cyclic:false
+     	};
+
+         Dimension dimension_time={
+             name:"time", // "Time"
+             cyclic:false
+     	};
+
+         std::vector<Dimension> dimensions(3);
+         dimensions[0] = dimension_time;
+         dimensions[1] = dimension_y;
+         dimensions[2] = dimension_x;
+
+         std::vector<Dimension> dimensions_latlon(2);
+         dimensions_latlon[0] = dimension_y;
+         dimensions_latlon[1] = dimension_x;
+
+         std::vector<Dimension> dimensions_time(1);
+         dimensions_time[0] = dimension_time;
+
+         Variable latitude={
+             name: "latitude",
+             dimensions: dimensions_latlon,
+             a: 1.,
+             b: 0.,
+             Units: "degree_north",
+             data2: data2_tmp};
+
+         Variable longitude={
+             name: "longitude",
+             dimensions: dimensions_latlon,
+             a: 1.,
+             b: 0.,
+             Units: "degree_east",
+             data2: data2_tmp};
+
+         Variable time={
+             name: "time",
+             dimensions: dimensions_time,
+             a: 1./3600,
+             b: 0.,
+             Units: "hours",
+             data2: data2_tmp};
+
+         Variable conc={
+     		name: "icecon",
+     		dimensions: dimensions,
+     		a: 0.01,
+     		b: 0.,
+     		Units: "",
+     		data2: data2_tmp
+     	};
+
+         Grid M_grid={
+             interpolation_method: InterpolationType::FromMeshToMesh2dx,
+     		interp_type: -1,
+             this->dirname= "data",
+             //filename: "TP4DAILY_200803_3m.nc",
+             prefix= "asi-n6250-",
+             postfix= "-v5i.nc",
+
+             latitude: latitude,
+             longitude: longitude,
+
+             dimension_x: dimension_x,
+             dimension_y: dimension_y,
+
+             mpp_file: "NpsNextsim.mpp",
+     		interpolation_in_latlon: false,
+
+             loaded: false,
+             monthly_dataset:false,
+
+     		masking: true,
+     		masking_variable: conc
+        };
+
+        std::vector<Variable> variables(1);
+        variables[0] = conc;
+
+        std::vector<Vectorial_Variable> vectorial_variables(0);
+
+        this->dirname= "data";
+        this->prefix= "asi-n6250-";
+        this->postfix= "-v5i.nc";
+        this->reference_date= "2002-01-01";
+
+        this->variables= variables;
+        this->vectorial_variables= vectorial_variables;
+        this->target_size= target_size;
+        this->grid= M_grid;
+
+        this->reloaded=false;
+
+        this->nb_timestep_day= 1;
+     	this->time= time;
      }
      else if (strcmp (DatasetName, "etopo_elements") == 0)
      {
@@ -1004,6 +1116,7 @@ namespace Nextsim
      		interpolation_in_latlon: true,
 
              loaded: false,
+             monthly_dataset:false,
 
      		masking: false
      	};
@@ -1100,6 +1213,7 @@ namespace Nextsim
      		interpolation_in_latlon: true,
 
              loaded: false,
+             monthly_dataset:true,
 
      		masking: false
      	};
@@ -1260,9 +1374,11 @@ namespace Nextsim
   		mpp_file: "",
   		interpolation_in_latlon: true,
 
-          loaded: false,
-
-  		masking: false
+        loaded: false,
+        
+        monthly_dataset:true,
+        
+        masking: false
     };
 
      this->grid= M_grid;
@@ -1344,6 +1460,7 @@ namespace Nextsim
    	fprintf (stderr, "topaz_nodes\n");
    	fprintf (stderr, "topaz_elements\n");
    	fprintf (stderr, "ice_topaz_elements\n");
+    fprintf (stderr, "asi_elements\n");
    	fprintf (stderr, "etopo_elements\n");
    	fprintf (stderr, "ERAi_nodes\n");
     fprintf (stderr, "ERAi_elements\n");
@@ -1357,11 +1474,20 @@ namespace Nextsim
 void
 DataSet::loadGrid(Grid *grid_ptr, int current_time)
 {
+    // Attributes (scaling and offset)
+    netCDF::NcVarAtt att;
+    double scale_factor;
+    double add_offset;
+    
     //std::cout<<"---------------------fist loading ...\n";
     std::string current_timestr;
     if ( current_time > 0 )
     {
-        current_timestr = to_date_string_ym(current_time);
+        if(grid_ptr->monthly_dataset)
+            current_timestr = to_date_string_ym(current_time);
+        else
+            current_timestr = to_date_string_yd(current_time);
+        
         std::cout <<"TIMESTR= "<< current_timestr <<"\n";
     }
     else
@@ -1426,6 +1552,51 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time)
 		VLAT.getVar(index_y_start,index_y_count,&LAT[0]);
 		VLON.getVar(index_x_start,index_x_count,&LON[0]);
 
+        // Need to multiply with scale factor and add offset - these are stored as variable attributes
+        scale_factor=1.;
+        try
+        {
+            att = VLAT.getAtt("scale_factor");
+            att.getValues(&scale_factor);
+        }
+        catch(netCDF::exceptions::NcException& e)
+        {}
+
+        add_offset=0.;
+        try
+        {
+            att = VLAT.getAtt("add_offset");
+            att.getValues(&add_offset);
+        }
+        catch(netCDF::exceptions::NcException& e)
+        {}
+
+        for (int i=0; i<(index_y_count[0]); ++i) 
+            LAT[i]=LAT[i]*scale_factor + add_offset;
+                
+        // Need to multiply with scale factor and add offset - these are stored as variable attributes
+        scale_factor=1.;
+        try
+        {
+            att = VLON.getAtt("scale_factor");
+            att.getValues(&scale_factor);
+        }
+        catch(netCDF::exceptions::NcException& e)
+        {}
+
+        add_offset=0.;
+        try
+        {
+            att = VLON.getAtt("add_offset");
+            att.getValues(&add_offset);
+        }
+        catch(netCDF::exceptions::NcException& e)
+        {}
+
+        for (int i=0; i<(index_x_count[0]); ++i) 
+            LON[i]=LON[i]*scale_factor + add_offset;
+                
+
 		grid_ptr->gridY=LAT;
 		grid_ptr->gridX=LON;
 
@@ -1473,12 +1644,47 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time)
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 		std::cout <<"GRID : READ NETCDF done\n";
 
+        // Need to multiply with scale factor and add offset - these are stored as variable attributes
 		VLAT.getVar(index_px_start,index_px_count,&XLAT[0]);
 		VLON.getVar(index_px_start,index_px_count,&XLON[0]);
 
 		VLAT.getVar(index_py_start,index_py_count,&YLAT[0]);
 		VLON.getVar(index_py_start,index_py_count,&YLON[0]);
 
+        // Apply the scale factor and offset if any
+        scale_factor=1.;
+        try
+        {
+            att = VLAT.getAtt("scale_factor");
+            att.getValues(&scale_factor);
+        }
+        catch(netCDF::exceptions::NcException& e)
+        {}
+
+        add_offset=0.;
+        try
+        {
+            att = VLAT.getAtt("add_offset");
+            att.getValues(&add_offset);
+        }
+        catch(netCDF::exceptions::NcException& e)
+        {}
+        
+        if(add_offset!=0. || scale_factor!=1.)
+        {    
+            for (int i=0; i<(index_px_count[0]*index_px_count[1]); ++i) 
+            {
+                XLON[i]=XLON[i]*scale_factor + add_offset;
+                XLAT[i]=XLAT[i]*scale_factor + add_offset;
+            }
+        
+            for (int i=0; i<(index_py_count[0]*index_py_count[1]); ++i) 
+            {
+                YLON[i]=YLON[i]*scale_factor + add_offset;
+                YLAT[i]=YLAT[i]*scale_factor + add_offset;
+            }
+        }
+        
         // projection
 
 		std::vector<double> X(index_px_count[0]*index_px_count[1]);

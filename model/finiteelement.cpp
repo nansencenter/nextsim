@@ -261,6 +261,8 @@ FiniteElement::initDatasets()
     M_topaz_elements_dataset=DataSet("topaz_elements",M_num_elements);
 
     M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements",M_num_elements);
+    
+    M_asi_elements_dataset=DataSet("asi_elements",M_num_elements);
 
     M_etopo_elements_dataset=DataSet("etopo_elements",M_num_elements);//M_num_nodes);
 
@@ -391,7 +393,8 @@ FiniteElement::initConstant()
     const boost::unordered_map<const std::string, setup::IceType> str2conc = boost::assign::map_list_of
         ("constant", setup::IceType::CONSTANT)
         ("target", setup::IceType::TARGET)
-        ("topaz", setup::IceType::TOPAZ4);
+        ("topaz", setup::IceType::TOPAZ4)
+        ("amsre", setup::IceType::AMSRE);
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
 
     const boost::unordered_map<const std::string, setup::BathymetryType> str2bathymetry = boost::assign::map_list_of
@@ -1389,6 +1392,7 @@ FiniteElement::regrid(bool step)
     M_topaz_nodes_dataset.target_size=M_num_nodes;
     M_topaz_elements_dataset.target_size=M_num_elements;
     M_ice_topaz_elements_dataset.target_size=M_num_elements;
+    M_asi_elements_dataset.target_size=M_num_elements;
     M_etopo_elements_dataset.target_size=M_num_elements;
     M_ERAi_nodes_dataset.target_size=M_num_nodes;
     M_ERAi_elements_dataset.target_size=M_num_elements;
@@ -1398,6 +1402,7 @@ FiniteElement::regrid(bool step)
     M_topaz_nodes_dataset.reloaded=false;
     M_topaz_elements_dataset.reloaded=false;
     M_ice_topaz_elements_dataset.reloaded=false;
+    M_asi_elements_dataset.reloaded=false;
     M_etopo_elements_dataset.reloaded=false;
     M_ERAi_nodes_dataset.reloaded=false;
     M_ERAi_elements_dataset.reloaded=false;
@@ -3630,6 +3635,7 @@ FiniteElement::initMoorings()
         interpolation_in_latlon: false,
 
         loaded: false,
+        monthly_dataset:true,
 
         masking: false,
         masking_variable: latitude
@@ -3976,6 +3982,7 @@ FiniteElement::readRestart(int step)
     M_topaz_nodes_dataset.target_size=M_num_nodes;
     M_topaz_elements_dataset.target_size=M_num_elements;
     M_ice_topaz_elements_dataset.target_size=M_num_elements;
+    M_asi_elements_dataset.target_size=M_num_elements;
     M_etopo_elements_dataset.target_size=M_num_elements;
     M_ERAi_nodes_dataset.target_size=M_num_nodes;
     M_ERAi_elements_dataset.target_size=M_num_elements;
@@ -4293,7 +4300,10 @@ FiniteElement::initIce()
             this->targetIce();
             break;
         case setup::IceType::TOPAZ4:
-        this->topazIce();
+            this->topazIce();
+            break;
+        case setup::IceType::AMSRE:
+            this->amsreIce();
             break;
 
         default:
@@ -4373,6 +4383,44 @@ void
 FiniteElement::topazIce()
 {
     external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false);
+    M_init_conc.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false);
+    M_init_thick.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false);
+    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    double tmp_var;
+    for (int i=0; i<M_num_elements; ++i)
+    {
+		tmp_var=M_init_conc[i];
+		M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+		tmp_var=M_init_thick[i];
+		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+		tmp_var=M_init_snow_thick[i];
+		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+
+		M_damage[i]=0.;
+	}
+}
+
+void
+FiniteElement::amsreIce()
+{
+    external_data M_init_conc=ExternalData(&M_asi_elements_dataset,M_mesh,0,false);
     M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false);
