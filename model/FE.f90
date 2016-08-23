@@ -29,22 +29,22 @@ program main
 
   ! Initialise the model
   write(*,*) "Fortran call init"
-  call init(FE, i_init)
+  call init(FE, i)
   write(*,*) "Fortran call init done"
 
   ! Run the model
   !call run(FE)
-  do i=i_init,i_init+10
+  do while ( i < 10 )
     write(*,*) "Fortran call step with i=", i
     call step(FE, i)
     write(*,*) "Step completed"
   end do
 
-  ! Get the concentration field
-  call getConc(FE, conc)
-  do i=1,size(conc,1)
-    write(10,*) (conc(i,j), j=1,size(conc,2))
-  enddo
+  ! ! Get the concentration field
+  ! call getConc(FE, conc)
+  ! do i=1,size(conc,1)
+  !   write(10,*) (conc(i,j), j=1,size(conc,2))
+  ! enddo
 
   ! Finalise the model
   write(*,*) "Fortran call finalise"

@@ -3128,7 +3128,7 @@ FiniteElement::run()
         // **********************************************************************
         // Take one time-step
         // **********************************************************************
-        pcpt = this->step(pcpt);
+        this->step(pcpt);
 
         pcpt_file << pcpt << "\n";
         pcpt_file << to_date_string(current_time) << "\n";
@@ -3256,8 +3256,8 @@ FiniteElement::init()
 }
 
 // Take one time step
-int
-FiniteElement::step(int pcpt)
+void
+FiniteElement::step(int &pcpt)
 {
     M_run_wim = !(pcpt % vm["nextwim.couplingfreq"].as<int>());
 
@@ -3406,8 +3406,6 @@ FiniteElement::step(int pcpt)
         std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
         this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
     }
-
-    return pcpt;
 }
 
 // Add to the mean on the mesh

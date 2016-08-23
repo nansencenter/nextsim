@@ -64,7 +64,7 @@ module neXtSIM
     subroutine FiniteElementStep(this, pcpt) bind(C,name="FiniteElementStep")
       import
       type(C_ptr), value :: this
-      integer(C_int), value :: pcpt
+      integer(C_int) :: pcpt
     end subroutine FiniteElementStep
 
 ! Interface to call the function 'finalise'
@@ -86,21 +86,21 @@ module neXtSIM
       integer(C_int) :: nrows
     end function FiniteElementGetNRows
 
-    subroutine FiniteElementUpdateMoorings(this) bind(C,name="FiniteElementUpdateMoorings")
-      import
-      type(C_ptr), value :: this
-    end subroutine FiniteElementUpdateMoorings
-
-    subroutine FiniteElementResetMoorings(this) bind(C,name="FiniteElementUpdateMoorings")
-      import
-      type(C_ptr), value :: this
-    end subroutine FiniteElementResetMoorings
-
-    function FiniteElementGetConc(this) result(conc) bind(C,name="FiniteElementGetConc")
-      import
-      type(C_ptr), value :: this
-      type(C_ptr) :: conc
-    end function FiniteElementGetConc
+!    subroutine FiniteElementUpdateMoorings(this) bind(C,name="FiniteElementUpdateMoorings")
+!      import
+!      type(C_ptr), value :: this
+!    end subroutine FiniteElementUpdateMoorings
+!
+!    subroutine FiniteElementResetMoorings(this) bind(C,name="FiniteElementResetMoorings")
+!      import
+!      type(C_ptr), value :: this
+!    end subroutine FiniteElementResetMoorings
+!
+!    function FiniteElementGetConc(this) result(conc) bind(C,name="FiniteElementGetConc")
+!      import
+!      type(C_ptr), value :: this
+!      type(C_ptr) :: conc
+!    end function FiniteElementGetConc
 
   end interface
 
@@ -109,7 +109,7 @@ module neXtSIM
 !========================================================================
 
   public :: new, delete, finalise, step, init, run, CXXClass
-  public :: getConc
+  !public :: getConc
 
 !========================================================================
 contains
@@ -162,7 +162,7 @@ contains
 
   subroutine step(this, pcpt)
     type(CXXClass), intent(inout) :: this
-    integer, intent(in) :: pcpt
+    integer, intent(inout) :: pcpt
     call FiniteElementStep(this%object, pcpt)
   end subroutine step
 
@@ -171,22 +171,22 @@ contains
     call FiniteElementFinalise(this%object)
   end subroutine finalise
 
-  subroutine getConc(this, conc)
-    type(CXXClass), intent(in) :: this
-    real(C_double), pointer, intent(out) :: conc(:,:)
-
-    integer :: ncols, nrows
-    type(C_ptr) :: conc_cptr
-
-    call FiniteElementUpdateMoorings(this%object)
-    ncols = FiniteElementGetNCols(this%object)
-    nrows = FiniteElementGetNRows(this%object)
-
-
-    conc_cptr = FiniteElementGetConc(this%object)
-    call c_f_pointer(conc_cptr, conc, [ncols, nrows])
-
-    call FiniteElementResetMoorings(this%object)
-  end subroutine getConc
+!  subroutine getConc(this, conc)
+!    type(CXXClass), intent(in) :: this
+!    real(C_double), pointer, intent(out) :: conc(:,:)
+!
+!    integer :: ncols, nrows
+!    type(C_ptr) :: conc_cptr
+!
+!    call FiniteElementUpdateMoorings(this%object)
+!    ncols = FiniteElementGetNCols(this%object)
+!    nrows = FiniteElementGetNRows(this%object)
+!
+!
+!    conc_cptr = FiniteElementGetConc(this%object)
+!    call c_f_pointer(conc_cptr, conc, [ncols, nrows])
+!
+!    call FiniteElementResetMoorings(this%object)
+!  end subroutine getConc
 
 end module neXtSIM
