@@ -58,6 +58,15 @@ inline std::string to_date_string( double date_time )
     return (boost::format( "%1%-%2%-%3%" ) % dt.year() % dt.month().as_number() % dt.day().as_number()).str();
 }
 
+inline std::string to_date_string_yd( double date_time )
+{
+    boost::gregorian::date dt = Nextsim::parse_date( date_time );
+    //return (boost::format( "%4-%02d-%02d" ) % dt.year() % dt.month().as_number() % dt.day().as_number()).str();
+    //return (boost::format( "%1%-%2%-%3%" ) % dt.year() % dt.month().as_number() % dt.day().as_number()).str();
+    //return (boost::format( "%1%%2%" ) % dt.year() % dt.month().as_number()).str();
+    return (boost::format( "%1%%2%%3%" ) % dt.year() % boost::io::group(std::setw(2), std::setfill('0'), dt.month().as_number()) % boost::io::group(std::setw(2), std::setfill('0'), dt.day().as_number())).str();
+}
+
 inline std::string to_date_string_ym( double date_time )
 {
     boost::gregorian::date dt = Nextsim::parse_date( date_time );
