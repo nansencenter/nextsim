@@ -191,6 +191,7 @@ GmshMesh::readFromFile(std::string const& filename)
 
     //M_num_elements = numElements;
     M_global_num_elements_from_serial = numElements;
+    //M_global_num_elements_from_serial = 0;
 
     if (M_comm.rank() == 0)
         std::cout << "Reading " << numElements << " elements...\n";
@@ -199,6 +200,7 @@ GmshMesh::readFromFile(std::string const& filename)
 
     int cpt_edge = 0;
     int cpt_triangle = 0;
+    int num_edge = 0;
 
     for(int i = 0; i < numElements; i++)
     {
@@ -211,6 +213,14 @@ GmshMesh::readFromFile(std::string const& filename)
         __is >> number  // elm-number
              >> type // elm-type
              >> numTags; // number-of-tags
+
+        if (type == 1)
+        {
+            // if current element is an edge, stop reading and go to next line
+            __is.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            num_edge = number;
+            continue;
+        }
 
         int numPartitions = 1;
 
@@ -226,7 +236,6 @@ GmshMesh::readFromFile(std::string const& filename)
         }
 
         numVertices = MElement::getInfoMSH(type);
-
         ASSERT(numVertices!=0,"unknown number of vertices for element type");
 
         std::vector<int> indices(numVertices);
@@ -242,11 +251,15 @@ GmshMesh::readFromFile(std::string const& filename)
             std::next_permutation(indices.begin()+1,indices.end());
         }
 
-        int cpt_elt = (type == 2) ? cpt_triangle : cpt_edge;
+        //int cpt_elt = (type == 2) ? cpt_triangle : cpt_edge;
+        //if (type == 2)
+        //std::cout<<"cpt_elt= "<< cpt_elt <<"\n";
 
         //std::cout<<"On proc "<< this->comm().rank() <<" : Global size= "<< this->comm().size() <<"\n";
 
-        Nextsim::entities::GMSHElement gmshElt( number /*cpt_elt*/,
+        number = number - num_edge;
+
+        Nextsim::entities::GMSHElement gmshElt( number,
                                                 type,
                                                 physical,
                                                 elementary,
@@ -283,6 +296,8 @@ GmshMesh::readFromFile(std::string const& filename)
             __gt[type]=1;
 
     } // element description loop
+
+    M_global_num_elements_from_serial = M_global_num_elements_from_serial - num_edge;
 
     for ( auto const& it : __gt )
     {

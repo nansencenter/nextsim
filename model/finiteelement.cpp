@@ -394,20 +394,30 @@ FiniteElement::rootMeshProcessing()
         M_mesh_filename = (boost::format( "par%1%%2%" ) % M_comm.size() % M_mesh_filename ).str();
         LOG(DEBUG) <<"["<< M_rank <<"] " <<"filename= "<< M_mesh_filename <<"\n";
 
+        std::cout<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
+        std::cout<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
+        std::cout<<"------------------------------space         = "<< (int)M_partition_space <<"\n";
+        std::cout<<"------------------------------partitioner   = "<< (int)M_partitioner <<"\n";
+
         // save mesh (only root process)
         chrono.restart();
-        M_mesh_root.writeTofile(M_mesh_filename);
-        LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
-
-        // std::string src_fname = Environment::nextsimDir().string() + "/mesh/" + M_mesh_filename;
-        // std::string desc_fname = Environment::nextsimDir().string() + "/mesh/" + "seq_" + M_mesh_filename;
-        // fs::copy_file(fs::path(src_fname), fs::path(desc_fname), fs::copy_option::overwrite_if_exists);
-
+        if (M_partition_space == mesh::PartitionSpace::MEMORY)
+        {
+            M_mesh_root.initGModel();
+            M_mesh_root.writeToGModel(M_mesh_filename);
+        }
+        else if (M_partition_space == mesh::PartitionSpace::DISK)
+        {
+            M_mesh_root.writeTofile(M_mesh_filename);
+        }
+        //LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
+        std::cout <<"Writing mesh done in "<< chrono.elapsed() <<"s\n";
 
         // partition the mesh on root process (rank 0)
         chrono.restart();
-        M_mesh_root.partition(M_mesh_filename,vm["simul.partitioner"].as<std::string>());
-        LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
+        M_mesh_root.partition(M_mesh_filename,M_partitioner,M_partition_space);
+        //LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
+        std::cout <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
     }
     else
     {
@@ -1466,21 +1476,28 @@ FiniteElement::initConstant()
         ("iabp", setup::DrifterType::IABP);
     M_drifter_type = str2drifter.find(vm["setup.drifter-type"].as<std::string>())->second;
 
+    const boost::unordered_map<const std::string, mesh::Partitioner> str2partitioner = boost::assign::map_list_of
+        ("chaco", mesh::Partitioner::CHACO)
+        ("metis", mesh::Partitioner::METIS);
+    M_partitioner = str2partitioner.find(vm["mesh.partitioner"].as<std::string>())->second;
+
+    const boost::unordered_map<const std::string, mesh::PartitionSpace> str2partitionspace = boost::assign::map_list_of
+        ("memory", mesh::PartitionSpace::MEMORY)
+        ("disk", mesh::PartitionSpace::DISK);
+    M_partition_space = str2partitionspace.find(vm["mesh.partition-space"].as<std::string>())->second;
+
     const boost::unordered_map<const std::string, LogLevel> str2log = boost::assign::map_list_of
         ("info", INFO)
         ("warning", WARNING)
         ("debug", DEBUG)
         ("error", ERROR);
-
     M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
 
     M_mesh.setOrdering("bamg");
 
-    //M_mesh_filename = "par8bigarctic10km.msh";//vm["simul.mesh_filename"].as<std::string>();
-    M_mesh_filename = vm["simul.mesh_filename"].as<std::string>();
+    M_mesh_filename = vm["mesh.filename"].as<std::string>();
 
-
-    if (M_mesh_filename.find("plit") != std::string::npos)
+    if (M_mesh_filename.find("split") != std::string::npos)
     {
         M_domain_type = setup::DomainType::DEFAULT;
         M_mesh_type = setup::MeshType::FROM_SPLIT;
@@ -1503,7 +1520,7 @@ FiniteElement::createGMSHMesh(std::string const& geofilename)
         //std::cout<<"NOT FOUND " << fs::absolute( gmshgeofile ).string() <<"\n";
         std::ostringstream gmshstr;
         gmshstr << BOOST_PP_STRINGIZE( GMSH_EXECUTABLE )
-                << " -" << 2 << " -part " << 1 << " -clmax " << vm["simul.hsize"].as<double>() << " " << gmshgeofile;
+                << " -" << 2 << " -part " << 1 << " -clmax " << vm["mesh.hsize"].as<double>() << " " << gmshgeofile;
 
         std::cout << "[Gmsh::generate] execute '" <<  gmshstr.str() << "'\n";
         auto err = ::system( gmshstr.str().c_str() );
@@ -2811,10 +2828,22 @@ FiniteElement::regrid(bool step)
             desc_fname = Environment::nextsimDir().string() + "/mesh/" + "seq_prev_" + M_mesh_filename;
             fs::copy_file(fs::path(src_fname), fs::path(desc_fname), fs::copy_option::overwrite_if_exists);
 #endif
+            std::cout<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
+            std::cout<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
+            std::cout<<"------------------------------space         = "<< (int)M_partition_space <<"\n";
+            std::cout<<"------------------------------partitioner   = "<< (int)M_partitioner <<"\n";
+
 
             timer["savemesh"].first.restart();
             LOG(DEBUG) <<"Saving mesh starts\n";
-            M_mesh_root.writeTofile(M_mesh_filename);
+            if (M_partition_space == mesh::PartitionSpace::MEMORY)
+            {
+                M_mesh_root.writeToGModel(M_mesh_filename);
+            }
+            else if (M_partition_space == mesh::PartitionSpace::DISK)
+            {
+                M_mesh_root.writeTofile(M_mesh_filename);
+            }
             LOG(DEBUG) <<"Saving mesh done in "<< timer["savemesh"].first.elapsed() <<"s\n";
 
 #if 0
@@ -2826,7 +2855,7 @@ FiniteElement::regrid(bool step)
             // partition the mesh on root process (rank 0)
             timer["meshpartition"].first.restart();
             LOG(DEBUG) <<"Partitioning mesh starts\n";
-            M_mesh_root.partition(M_mesh_filename,vm["simul.partitioner"].as<std::string>());
+            M_mesh_root.partition(M_mesh_filename,M_partitioner,M_partition_space);
             LOG(DEBUG) <<"Partitioning mesh done in "<< timer["meshpartition"].first.elapsed() <<"s\n";
         }
     } // rank 0
@@ -5998,7 +6027,8 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
 
     M_mesh_previous_root = M_mesh_root;
     //M_mesh_root = mesh_type_root(mesh_nodes,mesh_edges,mesh_triangles);
-    M_mesh_root = mesh_type_root(mesh_nodes,mesh_triangles);
+    //M_mesh_root = mesh_type_root(mesh_nodes,mesh_triangles);
+    M_mesh_root.update(mesh_nodes,mesh_triangles);
     //M_mesh.writeTofile("out.msh");
 
     std::cout<<"\n";
@@ -7290,6 +7320,12 @@ FiniteElement::clear()
         delete bamgopt_previous;
         delete bamggeom_previous;
         delete bamgmesh_previous;
+
+        // clear GModel from mesh data structure
+        if (M_partition_space == mesh::PartitionSpace::MEMORY)
+        {
+            M_mesh_root.clear();
+        }
     }
 
     M_matrix->clear();

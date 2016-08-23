@@ -7,6 +7,8 @@
  */
 
 #include <gmshmeshseq.hpp>
+#include <GModel.h>
+#include <GmshMessage.h>
 
 namespace Nextsim
 {
@@ -26,6 +28,8 @@ GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
                          std::vector<element_type> const& edges,
                          std::vector<element_type> const& triangles)
     :
+    M_version("2.2"),
+    M_ordering("gmsh"),
     M_nodes(nodes),
     M_triangles(triangles),
     M_edges(edges),
@@ -54,6 +58,13 @@ GmshMeshSeq::GmshMeshSeq(GmshMeshSeq const& mesh)
     M_num_nodes(mesh.M_num_nodes),
     M_num_triangles(mesh.M_num_triangles)
 {}
+
+// GmshMeshSeq::~GmshMeshSeq()
+// {
+//     //M_gmodel->deleteMesh();
+//     //M_gmodel->destroy();
+//     delete M_gmodel;
+// }
 
 void
 GmshMeshSeq::readFromFile(std::string const& filename)
@@ -325,50 +336,138 @@ GmshMeshSeq::writeTofile(std::string const& filename)
 }
 
 void
-GmshMeshSeq::partition(std::string const& filename, std::string const& partitioner)
+GmshMeshSeq::update(std::vector<point_type> const& nodes,
+                    std::vector<element_type> const& triangles,
+                    std::string const& ordering)
 {
+    M_ordering = ordering;
+    M_nodes = nodes;
+    M_triangles = triangles;
+    M_num_nodes = nodes.size();
+    M_num_triangles = triangles.size();
+}
+
+void
+GmshMeshSeq::initGModel()
+{
+    M_gmodel = new GModel();
+
+    Msg::SetVerbosity(5);
+    CTX::instance()->terminal = 1;
+    M_partition_options.num_partitions = Environment::comm().size();
+}
+
+void
+GmshMeshSeq::clear()
+{
+    delete M_gmodel;
+}
+
+void
+GmshMeshSeq::writeToGModel(std::string const& filename)
+{
+    std::map<int, MVertex*> vertexMap;
+    std::vector<std::vector<int> > vertexIndices(M_num_triangles);
+    std::vector<int> elementNum(M_num_triangles);
+    std::vector<int> elementType(M_num_triangles);
+    std::vector<int> physical(M_num_triangles);
+    std::vector<int> elementary(M_num_triangles);
+    std::vector<int> partition(M_num_triangles);
+
+    int cpt_node = 0;
+    for (auto it=M_nodes.begin(), en=M_nodes.end(); it!=en; ++it)
+    {
+        vertexMap.insert(std::make_pair(cpt_node+1, new MVertex(it->coords[0], it->coords[1], 0.)));
+        ++cpt_node;
+    }
+
+    int cpt_element = 0;
+    for (auto it=M_triangles.begin(), en=M_triangles.end(); it!=en; ++it)
+    {
+        vertexIndices[cpt_element] = it->indices;
+        elementNum[cpt_element] = cpt_element+1;
+        elementType[cpt_element] = 2;
+        physical[cpt_element] = 0;;
+        elementary[cpt_element] = 0;;
+        partition[cpt_element] = 0;;
+        ++cpt_element;
+    }
+
+    M_gmodel = GModel::createGModel(
+                                    vertexMap,
+                                    elementNum,
+                                    vertexIndices,
+                                    elementType,
+                                    physical,
+                                    elementary,
+                                    partition
+                                    );
+}
+
+void
+GmshMeshSeq::partition(std::string const& filename,
+                       mesh::Partitioner const& partitioner,
+                       mesh::PartitionSpace const& space)
+{
+
+    if ((partitioner != mesh::Partitioner::CHACO) && (partitioner != mesh::Partitioner::METIS))
+    {
+        throw std::logic_error("invalid partitioner");
+    }
+
     std::string mshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
 
-    if (fs::exists(mshfile))
+    if (space == mesh::PartitionSpace::MEMORY)
     {
-        //std::cout<<"NOT FOUND " << fs::absolute( mshfile ).string() <<"\n";
+        this->partitionMemory(mshfile, partitioner);
+    }
+    else if (space == mesh::PartitionSpace::DISK)
+    {
+        this->partitionDisk(mshfile, partitioner);
+    }
+    else
+    {
+        throw std::logic_error("invalid partition space");
+    }
+}
 
-        int partint;
-        if (partitioner == "chaco")
-        {
-            partint = 1;
-        }
-        else if (partitioner == "metis")
-        {
-            partint = 2;
-        }
-        else
-        {
-            throw std::logic_error("invalid partitioner");
-        }
+void
+GmshMeshSeq::partitionMemory(std::string const& filename,
+                             mesh::Partitioner const& partitioner)
+{
+    M_partition_options.partitioner =  (int)partitioner;
+    M_partition_options.algorithm = 2;
+    // M_partition_options.refine_algorithm = 2; // do not use because of non-contiguous mesh partition
+
+    PartitionMesh( M_gmodel, M_partition_options);
+    M_gmodel->writeMSH( filename, 2.2, false);
+    M_gmodel->destroy();
+}
+
+void
+GmshMeshSeq::partitionDisk(std::string const& filename,
+                           mesh::Partitioner const& partitioner)
+{
+    if (fs::exists(filename))
+    {
+        //std::cout<<"NOT FOUND " << fs::absolute( filename ).string() <<"\n";
 
         std::ostringstream gmshstr;
         gmshstr << BOOST_PP_STRINGIZE( gmsh )
                 << " -" << 2
                 << " -part " << Environment::comm().size()
-                << " -string " << "\"Mesh.Partitioner="<< partint <<";\""
+                << " -string " << "\"Mesh.Partitioner="<< (int)partitioner <<";\""
                 << " -string " << "\"Mesh.MetisAlgorithm="<< 2 <<";\"" // 1 = recursive (default), 2 = K-way
                 << " -string " << "\"Mesh.MetisRefinementAlgorithm="<< 2 <<";\""
-            //<< " -string " << "\"Mesh.ColorCarousel=3;\""
-
-            //<< " -string " << "\"Mesh.ChacoParamINTERNAL_VERTICES=1;\""
-            //<< " -string " << "\"Mesh.ChacoParamREFINE_PARTITION=1;\""
-
                 << " -string " << "\"General.Verbosity=0;\""
-                << " " << mshfile;
+                << " " << filename;
 
-        //std::cout<<"JUST HERE "<< "\"Mesh.Partitioner=1;\"" <<"\n";
         std::cout << "[Gmsh::generate] execute '" <<  gmshstr.str() << "'\n";
         auto err = ::system( gmshstr.str().c_str() );
     }
     else
     {
-        std::cout << "Cannot found " << mshfile <<"\n";
+        std::cout << "Cannot found " << filename <<"\n";
     }
 }
 

@@ -75,74 +75,6 @@ public:
     typedef ExternalData::Vectorial_Variable Vectorial_Variable;
     typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
 
-
-#if 0
-    typedef struct Dimension
-    {
-        std::string name;
-        int start;
-        int end;
-    } Dimension;
-
-    typedef struct Variable
-    {
-        std::string name;
-        std::vector<Dimension> dimensions;
-        double a;
-        double b;
-        std::string Units;
-        std::vector<std::vector<double>> data2;
-    } Variable;
-
-    typedef struct Grid
-    {
-        setup::InterpolationType interpolation_method;
-		int interp_type;
-        std::string dirname;
-        std::string filename;
-
-        Variable latitude;
-        Variable longitude;
-
-        Dimension dimension_x;
-        Dimension dimension_y;
-
-        std::string mpp_file;
-        double rotation_angle;
-		bool interpolation_in_latlon;
-
-		bool masking;
-		Variable masking_variable;
-		std::vector<int> reduced_nodes_ind;
-
-        int* pfindex;
-        int pfnels;
-        std::vector<double> gridX;
-        std::vector<double> gridY;
-
-        std::vector<double> gridLAT;
-        std::vector<double> gridLON;
-    } Grid;
-
-    typedef struct Dataset
-    {
-        std::string dirname;
-        std::string prefix;
-        std::string postfix;
-        std::string reference_date;
-
-        std::vector<Variable> variables;
-        int target_size;
-        Grid *grid;
-
-        int nb_timestep_day;
-        Variable time;
-        Dimension dimension_time;
-
-        std::vector<double> ftime_range;
-    } Dataset;
-#endif
-
     FiniteElement();
 
     mesh_type const& mesh() const {return M_mesh;}
@@ -342,6 +274,8 @@ private:
     setup::DrifterType M_drifter_type;
     setup::DomainType M_domain_type;
     setup::MeshType M_mesh_type;
+    mesh::Partitioner M_partitioner;
+    mesh::PartitionSpace M_partition_space;
 
     std::string M_mesh_filename;
 

@@ -42,9 +42,12 @@ namespace Nextsim
             ("setup.restart_time_step", po::value<double>()->default_value( 20 ), "days")
             ("setup.step_nb", po::value<int>()->default_value( 0 ), "")
 
-            ("simul.mesh_filename", po::value<std::string>()->default_value( "bigarctic10km.msh" ), "")
-            ("simul.hsize", po::value<double>()->default_value( 0.01 ), "")
-            ("simul.partitioner", po::value<std::string>()->default_value( "chaco" ), "mesh partitioner")
+            ("mesh.filename", po::value<std::string>()->default_value( "bigarctic10km.msh" ), "")
+            ("mesh.partitioner", po::value<std::string>()->default_value( "metis" ), "mesh partitioner: chaco or metis")
+            ("mesh.partition-space", po::value<std::string>()->default_value( "disk" ), "")
+            ("mesh.hsize", po::value<double>()->default_value( 0.01 ), "")
+
+            //("simul.mesh_filename", po::value<std::string>()->default_value( "bigarctic10km.msh" ), "")
             ("simul.verbose", po::value<int>()->default_value( 7 ), "")
             ("simul.log-level", po::value<std::string>()->default_value( "info" ), "")
             ("simul.time_init", po::value<std::string>()->default_value( "2008-Mar-05" ), "")

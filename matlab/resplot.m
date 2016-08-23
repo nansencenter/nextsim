@@ -55,6 +55,8 @@ for p=0:0
   length(field_tmp)
   if(length(field_tmp)==Ne)
     c{1}=[field_tmp,field_tmp,field_tmp]';
+	cvar = c{1};
+	save('conc.mat','cvar');
   elseif(length(field_tmp)==2*Nn)
     var_mc=field_tmp(mesh_out.Elements);
     c{1}=reshape(var_mc,[3,Ne]);

@@ -20,6 +20,7 @@
 
 #include <environment.hpp>
 #include <entities.hpp>
+#include <meshpartition.hpp>
 
 extern "C"
 {
@@ -51,9 +52,15 @@ public:
 
     GmshMeshSeq(GmshMeshSeq const& mesh);
 
+    //~GmshMeshSeq();
+
     void readFromFile(std::string const& filename);
     void writeTofile(std::string const& filename);
-    void partition(std::string const& filename, std::string const& partitioner = "chaco");
+
+    void partition(std::string const& filename,
+                   mesh::Partitioner const& partitioner=mesh::Partitioner::METIS,
+                   mesh::PartitionSpace const& space=mesh::PartitionSpace::MEMORY);
+
     void move(std::vector<double> const& um, double factor);
     void reorder(bimap_type const& rmap_nodes, bimap_type const& rmap_elements);
 
@@ -78,6 +85,11 @@ public:
     void setNumEdges(int const& nlns) {M_num_edges=nlns;}
     void setNumTriangles(int const& ntrs) {M_num_triangles=ntrs;}
 
+    void update(std::vector<point_type> const& nodes,
+                std::vector<element_type> const& triangles,
+                std::string const& ordering = "gmsh");
+
+
     void stereographicProjection();
 
     std::vector<int> indexTr() const;
@@ -96,6 +108,19 @@ public:
     std::vector<double> meanLat() const;
     std::vector<double> meanLon() const;
 
+    void initGModel();
+    void writeToGModel(std::string const& filename);
+    void clear();
+
+private:
+
+    void partitionMemory(std::string const& filename,
+                         mesh::Partitioner const& partitioner=mesh::Partitioner::METIS);
+
+    void partitionDisk(std::string const& filename,
+                       mesh::Partitioner const& partitioner=mesh::Partitioner::METIS);
+
+
 private:
 
     std::string M_version;
@@ -106,6 +131,9 @@ private:
     int M_num_nodes;
     int M_num_triangles;
     int M_num_edges;
+
+    meshPartitionOptions M_partition_options;
+    GModel*  M_gmodel;
 };
 
 } // Nextsim
