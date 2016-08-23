@@ -3188,6 +3188,7 @@ FiniteElement::init()
 
     if ( M_use_restart )
     {
+        LOG(DEBUG) <<"Reading restart file\n";
         pcpt = this->readRestart(vm["setup.step_nb"].as<int>());
         current_time = time_init + pcpt*time_step/(24*3600.0);
 
@@ -3203,7 +3204,7 @@ FiniteElement::init()
         chrono.restart();
         LOG(DEBUG) <<"check_and_reload starts\n";
         for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
-            (*it)->check_and_reload(M_mesh,time_init);
+            (*it)->check_and_reload(M_mesh,current_time);
         LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
 
     }
