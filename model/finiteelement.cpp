@@ -3139,7 +3139,8 @@ FiniteElement::run()
 
     pcpt_file.close();
 
-    this->exportResults(1000);
+    if ( pcpt*time_step/output_time_step < 1000 )
+        this->exportResults(1000);
     LOG(INFO) <<"TIMER total = " << chrono_tot.elapsed() <<"s\n";
 
     this->finalise();
