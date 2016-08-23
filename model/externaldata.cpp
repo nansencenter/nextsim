@@ -318,7 +318,13 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 		if(dataset->nb_timestep_day>0)
 		{
             ftime = dataset->ftime_range[fstep];
-            std::string f_timestr = to_date_string_ym(std::floor(ftime));
+            
+            std::string f_timestr;
+            if(dataset->grid.monthly_dataset)
+                f_timestr = to_date_string_ym(std::floor(ftime));
+            else
+                f_timestr = to_date_string_yd(std::floor(ftime));
+            
             std::cout <<"F_TIMESTR= "<< f_timestr <<"\n";
 
             filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
@@ -356,7 +362,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
         netCDF::NcDim tmpDim;
 
         // Find the right time slice
-        if (dataset->nb_timestep_day>0)
+        if (dataset->nb_timestep_day>1)
         {
             // Set the time range XTIME
             netCDF::NcVar FVTIME = dataFile.getVar(dataset->time.name);
