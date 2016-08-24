@@ -2055,6 +2055,7 @@ FiniteElement::tensors()
 void
 FiniteElement::cohesion()
 {
+
     for (int i=0; i<M_Cohesion.size(); ++i)
         M_Cohesion[i] = C_fix+C_alea*(M_random_number[i]-0.5);
 
@@ -2334,7 +2335,7 @@ FiniteElement::update()
             ridged_thick_ice_volume = old_h_ridged_thick_ice*surface;
 
             M_conc[cpt]    = ice_surface/surface_new;
-            M_thick[cpt]   = ice_volume/surface_new; // Hold on! Isn't M_thick the effective thickness?
+            M_thick[cpt]   = ice_volume/surface_new;
             M_snow_thick[cpt]   = snow_volume/surface_new;
             M_h_ridged_thick_ice[cpt]   =   ridged_thick_ice_volume/surface_new;
 
@@ -3935,6 +3936,11 @@ FiniteElement::readRestart(int step)
     M_VTM        = field_map_dbl["M_VTM"];
     M_VTMM       = field_map_dbl["M_VTMM"];
     M_UM         = field_map_dbl["M_UM"];
+
+    //for (int i=0; i < M_thick.size(); i++)
+    //{    
+    //  M_thick[i] *= 2.0;
+    //}
 
     if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
     {
