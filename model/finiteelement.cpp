@@ -57,6 +57,7 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
             throw std::logic_error("invalid domain type");
     }
 
+#if defined (WAVES)
     if (vm["simul.wim_grid"].as<bool>())
     {
         LOG(INFO) <<"Using wim grid\n";
@@ -75,6 +76,7 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
         M_mesh_type = setup::MeshType::FROM_SPLIT;
         M_flag_fix = 100; // free = 1;
     }
+#endif
 
     M_mesh.readFromFile(M_mesh_filename);
 
@@ -244,8 +246,11 @@ FiniteElement::initModelState()
 
     this->initDrifter();
 
+#if defined (WAVES)
     if (vm["simul.use_wim"].as<bool>())
         this->initNFloes();
+#endif
+
 }
 
 void
@@ -925,6 +930,7 @@ FiniteElement::regrid(bool step)
 			// ELEMENT INTERPOLATION With Cavities
 			int nb_var=15;
 
+#if defined (WAVES)
             // coupling with wim
             // - only interpolate if not at a coupling time step
             // - else nfloes will just be overwritten with wimToNextsim()
@@ -937,6 +943,7 @@ FiniteElement::regrid(bool step)
 
             if (nfloes_interp)
                 nb_var++;
+#endif
 
 			// To avoid memory leak:
 			std::vector<double> interp_elt_in(nb_var*prv_num_elements);
@@ -1010,12 +1017,14 @@ FiniteElement::regrid(bool step)
 				interp_elt_in[nb_var*i+tmp_nb_var] = M_tsurf_thin[i];
 				tmp_nb_var++;
 
-                // Nfloes from wim model
-                if (nfloes_interp)
-                {
-                    interp_elt_in[nb_var*i+tmp_nb_var] = M_nfloes[i];
-                    tmp_nb_var++;
-                }
+#if defined (WAVES)
+                                // Nfloes from wim model
+                                if (nfloes_interp)
+                                {
+                                    interp_elt_in[nb_var*i+tmp_nb_var] = M_nfloes[i];
+                                    tmp_nb_var++;
+                                }
+#endif
 
 				if(tmp_nb_var>nb_var)
 				{
@@ -1071,12 +1080,14 @@ FiniteElement::regrid(bool step)
 
 			M_tsurf.assign(M_num_elements,0.);
 
-            M_h_thin.assign(M_num_elements,0.);
-            M_hs_thin.assign(M_num_elements,0.);
-            M_tsurf_thin.assign(M_num_elements,0.);
+                        M_h_thin.assign(M_num_elements,0.);
+                        M_hs_thin.assign(M_num_elements,0.);
+                        M_tsurf_thin.assign(M_num_elements,0.);
 
-            if (nfloes_interp)
-                M_nfloes.assign(M_num_elements,0.);
+#if defined (WAVES)
+                        if (nfloes_interp)
+                            M_nfloes.assign(M_num_elements,0.);
+#endif
 
 			for (int i=0; i<M_num_elements; ++i)
 			{
@@ -1158,12 +1169,14 @@ FiniteElement::regrid(bool step)
 				M_tsurf_thin[i] = interp_elt_out[nb_var*i+tmp_nb_var];
 				tmp_nb_var++;
 
-                // Nfloes from wim model
-                if (nfloes_interp)
-                {
-                    M_nfloes[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-                    tmp_nb_var++;
-                }
+#if defined (WAVES)
+                                // Nfloes from wim model
+                                if (nfloes_interp)
+                                {
+                                    M_nfloes[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+                                    tmp_nb_var++;
+                                }
+#endif
 
 				if(tmp_nb_var!=nb_var)
 				{
@@ -3266,11 +3279,14 @@ FiniteElement::init()
 int
 FiniteElement::step(int pcpt)
 {
+
+#if defined (WAVES)
     M_run_wim = !(pcpt % vm["nextwim.couplingfreq"].as<int>());
 
     // coupling with wim (exchange from nextsim to wim)
     if (vm["simul.use_wim"].as<bool>())
         this->nextsimToWim(pcpt);
+#endif
 
     // step 0: preparation
     // remeshing and remapping of the prognostic variables
@@ -3299,11 +3315,17 @@ FiniteElement::step(int pcpt)
         }
     }
 
+#if defined (WAVES)
     // coupling with wim (exchange from wim to nextsim)
     if (vm["simul.use_wim"].as<bool>())
         this->wimToNextsim(pcpt);
     else if ( M_regrid || M_use_restart ) // We need to make sure M_tau is the right size
         M_tau.resize(2*M_num_nodes,0.);
+#else
+    // just set this vector to the right size,
+    // but fill with 0
+    M_tau.resize(2*M_num_nodes,0.);
+#endif
 
 
     // Read in the new buoys and output
@@ -4319,6 +4341,7 @@ FiniteElement::constantIce()
     std::fill(M_conc.begin(), M_conc.end(), vm["simul.init_concentration"].as<double>());
     std::fill(M_thick.begin(), M_thick.end(), vm["simul.init_thickness"].as<double>());
 
+#if defined (WAVES)
     if (vm["simul.use_wim"].as<bool>())
     {
         auto Bx = M_mesh.bcoordX();
@@ -4336,6 +4359,7 @@ FiniteElement::constantIce()
             }
         }
     }
+#endif
 
     std::fill(M_snow_thick.begin(), M_snow_thick.end(), vm["simul.init_snow_thickness"].as<double>());
     std::fill(M_damage.begin(), M_damage.end(), 0.);
@@ -4521,6 +4545,7 @@ FiniteElement::bathymetry()//(double const& u, double const& v)
     }
 }
 
+#if defined (WAVES)
 void
 FiniteElement::initNFloes()
 {
@@ -4531,6 +4556,7 @@ FiniteElement::initNFloes()
         M_nfloes[i] = M_conc[i]/std::pow(vm["wim.dfloepackinit"].as<double>(),2.);
     }
 }
+#endif
 
 
 void
@@ -4962,12 +4988,14 @@ FiniteElement::exportResults(int step, bool export_mesh)
     exporter.writeField(outbin, M_sst, "SST");
     exporter.writeField(outbin, M_sss, "SSS");
 
+#if defined (WAVES)
     if (vm["simul.use_wim"].as<bool>())
     {
         exporter.writeField(outbin, M_tau, "Stresses");
         exporter.writeField(outbin, M_nfloes, "Nfloes");
         exporter.writeField(outbin, M_dfloe, "Dfloe");
     }
+#endif
 
     if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
     {
@@ -5021,6 +5049,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
     outrecord.close();
 }
 
+#if defined (WAVES)
 void
 FiniteElement::nextsimToWim(bool step)
 {
@@ -5119,8 +5148,10 @@ FiniteElement::nextsimToWim(bool step)
 
         xDelete<double>(interp_elt_out);
     }
-}
+}//nextsimToWim
+#endif
 
+#if defined (WAVES)
 void
 FiniteElement::wimToNextsim(bool step)
 {
@@ -5145,6 +5176,7 @@ FiniteElement::wimToNextsim(bool step)
 
     if (!M_regrid)
         M_mesh.move(M_UM,1.);
+    std::cout<<"HI!! 1\n";
 
     if (M_run_wim || M_regrid)
     {
@@ -5177,6 +5209,9 @@ FiniteElement::wimToNextsim(bool step)
         int interptype = BilinearInterpEnum;
         //int interptype = NearestInterpEnum;
 
+        std::cout<<"HI!! 2\n";
+        std::cout<<(vm["nextwim.applywavestress"].as<bool>());
+        std::cout<<"\nHI!! 2B\n";
         if (vm["nextwim.applywavestress"].as<bool>())
            {
            // can turn off effect of wave stress for testing
@@ -5236,6 +5271,7 @@ FiniteElement::wimToNextsim(bool step)
             xDelete<double>(interp_out);
         }
     }
+    std::cout<<"HI!! 3";
 
     if (!M_regrid)
         M_mesh.move(M_UM,-1.);
@@ -5254,7 +5290,9 @@ FiniteElement::wimToNextsim(bool step)
         if (M_conc[i] < vm["wim.cicemin"].template as<double>())
             M_dfloe[i] = 0.;
     }
+    std::cout<<"Finished wimToNextsim";
 }//wimToNextsim
+#endif
 
 void
 FiniteElement::clear()

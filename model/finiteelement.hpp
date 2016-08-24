@@ -26,7 +26,9 @@
 #include <InterpFromMeshToGridx.h>
 #include <gmshmesh.hpp>
 #include <graphcsr.hpp>
+#if defined (WAVES)
 #include <wimdiscr.hpp>
+#endif
 #include "enums.hpp"
 #include <debug.hpp>
 #include <omp.h>
@@ -66,7 +68,9 @@ public:
     
     typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
 
+#if defined (WAVES)
     typedef Wim::WimDiscr<double> wim_type;
+#endif
 
     FiniteElement();
 
@@ -161,8 +165,11 @@ public:
     void writeRestart(int pcpt, int step);
     int readRestart(int step);
 
+#if defined (WAVES)
     void nextsimToWim(bool step);
     void wimToNextsim(bool step);
+#endif
+
     void clear();
 
 private:
@@ -255,10 +262,12 @@ private:
     std::vector<double> M_time_relaxation_damage;
 
     // variables needed for coupling with wim
+#if defined (WAVES)
     wim_type wim;
     std::vector<double> M_nfloes;
     std::vector<double> M_dfloe;
-    std::vector<double> M_tau;
+#endif
+    std::vector<double> M_tau;//this can just be set to zero if not using WIM
 
     std::vector<double> M_icec_grid;
     std::vector<double> M_iceh_grid;
@@ -311,7 +320,9 @@ private:
     double current_time;
     bool M_reuse_prec;
     bool M_regrid;
+#if defined (WAVES)
     bool M_run_wim;
+#endif
 
     bool M_use_restart;
     bool M_write_restart;
