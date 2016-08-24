@@ -8,12 +8,13 @@
 
 #include <externaldata.hpp>
 #include <date.hpp>
+#include "./isnan.h"
 #include <dataset.hpp>
 extern "C"
 {
 #include <mapx.h>
 }
-
+     
 
 /**
  * @class ExternalData
@@ -212,7 +213,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
     //std::cout<<"------------------------------------loadDataset for "<< dataset->name <<"\n";
     // Load grid if unloaded
     if(!dataset->grid.loaded)
-        loadGrid(&(dataset->grid), M_current_time);
+        dataset->loadGrid(&(dataset->grid), M_current_time);
 
     // Initialise counters etc.
 	std::string current_timestr = "";
@@ -426,6 +427,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             catch(netCDF::exceptions::NcException& e)
             {}
 
+            _printf_("For " << dataset->variables[j].name << " scale_factor is "  << scale_factor<<  " " <<  ", add_offset is " << add_offset << "\n");
             // Copy the data in data_in
 
             // If reduced_nodes is used
@@ -435,7 +437,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                 {
                     data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=
                         data_in_tmp[dataset->grid.reduced_nodes_ind[i]]*scale_factor + add_offset;
-                    if(std::isnan(data_in_tmp[dataset->grid.reduced_nodes_ind[i]]*scale_factor + add_offset))
+    				if(xIsNan<double>(data_in_tmp[dataset->grid.reduced_nodes_ind[i]]*scale_factor + add_offset))
                     {
             			_printf_("found NaN at"  << data_in_tmp[dataset->grid.reduced_nodes_ind[i]]<<  " "<<  dataset->grid.reduced_nodes_ind[i] <<  ", default_value is used\n");
     				}
@@ -462,7 +464,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                     for (int i=0; i<(MN); ++i)
                     {
                         data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=data_in_tmp[i]*scale_factor + add_offset;
-                        if(std::isnan(data_in_tmp[i]*scale_factor + add_offset))
+        				if(xIsNan<double>(data_in_tmp[i]*scale_factor + add_offset))
                         {
                 			_printf_("found NaN at"  << data_in_tmp[i] <<  " "<<  i <<  ", default_value is used\n");
         				}

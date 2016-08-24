@@ -75,6 +75,10 @@ namespace Nextsim
          Variable latitude={
              name: "XLAT",
              dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "degree_north",
@@ -84,6 +88,10 @@ namespace Nextsim
          Variable longitude={
              name: "XLONG",
              dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "degree_east",
@@ -93,6 +101,10 @@ namespace Nextsim
          Variable time={
              name: "time",
              dimensions: dimensions_time,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "hours",
@@ -103,6 +115,10 @@ namespace Nextsim
          Variable u={
              name: "U10", // U10M
              dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "m/s",
@@ -112,6 +128,10 @@ namespace Nextsim
          Variable v={
              name: "V10", // U10M
              dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "m/s",
@@ -208,6 +228,10 @@ namespace Nextsim
          Variable latitude={
              name: "XLAT",
              dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "degree_north",
@@ -217,6 +241,10 @@ namespace Nextsim
          Variable longitude={
              name: "XLONG",
              dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "degree_east",
@@ -226,6 +254,10 @@ namespace Nextsim
          Variable time={
              name: "time",
              dimensions: dimensions_time,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "hours",
@@ -236,6 +268,10 @@ namespace Nextsim
          Variable u={
              name: "U10", // U10M
              dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "m/s",
@@ -245,6 +281,10 @@ namespace Nextsim
          Variable v={
              name: "V10", // U10M
              dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "m/s",
@@ -282,6 +322,10 @@ namespace Nextsim
          Variable tair={
              name:"T2",
              dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a:1.,
              b:-273.15,
              Units:"C",
@@ -290,6 +334,10 @@ namespace Nextsim
          Variable mixrat={
              name:"Q2",
              dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a:1.,
              b:0.,
              Units:"",
@@ -298,6 +346,10 @@ namespace Nextsim
          Variable mslp={
              name:"SLP",
              dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a:1e2,
              b:0.,
              Units:"Pa",
@@ -306,6 +358,10 @@ namespace Nextsim
          Variable Qsw_in={
              name:"SWDNB",
              dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a:1.,
              b:0.,
              Units:"W/m^2",
@@ -314,6 +370,10 @@ namespace Nextsim
          Variable Qlw_in={
              name:"LWDNB",
              dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a:1.,
              b:0.,
              Units:"W/m^2",
@@ -322,6 +382,10 @@ namespace Nextsim
          Variable snowfr={
              name:"SR",
              dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a:1.,
              b:0.,
              Units:"",
@@ -330,6 +394,10 @@ namespace Nextsim
          Variable precip={
              name:"RAINNC",
              dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a:physical::rhow/1000.*(nb_timestep_day)/(24.*3600),
              b:0.,
              Units:"kg/m^2/s",
@@ -406,6 +474,10 @@ namespace Nextsim
          Variable latitude={
              name: "latitude",
              dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "degree_north",
@@ -414,6 +486,10 @@ namespace Nextsim
          Variable longitude={
              name: "longitude",
              dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "degree_east",
@@ -422,6 +498,10 @@ namespace Nextsim
          Variable time={
              name: "time",
              dimensions: dimensions_time,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "hours",
@@ -430,6 +510,10 @@ namespace Nextsim
          Variable u={
              name: "u",
              dimensions: dimensions_uv,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "m/s",
@@ -439,6 +523,10 @@ namespace Nextsim
          Variable v={
              name: "v",
              dimensions: dimensions_uv,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "m/s",
@@ -448,63 +536,13 @@ namespace Nextsim
      	Variable ssh={
      		name: "ssh",
      		dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
      		a: 1.,
      		b: 0.,
      		Units: "m/s",
-     		data2: data2_tmp
-     	};
-
-     	Variable sst={
-     		name: "temperature",
-     		dimensions: dimensions_uv,
-     		a: 1.,
-     		b: 0.,
-     		Units: "deg celsius",
-     		data2: data2_tmp
-     	};
-
-     	Variable sss={
-     		name: "salinity",
-     		dimensions: dimensions_uv,
-     		a: 1.,
-     		b: 0.,
-     		Units: "",
-     		data2: data2_tmp
-     	};
-
-     	Variable mld={
-     		name: "mlp",
-     		dimensions: dimensions,
-     		a: 1.,
-     		b: 0.,
-     		Units: "m",
-     		data2: data2_tmp
-     	};
-
-     	Variable conc={
-     		name: "fice",
-     		dimensions: dimensions,
-     		a: 1.,
-     		b: 0.,
-     		Units: "",
-     		data2: data2_tmp
-     	};
-
-     	Variable thick={
-     		name: "hice",
-     		dimensions: dimensions,
-     		a: 1.,
-     		b: 0.,
-     		Units: "m",
-     		data2: data2_tmp
-     	};
-
-     	Variable snow_thick={
-     		name: "hsnow",
-     		dimensions: dimensions,
-     		a: 1.,
-     		b: 0.,
-     		Units: "m",
      		data2: data2_tmp
      	};
 
@@ -514,7 +552,7 @@ namespace Nextsim
              this->dirname= "data",
              //filename: "TP4DAILY_200803_3m.nc",
              prefix= "TP4DAILY_",
-             postfix= "_3m.nc",
+             postfix= "_30m.nc",
 
              latitude: latitude,
              longitude: longitude,
@@ -529,7 +567,7 @@ namespace Nextsim
              monthly_dataset:true,
 
      		masking: true,
-     		masking_variable: sss
+     		masking_variable: ssh
      	};
 
          std::vector<Variable> variables(3);
@@ -549,10 +587,10 @@ namespace Nextsim
          std::vector<Vectorial_Variable> vectorial_variables(1);
          vectorial_variables[0] = uv;
 
-             this->dirname= "data";
-             this->prefix= "TP4DAILY_";
-             this->postfix= "_30m.nc";
-             this->reference_date= "1950-01-01";
+         dirname= "data";
+         prefix= "TP4DAILY_";
+         postfix= "_30m.nc";
+         reference_date= "1950-01-01";
 
              this->variables= variables;
              this->vectorial_variables= vectorial_variables;
@@ -608,6 +646,10 @@ namespace Nextsim
          Variable latitude={
              name: "latitude",
              dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "degree_north",
@@ -616,6 +658,10 @@ namespace Nextsim
          Variable longitude={
              name: "longitude",
              dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "degree_east",
@@ -624,41 +670,22 @@ namespace Nextsim
          Variable time={
              name: "time",
              dimensions: dimensions_time,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "hours",
              data2: data2_tmp};
 
-         Variable u={
-             name: "u",
-             dimensions: dimensions_uv,
-             a: 1.,
-             b: 0.,
-             Units: "m/s",
-             data2: data2_tmp
-     	};
-
-         Variable v={
-             name: "v",
-             dimensions: dimensions_uv,
-             a: 1.,
-             b: 0.,
-             Units: "m/s",
-             data2: data2_tmp
-     	};
-
-     	Variable ssh={
-     		name: "ssh",
-     		dimensions: dimensions,
-     		a: 1.,
-     		b: 0.,
-     		Units: "m/s",
-     		data2: data2_tmp
-     	};
-
      	Variable sst={
      		name: "temperature",
      		dimensions: dimensions_uv,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
      		a: 1.,
      		b: 0.,
      		Units: "deg celsius",
@@ -668,6 +695,10 @@ namespace Nextsim
      	Variable sss={
      		name: "salinity",
      		dimensions: dimensions_uv,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
      		a: 1.,
      		b: 0.,
      		Units: "",
@@ -677,33 +708,10 @@ namespace Nextsim
      	Variable mld={
      		name: "mlp",
      		dimensions: dimensions,
-     		a: 1.,
-     		b: 0.,
-     		Units: "m",
-     		data2: data2_tmp
-     	};
-
-     	Variable conc={
-     		name: "fice",
-     		dimensions: dimensions,
-     		a: 1.,
-     		b: 0.,
-     		Units: "",
-     		data2: data2_tmp
-     	};
-
-     	Variable thick={
-     		name: "hice",
-     		dimensions: dimensions,
-     		a: 1.,
-     		b: 0.,
-     		Units: "m",
-     		data2: data2_tmp
-     	};
-
-     	Variable snow_thick={
-     		name: "hsnow",
-     		dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
      		a: 1.,
      		b: 0.,
      		Units: "m",
@@ -800,6 +808,10 @@ namespace Nextsim
          Variable latitude={
              name: "latitude",
              dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "degree_north",
@@ -808,6 +820,10 @@ namespace Nextsim
          Variable longitude={
              name: "longitude",
              dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "degree_east",
@@ -816,68 +832,22 @@ namespace Nextsim
          Variable time={
              name: "time",
              dimensions: dimensions_time,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "hours",
              data2: data2_tmp};
 
-         Variable u={
-             name: "u",
-             dimensions: dimensions_uv,
-             a: 1.,
-             b: 0.,
-             Units: "m/s",
-             data2: data2_tmp
-     	};
-
-         Variable v={
-             name: "v",
-             dimensions: dimensions_uv,
-             a: 1.,
-             b: 0.,
-             Units: "m/s",
-             data2: data2_tmp
-     	};
-
-     	Variable ssh={
-     		name: "ssh",
-     		dimensions: dimensions,
-     		a: 1.,
-     		b: 0.,
-     		Units: "m/s",
-     		data2: data2_tmp
-     	};
-
-     	Variable sst={
-     		name: "temperature",
-     		dimensions: dimensions_uv,
-     		a: 1.,
-     		b: 0.,
-     		Units: "deg celsius",
-     		data2: data2_tmp
-     	};
-
-     	Variable sss={
-     		name: "salinity",
-     		dimensions: dimensions_uv,
-     		a: 1.,
-     		b: 0.,
-     		Units: "",
-     		data2: data2_tmp
-     	};
-
-     	Variable mld={
-     		name: "mlp",
-     		dimensions: dimensions,
-     		a: 1.,
-     		b: 0.,
-     		Units: "m",
-     		data2: data2_tmp
-     	};
-
      	Variable conc={
      		name: "fice",
      		dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
      		a: 1.,
      		b: 0.,
      		Units: "",
@@ -887,6 +857,10 @@ namespace Nextsim
      	Variable thick={
      		name: "hice",
      		dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
      		a: 1.,
      		b: 0.,
      		Units: "m",
@@ -896,6 +870,10 @@ namespace Nextsim
      	Variable snow_thick={
      		name: "hsnow",
      		dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
      		a: 1.,
      		b: 0.,
      		Units: "m",
@@ -923,7 +901,7 @@ namespace Nextsim
              monthly_dataset:true,
 
      		masking: true,
-     		masking_variable: sss
+     		masking_variable: conc
      	};
 
          std::vector<Variable> variables(3);
@@ -981,6 +959,10 @@ namespace Nextsim
          Variable latitude={
              name: "latitude",
              dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "degree_north",
@@ -989,6 +971,10 @@ namespace Nextsim
          Variable longitude={
              name: "longitude",
              dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "degree_east",
@@ -997,6 +983,10 @@ namespace Nextsim
          Variable time={
              name: "time",
              dimensions: dimensions_time,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1./3600,
              b: 0.,
              Units: "hours",
@@ -1005,6 +995,10 @@ namespace Nextsim
          Variable conc={
      		name: "icecon",
      		dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
      		a: 0.01,
      		b: 0.,
      		Units: "",
@@ -1055,6 +1049,129 @@ namespace Nextsim
         this->nb_timestep_day= 1;
      	this->time= time;
      }
+     else if (strcmp (DatasetName, "arc_elements") == 0)
+     {
+     	// Definition of topaz grid and datasets
+         Dimension dimension_x={
+             name:"x",
+             cyclic:false
+     	};
+
+         Dimension dimension_y={
+             name:"y",
+             cyclic:false
+     	};
+
+         Dimension dimension_time={
+             name:"time", // "Time"
+             cyclic:false
+     	};
+
+         std::vector<Dimension> dimensions(3);
+         dimensions[0] = dimension_time;
+         dimensions[1] = dimension_y;
+         dimensions[2] = dimension_x;
+
+         std::vector<Dimension> dimensions_latlon(2);
+         dimensions_latlon[0] = dimension_y;
+         dimensions_latlon[1] = dimension_x;
+
+         std::vector<Dimension> dimensions_time(1);
+         dimensions_time[0] = dimension_time;
+
+         Variable latitude={
+             name: "latitude",
+             dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_north",
+             data2: data2_tmp};
+
+         Variable longitude={
+             name: "longitude",
+             dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_east",
+             data2: data2_tmp};
+
+         Variable time={
+             name: "time",
+             dimensions: dimensions_time,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 24.,
+             b: 0.,
+             Units: "hours",
+             data2: data2_tmp};
+
+         Variable conc={
+     		name: "sea_ice_concentration",
+     		dimensions: dimensions,
+            land_mask_defined: true,
+            land_mask_value: 12500.,
+            NaN_mask_defined: true,
+            NaN_mask_value: 11500.,
+     		a: 0.01,
+     		b: 0.,
+     		Units: "",
+     		data2: data2_tmp
+     	};
+
+         Grid M_grid={
+             interpolation_method: InterpolationType::FromMeshToMesh2dx,
+     		interp_type: -1,
+             this->dirname= "data",
+             //filename: "TP4DAILY_200803_3m.nc",
+             prefix= "LongitudeLatitudeGrid_3.125km_Arctic.nc",
+             postfix= "",
+
+             latitude: latitude,
+             longitude: longitude,
+
+             dimension_x: dimension_x,
+             dimension_y: dimension_y,
+
+             mpp_file: "NpsNextsim.mpp",
+     		interpolation_in_latlon: false,
+
+             loaded: false,
+             monthly_dataset:false,
+
+     		masking: true,
+     		masking_variable: conc
+        };
+
+        std::vector<Variable> variables(1);
+        variables[0] = conc;
+
+        std::vector<Vectorial_Variable> vectorial_variables(0);
+
+        this->dirname= "data";
+        this->prefix= "Arc_";
+        this->postfix= "_res3.125_pyres.nc";
+        this->reference_date= "0001-01-01";
+
+        this->variables= variables;
+        this->vectorial_variables= vectorial_variables;
+        this->target_size= target_size;
+        this->grid= M_grid;
+
+        this->reloaded=false;
+
+        this->nb_timestep_day= 1;
+     	this->time= time;
+     }
      else if (strcmp (DatasetName, "etopo_elements") == 0)
      {
      	// Definition of etopo grid and datasets
@@ -1081,6 +1198,10 @@ namespace Nextsim
          Variable latitude={
              name: "y",
              dimensions: dimensions_lat,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "degree_north",
@@ -1090,6 +1211,10 @@ namespace Nextsim
          Variable longitude={
              name: "x",
              dimensions: dimensions_lon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "degree_east",
@@ -1103,8 +1228,8 @@ namespace Nextsim
      	    //interp_type : NearestInterpEnum,
      		this->dirname="data",
      		//filename:"ETOPO1_Ice_g_gmt4.grd",
-            prefix="ETOPO1_Ice_g_gmt4",
-            postfix=".grd",
+            prefix="ETOPO1_Ice_g_gmt4.grd",
+            postfix="",
 
      		latitude: latitude,
      		longitude: longitude,
@@ -1124,6 +1249,10 @@ namespace Nextsim
          Variable z={
              name:"z",
              dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a:-1.,
              b:0.,
              Units:"m",
@@ -1178,6 +1307,10 @@ namespace Nextsim
          Variable latitude={
              name: "lat",
              dimensions: dimensions_lat,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "degree_north",
@@ -1187,6 +1320,10 @@ namespace Nextsim
          Variable longitude={
              name: "lon",
              dimensions: dimensions_lon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
              a: 1.,
              b: 0.,
              Units: "degree_east",
@@ -1233,6 +1370,10 @@ namespace Nextsim
         Variable time={
             name: "time",
             dimensions: dimensions_time,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
             a: 1.,
             b: 0.,
             Units: "hours",
@@ -1244,6 +1385,10 @@ namespace Nextsim
         Variable tair={
             name:"2T",
             dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
             a:1.,
             b:-273.15,
             Units:"C",
@@ -1252,6 +1397,10 @@ namespace Nextsim
         Variable dair={
             name:"2D",
             dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
             a:1.,
             b:-273.15,
             Units:"C",
@@ -1260,6 +1409,10 @@ namespace Nextsim
         Variable mslp={
             name:"MSL",
             dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
             a:1.,
             b:0.,
             Units:"Pa",
@@ -1268,6 +1421,10 @@ namespace Nextsim
         Variable Qsw_in={
             name:"SSRD",
             dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
             a:nb_timestep_day/(24.*3600),
             b:0.,
             Units:"W/m^2",
@@ -1276,6 +1433,10 @@ namespace Nextsim
         Variable tcc={
             name:"TCC",
             dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
             a:1.,
             b:0.,
             Units:"",
@@ -1285,6 +1446,10 @@ namespace Nextsim
         Variable precip={
             name:"TP",
             dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
             a:physical::rhow*(nb_timestep_day)/(24.*3600),
             b:0.,
             Units:"kg/m^2/s",
@@ -1342,6 +1507,10 @@ namespace Nextsim
       Variable latitude={
           name: "lat",
           dimensions: dimensions_lat,
+          land_mask_defined: false,
+          land_mask_value: 0.,
+          NaN_mask_defined: false,
+          NaN_mask_value: 0.,
           a: 1.,
           b: 0.,
           Units: "degree_north",
@@ -1350,6 +1519,10 @@ namespace Nextsim
       Variable longitude={
           name: "lon",
           dimensions: dimensions_lon,
+          land_mask_defined: false,
+          land_mask_value: 0.,
+          NaN_mask_defined: false,
+          NaN_mask_value: 0.,
           a: 1.,
           b: 0.,
           Units: "degree_east",
@@ -1396,6 +1569,10 @@ namespace Nextsim
      Variable time={
          name: "time",
          dimensions: dimensions_time,
+         land_mask_defined: false,
+         land_mask_value: 0.,
+         NaN_mask_defined: false,
+         NaN_mask_value: 0.,
          a: 1.,
          b: 0.,
          Units: "hours",
@@ -1406,6 +1583,10 @@ namespace Nextsim
       Variable u={
           name: "10U", // U10M
           dimensions: dimensions,
+          land_mask_defined: false,
+          land_mask_value: 0.,
+          NaN_mask_defined: false,
+          NaN_mask_value: 0.,
           a: 1.,
           b: 0.,
           Units: "m/s",
@@ -1415,6 +1596,10 @@ namespace Nextsim
       Variable v={
           name: "10V", // U10M
           dimensions: dimensions,
+          land_mask_defined: false,
+          land_mask_value: 0.,
+          NaN_mask_defined: false,
+          NaN_mask_value: 0.,
           a: 1.,
           b: 0.,
           Units: "m/s",
@@ -1461,6 +1646,7 @@ namespace Nextsim
    	fprintf (stderr, "topaz_elements\n");
    	fprintf (stderr, "ice_topaz_elements\n");
     fprintf (stderr, "asi_elements\n");
+    fprintf (stderr, "arc_elements\n");
    	fprintf (stderr, "etopo_elements\n");
    	fprintf (stderr, "ERAi_nodes\n");
     fprintf (stderr, "ERAi_elements\n");
@@ -1495,7 +1681,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time)
 
 
     // the ETOPO forcing filename does not contain the information on year and month
-    if ((grid_ptr->prefix).find("ETOPO1_Ice") != std::string::npos)
+    if (grid_ptr->postfix=="")
     {
         current_timestr = "";
     }
@@ -1730,8 +1916,39 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time)
 				netCDF::NcVar VMASK;
                 netCDF::NcDim tmpDim;
 
-				VMASK = dataFile.getVar(grid_ptr->masking_variable.name);
+                // Open the datafile
+				//VMASK = dataFile.getVar(grid_ptr->masking_variable.name);
+                if ( current_time > 0 )
+                {
+                    if(grid_ptr->monthly_dataset)
+                        current_timestr = to_date_string_ym(current_time);
+                    else
+                        current_timestr = to_date_string_yd(current_time);
+        
+                    std::cout <<"TIMESTR= "<< current_timestr <<"\n";
+                }
+                else
+                    current_timestr = "";
 
+                filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
+                                        % Environment::simdataDir().string()
+                                        % this->dirname
+                                        % this->prefix
+                                        % current_timestr
+                                        % this->postfix
+                                        ).str();
+
+                std::cout<<"GRID : FILENAME = "<< filename <<"\n";
+
+            	std::cout <<"GRID : READ NETCDF starts\n";
+                if ( ! boost::filesystem::exists(filename) )
+                    throw std::runtime_error("File not found: " + filename);
+
+            	netCDF::NcFile dataFile2(filename, netCDF::NcFile::read);
+
+                // load the data
+                VMASK = dataFile2.getVar(grid_ptr->masking_variable.name);
+                
 				std::vector<double> data_in;
 
 				std::vector<double> reduced_FX;
@@ -1746,7 +1963,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time)
 
 				for(int k=0; k<grid_ptr->masking_variable.dimensions.size(); ++k)
 				{
-                    tmpDim = dataFile.getDim(grid_ptr->masking_variable.dimensions[k].name);
+                    tmpDim = dataFile2.getDim(grid_ptr->masking_variable.dimensions[k].name);
                     index_start[k] = 0;
 					index_count[k] = tmpDim.getSize();;
 				}
@@ -1763,17 +1980,50 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time)
 				data_in.resize(index_px_count[0]*index_px_count[1]);
 				VMASK.getVar(index_start,index_count,&data_in[0]);
 
+                // Read the attributes
 				netCDF::NcVarAtt att;
-				int FillValue;
+				
+                // Look for FillValue definition
+                int FillValue;
+                bool find_FillValue=true;
+                try
+                {
+    				att = VMASK.getAtt("_FillValue");
+    				att.getValues(&FillValue);
+                }
+                catch(netCDF::exceptions::NcException& e)
+                {
+                    find_FillValue=false;
+                }
+                
+                // Look for missing_value definition
+                int missing_value;
+                bool find_missing_value=true;
+                try
+                {
+    				att = VMASK.getAtt("missing_value");
+    				att.getValues(&missing_value);
+                }
+                catch(netCDF::exceptions::NcException& e)
+                {
+                    find_missing_value=false;
+                }
+                
+                bool find_land_mask     =grid_ptr->masking_variable.land_mask_defined;
+                double land_mask_value  =grid_ptr->masking_variable.land_mask_value;
+                bool find_NaN_mask      =grid_ptr->masking_variable.NaN_mask_defined;
+                double NaN_mask_value   =grid_ptr->masking_variable.NaN_mask_value;
 
-				att = VMASK.getAtt("_FillValue");
-				att.getValues(&FillValue);
-
+                double tmp_data;
 				for (int i=0; i<index_px_count[0]; ++i)
 				{
 					for (int j=0; j<index_px_count[1]; ++j)
 					{
-						if (data_in[index_px_count[1]*i+j] != FillValue)
+                        tmp_data=data_in[index_px_count[1]*i+j];
+						if (    (!find_FillValue        || (find_FillValue      && (tmp_data != FillValue))         )&&
+                                (!find_missing_value    || (find_missing_value  && (tmp_data != missing_value))     )&&
+                                (!find_land_mask        || (find_land_mask      && (tmp_data != land_mask_value))   )&&
+                                (!find_NaN_mask         || (find_NaN_mask       && (tmp_data != NaN_mask_value))    )   )
 						{
 							reduced_FX.push_back(X[index_px_count[1]*i+j]);
 							reduced_FY.push_back(Y[index_px_count[1]*i+j]);
