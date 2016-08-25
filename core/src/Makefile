@@ -42,10 +42,15 @@ else
 endif
 
 LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
-LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
+ifndef MACHINE_HEXAGON
+	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
+else
+	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpichcxx -lmpich -ldl -lstdc++ -lpthread #-lm -lrt
+endif
+
 
 LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib
-LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi
+LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi
 LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
 LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
 
