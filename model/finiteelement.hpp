@@ -115,8 +115,9 @@ public:
     Dataset M_topaz_nodes_dataset;
     Dataset M_topaz_elements_dataset;
 	Dataset M_ice_topaz_elements_dataset;
-    Dataset M_asi_elements_dataset;
-    Dataset M_arc_elements_dataset;
+    Dataset M_ice_amsre_elements_dataset;
+    Dataset M_ice_osisaf_elements_dataset;
+    Dataset M_ice_amsr2_elements_dataset;
     Dataset M_etopo_elements_dataset;
     Dataset M_ERAi_nodes_dataset;
     Dataset M_ERAi_elements_dataset;
@@ -393,6 +394,7 @@ private:
     void targetIce();
     void topazIce();
     void amsreIce();
+    void osisaf2Ice();
     void amsr2Ice();
     
     void equallySpacedDrifter();

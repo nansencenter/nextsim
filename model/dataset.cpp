@@ -930,7 +930,7 @@ namespace Nextsim
             daily_mean=true;
      	    time= time_tmp;
      }
-     else if (strcmp (DatasetName, "asi_elements") == 0)
+     else if (strcmp (DatasetName, "ice_amsre_elements") == 0)
      {
      	// Definition of topaz grid and datasets
          Dimension dimension_x={
@@ -1054,7 +1054,131 @@ namespace Nextsim
         daily_mean=true;
      	time= time_tmp;
      }
-     else if (strcmp (DatasetName, "arc_elements") == 0)
+     else if (strcmp (DatasetName, "ice_osisaf_elements") == 0)
+     {
+     	// Definition of topaz grid and datasets
+         Dimension dimension_x={
+             name:"xc",
+             cyclic:false
+     	};
+
+         Dimension dimension_y={
+             name:"yc",
+             cyclic:false
+     	};
+
+         Dimension dimension_time={
+             name:"time", // "Time"
+             cyclic:false
+     	};
+
+         std::vector<Dimension> dimensions(3);
+         dimensions[0] = dimension_time;
+         dimensions[1] = dimension_y;
+         dimensions[2] = dimension_x;
+
+         std::vector<Dimension> dimensions_latlon(2);
+         dimensions_latlon[0] = dimension_y;
+         dimensions_latlon[1] = dimension_x;
+
+         std::vector<Dimension> dimensions_time(1);
+         dimensions_time[0] = dimension_time;
+
+         Variable latitude={
+             name: "lat",
+             dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_north",
+             data2: data2_tmp};
+
+         Variable longitude={
+             name: "lon",
+             dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_east",
+             data2: data2_tmp};
+
+         Variable time_tmp={
+             name: "time",
+             dimensions: dimensions_time,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1./3600,
+             b: 0.,
+             Units: "hours",
+             data2: data2_tmp};
+
+         Variable conc={
+     		name: "ice_conc",
+     		dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 0.01,
+     		b: 0.,
+     		Units: "",
+     		data2: data2_tmp
+     	};
+
+         Grid grid_tmp={
+             interpolation_method: InterpolationType::FromMeshToMesh2dx,
+     		interp_type: -1,
+             dirname= "data",
+             //filename: "TP4DAILY_200803_3m.nc",
+             prefix= "ice_conc_nh_ease-125_reproc_",
+             postfix= "1200.nc",
+
+             latitude: latitude,
+             longitude: longitude,
+
+             dimension_x: dimension_x,
+             dimension_y: dimension_y,
+
+             mpp_file: "NpsNextsim.mpp",
+     		interpolation_in_latlon: false,
+
+             loaded: false,
+             monthly_dataset:false,
+
+     		masking: true,
+     		masking_variable: conc
+        };
+
+        std::vector<Variable> variables_tmp(1);
+        variables_tmp[0] = conc;
+
+        std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+        dirname= "data";
+        prefix= "ice_conc_nh_ease-125_reproc_";
+        postfix= "1200.nc";
+        reference_date= "1978-01-01";
+
+        variables= variables_tmp;
+        vectorial_variables= vectorial_variables_tmp;
+        target_size= target_size_tmp;
+        grid= grid_tmp;
+
+        reloaded=false;
+
+        nb_timestep_day= 1;
+        daily_mean=true;
+     	time= time_tmp;
+     }
+     else if (strcmp (DatasetName, "ice_amsr2_elements") == 0)
      {
      	// Definition of topaz grid and datasets
          Dimension dimension_x={
@@ -1654,11 +1778,13 @@ namespace Nextsim
    	fprintf (stderr, "topaz_nodes\n");
    	fprintf (stderr, "topaz_elements\n");
    	fprintf (stderr, "ice_topaz_elements\n");
-    fprintf (stderr, "asi_elements\n");
-    fprintf (stderr, "arc_elements\n");
+    fprintf (stderr, "ice_amsre_elements\n");
+    fprintf (stderr, "ice_osisaf_elements\n");
+    fprintf (stderr, "ice_amsr2_elements\n");
    	fprintf (stderr, "etopo_elements\n");
    	fprintf (stderr, "ERAi_nodes\n");
     fprintf (stderr, "ERAi_elements\n");
+    
        //close_Dataset (this);
      }
 
