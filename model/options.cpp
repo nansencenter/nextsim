@@ -7,10 +7,12 @@
  * @date   Tue Jul 14 13:23:45 2015
  */
 
-
 #include <boost/program_options.hpp>
 #include <constants.hpp>
-//#include <wimoptions.hpp>
+
+#if defined (WAVES)
+#include <wimoptions.hpp>
+#endif
 
 namespace po = boost::program_options;
 
@@ -22,8 +24,6 @@ namespace po = boost::program_options;
 double const days_in_sec = 24.0*3600.0;
 namespace Nextsim
 {
-    //po::options_description _wimopt = descrWimOptions();
-
     po::options_description
     descrOptions()
     {
@@ -179,6 +179,7 @@ namespace Nextsim
             ("simul.wim_grid", po::value<bool>()->default_value( false ), "")
             ("simul.maxiteration", po::value<int>()->default_value( 1e+8 ), "")
 
+#if !defined(WAVES)
             // wim options
 
             ("wim.nx", po::value<int>()->default_value( 150 ),
@@ -282,8 +283,13 @@ namespace Nextsim
             ("nextwim.couplingfreq", po::value<int>()->default_value( 20 ),
                   "Coupling frequency between neXtSIM and WIM (# neXtSIM time-steps)")
 
+#endif
             ;
-        return desc;//.add( Wim::descrWimOptions() );
+#if !defined (WAVES)
+        return desc;
+#else
+        return desc.add( Wim::descrWimOptions() );
+#endif
     }
 
 } // Nextsim
