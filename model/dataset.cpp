@@ -30,7 +30,7 @@ namespace Nextsim
     DataSet::DataSet( )
     {}
 
-   DataSet::DataSet(char const *DatasetName, int target_size)
+   DataSet::DataSet(char const *DatasetName, int target_size_tmp)
    {
 //     Dataset *this;
 
@@ -98,7 +98,7 @@ namespace Nextsim
              data2: data2_tmp
      	};
 
-         Variable time={
+         Variable time_tmp={
              name: "time",
              dimensions: dimensions_time,
              land_mask_defined: false,
@@ -138,13 +138,13 @@ namespace Nextsim
              data2: data2_tmp
      	};
 
-     	Grid M_grid={
+     	Grid grid_tmp={
      		interpolation_method: InterpolationType::FromGridToMesh,
      	    //interp_type : TriangleInterpEnum,  // slower
      	    interp_type : BilinearInterpEnum,
      	    //interp_type : NearestInterpEnum,
 
-     		this->dirname="data",
+     		dirname="data",
      		//filename:"asr30km.comb.2d.200803.nc",
             prefix= "asr30km.comb.2d.", // "asr30km.comb.2D.";
             postfix=".nc",
@@ -158,15 +158,15 @@ namespace Nextsim
      		mpp_file: "NpsASR.mpp",
       		interpolation_in_latlon: false,
 
-             loaded: false,
-             monthly_dataset:true,
+            loaded: false,
+            monthly_dataset:true,
 
      		masking: false
      	};
 
-         std::vector<Variable> variables(2);
-             variables[0] = u;
-             variables[1] = v;
+         std::vector<Variable> variables_tmp(2);
+             variables_tmp[0] = u;
+             variables_tmp[1] = v;
 
          std::vector<int> uv_tmp(2);
              uv_tmp[0] = 0;
@@ -177,23 +177,24 @@ namespace Nextsim
              east_west_oriented: false // if false, then we assume it is oriented following the input grid
          };
 
-         std::vector<Vectorial_Variable> vectorial_variables(1);
-         vectorial_variables[0] = uv;
+         std::vector<Vectorial_Variable> vectorial_variables_tmp(1);
+         vectorial_variables_tmp[0] = uv;
 
-             this->dirname= "data";
-             this->prefix= "asr30km.comb.2d."; // "asr30km.comb.2D.";
-             this->postfix=".nc";
-             this->reference_date= "1901-01-01";
+             dirname= "data";
+             prefix= "asr30km.comb.2d."; // "asr30km.comb.2D.";
+             postfix=".nc";
+             reference_date= "1901-01-01";
 
-             this->variables= variables;
-             this->vectorial_variables= vectorial_variables;
-             this->target_size= target_size;
-             this->grid= M_grid;
+             variables= variables_tmp;
+             vectorial_variables= vectorial_variables_tmp;
+             target_size= target_size_tmp;
+             grid= grid_tmp;
 
-             this->reloaded=false;
+             reloaded=false;
 
-             this->nb_timestep_day= 8;
-             this->time= time;
+             nb_timestep_day= 8;
+             daily_mean=false;
+             time= time_tmp;
      }
      else if (strcmp (DatasetName, "asr_elements") == 0)
      {
@@ -251,7 +252,7 @@ namespace Nextsim
              data2: data2_tmp
      	};
 
-         Variable time={
+         Variable time_tmp={
              name: "time",
              dimensions: dimensions_time,
              land_mask_defined: false,
@@ -291,13 +292,13 @@ namespace Nextsim
              data2: data2_tmp
      	};
 
-     	Grid M_grid={
+     	Grid grid_tmp={
      		interpolation_method: InterpolationType::FromGridToMesh,
      	    //interp_type : TriangleInterpEnum,  // slower
      	    interp_type : BilinearInterpEnum,
      	    //interp_type : NearestInterpEnum,
 
-     		this->dirname="data",
+     		dirname="data",
      		//filename:"asr30km.comb.2d.200803.nc",
             prefix="asr30km.comb.2d.", // "asr30km.comb.2D.";
             postfix=".nc",
@@ -311,13 +312,13 @@ namespace Nextsim
      		mpp_file: "NpsASR.mpp",
       		interpolation_in_latlon: false,
 
-             loaded: false,
-             monthly_dataset:true,
+            loaded: false,
+            monthly_dataset:true,
 
      		masking: false
      	};
 
-         int nb_timestep_day=8;
+         nb_timestep_day=8;
 
          Variable tair={
              name:"T2",
@@ -404,31 +405,31 @@ namespace Nextsim
              data2: data2_tmp
      	};
 
-         std::vector<Variable> variables(7);
-         variables[0] = tair;
-         variables[1] = mixrat;
-         variables[2] = mslp;
-         variables[3] = Qsw_in;
-         variables[4] = Qlw_in;
-         variables[5] = snowfr;
-         variables[6] = precip;
+         std::vector<Variable> variables_tmp(7);
+         variables_tmp[0] = tair;
+         variables_tmp[1] = mixrat;
+         variables_tmp[2] = mslp;
+         variables_tmp[3] = Qsw_in;
+         variables_tmp[4] = Qlw_in;
+         variables_tmp[5] = snowfr;
+         variables_tmp[6] = precip;
 
-         std::vector<Vectorial_Variable> vectorial_variables(0);
+         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+         
+         dirname="data";
+         prefix="asr30km.comb.2d."; // "asr30km.comb.2D.";
+         postfix=".nc";
+         reference_date= "1901-01-01";
 
-             this->dirname="data";
-             this->prefix="asr30km.comb.2d."; // "asr30km.comb.2D.";
-             this->postfix=".nc";
-             this->reference_date= "1901-01-01";
+         variables= variables_tmp;
+         vectorial_variables= vectorial_variables_tmp;
+         target_size=target_size_tmp;
+         grid= grid_tmp;
 
-             this->variables= variables;
-             this->vectorial_variables= vectorial_variables;
-             this->target_size=target_size;
-             this->grid= M_grid;
+         reloaded=false;
 
-             this->reloaded=false;
-
-             this->nb_timestep_day= 8;
-             this->time= time;
+         daily_mean=false;
+         time= time_tmp;
      }
      else if (strcmp (DatasetName, "topaz_nodes") == 0)
      {
@@ -495,7 +496,7 @@ namespace Nextsim
              Units: "degree_east",
              data2: data2_tmp};
 
-         Variable time={
+         Variable time_tmp={
              name: "time",
              dimensions: dimensions_time,
              land_mask_defined: false,
@@ -546,10 +547,10 @@ namespace Nextsim
      		data2: data2_tmp
      	};
 
-         Grid M_grid={
+         Grid grid_tmp={
              interpolation_method: InterpolationType::FromMeshToMesh2dx,
      		interp_type: -1,
-             this->dirname= "data",
+             dirname= "data",
              //filename: "TP4DAILY_200803_3m.nc",
              prefix= "TP4DAILY_",
              postfix= "_30m.nc",
@@ -570,10 +571,10 @@ namespace Nextsim
      		masking_variable: ssh
      	};
 
-         std::vector<Variable> variables(3);
-         variables[0] = u;
-         variables[1] = v;
-         variables[2] = ssh;
+         std::vector<Variable> variables_tmp(3);
+         variables_tmp[0] = u;
+         variables_tmp[1] = v;
+         variables_tmp[2] = ssh;
 
          std::vector<int> uv_tmp(2);
              uv_tmp[0] = 0;
@@ -584,23 +585,24 @@ namespace Nextsim
              east_west_oriented: false // if false, then we assume it is oriented following the mpp_file defined for the grid
      	};
 
-         std::vector<Vectorial_Variable> vectorial_variables(1);
-         vectorial_variables[0] = uv;
+         std::vector<Vectorial_Variable> vectorial_variables_tmp(1);
+         vectorial_variables_tmp[0] = uv;
 
          dirname= "data";
          prefix= "TP4DAILY_";
          postfix= "_30m.nc";
          reference_date= "1950-01-01";
 
-             this->variables= variables;
-             this->vectorial_variables= vectorial_variables;
-             this->target_size= target_size;
-             this->grid= M_grid;
+         variables= variables_tmp;
+         vectorial_variables= vectorial_variables_tmp;
+         target_size= target_size_tmp;
+         grid= grid_tmp;
 
-             this->reloaded=false;
+         reloaded=false;
 
-             this->nb_timestep_day= 1;
-             this->time= time;
+         nb_timestep_day= 1;
+         daily_mean=true;
+         time= time_tmp;
      }
      else if (strcmp (DatasetName, "topaz_elements") == 0)
      {
@@ -667,7 +669,7 @@ namespace Nextsim
              Units: "degree_east",
              data2: data2_tmp};
 
-         Variable time={
+         Variable time_tmp={
              name: "time",
              dimensions: dimensions_time,
              land_mask_defined: false,
@@ -718,10 +720,10 @@ namespace Nextsim
      		data2: data2_tmp
      	};
 
-         Grid M_grid={
+         Grid grid_tmp={
              interpolation_method: InterpolationType::FromMeshToMesh2dx,
      		interp_type: -1,
-             this->dirname= "data",
+             dirname= "data",
              //filename: "TP4DAILY_200803_3m.nc",
              prefix= "TP4DAILY_",
              postfix= "_3m.nc",
@@ -742,27 +744,28 @@ namespace Nextsim
      		masking_variable: sss
      	};
 
-         std::vector<Variable> variables(3);
-         variables[0] = sst;
-         variables[1] = sss;
-         variables[2] = mld;
+         std::vector<Variable> variables_tmp(3);
+         variables_tmp[0] = sst;
+         variables_tmp[1] = sss;
+         variables_tmp[2] = mld;
 
-         std::vector<Vectorial_Variable> vectorial_variables(0);
+         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
-             this->dirname= "data";
-             this->prefix= "TP4DAILY_";
-             this->postfix= "_3m.nc";
-             this->reference_date= "1950-01-01";
+             dirname= "data";
+             prefix= "TP4DAILY_";
+             postfix= "_3m.nc";
+             reference_date= "1950-01-01";
 
-             this->variables= variables;
-             this->vectorial_variables= vectorial_variables;
-             this->target_size= target_size;
-             this->grid= M_grid;
+             variables= variables_tmp;
+             vectorial_variables= vectorial_variables_tmp;
+             target_size= target_size_tmp;
+             grid= grid_tmp;
 
-             this->reloaded=false;
+             reloaded=false;
 
-             this->nb_timestep_day= 1;
-             this->time= time;
+             nb_timestep_day= 1;
+             daily_mean=true;
+             time= time_tmp;
      }
      else if (strcmp (DatasetName, "ice_topaz_elements") == 0)
      {
@@ -829,7 +832,7 @@ namespace Nextsim
              Units: "degree_east",
              data2: data2_tmp};
 
-         Variable time={
+         Variable time_tmp={
              name: "time",
              dimensions: dimensions_time,
              land_mask_defined: false,
@@ -880,10 +883,10 @@ namespace Nextsim
      		data2: data2_tmp
      	};
 
-         Grid M_grid={
+         Grid grid_tmp={
              interpolation_method: InterpolationType::FromMeshToMesh2dx,
      		interp_type: -1,
-             this->dirname= "data",
+             dirname= "data",
              //filename: "TP4DAILY_200803_3m.nc",
              prefix= "TP4DAILY_",
              postfix= "_3m.nc",
@@ -904,27 +907,28 @@ namespace Nextsim
      		masking_variable: conc
      	};
 
-         std::vector<Variable> variables(3);
-         variables[0] = conc;
-         variables[1] = thick;
-         variables[2] = snow_thick;
+         std::vector<Variable> variables_tmp(3);
+         variables_tmp[0] = conc;
+         variables_tmp[1] = thick;
+         variables_tmp[2] = snow_thick;
 
-         std::vector<Vectorial_Variable> vectorial_variables(0);
+         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
-             this->dirname= "data";
-             this->prefix= "TP4DAILY_";
-             this->postfix= "_3m.nc";
-             this->reference_date= "1950-01-01";
+             dirname= "data";
+             prefix= "TP4DAILY_";
+             postfix= "_3m.nc";
+             reference_date= "1950-01-01";
 
-             this->variables= variables;
-             this->vectorial_variables= vectorial_variables;
-             this->target_size= target_size;
-             this->grid= M_grid;
+             variables= variables_tmp;
+             vectorial_variables= vectorial_variables_tmp;
+             target_size= target_size_tmp;
+             grid= grid_tmp;
 
-             this->reloaded=false;
+             reloaded=false;
 
-     		this->nb_timestep_day= 1;
-     	    this->time= time;
+     		nb_timestep_day= 1;
+            daily_mean=true;
+     	    time= time_tmp;
      }
      else if (strcmp (DatasetName, "asi_elements") == 0)
      {
@@ -980,7 +984,7 @@ namespace Nextsim
              Units: "degree_east",
              data2: data2_tmp};
 
-         Variable time={
+         Variable time_tmp={
              name: "time",
              dimensions: dimensions_time,
              land_mask_defined: false,
@@ -1005,10 +1009,10 @@ namespace Nextsim
      		data2: data2_tmp
      	};
 
-         Grid M_grid={
+         Grid grid_tmp={
              interpolation_method: InterpolationType::FromMeshToMesh2dx,
      		interp_type: -1,
-             this->dirname= "data",
+             dirname= "data",
              //filename: "TP4DAILY_200803_3m.nc",
              prefix= "asi-n6250-",
              postfix= "-v5i.nc",
@@ -1029,25 +1033,26 @@ namespace Nextsim
      		masking_variable: conc
         };
 
-        std::vector<Variable> variables(1);
-        variables[0] = conc;
+        std::vector<Variable> variables_tmp(1);
+        variables_tmp[0] = conc;
 
-        std::vector<Vectorial_Variable> vectorial_variables(0);
+        std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
-        this->dirname= "data";
-        this->prefix= "asi-n6250-";
-        this->postfix= "-v5i.nc";
-        this->reference_date= "2002-01-01";
+        dirname= "data";
+        prefix= "asi-n6250-";
+        postfix= "-v5i.nc";
+        reference_date= "2002-01-01";
 
-        this->variables= variables;
-        this->vectorial_variables= vectorial_variables;
-        this->target_size= target_size;
-        this->grid= M_grid;
+        variables= variables_tmp;
+        vectorial_variables= vectorial_variables_tmp;
+        target_size= target_size_tmp;
+        grid= grid_tmp;
 
-        this->reloaded=false;
+        reloaded=false;
 
-        this->nb_timestep_day= 1;
-     	this->time= time;
+        nb_timestep_day= 1;
+        daily_mean=true;
+     	time= time_tmp;
      }
      else if (strcmp (DatasetName, "arc_elements") == 0)
      {
@@ -1103,7 +1108,7 @@ namespace Nextsim
              Units: "degree_east",
              data2: data2_tmp};
 
-         Variable time={
+         Variable time_tmp={
              name: "time",
              dimensions: dimensions_time,
              land_mask_defined: false,
@@ -1128,10 +1133,10 @@ namespace Nextsim
      		data2: data2_tmp
      	};
 
-         Grid M_grid={
+         Grid grid_tmp={
              interpolation_method: InterpolationType::FromMeshToMesh2dx,
      		interp_type: -1,
-             this->dirname= "data",
+             dirname= "data",
              //filename: "TP4DAILY_200803_3m.nc",
              prefix= "LongitudeLatitudeGrid_3.125km_Arctic.nc",
              postfix= "",
@@ -1152,25 +1157,26 @@ namespace Nextsim
      		masking_variable: conc
         };
 
-        std::vector<Variable> variables(1);
-        variables[0] = conc;
+        std::vector<Variable> variables_tmp(1);
+        variables_tmp[0] = conc;
 
-        std::vector<Vectorial_Variable> vectorial_variables(0);
+        std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
-        this->dirname= "data";
-        this->prefix= "Arc_";
-        this->postfix= "_res3.125_pyres.nc";
-        this->reference_date= "0001-01-01";
+        dirname= "data";
+        prefix= "Arc_";
+        postfix= "_res3.125_pyres.nc";
+        reference_date= "0001-01-01";
 
-        this->variables= variables;
-        this->vectorial_variables= vectorial_variables;
-        this->target_size= target_size;
-        this->grid= M_grid;
+        variables= variables_tmp;
+        vectorial_variables= vectorial_variables_tmp;
+        target_size= target_size_tmp;
+        grid= grid_tmp;
 
-        this->reloaded=false;
+        reloaded=false;
 
-        this->nb_timestep_day= 1;
-     	this->time= time;
+        nb_timestep_day= 1;
+        daily_mean=true;
+     	time= time_tmp;
      }
      else if (strcmp (DatasetName, "etopo_elements") == 0)
      {
@@ -1221,12 +1227,12 @@ namespace Nextsim
              data2: data2_tmp
      	};
 
-     	Grid M_grid={
+     	Grid grid_tmp={
      		interpolation_method: InterpolationType::FromGridToMesh,
      	    //interp_type : TriangleInterpEnum, // slower
      	    interp_type : BilinearInterpEnum,
      	    //interp_type : NearestInterpEnum,
-     		this->dirname="data",
+     		dirname="data",
      		//filename:"ETOPO1_Ice_g_gmt4.grd",
             prefix="ETOPO1_Ice_g_gmt4.grd",
             postfix="",
@@ -1259,25 +1265,26 @@ namespace Nextsim
              data2: data2_tmp
      	};
 
-         std::vector<Variable> variables(1);
-         variables[0] = z;
+         std::vector<Variable> variables_tmp(1);
+         variables_tmp[0] = z;
 
-         std::vector<Vectorial_Variable> vectorial_variables(0);
+         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
 
-             this->dirname="data";
-             this->prefix="ETOPO1_Ice_g_gmt4";
-             this->postfix=".grd";
-             this->reference_date= "";
-
-             this->variables= variables;
-             this->vectorial_variables= vectorial_variables;
-             this->target_size=target_size;
-             this->grid= M_grid;
-
-             this->reloaded=false;
-
-             this->nb_timestep_day= 0;
+         dirname="data";
+         prefix="ETOPO1_Ice_g_gmt4";
+         postfix=".grd";
+         reference_date= "";
+         
+         variables= variables_tmp;
+         vectorial_variables= vectorial_variables_tmp;
+         target_size=target_size_tmp;
+         
+         grid= grid_tmp;
+         reloaded=false;
+         
+         nb_timestep_day= 0;
+         daily_mean=false;
      }
      else if (strcmp (DatasetName, "ERAi_elements") == 0)
      {
@@ -1299,10 +1306,10 @@ namespace Nextsim
 
         // Definition of the grid
          std::vector<Dimension> dimensions_lon(1);
-         dimensions_lon[0] = this->dimension_x;
+         dimensions_lon[0] = dimension_x;
 
          std::vector<Dimension> dimensions_lat(1);
-         dimensions_lat[0] = this->dimension_y;
+         dimensions_lat[0] = dimension_y;
 
          Variable latitude={
              name: "lat",
@@ -1330,12 +1337,12 @@ namespace Nextsim
              data2: data2_tmp
      	};
 
-     	Grid M_grid={
+     	Grid grid_tmp={
      		interpolation_method: InterpolationType::FromGridToMesh,
      	    //interp_type : TriangleInterpEnum, // slower
      	    interp_type : BilinearInterpEnum,
      	    //interp_type : NearestInterpEnum,
-     		this->dirname="data",
+     		dirname="data",
      		//filename:"erai.6h.201304.nc",//"erai.6h.200803.nc",
             prefix= "erai.6h.",
             postfix=".nc",
@@ -1355,19 +1362,19 @@ namespace Nextsim
      		masking: false
      	};
 
-        this->grid= M_grid;
+        grid= grid_tmp;
 
         // Definition of the data
 
         std::vector<Dimension> dimensions_time(1);
-        dimensions_time[0] = this->dimension_time;
+        dimensions_time[0] = dimension_time;
 
         std::vector<Dimension> dimensions(3);
-        dimensions[0] = this->dimension_time;
-        dimensions[1] = this->dimension_y;
-        dimensions[2] = this->dimension_x;
+        dimensions[0] = dimension_time;
+        dimensions[1] = dimension_y;
+        dimensions[2] = dimension_x;
 
-        Variable time={
+        Variable time_tmp={
             name: "time",
             dimensions: dimensions_time,
             land_mask_defined: false,
@@ -1380,7 +1387,7 @@ namespace Nextsim
             data2: data2_tmp
     	};
 
-        int nb_timestep_day=4;
+        nb_timestep_day=4;
 
         Variable tair={
             name:"2T",
@@ -1456,29 +1463,30 @@ namespace Nextsim
             data2: data2_tmp
     	};
 
-        std::vector<Variable> variables(6);
-        variables[0] = tair;
-        variables[1] = dair;
-        variables[2] = mslp;
-        variables[3] = Qsw_in;
-        variables[4] = tcc;
-        variables[5] = precip;
+        std::vector<Variable> variables_tmp(6);
+        variables_tmp[0] = tair;
+        variables_tmp[1] = dair;
+        variables_tmp[2] = mslp;
+        variables_tmp[3] = Qsw_in;
+        variables_tmp[4] = tcc;
+        variables_tmp[5] = precip;
 
-         std::vector<Vectorial_Variable> vectorial_variables(0);
+         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
-         this->dirname=  "data";
-         this->prefix= "erai.6h.";
-         this->postfix=".nc";
-         this->reference_date="2013-01-01";//"2008-01-01";
+         dirname=  "data";
+         prefix= "erai.6h.";
+         postfix=".nc";
+         reference_date="2013-01-01";//"2008-01-01";
 
-         this->variables= variables;
-         this->vectorial_variables= vectorial_variables;
-         this->target_size= target_size;
+         variables= variables_tmp;
+         vectorial_variables= vectorial_variables_tmp;
+         target_size= target_size_tmp;
 
-         this->reloaded= false;
+         reloaded= false;
 
-         this->nb_timestep_day= 4;
-         this->time= time;
+         daily_mean=false;
+         
+         time= time_tmp;
      }
      else if (strcmp (DatasetName, "ERAi_nodes") == 0)
      {
@@ -1499,10 +1507,10 @@ namespace Nextsim
 
      // Definition of the grid
       std::vector<Dimension> dimensions_lon(1);
-      dimensions_lon[0] = this->dimension_x;
+      dimensions_lon[0] = dimension_x;
 
       std::vector<Dimension> dimensions_lat(1);
-      dimensions_lat[0] = this->dimension_y;
+      dimensions_lat[0] = dimension_y;
 
       Variable latitude={
           name: "lat",
@@ -1528,12 +1536,12 @@ namespace Nextsim
           Units: "degree_east",
           data2: data2_tmp};
 
-  	Grid M_grid={
+  	Grid grid_tmp={
   		interpolation_method: InterpolationType::FromGridToMesh,
   	    //interp_type : TriangleInterpEnum, // slower
   	    interp_type : BilinearInterpEnum,
   	    //interp_type : NearestInterpEnum,
-  		this->dirname="data",
+  		dirname="data",
   		//filename:"erai.6h.201304.nc",//"erai.6h.200803.nc",
         prefix= "erai.6h.",
         postfix=".nc",
@@ -1554,19 +1562,19 @@ namespace Nextsim
         masking: false
     };
 
-     this->grid= M_grid;
+     grid= grid_tmp;
 
      // Definition of the data
 
      std::vector<Dimension> dimensions_time(1);
-     dimensions_time[0] = this->dimension_time;
+     dimensions_time[0] = dimension_time;
 
      std::vector<Dimension> dimensions(3);
-     dimensions[0] = this->dimension_time;
-     dimensions[1] = this->dimension_y;
-     dimensions[2] = this->dimension_x;
+     dimensions[0] = dimension_time;
+     dimensions[1] = dimension_y;
+     dimensions[2] = dimension_x;
 
-     Variable time={
+     Variable time_tmp={
          name: "time",
          dimensions: dimensions_time,
          land_mask_defined: false,
@@ -1606,9 +1614,9 @@ namespace Nextsim
           data2: data2_tmp
       };
 
-      std::vector<Variable> variables(2);
-      variables[0] = u;
-      variables[1] = v;
+      std::vector<Variable> variables_tmp(2);
+      variables_tmp[0] = u;
+      variables_tmp[1] = v;
 
       std::vector<int> uv_tmp(2);
           uv_tmp[0] = 0;
@@ -1619,22 +1627,23 @@ namespace Nextsim
           east_west_oriented: true
       };
 
-      std::vector<Vectorial_Variable> vectorial_variables(1);
-      vectorial_variables[0] = uv;
+      std::vector<Vectorial_Variable> vectorial_variables_tmp(1);
+      vectorial_variables_tmp[0] = uv;
 
-      this->dirname=  "data";
-      this->prefix= "erai.6h.";
-      this->postfix=".nc";
-      this->reference_date="2013-01-01";//"2008-01-01";
+      dirname=  "data";
+      prefix= "erai.6h.";
+      postfix=".nc";
+      reference_date="2013-01-01";//"2008-01-01";
 
-      this->variables= variables;
-      this->vectorial_variables= vectorial_variables;
-      this->target_size= target_size;
+      variables= variables_tmp;
+      vectorial_variables= vectorial_variables_tmp;
+      target_size= target_size_tmp;
 
-      this->reloaded= false;
+      reloaded= false;
 
-      this->nb_timestep_day= 4;
-      this->time= time;
+      nb_timestep_day= 4;
+      daily_mean=false;
+      time= time_tmp;
       }
      else
        {
@@ -1653,7 +1662,7 @@ namespace Nextsim
        //close_Dataset (this);
      }
 
-     this->ftime_range.resize(2,0.);
+     ftime_range.resize(2,0.);
 
    }
 
@@ -1932,10 +1941,10 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time)
 
                 filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                                         % Environment::simdataDir().string()
-                                        % this->dirname
-                                        % this->prefix
+                                        % dirname
+                                        % prefix
                                         % current_timestr
-                                        % this->postfix
+                                        % postfix
                                         ).str();
 
                 std::cout<<"GRID : FILENAME = "<< filename <<"\n";

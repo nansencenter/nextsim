@@ -160,6 +160,7 @@ public:
     bool reloaded;
 
     int nb_timestep_day;
+    bool daily_mean; // Use daily_mean=true, when the data are centered at noon, but the time variable says 00:00:00 (it is the case for TOPAZ daily mean, AMSRE, AMSR2)  
     Variable time;
 
     std::vector<double> ftime_range;

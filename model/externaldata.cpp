@@ -101,6 +101,10 @@ ExternalData::~ExternalData()
 void ExternalData::check_and_reload(GmshMesh const& mesh, const double current_time)
 {
     M_current_time = current_time;
+    
+    double current_time_tmp=M_current_time;
+    if(daily_mean)
+        current_time_tmp=M_current_time-0.5;
 
     M_factor=1.;
     if((M_current_time-M_SpinUpStartingTime)<M_SpinUpDuration)
@@ -114,7 +118,7 @@ void ExternalData::check_and_reload(GmshMesh const& mesh, const double current_t
 
         if(M_dataset->nb_timestep_day>0)
         {
-            to_be_reloaded=((M_current_time < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < M_current_time) || !M_dataset->reloaded);
+            to_be_reloaded=((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp) || !M_dataset->reloaded);
         }
         else
             to_be_reloaded=!M_dataset->reloaded;
@@ -215,7 +219,6 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
         dataset->loadGrid(&(dataset->grid), M_current_time);
 
     // Initialise counters etc.
-	std::string current_timestr = "";
 	int nb_forcing_step =1;
 
 	std::vector<double> XTIME(1);
@@ -230,12 +233,22 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
     // create dataset->ftime_range for data sets which need to be interpolated in time
 	if(dataset->nb_timestep_day>0)
 	{
-		current_timestr = to_date_string_ym(M_current_time);
-
 		double file_dt = 1./dataset->nb_timestep_day;
-		double time_start = std::floor(M_current_time*dataset->nb_timestep_day)/dataset->nb_timestep_day;
-		double time_end = std::ceil(M_current_time*dataset->nb_timestep_day)/dataset->nb_timestep_day;
-
+		
+        double time_start, time_end;
+        if(dataset->daily_mean)
+        {
+            time_start = std::floor((M_current_time-0.5)*dataset->nb_timestep_day)/dataset->nb_timestep_day+0.5;
+    		time_end   = std::ceil ((M_current_time-0.5)*dataset->nb_timestep_day)/dataset->nb_timestep_day+0.5;
+            std::cout << "time_start " << time_start << " " << to_date_string_yd(std::floor(time_start-0.5)) <<  "\n";
+            std::cout << "time_end " << time_end     <<  " " << to_date_string_yd(std::floor(time_end-0.5)) <<"\n";
+        }
+        else
+        {
+            time_start = std::floor(M_current_time*dataset->nb_timestep_day)/dataset->nb_timestep_day;
+    		time_end   = std::ceil (M_current_time*dataset->nb_timestep_day)/dataset->nb_timestep_day;
+        }
+            
 		// We always need at least two time steps to interpolate between
 		if (time_end == time_start)
 		{
@@ -243,10 +256,12 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 		}
 
 		dataset->ftime_range.resize(0);
-		for (double dt=time_start; dt<=time_end; dt+=file_dt)
+		for (double time_tmp=time_start; time_tmp<=time_end; time_tmp+=file_dt)
 		{
-			dataset->ftime_range.push_back(dt);
+			dataset->ftime_range.push_back(time_tmp);
 		}
+        
+        std::cout << "dataset->ftime_range.size() " << dataset->ftime_range.size() << "\n";
 
 		// for (int i=0; i<dataset->ftime_range.size(); ++i)
 		// {
@@ -317,6 +332,9 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 		if(dataset->nb_timestep_day>0)
 		{
             ftime = dataset->ftime_range[fstep];
+         
+            if(dataset->daily_mean)
+                ftime = ftime-0.5;
             
             std::string f_timestr;
             if(dataset->grid.monthly_dataset)
