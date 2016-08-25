@@ -355,6 +355,109 @@ namespace Nextsim
         }
 
     }
+
+    // Initialise a netCDF file
+    void GridOutput::initNetCDF(std::string filename)
+    {
+        // Create the netCDF file.
+        netCDF::NcFile dataFile(filename, netCDF::NcFile::replace);
+
+        // Create the time dimension
+        netCDF::NcDim tDim = dataFile.addDim("time"); // unlimited
+
+        // Create the time variable
+        netCDF::NcVar time = dataFile.addVar("time", netCDF::ncFloat, tDim);
+        time.putAtt("standard_name","time");
+        time.putAtt("long_name","simulation time");
+        time.putAtt("units","days since 1900-01-01 00:00:00");
+        time.putAtt("calendar","standard");
+
+        M_nc_step=0;
+
+        // Create the two spatial dimensions.
+        netCDF::NcDim xDim = dataFile.addDim("x", M_ncols);
+        netCDF::NcDim yDim = dataFile.addDim("y", M_nrows);
+
+        std::vector<netCDF::NcDim> dims2(2);
+        dims2[0] = xDim;
+        dims2[1] = yDim;
+
+        // Create the longitude and latitude variables
+        // Longitude
+        netCDF::NcVar lon = dataFile.addVar("longitude", netCDF::ncFloat, dims2);
+        lon.putAtt("standard_name","longitude");
+        lon.putAtt("long_name","longitude");
+        lon.putAtt("units","degrees_north");
+        lon.putAtt("_CoordinateAxisType","Lon");
+        lon.putVar(&M_grid.gridLON[0]);
+
+        // Latitude
+        netCDF::NcVar lat = dataFile.addVar("latitude", netCDF::ncFloat, dims2);
+        lat.putAtt("standard_name","latitude");
+        lat.putAtt("long_name","latitude");
+        lat.putAtt("units","degrees_north");
+        lat.putAtt("_CoordinateAxisType","Lat");
+        lat.putVar(&M_grid.gridLAT[0]);
+
+        // Create the output variables
+        netCDF::NcVar data;
+        std::vector<netCDF::NcDim> dims(3);
+        dims[0] = tDim;
+        dims[1] = xDim;
+        dims[2] = yDim;
+        for (auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); ++it)
+        {
+            data = dataFile.addVar(it->name, netCDF::ncFloat, dims);
+            data.putAtt("standard_name",it->stdName);
+            data.putAtt("long_name",it->longName);
+            data.putAtt("units",it->Units);
+        }
+        for (auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); ++it)
+        {
+            data = dataFile.addVar(it->name, netCDF::ncFloat, dims);
+            data.putAtt("standard_name",it->stdName);
+            data.putAtt("long_name",it->longName);
+            data.putAtt("units",it->Units);
+        }
+    }
+
+    // Write data to the netCDF file
+    void GridOutput::appendNetCDF(std::string filename, double current_time)
+    {
+        // Open the netCDF file
+        netCDF::NcFile dataFile(filename, netCDF::NcFile::write);
+
+        // Append to time
+        std::vector<size_t> start;
+        start.push_back(M_nc_step);
+
+        std::vector<size_t> count;
+        count.push_back(1);
+
+        M_nc_step++;
+
+        netCDF::NcVar time = dataFile.getVar("time");
+        time.putVar(start, count, &current_time);
+
+        // Append to the output variables
+        start.push_back(0);
+        start.push_back(0);
+
+        count.push_back(M_ncols);
+        count.push_back(M_nrows);
+
+        netCDF::NcVar data;
+        for (auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); ++it)
+        {
+            data = dataFile.getVar(it->name);
+            data.putVar(start, count, &it->data_grid[0]);
+        }
+        for (auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); ++it)
+        {
+            data = dataFile.getVar(it->name);
+            data.putVar(start, count, &it->data_grid[0]);
+        }
+    }
 }
 
 

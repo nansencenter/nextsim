@@ -85,6 +85,8 @@ namespace Nextsim
             void resetGridMean();
             void resetMeshMean(GmshMesh const &mesh);
             void exportGridMeans(std::string filename, double time_step, double mooring_output_time_step);
+            void initNetCDF(std::string filename);
+            void appendNetCDF(std::string filename, double current_time);
 
             int M_ncols;
             int M_nrows;
@@ -112,6 +114,8 @@ namespace Nextsim
             void updateGridMeanWorker(GmshMesh const &mesh, int mesh_size, std::vector<Variable> &variables);
 
             void rotateVectors(GmshMesh const &mesh, Vectorial_Variable const &vectorial_variable, std::vector<Variable> &variables);
+
+            size_t M_nc_step;
     };
 }
 #endif // __GridOutput_H

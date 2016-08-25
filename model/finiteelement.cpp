@@ -3392,7 +3392,8 @@ FiniteElement::step(int &pcpt)
         if ( fmod(pcpt*time_step,mooring_output_time_step) == 0 )
         {
             M_moorings.updateGridMean(M_mesh);
-            M_moorings.exportGridMeans("_grid.dat", time_step, mooring_output_time_step);
+            //M_moorings.exportGridMeans("_grid.dat", time_step, mooring_output_time_step);
+            M_moorings.appendNetCDF("testme.nc", current_time);
 
             M_moorings.resetMeshMean(M_mesh);
             M_moorings.resetGridMean();
@@ -3508,7 +3509,7 @@ FiniteElement::initMoorings()
         longName:"Sea Ice Thickness",
         stdName:"sea_ice_thickness",
         dimensions: dimensions,
-        Units:"",
+        Units:"m",
         data_mesh:data_elements,
         data_grid:data_grid,
         variableID: GridOutput::variableID::thick
@@ -3519,7 +3520,7 @@ FiniteElement::initMoorings()
         longName:"Surface Snow Thickness",
         stdName:"surface_snow_thickness",
         dimensions: dimensions,
-        Units:"",
+        Units:"m",
         data_mesh:data_elements,
         data_grid:data_grid,
         variableID: GridOutput::variableID::snow_thick
@@ -3570,7 +3571,7 @@ FiniteElement::initMoorings()
     std::vector<DataSet::Vectorial_Variable> vectorial_variables(1);
     vectorial_variables[0] = siuv;
 
-#if 0
+#if 1
     // Calculate the grid spacing (assuming a regular grid for now)
     auto RX = M_mesh.coordX();
     auto RY = M_mesh.coordY();
@@ -3583,6 +3584,21 @@ FiniteElement::initMoorings()
 
     // Define the mooring dataset
     M_moorings = GridOutput(ncols, nrows, mooring_spacing, nodal_variables, elemental_variables, vectorial_variables);
+
+    M_moorings.M_grid.gridLAT.assign(nrows*ncols, 0.);
+    M_moorings.M_grid.gridLON.assign(nrows*ncols, 0.);
+
+    // Save the grid info - this is still just an ascii dump!
+    std::ofstream myfile;
+    myfile.open("lon_grid.dat");
+    std::copy(M_moorings.M_grid.gridLON.begin(), M_moorings.M_grid.gridLON.end(), ostream_iterator<float>(myfile," "));
+    myfile.close();
+    myfile.open("lat_grid.dat");
+    std::copy(M_moorings.M_grid.gridLAT.begin(), M_moorings.M_grid.gridLAT.end(), ostream_iterator<float>(myfile," "));
+    myfile.close();
+
+    M_moorings.initNetCDF("testme.nc");
+    M_moorings.appendNetCDF("testme.nc", current_time);
 #else
     // Read the grid in from file
     std::vector<DataSet::Dimension> dimensions_latlon(2);
