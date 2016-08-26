@@ -5041,6 +5041,14 @@ FiniteElement::exportResults(int step, bool export_mesh)
     else
     {
         export_path = vm["simul.output_directory"].as<std::string>();
+
+        fs::path path(export_path);
+        // add a subdirecory if needed
+        // path /= "subdir";
+
+        // create the output directory if it does not exist
+        if ( !fs::exists(path) )
+            fs::create_directories(path);
     }
 
 
