@@ -266,7 +266,7 @@ FiniteElement::initDatasets()
     M_topaz_elements_dataset=DataSet("topaz_elements",M_num_elements);
 
     M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements",M_num_elements);
-    
+
     M_ice_amsre_elements_dataset=DataSet("ice_amsre_elements",M_num_elements);
 
     M_ice_osisaf_elements_dataset=DataSet("ice_osisaf_elements",M_num_elements);
@@ -3462,7 +3462,7 @@ FiniteElement::updateMeans(GridOutput &means)
                 for (int i=0; i<M_num_elements; i++)
                     it->data_mesh[i] += M_conc[i];
                 break;
-                
+
             case (GridOutput::variableID::thick):
                 for (int i=0; i<M_num_elements; i++)
                     it->data_mesh[i] += M_thick[i];
@@ -3526,7 +3526,7 @@ FiniteElement::initMoorings()
     dimensions[0] = dimension_x;
     dimensions[1] = dimension_y;
     dimensions[2] = dimension_time;
-    
+
     // Output and averaging grids
     std::vector<double> data_nodes(M_num_nodes);
     std::vector<double> data_elements(M_num_elements);
@@ -5031,11 +5031,24 @@ FiniteElement::exportResults(int step, bool export_mesh)
 {
     Exporter exporter;
     std::string fileout;
+    std::string export_path;
+
+    // change directory for outputs if the option "output_directory" is not empty
+    if ((vm["simul.output_directory"].as<std::string>()).empty())
+    {
+        export_path = Environment::nextsimDir().string() + "/matlab";
+    }
+    else
+    {
+        export_path = vm["simul.output_directory"].as<std::string>();
+    }
+
+
 
     if (export_mesh)
     {
-        fileout = (boost::format( "%1%/matlab/mesh_%2%.bin" )
-                   % Environment::nextsimDir().string()
+        fileout = (boost::format( "%1%/mesh_%2%.bin" )
+                   % export_path
                    % step ).str();
 
         LOG(INFO) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
@@ -5053,8 +5066,8 @@ FiniteElement::exportResults(int step, bool export_mesh)
 		// move it back after the export
 		M_mesh.move(M_UM,-1.);
 
-        fileout = (boost::format( "%1%/matlab/mesh_%2%.dat" )
-               % Environment::nextsimDir().string()
+        fileout = (boost::format( "%1%/mesh_%2%.dat" )
+               % export_path
                % step ).str();
 
         LOG(INFO) <<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
@@ -5067,8 +5080,8 @@ FiniteElement::exportResults(int step, bool export_mesh)
     }
 
 
-    fileout = (boost::format( "%1%/matlab/field_%2%.bin" )
-               % Environment::nextsimDir().string()
+    fileout = (boost::format( "%1%/field_%2%.bin" )
+               % export_path
                % step ).str();
 
     LOG(INFO) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
@@ -5136,8 +5149,8 @@ FiniteElement::exportResults(int step, bool export_mesh)
 
     outbin.close();
 
-    fileout = (boost::format( "%1%/matlab/field_%2%.dat" )
-               % Environment::nextsimDir().string()
+    fileout = (boost::format( "%1%/field_%2%.dat" )
+               % export_path
                % step ).str();
 
     LOG(INFO) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
