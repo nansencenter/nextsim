@@ -1795,50 +1795,7 @@ namespace Nextsim
 void
 DataSet::loadGrid(Grid *grid_ptr, int current_time)
 {
-    //----------- rotation angle and mapping definition -----------
-	mapx_class *mapNextsim;
-	std::string configfileNextsim = (boost::format( "%1%/%2%/%3%" )
-                              % Environment::nextsimDir().string()
-                              % "data"
-                              % "NpsNextsim.mpp"
-                              ).str();
-
-	std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
-	strNextsim.push_back('\0');
-	mapNextsim = init_mapx(&strNextsim[0]);
-
-	mapx_class *map;
-    double rotation_angle, cos_m_diff_angle, sin_m_diff_angle;
-    if(grid_ptr->mpp_file!="")
-    {
-	    std::string configfile = (boost::format( "%1%/%2%/%3%" )
-                              % Environment::nextsimDir().string()
-                              % grid_ptr->dirname
-                              % grid_ptr->mpp_file
-                              ).str();
-
-	    std::vector<char> str(configfile.begin(), configfile.end());
-	    str.push_back('\0');
-	    map = init_mapx(&str[0]);
-        rotation_angle = -(mapNextsim->rotation-map->rotation)*PI/180.;
-        
-        close_mapx(map);
-    }
-    else
-    {
-        rotation_angle=0.;
-    }
-    
-    close_mapx(mapNextsim);
-
-    cos_m_diff_angle=std::cos(-rotation_angle);
-    sin_m_diff_angle=std::sin(-rotation_angle);
-    
-    grid_ptr->rotation_angle=rotation_angle;
-    grid_ptr->cos_m_diff_angle=cos_m_diff_angle;
-    grid_ptr->sin_m_diff_angle=sin_m_diff_angle;
-    
-    //----------- Attributes (scaling and offset) -----------
+    // Attributes (scaling and offset)
     netCDF::NcVarAtt att;
     double scale_factor;
     double add_offset;
