@@ -103,7 +103,7 @@ void ExternalData::check_and_reload(GmshMesh const& mesh, const double current_t
     M_current_time = current_time;
     
     double current_time_tmp=M_current_time;
-    if(daily_mean)
+    if(M_dataset->daily_mean)
         current_time_tmp=M_current_time-0.5;
 
     M_factor=1.;
@@ -510,6 +510,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 		}
     }
 
+    //----------- mapping definition -----------
 	mapx_class *mapNextsim;
 	std::string configfileNextsim = (boost::format( "%1%/%2%/%3%" )
                               % Environment::nextsimDir().string()
@@ -520,29 +521,6 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 	std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
 	strNextsim.push_back('\0');
 	mapNextsim = init_mapx(&strNextsim[0]);
-
-	mapx_class *map;
-    double rotation_angle, cos_m_diff_angle, sin_m_diff_angle;
-    if(dataset->grid.mpp_file!="")
-    {
-	    std::string configfile = (boost::format( "%1%/%2%/%3%" )
-                              % Environment::nextsimDir().string()
-                              % dataset->grid.dirname
-                              % dataset->grid.mpp_file
-                              ).str();
-
-	    std::vector<char> str(configfile.begin(), configfile.end());
-	    str.push_back('\0');
-	    map = init_mapx(&str[0]);
-        rotation_angle = -(mapNextsim->rotation-map->rotation)*PI/180.;
-    }
-    else
-    {
-        rotation_angle=0.;
-    }
-
-    cos_m_diff_angle=std::cos(-rotation_angle);
-    sin_m_diff_angle=std::sin(-rotation_angle);
 
     // ---------------------------------
     // Transformation of the vectorial variables from the coordinate system of the data to the polar stereographic projection used in the model
@@ -667,15 +645,15 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                 }
             }
 
-            if(rotation_angle!=0.)
+            if(dataset->grid.rotation_angle!=0.)
             {
                 for (int i=0; i<final_MN; ++i)
                 {
                     tmp_data0=data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j0];
                     tmp_data1=data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j1];
 
-                    new_tmp_data0= cos_m_diff_angle*tmp_data0+sin_m_diff_angle*tmp_data1;
-                    new_tmp_data1=-sin_m_diff_angle*tmp_data0+cos_m_diff_angle*tmp_data1;
+                    new_tmp_data0= dataset->grid.cos_m_diff_angle*tmp_data0+dataset->grid.sin_m_diff_angle*tmp_data1;
+                    new_tmp_data1=-dataset->grid.sin_m_diff_angle*tmp_data0+dataset->grid.cos_m_diff_angle*tmp_data1;
 
                     data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j0]= new_tmp_data0;
                     data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j1]= new_tmp_data1;
@@ -689,13 +667,13 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
     // (either the lat,lon projection or a polar stereographic projection with another rotaion angle (for ASR))
     // we should need to that also for the TOPAZ native grid, so that we could use a gridtomesh, now we use the latlon of the TOPAZ grid
 
-    auto RX = mesh.coordX(rotation_angle);
-    auto RY = mesh.coordY(rotation_angle);
+    auto RX = mesh.coordX(dataset->grid.rotation_angle);
+    auto RY = mesh.coordY(dataset->grid.rotation_angle);
 
     if(dataset->target_size==mesh.numTriangles())
     {
-    	RX = mesh.bcoordX(rotation_angle);
-        RY = mesh.bcoordY(rotation_angle);
+    	RX = mesh.bcoordX(dataset->grid.rotation_angle);
+        RY = mesh.bcoordY(dataset->grid.rotation_angle);
     }
 
 	if(dataset->grid.interpolation_in_latlon)
@@ -716,8 +694,6 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 
     // closing maps
     close_mapx(mapNextsim);
-    if(dataset->grid.mpp_file!="")
-    	close_mapx(map);
 
     // ---------------------------------
     // Spatial interpolation

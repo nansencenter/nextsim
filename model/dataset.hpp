@@ -112,6 +112,10 @@ public:
 
         int N;
         int M;
+        
+        double rotation_angle;
+        double cos_m_diff_angle;
+        double sin_m_diff_angle;
     } Grid;
 #if 0
     typedef struct Dataset
