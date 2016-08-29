@@ -1646,19 +1646,26 @@ FiniteElement::assemble(int pcpt)
         double tmp_thick=(0.05>M_thick[cpt]) ? 0.05 : M_thick[cpt];
         double tmp_conc=(0.01>M_conc[cpt]) ? 0.01 : M_conc[cpt];
 
+        //option 1 (original)
         //double coef = young*(1.-M_damage[cpt])*tmp_thick*std::exp(ridging_exponent*(1.-tmp_conc));
-        double factor = 0.;
-        double limit_conc_fordamage = 0.;
-        limit_conc_fordamage=0.95;
-        if(tmp_conc<limit_conc_fordamage)
-        {
-        factor=0.;
-        }
-        else
-        {
-        factor=(tmp_conc-limit_conc_fordamage)/(1.-limit_conc_fordamage);
-        }
-        double coef = young*(1.-M_damage[cpt])*tmp_thick*factor;
+        
+        //option 2 (we just change the value of the ridging exponent and we renamed it "damaging_exponent")
+        double damaging_exponent = -80.;
+        double coef = young*(1.-M_damage[cpt])*tmp_thick*std::exp(damaging_exponent*(1.-tmp_conc));
+
+        //option 3: We change the formulation of f(A) and make it piecewise linear between limit_conc_fordamage and 1, and 0 otherwise
+        //double factor = 0.;
+        //double limit_conc_fordamage = 0.;
+        //limit_conc_fordamage=0.95;
+        //if(tmp_conc<limit_conc_fordamage)
+        //{
+        //factor=0.;
+        //}
+        //else
+        //{
+        //factor=(tmp_conc-limit_conc_fordamage)/(1.-limit_conc_fordamage);
+        //}
+        //double coef = young*(1.-M_damage[cpt])*tmp_thick*factor;
 
         double coef_P = 0.;
         if(M_divergence_rate[cpt] < 0.)
@@ -2212,26 +2219,30 @@ FiniteElement::update()
          * Update the internal stress
          *======================================================================
          */
-        double factor = 0.;
-        double limit_conc_fordamage = 0.;
-        limit_conc_fordamage=0.95;
         
-        if(old_conc<limit_conc_fordamage)
-        {
-        factor=0.;
-        }
-        else
-        {
-        factor=(old_conc-limit_conc_fordamage)/(1.-limit_conc_fordamage);
-        }
+        // To be uncommented if we use option 3:
+        //double factor = 0.;
+        //double limit_conc_fordamage = 0.;
+        //limit_conc_fordamage=0.95;
+        
+        //if(old_conc<limit_conc_fordamage)
+        //{
+        //factor=0.;
+        //}
+        //else
+        //{
+        //factor=(old_conc-limit_conc_fordamage)/(1.-limit_conc_fordamage);
+        //}
 
+        double damaging_exponent = -80.;
         for(i=0;i<3;i++)
         {
             sigma_dot_i = 0.0;
             for(j=0;j<3;j++)
             {
-            sigma_dot_i += factor*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
             // sigma_dot_i += std::exp(ridging_exponent*(1.-old_conc))*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
+            sigma_dot_i += std::exp(damaging_exponent*(1.-old_conc))*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
+            //sigma_dot_i += factor*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
             }
 
             M_sigma[3*cpt+i] += time_step*sigma_dot_i;
