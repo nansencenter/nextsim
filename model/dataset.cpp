@@ -2106,23 +2106,36 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 				index_start.resize(grid_ptr->masking_variable.dimensions.size());
 				index_count.resize(grid_ptr->masking_variable.dimensions.size());
 
-				for(int k=0; k<grid_ptr->masking_variable.dimensions.size(); ++k)
-				{
-                    tmpDim = dataFile2.getDim(grid_ptr->masking_variable.dimensions[k].name);
-                    index_start[k] = 0;
-					index_count[k] = tmpDim.getSize();;
-				}
+                // here we find the start and count index for each dimensions
+                for(int k=0; k<grid_ptr->masking_variable.dimensions.size(); ++k)
+                {
+                    std::string dimension_name=grid_ptr->masking_variable.dimensions[k].name;
+                
+                    // dimension_x case
+                    if ((dimension_name).find(grid_ptr->dimension_x.name) != std::string::npos)
+                    {
+                        index_start[k] = grid_ptr->dimension_x_start;
+                        index_count[k] = grid_ptr->dimension_x_count;
+                    }
+                    // dimension_y case
+                    else if ((dimension_name).find(grid_ptr->dimension_y.name) != std::string::npos)
+                    {
+                        index_start[k] = grid_ptr->dimension_y_start;
+                        index_count[k] = grid_ptr->dimension_y_count;
+                    }
+                    // other cases
+                    else{
+                        tmpDim = dataFile.getDim(dimension_name);
+
+                        index_start[k] = 0;
+                        index_count[k] = tmpDim.getSize();
+                    }
+                }
+                // time dimension
 				index_start[0] = 0;
 				index_count[0] = 1;
-
-				if((index_px_count[0]!=index_count[grid_ptr->masking_variable.dimensions.size()-2]) || (index_px_count[1]!=index_count[grid_ptr->masking_variable.dimensions.size()-1]))
-				{
-                    std::cout << "index_px_count[0] = " << index_px_count[0] << " index_count[grid_ptr->masking_variable.dimensions.size()-2] = " << index_count[grid_ptr->masking_variable.dimensions.size()-2] <<"\n";
-					std::cout << "index_px_count[1] = " << index_px_count[1] << " index_count[grid_ptr->masking_variable.dimensions.size()-1] = " << index_count[grid_ptr->masking_variable.dimensions.size()-1] <<"\n";
-                    throw std::logic_error("Not the same dimension for the masking variable and the grid!!");
-				}
-
-				data_in.resize(index_px_count[0]*index_px_count[1]);
+        		
+				data_in.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 				VMASK.getVar(index_start,index_count,&data_in[0]);
 
                 // Read the attributes
@@ -2160,19 +2173,20 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
                 double NaN_mask_value   =grid_ptr->masking_variable.NaN_mask_value;
 
                 double tmp_data;
-				for (int i=0; i<index_px_count[0]; ++i)
+              
+				for (int i=0; i<grid_ptr->dimension_y_count; ++i)
 				{
-					for (int j=0; j<index_px_count[1]; ++j)
+					for (int j=0; j<grid_ptr->dimension_x_count; ++j)
 					{
-                        tmp_data=data_in[index_px_count[1]*i+j];
+                        tmp_data=data_in[grid_ptr->dimension_x_count*i+j];
 						if (    (!find_FillValue        || (find_FillValue      && (tmp_data != FillValue))         )&&
                                 (!find_missing_value    || (find_missing_value  && (tmp_data != missing_value))     )&&
                                 (!find_land_mask        || (find_land_mask      && (tmp_data != land_mask_value))   )&&
                                 (!find_NaN_mask         || (find_NaN_mask       && (tmp_data != NaN_mask_value))    )   )
 						{
-							reduced_FX.push_back(X[index_px_count[1]*i+j]);
-							reduced_FY.push_back(Y[index_px_count[1]*i+j]);
-							reduced_nodes_ind.push_back(index_px_count[1]*i+j);
+							reduced_FX.push_back(X[grid_ptr->dimension_x_count*i+j]);
+							reduced_FY.push_back(Y[grid_ptr->dimension_x_count*i+j]);
+							reduced_nodes_ind.push_back(grid_ptr->dimension_x_count*i+j);
 						}
 					}
 				}
