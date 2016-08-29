@@ -86,7 +86,7 @@ namespace Nextsim
             void resetMeshMean(GmshMesh const &mesh);
             void exportGridMeans(std::string filename, double time_step, double mooring_output_time_step);
             void initNetCDF(std::string filename);
-            void appendNetCDF(std::string filename, double current_time);
+            void appendNetCDF(std::string filename, double current_time, double time_step, double mooring_output_time_step);
 
             int M_ncols;
             int M_nrows;
@@ -97,7 +97,7 @@ namespace Nextsim
             std::vector<Variable> M_elemental_variables;
             std::vector<Vectorial_Variable> M_vectorial_variables;
 
-            double M_miss_val = -1e24;
+            double M_miss_val = -1e+14; // Must be smaller than any expected result
 
         private:
 

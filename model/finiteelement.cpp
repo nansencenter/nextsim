@@ -3393,7 +3393,7 @@ FiniteElement::step(int &pcpt)
         {
             M_moorings.updateGridMean(M_mesh);
             //M_moorings.exportGridMeans("_grid.dat", time_step, mooring_output_time_step);
-            M_moorings.appendNetCDF("testme.nc", current_time);
+            M_moorings.appendNetCDF("testme.nc", current_time-mooring_output_time_step/2., time_step, mooring_output_time_step);
 
             M_moorings.resetMeshMean(M_mesh);
             M_moorings.resetGridMean();
@@ -3598,7 +3598,6 @@ FiniteElement::initMoorings()
     myfile.close();
 
     M_moorings.initNetCDF("testme.nc");
-    M_moorings.appendNetCDF("testme.nc", current_time);
 #else
     // Read the grid in from file
     std::vector<DataSet::Dimension> dimensions_latlon(2);

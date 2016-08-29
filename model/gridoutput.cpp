@@ -375,8 +375,8 @@ namespace Nextsim
         M_nc_step=0;
 
         // Create the two spatial dimensions.
-        netCDF::NcDim xDim = dataFile.addDim("x", M_ncols);
-        netCDF::NcDim yDim = dataFile.addDim("y", M_nrows);
+        netCDF::NcDim xDim = dataFile.addDim("x", M_nrows);
+        netCDF::NcDim yDim = dataFile.addDim("y", M_ncols);
 
         std::vector<netCDF::NcDim> dims2(2);
         dims2[0] = xDim;
@@ -411,6 +411,7 @@ namespace Nextsim
             data.putAtt("standard_name",it->stdName);
             data.putAtt("long_name",it->longName);
             data.putAtt("units",it->Units);
+            data.putAtt("_FillValue", netCDF::ncFloat, -1e14);
         }
         for (auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); ++it)
         {
@@ -418,11 +419,12 @@ namespace Nextsim
             data.putAtt("standard_name",it->stdName);
             data.putAtt("long_name",it->longName);
             data.putAtt("units",it->Units);
+            data.putAtt("_FillValue", netCDF::ncFloat, -1e14);
         }
     }
 
     // Write data to the netCDF file
-    void GridOutput::appendNetCDF(std::string filename, double current_time)
+    void GridOutput::appendNetCDF(std::string filename, double current_time, double time_step, double mooring_output_time_step)
     {
         // Open the netCDF file
         netCDF::NcFile dataFile(filename, netCDF::NcFile::write);
@@ -443,17 +445,36 @@ namespace Nextsim
         start.push_back(0);
         start.push_back(0);
 
-        count.push_back(M_ncols);
         count.push_back(M_nrows);
+        count.push_back(M_ncols);
 
         netCDF::NcVar data;
+        double time_factor = time_step/mooring_output_time_step;
         for (auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); ++it)
         {
+            // Multiply all the grid values with 'time_factor'
+            for ( auto jt=it->data_grid.begin(); jt!=it->data_grid.end(); jt++ )
+                // We need to filter out the missing values so they remain the same for all output files
+                if ( *jt > M_miss_val )
+                    *jt *= time_factor;
+                else
+                    *jt = M_miss_val;
+
+            // Save to file
             data = dataFile.getVar(it->name);
             data.putVar(start, count, &it->data_grid[0]);
         }
         for (auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); ++it)
         {
+            // Multiply all the grid values with 'time_factor'
+            for ( auto jt=it->data_grid.begin(); jt!=it->data_grid.end(); jt++ )
+                // We need to filter out the missing values so they remain the same for all output files
+                if ( *jt > M_miss_val )
+                    *jt *= time_factor;
+                else
+                    *jt = M_miss_val;
+
+            // Save to file
             data = dataFile.getVar(it->name);
             data.putVar(start, count, &it->data_grid[0]);
         }
