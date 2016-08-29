@@ -110,8 +110,10 @@ public:
         std::vector<double> gridLAT;
         std::vector<double> gridLON;
 
-        int N;
-        int M;
+        int dimension_x_start; 
+        int dimension_x_count;
+        int dimension_y_start;
+        int dimension_y_count;
     } Grid;
 #if 0
     typedef struct Dataset
@@ -140,10 +142,6 @@ public:
     DataSet(char const *DatasetName,int target_size);
 
     public:
-    Dimension dimension_x;
-    Dimension dimension_y;
-    Dimension dimension_z;
-    Dimension dimension_time;
     
     std::string dirname;
     std::string prefix;
@@ -166,6 +164,8 @@ public:
     std::vector<double> ftime_range;
 
     void loadGrid(Grid *grid, int current_time);
+
+    void loadGrid(Grid *grid, int current_time, double RX_min, double RX_max, double RY_min, double RY_max);
 
     // name of the dataSet
     std::string name;
