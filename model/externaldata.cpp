@@ -346,8 +346,8 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
     std::vector<double> tmp_interpolated_field(dataset->target_size);
 
     int N_data =dataset->variables.size();
-    int M  =dataset->grid.dimension_x_count;
-    int N  = dataset->grid.dimension_y_count;
+    int M  =dataset->grid.dimension_y_count;
+    int N  = dataset->grid.dimension_x_count;
 
     int MN = M*N;
 
