@@ -78,7 +78,7 @@ namespace Nextsim
             ("simul.timestep", po::value<double>()->default_value( 200. ), "")
             ("simul.scale_coef", po::value<double>()->default_value( 0.2 ), "")
             ("simul.alea_factor", po::value<double>()->default_value( 0. ), "")
-            ("simul.ridging_exponent", po::value<double>()->default_value( -40. ), "")
+            ("simul.ridging_exponent", po::value<double>()->default_value( -20. ), "")
             ("simul.fixed_cohesion", po::value<bool>()->default_value( true ), "")
             ("simul.divergence_min", po::value<double>()->default_value( 0.01 ), "")
             ("simul.compression_factor", po::value<double>()->default_value( 12000. ), "")
