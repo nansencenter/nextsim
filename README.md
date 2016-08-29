@@ -140,6 +140,10 @@ export BOOST_DIR=/opt/local/boost
 export DYLD_LIBRARY_PATH="/opt/local/boost/lib"
 export DYLD_LIBRARY_PATH=NEXTSIMDIR/lib:$DYLD_LIBRARY_PATH
 
+# Check your environment variables
+Check if you have the environment variable WIM2D_PATH (echo $WIM2D_PATH)?
+if so, you will need to unset it (unset WIM2D_PATH)
+
 ##-------  Compile neXtSIM itself --------- 
 
 # Open a new command window

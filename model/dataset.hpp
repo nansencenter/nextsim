@@ -45,18 +45,30 @@ public:
 
     typedef struct Dimension
     {
-        std::string name;
-        bool cyclic; // if cyclic, then the first value will also be used for interpolation after the last value
+        // Information on the input data
+        std::string name;   // name of the dimension in the input file
+        bool cyclic;        // if cyclic, then the first value will also be used for interpolation after the last value
     } Dimesion;
 
     typedef struct Variable
     {
-        std::string name;
-        std::vector<Dimension> dimensions;
-        double a;
-        double b;
-        std::string Units;
-        std::vector<std::vector<double>> data2;
+        // Information on the input data
+        std::string name;   // name of the variable in the input file
+        std::vector<Dimension> dimensions; // dimensions in the input file
+
+        // Information on the fill values and land mask when not available through the netcdf Attributes
+        bool land_mask_defined;
+        double land_mask_value;
+        bool NaN_mask_defined;
+        double NaN_mask_value;
+
+        // Information on the unit transform
+        double a;           // scale_factor defined by us to have the data in the units system used by nextsim 
+        double b;           // add_offset defined by us to have the data in the units system used by nextsim
+        std::string Units;  // units used in neXtSIM for this variable
+
+        // Storage of the data      
+        std::vector<std::vector<double>> data2; // 2 vectors, one for the previous and one for the next data timestep 
     } Variable;
 
     typedef struct Vectorial_Variable
@@ -84,6 +96,7 @@ public:
 		bool interpolation_in_latlon;
 
         bool loaded;
+        bool monthly_dataset;
 
 		bool masking;
 		Variable masking_variable;
@@ -97,8 +110,10 @@ public:
         std::vector<double> gridLAT;
         std::vector<double> gridLON;
 
-        int N;
-        int M;
+        int dimension_x_start; 
+        int dimension_x_count;
+        int dimension_y_start;
+        int dimension_y_count;
     } Grid;
 #if 0
     typedef struct Dataset
@@ -127,31 +142,30 @@ public:
     DataSet(char const *DatasetName,int target_size);
 
     public:
-    Dimension dimension_x;
-    Dimension dimension_y;
-    Dimension dimension_z;
-    Dimension dimension_time;
-
-public:
-    Grid grid;
-
+    
     std::string dirname;
     std::string prefix;
     std::string postfix;
     std::string reference_date;
 
-    std::vector<Variable> variables;
-    std::vector<Vectorial_Variable> vectorial_variables;
+public:
+    Grid grid;
+
+    std::vector<Variable> variables; // vector listing all the available variables, included the components of the vectorial variables
+    std::vector<Vectorial_Variable> vectorial_variables; // vectors listing the vectorial variables
     int target_size;
 
     bool reloaded;
 
     int nb_timestep_day;
+    bool daily_mean; // Use daily_mean=true, when the data are centered at noon, but the time variable says 00:00:00 (it is the case for TOPAZ daily mean, AMSRE, AMSR2)  
     Variable time;
 
     std::vector<double> ftime_range;
 
     void loadGrid(Grid *grid, int current_time);
+
+    void loadGrid(Grid *grid, int current_time, double RX_min, double RX_max, double RY_min, double RY_max);
 
     // name of the dataSet
     std::string name;

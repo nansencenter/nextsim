@@ -1,6 +1,7 @@
 KERNEL := $(shell uname -s)
 
 PROGNAME=nextsim.exec
+WIM_PROG=nextwim.exec
 FPROGNAME=FWrap.x
 
 CXX = g++
@@ -9,11 +10,11 @@ CXXFLAGS += -std=c++11 -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fope
 CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I $(NEXTSIMDIR)/contrib/bamg/include
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include -I $(NEXTSIMDIR)/contrib/interp/include
 
-ifdef WIM2D_PATH
-	CXXFLAGS += -I $(WIM2D_PATH)/CXX/include
-else
-	CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
-endif
+# ifdef WIM2D_PATH
+# 	CXXFLAGS += -I $(WIM2D_PATH)/CXX/include
+# else
+# 	CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
+# endif
 
 CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
 CXXFLAGS +=	-I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I .
@@ -43,32 +44,36 @@ else
 
 endif
 
-ifdef WIM2D_PATH
-	LDFLAGS += -Wl,-rpath,$(WIM2D_PATH)/CXX/lib
-	LDFLAGS += -L $(WIM2D_PATH)/CXX/lib -lwim
-endif
+# ifdef WIM2D_PATH
+# 	LDFLAGS += -Wl,-rpath,$(WIM2D_PATH)/CXX/lib
+# 	LDFLAGS += -L $(WIM2D_PATH)/CXX/lib -lwim
+# endif
 
 LDFLAGS += -L /usr/local/lib
 
 LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
-LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
+ifndef MACHINE_HEXAGON
+	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
+else
+	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpichcxx -lmpich -ldl -lstdc++ -lpthread #-lssl -luuid -lpthread -lrt
+endif
 
 LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf_c++4
 
 LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib
-LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi -lboost_date_time
+LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi -lboost_date_time
 
-LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
-LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
+# LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
+# LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
 
 LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
 LDFLAGS += -L $(NEXTSIMDIR)/lib -linterp
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
 
-ifndef WIM2D_PATH
-	LDFLAGS += -L $(NEXTSIMDIR)/lib -lwim
-endif
+# ifndef WIM2D_PATH
+# 	LDFLAGS += -L $(NEXTSIMDIR)/lib -lwim
+# endif
 
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lnextsim
 
@@ -93,15 +98,35 @@ all: $(EXEC)
 
 # Delete the object files.
 clean:
-	$(RM) $(OBJS) $(DEPS) # $(CCOBJS) $(CCDEPS)
+	$(RM) $(OBJS) $(DEPS)
 
 mrproper: clean
 	$(RM) $(BINARYDIR)$(PROGNAME)
 
 # Rule for making the actual target
+wim:	CXXFLAGS += -I $(WIM2D_PATH)/CXX/include -DWAVES
+wim:    LDFLAGS += -Wl,-rpath,$(WIM2D_PATH)/CXX/lib -L $(WIM2D_PATH)/CXX/lib -lwim
+
+# ifeq ($(USE_WIM),0)
+# CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
+# LDFLAGS += -L $(NEXTSIMDIR)/lib -lwim
+# USE_WIM2 := 0
+# else
+# CXXFLAGS += -I $(WIM2D_PATH)/CXX/include -DWAVES
+# LDFLAGS += -Wl,-rpath,$(WIM2D_PATH)/CXX/lib
+# LDFLAGS += -L $(WIM2D_PATH)/CXX/lib -lwim
+# USE_WIM2 := 1
+# endif
+
+
 $(PROGNAME): $(OBJS) #$(CCOBJS)
 	@mkdir -p $(BINARYDIR)
 	$(CXX) $(CXXFLAGS) -o $(BINARYDIR)$@ $^ $(LDFLAGS)
+
+
+wim: $(OBJS) #$(CCOBJS)
+	@mkdir -p $(BINARYDIR)
+	$(CXX) $(CXXFLAGS) -o $(BINARYDIR)$(WIM_PROG) $^ $(LDFLAGS)
 
 # Rules for object files from cpp files
 $(OBJECTDIR)%.o: %.cpp
@@ -116,7 +141,7 @@ $(DEPENDDIR)%.d: %.cpp
 # The compilation depends on this Makefile.
 $(OBJS): Makefile
 
-# The frotran wrapper
+# The fortran wrapper
 fortran: $(FPROGNAME)
 
 $(FPROGNAME): $(filter-out $(OBJECTDIR)$(CXXSRCDIR)/main.o, $(OBJS)) finiteelement_mod.f90
