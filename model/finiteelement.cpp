@@ -58,7 +58,7 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
     }
 
 #if defined (WAVES)
-    if (vm["simul.wim_grid"].as<bool>())
+    if (0)//(vm["simul.wim_grid"].as<bool>())
     {
         LOG(INFO) <<"Using wim grid\n";
 
@@ -77,16 +77,17 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
         M_flag_fix = 100; // free = 1;
     }
 #endif
-
+    M_mesh.setOrdering("gmsh");
     M_mesh.readFromFile(M_mesh_filename);
 
-    if (!vm["simul.wim_grid"].as<bool>())
-        M_mesh.stereographicProjection();
+    //if (!vm["simul.wim_grid"].as<bool>())
+    M_mesh.stereographicProjection();
     // M_mesh.writeTofile("copy_init_mesh.msh");
 
     // createGMSHMesh("hypercube.geo");
     // //M_mesh.setOrdering("gmsh");
     // M_mesh.readFromFile("hypercube.msh");
+
     this->initBamg();
 
     LOG(DEBUG) <<"Convert MESH starts\n";

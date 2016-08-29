@@ -79,10 +79,10 @@ You can run the code with the options:
 ####### Install netcdf #######
 1) install hdf5 via macport: "sudo port install hdf5"
 2) download latest stable c version of netcdf on http://www.unidata.ucar.edu/downloads/netcdf/index.jsp and unzip it
-3) copy configure_c.sh from /nextsim/scripts/netcdf
+3) copy configure_c.sh from /nextsim/scripts/netcdf into the netcdf (c-version) directory
 4) From netcdf directory, type: “./configure_c.sh” then "make", "make check" and finally "sudo make install"
 5) download latest stable c-xx version of netcdf on http://www.unidata.ucar.edu/downloads/netcdf/index.jsp and unzip it
-6) copy configure_cxx.sh from /nextsim/scripts/netcdf
+6) copy configure_cxx.sh from /nextsim/scripts/netcdf into the netcdf (cxx-version) directory
 7) From netcdf-cxx directory, type: “./configure_cxx.sh”then "make" "make check" and finally "sudo make install"
 
 ####### install gmsh from the source code #######
@@ -99,6 +99,7 @@ mkdir Build
 edit CMakeLists.txt:
 * paste set(CMAKE_MACOSX_RPATH 1)
   under set(CMAKE_LEGACY_CYGWIN_WIN32 0)
+* save CMakelists.txt  
 * cd Build
 * cmake ..
 * ccmake .

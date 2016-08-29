@@ -17,8 +17,8 @@ function plot_nextsim_c(field,step,domain,region_of_zoom,is_sequential,dir)
 if nargin==5, dir=''; end
 
 %Here are a list of various options which can be set
-plot_grid           = 0;            % If not zero the mesh lines are ploted. If zoomed out only the mesh lines will be visible
-plot_coastlines     = 0;            % When 1 the actual domain baoundaries are plotted, closed in light gray and opened in cyan. 
+plot_grid           = 1;            % If not zero the mesh lines are ploted. If zoomed out only the mesh lines will be visible
+plot_coastlines     = 1;            % When 1 the actual domain baoundaries are plotted, closed in light gray and opened in cyan. 
                                     % Note though that plotting the coastlines or the grid makes the figure much heavier
 plot_date           = 1;            % 0 by default, 1 if we want to display the date on the figure
 font_size           = 14;           % Sets font size of colorbar and date
