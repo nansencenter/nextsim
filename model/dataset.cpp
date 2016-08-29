@@ -1413,17 +1413,17 @@ namespace Nextsim
      else if (strcmp (DatasetName, "ERAi_elements") == 0)
      {
      	// Definition of dimensions
-        dimension_x={
+        Dimension dimension_x={
              name:"lon",
              cyclic:true
      	};
 
-        dimension_y={
+        Dimension dimension_y={
              name:"lat",
              cyclic:false
      	};
 
-        dimension_time={
+        Dimension dimension_time={
              name:"time", // "Time"
              cyclic:false
      	};
@@ -1615,17 +1615,17 @@ namespace Nextsim
      else if (strcmp (DatasetName, "ERAi_nodes") == 0)
      {
   	// Definition of dimensions
-     dimension_x={
+     Dimension dimension_x={
           name:"lon",
           cyclic:true
   	};
 
-     dimension_y={
+     Dimension dimension_y={
           name:"lat",
           cyclic:false
   	};
 
-     dimension_time={
+     Dimension dimension_time={
           name:"time", // "Time"
           cyclic:false};
 
@@ -1795,11 +1795,17 @@ namespace Nextsim
 void
 DataSet::loadGrid(Grid *grid_ptr, int current_time)
 {
+    loadGrid(grid_ptr, current_time, 0., 0., 0., 0.);
+}
+
+void
+DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max, double RY_min, double RY_max)
+{
     // Attributes (scaling and offset)
     netCDF::NcVarAtt att;
     double scale_factor;
     double add_offset;
-    
+        
     //std::cout<<"---------------------fist loading ...\n";
     std::string current_timestr;
     if ( current_time > 0 )
@@ -1838,11 +1844,14 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time)
 	netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
     netCDF::NcDim tmpDim;
 
+    // We initially set the size of the data domain to the full dataset domain, it will be reduce to the model domain in a second step.
     tmpDim = dataFile.getDim(grid_ptr->dimension_y.name);
-	grid_ptr->M  =  tmpDim.getSize();
+	grid_ptr->dimension_y_count  =  tmpDim.getSize();
+    grid_ptr->dimension_y_start = 0;
 
     tmpDim = dataFile.getDim(grid_ptr->dimension_x.name);
-	grid_ptr->N  =  tmpDim.getSize();
+	grid_ptr->dimension_x_count =  tmpDim.getSize();
+    grid_ptr->dimension_x_start = 0;
 
     //switch (grid_ptr->latitude.dimensions.size())
     //{
@@ -1857,19 +1866,18 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time)
 		std::vector<size_t> index_x_start(1);
 		std::vector<size_t> index_y_start(1);
 
-		index_y_start[0] = 0;
-		index_y_count[0] = grid_ptr->M;
+		index_y_start[0] = grid_ptr->dimension_y_start;
+		index_y_count[0] = grid_ptr->dimension_y_count;
 
-		index_x_start[0] = 0;
-		index_x_count[0] = grid_ptr->N;
+		index_x_start[0] = grid_ptr->dimension_x_start;
+		index_x_count[0] = grid_ptr->dimension_x_count;
 
 		std::vector<double> LAT(index_y_count[0]);
 		std::vector<double> LON(index_x_count[0]);
 
 		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
-		std::cout <<"GRID : READ NETCDF done\n";
-
+		
 		VLAT.getVar(index_y_start,index_y_count,&LAT[0]);
 		VLON.getVar(index_x_start,index_x_count,&LON[0]);
 
@@ -1924,6 +1932,8 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time)
         // Save lon and lat for possible output
         grid_ptr->gridLAT=LAT;
         grid_ptr->gridLON=LON;
+        
+		std::cout <<"GRID : READ NETCDF done\n";
 	}
 	else
 	{
@@ -1939,14 +1949,14 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time)
 		index_py_start[0] = 0;
 		index_py_start[1] = 0;
 
-		index_py_count[0] = grid_ptr->M;
-		index_py_count[1] = grid_ptr->N;
+		index_py_count[0] = grid_ptr->dimension_y_count;
+		index_py_count[1] = grid_ptr->dimension_x_count;
 
 		index_px_start[0] = 0;
 		index_px_start[1] = 0;
 
-		index_px_count[0] = grid_ptr->M;
-		index_px_count[1] = grid_ptr->N;
+		index_px_count[0] = grid_ptr->dimension_y_count;
+		index_px_count[1] = grid_ptr->dimension_x_count;
 
 		if(grid_ptr->interpolation_method==InterpolationType::FromGridToMesh)
 		{

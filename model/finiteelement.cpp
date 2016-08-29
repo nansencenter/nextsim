@@ -58,7 +58,7 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
     }
 
 #if defined (WAVES)
-    if (vm["simul.wim_grid"].as<bool>())
+    if (0)//(vm["simul.wim_grid"].as<bool>())
     {
         LOG(INFO) <<"Using wim grid\n";
 
@@ -77,16 +77,17 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
         M_flag_fix = 100; // free = 1;
     }
 #endif
-
+    M_mesh.setOrdering("gmsh");
     M_mesh.readFromFile(M_mesh_filename);
 
-    if (!vm["simul.wim_grid"].as<bool>())
-        M_mesh.stereographicProjection();
+    //if (!vm["simul.wim_grid"].as<bool>())
+    M_mesh.stereographicProjection();
     // M_mesh.writeTofile("copy_init_mesh.msh");
 
     // createGMSHMesh("hypercube.geo");
     // //M_mesh.setOrdering("gmsh");
     // M_mesh.readFromFile("hypercube.msh");
+
     this->initBamg();
 
     LOG(DEBUG) <<"Convert MESH starts\n";
@@ -1646,7 +1647,19 @@ FiniteElement::assemble(int pcpt)
         double tmp_thick=(0.05>M_thick[cpt]) ? 0.05 : M_thick[cpt];
         double tmp_conc=(0.01>M_conc[cpt]) ? 0.01 : M_conc[cpt];
 
-        double coef = young*(1.-M_damage[cpt])*tmp_thick*std::exp(ridging_exponent*(1.-tmp_conc));
+        //double coef = young*(1.-M_damage[cpt])*tmp_thick*std::exp(ridging_exponent*(1.-tmp_conc));
+        double factor = 0.;
+        double limit_conc_fordamage = 0.;
+        limit_conc_fordamage=0.95;
+        if(tmp_conc<limit_conc_fordamage)
+        {
+        factor=0.;
+        }
+        else
+        {
+        factor=(tmp_conc-limit_conc_fordamage)/(1.-limit_conc_fordamage);
+        }
+        double coef = young*(1.-M_damage[cpt])*tmp_thick*factor;
 
         double coef_P = 0.;
         if(M_divergence_rate[cpt] < 0.)
@@ -2083,6 +2096,7 @@ FiniteElement::tensors()
 void
 FiniteElement::cohesion()
 {
+
     for (int i=0; i<M_Cohesion.size(); ++i)
         M_Cohesion[i] = C_fix+C_alea*(M_random_number[i]-0.5);
 
@@ -2199,13 +2213,26 @@ FiniteElement::update()
          * Update the internal stress
          *======================================================================
          */
+        double factor = 0.;
+        double limit_conc_fordamage = 0.;
+        limit_conc_fordamage=0.95;
+        
+        if(old_conc<limit_conc_fordamage)
+        {
+        factor=0.;
+        }
+        else
+        {
+        factor=(old_conc-limit_conc_fordamage)/(1.-limit_conc_fordamage);
+        }
 
         for(i=0;i<3;i++)
         {
             sigma_dot_i = 0.0;
             for(j=0;j<3;j++)
             {
-                sigma_dot_i += std::exp(ridging_exponent*(1.-old_conc))*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
+            sigma_dot_i += factor*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
+            // sigma_dot_i += std::exp(ridging_exponent*(1.-old_conc))*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
             }
 
             M_sigma[3*cpt+i] += time_step*sigma_dot_i;
@@ -2362,7 +2389,7 @@ FiniteElement::update()
             ridged_thick_ice_volume = old_h_ridged_thick_ice*surface;
 
             M_conc[cpt]    = ice_surface/surface_new;
-            M_thick[cpt]   = ice_volume/surface_new; // Hold on! Isn't M_thick the effective thickness?
+            M_thick[cpt]   = ice_volume/surface_new;
             M_snow_thick[cpt]   = snow_volume/surface_new;
             M_h_ridged_thick_ice[cpt]   =   ridged_thick_ice_volume/surface_new;
 
@@ -3982,6 +4009,11 @@ FiniteElement::readRestart(int step)
     M_VTMM       = field_map_dbl["M_VTMM"];
     M_UM         = field_map_dbl["M_UM"];
 
+    //for (int i=0; i < M_thick.size(); i++)
+    //{    
+    //  M_thick[i] *= 2.0;
+    //}
+
     if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
     {
         try
@@ -4470,8 +4502,13 @@ FiniteElement::topazIce()
 void
 FiniteElement::amsreIce()
 {
+    double real_thickness, init_conc_topaz_tmp;
+    
     external_data M_init_conc=ExternalData(&M_ice_amsre_elements_dataset,M_mesh,0,false);
     M_init_conc.check_and_reload(M_mesh,time_init);
+    
+    external_data M_init_conc_topaz=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false);
+    M_init_conc_topaz.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false);
     M_init_thick.check_and_reload(M_mesh,time_init);
@@ -4483,19 +4520,32 @@ FiniteElement::amsreIce()
     for (int i=0; i<M_num_elements; ++i)
     {
 		M_conc[i] = M_init_conc[i];
+        
+        // TOPAZ puts very small values instead of 0.
+		tmp_var=M_init_conc_topaz[i];
+		init_conc_topaz_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
 		tmp_var=M_init_thick[i];
-		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
 		tmp_var=M_init_snow_thick[i];
-		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+
+        // Use 0.05 to get rid of slight inconsistencies in the TOPAZ output.
+        if(init_conc_topaz_tmp>0.05)
+        {
+            real_thickness=M_thick[i]/init_conc_topaz_tmp;
+            M_thick[i]=real_thickness*M_conc[i];
+        }                        
 
         //if either c or h equal zero, we set the others to zero as well
         if(M_conc[i]<=0.)
         {
+            M_conc[i]=0.;
             M_thick[i]=0.;
             M_snow_thick[i]=0.;
         }
         if(M_thick[i]<=0.)
         {
+            M_thick[i]=0.;
             M_conc[i]=0.;
             M_snow_thick[i]=0.;
         }
@@ -4507,8 +4557,13 @@ FiniteElement::amsreIce()
 void
 FiniteElement::osisaf2Ice()
 {
+    double real_thickness, init_conc_topaz_tmp;
+    
     external_data M_init_conc=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,0,false);
     M_init_conc.check_and_reload(M_mesh,time_init);
+    
+    external_data M_init_conc_topaz=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false);
+    M_init_conc_topaz.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false);
     M_init_thick.check_and_reload(M_mesh,time_init);
@@ -4520,19 +4575,32 @@ FiniteElement::osisaf2Ice()
     for (int i=0; i<M_num_elements; ++i)
     {
 		M_conc[i] = M_init_conc[i];
+        
+        // TOPAZ puts very small values instead of 0.
+		tmp_var=M_init_conc_topaz[i];
+		init_conc_topaz_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
 		tmp_var=M_init_thick[i];
-		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
 		tmp_var=M_init_snow_thick[i];
-		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+
+        // Use 0.05 to get rid of slight inconsistencies in the TOPAZ output.
+        if(init_conc_topaz_tmp>0.05)
+        {
+            real_thickness=M_thick[i]/init_conc_topaz_tmp;
+            M_thick[i]=real_thickness*M_conc[i];
+        }                        
 
         //if either c or h equal zero, we set the others to zero as well
         if(M_conc[i]<=0.)
         {
+            M_conc[i]=0.;
             M_thick[i]=0.;
             M_snow_thick[i]=0.;
         }
         if(M_thick[i]<=0.)
         {
+            M_thick[i]=0.;
             M_conc[i]=0.;
             M_snow_thick[i]=0.;
         }
@@ -4544,8 +4612,13 @@ FiniteElement::osisaf2Ice()
 void
 FiniteElement::amsr2Ice()
 {
+    double real_thickness, init_conc_topaz_tmp;
+    
     external_data M_init_conc=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false);
     M_init_conc.check_and_reload(M_mesh,time_init);
+    
+    external_data M_init_conc_topaz=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false);
+    M_init_conc_topaz.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false);
     M_init_thick.check_and_reload(M_mesh,time_init);
@@ -4556,21 +4629,33 @@ FiniteElement::amsr2Ice()
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
     {
-		tmp_var=M_init_conc[i];
-		M_conc[i] = (tmp_var<=1.) ? tmp_var : 0.;
+		M_conc[i] = M_init_conc[i];
+        
+        // TOPAZ puts very small values instead of 0.
+		tmp_var=M_init_conc_topaz[i];
+		init_conc_topaz_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
 		tmp_var=M_init_thick[i];
 		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
 		tmp_var=M_init_snow_thick[i];
 		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
 
+        // Use 0.05 to get rid of slight inconsistencies in the TOPAZ output.
+        if(init_conc_topaz_tmp>0.05)
+        {
+            real_thickness=M_thick[i]/init_conc_topaz_tmp;
+            M_thick[i]=real_thickness*M_conc[i];
+        }                        
+
         //if either c or h equal zero, we set the others to zero as well
         if(M_conc[i]<=0.)
         {
+            M_conc[i]=0.;
             M_thick[i]=0.;
             M_snow_thick[i]=0.;
         }
         if(M_thick[i]<=0.)
         {
+            M_thick[i]=0.;
             M_conc[i]=0.;
             M_snow_thick[i]=0.;
         }
