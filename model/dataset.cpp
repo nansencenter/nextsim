@@ -1859,6 +1859,14 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
     //    case 1:
 	if(grid_ptr->latitude.dimensions.size()==1)
 	{
+		std::vector<double> LAT(grid_ptr->dimension_y_count);
+		std::vector<double> LON(grid_ptr->dimension_x_count);
+        
+		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
+		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
+        
+        getXY_regular_latlon(grid_ptr->dimension_x_start,grid_ptr->dimension_y_start,grid_ptr->dimension_x_count,grid_ptr->dimension_y_count,&LAT[0],&LON[0],&VLAT,&VLON);
+#if 0
 		// read in coordinates
 		std::vector<size_t> index_x_count(1);
 		std::vector<size_t> index_y_count(1);
@@ -1871,12 +1879,6 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 
 		index_x_start[0] = grid_ptr->dimension_x_start;
 		index_x_count[0] = grid_ptr->dimension_x_count;
-
-		std::vector<double> LAT(index_y_count[0]);
-		std::vector<double> LON(index_x_count[0]);
-
-		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
-		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 		
 		VLAT.getVar(index_y_start,index_y_count,&LAT[0]);
 		VLON.getVar(index_x_start,index_x_count,&LON[0]);
@@ -1924,7 +1926,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 
         for (int i=0; i<(index_x_count[0]); ++i) 
             LON[i]=LON[i]*scale_factor + add_offset;
-                
+#endif                
 
 		grid_ptr->gridY=LAT;
 		grid_ptr->gridX=LON;
@@ -1937,8 +1939,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 	}
 	else
 	{
-//		break;
-//    	case 2:
+
 		// read in coordinates
 		std::vector<size_t> index_px_count(2);
 		std::vector<size_t> index_py_count(2);
@@ -2223,6 +2224,76 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 	}
 
     grid_ptr->loaded=true;
+}
+
+void
+DataSet::getXY_regular_latlon(int dimension_x_start,int dimension_y_start, int dimension_x_count, int dimension_y_count, double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)      
+{
+    // Attributes (scaling and offset)
+    netCDF::NcVarAtt att;
+    double scale_factor;
+    double add_offset;
+         
+	// read in coordinates
+	std::vector<size_t> index_x_count(1);
+	std::vector<size_t> index_y_count(1);
+
+	std::vector<size_t> index_x_start(1);
+	std::vector<size_t> index_y_start(1);
+
+	index_y_start[0] = dimension_y_start;
+	index_y_count[0] = dimension_y_count;
+
+	index_x_start[0] = dimension_x_start;
+	index_x_count[0] = dimension_x_count;
+	
+	VLAT_ptr->getVar(index_y_start,index_y_count,&LAT[0]);
+	VLON_ptr->getVar(index_x_start,index_x_count,&LON[0]);
+
+    // Need to multiply with scale factor and add offset - these are stored as variable attributes
+    scale_factor=1.;
+    try
+    {
+        att = VLAT_ptr->getAtt("scale_factor");
+        att.getValues(&scale_factor);
+    }
+    catch(netCDF::exceptions::NcException& e)
+    {}
+
+    add_offset=0.;
+    try
+    {
+        att = VLAT_ptr->getAtt("add_offset");
+        att.getValues(&add_offset);
+    }
+    catch(netCDF::exceptions::NcException& e)
+    {}
+
+    for (int i=0; i<(index_y_count[0]); ++i) 
+        LAT[i]=LAT[i]*scale_factor + add_offset;
+            
+    // Need to multiply with scale factor and add offset - these are stored as variable attributes
+    scale_factor=1.;
+    try
+    {
+        att = VLON_ptr->getAtt("scale_factor");
+        att.getValues(&scale_factor);
+    }
+    catch(netCDF::exceptions::NcException& e)
+    {}
+
+    add_offset=0.;
+    try
+    {
+        att = VLON_ptr->getAtt("add_offset");
+        att.getValues(&add_offset);
+    }
+    catch(netCDF::exceptions::NcException& e)
+    {}
+
+    for (int i=0; i<(index_x_count[0]); ++i) 
+        LON[i]=LON[i]*scale_factor + add_offset;
+                
 }
 
 } // Nextsim
