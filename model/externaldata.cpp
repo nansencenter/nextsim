@@ -103,8 +103,6 @@ void ExternalData::check_and_reload(GmshMesh const& mesh, const double current_t
     M_current_time = current_time;
     
     double current_time_tmp=M_current_time;
-    if(M_dataset->daily_mean)
-        current_time_tmp=M_current_time-0.5;
 
     M_factor=1.;
     if((M_current_time-M_SpinUpStartingTime)<M_SpinUpDuration)
