@@ -1866,68 +1866,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
         
-        getXY_regular_latlon(grid_ptr->dimension_x_start,grid_ptr->dimension_y_start,grid_ptr->dimension_x_count,grid_ptr->dimension_y_count,&LAT[0],&LON[0],&VLAT,&VLON);
-#if 0
-		// read in coordinates
-		std::vector<size_t> index_x_count(1);
-		std::vector<size_t> index_y_count(1);
-
-		std::vector<size_t> index_x_start(1);
-		std::vector<size_t> index_y_start(1);
-
-		index_y_start[0] = grid_ptr->dimension_y_start;
-		index_y_count[0] = grid_ptr->dimension_y_count;
-
-		index_x_start[0] = grid_ptr->dimension_x_start;
-		index_x_count[0] = grid_ptr->dimension_x_count;
-		
-		VLAT.getVar(index_y_start,index_y_count,&LAT[0]);
-		VLON.getVar(index_x_start,index_x_count,&LON[0]);
-
-        // Need to multiply with scale factor and add offset - these are stored as variable attributes
-        scale_factor=1.;
-        try
-        {
-            att = VLAT.getAtt("scale_factor");
-            att.getValues(&scale_factor);
-        }
-        catch(netCDF::exceptions::NcException& e)
-        {}
-
-        add_offset=0.;
-        try
-        {
-            att = VLAT.getAtt("add_offset");
-            att.getValues(&add_offset);
-        }
-        catch(netCDF::exceptions::NcException& e)
-        {}
-
-        for (int i=0; i<(index_y_count[0]); ++i) 
-            LAT[i]=LAT[i]*scale_factor + add_offset;
-                
-        // Need to multiply with scale factor and add offset - these are stored as variable attributes
-        scale_factor=1.;
-        try
-        {
-            att = VLON.getAtt("scale_factor");
-            att.getValues(&scale_factor);
-        }
-        catch(netCDF::exceptions::NcException& e)
-        {}
-
-        add_offset=0.;
-        try
-        {
-            att = VLON.getAtt("add_offset");
-            att.getValues(&add_offset);
-        }
-        catch(netCDF::exceptions::NcException& e)
-        {}
-
-        for (int i=0; i<(index_x_count[0]); ++i) 
-            LON[i]=LON[i]*scale_factor + add_offset;
-#endif                
+        getlatlon_regular_latlon(grid_ptr->dimension_x_start,grid_ptr->dimension_y_start,grid_ptr->dimension_x_count,grid_ptr->dimension_y_count,&LAT[0],&LON[0],&VLAT,&VLON);  
 
 		grid_ptr->gridY=LAT;
 		grid_ptr->gridX=LON;
@@ -1940,121 +1879,22 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 	}
     else if(grid_ptr->interpolation_method==InterpolationType::FromGridToMesh)
 	{
-
-		// read in coordinates
-		std::vector<size_t> index_px_count(2);
-		std::vector<size_t> index_py_count(2);
-
-		std::vector<size_t> index_px_start(2);
-		std::vector<size_t> index_py_start(2);
-
-		// We the initial grid is actually regular, we can still use FromGridToMesh
-        // by only taking the first line and column into account (only used for ASR so far)
-		index_py_start[0] = 0;
-		index_py_start[1] = 0;
-
-		index_py_count[0] = grid_ptr->dimension_y_count;
-		index_py_count[1] = 1;
-
-		index_px_start[0] = 0;
-		index_px_start[1] = 0;
-
-		index_px_count[0] = 1;
-		index_px_count[1] = grid_ptr->dimension_x_count;
-
-		std::vector<double> XLAT(index_px_count[0]*index_px_count[1]);
-		std::vector<double> XLON(index_px_count[0]*index_px_count[1]);
-		std::vector<double> YLAT(index_py_count[0]*index_py_count[1]);
-		std::vector<double> YLON(index_py_count[0]*index_py_count[1]);
+		std::vector<double> X(grid_ptr->dimension_x_count);
+		std::vector<double> Y(grid_ptr->dimension_y_count);
 
 		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
-		std::cout <<"GRID : READ NETCDF done\n";
 
-        // Need to multiply with scale factor and add offset - these are stored as variable attributes
-		VLAT.getVar(index_px_start,index_px_count,&XLAT[0]);
-		VLON.getVar(index_px_start,index_px_count,&XLON[0]);
-
-		VLAT.getVar(index_py_start,index_py_count,&YLAT[0]);
-		VLON.getVar(index_py_start,index_py_count,&YLON[0]);
-
-        // Apply the scale factor and offset if any
-        scale_factor=1.;
-        try
-        {
-            att = VLAT.getAtt("scale_factor");
-            att.getValues(&scale_factor);
-        }
-        catch(netCDF::exceptions::NcException& e)
-        {}
-
-        add_offset=0.;
-        try
-        {
-            att = VLAT.getAtt("add_offset");
-            att.getValues(&add_offset);
-        }
-        catch(netCDF::exceptions::NcException& e)
-        {}
+        getXY_regular_XY(grid_ptr->dimension_x_start,grid_ptr->dimension_y_start,grid_ptr->dimension_x_count,grid_ptr->dimension_y_count,&X[0],&Y[0],&VLAT,&VLON);          
         
-        if(add_offset!=0. || scale_factor!=1.)
-        {    
-            for (int i=0; i<(index_px_count[0]*index_px_count[1]); ++i) 
-            {
-                XLON[i]=XLON[i]*scale_factor + add_offset;
-                XLAT[i]=XLAT[i]*scale_factor + add_offset;
-            }
-        
-            for (int i=0; i<(index_py_count[0]*index_py_count[1]); ++i) 
-            {
-                YLON[i]=YLON[i]*scale_factor + add_offset;
-                YLAT[i]=YLAT[i]*scale_factor + add_offset;
-            }
-        }
-        
-        // projection
-
-		std::vector<double> X(index_px_count[0]*index_px_count[1]);
-		std::vector<double> Y(index_py_count[0]*index_py_count[1]);
-
-		mapx_class *map;
-		std::string configfile = (boost::format( "%1%/%2%/%3%" )
-                                  % Environment::nextsimDir().string()
-                                  % grid_ptr->dirname
-                                  % grid_ptr->mpp_file
-                                  ).str();
-
-		std::vector<char> str(configfile.begin(), configfile.end());
-		str.push_back('\0');
-		map = init_mapx(&str[0]);
-
-	    double x;
-	    double y;
-
-		for (int i=0; i<index_px_count[0]; ++i)
-		{
-			for (int j=0; j<index_px_count[1]; ++j)
-			{
-			    forward_mapx(map,XLAT[index_px_count[1]*i+j],XLON[index_px_count[1]*i+j],&x,&y);
-				X[index_px_count[1]*i+j]=x;
-			}
-		}
-
-		for (int i=0; i<index_py_count[0]; ++i)
-		{
-			for (int j=0; j<index_py_count[1]; ++j)
-			{
-				forward_mapx(map,YLAT[index_py_count[1]*i+j],YLON[index_py_count[1]*i+j],&x,&y);
-				Y[index_py_count[1]*i+j]=y;
-			}
-		}
-
-		close_mapx(map);
-
 		grid_ptr->gridX=X;
 		grid_ptr->gridY=Y;
-        grid_ptr->gridLAT=XLAT;
-        grid_ptr->gridLON=YLON;
+        
+        // LAT/LON are not regular, better not to save them except if needed.
+        //grid_ptr->gridLAT=XLAT; 
+        //grid_ptr->gridLON=YLON;
+        
+        std::cout <<"GRID : READ NETCDF done\n";
 	}
 	else
 	{
@@ -2296,7 +2136,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 }
 
 void
-DataSet::getXY_regular_latlon(int dimension_x_start,int dimension_y_start, int dimension_x_count, int dimension_y_count, double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)      
+DataSet::getlatlon_regular_latlon(int dimension_x_start,int dimension_y_start, int dimension_x_count, int dimension_y_count, double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)      
 {
     // Attributes (scaling and offset)
     netCDF::NcVarAtt att;
@@ -2364,5 +2204,121 @@ DataSet::getXY_regular_latlon(int dimension_x_start,int dimension_y_start, int d
         LON[i]=LON[i]*scale_factor + add_offset;
                 
 }
+
+void
+DataSet::getXY_regular_XY(int dimension_x_start,int dimension_y_start, int dimension_x_count, int dimension_y_count, double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)      
+{
+    // Attributes (scaling and offset)
+    netCDF::NcVarAtt att;
+    double scale_factor;
+    double add_offset;
+         
+	// read in coordinates
+	std::vector<size_t> index_px_count(2);
+	std::vector<size_t> index_py_count(2);
+
+	std::vector<size_t> index_px_start(2);
+	std::vector<size_t> index_py_start(2);
+
+	// We the initial grid is actually regular, we can still use FromGridToMesh
+    // by only taking the first line and column into account (only used for ASR so far)
+	index_py_start[0] = dimension_y_start;
+	index_py_start[1] = 0;
+
+	index_py_count[0] = dimension_y_count;
+	index_py_count[1] = 1;
+
+	index_px_start[0] = 0;
+	index_px_start[1] = dimension_x_start;
+
+	index_px_count[0] = 1;
+	index_px_count[1] = dimension_x_count;
+
+	std::vector<double> XLAT(index_px_count[0]*index_px_count[1]);
+	std::vector<double> XLON(index_px_count[0]*index_px_count[1]);
+	std::vector<double> YLAT(index_py_count[0]*index_py_count[1]);
+	std::vector<double> YLON(index_py_count[0]*index_py_count[1]);
+
+	
+	std::cout <<"GRID : READ NETCDF done\n";
+
+    // Need to multiply with scale factor and add offset - these are stored as variable attributes
+	VLAT_ptr->getVar(index_px_start,index_px_count,&XLAT[0]);
+	VLON_ptr->getVar(index_px_start,index_px_count,&XLON[0]);
+
+	VLAT_ptr->getVar(index_py_start,index_py_count,&YLAT[0]);
+	VLON_ptr->getVar(index_py_start,index_py_count,&YLON[0]);
+
+    // Apply the scale factor and offset if any
+    scale_factor=1.;
+    try
+    {
+        att = VLAT_ptr->getAtt("scale_factor");
+        att.getValues(&scale_factor);
+    }
+    catch(netCDF::exceptions::NcException& e)
+    {}
+
+    add_offset=0.;
+    try
+    {
+        att = VLAT_ptr->getAtt("add_offset");
+        att.getValues(&add_offset);
+    }
+    catch(netCDF::exceptions::NcException& e)
+    {}
+    
+    if(add_offset!=0. || scale_factor!=1.)
+    {    
+        for (int i=0; i<(index_px_count[0]*index_px_count[1]); ++i) 
+        {
+            XLON[i]=XLON[i]*scale_factor + add_offset;
+            XLAT[i]=XLAT[i]*scale_factor + add_offset;
+        }
+    
+        for (int i=0; i<(index_py_count[0]*index_py_count[1]); ++i) 
+        {
+            YLON[i]=YLON[i]*scale_factor + add_offset;
+            YLAT[i]=YLAT[i]*scale_factor + add_offset;
+        }
+    }
+    
+    // projection
+	mapx_class *map;
+	std::string configfile = (boost::format( "%1%/%2%/%3%" )
+                              % Environment::nextsimDir().string()
+                              % grid.dirname
+                              % grid.mpp_file
+                              ).str();
+
+	std::vector<char> str(configfile.begin(), configfile.end());
+	str.push_back('\0');
+	map = init_mapx(&str[0]);
+
+    double x;
+    double y;
+
+	for (int i=0; i<index_px_count[0]; ++i)
+	{
+		for (int j=0; j<index_px_count[1]; ++j)
+		{
+		    forward_mapx(map,XLAT[index_px_count[1]*i+j],XLON[index_px_count[1]*i+j],&x,&y);
+			X[index_px_count[1]*i+j]=x;
+		}
+	}
+
+	for (int i=0; i<index_py_count[0]; ++i)
+	{
+		for (int j=0; j<index_py_count[1]; ++j)
+		{
+			forward_mapx(map,YLAT[index_py_count[1]*i+j],YLON[index_py_count[1]*i+j],&x,&y);
+			Y[index_py_count[1]*i+j]=y;
+		}
+	}
+
+	close_mapx(map);
+                
+}
+
 
 } // Nextsim
