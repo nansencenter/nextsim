@@ -192,16 +192,15 @@ function set_axis_colormap_colorbar(domain,field,v,i,region_of_zoom)
         colormap(ice_damage_cmap128);
         name_colorbar='Damage';
     elseif (strcmp(field,'M_VT') && i==3)
-        caxis([0, 0.8]);
-        load('ice_speed_cmap128.mat');
-        colormap(ice_speed_cmap128);
+        caxis([0, 0.25]);
+        colormap('blue2red');
         name_colorbar='Speed (m/s)';
     elseif (strcmp(field,'M_VT') && i==1)
-        caxis([-0.4, 0.4]);
+        caxis([-0.10, 0.10]);
         colormap('blue2red');
         name_colorbar='Speed Ux (m/s)';
     elseif (strcmp(field,'M_VT') && i==2)
-        caxis([-0.4, 0.4]);
+        caxis([-0.10, 0.10]);
         colormap('blue2red');
         name_colorbar='Speed Uy (m/s)';
     elseif strcmp(field,'Divergence')
