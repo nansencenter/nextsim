@@ -167,9 +167,11 @@ public:
 
     void loadGrid(Grid *grid, int current_time, double RX_min, double RX_max, double RY_min, double RY_max);
     
-    void getlatlon_regular_latlon(int dimension_x_start,int dimension_y_start, int dimension_x_count, int dimension_y_count, double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
+    void getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
     
-    void getXY_regular_XY(int dimension_x_start,int dimension_y_start, int dimension_x_count, int dimension_y_count, double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
+    void getXY_regular_XY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
+
+    void getXYlatlon_from_latlon(double* X, double* Y,double* LAT, double* LON, netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
 
     // name of the dataSet
     std::string name;
