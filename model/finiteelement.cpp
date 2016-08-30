@@ -3534,8 +3534,8 @@ FiniteElement::initMoorings()
     // Output variables - nodes
     GridOutput::Variable siu={
         name:"siu",
-        longName:"Sea Ice U-Velocity",
-        stdName:"sea_ice_u-velocity",
+        longName:"Sea Ice X Velocity",
+        stdName:"sea_ice_x_velocity",
         dimensions: dimensions,
         Units:"m s-1",
         data_mesh:data_nodes,
@@ -3545,8 +3545,8 @@ FiniteElement::initMoorings()
 
     GridOutput::Variable siv={
         name:"siv",
-        longName:"Sea Ice V-Velocity",
-        stdName:"sea_ice_v-velocity",
+        longName:"Sea Ice Y Velocity",
+        stdName:"sea_ice_y_velocity",
         dimensions: dimensions,
         Units:"m s-1",
         data_mesh:data_nodes,
@@ -3565,7 +3565,7 @@ FiniteElement::initMoorings()
 
     DataSet::Vectorial_Variable siuv{
         components_Id: siuv_id,
-        east_west_oriented: true // the output should be u, v, not x, y
+        east_west_oriented: false
     };
 
     std::vector<DataSet::Vectorial_Variable> vectorial_variables(1);
@@ -3583,10 +3583,7 @@ FiniteElement::initMoorings()
     int ncols = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
 
     // Define the mooring dataset
-    M_moorings = GridOutput(ncols, nrows, mooring_spacing, nodal_variables, elemental_variables, vectorial_variables);
-
-    M_moorings.M_grid.gridLAT.assign(nrows*ncols, 0.);
-    M_moorings.M_grid.gridLON.assign(nrows*ncols, 0.);
+    M_moorings = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first, nodal_variables, elemental_variables, vectorial_variables);
 
     // Save the grid info - this is still just an ascii dump!
     std::ofstream myfile;

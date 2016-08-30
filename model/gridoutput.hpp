@@ -70,13 +70,13 @@ namespace Nextsim
 
             GridOutput();
 
-            GridOutput(int ncols, int nrows, double mooring_spacing, std::vector<Variable> variables, int kind);
+            GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, int kind);
             GridOutput(Grid grid, std::vector<Variable> variables, int kind);
 
-            GridOutput(int ncols, int nrows, double mooring_spacing, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
+            GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
             GridOutput(Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
 
-            GridOutput(int ncols, int nrows, double mooring_spacing, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
+            GridOutput(int ncols, int nrows, double mooring_spacin, double xmin, double yming, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
             GridOutput(Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
 
             ~GridOutput();
@@ -107,7 +107,7 @@ namespace Nextsim
 
             GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
 
-            void initRegularGrid(int ncols, int nrows, double mooring_spacing);
+            void initRegularGrid(int ncols, int nrows, double mooring_spacing, double xmin, double ymin);
 
             void initArbitraryGrid(Grid grid);
 

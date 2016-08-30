@@ -46,11 +46,11 @@ namespace Nextsim
     }
 
     // Constructor for only one set of variables - regular grid
-    GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, std::vector<Variable> variables, int kind)
+    GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, int kind)
         :
             GridOutput(variables, kind)
     {
-        initRegularGrid(ncols, nrows, mooring_spacing);
+        initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
     }
 
     // Constructor for only one set of variables - arbitrary grid
@@ -73,12 +73,12 @@ namespace Nextsim
     }
 
     // constructor for nodal and elemental variables only (no vectors) - regular grid
-    GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables)
+    GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables)
         :
             GridOutput(nodal_variables, elemental_variables)
 
     {
-        initRegularGrid(ncols, nrows, mooring_spacing);
+        initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
     }
 
     // constructor for nodal and elemental variables only (no vectors) - arbitrary grid
@@ -100,12 +100,12 @@ namespace Nextsim
     {}
 
     // constructor for nodal, elemental and vectorial variables - regular grid
-    GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables)
+    GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables)
         :
             GridOutput(nodal_variables, elemental_variables, vectorial_variables)
 
     {
-        initRegularGrid(ncols, nrows, mooring_spacing);
+        initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
     }
 
     // constructor for nodal, elemental and vectorial variables - arbitrary grid
@@ -122,8 +122,9 @@ namespace Nextsim
     ////////////////////////////////////////////////////////////////////////////////
     // Initialisation routines for the two kinds of grids
     ////////////////////////////////////////////////////////////////////////////////
-    void GridOutput::initRegularGrid(int ncols, int nrows, double mooring_spacing)
+    void GridOutput::initRegularGrid(int ncols, int nrows, double mooring_spacing, double xmin, double ymin)
     {
+        // Set the grid size
         M_ncols = ncols;
         M_nrows = nrows;
         M_mooring_spacing = mooring_spacing;
@@ -131,6 +132,37 @@ namespace Nextsim
 
         M_grid = Grid();
         M_grid.loaded = false;
+
+        // Calculate lat and lon
+        M_grid.gridLAT.assign(nrows*ncols, 0.);
+        M_grid.gridLON.assign(nrows*ncols, 0.);
+
+        mapx_class *map;
+        std::string filename = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
+        std::vector<char> str(filename.begin(), filename.end());
+        str.push_back('\0');
+
+        map = init_mapx(&str[0]);
+
+        double lat;
+        double lon;
+        int i=0;
+        double X = xmin;
+        for (int nrows=0; nrows<M_nrows; nrows++)
+        {
+            double Y = ymin;
+            for (int ncols=0; ncols<M_ncols; ncols++)
+            {
+                int status = inverse_mapx(map,X,Y,&lat,&lon);
+                M_grid.gridLAT[i] = lat;
+                M_grid.gridLON[i] = lon;
+                Y += mooring_spacing;
+                i++;
+            }
+            X += mooring_spacing;
+        }
+
+        close_mapx(map);
 
         this->resetGridMean();
     }
