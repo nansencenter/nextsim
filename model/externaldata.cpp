@@ -133,6 +133,12 @@ void ExternalData::check_and_reload(GmshMesh const& mesh, const double current_t
 typename ExternalData::value_type
 ExternalData::operator [] (const size_type i)
 {
+    return static_cast<value_type>( get(i) );
+}
+
+typename ExternalData::value_type
+ExternalData::get(const size_type i)
+{
     value_type value;
     size_type i_tmp;
     int VariableId_tmp;
@@ -206,6 +212,27 @@ ExternalData::operator [] (const size_type i)
     }
 
 	return static_cast<value_type>( value );
+}
+typename std::vector<double>
+ExternalData::get_vector()
+{
+    std::vector<double> vector_tmp(1,0.);
+    
+    if(M_initialized)
+    {
+        int size_vector=M_dataset->target_size;
+        if(M_is_vector)
+            size_vector=2*M_dataset->target_size;
+            
+        vector_tmp.resize(size_vector);
+    
+        for (int i=0; i<size_vector; ++i)
+        {
+            vector_tmp[i]=(double) get(i);
+        }
+    }
+           
+	return vector_tmp;
 }
 
 void
