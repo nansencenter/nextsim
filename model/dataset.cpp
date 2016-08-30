@@ -1306,12 +1306,12 @@ namespace Nextsim
      {
      	// Definition of etopo grid and datasets
          Dimension dimension_x={
-             name:"x",
+             name:"lon",
              cyclic:false
      	};
 
          Dimension dimension_y={
-             name:"y",
+             name:"lat",
              cyclic:false
      	};
 
@@ -1326,7 +1326,7 @@ namespace Nextsim
          dimensions[1] = dimension_x;
 
          Variable latitude={
-             name: "y",
+             name: "lat",
              dimensions: dimensions_lat,
              land_mask_defined: false,
              land_mask_value: 0.,
@@ -1339,7 +1339,7 @@ namespace Nextsim
      	};
 
          Variable longitude={
-             name: "x",
+             name: "lon",
              dimensions: dimensions_lon,
              land_mask_defined: false,
              land_mask_value: 0.,
@@ -1357,8 +1357,8 @@ namespace Nextsim
      	    interp_type : BilinearInterpEnum,
      	    //interp_type : NearestInterpEnum,
      		dirname="data",
-     		//filename:"ETOPO1_Ice_g_gmt4.grd",
-            prefix="ETOPO1_Ice_g_gmt4.grd",
+     		prefix="ETOPO_Arctic_1arcmin.nc",
+            //prefix="ETOPO1_Ice_g_gmt4.grd",
             postfix="",
 
      		latitude: latitude,
@@ -1396,8 +1396,9 @@ namespace Nextsim
 
 
          dirname="data";
-         prefix="ETOPO1_Ice_g_gmt4";
-         postfix=".grd";
+  		 prefix="ETOPO_Arctic_1arcmin.nc";
+         //prefix="ETOPO1_Ice_g_gmt4.grd";
+         postfix="";
          reference_date= "";
          
          variables= variables_tmp;
