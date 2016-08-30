@@ -17,8 +17,8 @@ function plot_nextsim_c(field,step,domain,region_of_zoom,is_sequential,dir)
 if nargin==5, dir=''; end
 
 %Here are a list of various options which can be set
-plot_grid           = 1;            % If not zero the mesh lines are ploted. If zoomed out only the mesh lines will be visible
-plot_coastlines     = 1;            % When 1 the actual domain baoundaries are plotted, closed in light gray and opened in cyan. 
+plot_grid           = 0;            % If not zero the mesh lines are ploted. If zoomed out only the mesh lines will be visible
+plot_coastlines     = 0;            % When 1 the actual domain baoundaries are plotted, closed in light gray and opened in cyan. 
                                     % Note though that plotting the coastlines or the grid makes the figure much heavier
 plot_date           = 1;            % 0 by default, 1 if we want to display the date on the figure
 font_size           = 14;           % Sets font size of colorbar and date
@@ -193,15 +193,15 @@ function set_axis_colormap_colorbar(domain,field,v,i,region_of_zoom)
         name_colorbar='Damage';
     elseif (strcmp(field,'M_VT') && i==3)
         caxis([0, 0.8]);
-        load('ice_speed_cmap128.mat');
+        load('ice_speed_cmap128.mat')
         colormap(ice_speed_cmap128);
         name_colorbar='Speed (m/s)';
     elseif (strcmp(field,'M_VT') && i==1)
-        caxis([-0.4, 0.4]);
+        caxis([-0.25, 0.25]);
         colormap('blue2red');
         name_colorbar='Speed Ux (m/s)';
     elseif (strcmp(field,'M_VT') && i==2)
-        caxis([-0.4, 0.4]);
+        caxis([-0.25, 0.25]);
         colormap('blue2red');
         name_colorbar='Speed Uy (m/s)';
     elseif strcmp(field,'Divergence')
