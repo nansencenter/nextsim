@@ -2224,6 +2224,8 @@ FiniteElement::update()
          *======================================================================
          */
 
+#if 0
+        // To be uncommented if we use option 3:
         double factor = 0.;
         double limit_conc_fordamage = 0.95;
 
@@ -2231,7 +2233,9 @@ FiniteElement::update()
         {
             factor = (old_conc-limit_conc_fordamage)/(1.-limit_conc_fordamage);
         }
+#endif
 
+        double damaging_exponent = -80.;
         for(i=0;i<3;i++)
         {
             sigma_dot_i = 0.0;
