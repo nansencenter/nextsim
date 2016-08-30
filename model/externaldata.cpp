@@ -338,8 +338,8 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
         {
             time_start = std::floor((M_current_time-0.5)*dataset->nb_timestep_day)/dataset->nb_timestep_day+0.5;
     		time_end   = std::ceil ((M_current_time-0.5)*dataset->nb_timestep_day)/dataset->nb_timestep_day+0.5;
-            std::cout << "time_start " << time_start << " " << to_date_string_yd(std::floor(time_start-0.5)) <<  "\n";
-            std::cout << "time_end " << time_end     <<  " " << to_date_string_yd(std::floor(time_end-0.5)) <<"\n";
+            //std::cout << "time_start " << time_start << " " << to_date_string_yd(std::floor(time_start-0.5)) <<  "\n";
+            //std::cout << "time_end " << time_end     <<  " " << to_date_string_yd(std::floor(time_end-0.5)) <<"\n";
         }
         else
         {
@@ -359,7 +359,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 			dataset->ftime_range.push_back(time_tmp);
 		}
         
-        std::cout << "dataset->ftime_range.size() " << dataset->ftime_range.size() << "\n";
+        //std::cout << "dataset->ftime_range.size() " << dataset->ftime_range.size() << "\n";
 
 		// for (int i=0; i<dataset->ftime_range.size(); ++i)
 		// {
@@ -561,7 +561,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             catch(netCDF::exceptions::NcException& e)
             {}
 
-            _printf_("For " << dataset->variables[j].name << " scale_factor is "  << scale_factor<<  " " <<  ", add_offset is " << add_offset << "\n");
+            //_printf_("For " << dataset->variables[j].name << " scale_factor is "  << scale_factor<<  " " <<  ", add_offset is " << add_offset << "\n");
             // Copy the data in data_in
 
             // If reduced_nodes is used

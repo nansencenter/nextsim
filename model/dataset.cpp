@@ -1813,7 +1813,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
     RY_min=RY_min-expansion_factor*Y_domain_size;
     RY_max=RY_max+expansion_factor*Y_domain_size;
     
-    std::cout <<"RX_min= "<< RX_min << "RX_max= "<< RX_max <<"RY_min= "<< RY_min <<"RY_max= "<< RY_max <<"\n";
+    //std::cout <<"RX_min= "<< RX_min << "RX_max= "<< RX_max <<"RY_min= "<< RY_min <<"RY_max= "<< RY_max <<"\n";
     
     // Attributes (scaling and offset)
     netCDF::NcVarAtt att;
@@ -1829,7 +1829,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
         else
             current_timestr = to_date_string_yd(current_time);
         
-        std::cout <<"TIMESTR= "<< current_timestr <<"\n";
+        //std::cout <<"TIMESTR= "<< current_timestr <<"\n";
     }
     else
         current_timestr = "";
@@ -1851,7 +1851,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 
     std::cout<<"GRID : FILENAME = "<< filename <<"\n";
 
-	std::cout <<"GRID : READ NETCDF starts\n";
+	//std::cout <<"GRID : READ NETCDF starts\n";
     if ( ! boost::filesystem::exists(filename) )
         throw std::runtime_error("File not found: " + filename);
 
@@ -1921,7 +1921,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
         grid_ptr->gridLAT=LAT;
         grid_ptr->gridLON=LON;
         
-		std::cout <<"GRID : READ NETCDF done\n";
+		//std::cout <<"GRID : READ NETCDF done\n";
 	}
     else if(grid_ptr->interpolation_method==InterpolationType::FromGridToMesh)
 	{
@@ -1977,7 +1977,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
         //grid_ptr->gridLAT=XLAT; 
         //grid_ptr->gridLON=YLON;
         
-        std::cout <<"GRID : READ NETCDF done\n";
+        //std::cout <<"GRID : READ NETCDF done\n";
 	}
 	else
 	{
@@ -2075,7 +2075,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 
             std::cout<<"GRID : FILENAME = "<< filename <<"\n";
 
-        	std::cout <<"GRID : READ NETCDF starts\n";
+        	//std::cout <<"GRID : READ NETCDF starts\n";
             if ( ! boost::filesystem::exists(filename) )
                 throw std::runtime_error("File not found: " + filename);
 
@@ -2309,7 +2309,7 @@ DataSet::getXY_regular_XY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::N
 	std::vector<double> YLON(index_py_count[0]*index_py_count[1]);
 
 	
-	std::cout <<"GRID : READ NETCDF done\n";
+	//std::cout <<"GRID : READ NETCDF done\n";
 
     // Need to multiply with scale factor and add offset - these are stored as variable attributes
 	VLAT_ptr->getVar(index_px_start,index_px_count,&XLAT[0]);
