@@ -1947,22 +1947,19 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 		std::vector<size_t> index_px_start(2);
 		std::vector<size_t> index_py_start(2);
 
+		// We the initial grid is actually regular, we can still use FromGridToMesh
+        // by only taking the first line and column into account (only used for ASR so far)
 		index_py_start[0] = 0;
 		index_py_start[1] = 0;
 
 		index_py_count[0] = grid_ptr->dimension_y_count;
-		index_py_count[1] = grid_ptr->dimension_x_count;
+		index_py_count[1] = 1;
 
 		index_px_start[0] = 0;
 		index_px_start[1] = 0;
 
-		index_px_count[0] = grid_ptr->dimension_y_count;
-		index_px_count[1] = grid_ptr->dimension_x_count;
-
-		// We the initial grid is actually regular, we can still use FromGridToMesh
-        // by only taking the first line and column into account (only used for ASR so far)
-		index_py_count[1] = 1;
 		index_px_count[0] = 1;
+		index_px_count[1] = grid_ptr->dimension_x_count;
 
 		std::vector<double> XLAT(index_px_count[0]*index_px_count[1]);
 		std::vector<double> XLON(index_px_count[0]*index_px_count[1]);
@@ -2061,39 +2058,25 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 	else
 	{
 		// read in coordinates
-		std::vector<size_t> index_px_count(2);
-		std::vector<size_t> index_py_count(2);
+		std::vector<size_t> index_count(2);
+        std::vector<size_t> index_start(2);
 
-		std::vector<size_t> index_px_start(2);
-		std::vector<size_t> index_py_start(2);
+		index_start[0] = 0;
+		index_start[1] = 0;
 
-		index_py_start[0] = 0;
-		index_py_start[1] = 0;
+		index_count[0] = grid_ptr->dimension_y_count;
+		index_count[1] = grid_ptr->dimension_x_count;
 
-		index_py_count[0] = grid_ptr->dimension_y_count;
-		index_py_count[1] = grid_ptr->dimension_x_count;
-
-		index_px_start[0] = 0;
-		index_px_start[1] = 0;
-
-		index_px_count[0] = grid_ptr->dimension_y_count;
-		index_px_count[1] = grid_ptr->dimension_x_count;
-
-		std::vector<double> XLAT(index_px_count[0]*index_px_count[1]);
-		std::vector<double> XLON(index_px_count[0]*index_px_count[1]);
-		std::vector<double> YLAT(index_py_count[0]*index_py_count[1]);
-		std::vector<double> YLON(index_py_count[0]*index_py_count[1]);
+		std::vector<double> LAT(index_count[0]*index_count[1]);
+		std::vector<double> LON(index_count[0]*index_count[1]);
 
 		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 		std::cout <<"GRID : READ NETCDF done\n";
 
         // Need to multiply with scale factor and add offset - these are stored as variable attributes
-		VLAT.getVar(index_px_start,index_px_count,&XLAT[0]);
-		VLON.getVar(index_px_start,index_px_count,&XLON[0]);
-
-		VLAT.getVar(index_py_start,index_py_count,&YLAT[0]);
-		VLON.getVar(index_py_start,index_py_count,&YLON[0]);
+		VLAT.getVar(index_start,index_count,&LAT[0]);
+		VLON.getVar(index_start,index_count,&LON[0]);
 
         // Apply the scale factor and offset if any
         scale_factor=1.;
@@ -2116,23 +2099,17 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
         
         if(add_offset!=0. || scale_factor!=1.)
         {    
-            for (int i=0; i<(index_px_count[0]*index_px_count[1]); ++i) 
+            for (int i=0; i<(index_count[0]*index_count[1]); ++i) 
             {
-                XLON[i]=XLON[i]*scale_factor + add_offset;
-                XLAT[i]=XLAT[i]*scale_factor + add_offset;
-            }
-        
-            for (int i=0; i<(index_py_count[0]*index_py_count[1]); ++i) 
-            {
-                YLON[i]=YLON[i]*scale_factor + add_offset;
-                YLAT[i]=YLAT[i]*scale_factor + add_offset;
+                LON[i]=LON[i]*scale_factor + add_offset;
+                LAT[i]=LAT[i]*scale_factor + add_offset;
             }
         }
         
         // projection
 
-		std::vector<double> X(index_px_count[0]*index_px_count[1]);
-		std::vector<double> Y(index_py_count[0]*index_py_count[1]);
+		std::vector<double> X(index_count[0]*index_count[1]);
+		std::vector<double> Y(index_count[0]*index_count[1]);
 
 		mapx_class *map;
 		std::string configfile = (boost::format( "%1%/%2%/%3%" )
@@ -2148,21 +2125,13 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 	    double x;
 	    double y;
 
-		for (int i=0; i<index_px_count[0]; ++i)
+		for (int i=0; i<index_count[0]; ++i)
 		{
-			for (int j=0; j<index_px_count[1]; ++j)
+			for (int j=0; j<index_count[1]; ++j)
 			{
-			    forward_mapx(map,XLAT[index_px_count[1]*i+j],XLON[index_px_count[1]*i+j],&x,&y);
-				X[index_px_count[1]*i+j]=x;
-			}
-		}
-
-		for (int i=0; i<index_py_count[0]; ++i)
-		{
-			for (int j=0; j<index_py_count[1]; ++j)
-			{
-				forward_mapx(map,YLAT[index_py_count[1]*i+j],YLON[index_py_count[1]*i+j],&x,&y);
-				Y[index_py_count[1]*i+j]=y;
+			    forward_mapx(map,LAT[index_count[1]*i+j],LON[index_count[1]*i+j],&x,&y);
+				X[index_count[1]*i+j]=x;
+                Y[index_count[1]*i+j]=y;
 			}
 		}
 
@@ -2212,9 +2181,6 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 			std::vector<double> reduced_LAT;
 			std::vector<double> reduced_LON;
 			std::vector<int> reduced_nodes_ind;
-
-			std::vector<size_t> index_start(3,0);
-			std::vector<size_t> index_count(3);
 
 			index_start.resize(grid_ptr->masking_variable.dimensions.size());
 			index_count.resize(grid_ptr->masking_variable.dimensions.size());
@@ -2299,8 +2265,8 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 					{
 						reduced_X.push_back(X[grid_ptr->dimension_x_count*i+j]);
 						reduced_Y.push_back(Y[grid_ptr->dimension_x_count*i+j]);
-						reduced_LAT.push_back(XLAT[grid_ptr->dimension_x_count*i+j]);
-						reduced_LON.push_back(YLON[grid_ptr->dimension_x_count*i+j]);
+						reduced_LAT.push_back(LAT[grid_ptr->dimension_x_count*i+j]);
+						reduced_LON.push_back(LON[grid_ptr->dimension_x_count*i+j]);
 						reduced_nodes_ind.push_back(grid_ptr->dimension_x_count*i+j);
 					}
 				}
@@ -2315,8 +2281,8 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 		{
 			grid_ptr->gridX=X;
 			grid_ptr->gridY=Y;
-			grid_ptr->gridLAT=XLAT;
-			grid_ptr->gridLON=YLON;
+			grid_ptr->gridLAT=LAT;
+			grid_ptr->gridLON=LON;
 		}
 
 		std::cout <<"GRID : Triangulate starts\n";
