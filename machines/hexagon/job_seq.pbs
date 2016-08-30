@@ -1,0 +1,25 @@
+#!/bin/bash
+#
+# Give the job a name (optional)
+#PBS -N "job_seq"
+#
+# Specify the project the job should be accounted on (obligatory)
+#PBS -A nn2993k
+#
+# The job needs at most 60 hours wall-clock time on 1 CPU (obligatory)
+#PBS -l mppwidth=1,walltime=20:00:00
+#
+# Write the standard output of the job to file 'seqjob.out' (optional)
+#PBS -o seqjob.out
+#
+# Write the standard error of the job to file 'seqjob.err' (optional)
+#PBS -e seqjob.err
+#
+# Make sure I am in the correct directory
+# mkdir -p /work/$USER/seqwork
+# cd /work/$USER/seqwork
+
+cd $NEXTSIMDIR/model
+
+# Invoke the executable on the compute node
+aprun -B ./nextsim.exec --config-files=nextsim.cfg

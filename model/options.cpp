@@ -7,23 +7,18 @@
  * @date   Tue Jul 14 13:23:45 2015
  */
 
-
 #include <boost/program_options.hpp>
 #include <constants.hpp>
-//#include <wimoptions.hpp>
+
+#if defined (WAVES)
+#include <wimoptions.hpp>
+#endif
 
 namespace po = boost::program_options;
-
-// namespace Wim
-// {
-//     po::options_description descrWimOptions();
-// }
 
 double const days_in_sec = 24.0*3600.0;
 namespace Nextsim
 {
-    //po::options_description _wimopt = descrWimOptions();
-
     po::options_description
     descrOptions()
     {
@@ -58,6 +53,7 @@ namespace Nextsim
             ("simul.duration", po::value<double>()->default_value( 1. ), "")
             ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "")
             ("simul.output_per_day", po::value<int>()->default_value( 24 ), "")
+            ("simul.output_directory", po::value<std::string>()->default_value( "" ), "")
             ("simul.diagnostics_frequency", po::value<int>()->default_value( 1 ), "")
             ("simul.save_forcing_field", po::value<bool>()->default_value( false ), "")
             ("simul.forecast", po::value<bool>()->default_value( false ), "")
@@ -80,9 +76,9 @@ namespace Nextsim
             ("simul.interp_with_cavities", po::value<bool>()->default_value( true ), "")
             ("simul.interp_forcing_every_timestep", po::value<bool>()->default_value( false ), "")
             ("simul.timestep", po::value<double>()->default_value( 200. ), "")
-            ("simul.scale_coef", po::value<double>()->default_value( 0.1 ), "")
+            ("simul.scale_coef", po::value<double>()->default_value( 0.2 ), "")
             ("simul.alea_factor", po::value<double>()->default_value( 0. ), "")
-            ("simul.ridging_exponent", po::value<double>()->default_value( -40. ), "")
+            ("simul.ridging_exponent", po::value<double>()->default_value( -20. ), "")
             ("simul.fixed_cohesion", po::value<bool>()->default_value( true ), "")
             ("simul.divergence_min", po::value<double>()->default_value( 0.01 ), "")
             ("simul.compression_factor", po::value<double>()->default_value( 12000. ), "")
@@ -145,7 +141,6 @@ namespace Nextsim
             ("simul.min_h", po::value<double>()->default_value( 0. ), "")
             ("simul.min_c", po::value<double>()->default_value( 0. ), "")
             ("simul.ridge_h", po::value<double>()->default_value( 3. ), "")
-            ("simul.scale_coef", po::value<double>()->default_value( 0.1 ), "")
             ("simul.close_all_boundaries", po::value<bool>()->default_value( false ), "")
             ("simul.init_thickness", po::value<double>()->default_value( 1.0 ), "")
             ("simul.init_concentration", po::value<double>()->default_value( 1.0 ), "")
@@ -179,6 +174,7 @@ namespace Nextsim
             ("simul.wim_grid", po::value<bool>()->default_value( false ), "")
             ("simul.maxiteration", po::value<int>()->default_value( 1e+8 ), "")
 
+#if !defined(WAVES)
             // wim options
 
             ("wim.nx", po::value<int>()->default_value( 150 ),
@@ -282,8 +278,13 @@ namespace Nextsim
             ("nextwim.couplingfreq", po::value<int>()->default_value( 20 ),
                   "Coupling frequency between neXtSIM and WIM (# neXtSIM time-steps)")
 
+#endif
             ;
-        return desc;//.add( Wim::descrWimOptions() );
+#if !defined (WAVES)
+        return desc;
+#else
+        return desc.add( Wim::descrWimOptions() );
+#endif
     }
 
 } // Nextsim

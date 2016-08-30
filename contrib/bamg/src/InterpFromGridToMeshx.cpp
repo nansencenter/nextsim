@@ -123,7 +123,7 @@ int InterpFromGridToMeshxt(InterpFromGridToMeshxThreadStruct gate, double* data_
 		y_grid=*(y_mesh+i);
 
 		/*
-            Find indices m and n into y and x, 
+            Find indices m and n into y and x,
             for which  y(m)<=y_grids<=y(m+1) and x(n)<=x_grid<=x(n+1)
             or for which y(m+1)<=y_grids<=y(m) and x(n+1)<=x_grid<=x(n)
             */
@@ -149,7 +149,7 @@ int InterpFromGridToMeshxt(InterpFromGridToMeshxThreadStruct gate, double* data_
             {
                 n_min=n+1; n_max=n;
             }
-             
+
             if(y[m]<y[m+1])
             {
 			    m_min=m; m_max=m+1;
@@ -158,7 +158,7 @@ int InterpFromGridToMeshxt(InterpFromGridToMeshxThreadStruct gate, double* data_
             {
                 m_min=m+1; m_max=m;
             }
-                 
+
             x1=x[n_min]; x2=x[n_max];
             y1=y[m_min]; y2=y[m_max];
 
@@ -183,7 +183,7 @@ int InterpFromGridToMeshxt(InterpFromGridToMeshxThreadStruct gate, double* data_
 						_printf_("Interpolation " << EnumToStringx(interpenum) << " not supported yet\n");
 						return NULL; /*WARNING: no error because it would blow up the multithreading!*/
 				}
-				if(xIsNan<double>(data_value)) 
+				if(xIsNan<double>(data_value))
                 {
         			_printf_("Interpolation found NaN at"  << x_grid<<  " "<<  y_grid <<  ", default_value is used\n");
                     data_value=default_value;
@@ -253,7 +253,7 @@ void* InterpFromGridToMeshxt(void* vpthread_handle){
 		y_grid=*(y_mesh+i);
 
 	    /*
-        Find indices m and n into y and x, 
+        Find indices m and n into y and x,
         for which  y(m)<=y_grids<=y(m+1) and x(n)<=x_grid<=x(n+1)
         or for which y(m+1)<=y_grids<=y(m) and x(n+1)<=x_grid<=x(n)
         */
@@ -279,7 +279,7 @@ void* InterpFromGridToMeshxt(void* vpthread_handle){
              {
                  n_min=n+1; n_max=n;
              }
-         
+
              if(y[m]<y[m+1])
              {
  			    m_min=m; m_max=m+1;
@@ -288,7 +288,7 @@ void* InterpFromGridToMeshxt(void* vpthread_handle){
              {
                  m_min=m+1; m_max=m;
              }
-             
+
              x1=x[n_min]; x2=x[n_max];
              y1=y[m_min]; y2=y[m_max];
 
@@ -323,9 +323,9 @@ void* InterpFromGridToMeshxt(void* vpthread_handle){
 						_printf_("Interpolation " << EnumToStringx(interpenum) << " not supported yet\n");
 						return NULL; /*WARNING: no error because it would blow up the multithreading!*/
 				}
-				if(xIsNan<double>(data_value)) 
+				if(xIsNan<double>(data_value))
                 {
-        			_printf_("Interpolation found NaN at"  << x_grid<<  " "<<  y_grid <<  ", default_value is used\n");   
+	                _printf_("Interpolation found NaN at " << x_grid << " " << y_grid << ", default_value is used\n");
                     data_value=default_value;
 				}
                 data_mesh[N_data*i+j] = data_value;
@@ -335,8 +335,8 @@ void* InterpFromGridToMeshxt(void* vpthread_handle){
 		{
 			data_value=default_value;
 			for(j=0;j<N_data;j++) data_mesh[N_data*i+j] = data_value;
-			_printf_("Interpolation found points outside the grid"  << x_grid<<  " "<<  y_grid <<  ", default_value is used\n");
-			return NULL;
+			_printf_("Interpolation found points outside the grid " << x_grid << " " << y_grid << ", default_value is used\n");
+			//return NULL;
 		}
 	}
 
