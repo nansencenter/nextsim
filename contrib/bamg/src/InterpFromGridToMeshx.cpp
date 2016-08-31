@@ -335,7 +335,7 @@ void* InterpFromGridToMeshxt(void* vpthread_handle){
 		{
 			data_value=default_value;
 			for(j=0;j<N_data;j++) data_mesh[N_data*i+j] = data_value;
-			//_printf_("Interpolation found points outside the grid " << x_grid << " " << y_grid << ", default_value is used\n");
+			_printf_("Interpolation found points outside the grid " << x_grid << " " << y_grid << ", default_value is used\n");
 			//return NULL;
 		}
 	}

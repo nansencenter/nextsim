@@ -49,8 +49,8 @@ for p=0:0
   mask_ice=find(mask>0);
   mask_water=find(mask==0);
   
-  %To treat the case of plotting the velocity (2D) field
-  i=1; %always valid when the plotting a 1D field
+  i=1;
+  %In case we want to plot the velocity or one of its components
   if strcmp(field,'M_VT')
       i=3;
   elseif strcmp(field,'M_VTu')
@@ -73,7 +73,7 @@ for p=0:0
     v{1}=reshape(var_mc,[3,Ne]);
     var_mc=field_tmp(mesh_out.Elements+Nn);
     v{2}=reshape(var_mc,[3,Ne]);
-    v{3}=hypot(v{1},v{2})
+    v{3}=hypot(v{1},v{2});
   elseif(length(field_tmp)==Nn)
     var_mc=field_tmp(mesh_out.Elements);
     v{1}=reshape(var_mc,[3,Ne]);
@@ -106,7 +106,7 @@ for p=0:0
   %
   set_region_adjustment(domain,region_of_zoom);
   %
-  set_axis_colormap_colorbar(domain,field,v,region_of_zoom);
+  set_axis_colormap_colorbar(domain,field,v,i,region_of_zoom);
   %
   set_figure_cosmetics(data_out,domain,region_of_zoom,plot_date,background_color,font_size);
   
@@ -174,7 +174,7 @@ function plot_coastlines_and_boundaries(domain)
     %Plotting open mesh boundaries
     plot(free_boundaryX,free_boundaryY,'g','LineWidth',2);
 end
-function set_axis_colormap_colorbar(domain,field,v,region_of_zoom)
+function set_axis_colormap_colorbar(domain,field,v,i,region_of_zoom)
     
     %We set the axis limits, the colormap and set the name for the colorbar
     if (strcmp(field,'Concentration'))
@@ -187,20 +187,21 @@ function set_axis_colormap_colorbar(domain,field,v,region_of_zoom)
         colormap('parula');
         name_colorbar='Thickness (m)';
     elseif strcmp(field,'Damage')
-        caxis([0.995, 1]);
+        caxis([0.9995, 1]);
         load('ice_damage_cmap128.mat')
         colormap(ice_damage_cmap128);
         name_colorbar='Damage';
-    elseif (strcmp(field,'M_VT'))
-        caxis([0, 0.25]);
-        colormap('blue2red');
+    elseif (strcmp(field,'M_VT') && i==3)
+        caxis([0, 0.8]);
+        load('ice_speed_cmap128.mat')
+        colormap(ice_speed_cmap128);
         name_colorbar='Speed (m/s)';
-    elseif (strcmp(field,'M_VTu'))
-        caxis([-0.10, 0.10]);
+    elseif (strcmp(field,'M_VT') && i==1)
+        caxis([-0.25, 0.25]);
         colormap('blue2red');
         name_colorbar='Speed Ux (m/s)';
-    elseif (strcmp(field,'M_VTv'))
-        caxis([-0.10, 0.10]);
+    elseif (strcmp(field,'M_VT') && i==2)
+        caxis([-0.25, 0.25]);
         colormap('blue2red');
         name_colorbar='Speed Uy (m/s)';
     elseif strcmp(field,'Divergence')
@@ -211,6 +212,12 @@ function set_axis_colormap_colorbar(domain,field,v,region_of_zoom)
         caxis([0, 0.5]);
         colormap('parula');
         name_colorbar='Snow thickness (m)';
+    elseif strcmp(field,'Cohesion')
+        colormap('parula');
+        name_colorbar='Cohesion (Pa)';
+    else
+        colormap('parula');
+        name_colorbar='';
     end;
 
     % We predefine the position of the colorbar (only made for TOPAZ and MITgcm) that fits well the
@@ -311,7 +318,7 @@ function set_figure_cosmetics(data_out,domain,region_of_zoom,plot_date,backgroun
 
         %Adds date
         if plot_date == 1 && isfield(data_out,'Time')
-            date=data_out.Time+datenum(1900,1,1,0,3,20);
+            date=data_out.Time+datenum(1900,1,1,0,0,0);
             textstring = datestr(date,'yyyy/mm/dd HH:MM');
             if strcmp(domain,'4MIT') || strcmp(domain,'BKF')
                 text(0.025, 0.1,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
