@@ -756,7 +756,8 @@ FiniteElement::initConstant()
 
     const boost::unordered_map<const std::string, setup::AtmosphereType> str2atmosphere = boost::assign::map_list_of
         ("constant", setup::AtmosphereType::CONSTANT)
-        ("asr", setup::AtmosphereType::ASR);
+        ("asr", setup::AtmosphereType::ASR)
+        ("erai", setup::AtmosphereType::ERAi);
     M_atmosphere_type = str2atmosphere.find(vm["setup.atmosphere-type"].as<std::string>())->second;
 
     //std::cout<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
@@ -770,7 +771,11 @@ FiniteElement::initConstant()
 
     const boost::unordered_map<const std::string, setup::IceType> str2conc = boost::assign::map_list_of
         ("constant", setup::IceType::CONSTANT)
-        ("topaz", setup::IceType::TOPAZ4);
+        ("target", setup::IceType::TARGET)
+        ("topaz", setup::IceType::TOPAZ4)
+        ("amsre", setup::IceType::AMSRE)
+        ("amsr2", setup::IceType::AMSR2)
+        ("osisaf", setup::IceType::OSISAF);
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
 
     const boost::unordered_map<const std::string, setup::BathymetryType> str2bathymetry = boost::assign::map_list_of
@@ -4938,7 +4943,7 @@ FiniteElement::coriolis()
 
 
 void
-FiniteElement::bathymetry()//(double const& u, double const& v)
+FiniteElement::bathymetry()
 {
     switch (M_bathymetry_type)
     {
@@ -4955,31 +4960,6 @@ FiniteElement::bathymetry()//(double const& u, double const& v)
             throw std::logic_error("invalid bathymetry");
     }
 }
-
-#if 0
-void
-FiniteElement::constantBathymetry()
-{
-    for (int i=0; i<M_num_elements; ++i)
-    {
-        M_element_depth[i] = vm["simul.constant_bathymetry"].as<double>();
-    }
-}
-
-void
-FiniteElement::etopoBathymetry(bool reload)
-{
-    if ((current_time == time_init) || reload)
-    {
-        this->loadDataset(&M_etopo_elements_dataset);
-    }
-
-    for (int i=0; i<M_num_elements; ++i)
-    {
-        M_element_depth[i] = -M_etopo_elements_dataset.variables[0].data2[0][i];
-	}
-}
-#endif
 
 void
 FiniteElement::nodesToElements(double const* depth, std::vector<double>& v)
