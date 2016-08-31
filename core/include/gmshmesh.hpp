@@ -127,6 +127,9 @@ public:
     std::vector<double> meanLat() const;
     std::vector<double> meanLon() const;
 
+    std::vector<double> lat() const;
+    std::vector<double> lon() const;
+
     std::vector<int> indexTrPartition() const;
     std::vector<double> coordXPartition() const;
     std::vector<double> coordYPartition() const;

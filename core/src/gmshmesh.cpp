@@ -1139,6 +1139,62 @@ GmshMesh::meanLat() const
     return mean_lat;
 }
 
+std::vector<double>
+GmshMesh::lon() const
+{
+    mapx_class *map;
+    std::string filename = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
+    std::vector<char> str(filename.begin(), filename.end());
+    str.push_back('\0');
+
+    map = init_mapx(&str[0]);
+
+    std::vector<double> node_lon(M_num_triangles);
+    double lat = 0.;
+    double lon = 0.;
+
+    std::vector<double> X = this->coordX();
+    std::vector<double> Y = this->coordY();
+
+    for (int nod=0; nod<M_num_nodes; ++nod)
+    {
+        int status = inverse_mapx(map,X[nod],Y[nod],&lat,&lon);
+        node_lon[nod] = lon;
+    }
+
+    close_mapx(map);
+
+    return node_lon;
+}
+
+std::vector<double>
+GmshMesh::lat() const
+{
+    mapx_class *map;
+    std::string filename = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
+    std::vector<char> str(filename.begin(), filename.end());
+    str.push_back('\0');
+
+    map = init_mapx(&str[0]);
+
+    std::vector<double> node_lat(M_num_triangles);
+    double lat = 0.;
+    double lon = 0.;
+
+    std::vector<double> X = this->coordX();
+    std::vector<double> Y = this->coordY();
+
+    for (int nod=0; nod<M_num_nodes; ++nod)
+    {
+        int status = inverse_mapx(map,X[nod],Y[nod],&lat,&lon);
+        node_lat[nod] = lat;
+    }
+
+    close_mapx(map);
+
+    return node_lat;
+}
+
 std::vector<int>
 GmshMesh::indexTrPartition() const
 {

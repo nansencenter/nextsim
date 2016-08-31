@@ -564,16 +564,36 @@ FiniteElement::assignVariables()
     M_topaz_nodes_dataset.target_size=M_num_nodes;
     M_topaz_elements_dataset.target_size=M_num_elements;
     M_ice_topaz_elements_dataset.target_size=M_num_elements;
+    M_ice_amsre_elements_dataset.target_size=M_num_elements;
+    M_ice_osisaf_elements_dataset.target_size=M_num_elements;
+    M_ice_amsr2_elements_dataset.target_size=M_num_elements;
     M_etopo_elements_dataset.target_size=M_num_elements;
     M_ERAi_nodes_dataset.target_size=M_num_nodes;
+    M_ERAi_elements_dataset.target_size=M_num_elements;
 
     M_asr_nodes_dataset.reloaded=false;
     M_asr_elements_dataset.reloaded=false;
     M_topaz_nodes_dataset.reloaded=false;
     M_topaz_elements_dataset.reloaded=false;
     M_ice_topaz_elements_dataset.reloaded=false;
+    M_ice_amsre_elements_dataset.reloaded=false;
+    M_ice_osisaf_elements_dataset.reloaded=false;
+    M_ice_amsr2_elements_dataset.reloaded=false;
     M_etopo_elements_dataset.reloaded=false;
     M_ERAi_nodes_dataset.reloaded=false;
+    M_ERAi_elements_dataset.reloaded=false;
+
+    M_asr_nodes_dataset.grid.loaded=false;
+    M_asr_elements_dataset.grid.loaded=false;
+    M_topaz_nodes_dataset.grid.loaded=false;
+    M_topaz_elements_dataset.grid.loaded=false;
+    M_ice_topaz_elements_dataset.grid.loaded=false;
+    M_ice_amsre_elements_dataset.grid.loaded=false;
+    M_ice_osisaf_elements_dataset.grid.loaded=false;
+    M_ice_amsr2_elements_dataset.grid.loaded=false;
+    M_etopo_elements_dataset.grid.loaded=false;
+    M_ERAi_nodes_dataset.grid.loaded=false;
+    M_ERAi_elements_dataset.grid.loaded=false;
 
     M_Cohesion.resize(M_num_elements);
     M_Compressive_strength.resize(M_num_elements);
@@ -598,740 +618,28 @@ FiniteElement::initModelState()
 void
 FiniteElement::initDatasets()
 {
-    // ---------------------------------
-    // Definition of the grids and datasets used in the code
+    // Definition of the datasets available in the code
+    M_asr_nodes_dataset=DataSet("asr_nodes",M_num_nodes);
 
-    std::vector<std::vector<double>> data2_tmp;
-    data2_tmp.resize(2);
+    M_asr_elements_dataset=DataSet("asr_elements",M_num_elements);
 
-	// Definition of asr grid and datasets
-    Dimension asr_dimension_x={
-        name:"x",
-        start:0,
-        end:359,
-        cyclic:false
-	};
+    M_topaz_nodes_dataset=DataSet("topaz_nodes",M_num_nodes);
 
-    Dimension asr_dimension_y={
-        name:"y",
-        start:0,
-        end:359,
-        cyclic:false
-	};
+    M_topaz_elements_dataset=DataSet("topaz_elements",M_num_elements);
 
-    Dimension asr_dimension_time={
-        name:"time", // "Time"
-        start:0,
-        end:247,
-        cyclic:false
-	};
+    M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements",M_num_elements);
 
-    std::vector<Dimension> dimensions_asr_latlon(2);
-    dimensions_asr_latlon[0] = asr_dimension_y;
-    dimensions_asr_latlon[1] = asr_dimension_x;
+    M_ice_amsre_elements_dataset=DataSet("ice_amsre_elements",M_num_elements);
 
-    std::vector<Dimension> dimensions_asr(3);
-    dimensions_asr[0] = asr_dimension_time;
-    dimensions_asr[1] = asr_dimension_y;
-    dimensions_asr[2] = asr_dimension_x;
+    M_ice_osisaf_elements_dataset=DataSet("ice_osisaf_elements",M_num_elements);
 
-    std::vector<Dimension> dimensions_asr_time(1);
-    dimensions_asr_time[0] = asr_dimension_time;
+    M_ice_amsr2_elements_dataset=DataSet("ice_amsr2_elements",M_num_elements);
 
-    Variable asr_latitude={
-        name: "XLAT",
-        dimensions: dimensions_asr_latlon,
-        a: 1.,
-        b: 0.,
-        Units: "degree_north",
-        data2: data2_tmp
-	};
+    M_etopo_elements_dataset=DataSet("etopo_elements",M_num_elements);//M_num_nodes);
 
-    Variable asr_longitude={
-        name: "XLONG",
-        dimensions: dimensions_asr_latlon,
-        a: 1.,
-        b: 0.,
-        Units: "degree_east",
-        data2: data2_tmp
-	};
+    M_ERAi_nodes_dataset=DataSet("ERAi_nodes",M_num_nodes);
 
-    Variable asr_time={
-        name: "time",
-        dimensions: dimensions_asr_time,
-        a: 1.,
-        b: 0.,
-        Units: "hours",
-        data2: data2_tmp
-	};
-
-    // conversion factors: xnew = a*x + b
-    Variable u10={
-        name: "U10", // U10M
-        dimensions: dimensions_asr,
-        a: 1.,
-        b: 0.,
-        Units: "m/s",
-        data2: data2_tmp
-	};
-
-    Variable v10={
-        name: "V10", // U10M
-        dimensions: dimensions_asr,
-        a: 1.,
-        b: 0.,
-        Units: "m/s",
-        data2: data2_tmp
-	};
-
-	M_asr_grid={
-		interpolation_method: InterpolationType::FromGridToMesh,
-	    //interp_type : TriangleInterpEnum,  // slower
-	    interp_type : BilinearInterpEnum,
-	    //interp_type : NearestInterpEnum,
-
-		dirname:"data",
-		filename:"asr30km.comb.2d.200803.nc",
-
-		latitude: asr_latitude,
-		longitude: asr_longitude,
-
-		dimension_x: asr_dimension_x,
-		dimension_y: asr_dimension_y,
-
-		mpp_file: "NpsASR.mpp",
- 		interpolation_in_latlon: false,
-
-        loaded: false,
-
-		masking: false
-	};
-
-    std::vector<Variable> variables_tmp0(2);
-        variables_tmp0[0] = u10;
-        variables_tmp0[1] = v10;
-
-    std::vector<int> uv10_tmp0(2);
-        uv10_tmp0[0] = 0;
-        uv10_tmp0[1] = 1;
-
-    Vectorial_Variable uv10={
-        components_Id: uv10_tmp0,
-        east_west_oriented: false // if false, then we assume it is oriented following the input grid
-    };
-
-    std::vector<Vectorial_Variable> vectorial_variables_tmp0(1);
-        vectorial_variables_tmp0[0] = uv10;
-
-    M_asr_nodes_dataset={
-        dirname: "data",
-        prefix: "asr30km.comb.2d.", // "asr30km.comb.2D.";
-        postfix:".nc",
-        reference_date: "1901-01-01",
-
-        variables: variables_tmp0,
-        vectorial_variables: vectorial_variables_tmp0,
-        target_size: M_num_nodes,
-        grid: &M_asr_grid,
-
-        reloaded: false,
-
-        nb_timestep_day: 8,
-        time: asr_time,
-        dimension_time: asr_dimension_time
-	};
-
-    M_asr_nodes_dataset.ftime_range.resize(2,0.);
-
-    int nb_timestep_day=8;
-
-    Variable tair={
-        name:"T2",
-        dimensions: dimensions_asr,
-        a:1.,
-        b:-273.15,
-        Units:"C",
-        data2: data2_tmp
-	}; // T2M
-    Variable mixrat={
-        name:"Q2",
-        dimensions: dimensions_asr,
-        a:1.,
-        b:0.,
-        Units:"",
-        data2: data2_tmp
-	}; // Q2M
-    Variable mslp={
-        name:"SLP",
-        dimensions: dimensions_asr,
-        a:1e2,
-        b:0.,
-        Units:"Pa",
-        data2: data2_tmp
-	}; //PSFC, a=1.
-    Variable Qsw_in={
-        name:"SWDNB",
-        dimensions: dimensions_asr,
-        a:1.,
-        b:0.,
-        Units:"W/m^2",
-        data2: data2_tmp
-	};
-    Variable Qlw_in={
-        name:"LWDNB",
-        dimensions: dimensions_asr,
-        a:1.,
-        b:0.,
-        Units:"W/m^2",
-        data2: data2_tmp
-	};
-    Variable snowfr={
-        name:"SR",
-        dimensions: dimensions_asr,
-        a:1.,
-        b:0.,
-        Units:"",
-        data2: data2_tmp
-	};
-    Variable precip={
-        name:"RAINNC",
-        dimensions: dimensions_asr,
-        a:nb_timestep_day/(24.*3600),
-        b:0.,
-        Units:"kg/m^2/s",
-        data2: data2_tmp
-	};
-
-    std::vector<Variable> variables_tmp1(7);
-    variables_tmp1[0] = tair;
-    variables_tmp1[1] = mixrat;
-    variables_tmp1[2] = mslp;
-    variables_tmp1[3] = Qsw_in;
-    variables_tmp1[4] = Qlw_in;
-    variables_tmp1[5] = snowfr;
-    variables_tmp1[6] = precip;
-
-    std::vector<Vectorial_Variable> vectorial_variables_tmp1(0);
-
-    M_asr_elements_dataset={
-        dirname:"data",
-        prefix:"asr30km.comb.2d.", // "asr30km.comb.2D.";
-        postfix:".nc",
-        reference_date: "1901-01-01",
-
-        variables: variables_tmp1,
-        vectorial_variables: vectorial_variables_tmp1,
-        target_size:M_num_elements,
-        grid: &M_asr_grid,
-
-        reloaded: false,
-
-        nb_timestep_day: 8,
-        time: asr_time,
-        dimension_time: asr_dimension_time
-	};
-
-    M_asr_elements_dataset.ftime_range.resize(2,0.);
-
-	// Definition of topaz grid and datasets
-    Dimension topaz_dimension_x={
-        name:"x",
-        start:0,
-        end:760,
-        cyclic:false
-	};
-
-    Dimension topaz_dimension_y={
-        name:"y",
-        start:0,
-        end:1100,
-        cyclic:false
-	};
-
-    Dimension topaz_dimension_time={
-        name:"time", // "Time"
-        start:0,
-        end:30,
-        cyclic:false
-	};
-
-    Dimension topaz_dimension_depth={
-        name:"depth", // "Time"
-        start:0,
-        end:0,
-        cyclic:false
-	};
-
-    std::vector<Dimension> dimensions_topaz_uv(4);
-    dimensions_topaz_uv[0] = topaz_dimension_time;
-    dimensions_topaz_uv[1] = topaz_dimension_depth;
-    dimensions_topaz_uv[2] = topaz_dimension_y;
-    dimensions_topaz_uv[3] = topaz_dimension_x;
-
-    std::vector<Dimension> dimensions_topaz(3);
-    dimensions_topaz[0] = topaz_dimension_time;
-    dimensions_topaz[1] = topaz_dimension_y;
-    dimensions_topaz[2] = topaz_dimension_x;
-
-    std::vector<Dimension> dimensions_topaz_latlon(2);
-    dimensions_topaz_latlon[0] = topaz_dimension_y;
-    dimensions_topaz_latlon[1] = topaz_dimension_x;
-
-    std::vector<Dimension> dimensions_topaz_time(1);
-    dimensions_topaz_time[0] = topaz_dimension_time;
-
-    Variable topaz_latitude={
-        name: "latitude",
-        dimensions: dimensions_topaz_latlon,
-        a: 1.,
-        b: 0.,
-        Units: "degree_north",
-        data2: data2_tmp};
-
-    Variable topaz_longitude={
-        name: "longitude",
-        dimensions: dimensions_topaz_latlon,
-        a: 1.,
-        b: 0.,
-        Units: "degree_east",
-        data2: data2_tmp};
-
-    Variable topaz_time={
-        name: "time",
-        dimensions: dimensions_topaz_time,
-        a: 1.,
-        b: 0.,
-        Units: "hours",
-        data2: data2_tmp};
-
-    Variable u={
-        name: "u",
-        dimensions: dimensions_topaz_uv,
-        a: 1.,
-        b: 0.,
-        Units: "m/s",
-        data2: data2_tmp
-	};
-
-    Variable v={
-        name: "v",
-        dimensions: dimensions_topaz_uv,
-        a: 1.,
-        b: 0.,
-        Units: "m/s",
-        data2: data2_tmp
-	};
-
-	Variable ssh={
-		name: "ssh",
-		dimensions: dimensions_topaz,
-		a: 1.,
-		b: 0.,
-		Units: "m/s",
-		data2: data2_tmp
-	};
-
-	Variable sst={
-		name: "temperature",
-		dimensions: dimensions_topaz_uv,
-		a: 1.,
-		b: 0.,
-		Units: "deg celsius",
-		data2: data2_tmp
-	};
-
-	Variable sss={
-		name: "salinity",
-		dimensions: dimensions_topaz_uv,
-		a: 1.,
-		b: 0.,
-		Units: "",
-		data2: data2_tmp
-	};
-
-	Variable mld={
-		name: "mlp",
-		dimensions: dimensions_topaz,
-		a: 1.,
-		b: 0.,
-		Units: "m",
-		data2: data2_tmp
-	};
-
-	Variable conc={
-		name: "fice",
-		dimensions: dimensions_topaz,
-		a: 1.,
-		b: 0.,
-		Units: "",
-		data2: data2_tmp
-	};
-
-	Variable thick={
-		name: "hice",
-		dimensions: dimensions_topaz,
-		a: 1.,
-		b: 0.,
-		Units: "m",
-		data2: data2_tmp
-	};
-
-	Variable snow_thick={
-		name: "hsnow",
-		dimensions: dimensions_topaz,
-		a: 1.,
-		b: 0.,
-		Units: "m",
-		data2: data2_tmp
-	};
-
-    M_topaz_grid={
-        interpolation_method: InterpolationType::FromMeshToMesh2dx,
-		interp_type: -1,
-        dirname: "data",
-        filename: "TP4DAILY_200803_3m.nc",
-
-        latitude: topaz_latitude,
-        longitude: topaz_longitude,
-
-        dimension_x: topaz_dimension_x,
-        dimension_y: topaz_dimension_y,
-
-        mpp_file: "NpsNextsim.mpp",
-		interpolation_in_latlon: false,
-
-        loaded: false,
-
-		masking: true,
-		masking_variable: sss
-	};
-
-    std::vector<Variable> variables_tmp2(3);
-    variables_tmp2[0] = u;
-    variables_tmp2[1] = v;
-    variables_tmp2[2] = ssh;
-
-    std::vector<int> uv_tmp0(2);
-        uv_tmp0[0] = 0;
-        uv_tmp0[1] = 1;
-
-    Vectorial_Variable uv={
-        components_Id: uv_tmp0,
-        east_west_oriented: false // if false, then we assume it is oriented following the mpp_file defined for the grid
-	};
-
-    std::vector<Vectorial_Variable> vectorial_variables_tmp2(1);
-    vectorial_variables_tmp2[0] = uv;
-
-    M_topaz_nodes_dataset={
-        dirname: "data",
-        prefix: "TP4DAILY_",
-        postfix: "_30m.nc",
-        reference_date: "1950-01-01",
-
-        variables: variables_tmp2,
-        vectorial_variables: vectorial_variables_tmp2,
-        target_size: M_num_nodes,
-        grid: &M_topaz_grid,
-
-        reloaded: false,
-
-        nb_timestep_day: 1,
-        time: topaz_time,
-        dimension_time: topaz_dimension_time
-	};
-
-    M_topaz_nodes_dataset.ftime_range.resize(2,0.);
-
-    std::vector<Variable> variables_tmp3(3);
-    variables_tmp3[0] = sst;
-    variables_tmp3[1] = sss;
-    variables_tmp3[2] = mld;
-
-    std::vector<Vectorial_Variable> vectorial_variables_tmp3(0);
-
-    M_topaz_elements_dataset={
-        dirname: "data",
-        prefix: "TP4DAILY_",
-        postfix: "_3m.nc",
-        reference_date: "1950-01-01",
-
-        variables: variables_tmp3,
-        vectorial_variables: vectorial_variables_tmp3,
-        target_size: M_num_elements,
-        grid: &M_topaz_grid,
-
-        reloaded: false,
-
-        nb_timestep_day: 1,
-        time: topaz_time,
-        dimension_time: topaz_dimension_time
-	};
-
-    M_topaz_elements_dataset.ftime_range.resize(2,0.);
-
-    std::vector<Variable> variables_tmp4(3);
-    variables_tmp4[0] = conc;
-    variables_tmp4[1] = thick;
-    variables_tmp4[2] = snow_thick;
-
-    std::vector<Vectorial_Variable> vectorial_variables_tmp4(0);
-
-    M_ice_topaz_elements_dataset={
-        dirname: "data",
-        prefix: "TP4DAILY_",
-        postfix: "_3m.nc",
-        reference_date: "1950-01-01",
-
-        variables: variables_tmp4,
-        vectorial_variables: vectorial_variables_tmp4,
-        target_size: M_num_elements,
-        grid: &M_topaz_grid,
-
-        reloaded: false,
-
-		nb_timestep_day: 1,
-	    time: topaz_time,
-	    dimension_time: topaz_dimension_time
-        };
-
-    M_ice_topaz_elements_dataset.ftime_range.resize(2,0.);
-
-	// Definition of etopo grid and datasets
-    Dimension etopo_dimension_x={
-        name:"x",
-        start:0,
-        end:21600,
-        cyclic:false
-	};
-
-    Dimension etopo_dimension_y={
-        name:"y",
-        start:7200,//0, approx 60 deg North
-        end:10800,
-        cyclic:false
-	};
-
-    std::vector<Dimension> dimensions_etopo_lon(1);
-    dimensions_etopo_lon[0] = etopo_dimension_x;
-
-    std::vector<Dimension> dimensions_etopo_lat(1);
-    dimensions_etopo_lat[0] = etopo_dimension_y;
-
-    std::vector<Dimension> dimensions_etopo(2);
-    dimensions_etopo[0] = etopo_dimension_y;
-    dimensions_etopo[1] = etopo_dimension_x;
-
-    Variable etopo_latitude={
-        name: "y",
-        dimensions: dimensions_etopo_lat,
-        a: 1.,
-        b: 0.,
-        Units: "degree_north",
-        data2: data2_tmp
-	};
-
-    Variable etopo_longitude={
-        name: "x",
-        dimensions: dimensions_etopo_lon,
-        a: 1.,
-        b: 0.,
-        Units: "degree_east",
-        data2: data2_tmp
-	};
-
-	M_etopo_grid={
-		interpolation_method: InterpolationType::FromGridToMesh,
-	    //interp_type : TriangleInterpEnum, // slower
-	    interp_type : BilinearInterpEnum,
-	    //interp_type : NearestInterpEnum,
-		dirname:"data",
-		filename:"ETOPO1_Ice_g_gmt4.grd",
-
-		latitude: etopo_latitude,
-		longitude: etopo_longitude,
-
-		dimension_x: etopo_dimension_x,
-		dimension_y: etopo_dimension_y,
-
-		mpp_file: "",
-		interpolation_in_latlon: true,
-
-        loaded: false,
-
-		masking: false
-	};
-
-    Variable z={
-        name:"z",
-        dimensions: dimensions_etopo,
-        a:-1.,
-        b:0.,
-        Units:"m",
-        data2: data2_tmp
-	};
-
-    std::vector<Variable> variables_tmp5(1);
-    variables_tmp5[0] = z;
-
-    std::vector<Vectorial_Variable> vectorial_variables_tmp5(0);
-
-    M_etopo_elements_dataset={
-        dirname:"data",
-        prefix:"ETOPO1_Ice_g_gmt4",
-        postfix:".grd",
-        reference_date: "",
-
-        variables: variables_tmp5,
-        vectorial_variables: vectorial_variables_tmp5,
-        target_size:M_num_elements,
-        grid: &M_etopo_grid,
-
-        reloaded: false,
-
-        nb_timestep_day: 0
-	};
-
-	// Definition of ERAi grid and datasets
-    Dimension ERAi_dimension_x={
-        name:"x",
-        start:0,
-        end:719,
-        cyclic:true
-	};
-
-    Dimension ERAi_dimension_y={
-        name:"y",
-        start:0,
-        end:100,
-        cyclic:false
-	};
-
-    Dimension ERAi_dimension_time={
-        name:"time", // "Time"
-        start:0,
-        end:123,
-        cyclic:false
-	};
-
-    std::vector<Dimension> dimensions_ERAi_lon(1);
-    dimensions_ERAi_lon[0] = ERAi_dimension_x;
-
-    std::vector<Dimension> dimensions_ERAi_lat(1);
-    dimensions_ERAi_lat[0] = ERAi_dimension_y;
-
-    std::vector<Dimension> dimensions_ERAi_time(1);
-    dimensions_ERAi_time[0] = ERAi_dimension_time;
-
-    std::vector<Dimension> dimensions_ERAi(3);
-    dimensions_ERAi[0] = ERAi_dimension_time;
-    dimensions_ERAi[1] = ERAi_dimension_y;
-    dimensions_ERAi[2] = ERAi_dimension_x;
-
-
-    Variable ERAi_latitude={
-        name: "lat",
-        dimensions: dimensions_ERAi_lat,
-        a: 1.,
-        b: 0.,
-        Units: "degree_north",
-        data2: data2_tmp
-	};
-
-    Variable ERAi_longitude={
-        name: "lon",
-        dimensions: dimensions_ERAi_lon,
-        a: 1.,
-        b: 0.,
-        Units: "degree_east",
-        data2: data2_tmp
-	};
-
-    Variable ERAi_time={
-        name: "time",
-        dimensions: dimensions_ERAi_time,
-        a: 1.,
-        b: 0.,
-        Units: "hours",
-        data2: data2_tmp
-	};
-
-	M_ERAi_grid={
-		interpolation_method: InterpolationType::FromGridToMesh,
-	    //interp_type : TriangleInterpEnum, // slower
-	    interp_type : BilinearInterpEnum,
-	    //interp_type : NearestInterpEnum,
-		dirname:"data",
-		filename:"erai.6h.200803.nc",
-
-		latitude: ERAi_latitude,
-		longitude: ERAi_longitude,
-
-		dimension_x: ERAi_dimension_x,
-		dimension_y: ERAi_dimension_y,
-
-		mpp_file: "",
-		interpolation_in_latlon: true,
-
-        loaded: false,
-
-		masking: false
-	};
-
-    // conversion factors: xnew = a*x + b
-    Variable ERAi_u10={
-        name: "10U", // U10M
-        dimensions: dimensions_ERAi,
-        a: 1.,
-        b: 0.,
-        Units: "m/s",
-        data2: data2_tmp
-	};
-
-    Variable ERAi_v10={
-        name: "10V", // U10M
-        dimensions: dimensions_ERAi,
-        a: 1.,
-        b: 0.,
-        Units: "m/s",
-        data2: data2_tmp
-	};
-
-    std::vector<Variable> variables_tmp6(2);
-    variables_tmp6[0] = ERAi_u10;
-    variables_tmp6[1] = ERAi_v10;
-
-    std::vector<int> ERAi_uv_tmp0(2);
-        ERAi_uv_tmp0[0] = 0;
-        ERAi_uv_tmp0[1] = 1;
-
-    Vectorial_Variable ERAi_uv10={
-        components_Id: ERAi_uv_tmp0,
-        east_west_oriented: true // if false, then we assume it is oriented following the input grid
-	};
-
-    std::vector<Vectorial_Variable> vectorial_variables_tmp6(1);
-    vectorial_variables_tmp6[0] = ERAi_uv10;
-
-    M_ERAi_nodes_dataset={
-        dirname: "data",
-        prefix: "erai.6h.",
-        postfix:".nc",
-        reference_date: "2008-01-01",
-
-        variables: variables_tmp6,
-        vectorial_variables: vectorial_variables_tmp6,
-        target_size: M_num_nodes,
-        grid: &M_ERAi_grid,
-
-        reloaded: false,
-
-        nb_timestep_day: 4,
-        time: ERAi_time,
-        dimension_time: ERAi_dimension_time
-	};
-
-    M_ERAi_nodes_dataset.ftime_range.resize(2,0.);
+    M_ERAi_elements_dataset=DataSet("ERAi_elements",M_num_elements);
 }
 
 void
@@ -4050,6 +3358,17 @@ FiniteElement::thermo()
             throw std::logic_error("negative or 0 mld, Oups!!");
 		}
 
+        // definition of the fraction of snow
+        double tmp_snowfr;
+        if(M_snowfr.M_initialized)
+            tmp_snowfr=M_snowfr[i];
+        else
+        {
+            if(M_tair[i]<0)
+                tmp_snowfr=1.;
+            else
+                tmp_snowfr=0.;
+        }
 
         // -------------------------------------------------
         // 2) We calculate or set the flux due to nudging
@@ -4072,7 +3391,6 @@ FiniteElement::thermo()
                 Fdw = Fdw_const;
             }
         }
-
         // SYL: Calculate the drag coefficients missing??
 
         // -------------------------------------------------
@@ -4119,15 +3437,27 @@ FiniteElement::thermo()
         evap = Qlh/(physical::rhofw*Lv);
 
         // Sum them up
-        Qow = -M_Qsw_in[i]*(1.-ocean_albedo) - M_Qlw_in[i] + Qlw_out + Qsh + Qlh;
+        double tmp_Qlw_in;
+        if(M_Qlw_in.M_initialized)
+            tmp_Qlw_in=M_Qlw_in[i];
+        else
+        {
+        	double tsa = M_tsurf[i] + tfrwK;
+        	double taa = M_tair[i]  + tfrwK;
+        	tmp_Qlw_in = sigma_sb*pow(taa,4) \
+        			*( 1. - 0.261*exp(-7.77e-4*std::pow(taa-tfrwK,2)) ) \
+        			*( 1. + 0.275*M_tcc[i] );
+        }
+
+        Qow = -M_Qsw_in[i]*(1.-ocean_albedo) - tmp_Qlw_in + Qlw_out + Qsh + Qlh;
 
         // -------------------------------------------------
         // 4) Thickness change of the ice slab (thermoIce0 in matlab)
 
-        this->thermoIce0(i, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], hi, hs, hi_old, Qio, del_hi, M_tsurf[i]);
+        this->thermoIce0(i, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], hi, hs, hi_old, Qio, del_hi, M_tsurf[i],tmp_Qlw_in,tmp_snowfr);
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
-            this->thermoIce0(i, wspeed, sphuma, old_conc_thin, M_h_thin[i], M_hs_thin[i], hi_thin, hs_thin, hi_thin_old, Qio_thin, del_hi_thin, M_tsurf_thin[i]);
+            this->thermoIce0(i, wspeed, sphuma, old_conc_thin, M_h_thin[i], M_hs_thin[i], hi_thin, hs_thin, hi_thin_old, Qio_thin, del_hi_thin, M_tsurf_thin[i],tmp_Qlw_in,tmp_snowfr);
             M_h_thin[i]  = hi_thin * old_conc_thin;
             M_hs_thin[i] = hs_thin * old_conc_thin;
         }
@@ -4288,7 +3618,7 @@ FiniteElement::thermo()
         // Rain falling on ice falls straight through. We need to calculate the
         // bulk freshwater input into the entire cell, i.e. everything in the
         // open-water part plus rain in the ice-covered part.
-        rain = (1.-old_conc-old_conc_thin)*M_precip[i] + (old_conc+old_conc_thin)*(1.-M_snowfr[i])*M_precip[i];
+        rain = (1.-old_conc-old_conc_thin)*M_precip[i] + (old_conc+old_conc_thin)*(1.-tmp_snowfr)*M_precip[i];
         emp  = (evap*(1.-old_conc-old_conc_thin)-rain);
 
         Qio_mean = Qio*old_conc + Qio_thin*old_conc_thin;
@@ -4334,7 +3664,7 @@ FiniteElement::thermo()
 // We should add a new one (like Winton) at some point
 void
 FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols,
-        double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf)
+        double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double tmp_Qlw_in, double tmp_snowfr)
 {
 
     // Constants
@@ -4491,7 +3821,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
             subl    = Qlh/(physical::Lf+physical::Lv0);
 
             /* Sum them up */
-            Qai = Qsw - M_Qlw_in[i] + Qout;
+            Qai = Qsw - tmp_Qlw_in + Qout;
 
             // -------------------------------------------------
             /* Recalculate Tsurf */
@@ -4530,7 +3860,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         del_ht = std::min(hs+del_hs,0.)*qs/qi;
         /* Can't have negative hs! */
         del_hs = std::max(del_hs,-hs);
-        hs  = hs + del_hs + M_precip[i]*M_snowfr[i]/physical::rhos*time_step;
+        hs  = hs + del_hs + M_precip[i]*tmp_snowfr/physical::rhos*time_step;
 
         /* Heatflux from ocean */
         /* Use all excess heat to melt or grow ice. This is not
@@ -4873,299 +4203,11 @@ FiniteElement::run()
 void
 FiniteElement::writeRestart(int pcpt, int step)
 {
-#if 0
-    Exporter exporter;
-    std::string filename;
-
-    // === Start with the mesh ===
-    // First the data
-    filename = (boost::format( "%1%/restart/mesh_%2%.bin" )
-            % Environment::nextsimDir().string()
-            % step ).str();
-
-    std::fstream meshbin(filename, std::ios::binary | std::ios::out | std::ios::trunc);
-    if ( ! meshbin.good() )
-        throw std::runtime_error("Cannot write to file: " + filename);
-    exporter.writeMesh(meshbin, M_mesh);
-    meshbin.close();
-
-    // Then the record
-    filename = (boost::format( "%1%/restart/mesh_%2%.dat" )
-           % Environment::nextsimDir().string()
-           % step ).str();
-
-    std::fstream meshrecord(filename, std::ios::out | std::ios::trunc);
-    if ( ! meshrecord.good() )
-        throw std::runtime_error("Cannot write to file: " + filename);
-    exporter.writeRecord(meshrecord,"mesh");
-    meshrecord.close();
-
-    // === Write the prognostic variables ===
-    // First the data
-    filename = (boost::format( "%1%/restart/field_%2%.bin" )
-               % Environment::nextsimDir().string()
-               % step ).str();
-    std::fstream outbin(filename, std::ios::binary | std::ios::out | std::ios::trunc );
-    if ( ! outbin.good() )
-        throw std::runtime_error("Cannot write to file: " + filename);
-
-    std::vector<int> misc_int(2);
-    misc_int[0] = pcpt;
-    misc_int[1] = M_flag_fix;
-    exporter.writeField(outbin, misc_int, "Misc_int");
-    exporter.writeField(outbin, M_dirichlet_flags, "M_dirichlet_flags");
-
-    exporter.writeField(outbin, M_conc, "M_conc");
-    exporter.writeField(outbin, M_thick, "M_thick");
-    exporter.writeField(outbin, M_snow_thick, "M_snow_thick");
-    exporter.writeField(outbin, M_sigma, "M_sigma");
-    exporter.writeField(outbin, M_damage, "M_damage");
-    exporter.writeField(outbin, M_divergence_rate, "M_divergence_rate");
-    exporter.writeField(outbin, M_h_ridged_thin_ice, "M_h_ridged_thin_ice");
-    exporter.writeField(outbin, M_h_ridged_thick_ice, "M_h_ridged_thick_ice");
-    exporter.writeField(outbin, M_random_number, "M_random_number");
-    exporter.writeField(outbin, M_tsurf, "M_tsurf");
-    exporter.writeField(outbin, M_sst, "M_sst");
-    exporter.writeField(outbin, M_sss, "M_sss");
-    exporter.writeField(outbin, M_VT, "M_VT");
-    exporter.writeField(outbin, M_VTM, "M_VTM");
-    exporter.writeField(outbin, M_VTMM, "M_VTMM");
-    exporter.writeField(outbin, M_UM, "M_UM");
-
-    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-    {
-        exporter.writeField(outbin, M_h_thin, "M_h_thin");
-        exporter.writeField(outbin, M_hs_thin, "M_hs_thin");
-        exporter.writeField(outbin, M_tsurf_thin, "M_tsurf_thin");
-    }
-
-    if (M_drifter_type == setup::DrifterType::IABP)
-    {
-        std::vector<int> drifter_no(M_drifter.size());
-        std::vector<double> drifter_x(M_drifter.size());
-        std::vector<double> drifter_y(M_drifter.size());
-
-        int j=0;
-        for ( auto it = M_drifter.begin(); it != M_drifter.end(); ++it )
-        {
-            drifter_no[j] = it->first;
-            drifter_x[j] = it->second[0];
-            drifter_y[j] = it->second[1];
-            ++j;
-        }
-
-        exporter.writeField(outbin, drifter_no, "Drifter_no");
-        exporter.writeField(outbin, drifter_x, "Drifter_x");
-        exporter.writeField(outbin, drifter_y, "Drifter_y");
-    }
-
-    outbin.close();
-
-    // Then the record
-    filename = (boost::format( "%1%/restart/field_%2%.dat" )
-               % Environment::nextsimDir().string()
-               % step ).str();
-    std::fstream outrecord(filename, std::ios::out | std::ios::trunc);
-    if ( ! outrecord.good() )
-        throw std::runtime_error("Cannot write to file: " + filename);
-    exporter.writeRecord(outrecord);
-    outrecord.close();
-#endif
 }
 
 void
 FiniteElement::readRestart(int &pcpt, int step)
 {
-#if 0
-    Exporter exp_field, exp_mesh;
-    std::string filename;
-    boost::unordered_map<std::string, std::vector<int>>    field_map_int;
-    boost::unordered_map<std::string, std::vector<double>> field_map_dbl;
-
-    // === Read in the mesh restart files ===
-    // Start with the record
-    filename = (boost::format( "%1%/restart/mesh_%2%.dat" )
-               % Environment::nextsimDir().string()
-               % step ).str();
-    std::ifstream meshrecord(filename);
-    if ( ! meshrecord.good() )
-        throw std::runtime_error("File not found: " + filename);
-
-    exp_mesh.readRecord(meshrecord);
-    meshrecord.close();
-
-    // Then onto the data itself
-    filename = (boost::format( "%1%/restart/mesh_%2%.bin" )
-               % Environment::nextsimDir().string()
-               % step ).str();
-    std::fstream meshbin(filename, std::ios::binary | std::ios::in );
-    if ( ! meshbin.good() )
-        throw std::runtime_error("File not found: " + filename);
-    exp_mesh.loadFile(meshbin, field_map_int, field_map_dbl);
-    meshbin.close();
-
-    std::vector<int>   indexTr = field_map_int["Elements"];
-    std::vector<double> coordX = field_map_dbl["Nodes_x"];
-    std::vector<double> coordY = field_map_dbl["Nodes_y"];
-
-    // === Read in the prognostic variables ===
-    // Start with the record
-    filename = (boost::format( "%1%/restart/field_%2%.dat" )
-               % Environment::nextsimDir().string()
-               % step ).str();
-    std::ifstream inrecord(filename);
-    if ( ! inrecord.good() )
-        throw std::runtime_error("File not found: " + filename);
-
-    exp_field.readRecord(inrecord);
-    inrecord.close();
-
-    // Then onto the data itself
-    filename = (boost::format( "%1%/restart/field_%2%.bin" )
-               % Environment::nextsimDir().string()
-               % step ).str();
-    std::fstream inbin(filename, std::ios::binary | std::ios::in );
-    if ( ! inbin.good() )
-        throw std::runtime_error("File not found: " + filename);
-    field_map_int.clear();
-    field_map_dbl.clear();
-    exp_field.loadFile(inbin, field_map_int, field_map_dbl);
-    inbin.close();
-
-    // === Recreate the mesh ===
-    // Create bamgmesh and bamggeom
-    BamgConvertMeshx(
-            bamgmesh,bamggeom,
-	    &indexTr[0],&coordX[0],&coordY[0],
-	    coordX.size(), indexTr.size()/3.
-            );
-
-    // Fix boundaries
-    pcpt       = field_map_int["Misc_int"].at(0);
-    M_flag_fix = field_map_int["Misc_int"].at(1);
-    std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
-    for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
-    {
-        int fnd = bamgmesh->Edges[3*edg]-1;
-        if ((std::binary_search(dirichlet_flags.begin(),dirichlet_flags.end(),fnd)))
-        {
-            bamggeom->Edges[3*edg+2] = M_flag_fix;
-            bamgmesh->Edges[3*edg+2] = M_flag_fix;
-        }
-    }
-
-    // Import the bamg structs
-    this->importBamg(bamgmesh);
-
-    M_elements = M_mesh.triangles();
-    M_nodes = M_mesh.nodes();
-
-    M_num_elements = M_mesh.numTriangles();
-    M_num_nodes = M_mesh.numNodes();
-
-    // Initialise all the variables to zero
-    this->initVariables();
-
-    // update dirichlet nodes
-    M_boundary_flags.resize(0);
-    M_dirichlet_flags.resize(0);
-    for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
-    {
-        M_boundary_flags.push_back(bamgmesh->Edges[3*edg]-1);
-        if (bamgmesh->Edges[3*edg+2] == M_flag_fix)
-            M_dirichlet_flags.push_back(bamgmesh->Edges[3*edg]-1);
-    }
-
-    std::sort(M_dirichlet_flags.begin(), M_dirichlet_flags.end());
-    std::sort(M_boundary_flags.begin(), M_boundary_flags.end());
-
-    M_neumann_flags.resize(0);
-    std::set_difference(M_boundary_flags.begin(), M_boundary_flags.end(),
-                        M_dirichlet_flags.begin(), M_dirichlet_flags.end(),
-                        std::back_inserter(M_neumann_flags));
-
-    M_dirichlet_nodes.resize(2*(M_dirichlet_flags.size()));
-    for (int i=0; i<M_dirichlet_flags.size(); ++i)
-    {
-        M_dirichlet_nodes[2*i] = M_dirichlet_flags[i];
-        M_dirichlet_nodes[2*i+1] = M_dirichlet_flags[i]+M_num_nodes;
-    }
-
-    M_neumann_nodes.resize(2*(M_neumann_flags.size()));
-    for (int i=0; i<M_neumann_flags.size(); ++i)
-    {
-        M_neumann_nodes[2*i] = M_neumann_flags[i];
-        M_neumann_nodes[2*i+1] = M_neumann_flags[i]+M_num_nodes;
-    }
-
-    M_surface.assign(M_num_elements,0.);
-    int cpt = 0;
-    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
-    {
-        M_surface[cpt] = this->measure(*it,M_mesh);
-        ++cpt;
-    }
-
-    // === Set the prognostic variables ===
-    M_conc       = field_map_dbl["M_conc"];
-    M_thick      = field_map_dbl["M_thick"];
-    M_snow_thick = field_map_dbl["M_snow_thick"];
-    M_sigma      = field_map_dbl["M_sigma"];
-    M_damage     = field_map_dbl["M_damage"];
-    M_divergence_rate    = field_map_dbl["M_divergence_rate"];
-    M_h_ridged_thin_ice  = field_map_dbl["M_h_ridged_thin_ice"];
-    M_h_ridged_thick_ice = field_map_dbl["M_h_ridged_thick_ice"];
-    M_random_number      = field_map_dbl["M_random_number"];
-    M_tsurf      = field_map_dbl["M_tsurf"];
-    M_sst        = field_map_dbl["M_sst"];
-    M_sss        = field_map_dbl["M_sss"];
-    M_VT         = field_map_dbl["M_VT"];
-    M_VTM        = field_map_dbl["M_VTM"];
-    M_VTMM       = field_map_dbl["M_VTMM"];
-    M_UM         = field_map_dbl["M_UM"];
-
-    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-    {
-        try
-        {
-            M_h_thin     = field_map_dbl["M_h_thin"];
-            M_hs_thin    = field_map_dbl["M_hs_thin"];
-            M_tsurf_thin = field_map_dbl["M_tsurf_thin"];
-        }
-        catch (exception &e)
-        {
-            std::cout << "Warning: Couldn't read thin ice state from restart file. All thin ice values set to zero.\n";
-        }
-    }
-    if (M_drifter_type == setup::DrifterType::IABP)
-    {
-        try
-        {
-            std::vector<int>    drifter_no = field_map_int["Drifter_no"];
-            std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
-            std::vector<double> drifter_y  = field_map_dbl["Drifter_y"];
-
-            for ( int i=0; i<drifter_no.size(); ++i )
-            {
-                M_drifter.emplace(drifter_no[i], std::array<double,2>{drifter_x[i], drifter_y[i]});
-            }
-        }
-        catch (exception &e)
-        {
-            std::cout << "Warning: Couldn't read drifter positions from restart file.\n";
-        }
-    }
-
-    inbin.close();
-
-    // Set the target size for the data sets
-    M_asr_nodes_dataset.target_size=M_num_nodes;
-    M_asr_elements_dataset.target_size=M_num_elements;
-    M_topaz_nodes_dataset.target_size=M_num_nodes;
-    M_topaz_elements_dataset.target_size=M_num_elements;
-    M_ice_topaz_elements_dataset.target_size=M_num_elements;
-    M_etopo_elements_dataset.target_size=M_num_elements;
-#endif
 }
 
 void
@@ -5436,39 +4478,46 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             M_precip=ExternalData(&M_asr_elements_dataset,M_mesh,6,false);
             M_external_data.push_back(&M_precip);
 
-            M_dair=ExternalData(vm["simul.constant_dair"].as<double>());
+            M_dair=ExternalData(-1.);
             M_external_data.push_back(&M_dair);
         break;
 
-        case setup::AtmosphereType::ERAi_ASR:
+        case setup::AtmosphereType::ERAi:
             M_wind=ExternalData(
                 &M_ERAi_nodes_dataset,M_mesh,0,true ,
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_wind);
 
-            M_tair=ExternalData(&M_asr_elements_dataset,M_mesh,0,false);
+            /*
+            variables[0] = tair;
+            variables[1] = dair;
+            variables[2] = mslp;
+            variables[3] = Qsw_in;
+            variables[4] = tcc;
+            variables[5] = precip;
+            */
+
+            M_tair=ExternalData(&M_ERAi_elements_dataset,M_mesh,0,false);
             M_external_data.push_back(&M_tair);
 
-            M_mixrat=ExternalData(&M_asr_elements_dataset,M_mesh,1,false);
-            M_external_data.push_back(&M_mixrat);
+            M_dair=ExternalData(&M_ERAi_elements_dataset,M_mesh,1,false);
+            M_external_data.push_back(&M_dair);
 
-            M_mslp=ExternalData(&M_asr_elements_dataset,M_mesh,2,false);
+            M_mslp=ExternalData(&M_ERAi_elements_dataset,M_mesh,2,false);
             M_external_data.push_back(&M_mslp);
 
-            M_Qsw_in=ExternalData(&M_asr_elements_dataset,M_mesh,3,false);
+            M_Qsw_in=ExternalData(&M_ERAi_elements_dataset,M_mesh,3,false);
             M_external_data.push_back(&M_Qsw_in);
 
-            M_Qlw_in=ExternalData(&M_asr_elements_dataset,M_mesh,4,false);
-            M_external_data.push_back(&M_Qlw_in);
+            M_tcc=ExternalData(&M_ERAi_elements_dataset,M_mesh,4,false);
+            M_external_data.push_back(&M_tcc);
 
-            M_snowfr=ExternalData(&M_asr_elements_dataset,M_mesh,5,false);
-            M_external_data.push_back(&M_snowfr);
-
-            M_precip=ExternalData(&M_asr_elements_dataset,M_mesh,6,false);
+            M_precip=ExternalData(&M_ERAi_elements_dataset,M_mesh,5,false);
             M_external_data.push_back(&M_precip);
 
-            M_dair=ExternalData(vm["simul.constant_dair"].as<double>());
-            M_external_data.push_back(&M_dair);
+            M_mixrat=ExternalData(-1.);
+            M_external_data.push_back(&M_mixrat);
+
         break;
 
         default:
@@ -5561,19 +4610,28 @@ FiniteElement::initIce()
 {
     switch (M_ice_type)
     {
-    case setup::IceType::CONSTANT:
-        this->constantIce();
-        break;
-    case setup::IceType::TARGET:
-        this->targetIce();
-        break;
-    case setup::IceType::TOPAZ4:
-        this->topazIce();
-        break;
+        case setup::IceType::CONSTANT:
+            this->constantIce();
+            break;
+        case setup::IceType::TARGET:
+            this->targetIce();
+            break;
+        case setup::IceType::TOPAZ4:
+            this->topazIce();
+            break;
+        case setup::IceType::AMSRE:
+            this->amsreIce();
+            break;
+        case setup::IceType::OSISAF:
+            this->osisaf2Ice();
+            break;
+        case setup::IceType::AMSR2:
+            this->amsr2Ice();
+            break;
 
-    default:
-        std::cout << "invalid initialization of the ice"<<"\n";
-        throw std::logic_error("invalid initialization of the ice");
+        default:
+            std::cout << "invalid initialization of the ice"<<"\n";
+            throw std::logic_error("invalid initialization of the ice");
     }
 }
 
@@ -5643,11 +4701,11 @@ FiniteElement::topazIce()
     for (int i=0; i<M_num_elements; ++i)
     {
 		tmp_var=M_init_conc[i];
-		M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+		M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
 		tmp_var=M_init_thick[i];
-		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
 		tmp_var=M_init_snow_thick[i];
-		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
 
         //if either c or h equal zero, we set the others to zero as well
         if(M_conc[i]<=0.)
@@ -5657,6 +4715,171 @@ FiniteElement::topazIce()
         }
         if(M_thick[i]<=0.)
         {
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+
+		M_damage[i]=0.;
+	}
+}
+
+void
+FiniteElement::amsreIce()
+{
+    double real_thickness, init_conc_topaz_tmp;
+
+    external_data M_init_conc=ExternalData(&M_ice_amsre_elements_dataset,M_mesh,0,false);
+    M_init_conc.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_conc_topaz=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false);
+    M_init_conc_topaz.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false);
+    M_init_thick.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false);
+    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    double tmp_var;
+    for (int i=0; i<M_num_elements; ++i)
+    {
+		M_conc[i] = M_init_conc[i];
+
+        // TOPAZ puts very small values instead of 0.
+		tmp_var=M_init_conc_topaz[i];
+		init_conc_topaz_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
+		tmp_var=M_init_thick[i];
+		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+		tmp_var=M_init_snow_thick[i];
+		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+
+        // Use 0.05 to get rid of slight inconsistencies in the TOPAZ output.
+        if(init_conc_topaz_tmp>0.05)
+        {
+            real_thickness=M_thick[i]/init_conc_topaz_tmp;
+            M_thick[i]=real_thickness*M_conc[i];
+        }
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<=0.)
+        {
+            M_thick[i]=0.;
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+
+		M_damage[i]=0.;
+	}
+}
+
+void
+FiniteElement::osisaf2Ice()
+{
+    double real_thickness, init_conc_topaz_tmp;
+
+    external_data M_init_conc=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,0,false);
+    M_init_conc.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_conc_topaz=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false);
+    M_init_conc_topaz.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false);
+    M_init_thick.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false);
+    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    double tmp_var;
+    for (int i=0; i<M_num_elements; ++i)
+    {
+		M_conc[i] = M_init_conc[i];
+
+        // TOPAZ puts very small values instead of 0.
+		tmp_var=M_init_conc_topaz[i];
+		init_conc_topaz_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
+		tmp_var=M_init_thick[i];
+		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+		tmp_var=M_init_snow_thick[i];
+		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+
+        // Use 0.05 to get rid of slight inconsistencies in the TOPAZ output.
+        if(init_conc_topaz_tmp>0.05)
+        {
+            real_thickness=M_thick[i]/init_conc_topaz_tmp;
+            M_thick[i]=real_thickness*M_conc[i];
+        }
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<=0.)
+        {
+            M_thick[i]=0.;
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+
+		M_damage[i]=0.;
+	}
+}
+
+void
+FiniteElement::amsr2Ice()
+{
+    double real_thickness, init_conc_topaz_tmp;
+
+    external_data M_init_conc=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false);
+    M_init_conc.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_conc_topaz=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false);
+    M_init_conc_topaz.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false);
+    M_init_thick.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false);
+    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    double tmp_var;
+    for (int i=0; i<M_num_elements; ++i)
+    {
+		M_conc[i] = M_init_conc[i];
+
+        // TOPAZ puts very small values instead of 0.
+		tmp_var=M_init_conc_topaz[i];
+		init_conc_topaz_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
+		tmp_var=M_init_thick[i];
+		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+		tmp_var=M_init_snow_thick[i];
+		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+
+        // Use 0.05 to get rid of slight inconsistencies in the TOPAZ output.
+        if(init_conc_topaz_tmp>0.05)
+        {
+            real_thickness=M_thick[i]/init_conc_topaz_tmp;
+            M_thick[i]=real_thickness*M_conc[i];
+        }
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<=0.)
+        {
+            M_thick[i]=0.;
             M_conc[i]=0.;
             M_snow_thick[i]=0.;
         }
@@ -7301,7 +6524,7 @@ FiniteElement::clear()
 {
     M_comm.barrier();
 
-    delete[] M_topaz_grid.pfindex;
+    // delete[] M_topaz_grid.pfindex;
 
     delete bamgmesh;
     delete bamggeom;

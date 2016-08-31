@@ -28,6 +28,8 @@
 #include <graphcsr.hpp>
 #include <graphcsrmpi.hpp>
 #include <externaldata.hpp>
+#include <gridoutput.hpp>
+#include <dataset.hpp>
 #include "enums.hpp"
 //#include <netcdf>
 #include <debug.hpp>
@@ -140,20 +142,19 @@ public:
 
     void thermo();
     void thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols,
-            double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf);
+            double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double tmp_Qlw_in, double tmp_snowfr);
 
     Dataset M_asr_nodes_dataset;
     Dataset M_asr_elements_dataset;
     Dataset M_topaz_nodes_dataset;
     Dataset M_topaz_elements_dataset;
-	Dataset M_ice_topaz_elements_dataset;
+    Dataset M_ice_topaz_elements_dataset;
+    Dataset M_ice_amsre_elements_dataset;
+    Dataset M_ice_osisaf_elements_dataset;
+    Dataset M_ice_amsr2_elements_dataset;
     Dataset M_etopo_elements_dataset;
     Dataset M_ERAi_nodes_dataset;
-
-    Grid M_asr_grid;
-    Grid M_topaz_grid;
-	Grid M_etopo_grid;
-    Grid M_ERAi_grid;
+    Dataset M_ERAi_elements_dataset;
 
     template<typename FEMeshType>
     double minAngles(element_type const& element, FEMeshType const& mesh) const;
@@ -437,6 +438,7 @@ private:
     external_data M_mslp;         // Atmospheric pressure [Pa]
     external_data M_Qsw_in;       // Incoming short-wave radiation [W/m2]
     external_data M_Qlw_in;       // Incoming long-wave radiation [W/m2]
+    external_data M_tcc;          // Incoming long-wave radiation [W/m2]
     external_data M_precip;       // Total precipitation [m]
     external_data M_snowfr;       // Fraction of precipitation that is snow
     external_data M_dair;         // 2 m dew point [C]
@@ -472,8 +474,8 @@ private:
 private:
     // Variables for the moorings
 
-    bool M_use_moorings;
-    int M_grid_size, M_ncols, M_nrows;
+    // bool M_use_moorings;
+    // int M_grid_size, M_ncols, M_nrows;
 
     std::vector<double> M_conc_mean;    // Mean concentration (on the mesh)
     std::vector<double> M_thick_mean;   // Mean ice thickness (on the mesh)
@@ -486,20 +488,33 @@ private:
     std::vector<double> M_VT_grid;      // Mean velocity (on the grid)
 
 private:
+    // Variables for the moorings
+
+    bool M_use_moorings;
+    GridOutput M_moorings;
+    GridOutput M_moorings_grid;
+
+private:
 
     void constantIce();
     void targetIce();
     void topazIce();
+    void amsreIce();
+    void osisaf2Ice();
+    void amsr2Ice();
 
     void equallySpacedDrifter();
     void outputDrifter(std::fstream &iabp_out);
     void initIABPDrifter();
     void updateIABPDrifter();
 
-    void updateMeans();
-    int initMoorings(int &ncols, int &nrows);
-    void updateMoorings(int grid_size, int ncols, int nrows);
-    void exportMoorings(int grid_size);
+    // void updateMeans();
+    // int initMoorings(int &ncols, int &nrows);
+    // void updateMoorings(int grid_size, int ncols, int nrows);
+    // void exportMoorings(int grid_size);
+
+    void updateMeans(GridOutput &means);
+    void initMoorings();
 
 };
 } // Nextsim

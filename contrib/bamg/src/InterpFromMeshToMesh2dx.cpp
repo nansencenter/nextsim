@@ -14,7 +14,7 @@ using namespace bamg;
 using namespace std;
 
 int InterpFromMeshToMesh2dx(double** pdata_interp,int* index_data,double* x_data,double* y_data,int nods_data,int nels_data,
-			double* data,int M_data,int N_data,double* x_interp,double* y_interp,int N_interp,bool isdefault/*Options* options*/){
+			double* data,int M_data,int N_data,double* x_interp,double* y_interp,int N_interp,bool isdefault, double defaultvalue /*Options* options*/){
 
 	/*Output*/
 	double* data_interp=NULL;
@@ -22,7 +22,7 @@ int InterpFromMeshToMesh2dx(double** pdata_interp,int* index_data,double* x_data
 	/*Intermediary*/
 	double xmin,xmax,ymin,ymax;
 	//bool   isdefault;
-	double defaultvalue;
+	//double defaultvalue;
 	R2     r;
 	I2     I;
 	int    i,j;
