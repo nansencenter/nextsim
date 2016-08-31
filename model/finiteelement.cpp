@@ -1434,6 +1434,22 @@ FiniteElement::regrid(bool step)
     M_ERAi_nodes_dataset.reloaded=false;
     M_ERAi_elements_dataset.reloaded=false;
 
+    // for the parralel code, it will be necessary to add those lines
+    // as the domain covered by the partinions changes at each remeshing/partitioning
+#if 0
+    M_asr_nodes_dataset.grid.loaded=false;
+    M_asr_elements_dataset.grid.loaded=false;
+    M_topaz_nodes_dataset.grid.loaded=false;
+    M_topaz_elements_dataset.grid.loaded=false;
+    M_ice_topaz_elements_dataset.grid.loaded=false;
+    M_ice_amsre_elements_dataset.grid.loaded=false;
+    M_ice_osisaf_elements_dataset.grid.loaded=false;
+    M_ice_amsr2_elements_dataset.grid.loaded=false;
+    M_etopo_elements_dataset.grid.loaded=false;
+    M_ERAi_nodes_dataset.grid.loaded=false;
+    M_ERAi_elements_dataset.grid.loaded=false;
+#endif
+    
     M_Cohesion.resize(M_num_elements);
     M_Compressive_strength.resize(M_num_elements);
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
