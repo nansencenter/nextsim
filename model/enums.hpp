@@ -35,10 +35,11 @@ namespace setup
 		AMSRE     = 1,
 		TOPAZ4    = 2,
         ARBITRARY = 4,
-        AMSRE2    = 5,
+        AMSR2     = 5,
         TOPAZ4F   = 6,
         MITGCM    = 7,
-        TARGET    = 8
+        TARGET    = 8,
+        OSISAF    = 9
 	};
 
     enum class BathymetryType
