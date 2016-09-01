@@ -236,7 +236,6 @@ private:
     std::vector<double> M_hminVertices;
     std::vector<double> M_hmaxVertices;
 
-    external_data M_element_depth;
     std::vector<double> M_Vair_factor;
     std::vector<double> M_Voce_factor;
     std::vector<double> M_basal_factor;
@@ -373,6 +372,9 @@ private:
     external_data M_ocean_temp;   // Ocean temperature in top layer [C]
     external_data M_ocean_salt;   // Ocean salinity in top layer [C]
     external_data M_mld;          // Mixed-layer depth [m]
+
+    // Bathymetry
+    external_data M_element_depth;
 
     // Drifters
     boost::unordered_map<int, std::array<double,2>> M_drifter; // Drifters are kept in an unordered map containing number and coordinates

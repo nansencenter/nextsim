@@ -1434,6 +1434,22 @@ FiniteElement::regrid(bool step)
     M_ERAi_nodes_dataset.reloaded=false;
     M_ERAi_elements_dataset.reloaded=false;
 
+    // for the parralel code, it will be necessary to add those lines
+    // as the domain covered by the partinions changes at each remeshing/partitioning
+#if 0
+    M_asr_nodes_dataset.grid.loaded=false;
+    M_asr_elements_dataset.grid.loaded=false;
+    M_topaz_nodes_dataset.grid.loaded=false;
+    M_topaz_elements_dataset.grid.loaded=false;
+    M_ice_topaz_elements_dataset.grid.loaded=false;
+    M_ice_amsre_elements_dataset.grid.loaded=false;
+    M_ice_osisaf_elements_dataset.grid.loaded=false;
+    M_ice_amsr2_elements_dataset.grid.loaded=false;
+    M_etopo_elements_dataset.grid.loaded=false;
+    M_ERAi_nodes_dataset.grid.loaded=false;
+    M_ERAi_elements_dataset.grid.loaded=false;
+#endif
+    
     M_Cohesion.resize(M_num_elements);
     M_Compressive_strength.resize(M_num_elements);
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
@@ -5215,6 +5231,33 @@ FiniteElement::exportResults(int step, bool export_mesh)
     exporter.writeField(outbin, M_tsurf, "Tsurf");
     exporter.writeField(outbin, M_sst, "SST");
     exporter.writeField(outbin, M_sss, "SSS");
+
+    if(vm["simul.save_forcing_field"].as<bool>())
+    {
+        // Thermodynamic and dynamic forcing
+        // Atmosphere
+        exporter.writeField(outbin,M_wind.get_vector(), "M_wind");         // Surface wind [m/s]
+        exporter.writeField(outbin,M_tair.get_vector(), "M_tair");         // 2 m temperature [C]
+        exporter.writeField(outbin,M_mixrat.get_vector(), "M_mixrat");       // Mixing ratio
+        exporter.writeField(outbin,M_mslp.get_vector(), "M_mslp");         // Atmospheric pressure [Pa]
+        exporter.writeField(outbin,M_Qsw_in.get_vector(), "M_Qsw_in");       // Incoming short-wave radiation [W/m2]
+        exporter.writeField(outbin,M_Qlw_in.get_vector(), "M_Qlw_in");       // Incoming long-wave radiation [W/m2]
+        exporter.writeField(outbin,M_tcc.get_vector(), "M_tcc");       // Incoming long-wave radiation [W/m2]
+        exporter.writeField(outbin,M_precip.get_vector(), "M_precip");       // Total precipitation [m]
+        exporter.writeField(outbin,M_snowfr.get_vector(), "M_snowfr");       // Fraction of precipitation that is snow
+        exporter.writeField(outbin,M_dair.get_vector(), "M_dair");         // 2 m dew point [C]
+
+        // Ocean
+        exporter.writeField(outbin,M_ocean.get_vector(), "M_ocean");        // "Geostrophic" ocean currents [m/s]
+        exporter.writeField(outbin,M_ssh.get_vector(), "M_ssh");          // Sea surface elevation [m]
+
+        exporter.writeField(outbin,M_ocean_temp.get_vector(), "M_ocean_temp");   // Ocean temperature in top layer [C]
+        exporter.writeField(outbin,M_ocean_salt.get_vector(), "M_ocean_salt");   // Ocean salinity in top layer [C]
+        exporter.writeField(outbin,M_mld.get_vector(), "M_mld");          // Mixed-layer depth [m]
+
+        // Bathymetry
+        exporter.writeField(outbin,M_element_depth.get_vector(), "M_element_depth");
+    }
 
 #if defined (WAVES)
     if (vm["simul.use_wim"].as<bool>())

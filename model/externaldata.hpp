@@ -76,6 +76,10 @@ public:
     void check_and_reload(GmshMesh const& mesh, const double current_time );
 
 	value_type operator[] (const size_type i);
+    
+    value_type get(const size_type i);
+
+    std::vector<double> get_vector();
 
 	void clear();
 
