@@ -397,8 +397,8 @@ private:
     // Variables for the moorings
 
     bool M_use_moorings;
+    std::string M_moorings_file;
     GridOutput M_moorings;
-    GridOutput M_moorings_grid;
 
 private:
     void constantIce();

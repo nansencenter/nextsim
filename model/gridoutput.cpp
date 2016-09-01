@@ -471,7 +471,9 @@ namespace Nextsim
         M_nc_step++;
 
         netCDF::NcVar time = dataFile.getVar("time");
-        time.putVar(start, count, &current_time);
+        // Write out the center of the output time step not end of it
+        double mean_time = current_time - mooring_output_time_step/86400/2;
+        time.putVar(start, count, &mean_time);
 
         // Append to the output variables
         start.push_back(0);

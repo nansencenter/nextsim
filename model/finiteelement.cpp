@@ -3432,7 +3432,7 @@ FiniteElement::step(int &pcpt)
     //======================================================================
     // Assemble the matrix
     //======================================================================
-
+#if 0
     this->assemble(pcpt);
 
     //======================================================================
@@ -3450,7 +3450,7 @@ FiniteElement::step(int &pcpt)
     LOG(DEBUG) <<"update starts\n";
     this->update();
     LOG(DEBUG) <<"update done in "<< chrono.elapsed() <<"s\n";
-
+#endif
     ++pcpt;
     current_time = time_init + pcpt*time_step/(24*3600.0);
 
@@ -3470,7 +3470,7 @@ FiniteElement::step(int &pcpt)
         {
             M_moorings.updateGridMean(M_mesh);
             //M_moorings.exportGridMeans("_grid.dat", time_step, mooring_output_time_step);
-            M_moorings.appendNetCDF("testme.nc", current_time-mooring_output_time_step/2., time_step, mooring_output_time_step);
+            M_moorings.appendNetCDF(M_moorings_file, current_time, time_step, mooring_output_time_step);
 
             M_moorings.resetMeshMean(M_mesh);
             M_moorings.resetGridMean();
@@ -3648,6 +3648,7 @@ FiniteElement::initMoorings()
     std::vector<DataSet::Vectorial_Variable> vectorial_variables(1);
     vectorial_variables[0] = siuv;
 
+    M_moorings_file = "Moorings.nc";
 #if 1
     // Calculate the grid spacing (assuming a regular grid for now)
     auto RX = M_mesh.coordX();
@@ -3671,7 +3672,7 @@ FiniteElement::initMoorings()
     std::copy(M_moorings.M_grid.gridLAT.begin(), M_moorings.M_grid.gridLAT.end(), ostream_iterator<float>(myfile," "));
     myfile.close();
 
-    M_moorings.initNetCDF("testme.nc");
+    M_moorings.initNetCDF(M_moorings_file);
 #else
     // Read the grid in from file
     std::vector<DataSet::Dimension> dimensions_latlon(2);
