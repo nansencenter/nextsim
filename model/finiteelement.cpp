@@ -3575,14 +3575,14 @@ FiniteElement::initMoorings()
         longName:"Sea Ice Concentration",
         stdName:"sea_ice_area_fraction",
         dimensions: dimensions,
-        Units:"",
+        Units:"1",
         data_mesh:data_elements,
         data_grid:data_grid,
         variableID: GridOutput::variableID::conc
     };
 
     GridOutput::Variable thick={
-        name:"sih",
+        name:"sit",
         longName:"Sea Ice Thickness",
         stdName:"sea_ice_thickness",
         dimensions: dimensions,

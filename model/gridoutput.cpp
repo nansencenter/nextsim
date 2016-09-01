@@ -453,6 +453,10 @@ namespace Nextsim
             data.putAtt("units",it->Units);
             data.putAtt("_FillValue", netCDF::ncFloat, -1e14);
         }
+
+        dataFile.putAtt("Conventions", "CF-1.6");
+        dataFile.putAtt("institution", "NERSC, Thormoehlens gate 47, N-5006 Bergen, Norway");
+        dataFile.putAtt("source", "neXtSIM model fields");
     }
 
     // Write data to the netCDF file
