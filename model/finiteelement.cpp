@@ -3609,7 +3609,7 @@ FiniteElement::initMoorings()
     };
 
     GridOutput::Variable snow_thick={
-        name:"snh",
+        name:"snt",
         longName:"Surface Snow Thickness",
         stdName:"surface_snow_thickness",
         dimensions: dimensions,
