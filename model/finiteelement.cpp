@@ -5713,6 +5713,9 @@ FiniteElement::writeLogFile()
             else if (is_str)
             {
                 std::string temp = vm[it->first].as<std::string>();
+
+                logfile << temp <<"\n";
+#if 0
                 if (temp.size())
                 {
                     logfile << temp <<"\n";
@@ -5721,6 +5724,7 @@ FiniteElement::writeLogFile()
                 {
                     logfile << "true" <<"\n";
                 }
+#endif
             }
             else
             { // Assumes that the only remainder is vector<string>
