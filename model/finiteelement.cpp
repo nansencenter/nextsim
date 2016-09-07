@@ -5631,11 +5631,11 @@ FiniteElement::writeLogFile()
     {
         logfile << "#----------Info\n";
         logfile << std::setw(40) << std::left << "Build date "  << current_time_local() <<"\n";
-        logfile << std::setw(40) << std::left << "Git version "  << gitRevision() <<"\n";
+        logfile << std::setw(40) << std::left << "Git revision "  << gitRevision() <<"\n";
 
         logfile << "#----------Compilers\n";
-        logfile << std::setw(40) << std::left << "C "  << system("which gcc") <<"\n";
-        logfile << std::setw(40) << std::left << "C++ "  << system("which g++") <<"\n";
+        logfile << std::setw(40) << std::left << "C "  << system("which gcc") << " (version "<< system("gcc -dumpversion") << ")" <<"\n";
+        logfile << std::setw(40) << std::left << "C++ "  << system("which g++") << " (version "<< system("g++ -dumpversion") << ")" <<"\n";
 
         logfile << "#----------Environment variables\n";
         logfile << std::setw(40) << std::left << "NEXTSIMDIR "  << getEnv("NEXTSIMDIR") <<"\n";
