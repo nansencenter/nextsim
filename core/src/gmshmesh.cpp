@@ -492,6 +492,20 @@ GmshMesh::coordX() const
     return x;
 }
 
+std::vector<int>
+GmshMesh::id() const
+{
+    std::vector<int> id_tmp(M_num_nodes);
+    int cpt = 0;
+    for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
+    {
+        id_tmp[cpt] = it->id;
+        ++cpt;
+    }
+
+    return id_tmp;
+}
+
 std::vector<double>
 GmshMesh::coordY() const
 {

@@ -134,6 +134,7 @@ public:
     std::vector<int> indexTr() const;
     std::vector<double> coordX() const;
     std::vector<double> coordY() const;
+    std::vector<int> id() const;
 
     std::vector<double> coordX(double const& rotangle) const;
     std::vector<double> coordY(double const& rotangle) const;
