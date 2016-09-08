@@ -14,6 +14,9 @@
 
 namespace physical
 {
+/* Heat capacity of ice (for Winton model, excluding internal melt) [J/kg] */
+const double C = 2100;
+
 /* Minimum ice concentration allowed [0 1] */
 const double cmin = 0.001;
 
@@ -46,7 +49,7 @@ const double Lv0 = 2500.79e3;
 
 /* Proportionalty constant between salinity and freezing temperature of sea
  * water [C] */
-const double mu = -0.055;
+const double mu = 0.055;
 
 /* Gas constant for dry air [J/kg/K] */
 const double Ra = 286.9;

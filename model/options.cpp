@@ -39,6 +39,7 @@ namespace Nextsim
             ("setup.ocean-type", po::value<std::string>()->default_value( "constant" ), "")
             ("setup.ice-type", po::value<std::string>()->default_value( "constant" ), "")
             ("setup.bathymetry-type", po::value<std::string>()->default_value( "etopo" ), "")
+            ("setup.thermo-type", po::value<std::string>()->default_value( "zero-layer" ), "")
             ("setup.drifter-type", po::value<std::string>()->default_value( "none" ), "")
             ("setup.use_restart", po::value<bool>()->default_value( false ), "")
             ("setup.write_restart", po::value<bool>()->default_value( false ), "")

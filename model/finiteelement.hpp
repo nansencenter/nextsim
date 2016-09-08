@@ -111,8 +111,14 @@ public:
     void error();
 
     void thermo();
-    void thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols,
-            double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double tmp_Qlw_in, double tmp_snowfr);
+    void thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double snowfr,
+            double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf);
+    void thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double snowfr,
+            double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double &T1, double &T2);
+    double albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, double alb_ice, double I_0);
+    void atmFluxBulk(int i, double Tsurf, double sphuma, double drag_ice_t, double Qsw, double Qlw_in, double wspeed,
+            double &Qai, double &dQaidT, double &subl);
+    double iceOceanHeatflux(double sst, double tbot, double mld, double dt);
 
     Dataset M_asr_nodes_dataset;
     Dataset M_asr_elements_dataset;
@@ -206,6 +212,7 @@ private:
     setup::OceanType M_ocean_type;
     setup::IceType M_ice_type;
     setup::BathymetryType M_bathymetry_type;
+    setup::ThermoType M_thermo_type;
 
     setup::IceCategoryType M_ice_cat_type;
     setup::DrifterType M_drifter_type;
@@ -392,7 +399,8 @@ private:
     std::vector<double> M_sss;          // Sea-surface salinity [psu]
 
 	// Non-prognostic variables used to speed up the convergence of a non-linear equation in thermodynamics
-    std::vector<double> M_tsurf;        // Ice surface temperature [C]
+    // std::vector<double> M_tsurf;        // Ice surface temperature [C]
+    std::vector<std::vector<double>> M_tice;    // Ice temperature - 0 for surface and higher ordinals for layers in the ice
     std::vector<double> M_tsurf_thin;   // Ice surface temperature of thin ice [C]
 
 private:

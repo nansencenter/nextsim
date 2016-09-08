@@ -79,5 +79,11 @@ namespace setup
         FROM_SPLIT     = 1
     };
 
+    enum class ThermoType
+    {
+        ZERO_LAYER = 0,
+        WINTON     = 1
+    };
+
 } // setup
 } // Nextsim
