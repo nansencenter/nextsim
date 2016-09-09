@@ -3021,11 +3021,11 @@ FiniteElement::atmFluxBulk(int i, double Tsurf, double sphuma, double drag_ice_t
 
     /* Latent heat flux and derivative */
     double Qlh    = drag_ice_t*rhoair*(physical::Lf+physical::Lv0)*wspeed*( sphumi - sphuma );
-    double dQlhdT = drag_ice_t*(physical::Lf+physical::Lv0)*rhoair*wspeed*dsphumidT;
+    // double dQlhdT = drag_ice_t*(physical::Lf+physical::Lv0)*rhoair*wspeed*dsphumidT;
 
     /* Sum them up */
-    double Qout    = Qlw_out + Qsh + Qlh;
-    dQaidT = dQlwdT + dQshdT + dQlhdT;
+    double Qout    = Qlw_out + Qsh; // Latent heat is counted through sublimation + Qlh;
+    dQaidT = dQlwdT + dQshdT; // + dQlhdT;
 
     /* Sublimation */
     subl    = Qlh/(physical::Lf+physical::Lv0);
@@ -3134,14 +3134,14 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
     /* Don't do anything if there's no ice */
     if ( conc <=0. )
     {
-        hi      = 0.;
-        hs      = 0.;
-        hi_old  = 0.;
-        Qio     = 0.;
-        del_hi  = 0.;
-        Tsurf   = Tbot;
-        T1      = Tbot;
-        T2      = Tbot;
+        hi       = 0.;
+        hs       = 0.;
+        hi_old   = 0.;
+        Qio      = 0.;
+        del_hi   = 0.;
+        Tsurf    = Tbot;
+        T1       = Tbot;
+        T2       = Tbot;
     } else {
         /* Calculate the slab thickness */
         hi     = voli/conc;
@@ -3212,7 +3212,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         double Mbot  = Qio - 4*physical::ki*(Tbot-T2)/hi; // (23)
 
         // Growth/melt at the ice-ocean interface
-        if ( Mbot < 0. )
+        if ( Mbot <= 0. )
         {
             // Growth
             double Ebot  = Crho*(Tbot - Tfr_ice) - qi; // (25) - but I've multiplied with rhoi, because it's missing in the paper
@@ -3223,7 +3223,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
             // Melt
             double delh2 = -std::min(          -  Mbot*dt/E2,                        h2); // (31) - with added division with rhoi
             double delh1 = -std::min(std::max( -( Mbot*dt + E2*h2 )/E1,         0.), h1); // (32) - with added division with rhoi
-            double delhs = -std::min(std::max(  ( Mbot*dt + E2*h2 + E1*h1 )/qi, 0.), hs); // (32) - with added division with rhoi and rhos
+            double delhs = -std::min(std::max(  ( Mbot*dt + E2*h2 + E1*h1 )/qs, 0.), hs); // (32) - with added division with rhoi and rhos
 
             // If everyting melts we need to give back to the ocean
             Qio -= std::max(Mbot*dt - qs*hs + E1*h1 + E2*h2, 0.)/dt; // (34) - with added multiplication of rhoi and rhos and division with dt
@@ -3233,14 +3233,39 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
             h2 += delh2;
         }
 
-        // Melting and sublimation at the surface
-        Msurf += subl*physical::Lf;
-        double delhs = -std::min(             Msurf*dt/qs,                          hs); // (27) - with added division with rhos
-        double delh1 = -std::min(std::max( -( Msurf*dt - qs*hs )/E1,           0.), h1); // (28) - with added division with rhoi and rhos
-        double delh2 = -std::min(std::max( -( Msurf*dt - qs*hs + E1*h1 ) / E2, 0.), h2); // (29) - with added division with rhoi and rhos
+        // Sublimation at the surface
+        if ( subl*dt <= hs*physical::rhos)
+            hs -= subl*dt/physical::rhos;
+        else if ( subl*dt - hs*physical::rhos <= h1*physical::rhoi )
+        {
+            hs  = 0.;
+            h1 -= subl*dt - hs*physical::rhos;
+        }
+        else if ( subl*dt - h1*physical::rhoi - hs*physical::rhos <= h2*physical::rhoi )
+        {
+            hs  = 0.;
+            h1  = 0.;
+            h2 -= subl*dt - h1*physical::rhoi - hs*physical::rhos;
+        }
+        else
+        {
+            hs = 0.;
+            h1 = 0.;
+            h2 = 0.;
+            double ocn_evap_err = ( subl*dt - (h1+h2)*physical::rhoi - hs*physical::rhos )/physical::rhow;
+			LOG(WARNING) << "All the ice has sublimated. This shouldn't happen and will result in lack of evaporation from the ocean of " 
+                << ocn_evap_err*1e3 << " mm over the current time step, in element " << i << ".\n";
+        }
+
+
+        // Melting at the surface
+        assert(Msurf >= 0); // Sanity check
+        double delhs = -std::min(             Msurf*dt/qs,                          hs); // (27) - with division of rhos
+        double delh1 = -std::min(std::max( -( Msurf*dt - qs*hs )/E1,           0.), h1); // (28) - with division of rhoi and rhos
+        double delh2 = -std::min(std::max( -( Msurf*dt - qs*hs + E1*h1 ) / E2, 0.), h2); // (29) - with division of rhoi and rhos
 
         // If everyting melts we need to give back to the ocean
-        Qio -= std::max(Msurf*dt - qi*hs + E1*h1 + E2*h2, 0.)/dt; // (30) - with added multiplication of rhoi and rhos and division with dt
+        Qio -= std::max(Msurf*dt - qs*hs + E1*h1 + E2*h2, 0.)/dt; // (30) - with multiplication of rhoi and rhos and division with dt
 
         hs += delhs;
         h1 += delh1;
@@ -3264,17 +3289,17 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
 
         // Even out the layer structure and temperatures
         hi = h1 + h2;
-        if ( h2 > hi/2. )
+        if ( h2 > h1 )
         {
             // Lower layer ice is added to the upper layer
             // T1 changes, but T2 not
-            double f1   = (h2-hi/2)/(hi/2); // Fraction of layer 2 ice found in layer 1
+            double f1   = h1/hi*2.; // Fraction of layer 1 ice found in the new layer 1
             double Tbar = f1*( T1 + qi*Tfr_ice/(Crho*T1) ) + (1-f1)*T2; // (39)
             T1 = ( Tbar - std::sqrt(Tbar*Tbar - 4*Tfr_ice*qi/Crho) )/2.; // (38)
         } else {
             // Upper layer ice is added to the lower leyer
-            // T2 changes, but T2 not
-            double f1   = (h1-hi/2)/(hi/2); // Fraction of layer 1 ice found in layer 2
+            // T2 changes, but T1 not
+            double f1   = (2.*h1-hi)/hi; // Fraction of layer 1 ice found in new layer 2
             T2 = f1*( T1 + qi*Tfr_ice/(Crho*T1) ) + (1-f1)*T2; // (40)
 
             // Melt from top and bottom if T2 is too high
@@ -3291,14 +3316,14 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         /* Make sure we don't get too small hi_new */
         if ( hi < physical::hmin )
         {
-            del_hi  = del_hi-hi;
-            Qio     = Qio + hi*qi/dt + hs*qs/dt;
+            Qio   -= ( -qs*hs + (E1+E2)*hi/2. )/dt; // modified (30) - with multiplication of rhoi and rhos and division with dt
 
-            hi      = 0.;
-            hs      = 0.;
-            Tsurf   = Tbot;
-            T1      = Tbot;
-            T2      = Tbot;
+            del_hi = -hi_old;
+            hi     = 0.;
+            hs     = 0.;
+            Tsurf  = Tbot;
+            T1     = Tbot;
+            T2     = Tbot;
         }
     }
 }
@@ -3348,7 +3373,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         double Qlw_out, dQlwdT;
         double tairK, sphumi;
         double rhoair, Qsh, dQshdT;
-        double Qlh, dsphumidT, dQlhdT;
+        double Qlh, dsphumidT; //, dQlhdT;
 
         double fi, esti;
         double dsphumdesti, destidT, dfidT;
@@ -4712,13 +4737,31 @@ FiniteElement::initIce()
             throw std::logic_error("invalid initialization of the ice");
     }
 
-    // We need to initialise the ice temperature (especially for Winton)
+    // It's nice to initialise the ice temperature (especially for Winton)
     for ( int i=0; i<M_num_elements; i++ )
-        M_tice[0][i] = M_tair[i];
+        if ( M_snow_thick[i] > 0. )
+            M_tice[0][i] = std::min(0., M_tair[i]);
+        else
+            M_tice[0][i] = std::min(-physical::mu*M_sss[i], M_tair[i]);
 
-    for (int j=1; j<M_tice.size(); j++)
+    if ( M_thermo_type == setup::ThermoType::WINTON )
+    {
         for ( int i=0; i<M_num_elements; i++ )
-            M_tice[j][i] = -physical::mu*M_sss[i];
+        {
+            double Tbot  = -physical::mu*M_sss[i];
+            if ( M_thick[i] > 0. )
+            {
+                // Just a linear interpolation between bottom and snow-ice interface (i.e. a zero layer model)
+                double deltaT = (Tbot - M_tice[0][i] ) / ( 1. + physical::ki*M_snow_thick[i]/(physical::ks*M_thick[i]) );
+                double slope = -deltaT/M_thick[i];
+                M_tice[1][i] = Tbot + 3*slope*M_thick[i]/4;
+                M_tice[2][i] = Tbot +   slope*M_thick[i]/4;
+            } else {
+                M_tice[1][i] = Tbot;
+                M_tice[2][i] = Tbot;
+            }
+        }
+    }
 }
 
 void
