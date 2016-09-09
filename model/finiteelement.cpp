@@ -1449,7 +1449,7 @@ FiniteElement::regrid(bool step)
     M_ERAi_nodes_dataset.grid.loaded=false;
     M_ERAi_elements_dataset.grid.loaded=false;
 #endif
-    
+
     M_Cohesion.resize(M_num_elements);
     M_Compressive_strength.resize(M_num_elements);
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
@@ -3172,6 +3172,8 @@ void
 FiniteElement::run()
 {
     std::string current_time_system = current_time_local();
+
+    this->writeLogFile();
 
     int pcpt = this->init();
     int niter = vm["simul.maxiteration"].as<int>();
@@ -5564,6 +5566,189 @@ FiniteElement::wimToNextsim(bool step)
     std::cout<<"Finished wimToNextsim";
 }//wimToNextsim
 #endif
+
+std::string
+FiniteElement::gitRevision()
+{
+    //std::string command = "git rev-parse HEAD";
+    return this->system("git rev-parse HEAD");
+}
+
+std::string
+FiniteElement::system(std::string const& command)
+{
+    char buffer[128];
+    //std::string command = "git rev-parse HEAD";
+    std::string result = "";
+    std::shared_ptr<FILE> pipe(popen(command.c_str(), "r"), pclose);
+    if (!pipe)
+    {
+        throw std::runtime_error("popen() failed!");
+    }
+
+    while (!feof(pipe.get()))
+    {
+        if (fgets(buffer, 128, pipe.get()) != NULL)
+        {
+            // remove newline from the buffer
+            int len = strlen(buffer);
+            if( buffer[len-1] == '\n' )
+                buffer[len-1] = 0;
+
+            result += buffer;
+        }
+    }
+
+    // return the result of the command
+    return result;
+}
+
+std::string
+FiniteElement::getEnv(std::string const& envname)
+{
+    char* senv = ::getenv(envname.c_str());
+    return std::string(senv);
+}
+
+void
+FiniteElement::writeLogFile()
+{
+
+    std::string logfilename = "";
+    if ((vm["simul.logfile"].as<std::string>()).empty())
+    {
+        logfilename = "nextsim.log";
+    }
+    else
+    {
+        logfilename = vm["simul.logfile"].as<std::string>();
+    }
+
+    std::fstream logfile(logfilename, std::ios::out | std::ios::trunc);
+    std::cout << "Writing log file " << logfilename << "...\n";
+
+    if (logfile.is_open())
+    {
+        logfile << "#----------Info\n";
+        logfile << std::setw(40) << std::left << "Build date "  << current_time_local() <<"\n";
+        logfile << std::setw(40) << std::left << "Git revision "  << gitRevision() <<"\n";
+
+        logfile << "#----------Compilers\n";
+        logfile << std::setw(40) << std::left << "C "  << system("which gcc") << " (version "<< system("gcc -dumpversion") << ")" <<"\n";
+        logfile << std::setw(40) << std::left << "C++ "  << system("which g++") << " (version "<< system("g++ -dumpversion") << ")" <<"\n";
+
+        logfile << "#----------Environment variables\n";
+        logfile << std::setw(40) << std::left << "NEXTSIMDIR "  << getEnv("NEXTSIMDIR") <<"\n";
+        logfile << std::setw(40) << std::left << "SIMDATADIR "  << getEnv("SIMDATADIR") <<"\n";
+        logfile << std::setw(40) << std::left << "SIMFORECASTDIR "  << getEnv("SIMFORECASTDIR") <<"\n";
+        logfile << std::setw(40) << std::left << "PETSC_DIR "  << getEnv("PETSC_DIR") <<"\n";
+        logfile << std::setw(40) << std::left << "BOOST_DIR "  << getEnv("BOOST_DIR") <<"\n";
+        logfile << std::setw(40) << std::left << "GMSH_DIR "  << getEnv("GMSH_DIR") <<"\n";
+        logfile << std::setw(40) << std::left << "NETCDF_DIR "  << getEnv("NETCDF_DIR") <<"\n";
+        logfile << std::setw(40) << std::left << "OPENMPI_LIB_DIR "  << getEnv("OPENMPI_LIB_DIR") <<"\n";
+        logfile << std::setw(40) << std::left << "OPENMPI_INCLUDE_DIR "  << getEnv("OPENMPI_INCLUDE_DIR") <<"\n";
+
+        logfile << "#----------Program options\n";
+
+        for (po::variables_map::iterator it = vm.begin(); it != vm.end(); it++)
+        {
+            // ignore wim options if no coupling
+#if !defined (WAVES)
+            if ((it->first.find("nextwim.") != std::string::npos) || (it->first.find("wim.") != std::string::npos))
+            {
+                continue;
+            }
+#endif
+
+            logfile << std::setw(40) << std::left << it->first;
+
+#if 0
+            if (((boost::any)it->second.value()).empty())
+            {
+                std::cout << "(empty)";
+            }
+            if (vm[it->first].defaulted() || it->second.defaulted()) {
+                std::cout << "(default)";
+            }
+#endif
+
+            bool is_char;
+            try
+            {
+                boost::any_cast<const char *>(it->second.value());
+                is_char = true;
+            }
+            catch (const boost::bad_any_cast &)
+            {
+                is_char = false;
+            }
+
+            bool is_str;
+            try
+            {
+                boost::any_cast<std::string>(it->second.value());
+                is_str = true;
+            }
+            catch (const boost::bad_any_cast &)
+            {
+                is_str = false;
+            }
+
+            if (((boost::any)it->second.value()).type() == typeid(int))
+            {
+                logfile << vm[it->first].as<int>() <<"\n";
+            }
+            else if (((boost::any)it->second.value()).type() == typeid(bool))
+            {
+                logfile << vm[it->first].as<bool>() <<"\n";
+            }
+            else if (((boost::any)it->second.value()).type() == typeid(double))
+            {
+                logfile << vm[it->first].as<double>() <<"\n";
+            }
+            else if (is_char)
+            {
+                logfile << vm[it->first].as<const char * >() <<"\n";
+            }
+            else if (is_str)
+            {
+                std::string temp = vm[it->first].as<std::string>();
+
+                logfile << temp <<"\n";
+#if 0
+                if (temp.size())
+                {
+                    logfile << temp <<"\n";
+                }
+                else
+                {
+                    logfile << "true" <<"\n";
+                }
+#endif
+            }
+            else
+            { // Assumes that the only remainder is vector<string>
+                try
+                {
+                    std::vector<std::string> vect = vm[it->first].as<std::vector<std::string> >();
+                    uint i = 0;
+                    for (std::vector<std::string>::iterator oit=vect.begin(); oit != vect.end(); oit++, ++i)
+                    {
+                        //logfile << it->first << "[" << i << "]=" << (*oit) <<"\n";
+                        if (i > 0)
+                            logfile << std::setw(41) << std::right;
+
+                        logfile << "[" << i << "]=" << (*oit) <<"\n";
+                    }
+                }
+                catch (const boost::bad_any_cast &)
+                {
+                    std::cout << "UnknownType(" << ((boost::any)it->second.value()).type().name() << ")" <<"\n";
+                }
+            }
+        }
+    }
+}
 
 void
 FiniteElement::clear()

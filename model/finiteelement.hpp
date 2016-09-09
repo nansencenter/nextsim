@@ -63,9 +63,9 @@ public:
     typedef boost::shared_ptr<graph_type> graph_ptrtype;
 
     typedef ExternalData external_data;
-    
+
     typedef DataSet Dataset;
-    
+
     typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
 
 #if defined (WAVES)
@@ -171,6 +171,11 @@ public:
     void nextsimToWim(bool step);
     void wimToNextsim(bool step);
 #endif
+
+    std::string gitRevision();
+    std::string system(std::string const& command);
+    std::string getEnv(std::string const& envname);
+    void writeLogFile();
 
     void clear();
 
@@ -409,7 +414,7 @@ private:
     void amsreIce();
     void osisaf2Ice();
     void amsr2Ice();
-    
+
     void equallySpacedDrifter();
     void outputDrifter(std::fstream &iabp_out);
     void initIABPDrifter();
