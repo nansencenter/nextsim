@@ -3272,13 +3272,13 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         h2 += delh2;
 
         // Snow-to-ice conversion
-        double freeboard = hi*(physical::rhow-physical::rhoi) - hs*physical::rhos;
+        double freeboard = ( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
         if ( flooding && freeboard < 0)
         {
             // double delhs = -std::max( ( hs - (physical::rhow-physical::rhoi)*hi/physical::rhos )*physical::rhoi/physical::rhow, 0.); // (35)
-            hs += std::min( freeboard*physical::rhoi/(physical::rhow*physical::rhos), 0. );
+            hs += std::min( freeboard*physical::rhoi/physical::rhos, 0. );
             // double delh1 =  std::max( ( hs - (physical::rhow-physical::rhoi)*hi/physical::rhos )*physical::rhos/physical::rhow, 0.); // (36)
-            double delh1 = std::max( -freeboard/physical::rhow, 0. );
+            double delh1 = std::max( -freeboard, 0. );
 
             double f1   = delh1/(delh1+h1); // Fraction of snow-ice in the upper layer
             double Tbar = f1*( T1 + qi*Tfr_ice/(Crho*T1) ) + (1-f1)*Tfr_ice; // (39)
