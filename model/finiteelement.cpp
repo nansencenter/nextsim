@@ -3987,6 +3987,7 @@ FiniteElement::readRestart(int step)
     std::vector<int>   indexTr = field_map_int["Elements"];
     std::vector<double> coordX = field_map_dbl["Nodes_x"];
     std::vector<double> coordY = field_map_dbl["Nodes_y"];
+    std::vector<int>   nodeId = field_map_int["id"];
 
     // === Read in the prognostic variables ===
     // Start with the record
@@ -4036,6 +4037,8 @@ FiniteElement::readRestart(int step)
 
     // Import the bamg structs
     this->importBamg(bamgmesh);
+
+    M_mesh.set_id(nodeId);
 
     M_elements = M_mesh.triangles();
     M_nodes = M_mesh.nodes();
