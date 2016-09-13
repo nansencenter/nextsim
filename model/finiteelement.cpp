@@ -5715,9 +5715,33 @@ FiniteElement::writeLogFile()
     {
         logfilename = vm["simul.logfile"].as<std::string>();
     }
+    
+    std::string export_path;
 
-    std::fstream logfile(logfilename, std::ios::out | std::ios::trunc);
-    std::cout << "Writing log file " << logfilename << "...\n";
+    // change directory for outputs if the option "output_directory" is not empty
+    if ((vm["simul.output_directory"].as<std::string>()).empty())
+    {
+        export_path = Environment::nextsimDir().string() + "/matlab";
+    }
+    else
+    {
+        export_path = vm["simul.output_directory"].as<std::string>();
+
+        fs::path path(export_path);
+        // add a subdirecory if needed
+        // path /= "subdir";
+
+        // create the output directory if it does not exist
+        if ( !fs::exists(path) )
+            fs::create_directories(path);
+    }
+
+    std::string fileout = (boost::format( "%1%/%2%" )
+               % export_path
+               % logfilename ).str();
+
+    std::fstream logfile(fileout, std::ios::out | std::ios::trunc);
+    std::cout << "Writing log file " << fileout << "...\n";
 
     if (logfile.is_open())
     {
