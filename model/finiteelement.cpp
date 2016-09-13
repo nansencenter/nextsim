@@ -1486,8 +1486,53 @@ FiniteElement::adaptMesh()
     //Environment::logMemoryUsage("before adaptMesh");
     Bamgx(bamgmesh,bamggeom,bamgmesh_previous,bamggeom_previous,bamgopt_previous);
     //Environment::logMemoryUsage("after adaptMesh");
+    
+    // Save the old id_node before redefining it
+    std::vector<int> old_node_id=M_mesh.id();
+
+    // Import the mesh from bamg
     this->importBamg(bamgmesh);
 
+        // Recompute the node ids
+    if(bamgopt->KeepVertices)
+    {
+        std::vector<int> new_nodes_id=M_mesh.id();
+        
+        int Boundary_id=0;
+        int nb_new_nodes=0;
+        
+        // We mask out the boundary nodes
+        std::vector<bool> mask(bamgmesh->VerticesSize[0],false) ;
+        for (int vert=0; vert<bamgmesh->VerticesOnGeomVertexSize[0]; ++vert)
+            mask[bamgmesh->VerticesOnGeomVertex[2*vert]-1]=true; // The factor 2 is because VerticesOnGeomVertex has 2 dimensions in bamg
+        
+        // The new id will have values higher than the previous one
+        int first_new_node=*std::max_element(old_node_id.begin(),old_node_id.end())+1;
+    
+        for (int vert=0; vert<bamgmesh->VerticesSize[0]; ++vert)
+        {
+            if(mask[vert])
+            {
+                Boundary_id++;
+                new_nodes_id[vert]=Boundary_id;
+            }
+            else
+            {
+                if(bamgmesh->PreviousNumbering[vert]==0)
+                {
+                    nb_new_nodes++;
+                    new_nodes_id[vert]=first_new_node+nb_new_nodes-1;
+                }
+                else
+                {
+                    new_nodes_id[vert]=old_node_id[bamgmesh->PreviousNumbering[vert]-1]; 
+                }
+            }
+        }
+        M_mesh.set_id(new_nodes_id);
+    }
+    
+    
     // update dirichlet nodes
     M_boundary_flags.resize(0);
     M_dirichlet_flags.resize(0);
@@ -2358,6 +2403,7 @@ FiniteElement::update()
          */
         for(i=0;i<3;i++)
         {
+#if 1
             if(old_damage<1.0)
             {
                 M_sigma[3*cpt+i] = (1.-M_damage[cpt])/(1.-old_damage)*M_sigma[3*cpt+i] ;
@@ -2366,6 +2412,15 @@ FiniteElement::update()
             {
                 M_sigma[3*cpt+i] = 0. ;
             }
+#endif
+#if 0 
+            // test to boost the localization
+            if(M_damage[cpt]!=old_damage)
+            {
+                M_damage[cpt]=1.;
+                M_sigma[3*cpt+i] = 0. ;
+            }
+#endif
         }
 
 

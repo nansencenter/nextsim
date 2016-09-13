@@ -406,6 +406,18 @@ GmshMesh::move(std::vector<double> const& um, double factor)
 }
 
 void
+GmshMesh::set_id(std::vector<int> const& new_id)
+{
+    if ( new_id.size() != 0 )
+    {
+        ASSERT(M_nodes.size()==new_id.size(),"invalid size of new_id vector");
+
+        for (int i=0; i<M_nodes.size(); ++i)
+            M_nodes[i].id = new_id[i];
+    }
+}
+
+void
 GmshMesh::stereographicProjection()
 {
     // polar stereographic projection
