@@ -2757,7 +2757,7 @@ FiniteElement::thermo()
         			*( 1. + 0.275*M_tcc[i] );
         }
 
-        Qow = -M_Qsw_in[i]*(1.-ocean_albedo) - tmp_Qlw_in + Qlw_out + Qsh + Qlh;
+        Qow = -M_Qsw_in[i]*(1.-ocean_albedo) - tmp_Qlw_in + Qlw_out + Qsh; // Qlh is already counted in evap + Qlh;
 
         // -------------------------------------------------
         // 4) Thickness change of the ice slab (thermoIce0 in matlab)
@@ -2893,20 +2893,25 @@ FiniteElement::thermo()
                 Qow = Qow + del_c*hs*qs/time_step;
             } else {
                 /* Snow volume is conserved as concentration increases */
-                hs  = ( hs*(old_conc) + newsnow )/M_conc[i];
+                hs  = ( hs*old_conc + newsnow )/M_conc[i];
+            }
+
+            if ( M_thermo_type == setup::ThermoType::WINTON )
+            {
+                // Add newice evenly to both layers and recalculate temperature
+                double f1    = M_thick[i]/(M_thick[i]+newice); // Fraction of old ice (as opposed to newice) in the upper layer
+                double Tbar  = f1*( M_tice[1][i] - physical::Lf*physical::mu*physical::si/(physical::C*M_tice[1][i]) ) + (1-f1)*tfrw; // (39)
+                M_tice[1][i] = ( Tbar - std::sqrt(Tbar*Tbar + 4*physical::mu*physical::si*physical::Lf/physical::C) )/2.; // (38)
+                M_tice[2][i] = f1*M_tice[2][i] + (1-f1)*tfrw; // (26) slightly rewritten
             }
         }
 
         /* Check limits */
         if ( M_conc[i] < physical::cmin || hi < physical::hmin )
         {
-            //Qow    = Qow + (M_conc[i]-del_c)*hi*qi/time_step + (M_conc[i]-del_c)*hs*qs/time_step;
-            //SYL: is this commented line right??
-            // I think irt is wrong as we already modify Qow, I would do:
-            // Qow    = Qow + M_conc[i]*hi*qi/time_step + M_conc[i]*hs*qs/time_step;
-            // Extract heat from the ocean corresponding to the heat in all the
-            // ice and snow present at the start of the time step.
-            Qow    = Qow + old_conc*hi*qi/time_step + old_conc*hs*qs/time_step;
+            // Extract heat from the ocean corresponding to the heat in the
+            // remaining ice and snow
+            Qow    = Qow + M_conc[i]*hi*qi/time_step + M_conc[i]*hs*qs/time_step;
             M_conc[i]  = 0.;
             for (int j=0; j<M_tice.size(); j++)
                 M_tice[j][i] = tfrw;
@@ -3037,10 +3042,11 @@ FiniteElement::atmFluxBulk(int i, double Tsurf, double sphuma, double drag_ice_t
 // Ice-ocean heat flux
 // We can do better than this ... but it'll wait
 double
-FiniteElement::iceOceanHeatflux(double sst, double Tbot, double mld, double dt)
+FiniteElement::iceOceanHeatflux(double sst, double sss, double mld, double dt)
 {
     /* Use all excess heat to melt or grow ice. This is not
      * accurate, but will have to do for now! */
+    double const Tbot = -physical::mu*sss; // Temperature at ice base (bottom), also freezing point of sea-water
     return (sst-Tbot)*physical::rhow*physical::cpw*mld/dt;
 }
 
@@ -3126,7 +3132,6 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
 
     double const Tbot     = -physical::mu*M_sss[i]; // Temperature at ice base (bottom), also freezing point of sea-water
     double const Tfr_ice  = -physical::mu*physical::si; // Freezing point of ice
-    double const Tfr_surf = ( hs > 0 ) ? 0. : Tfr_ice; // Freezing point at surface (snow or ice)
 
     /* Local variables */
     double Qai, dQaidT, subl;
@@ -3147,6 +3152,8 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         hi     = voli/conc;
         hi_old = hi;
         hs     = vols/conc;
+
+        double const Tfr_surf = ( hs > 0 ) ? 0. : Tfr_ice; // Freezing point at surface (snow or ice)
 
         /*
          * Internal temperatures
@@ -3208,7 +3215,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         hs += M_precip[i]*snowfr/physical::rhos*dt;
 
         // Bottom melt/freezing
-        Qio    = FiniteElement::iceOceanHeatflux(M_sst[i], Tbot, M_mld[i], dt);
+        Qio    = FiniteElement::iceOceanHeatflux(M_sst[i], M_sss[i], M_mld[i], dt);
         double Mbot  = Qio - 4*physical::ki*(Tbot-T2)/hi; // (23)
 
         // Growth/melt at the ice-ocean interface
@@ -3239,13 +3246,13 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         else if ( subl*dt - hs*physical::rhos <= h1*physical::rhoi )
         {
             hs  = 0.;
-            h1 -= subl*dt - hs*physical::rhos;
+            h1 -= (subl*dt - hs*physical::rhos)/physical::rhoi;
         }
         else if ( subl*dt - h1*physical::rhoi - hs*physical::rhos <= h2*physical::rhoi )
         {
             hs  = 0.;
             h1  = 0.;
-            h2 -= subl*dt - h1*physical::rhoi - hs*physical::rhos;
+            h2 -= (subl*dt - h1*physical::rhoi - hs*physical::rhos)/physical::rhoi;
         }
         else
         {
@@ -3280,7 +3287,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
             // double delh1 =  std::max( ( hs - (physical::rhow-physical::rhoi)*hi/physical::rhos )*physical::rhos/physical::rhow, 0.); // (36)
             double delh1 = std::max( -freeboard, 0. );
 
-            double f1   = delh1/(delh1+h1); // Fraction of snow-ice in the upper layer
+            double f1   = 1-delh1/(delh1+h1); // Fraction of layer 1 ice in the new upper layer
             double Tbar = f1*( T1 + qi*Tfr_ice/(Crho*T1) ) + (1-f1)*Tfr_ice; // (39)
 
             T1 = ( Tbar - std::sqrt(Tbar*Tbar - 4*Tfr_ice*qi/Crho) )/2.; // (38)
@@ -3435,7 +3442,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         hs  = hs + del_hs + M_precip[i]*snowfr/physical::rhos*time_step;
 
         /* Heatflux from ocean */
-        Qio = FiniteElement::iceOceanHeatflux(M_sst[i], Tbot, M_mld[i], time_step);
+        Qio = FiniteElement::iceOceanHeatflux(M_sst[i], M_sss[i], M_mld[i], time_step);
         /* Bottom melt/growth */
         del_hb = (Qic-Qio)*time_step/qi;
 
