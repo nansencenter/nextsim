@@ -1334,34 +1334,40 @@ FiniteElement::regrid(bool step)
 
                 // Interpolate the velocity and concentration onto the drifter positions
                 nb_var=2;
-                std::vector<double> interp_drifter_in(nb_var*prv_num_nodes);
-                double* interp_drifter_out;
-                double* interp_drifter_c_out;
-
-                for (int i=0; i<prv_num_nodes; ++i)
-                {
-                    interp_drifter_in[nb_var*i]   = M_UM[i];
-                    interp_drifter_in[nb_var*i+1] = M_UM[i+prv_num_nodes];
-                }
+                std::vector<double> interp_drifter_in(nb_var*M_mesh.numNodes());
 
                 // Interpolate the velocity
-                InterpFromMeshToMesh2dx(&interp_drifter_out,
-                                        &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
-                                        M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-                                        &interp_drifter_in[0],
-                                        M_mesh_previous.numNodes(),nb_var,
-                                        &drifter_X[0],&drifter_Y[0],M_drifter.size(),
-                                        false);
+                for (int i=0; i<M_mesh.numNodes(); ++i)
+                {
+                    interp_drifter_in[nb_var*i]   = M_UM[i];
+                    interp_drifter_in[nb_var*i+1] = M_UM[i+M_mesh.numNodes()];
+                }
 
-                // Interpolate the concentration - take advantage of the fact that interp_elt_in already exists
-                // and the first set of numbers are the concentration
-                InterpFromMeshToMesh2dx(&interp_drifter_c_out,
-                                        &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
-                                        M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-                                        &interp_elt_in[0],
-                                        M_mesh_previous.numTriangles(),1,
+                double* interp_drifter_out;
+                InterpFromMeshToMesh2dx(&interp_drifter_out,
+                                        &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
+                                        M_mesh.numNodes(),M_mesh.numTriangles(),
+                                        &interp_drifter_in[0],
+                                        M_mesh.numNodes(),nb_var,
                                         &drifter_X[0],&drifter_Y[0],M_drifter.size(),
-                                        false);
+                                        true, 0.);
+
+
+                // Interpolate the concentration - re-use interp_drifter_in
+                interp_drifter_in.resize(M_mesh.numTriangles());
+                for (int i=0; i<M_mesh.numTriangles(); ++i)
+                {
+                    interp_drifter_in[i]   = M_conc[i];
+                }
+
+                double* interp_drifter_c_out;
+                InterpFromMeshToMesh2dx(&interp_drifter_c_out,
+                                        &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
+                                        M_mesh.numNodes(),M_mesh.numTriangles(),
+                                        &interp_drifter_in[0],
+                                        M_mesh.numTriangles(),1,
+                                        &drifter_X[0],&drifter_Y[0],M_drifter.size(),
+                                        true, 0.);
 
                 // Rebuild the M_drifter map
                 double clim = vm["simul.drift_limit_concentration"].as<double>();
@@ -3717,6 +3723,8 @@ FiniteElement::initMoorings()
     // Output variables - nodes
     GridOutput::Variable siu={
         name:"siu",
+        // longName:"Eastward Sea Ice Velocity",
+        // stdName:"eastward_sea_ice_velocity",
         longName:"Sea Ice X Velocity",
         stdName:"sea_ice_x_velocity",
         dimensions: dimensions,
@@ -3728,6 +3736,8 @@ FiniteElement::initMoorings()
 
     GridOutput::Variable siv={
         name:"siv",
+        // longName:"Northward Sea Ice Velocity",
+        // stdName:"northward_sea_ice_velocity",
         longName:"Sea Ice Y Velocity",
         stdName:"sea_ice_y_velocity",
         dimensions: dimensions,
@@ -3748,6 +3758,7 @@ FiniteElement::initMoorings()
 
     DataSet::Vectorial_Variable siuv{
         components_Id: siuv_id,
+        // east_west_oriented: true
         east_west_oriented: false
     };
 
@@ -4920,25 +4931,25 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
         ++j;
     }
 
-    // Interpolate the velocity onto the drifter positions
+    // Interpolate the velocity and concentration onto the drifter positions
     int nb_var=2;
     std::vector<double> interp_drifter_in(nb_var*M_mesh.numNodes());
-    double* interp_drifter_out;
 
+    // Interpolate the velocity
     for (int i=0; i<M_mesh.numNodes(); ++i)
     {
         interp_drifter_in[nb_var*i]   = M_UM[i];
         interp_drifter_in[nb_var*i+1] = M_UM[i+M_mesh.numNodes()];
     }
 
-    // Interpolate the velocity
+    double* interp_drifter_out;
     InterpFromMeshToMesh2dx(&interp_drifter_out,
         &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
         M_mesh.numNodes(),M_mesh.numTriangles(),
         &interp_drifter_in[0],
         M_mesh.numNodes(),nb_var,
         &drifter_X[0],&drifter_Y[0],M_drifter.size(),
-        false);
+        true, 0.);
 
     // Loop over the map and output
     j=0;
