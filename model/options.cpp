@@ -55,6 +55,7 @@ namespace Nextsim
             ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "")
             ("simul.output_per_day", po::value<int>()->default_value( 24 ), "")
             ("simul.output_directory", po::value<std::string>()->default_value( "" ), "")
+            ("simul.logfile", po::value<std::string>()->default_value( "" ), "")
             ("simul.diagnostics_frequency", po::value<int>()->default_value( 1 ), "")
             ("simul.save_forcing_field", po::value<bool>()->default_value( false ), "")
             ("simul.forecast", po::value<bool>()->default_value( false ), "")

@@ -182,8 +182,7 @@ FiniteElement::initVariables()
     M_VT.resize(2*M_num_nodes,0.);
     M_VTM.resize(2*M_num_nodes,0.);
     M_VTMM.resize(2*M_num_nodes,0.);
-    M_vector_reduction.resize(2*M_num_nodes,0.);
-    M_valid_conc.resize(2*M_num_nodes,false);
+    M_node_max_conc.resize(2*M_num_nodes,0.);
 
     M_sst.resize(M_num_elements);
     M_sss.resize(M_num_elements);
@@ -1371,34 +1370,40 @@ FiniteElement::regrid(bool step)
 
                 // Interpolate the velocity and concentration onto the drifter positions
                 nb_var=2;
-                std::vector<double> interp_drifter_in(nb_var*prv_num_nodes);
-                double* interp_drifter_out;
-                double* interp_drifter_c_out;
-
-                for (int i=0; i<prv_num_nodes; ++i)
-                {
-                    interp_drifter_in[nb_var*i]   = M_UM[i];
-                    interp_drifter_in[nb_var*i+1] = M_UM[i+prv_num_nodes];
-                }
+                std::vector<double> interp_drifter_in(nb_var*M_mesh.numNodes());
 
                 // Interpolate the velocity
-                InterpFromMeshToMesh2dx(&interp_drifter_out,
-                                        &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
-                                        M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-                                        &interp_drifter_in[0],
-                                        M_mesh_previous.numNodes(),nb_var,
-                                        &drifter_X[0],&drifter_Y[0],M_drifter.size(),
-                                        false);
+                for (int i=0; i<M_mesh.numNodes(); ++i)
+                {
+                    interp_drifter_in[nb_var*i]   = M_UM[i];
+                    interp_drifter_in[nb_var*i+1] = M_UM[i+M_mesh.numNodes()];
+                }
 
-                // Interpolate the concentration - take advantage of the fact that interp_elt_in already exists
-                // and the first set of numbers are the concentration
-                InterpFromMeshToMesh2dx(&interp_drifter_c_out,
-                                        &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
-                                        M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-                                        &interp_elt_in[0],
-                                        M_mesh_previous.numTriangles(),1,
+                double* interp_drifter_out;
+                InterpFromMeshToMesh2dx(&interp_drifter_out,
+                                        &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
+                                        M_mesh.numNodes(),M_mesh.numTriangles(),
+                                        &interp_drifter_in[0],
+                                        M_mesh.numNodes(),nb_var,
                                         &drifter_X[0],&drifter_Y[0],M_drifter.size(),
-                                        false);
+                                        true, 0.);
+
+
+                // Interpolate the concentration - re-use interp_drifter_in
+                interp_drifter_in.resize(M_mesh.numTriangles());
+                for (int i=0; i<M_mesh.numTriangles(); ++i)
+                {
+                    interp_drifter_in[i]   = M_conc[i];
+                }
+
+                double* interp_drifter_c_out;
+                InterpFromMeshToMesh2dx(&interp_drifter_c_out,
+                                        &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
+                                        M_mesh.numNodes(),M_mesh.numTriangles(),
+                                        &interp_drifter_in[0],
+                                        M_mesh.numTriangles(),1,
+                                        &drifter_X[0],&drifter_Y[0],M_drifter.size(),
+                                        true, 0.);
 
                 // Rebuild the M_drifter map
                 double clim = vm["simul.drift_limit_concentration"].as<double>();
@@ -1440,8 +1445,7 @@ FiniteElement::regrid(bool step)
         M_solution->resize(2*M_num_nodes);
         M_reuse_prec = false;
 
-        M_vector_reduction.resize(2*M_num_nodes,0.);
-        M_valid_conc.resize(2*M_num_nodes,false);
+        M_node_max_conc.resize(2*M_num_nodes,0.);
 
         M_fcor.resize(M_num_elements);
     }
@@ -1485,7 +1489,7 @@ FiniteElement::regrid(bool step)
     M_ERAi_nodes_dataset.grid.loaded=false;
     M_ERAi_elements_dataset.grid.loaded=false;
 #endif
-    
+
     M_Cohesion.resize(M_num_elements);
     M_Compressive_strength.resize(M_num_elements);
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
@@ -1522,8 +1526,53 @@ FiniteElement::adaptMesh()
     //Environment::logMemoryUsage("before adaptMesh");
     Bamgx(bamgmesh,bamggeom,bamgmesh_previous,bamggeom_previous,bamgopt_previous);
     //Environment::logMemoryUsage("after adaptMesh");
+    
+    // Save the old id_node before redefining it
+    std::vector<int> old_node_id=M_mesh.id();
+
+    // Import the mesh from bamg
     this->importBamg(bamgmesh);
 
+        // Recompute the node ids
+    if(bamgopt->KeepVertices)
+    {
+        std::vector<int> new_nodes_id=M_mesh.id();
+        
+        int Boundary_id=0;
+        int nb_new_nodes=0;
+        
+        // We mask out the boundary nodes
+        std::vector<bool> mask(bamgmesh->VerticesSize[0],false) ;
+        for (int vert=0; vert<bamgmesh->VerticesOnGeomVertexSize[0]; ++vert)
+            mask[bamgmesh->VerticesOnGeomVertex[2*vert]-1]=true; // The factor 2 is because VerticesOnGeomVertex has 2 dimensions in bamg
+        
+        // The new id will have values higher than the previous one
+        int first_new_node=*std::max_element(old_node_id.begin(),old_node_id.end())+1;
+    
+        for (int vert=0; vert<bamgmesh->VerticesSize[0]; ++vert)
+        {
+            if(mask[vert])
+            {
+                Boundary_id++;
+                new_nodes_id[vert]=Boundary_id;
+            }
+            else
+            {
+                if(bamgmesh->PreviousNumbering[vert]==0)
+                {
+                    nb_new_nodes++;
+                    new_nodes_id[vert]=first_new_node+nb_new_nodes-1;
+                }
+                else
+                {
+                    new_nodes_id[vert]=old_node_id[bamgmesh->PreviousNumbering[vert]-1]; 
+                }
+            }
+        }
+        M_mesh.set_id(new_nodes_id);
+    }
+    
+    
     // update dirichlet nodes
     M_boundary_flags.resize(0);
     M_dirichlet_flags.resize(0);
@@ -1591,6 +1640,8 @@ FiniteElement::assemble(int pcpt)
     std::vector<int> rhsindices(2*M_num_nodes);
     std::iota(rhsindices.begin(), rhsindices.end(), 0);
     std::vector<double> rhsdata(2*M_num_nodes, 0.);
+
+	M_node_max_conc.assign(2*M_num_nodes,0.);
 
 #if 1
     std::vector<double> lhsdata(M_graph.ja().size(), 0.);
@@ -1888,11 +1939,8 @@ FiniteElement::assemble(int pcpt)
 #endif
         }
 
-        if((M_conc[cpt]>0.))
-        {
-            for (int const& idn : rcindices)
-                M_valid_conc[idn] = true;
-        }
+        for (int const& idn : rcindices)
+            M_node_max_conc[idn] = ((M_conc[cpt]>M_node_max_conc[idn])?(M_conc[cpt] ):(M_node_max_conc[idn])) ;
 
 #if 0
 #pragma omp critical(updatematrix)
@@ -1950,7 +1998,7 @@ FiniteElement::assemble(int pcpt)
     // extended dirichlet nodes (add nodes where M_conc <= 0)
     for (int i=0; i<2*M_num_nodes; ++i)
     {
-        if(!M_valid_conc[i])
+        if(M_node_max_conc[i]<=0.)
         {
             extended_dirichlet_nodes.push_back(i);
         }
@@ -1974,6 +2022,41 @@ FiniteElement::assemble(int pcpt)
 
     //M_matrix->printMatlab("stiffness.m");
     //M_vector->printMatlab("rhs.m");
+}
+
+void
+FiniteElement::node_max_conc()
+{    
+    int thread_id;
+    int total_threads;
+    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
+
+    //std::cout<<"MAX THREADS= "<< max_threads <<"\n";
+
+	M_node_max_conc.assign(2*M_num_nodes,0.);
+
+#pragma omp parallel for num_threads(max_threads) private(thread_id)
+    for (int cpt=0; cpt < M_num_elements; ++cpt)
+    {
+        std::vector<int> rcindices(6);
+
+        int index_u, index_v;
+
+        for(int j=0; j<3; j++)
+        {
+            /* Column corresponding to indice j (we also assemble terms in col+1) */
+            //col = (mwIndex)it[2*j]-1; /* -1 to use the indice convention of C */
+
+            index_u = (M_elements[cpt]).indices[j]-1;
+            index_v = (M_elements[cpt]).indices[j]-1+M_num_nodes;
+
+            rcindices[2*j] = index_u;
+            rcindices[2*j+1] = index_v;
+        }
+
+        for (int const& idn : rcindices)
+            M_node_max_conc[idn] = ((M_conc[cpt]>M_node_max_conc[idn])?(M_conc[cpt] ):(M_node_max_conc[idn])) ;
+    }
 }
 
 void
@@ -2394,6 +2477,7 @@ FiniteElement::update()
          */
         for(i=0;i<3;i++)
         {
+#if 1
             if(old_damage<1.0)
             {
                 M_sigma[3*cpt+i] = (1.-M_damage[cpt])/(1.-old_damage)*M_sigma[3*cpt+i] ;
@@ -2402,6 +2486,15 @@ FiniteElement::update()
             {
                 M_sigma[3*cpt+i] = 0. ;
             }
+#endif
+#if 0 
+            // test to boost the localization
+            if(M_damage[cpt]!=old_damage)
+            {
+                M_damage[cpt]=1.;
+                M_sigma[3*cpt+i] = 0. ;
+            }
+#endif
         }
 
 
@@ -3478,6 +3571,8 @@ FiniteElement::run()
 {
     std::string current_time_system = current_time_local();
 
+    this->writeLogFile();
+
     int pcpt = this->init();
     int niter = vm["simul.maxiteration"].as<int>();
 
@@ -3732,6 +3827,7 @@ FiniteElement::step(int &pcpt)
 #if 1
     if (pcpt == 0)
     {
+        node_max_conc(); // needed for post-processing, recomputed in assemble() for the other steps
         chrono.restart();
         LOG(DEBUG) <<"first export starts\n";
         this->exportResults(0);
@@ -3932,6 +4028,8 @@ FiniteElement::initMoorings()
     // Output variables - nodes
     GridOutput::Variable siu={
         name:"siu",
+        // longName:"Eastward Sea Ice Velocity",
+        // stdName:"eastward_sea_ice_velocity",
         longName:"Sea Ice X Velocity",
         stdName:"sea_ice_x_velocity",
         dimensions: dimensions,
@@ -3943,6 +4041,8 @@ FiniteElement::initMoorings()
 
     GridOutput::Variable siv={
         name:"siv",
+        // longName:"Northward Sea Ice Velocity",
+        // stdName:"northward_sea_ice_velocity",
         longName:"Sea Ice Y Velocity",
         stdName:"sea_ice_y_velocity",
         dimensions: dimensions,
@@ -3963,6 +4063,7 @@ FiniteElement::initMoorings()
 
     DataSet::Vectorial_Variable siuv{
         components_Id: siuv_id,
+        // east_west_oriented: true
         east_west_oriented: false
     };
 
@@ -4240,6 +4341,7 @@ FiniteElement::readRestart(int step)
     std::vector<int>   indexTr = field_map_int["Elements"];
     std::vector<double> coordX = field_map_dbl["Nodes_x"];
     std::vector<double> coordY = field_map_dbl["Nodes_y"];
+    std::vector<int>   nodeId = field_map_int["id"];
 
     // === Read in the prognostic variables ===
     // Start with the record
@@ -4289,6 +4391,8 @@ FiniteElement::readRestart(int step)
 
     // Import the bamg structs
     this->importBamg(bamgmesh);
+
+    M_mesh.set_id(nodeId);
 
     M_elements = M_mesh.triangles();
     M_nodes = M_mesh.nodes();
@@ -5168,25 +5272,25 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
         ++j;
     }
 
-    // Interpolate the velocity onto the drifter positions
+    // Interpolate the velocity and concentration onto the drifter positions
     int nb_var=2;
     std::vector<double> interp_drifter_in(nb_var*M_mesh.numNodes());
-    double* interp_drifter_out;
 
+    // Interpolate the velocity
     for (int i=0; i<M_mesh.numNodes(); ++i)
     {
         interp_drifter_in[nb_var*i]   = M_UM[i];
         interp_drifter_in[nb_var*i+1] = M_UM[i+M_mesh.numNodes()];
     }
 
-    // Interpolate the velocity
+    double* interp_drifter_out;
     InterpFromMeshToMesh2dx(&interp_drifter_out,
         &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
         M_mesh.numNodes(),M_mesh.numTriangles(),
         &interp_drifter_in[0],
         M_mesh.numNodes(),nb_var,
         &drifter_X[0],&drifter_Y[0],M_drifter.size(),
-        false);
+        true, 0.);
 
     // Loop over the map and output
     j=0;
@@ -5564,6 +5668,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
     std::vector<double> timevec(1);
     timevec[0] = current_time;
     exporter.writeField(outbin, timevec, "Time");
+    exporter.writeField(outbin, M_node_max_conc, "M_node_max_conc");
     exporter.writeField(outbin, M_VT, "M_VT");
     exporter.writeField(outbin, M_conc, "Concentration");
     exporter.writeField(outbin, M_thick, "Thickness");
@@ -5910,6 +6015,213 @@ FiniteElement::wimToNextsim(bool step)
     std::cout<<"Finished wimToNextsim";
 }//wimToNextsim
 #endif
+
+std::string
+FiniteElement::gitRevision()
+{
+    //std::string command = "git rev-parse HEAD";
+    return this->system("git rev-parse HEAD");
+}
+
+std::string
+FiniteElement::system(std::string const& command)
+{
+    char buffer[128];
+    //std::string command = "git rev-parse HEAD";
+    std::string result = "";
+    std::shared_ptr<FILE> pipe(popen(command.c_str(), "r"), pclose);
+    if (!pipe)
+    {
+        throw std::runtime_error("popen() failed!");
+    }
+
+    while (!feof(pipe.get()))
+    {
+        if (fgets(buffer, 128, pipe.get()) != NULL)
+        {
+            // remove newline from the buffer
+            int len = strlen(buffer);
+            if( buffer[len-1] == '\n' )
+                buffer[len-1] = 0;
+
+            result += buffer;
+        }
+    }
+
+    // return the result of the command
+    return result;
+}
+
+std::string
+FiniteElement::getEnv(std::string const& envname)
+{
+    char* senv = ::getenv(envname.c_str());
+    return std::string(senv);
+}
+
+void
+FiniteElement::writeLogFile()
+{
+
+    std::string logfilename = "";
+    if ((vm["simul.logfile"].as<std::string>()).empty())
+    {
+        logfilename = "nextsim.log";
+    }
+    else
+    {
+        logfilename = vm["simul.logfile"].as<std::string>();
+    }
+    
+    std::string export_path;
+
+    // change directory for outputs if the option "output_directory" is not empty
+    if ((vm["simul.output_directory"].as<std::string>()).empty())
+    {
+        export_path = Environment::nextsimDir().string() + "/matlab";
+    }
+    else
+    {
+        export_path = vm["simul.output_directory"].as<std::string>();
+
+        fs::path path(export_path);
+        // add a subdirecory if needed
+        // path /= "subdir";
+
+        // create the output directory if it does not exist
+        if ( !fs::exists(path) )
+            fs::create_directories(path);
+    }
+
+    std::string fileout = (boost::format( "%1%/%2%" )
+               % export_path
+               % logfilename ).str();
+
+    std::fstream logfile(fileout, std::ios::out | std::ios::trunc);
+    std::cout << "Writing log file " << fileout << "...\n";
+
+    if (logfile.is_open())
+    {
+        logfile << "#----------Info\n";
+        logfile << std::setw(40) << std::left << "Build date "  << current_time_local() <<"\n";
+        logfile << std::setw(40) << std::left << "Git revision "  << gitRevision() <<"\n";
+
+        logfile << "#----------Compilers\n";
+        logfile << std::setw(40) << std::left << "C "  << system("which gcc") << " (version "<< system("gcc -dumpversion") << ")" <<"\n";
+        logfile << std::setw(40) << std::left << "C++ "  << system("which g++") << " (version "<< system("g++ -dumpversion") << ")" <<"\n";
+
+        logfile << "#----------Environment variables\n";
+        logfile << std::setw(40) << std::left << "NEXTSIMDIR "  << getEnv("NEXTSIMDIR") <<"\n";
+        logfile << std::setw(40) << std::left << "SIMDATADIR "  << getEnv("SIMDATADIR") <<"\n";
+        logfile << std::setw(40) << std::left << "SIMFORECASTDIR "  << getEnv("SIMFORECASTDIR") <<"\n";
+        logfile << std::setw(40) << std::left << "PETSC_DIR "  << getEnv("PETSC_DIR") <<"\n";
+        logfile << std::setw(40) << std::left << "BOOST_DIR "  << getEnv("BOOST_DIR") <<"\n";
+        logfile << std::setw(40) << std::left << "GMSH_DIR "  << getEnv("GMSH_DIR") <<"\n";
+        logfile << std::setw(40) << std::left << "NETCDF_DIR "  << getEnv("NETCDF_DIR") <<"\n";
+        logfile << std::setw(40) << std::left << "OPENMPI_LIB_DIR "  << getEnv("OPENMPI_LIB_DIR") <<"\n";
+        logfile << std::setw(40) << std::left << "OPENMPI_INCLUDE_DIR "  << getEnv("OPENMPI_INCLUDE_DIR") <<"\n";
+
+        logfile << "#----------Program options\n";
+
+        for (po::variables_map::iterator it = vm.begin(); it != vm.end(); it++)
+        {
+            // ignore wim options if no coupling
+#if !defined (WAVES)
+            if ((it->first.find("nextwim.") != std::string::npos) || (it->first.find("wim.") != std::string::npos))
+            {
+                continue;
+            }
+#endif
+
+            logfile << std::setw(40) << std::left << it->first;
+
+#if 0
+            if (((boost::any)it->second.value()).empty())
+            {
+                std::cout << "(empty)";
+            }
+            if (vm[it->first].defaulted() || it->second.defaulted()) {
+                std::cout << "(default)";
+            }
+#endif
+
+            bool is_char;
+            try
+            {
+                boost::any_cast<const char *>(it->second.value());
+                is_char = true;
+            }
+            catch (const boost::bad_any_cast &)
+            {
+                is_char = false;
+            }
+
+            bool is_str;
+            try
+            {
+                boost::any_cast<std::string>(it->second.value());
+                is_str = true;
+            }
+            catch (const boost::bad_any_cast &)
+            {
+                is_str = false;
+            }
+
+            if (((boost::any)it->second.value()).type() == typeid(int))
+            {
+                logfile << vm[it->first].as<int>() <<"\n";
+            }
+            else if (((boost::any)it->second.value()).type() == typeid(bool))
+            {
+                logfile << vm[it->first].as<bool>() <<"\n";
+            }
+            else if (((boost::any)it->second.value()).type() == typeid(double))
+            {
+                logfile << vm[it->first].as<double>() <<"\n";
+            }
+            else if (is_char)
+            {
+                logfile << vm[it->first].as<const char * >() <<"\n";
+            }
+            else if (is_str)
+            {
+                std::string temp = vm[it->first].as<std::string>();
+
+                logfile << temp <<"\n";
+#if 0
+                if (temp.size())
+                {
+                    logfile << temp <<"\n";
+                }
+                else
+                {
+                    logfile << "true" <<"\n";
+                }
+#endif
+            }
+            else
+            { // Assumes that the only remainder is vector<string>
+                try
+                {
+                    std::vector<std::string> vect = vm[it->first].as<std::vector<std::string> >();
+                    uint i = 0;
+                    for (std::vector<std::string>::iterator oit=vect.begin(); oit != vect.end(); oit++, ++i)
+                    {
+                        //logfile << it->first << "[" << i << "]=" << (*oit) <<"\n";
+                        if (i > 0)
+                            logfile << std::setw(41) << std::right;
+
+                        logfile << "[" << i << "]=" << (*oit) <<"\n";
+                    }
+                }
+                catch (const boost::bad_any_cast &)
+                {
+                    std::cout << "UnknownType(" << ((boost::any)it->second.value()).type().name() << ")" <<"\n";
+                }
+            }
+        }
+    }
+}
 
 void
 FiniteElement::clear()

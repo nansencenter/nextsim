@@ -63,9 +63,9 @@ public:
     typedef boost::shared_ptr<graph_type> graph_ptrtype;
 
     typedef ExternalData external_data;
-    
+
     typedef DataSet Dataset;
-    
+
     typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
 
 #if defined (WAVES)
@@ -103,6 +103,7 @@ public:
     void adaptMesh();
 
     void assemble(int cpt);
+    void node_max_conc();
     void solve();
     void run();
     int init();
@@ -178,6 +179,11 @@ public:
     void wimToNextsim(bool step);
 #endif
 
+    std::string gitRevision();
+    std::string system(std::string const& command);
+    std::string getEnv(std::string const& envname);
+    void writeLogFile();
+
     void clear();
 
 private:
@@ -225,18 +231,14 @@ private:
 
     int M_flag_fix;
 
-    std::vector<double> M_vector_reduction;
-    std::vector<bool> M_valid_conc;
-
-
     std::vector<double> M_surface;
     std::vector<double> M_sigma;
     std::vector<double> M_divergence_rate;
-    //std::vector<double> M_UT;
     std::vector<double> M_UM;
     std::vector<double> M_VT;
     std::vector<double> M_VTM;
     std::vector<double> M_VTMM;
+    std::vector<double> M_node_max_conc;
 
     std::vector<double> M_bathy_depth;
 
@@ -417,7 +419,7 @@ private:
     void amsreIce();
     void osisaf2Ice();
     void amsr2Ice();
-    
+
     void equallySpacedDrifter();
     void outputDrifter(std::fstream &iabp_out);
     void initIABPDrifter();

@@ -1,4 +1,4 @@
-function plot_nextsim_c(field,step,domain,region_of_zoom,is_sequential,dir)
+function plot_nextsim_c(field,step,domain,region_of_zoom,is_sequential,dir,save_figure)
 
 % clearvars -except step;
 %field='Velocity';
@@ -23,10 +23,11 @@ plot_coastlines     = 0;            % When 1 the actual domain baoundaries are p
 plot_date           = 1;            % 0 by default, 1 if we want to display the date on the figure
 font_size           = 14;           % Sets font size of colorbar and date
 background_color    = [0.85 0.85 0.85];% white color [1 1 1] by default. A substitute could be gray [0.5 0.5 0.5]
-save_figure         = 0;            % 0 (default) we do not save the figure
 figure_format       = 'png';        % can be pdf, tiff, png or jpeg
 pic_quality         = '-r300';      % Resolution for eps, pdf, tiff, and png
 visible             = 1;            % we display the figure on the screen (may be set to 0 when generating a large amount of figures)
+
+if nargin<7, save_figure = 0; end;     % 0 (default) we do not save the figure
 
 for p=0:0
 
