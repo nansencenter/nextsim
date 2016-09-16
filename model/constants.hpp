@@ -14,7 +14,7 @@
 
 namespace physical
 {
-/* Heat capacity of ice (for Winton model, excluding internal melt) [J/kg] */
+/* Heat capacity of ice (for Winton model, excluding internal melt) [J/K/kg] */
 const double C = 2100;
 
 /* Minimum ice concentration allowed [0 1] */

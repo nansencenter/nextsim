@@ -1035,9 +1035,9 @@ FiniteElement::regrid(bool step)
                 tmp_nb_var++;
                 if ( M_thermo_type == setup::ThermoType::WINTON )
                 {
-                    interp_elt_in[nb_var*i+tmp_nb_var] = ( M_tice[1][i] - physical::mu*physical::si*physical::Lf/(physical::C*M_tice[1][i]) ) * M_thick[i];
+                    interp_elt_in[nb_var*i+tmp_nb_var] = ( M_tice[1][i] - physical::mu*physical::si*physical::Lf/(physical::C*M_tice[1][i]) ) * M_thick[i]; // (39) times volume with f1=1
                     tmp_nb_var++;
-                    interp_elt_in[nb_var*i+tmp_nb_var] = ( M_tice[2][i] ) * M_thick[i];
+                    interp_elt_in[nb_var*i+tmp_nb_var] = ( M_tice[2][i] ) * M_thick[i]; // (39) times volume with f1=0
                     tmp_nb_var++;
                 }
 
@@ -1196,9 +1196,9 @@ FiniteElement::regrid(bool step)
                 if ( M_thermo_type == setup::ThermoType::WINTON )
                 {
                     double tmp = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
-                    M_tice[1][i] = 0.5*( tmp - std::sqrt(tmp*tmp + 4*physical::mu*physical::si*physical::Lf/physical::C) );
+                    M_tice[1][i] = 0.5*( tmp - std::sqrt(tmp*tmp + 4*physical::mu*physical::si*physical::Lf/physical::C) ); // (38) divided with volume with f1=1
                     tmp_nb_var++;
-                    M_tice[2][i] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
+                    M_tice[2][i] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i]; // (40) divided with volume with f1=0
                     tmp_nb_var++;
                 }
 
@@ -3397,7 +3397,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
             double Tbar = f1*( T1 + qi*Tfr_ice/(Crho*T1) ) + (1-f1)*T2; // (39)
             T1 = ( Tbar - std::sqrt(Tbar*Tbar - 4*Tfr_ice*qi/Crho) )/2.; // (38)
         } else {
-            // Upper layer ice is added to the lower leyer
+            // Upper layer ice is added to the lower layer
             // T2 changes, but T1 not
             double f1   = (2.*h1-hi)/hi; // Fraction of layer 1 ice found in new layer 2
             T2 = f1*( T1 + qi*Tfr_ice/(Crho*T1) ) + (1-f1)*T2; // (40)
@@ -3405,6 +3405,10 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
             // Melt from top and bottom if T2 is too high
             if ( T2 > Tfr_ice )
             {
+                // This is:
+                // hi -= h2*C*(T2-Tfr_ice) / ( E1 + Ebot );
+                // But h2 hasn't been updated, E1 may have changed and Ebot is not in this scope
+                // so we just write it out:
                 hi -= hi/2*Crho*(T2-Tfr_ice)*T1/( qi*T1 + (Crho*T1-qi)*(Tfr_ice-T1) );
                 T2  = Tfr_ice;
             }
