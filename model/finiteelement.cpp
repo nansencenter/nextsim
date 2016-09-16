@@ -2285,7 +2285,6 @@ FiniteElement::update()
         double old_h_thin;
         double old_hs_thin;
         double old_h_ridged_thin_ice;
-        double Tbar1, Tbar2;
 
         /* deformation, deformation rate and internal stress tensor and temporary variables */
         double epsilon_veloc_i;
@@ -2330,12 +2329,6 @@ FiniteElement::update()
             old_h_thin = M_h_thin[cpt];
             old_hs_thin=M_hs_thin[cpt];
             old_h_ridged_thin_ice=M_h_ridged_thin_ice[cpt];
-        }
-
-        if ( M_thermo_type == setup::ThermoType::WINTON )
-        {
-            Tbar1 = M_thick[i] * ( M_tice[1][i] - physical::mu*physical::si*physical::Lf/(physical::C*M_tice[1][i]) ); // (39) times volume with f1=1
-            Tbar2 = M_thick[i] * M_tice[2][i]; // (39) times volume with f1=0
         }
 
         /*======================================================================
@@ -2565,13 +2558,6 @@ FiniteElement::update()
                 M_h_thin[cpt]        = thin_ice_volume/surface_new;
                 M_hs_thin[cpt]   = thin_snow_volume/surface_new;
                 M_h_ridged_thin_ice[cpt]    =   ridged_thin_ice_volume/surface_new;
-            }
-
-            if ( M_thermo_type == setup::ThermoType::WINTON )
-            {
-                double tmp = Tbar1/M_thick[i];
-                M_tice[1][i] = 0.5*( tmp - std::sqrt(tmp*tmp + 4*physical::mu*physical::si*physical::Lf/physical::C) ); // (38) divided with volume with f1=1
-                M_tice[2][i] = Tbar2/M_thick[i]; // (40) divided with volume with f1=0
             }
 
             /* Ridging scheme */
