@@ -5779,6 +5779,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
 void
 FiniteElement::nextsimToWim(bool step)
 {
+
     if (M_run_wim)
     {
         chrono.restart();
@@ -5902,7 +5903,6 @@ FiniteElement::wimToNextsim(bool step)
 
     if (!M_regrid)
         M_mesh.move(M_UM,1.);
-    std::cout<<"HI!! 1\n";
 
     if (M_run_wim || M_regrid)
     {
@@ -5935,9 +5935,6 @@ FiniteElement::wimToNextsim(bool step)
         int interptype = BilinearInterpEnum;
         //int interptype = NearestInterpEnum;
 
-        std::cout<<"HI!! 2\n";
-        std::cout<<(vm["nextwim.applywavestress"].as<bool>());
-        std::cout<<"\nHI!! 2B\n";
         if (vm["nextwim.applywavestress"].as<bool>())
            {
            // can turn off effect of wave stress for testing
@@ -5997,8 +5994,6 @@ FiniteElement::wimToNextsim(bool step)
             xDelete<double>(interp_out);
         }
     }
-    std::cout<<"HI!! 3";
-
     if (!M_regrid)
         M_mesh.move(M_UM,-1.);
 
