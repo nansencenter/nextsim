@@ -32,8 +32,8 @@ extern "C" {
     }
 
 // Interface to call the function 'step'
-    void FiniteElementStep(Nextsim::FiniteElement *This, int pcpt) {
-        This->step(pcpt);
+    int FiniteElementStep(Nextsim::FiniteElement *This, int *pcpt) {
+        This->step(*pcpt);
     }
 
 // Interface to call the function 'finalise'

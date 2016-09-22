@@ -67,6 +67,12 @@ Exporter::writeMesh(std::fstream& out, GmshMesh const& Mesh)
                % "Nodes_y"
                % sizeof(double) ).str();
     M_mrecord.push_back(description);
+    
+    writeContainer(out, Mesh.id());
+    description = (boost::format( "%1% %2%" )
+               % "id"
+               % sizeof(int) ).str();
+    M_mrecord.push_back(description);
 }
 
 template<typename Type>

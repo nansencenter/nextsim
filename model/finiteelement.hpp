@@ -63,9 +63,9 @@ public:
     typedef boost::shared_ptr<graph_type> graph_ptrtype;
 
     typedef ExternalData external_data;
-    
+
     typedef DataSet Dataset;
-    
+
     typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
 
 #if defined (WAVES)
@@ -103,16 +103,23 @@ public:
     void adaptMesh();
 
     void assemble(int cpt);
+    void node_max_conc();
     void solve();
     void run();
     int init();
-    int step(int pcpt);
+    void step(int &pcpt);
     void finalise();
     void error();
 
     void thermo();
-    void thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols,
-            double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double tmp_Qlw_in, double tmp_snowfr);
+    void thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double snowfr,
+            double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf);
+    void thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double snowfr,
+            double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double &T1, double &T2);
+    double albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, double alb_ice, double I_0);
+    void atmFluxBulk(int i, double Tsurf, double sphuma, double drag_ice_t, double Qsw, double Qlw_in, double wspeed,
+            double &Qai, double &dQaidT, double &subl);
+    double iceOceanHeatflux(double sst, double tbot, double mld, double dt);
 
     Dataset M_asr_nodes_dataset;
     Dataset M_asr_elements_dataset;
@@ -172,6 +179,11 @@ public:
     void wimToNextsim(bool step);
 #endif
 
+    std::string gitRevision();
+    std::string system(std::string const& command);
+    std::string getEnv(std::string const& envname);
+    void writeLogFile();
+
     void clear();
 
 private:
@@ -206,6 +218,7 @@ private:
     setup::OceanType M_ocean_type;
     setup::IceType M_ice_type;
     setup::BathymetryType M_bathymetry_type;
+    setup::ThermoType M_thermo_type;
 
     setup::IceCategoryType M_ice_cat_type;
     setup::DrifterType M_drifter_type;
@@ -218,18 +231,14 @@ private:
 
     int M_flag_fix;
 
-    std::vector<double> M_vector_reduction;
-    std::vector<bool> M_valid_conc;
-
-
     std::vector<double> M_surface;
     std::vector<double> M_sigma;
     std::vector<double> M_divergence_rate;
-    //std::vector<double> M_UT;
     std::vector<double> M_UM;
     std::vector<double> M_VT;
     std::vector<double> M_VTM;
     std::vector<double> M_VTMM;
+    std::vector<double> M_node_max_conc;
 
     std::vector<double> M_bathy_depth;
 
@@ -392,15 +401,16 @@ private:
     std::vector<double> M_sss;          // Sea-surface salinity [psu]
 
 	// Non-prognostic variables used to speed up the convergence of a non-linear equation in thermodynamics
-    std::vector<double> M_tsurf;        // Ice surface temperature [C]
+    // std::vector<double> M_tsurf;        // Ice surface temperature [C]
+    std::vector<std::vector<double>> M_tice;    // Ice temperature - 0 for surface and higher ordinals for layers in the ice
     std::vector<double> M_tsurf_thin;   // Ice surface temperature of thin ice [C]
 
 private:
     // Variables for the moorings
 
     bool M_use_moorings;
+    std::string M_moorings_file;
     GridOutput M_moorings;
-    GridOutput M_moorings_grid;
 
 private:
     void constantIce();
@@ -409,7 +419,7 @@ private:
     void amsreIce();
     void osisaf2Ice();
     void amsr2Ice();
-    
+
     void equallySpacedDrifter();
     void outputDrifter(std::fstream &iabp_out);
     void initIABPDrifter();
