@@ -45,7 +45,10 @@ namespace Nextsim
                 VT_y        =  5,
                 tsurf       =  6,
                 sst         =  7,
-                sss         =  8
+                sss         =  8,
+                tsurf_ice   =  9,
+                t1          = 10,
+                t2          = 11
 
                 // Diagnostic variables
             };
