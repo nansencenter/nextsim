@@ -3936,6 +3936,36 @@ FiniteElement::updateMeans(GridOutput &means)
                     it->data_mesh[i] += M_snow_thick[i];
                 break;
 
+            case (GridOutput::variableID::tsurf):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_conc[i]*M_tice[0][i] + (1-M_conc[i])*M_sst[i];
+                break;
+
+            case (GridOutput::variableID::sst):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_sst[i];
+                break;
+
+            case (GridOutput::variableID::sss):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_sss[i];
+                break;
+
+            case (GridOutput::variableID::tsurf_ice):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_tice[0][i];
+                break;
+
+            case (GridOutput::variableID::t1):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_tice[1][i];
+                break;
+
+            case (GridOutput::variableID::t2):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_tice[2][i];
+                break;
+
             default: std::logic_error("Updating of given variableID not implimented (elements)");
         }
     }
@@ -4028,6 +4058,49 @@ FiniteElement::initMoorings()
     elemental_variables[0] = conc;
     elemental_variables[1] = thick;
     elemental_variables[2] = snow_thick;
+
+    if ( M_thermo_type == setup::ThermoType::WINTON )
+    {
+        // Technically, cannonical units for temperature are K, but that's just anoying here!
+        GridOutput::Variable tsurf={
+            name:"ts",
+            longName:"Surface Temperature",
+            stdName:"surface_temperature",
+            dimensions: dimensions,
+            Units:"degC",
+            data_mesh:data_elements,
+            data_grid:data_grid,
+            variableID: GridOutput::variableID::tsurf
+        };
+
+        elemental_variables.push_back(tsurf);
+
+        GridOutput::Variable t1={
+            name:"t1",
+            longName:"Ice Temperature 1",
+            stdName:"ice_temperature_1",
+            dimensions: dimensions,
+            Units:"degC",
+            data_mesh:data_elements,
+            data_grid:data_grid,
+            variableID: GridOutput::variableID::t1
+        };
+
+        elemental_variables.push_back(t1);
+
+        GridOutput::Variable t2={
+            name:"t2",
+            longName:"Ice Temperature 2",
+            stdName:"ice_temperature_2",
+            dimensions: dimensions,
+            Units:"degC",
+            data_mesh:data_elements,
+            data_grid:data_grid,
+            variableID: GridOutput::variableID::t2
+        };
+
+        elemental_variables.push_back(t2);
+    }
 
     // Output variables - nodes
     GridOutput::Variable siu={
