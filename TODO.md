@@ -4,8 +4,8 @@
 
   * support hexagon --- done
   * benchmarking: computational time in function of number of threads used (multi-threads) and the mesh resolution --- in progress
-  * add documentayion: using for example doxygen --- priority
-  * forcast platform: work with Sylvain --- priority
+  * add documentayion: using for example doxygen --- priority (1 month)
+  * forcast platform: work with Sylvain --- priority (1 month)
   * support cmake/automake: needed to make code compilation more generic --- middle term goal
   * support ParaView/VTK: visullization tools used in the most of complex physical models developed in C/C++ --- long term goal
 
@@ -20,7 +20,22 @@
 
 ## coupling code nextwim ##
 
-  * get it to agree with matlab coupled code
-  * reduce diffusion: at each wim time step interp 3 wave fields onto mesh, then loop over elements to do breaking on them using the wave fields
-  * external forcing/realistic domains --- in progress
-  * make sure it is running efficiently for large scale simulations (MPI needed?)
+  * get it to agree with matlab coupled code (2 weeks)
+  * reduce diffusion: at each wim time step interp 3 wave fields onto mesh, then loop over elements to do breaking on them using the wave fields (2 weeks)
+  * external forcing/realistic domains (1 month)
+  * make sure it is running efficiently for large scale simulations (MPI needed?) (1 month)
+
+## writing a paper ##
+
+  * write a paper related to nextsim C++ (2 months, in parallel with another works)
+
+## time estimate ##
+
+  * get it to agree with matlab coupled code (2 weeks)
+  * reduce diffusion: at each wim time step interp 3 wave fields onto mesh, then loop over elements to do breaking on them using the wave fields (2 weeks)
+  * external forcing/realistic domains (1 month)
+  * make sure it is running efficiently for large scale simulations (MPI needed?) (1 month)
+  * benchmarking (1 month)
+  * add documentayion: using for example doxygen (1 month)
+  * forcast platform: work with Sylvain (1 month)
+  * write a paper related to nextsim C++ (2 months, in parallel with another works)
