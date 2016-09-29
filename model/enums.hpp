@@ -12,6 +12,7 @@ namespace Nextsim
 {
 namespace setup
 {
+
     enum class AtmosphereType
     {
         CONSTANT = 0,
@@ -41,6 +42,12 @@ namespace setup
         TARGET    = 8,
         OSISAF    = 9
 	};
+
+    enum class WaveType
+    {
+        CONSTANT = 0,
+        WW3A     = 1,
+    };
 
     enum class BathymetryType
     {

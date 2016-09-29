@@ -45,6 +45,7 @@ namespace Nextsim
             ("setup.write_restart", po::value<bool>()->default_value( false ), "")
             ("setup.restart_time_step", po::value<double>()->default_value( 20 ), "days")
             ("setup.step_nb", po::value<int>()->default_value( 0 ), "")
+            ("setup.wave-type", po::value<std::string>()->default_value( "constant" ), "constant, ww3a")
 
             ("simul.mesh_filename", po::value<std::string>()->default_value( "bigarctic10km.msh" ), "")
             ("simul.hsize", po::value<double>()->default_value( 0.01 ), "")
@@ -176,6 +177,12 @@ namespace Nextsim
             ("simul.wim_grid", po::value<bool>()->default_value( false ), "")
             ("simul.maxiteration", po::value<int>()->default_value( 1e+8 ), "")
 
+#if defined(WAVES)
+            ("simul.constant_significant_wave_height", po::value<double>()->default_value( 2. ), "")
+            ("simul.constant_wave_mean_direction", po::value<double>()->default_value( 90. ), "")
+            ("simul.constant_wave_peak_frequency", po::value<double>()->default_value( 0.05 ), "")
+#endif
+
 #if !defined(WAVES)
             // wim options
 
@@ -279,6 +286,7 @@ namespace Nextsim
                   "During neXtSIM regridding interpolate from grid-to-mesh or mesh-to-mesh")
             ("nextwim.couplingfreq", po::value<int>()->default_value( 20 ),
                   "Coupling frequency between neXtSIM and WIM (# neXtSIM time-steps)")
+
 
 #endif
             ;
