@@ -132,6 +132,7 @@ public:
     Dataset M_etopo_elements_dataset;
     Dataset M_ERAi_nodes_dataset;
     Dataset M_ERAi_elements_dataset;
+    Dataset M_WW3A_elements_dataset;
 
     double minAngles(element_type const& element, mesh_type const& mesh) const;
     double minAngle(mesh_type const& mesh) const;
@@ -150,6 +151,9 @@ public:
     void forcing();
     void forcingAtmosphere();
     void forcingOcean();
+#if defined (WAVES)
+    void forcingWave();
+#endif
 	void bathymetry();
 
     void initIce();
@@ -217,6 +221,7 @@ private:
     setup::AtmosphereType M_atmosphere_type;
     setup::OceanType M_ocean_type;
     setup::IceType M_ice_type;
+    setup::WaveType M_wave_type; 
     setup::BathymetryType M_bathymetry_type;
     setup::ThermoType M_thermo_type;
 
@@ -276,6 +281,10 @@ private:
     wim_type wim;
     std::vector<double> M_nfloes;
     std::vector<double> M_dfloe;
+
+    std::vector<double> M_SWH_grid;
+    std::vector<double> M_MWD_grid;
+    std::vector<double> M_FP_grid;
 #endif
     std::vector<double> M_tau;//this can just be set to zero if not using WIM
 
@@ -381,6 +390,11 @@ private:
     external_data M_ocean_temp;   // Ocean temperature in top layer [C]
     external_data M_ocean_salt;   // Ocean salinity in top layer [C]
     external_data M_mld;          // Mixed-layer depth [m]
+
+    // Wave
+    external_data M_SWH;	  // Significant wave height [m]
+    external_data M_MWD;	  // Wave mean direction (deg)
+    external_data M_FP;		  // Wave peak frequency (/sec)
 
     // Bathymetry
     external_data M_element_depth;
