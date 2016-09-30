@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
+///* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
 
 /**
  * @file   finiteelement.cpp
@@ -250,12 +250,6 @@ FiniteElement::initVariables()
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
 
     M_tau.resize(2*M_num_nodes,0.);
-
-//#if defined (WAVES)
-//    M_SWH.resize(M_num_elements);
-//    M_MWD.resize(M_num_elements);
-//    M_FP.resize(M_num_elements);
-//#endif
 
 }//end initVariables
 
@@ -516,6 +510,7 @@ FiniteElement::initConstant()
         {
             M_mesh.setOrdering("bamg"); /* The .msh files bigarctic.msh,... that are on Johansen are actually using the bamg ordering*/
         }
+        M_mesh.setOrdering("gmsh");
     }
     else
         throw std::logic_error("Unknown setup::MeshType");
@@ -3635,16 +3630,12 @@ FiniteElement::run()
 
         is_running = (pcpt*time_step) < duration;
 
-std::cout<< "is_running" << is_running  <<"\n";
-
         // if (pcpt > 21)
         // if ( fmod((pcpt+1)*time_step,mooring_output_time_step) == 0 )
         //    is_running = false;
 
         if (pcpt == niter)
             is_running = false;
-
-std::cout<< "is_running= " << is_running  <<"\n";
 
         // **********************************************************************
         // Take one time-step
@@ -3749,20 +3740,16 @@ FiniteElement::init()
         LOG(DEBUG) <<"Initialize forcingWave\n";
         this->forcingWave();
 #endif
-    std::cout<<"HI1!"<<"\n";
         LOG(DEBUG) <<"Initialize bathymetry\n";
         this->bathymetry();
-    std::cout<<"HI2!"<<"\n";
         chrono.restart();
         LOG(DEBUG) <<"check_and_reload starts\n";
         for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
             (*it)->check_and_reload(M_mesh,time_init);
         LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
-    std::cout<<"HI3!"<<"\n";
         this->initModelState();
         LOG(DEBUG) <<"initSimulation done in "<< chrono.elapsed() <<"s\n";
     }
-    std::cout<<"HI4!"<<"\n";
     // Open the output file for drifters
     // TODO: Is this the right place to open the file?
     if (M_drifter_type == setup::DrifterType::IABP )
@@ -3793,8 +3780,6 @@ FiniteElement::step(int &pcpt)
 
     M_run_wim = !(pcpt % vm["nextwim.couplingfreq"].as<int>());
 
-std::cout<<"M_run_wim= " << M_run_wim <<"\n";
-std::cout<<"simul.use_wim= " << vm["simul.use_wim"].as<bool>() <<"\n";
     // coupling with wim (exchange from nextsim to wim)
     if (vm["simul.use_wim"].as<bool>())
         this->nextsimToWim(pcpt);
@@ -4637,7 +4622,9 @@ FiniteElement::readRestart(int step)
     M_etopo_elements_dataset.target_size=M_num_elements;
     M_ERAi_nodes_dataset.target_size=M_num_nodes;
     M_ERAi_elements_dataset.target_size=M_num_elements;
-
+#if defined (WAVES)
+    M_WW3A_elements_dataset.target_size=M_num_elements;
+#endif
     return pcpt;
 }
 
@@ -6041,7 +6028,7 @@ FiniteElement::nextsimToWim(bool step)
             // significant wave heigth
             M_SWH_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
             tmp_nb_var++;
-
+	
             // wave mean direction
             M_MWD_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
             tmp_nb_var++;
@@ -6050,12 +6037,20 @@ FiniteElement::nextsimToWim(bool step)
             M_FP_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
             tmp_nb_var++;
 
+
+
             if(tmp_nb_var>nb_var)
             {
                 throw std::logic_error("tmp_nb_var not equal to nb_var");
             }
         }
-//std::cout << "HI18" <<"\n";
+        std::cout<<"M_SWH_grid[0]= "<< *std::min_element(M_SWH_grid.begin(),M_SWH_grid.end() )<<"\n";
+        std::cout<<"M_MWD_grid[0]= "<< *std::min_element(M_MWD_grid.begin(),M_MWD_grid.end() )<<"\n";
+	std::cout<<"M_FP_grid[0]= "<< *std::min_element(M_FP_grid.begin(),M_FP_grid.end() )<<"\n";
+        std::cout<<"M_SWH_grid[0]= "<< *std::max_element(M_SWH_grid.begin(),M_SWH_grid.end() )<<"\n";
+        std::cout<<"M_MWD_grid[0]= "<< *std::max_element(M_MWD_grid.begin(),M_MWD_grid.end() )<<"\n";
+        std::cout<<"M_FP_grid[0]= "<< *std::max_element(M_FP_grid.begin(),M_FP_grid.end() )<<"\n";
+
         xDelete<double>(interp_elt_out);
     }
 }//nextsimToWim

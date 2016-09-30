@@ -1775,12 +1775,12 @@ namespace Nextsim
      {
         // Definition of WW3 Arctic analysed - grid and datasets
          Dimension dimension_x={
-             name:"x",
-             cyclic:true
+             name:"longitude",
+             cyclic:false
         };
 
          Dimension dimension_y={
-             name:"y",
+             name:"latitude",
              cyclic:false
         };
 
@@ -1790,12 +1790,6 @@ namespace Nextsim
         };
 
         // Definition of the grid
-        std::vector<Dimension> dimensions_lon(1);
-        dimensions_lon[0] = dimension_x;
-
-        std::vector<Dimension> dimensions_lat(1);
-        dimensions_lat[0] = dimension_y;
-
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = dimension_y;
         dimensions_latlon[1] = dimension_x;
@@ -1831,10 +1825,9 @@ namespace Nextsim
         Grid grid_tmp={
             interpolation_method: InterpolationType::FromMeshToMesh2dx,     
             //interp_type : TriangleInterpEnum, // slower
-            //interp_type : BilinearInterpEnum,
+            interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
-              interp_type: -1,
-                dirname="",
+                dirname="data",
                 //filename:"erai.6h.201304.nc",//"erai.6h.200803.nc",
             prefix= "SWARP_WW3_ARCTIC-12K_",
             postfix=".nc",
@@ -1925,7 +1918,7 @@ namespace Nextsim
         variables_tmp[2] = FP;
 
 
-         dirname=  "";
+         dirname=  "data";
          prefix= "SWARP_WW3_ARCTIC-12K_";
          postfix=".nc";
          reference_date="1990-01-01";//"2008-01-01";
@@ -2039,7 +2032,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 	grid_ptr->dimension_x_count =  tmpDim.getSize();
     grid_ptr->dimension_x_start = 0;
 
-	if(grid_ptr->latitude.dimensions.size()==1)
+	if((grid_ptr->latitude.dimensions.size()==1) && (grid_ptr->longitude.dimensions.size()==1))
 	{
 		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
@@ -2165,7 +2158,14 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
         
         getXYlatlon_from_latlon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);   
         
+
         // Then, we determine the reduced dimension
+        std::vector<int> tmp_x_start(0);
+        std::vector<int> tmp_x_end(0);        
+        std::vector<int> tmp_y_start(0);
+        std::vector<int> tmp_y_end(0);   
+        
+#if 0
         std::vector<int> tmp_x_start(grid_ptr->dimension_y_count,-1);
         std::vector<int> tmp_x_end(grid_ptr->dimension_y_count,-1);        
         std::vector<int> tmp_y_start(grid_ptr->dimension_x_count,-1);
@@ -2205,6 +2205,38 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
                
         tmp_start=*std::min_element(tmp_x_start.begin(),tmp_x_start.end());
         tmp_end=*std::max_element(tmp_x_end.begin(),tmp_x_end.end());
+        
+        grid_ptr->dimension_x_start=tmp_start;
+        grid_ptr->dimension_x_count=tmp_end-tmp_start+1;     
+     #endif
+        
+        // we just store the indices of all the points included in [RY_min, RY_max]
+        std::vector<int> tmp_tmp_x_id(0);
+        std::vector<int> tmp_tmp_y_id(0);
+        for (int i=0; i<grid_ptr->dimension_x_count; ++i)
+		{
+			for (int j=0; j<grid_ptr->dimension_y_count; ++j)
+			{
+                if(
+                    (Y[grid_ptr->dimension_x_count*j+i]>=RY_min) &&
+                    (Y[grid_ptr->dimension_x_count*j+i]<=RY_max) &&
+                    (X[grid_ptr->dimension_x_count*j+i]>=RX_min) &&
+                    (X[grid_ptr->dimension_x_count*j+i]<=RX_max) )
+                {
+                    tmp_tmp_y_id.push_back(j);
+                    tmp_tmp_x_id.push_back(i);
+                }
+            }
+        }
+           
+        int tmp_start=*std::min_element(tmp_tmp_y_id.begin(),tmp_tmp_y_id.end());
+        int tmp_end=*std::max_element(tmp_tmp_y_id.begin(),tmp_tmp_y_id.end());
+        
+        grid_ptr->dimension_y_start=tmp_start;
+        grid_ptr->dimension_y_count=tmp_end-tmp_start+1;
+               
+        tmp_start=*std::min_element(tmp_tmp_x_id.begin(),tmp_tmp_x_id.end());
+        tmp_end=*std::max_element(tmp_tmp_x_id.begin(),tmp_tmp_x_id.end());
         
         grid_ptr->dimension_x_start=tmp_start;
         grid_ptr->dimension_x_count=tmp_end-tmp_start+1;
