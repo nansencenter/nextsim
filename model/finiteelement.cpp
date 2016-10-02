@@ -510,7 +510,8 @@ FiniteElement::initConstant()
         {
             M_mesh.setOrdering("bamg"); /* The .msh files bigarctic.msh,... that are on Johansen are actually using the bamg ordering*/
         }
-        M_mesh.setOrdering("gmsh");
+        else
+            M_mesh.setOrdering("gmsh");
     }
     else
         throw std::logic_error("Unknown setup::MeshType");
