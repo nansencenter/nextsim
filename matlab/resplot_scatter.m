@@ -1,0 +1,114 @@
+function resplot_scatter(field,step,dir)
+
+if nargin==2, dir=''; end
+
+% clearvars -except step;
+
+% mc_script=['mu',num2str(step)];
+% mx_script=['mx',num2str(step)];
+% my_script=['my',num2str(step)];
+% 
+% run(mc_script);
+% run(mx_script);
+% run(my_script);
+% 
+% var_mc=eval(['var_', mc_script]);
+% var_mx=eval(['var_', mx_script]);
+% var_my=eval(['var_', my_script]);
+% 
+% [nr,nc]= size(var_mc);
+% c=reshape(var_mc,[3,nr/3]);
+% x=reshape(var_mx,[3,nr/3]);
+% y=reshape(var_my,[3,nr/3]);
+% 
+% patch(x,y,c,'FaceColor','flat','EdgeColor','none')
+% caxis([min(var_mc), max(var_mc)])
+
+%field='Velocity';
+%field='mld';
+%field='Concentration';
+%field='Thickness';
+%field='SSS';
+%field='SST';
+%field='Wind';
+%field='Ocean';
+%field='Vair_factor';
+%field='Voce_factor';
+%field='Damage';
+%field='bathy';
+[mesh_out,data_out] = neXtSIM_bin_revert(dir,[], step);
+
+% reshape
+var_mx=mesh_out.Nodes_x(mesh_out.Elements);
+var_my=mesh_out.Nodes_y(mesh_out.Elements);
+
+[nr,nc]= size(var_mx);
+Ne=nr/3;
+Nn=length(mesh_out.Nodes_x);
+x=reshape(var_mx,[3,Ne]);
+y=reshape(var_my,[3,Ne]);
+
+if(~iscell(field))
+    field={field};
+end
+
+nb_fields=length(field);
+
+for j=1:nb_fields,
+
+    field_tmp=data_out.(field{j});
+    
+    if(nb_fields==2)
+        field_scatter{j}=field_tmp;
+    end
+    length(field_tmp)
+    if(length(field_tmp)==Ne)
+        c{1}=[field_tmp,field_tmp,field_tmp]';
+    elseif(length(field_tmp)==2*Nn)
+        var_mc=field_tmp(mesh_out.Elements);
+        c{1}=reshape(var_mc,[3,Ne]);
+        var_mc=field_tmp(mesh_out.Elements+Nn);
+        c{2}=reshape(var_mc,[3,Ne]);
+    elseif(length(field_tmp)==Nn)
+        var_mc=field_tmp(mesh_out.Elements);
+        c{1}=reshape(var_mc,[3,Ne]);
+    else
+        error('Not the right dimensions')
+    end
+    
+    for i=1:length(c)
+        figure
+        patch(x,y,c{i},'EdgeColor','none')
+        min_value=min(min(c{i}))
+        max_value=max(max(c{i}))
+        if(min_value<max_value)
+            caxis([min_value, max_value])
+        end
+        colorbar
+    end
+end
+
+if(nb_fields==2)
+   figure
+   scatter(field_scatter{1},field_scatter{2});
+   hold on
+   scatter(field_scatter{2},field_scatter{1});
+   tan_phi=0.7;
+   scale_coef=0.1;
+   cfix = 40000*scale_coef;
+   sigma_n_lim=[-10*cfix:10*cfix];
+   sigma_s_lim=cfix+tan_phi*sigma_n_lim;
+   plot(sigma_n_lim+sigma_s_lim,sigma_n_lim-sigma_s_lim,'r');
+   plot(sigma_n_lim-sigma_s_lim,sigma_n_lim+sigma_s_lim,'r');
+   
+   q=((tan_phi^2+1)^.5+tan_phi)^2;
+   sigma_c=2*cfix/((tan_phi^2+1)^.5-tan_phi);
+   
+   sigma_2_lim=[-10*cfix:10*cfix];
+   sigma_1_lim=q*sigma_2_lim+sigma_c;
+   
+   plot(sigma_1_lim,sigma_2_lim,'b');
+   plot(sigma_2_lim,sigma_1_lim,'b');
+end
+
+end
