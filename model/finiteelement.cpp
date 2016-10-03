@@ -528,6 +528,22 @@ FiniteElement::initConstant()
     M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
 
     M_use_moorings =  vm["simul.use_moorings"].as<bool>();
+
+    M_export_path = Environment::nextsimDir().string() + "/matlab";
+    // change directory for outputs if the option "output_directory" is not empty
+    if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
+    {
+        M_export_path = vm["simul.output_directory"].as<std::string>();
+
+        fs::path path(M_export_path);
+        // add a subdirecory if needed
+        // path /= "subdir";
+
+        // create the output directory if it does not exist
+        if ( !fs::exists(path) )
+            fs::create_directories(path);
+    }
+
 }
 
 void
@@ -1783,13 +1799,14 @@ FiniteElement::assemble(int pcpt)
         double tmp_thick=(0.05>M_thick[cpt]) ? 0.05 : M_thick[cpt];
         double tmp_conc=(0.01>M_conc[cpt]) ? 0.01 : M_conc[cpt];
 
+#if 1
         //option 1 (original)
-        //double coef = young*(1.-M_damage[cpt])*tmp_thick*std::exp(ridging_exponent*(1.-tmp_conc));
-
+        double coef = young*(1.-M_damage[cpt])*tmp_thick*std::exp(ridging_exponent*(1.-tmp_conc));
+#else
         //option 2 (we just change the value of the ridging exponent and we renamed it "damaging_exponent")
         double damaging_exponent = -80.;
         double coef = young*(1.-M_damage[cpt])*tmp_thick*std::exp(damaging_exponent*(1.-tmp_conc));
-
+#endif
         //option 3: We change the formulation of f(A) and make it piecewise linear between limit_conc_fordamage and 1, and 0 otherwise
         //double factor = 0.;
         //double limit_conc_fordamage = 0.;
@@ -2400,7 +2417,13 @@ FiniteElement::update()
         }
 #endif
 
+#if 1
+        //option 1 (original)
+        double damaging_exponent = ridging_exponent;
+#else
+        //option 2
         double damaging_exponent = -80.;
+#endif
         for(i=0;i<3;i++)
         {
             sigma_dot_i = 0.0;
@@ -2880,7 +2903,7 @@ FiniteElement::thermo()
         			*( 1. + 0.275*M_tcc[i] );
         }
 
-        Qow = -M_Qsw_in[i]*(1.-ocean_albedo) - tmp_Qlw_in + Qlw_out + Qsh; // Qlh is already counted in evap + Qlh;
+        Qow = -M_Qsw_in[i]*(1.-ocean_albedo) - tmp_Qlw_in + Qlw_out + Qsh + Qlh;
 
         // -------------------------------------------------
         // 4) Thickness change of the ice slab (thermoIce0 in matlab)
@@ -3149,11 +3172,11 @@ FiniteElement::atmFluxBulk(int i, double Tsurf, double sphuma, double drag_ice_t
 
     /* Latent heat flux and derivative */
     double Qlh    = drag_ice_t*rhoair*(physical::Lf+physical::Lv0)*wspeed*( sphumi - sphuma );
-    // double dQlhdT = drag_ice_t*(physical::Lf+physical::Lv0)*rhoair*wspeed*dsphumidT;
+    double dQlhdT = drag_ice_t*(physical::Lf+physical::Lv0)*rhoair*wspeed*dsphumidT;
 
     /* Sum them up */
-    double Qout    = Qlw_out + Qsh; // Latent heat is counted through sublimation + Qlh;
-    dQaidT = dQlwdT + dQshdT; // + dQlhdT;
+    double Qout    = Qlw_out + Qsh + Qlh;
+    dQaidT = dQlwdT + dQshdT + dQlhdT;
 
     /* Sublimation */
     subl    = Qlh/(physical::Lf+physical::Lv0);
@@ -3507,7 +3530,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         double Qlw_out, dQlwdT;
         double tairK, sphumi;
         double rhoair, Qsh, dQshdT;
-        double Qlh, dsphumidT; //, dQlhdT;
+        double Qlh, dsphumidT, dQlhdT;
 
         double fi, esti;
         double dsphumdesti, destidT, dfidT;
@@ -3760,7 +3783,7 @@ FiniteElement::init()
     {
         // We should tag the file name with the init time in case of a re-start.
         std::stringstream filename;
-        filename << Environment::nextsimDir().string() << "/matlab/drifters_out_" << current_time << ".txt";
+        filename << M_export_path << "/drifters_out_" << current_time << ".txt";
         M_drifters_out.open(filename.str(), std::fstream::out);
         if ( ! M_drifters_out.good() )
             throw std::runtime_error("Cannot write to file: " + filename.str());
@@ -4179,7 +4202,7 @@ FiniteElement::initMoorings()
     std::vector<DataSet::Vectorial_Variable> vectorial_variables(1);
     vectorial_variables[0] = siuv;
 
-    M_moorings_file = "Moorings.nc";
+    M_moorings_file = M_export_path + "/Moorings.nc";
 #if 1
     // Calculate the grid spacing (assuming a regular grid for now)
     auto RX = M_mesh.coordX();
@@ -5764,32 +5787,12 @@ FiniteElement::exportResults(int step, bool export_mesh)
 {
     Exporter exporter;
     std::string fileout;
-    std::string export_path;
-
-    // change directory for outputs if the option "output_directory" is not empty
-    if ((vm["simul.output_directory"].as<std::string>()).empty())
-    {
-        export_path = Environment::nextsimDir().string() + "/matlab";
-    }
-    else
-    {
-        export_path = vm["simul.output_directory"].as<std::string>();
-
-        fs::path path(export_path);
-        // add a subdirecory if needed
-        // path /= "subdir";
-
-        // create the output directory if it does not exist
-        if ( !fs::exists(path) )
-            fs::create_directories(path);
-    }
-
 
 
     if (export_mesh)
     {
         fileout = (boost::format( "%1%/mesh_%2%.bin" )
-                   % export_path
+                   % M_export_path
                    % step ).str();
 
         LOG(INFO) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
@@ -5808,7 +5811,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
 		M_mesh.move(M_UM,-1.);
 
         fileout = (boost::format( "%1%/mesh_%2%.dat" )
-               % export_path
+               % M_export_path
                % step ).str();
 
         LOG(INFO) <<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
@@ -5822,7 +5825,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
 
 
     fileout = (boost::format( "%1%/field_%2%.bin" )
-               % export_path
+               % M_export_path
                % step ).str();
 
     LOG(INFO) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
@@ -5833,6 +5836,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
     std::vector<double> timevec(1);
     timevec[0] = current_time;
     exporter.writeField(outbin, timevec, "Time");
+    exporter.writeField(outbin, M_surface, "Element_area");
     exporter.writeField(outbin, M_node_max_conc, "M_node_max_conc");
     exporter.writeField(outbin, M_VT, "M_VT");
     exporter.writeField(outbin, M_conc, "Concentration");
@@ -5924,7 +5928,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
     outbin.close();
 
     fileout = (boost::format( "%1%/field_%2%.dat" )
-               % export_path
+               % M_export_path
                % step ).str();
 
     LOG(INFO) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
@@ -6273,28 +6277,8 @@ FiniteElement::writeLogFile()
         logfilename = vm["simul.logfile"].as<std::string>();
     }
     
-    std::string export_path;
-
-    // change directory for outputs if the option "output_directory" is not empty
-    if ((vm["simul.output_directory"].as<std::string>()).empty())
-    {
-        export_path = Environment::nextsimDir().string() + "/matlab";
-    }
-    else
-    {
-        export_path = vm["simul.output_directory"].as<std::string>();
-
-        fs::path path(export_path);
-        // add a subdirecory if needed
-        // path /= "subdir";
-
-        // create the output directory if it does not exist
-        if ( !fs::exists(path) )
-            fs::create_directories(path);
-    }
-
     std::string fileout = (boost::format( "%1%/%2%" )
-               % export_path
+               % M_export_path
                % logfilename ).str();
 
     std::fstream logfile(fileout, std::ios::out | std::ios::trunc);
