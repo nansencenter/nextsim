@@ -1918,8 +1918,15 @@ namespace Nextsim
       		interpolation_in_latlon: true,
 
             loaded: false,
-            monthly_dataset:false,
-
+            dataset_frequency:"daily",
+            //monthly_dataset:true,
+            
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
+            
       		masking: false
       	};
 
@@ -2091,8 +2098,14 @@ namespace Nextsim
 
          loaded: false,
         
-         monthly_dataset:false,
-        
+         dataset_frequency:"daily",
+
+         waveOptions: {
+            wave_dataset:false,
+            use_mwp:false,
+            use_ice:false
+         },
+               
          masking: false
      };
 
