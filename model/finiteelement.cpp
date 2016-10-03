@@ -76,8 +76,8 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
         M_mesh_type = setup::MeshType::FROM_SPLIT;
         M_flag_fix = 100; // free = 1;
     }
-
-    M_mesh.setOrdering("gmsh"); // wim_grid_split2_4000m.msh should be set to gmsh ordering
+    else
+       M_mesh.setOrdering("gmsh"); // wim_grid_split2_4000m.msh should be set to gmsh ordering
 
 #endif
 
@@ -4625,9 +4625,10 @@ FiniteElement::readRestart(int step)
     M_ERAi_elements_dataset.target_size=M_num_elements;
 #if defined (WAVES)
     M_WW3A_elements_dataset.target_size=M_num_elements;
+    M_ERAIW_1DEG_elements_dataset.target_size=M_num_elements;
 #endif
     return pcpt;
-}
+}//readRestart
 
 void
 FiniteElement::updateVelocity()
@@ -4933,6 +4934,18 @@ FiniteElement::forcingWave()
             M_external_data.push_back(&M_MWD);
 
             M_FP=ExternalData(&M_WW3A_elements_dataset, M_mesh, 2,false);
+            M_external_data.push_back(&M_FP);
+                break;
+
+        case setup::WaveType::ERAI_WAVES_1DEG:
+
+	    M_SWH=ExternalData(&M_ERAIW_1DEG_elements_dataset, M_mesh, 0,false);
+            M_external_data.push_back(&M_SWH);
+
+            M_MWD=ExternalData(&M_ERAIW_1DEG_elements_dataset, M_mesh, 1,false);
+            M_external_data.push_back(&M_MWD);
+
+            M_FP=ExternalData(&M_ERAIW_1DEG_elements_dataset, M_mesh, 2,false);
             M_external_data.push_back(&M_FP);
                 break;
 
@@ -6026,10 +6039,10 @@ FiniteElement::nextsimToWim(bool step)
             M_nfloes_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
             tmp_nb_var++;
 
-            // significant wave heigth
+            // significant wave height
             M_SWH_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
             tmp_nb_var++;
-	
+
             // wave mean direction
             M_MWD_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
             tmp_nb_var++;
@@ -6037,8 +6050,6 @@ FiniteElement::nextsimToWim(bool step)
 	    // wave peak frequency
             M_FP_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
             tmp_nb_var++;
-
-
 
             if(tmp_nb_var>nb_var)
             {

@@ -133,6 +133,7 @@ public:
     Dataset M_ERAi_nodes_dataset;
     Dataset M_ERAi_elements_dataset;
     Dataset M_WW3A_elements_dataset;
+    Dataset M_ERAIW_1DEG_elements_dataset;
 
     double minAngles(element_type const& element, mesh_type const& mesh) const;
     double minAngle(mesh_type const& mesh) const;
