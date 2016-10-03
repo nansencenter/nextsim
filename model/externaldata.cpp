@@ -435,11 +435,10 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                 ftime = ftime-0.5;
             
             std::string f_timestr;
-            //if(dataset->grid.monthly_dataset)
+            
             if(dataset->grid.dataset_frequency=="monthly")
                 f_timestr = to_date_string_ym(std::floor(ftime));
-            //else if (dataset->grid.yearly_dataset)
-            if(dataset->grid.dataset_frequency=="yearly")
+            else if(dataset->grid.dataset_frequency=="yearly")
                 f_timestr = to_date_string_y(std::floor(ftime));//yyyy
             else
                 f_timestr = to_date_string_yd(std::floor(ftime));
