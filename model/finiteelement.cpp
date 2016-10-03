@@ -299,6 +299,7 @@ FiniteElement::initDatasets()
 
 #if defined (WAVES)
     M_WW3A_elements_dataset=DataSet("ww3a_elements",M_num_elements);
+    M_ERAIW_1DEG_elements_dataset=DataSet("erai_waves_1deg_elements",M_num_elements);
 #endif
 
 }
@@ -440,7 +441,8 @@ FiniteElement::initConstant()
 #if defined (WAVES)
     const boost::unordered_map<const std::string, setup::WaveType> str2wave = boost::assign::map_list_of
         ("constant", setup::WaveType::CONSTANT)
-        ("ww3a", setup::WaveType::WW3A);
+        ("ww3a", setup::WaveType::WW3A)
+        ("eraiw_1deg", setup::WaveType::ERAI_WAVES_1DEG);
     M_wave_type = str2wave.find(vm["setup.wave-type"].as<std::string>())->second;
     std::cout<<"wave forcing type "<<vm["setup.wave-type"].as<std::string>()<<"\n";
     std::cout<<"wave forcing enum "<<(int)M_wave_type<<"\n";
@@ -1483,6 +1485,7 @@ FiniteElement::regrid(bool step)
     M_ERAi_elements_dataset.target_size=M_num_elements;
 #if defined (WAVES)
     M_WW3A_elements_dataset.target_size=M_num_elements;
+    M_ERAIW_1DEG_elements_dataset.target_size=M_num_elements;
 #endif
 
 
