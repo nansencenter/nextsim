@@ -77,6 +77,13 @@ public:
         bool east_west_oriented;
     } Vectorial_Variable;
 
+    typedef struct WaveOptions
+    {
+       bool wave_dataset;
+       bool use_mwp;
+       bool use_ice;
+    } WaveOptions;
+
     typedef struct Grid
     {
         InterpolationType interpolation_method;
@@ -100,6 +107,8 @@ public:
         //bool yearly_dataset;
         std::string dataset_frequency;
 
+        WaveOptions waveOptions;
+
 		bool masking;
 		Variable masking_variable;
 		std::vector<int> reduced_nodes_ind;
@@ -117,6 +126,7 @@ public:
         int dimension_y_start;
         int dimension_y_count;
     } Grid;
+
 #if 0
     typedef struct Dataset
     {

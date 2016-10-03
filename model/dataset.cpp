@@ -162,6 +162,12 @@ namespace Nextsim
             dataset_frequency:"monthly",
             //monthly_dataset:true,
 
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
+
      		masking: false
      	};
 
@@ -316,6 +322,12 @@ namespace Nextsim
             loaded: false,
             dataset_frequency:"monthly",
             //monthly_dataset:true,
+
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
 
      		masking: false
      	};
@@ -570,6 +582,12 @@ namespace Nextsim
              dataset_frequency:"monthly",
              //monthly_dataset:true,
 
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
+
      		masking: true,
      		masking_variable: ssh
      	};
@@ -744,6 +762,12 @@ namespace Nextsim
             dataset_frequency:"monthly",
              //monthly_dataset:true,
 
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
+
      		masking: true,
      		masking_variable: sss
      	};
@@ -908,6 +932,12 @@ namespace Nextsim
             dataset_frequency:"monthly",
              //monthly_dataset:true,
 
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
+
      		masking: true,
      		masking_variable: conc
      	};
@@ -1035,6 +1065,12 @@ namespace Nextsim
             dataset_frequency:"daily",
              //monthly_dataset:false,
 
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
+
      		masking: true,
      		masking_variable: conc
         };
@@ -1159,6 +1195,12 @@ namespace Nextsim
              loaded: false,
              dataset_frequency:"daily",
              //monthly_dataset:false,
+
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
 
      		masking: true,
      		masking_variable: conc
@@ -1285,6 +1327,12 @@ namespace Nextsim
              dataset_frequency:"daily",
              //monthly_dataset:false,
 
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
+
      		masking: true,
      		masking_variable: conc
         };
@@ -1381,6 +1429,12 @@ namespace Nextsim
              loaded: false,
              dataset_frequency:"daily",
              //monthly_dataset:false,
+
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
 
      		masking: false
      	};
@@ -1493,6 +1547,12 @@ namespace Nextsim
              loaded: false,
              dataset_frequency:"monthly",
              //monthly_dataset:true,
+
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
 
      		masking: false
      	};
@@ -1694,6 +1754,12 @@ namespace Nextsim
         
         dataset_frequency:"monthly",
         //monthly_dataset:true,
+
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
         
         masking: false
     };
@@ -1854,6 +1920,12 @@ namespace Nextsim
             loaded: false,
             dataset_frequency:"daily",
             //monthly_dataset: false,
+
+            waveOptions: {
+               wave_dataset:true,
+               use_mwp:false,
+               use_ice:true
+            },
 
             masking: false
         };
@@ -2027,6 +2099,12 @@ namespace Nextsim
             dataset_frequency:"yearly",
             //monthly_dataset: false,
             //yearly_dataset: true,
+
+            waveOptions: {
+               wave_dataset:true,
+               use_mwp:true,
+               use_ice:false
+            },
 
             masking: false
         };
