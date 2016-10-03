@@ -1769,13 +1769,14 @@ FiniteElement::assemble(int pcpt)
         double tmp_thick=(0.05>M_thick[cpt]) ? 0.05 : M_thick[cpt];
         double tmp_conc=(0.01>M_conc[cpt]) ? 0.01 : M_conc[cpt];
 
+#if 1
         //option 1 (original)
-        //double coef = young*(1.-M_damage[cpt])*tmp_thick*std::exp(ridging_exponent*(1.-tmp_conc));
-
+        double coef = young*(1.-M_damage[cpt])*tmp_thick*std::exp(ridging_exponent*(1.-tmp_conc));
+#else
         //option 2 (we just change the value of the ridging exponent and we renamed it "damaging_exponent")
         double damaging_exponent = -80.;
         double coef = young*(1.-M_damage[cpt])*tmp_thick*std::exp(damaging_exponent*(1.-tmp_conc));
-
+#endif
         //option 3: We change the formulation of f(A) and make it piecewise linear between limit_conc_fordamage and 1, and 0 otherwise
         //double factor = 0.;
         //double limit_conc_fordamage = 0.;
@@ -2386,7 +2387,13 @@ FiniteElement::update()
         }
 #endif
 
+#if 1
+        //option 1 (original)
+        double damaging_exponent = ridging_exponent;
+#else
+        //option 2
         double damaging_exponent = -80.;
+#endif
         for(i=0;i<3;i++)
         {
             sigma_dot_i = 0.0;
