@@ -1904,7 +1904,6 @@ namespace Nextsim
       	    interp_type : BilinearInterpEnum,
       	    //interp_type : NearestInterpEnum,
       		dirname="data",
-      		//filename:"erai.6h.201304.nc",//"erai.6h.200803.nc",
              prefix= "ec_start",
              postfix=".nc",
 
