@@ -493,11 +493,18 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             XTIME.resize(index_count[0]);
 
             FVTIME.getVar(index_start, index_count, &XTIME[0]);
-            std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string(dataset->reference_date); });
+            std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = (f*dataset->time.a+dataset->time.b)/24.0+from_date_string(dataset->reference_date); });
 
             auto it = std::find(XTIME.begin(), XTIME.end(), ftime);
             index = std::distance(XTIME.begin(),it);
-            //std::cout <<"FIND "<< ftime <<" in index "<< index <<"\n";
+            if(index>(index_start[0]+index_count[0]-1))
+            {
+                std::cout <<"index_count "<< index_count[0] <<"\n";
+                std::cout <<"FIND "<< ftime <<" in index "<< index <<"\n";
+                std::cout <<"FIND "<< ftime <<" between "<< XTIME[0] << " and "<< XTIME[XTIME.size()-1] <<"\n";
+                throw std::runtime_error("Time out of the time range of the file: " + filename);
+            }
+            
         }
 
         // Load each variable and copy its data into data_in

@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
+///* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
 
 /**
  * @file   finiteelement.cpp
@@ -250,6 +250,7 @@ FiniteElement::initVariables()
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
 
     M_tau.resize(2*M_num_nodes,0.);
+
 }//end initVariables
 
 void
@@ -295,6 +296,11 @@ FiniteElement::initDatasets()
     M_ERAi_nodes_dataset=DataSet("ERAi_nodes",M_num_nodes);
 
     M_ERAi_elements_dataset=DataSet("ERAi_elements",M_num_elements);
+
+#if defined (WAVES)
+    M_WW3A_elements_dataset=DataSet("ww3a_elements",M_num_elements);
+#endif
+
 }
 
 void
@@ -431,6 +437,15 @@ FiniteElement::initConstant()
         ("osisaf", setup::IceType::OSISAF);
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
 
+#if defined (WAVES)
+    const boost::unordered_map<const std::string, setup::WaveType> str2wave = boost::assign::map_list_of
+        ("constant", setup::WaveType::CONSTANT)
+        ("ww3a", setup::WaveType::WW3A);
+    M_wave_type = str2wave.find(vm["setup.wave-type"].as<std::string>())->second;
+    std::cout<<"wave forcing type "<<vm["setup.wave-type"].as<std::string>()<<"\n";
+    std::cout<<"wave forcing enum "<<(int)M_wave_type<<"\n";
+#endif
+
     const boost::unordered_map<const std::string, setup::BathymetryType> str2bathymetry = boost::assign::map_list_of
         ("constant", setup::BathymetryType::CONSTANT)
         ("etopo", setup::BathymetryType::ETOPO);
@@ -495,6 +510,8 @@ FiniteElement::initConstant()
         {
             M_mesh.setOrdering("bamg"); /* The .msh files bigarctic.msh,... that are on Johansen are actually using the bamg ordering*/
         }
+        else
+            M_mesh.setOrdering("gmsh");
     }
     else
         throw std::logic_error("Unknown setup::MeshType");
@@ -1076,6 +1093,7 @@ FiniteElement::regrid(bool step)
                                     interp_elt_in[nb_var*i+tmp_nb_var] = M_nfloes[i];
                                     tmp_nb_var++;
                                 }
+
 #endif
 
 				if(tmp_nb_var>nb_var)
@@ -1140,6 +1158,7 @@ FiniteElement::regrid(bool step)
 #if defined (WAVES)
                         if (nfloes_interp)
                             M_nfloes.assign(M_num_elements,0.);
+
 #endif
 
 			for (int i=0; i<M_num_elements; ++i)
@@ -1237,6 +1256,7 @@ FiniteElement::regrid(bool step)
                                     M_nfloes[i] = interp_elt_out[nb_var*i+tmp_nb_var];
                                     tmp_nb_var++;
                                 }
+
 #endif
 
 				if(tmp_nb_var!=nb_var)
@@ -1477,6 +1497,10 @@ FiniteElement::regrid(bool step)
     M_etopo_elements_dataset.target_size=M_num_elements;
     M_ERAi_nodes_dataset.target_size=M_num_nodes;
     M_ERAi_elements_dataset.target_size=M_num_elements;
+#if defined (WAVES)
+    M_WW3A_elements_dataset.target_size=M_num_elements;
+#endif
+
 
     M_asr_nodes_dataset.reloaded=false;
     M_asr_elements_dataset.reloaded=false;
@@ -1489,6 +1513,9 @@ FiniteElement::regrid(bool step)
     M_etopo_elements_dataset.reloaded=false;
     M_ERAi_nodes_dataset.reloaded=false;
     M_ERAi_elements_dataset.reloaded=false;
+#if defined (WAVES)
+    M_WW3A_elements_dataset.reloaded=false;
+#endif
 
     // for the parralel code, it will be necessary to add those lines
     // as the domain covered by the partinions changes at each remeshing/partitioning
@@ -3639,6 +3666,8 @@ FiniteElement::run()
         // **********************************************************************
         this->step(pcpt);
 
+std::cout<< "pcpt= " << pcpt  <<"\n";
+
         pcpt_file << pcpt << "\n";
         pcpt_file << to_date_string(current_time) << "\n";
         pcpt_file.seekp(0);
@@ -3694,28 +3723,26 @@ FiniteElement::init()
         LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
     }
-
     if ( M_use_restart )
     {
         LOG(DEBUG) <<"Reading restart file\n";
         pcpt = this->readRestart(vm["setup.step_nb"].as<int>());
         current_time = time_init + pcpt*time_step/(24*3600.0);
-
         LOG(DEBUG) <<"Initialize forcingAtmosphere\n";
         this->forcingAtmosphere();
-
         LOG(DEBUG) <<"Initialize forcingOcean\n";
         this->forcingOcean();
-
+#if defined (WAVES)
+        LOG(DEBUG) <<"Initialize forcingWave\n";
+        this->forcingWave();
+#endif
         LOG(DEBUG) <<"Initialize bathymetry\n";
         this->bathymetry();
-
         chrono.restart();
         LOG(DEBUG) <<"check_and_reload starts\n";
         for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
             (*it)->check_and_reload(M_mesh,current_time);
         LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
-
     }
     else
     {
@@ -3733,20 +3760,20 @@ FiniteElement::init()
 
         LOG(DEBUG) <<"Initialize forcingOcean\n";
         this->forcingOcean();
-
+#if defined (WAVES)
+        LOG(DEBUG) <<"Initialize forcingWave\n";
+        this->forcingWave();
+#endif
         LOG(DEBUG) <<"Initialize bathymetry\n";
         this->bathymetry();
-
         chrono.restart();
         LOG(DEBUG) <<"check_and_reload starts\n";
         for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
             (*it)->check_and_reload(M_mesh,time_init);
         LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
-
         this->initModelState();
         LOG(DEBUG) <<"initSimulation done in "<< chrono.elapsed() <<"s\n";
     }
-
     // Open the output file for drifters
     // TODO: Is this the right place to open the file?
     if (M_drifter_type == setup::DrifterType::IABP )
@@ -3771,14 +3798,16 @@ void
 FiniteElement::step(int &pcpt)
 {
 
+
+
 #if defined (WAVES)
+
     M_run_wim = !(pcpt % vm["nextwim.couplingfreq"].as<int>());
 
     // coupling with wim (exchange from nextsim to wim)
     if (vm["simul.use_wim"].as<bool>())
         this->nextsimToWim(pcpt);
 #endif
-
     // step 0: preparation
     // remeshing and remapping of the prognostic variables
 
@@ -4617,7 +4646,9 @@ FiniteElement::readRestart(int step)
     M_etopo_elements_dataset.target_size=M_num_elements;
     M_ERAi_nodes_dataset.target_size=M_num_nodes;
     M_ERAi_elements_dataset.target_size=M_num_elements;
-
+#if defined (WAVES)
+    M_WW3A_elements_dataset.target_size=M_num_elements;
+#endif
     return pcpt;
 }
 
@@ -4893,6 +4924,47 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             throw std::logic_error("invalid ocean forcing");
     }
 }
+
+#if defined (WAVES)
+void
+FiniteElement::forcingWave()
+{
+    switch (M_wave_type)
+    {
+        case setup::WaveType::CONSTANT:
+
+//            std::cout<<"simul.constant_significant_wave_height"<<"\n";
+//            std::cout<<vm["simul.constant_significant_wave_height"].as<double>()<<"\n";
+//            std::cout<<"simul.constant_significant_wave_height"<<"\n";
+            M_SWH=ExternalData(vm["simul.constant_significant_wave_height"].as<double>());
+            M_external_data.push_back(&M_SWH);
+
+            M_MWD=ExternalData(vm["simul.constant_wave_mean_direction"].as<double>());
+            M_external_data.push_back(&M_MWD);
+
+            M_FP=ExternalData(vm["simul.constant_wave_peak_frequency"].as<double>());
+            M_external_data.push_back(&M_FP);
+		break;
+
+        //std::cout << age[0] << std::endl;
+        case setup::WaveType::WW3A:
+
+	    M_SWH=ExternalData(&M_WW3A_elements_dataset, M_mesh, 0,false);
+            M_external_data.push_back(&M_SWH);
+
+            M_MWD=ExternalData(&M_WW3A_elements_dataset, M_mesh, 1,false);
+            M_external_data.push_back(&M_MWD);
+
+            M_FP=ExternalData(&M_WW3A_elements_dataset, M_mesh, 2,false);
+            M_external_data.push_back(&M_FP);
+                break;
+
+        default:
+            std::cout << "invalid wave forcing"<<"\n";
+            throw std::logic_error("invalid wave forcing");
+    }
+}
+#endif
 
 void
 FiniteElement::initSlabOcean()
@@ -5862,7 +5934,7 @@ FiniteElement::nextsimToWim(bool step)
         chrono.restart();
         LOG(DEBUG) <<"Element Interp starts\n";
         // ELEMENT INTERPOLATION (c, h, Nfloes)
-        int nb_var=3;
+        int nb_var=6;
 
         std::vector<double> interp_elt_in(nb_var*M_num_elements);
 
@@ -5874,7 +5946,7 @@ FiniteElement::nextsimToWim(bool step)
         for (int i=0; i<M_num_elements; ++i)
         {
             tmp_nb_var=0;
-
+            
             // concentration
             interp_elt_in[nb_var*i+tmp_nb_var] = M_conc[i];
             tmp_nb_var++;
@@ -5885,6 +5957,18 @@ FiniteElement::nextsimToWim(bool step)
 
             // Nfloes
             interp_elt_in[nb_var*i+tmp_nb_var] = M_nfloes[i];
+            tmp_nb_var++;
+
+            // significant wave height
+            interp_elt_in[nb_var*i+tmp_nb_var] = M_SWH[i];
+            tmp_nb_var++;
+
+            // wave mean direction
+            interp_elt_in[nb_var*i+tmp_nb_var] = M_MWD[i];
+            tmp_nb_var++;
+
+            // wave peak frequency
+            interp_elt_in[nb_var*i+tmp_nb_var] = M_FP[i];
             tmp_nb_var++;
 
             if(tmp_nb_var>nb_var)
@@ -5913,16 +5997,18 @@ FiniteElement::nextsimToWim(bool step)
                               dx,dy,
                               vm["wim.nx"].as<int>(),vm["wim.ny"].as<int>(),
                               0.);
-
         // move back the mesh after the interpolation
 		M_mesh.move(M_UM,-1.);
-
 
         if (!step)
         {
             M_icec_grid.assign(num_elements_grid,0.);
             M_iceh_grid.assign(num_elements_grid,0.);
             M_nfloes_grid.assign(num_elements_grid,0.);
+
+            M_SWH_grid.assign(num_elements_grid,0.);
+            M_MWD_grid.assign(num_elements_grid,0.);
+            M_FP_grid.assign(num_elements_grid,0.);
 
             M_taux_grid.assign(num_elements_grid,0.);
             M_tauy_grid.assign(num_elements_grid,0.);
@@ -5944,11 +6030,31 @@ FiniteElement::nextsimToWim(bool step)
             M_nfloes_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
             tmp_nb_var++;
 
+            // significant wave heigth
+            M_SWH_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+            tmp_nb_var++;
+	
+            // wave mean direction
+            M_MWD_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+            tmp_nb_var++;
+
+	    // wave peak frequency
+            M_FP_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+            tmp_nb_var++;
+
+
+
             if(tmp_nb_var>nb_var)
             {
                 throw std::logic_error("tmp_nb_var not equal to nb_var");
             }
         }
+        std::cout<<"M_SWH_grid[0]= "<< *std::min_element(M_SWH_grid.begin(),M_SWH_grid.end() )<<"\n";
+        std::cout<<"M_MWD_grid[0]= "<< *std::min_element(M_MWD_grid.begin(),M_MWD_grid.end() )<<"\n";
+	std::cout<<"M_FP_grid[0]= "<< *std::min_element(M_FP_grid.begin(),M_FP_grid.end() )<<"\n";
+        std::cout<<"M_SWH_grid[0]= "<< *std::max_element(M_SWH_grid.begin(),M_SWH_grid.end() )<<"\n";
+        std::cout<<"M_MWD_grid[0]= "<< *std::max_element(M_MWD_grid.begin(),M_MWD_grid.end() )<<"\n";
+        std::cout<<"M_FP_grid[0]= "<< *std::max_element(M_FP_grid.begin(),M_FP_grid.end() )<<"\n";
 
         xDelete<double>(interp_elt_out);
     }
@@ -5971,11 +6077,19 @@ FiniteElement::wimToNextsim(bool step)
         }
 
         // run wim
+// test this later
+//        wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, M_SWH_grid, M_MWD_grid, M_FP_grid, step);
+
         wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, step);
 
         M_taux_grid = wim.getTaux();
         M_tauy_grid = wim.getTauy();
         M_nfloes_grid = wim.getNFloes();
+
+//        M_taux_grid = wim.getSWH();
+//        M_tauy_grid = wim.getMWD();
+//        M_nfloes_grid = wim.getFP();
+
     }
 
     if (!M_regrid)
