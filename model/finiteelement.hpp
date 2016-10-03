@@ -337,6 +337,8 @@ private:
     bool M_use_restart;
     bool M_write_restart;
 
+    std::string M_export_path;
+
 private:
 
     // bamgopt_ptrtype bamgopt;

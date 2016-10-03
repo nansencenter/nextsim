@@ -509,6 +509,22 @@ FiniteElement::initConstant()
     M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
 
     M_use_moorings =  vm["simul.use_moorings"].as<bool>();
+
+    M_export_path = Environment::nextsimDir().string() + "/matlab";
+    // change directory for outputs if the option "output_directory" is not empty
+    if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
+    {
+        M_export_path = vm["simul.output_directory"].as<std::string>();
+
+        fs::path path(M_export_path);
+        // add a subdirecory if needed
+        // path /= "subdir";
+
+        // create the output directory if it does not exist
+        if ( !fs::exists(path) )
+            fs::create_directories(path);
+    }
+
 }
 
 void
@@ -3730,7 +3746,7 @@ FiniteElement::init()
     {
         // We should tag the file name with the init time in case of a re-start.
         std::stringstream filename;
-        filename << Environment::nextsimDir().string() << "/matlab/drifters_out_" << current_time << ".txt";
+        filename << M_export_path << "/drifters_out_" << current_time << ".txt";
         M_drifters_out.open(filename.str(), std::fstream::out);
         if ( ! M_drifters_out.good() )
             throw std::runtime_error("Cannot write to file: " + filename.str());
@@ -4147,7 +4163,7 @@ FiniteElement::initMoorings()
     std::vector<DataSet::Vectorial_Variable> vectorial_variables(1);
     vectorial_variables[0] = siuv;
 
-    M_moorings_file = "Moorings.nc";
+    M_moorings_file = M_export_path + "/Moorings.nc";
 #if 1
     // Calculate the grid spacing (assuming a regular grid for now)
     auto RX = M_mesh.coordX();
@@ -5676,32 +5692,12 @@ FiniteElement::exportResults(int step, bool export_mesh)
 {
     Exporter exporter;
     std::string fileout;
-    std::string export_path;
-
-    // change directory for outputs if the option "output_directory" is not empty
-    if ((vm["simul.output_directory"].as<std::string>()).empty())
-    {
-        export_path = Environment::nextsimDir().string() + "/matlab";
-    }
-    else
-    {
-        export_path = vm["simul.output_directory"].as<std::string>();
-
-        fs::path path(export_path);
-        // add a subdirecory if needed
-        // path /= "subdir";
-
-        // create the output directory if it does not exist
-        if ( !fs::exists(path) )
-            fs::create_directories(path);
-    }
-
 
 
     if (export_mesh)
     {
         fileout = (boost::format( "%1%/mesh_%2%.bin" )
-                   % export_path
+                   % M_export_path
                    % step ).str();
 
         LOG(INFO) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
@@ -5720,7 +5716,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
 		M_mesh.move(M_UM,-1.);
 
         fileout = (boost::format( "%1%/mesh_%2%.dat" )
-               % export_path
+               % M_export_path
                % step ).str();
 
         LOG(INFO) <<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
@@ -5734,7 +5730,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
 
 
     fileout = (boost::format( "%1%/field_%2%.bin" )
-               % export_path
+               % M_export_path
                % step ).str();
 
     LOG(INFO) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
@@ -5745,6 +5741,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
     std::vector<double> timevec(1);
     timevec[0] = current_time;
     exporter.writeField(outbin, timevec, "Time");
+    exporter.writeField(outbin, M_surface, "Element_area");
     exporter.writeField(outbin, M_node_max_conc, "M_node_max_conc");
     exporter.writeField(outbin, M_VT, "M_VT");
     exporter.writeField(outbin, M_conc, "Concentration");
@@ -5836,7 +5833,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
     outbin.close();
 
     fileout = (boost::format( "%1%/field_%2%.dat" )
-               % export_path
+               % M_export_path
                % step ).str();
 
     LOG(INFO) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
@@ -6145,28 +6142,8 @@ FiniteElement::writeLogFile()
         logfilename = vm["simul.logfile"].as<std::string>();
     }
     
-    std::string export_path;
-
-    // change directory for outputs if the option "output_directory" is not empty
-    if ((vm["simul.output_directory"].as<std::string>()).empty())
-    {
-        export_path = Environment::nextsimDir().string() + "/matlab";
-    }
-    else
-    {
-        export_path = vm["simul.output_directory"].as<std::string>();
-
-        fs::path path(export_path);
-        // add a subdirecory if needed
-        // path /= "subdir";
-
-        // create the output directory if it does not exist
-        if ( !fs::exists(path) )
-            fs::create_directories(path);
-    }
-
     std::string fileout = (boost::format( "%1%/%2%" )
-               % export_path
+               % M_export_path
                % logfilename ).str();
 
     std::fstream logfile(fileout, std::ios::out | std::ios::trunc);
