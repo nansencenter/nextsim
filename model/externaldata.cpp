@@ -739,7 +739,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                     y_ind_m1=y_ind-1;
                     found_north_pole=true;
                 }
-                if(found_north_pole=true)
+                if(found_north_pole)
                 {
                     tmp_data0=0.;
                     tmp_data1=0.;
