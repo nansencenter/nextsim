@@ -2873,7 +2873,7 @@ FiniteElement::thermo()
         			*( 1. + 0.275*M_tcc[i] );
         }
 
-        Qow = -M_Qsw_in[i]*(1.-ocean_albedo) - tmp_Qlw_in + Qlw_out + Qsh; // Qlh is already counted in evap + Qlh;
+        Qow = -M_Qsw_in[i]*(1.-ocean_albedo) - tmp_Qlw_in + Qlw_out + Qsh + Qlh;
 
         // -------------------------------------------------
         // 4) Thickness change of the ice slab (thermoIce0 in matlab)
@@ -3142,11 +3142,11 @@ FiniteElement::atmFluxBulk(int i, double Tsurf, double sphuma, double drag_ice_t
 
     /* Latent heat flux and derivative */
     double Qlh    = drag_ice_t*rhoair*(physical::Lf+physical::Lv0)*wspeed*( sphumi - sphuma );
-    // double dQlhdT = drag_ice_t*(physical::Lf+physical::Lv0)*rhoair*wspeed*dsphumidT;
+    double dQlhdT = drag_ice_t*(physical::Lf+physical::Lv0)*rhoair*wspeed*dsphumidT;
 
     /* Sum them up */
-    double Qout    = Qlw_out + Qsh; // Latent heat is counted through sublimation + Qlh;
-    dQaidT = dQlwdT + dQshdT; // + dQlhdT;
+    double Qout    = Qlw_out + Qsh + Qlh;
+    dQaidT = dQlwdT + dQshdT + dQlhdT;
 
     /* Sublimation */
     subl    = Qlh/(physical::Lf+physical::Lv0);
@@ -3500,7 +3500,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         double Qlw_out, dQlwdT;
         double tairK, sphumi;
         double rhoair, Qsh, dQshdT;
-        double Qlh, dsphumidT; //, dQlhdT;
+        double Qlh, dsphumidT, dQlhdT;
 
         double fi, esti;
         double dsphumdesti, destidT, dfidT;
