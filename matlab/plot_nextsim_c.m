@@ -319,7 +319,7 @@ function set_figure_cosmetics(data_out,domain,region_of_zoom,plot_date,backgroun
 
         %Adds date
         if plot_date == 1 && isfield(data_out,'Time')
-            date=data_out.Time+datenum(1900,1,1,0,0,0);
+            date=data_out.Time;
             textstring = datestr(date,'yyyy/mm/dd HH:MM');
             if strcmp(domain,'4MIT') || strcmp(domain,'BKF')
                 text(0.025, 0.1,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')

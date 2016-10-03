@@ -75,9 +75,13 @@ for i=1:length(c)
     end
     colorbar
     
-    font_size=12;
-    textstring=datestr(data_out.Time + datenum('1-jan-1900'));
-    text(0.55, 0.95,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
+    try
+        font_size=12;
+        textstring=datestr(data_out.Time);
+        text(0.55, 0.95,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
+    catch e
+        display(e)
+    end
     set(gca,'DataAspectRatio',[1 1 1], 'Color', [.7 .7 .7])
 end
 

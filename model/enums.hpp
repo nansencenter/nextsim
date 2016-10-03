@@ -47,6 +47,7 @@ namespace setup
     {
         CONSTANT = 0,
         WW3A     = 1,
+        ERAI_WAVES_1DEG = 2
     };
 
     enum class BathymetryType

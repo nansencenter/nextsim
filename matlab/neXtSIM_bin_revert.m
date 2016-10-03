@@ -1,4 +1,4 @@
-function [mesh_out,data_out] = neXtSIM_bin_revert(filename, proc, step,varargin)
+function [mesh_out,data_out] = neXtSIM_bin_revert(dirname, proc, step,varargin)
 
 %Sylvain: Created 20160105 to take a binary file and revert it to a slim_out.
 %Only works for binary files created by neXtSIM
@@ -13,15 +13,15 @@ if nVarargs >= 1, save_flag = varargin{1}; end
 if nVarargs >= 2, error('Too many inputs'), end
 
 if(isempty(proc))
-    field_info  = [ filename 'field_' num2str(step) '.dat'];
-    field_data  = [ filename 'field_' num2str(step) '.bin'];
-    mesh_info   = [ filename 'mesh_' num2str(step) '.dat'];
-    mesh_data   = [ filename 'mesh_' num2str(step) '.bin'];
+    field_info  = [ dirname '/field_' num2str(step) '.dat'];
+    field_data  = [ dirname '/field_' num2str(step) '.bin'];
+    mesh_info   = [ dirname '/mesh_' num2str(step) '.dat'];
+    mesh_data   = [ dirname '/mesh_' num2str(step) '.bin'];
 else    
-    field_info  = [ filename 'field_' num2str(proc) '_' num2str(step) '.dat'];
-    field_data  = [ filename 'field_' num2str(proc) '_' num2str(step) '.bin'];
-    mesh_info   = [ filename 'mesh_' num2str(proc) '_' num2str(step) '.dat'];
-    mesh_data   = [ filename 'mesh_' num2str(proc) '_' num2str(step) '.bin'];
+    field_info  = [ dirname '/field_' num2str(proc) '_' num2str(step) '.dat'];
+    field_data  = [ dirname '/field_' num2str(proc) '_' num2str(step) '.bin'];
+    mesh_info   = [ dirname '/mesh_' num2str(proc) '_' num2str(step) '.dat'];
+    mesh_data   = [ dirname '/mesh_' num2str(proc) '_' num2str(step) '.bin'];
 end
 
 
@@ -50,7 +50,11 @@ for i = 1:numel(data_names)
        prec = 'int';
     end
     N_data=fread(fileID,1,'int');
-    out.(field{i}) = fread(fileID,N_data,prec);
+    if strcmp('Time',field{i})
+        out.(field{i}) = fread(fileID,N_data,prec) + datenum(1900,1,1);
+    else
+        out.(field{i}) = fread(fileID,N_data,prec);
+    end
 end
 fclose(fileID);
 end

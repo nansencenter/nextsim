@@ -435,8 +435,12 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                 ftime = ftime-0.5;
             
             std::string f_timestr;
-            if(dataset->grid.monthly_dataset)
+            //if(dataset->grid.monthly_dataset)
+            if(dataset->grid.dataset_frequency=="monthly")
                 f_timestr = to_date_string_ym(std::floor(ftime));
+            //else if (dataset->grid.yearly_dataset)
+            if(dataset->grid.dataset_frequency=="yearly")
+                f_timestr = to_date_string_y(std::floor(ftime));//yyyy
             else
                 f_timestr = to_date_string_yd(std::floor(ftime));
             
@@ -493,7 +497,8 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             XTIME.resize(index_count[0]);
 
             FVTIME.getVar(index_start, index_count, &XTIME[0]);
-            std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = (f*dataset->time.a+dataset->time.b)/24.0+from_date_string(dataset->reference_date); });
+            std::for_each(XTIME.begin(), XTIME.end(), [&](double& f)
+                  { f = (f*dataset->time.a+dataset->time.b)/24.0+from_date_string(dataset->reference_date); });
 
             auto it = std::find(XTIME.begin(), XTIME.end(), ftime);
             index = std::distance(XTIME.begin(),it);
@@ -596,7 +601,8 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                             int i=y_ind*N+x_ind;
                             int cyclic_i=y_ind*cyclic_N+x_ind;
 
-                            data_in[(dataset->variables.size()*nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=data_in_tmp[i]*scale_factor + add_offset;
+                            data_in[(dataset->variables.size()*nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]
+                               =data_in_tmp[i]*scale_factor + add_offset;
                         }
                     }
                 }

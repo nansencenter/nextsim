@@ -159,7 +159,14 @@ namespace Nextsim
       		interpolation_in_latlon: false,
 
             loaded: false,
-            monthly_dataset:true,
+            dataset_frequency:"monthly",
+            //monthly_dataset:true,
+
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
 
      		masking: false
      	};
@@ -313,7 +320,14 @@ namespace Nextsim
       		interpolation_in_latlon: false,
 
             loaded: false,
-            monthly_dataset:true,
+            dataset_frequency:"monthly",
+            //monthly_dataset:true,
+
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
 
      		masking: false
      	};
@@ -565,7 +579,14 @@ namespace Nextsim
      		interpolation_in_latlon: false,
 
              loaded: false,
-             monthly_dataset:true,
+             dataset_frequency:"monthly",
+             //monthly_dataset:true,
+
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
 
      		masking: true,
      		masking_variable: ssh
@@ -738,7 +759,14 @@ namespace Nextsim
      		interpolation_in_latlon: false,
 
              loaded: false,
-             monthly_dataset:true,
+            dataset_frequency:"monthly",
+             //monthly_dataset:true,
+
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
 
      		masking: true,
      		masking_variable: sss
@@ -901,7 +929,14 @@ namespace Nextsim
      		interpolation_in_latlon: false,
 
              loaded: false,
-             monthly_dataset:true,
+            dataset_frequency:"monthly",
+             //monthly_dataset:true,
+
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
 
      		masking: true,
      		masking_variable: conc
@@ -1027,7 +1062,14 @@ namespace Nextsim
      		interpolation_in_latlon: false,
 
              loaded: false,
-             monthly_dataset:false,
+            dataset_frequency:"daily",
+             //monthly_dataset:false,
+
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
 
      		masking: true,
      		masking_variable: conc
@@ -1151,7 +1193,14 @@ namespace Nextsim
      		interpolation_in_latlon: false,
 
              loaded: false,
-             monthly_dataset:false,
+             dataset_frequency:"daily",
+             //monthly_dataset:false,
+
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
 
      		masking: true,
      		masking_variable: conc
@@ -1275,7 +1324,14 @@ namespace Nextsim
      		interpolation_in_latlon: false,
 
              loaded: false,
-             monthly_dataset:false,
+             dataset_frequency:"daily",
+             //monthly_dataset:false,
+
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
 
      		masking: true,
      		masking_variable: conc
@@ -1371,7 +1427,14 @@ namespace Nextsim
      		interpolation_in_latlon: true,
 
              loaded: false,
-             monthly_dataset:false,
+             dataset_frequency:"daily",
+             //monthly_dataset:false,
+
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
 
      		masking: false
      	};
@@ -1482,7 +1545,14 @@ namespace Nextsim
      		interpolation_in_latlon: true,
 
              loaded: false,
-             monthly_dataset:true,
+             dataset_frequency:"monthly",
+             //monthly_dataset:true,
+
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
 
      		masking: false
      	};
@@ -1682,7 +1752,14 @@ namespace Nextsim
 
         loaded: false,
         
-        monthly_dataset:true,
+        dataset_frequency:"monthly",
+        //monthly_dataset:true,
+
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
         
         masking: false
     };
@@ -2154,12 +2231,11 @@ namespace Nextsim
 
 
         Grid grid_tmp={
-            interpolation_method: InterpolationType::FromMeshToMesh2dx,     
+            interpolation_method: InterpolationType::FromMeshToMesh2dx,
             //interp_type : TriangleInterpEnum, // slower
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
                 dirname="data",
-                //filename:"erai.6h.201304.nc",//"erai.6h.200803.nc",
             prefix= "SWARP_WW3_ARCTIC-12K_",
             postfix=".nc",
 
@@ -2173,7 +2249,14 @@ namespace Nextsim
             interpolation_in_latlon: false,
 
             loaded: false,
-            monthly_dataset: false,
+            dataset_frequency:"daily",
+            //monthly_dataset: false,
+
+            waveOptions: {
+               wave_dataset:true,
+               use_mwp:false,
+               use_ice:true
+            },
 
             masking: false
         };
@@ -2266,6 +2349,185 @@ namespace Nextsim
          time= time_tmp;
 
      }
+     else if (strcmp (DatasetName, "erai_waves_1deg_elements") == 0)
+     {
+        // ERAI 1deg waves - grid and datasets
+         Dimension dimension_x={
+             name:"longitude",
+             cyclic:true
+        };
+
+         Dimension dimension_y={
+             name:"latitude",
+             cyclic:false
+        };
+
+         Dimension dimension_time={
+             name:"time", // "Time"
+             cyclic:false
+        };
+
+        // Definition of the grid
+        std::vector<Dimension> dimensions_lon(1);
+        dimensions_lon[0] = dimension_x;
+
+        std::vector<Dimension> dimensions_lat(1);
+        dimensions_lat[0] = dimension_y;
+
+        std::vector<Dimension> dimensions_latlon(2);
+        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[1] = dimension_x;
+
+        Variable latitude={
+             name: "latitude",
+             dimensions: dimensions_lat,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_north",
+             data2: data2_tmp
+        };
+
+        Variable longitude={
+             name: "longitude",
+             dimensions: dimensions_lon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_east",
+             data2: data2_tmp
+        };
+
+
+
+        Grid grid_tmp={
+            interpolation_method: InterpolationType::FromGridToMesh,
+            //interp_type : TriangleInterpEnum, // slower
+            interp_type : BilinearInterpEnum,
+            //interp_type : NearestInterpEnum,
+            //interp_type: -1,
+                dirname="data",
+                //filename:"erai.6h.201304.nc",//"erai.6h.200803.nc",
+            prefix= "erai_waves_1deg_",
+            postfix=".nc",
+
+            latitude: latitude,
+            longitude: longitude,
+
+            dimension_x: dimension_x,
+            dimension_y: dimension_y,
+
+            mpp_file: "",
+            interpolation_in_latlon: true,
+
+            loaded: false,
+            dataset_frequency:"yearly",
+            //monthly_dataset: false,
+            //yearly_dataset: true,
+
+            waveOptions: {
+               wave_dataset:true,
+               use_mwp:true,
+               use_ice:false
+            },
+
+            masking: false
+        };
+
+        // Definition of the data
+
+        std::vector<Dimension> dimensions(3);
+        dimensions[0] = dimension_time;
+        dimensions[1] = dimension_y;
+        dimensions[2] = dimension_x;
+
+
+        std::vector<Dimension> dimensions_time(1);
+        dimensions_time[0] = dimension_time;
+
+        Variable time_tmp={
+            name: "time",
+            dimensions: dimensions_time,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a: 1.,
+            b: 0.,
+            Units: "hours",
+            data2: data2_tmp
+        };
+
+        Variable SWH={
+             name: "swh", // significant height of wind and swell waves 
+             dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "m",
+             data2: data2_tmp
+        };
+
+
+        Variable MWD={
+             name: "mwd", // wave mean direction (wave_from_direction)
+             dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree",
+             data2: data2_tmp
+        };
+
+        Variable MWP={
+             name: "mwp", // wave peak period 
+             dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "s",
+             data2: data2_tmp
+        };
+
+
+        std::vector<Variable> variables_tmp(3);
+        variables_tmp[0] = SWH;
+        variables_tmp[1] = MWD;
+        variables_tmp[2] = MWP;
+
+
+         dirname=  "data";
+         prefix= "erai_waves_1deg_";
+         postfix=".nc";
+         reference_date="1900-01-01";//"2008-01-01";
+
+         variables= variables_tmp;
+         target_size= target_size_tmp;
+         grid= grid_tmp;
+         
+         reloaded= false;
+
+         nb_timestep_day= 4;
+         daily_mean=false;
+
+         time= time_tmp;
+
+     }
      else
        {
    	fprintf (stderr, "Dataset: unknown projection %s\n",DatasetName);
@@ -2281,6 +2543,9 @@ namespace Nextsim
    	fprintf (stderr, "etopo_elements\n");
    	fprintf (stderr, "ERAi_nodes\n");
     fprintf (stderr, "ERAi_elements\n");
+    fprintf (stderr, "ww3a_elements\n");
+    fprintf (stderr, "erai_waves_1deg_elements\n");
+
     
        //close_Dataset (this);
      }
@@ -2320,10 +2585,13 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
     std::string current_timestr;
     if ( current_time > 0 )
     {
-        if(grid_ptr->monthly_dataset)
-            current_timestr = to_date_string_ym(current_time);
+        //if(grid_ptr->monthly_dataset)
+        if(grid_ptr->dataset_frequency=="monthly")
+            current_timestr = to_date_string_ym(current_time);//yyyymm
+        else if(grid_ptr->dataset_frequency=="yearly")
+            current_timestr = to_date_string_y(std::floor(current_time));//yyyy
         else
-            current_timestr = to_date_string_yd(current_time);
+            current_timestr = to_date_string_yd(current_time);//yyyymmdd
         
         //std::cout <<"TIMESTR= "<< current_timestr <<"\n";
     }
@@ -2539,7 +2807,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
         
         grid_ptr->dimension_x_start=tmp_start;
         grid_ptr->dimension_x_count=tmp_end-tmp_start+1;     
-     #endif
+#endif
         
         // we just store the indices of all the points included in [RY_min, RY_max]
         std::vector<int> tmp_tmp_x_id(0);
@@ -2590,8 +2858,11 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 			//VMASK = dataFile.getVar(grid_ptr->masking_variable.name);
             if ( current_time > 0 )
             {
-                if(grid_ptr->monthly_dataset)
+                if(grid_ptr->dataset_frequency=="monthly")
+                //if(grid_ptr->monthly_dataset)
                     current_timestr = to_date_string_ym(current_time);
+                else if(grid_ptr->dataset_frequency=="yearly")
+                    current_timestr = to_date_string_y(current_time);
                 else
                     current_timestr = to_date_string_yd(current_time);
     

@@ -135,6 +135,7 @@ public:
     Dataset M_ec_nodes_dataset;
     Dataset M_ec_elements_dataset;
     Dataset M_WW3A_elements_dataset;
+    Dataset M_ERAIW_1DEG_elements_dataset;
 
     double minAngles(element_type const& element, mesh_type const& mesh) const;
     double minAngle(mesh_type const& mesh) const;
@@ -347,6 +348,8 @@ private:
 
     bool M_use_restart;
     bool M_write_restart;
+
+    std::string M_export_path;
 
 private:
 

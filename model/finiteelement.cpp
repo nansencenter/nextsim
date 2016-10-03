@@ -2896,7 +2896,7 @@ FiniteElement::thermo()
         			*( 1. + 0.275*M_tcc[i] );
         }
 
-        Qow = -tmp_Qsw_in*(1.-ocean_albedo) - tmp_Qlw_in + Qlw_out + Qsh; // Qlh is already counted in evap + Qlh;
+        Qow = -tmp_Qsw_in*(1.-ocean_albedo) - tmp_Qlw_in + Qlw_out + Qsh + Qlh;
 
         // -------------------------------------------------
         // 4) Thickness change of the ice slab (thermoIce0 in matlab)
