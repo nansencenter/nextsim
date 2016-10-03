@@ -296,6 +296,10 @@ FiniteElement::initDatasets()
     M_ERAi_nodes_dataset=DataSet("ERAi_nodes",M_num_nodes);
 
     M_ERAi_elements_dataset=DataSet("ERAi_elements",M_num_elements);
+    
+    M_ec_nodes_dataset=DataSet("ec_nodes",M_num_nodes);
+
+    M_ec_elements_dataset=DataSet("ec_elements",M_num_elements);
 
 #if defined (WAVES)
     M_WW3A_elements_dataset=DataSet("ww3a_elements",M_num_elements);
@@ -416,7 +420,8 @@ FiniteElement::initConstant()
     const boost::unordered_map<const std::string, setup::AtmosphereType> str2atmosphere = boost::assign::map_list_of
         ("constant", setup::AtmosphereType::CONSTANT)
         ("asr", setup::AtmosphereType::ASR)
-        ("erai", setup::AtmosphereType::ERAi);
+        ("erai", setup::AtmosphereType::ERAi)
+        ("ec", setup::AtmosphereType::EC);
     M_atmosphere_type = str2atmosphere.find(vm["setup.atmosphere-type"].as<std::string>())->second;
 
     //std::cout<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
@@ -1481,6 +1486,8 @@ FiniteElement::regrid(bool step)
     M_etopo_elements_dataset.target_size=M_num_elements;
     M_ERAi_nodes_dataset.target_size=M_num_nodes;
     M_ERAi_elements_dataset.target_size=M_num_elements;
+    M_ec_nodes_dataset.target_size=M_num_nodes;
+    M_ec_elements_dataset.target_size=M_num_elements;
 #if defined (WAVES)
     M_WW3A_elements_dataset.target_size=M_num_elements;
 #endif
@@ -1497,6 +1504,8 @@ FiniteElement::regrid(bool step)
     M_etopo_elements_dataset.reloaded=false;
     M_ERAi_nodes_dataset.reloaded=false;
     M_ERAi_elements_dataset.reloaded=false;
+    M_ec_nodes_dataset.reloaded=false;
+    M_ec_elements_dataset.reloaded=false;
 #if defined (WAVES)
     M_WW3A_elements_dataset.reloaded=false;
 #endif
@@ -1515,6 +1524,8 @@ FiniteElement::regrid(bool step)
     M_etopo_elements_dataset.grid.loaded=false;
     M_ERAi_nodes_dataset.grid.loaded=false;
     M_ERAi_elements_dataset.grid.loaded=false;
+    M_ec_nodes_dataset.grid.loaded=false;
+    M_ec_elements_dataset.grid.loaded=false;
 #endif
 
     M_Cohesion.resize(M_num_elements);
@@ -2795,7 +2806,15 @@ FiniteElement::thermo()
             else
                 tmp_snowfr=0.;
         }
-
+        
+        double tmp_Qsw_in;
+        if(M_Qsw_in.M_initialized)
+            tmp_Qsw_in=M_Qsw_in[i];
+        else
+        {
+            throw std::logic_error("The function approxSW not yet implemented, you need to initialized M_Qsw_in");
+            //tmp_Qsw_in=approxSW();
+        }
 
         // -------------------------------------------------
         // 2) We calculate or set the flux due to nudging
@@ -2877,7 +2896,7 @@ FiniteElement::thermo()
         			*( 1. + 0.275*M_tcc[i] );
         }
 
-        Qow = -M_Qsw_in[i]*(1.-ocean_albedo) - tmp_Qlw_in + Qlw_out + Qsh; // Qlh is already counted in evap + Qlh;
+        Qow = -tmp_Qsw_in*(1.-ocean_albedo) - tmp_Qlw_in + Qlw_out + Qsh; // Qlh is already counted in evap + Qlh;
 
         // -------------------------------------------------
         // 4) Thickness change of the ice slab (thermoIce0 in matlab)
@@ -2885,17 +2904,17 @@ FiniteElement::thermo()
         switch ( M_thermo_type )
         {
             case setup::ThermoType::ZERO_LAYER:
-                this->thermoIce0(i, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], tmp_Qlw_in, tmp_snowfr, hi, hs, hi_old, Qio, del_hi, M_tice[0][i]);
+                this->thermoIce0(i, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], tmp_Qlw_in, tmp_Qsw_in, tmp_snowfr, hi, hs, hi_old, Qio, del_hi, M_tice[0][i]);
                 break;
             case setup::ThermoType::WINTON:
-                this->thermoWinton(i, time_step, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], tmp_Qlw_in, tmp_snowfr, hi, hs, hi_old, Qio, del_hi,
+                this->thermoWinton(i, time_step, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], tmp_Qlw_in, tmp_Qsw_in, tmp_snowfr, hi, hs, hi_old, Qio, del_hi,
                         M_tice[0][i], M_tice[1][i], M_tice[2][i]);
                 break;
         }
 
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
-            this->thermoIce0(i, wspeed, sphuma, old_conc_thin, M_h_thin[i], M_hs_thin[i], tmp_Qlw_in, tmp_snowfr, hi_thin, hs_thin, hi_thin_old, Qio_thin, del_hi_thin, M_tsurf_thin[i]);
+            this->thermoIce0(i, wspeed, sphuma, old_conc_thin, M_h_thin[i], M_hs_thin[i], tmp_Qlw_in, tmp_Qsw_in, tmp_snowfr, hi_thin, hs_thin, hi_thin_old, Qio_thin, del_hi_thin, M_tsurf_thin[i]);
             M_h_thin[i]  = hi_thin * old_conc_thin;
             M_hs_thin[i] = hs_thin * old_conc_thin;
         }
@@ -3232,7 +3251,7 @@ FiniteElement::albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, do
 
 // Winton thermo dynamics (ice temperature, growth, and melt)
 void
-FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double snowfr,
+FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double snowfr,
         double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double &T1, double &T2)
 {
     // Constants
@@ -3283,7 +3302,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
 
         /* Calculate atmospheric fluxes */
         // Shortwave is modulated by the albedo
-        double Qsw = -M_Qsw_in[i]*(1.-FiniteElement::albedo(alb_scheme, Tsurf, hs, alb_sn, alb_ice, I_0))*(1.-I_0);
+        double Qsw = -Qsw_in*(1.-FiniteElement::albedo(alb_scheme, Tsurf, hs, alb_sn, alb_ice, I_0))*(1.-I_0);
         // The rest is calculated by bulk formula
         FiniteElement::atmFluxBulk(i, Tsurf, sphuma, drag_ice_t, Qsw, Qlw_in, wspeed,
                 Qai, dQaidT,subl);
@@ -3461,7 +3480,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
 
 // This is Semtner zero layer
 void
-FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double snowfr,
+FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double snowfr,
         double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf)
 {
 
@@ -3521,7 +3540,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
 
             /* Calculate atmospheric fluxes */
             // Shortwave is modulated by the albedo
-            Qsw = -M_Qsw_in[i]*(1.-FiniteElement::albedo(alb_scheme, Tsurf, hs, alb_sn, alb_ice, I_0))*(1.-I_0);
+            Qsw = -Qsw_in*(1.-FiniteElement::albedo(alb_scheme, Tsurf, hs, alb_sn, alb_ice, I_0))*(1.-I_0);
             // The rest is calculated by bulk formula
             FiniteElement::atmFluxBulk(i, Tsurf, sphuma, drag_ice_t, Qsw, Qlw_in, wspeed,
                     Qai, dQaidT,subl);
@@ -4623,6 +4642,8 @@ FiniteElement::readRestart(int step)
     M_etopo_elements_dataset.target_size=M_num_elements;
     M_ERAi_nodes_dataset.target_size=M_num_nodes;
     M_ERAi_elements_dataset.target_size=M_num_elements;
+    M_ec_nodes_dataset.target_size=M_num_nodes;
+    M_ec_elements_dataset.target_size=M_num_elements;
 #if defined (WAVES)
     M_WW3A_elements_dataset.target_size=M_num_elements;
 #endif
@@ -4840,6 +4861,35 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             M_mixrat=ExternalData(-1.);
             M_external_data.push_back(&M_mixrat);
 
+        break;
+        
+        case setup::AtmosphereType::EC:
+            M_wind=ExternalData(
+                &M_ec_nodes_dataset,M_mesh,0 ,true ,
+                time_init, vm["simul.spinup_duration"].as<double>());
+            M_external_data.push_back(&M_wind);
+
+            M_tair=ExternalData(&M_ec_elements_dataset,M_mesh,0,false);
+            M_external_data.push_back(&M_tair);
+
+            M_dair=ExternalData(&M_ec_elements_dataset,M_mesh,1,false);
+            M_external_data.push_back(&M_dair);
+
+            M_mslp=ExternalData(&M_ec_elements_dataset,M_mesh,2,false);
+            M_external_data.push_back(&M_mslp);
+
+            M_tcc=ExternalData(&M_ec_elements_dataset,M_mesh,3,false);
+            M_external_data.push_back(&M_tcc);
+
+            // Syl: The following two lines should be removed when approxSW will be implemented in Thermo()
+            M_Qsw_in=ExternalData(vm["simul.constant_Qsw_in"].as<double>());
+            M_external_data.push_back(&M_Qsw_in);
+
+            M_precip=ExternalData(0.);
+            M_external_data.push_back(&M_precip);
+
+            M_mixrat=ExternalData(-1.);
+            M_external_data.push_back(&M_mixrat);
         break;
 
         default:

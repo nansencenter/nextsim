@@ -1770,7 +1770,338 @@ namespace Nextsim
       daily_mean=false;
       time= time_tmp;
       }
+      else if (strcmp (DatasetName, "ec_elements") == 0)
+      {
+      	// Definition of dimensions
+         Dimension dimension_x={
+              name:"lon",
+              cyclic:false
+      	};
 
+         Dimension dimension_y={
+              name:"lat",
+              cyclic:false
+      	};
+
+         Dimension dimension_time={
+              name:"time", // "Time"
+              cyclic:false
+      	};
+
+         // Definition of the grid
+          std::vector<Dimension> dimensions_lon(1);
+          dimensions_lon[0] = dimension_x;
+
+          std::vector<Dimension> dimensions_lat(1);
+          dimensions_lat[0] = dimension_y;
+
+          Variable latitude={
+              name: "lat",
+              dimensions: dimensions_lat,
+              land_mask_defined: false,
+              land_mask_value: 0.,
+              NaN_mask_defined: false,
+              NaN_mask_value: 0.,
+              a: 1.,
+              b: 0.,
+              Units: "degree_north",
+              data2: data2_tmp
+      	};
+
+          Variable longitude={
+              name: "lon",
+              dimensions: dimensions_lon,
+              land_mask_defined: false,
+              land_mask_value: 0.,
+              NaN_mask_defined: false,
+              NaN_mask_value: 0.,
+              a: 1.,
+              b: 0.,
+              Units: "degree_east",
+              data2: data2_tmp
+      	};
+
+      	Grid grid_tmp={
+      		interpolation_method: InterpolationType::FromGridToMesh,
+      	    //interp_type : TriangleInterpEnum, // slower
+      	    interp_type : BilinearInterpEnum,
+      	    //interp_type : NearestInterpEnum,
+      		dirname="data",
+      		//filename:"erai.6h.201304.nc",//"erai.6h.200803.nc",
+             prefix= "ec_start",
+             postfix=".nc",
+
+      		latitude: latitude,
+      		longitude: longitude,
+
+      		dimension_x: dimension_x,
+      		dimension_y: dimension_y,
+
+      		mpp_file: "",
+      		interpolation_in_latlon: true,
+
+            loaded: false,
+            monthly_dataset:false,
+
+      		masking: false
+      	};
+
+         grid= grid_tmp;
+
+         // Definition of the data
+
+         std::vector<Dimension> dimensions_time(1);
+         dimensions_time[0] = dimension_time;
+
+         std::vector<Dimension> dimensions(3);
+         dimensions[0] = dimension_time;
+         dimensions[1] = dimension_y;
+         dimensions[2] = dimension_x;
+
+         Variable time_tmp={
+             name: "time",
+             dimensions: dimensions_time,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "hours",
+             data2: data2_tmp
+     	};
+
+         nb_timestep_day=4;
+
+         Variable tair={
+             name:"T2M",
+             dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a:1.,
+             b:-273.15,
+             Units:"C",
+             data2: data2_tmp
+     	}; // T2M
+         Variable dair={
+             name:"D2M",
+             dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a:1.,
+             b:-273.15,
+             Units:"C",
+             data2: data2_tmp
+     	}; // Q2M
+         Variable mslp={
+             name:"MSL",
+             dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a:1.,
+             b:0.,
+             Units:"Pa",
+             data2: data2_tmp
+     	}; //PSFC, a=1.
+         
+         Variable tcc={
+             name:"TCC",
+             dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a:1.,
+             b:0.,
+             Units:"",
+             data2: data2_tmp
+     	};
+
+         std::vector<Variable> variables_tmp(4);
+         variables_tmp[0] = tair;
+         variables_tmp[1] = dair;
+         variables_tmp[2] = mslp;
+         variables_tmp[3] = tcc;
+         
+          std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+          dirname=  "data";
+          prefix= "ec_start";
+          postfix=".nc";
+          reference_date="1950-01-01";//"2008-01-01";
+
+          variables= variables_tmp;
+          vectorial_variables= vectorial_variables_tmp;
+          target_size= target_size_tmp;
+
+          reloaded= false;
+
+          daily_mean=false;
+         
+          time= time_tmp;
+      }
+      else if (strcmp (DatasetName, "ec_nodes") == 0)
+      {
+   	// Definition of dimensions
+      Dimension dimension_x={
+           name:"lon",
+           cyclic:false
+   	};
+
+      Dimension dimension_y={
+           name:"lat",
+           cyclic:false
+   	};
+
+      Dimension dimension_time={
+           name:"time", // "Time"
+           cyclic:false};
+
+      // Definition of the grid
+       std::vector<Dimension> dimensions_lon(1);
+       dimensions_lon[0] = dimension_x;
+
+       std::vector<Dimension> dimensions_lat(1);
+       dimensions_lat[0] = dimension_y;
+
+       Variable latitude={
+           name: "lat",
+           dimensions: dimensions_lat,
+           land_mask_defined: false,
+           land_mask_value: 0.,
+           NaN_mask_defined: false,
+           NaN_mask_value: 0.,
+           a: 1.,
+           b: 0.,
+           Units: "degree_north",
+           data2: data2_tmp};
+
+       Variable longitude={
+           name: "lon",
+           dimensions: dimensions_lon,
+           land_mask_defined: false,
+           land_mask_value: 0.,
+           NaN_mask_defined: false,
+           NaN_mask_value: 0.,
+           a: 1.,
+           b: 0.,
+           Units: "degree_east",
+           data2: data2_tmp};
+
+   	Grid grid_tmp={
+   		interpolation_method: InterpolationType::FromGridToMesh,
+   	    //interp_type : TriangleInterpEnum, // slower
+   	    interp_type : BilinearInterpEnum,
+   	    //interp_type : NearestInterpEnum,
+   		dirname="data",
+         prefix= "ec_start",
+         postfix=".nc",
+
+   		latitude: latitude,
+   		longitude: longitude,
+
+   		dimension_x: dimension_x,
+   		dimension_y: dimension_y,
+
+   		mpp_file: "",
+   		interpolation_in_latlon: true,
+
+         loaded: false,
+        
+         monthly_dataset:false,
+        
+         masking: false
+     };
+
+      grid= grid_tmp;
+
+      // Definition of the data
+
+      std::vector<Dimension> dimensions_time(1);
+      dimensions_time[0] = dimension_time;
+
+      std::vector<Dimension> dimensions(3);
+      dimensions[0] = dimension_time;
+      dimensions[1] = dimension_y;
+      dimensions[2] = dimension_x;
+
+      Variable time_tmp={
+          name: "time",
+          dimensions: dimensions_time,
+          land_mask_defined: false,
+          land_mask_value: 0.,
+          NaN_mask_defined: false,
+          NaN_mask_value: 0.,
+          a: 1.,
+          b: 0.,
+          Units: "hours",
+          data2: data2_tmp
+      };
+
+       // conversion factors: xnew = a*x + b
+       Variable u={
+           name: "10U", // U10M
+           dimensions: dimensions,
+           land_mask_defined: false,
+           land_mask_value: 0.,
+           NaN_mask_defined: false,
+           NaN_mask_value: 0.,
+           a: 1.,
+           b: 0.,
+           Units: "m/s",
+           data2: data2_tmp
+       };
+
+       Variable v={
+           name: "10V", // U10M
+           dimensions: dimensions,
+           land_mask_defined: false,
+           land_mask_value: 0.,
+           NaN_mask_defined: false,
+           NaN_mask_value: 0.,
+           a: 1.,
+           b: 0.,
+           Units: "m/s",
+           data2: data2_tmp
+       };
+
+       std::vector<Variable> variables_tmp(2);
+       variables_tmp[0] = u;
+       variables_tmp[1] = v;
+
+       std::vector<int> uv_tmp(2);
+           uv_tmp[0] = 0;
+           uv_tmp[1] = 1;
+
+       Vectorial_Variable uv={
+           components_Id: uv_tmp,
+           east_west_oriented: true
+       };
+
+       std::vector<Vectorial_Variable> vectorial_variables_tmp(1);
+       vectorial_variables_tmp[0] = uv;
+
+       dirname=  "data";
+       prefix= "ec_start";
+       postfix=".nc";
+       reference_date="1950-01-01";
+
+       variables= variables_tmp;
+       vectorial_variables= vectorial_variables_tmp;
+       target_size= target_size_tmp;
+
+       reloaded= false;
+
+       nb_timestep_day= 4;
+       daily_mean=false;
+       time= time_tmp;
+       }
      else if (strcmp (DatasetName, "ww3a_elements") == 0)
      {
         // Definition of WW3 Arctic analysed - grid and datasets
