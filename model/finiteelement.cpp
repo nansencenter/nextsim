@@ -274,14 +274,39 @@ FiniteElement::initModelState()
 void
 FiniteElement::initDatasets()
 {
-    // Definition of the datasets available in the code
-    M_asr_nodes_dataset=DataSet("asr_nodes",M_num_nodes);
+    // Definition of the datasets
+    switch(M_atmosphere_type){
+        case setup::AtmosphereType::CONSTANT:
+        {}
+        break;
+        
+        case setup::AtmosphereType::ASR:
+        {
+            M_atmosphere_nodes_dataset=DataSet("asr_nodes",M_num_nodes);
+            M_atmosphere_elements_dataset=DataSet("asr_elements",M_num_elements);
+        }
+        break;
+        
+        case setup::AtmosphereType::ERAi:
+        {
+            M_atmosphere_nodes_dataset=DataSet("ERAi_nodes",M_num_nodes);
+            M_atmosphere_elements_dataset=DataSet("ERAi_elements",M_num_elements);
+        }
+        break;
+        
+        case setup::AtmosphereType::EC:
+        {
+            M_atmosphere_nodes_dataset=DataSet("ec_nodes",M_num_nodes);
+            M_atmosphere_elements_dataset=DataSet("ec_elements",M_num_elements);
+        }
+        break;
+        
+        default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
+    }
 
-    M_asr_elements_dataset=DataSet("asr_elements",M_num_elements);
+    M_ocean_nodes_dataset=DataSet("topaz_nodes",M_num_nodes);
 
-    M_topaz_nodes_dataset=DataSet("topaz_nodes",M_num_nodes);
-
-    M_topaz_elements_dataset=DataSet("topaz_elements",M_num_elements);
+    M_ocean_elements_dataset=DataSet("topaz_elements",M_num_elements);
 
     M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements",M_num_elements);
 
@@ -291,15 +316,7 @@ FiniteElement::initDatasets()
 
     M_ice_amsr2_elements_dataset=DataSet("ice_amsr2_elements",M_num_elements);
 
-    M_etopo_elements_dataset=DataSet("etopo_elements",M_num_elements);//M_num_nodes);
-
-    M_ERAi_nodes_dataset=DataSet("ERAi_nodes",M_num_nodes);
-
-    M_ERAi_elements_dataset=DataSet("ERAi_elements",M_num_elements);
-    
-    M_ec_nodes_dataset=DataSet("ec_nodes",M_num_nodes);
-
-    M_ec_elements_dataset=DataSet("ec_elements",M_num_elements);
+    M_bathymetry_elements_dataset=DataSet("etopo_elements",M_num_elements);//M_num_nodes);
 
 #if defined (WAVES)
     M_WW3A_elements_dataset=DataSet("ww3a_elements",M_num_elements);
@@ -436,7 +453,8 @@ FiniteElement::initConstant()
 
     const boost::unordered_map<const std::string, setup::OceanType> str2ocean = boost::assign::map_list_of
         ("constant", setup::OceanType::CONSTANT)
-        ("topaz", setup::OceanType::TOPAZR);
+        ("topaz", setup::OceanType::TOPAZR)
+        ("topaz_forecast", setup::OceanType::TOPAZF);
     M_ocean_type = str2ocean.find(vm["setup.ocean-type"].as<std::string>())->second;
 
     //std::cout<<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
@@ -1500,38 +1518,30 @@ FiniteElement::regrid(bool step)
         M_fcor.resize(M_num_elements);
     }
 
-    M_asr_nodes_dataset.target_size=M_num_nodes;
-    M_asr_elements_dataset.target_size=M_num_elements;
-    M_topaz_nodes_dataset.target_size=M_num_nodes;
-    M_topaz_elements_dataset.target_size=M_num_elements;
+    M_atmosphere_nodes_dataset.target_size=M_num_nodes;
+    M_atmosphere_elements_dataset.target_size=M_num_elements;
+    M_ocean_nodes_dataset.target_size=M_num_nodes;
+    M_ocean_elements_dataset.target_size=M_num_elements;
     M_ice_topaz_elements_dataset.target_size=M_num_elements;
     M_ice_amsre_elements_dataset.target_size=M_num_elements;
     M_ice_osisaf_elements_dataset.target_size=M_num_elements;
     M_ice_amsr2_elements_dataset.target_size=M_num_elements;
-    M_etopo_elements_dataset.target_size=M_num_elements;
-    M_ERAi_nodes_dataset.target_size=M_num_nodes;
-    M_ERAi_elements_dataset.target_size=M_num_elements;
-    M_ec_nodes_dataset.target_size=M_num_nodes;
-    M_ec_elements_dataset.target_size=M_num_elements;
+    M_bathymetry_elements_dataset.target_size=M_num_elements;
 #if defined (WAVES)
     M_WW3A_elements_dataset.target_size=M_num_elements;
     M_ERAIW_1DEG_elements_dataset.target_size=M_num_elements;
 #endif
 
 
-    M_asr_nodes_dataset.reloaded=false;
-    M_asr_elements_dataset.reloaded=false;
-    M_topaz_nodes_dataset.reloaded=false;
-    M_topaz_elements_dataset.reloaded=false;
+    M_atmosphere_nodes_dataset.reloaded=false;
+    M_atmosphere_elements_dataset.reloaded=false;
+    M_ocean_nodes_dataset.reloaded=false;
+    M_ocean_elements_dataset.reloaded=false;
     M_ice_topaz_elements_dataset.reloaded=false;
     M_ice_amsre_elements_dataset.reloaded=false;
     M_ice_osisaf_elements_dataset.reloaded=false;
     M_ice_amsr2_elements_dataset.reloaded=false;
-    M_etopo_elements_dataset.reloaded=false;
-    M_ERAi_nodes_dataset.reloaded=false;
-    M_ERAi_elements_dataset.reloaded=false;
-    M_ec_nodes_dataset.reloaded=false;
-    M_ec_elements_dataset.reloaded=false;
+    M_bathymetry_elements_dataset.reloaded=false;
 #if defined (WAVES)
     M_WW3A_elements_dataset.reloaded=false;
 #endif
@@ -1539,19 +1549,15 @@ FiniteElement::regrid(bool step)
     // for the parralel code, it will be necessary to add those lines
     // as the domain covered by the partinions changes at each remeshing/partitioning
 #if 0
-    M_asr_nodes_dataset.grid.loaded=false;
-    M_asr_elements_dataset.grid.loaded=false;
-    M_topaz_nodes_dataset.grid.loaded=false;
-    M_topaz_elements_dataset.grid.loaded=false;
+    M_atmosphere_nodes_dataset.grid.loaded=false;
+    M_atmosphere_elements_dataset.grid.loaded=false;
+    M_ocean_nodes_dataset.grid.loaded=false;
+    M_ocean_elements_dataset.grid.loaded=false;
     M_ice_topaz_elements_dataset.grid.loaded=false;
     M_ice_amsre_elements_dataset.grid.loaded=false;
     M_ice_osisaf_elements_dataset.grid.loaded=false;
     M_ice_amsr2_elements_dataset.grid.loaded=false;
-    M_etopo_elements_dataset.grid.loaded=false;
-    M_ERAi_nodes_dataset.grid.loaded=false;
-    M_ERAi_elements_dataset.grid.loaded=false;
-    M_ec_nodes_dataset.grid.loaded=false;
-    M_ec_elements_dataset.grid.loaded=false;
+    M_bathymetry_elements_dataset.grid.loaded=false;
 #endif
 
     M_Cohesion.resize(M_num_elements);
@@ -4664,19 +4670,15 @@ FiniteElement::readRestart(int step)
     inbin.close();
 
     // Set the target size for the data sets
-    M_asr_nodes_dataset.target_size=M_num_nodes;
-    M_asr_elements_dataset.target_size=M_num_elements;
-    M_topaz_nodes_dataset.target_size=M_num_nodes;
-    M_topaz_elements_dataset.target_size=M_num_elements;
+    M_atmosphere_nodes_dataset.target_size=M_num_nodes;
+    M_atmosphere_elements_dataset.target_size=M_num_elements;
+    M_ocean_nodes_dataset.target_size=M_num_nodes;
+    M_ocean_elements_dataset.target_size=M_num_elements;
     M_ice_topaz_elements_dataset.target_size=M_num_elements;
     M_ice_amsre_elements_dataset.target_size=M_num_elements;
     M_ice_osisaf_elements_dataset.target_size=M_num_elements;
     M_ice_amsr2_elements_dataset.target_size=M_num_elements;
-    M_etopo_elements_dataset.target_size=M_num_elements;
-    M_ERAi_nodes_dataset.target_size=M_num_nodes;
-    M_ERAi_elements_dataset.target_size=M_num_elements;
-    M_ec_nodes_dataset.target_size=M_num_nodes;
-    M_ec_elements_dataset.target_size=M_num_elements;
+    M_bathymetry_elements_dataset.target_size=M_num_elements;
 #if defined (WAVES)
     M_WW3A_elements_dataset.target_size=M_num_elements;
     M_ERAIW_1DEG_elements_dataset.target_size=M_num_elements;
@@ -4830,29 +4832,29 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
 
         case setup::AtmosphereType::ASR:
             M_wind=ExternalData(
-                &M_asr_nodes_dataset,M_mesh,0 ,true ,
+                &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_wind);
 
-            M_tair=ExternalData(&M_asr_elements_dataset,M_mesh,0,false);
+            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false);
             M_external_data.push_back(&M_tair);
 
-            M_mixrat=ExternalData(&M_asr_elements_dataset,M_mesh,1,false);
+            M_mixrat=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false);
             M_external_data.push_back(&M_mixrat);
 
-            M_mslp=ExternalData(&M_asr_elements_dataset,M_mesh,2,false);
+            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false);
             M_external_data.push_back(&M_mslp);
 
-            M_Qsw_in=ExternalData(&M_asr_elements_dataset,M_mesh,3,false);
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false);
             M_external_data.push_back(&M_Qsw_in);
 
-            M_Qlw_in=ExternalData(&M_asr_elements_dataset,M_mesh,4,false);
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false);
             M_external_data.push_back(&M_Qlw_in);
 
-            M_snowfr=ExternalData(&M_asr_elements_dataset,M_mesh,5,false);
+            M_snowfr=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false);
             M_external_data.push_back(&M_snowfr);
 
-            M_precip=ExternalData(&M_asr_elements_dataset,M_mesh,6,false);
+            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false);
             M_external_data.push_back(&M_precip);
 
             M_dair=ExternalData(-1.);
@@ -4861,7 +4863,7 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
 
         case setup::AtmosphereType::ERAi:
             M_wind=ExternalData(
-                &M_ERAi_nodes_dataset,M_mesh,0,true ,
+                &M_atmosphere_nodes_dataset,M_mesh,0,true ,
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_wind);
 
@@ -4874,22 +4876,22 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             variables[5] = precip;
             */
 
-            M_tair=ExternalData(&M_ERAi_elements_dataset,M_mesh,0,false);
+            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false);
             M_external_data.push_back(&M_tair);
 
-            M_dair=ExternalData(&M_ERAi_elements_dataset,M_mesh,1,false);
+            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false);
             M_external_data.push_back(&M_dair);
 
-            M_mslp=ExternalData(&M_ERAi_elements_dataset,M_mesh,2,false);
+            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false);
             M_external_data.push_back(&M_mslp);
 
-            M_Qsw_in=ExternalData(&M_ERAi_elements_dataset,M_mesh,3,false);
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false);
             M_external_data.push_back(&M_Qsw_in);
 
-            M_tcc=ExternalData(&M_ERAi_elements_dataset,M_mesh,4,false);
+            M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false);
             M_external_data.push_back(&M_tcc);
 
-            M_precip=ExternalData(&M_ERAi_elements_dataset,M_mesh,5,false);
+            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false);
             M_external_data.push_back(&M_precip);
 
             M_mixrat=ExternalData(-1.);
@@ -4899,20 +4901,20 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
    
         case setup::AtmosphereType::EC:
             M_wind=ExternalData(
-                &M_ec_nodes_dataset,M_mesh,0 ,true ,
+                &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_wind);
 
-            M_tair=ExternalData(&M_ec_elements_dataset,M_mesh,0,false);
+            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false);
             M_external_data.push_back(&M_tair);
 
-            M_dair=ExternalData(&M_ec_elements_dataset,M_mesh,1,false);
+            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false);
             M_external_data.push_back(&M_dair);
 
-            M_mslp=ExternalData(&M_ec_elements_dataset,M_mesh,2,false);
+            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false);
             M_external_data.push_back(&M_mslp);
 
-            M_tcc=ExternalData(&M_ec_elements_dataset,M_mesh,3,false);
+            M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false);
             M_external_data.push_back(&M_tcc);
 
             // Syl: The following two lines should be removed when approxSW will be implemented in Thermo()
@@ -4959,22 +4961,22 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             break;
         case setup::OceanType::TOPAZR:
             M_ocean=ExternalData(
-                &M_topaz_nodes_dataset, M_mesh, 0, true,
+                &M_ocean_nodes_dataset, M_mesh, 0, true,
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_ocean);
 
             M_ssh=ExternalData(
-                &M_topaz_nodes_dataset, M_mesh, 2, false,
+                &M_ocean_nodes_dataset, M_mesh, 2, false,
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_ssh);
 
-            M_ocean_temp=ExternalData(&M_topaz_elements_dataset, M_mesh, 0,false);
+            M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false);
             M_external_data.push_back(&M_ocean_temp);
 
-            M_ocean_salt=ExternalData(&M_topaz_elements_dataset, M_mesh, 1,false);
+            M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false);
             M_external_data.push_back(&M_ocean_salt);
 
-            M_mld=ExternalData(&M_topaz_elements_dataset, M_mesh, 2,false);
+            M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false);
             M_external_data.push_back(&M_mld);
             // SYL: there was a capping of the mld at minimum vm["simul.constant_mld"].as<double>()
             // but Einar said it is not necessary, so it is not implemented
@@ -5449,7 +5451,7 @@ FiniteElement::bathymetry()//(double const& u, double const& v)
             M_external_data.push_back(&M_element_depth);
             break;
         case setup::BathymetryType::ETOPO:
-            M_element_depth=ExternalData(&M_etopo_elements_dataset,M_mesh,0,false);
+            M_element_depth=ExternalData(&M_bathymetry_elements_dataset,M_mesh,0,false);
             M_external_data.push_back(&M_element_depth);
             break;
         default:

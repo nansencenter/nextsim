@@ -121,22 +121,20 @@ public:
             double &Qai, double &dQaidT, double &subl);
     double iceOceanHeatflux(double sst, double tbot, double mld, double dt);
 
-    Dataset M_asr_nodes_dataset;
-    Dataset M_asr_elements_dataset;
-    Dataset M_topaz_nodes_dataset;
-    Dataset M_topaz_elements_dataset;
-	Dataset M_ice_topaz_elements_dataset;
+    Dataset M_atmosphere_nodes_dataset;
+    Dataset M_atmosphere_elements_dataset;
+    Dataset M_ocean_nodes_dataset;
+    Dataset M_ocean_elements_dataset;
+    Dataset M_bathymetry_elements_dataset;
+    
+    Dataset M_ice_topaz_elements_dataset;
     Dataset M_ice_amsre_elements_dataset;
     Dataset M_ice_osisaf_elements_dataset;
     Dataset M_ice_amsr2_elements_dataset;
-    Dataset M_etopo_elements_dataset;
-    Dataset M_ERAi_nodes_dataset;
-    Dataset M_ERAi_elements_dataset;
-    Dataset M_ec_nodes_dataset;
-    Dataset M_ec_elements_dataset;
+#if defined (WAVES)
     Dataset M_WW3A_elements_dataset;
     Dataset M_ERAIW_1DEG_elements_dataset;
-
+#endif
     double minAngles(element_type const& element, mesh_type const& mesh) const;
     double minAngle(mesh_type const& mesh) const;
 
@@ -262,7 +260,6 @@ private:
     std::vector<double> M_h_ridged_thin_ice;
     std::vector<double> M_h_ridged_thick_ice;
 
-    //externaldata_ptr_vector M_external_data;
     std::vector<external_data*> M_external_data;
 
     std::vector<double> M_fcor;
