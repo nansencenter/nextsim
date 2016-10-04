@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim:fenc=utf-8:ft=cpp:et:sw=4:ts=4:sts=4 */
 
 /**
  * @file   dataset.hpp
@@ -63,12 +63,12 @@ public:
         double NaN_mask_value;
 
         // Information on the unit transform
-        double a;           // scale_factor defined by us to have the data in the units system used by nextsim 
+        double a;           // scale_factor defined by us to have the data in the units system used by nextsim
         double b;           // add_offset defined by us to have the data in the units system used by nextsim
         std::string Units;  // units used in neXtSIM for this variable
 
-        // Storage of the data      
-        std::vector<std::vector<double>> data2; // 2 vectors, one for the previous and one for the next data timestep 
+        // Storage of the data
+        std::vector<std::vector<double>> data2; // 2 vectors, one for the previous and one for the next data timestep
     } Variable;
 
     typedef struct Vectorial_Variable
@@ -121,7 +121,7 @@ public:
         std::vector<double> gridLAT;
         std::vector<double> gridLON;
 
-        int dimension_x_start; 
+        int dimension_x_start;
         int dimension_x_count;
         int dimension_y_start;
         int dimension_y_count;
@@ -154,7 +154,7 @@ public:
     DataSet(char const *DatasetName,int target_size);
 
     public:
-    
+
     std::string dirname;
     std::string prefix;
     std::string postfix;
@@ -170,7 +170,7 @@ public:
     bool reloaded;
 
     int nb_timestep_day;
-    bool daily_mean; // Use daily_mean=true, when the data are centered at noon, but the time variable says 00:00:00 (it is the case for TOPAZ daily mean, AMSRE, AMSR2)  
+    bool daily_mean; // Use daily_mean=true, when the data are centered at noon, but the time variable says 00:00:00 (it is the case for TOPAZ daily mean, AMSRE, AMSR2)
     Variable time;
 
     std::vector<double> ftime_range;
@@ -178,9 +178,9 @@ public:
     void loadGrid(Grid *grid, int current_time);
 
     void loadGrid(Grid *grid, int current_time, double RX_min, double RX_max, double RY_min, double RY_max);
-    
+
     void getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
-    
+
     void getXY_regular_XY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
 
     void getXYlatlon_from_latlon(double* X, double* Y,double* LAT, double* LON, netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
