@@ -432,6 +432,7 @@ private:
     void constantIce();
     void targetIce();
     void topazIce();
+    void topazForecastIce();
     void amsreIce();
     void osisaf2Ice();
     void amsr2Ice();

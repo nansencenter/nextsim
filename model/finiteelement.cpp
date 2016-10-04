@@ -470,6 +470,7 @@ FiniteElement::initConstant()
         ("constant", setup::IceType::CONSTANT)
         ("target", setup::IceType::TARGET)
         ("topaz", setup::IceType::TOPAZ4)
+        ("topaz_forecast", setup::IceType::TOPAZ4F)
         ("amsre", setup::IceType::AMSRE)
         ("amsr2", setup::IceType::AMSR2)
         ("osisaf", setup::IceType::OSISAF);
@@ -5088,6 +5089,9 @@ FiniteElement::initIce()
         case setup::IceType::TOPAZ4:
             this->topazIce();
             break;
+        case setup::IceType::TOPAZ4F:
+            this->topazForecastIce();
+            break;
         case setup::IceType::AMSRE:
             this->amsreIce();
             break;
@@ -5236,7 +5240,43 @@ FiniteElement::topazIce()
 		M_damage[i]=0.;
 	}
 }
+void
+FiniteElement::topazForecastIce()
+{
+    external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false);
+    M_init_conc.check_and_reload(M_mesh,time_init);
 
+    external_data M_init_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false);
+    M_init_thick.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false);
+    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    double tmp_var;
+    for (int i=0; i<M_num_elements; ++i)
+    {
+		tmp_var=M_init_conc[i];
+		M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+		tmp_var=M_init_thick[i];
+		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+		tmp_var=M_init_snow_thick[i];
+		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+
+		M_damage[i]=0.;
+	}
+}
 void
 FiniteElement::amsreIce()
 {
