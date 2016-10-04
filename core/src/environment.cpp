@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim:fenc=utf-8:ft=cpp:et:sw=4:ts=4:sts=4 */
 
 /**
  * @file   environment.cpp
@@ -19,7 +19,7 @@ Environment::Environment( int& argc, char** &argv )
     mpicomm = Communicator::commSelf();
 
     char * senv;
-	
+
 	senv = ::getenv( "NEXTSIMDIR" );
     if ( (senv == NULL) || (senv[0] == '\0') )
     {
@@ -27,7 +27,7 @@ Environment::Environment( int& argc, char** &argv )
         throw std::logic_error("invalid environment variable");
     }
     nextsimdirenv = fs::path(std::string(senv));
-	
+
 	senv = ::getenv( "SIMDATADIR" );
     if ( (senv == NULL) || (senv[0] == '\0') )
     {
@@ -35,7 +35,7 @@ Environment::Environment( int& argc, char** &argv )
         throw std::logic_error("invalid environment variable");
     }
     simdatadirenv = fs::path(std::string(senv));
-	
+
 	senv = ::getenv( "SIMFORECASTDIR" );
     if ( (senv == NULL) || (senv[0] == '\0') )
     {
@@ -58,7 +58,7 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
 
 
     char * senv;
-		
+
 	senv = ::getenv( "NEXTSIMDIR" );
     if ( (senv == NULL) || (senv[0] == '\0') )
     {
@@ -74,7 +74,7 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
         throw std::logic_error("invalid environment variable");
     }
     simdatadirenv = fs::path(std::string(senv));
-	
+
 	senv = ::getenv( "SIMFORECASTDIR" );
     if ( (senv == NULL) || (senv[0] == '\0') )
     {

@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim:fenc=utf-8:ft=cpp:et:sw=4:ts=4:sts=4 */
 
 /**
  * @file   exporter.cpp
@@ -67,7 +67,7 @@ Exporter::writeMesh(std::fstream& out, GmshMesh const& Mesh)
                % "Nodes_y"
                % sizeof(double) ).str();
     M_mrecord.push_back(description);
-    
+
     writeContainer(out, Mesh.id());
     description = (boost::format( "%1% %2%" )
                % "id"

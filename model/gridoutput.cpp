@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim:fenc=utf-8:ft=cpp:et:sw=4:ts=4:sts=4 */
 
 /**
  * @file   gridoutput.cpp
@@ -118,7 +118,7 @@ namespace Nextsim
 
     GridOutput::~GridOutput()
     {}
-    
+
     ////////////////////////////////////////////////////////////////////////////////
     // Initialisation routines for the two kinds of grids
     ////////////////////////////////////////////////////////////////////////////////
@@ -267,7 +267,7 @@ namespace Nextsim
         std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
         strNextsim.push_back('\0');
         mapNextsim = init_mapx(&strNextsim[0]);
-        
+
         // Try to get the rotation of the data set
         mapx_class *map;
         double rotation_angle;
@@ -294,7 +294,7 @@ namespace Nextsim
             // or do nothing
             rotation_angle=0.;
         }
-        
+
         // Rotate!
         if ( rotation_angle!=0. | vectorial_variable.east_west_oriented )
         {
@@ -518,6 +518,3 @@ namespace Nextsim
         }
     }
 }
-
-
-

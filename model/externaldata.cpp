@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim:fenc=utf-8:ft=cpp:et:sw=4:ts=4:sts=4 */
 
 /**
  * @file   externaldata.cpp
@@ -13,7 +13,7 @@ extern "C"
 {
 #include <mapx.h>
 }
-     
+
 
 /**
  * @class ExternalData
@@ -101,7 +101,7 @@ ExternalData::~ExternalData()
 void ExternalData::check_and_reload(GmshMesh const& mesh, const double current_time)
 {
     M_current_time = current_time;
-    
+
     double current_time_tmp=M_current_time;
 
     M_factor=1.;
@@ -217,21 +217,21 @@ typename std::vector<double>
 ExternalData::get_vector()
 {
     std::vector<double> vector_tmp(1,0.);
-    
+
     if(M_initialized)
     {
         int size_vector=M_dataset->target_size;
         if(M_is_vector)
             size_vector=2*M_dataset->target_size;
-            
+
         vector_tmp.resize(size_vector);
-    
+
         for (int i=0; i<size_vector; ++i)
         {
             vector_tmp[i]=(double) get(i);
         }
     }
-           
+
 	return vector_tmp;
 }
 
@@ -265,7 +265,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 	    str.push_back('\0');
 	    map = init_mapx(&str[0]);
         rotation_angle = -(mapNextsim->rotation-map->rotation)*PI/180.;
-        
+
         close_mapx(map);
     }
     else
@@ -275,7 +275,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 
     cos_m_diff_angle=std::cos(-rotation_angle);
     sin_m_diff_angle=std::sin(-rotation_angle);
-    
+
     // ---------------------------------
     // Projection of the mesh positions into the coordinate system of the data before the interpolation
     // (either the lat,lon projection or a polar stereographic projection with another rotaion angle (for ASR))
@@ -304,7 +304,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 			//RX[i]=tmp_latlon[1];
 		}
 	}
-    
+
     double RX_min=*std::min_element(RX.begin(),RX.end());
     double RX_max=*std::max_element(RX.begin(),RX.end());
     double RY_min=*std::min_element(RY.begin(),RY.end());
@@ -332,7 +332,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 	if(dataset->nb_timestep_day>0)
 	{
 		double file_dt = 1./dataset->nb_timestep_day;
-		
+
         double time_start, time_end;
         if(dataset->daily_mean)
         {
@@ -346,7 +346,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             time_start = std::floor(M_current_time*dataset->nb_timestep_day)/dataset->nb_timestep_day;
     		time_end   = std::ceil (M_current_time*dataset->nb_timestep_day)/dataset->nb_timestep_day;
         }
-            
+
 		// We always need at least two time steps to interpolate between
 		if (time_end == time_start)
 		{
@@ -358,7 +358,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 		{
 			dataset->ftime_range.push_back(time_tmp);
 		}
-        
+
         //std::cout << "dataset->ftime_range.size() " << dataset->ftime_range.size() << "\n";
 
 		// for (int i=0; i<dataset->ftime_range.size(); ++i)
@@ -430,19 +430,19 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 		if(dataset->nb_timestep_day>0)
 		{
             ftime = dataset->ftime_range[fstep];
-         
+
             if(dataset->daily_mean)
                 ftime = ftime-0.5;
-            
+
             std::string f_timestr;
-            
+
             if(dataset->grid.dataset_frequency=="monthly")
                 f_timestr = to_date_string_ym(std::floor(ftime));
             else if(dataset->grid.dataset_frequency=="yearly")
                 f_timestr = to_date_string_y(std::floor(ftime));//yyyy
             else
                 f_timestr = to_date_string_yd(std::floor(ftime));
-            
+
             std::cout <<"F_TIMESTR= "<< f_timestr <<"\n";
 
             filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
@@ -508,7 +508,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                 std::cout <<"FIND "<< ftime <<" between "<< XTIME[0] << " and "<< XTIME[XTIME.size()-1] <<"\n";
                 throw std::runtime_error("Time out of the time range of the file: " + filename);
             }
-            
+
         }
 
         // Load each variable and copy its data into data_in
@@ -522,7 +522,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             for(int k=0; k<dataset->variables[j].dimensions.size(); ++k)
             {
                 std::string dimension_name=dataset->variables[j].dimensions[k].name;
-                
+
                 // dimension_x case
                 if ((dimension_name).find(dataset->grid.dimension_x.name) != std::string::npos)
                 {

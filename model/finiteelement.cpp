@@ -1,4 +1,4 @@
-///* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim:fenc=utf-8:ft=cpp:et:sw=4:ts=4:sts=4 */
 
 /**
  * @file   finiteelement.cpp
@@ -1603,7 +1603,7 @@ FiniteElement::adaptMesh()
     //Environment::logMemoryUsage("before adaptMesh");
     Bamgx(bamgmesh,bamggeom,bamgmesh_previous,bamggeom_previous,bamgopt_previous);
     //Environment::logMemoryUsage("after adaptMesh");
-    
+
     // Save the old id_node before redefining it
     std::vector<int> old_node_id=M_mesh.id();
 
@@ -1614,18 +1614,18 @@ FiniteElement::adaptMesh()
     if(bamgopt->KeepVertices)
     {
         std::vector<int> new_nodes_id=M_mesh.id();
-        
+
         int Boundary_id=0;
         int nb_new_nodes=0;
-        
+
         // We mask out the boundary nodes
         std::vector<bool> mask(bamgmesh->VerticesSize[0],false) ;
         for (int vert=0; vert<bamgmesh->VerticesOnGeomVertexSize[0]; ++vert)
             mask[bamgmesh->VerticesOnGeomVertex[2*vert]-1]=true; // The factor 2 is because VerticesOnGeomVertex has 2 dimensions in bamg
-        
+
         // The new id will have values higher than the previous one
         int first_new_node=*std::max_element(old_node_id.begin(),old_node_id.end())+1;
-    
+
         for (int vert=0; vert<bamgmesh->VerticesSize[0]; ++vert)
         {
             if(mask[vert])
@@ -1642,14 +1642,14 @@ FiniteElement::adaptMesh()
                 }
                 else
                 {
-                    new_nodes_id[vert]=old_node_id[bamgmesh->PreviousNumbering[vert]-1]; 
+                    new_nodes_id[vert]=old_node_id[bamgmesh->PreviousNumbering[vert]-1];
                 }
             }
         }
         M_mesh.set_id(new_nodes_id);
     }
-    
-    
+
+
     // update dirichlet nodes
     M_boundary_flags.resize(0);
     M_dirichlet_flags.resize(0);
@@ -2104,7 +2104,7 @@ FiniteElement::assemble(int pcpt)
 
 void
 FiniteElement::node_max_conc()
-{    
+{
     int thread_id;
     int total_threads;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
@@ -2571,7 +2571,7 @@ FiniteElement::update()
                 M_sigma[3*cpt+i] = 0. ;
             }
 #endif
-#if 0 
+#if 0
             // test to boost the localization
             if(M_damage[cpt]!=old_damage)
             {
@@ -2852,7 +2852,7 @@ FiniteElement::thermo()
             else
                 tmp_snowfr=0.;
         }
-        
+
         double tmp_Qsw_in;
         if(M_Qsw_in.M_initialized)
             tmp_Qsw_in=M_Qsw_in[i];
@@ -2943,7 +2943,7 @@ FiniteElement::thermo()
         }
 
         Qow = -tmp_Qsw_in*(1.-ocean_albedo) - tmp_Qlw_in + Qlw_out + Qsh + Qlh;
-        
+
         // -------------------------------------------------
         // 4) Thickness change of the ice slab (thermoIce0 in matlab)
 
@@ -3445,7 +3445,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
             h1 = 0.;
             h2 = 0.;
             double ocn_evap_err = ( subl*dt - (h1+h2)*physical::rhoi - hs*physical::rhos )/physical::rhow;
-			LOG(WARNING) << "All the ice has sublimated. This shouldn't happen and will result in lack of evaporation from the ocean of " 
+			LOG(WARNING) << "All the ice has sublimated. This shouldn't happen and will result in lack of evaporation from the ocean of "
                 << ocn_evap_err*1e3 << " mm over the current time step, in element " << i << ".\n";
         }
 
@@ -4905,7 +4905,7 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             M_external_data.push_back(&M_mixrat);
 
         break;
-   
+
         case setup::AtmosphereType::EC:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
@@ -6029,7 +6029,7 @@ FiniteElement::nextsimToWim(bool step)
         for (int i=0; i<M_num_elements; ++i)
         {
             tmp_nb_var=0;
-            
+
             // concentration
             interp_elt_in[nb_var*i+tmp_nb_var] = M_conc[i];
             tmp_nb_var++;
@@ -6343,7 +6343,7 @@ FiniteElement::writeLogFile()
     {
         logfilename = vm["simul.logfile"].as<std::string>();
     }
-    
+
     std::string fileout = (boost::format( "%1%/%2%" )
                % M_export_path
                % logfilename ).str();
