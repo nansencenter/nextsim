@@ -795,6 +795,354 @@ namespace Nextsim
              daily_mean=true;
              time= time_tmp;
      }
+     else if (strcmp (DatasetName, "topaz_forecast_nodes") == 0)
+     {
+     	// Definition of topaz grid and datasets
+         Dimension dimension_x={
+             name:"x",
+             cyclic:false
+     	};
+
+         Dimension dimension_y={
+             name:"y",
+             cyclic:false
+     	};
+
+         Dimension dimension_time={
+             name:"time", // "Time"
+             cyclic:false
+     	};
+
+         Dimension dimension_depth={
+             name:"depth", // "Time"
+             cyclic:false
+     	};
+
+         std::vector<Dimension> dimensions_uv(4);
+         dimensions_uv[0] = dimension_time;
+         dimensions_uv[1] = dimension_depth;
+         dimensions_uv[2] = dimension_y;
+         dimensions_uv[3] = dimension_x;
+
+         std::vector<Dimension> dimensions(3);
+         dimensions[0] = dimension_time;
+         dimensions[1] = dimension_y;
+         dimensions[2] = dimension_x;
+
+         std::vector<Dimension> dimensions_latlon(2);
+         dimensions_latlon[0] = dimension_y;
+         dimensions_latlon[1] = dimension_x;
+
+         std::vector<Dimension> dimensions_time(1);
+         dimensions_time[0] = dimension_time;
+
+         Variable latitude={
+             name: "latitude",
+             dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_north",
+             data2: data2_tmp};
+
+         Variable longitude={
+             name: "longitude",
+             dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_east",
+             data2: data2_tmp};
+
+         Variable time_tmp={
+             name: "time",
+             dimensions: dimensions_time,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "hours",
+             data2: data2_tmp};
+
+         Variable u={
+             name: "u",
+             dimensions: dimensions_uv,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "m/s",
+             data2: data2_tmp
+     	};
+
+         Variable v={
+             name: "v",
+             dimensions: dimensions_uv,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "m/s",
+             data2: data2_tmp
+     	};
+
+     	Variable ssh={
+     		name: "ssh",
+     		dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 1.,
+     		b: 0.,
+     		Units: "m/s",
+     		data2: data2_tmp
+     	};
+
+         Grid grid_tmp={
+             interpolation_method: InterpolationType::FromMeshToMesh2dx,
+             interp_type: -1,
+             dirname= "data",
+             prefix= "TP4_start",
+             postfix= ".nc",
+
+             latitude: latitude,
+             longitude: longitude,
+
+             dimension_x: dimension_x,
+             dimension_y: dimension_y,
+
+             mpp_file: "NpsNextsim.mpp",
+     		interpolation_in_latlon: false,
+
+             loaded: false,
+             dataset_frequency:"daily",
+             //monthly_dataset:true,
+
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
+
+     		masking: true,
+     		masking_variable: ssh
+     	};
+
+         std::vector<Variable> variables_tmp(3);
+         variables_tmp[0] = u;
+         variables_tmp[1] = v;
+         variables_tmp[2] = ssh;
+
+         std::vector<int> uv_tmp(2);
+             uv_tmp[0] = 0;
+             uv_tmp[1] = 1;
+
+         Vectorial_Variable uv={
+             components_Id: uv_tmp,
+             east_west_oriented: false // if false, then we assume it is oriented following the mpp_file defined for the grid
+     	};
+
+         std::vector<Vectorial_Variable> vectorial_variables_tmp(1);
+         vectorial_variables_tmp[0] = uv;
+
+         dirname= "data";
+         prefix= "TP4_start";
+         postfix= ".nc";
+         reference_date= "1950-01-01";
+
+         variables= variables_tmp;
+         vectorial_variables= vectorial_variables_tmp;
+         target_size= target_size_tmp;
+         grid= grid_tmp;
+
+         reloaded=false;
+
+         nb_timestep_day= 1;
+         daily_mean=true;
+         time= time_tmp;
+     }
+     else if (strcmp (DatasetName, "topaz_forecast_elements") == 0)
+     {
+     	// Definition of topaz grid and datasets
+         Dimension dimension_x={
+             name:"x",
+             cyclic:false
+     	};
+
+         Dimension dimension_y={
+             name:"y",
+             cyclic:false
+     	};
+
+         Dimension dimension_time={
+             name:"time", // "Time"
+             cyclic:false
+     	};
+
+         Dimension dimension_depth={
+             name:"depth", // "Time"
+             cyclic:false
+     	};
+
+         std::vector<Dimension> dimensions_uv(4);
+         dimensions_uv[0] = dimension_time;
+         dimensions_uv[1] = dimension_depth;
+         dimensions_uv[2] = dimension_y;
+         dimensions_uv[3] = dimension_x;
+
+         std::vector<Dimension> dimensions(3);
+         dimensions[0] = dimension_time;
+         dimensions[1] = dimension_y;
+         dimensions[2] = dimension_x;
+
+         std::vector<Dimension> dimensions_latlon(2);
+         dimensions_latlon[0] = dimension_y;
+         dimensions_latlon[1] = dimension_x;
+
+         std::vector<Dimension> dimensions_time(1);
+         dimensions_time[0] = dimension_time;
+
+         Variable latitude={
+             name: "latitude",
+             dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_north",
+             data2: data2_tmp};
+
+         Variable longitude={
+             name: "longitude",
+             dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_east",
+             data2: data2_tmp};
+
+         Variable time_tmp={
+             name: "time",
+             dimensions: dimensions_time,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "hours",
+             data2: data2_tmp};
+
+     	Variable sst={
+     		name: "temperature",
+     		dimensions: dimensions_uv,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 1.,
+     		b: 0.,
+     		Units: "deg celsius",
+     		data2: data2_tmp
+     	};
+
+     	Variable sss={
+     		name: "salinity",
+     		dimensions: dimensions_uv,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 1.,
+     		b: 0.,
+     		Units: "",
+     		data2: data2_tmp
+     	};
+
+     	Variable mld={
+     		name: "mlp",
+     		dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 1.,
+     		b: 0.,
+     		Units: "m",
+     		data2: data2_tmp
+     	};
+
+         Grid grid_tmp={
+             interpolation_method: InterpolationType::FromMeshToMesh2dx,
+             interp_type: -1,
+             dirname= "data",
+             prefix= "TP4_start",
+             postfix= ".nc",
+
+             latitude: latitude,
+             longitude: longitude,
+
+             dimension_x: dimension_x,
+             dimension_y: dimension_y,
+
+             mpp_file: "NpsNextsim.mpp",
+     		interpolation_in_latlon: false,
+
+             loaded: false,
+            dataset_frequency:"daily",
+             //monthly_dataset:true,
+
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
+
+     		masking: true,
+     		masking_variable: sss
+     	};
+
+         std::vector<Variable> variables_tmp(3);
+         variables_tmp[0] = sst;
+         variables_tmp[1] = sss;
+         variables_tmp[2] = mld;
+
+         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+             dirname= "data";
+             prefix= "TP4_start";
+             postfix= ".nc";
+             reference_date= "1950-01-01";
+
+             variables= variables_tmp;
+             vectorial_variables= vectorial_variables_tmp;
+             target_size= target_size_tmp;
+             grid= grid_tmp;
+
+             reloaded=false;
+
+             nb_timestep_day= 1;
+             daily_mean=true;
+             time= time_tmp;
+     }
      else if (strcmp (DatasetName, "ice_topaz_elements") == 0)
      {
      	// Definition of topaz grid and datasets

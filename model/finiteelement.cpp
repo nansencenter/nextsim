@@ -277,36 +277,43 @@ FiniteElement::initDatasets()
     // Definition of the datasets
     switch(M_atmosphere_type){
         case setup::AtmosphereType::CONSTANT:
-        {}
-        break;
+            break;
         
         case setup::AtmosphereType::ASR:
-        {
             M_atmosphere_nodes_dataset=DataSet("asr_nodes",M_num_nodes);
             M_atmosphere_elements_dataset=DataSet("asr_elements",M_num_elements);
-        }
-        break;
+            break;
         
         case setup::AtmosphereType::ERAi:
-        {
             M_atmosphere_nodes_dataset=DataSet("ERAi_nodes",M_num_nodes);
             M_atmosphere_elements_dataset=DataSet("ERAi_elements",M_num_elements);
-        }
-        break;
+            break;
         
         case setup::AtmosphereType::EC:
-        {
             M_atmosphere_nodes_dataset=DataSet("ec_nodes",M_num_nodes);
             M_atmosphere_elements_dataset=DataSet("ec_elements",M_num_elements);
-        }
-        break;
+            break;
         
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
 
-    M_ocean_nodes_dataset=DataSet("topaz_nodes",M_num_nodes);
-
-    M_ocean_elements_dataset=DataSet("topaz_elements",M_num_elements);
+    switch (M_ocean_type)
+    {
+        case setup::OceanType::CONSTANT:
+        break;
+        
+        case setup::OceanType::TOPAZR: 
+            M_ocean_nodes_dataset=DataSet("topaz_nodes",M_num_nodes);
+            M_ocean_elements_dataset=DataSet("topaz_elements",M_num_elements);
+            break;
+            
+        case setup::OceanType::TOPAZF:
+            M_ocean_nodes_dataset=DataSet("topaz_forecast_nodes",M_num_nodes);
+            M_ocean_elements_dataset=DataSet("topaz_forecast_elements",M_num_elements);
+            break;
+        
+        default:        std::cout << "invalid ocean forcing"<<"\n";throw std::logic_error("invalid wind forcing");
+    }
 
     M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements",M_num_elements);
 
@@ -4959,7 +4966,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             M_mld=ExternalData(vm["simul.constant_mld"].as<double>());
             M_external_data.push_back(&M_mld);
             break;
-        case setup::OceanType::TOPAZR:
+        case setup::OceanType::TOPAZR: case setup::OceanType::TOPAZF:
             M_ocean=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 0, true,
                 time_init, vm["simul.spinup_duration"].as<double>());
@@ -4981,7 +4988,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             // SYL: there was a capping of the mld at minimum vm["simul.constant_mld"].as<double>()
             // but Einar said it is not necessary, so it is not implemented
     		break;
-
+                            
         default:
             std::cout << "invalid ocean forcing"<<"\n";
             throw std::logic_error("invalid ocean forcing");
@@ -5050,7 +5057,8 @@ FiniteElement::initSlabOcean()
             std::fill(M_sst.begin(), M_sst.end(), -1.8);
             std::fill(M_sss.begin(), M_sss.end(),  1.8/physical::mu);
             break;
-        case setup::OceanType::TOPAZR:
+        case setup::OceanType::TOPAZR:         
+        case setup::OceanType::TOPAZF:
             for ( int i=0; i<M_num_elements; ++i)
             {
                 // Make sure the erroneous salinity and temperature don't screw up the initialisation too badly
