@@ -383,7 +383,6 @@ FiniteElement::initConstant()
     ocean_turning_angle_rad = (PI/180.)*vm["simul.oceanic_turning_angle"].as<double>();
     ridging_exponent = vm["simul.ridging_exponent"].as<double>();
 
-    quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>();
     quad_drag_coef_water = vm["simul.quad_drag_coef_water"].as<double>();
 
     basal_k2 = vm["simul.Lemieux_basal_k2"].as<double>();
@@ -424,6 +423,14 @@ FiniteElement::initConstant()
         ("erai", setup::AtmosphereType::ERAi)
         ("ec", setup::AtmosphereType::EC);
     M_atmosphere_type = str2atmosphere.find(vm["setup.atmosphere-type"].as<std::string>())->second;
+
+    switch(M_atmosphere_type){
+        case setup::AtmosphereType::CONSTANT:   quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>(); break;
+        case setup::AtmosphereType::ASR:        quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>(); break;
+        case setup::AtmosphereType::ERAi:       quad_drag_coef_air = vm["simul.ERAi_quad_drag_coef_air"].as<double>(); break;
+        case setup::AtmosphereType::EC:         quad_drag_coef_air = vm["simul.ECMWF_quad_drag_coef_air"].as<double>(); break;
+        default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
+    }
 
     //std::cout<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
 
