@@ -112,9 +112,9 @@ public:
     void error();
 
     void thermo();
-    void thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double snowfr,
+    void thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfr,
             double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf);
-    void thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double snowfr,
+    void thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfr,
             double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double &T1, double &T2);
     double albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, double alb_ice, double I_0);
     void atmFluxBulk(int i, double Tsurf, double sphuma, double drag_ice_t, double Qsw, double Qlw_in, double wspeed,
