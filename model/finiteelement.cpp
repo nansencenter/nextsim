@@ -470,6 +470,7 @@ FiniteElement::initConstant()
         ("constant", setup::IceType::CONSTANT)
         ("target", setup::IceType::TARGET)
         ("topaz", setup::IceType::TOPAZ4)
+        ("topaz_forecast", setup::IceType::TOPAZ4F)
         ("amsre", setup::IceType::AMSRE)
         ("amsr2", setup::IceType::AMSR2)
         ("osisaf", setup::IceType::OSISAF);
@@ -2836,12 +2837,6 @@ FiniteElement::thermo()
         }
         double  wspeed = std::hypot(sum_u, sum_v)/3.;
 
-		if(M_mld[i]<=0.)
-		{
-            LOG(DEBUG) << "M_mld[i] = " << M_mld[i] << "\n";
-            throw std::logic_error("negative or 0 mld, Oups!!");
-		}
-
         // definition of the fraction of snow
         double tmp_snowfr;
         if(M_snowfr.M_initialized)
@@ -2862,10 +2857,12 @@ FiniteElement::thermo()
             throw std::logic_error("The function approxSW not yet implemented, you need to initialized M_Qsw_in");
             //tmp_Qsw_in=approxSW();
         }
+        
+        double tmp_mld=( M_mld[i] > vm["simul.constant_mld"].as<double>() ) ? M_mld[i] : vm["simul.constant_mld"].as<double>();
 
         // -------------------------------------------------
         // 2) We calculate or set the flux due to nudging
-        if ( M_atmosphere_type == setup::AtmosphereType::CONSTANT || M_ocean_type == setup::OceanType::CONSTANT )
+        if ( M_ocean_type == setup::OceanType::CONSTANT )
         {
             Qdw=Qdw_const;
             Fdw=Fdw_const;
@@ -2875,10 +2872,10 @@ FiniteElement::thermo()
             // nudgeFlux
             if ( M_ocean_salt[i] > physical::si )
             {
-                Qdw = -(M_sst[i]-M_ocean_temp[i]) * M_mld[i] * physical::rhow * physical::cpw/timeT;
+                Qdw = -(M_sst[i]-M_ocean_temp[i]) * tmp_mld * physical::rhow * physical::cpw/timeT;
 
                 double delS = M_sss[i] - M_ocean_salt[i];
-                Fdw = delS * M_mld[i] * physical::rhow /(timeS*M_sss[i] - time_step*delS);
+                Fdw = delS * tmp_mld * physical::rhow /(timeS*M_sss[i] - time_step*delS);
             } else {
                 Qdw = Qdw_const;
                 Fdw = Fdw_const;
@@ -2951,17 +2948,17 @@ FiniteElement::thermo()
         switch ( M_thermo_type )
         {
             case setup::ThermoType::ZERO_LAYER:
-                this->thermoIce0(i, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], tmp_Qlw_in, tmp_Qsw_in, tmp_snowfr, hi, hs, hi_old, Qio, del_hi, M_tice[0][i]);
+                this->thermoIce0(i, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfr, hi, hs, hi_old, Qio, del_hi, M_tice[0][i]);
                 break;
             case setup::ThermoType::WINTON:
-                this->thermoWinton(i, time_step, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], tmp_Qlw_in, tmp_Qsw_in, tmp_snowfr, hi, hs, hi_old, Qio, del_hi,
+                this->thermoWinton(i, time_step, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfr, hi, hs, hi_old, Qio, del_hi,
                         M_tice[0][i], M_tice[1][i], M_tice[2][i]);
                 break;
         }
 
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
-            this->thermoIce0(i, wspeed, sphuma, old_conc_thin, M_h_thin[i], M_hs_thin[i], tmp_Qlw_in, tmp_Qsw_in, tmp_snowfr, hi_thin, hs_thin, hi_thin_old, Qio_thin, del_hi_thin, M_tsurf_thin[i]);
+            this->thermoIce0(i, wspeed, sphuma, old_conc_thin, M_h_thin[i], M_hs_thin[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfr, hi_thin, hs_thin, hi_thin_old, Qio_thin, del_hi_thin, M_tsurf_thin[i]);
             M_h_thin[i]  = hi_thin * old_conc_thin;
             M_hs_thin[i] = hs_thin * old_conc_thin;
         }
@@ -2973,14 +2970,14 @@ FiniteElement::thermo()
         double tw_new, tfrw, newice, del_c, newsnow, h0;
 
         /* dT/dt due to heatflux atmos.-ocean */
-        tw_new = M_sst[i] - Qow*time_step/(M_mld[i]*physical::rhow*physical::cpw);
+        tw_new = M_sst[i] - Qow*time_step/(tmp_mld*physical::rhow*physical::cpw);
         tfrw   = -physical::mu*M_sss[i];
 
         /* Form new ice in case of super cooling, and reset Qow and evap */
         if ( tw_new < tfrw )
         {
-            newice  = (1.-M_conc[i])*(tfrw-tw_new)*M_mld[i]*physical::rhow*physical::cpw/qi;
-            Qow  = -(tfrw-M_sst[i])*M_mld[i]*physical::rhow*physical::cpw/time_step;
+            newice  = (1.-M_conc[i])*(tfrw-tw_new)*tmp_mld*physical::rhow*physical::cpw/qi;
+            Qow  = -(tfrw-M_sst[i])*tmp_mld*physical::rhow*physical::cpw/time_step;
             // evap = 0.;
         } else {
             newice  = 0.;
@@ -3136,11 +3133,11 @@ FiniteElement::thermo()
         Qow_mean = Qow*(1.-old_conc-old_conc_thin);
 
         /* Heat-flux */
-        M_sst[i] = M_sst[i] - time_step*( Qio_mean + Qow_mean - Qdw )/(physical::rhow*physical::cpw*M_mld[i]);
+        M_sst[i] = M_sst[i] - time_step*( Qio_mean + Qow_mean - Qdw )/(physical::rhow*physical::cpw*tmp_mld);
 
         /* Change in salinity */
         M_sss[i] = M_sss[i] + ( (M_sss[i]-physical::si)*physical::rhoi*del_vi + M_sss[i]*(del_vs*physical::rhos + (emp-Fdw)*time_step) )
-            / ( M_mld[i]*physical::rhow - del_vi*physical::rhoi - ( del_vs*physical::rhos + (emp-Fdw)*time_step) );
+            / ( tmp_mld*physical::rhow - del_vi*physical::rhoi - ( del_vs*physical::rhos + (emp-Fdw)*time_step) );
 
         // -------------------------------------------------
         // 8) Damage manipulation (thermoDamage in matlab)
@@ -3298,7 +3295,7 @@ FiniteElement::albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, do
 
 // Winton thermo dynamics (ice temperature, growth, and melt)
 void
-FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double snowfr,
+FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfr,
         double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double &T1, double &T2)
 {
     // Constants
@@ -3401,7 +3398,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         hs += M_precip[i]*snowfr/physical::rhos*dt;
 
         // Bottom melt/freezing
-        Qio    = FiniteElement::iceOceanHeatflux(M_sst[i], M_sss[i], M_mld[i], dt);
+        Qio    = FiniteElement::iceOceanHeatflux(M_sst[i], M_sss[i], mld, dt);
         double Mbot  = Qio - 4*physical::ki*(Tbot-T2)/hi; // (23)
 
         // Growth/melt at the ice-ocean interface
@@ -3527,7 +3524,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
 
 // This is Semtner zero layer
 void
-FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double snowfr,
+FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfr,
         double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf)
 {
 
@@ -3632,7 +3629,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         hs  = hs + del_hs + M_precip[i]*snowfr/physical::rhos*time_step;
 
         /* Heatflux from ocean */
-        Qio = FiniteElement::iceOceanHeatflux(M_sst[i], M_sss[i], M_mld[i], time_step);
+        Qio = FiniteElement::iceOceanHeatflux(M_sst[i], M_sss[i], mld, time_step);
         /* Bottom melt/growth */
         del_hb = (Qic-Qio)*time_step/qi;
 
@@ -5087,6 +5084,9 @@ FiniteElement::initIce()
         case setup::IceType::TOPAZ4:
             this->topazIce();
             break;
+        case setup::IceType::TOPAZ4F:
+            this->topazForecastIce();
+            break;
         case setup::IceType::AMSRE:
             this->amsreIce();
             break;
@@ -5235,7 +5235,43 @@ FiniteElement::topazIce()
 		M_damage[i]=0.;
 	}
 }
+void
+FiniteElement::topazForecastIce()
+{
+    external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false);
+    M_init_conc.check_and_reload(M_mesh,time_init);
 
+    external_data M_init_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false);
+    M_init_thick.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false);
+    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    double tmp_var;
+    for (int i=0; i<M_num_elements; ++i)
+    {
+		tmp_var=M_init_conc[i];
+		M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+		tmp_var=M_init_thick[i];
+		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+		tmp_var=M_init_snow_thick[i];
+		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+
+		M_damage[i]=0.;
+	}
+}
 void
 FiniteElement::amsreIce()
 {

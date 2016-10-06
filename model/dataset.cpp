@@ -1089,6 +1089,45 @@ namespace Nextsim
      		Units: "m",
      		data2: data2_tmp
      	};
+        
+     	Variable conc={
+     		name: "fice",
+     		dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 1.,
+     		b: 0.,
+     		Units: "",
+     		data2: data2_tmp
+     	};
+
+     	Variable thick={
+     		name: "hice",
+     		dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 1.,
+     		b: 0.,
+     		Units: "m",
+     		data2: data2_tmp
+     	};
+
+     	Variable snow_thick={
+     		name: "hsnow",
+     		dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 1.,
+     		b: 0.,
+     		Units: "m",
+     		data2: data2_tmp
+     	};
 
          Grid grid_tmp={
              interpolation_method: InterpolationType::FromMeshToMesh2dx,
@@ -1120,10 +1159,13 @@ namespace Nextsim
      		masking_variable: sss
      	};
 
-         std::vector<Variable> variables_tmp(3);
+         std::vector<Variable> variables_tmp(6);
          variables_tmp[0] = sst;
          variables_tmp[1] = sss;
          variables_tmp[2] = mld;
+         variables_tmp[3] = conc;
+         variables_tmp[4] = thick;
+         variables_tmp[5] = snow_thick;
 
          std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
@@ -1263,7 +1305,6 @@ namespace Nextsim
              interpolation_method: InterpolationType::FromMeshToMesh2dx,
      		interp_type: -1,
              dirname= "data",
-             //filename: "TP4DAILY_200803_3m.nc",
              prefix= "TP4DAILY_",
              postfix= "_3m.nc",
 
