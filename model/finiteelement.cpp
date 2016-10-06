@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim:fenc=utf-8:ft=cpp:et:sw=4:ts=4:sts=4 */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
  * @file   finiteelement.cpp
@@ -2857,7 +2857,7 @@ FiniteElement::thermo()
             throw std::logic_error("The function approxSW not yet implemented, you need to initialized M_Qsw_in");
             //tmp_Qsw_in=approxSW();
         }
-        
+
         double tmp_mld=( M_mld[i] > vm["simul.constant_mld"].as<double>() ) ? M_mld[i] : vm["simul.constant_mld"].as<double>();
 
         // -------------------------------------------------
