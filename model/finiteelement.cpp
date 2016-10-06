@@ -77,7 +77,7 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
         M_flag_fix = 100; // free = 1;
     }
     else
-       M_mesh.setOrdering("gmsh"); // wim_grid_split2_4000m.msh should be set to gmsh ordering
+        M_mesh.setOrdering("gmsh"); // wim_grid_split2_4000m.msh should be set to gmsh ordering
 
 #endif
 
@@ -278,22 +278,22 @@ FiniteElement::initDatasets()
     switch(M_atmosphere_type){
         case setup::AtmosphereType::CONSTANT:
             break;
-        
+
         case setup::AtmosphereType::ASR:
             M_atmosphere_nodes_dataset=DataSet("asr_nodes",M_num_nodes);
             M_atmosphere_elements_dataset=DataSet("asr_elements",M_num_elements);
             break;
-        
+
         case setup::AtmosphereType::ERAi:
             M_atmosphere_nodes_dataset=DataSet("ERAi_nodes",M_num_nodes);
             M_atmosphere_elements_dataset=DataSet("ERAi_elements",M_num_elements);
             break;
-        
+
         case setup::AtmosphereType::EC:
             M_atmosphere_nodes_dataset=DataSet("ec_nodes",M_num_nodes);
             M_atmosphere_elements_dataset=DataSet("ec_elements",M_num_elements);
             break;
-        
+
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
 
@@ -301,17 +301,17 @@ FiniteElement::initDatasets()
     {
         case setup::OceanType::CONSTANT:
         break;
-        
-        case setup::OceanType::TOPAZR: 
+
+        case setup::OceanType::TOPAZR:
             M_ocean_nodes_dataset=DataSet("topaz_nodes",M_num_nodes);
             M_ocean_elements_dataset=DataSet("topaz_elements",M_num_elements);
             break;
-            
+
         case setup::OceanType::TOPAZF:
             M_ocean_nodes_dataset=DataSet("topaz_forecast_nodes",M_num_nodes);
             M_ocean_elements_dataset=DataSet("topaz_forecast_elements",M_num_elements);
             break;
-        
+
         default:        std::cout << "invalid ocean forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
 
@@ -581,6 +581,7 @@ FiniteElement::initConstant()
             fs::create_directories(path);
     }
 
+    this->writeLogFile();
 }
 
 void
@@ -3667,8 +3668,6 @@ FiniteElement::run()
 {
     std::string current_time_system = current_time_local();
 
-    this->writeLogFile();
-
     int pcpt = this->init();
     int niter = vm["simul.maxiteration"].as<int>();
 
@@ -4988,7 +4987,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             // SYL: there was a capping of the mld at minimum vm["simul.constant_mld"].as<double>()
             // but Einar said it is not necessary, so it is not implemented
     		break;
-                            
+
         default:
             std::cout << "invalid ocean forcing"<<"\n";
             throw std::logic_error("invalid ocean forcing");
@@ -5057,7 +5056,7 @@ FiniteElement::initSlabOcean()
             std::fill(M_sst.begin(), M_sst.end(), -1.8);
             std::fill(M_sss.begin(), M_sss.end(),  1.8/physical::mu);
             break;
-        case setup::OceanType::TOPAZR:         
+        case setup::OceanType::TOPAZR:
         case setup::OceanType::TOPAZF:
             for ( int i=0; i<M_num_elements; ++i)
             {
@@ -5852,7 +5851,7 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
 void
 FiniteElement::exportResults(int step, bool export_mesh)
 {
-    Exporter exporter;
+    Exporter exporter("float");
     std::string fileout;
 
 
@@ -5923,27 +5922,27 @@ FiniteElement::exportResults(int step, bool export_mesh)
     {
         // Thermodynamic and dynamic forcing
         // Atmosphere
-        exporter.writeField(outbin,M_wind.get_vector(), "M_wind");         // Surface wind [m/s]
-        exporter.writeField(outbin,M_tair.get_vector(), "M_tair");         // 2 m temperature [C]
-        exporter.writeField(outbin,M_mixrat.get_vector(), "M_mixrat");       // Mixing ratio
-        exporter.writeField(outbin,M_mslp.get_vector(), "M_mslp");         // Atmospheric pressure [Pa]
-        exporter.writeField(outbin,M_Qsw_in.get_vector(), "M_Qsw_in");       // Incoming short-wave radiation [W/m2]
-        exporter.writeField(outbin,M_Qlw_in.get_vector(), "M_Qlw_in");       // Incoming long-wave radiation [W/m2]
-        exporter.writeField(outbin,M_tcc.get_vector(), "M_tcc");       // Incoming long-wave radiation [W/m2]
-        exporter.writeField(outbin,M_precip.get_vector(), "M_precip");       // Total precipitation [m]
-        exporter.writeField(outbin,M_snowfr.get_vector(), "M_snowfr");       // Fraction of precipitation that is snow
-        exporter.writeField(outbin,M_dair.get_vector(), "M_dair");         // 2 m dew point [C]
+        exporter.writeField(outbin,M_wind.getVector(), "M_wind");         // Surface wind [m/s]
+        exporter.writeField(outbin,M_tair.getVector(), "M_tair");         // 2 m temperature [C]
+        exporter.writeField(outbin,M_mixrat.getVector(), "M_mixrat");       // Mixing ratio
+        exporter.writeField(outbin,M_mslp.getVector(), "M_mslp");         // Atmospheric pressure [Pa]
+        exporter.writeField(outbin,M_Qsw_in.getVector(), "M_Qsw_in");       // Incoming short-wave radiation [W/m2]
+        exporter.writeField(outbin,M_Qlw_in.getVector(), "M_Qlw_in");       // Incoming long-wave radiation [W/m2]
+        exporter.writeField(outbin,M_tcc.getVector(), "M_tcc");       // Incoming long-wave radiation [W/m2]
+        exporter.writeField(outbin,M_precip.getVector(), "M_precip");       // Total precipitation [m]
+        exporter.writeField(outbin,M_snowfr.getVector(), "M_snowfr");       // Fraction of precipitation that is snow
+        exporter.writeField(outbin,M_dair.getVector(), "M_dair");         // 2 m dew point [C]
 
         // Ocean
-        exporter.writeField(outbin,M_ocean.get_vector(), "M_ocean");        // "Geostrophic" ocean currents [m/s]
-        exporter.writeField(outbin,M_ssh.get_vector(), "M_ssh");          // Sea surface elevation [m]
+        exporter.writeField(outbin,M_ocean.getVector(), "M_ocean");        // "Geostrophic" ocean currents [m/s]
+        exporter.writeField(outbin,M_ssh.getVector(), "M_ssh");          // Sea surface elevation [m]
 
-        exporter.writeField(outbin,M_ocean_temp.get_vector(), "M_ocean_temp");   // Ocean temperature in top layer [C]
-        exporter.writeField(outbin,M_ocean_salt.get_vector(), "M_ocean_salt");   // Ocean salinity in top layer [C]
-        exporter.writeField(outbin,M_mld.get_vector(), "M_mld");          // Mixed-layer depth [m]
+        exporter.writeField(outbin,M_ocean_temp.getVector(), "M_ocean_temp");   // Ocean temperature in top layer [C]
+        exporter.writeField(outbin,M_ocean_salt.getVector(), "M_ocean_salt");   // Ocean salinity in top layer [C]
+        exporter.writeField(outbin,M_mld.getVector(), "M_mld");          // Mixed-layer depth [m]
 
         // Bathymetry
-        exporter.writeField(outbin,M_element_depth.get_vector(), "M_element_depth");
+        exporter.writeField(outbin,M_element_depth.getVector(), "M_element_depth");
     }
 
 #if defined (WAVES)

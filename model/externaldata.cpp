@@ -214,7 +214,7 @@ ExternalData::get(const size_type i)
 	return static_cast<value_type>( value );
 }
 typename std::vector<double>
-ExternalData::get_vector()
+ExternalData::getVector()
 {
     std::vector<double> vector_tmp(1,0.);
 

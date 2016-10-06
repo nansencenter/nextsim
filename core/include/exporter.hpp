@@ -30,7 +30,7 @@ class Exporter
 {
 public:
 
-	Exporter();
+	Exporter(std::string const& precision = "double");
 
     template<typename Type>
     void writeContainer(std::fstream& out, std::vector<Type> const& container);
@@ -47,8 +47,11 @@ private:
     std::vector<std::string> M_mrecord;
     std::vector<std::string> M_frecord;
 
-    std::vector<int> M_type_record;
+    //std::vector<int> M_type_record;
+    std::vector<std::string> M_type_record;
     std::vector<std::string> M_name_record;
+
+    std::string M_precision;
 };
 } // Nextsim
 #endif

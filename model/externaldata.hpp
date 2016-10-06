@@ -79,7 +79,7 @@ public:
 
     value_type get(const size_type i);
 
-    std::vector<double> get_vector();
+    std::vector<double> getVector();
 
 	void clear();
 

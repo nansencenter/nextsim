@@ -17,7 +17,7 @@ if(isempty(proc))
     field_data  = [ dirname '/field_' num2str(step) '.bin'];
     mesh_info   = [ dirname '/mesh_' num2str(step) '.dat'];
     mesh_data   = [ dirname '/mesh_' num2str(step) '.bin'];
-else    
+else
     field_info  = [ dirname '/field_' num2str(proc) '_' num2str(step) '.dat'];
     field_data  = [ dirname '/field_' num2str(proc) '_' num2str(step) '.bin'];
     mesh_info   = [ dirname '/mesh_' num2str(proc) '_' num2str(step) '.dat'];
@@ -36,19 +36,28 @@ end
 function out=read_bin_export(file_info,file_data)
 %Getting info
 fileID = fopen(file_info,'r');
-info_tmp=textscan(fileID,'%s %d');
+info_tmp=textscan(fileID,'%s %s');
 data_names=info_tmp{1};
-data_types=info_tmp{2};
+data_types=info_tmp{2}
 fclose(fileID);
 
 fileID = fopen(file_data,'r');
 for i = 1:numel(data_names)
     field{i} = data_names{i};
-    if data_types(i)==8
-       prec = 'double';
-    else
-       prec = 'int';
-    end
+    %if data_types(i)==8
+    %   prec = 'double';
+    % else
+    %   prec = 'int';
+    % end
+
+    if strcmp(data_types(i),'double')
+	  prec = 'double'
+	elseif strcmp(data_types(i),'float')
+	  prec = 'single'
+	else
+	  prec = 'int'
+	end
+
     N_data=fread(fileID,1,'int');
     if strcmp('Time',field{i})
         out.(field{i}) = fread(fileID,N_data,prec) + datenum(1900,1,1);
