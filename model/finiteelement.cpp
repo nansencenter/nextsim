@@ -385,7 +385,7 @@ FiniteElement::initConstant()
     rhos = physical::rhos;
 
     days_in_sec = 24.0*3600.0;
-    time_init = dateStr2Num(vm["simul.time_init"].as<std::string>());
+    time_init = dateStr2Num(vm["simul.time_init"].as<std::string>())+vm["simul.hour_init"].as<double>()/24;
     output_time_step =  days_in_sec/vm["simul.output_per_day"].as<int>();
     mooring_output_time_step =  vm["simul.mooring_output_timestep"].as<double>()*days_in_sec;
 
@@ -567,6 +567,7 @@ FiniteElement::initConstant()
 
     M_use_moorings =  vm["simul.use_moorings"].as<bool>();
 
+#if 0
     M_export_path = Environment::nextsimDir().string() + "/matlab";
     // change directory for outputs if the option "output_directory" is not empty
     if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
@@ -581,6 +582,7 @@ FiniteElement::initConstant()
         if ( !fs::exists(path) )
             fs::create_directories(path);
     }
+#endif
 
 }
 
@@ -3664,6 +3666,21 @@ FiniteElement::run()
 {
     std::string current_time_system = current_time_local();
 
+    M_export_path = Environment::nextsimDir().string() + "/matlab";
+    // change directory for outputs if the option "output_directory" is not empty
+    if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
+    {
+        M_export_path = vm["simul.output_directory"].as<std::string>();
+
+        fs::path path(M_export_path);
+        // add a subdirecory if needed
+        // path /= "subdir";
+
+        // create the output directory if it does not exist
+        if ( !fs::exists(path) )
+            fs::create_directories(path);
+    }
+
     this->writeLogFile();
 
     int pcpt = this->init();
@@ -3680,6 +3697,7 @@ FiniteElement::run()
     {
         //std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
         std::cout<<"---------------------- TIME STEP "<< pcpt << " : "
+            << " " << to_date_time_string(current_time) << " = " 
                  << time_init << " + "<< pcpt*time_step/(24*3600.0);
 
 
@@ -4840,25 +4858,25 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_wind);
 
-            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false);
+            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
             M_external_data.push_back(&M_tair);
 
-            M_mixrat=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false);
+            M_mixrat=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
             M_external_data.push_back(&M_mixrat);
 
-            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false);
+            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
             M_external_data.push_back(&M_mslp);
 
-            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false);
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
             M_external_data.push_back(&M_Qsw_in);
 
-            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false);
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
             M_external_data.push_back(&M_Qlw_in);
 
-            M_snowfr=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false);
+            M_snowfr=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
             M_external_data.push_back(&M_snowfr);
 
-            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false);
+            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
             M_external_data.push_back(&M_precip);
 
             M_dair=ExternalData(-1.);
@@ -4880,22 +4898,22 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             variables[5] = precip;
             */
 
-            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false);
+            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
             M_external_data.push_back(&M_tair);
 
-            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false);
+            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
             M_external_data.push_back(&M_dair);
 
-            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false);
+            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
             M_external_data.push_back(&M_mslp);
 
-            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false);
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
             M_external_data.push_back(&M_Qsw_in);
 
-            M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false);
+            M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
             M_external_data.push_back(&M_tcc);
 
-            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false);
+            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
             M_external_data.push_back(&M_precip);
 
             M_mixrat=ExternalData(-1.);
@@ -4909,16 +4927,16 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_wind);
 
-            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false);
+            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
             M_external_data.push_back(&M_tair);
 
-            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false);
+            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
             M_external_data.push_back(&M_dair);
 
-            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false);
+            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
             M_external_data.push_back(&M_mslp);
 
-            M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false);
+            M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
             M_external_data.push_back(&M_tcc);
 
             // Syl: The following two lines should be removed when approxSW will be implemented in Thermo()
@@ -4974,13 +4992,13 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_ssh);
 
-            M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false);
+            M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
             M_external_data.push_back(&M_ocean_temp);
 
-            M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false);
+            M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
             M_external_data.push_back(&M_ocean_salt);
 
-            M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false);
+            M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
             M_external_data.push_back(&M_mld);
             // SYL: there was a capping of the mld at minimum vm["simul.constant_mld"].as<double>()
             // but Einar said it is not necessary, so it is not implemented
@@ -5016,25 +5034,25 @@ FiniteElement::forcingWave()
         //std::cout << age[0] << std::endl;
         case setup::WaveType::WW3A:
 
-	    M_SWH=ExternalData(&M_WW3A_elements_dataset, M_mesh, 0,false);
+	    M_SWH=ExternalData(&M_WW3A_elements_dataset, M_mesh, 0,false,time_init);
             M_external_data.push_back(&M_SWH);
 
-            M_MWD=ExternalData(&M_WW3A_elements_dataset, M_mesh, 1,false);
+            M_MWD=ExternalData(&M_WW3A_elements_dataset, M_mesh, 1,false,time_init);
             M_external_data.push_back(&M_MWD);
 
-            M_FP=ExternalData(&M_WW3A_elements_dataset, M_mesh, 2,false);
+            M_FP=ExternalData(&M_WW3A_elements_dataset, M_mesh, 2,false,time_init);
             M_external_data.push_back(&M_FP);
                 break;
 
         case setup::WaveType::ERAI_WAVES_1DEG:
 
-	    M_SWH=ExternalData(&M_ERAIW_1DEG_elements_dataset, M_mesh, 0,false);
+	    M_SWH=ExternalData(&M_ERAIW_1DEG_elements_dataset, M_mesh, 0,false,time_init);
             M_external_data.push_back(&M_SWH);
 
-            M_MWD=ExternalData(&M_ERAIW_1DEG_elements_dataset, M_mesh, 1,false);
+            M_MWD=ExternalData(&M_ERAIW_1DEG_elements_dataset, M_mesh, 1,false,time_init);
             M_external_data.push_back(&M_MWD);
 
-            M_FP=ExternalData(&M_ERAIW_1DEG_elements_dataset, M_mesh, 2,false);
+            M_FP=ExternalData(&M_ERAIW_1DEG_elements_dataset, M_mesh, 2,false,time_init);
             M_external_data.push_back(&M_FP);
                 break;
 
@@ -5202,13 +5220,13 @@ FiniteElement::targetIce()
 void
 FiniteElement::topazIce()
 {
-    external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false);
+    external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
     M_init_conc.check_and_reload(M_mesh,time_init);
 
-    external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false);
+    external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
     M_init_thick.check_and_reload(M_mesh,time_init);
 
-    external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false);
+    external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
     M_init_snow_thick.check_and_reload(M_mesh,time_init);
 
     double tmp_var;
@@ -5239,13 +5257,13 @@ FiniteElement::topazIce()
 void
 FiniteElement::topazForecastIce()
 {
-    external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false);
+    external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
     M_init_conc.check_and_reload(M_mesh,time_init);
 
-    external_data M_init_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false);
+    external_data M_init_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
     M_init_thick.check_and_reload(M_mesh,time_init);
 
-    external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false);
+    external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
     M_init_snow_thick.check_and_reload(M_mesh,time_init);
 
     double tmp_var;
@@ -5278,16 +5296,16 @@ FiniteElement::amsreIce()
 {
     double real_thickness, init_conc_topaz_tmp;
 
-    external_data M_init_conc=ExternalData(&M_ice_amsre_elements_dataset,M_mesh,0,false);
+    external_data M_init_conc=ExternalData(&M_ice_amsre_elements_dataset,M_mesh,0,false,time_init);
     M_init_conc.check_and_reload(M_mesh,time_init);
 
-    external_data M_init_conc_topaz=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false);
+    external_data M_init_conc_topaz=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
     M_init_conc_topaz.check_and_reload(M_mesh,time_init);
 
-    external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false);
+    external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
     M_init_thick.check_and_reload(M_mesh,time_init);
 
-    external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false);
+    external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
     M_init_snow_thick.check_and_reload(M_mesh,time_init);
 
     double tmp_var;
@@ -5333,16 +5351,16 @@ FiniteElement::osisaf2Ice()
 {
     double real_thickness, init_conc_topaz_tmp;
 
-    external_data M_init_conc=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,0,false);
+    external_data M_init_conc=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,0,false,time_init);
     M_init_conc.check_and_reload(M_mesh,time_init);
 
-    external_data M_init_conc_topaz=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false);
+    external_data M_init_conc_topaz=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
     M_init_conc_topaz.check_and_reload(M_mesh,time_init);
 
-    external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false);
+    external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
     M_init_thick.check_and_reload(M_mesh,time_init);
 
-    external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false);
+    external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
     M_init_snow_thick.check_and_reload(M_mesh,time_init);
 
     double tmp_var;
@@ -5388,16 +5406,16 @@ FiniteElement::amsr2Ice()
 {
     double real_thickness, init_conc_topaz_tmp;
 
-    external_data M_init_conc=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false);
+    external_data M_init_conc=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
     M_init_conc.check_and_reload(M_mesh,time_init);
 
-    external_data M_init_conc_topaz=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false);
+    external_data M_init_conc_topaz=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
     M_init_conc_topaz.check_and_reload(M_mesh,time_init);
 
-    external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false);
+    external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
     M_init_thick.check_and_reload(M_mesh,time_init);
 
-    external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false);
+    external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
     M_init_snow_thick.check_and_reload(M_mesh,time_init);
 
     double tmp_var;
@@ -5495,7 +5513,7 @@ FiniteElement::bathymetry()//(double const& u, double const& v)
             M_external_data.push_back(&M_element_depth);
             break;
         case setup::BathymetryType::ETOPO:
-            M_element_depth=ExternalData(&M_bathymetry_elements_dataset,M_mesh,0,false);
+            M_element_depth=ExternalData(&M_bathymetry_elements_dataset,M_mesh,0,false,time_init);
             M_external_data.push_back(&M_element_depth);
             break;
         default:

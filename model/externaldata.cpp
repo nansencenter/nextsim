@@ -30,14 +30,14 @@ ExternalData::ExternalData( ):
 M_initialized(false)
 {}
 
-ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector )
+ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector, double StartingTime )
 	:
     M_is_constant( false ),
     M_dataset( dataset ),
     M_VariableId( VariableId ),
     M_is_vector( is_vector ),
     M_current_time( 0. ),
-    M_SpinUpStartingTime( 0. ),
+    M_StartingTime( StartingTime ),
     M_SpinUpDuration( 0. ),
     M_initialized(true)
 {
@@ -50,11 +50,10 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
 }
 
 
-ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector, double SpinUpStartingTime, double SpinUpDuration )
+ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector, double StartingTime, double SpinUpDuration )
 	:
-    ExternalData(dataset, mesh, VariableId, is_vector )
+    ExternalData(dataset, mesh, VariableId, is_vector, StartingTime )
     {
-        M_SpinUpStartingTime= SpinUpStartingTime ;
         M_SpinUpDuration= SpinUpDuration ;
     }
 
@@ -64,7 +63,7 @@ ExternalData::ExternalData( double ConstantValue )
     M_constant_value( ConstantValue ),
     M_is_vector( false ),
     M_current_time( 0. ),
-    M_SpinUpStartingTime( 0. ),
+    M_StartingTime( 0. ),
     M_SpinUpDuration( 0. ),
     M_initialized(true)
     {}
@@ -77,19 +76,19 @@ ExternalData::ExternalData( double ConstantValue, double ConstantValuebis )
         M_is_vector= true ;
     }
 
-ExternalData::ExternalData( double ConstantValue, double SpinUpStartingTime, double SpinUpDuration )
+ExternalData::ExternalData( double ConstantValue, double StartingTime, double SpinUpDuration )
     :
     ExternalData( ConstantValue )
     {
-        M_SpinUpStartingTime= SpinUpStartingTime ;
+        M_StartingTime= StartingTime ;
         M_SpinUpDuration= SpinUpDuration ;
     }
 
-ExternalData::ExternalData( double ConstantValue, double ConstantValuebis, double SpinUpStartingTime, double SpinUpDuration )
+ExternalData::ExternalData( double ConstantValue, double ConstantValuebis, double StartingTime, double SpinUpDuration )
     :
     ExternalData( ConstantValue, ConstantValuebis )
     {
-        M_SpinUpStartingTime= SpinUpStartingTime ;
+        M_StartingTime= StartingTime ;
         M_SpinUpDuration= SpinUpDuration ;
     }
 
@@ -105,9 +104,9 @@ void ExternalData::check_and_reload(GmshMesh const& mesh, const double current_t
     double current_time_tmp=M_current_time;
 
     M_factor=1.;
-    if((M_current_time-M_SpinUpStartingTime)<M_SpinUpDuration)
+    if((M_current_time-M_StartingTime)<M_SpinUpDuration)
     {
-        M_factor=(M_current_time-M_SpinUpStartingTime)/M_SpinUpDuration;
+        M_factor=(M_current_time-M_StartingTime)/M_SpinUpDuration;
     }
 
     if(!M_is_constant)
@@ -429,7 +428,10 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
         // Filename depends on the date for time varying data
 		if(dataset->nb_timestep_day>0)
 		{
-            ftime = dataset->ftime_range[fstep];
+            if ((dataset->prefix).find("start") != std::string::npos)
+                ftime = M_StartingTime;
+            else
+                ftime = dataset->ftime_range[fstep];
 
             if(dataset->daily_mean)
                 ftime = ftime-0.5;
