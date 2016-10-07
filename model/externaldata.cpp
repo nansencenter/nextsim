@@ -406,10 +406,41 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 
         for (std::vector<int>::iterator jump = file_jump.begin() ; jump != file_jump.end(); ++jump)
         {
+            std::string myString;
             if(dataset->grid.dataset_frequency=="monthly")
-                f_timestr = to_date_string_ym(std::floor(ftime)+*jump);
+            {
+                f_timestr = to_date_string_ym(std::floor(ftime));
+                
+                myString = f_timestr.substr(4,2);
+                std::cout <<"month= "<< myString <<"\n";
+                int value_month = atoi(myString.c_str());
+                myString = f_timestr.substr(0,4);
+                std::cout <<"year= "<< myString <<"\n";
+                int value_year = atoi(myString.c_str());
+                
+                std::cout <<"value_year= "<< value_year <<"\n";
+                                std::cout <<"value_month= "<< value_month <<"\n";
+                
+                value_month+=*jump;
+                if(value_month==13)
+                {
+                    value_month=1;
+                    value_year++;
+                }
+                if(value_month==0)
+                {
+                    value_month=12;
+                    value_year--;
+                }
+                f_timestr=(boost::format( "%1%%2%" ) % boost::io::group(std::setw(4), std::setfill('0'), value_year) % boost::io::group(std::setw(2), std::setfill('0'), value_month)).str();
+            }
             else if(dataset->grid.dataset_frequency=="yearly")
-                f_timestr = to_date_string_y(std::floor(ftime)+*jump);//yyyy
+            {
+                f_timestr = to_date_string_y(std::floor(ftime));//yyyy
+                int value_year = atoi(f_timestr.c_str()); 
+                value_year+=*jump;
+                f_timestr=(boost::format( "%1%" ) % boost::io::group(std::setw(4), std::setfill('0'), value_year)).str();
+            }
             else
                 f_timestr = to_date_string_yd(std::floor(ftime)+*jump);
 
@@ -425,7 +456,8 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
         
             std::cout<<"FILENAME= "<< filename <<"\n";
             if ( ! boost::filesystem::exists(filename) )
-                throw std::runtime_error("File not found: " + filename);
+                continue;
+                //throw std::runtime_error("File not found: " + filename);
 
             // change the reference_date if erai forcing according to the xxxx-01-01, where xxxx is the current year
             if ((dataset->name).find("ERAi") != std::string::npos)
@@ -517,6 +549,8 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 	// Memory leak:
     //double* data_in = new double[N_data*nb_forcing_step*final_MN];
     std::vector<double> data_in(N_data*nb_forcing_step*final_MN);
+    
+    std::cout<<"Start loading data\n";
     
     for (int fstep=0; fstep < nb_forcing_step; ++fstep) // always need one step before and one after the target time
     {
