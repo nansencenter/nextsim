@@ -170,7 +170,7 @@ public:
     bool reloaded;
 
     int nb_timestep_day; // put 0 for not time-dependent field such as bathymetry
-    bool daily_mean; // Use daily_mean=true, when the data are centered at noon, but the time variable says 00:00:00 (it is the case for TOPAZ daily mean, AMSRE, AMSR2)
+    double averaging_period; // 0. for snapshot, 1. for daily values, 365./12 for monthly values.
     Variable time;
 
     std::vector<double> ftime_range;

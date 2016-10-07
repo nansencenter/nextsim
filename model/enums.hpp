@@ -40,7 +40,8 @@ namespace setup
         TOPAZ4F   = 6,
         MITGCM    = 7,
         TARGET    = 8,
-        OSISAF    = 9
+        OSISAF    = 9,
+        PIOMAS    =10
 	};
 
     enum class WaveType

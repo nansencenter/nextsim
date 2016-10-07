@@ -317,6 +317,8 @@ FiniteElement::initDatasets()
 
     M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements",M_num_elements);
 
+    M_ice_piomas_elements_dataset=DataSet("ice_piomas_elements",M_num_elements);
+
     M_ice_amsre_elements_dataset=DataSet("ice_amsre_elements",M_num_elements);
 
     M_ice_osisaf_elements_dataset=DataSet("ice_osisaf_elements",M_num_elements);
@@ -473,7 +475,8 @@ FiniteElement::initConstant()
         ("topaz_forecast", setup::IceType::TOPAZ4F)
         ("amsre", setup::IceType::AMSRE)
         ("amsr2", setup::IceType::AMSR2)
-        ("osisaf", setup::IceType::OSISAF);
+        ("osisaf", setup::IceType::OSISAF)
+        ("piomas", setup::IceType::PIOMAS);    
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
 
 #if defined (WAVES)
@@ -1532,7 +1535,9 @@ FiniteElement::regrid(bool step)
     M_atmosphere_elements_dataset.target_size=M_num_elements;
     M_ocean_nodes_dataset.target_size=M_num_nodes;
     M_ocean_elements_dataset.target_size=M_num_elements;
+
     M_ice_topaz_elements_dataset.target_size=M_num_elements;
+    M_ice_piomas_elements_dataset.target_size=M_num_elements;
     M_ice_amsre_elements_dataset.target_size=M_num_elements;
     M_ice_osisaf_elements_dataset.target_size=M_num_elements;
     M_ice_amsr2_elements_dataset.target_size=M_num_elements;
@@ -1547,7 +1552,9 @@ FiniteElement::regrid(bool step)
     M_atmosphere_elements_dataset.reloaded=false;
     M_ocean_nodes_dataset.reloaded=false;
     M_ocean_elements_dataset.reloaded=false;
+    
     M_ice_topaz_elements_dataset.reloaded=false;
+    M_ice_piomas_elements_dataset.reloaded=false;
     M_ice_amsre_elements_dataset.reloaded=false;
     M_ice_osisaf_elements_dataset.reloaded=false;
     M_ice_amsr2_elements_dataset.reloaded=false;
@@ -4696,7 +4703,9 @@ FiniteElement::readRestart(int step)
     M_atmosphere_elements_dataset.target_size=M_num_elements;
     M_ocean_nodes_dataset.target_size=M_num_nodes;
     M_ocean_elements_dataset.target_size=M_num_elements;
+    
     M_ice_topaz_elements_dataset.target_size=M_num_elements;
+    M_ice_piomas_elements_dataset.target_size=M_num_elements;
     M_ice_amsre_elements_dataset.target_size=M_num_elements;
     M_ice_osisaf_elements_dataset.target_size=M_num_elements;
     M_ice_amsr2_elements_dataset.target_size=M_num_elements;
@@ -5106,14 +5115,17 @@ FiniteElement::initIce()
         case setup::IceType::TOPAZ4F:
             this->topazForecastIce();
             break;
+        case setup::IceType::PIOMAS:
+            this->piomasIce();
+            break;
         case setup::IceType::AMSRE:
-            this->amsreIce();
+            this->topazAmsreIce();
             break;
         case setup::IceType::OSISAF:
-            this->osisaf2Ice();
+            this->topazOsisafIce();
             break;
         case setup::IceType::AMSR2:
-            this->amsr2Ice();
+            this->topazAmsr2Ice();
             break;
 
         default:
@@ -5292,7 +5304,40 @@ FiniteElement::topazForecastIce()
 	}
 }
 void
-FiniteElement::amsreIce()
+FiniteElement::piomasIce()
+{
+    external_data M_init_conc=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,0,false,time_init);
+    M_init_conc.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_thick=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,1,false,time_init);
+    M_init_thick.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_snow_thick=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,2,false,time_init);
+    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    for (int i=0; i<M_num_elements; ++i)
+    {
+		M_conc[i] = M_init_conc[i];
+		M_thick[i] = M_init_thick[i];
+        M_snow_thick[i] = M_init_snow_thick[i];
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+
+		M_damage[i]=0.;
+	}
+}
+void
+FiniteElement::topazAmsreIce()
 {
     double real_thickness, init_conc_topaz_tmp;
 
@@ -5347,7 +5392,7 @@ FiniteElement::amsreIce()
 }
 
 void
-FiniteElement::osisaf2Ice()
+FiniteElement::topazOsisafIce()
 {
     double real_thickness, init_conc_topaz_tmp;
 
@@ -5402,7 +5447,7 @@ FiniteElement::osisaf2Ice()
 }
 
 void
-FiniteElement::amsr2Ice()
+FiniteElement::topazAmsr2Ice()
 {
     double real_thickness, init_conc_topaz_tmp;
 
