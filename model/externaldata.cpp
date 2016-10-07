@@ -485,7 +485,11 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             FVTIME.getVar(index_start, index_count, &XTIME[0]);
             std::for_each(XTIME.begin(), XTIME.end(), [&](double& f)
                   { 
-                      f = (f*dataset->time.a+dataset->time.b)/24.0+from_date_string(dataset->reference_date); 
+                      if ((dataset->name).find("ice_amsr2") != std::string::npos)
+                          f=from_date_string((boost::format( "%1%-%2%-%3%" ) % f_timestr.substr(0,4) % f_timestr.substr(4,2) % f_timestr.substr(6,2)).str())+0.5;
+                      else
+                          f = (f*dataset->time.a+dataset->time.b)/24.0+from_date_string(dataset->reference_date); 
+                      
                       if(f>M_current_time && index_next==-1)
                       {
                           auto it = std::find(XTIME.begin(), XTIME.end(), f);
