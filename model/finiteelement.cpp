@@ -1555,10 +1555,11 @@ FiniteElement::regrid(bool step)
     M_bathymetry_elements_dataset.reloaded=false;
 #if defined (WAVES)
     M_WW3A_elements_dataset.reloaded=false;
+    M_ERAIW_1DEG_elements_dataset.reloaded=false;
 #endif
 
-    // for the parralel code, it will be necessary to add those lines
-    // as the domain covered by the partinions changes at each remeshing/partitioning
+    // for the parallel code, it will be necessary to add those lines
+    // as the domain covered by the partitions changes at each remeshing/partitioning
 #if 0
     M_atmosphere_nodes_dataset.grid.loaded=false;
     M_atmosphere_elements_dataset.grid.loaded=false;
