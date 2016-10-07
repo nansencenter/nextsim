@@ -385,7 +385,9 @@ FiniteElement::initConstant()
     rhos = physical::rhos;
 
     days_in_sec = 24.0*3600.0;
-    time_init = dateStr2Num(vm["simul.time_init"].as<std::string>());
+    time_init = from_date_time_string(vm["simul.time_init"].as<std::string>());
+    //std::cout<<"time_init second= "<< std::setprecision(18) << time_init <<"\n";
+
     output_time_step =  days_in_sec/vm["simul.output_per_day"].as<int>();
     mooring_output_time_step =  vm["simul.mooring_output_timestep"].as<double>()*days_in_sec;
 
@@ -3679,8 +3681,7 @@ FiniteElement::run()
     {
         //std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
         std::cout<<"---------------------- TIME STEP "<< pcpt << " : "
-                 << time_init << " + "<< pcpt*time_step/(24*3600.0);
-
+                 << model_time_str(vm["simul.time_init"].as<std::string>(), pcpt*time_step);
 
         if (!(pcpt % 20))
         {
@@ -5636,7 +5637,7 @@ FiniteElement::updateIABPDrifter()
         double lat, lon;
         M_iabp_file >> year >> month >> day >> hour >> number >> lat >> lon;
         std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
-        time = dateStr2Num(date) + hour/24.;
+        time = from_date_string(date) + hour/24.;
 
         // Remember which buoys are in the ice according to IABP
         keepers.push_back(number);
@@ -5686,7 +5687,7 @@ FiniteElement::initIABPDrifter()
         throw std::runtime_error("File not found: " + filename);
 
     int pos;    // To be able to rewind one line
-    double time = dateStr2Num("1979-01-01");
+    double time = from_date_string("1979-01-01");
     while ( time < time_init )
     {
         // Remember where we were
@@ -5698,7 +5699,7 @@ FiniteElement::initIABPDrifter()
         M_iabp_file >> year >> month >> day >> hour >> number >> lat >> lon;
         std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
 
-        time = dateStr2Num(date) + hour/24.;
+        time = from_date_string(date) + hour/24.;
     }
 
     // We must rewind one line so that updateIABPDrifter works correctly
