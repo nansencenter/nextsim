@@ -160,13 +160,8 @@ namespace Nextsim
 
             loaded: false,
             dataset_frequency:"monthly",
-            //monthly_dataset:true,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
      		masking: false
      	};
@@ -321,13 +316,8 @@ namespace Nextsim
 
             loaded: false,
             dataset_frequency:"monthly",
-            //monthly_dataset:true,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
      		masking: false
      	};
@@ -580,13 +570,8 @@ namespace Nextsim
 
              loaded: false,
              dataset_frequency:"monthly",
-             //monthly_dataset:true,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
      		masking: true,
      		masking_variable: ssh
@@ -760,13 +745,8 @@ namespace Nextsim
 
              loaded: false,
             dataset_frequency:"monthly",
-             //monthly_dataset:true,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
      		masking: true,
      		masking_variable: sss
@@ -929,13 +909,8 @@ namespace Nextsim
 
              loaded: false,
              dataset_frequency:"daily",
-             //monthly_dataset:true,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
      		masking: true,
      		masking_variable: ssh
@@ -1147,13 +1122,8 @@ namespace Nextsim
 
              loaded: false,
             dataset_frequency:"daily",
-             //monthly_dataset:true,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
      		masking: true,
      		masking_variable: sss
@@ -1319,13 +1289,8 @@ namespace Nextsim
 
              loaded: false,
             dataset_frequency:"monthly",
-             //monthly_dataset:true,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
      		masking: true,
      		masking_variable: conc
@@ -1452,13 +1417,8 @@ namespace Nextsim
 
              loaded: false,
             dataset_frequency:"daily",
-             //monthly_dataset:false,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
      		masking: true,
      		masking_variable: conc
@@ -1583,13 +1543,8 @@ namespace Nextsim
 
              loaded: false,
              dataset_frequency:"daily",
-             //monthly_dataset:false,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
      		masking: true,
      		masking_variable: conc
@@ -1714,13 +1669,8 @@ namespace Nextsim
 
              loaded: false,
              dataset_frequency:"daily",
-             //monthly_dataset:false,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
      		masking: true,
      		masking_variable: conc
@@ -1817,13 +1767,8 @@ namespace Nextsim
 
              loaded: false,
              dataset_frequency:"daily",
-             //monthly_dataset:false,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
      		masking: false
      	};
@@ -1935,13 +1880,8 @@ namespace Nextsim
 
              loaded: false,
              dataset_frequency:"monthly",
-             //monthly_dataset:true,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
      		masking: false
      	};
@@ -2142,13 +2082,8 @@ namespace Nextsim
         loaded: false,
 
         dataset_frequency:"monthly",
-        //monthly_dataset:true,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+        waveOptions: wavopt_none,
 
         masking: false
     };
@@ -2307,13 +2242,8 @@ namespace Nextsim
 
             loaded: false,
             dataset_frequency:"daily",
-            //monthly_dataset:true,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
       		masking: false
       	};
@@ -2488,11 +2418,7 @@ namespace Nextsim
 
          dataset_frequency:"daily",
 
-         waveOptions: {
-            wave_dataset:false,
-            use_mwp:false,
-            use_ice:false
-         },
+         waveOptions: wavopt_none,
 
          masking: false
      };
@@ -2651,7 +2577,6 @@ namespace Nextsim
 
             loaded: false,
             dataset_frequency:"daily",
-            //monthly_dataset: false,
 
             waveOptions: {
                wave_dataset:true,
@@ -2829,8 +2754,6 @@ namespace Nextsim
 
             loaded: false,
             dataset_frequency:"yearly",
-            //monthly_dataset: false,
-            //yearly_dataset: true,
 
             waveOptions: {
                wave_dataset:true,
@@ -2986,7 +2909,6 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
     std::string current_timestr;
     if ( current_time > 0 )
     {
-        //if(grid_ptr->monthly_dataset)
         if(grid_ptr->dataset_frequency=="monthly")
             current_timestr = to_date_string_ym(current_time);//yyyymm
         else if(grid_ptr->dataset_frequency=="yearly")
@@ -3260,7 +3182,6 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
             if ( current_time > 0 )
             {
                 if(grid_ptr->dataset_frequency=="monthly")
-                //if(grid_ptr->monthly_dataset)
                     current_timestr = to_date_string_ym(current_time);
                 else if(grid_ptr->dataset_frequency=="yearly")
                     current_timestr = to_date_string_y(current_time);

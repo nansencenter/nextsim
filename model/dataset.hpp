@@ -84,6 +84,16 @@ public:
        bool use_ice;
     } WaveOptions;
 
+    //so we don't have to change all the datasets
+    //every time we change the wave dataset options
+    // - default value of Grid.waveOptions.wave_dataset should be false
+    WaveOptions wavopt_none  = {
+        wave_dataset: false,
+        use_mwp: false,
+        use_ice: false,
+    };
+
+
     typedef struct Grid
     {
         InterpolationType interpolation_method;
@@ -103,8 +113,6 @@ public:
 		bool interpolation_in_latlon;
 
         bool loaded;
-        //bool monthly_dataset;
-        //bool yearly_dataset;
         std::string dataset_frequency;
 
         WaveOptions waveOptions;
