@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim:fenc=utf-8:ft=cpp:et:sw=4:ts=4:sts=4 */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
  * @file   finiteelement.cpp
@@ -77,7 +77,7 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
         M_flag_fix = 100; // free = 1;
     }
     else
-       M_mesh.setOrdering("gmsh"); // wim_grid_split2_4000m.msh should be set to gmsh ordering
+        M_mesh.setOrdering("gmsh"); // wim_grid_split2_4000m.msh should be set to gmsh ordering
 
 #endif
 
@@ -278,22 +278,22 @@ FiniteElement::initDatasets()
     switch(M_atmosphere_type){
         case setup::AtmosphereType::CONSTANT:
             break;
-        
+
         case setup::AtmosphereType::ASR:
             M_atmosphere_nodes_dataset=DataSet("asr_nodes",M_num_nodes);
             M_atmosphere_elements_dataset=DataSet("asr_elements",M_num_elements);
             break;
-        
+
         case setup::AtmosphereType::ERAi:
             M_atmosphere_nodes_dataset=DataSet("ERAi_nodes",M_num_nodes);
             M_atmosphere_elements_dataset=DataSet("ERAi_elements",M_num_elements);
             break;
-        
+
         case setup::AtmosphereType::EC:
             M_atmosphere_nodes_dataset=DataSet("ec_nodes",M_num_nodes);
             M_atmosphere_elements_dataset=DataSet("ec_elements",M_num_elements);
             break;
-        
+
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
 
@@ -301,17 +301,17 @@ FiniteElement::initDatasets()
     {
         case setup::OceanType::CONSTANT:
         break;
-        
-        case setup::OceanType::TOPAZR: 
+
+        case setup::OceanType::TOPAZR:
             M_ocean_nodes_dataset=DataSet("topaz_nodes",M_num_nodes);
             M_ocean_elements_dataset=DataSet("topaz_elements",M_num_elements);
             break;
-            
+
         case setup::OceanType::TOPAZF:
             M_ocean_nodes_dataset=DataSet("topaz_forecast_nodes",M_num_nodes);
             M_ocean_elements_dataset=DataSet("topaz_forecast_elements",M_num_elements);
             break;
-        
+
         default:        std::cout << "invalid ocean forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
 
@@ -387,7 +387,9 @@ FiniteElement::initConstant()
     rhos = physical::rhos;
 
     days_in_sec = 24.0*3600.0;
-    time_init = dateStr2Num(vm["simul.time_init"].as<std::string>())+vm["simul.hour_init"].as<double>()/24;
+    time_init = from_date_time_string(vm["simul.time_init"].as<std::string>());
+    //std::cout<<"time_init second= "<< std::setprecision(18) << time_init <<"\n";
+
     output_time_step =  days_in_sec/vm["simul.output_per_day"].as<int>();
     mooring_output_time_step =  vm["simul.mooring_output_timestep"].as<double>()*days_in_sec;
 
@@ -587,6 +589,7 @@ FiniteElement::initConstant()
     }
 #endif
 
+    this->writeLogFile();
 }
 
 void
@@ -2865,7 +2868,7 @@ FiniteElement::thermo()
             throw std::logic_error("The function approxSW not yet implemented, you need to initialized M_Qsw_in");
             //tmp_Qsw_in=approxSW();
         }
-        
+
         double tmp_mld=( M_mld[i] > vm["simul.constant_mld"].as<double>() ) ? M_mld[i] : vm["simul.constant_mld"].as<double>();
 
         // -------------------------------------------------
@@ -3704,9 +3707,7 @@ FiniteElement::run()
     {
         //std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
         std::cout<<"---------------------- TIME STEP "<< pcpt << " : "
-            << " " << to_date_time_string(current_time) << " = " 
-                 << time_init << " + "<< pcpt*time_step/(24*3600.0);
-
+                 << model_time_str(vm["simul.time_init"].as<std::string>(), pcpt*time_step);
 
         if (!(pcpt % 20))
         {
@@ -5012,7 +5013,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             // SYL: there was a capping of the mld at minimum vm["simul.constant_mld"].as<double>()
             // but Einar said it is not necessary, so it is not implemented
     		break;
-                            
+
         default:
             std::cout << "invalid ocean forcing"<<"\n";
             throw std::logic_error("invalid ocean forcing");
@@ -5081,7 +5082,7 @@ FiniteElement::initSlabOcean()
             std::fill(M_sst.begin(), M_sst.end(), -1.8);
             std::fill(M_sss.begin(), M_sss.end(),  1.8/physical::mu);
             break;
-        case setup::OceanType::TOPAZR:         
+        case setup::OceanType::TOPAZR:
         case setup::OceanType::TOPAZF:
             for ( int i=0; i<M_num_elements; ++i)
             {
@@ -5700,7 +5701,7 @@ FiniteElement::updateIABPDrifter()
         double lat, lon;
         M_iabp_file >> year >> month >> day >> hour >> number >> lat >> lon;
         std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
-        time = dateStr2Num(date) + hour/24.;
+        time = from_date_string(date) + hour/24.;
 
         // Remember which buoys are in the ice according to IABP
         keepers.push_back(number);
@@ -5750,7 +5751,7 @@ FiniteElement::initIABPDrifter()
         throw std::runtime_error("File not found: " + filename);
 
     int pos;    // To be able to rewind one line
-    double time = dateStr2Num("1979-01-01");
+    double time = from_date_string("1979-01-01");
     while ( time < time_init )
     {
         // Remember where we were
@@ -5762,7 +5763,7 @@ FiniteElement::initIABPDrifter()
         M_iabp_file >> year >> month >> day >> hour >> number >> lat >> lon;
         std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
 
-        time = dateStr2Num(date) + hour/24.;
+        time = from_date_string(date) + hour/24.;
     }
 
     // We must rewind one line so that updateIABPDrifter works correctly
@@ -5951,7 +5952,7 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
 void
 FiniteElement::exportResults(int step, bool export_mesh)
 {
-    Exporter exporter;
+    Exporter exporter("float");
     std::string fileout;
 
 
@@ -6022,27 +6023,27 @@ FiniteElement::exportResults(int step, bool export_mesh)
     {
         // Thermodynamic and dynamic forcing
         // Atmosphere
-        exporter.writeField(outbin,M_wind.get_vector(), "M_wind");         // Surface wind [m/s]
-        exporter.writeField(outbin,M_tair.get_vector(), "M_tair");         // 2 m temperature [C]
-        exporter.writeField(outbin,M_mixrat.get_vector(), "M_mixrat");       // Mixing ratio
-        exporter.writeField(outbin,M_mslp.get_vector(), "M_mslp");         // Atmospheric pressure [Pa]
-        exporter.writeField(outbin,M_Qsw_in.get_vector(), "M_Qsw_in");       // Incoming short-wave radiation [W/m2]
-        exporter.writeField(outbin,M_Qlw_in.get_vector(), "M_Qlw_in");       // Incoming long-wave radiation [W/m2]
-        exporter.writeField(outbin,M_tcc.get_vector(), "M_tcc");       // Incoming long-wave radiation [W/m2]
-        exporter.writeField(outbin,M_precip.get_vector(), "M_precip");       // Total precipitation [m]
-        exporter.writeField(outbin,M_snowfr.get_vector(), "M_snowfr");       // Fraction of precipitation that is snow
-        exporter.writeField(outbin,M_dair.get_vector(), "M_dair");         // 2 m dew point [C]
+        exporter.writeField(outbin,M_wind.getVector(), "M_wind");         // Surface wind [m/s]
+        exporter.writeField(outbin,M_tair.getVector(), "M_tair");         // 2 m temperature [C]
+        exporter.writeField(outbin,M_mixrat.getVector(), "M_mixrat");       // Mixing ratio
+        exporter.writeField(outbin,M_mslp.getVector(), "M_mslp");         // Atmospheric pressure [Pa]
+        exporter.writeField(outbin,M_Qsw_in.getVector(), "M_Qsw_in");       // Incoming short-wave radiation [W/m2]
+        exporter.writeField(outbin,M_Qlw_in.getVector(), "M_Qlw_in");       // Incoming long-wave radiation [W/m2]
+        exporter.writeField(outbin,M_tcc.getVector(), "M_tcc");       // Incoming long-wave radiation [W/m2]
+        exporter.writeField(outbin,M_precip.getVector(), "M_precip");       // Total precipitation [m]
+        exporter.writeField(outbin,M_snowfr.getVector(), "M_snowfr");       // Fraction of precipitation that is snow
+        exporter.writeField(outbin,M_dair.getVector(), "M_dair");         // 2 m dew point [C]
 
         // Ocean
-        exporter.writeField(outbin,M_ocean.get_vector(), "M_ocean");        // "Geostrophic" ocean currents [m/s]
-        exporter.writeField(outbin,M_ssh.get_vector(), "M_ssh");          // Sea surface elevation [m]
+        exporter.writeField(outbin,M_ocean.getVector(), "M_ocean");        // "Geostrophic" ocean currents [m/s]
+        exporter.writeField(outbin,M_ssh.getVector(), "M_ssh");          // Sea surface elevation [m]
 
-        exporter.writeField(outbin,M_ocean_temp.get_vector(), "M_ocean_temp");   // Ocean temperature in top layer [C]
-        exporter.writeField(outbin,M_ocean_salt.get_vector(), "M_ocean_salt");   // Ocean salinity in top layer [C]
-        exporter.writeField(outbin,M_mld.get_vector(), "M_mld");          // Mixed-layer depth [m]
+        exporter.writeField(outbin,M_ocean_temp.getVector(), "M_ocean_temp");   // Ocean temperature in top layer [C]
+        exporter.writeField(outbin,M_ocean_salt.getVector(), "M_ocean_salt");   // Ocean salinity in top layer [C]
+        exporter.writeField(outbin,M_mld.getVector(), "M_mld");          // Mixed-layer depth [m]
 
         // Bathymetry
-        exporter.writeField(outbin,M_element_depth.get_vector(), "M_element_depth");
+        exporter.writeField(outbin,M_element_depth.getVector(), "M_element_depth");
     }
 
 #if defined (WAVES)
@@ -6110,9 +6111,21 @@ FiniteElement::exportResults(int step, bool export_mesh)
 void
 FiniteElement::nextsimToWim(bool step)
 {
-
     if (M_run_wim)
     {
+        // initialize wim here to have access to grid information
+        if (!step)
+        {
+            // instantiation of wim
+            wim = wim_type(vm);
+
+            // initialization of wim
+            wim.init();
+
+            // get wim grid
+            wim_grid = wim.wimGrid();
+        }
+
         chrono.restart();
         LOG(DEBUG) <<"Element Interp starts\n";
         // ELEMENT INTERPOLATION (c, h, Nfloes)
@@ -6160,12 +6173,51 @@ FiniteElement::nextsimToWim(bool step)
         }
 
         // interpolation from mesh to grid
+#if 0
         double xmin = (vm["wim.xmin"].as<double>() + 0.5*vm["wim.dx"].as<double>());
         double ymax = (vm["wim.ymin"].as<double>() + (vm["wim.ny"].as<int>()-1+0.5)*vm["wim.dy"].as<double>());
         double dx = vm["wim.dx"].as<double>();
         double dy = vm["wim.dy"].as<double>();
 
         int num_elements_grid = (vm["wim.nx"].as<int>())*(vm["wim.ny"].as<int>());
+#endif
+
+        int nx = wim_grid.nx;
+        int ny = wim_grid.ny;
+        double dx = wim_grid.dx;
+        double dy = wim_grid.dy;
+
+        double xmin = (wim_grid.X)[0];
+        double xmax = (wim_grid.X)[nx*ny-1];
+
+        double ymin = (wim_grid.Y)[0];
+        double ymax = (wim_grid.Y)[nx*ny-1];
+
+        std::cout<<"nx = "<< nx <<"\n";
+        std::cout<<"ny = "<< ny <<"\n";
+        std::cout<<"dx = "<< dx <<"\n";
+        std::cout<<"dy = "<< dy <<"\n";
+        std::cout<<"xmin = "<< xmin <<"\n";
+        std::cout<<"ymax = "<< ymax <<"\n";
+
+        auto RX = M_mesh.coordX();
+        auto RY = M_mesh.coordY();
+
+        std::cout<<"MIN BOUND MESHX= "<< *std::min_element(RX.begin(),RX.end()) <<"\n";
+        std::cout<<"MAX BOUND MESHX= "<< *std::max_element(RX.begin(),RX.end()) <<"\n";
+
+        std::cout<<"MIN BOUND MESHY= "<< *std::min_element(RY.begin(),RY.end()) <<"\n";
+        std::cout<<"MAX BOUND MESHY= "<< *std::max_element(RY.begin(),RY.end()) <<"\n";
+
+        std::cout<<"------------------------------------------\n";
+
+        std::cout<<"MIN BOUND GRIDX= "<< xmin <<"\n";
+        std::cout<<"MAX BOUND GRIDX= "<< xmax <<"\n";
+
+        std::cout<<"MIN BOUND GRIDY= "<< ymin <<"\n";
+        std::cout<<"MAX BOUND GRIDY= "<< ymax <<"\n";
+
+        int num_elements_grid = nx*ny;
 
         // move the mesh for the interpolation on to the wim grid
 		M_mesh.move(M_UM,1.);
@@ -6177,7 +6229,8 @@ FiniteElement::nextsimToWim(bool step)
                               M_mesh.numTriangles(),nb_var,
                               xmin,ymax,
                               dx,dy,
-                              vm["wim.nx"].as<int>(),vm["wim.ny"].as<int>(),
+                              //vm["wim.nx"].as<int>(),vm["wim.ny"].as<int>(),
+                              nx,ny,
                               0.);
         // move back the mesh after the interpolation
 		M_mesh.move(M_UM,-1.);
@@ -6247,6 +6300,7 @@ FiniteElement::wimToNextsim(bool step)
 {
     if (M_run_wim)
     {
+#if 0
         if (!step)
         {
             // instantiation of wim
@@ -6255,21 +6309,22 @@ FiniteElement::wimToNextsim(bool step)
             // initialization of wim
             wim.init();
         }
+#endif
 
         // run wim
-// test this later
-//        wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, M_SWH_grid, M_MWD_grid, M_FP_grid, step);
+        // test this later
+        //wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, M_SWH_grid, M_MWD_grid, M_FP_grid, step);
 
-        wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, step);
+        std::vector<double> mf1, mf2, mf3;
+        wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, mf1, mf2, mf3, step);
+
+        //wim.setMesh(M_mesh.bcoordX(), M_mesh.bcoordY());
+        //wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, step);
+        //this->clearMesh();
 
         M_taux_grid = wim.getTaux();
         M_tauy_grid = wim.getTauy();
         M_nfloes_grid = wim.getNFloes();
-
-//        M_taux_grid = wim.getSWH();
-//        M_tauy_grid = wim.getMWD();
-//        M_nfloes_grid = wim.getFP();
-
     }
 
     if (!M_regrid)
@@ -6277,6 +6332,7 @@ FiniteElement::wimToNextsim(bool step)
 
     if (M_run_wim || M_regrid)
     {
+#if 0
         int nx = vm["wim.nx"].as<int>();
         int ny = vm["wim.ny"].as<int>();
 
@@ -6288,6 +6344,11 @@ FiniteElement::wimToNextsim(bool step)
 
         for (int j = 0; j < ny; j++)
             Y[j] = vm["wim.ymin"].as<double>() + (j+0.5)*vm["wim.dy"].as<double>();
+#endif
+        int nx = wim_grid.nx;
+        int ny = wim_grid.ny;
+        double dx = wim_grid.dx;
+        double dy = wim_grid.dy;
 
         chrono.restart();
         LOG(DEBUG) <<"Nodal Interp starts\n";
@@ -6323,10 +6384,11 @@ FiniteElement::wimToNextsim(bool step)
            }
 
            InterpFromGridToMeshx(interp_out,
-                                 &X[0], vm["wim.nx"].as<int>(),
-                                 &Y[0], vm["wim.ny"].as<int>(),
+                                 &(wim_grid.X)[0], nx, //vm["wim.nx"].as<int>(),
+                                 &(wim_grid.Y)[0], ny, //vm["wim.ny"].as<int>(),
                                  &interp_in[0],
-                                 vm["wim.ny"].as<int>(), vm["wim.nx"].as<int>(),
+                                 //vm["wim.ny"].as<int>(), vm["wim.nx"].as<int>(),
+                                 ny,nx,
                                  nb_var,
                                  &M_mesh.coordX()[0], &M_mesh.coordY()[0], M_num_nodes,0.,interptype,true);
 
@@ -6346,10 +6408,11 @@ FiniteElement::wimToNextsim(bool step)
             // interpolate nfloes
             double* interp_out;
             InterpFromGridToMeshx(interp_out,
-                                  &X[0], vm["wim.nx"].as<int>(),
-                                  &Y[0], vm["wim.ny"].as<int>(),
+                                  &(wim_grid.X)[0], nx, //vm["wim.nx"].as<int>(),
+                                  &(wim_grid.Y)[0], ny, //vm["wim.ny"].as<int>(),
                                   &M_nfloes_grid[0],
-                                  vm["wim.ny"].as<int>(), vm["wim.nx"].as<int>(),
+                                  //vm["wim.ny"].as<int>(), vm["wim.nx"].as<int>(),
+                                  ny,nx,
                                   1,
                                   &M_mesh.bcoordX()[0], &M_mesh.bcoordY()[0], M_num_elements,0.,interptype,true);
 

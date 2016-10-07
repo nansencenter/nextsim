@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim:fenc=utf-8:ft=cpp:et:sw=4:ts=4:sts=4 */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
  * @file   externaldata.cpp
@@ -213,7 +213,7 @@ ExternalData::get(const size_type i)
 	return static_cast<value_type>( value );
 }
 typename std::vector<double>
-ExternalData::get_vector()
+ExternalData::getVector()
 {
     std::vector<double> vector_tmp(1,0.);
 
