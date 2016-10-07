@@ -285,6 +285,8 @@ private:
     std::vector<double> M_SWH_grid;
     std::vector<double> M_MWD_grid;
     std::vector<double> M_FP_grid;
+
+    wim_type::WimGrid wim_grid;
 #endif
     std::vector<double> M_tau;//this can just be set to zero if not using WIM
 

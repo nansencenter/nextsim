@@ -6046,9 +6046,21 @@ FiniteElement::exportResults(int step, bool export_mesh)
 void
 FiniteElement::nextsimToWim(bool step)
 {
-
     if (M_run_wim)
     {
+        // initialize wim here to have access to grid information
+        if (!step)
+        {
+            // instantiation of wim
+            wim = wim_type(vm);
+
+            // initialization of wim
+            wim.init();
+
+            // get wim grid
+            wim_grid = wim.wimGrid();
+        }
+
         chrono.restart();
         LOG(DEBUG) <<"Element Interp starts\n";
         // ELEMENT INTERPOLATION (c, h, Nfloes)
@@ -6096,12 +6108,51 @@ FiniteElement::nextsimToWim(bool step)
         }
 
         // interpolation from mesh to grid
+#if 0
         double xmin = (vm["wim.xmin"].as<double>() + 0.5*vm["wim.dx"].as<double>());
         double ymax = (vm["wim.ymin"].as<double>() + (vm["wim.ny"].as<int>()-1+0.5)*vm["wim.dy"].as<double>());
         double dx = vm["wim.dx"].as<double>();
         double dy = vm["wim.dy"].as<double>();
 
         int num_elements_grid = (vm["wim.nx"].as<int>())*(vm["wim.ny"].as<int>());
+#endif
+
+        int nx = wim_grid.nx;
+        int ny = wim_grid.ny;
+        double dx = wim_grid.dx;
+        double dy = wim_grid.dy;
+
+        double xmin = (wim_grid.X)[0];
+        double xmax = (wim_grid.X)[nx*ny-1];
+
+        double ymin = (wim_grid.Y)[0];
+        double ymax = (wim_grid.Y)[nx*ny-1];
+
+        std::cout<<"nx = "<< nx <<"\n";
+        std::cout<<"ny = "<< ny <<"\n";
+        std::cout<<"dx = "<< dx <<"\n";
+        std::cout<<"dy = "<< dy <<"\n";
+        std::cout<<"xmin = "<< xmin <<"\n";
+        std::cout<<"ymax = "<< ymax <<"\n";
+
+        auto RX = M_mesh.coordX();
+        auto RY = M_mesh.coordY();
+
+        std::cout<<"MIN BOUND MESHX= "<< *std::min_element(RX.begin(),RX.end()) <<"\n";
+        std::cout<<"MAX BOUND MESHX= "<< *std::max_element(RX.begin(),RX.end()) <<"\n";
+
+        std::cout<<"MIN BOUND MESHY= "<< *std::min_element(RY.begin(),RY.end()) <<"\n";
+        std::cout<<"MAX BOUND MESHY= "<< *std::max_element(RY.begin(),RY.end()) <<"\n";
+
+        std::cout<<"------------------------------------------\n";
+
+        std::cout<<"MIN BOUND GRIDX= "<< xmin <<"\n";
+        std::cout<<"MAX BOUND GRIDX= "<< xmax <<"\n";
+
+        std::cout<<"MIN BOUND GRIDY= "<< ymin <<"\n";
+        std::cout<<"MAX BOUND GRIDY= "<< ymax <<"\n";
+
+        int num_elements_grid = nx*ny;
 
         // move the mesh for the interpolation on to the wim grid
 		M_mesh.move(M_UM,1.);
@@ -6113,7 +6164,8 @@ FiniteElement::nextsimToWim(bool step)
                               M_mesh.numTriangles(),nb_var,
                               xmin,ymax,
                               dx,dy,
-                              vm["wim.nx"].as<int>(),vm["wim.ny"].as<int>(),
+                              //vm["wim.nx"].as<int>(),vm["wim.ny"].as<int>(),
+                              nx,ny,
                               0.);
         // move back the mesh after the interpolation
 		M_mesh.move(M_UM,-1.);
@@ -6183,6 +6235,7 @@ FiniteElement::wimToNextsim(bool step)
 {
     if (M_run_wim)
     {
+#if 0
         if (!step)
         {
             // instantiation of wim
@@ -6191,21 +6244,22 @@ FiniteElement::wimToNextsim(bool step)
             // initialization of wim
             wim.init();
         }
+#endif
 
         // run wim
-// test this later
-//        wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, M_SWH_grid, M_MWD_grid, M_FP_grid, step);
+        // test this later
+        //wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, M_SWH_grid, M_MWD_grid, M_FP_grid, step);
 
-        wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, step);
+        std::vector<double> mf1, mf2, mf3;
+        wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, mf1, mf2, mf3, step);
+
+        //wim.setMesh(M_mesh.bcoordX(), M_mesh.bcoordY());
+        //wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, step);
+        //this->clearMesh();
 
         M_taux_grid = wim.getTaux();
         M_tauy_grid = wim.getTauy();
         M_nfloes_grid = wim.getNFloes();
-
-//        M_taux_grid = wim.getSWH();
-//        M_tauy_grid = wim.getMWD();
-//        M_nfloes_grid = wim.getFP();
-
     }
 
     if (!M_regrid)
@@ -6213,6 +6267,7 @@ FiniteElement::wimToNextsim(bool step)
 
     if (M_run_wim || M_regrid)
     {
+#if 0
         int nx = vm["wim.nx"].as<int>();
         int ny = vm["wim.ny"].as<int>();
 
@@ -6224,6 +6279,11 @@ FiniteElement::wimToNextsim(bool step)
 
         for (int j = 0; j < ny; j++)
             Y[j] = vm["wim.ymin"].as<double>() + (j+0.5)*vm["wim.dy"].as<double>();
+#endif
+        int nx = wim_grid.nx;
+        int ny = wim_grid.ny;
+        double dx = wim_grid.dx;
+        double dy = wim_grid.dy;
 
         chrono.restart();
         LOG(DEBUG) <<"Nodal Interp starts\n";
@@ -6259,10 +6319,11 @@ FiniteElement::wimToNextsim(bool step)
            }
 
            InterpFromGridToMeshx(interp_out,
-                                 &X[0], vm["wim.nx"].as<int>(),
-                                 &Y[0], vm["wim.ny"].as<int>(),
+                                 &(wim_grid.X)[0], nx, //vm["wim.nx"].as<int>(),
+                                 &(wim_grid.Y)[0], ny, //vm["wim.ny"].as<int>(),
                                  &interp_in[0],
-                                 vm["wim.ny"].as<int>(), vm["wim.nx"].as<int>(),
+                                 //vm["wim.ny"].as<int>(), vm["wim.nx"].as<int>(),
+                                 ny,nx,
                                  nb_var,
                                  &M_mesh.coordX()[0], &M_mesh.coordY()[0], M_num_nodes,0.,interptype,true);
 
@@ -6282,10 +6343,11 @@ FiniteElement::wimToNextsim(bool step)
             // interpolate nfloes
             double* interp_out;
             InterpFromGridToMeshx(interp_out,
-                                  &X[0], vm["wim.nx"].as<int>(),
-                                  &Y[0], vm["wim.ny"].as<int>(),
+                                  &(wim_grid.X)[0], nx, //vm["wim.nx"].as<int>(),
+                                  &(wim_grid.Y)[0], ny, //vm["wim.ny"].as<int>(),
                                   &M_nfloes_grid[0],
-                                  vm["wim.ny"].as<int>(), vm["wim.nx"].as<int>(),
+                                  //vm["wim.ny"].as<int>(), vm["wim.nx"].as<int>(),
+                                  ny,nx,
                                   1,
                                   &M_mesh.bcoordX()[0], &M_mesh.bcoordY()[0], M_num_elements,0.,interptype,true);
 
