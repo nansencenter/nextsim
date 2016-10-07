@@ -490,20 +490,6 @@ GmshMesh::indexTr() const
     return index;
 }
 
-std::vector<double>
-GmshMesh::coordX() const
-{
-    std::vector<double> x(M_num_nodes);
-    int cpt = 0;
-    for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
-    {
-        x[cpt] = it->coords[0];
-        ++cpt;
-    }
-
-    return x;
-}
-
 std::vector<int>
 GmshMesh::id() const
 {
@@ -519,8 +505,24 @@ GmshMesh::id() const
 }
 
 std::vector<double>
+GmshMesh::coordX() const
+{
+    //get x coord of nodes
+    std::vector<double> x(M_num_nodes);
+    int cpt = 0;
+    for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
+    {
+        x[cpt] = it->coords[0];
+        ++cpt;
+    }
+
+    return x;
+}
+
+std::vector<double>
 GmshMesh::coordY() const
 {
+    //get y coord of nodes
     std::vector<double> y(M_num_nodes);
     int cpt = 0;
     for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
@@ -535,6 +537,7 @@ GmshMesh::coordY() const
 std::vector<double>
 GmshMesh::coordX(double const& rotangle) const
 {
+    //get x coord of nodes (rotated)
     std::vector<double> x(M_num_nodes);
     int cpt = 0;
     double cos_rotangle=std::cos(rotangle);
@@ -551,6 +554,7 @@ GmshMesh::coordX(double const& rotangle) const
 std::vector<double>
 GmshMesh::coordY(double const& rotangle) const
 {
+    //get y coord of nodes (rotated)
     std::vector<double> y(M_num_nodes);
     int cpt = 0;
     double cos_rotangle=std::cos(rotangle);
@@ -567,6 +571,7 @@ GmshMesh::coordY(double const& rotangle) const
 std::vector<double>
 GmshMesh::bcoordX() const
 {
+    //get x coord of centers of elements
     std::vector<double> bcoord_x(M_num_triangles);
     int cpt = 0;
     double x = 0.;
@@ -590,6 +595,7 @@ GmshMesh::bcoordX() const
 std::vector<double>
 GmshMesh::bcoordY() const
 {
+    //get y coord of centers of elements
     std::vector<double> bcoord_y(M_num_triangles);
     int cpt = 0;
     double y = 0.;
@@ -613,6 +619,7 @@ GmshMesh::bcoordY() const
 std::vector<double>
 GmshMesh::bcoordX(double const& rotangle) const
 {
+    //get x coord of centers of elements (rotated)
     std::vector<double> bcoord_x(M_num_triangles);
     double cos_rotangle=std::cos(rotangle);
     double sin_rotangle=std::sin(rotangle);
@@ -638,6 +645,7 @@ GmshMesh::bcoordX(double const& rotangle) const
 std::vector<double>
 GmshMesh::bcoordY(double const& rotangle) const
 {
+    //get y coord of centers of elements (rotated)
     std::vector<double> bcoord_y(M_num_triangles);
     double cos_rotangle=std::cos(rotangle);
     double sin_rotangle=std::sin(rotangle);
