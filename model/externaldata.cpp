@@ -433,6 +433,13 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                     value_year--;
                 }
                 f_timestr=(boost::format( "%1%%2%" ) % boost::io::group(std::setw(4), std::setfill('0'), value_year) % boost::io::group(std::setw(2), std::setfill('0'), value_month)).str();
+                
+                // change the reference_date if erai forcing according to the xxxx-01-01, where xxxx is the current year
+                if ((dataset->name).find("ERAi") != std::string::npos)
+                {
+                    dataset->reference_date = (boost::format( "%1%" ) % boost::io::group(std::setw(4), std::setfill('0'), value_year)).str() + "-01-01";
+                    //std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@DETECT ERAi: Dataset->reference_date= "<< dataset->reference_date <<"\n";
+                }
             }
             else if(dataset->grid.dataset_frequency=="yearly")
             {
@@ -458,13 +465,6 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             if ( ! boost::filesystem::exists(filename) )
                 continue;
                 //throw std::runtime_error("File not found: " + filename);
-
-            // change the reference_date if erai forcing according to the xxxx-01-01, where xxxx is the current year
-            if ((dataset->name).find("ERAi") != std::string::npos)
-            {
-                dataset->reference_date = to_date_string_y(std::floor(ftime)) + "-01-01";
-                //std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@DETECT ERAi: Dataset->reference_date= "<< dataset->reference_date <<"\n";
-            }
 
             // Open the netcdf file
             netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
@@ -505,23 +505,6 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                           filename_prev = filename;
                       }
                   });
-
-            if((index_next!=-1 && index_next>(index_start[0]+index_count[0]-1)))
-            {
-                std::cout <<"index_count "<< index_count[0] <<"\n";
-                std::cout <<"FIND "<< M_current_time <<" before index "<< index_next <<"\n";
-                std::cout <<"FIND "<< M_current_time <<" between "<< XTIME[0] << " and "<< XTIME[XTIME.size()-1] <<"\n";
-                throw std::runtime_error("Time out of the time range of the file: " + filename);
-            }
-            
-            if(index_prev>(index_start[0]+index_count[0]-1))
-            {
-                std::cout <<"index_count "<< index_count[0] <<"\n";
-                std::cout <<"FIND "<< M_current_time <<" after index "<< index_prev <<"\n";
-                std::cout <<"FIND "<< M_current_time <<" between "<< XTIME[0] << " and "<< XTIME[XTIME.size()-1] <<"\n";
-                throw std::runtime_error("Time out of the time range of the file: " + filename);
-            }
-
         }
         
         filename_fstep.push_back(filename_prev);
@@ -564,13 +547,6 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
         std::cout<<"FILENAME= "<< filename <<"\n";
         if ( ! boost::filesystem::exists(filename) )
             throw std::runtime_error("File not found: " + filename);
-
-        // change the reference_date if erai forcing according to the xxxx-01-01, where xxxx is the current year
-        if ((dataset->name).find("ERAi") != std::string::npos)
-        {
-            dataset->reference_date = to_date_string_y(std::floor(ftime)) + "-01-01";
-            //std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@DETECT ERAi: Dataset->reference_date= "<< dataset->reference_date <<"\n";
-        }
 
         // Open the netcdf file
         netCDF::NcFile dataFile(filename, netCDF::NcFile::read);

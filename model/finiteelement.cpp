@@ -294,6 +294,12 @@ FiniteElement::initDatasets()
             M_atmosphere_elements_dataset=DataSet("ec_elements",M_num_elements);
             break;
 
+        case setup::AtmosphereType::EC_ERAi:
+            M_atmosphere_nodes_dataset=DataSet("ec_nodes",M_num_nodes);
+            M_atmosphere_elements_dataset=DataSet("ec_elements",M_num_elements);
+            M_atmosphere_bis_elements_dataset=DataSet("ERAi_elements",M_num_elements);
+            break;
+
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
 
@@ -449,14 +455,17 @@ FiniteElement::initConstant()
         ("constant", setup::AtmosphereType::CONSTANT)
         ("asr", setup::AtmosphereType::ASR)
         ("erai", setup::AtmosphereType::ERAi)
-        ("ec", setup::AtmosphereType::EC);
+        ("ec", setup::AtmosphereType::EC)
+        ("ec_erai", setup::AtmosphereType::EC_ERAi);
     M_atmosphere_type = str2atmosphere.find(vm["setup.atmosphere-type"].as<std::string>())->second;
 
     switch(M_atmosphere_type){
         case setup::AtmosphereType::CONSTANT:   quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ASR:        quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ERAi:       quad_drag_coef_air = vm["simul.ERAi_quad_drag_coef_air"].as<double>(); break;
-        case setup::AtmosphereType::EC:         quad_drag_coef_air = vm["simul.ECMWF_quad_drag_coef_air"].as<double>(); break;
+        case setup::AtmosphereType::EC: 
+        case setup::AtmosphereType::EC_ERAi:
+                    quad_drag_coef_air = vm["simul.ECMWF_quad_drag_coef_air"].as<double>(); break;
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
 
@@ -1536,6 +1545,7 @@ FiniteElement::regrid(bool step)
 
     M_atmosphere_nodes_dataset.target_size=M_num_nodes;
     M_atmosphere_elements_dataset.target_size=M_num_elements;
+    M_atmosphere_bis_elements_dataset.target_size=M_num_elements;
     M_ocean_nodes_dataset.target_size=M_num_nodes;
     M_ocean_elements_dataset.target_size=M_num_elements;
 
@@ -1553,6 +1563,7 @@ FiniteElement::regrid(bool step)
 
     M_atmosphere_nodes_dataset.reloaded=false;
     M_atmosphere_elements_dataset.reloaded=false;
+    M_atmosphere_bis_elements_dataset.reloaded=false;
     M_ocean_nodes_dataset.reloaded=false;
     M_ocean_elements_dataset.reloaded=false;
     
@@ -1571,6 +1582,7 @@ FiniteElement::regrid(bool step)
 #if 0
     M_atmosphere_nodes_dataset.grid.loaded=false;
     M_atmosphere_elements_dataset.grid.loaded=false;
+    M_atmosphere_bis_elements_dataset.grid.loaded=false;
     M_ocean_nodes_dataset.grid.loaded=false;
     M_ocean_elements_dataset.grid.loaded=false;
     M_ice_topaz_elements_dataset.grid.loaded=false;
@@ -4702,6 +4714,7 @@ FiniteElement::readRestart(int step)
     // Set the target size for the data sets
     M_atmosphere_nodes_dataset.target_size=M_num_nodes;
     M_atmosphere_elements_dataset.target_size=M_num_elements;
+    M_atmosphere_bis_elements_dataset.target_size=M_num_elements;
     M_ocean_nodes_dataset.target_size=M_num_nodes;
     M_ocean_elements_dataset.target_size=M_num_elements;
     
@@ -4954,6 +4967,34 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             M_external_data.push_back(&M_Qsw_in);
 
             M_precip=ExternalData(0.);
+            M_external_data.push_back(&M_precip);
+
+            M_mixrat=ExternalData(-1.);
+            M_external_data.push_back(&M_mixrat);
+        break;
+        
+        case setup::AtmosphereType::EC_ERAi:
+            M_wind=ExternalData(
+                &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
+                time_init, vm["simul.spinup_duration"].as<double>());
+            M_external_data.push_back(&M_wind);
+
+            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
+            M_external_data.push_back(&M_tair);
+
+            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
+            M_external_data.push_back(&M_dair);
+
+            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
+            M_external_data.push_back(&M_mslp);
+
+            M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
+            M_external_data.push_back(&M_tcc);
+
+            M_Qsw_in=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,3,false,time_init);
+            M_external_data.push_back(&M_Qsw_in);
+
+            M_precip=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,5,false,time_init);
             M_external_data.push_back(&M_precip);
 
             M_mixrat=ExternalData(-1.);

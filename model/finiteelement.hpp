@@ -123,6 +123,7 @@ public:
 
     Dataset M_atmosphere_nodes_dataset;
     Dataset M_atmosphere_elements_dataset;
+    Dataset M_atmosphere_bis_elements_dataset;
     Dataset M_ocean_nodes_dataset;
     Dataset M_ocean_elements_dataset;
     Dataset M_bathymetry_elements_dataset;
