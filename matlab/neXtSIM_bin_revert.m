@@ -51,11 +51,11 @@ for i = 1:numel(data_names)
     % end
 
     if strcmp(data_types(i),'double')
-	  prec = 'double'
+	  prec = 'double';
 	elseif strcmp(data_types(i),'float')
-	  prec = 'single'
+	  prec = 'single';
 	else
-	  prec = 'int'
+	  prec = 'int';
 	end
 
     N_data=fread(fileID,1,'int');

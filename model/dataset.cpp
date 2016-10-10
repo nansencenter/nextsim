@@ -195,7 +195,7 @@ namespace Nextsim
              reloaded=false;
 
              nb_timestep_day= 8;
-             daily_mean=false;
+             averaging_period=0.;
              time= time_tmp;
      }
      else if (strcmp (DatasetName, "asr_elements") == 0)
@@ -432,8 +432,7 @@ namespace Nextsim
 
          reloaded=false;
 
-         daily_mean=false;
-         time= time_tmp;
+averaging_period=0.;         time= time_tmp;
      }
      else if (strcmp (DatasetName, "topaz_nodes") == 0)
      {
@@ -508,7 +507,7 @@ namespace Nextsim
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1.,
-             b: 0.,
+             b: 12., // to center the time on the middle of the day 
              Units: "hours",
              data2: data2_tmp};
 
@@ -607,7 +606,7 @@ namespace Nextsim
          reloaded=false;
 
          nb_timestep_day= 1;
-         daily_mean=true;
+         averaging_period=1.; // days
          time= time_tmp;
      }
      else if (strcmp (DatasetName, "topaz_elements") == 0)
@@ -683,7 +682,7 @@ namespace Nextsim
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1.,
-             b: 0.,
+             b: 12., // to center the time on the middle of the day 
              Units: "hours",
              data2: data2_tmp};
 
@@ -772,7 +771,7 @@ namespace Nextsim
              reloaded=false;
 
              nb_timestep_day= 1;
-             daily_mean=true;
+             averaging_period=1.; // days
              time= time_tmp;
      }
      else if (strcmp (DatasetName, "topaz_forecast_nodes") == 0)
@@ -848,7 +847,7 @@ namespace Nextsim
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1.,
-             b: 0.,
+             b: 12., // to center the time on the middle of the day 
              Units: "hours",
              data2: data2_tmp};
 
@@ -946,7 +945,7 @@ namespace Nextsim
          reloaded=false;
 
          nb_timestep_day= 1;
-         daily_mean=true;
+         averaging_period=1.; // days
          time= time_tmp;
      }
      else if (strcmp (DatasetName, "topaz_forecast_elements") == 0)
@@ -1022,7 +1021,7 @@ namespace Nextsim
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1.,
-             b: 0.,
+             b: 12., // to center the time on the middle of the day 
              Units: "hours",
              data2: data2_tmp};
 
@@ -1152,7 +1151,7 @@ namespace Nextsim
              reloaded=false;
 
              nb_timestep_day= 1;
-             daily_mean=true;
+             averaging_period=1.; // days
              time= time_tmp;
      }
      else if (strcmp (DatasetName, "ice_topaz_elements") == 0)
@@ -1228,7 +1227,7 @@ namespace Nextsim
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1.,
-             b: 0.,
+             b: 12., // to center the time on the middle of the day 
              Units: "hours",
              data2: data2_tmp};
 
@@ -1316,7 +1315,165 @@ namespace Nextsim
              reloaded=false;
 
      		nb_timestep_day= 1;
-            daily_mean=true;
+            averaging_period=1.; // days
+     	    time= time_tmp;
+     }
+     else if (strcmp (DatasetName, "ice_piomas_elements") == 0)
+     {
+     	// Definition of topaz grid and datasets
+         Dimension dimension_x={
+             name:"x",
+             cyclic:false
+     	};
+
+         Dimension dimension_y={
+             name:"y",
+             cyclic:false
+     	};
+
+         Dimension dimension_time={
+             name:"time", // "Time"
+             cyclic:false
+     	};
+
+         std::vector<Dimension> dimensions(3);
+         dimensions[0] = dimension_time;
+         dimensions[1] = dimension_y;
+         dimensions[2] = dimension_x;
+
+         std::vector<Dimension> dimensions_latlon(2);
+         dimensions_latlon[0] = dimension_y;
+         dimensions_latlon[1] = dimension_x;
+
+         std::vector<Dimension> dimensions_time(1);
+         dimensions_time[0] = dimension_time;
+
+         Variable latitude={
+             name: "latitude",
+             dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_north",
+             data2: data2_tmp};
+
+         Variable longitude={
+             name: "longitude",
+             dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_east",
+             data2: data2_tmp};
+
+         Variable time_tmp={
+             name: "time",
+             dimensions: dimensions_time,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "hours",
+             data2: data2_tmp};
+
+     	Variable conc={
+     		name: "area",
+     		dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 1.,
+     		b: 0.,
+     		Units: "",
+     		data2: data2_tmp
+     	};
+
+     	Variable thick={
+     		name: "heff",
+     		dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 1.,
+     		b: 0.,
+     		Units: "m",
+     		data2: data2_tmp
+     	};
+
+     	Variable snow_thick={
+     		name: "snow",
+     		dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 1.,
+     		b: 0.,
+     		Units: "m",
+     		data2: data2_tmp
+     	};
+
+         Grid grid_tmp={
+             interpolation_method: InterpolationType::FromMeshToMesh2dx,
+     		interp_type: -1,
+             dirname= "data",
+             prefix= "PIOMAS_",
+             postfix= ".nc",
+
+             latitude: latitude,
+             longitude: longitude,
+
+             dimension_x: dimension_x,
+             dimension_y: dimension_y,
+
+             mpp_file: "NpsNextsim.mpp",
+     		interpolation_in_latlon: false,
+
+             loaded: false,
+            dataset_frequency:"yearly",
+             //monthly_dataset:true,
+
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
+
+     		masking: true,
+     		masking_variable: conc
+     	};
+
+         std::vector<Variable> variables_tmp(3);
+         variables_tmp[0] = conc;
+         variables_tmp[1] = thick;
+         variables_tmp[2] = snow_thick;
+
+         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+             dirname= "data";
+             prefix= "PIOMAS_";
+             postfix= ".nc";
+             reference_date= "1950-01-01";
+
+             variables= variables_tmp;
+             vectorial_variables= vectorial_variables_tmp;
+             target_size= target_size_tmp;
+             grid= grid_tmp;
+
+             reloaded=false;
+
+     		nb_timestep_day= 12;
+            averaging_period=365./12; // days
      	    time= time_tmp;
      }
      else if (strcmp (DatasetName, "ice_amsre_elements") == 0)
@@ -1381,7 +1538,7 @@ namespace Nextsim
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1./3600,
-             b: 0.,
+             b: 12., // to center the time on the middle of the day 
              Units: "hours",
              data2: data2_tmp};
 
@@ -1442,7 +1599,7 @@ namespace Nextsim
         reloaded=false;
 
         nb_timestep_day= 1;
-        daily_mean=true;
+        averaging_period=1.; // days
      	time= time_tmp;
      }
      else if (strcmp (DatasetName, "ice_osisaf_elements") == 0)
@@ -1507,7 +1664,7 @@ namespace Nextsim
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1./3600,
-             b: 0.,
+             b: 12., // to center the time on the middle of the day 
              Units: "hours",
              data2: data2_tmp};
 
@@ -1568,7 +1725,7 @@ namespace Nextsim
         reloaded=false;
 
         nb_timestep_day= 1;
-        daily_mean=true;
+        averaging_period=1.; // days
      	time= time_tmp;
      }
      else if (strcmp (DatasetName, "ice_amsr2_elements") == 0)
@@ -1633,31 +1790,46 @@ namespace Nextsim
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 24.,
-             b: 0.,
+             b: 12., // to center the time on the middle of the day 
              Units: "hours",
              data2: data2_tmp};
 
          Variable conc={
      		name: "sea_ice_concentration",
      		dimensions: dimensions,
-            land_mask_defined: true,
+            land_mask_defined: false,
             land_mask_value: 12500.,
-            NaN_mask_defined: true,
+            NaN_mask_defined: false,
             NaN_mask_value: 11500.,
      		a: 0.01,
      		b: 0.,
      		Units: "",
      		data2: data2_tmp
      	};
+        
+        Variable mask={
+    	    name: "land",
+    	    dimensions: dimensions_latlon,
+            land_mask_defined: true,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+    		a: 1.,
+    		b: 0.,
+    		Units: "",
+    		data2: data2_tmp
+    	};
 
          Grid grid_tmp={
              interpolation_method: InterpolationType::FromMeshToMesh2dx,
      		interp_type: -1,
-             dirname= "data",
-             //filename: "TP4DAILY_200803_3m.nc",
-             prefix= "LongitudeLatitudeGrid_3.125km_Arctic.nc",
-             postfix= "",
-
+             //dirname= "data",
+             //prefix= "LongitudeLatitudeGrid_3.125km_Arctic.nc",
+             //postfix= "",
+            dirname: "data",
+            prefix: "Arc_",
+            postfix: "_res3.125_pyres.nc",
+            
              latitude: latitude,
              longitude: longitude,
 
@@ -1672,8 +1844,8 @@ namespace Nextsim
 
             waveOptions: wavopt_none,
 
-     		masking: true,
-     		masking_variable: conc
+     		masking: false,
+     		masking_variable: mask
         };
 
         std::vector<Variable> variables_tmp(1);
@@ -1694,7 +1866,7 @@ namespace Nextsim
         reloaded=false;
 
         nb_timestep_day= 1;
-        daily_mean=true;
+        averaging_period=1.; // days
      	time= time_tmp;
      }
      else if (strcmp (DatasetName, "etopo_elements") == 0)
@@ -1766,7 +1938,7 @@ namespace Nextsim
      		interpolation_in_latlon: true,
 
              loaded: false,
-             dataset_frequency:"daily",
+             dataset_frequency:"constant",
 
             waveOptions: wavopt_none,
 
@@ -1806,7 +1978,7 @@ namespace Nextsim
          reloaded=false;
 
          nb_timestep_day= 0;
-         daily_mean=false;
+         averaging_period=0.;
      }
      else if (strcmp (DatasetName, "ERAi_elements") == 0)
      {
@@ -2008,7 +2180,7 @@ namespace Nextsim
 
          reloaded= false;
 
-         daily_mean=false;
+         averaging_period=0.;
 
          time= time_tmp;
      }
@@ -2168,7 +2340,7 @@ namespace Nextsim
       reloaded= false;
 
       nb_timestep_day= 4;
-      daily_mean=false;
+      averaging_period=0.;
       time= time_tmp;
       }
       else if (strcmp (DatasetName, "ec_elements") == 0)
@@ -2344,7 +2516,7 @@ namespace Nextsim
 
           reloaded= false;
 
-          daily_mean=false;
+          averaging_period=0.;
 
           time= time_tmp;
       }
@@ -2503,7 +2675,7 @@ namespace Nextsim
        reloaded= false;
 
        nb_timestep_day= 4;
-       daily_mean=false;
+       averaging_period=0.;
        time= time_tmp;
        }
      else if (strcmp (DatasetName, "ww3a_elements") == 0)
@@ -2670,7 +2842,7 @@ namespace Nextsim
          reloaded= false;
 
          nb_timestep_day= 8;
-         daily_mean=false;
+         averaging_period=0.;
 
          time= time_tmp;
 
@@ -2847,14 +3019,14 @@ namespace Nextsim
          reloaded= false;
 
          nb_timestep_day= 4;
-         daily_mean=false;
+         averaging_period=0.;
 
          time= time_tmp;
 
      }
      else
        {
-   	fprintf (stderr, "Dataset: unknown projection %s\n",DatasetName);
+   	fprintf (stderr, "Dataset: unknown dataset %s\n",DatasetName);
    	fprintf (stderr, "valid types are:\n");
    	fprintf (stderr, "asr_nodes\n");
    	fprintf (stderr, "asr_elements\n");
@@ -2864,6 +3036,7 @@ namespace Nextsim
     fprintf (stderr, "ice_amsre_elements\n");
     fprintf (stderr, "ice_osisaf_elements\n");
     fprintf (stderr, "ice_amsr2_elements\n");
+    fprintf (stderr, "ice_piomas_elements\n");
    	fprintf (stderr, "etopo_elements\n");
    	fprintf (stderr, "ERAi_nodes\n");
     fprintf (stderr, "ERAi_elements\n");

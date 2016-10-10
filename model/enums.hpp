@@ -19,7 +19,8 @@ namespace setup
         ASR      = 1,
         ERAi     = 2,
         EC       = 3,
-        ASRFINAL = 4
+        ASRFINAL = 4,
+        EC_ERAi  = 5
     };
 
 	enum class OceanType
@@ -40,7 +41,9 @@ namespace setup
         TOPAZ4F   = 6,
         MITGCM    = 7,
         TARGET    = 8,
-        OSISAF    = 9
+        OSISAF    = 9,
+        PIOMAS    =10,
+        TOPAZ4FAMSR2=11
 	};
 
     enum class WaveType
