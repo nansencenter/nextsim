@@ -257,10 +257,9 @@ void
 FiniteElement::initModelState()
 {
     // Initialise the physical state of the model
+    this->initIce();
 
     this->initSlabOcean();
-
-    this->initIce();
 
     this->initDrifter();
 
@@ -484,6 +483,7 @@ FiniteElement::initConstant()
         ("target", setup::IceType::TARGET)
         ("topaz", setup::IceType::TOPAZ4)
         ("topaz_forecast", setup::IceType::TOPAZ4F)
+        ("topaz_forecast_amsr2", setup::IceType::TOPAZ4FAMSR2)
         ("amsre", setup::IceType::AMSRE)
         ("amsr2", setup::IceType::AMSR2)
         ("osisaf", setup::IceType::OSISAF)
@@ -5138,6 +5138,14 @@ FiniteElement::initSlabOcean()
             std::cout << "invalid ocean initialisation"<<"\n";
             throw std::logic_error("invalid ocean forcing");
     }
+#if 1
+    // setting SST to the freezing point for the part cover by sea ice
+    for ( int i=0; i<M_num_elements; ++i)
+    {
+        if(M_conc[i]>0.)
+            M_sst[i] = -M_sss[i]*physical::mu*M_conc[i]+M_ocean_temp[i]*(1.-M_conc[i]);
+    }
+#endif
 }
 
 void
@@ -5156,6 +5164,9 @@ FiniteElement::initIce()
             break;
         case setup::IceType::TOPAZ4F:
             this->topazForecastIce();
+            break;
+        case setup::IceType::TOPAZ4FAMSR2:
+            this->topazForecastAmsr2Ice();
             break;
         case setup::IceType::PIOMAS:
             this->piomasIce();
@@ -5286,7 +5297,7 @@ FiniteElement::topazIce()
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
     {
-		tmp_var=M_init_conc[i];
+		tmp_var=std::min(1.,M_init_conc[i]);
 		M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
 		tmp_var=M_init_thick[i];
 		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
@@ -5323,7 +5334,7 @@ FiniteElement::topazForecastIce()
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
     {
-		tmp_var=M_init_conc[i];
+		tmp_var=std::min(1.,M_init_conc[i]);
 		M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
 		tmp_var=M_init_thick[i];
 		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
@@ -5345,6 +5356,62 @@ FiniteElement::topazForecastIce()
 		M_damage[i]=0.;
 	}
 }
+
+void
+FiniteElement::topazForecastAmsr2Ice()
+{
+    double real_thickness, init_conc_topaz_tmp;
+
+    external_data M_init_conc=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
+    M_init_conc.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_conc_topaz=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
+    M_init_conc.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
+    M_init_thick.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
+    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    double tmp_var;
+    for (int i=0; i<M_num_elements; ++i)
+    {
+		M_conc[i] = std::min(1.,M_init_conc[i]);
+
+        // TOPAZ puts very small values instead of 0.
+		tmp_var=M_init_conc_topaz[i];
+		init_conc_topaz_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
+		tmp_var=M_init_thick[i];
+		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+		tmp_var=M_init_snow_thick[i];
+		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+
+        // Use 0.05 to get rid of slight inconsistencies in the TOPAZ output.
+        if(init_conc_topaz_tmp>0.05)
+        {
+            real_thickness=M_thick[i]/init_conc_topaz_tmp;
+            M_thick[i]=real_thickness*M_conc[i];
+        }
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<=0.)
+        {
+            M_thick[i]=0.;
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+
+		M_damage[i]=0.;
+	}
+}
+
 void
 FiniteElement::piomasIce()
 {
@@ -5359,7 +5426,7 @@ FiniteElement::piomasIce()
 
     for (int i=0; i<M_num_elements; ++i)
     {
-		M_conc[i] = M_init_conc[i];
+		M_conc[i] = std::min(1.,M_init_conc[i]);
 		M_thick[i] = M_init_thick[i];
         M_snow_thick[i] = M_init_snow_thick[i];
 
@@ -5398,7 +5465,7 @@ FiniteElement::topazAmsreIce()
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
     {
-		M_conc[i] = M_init_conc[i];
+		M_conc[i] = std::min(1.,M_init_conc[i]);
 
         // TOPAZ puts very small values instead of 0.
 		tmp_var=M_init_conc_topaz[i];
@@ -5453,7 +5520,7 @@ FiniteElement::topazOsisafIce()
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
     {
-		M_conc[i] = M_init_conc[i];
+		M_conc[i] = std::min(1.,M_init_conc[i]);
 
         // TOPAZ puts very small values instead of 0.
 		tmp_var=M_init_conc_topaz[i];
@@ -5508,7 +5575,7 @@ FiniteElement::topazAmsr2Ice()
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
     {
-		M_conc[i] = M_init_conc[i];
+		M_conc[i] = std::min(1.,M_init_conc[i]);
 
         // TOPAZ puts very small values instead of 0.
 		tmp_var=M_init_conc_topaz[i];
