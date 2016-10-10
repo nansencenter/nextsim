@@ -123,11 +123,13 @@ public:
 
     Dataset M_atmosphere_nodes_dataset;
     Dataset M_atmosphere_elements_dataset;
+    Dataset M_atmosphere_bis_elements_dataset;
     Dataset M_ocean_nodes_dataset;
     Dataset M_ocean_elements_dataset;
     Dataset M_bathymetry_elements_dataset;
 
     Dataset M_ice_topaz_elements_dataset;
+    Dataset M_ice_piomas_elements_dataset;
     Dataset M_ice_amsre_elements_dataset;
     Dataset M_ice_osisaf_elements_dataset;
     Dataset M_ice_amsr2_elements_dataset;
@@ -434,10 +436,12 @@ private:
     void constantIce();
     void targetIce();
     void topazIce();
+    void piomasIce();
     void topazForecastIce();
-    void amsreIce();
-    void osisaf2Ice();
-    void amsr2Ice();
+    
+    void topazAmsreIce();
+    void topazOsisafIce();
+    void topazAmsr2Ice();
 
     void equallySpacedDrifter();
     void outputDrifter(std::fstream &iabp_out);
