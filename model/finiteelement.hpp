@@ -438,6 +438,7 @@ private:
     void topazIce();
     void piomasIce();
     void topazForecastIce();
+    void topazForecastAmsr2Ice();
     
     void topazAmsreIce();
     void topazOsisafIce();

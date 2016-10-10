@@ -1842,24 +1842,39 @@ averaging_period=0.;         time= time_tmp;
          Variable conc={
      		name: "sea_ice_concentration",
      		dimensions: dimensions,
-            land_mask_defined: true,
+            land_mask_defined: false,
             land_mask_value: 12500.,
-            NaN_mask_defined: true,
+            NaN_mask_defined: false,
             NaN_mask_value: 11500.,
      		a: 0.01,
      		b: 0.,
      		Units: "",
      		data2: data2_tmp
      	};
+        
+        Variable mask={
+    	    name: "land",
+    	    dimensions: dimensions_latlon,
+            land_mask_defined: true,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+    		a: 1.,
+    		b: 0.,
+    		Units: "",
+    		data2: data2_tmp
+    	};
 
          Grid grid_tmp={
              interpolation_method: InterpolationType::FromMeshToMesh2dx,
      		interp_type: -1,
-             dirname= "data",
-             //filename: "TP4DAILY_200803_3m.nc",
-             prefix= "LongitudeLatitudeGrid_3.125km_Arctic.nc",
-             postfix= "",
-
+             //dirname= "data",
+             //prefix= "LongitudeLatitudeGrid_3.125km_Arctic.nc",
+             //postfix= "",
+            dirname: "data",
+            prefix: "Arc_",
+            postfix: "_res3.125_pyres.nc",
+            
              latitude: latitude,
              longitude: longitude,
 
@@ -1879,8 +1894,8 @@ averaging_period=0.;         time= time_tmp;
                use_ice:false
             },
 
-     		masking: true,
-     		masking_variable: conc
+     		masking: false,
+     		masking_variable: mask
         };
 
         std::vector<Variable> variables_tmp(1);
