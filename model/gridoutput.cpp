@@ -122,7 +122,7 @@ namespace Nextsim
     ////////////////////////////////////////////////////////////////////////////////
     // Initialisation routines for the two kinds of grids
     ////////////////////////////////////////////////////////////////////////////////
-    void GridOutput::initRegularGrid(int ncols, int nrows, double mooring_spacing, double xmin, double ymin)
+    void GridOutput::initRegularGrid(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::string const& projfilename)
     {
         // Set the grid size
         M_ncols = ncols;
@@ -138,7 +138,7 @@ namespace Nextsim
         M_grid.gridLON.assign(nrows*ncols, 0.);
 
         mapx_class *map;
-        std::string filename = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
+        std::string filename = Environment::nextsimDir().string() + "/data/" + projfilename;
         std::vector<char> str(filename.begin(), filename.end());
         str.push_back('\0');
 
@@ -261,7 +261,7 @@ namespace Nextsim
         std::string configfileNextsim = (boost::format( "%1%/%2%/%3%" )
                                   % Environment::nextsimDir().string()
                                   % "data"
-                                  % "NpsNextsim.mpp"
+                                  % mesh.projfile()
                                   ).str();
 
         std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());

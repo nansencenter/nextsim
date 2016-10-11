@@ -110,7 +110,7 @@ namespace Nextsim
 
             GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
 
-            void initRegularGrid(int ncols, int nrows, double mooring_spacing, double xmin, double ymin);
+        void initRegularGrid(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::string const& projfilename="NpsNextsim.mpp");
 
             void initArbitraryGrid(Grid grid);
 

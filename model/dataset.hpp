@@ -151,7 +151,7 @@ public:
 #endif
     DataSet();
 
-    DataSet(char const *DatasetName,int target_size);
+    DataSet(char const *DatasetName,int target_size, std::string const& projfilename="NpsNextsim.mpp");
 
     public:
 
