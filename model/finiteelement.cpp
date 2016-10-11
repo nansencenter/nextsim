@@ -85,7 +85,7 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
 
     //if (!vm["simul.wim_grid"].as<bool>())
     // setup the stereographic projection
-    M_mesh.setProjectionFile("toto.mpp");
+    //M_mesh.setProjectionFile("toto.mpp");
     M_mesh.stereographicProjection();
     // M_mesh.writeTofile("copy_init_mesh.msh");
 
@@ -4350,7 +4350,7 @@ FiniteElement::initMoorings()
         dimension_x: dimension_x,
         dimension_y: dimension_y,
 
-        mpp_file: M_mesh.projfile(),
+        mpp_file: vm["simul.proj_filename"].as<std::string>(),
         interpolation_in_latlon: false,
 
         loaded: false,
@@ -5719,7 +5719,7 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
     std::string configfile = (boost::format( "%1%/%2%/%3%" )
                               % Environment::nextsimDir().string()
                               % "data"
-                              % M_mesh.projfile()
+                              % vm["simul.proj_filename"].as<std::string>()
                               ).str();
 
     std::vector<char> str(configfile.begin(), configfile.end());
@@ -5790,7 +5790,7 @@ FiniteElement::updateIABPDrifter()
     std::string configfile = (boost::format( "%1%/%2%/%3%" )
                               % Environment::nextsimDir().string()
                               % "data"
-                              % M_mesh.projfile()
+                              % vm["simul.proj_filename"].as<std::string>()
                               ).str();
 
     std::vector<char> str(configfile.begin(), configfile.end());

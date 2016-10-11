@@ -104,21 +104,21 @@ namespace Nextsim
 
         private:
 
-            GridOutput(std::vector<Variable> variables, int kind);
+        GridOutput(std::vector<Variable> variables, int kind);
 
-            GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
+        GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
 
-            GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
+        GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
 
-        void initRegularGrid(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::string const& projfilename="NpsNextsim.mpp");
+        void initRegularGrid(int ncols, int nrows, double mooring_spacing, double xmin, double ymin);
 
-            void initArbitraryGrid(Grid grid);
+        void initArbitraryGrid(Grid grid);
 
-            void updateGridMeanWorker(GmshMesh const &mesh, int mesh_size, std::vector<Variable> &variables);
+        void updateGridMeanWorker(GmshMesh const &mesh, int mesh_size, std::vector<Variable> &variables);
 
-            void rotateVectors(GmshMesh const &mesh, Vectorial_Variable const &vectorial_variable, std::vector<Variable> &variables);
+        void rotateVectors(GmshMesh const &mesh, Vectorial_Variable const &vectorial_variable, std::vector<Variable> &variables);
 
-            size_t M_nc_step;
+        size_t M_nc_step;
     };
 }
 #endif // __GridOutput_H

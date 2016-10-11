@@ -30,11 +30,12 @@ namespace Nextsim
     DataSet::DataSet( )
     {}
 
-   DataSet::DataSet(char const *DatasetName, int target_size_tmp, std::string const& projfilename)
+   DataSet::DataSet(char const *DatasetName, int target_size_tmp)
    {
 //     Dataset *this;
 
        name = std::string(DatasetName);
+       projfilename = Environment::vm()["simul.proj_filename"].as<std::string>();
 
      std::vector<std::vector<double>> data2_tmp;
      data2_tmp.resize(2);

@@ -243,7 +243,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 	std::string configfileNextsim = (boost::format( "%1%/%2%/%3%" )
                               % Environment::nextsimDir().string()
                               % "data"
-                              % mesh.projfile()
+                              % Environment::vm()["simul.proj_filename"].as<std::string>()
                               ).str();
 
 	std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());

@@ -14,7 +14,6 @@ GmshMesh::GmshMesh()
     :
     M_version("2.2"),
     M_ordering("gmsh"),
-    M_projection_file("NpsNextsim.mpp"),
     M_nodes(),
     //M_elements(),
     M_triangles(),
@@ -23,7 +22,9 @@ GmshMesh::GmshMesh()
     //M_num_elements(0),
     M_num_triangles(0),
     M_num_edges(0)
-{}
+{
+    M_projection_file = (Environment::vm()["simul.proj_filename"]).as<std::string>();
+}
 
 GmshMesh::GmshMesh(std::vector<point_type> const& nodes,
                    std::vector<element_type> const& edges,
@@ -31,26 +32,30 @@ GmshMesh::GmshMesh(std::vector<point_type> const& nodes,
     :
     M_version("2.2"),
     M_ordering("gmsh"),
-    M_projection_file("NpsNextsim.mpp"),
+    //M_projection_file("NpsNextsim.mpp"),
     M_nodes(nodes),
     M_triangles(triangles),
     M_edges(edges),
     M_num_nodes(nodes.size()),
     M_num_triangles(triangles.size()),
     M_num_edges(edges.size())
-{}
+{
+    M_projection_file = Environment::vm()["simul.proj_filename"].as<std::string>();
+}
 
 GmshMesh::GmshMesh(std::vector<point_type> const& nodes,
                    std::vector<element_type> const& triangles)
     :
     M_version("2.2"),
     M_ordering("gmsh"),
-    M_projection_file("NpsNextsim.mpp"),
+    //M_projection_file("NpsNextsim.mpp"),
     M_nodes(nodes),
     M_triangles(triangles),
     M_num_nodes(nodes.size()),
     M_num_triangles(triangles.size())
-{}
+{
+    M_projection_file = Environment::vm()["simul.proj_filename"].as<std::string>();
+}
 
 GmshMesh::GmshMesh(GmshMesh const& mesh)
     :
