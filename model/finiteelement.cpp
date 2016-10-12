@@ -484,9 +484,9 @@ FiniteElement::initConstant()
         ("topaz", setup::IceType::TOPAZ4)
         ("topaz_forecast", setup::IceType::TOPAZ4F)
         ("topaz_forecast_amsr2", setup::IceType::TOPAZ4FAMSR2)
+        ("topaz_forecast_amsr2_osisaf", setup::IceType::TOPAZ4FAMSR2OSISAF)
         ("amsre", setup::IceType::AMSRE)
         ("amsr2", setup::IceType::AMSR2)
-        ("osisaf", setup::IceType::OSISAF)
         ("piomas", setup::IceType::PIOMAS);    
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
 
@@ -1034,11 +1034,20 @@ FiniteElement::regrid(bool step)
 			LOG(DEBUG) <<"Interpolate hmin done in "<< chrono.elapsed() <<"s\n";
 		}
 
+        
+        if(step && (vm["simul.regrid_output_flag"].as<bool>())
+        {
+            had_remeshed=true;
+            mesh_adapt_step++;
+            this->exportResults(2000+mesh_adapt_step);
+		}
+        
         chrono.restart();
         LOG(INFO) <<"AdaptMesh starts\n";
-		this->adaptMesh();
-		LOG(INFO) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
-
+        this->adaptMesh();
+	    LOG(INFO) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
+        
+    
 		if (step)
 		{
 			int prv_num_elements = M_mesh_previous.numTriangles();
@@ -3781,6 +3790,8 @@ FiniteElement::init()
 {
     // Initialise everything that doesn't depend on the mesh (constants, data set description, and time)
     int pcpt = 0;
+    mesh_adapt_step=0;
+    had_remeshed=false;
     this->initConstant();
     current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
     this->initDatasets();
@@ -3989,8 +4000,15 @@ FiniteElement::step(int &pcpt)
     // Solve the linear problem
     //======================================================================
 
-    this->solve();
+    if(had_remeshed && (vm["simul.regrid_output_flag"].as<bool>())
+    {
+        had_remeshed=false;
+        this->exportResults(3000+mesh_adapt_step);
+        had_remeshed=false;
+    }
 
+    this->solve();
+    
     chrono.restart();
     LOG(DEBUG) <<"updateVelocity starts\n";
     this->updateVelocity();
@@ -5143,7 +5161,7 @@ FiniteElement::initSlabOcean()
     for ( int i=0; i<M_num_elements; ++i)
     {
         if(M_conc[i]>0.)
-            M_sst[i] = -M_sss[i]*physical::mu*M_conc[i]+M_ocean_temp[i]*(1.-M_conc[i]);
+            M_sst[i] = -M_sss[i]*physical::mu;//*M_conc[i]+M_ocean_temp[i]*(1.-M_conc[i]);
     }
 #endif
 }
@@ -5168,14 +5186,14 @@ FiniteElement::initIce()
         case setup::IceType::TOPAZ4FAMSR2:
             this->topazForecastAmsr2Ice();
             break;
+        case setup::IceType::TOPAZ4FAMSR2OSISAF:
+            this->topazForecastAmsr2OsisafIce();
+            break;
         case setup::IceType::PIOMAS:
             this->piomasIce();
             break;
         case setup::IceType::AMSRE:
             this->topazAmsreIce();
-            break;
-        case setup::IceType::OSISAF:
-            this->topazOsisafIce();
             break;
         case setup::IceType::AMSR2:
             this->topazAmsr2Ice();
@@ -5360,12 +5378,12 @@ FiniteElement::topazForecastIce()
 void
 FiniteElement::topazForecastAmsr2Ice()
 {
-    double real_thickness, init_conc_topaz_tmp;
+    double real_thickness, init_conc_tmp;
 
-    external_data M_init_conc=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
+    M_conc_amsr2.check_and_reload(M_mesh,time_init);
 
-    external_data M_init_conc_topaz=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
+    external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
     M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
@@ -5377,20 +5395,101 @@ FiniteElement::topazForecastAmsr2Ice()
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
     {
-		M_conc[i] = std::min(1.,M_init_conc[i]);
+        double uncertainty;
+        if(M_conc_amsr2[i]<0.1)
+            uncertainty=0.1;
+		else
+            uncertainty=0.05;
+        
+        double diff_mod_obs=M_conc_amsr2[i]-M_init_conc[i];
+        if(std::abs(diff_mod_obs)>=uncertainty)
+            M_conc[i] = std::min(1.,M_conc_amsr2[i]-(diff_mod_obs)/std::abs(diff_mod_obs)*uncertainty/2.);
+        else
+            M_conc[i] = std::min(1.,M_init_conc[i]);
 
         // TOPAZ puts very small values instead of 0.
-		tmp_var=M_init_conc_topaz[i];
-		init_conc_topaz_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
+		tmp_var=M_init_conc[i];
+		init_conc_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
 		tmp_var=M_init_thick[i];
 		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
 		tmp_var=M_init_snow_thick[i];
 		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
 
         // Use 0.05 to get rid of slight inconsistencies in the TOPAZ output.
-        if(init_conc_topaz_tmp>0.05)
+        if(init_conc_tmp>0.05)
         {
-            real_thickness=M_thick[i]/init_conc_topaz_tmp;
+            real_thickness=M_thick[i]/init_conc_tmp;
+            M_thick[i]=real_thickness*M_conc[i];
+        }
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=vm["simul.min_c"].as<double>())
+        {
+            M_conc[i]=0.;
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<=vm["simul.min_h"].as<double>())
+        {
+            M_thick[i]=0.;
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<0.1*M_conc[i])
+            M_thick[i]=0.1*M_conc[i];
+
+		M_damage[i]=0.;
+	}
+}
+void
+FiniteElement::topazForecastAmsr2OsisafIce()
+{
+    double real_thickness, init_conc_tmp;
+
+    external_data M_conc_osisaf=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,0,false,time_init);
+    M_conc_osisaf.check_and_reload(M_mesh,time_init);
+    
+    external_data M_confidence_osisaf=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,1,false,time_init);
+    M_confidence_osisaf.check_and_reload(M_mesh,time_init);
+    
+    external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
+    M_conc_amsr2.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
+    M_init_conc.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
+    M_init_thick.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
+    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    double tmp_var;
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        double weight;
+        if(M_confidence_osisaf[i]>4.9)
+            M_conc[i] = (std::min(1.,M_conc_osisaf[i])+M_init_conc[i])/2.;
+        else
+        {
+            if(M_conc_amsr2[i]<0.8)
+                weight=1.-std::pow(1.-M_conc_amsr2[i],2.);
+            else
+                weight=1.-std::pow(1.-M_conc_amsr2[i],2.);
+            M_conc[i] = std::min(1.,M_conc_amsr2[i])*(weight)+M_init_conc[i]*(1.-weight);
+        }
+        // TOPAZ puts very small values instead of 0.
+		tmp_var=M_init_conc[i];
+		init_conc_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
+		tmp_var=M_init_thick[i];
+		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+		tmp_var=M_init_snow_thick[i];
+		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+
+        // Use 0.05 to get rid of slight inconsistencies in the TOPAZ output.
+        if(init_conc_tmp>0.05)
+        {
+            real_thickness=M_thick[i]/init_conc_tmp;
             M_thick[i]=real_thickness*M_conc[i];
         }
 
@@ -5411,7 +5510,6 @@ FiniteElement::topazForecastAmsr2Ice()
 		M_damage[i]=0.;
 	}
 }
-
 void
 FiniteElement::piomasIce()
 {
@@ -5448,13 +5546,13 @@ FiniteElement::piomasIce()
 void
 FiniteElement::topazAmsreIce()
 {
-    double real_thickness, init_conc_topaz_tmp;
+    double real_thickness, init_conc_tmp;
 
-    external_data M_init_conc=ExternalData(&M_ice_amsre_elements_dataset,M_mesh,0,false,time_init);
+    external_data M_conc_amsre=ExternalData(&M_ice_amsre_elements_dataset,M_mesh,0,false,time_init);
+    M_conc_amsre.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
     M_init_conc.check_and_reload(M_mesh,time_init);
-
-    external_data M_init_conc_topaz=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc_topaz.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
     M_init_thick.check_and_reload(M_mesh,time_init);
@@ -5465,75 +5563,20 @@ FiniteElement::topazAmsreIce()
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
     {
-		M_conc[i] = std::min(1.,M_init_conc[i]);
+		M_conc[i] = std::min(1.,M_conc_amsre[i]);
 
         // TOPAZ puts very small values instead of 0.
-		tmp_var=M_init_conc_topaz[i];
-		init_conc_topaz_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
+		tmp_var=M_init_conc[i];
+		init_conc_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
 		tmp_var=M_init_thick[i];
 		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
 		tmp_var=M_init_snow_thick[i];
 		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
 
         // Use 0.05 to get rid of slight inconsistencies in the TOPAZ output.
-        if(init_conc_topaz_tmp>0.05)
+        if(init_conc_tmp>0.05)
         {
-            real_thickness=M_thick[i]/init_conc_topaz_tmp;
-            M_thick[i]=real_thickness*M_conc[i];
-        }
-
-        //if either c or h equal zero, we set the others to zero as well
-        if(M_conc[i]<=0.)
-        {
-            M_conc[i]=0.;
-            M_thick[i]=0.;
-            M_snow_thick[i]=0.;
-        }
-        if(M_thick[i]<=0.)
-        {
-            M_thick[i]=0.;
-            M_conc[i]=0.;
-            M_snow_thick[i]=0.;
-        }
-
-		M_damage[i]=0.;
-	}
-}
-
-void
-FiniteElement::topazOsisafIce()
-{
-    double real_thickness, init_conc_topaz_tmp;
-
-    external_data M_init_conc=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
-
-    external_data M_init_conc_topaz=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc_topaz.check_and_reload(M_mesh,time_init);
-
-    external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
-
-    external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
-
-    double tmp_var;
-    for (int i=0; i<M_num_elements; ++i)
-    {
-		M_conc[i] = std::min(1.,M_init_conc[i]);
-
-        // TOPAZ puts very small values instead of 0.
-		tmp_var=M_init_conc_topaz[i];
-		init_conc_topaz_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
-		tmp_var=M_init_thick[i];
-		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
-		tmp_var=M_init_snow_thick[i];
-		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
-
-        // Use 0.05 to get rid of slight inconsistencies in the TOPAZ output.
-        if(init_conc_topaz_tmp>0.05)
-        {
-            real_thickness=M_thick[i]/init_conc_topaz_tmp;
+            real_thickness=M_thick[i]/init_conc_tmp;
             M_thick[i]=real_thickness*M_conc[i];
         }
 
@@ -5558,13 +5601,13 @@ FiniteElement::topazOsisafIce()
 void
 FiniteElement::topazAmsr2Ice()
 {
-    double real_thickness, init_conc_topaz_tmp;
+    double real_thickness, init_conc_tmp;
 
-    external_data M_init_conc=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
+    external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
+    M_conc_amsr2.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
     M_init_conc.check_and_reload(M_mesh,time_init);
-
-    external_data M_init_conc_topaz=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc_topaz.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
     M_init_thick.check_and_reload(M_mesh,time_init);
@@ -5575,20 +5618,20 @@ FiniteElement::topazAmsr2Ice()
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
     {
-		M_conc[i] = std::min(1.,M_init_conc[i]);
+		M_conc[i] = std::min(1.,M_conc_amsr2[i]);
 
         // TOPAZ puts very small values instead of 0.
-		tmp_var=M_init_conc_topaz[i];
-		init_conc_topaz_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
+		tmp_var=M_init_conc[i];
+		init_conc_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
 		tmp_var=M_init_thick[i];
 		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
 		tmp_var=M_init_snow_thick[i];
 		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
 
         // Use 0.05 to get rid of slight inconsistencies in the TOPAZ output.
-        if(init_conc_topaz_tmp>0.05)
+        if(init_conc_tmp>0.05)
         {
-            real_thickness=M_thick[i]/init_conc_topaz_tmp;
+            real_thickness=M_thick[i]/init_conc_tmp;
             M_thick[i]=real_thickness*M_conc[i];
         }
 

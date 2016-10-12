@@ -1720,13 +1720,27 @@ averaging_period=0.;         time= time_tmp;
      		Units: "",
      		data2: data2_tmp
      	};
-
+        
+        Variable confidence={
+    		name: "confidence_level",
+    		dimensions: dimensions,
+           land_mask_defined: false,
+           land_mask_value: 0.,
+           NaN_mask_defined: false,
+           NaN_mask_value: 0.,
+    		a: 1.,
+    		b: 0.,
+    		Units: "",
+    		data2: data2_tmp
+    	};
+        
          Grid grid_tmp={
              interpolation_method: InterpolationType::FromMeshToMesh2dx,
      		interp_type: -1,
              dirname= "data",
              //filename: "TP4DAILY_200803_3m.nc",
-             prefix= "ice_conc_nh_ease-125_reproc_",
+             //prefix= "ice_conc_nh_ease-125_reproc_",
+             prefix="ice_conc_nh_polstere-100_multi_",
              postfix= "1200.nc",
 
              latitude: latitude,
@@ -1748,17 +1762,18 @@ averaging_period=0.;         time= time_tmp;
                use_ice:false
             },
 
-     		masking: true,
+     		masking: false,
      		masking_variable: conc
         };
 
-        std::vector<Variable> variables_tmp(1);
+        std::vector<Variable> variables_tmp(2);
         variables_tmp[0] = conc;
+        variables_tmp[1] = confidence;
 
         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
         dirname= "data";
-        prefix= "ice_conc_nh_ease-125_reproc_";
+        prefix= "ice_conc_nh_polstere-100_multi_";
         postfix= "1200.nc";
         reference_date= "1978-01-01";
 
@@ -1843,9 +1858,9 @@ averaging_period=0.;         time= time_tmp;
      		name: "sea_ice_concentration",
      		dimensions: dimensions,
             land_mask_defined: false,
-            land_mask_value: 12500.,
+            land_mask_value: 0.,
             NaN_mask_defined: false,
-            NaN_mask_value: 11500.,
+            NaN_mask_value: 0.,
      		a: 0.01,
      		b: 0.,
      		Units: "",
@@ -3534,7 +3549,34 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
             {
                 find_missing_value=false;
             }
+            
+#if 0
+            // Look for FillValue definition
+            double valid_min;
+            bool find_valid_min=true;
+            try
+            {
+				att = VMASK.getAtt("valid_min");
+				att.getValues(&valid_min);
+            }
+            catch(netCDF::exceptions::NcException& e)
+            {
+                find_valid_min=false;
+            }
 
+            // Look for missing_value definition
+            double valid_max;
+            bool find_valid_max=true;
+            try
+            {
+				att = VMASK.getAtt("valid_max");
+				att.getValues(&valid_max);
+            }
+            catch(netCDF::exceptions::NcException& e)
+            {
+                find_valid_max=false;
+            }
+   #endif         
             bool find_land_mask     =grid_ptr->masking_variable.land_mask_defined;
             double land_mask_value  =grid_ptr->masking_variable.land_mask_value;
             bool find_NaN_mask      =grid_ptr->masking_variable.NaN_mask_defined;
@@ -3547,10 +3589,12 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 				for (int j=0; j<grid_ptr->dimension_x_count; ++j)
 				{
                     tmp_data=data_in[grid_ptr->dimension_x_count*i+j];
-					if (    (!find_FillValue        || (find_FillValue      && (tmp_data != FillValue))         )&&
-                            (!find_missing_value    || (find_missing_value  && (tmp_data != missing_value))     )&&
-                            (!find_land_mask        || (find_land_mask      && (tmp_data != land_mask_value))   )&&
-                            (!find_NaN_mask         || (find_NaN_mask       && (tmp_data != NaN_mask_value))    )   )
+					if (    (!find_FillValue        || (tmp_data != FillValue)         )&&
+                            (!find_missing_value    || (tmp_data != missing_value)     )&&
+                            // (!find_valid_min        || (tmp_data >= valid_min)         )&&
+                            //(!find_valid_max        || (tmp_data <= valid_max)         )&&
+                            (!find_land_mask        || (tmp_data != land_mask_value)   )&&
+                            (!find_NaN_mask         || (tmp_data != NaN_mask_value)    )   )
 					{
 						reduced_X.push_back(X[grid_ptr->dimension_x_count*i+j]);
 						reduced_Y.push_back(Y[grid_ptr->dimension_x_count*i+j]);

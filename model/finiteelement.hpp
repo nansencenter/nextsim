@@ -238,6 +238,9 @@ private:
     std::string M_mesh_filename;
 
     int M_flag_fix;
+    
+    int mesh_adapt_step;
+    bool had_remeshed;
 
     std::vector<double> M_surface;
     std::vector<double> M_sigma;
@@ -439,9 +442,9 @@ private:
     void piomasIce();
     void topazForecastIce();
     void topazForecastAmsr2Ice();
+    void topazForecastAmsr2OsisafIce();
     
     void topazAmsreIce();
-    void topazOsisafIce();
     void topazAmsr2Ice();
 
     void equallySpacedDrifter();
