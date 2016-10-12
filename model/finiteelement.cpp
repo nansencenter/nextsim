@@ -84,6 +84,8 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
     M_mesh.readFromFile(M_mesh_filename);
 
     //if (!vm["simul.wim_grid"].as<bool>())
+    // setup the stereographic projection
+    //M_mesh.setProjectionFile("toto.mpp");
     M_mesh.stereographicProjection();
     // M_mesh.writeTofile("copy_init_mesh.msh");
 
@@ -462,7 +464,7 @@ FiniteElement::initConstant()
         case setup::AtmosphereType::CONSTANT:   quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ASR:        quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ERAi:       quad_drag_coef_air = vm["simul.ERAi_quad_drag_coef_air"].as<double>(); break;
-        case setup::AtmosphereType::EC: 
+        case setup::AtmosphereType::EC:
         case setup::AtmosphereType::EC_ERAi:
                     quad_drag_coef_air = vm["simul.ECMWF_quad_drag_coef_air"].as<double>(); break;
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
@@ -487,7 +489,7 @@ FiniteElement::initConstant()
         ("amsre", setup::IceType::AMSRE)
         ("amsr2", setup::IceType::AMSR2)
         ("osisaf", setup::IceType::OSISAF)
-        ("piomas", setup::IceType::PIOMAS);    
+        ("piomas", setup::IceType::PIOMAS);
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
 
 #if defined (WAVES)
@@ -1566,7 +1568,7 @@ FiniteElement::regrid(bool step)
     M_atmosphere_bis_elements_dataset.reloaded=false;
     M_ocean_nodes_dataset.reloaded=false;
     M_ocean_elements_dataset.reloaded=false;
-    
+
     M_ice_topaz_elements_dataset.reloaded=false;
     M_ice_piomas_elements_dataset.reloaded=false;
     M_ice_amsre_elements_dataset.reloaded=false;
@@ -4349,7 +4351,7 @@ FiniteElement::initMoorings()
         dimension_x: dimension_x,
         dimension_y: dimension_y,
 
-        mpp_file: "NpsNextsim.mpp",
+        mpp_file: vm["simul.proj_filename"].as<std::string>(),
         interpolation_in_latlon: false,
 
         loaded: false,
@@ -4718,7 +4720,7 @@ FiniteElement::readRestart(int step)
     M_atmosphere_bis_elements_dataset.target_size=M_num_elements;
     M_ocean_nodes_dataset.target_size=M_num_nodes;
     M_ocean_elements_dataset.target_size=M_num_elements;
-    
+
     M_ice_topaz_elements_dataset.target_size=M_num_elements;
     M_ice_piomas_elements_dataset.target_size=M_num_elements;
     M_ice_amsre_elements_dataset.target_size=M_num_elements;
@@ -4973,7 +4975,7 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             M_mixrat=ExternalData(-1.);
             M_external_data.push_back(&M_mixrat);
         break;
-        
+
         case setup::AtmosphereType::EC_ERAi:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
@@ -5729,7 +5731,7 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
     std::string configfile = (boost::format( "%1%/%2%/%3%" )
                               % Environment::nextsimDir().string()
                               % "data"
-                              % "NpsNextsim.mpp"
+                              % vm["simul.proj_filename"].as<std::string>()
                               ).str();
 
     std::vector<char> str(configfile.begin(), configfile.end());
@@ -5800,7 +5802,7 @@ FiniteElement::updateIABPDrifter()
     std::string configfile = (boost::format( "%1%/%2%/%3%" )
                               % Environment::nextsimDir().string()
                               % "data"
-                              % "NpsNextsim.mpp"
+                              % vm["simul.proj_filename"].as<std::string>()
                               ).str();
 
     std::vector<char> str(configfile.begin(), configfile.end());
@@ -5947,7 +5949,8 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     LOG(DEBUG) <<"INFO: Previous  NumTriangles = "<< M_mesh.numTriangles() <<"\n";
 
     M_mesh_previous = M_mesh;
-    M_mesh = mesh_type(mesh_nodes,mesh_triangles);
+    //M_mesh = mesh_type(mesh_nodes,mesh_triangles);
+    M_mesh.update(mesh_nodes,mesh_triangles);
     //M_mesh.writeTofile("out.msh");
 
     M_elements = M_mesh.triangles();

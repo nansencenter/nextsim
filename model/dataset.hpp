@@ -195,6 +195,7 @@ public:
 
     // name of the dataSet
     std::string name;
+    std::string projfilename;
 };
 
 } // Nextsim

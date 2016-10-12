@@ -103,6 +103,8 @@ public:
     GmshMesh(std::vector<point_type> const& nodes,
              std::vector<element_type> const& triangles);
 
+    GmshMesh(GmshMesh const& mesh);
+
     void readFromFile(std::string const& filename);
     void writeTofile(std::string const& filename);
     void writeGeometry(std::string const& geofile, int nx, int ny, double xmin, double ymin, double dx, double dy);
@@ -111,6 +113,7 @@ public:
 
     std::string const& version() const {return M_version;}
     std::string const& ordering() const {return M_ordering;}
+    std::string const& projfile() const {return M_projection_file;}
     std::vector<point_type> const& nodes() const {return M_nodes;}
     //std::vector<element_type> const& elements() const {return M_elements;}
     std::vector<element_type> const& triangles() const {return M_triangles;}
@@ -122,6 +125,7 @@ public:
     int numEdges() const {return M_num_edges;}
 
     void setOrdering(std::string const& order) {M_ordering=order;}
+    void setProjectionFile(std::string const& proj) {M_projection_file=proj;}
     void setNodes(std::vector<point_type> const& nodes) {M_nodes=nodes;}
     //void setElements(std::vector<element_type> const& elements) {M_elements=elements;}
     void setEdges(std::vector<element_type> const& edges) {M_edges=edges;}
@@ -131,6 +135,9 @@ public:
     void setNumEdges(int const& nlns) {M_num_edges=nlns;}
     void setNumTriangles(int const& ntrs) {M_num_triangles=ntrs;}
     void stereographicProjection();
+
+    void update(std::vector<point_type> const& nodes,
+                std::vector<element_type> const& triangles);
 
     std::vector<int> indexTr() const;
     std::vector<double> coordX() const;
@@ -156,6 +163,7 @@ private:
 
     std::string M_version;
     std::string M_ordering;
+    std::string M_projection_file;
     std::vector<point_type> M_nodes;
     //std::vector<element_type> M_elements;
     std::vector<element_type> M_triangles;

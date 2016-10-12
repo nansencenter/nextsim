@@ -35,6 +35,7 @@ namespace Nextsim
 //     Dataset *this;
 
        name = std::string(DatasetName);
+       projfilename = Environment::vm()["simul.proj_filename"].as<std::string>();
 
      std::vector<std::vector<double>> data2_tmp;
      data2_tmp.resize(2);
@@ -507,7 +508,7 @@ averaging_period=0.;         time= time_tmp;
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1.,
-             b: 12., // to center the time on the middle of the day 
+             b: 12., // to center the time on the middle of the day
              Units: "hours",
              data2: data2_tmp};
 
@@ -564,7 +565,7 @@ averaging_period=0.;         time= time_tmp;
              dimension_x: dimension_x,
              dimension_y: dimension_y,
 
-             mpp_file: "NpsNextsim.mpp",
+             mpp_file: projfilename,
      		interpolation_in_latlon: false,
 
              loaded: false,
@@ -682,7 +683,7 @@ averaging_period=0.;         time= time_tmp;
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1.,
-             b: 12., // to center the time on the middle of the day 
+             b: 12., // to center the time on the middle of the day
              Units: "hours",
              data2: data2_tmp};
 
@@ -739,7 +740,7 @@ averaging_period=0.;         time= time_tmp;
              dimension_x: dimension_x,
              dimension_y: dimension_y,
 
-             mpp_file: "NpsNextsim.mpp",
+             mpp_file: projfilename,
      		interpolation_in_latlon: false,
 
              loaded: false,
@@ -847,7 +848,7 @@ averaging_period=0.;         time= time_tmp;
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1.,
-             b: 12., // to center the time on the middle of the day 
+             b: 12., // to center the time on the middle of the day
              Units: "hours",
              data2: data2_tmp};
 
@@ -903,7 +904,7 @@ averaging_period=0.;         time= time_tmp;
              dimension_x: dimension_x,
              dimension_y: dimension_y,
 
-             mpp_file: "NpsNextsim.mpp",
+             mpp_file: projfilename,
      		interpolation_in_latlon: false,
 
              loaded: false,
@@ -1021,7 +1022,7 @@ averaging_period=0.;         time= time_tmp;
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1.,
-             b: 12., // to center the time on the middle of the day 
+             b: 12., // to center the time on the middle of the day
              Units: "hours",
              data2: data2_tmp};
 
@@ -1116,7 +1117,7 @@ averaging_period=0.;         time= time_tmp;
              dimension_x: dimension_x,
              dimension_y: dimension_y,
 
-             mpp_file: "NpsNextsim.mpp",
+             mpp_file: projfilename,
      		interpolation_in_latlon: false,
 
              loaded: false,
@@ -1227,7 +1228,7 @@ averaging_period=0.;         time= time_tmp;
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1.,
-             b: 12., // to center the time on the middle of the day 
+             b: 12., // to center the time on the middle of the day
              Units: "hours",
              data2: data2_tmp};
 
@@ -1283,7 +1284,7 @@ averaging_period=0.;         time= time_tmp;
              dimension_x: dimension_x,
              dimension_y: dimension_y,
 
-             mpp_file: "NpsNextsim.mpp",
+             mpp_file: projfilename,
      		interpolation_in_latlon: false,
 
              loaded: false,
@@ -1436,7 +1437,7 @@ averaging_period=0.;         time= time_tmp;
              dimension_x: dimension_x,
              dimension_y: dimension_y,
 
-             mpp_file: "NpsNextsim.mpp",
+             mpp_file: projfilename,
      		interpolation_in_latlon: false,
 
              loaded: false,
@@ -1538,7 +1539,7 @@ averaging_period=0.;         time= time_tmp;
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1./3600,
-             b: 12., // to center the time on the middle of the day 
+             b: 12., // to center the time on the middle of the day
              Units: "hours",
              data2: data2_tmp};
 
@@ -1569,7 +1570,7 @@ averaging_period=0.;         time= time_tmp;
              dimension_x: dimension_x,
              dimension_y: dimension_y,
 
-             mpp_file: "NpsNextsim.mpp",
+             mpp_file: projfilename,
      		interpolation_in_latlon: false,
 
              loaded: false,
@@ -1664,7 +1665,7 @@ averaging_period=0.;         time= time_tmp;
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1./3600,
-             b: 12., // to center the time on the middle of the day 
+             b: 12., // to center the time on the middle of the day
              Units: "hours",
              data2: data2_tmp};
 
@@ -1695,7 +1696,7 @@ averaging_period=0.;         time= time_tmp;
              dimension_x: dimension_x,
              dimension_y: dimension_y,
 
-             mpp_file: "NpsNextsim.mpp",
+             mpp_file: projfilename,
      		interpolation_in_latlon: false,
 
              loaded: false,
@@ -1790,7 +1791,7 @@ averaging_period=0.;         time= time_tmp;
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 24.,
-             b: 12., // to center the time on the middle of the day 
+             b: 12., // to center the time on the middle of the day
              Units: "hours",
              data2: data2_tmp};
 
@@ -1806,7 +1807,7 @@ averaging_period=0.;         time= time_tmp;
      		Units: "",
      		data2: data2_tmp
      	};
-        
+
         Variable mask={
     	    name: "land",
     	    dimensions: dimensions_latlon,
@@ -1829,14 +1830,14 @@ averaging_period=0.;         time= time_tmp;
             dirname: "data",
             prefix: "Arc_",
             postfix: "_res3.125_pyres.nc",
-            
+
              latitude: latitude,
              longitude: longitude,
 
              dimension_x: dimension_x,
              dimension_y: dimension_y,
 
-             mpp_file: "NpsNextsim.mpp",
+             mpp_file: projfilename,
      		interpolation_in_latlon: false,
 
              loaded: false,
@@ -2744,7 +2745,7 @@ averaging_period=0.;         time= time_tmp;
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: "NpsNextsim.mpp",
+            mpp_file: projfilename,
             interpolation_in_latlon: false,
 
             loaded: false,
