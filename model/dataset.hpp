@@ -38,6 +38,13 @@ namespace Nextsim
         FromMeshToMesh2dCavities = 2,
     };
 
+    typedef struct WaveOptions
+    {
+       bool wave_dataset;
+       bool use_mwp;
+       bool use_ice;
+    } WaveOptions;
+
 class DataSet
 {
 
@@ -76,13 +83,6 @@ public:
         std::vector<int> components_Id;
         bool east_west_oriented;
     } Vectorial_Variable;
-
-    typedef struct WaveOptions
-    {
-       bool wave_dataset;
-       bool use_mwp;
-       bool use_ice;
-    } WaveOptions;
 
     //so we don't have to change all the datasets
     //every time we change the wave dataset options
@@ -198,4 +198,5 @@ public:
 };
 
 } // Nextsim
+
 #endif // __DataSet_H
