@@ -396,7 +396,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
         }
         else // otherwise, we check for
         {
-            ftime = M_current_time-averaging_period/2.;
+            ftime = M_current_time-dataset->averaging_period/2.;
             file_jump.push_back(-1);
             file_jump.push_back(0);
             file_jump.push_back(1);

@@ -187,7 +187,8 @@ public:
 
     void loadGrid(Grid *grid, int current_time, double RX_min, double RX_max, double RY_min, double RY_max);
 
-    void getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
+    void getlatlon_regular_latlon(double* LAT, double* LON,
+            netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr,double const lon_shift=0.);
 
     void getXY_regular_XY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
 

@@ -2898,7 +2898,7 @@ averaging_period=0.;         time= time_tmp;
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1.,
-             b: 0.,
+             b: -180.,//want lon of dataset & mapx projection to have the same range (-180->180)
              Units: "degree_east",
              data2: data2_tmp
         };
@@ -3128,6 +3128,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 	grid_ptr->dimension_x_count =  tmpDim.getSize();
     grid_ptr->dimension_x_start = 0;
 
+
 	if((grid_ptr->latitude.dimensions.size()==1) && (grid_ptr->longitude.dimensions.size()==1))
 	{
 		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
@@ -3137,7 +3138,8 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 		std::vector<double> LAT(grid_ptr->dimension_y_count);
 		std::vector<double> LON(grid_ptr->dimension_x_count);
 
-        getlatlon_regular_latlon(&LAT[0],&LON[0],&VLAT,&VLON);
+        double lon_shift = grid_ptr->longitude.b;
+        getlatlon_regular_latlon(&LAT[0],&LON[0],&VLAT,&VLON,lon_shift);
 
         // Then, we determine the reduced dimension
         int tmp_start=-1;
@@ -3172,8 +3174,9 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 		LAT.resize(grid_ptr->dimension_y_count);
 		LON.resize(grid_ptr->dimension_x_count);
 
+        std::cout<<tmp_start<<","<<tmp_end<<","<<tmp_end-tmp_start+1<<"\n";
         // Then we load the reduced grid
-        getlatlon_regular_latlon(&LAT[0],&LON[0],&VLAT,&VLON);
+        getlatlon_regular_latlon(&LAT[0],&LON[0],&VLAT,&VLON,lon_shift);
 
 		grid_ptr->gridY=LAT;
 		grid_ptr->gridX=LON;
@@ -3182,7 +3185,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
         grid_ptr->gridLAT=LAT;
         grid_ptr->gridLON=LON;
 
-		//std::cout <<"GRID : READ NETCDF done\n";
+		std::cout <<"GRID : READ NETCDF done\n";
 	}
     else if(grid_ptr->interpolation_method==InterpolationType::FromGridToMesh)
 	{
@@ -3507,7 +3510,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 }
 
 void
-DataSet::getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)
+DataSet::getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr, double const lon_shift)
 {
     // Attributes (scaling and offset)
     netCDF::NcVarAtt att;
@@ -3526,8 +3529,9 @@ DataSet::getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_p
 
 	index_x_start[0] = grid.dimension_x_start;
 	index_x_count[0] = grid.dimension_x_count;
-
+    std::cout<<"getlatlon_regular_latlon y "<<index_y_start[0]<<","<<index_y_count[0]<<"\n";
 	VLAT_ptr->getVar(index_y_start,index_y_count,&LAT[0]);
+    std::cout<<"getlatlon_regular_latlon x "<<index_x_start[0]<<","<<index_x_count[0]<<"\n";
 	VLON_ptr->getVar(index_x_start,index_x_count,&LON[0]);
 
     // Need to multiply with scale factor and add offset - these are stored as variable attributes
@@ -3572,7 +3576,7 @@ DataSet::getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_p
     {}
 
     for (int i=0; i<(index_x_count[0]); ++i)
-        LON[i]=LON[i]*scale_factor + add_offset;
+        LON[i]=LON[i]*scale_factor + add_offset+lon_shift;
 
 }
 

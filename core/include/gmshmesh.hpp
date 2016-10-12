@@ -125,7 +125,6 @@ public:
     int numEdges() const {return M_num_edges;}
 
     void setOrdering(std::string const& order) {M_ordering=order;}
-    void setProjectionFile(std::string const& proj) {M_projection_file=proj;}
     void setNodes(std::vector<point_type> const& nodes) {M_nodes=nodes;}
     //void setElements(std::vector<element_type> const& elements) {M_elements=elements;}
     void setEdges(std::vector<element_type> const& edges) {M_edges=edges;}
