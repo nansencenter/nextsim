@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
  * @file   enums.hpp
@@ -19,7 +19,8 @@ namespace setup
         ASR      = 1,
         ERAi     = 2,
         EC       = 3,
-        ASRFINAL = 4
+        ASRFINAL = 4,
+        EC_ERAi  = 5
     };
 
 	enum class OceanType
@@ -40,13 +41,16 @@ namespace setup
         TOPAZ4F   = 6,
         MITGCM    = 7,
         TARGET    = 8,
-        OSISAF    = 9
+        OSISAF    = 9,
+        PIOMAS    =10,
+        TOPAZ4FAMSR2=11
 	};
 
     enum class WaveType
     {
         CONSTANT = 0,
         WW3A     = 1,
+        ERAI_WAVES_1DEG = 2
     };
 
     enum class BathymetryType

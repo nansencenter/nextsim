@@ -166,6 +166,26 @@ sudo ln -sf /opt/local/lib/openmpi-gcc48 /opt/local/lib/openmpi-mp
 
 # type “bin/nextsim.exec --configfile=nextsim.cfg”
 
+##-------  Compile neXtWIM itself --------- 
+
+First go to the WIM2D github repo ( = $WIM2D_PATH - probably need to set
+this)
+
+Compile the WIM library with:
+
+cd CXX/Build
+make vclean
+make lib
+
+back in nextsim/model
+
+compile with
+
+make clean
+make wim
+
+simul.use_wim=True (as in coupling_wim.cfg)
+
 ##-------Debugging-------
 
 # install gdb on mac following those links:

@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
  * @file   gridoutput.cpp
@@ -118,7 +118,7 @@ namespace Nextsim
 
     GridOutput::~GridOutput()
     {}
-    
+
     ////////////////////////////////////////////////////////////////////////////////
     // Initialisation routines for the two kinds of grids
     ////////////////////////////////////////////////////////////////////////////////
@@ -138,7 +138,7 @@ namespace Nextsim
         M_grid.gridLON.assign(nrows*ncols, 0.);
 
         mapx_class *map;
-        std::string filename = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
+        std::string filename = Environment::nextsimDir().string() + "/data/" + Environment::vm()["simul.proj_filename"].as<std::string>();
         std::vector<char> str(filename.begin(), filename.end());
         str.push_back('\0');
 
@@ -261,13 +261,13 @@ namespace Nextsim
         std::string configfileNextsim = (boost::format( "%1%/%2%/%3%" )
                                   % Environment::nextsimDir().string()
                                   % "data"
-                                  % "NpsNextsim.mpp"
+                                  % Environment::vm()["simul.proj_filename"].as<std::string>()
                                   ).str();
 
         std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
         strNextsim.push_back('\0');
         mapNextsim = init_mapx(&strNextsim[0]);
-        
+
         // Try to get the rotation of the data set
         mapx_class *map;
         double rotation_angle;
@@ -294,7 +294,7 @@ namespace Nextsim
             // or do nothing
             rotation_angle=0.;
         }
-        
+
         // Rotate!
         if ( rotation_angle!=0. | vectorial_variable.east_west_oriented )
         {
@@ -518,6 +518,3 @@ namespace Nextsim
         }
     }
 }
-
-
-

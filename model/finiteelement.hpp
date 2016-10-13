@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
  * @file   finiteelement.hpp
@@ -112,28 +112,31 @@ public:
     void error();
 
     void thermo();
-    void thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double snowfr,
+    void thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfr,
             double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf);
-    void thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double snowfr,
+    void thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfr,
             double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double &T1, double &T2);
     double albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, double alb_ice, double I_0);
     void atmFluxBulk(int i, double Tsurf, double sphuma, double drag_ice_t, double Qsw, double Qlw_in, double wspeed,
             double &Qai, double &dQaidT, double &subl);
     double iceOceanHeatflux(double sst, double tbot, double mld, double dt);
 
-    Dataset M_asr_nodes_dataset;
-    Dataset M_asr_elements_dataset;
-    Dataset M_topaz_nodes_dataset;
-    Dataset M_topaz_elements_dataset;
-	Dataset M_ice_topaz_elements_dataset;
+    Dataset M_atmosphere_nodes_dataset;
+    Dataset M_atmosphere_elements_dataset;
+    Dataset M_atmosphere_bis_elements_dataset;
+    Dataset M_ocean_nodes_dataset;
+    Dataset M_ocean_elements_dataset;
+    Dataset M_bathymetry_elements_dataset;
+
+    Dataset M_ice_topaz_elements_dataset;
+    Dataset M_ice_piomas_elements_dataset;
     Dataset M_ice_amsre_elements_dataset;
     Dataset M_ice_osisaf_elements_dataset;
     Dataset M_ice_amsr2_elements_dataset;
-    Dataset M_etopo_elements_dataset;
-    Dataset M_ERAi_nodes_dataset;
-    Dataset M_ERAi_elements_dataset;
+#if defined (WAVES)
     Dataset M_WW3A_elements_dataset;
-
+    Dataset M_ERAIW_1DEG_elements_dataset;
+#endif
     double minAngles(element_type const& element, mesh_type const& mesh) const;
     double minAngle(mesh_type const& mesh) const;
 
@@ -151,9 +154,13 @@ public:
     void forcing();
     void forcingAtmosphere();
     void forcingOcean();
+
 #if defined (WAVES)
     void forcingWave();
+    WaveOptions wim_forcing_options;
+    bool        wim_ideal_forcing;
 #endif
+
 	void bathymetry();
 
     void initIce();
@@ -221,7 +228,7 @@ private:
     setup::AtmosphereType M_atmosphere_type;
     setup::OceanType M_ocean_type;
     setup::IceType M_ice_type;
-    setup::WaveType M_wave_type; 
+    setup::WaveType M_wave_type;
     setup::BathymetryType M_bathymetry_type;
     setup::ThermoType M_thermo_type;
 
@@ -259,7 +266,6 @@ private:
     std::vector<double> M_h_ridged_thin_ice;
     std::vector<double> M_h_ridged_thick_ice;
 
-    //externaldata_ptr_vector M_external_data;
     std::vector<external_data*> M_external_data;
 
     std::vector<double> M_fcor;
@@ -285,6 +291,8 @@ private:
     std::vector<double> M_SWH_grid;
     std::vector<double> M_MWD_grid;
     std::vector<double> M_FP_grid;
+
+    wim_type::WimGrid wim_grid;
 #endif
     std::vector<double> M_tau;//this can just be set to zero if not using WIM
 
@@ -432,9 +440,13 @@ private:
     void constantIce();
     void targetIce();
     void topazIce();
-    void amsreIce();
-    void osisaf2Ice();
-    void amsr2Ice();
+    void piomasIce();
+    void topazForecastIce();
+    void topazForecastAmsr2Ice();
+    
+    void topazAmsreIce();
+    void topazOsisafIce();
+    void topazAmsr2Ice();
 
     void equallySpacedDrifter();
     void outputDrifter(std::fstream &iabp_out);

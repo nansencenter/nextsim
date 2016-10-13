@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
  * @file   options.cpp
@@ -48,6 +48,7 @@ namespace Nextsim
             ("setup.wave-type", po::value<std::string>()->default_value( "constant" ), "constant, ww3a")
 
             ("simul.mesh_filename", po::value<std::string>()->default_value( "bigarctic10km.msh" ), "")
+            ("simul.proj_filename", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "")
             ("simul.hsize", po::value<double>()->default_value( 0.01 ), "")
             ("simul.verbose", po::value<int>()->default_value( 7 ), "")
             ("simul.log-level", po::value<std::string>()->default_value( "info" ), "")
@@ -134,7 +135,7 @@ namespace Nextsim
             ("simul.ASR_quad_drag_coef_air", po::value<double>()->default_value( 0.0076 ), "")
             ("simul.ERAi_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("simul.ECMWF_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
-            ("simul.ASRFINAL_quad_drag_coef_air", po::value<double>()->default_value( 0.0037 ), "")
+            ("simul.ASRFINAL_quad_drag_coef_air", po::value<double>()->default_value( 0.0049 ), "")
             ("simul.lin_drag_coef_air", po::value<double>()->default_value( 0. ), "")
             ("simul.rho_water", po::value<double>()->default_value( 1025. ), "")
             ("simul.quad_drag_coef_water", po::value<double>()->default_value( 0.0055 ), "")

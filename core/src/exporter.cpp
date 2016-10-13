@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
  * @file   exporter.cpp
@@ -11,30 +11,39 @@
 
 namespace Nextsim
 {
-Exporter::Exporter()
+Exporter::Exporter(std::string const& precision)
 	:
 	M_mrecord(),
     M_frecord(),
     M_type_record(),
-    M_name_record()
+    M_name_record(),
+    M_precision(precision)
 {}
 
 template<typename Type>
 void
 Exporter::writeContainer(std::fstream& out, std::vector<Type> const& container)
 {
-    int fsize = container.size();
-
     if (out.is_open())
 	{
-        //out.write((char*)&name, sizeof(name));
-        out.write((char*)&fsize, sizeof(fsize));
-		out.write((char*)&container[0], container.size() * sizeof(Type));
+        int fsize = container.size();
+        out.write((char*)&fsize, sizeof(fsize)); // write first the record length
 
-        // for (int i=0; i<10; ++i)
-        // {
-        //     std::cout<<"Concentration["<< i <<"]= "<< container[i] <<"\n";
-        // }
+        int typesize = sizeof(Type);
+        if ((M_precision != "double") && (typesize == sizeof(double)))
+        {
+            for (int i=0; i<container.size(); ++i)
+            {
+                // convert to float before writing into binary file
+                float fvalue = (float)container[i];
+                out.write((char*)&fvalue, sizeof(float));
+            }
+        }
+        else
+        {
+            // write as original format
+            out.write((char*)&container[0], container.size() * sizeof(Type));
+        }
 	}
 	else
 	{
@@ -51,27 +60,28 @@ Exporter::writeMesh(std::fstream& out, GmshMesh const& Mesh)
 
     writeContainer(out, Mesh.indexTr());
     description = (boost::format( "%1% %2%" )
-               % "Elements"
-               % sizeof(int) ).str();
+                   % "Elements"
+                   % "int" ).str();
     M_mrecord.push_back(description);
 
 
     writeContainer(out, Mesh.coordX());
     description = (boost::format( "%1% %2%" )
-               % "Nodes_x"
-               % sizeof(double) ).str();
+                   % "Nodes_x"
+                   % M_precision ).str();
     M_mrecord.push_back(description);
 
     writeContainer(out, Mesh.coordY());
     description = (boost::format( "%1% %2%" )
-               % "Nodes_y"
-               % sizeof(double) ).str();
+                   % "Nodes_y"
+                   % M_precision ).str();
+
     M_mrecord.push_back(description);
-    
+
     writeContainer(out, Mesh.id());
     description = (boost::format( "%1% %2%" )
-               % "id"
-               % sizeof(int) ).str();
+                   % "id"
+                   % "int" ).str();
     M_mrecord.push_back(description);
 }
 
@@ -83,8 +93,8 @@ Exporter::writeField(std::fstream& out, std::vector<Type> const& field, std::str
     writeContainer(out, field);
 
     description = (boost::format( "%1% %2%" )
-               % name
-               % sizeof(Type) ).str();
+                   % name
+                   % M_precision ).str();
 
 	M_frecord.push_back(description);
 }
@@ -120,10 +130,11 @@ Exporter::writeRecord(std::fstream& out, std::string const& rtype)
 }
 
 void
-Exporter::readRecord(std::ifstream &in)
+Exporter::readRecord(std::ifstream& in)
 {
     std::string name;
-    int type;
+    std::string type;
+
     while ( in >> name >> type )
     {
         M_name_record.push_back(name);
@@ -132,19 +143,20 @@ Exporter::readRecord(std::ifstream &in)
 }
 
 void
-Exporter::loadFile(std::fstream &in, boost::unordered_map<std::string, std::vector<int>> &field_map_int, boost::unordered_map<std::string, std::vector<double>> &field_map_dbl)
+Exporter::loadFile(std::fstream& in, boost::unordered_map<std::string, std::vector<int>>& field_map_int, boost::unordered_map<std::string, std::vector<double>>& field_map_dbl)
 {
     int reclen;
     for ( int i=0; i<M_type_record.size(); ++i )
     {
         in.read((char*) &reclen, sizeof(reclen));
-        if ( M_type_record[i] == sizeof(double) )
+
+        if ( M_type_record[i] == "double" )
         {
             std::vector<double> dvec(reclen);
             in.read((char*) &dvec[0], reclen*sizeof(double));
             field_map_dbl.emplace(M_name_record[i], dvec);
         }
-        else if ( M_type_record[i] == sizeof(int) )
+        else if ( M_type_record[i] == "int" )
         {
             std::vector<int> ivec(reclen);
             in.read((char*) &ivec[0], reclen*sizeof(int));

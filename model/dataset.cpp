@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
  * @file   dataset.cpp
@@ -12,7 +12,7 @@ extern "C"
 {
 #include <mapx.h>
 }
-     
+
 #include <constants.hpp>
 
 /**
@@ -35,6 +35,7 @@ namespace Nextsim
 //     Dataset *this;
 
        name = std::string(DatasetName);
+       projfilename = Environment::vm()["simul.proj_filename"].as<std::string>();
 
      std::vector<std::vector<double>> data2_tmp;
      data2_tmp.resize(2);
@@ -159,7 +160,9 @@ namespace Nextsim
       		interpolation_in_latlon: false,
 
             loaded: false,
-            monthly_dataset:true,
+            dataset_frequency:"monthly",
+
+            waveOptions: wavopt_none,
 
      		masking: false
      	};
@@ -193,7 +196,7 @@ namespace Nextsim
              reloaded=false;
 
              nb_timestep_day= 8;
-             daily_mean=false;
+             averaging_period=0.;
              time= time_tmp;
      }
      else if (strcmp (DatasetName, "asr_elements") == 0)
@@ -313,7 +316,9 @@ namespace Nextsim
       		interpolation_in_latlon: false,
 
             loaded: false,
-            monthly_dataset:true,
+            dataset_frequency:"monthly",
+
+            waveOptions: wavopt_none,
 
      		masking: false
      	};
@@ -415,7 +420,7 @@ namespace Nextsim
          variables_tmp[6] = precip;
 
          std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
-         
+
          dirname="data";
          prefix="asr30km.comb.2d."; // "asr30km.comb.2D.";
          postfix=".nc";
@@ -428,8 +433,7 @@ namespace Nextsim
 
          reloaded=false;
 
-         daily_mean=false;
-         time= time_tmp;
+averaging_period=0.;         time= time_tmp;
      }
      else if (strcmp (DatasetName, "topaz_nodes") == 0)
      {
@@ -504,7 +508,7 @@ namespace Nextsim
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1.,
-             b: 0.,
+             b: 12., // to center the time on the middle of the day
              Units: "hours",
              data2: data2_tmp};
 
@@ -561,11 +565,13 @@ namespace Nextsim
              dimension_x: dimension_x,
              dimension_y: dimension_y,
 
-             mpp_file: "NpsNextsim.mpp",
+             mpp_file: projfilename,
      		interpolation_in_latlon: false,
 
              loaded: false,
-             monthly_dataset:true,
+             dataset_frequency:"monthly",
+
+            waveOptions: wavopt_none,
 
      		masking: true,
      		masking_variable: ssh
@@ -601,7 +607,7 @@ namespace Nextsim
          reloaded=false;
 
          nb_timestep_day= 1;
-         daily_mean=true;
+         averaging_period=1.; // days
          time= time_tmp;
      }
      else if (strcmp (DatasetName, "topaz_elements") == 0)
@@ -677,7 +683,7 @@ namespace Nextsim
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1.,
-             b: 0.,
+             b: 12., // to center the time on the middle of the day
              Units: "hours",
              data2: data2_tmp};
 
@@ -734,11 +740,13 @@ namespace Nextsim
              dimension_x: dimension_x,
              dimension_y: dimension_y,
 
-             mpp_file: "NpsNextsim.mpp",
+             mpp_file: projfilename,
      		interpolation_in_latlon: false,
 
              loaded: false,
-             monthly_dataset:true,
+            dataset_frequency:"monthly",
+
+            waveOptions: wavopt_none,
 
      		masking: true,
      		masking_variable: sss
@@ -764,7 +772,387 @@ namespace Nextsim
              reloaded=false;
 
              nb_timestep_day= 1;
-             daily_mean=true;
+             averaging_period=1.; // days
+             time= time_tmp;
+     }
+     else if (strcmp (DatasetName, "topaz_forecast_nodes") == 0)
+     {
+     	// Definition of topaz grid and datasets
+         Dimension dimension_x={
+             name:"x",
+             cyclic:false
+     	};
+
+         Dimension dimension_y={
+             name:"y",
+             cyclic:false
+     	};
+
+         Dimension dimension_time={
+             name:"time", // "Time"
+             cyclic:false
+     	};
+
+         Dimension dimension_depth={
+             name:"depth", // "Time"
+             cyclic:false
+     	};
+
+         std::vector<Dimension> dimensions_uv(4);
+         dimensions_uv[0] = dimension_time;
+         dimensions_uv[1] = dimension_depth;
+         dimensions_uv[2] = dimension_y;
+         dimensions_uv[3] = dimension_x;
+
+         std::vector<Dimension> dimensions(3);
+         dimensions[0] = dimension_time;
+         dimensions[1] = dimension_y;
+         dimensions[2] = dimension_x;
+
+         std::vector<Dimension> dimensions_latlon(2);
+         dimensions_latlon[0] = dimension_y;
+         dimensions_latlon[1] = dimension_x;
+
+         std::vector<Dimension> dimensions_time(1);
+         dimensions_time[0] = dimension_time;
+
+         Variable latitude={
+             name: "latitude",
+             dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_north",
+             data2: data2_tmp};
+
+         Variable longitude={
+             name: "longitude",
+             dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_east",
+             data2: data2_tmp};
+
+         Variable time_tmp={
+             name: "time",
+             dimensions: dimensions_time,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 12., // to center the time on the middle of the day
+             Units: "hours",
+             data2: data2_tmp};
+
+         Variable u={
+             name: "u",
+             dimensions: dimensions_uv,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "m/s",
+             data2: data2_tmp
+     	};
+
+         Variable v={
+             name: "v",
+             dimensions: dimensions_uv,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "m/s",
+             data2: data2_tmp
+     	};
+
+     	Variable ssh={
+     		name: "ssh",
+     		dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 1.,
+     		b: 0.,
+     		Units: "m/s",
+     		data2: data2_tmp
+     	};
+
+         Grid grid_tmp={
+             interpolation_method: InterpolationType::FromMeshToMesh2dx,
+             interp_type: -1,
+             dirname= "data",
+             prefix= "TP4_start",
+             postfix= ".nc",
+
+             latitude: latitude,
+             longitude: longitude,
+
+             dimension_x: dimension_x,
+             dimension_y: dimension_y,
+
+             mpp_file: projfilename,
+     		interpolation_in_latlon: false,
+
+             loaded: false,
+             dataset_frequency:"daily",
+
+            waveOptions: wavopt_none,
+
+     		masking: true,
+     		masking_variable: ssh
+     	};
+
+         std::vector<Variable> variables_tmp(3);
+         variables_tmp[0] = u;
+         variables_tmp[1] = v;
+         variables_tmp[2] = ssh;
+
+         std::vector<int> uv_tmp(2);
+             uv_tmp[0] = 0;
+             uv_tmp[1] = 1;
+
+         Vectorial_Variable uv={
+             components_Id: uv_tmp,
+             east_west_oriented: false // if false, then we assume it is oriented following the mpp_file defined for the grid
+     	};
+
+         std::vector<Vectorial_Variable> vectorial_variables_tmp(1);
+         vectorial_variables_tmp[0] = uv;
+
+         dirname= "data";
+         prefix= "TP4_start";
+         postfix= ".nc";
+         reference_date= "1950-01-01";
+
+         variables= variables_tmp;
+         vectorial_variables= vectorial_variables_tmp;
+         target_size= target_size_tmp;
+         grid= grid_tmp;
+
+         reloaded=false;
+
+         nb_timestep_day= 1;
+         averaging_period=1.; // days
+         time= time_tmp;
+     }
+     else if (strcmp (DatasetName, "topaz_forecast_elements") == 0)
+     {
+     	// Definition of topaz grid and datasets
+         Dimension dimension_x={
+             name:"x",
+             cyclic:false
+     	};
+
+         Dimension dimension_y={
+             name:"y",
+             cyclic:false
+     	};
+
+         Dimension dimension_time={
+             name:"time", // "Time"
+             cyclic:false
+     	};
+
+         Dimension dimension_depth={
+             name:"depth", // "Time"
+             cyclic:false
+     	};
+
+         std::vector<Dimension> dimensions_uv(4);
+         dimensions_uv[0] = dimension_time;
+         dimensions_uv[1] = dimension_depth;
+         dimensions_uv[2] = dimension_y;
+         dimensions_uv[3] = dimension_x;
+
+         std::vector<Dimension> dimensions(3);
+         dimensions[0] = dimension_time;
+         dimensions[1] = dimension_y;
+         dimensions[2] = dimension_x;
+
+         std::vector<Dimension> dimensions_latlon(2);
+         dimensions_latlon[0] = dimension_y;
+         dimensions_latlon[1] = dimension_x;
+
+         std::vector<Dimension> dimensions_time(1);
+         dimensions_time[0] = dimension_time;
+
+         Variable latitude={
+             name: "latitude",
+             dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_north",
+             data2: data2_tmp};
+
+         Variable longitude={
+             name: "longitude",
+             dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_east",
+             data2: data2_tmp};
+
+         Variable time_tmp={
+             name: "time",
+             dimensions: dimensions_time,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 12., // to center the time on the middle of the day
+             Units: "hours",
+             data2: data2_tmp};
+
+     	Variable sst={
+     		name: "temperature",
+     		dimensions: dimensions_uv,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 1.,
+     		b: 0.,
+     		Units: "deg celsius",
+     		data2: data2_tmp
+     	};
+
+     	Variable sss={
+     		name: "salinity",
+     		dimensions: dimensions_uv,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 1.,
+     		b: 0.,
+     		Units: "",
+     		data2: data2_tmp
+     	};
+
+     	Variable mld={
+     		name: "mlp",
+     		dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 1.,
+     		b: 0.,
+     		Units: "m",
+     		data2: data2_tmp
+     	};
+
+     	Variable conc={
+     		name: "fice",
+     		dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 1.,
+     		b: 0.,
+     		Units: "",
+     		data2: data2_tmp
+     	};
+
+     	Variable thick={
+     		name: "hice",
+     		dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 1.,
+     		b: 0.,
+     		Units: "m",
+     		data2: data2_tmp
+     	};
+
+     	Variable snow_thick={
+     		name: "hsnow",
+     		dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 1.,
+     		b: 0.,
+     		Units: "m",
+     		data2: data2_tmp
+     	};
+
+         Grid grid_tmp={
+             interpolation_method: InterpolationType::FromMeshToMesh2dx,
+             interp_type: -1,
+             dirname= "data",
+             prefix= "TP4_start",
+             postfix= ".nc",
+
+             latitude: latitude,
+             longitude: longitude,
+
+             dimension_x: dimension_x,
+             dimension_y: dimension_y,
+
+             mpp_file: projfilename,
+     		interpolation_in_latlon: false,
+
+             loaded: false,
+            dataset_frequency:"daily",
+
+            waveOptions: wavopt_none,
+
+     		masking: true,
+     		masking_variable: sss
+     	};
+
+         std::vector<Variable> variables_tmp(6);
+         variables_tmp[0] = sst;
+         variables_tmp[1] = sss;
+         variables_tmp[2] = mld;
+         variables_tmp[3] = conc;
+         variables_tmp[4] = thick;
+         variables_tmp[5] = snow_thick;
+
+         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+             dirname= "data";
+             prefix= "TP4_start";
+             postfix= ".nc";
+             reference_date= "1950-01-01";
+
+             variables= variables_tmp;
+             vectorial_variables= vectorial_variables_tmp;
+             target_size= target_size_tmp;
+             grid= grid_tmp;
+
+             reloaded=false;
+
+             nb_timestep_day= 1;
+             averaging_period=1.; // days
              time= time_tmp;
      }
      else if (strcmp (DatasetName, "ice_topaz_elements") == 0)
@@ -840,7 +1228,7 @@ namespace Nextsim
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1.,
-             b: 0.,
+             b: 12., // to center the time on the middle of the day
              Units: "hours",
              data2: data2_tmp};
 
@@ -887,7 +1275,6 @@ namespace Nextsim
              interpolation_method: InterpolationType::FromMeshToMesh2dx,
      		interp_type: -1,
              dirname= "data",
-             //filename: "TP4DAILY_200803_3m.nc",
              prefix= "TP4DAILY_",
              postfix= "_3m.nc",
 
@@ -897,11 +1284,13 @@ namespace Nextsim
              dimension_x: dimension_x,
              dimension_y: dimension_y,
 
-             mpp_file: "NpsNextsim.mpp",
+             mpp_file: projfilename,
      		interpolation_in_latlon: false,
 
              loaded: false,
-             monthly_dataset:true,
+            dataset_frequency:"monthly",
+
+            waveOptions: wavopt_none,
 
      		masking: true,
      		masking_variable: conc
@@ -927,7 +1316,165 @@ namespace Nextsim
              reloaded=false;
 
      		nb_timestep_day= 1;
-            daily_mean=true;
+            averaging_period=1.; // days
+     	    time= time_tmp;
+     }
+     else if (strcmp (DatasetName, "ice_piomas_elements") == 0)
+     {
+     	// Definition of topaz grid and datasets
+         Dimension dimension_x={
+             name:"x",
+             cyclic:false
+     	};
+
+         Dimension dimension_y={
+             name:"y",
+             cyclic:false
+     	};
+
+         Dimension dimension_time={
+             name:"time", // "Time"
+             cyclic:false
+     	};
+
+         std::vector<Dimension> dimensions(3);
+         dimensions[0] = dimension_time;
+         dimensions[1] = dimension_y;
+         dimensions[2] = dimension_x;
+
+         std::vector<Dimension> dimensions_latlon(2);
+         dimensions_latlon[0] = dimension_y;
+         dimensions_latlon[1] = dimension_x;
+
+         std::vector<Dimension> dimensions_time(1);
+         dimensions_time[0] = dimension_time;
+
+         Variable latitude={
+             name: "latitude",
+             dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_north",
+             data2: data2_tmp};
+
+         Variable longitude={
+             name: "longitude",
+             dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_east",
+             data2: data2_tmp};
+
+         Variable time_tmp={
+             name: "time",
+             dimensions: dimensions_time,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "hours",
+             data2: data2_tmp};
+
+     	Variable conc={
+     		name: "area",
+     		dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 1.,
+     		b: 0.,
+     		Units: "",
+     		data2: data2_tmp
+     	};
+
+     	Variable thick={
+     		name: "heff",
+     		dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 1.,
+     		b: 0.,
+     		Units: "m",
+     		data2: data2_tmp
+     	};
+
+     	Variable snow_thick={
+     		name: "snow",
+     		dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 1.,
+     		b: 0.,
+     		Units: "m",
+     		data2: data2_tmp
+     	};
+
+         Grid grid_tmp={
+             interpolation_method: InterpolationType::FromMeshToMesh2dx,
+     		interp_type: -1,
+             dirname= "data",
+             prefix= "PIOMAS_",
+             postfix= ".nc",
+
+             latitude: latitude,
+             longitude: longitude,
+
+             dimension_x: dimension_x,
+             dimension_y: dimension_y,
+
+             mpp_file: projfilename,
+     		interpolation_in_latlon: false,
+
+             loaded: false,
+            dataset_frequency:"yearly",
+             //monthly_dataset:true,
+
+            waveOptions: {
+               wave_dataset:false,
+               use_mwp:false,
+               use_ice:false
+            },
+
+     		masking: true,
+     		masking_variable: conc
+     	};
+
+         std::vector<Variable> variables_tmp(3);
+         variables_tmp[0] = conc;
+         variables_tmp[1] = thick;
+         variables_tmp[2] = snow_thick;
+
+         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+             dirname= "data";
+             prefix= "PIOMAS_";
+             postfix= ".nc";
+             reference_date= "1950-01-01";
+
+             variables= variables_tmp;
+             vectorial_variables= vectorial_variables_tmp;
+             target_size= target_size_tmp;
+             grid= grid_tmp;
+
+             reloaded=false;
+
+     		nb_timestep_day= 12;
+            averaging_period=365./12; // days
      	    time= time_tmp;
      }
      else if (strcmp (DatasetName, "ice_amsre_elements") == 0)
@@ -992,7 +1539,7 @@ namespace Nextsim
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1./3600,
-             b: 0.,
+             b: 12., // to center the time on the middle of the day
              Units: "hours",
              data2: data2_tmp};
 
@@ -1023,11 +1570,13 @@ namespace Nextsim
              dimension_x: dimension_x,
              dimension_y: dimension_y,
 
-             mpp_file: "NpsNextsim.mpp",
+             mpp_file: projfilename,
      		interpolation_in_latlon: false,
 
              loaded: false,
-             monthly_dataset:false,
+            dataset_frequency:"daily",
+
+            waveOptions: wavopt_none,
 
      		masking: true,
      		masking_variable: conc
@@ -1051,7 +1600,7 @@ namespace Nextsim
         reloaded=false;
 
         nb_timestep_day= 1;
-        daily_mean=true;
+        averaging_period=1.; // days
      	time= time_tmp;
      }
      else if (strcmp (DatasetName, "ice_osisaf_elements") == 0)
@@ -1116,7 +1665,7 @@ namespace Nextsim
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1./3600,
-             b: 0.,
+             b: 12., // to center the time on the middle of the day
              Units: "hours",
              data2: data2_tmp};
 
@@ -1147,11 +1696,13 @@ namespace Nextsim
              dimension_x: dimension_x,
              dimension_y: dimension_y,
 
-             mpp_file: "NpsNextsim.mpp",
+             mpp_file: projfilename,
      		interpolation_in_latlon: false,
 
              loaded: false,
-             monthly_dataset:false,
+             dataset_frequency:"daily",
+
+            waveOptions: wavopt_none,
 
      		masking: true,
      		masking_variable: conc
@@ -1175,7 +1726,7 @@ namespace Nextsim
         reloaded=false;
 
         nb_timestep_day= 1;
-        daily_mean=true;
+        averaging_period=1.; // days
      	time= time_tmp;
      }
      else if (strcmp (DatasetName, "ice_amsr2_elements") == 0)
@@ -1240,16 +1791,16 @@ namespace Nextsim
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 24.,
-             b: 0.,
+             b: 12., // to center the time on the middle of the day
              Units: "hours",
              data2: data2_tmp};
 
          Variable conc={
      		name: "sea_ice_concentration",
      		dimensions: dimensions,
-            land_mask_defined: true,
+            land_mask_defined: false,
             land_mask_value: 12500.,
-            NaN_mask_defined: true,
+            NaN_mask_defined: false,
             NaN_mask_value: 11500.,
      		a: 0.01,
      		b: 0.,
@@ -1257,13 +1808,28 @@ namespace Nextsim
      		data2: data2_tmp
      	};
 
+        Variable mask={
+    	    name: "land",
+    	    dimensions: dimensions_latlon,
+            land_mask_defined: true,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+    		a: 1.,
+    		b: 0.,
+    		Units: "",
+    		data2: data2_tmp
+    	};
+
          Grid grid_tmp={
              interpolation_method: InterpolationType::FromMeshToMesh2dx,
      		interp_type: -1,
-             dirname= "data",
-             //filename: "TP4DAILY_200803_3m.nc",
-             prefix= "LongitudeLatitudeGrid_3.125km_Arctic.nc",
-             postfix= "",
+             //dirname= "data",
+             //prefix= "LongitudeLatitudeGrid_3.125km_Arctic.nc",
+             //postfix= "",
+            dirname: "data",
+            prefix: "Arc_",
+            postfix: "_res3.125_pyres.nc",
 
              latitude: latitude,
              longitude: longitude,
@@ -1271,14 +1837,16 @@ namespace Nextsim
              dimension_x: dimension_x,
              dimension_y: dimension_y,
 
-             mpp_file: "NpsNextsim.mpp",
+             mpp_file: projfilename,
      		interpolation_in_latlon: false,
 
              loaded: false,
-             monthly_dataset:false,
+             dataset_frequency:"daily",
 
-     		masking: true,
-     		masking_variable: conc
+            waveOptions: wavopt_none,
+
+     		masking: false,
+     		masking_variable: mask
         };
 
         std::vector<Variable> variables_tmp(1);
@@ -1299,7 +1867,7 @@ namespace Nextsim
         reloaded=false;
 
         nb_timestep_day= 1;
-        daily_mean=true;
+        averaging_period=1.; // days
      	time= time_tmp;
      }
      else if (strcmp (DatasetName, "etopo_elements") == 0)
@@ -1371,7 +1939,9 @@ namespace Nextsim
      		interpolation_in_latlon: true,
 
              loaded: false,
-             monthly_dataset:false,
+             dataset_frequency:"constant",
+
+            waveOptions: wavopt_none,
 
      		masking: false
      	};
@@ -1400,16 +1970,16 @@ namespace Nextsim
          //prefix="ETOPO1_Ice_g_gmt4.grd";
          postfix="";
          reference_date= "";
-         
+
          variables= variables_tmp;
          vectorial_variables= vectorial_variables_tmp;
          target_size=target_size_tmp;
-         
+
          grid= grid_tmp;
          reloaded=false;
-         
+
          nb_timestep_day= 0;
-         daily_mean=false;
+         averaging_period=0.;
      }
      else if (strcmp (DatasetName, "ERAi_elements") == 0)
      {
@@ -1482,7 +2052,9 @@ namespace Nextsim
      		interpolation_in_latlon: true,
 
              loaded: false,
-             monthly_dataset:true,
+             dataset_frequency:"monthly",
+
+            waveOptions: wavopt_none,
 
      		masking: false
      	};
@@ -1609,8 +2181,8 @@ namespace Nextsim
 
          reloaded= false;
 
-         daily_mean=false;
-         
+         averaging_period=0.;
+
          time= time_tmp;
      }
      else if (strcmp (DatasetName, "ERAi_nodes") == 0)
@@ -1681,9 +2253,11 @@ namespace Nextsim
   		interpolation_in_latlon: true,
 
         loaded: false,
-        
-        monthly_dataset:true,
-        
+
+        dataset_frequency:"monthly",
+
+        waveOptions: wavopt_none,
+
         masking: false
     };
 
@@ -1767,10 +2341,344 @@ namespace Nextsim
       reloaded= false;
 
       nb_timestep_day= 4;
-      daily_mean=false;
+      averaging_period=0.;
       time= time_tmp;
       }
+      else if (strcmp (DatasetName, "ec_elements") == 0)
+      {
+      	// Definition of dimensions
+         Dimension dimension_x={
+              name:"lon",
+              cyclic:false
+      	};
 
+         Dimension dimension_y={
+              name:"lat",
+              cyclic:false
+      	};
+
+         Dimension dimension_time={
+              name:"time", // "Time"
+              cyclic:false
+      	};
+
+         // Definition of the grid
+          std::vector<Dimension> dimensions_lon(1);
+          dimensions_lon[0] = dimension_x;
+
+          std::vector<Dimension> dimensions_lat(1);
+          dimensions_lat[0] = dimension_y;
+
+          Variable latitude={
+              name: "lat",
+              dimensions: dimensions_lat,
+              land_mask_defined: false,
+              land_mask_value: 0.,
+              NaN_mask_defined: false,
+              NaN_mask_value: 0.,
+              a: 1.,
+              b: 0.,
+              Units: "degree_north",
+              data2: data2_tmp
+      	};
+
+          Variable longitude={
+              name: "lon",
+              dimensions: dimensions_lon,
+              land_mask_defined: false,
+              land_mask_value: 0.,
+              NaN_mask_defined: false,
+              NaN_mask_value: 0.,
+              a: 1.,
+              b: 0.,
+              Units: "degree_east",
+              data2: data2_tmp
+      	};
+
+      	Grid grid_tmp={
+      		interpolation_method: InterpolationType::FromGridToMesh,
+      	    //interp_type : TriangleInterpEnum, // slower
+      	    interp_type : BilinearInterpEnum,
+      	    //interp_type : NearestInterpEnum,
+      		dirname="data",
+             prefix= "ec_start",
+             postfix=".nc",
+
+      		latitude: latitude,
+      		longitude: longitude,
+
+      		dimension_x: dimension_x,
+      		dimension_y: dimension_y,
+
+      		mpp_file: "",
+      		interpolation_in_latlon: true,
+
+            loaded: false,
+            dataset_frequency:"daily",
+
+            waveOptions: wavopt_none,
+
+      		masking: false
+      	};
+
+         grid= grid_tmp;
+
+         // Definition of the data
+
+         std::vector<Dimension> dimensions_time(1);
+         dimensions_time[0] = dimension_time;
+
+         std::vector<Dimension> dimensions(3);
+         dimensions[0] = dimension_time;
+         dimensions[1] = dimension_y;
+         dimensions[2] = dimension_x;
+
+         Variable time_tmp={
+             name: "time",
+             dimensions: dimensions_time,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "hours",
+             data2: data2_tmp
+     	};
+
+         nb_timestep_day=4;
+
+         Variable tair={
+             name:"T2M",
+             dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a:1.,
+             b:-273.15,
+             Units:"C",
+             data2: data2_tmp
+     	}; // T2M
+         Variable dair={
+             name:"D2M",
+             dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a:1.,
+             b:-273.15,
+             Units:"C",
+             data2: data2_tmp
+     	}; // Q2M
+         Variable mslp={
+             name:"MSL",
+             dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a:1.,
+             b:0.,
+             Units:"Pa",
+             data2: data2_tmp
+     	}; //PSFC, a=1.
+
+         Variable tcc={
+             name:"TCC",
+             dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a:1.,
+             b:0.,
+             Units:"",
+             data2: data2_tmp
+     	};
+
+         std::vector<Variable> variables_tmp(4);
+         variables_tmp[0] = tair;
+         variables_tmp[1] = dair;
+         variables_tmp[2] = mslp;
+         variables_tmp[3] = tcc;
+
+          std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+          dirname=  "data";
+          prefix= "ec_start";
+          postfix=".nc";
+          reference_date="1950-01-01";//"2008-01-01";
+
+          variables= variables_tmp;
+          vectorial_variables= vectorial_variables_tmp;
+          target_size= target_size_tmp;
+
+          reloaded= false;
+
+          averaging_period=0.;
+
+          time= time_tmp;
+      }
+      else if (strcmp (DatasetName, "ec_nodes") == 0)
+      {
+   	// Definition of dimensions
+      Dimension dimension_x={
+           name:"lon",
+           cyclic:false
+   	};
+
+      Dimension dimension_y={
+           name:"lat",
+           cyclic:false
+   	};
+
+      Dimension dimension_time={
+           name:"time", // "Time"
+           cyclic:false};
+
+      // Definition of the grid
+       std::vector<Dimension> dimensions_lon(1);
+       dimensions_lon[0] = dimension_x;
+
+       std::vector<Dimension> dimensions_lat(1);
+       dimensions_lat[0] = dimension_y;
+
+       Variable latitude={
+           name: "lat",
+           dimensions: dimensions_lat,
+           land_mask_defined: false,
+           land_mask_value: 0.,
+           NaN_mask_defined: false,
+           NaN_mask_value: 0.,
+           a: 1.,
+           b: 0.,
+           Units: "degree_north",
+           data2: data2_tmp};
+
+       Variable longitude={
+           name: "lon",
+           dimensions: dimensions_lon,
+           land_mask_defined: false,
+           land_mask_value: 0.,
+           NaN_mask_defined: false,
+           NaN_mask_value: 0.,
+           a: 1.,
+           b: 0.,
+           Units: "degree_east",
+           data2: data2_tmp};
+
+   	Grid grid_tmp={
+   		interpolation_method: InterpolationType::FromGridToMesh,
+   	    //interp_type : TriangleInterpEnum, // slower
+   	    interp_type : BilinearInterpEnum,
+   	    //interp_type : NearestInterpEnum,
+   		dirname="data",
+         prefix= "ec_start",
+         postfix=".nc",
+
+   		latitude: latitude,
+   		longitude: longitude,
+
+   		dimension_x: dimension_x,
+   		dimension_y: dimension_y,
+
+   		mpp_file: "",
+   		interpolation_in_latlon: true,
+
+         loaded: false,
+
+         dataset_frequency:"daily",
+
+         waveOptions: wavopt_none,
+
+         masking: false
+     };
+
+      grid= grid_tmp;
+
+      // Definition of the data
+
+      std::vector<Dimension> dimensions_time(1);
+      dimensions_time[0] = dimension_time;
+
+      std::vector<Dimension> dimensions(3);
+      dimensions[0] = dimension_time;
+      dimensions[1] = dimension_y;
+      dimensions[2] = dimension_x;
+
+      Variable time_tmp={
+          name: "time",
+          dimensions: dimensions_time,
+          land_mask_defined: false,
+          land_mask_value: 0.,
+          NaN_mask_defined: false,
+          NaN_mask_value: 0.,
+          a: 1.,
+          b: 0.,
+          Units: "hours",
+          data2: data2_tmp
+      };
+
+       // conversion factors: xnew = a*x + b
+       Variable u={
+           name: "10U", // U10M
+           dimensions: dimensions,
+           land_mask_defined: false,
+           land_mask_value: 0.,
+           NaN_mask_defined: false,
+           NaN_mask_value: 0.,
+           a: 1.,
+           b: 0.,
+           Units: "m/s",
+           data2: data2_tmp
+       };
+
+       Variable v={
+           name: "10V", // U10M
+           dimensions: dimensions,
+           land_mask_defined: false,
+           land_mask_value: 0.,
+           NaN_mask_defined: false,
+           NaN_mask_value: 0.,
+           a: 1.,
+           b: 0.,
+           Units: "m/s",
+           data2: data2_tmp
+       };
+
+       std::vector<Variable> variables_tmp(2);
+       variables_tmp[0] = u;
+       variables_tmp[1] = v;
+
+       std::vector<int> uv_tmp(2);
+           uv_tmp[0] = 0;
+           uv_tmp[1] = 1;
+
+       Vectorial_Variable uv={
+           components_Id: uv_tmp,
+           east_west_oriented: true
+       };
+
+       std::vector<Vectorial_Variable> vectorial_variables_tmp(1);
+       vectorial_variables_tmp[0] = uv;
+
+       dirname=  "data";
+       prefix= "ec_start";
+       postfix=".nc";
+       reference_date="1950-01-01";
+
+       variables= variables_tmp;
+       vectorial_variables= vectorial_variables_tmp;
+       target_size= target_size_tmp;
+
+       reloaded= false;
+
+       nb_timestep_day= 4;
+       averaging_period=0.;
+       time= time_tmp;
+       }
      else if (strcmp (DatasetName, "ww3a_elements") == 0)
      {
         // Definition of WW3 Arctic analysed - grid and datasets
@@ -1823,12 +2731,11 @@ namespace Nextsim
 
 
         Grid grid_tmp={
-            interpolation_method: InterpolationType::FromMeshToMesh2dx,     
+            interpolation_method: InterpolationType::FromMeshToMesh2dx,
             //interp_type : TriangleInterpEnum, // slower
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
                 dirname="data",
-                //filename:"erai.6h.201304.nc",//"erai.6h.200803.nc",
             prefix= "SWARP_WW3_ARCTIC-12K_",
             postfix=".nc",
 
@@ -1838,11 +2745,17 @@ namespace Nextsim
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: "NpsNextsim.mpp",
+            mpp_file: projfilename,
             interpolation_in_latlon: false,
 
             loaded: false,
-            monthly_dataset: false,
+            dataset_frequency:"daily",
+
+            waveOptions: {
+               wave_dataset:true,
+               use_mwp:false,
+               use_ice:true
+            },
 
             masking: false
         };
@@ -1872,7 +2785,7 @@ namespace Nextsim
         };
 
         Variable SWH={
-             name: "hs", // significant height of wind and swell waves 
+             name: "hs", // significant height of wind and swell waves
              dimensions: dimensions,
              land_mask_defined: false,
              land_mask_value: 0.,
@@ -1899,7 +2812,7 @@ namespace Nextsim
         };
 
         Variable FP={
-             name: "fp", // wave peak frequency 
+             name: "fp", // wave peak frequency
              dimensions: dimensions,
              land_mask_defined: false,
              land_mask_value: 0.,
@@ -1926,18 +2839,195 @@ namespace Nextsim
          variables= variables_tmp;
          target_size= target_size_tmp;
          grid= grid_tmp;
-         
+
          reloaded= false;
 
          nb_timestep_day= 8;
-         daily_mean=false;
+         averaging_period=0.;
+
+         time= time_tmp;
+
+     }
+     else if (strcmp (DatasetName, "erai_waves_1deg_elements") == 0)
+     {
+        // ERAI 1deg waves - grid and datasets
+         Dimension dimension_x={
+             name:"longitude",
+             cyclic:true
+        };
+
+         Dimension dimension_y={
+             name:"latitude",
+             cyclic:false
+        };
+
+         Dimension dimension_time={
+             name:"time", // "Time"
+             cyclic:false
+        };
+
+        // Definition of the grid
+        std::vector<Dimension> dimensions_lon(1);
+        dimensions_lon[0] = dimension_x;
+
+        std::vector<Dimension> dimensions_lat(1);
+        dimensions_lat[0] = dimension_y;
+
+        std::vector<Dimension> dimensions_latlon(2);
+        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[1] = dimension_x;
+
+        Variable latitude={
+             name: "latitude",
+             dimensions: dimensions_lat,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_north",
+             data2: data2_tmp
+        };
+
+        Variable longitude={
+             name: "longitude",
+             dimensions: dimensions_lon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_east",
+             data2: data2_tmp
+        };
+
+
+
+        Grid grid_tmp={
+            interpolation_method: InterpolationType::FromGridToMesh,
+            //interp_type : TriangleInterpEnum, // slower
+            interp_type : BilinearInterpEnum,
+            //interp_type : NearestInterpEnum,
+            //interp_type: -1,
+                dirname="data",
+                //filename:"erai.6h.201304.nc",//"erai.6h.200803.nc",
+            prefix= "erai_waves_1deg_",
+            postfix=".nc",
+
+            latitude: latitude,
+            longitude: longitude,
+
+            dimension_x: dimension_x,
+            dimension_y: dimension_y,
+
+            mpp_file: "",
+            interpolation_in_latlon: true,
+
+            loaded: false,
+            dataset_frequency:"yearly",
+
+            waveOptions: {
+               wave_dataset:true,
+               use_mwp:true,
+               use_ice:false
+            },
+
+            masking: false
+        };
+
+        // Definition of the data
+
+        std::vector<Dimension> dimensions(3);
+        dimensions[0] = dimension_time;
+        dimensions[1] = dimension_y;
+        dimensions[2] = dimension_x;
+
+
+        std::vector<Dimension> dimensions_time(1);
+        dimensions_time[0] = dimension_time;
+
+        Variable time_tmp={
+            name: "time",
+            dimensions: dimensions_time,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a: 1.,
+            b: 0.,
+            Units: "hours",
+            data2: data2_tmp
+        };
+
+        Variable SWH={
+             name: "swh", // significant height of wind and swell waves
+             dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "m",
+             data2: data2_tmp
+        };
+
+
+        Variable MWD={
+             name: "mwd", // wave mean direction (wave_from_direction)
+             dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree",
+             data2: data2_tmp
+        };
+
+        Variable MWP={
+             name: "mwp", // wave peak period
+             dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "s",
+             data2: data2_tmp
+        };
+
+
+        std::vector<Variable> variables_tmp(3);
+        variables_tmp[0] = SWH;
+        variables_tmp[1] = MWD;
+        variables_tmp[2] = MWP;
+
+
+         dirname=  "data";
+         prefix= "erai_waves_1deg_";
+         postfix=".nc";
+         reference_date="1900-01-01";//"2008-01-01";
+
+         variables= variables_tmp;
+         target_size= target_size_tmp;
+         grid= grid_tmp;
+
+         reloaded= false;
+
+         nb_timestep_day= 4;
+         averaging_period=0.;
 
          time= time_tmp;
 
      }
      else
        {
-   	fprintf (stderr, "Dataset: unknown projection %s\n",DatasetName);
+   	fprintf (stderr, "Dataset: unknown dataset %s\n",DatasetName);
    	fprintf (stderr, "valid types are:\n");
    	fprintf (stderr, "asr_nodes\n");
    	fprintf (stderr, "asr_elements\n");
@@ -1947,10 +3037,14 @@ namespace Nextsim
     fprintf (stderr, "ice_amsre_elements\n");
     fprintf (stderr, "ice_osisaf_elements\n");
     fprintf (stderr, "ice_amsr2_elements\n");
+    fprintf (stderr, "ice_piomas_elements\n");
    	fprintf (stderr, "etopo_elements\n");
    	fprintf (stderr, "ERAi_nodes\n");
     fprintf (stderr, "ERAi_elements\n");
-    
+    fprintf (stderr, "ww3a_elements\n");
+    fprintf (stderr, "erai_waves_1deg_elements\n");
+
+
        //close_Dataset (this);
      }
 
@@ -1968,32 +3062,34 @@ void
 DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max, double RY_min, double RY_max)
 {
     // we make the loaded domain a bit larger to avoid problems
-    double expansion_factor = 0.05; 
-    
+    double expansion_factor = 0.05;
+
     double X_domain_size = RX_max-RX_min;
     double Y_domain_size = RY_max-RY_min;
-    
+
     RX_min=RX_min-expansion_factor*X_domain_size;
     RX_max=RX_max+expansion_factor*X_domain_size;
     RY_min=RY_min-expansion_factor*Y_domain_size;
     RY_max=RY_max+expansion_factor*Y_domain_size;
-    
+
     //std::cout <<"RX_min= "<< RX_min << "RX_max= "<< RX_max <<"RY_min= "<< RY_min <<"RY_max= "<< RY_max <<"\n";
-    
+
     // Attributes (scaling and offset)
     netCDF::NcVarAtt att;
     double scale_factor;
     double add_offset;
-        
+
     //std::cout<<"---------------------fist loading ...\n";
     std::string current_timestr;
     if ( current_time > 0 )
     {
-        if(grid_ptr->monthly_dataset)
-            current_timestr = to_date_string_ym(current_time);
+        if(grid_ptr->dataset_frequency=="monthly")
+            current_timestr = to_date_string_ym(current_time);//yyyymm
+        else if(grid_ptr->dataset_frequency=="yearly")
+            current_timestr = to_date_string_y(std::floor(current_time));//yyyy
         else
-            current_timestr = to_date_string_yd(current_time);
-        
+            current_timestr = to_date_string_yd(current_time);//yyyymmdd
+
         //std::cout <<"TIMESTR= "<< current_timestr <<"\n";
     }
     else
@@ -2032,16 +3128,17 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 	grid_ptr->dimension_x_count =  tmpDim.getSize();
     grid_ptr->dimension_x_start = 0;
 
+
 	if((grid_ptr->latitude.dimensions.size()==1) && (grid_ptr->longitude.dimensions.size()==1))
 	{
 		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
-        
+
         // We load the full grid
 		std::vector<double> LAT(grid_ptr->dimension_y_count);
 		std::vector<double> LON(grid_ptr->dimension_x_count);
-            
-        getlatlon_regular_latlon(&LAT[0],&LON[0],&VLAT,&VLON);  
+
+        getlatlon_regular_latlon(&LAT[0],&LON[0],&VLAT,&VLON);
 
         // Then, we determine the reduced dimension
         int tmp_start=-1;
@@ -2055,10 +3152,10 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
                     tmp_start=i;
             }
         }
-        
+
         grid_ptr->dimension_y_start=tmp_start;
         grid_ptr->dimension_y_count=tmp_end-tmp_start+1;
-        
+
         tmp_start=-1;
         tmp_end=-1;
         for (int i=0; i<(LON.size()); ++i)
@@ -2072,33 +3169,34 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
         }
         grid_ptr->dimension_x_start=tmp_start;
         grid_ptr->dimension_x_count=tmp_end-tmp_start+1;
-        
+
 		LAT.resize(grid_ptr->dimension_y_count);
 		LON.resize(grid_ptr->dimension_x_count);
-        
+
+        std::cout<<tmp_start<<","<<tmp_end<<","<<tmp_end-tmp_start+1<<"\n";
         // Then we load the reduced grid
-        getlatlon_regular_latlon(&LAT[0],&LON[0],&VLAT,&VLON);  
-                
+        getlatlon_regular_latlon(&LAT[0],&LON[0],&VLAT,&VLON);
+
 		grid_ptr->gridY=LAT;
 		grid_ptr->gridX=LON;
 
         // Save lon and lat for possible output
         grid_ptr->gridLAT=LAT;
         grid_ptr->gridLON=LON;
-        
-		//std::cout <<"GRID : READ NETCDF done\n";
+
+		std::cout <<"GRID : READ NETCDF done\n";
 	}
     else if(grid_ptr->interpolation_method==InterpolationType::FromGridToMesh)
 	{
 		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
-        
+
         // We load the full grid
     	std::vector<double> X(grid_ptr->dimension_x_count);
 		std::vector<double> Y(grid_ptr->dimension_y_count);
 
-        getXY_regular_XY(&X[0],&Y[0],&VLAT,&VLON);          
-        
+        getXY_regular_XY(&X[0],&Y[0],&VLAT,&VLON);
+
         // Then, we determine the reduced dimension
         int tmp_start=-1;
         int tmp_end=-1;
@@ -2111,10 +3209,10 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
                     tmp_start=i;
             }
         }
-        
+
         grid_ptr->dimension_y_start=tmp_start;
         grid_ptr->dimension_y_count=tmp_end-tmp_start+1;
-        
+
         tmp_start=-1;
         tmp_end=-1;
         for (int i=0; i<(X.size()); ++i)
@@ -2128,49 +3226,49 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
         }
         grid_ptr->dimension_x_start=tmp_start;
         grid_ptr->dimension_x_count=tmp_end-tmp_start+1;
-        
+
 		Y.resize(grid_ptr->dimension_y_count);
 		X.resize(grid_ptr->dimension_x_count);
-        
+
         // Then we load the reduced grid
-        getXY_regular_XY(&X[0],&Y[0],&VLAT,&VLON);          
-        
+        getXY_regular_XY(&X[0],&Y[0],&VLAT,&VLON);
+
 		grid_ptr->gridX=X;
 		grid_ptr->gridY=Y;
-        
+
         // LAT/LON are not regular, better not to save them except if needed.
-        //grid_ptr->gridLAT=XLAT; 
+        //grid_ptr->gridLAT=XLAT;
         //grid_ptr->gridLON=YLON;
-        
+
         //std::cout <<"GRID : READ NETCDF done\n";
 	}
 	else
 	{
 		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
-        
+
         // We load the full grid
 		std::vector<double> LAT(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 		std::vector<double> LON(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
-        
+
 		std::vector<double> X(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 		std::vector<double> Y(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
-        
-        getXYlatlon_from_latlon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);   
-        
+
+        getXYlatlon_from_latlon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
+
 
         // Then, we determine the reduced dimension
         std::vector<int> tmp_x_start(0);
-        std::vector<int> tmp_x_end(0);        
+        std::vector<int> tmp_x_end(0);
         std::vector<int> tmp_y_start(0);
-        std::vector<int> tmp_y_end(0);   
-        
+        std::vector<int> tmp_y_end(0);
+
 #if 0
         std::vector<int> tmp_x_start(grid_ptr->dimension_y_count,-1);
-        std::vector<int> tmp_x_end(grid_ptr->dimension_y_count,-1);        
+        std::vector<int> tmp_x_end(grid_ptr->dimension_y_count,-1);
         std::vector<int> tmp_y_start(grid_ptr->dimension_x_count,-1);
-        std::vector<int> tmp_y_end(grid_ptr->dimension_x_count,-1);        
-		
+        std::vector<int> tmp_y_end(grid_ptr->dimension_x_count,-1);
+
         for (int i=0; i<grid_ptr->dimension_x_count; ++i)
 		{
 			for (int j=0; j<grid_ptr->dimension_y_count; ++j)
@@ -2183,7 +3281,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
                 }
             }
         }
-        
+
         for (int i=0; i<grid_ptr->dimension_y_count; ++i)
 		{
 			for (int j=0; j<grid_ptr->dimension_x_count; ++j)
@@ -2195,21 +3293,21 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
                         tmp_x_start[i]=j;
                 }
             }
-        }        
-        
+        }
+
         int tmp_start=*std::min_element(tmp_y_start.begin(),tmp_y_start.end());
         int tmp_end=*std::max_element(tmp_y_end.begin(),tmp_y_end.end());
-        
+
         grid_ptr->dimension_y_start=tmp_start;
         grid_ptr->dimension_y_count=tmp_end-tmp_start+1;
-               
+
         tmp_start=*std::min_element(tmp_x_start.begin(),tmp_x_start.end());
         tmp_end=*std::max_element(tmp_x_end.begin(),tmp_x_end.end());
-        
+
         grid_ptr->dimension_x_start=tmp_start;
-        grid_ptr->dimension_x_count=tmp_end-tmp_start+1;     
-     #endif
-        
+        grid_ptr->dimension_x_count=tmp_end-tmp_start+1;
+#endif
+
         // we just store the indices of all the points included in [RY_min, RY_max]
         std::vector<int> tmp_tmp_x_id(0);
         std::vector<int> tmp_tmp_y_id(0);
@@ -2228,28 +3326,28 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
                 }
             }
         }
-           
+
         int tmp_start=*std::min_element(tmp_tmp_y_id.begin(),tmp_tmp_y_id.end());
         int tmp_end=*std::max_element(tmp_tmp_y_id.begin(),tmp_tmp_y_id.end());
-        
+
         grid_ptr->dimension_y_start=tmp_start;
         grid_ptr->dimension_y_count=tmp_end-tmp_start+1;
-               
+
         tmp_start=*std::min_element(tmp_tmp_x_id.begin(),tmp_tmp_x_id.end());
         tmp_end=*std::max_element(tmp_tmp_x_id.begin(),tmp_tmp_x_id.end());
-        
+
         grid_ptr->dimension_x_start=tmp_start;
         grid_ptr->dimension_x_count=tmp_end-tmp_start+1;
-        
+
 		LAT.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 		LON.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
-        
+
 		X.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 		Y.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
-        
+
         // Then we load the reduced grid
         getXYlatlon_from_latlon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
-        
+
         // Then we apply the masking if activated
 		if(grid_ptr->masking){
 			netCDF::NcVar VMASK;
@@ -2259,11 +3357,13 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 			//VMASK = dataFile.getVar(grid_ptr->masking_variable.name);
             if ( current_time > 0 )
             {
-                if(grid_ptr->monthly_dataset)
+                if(grid_ptr->dataset_frequency=="monthly")
                     current_timestr = to_date_string_ym(current_time);
+                else if(grid_ptr->dataset_frequency=="yearly")
+                    current_timestr = to_date_string_y(current_time);
                 else
                     current_timestr = to_date_string_yd(current_time);
-    
+
                 std::cout <<"TIMESTR= "<< current_timestr <<"\n";
             }
             else
@@ -2287,7 +3387,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 
             // load the data
             VMASK = dataFile2.getVar(grid_ptr->masking_variable.name);
-            
+
 			std::vector<double> data_in;
 
 			std::vector<double> reduced_X;
@@ -2303,7 +3403,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
             for(int k=0; k<grid_ptr->masking_variable.dimensions.size(); ++k)
             {
                 std::string dimension_name=grid_ptr->masking_variable.dimensions[k].name;
-            
+
                 // dimension_x case
                 if ((dimension_name).find(grid_ptr->dimension_x.name) != std::string::npos)
                 {
@@ -2327,13 +3427,13 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
             // time dimension
 			index_start[0] = 0;
 			index_count[0] = 1;
-    		
+
 			data_in.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 			VMASK.getVar(index_start,index_count,&data_in[0]);
 
             // Read the attributes
 			netCDF::NcVarAtt att;
-			
+
             // Look for FillValue definition
             int FillValue;
             bool find_FillValue=true;
@@ -2346,7 +3446,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
             {
                 find_FillValue=false;
             }
-            
+
             // Look for missing_value definition
             int missing_value;
             bool find_missing_value=true;
@@ -2359,14 +3459,14 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
             {
                 find_missing_value=false;
             }
-            
+
             bool find_land_mask     =grid_ptr->masking_variable.land_mask_defined;
             double land_mask_value  =grid_ptr->masking_variable.land_mask_value;
             bool find_NaN_mask      =grid_ptr->masking_variable.NaN_mask_defined;
             double NaN_mask_value   =grid_ptr->masking_variable.NaN_mask_value;
 
             double tmp_data;
-          
+
 			for (int i=0; i<grid_ptr->dimension_y_count; ++i)
 			{
 				for (int j=0; j<grid_ptr->dimension_x_count; ++j)
@@ -2409,13 +3509,13 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 }
 
 void
-DataSet::getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)      
+DataSet::getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)
 {
     // Attributes (scaling and offset)
     netCDF::NcVarAtt att;
     double scale_factor;
     double add_offset;
-         
+
 	// read in coordinates
 	std::vector<size_t> index_x_count(1);
 	std::vector<size_t> index_y_count(1);
@@ -2428,8 +3528,8 @@ DataSet::getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_p
 
 	index_x_start[0] = grid.dimension_x_start;
 	index_x_count[0] = grid.dimension_x_count;
-	
 	VLAT_ptr->getVar(index_y_start,index_y_count,&LAT[0]);
+    //std::cout<<"getlatlon_regular_latlon x "<<index_x_start[0]<<","<<index_x_count[0]<<"\n";
 	VLON_ptr->getVar(index_x_start,index_x_count,&LON[0]);
 
     // Need to multiply with scale factor and add offset - these are stored as variable attributes
@@ -2451,9 +3551,9 @@ DataSet::getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_p
     catch(netCDF::exceptions::NcException& e)
     {}
 
-    for (int i=0; i<(index_y_count[0]); ++i) 
+    for (int i=0; i<(index_y_count[0]); ++i)
         LAT[i]=LAT[i]*scale_factor + add_offset;
-            
+
     // Need to multiply with scale factor and add offset - these are stored as variable attributes
     scale_factor=1.;
     try
@@ -2473,19 +3573,22 @@ DataSet::getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_p
     catch(netCDF::exceptions::NcException& e)
     {}
 
-    for (int i=0; i<(index_x_count[0]); ++i) 
-        LON[i]=LON[i]*scale_factor + add_offset;
-                
+    for (int i=0; i<(index_x_count[0]); ++i)
+    {
+        LON[i]=thetaInRange(LON[i]*scale_factor + add_offset,-180.,false);
+        //make sure lon is in range [-180,180) to correspond to branch cut in mapx
+    }
+
 }
 
 void
-DataSet::getXY_regular_XY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)      
+DataSet::getXY_regular_XY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)
 {
     // Attributes (scaling and offset)
     netCDF::NcVarAtt att;
     double scale_factor;
     double add_offset;
-         
+
 	// read in coordinates
 	std::vector<size_t> index_px_count(2);
 	std::vector<size_t> index_py_count(2);
@@ -2512,7 +3615,7 @@ DataSet::getXY_regular_XY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::N
 	std::vector<double> YLAT(index_py_count[0]*index_py_count[1]);
 	std::vector<double> YLON(index_py_count[0]*index_py_count[1]);
 
-	
+
 	//std::cout <<"GRID : READ NETCDF done\n";
 
     // Need to multiply with scale factor and add offset - these are stored as variable attributes
@@ -2540,22 +3643,22 @@ DataSet::getXY_regular_XY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::N
     }
     catch(netCDF::exceptions::NcException& e)
     {}
-    
+
     if(add_offset!=0. || scale_factor!=1.)
-    {    
-        for (int i=0; i<(index_px_count[0]*index_px_count[1]); ++i) 
+    {
+        for (int i=0; i<(index_px_count[0]*index_px_count[1]); ++i)
         {
             XLON[i]=XLON[i]*scale_factor + add_offset;
             XLAT[i]=XLAT[i]*scale_factor + add_offset;
         }
-    
-        for (int i=0; i<(index_py_count[0]*index_py_count[1]); ++i) 
+
+        for (int i=0; i<(index_py_count[0]*index_py_count[1]); ++i)
         {
             YLON[i]=YLON[i]*scale_factor + add_offset;
             YLAT[i]=YLAT[i]*scale_factor + add_offset;
         }
     }
-    
+
     // projection
 	mapx_class *map;
 	std::string configfile = (boost::format( "%1%/%2%/%3%" )
@@ -2590,17 +3693,17 @@ DataSet::getXY_regular_XY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::N
 	}
 
 	close_mapx(map);
-                
+
 }
 
 void
-DataSet::getXYlatlon_from_latlon(double* X, double* Y, double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)      
+DataSet::getXYlatlon_from_latlon(double* X, double* Y, double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)
 {
     // Attributes (scaling and offset)
     netCDF::NcVarAtt att;
     double scale_factor;
     double add_offset;
-         
+
 	// read in coordinates
 	std::vector<size_t> index_count(2);
     std::vector<size_t> index_start(2);
@@ -2633,16 +3736,16 @@ DataSet::getXYlatlon_from_latlon(double* X, double* Y, double* LAT, double* LON,
     }
     catch(netCDF::exceptions::NcException& e)
     {}
-    
+
     if(add_offset!=0. || scale_factor!=1.)
-    {    
-        for (int i=0; i<(index_count[0]*index_count[1]); ++i) 
+    {
+        for (int i=0; i<(index_count[0]*index_count[1]); ++i)
         {
             LON[i]=LON[i]*scale_factor + add_offset;
             LAT[i]=LAT[i]*scale_factor + add_offset;
         }
     }
-    
+
     // projection
 	mapx_class *map;
 	std::string configfile = (boost::format( "%1%/%2%/%3%" )
@@ -2668,7 +3771,43 @@ DataSet::getXYlatlon_from_latlon(double* X, double* Y, double* LAT, double* LON,
 		}
 	}
 
-	close_mapx(map);           
+	close_mapx(map);
+}
+
+double
+DataSet::thetaInRange(double const& th_, double const& th1, bool const& close_on_right)
+{
+    //if close_on_right: convert th_ to angle in (th1,th1+360]
+    //else: convert th_ to angle in [th1,th1+360)
+    double th2, dth, th;
+    int njump;
+
+    th2   = th1 + 360.;
+    if (th_ < th1)
+    {
+        dth   = th1 - th_;
+        njump = std::ceil(dth/360.);
+        th    = th_ + njump*360.;
+    }
+    else if (th_ > th2)
+    {
+        dth   = th_ - th2;
+        njump = std::ceil(dth/360.);
+        th = th_ - njump*360.;
+    }
+    else if (th_ == th2)
+    {
+        th = th1;
+    }
+    else
+    {
+        th = th_;
+    }
+
+    if (close_on_right && abs(th-th1)<1.e-12)
+        th = th2;
+
+    return th;
 }
 
 } // Nextsim

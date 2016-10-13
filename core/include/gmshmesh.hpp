@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
  * @file   gmshmesh.hpp
@@ -103,6 +103,8 @@ public:
     GmshMesh(std::vector<point_type> const& nodes,
              std::vector<element_type> const& triangles);
 
+    GmshMesh(GmshMesh const& mesh);
+
     void readFromFile(std::string const& filename);
     void writeTofile(std::string const& filename);
     void writeGeometry(std::string const& geofile, int nx, int ny, double xmin, double ymin, double dx, double dy);
@@ -111,6 +113,7 @@ public:
 
     std::string const& version() const {return M_version;}
     std::string const& ordering() const {return M_ordering;}
+    std::string const& projfile() const {return M_projection_file;}
     std::vector<point_type> const& nodes() const {return M_nodes;}
     //std::vector<element_type> const& elements() const {return M_elements;}
     std::vector<element_type> const& triangles() const {return M_triangles;}
@@ -131,6 +134,9 @@ public:
     void setNumEdges(int const& nlns) {M_num_edges=nlns;}
     void setNumTriangles(int const& ntrs) {M_num_triangles=ntrs;}
     void stereographicProjection();
+
+    void update(std::vector<point_type> const& nodes,
+                std::vector<element_type> const& triangles);
 
     std::vector<int> indexTr() const;
     std::vector<double> coordX() const;
@@ -156,6 +162,7 @@ private:
 
     std::string M_version;
     std::string M_ordering;
+    std::string M_projection_file;
     std::vector<point_type> M_nodes;
     //std::vector<element_type> M_elements;
     std::vector<element_type> M_triangles;
