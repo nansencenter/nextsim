@@ -154,9 +154,13 @@ public:
     void forcing();
     void forcingAtmosphere();
     void forcingOcean();
+
 #if defined (WAVES)
     void forcingWave();
+    WaveOptions wim_forcing_options;
+    bool        wim_ideal_forcing;
 #endif
+
 	void bathymetry();
 
     void initIce();

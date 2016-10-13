@@ -87,12 +87,17 @@ inline std::string to_date_string_y( double date_time )
     return (boost::format( "%1%" ) % dt.year()).str();
 }
 
-inline double from_date_time_string( const std::string& value )
+inline double from_date_time_string( const std::string& datestr )
 {
-    double date = from_date_string( value );
-    boost::posix_time::ptime t = boost::posix_time::time_from_string( value );
-    double seconds = static_cast<double>(t.time_of_day().total_seconds());
-    date += (seconds / 24.0 / 60.0 / 60.0);
+    double date = from_date_string( datestr );
+
+    if (datestr.find(" ") != std::string::npos)
+    {
+        //std::string date_time_str = datestr + " 00:00:00";
+        boost::posix_time::ptime t = boost::posix_time::time_from_string( datestr );
+        double seconds = static_cast<double>(t.time_of_day().total_seconds());
+        date += (seconds / 24.0 / 60.0 / 60.0);
+    }
 
     // if milliseconds are needed
     // double milliseconds = static_cast<double>(t.time_of_day().total_milliseconds());
@@ -143,9 +148,15 @@ inline std::string time_spent( const std::string& value )
     return posix_time::to_simple_string(diff);
 }
 
-inline std::string model_time_str( const std::string& value, double time_in_seconds = 0)
+inline std::string model_time_str( const std::string& datestr, double time_in_seconds = 0)
 {
-    boost::posix_time::ptime posixtime = boost::posix_time::time_from_string( value );
+    std::string date_time_str = datestr;
+    if (date_time_str.find(" ") == std::string::npos)
+    {
+        date_time_str += " 00:00:00";
+    }
+
+    boost::posix_time::ptime posixtime = boost::posix_time::time_from_string( date_time_str );
     posixtime += boost::posix_time::time_duration(0,0,time_in_seconds);
     return to_simple_string(posixtime);
 }

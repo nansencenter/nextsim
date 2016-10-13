@@ -84,6 +84,8 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
     M_mesh.readFromFile(M_mesh_filename);
 
     //if (!vm["simul.wim_grid"].as<bool>())
+    // setup the stereographic projection
+    //M_mesh.setProjectionFile("toto.mpp");
     M_mesh.stereographicProjection();
     // M_mesh.writeTofile("copy_init_mesh.msh");
 
@@ -462,7 +464,7 @@ FiniteElement::initConstant()
         case setup::AtmosphereType::CONSTANT:   quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ASR:        quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ERAi:       quad_drag_coef_air = vm["simul.ERAi_quad_drag_coef_air"].as<double>(); break;
-        case setup::AtmosphereType::EC: 
+        case setup::AtmosphereType::EC:
         case setup::AtmosphereType::EC_ERAi:
                     quad_drag_coef_air = vm["simul.ECMWF_quad_drag_coef_air"].as<double>(); break;
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
@@ -487,7 +489,8 @@ FiniteElement::initConstant()
         ("topaz_forecast_amsr2_osisaf", setup::IceType::TOPAZ4FAMSR2OSISAF)
         ("amsre", setup::IceType::AMSRE)
         ("amsr2", setup::IceType::AMSR2)
-        ("piomas", setup::IceType::PIOMAS);    
+        ("osisaf", setup::IceType::OSISAF)
+        ("piomas", setup::IceType::PIOMAS);
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
 
 #if defined (WAVES)
@@ -1575,7 +1578,7 @@ FiniteElement::regrid(bool step)
     M_atmosphere_bis_elements_dataset.reloaded=false;
     M_ocean_nodes_dataset.reloaded=false;
     M_ocean_elements_dataset.reloaded=false;
-    
+
     M_ice_topaz_elements_dataset.reloaded=false;
     M_ice_piomas_elements_dataset.reloaded=false;
     M_ice_amsre_elements_dataset.reloaded=false;
@@ -1584,10 +1587,11 @@ FiniteElement::regrid(bool step)
     M_bathymetry_elements_dataset.reloaded=false;
 #if defined (WAVES)
     M_WW3A_elements_dataset.reloaded=false;
+    M_ERAIW_1DEG_elements_dataset.reloaded=false;
 #endif
 
-    // for the parralel code, it will be necessary to add those lines
-    // as the domain covered by the partinions changes at each remeshing/partitioning
+    // for the parallel code, it will be necessary to add those lines
+    // as the domain covered by the partitions changes at each remeshing/partitioning
 #if 0
     M_atmosphere_nodes_dataset.grid.loaded=false;
     M_atmosphere_elements_dataset.grid.loaded=false;
@@ -4366,7 +4370,7 @@ FiniteElement::initMoorings()
         dimension_x: dimension_x,
         dimension_y: dimension_y,
 
-        mpp_file: "NpsNextsim.mpp",
+        mpp_file: vm["simul.proj_filename"].as<std::string>(),
         interpolation_in_latlon: false,
 
         loaded: false,
@@ -4735,7 +4739,7 @@ FiniteElement::readRestart(int step)
     M_atmosphere_bis_elements_dataset.target_size=M_num_elements;
     M_ocean_nodes_dataset.target_size=M_num_nodes;
     M_ocean_elements_dataset.target_size=M_num_elements;
-    
+
     M_ice_topaz_elements_dataset.target_size=M_num_elements;
     M_ice_piomas_elements_dataset.target_size=M_num_elements;
     M_ice_amsre_elements_dataset.target_size=M_num_elements;
@@ -4990,7 +4994,7 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             M_mixrat=ExternalData(-1.);
             M_external_data.push_back(&M_mixrat);
         break;
-        
+
         case setup::AtmosphereType::EC_ERAi:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
@@ -5098,12 +5102,15 @@ FiniteElement::forcingWave()
 
             M_FP=ExternalData(vm["simul.constant_wave_peak_frequency"].as<double>());
             M_external_data.push_back(&M_FP);
+
+            //wim_forcing_options = M_WW3A_elements_dataset.grid.waveOptions;
+            wim_ideal_forcing   = true;
 		break;
 
         //std::cout << age[0] << std::endl;
         case setup::WaveType::WW3A:
 
-	    M_SWH=ExternalData(&M_WW3A_elements_dataset, M_mesh, 0,false,time_init);
+	        M_SWH=ExternalData(&M_WW3A_elements_dataset, M_mesh, 0,false,time_init);
             M_external_data.push_back(&M_SWH);
 
             M_MWD=ExternalData(&M_WW3A_elements_dataset, M_mesh, 1,false,time_init);
@@ -5111,11 +5118,15 @@ FiniteElement::forcingWave()
 
             M_FP=ExternalData(&M_WW3A_elements_dataset, M_mesh, 2,false,time_init);
             M_external_data.push_back(&M_FP);
-                break;
+
+            wim_forcing_options = M_WW3A_elements_dataset.grid.waveOptions;
+            wim_ideal_forcing   = false;
+            
+            break;
 
         case setup::WaveType::ERAI_WAVES_1DEG:
 
-	    M_SWH=ExternalData(&M_ERAIW_1DEG_elements_dataset, M_mesh, 0,false,time_init);
+            M_SWH=ExternalData(&M_ERAIW_1DEG_elements_dataset, M_mesh, 0,false,time_init);
             M_external_data.push_back(&M_SWH);
 
             M_MWD=ExternalData(&M_ERAIW_1DEG_elements_dataset, M_mesh, 1,false,time_init);
@@ -5123,7 +5134,11 @@ FiniteElement::forcingWave()
 
             M_FP=ExternalData(&M_ERAIW_1DEG_elements_dataset, M_mesh, 2,false,time_init);
             M_external_data.push_back(&M_FP);
-                break;
+
+            wim_forcing_options = M_ERAIW_1DEG_elements_dataset.grid.waveOptions;
+            wim_ideal_forcing   = false;
+
+            break;
 
         default:
             std::cout << "invalid wave forcing"<<"\n";
@@ -5760,7 +5775,7 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
     std::string configfile = (boost::format( "%1%/%2%/%3%" )
                               % Environment::nextsimDir().string()
                               % "data"
-                              % "NpsNextsim.mpp"
+                              % vm["simul.proj_filename"].as<std::string>()
                               ).str();
 
     std::vector<char> str(configfile.begin(), configfile.end());
@@ -5831,7 +5846,7 @@ FiniteElement::updateIABPDrifter()
     std::string configfile = (boost::format( "%1%/%2%/%3%" )
                               % Environment::nextsimDir().string()
                               % "data"
-                              % "NpsNextsim.mpp"
+                              % vm["simul.proj_filename"].as<std::string>()
                               ).str();
 
     std::vector<char> str(configfile.begin(), configfile.end());
@@ -5978,7 +5993,8 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     LOG(DEBUG) <<"INFO: Previous  NumTriangles = "<< M_mesh.numTriangles() <<"\n";
 
     M_mesh_previous = M_mesh;
-    M_mesh = mesh_type(mesh_nodes,mesh_triangles);
+    //M_mesh = mesh_type(mesh_nodes,mesh_triangles);
+    M_mesh.update(mesh_nodes,mesh_triangles);
     //M_mesh.writeTofile("out.msh");
 
     M_elements = M_mesh.triangles();
@@ -6280,7 +6296,17 @@ FiniteElement::nextsimToWim(bool step)
         chrono.restart();
         LOG(DEBUG) <<"Element Interp starts\n";
         // ELEMENT INTERPOLATION (c, h, Nfloes)
-        int nb_var=6;
+
+        int nb_var;
+        if ( wim_ideal_forcing )
+        {
+            nb_var=3;
+            M_SWH_grid.resize(0);
+            M_FP_grid.resize(0);
+            M_MWD_grid.resize(0);
+        }
+        else
+            nb_var=6;
 
         std::vector<double> interp_elt_in(nb_var*M_num_elements);
 
@@ -6305,17 +6331,27 @@ FiniteElement::nextsimToWim(bool step)
             interp_elt_in[nb_var*i+tmp_nb_var] = M_nfloes[i];
             tmp_nb_var++;
 
-            // significant wave height
-            interp_elt_in[nb_var*i+tmp_nb_var] = M_SWH[i];
-            tmp_nb_var++;
+            if ( !wim_ideal_forcing )
+            {
+                // significant wave height
+                interp_elt_in[nb_var*i+tmp_nb_var] = M_SWH[i];
+                tmp_nb_var++;
 
-            // wave mean direction
-            interp_elt_in[nb_var*i+tmp_nb_var] = M_MWD[i];
-            tmp_nb_var++;
+                // wave mean direction
+                interp_elt_in[nb_var*i+tmp_nb_var] = M_MWD[i];
+                tmp_nb_var++;
 
-            // wave peak frequency
-            interp_elt_in[nb_var*i+tmp_nb_var] = M_FP[i];
-            tmp_nb_var++;
+                // wave peak period
+                if ( wim_forcing_options.use_mwp )
+                    interp_elt_in[nb_var*i+tmp_nb_var] = M_FP[i];
+                else
+                {
+                    interp_elt_in[nb_var*i+tmp_nb_var] = 0.;
+                    if (M_FP[i]>0.)
+                        interp_elt_in[nb_var*i+tmp_nb_var] = 1/M_FP[i];
+                }
+                tmp_nb_var++;
+            }
 
             if(tmp_nb_var>nb_var)
             {
@@ -6373,6 +6409,7 @@ FiniteElement::nextsimToWim(bool step)
         // move the mesh for the interpolation on to the wim grid
 		M_mesh.move(M_UM,1.);
 
+        //std::cout<<"before interp mesh2grid\n";
         InterpFromMeshToGridx(interp_elt_out,
                               &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
                               M_mesh.numNodes(),M_mesh.numTriangles(),
@@ -6383,6 +6420,10 @@ FiniteElement::nextsimToWim(bool step)
                               //vm["wim.nx"].as<int>(),vm["wim.ny"].as<int>(),
                               nx,ny,
                               0.);
+
+        //std::cout<<"after interp mesh2grid\n";
+        std::cout<<"ideal wave forcing: "<<wim_ideal_forcing<<"\n";
+
         // move back the mesh after the interpolation
 		M_mesh.move(M_UM,-1.);
 
@@ -6392,9 +6433,12 @@ FiniteElement::nextsimToWim(bool step)
             M_iceh_grid.assign(num_elements_grid,0.);
             M_nfloes_grid.assign(num_elements_grid,0.);
 
-            M_SWH_grid.assign(num_elements_grid,0.);
-            M_MWD_grid.assign(num_elements_grid,0.);
-            M_FP_grid.assign(num_elements_grid,0.);
+            if ( !wim_ideal_forcing )
+            {
+                M_SWH_grid.assign(num_elements_grid,0.);
+                M_MWD_grid.assign(num_elements_grid,0.);
+                M_FP_grid.assign(num_elements_grid,0.);
+            }
 
             M_taux_grid.assign(num_elements_grid,0.);
             M_tauy_grid.assign(num_elements_grid,0.);
@@ -6416,29 +6460,37 @@ FiniteElement::nextsimToWim(bool step)
             M_nfloes_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
             tmp_nb_var++;
 
-            // significant wave height
-            M_SWH_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-            tmp_nb_var++;
+            if ( !wim_ideal_forcing )
+            {
+                // significant wave height
+                M_SWH_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+                tmp_nb_var++;
 
-            // wave mean direction
-            M_MWD_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-            tmp_nb_var++;
+                // wave mean direction
+                M_MWD_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+                tmp_nb_var++;
 
-	    // wave peak frequency
-            M_FP_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-            tmp_nb_var++;
+                // wave peak frequency
+                M_FP_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+                tmp_nb_var++;
+            }
 
             if(tmp_nb_var>nb_var)
             {
                 throw std::logic_error("tmp_nb_var not equal to nb_var");
             }
         }
-        std::cout<<"M_SWH_grid[0]= "<< *std::min_element(M_SWH_grid.begin(),M_SWH_grid.end() )<<"\n";
-        std::cout<<"M_MWD_grid[0]= "<< *std::min_element(M_MWD_grid.begin(),M_MWD_grid.end() )<<"\n";
-	std::cout<<"M_FP_grid[0]= "<< *std::min_element(M_FP_grid.begin(),M_FP_grid.end() )<<"\n";
-        std::cout<<"M_SWH_grid[0]= "<< *std::max_element(M_SWH_grid.begin(),M_SWH_grid.end() )<<"\n";
-        std::cout<<"M_MWD_grid[0]= "<< *std::max_element(M_MWD_grid.begin(),M_MWD_grid.end() )<<"\n";
-        std::cout<<"M_FP_grid[0]= "<< *std::max_element(M_FP_grid.begin(),M_FP_grid.end() )<<"\n";
+
+        //test interp
+        if ( !wim_ideal_forcing )
+        {
+            std::cout<<"M_SWH_grid[0]= "<< *std::min_element(M_SWH_grid.begin(),M_SWH_grid.end() )<<"\n";
+            std::cout<<"M_MWD_grid[0]= "<< *std::min_element(M_MWD_grid.begin(),M_MWD_grid.end() )<<"\n";
+            std::cout<<"M_FP_grid[0]= "<< *std::min_element(M_FP_grid.begin(),M_FP_grid.end() )<<"\n";
+            std::cout<<"M_SWH_grid[0]= "<< *std::max_element(M_SWH_grid.begin(),M_SWH_grid.end() )<<"\n";
+            std::cout<<"M_MWD_grid[0]= "<< *std::max_element(M_MWD_grid.begin(),M_MWD_grid.end() )<<"\n";
+            std::cout<<"M_FP_grid[0]= "<< *std::max_element(M_FP_grid.begin(),M_FP_grid.end() )<<"\n";
+        }
 
         xDelete<double>(interp_elt_out);
     }

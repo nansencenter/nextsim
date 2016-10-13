@@ -22,7 +22,9 @@ GmshMesh::GmshMesh()
     //M_num_elements(0),
     M_num_triangles(0),
     M_num_edges(0)
-{}
+{
+    M_projection_file = (Environment::vm()["simul.proj_filename"]).as<std::string>();
+}
 
 GmshMesh::GmshMesh(std::vector<point_type> const& nodes,
                    std::vector<element_type> const& edges,
@@ -30,23 +32,40 @@ GmshMesh::GmshMesh(std::vector<point_type> const& nodes,
     :
     M_version("2.2"),
     M_ordering("gmsh"),
+    //M_projection_file("NpsNextsim.mpp"),
     M_nodes(nodes),
     M_triangles(triangles),
     M_edges(edges),
     M_num_nodes(nodes.size()),
     M_num_triangles(triangles.size()),
     M_num_edges(edges.size())
-{}
+{
+    M_projection_file = Environment::vm()["simul.proj_filename"].as<std::string>();
+}
 
 GmshMesh::GmshMesh(std::vector<point_type> const& nodes,
                    std::vector<element_type> const& triangles)
     :
     M_version("2.2"),
     M_ordering("gmsh"),
+    //M_projection_file("NpsNextsim.mpp"),
     M_nodes(nodes),
     M_triangles(triangles),
     M_num_nodes(nodes.size()),
     M_num_triangles(triangles.size())
+{
+    M_projection_file = Environment::vm()["simul.proj_filename"].as<std::string>();
+}
+
+GmshMesh::GmshMesh(GmshMesh const& mesh)
+    :
+    M_version(mesh.M_version),
+    M_ordering(mesh.M_ordering),
+    M_projection_file(mesh.M_projection_file),
+    M_nodes(mesh.M_nodes),
+    M_triangles(mesh.M_triangles),
+    M_num_nodes(mesh.M_num_nodes),
+    M_num_triangles(mesh.M_num_triangles)
 {}
 
 void
@@ -422,7 +441,7 @@ GmshMesh::stereographicProjection()
 {
     // polar stereographic projection
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
+    std::string filename = Environment::nextsimDir().string() + "/data/" + M_projection_file;
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
@@ -474,6 +493,16 @@ GmshMesh::stereographicProjection()
     close_mapx(map);
 }
 
+void
+GmshMesh::update(std::vector<point_type> const& nodes,
+                 std::vector<element_type> const& triangles)
+{
+    M_nodes = nodes;
+    M_triangles = triangles;
+    M_num_nodes = nodes.size();
+    M_num_triangles = triangles.size();
+}
+
 std::vector<int>
 GmshMesh::indexTr() const
 {
@@ -488,20 +517,6 @@ GmshMesh::indexTr() const
     }
 
     return index;
-}
-
-std::vector<double>
-GmshMesh::coordX() const
-{
-    std::vector<double> x(M_num_nodes);
-    int cpt = 0;
-    for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
-    {
-        x[cpt] = it->coords[0];
-        ++cpt;
-    }
-
-    return x;
 }
 
 std::vector<int>
@@ -519,8 +534,24 @@ GmshMesh::id() const
 }
 
 std::vector<double>
+GmshMesh::coordX() const
+{
+    //get x coord of nodes
+    std::vector<double> x(M_num_nodes);
+    int cpt = 0;
+    for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
+    {
+        x[cpt] = it->coords[0];
+        ++cpt;
+    }
+
+    return x;
+}
+
+std::vector<double>
 GmshMesh::coordY() const
 {
+    //get y coord of nodes
     std::vector<double> y(M_num_nodes);
     int cpt = 0;
     for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
@@ -535,6 +566,7 @@ GmshMesh::coordY() const
 std::vector<double>
 GmshMesh::coordX(double const& rotangle) const
 {
+    //get x coord of nodes (rotated)
     std::vector<double> x(M_num_nodes);
     int cpt = 0;
     double cos_rotangle=std::cos(rotangle);
@@ -551,6 +583,7 @@ GmshMesh::coordX(double const& rotangle) const
 std::vector<double>
 GmshMesh::coordY(double const& rotangle) const
 {
+    //get y coord of nodes (rotated)
     std::vector<double> y(M_num_nodes);
     int cpt = 0;
     double cos_rotangle=std::cos(rotangle);
@@ -567,6 +600,7 @@ GmshMesh::coordY(double const& rotangle) const
 std::vector<double>
 GmshMesh::bcoordX() const
 {
+    //get x coord of centers of elements
     std::vector<double> bcoord_x(M_num_triangles);
     int cpt = 0;
     double x = 0.;
@@ -590,6 +624,7 @@ GmshMesh::bcoordX() const
 std::vector<double>
 GmshMesh::bcoordY() const
 {
+    //get y coord of centers of elements
     std::vector<double> bcoord_y(M_num_triangles);
     int cpt = 0;
     double y = 0.;
@@ -613,6 +648,7 @@ GmshMesh::bcoordY() const
 std::vector<double>
 GmshMesh::bcoordX(double const& rotangle) const
 {
+    //get x coord of centers of elements (rotated)
     std::vector<double> bcoord_x(M_num_triangles);
     double cos_rotangle=std::cos(rotangle);
     double sin_rotangle=std::sin(rotangle);
@@ -638,6 +674,7 @@ GmshMesh::bcoordX(double const& rotangle) const
 std::vector<double>
 GmshMesh::bcoordY(double const& rotangle) const
 {
+    //get y coord of centers of elements (rotated)
     std::vector<double> bcoord_y(M_num_triangles);
     double cos_rotangle=std::cos(rotangle);
     double sin_rotangle=std::sin(rotangle);
@@ -664,7 +701,7 @@ std::vector<double>
 GmshMesh::meanLon() const
 {
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
+    std::string filename = Environment::nextsimDir().string() + "/data/" + M_projection_file;
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
@@ -692,7 +729,7 @@ std::vector<double>
 GmshMesh::meanLat() const
 {
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
+    std::string filename = Environment::nextsimDir().string() + "/data/" + M_projection_file;
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
@@ -720,7 +757,7 @@ std::vector<double>
 GmshMesh::lon() const
 {
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
+    std::string filename = Environment::nextsimDir().string() + "/data/" + M_projection_file;
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
@@ -748,7 +785,7 @@ std::vector<double>
 GmshMesh::lat() const
 {
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
+    std::string filename = Environment::nextsimDir().string() + "/data/" + M_projection_file;
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 

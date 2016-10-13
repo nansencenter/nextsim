@@ -35,6 +35,7 @@ namespace Nextsim
 //     Dataset *this;
 
        name = std::string(DatasetName);
+       projfilename = Environment::vm()["simul.proj_filename"].as<std::string>();
 
      std::vector<std::vector<double>> data2_tmp;
      data2_tmp.resize(2);
@@ -160,13 +161,8 @@ namespace Nextsim
 
             loaded: false,
             dataset_frequency:"monthly",
-            //monthly_dataset:true,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
      		masking: false
      	};
@@ -321,13 +317,8 @@ namespace Nextsim
 
             loaded: false,
             dataset_frequency:"monthly",
-            //monthly_dataset:true,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
      		masking: false
      	};
@@ -517,7 +508,7 @@ averaging_period=0.;         time= time_tmp;
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1.,
-             b: 12., // to center the time on the middle of the day 
+             b: 12., // to center the time on the middle of the day
              Units: "hours",
              data2: data2_tmp};
 
@@ -574,18 +565,13 @@ averaging_period=0.;         time= time_tmp;
              dimension_x: dimension_x,
              dimension_y: dimension_y,
 
-             mpp_file: "NpsNextsim.mpp",
+             mpp_file: projfilename,
      		interpolation_in_latlon: false,
 
              loaded: false,
              dataset_frequency:"monthly",
-             //monthly_dataset:true,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
      		masking: true,
      		masking_variable: ssh
@@ -697,7 +683,7 @@ averaging_period=0.;         time= time_tmp;
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1.,
-             b: 12., // to center the time on the middle of the day 
+             b: 12., // to center the time on the middle of the day
              Units: "hours",
              data2: data2_tmp};
 
@@ -754,18 +740,13 @@ averaging_period=0.;         time= time_tmp;
              dimension_x: dimension_x,
              dimension_y: dimension_y,
 
-             mpp_file: "NpsNextsim.mpp",
+             mpp_file: projfilename,
      		interpolation_in_latlon: false,
 
              loaded: false,
             dataset_frequency:"monthly",
-             //monthly_dataset:true,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
      		masking: true,
      		masking_variable: sss
@@ -867,7 +848,7 @@ averaging_period=0.;         time= time_tmp;
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1.,
-             b: 12., // to center the time on the middle of the day 
+             b: 12., // to center the time on the middle of the day
              Units: "hours",
              data2: data2_tmp};
 
@@ -923,18 +904,13 @@ averaging_period=0.;         time= time_tmp;
              dimension_x: dimension_x,
              dimension_y: dimension_y,
 
-             mpp_file: "NpsNextsim.mpp",
+             mpp_file: projfilename,
      		interpolation_in_latlon: false,
 
              loaded: false,
              dataset_frequency:"daily",
-             //monthly_dataset:true,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
      		masking: true,
      		masking_variable: ssh
@@ -1046,7 +1022,7 @@ averaging_period=0.;         time= time_tmp;
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1.,
-             b: 12., // to center the time on the middle of the day 
+             b: 12., // to center the time on the middle of the day
              Units: "hours",
              data2: data2_tmp};
 
@@ -1141,18 +1117,13 @@ averaging_period=0.;         time= time_tmp;
              dimension_x: dimension_x,
              dimension_y: dimension_y,
 
-             mpp_file: "NpsNextsim.mpp",
+             mpp_file: projfilename,
      		interpolation_in_latlon: false,
 
              loaded: false,
             dataset_frequency:"daily",
-             //monthly_dataset:true,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
      		masking: true,
      		masking_variable: sss
@@ -1257,7 +1228,7 @@ averaging_period=0.;         time= time_tmp;
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1.,
-             b: 12., // to center the time on the middle of the day 
+             b: 12., // to center the time on the middle of the day
              Units: "hours",
              data2: data2_tmp};
 
@@ -1313,18 +1284,13 @@ averaging_period=0.;         time= time_tmp;
              dimension_x: dimension_x,
              dimension_y: dimension_y,
 
-             mpp_file: "NpsNextsim.mpp",
+             mpp_file: projfilename,
      		interpolation_in_latlon: false,
 
              loaded: false,
             dataset_frequency:"monthly",
-             //monthly_dataset:true,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
      		masking: true,
      		masking_variable: conc
@@ -1471,7 +1437,7 @@ averaging_period=0.;         time= time_tmp;
              dimension_x: dimension_x,
              dimension_y: dimension_y,
 
-             mpp_file: "NpsNextsim.mpp",
+             mpp_file: projfilename,
      		interpolation_in_latlon: false,
 
              loaded: false,
@@ -1573,7 +1539,7 @@ averaging_period=0.;         time= time_tmp;
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1./3600,
-             b: 12., // to center the time on the middle of the day 
+             b: 12., // to center the time on the middle of the day
              Units: "hours",
              data2: data2_tmp};
 
@@ -1604,18 +1570,13 @@ averaging_period=0.;         time= time_tmp;
              dimension_x: dimension_x,
              dimension_y: dimension_y,
 
-             mpp_file: "NpsNextsim.mpp",
+             mpp_file: projfilename,
      		interpolation_in_latlon: false,
 
              loaded: false,
             dataset_frequency:"daily",
-             //monthly_dataset:false,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
      		masking: true,
      		masking_variable: conc
@@ -1704,7 +1665,7 @@ averaging_period=0.;         time= time_tmp;
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1./3600,
-             b: 12., // to center the time on the middle of the day 
+             b: 12., // to center the time on the middle of the day
              Units: "hours",
              data2: data2_tmp};
 
@@ -1749,18 +1710,13 @@ averaging_period=0.;         time= time_tmp;
              dimension_x: dimension_x,
              dimension_y: dimension_y,
 
-             mpp_file: "NpsNextsim.mpp",
+             mpp_file: projfilename,
      		interpolation_in_latlon: false,
 
              loaded: false,
              dataset_frequency:"daily",
-             //monthly_dataset:false,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
      		masking: false,
      		masking_variable: conc
@@ -1850,7 +1806,7 @@ averaging_period=0.;         time= time_tmp;
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 24.,
-             b: 12., // to center the time on the middle of the day 
+             b: 12., // to center the time on the middle of the day
              Units: "hours",
              data2: data2_tmp};
 
@@ -1866,7 +1822,7 @@ averaging_period=0.;         time= time_tmp;
      		Units: "",
      		data2: data2_tmp
      	};
-        
+
         Variable mask={
     	    name: "land",
     	    dimensions: dimensions_latlon,
@@ -1889,25 +1845,20 @@ averaging_period=0.;         time= time_tmp;
             dirname: "data",
             prefix: "Arc_",
             postfix: "_res3.125_pyres.nc",
-            
+
              latitude: latitude,
              longitude: longitude,
 
              dimension_x: dimension_x,
              dimension_y: dimension_y,
 
-             mpp_file: "NpsNextsim.mpp",
+             mpp_file: projfilename,
      		interpolation_in_latlon: false,
 
              loaded: false,
              dataset_frequency:"daily",
-             //monthly_dataset:false,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
      		masking: false,
      		masking_variable: mask
@@ -2005,11 +1956,7 @@ averaging_period=0.;         time= time_tmp;
              loaded: false,
              dataset_frequency:"constant",
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
      		masking: false
      	};
@@ -2121,13 +2068,8 @@ averaging_period=0.;         time= time_tmp;
 
              loaded: false,
              dataset_frequency:"monthly",
-             //monthly_dataset:true,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
      		masking: false
      	};
@@ -2328,13 +2270,8 @@ averaging_period=0.;         time= time_tmp;
         loaded: false,
 
         dataset_frequency:"monthly",
-        //monthly_dataset:true,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+        waveOptions: wavopt_none,
 
         masking: false
     };
@@ -2493,13 +2430,8 @@ averaging_period=0.;         time= time_tmp;
 
             loaded: false,
             dataset_frequency:"daily",
-            //monthly_dataset:true,
 
-            waveOptions: {
-               wave_dataset:false,
-               use_mwp:false,
-               use_ice:false
-            },
+            waveOptions: wavopt_none,
 
       		masking: false
       	};
@@ -2674,11 +2606,7 @@ averaging_period=0.;         time= time_tmp;
 
          dataset_frequency:"daily",
 
-         waveOptions: {
-            wave_dataset:false,
-            use_mwp:false,
-            use_ice:false
-         },
+         waveOptions: wavopt_none,
 
          masking: false
      };
@@ -2832,12 +2760,11 @@ averaging_period=0.;         time= time_tmp;
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: "NpsNextsim.mpp",
+            mpp_file: projfilename,
             interpolation_in_latlon: false,
 
             loaded: false,
             dataset_frequency:"daily",
-            //monthly_dataset: false,
 
             waveOptions: {
                wave_dataset:true,
@@ -3015,8 +2942,6 @@ averaging_period=0.;         time= time_tmp;
 
             loaded: false,
             dataset_frequency:"yearly",
-            //monthly_dataset: false,
-            //yearly_dataset: true,
 
             waveOptions: {
                wave_dataset:true,
@@ -3173,7 +3098,6 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
     std::string current_timestr;
     if ( current_time > 0 )
     {
-        //if(grid_ptr->monthly_dataset)
         if(grid_ptr->dataset_frequency=="monthly")
             current_timestr = to_date_string_ym(current_time);//yyyymm
         else if(grid_ptr->dataset_frequency=="yearly")
@@ -3219,6 +3143,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 	grid_ptr->dimension_x_count =  tmpDim.getSize();
     grid_ptr->dimension_x_start = 0;
 
+
 	if((grid_ptr->latitude.dimensions.size()==1) && (grid_ptr->longitude.dimensions.size()==1))
 	{
 		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
@@ -3263,6 +3188,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 		LAT.resize(grid_ptr->dimension_y_count);
 		LON.resize(grid_ptr->dimension_x_count);
 
+        std::cout<<tmp_start<<","<<tmp_end<<","<<tmp_end-tmp_start+1<<"\n";
         // Then we load the reduced grid
         getlatlon_regular_latlon(&LAT[0],&LON[0],&VLAT,&VLON);
 
@@ -3273,7 +3199,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
         grid_ptr->gridLAT=LAT;
         grid_ptr->gridLON=LON;
 
-		//std::cout <<"GRID : READ NETCDF done\n";
+		std::cout <<"GRID : READ NETCDF done\n";
 	}
     else if(grid_ptr->interpolation_method==InterpolationType::FromGridToMesh)
 	{
@@ -3447,7 +3373,6 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
             if ( current_time > 0 )
             {
                 if(grid_ptr->dataset_frequency=="monthly")
-                //if(grid_ptr->monthly_dataset)
                     current_timestr = to_date_string_ym(current_time);
                 else if(grid_ptr->dataset_frequency=="yearly")
                     current_timestr = to_date_string_y(current_time);
@@ -3647,8 +3572,8 @@ DataSet::getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_p
 
 	index_x_start[0] = grid.dimension_x_start;
 	index_x_count[0] = grid.dimension_x_count;
-
 	VLAT_ptr->getVar(index_y_start,index_y_count,&LAT[0]);
+    //std::cout<<"getlatlon_regular_latlon x "<<index_x_start[0]<<","<<index_x_count[0]<<"\n";
 	VLON_ptr->getVar(index_x_start,index_x_count,&LON[0]);
 
     // Need to multiply with scale factor and add offset - these are stored as variable attributes
@@ -3693,7 +3618,10 @@ DataSet::getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_p
     {}
 
     for (int i=0; i<(index_x_count[0]); ++i)
-        LON[i]=LON[i]*scale_factor + add_offset;
+    {
+        LON[i]=thetaInRange(LON[i]*scale_factor + add_offset,-180.,false);
+        //make sure lon is in range [-180,180) to correspond to branch cut in mapx
+    }
 
 }
 
@@ -3888,6 +3816,42 @@ DataSet::getXYlatlon_from_latlon(double* X, double* Y, double* LAT, double* LON,
 	}
 
 	close_mapx(map);
+}
+
+double
+DataSet::thetaInRange(double const& th_, double const& th1, bool const& close_on_right)
+{
+    //if close_on_right: convert th_ to angle in (th1,th1+360]
+    //else: convert th_ to angle in [th1,th1+360)
+    double th2, dth, th;
+    int njump;
+
+    th2   = th1 + 360.;
+    if (th_ < th1)
+    {
+        dth   = th1 - th_;
+        njump = std::ceil(dth/360.);
+        th    = th_ + njump*360.;
+    }
+    else if (th_ > th2)
+    {
+        dth   = th_ - th2;
+        njump = std::ceil(dth/360.);
+        th = th_ - njump*360.;
+    }
+    else if (th_ == th2)
+    {
+        th = th1;
+    }
+    else
+    {
+        th = th_;
+    }
+
+    if (close_on_right && abs(th-th1)<1.e-12)
+        th = th2;
+
+    return th;
 }
 
 } // Nextsim

@@ -138,7 +138,7 @@ namespace Nextsim
         M_grid.gridLON.assign(nrows*ncols, 0.);
 
         mapx_class *map;
-        std::string filename = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
+        std::string filename = Environment::nextsimDir().string() + "/data/" + Environment::vm()["simul.proj_filename"].as<std::string>();
         std::vector<char> str(filename.begin(), filename.end());
         str.push_back('\0');
 
@@ -261,7 +261,7 @@ namespace Nextsim
         std::string configfileNextsim = (boost::format( "%1%/%2%/%3%" )
                                   % Environment::nextsimDir().string()
                                   % "data"
-                                  % "NpsNextsim.mpp"
+                                  % Environment::vm()["simul.proj_filename"].as<std::string>()
                                   ).str();
 
         std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());

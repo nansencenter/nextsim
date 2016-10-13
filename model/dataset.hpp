@@ -38,6 +38,13 @@ namespace Nextsim
         FromMeshToMesh2dCavities = 2,
     };
 
+    typedef struct WaveOptions
+    {
+       bool wave_dataset;
+       bool use_mwp;
+       bool use_ice;
+    } WaveOptions;
+
 class DataSet
 {
 
@@ -77,12 +84,15 @@ public:
         bool east_west_oriented;
     } Vectorial_Variable;
 
-    typedef struct WaveOptions
-    {
-       bool wave_dataset;
-       bool use_mwp;
-       bool use_ice;
-    } WaveOptions;
+    //so we don't have to change all the datasets
+    //every time we change the wave dataset options
+    // - default value of Grid.waveOptions.wave_dataset should be false
+    WaveOptions wavopt_none  = {
+        wave_dataset: false,
+        use_mwp: false,
+        use_ice: false,
+    };
+
 
     typedef struct Grid
     {
@@ -103,8 +113,6 @@ public:
 		bool interpolation_in_latlon;
 
         bool loaded;
-        //bool monthly_dataset;
-        //bool yearly_dataset;
         std::string dataset_frequency;
 
         WaveOptions waveOptions;
@@ -179,15 +187,19 @@ public:
 
     void loadGrid(Grid *grid, int current_time, double RX_min, double RX_max, double RY_min, double RY_max);
 
-    void getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
+    void getlatlon_regular_latlon(double* LAT, double* LON,
+            netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
 
     void getXY_regular_XY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
 
     void getXYlatlon_from_latlon(double* X, double* Y,double* LAT, double* LON, netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
+    double thetaInRange(double const& th_, double const& th1, bool const& close_on_right=false);
 
     // name of the dataSet
     std::string name;
+    std::string projfilename;
 };
 
 } // Nextsim
+
 #endif // __DataSet_H
