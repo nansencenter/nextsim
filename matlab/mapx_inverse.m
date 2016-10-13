@@ -1,6 +1,6 @@
 function [lon, lat] = mapx_inverse(filename, x, y)
 
-% A convert a set of x and y coordinates to lat and lon (in degrees) using the mapx libraries.
+% Convert a set of x and y coordinates to lat and lon (in degrees) using the mapx libraries.
 %
 % Usage:
 % >> [lon, lat] = mapx_inverse(filename, x, y);

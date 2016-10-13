@@ -1,6 +1,6 @@
 function [x, y] = mapx_forward(filename, lon, lat)
 
-% A convert a set of lon and lat (in degrees) to x and y coordinates using the mapx libraries.
+% Convert a set of lon and lat (in degrees) to x and y coordinates using the mapx libraries.
 %
 % Usage:
 % >> [x, y] = mapx_forward(filename, lon, lat)
