@@ -2898,7 +2898,7 @@ averaging_period=0.;         time= time_tmp;
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
              a: 1.,
-             b: -180.,//want lon of dataset & mapx projection to have the same range (-180->180)
+             b: 0.,
              Units: "degree_east",
              data2: data2_tmp
         };
@@ -3138,8 +3138,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 		std::vector<double> LAT(grid_ptr->dimension_y_count);
 		std::vector<double> LON(grid_ptr->dimension_x_count);
 
-        double lon_shift = grid_ptr->longitude.b;
-        getlatlon_regular_latlon(&LAT[0],&LON[0],&VLAT,&VLON,lon_shift);
+        getlatlon_regular_latlon(&LAT[0],&LON[0],&VLAT,&VLON);
 
         // Then, we determine the reduced dimension
         int tmp_start=-1;
@@ -3176,7 +3175,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 
         std::cout<<tmp_start<<","<<tmp_end<<","<<tmp_end-tmp_start+1<<"\n";
         // Then we load the reduced grid
-        getlatlon_regular_latlon(&LAT[0],&LON[0],&VLAT,&VLON,lon_shift);
+        getlatlon_regular_latlon(&LAT[0],&LON[0],&VLAT,&VLON);
 
 		grid_ptr->gridY=LAT;
 		grid_ptr->gridX=LON;
@@ -3510,7 +3509,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 }
 
 void
-DataSet::getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr, double const lon_shift)
+DataSet::getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)
 {
     // Attributes (scaling and offset)
     netCDF::NcVarAtt att;
@@ -3529,9 +3528,8 @@ DataSet::getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_p
 
 	index_x_start[0] = grid.dimension_x_start;
 	index_x_count[0] = grid.dimension_x_count;
-    std::cout<<"getlatlon_regular_latlon y "<<index_y_start[0]<<","<<index_y_count[0]<<"\n";
 	VLAT_ptr->getVar(index_y_start,index_y_count,&LAT[0]);
-    std::cout<<"getlatlon_regular_latlon x "<<index_x_start[0]<<","<<index_x_count[0]<<"\n";
+    //std::cout<<"getlatlon_regular_latlon x "<<index_x_start[0]<<","<<index_x_count[0]<<"\n";
 	VLON_ptr->getVar(index_x_start,index_x_count,&LON[0]);
 
     // Need to multiply with scale factor and add offset - these are stored as variable attributes
@@ -3576,7 +3574,10 @@ DataSet::getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_p
     {}
 
     for (int i=0; i<(index_x_count[0]); ++i)
-        LON[i]=LON[i]*scale_factor + add_offset+lon_shift;
+    {
+        LON[i]=thetaInRange(LON[i]*scale_factor + add_offset,-180.,false);
+        //make sure lon is in range [-180,180) to correspond to branch cut in mapx
+    }
 
 }
 
@@ -3771,6 +3772,42 @@ DataSet::getXYlatlon_from_latlon(double* X, double* Y, double* LAT, double* LON,
 	}
 
 	close_mapx(map);
+}
+
+double
+DataSet::thetaInRange(double const& th_, double const& th1, bool const& close_on_right)
+{
+    //if close_on_right: convert th_ to angle in (th1,th1+360]
+    //else: convert th_ to angle in [th1,th1+360)
+    double th2, dth, th;
+    int njump;
+
+    th2   = th1 + 360.;
+    if (th_ < th1)
+    {
+        dth   = th1 - th_;
+        njump = std::ceil(dth/360.);
+        th    = th_ + njump*360.;
+    }
+    else if (th_ > th2)
+    {
+        dth   = th_ - th2;
+        njump = std::ceil(dth/360.);
+        th = th_ - njump*360.;
+    }
+    else if (th_ == th2)
+    {
+        th = th1;
+    }
+    else
+    {
+        th = th_;
+    }
+
+    if (close_on_right && abs(th-th1)<1.e-12)
+        th = th2;
+
+    return th;
 }
 
 } // Nextsim

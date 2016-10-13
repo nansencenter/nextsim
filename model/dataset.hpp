@@ -188,11 +188,12 @@ public:
     void loadGrid(Grid *grid, int current_time, double RX_min, double RX_max, double RY_min, double RY_max);
 
     void getlatlon_regular_latlon(double* LAT, double* LON,
-            netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr,double const lon_shift=0.);
+            netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
 
     void getXY_regular_XY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
 
     void getXYlatlon_from_latlon(double* X, double* Y,double* LAT, double* LON, netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
+    double thetaInRange(double const& th_, double const& th1, bool const& close_on_right=false);
 
     // name of the dataSet
     std::string name;
