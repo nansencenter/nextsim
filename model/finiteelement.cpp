@@ -4699,33 +4699,27 @@ FiniteElement::readRestart(int step)
 
     if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
     {
-        try
-        {
-            M_h_thin     = field_map_dbl["M_h_thin"];
-            M_hs_thin    = field_map_dbl["M_hs_thin"];
-            M_tsurf_thin = field_map_dbl["M_tsurf_thin"];
-        }
-        catch (exception &e)
-        {
-            std::cout << "Warning: Couldn't read thin ice state from restart file. All thin ice values set to zero.\n";
-        }
+        M_h_thin     = field_map_dbl["M_h_thin"];
+        M_hs_thin    = field_map_dbl["M_hs_thin"];
+        M_tsurf_thin = field_map_dbl["M_tsurf_thin"];
     }
+
     if (M_drifter_type == setup::DrifterType::IABP)
     {
-        try
-        {
-            std::vector<int>    drifter_no = field_map_int["Drifter_no"];
-            std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
-            std::vector<double> drifter_y  = field_map_dbl["Drifter_y"];
+        std::cout << "Try reading them from the restart file\n";
+        std::vector<int>    drifter_no = field_map_int["Drifter_no"];
+        std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
+        std::vector<double> drifter_y  = field_map_dbl["Drifter_y"];
 
+        if (drifter_no.size() == 0)
+        {
+            LOG(WARNING) << "Warning: Couldn't read drifter positions from restart file. Drifter positions initialised as if there was no restart.\n";
+            this->initDrifter();
+        } else {
             for ( int i=0; i<drifter_no.size(); ++i )
             {
                 M_drifter.emplace(drifter_no[i], std::array<double,2>{drifter_x[i], drifter_y[i]});
             }
-        }
-        catch (exception &e)
-        {
-            std::cout << "Warning: Couldn't read drifter positions from restart file.\n";
         }
     }
 
