@@ -30,7 +30,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         double *x = (double *) mxGetPr(prhs[1]);
         double *y = (double *) mxGetPr(prhs[2]);
 
-        mwSize const Np = *mxGetDimensions(prhs[1]);
+        mwSize const Np = mxGetNumberOfElements(prhs[1]);
 
         /*---------- Output ----------*/
 
@@ -56,3 +56,4 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         plhs[0]=plhs0;
         plhs[1]=plhs1;
 }
+

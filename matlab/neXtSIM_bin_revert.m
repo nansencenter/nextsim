@@ -50,7 +50,7 @@ for i = 1:numel(data_names)
     %   prec = 'int';
     % end
 
-    if strcmp(data_types(i),'double')
+    if strcmp(data_types(i),'double') || strcmp(data_types(i),'8') % check against '8' for backwards compatiblity
 	  prec = 'double';
 	elseif strcmp(data_types(i),'float')
 	  prec = 'single';
