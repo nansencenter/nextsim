@@ -7,7 +7,10 @@
 #PBS -A nn2993k
 #
 #  We want 60 hours on 512 cpu's (cores):
-#PBS -l walltime=10:00:00,mppwidth=4
+#PBS -l walltime=04:00:00,mppwidth=64,mppnppn=8
+#
+#  Amount of memory per cpu (core):
+#PBS -l mppmem=4000mb
 #
 #  Send me an email on  a=abort, b=begin, e=end
 #PBS -m abe
@@ -16,10 +19,10 @@
 #PBS -M your.email.address@example.com
 #
 #  Write the standard output of the job to file 'mpijob.out' (optional)
-#PBS -o mpijob.out
+#PBS -o 16_mpijob.out
 #
 #  Write the standard error of the job to file 'mpijob.err' (optional)
-#PBS -e mpijob.err
+#PBS -e 16_mpijob.err
 #
 #  Make sure I am in the correct directory
 # mkdir -p /work/$USER/mpiwork
@@ -28,4 +31,6 @@
 cd $NEXTSIMDIR/model
 
 #aprun -B bin/nextsim.exec --config-files=nextsim.cfg
-aprun -n4 bin/nextsim.exec --config-files=nextsim.cfg
+export OMP_NUM_THREADS=4
+aprun -n16 -d4 -m 4000M bin/nextsim.exec --config-files=nextsim.cfg
+#aprun -B bin/nextsim.exec --config-files=nextsim.cfg

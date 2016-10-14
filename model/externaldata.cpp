@@ -123,9 +123,11 @@ void ExternalData::check_and_reload(GmshMesh const& mesh, const double current_t
 
         if (to_be_reloaded)
         {
-            std::cout << "Load " << M_datasetname << "\n";
+            if (Environment::comm().rank() == 0)
+                std::cout << "Load " << M_datasetname << "\n";
             loadDataset(M_dataset, mesh);
-            std::cout << "Done\n";
+            if (Environment::comm().rank() == 0)
+                std::cout << "Done\n";
         }
     }
 }
@@ -440,7 +442,8 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             else
                 f_timestr = to_date_string_yd(std::floor(ftime));
 
-            std::cout <<"F_TIMESTR= "<< f_timestr <<"\n";
+            if (Environment::comm().rank() == 0)
+                std::cout <<"F_TIMESTR= "<< f_timestr <<"\n";
 
             filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                         % Environment::simdataDir().string()
@@ -460,7 +463,9 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                         ).str();
         }
 
-        std::cout<<"FILENAME= "<< filename <<"\n";
+        if (Environment::comm().rank() == 0)
+            std::cout<<"FILENAME= "<< filename <<"\n";
+
         if ( ! boost::filesystem::exists(filename) )
             throw std::runtime_error("File not found: " + filename);
 

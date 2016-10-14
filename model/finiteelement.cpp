@@ -133,13 +133,14 @@ FiniteElement::distributedMeshProcessing(bool start)
     int num_nodes = boost::mpi::all_reduce(M_comm, M_local_ndof, std::plus<int>());
     int num_elements = boost::mpi::all_reduce(M_comm, M_local_nelements, std::plus<int>());
 
+    std::cout<<"NODE COMPARE: "<< M_mesh.numGlobalNodesFromSarialMesh() << " and "<< num_nodes <<"\n";
 
     if(M_mesh.numGlobalNodesFromSarialMesh() != num_nodes)
     {
-        throw std::logic_error("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@Inconsistant NODAL PARTITIONS");
+        throw std::logic_error("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@INCONSISTANT NODAL PARTITIONS");
     }
 
-    std::cout<<"COMPARE "<< M_mesh.numGlobalElementsFromSarialMesh() << " and "<< num_elements <<"\n";
+    std::cout<<"ELEMENT COMPARE: "<< M_mesh.numGlobalElementsFromSarialMesh() << " and "<< num_elements <<"\n";
 
     if(M_mesh.numGlobalElementsFromSarialMesh() != num_elements)
     {
@@ -701,7 +702,7 @@ FiniteElement::initConstant()
     rhos = physical::rhos;
 
     days_in_sec = 24.0*3600.0;
-    time_init = dateStr2Num(vm["simul.time_init"].as<std::string>());
+    time_init = from_date_time_string(vm["simul.time_init"].as<std::string>());
     output_time_step =  days_in_sec/vm["simul.output_per_day"].as<int>();
     ptime_step =  days_in_sec/vm["simul.ptime_per_day"].as<int>();
     mooring_output_time_step =  vm["simul.mooring_output_timestep"].as<double>()*days_in_sec;
@@ -2278,9 +2279,10 @@ void
 FiniteElement::assemble(int pcpt)
 {
     M_comm.barrier();
-
+    LOG(DEBUG) << "Reinitialize matrix and vector to zero starts\n";
     M_matrix->zero();
     M_vector->zero();
+    LOG(DEBUG) << "Reinitialize matrix and vector to zero done\n";
 
     double coef_V, coef_Voce, coef_Vair, coef_basal, coef_X, coef_Y, coef_C;
     double coef = 0;
@@ -2353,7 +2355,7 @@ FiniteElement::assemble(int pcpt)
 
     //chrono.restart();
     timer["assembly"].first.restart();
-
+    LOG(DEBUG) <<"Loop starts...\n";
     int cpt = 0;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
     {
@@ -2596,10 +2598,14 @@ FiniteElement::assemble(int pcpt)
     }
 
     // close petsc matrix
+    LOG(DEBUG) <<"Closing matrix starts\n";
     M_matrix->close();
+    LOG(DEBUG) <<"Closing matrix done\n";
 
     // close petsc vector
+    LOG(DEBUG) <<"Closing vector starts\n";
     M_vector->close();
+    LOG(DEBUG) <<"Closing vector done\n";
 
     if (M_rank == 0)
     {
@@ -4033,7 +4039,8 @@ FiniteElement::run()
         if (M_rank == 0)
         {
             std::cout <<"---------------------- TIME STEP "<< pcpt << " : "
-                      << time_init << " + "<< pcpt*time_step/days_in_sec;
+                      << model_time_str(vm["simul.time_init"].as<std::string>(), pcpt*time_step);
+                //<< time_init << " + "<< pcpt*time_step/days_in_sec;
 
             if(fmod(pcpt*time_step, ptime_step) == 0)
             {
@@ -4145,18 +4152,25 @@ FiniteElement::run()
         //======================================================================
         // Assemble the matrix
         //======================================================================
+        LOG(DEBUG) <<"assemble starts\n";
+        //Environment::logMemoryUsage("before assemble...");
         this->assemble(pcpt);
+        LOG(DEBUG) <<"assemble done\n";
 
         //======================================================================
         // Solve the linear problem
         //======================================================================
+        LOG(DEBUG) <<"solve starts\n";
         this->solve();
+        LOG(DEBUG) <<"solve done\n";
 
-
+        LOG(DEBUG) <<"updatevelocity starts\n";
         this->updateVelocity();
+        LOG(DEBUG) <<"updateVelocity done\n";
 
-
+        LOG(DEBUG) <<"update starts\n";
         this->update();
+        LOG(DEBUG) <<"update starts\n";
         //this->updateOnRoot();
 
         if(fmod((pcpt+1)*time_step,output_time_step) == 0)
@@ -4202,7 +4216,10 @@ FiniteElement::run()
 #endif
 
     if (M_rank==0)
+    {
         LOG(INFO) << "-----------------------Simulation done on "<< current_time_local() <<"\n";
+        LOG(INFO) << "-----------------------Total time spent:  "<< time_spent(current_time_system) <<"\n";
+    }
 }
 
 void
@@ -5080,7 +5097,7 @@ FiniteElement::updateIABPDrifter()
         double lat, lon;
         M_iabp_file >> year >> month >> day >> hour >> number >> lat >> lon;
         std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
-        time = dateStr2Num(date) + hour/24.;
+        time = from_date_time_string(date) + hour/24.;
 
         // Remember which buoys are in the ice according to IABP
         keepers.push_back(number);
@@ -5130,7 +5147,7 @@ FiniteElement::initIABPDrifter()
         throw std::runtime_error("File not found: " + filename);
 
     int pos;    // To be able to rewind one line
-    double time = dateStr2Num("1979-01-01");
+    double time = from_date_time_string("1979-01-01");
     while ( time < time_init )
     {
         // Remember where we were
@@ -5142,7 +5159,7 @@ FiniteElement::initIABPDrifter()
         M_iabp_file >> year >> month >> day >> hour >> number >> lat >> lon;
         std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
 
-        time = dateStr2Num(date) + hour/24.;
+        time = from_date_time_string(date) + hour/24.;
     }
 
     // We must rewind one line so that updateIABPDrifter works correctly
@@ -5581,7 +5598,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
         {
             fileout = (boost::format( "%1%/matlab/mesh_%2%_%3%.bin" )
                        % Environment::nextsimDir().string()
-                       % M_rank
+                       % M_comm.size() /*M_rank*/
                        % step ).str();
 
             std::cout<<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
@@ -5614,7 +5631,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
 
             fileout = (boost::format( "%1%/matlab/mesh_%2%_%3%.dat" )
                        % Environment::nextsimDir().string()
-                       % M_rank
+                       % M_comm.size() /*M_rank*/
                        % step ).str();
 
             std::cout<<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
@@ -5630,7 +5647,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
 
         fileout = (boost::format( "%1%/matlab/field_%2%_%3%.bin" )
                    % Environment::nextsimDir().string()
-                   % M_rank
+                   % M_comm.size() /*M_rank*/
                    % step ).str();
 
         std::cout<<"BINARY: Exporter Filename= "<< fileout <<"\n";
@@ -5708,7 +5725,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
 
         fileout = (boost::format( "%1%/matlab/field_%2%_%3%.dat" )
                    % Environment::nextsimDir().string()
-                   % M_rank
+                   % M_comm.size() /*M_rank*/
                    % step ).str();
 
         std::cout<<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
