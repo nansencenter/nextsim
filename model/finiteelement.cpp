@@ -6564,10 +6564,11 @@ FiniteElement::wimToNextsim(bool step)
            }
 
            InterpFromGridToMeshx(interp_out,            //data (out)
-                                 &(wim_grid.X)[0], nx,  //x vector (source), length of x vector
-                                 &(wim_grid.Y)[0], ny,  //x vector (source), length of x vector
+                                 &(wim_grid.x)[0], nx,  //x vector (source), length of x vector
+                                 &(wim_grid.y)[0], ny,  //y vector (source), length of y vector
                                  &interp_in[0],         //data (in)
-                                 ny,nx,                 // no of grid cells in y,x directions (to determine if corners or centers of grid have been input)
+                                 ny,nx,                 //M,N: no of grid cells in y,x directions
+                                                        //(to determine if corners or centers of grid have been input)
                                  nb_var,                //no of variables
                                  &M_mesh.coordX()[0],   // x vector (target)
                                  &M_mesh.coordY()[0],   // y vector (target)
@@ -6596,24 +6597,26 @@ FiniteElement::wimToNextsim(bool step)
             std::cout<<"Max tau_y on mesh = "<< *std::max_element(M_tau.begin()+M_num_nodes,M_tau.end()) <<"\n";
 
             xDelete<double>(interp_out);
+            //std::abort();
         }//interp taux,tauy
 
         if (M_run_wim)
         {
             // interpolate nfloes to elements of mesh
             double* interp_out;
-            InterpFromGridToMeshx(interp_out,           //data (out)
-                                  &(wim_grid.X)[0], nx, //x vector (source), length of x vector
-                                  &(wim_grid.Y)[0], ny, //x vector (source), length of x vector
-                                  &M_nfloes_grid[0],    //data (in)
-                                  ny,nx,                // no of grid cells in y,x directions (to determine if corners or centers of grid have been input)
-                                  1,                    //no of variables
-                                  &M_mesh.bcoordX()[0], // x vector (target)
-                                  &M_mesh.bcoordY()[0], // y vector (target)
-                                  M_num_elements,0.,    //target_size,default value
-                                  interptype,           //interpolation type
-                                  true                  //row_major (false = fortran/matlab order)
-                                  );
+            InterpFromGridToMeshx(interp_out,         //data (out)
+                                &(wim_grid.x)[0], nx, //x vector (source), length of x vector
+                                &(wim_grid.y)[0], ny, //y vector (source), length of y vector
+                                &M_nfloes_grid[0],    //data (in)
+                                ny,nx,                //M,N no of grid cells in y,x directions
+                                                      //(to determine if corners or centers of grid have been input)
+                                1,                    //no of variables
+                                &M_mesh.bcoordX()[0], // x vector (target)
+                                &M_mesh.bcoordY()[0], // y vector (target)
+                                M_num_elements,0.,    //target_size,default value
+                                interptype,           //interpolation type
+                                true                  //row_major (false = fortran/matlab order)
+                                );
             std::cout<<"\nINTERP GRID TO ELEMENTS\n";
 
             if (M_regrid)
@@ -6633,12 +6636,6 @@ FiniteElement::wimToNextsim(bool step)
             //std::abort();
         }
 
-        // for (int i=0; i<num_elements_grid; ++i)
-        // {
-        //     // back to metres
-        //     wim_grid.X[i] *= 1.e3; 
-        //     wim_grid.Y[i] *= 1.e3; 
-        // }
     }
     if (!M_regrid)
         M_mesh.move(M_UM,-1.);
