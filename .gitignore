@@ -25,3 +25,5 @@ model/libboost_serialization.dylib
 model/libboost_system.dylib
 nextsim_pierre.cfg
 run_pierre.sh
+
+model/results/*

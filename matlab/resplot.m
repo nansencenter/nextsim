@@ -1,4 +1,5 @@
 function resplot(field,step,dir)
+%% CALL: resplot(field,step,dir)
 
 if nargin==2, dir=''; end
 
