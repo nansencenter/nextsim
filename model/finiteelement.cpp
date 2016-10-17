@@ -3905,6 +3905,7 @@ FiniteElement::step(int &pcpt)
     if (M_use_wim)
         this->nextsimToWim(pcpt);
 #endif
+
     // step 0: preparation
     // remeshing and remapping of the prognostic variables
 
@@ -6338,25 +6339,15 @@ FiniteElement::nextsimToWim(bool step)
         }
 
         // interpolation from mesh to grid
-#if 0
-        double xmin = (vm["wim.xmin"].as<double>() + 0.5*vm["wim.dx"].as<double>());
-        double ymax = (vm["wim.ymin"].as<double>() + (vm["wim.ny"].as<int>()-1+0.5)*vm["wim.dy"].as<double>());
-        double dx = vm["wim.dx"].as<double>();
-        double dy = vm["wim.dy"].as<double>();
-
-        int num_elements_grid = (vm["wim.nx"].as<int>())*(vm["wim.ny"].as<int>());
-#endif
-
         int nx = wim_grid.nx;
         int ny = wim_grid.ny;
         double dx = wim_grid.dx;
         double dy = wim_grid.dy;
 
-        double xmin = (wim_grid.X)[0];
-        double xmax = (wim_grid.X)[nx*ny-1];
-
-        double ymin = (wim_grid.Y)[0];
-        double ymax = (wim_grid.Y)[nx*ny-1];
+        double xmin = (wim_grid.x)[0];
+        double xmax = (wim_grid.x)[nx-1];
+        double ymin = (wim_grid.y)[0];
+        double ymax = (wim_grid.y)[ny-1];
 
         auto RX = M_mesh.coordX();
         auto RY = M_mesh.coordY();
@@ -6488,23 +6479,41 @@ FiniteElement::nextsimToWim(bool step)
 void
 FiniteElement::wimToNextsim(bool step)
 {
+    bool break_on_mesh =
+        ( vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh");
+    std::cout<<"break_on_mesh="<<break_on_mesh<<"\n";
+
     if (M_run_wim)
     {
 
         // run wim
+        std::vector<double> mf1, mf2, mf3;
+
+        if ( break_on_mesh )
+        {
+            wim.setMesh(M_mesh.bcoordX(),//elements of mesh (x)
+                        M_mesh.bcoordY(),//elements of mesh (y)
+                        M_conc,
+                        M_thick,
+                        M_nfloes,
+                        "km");
+        }
+        
+        wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, mf1, mf2, mf3, step);
         // test this later
         //wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, M_SWH_grid, M_MWD_grid, M_FP_grid, step);
 
-        std::vector<double> mf1, mf2, mf3;
-        wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, mf1, mf2, mf3, step);
-
-        //wim.setMesh(M_mesh.bcoordX(), M_mesh.bcoordY());
-        //wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, step);
-        //this->clearMesh();
-
         M_taux_grid = wim.getTaux();
         M_tauy_grid = wim.getTauy();
-        M_nfloes_grid = wim.getNFloes();
+
+        if ( !break_on_mesh )
+            M_nfloes_grid = wim.getNfloes();
+        else
+        {
+            M_nfloes        = wim.getNfloesMesh();
+            auto M_broken   = wim.getBrokenMesh();//TODO check this - maybe change damage later
+            wim.clearMesh();
+        }
     }
 
     if (!M_regrid)
@@ -6512,19 +6521,6 @@ FiniteElement::wimToNextsim(bool step)
 
     if (M_run_wim || M_regrid)
     {
-#if 0
-        int nx = vm["wim.nx"].as<int>();
-        int ny = vm["wim.ny"].as<int>();
-
-        std::vector<double> X(nx);
-        std::vector<double> Y(ny);
-
-        for (int i = 0; i < nx; i++)
-            X[i] = vm["wim.xmin"].as<double>() + (i+0.5)*vm["wim.dx"].as<double>();
-
-        for (int j = 0; j < ny; j++)
-            Y[j] = vm["wim.ymin"].as<double>() + (j+0.5)*vm["wim.dy"].as<double>();
-#endif
         int nx = wim_grid.nx;
         int ny = wim_grid.ny;
         double dx = wim_grid.dx;
@@ -6600,7 +6596,7 @@ FiniteElement::wimToNextsim(bool step)
             //std::abort();
         }//interp taux,tauy
 
-        if (M_run_wim)
+        if ((M_run_wim) && (!break_on_mesh))
         {
             // interpolate nfloes to elements of mesh
             double* interp_out;
@@ -6619,9 +6615,7 @@ FiniteElement::wimToNextsim(bool step)
                                 );
             std::cout<<"\nINTERP GRID TO ELEMENTS\n";
 
-            if (M_regrid)
-                M_nfloes.resize(M_num_elements);
-
+            M_nfloes.resize(M_num_elements);
             for (int i=0; i<M_num_elements; ++i)
             {
                 // nfloes
@@ -6637,6 +6631,7 @@ FiniteElement::wimToNextsim(bool step)
         }
 
     }
+
     if (!M_regrid)
         M_mesh.move(M_UM,-1.);
 
@@ -6654,6 +6649,7 @@ FiniteElement::wimToNextsim(bool step)
         if (M_conc[i] < vm["wim.cicemin"].template as<double>())
             M_dfloe[i] = 0.;
     }
+
     std::cout<<"Finished wimToNextsim";
 }//wimToNextsim
 #endif
