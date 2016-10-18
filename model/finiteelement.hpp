@@ -349,6 +349,7 @@ private:
     bool M_regrid;
 #if defined (WAVES)
     bool M_run_wim;
+    bool M_use_wim;
 #endif
 
     bool M_use_restart;
