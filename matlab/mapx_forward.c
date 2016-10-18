@@ -17,9 +17,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         if (!mxIsChar(prhs[0]) || (mxGetM(prhs[0]) != 1 ) )
                 mexErrMsgTxt("First input argument must be a string.");
         if (!mxIsDouble(prhs[1]) || (mxGetM(prhs[1]) != 1 ) )
-                mexErrMsgTxt("Second input argument must be a double.");
+                mexErrMsgTxt("Second input argument must be a double and a column vector.");
         if (!mxIsDouble(prhs[2]) || (mxGetM(prhs[2]) != 1 ) )
-                mexErrMsgTxt("Third input argument must be a double.");
+                mexErrMsgTxt("Third input argument must be a double and a column vector.");
 
         size_t buflen  = mxGetN(prhs[0])*sizeof(mxChar)+1;
         char *filename = mxMalloc(buflen);
