@@ -4475,8 +4475,18 @@ FiniteElement::writeRestart(int pcpt, int step)
 
     // === Start with the mesh ===
     // First the data
-    filename = (boost::format( "%1%/restart/mesh_%2%.bin" )
-            % Environment::nextsimDir().string()
+    std::string directory = Environment::nextsimDir().string() + "/restart";
+    // change directory for outputs if the option "output_directory" is not empty
+    if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
+        directory = vm["simul.output_directory"].as<std::string>() + "/restart";
+
+    // create the output directory if it does not exist
+    fs::path path(directory);
+    if ( !fs::exists(path) )
+        fs::create_directories(path);
+
+    filename = (boost::format( "%1%/mesh_%2%.bin" )
+            % directory
             % step ).str();
 
     std::fstream meshbin(filename, std::ios::binary | std::ios::out | std::ios::trunc);
@@ -4486,8 +4496,8 @@ FiniteElement::writeRestart(int pcpt, int step)
     meshbin.close();
 
     // Then the record
-    filename = (boost::format( "%1%/restart/mesh_%2%.dat" )
-           % Environment::nextsimDir().string()
+    filename = (boost::format( "%1%/mesh_%2%.dat" )
+           % directory
            % step ).str();
 
     std::fstream meshrecord(filename, std::ios::out | std::ios::trunc);
@@ -4498,8 +4508,8 @@ FiniteElement::writeRestart(int pcpt, int step)
 
     // === Write the prognostic variables ===
     // First the data
-    filename = (boost::format( "%1%/restart/field_%2%.bin" )
-               % Environment::nextsimDir().string()
+    filename = (boost::format( "%1%/field_%2%.bin" )
+               % directory
                % step ).str();
     std::fstream outbin(filename, std::ios::binary | std::ios::out | std::ios::trunc );
     if ( ! outbin.good() )
@@ -4563,8 +4573,8 @@ FiniteElement::writeRestart(int pcpt, int step)
     outbin.close();
 
     // Then the record
-    filename = (boost::format( "%1%/restart/field_%2%.dat" )
-               % Environment::nextsimDir().string()
+    filename = (boost::format( "%1%/field_%2%.dat" )
+               % directory
                % step ).str();
     std::fstream outrecord(filename, std::ios::out | std::ios::trunc);
     if ( ! outrecord.good() )
