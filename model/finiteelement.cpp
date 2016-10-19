@@ -6102,7 +6102,7 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
 }
 
 void
-FiniteElement::exportResults(int step, bool export_mesh)
+FiniteElement::exportResults(int step, bool export_mesh, bool export_fields)
 {
     Exporter exporter("float");
     std::string fileout;
@@ -6143,120 +6143,124 @@ FiniteElement::exportResults(int step, bool export_mesh)
     }
 
 
-    fileout = (boost::format( "%1%/field_%2%.bin" )
-               % M_export_path
-               % step ).str();
-
-    LOG(INFO) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
-
-    std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
-    if ( ! outbin.good() )
-        throw std::runtime_error("Cannot write to file: " + fileout);
-    std::vector<double> timevec(1);
-    timevec[0] = current_time;
-    exporter.writeField(outbin, timevec, "Time");
-    exporter.writeField(outbin, M_surface, "Element_area");
-    exporter.writeField(outbin, M_node_max_conc, "M_node_max_conc");
-    exporter.writeField(outbin, M_VT, "M_VT");
-    exporter.writeField(outbin, M_conc, "Concentration");
-    exporter.writeField(outbin, M_thick, "Thickness");
-    exporter.writeField(outbin, M_snow_thick, "Snow");
-    exporter.writeField(outbin, M_damage, "Damage");
-    int i=0;
-    for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
+    if (export_fields)
     {
-        exporter.writeField(outbin, *it, "Tice_"+std::to_string(i));
-        i++;
-    }
-    exporter.writeField(outbin, M_sst, "SST");
-    exporter.writeField(outbin, M_sss, "SSS");
+        fileout = (boost::format( "%1%/field_%2%.bin" )
+                   % M_export_path
+                   % step ).str();
 
-    if(vm["simul.save_forcing_field"].as<bool>())
-    {
-        // Thermodynamic and dynamic forcing
-        // Atmosphere
-        exporter.writeField(outbin,M_wind.getVector(), "M_wind");         // Surface wind [m/s]
-        exporter.writeField(outbin,M_tair.getVector(), "M_tair");         // 2 m temperature [C]
-        exporter.writeField(outbin,M_mixrat.getVector(), "M_mixrat");       // Mixing ratio
-        exporter.writeField(outbin,M_mslp.getVector(), "M_mslp");         // Atmospheric pressure [Pa]
-        exporter.writeField(outbin,M_Qsw_in.getVector(), "M_Qsw_in");       // Incoming short-wave radiation [W/m2]
-        exporter.writeField(outbin,M_Qlw_in.getVector(), "M_Qlw_in");       // Incoming long-wave radiation [W/m2]
-        exporter.writeField(outbin,M_tcc.getVector(), "M_tcc");       // Incoming long-wave radiation [W/m2]
-        exporter.writeField(outbin,M_precip.getVector(), "M_precip");       // Total precipitation [m]
-        exporter.writeField(outbin,M_snowfr.getVector(), "M_snowfr");       // Fraction of precipitation that is snow
-        exporter.writeField(outbin,M_dair.getVector(), "M_dair");         // 2 m dew point [C]
+        LOG(INFO) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
 
-        // Ocean
-        exporter.writeField(outbin,M_ocean.getVector(), "M_ocean");        // "Geostrophic" ocean currents [m/s]
-        exporter.writeField(outbin,M_ssh.getVector(), "M_ssh");          // Sea surface elevation [m]
+        std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
+        if ( ! outbin.good() )
+            throw std::runtime_error("Cannot write to file: " + fileout);
+        std::vector<double> timevec(1);
+        timevec[0] = current_time;
+        exporter.writeField(outbin, timevec, "Time");
+        exporter.writeField(outbin, M_surface, "Element_area");
+        exporter.writeField(outbin, M_node_max_conc, "M_node_max_conc");
+        exporter.writeField(outbin, M_VT, "M_VT");
+        exporter.writeField(outbin, M_conc, "Concentration");
+        exporter.writeField(outbin, M_thick, "Thickness");
+        exporter.writeField(outbin, M_snow_thick, "Snow");
+        exporter.writeField(outbin, M_damage, "Damage");
+        int i=0;
+        for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
+        {
+            exporter.writeField(outbin, *it, "Tice_"+std::to_string(i));
+            i++;
+        }
+        exporter.writeField(outbin, M_sst, "SST");
+        exporter.writeField(outbin, M_sss, "SSS");
 
-        exporter.writeField(outbin,M_ocean_temp.getVector(), "M_ocean_temp");   // Ocean temperature in top layer [C]
-        exporter.writeField(outbin,M_ocean_salt.getVector(), "M_ocean_salt");   // Ocean salinity in top layer [C]
-        exporter.writeField(outbin,M_mld.getVector(), "M_mld");          // Mixed-layer depth [m]
+        if(vm["simul.save_forcing_field"].as<bool>())
+        {
+            // Thermodynamic and dynamic forcing
+            // Atmosphere
+            exporter.writeField(outbin,M_wind.getVector(), "M_wind");         // Surface wind [m/s]
+            exporter.writeField(outbin,M_tair.getVector(), "M_tair");         // 2 m temperature [C]
+            exporter.writeField(outbin,M_mixrat.getVector(), "M_mixrat");       // Mixing ratio
+            exporter.writeField(outbin,M_mslp.getVector(), "M_mslp");         // Atmospheric pressure [Pa]
+            exporter.writeField(outbin,M_Qsw_in.getVector(), "M_Qsw_in");       // Incoming short-wave radiation [W/m2]
+            exporter.writeField(outbin,M_Qlw_in.getVector(), "M_Qlw_in");       // Incoming long-wave radiation [W/m2]
+            exporter.writeField(outbin,M_tcc.getVector(), "M_tcc");       // Incoming long-wave radiation [W/m2]
+            exporter.writeField(outbin,M_precip.getVector(), "M_precip");       // Total precipitation [m]
+            exporter.writeField(outbin,M_snowfr.getVector(), "M_snowfr");       // Fraction of precipitation that is snow
+            exporter.writeField(outbin,M_dair.getVector(), "M_dair");         // 2 m dew point [C]
 
-        // Bathymetry
-        exporter.writeField(outbin,M_element_depth.getVector(), "M_element_depth");
-    }
+            // Ocean
+            exporter.writeField(outbin,M_ocean.getVector(), "M_ocean");        // "Geostrophic" ocean currents [m/s]
+            exporter.writeField(outbin,M_ssh.getVector(), "M_ssh");          // Sea surface elevation [m]
+
+            exporter.writeField(outbin,M_ocean_temp.getVector(), "M_ocean_temp");   // Ocean temperature in top layer [C]
+            exporter.writeField(outbin,M_ocean_salt.getVector(), "M_ocean_salt");   // Ocean salinity in top layer [C]
+            exporter.writeField(outbin,M_mld.getVector(), "M_mld");          // Mixed-layer depth [m]
+
+            // Bathymetry
+            exporter.writeField(outbin,M_element_depth.getVector(), "M_element_depth");
+        }
 
 #if defined (WAVES)
-    if (M_use_wim)
-    {
-        exporter.writeField(outbin, M_tau, "Stresses");
-        exporter.writeField(outbin, M_nfloes, "Nfloes");
-        exporter.writeField(outbin, M_dfloe, "Dfloe");
-    }
+        if (M_use_wim)
+        {
+            exporter.writeField(outbin, M_tau, "Stresses");
+            exporter.writeField(outbin, M_nfloes, "Nfloes");
+            exporter.writeField(outbin, M_dfloe, "Dfloe");
+        }
 #endif
 
-    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-    {
-        exporter.writeField(outbin, M_h_thin, "Thin_ice");
-        exporter.writeField(outbin, M_hs_thin, "Snow_thin_ice");
-        exporter.writeField(outbin, M_tsurf_thin, "Tsurf_thin_ice");
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {
+            exporter.writeField(outbin, M_h_thin, "Thin_ice");
+            exporter.writeField(outbin, M_hs_thin, "Snow_thin_ice");
+            exporter.writeField(outbin, M_tsurf_thin, "Tsurf_thin_ice");
 
-        // Re-create the diagnostic variable 'concentration of thin ice'
-        std::vector<double> conc_thin(M_mesh.numTriangles());
-        double const rtanalpha = c_thin_max/h_thin_max;
+            // Re-create the diagnostic variable 'concentration of thin ice'
+            std::vector<double> conc_thin(M_mesh.numTriangles());
+            double const rtanalpha = c_thin_max/h_thin_max;
+            for ( int i=0; i<M_mesh.numTriangles(); ++i )
+            {
+                conc_thin[i] = std::min(std::min(M_h_thin[i]/physical::hmin,
+                            std::sqrt(2.*M_h_thin[i]*rtanalpha)), 1.-M_conc[i]);
+            }
+            exporter.writeField(outbin, conc_thin, "Concentration_thin_ice");
+        }
+
+        // EXPORT sigma1 sigma2
+        std::vector<double> sigma1(M_mesh.numTriangles());
+        std::vector<double> sigma2(M_mesh.numTriangles());
+        double sigma_s, sigma_n;
+        std::vector<double> sigma_pred(3);
+
         for ( int i=0; i<M_mesh.numTriangles(); ++i )
         {
-            conc_thin[i] = std::min(std::min(M_h_thin[i]/physical::hmin, std::sqrt(2.*M_h_thin[i]*rtanalpha)), 1.-M_conc[i]);
+            sigma_pred[0]=M_sigma[3*i];
+            sigma_pred[1]=M_sigma[3*i+1];
+            sigma_pred[2]=M_sigma[3*i+2];
+
+            sigma_s=std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
+            sigma_n= -         (sigma_pred[0]+sigma_pred[1])/2.;
+
+            sigma1[i] = sigma_n+sigma_s;
+            sigma2[i] = sigma_n-sigma_s;
         }
-        exporter.writeField(outbin, conc_thin, "Concentration_thin_ice");
+        exporter.writeField(outbin, sigma1, "Sigma1");
+        exporter.writeField(outbin, sigma2, "Sigma2");
+
+        outbin.close();
+
+        fileout = (boost::format( "%1%/field_%2%.dat" )
+                   % M_export_path
+                   % step ).str();
+
+        LOG(INFO) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
+
+        std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
+        if ( ! outrecord.good() )
+            throw std::runtime_error("Cannot write to file: " + fileout);
+        exporter.writeRecord(outrecord);
+        outrecord.close();
     }
-
-    // EXPORT sigma1 sigma2
-    std::vector<double> sigma1(M_mesh.numTriangles());
-    std::vector<double> sigma2(M_mesh.numTriangles());
-    double sigma_s, sigma_n;
-    std::vector<double> sigma_pred(3);
-
-    for ( int i=0; i<M_mesh.numTriangles(); ++i )
-    {
-        sigma_pred[0]=M_sigma[3*i];
-        sigma_pred[1]=M_sigma[3*i+1];
-        sigma_pred[2]=M_sigma[3*i+2];
-
-        sigma_s=std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
-        sigma_n= -         (sigma_pred[0]+sigma_pred[1])/2.;
-
-        sigma1[i] = sigma_n+sigma_s;
-        sigma2[i] = sigma_n-sigma_s;
-    }
-    exporter.writeField(outbin, sigma1, "Sigma1");
-    exporter.writeField(outbin, sigma2, "Sigma2");
-
-    outbin.close();
-
-    fileout = (boost::format( "%1%/field_%2%.dat" )
-               % M_export_path
-               % step ).str();
-
-    LOG(INFO) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
-
-    std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
-    if ( ! outrecord.good() )
-        throw std::runtime_error("Cannot write to file: " + fileout);
-    exporter.writeRecord(outrecord);
-    outrecord.close();
 }
 
 #if defined (WAVES)
@@ -6499,6 +6503,12 @@ FiniteElement::wimToNextsim(bool step)
                         "km");
         }
         
+        bool TEST_INTERP_MESH = false;
+        //save mesh before entering WIM:
+        // mesh file can then be copied inside WIM to correct path to allow plotting
+        if (TEST_INTERP_MESH)
+            this->exportResults(1001,true,false);
+
         wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, mf1, mf2, mf3, step);
         // test this later
         //wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, M_SWH_grid, M_MWD_grid, M_FP_grid, step);
