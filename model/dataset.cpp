@@ -3747,10 +3747,12 @@ DataSet::thetaInRange(double const& th_, double const& th1, bool const& close_on
         njump = std::ceil(dth/360.);
         th = th_ - njump*360.;
     }
+#if 0
     else if (th_ == th2)
     {
         th = th1;
     }
+#endif
     else
     {
         th = th_;
