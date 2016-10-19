@@ -332,6 +332,8 @@ FiniteElement::initDatasets()
 
     M_ice_amsr2_elements_dataset=DataSet("ice_amsr2_elements",M_num_elements);
 
+    M_ice_cs2_smos_elements_dataset=DataSet("ice_cs2_smos_elements",M_num_elements);
+
     M_bathymetry_elements_dataset=DataSet("etopo_elements",M_num_elements);//M_num_nodes);
 
 #if defined (WAVES)
@@ -490,7 +492,8 @@ FiniteElement::initConstant()
         ("amsre", setup::IceType::AMSRE)
         ("amsr2", setup::IceType::AMSR2)
         ("osisaf", setup::IceType::OSISAF)
-        ("piomas", setup::IceType::PIOMAS);
+        ("piomas", setup::IceType::PIOMAS)
+        ("cs2_smos", setup::IceType::CS2_SMOS);
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
 
 #if defined (WAVES)
@@ -1564,6 +1567,7 @@ FiniteElement::regrid(bool step)
     M_ice_amsre_elements_dataset.target_size=M_num_elements;
     M_ice_osisaf_elements_dataset.target_size=M_num_elements;
     M_ice_amsr2_elements_dataset.target_size=M_num_elements;
+    M_ice_cs2_smos_elements_dataset.target_size=M_num_elements;
     M_bathymetry_elements_dataset.target_size=M_num_elements;
 #if defined (WAVES)
     M_WW3A_elements_dataset.target_size=M_num_elements;
@@ -1582,6 +1586,7 @@ FiniteElement::regrid(bool step)
     M_ice_amsre_elements_dataset.reloaded=false;
     M_ice_osisaf_elements_dataset.reloaded=false;
     M_ice_amsr2_elements_dataset.reloaded=false;
+    M_ice_cs2_smos_elements_dataset.reloaded=false;
     M_bathymetry_elements_dataset.reloaded=false;
 #if defined (WAVES)
     M_WW3A_elements_dataset.reloaded=false;
@@ -1600,6 +1605,7 @@ FiniteElement::regrid(bool step)
     M_ice_amsre_elements_dataset.grid.loaded=false;
     M_ice_osisaf_elements_dataset.grid.loaded=false;
     M_ice_amsr2_elements_dataset.grid.loaded=false;
+    M_ice_cs2_smos_elements_dataset.grid.loaded=false;
     M_bathymetry_elements_dataset.grid.loaded=false;
 #endif
 
@@ -4767,6 +4773,7 @@ FiniteElement::readRestart(int step)
     M_ice_amsre_elements_dataset.target_size=M_num_elements;
     M_ice_osisaf_elements_dataset.target_size=M_num_elements;
     M_ice_amsr2_elements_dataset.target_size=M_num_elements;
+    M_ice_cs2_smos_elements_dataset.target_size=M_num_elements;
     M_bathymetry_elements_dataset.target_size=M_num_elements;
 #if defined (WAVES)
     M_WW3A_elements_dataset.target_size=M_num_elements;
@@ -5235,6 +5242,9 @@ FiniteElement::initIce()
         case setup::IceType::AMSR2:
             this->topazAmsr2Ice();
             break;
+        case setup::IceType::CS2_SMOS:
+            this->cs2SmosIce();
+            break;
 
         default:
             std::cout << "invalid initialization of the ice"<<"\n";
@@ -5695,6 +5705,43 @@ FiniteElement::topazAmsr2Ice()
         if(M_thick[i]<=0.)
         {
             M_thick[i]=0.;
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+
+		M_damage[i]=0.;
+	}
+}
+void
+FiniteElement::cs2SmosIce()
+{
+    external_data M_init_conc=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,0,false,time_init);
+    M_init_conc.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_thick=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,1,false,time_init);
+    M_init_thick.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
+    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    double tmp_var;
+    for (int i=0; i<M_num_elements; ++i)
+    {
+		tmp_var=std::min(1.,M_init_conc[i]);
+		M_conc[i] = tmp_var; 
+		tmp_var=M_init_thick[i];
+		M_thick[i] = tmp_var ; 
+		tmp_var=M_init_snow_thick[i];
+		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<=0.)
+        {
             M_conc[i]=0.;
             M_snow_thick[i]=0.;
         }

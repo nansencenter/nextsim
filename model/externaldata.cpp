@@ -624,7 +624,8 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                         data_in_tmp[dataset->grid.reduced_nodes_ind[i]]*scale_factor + add_offset;
                     if(std::isnan(data_in_tmp[dataset->grid.reduced_nodes_ind[i]]*scale_factor + add_offset))
                     {
-            			_printf_("found NaN at"  << data_in_tmp[dataset->grid.reduced_nodes_ind[i]]<<  " "<<  dataset->grid.reduced_nodes_ind[i] <<  ", default_value is used\n");
+            			_printf_("found NaN at"  << data_in_tmp[dataset->grid.reduced_nodes_ind[i]]<<  " "<<  dataset->grid.reduced_nodes_ind[i] <<  ", 0. is used\n");
+                        data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=0.;
     				}
                 }
 			}
@@ -652,7 +653,8 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                         data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=data_in_tmp[i]*scale_factor + add_offset;
                         if(std::isnan(data_in_tmp[i]*scale_factor + add_offset))
                         {
-                			_printf_("found NaN at"  << data_in_tmp[i] <<  " "<<  i <<  ", default_value is used\n");
+                			_printf_("found NaN at"  << data_in_tmp[i] <<  " "<<  i <<  ", 0. is used\n");
+                            data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=0.;
         				}
                     }
                 }
