@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
  * @file   externaldata.hpp
@@ -40,7 +40,7 @@ public:
     typedef double value_type;
 
     typedef DataSet Dataset;
-    
+
     // typedef DataSet::Grid Grid;
     // typedef DataSet::Dimension Dimension;
     // typedef DataSet::Variable Variable;
@@ -76,7 +76,7 @@ public:
     void check_and_reload(GmshMesh const& mesh, const double current_time );
 
 	value_type operator[] (const size_type i);
-    
+
     value_type get(const size_type i);
 
     std::vector<double> get_vector();

@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
  * @file   environment.hpp
@@ -70,9 +70,9 @@ public:
     static po::variables_map const& vm() { return vmenv; }
 
     static fs::path const& nextsimDir() { return nextsimdirenv; }
-	
+
     static fs::path const& simdataDir() { return simdatadirenv; }
-	
+
 	static fs::path const& simforecastDir() { return simforecastdirenv; }
 
     static MemoryUsage logMemoryUsage(std::string const& message);
