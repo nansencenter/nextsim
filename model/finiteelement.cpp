@@ -259,10 +259,13 @@ void
 FiniteElement::initModelState()
 {
     // Initialise the physical state of the model
-    this->initIce();
-
+    LOG(DEBUG) << "initSlabOcean\n";
     this->initSlabOcean();
 
+    LOG(DEBUG) << "initIce\n";
+    this->initIce();
+
+    LOG(DEBUG) << "initDrifter\n";
     this->initDrifter();
 
 #if defined (WAVES)
@@ -3503,30 +3506,30 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
 
         // Even out the layer structure and temperatures
         hi = h1 + h2;
-        if ( h2 > h1 )
-        {
-            // Lower layer ice is added to the upper layer
-            // T1 changes, but T2 not
-            double f1   = h1/hi*2.; // Fraction of layer 1 ice found in the new layer 1
-            double Tbar = f1*( T1 + qi*Tfr_ice/(Crho*T1) ) + (1-f1)*T2; // (39)
-            T1 = ( Tbar - std::sqrt(Tbar*Tbar - 4*Tfr_ice*qi/Crho) )/2.; // (38)
-        } else {
-            // Upper layer ice is added to the lower layer
-            // T2 changes, but T1 not
-            double f1   = (2.*h1-hi)/hi; // Fraction of layer 1 ice found in new layer 2
-            T2 = f1*( T1 + qi*Tfr_ice/(Crho*T1) ) + (1-f1)*T2; // (40)
-
-            // Melt from top and bottom if T2 is too high
-            if ( T2 > Tfr_ice )
+            if ( h2 > h1 )
             {
-                // This is:
-                // hi -= h2*C*(T2-Tfr_ice) / ( E1 + Ebot );
-                // But h2 hasn't been updated, E1 may have changed and Ebot is not in this scope
-                // so we just write it out:
-                hi -= hi/2*Crho*(T2-Tfr_ice)*T1/( qi*T1 + (Crho*T1-qi)*(Tfr_ice-T1) );
-                T2  = Tfr_ice;
+                // Lower layer ice is added to the upper layer
+                // T1 changes, but T2 not
+                double f1   = h1/hi*2.; // Fraction of layer 1 ice found in the new layer 1
+                double Tbar = f1*( T1 + qi*Tfr_ice/(Crho*T1) ) + (1-f1)*T2; // (39)
+                T1 = ( Tbar - std::sqrt(Tbar*Tbar - 4*Tfr_ice*qi/Crho) )/2.; // (38)
+            } else {
+                // Upper layer ice is added to the lower layer
+                // T2 changes, but T1 not
+                double f1   = (2.*h1-hi)/hi; // Fraction of layer 1 ice found in new layer 2
+                T2 = f1*( T1 + qi*Tfr_ice/(Crho*T1) ) + (1-f1)*T2; // (40)
+
+                // Melt from top and bottom if T2 is too high
+                if ( T2 > Tfr_ice )
+                {
+                    // This is:
+                    // hi -= h2*C*(T2-Tfr_ice) / ( E1 + Ebot );
+                    // But h2 hasn't been updated, E1 may have changed and Ebot is not in this scope
+                    // so we just write it out:
+                    hi -= hi/2*Crho*(T2-Tfr_ice)*T1/( qi*T1 + (Crho*T1-qi)*(Tfr_ice-T1) );
+                    T2  = Tfr_ice;
+                }
             }
-        }
 
         // Book keeping
         del_hi = hi-hi_old;
@@ -3711,7 +3714,7 @@ FiniteElement::run()
 
     // Debug file that records the time step
     std::fstream pcpt_file;
-    pcpt_file.open("Timestamp.txt", std::ios::out | std::ios::trunc);
+    pcpt_file.open(M_export_path + "/Timestamp.txt", std::ios::out | std::ios::trunc);
 
     // main loop for nextsim program
     current_time = time_init + pcpt*time_step/(24*3600.0);
@@ -4311,16 +4314,6 @@ FiniteElement::initMoorings()
 
     // Define the mooring dataset
     M_moorings = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first, nodal_variables, elemental_variables, vectorial_variables);
-
-    // Save the grid info - this is still just an ascii dump!
-    std::ofstream myfile;
-    myfile.open("lon_grid.dat");
-    std::copy(M_moorings.M_grid.gridLON.begin(), M_moorings.M_grid.gridLON.end(), ostream_iterator<float>(myfile," "));
-    myfile.close();
-    myfile.open("lat_grid.dat");
-    std::copy(M_moorings.M_grid.gridLAT.begin(), M_moorings.M_grid.gridLAT.end(), ostream_iterator<float>(myfile," "));
-    myfile.close();
-
     M_moorings.initNetCDF(M_moorings_file);
 #else
     // Read the grid in from file
@@ -5227,7 +5220,7 @@ FiniteElement::initIce()
         if ( M_snow_thick[i] > 0. )
             M_tice[0][i] = std::min(0., M_tair[i]);
         else
-            M_tice[0][i] = std::min(-physical::mu*M_sss[i], M_tair[i]);
+            M_tice[0][i] = std::min(-physical::mu*physical::si, M_tair[i]);
 
     if ( M_thermo_type == setup::ThermoType::WINTON )
     {

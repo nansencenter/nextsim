@@ -1419,7 +1419,7 @@ averaging_period=0.;         time= time_tmp;
             NaN_mask_defined: false,
             NaN_mask_value: 0.,
      		a: 1.,
-     		b: 0.,
+     		b: 1/physical::rhos,
      		Units: "m",
      		data2: data2_tmp
      	};
