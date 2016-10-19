@@ -1919,7 +1919,7 @@ FiniteElement::assemble(int pcpt)
             std::cout<<"coef_basal= "<< coef_basal <<"\n";
         }
 
-        /* Loop over the 6 by 6 components of the finite element intergrale
+        /* Loop over the 6 by 6 components of the finite element integral
          * this is done smartly by looping over j=0:2 and i=0:2
          * col = (mwIndex)it[2*j]-1  , row = (mwIndex)it[2*i]-1;
          * col  , row   -> UU component
@@ -2376,6 +2376,10 @@ FiniteElement::update()
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
     //std::cout<<"MAX THREADS= "<< max_threads <<"\n";
+#if defined (WAVES)
+    if (M_use_wim)
+        M_dfloe.assign(M_num_elements,0.);
+#endif
 
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
@@ -2385,6 +2389,9 @@ FiniteElement::update()
         double old_conc;
         double old_damage;
         double old_h_ridged_thick_ice;
+#if defined (WAVES)
+        double old_nfloes;
+#endif
 
         double old_h_thin;
         double old_hs_thin;
@@ -2427,6 +2434,10 @@ FiniteElement::update()
         old_conc = M_conc[cpt];
         old_damage = M_damage[cpt];
         old_h_ridged_thick_ice=M_h_ridged_thick_ice[cpt];
+#if defined (WAVES)
+        if (M_use_wim)
+            old_nfloes = M_nfloes[cpt];
+#endif
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
@@ -2653,6 +2664,15 @@ FiniteElement::update()
             ice_volume = old_thick*surface;
             snow_volume = old_snow_thick*surface;
             ridged_thick_ice_volume = old_h_ridged_thick_ice*surface;
+#if defined (WAVES)
+            if (M_use_wim)
+            {
+                M_nfloes[cpt]  = old_nfloes*surface/surface_new;
+
+                // lower bounds
+                M_nfloes[cpt] = ((M_nfloes[cpt]>0.)?(M_nfloes[cpt] ):(0.)) ;
+            }
+#endif
 
             M_conc[cpt]    = ice_surface/surface_new;
             M_thick[cpt]   = ice_volume/surface_new;
@@ -2743,6 +2763,24 @@ FiniteElement::update()
                 M_hs_thin[cpt] = 0. ;
             }
         }
+
+#if defined (WAVES)
+        if (M_use_wim)
+        {
+            //update Dfloe
+            if (M_nfloes[cpt] > 0)
+                M_dfloe[cpt] = std::sqrt(M_conc[cpt]/M_nfloes[cpt]);
+
+            if (M_dfloe[cpt] > vm["wim.dfloepackthresh"].template as<double>())
+                M_dfloe[cpt] = vm["wim.dfloepackinit"].template as<double>();
+
+            if (M_conc[cpt] < vm["wim.cicemin"].template as<double>())
+            {
+                M_nfloes[cpt] = 0.;
+                M_dfloe[cpt] = 0.;
+            }
+        }
+#endif
     }
 }
 
@@ -6645,6 +6683,7 @@ FiniteElement::wimToNextsim(bool step)
     if (!M_regrid)
         M_mesh.move(M_UM,-1.);
 
+#if 0
     // set dfloe each time step (can be changed due to advection of nfloes by nextsim)
     M_dfloe.assign(M_num_elements,0.);
 
@@ -6659,6 +6698,7 @@ FiniteElement::wimToNextsim(bool step)
         if (M_conc[i] < vm["wim.cicemin"].template as<double>())
             M_dfloe[i] = 0.;
     }
+#endif
 
     std::cout<<"Finished wimToNextsim";
 }//wimToNextsim
