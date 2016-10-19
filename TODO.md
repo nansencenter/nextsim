@@ -21,7 +21,7 @@
 ## coupling code nextwim ##
 
   * get it to agree with matlab coupled code (2 weeks)
-  * reduce diffusion: at each wim time step interp 3 wave fields onto mesh, then loop over elements to do breaking on them using the wave fields (2 weeks)
+  * DONE! > reduce diffusion: at each wim time step interp 3 wave fields onto mesh, then loop over elements to do breaking on them using the wave fields (2 weeks)
   * external forcing/realistic domains (1 month)
   * make sure it is running efficiently for large scale simulations (MPI needed?) (1 month)
 
