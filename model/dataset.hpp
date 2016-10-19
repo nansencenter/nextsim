@@ -135,28 +135,6 @@ public:
         int dimension_y_count;
     } Grid;
 
-#if 0
-    typedef struct Dataset
-    {
-        std::string dirname;
-        std::string prefix;
-        std::string postfix;
-        std::string reference_date;
-
-        std::vector<Variable> variables;
-        std::vector<Vectorial_Variable> vectorial_variables;
-        int target_size;
-        Grid *grid;
-
-        bool reloaded;
-
-        int nb_timestep_day;
-        Variable time;
-        Dimension dimension_time;
-
-        std::vector<double> ftime_range;
-    } Dataset;
-#endif
     DataSet();
 
     DataSet(char const *DatasetName,int target_size);
@@ -170,7 +148,6 @@ public:
 
     bool reloaded;
 
-    int nb_timestep_day; // put 0 for not time-dependent field such as bathymetry
     double averaging_period; // 0. for snapshot, 1. for daily values, 365./12 for monthly values.
     Variable time;
 

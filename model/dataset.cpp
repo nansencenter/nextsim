@@ -189,7 +189,7 @@ namespace Nextsim
          grid= grid_tmp;
          
          reloaded=false;
-         nb_timestep_day= 8;
+         
          averaging_period=0.;
          time= time_tmp;
      }
@@ -317,7 +317,7 @@ namespace Nextsim
      		masking: false
      	};
 
-         nb_timestep_day=8;
+         
 
          Variable tair={
              name:"T2",
@@ -398,7 +398,7 @@ namespace Nextsim
              land_mask_value: 0.,
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
-             a:physical::rhow/1000.*(nb_timestep_day)/(24.*3600),
+             a:physical::rhow/1000./(3.*3600),
              b:0.,
              Units:"kg/m^2/s",
              data2: data2_tmp
@@ -590,7 +590,7 @@ averaging_period=0.;         time= time_tmp;
 
          reloaded=false;
 
-         nb_timestep_day= 1;
+         
          averaging_period=1.; // days
          time= time_tmp;
      }
@@ -750,7 +750,7 @@ averaging_period=0.;         time= time_tmp;
 
              reloaded=false;
 
-             nb_timestep_day= 1;
+             
              averaging_period=1.; // days
              time= time_tmp;
      }
@@ -920,7 +920,7 @@ averaging_period=0.;         time= time_tmp;
 
          reloaded=false;
 
-         nb_timestep_day= 1;
+         
          averaging_period=1.; // days
          time= time_tmp;
      }
@@ -1122,7 +1122,7 @@ averaging_period=0.;         time= time_tmp;
 
          reloaded=false;
 
-         nb_timestep_day= 1;
+         
          averaging_period=1.; // days
          time= time_tmp;
      }
@@ -1282,7 +1282,7 @@ averaging_period=0.;         time= time_tmp;
 
          reloaded=false;
          
-         nb_timestep_day= 1;
+         
          averaging_period=1.; // days
          time= time_tmp;
      }
@@ -1436,7 +1436,7 @@ averaging_period=0.;         time= time_tmp;
          
          reloaded=false;
          
-         nb_timestep_day= 12;
+         
          averaging_period=365./12; // days
          time= time_tmp;
      }
@@ -1557,7 +1557,7 @@ averaging_period=0.;         time= time_tmp;
 
         reloaded=false;
 
-        nb_timestep_day= 1;
+        
         averaging_period=1.; // days
      	time= time_tmp;
      }
@@ -1692,7 +1692,7 @@ averaging_period=0.;         time= time_tmp;
 
         reloaded=false;
 
-        nb_timestep_day= 1;
+        
         averaging_period=1.; // days
      	time= time_tmp;
      }
@@ -1827,7 +1827,7 @@ averaging_period=0.;         time= time_tmp;
 
         reloaded=false;
 
-        nb_timestep_day= 1;
+        
         averaging_period=1.; // days
      	time= time_tmp;
      }
@@ -1933,7 +1933,7 @@ averaging_period=0.;         time= time_tmp;
          grid= grid_tmp;
          reloaded=false;
 
-         nb_timestep_day= 0;
+         
          averaging_period=0.;
      }
      else if (strcmp (DatasetName, "ERAi_elements") == 0)
@@ -2039,8 +2039,6 @@ averaging_period=0.;         time= time_tmp;
             data2: data2_tmp
     	};
 
-        nb_timestep_day=4;
-
         Variable tair={
             name:"2T",
             dimensions: dimensions,
@@ -2084,7 +2082,7 @@ averaging_period=0.;         time= time_tmp;
             land_mask_value: 0.,
             NaN_mask_defined: false,
             NaN_mask_value: 0.,
-            a:nb_timestep_day/(24.*3600),
+            a:1./(6.*3600),
             b:0.,
             Units:"W/m^2",
             data2: data2_tmp
@@ -2109,7 +2107,7 @@ averaging_period=0.;         time= time_tmp;
             land_mask_value: 0.,
             NaN_mask_defined: false,
             NaN_mask_value: 0.,
-            a:physical::rhow*(nb_timestep_day)/(24.*3600),
+            a:physical::rhow/(6.*3600),
             b:0.,
             Units:"kg/m^2/s",
             data2: data2_tmp
@@ -2285,7 +2283,7 @@ averaging_period=0.;         time= time_tmp;
 
       reloaded= false;
 
-      nb_timestep_day= 4;
+      
       averaging_period=0.;
       time= time_tmp;
       }
@@ -2392,7 +2390,7 @@ averaging_period=0.;         time= time_tmp;
              data2: data2_tmp
      	};
 
-         nb_timestep_day=4;
+         
 
          Variable tair={
              name:"T2M",
@@ -2612,7 +2610,7 @@ averaging_period=0.;         time= time_tmp;
 
        reloaded= false;
 
-       nb_timestep_day= 4;
+       
        averaging_period=0.;
        time= time_tmp;
        }
@@ -2774,7 +2772,7 @@ averaging_period=0.;         time= time_tmp;
 
          reloaded= false;
 
-         nb_timestep_day= 8;
+         
          averaging_period=0.;
 
          time= time_tmp;
@@ -2944,7 +2942,7 @@ averaging_period=0.;         time= time_tmp;
 
          reloaded= false;
 
-         nb_timestep_day= 4;
+         
          averaging_period=0.;
 
          time= time_tmp;
