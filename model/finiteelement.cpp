@@ -1038,11 +1038,11 @@ FiniteElement::regrid(bool step)
 		}
 
         
-        if(step && (vm["simul.regrid_output_flag"].as<bool>())
+        if(step && (vm["simul.regrid_output_flag"].as<bool>()))
         {
             had_remeshed=true;
             mesh_adapt_step++;
-            this->exportResults(2000+mesh_adapt_step);
+            this->exportResults(200000+mesh_adapt_step);
 		}
         
         chrono.restart();
@@ -4022,10 +4022,10 @@ FiniteElement::step(int &pcpt)
     // Solve the linear problem
     //======================================================================
 
-    if(had_remeshed && (vm["simul.regrid_output_flag"].as<bool>())
+    if(had_remeshed && (vm["simul.regrid_output_flag"].as<bool>()))
     {
         had_remeshed=false;
-        this->exportResults(3000+mesh_adapt_step);
+        this->exportResults(300000+mesh_adapt_step);
         had_remeshed=false;
     }
 
