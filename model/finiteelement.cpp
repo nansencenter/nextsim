@@ -3487,6 +3487,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         hs += delhs;
         h1 += delh1;
         h2 += delh2;
+        hi  = h1 + h2;
 
         // Snow-to-ice conversion
         double freeboard = ( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
@@ -3505,31 +3506,30 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         }
 
         // Even out the layer structure and temperatures
-        hi = h1 + h2;
-            if ( h2 > h1 )
-            {
-                // Lower layer ice is added to the upper layer
-                // T1 changes, but T2 not
-                double f1   = h1/hi*2.; // Fraction of layer 1 ice found in the new layer 1
-                double Tbar = f1*( T1 + qi*Tfr_ice/(Crho*T1) ) + (1-f1)*T2; // (39)
-                T1 = ( Tbar - std::sqrt(Tbar*Tbar - 4*Tfr_ice*qi/Crho) )/2.; // (38)
-            } else {
-                // Upper layer ice is added to the lower layer
-                // T2 changes, but T1 not
-                double f1   = (2.*h1-hi)/hi; // Fraction of layer 1 ice found in new layer 2
-                T2 = f1*( T1 + qi*Tfr_ice/(Crho*T1) ) + (1-f1)*T2; // (40)
+        if ( h2 > h1 )
+        {
+            // Lower layer ice is added to the upper layer
+            // T1 changes, but T2 not
+            double f1   = h1/hi*2.; // Fraction of layer 1 ice found in the new layer 1
+            double Tbar = f1*( T1 + qi*Tfr_ice/(Crho*T1) ) + (1-f1)*T2; // (39)
+            T1 = ( Tbar - std::sqrt(Tbar*Tbar - 4*Tfr_ice*qi/Crho) )/2.; // (38)
+        } else {
+            // Upper layer ice is added to the lower layer
+            // T2 changes, but T1 not
+            double f1   = (2.*h1-hi)/hi; // Fraction of layer 1 ice found in new layer 2
+            T2 = f1*( T1 + qi*Tfr_ice/(Crho*T1) ) + (1-f1)*T2; // (40)
 
-                // Melt from top and bottom if T2 is too high
-                if ( T2 > Tfr_ice )
-                {
-                    // This is:
-                    // hi -= h2*C*(T2-Tfr_ice) / ( E1 + Ebot );
-                    // But h2 hasn't been updated, E1 may have changed and Ebot is not in this scope
-                    // so we just write it out:
-                    hi -= hi/2*Crho*(T2-Tfr_ice)*T1/( qi*T1 + (Crho*T1-qi)*(Tfr_ice-T1) );
-                    T2  = Tfr_ice;
-                }
+            // Melt from top and bottom if T2 is too high
+            if ( T2 > Tfr_ice )
+            {
+                // This is:
+                // hi -= h2*C*(T2-Tfr_ice) / ( E1 + Ebot );
+                // But h2 hasn't been updated, E1 may have changed and Ebot is not in this scope
+                // so we just write it out:
+                hi -= hi/2*Crho*(T2-Tfr_ice)*T1/( qi*T1 + (Crho*T1-qi)*(Tfr_ice-T1) );
+                T2  = Tfr_ice;
             }
+        }
 
         // Book keeping
         del_hi = hi-hi_old;
