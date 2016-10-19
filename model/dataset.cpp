@@ -145,11 +145,11 @@ namespace Nextsim
      	    interp_type : BilinearInterpEnum,
      	    //interp_type : NearestInterpEnum,
 
-     		dirname="data",
-     		//filename:"asr30km.comb.2d.200803.nc",
-            prefix= "asr30km.comb.2d.", // "asr30km.comb.2D.";
-            postfix=".nc",
-
+     		dirname:"data",
+     		prefix: "asr30km.comb.2d.", // "asr30km.comb.2D.";
+            postfix:".nc",
+            reference_date: "1901-01-01",
+            
      		latitude: latitude,
      		longitude: longitude,
 
@@ -183,21 +183,15 @@ namespace Nextsim
          std::vector<Vectorial_Variable> vectorial_variables_tmp(1);
          vectorial_variables_tmp[0] = uv;
 
-             dirname= "data";
-             prefix= "asr30km.comb.2d."; // "asr30km.comb.2D.";
-             postfix=".nc";
-             reference_date= "1901-01-01";
-
-             variables= variables_tmp;
-             vectorial_variables= vectorial_variables_tmp;
-             target_size= target_size_tmp;
-             grid= grid_tmp;
-
-             reloaded=false;
-
-             nb_timestep_day= 8;
-             averaging_period=0.;
-             time= time_tmp;
+         variables= variables_tmp;
+         vectorial_variables= vectorial_variables_tmp;
+         target_size= target_size_tmp;
+         grid= grid_tmp;
+         
+         reloaded=false;
+         nb_timestep_day= 8;
+         averaging_period=0.;
+         time= time_tmp;
      }
      else if (strcmp (DatasetName, "asr_elements") == 0)
      {
@@ -301,11 +295,11 @@ namespace Nextsim
      	    interp_type : BilinearInterpEnum,
      	    //interp_type : NearestInterpEnum,
 
-     		dirname="data",
-     		//filename:"asr30km.comb.2d.200803.nc",
-            prefix="asr30km.comb.2d.", // "asr30km.comb.2D.";
-            postfix=".nc",
-
+     		dirname:"data",
+     		prefix:"asr30km.comb.2d.", // "asr30km.comb.2D.";
+            postfix:".nc",
+            reference_date: "1901-01-01",
+            
      		latitude: latitude,
      		longitude: longitude,
 
@@ -420,11 +414,6 @@ namespace Nextsim
          variables_tmp[6] = precip;
 
          std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
-
-         dirname="data";
-         prefix="asr30km.comb.2d."; // "asr30km.comb.2D.";
-         postfix=".nc";
-         reference_date= "1901-01-01";
 
          variables= variables_tmp;
          vectorial_variables= vectorial_variables_tmp;
@@ -553,12 +542,12 @@ averaging_period=0.;         time= time_tmp;
 
          Grid grid_tmp={
              interpolation_method: InterpolationType::FromMeshToMesh2dx,
-     		interp_type: -1,
-             dirname= "data",
-             //filename: "TP4DAILY_200803_3m.nc",
-             prefix= "TP4DAILY_",
-             postfix= "_30m.nc",
-
+             interp_type: -1,
+             dirname: "data",
+             prefix: "TP4DAILY_",
+             postfix: "_30m.nc",
+             reference_date: "1950-01-01",
+             
              latitude: latitude,
              longitude: longitude,
 
@@ -566,15 +555,15 @@ averaging_period=0.;         time= time_tmp;
              dimension_y: dimension_y,
 
              mpp_file: projfilename,
-     		interpolation_in_latlon: false,
+             interpolation_in_latlon: false,
 
              loaded: false,
              dataset_frequency:"monthly",
-
-            waveOptions: wavopt_none,
-
-     		masking: true,
-     		masking_variable: ssh
+             
+             waveOptions: wavopt_none,
+             
+             masking: true,
+             masking_variable: ssh
      	};
 
          std::vector<Variable> variables_tmp(3);
@@ -593,11 +582,6 @@ averaging_period=0.;         time= time_tmp;
 
          std::vector<Vectorial_Variable> vectorial_variables_tmp(1);
          vectorial_variables_tmp[0] = uv;
-
-         dirname= "data";
-         prefix= "TP4DAILY_";
-         postfix= "_30m.nc";
-         reference_date= "1950-01-01";
 
          variables= variables_tmp;
          vectorial_variables= vectorial_variables_tmp;
@@ -728,12 +712,12 @@ averaging_period=0.;         time= time_tmp;
 
          Grid grid_tmp={
              interpolation_method: InterpolationType::FromMeshToMesh2dx,
-     		interp_type: -1,
-             dirname= "data",
-             //filename: "TP4DAILY_200803_3m.nc",
-             prefix= "TP4DAILY_",
-             postfix= "_3m.nc",
-
+             interp_type: -1,
+             dirname: "data",
+             prefix: "TP4DAILY_",
+             postfix: "_3m.nc",
+             reference_date: "1950-01-01",
+             
              latitude: latitude,
              longitude: longitude,
 
@@ -758,11 +742,6 @@ averaging_period=0.;         time= time_tmp;
          variables_tmp[2] = mld;
 
          std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
-
-             dirname= "data";
-             prefix= "TP4DAILY_";
-             postfix= "_3m.nc";
-             reference_date= "1950-01-01";
 
              variables= variables_tmp;
              vectorial_variables= vectorial_variables_tmp;
@@ -894,10 +873,11 @@ averaging_period=0.;         time= time_tmp;
          Grid grid_tmp={
              interpolation_method: InterpolationType::FromMeshToMesh2dx,
              interp_type: -1,
-             dirname= "data",
-             prefix= "TP4_start",
-             postfix= ".nc",
-
+             dirname: "data",
+             prefix: "TP4_start",
+             postfix: ".nc",
+             reference_date: "1950-01-01",
+             
              latitude: latitude,
              longitude: longitude,
 
@@ -932,11 +912,6 @@ averaging_period=0.;         time= time_tmp;
 
          std::vector<Vectorial_Variable> vectorial_variables_tmp(1);
          vectorial_variables_tmp[0] = uv;
-
-         dirname= "data";
-         prefix= "TP4_start";
-         postfix= ".nc";
-         reference_date= "1950-01-01";
 
          variables= variables_tmp;
          vectorial_variables= vectorial_variables_tmp;
@@ -1107,9 +1082,10 @@ averaging_period=0.;         time= time_tmp;
          Grid grid_tmp={
              interpolation_method: InterpolationType::FromMeshToMesh2dx,
              interp_type: -1,
-             dirname= "data",
-             prefix= "TP4_start",
-             postfix= ".nc",
+             dirname: "data",
+             prefix: "TP4_start",
+             postfix: ".nc",
+             reference_date: "1950-01-01",
 
              latitude: latitude,
              longitude: longitude,
@@ -1139,21 +1115,16 @@ averaging_period=0.;         time= time_tmp;
 
          std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
-             dirname= "data";
-             prefix= "TP4_start";
-             postfix= ".nc";
-             reference_date= "1950-01-01";
+         variables= variables_tmp;
+         vectorial_variables= vectorial_variables_tmp;
+         target_size= target_size_tmp;
+         grid= grid_tmp;
 
-             variables= variables_tmp;
-             vectorial_variables= vectorial_variables_tmp;
-             target_size= target_size_tmp;
-             grid= grid_tmp;
+         reloaded=false;
 
-             reloaded=false;
-
-             nb_timestep_day= 1;
-             averaging_period=1.; // days
-             time= time_tmp;
+         nb_timestep_day= 1;
+         averaging_period=1.; // days
+         time= time_tmp;
      }
      else if (strcmp (DatasetName, "ice_topaz_elements") == 0)
      {
@@ -1274,10 +1245,11 @@ averaging_period=0.;         time= time_tmp;
          Grid grid_tmp={
              interpolation_method: InterpolationType::FromMeshToMesh2dx,
      		interp_type: -1,
-             dirname= "data",
-             prefix= "TP4DAILY_",
-             postfix= "_3m.nc",
-
+             dirname: "data",
+             prefix: "TP4DAILY_",
+             postfix: "_3m.nc",
+             reference_date: "1950-01-01",
+             
              latitude: latitude,
              longitude: longitude,
 
@@ -1303,21 +1275,16 @@ averaging_period=0.;         time= time_tmp;
 
          std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
-             dirname= "data";
-             prefix= "TP4DAILY_";
-             postfix= "_3m.nc";
-             reference_date= "1950-01-01";
+         variables= variables_tmp;
+         vectorial_variables= vectorial_variables_tmp;
+         target_size= target_size_tmp;
+         grid= grid_tmp;
 
-             variables= variables_tmp;
-             vectorial_variables= vectorial_variables_tmp;
-             target_size= target_size_tmp;
-             grid= grid_tmp;
-
-             reloaded=false;
-
-     		nb_timestep_day= 1;
-            averaging_period=1.; // days
-     	    time= time_tmp;
+         reloaded=false;
+         
+         nb_timestep_day= 1;
+         averaging_period=1.; // days
+         time= time_tmp;
      }
      else if (strcmp (DatasetName, "ice_piomas_elements") == 0)
      {
@@ -1427,10 +1394,11 @@ averaging_period=0.;         time= time_tmp;
          Grid grid_tmp={
              interpolation_method: InterpolationType::FromMeshToMesh2dx,
      		interp_type: -1,
-             dirname= "data",
-             prefix= "PIOMAS_",
-             postfix= ".nc",
-
+             dirname: "data",
+             prefix: "PIOMAS_",
+             postfix: ".nc",
+             reference_date: "1950-01-01",
+             
              latitude: latitude,
              longitude: longitude,
 
@@ -1460,22 +1428,17 @@ averaging_period=0.;         time= time_tmp;
          variables_tmp[2] = snow_thick;
 
          std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
-
-             dirname= "data";
-             prefix= "PIOMAS_";
-             postfix= ".nc";
-             reference_date= "1950-01-01";
-
-             variables= variables_tmp;
-             vectorial_variables= vectorial_variables_tmp;
-             target_size= target_size_tmp;
-             grid= grid_tmp;
-
-             reloaded=false;
-
-     		nb_timestep_day= 12;
-            averaging_period=365./12; // days
-     	    time= time_tmp;
+         
+         variables= variables_tmp;
+         vectorial_variables= vectorial_variables_tmp;
+         target_size= target_size_tmp;
+         grid= grid_tmp;
+         
+         reloaded=false;
+         
+         nb_timestep_day= 12;
+         averaging_period=365./12; // days
+         time= time_tmp;
      }
      else if (strcmp (DatasetName, "ice_amsre_elements") == 0)
      {
@@ -1558,12 +1521,12 @@ averaging_period=0.;         time= time_tmp;
 
          Grid grid_tmp={
              interpolation_method: InterpolationType::FromMeshToMesh2dx,
-     		interp_type: -1,
-             dirname= "data",
-             //filename: "TP4DAILY_200803_3m.nc",
-             prefix= "asi-n6250-",
-             postfix= "-v5i.nc",
-
+             interp_type: -1,
+             dirname: "data",
+             prefix: "asi-n6250-",
+             postfix: "-v5i.nc",
+             reference_date: "2002-01-01",
+             
              latitude: latitude,
              longitude: longitude,
 
@@ -1586,11 +1549,6 @@ averaging_period=0.;         time= time_tmp;
         variables_tmp[0] = conc;
 
         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
-
-        dirname= "data";
-        prefix= "asi-n6250-";
-        postfix= "-v5i.nc";
-        reference_date= "2002-01-01";
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
@@ -1698,12 +1656,11 @@ averaging_period=0.;         time= time_tmp;
          Grid grid_tmp={
              interpolation_method: InterpolationType::FromMeshToMesh2dx,
      		interp_type: -1,
-             dirname= "data",
-             //filename: "TP4DAILY_200803_3m.nc",
-             //prefix= "ice_conc_nh_ease-125_reproc_",
-             prefix="ice_conc_nh_polstere-100_multi_",
-             postfix= "1200.nc",
-
+             dirname: "data",
+             prefix:"ice_conc_nh_polstere-100_multi_",
+             postfix: "1200.nc",
+             reference_date: "1978-01-01",
+             
              latitude: latitude,
              longitude: longitude,
 
@@ -1727,11 +1684,6 @@ averaging_period=0.;         time= time_tmp;
         variables_tmp[1] = confidence;
 
         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
-
-        dirname= "data";
-        prefix= "ice_conc_nh_polstere-100_multi_";
-        postfix= "1200.nc";
-        reference_date= "1978-01-01";
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
@@ -1839,13 +1791,11 @@ averaging_period=0.;         time= time_tmp;
          Grid grid_tmp={
              interpolation_method: InterpolationType::FromMeshToMesh2dx,
      		interp_type: -1,
-             //dirname= "data",
-             //prefix= "LongitudeLatitudeGrid_3.125km_Arctic.nc",
-             //postfix= "",
             dirname: "data",
             prefix: "Arc_",
             postfix: "_res3.125_pyres.nc",
-
+            reference_date: "0001-01-01",
+            
              latitude: latitude,
              longitude: longitude,
 
@@ -1869,10 +1819,6 @@ averaging_period=0.;         time= time_tmp;
 
         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
-        dirname= "data";
-        prefix= "Arc_";
-        postfix= "_res3.125_pyres.nc";
-        reference_date= "0001-01-01";
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
@@ -1939,10 +1885,11 @@ averaging_period=0.;         time= time_tmp;
      	    //interp_type : TriangleInterpEnum, // slower
      	    interp_type : BilinearInterpEnum,
      	    //interp_type : NearestInterpEnum,
-     		dirname="data",
-     		prefix="ETOPO_Arctic_1arcmin.nc",
-            //prefix="ETOPO1_Ice_g_gmt4.grd",
-            postfix="",
+     		dirname:"data",
+     		prefix:"ETOPO_Arctic_1arcmin.nc",
+            //prefix:"ETOPO1_Ice_g_gmt4.grd",
+            postfix:"",
+            reference_date: "",
 
      		latitude: latitude,
      		longitude: longitude,
@@ -1978,13 +1925,6 @@ averaging_period=0.;         time= time_tmp;
          variables_tmp[0] = z;
 
          std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
-
-
-         dirname="data";
-  		 prefix="ETOPO_Arctic_1arcmin.nc";
-         //prefix="ETOPO1_Ice_g_gmt4.grd";
-         postfix="";
-         reference_date= "";
 
          variables= variables_tmp;
          vectorial_variables= vectorial_variables_tmp;
@@ -2052,11 +1992,11 @@ averaging_period=0.;         time= time_tmp;
      	    //interp_type : TriangleInterpEnum, // slower
      	    interp_type : BilinearInterpEnum,
      	    //interp_type : NearestInterpEnum,
-     		dirname="data",
-     		//filename:"erai.6h.201304.nc",//"erai.6h.200803.nc",
-            prefix= "erai.6h.",
-            postfix=".nc",
-
+     		dirname:"data",
+            prefix: "erai.6h.",
+            postfix:".nc",
+            reference_date:"2013-01-01", // THE YEAR IS RESET IN EXTERNALDATA.CPP
+            
      		latitude: latitude,
      		longitude: longitude,
 
@@ -2185,11 +2125,6 @@ averaging_period=0.;         time= time_tmp;
 
          std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
-         dirname=  "data";
-         prefix= "erai.6h.";
-         postfix=".nc";
-         reference_date="2013-01-01";//"2008-01-01";
-
          variables= variables_tmp;
          vectorial_variables= vectorial_variables_tmp;
          target_size= target_size_tmp;
@@ -2253,11 +2188,11 @@ averaging_period=0.;         time= time_tmp;
   	    //interp_type : TriangleInterpEnum, // slower
   	    interp_type : BilinearInterpEnum,
   	    //interp_type : NearestInterpEnum,
-  		dirname="data",
-  		//filename:"erai.6h.201304.nc",//"erai.6h.200803.nc",
-        prefix= "erai.6h.",
-        postfix=".nc",
-
+  		dirname:"data",
+  		prefix: "erai.6h.",
+        postfix:".nc",
+        reference_date:"2013-01-01",
+        
   		latitude: latitude,
   		longitude: longitude,
 
@@ -2344,11 +2279,6 @@ averaging_period=0.;         time= time_tmp;
       std::vector<Vectorial_Variable> vectorial_variables_tmp(1);
       vectorial_variables_tmp[0] = uv;
 
-      dirname=  "data";
-      prefix= "erai.6h.";
-      postfix=".nc";
-      reference_date="2013-01-01";//"2008-01-01";
-
       variables= variables_tmp;
       vectorial_variables= vectorial_variables_tmp;
       target_size= target_size_tmp;
@@ -2415,10 +2345,11 @@ averaging_period=0.;         time= time_tmp;
       	    //interp_type : TriangleInterpEnum, // slower
       	    interp_type : BilinearInterpEnum,
       	    //interp_type : NearestInterpEnum,
-      		dirname="data",
-             prefix= "ec_start",
-             postfix=".nc",
-
+      		dirname:"data",
+             prefix: "ec_start",
+             postfix:".nc",
+             reference_date:"1950-01-01",//"2008-01-01";
+             
       		latitude: latitude,
       		longitude: longitude,
 
@@ -2521,11 +2452,6 @@ averaging_period=0.;         time= time_tmp;
 
           std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
-          dirname=  "data";
-          prefix= "ec_start";
-          postfix=".nc";
-          reference_date="1950-01-01";//"2008-01-01";
-
           variables= variables_tmp;
           vectorial_variables= vectorial_variables_tmp;
           target_size= target_size_tmp;
@@ -2589,9 +2515,10 @@ averaging_period=0.;         time= time_tmp;
    	    //interp_type : TriangleInterpEnum, // slower
    	    interp_type : BilinearInterpEnum,
    	    //interp_type : NearestInterpEnum,
-   		dirname="data",
-         prefix= "ec_start",
-         postfix=".nc",
+   		dirname:"data",
+         prefix: "ec_start",
+         postfix:".nc",
+         reference_date:"1950-01-01",
 
    		latitude: latitude,
    		longitude: longitude,
@@ -2679,11 +2606,6 @@ averaging_period=0.;         time= time_tmp;
        std::vector<Vectorial_Variable> vectorial_variables_tmp(1);
        vectorial_variables_tmp[0] = uv;
 
-       dirname=  "data";
-       prefix= "ec_start";
-       postfix=".nc";
-       reference_date="1950-01-01";
-
        variables= variables_tmp;
        vectorial_variables= vectorial_variables_tmp;
        target_size= target_size_tmp;
@@ -2750,10 +2672,11 @@ averaging_period=0.;         time= time_tmp;
             //interp_type : TriangleInterpEnum, // slower
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
-                dirname="data",
-            prefix= "SWARP_WW3_ARCTIC-12K_",
-            postfix=".nc",
-
+            dirname:"data",
+            prefix: "SWARP_WW3_ARCTIC-12K_",
+            postfix:".nc",
+            reference_date:"1990-01-01",
+            
             latitude: latitude,
             longitude: longitude,
 
@@ -2845,12 +2768,6 @@ averaging_period=0.;         time= time_tmp;
         variables_tmp[1] = MWD;
         variables_tmp[2] = FP;
 
-
-         dirname=  "data";
-         prefix= "SWARP_WW3_ARCTIC-12K_";
-         postfix=".nc";
-         reference_date="1990-01-01";//"2008-01-01";
-
          variables= variables_tmp;
          target_size= target_size_tmp;
          grid= grid_tmp;
@@ -2925,12 +2842,11 @@ averaging_period=0.;         time= time_tmp;
             //interp_type : TriangleInterpEnum, // slower
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
-            //interp_type: -1,
-                dirname="data",
-                //filename:"erai.6h.201304.nc",//"erai.6h.200803.nc",
-            prefix= "erai_waves_1deg_",
-            postfix=".nc",
-
+            dirname:"data",
+            prefix: "erai_waves_1deg_",
+            postfix:".nc",
+            reference_date:"1900-01-01",
+            
             latitude: latitude,
             longitude: longitude,
 
@@ -3021,12 +2937,6 @@ averaging_period=0.;         time= time_tmp;
         variables_tmp[0] = SWH;
         variables_tmp[1] = MWD;
         variables_tmp[2] = MWP;
-
-
-         dirname=  "data";
-         prefix= "erai_waves_1deg_";
-         postfix=".nc";
-         reference_date="1900-01-01";//"2008-01-01";
 
          variables= variables_tmp;
          target_size= target_size_tmp;
@@ -3386,10 +3296,10 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 
             filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                                     % Environment::simdataDir().string()
-                                    % dirname
-                                    % prefix
+                                    % grid_ptr->dirname
+                                    % grid_ptr->prefix
                                     % current_timestr
-                                    % postfix
+                                    % grid_ptr->postfix
                                     ).str();
 
             std::cout<<"GRID : FILENAME = "<< filename <<"\n";

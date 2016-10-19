@@ -42,8 +42,8 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
     M_initialized(true)
 {
     M_datasetname = (boost::format( "%1%...%2%" )
-                    % M_dataset->prefix
-                    % M_dataset->postfix
+                    % M_dataset->grid.prefix
+                    % M_dataset->grid.postfix
                     ).str();
 
     fcoeff.resize(2);
@@ -389,7 +389,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 	if(dataset->grid.dataset_frequency!="constant")
 	{
         // when using forcing from a forecast, we select the file based on the StartingTime
-        if ((dataset->prefix).find("start") != std::string::npos)
+        if ((dataset->grid.prefix).find("start") != std::string::npos)
         {
             ftime = M_StartingTime;
             file_jump.push_back(0);
@@ -437,8 +437,8 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                 // change the reference_date if erai forcing according to the xxxx-01-01, where xxxx is the current year
                 if ((dataset->name).find("ERAi") != std::string::npos)
                 {
-                    dataset->reference_date = (boost::format( "%1%" ) % boost::io::group(std::setw(4), std::setfill('0'), value_year)).str() + "-01-01";
-                    //std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@DETECT ERAi: Dataset->reference_date= "<< dataset->reference_date <<"\n";
+                    dataset->grid.reference_date = (boost::format( "%1%" ) % boost::io::group(std::setw(4), std::setfill('0'), value_year)).str() + "-01-01";
+                    //std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@DETECT ERAi: Dataset->grid.reference_date= "<< dataset->grid.reference_date <<"\n";
                 }
             }
             else if(dataset->grid.dataset_frequency=="yearly")
@@ -455,10 +455,10 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 
             filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                         % Environment::simdataDir().string()
-                        % dataset->dirname
-                        % dataset->prefix
+                        % dataset->grid.dirname
+                        % dataset->grid.prefix
                         % f_timestr
-                        % dataset->postfix
+                        % dataset->grid.postfix
                         ).str();
 
             std::cout<<"FILENAME= "<< filename <<"\n";
@@ -488,7 +488,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                       if ((dataset->name).find("ice_amsr2") != std::string::npos)
                           f=from_date_string((boost::format( "%1%-%2%-%3%" ) % f_timestr.substr(0,4) % f_timestr.substr(4,2) % f_timestr.substr(6,2)).str())+0.5;
                       else
-                          f = (f*dataset->time.a+dataset->time.b)/24.0+from_date_string(dataset->reference_date);
+                          f = (f*dataset->time.a+dataset->time.b)/24.0+from_date_string(dataset->grid.reference_date);
 
                       if(f>M_current_time && index_next==-1)
                       {
@@ -521,9 +521,9 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
     {
         filename = (boost::format( "%1%/%2%/%3%%4%" )
                     % Environment::simdataDir().string()
-                    % dataset->dirname
-                    % dataset->prefix
-                    % dataset->postfix
+                    % dataset->grid.dirname
+                    % dataset->grid.prefix
+                    % dataset->grid.postfix
                     ).str();
 
         filename_fstep.push_back(filename);

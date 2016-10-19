@@ -99,10 +99,10 @@ public:
         InterpolationType interpolation_method;
 		int interp_type;
         std::string dirname;
-        //std::string filename;
         std::string prefix;
         std::string postfix;
-
+        std::string reference_date;
+        
         Variable latitude;
         Variable longitude;
 
@@ -160,13 +160,6 @@ public:
     DataSet();
 
     DataSet(char const *DatasetName,int target_size);
-
-    public:
-
-    std::string dirname;
-    std::string prefix;
-    std::string postfix;
-    std::string reference_date;
 
 public:
     Grid grid;
