@@ -401,7 +401,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             file_jump.push_back(0);
             file_jump.push_back(1);
         }
-
+        
         std::string f_timestr;
 
         for (std::vector<int>::iterator jump = file_jump.begin() ; jump != file_jump.end(); ++jump)
@@ -466,45 +466,66 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                 continue;
                 //throw std::runtime_error("File not found: " + filename);
 
-            // Open the netcdf file
-            netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
-
-            // Set the time range XTIME
-            netCDF::NcVar FVTIME = dataFile.getVar(dataset->time.name);
-
             index_start.resize(1);
             index_count.resize(1);
 
-            netCDF::NcDim timeDim = dataFile.getDim(dataset->time.name);
+            bool has_time_variable;
 
-            index_start[0]=0;
-            index_count[0]=timeDim.getSize();
+            try // we try because sometimes no time dimension is available in the netcdf
+            {
+                // Open the netcdf file
+                netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
 
-            XTIME.resize(index_count[0]);
+                // Set the time range XTIME
+                netCDF::NcVar FVTIME = dataFile.getVar(dataset->time.name);
+                
+		        netCDF::NcDim timeDim = dataFile.getDim(dataset->time.name);
+                
+                index_start[0]=0;
+                index_count[0]=timeDim.getSize();
 
-            FVTIME.getVar(index_start, index_count, &XTIME[0]);
-            std::for_each(XTIME.begin(), XTIME.end(), [&](double& f)
-                  {
-                      if ((dataset->name).find("ice_amsr2") != std::string::npos)
-                          f=from_date_string((boost::format( "%1%-%2%-%3%" ) % f_timestr.substr(0,4) % f_timestr.substr(4,2) % f_timestr.substr(6,2)).str())+0.5;
-                      else
-                          f = (f*dataset->time.a+dataset->time.b)/24.0+from_date_string(dataset->grid.reference_date);
+                XTIME.resize(index_count[0]);
+                
+                FVTIME.getVar(index_start, index_count, &XTIME[0]);
+                
+                has_time_variable=true;
+            } 
+            catch(const std::exception& e) // if no time dimension is available in the netcdf, we define the time as 
+            {
+                index_start[0]=0;
+                index_count[0]=1;
 
-                      if(f>M_current_time && index_next==-1)
-                      {
-                          auto it = std::find(XTIME.begin(), XTIME.end(), f);
-                          time_next=f;
-                          index_next = std::distance(XTIME.begin(),it);
-                          filename_next = filename;
-                      }
-                      if(f<=M_current_time)
-                      {
-                          auto it = std::find(XTIME.begin(), XTIME.end(), f);
-                          time_prev=f;
-                          index_prev = std::distance(XTIME.begin(),it);
-                          filename_prev = filename;
-                      }
-                  });
+                XTIME.resize(index_count[0]);
+                
+                XTIME[0]=-1.;
+                
+                has_time_variable=false;
+                
+                if(dataset->grid.dataset_frequency=="monthly" || dataset->grid.dataset_frequency=="yearly")
+                    throw std::runtime_error("The case monthly and yearly when no time dimension is available is not implemented!");
+            }
+            
+            double f;
+            for (int it=0; it < XTIME.size(); ++it) // always need one step before and one after the target time
+            {
+                if (!has_time_variable || ((dataset->name).find("ice_amsr2") != std::string::npos))
+                    f = from_date_string((boost::format( "%1%-%2%-%3%" ) % f_timestr.substr(0,4) % f_timestr.substr(4,2) % f_timestr.substr(6,2)).str())+0.5;
+                else
+                    f = (XTIME[it]*dataset->time.a+dataset->time.b)/24.0+from_date_string(dataset->grid.reference_date);
+                
+                if(f>M_current_time && index_next==-1)
+                {
+                    time_next=f;
+                    index_next = it;
+                    filename_next = filename;
+                }
+                if(f<=M_current_time)
+                {
+                    time_prev=f;
+                    index_prev = it;
+                    filename_prev = filename;
+                }
+            }
         }
 
         filename_fstep.push_back(filename_prev);
@@ -585,7 +606,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             }
 
             // time dimension
-			if(dataset->grid.dataset_frequency!="constant")
+			if(dataset->variables[j].dimensions.size()>2 && dataset->grid.dataset_frequency!="constant")
 			{
             	index_start[0] = index;
             	index_count[0] = 1;
@@ -624,7 +645,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                         data_in_tmp[dataset->grid.reduced_nodes_ind[i]]*scale_factor + add_offset;
                     if(std::isnan(data_in_tmp[dataset->grid.reduced_nodes_ind[i]]*scale_factor + add_offset))
                     {
-            			_printf_("found NaN at"  << data_in_tmp[dataset->grid.reduced_nodes_ind[i]]<<  " "<<  dataset->grid.reduced_nodes_ind[i] <<  ", 0. is used\n");
+            			//_printf_("found NaN at"  << data_in_tmp[dataset->grid.reduced_nodes_ind[i]]<<  " "<<  dataset->grid.reduced_nodes_ind[i] <<  ", 0. is used\n");
                         data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=0.;
     				}
                 }
@@ -653,7 +674,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                         data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=data_in_tmp[i]*scale_factor + add_offset;
                         if(std::isnan(data_in_tmp[i]*scale_factor + add_offset))
                         {
-                			_printf_("found NaN at"  << data_in_tmp[i] <<  " "<<  i <<  ", 0. is used\n");
+                			//_printf_("found NaN at"  << data_in_tmp[i] <<  " "<<  i <<  ", 0. is used\n");
                             data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=0.;
         				}
                     }

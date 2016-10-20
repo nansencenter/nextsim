@@ -1767,8 +1767,10 @@ averaging_period=0.;         time= time_tmp;
              interpolation_method: InterpolationType::FromMeshToMesh2dx,
      		interp_type: -1,
              dirname: "data",
-             prefix:"cs2_smos_ice_thickness_20130121_20130127.nc",
-             postfix: "",
+             //prefix:"cs2_smos_ice_thickness_20130121_20130127.nc",
+             //postfix: "",
+             prefix:"cs2_smos_ice_thickness_",
+             postfix: ".nc",
              reference_date: "",
              
              latitude: latitude,
@@ -1781,7 +1783,7 @@ averaging_period=0.;         time= time_tmp;
      		interpolation_in_latlon: false,
 
              loaded: false,
-             dataset_frequency:"constant",
+             dataset_frequency:"daily",
 
             waveOptions: wavopt_none,
 
@@ -1802,7 +1804,7 @@ averaging_period=0.;         time= time_tmp;
 
         reloaded=false;
 
-        averaging_period=0.; // days
+        averaging_period=1.; // days
      }
      else if (strcmp (DatasetName, "ice_amsr2_elements") == 0)
      {
@@ -3458,10 +3460,13 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
                     index_count[k] = tmpDim.getSize();
                 }
             }
-            // time dimension
-			index_start[0] = 0;
-			index_count[0] = 1;
-
+            if(grid_ptr->masking_variable.dimensions.size()>2)
+            {
+                // time dimension
+			    index_start[0] = 0;
+			    index_count[0] = 1;
+            }
+            
 			data_in.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 			VMASK.getVar(index_start,index_count,&data_in[0]);
 
