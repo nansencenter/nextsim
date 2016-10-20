@@ -1788,7 +1788,7 @@ averaging_period=0.;         time= time_tmp;
             waveOptions: wavopt_none,
 
      		masking: true,
-     		masking_variable: thickness
+     		masking_variable: conc
         };
 
         std::vector<Variable> variables_tmp(2);
@@ -3538,12 +3538,13 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 				for (int j=0; j<grid_ptr->dimension_x_count; ++j)
 				{
                     tmp_data=data_in[grid_ptr->dimension_x_count*i+j];
-					if (    (!find_FillValue        || (tmp_data != FillValue)         )&&
-                            (!find_missing_value    || (tmp_data != missing_value)     )&&
-                            // (!find_valid_min        || (tmp_data >= valid_min)         )&&
+					if (    (!find_FillValue        || (tmp_data != FillValue)          )&&
+                            (!find_missing_value    || (tmp_data != missing_value)      )&&
+                            //(!find_valid_min        || (tmp_data >= valid_min)         )&&
                             //(!find_valid_max        || (tmp_data <= valid_max)         )&&
-                            (!find_land_mask        || (tmp_data != land_mask_value)   )&&
-                            (!find_NaN_mask         || (tmp_data != NaN_mask_value)    )   )
+                            (!find_land_mask        || (tmp_data != land_mask_value)    )&&
+                            (!find_NaN_mask         || (tmp_data != NaN_mask_value)     )&&
+                            (!std::isnan(tmp_data)                                      )   )
 					{
 						reduced_X.push_back(X[grid_ptr->dimension_x_count*i+j]);
 						reduced_Y.push_back(Y[grid_ptr->dimension_x_count*i+j]);
