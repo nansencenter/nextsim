@@ -3643,8 +3643,11 @@ DataSet::getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_p
 
     for (int i=0; i<(index_x_count[0]); ++i)
     {
-        LON[i]=thetaInRange(LON[i]*scale_factor + add_offset,-180.,false);
-        //make sure lon is in range [-180,180) to correspond to branch cut in mapx
+        //LON[i]=thetaInRange(LON[i]*scale_factor + add_offset,-180.,false);
+        //  //make sure lon is in range [-180,180) to correspond to branch cut in mapx
+        
+        LON[i]=thetaInRange(LON[i]*scale_factor + add_offset,-180., true);
+        //make sure lon is in range [-180,180] to correspond to branch cut in mapx
     }
 
 }
@@ -3863,12 +3866,10 @@ DataSet::thetaInRange(double const& th_, double const& th1, bool const& close_on
         njump = std::ceil(dth/360.);
         th = th_ - njump*360.;
     }
-#if 0
     else if (th_ == th2)
     {
         th = th1;
     }
-#endif
     else
     {
         th = th_;
