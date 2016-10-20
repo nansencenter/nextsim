@@ -1022,20 +1022,20 @@ FiniteElement::regrid(bool step)
 			LOG(DEBUG) <<"Interpolate hmin done in "<< chrono.elapsed() <<"s\n";
 		}
 
-        
+
         if(step && (vm["simul.regrid_output_flag"].as<bool>()))
         {
             had_remeshed=true;
             mesh_adapt_step++;
             this->exportResults(200000+mesh_adapt_step);
 		}
-        
+
         chrono.restart();
         LOG(INFO) <<"AdaptMesh starts\n";
         this->adaptMesh();
 	    LOG(INFO) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
-        
-    
+
+
 		if (step)
 		{
 			int prv_num_elements = M_mesh_previous.numTriangles();
@@ -1670,7 +1670,7 @@ FiniteElement::adaptMesh()
                 }
             }
         }
-        M_mesh.set_id(new_nodes_id);
+        M_mesh.setId(new_nodes_id);
     }
 
 
@@ -4059,7 +4059,7 @@ FiniteElement::step(int &pcpt)
     }
 
     this->solve();
-    
+
     chrono.restart();
     LOG(DEBUG) <<"updateVelocity starts\n";
     this->updateVelocity();
@@ -4677,7 +4677,7 @@ FiniteElement::readRestart(int step)
     // Import the bamg structs
     this->importBamg(bamgmesh);
 
-    M_mesh.set_id(nodeId);
+    M_mesh.setId(nodeId);
 
     M_elements = M_mesh.triangles();
     M_nodes = M_mesh.nodes();
@@ -5487,7 +5487,7 @@ FiniteElement::topazForecastAmsr2Ice()
             uncertainty=0.1;
 		else
             uncertainty=0.05;
-        
+
         double diff_mod_obs=M_conc_amsr2[i]-M_init_conc[i];
         if(std::abs(diff_mod_obs)>=uncertainty)
             M_conc[i] = std::min(1.,M_conc_amsr2[i]-(diff_mod_obs)/std::abs(diff_mod_obs)*uncertainty/2.);
@@ -5535,10 +5535,10 @@ FiniteElement::topazForecastAmsr2OsisafIce()
 
     external_data M_conc_osisaf=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,0,false,time_init);
     M_conc_osisaf.check_and_reload(M_mesh,time_init);
-    
+
     external_data M_confidence_osisaf=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,1,false,time_init);
     M_confidence_osisaf.check_and_reload(M_mesh,time_init);
-    
+
     external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
     M_conc_amsr2.check_and_reload(M_mesh,time_init);
 
@@ -5750,7 +5750,7 @@ FiniteElement::cs2SmosIce()
 
     boost::gregorian::date dt = Nextsim::parse_date(time_init);
     int month_id=dt.month().as_number(); // 1 for January, 2 for February, and so on. This will be used to compute the snow from Warren climatology
-    
+
     std::cout << "month_id: " << month_id <<"\n";
 
     external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
@@ -5760,9 +5760,9 @@ FiniteElement::cs2SmosIce()
     for (int i=0; i<M_num_elements; ++i)
     {
 		tmp_var=std::min(1.,M_init_conc[i]);
-		M_conc[i] = tmp_var; 
+		M_conc[i] = tmp_var;
 		tmp_var=M_init_thick[i];
-		M_thick[i] = tmp_var ; 
+		M_thick[i] = tmp_var ;
 		tmp_var=M_init_snow_thick[i];
 		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
 
