@@ -5748,6 +5748,11 @@ FiniteElement::cs2SmosIce()
     external_data M_init_thick=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,1,false,time_init);
     M_init_thick.check_and_reload(M_mesh,time_init);
 
+    boost::gregorian::date dt = Nextsim::parse_date(time_init);
+    int month_id=dt.month().as_number(); // 1 for January, 2 for February, and so on. This will be used to compute the snow from Warren climatology
+    
+    std::cout << "month_id: " << month_id <<"\n";
+
     external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
     M_init_snow_thick.check_and_reload(M_mesh,time_init);
 
