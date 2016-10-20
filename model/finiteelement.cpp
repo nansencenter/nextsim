@@ -57,30 +57,6 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
             throw std::logic_error("invalid domain type");
     }
 
-#if defined (WAVES)
-    if (0)//(vm["simul.wim_grid"].as<bool>())
-    {
-        LOG(INFO) <<"Using wim grid\n";
-
-        M_mesh.writeGeometry("wimsemistructured.geo",
-                             vm["wim.nx"].as<int>()-1, vm["wim.ny"].as<int>()-2,
-                             vm["wim.xmin"].as<double>(),
-                             vm["wim.ymin"].as<double>()+vm["wim.dy"].as<double>(),
-                             vm["wim.dx"].as<double>(), vm["wim.dy"].as<double>());
-
-        this->createGMSHMesh("wimsemistructured.geo");
-        M_mesh.setOrdering("gmsh");
-
-        M_mesh_filename = "wimsemistructured.msh";
-        M_domain_type = setup::DomainType::WIM;
-        M_mesh_type = setup::MeshType::FROM_SPLIT;
-        M_flag_fix = 100; // free = 1;
-    }
-    else
-        M_mesh.setOrdering("gmsh"); // wim_grid_split2_4000m.msh should be set to gmsh ordering
-
-#endif
-
     M_mesh.readFromFile(M_mesh_filename);
 
     //if (!vm["simul.wim_grid"].as<bool>())
@@ -559,7 +535,12 @@ FiniteElement::initConstant()
 
     if (M_mesh_type == setup::MeshType::FROM_SPLIT)
     {
-        M_mesh.setOrdering("bamg");
+        if (M_mesh_filename.find("wim") == std::string::npos)
+        {
+            //if "wim" not in name use bamg ordering
+            // WIM grids are with gmsh ordering (default)
+            M_mesh.setOrdering("bamg");
+        }
     }
     else if (M_mesh_type == setup::MeshType::FROM_GMSH)
     {
@@ -5166,7 +5147,7 @@ FiniteElement::forcingWave()
 
             wim_forcing_options = M_WW3A_elements_dataset.grid.waveOptions;
             wim_ideal_forcing   = false;
-            
+
             break;
 
         case setup::WaveType::ERAI_WAVES_1DEG:
@@ -6558,7 +6539,7 @@ FiniteElement::wimToNextsim(bool step)
                         M_nfloes,
                         "km");
         }
-        
+
         bool TEST_INTERP_MESH = false;
         //save mesh before entering WIM:
         // mesh file can then be copied inside WIM to correct path to allow plotting
