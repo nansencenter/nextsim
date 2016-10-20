@@ -482,6 +482,7 @@ FiniteElement::initConstant()
 
     const boost::unordered_map<const std::string, setup::IceType> str2conc = boost::assign::map_list_of
         ("constant", setup::IceType::CONSTANT)
+        ("constant_partial", setup::IceType::CONSTANT_PARTIAL)
         ("target", setup::IceType::TARGET)
         ("topaz", setup::IceType::TOPAZ4)
         ("topaz_forecast", setup::IceType::TOPAZ4F)
@@ -1983,6 +1984,9 @@ FiniteElement::assemble(int pcpt)
                                                   -coef_Voce*sin_ocean_turning_angle*(M_ocean[index_v]-M_VT[index_v])
                                                   +coef_C*Vcor_index_v)
                                            - b0tj_sigma_hu/3);
+
+                //std::cout<<"fvdata, M_tau, M_wind (u): "<<fvdata[2*i]<<","
+                //    <<M_tau[index_u]<<","<<coef_Vair*M_wind[index_u]<<"\n";
 
 
                 fvdata[2*i+1] += surface_e*( mloc*( +M_tau[index_v]
@@ -5230,6 +5234,9 @@ FiniteElement::initIce()
         case setup::IceType::CONSTANT:
             this->constantIce();
             break;
+        case setup::IceType::CONSTANT_PARTIAL:
+            this->constantIce();
+            break;
         case setup::IceType::TARGET:
             this->targetIce();
             break;
@@ -5293,17 +5300,18 @@ FiniteElement::constantIce()
 	LOG(DEBUG) <<"Constant Ice\n";
     std::fill(M_conc.begin(), M_conc.end(), vm["simul.init_concentration"].as<double>());
     std::fill(M_thick.begin(), M_thick.end(), vm["simul.init_thickness"].as<double>());
+    std::fill(M_snow_thick.begin(), M_snow_thick.end(), vm["simul.init_snow_thickness"].as<double>());
+    std::fill(M_damage.begin(), M_damage.end(), 0.);
 
-#if defined (WAVES)
-    if (M_use_wim)
+    if (M_ice_type==setup::IceType::CONSTANT_PARTIAL)
     {
-        auto Bx = M_mesh.bcoordX();
-
-        double xmin = *std::min_element(wim_grid.X.begin(),wim_grid.X.end());
-        double xmax = *std::max_element(wim_grid.X.begin(),wim_grid.X.end());
+        auto Bx = M_mesh.coordX();//xmin,xmax from nodes
+        double xmin = *std::min_element(Bx.begin(),Bx.end());
+        double xmax = *std::max_element(Bx.begin(),Bx.end());
         double xedge = xmin + 0.3*(xmax-xmin);
 
-        std::cout<<"In constantIce (WIM)\n";
+        std::cout<<"In constantIce (partial cover)\n";
+        std::cout<<"M_ice_type "<< (int)M_ice_type<<"\n";
         std::cout<<"Min conc = "<< *std::min_element(M_conc.begin(),M_conc.end()) <<"\n";
         std::cout<<"Max conc = "<< *std::max_element(M_conc.begin(),M_conc.end()) <<"\n";
         std::cout<<"Min thick = "<< *std::min_element(M_thick.begin(),M_thick.end()) <<"\n";
@@ -5312,23 +5320,23 @@ FiniteElement::constantIce()
         std::cout<<"xmax="<<xmax<<"\n";
         std::cout<<"xedge="<<xedge<<"\n";
 
+        Bx = M_mesh.bcoordX();//set conc, etc on elements
         for (int i=0; i<M_conc.size(); ++i)
         {
             if (Bx[i] < xedge)
             {
-                M_conc[i] = 0.;
-                M_thick[i] = 0.;
+                M_conc[i]       = 0.;
+                M_thick[i]      = 0.;
+                M_snow_thick[i] = 0.;
             }
         }
         std::cout<<"New min conc = "<< *std::min_element(M_conc.begin(),M_conc.end()) <<"\n";
         std::cout<<"New max conc = "<< *std::max_element(M_conc.begin(),M_conc.end()) <<"\n";
         std::cout<<"New min thick = "<< *std::min_element(M_thick.begin(),M_thick.end()) <<"\n";
         std::cout<<"New max thick = "<< *std::max_element(M_thick.begin(),M_thick.end()) <<"\n";
-    }
-#endif
+        //std::abort();
+    }//partial ice cover
 
-    std::fill(M_snow_thick.begin(), M_snow_thick.end(), vm["simul.init_snow_thickness"].as<double>());
-    std::fill(M_damage.begin(), M_damage.end(), 0.);
 }
 
 void
