@@ -479,10 +479,10 @@ namespace bamg {
 			nbsubdomains=bamgmesh->SubDomainsSize[0];
 			subdomains = new SubDomain [ nbsubdomains ];
 			for (i=0;i<nbsubdomains;i++) {
-				i3  =(int)bamgmesh->SubDomains[i*3+0];
-				head=(int)bamgmesh->SubDomains[i*3+1];//-1;//C indexing
-				direction=(int)bamgmesh->SubDomains[i*3+2];
-				if (i3!=3) _error_("Bad Subdomain definition: first number should be 3");
+				i3  =(int)bamgmesh->SubDomains[i*4+0];
+				head=(int)bamgmesh->SubDomains[i*4+1];//-1;//C indexing
+				direction=(int)bamgmesh->SubDomains[i*4+2];
+				if (i3!=3) _error_("Bad Subdomain definition: first number should be 3, and not " << i3 << ".");
 				if (head<0 || head>=nbt) _error_("Bad Subdomain definition: head should in [1 " << nbt << "] (triangle number)");
 				subdomains[i].head = triangles+head;
 				subdomains[i].direction = direction;
