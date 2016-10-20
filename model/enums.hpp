@@ -33,18 +33,20 @@ namespace setup
 
     enum class IceType
 	{
-		CONSTANT         = 0,
-		CONSTANT_PARTIAL = 1,
-		AMSRE            = 2,
-		TOPAZ4           = 3,
-        ARBITRARY        = 5,
-        AMSR2            = 6,
-        TOPAZ4F          = 7,
-        MITGCM           = 8,
-        TARGET           = 9,
-        OSISAF           = 10,
-        PIOMAS           = 11,
-        TOPAZ4FAMSR2     = 12
+		CONSTANT            = 0,
+		CONSTANT_PARTIAL    = 1,
+		AMSRE               = 2,
+		TOPAZ4              = 3,
+        ARBITRARY           = 5,
+        AMSR2               = 6,
+        TOPAZ4F             = 7,
+        MITGCM              = 8,
+        TARGET              = 9,
+        OSISAF              = 10,
+        PIOMAS              = 11,
+        TOPAZ4FAMSR2        = 12,
+        TOPAZ4FAMSR2OSISAF  = 13,
+        CS2_SMOS            = 14
 	};
 
     enum class WaveType
