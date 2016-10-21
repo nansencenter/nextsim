@@ -445,6 +445,7 @@ private:
 private:
     void constantIce();
     void targetIce();
+    void binaryIce();
     void topazIce();
     void piomasIce();
     void topazForecastIce();

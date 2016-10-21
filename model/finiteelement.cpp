@@ -235,10 +235,13 @@ void
 FiniteElement::initModelState()
 {
     // Initialise the physical state of the model
-    this->initIce();
-
+    LOG(DEBUG) << "initSlabOcean\n";
     this->initSlabOcean();
 
+    LOG(DEBUG) << "initIce\n";
+    this->initIce();
+
+    LOG(DEBUG) << "initDrifter\n";
     this->initDrifter();
 
 #if defined (WAVES)
@@ -464,6 +467,7 @@ FiniteElement::initConstant()
         ("constant", setup::IceType::CONSTANT)
         ("constant_partial", setup::IceType::CONSTANT_PARTIAL)
         ("target", setup::IceType::TARGET)
+        ("binary", setup::IceType::BINARY)
         ("topaz", setup::IceType::TOPAZ4)
         ("topaz_forecast", setup::IceType::TOPAZ4F)
         ("topaz_forecast_amsr2", setup::IceType::TOPAZ4FAMSR2)
@@ -1025,20 +1029,20 @@ FiniteElement::regrid(bool step)
 			LOG(DEBUG) <<"Interpolate hmin done in "<< chrono.elapsed() <<"s\n";
 		}
 
-        
+
         if(step && (vm["simul.regrid_output_flag"].as<bool>()))
         {
             had_remeshed=true;
             mesh_adapt_step++;
             this->exportResults(200000+mesh_adapt_step);
 		}
-        
+
         chrono.restart();
         LOG(INFO) <<"AdaptMesh starts\n";
         this->adaptMesh();
 	    LOG(INFO) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
-        
-    
+
+
 		if (step)
 		{
 			int prv_num_elements = M_mesh_previous.numTriangles();
@@ -1676,7 +1680,7 @@ FiniteElement::adaptMesh()
                 }
             }
         }
-        M_mesh.set_id(new_nodes_id);
+        M_mesh.setId(new_nodes_id);
     }
 
 
@@ -3529,6 +3533,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         hs += delhs;
         h1 += delh1;
         h2 += delh2;
+        hi  = h1 + h2;
 
         // Snow-to-ice conversion
         double freeboard = ( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
@@ -3547,7 +3552,6 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         }
 
         // Even out the layer structure and temperatures
-        hi = h1 + h2;
         if ( h2 > h1 )
         {
             // Lower layer ice is added to the upper layer
@@ -3756,7 +3760,7 @@ FiniteElement::run()
 
     // Debug file that records the time step
     std::fstream pcpt_file;
-    pcpt_file.open("Timestamp.txt", std::ios::out | std::ios::trunc);
+    pcpt_file.open(M_export_path + "/Timestamp.txt", std::ios::out | std::ios::trunc);
 
     // main loop for nextsim program
     current_time = time_init + pcpt*time_step/(24*3600.0);
@@ -4022,6 +4026,7 @@ FiniteElement::step(int &pcpt)
         chrono.restart();
         LOG(DEBUG) <<"first export starts\n";
         this->exportResults(0);
+        this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
         LOG(DEBUG) <<"first export done in " << chrono.elapsed() <<"s\n";
     }
 #endif
@@ -4055,7 +4060,7 @@ FiniteElement::step(int &pcpt)
     }
 
     this->solve();
-    
+
     chrono.restart();
     LOG(DEBUG) <<"updateVelocity starts\n";
     this->updateVelocity();
@@ -4355,16 +4360,6 @@ FiniteElement::initMoorings()
 
     // Define the mooring dataset
     M_moorings = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first, nodal_variables, elemental_variables, vectorial_variables);
-
-    // Save the grid info - this is still just an ascii dump!
-    std::ofstream myfile;
-    myfile.open("lon_grid.dat");
-    std::copy(M_moorings.M_grid.gridLON.begin(), M_moorings.M_grid.gridLON.end(), ostream_iterator<float>(myfile," "));
-    myfile.close();
-    myfile.open("lat_grid.dat");
-    std::copy(M_moorings.M_grid.gridLAT.begin(), M_moorings.M_grid.gridLAT.end(), ostream_iterator<float>(myfile," "));
-    myfile.close();
-
     M_moorings.initNetCDF(M_moorings_file);
 #else
     // Read the grid in from file
@@ -4673,7 +4668,7 @@ FiniteElement::readRestart(int step)
     // Import the bamg structs
     this->importBamg(bamgmesh);
 
-    M_mesh.set_id(nodeId);
+    M_mesh.setId(nodeId);
 
     M_elements = M_mesh.triangles();
     M_nodes = M_mesh.nodes();
@@ -5244,6 +5239,9 @@ FiniteElement::initIce()
         case setup::IceType::TARGET:
             this->targetIce();
             break;
+        case setup::IceType::BINARY:
+            this->binaryIce();
+            break;
         case setup::IceType::TOPAZ4:
             this->topazIce();
             break;
@@ -5281,7 +5279,7 @@ FiniteElement::initIce()
         if ( M_snow_thick[i] > 0. )
             M_tice[0][i] = std::min(0., M_tair[i]);
         else
-            M_tice[0][i] = std::min(-physical::mu*M_sss[i], M_tair[i]);
+            M_tice[0][i] = std::min(-physical::mu*physical::si, M_tair[i]);
 
     if ( M_thermo_type == setup::ThermoType::WINTON )
     {
@@ -5386,6 +5384,60 @@ FiniteElement::targetIce()
         }
     }
 }
+
+void
+FiniteElement::binaryIce()
+{
+    std::fstream input;
+    std::string filename;
+    int length;
+
+    // First concentration
+    filename = Environment::nextsimDir().string() + "/data/initConc.dat";
+    input.open(filename, std::fstream::in);
+
+    // get length of file:
+    input.seekg (0, input.end);
+    length = input.tellg();
+    input.seekg (0, input.beg);
+    if ( length != M_num_elements*sizeof(double) )
+        throw std::runtime_error("Couldn't read the correct number of elements from " + filename +
+                ". File length is " + std::to_string(length) + " while M_num_elements is " + std::to_string(M_num_elements) + ".\n");
+
+    input.read((char*) &M_conc[0], M_num_elements*sizeof(double));
+    input.close();
+
+    // Then thickness
+    filename = Environment::nextsimDir().string() + "/data/initThick.dat";
+    input.open(filename, std::fstream::in);
+
+    // get length of file:
+    input.seekg (0, input.end);
+    length = input.tellg();
+    input.seekg (0, input.beg);
+    if ( length != M_num_elements*sizeof(double) )
+        throw std::runtime_error("Couldn't read the correct number of elements from " + filename +
+                ". File length is " + std::to_string(length) + " while M_num_elements is " + std::to_string(M_num_elements) + ".\n");
+
+    input.read((char*) &M_thick[0], M_num_elements*sizeof(double));
+    input.close();
+
+    // Finally snow thickness
+    filename = Environment::nextsimDir().string() + "/data/initSnow.dat";
+    input.open(filename, std::fstream::in);
+
+    // get length of file:
+    input.seekg (0, input.end);
+    length = input.tellg();
+    input.seekg (0, input.beg);
+    if ( length != M_num_elements*sizeof(double) )
+        throw std::runtime_error("Couldn't read the correct number of elements from " + filename +
+                ". File length is " + std::to_string(length) + " while M_num_elements is " + std::to_string(M_num_elements) + ".\n");
+
+    input.read((char*) &M_snow_thick[0], M_num_elements*sizeof(double));
+    input.close();
+}
+
 void
 FiniteElement::topazIce()
 {
@@ -5486,7 +5538,7 @@ FiniteElement::topazForecastAmsr2Ice()
             uncertainty=0.1;
 		else
             uncertainty=0.05;
-        
+
         double diff_mod_obs=M_conc_amsr2[i]-M_init_conc[i];
         if(std::abs(diff_mod_obs)>=uncertainty)
             M_conc[i] = std::min(1.,M_conc_amsr2[i]-(diff_mod_obs)/std::abs(diff_mod_obs)*uncertainty/2.);
@@ -5534,10 +5586,10 @@ FiniteElement::topazForecastAmsr2OsisafIce()
 
     external_data M_conc_osisaf=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,0,false,time_init);
     M_conc_osisaf.check_and_reload(M_mesh,time_init);
-    
+
     external_data M_confidence_osisaf=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,1,false,time_init);
     M_confidence_osisaf.check_and_reload(M_mesh,time_init);
-    
+
     external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
     M_conc_amsr2.check_and_reload(M_mesh,time_init);
 
@@ -5749,7 +5801,7 @@ FiniteElement::cs2SmosIce()
 
     boost::gregorian::date dt = Nextsim::parse_date(time_init);
     int month_id=dt.month().as_number(); // 1 for January, 2 for February, and so on. This will be used to compute the snow from Warren climatology
-    
+
     std::cout << "month_id: " << month_id <<"\n";
 
     external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
@@ -5759,9 +5811,9 @@ FiniteElement::cs2SmosIce()
     for (int i=0; i<M_num_elements; ++i)
     {
 		tmp_var=std::min(1.,M_init_conc[i]);
-		M_conc[i] = tmp_var; 
+		M_conc[i] = tmp_var;
 		tmp_var=M_init_thick[i];
-		M_thick[i] = tmp_var ; 
+		M_thick[i] = tmp_var ;
 		tmp_var=M_init_snow_thick[i];
 		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
 

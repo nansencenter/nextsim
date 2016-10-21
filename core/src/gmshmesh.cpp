@@ -425,7 +425,7 @@ GmshMesh::move(std::vector<double> const& um, double factor)
 }
 
 void
-GmshMesh::set_id(std::vector<int> const& new_id)
+GmshMesh::setId(std::vector<int> const& new_id)
 {
     if ( new_id.size() != 0 )
     {
