@@ -235,10 +235,13 @@ void
 FiniteElement::initModelState()
 {
     // Initialise the physical state of the model
-    this->initIce();
-
+    LOG(DEBUG) << "initSlabOcean\n";
     this->initSlabOcean();
 
+    LOG(DEBUG) << "initIce\n";
+    this->initIce();
+
+    LOG(DEBUG) << "initDrifter\n";
     this->initDrifter();
 
 #if defined (WAVES)
@@ -309,6 +312,8 @@ FiniteElement::initDatasets()
     M_ice_amsr2_elements_dataset=DataSet("ice_amsr2_elements",M_num_elements);
 
     M_ice_cs2_smos_elements_dataset=DataSet("ice_cs2_smos_elements",M_num_elements);
+
+    M_ice_smos_elements_dataset=DataSet("ice_smos_elements",M_num_elements);
 
     M_bathymetry_elements_dataset=DataSet("etopo_elements",M_num_elements);//M_num_nodes);
 
@@ -462,6 +467,7 @@ FiniteElement::initConstant()
         ("constant", setup::IceType::CONSTANT)
         ("constant_partial", setup::IceType::CONSTANT_PARTIAL)
         ("target", setup::IceType::TARGET)
+        ("binary", setup::IceType::BINARY)
         ("topaz", setup::IceType::TOPAZ4)
         ("topaz_forecast", setup::IceType::TOPAZ4F)
         ("topaz_forecast_amsr2", setup::IceType::TOPAZ4FAMSR2)
@@ -470,7 +476,8 @@ FiniteElement::initConstant()
         ("amsr2", setup::IceType::AMSR2)
         ("osisaf", setup::IceType::OSISAF)
         ("piomas", setup::IceType::PIOMAS)
-        ("cs2_smos", setup::IceType::CS2_SMOS);
+        ("cs2_smos", setup::IceType::CS2_SMOS)
+        ("smos", setup::IceType::SMOS);
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
 
 #if defined (WAVES)
@@ -1550,6 +1557,7 @@ FiniteElement::regrid(bool step)
     M_ice_osisaf_elements_dataset.target_size=M_num_elements;
     M_ice_amsr2_elements_dataset.target_size=M_num_elements;
     M_ice_cs2_smos_elements_dataset.target_size=M_num_elements;
+    M_ice_smos_elements_dataset.target_size=M_num_elements;
     M_bathymetry_elements_dataset.target_size=M_num_elements;
 #if defined (WAVES)
     M_WW3A_elements_dataset.target_size=M_num_elements;
@@ -1569,6 +1577,7 @@ FiniteElement::regrid(bool step)
     M_ice_osisaf_elements_dataset.reloaded=false;
     M_ice_amsr2_elements_dataset.reloaded=false;
     M_ice_cs2_smos_elements_dataset.reloaded=false;
+    M_ice_smos_elements_dataset.reloaded=false;
     M_bathymetry_elements_dataset.reloaded=false;
 #if defined (WAVES)
     M_WW3A_elements_dataset.reloaded=false;
@@ -1588,6 +1597,7 @@ FiniteElement::regrid(bool step)
     M_ice_osisaf_elements_dataset.grid.loaded=false;
     M_ice_amsr2_elements_dataset.grid.loaded=false;
     M_ice_cs2_smos_elements_dataset.grid.loaded=false;
+    M_ice_smos_elements_dataset.grid.loaded=false;
     M_bathymetry_elements_dataset.grid.loaded=false;
 #endif
 
@@ -3523,6 +3533,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         hs += delhs;
         h1 += delh1;
         h2 += delh2;
+        hi  = h1 + h2;
 
         // Snow-to-ice conversion
         double freeboard = ( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
@@ -3541,7 +3552,6 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         }
 
         // Even out the layer structure and temperatures
-        hi = h1 + h2;
         if ( h2 > h1 )
         {
             // Lower layer ice is added to the upper layer
@@ -3750,7 +3760,7 @@ FiniteElement::run()
 
     // Debug file that records the time step
     std::fstream pcpt_file;
-    pcpt_file.open("Timestamp.txt", std::ios::out | std::ios::trunc);
+    pcpt_file.open(M_export_path + "/Timestamp.txt", std::ios::out | std::ios::trunc);
 
     // main loop for nextsim program
     current_time = time_init + pcpt*time_step/(24*3600.0);
@@ -3866,21 +3876,6 @@ FiniteElement::init()
         LOG(DEBUG) <<"Reading restart file\n";
         pcpt = this->readRestart(vm["setup.step_nb"].as<int>());
         current_time = time_init + pcpt*time_step/(24*3600.0);
-        LOG(DEBUG) <<"Initialize forcingAtmosphere\n";
-        this->forcingAtmosphere();
-        LOG(DEBUG) <<"Initialize forcingOcean\n";
-        this->forcingOcean();
-#if defined (WAVES)
-        LOG(DEBUG) <<"Initialize forcingWave\n";
-        this->forcingWave();
-#endif
-        LOG(DEBUG) <<"Initialize bathymetry\n";
-        this->bathymetry();
-        chrono.restart();
-        LOG(DEBUG) <<"check_and_reload starts\n";
-        for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
-            (*it)->check_and_reload(M_mesh,current_time);
-        LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
     }
     else
     {
@@ -3892,26 +3887,31 @@ FiniteElement::init()
         chrono.restart();
         LOG(DEBUG) <<"Initialize variables\n";
         this->initVariables();
+    }
+    
+    LOG(DEBUG) <<"Initialize forcingAtmosphere\n";
+    this->forcingAtmosphere();
 
-        LOG(DEBUG) <<"Initialize forcingAtmosphere\n";
-        this->forcingAtmosphere();
-
-        LOG(DEBUG) <<"Initialize forcingOcean\n";
-        this->forcingOcean();
+    LOG(DEBUG) <<"Initialize forcingOcean\n";
+    this->forcingOcean();
 #if defined (WAVES)
         LOG(DEBUG) <<"Initialize forcingWave\n";
         this->forcingWave();
 #endif
-        LOG(DEBUG) <<"Initialize bathymetry\n";
-        this->bathymetry();
-        chrono.restart();
-        LOG(DEBUG) <<"check_and_reload starts\n";
-        for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
-            (*it)->check_and_reload(M_mesh,time_init);
-        LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
-        this->initModelState();
-        LOG(DEBUG) <<"initSimulation done in "<< chrono.elapsed() <<"s\n";
-    }
+    
+    LOG(DEBUG) <<"Initialize bathymetry\n";
+    this->bathymetry();
+        
+    chrono.restart();
+    LOG(DEBUG) <<"check_and_reload starts\n";
+    for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
+        (*it)->check_and_reload(M_mesh,time_init);
+    LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
+    
+    chrono.restart();
+    this->initModelState();
+    LOG(DEBUG) <<"initSimulation done in "<< chrono.elapsed() <<"s\n";
+    
     // Open the output file for drifters
     // TODO: Is this the right place to open the file?
     if (M_drifter_type == setup::DrifterType::IABP )
@@ -4026,6 +4026,7 @@ FiniteElement::step(int &pcpt)
         chrono.restart();
         LOG(DEBUG) <<"first export starts\n";
         this->exportResults(0);
+        this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
         LOG(DEBUG) <<"first export done in " << chrono.elapsed() <<"s\n";
     }
 #endif
@@ -4359,16 +4360,6 @@ FiniteElement::initMoorings()
 
     // Define the mooring dataset
     M_moorings = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first, nodal_variables, elemental_variables, vectorial_variables);
-
-    // Save the grid info - this is still just an ascii dump!
-    std::ofstream myfile;
-    myfile.open("lon_grid.dat");
-    std::copy(M_moorings.M_grid.gridLON.begin(), M_moorings.M_grid.gridLON.end(), ostream_iterator<float>(myfile," "));
-    myfile.close();
-    myfile.open("lat_grid.dat");
-    std::copy(M_moorings.M_grid.gridLAT.begin(), M_moorings.M_grid.gridLAT.end(), ostream_iterator<float>(myfile," "));
-    myfile.close();
-
     M_moorings.initNetCDF(M_moorings_file);
 #else
     // Read the grid in from file
@@ -4765,7 +4756,6 @@ FiniteElement::readRestart(int step)
 
     if (M_drifter_type == setup::DrifterType::IABP)
     {
-        std::cout << "Try reading them from the restart file\n";
         std::vector<int>    drifter_no = field_map_int["Drifter_no"];
         std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
         std::vector<double> drifter_y  = field_map_dbl["Drifter_y"];
@@ -4797,6 +4787,7 @@ FiniteElement::readRestart(int step)
     M_ice_osisaf_elements_dataset.target_size=M_num_elements;
     M_ice_amsr2_elements_dataset.target_size=M_num_elements;
     M_ice_cs2_smos_elements_dataset.target_size=M_num_elements;
+    M_ice_smos_elements_dataset.target_size=M_num_elements;
     M_bathymetry_elements_dataset.target_size=M_num_elements;
 #if defined (WAVES)
     M_WW3A_elements_dataset.target_size=M_num_elements;
@@ -5247,6 +5238,9 @@ FiniteElement::initIce()
         case setup::IceType::TARGET:
             this->targetIce();
             break;
+        case setup::IceType::BINARY:
+            this->binaryIce();
+            break;
         case setup::IceType::TOPAZ4:
             this->topazIce();
             break;
@@ -5271,7 +5265,9 @@ FiniteElement::initIce()
         case setup::IceType::CS2_SMOS:
             this->cs2SmosIce();
             break;
-
+        case setup::IceType::SMOS:
+            this->smosIce();
+            break;
         default:
             std::cout << "invalid initialization of the ice"<<"\n";
             throw std::logic_error("invalid initialization of the ice");
@@ -5282,7 +5278,7 @@ FiniteElement::initIce()
         if ( M_snow_thick[i] > 0. )
             M_tice[0][i] = std::min(0., M_tair[i]);
         else
-            M_tice[0][i] = std::min(-physical::mu*M_sss[i], M_tair[i]);
+            M_tice[0][i] = std::min(-physical::mu*physical::si, M_tair[i]);
 
     if ( M_thermo_type == setup::ThermoType::WINTON )
     {
@@ -5387,6 +5383,60 @@ FiniteElement::targetIce()
         }
     }
 }
+
+void
+FiniteElement::binaryIce()
+{
+    std::fstream input;
+    std::string filename;
+    int length;
+
+    // First concentration
+    filename = Environment::nextsimDir().string() + "/data/initConc.dat";
+    input.open(filename, std::fstream::in);
+
+    // get length of file:
+    input.seekg (0, input.end);
+    length = input.tellg();
+    input.seekg (0, input.beg);
+    if ( length != M_num_elements*sizeof(double) )
+        throw std::runtime_error("Couldn't read the correct number of elements from " + filename +
+                ". File length is " + std::to_string(length) + " while M_num_elements is " + std::to_string(M_num_elements) + ".\n");
+
+    input.read((char*) &M_conc[0], M_num_elements*sizeof(double));
+    input.close();
+
+    // Then thickness
+    filename = Environment::nextsimDir().string() + "/data/initThick.dat";
+    input.open(filename, std::fstream::in);
+
+    // get length of file:
+    input.seekg (0, input.end);
+    length = input.tellg();
+    input.seekg (0, input.beg);
+    if ( length != M_num_elements*sizeof(double) )
+        throw std::runtime_error("Couldn't read the correct number of elements from " + filename +
+                ". File length is " + std::to_string(length) + " while M_num_elements is " + std::to_string(M_num_elements) + ".\n");
+
+    input.read((char*) &M_thick[0], M_num_elements*sizeof(double));
+    input.close();
+
+    // Finally snow thickness
+    filename = Environment::nextsimDir().string() + "/data/initSnow.dat";
+    input.open(filename, std::fstream::in);
+
+    // get length of file:
+    input.seekg (0, input.end);
+    length = input.tellg();
+    input.seekg (0, input.beg);
+    if ( length != M_num_elements*sizeof(double) )
+        throw std::runtime_error("Couldn't read the correct number of elements from " + filename +
+                ". File length is " + std::to_string(length) + " while M_num_elements is " + std::to_string(M_num_elements) + ".\n");
+
+    input.read((char*) &M_snow_thick[0], M_num_elements*sizeof(double));
+    input.close();
+}
+
 void
 FiniteElement::topazIce()
 {
@@ -5748,13 +5798,7 @@ FiniteElement::cs2SmosIce()
     external_data M_init_thick=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,1,false,time_init);
     M_init_thick.check_and_reload(M_mesh,time_init);
 
-    boost::gregorian::date dt = Nextsim::parse_date(time_init);
-    int month_id=dt.month().as_number(); // 1 for January, 2 for February, and so on. This will be used to compute the snow from Warren climatology
-
-    std::cout << "month_id: " << month_id <<"\n";
-
-    external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    warrenClimatology();
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -5763,6 +5807,52 @@ FiniteElement::cs2SmosIce()
 		M_conc[i] = tmp_var;
 		tmp_var=M_init_thick[i];
 		M_thick[i] = tmp_var ;
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+
+		M_damage[i]=0.;
+
+        // Check that the snow is not so thick that the ice is flooded
+        double max_snow = M_thick[i]*(physical::rhow-physical::rhoi)/physical::rhos;
+        // Take half of the maximum allowed snow thickness
+        M_snow_thick[i] = std::min(0.5*max_snow, M_snow_thick[i]);
+
+	}
+}
+void
+FiniteElement::smosIce()
+{
+    external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
+    M_init_conc.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_thick=ExternalData(&M_ice_smos_elements_dataset,M_mesh,0,false,time_init);
+    M_init_thick.check_and_reload(M_mesh,time_init);
+
+    boost::gregorian::date dt = Nextsim::parse_date(time_init);
+    int month_id=dt.month().as_number(); // 1 for January, 2 for February, and so on. This will be used to compute the snow from Warren climatology
+    
+    std::cout << "month_id: " << month_id <<"\n";
+
+    external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
+    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    double tmp_var;
+    for (int i=0; i<M_num_elements; ++i)
+    {
+		tmp_var=std::min(1.,M_init_conc[i]);
+		M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+		tmp_var=M_init_thick[i];
+		M_thick[i] = tmp_var ; 
 		tmp_var=M_init_snow_thick[i];
 		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
 
@@ -5780,6 +5870,135 @@ FiniteElement::cs2SmosIce()
 
 		M_damage[i]=0.;
 	}
+}
+
+void
+FiniteElement::warrenClimatology()
+{
+    // Coefficients for the fit from Warren et al '99
+    std::vector<std::vector<double>> coeffs(12);
+
+    coeffs[0].push_back(28.01);
+    coeffs[0].push_back( 0.1270);
+    coeffs[0].push_back(-1.1833);
+    coeffs[0].push_back(-0.1164);
+    coeffs[0].push_back(-0.0051);
+    coeffs[0].push_back( 0.0243);
+
+    coeffs[1].push_back(30.28);
+    coeffs[1].push_back( 0.1056);
+    coeffs[1].push_back(-0.5908);
+    coeffs[1].push_back(-0.0263);
+    coeffs[1].push_back(-0.0049);
+    coeffs[1].push_back( 0.0044);
+
+    coeffs[2].push_back(33.89);
+    coeffs[2].push_back( 0.5486);
+    coeffs[2].push_back(-0.1996);
+    coeffs[2].push_back( 0.0280);
+    coeffs[2].push_back( 0.0216);
+    coeffs[2].push_back(-0.0176);
+
+    coeffs[3].push_back(36.80);
+    coeffs[3].push_back( 0.4046);
+    coeffs[3].push_back(-0.4005);
+    coeffs[3].push_back( 0.0256);
+    coeffs[3].push_back( 0.0024);
+    coeffs[3].push_back(-0.0641);
+
+    coeffs[4].push_back(36.93);
+    coeffs[4].push_back( 0.0214);
+    coeffs[4].push_back(-1.1795);
+    coeffs[4].push_back(-0.1076);
+    coeffs[4].push_back(-0.0244);
+    coeffs[4].push_back(-0.0142);
+
+    coeffs[5].push_back(36.59);
+    coeffs[5].push_back( 0.7021);
+    coeffs[5].push_back(-1.4819);
+    coeffs[5].push_back(-0.1195);
+    coeffs[5].push_back(-0.0009);
+    coeffs[5].push_back(-0.0603);
+
+    coeffs[6].push_back(11.02);
+    coeffs[6].push_back( 0.3008);
+    coeffs[6].push_back(-1.2591);
+    coeffs[6].push_back(-0.0811);
+    coeffs[6].push_back(-0.0043);
+    coeffs[6].push_back(-0.0959);
+
+    coeffs[7].push_back( 4.64);
+    coeffs[7].push_back( 0.3100);
+    coeffs[7].push_back(-0.6350);
+    coeffs[7].push_back(-0.0655);
+    coeffs[7].push_back( 0.0059);
+    coeffs[7].push_back(-0.0005);
+
+    coeffs[8].push_back(15.81);
+    coeffs[8].push_back( 0.2119);
+    coeffs[8].push_back(-1.0292);
+    coeffs[8].push_back(-0.0868);
+    coeffs[8].push_back(-0.0177);
+    coeffs[8].push_back(-0.0723);
+
+    coeffs[9].push_back(22.66);
+    coeffs[9].push_back( 0.3594);
+    coeffs[9].push_back(-1.3483);
+    coeffs[9].push_back(-0.1063);
+    coeffs[9].push_back( 0.0051);
+    coeffs[9].push_back(-0.0577);
+
+    coeffs[10].push_back(25.57);
+    coeffs[10].push_back( 0.1496);
+    coeffs[10].push_back(-1.4643);
+    coeffs[10].push_back(-0.1409);
+    coeffs[10].push_back(-0.0079);
+    coeffs[10].push_back(-0.0258);
+
+    coeffs[11].push_back(26.67);
+    coeffs[11].push_back(-0.1876);
+    coeffs[11].push_back(-1.4229);
+    coeffs[11].push_back(-0.1413);
+    coeffs[11].push_back(-0.0316);
+    coeffs[11].push_back(-0.0029);
+
+    // Time interpolation
+    boost::gregorian::date t = Nextsim::parse_date(time_init);
+    int month  = t.month().as_number(); // 1 for January, 2 for February, and so on.
+    int day    = t.day().as_number(); // Day of the month.
+    int eomday = t.end_of_month().day().as_number(); // Last day of the month.
+
+    int month2; // The other month to interpolate from (one before or after)
+    double dt;
+    if ( day < eomday/2. )
+    { // We're in the early part of the month and interpolate to the previous month
+        month2 = month-1;
+        dt     = day;
+    }
+    else
+    { // We're in the late part of the month and interpolate to the next month
+        month2 = month+1;
+        dt     = eomday - day;
+    }
+
+    // Now calculate snow thickness for the current day as an inexact temporal interpolation
+    // I just assume all months are as long as the current one ... but the error incurred is small
+    std::vector<double> lon = M_mesh.meanLon();
+    std::vector<double> lat = M_mesh.meanLat();
+
+    for ( int i=0; i<=M_num_elements; i++ )
+    {
+        const double pi = std::acos(-1);
+
+        double x = (90 - lat[i]) * std::cos(lon[i]*pi/180.);
+        double y = (90 - lat[i]) * std::sin(lon[i]*pi/180.);
+
+        M_snow_thick[i] = 1e-2*dt/eomday*std::max(0.,
+                coeffs[month-1][0] + coeffs[month-1][1]*x + coeffs[month-1][2]*y + coeffs[month-1][3]*x*y + coeffs[month-1][4]*x*x + coeffs[month-1][5]*y*y)
+            + 1e-2*(eomday-dt)/eomday*std::max(0.,
+                coeffs[month2-1][0] + coeffs[month2-1][1]*x + coeffs[month2-1][2]*y + coeffs[month2-1][3]*x*y + coeffs[month2-1][4]*x*x + coeffs[month2-1][5]*y*y);
+    }
+
 }
 
 void

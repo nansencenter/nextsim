@@ -113,12 +113,12 @@ void ExternalData::check_and_reload(GmshMesh const& mesh, const double current_t
     {
         bool to_be_reloaded=false;
 
-        if(M_dataset->grid.dataset_frequency!="constant")
-        {
-            to_be_reloaded=((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp) || !M_dataset->reloaded);
-        }
-        else
+        if(M_dataset->grid.dataset_frequency=="constant")
             to_be_reloaded=!M_dataset->reloaded;
+        else if(M_dataset->grid.dataset_frequency=="nearest_daily")
+            to_be_reloaded=(to_date_string_yd(current_time)!=to_date_string_yd(M_dataset->ftime_range[0]) || !M_dataset->reloaded);
+        else
+            to_be_reloaded=((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp) || !M_dataset->reloaded);            
 
         if (to_be_reloaded)
         {
@@ -148,7 +148,7 @@ ExternalData::get(const size_type i)
     }
     else
     {
-        if(M_dataset->grid.dataset_frequency!="constant")
+        if(M_dataset->grid.dataset_frequency!="constant" && M_dataset->grid.dataset_frequency!="nearest_daily")
         {
             fdt = std::abs(M_dataset->ftime_range[1]-M_dataset->ftime_range[0]);
             fcoeff[0] = std::abs(M_current_time-M_dataset->ftime_range[1])/fdt;
@@ -385,8 +385,10 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
     std::vector<std::string> filename_fstep;
     std::vector<int> index_fstep;
 
+    std::string f_timestr;
+
     // Filename depends on the date for time varying data
-	if(dataset->grid.dataset_frequency!="constant")
+	if(dataset->grid.dataset_frequency!="constant" && dataset->grid.dataset_frequency!="nearest_daily")
 	{
         // when using forcing from a forecast, we select the file based on the StartingTime
         if ((dataset->grid.prefix).find("start") != std::string::npos)
@@ -401,8 +403,6 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             file_jump.push_back(0);
             file_jump.push_back(1);
         }
-        
-        std::string f_timestr;
 
         for (std::vector<int>::iterator jump = file_jump.begin() ; jump != file_jump.end(); ++jump)
         {
@@ -538,15 +538,29 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 		dataset->ftime_range.push_back(time_prev);
         dataset->ftime_range.push_back(time_next);
 	}
-    else
+    else 
     {
-        filename = (boost::format( "%1%/%2%/%3%%4%" )
+        if(dataset->grid.dataset_frequency=="nearest_daily")
+        {
+            ftime = M_current_time;
+            f_timestr = to_date_string_yd(std::floor(ftime));
+            
+            double f=from_date_string((boost::format( "%1%-%2%-%3%" ) % f_timestr.substr(0,4) % f_timestr.substr(4,2) % f_timestr.substr(6,2)).str())+0.5;
+    		
+            dataset->ftime_range.resize(0);
+            dataset->ftime_range.push_back(f);
+        }
+        else
+            f_timestr ="";   
+
+        filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                     % Environment::simdataDir().string()
                     % dataset->grid.dirname
                     % dataset->grid.prefix
+                    % f_timestr
                     % dataset->grid.postfix
                     ).str();
-
+        
         filename_fstep.push_back(filename);
         index_fstep.push_back(0);
     }
@@ -606,7 +620,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             }
 
             // time dimension
-			if(dataset->variables[j].dimensions.size()>2 && dataset->grid.dataset_frequency!="constant")
+			if(dataset->variables[j].dimensions.size()>2 && dataset->grid.dataset_frequency!="constant" && dataset->grid.dataset_frequency!="nearest_daily")
 			{
             	index_start[0] = index;
             	index_count[0] = 1;

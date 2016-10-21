@@ -1,4 +1,4 @@
-function [mesh_out,data_out] = neXtSIM_bin_revert(dirname, proc, step,varargin)
+function [mesh_out,data_out] = neXtSIM_bin_revert(dirname, proc, step)%,varargin)
 
 %Sylvain: Created 20160105 to take a binary file and revert it to a slim_out.
 %Only works for binary files created by neXtSIM
@@ -6,11 +6,11 @@ function [mesh_out,data_out] = neXtSIM_bin_revert(dirname, proc, step,varargin)
 %>> neXtSIM_bin_revert('',0)
 
 %defaults:
-save_flag = 0; %don't save
-
-nVarargs = length(varargin);
-if nVarargs >= 1, save_flag = varargin{1}; end
-if nVarargs >= 2, error('Too many inputs'), end
+% save_flag = 0; %don't save
+% 
+% nVarargs = length(varargin);
+% if nVarargs >= 1, save_flag = varargin{1}; end
+% if nVarargs >= 2, error('Too many inputs'), end
 
 if(isempty(proc))
     field_info  = [ dirname '/field_' num2str(step) '.dat'];
@@ -38,9 +38,10 @@ function out=read_bin_export(file_info,file_data)
 fileID = fopen(file_info,'r');
 info_tmp=textscan(fileID,'%s %s');
 data_names=info_tmp{1};
-data_types=info_tmp{2}
+data_types=info_tmp{2};
 fclose(fileID);
 
+field = cell(numel(data_names));
 fileID = fopen(file_data,'r');
 for i = 1:numel(data_names)
     field{i} = data_names{i};
@@ -56,7 +57,7 @@ for i = 1:numel(data_names)
 	  prec = 'single';
 	else
 	  prec = 'int';
-	end
+    end
 
     N_data=fread(fileID,1,'int');
     if strcmp('Time',field{i})
