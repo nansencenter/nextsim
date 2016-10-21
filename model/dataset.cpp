@@ -1945,14 +1945,14 @@ averaging_period=0.;         time= time_tmp;
      {
      	// Definition of etopo grid and datasets
          Dimension dimension_x={
-             name:"lon", // for ETOPO_Arctic_1arcmin.nc
-             //name:"x", // for ETOPO1_Ice_g_gmt4.grd
+             //name:"lon", // for ETOPO_Arctic_1arcmin.nc
+             name:"x", // for ETOPO1_Ice_g_gmt4.grd
              cyclic:false
      	};
 
          Dimension dimension_y={
-             name:"lat", // for ETOPO_Arctic_1arcmin.nc
-             //name:"y", // for ETOPO1_Ice_g_gmt4.grd
+             //name:"lat", // for ETOPO_Arctic_1arcmin.nc
+             name:"y", // for ETOPO1_Ice_g_gmt4.grd
              cyclic:false
      	};
 
@@ -1967,8 +1967,8 @@ averaging_period=0.;         time= time_tmp;
          dimensions[1] = dimension_x;
 
          Variable latitude={
-             name: "lat",  // for ETOPO_Arctic_1arcmin.nc
-             //name: "y", // for ETOPO1_Ice_g_gmt4.grd
+             //name: "lat",  // for ETOPO_Arctic_1arcmin.nc
+             name: "y", // for ETOPO1_Ice_g_gmt4.grd
              dimensions: dimensions_lat,
              land_mask_defined: false,
              land_mask_value: 0.,
@@ -1981,8 +1981,8 @@ averaging_period=0.;         time= time_tmp;
      	};
 
          Variable longitude={
-             name: "lon", // for ETOPO_Arctic_1arcmin.nc
-             //name: "x", // for ETOPO1_Ice_g_gmt4.grd
+             //name: "lon", // for ETOPO_Arctic_1arcmin.nc
+             name: "x", // for ETOPO1_Ice_g_gmt4.grd
              dimensions: dimensions_lon,
              land_mask_defined: false,
              land_mask_value: 0.,
@@ -3644,7 +3644,8 @@ DataSet::getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_p
 
     for (int i=0; i<(index_x_count[0]); ++i)
     {
-        LON[i]=thetaInRange(LON[i]*scale_factor + add_offset,-180.,false);
+        LON[i]=LON[i]*scale_factor + add_offset;
+        //LON[i]=thetaInRange(LON[i]*scale_factor + add_offset,-180.,false);
         //make sure lon is in range [-180,180) to correspond to branch cut in mapx
     }
 
