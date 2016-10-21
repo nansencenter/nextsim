@@ -4756,7 +4756,6 @@ FiniteElement::readRestart(int step)
 
     if (M_drifter_type == setup::DrifterType::IABP)
     {
-        std::cout << "Try reading them from the restart file\n";
         std::vector<int>    drifter_no = field_map_int["Drifter_no"];
         std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
         std::vector<double> drifter_y  = field_map_dbl["Drifter_y"];
