@@ -179,8 +179,8 @@ ExternalData::get(const size_type i)
                 }
             }
             value =  M_factor*
-                (fcoeff[0]*M_dataset->variables[VariableId_tmp].data2[0][i_tmp] +
-                 fcoeff[1]*M_dataset->variables[VariableId_tmp].data2[1][i_tmp]);
+                (fcoeff[0]*M_dataset->variables[VariableId_tmp].interpolated_data[0][i_tmp] +
+                 fcoeff[1]*M_dataset->variables[VariableId_tmp].interpolated_data[1][i_tmp]);
         }
         else
         {
@@ -206,7 +206,7 @@ ExternalData::get(const size_type i)
                     VariableId_tmp=M_dataset->vectorial_variables[M_VariableId].components_Id[1];
                 }
             }
-            value =  M_factor*M_dataset->variables[VariableId_tmp].data2[0][i_tmp];
+            value =  M_factor*M_dataset->variables[VariableId_tmp].interpolated_data[0][i_tmp];
         }
     }
 
@@ -322,11 +322,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 	// interp_type for grid to mesh interpolation
 	int interp_type = dataset->grid.interp_type;
 
-    // Initialise variables for the fields
-    std::vector<double> tmp_interpolated_field(dataset->target_size);
-
     // size of the data
-    int N_data =dataset->variables.size();
     int M  =dataset->grid.dimension_y_count;
     int N  = dataset->grid.dimension_x_count;
 
@@ -568,9 +564,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
     // Initialise counters etc.
 	int nb_forcing_step =filename_fstep.size();
 
-	// Memory leak:
-    //double* data_in = new double[N_data*nb_forcing_step*final_MN];
-    std::vector<double> data_in(N_data*nb_forcing_step*final_MN);
+    std::vector<double> tmp_loaded_data(final_MN);
 
     std::cout<<"Start loading data\n";
 
@@ -586,7 +580,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
         // Open the netcdf file
         netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
 
-        // Load each variable and copy its data into data_in
+        // Load each variable and copy its data into loaded_data
         for(int j=0; j<dataset->variables.size(); ++j)
         {
             NcVars[j] = dataFile.getVar(dataset->variables[j].name);
@@ -626,9 +620,11 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             	index_count[0] = 1;
 			}
 
-            NcVars[j].getVar(index_start,index_count,&data_in_tmp[0]);
-
-            // Need to multiply with scale factor and add offset - these are stored as variable attributes
+            // Reading the netcdf
+            NcVars[j].getVar(index_start,index_count,&data_in_tmp[0]);    
+                
+            //----------- Unit transformation ------------
+            // scale factor and add offset are stored as variable attributes
             scale_factor=1.;
             try
             {
@@ -646,21 +642,24 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             }
             catch(netCDF::exceptions::NcException& e)
             {}
+                
+            // The factor and b are defined for each variables to get the right units for the neXtSIM model
+            for(double& d : data_in_tmp)
+                d=(d*scale_factor + add_offset)*dataset->variables[j].a+dataset->variables[j].b;
 
             //_printf_("For " << dataset->variables[j].name << " scale_factor is "  << scale_factor<<  " " <<  ", add_offset is " << add_offset << "\n");
-            // Copy the data in data_in
+            // Copy the data in loaded_data
 
             // If reduced_nodes is used
 			if(dataset->grid.reduced_nodes_ind.size()!=0)
 			{
             	for (int i=0; i<(final_MN); ++i)
                 {
-                    data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=
-                        data_in_tmp[dataset->grid.reduced_nodes_ind[i]]*scale_factor + add_offset;
-                    if(std::isnan(data_in_tmp[dataset->grid.reduced_nodes_ind[i]]*scale_factor + add_offset))
+                    tmp_loaded_data[i]=data_in_tmp[dataset->grid.reduced_nodes_ind[i]];
+                    if(std::isnan(data_in_tmp[dataset->grid.reduced_nodes_ind[i]]))
                     {
             			//_printf_("found NaN at"  << data_in_tmp[dataset->grid.reduced_nodes_ind[i]]<<  " "<<  dataset->grid.reduced_nodes_ind[i] <<  ", 0. is used\n");
-                        data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=0.;
+                        tmp_loaded_data[i]=0.;
     				}
                 }
 			}
@@ -676,8 +675,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                             int i=y_ind*N+x_ind;
                             int cyclic_i=y_ind*cyclic_N+x_ind;
 
-                            data_in[(dataset->variables.size()*nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]
-                               =data_in_tmp[i]*scale_factor + add_offset;
+                            tmp_loaded_data[i]=data_in_tmp[i];
                         }
                     }
                 }
@@ -685,11 +683,11 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                 {
                     for (int i=0; i<(MN); ++i)
                     {
-                        data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=data_in_tmp[i]*scale_factor + add_offset;
-                        if(std::isnan(data_in_tmp[i]*scale_factor + add_offset))
+                        tmp_loaded_data[i]=data_in_tmp[i];
+                        if(std::isnan(data_in_tmp[i]))
                         {
                 			//_printf_("found NaN at"  << data_in_tmp[i] <<  " "<<  i <<  ", 0. is used\n");
-                            data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=0.;
+                            tmp_loaded_data[i]=0.;
         				}
                     }
                 }
@@ -701,7 +699,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                     int i=0*N+x_ind;
                     int cyclic_i=(cyclic_M-1)*cyclic_N+x_ind;
 
-                    data_in[(dataset->variables.size()*nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=data_in_tmp[i]*scale_factor + add_offset;
+                    tmp_loaded_data[cyclic_i]==data_in_tmp[i];
                 }
 
             if(dataset->grid.dimension_x.cyclic)
@@ -710,13 +708,17 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                     int i=y_ind*N+0;
                     int cyclic_i=y_ind*cyclic_N+(cyclic_N-1);
 
-                    data_in[(dataset->variables.size()*nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=data_in_tmp[i]*scale_factor + add_offset;
+                    tmp_loaded_data[cyclic_i]==data_in_tmp[i];
                 }
-
-		}
+            // store the loaded data   
+            dataset->variables[j].loaded_data[fstep]=tmp_loaded_data;    
+        }
     }
 
     // ---------------------------------
+    
+    std::cout<<"Start transformation on the data\n";
+    
     // Transformation of the vectorial variables from the coordinate system of the data to the polar stereographic projection used in the model
     // Once we are in the polar stereographic projection, we can do spatial interpolation without bothering about the North Pole
 
@@ -753,8 +755,8 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                         lon_tmp=dataset->grid.gridLON[x_ind];
 
                         // velocity in the east (component 0) and north direction (component 1) in m/s
-                        tmp_data0=data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j0];
-                        tmp_data1=data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j1];
+                        tmp_data0=dataset->variables[j0].loaded_data[fstep][i];
+                        tmp_data1=dataset->variables[j1].loaded_data[fstep][i];
 
                         // velocity in the east (component 0) and north direction (component 1) in degree/s
                         if(lat_tmp<90.)
@@ -794,8 +796,8 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                             new_tmp_data1=new_tmp_data1/new_speed*speed;
                         }
 
-                        data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j0]= new_tmp_data0;
-                        data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j1]= new_tmp_data1;
+                        dataset->variables[j0].loaded_data[fstep][i]=new_tmp_data0;
+                        dataset->variables[j1].loaded_data[fstep][i]=new_tmp_data1;
                     }
                 }
                 // Treat the case of the North Pole where east-north components are ill-defined
@@ -823,8 +825,8 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                     for (int x_ind=0; x_ind<N; ++x_ind)
                     {
                         int i=y_ind_m1*N+x_ind;
-                        tmp_data0=tmp_data0+data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j0];
-                        tmp_data1=tmp_data1+data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j1];
+                        tmp_data0=tmp_data0+dataset->variables[j0].loaded_data[fstep][i];
+                        tmp_data1=tmp_data1+dataset->variables[j1].loaded_data[fstep][i];
                     }
                     tmp_data0=tmp_data0/N;
                     tmp_data1=tmp_data1/N;
@@ -833,8 +835,8 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                     for (int x_ind=0; x_ind<N; ++x_ind)
                     {
                         int i=y_ind*N+x_ind;
-                        data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j0]=tmp_data0;
-                        data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j1]=tmp_data1;
+                        dataset->variables[j0].loaded_data[fstep][i]=tmp_data0;
+                        dataset->variables[j1].loaded_data[fstep][i]=tmp_data1;
                     }
                 }
             }
@@ -843,14 +845,14 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             {
                 for (int i=0; i<final_MN; ++i)
                 {
-                    tmp_data0=data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j0];
-                    tmp_data1=data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j1];
+                    tmp_data0=dataset->variables[j0].loaded_data[fstep][i];
+                    tmp_data1=dataset->variables[j1].loaded_data[fstep][i];
 
                     new_tmp_data0= cos_m_diff_angle*tmp_data0+sin_m_diff_angle*tmp_data1;
                     new_tmp_data1=-sin_m_diff_angle*tmp_data0+cos_m_diff_angle*tmp_data1;
 
-                    data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j0]= new_tmp_data0;
-                    data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j1]= new_tmp_data1;
+                    dataset->variables[j0].loaded_data[fstep][i]= new_tmp_data0;
+                    dataset->variables[j1].loaded_data[fstep][i]= new_tmp_data1;
                 }
             }
         }
@@ -861,8 +863,15 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 
     // ---------------------------------
     // Spatial interpolation
-
-    //std::cout <<"before interp " <<"\n";
+    std::cout<<"Spatial interpolation of the data\n";
+    
+    std::vector<double> data_in(dataset->variables.size()*nb_forcing_step*final_MN);
+    
+    // Collect all the data before the interpolation
+    for (int fstep=0; fstep < nb_forcing_step; ++fstep)
+        for(int j=0; j<dataset->variables.size(); ++j)
+            for (int i=0; i<final_MN; ++i)
+                data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=dataset->variables[j].loaded_data[fstep][i];
 
     double* data_out;
     double tmp_data;
@@ -880,7 +889,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                                 dataset->grid.pfindex,&dataset->grid.gridX[0],&dataset->grid.gridY[0],
                                         dataset->grid.gridX.size(),dataset->grid.pfnels,
                                         &data_in[0],
-                                        dataset->grid.gridX.size(),N_data*nb_forcing_step,
+                                        dataset->grid.gridX.size(),dataset->variables.size()*nb_forcing_step,
                                         &RX[0], &RY[0], dataset->target_size,
                                         false);
         break;
@@ -895,27 +904,22 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
     if(dataset->grid.dimension_x.cyclic)
         dataset->grid.gridX.pop_back();
 
-    //std::cout <<"after interp " <<"\n";
-
+    // Redistribute all the data after the interpolation
+    std::vector<double> tmp_interpolated_data(dataset->target_size);
+        
     for (int fstep=0; fstep < nb_forcing_step; ++fstep)
     {
-        for(int j=0; j<dataset->variables.size(); ++j)
+        for (int j=0; j<dataset->variables.size(); ++j)
         {
             for (int i=0; i<dataset->target_size; ++i)
-            {
-                tmp_data=data_out[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j];
-                tmp_interpolated_field[i]=dataset->variables[j].a*tmp_data+dataset->variables[j].b;
-            }
-
-            dataset->variables[j].data2[fstep]=tmp_interpolated_field;
+                tmp_interpolated_data[i]=data_out[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j];
+            
+            dataset->variables[j].interpolated_data[fstep]=tmp_interpolated_data;
         }
-    }
-
+    }    
 	xDelete<double>(data_out);
 
     dataset->reloaded=true;
-
-    //std::cout <<"end load" <<"\n";
 }
 
 void

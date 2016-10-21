@@ -74,8 +74,9 @@ public:
         double b;           // add_offset defined by us to have the data in the units system used by nextsim
         std::string Units;  // units used in neXtSIM for this variable
 
-        // Storage of the data
-        std::vector<std::vector<double>> data2; // 2 vectors, one for the previous and one for the next data timestep
+        // Storage of the loaded and interpolated data
+        std::vector<std::vector<double>> loaded_data;       // 2 vectors, one for the previous and one for the next data timestep
+        std::vector<std::vector<double>> interpolated_data; // 2 vectors, one for the previous and one for the next data timestep
     } Variable;
 
     typedef struct Vectorial_Variable
