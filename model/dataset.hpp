@@ -102,7 +102,7 @@ public:
         std::string prefix;
         std::string postfix;
         std::string reference_date;
-        
+
         Variable latitude;
         Variable longitude;
 
@@ -157,12 +157,12 @@ public:
 
     void loadGrid(Grid *grid, int current_time, double RX_min, double RX_max, double RY_min, double RY_max);
 
-    void getlatlon_regular_latlon(double* LAT, double* LON,
-            netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
+    void getLatLonRegularLatLon(double* LAT, double* LON,
+                                  netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
 
-    void getXY_regular_XY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
+    void getXYRegularXY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
 
-    void getXYlatlon_from_latlon(double* X, double* Y,double* LAT, double* LON, netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
+    void getXYLatLonFromLatLon(double* X, double* Y,double* LAT, double* LON, netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
     double thetaInRange(double const& th_, double const& th1, bool const& close_on_right=false);
 
     // name of the dataSet

@@ -149,7 +149,7 @@ namespace Nextsim
      		prefix: "asr30km.comb.2d.", // "asr30km.comb.2D.";
             postfix:".nc",
             reference_date: "1901-01-01",
-            
+
      		latitude: latitude,
      		longitude: longitude,
 
@@ -187,9 +187,9 @@ namespace Nextsim
          vectorial_variables= vectorial_variables_tmp;
          target_size= target_size_tmp;
          grid= grid_tmp;
-         
+
          reloaded=false;
-         
+
          averaging_period=0.;
          time= time_tmp;
      }
@@ -299,7 +299,7 @@ namespace Nextsim
      		prefix:"asr30km.comb.2d.", // "asr30km.comb.2D.";
             postfix:".nc",
             reference_date: "1901-01-01",
-            
+
      		latitude: latitude,
      		longitude: longitude,
 
@@ -317,7 +317,7 @@ namespace Nextsim
      		masking: false
      	};
 
-         
+
 
          Variable tair={
              name:"T2",
@@ -547,7 +547,7 @@ averaging_period=0.;         time= time_tmp;
              prefix: "TP4DAILY_",
              postfix: "_30m.nc",
              reference_date: "1950-01-01",
-             
+
              latitude: latitude,
              longitude: longitude,
 
@@ -559,9 +559,9 @@ averaging_period=0.;         time= time_tmp;
 
              loaded: false,
              dataset_frequency:"monthly",
-             
+
              waveOptions: wavopt_none,
-             
+
              masking: true,
              masking_variable: ssh
      	};
@@ -590,7 +590,7 @@ averaging_period=0.;         time= time_tmp;
 
          reloaded=false;
 
-         
+
          averaging_period=1.; // days
          time= time_tmp;
      }
@@ -717,7 +717,7 @@ averaging_period=0.;         time= time_tmp;
              prefix: "TP4DAILY_",
              postfix: "_3m.nc",
              reference_date: "1950-01-01",
-             
+
              latitude: latitude,
              longitude: longitude,
 
@@ -750,7 +750,7 @@ averaging_period=0.;         time= time_tmp;
 
              reloaded=false;
 
-             
+
              averaging_period=1.; // days
              time= time_tmp;
      }
@@ -877,7 +877,7 @@ averaging_period=0.;         time= time_tmp;
              prefix: "TP4_start",
              postfix: ".nc",
              reference_date: "1950-01-01",
-             
+
              latitude: latitude,
              longitude: longitude,
 
@@ -920,7 +920,7 @@ averaging_period=0.;         time= time_tmp;
 
          reloaded=false;
 
-         
+
          averaging_period=1.; // days
          time= time_tmp;
      }
@@ -1122,7 +1122,7 @@ averaging_period=0.;         time= time_tmp;
 
          reloaded=false;
 
-         
+
          averaging_period=1.; // days
          time= time_tmp;
      }
@@ -1249,7 +1249,7 @@ averaging_period=0.;         time= time_tmp;
              prefix: "TP4DAILY_",
              postfix: "_3m.nc",
              reference_date: "1950-01-01",
-             
+
              latitude: latitude,
              longitude: longitude,
 
@@ -1281,8 +1281,8 @@ averaging_period=0.;         time= time_tmp;
          grid= grid_tmp;
 
          reloaded=false;
-         
-         
+
+
          averaging_period=1.; // days
          time= time_tmp;
      }
@@ -1398,7 +1398,7 @@ averaging_period=0.;         time= time_tmp;
              prefix: "PIOMAS_",
              postfix: ".nc",
              reference_date: "1950-01-01",
-             
+
              latitude: latitude,
              longitude: longitude,
 
@@ -1428,15 +1428,15 @@ averaging_period=0.;         time= time_tmp;
          variables_tmp[2] = snow_thick;
 
          std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
-         
+
          variables= variables_tmp;
          vectorial_variables= vectorial_variables_tmp;
          target_size= target_size_tmp;
          grid= grid_tmp;
-         
+
          reloaded=false;
-         
-         
+
+
          averaging_period=365./12; // days
          time= time_tmp;
      }
@@ -1526,7 +1526,7 @@ averaging_period=0.;         time= time_tmp;
              prefix: "asi-n6250-",
              postfix: "-v5i.nc",
              reference_date: "2002-01-01",
-             
+
              latitude: latitude,
              longitude: longitude,
 
@@ -1557,7 +1557,7 @@ averaging_period=0.;         time= time_tmp;
 
         reloaded=false;
 
-        
+
         averaging_period=1.; // days
      	time= time_tmp;
      }
@@ -1639,7 +1639,7 @@ averaging_period=0.;         time= time_tmp;
      		Units: "",
      		data2: data2_tmp
      	};
-        
+
         Variable confidence={
     		name: "confidence_level",
     		dimensions: dimensions,
@@ -1652,7 +1652,7 @@ averaging_period=0.;         time= time_tmp;
     		Units: "",
     		data2: data2_tmp
     	};
-        
+
          Grid grid_tmp={
              interpolation_method: InterpolationType::FromMeshToMesh2dx,
      		interp_type: -1,
@@ -1660,7 +1660,7 @@ averaging_period=0.;         time= time_tmp;
              prefix:"ice_conc_nh_polstere-100_multi_",
              postfix: "1200.nc",
              reference_date: "1978-01-01",
-             
+
              latitude: latitude,
              longitude: longitude,
 
@@ -1692,7 +1692,7 @@ averaging_period=0.;         time= time_tmp;
 
         reloaded=false;
 
-        
+
         averaging_period=1.; // days
      	time= time_tmp;
      }
@@ -1749,7 +1749,7 @@ averaging_period=0.;         time= time_tmp;
      		Units: "",
      		data2: data2_tmp
      	};
-        
+
         Variable thickness={
     		name: "analysis_thickness",
     		dimensions: dimensions_latlon,
@@ -1762,7 +1762,7 @@ averaging_period=0.;         time= time_tmp;
     		Units: "",
     		data2: data2_tmp
     	};
-        
+
          Grid grid_tmp={
              interpolation_method: InterpolationType::FromMeshToMesh2dx,
      		interp_type: -1,
@@ -1772,7 +1772,7 @@ averaging_period=0.;         time= time_tmp;
              prefix:"cs2_smos_ice_thickness_",
              postfix: ".nc",
              reference_date: "",
-             
+
              latitude: latitude,
              longitude: longitude,
 
@@ -1905,7 +1905,7 @@ averaging_period=0.;         time= time_tmp;
             prefix: "Arc_",
             postfix: "_res3.125_pyres.nc",
             reference_date: "0001-01-01",
-            
+
              latitude: latitude,
              longitude: longitude,
 
@@ -1937,7 +1937,7 @@ averaging_period=0.;         time= time_tmp;
 
         reloaded=false;
 
-        
+
         averaging_period=1.; // days
      	time= time_tmp;
      }
@@ -2047,7 +2047,7 @@ averaging_period=0.;         time= time_tmp;
          grid= grid_tmp;
          reloaded=false;
 
-         
+
          averaging_period=0.;
      }
      else if (strcmp (DatasetName, "ERAi_elements") == 0)
@@ -2110,7 +2110,7 @@ averaging_period=0.;         time= time_tmp;
             prefix: "erai.6h.",
             postfix:".nc",
             reference_date:"2013-01-01", // THE YEAR IS RESET IN EXTERNALDATA.CPP
-            
+
      		latitude: latitude,
      		longitude: longitude,
 
@@ -2304,7 +2304,7 @@ averaging_period=0.;         time= time_tmp;
   		prefix: "erai.6h.",
         postfix:".nc",
         reference_date:"2013-01-01",
-        
+
   		latitude: latitude,
   		longitude: longitude,
 
@@ -2397,7 +2397,7 @@ averaging_period=0.;         time= time_tmp;
 
       reloaded= false;
 
-      
+
       averaging_period=0.;
       time= time_tmp;
       }
@@ -2461,7 +2461,7 @@ averaging_period=0.;         time= time_tmp;
              prefix: "ec_start",
              postfix:".nc",
              reference_date:"1950-01-01",//"2008-01-01";
-             
+
       		latitude: latitude,
       		longitude: longitude,
 
@@ -2504,7 +2504,7 @@ averaging_period=0.;         time= time_tmp;
              data2: data2_tmp
      	};
 
-         
+
 
          Variable tair={
              name:"T2M",
@@ -2724,7 +2724,7 @@ averaging_period=0.;         time= time_tmp;
 
        reloaded= false;
 
-       
+
        averaging_period=0.;
        time= time_tmp;
        }
@@ -2788,7 +2788,7 @@ averaging_period=0.;         time= time_tmp;
             prefix: "SWARP_WW3_ARCTIC-12K_",
             postfix:".nc",
             reference_date:"1990-01-01",
-            
+
             latitude: latitude,
             longitude: longitude,
 
@@ -2886,7 +2886,7 @@ averaging_period=0.;         time= time_tmp;
 
          reloaded= false;
 
-         
+
          averaging_period=0.;
 
          time= time_tmp;
@@ -2958,7 +2958,7 @@ averaging_period=0.;         time= time_tmp;
             prefix: "erai_waves_1deg_",
             postfix:".nc",
             reference_date:"1900-01-01",
-            
+
             latitude: latitude,
             longitude: longitude,
 
@@ -3056,7 +3056,7 @@ averaging_period=0.;         time= time_tmp;
 
          reloaded= false;
 
-         
+
          averaging_period=0.;
 
          time= time_tmp;
@@ -3081,7 +3081,7 @@ averaging_period=0.;         time= time_tmp;
     fprintf (stderr, "ww3a_elements\n");
     fprintf (stderr, "erai_waves_1deg_elements\n");
     fprintf (stderr, "ice_cs2_smos_elements\n");
-    
+
        //close_Dataset (this);
      }
 
@@ -3171,7 +3171,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 		std::vector<double> LAT(grid_ptr->dimension_y_count);
 		std::vector<double> LON(grid_ptr->dimension_x_count);
 
-        getlatlon_regular_latlon(&LAT[0],&LON[0],&VLAT,&VLON);
+        getLatLonRegularLatLon(&LAT[0],&LON[0],&VLAT,&VLON);
 
         // Then, we determine the reduced dimension
         int tmp_start=-1;
@@ -3208,7 +3208,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 
         std::cout<<tmp_start<<","<<tmp_end<<","<<tmp_end-tmp_start+1<<"\n";
         // Then we load the reduced grid
-        getlatlon_regular_latlon(&LAT[0],&LON[0],&VLAT,&VLON);
+        getLatLonRegularLatLon(&LAT[0],&LON[0],&VLAT,&VLON);
 
 		grid_ptr->gridY=LAT;
 		grid_ptr->gridX=LON;
@@ -3228,7 +3228,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
     	std::vector<double> X(grid_ptr->dimension_x_count);
 		std::vector<double> Y(grid_ptr->dimension_y_count);
 
-        getXY_regular_XY(&X[0],&Y[0],&VLAT,&VLON);
+        getXYRegularXY(&X[0],&Y[0],&VLAT,&VLON);
 
         // Then, we determine the reduced dimension
         int tmp_start=-1;
@@ -3264,7 +3264,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 		X.resize(grid_ptr->dimension_x_count);
 
         // Then we load the reduced grid
-        getXY_regular_XY(&X[0],&Y[0],&VLAT,&VLON);
+        getXYRegularXY(&X[0],&Y[0],&VLAT,&VLON);
 
 		grid_ptr->gridX=X;
 		grid_ptr->gridY=Y;
@@ -3287,7 +3287,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 		std::vector<double> X(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 		std::vector<double> Y(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 
-        getXYlatlon_from_latlon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
+        getXYLatLonFromLatLon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
 
 
         // Then, we determine the reduced dimension
@@ -3379,7 +3379,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 		Y.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 
         // Then we load the reduced grid
-        getXYlatlon_from_latlon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
+        getXYLatLonFromLatLon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
 
         // Then we apply the masking if activated
 		if(grid_ptr->masking){
@@ -3466,7 +3466,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 			    index_start[0] = 0;
 			    index_count[0] = 1;
             }
-            
+
 			data_in.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 			VMASK.getVar(index_start,index_count,&data_in[0]);
 
@@ -3498,7 +3498,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
             {
                 find_missing_value=false;
             }
-            
+
 #if 0
             // Look for FillValue definition
             double valid_min;
@@ -3525,7 +3525,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
             {
                 find_valid_max=false;
             }
-   #endif         
+   #endif
             bool find_land_mask     =grid_ptr->masking_variable.land_mask_defined;
             double land_mask_value  =grid_ptr->masking_variable.land_mask_value;
             bool find_NaN_mask      =grid_ptr->masking_variable.NaN_mask_defined;
@@ -3578,7 +3578,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 }
 
 void
-DataSet::getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)
+DataSet::getLatLonRegularLatLon(double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)
 {
     // Attributes (scaling and offset)
     netCDF::NcVarAtt att;
@@ -3598,7 +3598,7 @@ DataSet::getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_p
 	index_x_start[0] = grid.dimension_x_start;
 	index_x_count[0] = grid.dimension_x_count;
 	VLAT_ptr->getVar(index_y_start,index_y_count,&LAT[0]);
-    //std::cout<<"getlatlon_regular_latlon x "<<index_x_start[0]<<","<<index_x_count[0]<<"\n";
+    //std::cout<<"getLatLonRegularLatLon x "<<index_x_start[0]<<","<<index_x_count[0]<<"\n";
 	VLON_ptr->getVar(index_x_start,index_x_count,&LON[0]);
 
     // Need to multiply with scale factor and add offset - these are stored as variable attributes
@@ -3652,7 +3652,7 @@ DataSet::getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_p
 }
 
 void
-DataSet::getXY_regular_XY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)
+DataSet::getXYRegularXY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)
 {
     // Attributes (scaling and offset)
     netCDF::NcVarAtt att;
@@ -3767,7 +3767,7 @@ DataSet::getXY_regular_XY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::N
 }
 
 void
-DataSet::getXYlatlon_from_latlon(double* X, double* Y, double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)
+DataSet::getXYLatLonFromLatLon(double* X, double* Y, double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)
 {
     // Attributes (scaling and offset)
     netCDF::NcVarAtt att;

@@ -109,7 +109,7 @@ public:
     void writeTofile(std::string const& filename);
     void writeGeometry(std::string const& geofile, int nx, int ny, double xmin, double ymin, double dx, double dy);
     void move(std::vector<double> const& um, double factor);
-    void set_id(std::vector<int> const& new_id);
+    void setId(std::vector<int> const& new_id);
 
     std::string const& version() const {return M_version;}
     std::string const& ordering() const {return M_ordering;}
