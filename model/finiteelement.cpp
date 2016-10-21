@@ -57,30 +57,6 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
             throw std::logic_error("invalid domain type");
     }
 
-#if defined (WAVES)
-    if (0)//(vm["simul.wim_grid"].as<bool>())
-    {
-        LOG(INFO) <<"Using wim grid\n";
-
-        M_mesh.writeGeometry("wimsemistructured.geo",
-                             vm["wim.nx"].as<int>()-1, vm["wim.ny"].as<int>()-2,
-                             vm["wim.xmin"].as<double>(),
-                             vm["wim.ymin"].as<double>()+vm["wim.dy"].as<double>(),
-                             vm["wim.dx"].as<double>(), vm["wim.dy"].as<double>());
-
-        this->createGMSHMesh("wimsemistructured.geo");
-        M_mesh.setOrdering("gmsh");
-
-        M_mesh_filename = "wimsemistructured.msh";
-        M_domain_type = setup::DomainType::WIM;
-        M_mesh_type = setup::MeshType::FROM_SPLIT;
-        M_flag_fix = 100; // free = 1;
-    }
-    else
-        M_mesh.setOrdering("gmsh"); // wim_grid_split2_4000m.msh should be set to gmsh ordering
-
-#endif
-
     M_mesh.readFromFile(M_mesh_filename);
 
     //if (!vm["simul.wim_grid"].as<bool>())
@@ -335,6 +311,8 @@ FiniteElement::initDatasets()
 
     M_ice_amsr2_elements_dataset=DataSet("ice_amsr2_elements",M_num_elements);
 
+    M_ice_cs2_smos_elements_dataset=DataSet("ice_cs2_smos_elements",M_num_elements);
+
     M_bathymetry_elements_dataset=DataSet("etopo_elements",M_num_elements);//M_num_nodes);
 
 #if defined (WAVES)
@@ -485,15 +463,18 @@ FiniteElement::initConstant()
 
     const boost::unordered_map<const std::string, setup::IceType> str2conc = boost::assign::map_list_of
         ("constant", setup::IceType::CONSTANT)
+        ("constant_partial", setup::IceType::CONSTANT_PARTIAL)
         ("target", setup::IceType::TARGET)
         ("binary", setup::IceType::BINARY)
         ("topaz", setup::IceType::TOPAZ4)
         ("topaz_forecast", setup::IceType::TOPAZ4F)
         ("topaz_forecast_amsr2", setup::IceType::TOPAZ4FAMSR2)
+        ("topaz_forecast_amsr2_osisaf", setup::IceType::TOPAZ4FAMSR2OSISAF)
         ("amsre", setup::IceType::AMSRE)
         ("amsr2", setup::IceType::AMSR2)
         ("osisaf", setup::IceType::OSISAF)
-        ("piomas", setup::IceType::PIOMAS);
+        ("piomas", setup::IceType::PIOMAS)
+        ("cs2_smos", setup::IceType::CS2_SMOS);
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
 
 #if defined (WAVES)
@@ -562,7 +543,12 @@ FiniteElement::initConstant()
 
     if (M_mesh_type == setup::MeshType::FROM_SPLIT)
     {
-        M_mesh.setOrdering("bamg");
+        if (M_mesh_filename.find("wim") == std::string::npos)
+        {
+            //if "wim" not in name use bamg ordering
+            // WIM grids are with gmsh ordering (default)
+            M_mesh.setOrdering("bamg");
+        }
     }
     else if (M_mesh_type == setup::MeshType::FROM_GMSH)
     {
@@ -1040,10 +1026,19 @@ FiniteElement::regrid(bool step)
 			LOG(DEBUG) <<"Interpolate hmin done in "<< chrono.elapsed() <<"s\n";
 		}
 
+
+        if(step && (vm["simul.regrid_output_flag"].as<bool>()))
+        {
+            had_remeshed=true;
+            mesh_adapt_step++;
+            this->exportResults(200000+mesh_adapt_step);
+		}
+
         chrono.restart();
         LOG(INFO) <<"AdaptMesh starts\n";
-		this->adaptMesh();
-		LOG(INFO) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
+        this->adaptMesh();
+	    LOG(INFO) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
+
 
 		if (step)
 		{
@@ -1558,6 +1553,7 @@ FiniteElement::regrid(bool step)
     M_ice_amsre_elements_dataset.target_size=M_num_elements;
     M_ice_osisaf_elements_dataset.target_size=M_num_elements;
     M_ice_amsr2_elements_dataset.target_size=M_num_elements;
+    M_ice_cs2_smos_elements_dataset.target_size=M_num_elements;
     M_bathymetry_elements_dataset.target_size=M_num_elements;
 #if defined (WAVES)
     M_WW3A_elements_dataset.target_size=M_num_elements;
@@ -1576,6 +1572,7 @@ FiniteElement::regrid(bool step)
     M_ice_amsre_elements_dataset.reloaded=false;
     M_ice_osisaf_elements_dataset.reloaded=false;
     M_ice_amsr2_elements_dataset.reloaded=false;
+    M_ice_cs2_smos_elements_dataset.reloaded=false;
     M_bathymetry_elements_dataset.reloaded=false;
 #if defined (WAVES)
     M_WW3A_elements_dataset.reloaded=false;
@@ -1594,6 +1591,7 @@ FiniteElement::regrid(bool step)
     M_ice_amsre_elements_dataset.grid.loaded=false;
     M_ice_osisaf_elements_dataset.grid.loaded=false;
     M_ice_amsr2_elements_dataset.grid.loaded=false;
+    M_ice_cs2_smos_elements_dataset.grid.loaded=false;
     M_bathymetry_elements_dataset.grid.loaded=false;
 #endif
 
@@ -1676,7 +1674,7 @@ FiniteElement::adaptMesh()
                 }
             }
         }
-        M_mesh.set_id(new_nodes_id);
+        M_mesh.setId(new_nodes_id);
     }
 
 
@@ -1923,7 +1921,7 @@ FiniteElement::assemble(int pcpt)
             std::cout<<"coef_basal= "<< coef_basal <<"\n";
         }
 
-        /* Loop over the 6 by 6 components of the finite element intergrale
+        /* Loop over the 6 by 6 components of the finite element integral
          * this is done smartly by looping over j=0:2 and i=0:2
          * col = (mwIndex)it[2*j]-1  , row = (mwIndex)it[2*i]-1;
          * col  , row   -> UU component
@@ -1987,6 +1985,9 @@ FiniteElement::assemble(int pcpt)
                                                   -coef_Voce*sin_ocean_turning_angle*(M_ocean[index_v]-M_VT[index_v])
                                                   +coef_C*Vcor_index_v)
                                            - b0tj_sigma_hu/3);
+
+                //std::cout<<"fvdata, M_tau, M_wind (u): "<<fvdata[2*i]<<","
+                //    <<M_tau[index_u]<<","<<coef_Vair*M_wind[index_u]<<"\n";
 
 
                 fvdata[2*i+1] += surface_e*( mloc*( +M_tau[index_v]
@@ -2380,6 +2381,10 @@ FiniteElement::update()
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
     //std::cout<<"MAX THREADS= "<< max_threads <<"\n";
+#if defined (WAVES)
+    if (M_use_wim)
+        M_dfloe.assign(M_num_elements,0.);
+#endif
 
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
@@ -2389,6 +2394,9 @@ FiniteElement::update()
         double old_conc;
         double old_damage;
         double old_h_ridged_thick_ice;
+#if defined (WAVES)
+        double old_nfloes;
+#endif
 
         double old_h_thin;
         double old_hs_thin;
@@ -2431,6 +2439,10 @@ FiniteElement::update()
         old_conc = M_conc[cpt];
         old_damage = M_damage[cpt];
         old_h_ridged_thick_ice=M_h_ridged_thick_ice[cpt];
+#if defined (WAVES)
+        if (M_use_wim)
+            old_nfloes = M_nfloes[cpt];
+#endif
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
@@ -2657,6 +2669,15 @@ FiniteElement::update()
             ice_volume = old_thick*surface;
             snow_volume = old_snow_thick*surface;
             ridged_thick_ice_volume = old_h_ridged_thick_ice*surface;
+#if defined (WAVES)
+            if (M_use_wim)
+            {
+                M_nfloes[cpt]  = old_nfloes*surface/surface_new;
+
+                // lower bounds
+                M_nfloes[cpt] = ((M_nfloes[cpt]>0.)?(M_nfloes[cpt] ):(0.)) ;
+            }
+#endif
 
             M_conc[cpt]    = ice_surface/surface_new;
             M_thick[cpt]   = ice_volume/surface_new;
@@ -2747,6 +2768,24 @@ FiniteElement::update()
                 M_hs_thin[cpt] = 0. ;
             }
         }
+
+#if defined (WAVES)
+        if (M_use_wim)
+        {
+            //update Dfloe
+            if (M_nfloes[cpt] > 0)
+                M_dfloe[cpt] = std::sqrt(M_conc[cpt]/M_nfloes[cpt]);
+
+            if (M_dfloe[cpt] > vm["wim.dfloepackthresh"].template as<double>())
+                M_dfloe[cpt] = vm["wim.dfloepackinit"].template as<double>();
+
+            if (M_conc[cpt] < vm["wim.cicemin"].template as<double>())
+            {
+                M_nfloes[cpt] = 0.;
+                M_dfloe[cpt] = 0.;
+            }
+        }
+#endif
     }
 }
 
@@ -3786,6 +3825,8 @@ FiniteElement::init()
 {
     // Initialise everything that doesn't depend on the mesh (constants, data set description, and time)
     int pcpt = 0;
+    mesh_adapt_step=0;
+    had_remeshed=false;
     this->initConstant();
     current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
     this->initDatasets();
@@ -4013,6 +4054,13 @@ FiniteElement::step(int &pcpt)
     //======================================================================
     // Solve the linear problem
     //======================================================================
+
+    if(had_remeshed && (vm["simul.regrid_output_flag"].as<bool>()))
+    {
+        had_remeshed=false;
+        this->exportResults(300000+mesh_adapt_step);
+        had_remeshed=false;
+    }
 
     this->solve();
 
@@ -4623,7 +4671,7 @@ FiniteElement::readRestart(int step)
     // Import the bamg structs
     this->importBamg(bamgmesh);
 
-    M_mesh.set_id(nodeId);
+    M_mesh.setId(nodeId);
 
     M_elements = M_mesh.triangles();
     M_nodes = M_mesh.nodes();
@@ -4742,6 +4790,7 @@ FiniteElement::readRestart(int step)
     M_ice_amsre_elements_dataset.target_size=M_num_elements;
     M_ice_osisaf_elements_dataset.target_size=M_num_elements;
     M_ice_amsr2_elements_dataset.target_size=M_num_elements;
+    M_ice_cs2_smos_elements_dataset.target_size=M_num_elements;
     M_bathymetry_elements_dataset.target_size=M_num_elements;
 #if defined (WAVES)
     M_WW3A_elements_dataset.target_size=M_num_elements;
@@ -5118,7 +5167,7 @@ FiniteElement::forcingWave()
 
             wim_forcing_options = M_WW3A_elements_dataset.grid.waveOptions;
             wim_ideal_forcing   = false;
-            
+
             break;
 
         case setup::WaveType::ERAI_WAVES_1DEG:
@@ -5173,7 +5222,7 @@ FiniteElement::initSlabOcean()
     for ( int i=0; i<M_num_elements; ++i)
     {
         if(M_conc[i]>0.)
-            M_sst[i] = -M_sss[i]*physical::mu*M_conc[i]+M_ocean_temp[i]*(1.-M_conc[i]);
+            M_sst[i] = -M_sss[i]*physical::mu;//*M_conc[i]+M_ocean_temp[i]*(1.-M_conc[i]);
     }
 #endif
 }
@@ -5184,6 +5233,9 @@ FiniteElement::initIce()
     switch (M_ice_type)
     {
         case setup::IceType::CONSTANT:
+            this->constantIce();
+            break;
+        case setup::IceType::CONSTANT_PARTIAL:
             this->constantIce();
             break;
         case setup::IceType::TARGET:
@@ -5201,17 +5253,20 @@ FiniteElement::initIce()
         case setup::IceType::TOPAZ4FAMSR2:
             this->topazForecastAmsr2Ice();
             break;
+        case setup::IceType::TOPAZ4FAMSR2OSISAF:
+            this->topazForecastAmsr2OsisafIce();
+            break;
         case setup::IceType::PIOMAS:
             this->piomasIce();
             break;
         case setup::IceType::AMSRE:
             this->topazAmsreIce();
             break;
-        case setup::IceType::OSISAF:
-            this->topazOsisafIce();
-            break;
         case setup::IceType::AMSR2:
             this->topazAmsr2Ice();
+            break;
+        case setup::IceType::CS2_SMOS:
+            this->cs2SmosIce();
             break;
 
         default:
@@ -5252,17 +5307,18 @@ FiniteElement::constantIce()
 	LOG(DEBUG) <<"Constant Ice\n";
     std::fill(M_conc.begin(), M_conc.end(), vm["simul.init_concentration"].as<double>());
     std::fill(M_thick.begin(), M_thick.end(), vm["simul.init_thickness"].as<double>());
+    std::fill(M_snow_thick.begin(), M_snow_thick.end(), vm["simul.init_snow_thickness"].as<double>());
+    std::fill(M_damage.begin(), M_damage.end(), 0.);
 
-#if defined (WAVES)
-    if (M_use_wim)
+    if (M_ice_type==setup::IceType::CONSTANT_PARTIAL)
     {
-        auto Bx = M_mesh.bcoordX();
-
-        double xmin = *std::min_element(wim_grid.X.begin(),wim_grid.X.end());
-        double xmax = *std::max_element(wim_grid.X.begin(),wim_grid.X.end());
+        auto Bx = M_mesh.coordX();//xmin,xmax from nodes
+        double xmin = *std::min_element(Bx.begin(),Bx.end());
+        double xmax = *std::max_element(Bx.begin(),Bx.end());
         double xedge = xmin + 0.3*(xmax-xmin);
 
-        std::cout<<"In constantIce (WIM)\n";
+        std::cout<<"In constantIce (partial cover)\n";
+        std::cout<<"M_ice_type "<< (int)M_ice_type<<"\n";
         std::cout<<"Min conc = "<< *std::min_element(M_conc.begin(),M_conc.end()) <<"\n";
         std::cout<<"Max conc = "<< *std::max_element(M_conc.begin(),M_conc.end()) <<"\n";
         std::cout<<"Min thick = "<< *std::min_element(M_thick.begin(),M_thick.end()) <<"\n";
@@ -5271,23 +5327,23 @@ FiniteElement::constantIce()
         std::cout<<"xmax="<<xmax<<"\n";
         std::cout<<"xedge="<<xedge<<"\n";
 
+        Bx = M_mesh.bcoordX();//set conc, etc on elements
         for (int i=0; i<M_conc.size(); ++i)
         {
             if (Bx[i] < xedge)
             {
-                M_conc[i] = 0.;
-                M_thick[i] = 0.;
+                M_conc[i]       = 0.;
+                M_thick[i]      = 0.;
+                M_snow_thick[i] = 0.;
             }
         }
         std::cout<<"New min conc = "<< *std::min_element(M_conc.begin(),M_conc.end()) <<"\n";
         std::cout<<"New max conc = "<< *std::max_element(M_conc.begin(),M_conc.end()) <<"\n";
         std::cout<<"New min thick = "<< *std::min_element(M_thick.begin(),M_thick.end()) <<"\n";
         std::cout<<"New max thick = "<< *std::max_element(M_thick.begin(),M_thick.end()) <<"\n";
-    }
-#endif
+        //std::abort();
+    }//partial ice cover
 
-    std::fill(M_snow_thick.begin(), M_snow_thick.end(), vm["simul.init_snow_thickness"].as<double>());
-    std::fill(M_damage.begin(), M_damage.end(), 0.);
 }
 
 void
@@ -5460,12 +5516,12 @@ FiniteElement::topazForecastIce()
 void
 FiniteElement::topazForecastAmsr2Ice()
 {
-    double real_thickness, init_conc_topaz_tmp;
+    double real_thickness, init_conc_tmp;
 
-    external_data M_init_conc=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
+    M_conc_amsr2.check_and_reload(M_mesh,time_init);
 
-    external_data M_init_conc_topaz=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
+    external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
     M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
@@ -5477,20 +5533,101 @@ FiniteElement::topazForecastAmsr2Ice()
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
     {
-		M_conc[i] = std::min(1.,M_init_conc[i]);
+        double uncertainty;
+        if(M_conc_amsr2[i]<0.1)
+            uncertainty=0.1;
+		else
+            uncertainty=0.05;
+
+        double diff_mod_obs=M_conc_amsr2[i]-M_init_conc[i];
+        if(std::abs(diff_mod_obs)>=uncertainty)
+            M_conc[i] = std::min(1.,M_conc_amsr2[i]-(diff_mod_obs)/std::abs(diff_mod_obs)*uncertainty/2.);
+        else
+            M_conc[i] = std::min(1.,M_init_conc[i]);
 
         // TOPAZ puts very small values instead of 0.
-		tmp_var=M_init_conc_topaz[i];
-		init_conc_topaz_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
+		tmp_var=M_init_conc[i];
+		init_conc_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
 		tmp_var=M_init_thick[i];
 		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
 		tmp_var=M_init_snow_thick[i];
 		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
 
         // Use 0.05 to get rid of slight inconsistencies in the TOPAZ output.
-        if(init_conc_topaz_tmp>0.05)
+        if(init_conc_tmp>0.05)
         {
-            real_thickness=M_thick[i]/init_conc_topaz_tmp;
+            real_thickness=M_thick[i]/init_conc_tmp;
+            M_thick[i]=real_thickness*M_conc[i];
+        }
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=vm["simul.min_c"].as<double>())
+        {
+            M_conc[i]=0.;
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<=vm["simul.min_h"].as<double>())
+        {
+            M_thick[i]=0.;
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<0.1*M_conc[i])
+            M_thick[i]=0.1*M_conc[i];
+
+		M_damage[i]=0.;
+	}
+}
+void
+FiniteElement::topazForecastAmsr2OsisafIce()
+{
+    double real_thickness, init_conc_tmp;
+
+    external_data M_conc_osisaf=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,0,false,time_init);
+    M_conc_osisaf.check_and_reload(M_mesh,time_init);
+
+    external_data M_confidence_osisaf=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,1,false,time_init);
+    M_confidence_osisaf.check_and_reload(M_mesh,time_init);
+
+    external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
+    M_conc_amsr2.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
+    M_init_conc.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
+    M_init_thick.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
+    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    double tmp_var;
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        double weight;
+        if(M_confidence_osisaf[i]>4.9)
+            M_conc[i] = (std::min(1.,M_conc_osisaf[i])+M_init_conc[i])/2.;
+        else
+        {
+            if(M_conc_amsr2[i]<0.8)
+                weight=1.-std::pow(1.-M_conc_amsr2[i],2.);
+            else
+                weight=1.-std::pow(1.-M_conc_amsr2[i],2.);
+            M_conc[i] = std::min(1.,M_conc_amsr2[i])*(weight)+M_init_conc[i]*(1.-weight);
+        }
+        // TOPAZ puts very small values instead of 0.
+		tmp_var=M_init_conc[i];
+		init_conc_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
+		tmp_var=M_init_thick[i];
+		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+		tmp_var=M_init_snow_thick[i];
+		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+
+        // Use 0.05 to get rid of slight inconsistencies in the TOPAZ output.
+        if(init_conc_tmp>0.05)
+        {
+            real_thickness=M_thick[i]/init_conc_tmp;
             M_thick[i]=real_thickness*M_conc[i];
         }
 
@@ -5511,7 +5648,6 @@ FiniteElement::topazForecastAmsr2Ice()
 		M_damage[i]=0.;
 	}
 }
-
 void
 FiniteElement::piomasIce()
 {
@@ -5548,13 +5684,13 @@ FiniteElement::piomasIce()
 void
 FiniteElement::topazAmsreIce()
 {
-    double real_thickness, init_conc_topaz_tmp;
+    double real_thickness, init_conc_tmp;
 
-    external_data M_init_conc=ExternalData(&M_ice_amsre_elements_dataset,M_mesh,0,false,time_init);
+    external_data M_conc_amsre=ExternalData(&M_ice_amsre_elements_dataset,M_mesh,0,false,time_init);
+    M_conc_amsre.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
     M_init_conc.check_and_reload(M_mesh,time_init);
-
-    external_data M_init_conc_topaz=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc_topaz.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
     M_init_thick.check_and_reload(M_mesh,time_init);
@@ -5565,75 +5701,20 @@ FiniteElement::topazAmsreIce()
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
     {
-		M_conc[i] = std::min(1.,M_init_conc[i]);
+		M_conc[i] = std::min(1.,M_conc_amsre[i]);
 
         // TOPAZ puts very small values instead of 0.
-		tmp_var=M_init_conc_topaz[i];
-		init_conc_topaz_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
+		tmp_var=M_init_conc[i];
+		init_conc_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
 		tmp_var=M_init_thick[i];
 		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
 		tmp_var=M_init_snow_thick[i];
 		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
 
         // Use 0.05 to get rid of slight inconsistencies in the TOPAZ output.
-        if(init_conc_topaz_tmp>0.05)
+        if(init_conc_tmp>0.05)
         {
-            real_thickness=M_thick[i]/init_conc_topaz_tmp;
-            M_thick[i]=real_thickness*M_conc[i];
-        }
-
-        //if either c or h equal zero, we set the others to zero as well
-        if(M_conc[i]<=0.)
-        {
-            M_conc[i]=0.;
-            M_thick[i]=0.;
-            M_snow_thick[i]=0.;
-        }
-        if(M_thick[i]<=0.)
-        {
-            M_thick[i]=0.;
-            M_conc[i]=0.;
-            M_snow_thick[i]=0.;
-        }
-
-		M_damage[i]=0.;
-	}
-}
-
-void
-FiniteElement::topazOsisafIce()
-{
-    double real_thickness, init_conc_topaz_tmp;
-
-    external_data M_init_conc=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
-
-    external_data M_init_conc_topaz=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc_topaz.check_and_reload(M_mesh,time_init);
-
-    external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
-
-    external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
-
-    double tmp_var;
-    for (int i=0; i<M_num_elements; ++i)
-    {
-		M_conc[i] = std::min(1.,M_init_conc[i]);
-
-        // TOPAZ puts very small values instead of 0.
-		tmp_var=M_init_conc_topaz[i];
-		init_conc_topaz_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
-		tmp_var=M_init_thick[i];
-		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
-		tmp_var=M_init_snow_thick[i];
-		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
-
-        // Use 0.05 to get rid of slight inconsistencies in the TOPAZ output.
-        if(init_conc_topaz_tmp>0.05)
-        {
-            real_thickness=M_thick[i]/init_conc_topaz_tmp;
+            real_thickness=M_thick[i]/init_conc_tmp;
             M_thick[i]=real_thickness*M_conc[i];
         }
 
@@ -5658,13 +5739,13 @@ FiniteElement::topazOsisafIce()
 void
 FiniteElement::topazAmsr2Ice()
 {
-    double real_thickness, init_conc_topaz_tmp;
+    double real_thickness, init_conc_tmp;
 
-    external_data M_init_conc=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
+    external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
+    M_conc_amsr2.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
     M_init_conc.check_and_reload(M_mesh,time_init);
-
-    external_data M_init_conc_topaz=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc_topaz.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
     M_init_thick.check_and_reload(M_mesh,time_init);
@@ -5675,20 +5756,20 @@ FiniteElement::topazAmsr2Ice()
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
     {
-		M_conc[i] = std::min(1.,M_init_conc[i]);
+		M_conc[i] = std::min(1.,M_conc_amsr2[i]);
 
         // TOPAZ puts very small values instead of 0.
-		tmp_var=M_init_conc_topaz[i];
-		init_conc_topaz_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
+		tmp_var=M_init_conc[i];
+		init_conc_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
 		tmp_var=M_init_thick[i];
 		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
 		tmp_var=M_init_snow_thick[i];
 		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
 
         // Use 0.05 to get rid of slight inconsistencies in the TOPAZ output.
-        if(init_conc_topaz_tmp>0.05)
+        if(init_conc_tmp>0.05)
         {
-            real_thickness=M_thick[i]/init_conc_topaz_tmp;
+            real_thickness=M_thick[i]/init_conc_tmp;
             M_thick[i]=real_thickness*M_conc[i];
         }
 
@@ -5702,6 +5783,48 @@ FiniteElement::topazAmsr2Ice()
         if(M_thick[i]<=0.)
         {
             M_thick[i]=0.;
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+
+		M_damage[i]=0.;
+	}
+}
+void
+FiniteElement::cs2SmosIce()
+{
+    external_data M_init_conc=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,0,false,time_init);
+    M_init_conc.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_thick=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,1,false,time_init);
+    M_init_thick.check_and_reload(M_mesh,time_init);
+
+    boost::gregorian::date dt = Nextsim::parse_date(time_init);
+    int month_id=dt.month().as_number(); // 1 for January, 2 for February, and so on. This will be used to compute the snow from Warren climatology
+
+    std::cout << "month_id: " << month_id <<"\n";
+
+    external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
+    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    double tmp_var;
+    for (int i=0; i<M_num_elements; ++i)
+    {
+		tmp_var=std::min(1.,M_init_conc[i]);
+		M_conc[i] = tmp_var;
+		tmp_var=M_init_thick[i];
+		M_thick[i] = tmp_var ;
+		tmp_var=M_init_snow_thick[i];
+		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<=0.)
+        {
             M_conc[i]=0.;
             M_snow_thick[i]=0.;
         }
@@ -6163,7 +6286,7 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
 }
 
 void
-FiniteElement::exportResults(int step, bool export_mesh)
+FiniteElement::exportResults(int step, bool export_mesh, bool export_fields)
 {
     Exporter exporter("float");
     std::string fileout;
@@ -6204,120 +6327,124 @@ FiniteElement::exportResults(int step, bool export_mesh)
     }
 
 
-    fileout = (boost::format( "%1%/field_%2%.bin" )
-               % M_export_path
-               % step ).str();
-
-    LOG(INFO) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
-
-    std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
-    if ( ! outbin.good() )
-        throw std::runtime_error("Cannot write to file: " + fileout);
-    std::vector<double> timevec(1);
-    timevec[0] = current_time;
-    exporter.writeField(outbin, timevec, "Time");
-    exporter.writeField(outbin, M_surface, "Element_area");
-    exporter.writeField(outbin, M_node_max_conc, "M_node_max_conc");
-    exporter.writeField(outbin, M_VT, "M_VT");
-    exporter.writeField(outbin, M_conc, "Concentration");
-    exporter.writeField(outbin, M_thick, "Thickness");
-    exporter.writeField(outbin, M_snow_thick, "Snow");
-    exporter.writeField(outbin, M_damage, "Damage");
-    int i=0;
-    for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
+    if (export_fields)
     {
-        exporter.writeField(outbin, *it, "Tice_"+std::to_string(i));
-        i++;
-    }
-    exporter.writeField(outbin, M_sst, "SST");
-    exporter.writeField(outbin, M_sss, "SSS");
+        fileout = (boost::format( "%1%/field_%2%.bin" )
+                   % M_export_path
+                   % step ).str();
 
-    if(vm["simul.save_forcing_field"].as<bool>())
-    {
-        // Thermodynamic and dynamic forcing
-        // Atmosphere
-        exporter.writeField(outbin,M_wind.getVector(), "M_wind");         // Surface wind [m/s]
-        exporter.writeField(outbin,M_tair.getVector(), "M_tair");         // 2 m temperature [C]
-        exporter.writeField(outbin,M_mixrat.getVector(), "M_mixrat");       // Mixing ratio
-        exporter.writeField(outbin,M_mslp.getVector(), "M_mslp");         // Atmospheric pressure [Pa]
-        exporter.writeField(outbin,M_Qsw_in.getVector(), "M_Qsw_in");       // Incoming short-wave radiation [W/m2]
-        exporter.writeField(outbin,M_Qlw_in.getVector(), "M_Qlw_in");       // Incoming long-wave radiation [W/m2]
-        exporter.writeField(outbin,M_tcc.getVector(), "M_tcc");       // Incoming long-wave radiation [W/m2]
-        exporter.writeField(outbin,M_precip.getVector(), "M_precip");       // Total precipitation [m]
-        exporter.writeField(outbin,M_snowfr.getVector(), "M_snowfr");       // Fraction of precipitation that is snow
-        exporter.writeField(outbin,M_dair.getVector(), "M_dair");         // 2 m dew point [C]
+        LOG(INFO) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
 
-        // Ocean
-        exporter.writeField(outbin,M_ocean.getVector(), "M_ocean");        // "Geostrophic" ocean currents [m/s]
-        exporter.writeField(outbin,M_ssh.getVector(), "M_ssh");          // Sea surface elevation [m]
+        std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
+        if ( ! outbin.good() )
+            throw std::runtime_error("Cannot write to file: " + fileout);
+        std::vector<double> timevec(1);
+        timevec[0] = current_time;
+        exporter.writeField(outbin, timevec, "Time");
+        exporter.writeField(outbin, M_surface, "Element_area");
+        exporter.writeField(outbin, M_node_max_conc, "M_node_max_conc");
+        exporter.writeField(outbin, M_VT, "M_VT");
+        exporter.writeField(outbin, M_conc, "Concentration");
+        exporter.writeField(outbin, M_thick, "Thickness");
+        exporter.writeField(outbin, M_snow_thick, "Snow");
+        exporter.writeField(outbin, M_damage, "Damage");
+        int i=0;
+        for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
+        {
+            exporter.writeField(outbin, *it, "Tice_"+std::to_string(i));
+            i++;
+        }
+        exporter.writeField(outbin, M_sst, "SST");
+        exporter.writeField(outbin, M_sss, "SSS");
 
-        exporter.writeField(outbin,M_ocean_temp.getVector(), "M_ocean_temp");   // Ocean temperature in top layer [C]
-        exporter.writeField(outbin,M_ocean_salt.getVector(), "M_ocean_salt");   // Ocean salinity in top layer [C]
-        exporter.writeField(outbin,M_mld.getVector(), "M_mld");          // Mixed-layer depth [m]
+        if(vm["simul.save_forcing_field"].as<bool>())
+        {
+            // Thermodynamic and dynamic forcing
+            // Atmosphere
+            exporter.writeField(outbin,M_wind.getVector(), "M_wind");         // Surface wind [m/s]
+            exporter.writeField(outbin,M_tair.getVector(), "M_tair");         // 2 m temperature [C]
+            exporter.writeField(outbin,M_mixrat.getVector(), "M_mixrat");       // Mixing ratio
+            exporter.writeField(outbin,M_mslp.getVector(), "M_mslp");         // Atmospheric pressure [Pa]
+            exporter.writeField(outbin,M_Qsw_in.getVector(), "M_Qsw_in");       // Incoming short-wave radiation [W/m2]
+            exporter.writeField(outbin,M_Qlw_in.getVector(), "M_Qlw_in");       // Incoming long-wave radiation [W/m2]
+            exporter.writeField(outbin,M_tcc.getVector(), "M_tcc");       // Incoming long-wave radiation [W/m2]
+            exporter.writeField(outbin,M_precip.getVector(), "M_precip");       // Total precipitation [m]
+            exporter.writeField(outbin,M_snowfr.getVector(), "M_snowfr");       // Fraction of precipitation that is snow
+            exporter.writeField(outbin,M_dair.getVector(), "M_dair");         // 2 m dew point [C]
 
-        // Bathymetry
-        exporter.writeField(outbin,M_element_depth.getVector(), "M_element_depth");
-    }
+            // Ocean
+            exporter.writeField(outbin,M_ocean.getVector(), "M_ocean");        // "Geostrophic" ocean currents [m/s]
+            exporter.writeField(outbin,M_ssh.getVector(), "M_ssh");          // Sea surface elevation [m]
+
+            exporter.writeField(outbin,M_ocean_temp.getVector(), "M_ocean_temp");   // Ocean temperature in top layer [C]
+            exporter.writeField(outbin,M_ocean_salt.getVector(), "M_ocean_salt");   // Ocean salinity in top layer [C]
+            exporter.writeField(outbin,M_mld.getVector(), "M_mld");          // Mixed-layer depth [m]
+
+            // Bathymetry
+            exporter.writeField(outbin,M_element_depth.getVector(), "M_element_depth");
+        }
 
 #if defined (WAVES)
-    if (M_use_wim)
-    {
-        exporter.writeField(outbin, M_tau, "Stresses");
-        exporter.writeField(outbin, M_nfloes, "Nfloes");
-        exporter.writeField(outbin, M_dfloe, "Dfloe");
-    }
+        if (M_use_wim)
+        {
+            exporter.writeField(outbin, M_tau, "Stresses");
+            exporter.writeField(outbin, M_nfloes, "Nfloes");
+            exporter.writeField(outbin, M_dfloe, "Dfloe");
+        }
 #endif
 
-    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-    {
-        exporter.writeField(outbin, M_h_thin, "Thin_ice");
-        exporter.writeField(outbin, M_hs_thin, "Snow_thin_ice");
-        exporter.writeField(outbin, M_tsurf_thin, "Tsurf_thin_ice");
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {
+            exporter.writeField(outbin, M_h_thin, "Thin_ice");
+            exporter.writeField(outbin, M_hs_thin, "Snow_thin_ice");
+            exporter.writeField(outbin, M_tsurf_thin, "Tsurf_thin_ice");
 
-        // Re-create the diagnostic variable 'concentration of thin ice'
-        std::vector<double> conc_thin(M_mesh.numTriangles());
-        double const rtanalpha = c_thin_max/h_thin_max;
+            // Re-create the diagnostic variable 'concentration of thin ice'
+            std::vector<double> conc_thin(M_mesh.numTriangles());
+            double const rtanalpha = c_thin_max/h_thin_max;
+            for ( int i=0; i<M_mesh.numTriangles(); ++i )
+            {
+                conc_thin[i] = std::min(std::min(M_h_thin[i]/physical::hmin,
+                            std::sqrt(2.*M_h_thin[i]*rtanalpha)), 1.-M_conc[i]);
+            }
+            exporter.writeField(outbin, conc_thin, "Concentration_thin_ice");
+        }
+
+        // EXPORT sigma1 sigma2
+        std::vector<double> sigma1(M_mesh.numTriangles());
+        std::vector<double> sigma2(M_mesh.numTriangles());
+        double sigma_s, sigma_n;
+        std::vector<double> sigma_pred(3);
+
         for ( int i=0; i<M_mesh.numTriangles(); ++i )
         {
-            conc_thin[i] = std::min(std::min(M_h_thin[i]/physical::hmin, std::sqrt(2.*M_h_thin[i]*rtanalpha)), 1.-M_conc[i]);
+            sigma_pred[0]=M_sigma[3*i];
+            sigma_pred[1]=M_sigma[3*i+1];
+            sigma_pred[2]=M_sigma[3*i+2];
+
+            sigma_s=std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
+            sigma_n= -         (sigma_pred[0]+sigma_pred[1])/2.;
+
+            sigma1[i] = sigma_n+sigma_s;
+            sigma2[i] = sigma_n-sigma_s;
         }
-        exporter.writeField(outbin, conc_thin, "Concentration_thin_ice");
+        exporter.writeField(outbin, sigma1, "Sigma1");
+        exporter.writeField(outbin, sigma2, "Sigma2");
+
+        outbin.close();
+
+        fileout = (boost::format( "%1%/field_%2%.dat" )
+                   % M_export_path
+                   % step ).str();
+
+        LOG(INFO) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
+
+        std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
+        if ( ! outrecord.good() )
+            throw std::runtime_error("Cannot write to file: " + fileout);
+        exporter.writeRecord(outrecord);
+        outrecord.close();
     }
-
-    // EXPORT sigma1 sigma2
-    std::vector<double> sigma1(M_mesh.numTriangles());
-    std::vector<double> sigma2(M_mesh.numTriangles());
-    double sigma_s, sigma_n;
-    std::vector<double> sigma_pred(3);
-
-    for ( int i=0; i<M_mesh.numTriangles(); ++i )
-    {
-        sigma_pred[0]=M_sigma[3*i];
-        sigma_pred[1]=M_sigma[3*i+1];
-        sigma_pred[2]=M_sigma[3*i+2];
-
-        sigma_s=std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
-        sigma_n= -         (sigma_pred[0]+sigma_pred[1])/2.;
-
-        sigma1[i] = sigma_n+sigma_s;
-        sigma2[i] = sigma_n-sigma_s;
-    }
-    exporter.writeField(outbin, sigma1, "Sigma1");
-    exporter.writeField(outbin, sigma2, "Sigma2");
-
-    outbin.close();
-
-    fileout = (boost::format( "%1%/field_%2%.dat" )
-               % M_export_path
-               % step ).str();
-
-    LOG(INFO) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
-
-    std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
-    if ( ! outrecord.good() )
-        throw std::runtime_error("Cannot write to file: " + fileout);
-    exporter.writeRecord(outrecord);
-    outrecord.close();
 }
 
 #if defined (WAVES)
@@ -6559,7 +6686,13 @@ FiniteElement::wimToNextsim(bool step)
                         M_nfloes,
                         "km");
         }
-        
+
+        bool TEST_INTERP_MESH = false;
+        //save mesh before entering WIM:
+        // mesh file can then be copied inside WIM to correct path to allow plotting
+        if (TEST_INTERP_MESH)
+            this->exportResults(1001,true,false);
+
         wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, mf1, mf2, mf3, step);
         // test this later
         //wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, M_SWH_grid, M_MWD_grid, M_FP_grid, step);
@@ -6696,6 +6829,7 @@ FiniteElement::wimToNextsim(bool step)
     if (!M_regrid)
         M_mesh.move(M_UM,-1.);
 
+#if 0
     // set dfloe each time step (can be changed due to advection of nfloes by nextsim)
     M_dfloe.assign(M_num_elements,0.);
 
@@ -6710,6 +6844,7 @@ FiniteElement::wimToNextsim(bool step)
         if (M_conc[i] < vm["wim.cicemin"].template as<double>())
             M_dfloe[i] = 0.;
     }
+#endif
 
     std::cout<<"Finished wimToNextsim";
 }//wimToNextsim

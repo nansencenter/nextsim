@@ -91,24 +91,24 @@ end
 if(nb_fields==2)
    figure
    scatter(field_scatter{1},field_scatter{2});
-   hold on
-   scatter(field_scatter{2},field_scatter{1});
-   tan_phi=0.7;
-   scale_coef=0.1;
-   cfix = 40000*scale_coef;
-   sigma_n_lim=[-10*cfix:10*cfix];
-   sigma_s_lim=cfix+tan_phi*sigma_n_lim;
-   plot(sigma_n_lim+sigma_s_lim,sigma_n_lim-sigma_s_lim,'r');
-   plot(sigma_n_lim-sigma_s_lim,sigma_n_lim+sigma_s_lim,'r');
-   
-   q=((tan_phi^2+1)^.5+tan_phi)^2;
-   sigma_c=2*cfix/((tan_phi^2+1)^.5-tan_phi);
-   
-   sigma_2_lim=[-10*cfix:10*cfix];
-   sigma_1_lim=q*sigma_2_lim+sigma_c;
-   
-   plot(sigma_1_lim,sigma_2_lim,'b');
-   plot(sigma_2_lim,sigma_1_lim,'b');
+%   hold on
+%   scatter(field_scatter{2},field_scatter{1});
+%    tan_phi=0.7;
+%    scale_coef=0.1;
+%    cfix = 40000*scale_coef;
+%    sigma_n_lim=[-10*cfix:10*cfix];
+%    sigma_s_lim=cfix+tan_phi*sigma_n_lim;
+%    plot(sigma_n_lim+sigma_s_lim,sigma_n_lim-sigma_s_lim,'r');
+%    plot(sigma_n_lim-sigma_s_lim,sigma_n_lim+sigma_s_lim,'r');
+%    
+%    q=((tan_phi^2+1)^.5+tan_phi)^2;
+%    sigma_c=2*cfix/((tan_phi^2+1)^.5-tan_phi);
+%    
+%    sigma_2_lim=[-10*cfix:10*cfix];
+%    sigma_1_lim=q*sigma_2_lim+sigma_c;
+%    
+%    plot(sigma_1_lim,sigma_2_lim,'b');
+%    plot(sigma_2_lim,sigma_1_lim,'b');
 end
 
 end

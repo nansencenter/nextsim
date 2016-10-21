@@ -99,9 +99,9 @@ public:
         InterpolationType interpolation_method;
 		int interp_type;
         std::string dirname;
-        //std::string filename;
         std::string prefix;
         std::string postfix;
+        std::string reference_date;
 
         Variable latitude;
         Variable longitude;
@@ -135,38 +135,9 @@ public:
         int dimension_y_count;
     } Grid;
 
-#if 0
-    typedef struct Dataset
-    {
-        std::string dirname;
-        std::string prefix;
-        std::string postfix;
-        std::string reference_date;
-
-        std::vector<Variable> variables;
-        std::vector<Vectorial_Variable> vectorial_variables;
-        int target_size;
-        Grid *grid;
-
-        bool reloaded;
-
-        int nb_timestep_day;
-        Variable time;
-        Dimension dimension_time;
-
-        std::vector<double> ftime_range;
-    } Dataset;
-#endif
     DataSet();
 
     DataSet(char const *DatasetName,int target_size);
-
-    public:
-
-    std::string dirname;
-    std::string prefix;
-    std::string postfix;
-    std::string reference_date;
 
 public:
     Grid grid;
@@ -177,7 +148,6 @@ public:
 
     bool reloaded;
 
-    int nb_timestep_day; // put 0 for not time-dependent field such as bathymetry
     double averaging_period; // 0. for snapshot, 1. for daily values, 365./12 for monthly values.
     Variable time;
 
@@ -187,12 +157,12 @@ public:
 
     void loadGrid(Grid *grid, int current_time, double RX_min, double RX_max, double RY_min, double RY_max);
 
-    void getlatlon_regular_latlon(double* LAT, double* LON,
-            netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
+    void getLatLonRegularLatLon(double* LAT, double* LON,
+                                  netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
 
-    void getXY_regular_XY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
+    void getXYRegularXY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
 
-    void getXYlatlon_from_latlon(double* X, double* Y,double* LAT, double* LON, netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
+    void getXYLatLonFromLatLon(double* X, double* Y,double* LAT, double* LON, netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
     double thetaInRange(double const& th_, double const& th1, bool const& close_on_right=false);
 
     // name of the dataSet

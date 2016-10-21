@@ -133,6 +133,7 @@ public:
     Dataset M_ice_amsre_elements_dataset;
     Dataset M_ice_osisaf_elements_dataset;
     Dataset M_ice_amsr2_elements_dataset;
+    Dataset M_ice_cs2_smos_elements_dataset;
 #if defined (WAVES)
     Dataset M_WW3A_elements_dataset;
     Dataset M_ERAIW_1DEG_elements_dataset;
@@ -180,7 +181,7 @@ public:
     void updateVelocity();
     void scalingVelocity();
     void update();
-    void exportResults(int step, bool export_mesh = true);
+    void exportResults(int step, bool export_mesh = true, bool export_fields = true);
 
     void writeRestart(int pcpt, int step);
     int readRestart(int step);
@@ -242,6 +243,9 @@ private:
     std::string M_mesh_filename;
 
     int M_flag_fix;
+    
+    int mesh_adapt_step;
+    bool had_remeshed;
 
     std::vector<double> M_surface;
     std::vector<double> M_sigma;
@@ -445,9 +449,10 @@ private:
     void piomasIce();
     void topazForecastIce();
     void topazForecastAmsr2Ice();
+    void topazForecastAmsr2OsisafIce();
+    void cs2SmosIce();
     
     void topazAmsreIce();
-    void topazOsisafIce();
     void topazAmsr2Ice();
 
     void equallySpacedDrifter();
