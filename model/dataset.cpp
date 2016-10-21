@@ -1793,7 +1793,7 @@ averaging_period=0.;         time= time_tmp;
      		interpolation_in_latlon: false,
 
              loaded: false,
-             dataset_frequency:"daily",
+             dataset_frequency:"nearest_daily",
 
             waveOptions: wavopt_none,
 
@@ -3246,7 +3246,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
             current_timestr = to_date_string_ym(current_time);//yyyymm
         else if(grid_ptr->dataset_frequency=="yearly")
             current_timestr = to_date_string_y(std::floor(current_time));//yyyy
-        else if(grid_ptr->dataset_frequency=="daily")
+        else if(grid_ptr->dataset_frequency=="daily" || grid_ptr->dataset_frequency=="nearest_daily")
             current_timestr = to_date_string_yd(current_time);//yyyymmdd
         else if(grid_ptr->dataset_frequency=="constant")
             current_timestr = "";
@@ -3516,7 +3516,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
                     current_timestr = to_date_string_ym(current_time);//yyyymm
                 else if(grid_ptr->dataset_frequency=="yearly")
                     current_timestr = to_date_string_y(std::floor(current_time));//yyyy
-                else if(grid_ptr->dataset_frequency=="daily")
+                else if(grid_ptr->dataset_frequency=="daily" || grid_ptr->dataset_frequency=="nearest_daily")
                     current_timestr = to_date_string_yd(current_time);//yyyymmdd
                 else if(grid_ptr->dataset_frequency=="constant")
                     current_timestr = "";
