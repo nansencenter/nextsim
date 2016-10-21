@@ -46,7 +46,9 @@ namespace setup
         PIOMAS              = 11,
         TOPAZ4FAMSR2        = 12,
         TOPAZ4FAMSR2OSISAF  = 13,
-        CS2_SMOS            = 14
+        CS2_SMOS            = 14,
+        SMOS                = 15,
+        BINARY              = 16
 	};
 
     enum class WaveType

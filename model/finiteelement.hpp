@@ -134,6 +134,7 @@ public:
     Dataset M_ice_osisaf_elements_dataset;
     Dataset M_ice_amsr2_elements_dataset;
     Dataset M_ice_cs2_smos_elements_dataset;
+    Dataset M_ice_smos_elements_dataset;
 #if defined (WAVES)
     Dataset M_WW3A_elements_dataset;
     Dataset M_ERAIW_1DEG_elements_dataset;
@@ -452,6 +453,7 @@ private:
     void topazForecastAmsr2OsisafIce();
     void cs2SmosIce();
     void warrenClimatology();
+    void smosIce();
     
     void topazAmsreIce();
     void topazAmsr2Ice();

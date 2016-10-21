@@ -313,6 +313,8 @@ FiniteElement::initDatasets()
 
     M_ice_cs2_smos_elements_dataset=DataSet("ice_cs2_smos_elements",M_num_elements);
 
+    M_ice_smos_elements_dataset=DataSet("ice_smos_elements",M_num_elements);
+
     M_bathymetry_elements_dataset=DataSet("etopo_elements",M_num_elements);//M_num_nodes);
 
 #if defined (WAVES)
@@ -474,7 +476,8 @@ FiniteElement::initConstant()
         ("amsr2", setup::IceType::AMSR2)
         ("osisaf", setup::IceType::OSISAF)
         ("piomas", setup::IceType::PIOMAS)
-        ("cs2_smos", setup::IceType::CS2_SMOS);
+        ("cs2_smos", setup::IceType::CS2_SMOS)
+        ("smos", setup::IceType::SMOS);
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
 
 #if defined (WAVES)
@@ -1554,6 +1557,7 @@ FiniteElement::regrid(bool step)
     M_ice_osisaf_elements_dataset.target_size=M_num_elements;
     M_ice_amsr2_elements_dataset.target_size=M_num_elements;
     M_ice_cs2_smos_elements_dataset.target_size=M_num_elements;
+    M_ice_smos_elements_dataset.target_size=M_num_elements;
     M_bathymetry_elements_dataset.target_size=M_num_elements;
 #if defined (WAVES)
     M_WW3A_elements_dataset.target_size=M_num_elements;
@@ -1573,6 +1577,7 @@ FiniteElement::regrid(bool step)
     M_ice_osisaf_elements_dataset.reloaded=false;
     M_ice_amsr2_elements_dataset.reloaded=false;
     M_ice_cs2_smos_elements_dataset.reloaded=false;
+    M_ice_smos_elements_dataset.reloaded=false;
     M_bathymetry_elements_dataset.reloaded=false;
 #if defined (WAVES)
     M_WW3A_elements_dataset.reloaded=false;
@@ -1592,6 +1597,7 @@ FiniteElement::regrid(bool step)
     M_ice_osisaf_elements_dataset.grid.loaded=false;
     M_ice_amsr2_elements_dataset.grid.loaded=false;
     M_ice_cs2_smos_elements_dataset.grid.loaded=false;
+    M_ice_smos_elements_dataset.grid.loaded=false;
     M_bathymetry_elements_dataset.grid.loaded=false;
 #endif
 
@@ -3870,21 +3876,6 @@ FiniteElement::init()
         LOG(DEBUG) <<"Reading restart file\n";
         pcpt = this->readRestart(vm["setup.step_nb"].as<int>());
         current_time = time_init + pcpt*time_step/(24*3600.0);
-        LOG(DEBUG) <<"Initialize forcingAtmosphere\n";
-        this->forcingAtmosphere();
-        LOG(DEBUG) <<"Initialize forcingOcean\n";
-        this->forcingOcean();
-#if defined (WAVES)
-        LOG(DEBUG) <<"Initialize forcingWave\n";
-        this->forcingWave();
-#endif
-        LOG(DEBUG) <<"Initialize bathymetry\n";
-        this->bathymetry();
-        chrono.restart();
-        LOG(DEBUG) <<"check_and_reload starts\n";
-        for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
-            (*it)->check_and_reload(M_mesh,current_time);
-        LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
     }
     else
     {
@@ -3896,26 +3887,31 @@ FiniteElement::init()
         chrono.restart();
         LOG(DEBUG) <<"Initialize variables\n";
         this->initVariables();
+    }
+    
+    LOG(DEBUG) <<"Initialize forcingAtmosphere\n";
+    this->forcingAtmosphere();
 
-        LOG(DEBUG) <<"Initialize forcingAtmosphere\n";
-        this->forcingAtmosphere();
-
-        LOG(DEBUG) <<"Initialize forcingOcean\n";
-        this->forcingOcean();
+    LOG(DEBUG) <<"Initialize forcingOcean\n";
+    this->forcingOcean();
 #if defined (WAVES)
         LOG(DEBUG) <<"Initialize forcingWave\n";
         this->forcingWave();
 #endif
-        LOG(DEBUG) <<"Initialize bathymetry\n";
-        this->bathymetry();
-        chrono.restart();
-        LOG(DEBUG) <<"check_and_reload starts\n";
-        for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
-            (*it)->check_and_reload(M_mesh,time_init);
-        LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
-        this->initModelState();
-        LOG(DEBUG) <<"initSimulation done in "<< chrono.elapsed() <<"s\n";
-    }
+    
+    LOG(DEBUG) <<"Initialize bathymetry\n";
+    this->bathymetry();
+        
+    chrono.restart();
+    LOG(DEBUG) <<"check_and_reload starts\n";
+    for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
+        (*it)->check_and_reload(M_mesh,time_init);
+    LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
+    
+    chrono.restart();
+    this->initModelState();
+    LOG(DEBUG) <<"initSimulation done in "<< chrono.elapsed() <<"s\n";
+    
     // Open the output file for drifters
     // TODO: Is this the right place to open the file?
     if (M_drifter_type == setup::DrifterType::IABP )
@@ -4030,6 +4026,7 @@ FiniteElement::step(int &pcpt)
         chrono.restart();
         LOG(DEBUG) <<"first export starts\n";
         this->exportResults(0);
+        this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
         LOG(DEBUG) <<"first export done in " << chrono.elapsed() <<"s\n";
     }
 #endif
@@ -4791,6 +4788,7 @@ FiniteElement::readRestart(int step)
     M_ice_osisaf_elements_dataset.target_size=M_num_elements;
     M_ice_amsr2_elements_dataset.target_size=M_num_elements;
     M_ice_cs2_smos_elements_dataset.target_size=M_num_elements;
+    M_ice_smos_elements_dataset.target_size=M_num_elements;
     M_bathymetry_elements_dataset.target_size=M_num_elements;
 #if defined (WAVES)
     M_WW3A_elements_dataset.target_size=M_num_elements;
@@ -5268,7 +5266,9 @@ FiniteElement::initIce()
         case setup::IceType::CS2_SMOS:
             this->cs2SmosIce();
             break;
-
+        case setup::IceType::SMOS:
+            this->smosIce();
+            break;
         default:
             std::cout << "invalid initialization of the ice"<<"\n";
             throw std::logic_error("invalid initialization of the ice");
@@ -5828,6 +5828,48 @@ FiniteElement::cs2SmosIce()
         // Take half of the maximum allowed snow thickness
         M_snow_thick[i] = std::min(0.5*max_snow, M_snow_thick[i]);
 
+	}
+}
+void
+FiniteElement::smosIce()
+{
+    external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
+    M_init_conc.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_thick=ExternalData(&M_ice_smos_elements_dataset,M_mesh,0,false,time_init);
+    M_init_thick.check_and_reload(M_mesh,time_init);
+
+    boost::gregorian::date dt = Nextsim::parse_date(time_init);
+    int month_id=dt.month().as_number(); // 1 for January, 2 for February, and so on. This will be used to compute the snow from Warren climatology
+    
+    std::cout << "month_id: " << month_id <<"\n";
+
+    external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
+    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    double tmp_var;
+    for (int i=0; i<M_num_elements; ++i)
+    {
+		tmp_var=std::min(1.,M_init_conc[i]);
+		M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+		tmp_var=M_init_thick[i];
+		M_thick[i] = tmp_var ; 
+		tmp_var=M_init_snow_thick[i];
+		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+
+		M_damage[i]=0.;
 	}
 }
 
