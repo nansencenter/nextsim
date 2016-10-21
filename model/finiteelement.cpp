@@ -420,15 +420,15 @@ FiniteElement::initConstant()
     tan_phi = vm["simul.tan_phi"].as<double>();
     ridge_h = vm["simul.ridge_h"].as<double>();
 
-    const boost::unordered_map<const std::string, setup::ThermoType> str2thermo = boost::assign::map_list_of
-        ("zero-layer", setup::ThermoType::ZERO_LAYER)
-        ("winton", setup::ThermoType::WINTON);
-    M_thermo_type = str2thermo.find(vm["setup.thermo-type"].as<std::string>())->second;
-
     if ( vm["simul.newice_type"].as<int>() == 4 )
         M_ice_cat_type = setup::IceCategoryType::THIN_ICE;
     else
         M_ice_cat_type = setup::IceCategoryType::CLASSIC;
+
+    const boost::unordered_map<const std::string, setup::ThermoType> str2thermo = boost::assign::map_list_of
+        ("zero-layer", setup::ThermoType::ZERO_LAYER)
+        ("winton", setup::ThermoType::WINTON);
+    M_thermo_type = str2thermo.find(vm["setup.thermo-type"].as<std::string>())->second;
 
     const boost::unordered_map<const std::string, setup::AtmosphereType> str2atmosphere = boost::assign::map_list_of
         ("constant", setup::AtmosphereType::CONSTANT)
@@ -586,7 +586,7 @@ FiniteElement::initConstant()
     }
 #endif
 
-    this->writeLogFile();
+    // this->writeLogFile(); // already called in the fonction run()
 }
 
 void
@@ -2130,7 +2130,7 @@ FiniteElement::assemble(int pcpt)
 }
 
 void
-FiniteElement::node_max_conc()
+FiniteElement::nodeMaxConc()
 {
     int thread_id;
     int total_threads;
@@ -4022,7 +4022,7 @@ FiniteElement::step(int &pcpt)
 #if 1
     if (pcpt == 0)
     {
-        node_max_conc(); // needed for post-processing, recomputed in assemble() for the other steps
+        nodeMaxConc(); // needed for post-processing, recomputed in assemble() for the other steps
         chrono.restart();
         LOG(DEBUG) <<"first export starts\n";
         this->exportResults(0);

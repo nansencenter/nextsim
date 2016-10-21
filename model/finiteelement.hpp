@@ -103,7 +103,7 @@ public:
     void adaptMesh();
 
     void assemble(int cpt);
-    void node_max_conc();
+    void nodeMaxConc();
     void solve();
     void run();
     int init();
@@ -243,7 +243,7 @@ private:
     std::string M_mesh_filename;
 
     int M_flag_fix;
-    
+
     int mesh_adapt_step;
     bool had_remeshed;
 
@@ -450,7 +450,7 @@ private:
     void topazForecastAmsr2Ice();
     void topazForecastAmsr2OsisafIce();
     void cs2SmosIce();
-    
+
     void topazAmsreIce();
     void topazAmsr2Ice();
 
