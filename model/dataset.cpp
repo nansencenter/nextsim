@@ -1696,6 +1696,127 @@ averaging_period=0.;         time= time_tmp;
         averaging_period=1.; // days
      	time= time_tmp;
      }
+     else if (strcmp (DatasetName, "ice_smos_elements") == 0)
+     {
+     	// Definition of topaz grid and datasets
+         Dimension dimension_x={
+             name:"x",
+             cyclic:false
+     	};
+
+         Dimension dimension_y={
+             name:"y",
+             cyclic:false
+     	};
+
+         Dimension dimension_time={
+             name:"time", // "Time"
+             cyclic:false
+     	};
+
+         std::vector<Dimension> dimensions(3);
+         dimensions[0] = dimension_time;
+         dimensions[1] = dimension_y;
+         dimensions[2] = dimension_x;
+
+         std::vector<Dimension> dimensions_latlon(2);
+         dimensions_latlon[0] = dimension_y;
+         dimensions_latlon[1] = dimension_x;
+
+         std::vector<Dimension> dimensions_time(1);
+         dimensions_time[0] = dimension_time;
+
+         Variable latitude={
+             name: "latitude",
+             dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_north",
+             data2: data2_tmp};
+
+         Variable longitude={
+             name: "longitude",
+             dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_east",
+             data2: data2_tmp};
+
+         Variable time_tmp={
+             name: "time",
+             dimensions: dimensions_time,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 12., // to center the time on the middle of the day
+             Units: "hours",
+             data2: data2_tmp};
+
+         Variable thickness={
+     		name: "sea_ice_thickness",
+     		dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 1.,
+     		b: 0.,
+     		Units: "",
+     		data2: data2_tmp
+     	};
+        
+         Grid grid_tmp={
+             interpolation_method: InterpolationType::FromMeshToMesh2dx,
+     		interp_type: -1,
+             dirname: "data",
+             prefix:"SMOS_Icethickness_v2.1_north_",
+             postfix: ".nc",
+             reference_date: "2010-01-01",
+             
+             latitude: latitude,
+             longitude: longitude,
+
+             dimension_x: dimension_x,
+             dimension_y: dimension_y,
+
+             mpp_file: projfilename,
+     		interpolation_in_latlon: false,
+
+             loaded: false,
+             dataset_frequency:"daily",
+
+            waveOptions: wavopt_none,
+
+     		masking: true,
+     		masking_variable: thickness
+        };
+
+        std::vector<Variable> variables_tmp(1);
+        variables_tmp[0] = thickness;
+
+        std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+        variables= variables_tmp;
+        vectorial_variables= vectorial_variables_tmp;
+        target_size= target_size_tmp;
+        grid= grid_tmp;
+
+        reloaded=false;
+
+        
+        averaging_period=1.; // days
+     	time= time_tmp;
+     }
      else if (strcmp (DatasetName, "ice_cs2_smos_elements") == 0)
      {
      	// Definition of topaz grid and datasets
@@ -3081,6 +3202,7 @@ averaging_period=0.;         time= time_tmp;
     fprintf (stderr, "ww3a_elements\n");
     fprintf (stderr, "erai_waves_1deg_elements\n");
     fprintf (stderr, "ice_cs2_smos_elements\n");
+    fprintf (stderr, "ice_smos_elements\n");
     
        //close_Dataset (this);
      }
