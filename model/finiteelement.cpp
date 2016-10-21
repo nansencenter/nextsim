@@ -486,6 +486,7 @@ FiniteElement::initConstant()
     const boost::unordered_map<const std::string, setup::IceType> str2conc = boost::assign::map_list_of
         ("constant", setup::IceType::CONSTANT)
         ("target", setup::IceType::TARGET)
+        ("binary", setup::IceType::BINARY)
         ("topaz", setup::IceType::TOPAZ4)
         ("topaz_forecast", setup::IceType::TOPAZ4F)
         ("topaz_forecast_amsr2", setup::IceType::TOPAZ4FAMSR2)
@@ -5188,6 +5189,9 @@ FiniteElement::initIce()
         case setup::IceType::TARGET:
             this->targetIce();
             break;
+        case setup::IceType::BINARY:
+            this->binaryIce();
+            break;
         case setup::IceType::TOPAZ4:
             this->topazIce();
             break;
@@ -5324,6 +5328,60 @@ FiniteElement::targetIce()
         }
     }
 }
+
+void
+FiniteElement::binaryIce()
+{
+    std::fstream input;
+    std::string filename;
+    int length;
+
+    // First concentration
+    filename = Environment::nextsimDir().string() + "/data/initConc.dat";
+    input.open(filename, std::fstream::in);
+
+    // get length of file:
+    input.seekg (0, input.end);
+    length = input.tellg();
+    input.seekg (0, input.beg);
+    if ( length != M_num_elements*sizeof(double) )
+        throw std::runtime_error("Couldn't read the correct number of elements from " + filename +
+                ". File length is " + std::to_string(length) + " while M_num_elements is " + std::to_string(M_num_elements) + ".\n");
+
+    input.read((char*) &M_conc[0], M_num_elements*sizeof(double));
+    input.close();
+
+    // Then thickness
+    filename = Environment::nextsimDir().string() + "/data/initThick.dat";
+    input.open(filename, std::fstream::in);
+
+    // get length of file:
+    input.seekg (0, input.end);
+    length = input.tellg();
+    input.seekg (0, input.beg);
+    if ( length != M_num_elements*sizeof(double) )
+        throw std::runtime_error("Couldn't read the correct number of elements from " + filename +
+                ". File length is " + std::to_string(length) + " while M_num_elements is " + std::to_string(M_num_elements) + ".\n");
+
+    input.read((char*) &M_thick[0], M_num_elements*sizeof(double));
+    input.close();
+
+    // Finally snow thickness
+    filename = Environment::nextsimDir().string() + "/data/initSnow.dat";
+    input.open(filename, std::fstream::in);
+
+    // get length of file:
+    input.seekg (0, input.end);
+    length = input.tellg();
+    input.seekg (0, input.beg);
+    if ( length != M_num_elements*sizeof(double) )
+        throw std::runtime_error("Couldn't read the correct number of elements from " + filename +
+                ". File length is " + std::to_string(length) + " while M_num_elements is " + std::to_string(M_num_elements) + ".\n");
+
+    input.read((char*) &M_snow_thick[0], M_num_elements*sizeof(double));
+    input.close();
+}
+
 void
 FiniteElement::topazIce()
 {
