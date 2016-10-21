@@ -3766,8 +3766,7 @@ DataSet::getLatLonRegularLatLon(double* LAT, double* LON,netCDF::NcVar* VLAT_ptr
 
     for (int i=0; i<(index_x_count[0]); ++i)
     {
-        LON[i]=LON[i]*scale_factor + add_offset;
-        //LON[i]=thetaInRange(LON[i]*scale_factor + add_offset,-180.,false);
+        LON[i]=thetaInRange(LON[i]*scale_factor + add_offset,-180.,false);
         //make sure lon is in range [-180,180) to correspond to branch cut in mapx
     }
 
