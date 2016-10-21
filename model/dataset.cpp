@@ -196,7 +196,8 @@ namespace Nextsim
          target_size= target_size_tmp;
          grid= grid_tmp;
 
-         reloaded=false;
+         loaded=false;
+interpolated=false;
 
          averaging_period=0.;
          time= time_tmp;
@@ -440,7 +441,8 @@ namespace Nextsim
          target_size=target_size_tmp;
          grid= grid_tmp;
 
-         reloaded=false;
+         loaded=false;
+interpolated=false;
 
 averaging_period=0.;         time= time_tmp;
      }
@@ -614,7 +616,8 @@ averaging_period=0.;         time= time_tmp;
          target_size= target_size_tmp;
          grid= grid_tmp;
 
-         reloaded=false;
+         loaded=false;
+interpolated=false;
 
 
          averaging_period=1.; // days
@@ -780,7 +783,8 @@ averaging_period=0.;         time= time_tmp;
              target_size= target_size_tmp;
              grid= grid_tmp;
 
-             reloaded=false;
+             loaded=false;
+             interpolated=false;
 
 
              averaging_period=1.; // days
@@ -850,8 +854,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_east",
-            loaded_data: loaded_data_tmp,
-         interpolated_data: interpolated_data_tmp};
+             loaded_data: loaded_data_tmp,
+             interpolated_data: interpolated_data_tmp};
 
          Variable time_tmp={
              name: "time",
@@ -863,8 +867,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 12., // to center the time on the middle of the day
              Units: "hours",
-            loaded_data: loaded_data_tmp,
-         interpolated_data: interpolated_data_tmp};
+             loaded_data: loaded_data_tmp,
+             interpolated_data: interpolated_data_tmp};
 
          Variable u={
              name: "u",
@@ -876,8 +880,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "m/s",
-            loaded_data: loaded_data_tmp,
-         interpolated_data: interpolated_data_tmp
+             loaded_data: loaded_data_tmp,
+             interpolated_data: interpolated_data_tmp
      	};
 
          Variable v={
@@ -890,8 +894,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "m/s",
-            loaded_data: loaded_data_tmp,
-         interpolated_data: interpolated_data_tmp
+             loaded_data: loaded_data_tmp,
+             interpolated_data: interpolated_data_tmp
      	};
 
      	Variable ssh={
@@ -904,8 +908,8 @@ averaging_period=0.;         time= time_tmp;
      		a: 1.,
      		b: 0.,
      		Units: "m/s",
-         loaded_data: loaded_data_tmp,
-         interpolated_data: interpolated_data_tmp
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp
      	};
 
          Grid grid_tmp={
@@ -923,7 +927,7 @@ averaging_period=0.;         time= time_tmp;
              dimension_y: dimension_y,
 
              mpp_file: projfilename,
-     		interpolation_in_latlon: false,
+             interpolation_in_latlon: false,
 
              loaded: false,
              dataset_frequency:"daily",
@@ -956,7 +960,8 @@ averaging_period=0.;         time= time_tmp;
          target_size= target_size_tmp;
          grid= grid_tmp;
 
-         reloaded=false;
+         loaded=false;
+interpolated=false;
 
 
          averaging_period=1.; // days
@@ -1167,7 +1172,8 @@ averaging_period=0.;         time= time_tmp;
          target_size= target_size_tmp;
          grid= grid_tmp;
 
-         reloaded=false;
+         loaded=false;
+interpolated=false;
 
 
          averaging_period=1.; // days
@@ -1333,7 +1339,8 @@ averaging_period=0.;         time= time_tmp;
          target_size= target_size_tmp;
          grid= grid_tmp;
 
-         reloaded=false;
+         loaded=false;
+interpolated=false;
 
 
          averaging_period=1.; // days
@@ -1493,7 +1500,8 @@ averaging_period=0.;         time= time_tmp;
          target_size= target_size_tmp;
          grid= grid_tmp;
 
-         reloaded=false;
+         loaded=false;
+interpolated=false;
 
 
          averaging_period=365./12; // days
@@ -1618,7 +1626,8 @@ averaging_period=0.;         time= time_tmp;
         target_size= target_size_tmp;
         grid= grid_tmp;
 
-        reloaded=false;
+        loaded=false;
+interpolated=false;
 
 
         averaging_period=1.; // days
@@ -1758,7 +1767,8 @@ averaging_period=0.;         time= time_tmp;
         target_size= target_size_tmp;
         grid= grid_tmp;
 
-        reloaded=false;
+        loaded=false;
+interpolated=false;
 
 
         averaging_period=1.; // days
@@ -1883,7 +1893,8 @@ averaging_period=0.;         time= time_tmp;
         target_size= target_size_tmp;
         grid= grid_tmp;
 
-        reloaded=false;
+        loaded=false;
+interpolated=false;
 
         
         averaging_period=1.; // days
@@ -1999,7 +2010,8 @@ averaging_period=0.;         time= time_tmp;
         target_size= target_size_tmp;
         grid= grid_tmp;
 
-        reloaded=false;
+        loaded=false;
+interpolated=false;
 
         averaging_period=1.; // days
      }
@@ -2137,7 +2149,8 @@ averaging_period=0.;         time= time_tmp;
         target_size= target_size_tmp;
         grid= grid_tmp;
 
-        reloaded=false;
+        loaded=false;
+interpolated=false;
 
 
         averaging_period=1.; // days
@@ -2250,7 +2263,8 @@ averaging_period=0.;         time= time_tmp;
          target_size=target_size_tmp;
 
          grid= grid_tmp;
-         reloaded=false;
+         loaded=false;
+interpolated=false;
 
 
          averaging_period=0.;
@@ -2455,7 +2469,7 @@ averaging_period=0.;         time= time_tmp;
          vectorial_variables= vectorial_variables_tmp;
          target_size= target_size_tmp;
 
-         reloaded= false;
+         loaded=false;
 
          averaging_period=0.;
 
@@ -2614,7 +2628,7 @@ averaging_period=0.;         time= time_tmp;
       vectorial_variables= vectorial_variables_tmp;
       target_size= target_size_tmp;
 
-      reloaded= false;
+      loaded=false;
 
 
       averaging_period=0.;
@@ -2794,7 +2808,7 @@ averaging_period=0.;         time= time_tmp;
           vectorial_variables= vectorial_variables_tmp;
           target_size= target_size_tmp;
 
-          reloaded= false;
+          loaded=false;
 
           averaging_period=0.;
 
@@ -2953,7 +2967,7 @@ averaging_period=0.;         time= time_tmp;
        vectorial_variables= vectorial_variables_tmp;
        target_size= target_size_tmp;
 
-       reloaded= false;
+       loaded=false;
 
 
        averaging_period=0.;
@@ -3121,7 +3135,7 @@ averaging_period=0.;         time= time_tmp;
          target_size= target_size_tmp;
          grid= grid_tmp;
 
-         reloaded= false;
+         loaded=false;
 
 
          averaging_period=0.;
@@ -3297,7 +3311,7 @@ averaging_period=0.;         time= time_tmp;
          target_size= target_size_tmp;
          grid= grid_tmp;
 
-         reloaded= false;
+         loaded=false;
 
 
          averaging_period=0.;

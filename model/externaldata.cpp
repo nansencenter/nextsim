@@ -114,16 +114,23 @@ void ExternalData::check_and_reload(GmshMesh const& mesh, const double current_t
         bool to_be_reloaded=false;
 
         if(M_dataset->grid.dataset_frequency=="constant")
-            to_be_reloaded=!M_dataset->reloaded;
+            to_be_reloaded=!M_dataset->loaded;
         else if(M_dataset->grid.dataset_frequency=="nearest_daily")
-            to_be_reloaded=(to_date_string_yd(current_time)!=to_date_string_yd(M_dataset->ftime_range[0]) || !M_dataset->reloaded);
+            to_be_reloaded=(to_date_string_yd(current_time)!=to_date_string_yd(M_dataset->ftime_range[0]) || !M_dataset->loaded);
         else
-            to_be_reloaded=((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp) || !M_dataset->reloaded);            
+            to_be_reloaded=((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp) || !M_dataset->loaded);            
 
         if (to_be_reloaded)
         {
             std::cout << "Load " << M_datasetname << "\n";
             loadDataset(M_dataset, mesh);
+            std::cout << "Done\n";
+        }
+        
+        if (!M_dataset->interpolated)
+        {
+            std::cout << "Interpolate " << M_datasetname << "\n";
+            interpolateDataset(M_dataset, mesh);
             std::cout << "Done\n";
         }
     }
@@ -251,7 +258,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 	mapNextsim = init_mapx(&strNextsim[0]);
 
 	mapx_class *map;
-    double rotation_angle, cos_m_diff_angle, sin_m_diff_angle;
+    double cos_m_diff_angle, sin_m_diff_angle;
     if(dataset->grid.mpp_file!="")
     {
 	    std::string configfile = (boost::format( "%1%/%2%/%3%" )
@@ -263,30 +270,30 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 	    std::vector<char> str(configfile.begin(), configfile.end());
 	    str.push_back('\0');
 	    map = init_mapx(&str[0]);
-        rotation_angle = -(mapNextsim->rotation-map->rotation)*PI/180.;
+        dataset->rotation_angle = -(mapNextsim->rotation-map->rotation)*PI/180.;
 
         close_mapx(map);
     }
     else
     {
-        rotation_angle=0.;
+        dataset->rotation_angle=0.;
     }
 
-    cos_m_diff_angle=std::cos(-rotation_angle);
-    sin_m_diff_angle=std::sin(-rotation_angle);
+    cos_m_diff_angle=std::cos(-dataset->rotation_angle);
+    sin_m_diff_angle=std::sin(-dataset->rotation_angle);
 
     // ---------------------------------
     // Projection of the mesh positions into the coordinate system of the data before the interpolation
     // (either the lat,lon projection or a polar stereographic projection with another rotaion angle (for ASR))
     // we should need to that also for the TOPAZ native grid, so that we could use a gridtomesh, now we use the latlon of the TOPAZ grid
 
-    auto RX = mesh.coordX(rotation_angle);
-    auto RY = mesh.coordY(rotation_angle);
+    auto RX = mesh.coordX(dataset->rotation_angle);
+    auto RY = mesh.coordY(dataset->rotation_angle);
 
     if(dataset->target_size==mesh.numTriangles())
     {
-    	RX = mesh.bcoordX(rotation_angle);
-        RY = mesh.bcoordY(rotation_angle);
+    	RX = mesh.bcoordX(dataset->rotation_angle);
+        RY = mesh.bcoordY(dataset->rotation_angle);
     }
 
 	if(dataset->grid.interpolation_in_latlon)
@@ -319,33 +326,13 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 	std::vector<size_t> index_start(1);
 	std::vector<size_t> index_count(1);
 
-	// interp_type for grid to mesh interpolation
-	int interp_type = dataset->grid.interp_type;
-
     // size of the data
     int M  =dataset->grid.dimension_y_count;
     int N  = dataset->grid.dimension_x_count;
 
     int MN = M*N;
-
-    int cyclic_N=N;
-    int cyclic_M=M;
-
-    double delta_y=dataset->grid.gridY[M-1]-dataset->grid.gridY[M-2];
-    if(dataset->grid.dimension_y.cyclic)
-    {
-        cyclic_M=M+1;
-        dataset->grid.gridY.push_back(dataset->grid.gridY[M-1]+delta_y);
-    }
-
-    double delta_x=dataset->grid.gridX[N-1]-dataset->grid.gridX[N-2];
-    if(dataset->grid.dimension_x.cyclic)
-    {
-        cyclic_N=N+1;
-        dataset->grid.gridX.push_back(dataset->grid.gridX[N-1]+delta_x);
-    }
-
-    int final_MN=cyclic_M*cyclic_N;
+    
+    final_MN = MN;
 
 	if(dataset->grid.reduced_nodes_ind.size()!=0)
     {
@@ -650,66 +637,19 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             //_printf_("For " << dataset->variables[j].name << " scale_factor is "  << scale_factor<<  " " <<  ", add_offset is " << add_offset << "\n");
             // Copy the data in loaded_data
 
-            // If reduced_nodes is used
-			if(dataset->grid.reduced_nodes_ind.size()!=0)
-			{
-            	for (int i=0; i<(final_MN); ++i)
-                {
-                    tmp_loaded_data[i]=data_in_tmp[dataset->grid.reduced_nodes_ind[i]];
-                    if(std::isnan(data_in_tmp[dataset->grid.reduced_nodes_ind[i]]))
-                    {
-            			//_printf_("found NaN at"  << data_in_tmp[dataset->grid.reduced_nodes_ind[i]]<<  " "<<  dataset->grid.reduced_nodes_ind[i] <<  ", 0. is used\n");
-                        tmp_loaded_data[i]=0.;
-    				}
-                }
-			}
-			else // if not reduced_node
+            // Load and check Nan
+			for (int i=0; i<(final_MN); ++i)
             {
-                // If one of the dimension is cyclic
-                if((dataset->grid.dimension_y.cyclic) || (dataset->grid.dimension_x.cyclic))
-                {
-                    for (int y_ind=0; y_ind<M; ++y_ind)
-                    {
-                        for (int x_ind=0; x_ind<N; ++x_ind)
-                        {
-                            int i=y_ind*N+x_ind;
-                            int cyclic_i=y_ind*cyclic_N+x_ind;
-
-                            tmp_loaded_data[i]=data_in_tmp[i];
-                        }
-                    }
-                }
-                else // with no cyclic dimension, simply use the same indice i
-                {
-                    for (int i=0; i<(MN); ++i)
-                    {
-                        tmp_loaded_data[i]=data_in_tmp[i];
-                        if(std::isnan(data_in_tmp[i]))
-                        {
-                			//_printf_("found NaN at"  << data_in_tmp[i] <<  " "<<  i <<  ", 0. is used\n");
-                            tmp_loaded_data[i]=0.;
-        				}
-                    }
-                }
+                int reduced_i=i;
+    			if(dataset->grid.reduced_nodes_ind.size()!=0)
+    			    reduced_i=dataset->grid.reduced_nodes_ind[i];
+                
+                tmp_loaded_data[i]=data_in_tmp[reduced_i];
+                
+                if(std::isnan(data_in_tmp[reduced_i]))
+                    tmp_loaded_data[i]=0.;
             }
 
-            if(dataset->grid.dimension_y.cyclic)
-                for (int x_ind=0; x_ind<N; ++x_ind)
-                {
-                    int i=0*N+x_ind;
-                    int cyclic_i=(cyclic_M-1)*cyclic_N+x_ind;
-
-                    tmp_loaded_data[cyclic_i]==data_in_tmp[i];
-                }
-
-            if(dataset->grid.dimension_x.cyclic)
-                for (int y_ind=0; y_ind<M; ++y_ind)
-                {
-                    int i=y_ind*N+0;
-                    int cyclic_i=y_ind*cyclic_N+(cyclic_N-1);
-
-                    tmp_loaded_data[cyclic_i]==data_in_tmp[i];
-                }
             // store the loaded data   
             dataset->variables[j].loaded_data[fstep]=tmp_loaded_data;    
         }
@@ -861,35 +801,161 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
     // closing maps
     close_mapx(mapNextsim);
 
+    dataset->nb_forcing_step=nb_forcing_step;
+    dataset->final_MN=final_MN;
+    dataset->loaded=true;
+}   
+    
+void
+ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(double const& u, double const& v)
+{
     // ---------------------------------
     // Spatial interpolation
     std::cout<<"Spatial interpolation of the data\n";
     
-    std::vector<double> data_in(dataset->variables.size()*nb_forcing_step*final_MN);
+    // size of the data
+    int M  =dataset->grid.dimension_y_count;
+    int N  = dataset->grid.dimension_x_count;
+
+    int MN = M*N;
+    
+    int final_MN=MN;
+    
+    int cyclic_N=N;
+    int cyclic_M=M;
+    
+    if(dataset->grid.reduced_nodes_ind.size()!=0)
+    {
+        final_MN=dataset->grid.reduced_nodes_ind.size();
+    }
+    else
+    {
+        double delta_y=dataset->grid.gridY[M-1]-dataset->grid.gridY[M-2];
+        if(dataset->grid.dimension_y.cyclic)
+        {
+            cyclic_M=M+1;
+            dataset->grid.gridY.push_back(dataset->grid.gridY[M-1]+delta_y);
+        }
+
+        double delta_x=dataset->grid.gridX[N-1]-dataset->grid.gridX[N-2];
+        if(dataset->grid.dimension_x.cyclic)
+        {
+            cyclic_N=N+1;
+            dataset->grid.gridX.push_back(dataset->grid.gridX[N-1]+delta_x);
+        }
+
+        final_MN=cyclic_M*cyclic_N;
+    }
     
     // Collect all the data before the interpolation
-    for (int fstep=0; fstep < nb_forcing_step; ++fstep)
+    std::vector<double> data_in(dataset->variables.size()*dataset->nb_forcing_step*dataset->final_MN);
+    
+    for (int fstep=0; fstep < dataset->nb_forcing_step; ++fstep)
+    {
         for(int j=0; j<dataset->variables.size(); ++j)
-            for (int i=0; i<final_MN; ++i)
-                data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=dataset->variables[j].loaded_data[fstep][i];
+        {
+            // If one of the dimension is cyclic
+            if((dataset->grid.dimension_y.cyclic) || (dataset->grid.dimension_x.cyclic))
+            {
+                for (int y_ind=0; y_ind<M; ++y_ind)
+                {
+                    for (int x_ind=0; x_ind<N; ++x_ind)
+                    {
+                        int i=y_ind*N+x_ind;
+                        int cyclic_i=y_ind*cyclic_N+x_ind;
+                            data_in[(dataset->variables.size()*dataset->nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=dataset->variables[j].loaded_data[fstep][i];
+                    }
+                }
+                
+                if(dataset->grid.dimension_y.cyclic)
+                {
+                    for (int x_ind=0; x_ind<N; ++x_ind)
+                    {
+                        int i=0*N+x_ind;
+                        int cyclic_i=(cyclic_M-1)*cyclic_N+x_ind;
+
+                        data_in[(dataset->variables.size()*dataset->nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=dataset->variables[j].loaded_data[fstep][i];
+                    }
+                }
+                if(dataset->grid.dimension_x.cyclic)
+                {
+                    for (int y_ind=0; y_ind<M; ++y_ind)
+                    {
+                        int i=y_ind*N+0;
+                        int cyclic_i=y_ind*cyclic_N+(cyclic_N-1);
+                
+                        data_in[(dataset->variables.size()*dataset->nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=dataset->variables[j].loaded_data[fstep][i];
+                    }
+                }                
+            }
+            else // with no cyclic dimension, simply use the same indice i
+                for (int i=0; i<dataset->final_MN; ++i)
+                    data_in[(dataset->variables.size()*dataset->nb_forcing_step)*i+fstep*dataset->variables.size()+j]=dataset->variables[j].loaded_data[fstep][i];
+            
+        }
+    }
 
     double* data_out;
     double tmp_data;
+
+    // ---------------------------------
+    // Projection of the mesh positions into the coordinate system of the data before the interpolation
+    // (either the lat,lon projection or a polar stereographic projection with another rotaion angle (for ASR))
+    // we should need to that also for the TOPAZ native grid, so that we could use a gridtomesh, now we use the latlon of the TOPAZ grid
+
+    // Define the mapping and rotation_angle
+	mapx_class *mapNextsim;
+	std::string configfileNextsim = (boost::format( "%1%/%2%/%3%" )
+                              % Environment::nextsimDir().string()
+                              % "data"
+                              % Environment::vm()["simul.proj_filename"].as<std::string>()
+                              ).str();
+
+	std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
+	strNextsim.push_back('\0');
+	mapNextsim = init_mapx(&strNextsim[0]);
+
+    auto RX = mesh.coordX(dataset->rotation_angle);
+    auto RY = mesh.coordY(dataset->rotation_angle);
+
+    if(dataset->target_size==mesh.numTriangles())
+    {
+    	RX = mesh.bcoordX(dataset->rotation_angle);
+        RY = mesh.bcoordY(dataset->rotation_angle);
+    }
+
+	if(dataset->grid.interpolation_in_latlon)
+	{
+		double lat, lon;
+
+		for (int i=0; i<dataset->target_size; ++i)
+		{
+			inverse_mapx(mapNextsim,RX[i],RY[i],&lat,&lon);
+			RY[i]=lat;
+			RX[i]=lon;
+			//tmp_latlon = XY2latLon(RX[i], RY[i], map, configfile);
+			//RY[i]=tmp_latlon[0];
+			//RX[i]=tmp_latlon[1];
+		}
+	}
+    
+    // closing maps
+    close_mapx(mapNextsim);
 
     switch(dataset->grid.interpolation_method)
     {
         case InterpolationType::FromGridToMesh:
             InterpFromGridToMeshx(  data_out, &dataset->grid.gridX[0], dataset->grid.gridX.size(), &dataset->grid.gridY[0], dataset->grid.gridY.size(),
                                   &data_in[0], dataset->grid.gridY.size(), dataset->grid.gridX.size(),
-                                  dataset->variables.size()*nb_forcing_step,
-                                 &RX[0], &RY[0], dataset->target_size, 100000000., interp_type); // We put an excessively high default value, so that it will most likely crashes when not finding data
+                                  dataset->variables.size()*dataset->nb_forcing_step,
+                                 &RX[0], &RY[0], dataset->target_size, 100000000., dataset->grid.interp_type); // We put an excessively high default value, so that it will most likely crashes when not finding data
         break;
         case InterpolationType::FromMeshToMesh2dx:
             InterpFromMeshToMesh2dx(&data_out,
                                 dataset->grid.pfindex,&dataset->grid.gridX[0],&dataset->grid.gridY[0],
                                         dataset->grid.gridX.size(),dataset->grid.pfnels,
                                         &data_in[0],
-                                        dataset->grid.gridX.size(),dataset->variables.size()*nb_forcing_step,
+                                        dataset->grid.gridX.size(),dataset->variables.size()*dataset->nb_forcing_step,
                                         &RX[0], &RY[0], dataset->target_size,
                                         false);
         break;
@@ -898,6 +964,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             throw std::logic_error("invalid interpolation type");
     }
 
+    // reset grid with cyclic dimension after interpolation
     if(dataset->grid.dimension_y.cyclic)
         dataset->grid.gridY.pop_back();
 
@@ -907,19 +974,20 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
     // Redistribute all the data after the interpolation
     std::vector<double> tmp_interpolated_data(dataset->target_size);
         
-    for (int fstep=0; fstep < nb_forcing_step; ++fstep)
+    for (int fstep=0; fstep < dataset->nb_forcing_step; ++fstep)
     {
         for (int j=0; j<dataset->variables.size(); ++j)
         {
             for (int i=0; i<dataset->target_size; ++i)
-                tmp_interpolated_data[i]=data_out[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j];
+                tmp_interpolated_data[i]=data_out[(dataset->variables.size()*dataset->nb_forcing_step)*i+fstep*dataset->variables.size()+j];
             
             dataset->variables[j].interpolated_data[fstep]=tmp_interpolated_data;
         }
     }    
 	xDelete<double>(data_out);
 
-    dataset->reloaded=true;
+    dataset->interpolated=true;
+
 }
 
 void

@@ -1565,28 +1565,41 @@ FiniteElement::regrid(bool step)
 #endif
 
 
-    M_atmosphere_nodes_dataset.reloaded=false;
-    M_atmosphere_elements_dataset.reloaded=false;
-    M_atmosphere_bis_elements_dataset.reloaded=false;
-    M_ocean_nodes_dataset.reloaded=false;
-    M_ocean_elements_dataset.reloaded=false;
+    M_atmosphere_nodes_dataset.interpolated=false;
+    M_atmosphere_elements_dataset.interpolated=false;
+    M_atmosphere_bis_elements_dataset.interpolated=false;
+    M_ocean_nodes_dataset.interpolated=false;
+    M_ocean_elements_dataset.interpolated=false;
 
-    M_ice_topaz_elements_dataset.reloaded=false;
-    M_ice_piomas_elements_dataset.reloaded=false;
-    M_ice_amsre_elements_dataset.reloaded=false;
-    M_ice_osisaf_elements_dataset.reloaded=false;
-    M_ice_amsr2_elements_dataset.reloaded=false;
-    M_ice_cs2_smos_elements_dataset.reloaded=false;
-    M_ice_smos_elements_dataset.reloaded=false;
-    M_bathymetry_elements_dataset.reloaded=false;
+    M_ice_topaz_elements_dataset.interpolated=false;
+    M_ice_piomas_elements_dataset.interpolated=false;
+    M_ice_amsre_elements_dataset.interpolated=false;
+    M_ice_osisaf_elements_dataset.interpolated=false;
+    M_ice_amsr2_elements_dataset.interpolated=false;
+    M_ice_cs2_smos_elements_dataset.interpolated=false;
+    M_ice_smos_elements_dataset.interpolated=false;
+    M_bathymetry_elements_dataset.interpolated=false;
 #if defined (WAVES)
-    M_WW3A_elements_dataset.reloaded=false;
-    M_ERAIW_1DEG_elements_dataset.reloaded=false;
+    M_WW3A_elements_dataset.interpolated=false;
+    M_ERAIW_1DEG_elements_dataset.interpolated=false;
 #endif
 
     // for the parallel code, it will be necessary to add those lines
     // as the domain covered by the partitions changes at each remeshing/partitioning
 #if 0
+    M_atmosphere_nodes_dataset.grid.interpolated=false;
+    M_atmosphere_elements_dataset.grid.interpolated=false;
+    M_atmosphere_bis_elements_dataset.grid.interpolated=false;
+    M_ocean_nodes_dataset.grid.interpolated=false;
+    M_ocean_elements_dataset.grid.interpolated=false;
+    M_ice_topaz_elements_dataset.grid.interpolated=false;
+    M_ice_amsre_elements_dataset.grid.interpolated=false;
+    M_ice_osisaf_elements_dataset.grid.interpolated=false;
+    M_ice_amsr2_elements_dataset.grid.interpolated=false;
+    M_ice_cs2_smos_elements_dataset.grid.interpolated=false;
+    M_ice_smos_elements_dataset.grid.interpolated=false;
+    M_bathymetry_elements_dataset.grid.interpolated=false;
+    
     M_atmosphere_nodes_dataset.grid.loaded=false;
     M_atmosphere_elements_dataset.grid.loaded=false;
     M_atmosphere_bis_elements_dataset.grid.loaded=false;

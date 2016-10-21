@@ -146,8 +146,12 @@ public:
     std::vector<Variable> variables; // vector listing all the available variables, included the components of the vectorial variables
     std::vector<Vectorial_Variable> vectorial_variables; // vectors listing the vectorial variables
     int target_size;
+    int nb_forcing_step;
+    int final_MN;
+    double rotation_angle;
 
-    bool reloaded;
+    bool loaded;
+    bool interpolated;
 
     double averaging_period; // 0. for snapshot, 1. for daily values, 365./12 for monthly values.
     Variable time;
