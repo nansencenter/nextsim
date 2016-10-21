@@ -92,9 +92,16 @@ Exporter::writeField(std::fstream& out, std::vector<Type> const& field, std::str
     std::string description;
     writeContainer(out, field);
 
+    std::string precision;
+    // We must choose either integer or floating point
+    if ( sizeof(Type) == sizeof(int) )
+        precision = "int";
+    else
+        precision = M_precision;
+
     description = (boost::format( "%1% %2%" )
                    % name
-                   % M_precision ).str();
+                   % precision ).str();
 
 	M_frecord.push_back(description);
 }

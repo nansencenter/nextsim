@@ -4030,6 +4030,7 @@ FiniteElement::step(int &pcpt)
         chrono.restart();
         LOG(DEBUG) <<"first export starts\n";
         this->exportResults(0);
+        this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
         LOG(DEBUG) <<"first export done in " << chrono.elapsed() <<"s\n";
     }
 #endif
