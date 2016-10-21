@@ -5799,13 +5799,7 @@ FiniteElement::cs2SmosIce()
     external_data M_init_thick=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,1,false,time_init);
     M_init_thick.check_and_reload(M_mesh,time_init);
 
-    boost::gregorian::date dt = Nextsim::parse_date(time_init);
-    int month_id=dt.month().as_number(); // 1 for January, 2 for February, and so on. This will be used to compute the snow from Warren climatology
-
-    std::cout << "month_id: " << month_id <<"\n";
-
-    external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    warrenClimatology();
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -5814,8 +5808,6 @@ FiniteElement::cs2SmosIce()
 		M_conc[i] = tmp_var;
 		tmp_var=M_init_thick[i];
 		M_thick[i] = tmp_var ;
-		tmp_var=M_init_snow_thick[i];
-		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
 
         //if either c or h equal zero, we set the others to zero as well
         if(M_conc[i]<=0.)
@@ -5830,7 +5822,142 @@ FiniteElement::cs2SmosIce()
         }
 
 		M_damage[i]=0.;
+
+        // Check that the snow is not so thick that the ice is flooded
+        double max_snow = M_thick[i]*(physical::rhow-physical::rhoi)/physical::rhos;
+        // Take half of the maximum allowed snow thickness
+        M_snow_thick[i] = std::min(0.5*max_snow, M_snow_thick[i]);
+
 	}
+}
+
+void
+FiniteElement::warrenClimatology()
+{
+    // Coefficients for the fit from Warren et al '99
+    std::vector<std::vector<double>> coeffs(12);
+
+    coeffs[0].push_back(28.01);
+    coeffs[0].push_back( 0.1270);
+    coeffs[0].push_back(-1.1833);
+    coeffs[0].push_back(-0.1164);
+    coeffs[0].push_back(-0.0051);
+    coeffs[0].push_back( 0.0243);
+
+    coeffs[1].push_back(30.28);
+    coeffs[1].push_back( 0.1056);
+    coeffs[1].push_back(-0.5908);
+    coeffs[1].push_back(-0.0263);
+    coeffs[1].push_back(-0.0049);
+    coeffs[1].push_back( 0.0044);
+
+    coeffs[2].push_back(33.89);
+    coeffs[2].push_back( 0.5486);
+    coeffs[2].push_back(-0.1996);
+    coeffs[2].push_back( 0.0280);
+    coeffs[2].push_back( 0.0216);
+    coeffs[2].push_back(-0.0176);
+
+    coeffs[3].push_back(36.80);
+    coeffs[3].push_back( 0.4046);
+    coeffs[3].push_back(-0.4005);
+    coeffs[3].push_back( 0.0256);
+    coeffs[3].push_back( 0.0024);
+    coeffs[3].push_back(-0.0641);
+
+    coeffs[4].push_back(36.93);
+    coeffs[4].push_back( 0.0214);
+    coeffs[4].push_back(-1.1795);
+    coeffs[4].push_back(-0.1076);
+    coeffs[4].push_back(-0.0244);
+    coeffs[4].push_back(-0.0142);
+
+    coeffs[5].push_back(36.59);
+    coeffs[5].push_back( 0.7021);
+    coeffs[5].push_back(-1.4819);
+    coeffs[5].push_back(-0.1195);
+    coeffs[5].push_back(-0.0009);
+    coeffs[5].push_back(-0.0603);
+
+    coeffs[6].push_back(11.02);
+    coeffs[6].push_back( 0.3008);
+    coeffs[6].push_back(-1.2591);
+    coeffs[6].push_back(-0.0811);
+    coeffs[6].push_back(-0.0043);
+    coeffs[6].push_back(-0.0959);
+
+    coeffs[7].push_back( 4.64);
+    coeffs[7].push_back( 0.3100);
+    coeffs[7].push_back(-0.6350);
+    coeffs[7].push_back(-0.0655);
+    coeffs[7].push_back( 0.0059);
+    coeffs[7].push_back(-0.0005);
+
+    coeffs[8].push_back(15.81);
+    coeffs[8].push_back( 0.2119);
+    coeffs[8].push_back(-1.0292);
+    coeffs[8].push_back(-0.0868);
+    coeffs[8].push_back(-0.0177);
+    coeffs[8].push_back(-0.0723);
+
+    coeffs[9].push_back(22.66);
+    coeffs[9].push_back( 0.3594);
+    coeffs[9].push_back(-1.3483);
+    coeffs[9].push_back(-0.1063);
+    coeffs[9].push_back( 0.0051);
+    coeffs[9].push_back(-0.0577);
+
+    coeffs[10].push_back(25.57);
+    coeffs[10].push_back( 0.1496);
+    coeffs[10].push_back(-1.4643);
+    coeffs[10].push_back(-0.1409);
+    coeffs[10].push_back(-0.0079);
+    coeffs[10].push_back(-0.0258);
+
+    coeffs[11].push_back(26.67);
+    coeffs[11].push_back(-0.1876);
+    coeffs[11].push_back(-1.4229);
+    coeffs[11].push_back(-0.1413);
+    coeffs[11].push_back(-0.0316);
+    coeffs[11].push_back(-0.0029);
+
+    // Time interpolation
+    boost::gregorian::date t = Nextsim::parse_date(time_init);
+    int month  = t.month().as_number(); // 1 for January, 2 for February, and so on.
+    int day    = t.day().as_number(); // Day of the month.
+    int eomday = t.end_of_month().day().as_number(); // Last day of the month.
+
+    int month2; // The other month to interpolate from (one before or after)
+    double dt;
+    if ( day < eomday/2. )
+    { // We're in the early part of the month and interpolate to the previous month
+        month2 = month-1;
+        dt     = day;
+    }
+    else
+    { // We're in the late part of the month and interpolate to the next month
+        month2 = month+1;
+        dt     = eomday - day;
+    }
+
+    // Now calculate snow thickness for the current day as an inexact temporal interpolation
+    // I just assume all months are as long as the current one ... but the error incurred is small
+    std::vector<double> lon = M_mesh.meanLon();
+    std::vector<double> lat = M_mesh.meanLat();
+
+    for ( int i=0; i<=M_num_elements; i++ )
+    {
+        const double pi = std::acos(-1);
+
+        double x = (90 - lat[i]) * std::cos(lon[i]*pi/180.);
+        double y = (90 - lat[i]) * std::sin(lon[i]*pi/180.);
+
+        M_snow_thick[i] = 1e-2*dt/eomday*std::max(0.,
+                coeffs[month-1][0] + coeffs[month-1][1]*x + coeffs[month-1][2]*y + coeffs[month-1][3]*x*y + coeffs[month-1][4]*x*x + coeffs[month-1][5]*y*y)
+            + 1e-2*(eomday-dt)/eomday*std::max(0.,
+                coeffs[month2-1][0] + coeffs[month2-1][1]*x + coeffs[month2-1][2]*y + coeffs[month2-1][3]*x*y + coeffs[month2-1][4]*x*x + coeffs[month2-1][5]*y*y);
+    }
+
 }
 
 void
