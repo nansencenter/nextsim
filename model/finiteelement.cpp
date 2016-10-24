@@ -5816,7 +5816,7 @@ FiniteElement::cs2SmosIce()
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
-    {
+    {    
 		tmp_var=std::min(1.,M_init_conc[i]);
 		M_conc[i] = tmp_var;
 		tmp_var=M_init_thick[i];
@@ -5833,13 +5833,16 @@ FiniteElement::cs2SmosIce()
             M_conc[i]=0.;
             M_snow_thick[i]=0.;
         }
+        
+        M_snow_thick[i]=M_snow_thick[i]*M_conc[i];
 
 		M_damage[i]=0.;
 
         // Check that the snow is not so thick that the ice is flooded
         double max_snow = M_thick[i]*(physical::rhow-physical::rhoi)/physical::rhos;
         // Take half of the maximum allowed snow thickness
-        M_snow_thick[i] = std::min(0.5*max_snow, M_snow_thick[i]);
+        M_snow_thick[i] = std::min(max_snow, M_snow_thick[i]);
+        //M_snow_thick[i] = std::min(0.2*M_thick[i], M_snow_thick[i]);
 
 	}
 }
@@ -5987,12 +5990,16 @@ FiniteElement::warrenClimatology()
     if ( day < eomday/2. )
     { // We're in the early part of the month and interpolate to the previous month
         month2 = month-1;
-        dt     = day;
+        dt     = eomday/2+day;
+        if(month2==0)
+            month2=12;
     }
     else
     { // We're in the late part of the month and interpolate to the next month
         month2 = month+1;
-        dt     = eomday - day;
+        dt     = eomday/2 + eomday - day;
+        if(month2==13)
+            month2=1;
     }
 
     // Now calculate snow thickness for the current day as an inexact temporal interpolation
