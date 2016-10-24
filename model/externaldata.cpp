@@ -814,7 +814,7 @@ ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(doubl
     //std::cout<<"Spatial interpolation of the data\n";
     
     // size of the data
-    int M  =dataset->grid.dimension_y_count;
+    int M  = dataset->grid.dimension_y_count;
     int N  = dataset->grid.dimension_x_count;
 
     int MN = M*N;
@@ -969,10 +969,10 @@ ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(doubl
     }
 
     // reset grid with cyclic dimension after interpolation
-    if(dataset->grid.dimension_y.cyclic)
+    if(cyclic_M!=M)
         dataset->grid.gridY.pop_back();
 
-    if(dataset->grid.dimension_x.cyclic)
+    if(cyclic_N!=N)
         dataset->grid.gridX.pop_back();
 
     // Redistribute all the data after the interpolation
@@ -989,8 +989,6 @@ ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(doubl
             dataset->variables[j].interpolated_data[fstep]=tmp_interpolated_data;
         }
     }    
-    
-    std::cout << "Delete:" <<"\n";
     
 	xDelete<double>(data_out);
 
