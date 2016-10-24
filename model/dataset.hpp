@@ -132,8 +132,10 @@ public:
 
         int dimension_x_start;
         int dimension_x_count;
+        int dimension_x_count_netcdf;
         int dimension_y_start;
         int dimension_y_count;
+        int dimension_y_count_netcdf;
     } Grid;
 
     DataSet();

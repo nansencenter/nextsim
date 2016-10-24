@@ -327,7 +327,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 	std::vector<size_t> index_count(1);
 
     // size of the data
-    int M  =dataset->grid.dimension_y_count;
+    int M  = dataset->grid.dimension_y_count;
     int N  = dataset->grid.dimension_x_count;
 
     int MN = M*N;
@@ -553,7 +553,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 
     std::vector<double> tmp_loaded_data(final_MN);
 
-    std::cout<<"Start loading data\n";
+    //std::cout<<"Start loading data\n";
 
     for (int fstep=0; fstep < nb_forcing_step; ++fstep) // always need one step before and one after the target time
     {
@@ -657,7 +657,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 
     // ---------------------------------
     
-    std::cout<<"Start transformation on the data\n";
+    //std::cout<<"Start transformation on the data\n";
     
     // Transformation of the vectorial variables from the coordinate system of the data to the polar stereographic projection used in the model
     // Once we are in the polar stereographic projection, we can do spatial interpolation without bothering about the North Pole
@@ -811,7 +811,7 @@ ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(doubl
 {
     // ---------------------------------
     // Spatial interpolation
-    std::cout<<"Spatial interpolation of the data\n";
+    //std::cout<<"Spatial interpolation of the data\n";
     
     // size of the data
     int M  =dataset->grid.dimension_y_count;
@@ -831,14 +831,14 @@ ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(doubl
     else
     {
         double delta_y=dataset->grid.gridY[M-1]-dataset->grid.gridY[M-2];
-        if(dataset->grid.dimension_y.cyclic)
+        if(dataset->grid.dimension_y.cyclic && ((dataset->grid.dimension_y_start+M)==(0+dataset->grid.dimension_y_count_netcdf)))
         {
             cyclic_M=M+1;
             dataset->grid.gridY.push_back(dataset->grid.gridY[M-1]+delta_y);
         }
 
         double delta_x=dataset->grid.gridX[N-1]-dataset->grid.gridX[N-2];
-        if(dataset->grid.dimension_x.cyclic)
+        if(dataset->grid.dimension_x.cyclic && ((dataset->grid.dimension_x_start+N)==(0+dataset->grid.dimension_x_count_netcdf)))
         {
             cyclic_N=N+1;
             dataset->grid.gridX.push_back(dataset->grid.gridX[N-1]+delta_x);
@@ -848,6 +848,7 @@ ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(doubl
     }
     
     // Collect all the data before the interpolation
+    //std::cout << "Collect the ivariables before interpolation:" <<"\n";
     std::vector<double> data_in(dataset->variables.size()*dataset->nb_forcing_step*dataset->final_MN);
     
     for (int fstep=0; fstep < dataset->nb_forcing_step; ++fstep)
@@ -855,7 +856,7 @@ ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(doubl
         for(int j=0; j<dataset->variables.size(); ++j)
         {
             // If one of the dimension is cyclic
-            if((dataset->grid.dimension_y.cyclic) || (dataset->grid.dimension_x.cyclic))
+            if((cyclic_M!=M) || (cyclic_N!=N))
             {
                 for (int y_ind=0; y_ind<M; ++y_ind)
                 {
@@ -867,7 +868,7 @@ ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(doubl
                     }
                 }
                 
-                if(dataset->grid.dimension_y.cyclic)
+                if(cyclic_N!=N)
                 {
                     for (int x_ind=0; x_ind<N; ++x_ind)
                     {
@@ -877,7 +878,7 @@ ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(doubl
                         data_in[(dataset->variables.size()*dataset->nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=dataset->variables[j].loaded_data[fstep][i];
                     }
                 }
-                if(dataset->grid.dimension_x.cyclic)
+                if(cyclic_M!=M)
                 {
                     for (int y_ind=0; y_ind<M; ++y_ind)
                     {
@@ -903,6 +904,7 @@ ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(doubl
     // (either the lat,lon projection or a polar stereographic projection with another rotaion angle (for ASR))
     // we should need to that also for the TOPAZ native grid, so that we could use a gridtomesh, now we use the latlon of the TOPAZ grid
 
+    //std::cout << "RX, RY:" <<"\n";
     // Define the mapping and rotation_angle
 	mapx_class *mapNextsim;
 	std::string configfileNextsim = (boost::format( "%1%/%2%/%3%" )
@@ -942,6 +944,8 @@ ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(doubl
     // closing maps
     close_mapx(mapNextsim);
 
+
+    //std::cout << "Interpolation:" <<"\n";
     switch(dataset->grid.interpolation_method)
     {
         case InterpolationType::FromGridToMesh:
@@ -972,6 +976,7 @@ ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(doubl
         dataset->grid.gridX.pop_back();
 
     // Redistribute all the data after the interpolation
+    //std::cout << "Redistribution of the interpolated variables:" <<"\n";
     std::vector<double> tmp_interpolated_data(dataset->target_size);
         
     for (int fstep=0; fstep < dataset->nb_forcing_step; ++fstep)
@@ -984,6 +989,9 @@ ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(doubl
             dataset->variables[j].interpolated_data[fstep]=tmp_interpolated_data;
         }
     }    
+    
+    std::cout << "Delete:" <<"\n";
+    
 	xDelete<double>(data_out);
 
     dataset->interpolated=true;
