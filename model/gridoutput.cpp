@@ -400,16 +400,21 @@ namespace Nextsim
         switch (file_length)
         {
             case GridOutput::fileLength::daily:
-            filename << now.year() << setw(3) << setfill('0') << now.day_of_year();
+            filename << "_" << now.year() << "d" << setw(3) << setfill('0') << now.day_of_year();
                 break;
             case GridOutput::fileLength::weekly:
-                filename << now.year() << setw(2) << setfill('0') << now.week_number();
+                // The last week of the year is troublesome!
+                // The boost library will (sometimes) give this the number 1, even though week 1 should be in January
+                if ( now.month().as_number() == 12 && now.week_number() == 1 )
+                    filename << "_" << now.year() + 1 << "w" << setw(2) << setfill('0') << now.week_number();
+                else
+                    filename << "_" << now.year() << "w" << setw(2) << setfill('0') << now.week_number();
                 break;
             case GridOutput::fileLength::monthly:
-                filename << now.year() << setw(2) << setfill('0') << now.month();
+                filename << "_" << now.year() << "m" << setw(2) << setfill('0') << now.month().as_number();
                 break;
             case GridOutput::fileLength::yearly:
-                filename << now.year();
+                filename << "_" << now.year();
         }
         filename << ".nc";
 
