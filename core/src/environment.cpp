@@ -170,6 +170,12 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
 
     // catches program_options exceptions
 
+    catch (po::error& e)
+    {
+        throw std::runtime_error(std::string(e.what()));
+    }
+
+#if 0
     catch (po::multiple_occurrences const& e)
     {
         std::cout << "Command line or config file option parsing error: " << e.what() << "\n"
@@ -195,6 +201,7 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
 
         throw std::runtime_error(std::string(e.what()));
     }
+#endif
 
     catch ( std::exception& e )
     {
@@ -203,7 +210,6 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
 
         throw std::runtime_error(std::string(e.what()));
     }
-
 
     catch ( ... )
     {
