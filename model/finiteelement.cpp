@@ -379,11 +379,12 @@ FiniteElement::initConstant()
     days_in_sec = 24.0*3600.0;
     time_init = from_date_time_string(vm["simul.time_init"].as<std::string>());
     //std::cout<<"time_init second= "<< std::setprecision(18) << time_init <<"\n";
+    time_step = vm["simul.timestep"].as<double>();
 
     output_time_step =  days_in_sec/vm["simul.output_per_day"].as<int>();
     mooring_output_time_step =  vm["simul.mooring_output_timestep"].as<double>()*days_in_sec;
+    mooring_time_factor = time_step/mooring_output_time_step;
 
-    time_step = vm["simul.timestep"].as<double>();
     // output_time_step =  time_step*vm["simul.output_per_day"].as<int>(); // useful for debuging
     duration = (vm["simul.duration"].as<double>())*days_in_sec;
     restart_time_step =  vm["setup.restart_time_step"].as<double>()*days_in_sec;
@@ -575,6 +576,8 @@ FiniteElement::initConstant()
     M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
 
     M_use_moorings =  vm["simul.use_moorings"].as<bool>();
+
+    M_moorings_snapshot =  vm["simul.moorings_snapshot"].as<bool>();
 
     const boost::unordered_map<const std::string, GridOutput::fileLength> str2mooringsfl = boost::assign::map_list_of
         ("inf", GridOutput::fileLength::inf)
@@ -3971,7 +3974,7 @@ FiniteElement::step(int &pcpt)
         {
             M_regrid = true;
             // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
-            if ( M_use_moorings )
+            if ( M_use_moorings && ! M_moorings_snapshot )
                 M_moorings.updateGridMean(M_mesh);
             LOG(DEBUG) <<"Regridding starts\n";
             chrono.restart();
@@ -4053,7 +4056,7 @@ FiniteElement::step(int &pcpt)
     //======================================================================
     // Assemble the matrix
     //======================================================================
-
+#if 0
     this->assemble(pcpt);
 
     //======================================================================
@@ -4078,7 +4081,7 @@ FiniteElement::step(int &pcpt)
     LOG(DEBUG) <<"update starts\n";
     this->update();
     LOG(DEBUG) <<"update done in "<< chrono.elapsed() <<"s\n";
-
+#endif
     ++pcpt;
     current_time = time_init + pcpt*time_step/(24*3600.0);
 
@@ -4093,13 +4096,23 @@ FiniteElement::step(int &pcpt)
 
     if ( M_use_moorings )
     {
-        this->updateMeans(M_moorings);
+        // If we're taking snapshots the we only call updateMeans before writing to file
+        if ( ! M_moorings_snapshot )
+            this->updateMeans(M_moorings, mooring_time_factor);
+
         if ( fmod(pcpt*time_step,mooring_output_time_step) == 0 )
         {
-            M_moorings.updateGridMean(M_mesh);
-            //M_moorings.exportGridMeans("_grid.dat", time_step, mooring_output_time_step);
+            if ( M_moorings_snapshot )
+                // Update the snapshot
+                this->updateMeans(M_moorings, 1.);
 
-            M_moorings.appendNetCDF(M_moorings_file, current_time, time_step, mooring_output_time_step);
+            M_moorings.updateGridMean(M_mesh);
+
+            if ( M_moorings_snapshot )
+                M_moorings.appendNetCDF(M_moorings_file, current_time);
+            else
+                // shift the timestamp in the file to the centre of the output interval
+                M_moorings.appendNetCDF(M_moorings_file, current_time-mooring_output_time_step/86400/2);
 
             M_moorings.resetMeshMean(M_mesh);
             M_moorings.resetGridMean();
@@ -4141,61 +4154,61 @@ FiniteElement::step(int &pcpt)
 
 // Add to the mean on the mesh
 void
-FiniteElement::updateMeans(GridOutput &means)
+FiniteElement::updateMeans(GridOutput &means, double time_factor)
 {
-    // Update elements
+    // Update elements and multiply with time_factor
     for ( auto it=means.M_elemental_variables.begin(); it!=means.M_elemental_variables.end(); ++it )
     {
         switch (it->variableID)
         {
             case (GridOutput::variableID::conc):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += M_conc[i];
+                    it->data_mesh[i] += M_conc[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::thick):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += M_thick[i];
+                    it->data_mesh[i] += M_thick[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::damage):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += M_damage[i];
+                    it->data_mesh[i] += M_damage[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::snow_thick):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += M_snow_thick[i];
+                    it->data_mesh[i] += M_snow_thick[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::tsurf):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += M_conc[i]*M_tice[0][i] + (1-M_conc[i])*M_sst[i];
+                    it->data_mesh[i] += ( M_conc[i]*M_tice[0][i] + (1-M_conc[i])*M_sst[i] )*time_factor;
                 break;
 
             case (GridOutput::variableID::sst):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += M_sst[i];
+                    it->data_mesh[i] += M_sst[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::sss):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += M_sss[i];
+                    it->data_mesh[i] += M_sss[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::tsurf_ice):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += M_tice[0][i];
+                    it->data_mesh[i] += M_tice[0][i]*time_factor;
                 break;
 
             case (GridOutput::variableID::t1):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += M_tice[1][i];
+                    it->data_mesh[i] += M_tice[1][i]*time_factor;
                 break;
 
             case (GridOutput::variableID::t2):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += M_tice[2][i];
+                    it->data_mesh[i] += M_tice[2][i]*time_factor;
                 break;
 
             default: std::logic_error("Updating of given variableID not implimented (elements)");

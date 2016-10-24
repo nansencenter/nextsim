@@ -99,7 +99,7 @@ namespace Nextsim
             void resetMeshMean(GmshMesh const &mesh);
             void exportGridMeans(std::string filename, double time_step, double mooring_output_time_step);
             std::string initNetCDF(std::string file_prefix, GridOutput::fileLength file_length, double current_time);
-            void appendNetCDF(std::string filename, double current_time, double time_step, double mooring_output_time_step);
+            void appendNetCDF(std::string filename, double timestamp);
 
             int M_ncols;
             int M_nrows;
