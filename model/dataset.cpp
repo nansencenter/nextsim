@@ -1774,6 +1774,131 @@ interpolated=false;
         averaging_period=1.; // days
      	time= time_tmp;
      }
+     else if (strcmp (DatasetName, "ice_osisaf_type_elements") == 0)
+     {
+     	// Definition of topaz grid and datasets
+         Dimension dimension_x={
+             name:"xc",
+             cyclic:false
+     	};
+
+         Dimension dimension_y={
+             name:"yc",
+             cyclic:false
+     	};
+
+         Dimension dimension_time={
+             name:"time", // "Time"
+             cyclic:false
+     	};
+
+         std::vector<Dimension> dimensions(3);
+         dimensions[0] = dimension_time;
+         dimensions[1] = dimension_y;
+         dimensions[2] = dimension_x;
+
+         std::vector<Dimension> dimensions_latlon(2);
+         dimensions_latlon[0] = dimension_y;
+         dimensions_latlon[1] = dimension_x;
+
+         std::vector<Dimension> dimensions_time(1);
+         dimensions_time[0] = dimension_time;
+
+         Variable latitude={
+             name: "lat",
+             dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_north",
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
+
+         Variable longitude={
+             name: "lon",
+             dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_east",
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
+
+         Variable time_tmp={
+             name: "time",
+             dimensions: dimensions_time,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1./3600,
+             b: 12., // to center the time on the middle of the day
+             Units: "hours",
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
+
+         Variable type={
+     		name: "ice_type",
+     		dimensions: dimensions,
+            land_mask_defined: true,
+            land_mask_value: -1.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 1,
+     		b: 0.,
+     		Units: "",
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
+     	};
+
+         Grid grid_tmp={
+             interpolation_method: InterpolationType::FromMeshToMesh2dx,
+     		interp_type: -1,
+             dirname: "data",
+             prefix:"ice_type_nh_polstere-100_multi_",
+             postfix: "1200.nc",
+             reference_date: "1978-01-01",
+
+             latitude: latitude,
+             longitude: longitude,
+
+             dimension_x: dimension_x,
+             dimension_y: dimension_y,
+
+             mpp_file: projfilename,
+     		interpolation_in_latlon: false,
+
+             loaded: false,
+             dataset_frequency:"nearest_daily",
+
+            waveOptions: wavopt_none,
+
+     		masking: true,
+     		masking_variable: type
+        };
+
+        std::vector<Variable> variables_tmp(1);
+        variables_tmp[0] = type;
+
+        std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+        variables= variables_tmp;
+        vectorial_variables= vectorial_variables_tmp;
+        target_size= target_size_tmp;
+        grid= grid_tmp;
+
+        loaded=false;
+        interpolated=false;
+
+        averaging_period=1.; // days
+     	time= time_tmp;
+     }
      else if (strcmp (DatasetName, "ice_smos_elements") == 0)
      {
      	// Definition of topaz grid and datasets
@@ -3330,6 +3455,7 @@ interpolated=false;
    	fprintf (stderr, "ice_topaz_elements\n");
     fprintf (stderr, "ice_amsre_elements\n");
     fprintf (stderr, "ice_osisaf_elements\n");
+    fprintf (stderr, "ice_osisaf_type_elements\n");
     fprintf (stderr, "ice_amsr2_elements\n");
     fprintf (stderr, "ice_piomas_elements\n");
    	fprintf (stderr, "etopo_elements\n");

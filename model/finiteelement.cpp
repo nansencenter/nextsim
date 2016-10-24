@@ -309,6 +309,8 @@ FiniteElement::initDatasets()
 
     M_ice_osisaf_elements_dataset=DataSet("ice_osisaf_elements",M_num_elements);
 
+    M_ice_osisaf_type_elements_dataset=DataSet("ice_osisaf_type_elements",M_num_elements);
+
     M_ice_amsr2_elements_dataset=DataSet("ice_amsr2_elements",M_num_elements);
 
     M_ice_cs2_smos_elements_dataset=DataSet("ice_cs2_smos_elements",M_num_elements);
@@ -1555,6 +1557,7 @@ FiniteElement::regrid(bool step)
     M_ice_piomas_elements_dataset.target_size=M_num_elements;
     M_ice_amsre_elements_dataset.target_size=M_num_elements;
     M_ice_osisaf_elements_dataset.target_size=M_num_elements;
+    M_ice_osisaf_type_elements_dataset.target_size=M_num_elements;
     M_ice_amsr2_elements_dataset.target_size=M_num_elements;
     M_ice_cs2_smos_elements_dataset.target_size=M_num_elements;
     M_ice_smos_elements_dataset.target_size=M_num_elements;
@@ -1575,6 +1578,7 @@ FiniteElement::regrid(bool step)
     M_ice_piomas_elements_dataset.interpolated=false;
     M_ice_amsre_elements_dataset.interpolated=false;
     M_ice_osisaf_elements_dataset.interpolated=false;
+    M_ice_osisaf_type_elements_dataset.interpolated=false;
     M_ice_amsr2_elements_dataset.interpolated=false;
     M_ice_cs2_smos_elements_dataset.interpolated=false;
     M_ice_smos_elements_dataset.interpolated=false;
@@ -1595,6 +1599,7 @@ FiniteElement::regrid(bool step)
     M_ice_topaz_elements_dataset.grid.interpolated=false;
     M_ice_amsre_elements_dataset.grid.interpolated=false;
     M_ice_osisaf_elements_dataset.grid.interpolated=false;
+    M_ice_osisaf_type_elements_dataset.grid.interpolated=false;
     M_ice_amsr2_elements_dataset.grid.interpolated=false;
     M_ice_cs2_smos_elements_dataset.grid.interpolated=false;
     M_ice_smos_elements_dataset.grid.interpolated=false;
@@ -1608,6 +1613,7 @@ FiniteElement::regrid(bool step)
     M_ice_topaz_elements_dataset.grid.loaded=false;
     M_ice_amsre_elements_dataset.grid.loaded=false;
     M_ice_osisaf_elements_dataset.grid.loaded=false;
+    M_ice_osisaf_type_elements_dataset.grid.loaded=false;
     M_ice_amsr2_elements_dataset.grid.loaded=false;
     M_ice_cs2_smos_elements_dataset.grid.loaded=false;
     M_ice_smos_elements_dataset.grid.loaded=false;
@@ -4799,6 +4805,7 @@ FiniteElement::readRestart(int step)
     M_ice_piomas_elements_dataset.target_size=M_num_elements;
     M_ice_amsre_elements_dataset.target_size=M_num_elements;
     M_ice_osisaf_elements_dataset.target_size=M_num_elements;
+    M_ice_osisaf_type_elements_dataset.target_size=M_num_elements;
     M_ice_amsr2_elements_dataset.target_size=M_num_elements;
     M_ice_cs2_smos_elements_dataset.target_size=M_num_elements;
     M_ice_smos_elements_dataset.target_size=M_num_elements;
@@ -5812,9 +5819,12 @@ FiniteElement::cs2SmosIce()
     external_data M_init_thick=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,1,false,time_init);
     M_init_thick.check_and_reload(M_mesh,time_init);
 
+    external_data M_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init);
+    M_type.check_and_reload(M_mesh,time_init);
+
     warrenClimatology();
 
-    double tmp_var;
+    double tmp_var, correction_factor_warren;
     for (int i=0; i<M_num_elements; ++i)
     {    
 		tmp_var=std::min(1.,M_init_conc[i]);
@@ -5833,17 +5843,25 @@ FiniteElement::cs2SmosIce()
             M_conc[i]=0.;
             M_snow_thick[i]=0.;
         }
-        
-        M_snow_thick[i]=M_snow_thick[i]*M_conc[i];
+            
+        // Correction of the value given by Warren as a function of the ice type
+        //M_type[i]==1. // No ice
+        //M_type[i]==2. // First-Year ice
+        //M_type[i]==3. // Multi-Year ice
+        //M_type[i]==4. // Mixed
+        if(M_type[i]<=3.)
+            correction_factor_warren=std::max(0.,(M_type[i]-1.)*0.5); // == 1. for MY, 0.5 for FY, 0. for No ice
+        else
+            correction_factor_warren=1.-std::min(1.,M_type[i]-3.)*0.75; // == 0.75 for mixed
+
+        M_snow_thick[i]=correction_factor_warren*M_snow_thick[i]*M_conc[i];
 
 		M_damage[i]=0.;
 
         // Check that the snow is not so thick that the ice is flooded
         double max_snow = M_thick[i]*(physical::rhow-physical::rhoi)/physical::rhos;
-        // Take half of the maximum allowed snow thickness
         M_snow_thick[i] = std::min(max_snow, M_snow_thick[i]);
-        //M_snow_thick[i] = std::min(0.2*M_thick[i], M_snow_thick[i]);
-
+        
 	}
 }
 void
