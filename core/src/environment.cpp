@@ -52,7 +52,6 @@ Environment::Environment( int& argc, char** &argv )
 Environment::Environment( int& argc, char** &argv, po::options_description desc)
     :
     mpienv(argc, argv)
-    //mpicomm()
 {
     mpicomm = Communicator::commSelf();
 
@@ -131,13 +130,13 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
                 {
                     std::cout << "Reading " << vmenv["config-file"].as<std::string>() << "...\n";
                     std::ifstream ifs( vmenv["config-file"].as<std::string>().c_str() );
-                    po::store( parse_config_file( ifs, desc, true ), vmenv );
-                    //po::notify( vmenv );
+
+                    // 3rd argument of parse_config_file: true for ignoring unknown options (false else)
+                    po::store( parse_config_file( ifs, desc, false ), vmenv );
                 }
                 else
                 {
                     std::cout << "Cannot found " << "config-file `" << vmenv["config-file"].as<std::string>() <<"`\n";
-                    //return 1;
                 }
             }
 
@@ -146,7 +145,7 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
                 std::vector<std::string> configFiles = vmenv["config-files"].as<std::vector<std::string> >();
 
                 // reverse order (priorty for the last)
-                //std::reverse(configFiles.begin(),configFiles.end());
+                // std::reverse(configFiles.begin(),configFiles.end());
 
                 for ( std::string cfgfile : configFiles )
                 {
@@ -154,12 +153,12 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
                     {
                         std::cout << "Reading " << cfgfile << "...\n";
                         std::ifstream ifs( cfgfile.c_str() );
-                        po::store( parse_config_file( ifs, desc, true ), vmenv );
+                        // 3rd argument of parse_config_file: true for ignoring unknown options (false else)
+                        po::store( parse_config_file( ifs, desc, false ), vmenv );
                     }
                     else
                     {
                         std::cout << "Cannot found " << "config-file `" << cfgfile <<"`\n";
-                        //return 1;
                     }
                 }
             }
@@ -169,21 +168,6 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
         po::notify(vmenv);
     }
 
-#if 0
-    catch(po::error& e)
-    {
-        std::cerr << "ERROR: " << e.what() << std::endl <<"\n";
-        std::cerr << desc <<"\n";
-        //return ERROR_IN_COMMAND_LINE;
-        //return -1;
-    }
-
-    catch(po::duplicate_option_error const& e)
-    {
-        //return -1;
-    }
-#endif
-
     // catches program_options exceptions
 
     catch (po::multiple_occurrences const& e)
@@ -192,7 +176,7 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
                   << "  o faulty option: " << e.get_option_name() << "\n"
                   << "Error: the .cfg file or some options may not have been read properly\n";
 
-        //return -2;
+        throw std::runtime_error(std::string(e.what()));
     }
 
     catch (po::ambiguous_option const& e)
@@ -200,20 +184,24 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
         std::cout << "Command line or config file option parsing error: " << e.what() << "\n"
                   << "  o faulty option: " << e.get_option_name() << "\n"
                   << "  o possible alternatives: " ;
+
         std::for_each( e.alternatives().begin(), e.alternatives().end(), []( std::string const& s )
                        {
                            std::cout << s << " ";
                        } );
+
         std::cout << "\n"
                   << "Error: the .cfg file or some options may not have been read properly\n";
 
-        //return -3;
+        throw std::runtime_error(std::string(e.what()));
     }
 
     catch ( std::exception& e )
     {
         std::cout << "Application option parsing: unknown option:" << e.what()
                   << " (the .cfg file or some options may not have been read properly)\n";
+
+        throw std::runtime_error(std::string(e.what()));
     }
 
 
@@ -221,6 +209,8 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
     {
         std::cout << "Application option parsing: unknown exception triggered"
                   << "(the .cfg file or some options may not have been read properly)\n";
+
+        throw std::runtime_error("...");
     }
 
 }
