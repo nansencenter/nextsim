@@ -4056,7 +4056,7 @@ FiniteElement::step(int &pcpt)
     //======================================================================
     // Assemble the matrix
     //======================================================================
-#if 0
+
     this->assemble(pcpt);
 
     //======================================================================
@@ -4081,7 +4081,7 @@ FiniteElement::step(int &pcpt)
     LOG(DEBUG) <<"update starts\n";
     this->update();
     LOG(DEBUG) <<"update done in "<< chrono.elapsed() <<"s\n";
-#endif
+
     ++pcpt;
     current_time = time_init + pcpt*time_step/(24*3600.0);
 
