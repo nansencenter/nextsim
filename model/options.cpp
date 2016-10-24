@@ -63,6 +63,7 @@ namespace Nextsim
             ("simul.forecast", po::value<bool>()->default_value( false ), "")
             ("simul.use_ship", po::value<bool>()->default_value( false ), "")
             ("simul.use_moorings", po::value<bool>()->default_value( false ), "")
+            ("simul.moorings_file_length", po::value<std::string>()->default_value( "inf" ), "")
             ("simul.mooring_names", po::value<std::vector<std::string>>()->multitoken()->zero_tokens()->composing(), "")
             ("simul.mooring_spacing", po::value<double>()->default_value( 10 ), "km")
             ("simul.mooring_grid_file", po::value<std::string>()->default_value( "" ), "")

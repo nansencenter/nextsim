@@ -8,6 +8,7 @@
 
 #include <gridoutput.hpp>
 #include <externaldata.hpp>
+#include <date.hpp>
 
 /**
  * @class GridOutput
@@ -388,11 +389,32 @@ namespace Nextsim
 
     }
 
-    // Initialise a netCDF file
-    void GridOutput::initNetCDF(std::string filename)
+    // Initialise a netCDF file and return the file name in an std::string
+    std::string GridOutput::initNetCDF(std::string file_prefix, GridOutput::fileLength file_length, double current_time)
     {
+        // Choose the right file name, depending on how much data goes in there
+        boost::gregorian::date now = Nextsim::parse_date(current_time);
+        std::stringstream filename;
+
+        filename << file_prefix;
+        switch (file_length)
+        {
+            case GridOutput::fileLength::daily:
+            filename << now.year() << setw(3) << setfill('0') << now.day_of_year();
+                break;
+            case GridOutput::fileLength::weekly:
+                filename << now.year() << setw(2) << setfill('0') << now.week_number();
+                break;
+            case GridOutput::fileLength::monthly:
+                filename << now.year() << setw(2) << setfill('0') << now.month();
+                break;
+            case GridOutput::fileLength::yearly:
+                filename << now.year();
+        }
+        filename << ".nc";
+
         // Create the netCDF file.
-        netCDF::NcFile dataFile(filename, netCDF::NcFile::replace);
+        netCDF::NcFile dataFile(filename.str(), netCDF::NcFile::replace);
 
         // Create the time dimension
         netCDF::NcDim tDim = dataFile.addDim("time"); // unlimited
@@ -457,6 +479,8 @@ namespace Nextsim
         dataFile.putAtt("Conventions", "CF-1.6");
         dataFile.putAtt("institution", "NERSC, Thormoehlens gate 47, N-5006 Bergen, Norway");
         dataFile.putAtt("source", "neXtSIM model fields");
+
+        return filename.str();
     }
 
     // Write data to the netCDF file

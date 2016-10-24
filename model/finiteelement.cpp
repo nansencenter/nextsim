@@ -576,6 +576,14 @@ FiniteElement::initConstant()
 
     M_use_moorings =  vm["simul.use_moorings"].as<bool>();
 
+    const boost::unordered_map<const std::string, GridOutput::fileLength> str2mooringsfl = boost::assign::map_list_of
+        ("inf", GridOutput::fileLength::inf)
+        ("daily", GridOutput::fileLength::daily)
+        ("weekly", GridOutput::fileLength::weekly)
+        ("monthly", GridOutput::fileLength::monthly)
+        ("yearly", GridOutput::fileLength::yearly);
+    M_moorings_file_length = str2mooringsfl.find(vm["simul.moorings_file_length"].as<std::string>())->second;
+
 #if 0
     M_export_path = Environment::nextsimDir().string() + "/matlab";
     // change directory for outputs if the option "output_directory" is not empty
@@ -4090,6 +4098,31 @@ FiniteElement::step(int &pcpt)
         {
             M_moorings.updateGridMean(M_mesh);
             //M_moorings.exportGridMeans("_grid.dat", time_step, mooring_output_time_step);
+
+            double not_used;
+            if ( M_moorings_file_length != GridOutput::fileLength::inf && modf(current_time, &not_used) < time_step*86400 )
+            // It's a new day, so we check if we need a new file
+            {
+                boost::gregorian::date now = Nextsim::parse_date(current_time);
+                switch (M_moorings_file_length)
+                {
+                    case GridOutput::fileLength::daily:
+                        M_moorings.initNetCDF(M_export_path + "/Moorings_", M_moorings_file_length, current_time);
+                        break;
+                    case GridOutput::fileLength::weekly:
+                        if ( now.day_of_week().as_number() == 0 )
+                            M_moorings.initNetCDF(M_export_path + "/Moorings_", M_moorings_file_length, current_time);
+                        break;
+                    case GridOutput::fileLength::monthly:
+                        if ( now.day().as_number() == 1 )
+                            M_moorings.initNetCDF(M_export_path + "/Moorings_", M_moorings_file_length, current_time);
+                        break;
+                    case GridOutput::fileLength::yearly:
+                        if ( now.day_of_year() == 1 )
+                            M_moorings.initNetCDF(M_export_path + "/Moorings_", M_moorings_file_length, current_time);
+                }
+            }
+
             M_moorings.appendNetCDF(M_moorings_file, current_time, time_step, mooring_output_time_step);
 
             M_moorings.resetMeshMean(M_mesh);
@@ -4346,7 +4379,6 @@ FiniteElement::initMoorings()
     std::vector<DataSet::Vectorial_Variable> vectorial_variables(1);
     vectorial_variables[0] = siuv;
 
-    M_moorings_file = M_export_path + "/Moorings.nc";
 #if 1
     // Calculate the grid spacing (assuming a regular grid for now)
     auto RX = M_mesh.coordX();
@@ -4360,7 +4392,6 @@ FiniteElement::initMoorings()
 
     // Define the mooring dataset
     M_moorings = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first, nodal_variables, elemental_variables, vectorial_variables);
-    M_moorings.initNetCDF(M_moorings_file);
 #else
     // Read the grid in from file
     std::vector<DataSet::Dimension> dimensions_latlon(2);
@@ -4430,6 +4461,8 @@ FiniteElement::initMoorings()
     std::copy(M_moorings.M_grid.gridLAT.begin(), M_moorings.M_grid.gridLAT.end(), ostream_iterator<float>(myfile," "));
     myfile.close();
 #endif
+
+    M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings_", M_moorings_file_length, time_init);
 
 #if 0
     // Prepare the moorings grid for output

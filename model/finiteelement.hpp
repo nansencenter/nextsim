@@ -440,6 +440,7 @@ private:
 
     bool M_use_moorings;
     std::string M_moorings_file;
+    GridOutput::fileLength M_moorings_file_length;
     GridOutput M_moorings;
 
 private:

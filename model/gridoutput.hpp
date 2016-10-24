@@ -53,6 +53,16 @@ namespace Nextsim
                 // Diagnostic variables
             };
 
+            enum fileLength
+            {
+                // How much data to put into each output file
+                inf     = 0, // Never start a new file
+                daily   = 1,
+                weekly  = 2,
+                monthly = 3,
+                yearly  = 4
+            };
+
             enum variableKind
             {
                 nodal      =  0,
@@ -88,7 +98,7 @@ namespace Nextsim
             void resetGridMean();
             void resetMeshMean(GmshMesh const &mesh);
             void exportGridMeans(std::string filename, double time_step, double mooring_output_time_step);
-            void initNetCDF(std::string filename);
+            std::string initNetCDF(std::string file_prefix, GridOutput::fileLength file_length, double current_time);
             void appendNetCDF(std::string filename, double current_time, double time_step, double mooring_output_time_step);
 
             int M_ncols;
