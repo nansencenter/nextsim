@@ -5849,10 +5849,7 @@ FiniteElement::cs2SmosIce()
         //M_type[i]==2. // First-Year ice
         //M_type[i]==3. // Multi-Year ice
         //M_type[i]==4. // Mixed
-        if(M_type[i]<=3.)
-            correction_factor_warren=std::max(0.,(M_type[i]-1.)*0.5); // == 1. for MY, 0.5 for FY, 0. for No ice
-        else
-            correction_factor_warren=1.-std::min(1.,M_type[i]-3.)*0.75; // == 0.75 for mixed
+        correction_factor_warren=std::max(0.,std::min(1.,(M_type[i]-1.)*0.5)); // == 1. for MY, and mixed, 0.5 for FY, 0. for No ice
 
         M_snow_thick[i]=correction_factor_warren*M_snow_thick[i]*M_conc[i];
 
