@@ -103,7 +103,7 @@ public:
     void adaptMesh();
 
     void assemble(int cpt);
-    void node_max_conc();
+    void nodeMaxConc();
     void solve();
     void run();
     int init();
@@ -245,7 +245,7 @@ private:
     std::string M_mesh_filename;
 
     int M_flag_fix;
-    
+
     int mesh_adapt_step;
     bool had_remeshed;
 
@@ -319,6 +319,7 @@ private:
     double time_init;
     double output_time_step;
     double mooring_output_time_step;
+    double mooring_time_factor;
     double restart_time_step;
     double time_step;
     double duration;
@@ -440,7 +441,9 @@ private:
     // Variables for the moorings
 
     bool M_use_moorings;
+    bool M_moorings_snapshot;
     std::string M_moorings_file;
+    GridOutput::fileLength M_moorings_file_length;
     GridOutput M_moorings;
 
 private:
@@ -455,7 +458,7 @@ private:
     void cs2SmosIce();
     void warrenClimatology();
     void smosIce();
-    
+
     void topazAmsreIce();
     void topazAmsr2Ice();
 
@@ -464,7 +467,7 @@ private:
     void initIABPDrifter();
     void updateIABPDrifter();
 
-    void updateMeans(GridOutput &means);
+    void updateMeans(GridOutput &means, double time_factor);
     void initMoorings();
 
 };

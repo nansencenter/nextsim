@@ -8,6 +8,7 @@
 
 #include <gridoutput.hpp>
 #include <externaldata.hpp>
+#include <date.hpp>
 
 /**
  * @class GridOutput
@@ -247,7 +248,13 @@ namespace Nextsim
         // Add the output pointer value to the grid vectors
         for (int i=0; i<nb_var; i++)
             for (int j=0; j<M_grid_size; ++j)
-                variables[i].data_grid[j] += interp_out[nb_var*j+i];
+            {
+                double val = interp_out[nb_var*j+i];
+                if ( val != M_miss_val )
+                    variables[i].data_grid[j] += val;
+                else
+                    variables[i].data_grid[j] = M_miss_val;
+            }
 
         xDelete<double>(interp_out);
     }
@@ -388,11 +395,37 @@ namespace Nextsim
 
     }
 
-    // Initialise a netCDF file
-    void GridOutput::initNetCDF(std::string filename)
+    // Initialise a netCDF file and return the file name in an std::string
+    std::string GridOutput::initNetCDF(std::string file_prefix, GridOutput::fileLength file_length, double current_time)
     {
+        // Choose the right file name, depending on how much data goes in there
+        boost::gregorian::date now = Nextsim::parse_date(current_time);
+        std::stringstream filename;
+
+        filename << file_prefix;
+        switch (file_length)
+        {
+            case GridOutput::fileLength::daily:
+            filename << "_" << now.year() << "d" << setw(3) << setfill('0') << now.day_of_year();
+                break;
+            case GridOutput::fileLength::weekly:
+                // The last week of the year is troublesome!
+                // The boost library will (sometimes) give this the number 1, even though week 1 should be in January
+                if ( now.month().as_number() == 12 && now.week_number() == 1 )
+                    filename << "_" << now.year() + 1 << "w" << setw(2) << setfill('0') << now.week_number();
+                else
+                    filename << "_" << now.year() << "w" << setw(2) << setfill('0') << now.week_number();
+                break;
+            case GridOutput::fileLength::monthly:
+                filename << "_" << now.year() << "m" << setw(2) << setfill('0') << now.month().as_number();
+                break;
+            case GridOutput::fileLength::yearly:
+                filename << "_" << now.year();
+        }
+        filename << ".nc";
+
         // Create the netCDF file.
-        netCDF::NcFile dataFile(filename, netCDF::NcFile::replace);
+        netCDF::NcFile dataFile(filename.str(), netCDF::NcFile::replace);
 
         // Create the time dimension
         netCDF::NcDim tDim = dataFile.addDim("time"); // unlimited
@@ -457,10 +490,12 @@ namespace Nextsim
         dataFile.putAtt("Conventions", "CF-1.6");
         dataFile.putAtt("institution", "NERSC, Thormoehlens gate 47, N-5006 Bergen, Norway");
         dataFile.putAtt("source", "neXtSIM model fields");
+
+        return filename.str();
     }
 
     // Write data to the netCDF file
-    void GridOutput::appendNetCDF(std::string filename, double current_time, double time_step, double mooring_output_time_step)
+    void GridOutput::appendNetCDF(std::string filename, double timestamp)
     {
         // Open the netCDF file
         netCDF::NcFile dataFile(filename, netCDF::NcFile::write);
@@ -475,9 +510,7 @@ namespace Nextsim
         M_nc_step++;
 
         netCDF::NcVar time = dataFile.getVar("time");
-        // Write out the center of the output time step not end of it
-        double mean_time = current_time - mooring_output_time_step/86400/2;
-        time.putVar(start, count, &mean_time);
+        time.putVar(start, count, &timestamp);
 
         // Append to the output variables
         start.push_back(0);
@@ -487,31 +520,14 @@ namespace Nextsim
         count.push_back(M_ncols);
 
         netCDF::NcVar data;
-        double time_factor = time_step/mooring_output_time_step;
         for (auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); ++it)
         {
-            // Multiply all the grid values with 'time_factor'
-            for ( auto jt=it->data_grid.begin(); jt!=it->data_grid.end(); jt++ )
-                // We need to filter out the missing values so they remain the same for all output files
-                if ( *jt > M_miss_val )
-                    *jt *= time_factor;
-                else
-                    *jt = M_miss_val;
-
             // Save to file
             data = dataFile.getVar(it->name);
             data.putVar(start, count, &it->data_grid[0]);
         }
         for (auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); ++it)
         {
-            // Multiply all the grid values with 'time_factor'
-            for ( auto jt=it->data_grid.begin(); jt!=it->data_grid.end(); jt++ )
-                // We need to filter out the missing values so they remain the same for all output files
-                if ( *jt > M_miss_val )
-                    *jt *= time_factor;
-                else
-                    *jt = M_miss_val;
-
             // Save to file
             data = dataFile.getVar(it->name);
             data.putVar(start, count, &it->data_grid[0]);

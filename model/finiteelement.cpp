@@ -381,11 +381,12 @@ FiniteElement::initConstant()
     days_in_sec = 24.0*3600.0;
     time_init = from_date_time_string(vm["simul.time_init"].as<std::string>());
     //std::cout<<"time_init second= "<< std::setprecision(18) << time_init <<"\n";
+    time_step = vm["simul.timestep"].as<double>();
 
     output_time_step =  days_in_sec/vm["simul.output_per_day"].as<int>();
     mooring_output_time_step =  vm["simul.mooring_output_timestep"].as<double>()*days_in_sec;
+    mooring_time_factor = time_step/mooring_output_time_step;
 
-    time_step = vm["simul.timestep"].as<double>();
     // output_time_step =  time_step*vm["simul.output_per_day"].as<int>(); // useful for debuging
     duration = (vm["simul.duration"].as<double>())*days_in_sec;
     restart_time_step =  vm["setup.restart_time_step"].as<double>()*days_in_sec;
@@ -427,15 +428,15 @@ FiniteElement::initConstant()
     tan_phi = vm["simul.tan_phi"].as<double>();
     ridge_h = vm["simul.ridge_h"].as<double>();
 
-    const boost::unordered_map<const std::string, setup::ThermoType> str2thermo = boost::assign::map_list_of
-        ("zero-layer", setup::ThermoType::ZERO_LAYER)
-        ("winton", setup::ThermoType::WINTON);
-    M_thermo_type = str2thermo.find(vm["setup.thermo-type"].as<std::string>())->second;
-
     if ( vm["simul.newice_type"].as<int>() == 4 )
         M_ice_cat_type = setup::IceCategoryType::THIN_ICE;
     else
         M_ice_cat_type = setup::IceCategoryType::CLASSIC;
+
+    const boost::unordered_map<const std::string, setup::ThermoType> str2thermo = boost::assign::map_list_of
+        ("zero-layer", setup::ThermoType::ZERO_LAYER)
+        ("winton", setup::ThermoType::WINTON);
+    M_thermo_type = str2thermo.find(vm["setup.thermo-type"].as<std::string>())->second;
 
     const boost::unordered_map<const std::string, setup::AtmosphereType> str2atmosphere = boost::assign::map_list_of
         ("constant", setup::AtmosphereType::CONSTANT)
@@ -578,6 +579,16 @@ FiniteElement::initConstant()
 
     M_use_moorings =  vm["simul.use_moorings"].as<bool>();
 
+    M_moorings_snapshot =  vm["simul.moorings_snapshot"].as<bool>();
+
+    const boost::unordered_map<const std::string, GridOutput::fileLength> str2mooringsfl = boost::assign::map_list_of
+        ("inf", GridOutput::fileLength::inf)
+        ("daily", GridOutput::fileLength::daily)
+        ("weekly", GridOutput::fileLength::weekly)
+        ("monthly", GridOutput::fileLength::monthly)
+        ("yearly", GridOutput::fileLength::yearly);
+    M_moorings_file_length = str2mooringsfl.find(vm["simul.moorings_file_length"].as<std::string>())->second;
+
 #if 0
     M_export_path = Environment::nextsimDir().string() + "/matlab";
     // change directory for outputs if the option "output_directory" is not empty
@@ -595,7 +606,7 @@ FiniteElement::initConstant()
     }
 #endif
 
-    this->writeLogFile();
+    // this->writeLogFile(); // already called in the fonction run()
 }
 
 void
@@ -2159,7 +2170,7 @@ FiniteElement::assemble(int pcpt)
 }
 
 void
-FiniteElement::node_max_conc()
+FiniteElement::nodeMaxConc()
 {
     int thread_id;
     int total_threads;
@@ -3984,7 +3995,7 @@ FiniteElement::step(int &pcpt)
         {
             M_regrid = true;
             // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
-            if ( M_use_moorings )
+            if ( M_use_moorings && ! M_moorings_snapshot )
                 M_moorings.updateGridMean(M_mesh);
             LOG(DEBUG) <<"Regridding starts\n";
             chrono.restart();
@@ -4043,7 +4054,7 @@ FiniteElement::step(int &pcpt)
 #if 1
     if (pcpt == 0)
     {
-        node_max_conc(); // needed for post-processing, recomputed in assemble() for the other steps
+        nodeMaxConc(); // needed for post-processing, recomputed in assemble() for the other steps
         chrono.restart();
         LOG(DEBUG) <<"first export starts\n";
         this->exportResults(0);
@@ -4106,15 +4117,50 @@ FiniteElement::step(int &pcpt)
 
     if ( M_use_moorings )
     {
-        this->updateMeans(M_moorings);
+        // If we're taking snapshots the we only call updateMeans before writing to file
+        if ( ! M_moorings_snapshot )
+            this->updateMeans(M_moorings, mooring_time_factor);
+
         if ( fmod(pcpt*time_step,mooring_output_time_step) == 0 )
         {
+            if ( M_moorings_snapshot )
+                // Update the snapshot
+                this->updateMeans(M_moorings, 1.);
+
             M_moorings.updateGridMean(M_mesh);
-            //M_moorings.exportGridMeans("_grid.dat", time_step, mooring_output_time_step);
-            M_moorings.appendNetCDF(M_moorings_file, current_time, time_step, mooring_output_time_step);
+
+            if ( M_moorings_snapshot )
+                M_moorings.appendNetCDF(M_moorings_file, current_time);
+            else
+                // shift the timestamp in the file to the centre of the output interval
+                M_moorings.appendNetCDF(M_moorings_file, current_time-mooring_output_time_step/86400/2);
 
             M_moorings.resetMeshMean(M_mesh);
             M_moorings.resetGridMean();
+
+            double not_used;
+            if ( M_moorings_file_length != GridOutput::fileLength::inf && modf(current_time, &not_used) < time_step*86400 )
+            // It's a new day, so we check if we need a new file
+            {
+                boost::gregorian::date now = Nextsim::parse_date(current_time);
+                switch (M_moorings_file_length)
+                {
+                    case GridOutput::fileLength::daily:
+                        M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, current_time);
+                        break;
+                    case GridOutput::fileLength::weekly:
+                        if ( now.day_of_week().as_number() == 1 )
+                            M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, current_time);
+                        break;
+                    case GridOutput::fileLength::monthly:
+                        if ( now.day().as_number() == 1 )
+                            M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, current_time);
+                        break;
+                    case GridOutput::fileLength::yearly:
+                        if ( now.day_of_year() == 1 )
+                            M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, current_time);
+                }
+            }
         }
     }
 
@@ -4129,61 +4175,61 @@ FiniteElement::step(int &pcpt)
 
 // Add to the mean on the mesh
 void
-FiniteElement::updateMeans(GridOutput &means)
+FiniteElement::updateMeans(GridOutput &means, double time_factor)
 {
-    // Update elements
+    // Update elements and multiply with time_factor
     for ( auto it=means.M_elemental_variables.begin(); it!=means.M_elemental_variables.end(); ++it )
     {
         switch (it->variableID)
         {
             case (GridOutput::variableID::conc):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += M_conc[i];
+                    it->data_mesh[i] += M_conc[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::thick):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += M_thick[i];
+                    it->data_mesh[i] += M_thick[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::damage):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += M_damage[i];
+                    it->data_mesh[i] += M_damage[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::snow_thick):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += M_snow_thick[i];
+                    it->data_mesh[i] += M_snow_thick[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::tsurf):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += M_conc[i]*M_tice[0][i] + (1-M_conc[i])*M_sst[i];
+                    it->data_mesh[i] += ( M_conc[i]*M_tice[0][i] + (1-M_conc[i])*M_sst[i] )*time_factor;
                 break;
 
             case (GridOutput::variableID::sst):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += M_sst[i];
+                    it->data_mesh[i] += M_sst[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::sss):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += M_sss[i];
+                    it->data_mesh[i] += M_sss[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::tsurf_ice):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += M_tice[0][i];
+                    it->data_mesh[i] += M_tice[0][i]*time_factor;
                 break;
 
             case (GridOutput::variableID::t1):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += M_tice[1][i];
+                    it->data_mesh[i] += M_tice[1][i]*time_factor;
                 break;
 
             case (GridOutput::variableID::t2):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += M_tice[2][i];
+                    it->data_mesh[i] += M_tice[2][i]*time_factor;
                 break;
 
             default: std::logic_error("Updating of given variableID not implimented (elements)");
@@ -4367,7 +4413,6 @@ FiniteElement::initMoorings()
     std::vector<DataSet::Vectorial_Variable> vectorial_variables(1);
     vectorial_variables[0] = siuv;
 
-    M_moorings_file = M_export_path + "/Moorings.nc";
 #if 1
     // Calculate the grid spacing (assuming a regular grid for now)
     auto RX = M_mesh.coordX();
@@ -4381,7 +4426,6 @@ FiniteElement::initMoorings()
 
     // Define the mooring dataset
     M_moorings = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first, nodal_variables, elemental_variables, vectorial_variables);
-    M_moorings.initNetCDF(M_moorings_file);
 #else
     // Read the grid in from file
     std::vector<DataSet::Dimension> dimensions_latlon(2);
@@ -4451,6 +4495,8 @@ FiniteElement::initMoorings()
     std::copy(M_moorings.M_grid.gridLAT.begin(), M_moorings.M_grid.gridLAT.end(), ostream_iterator<float>(myfile," "));
     myfile.close();
 #endif
+
+    M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, time_init);
 
 #if 0
     // Prepare the moorings grid for output
@@ -4777,7 +4823,6 @@ FiniteElement::readRestart(int step)
 
     if (M_drifter_type == setup::DrifterType::IABP)
     {
-        std::cout << "Try reading them from the restart file\n";
         std::vector<int>    drifter_no = field_map_int["Drifter_no"];
         std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
         std::vector<double> drifter_y  = field_map_dbl["Drifter_y"];
