@@ -197,7 +197,7 @@ namespace Nextsim
          grid= grid_tmp;
 
          loaded=false;
-interpolated=false;
+         interpolated=false;
 
          averaging_period=0.;
          time= time_tmp;
@@ -442,9 +442,10 @@ interpolated=false;
          grid= grid_tmp;
 
          loaded=false;
-interpolated=false;
-
-averaging_period=0.;         time= time_tmp;
+         interpolated=false;
+         
+         averaging_period=0.;         
+         time= time_tmp;
      }
      else if (strcmp (DatasetName, "topaz_nodes") == 0)
      {
@@ -617,8 +618,7 @@ averaging_period=0.;         time= time_tmp;
          grid= grid_tmp;
 
          loaded=false;
-interpolated=false;
-
+         interpolated=false;
 
          averaging_period=1.; // days
          time= time_tmp;
@@ -777,18 +777,17 @@ interpolated=false;
          variables_tmp[2] = mld;
 
          std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+         
+         variables= variables_tmp;
+         vectorial_variables= vectorial_variables_tmp;
+         target_size= target_size_tmp;
+         grid= grid_tmp;
+         
+         loaded=false;
+         interpolated=false;
 
-             variables= variables_tmp;
-             vectorial_variables= vectorial_variables_tmp;
-             target_size= target_size_tmp;
-             grid= grid_tmp;
-
-             loaded=false;
-             interpolated=false;
-
-
-             averaging_period=1.; // days
-             time= time_tmp;
+         averaging_period=1.; // days
+         time= time_tmp;
      }
      else if (strcmp (DatasetName, "topaz_forecast_nodes") == 0)
      {
@@ -961,8 +960,7 @@ interpolated=false;
          grid= grid_tmp;
 
          loaded=false;
-interpolated=false;
-
+         interpolated=false;
 
          averaging_period=1.; // days
          time= time_tmp;
@@ -1173,8 +1171,7 @@ interpolated=false;
          grid= grid_tmp;
 
          loaded=false;
-interpolated=false;
-
+         interpolated=false;
 
          averaging_period=1.; // days
          time= time_tmp;
@@ -1340,8 +1337,7 @@ interpolated=false;
          grid= grid_tmp;
 
          loaded=false;
-interpolated=false;
-
+         interpolated=false;
 
          averaging_period=1.; // days
          time= time_tmp;
@@ -1501,8 +1497,7 @@ interpolated=false;
          grid= grid_tmp;
 
          loaded=false;
-interpolated=false;
-
+         interpolated=false;
 
          averaging_period=365./12; // days
          time= time_tmp;
@@ -1627,8 +1622,7 @@ interpolated=false;
         grid= grid_tmp;
 
         loaded=false;
-interpolated=false;
-
+        interpolated=false;
 
         averaging_period=1.; // days
      	time= time_tmp;
@@ -1768,8 +1762,7 @@ interpolated=false;
         grid= grid_tmp;
 
         loaded=false;
-interpolated=false;
-
+        interpolated=false;
 
         averaging_period=1.; // days
      	time= time_tmp;
@@ -2019,8 +2012,7 @@ interpolated=false;
         grid= grid_tmp;
 
         loaded=false;
-interpolated=false;
-
+        interpolated=false;
         
         averaging_period=1.; // days
      	time= time_tmp;
@@ -2136,7 +2128,7 @@ interpolated=false;
         grid= grid_tmp;
 
         loaded=false;
-interpolated=false;
+        interpolated=false;
 
         averaging_period=1.; // days
      }
@@ -2275,8 +2267,7 @@ interpolated=false;
         grid= grid_tmp;
 
         loaded=false;
-interpolated=false;
-
+        interpolated=false;
 
         averaging_period=1.; // days
      	time= time_tmp;
@@ -2388,9 +2379,9 @@ interpolated=false;
          target_size=target_size_tmp;
 
          grid= grid_tmp;
+         
          loaded=false;
-interpolated=false;
-
+         interpolated=false;
 
          averaging_period=0.;
      }
@@ -2595,9 +2586,9 @@ interpolated=false;
          target_size= target_size_tmp;
 
          loaded=false;
+         interpolated=false;
 
          averaging_period=0.;
-
          time= time_tmp;
      }
      else if (strcmp (DatasetName, "ERAi_nodes") == 0)
@@ -2754,7 +2745,7 @@ interpolated=false;
       target_size= target_size_tmp;
 
       loaded=false;
-
+      interpolated=false;
 
       averaging_period=0.;
       time= time_tmp;
@@ -2934,9 +2925,9 @@ interpolated=false;
           target_size= target_size_tmp;
 
           loaded=false;
-
+          interpolated=false;
+          
           averaging_period=0.;
-
           time= time_tmp;
       }
       else if (strcmp (DatasetName, "ec_nodes") == 0)
@@ -3093,7 +3084,7 @@ interpolated=false;
        target_size= target_size_tmp;
 
        loaded=false;
-
+       interpolated=false;
 
        averaging_period=0.;
        time= time_tmp;
@@ -3261,12 +3252,11 @@ interpolated=false;
          grid= grid_tmp;
 
          loaded=false;
-
+         interpolated=false;
 
          averaging_period=0.;
 
          time= time_tmp;
-
      }
      else if (strcmp (DatasetName, "erai_waves_1deg_elements") == 0)
      {
@@ -3437,12 +3427,11 @@ interpolated=false;
          grid= grid_tmp;
 
          loaded=false;
-
+         interpolated=false;
 
          averaging_period=0.;
 
          time= time_tmp;
-
      }
      else
        {
