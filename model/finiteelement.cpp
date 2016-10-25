@@ -3927,10 +3927,12 @@ FiniteElement::init()
         (*it)->check_and_reload(M_mesh,time_init);
     LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
     
-    chrono.restart();
-    this->initModelState();
-    LOG(DEBUG) <<"initSimulation done in "<< chrono.elapsed() <<"s\n";
-    
+    if (!M_use_restart )
+    {
+        chrono.restart();
+        this->initModelState();
+        LOG(DEBUG) <<"initSimulation done in "<< chrono.elapsed() <<"s\n";
+    }
     // Open the output file for drifters
     // TODO: Is this the right place to open the file?
     if (M_drifter_type == setup::DrifterType::IABP )
