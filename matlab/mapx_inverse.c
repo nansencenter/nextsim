@@ -49,7 +49,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
         map = init_mapx(filename);
 
-        for ( int i=0; i<Np; i++ )
+	int i;
+        for ( i=0; i<Np; i++ )
                 inverse_mapx(map, x[i], y[i], &lat[i], &lon[i]);
 
         /* Export to matlab */

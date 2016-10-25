@@ -49,7 +49,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
         map = init_mapx(filename);
 
-        for ( int i=0; i<Np; i++ )
+	int i;
+        for ( i=0; i<Np; i++ )
                 forward_mapx(map, lat[i], lon[i], &x[i], &y[i]);
 
         /* Export to matlab */
