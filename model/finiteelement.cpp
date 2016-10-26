@@ -3935,15 +3935,16 @@ FiniteElement::init()
     chrono.restart();
     LOG(DEBUG) <<"check_and_reload starts\n";
     for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
-        (*it)->check_and_reload(M_mesh,time_init);
+        (*it)->check_and_reload(M_mesh,current_time);
     LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
     
-    if (!M_use_restart )
+    if ( ! M_use_restart )
     {
         chrono.restart();
         this->initModelState();
         LOG(DEBUG) <<"initSimulation done in "<< chrono.elapsed() <<"s\n";
     }
+    
     // Open the output file for drifters
     // TODO: Is this the right place to open the file?
     if (M_drifter_type == setup::DrifterType::IABP )
@@ -4020,7 +4021,7 @@ FiniteElement::step(int &pcpt)
 
 
     // Read in the new buoys and output
-    if (M_drifter_type == setup::DrifterType::IABP && std::fmod(current_time,0.5) == 0)
+    if ( pcpt==0 || ( M_drifter_type == setup::DrifterType::IABP && std::fmod(current_time,0.5) == 0 ) )
     {
         this->updateIABPDrifter();
         // TODO: Do we want to output drifters at a different time interval?
@@ -4624,13 +4625,21 @@ FiniteElement::writeRestart(int pcpt, int step)
         std::vector<double> drifter_x(M_drifter.size());
         std::vector<double> drifter_y(M_drifter.size());
 
+        // Sort the drifters so the restart files are identical (this is just to make testing easier)
         int j=0;
         for ( auto it = M_drifter.begin(); it != M_drifter.end(); ++it )
         {
             drifter_no[j] = it->first;
-            drifter_x[j] = it->second[0];
-            drifter_y[j] = it->second[1];
             ++j;
+        }
+        std::sort(drifter_no.begin(), drifter_no.end());
+
+        j=0;
+        for ( auto it = drifter_no.begin(); it != drifter_no.end(); it++ )
+        {
+            drifter_x[j] = M_drifter[drifter_no[j]][0];
+            drifter_y[j] = M_drifter[drifter_no[j]][1];
+            j++;
         }
 
         exporter.writeField(outbin, drifter_no, "Drifter_no");
@@ -4827,10 +4836,11 @@ FiniteElement::readRestart(int step)
         std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
         std::vector<double> drifter_y  = field_map_dbl["Drifter_y"];
 
+        this->initIABPDrifter();
         if (drifter_no.size() == 0)
         {
             LOG(WARNING) << "Warning: Couldn't read drifter positions from restart file. Drifter positions initialised as if there was no restart.\n";
-            this->initDrifter();
+            this->updateIABPDrifter();
         } else {
             for ( int i=0; i<drifter_no.size(); ++i )
             {
