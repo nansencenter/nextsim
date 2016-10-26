@@ -332,7 +332,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 
     int MN = M*N;
     
-    final_MN = MN;
+    int final_MN = MN;
 
 	if(dataset->grid.reduced_nodes_ind.size()!=0)
     {
@@ -551,10 +551,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
     // Initialise counters etc.
 	int nb_forcing_step =filename_fstep.size();
 
-    std::vector<double> tmp_loaded_data(final_MN);
-
     //std::cout<<"Start loading data\n";
-
     for (int fstep=0; fstep < nb_forcing_step; ++fstep) // always need one step before and one after the target time
     {
         filename=filename_fstep[fstep];
@@ -569,7 +566,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 
         // Load each variable and copy its data into loaded_data
         for(int j=0; j<dataset->variables.size(); ++j)
-        {
+        {            
             NcVars[j] = dataFile.getVar(dataset->variables[j].name);
             index_start.resize(dataset->variables[j].dimensions.size());
             index_count.resize(dataset->variables[j].dimensions.size());
@@ -634,24 +631,25 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             for(double& d : data_in_tmp)
                 d=(d*scale_factor + add_offset)*dataset->variables[j].a+dataset->variables[j].b;
 
-            //_printf_("For " << dataset->variables[j].name << " scale_factor is "  << scale_factor<<  " " <<  ", add_offset is " << add_offset << "\n");
-            // Copy the data in loaded_data
 
-            // Load and check Nan
+            // Check Nan and store the loaded data
+            dataset->variables[j].loaded_data[fstep].resize(final_MN);
+                        
+            double tmp_data_i;
+            int reduced_i;            
 			for (int i=0; i<(final_MN); ++i)
             {
-                int reduced_i=i;
+                reduced_i=i;
     			if(dataset->grid.reduced_nodes_ind.size()!=0)
     			    reduced_i=dataset->grid.reduced_nodes_ind[i];
                 
-                tmp_loaded_data[i]=data_in_tmp[reduced_i];
+                tmp_data_i=data_in_tmp[reduced_i];
                 
-                if(std::isnan(data_in_tmp[reduced_i]))
-                    tmp_loaded_data[i]=0.;
+                if(std::isnan(tmp_data_i))
+                    tmp_data_i=0.;
+                
+                dataset->variables[j].loaded_data[fstep][i]=tmp_data_i;
             }
-
-            // store the loaded data   
-            dataset->variables[j].loaded_data[fstep]=tmp_loaded_data;    
         }
     }
 
@@ -802,7 +800,6 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
     close_mapx(mapNextsim);
 
     dataset->nb_forcing_step=nb_forcing_step;
-    dataset->final_MN=final_MN;
     dataset->loaded=true;
 }   
     
@@ -849,7 +846,7 @@ ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(doubl
     
     // Collect all the data before the interpolation
     //std::cout << "Collect the ivariables before interpolation:" <<"\n";
-    std::vector<double> data_in(dataset->variables.size()*dataset->nb_forcing_step*dataset->final_MN);
+    std::vector<double> data_in(dataset->variables.size()*dataset->nb_forcing_step*final_MN);
     
     for (int fstep=0; fstep < dataset->nb_forcing_step; ++fstep)
     {
@@ -890,14 +887,11 @@ ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(doubl
                 }                
             }
             else // with no cyclic dimension, simply use the same indice i
-                for (int i=0; i<dataset->final_MN; ++i)
+                for (int i=0; i<final_MN; ++i)
                     data_in[(dataset->variables.size()*dataset->nb_forcing_step)*i+fstep*dataset->variables.size()+j]=dataset->variables[j].loaded_data[fstep][i];
             
         }
     }
-
-    double* data_out;
-    double tmp_data;
 
     // ---------------------------------
     // Projection of the mesh positions into the coordinate system of the data before the interpolation
@@ -946,6 +940,9 @@ ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(doubl
 
 
     //std::cout << "Interpolation:" <<"\n";
+    
+    double* data_out;
+    
     switch(dataset->grid.interpolation_method)
     {
         case InterpolationType::FromGridToMesh:
@@ -976,17 +973,14 @@ ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(doubl
         dataset->grid.gridX.pop_back();
 
     // Redistribute all the data after the interpolation
-    //std::cout << "Redistribution of the interpolated variables:" <<"\n";
-    std::vector<double> tmp_interpolated_data(dataset->target_size);
-        
+    //std::cout << "Redistribution of the interpolated variables:" <<"\n";        
     for (int fstep=0; fstep < dataset->nb_forcing_step; ++fstep)
     {
         for (int j=0; j<dataset->variables.size(); ++j)
         {
+            dataset->variables[j].interpolated_data[fstep].resize(dataset->target_size);
             for (int i=0; i<dataset->target_size; ++i)
-                tmp_interpolated_data[i]=data_out[(dataset->variables.size()*dataset->nb_forcing_step)*i+fstep*dataset->variables.size()+j];
-            
-            dataset->variables[j].interpolated_data[fstep]=tmp_interpolated_data;
+                dataset->variables[j].interpolated_data[fstep][i]=data_out[(dataset->variables.size()*dataset->nb_forcing_step)*i+fstep*dataset->variables.size()+j];
         }
     }    
     
