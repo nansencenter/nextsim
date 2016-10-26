@@ -149,7 +149,6 @@ public:
     std::vector<Vectorial_Variable> vectorial_variables; // vectors listing the vectorial variables
     int target_size;
     int nb_forcing_step;
-    int final_MN;
     double rotation_angle;
 
     bool loaded;
