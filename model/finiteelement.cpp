@@ -309,6 +309,8 @@ FiniteElement::initDatasets()
 
     M_ice_osisaf_elements_dataset=DataSet("ice_osisaf_elements",M_num_elements);
 
+    M_ice_osisaf_type_elements_dataset=DataSet("ice_osisaf_type_elements",M_num_elements);
+
     M_ice_amsr2_elements_dataset=DataSet("ice_amsr2_elements",M_num_elements);
 
     M_ice_cs2_smos_elements_dataset=DataSet("ice_cs2_smos_elements",M_num_elements);
@@ -1566,6 +1568,7 @@ FiniteElement::regrid(bool step)
     M_ice_piomas_elements_dataset.target_size=M_num_elements;
     M_ice_amsre_elements_dataset.target_size=M_num_elements;
     M_ice_osisaf_elements_dataset.target_size=M_num_elements;
+    M_ice_osisaf_type_elements_dataset.target_size=M_num_elements;
     M_ice_amsr2_elements_dataset.target_size=M_num_elements;
     M_ice_cs2_smos_elements_dataset.target_size=M_num_elements;
     M_ice_smos_elements_dataset.target_size=M_num_elements;
@@ -1576,28 +1579,43 @@ FiniteElement::regrid(bool step)
 #endif
 
 
-    M_atmosphere_nodes_dataset.reloaded=false;
-    M_atmosphere_elements_dataset.reloaded=false;
-    M_atmosphere_bis_elements_dataset.reloaded=false;
-    M_ocean_nodes_dataset.reloaded=false;
-    M_ocean_elements_dataset.reloaded=false;
+    M_atmosphere_nodes_dataset.interpolated=false;
+    M_atmosphere_elements_dataset.interpolated=false;
+    M_atmosphere_bis_elements_dataset.interpolated=false;
+    M_ocean_nodes_dataset.interpolated=false;
+    M_ocean_elements_dataset.interpolated=false;
 
-    M_ice_topaz_elements_dataset.reloaded=false;
-    M_ice_piomas_elements_dataset.reloaded=false;
-    M_ice_amsre_elements_dataset.reloaded=false;
-    M_ice_osisaf_elements_dataset.reloaded=false;
-    M_ice_amsr2_elements_dataset.reloaded=false;
-    M_ice_cs2_smos_elements_dataset.reloaded=false;
-    M_ice_smos_elements_dataset.reloaded=false;
-    M_bathymetry_elements_dataset.reloaded=false;
+    M_ice_topaz_elements_dataset.interpolated=false;
+    M_ice_piomas_elements_dataset.interpolated=false;
+    M_ice_amsre_elements_dataset.interpolated=false;
+    M_ice_osisaf_elements_dataset.interpolated=false;
+    M_ice_osisaf_type_elements_dataset.interpolated=false;
+    M_ice_amsr2_elements_dataset.interpolated=false;
+    M_ice_cs2_smos_elements_dataset.interpolated=false;
+    M_ice_smos_elements_dataset.interpolated=false;
+    M_bathymetry_elements_dataset.interpolated=false;
 #if defined (WAVES)
-    M_WW3A_elements_dataset.reloaded=false;
-    M_ERAIW_1DEG_elements_dataset.reloaded=false;
+    M_WW3A_elements_dataset.interpolated=false;
+    M_ERAIW_1DEG_elements_dataset.interpolated=false;
 #endif
 
     // for the parallel code, it will be necessary to add those lines
     // as the domain covered by the partitions changes at each remeshing/partitioning
 #if 0
+    M_atmosphere_nodes_dataset.grid.interpolated=false;
+    M_atmosphere_elements_dataset.grid.interpolated=false;
+    M_atmosphere_bis_elements_dataset.grid.interpolated=false;
+    M_ocean_nodes_dataset.grid.interpolated=false;
+    M_ocean_elements_dataset.grid.interpolated=false;
+    M_ice_topaz_elements_dataset.grid.interpolated=false;
+    M_ice_amsre_elements_dataset.grid.interpolated=false;
+    M_ice_osisaf_elements_dataset.grid.interpolated=false;
+    M_ice_osisaf_type_elements_dataset.grid.interpolated=false;
+    M_ice_amsr2_elements_dataset.grid.interpolated=false;
+    M_ice_cs2_smos_elements_dataset.grid.interpolated=false;
+    M_ice_smos_elements_dataset.grid.interpolated=false;
+    M_bathymetry_elements_dataset.grid.interpolated=false;
+    
     M_atmosphere_nodes_dataset.grid.loaded=false;
     M_atmosphere_elements_dataset.grid.loaded=false;
     M_atmosphere_bis_elements_dataset.grid.loaded=false;
@@ -1606,6 +1624,7 @@ FiniteElement::regrid(bool step)
     M_ice_topaz_elements_dataset.grid.loaded=false;
     M_ice_amsre_elements_dataset.grid.loaded=false;
     M_ice_osisaf_elements_dataset.grid.loaded=false;
+    M_ice_osisaf_type_elements_dataset.grid.loaded=false;
     M_ice_amsr2_elements_dataset.grid.loaded=false;
     M_ice_cs2_smos_elements_dataset.grid.loaded=false;
     M_ice_smos_elements_dataset.grid.loaded=false;
@@ -4843,6 +4862,7 @@ FiniteElement::readRestart(int step)
     M_ice_piomas_elements_dataset.target_size=M_num_elements;
     M_ice_amsre_elements_dataset.target_size=M_num_elements;
     M_ice_osisaf_elements_dataset.target_size=M_num_elements;
+    M_ice_osisaf_type_elements_dataset.target_size=M_num_elements;
     M_ice_amsr2_elements_dataset.target_size=M_num_elements;
     M_ice_cs2_smos_elements_dataset.target_size=M_num_elements;
     M_ice_smos_elements_dataset.target_size=M_num_elements;
@@ -5856,11 +5876,14 @@ FiniteElement::cs2SmosIce()
     external_data M_init_thick=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,1,false,time_init);
     M_init_thick.check_and_reload(M_mesh,time_init);
 
+    external_data M_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init);
+    M_type.check_and_reload(M_mesh,time_init);
+
     warrenClimatology();
 
-    double tmp_var;
+    double tmp_var, correction_factor_warren;
     for (int i=0; i<M_num_elements; ++i)
-    {
+    {    
 		tmp_var=std::min(1.,M_init_conc[i]);
 		M_conc[i] = tmp_var;
 		tmp_var=M_init_thick[i];
@@ -5877,14 +5900,22 @@ FiniteElement::cs2SmosIce()
             M_conc[i]=0.;
             M_snow_thick[i]=0.;
         }
+            
+        // Correction of the value given by Warren as a function of the ice type
+        //M_type[i]==1. // No ice
+        //M_type[i]==2. // First-Year ice
+        //M_type[i]==3. // Multi-Year ice
+        //M_type[i]==4. // Mixed
+        correction_factor_warren=std::max(0.,std::min(1.,(M_type[i]-1.)*0.5)); // == 1. for MY, and mixed, 0.5 for FY, 0. for No ice
+
+        M_snow_thick[i]=correction_factor_warren*M_snow_thick[i]*M_conc[i];
 
 		M_damage[i]=0.;
 
         // Check that the snow is not so thick that the ice is flooded
         double max_snow = M_thick[i]*(physical::rhow-physical::rhoi)/physical::rhos;
-        // Take half of the maximum allowed snow thickness
-        M_snow_thick[i] = std::min(0.5*max_snow, M_snow_thick[i]);
-
+        M_snow_thick[i] = std::min(max_snow, M_snow_thick[i]);
+        
 	}
 }
 void
@@ -6031,12 +6062,16 @@ FiniteElement::warrenClimatology()
     if ( day < eomday/2. )
     { // We're in the early part of the month and interpolate to the previous month
         month2 = month-1;
-        dt     = day;
+        dt     = eomday/2+day;
+        if(month2==0)
+            month2=12;
     }
     else
     { // We're in the late part of the month and interpolate to the next month
         month2 = month+1;
-        dt     = eomday - day;
+        dt     = eomday/2 + eomday - day;
+        if(month2==13)
+            month2=1;
     }
 
     // Now calculate snow thickness for the current day as an inexact temporal interpolation

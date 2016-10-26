@@ -37,8 +37,11 @@ namespace Nextsim
        name = std::string(DatasetName);
        projfilename = Environment::vm()["simul.proj_filename"].as<std::string>();
 
-     std::vector<std::vector<double>> data2_tmp;
-     data2_tmp.resize(2);
+     std::vector<std::vector<double>> loaded_data_tmp;
+     loaded_data_tmp.resize(2);
+     
+     std::vector<std::vector<double>> interpolated_data_tmp;
+     interpolated_data_tmp.resize(2);
 
      /*
       *	match projection name and initialize remaining parameters
@@ -83,7 +86,8 @@ namespace Nextsim
              a: 1.,
              b: 0.,
              Units: "degree_north",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
          Variable longitude={
@@ -96,7 +100,8 @@ namespace Nextsim
              a: 1.,
              b: 0.,
              Units: "degree_east",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
          Variable time_tmp={
@@ -109,7 +114,8 @@ namespace Nextsim
              a: 1.,
              b: 0.,
              Units: "hours",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
          // conversion factors: xnew = a*x + b
@@ -123,7 +129,8 @@ namespace Nextsim
              a: 1.,
              b: 0.,
              Units: "m/s",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
          Variable v={
@@ -136,7 +143,8 @@ namespace Nextsim
              a: 1.,
              b: 0.,
              Units: "m/s",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
      	Grid grid_tmp={
@@ -188,7 +196,8 @@ namespace Nextsim
          target_size= target_size_tmp;
          grid= grid_tmp;
 
-         reloaded=false;
+         loaded=false;
+         interpolated=false;
 
          averaging_period=0.;
          time= time_tmp;
@@ -233,7 +242,8 @@ namespace Nextsim
              a: 1.,
              b: 0.,
              Units: "degree_north",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
          Variable longitude={
@@ -246,7 +256,8 @@ namespace Nextsim
              a: 1.,
              b: 0.,
              Units: "degree_east",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
          Variable time_tmp={
@@ -259,7 +270,8 @@ namespace Nextsim
              a: 1.,
              b: 0.,
              Units: "hours",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
          // conversion factors: xnew = a*x + b
@@ -273,7 +285,8 @@ namespace Nextsim
              a: 1.,
              b: 0.,
              Units: "m/s",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
          Variable v={
@@ -286,7 +299,8 @@ namespace Nextsim
              a: 1.,
              b: 0.,
              Units: "m/s",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
      	Grid grid_tmp={
@@ -329,7 +343,8 @@ namespace Nextsim
              a:1.,
              b:-273.15,
              Units:"C",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	}; // T2M
          Variable mixrat={
              name:"Q2",
@@ -341,7 +356,8 @@ namespace Nextsim
              a:1.,
              b:0.,
              Units:"",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	}; // Q2M
          Variable mslp={
              name:"SLP",
@@ -353,7 +369,8 @@ namespace Nextsim
              a:1e2,
              b:0.,
              Units:"Pa",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	}; //PSFC, a=1.
          Variable Qsw_in={
              name:"SWDNB",
@@ -365,7 +382,8 @@ namespace Nextsim
              a:1.,
              b:0.,
              Units:"W/m^2",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
          Variable Qlw_in={
              name:"LWDNB",
@@ -377,7 +395,8 @@ namespace Nextsim
              a:1.,
              b:0.,
              Units:"W/m^2",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
          Variable snowfr={
              name:"SR",
@@ -389,7 +408,8 @@ namespace Nextsim
              a:1.,
              b:0.,
              Units:"",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
          Variable precip={
              name:"RAINNC",
@@ -401,7 +421,8 @@ namespace Nextsim
              a:physical::rhow/1000./(3.*3600),
              b:0.,
              Units:"kg/m^2/s",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
          std::vector<Variable> variables_tmp(7);
@@ -420,9 +441,11 @@ namespace Nextsim
          target_size=target_size_tmp;
          grid= grid_tmp;
 
-         reloaded=false;
-
-averaging_period=0.;         time= time_tmp;
+         loaded=false;
+         interpolated=false;
+         
+         averaging_period=0.;         
+         time= time_tmp;
      }
      else if (strcmp (DatasetName, "topaz_nodes") == 0)
      {
@@ -475,7 +498,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_north",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable longitude={
              name: "longitude",
@@ -487,7 +511,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_east",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable time_tmp={
              name: "time",
@@ -499,7 +524,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 12., // to center the time on the middle of the day
              Units: "hours",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable u={
              name: "u",
@@ -511,7 +537,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "m/s",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
          Variable v={
@@ -524,7 +551,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "m/s",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
      	Variable ssh={
@@ -537,7 +565,8 @@ averaging_period=0.;         time= time_tmp;
      		a: 1.,
      		b: 0.,
      		Units: "m/s",
-     		data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
          Grid grid_tmp={
@@ -588,8 +617,8 @@ averaging_period=0.;         time= time_tmp;
          target_size= target_size_tmp;
          grid= grid_tmp;
 
-         reloaded=false;
-
+         loaded=false;
+         interpolated=false;
 
          averaging_period=1.; // days
          time= time_tmp;
@@ -645,7 +674,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_north",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable longitude={
              name: "longitude",
@@ -657,7 +687,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_east",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable time_tmp={
              name: "time",
@@ -669,7 +700,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 12., // to center the time on the middle of the day
              Units: "hours",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
      	Variable sst={
      		name: "temperature",
@@ -681,7 +713,8 @@ averaging_period=0.;         time= time_tmp;
      		a: 1.,
      		b: 0.,
      		Units: "deg celsius",
-     		data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
      	Variable sss={
@@ -694,7 +727,8 @@ averaging_period=0.;         time= time_tmp;
      		a: 1.,
      		b: 0.,
      		Units: "",
-     		data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
      	Variable mld={
@@ -707,7 +741,8 @@ averaging_period=0.;         time= time_tmp;
      		a: 1.,
      		b: 0.,
      		Units: "m",
-     		data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
          Grid grid_tmp={
@@ -742,17 +777,17 @@ averaging_period=0.;         time= time_tmp;
          variables_tmp[2] = mld;
 
          std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+         
+         variables= variables_tmp;
+         vectorial_variables= vectorial_variables_tmp;
+         target_size= target_size_tmp;
+         grid= grid_tmp;
+         
+         loaded=false;
+         interpolated=false;
 
-             variables= variables_tmp;
-             vectorial_variables= vectorial_variables_tmp;
-             target_size= target_size_tmp;
-             grid= grid_tmp;
-
-             reloaded=false;
-
-
-             averaging_period=1.; // days
-             time= time_tmp;
+         averaging_period=1.; // days
+         time= time_tmp;
      }
      else if (strcmp (DatasetName, "topaz_forecast_nodes") == 0)
      {
@@ -805,7 +840,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_north",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable longitude={
              name: "longitude",
@@ -817,7 +853,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_east",
-             data2: data2_tmp};
+             loaded_data: loaded_data_tmp,
+             interpolated_data: interpolated_data_tmp};
 
          Variable time_tmp={
              name: "time",
@@ -829,7 +866,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 12., // to center the time on the middle of the day
              Units: "hours",
-             data2: data2_tmp};
+             loaded_data: loaded_data_tmp,
+             interpolated_data: interpolated_data_tmp};
 
          Variable u={
              name: "u",
@@ -841,7 +879,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "m/s",
-             data2: data2_tmp
+             loaded_data: loaded_data_tmp,
+             interpolated_data: interpolated_data_tmp
      	};
 
          Variable v={
@@ -854,7 +893,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "m/s",
-             data2: data2_tmp
+             loaded_data: loaded_data_tmp,
+             interpolated_data: interpolated_data_tmp
      	};
 
      	Variable ssh={
@@ -867,7 +907,8 @@ averaging_period=0.;         time= time_tmp;
      		a: 1.,
      		b: 0.,
      		Units: "m/s",
-     		data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp
      	};
 
          Grid grid_tmp={
@@ -885,7 +926,7 @@ averaging_period=0.;         time= time_tmp;
              dimension_y: dimension_y,
 
              mpp_file: projfilename,
-     		interpolation_in_latlon: false,
+             interpolation_in_latlon: false,
 
              loaded: false,
              dataset_frequency:"daily",
@@ -918,8 +959,8 @@ averaging_period=0.;         time= time_tmp;
          target_size= target_size_tmp;
          grid= grid_tmp;
 
-         reloaded=false;
-
+         loaded=false;
+         interpolated=false;
 
          averaging_period=1.; // days
          time= time_tmp;
@@ -975,7 +1016,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_north",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable longitude={
              name: "longitude",
@@ -987,7 +1029,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_east",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable time_tmp={
              name: "time",
@@ -999,7 +1042,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 12., // to center the time on the middle of the day
              Units: "hours",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
      	Variable sst={
      		name: "temperature",
@@ -1011,7 +1055,8 @@ averaging_period=0.;         time= time_tmp;
      		a: 1.,
      		b: 0.,
      		Units: "deg celsius",
-     		data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
      	Variable sss={
@@ -1024,7 +1069,8 @@ averaging_period=0.;         time= time_tmp;
      		a: 1.,
      		b: 0.,
      		Units: "",
-     		data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
      	Variable mld={
@@ -1037,7 +1083,8 @@ averaging_period=0.;         time= time_tmp;
      		a: 1.,
      		b: 0.,
      		Units: "m",
-     		data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
      	Variable conc={
@@ -1050,7 +1097,8 @@ averaging_period=0.;         time= time_tmp;
      		a: 1.,
      		b: 0.,
      		Units: "",
-     		data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
      	Variable thick={
@@ -1063,7 +1111,8 @@ averaging_period=0.;         time= time_tmp;
      		a: 1.,
      		b: 0.,
      		Units: "m",
-     		data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
      	Variable snow_thick={
@@ -1076,7 +1125,8 @@ averaging_period=0.;         time= time_tmp;
      		a: 1.,
      		b: 0.,
      		Units: "m",
-     		data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
          Grid grid_tmp={
@@ -1120,8 +1170,8 @@ averaging_period=0.;         time= time_tmp;
          target_size= target_size_tmp;
          grid= grid_tmp;
 
-         reloaded=false;
-
+         loaded=false;
+         interpolated=false;
 
          averaging_period=1.; // days
          time= time_tmp;
@@ -1177,7 +1227,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_north",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable longitude={
              name: "longitude",
@@ -1189,7 +1240,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_east",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable time_tmp={
              name: "time",
@@ -1201,7 +1253,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 12., // to center the time on the middle of the day
              Units: "hours",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
      	Variable conc={
      		name: "fice",
@@ -1213,7 +1266,8 @@ averaging_period=0.;         time= time_tmp;
      		a: 1.,
      		b: 0.,
      		Units: "",
-     		data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
      	Variable thick={
@@ -1226,7 +1280,8 @@ averaging_period=0.;         time= time_tmp;
      		a: 1.,
      		b: 0.,
      		Units: "m",
-     		data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
      	Variable snow_thick={
@@ -1239,7 +1294,8 @@ averaging_period=0.;         time= time_tmp;
      		a: 1.,
      		b: 0.,
      		Units: "m",
-     		data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
          Grid grid_tmp={
@@ -1280,8 +1336,8 @@ averaging_period=0.;         time= time_tmp;
          target_size= target_size_tmp;
          grid= grid_tmp;
 
-         reloaded=false;
-
+         loaded=false;
+         interpolated=false;
 
          averaging_period=1.; // days
          time= time_tmp;
@@ -1326,7 +1382,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_north",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable longitude={
              name: "longitude",
@@ -1338,7 +1395,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_east",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable time_tmp={
              name: "time",
@@ -1350,7 +1408,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "hours",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
      	Variable conc={
      		name: "area",
@@ -1362,7 +1421,8 @@ averaging_period=0.;         time= time_tmp;
      		a: 1.,
      		b: 0.,
      		Units: "",
-     		data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
      	Variable thick={
@@ -1375,7 +1435,8 @@ averaging_period=0.;         time= time_tmp;
      		a: 1.,
      		b: 0.,
      		Units: "m",
-     		data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
      	Variable snow_thick={
@@ -1388,7 +1449,8 @@ averaging_period=0.;         time= time_tmp;
      		a: 1.,
      		b: 1/physical::rhos,
      		Units: "m",
-     		data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
          Grid grid_tmp={
@@ -1434,8 +1496,8 @@ averaging_period=0.;         time= time_tmp;
          target_size= target_size_tmp;
          grid= grid_tmp;
 
-         reloaded=false;
-
+         loaded=false;
+         interpolated=false;
 
          averaging_period=365./12; // days
          time= time_tmp;
@@ -1480,7 +1542,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_north",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable longitude={
              name: "longitude",
@@ -1492,7 +1555,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_east",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable time_tmp={
              name: "time",
@@ -1504,7 +1568,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1./3600,
              b: 12., // to center the time on the middle of the day
              Units: "hours",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable conc={
      		name: "icecon",
@@ -1516,7 +1581,8 @@ averaging_period=0.;         time= time_tmp;
      		a: 0.01,
      		b: 0.,
      		Units: "",
-     		data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
          Grid grid_tmp={
@@ -1555,8 +1621,8 @@ averaging_period=0.;         time= time_tmp;
         target_size= target_size_tmp;
         grid= grid_tmp;
 
-        reloaded=false;
-
+        loaded=false;
+        interpolated=false;
 
         averaging_period=1.; // days
      	time= time_tmp;
@@ -1601,7 +1667,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_north",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable longitude={
              name: "lon",
@@ -1613,7 +1680,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_east",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable time_tmp={
              name: "time",
@@ -1625,7 +1693,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1./3600,
              b: 12., // to center the time on the middle of the day
              Units: "hours",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable conc={
      		name: "ice_conc",
@@ -1637,7 +1706,8 @@ averaging_period=0.;         time= time_tmp;
      		a: 0.01,
      		b: 0.,
      		Units: "",
-     		data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
         Variable confidence={
@@ -1650,7 +1720,8 @@ averaging_period=0.;         time= time_tmp;
     		a: 1.,
     		b: 0.,
     		Units: "",
-    		data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+    		interpolated_data: interpolated_data_tmp
     	};
 
          Grid grid_tmp={
@@ -1690,8 +1761,133 @@ averaging_period=0.;         time= time_tmp;
         target_size= target_size_tmp;
         grid= grid_tmp;
 
-        reloaded=false;
+        loaded=false;
+        interpolated=false;
 
+        averaging_period=1.; // days
+     	time= time_tmp;
+     }
+     else if (strcmp (DatasetName, "ice_osisaf_type_elements") == 0)
+     {
+     	// Definition of topaz grid and datasets
+         Dimension dimension_x={
+             name:"xc",
+             cyclic:false
+     	};
+
+         Dimension dimension_y={
+             name:"yc",
+             cyclic:false
+     	};
+
+         Dimension dimension_time={
+             name:"time", // "Time"
+             cyclic:false
+     	};
+
+         std::vector<Dimension> dimensions(3);
+         dimensions[0] = dimension_time;
+         dimensions[1] = dimension_y;
+         dimensions[2] = dimension_x;
+
+         std::vector<Dimension> dimensions_latlon(2);
+         dimensions_latlon[0] = dimension_y;
+         dimensions_latlon[1] = dimension_x;
+
+         std::vector<Dimension> dimensions_time(1);
+         dimensions_time[0] = dimension_time;
+
+         Variable latitude={
+             name: "lat",
+             dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_north",
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
+
+         Variable longitude={
+             name: "lon",
+             dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_east",
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
+
+         Variable time_tmp={
+             name: "time",
+             dimensions: dimensions_time,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1./3600,
+             b: 12., // to center the time on the middle of the day
+             Units: "hours",
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
+
+         Variable type={
+     		name: "ice_type",
+     		dimensions: dimensions,
+            land_mask_defined: true,
+            land_mask_value: -1.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 1,
+     		b: 0.,
+     		Units: "",
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
+     	};
+
+         Grid grid_tmp={
+             interpolation_method: InterpolationType::FromMeshToMesh2dx,
+     		interp_type: -1,
+             dirname: "data",
+             prefix:"ice_type_nh_polstere-100_multi_",
+             postfix: "1200.nc",
+             reference_date: "1978-01-01",
+
+             latitude: latitude,
+             longitude: longitude,
+
+             dimension_x: dimension_x,
+             dimension_y: dimension_y,
+
+             mpp_file: projfilename,
+     		interpolation_in_latlon: false,
+
+             loaded: false,
+             dataset_frequency:"nearest_daily",
+
+            waveOptions: wavopt_none,
+
+     		masking: true,
+     		masking_variable: type
+        };
+
+        std::vector<Variable> variables_tmp(1);
+        variables_tmp[0] = type;
+
+        std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+        variables= variables_tmp;
+        vectorial_variables= vectorial_variables_tmp;
+        target_size= target_size_tmp;
+        grid= grid_tmp;
+
+        loaded=false;
+        interpolated=false;
 
         averaging_period=1.; // days
      	time= time_tmp;
@@ -1736,7 +1932,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_north",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable longitude={
              name: "longitude",
@@ -1748,7 +1945,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_east",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable time_tmp={
              name: "time",
@@ -1760,7 +1958,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 12., // to center the time on the middle of the day
              Units: "hours",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable thickness={
      		name: "sea_ice_thickness",
@@ -1772,7 +1971,8 @@ averaging_period=0.;         time= time_tmp;
      		a: 1.,
      		b: 0.,
      		Units: "",
-     		data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
         
          Grid grid_tmp={
@@ -1811,8 +2011,8 @@ averaging_period=0.;         time= time_tmp;
         target_size= target_size_tmp;
         grid= grid_tmp;
 
-        reloaded=false;
-
+        loaded=false;
+        interpolated=false;
         
         averaging_period=1.; // days
      	time= time_tmp;
@@ -1844,7 +2044,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_north",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable longitude={
              name: "longitude",
@@ -1856,7 +2057,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_east",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable conc={
      		name: "ice_concentration",
@@ -1868,7 +2070,8 @@ averaging_period=0.;         time= time_tmp;
      		a: 0.01,
      		b: 0.,
      		Units: "",
-     		data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
         Variable thickness={
@@ -1881,7 +2084,8 @@ averaging_period=0.;         time= time_tmp;
     		a: 1.,
     		b: 0.,
     		Units: "",
-    		data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+    		interpolated_data: interpolated_data_tmp
     	};
 
          Grid grid_tmp={
@@ -1923,7 +2127,8 @@ averaging_period=0.;         time= time_tmp;
         target_size= target_size_tmp;
         grid= grid_tmp;
 
-        reloaded=false;
+        loaded=false;
+        interpolated=false;
 
         averaging_period=1.; // days
      }
@@ -1967,7 +2172,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_north",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable longitude={
              name: "longitude",
@@ -1979,7 +2185,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_east",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable time_tmp={
              name: "time",
@@ -1991,7 +2198,8 @@ averaging_period=0.;         time= time_tmp;
              a: 24.,
              b: 12., // to center the time on the middle of the day
              Units: "hours",
-             data2: data2_tmp};
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
          Variable conc={
      		name: "sea_ice_concentration",
@@ -2003,7 +2211,8 @@ averaging_period=0.;         time= time_tmp;
      		a: 0.01,
      		b: 0.,
      		Units: "",
-     		data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
         Variable mask={
@@ -2016,7 +2225,8 @@ averaging_period=0.;         time= time_tmp;
     		a: 1.,
     		b: 0.,
     		Units: "",
-    		data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+    		interpolated_data: interpolated_data_tmp
     	};
 
          Grid grid_tmp={
@@ -2056,8 +2266,8 @@ averaging_period=0.;         time= time_tmp;
         target_size= target_size_tmp;
         grid= grid_tmp;
 
-        reloaded=false;
-
+        loaded=false;
+        interpolated=false;
 
         averaging_period=1.; // days
      	time= time_tmp;
@@ -2098,7 +2308,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_north",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
          Variable longitude={
@@ -2112,7 +2323,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_east",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
      	Grid grid_tmp={
@@ -2153,7 +2365,8 @@ averaging_period=0.;         time= time_tmp;
              a:-1.,
              b:0.,
              Units:"m",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
          std::vector<Variable> variables_tmp(1);
@@ -2166,8 +2379,9 @@ averaging_period=0.;         time= time_tmp;
          target_size=target_size_tmp;
 
          grid= grid_tmp;
-         reloaded=false;
-
+         
+         loaded=false;
+         interpolated=false;
 
          averaging_period=0.;
      }
@@ -2206,7 +2420,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_north",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
          Variable longitude={
@@ -2219,7 +2434,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_east",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
      	Grid grid_tmp={
@@ -2271,7 +2487,8 @@ averaging_period=0.;         time= time_tmp;
             a: 1.,
             b: 0.,
             Units: "hours",
-            data2: data2_tmp
+           loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
     	};
 
         Variable tair={
@@ -2284,7 +2501,8 @@ averaging_period=0.;         time= time_tmp;
             a:1.,
             b:-273.15,
             Units:"C",
-            data2: data2_tmp
+           loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
     	}; // T2M
         Variable dair={
             name:"2D",
@@ -2296,7 +2514,8 @@ averaging_period=0.;         time= time_tmp;
             a:1.,
             b:-273.15,
             Units:"C",
-            data2: data2_tmp
+           loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
     	}; // Q2M
         Variable mslp={
             name:"MSL",
@@ -2308,7 +2527,8 @@ averaging_period=0.;         time= time_tmp;
             a:1.,
             b:0.,
             Units:"Pa",
-            data2: data2_tmp
+           loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
     	}; //PSFC, a=1.
         Variable Qsw_in={
             name:"SSRD",
@@ -2320,7 +2540,8 @@ averaging_period=0.;         time= time_tmp;
             a:1./(6.*3600),
             b:0.,
             Units:"W/m^2",
-            data2: data2_tmp
+           loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
     	};
         Variable tcc={
             name:"TCC",
@@ -2332,7 +2553,8 @@ averaging_period=0.;         time= time_tmp;
             a:1.,
             b:0.,
             Units:"",
-            data2: data2_tmp
+           loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
     	};
 
         Variable precip={
@@ -2345,7 +2567,8 @@ averaging_period=0.;         time= time_tmp;
             a:physical::rhow/(6.*3600),
             b:0.,
             Units:"kg/m^2/s",
-            data2: data2_tmp
+           loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
     	};
 
         std::vector<Variable> variables_tmp(6);
@@ -2362,10 +2585,10 @@ averaging_period=0.;         time= time_tmp;
          vectorial_variables= vectorial_variables_tmp;
          target_size= target_size_tmp;
 
-         reloaded= false;
+         loaded=false;
+         interpolated=false;
 
          averaging_period=0.;
-
          time= time_tmp;
      }
      else if (strcmp (DatasetName, "ERAi_nodes") == 0)
@@ -2402,7 +2625,8 @@ averaging_period=0.;         time= time_tmp;
           a: 1.,
           b: 0.,
           Units: "degree_north",
-          data2: data2_tmp};
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
       Variable longitude={
           name: "lon",
@@ -2414,7 +2638,8 @@ averaging_period=0.;         time= time_tmp;
           a: 1.,
           b: 0.,
           Units: "degree_east",
-          data2: data2_tmp};
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
   	Grid grid_tmp={
   		interpolation_method: InterpolationType::FromGridToMesh,
@@ -2466,7 +2691,8 @@ averaging_period=0.;         time= time_tmp;
          a: 1.,
          b: 0.,
          Units: "hours",
-         data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      };
 
       // conversion factors: xnew = a*x + b
@@ -2480,7 +2706,8 @@ averaging_period=0.;         time= time_tmp;
           a: 1.,
           b: 0.,
           Units: "m/s",
-          data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
       };
 
       Variable v={
@@ -2493,7 +2720,8 @@ averaging_period=0.;         time= time_tmp;
           a: 1.,
           b: 0.,
           Units: "m/s",
-          data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
       };
 
       std::vector<Variable> variables_tmp(2);
@@ -2516,8 +2744,8 @@ averaging_period=0.;         time= time_tmp;
       vectorial_variables= vectorial_variables_tmp;
       target_size= target_size_tmp;
 
-      reloaded= false;
-
+      loaded=false;
+      interpolated=false;
 
       averaging_period=0.;
       time= time_tmp;
@@ -2557,7 +2785,8 @@ averaging_period=0.;         time= time_tmp;
               a: 1.,
               b: 0.,
               Units: "degree_north",
-              data2: data2_tmp
+             loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
       	};
 
           Variable longitude={
@@ -2570,7 +2799,8 @@ averaging_period=0.;         time= time_tmp;
               a: 1.,
               b: 0.,
               Units: "degree_east",
-              data2: data2_tmp
+             loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
       	};
 
       	Grid grid_tmp={
@@ -2622,7 +2852,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "hours",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
 
@@ -2637,7 +2868,8 @@ averaging_period=0.;         time= time_tmp;
              a:1.,
              b:-273.15,
              Units:"C",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	}; // T2M
          Variable dair={
              name:"D2M",
@@ -2649,7 +2881,8 @@ averaging_period=0.;         time= time_tmp;
              a:1.,
              b:-273.15,
              Units:"C",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	}; // Q2M
          Variable mslp={
              name:"MSL",
@@ -2661,7 +2894,8 @@ averaging_period=0.;         time= time_tmp;
              a:1.,
              b:0.,
              Units:"Pa",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	}; //PSFC, a=1.
 
          Variable tcc={
@@ -2674,7 +2908,8 @@ averaging_period=0.;         time= time_tmp;
              a:1.,
              b:0.,
              Units:"",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
      	};
 
          std::vector<Variable> variables_tmp(4);
@@ -2689,10 +2924,10 @@ averaging_period=0.;         time= time_tmp;
           vectorial_variables= vectorial_variables_tmp;
           target_size= target_size_tmp;
 
-          reloaded= false;
-
+          loaded=false;
+          interpolated=false;
+          
           averaging_period=0.;
-
           time= time_tmp;
       }
       else if (strcmp (DatasetName, "ec_nodes") == 0)
@@ -2729,7 +2964,8 @@ averaging_period=0.;         time= time_tmp;
            a: 1.,
            b: 0.,
            Units: "degree_north",
-           data2: data2_tmp};
+          loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
        Variable longitude={
            name: "lon",
@@ -2741,7 +2977,8 @@ averaging_period=0.;         time= time_tmp;
            a: 1.,
            b: 0.,
            Units: "degree_east",
-           data2: data2_tmp};
+          loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
 
    	Grid grid_tmp={
    		interpolation_method: InterpolationType::FromGridToMesh,
@@ -2793,7 +3030,8 @@ averaging_period=0.;         time= time_tmp;
           a: 1.,
           b: 0.,
           Units: "hours",
-          data2: data2_tmp
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
       };
 
        // conversion factors: xnew = a*x + b
@@ -2807,7 +3045,8 @@ averaging_period=0.;         time= time_tmp;
            a: 1.,
            b: 0.,
            Units: "m/s",
-           data2: data2_tmp
+          loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
        };
 
        Variable v={
@@ -2820,7 +3059,8 @@ averaging_period=0.;         time= time_tmp;
            a: 1.,
            b: 0.,
            Units: "m/s",
-           data2: data2_tmp
+          loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
        };
 
        std::vector<Variable> variables_tmp(2);
@@ -2843,8 +3083,8 @@ averaging_period=0.;         time= time_tmp;
        vectorial_variables= vectorial_variables_tmp;
        target_size= target_size_tmp;
 
-       reloaded= false;
-
+       loaded=false;
+       interpolated=false;
 
        averaging_period=0.;
        time= time_tmp;
@@ -2882,7 +3122,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_north",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
         };
 
         Variable longitude={
@@ -2895,7 +3136,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_east",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
         };
 
 
@@ -2952,7 +3194,8 @@ averaging_period=0.;         time= time_tmp;
             a: 24.,
             b: 0.,
             Units: "hours",
-            data2: data2_tmp
+           loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
         };
 
         Variable SWH={
@@ -2965,7 +3208,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "m",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
         };
 
 
@@ -2979,7 +3223,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
         };
 
         Variable FP={
@@ -2992,7 +3237,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "/s",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
         };
 
 
@@ -3005,13 +3251,12 @@ averaging_period=0.;         time= time_tmp;
          target_size= target_size_tmp;
          grid= grid_tmp;
 
-         reloaded= false;
-
+         loaded=false;
+         interpolated=false;
 
          averaging_period=0.;
 
          time= time_tmp;
-
      }
      else if (strcmp (DatasetName, "erai_waves_1deg_elements") == 0)
      {
@@ -3052,7 +3297,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_north",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
         };
 
         Variable longitude={
@@ -3065,7 +3311,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree_east",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
         };
 
 
@@ -3122,7 +3369,8 @@ averaging_period=0.;         time= time_tmp;
             a: 1.,
             b: 0.,
             Units: "hours",
-            data2: data2_tmp
+           loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
         };
 
         Variable SWH={
@@ -3135,7 +3383,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "m",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
         };
 
 
@@ -3149,7 +3398,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "degree",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
         };
 
         Variable MWP={
@@ -3162,7 +3412,8 @@ averaging_period=0.;         time= time_tmp;
              a: 1.,
              b: 0.,
              Units: "s",
-             data2: data2_tmp
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
         };
 
 
@@ -3175,13 +3426,12 @@ averaging_period=0.;         time= time_tmp;
          target_size= target_size_tmp;
          grid= grid_tmp;
 
-         reloaded= false;
-
+         loaded=false;
+         interpolated=false;
 
          averaging_period=0.;
 
          time= time_tmp;
-
      }
      else
        {
@@ -3194,6 +3444,7 @@ averaging_period=0.;         time= time_tmp;
    	fprintf (stderr, "ice_topaz_elements\n");
     fprintf (stderr, "ice_amsre_elements\n");
     fprintf (stderr, "ice_osisaf_elements\n");
+    fprintf (stderr, "ice_osisaf_type_elements\n");
     fprintf (stderr, "ice_amsr2_elements\n");
     fprintf (stderr, "ice_piomas_elements\n");
    	fprintf (stderr, "etopo_elements\n");
@@ -3276,11 +3527,13 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 
     // We initially set the size of the data domain to the full dataset domain, it will be reduce to the model domain in a second step.
     tmpDim = dataFile.getDim(grid_ptr->dimension_y.name);
-	grid_ptr->dimension_y_count  =  tmpDim.getSize();
+	grid_ptr->dimension_y_count_netcdf  =  tmpDim.getSize();
+    grid_ptr->dimension_y_count  = grid_ptr->dimension_y_count_netcdf;
     grid_ptr->dimension_y_start = 0;
 
     tmpDim = dataFile.getDim(grid_ptr->dimension_x.name);
-	grid_ptr->dimension_x_count =  tmpDim.getSize();
+	grid_ptr->dimension_x_count_netcdf =  tmpDim.getSize();
+    grid_ptr->dimension_x_count =  grid_ptr->dimension_x_count_netcdf;
     grid_ptr->dimension_x_start = 0;
 
 

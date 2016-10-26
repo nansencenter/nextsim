@@ -74,8 +74,9 @@ public:
         double b;           // add_offset defined by us to have the data in the units system used by nextsim
         std::string Units;  // units used in neXtSIM for this variable
 
-        // Storage of the data
-        std::vector<std::vector<double>> data2; // 2 vectors, one for the previous and one for the next data timestep
+        // Storage of the loaded and interpolated data
+        std::vector<std::vector<double>> loaded_data;       // 2 vectors, one for the previous and one for the next data timestep
+        std::vector<std::vector<double>> interpolated_data; // 2 vectors, one for the previous and one for the next data timestep
     } Variable;
 
     typedef struct Vectorial_Variable
@@ -131,8 +132,10 @@ public:
 
         int dimension_x_start;
         int dimension_x_count;
+        int dimension_x_count_netcdf;
         int dimension_y_start;
         int dimension_y_count;
+        int dimension_y_count_netcdf;
     } Grid;
 
     DataSet();
@@ -145,8 +148,12 @@ public:
     std::vector<Variable> variables; // vector listing all the available variables, included the components of the vectorial variables
     std::vector<Vectorial_Variable> vectorial_variables; // vectors listing the vectorial variables
     int target_size;
+    int nb_forcing_step;
+    int final_MN;
+    double rotation_angle;
 
-    bool reloaded;
+    bool loaded;
+    bool interpolated;
 
     double averaging_period; // 0. for snapshot, 1. for daily values, 365./12 for monthly values.
     Variable time;
