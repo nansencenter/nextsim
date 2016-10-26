@@ -10,6 +10,7 @@
 #include "./Mesh.h"
 //#include "../../classes/classes.h"
 #include "./IssmSeqVec.h"
+#include <omp.h>
 
 typedef unsigned long ulong;
 
