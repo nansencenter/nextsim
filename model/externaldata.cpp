@@ -868,7 +868,7 @@ ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(doubl
                     }
                 }
                 
-                if(cyclic_N!=N)
+                if(cyclic_M!=M)
                 {
                     for (int x_ind=0; x_ind<N; ++x_ind)
                     {
@@ -878,7 +878,7 @@ ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(doubl
                         data_in[(dataset->variables.size()*dataset->nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=dataset->variables[j].loaded_data[fstep][i];
                     }
                 }
-                if(cyclic_M!=M)
+                if(cyclic_N!=N)
                 {
                     for (int y_ind=0; y_ind<M; ++y_ind)
                     {
