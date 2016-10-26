@@ -4023,7 +4023,7 @@ FiniteElement::step(int &pcpt)
 
 
     // Read in the new buoys and output
-    if ( pcpt==0 || ( M_drifter_type == setup::DrifterType::IABP && std::fmod(current_time,0.5) == 0 ) )
+    if ( M_drifter_type == setup::DrifterType::IABP && ( pcpt==0 || std::fmod(current_time,0.5)==0 ) )
     {
         this->updateIABPDrifter();
         // TODO: Do we want to output drifters at a different time interval?
