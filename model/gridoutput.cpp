@@ -46,11 +46,11 @@ namespace Nextsim
     }
 
     // Constructor for only one set of variables - regular grid
-    GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, std::vector<Variable> variables, int kind)
+    GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, int kind)
         :
             GridOutput(variables, kind)
     {
-        initRegularGrid(ncols, nrows, mooring_spacing);
+        initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
     }
 
     // Constructor for only one set of variables - arbitrary grid
@@ -73,12 +73,12 @@ namespace Nextsim
     }
 
     // constructor for nodal and elemental variables only (no vectors) - regular grid
-    GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables)
+    GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables)
         :
             GridOutput(nodal_variables, elemental_variables)
 
     {
-        initRegularGrid(ncols, nrows, mooring_spacing);
+        initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
     }
 
     // constructor for nodal and elemental variables only (no vectors) - arbitrary grid
@@ -100,12 +100,12 @@ namespace Nextsim
     {}
 
     // constructor for nodal, elemental and vectorial variables - regular grid
-    GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables)
+    GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables)
         :
             GridOutput(nodal_variables, elemental_variables, vectorial_variables)
 
     {
-        initRegularGrid(ncols, nrows, mooring_spacing);
+        initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
     }
 
     // constructor for nodal, elemental and vectorial variables - arbitrary grid
@@ -122,8 +122,9 @@ namespace Nextsim
     ////////////////////////////////////////////////////////////////////////////////
     // Initialisation routines for the two kinds of grids
     ////////////////////////////////////////////////////////////////////////////////
-    void GridOutput::initRegularGrid(int ncols, int nrows, double mooring_spacing)
+    void GridOutput::initRegularGrid(int ncols, int nrows, double mooring_spacing, double xmin, double ymin)
     {
+        // Set the grid size
         M_ncols = ncols;
         M_nrows = nrows;
         M_mooring_spacing = mooring_spacing;
@@ -131,6 +132,37 @@ namespace Nextsim
 
         M_grid = Grid();
         M_grid.loaded = false;
+
+        // Calculate lat and lon
+        M_grid.gridLAT.assign(nrows*ncols, 0.);
+        M_grid.gridLON.assign(nrows*ncols, 0.);
+
+        mapx_class *map;
+        std::string filename = Environment::nextsimDir().string() + "/data/" + Environment::vm()["mesh.mppfile"].as<std::string>();
+        std::vector<char> str(filename.begin(), filename.end());
+        str.push_back('\0');
+
+        map = init_mapx(&str[0]);
+
+        double lat;
+        double lon;
+        int i=0;
+        double X = xmin;
+        for (int nrows=0; nrows<M_nrows; nrows++)
+        {
+            double Y = ymin;
+            for (int ncols=0; ncols<M_ncols; ncols++)
+            {
+                int status = inverse_mapx(map,X,Y,&lat,&lon);
+                M_grid.gridLAT[i] = lat;
+                M_grid.gridLON[i] = lon;
+                Y += mooring_spacing;
+                i++;
+            }
+            X += mooring_spacing;
+        }
+
+        close_mapx(map);
 
         this->resetGridMean();
     }
@@ -229,7 +261,7 @@ namespace Nextsim
         std::string configfileNextsim = (boost::format( "%1%/%2%/%3%" )
                                   % Environment::nextsimDir().string()
                                   % "data"
-                                  % "NpsNextsim.mpp"
+                                  % Environment::vm()["mesh.mppfile"].as<std::string>()
                                   ).str();
 
         std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
@@ -354,5 +386,135 @@ namespace Nextsim
             myfile.close();
         }
 
+    }
+
+    // Initialise a netCDF file
+    void GridOutput::initNetCDF(std::string filename)
+    {
+        // Create the netCDF file.
+        netCDF::NcFile dataFile(filename, netCDF::NcFile::replace);
+
+        // Create the time dimension
+        netCDF::NcDim tDim = dataFile.addDim("time"); // unlimited
+
+        // Create the time variable
+        netCDF::NcVar time = dataFile.addVar("time", netCDF::ncFloat, tDim);
+        time.putAtt("standard_name","time");
+        time.putAtt("long_name","simulation time");
+        time.putAtt("units","days since 1900-01-01 00:00:00");
+        time.putAtt("calendar","standard");
+
+        M_nc_step=0;
+
+        // Create the two spatial dimensions.
+        netCDF::NcDim xDim = dataFile.addDim("x", M_nrows);
+        netCDF::NcDim yDim = dataFile.addDim("y", M_ncols);
+
+        std::vector<netCDF::NcDim> dims2(2);
+        dims2[0] = xDim;
+        dims2[1] = yDim;
+
+        // Create the longitude and latitude variables
+        // Longitude
+        netCDF::NcVar lon = dataFile.addVar("longitude", netCDF::ncFloat, dims2);
+        lon.putAtt("standard_name","longitude");
+        lon.putAtt("long_name","longitude");
+        lon.putAtt("units","degrees_north");
+        lon.putAtt("_CoordinateAxisType","Lon");
+        lon.putVar(&M_grid.gridLON[0]);
+
+        // Latitude
+        netCDF::NcVar lat = dataFile.addVar("latitude", netCDF::ncFloat, dims2);
+        lat.putAtt("standard_name","latitude");
+        lat.putAtt("long_name","latitude");
+        lat.putAtt("units","degrees_north");
+        lat.putAtt("_CoordinateAxisType","Lat");
+        lat.putVar(&M_grid.gridLAT[0]);
+
+        // Create the output variables
+        netCDF::NcVar data;
+        std::vector<netCDF::NcDim> dims(3);
+        dims[0] = tDim;
+        dims[1] = xDim;
+        dims[2] = yDim;
+        for (auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); ++it)
+        {
+            data = dataFile.addVar(it->name, netCDF::ncFloat, dims);
+            data.putAtt("standard_name",it->stdName);
+            data.putAtt("long_name",it->longName);
+            data.putAtt("units",it->Units);
+            data.putAtt("_FillValue", netCDF::ncFloat, -1e14);
+        }
+        for (auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); ++it)
+        {
+            data = dataFile.addVar(it->name, netCDF::ncFloat, dims);
+            data.putAtt("standard_name",it->stdName);
+            data.putAtt("long_name",it->longName);
+            data.putAtt("units",it->Units);
+            data.putAtt("_FillValue", netCDF::ncFloat, -1e14);
+        }
+
+        dataFile.putAtt("Conventions", "CF-1.6");
+        dataFile.putAtt("institution", "NERSC, Thormoehlens gate 47, N-5006 Bergen, Norway");
+        dataFile.putAtt("source", "neXtSIM model fields");
+    }
+
+    // Write data to the netCDF file
+    void GridOutput::appendNetCDF(std::string filename, double current_time, double time_step, double mooring_output_time_step)
+    {
+        // Open the netCDF file
+        netCDF::NcFile dataFile(filename, netCDF::NcFile::write);
+
+        // Append to time
+        std::vector<size_t> start;
+        start.push_back(M_nc_step);
+
+        std::vector<size_t> count;
+        count.push_back(1);
+
+        M_nc_step++;
+
+        netCDF::NcVar time = dataFile.getVar("time");
+        // Write out the center of the output time step not end of it
+        double mean_time = current_time - mooring_output_time_step/86400/2;
+        time.putVar(start, count, &mean_time);
+
+        // Append to the output variables
+        start.push_back(0);
+        start.push_back(0);
+
+        count.push_back(M_nrows);
+        count.push_back(M_ncols);
+
+        netCDF::NcVar data;
+        double time_factor = time_step/mooring_output_time_step;
+        for (auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); ++it)
+        {
+            // Multiply all the grid values with 'time_factor'
+            for ( auto jt=it->data_grid.begin(); jt!=it->data_grid.end(); jt++ )
+                // We need to filter out the missing values so they remain the same for all output files
+                if ( *jt > M_miss_val )
+                    *jt *= time_factor;
+                else
+                    *jt = M_miss_val;
+
+            // Save to file
+            data = dataFile.getVar(it->name);
+            data.putVar(start, count, &it->data_grid[0]);
+        }
+        for (auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); ++it)
+        {
+            // Multiply all the grid values with 'time_factor'
+            for ( auto jt=it->data_grid.begin(); jt!=it->data_grid.end(); jt++ )
+                // We need to filter out the missing values so they remain the same for all output files
+                if ( *jt > M_miss_val )
+                    *jt *= time_factor;
+                else
+                    *jt = M_miss_val;
+
+            // Save to file
+            data = dataFile.getVar(it->name);
+            data.putVar(start, count, &it->data_grid[0]);
+        }
     }
 }

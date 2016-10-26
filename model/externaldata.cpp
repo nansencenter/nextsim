@@ -30,31 +30,30 @@ ExternalData::ExternalData( ):
 M_initialized(false)
 {}
 
-ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector )
+ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector, double StartingTime )
 	:
     M_is_constant( false ),
     M_dataset( dataset ),
     M_VariableId( VariableId ),
     M_is_vector( is_vector ),
     M_current_time( 0. ),
-    M_SpinUpStartingTime( 0. ),
+    M_StartingTime( StartingTime ),
     M_SpinUpDuration( 0. ),
     M_initialized(true)
 {
     M_datasetname = (boost::format( "%1%...%2%" )
-                    % M_dataset->prefix
-                    % M_dataset->postfix
+                    % M_dataset->grid.prefix
+                    % M_dataset->grid.postfix
                     ).str();
 
     fcoeff.resize(2);
 }
 
 
-ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector, double SpinUpStartingTime, double SpinUpDuration )
+ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector, double StartingTime, double SpinUpDuration )
 	:
-    ExternalData(dataset, mesh, VariableId, is_vector )
+    ExternalData(dataset, mesh, VariableId, is_vector, StartingTime )
     {
-        M_SpinUpStartingTime= SpinUpStartingTime ;
         M_SpinUpDuration= SpinUpDuration ;
     }
 
@@ -64,7 +63,7 @@ ExternalData::ExternalData( double ConstantValue )
     M_constant_value( ConstantValue ),
     M_is_vector( false ),
     M_current_time( 0. ),
-    M_SpinUpStartingTime( 0. ),
+    M_StartingTime( 0. ),
     M_SpinUpDuration( 0. ),
     M_initialized(true)
     {}
@@ -77,19 +76,19 @@ ExternalData::ExternalData( double ConstantValue, double ConstantValuebis )
         M_is_vector= true ;
     }
 
-ExternalData::ExternalData( double ConstantValue, double SpinUpStartingTime, double SpinUpDuration )
+ExternalData::ExternalData( double ConstantValue, double StartingTime, double SpinUpDuration )
     :
     ExternalData( ConstantValue )
     {
-        M_SpinUpStartingTime= SpinUpStartingTime ;
+        M_StartingTime= StartingTime ;
         M_SpinUpDuration= SpinUpDuration ;
     }
 
-ExternalData::ExternalData( double ConstantValue, double ConstantValuebis, double SpinUpStartingTime, double SpinUpDuration )
+ExternalData::ExternalData( double ConstantValue, double ConstantValuebis, double StartingTime, double SpinUpDuration )
     :
     ExternalData( ConstantValue, ConstantValuebis )
     {
-        M_SpinUpStartingTime= SpinUpStartingTime ;
+        M_StartingTime= StartingTime ;
         M_SpinUpDuration= SpinUpDuration ;
     }
 
@@ -105,16 +104,16 @@ void ExternalData::check_and_reload(GmshMesh const& mesh, const double current_t
     double current_time_tmp=M_current_time;
 
     M_factor=1.;
-    if((M_current_time-M_SpinUpStartingTime)<M_SpinUpDuration)
+    if((M_current_time-M_StartingTime)<M_SpinUpDuration)
     {
-        M_factor=(M_current_time-M_SpinUpStartingTime)/M_SpinUpDuration;
+        M_factor=(M_current_time-M_StartingTime)/M_SpinUpDuration;
     }
 
     if(!M_is_constant)
     {
         bool to_be_reloaded=false;
 
-        if(M_dataset->nb_timestep_day>0)
+        if(M_dataset->grid.dataset_frequency!="constant")
         {
             to_be_reloaded=((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp) || !M_dataset->reloaded);
         }
@@ -125,7 +124,9 @@ void ExternalData::check_and_reload(GmshMesh const& mesh, const double current_t
         {
             if (Environment::comm().rank() == 0)
                 std::cout << "Load " << M_datasetname << "\n";
+
             loadDataset(M_dataset, mesh);
+
             if (Environment::comm().rank() == 0)
                 std::cout << "Done\n";
         }
@@ -151,7 +152,7 @@ ExternalData::get(const size_type i)
     }
     else
     {
-        if(M_dataset->nb_timestep_day>0)
+        if(M_dataset->grid.dataset_frequency!="constant")
         {
             fdt = std::abs(M_dataset->ftime_range[1]-M_dataset->ftime_range[0]);
             fcoeff[0] = std::abs(M_current_time-M_dataset->ftime_range[1])/fdt;
@@ -216,7 +217,7 @@ ExternalData::get(const size_type i)
 	return static_cast<value_type>( value );
 }
 typename std::vector<double>
-ExternalData::get_vector()
+ExternalData::getVector()
 {
     std::vector<double> vector_tmp(1,0.);
 
@@ -246,7 +247,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 	std::string configfileNextsim = (boost::format( "%1%/%2%/%3%" )
                               % Environment::nextsimDir().string()
                               % "data"
-                              % "NpsNextsim.mpp"
+                              % Environment::vm()["mesh.mppfile"].as<std::string>()
                               ).str();
 
 	std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
@@ -318,62 +319,17 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
         dataset->loadGrid(&(dataset->grid), M_current_time, RX_min, RX_max, RY_min, RY_max);
 
     // ---------------------------------
-    // Initialise counters etc.
-	int nb_forcing_step =1;
-
 	std::vector<double> XTIME(1);
 	std::vector<size_t> index_start(1);
 	std::vector<size_t> index_count(1);
 
-	int index = 0;
-
 	// interp_type for grid to mesh interpolation
 	int interp_type = dataset->grid.interp_type;
-
-    // create dataset->ftime_range for data sets which need to be interpolated in time
-	if(dataset->nb_timestep_day>0)
-	{
-		double file_dt = 1./dataset->nb_timestep_day;
-
-        double time_start, time_end;
-        if(dataset->daily_mean)
-        {
-            time_start = std::floor((M_current_time-0.5)*dataset->nb_timestep_day)/dataset->nb_timestep_day+0.5;
-    		time_end   = std::ceil ((M_current_time-0.5)*dataset->nb_timestep_day)/dataset->nb_timestep_day+0.5;
-            //std::cout << "time_start " << time_start << " " << to_date_string_yd(std::floor(time_start-0.5)) <<  "\n";
-            //std::cout << "time_end " << time_end     <<  " " << to_date_string_yd(std::floor(time_end-0.5)) <<"\n";
-        }
-        else
-        {
-            time_start = std::floor(M_current_time*dataset->nb_timestep_day)/dataset->nb_timestep_day;
-    		time_end   = std::ceil (M_current_time*dataset->nb_timestep_day)/dataset->nb_timestep_day;
-        }
-
-		// We always need at least two time steps to interpolate between
-		if (time_end == time_start)
-		{
-			time_end = time_start + (1./dataset->nb_timestep_day);
-		}
-
-		dataset->ftime_range.resize(0);
-		for (double time_tmp=time_start; time_tmp<=time_end; time_tmp+=file_dt)
-		{
-			dataset->ftime_range.push_back(time_tmp);
-		}
-
-        //std::cout << "dataset->ftime_range.size() " << dataset->ftime_range.size() << "\n";
-
-		// for (int i=0; i<dataset->ftime_range.size(); ++i)
-		// {
-		// 	std::cout <<"TIMEVEC["<< i <<"]= "<< dataset->ftime_range[i] <<"\n";
-		// }
-
-		nb_forcing_step = dataset->ftime_range.size();
-	}
 
     // Initialise variables for the fields
     std::vector<double> tmp_interpolated_field(dataset->target_size);
 
+    // size of the data
     int N_data =dataset->variables.size();
     int M  =dataset->grid.dimension_y_count;
     int N  = dataset->grid.dimension_x_count;
@@ -382,6 +338,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 
     int cyclic_N=N;
     int cyclic_M=M;
+
     double delta_y=dataset->grid.gridY[M-1]-dataset->grid.gridY[M-2];
     if(dataset->grid.dimension_y.cyclic)
     {
@@ -406,62 +363,222 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
     	final_MN=dataset->grid.reduced_nodes_ind.size();
     }
 
-	// Memory leak:
-    //double* data_in = new double[N_data*nb_forcing_step*final_MN];
-    std::vector<double> data_in(N_data*nb_forcing_step*final_MN);
-
+    // initialization of the tmp data vector
     std::vector<double> data_in_tmp(MN);
-    //std::cout <<" \n";
 
+    // netcdf objects
     // Attributes (scaling and offset)
     netCDF::NcVarAtt att;
     double scale_factor;
     double add_offset;
 
-    //std::cout <<"NB_FORCING_STEP= "<< nb_forcing_step <<"\n";
+    std::vector<netCDF::NcVar> NcVars(dataset->variables.size());
+    netCDF::NcDim tmpDim;
 
-    // Read in data one time step at a time
-    for (int fstep=0; fstep < nb_forcing_step; ++fstep)
-    {
-        // Define variables for this scope
-        std::vector<netCDF::NcVar> NcVars(dataset->variables.size());
-        double ftime;
-        std::string filename;
+    // ---------- Automatic identification of the file and time index
 
-        // Filename depends on the date for time varying data
-		if(dataset->nb_timestep_day>0)
-		{
-            ftime = dataset->ftime_range[fstep];
+    // Define variables for this scope
+    double ftime, time_prev, time_next;
+    std::string filename, filename_prev, filename_next;
+    std::vector<int> file_jump;
 
-            if(dataset->daily_mean)
-                ftime = ftime-0.5;
+	int index = 0;
+    int index_prev=-1;
+    int index_next=-1;
 
-            std::string f_timestr;
-            if(dataset->grid.monthly_dataset)
+    std::vector<std::string> filename_fstep;
+    std::vector<int> index_fstep;
+
+    // Filename depends on the date for time varying data
+	if(dataset->grid.dataset_frequency!="constant")
+	{
+        // when using forcing from a forecast, we select the file based on the StartingTime
+        if ((dataset->grid.prefix).find("start") != std::string::npos)
+        {
+            ftime = M_StartingTime;
+            file_jump.push_back(0);
+        }
+        else // otherwise, we check for
+        {
+            ftime = M_current_time-dataset->averaging_period/2.;
+            file_jump.push_back(-1);
+            file_jump.push_back(0);
+            file_jump.push_back(1);
+        }
+
+        std::string f_timestr;
+
+        for (std::vector<int>::iterator jump = file_jump.begin() ; jump != file_jump.end(); ++jump)
+        {
+            std::string myString;
+            if(dataset->grid.dataset_frequency=="monthly")
+            {
                 f_timestr = to_date_string_ym(std::floor(ftime));
+
+                myString = f_timestr.substr(4,2);
+
+                if (Environment::comm().rank() == 0)
+                    std::cout <<"month= "<< myString <<"\n";
+
+                int value_month = atoi(myString.c_str());
+                myString = f_timestr.substr(0,4);
+
+                if (Environment::comm().rank() == 0)
+                    std::cout <<"year= "<< myString <<"\n";
+                int value_year = atoi(myString.c_str());
+
+                if (Environment::comm().rank() == 0)
+                {
+                    std::cout <<"value_year= "<< value_year <<"\n";
+                    std::cout <<"value_month= "<< value_month <<"\n";
+                }
+
+                value_month+=*jump;
+                if(value_month==13)
+                {
+                    value_month=1;
+                    value_year++;
+                }
+                if(value_month==0)
+                {
+                    value_month=12;
+                    value_year--;
+                }
+                f_timestr=(boost::format( "%1%%2%" ) % boost::io::group(std::setw(4), std::setfill('0'), value_year) % boost::io::group(std::setw(2), std::setfill('0'), value_month)).str();
+
+                // change the reference_date if erai forcing according to the xxxx-01-01, where xxxx is the current year
+                if ((dataset->name).find("ERAi") != std::string::npos)
+                {
+                    dataset->grid.reference_date = (boost::format( "%1%" ) % boost::io::group(std::setw(4), std::setfill('0'), value_year)).str() + "-01-01";
+                }
+            }
+            else if(dataset->grid.dataset_frequency=="yearly")
+            {
+                f_timestr = to_date_string_y(std::floor(ftime));//yyyy
+                int value_year = atoi(f_timestr.c_str());
+                value_year+=*jump;
+                f_timestr=(boost::format( "%1%" ) % boost::io::group(std::setw(4), std::setfill('0'), value_year)).str();
+            }
             else
-                f_timestr = to_date_string_yd(std::floor(ftime));
+                f_timestr = to_date_string_yd(std::floor(ftime)+*jump);
 
             if (Environment::comm().rank() == 0)
                 std::cout <<"F_TIMESTR= "<< f_timestr <<"\n";
 
             filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                         % Environment::simdataDir().string()
-                        % dataset->dirname
-                        % dataset->prefix
+                        % dataset->grid.dirname
+                        % dataset->grid.prefix
                         % f_timestr
-                        % dataset->postfix
+                        % dataset->grid.postfix
                         ).str();
-		}
-        else
-        {
-            filename = (boost::format( "%1%/%2%/%3%%4%" )
-                        % Environment::simdataDir().string()
-                        % dataset->dirname
-                        % dataset->prefix
-                        % dataset->postfix
-                        ).str();
+
+            if (Environment::comm().rank() == 0)
+                std::cout<<"FILENAME= "<< filename <<"\n";
+
+            if ( ! boost::filesystem::exists(filename) )
+                continue;
+                //throw std::runtime_error("File not found: " + filename);
+
+            index_start.resize(1);
+            index_count.resize(1);
+
+            bool has_time_variable;
+
+            try // we try because sometimes no time dimension is available in the netcdf
+            {
+                // Open the netcdf file
+                netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
+
+                // Set the time range XTIME
+                netCDF::NcVar FVTIME = dataFile.getVar(dataset->time.name);
+
+		        netCDF::NcDim timeDim = dataFile.getDim(dataset->time.name);
+
+                index_start[0]=0;
+                index_count[0]=timeDim.getSize();
+
+                XTIME.resize(index_count[0]);
+
+                FVTIME.getVar(index_start, index_count, &XTIME[0]);
+
+                has_time_variable=true;
+            }
+            catch(const std::exception& e) // if no time dimension is available in the netcdf, we define the time as
+            {
+                index_start[0]=0;
+                index_count[0]=1;
+
+                XTIME.resize(index_count[0]);
+
+                XTIME[0]=-1.;
+
+                has_time_variable=false;
+
+                if(dataset->grid.dataset_frequency=="monthly" || dataset->grid.dataset_frequency=="yearly")
+                    throw std::runtime_error("The case monthly and yearly when no time dimension is available is not implemented!");
+            }
+
+            double f;
+            for (int it=0; it < XTIME.size(); ++it) // always need one step before and one after the target time
+            {
+                if (!has_time_variable || ((dataset->name).find("ice_amsr2") != std::string::npos))
+                    f = from_date_string((boost::format( "%1%-%2%-%3%" ) % f_timestr.substr(0,4) % f_timestr.substr(4,2) % f_timestr.substr(6,2)).str())+0.5;
+                else
+                    f = (XTIME[it]*dataset->time.a+dataset->time.b)/24.0+from_date_string(dataset->grid.reference_date);
+
+                if(f>M_current_time && index_next==-1)
+                {
+                    time_next=f;
+                    index_next = it;
+                    filename_next = filename;
+                }
+                if(f<=M_current_time)
+                {
+                    time_prev=f;
+                    index_prev = it;
+                    filename_prev = filename;
+                }
+            }
         }
+
+        filename_fstep.push_back(filename_prev);
+        index_fstep.push_back(index_prev);
+
+        filename_fstep.push_back(filename_next);
+        index_fstep.push_back(index_next);
+
+		dataset->ftime_range.resize(0);
+		dataset->ftime_range.push_back(time_prev);
+        dataset->ftime_range.push_back(time_next);
+	}
+    else
+    {
+        filename = (boost::format( "%1%/%2%/%3%%4%" )
+                    % Environment::simdataDir().string()
+                    % dataset->grid.dirname
+                    % dataset->grid.prefix
+                    % dataset->grid.postfix
+                    ).str();
+
+        filename_fstep.push_back(filename);
+        index_fstep.push_back(0);
+    }
+
+    // Initialise counters etc.
+	int nb_forcing_step =filename_fstep.size();
+
+	// Memory leak:
+    //double* data_in = new double[N_data*nb_forcing_step*final_MN];
+    std::vector<double> data_in(N_data*nb_forcing_step*final_MN);
+
+    if (Environment::comm().rank() == 0)
+        std::cout<<"Start loading data\n";
+
+    for (int fstep=0; fstep < nb_forcing_step; ++fstep) // always need one step before and one after the target time
+    {
+        filename=filename_fstep[fstep];
+        index=index_fstep[fstep];
 
         if (Environment::comm().rank() == 0)
             std::cout<<"FILENAME= "<< filename <<"\n";
@@ -469,41 +586,8 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
         if ( ! boost::filesystem::exists(filename) )
             throw std::runtime_error("File not found: " + filename);
 
-        // change the reference_date if erai forcing according to the xxxx-01-01, where xxxx is the current year
-        if ((dataset->name).find("ERAi") != std::string::npos)
-        {
-            dataset->reference_date = to_date_string_y(std::floor(ftime)) + "-01-01";
-            //std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@DETECT ERAi: Dataset->reference_date= "<< dataset->reference_date <<"\n";
-        }
-
         // Open the netcdf file
         netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
-
-        netCDF::NcDim tmpDim;
-
-        // Find the right time slice
-        if (dataset->nb_timestep_day>1)
-        {
-            // Set the time range XTIME
-            netCDF::NcVar FVTIME = dataFile.getVar(dataset->time.name);
-
-            index_start.resize(1);
-            index_count.resize(1);
-
-            netCDF::NcDim timeDim = dataFile.getDim(dataset->time.name);
-
-            index_start[0]=0;
-            index_count[0]=timeDim.getSize();
-
-            XTIME.resize(index_count[0]);
-
-            FVTIME.getVar(index_start, index_count, &XTIME[0]);
-            std::for_each(XTIME.begin(), XTIME.end(), [&](double& f){ f = f/24.0+from_date_string(dataset->reference_date); });
-
-            auto it = std::find(XTIME.begin(), XTIME.end(), ftime);
-            index = std::distance(XTIME.begin(),it);
-            //std::cout <<"FIND "<< ftime <<" in index "<< index <<"\n";
-        }
 
         // Load each variable and copy its data into data_in
         for(int j=0; j<dataset->variables.size(); ++j)
@@ -539,7 +623,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
             }
 
             // time dimension
-			if(dataset->nb_timestep_day>0)
+			if(dataset->variables[j].dimensions.size()>2 && dataset->grid.dataset_frequency!="constant")
 			{
             	index_start[0] = index;
             	index_count[0] = 1;
@@ -578,7 +662,8 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                         data_in_tmp[dataset->grid.reduced_nodes_ind[i]]*scale_factor + add_offset;
                     if(std::isnan(data_in_tmp[dataset->grid.reduced_nodes_ind[i]]*scale_factor + add_offset))
                     {
-            			_printf_("found NaN at"  << data_in_tmp[dataset->grid.reduced_nodes_ind[i]]<<  " "<<  dataset->grid.reduced_nodes_ind[i] <<  ", default_value is used\n");
+            			//_printf_("found NaN at"  << data_in_tmp[dataset->grid.reduced_nodes_ind[i]]<<  " "<<  dataset->grid.reduced_nodes_ind[i] <<  ", 0. is used\n");
+                        data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=0.;
     				}
                 }
 			}
@@ -594,7 +679,8 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                             int i=y_ind*N+x_ind;
                             int cyclic_i=y_ind*cyclic_N+x_ind;
 
-                            data_in[(dataset->variables.size()*nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=data_in_tmp[i]*scale_factor + add_offset;
+                            data_in[(dataset->variables.size()*nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]
+                               =data_in_tmp[i]*scale_factor + add_offset;
                         }
                     }
                 }
@@ -605,7 +691,8 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                         data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=data_in_tmp[i]*scale_factor + add_offset;
                         if(std::isnan(data_in_tmp[i]*scale_factor + add_offset))
                         {
-                			_printf_("found NaN at"  << data_in_tmp[i] <<  " "<<  i <<  ", default_value is used\n");
+                			//_printf_("found NaN at"  << data_in_tmp[i] <<  " "<<  i <<  ", 0. is used\n");
+                            data_in[(dataset->variables.size()*nb_forcing_step)*i+fstep*dataset->variables.size()+j]=0.;
         				}
                     }
                 }
@@ -731,7 +818,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                     y_ind_m1=y_ind-1;
                     found_north_pole=true;
                 }
-                if(found_north_pole=true)
+                if(found_north_pole)
                 {
                     tmp_data0=0.;
                     tmp_data1=0.;
@@ -831,7 +918,8 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 
     dataset->reloaded=true;
 
-    //std::cout <<"end load" <<"\n";
+    if (Environment::comm().rank() == 0)
+        std::cout <<"end loading data" <<"\n";
 }
 
 void

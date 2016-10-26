@@ -42,13 +42,16 @@ GmshMesh::GmshMesh(Communicator const& comm)
     M_transfer_map_elt(),
     M_reorder_map_nodes(),
     M_reorder_map_elements()
-{}
+{
+    M_mppfile = (Environment::vm()["mesh.mppfile"]).as<std::string>();
+}
 
 GmshMesh::GmshMesh(GmshMesh const& mesh)
     :
     M_comm(mesh.M_comm),
     M_version(mesh.M_version),
     M_ordering(mesh.M_ordering),
+    M_mppfile(mesh.M_mppfile),
     M_nodes(mesh.M_nodes),
     M_triangles(mesh.M_triangles),
     M_edges(mesh.M_edges),
@@ -418,7 +421,7 @@ GmshMesh::stereographicProjection()
 {
     // polar stereographic projection
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
+    std::string filename = Environment::nextsimDir().string() + "/data/" + M_mppfile;
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
@@ -1182,7 +1185,7 @@ std::vector<double>
 GmshMesh::meanLon() const
 {
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
+    std::string filename = Environment::nextsimDir().string() + "/data/" + M_mppfile;
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
@@ -1210,7 +1213,7 @@ std::vector<double>
 GmshMesh::meanLat() const
 {
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
+    std::string filename = Environment::nextsimDir().string() + "/data/" + M_mppfile;
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
@@ -1238,7 +1241,7 @@ std::vector<double>
 GmshMesh::lon() const
 {
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
+    std::string filename = Environment::nextsimDir().string() + "/data/" + M_mppfile;
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
@@ -1266,7 +1269,7 @@ std::vector<double>
 GmshMesh::lat() const
 {
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
+    std::string filename = Environment::nextsimDir().string() + "/data/" + M_mppfile;
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
@@ -1350,6 +1353,32 @@ GmshMesh::coordYPartition() const
     }
 
     return y;
+}
+
+void
+GmshMesh::setId(std::vector<int> const& newid)
+{
+    if ( newid.size() != 0 )
+    {
+        ASSERT(M_nodes.size()==newid.size(),"invalid size of new_id vector");
+
+        for (int i=0; i<M_nodes.size(); ++i)
+            M_nodes[i].id = newid[i];
+    }
+}
+
+std::vector<int>
+GmshMesh::id() const
+{
+    std::vector<int> mesh_id(M_num_nodes);
+    int cpt = 0;
+    for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
+    {
+        mesh_id[cpt] = it->second.id;
+        ++cpt;
+    }
+
+    return mesh_id;
 }
 
 } // Nextsim

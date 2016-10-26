@@ -31,10 +31,8 @@
 #include <gridoutput.hpp>
 #include <dataset.hpp>
 #include "enums.hpp"
-//#include <netcdf>
 #include <debug.hpp>
 #include <omp.h>
-//#include <externaldata.hpp>
 #include <boost/random/linear_congruential.hpp>
 #include <boost/random/uniform_01.hpp>
 
@@ -138,23 +136,30 @@ public:
     void assemble(int cpt);
     void solve();
     void run();
-    void error();
 
     void thermo();
-    void thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols,
-            double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double tmp_Qlw_in, double tmp_snowfr);
+    void thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfr,
+                    double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf);
+    void thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfr,
+                      double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double &T1, double &T2);
+    double albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, double alb_ice, double I_0);
+    void atmFluxBulk(int i, double Tsurf, double sphuma, double drag_ice_t, double Qsw, double Qlw_in, double wspeed,
+                     double &Qai, double &dQaidT, double &subl);
+    double iceOceanHeatflux(double sst, double tbot, double mld, double dt);
 
-    Dataset M_asr_nodes_dataset;
-    Dataset M_asr_elements_dataset;
-    Dataset M_topaz_nodes_dataset;
-    Dataset M_topaz_elements_dataset;
+    Dataset M_atmosphere_nodes_dataset;
+    Dataset M_atmosphere_elements_dataset;
+    Dataset M_atmosphere_bis_elements_dataset;
+    Dataset M_ocean_nodes_dataset;
+    Dataset M_ocean_elements_dataset;
+    Dataset M_bathymetry_elements_dataset;
+
     Dataset M_ice_topaz_elements_dataset;
+    Dataset M_ice_piomas_elements_dataset;
     Dataset M_ice_amsre_elements_dataset;
     Dataset M_ice_osisaf_elements_dataset;
     Dataset M_ice_amsr2_elements_dataset;
-    Dataset M_etopo_elements_dataset;
-    Dataset M_ERAi_nodes_dataset;
-    Dataset M_ERAi_elements_dataset;
+    Dataset M_ice_cs2_smos_elements_dataset;
 
     template<typename FEMeshType>
     double minAngles(element_type const& element, FEMeshType const& mesh) const;
@@ -195,13 +200,11 @@ public:
     void initVariables();
     void initModelState();
     void tensors();
-    void tensorsOnRoot();
     void cohesion();
     void updateVelocity();
     void speedScaling(std::vector<double>& speed_scaling);
     void scalingVelocity();
     void update();
-    void updateOnRoot();
     void exportResults(int step, bool export_mesh = true);
 
     void writeRestart(int pcpt, int step);
@@ -270,6 +273,7 @@ private:
     setup::OceanType M_ocean_type;
     setup::IceType M_ice_type;
     setup::BathymetryType M_bathymetry_type;
+    setup::ThermoType M_thermo_type;
 
     setup::IceCategoryType M_ice_cat_type;
     setup::DrifterType M_drifter_type;
@@ -300,8 +304,6 @@ private:
     std::vector<double> M_hminVertices;
     std::vector<double> M_hmaxVertices;
 
-    //std::vector<double> M_element_depth;
-    external_data M_element_depth;
     std::vector<double> M_Vair_factor;
     std::vector<double> M_Voce_factor;
     std::vector<double> M_basal_factor;
@@ -360,11 +362,6 @@ private:
     double quad_drag_coef_water;
     double time_relaxation_damage;
     double deltaT_relaxation_damage;
-    //double water_depth;
-
-    // double ssh_coef;
-    // double Vair_coef;
-    // double Voce_coef;
 
     double basal_k2;
     double basal_drag_coef_air;
@@ -390,17 +387,13 @@ private:
     bool M_use_restart;
     bool M_write_restart;
 
+    std::string M_export_path;
+
 private:
 
     BamgOpts *bamgopt;
     BamgMesh *bamgmesh;
     BamgGeom *bamggeom;
-
-    // BamgOpts *bamgopt_previous;
-    // BamgMesh *bamgmesh_previous;
-    // BamgGeom *bamggeom_previous;
-
-    //Options *options;
 
 private: // only on root process (rank 0)
 
@@ -451,6 +444,9 @@ private:
     external_data M_ocean_salt;   // Ocean salinity in top layer [C]
     external_data M_mld;          // Mixed-layer depth [m]
 
+    // Bathymetry
+    external_data M_element_depth;
+
     // Drifters
     boost::unordered_map<int, std::array<double,2>> M_drifter; // Drifters are kept in an unordered map containing number and coordinates
     std::fstream M_iabp_file;             // The file we read the IABP buoy data from
@@ -467,7 +463,8 @@ private:
     std::vector<double> M_sss;          // Sea-surface salinity [psu]
 
     // Non-prognostic variables used to speed up the convergence of a non-linear equation in thermodynamics
-    std::vector<double> M_tsurf;        // Ice surface temperature [C]
+    //std::vector<double> M_tsurf;        // Ice surface temperature [C]
+    std::vector<std::vector<double>> M_tice;    // Ice temperature - 0 for surface and higher ordinals for layers in the ice
     std::vector<double> M_tsurf_thin;   // Ice surface temperature of thin ice [C]
 
 
@@ -499,19 +496,19 @@ private:
     void constantIce();
     void targetIce();
     void topazIce();
-    void amsreIce();
-    void osisaf2Ice();
-    void amsr2Ice();
+    void piomasIce();
+    void topazForecastIce();
+    void topazForecastAmsr2Ice();
+    void topazForecastAmsr2OsisafIce();
+    void cs2SmosIce();
+
+    void topazAmsreIce();
+    void topazAmsr2Ice();
 
     void equallySpacedDrifter();
     void outputDrifter(std::fstream &iabp_out);
     void initIABPDrifter();
     void updateIABPDrifter();
-
-    // void updateMeans();
-    // int initMoorings(int &ncols, int &nrows);
-    // void updateMoorings(int grid_size, int ncols, int nrows);
-    // void exportMoorings(int grid_size);
 
     void updateMeans(GridOutput &means);
     void initMoorings();

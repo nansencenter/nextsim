@@ -50,20 +50,21 @@ public:
 
     ExternalData();
 
-    ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId, bool is_vector );
+    ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId, bool is_vector,
+        double StartingTime );
 
     ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId, bool is_vector,
-        double SpinUpStartingTime, double SpinUpDuration  );
+        double StartingTime, double SpinUpDuration  );
 
     ExternalData(double ConstantValue );
 
     ExternalData(double ConstantValue, double ConstantValuebis );
 
     ExternalData(double ConstantValue,
-        double SpinUpStartingTime, double SpinUpDuration  );
+        double StartingTime, double SpinUpDuration  );
 
     ExternalData(double ConstantValue, double ConstantValuebis,
-        double SpinUpStartingTime, double SpinUpDuration  );
+        double StartingTime, double SpinUpDuration  );
 
 	~ExternalData();
 #if 0
@@ -79,7 +80,7 @@ public:
 
     value_type get(const size_type i);
 
-    std::vector<double> get_vector();
+    std::vector<double> getVector();
 
 	void clear();
 
@@ -108,7 +109,7 @@ private:
     double M_constant_valuebis;
     bool M_is_vector;
     int M_VariableIdbis;
-    double M_SpinUpStartingTime;
+    double M_StartingTime;
     double M_SpinUpDuration;
     double M_factor;
 };

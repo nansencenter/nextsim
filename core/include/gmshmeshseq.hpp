@@ -66,6 +66,7 @@ public:
 
     std::string const& version() const {return M_version;}
     std::string const& ordering() const {return M_ordering;}
+    std::string const& mppfile() const {return M_mppfile;}
 
     std::vector<point_type> const& nodes() const {return M_nodes;}
     std::vector<element_type> const& triangles() const {return M_triangles;}
@@ -108,6 +109,9 @@ public:
     std::vector<double> meanLat() const;
     std::vector<double> meanLon() const;
 
+    void setId(std::vector<int> const& newid);
+    std::vector<int> id() const;
+
     void initGModel();
     void writeToGModel(std::string const& filename);
     void clear();
@@ -125,6 +129,7 @@ private:
 
     std::string M_version;
     std::string M_ordering;
+    std::string M_mppfile;
     std::vector<point_type> M_nodes;
     std::vector<element_type> M_triangles;
     std::vector<element_type> M_edges;

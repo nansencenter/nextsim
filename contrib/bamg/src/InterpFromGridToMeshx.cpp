@@ -12,6 +12,22 @@
 
 int InterpFromGridToMeshx(double* &data_mesh,double* x_in, int x_rows, double* y_in, int y_rows, double* data, int M, int N, int N_data, double* x_mesh, double* y_mesh, int nods,double default_value, int interpenum, bool row_major){
 
+      // data_mesh (out)
+      // x_in,x_rows: x vector (source), length of x vector
+      // y_in,y_rows: y vector (source), length of y vector
+      // data (in)
+      // M,N: no of grid cells in y,x directions
+      // - (to determine if corners or centers of grid have been input)
+      // N_data: no of variables
+      // x_mesh: x vector (target)
+      // y_mesh: y vector (target)
+      // nods: target size
+      // default_value (no data at mesh node/element)
+      //interpenum: interpolation type:
+      //row_major: false = fortran/matlab order
+      // - NB true  assumes x increases in i direction, and y in j direction
+      // - NB false assumes x increases in j direction, and y in i direction
+
 	/*Intermediary*/
 	double* x=NULL;
 	double* y=NULL;
@@ -19,7 +35,7 @@ int InterpFromGridToMeshx(double* &data_mesh,double* x_in, int x_rows, double* y
 
 	/*Some checks on arguments: */
 	if ((M<2) || (N<2) || (nods<=0)){
-		_error_("nothing to be done according to the dimensions of input matrices and vectors.");
+	    _error_("nothing to be done according to the dimensions of input matrices and vectors.");
 	}
 
 	/*Allocate output vector: */
