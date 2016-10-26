@@ -3001,14 +3001,16 @@ FiniteElement::thermo()
         /* There are two ways to calculate this. We decide which one by
          * checking mixrat - the calling routine must set this to a negative
          * value if the dewpoint should be used. */
-        if ( M_mixrat[i] < 0. )
+        if ( M_dair.M_initialized )
         {
             double fa     = 1. + Aw + M_mslp[i]*1e-2*( Bw + Cw*M_dair[i]*M_dair[i] );
             double esta   = fa*aw*std::exp( (bw-M_dair[i]/dw)*M_dair[i]/(M_dair[i]+cw) );
             sphuma = alpha*fa*esta/(M_mslp[i]-beta*fa*esta) ;
         }
-        else
+        else if ( M_mixrat.M_initialized )
             sphuma = M_mixrat[i]/(1.+M_mixrat[i]) ;
+        else
+            throw std::logic_error("Neither M_dair nor M_mixrat have been initialized. I cannot calculate sphuma.");
 
         // -------------------------------------------------
         // 3.2) Specific humidity - ocean surface (calcSphumW in matlab)
@@ -5044,9 +5046,6 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
 
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
             M_external_data.push_back(&M_precip);
-
-            M_dair=ExternalData(-1.);
-            M_external_data.push_back(&M_dair);
         break;
 
         case setup::AtmosphereType::ERAi:
@@ -5081,10 +5080,6 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
 
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
             M_external_data.push_back(&M_precip);
-
-            M_mixrat=ExternalData(-1.);
-            M_external_data.push_back(&M_mixrat);
-
         break;
 
         case setup::AtmosphereType::EC:
@@ -5111,9 +5106,6 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
 
             M_precip=ExternalData(0.);
             M_external_data.push_back(&M_precip);
-
-            M_mixrat=ExternalData(-1.);
-            M_external_data.push_back(&M_mixrat);
         break;
 
         case setup::AtmosphereType::EC_ERAi:
@@ -5139,9 +5131,6 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
 
             M_precip=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,5,false,time_init);
             M_external_data.push_back(&M_precip);
-
-            M_mixrat=ExternalData(-1.);
-            M_external_data.push_back(&M_mixrat);
         break;
 
         default:
@@ -6622,27 +6611,43 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields)
         {
             // Thermodynamic and dynamic forcing
             // Atmosphere
-            exporter.writeField(outbin,M_wind.getVector(), "M_wind");         // Surface wind [m/s]
-            exporter.writeField(outbin,M_tair.getVector(), "M_tair");         // 2 m temperature [C]
-            exporter.writeField(outbin,M_mixrat.getVector(), "M_mixrat");       // Mixing ratio
-            exporter.writeField(outbin,M_mslp.getVector(), "M_mslp");         // Atmospheric pressure [Pa]
-            exporter.writeField(outbin,M_Qsw_in.getVector(), "M_Qsw_in");       // Incoming short-wave radiation [W/m2]
-            exporter.writeField(outbin,M_Qlw_in.getVector(), "M_Qlw_in");       // Incoming long-wave radiation [W/m2]
-            exporter.writeField(outbin,M_tcc.getVector(), "M_tcc");       // Incoming long-wave radiation [W/m2]
-            exporter.writeField(outbin,M_precip.getVector(), "M_precip");       // Total precipitation [m]
-            exporter.writeField(outbin,M_snowfr.getVector(), "M_snowfr");       // Fraction of precipitation that is snow
-            exporter.writeField(outbin,M_dair.getVector(), "M_dair");         // 2 m dew point [C]
+            if ( M_wind.M_initialized )
+                exporter.writeField(outbin,M_wind.getVector(), "M_wind");         // Surface wind [m/s]
+            if ( M_tair.M_initialized )
+                exporter.writeField(outbin,M_tair.getVector(), "M_tair");         // 2 m temperature [C]
+            if ( M_mixrat.M_initialized )
+                exporter.writeField(outbin,M_mixrat.getVector(), "M_mixrat");       // Mixing ratio
+            if ( M_mslp.M_initialized )
+                exporter.writeField(outbin,M_mslp.getVector(), "M_mslp");         // Atmospheric pressure [Pa]
+            if ( M_Qsw_in.M_initialized )
+                exporter.writeField(outbin,M_Qsw_in.getVector(), "M_Qsw_in");       // Incoming short-wave radiation [W/m2]
+            if ( M_Qlw_in.M_initialized )
+                exporter.writeField(outbin,M_Qlw_in.getVector(), "M_Qlw_in");       // Incoming long-wave radiation [W/m2]
+            if ( M_tcc.M_initialized )
+                exporter.writeField(outbin,M_tcc.getVector(), "M_tcc");       // Incoming long-wave radiation [W/m2]
+            if ( M_precip.M_initialized )
+                exporter.writeField(outbin,M_precip.getVector(), "M_precip");       // Total precipitation [m]
+            if ( M_snowfr.M_initialized )
+                exporter.writeField(outbin,M_snowfr.getVector(), "M_snowfr");       // Fraction of precipitation that is snow
+            if ( M_dair.M_initialized )
+                exporter.writeField(outbin,M_dair.getVector(), "M_dair");         // 2 m dew point [C]
 
             // Ocean
-            exporter.writeField(outbin,M_ocean.getVector(), "M_ocean");        // "Geostrophic" ocean currents [m/s]
-            exporter.writeField(outbin,M_ssh.getVector(), "M_ssh");          // Sea surface elevation [m]
+            if ( M_ocean.M_initialized )
+                exporter.writeField(outbin,M_ocean.getVector(), "M_ocean");        // "Geostrophic" ocean currents [m/s]
+            if ( M_ssh.M_initialized )
+                exporter.writeField(outbin,M_ssh.getVector(), "M_ssh");          // Sea surface elevation [m]
 
-            exporter.writeField(outbin,M_ocean_temp.getVector(), "M_ocean_temp");   // Ocean temperature in top layer [C]
-            exporter.writeField(outbin,M_ocean_salt.getVector(), "M_ocean_salt");   // Ocean salinity in top layer [C]
-            exporter.writeField(outbin,M_mld.getVector(), "M_mld");          // Mixed-layer depth [m]
+            if ( M_ocean_temp.M_initialized )
+                exporter.writeField(outbin,M_ocean_temp.getVector(), "M_ocean_temp");   // Ocean temperature in top layer [C]
+            if ( M_ocean_salt.M_initialized )
+                exporter.writeField(outbin,M_ocean_salt.getVector(), "M_ocean_salt");   // Ocean salinity in top layer [C]
+            if ( M_mld.M_initialized )
+                exporter.writeField(outbin,M_mld.getVector(), "M_mld");          // Mixed-layer depth [m]
 
             // Bathymetry
-            exporter.writeField(outbin,M_element_depth.getVector(), "M_element_depth");
+            if ( M_element_depth.M_initialized )
+                exporter.writeField(outbin,M_element_depth.getVector(), "M_element_depth");
         }
 
 #if defined (WAVES)
