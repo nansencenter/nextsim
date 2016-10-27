@@ -1070,7 +1070,11 @@ FiniteElement::regrid(bool step)
             // coupling with wim
             // - only interpolate if not at a coupling time step
             // - else nfloes will just be overwritten with wimToNextsim()
-            bool nfloes_interp = (M_use_wim && (!M_run_wim));
+            // - EXCEPT if doing breaking on mesh
+            //   - then we need to PASS IN regridded Nfloes
+            bool nfloes_interp = M_use_wim;
+            if ( !(vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh"))
+                bool nfloes_interp = (M_use_wim && (!M_run_wim));
 
             if (nfloes_interp)
                 std::cout<<"IN REGRID: "<< "interpolate nfloes\n";
@@ -6935,7 +6939,7 @@ FiniteElement::wimToNextsim(bool step)
 {
     bool break_on_mesh =
         ( vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh");
-    std::cout<<"break_on_mesh="<<break_on_mesh<<"\n";
+    //std::cout<<"break_on_mesh="<<break_on_mesh<<"\n";
 
     if (M_run_wim)
     {
