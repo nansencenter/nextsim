@@ -2828,7 +2828,6 @@ FiniteElement::update()
 void
 FiniteElement::solve()
 {
-    chrono.restart();
     M_solver->solve(_matrix=M_matrix,
                     _solution=M_solution,
                     _rhs=M_vector,
@@ -2838,8 +2837,6 @@ FiniteElement::solve()
                     _reuse_prec=true,
                     _rebuild=M_regrid
                     );
-
-    LOG(INFO) <<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";
 
     //M_solution->printMatlab("solution.m");
     //Environment::logMemoryUsage("");
@@ -4094,7 +4091,9 @@ FiniteElement::step(int &pcpt)
         had_remeshed=false;
     }
 
+    chrono.restart();
     this->solve();
+    LOG(INFO) <<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";
 
     chrono.restart();
     LOG(DEBUG) <<"updateVelocity starts\n";
@@ -4880,9 +4879,10 @@ void
 FiniteElement::updateVelocity()
 {
     M_VTMM = M_VTM;
-    M_VTM = M_VT;
-    M_VT = M_solution->container();
-
+    M_VTM  = M_VT;
+    M_VT   = M_solution->container();
+    //M_solution->container(&M_VT[0]);
+    
     // TODO (updateVelocity) Sylvain: This limitation cost about 1/10 of the solver time.
     // TODO (updateVelocity) Sylvain: We could add a term in the momentum equation to avoid the need of this limitation.
     //std::vector<double> speed_c_scaling_test(bamgmesh->NodalElementConnectivitySize[0]);
