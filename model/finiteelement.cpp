@@ -3770,25 +3770,10 @@ FiniteElement::run()
 {
     std::string current_time_system = current_time_local();
 
-    M_export_path = Environment::nextsimDir().string() + "/matlab";
-    // change directory for outputs if the option "output_directory" is not empty
-    if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
-    {
-        M_export_path = vm["simul.output_directory"].as<std::string>();
-
-        fs::path path(M_export_path);
-        // add a subdirecory if needed
-        // path /= "subdir";
-
-        // create the output directory if it does not exist
-        if ( !fs::exists(path) )
-            fs::create_directories(path);
-    }
-
-    this->writeLogFile();
-
     int pcpt = this->init();
     int niter = vm["simul.maxiteration"].as<int>();
+
+    this->writeLogFile();
 
     // Debug file that records the time step
     std::fstream pcpt_file;
@@ -3862,6 +3847,22 @@ int
 FiniteElement::init()
 {
     // Initialise everything that doesn't depend on the mesh (constants, data set description, and time)
+
+    M_export_path = Environment::nextsimDir().string() + "/matlab";
+    // change directory for outputs if the option "output_directory" is not empty
+    if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
+    {
+        M_export_path = vm["simul.output_directory"].as<std::string>();
+
+        fs::path path(M_export_path);
+        // add a subdirecory if needed
+        // path /= "subdir";
+
+        // create the output directory if it does not exist
+        if ( !fs::exists(path) )
+            fs::create_directories(path);
+    }
+
     int pcpt = 0;
     mesh_adapt_step=0;
     had_remeshed=false;
@@ -4589,6 +4590,7 @@ FiniteElement::writeRestart(int pcpt, int step)
     std::vector<int> misc_int(2);
     misc_int[0] = pcpt;
     misc_int[1] = M_flag_fix;
+    misc_int[2] = current_time;
     exporter.writeField(outbin, misc_int, "Misc_int");
     exporter.writeField(outbin, M_dirichlet_flags, "M_dirichlet_flags");
 
