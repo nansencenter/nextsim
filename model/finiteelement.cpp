@@ -1328,7 +1328,6 @@ FiniteElement::regrid(bool step)
                     M_nfloes[i] = interp_elt_out[nb_var*i+tmp_nb_var];
                     tmp_nb_var++;
                 }
-
 #endif
 
 				if(tmp_nb_var!=nb_var)
@@ -3889,7 +3888,8 @@ FiniteElement::init()
 
         // get wim grid
         std::cout<<"Getting WIM grid info\n";
-        wim_grid    = wim.wimGrid("km");
+        //wim_grid    = wim.wimGrid("km");
+        wim_grid    = wim.wimGrid("m");
     }
 #endif
 
@@ -6950,7 +6950,8 @@ FiniteElement::wimToNextsim(bool step)
                         M_conc,
                         M_thick,
                         M_nfloes,
-                        "km");
+                        "m");
+                        //"km");
         }
 
         bool TEST_INTERP_MESH = false;
@@ -6973,6 +6974,17 @@ FiniteElement::wimToNextsim(bool step)
             M_nfloes        = wim.getNfloesMesh();
             auto M_broken   = wim.getBrokenMesh();//TODO check this - maybe change damage later
             wim.clearMesh();
+
+            if (vm["nextwim.wim_damage_mesh"].template as<bool>())
+            {
+                for (int i=1;i<M_num_elements;i++)
+                {
+                    if (M_broken[i])
+                        M_damage[i] = max(M_damage[i],
+                           (vm["nextwim.wim_damage_value"].template as<double>()));
+                    //std::cout<<"broken?,damage"<<M_broken[i]<<","<<M_damage[i]<<"\n";
+                }
+            }
         }
     }
 
