@@ -651,27 +651,25 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                 dataset->variables[j].loaded_data[fstep][i]=tmp_data_i;
             }
         }
-    }
-
-    // ---------------------------------
     
-    //std::cout<<"Start transformation on the data\n";
+
+        // ---------------------------------
     
-    // Transformation of the vectorial variables from the coordinate system of the data to the polar stereographic projection used in the model
-    // Once we are in the polar stereographic projection, we can do spatial interpolation without bothering about the North Pole
+        //std::cout<<"Start transformation on the data\n";
+    
+        // Transformation of the vectorial variables from the coordinate system of the data to the polar stereographic projection used in the model
+        // Once we are in the polar stereographic projection, we can do spatial interpolation without bothering about the North Pole
 
-    double tmp_data0, tmp_data1, new_tmp_data0, new_tmp_data1;
-    double tmp_data0_deg, tmp_data1_deg;
-    double lat_tmp, lon_tmp, lat_tmp_bis, lon_tmp_bis;
-    double x_tmp, y_tmp, x_tmp_bis, y_tmp_bis;
-    double speed, new_speed;
-    int j0, j1;
+        double tmp_data0, tmp_data1, new_tmp_data0, new_tmp_data1;
+        double tmp_data0_deg, tmp_data1_deg;
+        double lat_tmp, lon_tmp, lat_tmp_bis, lon_tmp_bis;
+        double x_tmp, y_tmp, x_tmp_bis, y_tmp_bis;
+        double speed, new_speed;
+        int j0, j1;
 
-    double R=mapx_Re_km*1000.; // Earth radius
-    double delta_t=1.; // 1 sec. This value needs to be small.
+        double R=mapx_Re_km*1000.; // Earth radius
+        double delta_t=1.; // 1 sec. This value needs to be small.
 
-    for (int fstep=0; fstep < nb_forcing_step; ++fstep)
-    {
         for(int j=0; j<dataset->vectorial_variables.size(); ++j)
         {
             j0=dataset->vectorial_variables[j].components_Id[0];

@@ -1070,7 +1070,11 @@ FiniteElement::regrid(bool step)
             // coupling with wim
             // - only interpolate if not at a coupling time step
             // - else nfloes will just be overwritten with wimToNextsim()
-            bool nfloes_interp = (M_use_wim && (!M_run_wim));
+            // - EXCEPT if doing breaking on mesh
+            //   - then we need to PASS IN regridded Nfloes
+            bool nfloes_interp = M_use_wim;
+            if ( !(vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh"))
+                bool nfloes_interp = (M_use_wim && (!M_run_wim));
 
             if (nfloes_interp)
                 std::cout<<"IN REGRID: "<< "interpolate nfloes\n";
@@ -1328,7 +1332,6 @@ FiniteElement::regrid(bool step)
                     M_nfloes[i] = interp_elt_out[nb_var*i+tmp_nb_var];
                     tmp_nb_var++;
                 }
-
 #endif
 
 				if(tmp_nb_var!=nb_var)
@@ -2828,7 +2831,6 @@ FiniteElement::update()
 void
 FiniteElement::solve()
 {
-    chrono.restart();
     M_solver->solve(_matrix=M_matrix,
                     _solution=M_solution,
                     _rhs=M_vector,
@@ -2838,8 +2840,6 @@ FiniteElement::solve()
                     _reuse_prec=true,
                     _rebuild=M_regrid
                     );
-
-    LOG(INFO) <<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";
 
     //M_solution->printMatlab("solution.m");
     //Environment::logMemoryUsage("");
@@ -3893,7 +3893,8 @@ FiniteElement::init()
 
         // get wim grid
         std::cout<<"Getting WIM grid info\n";
-        wim_grid    = wim.wimGrid("km");
+        //wim_grid    = wim.wimGrid("km");
+        wim_grid    = wim.wimGrid("m");
     }
 #endif
 
@@ -4095,7 +4096,9 @@ FiniteElement::step(int &pcpt)
         had_remeshed=false;
     }
 
+    chrono.restart();
     this->solve();
+    LOG(INFO) <<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";
 
     chrono.restart();
     LOG(DEBUG) <<"updateVelocity starts\n";
@@ -4882,9 +4885,10 @@ void
 FiniteElement::updateVelocity()
 {
     M_VTMM = M_VTM;
-    M_VTM = M_VT;
-    M_VT = M_solution->container();
-
+    M_VTM  = M_VT;
+    M_VT   = M_solution->container();
+    //M_solution->container(&M_VT[0]);
+    
     // TODO (updateVelocity) Sylvain: This limitation cost about 1/10 of the solver time.
     // TODO (updateVelocity) Sylvain: We could add a term in the momentum equation to avoid the need of this limitation.
     //std::vector<double> speed_c_scaling_test(bamgmesh->NodalElementConnectivitySize[0]);
@@ -6937,7 +6941,7 @@ FiniteElement::wimToNextsim(bool step)
 {
     bool break_on_mesh =
         ( vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh");
-    std::cout<<"break_on_mesh="<<break_on_mesh<<"\n";
+    //std::cout<<"break_on_mesh="<<break_on_mesh<<"\n";
 
     if (M_run_wim)
     {
@@ -6952,7 +6956,8 @@ FiniteElement::wimToNextsim(bool step)
                         M_conc,
                         M_thick,
                         M_nfloes,
-                        "km");
+                        "m");
+                        //"km");
         }
 
         bool TEST_INTERP_MESH = false;
@@ -6975,6 +6980,17 @@ FiniteElement::wimToNextsim(bool step)
             M_nfloes        = wim.getNfloesMesh();
             auto M_broken   = wim.getBrokenMesh();//TODO check this - maybe change damage later
             wim.clearMesh();
+
+            if (vm["nextwim.wim_damage_mesh"].template as<bool>())
+            {
+                for (int i=1;i<M_num_elements;i++)
+                {
+                    if (M_broken[i])
+                        M_damage[i] = max(M_damage[i],
+                           (vm["nextwim.wim_damage_value"].template as<double>()));
+                    //std::cout<<"broken?,damage"<<M_broken[i]<<","<<M_damage[i]<<"\n";
+                }
+            }
         }
     }
 

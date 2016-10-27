@@ -105,7 +105,12 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
 
     if (verbosity>1) _printf_("   Interp Cavities: loop1...\n");
 
-    for(int cavity_id=0; cavity_id< gate.nb_cavities; cavity_id++)
+    //for(int cavity_id=0; cavity_id< gate.nb_cavities; cavity_id++)
+	int thread_id;
+    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
+
+#pragma omp parallel for num_threads(max_threads) private(thread_id)
+    for (int cavity_id=0; cavity_id < gate.nb_cavities; ++cavity_id)
     {
 	    if (verbosity>1) _printf_("   Interp Cavities: enter loop1...\n");
 	    nb_dead_elements= gate.size_dead_cavity[cavity_id];
