@@ -1070,7 +1070,11 @@ FiniteElement::regrid(bool step)
             // coupling with wim
             // - only interpolate if not at a coupling time step
             // - else nfloes will just be overwritten with wimToNextsim()
-            bool nfloes_interp = (M_use_wim && (!M_run_wim));
+            // - EXCEPT if doing breaking on mesh
+            //   - then we need to PASS IN regridded Nfloes
+            bool nfloes_interp = M_use_wim;
+            if ( !(vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh"))
+                bool nfloes_interp = (M_use_wim && (!M_run_wim));
 
             if (nfloes_interp)
                 std::cout<<"IN REGRID: "<< "interpolate nfloes\n";
@@ -1328,7 +1332,6 @@ FiniteElement::regrid(bool step)
                     M_nfloes[i] = interp_elt_out[nb_var*i+tmp_nb_var];
                     tmp_nb_var++;
                 }
-
 #endif
 
 				if(tmp_nb_var!=nb_var)
@@ -3767,25 +3770,10 @@ FiniteElement::run()
 {
     std::string current_time_system = current_time_local();
 
-    M_export_path = Environment::nextsimDir().string() + "/matlab";
-    // change directory for outputs if the option "output_directory" is not empty
-    if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
-    {
-        M_export_path = vm["simul.output_directory"].as<std::string>();
-
-        fs::path path(M_export_path);
-        // add a subdirecory if needed
-        // path /= "subdir";
-
-        // create the output directory if it does not exist
-        if ( !fs::exists(path) )
-            fs::create_directories(path);
-    }
-
-    this->writeLogFile();
-
     int pcpt = this->init();
     int niter = vm["simul.maxiteration"].as<int>();
+
+    this->writeLogFile();
 
     // Debug file that records the time step
     std::fstream pcpt_file;
@@ -3859,6 +3847,22 @@ int
 FiniteElement::init()
 {
     // Initialise everything that doesn't depend on the mesh (constants, data set description, and time)
+
+    M_export_path = Environment::nextsimDir().string() + "/matlab";
+    // change directory for outputs if the option "output_directory" is not empty
+    if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
+    {
+        M_export_path = vm["simul.output_directory"].as<std::string>();
+
+        fs::path path(M_export_path);
+        // add a subdirecory if needed
+        // path /= "subdir";
+
+        // create the output directory if it does not exist
+        if ( !fs::exists(path) )
+            fs::create_directories(path);
+    }
+
     int pcpt = 0;
     mesh_adapt_step=0;
     had_remeshed=false;
@@ -3889,7 +3893,8 @@ FiniteElement::init()
 
         // get wim grid
         std::cout<<"Getting WIM grid info\n";
-        wim_grid    = wim.wimGrid("km");
+        //wim_grid    = wim.wimGrid("km");
+        wim_grid    = wim.wimGrid("m");
     }
 #endif
 
@@ -4588,6 +4593,7 @@ FiniteElement::writeRestart(int pcpt, int step)
     std::vector<int> misc_int(2);
     misc_int[0] = pcpt;
     misc_int[1] = M_flag_fix;
+    misc_int[2] = current_time;
     exporter.writeField(outbin, misc_int, "Misc_int");
     exporter.writeField(outbin, M_dirichlet_flags, "M_dirichlet_flags");
 
@@ -6935,7 +6941,7 @@ FiniteElement::wimToNextsim(bool step)
 {
     bool break_on_mesh =
         ( vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh");
-    std::cout<<"break_on_mesh="<<break_on_mesh<<"\n";
+    //std::cout<<"break_on_mesh="<<break_on_mesh<<"\n";
 
     if (M_run_wim)
     {
@@ -6950,7 +6956,8 @@ FiniteElement::wimToNextsim(bool step)
                         M_conc,
                         M_thick,
                         M_nfloes,
-                        "km");
+                        "m");
+                        //"km");
         }
 
         bool TEST_INTERP_MESH = false;
@@ -6973,6 +6980,17 @@ FiniteElement::wimToNextsim(bool step)
             M_nfloes        = wim.getNfloesMesh();
             auto M_broken   = wim.getBrokenMesh();//TODO check this - maybe change damage later
             wim.clearMesh();
+
+            if (vm["nextwim.wim_damage_mesh"].template as<bool>())
+            {
+                for (int i=1;i<M_num_elements;i++)
+                {
+                    if (M_broken[i])
+                        M_damage[i] = max(M_damage[i],
+                           (vm["nextwim.wim_damage_value"].template as<double>()));
+                    //std::cout<<"broken?,damage"<<M_broken[i]<<","<<M_damage[i]<<"\n";
+                }
+            }
         }
     }
 
