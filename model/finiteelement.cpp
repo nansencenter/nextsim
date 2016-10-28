@@ -15,6 +15,11 @@
 #include <exporter.hpp>
 #include <numeric>
 
+
+#ifdef WITHGPERFTOOLS
+#include <gperftools/profiler.h>
+#endif
+
 #define GMSH_EXECUTABLE gmsh
 
 namespace Nextsim
@@ -3765,6 +3770,10 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
 void
 FiniteElement::run()
 {
+#ifdef WITHGPERFTOOLS
+    ProfilerStart("profile.log");
+#endif
+    
     std::string current_time_system = current_time_local();
 
     M_export_path = Environment::nextsimDir().string() + "/matlab";
@@ -3835,6 +3844,10 @@ std::cout<< "pcpt= " << pcpt  <<"\n";
         this->exportResults(1000);
     LOG(INFO) <<"TIMER total = " << chrono_tot.elapsed() <<"s\n";
 
+#ifdef WITHGPERFTOOLS
+    ProfilerStop();
+#endif
+    
     this->finalise();
 
     LOG(INFO) << "-----------------------Simulation done on "<< current_time_local() <<"\n";
@@ -4880,8 +4893,8 @@ FiniteElement::updateVelocity()
 {
     M_VTMM = M_VTM;
     M_VTM  = M_VT;
-    M_VT   = M_solution->container();
-    //M_solution->container(&M_VT[0]);
+    //M_VT   = M_solution->container(); 
+    M_solution->container(&M_VT[0]); // this version is more rapid as it directly acceses the memory and does not create a new vector 0.16 ms instead of 0.23 ms for container()
     
     // TODO (updateVelocity) Sylvain: This limitation cost about 1/10 of the solver time.
     // TODO (updateVelocity) Sylvain: We could add a term in the momentum equation to avoid the need of this limitation.

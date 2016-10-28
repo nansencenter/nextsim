@@ -194,3 +194,51 @@ http://www.patosai.com/blog/post/installing-gdb-on-mac-os-x-yosemite
 # install valgrind on mac following those links:
 http://ranf.tl/2014/11/28/valgrind-on-mac-os-x-10-10-yosemite/
 http://superuser.com/questions/630674/valgrind-installation-errors-on-osx-10-8
+
+##-------Profiling-------
+Comparison of available profilers:
+http://gernotklingler.com/blog/gprof-valgrind-gperftools-evaluation-tools-application-level-cpu-profiling-linux/
+
+# install google perf tools on mac following those links:
+http://brewformulas.org/Google-perftool
+
+You need a recent version of XQuartz (X11)
+
+You also need graphviz
+install graphviz
+
+You also need gv:
+brew install -v ghostscript gv
+
+Then follow read this how to:
+http://goog-perftools.sourceforge.net/doc/cpu_profiler.html
+
+For CPU analysis, I think we need to compile with at least -g option and link with -lprofiler:
+
+I tried replacing -O3 by  -lprofiler -g -O3 -DNDEBUG
+and add LDFLAGS += -lprofiler to the Makefile
+
+Option 1)
+Then run it by:
+CPUPROFILE=/tmp/cpuprofile.log ./bin/nextsim.exec --config-files=nextsim_BK.cfg
+
+Option 2)
+You can also just apply the profiler on a small part of the code by compiling with -DWITHGPERFTOOLS and adding those lines where needed:
+#ifdef WITHGPERFTOOLS
+#include <gperftools/profiler.h>
+#endif
+
+#ifdef WITHGPERFTOOLS
+    ProfilerStart("profile.log");
+#endif
+
+#ifdef WITHGPERFTOOLS
+    ProfilerStop();
+#endif
+
+You then simply run:
+./bin/nextsim.exec --config-files=nextsim_BK.cfg
+at it will save the log info into profile.log file.
+
+And print the graph by:
+pprof --gv ./bin/nextsim.exec /tmp/cpuprofile.log 
