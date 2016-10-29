@@ -84,8 +84,10 @@ public:
 
 	void clear();
 
-    void loadDataset(Dataset *dataset, GmshMesh const& mesh);//(double const& u, double const& v);
+    void loadDataset(Dataset *dataset, GmshMesh const& mesh);
 
+    void interpolateDataset(Dataset *dataset, GmshMesh const& mesh);
+    
 #if 0
 	size_type size() const;
 

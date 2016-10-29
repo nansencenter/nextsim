@@ -7,6 +7,8 @@ FPROGNAME=FWrap.x
 CXX = g++
 CXXFLAGS += -std=c++11 -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v -DHAVE_CONFIG_H -D_MULTITHREADING_
 
+#CXXFLAGS += -pg -g -DNDEBUG
+
 CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I $(NEXTSIMDIR)/contrib/bamg/include
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include -I $(NEXTSIMDIR)/contrib/interp/include
 
@@ -50,6 +52,8 @@ endif
 # endif
 
 LDFLAGS += -L /usr/local/lib
+
+#LDFLAGS += -lprofiler
 
 LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
 ifndef MACHINE_HEXAGON

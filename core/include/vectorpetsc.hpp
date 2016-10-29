@@ -117,6 +117,8 @@ public:
 	void clear();
 
     std::vector<value_type> container();
+    
+    void container(double *values);
 
 	bool isInitialized() const { return M_is_initialized; }
 

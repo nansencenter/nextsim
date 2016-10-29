@@ -194,3 +194,66 @@ http://www.patosai.com/blog/post/installing-gdb-on-mac-os-x-yosemite
 # install valgrind on mac following those links:
 http://ranf.tl/2014/11/28/valgrind-on-mac-os-x-10-10-yosemite/
 http://superuser.com/questions/630674/valgrind-installation-errors-on-osx-10-8
+
+##-------Profiling-------
+Comparison of available profilers:
+http://gernotklingler.com/blog/gprof-valgrind-gperftools-evaluation-tools-application-level-cpu-profiling-linux/
+
+# install google perf tools on mac following those links:
+http://brewformulas.org/Google-perftool
+
+You need a recent version of XQuartz (X11)
+
+You also need graphviz
+install graphviz
+
+You also need gv:
+brew install -v ghostscript gv
+
+Then follow read this how to:
+http://goog-perftools.sourceforge.net/doc/cpu_profiler.html
+
+For CPU analysis, I think we need to compile with at least -g option and link with -lprofiler:
+
+I tried adding 
+-pg -g -DNDEBUG to CXXFLAGS
+-lprofiler to LDFLAGS
+
+Option 1)
+Then run it by:
+CPUPROFILE=profile.log ./bin/nextsim.exec --config-files=nextsim_BK.cfg
+
+Option 2)
+You can apply the profiler on a small part of the code by compiling with -DWITHGPERFTOOLS and adding those lines where needed:
+#ifdef WITHGPERFTOOLS
+#include <gperftools/profiler.h>
+#endif
+
+#ifdef WITHGPERFTOOLS
+    ProfilerStart("profile.log");
+#endif
+
+#ifdef WITHGPERFTOOLS
+    ProfilerStop();
+#endif
+
+You then simply run:
+./bin/nextsim.exec --config-files=nextsim_BK.cfg
+at it will save the log info into profile.log file.
+
+To print the graph, you can use :
+pprof --gv ./bin/nextsim.exec profile.log 
+
+You can also have a text file :
+pprof --text ./bin/nextsim.exec profile.log 
+
+Unfortunately, I haven't manage to output correctly the symbolic information, even when adding -g option to the core and contrib code, or even when using petsc in debud mode. I only get info with the adresses of the functions which is not very usefull. For example:
+618   0.8%  26.1%      618   0.8% 0x000000010213ed6e
+    616   0.8%  26.9%      616   0.8% 0x000000010218586a
+    581   0.7%  27.6%      581   0.7% 0x00007fff93faa348
+    568   0.7%  28.3%      568   0.7% 0x0000000102185807
+    524   0.7%  29.0%      524   0.7% 0x00007fff946e448a
+    397   0.5%  29.5%      397   0.5% 0x00000001021d7b5b
+    393   0.5%  30.0%      393   0.5% 0x00000001021ed9b4
+    387   0.5%  30.5%      387   0.5% 0x00007fff93fa7e0f
+    376   0.5%  30.9%      376   0.5% 0x00007fff93fabcd1

@@ -163,7 +163,6 @@ namespace Nextsim
             ("simul.constant_Qlw_in", po::value<double>()->default_value( 250. ), "")
             ("simul.constant_precip", po::value<double>()->default_value( 1e-5 ), "")
             ("simul.constant_snowfr", po::value<double>()->default_value( 0.9 ), "")
-            ("simul.ocean_nudge", po::value<bool>()->default_value( false ), "")
             ("simul.ocean_nudge_timeT", po::value<double>()->default_value( 30*days_in_sec), "")
             ("simul.ocean_nudge_timeS", po::value<double>()->default_value( 30*days_in_sec), "")
             ("simul.constant_Qdw", po::value<double>()->default_value( 0. ), "")

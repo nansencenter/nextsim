@@ -15,6 +15,11 @@
 #include <exporter.hpp>
 #include <numeric>
 
+
+#ifdef WITHGPERFTOOLS
+#include <gperftools/profiler.h>
+#endif
+
 #define GMSH_EXECUTABLE gmsh
 
 namespace Nextsim
@@ -308,6 +313,8 @@ FiniteElement::initDatasets()
     M_ice_amsre_elements_dataset=DataSet("ice_amsre_elements",M_num_elements);
 
     M_ice_osisaf_elements_dataset=DataSet("ice_osisaf_elements",M_num_elements);
+
+    M_ice_osisaf_type_elements_dataset=DataSet("ice_osisaf_type_elements",M_num_elements);
 
     M_ice_amsr2_elements_dataset=DataSet("ice_amsr2_elements",M_num_elements);
 
@@ -1068,7 +1075,11 @@ FiniteElement::regrid(bool step)
             // coupling with wim
             // - only interpolate if not at a coupling time step
             // - else nfloes will just be overwritten with wimToNextsim()
-            bool nfloes_interp = (M_use_wim && (!M_run_wim));
+            // - EXCEPT if doing breaking on mesh
+            //   - then we need to PASS IN regridded Nfloes
+            bool nfloes_interp = M_use_wim;
+            if ( !(vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh"))
+                bool nfloes_interp = (M_use_wim && (!M_run_wim));
 
             if (nfloes_interp)
                 std::cout<<"IN REGRID: "<< "interpolate nfloes\n";
@@ -1326,7 +1337,6 @@ FiniteElement::regrid(bool step)
                     M_nfloes[i] = interp_elt_out[nb_var*i+tmp_nb_var];
                     tmp_nb_var++;
                 }
-
 #endif
 
 				if(tmp_nb_var!=nb_var)
@@ -1566,6 +1576,7 @@ FiniteElement::regrid(bool step)
     M_ice_piomas_elements_dataset.target_size=M_num_elements;
     M_ice_amsre_elements_dataset.target_size=M_num_elements;
     M_ice_osisaf_elements_dataset.target_size=M_num_elements;
+    M_ice_osisaf_type_elements_dataset.target_size=M_num_elements;
     M_ice_amsr2_elements_dataset.target_size=M_num_elements;
     M_ice_cs2_smos_elements_dataset.target_size=M_num_elements;
     M_ice_smos_elements_dataset.target_size=M_num_elements;
@@ -1576,28 +1587,43 @@ FiniteElement::regrid(bool step)
 #endif
 
 
-    M_atmosphere_nodes_dataset.reloaded=false;
-    M_atmosphere_elements_dataset.reloaded=false;
-    M_atmosphere_bis_elements_dataset.reloaded=false;
-    M_ocean_nodes_dataset.reloaded=false;
-    M_ocean_elements_dataset.reloaded=false;
+    M_atmosphere_nodes_dataset.interpolated=false;
+    M_atmosphere_elements_dataset.interpolated=false;
+    M_atmosphere_bis_elements_dataset.interpolated=false;
+    M_ocean_nodes_dataset.interpolated=false;
+    M_ocean_elements_dataset.interpolated=false;
 
-    M_ice_topaz_elements_dataset.reloaded=false;
-    M_ice_piomas_elements_dataset.reloaded=false;
-    M_ice_amsre_elements_dataset.reloaded=false;
-    M_ice_osisaf_elements_dataset.reloaded=false;
-    M_ice_amsr2_elements_dataset.reloaded=false;
-    M_ice_cs2_smos_elements_dataset.reloaded=false;
-    M_ice_smos_elements_dataset.reloaded=false;
-    M_bathymetry_elements_dataset.reloaded=false;
+    M_ice_topaz_elements_dataset.interpolated=false;
+    M_ice_piomas_elements_dataset.interpolated=false;
+    M_ice_amsre_elements_dataset.interpolated=false;
+    M_ice_osisaf_elements_dataset.interpolated=false;
+    M_ice_osisaf_type_elements_dataset.interpolated=false;
+    M_ice_amsr2_elements_dataset.interpolated=false;
+    M_ice_cs2_smos_elements_dataset.interpolated=false;
+    M_ice_smos_elements_dataset.interpolated=false;
+    M_bathymetry_elements_dataset.interpolated=false;
 #if defined (WAVES)
-    M_WW3A_elements_dataset.reloaded=false;
-    M_ERAIW_1DEG_elements_dataset.reloaded=false;
+    M_WW3A_elements_dataset.interpolated=false;
+    M_ERAIW_1DEG_elements_dataset.interpolated=false;
 #endif
 
     // for the parallel code, it will be necessary to add those lines
     // as the domain covered by the partitions changes at each remeshing/partitioning
 #if 0
+    M_atmosphere_nodes_dataset.grid.interpolated=false;
+    M_atmosphere_elements_dataset.grid.interpolated=false;
+    M_atmosphere_bis_elements_dataset.grid.interpolated=false;
+    M_ocean_nodes_dataset.grid.interpolated=false;
+    M_ocean_elements_dataset.grid.interpolated=false;
+    M_ice_topaz_elements_dataset.grid.interpolated=false;
+    M_ice_amsre_elements_dataset.grid.interpolated=false;
+    M_ice_osisaf_elements_dataset.grid.interpolated=false;
+    M_ice_osisaf_type_elements_dataset.grid.interpolated=false;
+    M_ice_amsr2_elements_dataset.grid.interpolated=false;
+    M_ice_cs2_smos_elements_dataset.grid.interpolated=false;
+    M_ice_smos_elements_dataset.grid.interpolated=false;
+    M_bathymetry_elements_dataset.grid.interpolated=false;
+    
     M_atmosphere_nodes_dataset.grid.loaded=false;
     M_atmosphere_elements_dataset.grid.loaded=false;
     M_atmosphere_bis_elements_dataset.grid.loaded=false;
@@ -1606,6 +1632,7 @@ FiniteElement::regrid(bool step)
     M_ice_topaz_elements_dataset.grid.loaded=false;
     M_ice_amsre_elements_dataset.grid.loaded=false;
     M_ice_osisaf_elements_dataset.grid.loaded=false;
+    M_ice_osisaf_type_elements_dataset.grid.loaded=false;
     M_ice_amsr2_elements_dataset.grid.loaded=false;
     M_ice_cs2_smos_elements_dataset.grid.loaded=false;
     M_ice_smos_elements_dataset.grid.loaded=false;
@@ -2809,7 +2836,6 @@ FiniteElement::update()
 void
 FiniteElement::solve()
 {
-    chrono.restart();
     M_solver->solve(_matrix=M_matrix,
                     _solution=M_solution,
                     _rhs=M_vector,
@@ -2819,8 +2845,6 @@ FiniteElement::solve()
                     _reuse_prec=true,
                     _rebuild=M_regrid
                     );
-
-    LOG(INFO) <<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";
 
     //M_solution->printMatlab("solution.m");
     //Environment::logMemoryUsage("");
@@ -2982,14 +3006,16 @@ FiniteElement::thermo()
         /* There are two ways to calculate this. We decide which one by
          * checking mixrat - the calling routine must set this to a negative
          * value if the dewpoint should be used. */
-        if ( M_mixrat[i] < 0. )
+        if ( M_dair.M_initialized )
         {
             double fa     = 1. + Aw + M_mslp[i]*1e-2*( Bw + Cw*M_dair[i]*M_dair[i] );
             double esta   = fa*aw*std::exp( (bw-M_dair[i]/dw)*M_dair[i]/(M_dair[i]+cw) );
             sphuma = alpha*fa*esta/(M_mslp[i]-beta*fa*esta) ;
         }
-        else
+        else if ( M_mixrat.M_initialized )
             sphuma = M_mixrat[i]/(1.+M_mixrat[i]) ;
+        else
+            throw std::logic_error("Neither M_dair nor M_mixrat have been initialized. I cannot calculate sphuma.");
 
         // -------------------------------------------------
         // 3.2) Specific humidity - ocean surface (calcSphumW in matlab)
@@ -3747,27 +3773,16 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
 void
 FiniteElement::run()
 {
+#ifdef WITHGPERFTOOLS
+    ProfilerStart("profile.log");
+#endif
+    
     std::string current_time_system = current_time_local();
-
-    M_export_path = Environment::nextsimDir().string() + "/matlab";
-    // change directory for outputs if the option "output_directory" is not empty
-    if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
-    {
-        M_export_path = vm["simul.output_directory"].as<std::string>();
-
-        fs::path path(M_export_path);
-        // add a subdirecory if needed
-        // path /= "subdir";
-
-        // create the output directory if it does not exist
-        if ( !fs::exists(path) )
-            fs::create_directories(path);
-    }
-
-    this->writeLogFile();
 
     int pcpt = this->init();
     int niter = vm["simul.maxiteration"].as<int>();
+
+    this->writeLogFile();
 
     // Debug file that records the time step
     std::fstream pcpt_file;
@@ -3817,6 +3832,10 @@ std::cout<< "pcpt= " << pcpt  <<"\n";
         this->exportResults(1000);
     LOG(INFO) <<"TIMER total = " << chrono_tot.elapsed() <<"s\n";
 
+#ifdef WITHGPERFTOOLS
+    ProfilerStop();
+#endif
+    
     this->finalise();
 
     LOG(INFO) << "-----------------------Simulation done on "<< current_time_local() <<"\n";
@@ -3841,6 +3860,22 @@ int
 FiniteElement::init()
 {
     // Initialise everything that doesn't depend on the mesh (constants, data set description, and time)
+
+    M_export_path = Environment::nextsimDir().string() + "/matlab";
+    // change directory for outputs if the option "output_directory" is not empty
+    if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
+    {
+        M_export_path = vm["simul.output_directory"].as<std::string>();
+
+        fs::path path(M_export_path);
+        // add a subdirecory if needed
+        // path /= "subdir";
+
+        // create the output directory if it does not exist
+        if ( !fs::exists(path) )
+            fs::create_directories(path);
+    }
+
     int pcpt = 0;
     mesh_adapt_step=0;
     had_remeshed=false;
@@ -3871,7 +3906,8 @@ FiniteElement::init()
 
         // get wim grid
         std::cout<<"Getting WIM grid info\n";
-        wim_grid    = wim.wimGrid("km");
+        //wim_grid    = wim.wimGrid("km");
+        wim_grid    = wim.wimGrid("m");
     }
 #endif
 
@@ -3916,12 +3952,15 @@ FiniteElement::init()
     chrono.restart();
     LOG(DEBUG) <<"check_and_reload starts\n";
     for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
-        (*it)->check_and_reload(M_mesh,time_init);
+        (*it)->check_and_reload(M_mesh,current_time);
     LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
     
-    chrono.restart();
-    this->initModelState();
-    LOG(DEBUG) <<"initSimulation done in "<< chrono.elapsed() <<"s\n";
+    if ( ! M_use_restart )
+    {
+        chrono.restart();
+        this->initModelState();
+        LOG(DEBUG) <<"initSimulation done in "<< chrono.elapsed() <<"s\n";
+    }
     
     // Open the output file for drifters
     // TODO: Is this the right place to open the file?
@@ -3999,7 +4038,7 @@ FiniteElement::step(int &pcpt)
 
 
     // Read in the new buoys and output
-    if (M_drifter_type == setup::DrifterType::IABP && std::fmod(current_time,0.5) == 0)
+    if ( M_drifter_type == setup::DrifterType::IABP && ( pcpt==0 || std::fmod(current_time,0.5)==0 ) )
     {
         this->updateIABPDrifter();
         // TODO: Do we want to output drifters at a different time interval?
@@ -4070,7 +4109,9 @@ FiniteElement::step(int &pcpt)
         had_remeshed=false;
     }
 
+    chrono.restart();
     this->solve();
+    LOG(INFO) <<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";
 
     chrono.restart();
     LOG(DEBUG) <<"updateVelocity starts\n";
@@ -4565,6 +4606,7 @@ FiniteElement::writeRestart(int pcpt, int step)
     std::vector<int> misc_int(2);
     misc_int[0] = pcpt;
     misc_int[1] = M_flag_fix;
+    misc_int[2] = current_time;
     exporter.writeField(outbin, misc_int, "Misc_int");
     exporter.writeField(outbin, M_dirichlet_flags, "M_dirichlet_flags");
 
@@ -4603,13 +4645,21 @@ FiniteElement::writeRestart(int pcpt, int step)
         std::vector<double> drifter_x(M_drifter.size());
         std::vector<double> drifter_y(M_drifter.size());
 
+        // Sort the drifters so the restart files are identical (this is just to make testing easier)
         int j=0;
         for ( auto it = M_drifter.begin(); it != M_drifter.end(); ++it )
         {
             drifter_no[j] = it->first;
-            drifter_x[j] = it->second[0];
-            drifter_y[j] = it->second[1];
             ++j;
+        }
+        std::sort(drifter_no.begin(), drifter_no.end());
+
+        j=0;
+        for ( auto it = drifter_no.begin(); it != drifter_no.end(); it++ )
+        {
+            drifter_x[j] = M_drifter[drifter_no[j]][0];
+            drifter_y[j] = M_drifter[drifter_no[j]][1];
+            j++;
         }
 
         exporter.writeField(outbin, drifter_no, "Drifter_no");
@@ -4806,10 +4856,11 @@ FiniteElement::readRestart(int step)
         std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
         std::vector<double> drifter_y  = field_map_dbl["Drifter_y"];
 
+        this->initIABPDrifter();
         if (drifter_no.size() == 0)
         {
             LOG(WARNING) << "Warning: Couldn't read drifter positions from restart file. Drifter positions initialised as if there was no restart.\n";
-            this->initDrifter();
+            this->updateIABPDrifter();
         } else {
             for ( int i=0; i<drifter_no.size(); ++i )
             {
@@ -4831,6 +4882,7 @@ FiniteElement::readRestart(int step)
     M_ice_piomas_elements_dataset.target_size=M_num_elements;
     M_ice_amsre_elements_dataset.target_size=M_num_elements;
     M_ice_osisaf_elements_dataset.target_size=M_num_elements;
+    M_ice_osisaf_type_elements_dataset.target_size=M_num_elements;
     M_ice_amsr2_elements_dataset.target_size=M_num_elements;
     M_ice_cs2_smos_elements_dataset.target_size=M_num_elements;
     M_ice_smos_elements_dataset.target_size=M_num_elements;
@@ -4846,9 +4898,10 @@ void
 FiniteElement::updateVelocity()
 {
     M_VTMM = M_VTM;
-    M_VTM = M_VT;
-    M_VT = M_solution->container();
-
+    M_VTM  = M_VT;
+    //M_VT   = M_solution->container(); 
+    M_solution->container(&M_VT[0]); // this version is more rapid as it directly acceses the memory and does not create a new vector 0.16 ms instead of 0.23 ms for container()
+    
     // TODO (updateVelocity) Sylvain: This limitation cost about 1/10 of the solver time.
     // TODO (updateVelocity) Sylvain: We could add a term in the momentum equation to avoid the need of this limitation.
     //std::vector<double> speed_c_scaling_test(bamgmesh->NodalElementConnectivitySize[0]);
@@ -5012,9 +5065,6 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
 
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
             M_external_data.push_back(&M_precip);
-
-            M_dair=ExternalData(-1.);
-            M_external_data.push_back(&M_dair);
         break;
 
         case setup::AtmosphereType::ERAi:
@@ -5049,10 +5099,6 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
 
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
             M_external_data.push_back(&M_precip);
-
-            M_mixrat=ExternalData(-1.);
-            M_external_data.push_back(&M_mixrat);
-
         break;
 
         case setup::AtmosphereType::EC:
@@ -5079,9 +5125,6 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
 
             M_precip=ExternalData(0.);
             M_external_data.push_back(&M_precip);
-
-            M_mixrat=ExternalData(-1.);
-            M_external_data.push_back(&M_mixrat);
         break;
 
         case setup::AtmosphereType::EC_ERAi:
@@ -5107,9 +5150,6 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
 
             M_precip=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,5,false,time_init);
             M_external_data.push_back(&M_precip);
-
-            M_mixrat=ExternalData(-1.);
-            M_external_data.push_back(&M_mixrat);
         break;
 
         default:
@@ -5844,11 +5884,14 @@ FiniteElement::cs2SmosIce()
     external_data M_init_thick=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,1,false,time_init);
     M_init_thick.check_and_reload(M_mesh,time_init);
 
+    external_data M_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init);
+    M_type.check_and_reload(M_mesh,time_init);
+
     warrenClimatology();
 
-    double tmp_var;
+    double tmp_var, correction_factor_warren;
     for (int i=0; i<M_num_elements; ++i)
-    {
+    {    
 		tmp_var=std::min(1.,M_init_conc[i]);
 		M_conc[i] = tmp_var;
 		tmp_var=M_init_thick[i];
@@ -5865,14 +5908,22 @@ FiniteElement::cs2SmosIce()
             M_conc[i]=0.;
             M_snow_thick[i]=0.;
         }
+            
+        // Correction of the value given by Warren as a function of the ice type
+        //M_type[i]==1. // No ice
+        //M_type[i]==2. // First-Year ice
+        //M_type[i]==3. // Multi-Year ice
+        //M_type[i]==4. // Mixed
+        correction_factor_warren=std::max(0.,std::min(1.,(M_type[i]-1.)*0.5)); // == 1. for MY, and mixed, 0.5 for FY, 0. for No ice
+
+        M_snow_thick[i]=correction_factor_warren*M_snow_thick[i]*M_conc[i];
 
 		M_damage[i]=0.;
 
         // Check that the snow is not so thick that the ice is flooded
         double max_snow = M_thick[i]*(physical::rhow-physical::rhoi)/physical::rhos;
-        // Take half of the maximum allowed snow thickness
-        M_snow_thick[i] = std::min(0.5*max_snow, M_snow_thick[i]);
-
+        M_snow_thick[i] = std::min(max_snow, M_snow_thick[i]);
+        
 	}
 }
 void
@@ -6019,12 +6070,16 @@ FiniteElement::warrenClimatology()
     if ( day < eomday/2. )
     { // We're in the early part of the month and interpolate to the previous month
         month2 = month-1;
-        dt     = day;
+        dt     = eomday/2+day;
+        if(month2==0)
+            month2=12;
     }
     else
     { // We're in the late part of the month and interpolate to the next month
         month2 = month+1;
-        dt     = eomday - day;
+        dt     = eomday/2 + eomday - day;
+        if(month2==13)
+            month2=1;
     }
 
     // Now calculate snow thickness for the current day as an inexact temporal interpolation
@@ -6575,27 +6630,43 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields)
         {
             // Thermodynamic and dynamic forcing
             // Atmosphere
-            exporter.writeField(outbin,M_wind.getVector(), "M_wind");         // Surface wind [m/s]
-            exporter.writeField(outbin,M_tair.getVector(), "M_tair");         // 2 m temperature [C]
-            exporter.writeField(outbin,M_mixrat.getVector(), "M_mixrat");       // Mixing ratio
-            exporter.writeField(outbin,M_mslp.getVector(), "M_mslp");         // Atmospheric pressure [Pa]
-            exporter.writeField(outbin,M_Qsw_in.getVector(), "M_Qsw_in");       // Incoming short-wave radiation [W/m2]
-            exporter.writeField(outbin,M_Qlw_in.getVector(), "M_Qlw_in");       // Incoming long-wave radiation [W/m2]
-            exporter.writeField(outbin,M_tcc.getVector(), "M_tcc");       // Incoming long-wave radiation [W/m2]
-            exporter.writeField(outbin,M_precip.getVector(), "M_precip");       // Total precipitation [m]
-            exporter.writeField(outbin,M_snowfr.getVector(), "M_snowfr");       // Fraction of precipitation that is snow
-            exporter.writeField(outbin,M_dair.getVector(), "M_dair");         // 2 m dew point [C]
+            if ( M_wind.M_initialized )
+                exporter.writeField(outbin,M_wind.getVector(), "M_wind");         // Surface wind [m/s]
+            if ( M_tair.M_initialized )
+                exporter.writeField(outbin,M_tair.getVector(), "M_tair");         // 2 m temperature [C]
+            if ( M_mixrat.M_initialized )
+                exporter.writeField(outbin,M_mixrat.getVector(), "M_mixrat");       // Mixing ratio
+            if ( M_mslp.M_initialized )
+                exporter.writeField(outbin,M_mslp.getVector(), "M_mslp");         // Atmospheric pressure [Pa]
+            if ( M_Qsw_in.M_initialized )
+                exporter.writeField(outbin,M_Qsw_in.getVector(), "M_Qsw_in");       // Incoming short-wave radiation [W/m2]
+            if ( M_Qlw_in.M_initialized )
+                exporter.writeField(outbin,M_Qlw_in.getVector(), "M_Qlw_in");       // Incoming long-wave radiation [W/m2]
+            if ( M_tcc.M_initialized )
+                exporter.writeField(outbin,M_tcc.getVector(), "M_tcc");       // Incoming long-wave radiation [W/m2]
+            if ( M_precip.M_initialized )
+                exporter.writeField(outbin,M_precip.getVector(), "M_precip");       // Total precipitation [m]
+            if ( M_snowfr.M_initialized )
+                exporter.writeField(outbin,M_snowfr.getVector(), "M_snowfr");       // Fraction of precipitation that is snow
+            if ( M_dair.M_initialized )
+                exporter.writeField(outbin,M_dair.getVector(), "M_dair");         // 2 m dew point [C]
 
             // Ocean
-            exporter.writeField(outbin,M_ocean.getVector(), "M_ocean");        // "Geostrophic" ocean currents [m/s]
-            exporter.writeField(outbin,M_ssh.getVector(), "M_ssh");          // Sea surface elevation [m]
+            if ( M_ocean.M_initialized )
+                exporter.writeField(outbin,M_ocean.getVector(), "M_ocean");        // "Geostrophic" ocean currents [m/s]
+            if ( M_ssh.M_initialized )
+                exporter.writeField(outbin,M_ssh.getVector(), "M_ssh");          // Sea surface elevation [m]
 
-            exporter.writeField(outbin,M_ocean_temp.getVector(), "M_ocean_temp");   // Ocean temperature in top layer [C]
-            exporter.writeField(outbin,M_ocean_salt.getVector(), "M_ocean_salt");   // Ocean salinity in top layer [C]
-            exporter.writeField(outbin,M_mld.getVector(), "M_mld");          // Mixed-layer depth [m]
+            if ( M_ocean_temp.M_initialized )
+                exporter.writeField(outbin,M_ocean_temp.getVector(), "M_ocean_temp");   // Ocean temperature in top layer [C]
+            if ( M_ocean_salt.M_initialized )
+                exporter.writeField(outbin,M_ocean_salt.getVector(), "M_ocean_salt");   // Ocean salinity in top layer [C]
+            if ( M_mld.M_initialized )
+                exporter.writeField(outbin,M_mld.getVector(), "M_mld");          // Mixed-layer depth [m]
 
             // Bathymetry
-            exporter.writeField(outbin,M_element_depth.getVector(), "M_element_depth");
+            if ( M_element_depth.M_initialized )
+                exporter.writeField(outbin,M_element_depth.getVector(), "M_element_depth");
         }
 
 #if defined (WAVES)
@@ -6883,7 +6954,7 @@ FiniteElement::wimToNextsim(bool step)
 {
     bool break_on_mesh =
         ( vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh");
-    std::cout<<"break_on_mesh="<<break_on_mesh<<"\n";
+    //std::cout<<"break_on_mesh="<<break_on_mesh<<"\n";
 
     if (M_run_wim)
     {
@@ -6898,7 +6969,8 @@ FiniteElement::wimToNextsim(bool step)
                         M_conc,
                         M_thick,
                         M_nfloes,
-                        "km");
+                        "m");
+                        //"km");
         }
 
         bool TEST_INTERP_MESH = false;
@@ -6921,6 +6993,17 @@ FiniteElement::wimToNextsim(bool step)
             M_nfloes        = wim.getNfloesMesh();
             auto M_broken   = wim.getBrokenMesh();//TODO check this - maybe change damage later
             wim.clearMesh();
+
+            if (vm["nextwim.wim_damage_mesh"].template as<bool>())
+            {
+                for (int i=1;i<M_num_elements;i++)
+                {
+                    if (M_broken[i])
+                        M_damage[i] = max(M_damage[i],
+                           (vm["nextwim.wim_damage_value"].template as<double>()));
+                    //std::cout<<"broken?,damage"<<M_broken[i]<<","<<M_damage[i]<<"\n";
+                }
+            }
         }
     }
 

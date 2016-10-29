@@ -599,13 +599,40 @@ VectorPetsc::container()
 {
     ASSERT(M_is_initialized, "VectorPetsc not initialized");
 
+	int ierr=0;
+	const PetscScalar *values;
+
+	ierr = VecGetArrayRead( M_vec, &values );
+	CHKERRABORT( M_comm,ierr );
+
     std::vector<value_type> contnr(this->size());
     for (int i=0; i<this->size(); ++i)
-    {
-        contnr[i] = this->operator()(i);
+    {    
+        contnr[i] = static_cast<double>( values[i] );
     }
+    
+    VecRestoreArrayRead(M_vec, &values);
 
     return contnr;
+}
+
+void 
+VectorPetsc::container(double *contnr)
+{
+    ASSERT(M_is_initialized, "VectorPetsc not initialized");
+
+	int ierr=0;
+	const PetscScalar *values;
+
+	ierr = VecGetArrayRead( M_vec, &values );
+	CHKERRABORT( M_comm,ierr );
+
+    for (int i=0; i<this->size(); ++i)
+    {    
+        contnr[i] = values[i];
+    }
+    
+    VecRestoreArrayRead(M_vec, &values);
 }
 
 } // Nextsim
