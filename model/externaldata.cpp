@@ -68,7 +68,7 @@ ExternalData::ExternalData( double ConstantValue )
     M_initialized(true)
     {}
 
-ExternalData::ExternalData( double ConstantValue, double ConstantValuebis )
+ExternalData::ExternalData( double ConstantValue, double ConstantValuebis)
     :
     ExternalData( ConstantValue )
     {
@@ -76,7 +76,7 @@ ExternalData::ExternalData( double ConstantValue, double ConstantValuebis )
         M_is_vector= true ;
     }
 
-ExternalData::ExternalData( double ConstantValue, double StartingTime, double SpinUpDuration )
+ExternalData::ExternalData( double ConstantValue, double StartingTime, double SpinUpDuration)
     :
     ExternalData( ConstantValue )
     {
@@ -84,7 +84,8 @@ ExternalData::ExternalData( double ConstantValue, double StartingTime, double Sp
         M_SpinUpDuration= SpinUpDuration ;
     }
 
-ExternalData::ExternalData( double ConstantValue, double ConstantValuebis, double StartingTime, double SpinUpDuration )
+ExternalData::ExternalData( double ConstantValue, double ConstantValuebis,
+        double StartingTime, double SpinUpDuration)
     :
     ExternalData( ConstantValue, ConstantValuebis )
     {
@@ -97,7 +98,9 @@ ExternalData::~ExternalData()
 	this->clear();
 }
 
-void ExternalData::check_and_reload(GmshMesh const& mesh, const double current_time)
+//void ExternalData::check_and_reload(GmshMesh const& mesh, const double current_time)
+void ExternalData::check_and_reload(std::vector<double> const& RX_in,
+            std::vector<double> const& RY_in, const double current_time)
 {
     M_current_time = current_time;
 
@@ -123,14 +126,16 @@ void ExternalData::check_and_reload(GmshMesh const& mesh, const double current_t
         if (to_be_reloaded)
         {
             std::cout << "Load " << M_datasetname << "\n";
-            loadDataset(M_dataset, mesh);
+            //loadDataset(M_dataset, mesh);
+            loadDataset(M_dataset, RX_in, RY_in);
             std::cout << "Done\n";
         }
         
         if (!M_dataset->interpolated)
         {
             std::cout << "Interpolate " << M_datasetname << "\n";
-            interpolateDataset(M_dataset, mesh);
+            //interpolateDataset(M_dataset, mesh);
+            interpolateDataset(M_dataset, RX_in, RY_in);
             std::cout << "Done\n";
         }
     }
@@ -242,7 +247,9 @@ ExternalData::getVector()
 }
 
 void
-ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const& u, double const& v)
+//ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const& u, double const& v)
+ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
+        std::vector<double> const& RY_in)//(double const& u, double const& v)
 {
     // ---------------------------------
     // Define the mapping and rotation_angle
@@ -284,18 +291,19 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 
     // ---------------------------------
     // Projection of the mesh positions into the coordinate system of the data before the interpolation
-    // (either the lat,lon projection or a polar stereographic projection with another rotaion angle (for ASR))
+    // (either the lat,lon projection or a polar stereographic projection with another rotation angle (for ASR))
     // we should need to that also for the TOPAZ native grid, so that we could use a gridtomesh, now we use the latlon of the TOPAZ grid
 
-    auto RX = mesh.coordX(dataset->rotation_angle);
-    auto RY = mesh.coordY(dataset->rotation_angle);
 
-    if(dataset->target_size==mesh.numTriangles())
-    {
-    	RX = mesh.bcoordX(dataset->rotation_angle);
-        RY = mesh.bcoordY(dataset->rotation_angle);
-    }
+    //if(dataset->target_size==mesh.numTriangles())
+    //{
+    //	RX = mesh.bcoordX(dataset->rotation_angle);
+    //    RY = mesh.bcoordY(dataset->rotation_angle);
+    //}
+    std::vector<double> RX,RY;//size set in convertTargetXY
+    this->convertTargetXY(dataset,RX_in,RY_in,RX,RY,mapNextsim);
 
+#if 0
 	if(dataset->grid.interpolation_in_latlon)
 	{
 		double lat, lon;
@@ -304,12 +312,16 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 		{
 			inverse_mapx(mapNextsim,RX[i],RY[i],&lat,&lon);
 			RY[i]=lat;
-			RX[i]=lon;
-			//tmp_latlon = XY2latLon(RX[i], RY[i], map, configfile);
-			//RY[i]=tmp_latlon[0];
-			//RX[i]=tmp_latlon[1];
+			//RX[i]=lon;
+            double bc_lon=dataset->grid.branch_cut_lon;
+            bool close_on_right=false;
+                //if true  make target lon >  bc_lon,<=bc_lon+180
+                //if false make target lon >= bc_lon,< bc_lon+180
+                //this shouldn't matter here though?
+			RX[i]=thetaInRange(lon,bc_lon,close_on_right);
 		}
 	}
+#endif
 
     double RX_min=*std::min_element(RX.begin(),RX.end());
     double RX_max=*std::max_element(RX.begin(),RX.end());
@@ -801,8 +813,51 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
     dataset->loaded=true;
 }   
     
+    
 void
-ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(double const& u, double const& v)
+ExternalData::convertTargetXY(Dataset *dataset,
+        std::vector<double> const& RX_in,  std::vector<double> const& RY_in,
+        std::vector<double> & RX_out, std::vector<double> & RY_out,
+        mapx_class *mapNextsim)//(double const& u, double const& v)
+{
+    dataset->target_size = RX_in.size();
+    RX_out.resize(dataset->target_size);
+    RY_out.resize(dataset->target_size);
+
+    if(dataset->grid.interpolation_in_latlon)
+    {
+        double lat, lon;
+        for (int i=0; i<dataset->target_size; ++i)
+        {
+            //convert to lon,lat
+			inverse_mapx(mapNextsim,RX_in[i],RY_in[i],&lat,&lon);
+			RY_out[i]=lat;
+			//RX[i]=lon;
+            double bc_lon=dataset->grid.branch_cut_lon;
+            bool close_on_right=false;
+                //if true  make target lon >  bc_lon,<=bc_lon+180
+                //if false make target lon >= bc_lon,< bc_lon+180
+                //this shouldn't matter here though?
+			RX_out[i]=thetaInRange(lon,bc_lon,close_on_right);
+        }
+    }
+    else
+    {
+        double cos_rotangle = std::cos(dataset->rotation_angle);
+        double sin_rotangle = std::sin(dataset->rotation_angle);
+        //rotate to coord sys of dataset
+        for (int i=0; i<dataset->target_size; ++i)
+        {
+			RX_out[i] =  cos_rotangle*RX_in[i]+sin_rotangle*RY_in[i];
+			RY_out[i] = -sin_rotangle*RX_in[i]+cos_rotangle*RY_in[i];
+        }
+    }
+}
+
+void
+//ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(double const& u, double const& v)
+ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX_in,
+        std::vector<double> const& RY_in)//(double const& u, double const& v)
 {
     // ---------------------------------
     // Spatial interpolation
@@ -909,6 +964,7 @@ ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(doubl
 	strNextsim.push_back('\0');
 	mapNextsim = init_mapx(&strNextsim[0]);
 
+#if 0
     auto RX = mesh.coordX(dataset->rotation_angle);
     auto RY = mesh.coordY(dataset->rotation_angle);
 
@@ -932,6 +988,9 @@ ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(doubl
 			//RX[i]=tmp_latlon[1];
 		}
 	}
+#endif
+    std::vector<double> RX,RY;//size set in convertTargetXY;
+    this->convertTargetXY(dataset,RX_in, RY_in, RX, RY,mapNextsim);//(double const& u, double const& v)
     
     // closing maps
     close_mapx(mapNextsim);

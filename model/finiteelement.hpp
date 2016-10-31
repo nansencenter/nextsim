@@ -63,6 +63,7 @@ public:
     typedef boost::shared_ptr<graph_type> graph_ptrtype;
 
     typedef ExternalData external_data;
+    typedef typename std::vector<external_data*> external_data_vec ;
 
     typedef DataSet Dataset;
 
@@ -137,8 +138,7 @@ public:
     Dataset M_ice_cs2_smos_elements_dataset;
     Dataset M_ice_smos_elements_dataset;
 #if defined (WAVES)
-    Dataset M_WW3A_elements_dataset;
-    Dataset M_ERAIW_1DEG_elements_dataset;
+    Dataset M_wave_elements_dataset;
 #endif
     double minAngles(element_type const& element, mesh_type const& mesh) const;
     double minAngle(mesh_type const& mesh) const;
@@ -165,7 +165,8 @@ public:
 #endif
 
 	void bathymetry();
-
+    void checkReloadDatasets(external_data_vec const& ext_data_vec,
+        double const& CRtime, std::string const& printout);
     void initIce();
     void initThermodynamics();
     void initSlabOcean();
@@ -191,6 +192,10 @@ public:
 #if defined (WAVES)
     void nextsimToWim(bool step);
     void wimToNextsim(bool step);
+#if 0
+    std::vector<double> FiniteElements::rotatedWimElementsX(double const& rotangle) const;
+    std::vector<double> FiniteElements::rotatedWimElementsY(double const& rotangle) const;
+#endif
 #endif
 
     std::string gitRevision();
@@ -272,7 +277,10 @@ private:
     std::vector<double> M_h_ridged_thin_ice;
     std::vector<double> M_h_ridged_thick_ice;
 
-    std::vector<external_data*> M_external_data;
+    //std::vector<external_data*> M_external_data;
+    //std::vector<external_data*> M_external_data_ice;
+    external_data_vec M_external_data;
+    external_data_vec M_external_data_ice;
 
     std::vector<double> M_fcor;
 

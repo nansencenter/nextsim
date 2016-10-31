@@ -298,8 +298,25 @@ FiniteElement::initDatasets()
             M_ocean_elements_dataset=DataSet("topaz_forecast_elements",M_num_elements);
             break;
 
-        default:        std::cout << "invalid ocean forcing"<<"\n";throw std::logic_error("invalid wind forcing");
+        default:        std::cout << "invalid ocean forcing"<<"\n";throw std::logic_error("invalid ocean forcing");
     }
+#if defined (WAVES)
+    switch (M_wave_type)
+    {
+        case setup::WaveType::CONSTANT:
+            break;
+
+        case setup::WaveType::WW3A:
+            M_wave_elements_dataset=DataSet("ww3a_elements",M_num_elements);
+            break;
+
+        case setup::WaveType::ERAI_WAVES_1DEG:
+            M_wave_elements_dataset=DataSet("erai_waves_1deg_elements",M_num_elements);
+            break;
+
+        default:        std::cout << "invalid wave forcing"<<"\n";throw std::logic_error("invalid wave forcing");
+    }
+#endif
 
     M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements",M_num_elements);
 
@@ -319,11 +336,128 @@ FiniteElement::initDatasets()
 
     M_bathymetry_elements_dataset=DataSet("etopo_elements",M_num_elements);//M_num_nodes);
 
-#if defined (WAVES)
-    M_WW3A_elements_dataset=DataSet("ww3a_elements",M_num_elements);
-    M_ERAIW_1DEG_elements_dataset=DataSet("erai_waves_1deg_elements",M_num_elements);
+}
+
+#if 0
+std::vector<double>
+FiniteElements::rotatedWimElementsX(double const& rotangle) const
+{
+    //get x coord of WIM centers (rotated)
+    num_elements_grid   = wim_grid.nx*wim_grid.ny;
+    std::vector<double> x(num_elements_grid);
+    double cos_rotangle=std::cos(rotangle);
+    double sin_rotangle=std::sin(rotangle);
+    for (int i=0; i<num_elements_grid; ++i)
+    {
+        x[i] = cos_rotangle*wim_grid.X[i] + sin_rotangle*wim_grid.Y[i];
+    }
+
+    return x;
+}
+
+std::vector<double>
+FiniteElements::rotatedWimElementsY(double const& rotangle) const
+{
+    //get x coord of WIM centers (rotated)
+    num_elements_grid   = wim_grid.nx*wim_grid.ny;
+    std::vector<double> y(num_elements_grid);
+    double cos_rotangle=std::cos(rotangle);
+    double sin_rotangle=std::sin(rotangle);
+    for (int i=0; i<num_elements_grid; ++i)
+    {
+        y[i] = -sin_rotangle*wim_grid.X[i] + cos_rotangle*wim_grid.Y[i];
+    }
+
+    return y;
+}
 #endif
 
+void
+FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
+        double const& CRtime, std::string const& printout)
+{
+    std::cout<<"size of external data vector"<<ext_data_vec.size()<<"\n";
+    if ( ext_data_vec.size()==0 )
+    {
+        LOG(DEBUG) <<"check_and_reload ("<<printout<<"):\n";
+        LOG(DEBUG) <<"nothing to do\n";
+        return;
+    }
+
+    //loop over M_external_data and call check and reload for each:
+    chrono.restart();
+    LOG(DEBUG) <<"check_and_reload ("<<printout<<") starts\n";
+
+    //don't rotate yet since rotation angle not always defined yet
+    auto RX_nod = M_mesh.coordX ();//nodes
+    auto RY_nod = M_mesh.coordY ();
+    auto RX_el  = M_mesh.bcoordX();//elements
+    auto RY_el  = M_mesh.bcoordY();
+
+    for ( auto it = ext_data_vec.begin(); it != ext_data_vec.end(); ++it )
+    {
+        if ( (*it)->M_is_constant )
+        {
+            std::vector<double> RX,RY;//not needed for constant forcings
+            (*it)->check_and_reload(RX,RY,CRtime);
+        }
+        else
+        {
+            //dataset & interpolation etc needed
+            if ( (*it)->M_dataset->grid.target_location=="mesh_nodes" )
+            {
+                std::cout<<"in nodes\n";
+#if 0
+                auto RX_in = M_mesh.coordX(*it->rotation_angle)//nodes
+                auto RY_in = M_mesh.coordY(*it->rotation_angle)
+                (*it)->check_and_reload(RX_in,RY_in,CRtime);
+#endif
+                (*it)->check_and_reload(RX_nod,RY_nod,CRtime);
+            }
+            else if ( (*it)->M_dataset->grid.target_location=="mesh_elements" )
+            {
+                std::cout<<"in elements\n";
+#if 0
+                auto RX_in = M_mesh.bcoordX(*it->rotation_angle)//elements
+                auto RY_in = M_mesh.bcoordY(*it->rotation_angle)
+                (*it)->check_and_reload(RX_in,RY_in,CRtime);
+#endif
+                (*it)->check_and_reload(RX_el,RY_el,CRtime);
+            }
+#if defined (WAVES)
+            else if ( (*it)->M_dataset->grid.target_location=="wim_grid" )
+            {
+                std::cout<<"in wim_grid\n";
+                //for the moment put on elements and interp to grid later
+                //TODO get wim_grid.X,wim_grid.Y and rotate in same way as mesh (x,y)
+#if 0
+                auto RX_in = this->rotatedWimElementsX(*it->rotation_angle)//WIM centers
+                auto RY_in = this->rotatedWimElementsY(*it->rotation_angle)
+                (*it)->check_and_reload(RX_in,RY_in,CRtime);
+#endif
+                //for the moment put on elements and interp to grid later
+                (*it)->check_and_reload(RX_el,RY_el,CRtime);
+                //TODO do: (*it)->check_and_reload(wim_grid.X,wim_grid.Y,CRtime);
+                //and cancel 2nd interp
+            }
+#endif
+            else
+            {
+                std::cout<<"Bad value for dataset->grid.target_location: "<<(*it)->M_dataset->grid.target_location<<"\n";
+                std::cout<<"- set to \"mesh_nodes\", or \"mesh_elements\"\n";
+#if defined (WAVES)
+                std::cout<<"or \"wim_grid\"\n";
+#endif
+                std::abort();
+            }
+        }
+    }
+
+    RX_el.resize(0);
+    RY_el.resize(0);
+    RX_nod.resize(0);
+    RY_nod.resize(0);
+    LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
 }
 
 void
@@ -1561,6 +1695,10 @@ FiniteElement::regrid(bool step)
         M_fcor.resize(M_num_elements);
     }
 
+#if 0
+    //TW: no longer needed now dataset.grid.target_location is defined
+    //(target_size determined "on the fly"
+    //from size of element/node/wim_grid vectors)
     M_atmosphere_nodes_dataset.target_size=M_num_nodes;
     M_atmosphere_elements_dataset.target_size=M_num_elements;
     M_atmosphere_bis_elements_dataset.target_size=M_num_elements;
@@ -1577,8 +1715,8 @@ FiniteElement::regrid(bool step)
     M_ice_smos_elements_dataset.target_size=M_num_elements;
     M_bathymetry_elements_dataset.target_size=M_num_elements;
 #if defined (WAVES)
-    M_WW3A_elements_dataset.target_size=M_num_elements;
-    M_ERAIW_1DEG_elements_dataset.target_size=M_num_elements;
+    M_wave_elements_dataset.target_size=M_num_elements;
+#endif
 #endif
 
 
@@ -1598,8 +1736,9 @@ FiniteElement::regrid(bool step)
     M_ice_smos_elements_dataset.interpolated=false;
     M_bathymetry_elements_dataset.interpolated=false;
 #if defined (WAVES)
-    M_WW3A_elements_dataset.interpolated=false;
-    M_ERAIW_1DEG_elements_dataset.interpolated=false;
+    //TODO when interpolating directly onto WIM grid,
+    //don't need to redo after regridding
+    M_wave_elements_dataset.interpolated=false;
 #endif
 
     // for the parallel code, it will be necessary to add those lines
@@ -3935,11 +4074,15 @@ FiniteElement::init()
     LOG(DEBUG) <<"Initialize bathymetry\n";
     this->bathymetry();
         
+    this->checkReloadDatasets(M_external_data,current_time,"init - time-dependant");
+#if 0
     chrono.restart();
     LOG(DEBUG) <<"check_and_reload starts\n";
+
     for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
         (*it)->check_and_reload(M_mesh,current_time);
     LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
+#endif
     
     if ( ! M_use_restart )
     {
@@ -4048,10 +4191,14 @@ FiniteElement::step(int &pcpt)
     }
 
     chrono.restart();
+    this->checkReloadDatasets(M_external_data,current_time+time_step/(24*3600.0),
+            "step - time-dependant");
+#if 0
     LOG(DEBUG) <<"check_and_reload starts\n";
     for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
         (*it)->check_and_reload(M_mesh,current_time+time_step/(24*3600.0));
     LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
+#endif
 
     M_use_restart = false;
 
@@ -4873,8 +5020,7 @@ FiniteElement::readRestart(int step)
     M_ice_smos_elements_dataset.target_size=M_num_elements;
     M_bathymetry_elements_dataset.target_size=M_num_elements;
 #if defined (WAVES)
-    M_WW3A_elements_dataset.target_size=M_num_elements;
-    M_ERAIW_1DEG_elements_dataset.target_size=M_num_elements;
+    M_wave_elements_dataset.target_size=M_num_elements;
 #endif
     return pcpt;
 }//readRestart
@@ -4998,6 +5144,8 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
                 vm["simul.constant_wind_v"].as<double>(),
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_wind);
+            std::cout<<"const wind\n";
+            std::cout<<"initialised? "<<M_wind.M_initialized<<"\n";
 
             M_tair=ExternalData(vm["simul.constant_tair"].as<double>());
             M_external_data.push_back(&M_tair);
@@ -5217,39 +5365,38 @@ FiniteElement::forcingWave()
             M_FP=ExternalData(vm["simul.constant_wave_peak_frequency"].as<double>());
             M_external_data.push_back(&M_FP);
 
-            //wim_forcing_options = M_WW3A_elements_dataset.grid.waveOptions;
             wim_ideal_forcing   = true;
 		break;
 
         //std::cout << age[0] << std::endl;
         case setup::WaveType::WW3A:
 
-	        M_SWH=ExternalData(&M_WW3A_elements_dataset, M_mesh, 0,false,time_init);
+	        M_SWH=ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init);
             M_external_data.push_back(&M_SWH);
 
-            M_MWD=ExternalData(&M_WW3A_elements_dataset, M_mesh, 1,false,time_init);
+            M_MWD=ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
             M_external_data.push_back(&M_MWD);
 
-            M_FP=ExternalData(&M_WW3A_elements_dataset, M_mesh, 2,false,time_init);
+            M_FP=ExternalData(&M_wave_elements_dataset, M_mesh, 2,false,time_init);
             M_external_data.push_back(&M_FP);
 
-            wim_forcing_options = M_WW3A_elements_dataset.grid.waveOptions;
+            wim_forcing_options = M_wave_elements_dataset.grid.waveOptions;
             wim_ideal_forcing   = false;
 
             break;
 
         case setup::WaveType::ERAI_WAVES_1DEG:
 
-            M_SWH=ExternalData(&M_ERAIW_1DEG_elements_dataset, M_mesh, 0,false,time_init);
+            M_SWH=ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init);
             M_external_data.push_back(&M_SWH);
 
-            M_MWD=ExternalData(&M_ERAIW_1DEG_elements_dataset, M_mesh, 1,false,time_init);
+            M_MWD=ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
             M_external_data.push_back(&M_MWD);
 
-            M_FP=ExternalData(&M_ERAIW_1DEG_elements_dataset, M_mesh, 2,false,time_init);
+            M_FP=ExternalData(&M_wave_elements_dataset, M_mesh, 2,false,time_init);
             M_external_data.push_back(&M_FP);
 
-            wim_forcing_options = M_ERAIW_1DEG_elements_dataset.grid.waveOptions;
+            wim_forcing_options = M_wave_elements_dataset.grid.waveOptions;
             wim_ideal_forcing   = false;
 
             break;
@@ -5512,13 +5659,19 @@ void
 FiniteElement::topazIce()
 {
     external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    M_external_data_ice.push_back(&M_init_conc);
+    M_external_data_ice.push_back(&M_init_thick);
+    M_external_data_ice.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_ice,time_init,"init - TOPAZ ice");
+    M_external_data_ice.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -5549,13 +5702,19 @@ void
 FiniteElement::topazForecastIce()
 {
     external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    M_external_data_ice.push_back(&M_init_conc);
+    M_external_data_ice.push_back(&M_init_thick);
+    M_external_data_ice.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_ice,time_init,"init - TOPAZ ice forecast");
+    M_external_data_ice.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -5589,16 +5748,24 @@ FiniteElement::topazForecastAmsr2Ice()
     double real_thickness, init_conc_tmp;
 
     external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
-    M_conc_amsr2.check_and_reload(M_mesh,time_init);
+    //M_conc_amsr2.check_and_reload(M_mesh,time_init);
 
     external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    M_external_data_ice.push_back(&M_conc_amsr2);
+    M_external_data_ice.push_back(&M_init_conc);
+    M_external_data_ice.push_back(&M_init_thick);
+    M_external_data_ice.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_ice,time_init,
+            "init - TOPAZ ice forecast + AMSR2");
+    M_external_data_ice.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -5655,22 +5822,32 @@ FiniteElement::topazForecastAmsr2OsisafIce()
     double real_thickness, init_conc_tmp;
 
     external_data M_conc_osisaf=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,0,false,time_init);
-    M_conc_osisaf.check_and_reload(M_mesh,time_init);
+    //M_conc_osisaf.check_and_reload(M_mesh,time_init);
 
     external_data M_confidence_osisaf=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,1,false,time_init);
-    M_confidence_osisaf.check_and_reload(M_mesh,time_init);
+    //M_confidence_osisaf.check_and_reload(M_mesh,time_init);
 
     external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
-    M_conc_amsr2.check_and_reload(M_mesh,time_init);
+    //M_conc_amsr2.check_and_reload(M_mesh,time_init);
 
     external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    M_external_data_ice.push_back(&M_conc_osisaf);
+    M_external_data_ice.push_back(&M_confidence_osisaf);
+    M_external_data_ice.push_back(&M_conc_amsr2);
+    M_external_data_ice.push_back(&M_init_conc);
+    M_external_data_ice.push_back(&M_init_thick);
+    M_external_data_ice.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_ice,time_init,
+            "init - TOPAZ ice forecast + AMSR2 + OSISAF");
+    M_external_data_ice.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -5722,13 +5899,20 @@ void
 FiniteElement::piomasIce()
 {
     external_data M_init_conc=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,1,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_init_snow_thick=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,2,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    M_external_data_ice.push_back(&M_init_conc);
+    M_external_data_ice.push_back(&M_init_thick);
+    M_external_data_ice.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_ice,time_init,
+            "init ice - PIOMAS");
+    M_external_data_ice.resize(0);
 
     for (int i=0; i<M_num_elements; ++i)
     {
@@ -5757,16 +5941,24 @@ FiniteElement::topazAmsreIce()
     double real_thickness, init_conc_tmp;
 
     external_data M_conc_amsre=ExternalData(&M_ice_amsre_elements_dataset,M_mesh,0,false,time_init);
-    M_conc_amsre.check_and_reload(M_mesh,time_init);
+    //M_conc_amsre.check_and_reload(M_mesh,time_init);
 
     external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    M_external_data_ice.push_back(&M_conc_amsre);
+    M_external_data_ice.push_back(&M_init_conc);
+    M_external_data_ice.push_back(&M_init_thick);
+    M_external_data_ice.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_ice,time_init,
+            "init ice - TOPAZ + AMSR-E");
+    M_external_data_ice.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -5812,16 +6004,24 @@ FiniteElement::topazAmsr2Ice()
     double real_thickness, init_conc_tmp;
 
     external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
-    M_conc_amsr2.check_and_reload(M_mesh,time_init);
+    //M_conc_amsr2.check_and_reload(M_mesh,time_init);
 
     external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    M_external_data_ice.push_back(&M_conc_amsr2);
+    M_external_data_ice.push_back(&M_init_conc);
+    M_external_data_ice.push_back(&M_init_thick);
+    M_external_data_ice.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_ice,time_init,
+            "init ice - TOPAZ + AMSR2");
+    M_external_data_ice.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -5864,13 +6064,20 @@ void
 FiniteElement::cs2SmosIce()
 {
     external_data M_init_conc=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,1,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init);
-    M_type.check_and_reload(M_mesh,time_init);
+    //M_type.check_and_reload(M_mesh,time_init);
+
+    M_external_data_ice.push_back(&M_init_conc);
+    M_external_data_ice.push_back(&M_init_thick);
+    M_external_data_ice.push_back(&M_type);
+    this->checkReloadDatasets(M_external_data_ice,time_init,
+            "init ice - CS2 + SMOS");
+    M_external_data_ice.resize(0);
 
     warrenClimatology();
 
@@ -5915,10 +6122,11 @@ void
 FiniteElement::smosIce()
 {
     external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_smos_elements_dataset,M_mesh,0,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
+
 
     boost::gregorian::date dt = Nextsim::parse_date(time_init);
     int month_id=dt.month().as_number(); // 1 for January, 2 for February, and so on. This will be used to compute the snow from Warren climatology
@@ -5926,7 +6134,14 @@ FiniteElement::smosIce()
     std::cout << "month_id: " << month_id <<"\n";
 
     external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    M_external_data_ice.push_back(&M_init_conc);
+    M_external_data_ice.push_back(&M_init_thick);
+    M_external_data_ice.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_ice,time_init,
+            "init ice - SMOS");
+    M_external_data_ice.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -6796,45 +7011,57 @@ FiniteElement::nextsimToWim(bool step)
             }
         }
 
-        // interpolation from mesh to grid
-        int nx = wim_grid.nx;
-        int ny = wim_grid.ny;
-        double dx = wim_grid.dx;
-        double dy = wim_grid.dy;
-
-        double xmin = (wim_grid.x)[0];
-        double xmax = (wim_grid.x)[nx-1];
-        double ymin = (wim_grid.y)[0];
-        double ymax = (wim_grid.y)[ny-1];
-
-        auto RX = M_mesh.coordX();
-        auto RY = M_mesh.coordY();
-
-        int num_elements_grid = nx*ny;
 
         // move the mesh for the interpolation on to the wim grid
 		M_mesh.move(M_UM,1.);
 
-        //std::cout<<"before interp mesh2grid\n";
-        InterpFromMeshToGridx(interp_elt_out,
-                              &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-                              M_mesh.numNodes(),M_mesh.numTriangles(),
-                              &interp_elt_in[0],
-                              M_mesh.numTriangles(),nb_var,
-                              xmin,ymax,
-                              dx,dy,
-                              nx,ny,
-                              0.);
+        //needed for interp (mesh2mesh) and assigning outputs
+        int num_elements_grid = wim_grid.nx*wim_grid.ny;
+        //TODO: add bool "regular" to wim_grid
+
+        if (1)//(wim_grid.regular)
+        {
+            std::cout<<"sim2wim: before interp mesh2grid\n";
+            double xmin = (wim_grid.x)[0];
+            double xmax = (wim_grid.x)[wim_grid.nx-1];
+            double ymin = (wim_grid.y)[0];
+            double ymax = (wim_grid.y)[wim_grid.ny-1];
+            //double xmin = *std::min_element(wim_grid.X.begin(),wim_grid.X.end())
+            //double xmax = *std::max_element(wim_grid.X.begin(),wim_grid.X.end())
+            //double ymin = *std::min_element(wim_grid.Y.begin(),wim_grid.Y.end())
+            //double ymax = *std::max_element(wim_grid.Y.begin(),wim_grid.X.end())
+
+            InterpFromMeshToGridx(interp_elt_out,
+                                  &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
+                                  M_mesh.numNodes(),M_mesh.numTriangles(),
+                                  &interp_elt_in[0],
+                                  M_mesh.numTriangles(),nb_var,
+                                  xmin,ymax,
+                                  wim_grid.dx,wim_grid.dy,
+                                  wim_grid.nx,wim_grid.ny,
+                                  0.);
+        }
+        else
+        {
+            //std::cout<<"sim2wim: before interp mesh2mesh2d\n";
+            InterpFromMeshToMesh2dx(&interp_elt_out,
+                                  &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
+                                  M_mesh.numNodes(),M_mesh.numTriangles(),
+                                  &interp_elt_in[0],
+                                  M_mesh.numNodes(),nb_var,
+                                  &wim_grid.X[0], &wim_grid.Y[0], num_elements_grid,
+                                  false);
+        }
 
         if (1)
         {
-            std::cout<<"nx = "<< nx <<"\n";
-            std::cout<<"ny = "<< ny <<"\n";
-            std::cout<<"dx = "<< dx <<"\n";
-            std::cout<<"dy = "<< dy <<"\n";
-            std::cout<<"xmin = "<< xmin <<"\n";
-            std::cout<<"ymax = "<< ymax <<"\n";
+            std::cout<<"nx = "<< wim_grid.nx <<"\n";
+            std::cout<<"ny = "<< wim_grid.ny <<"\n";
+            std::cout<<"dx = "<< wim_grid.dx <<"\n";
+            std::cout<<"dy = "<< wim_grid.dy <<"\n";
 
+            auto RX = M_mesh.coordX();
+            auto RY = M_mesh.coordY();
             std::cout<<"MIN BOUND MESHX= "<< *std::min_element(RX.begin(),RX.end()) <<"\n";
             std::cout<<"MAX BOUND MESHX= "<< *std::max_element(RX.begin(),RX.end()) <<"\n";
 
@@ -6843,11 +7070,11 @@ FiniteElement::nextsimToWim(bool step)
 
             std::cout<<"------------------------------------------\n";
 
-            std::cout<<"MIN BOUND GRIDX= "<< xmin <<"\n";
-            std::cout<<"MAX BOUND GRIDX= "<< xmax <<"\n";
+            std::cout<<"MIN BOUND GRIDX= "<< *std::min_element(wim_grid.X.begin(),wim_grid.X.end()) <<"\n";
+            std::cout<<"MAX BOUND GRIDX= "<< *std::max_element(wim_grid.X.begin(),wim_grid.X.end()) <<"\n";
 
-            std::cout<<"MIN BOUND GRIDY= "<< ymin <<"\n";
-            std::cout<<"MAX BOUND GRIDY= "<< ymax <<"\n";
+            std::cout<<"MIN BOUND GRIDY= "<< *std::min_element(wim_grid.Y.begin(),wim_grid.Y.end()) <<"\n";
+            std::cout<<"MAX BOUND GRIDY= "<< *std::max_element(wim_grid.Y.begin(),wim_grid.Y.end()) <<"\n";
         }
 
         //std::cout<<"after interp mesh2grid\n";
