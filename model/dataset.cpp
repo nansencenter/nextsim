@@ -166,9 +166,11 @@ namespace Nextsim
 
      		mpp_file: "NpsASR.mpp",
       		interpolation_in_latlon: false,
+		    branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"monthly",
+            target_location:"mesh_nodes",
 
             waveOptions: wavopt_none,
 
@@ -322,9 +324,11 @@ namespace Nextsim
 
      		mpp_file: "NpsASR.mpp",
       		interpolation_in_latlon: false,
+		    branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"monthly",
+            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -585,9 +589,11 @@ namespace Nextsim
 
              mpp_file: projfilename,
              interpolation_in_latlon: false,
+		    branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
              loaded: false,
              dataset_frequency:"monthly",
+            target_location:"mesh_nodes",
 
              waveOptions: wavopt_none,
 
@@ -761,9 +767,11 @@ namespace Nextsim
 
              mpp_file: projfilename,
      		interpolation_in_latlon: false,
+		    branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
              loaded: false,
             dataset_frequency:"monthly",
+            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -927,9 +935,11 @@ namespace Nextsim
 
              mpp_file: projfilename,
              interpolation_in_latlon: false,
+		    branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
              loaded: false,
              dataset_frequency:"daily",
+            target_location:"mesh_nodes",
 
             waveOptions: wavopt_none,
 
@@ -1145,9 +1155,11 @@ namespace Nextsim
 
              mpp_file: projfilename,
      		interpolation_in_latlon: false,
+		    branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
              loaded: false,
             dataset_frequency:"daily",
+            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -1314,9 +1326,11 @@ namespace Nextsim
 
              mpp_file: projfilename,
      		interpolation_in_latlon: false,
+		    branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
              loaded: false,
             dataset_frequency:"monthly",
+            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -1469,9 +1483,11 @@ namespace Nextsim
 
              mpp_file: projfilename,
      		interpolation_in_latlon: false,
+		    branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
              loaded: false,
             dataset_frequency:"yearly",
+            target_location:"mesh_elements",
              //monthly_dataset:true,
 
             waveOptions: {
@@ -1601,9 +1617,11 @@ namespace Nextsim
 
              mpp_file: projfilename,
      		interpolation_in_latlon: false,
+		    branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
              loaded: false,
             dataset_frequency:"daily",
+            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -1740,9 +1758,11 @@ namespace Nextsim
 
              mpp_file: projfilename,
      		interpolation_in_latlon: false,
+		    branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
              loaded: false,
              dataset_frequency:"daily",
+            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -1866,9 +1886,11 @@ namespace Nextsim
 
              mpp_file: projfilename,
      		interpolation_in_latlon: false,
+		    branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
              loaded: false,
              dataset_frequency:"nearest_daily",
+            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -1991,9 +2013,11 @@ namespace Nextsim
 
              mpp_file: projfilename,
      		interpolation_in_latlon: false,
+		    branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
              loaded: false,
              dataset_frequency:"nearest_daily",
+            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -2106,9 +2130,11 @@ namespace Nextsim
 
              mpp_file: projfilename,
      		interpolation_in_latlon: false,
+		    branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
              loaded: false,
              dataset_frequency:"daily",
+            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -2245,9 +2271,11 @@ namespace Nextsim
 
              mpp_file: projfilename,
      		interpolation_in_latlon: false,
+		    branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
              loaded: false,
              dataset_frequency:"daily",
+            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -2346,9 +2374,11 @@ namespace Nextsim
 
      		mpp_file: "",
      		interpolation_in_latlon: true,
+		    branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
              loaded: false,
              dataset_frequency:"constant",
+            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -2456,9 +2486,11 @@ namespace Nextsim
 
      		mpp_file: "",
      		interpolation_in_latlon: true,
+		    branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
              loaded: false,
              dataset_frequency:"monthly",
+            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -2659,10 +2691,12 @@ namespace Nextsim
 
   		mpp_file: "",
   		interpolation_in_latlon: true,
+		    branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
         loaded: false,
 
         dataset_frequency:"monthly",
+            target_location:"mesh_nodes",
 
         waveOptions: wavopt_none,
 
@@ -2821,9 +2855,11 @@ namespace Nextsim
 
       		mpp_file: "",
       		interpolation_in_latlon: true,
+		    branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"daily",
+            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -2998,10 +3034,12 @@ namespace Nextsim
 
    		mpp_file: "",
    		interpolation_in_latlon: true,
+		    branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
          loaded: false,
 
          dataset_frequency:"daily",
+            target_location:"mesh_nodes",
 
          waveOptions: wavopt_none,
 
@@ -3160,9 +3198,11 @@ namespace Nextsim
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
+		    branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"daily",
+            target_location:"wim_grid",
 
             waveOptions: {
                wave_dataset:true,
@@ -3335,9 +3375,11 @@ namespace Nextsim
 
             mpp_file: "",
             interpolation_in_latlon: true,
+		    branch_cut_lon: 0,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"yearly",
+            target_location:"wim_grid",
 
             waveOptions: {
                wave_dataset:true,
@@ -4019,7 +4061,8 @@ DataSet::getLatLonRegularLatLon(double* LAT, double* LON,netCDF::NcVar* VLAT_ptr
 
     for (int i=0; i<(index_x_count[0]); ++i)
     {
-        LON[i]=thetaInRange(LON[i]*scale_factor + add_offset,-180.,false);
+        LON[i]=LON[i]*scale_factor + add_offset;
+        //LON[i]=thetaInRange(LON[i]*scale_factor + add_offset,-180.,false);
         //make sure lon is in range [-180,180) to correspond to branch cut in mapx
     }
 

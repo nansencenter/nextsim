@@ -112,9 +112,11 @@ public:
 
         std::string mpp_file;
 		bool interpolation_in_latlon;
+		double branch_cut_lon;//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
         bool loaded;
         std::string dataset_frequency;
+        std::string target_location;// "mesh_nodes", "mesh_elements", "wim_grid"
 
         WaveOptions waveOptions;
 
