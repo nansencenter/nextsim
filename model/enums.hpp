@@ -53,9 +53,10 @@ namespace setup
 
     enum class WaveType
     {
-        CONSTANT = 0,
-        WW3A     = 1,
-        ERAI_WAVES_1DEG = 2
+        SET_IN_WIM      = 0,
+        CONSTANT        = 1,
+        WW3A            = 2,
+        ERAI_WAVES_1DEG = 3
     };
 
     enum class BathymetryType

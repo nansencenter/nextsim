@@ -304,9 +304,12 @@ private:
 
     std::vector<double> M_SWH_grid;
     std::vector<double> M_MWD_grid;
-    std::vector<double> M_FP_grid;
+    std::vector<double> M_MWP_grid;
 
     wim_type::WimGrid wim_grid;
+    double xmin_wim,xmax_wim;
+    double ymin_wim,ymax_wim;
+    int num_elements_wim_grid;
 #endif
     std::vector<double> M_tau;//this can just be set to zero if not using WIM
 
@@ -418,9 +421,12 @@ private:
     external_data M_mld;          // Mixed-layer depth [m]
 
     // Wave
-    external_data M_SWH;	  // Significant wave height [m]
-    external_data M_MWD;	  // Wave mean direction (deg)
-    external_data M_FP;		  // Wave peak frequency (/sec)
+    external_data M_SWH;	      // Significant wave height [m]
+    external_data M_MWD;	      // Wave mean direction (deg)
+    external_data M_MWP;		  // Wave peak period (s)
+    external_data M_fice_waves;   // Waves masked if ice used in external wave model 
+                                  // - due to inconsistent ice masks,
+                                  // there could be attenuation in the open ocean
 
     // Bathymetry
     external_data M_element_depth;

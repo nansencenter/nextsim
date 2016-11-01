@@ -59,9 +59,7 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
 
     M_mesh.readFromFile(M_mesh_filename);
 
-    //if (!vm["simul.wim_grid"].as<bool>())
     // setup the stereographic projection
-    //M_mesh.setProjectionFile("toto.mpp");
     M_mesh.stereographicProjection();
     // M_mesh.writeTofile("copy_init_mesh.msh");
 
@@ -303,6 +301,9 @@ FiniteElement::initDatasets()
 #if defined (WAVES)
     switch (M_wave_type)
     {
+        case setup::WaveType::SET_IN_WIM:
+            break;
+
         case setup::WaveType::CONSTANT:
             break;
 
@@ -343,11 +344,10 @@ std::vector<double>
 FiniteElements::rotatedWimElementsX(double const& rotangle) const
 {
     //get x coord of WIM centers (rotated)
-    num_elements_grid   = wim_grid.nx*wim_grid.ny;
-    std::vector<double> x(num_elements_grid);
+    std::vector<double> x(num_elements_wim_grid);
     double cos_rotangle=std::cos(rotangle);
     double sin_rotangle=std::sin(rotangle);
-    for (int i=0; i<num_elements_grid; ++i)
+    for (int i=0; i<num_elements_wim_grid; ++i)
     {
         x[i] = cos_rotangle*wim_grid.X[i] + sin_rotangle*wim_grid.Y[i];
     }
@@ -359,11 +359,10 @@ std::vector<double>
 FiniteElements::rotatedWimElementsY(double const& rotangle) const
 {
     //get x coord of WIM centers (rotated)
-    num_elements_grid   = wim_grid.nx*wim_grid.ny;
-    std::vector<double> y(num_elements_grid);
+    std::vector<double> y(num_elements_wim_grid);
     double cos_rotangle=std::cos(rotangle);
     double sin_rotangle=std::sin(rotangle);
-    for (int i=0; i<num_elements_grid; ++i)
+    for (int i=0; i<num_elements_wim_grid; ++i)
     {
         y[i] = -sin_rotangle*wim_grid.X[i] + cos_rotangle*wim_grid.Y[i];
     }
@@ -407,38 +406,29 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
             if ( (*it)->M_dataset->grid.target_location=="mesh_nodes" )
             {
                 std::cout<<"in nodes\n";
+                (*it)->check_and_reload(RX_nod,RY_nod,CRtime);
 #if 0
                 auto RX_in = M_mesh.coordX(*it->rotation_angle)//nodes
                 auto RY_in = M_mesh.coordY(*it->rotation_angle)
                 (*it)->check_and_reload(RX_in,RY_in,CRtime);
 #endif
-                (*it)->check_and_reload(RX_nod,RY_nod,CRtime);
             }
             else if ( (*it)->M_dataset->grid.target_location=="mesh_elements" )
             {
                 std::cout<<"in elements\n";
+                (*it)->check_and_reload(RX_el,RY_el,CRtime);
 #if 0
                 auto RX_in = M_mesh.bcoordX(*it->rotation_angle)//elements
                 auto RY_in = M_mesh.bcoordY(*it->rotation_angle)
                 (*it)->check_and_reload(RX_in,RY_in,CRtime);
 #endif
-                (*it)->check_and_reload(RX_el,RY_el,CRtime);
             }
 #if defined (WAVES)
             else if ( (*it)->M_dataset->grid.target_location=="wim_grid" )
             {
                 std::cout<<"in wim_grid\n";
-                //for the moment put on elements and interp to grid later
-                //TODO get wim_grid.X,wim_grid.Y and rotate in same way as mesh (x,y)
-#if 0
-                auto RX_in = this->rotatedWimElementsX(*it->rotation_angle)//WIM centers
-                auto RY_in = this->rotatedWimElementsY(*it->rotation_angle)
-                (*it)->check_and_reload(RX_in,RY_in,CRtime);
-#endif
-                //for the moment put on elements and interp to grid later
-                (*it)->check_and_reload(RX_el,RY_el,CRtime);
-                //TODO do: (*it)->check_and_reload(wim_grid.X,wim_grid.Y,CRtime);
-                //and cancel 2nd interp
+                //interp to WIM grid
+                (*it)->check_and_reload(wim_grid.X,wim_grid.Y,CRtime);
             }
 #endif
             else
@@ -619,6 +609,7 @@ FiniteElement::initConstant()
 
 #if defined (WAVES)
     const boost::unordered_map<const std::string, setup::WaveType> str2wave = boost::assign::map_list_of
+        ("set_in_wim", setup::WaveType::SET_IN_WIM)
         ("constant", setup::WaveType::CONSTANT)
         ("ww3a", setup::WaveType::WW3A)
         ("eraiw_1deg", setup::WaveType::ERAI_WAVES_1DEG);
@@ -4031,8 +4022,21 @@ FiniteElement::init()
 
         // get wim grid
         std::cout<<"Getting WIM grid info\n";
-        //wim_grid    = wim.wimGrid("km");
-        wim_grid    = wim.wimGrid("m");
+        //wim_grid = wim.wimGrid("km");
+        wim_grid = wim.wimGrid("m");
+
+        //total number of grid cells
+        num_elements_wim_grid   = wim_grid.nx*wim_grid.ny;
+
+        //range of x,y
+        xmin_wim = *std::min_element(wim_grid.X.begin(),wim_grid.X.end());
+        xmax_wim = *std::max_element(wim_grid.X.begin(),wim_grid.X.end());
+        ymin_wim = *std::min_element(wim_grid.Y.begin(),wim_grid.Y.end());
+        ymax_wim = *std::max_element(wim_grid.Y.begin(),wim_grid.Y.end());
+        std::cout<<"xmin (WIM grid) = "<<xmin_wim<<"\n";
+        std::cout<<"xmax (WIM grid) = "<<xmax_wim<<"\n";
+        std::cout<<"ymin (WIM grid) = "<<ymin_wim<<"\n";
+        std::cout<<"ymax (WIM grid) = "<<ymax_wim<<"\n";
     }
 #endif
 
@@ -5349,36 +5353,43 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
 void
 FiniteElement::forcingWave()
 {
+    wim_ideal_forcing     = true;
     switch (M_wave_type)
     {
+        case setup::WaveType::SET_IN_WIM:
+            //pass in empty vectors to wim.run()
+            //- then waves are set in there
+            M_SWH_grid.resize(0);
+            M_MWP_grid.resize(0);
+            M_MWD_grid.resize(0);
+            break;
+
         case setup::WaveType::CONSTANT:
-
-//            std::cout<<"simul.constant_significant_wave_height"<<"\n";
-//            std::cout<<vm["simul.constant_significant_wave_height"].as<double>()<<"\n";
-//            std::cout<<"simul.constant_significant_wave_height"<<"\n";
-            M_SWH=ExternalData(vm["simul.constant_significant_wave_height"].as<double>());
-            M_external_data.push_back(&M_SWH);
-
-            M_MWD=ExternalData(vm["simul.constant_wave_mean_direction"].as<double>());
-            M_external_data.push_back(&M_MWD);
-
-            M_FP=ExternalData(vm["simul.constant_wave_peak_frequency"].as<double>());
-            M_external_data.push_back(&M_FP);
-
-            wim_ideal_forcing   = true;
+            //set arrays to pass in to wim.run()
+            M_SWH_grid.assign(num_elements_wim_grid,vm["wim.hsinc" ].as<double>());
+            M_MWP_grid.assign(num_elements_wim_grid,vm["wim.tpinc" ].as<double>());
+            M_MWD_grid.assign(num_elements_wim_grid,vm["wim.mwdinc"].as<double>());
 		break;
 
         //std::cout << age[0] << std::endl;
         case setup::WaveType::WW3A:
 
-	        M_SWH=ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init);
+            //initialise arrays to pass in to wim.run()
+            M_SWH_grid.assign(num_elements_wim_grid,0);
+            M_MWP_grid.assign(num_elements_wim_grid,0);
+            M_MWD_grid.assign(num_elements_wim_grid,0);
+
+            // define external_data objects
+	        M_SWH        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init);
+            M_MWD        = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
+            M_MWP        = ExternalData(&M_wave_elements_dataset, M_mesh, 2,false,time_init);
+            M_fice_waves = ExternalData(&M_wave_elements_dataset, M_mesh, 3,false,time_init);
+
+            // add them to a vector for looping
             M_external_data.push_back(&M_SWH);
-
-            M_MWD=ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
             M_external_data.push_back(&M_MWD);
-
-            M_FP=ExternalData(&M_wave_elements_dataset, M_mesh, 2,false,time_init);
-            M_external_data.push_back(&M_FP);
+            M_external_data.push_back(&M_MWP);
+            M_external_data.push_back(&M_fice_waves);
 
             wim_forcing_options = M_wave_elements_dataset.grid.waveOptions;
             wim_ideal_forcing   = false;
@@ -5387,14 +5398,20 @@ FiniteElement::forcingWave()
 
         case setup::WaveType::ERAI_WAVES_1DEG:
 
-            M_SWH=ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init);
+            //initialise arrays to pass in to wim.run()
+            M_SWH_grid.assign(num_elements_wim_grid,0);
+            M_MWP_grid.assign(num_elements_wim_grid,0);
+            M_MWD_grid.assign(num_elements_wim_grid,0);
+
+            // define external_data objects
+            M_SWH = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init);
+            M_MWD = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
+            M_MWP = ExternalData(&M_wave_elements_dataset, M_mesh, 2,false,time_init);
+
+            // add them to a vector for looping
             M_external_data.push_back(&M_SWH);
-
-            M_MWD=ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
             M_external_data.push_back(&M_MWD);
-
-            M_FP=ExternalData(&M_wave_elements_dataset, M_mesh, 2,false,time_init);
-            M_external_data.push_back(&M_FP);
+            M_external_data.push_back(&M_MWP);
 
             wim_forcing_options = M_wave_elements_dataset.grid.waveOptions;
             wim_ideal_forcing   = false;
@@ -6943,20 +6960,9 @@ FiniteElement::nextsimToWim(bool step)
         LOG(DEBUG) <<"Element Interp starts\n";
         // ELEMENT INTERPOLATION (c, h, Nfloes)
 
-        int nb_var;
-        if ( wim_ideal_forcing )
-        {
-            nb_var=3;
-            M_SWH_grid.resize(0);
-            M_FP_grid.resize(0);
-            M_MWD_grid.resize(0);
-        }
-        else
-            nb_var=6;
-
+        int nb_var=3;
+        double* interp_elt_out;//output
         std::vector<double> interp_elt_in(nb_var*M_num_elements);
-
-        double* interp_elt_out;
 
         LOG(DEBUG) <<"ELEMENT: Interp starts\n";
 
@@ -6983,60 +6989,27 @@ FiniteElement::nextsimToWim(bool step)
             interp_elt_in[nb_var*i+tmp_nb_var] = M_nfloes[i];
             tmp_nb_var++;
 
-            if ( !wim_ideal_forcing )
-            {
-                // significant wave height
-                interp_elt_in[nb_var*i+tmp_nb_var] = M_SWH[i];
-                tmp_nb_var++;
-
-                // wave mean direction
-                interp_elt_in[nb_var*i+tmp_nb_var] = M_MWD[i];
-                tmp_nb_var++;
-
-                // wave peak period
-                if ( wim_forcing_options.use_mwp )
-                    interp_elt_in[nb_var*i+tmp_nb_var] = M_FP[i];
-                else
-                {
-                    interp_elt_in[nb_var*i+tmp_nb_var] = 0.;
-                    if (M_FP[i]>0.)
-                        interp_elt_in[nb_var*i+tmp_nb_var] = 1/M_FP[i];
-                }
-                tmp_nb_var++;
-            }
-
             if(tmp_nb_var>nb_var)
             {
                 throw std::logic_error("tmp_nb_var not equal to nb_var");
             }
         }
 
-
         // move the mesh for the interpolation on to the wim grid
 		M_mesh.move(M_UM,1.);
 
         //needed for interp (mesh2mesh) and assigning outputs
-        int num_elements_grid = wim_grid.nx*wim_grid.ny;
         //TODO: add bool "regular" to wim_grid
 
         if (1)//(wim_grid.regular)
         {
             std::cout<<"sim2wim: before interp mesh2grid\n";
-            double xmin = (wim_grid.x)[0];
-            double xmax = (wim_grid.x)[wim_grid.nx-1];
-            double ymin = (wim_grid.y)[0];
-            double ymax = (wim_grid.y)[wim_grid.ny-1];
-            //double xmin = *std::min_element(wim_grid.X.begin(),wim_grid.X.end())
-            //double xmax = *std::max_element(wim_grid.X.begin(),wim_grid.X.end())
-            //double ymin = *std::min_element(wim_grid.Y.begin(),wim_grid.Y.end())
-            //double ymax = *std::max_element(wim_grid.Y.begin(),wim_grid.X.end())
-
             InterpFromMeshToGridx(interp_elt_out,
                                   &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
                                   M_mesh.numNodes(),M_mesh.numTriangles(),
                                   &interp_elt_in[0],
                                   M_mesh.numTriangles(),nb_var,
-                                  xmin,ymax,
+                                  xmin_wim,ymax_wim,
                                   wim_grid.dx,wim_grid.dy,
                                   wim_grid.nx,wim_grid.ny,
                                   0.);
@@ -7049,11 +7022,11 @@ FiniteElement::nextsimToWim(bool step)
                                   M_mesh.numNodes(),M_mesh.numTriangles(),
                                   &interp_elt_in[0],
                                   M_mesh.numNodes(),nb_var,
-                                  &wim_grid.X[0], &wim_grid.Y[0], num_elements_grid,
+                                  &wim_grid.X[0], &wim_grid.Y[0], num_elements_wim_grid,
                                   false);
         }
 
-        if (1)
+        if (1)//some printouts
         {
             std::cout<<"nx = "<< wim_grid.nx <<"\n";
             std::cout<<"ny = "<< wim_grid.ny <<"\n";
@@ -7085,22 +7058,17 @@ FiniteElement::nextsimToWim(bool step)
 
         if (!step)
         {
-            M_icec_grid.assign(num_elements_grid,0.);
-            M_iceh_grid.assign(num_elements_grid,0.);
-            M_nfloes_grid.assign(num_elements_grid,0.);
-
-            if ( !wim_ideal_forcing )
-            {
-                M_SWH_grid.assign(num_elements_grid,0.);
-                M_MWD_grid.assign(num_elements_grid,0.);
-                M_FP_grid.assign(num_elements_grid,0.);
-            }
-
-            M_taux_grid.assign(num_elements_grid,0.);
-            M_tauy_grid.assign(num_elements_grid,0.);
+            M_icec_grid.assign  (num_elements_wim_grid,0.);
+            M_iceh_grid.assign  (num_elements_wim_grid,0.);
+            M_nfloes_grid.assign(num_elements_wim_grid,0.);
+            M_taux_grid.assign  (num_elements_wim_grid,0.);
+            M_tauy_grid.assign  (num_elements_wim_grid,0.);
         }
 
-        for (int i=0; i<num_elements_grid; ++i)
+        // set inputs to WIM:
+        // - ice from interpolation from mesh
+        // - waves from datasets if needed
+        for (int i=0; i<num_elements_wim_grid; ++i)
         {
             tmp_nb_var=0;
 
@@ -7118,17 +7086,28 @@ FiniteElement::nextsimToWim(bool step)
 
             if ( !wim_ideal_forcing )
             {
+                //get incident waves from datasets
+                double cfac = 1.;
+                if ( wim_forcing_options.use_ice )
+                {
+                    //cancel waves if ice present
+                    if (M_fice_waves[i]>0.)
+                        cfac = 0.;
+                }
+
                 // significant wave height
-                M_SWH_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-                tmp_nb_var++;
+                M_SWH_grid[i] = cfac*M_SWH[i];
 
                 // wave mean direction
-                M_MWD_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-                tmp_nb_var++;
+                M_MWD_grid[i] = cfac*M_MWD[i];
 
-                // wave peak frequency
-                M_FP_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-                tmp_nb_var++;
+                // wave peak period
+                if ( wim_forcing_options.use_mwp )
+                    M_MWP_grid[i] = cfac*M_MWP[i];
+                else if ( M_MWP[i]>0. )
+                    M_MWP_grid[i] = cfac/M_MWP[i];
+                else
+                    M_MWP_grid[i] = 0.;
             }
 
             if(tmp_nb_var>nb_var)
@@ -7151,8 +7130,8 @@ FiniteElement::nextsimToWim(bool step)
             std::cout<<"max SWH_grid= "<< *std::max_element(M_SWH_grid.begin(),M_SWH_grid.end() )<<"\n";
             std::cout<<"min MWD_grid= "<< *std::min_element(M_MWD_grid.begin(),M_MWD_grid.end() )<<"\n";
             std::cout<<"max MWD_grid= "<< *std::max_element(M_MWD_grid.begin(),M_MWD_grid.end() )<<"\n";
-            std::cout<<"min FP_grid= "<< *std::min_element(M_FP_grid.begin(),M_FP_grid.end() )<<"\n";
-            std::cout<<"max FP_grid= "<< *std::max_element(M_FP_grid.begin(),M_FP_grid.end() )<<"\n";
+            std::cout<<"min MWP_grid= "<< *std::min_element(M_MWP_grid.begin(),M_MWP_grid.end() )<<"\n";
+            std::cout<<"max MWP_grid= "<< *std::max_element(M_MWP_grid.begin(),M_MWP_grid.end() )<<"\n";
         }
 
         xDelete<double>(interp_elt_out);
@@ -7168,14 +7147,16 @@ FiniteElement::wimToNextsim(bool step)
         ( vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh");
     //std::cout<<"break_on_mesh="<<break_on_mesh<<"\n";
 
+    if (!M_regrid)
+        M_mesh.move(M_UM,1.);
+
     if (M_run_wim)
     {
 
         // run wim
-        std::vector<double> mf1, mf2, mf3;
-
         if ( break_on_mesh )
         {
+            //give moved mesh to WIM
             wim.setMesh(M_mesh.bcoordX(),//elements of mesh (x)
                         M_mesh.bcoordY(),//elements of mesh (y)
                         M_conc,
@@ -7191,10 +7172,7 @@ FiniteElement::wimToNextsim(bool step)
         if (TEST_INTERP_MESH)
             this->exportResults(1001,true,false);
 
-        wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, mf1, mf2, mf3, step);
-        // test this later
-        //wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, M_SWH_grid, M_MWD_grid, M_FP_grid, step);
-
+        wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, M_SWH_grid, M_MWD_grid, M_MWP_grid, step);
         M_taux_grid = wim.getTaux();
         M_tauy_grid = wim.getTauy();
 
@@ -7217,23 +7195,29 @@ FiniteElement::wimToNextsim(bool step)
                 }
             }
         }
-    }
+    }//run WIM & get outputs on grid
 
-    if (!M_regrid)
-        M_mesh.move(M_UM,1.);
 
-    if (M_run_wim || M_regrid)
+    bool interp_taux = vm["nextwim.applywavestress"].as<bool>();
+    // can turn off effect of wave stress for testing
+    // - if this is not done, we currently interp tau_x,tau_y each time step
+    // TODO rethink this? (let them be advected? - this could lead to instability perhaps)
+
+    // Set type of interpolation for grid-to-mesh
+    // int interptype = TriangleInterpEnum;
+    int interptype = BilinearInterpEnum;
+    //int interptype = NearestInterpEnum;
+
+    int    nx = wim_grid.nx;
+    int    ny = wim_grid.ny;
+    double dx = wim_grid.dx;
+    double dy = wim_grid.dy;
+
+    if (interp_taux)
     {
-        int nx = wim_grid.nx;
-        int ny = wim_grid.ny;
-        double dx = wim_grid.dx;
-        double dy = wim_grid.dy;
-
         chrono.restart();
         LOG(DEBUG) <<"Nodal Interp starts\n";
         LOG(DEBUG) <<"NODAL: Interp starts\n";
-
-        int num_elements_grid = nx*ny;
 
         // NODAL INTERPOLATION
         // - taux and tauy from waves
@@ -7241,65 +7225,58 @@ FiniteElement::wimToNextsim(bool step)
            //initialisation or after regridding (need to reset sizes)
             M_tau.assign(2*M_num_nodes,0);
 
-        // Set type of interpolation for grid-to-mesh
-        // int interptype = TriangleInterpEnum;
-        int interptype = BilinearInterpEnum;
-        //int interptype = NearestInterpEnum;
 
-        if (vm["nextwim.applywavestress"].as<bool>())
+        int nb_var=2;
+        std::vector<double> interp_in(nb_var*num_elements_wim_grid,0.);
+        double* interp_out;
+
+        for (int i=0; i<num_elements_wim_grid; ++i)
         {
-           // can turn off effect of wave stress for testing
-           // - if this is not done, we currently interp tau_x,tau_y each time step
-           // TODO rethink this? (let them be advected? - this could lead to instability perhaps)
-           int nb_var=2;
-           std::vector<double> interp_in(nb_var*num_elements_grid,0.);
-           double* interp_out;
+            // interp taux,tauy to nodes of mesh
+            interp_in[nb_var*i]   = M_taux_grid[i];
+            interp_in[nb_var*i+1] = M_tauy_grid[i];
+        }
 
-           for (int i=0; i<num_elements_grid; ++i)
-           {
-               // interp taux,tauy to nodes of mesh
-               interp_in[nb_var*i] = M_taux_grid[i];
-               interp_in[nb_var*i+1] = M_tauy_grid[i];
-           }
+        InterpFromGridToMeshx(interp_out,            //data (out)
+                              &(wim_grid.x)[0], nx,  //x vector (source), length of x vector
+                              &(wim_grid.y)[0], ny,  //y vector (source), length of y vector
+                              &interp_in[0],         //data (in)
+                              ny,nx,                 //M,N: no of grid cells in y,x directions
+                                                     //(to determine if corners or centers of grid have been input)
+                              nb_var,                //no of variables
+                              &M_mesh.coordX()[0],   // x vector (target)
+                              &M_mesh.coordY()[0],   // y vector (target)
+                              M_num_nodes,0.,        //target_size,default value
+                              interptype,            //interpolation type
+                              true                   //row_major (false = fortran/matlab order)
+                              );
 
-           InterpFromGridToMeshx(interp_out,            //data (out)
-                                 &(wim_grid.x)[0], nx,  //x vector (source), length of x vector
-                                 &(wim_grid.y)[0], ny,  //y vector (source), length of y vector
-                                 &interp_in[0],         //data (in)
-                                 ny,nx,                 //M,N: no of grid cells in y,x directions
-                                                        //(to determine if corners or centers of grid have been input)
-                                 nb_var,                //no of variables
-                                 &M_mesh.coordX()[0],   // x vector (target)
-                                 &M_mesh.coordY()[0],   // y vector (target)
-                                 M_num_nodes,0.,        //target_size,default value
-                                 interptype,            //interpolation type
-                                 true                   //row_major (false = fortran/matlab order)
-                                 );
-
-            std::cout<<"\nINTERP GRID TO NODES\n";
+        std::cout<<"\nINTERP GRID TO NODES\n";
 
 
-            //assign taux,tauy
-            for (int i=0; i<M_num_nodes; ++i)
-            {
-                // tau
-                M_tau[i] = interp_out[nb_var*i];//tau_x
-                M_tau[i+M_num_nodes] = interp_out[nb_var*i+1];//tau_y
-            }
-            std::cout<<"Min tau_x on grid = "<< *std::min_element(M_taux_grid.begin(),M_taux_grid.end()) <<"\n";
-            std::cout<<"Max tau_x on grid = "<< *std::max_element(M_taux_grid.begin(),M_taux_grid.end()) <<"\n";
-            std::cout<<"Min tau_y on grid = "<< *std::min_element(M_tauy_grid.begin(),M_tauy_grid.end()) <<"\n";
-            std::cout<<"Max tau_y on grid = "<< *std::max_element(M_tauy_grid.begin(),M_tauy_grid.end()) <<"\n";
-            std::cout<<"Min tau_x on mesh = "<< *std::min_element(M_tau.begin(),M_tau.begin()+M_num_nodes) <<"\n";
-            std::cout<<"Max tau_x on mesh = "<< *std::max_element(M_tau.begin(),M_tau.begin()+M_num_nodes) <<"\n";
-            std::cout<<"Min tau_y on mesh = "<< *std::min_element(M_tau.begin()+M_num_nodes,M_tau.end()) <<"\n";
-            std::cout<<"Max tau_y on mesh = "<< *std::max_element(M_tau.begin()+M_num_nodes,M_tau.end()) <<"\n";
+        //assign taux,tauy
+        for (int i=0; i<M_num_nodes; ++i)
+        {
+            // tau
+            M_tau[i] = interp_out[nb_var*i];//tau_x
+            M_tau[i+M_num_nodes] = interp_out[nb_var*i+1];//tau_y
+        }
+        std::cout<<"Min tau_x on grid = "<< *std::min_element(M_taux_grid.begin(),M_taux_grid.end()) <<"\n";
+        std::cout<<"Max tau_x on grid = "<< *std::max_element(M_taux_grid.begin(),M_taux_grid.end()) <<"\n";
+        std::cout<<"Min tau_y on grid = "<< *std::min_element(M_tauy_grid.begin(),M_tauy_grid.end()) <<"\n";
+        std::cout<<"Max tau_y on grid = "<< *std::max_element(M_tauy_grid.begin(),M_tauy_grid.end()) <<"\n";
+        std::cout<<"Min tau_x on mesh = "<< *std::min_element(M_tau.begin(),M_tau.begin()+M_num_nodes) <<"\n";
+        std::cout<<"Max tau_x on mesh = "<< *std::max_element(M_tau.begin(),M_tau.begin()+M_num_nodes) <<"\n";
+        std::cout<<"Min tau_y on mesh = "<< *std::min_element(M_tau.begin()+M_num_nodes,M_tau.end()) <<"\n";
+        std::cout<<"Max tau_y on mesh = "<< *std::max_element(M_tau.begin()+M_num_nodes,M_tau.end()) <<"\n";
 
-            xDelete<double>(interp_out);
-            //std::abort();
-        }//interp taux,tauy
+        xDelete<double>(interp_out);
+    }//interp taux,tauy
 
-        if ((M_run_wim) && (!break_on_mesh))
+    if (M_run_wim)
+    {
+        //interp Nfloes
+        if (!break_on_mesh)
         {
             // interpolate nfloes to elements of mesh
             double* interp_out;
@@ -7332,10 +7309,9 @@ FiniteElement::wimToNextsim(bool step)
             std::cout<<"Max Nfloes on mesh = "<< *std::max_element(M_nfloes.begin(),M_nfloes.end()) <<"\n";
             //std::abort();
         }
-
     }
 
-    if (!M_regrid)
+    if (!M_regrid)//move the mesh back
         M_mesh.move(M_UM,-1.);
 
 #if 0

@@ -3281,11 +3281,26 @@ namespace Nextsim
          interpolated_data: interpolated_data_tmp
         };
 
+        Variable FICE={
+             name: "ice", // wave peak frequency
+             dimensions: dimensions,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "",
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
+        };
 
-        std::vector<Variable> variables_tmp(3);
+
+        std::vector<Variable> variables_tmp(4);
         variables_tmp[0] = SWH;
         variables_tmp[1] = MWD;
         variables_tmp[2] = FP;
+        variables_tmp[3] = FICE;
 
          variables= variables_tmp;
          target_size= target_size_tmp;
@@ -3303,7 +3318,7 @@ namespace Nextsim
         // ERAI 1deg waves - grid and datasets
          Dimension dimension_x={
              name:"longitude",
-             cyclic:true
+             cyclic:true //need to add extra column, so that 1st and last are the same
         };
 
          Dimension dimension_y={
