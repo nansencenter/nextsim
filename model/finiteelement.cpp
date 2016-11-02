@@ -15,6 +15,11 @@
 #include <exporter.hpp>
 #include <numeric>
 
+
+#ifdef WITHGPERFTOOLS
+#include <gperftools/profiler.h>
+#endif
+
 #define GMSH_EXECUTABLE gmsh
 
 namespace Nextsim
@@ -499,7 +504,6 @@ FiniteElement::initConstant()
     M_bathymetry_type = str2bathymetry.find(vm["setup.bathymetry-type"].as<std::string>())->second;
 
     const boost::unordered_map<const std::string, setup::DrifterType> str2drifter = boost::assign::map_list_of
-        ("none", setup::DrifterType::NONE)
         ("equallyspaced", setup::DrifterType::EQUALLYSPACED)
         ("iabp", setup::DrifterType::IABP);
     M_drifter_type = str2drifter.find(vm["setup.drifter-type"].as<std::string>())->second;
@@ -579,7 +583,7 @@ FiniteElement::initConstant()
 
     M_use_moorings =  vm["simul.use_moorings"].as<bool>();
 
-    M_moorings_snapshot =  vm["simul.moorings_snapshot"].as<bool>();
+    M_moorings_snapshot =  vm["simul.mooring_snapshot"].as<bool>();
 
     const boost::unordered_map<const std::string, GridOutput::fileLength> str2mooringsfl = boost::assign::map_list_of
         ("inf", GridOutput::fileLength::inf)
@@ -587,7 +591,7 @@ FiniteElement::initConstant()
         ("weekly", GridOutput::fileLength::weekly)
         ("monthly", GridOutput::fileLength::monthly)
         ("yearly", GridOutput::fileLength::yearly);
-    M_moorings_file_length = str2mooringsfl.find(vm["simul.moorings_file_length"].as<std::string>())->second;
+    M_moorings_file_length = str2mooringsfl.find(vm["simul.mooring_file_length"].as<std::string>())->second;
 
 #if 0
     M_export_path = Environment::nextsimDir().string() + "/matlab";
@@ -1462,7 +1466,8 @@ FiniteElement::regrid(bool step)
 			LOG(DEBUG) <<"Nodal interp done in "<< chrono.elapsed() <<"s\n";
 
             // Drifters - if requested
-            if ( M_drifter_type != setup::DrifterType::NONE )
+            //if ( M_drifter_type != setup::DrifterType::NONE )
+            if ( vm["simul.use_drifters"].as<bool>() )
             {
                 chrono.restart();
                 LOG(DEBUG) <<"Drifter starts\n";
@@ -1618,7 +1623,7 @@ FiniteElement::regrid(bool step)
     M_ice_cs2_smos_elements_dataset.grid.interpolated=false;
     M_ice_smos_elements_dataset.grid.interpolated=false;
     M_bathymetry_elements_dataset.grid.interpolated=false;
-    
+
     M_atmosphere_nodes_dataset.grid.loaded=false;
     M_atmosphere_elements_dataset.grid.loaded=false;
     M_atmosphere_bis_elements_dataset.grid.loaded=false;
@@ -1869,10 +1874,10 @@ FiniteElement::assemble(int pcpt)
         double element_ssh = welt_ssh/3.;
 
         double coef_Vair = (vm["simul.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*norm_Vair_ice));
-        coef_Vair *= (vm["simul.rho_air"].as<double>());
+        coef_Vair *= (physical::rhoa);
 
         double coef_Voce = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
-        coef_Voce *= (vm["simul.rho_water"].as<double>());
+        coef_Voce *= physical::rhow; //(vm["simul.rho_water"].as<double>());
 
 
         double critical_h = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
@@ -1936,7 +1941,7 @@ FiniteElement::assemble(int pcpt)
         double g_ssh_e;
         for(int i=0; i<3; i++)
         {
-            g_ssh_e = (vm["simul.gravity"].as<double>())*M_ssh[(M_elements[cpt]).indices[i]-1] /*g_ssh*/;   /* g*ssh at the node k of the element e */
+            g_ssh_e = (physical::gravity)*M_ssh[(M_elements[cpt]).indices[i]-1] /*g_ssh*/;   /* g*ssh at the node k of the element e */
             g_ssh_e_x += M_shape_coeff[cpt][i]*g_ssh_e; /* x derivative of g*ssh */
             g_ssh_e_y += M_shape_coeff[cpt][i+3]*g_ssh_e; /* y derivative of g*ssh */
         }
@@ -2860,9 +2865,9 @@ FiniteElement::thermo()
     double const Qdw_const = vm["simul.constant_Qdw"].as<double>();
     double const Fdw_const = vm["simul.constant_Fdw"].as<double>();
 
-    double const ocean_albedo=vm["simul.albedoW"].as<double>();
-    double const drag_ocean_t=vm["simul.drag_ocean_t"].as<double>();
-    double const drag_ocean_q=vm["simul.drag_ocean_q"].as<double>();
+    double const ocean_albedo = vm["simul.albedoW"].as<double>();
+    double const drag_ocean_t = vm["simul.drag_ocean_t"].as<double>();
+    double const drag_ocean_q = vm["simul.drag_ocean_q"].as<double>();
 
     double const rh0   = 1./vm["simul.hnull"].as<double>();
     double const rPhiF = 1./vm["simul.PhiF"].as<double>();
@@ -3768,27 +3773,16 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
 void
 FiniteElement::run()
 {
+#ifdef WITHGPERFTOOLS
+    ProfilerStart("profile.log");
+#endif
+
     std::string current_time_system = current_time_local();
-
-    M_export_path = Environment::nextsimDir().string() + "/matlab";
-    // change directory for outputs if the option "output_directory" is not empty
-    if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
-    {
-        M_export_path = vm["simul.output_directory"].as<std::string>();
-
-        fs::path path(M_export_path);
-        // add a subdirecory if needed
-        // path /= "subdir";
-
-        // create the output directory if it does not exist
-        if ( !fs::exists(path) )
-            fs::create_directories(path);
-    }
-
-    this->writeLogFile();
 
     int pcpt = this->init();
     int niter = vm["simul.maxiteration"].as<int>();
+
+    this->writeLogFile();
 
     // Debug file that records the time step
     std::fstream pcpt_file;
@@ -3825,7 +3819,7 @@ FiniteElement::run()
         // **********************************************************************
         this->step(pcpt);
 
-std::cout<< "pcpt= " << pcpt  <<"\n";
+        //std::cout<< "pcpt= " << pcpt  <<"\n";
 
         pcpt_file << pcpt << "\n";
         pcpt_file << to_date_string(current_time) << "\n";
@@ -3837,6 +3831,10 @@ std::cout<< "pcpt= " << pcpt  <<"\n";
     if ( pcpt*time_step/output_time_step < 1000 )
         this->exportResults(1000);
     LOG(INFO) <<"TIMER total = " << chrono_tot.elapsed() <<"s\n";
+
+#ifdef WITHGPERFTOOLS
+    ProfilerStop();
+#endif
 
     this->finalise();
 
@@ -3862,6 +3860,22 @@ int
 FiniteElement::init()
 {
     // Initialise everything that doesn't depend on the mesh (constants, data set description, and time)
+
+    M_export_path = Environment::nextsimDir().string() + "/matlab";
+    // change directory for outputs if the option "output_directory" is not empty
+    if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
+    {
+        M_export_path = vm["simul.output_directory"].as<std::string>();
+
+        fs::path path(M_export_path);
+        // add a subdirecory if needed
+        // path /= "subdir";
+
+        // create the output directory if it does not exist
+        if ( !fs::exists(path) )
+            fs::create_directories(path);
+    }
+
     int pcpt = 0;
     mesh_adapt_step=0;
     had_remeshed=false;
@@ -3921,7 +3935,7 @@ FiniteElement::init()
         LOG(DEBUG) <<"Initialize variables\n";
         this->initVariables();
     }
-    
+
     LOG(DEBUG) <<"Initialize forcingAtmosphere\n";
     this->forcingAtmosphere();
 
@@ -3931,23 +3945,23 @@ FiniteElement::init()
         LOG(DEBUG) <<"Initialize forcingWave\n";
         this->forcingWave();
 #endif
-    
+
     LOG(DEBUG) <<"Initialize bathymetry\n";
     this->bathymetry();
-        
+
     chrono.restart();
     LOG(DEBUG) <<"check_and_reload starts\n";
     for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
         (*it)->check_and_reload(M_mesh,current_time);
     LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
-    
+
     if ( ! M_use_restart )
     {
         chrono.restart();
         this->initModelState();
         LOG(DEBUG) <<"initSimulation done in "<< chrono.elapsed() <<"s\n";
     }
-    
+
     // Open the output file for drifters
     // TODO: Is this the right place to open the file?
     if (M_drifter_type == setup::DrifterType::IABP )
@@ -4592,6 +4606,7 @@ FiniteElement::writeRestart(int pcpt, int step)
     std::vector<int> misc_int(2);
     misc_int[0] = pcpt;
     misc_int[1] = M_flag_fix;
+    misc_int[2] = current_time;
     exporter.writeField(outbin, misc_int, "Misc_int");
     exporter.writeField(outbin, M_dirichlet_flags, "M_dirichlet_flags");
 
@@ -4884,9 +4899,9 @@ FiniteElement::updateVelocity()
 {
     M_VTMM = M_VTM;
     M_VTM  = M_VT;
-    M_VT   = M_solution->container();
-    //M_solution->container(&M_VT[0]);
-    
+    //M_VT   = M_solution->container();
+    M_solution->container(&M_VT[0]); // this version is more rapid as it directly acceses the memory and does not create a new vector 0.16 ms instead of 0.23 ms for container()
+
     // TODO (updateVelocity) Sylvain: This limitation cost about 1/10 of the solver time.
     // TODO (updateVelocity) Sylvain: We could add a term in the momentum equation to avoid the need of this limitation.
     //std::vector<double> speed_c_scaling_test(bamgmesh->NodalElementConnectivitySize[0]);
@@ -5159,10 +5174,10 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_ssh);
 
-            M_ocean_temp=ExternalData(vm["simul.constant_ocean_temp"].as<double>());
+            M_ocean_temp=ExternalData(physical::ocean_freezing_temp);
             M_external_data.push_back(&M_ocean_temp);
 
-            M_ocean_salt=ExternalData(vm["simul.constant_ocean_salt"].as<double>());
+            M_ocean_salt=ExternalData(physical::ocean_freezing_temp/physical::mu);
             M_external_data.push_back(&M_ocean_salt);
 
             M_mld=ExternalData(vm["simul.constant_mld"].as<double>());
@@ -5876,7 +5891,7 @@ FiniteElement::cs2SmosIce()
 
     double tmp_var, correction_factor_warren;
     for (int i=0; i<M_num_elements; ++i)
-    {    
+    {
 		tmp_var=std::min(1.,M_init_conc[i]);
 		M_conc[i] = tmp_var;
 		tmp_var=M_init_thick[i];
@@ -5893,7 +5908,7 @@ FiniteElement::cs2SmosIce()
             M_conc[i]=0.;
             M_snow_thick[i]=0.;
         }
-            
+
         // Correction of the value given by Warren as a function of the ice type
         //M_type[i]==1. // No ice
         //M_type[i]==2. // First-Year ice
@@ -5908,7 +5923,7 @@ FiniteElement::cs2SmosIce()
         // Check that the snow is not so thick that the ice is flooded
         double max_snow = M_thick[i]*(physical::rhow-physical::rhoi)/physical::rhos;
         M_snow_thick[i] = std::min(max_snow, M_snow_thick[i]);
-        
+
 	}
 }
 void
@@ -5922,7 +5937,7 @@ FiniteElement::smosIce()
 
     boost::gregorian::date dt = Nextsim::parse_date(time_init);
     int month_id=dt.month().as_number(); // 1 for January, 2 for February, and so on. This will be used to compute the snow from Warren climatology
-    
+
     std::cout << "month_id: " << month_id <<"\n";
 
     external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
@@ -5934,7 +5949,7 @@ FiniteElement::smosIce()
 		tmp_var=std::min(1.,M_init_conc[i]);
 		M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
 		tmp_var=M_init_thick[i];
-		M_thick[i] = tmp_var ; 
+		M_thick[i] = tmp_var ;
 		tmp_var=M_init_snow_thick[i];
 		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
 
@@ -6103,22 +6118,25 @@ FiniteElement::initThermodynamics()
 void
 FiniteElement::initDrifter()
 {
-    switch (M_drifter_type)
+    if ( vm["simul.use_drifters"].as<bool>() )
     {
-        case setup::DrifterType::NONE:
-            break;
+        switch (M_drifter_type)
+        {
+            // case setup::DrifterType::NONE:
+            //         break;
 
-        case setup::DrifterType::EQUALLYSPACED:
-            this->equallySpacedDrifter();
-            break;
+            case setup::DrifterType::EQUALLYSPACED:
+                this->equallySpacedDrifter();
+                break;
 
-        case setup::DrifterType::IABP:
-            this->initIABPDrifter();
-            break;
+            case setup::DrifterType::IABP:
+                this->initIABPDrifter();
+                break;
 
-        default:
-            std::cout << "invalid initialization of drifter"<<"\n";
-            throw std::logic_error("invalid initialization of drifter");
+            default:
+                std::cout << "invalid initialization of drifter"<<"\n";
+                throw std::logic_error("invalid initialization of drifter");
+        }
     }
 }
 
@@ -6130,7 +6148,7 @@ FiniteElement::coriolis()
 
     for (int i=0; i<M_fcor.size(); ++i)
     {
-        M_fcor[i] = 2*(vm["simul.omega"].as<double>())*std::sin(lat[i]*PI/180.);
+        M_fcor[i] = 2*(physical::omega)*std::sin(lat[i]*PI/180.);
     }
 }
 
