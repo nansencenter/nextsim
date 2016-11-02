@@ -7,7 +7,7 @@ all:
 	@cd $(NEXTSIMDIR)/contrib/mapx/src; make
 	@cd $(NEXTSIMDIR)/contrib/interp/src; make
 	@cd $(NEXTSIMDIR)/core/src; make;
-# @cd $(NEXTSIMDIR)/modules/wim/src; make
+	@cd $(NEXTSIMDIR)/modules/wim/src; make
 
 clean:
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; make clean

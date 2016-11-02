@@ -6148,7 +6148,14 @@ FiniteElement::coriolis()
 
     for (int i=0; i<M_fcor.size(); ++i)
     {
-        M_fcor[i] = 2*(physical::omega)*std::sin(lat[i]*PI/180.);
+        if (vm["simul.use_coriolis"].as<bool>())
+        {
+            M_fcor[i] = 2*(physical::omega)*std::sin(lat[i]*PI/180.);
+        }
+        else
+        {
+            M_fcor[i] = 0.;
+        }
     }
 }
 

@@ -1,22 +1,18 @@
 KERNEL := $(shell uname -s)
 
 PROGNAME=nextsim.exec
-WIM_PROG=nextwim.exec
+#WIM_PROG=nextwim.exec
 FPROGNAME=FWrap.x
 
 CXX = g++
-CXXFLAGS += -std=c++11 -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v -DHAVE_CONFIG_H -D_MULTITHREADING_
+CXXFLAGS += -std=c++11 -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v -DHAVE_CONFIG_H -D_MULTITHREADING_ -DWAVES
 
 #CXXFLAGS += -pg -g -DNDEBUG
 
 CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I $(NEXTSIMDIR)/contrib/bamg/include
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include -I $(NEXTSIMDIR)/contrib/interp/include
+CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
 
-# ifdef WIM2D_PATH
-# 	CXXFLAGS += -I $(WIM2D_PATH)/CXX/include
-# else
-# 	CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
-# endif
 
 CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
 CXXFLAGS +=	-I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I .
@@ -74,6 +70,7 @@ LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
 LDFLAGS += -L $(NEXTSIMDIR)/lib -linterp
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
+LDFLAGS += -L $(NEXTSIMDIR)/lib -lwim
 
 # ifndef WIM2D_PATH
 # 	LDFLAGS += -L $(NEXTSIMDIR)/lib -lwim
@@ -108,29 +105,9 @@ mrproper: clean
 	$(RM) $(BINARYDIR)$(PROGNAME)
 
 # Rule for making the actual target
-wim:	CXXFLAGS += -I $(WIM2D_PATH)/CXX/include -DWAVES
-wim:    LDFLAGS += -Wl,-rpath,$(WIM2D_PATH)/CXX/lib -L $(WIM2D_PATH)/CXX/lib -lwim
-
-# ifeq ($(USE_WIM),0)
-# CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
-# LDFLAGS += -L $(NEXTSIMDIR)/lib -lwim
-# USE_WIM2 := 0
-# else
-# CXXFLAGS += -I $(WIM2D_PATH)/CXX/include -DWAVES
-# LDFLAGS += -Wl,-rpath,$(WIM2D_PATH)/CXX/lib
-# LDFLAGS += -L $(WIM2D_PATH)/CXX/lib -lwim
-# USE_WIM2 := 1
-# endif
-
-
 $(PROGNAME): $(OBJS) #$(CCOBJS)
 	@mkdir -p $(BINARYDIR)
 	$(CXX) $(CXXFLAGS) -o $(BINARYDIR)$@ $^ $(LDFLAGS)
-
-
-wim: $(OBJS) #$(CCOBJS)
-	@mkdir -p $(BINARYDIR)
-	$(CXX) $(CXXFLAGS) -o $(BINARYDIR)$(WIM_PROG) $^ $(LDFLAGS)
 
 # Rules for object files from cpp files
 $(OBJECTDIR)%.o: %.cpp
