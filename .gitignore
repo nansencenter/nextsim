@@ -16,7 +16,6 @@ objs/
 bin/
 .deps
 *.grd
-model/out_cpp
 model/libboost_date_time.dylib
 model/libboost_filesystem.dylib
 model/libboost_mpi.dylib
@@ -26,4 +25,6 @@ model/libboost_system.dylib
 nextsim_pierre.cfg
 run_pierre.sh
 
+model/out_cpp/*
 model/results/*
+model/bak/*
