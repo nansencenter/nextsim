@@ -307,6 +307,9 @@ FiniteElement::initDatasets()
         case setup::WaveType::CONSTANT:
             break;
 
+        case setup::WaveType::CONSTANT_PARTIAL:
+            break;
+
         case setup::WaveType::WW3A:
             M_wave_elements_dataset=DataSet("ww3a_elements",M_num_elements);
             break;
@@ -611,6 +614,7 @@ FiniteElement::initConstant()
     const boost::unordered_map<const std::string, setup::WaveType> str2wave = boost::assign::map_list_of
         ("set_in_wim", setup::WaveType::SET_IN_WIM)
         ("constant", setup::WaveType::CONSTANT)
+        ("constant_partial", setup::WaveType::CONSTANT_PARTIAL)
         ("ww3a", setup::WaveType::WW3A)
         ("eraiw_1deg", setup::WaveType::ERAI_WAVES_1DEG);
     M_wave_type = str2wave.find(vm["setup.wave-type"].as<std::string>())->second;
@@ -5353,7 +5357,9 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
 void
 FiniteElement::forcingWave()
 {
-    wim_ideal_forcing     = true;
+    wim_ideal_forcing = true;
+    double xedge      = xmin_wim + 0.25*(xmax_wim-xmin_wim);
+
     switch (M_wave_type)
     {
         case setup::WaveType::SET_IN_WIM:
@@ -5369,7 +5375,25 @@ FiniteElement::forcingWave()
             M_SWH_grid.assign(num_elements_wim_grid,vm["wim.hsinc" ].as<double>());
             M_MWP_grid.assign(num_elements_wim_grid,vm["wim.tpinc" ].as<double>());
             M_MWD_grid.assign(num_elements_wim_grid,vm["wim.mwdinc"].as<double>());
-		break;
+            break;
+
+        case setup::WaveType::CONSTANT_PARTIAL:
+            //set arrays to pass in to wim.run()
+            std::cout<<"wim elements"<<num_elements_wim_grid<<"\n";
+            M_SWH_grid.assign(num_elements_wim_grid,vm["wim.hsinc" ].as<double>());
+            M_MWP_grid.assign(num_elements_wim_grid,vm["wim.tpinc" ].as<double>());
+            M_MWD_grid.assign(num_elements_wim_grid,vm["wim.mwdinc"].as<double>());
+            std::cout<<"wim elements"<<num_elements_wim_grid<<"\n";
+            for (int i=0;i<num_elements_wim_grid;i++)
+            {
+                if(wim_grid.X[i]>=xedge)
+                {
+                    M_SWH_grid[i]   = 0.;
+                    M_MWP_grid[i]   = 0.;
+                    M_MWD_grid[i]   = 0.;
+                }
+            }
+            break;
 
         //std::cout << age[0] << std::endl;
         case setup::WaveType::WW3A:
@@ -7124,7 +7148,7 @@ FiniteElement::nextsimToWim(bool step)
         std::cout<<"min Nfloes grid= "<< *std::min_element(M_nfloes_grid.begin(),M_nfloes_grid.end() )<<"\n";
         std::cout<<"max Nfloes grid= "<< *std::max_element(M_nfloes_grid.begin(),M_nfloes_grid.end() )<<"\n";
 
-        if ( !wim_ideal_forcing )
+        if (M_SWH_grid.size()>0)//( !wim_ideal_forcing )
         {
             std::cout<<"min SWH_grid= "<< *std::min_element(M_SWH_grid.begin(),M_SWH_grid.end() )<<"\n";
             std::cout<<"max SWH_grid= "<< *std::max_element(M_SWH_grid.begin(),M_SWH_grid.end() )<<"\n";
@@ -7172,7 +7196,7 @@ FiniteElement::wimToNextsim(bool step)
         if (TEST_INTERP_MESH)
             this->exportResults(1001,true,false);
 
-        wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, M_SWH_grid, M_MWD_grid, M_MWP_grid, step);
+        wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, M_SWH_grid, M_MWP_grid, M_MWD_grid, step);
         M_taux_grid = wim.getTaux();
         M_tauy_grid = wim.getTauy();
 
