@@ -247,14 +247,6 @@ pprof --gv ./bin/nextsim.exec profile.log
 You can also have a text file :
 pprof --text ./bin/nextsim.exec profile.log
 
-You can also have a pdf file
-pprof --pdf --functions --focus=run bin/nextsim.exec profile.log > profile.pdf
-or
-pprof --pdf --functions --focus=run --edgefraction=1e-02 --nodefraction=1e-02 bin/nextsim.exec profile.log > profile.pdf
-or
-pprof --pdf --functions --focus=run --cum --drop_negative --nodecount=20 bin/nextsim.exec profile.log > profile.pdf
-or
-pprof --pdf --functions --focus=run --cum --drop_negative --nodecount=50 bin/nextsim.exec profile.log > profile.pdf
 
 Unfortunately, I haven't manage to output correctly the symbolic information, even when adding -g option to the core and contrib code, or even when using petsc in debud mode. I only get info with the adresses of the functions which is not very usefull. For example:
 618   0.8%  26.1%      618   0.8% 0x000000010213ed6e
@@ -266,3 +258,23 @@ Unfortunately, I haven't manage to output correctly the symbolic information, ev
     393   0.5%  30.0%      393   0.5% 0x00000001021ed9b4
     387   0.5%  30.5%      387   0.5% 0x00007fff93fa7e0f
     376   0.5%  30.9%      376   0.5% 0x00007fff93fabcd1
+
+
+
+###### Use gperftools ######
+
+# before compiling the libraries and model, we need first
+export BUILD_TYPE=Debug
+
+# Then, we can compile and run nextsim
+
+# Finally, run one of the following lines
+
+You can also have a pdf file
+pprof --pdf --functions --focus=run --cum --drop_negative --nodecount=50 bin/nextsim.exec profile.log > profile.pdf
+or
+pprof --pdf --functions --focus=run bin/nextsim.exec profile.log > profile.pdf
+or
+pprof --pdf --functions --focus=run --edgefraction=1e-02 --nodefraction=1e-02 bin/nextsim.exec profile.log > profile.pdf
+or
+pprof --pdf --functions --focus=run --cum --drop_negative --nodecount=20 bin/nextsim.exec profile.log > profile.pdf
