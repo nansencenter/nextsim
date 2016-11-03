@@ -15,6 +15,11 @@ LIBRARYDIR=$(NEXTSIMDIR)/lib/
 CXX = g++
 CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v
 
+ifeq ($(BUILD_TYPE),Debug)
+	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
+	CXXFLAGS += -g -O0 -Wl,-no_pie -DNDEBUG
+endif
+
 CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I /usr/local/include -I $(OPENMPI_INCLUDE_DIR)/
 CXXFLAGS += -I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I $(GMSH_DIR)/include/gmsh
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
@@ -43,9 +48,9 @@ endif
 
 LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
 ifndef MACHINE_HEXAGON
-	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
+	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ #-lpthread
 else
-	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpichcxx -lmpich -ldl -lstdc++ -lpthread #-lm -lrt
+	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpichcxx -lmpich -ldl -lstdc++ #-lpthread #-lm -lrt
 endif
 
 LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib

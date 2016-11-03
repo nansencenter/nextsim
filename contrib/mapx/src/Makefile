@@ -14,6 +14,12 @@ LIBRARYDIR=$(NEXTSIMDIR)/lib/
 CC = gcc
 CCFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -v
 
+ifeq ($(BUILD_TYPE),Debug)
+	CCFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
+	CCFLAGS += -g3 -O0 -Wl,-no_pie -DNDEBUG
+endif
+
+
 ifeq ($(KERNEL),Linux)
 	CCFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include -I /usr/lib/openmpi/include
 	LDFLAGS += -shared -Wl,-soname,libmapx.so.1

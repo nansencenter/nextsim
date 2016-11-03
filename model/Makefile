@@ -5,18 +5,24 @@ PROGNAME=nextsim.exec
 FPROGNAME=FWrap.x
 
 CXX = g++
+
 CXXFLAGS += -std=c++11 -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v -DHAVE_CONFIG_H -D_MULTITHREADING_ -DWAVES
 
-#CXXFLAGS += -pg -g -DNDEBUG
+ifeq ($(BUILD_TYPE),Debug)
+	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
+	CXXFLAGS += -g -O0 -Wl,-no_pie -DNDEBUG -DWITHGPERFTOOLS
+endif
 
 CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I $(NEXTSIMDIR)/contrib/bamg/include
-CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include -I $(NEXTSIMDIR)/contrib/interp/include
+CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include # -I $(NEXTSIMDIR)/contrib/interp/include
 CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
 
 
 CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
 CXXFLAGS +=	-I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I .
 CXXFLAGS +=	-I $(NETCDF_DIR)/include -I $(GMSH_DIR)/include/gmsh
+
+CXXFLAGS +=	-I /opt/local/include
 
 FC = gfortran
 FFLAGS = -std=f2008 -fopenmp -lstdc++
@@ -53,9 +59,9 @@ LDFLAGS += -L /usr/local/lib
 
 LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
 ifndef MACHINE_HEXAGON
-	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
+	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ #-lpthread
 else
-	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpichcxx -lmpich -ldl -lstdc++ -lpthread #-lssl -luuid -lpthread -lrt
+	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpichcxx -lmpich -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
 endif
 
 LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf_c++4
@@ -68,7 +74,7 @@ LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboos
 
 LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
-LDFLAGS += -L $(NEXTSIMDIR)/lib -linterp
+#LDFLAGS += -L $(NEXTSIMDIR)/lib -linterp
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lwim
 
@@ -77,6 +83,9 @@ LDFLAGS += -L $(NEXTSIMDIR)/lib -lwim
 # endif
 
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lnextsim
+
+LDFLAGS += -Wl,-rpath,/opt/local/lib
+LDFLAGS += -L /opt/local/lib -lprofiler
 
 
 EXEC=$(PROGNAME)

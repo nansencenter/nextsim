@@ -32,14 +32,14 @@ This README would normally document whatever steps are necessary to get your app
 
 ##------- Installation of the needed compilers ----------
 
-####### Install macport ####### 
+####### Install macport #######
 	by following the instructions on https://www.macports.org/install.php
 	Check that "/opt/local/bin” and “/opt/local/sbin” are defined in PATH (“echo $PATH” in a new command window)
 
-####### Install gcc48 (or more recent versions) with macport ####### 
+####### Install gcc48 (or more recent versions) with macport #######
 	by doing "sudo port search gcc”, "sudo port install gcc48”, "sudo port select --list gcc" and “sudo port select --set gcc mp-gcc48"
 
-####### Install openmpi-gcc48 (or a version compatible with your gcc) with macport ####### 
+####### Install openmpi-gcc48 (or a version compatible with your gcc) with macport #######
 	by doing "sudo port search openmp”,"sudo port install openmpi-gcc48”, "sudo port select --list mpi”, “sudo port select --set mpi openmpi-gcc48-fortran” and “sudo ln -s /opt/local/bin/mpicxx /opt/local/bin/mpic++”
 
 
@@ -48,7 +48,7 @@ This README would normally document whatever steps are necessary to get your app
 ####### Install boost #######
 	1) Download version 1.55 of boost on http://www.boost.org (It is better to restart from here if you had an upgrade of your os)
 	2) copy bconfigure.sh and binstall.sh from /nextsim/scripts/boost/ to your boost directory
-	3) Add the line “using mpi ;” at the end of the file tools/build/v2/user-config.jam 
+	3) Add the line “using mpi ;” at the end of the file tools/build/v2/user-config.jam
 	NOte: if you install the version 1.56 or more recent of Boost, the file user-config.jam is locate in tools/build/example and you NEED to copy this file in your home directory before the compilation.
 	4) type the command “unset BOOST_DIR”
 	5) check if bconfigure.sh corresponds to your architecture
@@ -64,7 +64,7 @@ This README would normally document whatever steps are necessary to get your app
 	2) Uninstall other version of petsc by doing (It is better to restart from here if you had an upgrade of your os)
 			sudo rm -rf /opt/local/petsc
 		or by changing the prefix in pconfigure.sh, for example:
-			--prefix=/opt/local/petsc/3.6	
+			--prefix=/opt/local/petsc/3.6
 	3) copy the contents of /nextsim/scripts/petsc/ in petsc directory
 	4) type the command “unset PETSC_DIR”
 	5) check if pconfigure.sh corresponds to your architecture and change the permission to make it executable.
@@ -73,7 +73,7 @@ This README would normally document whatever steps are necessary to get your app
 
 Note: for debugging, use another copy of petsc compiled with --download-mpich and --with-debugging and using another path, for example using export PETSC_PREFIX=/opt/local/petsc-debug. Set this path in your .bashprofile by using export PETSC_DIR=/opt/local/petsc-debug before recompiling the whole neXtSIM code (core + model).
 
-You can run the code with the options: 
+You can run the code with the options:
 -malloc_debug for memory error
 
 ####### Install netcdf #######
@@ -144,7 +144,7 @@ export DYLD_LIBRARY_PATH=NEXTSIMDIR/lib:$DYLD_LIBRARY_PATH
 Check if you have the environment variable WIM2D_PATH (echo $WIM2D_PATH)?
 if so, you will need to unset it (unset WIM2D_PATH)
 
-##-------  Compile neXtSIM itself --------- 
+##-------  Compile neXtSIM itself ---------
 
 # Open a new command window
 
@@ -166,7 +166,7 @@ sudo ln -sf /opt/local/lib/openmpi-gcc48 /opt/local/lib/openmpi-mp
 
 # type “bin/nextsim.exec --configfile=nextsim.cfg”
 
-##-------  Compile neXtWIM itself --------- 
+##-------  Compile neXtWIM itself ---------
 
 First go to the WIM2D github repo ( = $WIM2D_PATH - probably need to set
 this)
@@ -215,7 +215,7 @@ http://goog-perftools.sourceforge.net/doc/cpu_profiler.html
 
 For CPU analysis, I think we need to compile with at least -g option and link with -lprofiler:
 
-I tried adding 
+I tried adding
 -pg -g -DNDEBUG to CXXFLAGS
 -lprofiler to LDFLAGS
 
@@ -242,10 +242,19 @@ You then simply run:
 at it will save the log info into profile.log file.
 
 To print the graph, you can use :
-pprof --gv ./bin/nextsim.exec profile.log 
+pprof --gv ./bin/nextsim.exec profile.log
 
 You can also have a text file :
-pprof --text ./bin/nextsim.exec profile.log 
+pprof --text ./bin/nextsim.exec profile.log
+
+You can also have a pdf file
+pprof --pdf --functions --focus=run bin/nextsim.exec profile.log > profile.pdf
+or
+pprof --pdf --functions --focus=run --edgefraction=1e-02 --nodefraction=1e-02 bin/nextsim.exec profile.log > profile.pdf
+or
+pprof --pdf --functions --focus=run --cum --drop_negative --nodecount=20 bin/nextsim.exec profile.log > profile.pdf
+or
+pprof --pdf --functions --focus=run --cum --drop_negative --nodecount=50 bin/nextsim.exec profile.log > profile.pdf
 
 Unfortunately, I haven't manage to output correctly the symbolic information, even when adding -g option to the core and contrib code, or even when using petsc in debud mode. I only get info with the adresses of the functions which is not very usefull. For example:
 618   0.8%  26.1%      618   0.8% 0x000000010213ed6e
