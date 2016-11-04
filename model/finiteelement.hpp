@@ -277,10 +277,8 @@ private:
     std::vector<double> M_h_ridged_thin_ice;
     std::vector<double> M_h_ridged_thick_ice;
 
-    //std::vector<external_data*> M_external_data;
-    //std::vector<external_data*> M_external_data_ice;
     external_data_vec M_external_data;
-    external_data_vec M_external_data_ice;
+    external_data_vec M_external_data_tmp;
 
     std::vector<double> M_fcor;
 

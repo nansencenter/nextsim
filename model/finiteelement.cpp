@@ -408,7 +408,7 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
             //dataset & interpolation etc needed
             if ( (*it)->M_dataset->grid.target_location=="mesh_nodes" )
             {
-                std::cout<<"in nodes\n";
+                std::cout<<"in nodes: dataset = "<<(*it)->M_dataset->name<<"\n";
                 (*it)->check_and_reload(RX_nod,RY_nod,CRtime);
 #if 0
                 auto RX_in = M_mesh.coordX(*it->rotation_angle)//nodes
@@ -418,7 +418,7 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
             }
             else if ( (*it)->M_dataset->grid.target_location=="mesh_elements" )
             {
-                std::cout<<"in elements\n";
+                std::cout<<"in elements: dataset = "<<(*it)->M_dataset->name<<"\n";
                 (*it)->check_and_reload(RX_el,RY_el,CRtime);
 #if 0
                 auto RX_in = M_mesh.bcoordX(*it->rotation_angle)//elements
@@ -429,7 +429,7 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
 #if defined (WAVES)
             else if ( (*it)->M_dataset->grid.target_location=="wim_grid" )
             {
-                std::cout<<"in wim_grid\n";
+                std::cout<<"in wim_grid: dataset = "<<(*it)->M_dataset->name<<"\n";
                 //interp to WIM grid
                 (*it)->check_and_reload(wim_grid.X,wim_grid.Y,CRtime);
             }
@@ -5708,11 +5708,12 @@ FiniteElement::topazIce()
     external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
     //M_init_snow_thick.check_and_reload(M_mesh,time_init);
 
-    M_external_data_ice.push_back(&M_init_conc);
-    M_external_data_ice.push_back(&M_init_thick);
-    M_external_data_ice.push_back(&M_init_snow_thick);
-    this->checkReloadDatasets(M_external_data_ice,time_init,"init - TOPAZ ice");
-    M_external_data_ice.resize(0);
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,"init - TOPAZ ice");
+    M_external_data_tmp.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -5751,11 +5752,12 @@ FiniteElement::topazForecastIce()
     external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
     //M_init_snow_thick.check_and_reload(M_mesh,time_init);
 
-    M_external_data_ice.push_back(&M_init_conc);
-    M_external_data_ice.push_back(&M_init_thick);
-    M_external_data_ice.push_back(&M_init_snow_thick);
-    this->checkReloadDatasets(M_external_data_ice,time_init,"init - TOPAZ ice forecast");
-    M_external_data_ice.resize(0);
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,"init - TOPAZ ice forecast");
+    M_external_data_tmp.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -5800,13 +5802,14 @@ FiniteElement::topazForecastAmsr2Ice()
     external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
     //M_init_snow_thick.check_and_reload(M_mesh,time_init);
 
-    M_external_data_ice.push_back(&M_conc_amsr2);
-    M_external_data_ice.push_back(&M_init_conc);
-    M_external_data_ice.push_back(&M_init_thick);
-    M_external_data_ice.push_back(&M_init_snow_thick);
-    this->checkReloadDatasets(M_external_data_ice,time_init,
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_conc_amsr2);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,
             "init - TOPAZ ice forecast + AMSR2");
-    M_external_data_ice.resize(0);
+    M_external_data_tmp.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -5880,15 +5883,16 @@ FiniteElement::topazForecastAmsr2OsisafIce()
     external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
     //M_init_snow_thick.check_and_reload(M_mesh,time_init);
 
-    M_external_data_ice.push_back(&M_conc_osisaf);
-    M_external_data_ice.push_back(&M_confidence_osisaf);
-    M_external_data_ice.push_back(&M_conc_amsr2);
-    M_external_data_ice.push_back(&M_init_conc);
-    M_external_data_ice.push_back(&M_init_thick);
-    M_external_data_ice.push_back(&M_init_snow_thick);
-    this->checkReloadDatasets(M_external_data_ice,time_init,
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_conc_osisaf);
+    M_external_data_tmp.push_back(&M_confidence_osisaf);
+    M_external_data_tmp.push_back(&M_conc_amsr2);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,
             "init - TOPAZ ice forecast + AMSR2 + OSISAF");
-    M_external_data_ice.resize(0);
+    M_external_data_tmp.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -5948,12 +5952,13 @@ FiniteElement::piomasIce()
     external_data M_init_snow_thick=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,2,false,time_init);
     //M_init_snow_thick.check_and_reload(M_mesh,time_init);
 
-    M_external_data_ice.push_back(&M_init_conc);
-    M_external_data_ice.push_back(&M_init_thick);
-    M_external_data_ice.push_back(&M_init_snow_thick);
-    this->checkReloadDatasets(M_external_data_ice,time_init,
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,
             "init ice - PIOMAS");
-    M_external_data_ice.resize(0);
+    M_external_data_tmp.resize(0);
 
     for (int i=0; i<M_num_elements; ++i)
     {
@@ -5993,13 +5998,14 @@ FiniteElement::topazAmsreIce()
     external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
     //M_init_snow_thick.check_and_reload(M_mesh,time_init);
 
-    M_external_data_ice.push_back(&M_conc_amsre);
-    M_external_data_ice.push_back(&M_init_conc);
-    M_external_data_ice.push_back(&M_init_thick);
-    M_external_data_ice.push_back(&M_init_snow_thick);
-    this->checkReloadDatasets(M_external_data_ice,time_init,
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_conc_amsre);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,
             "init ice - TOPAZ + AMSR-E");
-    M_external_data_ice.resize(0);
+    M_external_data_tmp.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -6056,13 +6062,14 @@ FiniteElement::topazAmsr2Ice()
     external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
     //M_init_snow_thick.check_and_reload(M_mesh,time_init);
 
-    M_external_data_ice.push_back(&M_conc_amsr2);
-    M_external_data_ice.push_back(&M_init_conc);
-    M_external_data_ice.push_back(&M_init_thick);
-    M_external_data_ice.push_back(&M_init_snow_thick);
-    this->checkReloadDatasets(M_external_data_ice,time_init,
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_conc_amsr2);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,
             "init ice - TOPAZ + AMSR2");
-    M_external_data_ice.resize(0);
+    M_external_data_tmp.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -6113,12 +6120,13 @@ FiniteElement::cs2SmosIce()
     external_data M_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init);
     //M_type.check_and_reload(M_mesh,time_init);
 
-    M_external_data_ice.push_back(&M_init_conc);
-    M_external_data_ice.push_back(&M_init_thick);
-    M_external_data_ice.push_back(&M_type);
-    this->checkReloadDatasets(M_external_data_ice,time_init,
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_type);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,
             "init ice - CS2 + SMOS");
-    M_external_data_ice.resize(0);
+    M_external_data_tmp.resize(0);
 
     warrenClimatology();
 
@@ -6177,12 +6185,13 @@ FiniteElement::smosIce()
     external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
     //M_init_snow_thick.check_and_reload(M_mesh,time_init);
 
-    M_external_data_ice.push_back(&M_init_conc);
-    M_external_data_ice.push_back(&M_init_thick);
-    M_external_data_ice.push_back(&M_init_snow_thick);
-    this->checkReloadDatasets(M_external_data_ice,time_init,
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,
             "init ice - SMOS");
-    M_external_data_ice.resize(0);
+    M_external_data_tmp.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -6869,45 +6878,64 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields)
 
         if(vm["simul.save_forcing_field"].as<bool>())
         {
+            // put all the external data objects into a vector,
+            // then loop to export them
+            // (only if initialized and M_is_constant is False)
+            M_external_data_tmp.resize(0);
+
             // Thermodynamic and dynamic forcing
             // Atmosphere
-            if ( M_wind.M_initialized )
-                exporter.writeField(outbin,M_wind.getVector(), "M_wind");         // Surface wind [m/s]
-            if ( M_tair.M_initialized )
-                exporter.writeField(outbin,M_tair.getVector(), "M_tair");         // 2 m temperature [C]
-            if ( M_mixrat.M_initialized )
-                exporter.writeField(outbin,M_mixrat.getVector(), "M_mixrat");       // Mixing ratio
-            if ( M_mslp.M_initialized )
-                exporter.writeField(outbin,M_mslp.getVector(), "M_mslp");         // Atmospheric pressure [Pa]
-            if ( M_Qsw_in.M_initialized )
-                exporter.writeField(outbin,M_Qsw_in.getVector(), "M_Qsw_in");       // Incoming short-wave radiation [W/m2]
-            if ( M_Qlw_in.M_initialized )
-                exporter.writeField(outbin,M_Qlw_in.getVector(), "M_Qlw_in");       // Incoming long-wave radiation [W/m2]
-            if ( M_tcc.M_initialized )
-                exporter.writeField(outbin,M_tcc.getVector(), "M_tcc");       // Incoming long-wave radiation [W/m2]
-            if ( M_precip.M_initialized )
-                exporter.writeField(outbin,M_precip.getVector(), "M_precip");       // Total precipitation [m]
-            if ( M_snowfr.M_initialized )
-                exporter.writeField(outbin,M_snowfr.getVector(), "M_snowfr");       // Fraction of precipitation that is snow
-            if ( M_dair.M_initialized )
-                exporter.writeField(outbin,M_dair.getVector(), "M_dair");         // 2 m dew point [C]
+            std::vector<std::string> ext_data_names;
+            M_external_data_tmp.push_back(&M_wind);         // Surface wind [m/s]
+            ext_data_names.push_back("M_wind");
+            M_external_data_tmp.push_back(&M_tair);         // 2 m temperature [C]
+            ext_data_names.push_back("M_tair");
+            M_external_data_tmp.push_back(&M_mixrat);       // Mixing ratio
+            ext_data_names.push_back("M_mixrat");
+            M_external_data_tmp.push_back(&M_mslp);         // Atmospheric pressure [Pa]
+            ext_data_names.push_back("M_mslp");
+            M_external_data_tmp.push_back(&M_Qsw_in);       // Incoming short-wave radiation [W/m2]
+            ext_data_names.push_back("M_Qsw_in");
+            M_external_data_tmp.push_back(&M_Qlw_in);       // Incoming long-wave radiation [W/m2]
+            ext_data_names.push_back("M_Qlw_in");
+            M_external_data_tmp.push_back(&M_tcc);          // Total cloud cover [?]
+            ext_data_names.push_back("M_tcc");
+            M_external_data_tmp.push_back(&M_precip);       // Total precipitation [m]
+            ext_data_names.push_back("M_precip");
+            M_external_data_tmp.push_back(&M_snowfr);       // Fraction of precipitation that is snow
+            ext_data_names.push_back("M_snowfr");
+            M_external_data_tmp.push_back(&M_dair);         // 2 m dew point [C]
+            ext_data_names.push_back("M_dair");
 
             // Ocean
-            if ( M_ocean.M_initialized )
-                exporter.writeField(outbin,M_ocean.getVector(), "M_ocean");        // "Geostrophic" ocean currents [m/s]
-            if ( M_ssh.M_initialized )
-                exporter.writeField(outbin,M_ssh.getVector(), "M_ssh");          // Sea surface elevation [m]
-
-            if ( M_ocean_temp.M_initialized )
-                exporter.writeField(outbin,M_ocean_temp.getVector(), "M_ocean_temp");   // Ocean temperature in top layer [C]
-            if ( M_ocean_salt.M_initialized )
-                exporter.writeField(outbin,M_ocean_salt.getVector(), "M_ocean_salt");   // Ocean salinity in top layer [C]
-            if ( M_mld.M_initialized )
-                exporter.writeField(outbin,M_mld.getVector(), "M_mld");          // Mixed-layer depth [m]
+            M_external_data_tmp.push_back(&M_ocean);        // "Geostrophic" ocean currents [m/s]
+            ext_data_names.push_back("M_ocean");
+            M_external_data_tmp.push_back(&M_ssh);          // Sea surface elevation [m]
+            ext_data_names.push_back("M_ssh");
+            M_external_data_tmp.push_back(&M_ocean_temp);   // Ocean temperature in top layer [C]
+            ext_data_names.push_back("M_ocean_temp");
+            M_external_data_tmp.push_back(&M_ocean_salt);   // Ocean salinity in top layer [?]
+            ext_data_names.push_back("M_ocean_salt");
+            M_external_data_tmp.push_back(&M_mld);           // Mixed-layer depth [m]
+            ext_data_names.push_back("M_mld");
 
             // Bathymetry
-            if ( M_element_depth.M_initialized )
-                exporter.writeField(outbin,M_element_depth.getVector(), "M_element_depth");
+            M_external_data_tmp.push_back(&M_element_depth);           // Mixed-layer depth [m]
+            ext_data_names.push_back("M_element_depth");
+
+            //loop over external data pointers and check if they should be saved
+            for (int i=0;i<M_external_data_tmp.size();i++)
+            {
+                if ((M_external_data_tmp[i]->M_initialized)&&
+                    (!M_external_data_tmp[i]->M_is_constant))
+                {
+                    exporter.writeField(outbin,M_external_data_tmp[i]->getVector(), ext_data_names[i]);
+                }
+            }
+
+            //clear
+            M_external_data_tmp.resize(0);
+            ext_data_names.resize(0);
         }
 
 #if defined (WAVES)

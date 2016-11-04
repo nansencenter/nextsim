@@ -229,11 +229,11 @@ ExternalData::getVector()
 {
     std::vector<double> vector_tmp(1,0.);
 
-    if(M_initialized)
+    if((!M_is_constant)&&(M_initialized))
     {
         int size_vector=M_dataset->target_size;
         if(M_is_vector)
-            size_vector=2*M_dataset->target_size;
+            size_vector*=2;
 
         vector_tmp.resize(size_vector);
 
@@ -241,6 +241,18 @@ ExternalData::getVector()
         {
             vector_tmp[i]=(double) get(i);
         }
+    }
+    else if (M_is_constant)
+    {
+        //return the constant value(s)
+        if(M_is_vector)
+        {
+            vector_tmp.resize(2);
+            vector_tmp[0]   = M_constant_value;
+            vector_tmp[1]   = M_constant_valuebis;
+        }
+        else
+            vector_tmp[0]   = M_constant_value;
     }
 
 	return vector_tmp;
