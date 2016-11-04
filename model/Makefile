@@ -8,7 +8,8 @@ CXX = g++
 
 CXXFLAGS += -std=c++11 -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v -DHAVE_CONFIG_H -D_MULTITHREADING_ -DWAVES
 
-ifeq ($(BUILD_TYPE),Debug)
+#ifeq ($(NEXTSIM_BUILD_TYPE),Debug)
+ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
 	CXXFLAGS += -g -O0 -Wl,-no_pie -DNDEBUG -DWITHGPERFTOOLS
 endif
@@ -48,14 +49,7 @@ else
 
 endif
 
-# ifdef WIM2D_PATH
-# 	LDFLAGS += -Wl,-rpath,$(WIM2D_PATH)/CXX/lib
-# 	LDFLAGS += -L $(WIM2D_PATH)/CXX/lib -lwim
-# endif
-
 LDFLAGS += -L /usr/local/lib
-
-#LDFLAGS += -lprofiler
 
 LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
 ifndef MACHINE_HEXAGON
@@ -78,15 +72,12 @@ LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lwim
 
-# ifndef WIM2D_PATH
-# 	LDFLAGS += -L $(NEXTSIMDIR)/lib -lwim
-# endif
+ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
+	LDFLAGS += -Wl,-rpath,/opt/local/lib
+	LDFLAGS += -L /opt/local/lib -lprofiler
+endif
 
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lnextsim
-
-LDFLAGS += -Wl,-rpath,/opt/local/lib
-LDFLAGS += -L /opt/local/lib -lprofiler
-
 
 EXEC=$(PROGNAME)
 OBJECTDIR=$(NEXTSIMDIR)/objs/

@@ -264,7 +264,7 @@ Unfortunately, I haven't manage to output correctly the symbolic information, ev
 ###### Use gperftools ######
 
 # before compiling the libraries and model, we need first
-export BUILD_TYPE=Debug
+export NEXTSIM_BUILD_TYPE=Debug
 
 # Then, we can compile and run nextsim
 
