@@ -70,10 +70,19 @@ GmshMesh::GmshMesh(GmshMesh const& mesh)
 
 void
 GmshMesh::readFromFile(std::string const& filename)
-{
-    std::string gmshmshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
-    std::cout<<"Reading Msh file "<< gmshmshfile <<"\n";
+{   
+    std::string meshpath = Environment::vm()["simul.mesh_path"].as<std::string>();
+    std::string gmshmshfile;
+    if(meshpath=="nextsimdir")
+    {
+        gmshmshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
+    }
+    else if(meshpath=="simdatadir")
+    {
+        gmshmshfile = Environment::simdataDir().string() + "/data/mesh/" + filename;
+    }
 
+    std::cout<<"Reading Msh file "<< gmshmshfile <<"\n";
     std::ifstream __is ( gmshmshfile.c_str() );
 
     if ( !__is.is_open() )
@@ -277,8 +286,18 @@ GmshMesh::readFromFile(std::string const& filename)
 void
 GmshMesh::writeTofile(std::string const& filename)
 {
-    //std::string gmshfilename = (boost::format( "../data/arctic10km.msh" ) ).str();
-    std::string gmshmshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
+
+    std::string meshpath = Environment::vm()["simul.mesh_path"].as<std::string>();
+    std::string gmshmshfile;
+    if(meshpath=="nextsimdir")
+    {
+        gmshmshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
+    }
+    else if(meshpath=="simdatadir")
+    {
+        gmshmshfile = Environment::simdataDir().string() + "/data/mesh/" + filename;
+    }
+
     std::fstream gmshfile(gmshmshfile, std::ios::out | std::ios::trunc);
 
     if (gmshfile.is_open())

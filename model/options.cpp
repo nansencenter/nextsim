@@ -48,6 +48,7 @@ namespace Nextsim
             ("setup.wave-type", po::value<std::string>()->default_value( "constant" ), "constant, ww3a")
 
             ("simul.mesh_filename", po::value<std::string>()->default_value( "bigarctic10km.msh" ), "")
+            ("simul.mesh_path", po::value<std::string>()->default_value( "nextsimdir" ), "")
             ("simul.proj_filename", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "")
             ("simul.hsize", po::value<double>()->default_value( 0.01 ), "")
             ("simul.verbose", po::value<int>()->default_value( 7 ), "")
