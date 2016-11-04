@@ -1,4 +1,5 @@
 function plot_nextsim_c(field,step,domain,region_of_zoom,is_sequential,dir,save_figure)
+%% CALL: plot_nextsim_c(field,step,domain,region_of_zoom,is_sequential,dir,save_figure)
 
 % clearvars -except step;
 %field='Velocity';
