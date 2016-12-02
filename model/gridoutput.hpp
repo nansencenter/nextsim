@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
  * @file   gridoutput.hpp
@@ -45,7 +45,10 @@ namespace Nextsim
                 VT_y        =  5,
                 tsurf       =  6,
                 sst         =  7,
-                sss         =  8
+                sss         =  8,
+                tsurf_ice   =  9,
+                t1          = 10,
+                t2          = 11
 
                 // Diagnostic variables
             };
@@ -70,13 +73,13 @@ namespace Nextsim
 
             GridOutput();
 
-            GridOutput(int ncols, int nrows, double mooring_spacing, std::vector<Variable> variables, int kind);
+            GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, int kind);
             GridOutput(Grid grid, std::vector<Variable> variables, int kind);
 
-            GridOutput(int ncols, int nrows, double mooring_spacing, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
+            GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
             GridOutput(Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
 
-            GridOutput(int ncols, int nrows, double mooring_spacing, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
+            GridOutput(int ncols, int nrows, double mooring_spacin, double xmin, double yming, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
             GridOutput(Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
 
             ~GridOutput();
@@ -85,6 +88,8 @@ namespace Nextsim
             void resetGridMean();
             void resetMeshMean(GmshMesh const &mesh);
             void exportGridMeans(std::string filename, double time_step, double mooring_output_time_step);
+            void initNetCDF(std::string filename);
+            void appendNetCDF(std::string filename, double current_time, double time_step, double mooring_output_time_step);
 
             int M_ncols;
             int M_nrows;
@@ -95,23 +100,25 @@ namespace Nextsim
             std::vector<Variable> M_elemental_variables;
             std::vector<Vectorial_Variable> M_vectorial_variables;
 
-            double M_miss_val = -1e24;
+            double M_miss_val = -1e+14; // Must be smaller than any expected result
 
         private:
 
-            GridOutput(std::vector<Variable> variables, int kind);
+        GridOutput(std::vector<Variable> variables, int kind);
 
-            GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
+        GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
 
-            GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
+        GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
 
-            void initRegularGrid(int ncols, int nrows, double mooring_spacing);
+        void initRegularGrid(int ncols, int nrows, double mooring_spacing, double xmin, double ymin);
 
-            void initArbitraryGrid(Grid grid);
+        void initArbitraryGrid(Grid grid);
 
-            void updateGridMeanWorker(GmshMesh const &mesh, int mesh_size, std::vector<Variable> &variables);
+        void updateGridMeanWorker(GmshMesh const &mesh, int mesh_size, std::vector<Variable> &variables);
 
-            void rotateVectors(GmshMesh const &mesh, Vectorial_Variable const &vectorial_variable, std::vector<Variable> &variables);
+        void rotateVectors(GmshMesh const &mesh, Vectorial_Variable const &vectorial_variable, std::vector<Variable> &variables);
+
+        size_t M_nc_step;
     };
 }
 #endif // __GridOutput_H

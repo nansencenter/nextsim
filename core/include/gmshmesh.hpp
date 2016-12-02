@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
  * @file   gmshmesh.hpp
@@ -63,6 +63,7 @@ public:
     Communicator const& comm() const { return M_comm; }
     std::string const& version() const {return M_version;}
     std::string const& ordering() const {return M_ordering;}
+    std::string const& mppfile() const {return M_mppfile;}
     std::map<int, point_type > const& nodes() const {return M_nodes;}
     std::vector<element_type> const& triangles() const {return M_triangles;}
     std::vector<element_type> const& edges() const {return M_edges;}
@@ -134,12 +135,15 @@ public:
     std::vector<double> coordXPartition() const;
     std::vector<double> coordYPartition() const;
 
+    void setId(std::vector<int> const& newid);
+    std::vector<int> id() const;
 
 private:
 
     Communicator M_comm;
     std::string M_version;
     std::string M_ordering;
+    std::string M_mppfile;
 
     std::vector<point_type> M_nodes_vec;
     std::map<int, point_type > M_nodes;

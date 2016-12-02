@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
  * @file   dataset.hpp
@@ -38,6 +38,13 @@ namespace Nextsim
         FromMeshToMesh2dCavities = 2,
     };
 
+    typedef struct WaveOptions
+    {
+       bool wave_dataset;
+       bool use_mwp;
+       bool use_ice;
+    } WaveOptions;
+
 class DataSet
 {
 
@@ -63,12 +70,12 @@ public:
         double NaN_mask_value;
 
         // Information on the unit transform
-        double a;           // scale_factor defined by us to have the data in the units system used by nextsim 
+        double a;           // scale_factor defined by us to have the data in the units system used by nextsim
         double b;           // add_offset defined by us to have the data in the units system used by nextsim
         std::string Units;  // units used in neXtSIM for this variable
 
-        // Storage of the data      
-        std::vector<std::vector<double>> data2; // 2 vectors, one for the previous and one for the next data timestep 
+        // Storage of the data
+        std::vector<std::vector<double>> data2; // 2 vectors, one for the previous and one for the next data timestep
     } Variable;
 
     typedef struct Vectorial_Variable
@@ -77,14 +84,24 @@ public:
         bool east_west_oriented;
     } Vectorial_Variable;
 
+    //so we don't have to change all the datasets
+    //every time we change the wave dataset options
+    // - default value of Grid.waveOptions.wave_dataset should be false
+    WaveOptions wavopt_none  = {
+        wave_dataset: false,
+        use_mwp: false,
+        use_ice: false,
+    };
+
+
     typedef struct Grid
     {
         InterpolationType interpolation_method;
 		int interp_type;
         std::string dirname;
-        //std::string filename;
         std::string prefix;
         std::string postfix;
+        std::string reference_date;
 
         Variable latitude;
         Variable longitude;
@@ -96,7 +113,9 @@ public:
 		bool interpolation_in_latlon;
 
         bool loaded;
-        bool monthly_dataset;
+        std::string dataset_frequency;
+
+        WaveOptions waveOptions;
 
 		bool masking;
 		Variable masking_variable;
@@ -110,43 +129,15 @@ public:
         std::vector<double> gridLAT;
         std::vector<double> gridLON;
 
-        int dimension_x_start; 
+        int dimension_x_start;
         int dimension_x_count;
         int dimension_y_start;
         int dimension_y_count;
     } Grid;
-#if 0
-    typedef struct Dataset
-    {
-        std::string dirname;
-        std::string prefix;
-        std::string postfix;
-        std::string reference_date;
 
-        std::vector<Variable> variables;
-        std::vector<Vectorial_Variable> vectorial_variables;
-        int target_size;
-        Grid *grid;
-
-        bool reloaded;
-
-        int nb_timestep_day;
-        Variable time;
-        Dimension dimension_time;
-
-        std::vector<double> ftime_range;
-    } Dataset;
-#endif
     DataSet();
 
     DataSet(char const *DatasetName,int target_size);
-
-    public:
-    
-    std::string dirname;
-    std::string prefix;
-    std::string postfix;
-    std::string reference_date;
 
 public:
     Grid grid;
@@ -157,8 +148,7 @@ public:
 
     bool reloaded;
 
-    int nb_timestep_day;
-    bool daily_mean; // Use daily_mean=true, when the data are centered at noon, but the time variable says 00:00:00 (it is the case for TOPAZ daily mean, AMSRE, AMSR2)  
+    double averaging_period; // 0. for snapshot, 1. for daily values, 365./12 for monthly values.
     Variable time;
 
     std::vector<double> ftime_range;
@@ -166,16 +156,20 @@ public:
     void loadGrid(Grid *grid, int current_time);
 
     void loadGrid(Grid *grid, int current_time, double RX_min, double RX_max, double RY_min, double RY_max);
-    
-    void getlatlon_regular_latlon(double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
-    
-    void getXY_regular_XY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
 
-    void getXYlatlon_from_latlon(double* X, double* Y,double* LAT, double* LON, netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
+    void getLatLonRegularLatLon(double* LAT, double* LON,
+                                  netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
+
+    void getXYRegularXY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
+
+    void getXYLatLonFromLatLon(double* X, double* Y,double* LAT, double* LON, netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
+    double thetaInRange(double const& th_, double const& th1, bool const& close_on_right=false);
 
     // name of the dataSet
     std::string name;
+    std::string projfilename;
 };
 
 } // Nextsim
+
 #endif // __DataSet_H

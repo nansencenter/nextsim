@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
  * @file   enums.hpp
@@ -12,13 +12,15 @@ namespace Nextsim
 {
 namespace setup
 {
+
     enum class AtmosphereType
     {
         CONSTANT = 0,
         ASR      = 1,
         ERAi     = 2,
         EC       = 3,
-        ASRFINAL = 4
+        ASRFINAL = 4,
+        EC_ERAi  = 5
     };
 
 	enum class OceanType
@@ -31,16 +33,28 @@ namespace setup
 
     enum class IceType
 	{
-		CONSTANT  = 0,
-		AMSRE     = 1,
-		TOPAZ4    = 2,
-        ARBITRARY = 4,
-        AMSR2     = 5,
-        TOPAZ4F   = 6,
-        MITGCM    = 7,
-        TARGET    = 8,
-        OSISAF    = 9
+		CONSTANT            = 0,
+		CONSTANT_PARTIAL    = 1,
+		AMSRE               = 2,
+		TOPAZ4              = 3,
+        ARBITRARY           = 5,
+        AMSR2               = 6,
+        TOPAZ4F             = 7,
+        MITGCM              = 8,
+        TARGET              = 9,
+        OSISAF              = 10,
+        PIOMAS              = 11,
+        TOPAZ4FAMSR2        = 12,
+        TOPAZ4FAMSR2OSISAF  = 13,
+        CS2_SMOS            = 14
 	};
+
+    enum class WaveType
+    {
+        CONSTANT = 0,
+        WW3A     = 1,
+        ERAI_WAVES_1DEG = 2
+    };
 
     enum class BathymetryType
     {
@@ -77,6 +91,12 @@ namespace setup
     {
         FROM_GMSH      = 0,
         FROM_SPLIT     = 1
+    };
+
+    enum class ThermoType
+    {
+        ZERO_LAYER = 0,
+        WINTON     = 1
     };
 
 } // setup

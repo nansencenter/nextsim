@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
  * @file   exporter.hpp
@@ -31,7 +31,7 @@ class Exporter
 {
 public:
 
-	Exporter();
+	Exporter(std::string const& precision = "double");
 
     template<typename Type>
     void writeContainer(std::fstream& out, std::vector<Type> const& container);
@@ -49,8 +49,11 @@ private:
     std::vector<std::string> M_mrecord;
     std::vector<std::string> M_frecord;
 
-    std::vector<int> M_type_record;
+    //std::vector<int> M_type_record;
+    std::vector<std::string> M_type_record;
     std::vector<std::string> M_name_record;
+
+    std::string M_precision;
 };
 } // Nextsim
 #endif

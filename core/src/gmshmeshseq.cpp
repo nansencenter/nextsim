@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
  * @file   gmshmeshseq.cpp
@@ -23,7 +23,9 @@ GmshMeshSeq::GmshMeshSeq()
     M_num_triangles(0),
     M_num_edges(0),
     timer()
-{}
+{
+    M_mppfile = (Environment::vm()["mesh.mppfile"]).as<std::string>();
+}
 
 GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
                          std::vector<element_type> const& edges,
@@ -37,7 +39,9 @@ GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
     M_num_nodes(nodes.size()),
     M_num_triangles(triangles.size()),
     M_num_edges(edges.size())
-{}
+{
+    M_mppfile = (Environment::vm()["mesh.mppfile"]).as<std::string>();
+}
 
 GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
                          std::vector<element_type> const& triangles)
@@ -48,12 +52,15 @@ GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
     M_triangles(triangles),
     M_num_nodes(nodes.size()),
     M_num_triangles(triangles.size())
-{}
+{
+    M_mppfile = (Environment::vm()["mesh.mppfile"]).as<std::string>();
+}
 
 GmshMeshSeq::GmshMeshSeq(GmshMeshSeq const& mesh)
         :
     M_version(mesh.M_version),
     M_ordering(mesh.M_ordering),
+    M_mppfile(mesh.M_mppfile),
     M_nodes(mesh.M_nodes),
     M_triangles(mesh.M_triangles),
     M_num_nodes(mesh.M_num_nodes),
@@ -547,7 +554,7 @@ GmshMeshSeq::stereographicProjection()
 {
     // polar stereographic projection
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
+    std::string filename = Environment::nextsimDir().string() + "/data/" + M_mppfile;
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
@@ -763,7 +770,7 @@ std::vector<double>
 GmshMeshSeq::meanLon() const
 {
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
+    std::string filename = Environment::nextsimDir().string() + "/data/" + M_mppfile;
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
@@ -791,7 +798,7 @@ std::vector<double>
 GmshMeshSeq::meanLat() const
 {
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/NpsNextsim.mpp";
+    std::string filename = Environment::nextsimDir().string() + "/data/" + M_mppfile;
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
@@ -813,6 +820,32 @@ GmshMeshSeq::meanLat() const
     close_mapx(map);
 
     return mean_lat;
+}
+
+void
+GmshMeshSeq::setId(std::vector<int> const& newid)
+{
+    if ( newid.size() != 0 )
+    {
+        ASSERT(M_nodes.size()==newid.size(),"invalid size of new_id vector");
+
+        for (int i=0; i<M_nodes.size(); ++i)
+            M_nodes[i].id = newid[i];
+    }
+}
+
+std::vector<int>
+GmshMeshSeq::id() const
+{
+    std::vector<int> mesh_id(M_num_nodes);
+    int cpt = 0;
+    for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
+    {
+        mesh_id[cpt] = it->id;
+        ++cpt;
+    }
+
+    return mesh_id;
 }
 
 } // Nextsim

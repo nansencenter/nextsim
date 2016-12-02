@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t  -*- */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
  * @file   constants.hpp
@@ -14,6 +14,9 @@
 
 namespace physical
 {
+/* Heat capacity of ice (for Winton model, excluding internal melt) [J/K/kg] */
+const double C = 2100;
+
 /* Minimum ice concentration allowed [0 1] */
 const double cmin = 0.001;
 
@@ -46,7 +49,7 @@ const double Lv0 = 2500.79e3;
 
 /* Proportionalty constant between salinity and freezing temperature of sea
  * water [C] */
-const double mu = -0.055;
+const double mu = 0.055;
 
 /* Gas constant for dry air [J/kg/K] */
 const double Ra = 286.9;
