@@ -24,7 +24,8 @@ FiniteElement::FiniteElement()
     M_mesh(),
     M_solver(),
     M_matrix(),
-    M_vector()
+    M_vector(),
+    timer()
 {}
 
 // Initialisation of the mesh and forcing
@@ -86,8 +87,18 @@ FiniteElement::distributedMeshProcessing(bool start)
 
     M_mesh.setOrdering("gmsh");
 
-    LOG(INFO) <<"["<< M_rank <<"] " <<"filename= "<< M_mesh_filename <<"\n";
+    //chrono.restart();
+    if (M_rank == 0)
+    {
+        //LOG(INFO) <<"["<< M_rank <<"] " <<"filename= "<< M_mesh_filename <<"\n";
+        std::cout << "[INFO]: " <<"["<< M_rank <<"] " <<"filename= "<< M_mesh_filename <<"\n";
+    }
+
+    timer["meshread"].first.restart();
     M_mesh.readFromFile(M_mesh_filename);
+    if (M_rank == 0)
+        std::cout<<"-------------------MESHREAD done in "<< timer["meshread"].first.elapsed() <<"s\n";
+
     //M_mesh.readFromFile("par4topazreducedsplit2.msh");
     //std::cout<<"Reading mesh done in "<< chrono.elapsed() <<"s\n";
 
@@ -100,11 +111,15 @@ FiniteElement::distributedMeshProcessing(bool start)
         bamgmesh = new BamgMesh();
     }
 
+    timer["createbamg"].first.restart();
     BamgConvertMeshx(
                      bamgmesh,bamggeom,
                      &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
                      M_mesh.numNodes(), M_mesh.numTriangles()
                      );
+
+    if (M_rank == 0)
+        std::cout<<"-------------------CREATEBAMG done in "<< timer["createbamg"].first.elapsed() <<"s\n";
 
     M_elements = M_mesh.triangles();
     M_nodes = M_mesh.nodes();
@@ -118,16 +133,29 @@ FiniteElement::distributedMeshProcessing(bool start)
     M_local_nelements = M_mesh.numTrianglesWithoutGhost();
     M_num_nodes = M_local_ndof_ghost;
 
+    timer["bcmarker"].first.restart();
     this->bcMarkedNodes();
+    if (M_rank == 0)
+        std::cout<<"-------------------BCMARKER done in "<< timer["bcmarker"].first.elapsed() <<"s\n";
 
+    timer["creategraph"].first.restart();
     this->createGraph();
+    if (M_rank == 0)
+        std::cout<<"-------------------CREATEGRAPH done in "<< timer["creategraph"].first.elapsed() <<"s\n";
 
+    timer["gathersize"].first.restart();
     this->gatherSizes();
+    if (M_rank == 0)
+        std::cout<<"-------------------GATHERSIZE done in "<< timer["gathersize"].first.elapsed() <<"s\n";
 
-    LOG(INFO) <<"["<< M_rank << "] NODES   = "<< M_mesh.numGlobalNodes() << " --- "<< M_local_ndof <<"\n";
-    LOG(INFO) <<"["<< M_rank << "] ELEMENTS= "<< M_mesh.numGlobalElements() << " --- "<< M_local_nelements <<"\n";
 
 #if 0
+    // LOG(INFO) <<"["<< M_rank << "] NODES   = "<< M_mesh.numGlobalNodes() << " --- "<< M_local_ndof <<"\n";
+    // LOG(INFO) <<"["<< M_rank << "] ELEMENTS= "<< M_mesh.numGlobalElements() << " --- "<< M_local_nelements <<"\n";
+
+    std::cout << "[INFO]: " <<"["<< M_rank << "] NODES   = "<< M_mesh.numGlobalNodes() << " --- "<< M_local_ndof <<"\n";
+    std::cout << "[INFO]: " <<"["<< M_rank << "] ELEMENTS= "<< M_mesh.numGlobalElements() << " --- "<< M_local_nelements <<"\n";
+
     int num_nodes = boost::mpi::all_reduce(M_comm, M_local_ndof, std::plus<int>());
     int num_elements = boost::mpi::all_reduce(M_comm, M_local_nelements, std::plus<int>());
 
@@ -398,8 +426,10 @@ FiniteElement::rootMeshProcessing()
         chrono.restart();
         if (M_partition_space == mesh::PartitionSpace::MEMORY)
         {
+            // Environment::logMemoryUsage("before gmodel...");
             M_mesh_root.initGModel();
             M_mesh_root.writeToGModel(M_mesh_filename);
+            // Environment::logMemoryUsage("before after...");
         }
         else if (M_partition_space == mesh::PartitionSpace::DISK)
         {
@@ -501,7 +531,7 @@ FiniteElement::initVariables()
 
     boost::mpi::broadcast(M_comm, &M_random_number_root[0], M_mesh.numGlobalElements(), 0);
 
-    M_comm.barrier();
+    //M_comm.barrier();
 
     M_random_number.resize(M_num_elements);
     auto id_elements = M_mesh.trianglesIdWithGhost();
@@ -953,19 +983,6 @@ FiniteElement::jacobian(element_type const& element, mesh_type const& mesh) cons
 }
 
 double
-FiniteElement::jacobian(element_type const& element, mesh_type_root const& mesh) const
-{
-    std::vector<double> vertex_0 = mesh.nodes()[element.indices[0]-1].coords;
-    std::vector<double> vertex_1 = mesh.nodes()[element.indices[1]-1].coords;
-    std::vector<double> vertex_2 = mesh.nodes()[element.indices[2]-1].coords;
-
-    double jac = (vertex_1[0]-vertex_0[0])*(vertex_2[1]-vertex_0[1]);
-    jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);
-
-    return  jac;
-}
-
-double
 FiniteElement::jacobian(element_type const& element, mesh_type const& mesh,
                         std::vector<double> const& um, double factor) const
 {
@@ -979,6 +996,19 @@ FiniteElement::jacobian(element_type const& element, mesh_type const& mesh,
         vertex_1[i] += factor*um[element.indices[1]-1+i*(M_num_nodes)];
         vertex_2[i] += factor*um[element.indices[2]-1+i*(M_num_nodes)];
     }
+
+    double jac = (vertex_1[0]-vertex_0[0])*(vertex_2[1]-vertex_0[1]);
+    jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);
+
+    return  jac;
+}
+
+double
+FiniteElement::jacobian(element_type const& element, mesh_type_root const& mesh) const
+{
+    std::vector<double> vertex_0 = mesh.nodes()[element.indices[0]-1].coords;
+    std::vector<double> vertex_1 = mesh.nodes()[element.indices[1]-1].coords;
+    std::vector<double> vertex_2 = mesh.nodes()[element.indices[2]-1].coords;
 
     double jac = (vertex_1[0]-vertex_0[0])*(vertex_2[1]-vertex_0[1]);
     jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);
@@ -1026,11 +1056,61 @@ FiniteElement::sides(element_type const& element, mesh_type const& mesh) const
 }
 
 std::vector<double>
+FiniteElement::sides(element_type const& element, mesh_type const& mesh,
+                     std::vector<double> const& um, double factor) const
+{
+    std::vector<double> vertex_0 = mesh.nodes().find(element.indices[0])->second.coords;
+    std::vector<double> vertex_1 = mesh.nodes().find(element.indices[1])->second.coords;
+    std::vector<double> vertex_2 = mesh.nodes().find(element.indices[2])->second.coords;
+
+    for (int i=0; i<2; ++i)
+    {
+        vertex_0[i] += factor*um[element.indices[0]-1+i*(M_num_nodes)];
+        vertex_1[i] += factor*um[element.indices[1]-1+i*(M_num_nodes)];
+        vertex_2[i] += factor*um[element.indices[2]-1+i*(M_num_nodes)];
+    }
+
+    std::vector<double> side(3);
+
+    side[0] = std::hypot(vertex_1[0]-vertex_0[0], vertex_1[1]-vertex_0[1]);
+    side[1] = std::hypot(vertex_2[0]-vertex_1[0], vertex_2[1]-vertex_1[1]);
+    side[2] = std::hypot(vertex_2[0]-vertex_0[0], vertex_2[1]-vertex_0[1]);
+
+    return side;
+}
+
+std::vector<double>
 FiniteElement::sides(element_type const& element, mesh_type_root const& mesh) const
 {
     std::vector<double> vertex_0 = mesh.nodes()[element.indices[0]-1].coords;
     std::vector<double> vertex_1 = mesh.nodes()[element.indices[1]-1].coords;
     std::vector<double> vertex_2 = mesh.nodes()[element.indices[2]-1].coords;
+
+    std::vector<double> side(3);
+
+    side[0] = std::hypot(vertex_1[0]-vertex_0[0], vertex_1[1]-vertex_0[1]);
+    side[1] = std::hypot(vertex_2[0]-vertex_1[0], vertex_2[1]-vertex_1[1]);
+    side[2] = std::hypot(vertex_2[0]-vertex_0[0], vertex_2[1]-vertex_0[1]);
+
+    return side;
+}
+
+std::vector<double>
+FiniteElement::sides(element_type const& element, mesh_type_root const& mesh,
+                     std::vector<double> const& um, double factor) const
+{
+    std::vector<double> vertex_0 = mesh.nodes()[element.indices[0]-1].coords;
+    std::vector<double> vertex_1 = mesh.nodes()[element.indices[1]-1].coords;
+    std::vector<double> vertex_2 = mesh.nodes()[element.indices[2]-1].coords;
+
+    int num_nodes = M_mesh_root.numNodes();
+
+    for (int i=0; i<2; ++i)
+    {
+        vertex_0[i] += factor*um[element.indices[0]-1+i*(num_nodes)];
+        vertex_1[i] += factor*um[element.indices[1]-1+i*(num_nodes)];
+        vertex_2[i] += factor*um[element.indices[2]-1+i*(num_nodes)];
+    }
 
     std::vector<double> side(3);
 
@@ -1081,6 +1161,21 @@ FiniteElement::minAngles(element_type const& element, FEMeshType const& mesh) co
 
 template<typename FEMeshType>
 double
+FiniteElement::minAngles(element_type const& element, FEMeshType const& mesh,
+                         std::vector<double> const& um, double factor) const
+{
+    std::vector<double> side = this->sides(element,mesh,um,factor);
+    //std::for_each(side.begin(), side.end(), [&](double& f){ f = 1000.*f; });
+    std::sort(side.begin(),side.end());
+    double minang = std::acos( (std::pow(side[1],2.) + std::pow(side[2],2.) - std::pow(side[0],2.) )/(2*side[1]*side[2]) );
+    minang = minang*45.0/std::atan(1.0);
+
+    return minang;
+}
+
+
+template<typename FEMeshType>
+double
 FiniteElement::minAngle(FEMeshType const& mesh) const
 {
     std::vector<double> all_min_angle(mesh.numTriangles());
@@ -1101,15 +1196,15 @@ template<typename FEMeshType>
 double
 FiniteElement::minAngle(FEMeshType const& mesh, std::vector<double> const& um, double factor) const
 {
-    auto movedmesh = mesh;
-    movedmesh.move(um,factor);
+    // auto movedmesh = mesh;
+    // movedmesh.move(um,factor);
 
-    std::vector<double> all_min_angle(movedmesh.numTriangles());
+    std::vector<double> all_min_angle(mesh.numTriangles());
 
     int cpt = 0;
-    for (auto it=movedmesh.triangles().begin(), end=movedmesh.triangles().end(); it!=end; ++it)
+    for (auto it=mesh.triangles().begin(), end=mesh.triangles().end(); it!=end; ++it)
     {
-        all_min_angle[cpt] = this->minAngles(*it,movedmesh);
+        all_min_angle[cpt] = this->minAngles(*it,mesh,um,factor);
         ++cpt;
     }
 
@@ -1122,15 +1217,15 @@ template<typename FEMeshType>
 bool
 FiniteElement::flip(FEMeshType const& mesh, std::vector<double> const& um, double factor) const
 {
-    auto movedmesh = mesh;
-    movedmesh.move(um,factor);
+    // auto movedmesh = mesh;
+    // movedmesh.move(um,factor);
 
-    std::vector<double> area(movedmesh.numTriangles());
+    std::vector<double> area(mesh.numTriangles());
 
     int cpt = 0;
-    for (auto it=movedmesh.triangles().begin(), end=movedmesh.triangles().end(); it!=end; ++it)
+    for (auto it=mesh.triangles().begin(), end=mesh.triangles().end(); it!=end; ++it)
     {
-        area[cpt] = this->jacobian(*it,movedmesh);
+        area[cpt] = this->jacobian(*it,mesh,um,factor);
         ++cpt;
     }
 
@@ -1362,7 +1457,7 @@ FiniteElement::gatherSizes()
         boost::mpi::gatherv(M_comm, M_mesh.localDofWithGhostInit(), 0);
     }
 
-    M_comm.barrier();
+    //M_comm.barrier();
 }
 
 void
@@ -1708,13 +1803,16 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
 void
 FiniteElement::interpFieldsElement()
 {
-    M_comm.barrier();
+    //M_comm.barrier();
 
     std::vector<double> interp_in_elements;
 
+    timer["gather"].first.restart();
     this->gatherFieldsElement(interp_in_elements);
+    if (M_rank == 0)
+        std::cout<<"-------------------GATHER done in "<< timer["gather"].first.elapsed() <<"s\n";
 
-    M_comm.barrier();
+    //M_comm.barrier();
 
     double* interp_elt_out;
 
@@ -1744,9 +1842,12 @@ FiniteElement::interpFieldsElement()
         //chrono.restart();
         //std::cout<<"InterpFromMeshToMesh2dCavities starts\n";
 
+        timer["cavities"].first.restart();
         InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_in_elements[0],M_nb_var_element,
                                        &surface_previous[0], &surface[0], bamgmesh_previous, bamgmesh_root);
 
+        if (M_rank == 0)
+            std::cout<<"-------------------CAVITIES done in "<< timer["cavities"].first.elapsed() <<"s\n";
         //std::cout<<"InterpFromMeshToMesh2dCavities done in "<< chrono.elapsed() <<"\n";
 #endif
 
@@ -1780,13 +1881,20 @@ FiniteElement::interpFieldsElement()
 
     } // rank 0
 
-    M_comm.barrier();
+    //M_comm.barrier();
 
+    timer["distributed"].first.restart();
     this->distributedMeshProcessing();
+    if (M_rank == 0)
+        std::cout<<"-------------------DISTRIBUTED done in "<< timer["distributed"].first.elapsed() <<"s\n";
 
-    M_comm.barrier();
+    //M_comm.barrier();
 
+    timer["scatter"].first.restart();
     this->scatterFieldsElement(interp_elt_out);
+    if (M_rank == 0)
+        std::cout<<"-------------------SCATTER done in "<< timer["scatter"].first.elapsed() <<"s\n";
+
 
     if (M_rank == 0)
     {
@@ -1933,13 +2041,13 @@ void
 FiniteElement::interpFieldsNode(bimap_type const& rmap_nodes, std::vector<int> sizes_nodes)
 {
 
-    M_comm.barrier();
+    //M_comm.barrier();
 
     std::vector<double> interp_in_nodes;
 
     this->gatherFieldsNode(interp_in_nodes, rmap_nodes, sizes_nodes);
 
-    M_comm.barrier();
+    //M_comm.barrier();
 
     double* interp_nd_out;
 
@@ -1962,7 +2070,161 @@ FiniteElement::interpFieldsNode(bimap_type const& rmap_nodes, std::vector<int> s
         xDelete<double>(interp_nd_out);
     }
 
+    //carefull here (merging)
+    //M_comm.barrier();
+
+
+
+#if 0
     M_comm.barrier();
+
+    std::vector<int> indextr(3*M_prv_global_num_elements);
+    std::vector<double> coordX(M_prv_global_num_nodes);
+    std::vector<double> coordY(M_prv_global_num_nodes);
+
+    if (M_rank == 0)
+    {
+        indextr = M_mesh_previous_root.indexTr();
+        coordX = M_mesh_previous_root.coordX();
+        coordY = M_mesh_previous_root.coordY();
+    }
+
+    // mesh elements
+    boost::mpi::broadcast(M_comm, &indextr[0], 3*M_prv_global_num_elements, 0);
+
+    // mesh x-coordinates
+    boost::mpi::broadcast(M_comm, &coordX[0], M_prv_global_num_nodes, 0);
+
+    // mesh y-coordinates
+    boost::mpi::broadcast(M_comm, &coordY[0], M_prv_global_num_nodes, 0);
+
+    // if (M_rank == 1)
+    // {
+    //     for (int i=0; i<10; ++i)
+    //     {
+    //         std::cout<<"["<< M_rank <<"]: indextr["<< i <<"]= "<< indextr[i] <<"\n";
+    //     }
+    // }
+
+
+    M_nb_var_node = 8;
+    std::vector<double> interp_node_in_local(M_nb_var_node*M_prv_local_ndof,0.);
+
+    chrono.restart();
+    //std::cout<<"Nodal Interp starts\n";
+    //std::cout<<"NODAL: Interp starts\n";
+
+    for (int i=0; i<M_prv_local_ndof; ++i)
+    {
+        // VT
+        interp_node_in_local[M_nb_var_node*i] = M_VT[i];
+        interp_node_in_local[M_nb_var_node*i+1] = M_VT[i+M_prv_num_nodes];
+
+        // VTM
+        interp_node_in_local[M_nb_var_node*i+2] = M_VTM[i];
+        interp_node_in_local[M_nb_var_node*i+3] = M_VTM[i+M_prv_num_nodes];
+
+        // VTMM
+        interp_node_in_local[M_nb_var_node*i+4] = M_VTMM[i];
+        interp_node_in_local[M_nb_var_node*i+5] = M_VTMM[i+M_prv_num_nodes];
+
+        // UM
+        interp_node_in_local[M_nb_var_node*i+6] = M_UM[i];
+        interp_node_in_local[M_nb_var_node*i+7] = M_UM[i+M_prv_num_nodes];
+    }
+
+
+    std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = M_nb_var_node*f; });
+
+    std::vector<double> interp_in_nodes(M_nb_var_node*M_prv_global_num_nodes);
+
+    chrono.restart();
+
+    if (M_rank == 0)
+    {
+        boost::mpi::gatherv(M_comm, interp_node_in_local, &interp_in_nodes[0], sizes_nodes, 0);
+    }
+    else
+    {
+        boost::mpi::gatherv(M_comm, interp_node_in_local, 0);
+    }
+
+    boost::mpi::broadcast(M_comm, &interp_in_nodes[0], M_nb_var_node*M_prv_global_num_nodes, 0);
+
+    //std::cout<<"ALL_GATHER done in "<< chrono.elapsed() <<"s\n";
+
+    // if (M_rank == 1)
+    // {
+    //     for (int i=0; i<10; ++i)
+    //     {
+    //         std::cout<<"BEFORE out_values["<< i <<"]= "<< interp_in_nodes[i] <<"\n";
+    //     }
+    // }
+
+    auto interp_in_nodes_nrd = interp_in_nodes;
+
+    for (int i=0; i<M_prv_global_num_nodes; ++i)
+    {
+        int ri =  rmap_nodes.left.find(i+1)->second-1;
+
+        for (int j=0; j<M_nb_var_node; ++j)
+        {
+            interp_in_nodes[M_nb_var_node*i+j] = interp_in_nodes_nrd[M_nb_var_node*ri+j];
+        }
+    }
+
+    // if (M_rank == 1)
+    // {
+    //     for (int i=0; i<10; ++i)
+    //     {
+    //         std::cout<<"out_values["<< i <<"]= "<< interp_in_nodes[i] <<"\n";
+    //     }
+    // }
+
+    double* interp_out;
+
+    chrono.restart();
+
+    InterpFromMeshToMesh2dx(&interp_out,
+                            &indextr[0],&coordX[0],&coordY[0],
+                            M_prv_global_num_nodes,M_prv_global_num_elements,
+                            &interp_in_nodes[0],
+                            M_prv_global_num_nodes,M_nb_var_node,
+                            &M_mesh.coordX()[0],&M_mesh.coordY()[0],M_mesh.numNodes(),
+                            false);
+
+    //std::cout<<"NODAL INTERPOLATION done in "<< chrono.elapsed() <<"s\n";
+
+    M_VT.assign(2*M_num_nodes,0.);
+    M_VTM.assign(2*M_num_nodes,0.);
+    M_VTMM.assign(2*M_num_nodes,0.);
+    M_UM.assign(2*M_num_nodes,0.);
+
+
+    for (int i=0; i<M_num_nodes; ++i)
+    {
+        // VT
+        M_VT[i] = interp_out[M_nb_var_node*i];
+        M_VT[i+M_num_nodes] = interp_out[M_nb_var_node*i+1];
+
+        // VTM
+        M_VTM[i] = interp_out[M_nb_var_node*i+2];
+        M_VTM[i+M_num_nodes] = interp_out[M_nb_var_node*i+3];
+
+        // VTMM
+        M_VTMM[i] = interp_out[M_nb_var_node*i+4];
+        M_VTMM[i+M_num_nodes] = interp_out[M_nb_var_node*i+5];
+
+        // UM
+        M_UM[i] = interp_out[M_nb_var_node*i+6];
+        M_UM[i+M_num_nodes] = interp_out[M_nb_var_node*i+7];
+    }
+
+    xDelete<double>(interp_out);
+
+    M_comm.barrier();
+#endif
+>>>>>>> Stashed changes
 }
 
 void
@@ -2089,13 +2351,13 @@ FiniteElement::regrid(bool step)
                 timer["interpvertices"].first.restart();
                 LOG(DEBUG) <<"Interp vertices starts\n";
                 this->interpVertices();
-                LOG(DEBUG) <<"Interp vertices done in "<< timer["interpvertices"].first.elapsed() <<"\n";
+                std::cout <<"Interp vertices done in "<< timer["interpvertices"].first.elapsed() <<"\n";
             }
 
             timer["adaptmesh"].first.restart();
             LOG(DEBUG) <<"---TRUE AdaptMesh starts\n";
             this->adaptMesh();
-            LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< timer["adaptmesh"].first.elapsed() <<"s\n";
+            std::cout <<"---TRUE AdaptMesh done in "<< timer["adaptmesh"].first.elapsed() <<"s\n";
 
             // save mesh (only root process)
 
@@ -2113,7 +2375,7 @@ FiniteElement::regrid(bool step)
             std::cout<<"------------------------------space         = "<< (int)M_partition_space <<"\n";
             std::cout<<"------------------------------partitioner   = "<< (int)M_partitioner <<"\n";
 
-
+            Environment::logMemoryUsage("before partitioning...");
             timer["savemesh"].first.restart();
             LOG(DEBUG) <<"Saving mesh starts\n";
             if (M_partition_space == mesh::PartitionSpace::MEMORY)
@@ -2124,7 +2386,7 @@ FiniteElement::regrid(bool step)
             {
                 M_mesh_root.writeTofile(M_mesh_filename);
             }
-            LOG(DEBUG) <<"Saving mesh done in "<< timer["savemesh"].first.elapsed() <<"s\n";
+            std::cout <<"Saving mesh done in "<< timer["savemesh"].first.elapsed() <<"s\n";
 
 #if 0
             src_fname = Environment::nextsimDir().string() + "/mesh/" + M_mesh_filename;
@@ -2136,7 +2398,9 @@ FiniteElement::regrid(bool step)
             timer["meshpartition"].first.restart();
             LOG(DEBUG) <<"Partitioning mesh starts\n";
             M_mesh_root.partition(M_mesh_filename,M_partitioner,M_partition_space);
-            LOG(DEBUG) <<"Partitioning mesh done in "<< timer["meshpartition"].first.elapsed() <<"s\n";
+            std::cout <<"Partitioning mesh done in "<< timer["meshpartition"].first.elapsed() <<"s\n";
+
+            Environment::logMemoryUsage("after partitioning...");
         }
     } // rank 0
 
@@ -2150,21 +2414,24 @@ FiniteElement::regrid(bool step)
     M_prv_global_num_elements = M_mesh.numGlobalElements();
     std::vector<int> sizes_nodes = M_sizes_nodes;
 
-    M_comm.barrier();
+    //M_comm.barrier();
 
     timer["felt"].first.restart();
     this->interpFieldsElement();
-    LOG(DEBUG) <<"interpFieldsElement done in "<< timer["felt"].first.elapsed() <<"s\n";
+    if (M_rank == 0)
+        std::cout <<"interpFieldsElement done in "<< timer["felt"].first.elapsed() <<"s\n";
 
     timer["fnd"].first.restart();
     this->interpFieldsNode(prv_rmap_nodes, sizes_nodes);
-    LOG(DEBUG) <<"interpFieldsNode done in "<< timer["fnd"].first.elapsed() <<"s\n";
+    if (M_rank == 0)
+        std::cout <<"interpFieldsNode done in "<< timer["fnd"].first.elapsed() <<"s\n";
 
     // --------------------------------END-------------------------------
 
-    LOG(DEBUG) <<"TIMER REGRIDDING: this is done in "<< timer["regrid"].first.elapsed() <<"s\n";
+    if (M_rank == 0)
+        std::cout <<"TIMER REGRIDDING: this is done in "<< timer["regrid"].first.elapsed() <<"s\n";
 
-    M_comm.barrier();
+    //M_comm.barrier();
 
     this->assignVariables();
 }
@@ -2589,6 +2856,7 @@ FiniteElement::assemble(int pcpt)
     //std::cout<<"[" << M_rank <<"] " <<" TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
 
     // extended dirichlet nodes (add nodes where M_conc <= 0)
+    timer["dirichlet"].first.restart();
     for (int i=0; i<M_local_ndof; ++i)
     {
         if(!M_valid_conc[i])
@@ -2609,9 +2877,8 @@ FiniteElement::assemble(int pcpt)
 
     //std::cout<<"[" << M_rank <<"] " <<"-------------------DIFF SIZE EXTENDED_DIRICHLET= " << (int)extended_dirichlet_nodes.size()-(int)M_dirichlet_nodes.size() <<"\n";
 
-    // if (M_rank==0)
-    //     std::cout <<"TIMER DBCA= " << chrono.elapsed() <<"s\n";
-
+    if (M_rank==0)
+        std::cout <<"TIMER DBCA= " << timer["dirichlet"].first.elapsed() <<"s\n";
 
     //std::cout<<"[" << M_rank <<"] " <<"TIMER DBCA= " << chrono.elapsed() <<"s\n";
 
@@ -3182,21 +3449,23 @@ FiniteElement::solve()
     M_solver->solve(_matrix=M_matrix,
                     _solution=M_solution,
                     _rhs=M_vector,
+                    _rtolerance=1.e-09,
                     _ksp=vm["solver.ksp-type"].as<std::string>()/*"preonly"*/,
                     _pc=vm["solver.pc-type"].as<std::string>()/*"cholesky"*/,
                     _pcfactormatsolverpackage=vm["solver.mat-package-type"].as<std::string>()/*"cholmod"*/,
-                    _reuse_prec=false,
+                    _reuse_prec=vm["solver.ksp-reuse-prec"].as<bool>()/*false*/,
                     _rebuild=M_regrid
                     );
+
+
+    M_solution->close();
+
 
     if (M_rank==0)
         std::cout<<"TIMER SOLUTION= " << timer["solution"].first.elapsed() <<"s\n";
 
     //std::cout<<"[" << M_rank <<"] " <<"TIMER SOLUTION= " << timer["solution"].first.elapsed() <<"s\n";
 
-    M_comm.barrier();
-
-    M_solution->close();
     //M_solution->printMatlab("solution.m");
 }
 
@@ -4126,7 +4395,10 @@ void
 FiniteElement::run()
 {
     if (M_comm.rank() == 0)
-        LOG(INFO) << "-----------------------Simulation started on "<< current_time_local() <<"\n";
+    {
+        // LOG(INFO) << "-----------------------Simulation started on "<< current_time_local() <<"\n";
+        std::cout << "[INFO]: " << "-----------------------Simulation started on "<< current_time_local() <<"\n";
+    }
 
     std::string current_time_system = current_time_local();
 
@@ -4158,7 +4430,8 @@ FiniteElement::run()
 
     if (minang < vm["simul.regrid_angle"].as<double>())
     {
-        LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
+        // LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
+        std::cout << "[INFO]: " <<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
     }
 
@@ -4359,6 +4632,7 @@ FiniteElement::run()
         // Solve the linear problem
         //======================================================================
         LOG(DEBUG) <<"solve starts\n";
+        //Environment::logMemoryUsage("before solving...");
         this->solve();
         LOG(DEBUG) <<"solve done\n";
 
@@ -4389,8 +4663,11 @@ FiniteElement::run()
 
     if (M_rank==0)
     {
-        LOG(INFO) << "-----------------------Simulation done on "<< current_time_local() <<"\n";
-        LOG(INFO) << "-----------------------Total time spent:  "<< time_spent(current_time_system) <<"\n";
+        // LOG(INFO) << "-----------------------Simulation done on "<< current_time_local() <<"\n";
+        // LOG(INFO) << "-----------------------Total time spent:  "<< time_spent(current_time_system) <<"\n";
+
+        std::cout << "[INFO]: " << "-----------------------Simulation done on "<< current_time_local() <<"\n";
+        std::cout << "[INFO]: " << "-----------------------Total time spent:  "<< time_spent(current_time_system) <<"\n";
     }
 }
 
@@ -4407,7 +4684,7 @@ FiniteElement::readRestart(int &pcpt, int step)
 void
 FiniteElement::updateVelocity()
 {
-    M_comm.barrier();
+    //M_comm.barrier();
 
     M_VTMM = M_VTM;
     M_VTM = M_VT;
@@ -4448,7 +4725,7 @@ FiniteElement::updateVelocity()
 void
 FiniteElement::speedScaling(std::vector<double>& speed_scaling)
 {
-    M_comm.barrier();
+    //M_comm.barrier();
 
     std::vector<int> sizes_elements = M_sizes_elements;
     std::vector<double> conc_local(M_local_nelements);
@@ -4542,7 +4819,7 @@ FiniteElement::speedScaling(std::vector<double>& speed_scaling)
         boost::mpi::scatterv(M_comm, &speed_scaling[0], M_num_nodes, 0);
     }
 
-    M_comm.barrier();
+    //M_comm.barrier();
 }
 
 void
@@ -5639,6 +5916,8 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     int numVertices = 3;
     std::vector<int> indices(numVertices);
 
+    mesh_triangles.resize(bamg_mesh->TrianglesSize[0]);
+
     for (int tr=0; tr<bamg_mesh->TrianglesSize[0]; ++tr)
     {
         indices[0] = bamg_mesh->Triangles[4*tr];
@@ -5653,7 +5932,8 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
                               indices );
 
         //mesh_triangles.insert(std::make_pair(tr,gmshElt));
-        mesh_triangles.push_back(gmshElt);
+        //mesh_triangles.push_back(gmshElt);
+        mesh_triangles[tr] = gmshElt;
     }
 
     std::cout<<"\n";
@@ -5677,7 +5957,7 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
 void
 FiniteElement::createGraph()
 {
-    M_comm.barrier();
+    //M_comm.barrier();
 
     auto M_local_ghost = M_mesh.localGhost();
     auto M_transfer_map = M_mesh.transferMap();
@@ -5698,17 +5978,23 @@ FiniteElement::createGraph()
 
         int Ncc = bamgmesh->NodalConnectivity[Nd*(i+1)-1];
         int gid = M_transfer_map.right.find(i+1)->second;
-        if (std::find(M_local_ghost.begin(),M_local_ghost.end(),gid) == M_local_ghost.end())
+        //if (std::find(M_local_ghost.begin(),M_local_ghost.end(),gid) == M_local_ghost.end())
+        if (!std::binary_search(M_local_ghost.begin(),M_local_ghost.end(),gid))
         {
             for (int j=0; j<Ncc; ++j)
             {
                 int currentr = bamgmesh->NodalConnectivity[Nd*i+j];
 
                 int gid2 = M_transfer_map.right.find(currentr)->second;
-                if (std::find(M_local_ghost.begin(),M_local_ghost.end(),gid2) == M_local_ghost.end())
+                //if (std::find(M_local_ghost.begin(),M_local_ghost.end(),gid2) == M_local_ghost.end())
+                if (!std::binary_search(M_local_ghost.begin(),M_local_ghost.end(),gid2))
+                {
                     ++counter_dnnz;
+                }
                 else
+                {
                     ++counter_onnz;
+                }
 
                 //std::cout<<"Connect["<< j <<"]= "<< currentr << " or "<< M_transfer_map.right.find(currentr)->second <<"\n";
             }
@@ -5751,7 +6037,7 @@ FiniteElement::createGraph()
     std::cout<<"\n";
 #endif
 
-    M_comm.barrier();
+    //M_comm.barrier();
 
 #if 0
     M_comm.barrier();
