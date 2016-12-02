@@ -117,8 +117,12 @@ GmshMesh::readFromFile(std::string const& filename)
     {
         int format, size;
         __is >> theversion >> format >> size;
-        std::cout << "GMSH mesh file version : " << theversion << " format: " << (format?"binary":"ascii") << \
-            " size of double: " << size << "\n";
+
+        if (M_comm.rank() == 0)
+        {
+            std::cout << "GMSH mesh file version : " << theversion << " format: " << (format?"binary":"ascii") << \
+                " size of double: " << size << "\n";
+        }
 
         ASSERT(boost::lexical_cast<double>( theversion ) >= 2, "Nextsim supports only Gmsh version >= 2");
 
@@ -130,7 +134,8 @@ GmshMesh::readFromFile(std::string const& filename)
 
         __is >> __buf;
 
-        std::cout << "[importergmsh] " << __buf << " (expect $PhysicalNames)\n";
+        if (M_comm.rank() == 0)
+            std::cout << "[importergmsh] " << __buf << " (expect $PhysicalNames)\n";
 
     }
 
@@ -201,6 +206,8 @@ GmshMesh::readFromFile(std::string const& filename)
     int cpt_edge = 0;
     int cpt_triangle = 0;
     int num_edge = 0;
+    int num_edge_diff = 0;
+    bool first_triangle = true;
 
     for(int i = 0; i < numElements; i++)
     {
@@ -214,11 +221,13 @@ GmshMesh::readFromFile(std::string const& filename)
              >> type // elm-type
              >> numTags; // number-of-tags
 
-        if (type == 1)
+        //if (type == 1)
+        if (type != 2)
         {
             // if current element is an edge, stop reading and go to next line
             __is.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-            num_edge = number;
+            //num_edge = number;
+            ++num_edge;
             continue;
         }
 
@@ -257,7 +266,30 @@ GmshMesh::readFromFile(std::string const& filename)
 
         //std::cout<<"On proc "<< this->comm().rank() <<" : Global size= "<< this->comm().size() <<"\n";
 
-        number = number - num_edge;
+#if 1
+        // if (i == 0)
+        // {
+        //     number = number - num_edge;
+        //     std::cout<<"***************************************["<< this->comm().rank() <<"]: " << number <<"\n";
+        // }
+
+        if (first_triangle)
+        {
+            if (num_edge == 0)
+            {
+                num_edge_diff = 0;
+            }
+            else
+            {
+                num_edge_diff = (number == 1) ? 0 : num_edge;
+            }
+
+            first_triangle = false;
+        }
+
+        number = number - num_edge_diff;
+
+#endif
 
         Nextsim::entities::GMSHElement gmshElt( number,
                                                 type,
@@ -299,11 +331,16 @@ GmshMesh::readFromFile(std::string const& filename)
 
     M_global_num_elements_from_serial = M_global_num_elements_from_serial - num_edge;
 
+#if 0
+    std::cout<<"----M_global_num_elements_from_serial= "<< M_global_num_elements_from_serial<< " : "<< num_edge <<"\n";
+    std::cout<<"***************************************["<< this->comm().rank() <<"]: " << num_edge << " and "<< num_edge_diff <<"\n";
+#endif
+
     for ( auto const& it : __gt )
     {
         const char* name;
         MElement::getInfoMSH( it.first, &name );
-        std::cout<<"["<< M_comm.rank() <<"] " << " Read " << it.second << " " << name << " elements\n";
+        //std::cout<<"["<< M_comm.rank() <<"] " << " Read " << it.second << " " << name << " elements\n";
 
         if (std::string(name) == "Triangle 3")
             M_num_triangles = it.second;
@@ -595,7 +632,8 @@ GmshMesh::nodalGrid()
 
     if (M_num_nodes != num_nodes)
     {
-        std::cout<<"---------------------------------------Post-processing needed for nodal mesh partition: "<< M_num_nodes <<" != "<< num_nodes <<"\n";
+        if (M_comm.rank() == 0)
+            std::cout<<"---------------------------------------Post-processing needed for nodal mesh partition: "<< M_num_nodes <<" != "<< num_nodes <<"\n";
     }
 
     // gather operations for global node renumbering
@@ -674,12 +712,14 @@ GmshMesh::nodalGrid()
                                 global_from_code.begin(), global_from_code.end(),
                                 std::back_inserter(diff_trs));
 
+#if 0
             for (int kk=0; kk<diff_trs.size(); ++kk)
             {
                 //std::cout<<
                 std::cout<<"---------------------------------------MISSING NODES= \n";
                 std::cout<<"                                                         ---[" << M_comm.rank() << "]: IDS["<< kk <<"]= "<< diff_trs[kk] <<"\n";
             }
+#endif
 
             for (int kk=0; kk<diff_trs.size(); ++kk)
             {
@@ -699,7 +739,7 @@ GmshMesh::nodalGrid()
 
                 if (M_comm.rank() == valid_id)
                 {
-                    std::cout<<"----------------------------------WORKING["<< M_comm.rank() <<"]: "<< diff_trs[kk] <<"\n";
+                    //std::cout<<"----------------------------------WORKING["<< M_comm.rank() <<"]: "<< diff_trs[kk] <<"\n";
 
                     M_local_ghost.erase(std::remove(M_local_ghost.begin(), M_local_ghost.end(), diff_trs[kk]),
                                         M_local_ghost.end());
@@ -856,7 +896,8 @@ GmshMesh::nodalGrid()
 
     if (M_global_num_elements_from_serial != num_elements)
     {
-        std::cout<<"---------------------------------------Post-processing needed for element mesh partition: "<< M_global_num_elements_from_serial <<" != "<< num_elements <<"\n";
+        if (M_comm.rank() == 0)
+            std::cout<<"---------------------------------------Post-processing needed for element mesh partition: "<< M_global_num_elements_from_serial <<" != "<< num_elements <<"\n";
     }
 
 

@@ -711,11 +711,21 @@ VectorPetsc::container()
 {
     ASSERT(M_is_initialized, "VectorPetsc not initialized");
 
+    int ierr=0;
+	PetscScalar *values;//, value=0.;
+
+	ierr = VecGetArray( M_vecLocal, &values );
+	CHKERRABORT( M_comm,ierr );
+
+	//value = values[i];
     std::vector<value_type> contnr(this->localsize());
     for (int i=0; i<this->localsize(); ++i)
     {
-        contnr[i] = this->operator()(i);
+        contnr[i] = static_cast<value_type>( values[i] );
     }
+
+	ierr = VecRestoreArray ( M_vecLocal, &values );
+	CHKERRABORT( M_comm,ierr );
 
     return contnr;
 }

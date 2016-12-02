@@ -21,7 +21,8 @@ GmshMeshSeq::GmshMeshSeq()
     M_edges(),
     M_num_nodes(0),
     M_num_triangles(0),
-    M_num_edges(0)
+    M_num_edges(0),
+    timer()
 {}
 
 GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
@@ -382,6 +383,21 @@ GmshMeshSeq::writeToGModel(std::string const& filename)
     }
 
     int cpt_element = 0;
+
+#if 0
+    // uncomment if needed to add the edge elements
+    for (auto it=M_edges.begin(), en=M_edges.end(); it!=en; ++it)
+    {
+        vertexIndices[cpt_element] = it->indices;
+        elementNum[cpt_element] = cpt_element+1;
+        elementType[cpt_element] = 1;
+        physical[cpt_element] = 0;;
+        elementary[cpt_element] = 0;;
+        partition[cpt_element] = 0;;
+        ++cpt_element;
+    }
+#endif
+
     for (auto it=M_triangles.begin(), en=M_triangles.end(); it!=en; ++it)
     {
         vertexIndices[cpt_element] = it->indices;
@@ -437,11 +453,19 @@ GmshMeshSeq::partitionMemory(std::string const& filename,
 {
     M_partition_options.partitioner =  (int)partitioner;
     M_partition_options.algorithm = 2;
-    // M_partition_options.refine_algorithm = 2; // do not use because of non-contiguous mesh partition
+    //M_partition_options.edge_matching = 3;
+    //M_partition_options.refine_algorithm = 2; // do not use because of non-contiguous mesh partition
 
+    timer["in.part"].first.restart();
     PartitionMesh( M_gmodel, M_partition_options);
+    std::cout<<"------------------------------------------------------INSIDE: PART done in "<< timer["in.part"].first.elapsed() <<"s\n";
+    timer["in.write"].first.restart();
     M_gmodel->writeMSH( filename, 2.2, false);
+    std::cout<<"------------------------------------------------------INSIDE: WRITE done in "<< timer["in.write"].first.elapsed() <<"s\n";
+    timer["in.delete"].first.restart();
+    M_gmodel->deleteMesh();
     M_gmodel->destroy();
+    std::cout<<"------------------------------------------------------INSIDE: DELETE done in "<< timer["in.delete"].first.elapsed() <<"s\n";
 }
 
 void

@@ -134,6 +134,7 @@ private:
 
     meshPartitionOptions M_partition_options;
     GModel*  M_gmodel;
+    std::map<std::string,std::pair<boost::mpi::timer,double> > timer;
 };
 
 } // Nextsim

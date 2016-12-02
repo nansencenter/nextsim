@@ -5,12 +5,26 @@ PROGNAME=nextsim.exec
 CXX = g++
 CXXFLAGS += -std=c++11 -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v -DHAVE_CONFIG_H -D_MULTITHREADING_
 
-CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I $(NEXTSIMDIR)/contrib/bamg/include
-CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include -I $(NEXTSIMDIR)/contrib/interp/include
-CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
-CXXFLAGS +=	-I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I .
-CXXFLAGS +=	-I $(NETCDF_DIR)/include -I $(GMSH_DIR)/include/gmsh
+# nextsim
+CXXFLAGS += -I $(NEXTSIMDIR)/core/include
+CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include
+CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
+CXXFLAGS += -I $(NEXTSIMDIR)/contrib/interp/include
 
+# openmpi
+CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
+
+# boost
+CXXFLAGS +=	-I $(BOOST_DIR)/include -I .
+
+# gmsh
+CXXFLAGS += -I $(GMSH_DIR)/include/gmsh
+
+# netcdf
+CXXFLAGS +=	-I $(NETCDF_DIR)/include
+
+# petsc
+CXXFLAGS +=	-I $(PETSC_DIR)/include
 
 ifeq ($(KERNEL),Linux)
 	#CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -lm -pthread -v #-MMD -MP -lm -pthread -v
@@ -45,8 +59,8 @@ LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf_c++4
 LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib
 LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi -lboost_date_time
 
-LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
-LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
+# LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
+# LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
 
 LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg

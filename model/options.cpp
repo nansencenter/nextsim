@@ -29,7 +29,9 @@ namespace Nextsim
             ("solver.ksp-type", po::value<std::string>()->default_value( "preonly" ), "")
             ("solver.pc-type", po::value<std::string>()->default_value( "cholesky" ), "")
             ("solver.mat-package-type", po::value<std::string>()->default_value( "cholmod" ), "")
+            ("solver.ksp-reuse-prec", po::value<bool>()->default_value( false ), "")
             ("solver.ksp-view", po::value<bool>()->default_value( false ), "")
+            ("solver.ksp-monitor", po::value<bool>()->default_value( false ), "")
             ("solver.ksp-convergence-info", po::value<bool>()->default_value( true ), "")
 
             ("setup.atmosphere-type", po::value<std::string>()->default_value( "asr" ), "")

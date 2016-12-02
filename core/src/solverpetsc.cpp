@@ -90,7 +90,10 @@ SolverPetsc::init()
         // PCFactorSetShiftAmount( M_pc,1.);
         // PCFactorSetColumnPivot( M_pc, 0.0);
 
-        KSPMonitorSet( M_ksp,KSPMonitorDefault,PETSC_NULL,PETSC_NULL );
+        if (Environment::vm()["solver.ksp-monitor"]. as<bool>())
+        {
+            KSPMonitorSet( M_ksp,KSPMonitorDefault,PETSC_NULL,PETSC_NULL );
+        }
     }
 }
 
@@ -136,6 +139,7 @@ SolverPetsc::solveLinearSystem(matrix_ptrtype const& matrix,
     ierr = KSPSolve ( M_ksp, rhs->vec(), solution->vec() );
     CHKERRABORT( M_comm,ierr );
 
+#if 0
     // Get the number of iterations required for convergence
     ierr = KSPGetIterationNumber ( M_ksp, &its );
     CHKERRABORT( M_comm,ierr );
@@ -150,6 +154,7 @@ SolverPetsc::solveLinearSystem(matrix_ptrtype const& matrix,
     KSPConvergedReason reason;
     KSPGetConvergedReason( M_ksp,&reason );
     M_reason = PetscConvertKSPReasonToString(reason);
+#endif
 
     if (Environment::vm()["solver.ksp-view"]. as<bool>())
     {
@@ -160,17 +165,17 @@ SolverPetsc::solveLinearSystem(matrix_ptrtype const& matrix,
     {
         std::cout<< "[solverpetsc] #OF ITERATIONS   = " << M_iteration << "\n";
         std::cout<< "[solverpetsc] RESIDUAL NORN    = " << M_residual << "\n";
-        std::cout<< "[solverpetsc] CONVERGED REASON = " << PetscConvertKSPReasonToString(reason) <<"\n";
+        //std::cout<< "[solverpetsc] CONVERGED REASON = " << PetscConvertKSPReasonToString(reason) <<"\n";
 
-        if (reason == KSP_DIVERGED_INDEFINITE_PC)
-        {
-            std::cout << "[solverpetsc] Divergence because of indefinite preconditioner \n";
-            std::cout << "[solverpetsc] Run the executable again but with '-pc_factor_shift_type POSITIVE_DEFINITE' option \n";
-        }
-        else if (reason < 0)
-        {
-            std::cout <<"[solverpetsc] Other kind of divergence: this should not happen \n";
-        }
+        // if (reason == KSP_DIVERGED_INDEFINITE_PC)
+        // {
+        //     std::cout << "[solverpetsc] Divergence because of indefinite preconditioner \n";
+        //     std::cout << "[solverpetsc] Run the executable again but with '-pc_factor_shift_type POSITIVE_DEFINITE' option \n";
+        // }
+        // else if (reason < 0)
+        // {
+        //     std::cout <<"[solverpetsc] Other kind of divergence: this should not happen \n";
+        // }
     }
 }
 

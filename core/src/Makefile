@@ -15,9 +15,15 @@ LIBRARYDIR=$(NEXTSIMDIR)/lib/
 CXX = g++
 CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v
 
-CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I /usr/local/include -I $(OPENMPI_INCLUDE_DIR)/
-CXXFLAGS += -I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I $(GMSH_DIR)/include/gmsh
+CXXFLAGS += -I $(NEXTSIMDIR)/core/include
+CXXFLAGS += -I /usr/local/include
+CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
+CXXFLAGS += -I $(BOOST_DIR)/include
+CXXFLAGS += -I $(GMSH_DIR)/include/gmsh
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
+CXXFLAGS += -I $(PETSC_DIR)/include
+#CXXFLAGS += -I $(BOOST_DIR)/include
+#CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
 
 ifeq ($(KERNEL),Linux)
 	#CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -lm -pthread -v #-MMD -MP
@@ -51,12 +57,16 @@ endif
 
 LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib
 LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi
-LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
-LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
 
+# gmsh
 LDFLAGS += -Wl,-rpath,$(GMSH_DIR)/lib
 LDFLAGS += -L $(GMSH_DIR)/lib -lGmsh
 
+# petsc
+LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
+LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
+
+# mapx
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
 
 
