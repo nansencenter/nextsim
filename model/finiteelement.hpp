@@ -36,6 +36,10 @@
 #include <gridoutput.hpp>
 #include <dataset.hpp>
 
+#ifdef WITHGPERFTOOLS
+#include <gperftools/profiler.h>
+#endif
+
 extern "C"
 {
 #include <mapx.h>

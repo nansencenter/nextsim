@@ -16,10 +16,6 @@
 #include <numeric>
 
 
-#ifdef WITHGPERFTOOLS
-#include <gperftools/profiler.h>
-#endif
-
 #define GMSH_EXECUTABLE gmsh
 
 namespace Nextsim
@@ -3833,6 +3829,7 @@ FiniteElement::run()
     LOG(INFO) <<"TIMER total = " << chrono_tot.elapsed() <<"s\n";
 
 #ifdef WITHGPERFTOOLS
+    //ProfilerFlush();
     ProfilerStop();
 #endif
 
@@ -3985,9 +3982,6 @@ FiniteElement::init()
 void
 FiniteElement::step(int &pcpt)
 {
-
-
-
 #if defined (WAVES)
 
     M_run_wim = !(pcpt % vm["nextwim.couplingfreq"].as<int>());
@@ -6148,7 +6142,14 @@ FiniteElement::coriolis()
 
     for (int i=0; i<M_fcor.size(); ++i)
     {
-        M_fcor[i] = 2*(physical::omega)*std::sin(lat[i]*PI/180.);
+        if (vm["simul.use_coriolis"].as<bool>())
+        {
+            M_fcor[i] = 2*(physical::omega)*std::sin(lat[i]*PI/180.);
+        }
+        else
+        {
+            M_fcor[i] = 0.;
+        }
     }
 }
 

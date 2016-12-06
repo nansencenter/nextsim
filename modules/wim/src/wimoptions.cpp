@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim:fenc=utf-8:ft=cpp:et:sw=4:ts=4:sts=4 */
 
 #include <wimoptions.hpp>
 
@@ -29,6 +29,11 @@ namespace Wim
                   "Number of wave frequencies")
             ("wim.nwavedirn", po::value<int>()->default_value( 16 ),
                   "Number of wave directions")
+            //("wim.gridfilename", po::value<std::string>()->default_value( "wim_grid_full_ONR_Oct2015_2km_big.a" ),
+            ("wim.gridfilename", po::value<std::string>()->default_value( "" ),
+                  "wim grid binary filename")
+            ("wim.gridremoveouter", po::value<bool>()->default_value( true ),
+                  "Remove outer nodes from the grid (=true), or not (=false)")
 
             //'int_prams' in fortran
             ("wim.scatmod", po::value<std::string>()->default_value( "dissipated" ),
@@ -43,8 +48,6 @@ namespace Wim
                   "Do breaking (=true), or turn off breaking (=false)")
             ("wim.atten", po::value<bool>()->default_value( true ),
                   "Do attenuation")
-            ("wim.checkprog", po::value<bool>()->default_value( true ),
-                  "Do dump intermediate states to binary files (=true), or don't' (=false)")
             ("wim.fsdopt", po::value<std::string>()->default_value( "PowerLawSmooth" ),
                   "FSD parameterisation: 'PowerLawSmooth' or 'RG'")
 
@@ -83,6 +86,16 @@ namespace Wim
                   "Initial time")
 
             //outputs of WIM
+            ("wim.checkinit", po::value<bool>()->default_value( true ),
+                  "Do/don't dump initial states of each call to WIM.run() to binary files  (true/false)")
+            ("wim.checkprog", po::value<bool>()->default_value( true ),
+                  "Do/don't dump intermediate states to binary files (true/false)")
+            ("wim.checkfinal", po::value<bool>()->default_value( true ),
+                  "Do/don't dump final states after each call to WIM.run() to binary files (true/false)")
+            ("wim.checkincwaves", po::value<bool>()->default_value( true ),
+                  "Do/don't dump input wave fields after each call to WIM.run() to binary files (true/false)")
+            ("wim.savelog", po::value<bool>()->default_value( true ),
+                  "Do/don't save diagnostic file after each call to WIM.run() to text file (true/false)")
             ("wim.dumpfreq", po::value<int>()->default_value( 10 ),
                   "frequency of dumping (# WIM timesteps)")
             ("wim.outparentdir", po::value<std::string>()->default_value( "out_cpp" ),
@@ -105,14 +118,18 @@ namespace Wim
                   "Don't let Dmax grow above this value [m]")
 
             //coupling to nextsim
-            ("nextwim.docoupling", po::value<bool>()->default_value( false ),
-                  "Enable/Disable coupling with nextsim")
+            ("nextwim.applywavestress", po::value<bool>()->default_value( true ),
+                  "Use wave stress from WIM in neXtSIM momentum equations")
             ("nextwim.exportresults", po::value<bool>()->default_value( true ),
                   "Export results in coupled mode")
-            ("nextwim.nfloesgridtomesh", po::value<bool>()->default_value( true ),
-                  "During neXtSIM regridding interpolate from grid-to-mesh or mesh-to-mesh")
             ("nextwim.couplingfreq", po::value<int>()->default_value( 20 ),
                   "Coupling frequency between neXtSIM and WIM (# neXtSIM time-steps)")
+            ("nextwim.coupling-option", po::value<std::string>()->default_value( "naive" ),
+                  "Coupling option: naive->interp nfloes onto mesh after exiting WIM; breaking_on_mesh->import mesh and do breaking on mesh in parallel")
+            ("nextwim.wim_damage_mesh", po::value<bool>()->default_value( true ),
+                  "If ice is broken by waves, increase damage to nextwim.wim_damage_value (if nextwim_coupling_option=breaking_on_mesh)")
+            ("nextwim.wim_damage_value", po::value<double>()->default_value( 0.999 ),
+                  "If ice is broken by waves, increase damage to this value (if wim_damage_mesh=true)")
             ;
         return desc;
     }
