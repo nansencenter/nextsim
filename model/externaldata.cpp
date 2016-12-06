@@ -160,12 +160,14 @@ ExternalData::get(const size_type i)
     }
     else
     {
+        // determine whether to use linear interpolation in time
+        // or constant/step-wise interpolation
         bool interp_linear_time = (M_dataset->grid.dataset_frequency!="constant"
                 && M_dataset->grid.dataset_frequency!="nearest_daily");
         bool interp_const_wave  = ((M_dataset->grid.waveOptions.wave_dataset)
-                && (M_dataset->grid.waveOptions.interp_time_option=="step"));
+                && (M_dataset->grid.waveOptions.time_interp_option=="step"));
         interp_linear_time  = (interp_linear_time && !interp_const_wave);
-                    &&
+
         if(interp_linear_time)
         {
             fdt = std::abs(M_dataset->ftime_range[1]-M_dataset->ftime_range[0]);

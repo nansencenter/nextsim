@@ -5393,14 +5393,14 @@ FiniteElement::forcingWave()
 
             // define external_data objects
 	        M_SWH        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init);
-            M_MWD        = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
-            M_MWP        = ExternalData(&M_wave_elements_dataset, M_mesh, 2,false,time_init);
-            M_fice_waves = ExternalData(&M_wave_elements_dataset, M_mesh, 3,false,time_init);
+            M_MWP        = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
+            M_MWD        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,true,time_init);
+            M_fice_waves = ExternalData(&M_wave_elements_dataset, M_mesh, 4,false,time_init);
 
             // add them to a vector for looping
             M_external_data.push_back(&M_SWH);
-            M_external_data.push_back(&M_MWD);
             M_external_data.push_back(&M_MWP);
+            M_external_data.push_back(&M_MWD);
             M_external_data.push_back(&M_fice_waves);
 
             wim_forcing_options = M_wave_elements_dataset.grid.waveOptions;
@@ -5417,8 +5417,8 @@ FiniteElement::forcingWave()
 
             // define external_data objects
             M_SWH = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init);
-            M_MWD = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
-            M_MWP = ExternalData(&M_wave_elements_dataset, M_mesh, 2,false,time_init);
+            M_MWP = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
+            M_MWD = ExternalData(&M_wave_elements_dataset, M_mesh, 0,true,time_init);
 
             // add them to a vector for looping
             M_external_data.push_back(&M_SWH);
@@ -7128,6 +7128,7 @@ FiniteElement::nextsimToWim(bool step)
             {
                 //get incident waves from datasets
                 double cfac = 1.;
+                double uwave,vwave;
                 if ( wim_forcing_options.use_ice )
                 {
                     //cancel waves if ice present
@@ -7139,7 +7140,13 @@ FiniteElement::nextsimToWim(bool step)
                 M_SWH_grid[i] = cfac*M_SWH[i];
 
                 // wave mean direction
-                M_MWD_grid[i] = cfac*M_MWD[i];
+                uwave   = cfac*M_MWD[i];
+                vwave   = cfac*M_MWD[i+num_elements_wim_grid];
+                if ( std::hypot(uwave,vwave)<.5 )
+                {
+                    //convert to wave-from direction
+                    M_MWD_grid[i] = std::atan2(-uwave,-vwave);
+                }
 
                 // wave peak period
                 if ( wim_forcing_options.use_mwp )
