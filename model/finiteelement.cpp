@@ -5428,7 +5428,8 @@ FiniteElement::constantIce()
 void
 FiniteElement::targetIce()
 {
-    double y_max=300000.;
+    double y_max=350000.;
+    double y_min=200000.;
     double x_max=350000.;
     double x_min=200000.;
 
@@ -5439,7 +5440,7 @@ FiniteElement::targetIce()
 
     for (int i=0; i<M_num_elements; ++i)
     {
-        tmp_var = (RY[i]<=y_max)*(RX[i]<=x_max)*(RX[i]>=x_min);
+        tmp_var = (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max)*(RX[i]>=x_min);
 
         std::cout<<"RX: "<< RX[i] << "RY: "<< RY[i] << "tmp_var: " << tmp_var << "\n";
 
