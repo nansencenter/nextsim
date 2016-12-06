@@ -127,6 +127,9 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
                 bamgopt->hminVertices[i] = M_hminVertices[i];
                 bamgopt->hmaxVertices[i] = M_hmaxVertices[i];
             }
+            
+            exportInitMesh();
+            
             break;
         default:
             std::cout << "invalid mesh type"<<"\n";
@@ -1021,7 +1024,6 @@ FiniteElement::regrid(bool step)
 				interp_Vertices_in[2*i+1] = M_hmaxVertices[i];
 			}
             
-            exportInitMesh();
             
 			InterpFromMeshToMesh2dx(&interp_Vertices_out,
                                     &M_mesh_init.indexTr()[0],&M_mesh_init.coordX()[0],&M_mesh_init.coordY()[0],
