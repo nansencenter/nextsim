@@ -757,7 +757,47 @@ void WimDiscr<T>::assign(std::vector<value_type> const& icec_in,
                 }
             }
 
-            // direcional spreading
+#if 0
+            //test thetaDirFrac function
+            int Ntst            = 110;
+            value_type dth_tst  = 360./Ntst;
+            value_type dir_tst  = 0.;
+
+            value_type integral1   = thetaDirFrac(dir_tst,360.,270.);
+            value_type integral2   = thetaDirFrac(dir_tst,360.,90.);
+            value_type integral3   = thetaDirFrac(dir_tst,360.,330.);
+            value_type integral4   = thetaDirFrac(dir_tst,360.,0.);
+            value_type integral5   = thetaDirFrac(dir_tst,360.,360.);
+            std::cout<<"test total thetaDirFrac integral (=1?) = "<<integral1<<"\n";
+            std::cout<<"test total thetaDirFrac integral (=1?) = "<<integral2<<"\n";
+            std::cout<<"test total thetaDirFrac integral (=1?) = "<<integral3<<"\n";
+            std::cout<<"test total thetaDirFrac integral (=1?) = "<<integral4<<"\n";
+            std::cout<<"test total thetaDirFrac integral (=1?) = "<<integral5<<"\n";
+            std::cout<<"\n";
+
+            integral1   = 0.;
+            integral2   = 0.;
+            integral3   = 0.;
+            integral4   = 0.;
+            integral5   = 0.;
+            for (int itst=0; itst<Ntst; itst++)
+            {
+                integral1  += thetaDirFrac(dir_tst,dth_tst,270.);
+                integral2  += thetaDirFrac(dir_tst,dth_tst,90.);
+                integral3  += thetaDirFrac(dir_tst,dth_tst,330.);
+                integral4  += thetaDirFrac(dir_tst,dth_tst,0.);
+                integral5  += thetaDirFrac(dir_tst,dth_tst,360.);
+                dir_tst    += dth_tst;
+            }
+            std::cout<<"test thetaDirFrac integral (=1?) = "<<integral1<<"\n";
+            std::cout<<"test thetaDirFrac integral (=1?) = "<<integral2<<"\n";
+            std::cout<<"test thetaDirFrac integral (=1?) = "<<integral3<<"\n";
+            std::cout<<"test thetaDirFrac integral (=1?) = "<<integral4<<"\n";
+            std::cout<<"test thetaDirFrac integral (=1?) = "<<integral5<<"\n";
+            std::abort();
+#endif
+
+            // directional spreading
             if (nwavedirn == 1)
             {
                 std::fill(theta_fac.begin(), theta_fac.end(), 1.);
@@ -987,7 +1027,7 @@ void WimDiscr<T>::idealWaveFields(value_type const xfac)
    {
       for (int j = 0; j < ny; j++)
       {
-         if (X_array[i][j] < x_edge)
+         if ((X_array[i][j] < x_edge) && (LANDMASK_array[i][j]<1.))
          {
             wave_mask[i*ny+j] = 1.;
             Hs [i*ny+j] = Hs_inc;
@@ -2819,25 +2859,43 @@ template<typename T>
 typename WimDiscr<T>::value_type
 WimDiscr<T>::thetaDirFrac(value_type const& th1_, value_type const& dtheta_, value_type const& mwd_)
 {
-    value_type mwd = thetaInRange(mwd_,th1_);   // th1_<=mwd<th1_+360
-    value_type th2   = th1_ + dtheta_;
+    //get mwd\pm90 inside [th1_,th1_+360)
+    value_type phi1  = thetaInRange(mwd_-90.,th1_);//>=th1_
+    value_type phi2  = thetaInRange(mwd_+90.,th1_);//>=th1_
+    value_type th2_  = th1_+dtheta_;
 
-    if ((mwd > th2) && ((mwd - th2) > std::abs(mwd-360-th1_)))
+    value_type integral = 0.;
+    if (phi2>phi1)
     {
-        mwd   = mwd - 360.;
+       // th1_,phi1,phi2, and th2_
+       value_type L1    = std::max(th1_,phi1);
+       value_type L2    = std::min(th2_,phi2);
+       L2               = std::max(L1,L2); //make L2>=L1
+       value_type chi1  = PI*(L1-mwd_)/180.;
+       value_type chi2  = PI*(L2-mwd_)/180.;
+       integral        += 2.*(chi2-chi1)+std::sin(2*chi2)-std::sin(2*chi1);
+    }
+    else
+    {
+       // th1_,phi2,phi1, and th2_
+       // 1st consider (th1_,phi2) interval
+       value_type L1    = th1_;
+       value_type L2    = min(th2_,phi2);
+       value_type chi1  = PI*(L1-mwd_)/180.;
+       value_type chi2  = PI*(L2-mwd_)/180.;
+       integral        += 2.*(chi2-chi1)+std::sin(2*chi2)-std::sin(2*chi1);
+      
+       // 2nd consider (phi1,th2_) interval
+       L1           = phi1;
+       L2           = max(L1,th2_);      //make L2>=L1
+       chi1         = PI*(L1-mwd_)/180.;
+       chi2         = PI*(L2-mwd_)/180.;
+       integral    += 2.*(chi2-chi1)+std::sin(2*chi2)-std::sin(2*chi1);
     }
 
-    value_type th1 = std::max<value_type>(mwd-90.,th1_);
-    th2 = std::min<value_type>(mwd+90.,th2);
-    th2 = std::max<value_type>(th1,th2); //!make th2>=th1
-
-    value_type chi1 = PI*(th1-mwd)/180.;
-    value_type chi2 = PI*(th2-mwd)/180.;
-
-    value_type theta_dirfrac  = 2*(chi2-chi1)+std::sin(2*chi2)-std::sin(2*chi1);
-    theta_dirfrac  = theta_dirfrac/(2*PI);
-
+    value_type theta_dirfrac  = integral/(2.*PI);
     return theta_dirfrac;
+
 }
 
 template<typename T>
