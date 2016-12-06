@@ -190,6 +190,8 @@ ExternalData::get(const size_type i)
                     VariableId_tmp=M_dataset->vectorial_variables[M_VariableId].components_Id[1];
                 }
             }
+
+            //time interpolation
             value =  M_factor*
                 (fcoeff[0]*M_dataset->variables[VariableId_tmp].interpolated_data[0][i_tmp] +
                  fcoeff[1]*M_dataset->variables[VariableId_tmp].interpolated_data[1][i_tmp]);
@@ -208,12 +210,14 @@ ExternalData::get(const size_type i)
 
                 if(i < M_dataset->target_size)
                 {
+                    // x component
                     i_tmp=i;
                     VariableId_tmp=M_dataset->vectorial_variables[M_VariableId].components_Id[0];
 
                 }
                 else
                 {
+                    // y component
                     i_tmp=i-M_dataset->target_size;
                     VariableId_tmp=M_dataset->vectorial_variables[M_VariableId].components_Id[1];
                 }
@@ -315,26 +319,6 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     std::vector<double> RX,RY;//size set in convertTargetXY
     this->convertTargetXY(dataset,RX_in,RY_in,RX,RY,mapNextsim);
 
-#if 0
-	if(dataset->grid.interpolation_in_latlon)
-	{
-		double lat, lon;
-
-		for (int i=0; i<dataset->target_size; ++i)
-		{
-			inverse_mapx(mapNextsim,RX[i],RY[i],&lat,&lon);
-			RY[i]=lat;
-			//RX[i]=lon;
-            double bc_lon=dataset->grid.branch_cut_lon;
-            bool close_on_right=false;
-                //if true  make target lon >  bc_lon,<=bc_lon+180
-                //if false make target lon >= bc_lon,< bc_lon+180
-                //this shouldn't matter here though?
-			RX[i]=thetaInRange(lon,bc_lon,close_on_right);
-		}
-	}
-#endif
-
     double RX_min=*std::min_element(RX.begin(),RX.end());
     double RX_max=*std::max_element(RX.begin(),RX.end());
     double RY_min=*std::min_element(RY.begin(),RY.end());
@@ -351,11 +335,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 	std::vector<size_t> index_count(1);
 
     // size of the data
-    int M  = dataset->grid.dimension_y_count;
-    int N  = dataset->grid.dimension_x_count;
-
-    int MN = M*N;
-    
+    int M        = dataset->grid.dimension_y_count;
+    int N        = dataset->grid.dimension_x_count;
+    int MN       = M*N;
     int final_MN = MN;
 
 	if(dataset->grid.reduced_nodes_ind.size()!=0)
@@ -591,6 +573,18 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         // Load each variable and copy its data into loaded_data
         for(int j=0; j<dataset->variables.size(); ++j)
         {            
+            if ((dataset->variables[j].wavDirOptions.isWavDir)
+                    &&(!dataset->variables[j].wavDirOptions.xComponent))
+            {
+                // mwd is a scalar to be turned into a unit vector
+                // then rotated to x-y grid coords
+                // - do nothing now for y-component
+                // (not used yet - only for storage later)
+                dataset->variables[j].loaded_data[fstep]   = 
+                    dataset->variables[j-1].loaded_data[fstep];
+                continue;
+            }
+
             NcVars[j] = dataFile.getVar(dataset->variables[j].name);
             index_start.resize(dataset->variables[j].dimensions.size());
             index_count.resize(dataset->variables[j].dimensions.size());
@@ -668,10 +662,13 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     			    reduced_i=dataset->grid.reduced_nodes_ind[i];
                 
                 tmp_data_i=data_in_tmp[reduced_i];
-                
-                if(std::isnan(tmp_data_i))
-                    tmp_data_i=0.;
-                
+                if ((!dataset->variables[j].wavDirOptions.isWavDir)
+                        && (std::isnan(tmp_data_i)))
+                {
+                    tmp_data_i=0.;//keep as nan for now if mwd
+                }
+
+                //now add to loaded_data
                 dataset->variables[j].loaded_data[fstep][i]=tmp_data_i;
             }
         }
@@ -679,7 +676,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
         // ---------------------------------
     
-        //std::cout<<"Start transformation on the data\n";
+        //std::cout<<"Start transformation of the data\n";
     
         // Transformation of the vectorial variables from the coordinate system of the data to the polar stereographic projection used in the model
         // Once we are in the polar stereographic projection, we can do spatial interpolation without bothering about the North Pole
@@ -691,15 +688,80 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         double speed, new_speed;
         int j0, j1;
 
-        double R=mapx_Re_km*1000.; // Earth radius
+        double R=mapx_Re_km*1000.; // Earth radius (m)
         double delta_t=1.; // 1 sec. This value needs to be small.
+        double delta_r=10.; // 10m. This value needs to be small.
+        double delta_x,delta_y,delta_lon,delta_lat;
 
         for(int j=0; j<dataset->vectorial_variables.size(); ++j)
         {
             j0=dataset->vectorial_variables[j].components_Id[0];
             j1=dataset->vectorial_variables[j].components_Id[1];
 
-            if(dataset->vectorial_variables[j].east_west_oriented && dataset->grid.interpolation_method==InterpolationType::FromGridToMesh)
+            if (dataset->variables[j0].wavDirOptions.isWavDir)
+            {
+                //change from wave-from to wave-to dirn
+                double disp_factor  = 1.;
+                if (dataset->variables[j0].wavDirOptions.waveFrom)
+                    disp_factor = -1.;
+
+                //get lon/lat's
+                std::vector<double> LATtmp,LONtmp,Xtmp,Ytmp;
+                dataset->getLatLonXYVectors(
+                        LATtmp,LONtmp,Xtmp,Ytmp,mapNextsim);
+
+                //now get data and rotate
+                double mwd,uwave,vwave,delta_r_bis,lon_factor;
+                for (int i=0; i<final_MN; ++i)
+                {
+                    lon_tmp = LONtmp[i];
+                    lat_tmp = LATtmp[i];
+                    x_tmp   = Xtmp[i];
+                    y_tmp   = Ytmp[i];
+                    mwd     = dataset->variables[j0].loaded_data[fstep][i];
+                    if ((std::isnan(mwd))||(lat_tmp>89.5))
+                    {
+                        // mwd ill-defined near north pole
+                        // - not usually any waves there anyway
+                        tmp_data0   = 0.;
+                        tmp_data1   = 0.;
+                    }
+                    else
+                    {
+                        uwave       = disp_factor*std::sin((PI/180.)*mwd);
+                        vwave       = disp_factor*std::cos((PI/180.)*mwd);
+                        lon_factor  = delta_r/(R*std::cos((PI/180.)*lat_tmp));
+                        delta_lat   = (180./PI)*uwave*delta_r/R;
+                        delta_lon   = (180./PI)*vwave*lon_factor;
+
+                        //new lon,lat after moving delta_r
+                        lat_tmp_bis = lat_tmp+delta_lat;
+                        lon_tmp_bis = lon_tmp+delta_lon;
+                        lon_tmp_bis = lon_tmp_bis-360.*std::floor(lon_tmp_bis/(360.));
+                        
+                        //(x,y) position after moving delta_r
+                        forward_mapx(mapNextsim,lat_tmp_bis,lon_tmp_bis,
+                                &x_tmp_bis,&y_tmp_bis);
+                        delta_x     = x_tmp_bis-x_tmp;
+                        delta_y     = y_tmp_bis-y_tmp;
+                        delta_r_bis = std::hypot(delta_x,delta_y);
+                        tmp_data0   = delta_x/delta_r_bis;
+                        tmp_data1   = delta_y/delta_r_bis;
+                    }//rotation of unit vector representing mwd
+
+                    //modify original scalar variables
+                    dataset->variables[j0].loaded_data[fstep][i] = tmp_data0;
+                    dataset->variables[j1].loaded_data[fstep][i] = tmp_data1;
+                }//i loop
+
+                Xtmp.resize(0);
+                Ytmp.resize(0);
+                LONtmp.resize(0);
+                LATtmp.resize(0);
+            }//mwd option
+
+            else if(dataset->vectorial_variables[j].east_west_oriented 
+                    && dataset->grid.interpolation_method==InterpolationType::FromGridToMesh)
             {
                 int M=dataset->grid.gridLAT.size();
                 int N=dataset->grid.gridLON.size();
@@ -760,9 +822,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                         dataset->variables[j1].loaded_data[fstep][i]=new_tmp_data1;
                     }
                 }
+
                 // Treat the case of the North Pole where east-north components are ill-defined
                 // We just take the mean of the velocity computed at a lower latitude in the polar stereo projection
-
                 bool found_north_pole=false;
                 int y_ind, y_ind_m1;
                 if(dataset->grid.gridY[0]==90.)
@@ -799,10 +861,12 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                         dataset->variables[j1].loaded_data[fstep][i]=tmp_data1;
                     }
                 }
-            }
+            }//east-west oriented & interpolating FromGridToMesh
 
             if(rotation_angle!=0.)
             {
+                // rotate using cos_m_diff_angle and sin_m_diff_angle
+                // - if dataset & nextsim use different stereographic projections
                 for (int i=0; i<final_MN; ++i)
                 {
                     tmp_data0=dataset->variables[j0].loaded_data[fstep][i];
@@ -814,8 +878,8 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                     dataset->variables[j0].loaded_data[fstep][i]= new_tmp_data0;
                     dataset->variables[j1].loaded_data[fstep][i]= new_tmp_data1;
                 }
-            }
-        }
+            }//rotation due to different projections
+        }//loop over vectorial variables
     }
 
     // closing maps

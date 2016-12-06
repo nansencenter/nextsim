@@ -18,6 +18,10 @@
 #include <InterpFromMeshToGridx.h>
 #include <netcdf>
 #include <BamgTriangulatex.h>
+extern "C"
+{
+#include <mapx.h>
+}
 
 /**
  * @class DataSet
@@ -43,7 +47,15 @@ namespace Nextsim
        bool wave_dataset;
        bool use_mwp;
        bool use_ice;
+       std::string time_interp_option;
     } WaveOptions;
+
+    typedef struct WaveDirOptions
+    {
+        bool isWavDir;
+        bool waveFrom;
+        bool xComponent;
+    } WaveDirOptions;
 
 class DataSet
 {
@@ -77,6 +89,11 @@ public:
         // Storage of the loaded and interpolated data
         std::vector<std::vector<double>> loaded_data;       // 2 vectors, one for the previous and one for the next data timestep
         std::vector<std::vector<double>> interpolated_data; // 2 vectors, one for the previous and one for the next data timestep
+
+        WaveDirOptions wavDirOptions;
+            // to determine if this is the mean wave direction
+            // - and if so, wave-from or wave-to convention;
+            // store as unit vector rotated onto nextsim grid
     } Variable;
 
     typedef struct Vectorial_Variable
@@ -92,6 +109,13 @@ public:
         wave_dataset: false,
         use_mwp: false,
         use_ice: false,
+        time_interp_option:"linear",
+    };
+
+    WaveDirOptions wavdiropt_none  = {
+        isWavDir: false,
+        waveFrom: true,
+        xComponent: false
     };
 
 
@@ -172,6 +196,9 @@ public:
 
     void getXYLatLonFromLatLon(double* X, double* Y,double* LAT, double* LON, netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
     double thetaInRange(double const& th_, double const& th1, bool const& close_on_right=false);
+
+    void getLatLonXYVectors(std::vector<double> &LAT,std::vector<double> &LON,
+        std::vector<double> &X,std::vector<double> &Y,mapx_class *mapNextsim);
 
     // name of the dataSet
     std::string name;
