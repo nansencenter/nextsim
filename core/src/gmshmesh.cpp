@@ -41,7 +41,8 @@ GmshMesh::GmshMesh(Communicator const& comm)
     M_transfer_map_reordered(),
     M_transfer_map_elt(),
     M_reorder_map_nodes(),
-    M_reorder_map_elements()
+    M_reorder_map_elements(),
+    timer()
 {
     M_mppfile = (Environment::vm()["mesh.mppfile"]).as<std::string>();
 }
@@ -361,8 +362,11 @@ GmshMesh::readFromFile(std::string const& filename)
     //std::cout<<"nodalGrid starts\n";
 
     // create local dofs
+    timer["in.nodal"].first.restart();
     if (M_comm.size() > 1)
         this->nodalGrid();
+    if (M_comm.rank() == 0)
+        std::cout<<"------------------------------------------------------INSIDE: NODALGRID done in "<< timer["in.nodal"].first.elapsed() <<"s\n";
 
     //std::cout<<"nodalGrid done\n";
 }
@@ -517,16 +521,20 @@ GmshMesh::nodalGrid()
     std::vector<int> ghosts_nodes_s;
     std::vector<int> ghosts_nodes_t;
 
+    timer["in.postprocess"].first.restart();
+
     for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
     {
         if (it->is_ghost)
         {
             for (int const& index : it->indices)
             {
-                if ((std::find(ghosts_nodes_f.begin(),ghosts_nodes_f.end(),index) == ghosts_nodes_f.end()))
-                {
-                    ghosts_nodes_f.push_back(index);
-                }
+                // if ((std::find(ghosts_nodes_f.begin(),ghosts_nodes_f.end(),index) == ghosts_nodes_f.end()))
+                // {
+                //     ghosts_nodes_f.push_back(index);
+                // }
+
+                ghosts_nodes_f.push_back(index);
             }
         }
 
@@ -555,6 +563,10 @@ GmshMesh::nodalGrid()
 #endif
     }
 
+    std::sort(ghosts_nodes_f.begin(), ghosts_nodes_f.end());
+    ghosts_nodes_f.erase(std::unique( ghosts_nodes_f.begin(), ghosts_nodes_f.end() ), ghosts_nodes_f.end());
+
+
 
     for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
     {
@@ -562,22 +574,24 @@ GmshMesh::nodalGrid()
         {
             for (int const& index : it->indices)
             {
-                if ((std::find(ghosts_nodes_f.begin(),ghosts_nodes_f.end(),index) == ghosts_nodes_f.end()))
+                //if ((std::find(ghosts_nodes_f.begin(),ghosts_nodes_f.end(),index) == ghosts_nodes_f.end()))
+                if (!std::binary_search(ghosts_nodes_f.begin(),ghosts_nodes_f.end(),index))
                 {
                     M_local_dof_without_ghost.push_back(index);
                 }
 
-                if ((it->ghosts.size() > 0) && (std::find(ghosts_nodes_f.begin(),ghosts_nodes_f.end(),index) != ghosts_nodes_f.end()))
+                //if ((it->ghosts.size() > 0) && (std::find(ghosts_nodes_f.begin(),ghosts_nodes_f.end(),index) != ghosts_nodes_f.end()))
+                if ((it->ghosts.size() > 0) && (std::binary_search(ghosts_nodes_f.begin(),ghosts_nodes_f.end(),index)))
                 {
 #if 0
                     int neigh = *std::min_element(it->ghosts.begin(),it->ghosts.end());
                     int min_id = std::min(neigh,it->partition);
                     //int max_id = std::max(neigh,it->partition);
 
-                    if (this->comm().rank() == min_id)
-                    {
-                        //M_local_dof_without_ghost.push_back(index);
-                    }
+                    // if (this->comm().rank() == min_id)
+                    // {
+                    //     M_local_dof_without_ghost.push_back(index);
+                    // }
 #endif
                     M_local_dof_without_ghost.push_back(index);
                 }
@@ -585,7 +599,7 @@ GmshMesh::nodalGrid()
         }
     }
 
-    std::sort(ghosts_nodes_f.begin(),ghosts_nodes_f.end());
+    //std::sort(ghosts_nodes_f.begin(),ghosts_nodes_f.end()); // not used after
 
     std::sort(M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.end());
     M_local_dof_without_ghost.erase(std::unique( M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.end() ), M_local_dof_without_ghost.end());
@@ -620,9 +634,9 @@ GmshMesh::nodalGrid()
 
     std::sort(all_local_nodes.begin(), all_local_nodes.end());
     all_local_nodes.erase(std::unique( all_local_nodes.begin(), all_local_nodes.end() ), all_local_nodes.end());
-    std::sort(all_local_nodes.begin(), all_local_nodes.end());
+    //std::sort(all_local_nodes.begin(), all_local_nodes.end()); // already sorted
 
-    std::sort(M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.end());
+    //std::sort(M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.end()); // already sorted
 
     std::set_difference(all_local_nodes.begin(), all_local_nodes.end(),
                         M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.end(),
@@ -639,6 +653,11 @@ GmshMesh::nodalGrid()
             std::cout<<"---------------------------------------Post-processing needed for nodal mesh partition: "<< M_num_nodes <<" != "<< num_nodes <<"\n";
     }
 
+    if (M_comm.rank() == 0)
+        std::cout<<"------------------------------------------------------INSIDE: SUSPECT1 done in "<< timer["in.postprocess"].first.elapsed() <<"s\n";
+
+
+    timer["in.postprocess"].first.restart();
     // gather operations for global node renumbering
     std::vector<std::vector<int>> renumbering;
     boost::mpi::all_gather(M_comm,
@@ -760,7 +779,11 @@ GmshMesh::nodalGrid()
     std::copy_n(M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.size(), std::back_inserter(M_local_dof_with_ghost));
     std::copy_n(M_local_ghost.begin(), M_local_ghost.size(), std::back_inserter(M_local_dof_with_ghost));
 
+    if (M_comm.rank() == 0)
+        std::cout<<"------------------------------------------------------INSIDE: SUSPECT2 done in "<< timer["in.postprocess"].first.elapsed() <<"s\n";
 
+
+    timer["in.postprocess"].first.restart();
     //bimap_type reorder;
     std::map<int,int> reorder;
 
@@ -771,16 +794,29 @@ GmshMesh::nodalGrid()
     {
         int sr = renumbering[ii].size();
 
-        for (int jj=0; jj<renumbering[ii].size(); ++jj)
+        //for (int jj=0; jj<renumbering[ii].size(); ++jj)
+        for (int jj=0; jj<sr; ++jj)
         {
             //reorder.insert(position(renumbering[ii][jj],cpts+1+cpts_dom));
-            reorder[renumbering[ii][jj]] = cpts+1+cpts_dom;
+            //reorder[renumbering[ii][jj]] = cpts+1+cpts_dom;
+            if (1)//(std::binary_search(M_local_dof_with_ghost.begin(), M_local_dof_with_ghost.end(),renumbering[ii][jj]))
+            {
+                // renumber global dofs for getting contiguous numbering between processors (needed for PETSc)
+
+                // add first component (u) of velocity
+                reorder.insert(std::make_pair(renumbering[ii][jj],cpts+1+cpts_dom));
+
+                // add second component (v) of velocity
+                reorder.insert(std::make_pair(renumbering[ii][jj]+M_num_nodes,cpts+1+sr+cpts_dom));
+            }
 
             //reorder_root[renumbering[ii][jj]] = cpts+1;
             M_reorder_map_nodes.insert(position(renumbering[ii][jj],cpts+1));
+            //M_reorder_map_nodes.left.insert(std::make_pair(renumbering[ii][jj],cpts+1));
 
             // add second component for velocity
-            reorder[renumbering[ii][jj]+M_num_nodes] = cpts+1+sr+cpts_dom;
+            //reorder[renumbering[ii][jj]+M_num_nodes] = cpts+1+sr+cpts_dom;
+            //reorder.insert(std::make_pair(renumbering[ii][jj]+M_num_nodes,cpts+1+sr+cpts_dom));
 
 #if 0
             if (M_comm.rank() == 0)
@@ -798,8 +834,15 @@ GmshMesh::nodalGrid()
         cpts_dom += renumbering[ii].size();
     }
 
+    //M_comm.barrier();
+
+    if (M_comm.rank() == 0)
+        std::cout<<"------------------------------------------------------INSIDE: SUSPECT3 done in "<< timer["in.postprocess"].first.elapsed() <<"s\n";
+
+    //std::abort();
 
 
+    timer["in.postprocess"].first.restart();
 
     M_local_dof_with_ghost_init = M_local_dof_with_ghost;
     auto local_dof_with_ghost = M_local_dof_with_ghost;
@@ -892,6 +935,10 @@ GmshMesh::nodalGrid()
     }
 
     M_num_triangles = M_triangles.size();
+
+    if (M_comm.rank() == 0)
+        std::cout<<"------------------------------------------------------INSIDE: SUSPECT4 done in "<< timer["in.postprocess"].first.elapsed() <<"s\n";
+
 
     // check the nodal partitions
     int elt_size = triangles_num_without_ghost.size();

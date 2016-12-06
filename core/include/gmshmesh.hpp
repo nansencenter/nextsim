@@ -177,6 +177,8 @@ private:
 
     bimap_type M_reorder_map_nodes;
     bimap_type M_reorder_map_elements;
+
+    std::map<std::string,std::pair<boost::mpi::timer,double> > timer;
 };
 
 } // Nextsim

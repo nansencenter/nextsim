@@ -417,21 +417,22 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 
                 myString = f_timestr.substr(4,2);
 
-                if (Environment::comm().rank() == 0)
-                    std::cout <<"month= "<< myString <<"\n";
+                // if (Environment::comm().rank() == 0)
+                //     std::cout <<"month= "<< myString <<"\n";
 
                 int value_month = atoi(myString.c_str());
                 myString = f_timestr.substr(0,4);
 
-                if (Environment::comm().rank() == 0)
-                    std::cout <<"year= "<< myString <<"\n";
+                // if (Environment::comm().rank() == 0)
+                //     std::cout <<"year= "<< myString <<"\n";
+
                 int value_year = atoi(myString.c_str());
 
-                if (Environment::comm().rank() == 0)
-                {
-                    std::cout <<"value_year= "<< value_year <<"\n";
-                    std::cout <<"value_month= "<< value_month <<"\n";
-                }
+                // if (Environment::comm().rank() == 0)
+                // {
+                //     std::cout <<"value_year= "<< value_year <<"\n";
+                //     std::cout <<"value_month= "<< value_month <<"\n";
+                // }
 
                 value_month+=*jump;
                 if(value_month==13)

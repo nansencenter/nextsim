@@ -3099,7 +3099,7 @@ void
 DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max, double RY_min, double RY_max)
 {
     // we make the loaded domain a bit larger to avoid problems
-    double expansion_factor = 0.1;//0.05;
+    double expansion_factor = 0.05;//0.05;
 
     double X_domain_size = RX_max-RX_min;
     double Y_domain_size = RY_max-RY_min;
@@ -3207,7 +3207,7 @@ DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max
 		LAT.resize(grid_ptr->dimension_y_count);
 		LON.resize(grid_ptr->dimension_x_count);
 
-        std::cout<<tmp_start<<","<<tmp_end<<","<<tmp_end-tmp_start+1<<"\n";
+        // std::cout<<tmp_start<<","<<tmp_end<<","<<tmp_end-tmp_start+1<<"\n";
         // Then we load the reduced grid
         getLatLonRegularLatLon(&LAT[0],&LON[0],&VLAT,&VLON);
 
