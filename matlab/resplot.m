@@ -1,7 +1,7 @@
 function resplot(field,step,dir)
 %% CALL: resplot(field,step,dir)
-
-if nargin==2, dir=''; end
+if nargin==1, step='init'; end
+if nargin<=2, dir=''; end
 
 % clearvars -except step;
 

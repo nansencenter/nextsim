@@ -1020,7 +1020,9 @@ FiniteElement::regrid(bool step)
 				interp_Vertices_in[2*i]   = M_hminVertices[i];
 				interp_Vertices_in[2*i+1] = M_hmaxVertices[i];
 			}
-
+            
+            exportInitMesh();
+            
 			InterpFromMeshToMesh2dx(&interp_Vertices_out,
                                     &M_mesh_init.indexTr()[0],&M_mesh_init.coordX()[0],&M_mesh_init.coordY()[0],
                                     M_mesh_init.numNodes(),M_mesh_init.numTriangles(),
@@ -6569,6 +6571,65 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     auto NNZ = M_graph.nNz();
     std::cout<<"ACCUMULATE= "<< std::accumulate(NNZ.begin(),NNZ.end(),0) <<"\n";
 #endif
+}
+
+void
+FiniteElement::exportInitMesh()
+{
+    Exporter exporter("float");
+    std::string fileout;
+
+    fileout = (boost::format( "%1%/mesh_init.bin" )
+        % M_export_path ).str();
+
+    LOG(INFO) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
+
+    std::fstream meshbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
+    if ( ! meshbin.good() )
+        throw std::runtime_error("Cannot write to file: " + fileout);
+
+    exporter.writeMesh(meshbin, M_mesh_init);
+    meshbin.close();
+
+    fileout = (boost::format( "%1%/mesh_init.dat" )
+        % M_export_path ).str();
+
+    LOG(INFO) <<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
+
+    std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
+    if ( ! outrecord.good() )
+        throw std::runtime_error("Cannot write to file: " + fileout);
+    exporter.writeRecord(outrecord,"mesh");
+    outrecord.close();
+
+
+    fileout = (boost::format( "%1%/field_init.bin" )
+        % M_export_path ).str();
+
+    LOG(INFO) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
+
+    std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
+    if ( ! outbin.good() )
+        throw std::runtime_error("Cannot write to file: " + fileout);
+    std::vector<double> timevec(1);
+    timevec[0] = current_time;
+    exporter.writeField(outbin, timevec, "Time");
+        
+    exporter.writeField(outbin, M_hminVertices, "hminVertices");
+    exporter.writeField(outbin, M_hmaxVertices, "hmaxVertices");
+
+    outbin.close();
+
+    fileout = (boost::format( "%1%/field_init.dat" )
+        % M_export_path ).str();
+
+    LOG(INFO) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
+
+    std::fstream outrecord2(fileout, std::ios::out | std::ios::trunc);
+    if ( ! outrecord2.good() )
+        throw std::runtime_error("Cannot write to file: " + fileout);
+    exporter.writeRecord(outrecord2);
+    outrecord2.close();
 }
 
 void

@@ -187,6 +187,7 @@ public:
     void updateVelocity();
     void scalingVelocity();
     void update();
+    void exportInitMesh();
     void exportResults(int step, bool export_mesh = true, bool export_fields = true);
 
     void writeRestart(int pcpt, int step);
