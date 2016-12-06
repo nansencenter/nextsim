@@ -20,7 +20,8 @@ using namespace std;
 
 
 int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,int nb_variables,
-		double* surface_old, double* surface_new, BamgMesh* bamgmesh_old,BamgMesh* bamgmesh_new){
+		double* surface_old, double* surface_new, BamgMesh* bamgmesh_old,BamgMesh* bamgmesh_new,
+        double* age_element_old, double** age_element_new){
     /*  Conservative interpolation method
         Use the cavities detected by detect_cavity to transfer physical
         quantities from the old element to the new ones*/
@@ -37,12 +38,14 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
 
 	/*Output*/
 	double* IntMatrix_out=NULL;
+    double* AgeVector_out=NULL;
 
     /*Intermediary*/
     int new_nb_elements=bamgmesh_new->TrianglesSize[0];
 
     /*Initialize output*/
     IntMatrix_out=xNew<double>(new_nb_elements*nb_variables);
+    AgeVector_out=xNewZeroInit<double>(new_nb_elements);
 
     /*---- beginning of the detection of the cavities------*/
 
@@ -83,6 +86,8 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
 
         for(int j=0; j<nb_variables; j++)
 	        IntMatrix_out[((int)new_element_i-1)*nb_variables+j]=IntMatrix_in[((int)old_element_i-1)*nb_variables+j];
+        
+        AgeVector_out[(int)new_element_i-1]=age_element_old[(int)old_element_i-1];
     }
 
     if (verbosity>1) _printf_("   Interp Cavities: initialize intermediary...\n");
@@ -243,6 +248,8 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
 
     /*---- end of the interpolation cavity by cavity      ------*/
 	*pdata_interp=IntMatrix_out;
+	*age_element_new=AgeVector_out;
+
 	return 1;
 }
 

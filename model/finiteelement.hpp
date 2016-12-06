@@ -426,6 +426,9 @@ private:
     std::fstream M_iabp_file;             // The file we read the IABP buoy data from
     std::fstream M_drifters_out;    // The file we write our simulated drifter positions into
 
+    // Element variable
+    std::vector<double> M_element_age;         // Age of the element (model time since its last adaptation)
+
     // Prognostic ice variables
     std::vector<double> M_conc;         // Ice concentration
     std::vector<double> M_thick;        // Effective ice thickness [m]

@@ -163,6 +163,8 @@ FiniteElement::initVariables()
     M_VTMM.resize(2*M_num_nodes,0.);
     M_node_max_conc.resize(2*M_num_nodes,0.);
 
+    M_element_age.resize(M_num_elements,0.);
+
     M_sst.resize(M_num_elements);
     M_sss.resize(M_num_elements);
 
@@ -1089,6 +1091,7 @@ FiniteElement::regrid(bool step)
 			std::vector<double> interp_elt_in(nb_var*prv_num_elements);
 
 			double* interp_elt_out;
+            double* age_elt_out;
 
 			LOG(DEBUG) <<"ELEMENT: Interp starts\n";
 
@@ -1201,7 +1204,8 @@ FiniteElement::regrid(bool step)
 			// By default, we then use the non-conservative MeshToMesh interpolation
 
 			InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_elt_in[0],nb_var,
-                                           &surface_previous[0], &surface[0], bamgmesh_previous, bamgmesh);
+                                           &surface_previous[0], &surface[0], bamgmesh_previous, bamgmesh,
+                                           &M_element_age[0],&age_elt_out);
 
 #if 0
 			InterpFromMeshToMesh2dx(&interp_elt_out,
@@ -1224,6 +1228,8 @@ FiniteElement::regrid(bool step)
 			M_h_ridged_thick_ice.assign(M_num_elements,0.);
 
 			M_random_number.resize(M_num_elements);
+            
+            M_element_age.resize(M_num_elements);
 
             for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
                 it->assign(M_num_elements,0.);
@@ -1239,6 +1245,8 @@ FiniteElement::regrid(bool step)
 
 			for (int i=0; i<M_num_elements; ++i)
 			{
+                M_element_age[i]=age_elt_out[i];
+                
 				tmp_nb_var=0;
 
 				// concentration
@@ -2473,6 +2481,9 @@ FiniteElement::update()
         rtanalpha = 1./tanalpha;
 
         // beginning of the original code (without openMP)
+        
+        M_element_age[cpt]+=time_step;
+        
         // Temporary memory
         old_thick = M_thick[cpt];
         old_snow_thick = M_snow_thick[cpt];
@@ -4604,6 +4615,7 @@ FiniteElement::writeRestart(int pcpt, int step)
     exporter.writeField(outbin, misc_int, "Misc_int");
     exporter.writeField(outbin, M_dirichlet_flags, "M_dirichlet_flags");
 
+    exporter.writeField(outbin, M_element_age, "M_element_age");
     exporter.writeField(outbin, M_conc, "M_conc");
     exporter.writeField(outbin, M_thick, "M_thick");
     exporter.writeField(outbin, M_snow_thick, "M_snow_thick");
@@ -6616,6 +6628,7 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields)
         timevec[0] = current_time;
         exporter.writeField(outbin, timevec, "Time");
         exporter.writeField(outbin, M_surface, "Element_area");
+        exporter.writeField(outbin, M_element_age, "Element_age");
         exporter.writeField(outbin, M_node_max_conc, "M_node_max_conc");
         exporter.writeField(outbin, M_VT, "M_VT");
         exporter.writeField(outbin, M_conc, "Concentration");
