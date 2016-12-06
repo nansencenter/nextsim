@@ -3290,7 +3290,7 @@ namespace Nextsim
                    wave_dataset:true,
                    use_mwp:false,
                    use_ice:true,
-                   time_interp_option:"linear"
+                   time_interp_option:"step"
                 },
 
                 masking: false
@@ -3535,7 +3535,7 @@ namespace Nextsim
                     wave_dataset:true,
                     use_mwp:true,
                     use_ice:false,
-                    time_interp_option:"linear"
+                    time_interp_option:"step"
                 },
 
                 masking: false

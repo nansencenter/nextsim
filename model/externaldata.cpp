@@ -160,7 +160,13 @@ ExternalData::get(const size_type i)
     }
     else
     {
-        if(M_dataset->grid.dataset_frequency!="constant" && M_dataset->grid.dataset_frequency!="nearest_daily")
+        bool interp_linear_time = (M_dataset->grid.dataset_frequency!="constant"
+                && M_dataset->grid.dataset_frequency!="nearest_daily");
+        bool interp_const_wave  = ((M_dataset->grid.waveOptions.wave_dataset)
+                && (M_dataset->grid.waveOptions.interp_time_option=="step"));
+        interp_linear_time  = (interp_linear_time && !interp_const_wave);
+                    &&
+        if(interp_linear_time)
         {
             fdt = std::abs(M_dataset->ftime_range[1]-M_dataset->ftime_range[0]);
             fcoeff[0] = std::abs(M_current_time-M_dataset->ftime_range[1])/fdt;
@@ -195,9 +201,10 @@ ExternalData::get(const size_type i)
             value =  M_factor*
                 (fcoeff[0]*M_dataset->variables[VariableId_tmp].interpolated_data[0][i_tmp] +
                  fcoeff[1]*M_dataset->variables[VariableId_tmp].interpolated_data[1][i_tmp]);
-        }
+        }//interp linear in time
         else
         {
+            //step-function or constant in time
             if(!M_is_vector)
             {
                 ASSERT(i < M_dataset->target_size, "invalid index");
@@ -990,7 +997,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
                     {
                         int i=y_ind*N+x_ind;
                         int cyclic_i=y_ind*cyclic_N+x_ind;
-                            data_in[(dataset->variables.size()*dataset->nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=dataset->variables[j].loaded_data[fstep][i];
+                        data_in[(dataset->variables.size()*dataset->nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=dataset->variables[j].loaded_data[fstep][i];
                     }
                 }
                 
