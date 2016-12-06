@@ -1246,89 +1246,89 @@ namespace Nextsim
 
             Variable latitude={
                 name: "latitude",
-      dimensions: dimensions_latlon,
-      land_mask_defined: false,
-      land_mask_value: 0.,
-      NaN_mask_defined: false,
-      NaN_mask_value: 0.,
-      a: 1.,
-      b: 0.,
-      Units: "degree_north",
-      loaded_data: loaded_data_tmp,
-      interpolated_data: interpolated_data_tmp,
-      wavDirOptions: wavdiropt_none};
+                dimensions: dimensions_latlon,
+                land_mask_defined: false,
+                land_mask_value: 0.,
+                NaN_mask_defined: false,
+                NaN_mask_value: 0.,
+                a: 1.,
+                b: 0.,
+                Units: "degree_north",
+                loaded_data: loaded_data_tmp,
+                interpolated_data: interpolated_data_tmp,
+                wavDirOptions: wavdiropt_none};
 
             Variable longitude={
                 name: "longitude",
-      dimensions: dimensions_latlon,
-      land_mask_defined: false,
-      land_mask_value: 0.,
-      NaN_mask_defined: false,
-      NaN_mask_value: 0.,
-      a: 1.,
-      b: 0.,
-      Units: "degree_east",
-      loaded_data: loaded_data_tmp,
-      interpolated_data: interpolated_data_tmp,
-      wavDirOptions: wavdiropt_none};
+                dimensions: dimensions_latlon,
+                land_mask_defined: false,
+                land_mask_value: 0.,
+                NaN_mask_defined: false,
+                NaN_mask_value: 0.,
+                a: 1.,
+                b: 0.,
+                Units: "degree_east",
+                loaded_data: loaded_data_tmp,
+                interpolated_data: interpolated_data_tmp,
+                wavDirOptions: wavdiropt_none};
 
             Variable time_tmp={
                 name: "time",
-      dimensions: dimensions_time,
-      land_mask_defined: false,
-      land_mask_value: 0.,
-      NaN_mask_defined: false,
-      NaN_mask_value: 0.,
-      a: 1.,
-      b: 12., // to center the time on the middle of the day
-      Units: "hours",
-      loaded_data: loaded_data_tmp,
-      interpolated_data: interpolated_data_tmp,
-      wavDirOptions: wavdiropt_none};
+                dimensions: dimensions_time,
+                land_mask_defined: false,
+                land_mask_value: 0.,
+                NaN_mask_defined: false,
+                NaN_mask_value: 0.,
+                a: 1.,
+                b: 12., // to center the time on the middle of the day
+                Units: "hours",
+                loaded_data: loaded_data_tmp,
+                interpolated_data: interpolated_data_tmp,
+                wavDirOptions: wavdiropt_none};
 
             Variable conc={
                 name: "fice",
-      dimensions: dimensions,
-      land_mask_defined: false,
-      land_mask_value: 0.,
-      NaN_mask_defined: false,
-      NaN_mask_value: 0.,
-      a: 1.,
-      b: 0.,
-      Units: "",
-      loaded_data: loaded_data_tmp,
-      interpolated_data: interpolated_data_tmp,
-      wavDirOptions: wavdiropt_none
+                dimensions: dimensions,
+                land_mask_defined: false,
+                land_mask_value: 0.,
+                NaN_mask_defined: false,
+                NaN_mask_value: 0.,
+                a: 1.,
+                b: 0.,
+                Units: "",
+                loaded_data: loaded_data_tmp,
+                interpolated_data: interpolated_data_tmp,
+                wavDirOptions: wavdiropt_none
             };
 
             Variable thick={
                 name: "hice",
-      dimensions: dimensions,
-      land_mask_defined: false,
-      land_mask_value: 0.,
-      NaN_mask_defined: false,
-      NaN_mask_value: 0.,
-      a: 1.,
-      b: 0.,
-      Units: "m",
-      loaded_data: loaded_data_tmp,
-      interpolated_data: interpolated_data_tmp,
-      wavDirOptions: wavdiropt_none
+                dimensions: dimensions,
+                land_mask_defined: false,
+                land_mask_value: 0.,
+                NaN_mask_defined: false,
+                NaN_mask_value: 0.,
+                a: 1.,
+                b: 0.,
+                Units: "m",
+                loaded_data: loaded_data_tmp,
+                interpolated_data: interpolated_data_tmp,
+                wavDirOptions: wavdiropt_none
             };
 
             Variable snow_thick={
                 name: "hsnow",
-      dimensions: dimensions,
-      land_mask_defined: false,
-      land_mask_value: 0.,
-      NaN_mask_defined: false,
-      NaN_mask_value: 0.,
-      a: 1.,
-      b: 0.,
-      Units: "m",
-      loaded_data: loaded_data_tmp,
-      interpolated_data: interpolated_data_tmp,
-      wavDirOptions: wavdiropt_none
+                dimensions: dimensions,
+                land_mask_defined: false,
+                land_mask_value: 0.,
+                NaN_mask_defined: false,
+                NaN_mask_value: 0.,
+                a: 1.,
+                b: 0.,
+                Units: "m",
+                loaded_data: loaded_data_tmp,
+                interpolated_data: interpolated_data_tmp,
+                wavDirOptions: wavdiropt_none
             };
 
             Grid grid_tmp={
@@ -1409,89 +1409,89 @@ namespace Nextsim
 
             Variable latitude={
                 name: "latitude",
-      dimensions: dimensions_latlon,
-      land_mask_defined: false,
-      land_mask_value: 0.,
-      NaN_mask_defined: false,
-      NaN_mask_value: 0.,
-      a: 1.,
-      b: 0.,
-      Units: "degree_north",
-      loaded_data: loaded_data_tmp,
-      interpolated_data: interpolated_data_tmp,
-      wavDirOptions: wavdiropt_none};
+                dimensions: dimensions_latlon,
+                land_mask_defined: false,
+                land_mask_value: 0.,
+                NaN_mask_defined: false,
+                NaN_mask_value: 0.,
+                a: 1.,
+                b: 0.,
+                Units: "degree_north",
+                loaded_data: loaded_data_tmp,
+                interpolated_data: interpolated_data_tmp,
+                wavDirOptions: wavdiropt_none};
 
             Variable longitude={
                 name: "longitude",
-      dimensions: dimensions_latlon,
-      land_mask_defined: false,
-      land_mask_value: 0.,
-      NaN_mask_defined: false,
-      NaN_mask_value: 0.,
-      a: 1.,
-      b: 0.,
-      Units: "degree_east",
-      loaded_data: loaded_data_tmp,
-      interpolated_data: interpolated_data_tmp,
-      wavDirOptions: wavdiropt_none};
+                dimensions: dimensions_latlon,
+                land_mask_defined: false,
+                land_mask_value: 0.,
+                NaN_mask_defined: false,
+                NaN_mask_value: 0.,
+                a: 1.,
+                b: 0.,
+                Units: "degree_east",
+                loaded_data: loaded_data_tmp,
+                interpolated_data: interpolated_data_tmp,
+                wavDirOptions: wavdiropt_none};
 
             Variable time_tmp={
                 name: "time",
-      dimensions: dimensions_time,
-      land_mask_defined: false,
-      land_mask_value: 0.,
-      NaN_mask_defined: false,
-      NaN_mask_value: 0.,
-      a: 1.,
-      b: 0.,
-      Units: "hours",
-      loaded_data: loaded_data_tmp,
-      interpolated_data: interpolated_data_tmp,
-      wavDirOptions: wavdiropt_none};
+                dimensions: dimensions_time,
+                land_mask_defined: false,
+                land_mask_value: 0.,
+                NaN_mask_defined: false,
+                NaN_mask_value: 0.,
+                a: 1.,
+                b: 0.,
+                Units: "hours",
+                loaded_data: loaded_data_tmp,
+                interpolated_data: interpolated_data_tmp,
+                wavDirOptions: wavdiropt_none};
 
             Variable conc={
                 name: "area",
-      dimensions: dimensions,
-      land_mask_defined: false,
-      land_mask_value: 0.,
-      NaN_mask_defined: false,
-      NaN_mask_value: 0.,
-      a: 1.,
-      b: 0.,
-      Units: "",
-      loaded_data: loaded_data_tmp,
-      interpolated_data: interpolated_data_tmp,
-      wavDirOptions: wavdiropt_none
+                dimensions: dimensions,
+                land_mask_defined: false,
+                land_mask_value: 0.,
+                NaN_mask_defined: false,
+                NaN_mask_value: 0.,
+                a: 1.,
+                b: 0.,
+                Units: "",
+                loaded_data: loaded_data_tmp,
+                interpolated_data: interpolated_data_tmp,
+                wavDirOptions: wavdiropt_none
             };
 
             Variable thick={
                 name: "heff",
-      dimensions: dimensions,
-      land_mask_defined: false,
-      land_mask_value: 0.,
-      NaN_mask_defined: false,
-      NaN_mask_value: 0.,
-      a: 1.,
-      b: 0.,
-      Units: "m",
-      loaded_data: loaded_data_tmp,
-      interpolated_data: interpolated_data_tmp,
-      wavDirOptions: wavdiropt_none
+                dimensions: dimensions,
+                land_mask_defined: false,
+                land_mask_value: 0.,
+                NaN_mask_defined: false,
+                NaN_mask_value: 0.,
+                a: 1.,
+                b: 0.,
+                Units: "m",
+                loaded_data: loaded_data_tmp,
+                interpolated_data: interpolated_data_tmp,
+                wavDirOptions: wavdiropt_none
             };
 
             Variable snow_thick={
                 name: "snow",
-      dimensions: dimensions,
-      land_mask_defined: false,
-      land_mask_value: 0.,
-      NaN_mask_defined: false,
-      NaN_mask_value: 0.,
-      a: 1.,
-      b: 1/physical::rhos,
-      Units: "m",
-      loaded_data: loaded_data_tmp,
-      interpolated_data: interpolated_data_tmp,
-      wavDirOptions: wavdiropt_none
+                dimensions: dimensions,
+                land_mask_defined: false,
+                land_mask_value: 0.,
+                NaN_mask_defined: false,
+                NaN_mask_value: 0.,
+                a: 1.,
+                b: 1/physical::rhos,
+                Units: "m",
+                loaded_data: loaded_data_tmp,
+                interpolated_data: interpolated_data_tmp,
+                wavDirOptions: wavdiropt_none
             };
 
             Grid grid_tmp={
