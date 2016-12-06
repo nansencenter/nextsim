@@ -8,10 +8,11 @@ CXX = g++
 
 CXXFLAGS += -std=c++11 -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v -DHAVE_CONFIG_H -D_MULTITHREADING_ -DWAVES
 
-#ifeq ($(NEXTSIM_BUILD_TYPE),Debug)
+ifdef NEXTSIM_BUILD_TYPE
 ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
 	CXXFLAGS += -g -O0 -Wl,-no_pie -DNDEBUG -DWITHGPERFTOOLS
+endif
 endif
 
 CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I $(NEXTSIMDIR)/contrib/bamg/include
@@ -72,9 +73,11 @@ LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lwim
 
+ifdef NEXTSIM_BUILD_TYPE
 ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	LDFLAGS += -Wl,-rpath,/opt/local/lib
 	LDFLAGS += -L /opt/local/lib -lprofiler
+endif
 endif
 
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lnextsim
