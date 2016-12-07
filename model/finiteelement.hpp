@@ -250,6 +250,8 @@ private:
     std::string M_mesh_filename;
 
     int M_flag_fix;
+    std::vector<bool> M_mask ;
+    std::vector<bool> M_mask_dirichlet ;
 
     int mesh_adapt_step;
     bool had_remeshed;
@@ -359,6 +361,7 @@ private:
     double current_time;
     bool M_reuse_prec;
     bool M_regrid;
+    int M_nb_regrid;
 #if defined (WAVES)
     bool M_run_wim;
     bool M_use_wim;

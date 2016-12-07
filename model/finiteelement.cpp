@@ -94,6 +94,11 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
     M_dirichlet_flags.erase(std::unique( M_dirichlet_flags.begin(), M_dirichlet_flags.end() ), M_dirichlet_flags.end());
 
     importBamg(bamgmesh);
+    
+    // We mask out the boundary nodes
+    M_mask.assign(bamgmesh->VerticesSize[0],false) ;
+    for (int vert=0; vert<bamgmesh->VerticesOnGeomVertexSize[0]; ++vert)
+        M_mask[bamgmesh->VerticesOnGeomVertex[2*vert]-1]=true; // The factor 2 is because VerticesOnGeomVertex has 2 dimensions in bamg
 
     M_mesh_init = M_mesh;
 
@@ -148,7 +153,9 @@ void
 FiniteElement::initVariables()
 {
     chrono_tot.restart();
-
+    
+    M_nb_regrid = 0;
+    
     M_solver = solver_ptrtype(new solver_type());
     M_matrix = matrix_ptrtype(new matrix_type());
     M_vector = vector_ptrtype(new vector_type());
@@ -934,6 +941,8 @@ FiniteElement::regrid(bool step)
     int step_order=-1;
     bool flip = true;
     int substep = 0;
+    
+    M_nb_regrid++;
 
     std::vector<double> hmin_vertices_first;
     std::vector<double> hmax_vertices_first;
@@ -1094,6 +1103,9 @@ FiniteElement::regrid(bool step)
 			// To avoid memory leak:
 			std::vector<double> interp_elt_in(nb_var*prv_num_elements);
 
+            int nb_ratio_limiter=1;
+            std::vector<int> ratio_limiter(nb_ratio_limiter*2);
+            
 			double* interp_elt_out;
             double* age_elt_out;
 
@@ -1106,10 +1118,12 @@ FiniteElement::regrid(bool step)
 
 				// concentration
 				interp_elt_in[nb_var*i+tmp_nb_var] = M_conc[i];
+                ratio_limiter[nb_ratio_limiter*0+1]=tmp_nb_var;
 				tmp_nb_var++;
 
 				// thickness
 				interp_elt_in[nb_var*i+tmp_nb_var] = M_thick[i];
+                ratio_limiter[nb_ratio_limiter*0+0]=tmp_nb_var;
 				tmp_nb_var++;
 
 				// snow thickness
@@ -1209,7 +1223,8 @@ FiniteElement::regrid(bool step)
 
 			InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_elt_in[0],nb_var,
                                            &surface_previous[0], &surface[0], bamgmesh_previous, bamgmesh,
-                                           &M_element_age[0],&age_elt_out);
+                                           &M_element_age[0],&age_elt_out,
+                                           &ratio_limiter[0],nb_ratio_limiter);
 
 #if 0
 			InterpFromMeshToMesh2dx(&interp_elt_out,
@@ -1690,6 +1705,13 @@ FiniteElement::adaptMesh()
     // Import the mesh from bamg
     this->importBamg(bamgmesh);
 
+    // We mask out the boundary nodes
+    M_mask.assign(bamgmesh->VerticesSize[0],false) ;
+    M_mask_dirichlet.assign(bamgmesh->VerticesSize[0],false) ;
+    
+    for (int vert=0; vert<bamgmesh->VerticesOnGeomVertexSize[0]; ++vert)
+        M_mask[bamgmesh->VerticesOnGeomVertex[2*vert]-1]=true; // The factor 2 is because VerticesOnGeomVertex has 2 dimensions in bamg
+
         // Recompute the node ids
     if(bamgopt->KeepVertices)
     {
@@ -1698,17 +1720,12 @@ FiniteElement::adaptMesh()
         int Boundary_id=0;
         int nb_new_nodes=0;
 
-        // We mask out the boundary nodes
-        std::vector<bool> mask(bamgmesh->VerticesSize[0],false) ;
-        for (int vert=0; vert<bamgmesh->VerticesOnGeomVertexSize[0]; ++vert)
-            mask[bamgmesh->VerticesOnGeomVertex[2*vert]-1]=true; // The factor 2 is because VerticesOnGeomVertex has 2 dimensions in bamg
-
         // The new id will have values higher than the previous one
         int first_new_node=*std::max_element(old_node_id.begin(),old_node_id.end())+1;
 
         for (int vert=0; vert<bamgmesh->VerticesSize[0]; ++vert)
         {
-            if(mask[vert])
+            if(M_mask[vert])
             {
                 Boundary_id++;
                 new_nodes_id[vert]=Boundary_id;
@@ -1768,6 +1785,7 @@ FiniteElement::adaptMesh()
     {
         M_dirichlet_nodes[2*i] = M_dirichlet_flags[i];
         M_dirichlet_nodes[2*i+1] = M_dirichlet_flags[i]+M_num_nodes;
+        M_mask_dirichlet[M_dirichlet_flags[i]]=true;
     }
 
 
@@ -1844,7 +1862,23 @@ FiniteElement::assemble(int pcpt)
     int total_threads;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
+
     //std::cout<<"MAX THREADS= "<< max_threads <<"\n";
+#pragma omp parallel for num_threads(max_threads) private(thread_id)
+    for (int cpt=0; cpt < M_num_elements; ++cpt)
+    {
+        std::vector<int> rcindices0(6);
+        for(int j=0; j<3; j++)
+        {
+            /* Column corresponding to indice j (we also assemble terms in col+1) */
+            //col = (mwIndex)it[2*j]-1; /* -1 to use the indice convention of C */
+
+            rcindices0[2*j] = (M_elements[cpt]).indices[j]-1;
+            rcindices0[2*j+1] = (M_elements[cpt]).indices[j]-1+M_num_nodes;
+        }
+        for (int const& idn : rcindices0)
+            M_node_max_conc[idn] = ((M_conc[cpt]>M_node_max_conc[idn])?(M_conc[cpt] ):(M_node_max_conc[idn])) ;
+    }
 
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
@@ -1867,32 +1901,10 @@ FiniteElement::assemble(int pcpt)
         {
             nind = (M_elements[cpt]).indices[i]-1;
 
-            welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
-            welt_air_ice += std::hypot(M_VT[nind]-M_wind [nind],M_VT[nind+M_num_nodes]-M_wind [nind+M_num_nodes]);
-            welt_ice += std::hypot(M_VT[nind],M_VT[nind+M_num_nodes]);
-
             welt_ssh += M_ssh[nind];
         }
 
-
-        double norm_Voce_ice = welt_oce_ice/3.;
-        double norm_Vair_ice = welt_air_ice/3.;
-        double norm_Vice = welt_ice/3.;
-
         double element_ssh = welt_ssh/3.;
-
-        double coef_Vair = (vm["simul.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*norm_Vair_ice));
-        coef_Vair *= (physical::rhoa);
-
-        double coef_Voce = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
-        coef_Voce *= physical::rhow; //(vm["simul.rho_water"].as<double>());
-
-
-        double critical_h = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
-
-        double _coef = std::max(0., M_thick[cpt]-critical_h);
-        double coef_basal = quad_drag_coef_air*basal_k2/(basal_drag_coef_air*(norm_Vice+basal_u_0));
-        coef_basal *= _coef*std::exp(-basal_Cb*(1.-M_conc[cpt]));
 
         //std::vector<double> sigma_P(3,0.); /* temporary variable for the resistance to the compression */
         //std::vector<double> B0Tj_sigma_h(2,0);
@@ -1906,6 +1918,7 @@ FiniteElement::assemble(int pcpt)
 
         double duu, dvu, duv, dvv;
         int index_u, index_v;
+        
 
         double tmp_thick=(0.05>M_thick[cpt]) ? 0.05 : M_thick[cpt];
         double tmp_conc=(0.01>M_conc[cpt]) ? 0.01 : M_conc[cpt];
@@ -1961,18 +1974,6 @@ FiniteElement::assemble(int pcpt)
 
         double Vcor_index_v, Vcor_index_u;
 
-        if (cpt < 0)
-        {
-            std::cout<<"************************\n";
-            std::cout<<"Coef_C    = "<< coef_C <<"\n";
-            std::cout<<"Coef_V    = "<< coef_V <<"\n";
-            std::cout<<"Coef_X    = "<< coef_X <<"\n";
-            std::cout<<"Coef_Y    = "<< coef_Y <<"\n";
-            std::cout<<"coef_Vair = "<< coef_Vair <<"\n";
-            std::cout<<"coef_Voce = "<< coef_Voce <<"\n";
-            std::cout<<"coef_basal= "<< coef_basal <<"\n";
-        }
-
         /* Loop over the 6 by 6 components of the finite element integral
          * this is done smartly by looping over j=0:2 and i=0:2
          * col = (mwIndex)it[2*j]-1  , row = (mwIndex)it[2*i]-1;
@@ -1992,6 +1993,22 @@ FiniteElement::assemble(int pcpt)
             Vcor_index_v=beta0*M_VT[index_v] + beta1*M_VTM[index_v] + beta2*M_VTMM[index_v];
             Vcor_index_u=beta0*M_VT[index_u] + beta1*M_VTM[index_u] + beta2*M_VTMM[index_u];
 
+            /* Compute the value that also depends on variables defined at the nodes */        
+            double norm_Voce_ice = std::hypot(M_VT[index_u]-M_ocean[index_u],M_VT[index_v]-M_ocean[index_v]);
+            double norm_Vair_ice = std::hypot(M_VT[index_u]-M_wind [index_u],M_VT[index_v]-M_wind [index_v]);
+            double norm_Vice = std::hypot(M_VT[index_u],M_VT[index_v]);
+
+            double coef_Vair = (vm["simul.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*norm_Vair_ice));
+            coef_Vair *= (physical::rhoa);
+
+            double coef_Voce = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
+            coef_Voce *= physical::rhow; //(vm["simul.rho_water"].as<double>());
+
+            double critical_h = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
+
+            double _coef = std::max(0., M_thick[cpt]-critical_h);
+            double coef_basal = quad_drag_coef_air*basal_k2/(basal_drag_coef_air*(norm_Vice+basal_u_0));
+            coef_basal *= _coef*std::exp(-basal_Cb*(1.-M_conc[cpt]));
 
             for(int i=0; i<3; i++)
             {
@@ -2029,7 +2046,9 @@ FiniteElement::assemble(int pcpt)
                 data[(2*i  )*6+2*j+1] = duv;
                 data[(2*i+1)*6+2*j+1] = dvv;
 
-                fvdata[2*i] += surface_e*( mloc*( +M_tau[index_u]
+                if(M_mask_dirichlet[index_u]==false && M_node_max_conc[index_u]>0.)
+                {
+                    fvdata[2*i] += surface_e*( mloc*( +M_tau[index_u]
                                                   +coef_Vair*M_wind[index_u]
                                                   +coef_Voce*cos_ocean_turning_angle*M_ocean[index_u]
                                                   +coef_X
@@ -2042,7 +2061,7 @@ FiniteElement::assemble(int pcpt)
                 //    <<M_tau[index_u]<<","<<coef_Vair*M_wind[index_u]<<"\n";
 
 
-                fvdata[2*i+1] += surface_e*( mloc*( +M_tau[index_v]
+                    fvdata[2*i+1] += surface_e*( mloc*( +M_tau[index_v]
                                                     +coef_Vair*M_wind[index_v]
                                                     +coef_Voce*cos_ocean_turning_angle*M_ocean[index_v]
                                                     +coef_Y
@@ -2050,11 +2069,33 @@ FiniteElement::assemble(int pcpt)
                                                     +coef_Voce*sin_ocean_turning_angle*(M_ocean[index_u]-M_VT[index_u])
                                                     -coef_C*Vcor_index_u)
                                              - b0tj_sigma_hv/3);
+                }
+                else
+                {
+                    fvdata[2*i] += surface_e*( - b0tj_sigma_hu/3);
+
+                //std::cout<<"fvdata, M_tau, M_wind (u): "<<fvdata[2*i]<<","
+                //    <<M_tau[index_u]<<","<<coef_Vair*M_wind[index_u]<<"\n";
+
+
+                    fvdata[2*i+1] += surface_e*( - b0tj_sigma_hv/3);
+                }
             }
 
             rcindices[2*j] = index_u;
             rcindices[2*j+1] = index_v;
         }
+        
+#if 0
+            std::cout<<"************************\n";
+            std::cout<<"Coef_C    = "<< coef_C <<"\n";
+            std::cout<<"Coef_V    = "<< coef_V <<"\n";
+            std::cout<<"Coef_X    = "<< coef_X <<"\n";
+            std::cout<<"Coef_Y    = "<< coef_Y <<"\n";
+            std::cout<<"coef_Vair = "<< coef_Vair <<"\n";
+            std::cout<<"coef_Voce = "<< coef_Voce <<"\n";
+            std::cout<<"coef_basal= "<< coef_basal <<"\n";
+#endif
 
         // if (cpt == 0)
         //     for (int i=0; i<6; ++i)
@@ -2099,9 +2140,6 @@ FiniteElement::assemble(int pcpt)
             }
 #endif
         }
-
-        for (int const& idn : rcindices)
-            M_node_max_conc[idn] = ((M_conc[cpt]>M_node_max_conc[idn])?(M_conc[cpt] ):(M_node_max_conc[idn])) ;
 
 #if 0
 #pragma omp critical(updatematrix)
@@ -3842,6 +3880,7 @@ FiniteElement::run()
     if ( pcpt*time_step/output_time_step < 1000 )
         this->exportResults(1000);
     LOG(INFO) <<"TIMER total = " << chrono_tot.elapsed() <<"s\n";
+    LOG(INFO) <<"nb regrid total = " << M_nb_regrid <<"\n";
 
 #ifdef WITHGPERFTOOLS
     //ProfilerFlush();
@@ -4774,6 +4813,12 @@ FiniteElement::readRestart(int step)
     // Import the bamg structs
     this->importBamg(bamgmesh);
 
+    // We mask out the boundary nodes
+    M_mask.assign(bamgmesh->VerticesSize[0],false) ;
+    M_mask_dirichlet.assign(bamgmesh->VerticesSize[0],false) ;
+    for (int vert=0; vert<bamgmesh->VerticesOnGeomVertexSize[0]; ++vert)
+        M_mask[bamgmesh->VerticesOnGeomVertex[2*vert]-1]=true; // The factor 2 is because VerticesOnGeomVertex has 2 dimensions in bamg
+
     M_mesh.setId(nodeId);
 
     M_elements = M_mesh.triangles();
@@ -4808,6 +4853,7 @@ FiniteElement::readRestart(int step)
     {
         M_dirichlet_nodes[2*i] = M_dirichlet_flags[i];
         M_dirichlet_nodes[2*i+1] = M_dirichlet_flags[i]+M_num_nodes;
+        M_mask_dirichlet[M_dirichlet_flags[i]]=true;
     }
 
     M_neumann_nodes.resize(2*(M_neumann_flags.size()));
@@ -4915,7 +4961,7 @@ FiniteElement::updateVelocity()
     // TODO (updateVelocity) Sylvain: This limitation cost about 1/10 of the solver time.
     // TODO (updateVelocity) Sylvain: We could add a term in the momentum equation to avoid the need of this limitation.
     //std::vector<double> speed_c_scaling_test(bamgmesh->NodalElementConnectivitySize[0]);
-    #if 1
+    #if 0
     int elt_num, i, j;
     double c_max_nodal_neighbour;
     double speed_c_scaling;
@@ -4951,6 +4997,80 @@ FiniteElement::updateVelocity()
     }
     #endif
 
+    // Buffer zone for the empty element close to the ice edge to limit the mesh deformation/adaptation. This should not change the solution.
+    int Nd = bamgmesh->NodalConnectivitySize[1];
+    
+    std::vector<bool> in_buffer(M_num_nodes,false);
+    std::vector<bool> in_buffer_tmp;
+    
+
+    int l_max=5;
+
+    std::vector<int> dist_to_coast(M_num_nodes,l_max+10);
+    std::vector<int> dist_to_coast_tmp;
+    if(l_max>0)
+    {
+        double buffer_factor=1.-1./l_max;
+        for (int l=0; l<l_max; ++l )
+        {
+            in_buffer_tmp=in_buffer;
+            dist_to_coast_tmp=dist_to_coast;
+            for (int i=0; i<M_num_nodes; ++i)
+            {
+                if(M_node_max_conc[i]<=vm["simul.drift_limit_concentration"].as<double>() && !in_buffer_tmp[i])
+                {
+                    
+                    
+                    double VTx_sum_selected=0.;
+                    double VTy_sum_selected=0.;
+                    int N_next_selected=0;
+                    int N_next = bamgmesh->NodalConnectivity[Nd*(i+1)-1];                
+                    for (int j=0; j<N_next; ++j)
+                    {
+                        int i_next=bamgmesh->NodalConnectivity[Nd*i+j]-1; // -1 because from bamg indice convention
+                        if(     M_node_max_conc[i_next]>vm["simul.drift_limit_concentration"].as<double>() 
+                            ||  in_buffer_tmp[i_next] )
+                        {
+                            N_next_selected++;
+                            
+                            VTx_sum_selected+=  M_VT[i_next]*buffer_factor;
+                            VTy_sum_selected+=  M_VT[i_next+M_num_nodes]*buffer_factor;
+                        }
+                        
+                        if( std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),i_next)
+                            ||  std::binary_search(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),i_next))
+                        {
+                            dist_to_coast[i]=1;                            
+                        }
+                        
+                        if(dist_to_coast_tmp[i_next]<l_max+10 && dist_to_coast_tmp[i_next]<dist_to_coast[i])
+                        {
+                            dist_to_coast[i]=dist_to_coast_tmp[i_next]+1;
+                        }
+                    }
+                    
+                    if(N_next_selected>0)
+                    {
+                        in_buffer[i]=true;
+                        M_VT[i] = VTx_sum_selected/N_next_selected;
+                        M_VT[i+M_num_nodes] = VTy_sum_selected/N_next_selected;
+                    }
+                    else
+                    {
+                        M_VT[i] = 0.;
+                        M_VT[i+M_num_nodes] =0.;
+                    }
+                }
+            }
+        }
+        
+        for (int i=0; i<M_num_nodes; ++i)
+        {
+            M_VT[i] *= std::min(1.,(double) dist_to_coast[i]/l_max);
+            M_VT[i+M_num_nodes]*= std::min(1.,(double)dist_to_coast[i]/l_max);
+        }
+        
+    }
     // std::cout<<"MAX SPEED= "<< *std::max_element(speed_c_scaling_test.begin(),speed_c_scaling_test.end()) <<"\n";
     // std::cout<<"MIN SPEED= "<< *std::min_element(speed_c_scaling_test.begin(),speed_c_scaling_test.end()) <<"\n";
 }
@@ -5444,10 +5564,12 @@ FiniteElement::constantIce()
 void
 FiniteElement::targetIce()
 {
-    double y_max=350000.;
-    double y_min=200000.;
-    double x_max=350000.;
-    double x_min=200000.;
+    double y_max=300000.;
+    double y_min=250000.;
+    double x_max=300000.;
+    double x_min=250000.;
+    
+    double transition=(y_max-y_min)/10.;
 
 	double tmp_var;
 
@@ -5456,8 +5578,16 @@ FiniteElement::targetIce()
 
     for (int i=0; i<M_num_elements; ++i)
     {
-        tmp_var = (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max)*(RX[i]>=x_min);
-
+        tmp_var = (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max)*(RX[i]>=x_min)
+            +     (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<x_min)*std::max(0.,(1.-std::hypot(RX[i]-x_min,0.         )/transition))
+            +     (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]>x_max)*std::max(0.,(1.-std::hypot(RX[i]-x_max,0.         )/transition))
+            +     (RX[i]<=x_max)*(RX[i]>=x_min)*(RY[i]<y_min)*std::max(0.,(1.-std::hypot(RY[i]-y_min,0.         )/transition))
+            +     (RX[i]<=x_max)*(RX[i]>=x_min)*(RY[i]>y_max)*std::max(0.,(1.-std::hypot(RY[i]-y_max,0.         )/transition))
+            +     (RY[i]< y_min)*(RX[i]< x_min)              *std::max(0.,(1.-std::hypot(RX[i]-x_min,RY[i]-y_min)/transition))
+            +     (RY[i]< y_min)*(RX[i]> x_max)              *std::max(0.,(1.-std::hypot(RX[i]-x_max,RY[i]-y_min)/transition))
+            +     (RY[i]> y_max)*(RX[i]< x_min)              *std::max(0.,(1.-std::hypot(RX[i]-x_min,RY[i]-y_max)/transition))
+            +     (RY[i]> y_max)*(RX[i]> x_max)              *std::max(0.,(1.-std::hypot(RX[i]-x_max,RY[i]-y_max)/transition));
+            
         std::cout<<"RX: "<< RX[i] << "RY: "<< RY[i] << "tmp_var: " << tmp_var << "\n";
 
         M_conc[i]  = vm["simul.init_concentration"].as<double>()*tmp_var;
