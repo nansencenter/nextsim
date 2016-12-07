@@ -5346,7 +5346,7 @@ void
 FiniteElement::forcingWave()
 {
     wim_ideal_forcing = true;
-    double xedge      = xmin_wim + 0.25*(xmax_wim-xmin_wim);
+    double xedge = xmin_wim + 0.25*(xmax_wim-xmin_wim);
 
     switch (M_wave_type)
     {
@@ -5363,6 +5363,7 @@ FiniteElement::forcingWave()
             M_SWH_grid.assign(num_elements_wim_grid,vm["wim.hsinc" ].as<double>());
             M_MWP_grid.assign(num_elements_wim_grid,vm["wim.tpinc" ].as<double>());
             M_MWD_grid.assign(num_elements_wim_grid,vm["wim.mwdinc"].as<double>());
+            // mwd is relative to the nextsim/WIM x-y coord system in this case
             break;
 
         case setup::WaveType::CONSTANT_PARTIAL:
@@ -5379,11 +5380,11 @@ FiniteElement::forcingWave()
                     M_SWH_grid[i]   = 0.;
                     M_MWP_grid[i]   = 0.;
                     M_MWD_grid[i]   = 0.;
+                    // mwd is relative to the nextsim/WIM x-y coord system in this case
                 }
             }
             break;
 
-        //std::cout << age[0] << std::endl;
         case setup::WaveType::WW3A:
 
             //initialise arrays to pass in to wim.run()
@@ -5394,7 +5395,7 @@ FiniteElement::forcingWave()
             // define external_data objects
 	        M_SWH        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init);
             M_MWP        = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
-            M_MWD        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,true,time_init);
+            M_MWD        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,true,time_init);//now a vector
             M_fice_waves = ExternalData(&M_wave_elements_dataset, M_mesh, 4,false,time_init);
 
             // add them to a vector for looping
@@ -5418,12 +5419,12 @@ FiniteElement::forcingWave()
             // define external_data objects
             M_SWH = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init);
             M_MWP = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
-            M_MWD = ExternalData(&M_wave_elements_dataset, M_mesh, 0,true,time_init);
+            M_MWD = ExternalData(&M_wave_elements_dataset, M_mesh, 0,true,time_init);//now a vector
 
             // add them to a vector for looping
             M_external_data.push_back(&M_SWH);
-            M_external_data.push_back(&M_MWD);
             M_external_data.push_back(&M_MWP);
+            M_external_data.push_back(&M_MWD);
 
             wim_forcing_options = M_wave_elements_dataset.grid.waveOptions;
             wim_ideal_forcing   = false;
