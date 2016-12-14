@@ -124,8 +124,9 @@ GmshMesh::readFromFile(std::string const& filename)
 
         if (M_comm.rank() == 0)
         {
-            std::cout << "GMSH mesh file version : " << theversion << " format: " << (format?"binary":"ascii") << \
-                " size of double: " << size << "\n";
+            std::cout << "GMSH mesh file version : " << theversion
+                      << " format: " << (format?"binary":"ascii")
+                      << " size of double: " << size << "\n";
         }
 
         ASSERT(boost::lexical_cast<double>( theversion ) >= 2, "Nextsim supports only Gmsh version >= 2");
@@ -367,6 +368,505 @@ GmshMesh::readFromFile(std::string const& filename)
         this->nodalGrid();
     if (M_comm.rank() == 0)
         std::cout<<"------------------------------------------------------INSIDE: NODALGRID done in "<< timer["in.nodal"].first.elapsed() <<"s\n";
+
+    //std::cout<<"nodalGrid done\n";
+}
+
+void
+GmshMesh::readFromFileBinary(std::string const& filename)
+{
+    std::string gmshmshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
+
+    if (M_comm.rank() == 0)
+        std::cout<<"Reading Msh file "<< gmshmshfile <<"\n";
+
+    std::ifstream __is ( gmshmshfile.c_str() );
+
+    if ( !__is.is_open() )
+    {
+        std::ostringstream ostr;
+        std::cout << "Invalid file name " << gmshmshfile << " (file not found)\n";
+        ostr << "Invalid file name " << gmshmshfile << " (file not found)\n";
+        throw std::invalid_argument( ostr.str() );
+    }
+
+    char __buf[256];
+    __is >> __buf;
+
+    std::string theversion;
+    double version = 2.2;
+    bool binary = false, swap = false;
+
+    if (std::string( __buf ) == "$MeshFormat")
+    {
+        int format, size;
+        __is >> theversion >> format >> size;
+
+        if (M_comm.rank() == 0)
+        {
+            std::cout << "GMSH mesh file version : " << theversion
+                      << " format: " << (format?"binary":"ascii")
+                      << " size of double: " << size << "\n";
+        }
+
+        ASSERT(boost::lexical_cast<double>( theversion ) >= 2, "Nextsim supports only Gmsh version >= 2");
+
+        version = boost::lexical_cast<double>( theversion );
+
+        // ----------------------------------------------------------------------
+        if(format)
+        {
+            char c;
+            ASSERT( (c=__is.get()) == '\n', "Invalid character");
+            binary = true;
+            std::cout << "GMSH mesh is in binary format\n";
+            int one;
+            __is.read( (char*)&one, sizeof(int) );
+            if(one != 1)
+            {
+                swap = true;
+                std::cout << "one before swap : " << one << "\n";
+                if(swap) SwapBytes((char*)&one, sizeof(int), 1);
+                std::cout << "one after swap : " << one << "\n";
+                std::cout <<"Swapping bytes from binary file (to be done)\n";
+            }
+        }
+        // ----------------------------------------------------------------------
+
+        __is >> __buf;
+
+        ASSERT(std::string( __buf ) == "$EndMeshFormat","invalid file format entry");
+
+        __is >> __buf;
+
+        if (M_comm.rank() == 0)
+            std::cout << "[gmshmesh::reading] " << __buf << " (expect $PhysicalNames)\n";
+
+    }
+
+    // Read NODES
+
+    //std::cout << "buf: "<< __buf << "\n";
+
+    if ( !( std::string( __buf ) == "$NOD" ||
+            std::string( __buf ) == "$Nodes" ||
+            std::string( __buf ) == "$ParametricNodes") )
+    {
+        std::cout<< "invalid nodes string '" << __buf << "' in gmsh importer. It should be either $Nodes.\n";
+    }
+
+    bool has_parametric_nodes = ( std::string( __buf ) == "$ParametricNodes" );
+    unsigned int __n;
+    __is >> __n;
+
+    // eat  '\n' in binary mode otherwise the next binary read will get screwd
+    if ( binary )
+        __is.get();
+
+    M_num_nodes = __n;
+
+    M_global_num_nodes_from_serial = M_num_nodes;
+
+    //std::map<int, Nextsim::entities::GMSHPoint > gmshpts;
+    if (M_comm.rank() == 0)
+        std::cout << "Reading "<< __n << " nodes\n";
+
+    M_nodes_vec.resize(__n);
+    std::vector<double> coords(3,0);
+
+    for ( unsigned int __i = 0; __i < __n; ++__i )
+    {
+        int id = 0;
+
+        // __is >> id
+        //      >> coords[0]
+        //      >> coords[1]
+        //      >> coords[2];
+
+        __is.read( (char*)&id, sizeof(int) );
+        if(swap)
+        {
+            SwapBytes((char*)&id, sizeof(int), 1);
+        }
+
+        __is.read( (char*)&coords[0], 3*sizeof(double) );
+        if(swap)
+        {
+            SwapBytes((char*)&coords[0], sizeof(double), 3);
+        }
+
+        M_nodes_vec[id-1].id = id;
+        M_nodes_vec[id-1].coords = coords;
+    }
+
+    // eat  '\n' in binary mode otherwise the next binary read will get screwd
+    if ( binary )
+        __is.get();
+
+    __is >> __buf;
+    //std::cout << "buf: "<< __buf << "\n";
+
+    // make sure that we have read all the points
+
+    ASSERT(std::string( __buf ) == "$EndNodes","invalid end nodes string");
+
+    // Read ELEMENTS
+
+    __is >> __buf;
+
+    ASSERT(std::string( __buf ) == "$Elements","invalid elements string");
+
+    int numElements;
+    __is >> numElements;
+
+    // eat  '\n' in binary mode otherwise the next binary read will get screwd
+    if ( binary )
+        __is.get();
+
+    //M_num_elements = numElements;
+    M_global_num_elements_from_serial = numElements;
+    //M_global_num_elements_from_serial = 0;
+
+    if (M_comm.rank() == 0)
+        std::cout << "Reading " << numElements << " elements...\n";
+    //std::list<Nextsim::entities::GMSHElement> __et; // tags in each element
+    std::map<int,int> __gt;
+
+    int cpt_edge = 0;
+    int cpt_triangle = 0;
+    int num_edge = 0;
+    int num_edge_diff = 0;
+    bool first_triangle = true;
+
+
+    int numElementsPartial = 0;
+    while(numElementsPartial < numElements)
+    {
+        int header[3];
+
+        __is.read( (char*)&header, 3*sizeof(int) );
+        if(swap)
+        {
+            SwapBytes((char*)header, sizeof(int), 3);
+        }
+
+        int type = header[0];
+        int numElems = header[1];
+        int numTags = header[2];
+        char const* name;
+
+        if ( type < MSH_NUM_TYPE )
+        {
+            std::cout << "Invalid GMSH element type " << type << "\n";
+            throw std::logic_error("Invalid GMSH element type");
+        }
+
+        int numVertices = MElement::getInfoMSH(type,&name);
+
+        if ( numVertices > 0 )
+        {
+            std::cout << "Unsupported element type " << name << "\n";
+            throw std::logic_error("Unsupported element type");
+        }
+
+        unsigned int n = 1 + numTags + numVertices;
+
+        if (type != 2)
+        {
+            // if current element is an edge, stop reading and go to next line
+            //__is.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            //++num_edge;
+            //continue;
+
+            int off = sizeof(int)*(1 + numTags + numVertices);
+            __is.seekg(off, std::ios::cur); // skip from the direction (beginning/current/end) position of the file
+
+            numElementsPartial += numElems;
+            ++num_edge;
+            //throw std::logic_error("Starting by edge element...");
+            continue;
+        }
+
+        std::vector<int> data(n);
+        std::vector<int> indices(numVertices);
+        std::vector<int> ghosts;
+
+
+        for(int i = 0; i < numElems; i++)
+        {
+            ghosts.clear();
+            std::vector<bool> ghostNodes;
+
+            __is.read( (char*)data.data(), sizeof(int)*n );
+            if(swap)
+            {
+                SwapBytes((char*)data.data(), sizeof(int), n);
+            }
+
+            int num = data[0];
+            int physical = (numTags > 0) ? data[1] : 0;
+            int elementary = (numTags > 1) ? data[2] : 0;
+            int numPartitions = (version >= 2.2 && numTags > 3) ? data[3] : 1;
+            int partition = (version < 2.2 && numTags > 2) ? data[3]-1 : (version >= 2.2 && numTags > 3) ? data[4]-1 : 0;
+
+            if(numPartitions > 1)
+            {
+                for(int j = 0; j < numPartitions - 1; j++)
+                {
+                    ghosts.push_back( (-data[5 + j]) -1 );
+                }
+            }
+
+            std::copy( &data[numTags + 1], &data[numTags + 1]+numVertices, indices.begin() );
+
+            if (M_ordering=="bamg")
+            {
+                std::next_permutation(indices.begin()+1,indices.end());
+            }
+
+
+            Nextsim::entities::GMSHElement gmshElt( number,
+                                                    type,
+                                                    physical,
+                                                    elementary,
+                                                    numPartitions,
+                                                    partition,
+                                                    ghosts,
+                                                    ghostNodes,
+                                                    numVertices,
+                                                    indices,
+                                                    this->comm().rank(),
+                                                    this->comm().size());
+
+            if (gmshElt.isOnProcessor() == false)
+                continue;
+
+            if (type == 2)
+            {
+                M_triangles.push_back(gmshElt);
+                ++cpt_triangle;
+            }
+            else if (type == 1)
+            {
+                M_edges.push_back(gmshElt);
+                ++cpt_edge;
+            }
+
+            if ( __gt.find( type ) != __gt.end() )
+            {
+                ++__gt[ type ];
+            }
+            else
+            {
+                __gt[type]=1;
+            }
+        }
+    } // while
+
+    M_global_num_elements_from_serial = M_global_num_elements_from_serial - num_edge;
+
+#if 0
+    std::cout<<"----M_global_num_elements_from_serial= "<< M_global_num_elements_from_serial<< " : "<< num_edge <<"\n";
+    std::cout<<"***************************************["<< this->comm().rank() <<"]: " << num_edge << " and "<< num_edge_diff <<"\n";
+#endif
+
+
+    for ( auto const& it : __gt )
+    {
+        const char* name;
+        MElement::getInfoMSH( it.first, &name );
+        //std::cout<<"["<< M_comm.rank() <<"] " << " Read " << it.second << " " << name << " elements\n";
+
+        if (std::string(name) == "Triangle 3")
+            M_num_triangles = it.second;
+        else if (std::string(name) == "Line 2")
+            M_num_edges = it.second;
+    }
+
+    if ( binary )
+        __is >> __buf;
+
+    // make sure that we have read everything
+    __is >> __buf;
+
+    ASSERT(std::string( __buf ) == "$EndElements","invalid end elements string");
+
+    // we are done reading the MSH file
+
+    //std::cout<<"nodalGrid starts\n";
+
+    // create local dofs
+    timer["in.nodal"].first.restart();
+    if (M_comm.size() > 1)
+        this->nodalGrid();
+    if (M_comm.rank() == 0)
+        std::cout<<"------------------------------------------------------INSIDE: NODALGRID done in "<< timer["in.nodal"].first.elapsed() <<"s\n";
+
+
+
+
+
+
+
+#if 0
+    for(int i = 0; i < numElements; i++)
+    {
+        int number, type, physical = 0, elementary = 0, numVertices;
+        std::vector<int> ghosts;
+        std::vector<bool> ghostNodes;
+        int numTags;
+        int partition = (this->comm().size()>1)?this->comm().rank():0;
+
+        __is >> number  // elm-number
+             >> type // elm-type
+             >> numTags; // number-of-tags
+
+        //if (type == 1)
+        if (type != 2)
+        {
+            // if current element is an edge, stop reading and go to next line
+            __is.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            //num_edge = number;
+            ++num_edge;
+            continue;
+        }
+
+        int numPartitions = 1;
+
+        for(int j = 0; j < numTags; j++)
+        {
+            int tag;
+            __is >> tag;
+            if(j == 0) physical = tag;
+            else if(j == 1) elementary = tag;
+            else if((j == 2) && (numTags > 3)) numPartitions = tag;
+            else if(j == 3) partition = tag-1;
+            else if((j >= 4) && (j < 4 + numPartitions - 1)) ghosts.push_back((-tag)-1);
+        }
+
+        numVertices = MElement::getInfoMSH(type);
+        ASSERT(numVertices!=0,"unknown number of vertices for element type");
+
+        std::vector<int> indices(numVertices);
+        for(int j = 0; j < numVertices; j++)
+        {
+            __is >> indices[j];
+            // check
+            //indices[j] = indices[j]-1;
+        }
+
+        if (M_ordering=="bamg")
+        {
+            std::next_permutation(indices.begin()+1,indices.end());
+        }
+
+        //int cpt_elt = (type == 2) ? cpt_triangle : cpt_edge;
+        //if (type == 2)
+        //std::cout<<"cpt_elt= "<< cpt_elt <<"\n";
+
+        //std::cout<<"On proc "<< this->comm().rank() <<" : Global size= "<< this->comm().size() <<"\n";
+
+#if 1
+        // if (i == 0)
+        // {
+        //     number = number - num_edge;
+        //     std::cout<<"***************************************["<< this->comm().rank() <<"]: " << number <<"\n";
+        // }
+
+        if (first_triangle)
+        {
+            if (num_edge == 0)
+            {
+                num_edge_diff = 0;
+            }
+            else
+            {
+                num_edge_diff = (number == 1) ? 0 : num_edge;
+            }
+
+            first_triangle = false;
+        }
+
+        number = number - num_edge_diff;
+
+#endif
+
+        Nextsim::entities::GMSHElement gmshElt( number,
+                                                type,
+                                                physical,
+                                                elementary,
+                                                numPartitions,
+                                                partition,
+                                                ghosts,
+                                                ghostNodes,
+                                                numVertices,
+                                                indices,
+                                                this->comm().rank(),
+                                                this->comm().size());
+
+
+        //M_triangles.insert(std::make_pair(number,gmshElt));
+
+
+        if (gmshElt.isOnProcessor() == false)
+            continue;
+
+        if (type == 2)
+        {
+            M_triangles.push_back(gmshElt);
+            ++cpt_triangle;
+        }
+        else if (type == 1)
+        {
+            M_edges.push_back(gmshElt);
+            ++cpt_edge;
+        }
+
+        if ( __gt.find( type ) != __gt.end() )
+            ++__gt[ type ];
+        else
+            __gt[type]=1;
+
+    } // element description loop
+
+    M_global_num_elements_from_serial = M_global_num_elements_from_serial - num_edge;
+
+#if 0
+    std::cout<<"----M_global_num_elements_from_serial= "<< M_global_num_elements_from_serial<< " : "<< num_edge <<"\n";
+    std::cout<<"***************************************["<< this->comm().rank() <<"]: " << num_edge << " and "<< num_edge_diff <<"\n";
+#endif
+
+    for ( auto const& it : __gt )
+    {
+        const char* name;
+        MElement::getInfoMSH( it.first, &name );
+        //std::cout<<"["<< M_comm.rank() <<"] " << " Read " << it.second << " " << name << " elements\n";
+
+        if (std::string(name) == "Triangle 3")
+            M_num_triangles = it.second;
+        else if (std::string(name) == "Line 2")
+            M_num_edges = it.second;
+    }
+
+    if ( binary )
+        __is >> __buf;
+
+    // make sure that we have read everything
+    __is >> __buf;
+
+    ASSERT(std::string( __buf ) == "$EndElements","invalid end elements string");
+
+    // we are done reading the MSH file
+
+    //std::cout<<"nodalGrid starts\n";
+
+    // create local dofs
+    timer["in.nodal"].first.restart();
+    if (M_comm.size() > 1)
+        this->nodalGrid();
+    if (M_comm.rank() == 0)
+        std::cout<<"------------------------------------------------------INSIDE: NODALGRID done in "<< timer["in.nodal"].first.elapsed() <<"s\n";
+#endif
 
     //std::cout<<"nodalGrid done\n";
 }

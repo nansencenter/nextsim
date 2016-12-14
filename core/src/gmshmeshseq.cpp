@@ -463,6 +463,8 @@ GmshMeshSeq::partitionMemory(std::string const& filename,
     //M_partition_options.edge_matching = 3;
     //M_partition_options.refine_algorithm = 2; // do not use because of non-contiguous mesh partition
 
+    //M_partition_options.createPartitionBoundaries = false;
+
     timer["in.part"].first.restart();
     PartitionMesh( M_gmodel, M_partition_options);
     std::cout<<"------------------------------------------------------INSIDE: PART done in "<< timer["in.part"].first.elapsed() <<"s\n";

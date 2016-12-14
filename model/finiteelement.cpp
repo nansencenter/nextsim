@@ -358,7 +358,7 @@ FiniteElement::rootMeshProcessing()
 
         LOG(DEBUG) <<"MESH: HMIN= "<< h[0] <<"\n";
         LOG(DEBUG) <<"MESH: HMAX= "<< h[1] <<"\n";
-        LOG(DEBUG) <<"MESH: RES = "<< this->resolution(M_mesh_root) <<"\n";
+        std::cout <<"MESH: RESOLUTION= "<< this->resolution(M_mesh_root) <<"\n";
 
         switch (M_mesh_type)
         {
@@ -2222,7 +2222,7 @@ FiniteElement::regrid(bool step)
             std::cout<<"------------------------------space         = "<< (int)M_partition_space <<"\n";
             std::cout<<"------------------------------partitioner   = "<< (int)M_partitioner <<"\n";
 
-            Environment::logMemoryUsage("before partitioning...");
+            // Environment::logMemoryUsage("before partitioning...");
             timer["savemesh"].first.restart();
             LOG(DEBUG) <<"Saving mesh starts\n";
             if (M_partition_space == mesh::PartitionSpace::MEMORY)
@@ -2247,7 +2247,7 @@ FiniteElement::regrid(bool step)
             M_mesh_root.partition(M_mesh_filename,M_partitioner,M_partition_space);
             std::cout <<"Partitioning mesh done in "<< timer["meshpartition"].first.elapsed() <<"s\n";
 
-            Environment::logMemoryUsage("after partitioning...");
+            // Environment::logMemoryUsage("after partitioning...");
         }
     } // rank 0
 
@@ -4311,30 +4311,53 @@ FiniteElement::run()
 
         // Initialise variables
         chrono.restart();
-        LOG(DEBUG) <<"Initialize variables\n";
+        timer["initvar"].first.restart();
+        if (M_rank == 0)
+            std::cout <<"Initialize variables\n";
         this->initVariables();
+        if (M_rank == 0)
+            std::cout <<"Initialize variables done "<< timer["initvar"].first.elapsed() <<"s\n";
 
-        LOG(DEBUG) <<"Initialize forcingAtmosphere\n";
+        timer["atmost"].first.restart();
+        if (M_rank == 0)
+            std::cout <<"Initialize forcingAtmosphere\n";
         this->forcingAtmosphere();
+        if (M_rank == 0)
+            std::cout <<"Initialize forcingAtmosphere done in "<< timer["atmost"].first.elapsed() <<"s\n";
 
-        LOG(DEBUG) <<"Initialize forcingOcean\n";
+        timer["ocean"].first.restart();
+        if (M_rank == 0)
+            std::cout <<"Initialize forcingOcean\n";
         this->forcingOcean();
+        if (M_rank == 0)
+            std::cout <<"Initialize forcingOcean done in "<< timer["ocean"].first.elapsed() <<"s\n";
 
-        LOG(DEBUG) <<"Initialize bathymetry\n";
+        timer["bathy"].first.restart();
+        if (M_rank == 0)
+            std::cout <<"Initialize bathymetry\n";
         this->bathymetry();
+        if (M_rank == 0)
+            std::cout <<"Initialize bathymetry done in "<< timer["bathy"].first.elapsed() <<"s\n";
 
-        LOG(DEBUG) <<"check_and_reload starts\n";
+        timer["checkload"].first.restart();
+        if (M_rank == 0)
+            std::cout <<"check_and_reload starts\n";
         for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
             (*it)->check_and_reload(M_mesh,time_init);
-        LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
+        if (M_rank == 0)
+            std::cout <<"check_and_reload in "<< timer["checkload"].first.elapsed() <<"s\n";
 
-        LOG(DEBUG) <<"initModelState starts\n";
+        timer["state"].first.restart();
+        if (M_rank == 0)
+            std::cout <<"initModelState starts\n";
         this->initModelState();
-        LOG(DEBUG) <<"initModelState done\n";
+        if (M_rank == 0)
+            std::cout <<"initModelState done in "<< timer["state"].first.elapsed() <<"s\n";
     }
 
     // Open the output file for drifters
     // TODO: Is this the right place to open the file?
+#if 0
     if (M_drifter_type == setup::DrifterType::IABP )
     {
         // We should tag the file name with the init time in case of a re-start.
@@ -4344,6 +4367,7 @@ FiniteElement::run()
         if ( ! M_drifters_out.good() )
             throw std::runtime_error("Cannot write to file: " + filename.str());
     }
+#endif
 
     // // Initialise the moorings - if requested
     // if ( M_use_moorings )
