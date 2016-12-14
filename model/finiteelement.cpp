@@ -2310,7 +2310,9 @@ FiniteElement::adaptMesh()
         }
     }
 
+    timer["bamgmesh"].first.restart();
     Bamgx(bamgmesh_root,bamggeom_root,bamgmesh_previous,bamggeom_previous,bamgopt_previous);
+    std::cout <<"---BAMGMESH done in "<< timer["bamgmesh"].first.elapsed() <<"s\n";
 
     this->importBamg(bamgmesh_root);
 
@@ -3360,7 +3362,7 @@ FiniteElement::thermo()
     int thread_id;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
-    //#pragma omp parallel for num_threads(max_threads) private(thread_id)
+    // #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int i=0; i < M_num_elements; ++i)
     {
         // -------------------------------------------------
@@ -4470,9 +4472,10 @@ FiniteElement::run()
         }
 
         LOG(DEBUG) <<"check_and_reload starts\n";
+        timer["reload"].first.restart();
         for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
             (*it)->check_and_reload(M_mesh,current_time+time_step/(24*3600.0));
-        LOG(DEBUG) <<"check_and_reload done\n";
+        std::cout <<"---check_and_reload done in "<< timer["reload"].first.elapsed() <<"s\n";
 
         if (pcpt == 0)
         {
@@ -4487,8 +4490,9 @@ FiniteElement::run()
         if(vm["simul.use_thermo_forcing"].as<bool>())
         {
             LOG(DEBUG) <<"thermo starts\n";
+            timer["thermo"].first.restart();
             this->thermo();
-            LOG(DEBUG) <<"thermo done\n";
+            std::cout <<"---thermo done in "<< timer["thermo"].first.elapsed() <<"s\n";
         }
 
         //======================================================================
@@ -4496,24 +4500,27 @@ FiniteElement::run()
         //======================================================================
         LOG(DEBUG) <<"assemble starts\n";
         //Environment::logMemoryUsage("before assemble...");
+        timer["assemble"].first.restart();
         this->assemble(pcpt);
-        LOG(DEBUG) <<"assemble done\n";
+        std::cout <<"---assemble done in "<< timer["assemble"].first.elapsed() <<"s\n";
 
         //======================================================================
         // Solve the linear problem
         //======================================================================
         LOG(DEBUG) <<"solve starts\n";
-        //Environment::logMemoryUsage("before solving...");
+        timer["solve"].first.restart();
         this->solve();
-        LOG(DEBUG) <<"solve done\n";
+        std::cout <<"---solve done in "<< timer["solve"].first.elapsed() <<"s\n";
 
         LOG(DEBUG) <<"updatevelocity starts\n";
+        timer["updatevelocity"].first.restart();
         this->updateVelocity();
-        LOG(DEBUG) <<"updateVelocity done\n";
+        std::cout <<"---updateVelocity done in "<< timer["updatevelocity"].first.elapsed() <<"s\n";
 
         LOG(DEBUG) <<"update starts\n";
+        timer["update"].first.restart();
         this->update();
-        LOG(DEBUG) <<"update starts\n";
+        std::cout <<"---update done in "<< timer["update"].first.elapsed() <<"s\n";
 
         if(fmod((pcpt+1)*time_step,output_time_step) == 0)
         {

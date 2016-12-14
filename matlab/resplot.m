@@ -1,6 +1,14 @@
-function resplot(field,step,dir)
+function resplot(field,step,nprocs,dir)
+%% CALL: resplot(field,step,nprocs,dir)
 
 if nargin==2, dir=''; end
+
+if (nargin==2)
+  nprocs = [];
+  dir='';
+elseif (nargin==3)
+  dir='';
+end
 
 % clearvars -except step;
 
@@ -36,50 +44,53 @@ if nargin==2, dir=''; end
 %field='Voce_factor';
 %field='Damage';
 %field='bathy';
+[mesh_out,data_out] = neXtSIM_bin_revert(dir,nprocs, step);
 
-for p=0:0
+% reshape
+var_mx=mesh_out.Nodes_x(mesh_out.Elements);
+var_my=mesh_out.Nodes_y(mesh_out.Elements);
 
-  [mesh_out,data_out] = neXtSIM_bin_revert(dir, p, step);
+[nr,nc]= size(var_mx);
+Ne=nr/3;
+Nn=length(mesh_out.Nodes_x);
+x=reshape(var_mx,[3,Ne]);
+y=reshape(var_my,[3,Ne]);
 
-  % reshape
-  var_mx=mesh_out.Nodes_x(mesh_out.Elements);
-  var_my=mesh_out.Nodes_y(mesh_out.Elements);
-
-  [nr,nc]= size(var_mx);
-  Ne=nr/3;
-  Nn=length(mesh_out.Nodes_x);
-  x=reshape(var_mx,[3,Ne]);
-  y=reshape(var_my,[3,Ne]);
-
-  field_tmp=data_out.(field);
-  length(field_tmp)
-  if(length(field_tmp)==Ne)
+field_tmp=data_out.(field);
+length(field_tmp)
+if(length(field_tmp)==Ne)
     c{1}=[field_tmp,field_tmp,field_tmp]';
-	cvar = c{1};
-	save('conc.mat','cvar');
-  elseif(length(field_tmp)==2*Nn)
+elseif(length(field_tmp)==2*Nn)
     var_mc=field_tmp(mesh_out.Elements);
     c{1}=reshape(var_mc,[3,Ne]);
     var_mc=field_tmp(mesh_out.Elements+Nn);
     c{2}=reshape(var_mc,[3,Ne]);
-  elseif(length(field_tmp)==Nn)
+    c{3}=hypot(c{1},c{2})
+elseif(length(field_tmp)==Nn)
     var_mc=field_tmp(mesh_out.Elements);
     c{1}=reshape(var_mc,[3,Ne]);
-  else
+else
     error('Not the right dimensions')
-  end
+end
 
-  for i=1:length(c)
-    figure(i)
+for i=1:length(c)
+    figure
     patch(x,y,c{i},'EdgeColor','none')
     min_value=min(min(c{i}))
     max_value=max(max(c{i}))
     if(min_value<max_value)
-      caxis([min_value, max_value])
+        caxis([min_value, max_value])
     end
     colorbar
-	hold on
-  end
+
+    % try
+    %     font_size=12;
+    %     textstring=datestr(data_out.Time);
+    %     text(0.55, 0.95,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
+    % catch e
+    %     display(e)
+    % end
+    % set(gca,'DataAspectRatio',[1 1 1], 'Color', [.7 .7 .7])
 end
 
 end
