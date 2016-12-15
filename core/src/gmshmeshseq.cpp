@@ -430,7 +430,8 @@ GmshMeshSeq::writeToGModel(std::string const& filename)
 void
 GmshMeshSeq::partition(std::string const& filename,
                        mesh::Partitioner const& partitioner,
-                       mesh::PartitionSpace const& space)
+                       mesh::PartitionSpace const& space,
+                       std::string const& format)
 {
 
     if ((partitioner != mesh::Partitioner::CHACO) && (partitioner != mesh::Partitioner::METIS))
@@ -442,11 +443,11 @@ GmshMeshSeq::partition(std::string const& filename,
 
     if (space == mesh::PartitionSpace::MEMORY)
     {
-        this->partitionMemory(mshfile, partitioner);
+        this->partitionMemory(mshfile, partitioner, format);
     }
     else if (space == mesh::PartitionSpace::DISK)
     {
-        this->partitionDisk(mshfile, partitioner);
+        this->partitionDisk(mshfile, partitioner, format);
     }
     else
     {
@@ -456,7 +457,8 @@ GmshMeshSeq::partition(std::string const& filename,
 
 void
 GmshMeshSeq::partitionMemory(std::string const& filename,
-                             mesh::Partitioner const& partitioner)
+                             mesh::Partitioner const& partitioner,
+                             std::string const& format)
 {
     M_partition_options.partitioner =  (int)partitioner;
     M_partition_options.algorithm = 2;
@@ -469,7 +471,8 @@ GmshMeshSeq::partitionMemory(std::string const& filename,
     PartitionMesh( M_gmodel, M_partition_options);
     std::cout<<"------------------------------------------------------INSIDE: PART done in "<< timer["in.part"].first.elapsed() <<"s\n";
     timer["in.write"].first.restart();
-    M_gmodel->writeMSH( filename, 2.2, false);
+    //M_gmodel->writeMSH(filename, 2.2, false);
+    M_gmodel->writeMSH(filename, 2.2, (format=="binary")?true:false);
     std::cout<<"------------------------------------------------------INSIDE: WRITE done in "<< timer["in.write"].first.elapsed() <<"s\n";
     timer["in.delete"].first.restart();
     M_gmodel->deleteMesh();
@@ -479,7 +482,8 @@ GmshMeshSeq::partitionMemory(std::string const& filename,
 
 void
 GmshMeshSeq::partitionDisk(std::string const& filename,
-                           mesh::Partitioner const& partitioner)
+                           mesh::Partitioner const& partitioner,
+                           std::string const& format)
 {
     if (fs::exists(filename))
     {
@@ -492,8 +496,14 @@ GmshMeshSeq::partitionDisk(std::string const& filename,
                 << " -string " << "\"Mesh.Partitioner="<< (int)partitioner <<";\""
                 << " -string " << "\"Mesh.MetisAlgorithm="<< 2 <<";\"" // 1 = recursive (default), 2 = K-way
                 << " -string " << "\"Mesh.MetisRefinementAlgorithm="<< 2 <<";\""
-                << " -string " << "\"General.Verbosity=0;\""
-                << " " << filename;
+                << " -string " << "\"General.Verbosity=0;\"";
+
+        if (format == "binary")
+        {
+            gmshstr << " -bin";
+        }
+
+        gmshstr << " " << filename;
 
         std::cout << "[Gmsh::generate] execute '" <<  gmshstr.str() << "'\n";
         auto err = ::system( gmshstr.str().c_str() );

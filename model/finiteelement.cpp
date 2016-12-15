@@ -95,9 +95,12 @@ FiniteElement::distributedMeshProcessing(bool start)
     }
 
     timer["meshread"].first.restart();
-    M_mesh.readFromFile(M_mesh_filename);
+    M_mesh.readFromFile(M_mesh_filename, M_mesh_fileformat);
+    //M_mesh.readFromFileBinary(M_mesh_filename);
     if (M_rank == 0)
         std::cout<<"-------------------MESHREAD done in "<< timer["meshread"].first.elapsed() <<"s\n";
+    //M_comm.barrier();
+    //std::abort();
 
     //M_mesh.readFromFile("par4topazreducedsplit2.msh");
     //std::cout<<"Reading mesh done in "<< chrono.elapsed() <<"s\n";
@@ -172,6 +175,8 @@ FiniteElement::distributedMeshProcessing(bool start)
     {
         throw std::logic_error("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@INCONSISTANT ELEMENT PARTITIONS");
     }
+    //M_comm.barrier();
+    //std::abort();
 #endif
 
 }
@@ -419,8 +424,10 @@ FiniteElement::rootMeshProcessing()
 
         std::cout<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
         std::cout<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
-        std::cout<<"------------------------------space         = "<< (int)M_partition_space <<"\n";
-        std::cout<<"------------------------------partitioner   = "<< (int)M_partitioner <<"\n";
+        std::cout<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
+        std::cout<<"------------------------------space         = "<< vm["mesh.partition-space"].as<std::string>() <<"\n";
+        std::cout<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
+
 
         // save mesh (only root process)
         chrono.restart();
@@ -440,7 +447,7 @@ FiniteElement::rootMeshProcessing()
 
         // partition the mesh on root process (rank 0)
         chrono.restart();
-        M_mesh_root.partition(M_mesh_filename,M_partitioner,M_partition_space);
+        M_mesh_root.partition(M_mesh_filename,M_partitioner,M_partition_space, M_mesh_fileformat);
         //LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
         std::cout <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
     }
@@ -945,6 +952,8 @@ FiniteElement::initConstant()
         M_domain_type = setup::DomainType::BIGARCTIC;
         M_mesh_type = setup::MeshType::FROM_GMSH;
     }
+
+    M_mesh_fileformat = vm["mesh.fileformat"].as<std::string>();
 #endif
 }
 
@@ -2219,8 +2228,9 @@ FiniteElement::regrid(bool step)
 #endif
             std::cout<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
             std::cout<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
-            std::cout<<"------------------------------space         = "<< (int)M_partition_space <<"\n";
-            std::cout<<"------------------------------partitioner   = "<< (int)M_partitioner <<"\n";
+            std::cout<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
+            std::cout<<"------------------------------space         = "<< vm["mesh.partition-space"].as<std::string>() <<"\n";
+            std::cout<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
 
             // Environment::logMemoryUsage("before partitioning...");
             timer["savemesh"].first.restart();
@@ -2244,7 +2254,7 @@ FiniteElement::regrid(bool step)
             // partition the mesh on root process (rank 0)
             timer["meshpartition"].first.restart();
             LOG(DEBUG) <<"Partitioning mesh starts\n";
-            M_mesh_root.partition(M_mesh_filename,M_partitioner,M_partition_space);
+            M_mesh_root.partition(M_mesh_filename,M_partitioner,M_partition_space, M_mesh_fileformat);
             std::cout <<"Partitioning mesh done in "<< timer["meshpartition"].first.elapsed() <<"s\n";
 
             // Environment::logMemoryUsage("after partitioning...");
@@ -2276,7 +2286,7 @@ FiniteElement::regrid(bool step)
     // --------------------------------END-------------------------------
 
     if (M_rank == 0)
-        std::cout <<"TIMER REGRIDDING: this is done in "<< timer["regrid"].first.elapsed() <<"s\n";
+        std::cout <<"TIMER REGRIDDING= "<< timer["regrid"].first.elapsed() <<"s\n";
 
     //M_comm.barrier();
 
@@ -2698,9 +2708,7 @@ FiniteElement::assemble(int pcpt)
 
     if (M_rank == 0)
     {
-        //std::cout<<"Assembling done\n";
-        //std::cout<<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
-        std::cout<<"TIMER ASSEMBLY= " << timer["assembly"].first.elapsed() <<"s\n";
+        //std::cout<<"TIMER ASSEMBLY= " << timer["assembly"].first.elapsed() <<"s\n";
     }
     //std::cout<<"[" << M_rank <<"] " <<" TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
 
@@ -2726,8 +2734,8 @@ FiniteElement::assemble(int pcpt)
 
     //std::cout<<"[" << M_rank <<"] " <<"-------------------DIFF SIZE EXTENDED_DIRICHLET= " << (int)extended_dirichlet_nodes.size()-(int)M_dirichlet_nodes.size() <<"\n";
 
-    if (M_rank==0)
-        std::cout <<"TIMER DBCA= " << timer["dirichlet"].first.elapsed() <<"s\n";
+    // if (M_rank==0)
+    //     std::cout <<"TIMER DBCA= " << timer["dirichlet"].first.elapsed() <<"s\n";
 
     //std::cout<<"[" << M_rank <<"] " <<"TIMER DBCA= " << chrono.elapsed() <<"s\n";
 
@@ -3310,10 +3318,8 @@ FiniteElement::solve()
     M_solution->close();
 
 
-    if (M_rank==0)
-        std::cout<<"TIMER SOLUTION= " << timer["solution"].first.elapsed() <<"s\n";
-
-    //std::cout<<"[" << M_rank <<"] " <<"TIMER SOLUTION= " << timer["solution"].first.elapsed() <<"s\n";
+    // if (M_rank==0)
+    //     std::cout<<"TIMER SOLUTION= " << timer["solution"].first.elapsed() <<"s\n";
 
     //M_solution->printMatlab("solution.m");
 }
@@ -4291,20 +4297,14 @@ FiniteElement::run()
         //pcpt = this->readRestart(vm["setup.step_nb"].as<int>());
         //current_time = time_init + pcpt*time_step/(24*3600.0);
 
-        LOG(DEBUG) <<"Initialize forcingAtmosphere\n";
         this->forcingAtmosphere();
 
-        LOG(DEBUG) <<"Initialize forcingOcean\n";
         this->forcingOcean();
 
-        LOG(DEBUG) <<"Initialize bathymetry\n";
         this->bathymetry();
 
-        chrono.restart();
-        LOG(DEBUG) <<"check_and_reload starts\n";
         for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
             (*it)->check_and_reload(M_mesh,time_init);
-        LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
     }
     else
     {
@@ -4314,44 +4314,44 @@ FiniteElement::run()
         // Initialise variables
         chrono.restart();
         timer["initvar"].first.restart();
-        if (M_rank == 0)
-            std::cout <<"Initialize variables\n";
+        // if (M_rank == 0)
+        //     std::cout <<"Initialize variables\n";
         this->initVariables();
         if (M_rank == 0)
             std::cout <<"Initialize variables done "<< timer["initvar"].first.elapsed() <<"s\n";
 
         timer["atmost"].first.restart();
-        if (M_rank == 0)
-            std::cout <<"Initialize forcingAtmosphere\n";
+        // if (M_rank == 0)
+        //     std::cout <<"Initialize forcingAtmosphere\n";
         this->forcingAtmosphere();
         if (M_rank == 0)
             std::cout <<"Initialize forcingAtmosphere done in "<< timer["atmost"].first.elapsed() <<"s\n";
 
         timer["ocean"].first.restart();
-        if (M_rank == 0)
-            std::cout <<"Initialize forcingOcean\n";
+        // if (M_rank == 0)
+        //     std::cout <<"Initialize forcingOcean\n";
         this->forcingOcean();
         if (M_rank == 0)
             std::cout <<"Initialize forcingOcean done in "<< timer["ocean"].first.elapsed() <<"s\n";
 
         timer["bathy"].first.restart();
-        if (M_rank == 0)
-            std::cout <<"Initialize bathymetry\n";
+        // if (M_rank == 0)
+        //     std::cout <<"Initialize bathymetry\n";
         this->bathymetry();
         if (M_rank == 0)
             std::cout <<"Initialize bathymetry done in "<< timer["bathy"].first.elapsed() <<"s\n";
 
         timer["checkload"].first.restart();
-        if (M_rank == 0)
-            std::cout <<"check_and_reload starts\n";
+        // if (M_rank == 0)
+        //     std::cout <<"check_and_reload starts\n";
         for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
             (*it)->check_and_reload(M_mesh,time_init);
         if (M_rank == 0)
             std::cout <<"check_and_reload in "<< timer["checkload"].first.elapsed() <<"s\n";
 
         timer["state"].first.restart();
-        if (M_rank == 0)
-            std::cout <<"initModelState starts\n";
+        // if (M_rank == 0)
+        //     std::cout <<"initModelState starts\n";
         this->initModelState();
         if (M_rank == 0)
             std::cout <<"initModelState done in "<< timer["state"].first.elapsed() <<"s\n";
@@ -4458,24 +4458,27 @@ FiniteElement::run()
 
         if ( M_regrid || use_restart )
         {
-            LOG(DEBUG) <<"tensors starts\n";
+            timer["tensors"].first.restart();
             this->tensors();
-            LOG(DEBUG) <<"tensors done\n";
+            if (M_rank == 0)
+                std::cout <<"---timer tensors:              "<< timer["tensors"].first.elapsed() <<"\n";
 
-            LOG(DEBUG) <<"cohesion starts\n";
+            timer["cohesion"].first.restart();
             this->cohesion();
-            LOG(DEBUG) <<"cohesion done\n";
+            if (M_rank == 0)
+                std::cout <<"---timer cohesion:             "<< timer["cohesion"].first.elapsed() <<"\n";
 
-            LOG(DEBUG) <<"Coriolis starts\n";
+            timer["coriolis"].first.restart();
             this->coriolis();
-            LOG(DEBUG) <<"Coriolis done\n";
+            if (M_rank == 0)
+                std::cout <<"---timer coriolis:             "<< timer["coriolis"].first.elapsed() <<"\n";
         }
 
-        LOG(DEBUG) <<"check_and_reload starts\n";
         timer["reload"].first.restart();
         for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
             (*it)->check_and_reload(M_mesh,current_time+time_step/(24*3600.0));
-        std::cout <<"---check_and_reload done in "<< timer["reload"].first.elapsed() <<"s\n";
+        if (M_rank == 0)
+            std::cout <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
 
         if (pcpt == 0)
         {
@@ -4489,44 +4492,44 @@ FiniteElement::run()
         //======================================================================
         if(vm["simul.use_thermo_forcing"].as<bool>())
         {
-            LOG(DEBUG) <<"thermo starts\n";
             timer["thermo"].first.restart();
             this->thermo();
-            std::cout <<"---thermo done in "<< timer["thermo"].first.elapsed() <<"s\n";
+            if (M_rank == 0)
+                std::cout <<"---timer thermo:               "<< timer["thermo"].first.elapsed() <<"s\n";
         }
 
         //======================================================================
         // Assemble the matrix
         //======================================================================
-        LOG(DEBUG) <<"assemble starts\n";
-        //Environment::logMemoryUsage("before assemble...");
         timer["assemble"].first.restart();
         this->assemble(pcpt);
-        std::cout <<"---assemble done in "<< timer["assemble"].first.elapsed() <<"s\n";
+        if (M_rank == 0)
+            std::cout <<"---timer assemble:             "<< timer["assemble"].first.elapsed() <<"s\n";
 
         //======================================================================
         // Solve the linear problem
         //======================================================================
-        LOG(DEBUG) <<"solve starts\n";
         timer["solve"].first.restart();
         this->solve();
-        std::cout <<"---solve done in "<< timer["solve"].first.elapsed() <<"s\n";
+        if (M_rank == 0)
+            std::cout <<"---timer solve:                "<< timer["solve"].first.elapsed() <<"s\n";
 
-        LOG(DEBUG) <<"updatevelocity starts\n";
         timer["updatevelocity"].first.restart();
         this->updateVelocity();
-        std::cout <<"---updateVelocity done in "<< timer["updatevelocity"].first.elapsed() <<"s\n";
+        if (M_rank == 0)
+            std::cout <<"---timer updateVelocity:       "<< timer["updatevelocity"].first.elapsed() <<"s\n";
 
-        LOG(DEBUG) <<"update starts\n";
         timer["update"].first.restart();
         this->update();
-        std::cout <<"---update done in "<< timer["update"].first.elapsed() <<"s\n";
+        if (M_rank == 0)
+            std::cout <<"---timer update:               "<< timer["update"].first.elapsed() <<"s\n";
 
         if(fmod((pcpt+1)*time_step,output_time_step) == 0)
         {
-            LOG(DEBUG) <<"export starts\n";
+            timer["export"].first.restart();
             this->exportResults((int) (pcpt+1)*time_step/output_time_step);
-            LOG(DEBUG) <<"export done\n";
+            if (M_rank == 0)
+                std::cout <<"---timer export:           "<< timer["export"].first.elapsed() <<"s\n";
         }
 
         ++pcpt;

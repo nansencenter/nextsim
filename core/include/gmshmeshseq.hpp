@@ -59,7 +59,8 @@ public:
 
     void partition(std::string const& filename,
                    mesh::Partitioner const& partitioner=mesh::Partitioner::METIS,
-                   mesh::PartitionSpace const& space=mesh::PartitionSpace::MEMORY);
+                   mesh::PartitionSpace const& space=mesh::PartitionSpace::MEMORY,
+                   std::string const& format="ascii");
 
     void move(std::vector<double> const& um, double factor);
     void reorder(bimap_type const& rmap_nodes, bimap_type const& rmap_elements);
@@ -119,10 +120,12 @@ public:
 private:
 
     void partitionMemory(std::string const& filename,
-                         mesh::Partitioner const& partitioner=mesh::Partitioner::METIS);
+                         mesh::Partitioner const& partitioner=mesh::Partitioner::METIS,
+                         std::string const& format="ascii");
 
     void partitionDisk(std::string const& filename,
-                       mesh::Partitioner const& partitioner=mesh::Partitioner::METIS);
+                       mesh::Partitioner const& partitioner=mesh::Partitioner::METIS,
+                       std::string const& format="ascii");
 
 
 private:

@@ -287,6 +287,7 @@ private:
     mesh::PartitionSpace M_partition_space;
 
     std::string M_mesh_filename;
+    std::string M_mesh_fileformat;
 
     int M_flag_fix;
 

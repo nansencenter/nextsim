@@ -47,6 +47,7 @@ namespace Nextsim
             ("setup.wave-type", po::value<std::string>()->default_value( "constant" ), "constant, ww3a")
 
             ("mesh.filename", po::value<std::string>()->default_value( "bigarctic10km.msh" ), "")
+            ("mesh.fileformat", po::value<std::string>()->default_value( "binary" ), "")
             ("mesh.mppfile", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "")
             ("mesh.partitioner", po::value<std::string>()->default_value( "metis" ), "mesh partitioner: chaco or metis")
             ("mesh.partition-space", po::value<std::string>()->default_value( "disk" ), "")

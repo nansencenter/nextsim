@@ -31,6 +31,8 @@ extern "C"
 #include <mapx.h>
 }
 
+// from Gmsh
+void SwapBytes(char *array, int size, int n);
 
 namespace Nextsim
 {
@@ -55,7 +57,9 @@ public:
     //          std::vector<element_type> const& triangles,
     //          Communicator const& comm = Environment::comm());
 
-    void readFromFile(std::string const& filename);
+    void readFromFile(std::string const& filename, std::string const& format="ascii");
+    void readFromFileBinary(std::ifstream& ifs);
+    void readFromFileASCII(std::ifstream& ifs);
     void writeTofile(std::string const& filename);
     void move(std::vector<double> const& um, double factor);
     void nodalGrid();

@@ -93,16 +93,16 @@ GmshMesh::GmshMesh(std::vector<point_type> const& nodes,
 #endif
 
 void
-GmshMesh::readFromFile(std::string const& filename)
+GmshMesh::readFromFile(std::string const& filename, std::string const& format)
 {
     std::string gmshmshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
 
     if (M_comm.rank() == 0)
         std::cout<<"Reading Msh file "<< gmshmshfile <<"\n";
 
-    std::ifstream __is ( gmshmshfile.c_str() );
+    std::ifstream ifs ( gmshmshfile.c_str() );
 
-    if ( !__is.is_open() )
+    if ( !ifs.is_open() )
     {
         std::ostringstream ostr;
         std::cout << "Invalid file name " << gmshmshfile << " (file not found)\n";
@@ -110,17 +110,43 @@ GmshMesh::readFromFile(std::string const& filename)
         throw std::invalid_argument( ostr.str() );
     }
 
-    char __buf[256];
-    __is >> __buf;
+    //std::string format = (Environment::vm()["mesh.fileformat"]).as<std::string>();
+
+    if (format == "binary")
+    {
+        this->readFromFileBinary(ifs);
+    }
+    else if (format == "ascii")
+    {
+        this->readFromFileASCII(ifs);
+    }
+    else
+    {
+        std::cout << "invalid mesh file format"<<"\n";
+        throw std::logic_error("invalid mesh file format");
+    }
+
+    // create nodal partitions
+    timer["in.nodal"].first.restart();
+    if (M_comm.size() > 1)
+        this->nodalGrid();
+    if (M_comm.rank() == 0)
+        std::cout<<"-------------------INSIDE: NODALGRID done in "<< timer["in.nodal"].first.elapsed() <<"s\n";
+}
+
+void
+GmshMesh::readFromFileASCII(std::ifstream& ifs)
+{
+    char buf[256];
+    ifs >> buf;
 
     std::string theversion;
-
     double version = 2.2;
 
-    if (std::string( __buf ) == "$MeshFormat")
+    if (std::string( buf ) == "$MeshFormat")
     {
         int format, size;
-        __is >> theversion >> format >> size;
+        ifs >> theversion >> format >> size;
 
         if (M_comm.rank() == 0)
         {
@@ -133,31 +159,31 @@ GmshMesh::readFromFile(std::string const& filename)
 
         version = boost::lexical_cast<double>( theversion );
 
-        __is >> __buf;
+        ifs >> buf;
 
-        ASSERT(std::string( __buf ) == "$EndMeshFormat","invalid file format entry");
+        ASSERT(std::string( buf ) == "$EndMeshFormat","invalid file format entry");
 
-        __is >> __buf;
+        ifs >> buf;
 
         if (M_comm.rank() == 0)
-            std::cout << "[importergmsh] " << __buf << " (expect $PhysicalNames)\n";
+            std::cout << "[gmshmesh::reading] " << buf << " (expect $PhysicalNames)\n";
 
     }
 
     // Read NODES
 
-    //std::cout << "buf: "<< __buf << "\n";
+    //std::cout << "buf: "<< buf << "\n";
 
-    if ( !( std::string( __buf ) == "$NOD" ||
-            std::string( __buf ) == "$Nodes" ||
-            std::string( __buf ) == "$ParametricNodes") )
+    if ( !( std::string( buf ) == "$NOD" ||
+            std::string( buf ) == "$Nodes" ||
+            std::string( buf ) == "$ParametricNodes") )
     {
-        std::cout<< "invalid nodes string '" << __buf << "' in gmsh importer. It should be either $Nodes.\n";
+        std::cout<< "invalid nodes string '" << buf << "' in gmsh importer. It should be either $Nodes.\n";
     }
 
-    bool has_parametric_nodes = ( std::string( __buf ) == "$ParametricNodes" );
+    bool has_parametric_nodes = ( std::string( buf ) == "$ParametricNodes" );
     unsigned int __n;
-    __is >> __n;
+    ifs >> __n;
 
     M_num_nodes = __n;
 
@@ -174,7 +200,7 @@ GmshMesh::readFromFile(std::string const& filename)
     {
         int id = 0;
 
-        __is >> id
+        ifs >> id
              >> coords[0]
              >> coords[1]
              >> coords[2];
@@ -183,21 +209,21 @@ GmshMesh::readFromFile(std::string const& filename)
         M_nodes_vec[id-1].coords = coords;
     }
 
-    __is >> __buf;
-    //std::cout << "buf: "<< __buf << "\n";
+    ifs >> buf;
+    //std::cout << "buf: "<< buf << "\n";
 
     // make sure that we have read all the points
 
-    ASSERT(std::string( __buf ) == "$EndNodes","invalid end nodes string");
+    ASSERT(std::string( buf ) == "$EndNodes","invalid end nodes string");
 
     // Read ELEMENTS
 
-    __is >> __buf;
+    ifs >> buf;
 
-    ASSERT(std::string( __buf ) == "$Elements","invalid elements string");
+    ASSERT(std::string( buf ) == "$Elements","invalid elements string");
 
     int numElements;
-    __is >> numElements;
+    ifs >> numElements;
 
     //M_num_elements = numElements;
     M_global_num_elements_from_serial = numElements;
@@ -222,7 +248,7 @@ GmshMesh::readFromFile(std::string const& filename)
         int numTags;
         int partition = (this->comm().size()>1)?this->comm().rank():0;
 
-        __is >> number  // elm-number
+        ifs >> number  // elm-number
              >> type // elm-type
              >> numTags; // number-of-tags
 
@@ -230,7 +256,7 @@ GmshMesh::readFromFile(std::string const& filename)
         if (type != 2)
         {
             // if current element is an edge, stop reading and go to next line
-            __is.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            ifs.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
             //num_edge = number;
             ++num_edge;
             continue;
@@ -241,7 +267,7 @@ GmshMesh::readFromFile(std::string const& filename)
         for(int j = 0; j < numTags; j++)
         {
             int tag;
-            __is >> tag;
+            ifs >> tag;
             if(j == 0) physical = tag;
             else if(j == 1) elementary = tag;
             else if((j == 2) && (numTags > 3)) numPartitions = tag;
@@ -255,7 +281,7 @@ GmshMesh::readFromFile(std::string const& filename)
         std::vector<int> indices(numVertices);
         for(int j = 0; j < numVertices; j++)
         {
-            __is >> indices[j];
+            ifs >> indices[j];
             // check
             //indices[j] = indices[j]-1;
         }
@@ -354,56 +380,29 @@ GmshMesh::readFromFile(std::string const& filename)
     }
 
     // make sure that we have read everything
-    __is >> __buf;
+    ifs >> buf;
 
-    ASSERT(std::string( __buf ) == "$EndElements","invalid end elements string");
-
-    // we are done reading the MSH file
-
-    //std::cout<<"nodalGrid starts\n";
-
-    // create local dofs
-    timer["in.nodal"].first.restart();
-    if (M_comm.size() > 1)
-        this->nodalGrid();
-    if (M_comm.rank() == 0)
-        std::cout<<"------------------------------------------------------INSIDE: NODALGRID done in "<< timer["in.nodal"].first.elapsed() <<"s\n";
-
-    //std::cout<<"nodalGrid done\n";
+    ASSERT(std::string( buf ) == "$EndElements","invalid end elements string");
 }
 
 void
-GmshMesh::readFromFileBinary(std::string const& filename)
+GmshMesh::readFromFileBinary(std::ifstream& ifs)
 {
-    std::string gmshmshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
-
-    if (M_comm.rank() == 0)
-        std::cout<<"Reading Msh file "<< gmshmshfile <<"\n";
-
-    std::ifstream __is ( gmshmshfile.c_str() );
-
-    if ( !__is.is_open() )
-    {
-        std::ostringstream ostr;
-        std::cout << "Invalid file name " << gmshmshfile << " (file not found)\n";
-        ostr << "Invalid file name " << gmshmshfile << " (file not found)\n";
-        throw std::invalid_argument( ostr.str() );
-    }
-
-    char __buf[256];
-    __is >> __buf;
+    char buf[256];
+    ifs >> buf;
 
     std::string theversion;
     double version = 2.2;
-    bool binary = false, swap = false;
+    bool swap = false;
 
-    if (std::string( __buf ) == "$MeshFormat")
+    if (std::string( buf ) == "$MeshFormat")
     {
         int format, size;
-        __is >> theversion >> format >> size;
+        ifs >> theversion >> format >> size;
 
         if (M_comm.rank() == 0)
         {
+            // std::cout << "GMSH mesh is in binary format\n";
             std::cout << "GMSH mesh file version : " << theversion
                       << " format: " << (format?"binary":"ascii")
                       << " size of double: " << size << "\n";
@@ -414,54 +413,50 @@ GmshMesh::readFromFileBinary(std::string const& filename)
         version = boost::lexical_cast<double>( theversion );
 
         // ----------------------------------------------------------------------
-        if(format)
+        char c;
+        ASSERT( (c=ifs.get()) == '\n', "Invalid character");
+
+        int one;
+        ifs.read( (char*)&one, sizeof(int) );
+
+        if(one != 1)
         {
-            char c;
-            ASSERT( (c=__is.get()) == '\n', "Invalid character");
-            binary = true;
-            std::cout << "GMSH mesh is in binary format\n";
-            int one;
-            __is.read( (char*)&one, sizeof(int) );
-            if(one != 1)
-            {
-                swap = true;
-                std::cout << "one before swap : " << one << "\n";
-                if(swap) SwapBytes((char*)&one, sizeof(int), 1);
-                std::cout << "one after swap : " << one << "\n";
-                std::cout <<"Swapping bytes from binary file (to be done)\n";
-            }
+            swap = true;
+            std::cout << "one before swap : " << one << "\n";
+            if(swap) SwapBytes((char*)&one, sizeof(int), 1);
+            std::cout << "one after swap : " << one << "\n";
+            std::cout <<"Swapping bytes from binary file (to be done)\n";
         }
         // ----------------------------------------------------------------------
 
-        __is >> __buf;
+        ifs >> buf;
 
-        ASSERT(std::string( __buf ) == "$EndMeshFormat","invalid file format entry");
+        ASSERT(std::string( buf ) == "$EndMeshFormat","invalid file format entry");
 
-        __is >> __buf;
+        ifs >> buf;
 
         if (M_comm.rank() == 0)
-            std::cout << "[gmshmesh::reading] " << __buf << " (expect $PhysicalNames)\n";
+            std::cout << "[gmshmesh::reading] " << buf << " (expect $PhysicalNames)\n";
 
     }
 
     // Read NODES
 
-    //std::cout << "buf: "<< __buf << "\n";
+    //std::cout << "buf: "<< buf << "\n";
 
-    if ( !( std::string( __buf ) == "$NOD" ||
-            std::string( __buf ) == "$Nodes" ||
-            std::string( __buf ) == "$ParametricNodes") )
+    if ( !( std::string( buf ) == "$NOD" ||
+            std::string( buf ) == "$Nodes" ||
+            std::string( buf ) == "$ParametricNodes") )
     {
-        std::cout<< "invalid nodes string '" << __buf << "' in gmsh importer. It should be either $Nodes.\n";
+        std::cout<< "invalid nodes string '" << buf << "' in gmsh importer. It should be either $Nodes.\n";
     }
 
-    bool has_parametric_nodes = ( std::string( __buf ) == "$ParametricNodes" );
+    bool has_parametric_nodes = ( std::string( buf ) == "$ParametricNodes" );
     unsigned int __n;
-    __is >> __n;
+    ifs >> __n;
 
     // eat  '\n' in binary mode otherwise the next binary read will get screwd
-    if ( binary )
-        __is.get();
+    ifs.get();
 
     M_num_nodes = __n;
 
@@ -478,58 +473,42 @@ GmshMesh::readFromFileBinary(std::string const& filename)
     {
         int id = 0;
 
-        // __is >> id
-        //      >> coords[0]
-        //      >> coords[1]
-        //      >> coords[2];
-
-        __is.read( (char*)&id, sizeof(int) );
-        if(swap)
-        {
-            SwapBytes((char*)&id, sizeof(int), 1);
-        }
-
-        __is.read( (char*)&coords[0], 3*sizeof(double) );
-        if(swap)
-        {
-            SwapBytes((char*)&coords[0], sizeof(double), 3);
-        }
+        ifs.read( (char*)&id, sizeof(int) );
+        if(swap) SwapBytes((char*)&id, sizeof(int), 1);
+        ifs.read( (char*)&coords[0], 3*sizeof(double) );
+        if(swap) SwapBytes((char*)&coords[0], sizeof(double), 3);
 
         M_nodes_vec[id-1].id = id;
         M_nodes_vec[id-1].coords = coords;
     }
 
     // eat  '\n' in binary mode otherwise the next binary read will get screwd
-    if ( binary )
-        __is.get();
+    ifs.get();
 
-    __is >> __buf;
-    //std::cout << "buf: "<< __buf << "\n";
+    ifs >> buf;
+    //std::cout << "buf: "<< buf << "\n";
 
     // make sure that we have read all the points
 
-    ASSERT(std::string( __buf ) == "$EndNodes","invalid end nodes string");
+    ASSERT(std::string( buf ) == "$EndNodes","invalid end nodes string");
 
     // Read ELEMENTS
 
-    __is >> __buf;
+    ifs >> buf;
 
-    ASSERT(std::string( __buf ) == "$Elements","invalid elements string");
+    ASSERT(std::string( buf ) == "$Elements","invalid elements string");
 
     int numElements;
-    __is >> numElements;
+    ifs >> numElements;
 
     // eat  '\n' in binary mode otherwise the next binary read will get screwd
-    if ( binary )
-        __is.get();
+    ifs.get();
 
-    //M_num_elements = numElements;
     M_global_num_elements_from_serial = numElements;
-    //M_global_num_elements_from_serial = 0;
 
     if (M_comm.rank() == 0)
         std::cout << "Reading " << numElements << " elements...\n";
-    //std::list<Nextsim::entities::GMSHElement> __et; // tags in each element
+
     std::map<int,int> __gt;
 
     int cpt_edge = 0;
@@ -538,24 +517,31 @@ GmshMesh::readFromFileBinary(std::string const& filename)
     int num_edge_diff = 0;
     bool first_triangle = true;
 
+    int cptii = 0;
 
     int numElementsPartial = 0;
     while(numElementsPartial < numElements)
     {
         int header[3];
 
-        __is.read( (char*)&header, 3*sizeof(int) );
-        if(swap)
-        {
-            SwapBytes((char*)header, sizeof(int), 3);
-        }
+        ifs.read( (char*)&header, 3*sizeof(int) );
+        if(swap) SwapBytes((char*)header, sizeof(int), 3);
 
         int type = header[0];
         int numElems = header[1];
         int numTags = header[2];
         char const* name;
 
-        if ( type < MSH_NUM_TYPE )
+#if 0
+        if ((numElementsPartial < 3) && (M_comm.rank() == 0))
+        {
+            std::cout<<"type= "<< type <<"\n";
+            std::cout<<"numElems= "<< numElems <<"\n";
+            std::cout<<"numTags= "<< numTags <<"\n";
+        }
+#endif
+
+        if ( type >= MSH_NUM_TYPE )
         {
             std::cout << "Invalid GMSH element type " << type << "\n";
             throw std::logic_error("Invalid GMSH element type");
@@ -563,7 +549,7 @@ GmshMesh::readFromFileBinary(std::string const& filename)
 
         int numVertices = MElement::getInfoMSH(type,&name);
 
-        if ( numVertices > 0 )
+        if ( numVertices <= 0 )
         {
             std::cout << "Unsupported element type " << name << "\n";
             throw std::logic_error("Unsupported element type");
@@ -573,19 +559,20 @@ GmshMesh::readFromFileBinary(std::string const& filename)
 
         if (type != 2)
         {
-            // if current element is an edge, stop reading and go to next line
-            //__is.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-            //++num_edge;
-            //continue;
-
             int off = sizeof(int)*(1 + numTags + numVertices);
-            __is.seekg(off, std::ios::cur); // skip from the direction (beginning/current/end) position of the file
+            ifs.seekg(off, std::ios::cur); // skip from the direction (beginning/current/end) position of the file
 
             numElementsPartial += numElems;
             ++num_edge;
-            //throw std::logic_error("Starting by edge element...");
             continue;
         }
+#if 0
+        if (type == 2)
+            ++cptii;
+
+        if (cptii == 1)
+            std::cout<<"--------------------------------------NUMEDGES= "<< num_edge <<"\n";
+#endif
 
         std::vector<int> data(n);
         std::vector<int> indices(numVertices);
@@ -597,13 +584,10 @@ GmshMesh::readFromFileBinary(std::string const& filename)
             ghosts.clear();
             std::vector<bool> ghostNodes;
 
-            __is.read( (char*)data.data(), sizeof(int)*n );
-            if(swap)
-            {
-                SwapBytes((char*)data.data(), sizeof(int), n);
-            }
+            ifs.read( (char*)data.data(), sizeof(int)*n );
+            if(swap) SwapBytes((char*)data.data(), sizeof(int), n);
 
-            int num = data[0];
+            int number = data[0];
             int physical = (numTags > 0) ? data[1] : 0;
             int elementary = (numTags > 1) ? data[2] : 0;
             int numPartitions = (version >= 2.2 && numTags > 3) ? data[3] : 1;
@@ -623,6 +607,22 @@ GmshMesh::readFromFileBinary(std::string const& filename)
             {
                 std::next_permutation(indices.begin()+1,indices.end());
             }
+
+            if (first_triangle)
+            {
+                if (num_edge == 0)
+                {
+                    num_edge_diff = 0;
+                }
+                else
+                {
+                    num_edge_diff = (number == 1) ? 0 : num_edge;
+                }
+
+                first_triangle = false;
+            }
+
+            number = number - num_edge_diff;
 
 
             Nextsim::entities::GMSHElement gmshElt( number,
@@ -661,6 +661,9 @@ GmshMesh::readFromFileBinary(std::string const& filename)
                 __gt[type]=1;
             }
         }
+
+        numElementsPartial += numElems;
+
     } // while
 
     M_global_num_elements_from_serial = M_global_num_elements_from_serial - num_edge;
@@ -675,7 +678,7 @@ GmshMesh::readFromFileBinary(std::string const& filename)
     {
         const char* name;
         MElement::getInfoMSH( it.first, &name );
-        //std::cout<<"["<< M_comm.rank() <<"] " << " Read " << it.second << " " << name << " elements\n";
+        std::cout<<"["<< M_comm.rank() <<"] " << " Read " << it.second << " " << name << " elements\n";
 
         if (std::string(name) == "Triangle 3")
             M_num_triangles = it.second;
@@ -683,192 +686,12 @@ GmshMesh::readFromFileBinary(std::string const& filename)
             M_num_edges = it.second;
     }
 
-    if ( binary )
-        __is >> __buf;
+    ifs >> buf;
 
     // make sure that we have read everything
-    __is >> __buf;
+    ifs >> buf;
 
-    ASSERT(std::string( __buf ) == "$EndElements","invalid end elements string");
-
-    // we are done reading the MSH file
-
-    //std::cout<<"nodalGrid starts\n";
-
-    // create local dofs
-    timer["in.nodal"].first.restart();
-    if (M_comm.size() > 1)
-        this->nodalGrid();
-    if (M_comm.rank() == 0)
-        std::cout<<"------------------------------------------------------INSIDE: NODALGRID done in "<< timer["in.nodal"].first.elapsed() <<"s\n";
-
-
-
-
-
-
-
-#if 0
-    for(int i = 0; i < numElements; i++)
-    {
-        int number, type, physical = 0, elementary = 0, numVertices;
-        std::vector<int> ghosts;
-        std::vector<bool> ghostNodes;
-        int numTags;
-        int partition = (this->comm().size()>1)?this->comm().rank():0;
-
-        __is >> number  // elm-number
-             >> type // elm-type
-             >> numTags; // number-of-tags
-
-        //if (type == 1)
-        if (type != 2)
-        {
-            // if current element is an edge, stop reading and go to next line
-            __is.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-            //num_edge = number;
-            ++num_edge;
-            continue;
-        }
-
-        int numPartitions = 1;
-
-        for(int j = 0; j < numTags; j++)
-        {
-            int tag;
-            __is >> tag;
-            if(j == 0) physical = tag;
-            else if(j == 1) elementary = tag;
-            else if((j == 2) && (numTags > 3)) numPartitions = tag;
-            else if(j == 3) partition = tag-1;
-            else if((j >= 4) && (j < 4 + numPartitions - 1)) ghosts.push_back((-tag)-1);
-        }
-
-        numVertices = MElement::getInfoMSH(type);
-        ASSERT(numVertices!=0,"unknown number of vertices for element type");
-
-        std::vector<int> indices(numVertices);
-        for(int j = 0; j < numVertices; j++)
-        {
-            __is >> indices[j];
-            // check
-            //indices[j] = indices[j]-1;
-        }
-
-        if (M_ordering=="bamg")
-        {
-            std::next_permutation(indices.begin()+1,indices.end());
-        }
-
-        //int cpt_elt = (type == 2) ? cpt_triangle : cpt_edge;
-        //if (type == 2)
-        //std::cout<<"cpt_elt= "<< cpt_elt <<"\n";
-
-        //std::cout<<"On proc "<< this->comm().rank() <<" : Global size= "<< this->comm().size() <<"\n";
-
-#if 1
-        // if (i == 0)
-        // {
-        //     number = number - num_edge;
-        //     std::cout<<"***************************************["<< this->comm().rank() <<"]: " << number <<"\n";
-        // }
-
-        if (first_triangle)
-        {
-            if (num_edge == 0)
-            {
-                num_edge_diff = 0;
-            }
-            else
-            {
-                num_edge_diff = (number == 1) ? 0 : num_edge;
-            }
-
-            first_triangle = false;
-        }
-
-        number = number - num_edge_diff;
-
-#endif
-
-        Nextsim::entities::GMSHElement gmshElt( number,
-                                                type,
-                                                physical,
-                                                elementary,
-                                                numPartitions,
-                                                partition,
-                                                ghosts,
-                                                ghostNodes,
-                                                numVertices,
-                                                indices,
-                                                this->comm().rank(),
-                                                this->comm().size());
-
-
-        //M_triangles.insert(std::make_pair(number,gmshElt));
-
-
-        if (gmshElt.isOnProcessor() == false)
-            continue;
-
-        if (type == 2)
-        {
-            M_triangles.push_back(gmshElt);
-            ++cpt_triangle;
-        }
-        else if (type == 1)
-        {
-            M_edges.push_back(gmshElt);
-            ++cpt_edge;
-        }
-
-        if ( __gt.find( type ) != __gt.end() )
-            ++__gt[ type ];
-        else
-            __gt[type]=1;
-
-    } // element description loop
-
-    M_global_num_elements_from_serial = M_global_num_elements_from_serial - num_edge;
-
-#if 0
-    std::cout<<"----M_global_num_elements_from_serial= "<< M_global_num_elements_from_serial<< " : "<< num_edge <<"\n";
-    std::cout<<"***************************************["<< this->comm().rank() <<"]: " << num_edge << " and "<< num_edge_diff <<"\n";
-#endif
-
-    for ( auto const& it : __gt )
-    {
-        const char* name;
-        MElement::getInfoMSH( it.first, &name );
-        //std::cout<<"["<< M_comm.rank() <<"] " << " Read " << it.second << " " << name << " elements\n";
-
-        if (std::string(name) == "Triangle 3")
-            M_num_triangles = it.second;
-        else if (std::string(name) == "Line 2")
-            M_num_edges = it.second;
-    }
-
-    if ( binary )
-        __is >> __buf;
-
-    // make sure that we have read everything
-    __is >> __buf;
-
-    ASSERT(std::string( __buf ) == "$EndElements","invalid end elements string");
-
-    // we are done reading the MSH file
-
-    //std::cout<<"nodalGrid starts\n";
-
-    // create local dofs
-    timer["in.nodal"].first.restart();
-    if (M_comm.size() > 1)
-        this->nodalGrid();
-    if (M_comm.rank() == 0)
-        std::cout<<"------------------------------------------------------INSIDE: NODALGRID done in "<< timer["in.nodal"].first.elapsed() <<"s\n";
-#endif
-
-    //std::cout<<"nodalGrid done\n";
+    ASSERT(std::string( buf ) == "$EndElements","invalid end elements string");
 }
 
 void
@@ -1154,7 +977,7 @@ GmshMesh::nodalGrid()
     }
 
     if (M_comm.rank() == 0)
-        std::cout<<"------------------------------------------------------INSIDE: SUSPECT1 done in "<< timer["in.postprocess"].first.elapsed() <<"s\n";
+        std::cout<<"-------------------INSIDE: SUSPECT1 done in "<< timer["in.postprocess"].first.elapsed() <<"s\n";
 
 
     timer["in.postprocess"].first.restart();
@@ -1280,7 +1103,7 @@ GmshMesh::nodalGrid()
     std::copy_n(M_local_ghost.begin(), M_local_ghost.size(), std::back_inserter(M_local_dof_with_ghost));
 
     if (M_comm.rank() == 0)
-        std::cout<<"------------------------------------------------------INSIDE: SUSPECT2 done in "<< timer["in.postprocess"].first.elapsed() <<"s\n";
+        std::cout<<"-------------------INSIDE: SUSPECT2 done in "<< timer["in.postprocess"].first.elapsed() <<"s\n";
 
 
     timer["in.postprocess"].first.restart();
@@ -1337,7 +1160,7 @@ GmshMesh::nodalGrid()
     //M_comm.barrier();
 
     if (M_comm.rank() == 0)
-        std::cout<<"------------------------------------------------------INSIDE: SUSPECT3 done in "<< timer["in.postprocess"].first.elapsed() <<"s\n";
+        std::cout<<"-------------------INSIDE: SUSPECT3 done in "<< timer["in.postprocess"].first.elapsed() <<"s\n";
 
     //std::abort();
 
@@ -1437,7 +1260,7 @@ GmshMesh::nodalGrid()
     M_num_triangles = M_triangles.size();
 
     if (M_comm.rank() == 0)
-        std::cout<<"------------------------------------------------------INSIDE: SUSPECT4 done in "<< timer["in.postprocess"].first.elapsed() <<"s\n";
+        std::cout<<"-------------------INSIDE: SUSPECT4 done in "<< timer["in.postprocess"].first.elapsed() <<"s\n";
 
 
     // check the nodal partitions
