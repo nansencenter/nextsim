@@ -27,6 +27,7 @@ extern "C"
 #include <mapx.h>
 }
 
+int PartitionMesh( GModel *const model, meshPartitionOptions &options );
 
 namespace Nextsim
 {

@@ -184,6 +184,7 @@ private:
     std::string M_pcfactormatsolverpackage_type;
     bool M_reuse_prec;
     bool M_rebuild;
+    std::map<std::string,std::pair<boost::mpi::timer,double> > timer;
 
 private:
 

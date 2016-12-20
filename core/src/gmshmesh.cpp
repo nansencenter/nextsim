@@ -40,8 +40,10 @@ GmshMesh::GmshMesh(Communicator const& comm)
     M_transfer_map(),
     M_transfer_map_reordered(),
     M_transfer_map_elt(),
-    M_reorder_map_nodes(),
-    M_reorder_map_elements(),
+    //M_reorder_map_nodes(),
+    //M_reorder_map_elements(),
+    M_map_nodes(),
+    M_map_elements(),
     timer()
 {
     M_mppfile = (Environment::vm()["mesh.mppfile"]).as<std::string>();
@@ -70,8 +72,10 @@ GmshMesh::GmshMesh(GmshMesh const& mesh)
     M_num_triangles_without_ghost(mesh.M_num_triangles_without_ghost),
     M_transfer_map(mesh.M_transfer_map),
     M_transfer_map_reordered(mesh.M_transfer_map_reordered),
-    M_reorder_map_nodes(mesh.M_reorder_map_nodes),
-    M_reorder_map_elements(mesh.M_reorder_map_elements)
+    //M_reorder_map_nodes(mesh.M_reorder_map_nodes),
+    //M_reorder_map_elements(mesh.M_reorder_map_elements)
+    M_map_nodes(mesh.M_map_nodes),
+    M_map_elements(mesh.M_map_elements)
 {}
 
 #if 0
@@ -678,7 +682,7 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
     {
         const char* name;
         MElement::getInfoMSH( it.first, &name );
-        std::cout<<"["<< M_comm.rank() <<"] " << " Read " << it.second << " " << name << " elements\n";
+        // std::cout<<"["<< M_comm.rank() <<"] " << " Read " << it.second << " " << name << " elements\n";
 
         if (std::string(name) == "Triangle 3")
             M_num_triangles = it.second;
@@ -844,8 +848,6 @@ GmshMesh::nodalGrid()
     std::vector<int> ghosts_nodes_s;
     std::vector<int> ghosts_nodes_t;
 
-    timer["in.postprocess"].first.restart();
-
     for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
     {
         if (it->is_ghost)
@@ -976,11 +978,6 @@ GmshMesh::nodalGrid()
             std::cout<<"---------------------------------------Post-processing needed for nodal mesh partition: "<< M_num_nodes <<" != "<< num_nodes <<"\n";
     }
 
-    if (M_comm.rank() == 0)
-        std::cout<<"-------------------INSIDE: SUSPECT1 done in "<< timer["in.postprocess"].first.elapsed() <<"s\n";
-
-
-    timer["in.postprocess"].first.restart();
     // gather operations for global node renumbering
     std::vector<std::vector<int>> renumbering;
     boost::mpi::all_gather(M_comm,
@@ -1102,13 +1099,9 @@ GmshMesh::nodalGrid()
     std::copy_n(M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.size(), std::back_inserter(M_local_dof_with_ghost));
     std::copy_n(M_local_ghost.begin(), M_local_ghost.size(), std::back_inserter(M_local_dof_with_ghost));
 
-    if (M_comm.rank() == 0)
-        std::cout<<"-------------------INSIDE: SUSPECT2 done in "<< timer["in.postprocess"].first.elapsed() <<"s\n";
-
-
-    timer["in.postprocess"].first.restart();
     //bimap_type reorder;
     std::map<int,int> reorder;
+    std::map<int,int> M_reorder_map_nodes;
 
     int cpts = 0;
     int cpts_dom = 0;
@@ -1134,8 +1127,8 @@ GmshMesh::nodalGrid()
             }
 
             //reorder_root[renumbering[ii][jj]] = cpts+1;
-            M_reorder_map_nodes.insert(position(renumbering[ii][jj],cpts+1));
-            //M_reorder_map_nodes.left.insert(std::make_pair(renumbering[ii][jj],cpts+1));
+            //M_reorder_map_nodes.insert(position(renumbering[ii][jj],cpts+1));
+            M_reorder_map_nodes.insert(std::make_pair(renumbering[ii][jj],cpts+1));
 
             // add second component for velocity
             //reorder[renumbering[ii][jj]+M_num_nodes] = cpts+1+sr+cpts_dom;
@@ -1157,15 +1150,7 @@ GmshMesh::nodalGrid()
         cpts_dom += renumbering[ii].size();
     }
 
-    //M_comm.barrier();
 
-    if (M_comm.rank() == 0)
-        std::cout<<"-------------------INSIDE: SUSPECT3 done in "<< timer["in.postprocess"].first.elapsed() <<"s\n";
-
-    //std::abort();
-
-
-    timer["in.postprocess"].first.restart();
 
     M_local_dof_with_ghost_init = M_local_dof_with_ghost;
     auto local_dof_with_ghost = M_local_dof_with_ghost;
@@ -1258,10 +1243,6 @@ GmshMesh::nodalGrid()
     }
 
     M_num_triangles = M_triangles.size();
-
-    if (M_comm.rank() == 0)
-        std::cout<<"-------------------INSIDE: SUSPECT4 done in "<< timer["in.postprocess"].first.elapsed() <<"s\n";
-
 
     // check the nodal partitions
     int elt_size = triangles_num_without_ghost.size();
@@ -1404,12 +1385,14 @@ GmshMesh::nodalGrid()
 
     cpts = 0;
     cpts_dom = 0;
+    std::map<int,int> M_reorder_map_elements;
 
     for (int ii=0; ii<M_comm.size(); ++ii)
     {
         for (int jj=0; jj<renumbering[ii].size(); ++jj)
         {
-            M_reorder_map_elements.insert(position(renumbering[ii][jj],cpts+1));
+            //M_reorder_map_elements.insert(position(renumbering[ii][jj],cpts+1));
+            M_reorder_map_elements.insert(std::make_pair(renumbering[ii][jj],cpts+1));
             ++cpts;
         }
     }
@@ -1419,6 +1402,29 @@ GmshMesh::nodalGrid()
 
     // std::cout<<"["<< this->comm().rank() << "] M_global_num_elements= "<< M_global_num_elements <<"\n";
     // std::cout<<"["<< this->comm().rank() << "] M_num_elements       = "<< triangles_num_without_ghost.size() <<"\n";
+
+    // elements: boost::bimap -> std::map (optimization)
+    M_map_elements.resize(M_global_num_elements);
+    cpts = 0;
+    for (auto it=M_reorder_map_elements.begin(), end=M_reorder_map_elements.end(); it!=end; ++it)
+    {
+        // if ((M_comm.rank()==0) && (cpts < 100))
+        //     std::cout<<"--Key= "<< it->first <<"   Value= "<< it->second <<"\n";
+        M_map_elements[cpts] = it->second-1;
+        ++cpts;
+    }
+
+    // nodes: boost::bimap -> std::map (optimization)
+    M_map_nodes.resize(M_reorder_map_nodes.size());
+    cpts = 0;
+    for (auto it=M_reorder_map_nodes.begin(), end=M_reorder_map_nodes.end(); it!=end; ++it)
+    {
+        // if ((M_comm.rank()==0) && (cpts < 100))
+        //     std::cout<<"--Key= "<< it->first <<"   Value= "<< it->second <<"\n";
+        M_map_nodes[cpts] = it->second-1;
+        ++cpts;
+    }
+
 }
 
 std::vector<int>

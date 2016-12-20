@@ -112,8 +112,13 @@ public:
     bimap_type const& transferMapElt() const {return M_transfer_map_elt;}
     //bimap_type const& transferMapReordered() const {return M_transfer_map_reordered;}
 
-    bimap_type const& mapNodes() const {return M_reorder_map_nodes;}
-    bimap_type const& mapElements() const {return M_reorder_map_elements;}
+    //bimap_type const& mapNodes() const {return M_reorder_map_nodes;}
+    //std::map<int,int> const& mapNodes() const {return M_reorder_map_nodes;}
+    //bimap_type const& mapElements() const {return M_reorder_map_elements;}
+    //std::map<int,int> const& mapElements() const {return M_reorder_map_elements;}
+
+    std::vector<int> const& mapNodes() const {return M_map_nodes;}
+    std::vector<int> const& mapElements() const {return M_map_elements;}
 
     std::vector<int> indexTr() const;
 
@@ -179,8 +184,13 @@ private:
     bimap_type M_transfer_map_reordered;
     bimap_type M_transfer_map_elt;
 
-    bimap_type M_reorder_map_nodes;
-    bimap_type M_reorder_map_elements;
+    //bimap_type M_reorder_map_nodes;
+    //std::map<int,int> M_reorder_map_nodes; (not stored in memory)
+    //bimap_type M_reorder_map_elements;
+    //std::map<int,int> M_reorder_map_elements; (not stored in memory)
+
+    std::vector<int> M_map_elements;
+    std::vector<int> M_map_nodes;
 
     std::map<std::string,std::pair<boost::mpi::timer,double> > timer;
 };

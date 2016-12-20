@@ -129,7 +129,7 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
             {
                 if ( fs::exists( vmenv["config-file"].as<std::string>() ) )
                 {
-                    if (this->comm().rank()==0)
+                    if (Communicator::commSelf().rank()==0)
                         std::cout << "Reading " << vmenv["config-file"].as<std::string>() << "...\n";
 
                     std::ifstream ifs( vmenv["config-file"].as<std::string>().c_str() );
@@ -154,7 +154,9 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
                 {
                     if ( fs::exists( cfgfile ) )
                     {
-                        std::cout << "Reading " << cfgfile << "...\n";
+                        if (Communicator::commSelf().rank()==0)
+                            std::cout << "Reading " << cfgfile << "...\n";
+
                         std::ifstream ifs( cfgfile.c_str() );
                         po::store( parse_config_file( ifs, desc, true ), vmenv );
                     }

@@ -257,11 +257,22 @@ MatrixPetsc::init( const size_type m,
     CHKERRABORT( M_comm,ierr );
 
     ierr = MatSetOption( M_mat,MAT_KEEP_NONZERO_PATTERN,PETSC_TRUE );
-    // //MatSetOption( M_mat,MAT_IGNORE_ZERO_ENTRIES,PETSC_FALSE );
     CHKERRABORT( M_comm, ierr );
 
-    // ierr = MatSetOption ( M_mat, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE );
-    // CHKERRABORT( M_comm, ierr );
+    ierr = MatSetOption( M_mat,MAT_IGNORE_ZERO_ENTRIES,PETSC_FALSE );
+    CHKERRABORT( M_comm, ierr );
+
+    ierr = MatSetOption ( M_mat, MAT_SYMMETRIC, PETSC_TRUE );
+    CHKERRABORT( M_comm, ierr );
+
+    ierr = MatSetOption ( M_mat,MAT_SYMMETRY_ETERNAL,PETSC_TRUE );
+    CHKERRABORT( M_comm, ierr );
+
+    // generates an error for new matrix entry
+    ierr = MatSetOption ( M_mat, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_TRUE );
+    CHKERRABORT( M_comm, ierr );
+
+    M_is_initialized = true;
 
     this->zero();
 
@@ -288,25 +299,8 @@ MatrixPetsc::init( const size_type m,
 
     ierr = MatSetFromOptions ( M_mat );
     CHKERRABORT( M_comm, ierr );
-
-    ierr = MatSetOption( M_mat,MAT_KEEP_NONZERO_PATTERN,PETSC_TRUE );
-    MatSetOption( M_mat,MAT_IGNORE_ZERO_ENTRIES,PETSC_FALSE );
-    //MatSetOption( M_mat,MAT_IGNORE_LOWER_TRIANGULAR,PETSC_TRUE );
-    CHKERRABORT( M_comm, ierr );
-
-    //ierr = MatSetOption( M_mat,MAT_SPD,PETSC_FALSE );
-    ierr = MatSetOption ( M_mat, MAT_SYMMETRIC, PETSC_TRUE );
-    ierr = MatSetOption ( M_mat,MAT_SYMMETRY_ETERNAL,PETSC_TRUE );
-    CHKERRABORT( M_comm, ierr );
-
-    // generates an error for new matrix entry
-    ierr = MatSetOption ( M_mat, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_TRUE );
-    CHKERRABORT( M_comm, ierr );
-
-    M_is_initialized = true;
-
-    //this->zero();
 #endif
+
 }
 
 void
@@ -913,6 +907,13 @@ MatrixPetsc::rowStop() const
     CHKERRABORT( M_comm, ierr );
 
     return static_cast<size_type>( stop );
+}
+
+void
+MatrixPetsc::sameNonZeroPattern()
+{
+    int ierr = MatSetOption( M_mat,MAT_NEW_NONZERO_LOCATIONS,PETSC_FALSE );
+    CHKERRABORT( M_comm, ierr );
 }
 
 } // Nextsim

@@ -462,22 +462,16 @@ GmshMeshSeq::partitionMemory(std::string const& filename,
 {
     M_partition_options.partitioner =  (int)partitioner;
     M_partition_options.algorithm = 2;
-    //M_partition_options.edge_matching = 3;
+    //M_partition_options.edge_matching = 3;// comment it after
     //M_partition_options.refine_algorithm = 2; // do not use because of non-contiguous mesh partition
 
-    //M_partition_options.createPartitionBoundaries = false;
+    M_partition_options.createPartitionBoundaries = false;
 
-    timer["in.part"].first.restart();
     PartitionMesh( M_gmodel, M_partition_options);
-    std::cout<<"------------------------------------------------------INSIDE: PART done in "<< timer["in.part"].first.elapsed() <<"s\n";
-    timer["in.write"].first.restart();
-    //M_gmodel->writeMSH(filename, 2.2, false);
     M_gmodel->writeMSH(filename, 2.2, (format=="binary")?true:false);
-    std::cout<<"------------------------------------------------------INSIDE: WRITE done in "<< timer["in.write"].first.elapsed() <<"s\n";
-    timer["in.delete"].first.restart();
+
     M_gmodel->deleteMesh();
     M_gmodel->destroy();
-    std::cout<<"------------------------------------------------------INSIDE: DELETE done in "<< timer["in.delete"].first.elapsed() <<"s\n";
 }
 
 void
@@ -489,6 +483,7 @@ GmshMeshSeq::partitionDisk(std::string const& filename,
     {
         //std::cout<<"NOT FOUND " << fs::absolute( filename ).string() <<"\n";
 
+        M_partition_options.partitioner =  (int)partitioner;
         std::ostringstream gmshstr;
         gmshstr << BOOST_PP_STRINGIZE( gmsh )
                 << " -" << 2

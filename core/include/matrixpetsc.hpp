@@ -135,6 +135,7 @@ public:
         M_graph = graph;
     }
 
+    void sameNonZeroPattern();
 
 private:
 

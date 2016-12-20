@@ -408,7 +408,27 @@ FiniteElement::rootMeshProcessing()
             bamgopt->KeepVertices=1;
             LOG(DEBUG) <<"First adaptation done in "<< chrono.elapsed() <<"s\n";
 
-            chrono.restart();
+            // ---------------------------------------------------------------
+#if 0
+            M_mesh_init_root = M_mesh_root;
+            M_hminVertices = this->hminVertices(M_mesh_init_root, bamgmesh_root);
+            M_hmaxVertices = this->hmaxVertices(M_mesh_init_root, bamgmesh_root);
+
+            // LOG(DEBUG) <<"HMIN MIN= "<< *std::min_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
+            // LOG(DEBUG) <<"HMIN MAX= "<< *std::max_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
+            // LOG(DEBUG) <<"HMAX MIN= "<< *std::min_element(M_hmaxVertices.begin(), M_hmaxVertices.end()) <<"\n";
+            // LOG(DEBUG) <<"HMAX MAX= "<< *std::max_element(M_hmaxVertices.begin(), M_hmaxVertices.end()) <<"\n";
+
+            bamgopt->hminVertices = new double[M_mesh_init_root.numNodes()];
+            bamgopt->hmaxVertices = new double[M_mesh_init_root.numNodes()];
+            for (int i=0; i<M_mesh_init_root.numNodes(); ++i)
+            {
+                bamgopt->hminVertices[i] = M_hminVertices[i];
+                bamgopt->hmaxVertices[i] = M_hmaxVertices[i];
+            }
+#endif
+            // ---------------------------------------------------------------
+
             // Interpolate hminVertices and hmaxVertices onto the current mesh
             this->interpVertices();
         }
@@ -462,6 +482,7 @@ FiniteElement::rootMeshProcessing()
 void
 FiniteElement::rootMeshRenumbering()
 {
+#if 0
     if (M_rank == 0)
     {
         M_mesh_root.reorder(M_mesh.mapNodes(),M_mesh.mapElements());
@@ -483,6 +504,7 @@ FiniteElement::rootMeshRenumbering()
                          );
         std::cout<<"Re-numbering: Convert mesh done in "<< chrono.elapsed() <<"s\n";
     }
+#endif
 }
 
 // Initialise size of all physical variables with values set to zero
@@ -1467,6 +1489,24 @@ FiniteElement::gatherSizes()
     }
 
     //M_comm.barrier();
+
+    // -------------------------------------------------------------
+    if (M_rank == 0)
+    {
+        // auto rmap_elements = M_mesh.mapElements();
+        // int gsize = M_mesh_root.numTriangles();
+        // M_map_elements.resize(gsize);
+
+        // for (int i=0; i<gsize; ++i)
+        // {
+        //     //M_map_elements[i] = rmap_elements.left.find(i+1)->second-1;
+        //     M_map_elements[i] = rmap_elements.find(i+1)->second-1;
+        // }
+
+        M_rmap_nodes = M_mesh.mapNodes();
+        M_rmap_elements = M_mesh.mapElements();
+    }
+    // -------------------------------------------------------------
 }
 
 void
@@ -1599,12 +1639,13 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
 
     if (M_rank == 0)
     {
-        auto rmap_elements = M_mesh.mapElements();
+        //auto rmap_elements = M_mesh.mapElements();
         auto interp_in_elements_nrd = interp_in_elements;
 
         for (int i=0; i<M_mesh_previous_root.numTriangles(); ++i)
         {
-            int ri = rmap_elements.left.find(i+1)->second-1;
+            //int ri = rmap_elements.left.find(i+1)->second-1;
+            int ri = M_rmap_elements[i];
 
             for (int j=0; j<M_nb_var_element; ++j)
             {
@@ -1644,7 +1685,7 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
 
     if (M_rank == 0)
     {
-        auto rmap_elements = M_mesh.mapElements();
+        //auto rmap_elements = M_mesh.mapElements();
         in_elt_values.resize(M_nb_var_element*id_elements.size());
 
         for (int i=0; i<id_elements.size(); ++i)
@@ -1915,7 +1956,8 @@ FiniteElement::interpFieldsElement()
 }
 
 void
-FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, bimap_type const& rmap_nodes, std::vector<int> sizes_nodes)
+//FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, bimap_type const& rmap_nodes, std::vector<int> sizes_nodes)
+FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes)
 {
     timer["gather.node"].first.restart();
 
@@ -1965,7 +2007,8 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, bimap_type
 
         for (int i=0; i<M_prv_global_num_nodes; ++i)
         {
-            int ri =  rmap_nodes.left.find(i+1)->second-1;
+            //int ri =  rmap_nodes.left.find(i+1)->second-1;
+            int ri =  rmap_nodes[i];
 
             for (int j=0; j<M_nb_var_node; ++j)
             {
@@ -2047,7 +2090,8 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
 }
 
 void
-FiniteElement::interpFieldsNode(bimap_type const& rmap_nodes, std::vector<int> sizes_nodes)
+//FiniteElement::interpFieldsNode(bimap_type const& rmap_nodes, std::vector<int> sizes_nodes)
+FiniteElement::interpFieldsNode(std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes)
 {
 
     //M_comm.barrier();
@@ -2111,14 +2155,15 @@ FiniteElement::gatherUM(std::vector<double>& um)
 
     if (M_rank == 0)
     {
-        auto rmap_nodes = M_mesh.mapNodes();
+        //auto rmap_nodes = M_mesh.mapNodes();
         int prv_global_num_nodes = M_mesh.numGlobalNodes();
 
         auto interp_in_nodes_nrd = um;
 
         for (int i=0; i<prv_global_num_nodes; ++i)
         {
-            int ri =  rmap_nodes.left.find(i+1)->second-1;
+            //int ri =  rmap_nodes.left.find(i+1)->second-1;
+            int ri =  M_rmap_nodes[i];
 
             um[i] = interp_in_nodes_nrd[2*ri];
             um[i+prv_global_num_nodes] = interp_in_nodes_nrd[2*ri+1];
@@ -2266,7 +2311,8 @@ FiniteElement::regrid(bool step)
     M_prv_local_ndof = M_local_ndof;
     M_prv_num_nodes = M_num_nodes;
     M_prv_num_elements = M_local_nelements;
-    bimap_type prv_rmap_nodes = M_mesh.mapNodes();
+    //bimap_type prv_rmap_nodes = M_mesh.mapNodes();
+    std::vector<int> prv_rmap_nodes = M_mesh.mapNodes();
     M_prv_global_num_nodes = M_mesh.numGlobalNodes();
     M_prv_global_num_elements = M_mesh.numGlobalElements();
     std::vector<int> sizes_nodes = M_sizes_nodes;
@@ -2291,6 +2337,15 @@ FiniteElement::regrid(bool step)
     //M_comm.barrier();
 
     this->assignVariables();
+
+    M_comm.barrier();
+
+    if (step)
+    {
+        M_solver->clear();
+        M_solver.reset();
+        M_solver = solver_ptrtype(new solver_type());
+    }
 }
 
 void
@@ -2700,6 +2755,11 @@ FiniteElement::assemble(int pcpt)
     LOG(DEBUG) <<"Closing matrix starts\n";
     M_matrix->close();
     LOG(DEBUG) <<"Closing matrix done\n";
+
+    if (pcpt == 0)
+    {
+        M_matrix->sameNonZeroPattern();
+    }
 
     // close petsc vector
     LOG(DEBUG) <<"Closing vector starts\n";
@@ -4607,7 +4667,7 @@ void
 FiniteElement::speedScaling(std::vector<double>& speed_scaling)
 {
     //M_comm.barrier();
-
+    timer["looproot0"].first.restart();
     std::vector<int> sizes_elements = M_sizes_elements;
     std::vector<double> conc_local(M_local_nelements);
 
@@ -4629,22 +4689,30 @@ FiniteElement::speedScaling(std::vector<double>& speed_scaling)
         boost::mpi::gatherv(M_comm, conc_local, 0);
     }
 
+    if (M_rank == 0)
+        std::cout <<"---loop updateVelocity0:       "<< timer["looproot0"].first.elapsed() <<"s\n";
+
     std::vector<double> speed_scaling_vec;
 
     if (M_rank == 0)
     {
+        timer["looproot1"].first.restart();
         //auto rmap_nodes = M_mesh.mapNodes();
-        auto rmap_elements = M_mesh.mapElements();
+        //auto rmap_elements = M_mesh.mapElements();
 
         auto conc_root_nrd = conc_root;
         int gsize = M_mesh_root.numTriangles();
 
         for (int i=0; i<gsize; ++i)
         {
-            int ri = rmap_elements.left.find(i+1)->second-1;
+            //int ri = rmap_elements.left.find(i+1)->second-1;
+            int ri = M_rmap_elements[i];
             // concentration
             conc_root[i] = conc_root_nrd[ri];
         }
+        std::cout <<"---loop updateVelocity1:       "<< timer["looproot1"].first.elapsed() <<"s\n";
+
+        timer["looproot2"].first.restart();
 
         speed_scaling_vec.resize(bamgmesh_root->NodalElementConnectivitySize[0]);
 
@@ -4663,6 +4731,7 @@ FiniteElement::speedScaling(std::vector<double>& speed_scaling)
                 if ((0 <= elt_num) && (elt_num < gsize) && (elt_num != NAN))
                 {
                     cloc_elts[j] = conc_root[elt_num];
+                    //cloc_elts.push_back( conc_root[elt_num] );
                 }
                 else
                 {
@@ -4671,6 +4740,8 @@ FiniteElement::speedScaling(std::vector<double>& speed_scaling)
             }
 
             c_max_nodal_neighbour = *std::max_element(cloc_elts.begin(),cloc_elts.begin()+j-1);
+            //c_max_nodal_neighbour = *std::max_element(cloc_elts.begin(),cloc_elts.end());
+
             c_max_nodal_neighbour = c_max_nodal_neighbour/vm["simul.drift_limit_concentration"].as<double>();
             speed_c_scaling = std::min(1.,c_max_nodal_neighbour);
             //std::cout<<"c_max_nodal_neighbour["<< i <<"]= "<< c_max_nodal_neighbour <<"\n";
@@ -4686,11 +4757,17 @@ FiniteElement::speedScaling(std::vector<double>& speed_scaling)
             int ri = M_id_nodes[i]-1;
             speed_scaling_vec[i] = speed_scaling_vec_nrd[ri];
         }
+
+        std::cout <<"---loop updateVelocity2:       "<< timer["looproot2"].first.elapsed() <<"s\n";
     }
 
+    timer["looproot3"].first.restart();
     speed_scaling.resize(M_num_nodes);
     std::vector<int> sizes_nodes = M_sizes_nodes_with_ghost;
+    if (M_rank == 0)
+        std::cout <<"---loop updateVelocity3:       "<< timer["looproot3"].first.elapsed() <<"s\n";
 
+    timer["looproot4"].first.restart();
     if (M_rank == 0)
     {
         boost::mpi::scatterv(M_comm, speed_scaling_vec, sizes_nodes, &speed_scaling[0], 0);
@@ -4700,6 +4777,10 @@ FiniteElement::speedScaling(std::vector<double>& speed_scaling)
         boost::mpi::scatterv(M_comm, &speed_scaling[0], M_num_nodes, 0);
     }
 
+    //M_comm.barrier();
+
+    if (M_rank == 0)
+        std::cout <<"---loop updateVelocity4:       "<< timer["looproot4"].first.elapsed() <<"s\n";
     //M_comm.barrier();
 }
 
@@ -6084,13 +6165,14 @@ FiniteElement::exportResults(int step, bool export_mesh)
     if (M_rank == 0)
     {
         tmp_nb_var=0;
-        auto rmap_elements = M_mesh.mapElements();
+        //auto rmap_elements = M_mesh.mapElements();
         //auto interp_in_elements_nrd = interp_in_elements;
 
         for (int i=0; i<M_mesh_root.numTriangles(); ++i)
         {
             tmp_nb_var=0;
-            int ri = rmap_elements.left.find(i+1)->second-1;
+            //int ri = rmap_elements.left.find(i+1)->second-1;
+            int ri = M_rmap_elements[i];
 
             // for (int j=0; j<nb_var_element; ++j)
             // {
@@ -6189,6 +6271,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
             if ( ! meshbin.good() )
                 throw std::runtime_error("Cannot write to file: " + fileout);
 
+#if 0
             if (0)
             {
                 auto rmap_nodes = M_mesh.mapNodes();
@@ -6201,7 +6284,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
                 exporter.writeMesh(meshbin, meshr);
                 meshbin.close();
             }
-
+#endif
             exporter.writeMesh(meshbin, M_mesh_root);
             meshbin.close();
 
@@ -6236,14 +6319,15 @@ FiniteElement::exportResults(int step, bool export_mesh)
             throw std::runtime_error("Cannot write to file: " + fileout);
 
 
-        auto rmap_nodes = M_mesh.mapNodes();
+        //auto rmap_nodes = M_mesh.mapNodes();
         int prv_global_num_nodes = M_mesh.numGlobalNodes();
 
         auto interp_in_nodes_nrd = vt_root;
 
         for (int i=0; i<prv_global_num_nodes; ++i)
         {
-            int ri =  rmap_nodes.left.find(i+1)->second-1;
+            //int ri =  rmap_nodes.left.find(i+1)->second-1;
+            int ri =  M_rmap_nodes[i];
 
             vt_root[i] = interp_in_nodes_nrd[2*ri];
             vt_root[i+prv_global_num_nodes] = interp_in_nodes_nrd[2*ri+1];
