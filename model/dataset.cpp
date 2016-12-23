@@ -27,26 +27,26 @@ namespace Nextsim
 {
 
 
-    DataSet::DataSet( )
-    {}
+DataSet::DataSet()
+{}
 
-   DataSet::DataSet(char const *DatasetName, int target_size_tmp)
-   {
-//     Dataset *this;
+DataSet::DataSet(char const *DatasetName, int target_size_tmp)
+{
+    //Dataset *this;
 
-       name = std::string(DatasetName);
-       projfilename = Environment::vm()["mesh.mppfile"].as<std::string>();
+    name = std::string(DatasetName);
+    projfilename = Environment::vm()["mesh.mppfile"].as<std::string>();
 
-     std::vector<std::vector<double>> data2_tmp;
-     data2_tmp.resize(2);
+    std::vector<std::vector<double>> data2_tmp;
+    data2_tmp.resize(2);
 
-     /*
-      *	match projection name and initialize remaining parameters
-      */
-     if (strcmp (DatasetName, "asr_nodes") == 0)
-     {
+    /*
+     *	match projection name and initialize remaining parameters
+     */
+    if (strcmp (DatasetName, "asr_nodes") == 0)
+    {
      	// Definition of asr grid and datasets
-         Dimension dimension_x={
+        Dimension dimension_x={
              name:"x",
              cyclic:false
      	};
@@ -3099,7 +3099,7 @@ void
 DataSet::loadGrid(Grid *grid_ptr, int current_time, double RX_min, double RX_max, double RY_min, double RY_max)
 {
     // we make the loaded domain a bit larger to avoid problems
-    double expansion_factor = 0.1;//0.05;
+    double expansion_factor = Environment::vm()["simul.expansion-factor"].as<double>(); // default value=0.05 // 0.1;//0.05;
 
     double X_domain_size = RX_max-RX_min;
     double Y_domain_size = RY_max-RY_min;

@@ -188,17 +188,17 @@ MatrixPetsc::init( const size_type m,
                    const size_type n_l,
                    graphmpi_type const& graph )
 {
-    this->setGraph(graph);
-
     if (m==0 || n==0)
 		return;
 
-    {
-        if (M_is_initialized)
-            this->clear();
-    }
+    //{
+    if (M_is_initialized)
+        this->clear();
+    //}
 
-    M_is_initialized = true;
+    this->setGraph(graph);
+
+    //M_is_initialized = true;
 
     int ierr     = 0;
     int m_global = static_cast<int>( m );
@@ -231,11 +231,11 @@ MatrixPetsc::init( const size_type m,
                           m_global, n_global,
                           /*PETSC_DECIDE*//*n_dnz*/0, /*PETSC_NULL*/dnz,
                           /*PETSC_DECIDE*/0/*n_dnzOffProc*/, dnzOffProc,
-                          &this->M_mat);
+                          &M_mat);
 
     CHKERRABORT( M_comm,ierr );
 
-    ierr = MatMPIAIJSetPreallocation( this->mat(), 0, dnz, 0, dnzOffProc );
+    ierr = MatMPIAIJSetPreallocation( M_mat, 0, dnz, 0, dnzOffProc );
     // ierr = MatSeqAIJSetPreallocationCSR( M_mat,
     //                                      (int*) graphloc.ia().data(),
     //                                      (int*) graphloc.ja().data(),
@@ -253,13 +253,19 @@ MatrixPetsc::init( const size_type m,
 
     this->initLocalToGlobalMapping(graph);
 
-    ierr = MatSetFromOptions( this->mat() );
+    ierr = MatSetFromOptions( M_mat );
     CHKERRABORT( M_comm,ierr );
 
     ierr = MatSetOption( M_mat,MAT_KEEP_NONZERO_PATTERN,PETSC_TRUE );
     CHKERRABORT( M_comm, ierr );
 
-    ierr = MatSetOption( M_mat,MAT_IGNORE_ZERO_ENTRIES,PETSC_FALSE );
+    ierr = MatSetOption( M_mat,MAT_IGNORE_ZERO_ENTRIES,PETSC_TRUE );
+    CHKERRABORT( M_comm, ierr );
+
+    ierr = MatSetOption( M_mat,MAT_NO_OFF_PROC_ZERO_ROWS,PETSC_FALSE );
+    CHKERRABORT( M_comm, ierr );
+
+    ierr = MatSetOption ( M_mat, MAT_SPD, PETSC_TRUE );
     CHKERRABORT( M_comm, ierr );
 
     ierr = MatSetOption ( M_mat, MAT_SYMMETRIC, PETSC_TRUE );
@@ -338,7 +344,7 @@ MatrixPetsc::initLocalToGlobalMapping(graphmpi_type const& graph)
     ierr=ISLocalToGlobalMappingCreateIS( isCol, &isLocToGlobMapCol );
     CHKERRABORT( M_comm,ierr );
 
-    ierr = MatSetLocalToGlobalMapping( this->mat(),isLocToGlobMapRow,isLocToGlobMapCol );
+    ierr = MatSetLocalToGlobalMapping( M_mat,isLocToGlobMapRow,isLocToGlobMapCol );
     CHKERRABORT( M_comm,ierr );
 
     // Clean up

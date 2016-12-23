@@ -180,6 +180,7 @@ namespace Nextsim
             ("simul.use_thermo_forcing", po::value<bool>()->default_value( true ), "")
             ("simul.constant_bathymetry", po::value<double>()->default_value( 200. ), "")
             ("simul.maxiteration", po::value<int>()->default_value( 1e+8 ), "")
+            ("simul.expansion-factor", po::value<double>()->default_value( 0.05 ), "")
             ;
         return desc;
     }

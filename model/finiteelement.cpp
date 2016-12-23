@@ -361,8 +361,8 @@ FiniteElement::rootMeshProcessing()
         // Definition of the hmin, hmax, hminVertices or hmaxVertices
         auto h = this->minMaxSide(M_mesh_root);
 
-        LOG(DEBUG) <<"MESH: HMIN= "<< h[0] <<"\n";
-        LOG(DEBUG) <<"MESH: HMAX= "<< h[1] <<"\n";
+        std::cout <<"MESH: HMIN= "<< h[0] <<"\n";
+        std::cout <<"MESH: HMAX= "<< h[1] <<"\n";
         std::cout <<"MESH: RESOLUTION= "<< this->resolution(M_mesh_root) <<"\n";
 
         switch (M_mesh_type)
@@ -2334,10 +2334,9 @@ FiniteElement::regrid(bool step)
     if (M_rank == 0)
         std::cout <<"TIMER REGRIDDING= "<< timer["regrid"].first.elapsed() <<"s\n";
 
-    //M_comm.barrier();
-
     this->assignVariables();
 
+#if 0
     M_comm.barrier();
 
     if (step)
@@ -2346,6 +2345,7 @@ FiniteElement::regrid(bool step)
         M_solver.reset();
         M_solver = solver_ptrtype(new solver_type());
     }
+#endif
 }
 
 void
@@ -2756,10 +2756,12 @@ FiniteElement::assemble(int pcpt)
     M_matrix->close();
     LOG(DEBUG) <<"Closing matrix done\n";
 
+#if 0
     if (pcpt == 0)
     {
         M_matrix->sameNonZeroPattern();
     }
+#endif
 
     // close petsc vector
     LOG(DEBUG) <<"Closing vector starts\n";
@@ -3361,7 +3363,7 @@ FiniteElement::solve()
     //SolverPetsc ksp;
     //ksp.solve(M_matrix, M_solution, M_vector);
 
-    timer["solution"].first.restart();
+    //timer["solution"].first.restart();
 
     M_solver->solve(_matrix=M_matrix,
                     _solution=M_solution,
@@ -4667,7 +4669,6 @@ void
 FiniteElement::speedScaling(std::vector<double>& speed_scaling)
 {
     //M_comm.barrier();
-    timer["looproot0"].first.restart();
     std::vector<int> sizes_elements = M_sizes_elements;
     std::vector<double> conc_local(M_local_nelements);
 
@@ -4689,14 +4690,10 @@ FiniteElement::speedScaling(std::vector<double>& speed_scaling)
         boost::mpi::gatherv(M_comm, conc_local, 0);
     }
 
-    if (M_rank == 0)
-        std::cout <<"---loop updateVelocity0:       "<< timer["looproot0"].first.elapsed() <<"s\n";
-
     std::vector<double> speed_scaling_vec;
 
     if (M_rank == 0)
     {
-        timer["looproot1"].first.restart();
         //auto rmap_nodes = M_mesh.mapNodes();
         //auto rmap_elements = M_mesh.mapElements();
 
@@ -4710,9 +4707,6 @@ FiniteElement::speedScaling(std::vector<double>& speed_scaling)
             // concentration
             conc_root[i] = conc_root_nrd[ri];
         }
-        std::cout <<"---loop updateVelocity1:       "<< timer["looproot1"].first.elapsed() <<"s\n";
-
-        timer["looproot2"].first.restart();
 
         speed_scaling_vec.resize(bamgmesh_root->NodalElementConnectivitySize[0]);
 
@@ -4757,17 +4751,11 @@ FiniteElement::speedScaling(std::vector<double>& speed_scaling)
             int ri = M_id_nodes[i]-1;
             speed_scaling_vec[i] = speed_scaling_vec_nrd[ri];
         }
-
-        std::cout <<"---loop updateVelocity2:       "<< timer["looproot2"].first.elapsed() <<"s\n";
     }
 
-    timer["looproot3"].first.restart();
     speed_scaling.resize(M_num_nodes);
     std::vector<int> sizes_nodes = M_sizes_nodes_with_ghost;
-    if (M_rank == 0)
-        std::cout <<"---loop updateVelocity3:       "<< timer["looproot3"].first.elapsed() <<"s\n";
 
-    timer["looproot4"].first.restart();
     if (M_rank == 0)
     {
         boost::mpi::scatterv(M_comm, speed_scaling_vec, sizes_nodes, &speed_scaling[0], 0);
@@ -4777,10 +4765,6 @@ FiniteElement::speedScaling(std::vector<double>& speed_scaling)
         boost::mpi::scatterv(M_comm, &speed_scaling[0], M_num_nodes, 0);
     }
 
-    //M_comm.barrier();
-
-    if (M_rank == 0)
-        std::cout <<"---loop updateVelocity4:       "<< timer["looproot4"].first.elapsed() <<"s\n";
     //M_comm.barrier();
 }
 

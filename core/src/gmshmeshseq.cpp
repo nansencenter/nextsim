@@ -362,7 +362,8 @@ GmshMeshSeq::initGModel()
 
     Msg::SetVerbosity(5);
     CTX::instance()->terminal = 1;
-    M_partition_options.num_partitions = Environment::comm().size();
+    //M_partition_options.num_partitions = Environment::comm().size();
+    CTX::instance()->partitionOptions.num_partitions = Environment::comm().size();
 }
 
 void
@@ -460,14 +461,14 @@ GmshMeshSeq::partitionMemory(std::string const& filename,
                              mesh::Partitioner const& partitioner,
                              std::string const& format)
 {
-    M_partition_options.partitioner =  (int)partitioner;
-    M_partition_options.algorithm = 2;
-    //M_partition_options.edge_matching = 3;// comment it after
-    //M_partition_options.refine_algorithm = 2; // do not use because of non-contiguous mesh partition
+    CTX::instance()->partitionOptions.partitioner =  (int)partitioner;
+    CTX::instance()->partitionOptions.algorithm = 2;
+    //CTX::instance()->partitionOptions.edge_matching = 3;// comment it after
+    //CTX::instance()->partitionOptions.refine_algorithm = 2; // do not use because of non-contiguous mesh partition
 
-    M_partition_options.createPartitionBoundaries = false;
+    CTX::instance()->partitionOptions.createPartitionBoundaries = false;
 
-    PartitionMesh( M_gmodel, M_partition_options);
+    PartitionMesh( M_gmodel, CTX::instance()->partitionOptions);
     M_gmodel->writeMSH(filename, 2.2, (format=="binary")?true:false);
 
     M_gmodel->deleteMesh();
@@ -483,22 +484,27 @@ GmshMeshSeq::partitionDisk(std::string const& filename,
     {
         //std::cout<<"NOT FOUND " << fs::absolute( filename ).string() <<"\n";
 
-        M_partition_options.partitioner =  (int)partitioner;
+        CTX::instance()->partitionOptions.partitioner =  (int)partitioner;
+        CTX::instance()->mesh.binary = 1;
+
         std::ostringstream gmshstr;
         gmshstr << BOOST_PP_STRINGIZE( gmsh )
                 << " -" << 2
-                << " -part " << Environment::comm().size()
-                << " -string " << "\"Mesh.Partitioner="<< (int)partitioner <<";\""
-                << " -string " << "\"Mesh.MetisAlgorithm="<< 2 <<";\"" // 1 = recursive (default), 2 = K-way
-                << " -string " << "\"Mesh.MetisRefinementAlgorithm="<< 2 <<";\""
-                << " -string " << "\"General.Verbosity=0;\"";
+                << " -part " << Environment::comm().size();
 
         if (format == "binary")
         {
             gmshstr << " -bin";
         }
 
-        gmshstr << " " << filename;
+        gmshstr << " -string " << "\"Mesh.Partitioner="<< (int)partitioner <<";\""
+                << " -string " << "\"Mesh.MetisAlgorithm="<< 2 <<";\"" // 1 = recursive (default), 2 = K-way
+                << " -string " << "\"Mesh.MetisRefinementAlgorithm="<< 2 <<";\""
+                << " -string " << "\"General.Verbosity=0;\""
+                << " " << filename;
+
+
+        //gmshstr << " " << filename;
 
         std::cout << "[Gmsh::generate] execute '" <<  gmshstr.str() << "'\n";
         auto err = ::system( gmshstr.str().c_str() );
