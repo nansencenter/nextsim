@@ -50,7 +50,7 @@ x=reshape(var_mx,[3,Ne]);
 y=reshape(var_my,[3,Ne]);
 
 field_tmp=data_out.(field);
-length(field_tmp)
+
 if(length(field_tmp)==Ne)
     c{1}=[field_tmp,field_tmp,field_tmp]';
 elseif(length(field_tmp)==2*Nn)
@@ -62,6 +62,9 @@ elseif(length(field_tmp)==2*Nn)
 elseif(length(field_tmp)==Nn)
     var_mc=field_tmp(mesh_out.Elements);
     c{1}=reshape(var_mc,[3,Ne]);
+elseif(length(field_tmp)==1)
+    disp([field ' = ' num2str(field_tmp)])
+    error(' Not a field ')
 else
     error('Not the right dimensions')
 end
@@ -85,5 +88,11 @@ for i=1:length(c)
     end
     set(gca,'DataAspectRatio',[1 1 1], 'Color', [.7 .7 .7])
 end
+
+
+%hold on
+%col_fail_id=592575;
+%plot(var_mx(col_fail_id+1),var_my(col_fail_id+1),'o')
+%axis([var_mx(col_fail_id+1)-1e5,var_mx(col_fail_id+1)+1e5,var_my(col_fail_id+1)-1e5,var_my(col_fail_id+1)+1e5])
 
 end
