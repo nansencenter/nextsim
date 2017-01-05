@@ -1901,10 +1901,31 @@ FiniteElement::assemble(int pcpt)
         {
             nind = (M_elements[cpt]).indices[i]-1;
 
+            welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
+            welt_air_ice += std::hypot(M_VT[nind]-M_wind [nind],M_VT[nind+M_num_nodes]-M_wind [nind+M_num_nodes]);
+            welt_ice += std::hypot(M_VT[nind],M_VT[nind+M_num_nodes]);
+
             welt_ssh += M_ssh[nind];
         }
 
+        double norm_Voce_ice = welt_oce_ice/3.;
+        double norm_Vair_ice = welt_air_ice/3.;
+        double norm_Vice = welt_ice/3.;
+
         double element_ssh = welt_ssh/3.;
+
+        double coef_Vair = (vm["simul.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*norm_Vair_ice));
+        coef_Vair *= (physical::rhoa);
+
+        double coef_Voce = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
+        coef_Voce *= physical::rhow; //(vm["simul.rho_water"].as<double>());
+
+
+        double critical_h = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
+
+        double _coef = std::max(0., M_thick[cpt]-critical_h);
+        double coef_basal = quad_drag_coef_air*basal_k2/(basal_drag_coef_air*(norm_Vice+basal_u_0));
+        coef_basal *= _coef*std::exp(-basal_Cb*(1.-M_conc[cpt]));
 
         //std::vector<double> sigma_P(3,0.); /* temporary variable for the resistance to the compression */
         //std::vector<double> B0Tj_sigma_h(2,0);
@@ -1992,23 +2013,6 @@ FiniteElement::assemble(int pcpt)
 
             Vcor_index_v=beta0*M_VT[index_v] + beta1*M_VTM[index_v] + beta2*M_VTMM[index_v];
             Vcor_index_u=beta0*M_VT[index_u] + beta1*M_VTM[index_u] + beta2*M_VTMM[index_u];
-
-            /* Compute the value that also depends on variables defined at the nodes */        
-            double norm_Voce_ice = std::hypot(M_VT[index_u]-M_ocean[index_u],M_VT[index_v]-M_ocean[index_v]);
-            double norm_Vair_ice = std::hypot(M_VT[index_u]-M_wind [index_u],M_VT[index_v]-M_wind [index_v]);
-            double norm_Vice = std::hypot(M_VT[index_u],M_VT[index_v]);
-
-            double coef_Vair = (vm["simul.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*norm_Vair_ice));
-            coef_Vair *= (physical::rhoa);
-
-            double coef_Voce = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
-            coef_Voce *= physical::rhow; //(vm["simul.rho_water"].as<double>());
-
-            double critical_h = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
-
-            double _coef = std::max(0., M_thick[cpt]-critical_h);
-            double coef_basal = quad_drag_coef_air*basal_k2/(basal_drag_coef_air*(norm_Vice+basal_u_0));
-            coef_basal *= _coef*std::exp(-basal_Cb*(1.-M_conc[cpt]));
 
             for(int i=0; i<3; i++)
             {
@@ -4961,7 +4965,7 @@ FiniteElement::updateVelocity()
     // TODO (updateVelocity) Sylvain: This limitation cost about 1/10 of the solver time.
     // TODO (updateVelocity) Sylvain: We could add a term in the momentum equation to avoid the need of this limitation.
     //std::vector<double> speed_c_scaling_test(bamgmesh->NodalElementConnectivitySize[0]);
-    #if 0
+    #if 1
     int elt_num, i, j;
     double c_max_nodal_neighbour;
     double speed_c_scaling;
@@ -4997,80 +5001,6 @@ FiniteElement::updateVelocity()
     }
     #endif
 
-    // Buffer zone for the empty element close to the ice edge to limit the mesh deformation/adaptation. This should not change the solution.
-    int Nd = bamgmesh->NodalConnectivitySize[1];
-    
-    std::vector<bool> in_buffer(M_num_nodes,false);
-    std::vector<bool> in_buffer_tmp;
-    
-
-    int l_max=5;
-
-    std::vector<int> dist_to_coast(M_num_nodes,l_max+10);
-    std::vector<int> dist_to_coast_tmp;
-    if(l_max>0)
-    {
-        double buffer_factor=1.-1./l_max;
-        for (int l=0; l<l_max; ++l )
-        {
-            in_buffer_tmp=in_buffer;
-            dist_to_coast_tmp=dist_to_coast;
-            for (int i=0; i<M_num_nodes; ++i)
-            {
-                if(M_node_max_conc[i]<=vm["simul.drift_limit_concentration"].as<double>() && !in_buffer_tmp[i])
-                {
-                    
-                    
-                    double VTx_sum_selected=0.;
-                    double VTy_sum_selected=0.;
-                    int N_next_selected=0;
-                    int N_next = bamgmesh->NodalConnectivity[Nd*(i+1)-1];                
-                    for (int j=0; j<N_next; ++j)
-                    {
-                        int i_next=bamgmesh->NodalConnectivity[Nd*i+j]-1; // -1 because from bamg indice convention
-                        if(     M_node_max_conc[i_next]>vm["simul.drift_limit_concentration"].as<double>() 
-                            ||  in_buffer_tmp[i_next] )
-                        {
-                            N_next_selected++;
-                            
-                            VTx_sum_selected+=  M_VT[i_next]*buffer_factor;
-                            VTy_sum_selected+=  M_VT[i_next+M_num_nodes]*buffer_factor;
-                        }
-                        
-                        if( std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),i_next)
-                            ||  std::binary_search(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),i_next))
-                        {
-                            dist_to_coast[i]=1;                            
-                        }
-                        
-                        if(dist_to_coast_tmp[i_next]<l_max+10 && dist_to_coast_tmp[i_next]<dist_to_coast[i])
-                        {
-                            dist_to_coast[i]=dist_to_coast_tmp[i_next]+1;
-                        }
-                    }
-                    
-                    if(N_next_selected>0)
-                    {
-                        in_buffer[i]=true;
-                        M_VT[i] = VTx_sum_selected/N_next_selected;
-                        M_VT[i+M_num_nodes] = VTy_sum_selected/N_next_selected;
-                    }
-                    else
-                    {
-                        M_VT[i] = 0.;
-                        M_VT[i+M_num_nodes] =0.;
-                    }
-                }
-            }
-        }
-        
-        for (int i=0; i<M_num_nodes; ++i)
-        {
-            M_VT[i] *= std::min(1.,(double) dist_to_coast[i]/l_max);
-            M_VT[i+M_num_nodes]*= std::min(1.,(double)dist_to_coast[i]/l_max);
-        }
-        
-    }
     // std::cout<<"MAX SPEED= "<< *std::max_element(speed_c_scaling_test.begin(),speed_c_scaling_test.end()) <<"\n";
     // std::cout<<"MIN SPEED= "<< *std::min_element(speed_c_scaling_test.begin(),speed_c_scaling_test.end()) <<"\n";
 }
