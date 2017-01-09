@@ -190,8 +190,8 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
             new_integrated_area+=surface_new[(int)tmp_element-1];
         }
 
-        if (new_integrated_area<=0.)  _error_("new_integrated_area should not be larger than 0. Here it is: " << new_integrated_area<<" ");
-        if (integrated_area<=0.)  _error_("integrated_area should not be larger than 0. Here it is: " << integrated_area<<" ");
+        if (new_integrated_area<=0.)  _error_("new_integrated_area should be larger than 0. Here it is: " << new_integrated_area<<" ");
+        if (integrated_area<=0.)  _error_("integrated_area should be larger than 0. Here it is: " << integrated_area<<" ");
 
         if (verbosity>1) _printf_("   Interp Cavities: correction factor...\n");
         /* A correction factor is applied because the area of the cavity may
@@ -242,6 +242,7 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
 	            if(area_error>area_error_tolerance)
 	            {
 		            _printf_("tmp_integrated_area[i]=" << tmp_integrated_area[i] << "\n");
+                    _printf_("(int)born_elements[i]-1=" << (int)born_elements[i]-1 << "\n");
 		            _printf_("surface_new[born_elements[i]-1]=" << surface_new[(int)born_elements[i]-1] << "\n");
 		            _printf_("area_error=" << area_error << "\n");
                     _printf_("area_error_tolerance=" << area_error_tolerance << "\n");
@@ -351,8 +352,8 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 
     if (verbosity>1) _printf_("   Detect_cavities: Initialize arrays...\n");
 
-    /*if(bamg_mesh_NVerticesOnGeomVertex!=new_bamg_mesh_NVerticesOnGeomVertex)
-        _error_("not the same number of vertices on the Geom in the old and new mesh");*/
+    if(bamg_mesh_NVerticesOnGeomVertex!=new_bamg_mesh_NVerticesOnGeomVertex)
+        _error_("not the same number of vertices on the Geom in the old and new mesh");
 
 
     /*---------- Output arrays      ----------*/
@@ -1059,6 +1060,19 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
             for (j=0; j<3; j++)
                 dead_node_on_born_edge[j]=0;       /* 0 if node from born element is not in dead element, 1 otherwise */
 
+            /* 4 tris) Born nodes on dead edge: */
+            dist_max=0.;
+            for (j=0; j<3; j++)
+            {
+                if(j<2)
+                    dist=pow(pow(x_born_elements[i*3+j]-x_born_elements[i*3+j+1],2.)+pow(y_born_elements[i*3+j]-y_born_elements[i*3+j+1],2.),0.5);
+                else
+                    dist=pow(pow(x_born_elements[i*3+j]-x_born_elements[i*3+0  ],2.)+pow(y_born_elements[i*3+j]-y_born_elements[i*3+0  ],2.),0.5);
+                
+                if(dist>dist_max)
+                    dist_max=dist;
+            }
+
             /*-------- Detection ---------- */
 
             /* Loop over the born nodes */
@@ -1071,10 +1085,20 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
                 for (j_dead=0; j_dead<3; j_dead++)
                     if(PreviousNumbering[born_num_node[i*3+j]-1]==dead_num_node[i_dead*3+j_dead])
                         born_node_on_dead_node[j]=j_dead;
-                    else /* Bamg sometimes says that the nodes are different, whereas they are exactly at the same position */
+                    else /* Bamg sometimes says that the nodes are different, whereas they are almost at the same position */
                     {
-                        if( (x_dead_elements[i_dead*3+j_dead]==x_born_elements[i*3+j]) && (y_dead_elements[i_dead*3+j_dead]==y_born_elements[i*3+j]) )
+                        
+                        dist=pow(pow(x_dead_elements[i_dead*3+j_dead]-x_born_elements[i*3+j],2.)+pow(y_dead_elements[i_dead*3+j_dead]-y_born_elements[i*3+j],2.),0.5);
+                        if(flag_print==1)
+                            _printf_("dist/dist_max=" << dist/dist_max <<"\n");
+                        //if( (x_dead_elements[i_dead*3+j_dead]==x_born_elements[i*3+j]) && (y_dead_elements[i_dead*3+j_dead]==y_born_elements[i*3+j]) )
+                        if( dist/dist_max<alpha_tol )
+                        {
                             born_node_on_dead_node[j]=j_dead;
+                            if(flag_print==1)
+                                _printf_("set to same node as dist/dist_max<alpha_tol smaller than =" << alpha_tol <<"\n");
+                        }
+
                     }
 
 
@@ -1758,6 +1782,10 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
             tmp_mean_variables[i*nb_variables+k]=integrated_variables[k]/test_integrated_area;
 
         tmp_integrated_area[i]=test_integrated_area;
+        
+        if(test_integrated_area<=0.)
+            _printf_("born_elements[i]=" << born_elements[i] << "\n");
+
     } /* end of loop on i */
 
 
