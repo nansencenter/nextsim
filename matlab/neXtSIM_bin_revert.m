@@ -29,7 +29,11 @@ end
 mesh_out=read_bin_export(mesh_info,mesh_data);
 
 %Getting field
-data_out=read_bin_export(field_info,field_data);
+if(exist(field_info))
+    data_out=read_bin_export(field_info,field_data);
+else
+    data_out=[];
+end
 
 end
 
