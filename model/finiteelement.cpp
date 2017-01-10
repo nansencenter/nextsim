@@ -368,7 +368,7 @@ FiniteElement::initBamg()
     bamgopt->nbsmooth          = 3;
     bamgopt->omega             = 1.8;
     bamgopt->power             = 1.;
-    bamgopt->splitcorners      = 1; //the Devil!  Changed to 0, original 1 Phil
+    bamgopt->splitcorners      = 0; //the Devil!  Changed to 0, original 1 Phil
     bamgopt->geometricalmetric = 0;
     bamgopt->random            = true;
     bamgopt->verbose           = vm["simul.verbose"].as<int>();
@@ -1062,8 +1062,10 @@ FiniteElement::regrid(bool step)
 		        LOG(DEBUG) <<"First adaptation starts\n";
 				// step 1 (only for the first time step): Start by having bamg 'clean' the mesh with KeepVertices=0
 				bamgopt->KeepVertices=0;
+                bamgopt->splitcorners      = 1;
 				this->adaptMesh();
 				bamgopt->KeepVertices=1;
+                bamgopt->splitcorners      = 0;
 				LOG(DEBUG) <<"First adaptation done in "<< chrono.elapsed() <<"s\n";
 
 			}
