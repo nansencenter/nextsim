@@ -799,6 +799,7 @@ FiniteElement::flip(mesh_type const& mesh, std::vector<double> const& um, double
     movedmesh.move(um,factor);
 
     std::vector<double> area(movedmesh.numTriangles());
+    double area_init;
 
  #if 0
     int cpt = 0;
@@ -816,7 +817,13 @@ FiniteElement::flip(mesh_type const& mesh, std::vector<double> const& um, double
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
+        area_init = this->jacobian(mesh.triangles()[cpt],mesh);
         area[cpt] = this->jacobian(movedmesh.triangles()[cpt],movedmesh);
+        
+        if(area_init*area[cpt]<=0.)
+        {
+            LOG(DEBUG) <<"FLIP DETECTED element:"<< cpt <<"\n";           
+        }   
     }
 #endif
 
@@ -869,7 +876,7 @@ FiniteElement::hminVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) co
         }
 
         measure.resize(j);
-        hmin[i] = std::sqrt(2.)*std::sqrt(*std::min_element(measure.begin(),measure.end()))*0.9;
+        hmin[i] = std::sqrt(2.)*std::sqrt(*std::min_element(measure.begin(),measure.end()))*0.8;
     }
 
     return hmin;
@@ -878,9 +885,29 @@ FiniteElement::hminVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) co
 std::vector<double>
 FiniteElement::hmaxVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const
 {
-    std::vector<double> hmax = this->hminVertices(mesh,bamg_mesh);
+    std::vector<double> hmax(bamg_mesh->NodalElementConnectivitySize[0]);
+    
+    for (int i=0; i<bamg_mesh->NodalElementConnectivitySize[0]; ++i)
+    {
+        std::vector<double> measure(bamg_mesh->NodalElementConnectivitySize[1]);
+        int j = 0;
+        for (j=0; j<bamg_mesh->NodalElementConnectivitySize[1]; ++j)
+        {
+            int elt_num = bamg_mesh->NodalElementConnectivity[bamg_mesh->NodalElementConnectivitySize[1]*i+j]-1;
 
-    std::for_each(hmax.begin(), hmax.end(), [&](double& f){ f = 1.2*f; });
+            if ((0 <= elt_num) && (elt_num < mesh.numTriangles()) && (elt_num != NAN))
+            {
+                measure[j] = this->measure(mesh.triangles()[elt_num],mesh);
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        measure.resize(j);
+        hmax[i] = std::sqrt(2.)*std::sqrt(*std::max_element(measure.begin(),measure.end()))*1.2;
+    }
 
     return hmax;
 }
@@ -936,10 +963,13 @@ FiniteElement::shapeCoeff(element_type const& element, mesh_type const& mesh) co
 void
 FiniteElement::regrid(bool step)
 {
-    double displacement_factor = 2.;
-    int substep_nb=1;
-    int step_order=-1;
+    double applied_displacement_factor=0.;
+    double displacement_factor = 1.;
+    
+    //int substep_nb=1;
+    //int step_order=-1;
     bool flip = true;
+    double minang;
     int substep = 0;
     
     M_nb_regrid++;
@@ -947,6 +977,8 @@ FiniteElement::regrid(bool step)
     std::vector<double> hmin_vertices_first;
     std::vector<double> hmax_vertices_first;
 
+    mesh_adapt_step++;
+#if 0
     if (step)
     {
         chrono.restart();
@@ -975,11 +1007,32 @@ FiniteElement::regrid(bool step)
 
         LOG(DEBUG) <<"Flip done in "<< chrono.elapsed() <<"s\n";
     }
+#endif
 
-	for (int substep_i = 0; substep_i < substep_nb; substep_i++ )
+//	for (int substep_i = 0; substep_i < substep_nb; substep_i++ )
+    while(applied_displacement_factor<1.)
 	{
 		if(step)
 		{
+            flip = this->flip(M_mesh,M_UM,displacement_factor);
+            
+            minang = this->minAngle(M_mesh,M_UM,displacement_factor);
+            
+            substep++;
+            while (flip || minang<(vm["simul.regrid_angle"].as<double>())/10.)
+            {
+                displacement_factor /= 2.;
+                flip = this->flip(M_mesh,M_UM,displacement_factor);
+                minang = this->minAngle(M_mesh,M_UM,displacement_factor);
+            }
+            LOG(DEBUG) <<"displacement_factor= "<< displacement_factor <<"\n";
+            
+            if(displacement_factor<1.)
+    		{
+    			LOG(WARNING) << "substeps will be needed for the remeshing!" <<"\n";
+    			LOG(WARNING) << "Warning: It is probably due to very high ice speed, check your fields!\n";
+    		}
+            
 	        chrono.restart();
 	        LOG(DEBUG) <<"Move starts\n";
 			M_mesh.move(M_UM,displacement_factor);
@@ -1061,15 +1114,20 @@ FiniteElement::regrid(bool step)
         if(step && (vm["simul.regrid_output_flag"].as<bool>()))
         {
             had_remeshed=true;
-            mesh_adapt_step++;
-            this->exportResults(200000+mesh_adapt_step);
+            this->exportResults(400000+mesh_adapt_step+substep*100000,true,true,false);
 		}
 
         chrono.restart();
         LOG(INFO) <<"AdaptMesh starts\n";
+        applied_displacement_factor=applied_displacement_factor+displacement_factor;
         this->adaptMesh();
 	    LOG(INFO) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
 
+        if(step && (vm["simul.regrid_output_flag"].as<bool>()))
+        {
+            had_remeshed=true;
+            this->exportResults(4000000+mesh_adapt_step+substep*100000,true,false,false);
+		}
 
 		if (step)
 		{
@@ -1889,6 +1947,9 @@ FiniteElement::assemble(int pcpt)
         //     total_threads = omp_get_num_threads();
         //     std::cout<<"Total number of threads are "<< total_threads <<"\n";
         // }
+        
+        double tmp_thick=(vm["simul.min_h"].as<double>()>M_thick[cpt]) ? vm["simul.min_h"].as<double>() : M_thick[cpt];
+        double tmp_conc=(vm["simul.min_c"].as<double>()>M_conc[cpt]) ? vm["simul.min_c"].as<double>() : M_conc[cpt];
 
         /* Compute the value that only depends on the element */
         double welt_oce_ice = 0.;
@@ -1909,23 +1970,32 @@ FiniteElement::assemble(int pcpt)
         }
 
         double norm_Voce_ice = welt_oce_ice/3.;
+        double norm_Voce_ice_min= 0.01; // minimum value to avoid 0 water drag term. 
+        norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
+        
         double norm_Vair_ice = welt_air_ice/3.;
+        double norm_Vair_ice_min= 0.01; // minimum value to avoid 0 water drag term. 
+        norm_Vair_ice = (norm_Vair_ice > norm_Vair_ice_min) ? (norm_Vair_ice):norm_Vair_ice_min;
+        
         double norm_Vice = welt_ice/3.;
 
         double element_ssh = welt_ssh/3.;
 
         double coef_Vair = (vm["simul.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*norm_Vair_ice));
+        //double coef_Vair = (vm["simul.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*std::pow(norm_Vair_ice,0.78)));
         coef_Vair *= (physical::rhoa);
+        coef_Vair = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_Vair):0.;
 
         double coef_Voce = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
         coef_Voce *= physical::rhow; //(vm["simul.rho_water"].as<double>());
-
+        coef_Voce = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_Voce):0.;
 
         double critical_h = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
 
         double _coef = std::max(0., M_thick[cpt]-critical_h);
         double coef_basal = quad_drag_coef_air*basal_k2/(basal_drag_coef_air*(norm_Vice+basal_u_0));
         coef_basal *= _coef*std::exp(-basal_Cb*(1.-M_conc[cpt]));
+        coef_basal = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_basal):0.;
 
         //std::vector<double> sigma_P(3,0.); /* temporary variable for the resistance to the compression */
         //std::vector<double> B0Tj_sigma_h(2,0);
@@ -1941,12 +2011,14 @@ FiniteElement::assemble(int pcpt)
         int index_u, index_v;
         
 
-        double tmp_thick=(0.05>M_thick[cpt]) ? 0.05 : M_thick[cpt];
-        double tmp_conc=(0.01>M_conc[cpt]) ? 0.01 : M_conc[cpt];
-
 #if 1
         //option 1 (original)
         double coef = young*(1.-M_damage[cpt])*tmp_thick*std::exp(ridging_exponent*(1.-tmp_conc));
+        coef = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef):0.;
+        
+        double coef_0 = 10.;
+        coef_0 = (tmp_conc > vm["simul.min_c"].as<double>()) ? 0.:(coef_0);
+        
 #else
         //option 2 (we just change the value of the ridging exponent and we renamed it "damaging_exponent")
         double damaging_exponent = -80.;
@@ -1971,10 +2043,12 @@ FiniteElement::assemble(int pcpt)
         {
             coef_P = compression_factor*std::pow(tmp_thick,exponent_compression_factor)*std::exp(ridging_exponent*(1.-tmp_conc));
             coef_P = coef_P/(std::abs(M_divergence_rate[cpt])+divergence_min);
+            coef_P = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_P):0.;
         }
 
         double mass_e = rhoi*tmp_thick + rhos*M_snow_thick[cpt];
-        mass_e = (tmp_conc > 0.) ? (mass_e/tmp_conc):0.;
+        mass_e = (tmp_conc > vm["simul.min_c"].as<double>()) ? (mass_e/tmp_conc):0.;
+                
         double surface_e = M_surface[cpt];
 
         // /* compute the x and y derivative of g*ssh */
@@ -1989,9 +2063,16 @@ FiniteElement::assemble(int pcpt)
         }
 
         double coef_C     = mass_e*M_fcor[cpt];              /* for the Coriolis term */
+        coef_C = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_C):0.;
+        
         double coef_V     = mass_e/time_step;             /* for the inertial term */
+        coef_V = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_V):0.;
+        
         double coef_X     = - mass_e*g_ssh_e_x;              /* for the ocean slope */
+        coef_X = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_X):0.;
+        
         double coef_Y     = - mass_e*g_ssh_e_y;              /* for the ocean slope */
+        coef_Y = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_Y):0.;
 
         double Vcor_index_v, Vcor_index_u;
 
@@ -2013,6 +2094,9 @@ FiniteElement::assemble(int pcpt)
 
             Vcor_index_v=beta0*M_VT[index_v] + beta1*M_VTM[index_v] + beta2*M_VTMM[index_v];
             Vcor_index_u=beta0*M_VT[index_u] + beta1*M_VTM[index_u] + beta2*M_VTMM[index_u];
+            
+            double coef_sigma = tmp_thick;
+            coef_sigma = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_sigma):0.;
 
             for(int i=0; i<3; i++)
             {
@@ -2027,23 +2111,23 @@ FiniteElement::assemble(int pcpt)
 
                 for(int k=0; k<3; k++)
                 {
-                    b0tj_sigma_hu += M_B0T[cpt][k*6+2*i]*(M_sigma[3*cpt+k]*tmp_thick/*+sigma_P[k]*/);
-                    b0tj_sigma_hv += M_B0T[cpt][k*6+2*i+1]*(M_sigma[3*cpt+k]*tmp_thick/*+sigma_P[k]*/);
+                    b0tj_sigma_hu += M_B0T[cpt][k*6+2*i]*(M_sigma[3*cpt+k]*coef_sigma/*+sigma_P[k]*/);
+                    b0tj_sigma_hv += M_B0T[cpt][k*6+2*i+1]*(M_sigma[3*cpt+k]*coef_sigma/*+sigma_P[k]*/);
                 }
 
                 /* ---------- UU component */
                 duu = surface_e*( mloc*(coef_Vair+coef_Voce*cos_ocean_turning_angle+coef_V+coef_basal)
-                                  +M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i)*6+2*j]*coef_P);
+                                  +M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*time_step+M_B0T_Dunit_0_B0T[cpt][(2*i)*6+2*j]*coef_0*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i)*6+2*j]*coef_P);
 
                 /* ---------- VU component */
-                dvu = surface_e*(+M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j]*coef_P);
+                dvu = surface_e*(+M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j]*coef*time_step+M_B0T_Dunit_0_B0T[cpt][(2*i+1)*6+2*j]*coef_0*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j]*coef_P);
 
                 /* ---------- UV component */
-                duv = surface_e*(+M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j+1]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i)*6+2*j+1]*coef_P);
+                duv = surface_e*(+M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j+1]*coef*time_step+M_B0T_Dunit_0_B0T[cpt][(2*i)*6+2*j+1]*coef_0*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i)*6+2*j+1]*coef_P);
 
                 /* ---------- VV component */
                 dvv = surface_e*( mloc*(coef_Vair+coef_Voce*cos_ocean_turning_angle+coef_V+coef_basal)
-                                  +M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j+1]*coef_P);
+                                  +M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*time_step+M_B0T_Dunit_0_B0T[cpt][(2*i+1)*6+2*j+1]*coef_0*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j+1]*coef_P);
 
                 data[(2*i  )*6+2*j  ] = duu;
                 data[(2*i+1)*6+2*j  ] = dvu;
@@ -2199,6 +2283,7 @@ FiniteElement::assemble(int pcpt)
     LOG(INFO) <<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
 
     // extended dirichlet nodes (add nodes where M_conc <= 0)
+#if 0
     for (int i=0; i<2*M_num_nodes; ++i)
     {
         if(M_node_max_conc[i]<=0.)
@@ -2208,7 +2293,8 @@ FiniteElement::assemble(int pcpt)
     }
     std::sort(extended_dirichlet_nodes.begin(), extended_dirichlet_nodes.end());
     extended_dirichlet_nodes.erase(std::unique( extended_dirichlet_nodes.begin(), extended_dirichlet_nodes.end() ), extended_dirichlet_nodes.end());
-
+#endif
+    
     chrono.restart();
     //M_matrix->on(M_dirichlet_nodes,*M_vector);
     M_matrix->on(extended_dirichlet_nodes,*M_vector);
@@ -2266,18 +2352,44 @@ void
 FiniteElement::tensors()
 {
     M_Dunit.assign(9,0);
+    M_Dunit_0.assign(9,0);
     M_Dunit_comp.assign(9,0);
     M_Mass.assign(9,0);
+
+    
 
     for (int k=0; k<6; k+=3)
     {
         for (int kk=0; kk<2; ++kk )
         {
             M_Dunit[k+kk] = (1-((k+kk)%2)*(1-nu0))/(1-std::pow(nu0,2.));
+            M_Dunit_0[k+kk] = (1-((k+kk)%2));
             M_Dunit_comp[k+kk] = 1.;
         }
     }
     M_Dunit[8] = (1-nu0)/(2.*(1-std::pow(nu0,2.)));
+    M_Dunit_0[8] = 1./2.;
+#if 0
+    std::cout<< " M_Dunit: ";
+    for (int k=0; k<9; k++)
+    {
+        std::cout<< M_Dunit[k] << " ";
+    }
+    std::cout<< " \n ";
+    
+    std::cout<< " M_Dunit_comp: ";
+    for (int k=0; k<9; k++)
+    {
+        std::cout<< M_Dunit_comp[k] << " ";
+    }
+    std::cout<< " \n ";
+    std::cout<< " M_Dunit_0: ";
+    for (int k=0; k<9; k++)
+    {
+        std::cout<< M_Dunit_0[k] << " ";
+    }
+    std::cout<< " \n ";
+#endif    
 
     for (int i=0; i<3; ++i)
     {
@@ -2294,17 +2406,22 @@ FiniteElement::tensors()
 
     M_B0T.resize(M_num_elements);
     M_B0T_Dunit_B0T.resize(M_num_elements);
+    M_B0T_Dunit_0_B0T.resize(M_num_elements);
     M_B0T_Dunit_comp_B0T.resize(M_num_elements);
     M_shape_coeff.resize(M_num_elements);
 
     std::vector<double> B0T(18,0);
     std::vector<double> B0Tj_Dunit(6,0);
     std::vector<double> B0T_Dunit_B0T(36,0);
+    std::vector<double> B0Tj_Dunit_0(6,0);
+    std::vector<double> B0T_Dunit_0_B0T(36,0);
     std::vector<double> B0Tj_Dunit_comp(6,0);
     std::vector<double> B0T_Dunit_comp_B0T(36,0);
 
     double B0Tj_Dunit_tmp0, B0Tj_Dunit_tmp1;
     double B0Tj_Dunit_B0Ti_tmp0, B0Tj_Dunit_B0Ti_tmp1, B0Tj_Dunit_B0Ti_tmp2, B0Tj_Dunit_B0Ti_tmp3;
+    double B0Tj_Dunit_0_tmp0, B0Tj_Dunit_0_tmp1;
+    double B0Tj_Dunit_0_B0Ti_tmp0, B0Tj_Dunit_0_B0Ti_tmp1, B0Tj_Dunit_0_B0Ti_tmp2, B0Tj_Dunit_0_B0Ti_tmp3;
     double B0Tj_Dunit_comp_tmp0, B0Tj_Dunit_comp_tmp1;
     double B0Tj_Dunit_comp_B0Ti_tmp0, B0Tj_Dunit_comp_B0Ti_tmp1, B0Tj_Dunit_comp_B0Ti_tmp2, B0Tj_Dunit_comp_B0Ti_tmp3;
 
@@ -2355,7 +2472,10 @@ FiniteElement::tensors()
                 /* product of the first line of B0T' and the matrix Dunit */
                 B0Tj_Dunit_tmp0 = 0.;
                 B0Tj_Dunit_tmp1 = 0.;
-
+                
+                B0Tj_Dunit_0_tmp0 = 0.;
+                B0Tj_Dunit_0_tmp1 = 0.;
+                
                 B0Tj_Dunit_comp_tmp0 = 0.;
                 B0Tj_Dunit_comp_tmp1 = 0.;
 
@@ -2364,12 +2484,18 @@ FiniteElement::tensors()
                     B0Tj_Dunit_tmp0 += B0T[kk*6+2*j]*M_Dunit[3*i+kk];
                     B0Tj_Dunit_tmp1 += B0T[kk*6+2*j+1]*M_Dunit[3*i+kk];
 
+                    B0Tj_Dunit_0_tmp0 += B0T[kk*6+2*j]*M_Dunit_0[3*i+kk];
+                    B0Tj_Dunit_0_tmp1 += B0T[kk*6+2*j+1]*M_Dunit_0[3*i+kk];
+
                     B0Tj_Dunit_comp_tmp0 += B0T[kk*6+2*j]*M_Dunit_comp[3*i+kk];
                     B0Tj_Dunit_comp_tmp1 += B0T[kk*6+2*j+1]*M_Dunit_comp[3*i+kk];
                 }
 
                 B0Tj_Dunit[2*i] = B0Tj_Dunit_tmp0;
                 B0Tj_Dunit[2*i+1] = B0Tj_Dunit_tmp1;
+
+                B0Tj_Dunit_0[2*i] = B0Tj_Dunit_0_tmp0;
+                B0Tj_Dunit_0[2*i+1] = B0Tj_Dunit_0_tmp1;
 
                 B0Tj_Dunit_comp[2*i] = B0Tj_Dunit_comp_tmp0;
                 B0Tj_Dunit_comp[2*i+1] = B0Tj_Dunit_comp_tmp1;
@@ -2383,6 +2509,12 @@ FiniteElement::tensors()
                 B0Tj_Dunit_B0Ti_tmp1 = 0.;
                 B0Tj_Dunit_B0Ti_tmp2 = 0.;
                 B0Tj_Dunit_B0Ti_tmp3 = 0.;
+                
+                /* scalar product of B0Ti_Dunit and the first column of B0T */
+                B0Tj_Dunit_0_B0Ti_tmp0 = 0.;
+                B0Tj_Dunit_0_B0Ti_tmp1 = 0.;
+                B0Tj_Dunit_0_B0Ti_tmp2 = 0.;
+                B0Tj_Dunit_0_B0Ti_tmp3 = 0.;
 
                 /* scalar product of B0Ti_Dunit_comp and the first column of B0T */
                 B0Tj_Dunit_comp_B0Ti_tmp0 = 0.;
@@ -2396,6 +2528,11 @@ FiniteElement::tensors()
                     B0Tj_Dunit_B0Ti_tmp1 += B0Tj_Dunit[2*kk]*B0T[kk*6+2*i+1];
                     B0Tj_Dunit_B0Ti_tmp2 += B0Tj_Dunit[2*kk+1]*B0T[kk*6+2*i];
                     B0Tj_Dunit_B0Ti_tmp3 += B0Tj_Dunit[2*kk+1]*B0T[kk*6+2*i+1];
+                    
+                    B0Tj_Dunit_0_B0Ti_tmp0 += B0Tj_Dunit_0[2*kk]*B0T[kk*6+2*i];
+                    B0Tj_Dunit_0_B0Ti_tmp1 += B0Tj_Dunit_0[2*kk]*B0T[kk*6+2*i+1];
+                    B0Tj_Dunit_0_B0Ti_tmp2 += B0Tj_Dunit_0[2*kk+1]*B0T[kk*6+2*i];
+                    B0Tj_Dunit_0_B0Ti_tmp3 += B0Tj_Dunit_0[2*kk+1]*B0T[kk*6+2*i+1];
 
                     B0Tj_Dunit_comp_B0Ti_tmp0 += B0Tj_Dunit_comp[2*kk]*B0T[kk*6+2*i];
                     B0Tj_Dunit_comp_B0Ti_tmp1 += B0Tj_Dunit_comp[2*kk]*B0T[kk*6+2*i+1];
@@ -2408,6 +2545,11 @@ FiniteElement::tensors()
                 B0T_Dunit_B0T[(2*i)*6+2*j+1] = B0Tj_Dunit_B0Ti_tmp2;
                 B0T_Dunit_B0T[(2*i+1)*6+2*j+1] = B0Tj_Dunit_B0Ti_tmp3;
 
+                B0T_Dunit_0_B0T[(2*i)*6+2*j] = B0Tj_Dunit_0_B0Ti_tmp0;
+                B0T_Dunit_0_B0T[(2*i+1)*6+2*j] = B0Tj_Dunit_0_B0Ti_tmp1;
+                B0T_Dunit_0_B0T[(2*i)*6+2*j+1] = B0Tj_Dunit_0_B0Ti_tmp2;
+                B0T_Dunit_0_B0T[(2*i+1)*6+2*j+1] = B0Tj_Dunit_0_B0Ti_tmp3;
+                
                 B0T_Dunit_comp_B0T[(2*i)*6+2*j] = B0Tj_Dunit_comp_B0Ti_tmp0;
                 B0T_Dunit_comp_B0T[(2*i+1)*6+2*j] = B0Tj_Dunit_comp_B0Ti_tmp1;
                 B0T_Dunit_comp_B0T[(2*i)*6+2*j+1] = B0Tj_Dunit_comp_B0Ti_tmp2;
@@ -2425,6 +2567,7 @@ FiniteElement::tensors()
             for(int j=0; j<i; j++)
             {
                 B0T_Dunit_B0T[i*6+j] = B0T_Dunit_B0T[j*6+i];
+                B0T_Dunit_0_B0T[i*6+j] = B0T_Dunit_0_B0T[j*6+i];
                 B0T_Dunit_comp_B0T[i*6+j] = B0T_Dunit_comp_B0T[j*6+i];
             }
         }
@@ -2432,6 +2575,7 @@ FiniteElement::tensors()
         M_shape_coeff[cpt]        = shapecoeff;
         M_B0T[cpt]                = B0T;
         M_B0T_Dunit_B0T[cpt]      = B0T_Dunit_B0T;
+        M_B0T_Dunit_0_B0T[cpt]      = B0T_Dunit_0_B0T;
         M_B0T_Dunit_comp_B0T[cpt] = B0T_Dunit_comp_B0T;
 
         ++cpt;
@@ -2456,6 +2600,8 @@ void
 FiniteElement::update()
 {
     std::vector<double> UM_P = M_UM;
+
+    
 
     for (int nd=0; nd<M_UM.size(); ++nd)
     {
@@ -2594,6 +2740,8 @@ FiniteElement::update()
         //option 2
         double damaging_exponent = -80.;
 #endif
+        double tmp_conc=(vm["simul.min_c"].as<double>()>M_conc[cpt]) ? vm["simul.min_c"].as<double>() : M_conc[cpt];
+        
         for(i=0;i<3;i++)
         {
             sigma_dot_i = 0.0;
@@ -2606,6 +2754,9 @@ FiniteElement::update()
 
             M_sigma[3*cpt+i] += time_step*sigma_dot_i;
             sigma_pred[i]    = M_sigma[3*cpt+i] + time_step*sigma_dot_i;
+            
+            M_sigma[3*cpt+i] = (tmp_conc > vm["simul.min_c"].as<double>()) ? (M_sigma[3*cpt+i]):0.;
+            sigma_pred[i] = (tmp_conc > vm["simul.min_c"].as<double>()) ? (sigma_pred[i]):0.;            
         }
 
         /*======================================================================
@@ -4060,8 +4211,12 @@ FiniteElement::step(int &pcpt)
         double displacement_factor = 1.;
         double minang = this->minAngle(M_mesh,M_UM,displacement_factor);
         LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
+        
+        bool flip_test = this->flip(M_mesh,M_UM,displacement_factor); 
+        LOG(DEBUG) <<"FLIP TEST= "<< flip_test <<"\n";
+        
 
-        if ( minang < vm["simul.regrid_angle"].as<double>() )
+        if ( minang < vm["simul.regrid_angle"].as<double>() || flip_test )
         {
             M_regrid = true;
             // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
@@ -4655,10 +4810,11 @@ FiniteElement::writeRestart(int pcpt, int step)
     if ( ! outbin.good() )
         throw std::runtime_error("Cannot write to file: " + filename);
 
-    std::vector<int> misc_int(2);
+    std::vector<int> misc_int(4);
     misc_int[0] = pcpt;
     misc_int[1] = M_flag_fix;
     misc_int[2] = current_time;
+    misc_int[3] = mesh_adapt_step;
     exporter.writeField(outbin, misc_int, "Misc_int");
     exporter.writeField(outbin, M_dirichlet_flags, "M_dirichlet_flags");
 
@@ -4803,6 +4959,8 @@ FiniteElement::readRestart(int step)
     // Fix boundaries
     int pcpt   = field_map_int["Misc_int"].at(0);
     M_flag_fix = field_map_int["Misc_int"].at(1);
+    mesh_adapt_step = field_map_int["Misc_int"].at(3);
+        
     std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
     for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
     {
@@ -4965,7 +5123,7 @@ FiniteElement::updateVelocity()
     // TODO (updateVelocity) Sylvain: This limitation cost about 1/10 of the solver time.
     // TODO (updateVelocity) Sylvain: We could add a term in the momentum equation to avoid the need of this limitation.
     //std::vector<double> speed_c_scaling_test(bamgmesh->NodalElementConnectivitySize[0]);
-    #if 1
+    #if 0
     int elt_num, i, j;
     double c_max_nodal_neighbour;
     double speed_c_scaling;
@@ -5505,18 +5663,19 @@ FiniteElement::targetIce()
 
     auto RX = M_mesh.bcoordX();
     auto RY = M_mesh.bcoordY();
+    double cmin= 0.01;
 
     for (int i=0; i<M_num_elements; ++i)
     {
         tmp_var = (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max)*(RX[i]>=x_min)
-            +     (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<x_min)*std::max(0.,(1.-std::hypot(RX[i]-x_min,0.         )/transition))
-            +     (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]>x_max)*std::max(0.,(1.-std::hypot(RX[i]-x_max,0.         )/transition))
-            +     (RX[i]<=x_max)*(RX[i]>=x_min)*(RY[i]<y_min)*std::max(0.,(1.-std::hypot(RY[i]-y_min,0.         )/transition))
-            +     (RX[i]<=x_max)*(RX[i]>=x_min)*(RY[i]>y_max)*std::max(0.,(1.-std::hypot(RY[i]-y_max,0.         )/transition))
-            +     (RY[i]< y_min)*(RX[i]< x_min)              *std::max(0.,(1.-std::hypot(RX[i]-x_min,RY[i]-y_min)/transition))
-            +     (RY[i]< y_min)*(RX[i]> x_max)              *std::max(0.,(1.-std::hypot(RX[i]-x_max,RY[i]-y_min)/transition))
-            +     (RY[i]> y_max)*(RX[i]< x_min)              *std::max(0.,(1.-std::hypot(RX[i]-x_min,RY[i]-y_max)/transition))
-            +     (RY[i]> y_max)*(RX[i]> x_max)              *std::max(0.,(1.-std::hypot(RX[i]-x_max,RY[i]-y_max)/transition));
+            +     (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<x_min)*std::max(cmin,(1.-std::hypot(RX[i]-x_min,0.         )/transition))
+            +     (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]>x_max)*std::max(cmin,(1.-std::hypot(RX[i]-x_max,0.         )/transition))
+            +     (RX[i]<=x_max)*(RX[i]>=x_min)*(RY[i]<y_min)*std::max(cmin,(1.-std::hypot(RY[i]-y_min,0.         )/transition))
+            +     (RX[i]<=x_max)*(RX[i]>=x_min)*(RY[i]>y_max)*std::max(cmin,(1.-std::hypot(RY[i]-y_max,0.         )/transition))
+            +     (RY[i]< y_min)*(RX[i]< x_min)              *std::max(cmin,(1.-std::hypot(RX[i]-x_min,RY[i]-y_min)/transition))
+            +     (RY[i]< y_min)*(RX[i]> x_max)              *std::max(cmin,(1.-std::hypot(RX[i]-x_max,RY[i]-y_min)/transition))
+            +     (RY[i]> y_max)*(RX[i]< x_min)              *std::max(cmin,(1.-std::hypot(RX[i]-x_min,RY[i]-y_max)/transition))
+            +     (RY[i]> y_max)*(RX[i]> x_max)              *std::max(cmin,(1.-std::hypot(RX[i]-x_max,RY[i]-y_max)/transition));
             
         std::cout<<"RX: "<< RX[i] << "RY: "<< RY[i] << "tmp_var: " << tmp_var << "\n";
 
@@ -5717,13 +5876,13 @@ FiniteElement::topazForecastAmsr2Ice()
         }
 
         //if either c or h equal zero, we set the others to zero as well
-        if(M_conc[i]<=vm["simul.min_c"].as<double>())
+        if(M_conc[i]<=0.)
         {
             M_conc[i]=0.;
             M_thick[i]=0.;
             M_snow_thick[i]=0.;
         }
-        if(M_thick[i]<=vm["simul.min_h"].as<double>())
+        if(M_thick[i]<=0.)
         {
             M_thick[i]=0.;
             M_conc[i]=0.;
@@ -6695,7 +6854,7 @@ FiniteElement::exportInitMesh()
 }
 
 void
-FiniteElement::exportResults(int step, bool export_mesh, bool export_fields)
+FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, bool apply_displacement)
 {
     Exporter exporter("float");
     std::string fileout;
@@ -6710,7 +6869,8 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields)
         LOG(INFO) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
 
 		// move the mesh for the export
-		M_mesh.move(M_UM,1.);
+        if(apply_displacement)
+            M_mesh.move(M_UM,1.);
 
         std::fstream meshbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
         if ( ! meshbin.good() )
@@ -6719,9 +6879,10 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields)
         exporter.writeMesh(meshbin, M_mesh);
         meshbin.close();
 
-		// move it back after the export
-		M_mesh.move(M_UM,-1.);
-
+        // move it back after the export
+        if(apply_displacement)
+		    M_mesh.move(M_UM,-1.);
+        
         fileout = (boost::format( "%1%/mesh_%2%.dat" )
                % M_export_path
                % step ).str();
@@ -6749,7 +6910,10 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields)
             throw std::runtime_error("Cannot write to file: " + fileout);
         std::vector<double> timevec(1);
         timevec[0] = current_time;
+        std::vector<int> regridvec(1);
+        regridvec[0] = M_nb_regrid;
         exporter.writeField(outbin, timevec, "Time");
+        exporter.writeField(outbin, regridvec, "M_nb_regrid");
         exporter.writeField(outbin, M_surface, "Element_area");
         exporter.writeField(outbin, M_element_age, "Element_age");
         exporter.writeField(outbin, M_node_max_conc, "M_node_max_conc");
@@ -6766,6 +6930,13 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields)
         }
         exporter.writeField(outbin, M_sst, "SST");
         exporter.writeField(outbin, M_sss, "SSS");
+        
+        std::vector<double> PreviousNumbering(M_mesh.numNodes());
+
+        for ( int i=0; i<M_mesh.numNodes(); ++i )
+            PreviousNumbering[i]=bamgmesh->PreviousNumbering[i];
+            
+        exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering");
 
         if(vm["simul.save_forcing_field"].as<bool>())
         {

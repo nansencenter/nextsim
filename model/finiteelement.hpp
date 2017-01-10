@@ -188,7 +188,7 @@ public:
     void scalingVelocity();
     void update();
     void exportInitMesh();
-    void exportResults(int step, bool export_mesh = true, bool export_fields = true);
+    void exportResults(int step, bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
 
     void writeRestart(int pcpt, int step);
     int readRestart(int step);
@@ -284,11 +284,13 @@ private:
     std::vector<double> M_fcor;
 
     std::vector<double> M_Dunit;
+    std::vector<double> M_Dunit_0;
     std::vector<double> M_Dunit_comp;
     std::vector<double> M_Mass;
     std::vector<std::vector<double>> M_shape_coeff;
     std::vector<std::vector<double>> M_B0T;
     std::vector<std::vector<double>> M_B0T_Dunit_B0T;
+    std::vector<std::vector<double>> M_B0T_Dunit_0_B0T;
     std::vector<std::vector<double>> M_B0T_Dunit_comp_B0T;
     std::vector<double> M_random_number;
     std::vector<double> M_Cohesion;
