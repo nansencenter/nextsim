@@ -1,7 +1,8 @@
-function resplot(field,step,dir)
+function resplot(field,step,dir,plot_edge)
 %% CALL: resplot(field,step,dir)
 if nargin==1, step='init'; end
 if nargin<=2, dir=''; end
+if nargin<=3, plot_edge=false; end
 
 % clearvars -except step;
 
@@ -49,7 +50,12 @@ Nn=length(mesh_out.Nodes_x);
 x=reshape(var_mx,[3,Ne]);
 y=reshape(var_my,[3,Ne]);
 
-field_tmp=data_out.(field);
+if(~isempty(field))
+    field_tmp=data_out.(field);
+else
+    field_tmp=zeros(Ne,1);
+    plot_edge=true;
+end
 
 if(length(field_tmp)==Ne)
     c{1}=[field_tmp,field_tmp,field_tmp]';
@@ -71,7 +77,10 @@ end
 
 for i=1:length(c)
     figure
-    patch(x,y,c{i},'EdgeColor','none')
+    if(plot_edge)
+        patch(x,y,c{i});
+    else
+        patch(x,y,c{i},'EdgeColor','none')
     min_value=min(min(c{i}))
     max_value=max(max(c{i}))
     if(min_value<max_value)
@@ -87,9 +96,13 @@ for i=1:length(c)
         display(e)
     end
     set(gca,'DataAspectRatio',[1 1 1], 'Color', [.7 .7 .7])
+    end
+    
+if(~isempty(field))
+    % % useful to highligth zero value    
+    hold on
+    %plot(var_mx(c{1}==0),var_my(c{1}==0),'or')
 end
-
-
 %hold on
 %col_fail_id=592575;
 %plot(var_mx(col_fail_id+1),var_my(col_fail_id+1),'o')
