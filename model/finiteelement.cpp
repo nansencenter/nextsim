@@ -912,6 +912,37 @@ FiniteElement::hmaxVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) co
     return hmax;
 }
 
+std::vector<double>
+FiniteElement::AllMinAngle(mesh_type const& mesh, std::vector<double> const& um, double factor) const
+{
+    auto movedmesh = mesh;
+    movedmesh.move(um,factor);
+
+    std::vector<double> all_min_angle(movedmesh.numTriangles());
+
+#if 0
+    // int cpt = 0;
+    // for (auto it=movedmesh.triangles().begin(), end=movedmesh.triangles().end(); it!=end; ++it)
+    // {
+    //     all_min_angle[cpt] = this->minAngles(*it,movedmesh);
+    //     ++cpt;
+    // }
+#endif
+
+#if 1
+    int thread_id;
+    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
+
+#pragma omp parallel for num_threads(max_threads) private(thread_id)
+    for (int cpt=0; cpt < M_num_elements; ++cpt)
+    {
+        all_min_angle[cpt] = this->minAngles(movedmesh.triangles()[cpt],movedmesh);
+    }
+#endif
+
+    return all_min_angle;
+}
+
 double
 FiniteElement::measure(element_type const& element, mesh_type const& mesh) const
 {
@@ -6869,7 +6900,7 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
                    % step ).str();
 
         LOG(INFO) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
-
+    
 		// move the mesh for the export
         if(apply_displacement)
             M_mesh.move(M_UM,1.);
@@ -6924,6 +6955,10 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
         exporter.writeField(outbin, M_thick, "Thickness");
         exporter.writeField(outbin, M_snow_thick, "Snow");
         exporter.writeField(outbin, M_damage, "Damage");
+        
+        std::vector<double> AllMinAngle = this->AllMinAngle(M_mesh, M_UM, 0.);
+        exporter.writeField(outbin, AllMinAngle, "AllMinAngle");
+        
         int i=0;
         for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
         {

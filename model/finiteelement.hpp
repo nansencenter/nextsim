@@ -155,6 +155,8 @@ public:
 
     std::vector<double> hminVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const;
     std::vector<double> hmaxVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const;
+    
+    std::vector<double> AllMinAngle(mesh_type const& mesh, std::vector<double> const& um, double factor) const;
 
     void initBamg();
     void initConstant();
