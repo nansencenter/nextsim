@@ -2021,7 +2021,7 @@ FiniteElement::assemble(int pcpt)
 
         double coef_Voce = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
         coef_Voce *= physical::rhow; //(vm["simul.rho_water"].as<double>());
-        coef_Voce = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_Voce):0.;
+        //coef_Voce = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_Voce):0.;
 
         double critical_h = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
 
@@ -2049,7 +2049,7 @@ FiniteElement::assemble(int pcpt)
         double coef = young*(1.-M_damage[cpt])*tmp_thick*std::exp(ridging_exponent*(1.-tmp_conc));
         coef = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef):0.;
         
-        double coef_0 = 10.;
+        double coef_0 = 0.;
         coef_0 = (tmp_conc > vm["simul.min_c"].as<double>()) ? 0.:(coef_0);
         
 #else
@@ -2633,12 +2633,68 @@ void
 FiniteElement::update()
 {
     std::vector<double> UM_P = M_UM;
-
     
+    std::vector<double> M_thick_old=M_thick;
+    std::vector<double> M_conc_old=M_conc;
+    std::vector<double> M_snow_thick_old=M_snow_thick;
+    
+    int Nd = bamgmesh->NodalConnectivitySize[1];
+    double UM_x, UM_y;
+
+    std::vector<double> M_VT_smoothed = M_VT;
+    
+    int x_ind, y_ind, neighbour_int, vertex_1, vertex_2;
+    double neighbour_double;
+    int other_vertex[3*2]={1,2 , 2,0 , 0,1};
+    
+    std::vector<double> weight=M_node_max_conc;
+    for (int i=0; i<bamgmesh->NodalConnectivitySize[0]; ++i)
+    {
+        if(M_mask_dirichlet[i]==true)
+            weight[i]=1.;
+    }
+    
+    std::vector<double> M_VT_tmp = M_VT_smoothed;
+    std::vector<double> weight_tmp=weight;
+    double weight_local;
+    
+    
+    for (int k=0; k<5; ++k)
+    {
+        M_VT_tmp=M_VT_smoothed;
+        weight_tmp=weight;
+        for (int i=0; i<bamgmesh->NodalConnectivitySize[0]; ++i)
+        {
+            if(M_mask_dirichlet[i]==false)
+            {
+                int Nc = bamgmesh->NodalConnectivity[Nd*(i+1)-1];
+            
+                UM_x=0.;
+                UM_y=0.;
+                weight_local=0.;
+                for (int j=0; j<Nc; ++j)
+                {
+                    UM_x += M_VT_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1]  ;
+                    UM_y += M_VT_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1+M_num_nodes]  ;
+                    weight_local += weight_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1];
+
+//                    UM_x += weight_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1]*M_VT_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1]  ;
+//                    UM_y += weight_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1]*M_VT_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1+M_num_nodes]  ;
+//                    weight_local += weight_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1];
+                }
+                
+                M_VT_smoothed[i             ]=UM_x/Nc;
+                M_VT_smoothed[i+M_num_nodes ]=UM_y/Nc;
+
+                weight[i                    ]=weight_local/Nc;
+            }
+        }
+    }
 
     for (int nd=0; nd<M_UM.size(); ++nd)
     {
-        M_UM[nd] += time_step*M_VT[nd];
+        //M_UM[nd] += time_step*M_VT[nd];
+        M_UM[nd] += time_step*M_VT_smoothed[nd]*0;
     }
 
     for (const int& nd : M_neumann_nodes)
@@ -2682,7 +2738,7 @@ FiniteElement::update()
         double sigma_dot_i;
 
         /* some variables used for the advection*/
-        double surface, surface_new, ar, ar_new;
+        double surface, surface_new;
         double ice_surface, ice_volume, snow_volume;
         double thin_ice_surface, thin_ice_volume, thin_snow_volume;
         double ridging_thin_ice, ridging_thick_ice, ridging_snow_thin_ice;
@@ -2692,6 +2748,10 @@ FiniteElement::update()
         double sigma_s, sigma_n, sigma_1, sigma_2;
         double tract_max, sigma_t, sigma_c, q;
         double tmp, sigma_target;
+        
+        /* some variables used for the advection*/
+        double x[3],y[3],x_new[3],y_new[3];
+        double outer_fluxes_area[3], outer_fluxes_volume[3], outer_fluxes_snow_volume[3], vector_edge[2], outer_vector[2], VC_middle[2], VC_x[3], VC_y[3];
 
         /* some variables used for the ice redistribution*/
         double tanalpha, rtanalpha, del_v, del_c, del_vs, new_v_thin;
@@ -2710,9 +2770,9 @@ FiniteElement::update()
         M_element_age[cpt]+=time_step;
         
         // Temporary memory
-        old_thick = M_thick[cpt];
-        old_snow_thick = M_snow_thick[cpt];
-        old_conc = M_conc[cpt];
+        old_thick = M_thick_old[cpt];
+        old_snow_thick = M_snow_thick_old[cpt];
+        old_conc = M_conc_old[cpt];
         old_damage = M_damage[cpt];
         old_h_ridged_thick_ice=M_h_ridged_thick_ice[cpt];
 #if defined (WAVES)
@@ -2940,15 +3000,77 @@ FiniteElement::update()
            std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[1]-1) ||
            std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[2]-1))
             to_be_updated=false;
-
-        if((old_conc>0.)  && to_be_updated)
+        
+        /* convective velocity */
+        for(i=0;i<3;i++)
+        {
+            x_ind=(M_elements[cpt]).indices[i]-1;
+            y_ind=(M_elements[cpt]).indices[i]-1+M_num_nodes;
+            
+            x[i] = M_nodes[(M_elements[cpt]).indices[i]-1].coords[0];
+            y[i] = M_nodes[(M_elements[cpt]).indices[i]-1].coords[1];
+                
+            /* old and new positions of the mesh */
+            x_new[i]=M_nodes[(M_elements[cpt]).indices[i]-1].coords[0]+M_UM[x_ind];
+            y_new[i]=M_nodes[(M_elements[cpt]).indices[i]-1].coords[1]+M_UM[y_ind];
+            x[i]    =M_nodes[(M_elements[cpt]).indices[i]-1].coords[0]+UM_P[x_ind];
+            y[i]    =M_nodes[(M_elements[cpt]).indices[i]-1].coords[1]+UM_P[y_ind];
+            
+            VC_x[i] =M_VT[x_ind]-(M_UM[x_ind]-UM_P[x_ind])/time_step;
+            VC_y[i] =M_VT[y_ind]-(M_UM[y_ind]-UM_P[y_ind])/time_step;
+        }
+        for(i=0;i<3;i++)
+        {
+            outer_fluxes_area[i]=0;
+            outer_fluxes_volume[i]=0;
+            outer_fluxes_snow_volume[i]=0;
+    
+            vertex_1=other_vertex[2*i  ];
+            vertex_2=other_vertex[2*i+1];
+    
+            vector_edge[0]=x[vertex_2]-x[vertex_1];
+            vector_edge[1]=y[vertex_2]-y[vertex_1];
+    
+            outer_vector[0]= vector_edge[1];
+            outer_vector[1]=-vector_edge[0];
+    
+            VC_middle[0] = (VC_x[vertex_2]+VC_x[vertex_1])/2.;
+            VC_middle[1] = (VC_y[vertex_2]+VC_y[vertex_1])/2.;
+    
+            outer_fluxes_area[i]=outer_vector[0]*VC_middle[0]+outer_vector[1]*VC_middle[1];
+            outer_fluxes_volume[i]=outer_fluxes_area[i];
+            outer_fluxes_snow_volume[i]=outer_fluxes_area[i]; 
+    
+            if(outer_fluxes_area[i]>0)
+            {
+                outer_fluxes_area[i]*=M_conc_old[cpt];
+                outer_fluxes_volume[i]*=M_thick_old[cpt];
+                outer_fluxes_snow_volume[i]*=M_snow_thick_old[cpt];
+            }
+            else
+            {
+			    neighbour_double=bamgmesh->ElementConnectivity[cpt*3+i];
+                neighbour_int=(int) bamgmesh->ElementConnectivity[cpt*3+i];
+			    if (!std::isnan(neighbour_double) && neighbour_int>0)
+                {
+                    outer_fluxes_area[i]*=M_conc_old[neighbour_int-1];
+                    outer_fluxes_volume[i]*=M_thick_old[neighbour_int-1];
+                    outer_fluxes_snow_volume[i]*=M_snow_thick_old[neighbour_int-1];
+                }
+            }
+    
+        }
+        
+        //if((old_conc>0.)  && to_be_updated)
+        if( to_be_updated)
         {
             surface = this->measure(M_elements[cpt],M_mesh, UM_P);
             surface_new = this->measure(M_elements[cpt],M_mesh,M_UM);
 
-            ice_surface = old_conc*surface;
-            ice_volume = old_thick*surface;
-            snow_volume = old_snow_thick*surface;
+            ice_surface = M_conc_old[cpt]*surface - (outer_fluxes_area[0]  + outer_fluxes_area[1]  + outer_fluxes_area[2]  )*time_step;
+            ice_volume = M_thick_old[cpt]*surface - (outer_fluxes_volume[0]+ outer_fluxes_volume[1]+ outer_fluxes_volume[2])*time_step;
+            snow_volume = M_snow_thick_old[cpt]*surface - (outer_fluxes_snow_volume[0]+ outer_fluxes_snow_volume[1]+ outer_fluxes_snow_volume[2])*time_step;
+            
             ridged_thick_ice_volume = old_h_ridged_thick_ice*surface;
 #if defined (WAVES)
             if (M_use_wim)
@@ -5687,8 +5809,8 @@ FiniteElement::targetIce()
 {
     double y_max=300000.;
     double y_min=250000.;
-    double x_max=300000.;
-    double x_min=250000.;
+    double x_max=200000.;
+    double x_min=150000.;
     
     double transition=(y_max-y_min)/10.;
 
@@ -5696,7 +5818,7 @@ FiniteElement::targetIce()
 
     auto RX = M_mesh.bcoordX();
     auto RY = M_mesh.bcoordY();
-    double cmin= 0.01;
+    double cmin= 0.0;
 
     for (int i=0; i<M_num_elements; ++i)
     {
