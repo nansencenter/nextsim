@@ -57,7 +57,10 @@ namespace Nextsim
 
 
             // advection scheme
-            ("simul.transport_scheme", po::value<std::string>()->default_value( "lagrangian" ), "")
+            ("simul.ALE_smoothing_step_nb", po::value<int>()->default_value( 0 ), "")
+            // ALE_smoothing_step_nb<0 is the eulerian case where M_UM is not changed and then =0.
+            // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
+            // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
 
             // TODO: partitioner (for the parallel version)
 
@@ -239,7 +242,7 @@ namespace Nextsim
             ("simul.forecast", po::value<bool>()->default_value( false ), "")
             ("simul.use_ship", po::value<bool>()->default_value( false ), "")
             ("simul.min_h", po::value<double>()->default_value( 0.05 ), "")
-            ("simul.min_c", po::value<double>()->default_value( 0.15 ), "")
+            ("simul.min_c", po::value<double>()->default_value( 0.01 ), "")
 
             /*
              *-----------------------------------------------------------------------------------

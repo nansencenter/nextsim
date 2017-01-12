@@ -286,13 +286,11 @@ private:
     std::vector<double> M_fcor;
 
     std::vector<double> M_Dunit;
-    std::vector<double> M_Dunit_0;
     std::vector<double> M_Dunit_comp;
     std::vector<double> M_Mass;
     std::vector<std::vector<double>> M_shape_coeff;
     std::vector<std::vector<double>> M_B0T;
     std::vector<std::vector<double>> M_B0T_Dunit_B0T;
-    std::vector<std::vector<double>> M_B0T_Dunit_0_B0T;
     std::vector<std::vector<double>> M_B0T_Dunit_comp_B0T;
     std::vector<double> M_random_number;
     std::vector<double> M_Cohesion;

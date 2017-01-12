@@ -2049,9 +2049,6 @@ FiniteElement::assemble(int pcpt)
         double coef = young*(1.-M_damage[cpt])*tmp_thick*std::exp(ridging_exponent*(1.-tmp_conc));
         coef = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef):0.;
         
-        double coef_0 = 0.;
-        coef_0 = (tmp_conc > vm["simul.min_c"].as<double>()) ? 0.:(coef_0);
-        
 #else
         //option 2 (we just change the value of the ridging exponent and we renamed it "damaging_exponent")
         double damaging_exponent = -80.;
@@ -2150,17 +2147,17 @@ FiniteElement::assemble(int pcpt)
 
                 /* ---------- UU component */
                 duu = surface_e*( mloc*(coef_Vair+coef_Voce*cos_ocean_turning_angle+coef_V+coef_basal)
-                                  +M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*time_step+M_B0T_Dunit_0_B0T[cpt][(2*i)*6+2*j]*coef_0*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i)*6+2*j]*coef_P);
+                                  +M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i)*6+2*j]*coef_P);
 
                 /* ---------- VU component */
-                dvu = surface_e*(+M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j]*coef*time_step+M_B0T_Dunit_0_B0T[cpt][(2*i+1)*6+2*j]*coef_0*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j]*coef_P);
+                dvu = surface_e*(+M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j]*coef_P);
 
                 /* ---------- UV component */
-                duv = surface_e*(+M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j+1]*coef*time_step+M_B0T_Dunit_0_B0T[cpt][(2*i)*6+2*j+1]*coef_0*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i)*6+2*j+1]*coef_P);
+                duv = surface_e*(+M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j+1]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i)*6+2*j+1]*coef_P);
 
                 /* ---------- VV component */
                 dvv = surface_e*( mloc*(coef_Vair+coef_Voce*cos_ocean_turning_angle+coef_V+coef_basal)
-                                  +M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*time_step+M_B0T_Dunit_0_B0T[cpt][(2*i+1)*6+2*j+1]*coef_0*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j+1]*coef_P);
+                                  +M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j+1]*coef_P);
 
                 data[(2*i  )*6+2*j  ] = duu;
                 data[(2*i+1)*6+2*j  ] = dvu;
@@ -2385,23 +2382,18 @@ void
 FiniteElement::tensors()
 {
     M_Dunit.assign(9,0);
-    M_Dunit_0.assign(9,0);
     M_Dunit_comp.assign(9,0);
     M_Mass.assign(9,0);
-
-    
 
     for (int k=0; k<6; k+=3)
     {
         for (int kk=0; kk<2; ++kk )
         {
             M_Dunit[k+kk] = (1-((k+kk)%2)*(1-nu0))/(1-std::pow(nu0,2.));
-            M_Dunit_0[k+kk] = (1-((k+kk)%2));
             M_Dunit_comp[k+kk] = 1.;
         }
     }
     M_Dunit[8] = (1-nu0)/(2.*(1-std::pow(nu0,2.)));
-    M_Dunit_0[8] = 1./2.;
 #if 0
     std::cout<< " M_Dunit: ";
     for (int k=0; k<9; k++)
@@ -2414,12 +2406,6 @@ FiniteElement::tensors()
     for (int k=0; k<9; k++)
     {
         std::cout<< M_Dunit_comp[k] << " ";
-    }
-    std::cout<< " \n ";
-    std::cout<< " M_Dunit_0: ";
-    for (int k=0; k<9; k++)
-    {
-        std::cout<< M_Dunit_0[k] << " ";
     }
     std::cout<< " \n ";
 #endif    
@@ -2439,22 +2425,17 @@ FiniteElement::tensors()
 
     M_B0T.resize(M_num_elements);
     M_B0T_Dunit_B0T.resize(M_num_elements);
-    M_B0T_Dunit_0_B0T.resize(M_num_elements);
     M_B0T_Dunit_comp_B0T.resize(M_num_elements);
     M_shape_coeff.resize(M_num_elements);
 
     std::vector<double> B0T(18,0);
     std::vector<double> B0Tj_Dunit(6,0);
     std::vector<double> B0T_Dunit_B0T(36,0);
-    std::vector<double> B0Tj_Dunit_0(6,0);
-    std::vector<double> B0T_Dunit_0_B0T(36,0);
     std::vector<double> B0Tj_Dunit_comp(6,0);
     std::vector<double> B0T_Dunit_comp_B0T(36,0);
 
     double B0Tj_Dunit_tmp0, B0Tj_Dunit_tmp1;
     double B0Tj_Dunit_B0Ti_tmp0, B0Tj_Dunit_B0Ti_tmp1, B0Tj_Dunit_B0Ti_tmp2, B0Tj_Dunit_B0Ti_tmp3;
-    double B0Tj_Dunit_0_tmp0, B0Tj_Dunit_0_tmp1;
-    double B0Tj_Dunit_0_B0Ti_tmp0, B0Tj_Dunit_0_B0Ti_tmp1, B0Tj_Dunit_0_B0Ti_tmp2, B0Tj_Dunit_0_B0Ti_tmp3;
     double B0Tj_Dunit_comp_tmp0, B0Tj_Dunit_comp_tmp1;
     double B0Tj_Dunit_comp_B0Ti_tmp0, B0Tj_Dunit_comp_B0Ti_tmp1, B0Tj_Dunit_comp_B0Ti_tmp2, B0Tj_Dunit_comp_B0Ti_tmp3;
 
@@ -2506,9 +2487,6 @@ FiniteElement::tensors()
                 B0Tj_Dunit_tmp0 = 0.;
                 B0Tj_Dunit_tmp1 = 0.;
                 
-                B0Tj_Dunit_0_tmp0 = 0.;
-                B0Tj_Dunit_0_tmp1 = 0.;
-                
                 B0Tj_Dunit_comp_tmp0 = 0.;
                 B0Tj_Dunit_comp_tmp1 = 0.;
 
@@ -2517,18 +2495,12 @@ FiniteElement::tensors()
                     B0Tj_Dunit_tmp0 += B0T[kk*6+2*j]*M_Dunit[3*i+kk];
                     B0Tj_Dunit_tmp1 += B0T[kk*6+2*j+1]*M_Dunit[3*i+kk];
 
-                    B0Tj_Dunit_0_tmp0 += B0T[kk*6+2*j]*M_Dunit_0[3*i+kk];
-                    B0Tj_Dunit_0_tmp1 += B0T[kk*6+2*j+1]*M_Dunit_0[3*i+kk];
-
                     B0Tj_Dunit_comp_tmp0 += B0T[kk*6+2*j]*M_Dunit_comp[3*i+kk];
                     B0Tj_Dunit_comp_tmp1 += B0T[kk*6+2*j+1]*M_Dunit_comp[3*i+kk];
                 }
 
                 B0Tj_Dunit[2*i] = B0Tj_Dunit_tmp0;
                 B0Tj_Dunit[2*i+1] = B0Tj_Dunit_tmp1;
-
-                B0Tj_Dunit_0[2*i] = B0Tj_Dunit_0_tmp0;
-                B0Tj_Dunit_0[2*i+1] = B0Tj_Dunit_0_tmp1;
 
                 B0Tj_Dunit_comp[2*i] = B0Tj_Dunit_comp_tmp0;
                 B0Tj_Dunit_comp[2*i+1] = B0Tj_Dunit_comp_tmp1;
@@ -2542,12 +2514,6 @@ FiniteElement::tensors()
                 B0Tj_Dunit_B0Ti_tmp1 = 0.;
                 B0Tj_Dunit_B0Ti_tmp2 = 0.;
                 B0Tj_Dunit_B0Ti_tmp3 = 0.;
-                
-                /* scalar product of B0Ti_Dunit and the first column of B0T */
-                B0Tj_Dunit_0_B0Ti_tmp0 = 0.;
-                B0Tj_Dunit_0_B0Ti_tmp1 = 0.;
-                B0Tj_Dunit_0_B0Ti_tmp2 = 0.;
-                B0Tj_Dunit_0_B0Ti_tmp3 = 0.;
 
                 /* scalar product of B0Ti_Dunit_comp and the first column of B0T */
                 B0Tj_Dunit_comp_B0Ti_tmp0 = 0.;
@@ -2561,11 +2527,6 @@ FiniteElement::tensors()
                     B0Tj_Dunit_B0Ti_tmp1 += B0Tj_Dunit[2*kk]*B0T[kk*6+2*i+1];
                     B0Tj_Dunit_B0Ti_tmp2 += B0Tj_Dunit[2*kk+1]*B0T[kk*6+2*i];
                     B0Tj_Dunit_B0Ti_tmp3 += B0Tj_Dunit[2*kk+1]*B0T[kk*6+2*i+1];
-                    
-                    B0Tj_Dunit_0_B0Ti_tmp0 += B0Tj_Dunit_0[2*kk]*B0T[kk*6+2*i];
-                    B0Tj_Dunit_0_B0Ti_tmp1 += B0Tj_Dunit_0[2*kk]*B0T[kk*6+2*i+1];
-                    B0Tj_Dunit_0_B0Ti_tmp2 += B0Tj_Dunit_0[2*kk+1]*B0T[kk*6+2*i];
-                    B0Tj_Dunit_0_B0Ti_tmp3 += B0Tj_Dunit_0[2*kk+1]*B0T[kk*6+2*i+1];
 
                     B0Tj_Dunit_comp_B0Ti_tmp0 += B0Tj_Dunit_comp[2*kk]*B0T[kk*6+2*i];
                     B0Tj_Dunit_comp_B0Ti_tmp1 += B0Tj_Dunit_comp[2*kk]*B0T[kk*6+2*i+1];
@@ -2577,11 +2538,6 @@ FiniteElement::tensors()
                 B0T_Dunit_B0T[(2*i+1)*6+2*j] = B0Tj_Dunit_B0Ti_tmp1;
                 B0T_Dunit_B0T[(2*i)*6+2*j+1] = B0Tj_Dunit_B0Ti_tmp2;
                 B0T_Dunit_B0T[(2*i+1)*6+2*j+1] = B0Tj_Dunit_B0Ti_tmp3;
-
-                B0T_Dunit_0_B0T[(2*i)*6+2*j] = B0Tj_Dunit_0_B0Ti_tmp0;
-                B0T_Dunit_0_B0T[(2*i+1)*6+2*j] = B0Tj_Dunit_0_B0Ti_tmp1;
-                B0T_Dunit_0_B0T[(2*i)*6+2*j+1] = B0Tj_Dunit_0_B0Ti_tmp2;
-                B0T_Dunit_0_B0T[(2*i+1)*6+2*j+1] = B0Tj_Dunit_0_B0Ti_tmp3;
                 
                 B0T_Dunit_comp_B0T[(2*i)*6+2*j] = B0Tj_Dunit_comp_B0Ti_tmp0;
                 B0T_Dunit_comp_B0T[(2*i+1)*6+2*j] = B0Tj_Dunit_comp_B0Ti_tmp1;
@@ -2600,7 +2556,6 @@ FiniteElement::tensors()
             for(int j=0; j<i; j++)
             {
                 B0T_Dunit_B0T[i*6+j] = B0T_Dunit_B0T[j*6+i];
-                B0T_Dunit_0_B0T[i*6+j] = B0T_Dunit_0_B0T[j*6+i];
                 B0T_Dunit_comp_B0T[i*6+j] = B0T_Dunit_comp_B0T[j*6+i];
             }
         }
@@ -2608,7 +2563,6 @@ FiniteElement::tensors()
         M_shape_coeff[cpt]        = shapecoeff;
         M_B0T[cpt]                = B0T;
         M_B0T_Dunit_B0T[cpt]      = B0T_Dunit_B0T;
-        M_B0T_Dunit_0_B0T[cpt]      = B0T_Dunit_0_B0T;
         M_B0T_Dunit_comp_B0T[cpt] = B0T_Dunit_comp_B0T;
 
         ++cpt;
@@ -2641,7 +2595,6 @@ FiniteElement::update()
     int Nd = bamgmesh->NodalConnectivitySize[1];
     double UM_x, UM_y;
 
-    std::vector<double> M_VT_smoothed = M_VT;
     
     int x_ind, y_ind, neighbour_int, vertex_1, vertex_2;
     double neighbour_double;
@@ -2654,52 +2607,47 @@ FiniteElement::update()
             weight[i]=1.;
     }
     
-    std::vector<double> M_VT_tmp = M_VT_smoothed;
-    std::vector<double> weight_tmp=weight;
-    double weight_local;
-    
-    
-    for (int k=0; k<5; ++k)
+    int ALE_smoothing_step_nb=vm["simul.ALE_smoothing_step_nb"].as<int>();
+    // ALE_smoothing_step_nb<0 is the eulerian case where M_UM is not changed and then =0.
+    // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
+    // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
+        
+    if(ALE_smoothing_step_nb>=0) 
     {
-        M_VT_tmp=M_VT_smoothed;
-        weight_tmp=weight;
-        for (int i=0; i<bamgmesh->NodalConnectivitySize[0]; ++i)
+        std::vector<double> M_VT_smoothed = M_VT;
+        std::vector<double> M_VT_tmp = M_VT_smoothed;
+        
+        for (int k=0; k<ALE_smoothing_step_nb; ++k)
         {
-            if(M_mask_dirichlet[i]==false)
+            M_VT_tmp=M_VT_smoothed;
+            for (int i=0; i<M_num_nodes; ++i)
             {
-                int Nc = bamgmesh->NodalConnectivity[Nd*(i+1)-1];
-            
-                UM_x=0.;
-                UM_y=0.;
-                weight_local=0.;
-                for (int j=0; j<Nc; ++j)
+                if(M_mask_dirichlet[i]==false)
                 {
-                    UM_x += M_VT_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1]  ;
-                    UM_y += M_VT_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1+M_num_nodes]  ;
-                    weight_local += weight_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1];
-
-//                    UM_x += weight_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1]*M_VT_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1]  ;
-//                    UM_y += weight_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1]*M_VT_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1+M_num_nodes]  ;
-//                    weight_local += weight_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1];
-                }
+                    int Nc = bamgmesh->NodalConnectivity[Nd*(i+1)-1];
+            
+                    UM_x=0.;
+                    UM_y=0.;
+                    for (int j=0; j<Nc; ++j)
+                    {
+                        UM_x += M_VT_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1]  ;
+                        UM_y += M_VT_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1+M_num_nodes]  ;
+                    }
                 
-                M_VT_smoothed[i             ]=UM_x/Nc;
-                M_VT_smoothed[i+M_num_nodes ]=UM_y/Nc;
-
-                weight[i                    ]=weight_local/Nc;
+                    M_VT_smoothed[i             ]=UM_x/Nc;
+                    M_VT_smoothed[i+M_num_nodes ]=UM_y/Nc;
+                }
             }
         }
-    }
+        for (int nd=0; nd<M_UM.size(); ++nd)
+        {
+            M_UM[nd] += time_step*M_VT_smoothed[nd];
+        }
 
-    for (int nd=0; nd<M_UM.size(); ++nd)
-    {
-        //M_UM[nd] += time_step*M_VT[nd];
-        M_UM[nd] += time_step*M_VT_smoothed[nd]*0;
-    }
-
-    for (const int& nd : M_neumann_nodes)
-    {
-        M_UM[nd] = UM_P[nd];
+        for (const int& nd : M_neumann_nodes)
+        {
+            M_UM[nd] = UM_P[nd];
+        }
     }
 
     LOG(DEBUG) <<"VT MIN= "<< *std::min_element(M_VT.begin(),M_VT.end()) <<"\n";
