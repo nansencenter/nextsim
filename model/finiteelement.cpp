@@ -2014,7 +2014,7 @@ FiniteElement::assemble(int pcpt)
 
         double coef_Voce = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
         coef_Voce *= physical::rhow; //(vm["simul.rho_water"].as<double>());
-        //coef_Voce = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_Voce):0.;
+        coef_Voce = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_Voce):0.;
 
         double critical_h = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
 
@@ -2040,7 +2040,7 @@ FiniteElement::assemble(int pcpt)
 #if 1
         //option 1 (original)
         double coef = young*(1.-M_damage[cpt])*tmp_thick*std::exp(ridging_exponent*(1.-tmp_conc));
-        coef = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef):0.;
+        coef = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef):10.;
         
 #else
         //option 2 (we just change the value of the ridging exponent and we renamed it "damaging_exponent")
@@ -2734,7 +2734,7 @@ FiniteElement::update()
         min_jump_thick[cpt]=*std::min_element(abs_jump_thick.begin(),abs_jump_thick.end());
         min_jump_snow_thick[cpt]=*std::min_element(abs_jump_snow_thick.begin(),abs_jump_snow_thick.end());
         
-        if(ALE_smoothing_step_nb==-2)
+        if(ALE_smoothing_step_nb==-2  || ALE_smoothing_step_nb>0)
         {
             min_jump_conc[cpt]=0.;
             min_jump_thick[cpt]=0.;
@@ -5925,8 +5925,10 @@ FiniteElement::targetIce()
 {
     double y_max=300000.;
     double y_min=150000.;
-    double x_max=300000.;
-    double x_min=150000.;
+    double x_max1=240000.;
+    double x_min1=150000.;
+    double x_max2=300000.;
+    double x_min2=260000.;
     
     double transition=(y_max-y_min)/10.;
 
@@ -5934,11 +5936,14 @@ FiniteElement::targetIce()
 
     auto RX = M_mesh.bcoordX();
     auto RY = M_mesh.bcoordY();
-    double cmin= 0.0;
+    double cmin= 0.;
 
     for (int i=0; i<M_num_elements; ++i)
     {
-        tmp_var = (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max)*(RX[i]>=x_min)
+        tmp_var = (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max1)*(RX[i]>=x_min1)
+            + (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max2)*(RX[i]>=x_min2);
+            
+            /*
             +     (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<x_min)*std::max(cmin,(1.-std::hypot(RX[i]-x_min,0.         )/transition))
             +     (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]>x_max)*std::max(cmin,(1.-std::hypot(RX[i]-x_max,0.         )/transition))
             +     (RX[i]<=x_max)*(RX[i]>=x_min)*(RY[i]<y_min)*std::max(cmin,(1.-std::hypot(RY[i]-y_min,0.         )/transition))
@@ -5947,12 +5952,12 @@ FiniteElement::targetIce()
             +     (RY[i]< y_min)*(RX[i]> x_max)              *std::max(cmin,(1.-std::hypot(RX[i]-x_max,RY[i]-y_min)/transition))
             +     (RY[i]> y_max)*(RX[i]< x_min)              *std::max(cmin,(1.-std::hypot(RX[i]-x_min,RY[i]-y_max)/transition))
             +     (RY[i]> y_max)*(RX[i]> x_max)              *std::max(cmin,(1.-std::hypot(RX[i]-x_max,RY[i]-y_max)/transition));
-            
+            */
         std::cout<<"RX: "<< RX[i] << "RY: "<< RY[i] << "tmp_var: " << tmp_var << "\n";
 
-        M_conc[i]  = vm["simul.init_concentration"].as<double>()*tmp_var;
-		M_thick[i] = vm["simul.init_thickness"].as<double>()*tmp_var;
-		M_snow_thick[i] = vm["simul.init_snow_thickness"].as<double>()*tmp_var;
+        M_conc[i]  = std::max(vm["simul.init_concentration"].as<double>()*tmp_var,cmin);
+		M_thick[i] = vm["simul.init_thickness"].as<double>()*M_conc[i];
+		M_snow_thick[i] = vm["simul.init_snow_thickness"].as<double>()*M_conc[i];
         M_damage[i]=0.;
 
         //if either c or h equal zero, we set the others to zero as well
