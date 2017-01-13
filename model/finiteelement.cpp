@@ -2599,6 +2599,10 @@ FiniteElement::cohesion()
 void
 FiniteElement::update()
 {
+    int thread_id;
+    int total_threads;
+    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
+    
     std::vector<double> UM_P = M_UM;
     
     std::vector<double> M_thick_old=M_thick;
@@ -2606,16 +2610,9 @@ FiniteElement::update()
     std::vector<double> M_snow_thick_old=M_snow_thick;
     
     int Nd = bamgmesh->NodalConnectivitySize[1];
-    double UM_x, UM_y;
-
-    
-    int x_ind, y_ind, neighbour_int, vertex_1, vertex_2;
-    double neighbour_double;
-    int other_vertex[3*2]={1,2 , 2,0 , 0,1};
     
     int ALE_smoothing_step_nb=vm["simul.ALE_smoothing_step_nb"].as<int>();
-    // ALE_smoothing_step_nb==-2 is the diffusive eulerian case where M_UM is not changed and then =0.
-    // ALE_smoothing_step_nb==-1 is the eulerian case where M_UM is not changed and then =0.
+    // ALE_smoothing_step_nb<0 is the diffusive eulerian case where M_UM is not changed and then =0.
     // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
     // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
         
@@ -2627,11 +2624,16 @@ FiniteElement::update()
         for (int k=0; k<ALE_smoothing_step_nb; ++k)
         {
             M_VT_tmp=M_VT_smoothed;
+            
+#pragma omp parallel for num_threads(max_threads) private(thread_id)
             for (int i=0; i<M_num_nodes; ++i)
             {
+                int Nc;
+                double UM_x, UM_y;
+                
                 if(M_mask_dirichlet[i]==false)
                 {
-                    int Nc = bamgmesh->NodalConnectivity[Nd*(i+1)-1];
+                    Nc = bamgmesh->NodalConnectivity[Nd*(i+1)-1];
             
                     UM_x=0.;
                     UM_y=0.;
@@ -2660,91 +2662,15 @@ FiniteElement::update()
     LOG(DEBUG) <<"VT MIN= "<< *std::min_element(M_VT.begin(),M_VT.end()) <<"\n";
     LOG(DEBUG) <<"VT MAX= "<< *std::max_element(M_VT.begin(),M_VT.end()) <<"\n";
 
-    int thread_id;
-    int total_threads;
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-
     //std::cout<<"MAX THREADS= "<< max_threads <<"\n";
 #if defined (WAVES)
     if (M_use_wim)
         M_dfloe.assign(M_num_elements,0.);
 #endif
 
-    std::vector<double> min_jump_conc(M_num_elements);
-    std::vector<double> min_jump_thick(M_num_elements);
-    std::vector<double> min_jump_snow_thick(M_num_elements);
-    
-    std::vector<double> sum_jump_conc(M_num_elements);
-    std::vector<double> sum_jump_thick(M_num_elements);
-    std::vector<double> sum_jump_snow_thick(M_num_elements);
-    
-    std::vector<double> sum_abs_jump_conc(M_num_elements);
-    std::vector<double> sum_abs_jump_thick(M_num_elements);
-    std::vector<double> sum_abs_jump_snow_thick(M_num_elements);
-     
-    std::vector<double> jump_conc(3);
-    std::vector<double> jump_thick(3);
-    std::vector<double> jump_snow_thick(3);
-    
-    std::vector<double> abs_jump_conc(3);
-    std::vector<double> abs_jump_thick(3);
-    std::vector<double> abs_jump_snow_thick(3);
-     
-    for (int cpt=0; cpt < M_num_elements; ++cpt)
-    {
-        sum_jump_conc[cpt]=0.;
-        sum_jump_thick[cpt]=0.;
-        sum_jump_snow_thick[cpt]=0.;
-        
-        sum_abs_jump_conc[cpt]=0.;
-        sum_abs_jump_thick[cpt]=0.;
-        sum_abs_jump_snow_thick[cpt]=0.;
-
-        for(int i=0;i<3;i++)
-        {
-            neighbour_double=bamgmesh->ElementConnectivity[cpt*3+i];
-            neighbour_int=(int) bamgmesh->ElementConnectivity[cpt*3+i];
-                    
-            if (!std::isnan(neighbour_double) && neighbour_int>0)
-            {
-                abs_jump_conc[i]=std::abs(M_conc_old[neighbour_int-1]-M_conc_old[cpt]);
-                abs_jump_thick[i]=std::abs(M_thick_old[neighbour_int-1]-M_thick_old[cpt]);
-                abs_jump_snow_thick[i]=std::abs(M_snow_thick_old[neighbour_int-1]-M_snow_thick_old[cpt]);  
-                
-                jump_conc[i]=M_conc_old[neighbour_int-1]-M_conc_old[cpt];
-                jump_thick[i]=M_thick_old[neighbour_int-1]-M_thick_old[cpt];
-                jump_snow_thick[i]=M_snow_thick_old[neighbour_int-1]-M_snow_thick_old[cpt];  
-                
-                sum_jump_conc[cpt]+=jump_conc[i];
-                sum_jump_thick[cpt]+=jump_thick[i];
-                sum_jump_snow_thick[cpt]+=jump_snow_thick[i];
-                
-                sum_abs_jump_conc[cpt]+=std::abs(jump_conc[i]);
-                sum_abs_jump_thick[cpt]+=std::abs(jump_thick[i]);
-                sum_abs_jump_snow_thick[cpt]+=std::abs(jump_snow_thick[i]);
-            }
-            else
-            {            
-                jump_conc[i]=0.;
-                jump_thick[i]=0.;
-                jump_snow_thick[i]=0.;
-            }
-        }
-        min_jump_conc[cpt]=*std::min_element(abs_jump_conc.begin(),abs_jump_conc.end());
-        min_jump_thick[cpt]=*std::min_element(abs_jump_thick.begin(),abs_jump_thick.end());
-        min_jump_snow_thick[cpt]=*std::min_element(abs_jump_snow_thick.begin(),abs_jump_snow_thick.end());
-        
-        if(ALE_smoothing_step_nb==-2  || ALE_smoothing_step_nb>0)
-        {
-            min_jump_conc[cpt]=0.;
-            min_jump_thick[cpt]=0.;
-            min_jump_snow_thick[cpt]=0.;
-        }
-    }
-    
     
 
-// #pragma omp parallel for num_threads(max_threads) private(thread_id)
+#pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
         double old_thick;
@@ -2781,7 +2707,11 @@ FiniteElement::update()
         
         /* some variables used for the advection*/
         double x[3],y[3],x_new[3],y_new[3];
+        int x_ind, y_ind, neighbour_int, vertex_1, vertex_2;
         double outer_fluxes_area[3], outer_fluxes_volume[3], outer_fluxes_snow_volume[3], vector_edge[2], outer_vector[2], VC_middle[2], VC_x[3], VC_y[3];
+
+        double neighbour_double;
+        int other_vertex[3*2]={1,2 , 2,0 , 0,1};
 
         /* some variables used for the ice redistribution*/
         double tanalpha, rtanalpha, del_v, del_c, del_vs, new_v_thin;
@@ -3091,38 +3021,12 @@ FiniteElement::update()
                 }
             }
 #endif
-            
-            neighbour_double=bamgmesh->ElementConnectivity[cpt*3+i];
-            neighbour_int=(int) bamgmesh->ElementConnectivity[cpt*3+i];
-            if (!std::isnan(neighbour_double) && neighbour_int>0)
-            {
-                jump_conc[i]=M_conc_old[cpt]-M_conc_old[neighbour_int-1];
-                jump_thick[i]=M_thick_old[cpt]-M_thick_old[neighbour_int-1];
-                jump_snow_thick[i]=M_snow_thick_old[cpt]-M_snow_thick_old[neighbour_int-1];  
-            }
-            else
-            {
-                jump_conc[i]=0.;
-                jump_thick[i]=0.;
-                jump_snow_thick[i]=0.;
-            }
-            
+                        
             if(outer_fluxes_area[i]>0)
             {
-                if(min_jump_conc[cpt]>0.)
-                    outer_fluxes_area[i]*=(M_conc_old[cpt]-jump_conc[i]/std::abs(jump_conc[i])*min_jump_conc[cpt]*(1.-0.5*std::abs(sum_jump_conc[cpt])/sum_abs_jump_conc[cpt]));
-                else
-                    outer_fluxes_area[i]*=M_conc_old[cpt];
-                
-                if(min_jump_thick[cpt]>0.)
-                    outer_fluxes_volume[i]*=(M_thick_old[cpt]-jump_thick[i]/std::abs(jump_thick[i])*min_jump_thick[cpt]*(1.-0.5*std::abs(sum_jump_thick[cpt])/sum_abs_jump_thick[cpt]));
-                else
-                    outer_fluxes_volume[i]*=M_thick_old[cpt];
-                
-                if(min_jump_snow_thick[cpt]>0.)
-                    outer_fluxes_snow_volume[i]*=(M_snow_thick_old[cpt]-jump_snow_thick[i]/std::abs(jump_snow_thick[i])*min_jump_snow_thick[cpt]*(1.-0.5*std::abs(sum_jump_snow_thick[cpt])/sum_abs_jump_snow_thick[cpt]));
-                else
-                    outer_fluxes_snow_volume[i]*=M_snow_thick_old[cpt];
+                outer_fluxes_area[i]*=M_conc_old[cpt];
+                outer_fluxes_volume[i]*=M_thick_old[cpt];
+                outer_fluxes_snow_volume[i]*=M_snow_thick_old[cpt];
                 
                 surface = this->measure(M_elements[cpt],M_mesh, UM_P);
                 outer_fluxes_area[i]=std::min(M_conc_old[cpt]*surface/time_step/3.,outer_fluxes_area[i]);
@@ -3135,20 +3039,9 @@ FiniteElement::update()
                 neighbour_int=(int) bamgmesh->ElementConnectivity[cpt*3+i];
 			    if (!std::isnan(neighbour_double) && neighbour_int>0)
                 {
-                    if(min_jump_conc[neighbour_int-1]>0.)
-                        outer_fluxes_area[i]*=(M_conc_old[neighbour_int-1]+jump_conc[i]/std::abs(jump_conc[i])*min_jump_conc[neighbour_int-1]*(1.-0.5*std::abs(sum_jump_conc[neighbour_int-1])/sum_abs_jump_conc[neighbour_int-1]));
-                    else
-                        outer_fluxes_area[i]*=M_conc_old[neighbour_int-1];
-                
-                    if(min_jump_thick[neighbour_int-1]>0.)
-                        outer_fluxes_volume[i]*=(M_thick_old[neighbour_int-1]+jump_thick[i]/std::abs(jump_thick[i])*min_jump_thick[neighbour_int-1]*(1.-0.5*std::abs(sum_jump_thick[neighbour_int-1])/sum_abs_jump_thick[neighbour_int-1]));
-                    else
-                        outer_fluxes_volume[i]*=M_thick_old[neighbour_int-1];
-                
-                    if(min_jump_snow_thick[neighbour_int-1]>0.)
-                        outer_fluxes_snow_volume[i]*=(M_snow_thick_old[neighbour_int-1]+jump_snow_thick[i]/std::abs(jump_snow_thick[i])*min_jump_snow_thick[neighbour_int-1]*(1.-0.5*std::abs(sum_jump_snow_thick[neighbour_int-1])/sum_abs_jump_snow_thick[neighbour_int-1]));
-                    else
-                        outer_fluxes_snow_volume[i]*=M_snow_thick_old[neighbour_int-1];
+                    outer_fluxes_area[i]*=M_conc_old[neighbour_int-1];
+                    outer_fluxes_volume[i]*=M_thick_old[neighbour_int-1];
+                    outer_fluxes_snow_volume[i]*=M_snow_thick_old[neighbour_int-1];
                     
                     surface = this->measure(M_elements[neighbour_int-1],M_mesh, UM_P);
                     outer_fluxes_area[i]=-std::min(M_conc_old[neighbour_int-1]*surface/time_step/3.,-outer_fluxes_area[i]);
