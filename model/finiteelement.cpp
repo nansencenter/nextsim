@@ -187,7 +187,6 @@ FiniteElement::initVariables()
     M_h_ridged_thin_ice.resize(M_num_elements,0.);
     M_h_ridged_thick_ice.resize(M_num_elements,0.);
 
-    M_divergence_rate.resize(M_num_elements,0.);
     M_sigma.resize(3*M_num_elements,0.);
 
     M_random_number.resize(M_num_elements);
@@ -221,7 +220,6 @@ FiniteElement::initVariables()
 
     for (int i=0; i<M_num_elements; ++i)
     {
-        M_divergence_rate[i] = 0.;
         M_sigma[3*i]=0.;
         M_sigma[3*i+1]=0.;
         M_sigma[3*i+2]=0.;
@@ -1085,7 +1083,7 @@ FiniteElement::regrid(bool step)
 		}
 
 
-		if(M_mesh_type==setup::MeshType::FROM_SPLIT)
+		if(M_mesh_type==setup::MeshType::FROM_SPLIT )//&& vm["simul.ALE_smoothing_step_nb"].as<int>()>=0)
 		{
 			if(step==0)
 			{
@@ -1170,7 +1168,7 @@ FiniteElement::regrid(bool step)
 	        chrono.restart();
 	        LOG(DEBUG) <<"Element Interp starts\n";
 			// ELEMENT INTERPOLATION With Cavities
-			int nb_var=14 + M_tice.size();
+			int nb_var=13 + M_tice.size();
 
 #if defined (WAVES)
             // coupling with wim
@@ -1235,10 +1233,6 @@ FiniteElement::regrid(bool step)
 
 				// compliance
 				interp_elt_in[nb_var*i+tmp_nb_var] = 1./(1.-M_damage[i]);
-				tmp_nb_var++;
-
-				// divergence_rate
-				interp_elt_in[nb_var*i+tmp_nb_var] = M_divergence_rate[i];
 				tmp_nb_var++;
 
 				// h_ridged_thin_ice
@@ -1333,7 +1327,6 @@ FiniteElement::regrid(bool step)
 			M_sigma.assign(3*M_num_elements,0.);
 			M_damage.assign(M_num_elements,0.);
 
-			M_divergence_rate.assign(M_num_elements,0.);
 			M_h_ridged_thin_ice.assign(M_num_elements,0.);
 			M_h_ridged_thick_ice.assign(M_num_elements,0.);
 
@@ -1401,10 +1394,6 @@ FiniteElement::regrid(bool step)
 					M_damage[i] = 0.;
 					tmp_nb_var++;
 				}
-
-				// divergence_rate
-				M_divergence_rate[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-				tmp_nb_var++;
 
 				// // h_ridged_thin_ice
 				M_h_ridged_thin_ice[i] = interp_elt_out[nb_var*i+tmp_nb_var];
@@ -1981,6 +1970,10 @@ FiniteElement::assemble(int pcpt)
         //     std::cout<<"Total number of threads are "<< total_threads <<"\n";
         // }
         
+        double epsilon_veloc_i;
+        std::vector<double> epsilon_veloc(3);
+        double divergence_rate;
+        
         double tmp_thick=(vm["simul.min_h"].as<double>()>M_thick[cpt]) ? vm["simul.min_h"].as<double>() : M_thick[cpt];
         double tmp_conc=(vm["simul.min_c"].as<double>()>M_conc[cpt]) ? vm["simul.min_c"].as<double>() : M_conc[cpt];
 
@@ -2068,11 +2061,31 @@ FiniteElement::assemble(int pcpt)
         //}
         //double coef = young*(1.-M_damage[cpt])*tmp_thick*factor;
 
+        /* Compute the elastic deformation and the instantaneous deformation rate */
+        for(int i=0;i<3;i++)
+        {
+            index_u = (M_elements[cpt]).indices[i]-1;
+            index_v = (M_elements[cpt]).indices[i]-1+M_num_nodes;
+            
+            epsilon_veloc_i = 0.0;
+            for(int j=0;j<3;j++)
+            {
+                /* deformation */
+                //col = (mwIndex)it[j]-1;
+                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j     ]*M_VT[index_u]  ;
+                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j + 1 ]*M_VT[index_v]  ;
+            }
+
+            epsilon_veloc[i] = epsilon_veloc_i;
+        }
+
+        divergence_rate= (epsilon_veloc[0]+epsilon_veloc[1]);
+
         double coef_P = 0.;
-        if(M_divergence_rate[cpt] < 0.)
+        if(divergence_rate < 0.)
         {
             coef_P = compression_factor*std::pow(tmp_thick,exponent_compression_factor)*std::exp(ridging_exponent*(1.-tmp_conc));
-            coef_P = coef_P/(std::abs(M_divergence_rate[cpt])+divergence_min);
+            coef_P = coef_P/(std::abs(divergence_rate)+divergence_min);
             coef_P = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_P):0.;
         }
 
@@ -2600,15 +2613,9 @@ FiniteElement::update()
     double neighbour_double;
     int other_vertex[3*2]={1,2 , 2,0 , 0,1};
     
-    std::vector<double> weight=M_node_max_conc;
-    for (int i=0; i<bamgmesh->NodalConnectivitySize[0]; ++i)
-    {
-        if(M_mask_dirichlet[i]==true)
-            weight[i]=1.;
-    }
-    
     int ALE_smoothing_step_nb=vm["simul.ALE_smoothing_step_nb"].as<int>();
-    // ALE_smoothing_step_nb<0 is the eulerian case where M_UM is not changed and then =0.
+    // ALE_smoothing_step_nb==-2 is the diffusive eulerian case where M_UM is not changed and then =0.
+    // ALE_smoothing_step_nb==-1 is the eulerian case where M_UM is not changed and then =0.
     // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
     // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
         
@@ -2663,7 +2670,81 @@ FiniteElement::update()
         M_dfloe.assign(M_num_elements,0.);
 #endif
 
-#pragma omp parallel for num_threads(max_threads) private(thread_id)
+    std::vector<double> min_jump_conc(M_num_elements);
+    std::vector<double> min_jump_thick(M_num_elements);
+    std::vector<double> min_jump_snow_thick(M_num_elements);
+    
+    std::vector<double> sum_jump_conc(M_num_elements);
+    std::vector<double> sum_jump_thick(M_num_elements);
+    std::vector<double> sum_jump_snow_thick(M_num_elements);
+    
+    std::vector<double> sum_abs_jump_conc(M_num_elements);
+    std::vector<double> sum_abs_jump_thick(M_num_elements);
+    std::vector<double> sum_abs_jump_snow_thick(M_num_elements);
+     
+    std::vector<double> jump_conc(3);
+    std::vector<double> jump_thick(3);
+    std::vector<double> jump_snow_thick(3);
+    
+    std::vector<double> abs_jump_conc(3);
+    std::vector<double> abs_jump_thick(3);
+    std::vector<double> abs_jump_snow_thick(3);
+     
+    for (int cpt=0; cpt < M_num_elements; ++cpt)
+    {
+        sum_jump_conc[cpt]=0.;
+        sum_jump_thick[cpt]=0.;
+        sum_jump_snow_thick[cpt]=0.;
+        
+        sum_abs_jump_conc[cpt]=0.;
+        sum_abs_jump_thick[cpt]=0.;
+        sum_abs_jump_snow_thick[cpt]=0.;
+
+        for(int i=0;i<3;i++)
+        {
+            neighbour_double=bamgmesh->ElementConnectivity[cpt*3+i];
+            neighbour_int=(int) bamgmesh->ElementConnectivity[cpt*3+i];
+                    
+            if (!std::isnan(neighbour_double) && neighbour_int>0)
+            {
+                abs_jump_conc[i]=std::abs(M_conc_old[neighbour_int-1]-M_conc_old[cpt]);
+                abs_jump_thick[i]=std::abs(M_thick_old[neighbour_int-1]-M_thick_old[cpt]);
+                abs_jump_snow_thick[i]=std::abs(M_snow_thick_old[neighbour_int-1]-M_snow_thick_old[cpt]);  
+                
+                jump_conc[i]=M_conc_old[neighbour_int-1]-M_conc_old[cpt];
+                jump_thick[i]=M_thick_old[neighbour_int-1]-M_thick_old[cpt];
+                jump_snow_thick[i]=M_snow_thick_old[neighbour_int-1]-M_snow_thick_old[cpt];  
+                
+                sum_jump_conc[cpt]+=jump_conc[i];
+                sum_jump_thick[cpt]+=jump_thick[i];
+                sum_jump_snow_thick[cpt]+=jump_snow_thick[i];
+                
+                sum_abs_jump_conc[cpt]+=std::abs(jump_conc[i]);
+                sum_abs_jump_thick[cpt]+=std::abs(jump_thick[i]);
+                sum_abs_jump_snow_thick[cpt]+=std::abs(jump_snow_thick[i]);
+            }
+            else
+            {            
+                jump_conc[i]=0.;
+                jump_thick[i]=0.;
+                jump_snow_thick[i]=0.;
+            }
+        }
+        min_jump_conc[cpt]=*std::min_element(abs_jump_conc.begin(),abs_jump_conc.end());
+        min_jump_thick[cpt]=*std::min_element(abs_jump_thick.begin(),abs_jump_thick.end());
+        min_jump_snow_thick[cpt]=*std::min_element(abs_jump_snow_thick.begin(),abs_jump_snow_thick.end());
+        
+        if(ALE_smoothing_step_nb==-2)
+        {
+            min_jump_conc[cpt]=0.;
+            min_jump_thick[cpt]=0.;
+            min_jump_snow_thick[cpt]=0.;
+        }
+    }
+    
+    
+
+// #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
         double old_thick;
@@ -2682,6 +2763,7 @@ FiniteElement::update()
         /* deformation, deformation rate and internal stress tensor and temporary variables */
         double epsilon_veloc_i;
         std::vector<double> epsilon_veloc(3);
+        double divergence_rate;
         std::vector<double> sigma_pred(3);
         double sigma_dot_i;
 
@@ -2756,7 +2838,7 @@ FiniteElement::update()
             epsilon_veloc[i] = epsilon_veloc_i;
         }
 
-        M_divergence_rate[cpt]= (epsilon_veloc[0]+epsilon_veloc[1]);
+        divergence_rate= (epsilon_veloc[0]+epsilon_veloc[1]);
 
         /*======================================================================
          * Update the internal stress
@@ -2933,9 +3015,10 @@ FiniteElement::update()
          *======================================================================
          */
 
-        to_be_updated=false;
-        if( M_divergence_rate[cpt]!=0.)
-            to_be_updated=true;
+        //to_be_updated=false;
+        //if( divergence_rate!=0.)
+        //  to_be_updated=true;
+        to_be_updated=true;
 
 #if 0
         /* For the Lagrangian scheme, we do not update the variables for the elements having one node on the open boundary. */
@@ -2943,11 +3026,12 @@ FiniteElement::update()
            std::find(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[1]-1) != M_neumann_flags.end() ||
            std::find(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[2]-1) != M_neumann_flags.end())
             to_be_updated=false;
-#endif
+
         if(std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[0]-1) ||
            std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[1]-1) ||
            std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[2]-1))
             to_be_updated=false;
+#endif
         
         /* convective velocity */
         for(i=0;i<3;i++)
@@ -2988,7 +3072,7 @@ FiniteElement::update()
             outer_fluxes_area[i]=outer_vector[0]*VC_middle[0]+outer_vector[1]*VC_middle[1];
             outer_fluxes_volume[i]=outer_fluxes_area[i];
             outer_fluxes_snow_volume[i]=outer_fluxes_area[i]; 
-    
+#if 0 
             if(outer_fluxes_area[i]>0)
             {
                 outer_fluxes_area[i]*=M_conc_old[cpt];
@@ -3006,6 +3090,73 @@ FiniteElement::update()
                     outer_fluxes_snow_volume[i]*=M_snow_thick_old[neighbour_int-1];
                 }
             }
+#endif
+            
+            neighbour_double=bamgmesh->ElementConnectivity[cpt*3+i];
+            neighbour_int=(int) bamgmesh->ElementConnectivity[cpt*3+i];
+            if (!std::isnan(neighbour_double) && neighbour_int>0)
+            {
+                jump_conc[i]=M_conc_old[cpt]-M_conc_old[neighbour_int-1];
+                jump_thick[i]=M_thick_old[cpt]-M_thick_old[neighbour_int-1];
+                jump_snow_thick[i]=M_snow_thick_old[cpt]-M_snow_thick_old[neighbour_int-1];  
+            }
+            else
+            {
+                jump_conc[i]=0.;
+                jump_thick[i]=0.;
+                jump_snow_thick[i]=0.;
+            }
+            
+            if(outer_fluxes_area[i]>0)
+            {
+                if(min_jump_conc[cpt]>0.)
+                    outer_fluxes_area[i]*=(M_conc_old[cpt]-jump_conc[i]/std::abs(jump_conc[i])*min_jump_conc[cpt]*(1.-0.5*std::abs(sum_jump_conc[cpt])/sum_abs_jump_conc[cpt]));
+                else
+                    outer_fluxes_area[i]*=M_conc_old[cpt];
+                
+                if(min_jump_thick[cpt]>0.)
+                    outer_fluxes_volume[i]*=(M_thick_old[cpt]-jump_thick[i]/std::abs(jump_thick[i])*min_jump_thick[cpt]*(1.-0.5*std::abs(sum_jump_thick[cpt])/sum_abs_jump_thick[cpt]));
+                else
+                    outer_fluxes_volume[i]*=M_thick_old[cpt];
+                
+                if(min_jump_snow_thick[cpt]>0.)
+                    outer_fluxes_snow_volume[i]*=(M_snow_thick_old[cpt]-jump_snow_thick[i]/std::abs(jump_snow_thick[i])*min_jump_snow_thick[cpt]*(1.-0.5*std::abs(sum_jump_snow_thick[cpt])/sum_abs_jump_snow_thick[cpt]));
+                else
+                    outer_fluxes_snow_volume[i]*=M_snow_thick_old[cpt];
+                
+                surface = this->measure(M_elements[cpt],M_mesh, UM_P);
+                outer_fluxes_area[i]=std::min(M_conc_old[cpt]*surface/time_step/3.,outer_fluxes_area[i]);
+                outer_fluxes_volume[i]=std::min(M_thick_old[cpt]*surface/time_step/3.,outer_fluxes_volume[i]);
+                outer_fluxes_snow_volume[i]=std::min(M_snow_thick_old[cpt]*surface/time_step/3.,outer_fluxes_snow_volume[i]);
+            }
+            else
+            {
+			    neighbour_double=bamgmesh->ElementConnectivity[cpt*3+i];
+                neighbour_int=(int) bamgmesh->ElementConnectivity[cpt*3+i];
+			    if (!std::isnan(neighbour_double) && neighbour_int>0)
+                {
+                    if(min_jump_conc[neighbour_int-1]>0.)
+                        outer_fluxes_area[i]*=(M_conc_old[neighbour_int-1]+jump_conc[i]/std::abs(jump_conc[i])*min_jump_conc[neighbour_int-1]*(1.-0.5*std::abs(sum_jump_conc[neighbour_int-1])/sum_abs_jump_conc[neighbour_int-1]));
+                    else
+                        outer_fluxes_area[i]*=M_conc_old[neighbour_int-1];
+                
+                    if(min_jump_thick[neighbour_int-1]>0.)
+                        outer_fluxes_volume[i]*=(M_thick_old[neighbour_int-1]+jump_thick[i]/std::abs(jump_thick[i])*min_jump_thick[neighbour_int-1]*(1.-0.5*std::abs(sum_jump_thick[neighbour_int-1])/sum_abs_jump_thick[neighbour_int-1]));
+                    else
+                        outer_fluxes_volume[i]*=M_thick_old[neighbour_int-1];
+                
+                    if(min_jump_snow_thick[neighbour_int-1]>0.)
+                        outer_fluxes_snow_volume[i]*=(M_snow_thick_old[neighbour_int-1]+jump_snow_thick[i]/std::abs(jump_snow_thick[i])*min_jump_snow_thick[neighbour_int-1]*(1.-0.5*std::abs(sum_jump_snow_thick[neighbour_int-1])/sum_abs_jump_snow_thick[neighbour_int-1]));
+                    else
+                        outer_fluxes_snow_volume[i]*=M_snow_thick_old[neighbour_int-1];
+                    
+                    surface = this->measure(M_elements[neighbour_int-1],M_mesh, UM_P);
+                    outer_fluxes_area[i]=-std::min(M_conc_old[neighbour_int-1]*surface/time_step/3.,-outer_fluxes_area[i]);
+                    outer_fluxes_volume[i]=-std::min(M_thick_old[neighbour_int-1]*surface/time_step/3.,-outer_fluxes_volume[i]);
+                    outer_fluxes_snow_volume[i]=-std::min(M_snow_thick_old[neighbour_int-1]*surface/time_step/3.,-outer_fluxes_snow_volume[i]);
+                }
+            }
+            
     
         }
         
@@ -3019,6 +3170,25 @@ FiniteElement::update()
             ice_volume = M_thick_old[cpt]*surface - (outer_fluxes_volume[0]+ outer_fluxes_volume[1]+ outer_fluxes_volume[2])*time_step;
             snow_volume = M_snow_thick_old[cpt]*surface - (outer_fluxes_snow_volume[0]+ outer_fluxes_snow_volume[1]+ outer_fluxes_snow_volume[2])*time_step;
             
+#if 1
+            if ( ice_surface <-1e-12)
+            {
+                std::cout << "negative ice_surface " << ice_surface << "\n";
+                throw std::runtime_error("error cfl condition reached for dvection scheme");
+            }
+            
+            if ( ice_volume <-1e-12)
+            {
+                std::cout << "negative ice_volume " << ice_volume << "\n";
+                throw std::runtime_error("error cfl condition reached for dvection scheme");
+            }
+            
+            if ( snow_volume <-1e-12)
+            {
+                std::cout << "negative snow_volume " << snow_volume << "\n";
+                throw std::runtime_error("error cfl condition reached for dvection scheme");
+            }
+   #endif         
             ridged_thick_ice_volume = old_h_ridged_thick_ice*surface;
 #if defined (WAVES)
             if (M_use_wim)
@@ -4927,7 +5097,6 @@ FiniteElement::writeRestart(int pcpt, int step)
     exporter.writeField(outbin, M_snow_thick, "M_snow_thick");
     exporter.writeField(outbin, M_sigma, "M_sigma");
     exporter.writeField(outbin, M_damage, "M_damage");
-    exporter.writeField(outbin, M_divergence_rate, "M_divergence_rate");
     exporter.writeField(outbin, M_h_ridged_thin_ice, "M_h_ridged_thin_ice");
     exporter.writeField(outbin, M_h_ridged_thick_ice, "M_h_ridged_thick_ice");
     exporter.writeField(outbin, M_random_number, "M_random_number");
@@ -5142,7 +5311,6 @@ FiniteElement::readRestart(int step)
     M_snow_thick = field_map_dbl["M_snow_thick"];
     M_sigma      = field_map_dbl["M_sigma"];
     M_damage     = field_map_dbl["M_damage"];
-    M_divergence_rate    = field_map_dbl["M_divergence_rate"];
     M_h_ridged_thin_ice  = field_map_dbl["M_h_ridged_thin_ice"];
     M_h_ridged_thick_ice = field_map_dbl["M_h_ridged_thick_ice"];
     M_random_number      = field_map_dbl["M_random_number"];
@@ -5756,8 +5924,8 @@ void
 FiniteElement::targetIce()
 {
     double y_max=300000.;
-    double y_min=250000.;
-    double x_max=200000.;
+    double y_min=150000.;
+    double x_max=300000.;
     double x_min=150000.;
     
     double transition=(y_max-y_min)/10.;
