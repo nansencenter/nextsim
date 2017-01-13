@@ -260,7 +260,6 @@ private:
 
     std::vector<double> M_surface;
     std::vector<double> M_sigma;
-    std::vector<double> M_divergence_rate;
     std::vector<double> M_UM;
     std::vector<double> M_VT;
     std::vector<double> M_VTM;
@@ -278,8 +277,6 @@ private:
     std::vector<double> M_water_elements;
     std::vector<double> M_h_thin;
     std::vector<double> M_hs_thin;
-    std::vector<double> M_h_ridged_thin_ice;
-    std::vector<double> M_h_ridged_thick_ice;
 
     std::vector<external_data*> M_external_data;
 
