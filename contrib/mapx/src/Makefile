@@ -14,7 +14,8 @@ LIBRARYDIR=$(NEXTSIMDIR)/lib/
 CC = gcc
 CCFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -v
 
-ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
+#ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
+ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	CCFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
 	CCFLAGS += -g3 -O0 -Wl,-no_pie -DNDEBUG
 endif
