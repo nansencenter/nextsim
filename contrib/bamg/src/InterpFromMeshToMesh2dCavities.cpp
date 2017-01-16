@@ -20,9 +20,7 @@ using namespace std;
 
 
 int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,int nb_variables,
-		double* surface_old, double* surface_new, BamgMesh* bamgmesh_old,BamgMesh* bamgmesh_new,
-        double* age_element_old, double** age_element_new,
-        int* ratio,int nb_ratio){
+		double* surface_old, double* surface_new, BamgMesh* bamgmesh_old,BamgMesh* bamgmesh_new){
     /*  Conservative interpolation method
         Use the cavities detected by detect_cavity to transfer physical
         quantities from the old element to the new ones*/
@@ -88,7 +86,6 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
         for(int j=0; j<nb_variables; j++)
 	        IntMatrix_out[((int)new_element_i-1)*nb_variables+j]=IntMatrix_in[((int)old_element_i-1)*nb_variables+j];
         
-        AgeVector_out[(int)new_element_i-1]=age_element_old[(int)old_element_i-1];
     }
 
     if (verbosity>1) _printf_("   Interp Cavities: initialize intermediary...\n");
@@ -105,10 +102,6 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
     // tmp_mean_variables and tmp_integrated_area are used with method 1
     double *tmp_mean_variables  = xNew<double>(gate.max_size_born_cavity*nb_variables);
     double *tmp_integrated_area = xNew<double>(gate.max_size_born_cavity);
-
-    double *min_ratio = xNew<double>(nb_ratio);
-    double *max_ratio = xNew<double>(nb_ratio);    
-    double ratio_tmp, numerator, denominator;
 
     double area_error_tolerance=1000;
     double area_error;
@@ -143,12 +136,6 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
 		        tmp_mean_variables[i*nb_variables+j]=0.;
         }
 
-        for(int i=0; i<nb_ratio; i++)
-        {
-            min_ratio[i]=-1.;
-            max_ratio[i]=-1.;
-        }
-
         if (verbosity>1) _printf_("   Interp Cavities: integrated area, nb_dead_elements:" << nb_dead_elements << "\n");
 
         for(int i=0; i<nb_dead_elements; i++)
@@ -158,28 +145,6 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
 
             dead_elements[i]=tmp_element;
             integrated_area+=surface_old[(int)tmp_element-1];
-            
-            // compute the min max ratios over the cavity
-            for(int i=0; i<nb_ratio; i++)
-            {
-                numerator    =IntMatrix_in[((int)tmp_element-1)*nb_variables+ratio[i*nb_ratio+0]];
-                denominator  =IntMatrix_in[((int)tmp_element-1)*nb_variables+ratio[i*nb_ratio+1]];
-                if(denominator>0.)
-                {
-                    ratio_tmp=numerator/denominator;
-
-                    if(ratio_tmp<min_ratio[i] || min_ratio[i]<0.)
-                        min_ratio[i]=ratio_tmp;
-
-                    if(ratio_tmp>max_ratio[i])
-                        max_ratio[i]=ratio_tmp;
-                }
-                else
-                {
-                    min_ratio[i]=0.;
-                    max_ratio[i]=0.;
-                }
-            }
         }
 
         if (verbosity>1) _printf_("   Interp Cavities: integrated area...\n");
@@ -256,29 +221,6 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
 
                 for(int j=0; j<nb_variables; j++)
 	                IntMatrix_out[((int)tmp_element-1)*nb_variables+j]=tmp_mean_variables[i*nb_variables+j]*correction_factor;
-                
-                // Apply the min max ratios limiter
-                for(int i=0; i<nb_ratio; i++)
-                {
-                    numerator    =IntMatrix_out[((int)tmp_element-1)*nb_variables+ratio[i*nb_ratio+0]];
-                    denominator  =IntMatrix_out[((int)tmp_element-1)*nb_variables+ratio[i*nb_ratio+1]];
-                    if(denominator>0.)
-                    {
-                        ratio_tmp=numerator/denominator;
-
-                        if(ratio_tmp<min_ratio[i] && min_ratio[i]>0.)
-                            IntMatrix_out[((int)tmp_element-1)*nb_variables+ratio[i*nb_ratio+1]]=numerator/min_ratio[i];
-
-                        if(ratio_tmp>max_ratio[i] && max_ratio[i]>0.)
-                            IntMatrix_out[((int)tmp_element-1)*nb_variables+ratio[i*nb_ratio+1]]=numerator/max_ratio[i];
-                    }
-                    else
-                    {
-                        IntMatrix_out[((int)tmp_element-1)*nb_variables+ratio[i*nb_ratio+0]]=0.;
-                        IntMatrix_out[((int)tmp_element-1)*nb_variables+ratio[i*nb_ratio+1]]=0.;
-                    }    
-                }
-                
             }
         }
     }
@@ -305,7 +247,6 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
 
     /*---- end of the interpolation cavity by cavity      ------*/
 	*pdata_interp=IntMatrix_out;
-	*age_element_new=AgeVector_out;
 
 	return 1;
 }

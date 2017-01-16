@@ -173,8 +173,6 @@ FiniteElement::initVariables()
     M_VTMM.resize(2*M_num_nodes,0.);
     M_node_max_conc.resize(2*M_num_nodes,0.);
 
-    M_element_age.resize(M_num_elements,0.);
-
     M_sst.resize(M_num_elements);
     M_sss.resize(M_num_elements);
 
@@ -992,8 +990,6 @@ FiniteElement::regrid(bool step)
     double applied_displacement_factor=0.;
     double displacement_factor = 1.;
     
-    //int substep_nb=1;
-    //int step_order=-1;
     bool flip = true;
     double minang;
     int substep = 0;
@@ -1004,38 +1000,7 @@ FiniteElement::regrid(bool step)
     std::vector<double> hmax_vertices_first;
 
     mesh_adapt_step++;
-#if 0
-    if (step)
-    {
-        chrono.restart();
-        LOG(DEBUG) <<"Flip starts\n";
 
-        while (flip)
-        {
-            ++substep;
-            displacement_factor /= 2.;
-            step_order++;
-            flip = this->flip(M_mesh,M_UM,displacement_factor);
-
-            if (substep > 1)
-                LOG(DEBUG) <<"FLIP DETECTED "<< substep-1 <<"\n";
-        }
-
-        LOG(DEBUG) <<"displacement_factor= "<< displacement_factor <<"\n";
-
-		substep_nb=std::pow(2,step_order);
-
-		if(substep_nb!=1)
-		{
-			LOG(WARNING) << substep_nb << "substeps will be needed for the remeshing!" <<"\n";
-			LOG(WARNING) << "Warning: It is probably due to very high ice speed, check your fields!\n";
-		}
-
-        LOG(DEBUG) <<"Flip done in "<< chrono.elapsed() <<"s\n";
-    }
-#endif
-
-//	for (int substep_i = 0; substep_i < substep_nb; substep_i++ )
     while(applied_displacement_factor<1.)
 	{
 		if(step)
@@ -1159,123 +1124,20 @@ FiniteElement::regrid(bool step)
 
 		if (step)
 		{
-			int prv_num_elements = M_mesh_previous.numTriangles();
-			int prv_num_nodes = M_mesh_previous.numNodes();
-
-	        chrono.restart();
-	        LOG(DEBUG) <<"Element Interp starts\n";
-			// ELEMENT INTERPOLATION With Cavities
-			int nb_var=11 + M_tice.size();
-
-#if defined (WAVES)
-            // coupling with wim
-            // - only interpolate if not at a coupling time step
-            // - else nfloes will just be overwritten with wimToNextsim()
-            // - EXCEPT if doing breaking on mesh
-            //   - then we need to PASS IN regridded Nfloes
-            bool nfloes_interp = M_use_wim;
-            if ( !(vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh"))
-                bool nfloes_interp = (M_use_wim && (!M_run_wim));
-
-            if (nfloes_interp)
-                std::cout<<"IN REGRID: "<< "interpolate nfloes\n";
-            else
-                std::cout<<"IN REGRID: "<< "do not interpolate nfloes\n";
-
-            if (nfloes_interp)
-                nb_var++;
-#endif
-
-			// To avoid memory leak:
-			std::vector<double> interp_elt_in(nb_var*prv_num_elements);
-
-            int nb_ratio_limiter=1;
-            std::vector<int> ratio_limiter(nb_ratio_limiter*2);
             
-			double* interp_elt_out;
-            double* age_elt_out;
+            chrono.restart();
+    
+            LOG(DEBUG) <<"Element Interp starts\n";
+            
+            // 1) collect the variables into a single structure
+            int prv_num_elements = M_mesh_previous.numTriangles();
+            double* interp_elt_in;
+            int* interp_method;
+            
+            int nb_var=this->collect_variables(&interp_elt_in, &interp_method, prv_num_elements);
 
-			LOG(DEBUG) <<"ELEMENT: Interp starts\n";
-
-			int tmp_nb_var=0;
-			for (int i=0; i<prv_num_elements; ++i)
-			{
-				tmp_nb_var=0;
-
-				// concentration
-				interp_elt_in[nb_var*i+tmp_nb_var] = M_conc[i];
-                ratio_limiter[nb_ratio_limiter*0+1]=tmp_nb_var;
-				tmp_nb_var++;
-
-				// thickness
-				interp_elt_in[nb_var*i+tmp_nb_var] = M_thick[i];
-                ratio_limiter[nb_ratio_limiter*0+0]=tmp_nb_var;
-				tmp_nb_var++;
-
-				// snow thickness
-				interp_elt_in[nb_var*i+tmp_nb_var] = M_snow_thick[i];
-				tmp_nb_var++;
-
-				// integrated_stress1
-				interp_elt_in[nb_var*i+tmp_nb_var] = M_sigma[3*i]*M_thick[i];
-				tmp_nb_var++;
-
-				// integrated_stress2
-				interp_elt_in[nb_var*i+tmp_nb_var] = M_sigma[3*i+1]*M_thick[i];
-				tmp_nb_var++;
-
-				// integrated_stress3
-				interp_elt_in[nb_var*i+tmp_nb_var] = M_sigma[3*i+2]*M_thick[i];
-				tmp_nb_var++;
-
-				// compliance
-				interp_elt_in[nb_var*i+tmp_nb_var] = 1./(1.-M_damage[i]);
-				tmp_nb_var++;
-
-				// random_number
-				interp_elt_in[nb_var*i+tmp_nb_var] = M_random_number[i];
-				tmp_nb_var++;
-
-				// Ice temperature
-                interp_elt_in[nb_var*i+tmp_nb_var] = M_tice[0][i];
-                tmp_nb_var++;
-                if ( M_thermo_type == setup::ThermoType::WINTON )
-                {
-                    interp_elt_in[nb_var*i+tmp_nb_var] = ( M_tice[1][i] - physical::mu*physical::si*physical::Lf/(physical::C*M_tice[1][i]) ) * M_thick[i]; // (39) times volume with f1=1
-                    tmp_nb_var++;
-                    interp_elt_in[nb_var*i+tmp_nb_var] = ( M_tice[2][i] ) * M_thick[i]; // (39) times volume with f1=0
-                    tmp_nb_var++;
-                }
-
-				// thin ice thickness
-				interp_elt_in[nb_var*i+tmp_nb_var] = M_h_thin[i];
-				tmp_nb_var++;
-
-				// snow on thin ice
-				interp_elt_in[nb_var*i+tmp_nb_var] = M_hs_thin[i];
-				tmp_nb_var++;
-
-				// Ice surface temperature for thin ice
-				interp_elt_in[nb_var*i+tmp_nb_var] = M_tsurf_thin[i];
-				tmp_nb_var++;
-
-#if defined (WAVES)
-                // Nfloes from wim model
-                if (nfloes_interp)
-                {
-                    interp_elt_in[nb_var*i+tmp_nb_var] = M_nfloes[i];
-                    tmp_nb_var++;
-                }
-#endif
-
-				if(tmp_nb_var>nb_var)
-				{
-					throw std::logic_error("tmp_nb_var not equal to nb_var");
-				}
-			}
-
-			// To avoid memory leak:
-			std::vector<double> surface_previous(prv_num_elements);
+            // 2) Interpolate
+            std::vector<double> surface_previous(prv_num_elements);
 			std::vector<double> surface(M_num_elements);
 
 			int cpt = 0;
@@ -1291,14 +1153,10 @@ FiniteElement::regrid(bool step)
 				surface[cpt] = this->measure(*it,M_mesh);
 				++cpt;
 			}
-
-			// The interpolation with the cavities still needs to be tested on a long run.
-			// By default, we then use the non-conservative MeshToMesh interpolation
-
-			InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_elt_in[0],nb_var,
-                                           &surface_previous[0], &surface[0], bamgmesh_previous, bamgmesh,
-                                           &M_element_age[0],&age_elt_out,
-                                           &ratio_limiter[0],nb_ratio_limiter);
+            
+            double* interp_elt_out;
+			InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_elt_in[0], nb_var,
+                                           &surface_previous[0], &surface[0], bamgmesh_previous, bamgmesh);
 
 #if 0
 			InterpFromMeshToMesh2dx(&interp_elt_out,
@@ -1310,6 +1168,7 @@ FiniteElement::regrid(bool step)
                                     false);
 #endif
 
+            // 3) Change the size of the variables
 			M_conc.assign(M_num_elements,0.);
 			M_thick.assign(M_num_elements,0.);
 			M_snow_thick.assign(M_num_elements,0.);
@@ -1318,8 +1177,6 @@ FiniteElement::regrid(bool step)
 
 			M_random_number.resize(M_num_elements);
             
-            M_element_age.resize(M_num_elements);
-
             for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
                 it->assign(M_num_elements,0.);
 
@@ -1328,110 +1185,26 @@ FiniteElement::regrid(bool step)
             M_tsurf_thin.assign(M_num_elements,0.);
 
 #if defined (WAVES)
+            bool nfloes_interp = M_use_wim;
+            if ( !(vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh"))
+                bool nfloes_interp = (M_use_wim && (!M_run_wim));
             if (nfloes_interp)
                 M_nfloes.assign(M_num_elements,0.);
 #endif
+            // 4) redistribute the interpolated values 
+            redistribute_variables(&interp_elt_out[0],nb_var);
 
-			for (int i=0; i<M_num_elements; ++i)
-			{
-                M_element_age[i]=age_elt_out[i];
-                
-				tmp_nb_var=0;
-
-				// concentration
-				M_conc[i] = std::max(0., std::min(1.,interp_elt_out[nb_var*i+tmp_nb_var]));
-				tmp_nb_var++;
-
-				// thickness
-				M_thick[i] = std::max(0., interp_elt_out[nb_var*i+tmp_nb_var]);
-				tmp_nb_var++;
-
-				// snow thickness
-				M_snow_thick[i] = std::max(0., interp_elt_out[nb_var*i+tmp_nb_var]);
-				tmp_nb_var++;
-
-				if (M_thick[i] != 0.)
-				{
-					// integrated_stress1
-					M_sigma[3*i] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
-					tmp_nb_var++;
-
-					// integrated_stress2
-					M_sigma[3*i+1] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
-					tmp_nb_var++;
-
-					// integrated_stress3
-					M_sigma[3*i+2] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
-					tmp_nb_var++;
-				}
-				else
-				{
-					tmp_nb_var+=3;
-				}
-
-				// compliance
-				if (interp_elt_out[nb_var*i+tmp_nb_var] != 0.)
-				{
-					M_damage[i] = std::max(0., std::min(1.,1.-1./interp_elt_out[nb_var*i+tmp_nb_var]));
-					tmp_nb_var++;
-				}
-				else
-				{
-					M_damage[i] = 0.;
-					tmp_nb_var++;
-				}
-
-				// random_number
-				M_random_number[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-				//M_random_number[i] = std::max(0., std::min(1.,interp_elt_in[11*i+tmp_nb_var]));
-				tmp_nb_var++;
-
-				// Ice temperature
-                M_tice[0][i] = interp_elt_out[nb_var*i+tmp_nb_var];
-                tmp_nb_var++;
-                if ( M_thermo_type == setup::ThermoType::WINTON )
-                {
-                    double tmp = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
-                    M_tice[1][i] = 0.5*( tmp - std::sqrt(tmp*tmp + 4*physical::mu*physical::si*physical::Lf/physical::C) ); // (38) divided with volume with f1=1
-                    tmp_nb_var++;
-                    M_tice[2][i] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i]; // (40) divided with volume with f1=0
-                    tmp_nb_var++;
-                }
-
-				// thin ice thickness
-				M_h_thin[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-				tmp_nb_var++;
-
-				// snow on thin ice
-				M_hs_thin[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-				tmp_nb_var++;
-
-				// Ice surface temperature for thin ice
-				M_tsurf_thin[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-				tmp_nb_var++;
-
-#if defined (WAVES)
-                // Nfloes from wim model
-                if (nfloes_interp)
-                {
-                    M_nfloes[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-                    tmp_nb_var++;
-                }
-#endif
-
-				if(tmp_nb_var!=nb_var)
-				{
-					throw std::logic_error("tmp_nb_var not equal to nb_var");
-				}
-			}
-
+            // 5) cleaning
 			xDelete<double>(interp_elt_out);
+			xDelete<double>(interp_elt_in);
 
 			LOG(DEBUG) <<"ELEMENT: Interp done\n";
 			LOG(DEBUG) <<"Element Interp done in "<< chrono.elapsed() <<"s\n";
 
 	        chrono.restart();
 	        LOG(DEBUG) <<"Slab Interp starts\n";
+            
+            
 			// ELEMENT INTERPOLATION FOR SLAB OCEAN FROM OLD MESH ON ITS ORIGINAL POSITION
 			nb_var=2;
 
@@ -1481,6 +1254,8 @@ FiniteElement::regrid(bool step)
 
 			// NODAL INTERPOLATION
 			nb_var=8;
+
+			int prv_num_nodes = M_mesh_previous.numNodes();
 
 			std::vector<double> interp_in(nb_var*prv_num_nodes);
 
@@ -1723,6 +1498,446 @@ FiniteElement::regrid(bool step)
     M_Cohesion.resize(M_num_elements);
     M_Compressive_strength.resize(M_num_elements);
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
+}
+
+void 
+FiniteElement::redistribute_variables(double* interp_elt_out,int nb_var)
+{
+	for (int i=0; i<M_num_elements; ++i)
+	{                
+		int tmp_nb_var=0;
+
+		// concentration
+		M_conc[i] = std::max(0., std::min(1.,interp_elt_out[nb_var*i+tmp_nb_var]));
+		tmp_nb_var++;
+
+		// thickness
+		M_thick[i] = std::max(0., interp_elt_out[nb_var*i+tmp_nb_var]);
+		tmp_nb_var++;
+
+		// snow thickness
+		M_snow_thick[i] = std::max(0., interp_elt_out[nb_var*i+tmp_nb_var]);
+		tmp_nb_var++;
+
+		if (M_thick[i] != 0.)
+		{
+			// integrated_stress1
+			M_sigma[3*i] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
+			tmp_nb_var++;
+
+			// integrated_stress2
+			M_sigma[3*i+1] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
+			tmp_nb_var++;
+
+			// integrated_stress3
+			M_sigma[3*i+2] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
+			tmp_nb_var++;
+
+            // damage
+		    M_damage[i] = std::max(0., std::min(1.,interp_elt_out[nb_var*i+tmp_nb_var]));
+		    tmp_nb_var++;
+		}
+		else
+		{
+			// integrated_stress1
+			M_sigma[3*i] = 0.;
+			tmp_nb_var++;
+
+			// integrated_stress2
+			M_sigma[3*i+1] = 0.;
+			tmp_nb_var++;
+
+			// integrated_stress3
+			M_sigma[3*i+2] = 0.;
+			tmp_nb_var++;
+
+            // damage
+		    M_damage[i] = 1.;
+		    tmp_nb_var++;
+		}
+        
+		// random_number
+		M_random_number[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+		//M_random_number[i] = std::max(0., std::min(1.,interp_elt_in[11*i+tmp_nb_var]));
+		tmp_nb_var++;
+
+		// Ice temperature
+        M_tice[0][i] = interp_elt_out[nb_var*i+tmp_nb_var];
+        tmp_nb_var++;
+        
+        if ( M_thermo_type == setup::ThermoType::WINTON )
+        {
+            if(M_thick[i]>0.)
+            {
+                double tmp = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
+                M_tice[1][i] = 0.5*( tmp - std::sqrt(tmp*tmp + 4*physical::mu*physical::si*physical::Lf/physical::C) ); // (38) divided with volume with f1=1
+                tmp_nb_var++;
+            
+                M_tice[2][i] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i]; // (40) divided with volume with f1=0
+                tmp_nb_var++;
+            }
+            else
+            {
+                M_tice[1][i] = 0.;
+                tmp_nb_var++;
+            
+                M_tice[2][i] = 0.;
+                tmp_nb_var++;
+            }   
+        }
+
+		// thin ice thickness
+		M_h_thin[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+		tmp_nb_var++;
+
+		// snow on thin ice
+		M_hs_thin[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+		tmp_nb_var++;
+
+		// Ice surface temperature for thin ice
+		M_tsurf_thin[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+		tmp_nb_var++;
+
+#if defined (WAVES)
+        bool nfloes_interp = M_use_wim;
+        if ( !(vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh"))
+            bool nfloes_interp = (M_use_wim && (!M_run_wim));
+        
+        // Nfloes from wim model
+        if (nfloes_interp)
+        {
+            M_nfloes[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+            tmp_nb_var++;
+        }
+#endif
+
+		if(tmp_nb_var!=nb_var)
+		{
+			throw std::logic_error("tmp_nb_var not equal to nb_var");
+		}
+	}
+}
+
+void
+FiniteElement::Advect(double** interp_elt_out_ptr,double* interp_elt_in, int* interp_method,int nb_var)
+{
+    
+	/*Initialize output*/
+	double* interp_elt_out=NULL;
+    
+    interp_elt_out=xNew<double>(nb_var*M_num_elements);
+    
+    int thread_id;
+    int total_threads;
+    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
+    
+    std::vector<double> UM_P = M_UM;
+    
+    int Nd = bamgmesh->NodalConnectivitySize[1];
+    
+    int ALE_smoothing_step_nb=vm["simul.ALE_smoothing_step_nb"].as<int>();
+    // ALE_smoothing_step_nb<0 is the diffusive eulerian case where M_UM is not changed and then =0.
+    // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
+    // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
+        
+    if(ALE_smoothing_step_nb>=0) 
+    {
+        std::vector<double> M_VT_smoothed = M_VT;
+        std::vector<double> M_VT_tmp = M_VT_smoothed;
+        
+        for (int k=0; k<ALE_smoothing_step_nb; ++k)
+        {
+            M_VT_tmp=M_VT_smoothed;
+            
+#pragma omp parallel for num_threads(max_threads) private(thread_id)
+            for (int i=0; i<M_num_nodes; ++i)
+            {
+                int Nc;
+                double UM_x, UM_y;
+                
+                if(M_mask_dirichlet[i]==false)
+                {
+                    Nc = bamgmesh->NodalConnectivity[Nd*(i+1)-1];
+            
+                    UM_x=0.;
+                    UM_y=0.;
+                    for (int j=0; j<Nc; ++j)
+                    {
+                        UM_x += M_VT_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1]  ;
+                        UM_y += M_VT_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1+M_num_nodes]  ;
+                    }
+                
+                    M_VT_smoothed[i             ]=UM_x/Nc;
+                    M_VT_smoothed[i+M_num_nodes ]=UM_y/Nc;
+                }
+            }
+        }
+        for (int nd=0; nd<M_UM.size(); ++nd)
+        {
+            M_UM[nd] += time_step*M_VT_smoothed[nd];
+        }
+
+        for (const int& nd : M_neumann_nodes)
+        {
+            M_UM[nd] = UM_P[nd];
+        }
+    }
+
+    LOG(DEBUG) <<"VT MIN= "<< *std::min_element(M_VT.begin(),M_VT.end()) <<"\n";
+    LOG(DEBUG) <<"VT MAX= "<< *std::max_element(M_VT.begin(),M_VT.end()) <<"\n";
+
+#pragma omp parallel for num_threads(max_threads) private(thread_id)
+    for (int cpt=0; cpt < M_num_elements; ++cpt)
+    {   
+        /* some variables used for the advection*/
+        double surface, surface_new;
+        double integrated_variable;
+        
+        /* some variables used for the advection*/
+        double x[3],y[3],x_new[3],y_new[3];
+        int x_ind, y_ind, neighbour_int, vertex_1, vertex_2;
+        double outer_fluxes_area[3], vector_edge[2], outer_vector[2], VC_middle[2], VC_x[3], VC_y[3];
+        int fluxes_source_id[3];
+
+        double neighbour_double;
+        int other_vertex[3*2]={1,2 , 2,0 , 0,1};
+
+        /*======================================================================
+         * Update:
+         * Ice and snow thickness, and concentration using a Lagrangian or an Eulerian scheme
+         *======================================================================
+         */
+
+        //to_be_updated=false;
+        //if( divergence_rate!=0.)
+        //  to_be_updated=true;
+        bool to_be_updated=true;
+
+#if 0
+        /* For the Lagrangian scheme, we do not update the variables for the elements having one node on the open boundary. */
+        if(std::find(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[0]-1) != M_neumann_flags.end() ||
+           std::find(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[1]-1) != M_neumann_flags.end() ||
+           std::find(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[2]-1) != M_neumann_flags.end())
+            to_be_updated=false;
+
+        if(std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[0]-1) ||
+           std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[1]-1) ||
+           std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[2]-1))
+            to_be_updated=false;
+#endif
+        
+        /* convective velocity */
+        for(int i=0;i<3;i++)
+        {
+            x_ind=(M_elements[cpt]).indices[i]-1;
+            y_ind=(M_elements[cpt]).indices[i]-1+M_num_nodes;
+            
+            x[i] = M_nodes[(M_elements[cpt]).indices[i]-1].coords[0];
+            y[i] = M_nodes[(M_elements[cpt]).indices[i]-1].coords[1];
+                
+            /* old and new positions of the mesh */
+            x_new[i]=M_nodes[(M_elements[cpt]).indices[i]-1].coords[0]+M_UM[x_ind];
+            y_new[i]=M_nodes[(M_elements[cpt]).indices[i]-1].coords[1]+M_UM[y_ind];
+            x[i]    =M_nodes[(M_elements[cpt]).indices[i]-1].coords[0]+UM_P[x_ind];
+            y[i]    =M_nodes[(M_elements[cpt]).indices[i]-1].coords[1]+UM_P[y_ind];
+            
+            VC_x[i] =M_VT[x_ind]-(M_UM[x_ind]-UM_P[x_ind])/time_step;
+            VC_y[i] =M_VT[y_ind]-(M_UM[y_ind]-UM_P[y_ind])/time_step;
+        }
+        for(int i=0;i<3;i++)
+        {
+            outer_fluxes_area[i]=0;
+    
+            vertex_1=other_vertex[2*i  ];
+            vertex_2=other_vertex[2*i+1];
+    
+            vector_edge[0]=x[vertex_2]-x[vertex_1];
+            vector_edge[1]=y[vertex_2]-y[vertex_1];
+    
+            outer_vector[0]= vector_edge[1];
+            outer_vector[1]=-vector_edge[0];
+    
+            VC_middle[0] = (VC_x[vertex_2]+VC_x[vertex_1])/2.;
+            VC_middle[1] = (VC_y[vertex_2]+VC_y[vertex_1])/2.;
+    
+            outer_fluxes_area[i]=outer_vector[0]*VC_middle[0]+outer_vector[1]*VC_middle[1];
+            
+                        
+            if(outer_fluxes_area[i]>0)
+            {
+                surface = this->measure(M_elements[cpt],M_mesh, UM_P);
+                outer_fluxes_area[i]=std::min(surface/time_step/3.,outer_fluxes_area[i]);
+                fluxes_source_id[i]=cpt;
+            }
+            else
+            {
+			    neighbour_double=bamgmesh->ElementConnectivity[cpt*3+i];
+                neighbour_int=(int) bamgmesh->ElementConnectivity[cpt*3+i];
+			    if (!std::isnan(neighbour_double) && neighbour_int>0)
+                {
+                    surface = this->measure(M_elements[neighbour_int-1],M_mesh, UM_P);
+                    outer_fluxes_area[i]=-std::min(surface/time_step/3.,-outer_fluxes_area[i]);
+                    fluxes_source_id[i]=neighbour_int-1;
+                }
+                else // open boundary with incoming fluxes
+                    fluxes_source_id[i]=cpt;
+            }
+        }
+        
+        if( to_be_updated)
+        {
+            surface = this->measure(M_elements[cpt],M_mesh, UM_P);
+            surface_new = this->measure(M_elements[cpt],M_mesh,M_UM);
+             
+                       
+            for(int j=0; j<nb_var; j++)
+            {
+                if(interp_method[j]==1)
+                {
+                    integrated_variable=interp_elt_in[cpt*nb_var+j]*surface - 
+                        (interp_elt_in[fluxes_source_id[0]*nb_var+j]*outer_fluxes_area[0]  + 
+                        interp_elt_in[fluxes_source_id[1]*nb_var+j]*outer_fluxes_area[1]  + 
+                        interp_elt_in[fluxes_source_id[2]*nb_var+j]*outer_fluxes_area[2]  )*time_step;
+                
+                    interp_elt_out[cpt*nb_var+j]    = integrated_variable/surface_new;
+                }
+                else
+                {
+                    interp_elt_out[cpt*nb_var+j] = interp_elt_in[cpt*nb_var+j];
+                }
+            }
+        }
+    }
+	*interp_elt_out_ptr=interp_elt_out;    
+}
+
+int
+FiniteElement::collect_variables(double** interp_elt_in_ptr, int** interp_method_ptr, int prv_num_elements)
+{   
+    // ELEMENT INTERPOLATION With Cavities
+	int nb_var=11 + M_tice.size();
+
+#if defined (WAVES)
+    // coupling with wim
+    // - only interpolate if not at a coupling time step
+    // - else nfloes will just be overwritten with wimToNextsim()
+    // - EXCEPT if doing breaking on mesh
+    //   - then we need to PASS IN regridded Nfloes
+    bool nfloes_interp = M_use_wim;
+    if ( !(vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh"))
+        bool nfloes_interp = (M_use_wim && (!M_run_wim));
+
+    if (nfloes_interp)
+        std::cout<<"IN REGRID: "<< "interpolate nfloes\n";
+    else
+        std::cout<<"IN REGRID: "<< "do not interpolate nfloes\n";
+
+    if (nfloes_interp)
+        nb_var++;
+#endif
+
+	/*Initialize output*/
+	double* interp_elt_in=NULL;
+	int* interp_method=NULL;
+    
+    interp_elt_in=xNew<double>(nb_var*prv_num_elements);
+    interp_method=xNew<int>(nb_var); // 0 for non conservative method, 1 for conservative method (for variables defined in terms of blabla/per unit area)
+    
+	int tmp_nb_var=0;
+	for (int i=0; i<prv_num_elements; ++i)
+	{
+		tmp_nb_var=0;
+
+		// concentration
+		interp_elt_in[nb_var*i+tmp_nb_var] = M_conc[i];
+        interp_method[tmp_nb_var] = 1;
+		tmp_nb_var++;
+
+		// thickness
+		interp_elt_in[nb_var*i+tmp_nb_var] = M_thick[i];
+        interp_method[tmp_nb_var] = 1;
+		tmp_nb_var++;
+
+		// snow thickness
+		interp_elt_in[nb_var*i+tmp_nb_var] = M_snow_thick[i];
+        interp_method[tmp_nb_var] = 1;
+		tmp_nb_var++;
+
+		// integrated_stress1
+		interp_elt_in[nb_var*i+tmp_nb_var] = M_sigma[3*i]*M_thick[i];
+        interp_method[tmp_nb_var] = 1;
+		tmp_nb_var++;
+
+		// integrated_stress2
+		interp_elt_in[nb_var*i+tmp_nb_var] = M_sigma[3*i+1]*M_thick[i];
+        interp_method[tmp_nb_var] = 1;
+		tmp_nb_var++;
+
+		// integrated_stress3
+		interp_elt_in[nb_var*i+tmp_nb_var] = M_sigma[3*i+2]*M_thick[i];
+        interp_method[tmp_nb_var] = 1;
+		tmp_nb_var++;
+
+		// damage
+		interp_elt_in[nb_var*i+tmp_nb_var] = M_damage[i];
+        interp_method[tmp_nb_var] = 0;
+		tmp_nb_var++;
+
+		// random_number
+		interp_elt_in[nb_var*i+tmp_nb_var] = M_random_number[i];
+        interp_method[tmp_nb_var] = 0;
+		tmp_nb_var++;
+
+		// Ice temperature
+        interp_elt_in[nb_var*i+tmp_nb_var] = M_tice[0][i];
+        interp_method[tmp_nb_var] = 0;
+        tmp_nb_var++;
+        
+        if ( M_thermo_type == setup::ThermoType::WINTON )
+        {
+            interp_elt_in[nb_var*i+tmp_nb_var] = ( M_tice[1][i] - physical::mu*physical::si*physical::Lf/(physical::C*M_tice[1][i]) ) * M_thick[i]; // (39) times volume with f1=1
+            interp_method[tmp_nb_var] = 1;
+            tmp_nb_var++;
+            
+            interp_elt_in[nb_var*i+tmp_nb_var] = ( M_tice[2][i] ) * M_thick[i]; // (39) times volume with f1=0
+            interp_method[tmp_nb_var] = 1;
+            tmp_nb_var++;
+        }
+
+		// thin ice thickness
+		interp_elt_in[nb_var*i+tmp_nb_var] = M_h_thin[i];
+        interp_method[tmp_nb_var] = 1;
+		tmp_nb_var++;
+
+		// snow on thin ice
+		interp_elt_in[nb_var*i+tmp_nb_var] = M_hs_thin[i];
+        interp_method[tmp_nb_var] = 1;
+		tmp_nb_var++;
+
+		// Ice surface temperature for thin ice
+		interp_elt_in[nb_var*i+tmp_nb_var] = M_tsurf_thin[i];
+        interp_method[tmp_nb_var] = 0;
+		tmp_nb_var++;
+
+#if defined (WAVES)
+        // Nfloes from wim model
+        if (nfloes_interp)
+        {
+            interp_elt_in[nb_var*i+tmp_nb_var] = M_nfloes[i];
+            interp_method[tmp_nb_var] = 1;
+            tmp_nb_var++;
+        }
+#endif
+
+		if(tmp_nb_var>nb_var)
+		{
+			throw std::logic_error("tmp_nb_var not equal to nb_var");
+		}
+	}
+	*interp_elt_in_ptr=interp_elt_in;
+    *interp_method_ptr=interp_method;
+    
+    return nb_var;
 }
 
 void
@@ -2580,65 +2795,6 @@ FiniteElement::update()
     int thread_id;
     int total_threads;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-    
-    std::vector<double> UM_P = M_UM;
-    
-    std::vector<double> M_thick_old=M_thick;
-    std::vector<double> M_conc_old=M_conc;
-    std::vector<double> M_snow_thick_old=M_snow_thick;
-    
-    int Nd = bamgmesh->NodalConnectivitySize[1];
-    
-    int ALE_smoothing_step_nb=vm["simul.ALE_smoothing_step_nb"].as<int>();
-    // ALE_smoothing_step_nb<0 is the diffusive eulerian case where M_UM is not changed and then =0.
-    // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
-    // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
-        
-    if(ALE_smoothing_step_nb>=0) 
-    {
-        std::vector<double> M_VT_smoothed = M_VT;
-        std::vector<double> M_VT_tmp = M_VT_smoothed;
-        
-        for (int k=0; k<ALE_smoothing_step_nb; ++k)
-        {
-            M_VT_tmp=M_VT_smoothed;
-            
-#pragma omp parallel for num_threads(max_threads) private(thread_id)
-            for (int i=0; i<M_num_nodes; ++i)
-            {
-                int Nc;
-                double UM_x, UM_y;
-                
-                if(M_mask_dirichlet[i]==false)
-                {
-                    Nc = bamgmesh->NodalConnectivity[Nd*(i+1)-1];
-            
-                    UM_x=0.;
-                    UM_y=0.;
-                    for (int j=0; j<Nc; ++j)
-                    {
-                        UM_x += M_VT_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1]  ;
-                        UM_y += M_VT_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1+M_num_nodes]  ;
-                    }
-                
-                    M_VT_smoothed[i             ]=UM_x/Nc;
-                    M_VT_smoothed[i+M_num_nodes ]=UM_y/Nc;
-                }
-            }
-        }
-        for (int nd=0; nd<M_UM.size(); ++nd)
-        {
-            M_UM[nd] += time_step*M_VT_smoothed[nd];
-        }
-
-        for (const int& nd : M_neumann_nodes)
-        {
-            M_UM[nd] = UM_P[nd];
-        }
-    }
-
-    LOG(DEBUG) <<"VT MIN= "<< *std::min_element(M_VT.begin(),M_VT.end()) <<"\n";
-    LOG(DEBUG) <<"VT MAX= "<< *std::max_element(M_VT.begin(),M_VT.end()) <<"\n";
 
     //std::cout<<"MAX THREADS= "<< max_threads <<"\n";
 #if defined (WAVES)
@@ -2646,15 +2802,26 @@ FiniteElement::update()
         M_dfloe.assign(M_num_elements,0.);
 #endif
 
+
+    // 1) collect the variables into a single structure
+    int prv_num_elements = M_mesh.numTriangles();
+    double* interp_elt_in;
+    int* interp_method;
+    int nb_var=this->collect_variables(&interp_elt_in, &interp_method, prv_num_elements);
     
+    double* interp_elt_out;
+	Advect(&interp_elt_out,&interp_elt_in[0],&interp_method[0],nb_var);
+    
+    // 4) redistribute the interpolated values 
+    redistribute_variables(&interp_elt_out[0],nb_var);
+
+    // 5) cleaning
+	xDelete<double>(interp_elt_out);
+	xDelete<double>(interp_elt_in);
 
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
-    {
-        double old_thick;
-        double old_snow_thick;
-        double old_conc;
-        
+    {   
         double old_damage;
 
         /* deformation, deformation rate and internal stress tensor and temporary variables */
@@ -2665,34 +2832,14 @@ FiniteElement::update()
         std::vector<double> sigma_pred(3);
         double sigma_dot_i;
 
-        /* some variables used for the advection*/
-        double surface, surface_new;
-        double ice_surface, ice_volume, snow_volume;
-
         /* invariant of the internal stress tensor and some variables used for the damaging process*/
         double sigma_s, sigma_n, sigma_1, sigma_2;
         double tract_max, sigma_t, sigma_c, q;
         double tmp, sigma_target;
-        
-        /* some variables used for the advection*/
-        double x[3],y[3],x_new[3],y_new[3];
-        int x_ind, y_ind, neighbour_int, vertex_1, vertex_2;
-        double outer_fluxes_area[3], vector_edge[2], outer_vector[2], VC_middle[2], VC_x[3], VC_y[3];
-        int fluxes_source_id[3];
-
-        double neighbour_double;
-        int other_vertex[3*2]={1,2 , 2,0 , 0,1};
-
-        bool to_be_updated;
 
         // beginning of the original code (without openMP)
-        
-        M_element_age[cpt]+=time_step;
-        
+                
         // Temporary memory
-        old_thick = M_thick_old[cpt];
-        old_snow_thick = M_snow_thick_old[cpt];
-        old_conc = M_conc_old[cpt];
         old_damage = M_damage[cpt];
 
         /*======================================================================
@@ -2748,7 +2895,7 @@ FiniteElement::update()
             for(int j=0;j<3;j++)
             {
             // sigma_dot_i += std::exp(ridging_exponent*(1.-old_conc))*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
-            sigma_dot_i += std::exp(damaging_exponent*(1.-old_conc))*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
+            sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
             //sigma_dot_i += factor*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
             }
 
@@ -2881,147 +3028,20 @@ FiniteElement::update()
          * time_recovery_damage still depends on the temperature when themodynamics is activated.
          *======================================================================
          */
-        tmp=1./(1.-M_damage[cpt]);
-        tmp-= 1000*time_step/M_time_relaxation_damage[cpt];
-        tmp=((tmp>1.)?(tmp):(1.));
-        M_damage[cpt]=-1./tmp + 1.;
-
-        /*======================================================================
-         * Update:
-         * Ice and snow thickness, and concentration using a Lagrangian or an Eulerian scheme
-         *======================================================================
-         */
-
-        //to_be_updated=false;
-        //if( divergence_rate!=0.)
-        //  to_be_updated=true;
-        to_be_updated=true;
-
-#if 0
-        /* For the Lagrangian scheme, we do not update the variables for the elements having one node on the open boundary. */
-        if(std::find(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[0]-1) != M_neumann_flags.end() ||
-           std::find(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[1]-1) != M_neumann_flags.end() ||
-           std::find(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[2]-1) != M_neumann_flags.end())
-            to_be_updated=false;
-
-        if(std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[0]-1) ||
-           std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[1]-1) ||
-           std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[2]-1))
-            to_be_updated=false;
-#endif
+        //tmp=1./(1.-M_damage[cpt]);
+        //tmp-= 1000*time_step/M_time_relaxation_damage[cpt];
+        //tmp=((tmp>1.)?(tmp):(1.));
+        //M_damage[cpt]=-1./tmp + 1.;
         
-        /* convective velocity */
-        for(int i=0;i<3;i++)
-        {
-            x_ind=(M_elements[cpt]).indices[i]-1;
-            y_ind=(M_elements[cpt]).indices[i]-1+M_num_nodes;
-            
-            x[i] = M_nodes[(M_elements[cpt]).indices[i]-1].coords[0];
-            y[i] = M_nodes[(M_elements[cpt]).indices[i]-1].coords[1];
-                
-            /* old and new positions of the mesh */
-            x_new[i]=M_nodes[(M_elements[cpt]).indices[i]-1].coords[0]+M_UM[x_ind];
-            y_new[i]=M_nodes[(M_elements[cpt]).indices[i]-1].coords[1]+M_UM[y_ind];
-            x[i]    =M_nodes[(M_elements[cpt]).indices[i]-1].coords[0]+UM_P[x_ind];
-            y[i]    =M_nodes[(M_elements[cpt]).indices[i]-1].coords[1]+UM_P[y_ind];
-            
-            VC_x[i] =M_VT[x_ind]-(M_UM[x_ind]-UM_P[x_ind])/time_step;
-            VC_y[i] =M_VT[y_ind]-(M_UM[y_ind]-UM_P[y_ind])/time_step;
-        }
-        for(int i=0;i<3;i++)
-        {
-            outer_fluxes_area[i]=0;
-    
-            vertex_1=other_vertex[2*i  ];
-            vertex_2=other_vertex[2*i+1];
-    
-            vector_edge[0]=x[vertex_2]-x[vertex_1];
-            vector_edge[1]=y[vertex_2]-y[vertex_1];
-    
-            outer_vector[0]= vector_edge[1];
-            outer_vector[1]=-vector_edge[0];
-    
-            VC_middle[0] = (VC_x[vertex_2]+VC_x[vertex_1])/2.;
-            VC_middle[1] = (VC_y[vertex_2]+VC_y[vertex_1])/2.;
-    
-            outer_fluxes_area[i]=outer_vector[0]*VC_middle[0]+outer_vector[1]*VC_middle[1];
-            
-                        
-            if(outer_fluxes_area[i]>0)
-            {
-                surface = this->measure(M_elements[cpt],M_mesh, UM_P);
-                outer_fluxes_area[i]=std::min(surface/time_step/3.,outer_fluxes_area[i]);
-                fluxes_source_id[i]=cpt;
-            }
-            else
-            {
-			    neighbour_double=bamgmesh->ElementConnectivity[cpt*3+i];
-                neighbour_int=(int) bamgmesh->ElementConnectivity[cpt*3+i];
-			    if (!std::isnan(neighbour_double) && neighbour_int>0)
-                {
-                    surface = this->measure(M_elements[neighbour_int-1],M_mesh, UM_P);
-                    outer_fluxes_area[i]=-std::min(surface/time_step/3.,-outer_fluxes_area[i]);
-                    fluxes_source_id[i]=neighbour_int-1;
-                }
-                else // open boundary with incoming fluxes
-                    fluxes_source_id[i]=cpt;
-            }
-        }
+        /* Ridging scheme */
+        /* upper bounds (only for the concentration) */
+        M_conc[cpt] = ((M_conc[cpt]<1.)?(M_conc[cpt]):(1.)) ;
         
-        //if((old_conc>0.)  && to_be_updated)
-        if( to_be_updated)
-        {
-            surface = this->measure(M_elements[cpt],M_mesh, UM_P);
-            surface_new = this->measure(M_elements[cpt],M_mesh,M_UM);
-                        
-            ice_surface = M_conc_old[cpt]*surface - 
-                (M_conc_old[fluxes_source_id[0]]*outer_fluxes_area[0]  + 
-                 M_conc_old[fluxes_source_id[1]]*outer_fluxes_area[1]  + 
-                 M_conc_old[fluxes_source_id[2]]*outer_fluxes_area[2]  )*time_step;
-            
-            ice_volume = M_thick_old[cpt]*surface - 
-                (M_thick_old[fluxes_source_id[0]]*outer_fluxes_area[0]  + 
-                 M_thick_old[fluxes_source_id[1]]*outer_fluxes_area[1]  + 
-                 M_thick_old[fluxes_source_id[2]]*outer_fluxes_area[2]  )*time_step;
-            
-            snow_volume = M_snow_thick_old[cpt]*surface - 
-                (M_snow_thick_old[fluxes_source_id[0]]*outer_fluxes_area[0]  + 
-                 M_snow_thick_old[fluxes_source_id[1]]*outer_fluxes_area[1]  + 
-                 M_snow_thick_old[fluxes_source_id[2]]*outer_fluxes_area[2]  )*time_step;
-#if 1
-            if ( ice_surface <-1e-12)
-            {
-                std::cout << "negative ice_surface " << ice_surface << "\n";
-                throw std::runtime_error("error cfl condition reached for dvection scheme");
-            }
-            
-            if ( ice_volume <-1e-12)
-            {
-                std::cout << "negative ice_volume " << ice_volume << "\n";
-                throw std::runtime_error("error cfl condition reached for dvection scheme");
-            }
-            
-            if ( snow_volume <-1e-12)
-            {
-                std::cout << "negative snow_volume " << snow_volume << "\n";
-                throw std::runtime_error("error cfl condition reached for dvection scheme");
-            }
-   #endif         
-            M_conc[cpt]    = ice_surface/surface_new;
-            M_thick[cpt]   = ice_volume/surface_new;
-            M_snow_thick[cpt]   = snow_volume/surface_new;
-
-
-            /* Ridging scheme */
-            /* upper bounds (only for the concentration) */
-            M_conc[cpt] = ((M_conc[cpt]<1.)?(M_conc[cpt]):(1.)) ;
-            
-            /* lower bounds */
-            M_conc[cpt] = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
-            M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
-            M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
-        }
-    }
+        /* lower bounds */
+        M_conc[cpt] = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
+        M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
+        M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;      
+    }    
 }
 
 void
@@ -3461,7 +3481,7 @@ FiniteElement::thermo()
                 / ( 1. + physical::ki*M_snow_thick[i]/(physical::ks*M_thick[i]) );
             M_time_relaxation_damage[i] = std::max(time_relaxation_damage*deltaT_relaxation_damage/deltaT, time_step);
         } else {
-            M_time_relaxation_damage[i] = time_relaxation_damage;
+            M_time_relaxation_damage[i] = 1e36;
         }
         // -------------------------------------------------
 
@@ -4805,7 +4825,6 @@ FiniteElement::writeRestart(int pcpt, int step)
     exporter.writeField(outbin, misc_int, "Misc_int");
     exporter.writeField(outbin, M_dirichlet_flags, "M_dirichlet_flags");
 
-    exporter.writeField(outbin, M_element_age, "M_element_age");
     exporter.writeField(outbin, M_conc, "M_conc");
     exporter.writeField(outbin, M_thick, "M_thick");
     exporter.writeField(outbin, M_snow_thick, "M_snow_thick");
@@ -6901,7 +6920,6 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
         exporter.writeField(outbin, timevec, "Time");
         exporter.writeField(outbin, regridvec, "M_nb_regrid");
         exporter.writeField(outbin, M_surface, "Element_area");
-        exporter.writeField(outbin, M_element_age, "Element_age");
         exporter.writeField(outbin, M_node_max_conc, "M_node_max_conc");
         exporter.writeField(outbin, M_VT, "M_VT");
         exporter.writeField(outbin, M_conc, "Concentration");

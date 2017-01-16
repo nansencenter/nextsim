@@ -479,6 +479,10 @@ private:
 
     void updateMeans(GridOutput &means, double time_factor);
     void initMoorings();
+    
+    void redistribute_variables(double* interp_elt_out,int nb_var);
+    int collect_variables(double** interp_elt_in_ptr, int** interp_elt_method, int num_elements);
+    void Advect(double** interp_elt_out_ptr,double* interp_elt_in,int* interp_method,int nb_var);
 
 };
 } // Nextsim

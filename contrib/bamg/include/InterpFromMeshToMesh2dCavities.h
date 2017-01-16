@@ -34,9 +34,7 @@ typedef struct{
 #define sign(a) ( ( (a) < 0 )  ?  -1   : ( (a) > 0 ) )
 
 int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* data,int N_data,
-			double* surface_old, double* surface_new, BamgMesh* bamgmesh_old,BamgMesh* bamgmesh_new,
-            double* age_element_old, double** age_element_new,
-            int* ratio,int nb_ratio);
+			double* surface_old, double* surface_new, BamgMesh* bamgmesh_old,BamgMesh* bamgmesh_new);
 
 int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* bamgmesh_old,BamgMesh* bamgmesh_new);
 
