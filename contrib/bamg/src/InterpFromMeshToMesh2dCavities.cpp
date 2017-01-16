@@ -19,7 +19,7 @@ using namespace std;
 
 
 
-int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,int nb_variables,
+int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in, int* method_in, int nb_variables,
 		double* surface_old, double* surface_new, BamgMesh* bamgmesh_old,BamgMesh* bamgmesh_new){
     /*  Conservative interpolation method
         Use the cavities detected by detect_cavity to transfer physical
@@ -197,7 +197,7 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,in
             /* Second method (fully conservative)*/
 
             /* interpolation over the cavity*/
-            InterpCavity(tmp_mean_variables, tmp_integrated_area, nb_dead_elements, nb_born_elements, nb_variables, dead_elements, born_elements, gate.PreviousNumbering,IntMatrix_in, bamgmesh_old, bamgmesh_new, 0);
+            InterpCavity(tmp_mean_variables, tmp_integrated_area, nb_dead_elements, nb_born_elements, nb_variables, dead_elements, born_elements, gate.PreviousNumbering, IntMatrix_in, method_in, bamgmesh_old, bamgmesh_new, 0);
 
             /* Sanity check
               does the integrated area corresponds to the area of the born element*/
@@ -870,7 +870,7 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
             int nb_dead_elements, int nb_born_elements, int nb_variables,
             double* dead_elements, double* born_elements, double* PreviousNumbering,
-            double* IntMatrix_in, BamgMesh* bamgmesh_old, BamgMesh* bamgmesh_new, int debug_born_elements_i){
+            double* IntMatrix_in, int* method_in, BamgMesh* bamgmesh_old, BamgMesh* bamgmesh_new, int debug_born_elements_i){
 
     /*---------- Input  ----------*/
     int *dead_num_node      = xNew<int>(3*nb_dead_elements);
@@ -884,11 +884,12 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
     double *dead_variables  = xNew<double>(nb_variables*nb_dead_elements);
 
     /*---------- Local variables ----------*/
-    int i, i_dead, j, j_dead, jnext, jnext_dead, j_edge_polygon, k;
+    int i_born, i_dead, j_born, j_dead, jnext, jnext_dead, j_edge_polygon, k;
 
     int tmp_sign_cross, max_nb_intersections, sign_polygon;
 
     double *integrated_variables = xNew<double>(nb_variables);
+    double tmp_distance, min_distance;
 
     int born_node_on_dead_node[3], born_node_in_dead_element[3], dead_node_in_born_element[3], born_node_on_dead_edge[3], dead_node_on_born_edge[3];
     double born_edge_intersect_dead_edge[3*3];
@@ -925,44 +926,46 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
     /* ---------------------------------------------------------------
      * BEGIN CODE
      * --------------------------------------------------------------- */
-    for (i=0; i<nb_born_elements; i++)
+    for (i_born=0; i_born<nb_born_elements; i_born++)
     {
-        tmp_element=born_elements[i];
-        for (j=0; j<3; j++)
+        tmp_element=born_elements[i_born];
+        for (j_born=0; j_born<3; j_born++)
         {
-            tmp_ind=bamgmesh_new->Triangles[4*(tmp_element-1)+j];
-            born_num_node[i*3+j]=tmp_ind;
-            x_born_elements[i*3+j]=bamgmesh_new->Vertices[3*(tmp_ind-1)];
-            y_born_elements[i*3+j]=bamgmesh_new->Vertices[3*(tmp_ind-1)+1];
+            tmp_ind=bamgmesh_new->Triangles[4*(tmp_element-1)+j_born];
+            born_num_node[i_born*3+j_born]=tmp_ind;
+            x_born_elements[i_born*3+j_born]=bamgmesh_new->Vertices[3*(tmp_ind-1)];
+            y_born_elements[i_born*3+j_born]=bamgmesh_new->Vertices[3*(tmp_ind-1)+1];
         }
     }
 
-    for (i=0; i<nb_dead_elements; i++)
+    for (i_dead=0; i_dead<nb_dead_elements; i_dead++)
     {
-        tmp_element=dead_elements[i];
-        for(int j=0; j<nb_variables; j++)
-            dead_variables[i*nb_variables+j]=IntMatrix_in[(tmp_element-1)*nb_variables+j];
+        tmp_element=dead_elements[i_dead];
+        for(int k=0; k<nb_variables; k++)
+            dead_variables[i_dead*nb_variables+k]=IntMatrix_in[(tmp_element-1)*nb_variables+k];
 
-        for (j=0; j<3; j++)
+        for (j_dead=0; j_dead<3; j_dead++)
         {
-            tmp_ind=bamgmesh_old->Triangles[4*(tmp_element-1)+j];
-            dead_num_node[i*3+j]=tmp_ind;
-            x_dead_elements[i*3+j]=bamgmesh_old->Vertices[3*(tmp_ind-1)];
-            y_dead_elements[i*3+j]=bamgmesh_old->Vertices[3*(tmp_ind-1)+1];
+            tmp_ind=bamgmesh_old->Triangles[4*(tmp_element-1)+j_dead];
+            dead_num_node[i_dead*3+j_dead]=tmp_ind;
+            x_dead_elements[i_dead*3+j_dead]=bamgmesh_old->Vertices[3*(tmp_ind-1)];
+            y_dead_elements[i_dead*3+j_dead]=bamgmesh_old->Vertices[3*(tmp_ind-1)+1];
         }
 
     }
 
     /* Loop over the born elements of the cavity*/
-    for (i=0; i<nb_born_elements; i++)
+    for (i_born=0; i_born<nb_born_elements; i_born++)
     {
         flag_print=0;
-        if(born_elements[i]==debug_born_elements_i)
+        if(born_elements[i_born]==debug_born_elements_i)
             flag_print=1;
 
         /*-------- Initializing the integrated quantities --------- -*/
         for (k=0; k<nb_variables; k++)
             integrated_variables[k]=0.;
+            
+        min_distance=-1.;
 
         test_integrated_area=0.;
 
@@ -974,41 +977,41 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
 
 
             /* 1) Shared nodes: */
-            for (j=0; j<3; j++)
-                born_node_on_dead_node[j]=-1;          /* -1 if node is not on a node of dead element, local indice of the node of the dead element otherwise */
+            for (j_born=0; j_born<3; j_born++)
+                born_node_on_dead_node[j_born]=-1;          /* -1 if node is not on a node of dead element, local indice of the node of the dead element otherwise */
 
             /* 2) Born nodes included in dead element: */
-            for (j=0; j<3; j++)
-                born_node_in_dead_element[j]=0;       /* 0 if node from born element is not in dead element, 1 otherwise */
+            for (j_born=0; j_born<3; j_born++)
+                born_node_in_dead_element[j_born]=0;       /* 0 if node from born element is not in dead element, 1 otherwise */
 
             /* 3) Dead nodes included in born element: */
-            for (j=0; j<3; j++)
-                dead_node_in_born_element[j]=0;       /* 0 if node from dead element is not in born element, 1 otherwise */
+            for (j_dead=0; j_dead<3; j_dead++)
+                dead_node_in_born_element[j_dead]=0;       /* 0 if node from dead element is not in born element, 1 otherwise */
 
             /* 4) Edge to edge intersections: */
             /* Each line   corresponds to a born edge */
             /* Each column corresponds to a dead edge */
             /* 0<=alpha<=1 defines the position of the intersection relatively to born edge */
-            for (j=0; j<3; j++)
+            for (j_born=0; j_born<3; j_born++)
                 for (j_dead=0; j_dead<3; j_dead++)
-                    born_edge_intersect_dead_edge[j*3+j_dead]=-1.;   /* -1 if edge i does no intersect edge j, alpha otherwise */
+                    born_edge_intersect_dead_edge[j_born*3+j_dead]=-1.;   /* -1 if edge i does no intersect edge j, alpha otherwise */
 
             /* 4 bis) Born nodes on dead edge: */
-            for (j=0; j<3; j++)
-                born_node_on_dead_edge[j]=0;       /* 0 if node from born element is not in dead element, 1 otherwise */
+            for (j_born=0; j_born<3; j_born++)
+                born_node_on_dead_edge[j_born]=0;       /* 0 if node from born element is not in dead element, 1 otherwise */
 
             /* 4 tris) Born nodes on dead edge: */
-            for (j=0; j<3; j++)
-                dead_node_on_born_edge[j]=0;       /* 0 if node from born element is not in dead element, 1 otherwise */
+            for (j_born=0; j_born<3; j_born++)
+                dead_node_on_born_edge[j_born]=0;       /* 0 if node from born element is not in dead element, 1 otherwise */
 
             /* 4 tris) Born nodes on dead edge: */
             dist_max=0.;
-            for (j=0; j<3; j++)
+            for (j_born=0; j_born<3; j_born++)
             {
-                if(j<2)
-                    dist=pow(pow(x_born_elements[i*3+j]-x_born_elements[i*3+j+1],2.)+pow(y_born_elements[i*3+j]-y_born_elements[i*3+j+1],2.),0.5);
+                if(j_born<2)
+                    dist=pow(pow(x_born_elements[i_born*3+j_born]-x_born_elements[i_born*3+j_born+1],2.)+pow(y_born_elements[i_born*3+j_born]-y_born_elements[i_born*3+j_born+1],2.),0.5);
                 else
-                    dist=pow(pow(x_born_elements[i*3+j]-x_born_elements[i*3+0  ],2.)+pow(y_born_elements[i*3+j]-y_born_elements[i*3+0  ],2.),0.5);
+                    dist=pow(pow(x_born_elements[i_born*3+j_born]-x_born_elements[i_born*3+0  ],2.)+pow(y_born_elements[i_born*3+j_born]-y_born_elements[i_born*3+0  ],2.),0.5);
                 
                 if(dist>dist_max)
                     dist_max=dist;
@@ -1017,25 +1020,25 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
             /*-------- Detection ---------- */
 
             /* Loop over the born nodes */
-            for (j=0; j<3; j++)
+            for (j_born=0; j_born<3; j_born++)
             {
 
                 /* 1) Shared nodes: */
 
                 /* Loop over the dead nodes to detect if the node correspond to a node of the dead element */
                 for (j_dead=0; j_dead<3; j_dead++)
-                    if(PreviousNumbering[born_num_node[i*3+j]-1]==dead_num_node[i_dead*3+j_dead])
-                        born_node_on_dead_node[j]=j_dead;
+                    if(PreviousNumbering[born_num_node[i_born*3+j_born]-1]==dead_num_node[i_dead*3+j_dead])
+                        born_node_on_dead_node[j_born]=j_dead;
                     else /* Bamg sometimes says that the nodes are different, whereas they are almost at the same position */
                     {
                         
-                        dist=pow(pow(x_dead_elements[i_dead*3+j_dead]-x_born_elements[i*3+j],2.)+pow(y_dead_elements[i_dead*3+j_dead]-y_born_elements[i*3+j],2.),0.5);
+                        dist=pow(pow(x_dead_elements[i_dead*3+j_dead]-x_born_elements[i_born*3+j_born],2.)+pow(y_dead_elements[i_dead*3+j_dead]-y_born_elements[i_born*3+j_born],2.),0.5);
                         if(flag_print==1)
                             _printf_("dist/dist_max=" << dist/dist_max <<"\n");
-                        //if( (x_dead_elements[i_dead*3+j_dead]==x_born_elements[i*3+j]) && (y_dead_elements[i_dead*3+j_dead]==y_born_elements[i*3+j]) )
+
                         if( dist/dist_max<alpha_tol )
                         {
-                            born_node_on_dead_node[j]=j_dead;
+                            born_node_on_dead_node[j_born]=j_dead;
                             if(flag_print==1)
                                 _printf_("set to same node as dist/dist_max<alpha_tol smaller than =" << alpha_tol <<"\n");
                         }
@@ -1048,15 +1051,15 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
 
                 /* detect if the node is inside the dead element */
                 /* only if the node is not shared */
-                if(born_node_on_dead_node[j]==-1)
+                if(born_node_on_dead_node[j_born]==-1)
                 {
                     tmp_sign_cross=0;
                     /* Loop over the dead nodes */
                     for (j_dead=0; j_dead<3; j_dead++)
                     {
                         /* vector from dead node j_dead to born node */
-                        x_vect_born_dead_node_j=x_born_elements[i*3+j]-x_dead_elements[i_dead*3+j_dead];
-                        y_vect_born_dead_node_j=y_born_elements[i*3+j]-y_dead_elements[i_dead*3+j_dead];
+                        x_vect_born_dead_node_j=x_born_elements[i_born*3+j_born]-x_dead_elements[i_dead*3+j_dead];
+                        y_vect_born_dead_node_j=y_born_elements[i_born*3+j_born]-y_dead_elements[i_dead*3+j_dead];
 
                         /* vector from dead node j_dead to j_dead+1 */
                         divresult = div(j_dead+1,3);
@@ -1070,12 +1073,12 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
                         tmp_sign_cross+=sign(cross_prod);
                     }
                     if(flag_print==1)
-                        _printf_("in dead, i=" << i << ", j=" << j << ",tmp_sign_cross=" << tmp_sign_cross <<"\n");
+                        _printf_("in dead, i_born=" << i_born << ", j_born=" << j_born << ",tmp_sign_cross=" << tmp_sign_cross <<"\n");
 
                     /* check if the 3 cross products have the same sign */
                     if((tmp_sign_cross==(3))||(tmp_sign_cross==-(3)))
                     {
-                        born_node_in_dead_element[j]=1;
+                        born_node_in_dead_element[j_born]=1;
                     }
                 }
             } /* end of a loop on the born nodes */
@@ -1091,18 +1094,18 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
                 {
                     tmp_sign_cross=0;
                     /* Loop over the born nodes */
-                    for (j=0; j<3; j++)
+                    for (j_born=0; j_born<3; j_born++)
                     {
                         /* vector from born node j to born node */
-                        x_vect_dead_born_node_j=x_dead_elements[i_dead*3+j_dead]-x_born_elements[i*3+j];
-                        y_vect_dead_born_node_j=y_dead_elements[i_dead*3+j_dead]-y_born_elements[i*3+j];
+                        x_vect_dead_born_node_j=x_dead_elements[i_dead*3+j_dead]-x_born_elements[i_born*3+j_born];
+                        y_vect_dead_born_node_j=y_dead_elements[i_dead*3+j_dead]-y_born_elements[i_born*3+j_born];
 
                         /* vector from born node j to j+1 */
-                        divresult = div(j+1,3);
+                        divresult = div(j_born+1,3);
                         jnext=divresult.rem;
 
-                        x_vect_born_node_j_jnext=x_born_elements[i*3+jnext]-x_born_elements[i*3+j];
-                        y_vect_born_node_j_jnext=y_born_elements[i*3+jnext]-y_born_elements[i*3+j];
+                        x_vect_born_node_j_jnext=x_born_elements[i_born*3+jnext]-x_born_elements[i_born*3+j_born];
+                        y_vect_born_node_j_jnext=y_born_elements[i_born*3+jnext]-y_born_elements[i_born*3+j_born];
 
                         /* add the sign of the cross product */
                         cross_prod=x_vect_dead_born_node_j*y_vect_born_node_j_jnext-x_vect_born_node_j_jnext*y_vect_dead_born_node_j;
@@ -1122,28 +1125,28 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
             /* 0<=alpha<=1 defines the position of the intersection relatively to born edge */
 
             /* Loop over the born edges */
-            for (j=0; j<3; j++)
+            for (j_born=0; j_born<3; j_born++)
             {
                 /* the edge j goes from node j to node jnext */
-                divresult = div(j+1,3);
+                divresult = div(j_born+1,3);
                 jnext=divresult.rem;
 
                 /* Extremities of the born edge */
-                P0x=x_born_elements[i*3+j];
-                P0y=y_born_elements[i*3+j];
-                P1x=x_born_elements[i*3+jnext];
-                P1y=y_born_elements[i*3+jnext];
+                P0x=x_born_elements[i_born*3+j_born];
+                P0y=y_born_elements[i_born*3+j_born];
+                P1x=x_born_elements[i_born*3+jnext];
+                P1y=y_born_elements[i_born*3+jnext];
 
                 /* define the maximum number of intersections to search for */
                 max_nb_intersections=2;
 
-                if(born_node_in_dead_element[j]==1)
+                if(born_node_in_dead_element[j_born]==1)
                     max_nb_intersections--;
 
                 if(born_node_in_dead_element[jnext]==1)
                     max_nb_intersections--;
 
-                if(born_node_on_dead_node[j]>=0)
+                if(born_node_on_dead_node[j_born]>=0)
                     max_nb_intersections--;
 
                 if(born_node_on_dead_node[jnext]>=0)
@@ -1186,7 +1189,7 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
                             _printf_("parrallel edge");
 
                         /* Check if edge j in on the dead edge */
-                        if((born_node_on_dead_node[j]!=j_dead) && (born_node_on_dead_node[j]!=jnext_dead))
+                        if((born_node_on_dead_node[j_born]!=j_dead) && (born_node_on_dead_node[j_born]!=jnext_dead))
                         {
                             alpha=-1.;
                             beta=-1.;
@@ -1214,14 +1217,14 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
 
                             if(beta==-2.)
                                 if (alpha>0. && alpha<1.)
-                                    born_node_on_dead_edge[j]=1;
+                                    born_node_on_dead_edge[j_born]=1;
 
                             if(alpha==-2.)
                                 if(beta>0. && beta<1.)
-                                    born_node_on_dead_edge[j]=1;
+                                    born_node_on_dead_edge[j_born]=1;
 
                             if(alpha!=-2. && beta!=-2. && alpha==beta && alpha>0. && alpha<1. && beta>0. && beta<1.)
-                                born_node_on_dead_edge[j]=1;
+                                born_node_on_dead_edge[j_born]=1;
 
                             if(flag_print==1)
                                 _printf_("alpha=" << alpha << ", beta=" << beta << ",\n");
@@ -1273,7 +1276,7 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
                         }
 
                         /* Check if dead edge j_dead is on the born edge */
-                        if((born_node_on_dead_node[j]!=j_dead) && (born_node_on_dead_node[jnext]!=j_dead))
+                        if((born_node_on_dead_node[j_born]!=j_dead) && (born_node_on_dead_node[jnext]!=j_dead))
                         {
                             alpha=-1.;
                             beta=-1.;
@@ -1315,7 +1318,7 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
                         }
 
                         /* Check if node jnext_dead in on the born edge */
-                        if((born_node_on_dead_node[j]!=jnext_dead) && (born_node_on_dead_node[jnext]!=jnext_dead))
+                        if((born_node_on_dead_node[j_born]!=jnext_dead) && (born_node_on_dead_node[jnext]!=jnext_dead))
                         {
                             alpha=-1.;
                             beta=-1.;
@@ -1363,9 +1366,9 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
                     }
 
                      /* check if the edges are connected (no other intersection to compute) */
-                    if(born_node_on_dead_node[j]==j_dead    )
+                    if(born_node_on_dead_node[j_born]==j_dead    )
                         continue;
-                    if(born_node_on_dead_node[j]==jnext_dead)
+                    if(born_node_on_dead_node[j_born]==jnext_dead)
                         continue;
                     if(born_node_on_dead_node[jnext]==j_dead    )
                         continue;
@@ -1395,8 +1398,8 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
                             _printf_("select interesct: alpha=" << alpha << ", beta=" << beta << ", beta-1.=" << beta-1.0) << "\n");
                         */
                         if((alpha<=alpha_tol) && (beta>alpha_tol) && (beta<(1.-alpha_tol))) /* add intersection if not on a dead node */
-                            if(born_node_on_dead_node[j]<0) /* thick check may be not useful */
-                                born_node_on_dead_edge[j]=1;
+                            if(born_node_on_dead_node[j_born]<0) /* thick check may be not useful */
+                                born_node_on_dead_edge[j_born]=1;
 
                         if((alpha>=(1.-alpha_tol)) && (beta>alpha_tol) && (beta<(1.-alpha_tol))) /* add intersection if not on a dead node */
                             if(born_node_on_dead_node[jnext]<0) /* thick check may be not useful */
@@ -1422,7 +1425,7 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
 
                 /* storing information in born_edge_intersect_dead_edge */
                 for (j_dead=0; j_dead<3; j_dead++)
-                    born_edge_intersect_dead_edge[j*3+j_dead]=alpha_tmp[j_dead];
+                    born_edge_intersect_dead_edge[j_born*3+j_dead]=alpha_tmp[j_dead];
 
             } /* End loop over the born edges */
 
@@ -1431,46 +1434,31 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
             /* List of interesection points (shared node, inside node, or edge to edge intersection) */
             nb_intersection_points=0;
 
-            /*if(flag_print==1)
-            {
-                _printf_("  \n");
-                _printf_("dead_elements[i_dead]=" << dead_elements[i_dead] <<"\n",);
-                _printf_("born_num_node[i*3+0]=" << << ",born_num_node[i*3+1]=" << << ",born_num_node[i*3+2]=" << << "\n",born_num_node[i*3+0],born_num_node[i*3+1],born_num_node[i*3+2]);
-                _printf_("born_node_on_dead_node[0]=" << << ",born_node_on_dead_node[1]=" << << ",born_node_on_dead_node[2]=" << << "\n",born_node_on_dead_node[0],born_node_on_dead_node[1],born_node_on_dead_node[2]);
-                _printf_("born_node_in_dead_element[0]=" << << ",born_node_in_dead_element[1]=" << << ",born_node_in_dead_element[2]=" << << "\n",born_node_in_dead_element[0],born_node_in_dead_element[1],born_node_in_dead_element[2]);
-                _printf_("dead_node_in_born_element[0]=" << << ",dead_node_in_born_element[1]=" << << ",dead_node_in_born_element[2]=" << << "\n",dead_node_in_born_element[0],dead_node_in_born_element[1],dead_node_in_born_element[2]);
-                _printf_("born_edge_intersect_dead_edge[0]=" << << ",born_edge_intersect_dead_edge[1]=" << << ",born_edge_intersect_dead_edge[2]=" << << "\n",born_edge_intersect_dead_edge[0],born_edge_intersect_dead_edge[1],born_edge_intersect_dead_edge[2]);
-                _printf_("born_edge_intersect_dead_edge[3+0]=" << << ",born_edge_intersect_dead_edge[3+1]=" << << ",born_edge_intersect_dead_edge[3+2]=" << << "\n",born_edge_intersect_dead_edge[3+0],born_edge_intersect_dead_edge[3+1],born_edge_intersect_dead_edge[3+2]);
-                _printf_("born_edge_intersect_dead_edge[6+0]=" << << ",born_edge_intersect_dead_edge[6+1]=" << << ",born_edge_intersect_dead_edge[6+2]=" << << "\n",born_edge_intersect_dead_edge[6+0],born_edge_intersect_dead_edge[6+1],born_edge_intersect_dead_edge[6+2]);
-                _printf_("born_node_on_dead_edge[0]=" << << ",born_node_on_dead_edge[1]=" << << ",born_node_on_dead_edge[2]=" << << "\n",born_node_on_dead_edge[0],born_node_on_dead_edge[1],born_node_on_dead_edge[2]);
-                _printf_("dead_node_on_born_edge[0]=" << << ",dead_node_on_born_edge[1]=" << << ",dead_node_on_born_edge[2]=" << << "\n",dead_node_on_born_edge[0],dead_node_on_born_edge[1],dead_node_on_born_edge[2]);
-            }   */
-
             /* 1) Shared nodes: */
-            for (j=0; j<3; j++)
+            for (j_born=0; j_born<3; j_born++)
             {
                 if(flag_print==1)
-                    _printf_("j=" << j << ",born_node_on_dead_node[j]=" <<  born_node_on_dead_node[j] << "\n");
+                    _printf_("j_born=" << j_born << ",born_node_on_dead_node[j]=" <<  born_node_on_dead_node[j_born] << "\n");
 
-                if(born_node_on_dead_node[j]>=0)
+                if(born_node_on_dead_node[j_born]>=0)
                 {
 
-                    intersection_points_x[nb_intersection_points]=x_born_elements[i*3+j];
-                    intersection_points_y[nb_intersection_points]=y_born_elements[i*3+j];
+                    intersection_points_x[nb_intersection_points]=x_born_elements[i_born*3+j_born];
+                    intersection_points_y[nb_intersection_points]=y_born_elements[i_born*3+j_born];
                     nb_intersection_points++;
                 }
             }
 
             /* 2) Born nodes included in dead element: */
-            for (j=0; j<3; j++)
+            for (j_born=0; j_born<3; j_born++)
             {
                 if(flag_print==1)
-                    _printf_("j=" << j << ",born_node_in_dead_element[j]=" << born_node_in_dead_element[j] << "\n");
+                    _printf_("j_born=" << j_born << ",born_node_in_dead_element[j_born]=" << born_node_in_dead_element[j_born] << "\n");
 
-                if(born_node_in_dead_element[j]>0)
+                if(born_node_in_dead_element[j_born]>0)
                 {
-                    intersection_points_x[nb_intersection_points]=x_born_elements[i*3+j];
-                    intersection_points_y[nb_intersection_points]=y_born_elements[i*3+j];
+                    intersection_points_x[nb_intersection_points]=x_born_elements[i_born*3+j_born];
+                    intersection_points_y[nb_intersection_points]=y_born_elements[i_born*3+j_born];
                     nb_intersection_points++;
                 }
             }
@@ -1490,25 +1478,25 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
             }
 
             /* 4) Edge to edge intersections: */
-            for (j=0; j<3; j++)
+            for (j_born=0; j_born<3; j_born++)
             {
                 for (j_dead=0; j_dead<3; j_dead++)
                 {
                     if(flag_print==1)
-                        _printf_("j=" << j << ",j_dead=" << j_dead << ",born_edge_intersect_dead_edge[j*3+j_dead]=" << born_edge_intersect_dead_edge[j*3+j_dead] << "\n");
+                        _printf_("j_born=" << j_born << ",j_dead=" << j_dead << ",born_edge_intersect_dead_edge[j_born*3+j_dead]=" << born_edge_intersect_dead_edge[j_born*3+j_dead] << "\n");
 
-                    if(born_edge_intersect_dead_edge[j*3+j_dead]!=-1.)
+                    if(born_edge_intersect_dead_edge[j_born*3+j_dead]!=-1.)
                     {
-                        alpha=born_edge_intersect_dead_edge[j*3+j_dead];
+                        alpha=born_edge_intersect_dead_edge[j_born*3+j_dead];
 
                         /* the edge j goes from node j to node jnext */
-                        divresult = div(j+1,3);
+                        divresult = div(j_born+1,3);
                         jnext=divresult.rem;
 
-                        P0x=x_born_elements[i*3+j];
-                        P0y=y_born_elements[i*3+j];
-                        P1x=x_born_elements[i*3+jnext];
-                        P1y=y_born_elements[i*3+jnext];
+                        P0x=x_born_elements[i_born*3+j_born];
+                        P0y=y_born_elements[i_born*3+j_born];
+                        P1x=x_born_elements[i_born*3+jnext];
+                        P1y=y_born_elements[i_born*3+jnext];
 
                         Xx=P0x+alpha*(P1x-P0x);
                         Xy=P0y+alpha*(P1y-P0y);
@@ -1521,12 +1509,12 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
             }
 
             /* 4 bis) Born nodes on dead edge: */
-            for (j=0; j<3; j++)
+            for (j_born=0; j_born<3; j_born++)
             {
-                if(born_node_on_dead_edge[j]>0)
+                if(born_node_on_dead_edge[j_born]>0)
                 {
-                    intersection_points_x[nb_intersection_points]=x_born_elements[i*3+j];
-                    intersection_points_y[nb_intersection_points]=y_born_elements[i*3+j];
+                    intersection_points_x[nb_intersection_points]=x_born_elements[i_born*3+j_born];
+                    intersection_points_y[nb_intersection_points]=y_born_elements[i_born*3+j_born];
                     nb_intersection_points++;
                 }
             }
@@ -1563,7 +1551,7 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
                 next_polygon_point[i_polygon_points]=0;
 
             if(flag_print==1)
-                _printf_("i=" << i << ",i_dead=" << i_dead << "\n");
+                _printf_("i_born=" << i_born << ",i_dead=" << i_dead << "\n");
 
             if(flag_print==1)
                 _printf_("nb_intersection_points=" << nb_intersection_points << "\n");
@@ -1711,21 +1699,46 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
                 _printf_("area_intersection=" << << "\n \n", area_intersection);*/
 
             /*-------- Computing the integrated quantities ---------- */
+            
+            
+            tmp_distance= pow(
+                pow(
+                     (x_dead_elements[i_dead*3+0]+x_dead_elements[i_dead*3+1]+x_dead_elements[i_dead*3+2])/3.
+                    -(x_born_elements[i_born*3+0]+x_born_elements[i_born*3+1]+x_born_elements[i_born*3+2])/3.
+                    ,2.)
+                +pow(
+                     (y_dead_elements[i_dead*3+0]+y_dead_elements[i_dead*3+1]+y_dead_elements[i_dead*3+2])/3.
+                    -(y_born_elements[i_born*3+0]+y_born_elements[i_born*3+1]+y_born_elements[i_born*3+2])/3.
+                    ,2.)
+                              ,0.5);
+            
+            if(min_distance<0. || tmp_distance<min_distance)
+                min_distance = tmp_distance;
+            
             for (k=0; k<nb_variables; k++)
-                integrated_variables[k]+=area_intersection*dead_variables[i_dead*nb_variables+k];
-
+            {
+                if(method_in[k]==1)
+                    integrated_variables[k]+=area_intersection*dead_variables[i_dead*nb_variables+k];
+                else
+                    if(min_distance == tmp_distance)
+                        integrated_variables[k]=dead_variables[i_dead*nb_variables+k];
+            }
+            
             test_integrated_area+=area_intersection;
         } /* end of loop on i_dead */
 
         /* Weighted average is computed as the */
         /* integrated variables divided by integrated area */
         for (k=0; k<nb_variables; k++)
-            tmp_mean_variables[i*nb_variables+k]=integrated_variables[k]/test_integrated_area;
+            if(method_in[k]==1)
+                tmp_mean_variables[i_born*nb_variables+k]=integrated_variables[k]/test_integrated_area;
+            else
+                tmp_mean_variables[i_born*nb_variables+k]=integrated_variables[k];
 
-        tmp_integrated_area[i]=test_integrated_area;
+        tmp_integrated_area[i_born]=test_integrated_area;
         
         if(test_integrated_area<=0.)
-            _printf_("born_elements[i]=" << born_elements[i] << "\n");
+            _printf_("born_elements[i_born]=" << born_elements[i_born] << "\n");
 
     } /* end of loop on i */
 

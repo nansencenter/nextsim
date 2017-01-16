@@ -1155,7 +1155,7 @@ FiniteElement::regrid(bool step)
 			}
             
             double* interp_elt_out;
-			InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_elt_in[0], nb_var,
+			InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_elt_in[0], &interp_method[0], nb_var,
                                            &surface_previous[0], &surface[0], bamgmesh_previous, bamgmesh);
 
 #if 0
