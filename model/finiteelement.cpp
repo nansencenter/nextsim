@@ -3021,17 +3021,9 @@ FiniteElement::update()
 
         /*======================================================================
          * Update:
-         * Ice damage
-         * We use now a constant healing rate defined as 1/time_recovery_damage
-         * so that we are now able to reset the damage to 0.
-         * otherwise, it will never heal completely.
-         * time_recovery_damage still depends on the temperature when themodynamics is activated.
          *======================================================================
          */
-        //tmp=1./(1.-M_damage[cpt]);
-        //tmp-= 1000*time_step/M_time_relaxation_damage[cpt];
-        //tmp=((tmp>1.)?(tmp):(1.));
-        //M_damage[cpt]=-1./tmp + 1.;
+        
         
         /* Ridging scheme */
         /* upper bounds (only for the concentration) */
@@ -3040,7 +3032,18 @@ FiniteElement::update()
         /* lower bounds */
         M_conc[cpt] = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
         M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
-        M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;      
+        M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;   
+        
+        /* Ice damage
+        * We use now a constant healing rate defined as 1/time_recovery_damage
+        * so that we are now able to reset the damage to 0.
+        * otherwise, it will never heal completely.
+        * time_recovery_damage still depends on the temperature when themodynamics is activated.
+        */
+        tmp=M_damage[cpt]-time_step/M_time_relaxation_damage[cpt];
+        if(M_thick[cpt]==0.)
+            tmp=0.;
+        M_damage[cpt]=((tmp>0.)?(tmp):(0.));   
     }    
 }
 
