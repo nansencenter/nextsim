@@ -1045,7 +1045,7 @@ FiniteElement::regrid(bool step)
 		}
 
 
-		if(M_mesh_type==setup::MeshType::FROM_SPLIT )//&& vm["simul.ALE_smoothing_step_nb"].as<int>()>=0)
+		if(M_mesh_type==setup::MeshType::FROM_SPLIT)
 		{
 			if(step==0)
 			{
@@ -1677,6 +1677,7 @@ FiniteElement::Advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
             M_UM[nd] += time_step*M_VT_smoothed[nd];
         }
 
+        // set back the neumann nodes (open boundaries) at their position, the fluxes will be computed thanks to the convective velocity
         for (const int& nd : M_neumann_nodes)
         {
             M_UM[nd] = UM_P[nd];
@@ -1707,24 +1708,6 @@ FiniteElement::Advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
          * Ice and snow thickness, and concentration using a Lagrangian or an Eulerian scheme
          *======================================================================
          */
-
-        //to_be_updated=false;
-        //if( divergence_rate!=0.)
-        //  to_be_updated=true;
-        bool to_be_updated=true;
-
-#if 0
-        /* For the Lagrangian scheme, we do not update the variables for the elements having one node on the open boundary. */
-        if(std::find(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[0]-1) != M_neumann_flags.end() ||
-           std::find(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[1]-1) != M_neumann_flags.end() ||
-           std::find(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[2]-1) != M_neumann_flags.end())
-            to_be_updated=false;
-
-        if(std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[0]-1) ||
-           std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[1]-1) ||
-           std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[2]-1))
-            to_be_updated=false;
-#endif
         
         /* convective velocity */
         for(int i=0;i<3;i++)
@@ -1784,27 +1767,25 @@ FiniteElement::Advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
             }
         }
         
-        if( to_be_updated)
+    
+        surface = this->measure(M_elements[cpt],M_mesh, UM_P);
+        surface_new = this->measure(M_elements[cpt],M_mesh,M_UM);
+         
+                   
+        for(int j=0; j<nb_var; j++)
         {
-            surface = this->measure(M_elements[cpt],M_mesh, UM_P);
-            surface_new = this->measure(M_elements[cpt],M_mesh,M_UM);
-             
-                       
-            for(int j=0; j<nb_var; j++)
+            if(interp_method[j]==1)
             {
-                if(interp_method[j]==1)
-                {
-                    integrated_variable=interp_elt_in[cpt*nb_var+j]*surface - 
-                        (interp_elt_in[fluxes_source_id[0]*nb_var+j]*outer_fluxes_area[0]  + 
-                        interp_elt_in[fluxes_source_id[1]*nb_var+j]*outer_fluxes_area[1]  + 
-                        interp_elt_in[fluxes_source_id[2]*nb_var+j]*outer_fluxes_area[2]  )*time_step;
-                
-                    interp_elt_out[cpt*nb_var+j]    = integrated_variable/surface_new;
-                }
-                else
-                {
-                    interp_elt_out[cpt*nb_var+j] = interp_elt_in[cpt*nb_var+j];
-                }
+                integrated_variable=interp_elt_in[cpt*nb_var+j]*surface - 
+                    (interp_elt_in[fluxes_source_id[0]*nb_var+j]*outer_fluxes_area[0]  + 
+                    interp_elt_in[fluxes_source_id[1]*nb_var+j]*outer_fluxes_area[1]  + 
+                    interp_elt_in[fluxes_source_id[2]*nb_var+j]*outer_fluxes_area[2]  )*time_step;
+            
+                interp_elt_out[cpt*nb_var+j]    = integrated_variable/surface_new;
+            }
+            else
+            {
+                interp_elt_out[cpt*nb_var+j] = interp_elt_in[cpt*nb_var+j];
             }
         }
     }
@@ -2817,6 +2798,7 @@ FiniteElement::update()
 
     // 5) cleaning
 	xDelete<double>(interp_elt_out);
+    xDelete<int>(interp_method);
 	xDelete<double>(interp_elt_in);
 
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
