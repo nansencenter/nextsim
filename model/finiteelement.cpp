@@ -171,7 +171,6 @@ FiniteElement::initVariables()
     M_VT.resize(2*M_num_nodes,0.);
     M_VTM.resize(2*M_num_nodes,0.);
     M_VTMM.resize(2*M_num_nodes,0.);
-    M_node_max_conc.resize(2*M_num_nodes,0.);
 
     M_sst.resize(M_num_elements);
     M_sss.resize(M_num_elements);
@@ -1417,7 +1416,6 @@ FiniteElement::regrid(bool step)
         M_solution->resize(2*M_num_nodes);
         M_reuse_prec = false;
 
-        M_node_max_conc.resize(2*M_num_nodes,0.);
 
         M_fcor.resize(M_num_elements);
     }
@@ -2070,7 +2068,6 @@ FiniteElement::assemble(int pcpt)
     std::iota(rhsindices.begin(), rhsindices.end(), 0);
     std::vector<double> rhsdata(2*M_num_nodes, 0.);
 
-	M_node_max_conc.assign(2*M_num_nodes,0.);
 
 #if 1
     std::vector<double> lhsdata(M_graph.ja().size(), 0.);
@@ -2115,24 +2112,6 @@ FiniteElement::assemble(int pcpt)
     int thread_id;
     int total_threads;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-
-
-    //std::cout<<"MAX THREADS= "<< max_threads <<"\n";
-#pragma omp parallel for num_threads(max_threads) private(thread_id)
-    for (int cpt=0; cpt < M_num_elements; ++cpt)
-    {
-        std::vector<int> rcindices0(6);
-        for(int j=0; j<3; j++)
-        {
-            /* Column corresponding to indice j (we also assemble terms in col+1) */
-            //col = (mwIndex)it[2*j]-1; /* -1 to use the indice convention of C */
-
-            rcindices0[2*j] = (M_elements[cpt]).indices[j]-1;
-            rcindices0[2*j+1] = (M_elements[cpt]).indices[j]-1+M_num_nodes;
-        }
-        for (int const& idn : rcindices0)
-            M_node_max_conc[idn] = ((M_conc[cpt]>M_node_max_conc[idn])?(M_conc[cpt] ):(M_node_max_conc[idn])) ;
-    }
 
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
@@ -2351,7 +2330,7 @@ FiniteElement::assemble(int pcpt)
                 data[(2*i  )*6+2*j+1] = duv;
                 data[(2*i+1)*6+2*j+1] = dvv;
 
-                if(M_mask_dirichlet[index_u]==false && M_node_max_conc[index_u]>0.)
+                if(M_mask_dirichlet[index_u]==false)
                 {
                     fvdata[2*i] += surface_e*( mloc*( +M_tau[index_u]
                                                   +coef_Vair*M_wind[index_u]
@@ -2498,19 +2477,6 @@ FiniteElement::assemble(int pcpt)
 
     //LOG(DEBUG) <<"Assembling done in "<< chrono.elapsed() <<"s\n";
     LOG(INFO) <<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
-
-    // extended dirichlet nodes (add nodes where M_conc <= 0)
-#if 0
-    for (int i=0; i<2*M_num_nodes; ++i)
-    {
-        if(M_node_max_conc[i]<=0.)
-        {
-            extended_dirichlet_nodes.push_back(i);
-        }
-    }
-    std::sort(extended_dirichlet_nodes.begin(), extended_dirichlet_nodes.end());
-    extended_dirichlet_nodes.erase(std::unique( extended_dirichlet_nodes.begin(), extended_dirichlet_nodes.end() ), extended_dirichlet_nodes.end());
-#endif
     
     chrono.restart();
     //M_matrix->on(M_dirichlet_nodes,*M_vector);
@@ -2528,41 +2494,6 @@ FiniteElement::assemble(int pcpt)
 
     //M_matrix->printMatlab("stiffness.m");
     //M_vector->printMatlab("rhs.m");
-}
-
-void
-FiniteElement::nodeMaxConc()
-{
-    int thread_id;
-    int total_threads;
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-
-    //std::cout<<"MAX THREADS= "<< max_threads <<"\n";
-
-	M_node_max_conc.assign(2*M_num_nodes,0.);
-
-#pragma omp parallel for num_threads(max_threads) private(thread_id)
-    for (int cpt=0; cpt < M_num_elements; ++cpt)
-    {
-        std::vector<int> rcindices(6);
-
-        int index_u, index_v;
-
-        for(int j=0; j<3; j++)
-        {
-            /* Column corresponding to indice j (we also assemble terms in col+1) */
-            //col = (mwIndex)it[2*j]-1; /* -1 to use the indice convention of C */
-
-            index_u = (M_elements[cpt]).indices[j]-1;
-            index_v = (M_elements[cpt]).indices[j]-1+M_num_nodes;
-
-            rcindices[2*j] = index_u;
-            rcindices[2*j+1] = index_v;
-        }
-
-        for (int const& idn : rcindices)
-            M_node_max_conc[idn] = ((M_conc[cpt]>M_node_max_conc[idn])?(M_conc[cpt] ):(M_node_max_conc[idn])) ;
-    }
 }
 
 void
@@ -4271,7 +4202,6 @@ FiniteElement::step(int &pcpt)
 #if 1
     if (pcpt == 0)
     {
-        nodeMaxConc(); // needed for post-processing, recomputed in assemble() for the other steps
         chrono.restart();
         LOG(DEBUG) <<"first export starts\n";
         this->exportResults(0);
@@ -6905,7 +6835,6 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
         exporter.writeField(outbin, timevec, "Time");
         exporter.writeField(outbin, regridvec, "M_nb_regrid");
         exporter.writeField(outbin, M_surface, "Element_area");
-        exporter.writeField(outbin, M_node_max_conc, "M_node_max_conc");
         exporter.writeField(outbin, M_VT, "M_VT");
         exporter.writeField(outbin, M_conc, "Concentration");
         exporter.writeField(outbin, M_thick, "Thickness");

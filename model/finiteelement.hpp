@@ -264,7 +264,6 @@ private:
     std::vector<double> M_VT;
     std::vector<double> M_VTM;
     std::vector<double> M_VTMM;
-    std::vector<double> M_node_max_conc;
 
     std::vector<double> M_bathy_depth;
 
