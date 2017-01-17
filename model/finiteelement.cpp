@@ -2123,154 +2123,146 @@ FiniteElement::assemble(int pcpt)
         //     std::cout<<"Total number of threads are "<< total_threads <<"\n";
         // }
         
-        double epsilon_veloc_i;
-        std::vector<double> epsilon_veloc(3);
-        double divergence_rate;
         
         double tmp_thick=(vm["simul.min_h"].as<double>()>M_thick[cpt]) ? vm["simul.min_h"].as<double>() : M_thick[cpt];
         double tmp_conc=(vm["simul.min_c"].as<double>()>M_conc[cpt]) ? vm["simul.min_c"].as<double>() : M_conc[cpt];
-
-        /* Compute the value that only depends on the element */
-        double welt_oce_ice = 0.;
-        double welt_air_ice = 0.;
-        double welt_ice = 0.;
-        double welt_ssh = 0.;
-        int nind;
-
-        for (int i=0; i<3; ++i)
-        {
-            nind = (M_elements[cpt]).indices[i]-1;
-
-            welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
-            welt_air_ice += std::hypot(M_VT[nind]-M_wind [nind],M_VT[nind+M_num_nodes]-M_wind [nind+M_num_nodes]);
-            welt_ice += std::hypot(M_VT[nind],M_VT[nind+M_num_nodes]);
-
-            welt_ssh += M_ssh[nind];
-        }
-
-        double norm_Voce_ice = welt_oce_ice/3.;
-        double norm_Voce_ice_min= 0.01; // minimum value to avoid 0 water drag term. 
-        norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
         
-        double norm_Vair_ice = welt_air_ice/3.;
-        double norm_Vair_ice_min= 0.01; // minimum value to avoid 0 water drag term. 
-        norm_Vair_ice = (norm_Vair_ice > norm_Vair_ice_min) ? (norm_Vair_ice):norm_Vair_ice_min;
-        
-        double norm_Vice = welt_ice/3.;
-
-        double element_ssh = welt_ssh/3.;
-
-        double coef_Vair = (vm["simul.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*norm_Vair_ice));
-        //double coef_Vair = (vm["simul.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*std::pow(norm_Vair_ice,0.78)));
-        coef_Vair *= (physical::rhoa);
-        coef_Vair = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_Vair):0.;
-
-        double coef_Voce = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
-        coef_Voce *= physical::rhow; //(vm["simul.rho_water"].as<double>());
-        coef_Voce = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_Voce):0.;
-
-        double critical_h = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
-
-        double _coef = std::max(0., M_thick[cpt]-critical_h);
-        double coef_basal = quad_drag_coef_air*basal_k2/(basal_drag_coef_air*(norm_Vice+basal_u_0));
-        coef_basal *= _coef*std::exp(-basal_Cb*(1.-M_conc[cpt]));
-        coef_basal = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_basal):0.;
-
-        //std::vector<double> sigma_P(3,0.); /* temporary variable for the resistance to the compression */
-        //std::vector<double> B0Tj_sigma_h(2,0);
-        double b0tj_sigma_hu = 0.;
-        double b0tj_sigma_hv = 0.;
-        double mloc = 0.;
-
-        std::vector<double> data(36);
-        std::vector<double> fvdata(6,0.);
-        std::vector<int> rcindices(6);
-
-        double duu, dvu, duv, dvv;
         int index_u, index_v;
         
-
-#if 1
-        //option 1 (original)
-        double coef = young*(1.-M_damage[cpt])*tmp_thick*std::exp(ridging_exponent*(1.-tmp_conc));
-        coef = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef):10.;
+        double coef_Vair    = 0.;
+        double coef_Voce    = 0.;
+        double coef_basal   = 0.;
+        double coef         = 10.;
+        double coef_P       = 0.;
+        double mass_e       = 0.;
+        double coef_C       = 0.;
+        double coef_V       = 0.;
+        double coef_X       = 0.;
+        double coef_Y       = 0.;
         
-#else
-        //option 2 (we just change the value of the ridging exponent and we renamed it "damaging_exponent")
-        double damaging_exponent = -80.;
-        double coef = young*(1.-M_damage[cpt])*tmp_thick*std::exp(damaging_exponent*(1.-tmp_conc));
-#endif
-        //option 3: We change the formulation of f(A) and make it piecewise linear between limit_conc_fordamage and 1, and 0 otherwise
-        //double factor = 0.;
-        //double limit_conc_fordamage = 0.;
-        //limit_conc_fordamage=0.95;
-        //if(tmp_conc<limit_conc_fordamage)
-        //{
-        //factor=0.;
-        //}
-        //else
-        //{
-        //factor=(tmp_conc-limit_conc_fordamage)/(1.-limit_conc_fordamage);
-        //}
-        //double coef = young*(1.-M_damage[cpt])*tmp_thick*factor;
-
-        /* Compute the elastic deformation and the instantaneous deformation rate */
-        for(int i=0;i<3;i++)
+        double mloc = 0.;      
+        
+        double b0tj_sigma_hu = 0.;
+        double b0tj_sigma_hv = 0.;
+          
+        
+        if(tmp_conc > vm["simul.min_c"].as<double>())
         {
-            index_u = (M_elements[cpt]).indices[i]-1;
-            index_v = (M_elements[cpt]).indices[i]-1+M_num_nodes;
             
-            epsilon_veloc_i = 0.0;
-            for(int j=0;j<3;j++)
+            /* Compute the value that only depends on the element */
+            double welt_oce_ice = 0.;
+            double welt_air_ice = 0.;
+            double welt_ice = 0.;
+            double welt_ssh = 0.;
+            int nind;
+
+            for (int i=0; i<3; ++i)
             {
-                /* deformation */
-                //col = (mwIndex)it[j]-1;
-                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j     ]*M_VT[index_u]  ;
-                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j + 1 ]*M_VT[index_v]  ;
+                nind = (M_elements[cpt]).indices[i]-1;
+
+                welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
+                welt_air_ice += std::hypot(M_VT[nind]-M_wind [nind],M_VT[nind+M_num_nodes]-M_wind [nind+M_num_nodes]);
+                welt_ice += std::hypot(M_VT[nind],M_VT[nind+M_num_nodes]);
+
+                welt_ssh += M_ssh[nind];
             }
 
-            epsilon_veloc[i] = epsilon_veloc_i;
-        }
+            double norm_Voce_ice = welt_oce_ice/3.;
+            double norm_Voce_ice_min= 0.01; // minimum value to avoid 0 water drag term. 
+            norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
+        
+            double norm_Vair_ice = welt_air_ice/3.;
+            double norm_Vair_ice_min= 0.01; // minimum value to avoid 0 water drag term. 
+            norm_Vair_ice = (norm_Vair_ice > norm_Vair_ice_min) ? (norm_Vair_ice):norm_Vair_ice_min;
+        
+            double norm_Vice = welt_ice/3.;
 
-        divergence_rate= (epsilon_veloc[0]+epsilon_veloc[1]);
+            double element_ssh = welt_ssh/3.;
 
-        double coef_P = 0.;
-        if(divergence_rate < 0.)
-        {
-            coef_P = compression_factor*std::pow(tmp_thick,exponent_compression_factor)*std::exp(ridging_exponent*(1.-tmp_conc));
-            coef_P = coef_P/(std::abs(divergence_rate)+divergence_min);
-            coef_P = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_P):0.;
-        }
+            coef_Vair = (vm["simul.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*norm_Vair_ice));
+            coef_Vair *= (physical::rhoa);
+            
+            coef_Voce = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
+            coef_Voce *= physical::rhow; //(vm["simul.rho_water"].as<double>());
+            
+            double critical_h = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
 
-        double mass_e = rhoi*tmp_thick + rhos*M_snow_thick[cpt];
-        mass_e = (tmp_conc > vm["simul.min_c"].as<double>()) ? (mass_e/tmp_conc):0.;
+            double _coef = std::max(0., M_thick[cpt]-critical_h);
+            coef_basal = quad_drag_coef_air*basal_k2/(basal_drag_coef_air*(norm_Vice+basal_u_0));
+            coef_basal *= _coef*std::exp(-basal_Cb*(1.-M_conc[cpt]));
+            
+    #if 1
+            //option 1 (original)
+            coef = young*(1.-M_damage[cpt])*tmp_thick*std::exp(ridging_exponent*(1.-tmp_conc));
+        
+    #else
+            //option 2 (we just change the value of the ridging exponent and we renamed it "damaging_exponent")
+            double damaging_exponent = -80.;
+            double coef = young*(1.-M_damage[cpt])*tmp_thick*std::exp(damaging_exponent*(1.-tmp_conc));
+    #endif
+            //option 3: We change the formulation of f(A) and make it piecewise linear between limit_conc_fordamage and 1, and 0 otherwise
+            //double factor = 0.;
+            //double limit_conc_fordamage = 0.;
+            //limit_conc_fordamage=0.95;
+            //if(tmp_conc<limit_conc_fordamage)
+            //{
+            //factor=0.;
+            //}
+            //else
+            //{
+            //factor=(tmp_conc-limit_conc_fordamage)/(1.-limit_conc_fordamage);
+            //}
+            //double coef = young*(1.-M_damage[cpt])*tmp_thick*factor;
+
+            double epsilon_veloc_i;
+            std::vector<double> epsilon_veloc(3);
+            double divergence_rate;
+
+            /* Compute the elastic deformation and the instantaneous deformation rate */
+            for(int i=0;i<3;i++)
+            {
+                index_u = (M_elements[cpt]).indices[i]-1;
+                index_v = (M_elements[cpt]).indices[i]-1+M_num_nodes;
+            
+                epsilon_veloc_i = 0.0;
+                for(int j=0;j<3;j++)
+                {
+                    /* deformation */
+                    //col = (mwIndex)it[j]-1;
+                    epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j     ]*M_VT[index_u]  ;
+                    epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j + 1 ]*M_VT[index_v]  ;
+                }
+
+                epsilon_veloc[i] = epsilon_veloc_i;
+            }
+
+            divergence_rate= (epsilon_veloc[0]+epsilon_veloc[1]);
+
+            coef_P = 0.;
+            if(divergence_rate < 0.)
+            {
+                coef_P = compression_factor*std::pow(tmp_thick,exponent_compression_factor)*std::exp(ridging_exponent*(1.-tmp_conc));
+                coef_P = coef_P/(std::abs(divergence_rate)+divergence_min);
+            }
+
+            mass_e = (rhoi*tmp_thick + rhos*M_snow_thick[cpt])/tmp_conc;
                 
-        double surface_e = M_surface[cpt];
+            // /* compute the x and y derivative of g*ssh */
+            double g_ssh_e_x = 0.;
+            double g_ssh_e_y = 0.;
+            double g_ssh_e;
+            for(int i=0; i<3; i++)
+            {
+                g_ssh_e = (physical::gravity)*M_ssh[(M_elements[cpt]).indices[i]-1] /*g_ssh*/;   /* g*ssh at the node k of the element e */
+                g_ssh_e_x += M_shape_coeff[cpt][i]*g_ssh_e; /* x derivative of g*ssh */
+                g_ssh_e_y += M_shape_coeff[cpt][i+3]*g_ssh_e; /* y derivative of g*ssh */
+            }
 
-        // /* compute the x and y derivative of g*ssh */
-        double g_ssh_e_x = 0.;
-        double g_ssh_e_y = 0.;
-        double g_ssh_e;
-        for(int i=0; i<3; i++)
-        {
-            g_ssh_e = (physical::gravity)*M_ssh[(M_elements[cpt]).indices[i]-1] /*g_ssh*/;   /* g*ssh at the node k of the element e */
-            g_ssh_e_x += M_shape_coeff[cpt][i]*g_ssh_e; /* x derivative of g*ssh */
-            g_ssh_e_y += M_shape_coeff[cpt][i+3]*g_ssh_e; /* y derivative of g*ssh */
+            coef_C     = mass_e*M_fcor[cpt];              /* for the Coriolis term */
+            coef_V     = mass_e/time_step;             /* for the inertial term */
+            coef_X     = - mass_e*g_ssh_e_x;              /* for the ocean slope */
+            coef_Y     = - mass_e*g_ssh_e_y;              /* for the ocean slope */
         }
-
-        double coef_C     = mass_e*M_fcor[cpt];              /* for the Coriolis term */
-        coef_C = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_C):0.;
-        
-        double coef_V     = mass_e/time_step;             /* for the inertial term */
-        coef_V = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_V):0.;
-        
-        double coef_X     = - mass_e*g_ssh_e_x;              /* for the ocean slope */
-        coef_X = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_X):0.;
-        
-        double coef_Y     = - mass_e*g_ssh_e_y;              /* for the ocean slope */
-        coef_Y = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_Y):0.;
-
-        double Vcor_index_v, Vcor_index_u;
 
         /* Loop over the 6 by 6 components of the finite element integral
          * this is done smartly by looping over j=0:2 and i=0:2
@@ -2279,6 +2271,13 @@ FiniteElement::assemble(int pcpt)
          * col  , row+1 -> VU component
          * col+1, row   -> VV component
          * col+1, row+1 -> UV component */
+
+        double Vcor_index_v, Vcor_index_u;
+        double surface_e = M_surface[cpt];
+        double duu, dvu, duv, dvv;
+        std::vector<double> data(36);
+        std::vector<double> fvdata(6,0.);
+        std::vector<int> rcindices(6);
 
         for(int j=0; j<3; j++)
         {
