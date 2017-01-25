@@ -229,6 +229,11 @@ public:
     void clear();
 
 private:
+    void advect(std::vector<double>& interp_elt_in_local, std::vector<double>& interp_elt_out_local, std::vector<int>& interp_method);
+    void collectVariables(std::vector<double>& interp_elt_in_local, std::vector<int>& interp_method, bool slab = false);
+    void redistributeVariables(std::vector<double> const& out_elt_values, bool slab = false)
+
+private:
     po::variables_map vm;
     mesh_type M_mesh;
     graph_type M_graph;
@@ -292,9 +297,16 @@ private:
     std::string M_mesh_fileformat;
 
     int M_flag_fix;
+    // local masks
+    std::vector<bool> M_mask;
+    std::vector<bool> M_mask_dirichlet;
 
-    std::vector<double> M_vector_reduction;
-    std::vector<bool> M_valid_conc;
+    // global masks on root
+    std::vector<bool> M_mask_root;
+    std::vector<bool> M_mask_dirichlet_root;
+
+    // std::vector<double> M_vector_reduction;
+    // std::vector<bool> M_valid_conc;
 
 
     std::vector<double> M_surface;
@@ -393,6 +405,7 @@ private:
     double current_time;
     bool M_reuse_prec;
     bool M_regrid;
+    int M_nb_regrid;
 
     bool M_use_restart;
     bool M_write_restart;

@@ -59,6 +59,13 @@ namespace Nextsim
             ("simul.time_init", po::value<std::string>()->default_value( "2008-Mar-05" ), "")
             ("simul.duration", po::value<double>()->default_value( 1. ), "")
             ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "")
+
+            // advection scheme
+            ("simul.ALE_smoothing_step_nb", po::value<int>()->default_value( 0 ), "")
+            // ALE_smoothing_step_nb<0 is the eulerian case where M_UM is not changed and then =0.
+            // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
+            // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
+
             ("simul.output_per_day", po::value<int>()->default_value( 24 ), "")
             ("simul.output_directory", po::value<std::string>()->default_value( "" ), "")
             ("simul.logfile", po::value<std::string>()->default_value( "" ), "")

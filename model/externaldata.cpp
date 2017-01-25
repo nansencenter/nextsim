@@ -843,7 +843,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                 }
             }
 
-            if(rotation_angle!=0.)
+            if(dataset->rotation_angle!=0.)
             {
                 for (int i=0; i<final_MN; ++i)
                 {
