@@ -229,8 +229,8 @@ public:
     void clear();
 
 private:
-    void advect(std::vector<double>& interp_elt_in_local, std::vector<double>& interp_elt_out_local, std::vector<int>& interp_method);
-    void collectVariables(std::vector<double>& interp_elt_in_local, std::vector<int>& interp_method, bool slab = false);
+    void advect(std::vector<double>& interp_elt_in_local, std::vector<double>& interp_elt_out_local);
+    void collectVariables(std::vector<double>& interp_elt_in_local, bool slab = false);
     void redistributeVariables(std::vector<double> const& out_elt_values, bool slab = false)
 
 private:
@@ -305,13 +305,16 @@ private:
     std::vector<bool> M_mask_root;
     std::vector<bool> M_mask_dirichlet_root;
 
+    // interpolation method
+    std::vector<int> M_interp_method;
+
     // std::vector<double> M_vector_reduction;
     // std::vector<bool> M_valid_conc;
 
 
     std::vector<double> M_surface;
     std::vector<double> M_sigma;
-    std::vector<double> M_divergence_rate;
+    //std::vector<double> M_divergence_rate;
     //std::vector<double> M_UT;
     std::vector<double> M_UM;
     std::vector<double> M_VT;

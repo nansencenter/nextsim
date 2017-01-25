@@ -1524,10 +1524,10 @@ FiniteElement::gatherSizes()
     // -------------------------------------------------------------
 }
 
-void FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, std::vector<int>& interp_method, bool slab)
+void FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool slab)
 {
     interp_elt_in_local.resize(M_nb_var_element*M_local_nelements);
-    interp_method.resize(M_nb_var_element);
+    M_interp_method.resize(M_nb_var_element);
 
     int tmp_nb_var=0;
     for (int i=0; i<M_local_nelements; ++i)
@@ -1536,85 +1536,85 @@ void FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, s
 
         // concentration
         interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_conc[i];
-        interp_method[tmp_nb_var] = 1;
+        M_interp_method[tmp_nb_var] = 1;
         tmp_nb_var++;
 
         // thickness
         interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_thick[i];
-        interp_method[tmp_nb_var] = 1;
+        M_interp_method[tmp_nb_var] = 1;
         tmp_nb_var++;
 
         // snow thickness
         interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_snow_thick[i];
-        interp_method[tmp_nb_var] = 1;
+        M_interp_method[tmp_nb_var] = 1;
         tmp_nb_var++;
 
         // integrated_stress1
         interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_sigma[3*i]*M_thick[i];
-        interp_method[tmp_nb_var] = 1;
+        M_interp_method[tmp_nb_var] = 1;
         tmp_nb_var++;
 
         // integrated_stress2
         interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_sigma[3*i+1]*M_thick[i];
-        interp_method[tmp_nb_var] = 1;
+        M_interp_method[tmp_nb_var] = 1;
         tmp_nb_var++;
 
         // integrated_stress3
         interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_sigma[3*i+2]*M_thick[i];
-        interp_method[tmp_nb_var] = 1;
+        M_interp_method[tmp_nb_var] = 1;
         tmp_nb_var++;
 
         // compliance
         //interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = 1./(1.-M_damage[i]);
         // damage
         interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_damage[i];
-        interp_method[tmp_nb_var] = 0;
+        M_interp_method[tmp_nb_var] = 0;
         tmp_nb_var++;
 
         // random_number
         interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_random_number[i];
-        interp_method[tmp_nb_var] = 0;
+        M_interp_method[tmp_nb_var] = 0;
         tmp_nb_var++;
 
         interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_tice[0][i];
-        interp_method[tmp_nb_var] = 0;
+        M_interp_method[tmp_nb_var] = 0;
         tmp_nb_var++;
         if ( M_thermo_type == setup::ThermoType::WINTON )
         {
             interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = ( M_tice[1][i] - physical::mu*physical::si*physical::Lf/(physical::C*M_tice[1][i]) ) * M_thick[i]; // (39) times volume with f1=1
-            interp_method[tmp_nb_var] = 1;
+            M_interp_method[tmp_nb_var] = 1;
             tmp_nb_var++;
 
             interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = ( M_tice[2][i] ) * M_thick[i]; // (39) times volume with f1=0
-            interp_method[tmp_nb_var] = 1;
+            M_interp_method[tmp_nb_var] = 1;
             tmp_nb_var++;
         }
 
         // thin ice thickness
         interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_h_thin[i];
-        interp_method[tmp_nb_var] = 1;
+        M_interp_method[tmp_nb_var] = 1;
         tmp_nb_var++;
 
         // snow on thin ice
         interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_hs_thin[i];
-        interp_method[tmp_nb_var] = 1;
+        M_interp_method[tmp_nb_var] = 1;
         tmp_nb_var++;
 
         // Ice surface temperature for thin ice
         interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_tsurf_thin[i];
-        interp_method[tmp_nb_var] = 0;
+        M_interp_method[tmp_nb_var] = 0;
         tmp_nb_var++;
 
         if (slab)
         {
             // Sea surface temperature
             interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_sst[i];
-            interp_method[tmp_nb_var] = 0;
+            M_interp_method[tmp_nb_var] = 0;
             tmp_nb_var++;
 
             // Sea surface salinity
             interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_sss[i];
-            interp_method[tmp_nb_var] = 0;
+            M_interp_method[tmp_nb_var] = 0;
             tmp_nb_var++;
         }
 
@@ -1730,7 +1730,7 @@ void FiniteElement::redistributeVariables(std::vector<double> const& out_elt_val
     }
 }
 
-void FiniteElement::advect(std::vector<double>& )
+void FiniteElement::advect(std::vector<double>& interp_elt_in_local, std::vector<double>& interp_elt_out_local)
 {
     int ALE_smoothing_step_nb = vm["simul.ALE_smoothing_step_nb"].as<int>();
     // ALE_smoothing_step_nb<0 is the diffusive eulerian case where M_UM is not changed and then =0.
@@ -1753,8 +1753,7 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
     std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = M_nb_var_element*f; });
 
     std::vector<double> interp_elt_in_local;
-    std::vector<double> interp_method;
-    this->collectVariables(interp_elt_in_local,interp_method, true);
+    this->collectVariables(interp_elt_in_local, true);
 
 #if 0
     int prv_num_nodes = M_local_ndof;
@@ -2131,7 +2130,8 @@ FiniteElement::interpFieldsElement()
         //std::cout<<"InterpFromMeshToMesh2dCavities starts\n";
 
         timer["cavities"].first.restart();
-        InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_in_elements[0],M_nb_var_element,
+        InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_in_elements[0],
+                                       M_interp_method, M_nb_var_element,
                                        &surface_previous[0], &surface[0], bamgmesh_previous, bamgmesh_root);
 
         if (M_rank == 0)
@@ -3571,7 +3571,7 @@ FiniteElement::update()
          */
 
         to_be_updated=false;
-        if( M_divergence_rate[cpt]!=0.)
+        if( divergence_rate[cpt]!=0.)
             to_be_updated=true;
 
 
