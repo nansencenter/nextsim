@@ -1732,10 +1732,69 @@ void FiniteElement::redistributeVariables(std::vector<double> const& out_elt_val
 
 void FiniteElement::advect(std::vector<double>& interp_elt_in_local, std::vector<double>& interp_elt_out_local)
 {
+    M_comm.barrier();
+
     int ALE_smoothing_step_nb = vm["simul.ALE_smoothing_step_nb"].as<int>();
     // ALE_smoothing_step_nb<0 is the diffusive eulerian case where M_UM is not changed and then =0.
     // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
     // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
+
+    std::vector<double> vt_root;
+    std::vector<double> M_VT_smoothed;
+    this->gatherNodalField(M_VT,vt_root);
+
+    // get the global number of nodes
+    int num_nodes = M_mesh_root.numNodes();
+
+    if((ALE_smoothing_step_nb>=0) && (M_rank == 0))
+    {
+        M_VT_smoothed = vt_root;
+        std::vector<double> M_VT_tmp = M_VT_smoothed;
+
+        for (int k=0; k<ALE_smoothing_step_nb; ++k)
+        {
+            M_VT_tmp = M_VT_smoothed;
+
+            //for (int i=0; i<M_num_nodes; ++i)
+            for (int i=0; i<M_ndof; ++i)
+            {
+                int Nc;
+                double UM_x, UM_y;
+
+                if(M_mask_dirichlet_root[i]==false)
+                {
+                    Nc = bamgmesh_root->NodalConnectivity[Nd*(i+1)-1];
+
+                    UM_x=0.;
+                    UM_y=0.;
+                    for (int j=0; j<Nc; ++j)
+                    {
+                        UM_x += M_VT_tmp[bamgmesh_root->NodalConnectivity[Nd*i+j]-1];
+                        UM_y += M_VT_tmp[bamgmesh_root->NodalConnectivity[Nd*i+j]-1+num_nodes];
+                    }
+
+                    M_VT_smoothed[i          ]=UM_x/Nc;
+                    M_VT_smoothed[i+num_nodes]=UM_y/Nc;
+                }
+            }
+        }
+    }
+
+    this->scatterNodalField();
+
+    std::vector<double> UM_P = M_UM;
+
+    for (int nd=0; nd<M_UM.size(); ++nd)
+    {
+        M_UM[nd] += time_step*M_VT[nd];
+    }
+
+    for (const int& nd : M_neumann_nodes)
+    {
+        M_UM[nd] = UM_P[nd];
+    }
+
+
 }
 
 void
@@ -2369,6 +2428,90 @@ FiniteElement::interpFieldsNode(std::vector<int> const& rmap_nodes, std::vector<
 }
 
 void
+FiniteElement::gatherNodalField(std::vector<double> const& field_local, std::vector<double>& field_root)
+{
+    std::vector<double> um_local(2*M_local_ndof,0.);
+    for (int i=0; i<M_local_ndof; ++i)
+    {
+        um_local[2*i] = field_local[i]; //M_UM[i];
+        um_local[2*i+1] = field_local[i+M_num_nodes]; //M_UM[i+M_num_nodes];
+    }
+
+    std::vector<int> sizes_nodes = M_sizes_nodes;
+    std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = 2*f; });
+
+    // send displacement vector to the root process (rank 0)
+
+    chrono.restart();
+    if (M_rank == 0)
+    {
+        field_root.resize(2*M_ndof);
+        boost::mpi::gatherv(M_comm, um_local, &field_root[0], sizes_nodes, 0);
+    }
+    else
+    {
+        boost::mpi::gatherv(M_comm, um_local, 0);
+    }
+
+    if (M_rank == 0)
+    {
+        //auto rmap_nodes = M_mesh.mapNodes();
+        int global_num_nodes = M_mesh.numGlobalNodes();
+
+        auto field_root_nrd = field_root;
+
+        for (int i=0; i<global_num_nodes; ++i)
+        {
+            //int ri =  rmap_nodes.left.find(i+1)->second-1;
+            int ri =  M_rmap_nodes[i];
+
+            field_root[i] = field_root_nrd[2*ri];
+            field_root[i+global_num_nodes] = field_root_nrd[2*ri+1];
+        }
+    }
+}
+
+void
+FiniteElement::scatterNodalField(std::vector<double> const& field_root, std::vector<double>& field_local)
+{
+    std::vector<double> in_nd_values;
+
+    if (M_rank == 0)
+    {
+        int global_num_nodes = M_mesh.numGlobalNodes();
+
+        in_nd_values.resize(2*M_id_nodes.size());
+
+        for (int i=0; i<M_id_nodes.size(); ++i)
+        {
+            int ri = M_id_nodes[i]-1;
+
+            in_nd_values[2*i]   = field_root[ri];
+            in_nd_values[2*i+1] = field_root[ri+global_num_nodes];
+
+            // for (int j=0; j<2; ++j)
+            // {
+            //     in_nd_values[2*i+j] = field_root[2*ri+j];
+            // }
+        }
+    }
+
+    std::vector<double> field_local(2*M_num_nodes);
+    std::vector<int> sizes_nodes = M_sizes_nodes_with_ghost;
+
+    if (M_rank == 0)
+    {
+        std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = 2*f; });
+        boost::mpi::scatterv(M_comm, in_nd_values, sizes_nodes, &field_local[0], 0);
+    }
+    else
+    {
+        boost::mpi::scatterv(M_comm, &field_local[0], 2*M_num_nodes, 0);
+    }
+}
+
+#if 0
+void
 FiniteElement::gatherUM(std::vector<double>& um)
 {
     std::vector<double> um_local(2*M_local_ndof,0.);
@@ -2411,6 +2554,7 @@ FiniteElement::gatherUM(std::vector<double>& um)
         }
     }
 }
+#endif
 
 void
 FiniteElement::regrid(bool step)
@@ -2428,7 +2572,8 @@ FiniteElement::regrid(bool step)
 
     std::vector<double> um_root;
 
-    this->gatherUM(um_root);
+    //this->gatherUM(um_root);
+    this->gatherNodalField(M_UM,um_root);
 
     if (M_rank == 0)
     {

@@ -130,7 +130,9 @@ public:
     void scatterFieldsElement(double* interp_elt_out);
     void interpFieldsElement();
 
-    void gatherUM(std::vector<double>& um);
+    //void gatherUM(std::vector<double>& um);
+    void gatherNodalField(std::vector<double> const& field_local, std::vector<double>& field_root);
+    void scatterNodalField(std::vector<double> const& field_root, std::vector<double>& field_local);
     //void gatherFieldsNode(std::vector<double>& interp_in_elements, bimap_type const& rmap_nodes, std::vector<int> sizes_nodes);
     void gatherFieldsNode(std::vector<double>& interp_in_elements, std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
     void scatterFieldsNode(double* interp_nd_out);
