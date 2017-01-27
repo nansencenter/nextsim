@@ -1730,7 +1730,7 @@ void FiniteElement::redistributeVariables(std::vector<double> const& out_elt_val
     }
 }
 
-void FiniteElement::advect(std::vector<double>& interp_elt_in_local, std::vector<double>& interp_elt_out_local)
+void FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out)
 {
     M_comm.barrier();
 
@@ -1741,6 +1741,7 @@ void FiniteElement::advect(std::vector<double>& interp_elt_in_local, std::vector
 
     std::vector<double> vt_root;
     std::vector<double> M_VT_smoothed;
+    std::vector<double> M_VT_smoothed_root;
     this->gatherNodalField(M_VT,vt_root);
 
     // get the global number of nodes
@@ -1748,12 +1749,12 @@ void FiniteElement::advect(std::vector<double>& interp_elt_in_local, std::vector
 
     if((ALE_smoothing_step_nb>=0) && (M_rank == 0))
     {
-        M_VT_smoothed = vt_root;
-        std::vector<double> M_VT_tmp = M_VT_smoothed;
+        M_VT_smoothed_root = vt_root;
+        std::vector<double> M_VT_tmp = M_VT_smoothed_root;
 
         for (int k=0; k<ALE_smoothing_step_nb; ++k)
         {
-            M_VT_tmp = M_VT_smoothed;
+            M_VT_tmp = M_VT_smoothed_root;
 
             //for (int i=0; i<M_num_nodes; ++i)
             for (int i=0; i<M_ndof; ++i)
@@ -1765,28 +1766,28 @@ void FiniteElement::advect(std::vector<double>& interp_elt_in_local, std::vector
                 {
                     Nc = bamgmesh_root->NodalConnectivity[Nd*(i+1)-1];
 
-                    UM_x=0.;
-                    UM_y=0.;
+                    UM_x = 0.;
+                    UM_y = 0.;
                     for (int j=0; j<Nc; ++j)
                     {
                         UM_x += M_VT_tmp[bamgmesh_root->NodalConnectivity[Nd*i+j]-1];
                         UM_y += M_VT_tmp[bamgmesh_root->NodalConnectivity[Nd*i+j]-1+num_nodes];
                     }
 
-                    M_VT_smoothed[i          ]=UM_x/Nc;
-                    M_VT_smoothed[i+num_nodes]=UM_y/Nc;
+                    M_VT_smoothed_root[i          ]=UM_x/Nc;
+                    M_VT_smoothed_root[i+num_nodes]=UM_y/Nc;
                 }
             }
         }
     }
 
-    this->scatterNodalField();
+    this->scatterNodalField(M_VT_smoothed_root,M_VT_smoothed);
 
     std::vector<double> UM_P = M_UM;
 
     for (int nd=0; nd<M_UM.size(); ++nd)
     {
-        M_UM[nd] += time_step*M_VT[nd];
+        M_UM[nd] += time_step*M_VT_smoothed[nd];
     }
 
     for (const int& nd : M_neumann_nodes)
@@ -1794,6 +1795,110 @@ void FiniteElement::advect(std::vector<double>& interp_elt_in_local, std::vector
         M_UM[nd] = UM_P[nd];
     }
 
+
+    for (int cpt=0; cpt < M_num_elements; ++cpt)
+    {
+        /* some variables used for the advection*/
+        double surface, surface_new;
+        double integrated_variable;
+
+        /* some variables used for the advection*/
+        double x[3],y[3],x_new[3],y_new[3];
+        int x_ind, y_ind, neighbour_int, vertex_1, vertex_2;
+        double outer_fluxes_area[3], vector_edge[2], outer_vector[2], VC_middle[2], VC_x[3], VC_y[3];
+        int fluxes_source_id[3];
+
+        double neighbour_double;
+        int other_vertex[3*2]={1,2 , 2,0 , 0,1};
+
+        /*======================================================================
+         * Update:
+         * Ice and snow thickness, and concentration using a Lagrangian or an Eulerian scheme
+         *======================================================================
+         */
+
+        for(int i=0;i<3;i++)
+        {
+            x_ind = (M_elements[cpt]).indices[i]-1;
+            y_ind = (M_elements[cpt]).indices[i]-1+M_num_nodes;
+
+            x[i] = M_nodes.find((M_elements[cpt]).indices[i])->second.coords[0];
+            y[i] = M_nodes.find((M_elements[cpt]).indices[i])->second.coords[1];
+
+            /* old and new positions of the mesh */
+            x_new[i] = M_nodes.find((M_elements[cpt]).indices[i])->second.coords[0]+M_UM[x_ind];
+            y_new[i] = M_nodes.find((M_elements[cpt]).indices[i])->second.coords[1]+M_UM[y_ind];
+            x[i]     = M_nodes.find((M_elements[cpt]).indices[i])->second.coords[0]+UM_P[x_ind];
+            y[i]     = M_nodes.find((M_elements[cpt]).indices[i])->second.coords[1]+UM_P[y_ind];
+
+            VC_x[i] = M_VT[x_ind]-(M_UM[x_ind]-UM_P[x_ind])/time_step;
+            VC_y[i] = M_VT[y_ind]-(M_UM[y_ind]-UM_P[y_ind])/time_step;
+        }
+
+        for(int i=0;i<3;i++)
+        {
+            outer_fluxes_area[i] = 0;
+
+            vertex_1 = other_vertex[2*i  ];
+            vertex_2 = other_vertex[2*i+1];
+
+            vector_edge[0] = x[vertex_2]-x[vertex_1];
+            vector_edge[1] = y[vertex_2]-y[vertex_1];
+
+            outer_vector[0] = vector_edge[1];
+            outer_vector[1] = -vector_edge[0];
+
+            VC_middle[0] = (VC_x[vertex_2]+VC_x[vertex_1])/2.;
+            VC_middle[1] = (VC_y[vertex_2]+VC_y[vertex_1])/2.;
+
+            outer_fluxes_area[i] = outer_vector[0]*VC_middle[0]+outer_vector[1]*VC_middle[1];
+
+            if(outer_fluxes_area[i]>0)
+            {
+                surface = this->measure(M_elements[cpt],M_mesh, UM_P);
+                outer_fluxes_area[i] = std::min(surface/time_step/3.,outer_fluxes_area[i]);
+                fluxes_source_id[i] = cpt;
+            }
+            else
+            {
+                neighbour_double = bamgmesh->ElementConnectivity[cpt*3+i];
+                neighbour_int = (int)bamgmesh->ElementConnectivity[cpt*3+i];
+
+                if (!std::isnan(neighbour_double) && neighbour_int>0)
+                {
+                    surface = this->measure(M_elements[neighbour_int-1],M_mesh, UM_P);
+                    outer_fluxes_area[i] = -std::min(surface/time_step/3.,-outer_fluxes_area[i]);
+                    fluxes_source_id[i] = neighbour_int-1;
+                }
+                else // open boundary with incoming fluxes
+                {
+                    fluxes_source_id[i]=cpt;
+                }
+            }
+        }
+
+        surface = this->measure(M_elements[cpt],M_mesh, UM_P);
+        surface_new = this->measure(M_elements[cpt],M_mesh,M_UM);
+
+        for(int j=0; j<M_nb_var_element; j++)
+        {
+            if(M_interp_method[j]==1)
+            {
+                integrated_variable = interp_elt_in[cpt*M_nb_var_element+j]*surface
+                    - (
+                       interp_elt_in[fluxes_source_id[0]*M_nb_var_element+j]*outer_fluxes_area[0]
+                       + interp_elt_in[fluxes_source_id[1]*M_nb_var_element+j]*outer_fluxes_area[1]
+                       + interp_elt_in[fluxes_source_id[2]*M_nb_var_element+j]*outer_fluxes_area[2]
+                       )*time_step;
+
+                interp_elt_out[cpt*M_nb_var_element+j] = integrated_variable/surface_new;
+            }
+            else
+            {
+                interp_elt_out[cpt*M_nb_var_element+j] = interp_elt_in[cpt*M_nb_var_element+j];
+            }
+        }
+    }
 
 }
 
@@ -2507,6 +2612,16 @@ FiniteElement::scatterNodalField(std::vector<double> const& field_root, std::vec
     else
     {
         boost::mpi::scatterv(M_comm, &field_local[0], 2*M_num_nodes, 0);
+    }
+
+    std::vector<double> field_local_copy = field_local;
+
+    for (int i=0; i<M_num_nodes; ++i)
+    {
+        // U component
+        field_local[i] = field_local_copy[2*i];
+        // V component
+        field_local[i+M_num_nodes] = field_local_copy[2*i+1];
     }
 }
 

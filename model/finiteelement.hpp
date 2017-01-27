@@ -231,7 +231,7 @@ public:
     void clear();
 
 private:
-    void advect(std::vector<double>& interp_elt_in_local, std::vector<double>& interp_elt_out_local);
+    void advect(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out);
     void collectVariables(std::vector<double>& interp_elt_in_local, bool slab = false);
     void redistributeVariables(std::vector<double> const& out_elt_values, bool slab = false)
 
