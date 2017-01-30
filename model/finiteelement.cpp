@@ -3590,6 +3590,196 @@ FiniteElement::cohesion()
 }
 
 void
+FiniteElement::updateReal()
+{
+    // collect the variables into a single structure
+    std::vector<double> interp_elt_in_local;
+    this->collectVariables(interp_elt_in_local);
+
+    // advect
+    std::vector<double> interp_elt_out;
+    this->advect(interp_elt_in_local, interp_elt_out);
+
+    // redistribute the interpolated values
+    this->redistributeVariables(interp_elt_out);
+
+    double old_damage;
+    /* deformation, deformation rate and internal stress tensor and temporary variables */
+    double epsilon_veloc_i;
+    std::vector<double> epsilon_veloc(3);
+
+    std::vector<double> sigma_pred(3);
+    double sigma_dot_i;
+
+    /* divergence */
+    double divergence_rate;
+
+    /* invariant of the internal stress tensor and some variables used for the damaging process*/
+    double sigma_s, sigma_n, sigma_1, sigma_2;
+    double tract_max, sigma_t, sigma_c, q;
+    double tmp, sigma_target;
+
+    for (int cpt=0; cpt < M_num_elements; ++cpt)
+    {
+        // Temporary memory
+        old_damage = M_damage[cpt];
+
+        /*======================================================================
+         * Diagnostic:
+         * Elastic deformation and instantaneous deformation rate
+         *======================================================================
+         */
+
+        /* Compute the elastic deformation and the instantaneous deformation rate */
+        for(i=0;i<3;i++)
+        {
+            epsilon_veloc_i = 0.0;
+            for(j=0;j<3;j++)
+            {
+                /* deformation */
+                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j]*M_VT[(M_elements[cpt]).indices[j]-1];
+                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j + 1]*M_VT[(M_elements[cpt]).indices[j]-1+M_num_nodes];
+            }
+
+            epsilon_veloc[i] = epsilon_veloc_i;
+        }
+
+        divergence_rate[cpt] = (epsilon_veloc[0]+epsilon_veloc[1]);
+
+        /*======================================================================
+         * Update the internal stress
+         *======================================================================
+         */
+
+#if 1
+        //option 1 (original)
+        double damaging_exponent = ridging_exponent;
+#else
+        //option 2
+        double damaging_exponent = -80.;
+#endif
+
+        for(i=0;i<3;i++)
+        {
+            sigma_dot_i = 0.0;
+            for(j=0;j<3;j++)
+            {
+                sigma_dot_i += std::exp(ridging_exponent*(1.-old_conc))*young*(1.-old_damage)*M_Dunit[3*i + j]*epsilon_veloc[j];
+            }
+
+            M_sigma[3*cpt+i] += time_step*sigma_dot_i;
+            sigma_pred[i]    = M_sigma[3*cpt+i] + time_step*sigma_dot_i;
+
+            M_sigma[3*cpt+i] = (M_conc[cpt] > vm["simul.min_c"].as<double>()) ? (M_sigma[3*cpt+i]):0.;
+            sigma_pred[i] = (M_conc[cpt] > vm["simul.min_c"].as<double>()) ? (sigma_pred[i]):0.;
+        }
+
+        /*======================================================================
+         * Correct the internal stress and the damage
+         *======================================================================
+         */
+
+        /* Compute the shear and normal stress, which are two invariants of the internal stress tensor */
+
+        sigma_s = std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
+        sigma_n = -          (sigma_pred[0]+sigma_pred[1])/2.;
+
+        sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
+        sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
+
+        q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
+        sigma_c = 2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
+
+        sigma_t = -sigma_c/q;
+
+        /* minimum and maximum normal stress */
+        tract_max = -tract_coef*M_Cohesion[cpt]/tan_phi;
+
+        /* Correction of the damage */
+        if(sigma_n>M_Compressive_strength[cpt])
+        {
+            sigma_target = M_Compressive_strength[cpt];
+
+            tmp = 1.0-sigma_target/sigma_n*(1.0-old_damage);
+
+            if(tmp>M_damage[cpt])
+            {
+                M_damage[cpt] = tmp;
+            }
+        }
+
+        if(sigma_1-q*sigma_2>sigma_c)
+        {
+            sigma_target = sigma_c;
+
+            tmp = 1.0-sigma_target/(sigma_1-q*sigma_2)*(1.0-old_damage);
+
+            if(tmp>M_damage[cpt])
+            {
+                M_damage[cpt] = tmp;
+            }
+        }
+
+        if(sigma_n<tract_max)
+        {
+            sigma_target = tract_max;
+
+            tmp = 1.0-sigma_target/sigma_n*(1.0-old_damage);
+
+            if(tmp>M_damage[cpt])
+            {
+                M_damage[cpt] = tmp;
+            }
+        }
+
+        /*
+         * Diagnostic:
+         * Recompute the internal stress
+         */
+
+        for(int i=0;i<3;i++)
+        {
+            if(old_damage<1.0)
+            {
+                M_sigma[3*cpt+i] = (1.-M_damage[cpt])/(1.-old_damage)*M_sigma[3*cpt+i] ;
+            }
+            else
+            {
+                M_sigma[3*cpt+i] = 0. ;
+            }
+        }
+
+        /*======================================================================
+         * Update:
+         *======================================================================
+         */
+
+        /* Ridging scheme */
+        /* upper bounds (only for the concentration) */
+        M_conc[cpt] = ((M_conc[cpt]<1.)?(M_conc[cpt]):(1.)) ;
+
+        /* lower bounds */
+        M_conc[cpt] = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
+        M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
+        M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
+
+        /* Ice damage
+         * We use now a constant healing rate defined as 1/time_recovery_damage
+         * so that we are now able to reset the damage to 0.
+         * otherwise, it will never heal completely.
+         * time_recovery_damage still depends on the temperature when themodynamics is activated.
+         */
+        tmp = M_damage[cpt]-time_step/M_time_relaxation_damage[cpt];
+
+        if(M_thick[cpt]==0.)
+            tmp = 0.;
+
+        M_damage[cpt] = ((tmp>0.)?(tmp):(0.));
+    }
+}
+
+#if 0
+void
 FiniteElement::update()
 {
     M_comm.barrier();
@@ -3942,6 +4132,7 @@ FiniteElement::update()
         }
     }
 }
+#endif
 
 void
 FiniteElement::solve()
