@@ -660,20 +660,20 @@ FiniteElement::assignVariables()
     M_ice_cs2_smos_elements_dataset.target_size=M_num_elements;
     M_bathymetry_elements_dataset.target_size=M_num_elements;
 
+    // reload the dataset
+    M_atmosphere_nodes_dataset.loaded=false;
+    M_atmosphere_elements_dataset.loaded=false;
+    M_atmosphere_bis_elements_dataset.loaded=false;
+    M_ocean_nodes_dataset.loaded=false;
+    M_ocean_elements_dataset.loaded=false;
 
-    M_atmosphere_nodes_dataset.reloaded=false;
-    M_atmosphere_elements_dataset.reloaded=false;
-    M_atmosphere_bis_elements_dataset.reloaded=false;
-    M_ocean_nodes_dataset.reloaded=false;
-    M_ocean_elements_dataset.reloaded=false;
-
-    M_ice_topaz_elements_dataset.reloaded=false;
-    M_ice_piomas_elements_dataset.reloaded=false;
-    M_ice_amsre_elements_dataset.reloaded=false;
-    M_ice_osisaf_elements_dataset.reloaded=false;
-    M_ice_amsr2_elements_dataset.reloaded=false;
-    M_ice_cs2_smos_elements_dataset.reloaded=false;
-    M_bathymetry_elements_dataset.reloaded=false;
+    M_ice_topaz_elements_dataset.loaded=false;
+    M_ice_piomas_elements_dataset.loaded=false;
+    M_ice_amsre_elements_dataset.loaded=false;
+    M_ice_osisaf_elements_dataset.loaded=false;
+    M_ice_amsr2_elements_dataset.loaded=false;
+    M_ice_cs2_smos_elements_dataset.loaded=false;
+    M_bathymetry_elements_dataset.loaded=false;
 
 
     // reload the grid
@@ -692,12 +692,44 @@ FiniteElement::assignVariables()
     M_bathymetry_elements_dataset.grid.loaded=false;
 
 
+
+
+
+    // --------------------------------------------------------------
+    // interpolation of the dataset
+    M_atmosphere_nodes_dataset.interpolated=false;
+    M_atmosphere_elements_dataset.interpolated=false;
+    M_atmosphere_bis_elements_dataset.interpolated=false;
+    M_ocean_nodes_dataset.interpolated=false;
+    M_ocean_elements_dataset.interpolated=false;
+
+    M_ice_topaz_elements_dataset.interpolated=false;
+    M_ice_piomas_elements_dataset.interpolated=false;
+    M_ice_amsre_elements_dataset.interpolated=false;
+    M_ice_osisaf_elements_dataset.interpolated=false;
+    M_ice_amsr2_elements_dataset.interpolated=false;
+    M_ice_cs2_smos_elements_dataset.interpolated=false;
+    M_bathymetry_elements_dataset.interpolated=false;
+    // --------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
     M_Cohesion.resize(M_num_elements);
     M_Compressive_strength.resize(M_num_elements);
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
 
     // root
     M_UM_root.assign(2*M_mesh.numGlobalNodes(),0.);
+
+    // number of variables to interpolate
+    M_nb_var_element = 11 + M_tice.size();
 }
 
 void
@@ -843,7 +875,6 @@ FiniteElement::initConstant()
     ptime_step =  days_in_sec/vm["simul.ptime_per_day"].as<int>();
     mooring_output_time_step =  vm["simul.mooring_output_timestep"].as<double>()*days_in_sec;
 
-#if 1
     time_step = vm["simul.timestep"].as<double>();
     duration = (vm["simul.duration"].as<double>())*days_in_sec;
     restart_time_step =  vm["setup.restart_time_step"].as<double>()*days_in_sec;
@@ -991,7 +1022,6 @@ FiniteElement::initConstant()
     }
 
     M_mesh_fileformat = vm["mesh.fileformat"].as<std::string>();
-#endif
 }
 
 void
@@ -1240,7 +1270,7 @@ FiniteElement::minAngle(FEMeshType const& mesh) const
 
 template<typename FEMeshType>
 double
-FiniteElement::minAngle(FEMeshType const& mesh, std::vector<double> const& um, double factor) const
+FiniteElement::minAngle(FEMeshType const& mesh, std::vector<double> const& um, double factor, bool root) const
 {
     // auto movedmesh = mesh;
     // movedmesh.move(um,factor);
@@ -1255,8 +1285,15 @@ FiniteElement::minAngle(FEMeshType const& mesh, std::vector<double> const& um, d
     }
 
     double min_angle = *std::min_element(all_min_angle.begin(),all_min_angle.end());
-    //return min_angle;
-    return boost::mpi::all_reduce(M_comm, min_angle, boost::mpi::minimum<double>());
+
+    double res_value = min_angle;
+
+    if (!root)
+    {
+        res_value = boost::mpi::all_reduce(M_comm, min_angle, boost::mpi::minimum<double>());
+    }
+
+    return res_value;
 }
 
 template<typename FEMeshType>
@@ -1524,13 +1561,19 @@ FiniteElement::gatherSizes()
     // -------------------------------------------------------------
 }
 
-void FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool slab)
+void FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool slab, bool ghosts)
 {
-    interp_elt_in_local.resize(M_nb_var_element*M_local_nelements);
+    int num_elements = M_local_nelements;
+    if (ghosts)
+    {
+        num_elements = M_num_elements;
+    }
+
+    interp_elt_in_local.resize(M_nb_var_element*num_elements);
     M_interp_method.resize(M_nb_var_element);
 
     int tmp_nb_var=0;
-    for (int i=0; i<M_local_nelements; ++i)
+    for (int i=0; i<num_elements; ++i)
     {
         tmp_nb_var=0;
 
@@ -1665,7 +1708,7 @@ void FiniteElement::redistributeVariables(std::vector<double> const& out_elt_val
         }
         else
         {
-            tmp_nb_var+=3;
+            tmp_nb_var += 3;
 
             // damage
             M_damage[i] = 1.;
@@ -1747,10 +1790,13 @@ void FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector
     // get the global number of nodes
     int num_nodes = M_mesh_root.numNodes();
 
+    interp_elt_out.resize(M_nb_var_element*M_num_elements);
+
     if((ALE_smoothing_step_nb>=0) && (M_rank == 0))
     {
         M_VT_smoothed_root = vt_root;
         std::vector<double> M_VT_tmp = M_VT_smoothed_root;
+        int Nd = bamgmesh_root->NodalConnectivitySize[1];
 
         for (int k=0; k<ALE_smoothing_step_nb; ++k)
         {
@@ -1877,6 +1923,7 @@ void FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector
             }
         }
 
+
         surface = this->measure(M_elements[cpt],M_mesh, UM_P);
         surface_new = this->measure(M_elements[cpt],M_mesh,M_UM);
 
@@ -1899,7 +1946,6 @@ void FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector
             }
         }
     }
-
 }
 
 void
@@ -1914,6 +1960,7 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
     // ELEMENT INTERPOLATION With Cavities
     std::vector<int> sizes_elements = M_sizes_elements;
     M_nb_var_element = 13 + M_tice.size();
+    //std::cout<<"------------------------------------------------------------------------------------M_nb_var_element= "<< M_nb_var_element <<"\n";
     std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = M_nb_var_element*f; });
 
     std::vector<double> interp_elt_in_local;
@@ -2295,7 +2342,7 @@ FiniteElement::interpFieldsElement()
 
         timer["cavities"].first.restart();
         InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_in_elements[0],
-                                       M_interp_method, M_nb_var_element,
+                                       &M_interp_method[0], M_nb_var_element,
                                        &surface_previous[0], &surface[0], bamgmesh_previous, bamgmesh_root);
 
         if (M_rank == 0)
@@ -2357,7 +2404,7 @@ FiniteElement::interpFieldsElement()
     // std::cout<<"["<< M_rank <<"]: " <<"AFTER Max val= "<< *std::max_element(M_conc.begin(), M_conc.end()) <<"\n";
 
     // slab ocean (Msst and M_sss) will not be used from here
-    M_nb_var_element -= 2;
+    //M_nb_var_element -= 2;
 }
 
 void
@@ -2601,7 +2648,8 @@ FiniteElement::scatterNodalField(std::vector<double> const& field_root, std::vec
         }
     }
 
-    std::vector<double> field_local(2*M_num_nodes);
+    //std::vector<double> field_local(2*M_num_nodes);
+    field_local.resize(2*M_num_nodes);
     std::vector<int> sizes_nodes = M_sizes_nodes_with_ghost;
 
     if (M_rank == 0)
@@ -2688,7 +2736,9 @@ FiniteElement::regrid(bool step)
     std::vector<double> um_root;
 
     //this->gatherUM(um_root);
+    std::cout<<"gatherNodalField starts\n";
     this->gatherNodalField(M_UM,um_root);
+    std::cout<<"gatherNodalField done\n";
 
     if (M_rank == 0)
     {
@@ -2702,7 +2752,7 @@ FiniteElement::regrid(bool step)
             step_order++;
 
             flip = this->flip(M_mesh_root,um_root,displacement_factor);
-            minang = this->minAngle(M_mesh,M_UM,displacement_factor);
+            minang = this->minAngle(M_mesh,M_UM,displacement_factor,true);
 
             if (substep > 1)
                 LOG(DEBUG) <<"FLIP DETECTED "<< substep-1 <<"\n";
@@ -2979,8 +3029,8 @@ FiniteElement::assemble(int pcpt)
 
     int nind;
 
-    double epsilon_veloc_i;
-    double divergence_rate;
+    //double epsilon_veloc_i;
+    //double divergence_rate;
 
     std::vector<int> extended_dirichlet_nodes = M_dirichlet_nodes;
 
@@ -3094,15 +3144,15 @@ FiniteElement::assemble(int pcpt)
             coef = young*(1.-M_damage[cpt])*tmp_thick*std::exp(damaging_exponent*(1.-tmp_conc));
 #endif
 
-            epsilon_veloc_i;
+            double epsilon_veloc_i;
             std::vector<double> epsilon_veloc(3);
-            divergence_rate;
+            double divergence_rate;
 
             /* Compute the elastic deformation and the instantaneous deformation rate */
-            for(i=0;i<3;i++)
+            for(int i=0;i<3;i++)
             {
                 epsilon_veloc_i = 0.0;
-                for(j=0;j<3;j++)
+                for(int j=0;j<3;j++)
                 {
                     /* deformation */
                     epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j]*M_VT[(M_elements[cpt]).indices[j]-1];
@@ -3112,13 +3162,13 @@ FiniteElement::assemble(int pcpt)
                 epsilon_veloc[i] = epsilon_veloc_i;
             }
 
-            divergence_rate[cpt]= (epsilon_veloc[0]+epsilon_veloc[1]);
+            divergence_rate = (epsilon_veloc[0]+epsilon_veloc[1]);
 
             coef_P = 0.;
-            if(divergence_rate[cpt] < 0.)
+            if(divergence_rate < 0.)
             {
                 coef_P = compression_factor*std::pow(tmp_thick,exponent_compression_factor)*std::exp(ridging_exponent*(1.-tmp_conc));
-                coef_P = coef_P/(std::abs(divergence_rate[cpt])+divergence_min);
+                coef_P = coef_P/(std::abs(divergence_rate)+divergence_min);
             }
 
             mass_e = rhoi*tmp_thick + rhos*M_snow_thick[cpt];
@@ -3590,11 +3640,11 @@ FiniteElement::cohesion()
 }
 
 void
-FiniteElement::updateReal()
+FiniteElement::update()
 {
     // collect the variables into a single structure
     std::vector<double> interp_elt_in_local;
-    this->collectVariables(interp_elt_in_local);
+    this->collectVariables(interp_elt_in_local, false, true);
 
     // advect
     std::vector<double> interp_elt_out;
@@ -3619,6 +3669,7 @@ FiniteElement::updateReal()
     double tract_max, sigma_t, sigma_c, q;
     double tmp, sigma_target;
 
+
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
         // Temporary memory
@@ -3631,10 +3682,10 @@ FiniteElement::updateReal()
          */
 
         /* Compute the elastic deformation and the instantaneous deformation rate */
-        for(i=0;i<3;i++)
+        for(int i=0;i<3;i++)
         {
             epsilon_veloc_i = 0.0;
-            for(j=0;j<3;j++)
+            for(int j=0;j<3;j++)
             {
                 /* deformation */
                 epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j]*M_VT[(M_elements[cpt]).indices[j]-1];
@@ -3644,7 +3695,7 @@ FiniteElement::updateReal()
             epsilon_veloc[i] = epsilon_veloc_i;
         }
 
-        divergence_rate[cpt] = (epsilon_veloc[0]+epsilon_veloc[1]);
+        divergence_rate = (epsilon_veloc[0]+epsilon_veloc[1]);
 
         /*======================================================================
          * Update the internal stress
@@ -3659,12 +3710,12 @@ FiniteElement::updateReal()
         double damaging_exponent = -80.;
 #endif
 
-        for(i=0;i<3;i++)
+        for(int i=0;i<3;i++)
         {
             sigma_dot_i = 0.0;
-            for(j=0;j<3;j++)
+            for(int j=0;j<3;j++)
             {
-                sigma_dot_i += std::exp(ridging_exponent*(1.-old_conc))*young*(1.-old_damage)*M_Dunit[3*i + j]*epsilon_veloc[j];
+                sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[3*i + j]*epsilon_veloc[j];
             }
 
             M_sigma[3*cpt+i] += time_step*sigma_dot_i;
@@ -3759,7 +3810,7 @@ FiniteElement::updateReal()
         M_conc[cpt] = ((M_conc[cpt]<1.)?(M_conc[cpt]):(1.)) ;
 
         /* lower bounds */
-        M_conc[cpt] = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
+        M_conc[cpt]         = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
         M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
         M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
 
@@ -5160,6 +5211,7 @@ FiniteElement::run()
         if (M_rank == 0)
             std::cout <<"Initialize variables done "<< timer["initvar"].first.elapsed() <<"s\n";
 
+
         timer["atmost"].first.restart();
         // if (M_rank == 0)
         //     std::cout <<"Initialize forcingAtmosphere\n";
@@ -5173,14 +5225,14 @@ FiniteElement::run()
         this->forcingOcean();
         if (M_rank == 0)
             std::cout <<"Initialize forcingOcean done in "<< timer["ocean"].first.elapsed() <<"s\n";
-
+#if 1
         timer["bathy"].first.restart();
         // if (M_rank == 0)
         //     std::cout <<"Initialize bathymetry\n";
         this->bathymetry();
         if (M_rank == 0)
             std::cout <<"Initialize bathymetry done in "<< timer["bathy"].first.elapsed() <<"s\n";
-
+#endif
         timer["checkload"].first.restart();
         // if (M_rank == 0)
         //     std::cout <<"check_and_reload starts\n";
@@ -5274,6 +5326,7 @@ FiniteElement::run()
                 std::cout <<"REGRID ANGLE= "<< minang <<"\n";
             }
 
+            //if (pcpt == 2)
             if ( minang < vm["simul.regrid_angle"].as<double>() )
             {
                 LOG(DEBUG) <<"Regriding starts\n";
@@ -5364,6 +5417,7 @@ FiniteElement::run()
         if (M_rank == 0)
             std::cout <<"---timer update:               "<< timer["update"].first.elapsed() <<"s\n";
 
+#if 1
         if(fmod((pcpt+1)*time_step,output_time_step) == 0)
         {
             timer["export"].first.restart();
@@ -5371,9 +5425,8 @@ FiniteElement::run()
             if (M_rank == 0)
                 std::cout <<"---timer export:           "<< timer["export"].first.elapsed() <<"s\n";
         }
-
+#endif
         ++pcpt;
-
     }
 
     this->exportResults(1000);
@@ -5386,6 +5439,8 @@ FiniteElement::run()
     {
         // LOG(INFO) << "-----------------------Simulation done on "<< current_time_local() <<"\n";
         // LOG(INFO) << "-----------------------Total time spent:  "<< time_spent(current_time_system) <<"\n";
+
+        std::cout << "[INFO]: " << "-----------------------Number of mesh adaptation: "<< M_nb_regrid <<"\n";
 
         std::cout << "[INFO]: " << "-----------------------Simulation done on "<< current_time_local() <<"\n";
         std::cout << "[INFO]: " << "-----------------------Total time spent:  "<< time_spent(current_time_system) <<"\n";
@@ -5411,6 +5466,7 @@ FiniteElement::updateVelocity()
     M_VTM = M_VT;
     M_VT = M_solution->container();
 
+#if 0
     std::vector<double> speed_scaling;
     this->speedScaling(speed_scaling);
 
@@ -5420,6 +5476,7 @@ FiniteElement::updateVelocity()
         M_VT[i] *= speed_scaling[i];
         M_VT[i+M_num_nodes] *= speed_scaling[i];
     }
+#endif
 
 #if 0
     M_speed_scaling = speed_scaling;
@@ -5756,11 +5813,12 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
 
             M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
             M_external_data.push_back(&M_ocean_salt);
-
+#if 1
             M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
             M_external_data.push_back(&M_mld);
             // SYL: there was a capping of the mld at minimum vm["simul.constant_mld"].as<double>()
             // but Einar said it is not necessary, so it is not implemented
+#endif
     		break;
 
         default:

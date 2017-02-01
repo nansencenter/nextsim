@@ -176,7 +176,7 @@ public:
     template<typename FEMeshType>
     double minAngle(FEMeshType const& mesh) const;
     template<typename FEMeshType>
-    double minAngle(FEMeshType const& mesh, std::vector<double> const& um, double factor) const;
+    double minAngle(FEMeshType const& mesh, std::vector<double> const& um, double factor, bool root = false) const;
 
     template<typename FEMeshType>
     bool flip(FEMeshType const& mesh, std::vector<double> const& um, double factor) const;
@@ -232,8 +232,8 @@ public:
 
 private:
     void advect(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out);
-    void collectVariables(std::vector<double>& interp_elt_in_local, bool slab = false);
-    void redistributeVariables(std::vector<double> const& out_elt_values, bool slab = false)
+    void collectVariables(std::vector<double>& interp_elt_in_local, bool slab = false, bool ghosts = false);
+    void redistributeVariables(std::vector<double> const& out_elt_values, bool slab = false);
 
 private:
     po::variables_map vm;
