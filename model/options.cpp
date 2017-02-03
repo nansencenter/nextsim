@@ -96,6 +96,7 @@ namespace Nextsim
             ("simul.alea_factor", po::value<double>()->default_value( 0. ), "")
             ("simul.ridging_exponent", po::value<double>()->default_value( -40. ), "")
             ("simul.fixed_cohesion", po::value<bool>()->default_value( true ), "")
+            ("simul.use_coriolis", po::value<bool>()->default_value( true ), "")
             ("simul.divergence_min", po::value<double>()->default_value( 0.01 ), "")
             ("simul.compression_factor", po::value<double>()->default_value( 12000. ), "")
             ("simul.exponent_compression_factor", po::value<double>()->default_value( 2. ), "")
