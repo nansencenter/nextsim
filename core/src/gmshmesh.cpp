@@ -21,7 +21,8 @@ GmshMesh::GmshMesh()
     M_num_nodes(0),
     //M_num_elements(0),
     M_num_triangles(0),
-    M_num_edges(0)
+    M_num_edges(0),
+    M_marker_names()
 {
     M_projection_file = (Environment::vm()["simul.proj_filename"]).as<std::string>();
 }
@@ -108,8 +109,35 @@ GmshMesh::readFromFile(std::string const& filename)
 
         __is >> __buf;
 
-        std::cout << "[importergmsh] " << __buf << " (expect $PhysicalNames)\n";
+        std::cout << "[gmshmesh] " << __buf << " (expect $PhysicalNames)\n";
 
+        if ( std::string( __buf ) == "$PhysicalNames" )
+        {
+            int nnames;
+            __is >> nnames;
+
+            for ( int n = 0; n < nnames; ++n )
+            {
+                int id, topodim;
+                std::string name;
+
+                __is >> topodim >> id >> name;
+                std::cout << "[gmshmesh] reading topodim: "  << topodim << " id: " << id << " name: " << name << "\n";
+
+                boost::trim( name );
+                boost::trim_if( name,boost::is_any_of( "\"" ) );
+
+                std::vector<int> data = {id, topodim};
+
+                // insert the markers
+                M_marker_names.insert(std::make_pair(name,data));
+            }
+
+            __is >> __buf;
+            ASSERT(std::string( __buf ) == "$EndPhysicalNames","invalid file format entry");
+
+            __is >> __buf;
+        }
     }
 
     // Read NODES
