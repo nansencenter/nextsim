@@ -18,7 +18,7 @@ if nargin==5, dir=''; end
 
 %Here are a list of various options which can be set
 plot_grid           = 0;            % If not zero the mesh lines are ploted. If zoomed out only the mesh lines will be visible
-plot_coastlines     = 0;            % When 1 the actual domain baoundaries are plotted, closed in light gray and opened in cyan. 
+plot_coastlines     = 1;            % When 1 the actual domain baoundaries are plotted, closed in light gray and opened in cyan. 
                                     % Note though that plotting the coastlines or the grid makes the figure much heavier
 plot_date           = 1;            % 0 by default, 1 if we want to display the date on the figure
 font_size           = 14;           % Sets font size of colorbar and date
@@ -168,8 +168,18 @@ function plot_coastlines_and_boundaries(domain)
     free_boundaryLat = node_lat(boundary(free ,1:2,1))';
     free_boundaryLon = node_lon(boundary(free ,1:2,1))';
     
-    [closed_boundaryX,closed_boundaryY]= mapll(closed_boundaryLat,closed_boundaryLon,60,-45,'N');
-    [free_boundaryX,free_boundaryY]= mapll(free_boundaryLat,free_boundaryLon,60,-45,'N');
+    mppfile = '../data/NpsNextsim.mpp';
+
+    % projection
+    [closed_boundaryX,closed_boundaryY]= mapx_forward(mppfile,closed_boundaryLon(:)',closed_boundaryLat(:)');
+    [free_boundaryX,free_boundaryY]= mapx_forward(mppfile,free_boundaryLon(:)',free_boundaryLat(:)');
+    
+    %reshape and scaling to km
+    closed_boundaryX=reshape(0.001*closed_boundaryX,size(closed_boundaryLon));
+    closed_boundaryY=reshape(0.001*closed_boundaryY,size(closed_boundaryLon));
+    free_boundaryX=reshape(0.001*free_boundaryX,size(free_boundaryLon));
+    free_boundaryY=reshape(0.001*free_boundaryY,size(free_boundaryLon));
+    
     %Plotting closed mesh boundaries (e.g. coastlines)
     plot(closed_boundaryX,closed_boundaryY,'Color',[0.3 0.3 0.3],'LineWidth',0.2);
     %Plotting open mesh boundaries
@@ -353,93 +363,5 @@ function set_figure_cosmetics(data_out,domain,region_of_zoom,plot_date,backgroun
         set(allFont,'FontSize',font_size);
 end
 
-%%%% The following does not work, but we keep it for possible later use %%%
-
-%[xmask,ymask,pmask]=load_landmask(domain,reduced_domain);
-  %pmask(pmask==0)=NaN;
-function [xmask,ymask,pmask]=load_landmask(domain,reduced_domain)
-
-if strcmp(domain,'TOPAZ')
-        % open the topography file of TOPAZ
-        try
-            fid=fopen('regional.grid.b');
-            A=fgetl(fid); idm=sscanf(A,'%f');
-            A=fgetl(fid); jdm=sscanf(A,'%f');
-            fclose(fid);
-        catch
-            error('regional.grid.b cannot be found');
-            return
-        end
-        try
-            plon=loada('regional.grid.a',1,idm,jdm);
-            plat=loada('regional.grid.a',2,idm,jdm);
-            pdepth=loada('regional.depth.a',1,idm,jdm);
-            pmask=double(pdepth~=pdepth(1,1));
-        catch
-            error('regional.depth.a and/or regional.grid.a not found');
-        end
-        
-        [xmask,ymask]=mapll(plat,plon,90,-45,'N');
-        
-        % Buldozer operations
-        %We remove the few remaining grid cells lying the Mediterranean Sea
-        f=find(plat<=50 & plon>=0);
-        pmask(f)=0;
-        
-        % Bering Strait is closed in TOPAZ4. To have the opportunity to open it,
-        % the mask of the cells beyond Bering Strait are set to 2
-        pmask(222,813:836)=2;
-        
-        % we select the indices i  and j of the subdomain if
-        % domain_reduced=1
-        if(reduced_domain)
-            %We select the domain that will be meshed
-            min_i=200;
-            max_i=min(630,idm);
-            min_j=435;         
-            max_j=jdm;
-            pmask=pmask(min_i:max_i,min_j:max_j);
-            xmask=xmask(min_i:max_i,min_j:max_j);
-            ymask=ymask(min_i:max_i,min_j:max_j);
-        end;
-        
-elseif strcmp(domain,'MITgcm_9km')
-        try
-            pmask =readbin('9km_hFacC.data',[420*2 384*2]);
-        catch
-            disp('9km_hFacC.data cannot be not found');
-            return
-        end
-        
-        if(reduced_domain)
-            % We select the domain that will be meshed
-            min_i=240;
-            max_i=min(470,size(pmask,1));
-            min_j=1;
-            max_j=min(200,size(pmask,2));
-            pmask=pmask(min_i:max_i,min_j:max_j);
-        end
-               
-elseif strcmp(domain,'MITgcm_4km')
-        try
-            pmask =readbin('hFacC.data',[420*4 384*4]);
-        catch
-            disp('hFacC.data cannot be found');
-            return
-        end
-        
-        if(reduced_domain)
-            % We select the domain that will be meshed
-            % Phil: Reduced domain here correspond to the neXtSIMF forecast domain
-            min_i=480;
-            min_i=320;
-            max_i=min(940,size(pmask,1));
-            min_j=1;
-            max_j=min(400,size(pmask,2));
-            pmask=pmask(min_i:max_i,min_j:max_j);
-        end
-end;
-
-end
 
 
