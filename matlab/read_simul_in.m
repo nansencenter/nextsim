@@ -3,7 +3,7 @@ function simul_in=read_simul_in(saved_simul_in)
 %   Detailed explanation goes here
 % Example: simul_in=read_simul_in('log_simul')
 
-simul_in.time_init=datenum(get_value(saved_simul_in,'simul.time_init'),'yyyy-mmm-dd');
+simul_in.time_init=datenum(get_value(saved_simul_in,'simul.time_init'),'yyyy-mm-ddHH:MM:SS');
 simul_in.duration=str2num(get_value(saved_simul_in,'simul.duration'));
 simul_in.output_per_day=str2num(get_value(saved_simul_in,'simul.output_per_day'));
 

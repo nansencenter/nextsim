@@ -1,7 +1,12 @@
 function plot_nextsim_c(field,step,domain,region_of_zoom,is_sequential,dir,save_figure)
 
+% example of usage:
+% plot_nextsim_c('Concentration',4,'topaz',[],true)
+% plot_nextsim_c('Damage',4,'topaz',[],true)
+% plot_nextsim_c('M_VT',4,'topaz',[],true)
+
 % clearvars -except step;
-%field='Velocity';
+%field='M_VT';
 %field='mld';
 %field='Concentration';
 %field='Thickness';
@@ -168,7 +173,7 @@ function plot_coastlines_and_boundaries(domain)
     free_boundaryLat = node_lat(boundary(free ,1:2,1))';
     free_boundaryLon = node_lon(boundary(free ,1:2,1))';
     
-    mppfile = '../data/NpsNextsim.mpp';
+    mppfile = which('NpsNextsim.mpp');
 
     % projection
     [closed_boundaryX,closed_boundaryY]= mapx_forward(mppfile,closed_boundaryLon(:)',closed_boundaryLat(:)');

@@ -39,6 +39,7 @@ end
 
 function out=read_bin_export(file_info,file_data)
 %Getting info
+disp(['Read: ' file_info])
 fileID = fopen(file_info,'r');
 info_tmp=textscan(fileID,'%s %s');
 data_names=info_tmp{1};
