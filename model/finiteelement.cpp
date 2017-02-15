@@ -1140,7 +1140,7 @@ FiniteElement::regrid(bool step)
             double* interp_elt_in;
             int* interp_method;
 
-            int nb_var=this->collect_variables(&interp_elt_in, &interp_method, prv_num_elements);
+            int nb_var = this->collectVariables(&interp_elt_in, &interp_method, prv_num_elements);
 
             // 2) Interpolate
             std::vector<double> surface_previous(prv_num_elements);
@@ -1198,7 +1198,7 @@ FiniteElement::regrid(bool step)
                 M_nfloes.assign(M_num_elements,0.);
 #endif
             // 4) redistribute the interpolated values
-            redistribute_variables(&interp_elt_out[0],nb_var);
+            this->redistributeVariables(&interp_elt_out[0],nb_var);
 
             // 5) cleaning
 			xDelete<double>(interp_elt_out);
@@ -1505,7 +1505,7 @@ FiniteElement::regrid(bool step)
 }
 
 void
-FiniteElement::redistribute_variables(double* interp_elt_out,int nb_var)
+FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var)
 {
 	for (int i=0; i<M_num_elements; ++i)
 	{
@@ -1623,7 +1623,7 @@ FiniteElement::redistribute_variables(double* interp_elt_out,int nb_var)
 }
 
 void
-FiniteElement::Advect(double** interp_elt_out_ptr,double* interp_elt_in, int* interp_method,int nb_var)
+FiniteElement::advect(double** interp_elt_out_ptr,double* interp_elt_in, int* interp_method,int nb_var)
 {
 
 	/*Initialize output*/
@@ -1797,7 +1797,7 @@ FiniteElement::Advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
 }
 
 int
-FiniteElement::collect_variables(double** interp_elt_in_ptr, int** interp_method_ptr, int prv_num_elements)
+FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_ptr, int prv_num_elements)
 {
     // ELEMENT INTERPOLATION With Cavities
 	int nb_var=11 + M_tice.size();
@@ -2724,13 +2724,13 @@ FiniteElement::update()
     int prv_num_elements = M_mesh.numTriangles();
     double* interp_elt_in;
     int* interp_method;
-    int nb_var=this->collect_variables(&interp_elt_in, &interp_method, prv_num_elements);
+    int nb_var = this->collectVariables(&interp_elt_in, &interp_method, prv_num_elements);
 
     double* interp_elt_out;
-	Advect(&interp_elt_out,&interp_elt_in[0],&interp_method[0],nb_var);
+	this->advect(&interp_elt_out,&interp_elt_in[0],&interp_method[0],nb_var);
 
     // 4) redistribute the interpolated values
-    redistribute_variables(&interp_elt_out[0],nb_var);
+    this->redistributeVariables(&interp_elt_out[0],nb_var);
 
     // 5) cleaning
 	xDelete<double>(interp_elt_out);
