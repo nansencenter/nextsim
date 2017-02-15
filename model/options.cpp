@@ -131,17 +131,19 @@ namespace Nextsim
             ("simul.fixed_cohesion", po::value<bool>()->default_value( true ), "")
             ("simul.use_coriolis", po::value<bool>()->default_value( true ), "")
             ("simul.alea_factor", po::value<double>()->default_value( 0. ), "")
-            ("simul.young", po::value<double>()->default_value( 9000e+6 ), "")
-            ("simul.cfix", po::value<double>()->default_value( 40e+3 ), "")
+            ("simul.young", po::value<double>()->default_value( 9000e+6 ), "Pa")
+            ("simul.cfix", po::value<double>()->default_value( 40e+3 ), "Pa")
             ("simul.nu0", po::value<double>()->default_value( 0.3 ), "")
             ("simul.tan_phi", po::value<double>()->default_value( 0.7 ), "")
             ("simul.tract_coef", po::value<double>()->default_value( 5./6 ), "")
-            ("simul.compr_strength", po::value<double>()->default_value( 750e+3 ), "")
+            ("simul.compr_strength", po::value<double>()->default_value( 750e+3 ), "Pa")
             ("simul.ridging_exponent", po::value<double>()->default_value( -20. ), "")
 
-            ("simul.time_relaxation_damage", po::value<double>()->default_value( 28. ), "")
-            ("simul.deltaT_relaxation_damage", po::value<double>()->default_value( 40. ), "")
-
+            ("simul.time_relaxation_damage", po::value<double>()->default_value( 28. ), "days")
+            ("simul.deltaT_relaxation_damage", po::value<double>()->default_value( 40. ), "Kelvin")
+            
+            ("simul.undamaged_time_relaxation_sigma", po::value<double>()->default_value( 1e7 ), "seconds") // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
+            ("simul.exponent_relaxation_sigma", po::value<double>()->default_value( 4. ), "s")              // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
 
             // term of resistance to compression
             ("simul.divergence_min", po::value<double>()->default_value( 0.01 ), "")
