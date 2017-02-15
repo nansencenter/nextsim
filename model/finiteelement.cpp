@@ -510,6 +510,7 @@ FiniteElement::initConstant()
     M_bathymetry_type = str2bathymetry.find(vm["setup.bathymetry-type"].as<std::string>())->second;
 
     const boost::unordered_map<const std::string, setup::DrifterType> str2drifter = boost::assign::map_list_of
+        ("none", setup::DrifterType::NONE)
         ("equallyspaced", setup::DrifterType::EQUALLYSPACED)
         ("iabp", setup::DrifterType::IABP);
     M_drifter_type = str2drifter.find(vm["setup.drifter-type"].as<std::string>())->second;
@@ -1327,8 +1328,7 @@ FiniteElement::regrid(bool step)
 			LOG(DEBUG) <<"Nodal interp done in "<< chrono.elapsed() <<"s\n";
 
             // Drifters - if requested
-            //if ( M_drifter_type != setup::DrifterType::NONE )
-            if ( vm["simul.use_drifters"].as<bool>() )
+            if ( M_drifter_type != setup::DrifterType::NONE )
             {
                 chrono.restart();
                 LOG(DEBUG) <<"Drifter starts\n";
@@ -1383,7 +1383,7 @@ FiniteElement::regrid(bool step)
                                         true, 0.);
 
                 // Rebuild the M_drifter map
-                double clim = vm["simul.drift_limit_concentration"].as<double>();
+                double clim = vm["simul.drifter_climit"].as<double>();
                 j=0;
                 for ( auto it = M_drifter.begin(); it != M_drifter.end(); /* ++it is not allowed here, because we use 'erase' */ )
                 {
@@ -3077,16 +3077,18 @@ FiniteElement::thermo()
         }
         double  wspeed = std::hypot(sum_u, sum_v)/3.;
 
-        // definition of the fraction of snow
-        double tmp_snowfr;
+        // definition of the snow fall in kg/m^2/s
+        double tmp_snowfall;
         if(M_snowfr.M_initialized)
-            tmp_snowfr=M_snowfr[i];
+            tmp_snowfall=M_precip[i]*M_snowfr[i];
+        else if (M_snowfall.M_initialized)
+            tmp_snowfall=M_snowfall[i];
         else
         {
             if(M_tair[i]<0)
-                tmp_snowfr=1.;
+                tmp_snowfall=M_precip[i];
             else
-                tmp_snowfr=0.;
+                tmp_snowfall=0.;
         }
 
         double tmp_Qsw_in;
@@ -3190,17 +3192,17 @@ FiniteElement::thermo()
         switch ( M_thermo_type )
         {
             case setup::ThermoType::ZERO_LAYER:
-                this->thermoIce0(i, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfr, hi, hs, hi_old, Qio, del_hi, M_tice[0][i]);
+                this->thermoIce0(i, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfall, hi, hs, hi_old, Qio, del_hi, M_tice[0][i]);
                 break;
             case setup::ThermoType::WINTON:
-                this->thermoWinton(i, time_step, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfr, hi, hs, hi_old, Qio, del_hi,
+                this->thermoWinton(i, time_step, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfall, hi, hs, hi_old, Qio, del_hi,
                         M_tice[0][i], M_tice[1][i], M_tice[2][i]);
                 break;
         }
 
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
-            this->thermoIce0(i, wspeed, sphuma, old_conc_thin, M_h_thin[i], M_hs_thin[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfr, hi_thin, hs_thin, hi_thin_old, Qio_thin, del_hi_thin, M_tsurf_thin[i]);
+            this->thermoIce0(i, wspeed, sphuma, old_conc_thin, M_h_thin[i], M_hs_thin[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfall, hi_thin, hs_thin, hi_thin_old, Qio_thin, del_hi_thin, M_tsurf_thin[i]);
             M_h_thin[i]  = hi_thin * old_conc_thin;
             M_hs_thin[i] = hs_thin * old_conc_thin;
         }
@@ -3368,7 +3370,7 @@ FiniteElement::thermo()
         // Rain falling on ice falls straight through. We need to calculate the
         // bulk freshwater input into the entire cell, i.e. everything in the
         // open-water part plus rain in the ice-covered part.
-        rain = (1.-old_conc-old_conc_thin)*M_precip[i] + (old_conc+old_conc_thin)*(1.-tmp_snowfr)*M_precip[i];
+        rain = (1.-old_conc-old_conc_thin)*M_precip[i] + (old_conc+old_conc_thin)*(M_precip[i]-tmp_snowfall);
         emp  = (evap*(1.-old_conc-old_conc_thin)-rain);
 
         Qio_mean = Qio*old_conc + Qio_thin*old_conc_thin;
@@ -3537,7 +3539,7 @@ FiniteElement::albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, do
 
 // Winton thermo dynamics (ice temperature, growth, and melt)
 void
-FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfr,
+FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfall,
         double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double &T1, double &T2)
 {
     // Constants
@@ -3636,8 +3638,8 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         double E1 = Crho*(T1 - Tfr_ice) - qi*( 1 - Tfr_ice/T1 ); // (1) - but I've multiplied with rhoi, because it's missing in the paper
         double E2 = Crho*(T2 - Tfr_ice) - qi; // (25) - but I've multiplied with rhoi, because it's missing in the paper
 
-        // Snowfall
-        hs += M_precip[i]*snowfr/physical::rhos*dt;
+        // Snowfall [kg/m^2/s]
+        hs += snowfall/physical::rhos*dt;
 
         // Bottom melt/freezing
         Qio    = FiniteElement::iceOceanHeatflux(M_sst[i], M_sss[i], mld, dt);
@@ -3766,7 +3768,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
 
 // This is Semtner zero layer
 void
-FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfr,
+FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfall,
         double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf)
 {
 
@@ -3868,7 +3870,8 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         del_ht = std::min(hs+del_hs,0.)*qs/qi;
         /* Can't have negative hs! */
         del_hs = std::max(del_hs,-hs);
-        hs  = hs + del_hs + M_precip[i]*snowfr/physical::rhos*time_step;
+        // snowfall in kg/m^2/s
+        hs  = hs + del_hs + snowfall/physical::rhos*time_step;
 
         /* Heatflux from ocean */
         Qio = FiniteElement::iceOceanHeatflux(M_sst[i], M_sss[i], mld, time_step);
@@ -5216,7 +5219,7 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             variables[1] = dair;
             variables[2] = mslp;
             variables[3] = Qsw_in;
-            variables[4] = tcc;
+            variables[4] = Qlw_in;
             variables[5] = precip;
             */
 
@@ -5232,11 +5235,14 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
             M_external_data.push_back(&M_Qsw_in);
 
-            M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
-            M_external_data.push_back(&M_tcc);
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            M_external_data.push_back(&M_Qlw_in);
 
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
             M_external_data.push_back(&M_precip);
+
+            M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
+            M_external_data.push_back(&M_snowfall);
         break;
 
         case setup::AtmosphereType::EC:
@@ -6273,25 +6279,22 @@ FiniteElement::initThermodynamics()
 void
 FiniteElement::initDrifter()
 {
-    if ( vm["simul.use_drifters"].as<bool>() )
+    switch (M_drifter_type)
     {
-        switch (M_drifter_type)
-        {
-            // case setup::DrifterType::NONE:
-            //         break;
+        case setup::DrifterType::NONE:
+            break;
 
-            case setup::DrifterType::EQUALLYSPACED:
-                this->equallySpacedDrifter();
-                break;
+        case setup::DrifterType::EQUALLYSPACED:
+            this->equallySpacedDrifter();
+            break;
 
-            case setup::DrifterType::IABP:
-                this->initIABPDrifter();
-                break;
+        case setup::DrifterType::IABP:
+            this->initIABPDrifter();
+            break;
 
-            default:
-                std::cout << "invalid initialization of drifter"<<"\n";
-                throw std::logic_error("invalid initialization of drifter");
-        }
+        default:
+            std::cout << "invalid initialization of drifter"<<"\n";
+            throw std::logic_error("invalid initialization of drifter");
     }
 }
 
@@ -6884,9 +6887,11 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
             if ( M_tcc.M_initialized )
                 exporter.writeField(outbin,M_tcc.getVector(), "M_tcc");       // Incoming long-wave radiation [W/m2]
             if ( M_precip.M_initialized )
-                exporter.writeField(outbin,M_precip.getVector(), "M_precip");       // Total precipitation [m]
+                exporter.writeField(outbin,M_precip.getVector(), "M_precip");       // Total precipitation rate [kg/m^2/s]
             if ( M_snowfr.M_initialized )
                 exporter.writeField(outbin,M_snowfr.getVector(), "M_snowfr");       // Fraction of precipitation that is snow
+            if ( M_snowfall.M_initialized )
+                exporter.writeField(outbin,M_snowfall.getVector(), "M_snowfall");       // Snow fall rate [kg/m^2/s]
             if ( M_dair.M_initialized )
                 exporter.writeField(outbin,M_dair.getVector(), "M_dair");         // 2 m dew point [C]
 
