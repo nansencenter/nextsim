@@ -423,7 +423,7 @@ FiniteElement::initConstant()
     basal_Cb = vm["simul.Lemieux_basal_Cb"].as<double>();
 
     time_relaxation_damage = vm["simul.time_relaxation_damage"].as<double>()*days_in_sec;
-    deltaT_relaxation_damage = vm["simul.deltaT_relaxation_damage"].as<double>()*days_in_sec;
+    deltaT_relaxation_damage = vm["simul.deltaT_relaxation_damage"].as<double>();
 
     h_thin_max = vm["simul.h_thin_max"].as<double>();
     c_thin_max = vm["simul.c_thin_max"].as<double>();
@@ -2151,7 +2151,12 @@ FiniteElement::assemble(int pcpt)
         double b0tj_sigma_hu = 0.;
         double b0tj_sigma_hv = 0.;
 
+        double undamaged_time_relaxation_sigma=vm["simul.undamaged_time_relaxation_sigma"].as<double>();
+        double exponent_relaxation_sigma=vm["simul.exponent_relaxation_sigma"].as<double>();
 
+        double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-M_damage[cpt],exponent_relaxation_sigma-1.);
+        double multiplicator=time_viscous/(time_viscous+time_step);
+        
         if(tmp_conc > vm["simul.min_c"].as<double>())
         {
 
@@ -2199,7 +2204,7 @@ FiniteElement::assemble(int pcpt)
 
     #if 1
             //option 1 (original)
-            coef = young*(1.-M_damage[cpt])*tmp_thick*std::exp(ridging_exponent*(1.-tmp_conc));
+            coef = multiplicator*young*(1.-M_damage[cpt])*tmp_thick*std::exp(ridging_exponent*(1.-tmp_conc));
 
     #else
             //option 2 (we just change the value of the ridging exponent and we renamed it "damaging_exponent")
@@ -2245,11 +2250,12 @@ FiniteElement::assemble(int pcpt)
             divergence_rate= (epsilon_veloc[0]+epsilon_veloc[1]);
 
             coef_P = 0.;
-            if(divergence_rate < 0.)
-            {
-                coef_P = compression_factor*std::pow(tmp_thick,exponent_compression_factor)*std::exp(ridging_exponent*(1.-tmp_conc));
-                coef_P = coef_P/(std::abs(divergence_rate)+divergence_min);
-            }
+            coef_P = compression_factor*std::pow(tmp_thick,exponent_compression_factor)*std::exp(ridging_exponent*(1.-tmp_conc));
+            //if(divergence_rate < 0.)
+            //{
+            //    coef_P = compression_factor*std::pow(tmp_thick,exponent_compression_factor)*std::exp(ridging_exponent*(1.-tmp_conc));
+            //    //coef_P = coef_P/(std::abs(divergence_rate)+divergence_min);
+            //}
 
             mass_e = (rhoi*tmp_thick + rhos*M_snow_thick[cpt])/tmp_conc;
 
@@ -2296,7 +2302,7 @@ FiniteElement::assemble(int pcpt)
             Vcor_index_v=beta0*M_VT[index_v] + beta1*M_VTM[index_v] + beta2*M_VTMM[index_v];
             Vcor_index_u=beta0*M_VT[index_u] + beta1*M_VTM[index_u] + beta2*M_VTMM[index_u];
 
-            double coef_sigma = tmp_thick;
+            double coef_sigma = tmp_thick*multiplicator;
             coef_sigma = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_sigma):0.;
 
             for(int i=0; i<3; i++)
@@ -2806,6 +2812,11 @@ FiniteElement::update()
         //option 2
         double damaging_exponent = -80.;
 #endif
+        double undamaged_time_relaxation_sigma=vm["simul.undamaged_time_relaxation_sigma"].as<double>();
+        double exponent_relaxation_sigma=vm["simul.exponent_relaxation_sigma"].as<double>();
+
+        double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-old_damage,exponent_relaxation_sigma-1.);
+        double multiplicator=time_viscous/(time_viscous+time_step);
 
         for(int i=0;i<3;i++)
         {
@@ -2816,12 +2827,13 @@ FiniteElement::update()
             sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
             //sigma_dot_i += factor*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
             }
-
-            M_sigma[3*cpt+i] += time_step*sigma_dot_i;
-            sigma_pred[i]    = M_sigma[3*cpt+i] + time_step*sigma_dot_i;
-
-            M_sigma[3*cpt+i] = (M_conc[cpt] > vm["simul.min_c"].as<double>()) ? (M_sigma[3*cpt+i]):0.;
+            
+            sigma_pred[i] = (M_sigma[3*cpt+i]+2*time_step*sigma_dot_i)*multiplicator;
             sigma_pred[i] = (M_conc[cpt] > vm["simul.min_c"].as<double>()) ? (sigma_pred[i]):0.;
+            
+            M_sigma[3*cpt+i] = (M_sigma[3*cpt+i]+time_step*sigma_dot_i)*multiplicator;
+            M_sigma[3*cpt+i] = (M_conc[cpt] > vm["simul.min_c"].as<double>()) ? (M_sigma[3*cpt+i]):0.;
+            
         }
 
         /*======================================================================
