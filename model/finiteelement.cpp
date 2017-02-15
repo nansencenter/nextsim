@@ -409,9 +409,6 @@ FiniteElement::initConstant()
         throw std::runtime_error("restart_time_step not an integer multiple of time_step");
     }
 
-    divergence_min = (1./days_in_sec)*vm["simul.divergence_min"].as<double>();
-    compression_factor = vm["simul.compression_factor"].as<double>();
-    exponent_compression_factor = vm["simul.exponent_compression_factor"].as<double>();
     ocean_turning_angle_rad = (PI/180.)*vm["simul.oceanic_turning_angle"].as<double>();
     ridging_exponent = vm["simul.ridging_exponent"].as<double>();
 
@@ -2139,7 +2136,6 @@ FiniteElement::assemble(int pcpt)
         double coef_Voce    = 0.;
         double coef_basal   = 0.;
         double coef         = 10.;
-        double coef_P       = 0.;
         double mass_e       = 0.;
         double coef_C       = 0.;
         double coef_V       = 0.;
@@ -2225,38 +2221,6 @@ FiniteElement::assemble(int pcpt)
             //}
             //double coef = young*(1.-M_damage[cpt])*tmp_thick*factor;
 
-            double epsilon_veloc_i;
-            std::vector<double> epsilon_veloc(3);
-            double divergence_rate;
-
-            /* Compute the elastic deformation and the instantaneous deformation rate */
-            for(int i=0;i<3;i++)
-            {
-                index_u = (M_elements[cpt]).indices[i]-1;
-                index_v = (M_elements[cpt]).indices[i]-1+M_num_nodes;
-
-                epsilon_veloc_i = 0.0;
-                for(int j=0;j<3;j++)
-                {
-                    /* deformation */
-                    //col = (mwIndex)it[j]-1;
-                    epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j     ]*M_VT[index_u]  ;
-                    epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j + 1 ]*M_VT[index_v]  ;
-                }
-
-                epsilon_veloc[i] = epsilon_veloc_i;
-            }
-
-            divergence_rate= (epsilon_veloc[0]+epsilon_veloc[1]);
-
-            coef_P = 0.;
-            coef_P = compression_factor*std::pow(tmp_thick,exponent_compression_factor)*std::exp(ridging_exponent*(1.-tmp_conc));
-            //if(divergence_rate < 0.)
-            //{
-            //    coef_P = compression_factor*std::pow(tmp_thick,exponent_compression_factor)*std::exp(ridging_exponent*(1.-tmp_conc));
-            //    //coef_P = coef_P/(std::abs(divergence_rate)+divergence_min);
-            //}
-
             mass_e = (rhoi*tmp_thick + rhos*M_snow_thick[cpt])/tmp_conc;
 
             // /* compute the x and y derivative of g*ssh */
@@ -2324,17 +2288,17 @@ FiniteElement::assemble(int pcpt)
 
                 /* ---------- UU component */
                 duu = surface_e*( mloc*(coef_Vair+coef_Voce*cos_ocean_turning_angle+coef_V+coef_basal)
-                                  +M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i)*6+2*j]*coef_P);
+                                  +M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*time_step);
 
                 /* ---------- VU component */
-                dvu = surface_e*(+M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j]*coef_P);
+                dvu = surface_e*(+M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j]*coef*time_step);
 
                 /* ---------- UV component */
-                duv = surface_e*(+M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j+1]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i)*6+2*j+1]*coef_P);
+                duv = surface_e*(+M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j+1]*coef*time_step);
 
                 /* ---------- VV component */
                 dvv = surface_e*( mloc*(coef_Vair+coef_Voce*cos_ocean_turning_angle+coef_V+coef_basal)
-                                  +M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*time_step+M_B0T_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j+1]*coef_P);
+                                  +M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*time_step);
 
                 data[(2*i  )*6+2*j  ] = duu;
                 data[(2*i+1)*6+2*j  ] = dvu;
@@ -2511,7 +2475,6 @@ void
 FiniteElement::tensors()
 {
     M_Dunit.assign(9,0);
-    M_Dunit_comp.assign(9,0);
     M_Mass.assign(9,0);
 
     for (int k=0; k<6; k+=3)
@@ -2519,7 +2482,6 @@ FiniteElement::tensors()
         for (int kk=0; kk<2; ++kk )
         {
             M_Dunit[k+kk] = (1-((k+kk)%2)*(1-nu0))/(1-std::pow(nu0,2.));
-            M_Dunit_comp[k+kk] = 1.;
         }
     }
     M_Dunit[8] = (1-nu0)/(2.*(1-std::pow(nu0,2.)));
@@ -2531,12 +2493,6 @@ FiniteElement::tensors()
     }
     std::cout<< " \n ";
 
-    std::cout<< " M_Dunit_comp: ";
-    for (int k=0; k<9; k++)
-    {
-        std::cout<< M_Dunit_comp[k] << " ";
-    }
-    std::cout<< " \n ";
 #endif
 
     for (int i=0; i<3; ++i)
@@ -2554,19 +2510,14 @@ FiniteElement::tensors()
 
     M_B0T.resize(M_num_elements);
     M_B0T_Dunit_B0T.resize(M_num_elements);
-    M_B0T_Dunit_comp_B0T.resize(M_num_elements);
     M_shape_coeff.resize(M_num_elements);
 
     std::vector<double> B0T(18,0);
     std::vector<double> B0Tj_Dunit(6,0);
     std::vector<double> B0T_Dunit_B0T(36,0);
-    std::vector<double> B0Tj_Dunit_comp(6,0);
-    std::vector<double> B0T_Dunit_comp_B0T(36,0);
 
     double B0Tj_Dunit_tmp0, B0Tj_Dunit_tmp1;
     double B0Tj_Dunit_B0Ti_tmp0, B0Tj_Dunit_B0Ti_tmp1, B0Tj_Dunit_B0Ti_tmp2, B0Tj_Dunit_B0Ti_tmp3;
-    double B0Tj_Dunit_comp_tmp0, B0Tj_Dunit_comp_tmp1;
-    double B0Tj_Dunit_comp_B0Ti_tmp0, B0Tj_Dunit_comp_B0Ti_tmp1, B0Tj_Dunit_comp_B0Ti_tmp2, B0Tj_Dunit_comp_B0Ti_tmp3;
 
     int cpt = 0;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
@@ -2616,23 +2567,14 @@ FiniteElement::tensors()
                 B0Tj_Dunit_tmp0 = 0.;
                 B0Tj_Dunit_tmp1 = 0.;
 
-                B0Tj_Dunit_comp_tmp0 = 0.;
-                B0Tj_Dunit_comp_tmp1 = 0.;
-
                 for(int kk=0; kk<3; kk++)
                 {
                     B0Tj_Dunit_tmp0 += B0T[kk*6+2*j]*M_Dunit[3*i+kk];
                     B0Tj_Dunit_tmp1 += B0T[kk*6+2*j+1]*M_Dunit[3*i+kk];
-
-                    B0Tj_Dunit_comp_tmp0 += B0T[kk*6+2*j]*M_Dunit_comp[3*i+kk];
-                    B0Tj_Dunit_comp_tmp1 += B0T[kk*6+2*j+1]*M_Dunit_comp[3*i+kk];
                 }
 
                 B0Tj_Dunit[2*i] = B0Tj_Dunit_tmp0;
                 B0Tj_Dunit[2*i+1] = B0Tj_Dunit_tmp1;
-
-                B0Tj_Dunit_comp[2*i] = B0Tj_Dunit_comp_tmp0;
-                B0Tj_Dunit_comp[2*i+1] = B0Tj_Dunit_comp_tmp1;
             }
 
             for(int i=0; i<3; i++)
@@ -2644,34 +2586,18 @@ FiniteElement::tensors()
                 B0Tj_Dunit_B0Ti_tmp2 = 0.;
                 B0Tj_Dunit_B0Ti_tmp3 = 0.;
 
-                /* scalar product of B0Ti_Dunit_comp and the first column of B0T */
-                B0Tj_Dunit_comp_B0Ti_tmp0 = 0.;
-                B0Tj_Dunit_comp_B0Ti_tmp1 = 0.;
-                B0Tj_Dunit_comp_B0Ti_tmp2 = 0.;
-                B0Tj_Dunit_comp_B0Ti_tmp3 = 0.;
-
                 for(int kk=0; kk<3; kk++)
                 {
                     B0Tj_Dunit_B0Ti_tmp0 += B0Tj_Dunit[2*kk]*B0T[kk*6+2*i];
                     B0Tj_Dunit_B0Ti_tmp1 += B0Tj_Dunit[2*kk]*B0T[kk*6+2*i+1];
                     B0Tj_Dunit_B0Ti_tmp2 += B0Tj_Dunit[2*kk+1]*B0T[kk*6+2*i];
                     B0Tj_Dunit_B0Ti_tmp3 += B0Tj_Dunit[2*kk+1]*B0T[kk*6+2*i+1];
-
-                    B0Tj_Dunit_comp_B0Ti_tmp0 += B0Tj_Dunit_comp[2*kk]*B0T[kk*6+2*i];
-                    B0Tj_Dunit_comp_B0Ti_tmp1 += B0Tj_Dunit_comp[2*kk]*B0T[kk*6+2*i+1];
-                    B0Tj_Dunit_comp_B0Ti_tmp2 += B0Tj_Dunit_comp[2*kk+1]*B0T[kk*6+2*i];
-                    B0Tj_Dunit_comp_B0Ti_tmp3 += B0Tj_Dunit_comp[2*kk+1]*B0T[kk*6+2*i+1];
                 }
 
                 B0T_Dunit_B0T[(2*i)*6+2*j] = B0Tj_Dunit_B0Ti_tmp0;
                 B0T_Dunit_B0T[(2*i+1)*6+2*j] = B0Tj_Dunit_B0Ti_tmp1;
                 B0T_Dunit_B0T[(2*i)*6+2*j+1] = B0Tj_Dunit_B0Ti_tmp2;
                 B0T_Dunit_B0T[(2*i+1)*6+2*j+1] = B0Tj_Dunit_B0Ti_tmp3;
-
-                B0T_Dunit_comp_B0T[(2*i)*6+2*j] = B0Tj_Dunit_comp_B0Ti_tmp0;
-                B0T_Dunit_comp_B0T[(2*i+1)*6+2*j] = B0Tj_Dunit_comp_B0Ti_tmp1;
-                B0T_Dunit_comp_B0T[(2*i)*6+2*j+1] = B0Tj_Dunit_comp_B0Ti_tmp2;
-                B0T_Dunit_comp_B0T[(2*i+1)*6+2*j+1] = B0Tj_Dunit_comp_B0Ti_tmp3;
             }
         }
 
@@ -2681,18 +2607,12 @@ FiniteElement::tensors()
          * We force the matrix to be symmetric by copying the upper part onto the lower part
          */
         for(int i=1; i<6; i++)
-        {
             for(int j=0; j<i; j++)
-            {
                 B0T_Dunit_B0T[i*6+j] = B0T_Dunit_B0T[j*6+i];
-                B0T_Dunit_comp_B0T[i*6+j] = B0T_Dunit_comp_B0T[j*6+i];
-            }
-        }
 
         M_shape_coeff[cpt]        = shapecoeff;
         M_B0T[cpt]                = B0T;
         M_B0T_Dunit_B0T[cpt]      = B0T_Dunit_B0T;
-        M_B0T_Dunit_comp_B0T[cpt] = B0T_Dunit_comp_B0T;
 
         ++cpt;
     }
@@ -3408,6 +3328,7 @@ FiniteElement::thermo()
 
         // Set time_relaxation_damage to be inversely proportional to
         // temperature difference between bottom and snow-ice interface
+#if 0
         if ( M_thick[i] > 0. )
         {
             deltaT = std::max(0., -physical::mu*M_sss[i] - M_tice[0][i] )
@@ -3416,6 +3337,7 @@ FiniteElement::thermo()
         } else {
             M_time_relaxation_damage[i] = 1e36;
         }
+#endif
         // -------------------------------------------------
 
     }// end for loop

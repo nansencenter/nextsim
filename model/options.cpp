@@ -145,11 +145,6 @@ namespace Nextsim
             ("simul.undamaged_time_relaxation_sigma", po::value<double>()->default_value( 1e7 ), "seconds") // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
             ("simul.exponent_relaxation_sigma", po::value<double>()->default_value( 4. ), "s")              // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
 
-            // term of resistance to compression
-            ("simul.divergence_min", po::value<double>()->default_value( 0.01 ), "")
-            ("simul.compression_factor", po::value<double>()->default_value( 12000. ), "")
-            ("simul.exponent_compression_factor", po::value<double>()->default_value( 2. ), "")
-
             // ridge tracer
             ("simul.ridge_h", po::value<double>()->default_value( 3. ), "")
 

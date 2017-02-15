@@ -282,12 +282,10 @@ private:
     std::vector<double> M_fcor;
 
     std::vector<double> M_Dunit;
-    std::vector<double> M_Dunit_comp;
     std::vector<double> M_Mass;
     std::vector<std::vector<double>> M_shape_coeff;
     std::vector<std::vector<double>> M_B0T;
     std::vector<std::vector<double>> M_B0T_Dunit_B0T;
-    std::vector<std::vector<double>> M_B0T_Dunit_comp_B0T;
     std::vector<double> M_random_number;
     std::vector<double> M_Cohesion;
     std::vector<double> M_Compressive_strength;
@@ -328,9 +326,6 @@ private:
     double restart_time_step;
     double time_step;
     double duration;
-    double divergence_min;
-    double compression_factor;
-    double exponent_compression_factor;
     double ocean_turning_angle_rad;
     double ridging_exponent;
     double quad_drag_coef_air;
