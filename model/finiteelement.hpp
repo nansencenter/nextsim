@@ -402,8 +402,9 @@ private:
     external_data M_mslp;         // Atmospheric pressure [Pa]
     external_data M_Qsw_in;       // Incoming short-wave radiation [W/m2]
     external_data M_Qlw_in;       // Incoming long-wave radiation [W/m2]
-    external_data M_tcc;       // Incoming long-wave radiation [W/m2]
-    external_data M_precip;       // Total precipitation [m]
+    external_data M_tcc;          // Incoming long-wave radiation [W/m2]
+    external_data M_precip;       // Total precipitation rate [kg/m^2/s]
+    external_data M_snowfall;     // Snowfall rate [kg/m^2/s]
     external_data M_snowfr;       // Fraction of precipitation that is snow
     external_data M_dair;         // 2 m dew point [C]
 
