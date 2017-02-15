@@ -6868,6 +6868,7 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
             exporter.writeField(outbin, conc_thin, "Concentration_thin_ice");
         }
 
+#if 0
         // EXPORT sigma1 sigma2
         std::vector<double> sigma1(M_mesh.numTriangles());
         std::vector<double> sigma2(M_mesh.numTriangles());
@@ -6888,7 +6889,7 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
         }
         exporter.writeField(outbin, sigma1, "Sigma1");
         exporter.writeField(outbin, sigma2, "Sigma2");
-
+#endif
         outbin.close();
 
         fileout = (boost::format( "%1%/field_%2%.dat" )
