@@ -155,7 +155,7 @@ public:
 
     std::vector<double> hminVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const;
     std::vector<double> hmaxVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const;
-    
+
     std::vector<double> AllMinAngle(mesh_type const& mesh, std::vector<double> const& um, double factor) const;
 
     void initBamg();
@@ -473,10 +473,10 @@ private:
 
     void updateMeans(GridOutput &means, double time_factor);
     void initMoorings();
-    
-    void redistribute_variables(double* interp_elt_out,int nb_var);
-    int collect_variables(double** interp_elt_in_ptr, int** interp_elt_method, int num_elements);
-    void Advect(double** interp_elt_out_ptr,double* interp_elt_in,int* interp_method,int nb_var);
+
+    void redistributeVariables(double* interp_elt_out,int nb_var);
+    int collectVariables(double** interp_elt_in_ptr, int** interp_elt_method, int num_elements);
+    void advect(double** interp_elt_out_ptr,double* interp_elt_in,int* interp_method,int nb_var);
 
 };
 } // Nextsim
