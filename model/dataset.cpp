@@ -2108,7 +2108,7 @@ namespace Nextsim
      		interpolation_in_latlon: false,
 
              loaded: false,
-             dataset_frequency:"daily",
+             dataset_frequency:"nearest_daily",
 
             waveOptions: wavopt_none,
 
@@ -2389,12 +2389,12 @@ namespace Nextsim
      {
      	// Definition of dimensions
         Dimension dimension_x={
-             name:"lon",
+             name:"longitude",
              cyclic:true
      	};
 
         Dimension dimension_y={
-             name:"lat",
+             name:"latitude",
              cyclic:false
      	};
 
@@ -2411,7 +2411,7 @@ namespace Nextsim
          dimensions_lat[0] = dimension_y;
 
          Variable latitude={
-             name: "lat",
+             name: "latitude",
              dimensions: dimensions_lat,
              land_mask_defined: false,
              land_mask_value: 0.,
@@ -2425,7 +2425,7 @@ namespace Nextsim
      	};
 
          Variable longitude={
-             name: "lon",
+             name: "longitude",
              dimensions: dimensions_lon,
              land_mask_defined: false,
              land_mask_value: 0.,
@@ -2446,7 +2446,7 @@ namespace Nextsim
      		dirname:"data",
             prefix: "erai.6h.",
             postfix:".nc",
-            reference_date:"2013-01-01", // THE YEAR IS RESET IN EXTERNALDATA.CPP
+            reference_date:"1900-01-01",
 
      		latitude: latitude,
      		longitude: longitude,
@@ -2492,7 +2492,7 @@ namespace Nextsim
     	};
 
         Variable tair={
-            name:"2T",
+            name:"t2m",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -2505,7 +2505,7 @@ namespace Nextsim
          interpolated_data: interpolated_data_tmp
     	}; // T2M
         Variable dair={
-            name:"2D",
+            name:"d2m",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -2518,7 +2518,7 @@ namespace Nextsim
          interpolated_data: interpolated_data_tmp
     	}; // Q2M
         Variable mslp={
-            name:"MSL",
+            name:"msl",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -2531,7 +2531,7 @@ namespace Nextsim
          interpolated_data: interpolated_data_tmp
     	}; //PSFC, a=1.
         Variable Qsw_in={
-            name:"SSRD",
+            name:"ssrd",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -2543,22 +2543,36 @@ namespace Nextsim
            loaded_data: loaded_data_tmp,
          interpolated_data: interpolated_data_tmp
     	};
-        Variable tcc={
-            name:"TCC",
+        Variable Qlw_in={
+            name:"strd",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
             NaN_mask_value: 0.,
-            a:1.,
+            a:1./(6.*3600),
             b:0.,
-            Units:"",
+            Units:"W/m^2",
            loaded_data: loaded_data_tmp,
          interpolated_data: interpolated_data_tmp
     	};
 
         Variable precip={
-            name:"TP",
+            name:"tp",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a:physical::rhow/(6.*3600),
+            b:0.,
+            Units:"kg/m^2/s",
+           loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
+        };
+
+        Variable snowfall={
+            name:"sf",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -2571,13 +2585,14 @@ namespace Nextsim
          interpolated_data: interpolated_data_tmp
     	};
 
-        std::vector<Variable> variables_tmp(6);
+        std::vector<Variable> variables_tmp(7);
         variables_tmp[0] = tair;
         variables_tmp[1] = dair;
         variables_tmp[2] = mslp;
         variables_tmp[3] = Qsw_in;
-        variables_tmp[4] = tcc;
+        variables_tmp[4] = Qlw_in;
         variables_tmp[5] = precip;
+        variables_tmp[6] = snowfall;
 
          std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
@@ -2595,12 +2610,12 @@ namespace Nextsim
      {
   	// Definition of dimensions
      Dimension dimension_x={
-          name:"lon",
+          name:"longitude",
           cyclic:true
   	};
 
      Dimension dimension_y={
-          name:"lat",
+          name:"latitude",
           cyclic:false
   	};
 
@@ -2616,7 +2631,7 @@ namespace Nextsim
       dimensions_lat[0] = dimension_y;
 
       Variable latitude={
-          name: "lat",
+          name: "latitude",
           dimensions: dimensions_lat,
           land_mask_defined: false,
           land_mask_value: 0.,
@@ -2629,7 +2644,7 @@ namespace Nextsim
          interpolated_data: interpolated_data_tmp};
 
       Variable longitude={
-          name: "lon",
+          name: "longitude",
           dimensions: dimensions_lon,
           land_mask_defined: false,
           land_mask_value: 0.,
@@ -2649,7 +2664,7 @@ namespace Nextsim
   		dirname:"data",
   		prefix: "erai.6h.",
         postfix:".nc",
-        reference_date:"2013-01-01",
+        reference_date:"1900-01-01",
 
   		latitude: latitude,
   		longitude: longitude,
@@ -2697,7 +2712,7 @@ namespace Nextsim
 
       // conversion factors: xnew = a*x + b
       Variable u={
-          name: "10U", // U10M
+          name: "u10", // U10M
           dimensions: dimensions,
           land_mask_defined: false,
           land_mask_value: 0.,
@@ -2711,7 +2726,7 @@ namespace Nextsim
       };
 
       Variable v={
-          name: "10V", // U10M
+          name: "v10", // U10M
           dimensions: dimensions,
           land_mask_defined: false,
           land_mask_value: 0.,

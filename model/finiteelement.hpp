@@ -155,7 +155,7 @@ public:
 
     std::vector<double> hminVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const;
     std::vector<double> hmaxVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const;
-    
+
     std::vector<double> AllMinAngle(mesh_type const& mesh, std::vector<double> const& um, double factor) const;
 
     void initBamg();
@@ -402,8 +402,9 @@ private:
     external_data M_mslp;         // Atmospheric pressure [Pa]
     external_data M_Qsw_in;       // Incoming short-wave radiation [W/m2]
     external_data M_Qlw_in;       // Incoming long-wave radiation [W/m2]
-    external_data M_tcc;       // Incoming long-wave radiation [W/m2]
-    external_data M_precip;       // Total precipitation [m]
+    external_data M_tcc;          // Incoming long-wave radiation [W/m2]
+    external_data M_precip;       // Total precipitation rate [kg/m^2/s]
+    external_data M_snowfall;     // Snowfall rate [kg/m^2/s]
     external_data M_snowfr;       // Fraction of precipitation that is snow
     external_data M_dair;         // 2 m dew point [C]
 
@@ -478,10 +479,10 @@ private:
 
     void updateMeans(GridOutput &means, double time_factor);
     void initMoorings();
-    
-    void redistribute_variables(double* interp_elt_out,int nb_var);
-    int collect_variables(double** interp_elt_in_ptr, int** interp_elt_method, int num_elements);
-    void Advect(double** interp_elt_out_ptr,double* interp_elt_in,int* interp_method,int nb_var);
+
+    void redistributeVariables(double* interp_elt_out,int nb_var);
+    int collectVariables(double** interp_elt_in_ptr, int** interp_elt_method, int num_elements);
+    void advect(double** interp_elt_out_ptr,double* interp_elt_in,int* interp_method,int nb_var);
 
 };
 } // Nextsim

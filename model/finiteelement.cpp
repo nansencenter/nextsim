@@ -80,6 +80,12 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
                      );
     LOG(DEBUG) <<"Convert MESH done\n";
 
+    // set M_flag_fix to its correct value when PhysicalNames section is present in the msh file (version 2.2)
+    if (!(M_mesh.markerNames()).empty())
+    {
+        // get the id associated to the physical name "coast" and assign it to M_flag_fix
+        M_flag_fix = M_mesh.markerNames().find("coast")->second[0];
+    }
 
     for (auto it=M_mesh.edges().begin(), end=M_mesh.edges().end(); it!=end; ++it)
     {
@@ -94,7 +100,7 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
     M_dirichlet_flags.erase(std::unique( M_dirichlet_flags.begin(), M_dirichlet_flags.end() ), M_dirichlet_flags.end());
 
     importBamg(bamgmesh);
-    
+
     // We mask out the boundary nodes
     M_mask.assign(bamgmesh->VerticesSize[0],false) ;
     for (int vert=0; vert<bamgmesh->VerticesOnGeomVertexSize[0]; ++vert)
@@ -132,9 +138,9 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
                 bamgopt->hminVertices[i] = M_hminVertices[i];
                 bamgopt->hmaxVertices[i] = M_hmaxVertices[i];
             }
-            
+
             exportInitMesh();
-            
+
             break;
         default:
             std::cout << "invalid mesh type"<<"\n";
@@ -153,9 +159,9 @@ void
 FiniteElement::initVariables()
 {
     chrono_tot.restart();
-    
+
     M_nb_regrid = 0;
-    
+
     M_solver = solver_ptrtype(new solver_type());
     M_matrix = matrix_ptrtype(new matrix_type());
     M_vector = vector_ptrtype(new vector_type());
@@ -504,6 +510,7 @@ FiniteElement::initConstant()
     M_bathymetry_type = str2bathymetry.find(vm["setup.bathymetry-type"].as<std::string>())->second;
 
     const boost::unordered_map<const std::string, setup::DrifterType> str2drifter = boost::assign::map_list_of
+        ("none", setup::DrifterType::NONE)
         ("equallyspaced", setup::DrifterType::EQUALLYSPACED)
         ("iabp", setup::DrifterType::IABP);
     M_drifter_type = str2drifter.find(vm["setup.drifter-type"].as<std::string>())->second;
@@ -811,11 +818,11 @@ FiniteElement::flip(mesh_type const& mesh, std::vector<double> const& um, double
     {
         area_init = this->jacobian(mesh.triangles()[cpt],mesh);
         area[cpt] = this->jacobian(movedmesh.triangles()[cpt],movedmesh);
-        
+
         if(area_init*area[cpt]<=0.)
         {
-            LOG(DEBUG) <<"FLIP DETECTED element:"<< cpt <<"\n";           
-        }   
+            LOG(DEBUG) <<"FLIP DETECTED element:"<< cpt <<"\n";
+        }
     }
 #endif
 
@@ -878,7 +885,7 @@ std::vector<double>
 FiniteElement::hmaxVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const
 {
     std::vector<double> hmax(bamg_mesh->NodalElementConnectivitySize[0]);
-    
+
     for (int i=0; i<bamg_mesh->NodalElementConnectivitySize[0]; ++i)
     {
         std::vector<double> measure(bamg_mesh->NodalElementConnectivitySize[1]);
@@ -988,11 +995,11 @@ FiniteElement::regrid(bool step)
 {
     double applied_displacement_factor=0.;
     double displacement_factor = 1.;
-    
+
     bool flip = true;
     double minang;
     int substep = 0;
-    
+
     M_nb_regrid++;
 
     std::vector<double> hmin_vertices_first;
@@ -1005,9 +1012,9 @@ FiniteElement::regrid(bool step)
 		if(step)
 		{
             flip = this->flip(M_mesh,M_UM,displacement_factor);
-            
+
             minang = this->minAngle(M_mesh,M_UM,displacement_factor);
-            
+
             substep++;
             while (flip || minang<(vm["simul.regrid_angle"].as<double>())/10.)
             {
@@ -1016,13 +1023,13 @@ FiniteElement::regrid(bool step)
                 minang = this->minAngle(M_mesh,M_UM,displacement_factor);
             }
             LOG(DEBUG) <<"displacement_factor= "<< displacement_factor <<"\n";
-            
+
             if(displacement_factor<1.)
     		{
     			LOG(WARNING) << "substeps will be needed for the remeshing!" <<"\n";
     			LOG(WARNING) << "Warning: It is probably due to very high ice speed, check your fields!\n";
     		}
-            
+
 	        chrono.restart();
 	        LOG(DEBUG) <<"Move starts\n";
 			M_mesh.move(M_UM,displacement_factor);
@@ -1077,8 +1084,8 @@ FiniteElement::regrid(bool step)
 				interp_Vertices_in[2*i]   = M_hminVertices[i];
 				interp_Vertices_in[2*i+1] = M_hmaxVertices[i];
 			}
-            
-            
+
+
 			InterpFromMeshToMesh2dx(&interp_Vertices_out,
                                     &M_mesh_init.indexTr()[0],&M_mesh_init.coordX()[0],&M_mesh_init.coordY()[0],
                                     M_mesh_init.numNodes(),M_mesh_init.numTriangles(),
@@ -1123,17 +1130,17 @@ FiniteElement::regrid(bool step)
 
 		if (step)
 		{
-            
+
             chrono.restart();
-    
+
             LOG(DEBUG) <<"Element Interp starts\n";
-            
+
             // 1) collect the variables into a single structure
             int prv_num_elements = M_mesh_previous.numTriangles();
             double* interp_elt_in;
             int* interp_method;
-            
-            int nb_var=this->collect_variables(&interp_elt_in, &interp_method, prv_num_elements);
+
+            int nb_var = this->collectVariables(&interp_elt_in, &interp_method, prv_num_elements);
 
             // 2) Interpolate
             std::vector<double> surface_previous(prv_num_elements);
@@ -1152,7 +1159,7 @@ FiniteElement::regrid(bool step)
 				surface[cpt] = this->measure(*it,M_mesh);
 				++cpt;
 			}
-            
+
             double* interp_elt_out;
 			InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_elt_in[0], &interp_method[0], nb_var,
                                            &surface_previous[0], &surface[0], bamgmesh_previous, bamgmesh);
@@ -1175,7 +1182,7 @@ FiniteElement::regrid(bool step)
 			M_damage.assign(M_num_elements,0.);
 
 			M_random_number.resize(M_num_elements);
-            
+
             for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
                 it->assign(M_num_elements,0.);
 
@@ -1190,8 +1197,8 @@ FiniteElement::regrid(bool step)
             if (nfloes_interp)
                 M_nfloes.assign(M_num_elements,0.);
 #endif
-            // 4) redistribute the interpolated values 
-            redistribute_variables(&interp_elt_out[0],nb_var);
+            // 4) redistribute the interpolated values
+            this->redistributeVariables(&interp_elt_out[0],nb_var);
 
             // 5) cleaning
 			xDelete<double>(interp_elt_out);
@@ -1202,8 +1209,8 @@ FiniteElement::regrid(bool step)
 
 	        chrono.restart();
 	        LOG(DEBUG) <<"Slab Interp starts\n";
-            
-            
+
+
 			// ELEMENT INTERPOLATION FOR SLAB OCEAN FROM OLD MESH ON ITS ORIGINAL POSITION
 			nb_var=2;
 
@@ -1321,8 +1328,7 @@ FiniteElement::regrid(bool step)
 			LOG(DEBUG) <<"Nodal interp done in "<< chrono.elapsed() <<"s\n";
 
             // Drifters - if requested
-            //if ( M_drifter_type != setup::DrifterType::NONE )
-            if ( vm["simul.use_drifters"].as<bool>() )
+            if ( M_drifter_type != setup::DrifterType::NONE )
             {
                 chrono.restart();
                 LOG(DEBUG) <<"Drifter starts\n";
@@ -1377,7 +1383,7 @@ FiniteElement::regrid(bool step)
                                         true, 0.);
 
                 // Rebuild the M_drifter map
-                double clim = vm["simul.drift_limit_concentration"].as<double>();
+                double clim = vm["simul.drifter_climit"].as<double>();
                 j=0;
                 for ( auto it = M_drifter.begin(); it != M_drifter.end(); /* ++it is not allowed here, because we use 'erase' */ )
                 {
@@ -1498,11 +1504,11 @@ FiniteElement::regrid(bool step)
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
 }
 
-void 
-FiniteElement::redistribute_variables(double* interp_elt_out,int nb_var)
+void
+FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var)
 {
 	for (int i=0; i<M_num_elements; ++i)
-	{                
+	{
 		int tmp_nb_var=0;
 
 		// concentration
@@ -1553,7 +1559,7 @@ FiniteElement::redistribute_variables(double* interp_elt_out,int nb_var)
 		    M_damage[i] = 1.;
 		    tmp_nb_var++;
 		}
-        
+
 		// random_number
 		M_random_number[i] = interp_elt_out[nb_var*i+tmp_nb_var];
 		//M_random_number[i] = std::max(0., std::min(1.,interp_elt_in[11*i+tmp_nb_var]));
@@ -1562,7 +1568,7 @@ FiniteElement::redistribute_variables(double* interp_elt_out,int nb_var)
 		// Ice temperature
         M_tice[0][i] = interp_elt_out[nb_var*i+tmp_nb_var];
         tmp_nb_var++;
-        
+
         if ( M_thermo_type == setup::ThermoType::WINTON )
         {
             if(M_thick[i]>0.)
@@ -1570,7 +1576,7 @@ FiniteElement::redistribute_variables(double* interp_elt_out,int nb_var)
                 double tmp = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
                 M_tice[1][i] = 0.5*( tmp - std::sqrt(tmp*tmp + 4*physical::mu*physical::si*physical::Lf/physical::C) ); // (38) divided with volume with f1=1
                 tmp_nb_var++;
-            
+
                 M_tice[2][i] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i]; // (40) divided with volume with f1=0
                 tmp_nb_var++;
             }
@@ -1578,10 +1584,10 @@ FiniteElement::redistribute_variables(double* interp_elt_out,int nb_var)
             {
                 M_tice[1][i] = 0.;
                 tmp_nb_var++;
-            
+
                 M_tice[2][i] = 0.;
                 tmp_nb_var++;
-            }   
+            }
         }
 
 		// thin ice thickness
@@ -1600,7 +1606,7 @@ FiniteElement::redistribute_variables(double* interp_elt_out,int nb_var)
         bool nfloes_interp = M_use_wim;
         if ( !(vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh"))
             bool nfloes_interp = (M_use_wim && (!M_run_wim));
-        
+
         // Nfloes from wim model
         if (nfloes_interp)
         {
@@ -1617,46 +1623,46 @@ FiniteElement::redistribute_variables(double* interp_elt_out,int nb_var)
 }
 
 void
-FiniteElement::Advect(double** interp_elt_out_ptr,double* interp_elt_in, int* interp_method,int nb_var)
+FiniteElement::advect(double** interp_elt_out_ptr,double* interp_elt_in, int* interp_method,int nb_var)
 {
-    
+
 	/*Initialize output*/
 	double* interp_elt_out=NULL;
-    
+
     interp_elt_out=xNew<double>(nb_var*M_num_elements);
-    
+
     int thread_id;
     int total_threads;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-    
+
     std::vector<double> UM_P = M_UM;
-    
+
     int Nd = bamgmesh->NodalConnectivitySize[1];
-    
+
     int ALE_smoothing_step_nb=vm["simul.ALE_smoothing_step_nb"].as<int>();
     // ALE_smoothing_step_nb<0 is the diffusive eulerian case where M_UM is not changed and then =0.
     // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
     // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
-        
-    if(ALE_smoothing_step_nb>=0) 
+
+    if(ALE_smoothing_step_nb>=0)
     {
         std::vector<double> M_VT_smoothed = M_VT;
         std::vector<double> M_VT_tmp = M_VT_smoothed;
-        
+
         for (int k=0; k<ALE_smoothing_step_nb; ++k)
         {
             M_VT_tmp=M_VT_smoothed;
-            
+
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
             for (int i=0; i<M_num_nodes; ++i)
             {
                 int Nc;
                 double UM_x, UM_y;
-                
+
                 if(M_mask_dirichlet[i]==false)
                 {
                     Nc = bamgmesh->NodalConnectivity[Nd*(i+1)-1];
-            
+
                     UM_x=0.;
                     UM_y=0.;
                     for (int j=0; j<Nc; ++j)
@@ -1664,7 +1670,7 @@ FiniteElement::Advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
                         UM_x += M_VT_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1]  ;
                         UM_y += M_VT_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1+M_num_nodes]  ;
                     }
-                
+
                     M_VT_smoothed[i             ]=UM_x/Nc;
                     M_VT_smoothed[i+M_num_nodes ]=UM_y/Nc;
                 }
@@ -1687,11 +1693,11 @@ FiniteElement::Advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
 
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
-    {   
+    {
         /* some variables used for the advection*/
         double surface, surface_new;
         double integrated_variable;
-        
+
         /* some variables used for the advection*/
         double x[3],y[3],x_new[3],y_new[3];
         int x_ind, y_ind, neighbour_int, vertex_1, vertex_2;
@@ -1706,44 +1712,44 @@ FiniteElement::Advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
          * Ice and snow thickness, and concentration using a Lagrangian or an Eulerian scheme
          *======================================================================
          */
-        
+
         /* convective velocity */
         for(int i=0;i<3;i++)
         {
             x_ind=(M_elements[cpt]).indices[i]-1;
             y_ind=(M_elements[cpt]).indices[i]-1+M_num_nodes;
-            
+
             x[i] = M_nodes[(M_elements[cpt]).indices[i]-1].coords[0];
             y[i] = M_nodes[(M_elements[cpt]).indices[i]-1].coords[1];
-                
+
             /* old and new positions of the mesh */
             x_new[i]=M_nodes[(M_elements[cpt]).indices[i]-1].coords[0]+M_UM[x_ind];
             y_new[i]=M_nodes[(M_elements[cpt]).indices[i]-1].coords[1]+M_UM[y_ind];
             x[i]    =M_nodes[(M_elements[cpt]).indices[i]-1].coords[0]+UM_P[x_ind];
             y[i]    =M_nodes[(M_elements[cpt]).indices[i]-1].coords[1]+UM_P[y_ind];
-            
+
             VC_x[i] =M_VT[x_ind]-(M_UM[x_ind]-UM_P[x_ind])/time_step;
             VC_y[i] =M_VT[y_ind]-(M_UM[y_ind]-UM_P[y_ind])/time_step;
         }
         for(int i=0;i<3;i++)
         {
             outer_fluxes_area[i]=0;
-    
+
             vertex_1=other_vertex[2*i  ];
             vertex_2=other_vertex[2*i+1];
-    
+
             vector_edge[0]=x[vertex_2]-x[vertex_1];
             vector_edge[1]=y[vertex_2]-y[vertex_1];
-    
+
             outer_vector[0]= vector_edge[1];
             outer_vector[1]=-vector_edge[0];
-    
+
             VC_middle[0] = (VC_x[vertex_2]+VC_x[vertex_1])/2.;
             VC_middle[1] = (VC_y[vertex_2]+VC_y[vertex_1])/2.;
-    
+
             outer_fluxes_area[i]=outer_vector[0]*VC_middle[0]+outer_vector[1]*VC_middle[1];
-            
-                        
+
+
             if(outer_fluxes_area[i]>0)
             {
                 surface = this->measure(M_elements[cpt],M_mesh, UM_P);
@@ -1764,21 +1770,21 @@ FiniteElement::Advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
                     fluxes_source_id[i]=cpt;
             }
         }
-        
-    
+
+
         surface = this->measure(M_elements[cpt],M_mesh, UM_P);
         surface_new = this->measure(M_elements[cpt],M_mesh,M_UM);
-         
-                   
+
+
         for(int j=0; j<nb_var; j++)
         {
             if(interp_method[j]==1)
             {
-                integrated_variable=interp_elt_in[cpt*nb_var+j]*surface - 
-                    (interp_elt_in[fluxes_source_id[0]*nb_var+j]*outer_fluxes_area[0]  + 
-                    interp_elt_in[fluxes_source_id[1]*nb_var+j]*outer_fluxes_area[1]  + 
+                integrated_variable=interp_elt_in[cpt*nb_var+j]*surface -
+                    (interp_elt_in[fluxes_source_id[0]*nb_var+j]*outer_fluxes_area[0]  +
+                    interp_elt_in[fluxes_source_id[1]*nb_var+j]*outer_fluxes_area[1]  +
                     interp_elt_in[fluxes_source_id[2]*nb_var+j]*outer_fluxes_area[2]  )*time_step;
-            
+
                 interp_elt_out[cpt*nb_var+j]    = integrated_variable/surface_new;
             }
             else
@@ -1787,12 +1793,12 @@ FiniteElement::Advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
             }
         }
     }
-	*interp_elt_out_ptr=interp_elt_out;    
+	*interp_elt_out_ptr=interp_elt_out;
 }
 
 int
-FiniteElement::collect_variables(double** interp_elt_in_ptr, int** interp_method_ptr, int prv_num_elements)
-{   
+FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_ptr, int prv_num_elements)
+{
     // ELEMENT INTERPOLATION With Cavities
 	int nb_var=11 + M_tice.size();
 
@@ -1818,10 +1824,10 @@ FiniteElement::collect_variables(double** interp_elt_in_ptr, int** interp_method
 	/*Initialize output*/
 	double* interp_elt_in=NULL;
 	int* interp_method=NULL;
-    
+
     interp_elt_in=xNew<double>(nb_var*prv_num_elements);
     interp_method=xNew<int>(nb_var); // 0 for non conservative method, 1 for conservative method (for variables defined in terms of blabla/per unit area)
-    
+
 	int tmp_nb_var=0;
 	for (int i=0; i<prv_num_elements; ++i)
 	{
@@ -1871,13 +1877,13 @@ FiniteElement::collect_variables(double** interp_elt_in_ptr, int** interp_method
         interp_elt_in[nb_var*i+tmp_nb_var] = M_tice[0][i];
         interp_method[tmp_nb_var] = 0;
         tmp_nb_var++;
-        
+
         if ( M_thermo_type == setup::ThermoType::WINTON )
         {
             interp_elt_in[nb_var*i+tmp_nb_var] = ( M_tice[1][i] - physical::mu*physical::si*physical::Lf/(physical::C*M_tice[1][i]) ) * M_thick[i]; // (39) times volume with f1=1
             interp_method[tmp_nb_var] = 1;
             tmp_nb_var++;
-            
+
             interp_elt_in[nb_var*i+tmp_nb_var] = ( M_tice[2][i] ) * M_thick[i]; // (39) times volume with f1=0
             interp_method[tmp_nb_var] = 1;
             tmp_nb_var++;
@@ -1915,7 +1921,7 @@ FiniteElement::collect_variables(double** interp_elt_in_ptr, int** interp_method
 	}
 	*interp_elt_in_ptr=interp_elt_in;
     *interp_method_ptr=interp_method;
-    
+
     return nb_var;
 }
 
@@ -1960,7 +1966,7 @@ FiniteElement::adaptMesh()
     // We mask out the boundary nodes
     M_mask.assign(bamgmesh->VerticesSize[0],false) ;
     M_mask_dirichlet.assign(bamgmesh->VerticesSize[0],false) ;
-    
+
     for (int vert=0; vert<bamgmesh->VerticesOnGeomVertexSize[0]; ++vert)
         M_mask[bamgmesh->VerticesOnGeomVertex[2*vert]-1]=true; // The factor 2 is because VerticesOnGeomVertex has 2 dimensions in bamg
 
@@ -2122,13 +2128,13 @@ FiniteElement::assemble(int pcpt)
         //     total_threads = omp_get_num_threads();
         //     std::cout<<"Total number of threads are "<< total_threads <<"\n";
         // }
-        
-        
+
+
         double tmp_thick=(vm["simul.min_h"].as<double>()>M_thick[cpt]) ? vm["simul.min_h"].as<double>() : M_thick[cpt];
         double tmp_conc=(vm["simul.min_c"].as<double>()>M_conc[cpt]) ? vm["simul.min_c"].as<double>() : M_conc[cpt];
-        
+
         int index_u, index_v;
-        
+
         double coef_Vair    = 0.;
         double coef_Voce    = 0.;
         double coef_basal   = 0.;
@@ -2139,16 +2145,16 @@ FiniteElement::assemble(int pcpt)
         double coef_V       = 0.;
         double coef_X       = 0.;
         double coef_Y       = 0.;
-        
-        double mloc = 0.;      
-        
+
+        double mloc = 0.;
+
         double b0tj_sigma_hu = 0.;
         double b0tj_sigma_hv = 0.;
-          
-        
+
+
         if(tmp_conc > vm["simul.min_c"].as<double>())
         {
-            
+
             /* Compute the value that only depends on the element */
             double welt_oce_ice = 0.;
             double welt_air_ice = 0.;
@@ -2168,33 +2174,33 @@ FiniteElement::assemble(int pcpt)
             }
 
             double norm_Voce_ice = welt_oce_ice/3.;
-            double norm_Voce_ice_min= 0.01; // minimum value to avoid 0 water drag term. 
+            double norm_Voce_ice_min= 0.01; // minimum value to avoid 0 water drag term.
             norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
-        
+
             double norm_Vair_ice = welt_air_ice/3.;
-            double norm_Vair_ice_min= 0.01; // minimum value to avoid 0 water drag term. 
+            double norm_Vair_ice_min= 0.01; // minimum value to avoid 0 water drag term.
             norm_Vair_ice = (norm_Vair_ice > norm_Vair_ice_min) ? (norm_Vair_ice):norm_Vair_ice_min;
-        
+
             double norm_Vice = welt_ice/3.;
 
             double element_ssh = welt_ssh/3.;
 
             coef_Vair = (vm["simul.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*norm_Vair_ice));
             coef_Vair *= (physical::rhoa);
-            
+
             coef_Voce = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
             coef_Voce *= physical::rhow; //(vm["simul.rho_water"].as<double>());
-            
+
             double critical_h = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
 
             double _coef = std::max(0., M_thick[cpt]-critical_h);
             coef_basal = quad_drag_coef_air*basal_k2/(basal_drag_coef_air*(norm_Vice+basal_u_0));
             coef_basal *= _coef*std::exp(-basal_Cb*(1.-M_conc[cpt]));
-            
+
     #if 1
             //option 1 (original)
             coef = young*(1.-M_damage[cpt])*tmp_thick*std::exp(ridging_exponent*(1.-tmp_conc));
-        
+
     #else
             //option 2 (we just change the value of the ridging exponent and we renamed it "damaging_exponent")
             double damaging_exponent = -80.;
@@ -2223,7 +2229,7 @@ FiniteElement::assemble(int pcpt)
             {
                 index_u = (M_elements[cpt]).indices[i]-1;
                 index_v = (M_elements[cpt]).indices[i]-1+M_num_nodes;
-            
+
                 epsilon_veloc_i = 0.0;
                 for(int j=0;j<3;j++)
                 {
@@ -2246,7 +2252,7 @@ FiniteElement::assemble(int pcpt)
             }
 
             mass_e = (rhoi*tmp_thick + rhos*M_snow_thick[cpt])/tmp_conc;
-                
+
             // /* compute the x and y derivative of g*ssh */
             double g_ssh_e_x = 0.;
             double g_ssh_e_y = 0.;
@@ -2289,7 +2295,7 @@ FiniteElement::assemble(int pcpt)
 
             Vcor_index_v=beta0*M_VT[index_v] + beta1*M_VTM[index_v] + beta2*M_VTMM[index_v];
             Vcor_index_u=beta0*M_VT[index_u] + beta1*M_VTM[index_u] + beta2*M_VTMM[index_u];
-            
+
             double coef_sigma = tmp_thick;
             coef_sigma = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_sigma):0.;
 
@@ -2368,7 +2374,7 @@ FiniteElement::assemble(int pcpt)
             rcindices[2*j] = index_u;
             rcindices[2*j+1] = index_v;
         }
-        
+
 #if 0
             std::cout<<"************************\n";
             std::cout<<"Coef_C    = "<< coef_C <<"\n";
@@ -2476,7 +2482,7 @@ FiniteElement::assemble(int pcpt)
 
     //LOG(DEBUG) <<"Assembling done in "<< chrono.elapsed() <<"s\n";
     LOG(INFO) <<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
-    
+
     chrono.restart();
     //M_matrix->on(M_dirichlet_nodes,*M_vector);
     M_matrix->on(extended_dirichlet_nodes,*M_vector);
@@ -2518,14 +2524,14 @@ FiniteElement::tensors()
         std::cout<< M_Dunit[k] << " ";
     }
     std::cout<< " \n ";
-    
+
     std::cout<< " M_Dunit_comp: ";
     for (int k=0; k<9; k++)
     {
         std::cout<< M_Dunit_comp[k] << " ";
     }
     std::cout<< " \n ";
-#endif    
+#endif
 
     for (int i=0; i<3; ++i)
     {
@@ -2603,7 +2609,7 @@ FiniteElement::tensors()
                 /* product of the first line of B0T' and the matrix Dunit */
                 B0Tj_Dunit_tmp0 = 0.;
                 B0Tj_Dunit_tmp1 = 0.;
-                
+
                 B0Tj_Dunit_comp_tmp0 = 0.;
                 B0Tj_Dunit_comp_tmp1 = 0.;
 
@@ -2655,7 +2661,7 @@ FiniteElement::tensors()
                 B0T_Dunit_B0T[(2*i+1)*6+2*j] = B0Tj_Dunit_B0Ti_tmp1;
                 B0T_Dunit_B0T[(2*i)*6+2*j+1] = B0Tj_Dunit_B0Ti_tmp2;
                 B0T_Dunit_B0T[(2*i+1)*6+2*j+1] = B0Tj_Dunit_B0Ti_tmp3;
-                
+
                 B0T_Dunit_comp_B0T[(2*i)*6+2*j] = B0Tj_Dunit_comp_B0Ti_tmp0;
                 B0T_Dunit_comp_B0T[(2*i+1)*6+2*j] = B0Tj_Dunit_comp_B0Ti_tmp1;
                 B0T_Dunit_comp_B0T[(2*i)*6+2*j+1] = B0Tj_Dunit_comp_B0Ti_tmp2;
@@ -2718,13 +2724,13 @@ FiniteElement::update()
     int prv_num_elements = M_mesh.numTriangles();
     double* interp_elt_in;
     int* interp_method;
-    int nb_var=this->collect_variables(&interp_elt_in, &interp_method, prv_num_elements);
-    
+    int nb_var = this->collectVariables(&interp_elt_in, &interp_method, prv_num_elements);
+
     double* interp_elt_out;
-	Advect(&interp_elt_out,&interp_elt_in[0],&interp_method[0],nb_var);
-    
-    // 4) redistribute the interpolated values 
-    redistribute_variables(&interp_elt_out[0],nb_var);
+	this->advect(&interp_elt_out,&interp_elt_in[0],&interp_method[0],nb_var);
+
+    // 4) redistribute the interpolated values
+    this->redistributeVariables(&interp_elt_out[0],nb_var);
 
     // 5) cleaning
 	xDelete<double>(interp_elt_out);
@@ -2733,14 +2739,14 @@ FiniteElement::update()
 
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
-    {   
+    {
         double old_damage;
 
         /* deformation, deformation rate and internal stress tensor and temporary variables */
         double epsilon_veloc_i;
         std::vector<double> epsilon_veloc(3);
         double divergence_rate;
-        
+
         std::vector<double> sigma_pred(3);
         double sigma_dot_i;
 
@@ -2750,7 +2756,7 @@ FiniteElement::update()
         double tmp, sigma_target;
 
         // beginning of the original code (without openMP)
-                
+
         // Temporary memory
         old_damage = M_damage[cpt];
 
@@ -2800,7 +2806,7 @@ FiniteElement::update()
         //option 2
         double damaging_exponent = -80.;
 #endif
-        
+
         for(int i=0;i<3;i++)
         {
             sigma_dot_i = 0.0;
@@ -2813,9 +2819,9 @@ FiniteElement::update()
 
             M_sigma[3*cpt+i] += time_step*sigma_dot_i;
             sigma_pred[i]    = M_sigma[3*cpt+i] + time_step*sigma_dot_i;
-            
+
             M_sigma[3*cpt+i] = (M_conc[cpt] > vm["simul.min_c"].as<double>()) ? (M_sigma[3*cpt+i]):0.;
-            sigma_pred[i] = (M_conc[cpt] > vm["simul.min_c"].as<double>()) ? (sigma_pred[i]):0.;            
+            sigma_pred[i] = (M_conc[cpt] > vm["simul.min_c"].as<double>()) ? (sigma_pred[i]):0.;
         }
 
         /*======================================================================
@@ -2935,17 +2941,17 @@ FiniteElement::update()
          * Update:
          *======================================================================
          */
-        
-        
+
+
         /* Ridging scheme */
         /* upper bounds (only for the concentration) */
         M_conc[cpt] = ((M_conc[cpt]<1.)?(M_conc[cpt]):(1.)) ;
-        
+
         /* lower bounds */
         M_conc[cpt] = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
         M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
-        M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;   
-        
+        M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
+
         /* Ice damage
         * We use now a constant healing rate defined as 1/time_recovery_damage
         * so that we are now able to reset the damage to 0.
@@ -2955,8 +2961,8 @@ FiniteElement::update()
         tmp=M_damage[cpt]-time_step/M_time_relaxation_damage[cpt];
         if(M_thick[cpt]==0.)
             tmp=0.;
-        M_damage[cpt]=((tmp>0.)?(tmp):(0.));   
-    }    
+        M_damage[cpt]=((tmp>0.)?(tmp):(0.));
+    }
 }
 
 void
@@ -3071,16 +3077,18 @@ FiniteElement::thermo()
         }
         double  wspeed = std::hypot(sum_u, sum_v)/3.;
 
-        // definition of the fraction of snow
-        double tmp_snowfr;
+        // definition of the snow fall in kg/m^2/s
+        double tmp_snowfall;
         if(M_snowfr.M_initialized)
-            tmp_snowfr=M_snowfr[i];
+            tmp_snowfall=M_precip[i]*M_snowfr[i];
+        else if (M_snowfall.M_initialized)
+            tmp_snowfall=M_snowfall[i];
         else
         {
             if(M_tair[i]<0)
-                tmp_snowfr=1.;
+                tmp_snowfall=M_precip[i];
             else
-                tmp_snowfr=0.;
+                tmp_snowfall=0.;
         }
 
         double tmp_Qsw_in;
@@ -3184,17 +3192,17 @@ FiniteElement::thermo()
         switch ( M_thermo_type )
         {
             case setup::ThermoType::ZERO_LAYER:
-                this->thermoIce0(i, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfr, hi, hs, hi_old, Qio, del_hi, M_tice[0][i]);
+                this->thermoIce0(i, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfall, hi, hs, hi_old, Qio, del_hi, M_tice[0][i]);
                 break;
             case setup::ThermoType::WINTON:
-                this->thermoWinton(i, time_step, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfr, hi, hs, hi_old, Qio, del_hi,
+                this->thermoWinton(i, time_step, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfall, hi, hs, hi_old, Qio, del_hi,
                         M_tice[0][i], M_tice[1][i], M_tice[2][i]);
                 break;
         }
 
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
-            this->thermoIce0(i, wspeed, sphuma, old_conc_thin, M_h_thin[i], M_hs_thin[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfr, hi_thin, hs_thin, hi_thin_old, Qio_thin, del_hi_thin, M_tsurf_thin[i]);
+            this->thermoIce0(i, wspeed, sphuma, old_conc_thin, M_h_thin[i], M_hs_thin[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfall, hi_thin, hs_thin, hi_thin_old, Qio_thin, del_hi_thin, M_tsurf_thin[i]);
             M_h_thin[i]  = hi_thin * old_conc_thin;
             M_hs_thin[i] = hs_thin * old_conc_thin;
         }
@@ -3362,7 +3370,7 @@ FiniteElement::thermo()
         // Rain falling on ice falls straight through. We need to calculate the
         // bulk freshwater input into the entire cell, i.e. everything in the
         // open-water part plus rain in the ice-covered part.
-        rain = (1.-old_conc-old_conc_thin)*M_precip[i] + (old_conc+old_conc_thin)*(1.-tmp_snowfr)*M_precip[i];
+        rain = (1.-old_conc-old_conc_thin)*M_precip[i] + (old_conc+old_conc_thin)*(M_precip[i]-tmp_snowfall);
         emp  = (evap*(1.-old_conc-old_conc_thin)-rain);
 
         Qio_mean = Qio*old_conc + Qio_thin*old_conc_thin;
@@ -3531,7 +3539,7 @@ FiniteElement::albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, do
 
 // Winton thermo dynamics (ice temperature, growth, and melt)
 void
-FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfr,
+FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfall,
         double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double &T1, double &T2)
 {
     // Constants
@@ -3630,8 +3638,8 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         double E1 = Crho*(T1 - Tfr_ice) - qi*( 1 - Tfr_ice/T1 ); // (1) - but I've multiplied with rhoi, because it's missing in the paper
         double E2 = Crho*(T2 - Tfr_ice) - qi; // (25) - but I've multiplied with rhoi, because it's missing in the paper
 
-        // Snowfall
-        hs += M_precip[i]*snowfr/physical::rhos*dt;
+        // Snowfall [kg/m^2/s]
+        hs += snowfall/physical::rhos*dt;
 
         // Bottom melt/freezing
         Qio    = FiniteElement::iceOceanHeatflux(M_sst[i], M_sss[i], mld, dt);
@@ -3760,7 +3768,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
 
 // This is Semtner zero layer
 void
-FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfr,
+FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfall,
         double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf)
 {
 
@@ -3862,7 +3870,8 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         del_ht = std::min(hs+del_hs,0.)*qs/qi;
         /* Can't have negative hs! */
         del_hs = std::max(del_hs,-hs);
-        hs  = hs + del_hs + M_precip[i]*snowfr/physical::rhos*time_step;
+        // snowfall in kg/m^2/s
+        hs  = hs + del_hs + snowfall/physical::rhos*time_step;
 
         /* Heatflux from ocean */
         Qio = FiniteElement::iceOceanHeatflux(M_sst[i], M_sss[i], mld, time_step);
@@ -4133,10 +4142,10 @@ FiniteElement::step(int &pcpt)
         double displacement_factor = 1.;
         double minang = this->minAngle(M_mesh,M_UM,displacement_factor);
         LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
-        
-        bool flip_test = this->flip(M_mesh,M_UM,displacement_factor); 
+
+        bool flip_test = this->flip(M_mesh,M_UM,displacement_factor);
         LOG(DEBUG) <<"FLIP TEST= "<< flip_test <<"\n";
-        
+
 
         if ( minang < vm["simul.regrid_angle"].as<double>() || flip_test )
         {
@@ -4877,7 +4886,7 @@ FiniteElement::readRestart(int step)
     int pcpt   = field_map_int["Misc_int"].at(0);
     M_flag_fix = field_map_int["Misc_int"].at(1);
     mesh_adapt_step = field_map_int["Misc_int"].at(3);
-        
+
     std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
     for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
     {
@@ -5210,7 +5219,7 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             variables[1] = dair;
             variables[2] = mslp;
             variables[3] = Qsw_in;
-            variables[4] = tcc;
+            variables[4] = Qlw_in;
             variables[5] = precip;
             */
 
@@ -5226,11 +5235,14 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
             M_external_data.push_back(&M_Qsw_in);
 
-            M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
-            M_external_data.push_back(&M_tcc);
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            M_external_data.push_back(&M_Qlw_in);
 
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
             M_external_data.push_back(&M_precip);
+
+            M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
+            M_external_data.push_back(&M_snowfall);
         break;
 
         case setup::AtmosphereType::EC:
@@ -5572,7 +5584,7 @@ FiniteElement::targetIce()
     double x_min1=150000.;
     double x_max2=300000.;
     double x_min2=260000.;
-    
+
     double transition=(y_max-y_min)/10.;
 
 	double tmp_var;
@@ -5585,7 +5597,7 @@ FiniteElement::targetIce()
     {
         tmp_var = (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max1)*(RX[i]>=x_min1)
             + (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max2)*(RX[i]>=x_min2);
-            
+
             /*
             +     (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<x_min)*std::max(cmin,(1.-std::hypot(RX[i]-x_min,0.         )/transition))
             +     (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]>x_max)*std::max(cmin,(1.-std::hypot(RX[i]-x_max,0.         )/transition))
@@ -6267,25 +6279,22 @@ FiniteElement::initThermodynamics()
 void
 FiniteElement::initDrifter()
 {
-    if ( vm["simul.use_drifters"].as<bool>() )
+    switch (M_drifter_type)
     {
-        switch (M_drifter_type)
-        {
-            // case setup::DrifterType::NONE:
-            //         break;
+        case setup::DrifterType::NONE:
+            break;
 
-            case setup::DrifterType::EQUALLYSPACED:
-                this->equallySpacedDrifter();
-                break;
+        case setup::DrifterType::EQUALLYSPACED:
+            this->equallySpacedDrifter();
+            break;
 
-            case setup::DrifterType::IABP:
-                this->initIABPDrifter();
-                break;
+        case setup::DrifterType::IABP:
+            this->initIABPDrifter();
+            break;
 
-            default:
-                std::cout << "invalid initialization of drifter"<<"\n";
-                throw std::logic_error("invalid initialization of drifter");
-        }
+        default:
+            std::cout << "invalid initialization of drifter"<<"\n";
+            throw std::logic_error("invalid initialization of drifter");
     }
 }
 
@@ -6754,7 +6763,7 @@ FiniteElement::exportInitMesh()
     std::vector<double> timevec(1);
     timevec[0] = current_time;
     exporter.writeField(outbin, timevec, "Time");
-        
+
     exporter.writeField(outbin, M_hminVertices, "hminVertices");
     exporter.writeField(outbin, M_hmaxVertices, "hmaxVertices");
 
@@ -6786,7 +6795,7 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
                    % step ).str();
 
         LOG(INFO) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
-    
+
 		// move the mesh for the export
         if(apply_displacement)
             M_mesh.move(M_UM,1.);
@@ -6801,7 +6810,7 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
         // move it back after the export
         if(apply_displacement)
 		    M_mesh.move(M_UM,-1.);
-        
+
         fileout = (boost::format( "%1%/mesh_%2%.dat" )
                % M_export_path
                % step ).str();
@@ -6839,10 +6848,10 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
         exporter.writeField(outbin, M_thick, "Thickness");
         exporter.writeField(outbin, M_snow_thick, "Snow");
         exporter.writeField(outbin, M_damage, "Damage");
-        
+
         std::vector<double> AllMinAngle = this->AllMinAngle(M_mesh, M_UM, 0.);
         exporter.writeField(outbin, AllMinAngle, "AllMinAngle");
-        
+
         int i=0;
         for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
         {
@@ -6851,12 +6860,12 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
         }
         exporter.writeField(outbin, M_sst, "SST");
         exporter.writeField(outbin, M_sss, "SSS");
-        
+
         std::vector<double> PreviousNumbering(M_mesh.numNodes());
 
         for ( int i=0; i<M_mesh.numNodes(); ++i )
             PreviousNumbering[i]=bamgmesh->PreviousNumbering[i];
-            
+
         exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering");
 
         if(vm["simul.save_forcing_field"].as<bool>())
@@ -6878,9 +6887,11 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
             if ( M_tcc.M_initialized )
                 exporter.writeField(outbin,M_tcc.getVector(), "M_tcc");       // Incoming long-wave radiation [W/m2]
             if ( M_precip.M_initialized )
-                exporter.writeField(outbin,M_precip.getVector(), "M_precip");       // Total precipitation [m]
+                exporter.writeField(outbin,M_precip.getVector(), "M_precip");       // Total precipitation rate [kg/m^2/s]
             if ( M_snowfr.M_initialized )
                 exporter.writeField(outbin,M_snowfr.getVector(), "M_snowfr");       // Fraction of precipitation that is snow
+            if ( M_snowfall.M_initialized )
+                exporter.writeField(outbin,M_snowfall.getVector(), "M_snowfall");       // Snow fall rate [kg/m^2/s]
             if ( M_dair.M_initialized )
                 exporter.writeField(outbin,M_dair.getVector(), "M_dair");         // 2 m dew point [C]
 
