@@ -3643,6 +3643,31 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         // Snowfall [kg/m^2/s]
         hs += snowfall/physical::rhos*dt;
 
+        // Sublimation at the surface
+        if ( subl*dt <= hs*physical::rhos)
+            hs -= subl*dt/physical::rhos;
+        else if ( subl*dt - hs*physical::rhos <= h1*physical::rhoi )
+        {
+            h1 -= (subl*dt - hs*physical::rhos)/physical::rhoi;
+            hs  = 0.;
+        }
+        else if ( subl*dt - h1*physical::rhoi - hs*physical::rhos <= h2*physical::rhoi )
+        {
+            h2 -= (subl*dt - h1*physical::rhoi - hs*physical::rhos)/physical::rhoi;
+            h1  = 0.;
+            hs  = 0.;
+        }
+        else
+        {
+            double ocn_evap_err = ( subl*dt - (h1+h2)*physical::rhoi - hs*physical::rhos )/physical::rhow;
+			LOG(WARNING) << "All the ice has sublimated. This shouldn't happen and will result in lack of evaporation from the ocean of "
+                << ocn_evap_err*1e3 << " mm over the current time step, in element " << i << ".\n";
+            h2 = 0.;
+            h1 = 0.;
+            hs = 0.;
+        }
+
+
         // Bottom melt/freezing
         Qio    = FiniteElement::iceOceanHeatflux(M_sst[i], M_sss[i], mld, dt);
         double Mbot  = Qio - 4*physical::ki*(Tbot-T2)/hi; // (23)
@@ -3668,31 +3693,6 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
             h1 += delh1;
             h2 += delh2;
         }
-
-        // Sublimation at the surface
-        if ( subl*dt <= hs*physical::rhos)
-            hs -= subl*dt/physical::rhos;
-        else if ( subl*dt - hs*physical::rhos <= h1*physical::rhoi )
-        {
-            hs  = 0.;
-            h1 -= (subl*dt - hs*physical::rhos)/physical::rhoi;
-        }
-        else if ( subl*dt - h1*physical::rhoi - hs*physical::rhos <= h2*physical::rhoi )
-        {
-            hs  = 0.;
-            h1  = 0.;
-            h2 -= (subl*dt - h1*physical::rhoi - hs*physical::rhos)/physical::rhoi;
-        }
-        else
-        {
-            hs = 0.;
-            h1 = 0.;
-            h2 = 0.;
-            double ocn_evap_err = ( subl*dt - (h1+h2)*physical::rhoi - hs*physical::rhos )/physical::rhow;
-			LOG(WARNING) << "All the ice has sublimated. This shouldn't happen and will result in lack of evaporation from the ocean of "
-                << ocn_evap_err*1e3 << " mm over the current time step, in element " << i << ".\n";
-        }
-
 
         // Melting at the surface
         assert(Msurf >= 0); // Sanity check
