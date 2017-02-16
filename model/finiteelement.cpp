@@ -1131,16 +1131,69 @@ FiniteElement::regrid(bool step)
 		if (step)
 		{
 
+	        chrono.restart();
+	        LOG(DEBUG) <<"Slab Interp starts\n";
+
+            // We need to interpolate the slab first so that we have the right
+            // SSS for setting the freezing temperature in M_tice[1] &
+            // M_tice[2] for ice free elements
+			// ELEMENT INTERPOLATION FOR SLAB OCEAN FROM OLD MESH ON ITS ORIGINAL POSITION
+            int prv_num_elements = M_mesh_previous.numTriangles();
+			int nb_var=2;
+
+			// memory leak:
+			std::vector<double> interp_elt_slab_in(nb_var*prv_num_elements);
+
+			double* interp_elt_slab_out;
+
+			LOG(DEBUG) <<"ELEMENT SLAB: Interp starts\n";
+
+			M_mesh_previous.move(M_UM,-displacement_factor);
+
+			for (int i=0; i<prv_num_elements; ++i)
+			{
+				// Sea surface temperature
+				interp_elt_slab_in[nb_var*i+0] = M_sst[i];
+
+				// Sea surface salinity
+				interp_elt_slab_in[nb_var*i+1] = M_sss[i];
+			}
+
+			InterpFromMeshToMesh2dx(&interp_elt_slab_out,
+                                    &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
+                                    M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
+                                    &interp_elt_slab_in[0],
+                                    M_mesh_previous.numTriangles(),nb_var,
+                                    &M_mesh.bcoordX()[0],&M_mesh.bcoordY()[0],M_mesh.numTriangles(),
+                                    false);
+
+			M_sst.resize(M_num_elements);
+			M_sss.resize(M_num_elements);
+
+			for (int i=0; i<M_mesh.numTriangles(); ++i)
+			{
+				// Sea surface temperature
+				M_sst[i] = interp_elt_slab_out[nb_var*i+0];
+
+				// Sea surface salinity
+				M_sss[i] = interp_elt_slab_out[nb_var*i+1];
+			}
+
+			xDelete<double>(interp_elt_slab_out);
+
+			M_mesh_previous.move(M_UM,displacement_factor);
+			LOG(DEBUG) <<"ELEMENT SLAB: Interp done\n";
+			LOG(DEBUG) <<"Slab Interp done in "<< chrono.elapsed() <<"s\n";
+
             chrono.restart();
 
             LOG(DEBUG) <<"Element Interp starts\n";
 
             // 1) collect the variables into a single structure
-            int prv_num_elements = M_mesh_previous.numTriangles();
             double* interp_elt_in;
             int* interp_method;
 
-            int nb_var = this->collectVariables(&interp_elt_in, &interp_method, prv_num_elements);
+            nb_var = this->collectVariables(&interp_elt_in, &interp_method, prv_num_elements);
 
             // 2) Interpolate
             std::vector<double> surface_previous(prv_num_elements);
@@ -1206,57 +1259,6 @@ FiniteElement::regrid(bool step)
 
 			LOG(DEBUG) <<"ELEMENT: Interp done\n";
 			LOG(DEBUG) <<"Element Interp done in "<< chrono.elapsed() <<"s\n";
-
-	        chrono.restart();
-	        LOG(DEBUG) <<"Slab Interp starts\n";
-
-
-			// ELEMENT INTERPOLATION FOR SLAB OCEAN FROM OLD MESH ON ITS ORIGINAL POSITION
-			nb_var=2;
-
-			// memory leak:
-			std::vector<double> interp_elt_slab_in(nb_var*prv_num_elements);
-
-			double* interp_elt_slab_out;
-
-			LOG(DEBUG) <<"ELEMENT SLAB: Interp starts\n";
-
-			M_mesh_previous.move(M_UM,-displacement_factor);
-
-			for (int i=0; i<prv_num_elements; ++i)
-			{
-				// Sea surface temperature
-				interp_elt_slab_in[nb_var*i+0] = M_sst[i];
-
-				// Sea surface salinity
-				interp_elt_slab_in[nb_var*i+1] = M_sss[i];
-			}
-
-			InterpFromMeshToMesh2dx(&interp_elt_slab_out,
-                                    &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
-                                    M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-                                    &interp_elt_slab_in[0],
-                                    M_mesh_previous.numTriangles(),nb_var,
-                                    &M_mesh.bcoordX()[0],&M_mesh.bcoordY()[0],M_mesh.numTriangles(),
-                                    false);
-
-			M_sst.resize(M_num_elements);
-			M_sss.resize(M_num_elements);
-
-			for (int i=0; i<M_mesh.numTriangles(); ++i)
-			{
-				// Sea surface temperature
-				M_sst[i] = interp_elt_slab_out[nb_var*i+0];
-
-				// Sea surface salinity
-				M_sss[i] = interp_elt_slab_out[nb_var*i+1];
-			}
-
-			xDelete<double>(interp_elt_slab_out);
-
-			M_mesh_previous.move(M_UM,displacement_factor);
-			LOG(DEBUG) <<"ELEMENT SLAB: Interp done\n";
-			LOG(DEBUG) <<"Slab Interp done in "<< chrono.elapsed() <<"s\n";
 
 			// NODAL INTERPOLATION
 			nb_var=8;
@@ -1582,10 +1584,10 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var)
             }
             else
             {
-                M_tice[1][i] = 0.;
+                M_tice[1][i] = -physical::mu*M_sss[i];
                 tmp_nb_var++;
 
-                M_tice[2][i] = 0.;
+                M_tice[2][i] = -physical::mu*M_sss[i];
                 tmp_nb_var++;
             }
         }
