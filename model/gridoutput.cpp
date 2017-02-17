@@ -454,6 +454,9 @@ std::string GridOutput::initNetCDF(std::string file_prefix, GridOutput::fileLeng
            break;
        case GridOutput::fileLength::yearly:
            filename << "_" << now.year();
+           break;
+       case GridOutput::fileLength::inf:
+           break;
        default:
            throw std::logic_error("invalid file length");
     }
