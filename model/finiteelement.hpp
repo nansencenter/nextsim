@@ -261,6 +261,7 @@ private:
     std::vector<double> M_surface;
     std::vector<double> M_sigma;
     std::vector<double> M_UM;
+    std::vector<double> M_UT;
     std::vector<double> M_VT;
     std::vector<double> M_VTM;
     std::vector<double> M_VTMM;

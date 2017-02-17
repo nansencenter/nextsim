@@ -182,6 +182,7 @@ FiniteElement::initVariables()
     M_sss.resize(M_num_elements);
 
     M_UM.resize(2*M_num_nodes,0.);
+    M_UT.resize(2*M_num_nodes,0.);
 
     M_h_thin.assign(M_num_elements,0.);
     M_hs_thin.assign(M_num_elements,0.);
@@ -1261,7 +1262,7 @@ FiniteElement::regrid(bool step)
 			LOG(DEBUG) <<"Element Interp done in "<< chrono.elapsed() <<"s\n";
 
 			// NODAL INTERPOLATION
-			nb_var=8;
+			nb_var=10;
 
 			int prv_num_nodes = M_mesh_previous.numNodes();
 
@@ -1290,6 +1291,10 @@ FiniteElement::regrid(bool step)
 				// UM
 				interp_in[nb_var*i+6] = M_UM[i];
 				interp_in[nb_var*i+7] = M_UM[i+prv_num_nodes];
+
+				// UT
+				interp_in[nb_var*i+8] = M_UT[i];
+				interp_in[nb_var*i+9] = M_UT[i+prv_num_nodes];
 			}
 
 			InterpFromMeshToMesh2dx(&interp_out,
@@ -1304,6 +1309,7 @@ FiniteElement::regrid(bool step)
 			M_VTM.assign(2*M_num_nodes,0.);
 			M_VTMM.assign(2*M_num_nodes,0.);
 			M_UM.assign(2*M_num_nodes,0.);
+			M_UT.assign(2*M_num_nodes,0.);
 
 			for (int i=0; i<M_num_nodes; ++i)
 			{
@@ -1322,6 +1328,10 @@ FiniteElement::regrid(bool step)
 				// UM
 				M_UM[i] = interp_out[nb_var*i+6];
 				M_UM[i+M_num_nodes] = interp_out[nb_var*i+7];
+
+				// UT
+				M_UT[i] = interp_out[nb_var*i+8];
+				M_UT[i+M_num_nodes] = interp_out[nb_var*i+9];
 			}
 
 			xDelete<double>(interp_out);
@@ -1347,15 +1357,15 @@ FiniteElement::regrid(bool step)
                     ++j;
                 }
 
-                // Interpolate the velocity and concentration onto the drifter positions
+                // Interpolate the total displacement and concentration onto the drifter positions
                 nb_var=2;
                 std::vector<double> interp_drifter_in(nb_var*M_mesh.numNodes());
 
                 // Interpolate the velocity
                 for (int i=0; i<M_mesh.numNodes(); ++i)
                 {
-                    interp_drifter_in[nb_var*i]   = M_UM[i];
-                    interp_drifter_in[nb_var*i+1] = M_UM[i+M_mesh.numNodes()];
+                    interp_drifter_in[nb_var*i]   = M_UT[i];
+                    interp_drifter_in[nb_var*i+1] = M_UT[i+M_mesh.numNodes()];
                 }
 
                 double* interp_drifter_out;
@@ -1416,6 +1426,10 @@ FiniteElement::regrid(bool step)
 			// UM
 			M_UM[i] = 0.;
 			M_UM[i+M_num_nodes] = 0.;
+
+			// UT
+			M_UT[i] = 0.;
+			M_UT[i+M_num_nodes] = 0.;
 		}
 
         //M_matrix->init(2*M_num_nodes,2*M_num_nodes,22);
@@ -1681,6 +1695,7 @@ FiniteElement::advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
         for (int nd=0; nd<M_UM.size(); ++nd)
         {
             M_UM[nd] += time_step*M_VT_smoothed[nd];
+            M_UT[nd] += time_step*M_VT[nd]; // Total displacement (for drifters)
         }
 
         // set back the neumann nodes (open boundaries) at their position, the fluxes will be computed thanks to the convective velocity
@@ -3667,7 +3682,6 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
             hs = 0.;
         }
 
-
         // Bottom melt/freezing
         Qio    = FiniteElement::iceOceanHeatflux(M_sst[i], M_sss[i], mld, dt);
         double Mbot  = Qio - 4*physical::ki*(Tbot-T2)/hi; // (23)
@@ -4768,6 +4782,7 @@ FiniteElement::writeRestart(int pcpt, int step)
     exporter.writeField(outbin, M_VTM, "M_VTM");
     exporter.writeField(outbin, M_VTMM, "M_VTMM");
     exporter.writeField(outbin, M_UM, "M_UM");
+    exporter.writeField(outbin, M_UT, "M_UT");
 
     if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
     {
@@ -4980,6 +4995,7 @@ FiniteElement::readRestart(int step)
     M_VTM        = field_map_dbl["M_VTM"];
     M_VTMM       = field_map_dbl["M_VTMM"];
     M_UM         = field_map_dbl["M_UM"];
+    M_UT         = field_map_dbl["M_UT"];
 
     //for (int i=0; i < M_thick.size(); i++)
     //{
@@ -6401,15 +6417,15 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
         ++j;
     }
 
-    // Interpolate the velocity and concentration onto the drifter positions
+    // Interpolate the total displacement and concentration onto the drifter positions
     int nb_var=2;
     std::vector<double> interp_drifter_in(nb_var*M_mesh.numNodes());
 
     // Interpolate the velocity
     for (int i=0; i<M_mesh.numNodes(); ++i)
     {
-        interp_drifter_in[nb_var*i]   = M_UM[i];
-        interp_drifter_in[nb_var*i+1] = M_UM[i+M_mesh.numNodes()];
+        interp_drifter_in[nb_var*i]   = M_UT[i];
+        interp_drifter_in[nb_var*i+1] = M_UT[i+M_mesh.numNodes()];
     }
 
     double* interp_drifter_out;
