@@ -34,6 +34,26 @@ class GridOutput: public DataSet
 {
 public:
 
+    ///////////////////////////////////////////////////////////////////////
+    // Enumerations
+    ///////////////////////////////////////////////////////////////////////
+
+    enum fileLength
+    {
+        // How much data to put into each output file
+        inf     = 0, // Never start a new file
+        daily   = 1,
+        weekly  = 2,
+        monthly = 3,
+        yearly  = 4
+    };
+
+    enum variableKind
+    {
+        nodal      =  0,
+        elemental  =  1
+    };
+
     enum variableID
     {
         // Prognostic variables
@@ -53,33 +73,9 @@ public:
         // Diagnostic variables
     };
 
-    enum fileLength
-    {
-        // How much data to put into each output file
-        inf     = 0, // Never start a new file
-        daily   = 1,
-        weekly  = 2,
-        monthly = 3,
-        yearly  = 4
-    };
-
-    enum variableKind
-    {
-        nodal      =  0,
-        elemental  =  1
-    };
-
-    typedef struct Variable
-    {
-        std::string name;
-        std::string longName;
-        std::string stdName;
-        std::vector<Dimension> dimensions;
-        std::string Units;
-        std::vector<double> data_mesh;
-        std::vector<double> data_grid;
-        int variableID;
-    } Variable;
+    ///////////////////////////////////////////////////////////////////////
+    // Type definitions
+    ///////////////////////////////////////////////////////////////////////
 
     typedef struct Grid
     {
@@ -98,11 +94,67 @@ public:
         std::vector<double> gridY;
     } Grid;
 
+    typedef struct Variable
+    {
+        Variable(){}
+
+        Variable(variableID id, std::vector<double> dmesh, std::vector<double> dgrid)
+            : varID(id), data_mesh(dmesh), data_grid(dgrid)
+        {
+            switch (varID)
+            {
+                case (variableID::conc):
+                    name     = "sic";
+                    longName = "Sea Ice Concentration";
+                    stdName  = "sea_ice_area_fraction";
+                    Units    = "1";
+                    break;
+                case (variableID::thick):
+                    name     = "sit";
+                    longName = "Sea Ice Thickness";
+                    stdName  = "sea_ice_thickness";
+                    Units    = "m";
+                    break;
+                case (variableID::snow_thick):
+                    name     = "snt";
+                    longName = "Surface Snow Thickness";
+                    stdName  = "surface_snow_thickness";
+                    Units    = "m";
+                    break;
+                case (variableID::VT_x):
+                    name     = "siu";
+                    longName = "Sea Ice X Velocity";
+                    stdName  = "sea_ice_x_velocity";
+                    Units    = "m s-1";
+                    break;
+                case (variableID::VT_y):
+                    name     = "siv";
+                    longName = "Sea Ice Y Velocity";
+                    stdName  = "sea_ice_y_velocity";
+                    Units    = "m s-1";
+                    break;
+            }
+        }
+
+        int varID;
+        std::string name;
+        std::string longName;
+        std::string stdName;
+        std::string Units;
+
+        std::vector<double> data_mesh;
+        std::vector<double> data_grid;
+
+    } Variable;
+
+    ///////////////////////////////////////////////////////////////////////
+    // Constructors (and destructor)
+    ///////////////////////////////////////////////////////////////////////
     GridOutput();
 
-    GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, int kind);
+    GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind);
 
-    GridOutput(Grid grid, std::vector<Variable> variables, int kind);
+    GridOutput(Grid grid, std::vector<Variable> variables, variableKind kind);
 
     GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
 
@@ -133,7 +185,7 @@ public:
 
 private:
 
-    GridOutput(std::vector<Variable> variables, int kind);
+    GridOutput(std::vector<Variable> variables, variableKind kind);
 
     GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
 

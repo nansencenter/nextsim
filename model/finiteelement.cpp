@@ -4353,7 +4353,7 @@ FiniteElement::updateMeans(GridOutput &means, double time_factor)
     // Update elements and multiply with time_factor
     for ( auto it=means.M_elemental_variables.begin(); it!=means.M_elemental_variables.end(); ++it )
     {
-        switch (it->variableID)
+        switch (it->varID)
         {
             case (GridOutput::variableID::conc):
                 for (int i=0; i<M_num_elements; i++)
@@ -4412,7 +4412,7 @@ FiniteElement::updateMeans(GridOutput &means, double time_factor)
     // Update nodes
     for ( auto it=means.M_nodal_variables.begin(); it!=means.M_nodal_variables.end(); ++it )
     {
-        switch (it->variableID)
+        switch (it->varID)
         {
             case (GridOutput::variableID::VT_x):
                 for (int i=0; i<M_num_nodes; i++)
@@ -4433,140 +4433,69 @@ FiniteElement::updateMeans(GridOutput &means, double time_factor)
 void
 FiniteElement::initMoorings()
 {
-    // Output dimensions
-    DataSet::Dimension dimension_x={
-        name:"x",
-        cyclic:false
-    };
-
-    DataSet::Dimension dimension_y={
-        name:"y",
-        cyclic:false
-    };
-
-    DataSet::Dimension dimension_time={
-        name:"time",
-        cyclic:false
-    };
-
-    std::vector<DataSet::Dimension> dimensions(3);
-    dimensions[0] = dimension_x;
-    dimensions[1] = dimension_y;
-    dimensions[2] = dimension_time;
-
     // Output and averaging grids
     std::vector<double> data_nodes(M_num_nodes);
     std::vector<double> data_elements(M_num_elements);
     std::vector<double> data_grid;
 
     // Output variables - elements
-    GridOutput::Variable conc={
-        name:"sic",
-        longName:"Sea Ice Concentration",
-        stdName:"sea_ice_area_fraction",
-        dimensions: dimensions,
-        Units:"1",
-        data_mesh:data_elements,
-        data_grid:data_grid,
-        variableID: GridOutput::variableID::conc
-    };
+    GridOutput::Variable conc(GridOutput::variableID::conc, data_elements, data_grid);
 
-    GridOutput::Variable thick={
-        name:"sit",
-        longName:"Sea Ice Thickness",
-        stdName:"sea_ice_thickness",
-        dimensions: dimensions,
-        Units:"m",
-        data_mesh:data_elements,
-        data_grid:data_grid,
-        variableID: GridOutput::variableID::thick
-    };
+    GridOutput::Variable thick(GridOutput::variableID::thick, data_elements, data_grid);
 
-    GridOutput::Variable snow_thick={
-        name:"snt",
-        longName:"Surface Snow Thickness",
-        stdName:"surface_snow_thickness",
-        dimensions: dimensions,
-        Units:"m",
-        data_mesh:data_elements,
-        data_grid:data_grid,
-        variableID: GridOutput::variableID::snow_thick
-    };
+    GridOutput::Variable snow_thick(GridOutput::variableID::snow_thick, data_elements, data_grid);
 
     std::vector<GridOutput::Variable> elemental_variables(3);
     elemental_variables[0] = conc;
     elemental_variables[1] = thick;
     elemental_variables[2] = snow_thick;
 
+    /* This can wait for now
     if ( M_thermo_type == setup::ThermoType::WINTON )
     {
         // Technically, cannonical units for temperature are K, but that's just anoying here!
         GridOutput::Variable tsurf={
+            variableID: GridOutput::variableID::tsurf,
             name:"ts",
             longName:"Surface Temperature",
             stdName:"surface_temperature",
-            dimensions: dimensions,
             Units:"degC",
             data_mesh:data_elements,
-            data_grid:data_grid,
-            variableID: GridOutput::variableID::tsurf
+            data_grid:data_grid
         };
 
         elemental_variables.push_back(tsurf);
 
         GridOutput::Variable t1={
+            variableID: GridOutput::variableID::t1,
             name:"t1",
             longName:"Ice Temperature 1",
             stdName:"ice_temperature_1",
-            dimensions: dimensions,
             Units:"degC",
             data_mesh:data_elements,
-            data_grid:data_grid,
-            variableID: GridOutput::variableID::t1
+            data_grid:data_grid
         };
 
         elemental_variables.push_back(t1);
 
         GridOutput::Variable t2={
+            variableID: GridOutput::variableID::t2,
             name:"t2",
             longName:"Ice Temperature 2",
             stdName:"ice_temperature_2",
-            dimensions: dimensions,
             Units:"degC",
             data_mesh:data_elements,
-            data_grid:data_grid,
-            variableID: GridOutput::variableID::t2
+            data_grid:data_grid
         };
 
         elemental_variables.push_back(t2);
     }
+    */
 
     // Output variables - nodes
-    GridOutput::Variable siu={
-        name:"siu",
-        // longName:"Eastward Sea Ice Velocity",
-        // stdName:"eastward_sea_ice_velocity",
-        longName:"Sea Ice X Velocity",
-        stdName:"sea_ice_x_velocity",
-        dimensions: dimensions,
-        Units:"m s-1",
-        data_mesh:data_nodes,
-        data_grid:data_grid,
-        variableID: GridOutput::variableID::VT_x
-    };
+    GridOutput::Variable siu(GridOutput::variableID::VT_x, data_nodes, data_grid);
 
-    GridOutput::Variable siv={
-        name:"siv",
-        // longName:"Northward Sea Ice Velocity",
-        // stdName:"northward_sea_ice_velocity",
-        longName:"Sea Ice Y Velocity",
-        stdName:"sea_ice_y_velocity",
-        dimensions: dimensions,
-        Units:"m s-1",
-        data_mesh:data_nodes,
-        data_grid:data_grid,
-        variableID: GridOutput::variableID::VT_y
-    };
+    GridOutput::Variable siv(GridOutput::variableID::VT_y, data_nodes, data_grid);
 
     std::vector<GridOutput::Variable> nodal_variables(2);
     nodal_variables[0] = siu;
@@ -4635,41 +4564,6 @@ FiniteElement::initMoorings()
 #endif
 
     M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, time_init);
-
-#if 0
-    // Prepare the moorings grid for output
-    std::vector<DataSet::Dimension> dimensions_2d(2);
-    dimensions_2d[0] = dimension_x;
-    dimensions_2d[1] = dimension_y;
-
-    GridOutput::Variable lat={
-        name: "lat",
-        longName: "Latitude",
-        stdName: "latitude",
-        dimensions: dimensions_2d,
-        Units: "degrees",
-        data_mesh: M_mesh.lat(),
-        data_grid: data_grid
-    };
-
-    GridOutput::Variable lon={
-        name: "lon",
-        longName: "Longitude",
-        stdName: "longitude",
-        dimensions: dimensions_2d,
-        Units: "degrees",
-        data_mesh: M_mesh.lon(),
-        data_grid: data_grid
-    };
-
-    std::vector<GridOutput::Variable> grid_variables(2);
-    grid_variables[0] = lon;
-    grid_variables[1] = lat;
-
-    M_moorings_grid = GridOutput(ncols, nrows, mooring_spacing, grid_variables, GridOutput::variableKind::nodal);
-    M_moorings_grid.updateGridMean(M_mesh);
-    M_moorings_grid.exportGridMeans("_grid.dat", 1., 1.);
-#endif
 
 } //initMoorings
 

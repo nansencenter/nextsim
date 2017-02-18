@@ -26,7 +26,7 @@ GridOutput::GridOutput()
     ////////////////////////////////////////////////////////////////////////////////
     // Constructor for only one set of variables
     ////////////////////////////////////////////////////////////////////////////////
-GridOutput::GridOutput(std::vector<Variable> variables, int kind)
+GridOutput::GridOutput(std::vector<Variable> variables, variableKind kind)
 {
     M_vectorial_variables.resize(0);
 
@@ -47,7 +47,7 @@ GridOutput::GridOutput(std::vector<Variable> variables, int kind)
 }
 
     // Constructor for only one set of variables - regular grid
-GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, int kind)
+GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind)
     :
     GridOutput(variables, kind)
 {
@@ -55,7 +55,7 @@ GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, double xmin
 }
 
     // Constructor for only one set of variables - arbitrary grid
-GridOutput::GridOutput(Grid grid, std::vector<Variable> variables, int kind)
+GridOutput::GridOutput(Grid grid, std::vector<Variable> variables, variableKind kind)
     :
     GridOutput(variables, kind)
 {
