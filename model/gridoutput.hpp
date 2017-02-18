@@ -81,6 +81,23 @@ public:
         int variableID;
     } Variable;
 
+    typedef struct Grid
+    {
+        std::string gridFile;
+        std::string dirname;
+        std::string mpp_file;
+        std::string dimNameX;
+        std::string dimNameY;
+        std::string latName;
+        std::string lonName;
+
+        bool loaded;
+        std::vector<double> gridLAT;
+        std::vector<double> gridLON;
+        std::vector<double> gridX;
+        std::vector<double> gridY;
+    } Grid;
+
     GridOutput();
 
     GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, int kind);
@@ -100,7 +117,6 @@ public:
     void updateGridMean(GmshMesh const& mesh);
     void resetGridMean();
     void resetMeshMean(GmshMesh const& mesh);
-    void exportGridMeans(std::string filename, double time_step, double mooring_output_time_step);
     std::string initNetCDF(std::string file_prefix, GridOutput::fileLength file_length, double current_time);
     void appendNetCDF(std::string filename, double timestamp);
 

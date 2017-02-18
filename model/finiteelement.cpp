@@ -4594,71 +4594,28 @@ FiniteElement::initMoorings()
     auto ycoords = std::minmax_element( RY.begin(), RY.end() );
 
     double mooring_spacing = 1e3 * vm["simul.mooring_spacing"].as<double>();
-    int nrows = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/mooring_spacing );
-    int ncols = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
+    int ncols = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/mooring_spacing );
+    int nrows = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
 
     // Define the mooring dataset
     M_moorings = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first, nodal_variables, elemental_variables, vectorial_variables);
 #else
     // Read the grid in from file
-    std::vector<DataSet::Dimension> dimensions_latlon(2);
-    dimensions_latlon[0] = dimension_y;
-    dimensions_latlon[1] = dimension_x;
-
-    std::vector<std::vector<double>> data2_tmp;
-    data2_tmp.resize(2);
-
-    DataSet::Variable latitude={
-        name: "latitude",
-        dimensions: dimensions_latlon,
-        land_mask_defined: false,
-        land_mask_value: 0.,
-        NaN_mask_defined: false,
-        NaN_mask_value: 0.,
-        a: 1.,
-        b: 0.,
-        Units: "degree_north",
-        data2: data2_tmp};
-
-    DataSet::Variable longitude={
-        name: "longitude",
-        dimensions: dimensions_latlon,
-        land_mask_defined: false,
-        land_mask_value: 0.,
-        NaN_mask_defined: false,
-        NaN_mask_value: 0.,
-        a: 1.,
-        b: 0.,
-        Units: "degree_east",
-        data2: data2_tmp};
-
-    DataSet::Grid grid={
-        interpolation_method: InterpolationType::None,
-        interp_type: -1,
+    // Define a grid
+    GridOutput::Grid grid{
+        gridFile: "TP4DAILY_200710_3m.nc",
         dirname: "data",
-        //filename: "TP4DAILY_200803_3m.nc",
-        prefix:"TP4DAILY_200803",
-        postfix: "_3m.nc",
-
-        latitude: latitude,
-        longitude: longitude,
-
-        dimension_x: dimension_x,
-        dimension_y: dimension_y,
-
-        mpp_file: vm["simul.proj_filename"].as<std::string>(),
-        interpolation_in_latlon: false,
-
-        loaded: false,
-        monthly_dataset:true,
-
-        masking: false,
-        masking_variable: latitude
+        mpp_file: Environment::vm()["simul.proj_filename"].as<std::string>(),
+        dimNameX: "y",
+        dimNameY: "x",
+        latName: "latitude",
+        lonName: "longitude"
     };
 
     // Define the mooring dataset
     M_moorings = GridOutput(grid, nodal_variables, elemental_variables, vectorial_variables);
 
+    /* Just for debuging
     // Save the grid info - this is still just an ascii dump!
     std::ofstream myfile;
     myfile.open("lon_grid.dat");
@@ -4667,6 +4624,14 @@ FiniteElement::initMoorings()
     myfile.open("lat_grid.dat");
     std::copy(M_moorings.M_grid.gridLAT.begin(), M_moorings.M_grid.gridLAT.end(), ostream_iterator<float>(myfile," "));
     myfile.close();
+
+    myfile.open("x_grid.dat");
+    std::copy(M_moorings.M_grid.gridX.begin(), M_moorings.M_grid.gridX.end(), ostream_iterator<float>(myfile," "));
+    myfile.close();
+    myfile.open("y_grid.dat");
+    std::copy(M_moorings.M_grid.gridY.begin(), M_moorings.M_grid.gridY.end(), ostream_iterator<float>(myfile," "));
+    myfile.close();
+    */
 #endif
 
     M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, time_init);
