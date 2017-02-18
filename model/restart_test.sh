@@ -16,29 +16,37 @@ cfgfile=$1
 execfile=$2
 : ${execfile:="bin/nextsim.exec"}
 
-# Run from start
-$execfile --setup.use_restart=false --simul.duration=0.5 --setup.write_restart=true --setup.restart_time_step=0.25 --simul.output_per_day=4 --config-file=$cfgfile #|| exit 5
+# Create a temporary directory
+tmpdir_start=$(mktemp -d)
+tmpdir_restart=$(mktemp -d)
 
-# Save the old final files
-mkdir -p ../matlab/restart_test
-mv ../matlab/*_1000.??? ../matlab/restart_test/
+# Run from start
+$execfile --simul.output_directory=$tmpdir_start --setup.use_restart=false --simul.duration=0.5 --setup.write_restart=true --setup.restart_time_step=0.25 --simul.output_per_day=4 --config-files=$cfgfile #|| exit 5
+
+# Copy the restart files to ../restart so they can be read by the model
+cp $tmpdir_start/restart/* ../restart/
 
 # Run with a restart
-$execfile --setup.use_restart=true --setup.step_nb=1 --simul.duration=0.5 --setup.write_restart=false --simul.ouput_per_day=4 --config-file=$cfgfile #|| exit 5
+$execfile --simul.output_directory=$tmpdir_restart --setup.use_restart=true --setup.step_nb=1 --simul.duration=0.5 --setup.write_restart=false --simul.ouput_per_day=4 --config-files=$cfgfile #|| exit 5
 
 # Test for diff
 results=0
-diff -qs ../matlab/restart_test/field_1000.bin ../matlab/field_1000.bin
+diff -qs $tmpdir_start/field_1000.bin $tmpdir_restart/field_1000.bin
 (( results=results+$? ))
-diff -qs ../matlab/restart_test/mesh_1000.bin ../matlab/mesh_1000.bin
+diff -qs $tmpdir_start/mesh_1000.bin $tmpdir_restart/mesh_1000.bin
 (( results=results+$? ))
 
 if [ $results -gt 0 ]
 then
-	echo "Restart DOES NOT produce bit-wise identical results"
+    echo "Restart DOES NOT produce bit-wise identical results"
+    echo "Leaving temporary files in place:"
+    echo "First run is in: $tmpdir_start"
+    echo "Restarted run is in: $tmpdir_restart"
     exit 1
 else
-	echo "Restart produces bit-wise identical results"
+    echo "Restart produces bit-wise identical results"
+    echo "Removing temporary files"
+    rm -rf $tmpdir_start $tmpdir_restart
     exit 0
 fi
 
