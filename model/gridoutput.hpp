@@ -34,9 +34,9 @@ class GridOutput: public DataSet
 {
 public:
 
-    ///////////////////////////////////////////////////////////////////////
-    // Enumerations
-    ///////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////
+    // Misc. enumerations and type definitions
+    //////////////////////////////////////////////////////////////////////
 
     enum fileLength
     {
@@ -53,6 +53,33 @@ public:
         nodal      =  0,
         elemental  =  1
     };
+
+    typedef struct Grid
+    {
+        std::string gridFile;
+        std::string dirname;
+        std::string mpp_file;
+        std::string dimNameX;
+        std::string dimNameY;
+        std::string latName;
+        std::string lonName;
+
+        bool loaded;
+        std::vector<double> gridLAT;
+        std::vector<double> gridLON;
+        std::vector<double> gridX;
+        std::vector<double> gridY;
+    } Grid;
+
+    //////////////////////////////////////////////////////////////////////
+    // Output variable definitions
+    //////////////////////////////////////////////////////////////////////
+    /*
+     * We need to define the variable ID and the associated name,
+     * longName, stdName and units. Try to follow the CF table of
+     * standard names whenever possible
+     * (http://cfconventions.org/standard-names.html).
+     */
 
     enum variableID
     {
@@ -72,27 +99,6 @@ public:
 
         // Diagnostic variables
     };
-
-    ///////////////////////////////////////////////////////////////////////
-    // Type definitions
-    ///////////////////////////////////////////////////////////////////////
-
-    typedef struct Grid
-    {
-        std::string gridFile;
-        std::string dirname;
-        std::string mpp_file;
-        std::string dimNameX;
-        std::string dimNameY;
-        std::string latName;
-        std::string lonName;
-
-        bool loaded;
-        std::vector<double> gridLAT;
-        std::vector<double> gridLON;
-        std::vector<double> gridX;
-        std::vector<double> gridY;
-    } Grid;
 
     typedef struct Variable
     {
@@ -115,6 +121,12 @@ public:
                     stdName  = "sea_ice_thickness";
                     Units    = "m";
                     break;
+                case (variableID::damage):
+                    name     = "damage";
+                    longName = "Sea Ice Damage";
+                    stdName  = "sea_ice_damage";
+                    Units    = "1";
+                    break;
                 case (variableID::snow_thick):
                     name     = "snt";
                     longName = "Surface Snow Thickness";
@@ -132,6 +144,47 @@ public:
                     longName = "Sea Ice Y Velocity";
                     stdName  = "sea_ice_y_velocity";
                     Units    = "m s-1";
+                    break;
+                case (variableID::tsurf):
+                    name     = "ts";
+                    longName = "Surface Temperature";
+                    stdName  = "surface_temperature";
+                    Units    = "degree_Celsius";
+                    // CF cannonical units are K, but we can use C also
+                    break;
+                case (variableID::sst):
+                    name     = "sst";
+                    longName = "Sea Surface Temperature";
+                    stdName  = "sea_surface_temperature";
+                    Units    = "degree_Celsius";
+                    // CF cannonical units are K, but we can use C also
+                    break;
+                case (variableID::sss):
+                    name     = "sss";
+                    longName = "Sea Surface Salinity";
+                    stdName  = "sea_surface_salinity";
+                    Units    = "1e-3";
+                    break;
+                case (variableID::tsurf_ice):
+                    name     = "tsi";
+                    longName = "Sea Ice Surface Temperature";
+                    stdName  = "sea_ice_surface_temperature";
+                    Units    = "degree_Celsius";
+                    // CF cannonical units are K, but we can use C also
+                    break;
+                case (variableID::t1):
+                    name     = "t1";
+                    longName = "Ice Temperature 1";
+                    stdName  = "ice_temperature_1";
+                    Units    = "degree_Celsius";
+                    // CF cannonical units are K, but we can use C also
+                    break;
+                case (variableID::t2):
+                    name     = "t2";
+                    longName = "Ice Temperature 2";
+                    stdName  = "ice_temperature_2";
+                    Units    = "degree_Celsius";
+                    // CF cannonical units are K, but we can use C also
                     break;
             }
         }

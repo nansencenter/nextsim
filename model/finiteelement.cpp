@@ -4450,48 +4450,6 @@ FiniteElement::initMoorings()
     elemental_variables[1] = thick;
     elemental_variables[2] = snow_thick;
 
-    /* This can wait for now
-    if ( M_thermo_type == setup::ThermoType::WINTON )
-    {
-        // Technically, cannonical units for temperature are K, but that's just anoying here!
-        GridOutput::Variable tsurf={
-            variableID: GridOutput::variableID::tsurf,
-            name:"ts",
-            longName:"Surface Temperature",
-            stdName:"surface_temperature",
-            Units:"degC",
-            data_mesh:data_elements,
-            data_grid:data_grid
-        };
-
-        elemental_variables.push_back(tsurf);
-
-        GridOutput::Variable t1={
-            variableID: GridOutput::variableID::t1,
-            name:"t1",
-            longName:"Ice Temperature 1",
-            stdName:"ice_temperature_1",
-            Units:"degC",
-            data_mesh:data_elements,
-            data_grid:data_grid
-        };
-
-        elemental_variables.push_back(t1);
-
-        GridOutput::Variable t2={
-            variableID: GridOutput::variableID::t2,
-            name:"t2",
-            longName:"Ice Temperature 2",
-            stdName:"ice_temperature_2",
-            Units:"degC",
-            data_mesh:data_elements,
-            data_grid:data_grid
-        };
-
-        elemental_variables.push_back(t2);
-    }
-    */
-
     // Output variables - nodes
     GridOutput::Variable siu(GridOutput::variableID::VT_x, data_nodes, data_grid);
 
