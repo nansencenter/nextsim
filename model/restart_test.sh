@@ -21,13 +21,13 @@ tmpdir_start=$(mktemp -d)
 tmpdir_restart=$(mktemp -d)
 
 # Run from start
-$execfile --simul.output_directory=$tmpdir_start --setup.use_restart=false --simul.duration=0.5 --setup.write_restart=true --setup.restart_time_step=0.25 --simul.output_per_day=4 --config-files=$cfgfile #|| exit 5
+$execfile --setup.exporter_precision=double --simul.output_directory=$tmpdir_start --setup.use_restart=false --simul.duration=0.5 --setup.write_restart=true --setup.restart_time_step=0.25 --simul.output_per_day=4 --config-files=$cfgfile || exit 5
 
 # Copy the restart files to ../restart so they can be read by the model
 cp $tmpdir_start/restart/* ../restart/
 
 # Run with a restart
-$execfile --simul.output_directory=$tmpdir_restart --setup.use_restart=true --setup.step_nb=1 --simul.duration=0.5 --setup.write_restart=false --simul.ouput_per_day=4 --config-files=$cfgfile #|| exit 5
+$execfile --setup.exporter_precision=double --simul.output_directory=$tmpdir_restart --setup.use_restart=true --setup.step_nb=1 --simul.duration=0.5 --setup.write_restart=false --simul.ouput_per_day=4 --config-files=$cfgfile || exit 6
 
 # Test for diff
 results=0
