@@ -35,6 +35,7 @@
 #include <externaldata.hpp>
 #include <gridoutput.hpp>
 #include <dataset.hpp>
+#include <drifters.hpp>
 
 #ifdef WITHGPERFTOOLS
 #include <gperftools/profiler.h>
@@ -429,6 +430,8 @@ private:
     boost::unordered_map<int, std::array<double,2>> M_drifter; // Drifters are kept in an unordered map containing number and coordinates
     std::fstream M_iabp_file;             // The file we read the IABP buoy data from
     std::fstream M_drifters_out;    // The file we write our simulated drifter positions into
+
+    Drifters M_gdrifters; // Drifters on a grid
 
     // Element variable
     std::vector<double> M_element_age;         // Age of the element (model time since its last adaptation)

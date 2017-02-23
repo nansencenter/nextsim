@@ -4169,6 +4169,8 @@ FiniteElement::step(int &pcpt)
             // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
             if ( M_use_moorings && ! M_moorings_snapshot )
                 M_moorings.updateGridMean(M_mesh);
+            if ( M_drifter_type == setup::DrifterType::EQUALLYSPACED )
+                M_gdrifters.move(M_mesh, M_UT);
             LOG(DEBUG) <<"Regridding starts\n";
             chrono.restart();
             this->regrid(pcpt);
@@ -4336,6 +4338,9 @@ FiniteElement::step(int &pcpt)
             }
         }
     }
+
+    if ( M_drifter_type == setup::DrifterType::EQUALLYSPACED && fmod(pcpt*time_step,output_time_step) == 0 )
+        M_gdrifters.appendNetCDF(current_time, M_mesh, M_UT);
 
 #endif
 
@@ -6380,12 +6385,9 @@ FiniteElement::initIABPDrifter()
 void
 FiniteElement::equallySpacedDrifter()
 {
-    LOG(DEBUG) << "equally spaced drifters not yet implemented" << "\n";
-    throw std::logic_error("equally spaced drifters not yet implemented");
-    /*if (M_drifter.size() ==0)
-        M_drifter.resize(M_num_elements);
-
-    std::fill(M_drifter.begin(), M_drifter.end(), 0.);*/
+    M_gdrifters = Drifters(1e3*vm["simul.drifter_spacing"].as<double>(), M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
+    M_gdrifters.initNetCDF("GDrifters_", current_time);
+    M_gdrifters.appendNetCDF(current_time, M_mesh, M_UT);
 }
 
 void
@@ -6619,7 +6621,7 @@ FiniteElement::exportInitMesh()
 void
 FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, bool apply_displacement)
 {
-    Exporter exporter("float");
+    Exporter exporter(vm["setup.exporter_precision"].as<std::string>());
     std::string fileout;
 
 

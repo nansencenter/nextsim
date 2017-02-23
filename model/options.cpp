@@ -96,6 +96,7 @@ namespace Nextsim
             // not used: ("simul.slim_bin.use", po::value<bool>()->default_value( false ), "")
             // not used: ("simul.slim_bin.names", po::value<std::vector<std::string>>()->multitoken()->zero_tokens()->composing(), "")
             // not used: ("simul.slim_bin.output_timestep", po::value<double>()->default_value( std::numeric_limits<double>::infinity() ), "")
+            ("setup.exporter_precision", po::value<std::string>()->default_value("float"), "float (default) or double (almost only for testing)")
 
             // simulation
             ("simul.mesh_filename", po::value<std::string>()->default_value( "bigarctic10km.msh" ), "")
@@ -120,6 +121,7 @@ namespace Nextsim
             ("setup.drifter-type", po::value<std::string>()->default_value( "none" ), "")
             // not used: ("simul.drifter_output_timestep", po::value<double>()->default_value( std::numeric_limits<double>::infinity() ), "")
             ("simul.drifter_climit", po::value<double>()->default_value( 0.15 ), "")
+            ("simul.drifter_spacing", po::value<double>()->default_value( 10 ), "")
 
             /*
              *-----------------------------------------------------------------------------------
