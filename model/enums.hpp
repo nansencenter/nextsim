@@ -75,7 +75,8 @@ namespace setup
     {
         NONE          = 0,
         EQUALLYSPACED = 1,
-        IABP          = 2
+        IABP          = 2,
+        OSISAF        = 3
     };
 
     enum class DomainType

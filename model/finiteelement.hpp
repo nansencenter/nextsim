@@ -433,6 +433,7 @@ private:
     std::fstream M_iabp_out;    // The file we write our simulated drifter positions into
 
     Drifters M_drifters; // Drifters on a grid
+    std::vector<Drifters> M_osisaf_drifters; // A vector of drifters for the OSISAF emulation
 
     // Element variable
     std::vector<double> M_element_age;         // Age of the element (model time since its last adaptation)
@@ -477,6 +478,7 @@ private:
     void topazAmsreIce();
     void topazAmsr2Ice();
 
+    void initOSISAFDrifters();
     void equallySpacedDrifter();
     void outputDrifter(std::fstream &iabp_out);
     void initIABPDrifter();

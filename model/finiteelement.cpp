@@ -514,7 +514,8 @@ FiniteElement::initConstant()
     const boost::unordered_map<const std::string, setup::DrifterType> str2drifter = boost::assign::map_list_of
         ("none", setup::DrifterType::NONE)
         ("equallyspaced", setup::DrifterType::EQUALLYSPACED)
-        ("iabp", setup::DrifterType::IABP);
+        ("iabp", setup::DrifterType::IABP)
+        ("osisaf", setup::DrifterType::OSISAF);
     M_drifter_type = str2drifter.find(vm["setup.drifter-type"].as<std::string>())->second;
 
     //LOG(DEBUG) <<"GMSH VERSION= "<< M_mesh.version() <<"\n";
@@ -4172,6 +4173,9 @@ FiniteElement::step(int &pcpt)
                 M_moorings.updateGridMean(M_mesh);
             if ( M_drifter_type == setup::DrifterType::EQUALLYSPACED )
                 M_drifters.move(M_mesh, M_UT);
+            if ( M_drifter_type == setup::DrifterType::OSISAF )
+                for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
+                    it->move(M_mesh, M_UT);
             LOG(DEBUG) <<"Regridding starts\n";
             chrono.restart();
             this->regrid(pcpt);
@@ -4342,6 +4346,24 @@ FiniteElement::step(int &pcpt)
 
     if ( M_drifter_type == setup::DrifterType::EQUALLYSPACED && fmod(pcpt*time_step,drifter_output_time_step) == 0 )
         M_drifters.appendNetCDF(current_time, M_mesh, M_UT);
+
+    if ( M_drifter_type == setup::DrifterType::OSISAF && fmod(current_time+0.5,0.) == 0 )
+    {
+        // OSISAF drift is calculated as a dirfter displacement over 48 hours
+        // and they have two sets of drifters in the field at all times.
+
+        // Write out the contents of [1] if it's meaningfull
+        if ( M_osisaf_drifters[1].isInitialised() )
+            M_osisaf_drifters[1].appendNetCDF(current_time, M_mesh, M_UT);
+
+        // Flip the vector so we move [0] to be [1]
+        std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
+
+        // Create a new M_drifters instance in [0], with a properly initialised netCDF file
+        M_osisaf_drifters[0] = Drifters(Environment::simdataDir().string(), "ice_drift_nh_polstere-625_multi-oi.nc", "yc", "yx", "lat", "lon", M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
+        M_osisaf_drifters[0].initNetCDF(M_export_path+"/OSISAF_", current_time);
+        M_osisaf_drifters[0].appendNetCDF(current_time, M_mesh, M_UT);
+    }
 
 #endif
 
@@ -6133,6 +6155,10 @@ FiniteElement::initDrifter()
             this->initIABPDrifter();
             break;
 
+        case setup::DrifterType::OSISAF:
+            this->initOSISAFDrifters();
+            break;
+
         default:
             std::cout << "invalid initialization of drifter"<<"\n";
             throw std::logic_error("invalid initialization of drifter");
@@ -6389,6 +6415,12 @@ FiniteElement::equallySpacedDrifter()
     M_drifters = Drifters(1e3*vm["simul.drifter_spacing"].as<double>(), M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
     M_drifters.initNetCDF(M_export_path+"/Drifters_", current_time);
     M_drifters.appendNetCDF(current_time, M_mesh, M_UT);
+}
+
+void
+FiniteElement::initOSISAFDrifters()
+{
+    M_osisaf_drifters.resize(2);
 }
 
 void

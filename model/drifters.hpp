@@ -56,8 +56,12 @@ namespace Nextsim
             void initNetCDF(std::string file_prefix, double current_time);
             void appendNetCDF(double current_time, GmshMesh const &mesh, std::vector<double> const &UT);
 
+            bool isInitialised();
+
         private:
-            int M_no_drifters;
+            bool M_is_initialised = false;
+
+            int M_no_drifters = 0;
 
             size_t M_nc_step;
 

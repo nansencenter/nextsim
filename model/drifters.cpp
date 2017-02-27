@@ -65,6 +65,8 @@ namespace Nextsim
 
         // Apply mask using conc and climit, and save to M_X and M_Y
         maskXY(mesh, X, Y, conc, climit);
+
+        M_is_initialised = true;
     }
 
     Drifters::Drifters(std::string dirname, std::string gridFile, std::string dimNameX, std::string dimNameY, std::string latName, std::string lonName, GmshMesh const &mesh, std::vector<double> &conc, double climit)
@@ -120,6 +122,8 @@ namespace Nextsim
 
         // Apply mask using conc and climit, and save to M_X and M_Y
         maskXY(mesh, X, Y, conc, climit);
+
+        M_is_initialised = true;
     }
 
     // Mask out the initial X and Y values so we only have drifters where there's ice
@@ -150,6 +154,12 @@ namespace Nextsim
         M_no_drifters = M_X.size();
 
         xDelete<double>(interp_drifter_out);
+    }
+
+    // Check to see if we're properly initialised
+    bool Drifters::isInitialised()
+    {
+        return M_is_initialised;
     }
 
     /*
