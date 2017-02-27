@@ -427,11 +427,11 @@ private:
     external_data M_element_depth;
 
     // Drifters
-    boost::unordered_map<int, std::array<double,2>> M_drifter; // Drifters are kept in an unordered map containing number and coordinates
-    std::fstream M_iabp_file;             // The file we read the IABP buoy data from
-    std::fstream M_drifters_out;    // The file we write our simulated drifter positions into
+    boost::unordered_map<int, std::array<double,2>> M_iabpDrifters; // Drifters are kept in an unordered map containing number and coordinates
+    std::fstream M_iabp_file;   // The file we read the IABP buoy data from
+    std::fstream M_iabp_out;    // The file we write our simulated drifter positions into
 
-    Drifters M_gdrifters; // Drifters on a grid
+    Drifters M_drifters; // Drifters on a grid
 
     // Element variable
     std::vector<double> M_element_age;         // Age of the element (model time since its last adaptation)
