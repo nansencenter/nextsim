@@ -327,6 +327,7 @@ private:
     double output_time_step;
     double mooring_output_time_step;
     double mooring_time_factor;
+    double drifter_output_time_step;
     double restart_time_step;
     double time_step;
     double duration;

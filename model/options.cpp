@@ -119,7 +119,7 @@ namespace Nextsim
 
             // not used: ("simul.use_drifters", po::value<bool>()->default_value( false ), "")
             ("setup.drifter-type", po::value<std::string>()->default_value( "none" ), "")
-            // not used: ("simul.drifter_output_timestep", po::value<double>()->default_value( std::numeric_limits<double>::infinity() ), "")
+            ("simul.drifter_output_timestep", po::value<double>()->default_value( 1 ), "days")
             ("simul.drifter_climit", po::value<double>()->default_value( 0.15 ), "")
             ("simul.drifter_spacing", po::value<double>()->default_value( 10 ), "")
 
