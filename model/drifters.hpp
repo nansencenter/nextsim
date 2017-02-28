@@ -59,9 +59,9 @@ namespace Nextsim
             bool isInitialised();
 
         private:
-            bool M_is_initialised = false;
+            bool M_is_initialised;
 
-            int M_no_drifters = 0;
+            int M_no_drifters;
 
             size_t M_nc_step;
 

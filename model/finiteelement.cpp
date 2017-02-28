@@ -4347,7 +4347,7 @@ FiniteElement::step(int &pcpt)
     if ( M_drifter_type == setup::DrifterType::EQUALLYSPACED && fmod(pcpt*time_step,drifter_output_time_step) == 0 )
         M_drifters.appendNetCDF(current_time, M_mesh, M_UT);
 
-    if ( M_drifter_type == setup::DrifterType::OSISAF && fmod(current_time+0.5,0.) == 0 )
+    if ( M_drifter_type == setup::DrifterType::OSISAF && fmod(current_time+0.5,1.) == 0 )
     {
         // OSISAF drift is calculated as a dirfter displacement over 48 hours
         // and they have two sets of drifters in the field at all times.
@@ -4360,7 +4360,7 @@ FiniteElement::step(int &pcpt)
         std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
 
         // Create a new M_drifters instance in [0], with a properly initialised netCDF file
-        M_osisaf_drifters[0] = Drifters(Environment::simdataDir().string(), "ice_drift_nh_polstere-625_multi-oi.nc", "yc", "yx", "lat", "lon", M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
+        M_osisaf_drifters[0] = Drifters("data", "ice_drift_nh_polstere-625_multi-oi.nc", "yc", "yx", "lat", "lon", M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
         M_osisaf_drifters[0].initNetCDF(M_export_path+"/OSISAF_", current_time);
         M_osisaf_drifters[0].appendNetCDF(current_time, M_mesh, M_UT);
     }

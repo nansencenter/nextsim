@@ -24,12 +24,17 @@ namespace Nextsim
      * drifter positions read in from file. In addition we have a private
      * function (maskXY), called only by the constructors, to mask out drifters
      * placed outside the ice cover.
-     * There is also a default, empty constructor and the destructor is empty
-     * as well.
+     * There is also a default, constructor which initialises things to zero and false.
+     * The destructor is empty.
      */
 
 	Drifters::Drifters()
-    {}
+    {
+        M_is_initialised = false;
+        M_no_drifters    = 0;
+        M_X.resize(0);
+        M_Y.resize(0);
+    }
 
     Drifters::~Drifters()
     {}
@@ -172,6 +177,10 @@ namespace Nextsim
     // Move drifters puting output into X and Y
     void Drifters::move(GmshMesh const &mesh, std::vector<double> const &UT, std::vector<double> &X, std::vector<double> &Y)
     {
+        // Do nothing if we don't have to
+        if ( M_no_drifters == 0 )
+            return;
+
         // Interpolate the total displacement onto the drifter positions
         int nb_var=2;
         int numNodes = mesh.numNodes();
