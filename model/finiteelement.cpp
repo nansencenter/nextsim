@@ -83,8 +83,10 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
     // set M_flag_fix to its correct value when PhysicalNames section is present in the msh file (version 2.2)
     if (!(M_mesh.markerNames()).empty())
     {
+        LOG(DEBUG) <<"M_flag_fix before being changed was: " << M_flag_fix << "\n";
         // get the id associated to the physical name "coast" and assign it to M_flag_fix
         M_flag_fix = M_mesh.markerNames().find("coast")->second[0];
+        LOG(DEBUG) <<"M_flag_fix changed to: " << M_flag_fix << "\n";
     }
 
     for (auto it=M_mesh.edges().begin(), end=M_mesh.edges().end(); it!=end; ++it)
@@ -139,13 +141,13 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
                 bamgopt->hmaxVertices[i] = M_hmaxVertices[i];
             }
 
-            exportInitMesh();
 
             break;
         default:
             std::cout << "invalid mesh type"<<"\n";
             throw std::logic_error("invalid mesh type");
     }
+    exportInitMesh();
 
     M_elements = M_mesh.triangles();
     M_nodes = M_mesh.nodes();
@@ -1944,10 +1946,9 @@ FiniteElement::adaptMesh()
         fnd = bamgmesh_previous->Edges[3*edg]-1;
 
         if ((std::binary_search(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),fnd)))
-        {
             bamggeom_previous->Edges[3*edg+2] = M_flag_fix;
-            bamgmesh_previous->Edges[3*edg+2] = M_flag_fix;
-        }
+        else
+            bamgmesh_previous->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
     }
 
     //Environment::logMemoryUsage("before adaptMesh");
@@ -2305,40 +2306,23 @@ FiniteElement::assemble(int pcpt)
                 data[(2*i  )*6+2*j+1] = duv;
                 data[(2*i+1)*6+2*j+1] = dvv;
 
-                if(M_mask_dirichlet[index_u]==false)
-                {
-                    fvdata[2*i] += surface_e*( mloc*( +M_tau[index_u]
-                                                  +coef_Vair*M_wind[index_u]
-                                                  +coef_Voce*cos_ocean_turning_angle*M_ocean[index_u]
-                                                  +coef_X
-                                                  +coef_V*M_VT[index_u]
-                                                  -coef_Voce*sin_ocean_turning_angle*(M_ocean[index_v]-M_VT[index_v])
-                                                  +coef_C*Vcor_index_v)
-                                           - b0tj_sigma_hu/3);
+                fvdata[2*i] += surface_e*( mloc*(   +M_tau[index_u]
+                                                    +coef_Vair*M_wind[index_u]
+                                                    +coef_Voce*cos_ocean_turning_angle*M_ocean[index_u]
+                                                    +coef_X
+                                                    +coef_V*M_VT[index_u]
+                                                    -coef_Voce*sin_ocean_turning_angle*(M_ocean[index_v]-M_VT[index_v])
+                                                    +coef_C*Vcor_index_v)
+                                            - b0tj_sigma_hu/3);
 
-                //std::cout<<"fvdata, M_tau, M_wind (u): "<<fvdata[2*i]<<","
-                //    <<M_tau[index_u]<<","<<coef_Vair*M_wind[index_u]<<"\n";
-
-
-                    fvdata[2*i+1] += surface_e*( mloc*( +M_tau[index_v]
+                fvdata[2*i+1] += surface_e*( mloc*( +M_tau[index_v]
                                                     +coef_Vair*M_wind[index_v]
                                                     +coef_Voce*cos_ocean_turning_angle*M_ocean[index_v]
                                                     +coef_Y
                                                     +coef_V*M_VT[index_v]
                                                     +coef_Voce*sin_ocean_turning_angle*(M_ocean[index_u]-M_VT[index_u])
                                                     -coef_C*Vcor_index_u)
-                                             - b0tj_sigma_hv/3);
-                }
-                else
-                {
-                    fvdata[2*i] += surface_e*( - b0tj_sigma_hu/3);
-
-                //std::cout<<"fvdata, M_tau, M_wind (u): "<<fvdata[2*i]<<","
-                //    <<M_tau[index_u]<<","<<coef_Vair*M_wind[index_u]<<"\n";
-
-
-                    fvdata[2*i+1] += surface_e*( - b0tj_sigma_hv/3);
-                }
+                                            - b0tj_sigma_hv/3);
             }
 
             rcindices[2*j] = index_u;
@@ -2454,8 +2438,8 @@ FiniteElement::assemble(int pcpt)
     LOG(INFO) <<"TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
 
     chrono.restart();
-    //M_matrix->on(M_dirichlet_nodes,*M_vector);
-    M_matrix->on(extended_dirichlet_nodes,*M_vector);
+    M_matrix->on(M_dirichlet_nodes,*M_vector);
+    //M_matrix->on(extended_dirichlet_nodes,*M_vector);
     LOG(DEBUG) <<"TIMER DBCA= " << chrono.elapsed() <<"s\n";
 
     if (M_log_level == DEBUG)
@@ -4823,10 +4807,9 @@ FiniteElement::readRestart(int step)
     {
         int fnd = bamgmesh->Edges[3*edg]-1;
         if ((std::binary_search(dirichlet_flags.begin(),dirichlet_flags.end(),fnd)))
-        {
             bamggeom->Edges[3*edg+2] = M_flag_fix;
-            bamgmesh->Edges[3*edg+2] = M_flag_fix;
-        }
+        else
+            bamgmesh->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
     }
 
     // Import the bamg structs
@@ -6697,6 +6680,7 @@ FiniteElement::exportInitMesh()
 
     exporter.writeField(outbin, M_hminVertices, "hminVertices");
     exporter.writeField(outbin, M_hmaxVertices, "hmaxVertices");
+    exporter.writeField(outbin, M_dirichlet_flags, "M_dirichlet_flags");
 
     outbin.close();
 
@@ -6775,6 +6759,7 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
         exporter.writeField(outbin, regridvec, "M_nb_regrid");
         exporter.writeField(outbin, M_surface, "Element_area");
         exporter.writeField(outbin, M_VT, "M_VT");
+        exporter.writeField(outbin, M_dirichlet_flags, "M_dirichlet_flags");
         exporter.writeField(outbin, M_conc, "Concentration");
         exporter.writeField(outbin, M_thick, "Thickness");
         exporter.writeField(outbin, M_snow_thick, "Snow");
