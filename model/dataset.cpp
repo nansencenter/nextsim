@@ -60,7 +60,7 @@ namespace Nextsim
      	};
 
          Dimension dimension_time={
-             name:"time", // "Time"
+             name:"Time", // "time"
              cyclic:false
      	};
 
@@ -105,7 +105,7 @@ namespace Nextsim
      	};
 
          Variable time_tmp={
-             name: "time",
+             name: "Time",
              dimensions: dimensions_time,
              land_mask_defined: false,
              land_mask_value: 0.,
@@ -120,7 +120,7 @@ namespace Nextsim
 
          // conversion factors: xnew = a*x + b
          Variable u={
-             name: "U10", // U10M
+             name: "U10M", // U10
              dimensions: dimensions,
              land_mask_defined: false,
              land_mask_value: 0.,
@@ -134,7 +134,7 @@ namespace Nextsim
      	};
 
          Variable v={
-             name: "V10", // U10M
+             name: "V10M", // V10
              dimensions: dimensions,
              land_mask_defined: false,
              land_mask_value: 0.,
@@ -154,7 +154,7 @@ namespace Nextsim
      	    //interp_type : NearestInterpEnum,
 
      		dirname:"data",
-     		prefix: "asr30km.comb.2d.", // "asr30km.comb.2D.";
+     		prefix: "asr30km.comb.2D.", // "asr30km.comb.2d.";
             postfix:".nc",
             reference_date: "1901-01-01",
 
@@ -216,7 +216,7 @@ namespace Nextsim
      	};
 
          Dimension dimension_time={
-             name:"time", // "Time"
+             name:"Time", // "time"
              cyclic:false
      	};
 
@@ -261,7 +261,7 @@ namespace Nextsim
      	};
 
          Variable time_tmp={
-             name: "time",
+             name: "Time",
              dimensions: dimensions_time,
              land_mask_defined: false,
              land_mask_value: 0.,
@@ -276,7 +276,7 @@ namespace Nextsim
 
          // conversion factors: xnew = a*x + b
          Variable u={
-             name: "U10", // U10M
+             name: "U10M", // U10
              dimensions: dimensions,
              land_mask_defined: false,
              land_mask_value: 0.,
@@ -290,7 +290,7 @@ namespace Nextsim
      	};
 
          Variable v={
-             name: "V10", // U10M
+             name: "V10M", // U10
              dimensions: dimensions,
              land_mask_defined: false,
              land_mask_value: 0.,
@@ -310,7 +310,7 @@ namespace Nextsim
      	    //interp_type : NearestInterpEnum,
 
      		dirname:"data",
-     		prefix:"asr30km.comb.2d.", // "asr30km.comb.2D.";
+     		prefix:"asr30km.comb.2D.", // "asr30km.comb.2d.";
             postfix:".nc",
             reference_date: "1901-01-01",
 
@@ -334,7 +334,7 @@ namespace Nextsim
 
 
          Variable tair={
-             name:"T2",
+             name:"T2M",
              dimensions: dimensions,
              land_mask_defined: false,
              land_mask_value: 0.,
@@ -347,7 +347,7 @@ namespace Nextsim
          interpolated_data: interpolated_data_tmp
      	}; // T2M
          Variable mixrat={
-             name:"Q2",
+             name:"Q2M",
              dimensions: dimensions,
              land_mask_defined: false,
              land_mask_value: 0.,
@@ -360,13 +360,13 @@ namespace Nextsim
          interpolated_data: interpolated_data_tmp
      	}; // Q2M
          Variable mslp={
-             name:"SLP",
+             name:"PSFC",
              dimensions: dimensions,
              land_mask_defined: false,
              land_mask_value: 0.,
              NaN_mask_defined: false,
              NaN_mask_value: 0.,
-             a:1e2,
+             a:1,
              b:0.,
              Units:"Pa",
             loaded_data: loaded_data_tmp,

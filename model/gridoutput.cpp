@@ -7,7 +7,6 @@
  */
 
 #include <gridoutput.hpp>
-#include <externaldata.hpp>
 #include <date.hpp>
 
 /**
@@ -27,7 +26,7 @@ GridOutput::GridOutput()
     ////////////////////////////////////////////////////////////////////////////////
     // Constructor for only one set of variables
     ////////////////////////////////////////////////////////////////////////////////
-GridOutput::GridOutput(std::vector<Variable> variables, int kind)
+GridOutput::GridOutput(std::vector<Variable> variables, variableKind kind)
 {
     M_vectorial_variables.resize(0);
 
@@ -48,7 +47,7 @@ GridOutput::GridOutput(std::vector<Variable> variables, int kind)
 }
 
     // Constructor for only one set of variables - regular grid
-GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, int kind)
+GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind)
     :
     GridOutput(variables, kind)
 {
@@ -56,7 +55,7 @@ GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, double xmin
 }
 
     // Constructor for only one set of variables - arbitrary grid
-GridOutput::GridOutput(Grid grid, std::vector<Variable> variables, int kind)
+GridOutput::GridOutput(Grid grid, std::vector<Variable> variables, variableKind kind)
     :
     GridOutput(variables, kind)
 {
@@ -133,8 +132,8 @@ void GridOutput::initRegularGrid(int ncols, int nrows, double mooring_spacing, d
     M_grid.loaded = false;
 
     // Calculate lat and lon
-    M_grid.gridLAT.assign(nrows*ncols, 0.);
-    M_grid.gridLON.assign(nrows*ncols, 0.);
+    M_grid.gridLAT.assign(M_grid_size, 0.);
+    M_grid.gridLON.assign(M_grid_size, 0.);
 
     mapx_class *map;
     std::string filename = Environment::nextsimDir().string() + "/data/" + Environment::vm()["simul.proj_filename"].as<std::string>();
@@ -147,10 +146,10 @@ void GridOutput::initRegularGrid(int ncols, int nrows, double mooring_spacing, d
     double lon;
     int i=0;
     double X = xmin;
-    for (int nrows=0; nrows<M_nrows; nrows++)
+    for (int ncols=0; ncols<M_ncols; ncols++)
     {
         double Y = ymin;
-        for (int ncols=0; ncols<M_ncols; ncols++)
+        for (int nrows=0; nrows<M_nrows; nrows++)
         {
             int status = inverse_mapx(map,X,Y,&lat,&lon);
             M_grid.gridLAT[i] = lat;
@@ -169,12 +168,57 @@ void GridOutput::initRegularGrid(int ncols, int nrows, double mooring_spacing, d
 void GridOutput::initArbitraryGrid(Grid grid)
 {
     M_grid = grid;
-    this->loadGrid(&M_grid, -1); // We don't expect there to be a time dependence for which grid to load
 
-    M_ncols = -1;
-    M_nrows = -1;
+    // Load the grid from file
+    // Check file
+    std::string filename = (boost::format( "%1%/%2%/%3%" )
+                            % Environment::simdataDir().string()
+                            % M_grid.dirname
+                            % M_grid.gridFile
+                            ).str();
+    if ( ! boost::filesystem::exists(filename) )
+        throw std::runtime_error("File not found: " + filename);
+
+    // Open file
+	netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
+
+    // Read the dimension of the grid
+    netCDF::NcDim dim;
+    dim = dataFile.getDim(M_grid.dimNameX);
+    M_ncols = dim.getSize();
+
+    dim = dataFile.getDim(M_grid.dimNameY);
+    M_nrows = dim.getSize();
     M_mooring_spacing = -1.;
-    M_grid_size = M_grid.gridX.size();
+    M_grid_size = M_ncols*M_nrows;
+
+    // Read the lat and lon
+    netCDF::NcVar VLAT = dataFile.getVar(M_grid.latName);
+    netCDF::NcVar VLON = dataFile.getVar(M_grid.lonName);
+
+    // Read data into M_grid.gridLON & M_grid.gridLAT
+    M_grid.gridLAT.resize(M_grid_size);
+    M_grid.gridLON.resize(M_grid_size);
+    VLAT.getVar(&M_grid.gridLAT[0]);
+    VLON.getVar(&M_grid.gridLON[0]);
+
+    // Calculate x and y
+    M_grid.gridX.resize(M_grid_size);
+    M_grid.gridY.resize(M_grid_size);
+
+    mapx_class *map;
+    filename = Environment::nextsimDir().string() + "/data/" + Environment::vm()["simul.proj_filename"].as<std::string>();
+    std::vector<char> str(filename.begin(), filename.end());
+    str.push_back('\0');
+
+    map = init_mapx(&str[0]);
+
+    for (int i=0; i<M_grid_size; ++i)
+        forward_mapx(map, M_grid.gridLAT[i], M_grid.gridLON[i], &M_grid.gridX[i], &M_grid.gridY[i]);
+
+    close_mapx(map);
+
+    M_grid.loaded = true;
 
     this->resetGridMean();
 }
@@ -249,12 +293,12 @@ void GridOutput::updateGridMeanWorker(GmshMesh const& mesh, int source_size, std
                               source_size, nb_var,
                               xmin,ymax,
                               M_mooring_spacing,M_mooring_spacing,
-                              M_nrows, M_ncols,
+                              M_ncols, M_nrows,
                               M_miss_val);
     }
     else
     {
-        std::logic_error("GridOutput::updateGridMeanWorker: No grid loaded and one of M_ncols, M_nrows, or M_mooring_spacing not set properly.");
+        std::logic_error("GridOutput::updateGridMeanWorker: No grid loaded from file and one of M_ncols, M_nrows, or M_mooring_spacing not set properly.");
     }
 
     // Add the output pointer value to the grid vectors
@@ -367,63 +411,6 @@ void GridOutput::resetMeshMean(GmshMesh const& mesh)
         M_elemental_variables[i].data_mesh.assign(mesh.numTriangles(), 0.);
 }
 
-    // Save the _grid values to file ... this needs a lot of work, NetCDF etc.
-void GridOutput::exportGridMeans(std::string postfix, double time_step, double mooring_output_time_step)
-{
-    double time_factor = time_step/mooring_output_time_step;
-    std::ofstream myfile;
-    std::string filename;
-
-    // Multiply all the grid values with 'time_factor'
-    // Nodes
-    for ( auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); ++it )
-    {
-        for ( auto jt=it->data_grid.begin(); jt!=it->data_grid.end(); jt++ )
-        {
-            // We need to filter out the missing values so they remain the same for all output files
-            if ( *jt > M_miss_val )
-            {
-                *jt *= time_factor;
-            }
-            else
-            {
-                *jt = M_miss_val;
-            }
-        }
-
-        // Save to file - this is still just an ascii dump of one parameter!
-        filename = it->name + postfix;
-        std::cout << "Writing " << it->name << " to " << filename << std::endl;
-        myfile.open(filename);
-        std::copy(it->data_grid.begin(), it->data_grid.end(), ostream_iterator<float>(myfile, " "));
-        myfile.close();
-    }
-
-    // Elements
-    for ( auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); ++it )
-    {
-        for ( auto jt=it->data_grid.begin(); jt!=it->data_grid.end(); jt++ )
-        {
-            // We need to filter out the missing values so they remain the same for all output files
-            if ( *jt > M_miss_val )
-            {
-                *jt *= time_factor;
-            }
-            else
-            {
-                *jt = M_miss_val;
-            }
-        }
-
-        // Save to file - this is still just an ascii dump of one parameter!
-        filename = it->name + postfix;
-        std::cout << "Writing " << it->name << " to " << filename << std::endl;
-        myfile.open(filename);
-        std::copy(it->data_grid.begin(), it->data_grid.end(), ostream_iterator<float>(myfile, " "));
-        myfile.close();
-    }
-}
-
     // Initialise a netCDF file and return the file name in an std::string
 std::string GridOutput::initNetCDF(std::string file_prefix, GridOutput::fileLength file_length, double current_time)
 {
@@ -454,6 +441,9 @@ std::string GridOutput::initNetCDF(std::string file_prefix, GridOutput::fileLeng
            break;
        case GridOutput::fileLength::yearly:
            filename << "_" << now.year();
+           break;
+       case GridOutput::fileLength::inf:
+           break;
        default:
            throw std::logic_error("invalid file length");
     }
@@ -475,8 +465,8 @@ std::string GridOutput::initNetCDF(std::string file_prefix, GridOutput::fileLeng
     M_nc_step=0;
 
     // Create the two spatial dimensions.
-    netCDF::NcDim xDim = dataFile.addDim("x", M_nrows);
-    netCDF::NcDim yDim = dataFile.addDim("y", M_ncols);
+    netCDF::NcDim xDim = dataFile.addDim("x", M_ncols);
+    netCDF::NcDim yDim = dataFile.addDim("y", M_nrows);
 
     std::vector<netCDF::NcDim> dims2(2);
     dims2[0] = xDim;
@@ -551,8 +541,8 @@ void GridOutput::appendNetCDF(std::string filename, double timestamp)
     start.push_back(0);
     start.push_back(0);
 
-    count.push_back(M_nrows);
     count.push_back(M_ncols);
+    count.push_back(M_nrows);
 
     netCDF::NcVar data;
     for (auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); ++it)
