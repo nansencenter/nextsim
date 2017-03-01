@@ -44,6 +44,14 @@ if nargin<=3, plot_edge=false; end
 var_mx=mesh_out.Nodes_x(mesh_out.Elements);
 var_my=mesh_out.Nodes_y(mesh_out.Elements);
 
+if(isfield(data_out,'M_dirichlet_flags'))
+    
+    dirichlet_x=mesh_out.Nodes_x(data_out.M_dirichlet_flags+1);
+    dirichlet_y=mesh_out.Nodes_y(data_out.M_dirichlet_flags+1);
+    figure
+    plot(dirichlet_x,dirichlet_y,'.')
+end
+
 [nr,nc]= size(var_mx);
 Ne=nr/3;
 Nn=length(mesh_out.Nodes_x);
