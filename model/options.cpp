@@ -45,7 +45,7 @@ namespace Nextsim
             // debugging options
             ("simul.verbose", po::value<int>()->default_value( 7 ), "")
             ("simul.log-level", po::value<std::string>()->default_value( "info" ), "")
-            ("simul.maxiteration", po::value<int>()->default_value( 1e+8 ), "")
+            ("simul.maxiteration", po::value<int>()->default_value( -1 ), "")
 
 
             // remesher
@@ -76,26 +76,27 @@ namespace Nextsim
 
             ("setup.ice-type", po::value<std::string>()->default_value( "constant" ), "")
             // if ice-type=constant
-            ("simul.init_damage", po::value<std::string>()->default_value( "No-damage" ), "")
+            // not used: ("simul.init_damage", po::value<std::string>()->default_value( "No-damage" ), "")
             ("simul.init_thickness", po::value<double>()->default_value( 1.0 ), "")
             ("simul.init_concentration", po::value<double>()->default_value( 1.0 ), "")
-            ("simul.init_thin_max_thickness", po::value<double>()->default_value( 0.1 ), "")
+            // not used: ("simul.init_thin_max_thickness", po::value<double>()->default_value( 0.1 ), "")
             ("simul.init_snow_thickness", po::value<double>()->default_value( 0. ), "")
-            ("simul.init_snow_thin_thickness", po::value<double>()->default_value( 0. ), "")
+            // not used: ("simul.init_snow_thin_thickness", po::value<double>()->default_value( 0. ), "")
 
             // outputs
             ("setup.use_restart", po::value<bool>()->default_value( false ), "")
             ("setup.write_restart", po::value<bool>()->default_value( false ), "")
             ("setup.restart_time_step", po::value<double>()->default_value( 20 ), "days")
             ("setup.step_nb", po::value<int>()->default_value( 0 ), "")
-            ("simul.output_per_day", po::value<int>()->default_value( 24 ), "")
+            ("simul.output_per_day", po::value<int>()->default_value( 4 ), "")
             ("simul.output_directory", po::value<std::string>()->default_value( "" ), "")
             ("simul.logfile", po::value<std::string>()->default_value( "" ), "")
-            ("simul.diagnostics_frequency", po::value<int>()->default_value( 1 ), "")
+            // not used: ("simul.diagnostics_frequency", po::value<int>()->default_value( 1 ), "")
             ("simul.save_forcing_field", po::value<bool>()->default_value( false ), "")
-            ("simul.slim_bin.use", po::value<bool>()->default_value( false ), "")
-            ("simul.slim_bin.names", po::value<std::vector<std::string>>()->multitoken()->zero_tokens()->composing(), "")
-            ("simul.slim_bin.output_timestep", po::value<double>()->default_value( std::numeric_limits<double>::infinity() ), "")
+            // not used: ("simul.slim_bin.use", po::value<bool>()->default_value( false ), "")
+            // not used: ("simul.slim_bin.names", po::value<std::vector<std::string>>()->multitoken()->zero_tokens()->composing(), "")
+            // not used: ("simul.slim_bin.output_timestep", po::value<double>()->default_value( std::numeric_limits<double>::infinity() ), "")
+            ("setup.exporter_precision", po::value<std::string>()->default_value("float"), "float (default) or double (almost only for testing)")
 
             // simulation
             ("simul.mesh_filename", po::value<std::string>()->default_value( "bigarctic10km.msh" ), "")
@@ -111,15 +112,16 @@ namespace Nextsim
             ("simul.use_moorings", po::value<bool>()->default_value( false ), "")
             ("simul.mooring_snapshot", po::value<bool>()->default_value( false ), "")
             ("simul.mooring_file_length", po::value<std::string>()->default_value( "inf" ), "")
-            ("simul.mooring_names", po::value<std::vector<std::string>>()->multitoken()->zero_tokens()->composing(), "")
+            // not used: ("simul.mooring_names", po::value<std::vector<std::string>>()->multitoken()->zero_tokens()->composing(), "")
             ("simul.mooring_spacing", po::value<double>()->default_value( 10 ), "km")
-            ("simul.mooring_grid_file", po::value<std::string>()->default_value( "" ), "")
+            // not used: ("simul.mooring_grid_file", po::value<std::string>()->default_value( "" ), "")
             ("simul.mooring_output_timestep", po::value<double>()->default_value( 1 ), "days")
 
-            ("simul.use_drifters", po::value<bool>()->default_value( false ), "")
-            ("setup.drifter-type", po::value<std::string>()->default_value( "equallyspaced" ), "")
-            ("simul.drifter_output_timestep", po::value<double>()->default_value( std::numeric_limits<double>::infinity() ), "")
+            // not used: ("simul.use_drifters", po::value<bool>()->default_value( false ), "")
+            ("setup.drifter-type", po::value<std::string>()->default_value( "none" ), "")
+            ("simul.drifter_output_timestep", po::value<double>()->default_value( 1 ), "days")
             ("simul.drifter_climit", po::value<double>()->default_value( 0.15 ), "")
+            ("simul.drifter_spacing", po::value<double>()->default_value( 10 ), "")
 
             /*
              *-----------------------------------------------------------------------------------
@@ -128,7 +130,7 @@ namespace Nextsim
              */
 
             // internal stresses
-            ("simul.fixed_cohesion", po::value<bool>()->default_value( true ), "")
+            // not used: ("simul.fixed_cohesion", po::value<bool>()->default_value( true ), "")
             ("simul.use_coriolis", po::value<bool>()->default_value( true ), "")
             ("simul.alea_factor", po::value<double>()->default_value( 0. ), "")
             ("simul.young", po::value<double>()->default_value( 5.49e+9 ), "Pa") // 5.49e+9 is a more reasonable than 9GPa, and same as used in WIM paper.
@@ -150,9 +152,9 @@ namespace Nextsim
 
             // scaling with respect to horizontal resolution
             ("simul.scale_coef", po::value<double>()->default_value( 0.2 ), "")
-            ("simul.rheology_scaling", po::value<bool>()->default_value( false ), "")
-            ("simul.rheology_scaling_ref_dx", po::value<double>()->default_value( 10. ), "")
-            ("simul.rheology_scaling_factor", po::value<double>()->default_value( -0.0638 ), "")
+            // not used: ("simul.rheology_scaling", po::value<bool>()->default_value( false ), "")
+            // not used: ("simul.rheology_scaling_ref_dx", po::value<double>()->default_value( 10. ), "")
+            // not used: ("simul.rheology_scaling_factor", po::value<double>()->default_value( -0.0638 ), "")
 
 
             // water and air drag parameterizations
@@ -180,8 +182,7 @@ namespace Nextsim
             ("setup.thermo-type", po::value<std::string>()->default_value( "zero-layer" ), "")
             ("simul.use_thermo_forcing", po::value<bool>()->default_value( true ), "")
             ("simul.albedoW", po::value<double>()->default_value( 0.07 ), "")
-            ("simul.read_hw", po::value<double>()->default_value( 1. ), "")
-            ("simul.hw", po::value<double>()->default_value( 9. ), "")
+            // not used: ("simul.read_hw", po::value<double>()->default_value( 1. ), "")
             ("simul.alb_scheme", po::value<int>()->default_value( 1 ), "")
             ("simul.flooding", po::value<bool>()->default_value( true ), "")
             ("simul.alb_ice", po::value<double>()->default_value( 0.64 ), "")
@@ -257,18 +258,21 @@ namespace Nextsim
              * -----------------------------------------------------------------------------------
              */
 
+#if defined(WAVES)
             ("simul.use_wim", po::value<bool>()->default_value( false ), "")
             ("simul.wim_grid", po::value<bool>()->default_value( false ), "")
             ("setup.wave-type", po::value<std::string>()->default_value( "constant" ), "constant, ww3a")
 
-#if defined(WAVES)
             ("simul.constant_significant_wave_height", po::value<double>()->default_value( 2. ), "")
             ("simul.constant_wave_mean_direction", po::value<double>()->default_value( 90. ), "")
             ("simul.constant_wave_peak_frequency", po::value<double>()->default_value( 0.05 ), "")
-#endif
             ;
 
         return desc.add( Wim::descrWimOptions() );
+#else
+        ;
+        return desc;
+#endif
     }
 
 } // Nextsim

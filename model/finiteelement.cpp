@@ -184,6 +184,7 @@ FiniteElement::initVariables()
     M_sss.resize(M_num_elements);
 
     M_UM.resize(2*M_num_nodes,0.);
+    M_UT.resize(2*M_num_nodes,0.);
 
     M_h_thin.assign(M_num_elements,0.);
     M_hs_thin.assign(M_num_elements,0.);
@@ -399,6 +400,7 @@ FiniteElement::initConstant()
     output_time_step =  days_in_sec/vm["simul.output_per_day"].as<int>();
     mooring_output_time_step =  vm["simul.mooring_output_timestep"].as<double>()*days_in_sec;
     mooring_time_factor = time_step/mooring_output_time_step;
+    drifter_output_time_step =  vm["simul.drifter_output_timestep"].as<double>()*days_in_sec;
 
     // output_time_step =  time_step*vm["simul.output_per_day"].as<int>(); // useful for debuging
     duration = (vm["simul.duration"].as<double>())*days_in_sec;
@@ -509,8 +511,10 @@ FiniteElement::initConstant()
     M_bathymetry_type = str2bathymetry.find(vm["setup.bathymetry-type"].as<std::string>())->second;
 
     const boost::unordered_map<const std::string, setup::DrifterType> str2drifter = boost::assign::map_list_of
+        ("none", setup::DrifterType::NONE)
         ("equallyspaced", setup::DrifterType::EQUALLYSPACED)
-        ("iabp", setup::DrifterType::IABP);
+        ("iabp", setup::DrifterType::IABP)
+        ("osisaf", setup::DrifterType::OSISAF);
     M_drifter_type = str2drifter.find(vm["setup.drifter-type"].as<std::string>())->second;
 
     //LOG(DEBUG) <<"GMSH VERSION= "<< M_mesh.version() <<"\n";
@@ -1129,16 +1133,69 @@ FiniteElement::regrid(bool step)
 		if (step)
 		{
 
+	        chrono.restart();
+	        LOG(DEBUG) <<"Slab Interp starts\n";
+
+            // We need to interpolate the slab first so that we have the right
+            // SSS for setting the freezing temperature in M_tice[1] &
+            // M_tice[2] for ice free elements
+			// ELEMENT INTERPOLATION FOR SLAB OCEAN FROM OLD MESH ON ITS ORIGINAL POSITION
+            int prv_num_elements = M_mesh_previous.numTriangles();
+			int nb_var=2;
+
+			// memory leak:
+			std::vector<double> interp_elt_slab_in(nb_var*prv_num_elements);
+
+			double* interp_elt_slab_out;
+
+			LOG(DEBUG) <<"ELEMENT SLAB: Interp starts\n";
+
+			M_mesh_previous.move(M_UM,-displacement_factor);
+
+			for (int i=0; i<prv_num_elements; ++i)
+			{
+				// Sea surface temperature
+				interp_elt_slab_in[nb_var*i+0] = M_sst[i];
+
+				// Sea surface salinity
+				interp_elt_slab_in[nb_var*i+1] = M_sss[i];
+			}
+
+			InterpFromMeshToMesh2dx(&interp_elt_slab_out,
+                                    &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
+                                    M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
+                                    &interp_elt_slab_in[0],
+                                    M_mesh_previous.numTriangles(),nb_var,
+                                    &M_mesh.bcoordX()[0],&M_mesh.bcoordY()[0],M_mesh.numTriangles(),
+                                    false);
+
+			M_sst.resize(M_num_elements);
+			M_sss.resize(M_num_elements);
+
+			for (int i=0; i<M_mesh.numTriangles(); ++i)
+			{
+				// Sea surface temperature
+				M_sst[i] = interp_elt_slab_out[nb_var*i+0];
+
+				// Sea surface salinity
+				M_sss[i] = interp_elt_slab_out[nb_var*i+1];
+			}
+
+			xDelete<double>(interp_elt_slab_out);
+
+			M_mesh_previous.move(M_UM,displacement_factor);
+			LOG(DEBUG) <<"ELEMENT SLAB: Interp done\n";
+			LOG(DEBUG) <<"Slab Interp done in "<< chrono.elapsed() <<"s\n";
+
             chrono.restart();
 
             LOG(DEBUG) <<"Element Interp starts\n";
 
             // 1) collect the variables into a single structure
-            int prv_num_elements = M_mesh_previous.numTriangles();
             double* interp_elt_in;
             int* interp_method;
 
-            int nb_var = this->collectVariables(&interp_elt_in, &interp_method, prv_num_elements);
+            nb_var = this->collectVariables(&interp_elt_in, &interp_method, prv_num_elements);
 
             // 2) Interpolate
             std::vector<double> surface_previous(prv_num_elements);
@@ -1205,59 +1262,8 @@ FiniteElement::regrid(bool step)
 			LOG(DEBUG) <<"ELEMENT: Interp done\n";
 			LOG(DEBUG) <<"Element Interp done in "<< chrono.elapsed() <<"s\n";
 
-	        chrono.restart();
-	        LOG(DEBUG) <<"Slab Interp starts\n";
-
-
-			// ELEMENT INTERPOLATION FOR SLAB OCEAN FROM OLD MESH ON ITS ORIGINAL POSITION
-			nb_var=2;
-
-			// memory leak:
-			std::vector<double> interp_elt_slab_in(nb_var*prv_num_elements);
-
-			double* interp_elt_slab_out;
-
-			LOG(DEBUG) <<"ELEMENT SLAB: Interp starts\n";
-
-			M_mesh_previous.move(M_UM,-displacement_factor);
-
-			for (int i=0; i<prv_num_elements; ++i)
-			{
-				// Sea surface temperature
-				interp_elt_slab_in[nb_var*i+0] = M_sst[i];
-
-				// Sea surface salinity
-				interp_elt_slab_in[nb_var*i+1] = M_sss[i];
-			}
-
-			InterpFromMeshToMesh2dx(&interp_elt_slab_out,
-                                    &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
-                                    M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-                                    &interp_elt_slab_in[0],
-                                    M_mesh_previous.numTriangles(),nb_var,
-                                    &M_mesh.bcoordX()[0],&M_mesh.bcoordY()[0],M_mesh.numTriangles(),
-                                    false);
-
-			M_sst.resize(M_num_elements);
-			M_sss.resize(M_num_elements);
-
-			for (int i=0; i<M_mesh.numTriangles(); ++i)
-			{
-				// Sea surface temperature
-				M_sst[i] = interp_elt_slab_out[nb_var*i+0];
-
-				// Sea surface salinity
-				M_sss[i] = interp_elt_slab_out[nb_var*i+1];
-			}
-
-			xDelete<double>(interp_elt_slab_out);
-
-			M_mesh_previous.move(M_UM,displacement_factor);
-			LOG(DEBUG) <<"ELEMENT SLAB: Interp done\n";
-			LOG(DEBUG) <<"Slab Interp done in "<< chrono.elapsed() <<"s\n";
-
 			// NODAL INTERPOLATION
-			nb_var=8;
+			nb_var=10;
 
 			int prv_num_nodes = M_mesh_previous.numNodes();
 
@@ -1286,6 +1292,10 @@ FiniteElement::regrid(bool step)
 				// UM
 				interp_in[nb_var*i+6] = M_UM[i];
 				interp_in[nb_var*i+7] = M_UM[i+prv_num_nodes];
+
+				// UT
+				interp_in[nb_var*i+8] = M_UT[i];
+				interp_in[nb_var*i+9] = M_UT[i+prv_num_nodes];
 			}
 
 			InterpFromMeshToMesh2dx(&interp_out,
@@ -1300,6 +1310,7 @@ FiniteElement::regrid(bool step)
 			M_VTM.assign(2*M_num_nodes,0.);
 			M_VTMM.assign(2*M_num_nodes,0.);
 			M_UM.assign(2*M_num_nodes,0.);
+			M_UT.assign(2*M_num_nodes,0.);
 
 			for (int i=0; i<M_num_nodes; ++i)
 			{
@@ -1318,6 +1329,10 @@ FiniteElement::regrid(bool step)
 				// UM
 				M_UM[i] = interp_out[nb_var*i+6];
 				M_UM[i+M_num_nodes] = interp_out[nb_var*i+7];
+
+				// UT
+				M_UT[i] = interp_out[nb_var*i+8];
+				M_UT[i+M_num_nodes] = interp_out[nb_var*i+9];
 			}
 
 			xDelete<double>(interp_out);
@@ -1326,33 +1341,32 @@ FiniteElement::regrid(bool step)
 			LOG(DEBUG) <<"Nodal interp done in "<< chrono.elapsed() <<"s\n";
 
             // Drifters - if requested
-            //if ( M_drifter_type != setup::DrifterType::NONE )
-            if ( vm["simul.use_drifters"].as<bool>() )
+            if ( M_drifter_type != setup::DrifterType::NONE )
             {
                 chrono.restart();
                 LOG(DEBUG) <<"Drifter starts\n";
                 LOG(DEBUG) <<"DRIFTER: Interp starts\n";
 
                 // Assemble the coordinates from the unordered_map
-                std::vector<double> drifter_X(M_drifter.size());
-                std::vector<double> drifter_Y(M_drifter.size());
+                std::vector<double> drifter_X(M_iabpDrifters.size());
+                std::vector<double> drifter_Y(M_iabpDrifters.size());
                 int j=0;
-                for ( auto it = M_drifter.begin(); it != M_drifter.end(); ++it )
+                for ( auto it = M_iabpDrifters.begin(); it != M_iabpDrifters.end(); ++it )
                 {
                     drifter_X[j] = it->second[0];
                     drifter_Y[j] = it->second[1];
                     ++j;
                 }
 
-                // Interpolate the velocity and concentration onto the drifter positions
+                // Interpolate the total displacement and concentration onto the drifter positions
                 nb_var=2;
                 std::vector<double> interp_drifter_in(nb_var*M_mesh.numNodes());
 
                 // Interpolate the velocity
                 for (int i=0; i<M_mesh.numNodes(); ++i)
                 {
-                    interp_drifter_in[nb_var*i]   = M_UM[i];
-                    interp_drifter_in[nb_var*i+1] = M_UM[i+M_mesh.numNodes()];
+                    interp_drifter_in[nb_var*i]   = M_UT[i];
+                    interp_drifter_in[nb_var*i+1] = M_UT[i+M_mesh.numNodes()];
                 }
 
                 double* interp_drifter_out;
@@ -1361,7 +1375,7 @@ FiniteElement::regrid(bool step)
                                         M_mesh.numNodes(),M_mesh.numTriangles(),
                                         &interp_drifter_in[0],
                                         M_mesh.numNodes(),nb_var,
-                                        &drifter_X[0],&drifter_Y[0],M_drifter.size(),
+                                        &drifter_X[0],&drifter_Y[0],M_iabpDrifters.size(),
                                         true, 0.);
 
 
@@ -1378,21 +1392,21 @@ FiniteElement::regrid(bool step)
                                         M_mesh.numNodes(),M_mesh.numTriangles(),
                                         &interp_drifter_in[0],
                                         M_mesh.numTriangles(),1,
-                                        &drifter_X[0],&drifter_Y[0],M_drifter.size(),
+                                        &drifter_X[0],&drifter_Y[0],M_iabpDrifters.size(),
                                         true, 0.);
 
-                // Rebuild the M_drifter map
-                double clim = vm["simul.drift_limit_concentration"].as<double>();
+                // Rebuild the M_iabpDrifters map
+                double clim = vm["simul.drifter_climit"].as<double>();
                 j=0;
-                for ( auto it = M_drifter.begin(); it != M_drifter.end(); /* ++it is not allowed here, because we use 'erase' */ )
+                for ( auto it = M_iabpDrifters.begin(); it != M_iabpDrifters.end(); /* ++it is not allowed here, because we use 'erase' */ )
                 {
                     if ( interp_drifter_c_out[j] > clim )
                     {
-                        M_drifter[it->first] = std::array<double,2> {it->second[0]+interp_drifter_out[j], it->second[1]+interp_drifter_out[j+M_drifter.size()]};
+                        M_iabpDrifters[it->first] = std::array<double,2> {it->second[0]+interp_drifter_out[j], it->second[1]+interp_drifter_out[j+M_iabpDrifters.size()]};
                         ++it;
                     } else {
                         // Throw out drifters that drift out of the ice
-                        it = M_drifter.erase(it);
+                        it = M_iabpDrifters.erase(it);
                     }
                     ++j;
                 }
@@ -1413,6 +1427,10 @@ FiniteElement::regrid(bool step)
 			// UM
 			M_UM[i] = 0.;
 			M_UM[i+M_num_nodes] = 0.;
+
+			// UT
+			M_UT[i] = 0.;
+			M_UT[i+M_num_nodes] = 0.;
 		}
 
         //M_matrix->init(2*M_num_nodes,2*M_num_nodes,22);
@@ -1581,10 +1599,10 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var)
             }
             else
             {
-                M_tice[1][i] = 0.;
+                M_tice[1][i] = -physical::mu*M_sss[i];
                 tmp_nb_var++;
 
-                M_tice[2][i] = 0.;
+                M_tice[2][i] = -physical::mu*M_sss[i];
                 tmp_nb_var++;
             }
         }
@@ -1678,6 +1696,7 @@ FiniteElement::advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
         for (int nd=0; nd<M_UM.size(); ++nd)
         {
             M_UM[nd] += time_step*M_VT_smoothed[nd];
+            M_UT[nd] += time_step*M_VT[nd]; // Total displacement (for drifters)
         }
 
         // set back the neumann nodes (open boundaries) at their position, the fluxes will be computed thanks to the convective velocity
@@ -2993,16 +3012,18 @@ FiniteElement::thermo()
         }
         double  wspeed = std::hypot(sum_u, sum_v)/3.;
 
-        // definition of the fraction of snow
-        double tmp_snowfr;
+        // definition of the snow fall in kg/m^2/s
+        double tmp_snowfall;
         if(M_snowfr.M_initialized)
-            tmp_snowfr=M_snowfr[i];
+            tmp_snowfall=M_precip[i]*M_snowfr[i];
+        else if (M_snowfall.M_initialized)
+            tmp_snowfall=M_snowfall[i];
         else
         {
             if(M_tair[i]<0)
-                tmp_snowfr=1.;
+                tmp_snowfall=M_precip[i];
             else
-                tmp_snowfr=0.;
+                tmp_snowfall=0.;
         }
 
         double tmp_Qsw_in;
@@ -3106,17 +3127,17 @@ FiniteElement::thermo()
         switch ( M_thermo_type )
         {
             case setup::ThermoType::ZERO_LAYER:
-                this->thermoIce0(i, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfr, hi, hs, hi_old, Qio, del_hi, M_tice[0][i]);
+                this->thermoIce0(i, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfall, hi, hs, hi_old, Qio, del_hi, M_tice[0][i]);
                 break;
             case setup::ThermoType::WINTON:
-                this->thermoWinton(i, time_step, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfr, hi, hs, hi_old, Qio, del_hi,
+                this->thermoWinton(i, time_step, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfall, hi, hs, hi_old, Qio, del_hi,
                         M_tice[0][i], M_tice[1][i], M_tice[2][i]);
                 break;
         }
 
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
-            this->thermoIce0(i, wspeed, sphuma, old_conc_thin, M_h_thin[i], M_hs_thin[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfr, hi_thin, hs_thin, hi_thin_old, Qio_thin, del_hi_thin, M_tsurf_thin[i]);
+            this->thermoIce0(i, wspeed, sphuma, old_conc_thin, M_h_thin[i], M_hs_thin[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfall, hi_thin, hs_thin, hi_thin_old, Qio_thin, del_hi_thin, M_tsurf_thin[i]);
             M_h_thin[i]  = hi_thin * old_conc_thin;
             M_hs_thin[i] = hs_thin * old_conc_thin;
         }
@@ -3284,7 +3305,7 @@ FiniteElement::thermo()
         // Rain falling on ice falls straight through. We need to calculate the
         // bulk freshwater input into the entire cell, i.e. everything in the
         // open-water part plus rain in the ice-covered part.
-        rain = (1.-old_conc-old_conc_thin)*M_precip[i] + (old_conc+old_conc_thin)*(1.-tmp_snowfr)*M_precip[i];
+        rain = (1.-old_conc-old_conc_thin)*M_precip[i] + (old_conc+old_conc_thin)*(M_precip[i]-tmp_snowfall);
         emp  = (evap*(1.-old_conc-old_conc_thin)-rain);
 
         Qio_mean = Qio*old_conc + Qio_thin*old_conc_thin;
@@ -3455,7 +3476,7 @@ FiniteElement::albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, do
 
 // Winton thermo dynamics (ice temperature, growth, and melt)
 void
-FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfr,
+FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfall,
         double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double &T1, double &T2)
 {
     // Constants
@@ -3554,8 +3575,32 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         double E1 = Crho*(T1 - Tfr_ice) - qi*( 1 - Tfr_ice/T1 ); // (1) - but I've multiplied with rhoi, because it's missing in the paper
         double E2 = Crho*(T2 - Tfr_ice) - qi; // (25) - but I've multiplied with rhoi, because it's missing in the paper
 
-        // Snowfall
-        hs += M_precip[i]*snowfr/physical::rhos*dt;
+        // Snowfall [kg/m^2/s]
+        hs += snowfall/physical::rhos*dt;
+
+        // Sublimation at the surface
+        if ( subl*dt <= hs*physical::rhos)
+            hs -= subl*dt/physical::rhos;
+        else if ( subl*dt - hs*physical::rhos <= h1*physical::rhoi )
+        {
+            h1 -= (subl*dt - hs*physical::rhos)/physical::rhoi;
+            hs  = 0.;
+        }
+        else if ( subl*dt - h1*physical::rhoi - hs*physical::rhos <= h2*physical::rhoi )
+        {
+            h2 -= (subl*dt - h1*physical::rhoi - hs*physical::rhos)/physical::rhoi;
+            h1  = 0.;
+            hs  = 0.;
+        }
+        else
+        {
+            double ocn_evap_err = ( subl*dt - (h1+h2)*physical::rhoi - hs*physical::rhos )/physical::rhow;
+			LOG(WARNING) << "All the ice has sublimated. This shouldn't happen and will result in lack of evaporation from the ocean of "
+                << ocn_evap_err*1e3 << " mm over the current time step, in element " << i << ".\n";
+            h2 = 0.;
+            h1 = 0.;
+            hs = 0.;
+        }
 
         // Bottom melt/freezing
         Qio    = FiniteElement::iceOceanHeatflux(M_sst[i], M_sss[i], mld, dt);
@@ -3582,31 +3627,6 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
             h1 += delh1;
             h2 += delh2;
         }
-
-        // Sublimation at the surface
-        if ( subl*dt <= hs*physical::rhos)
-            hs -= subl*dt/physical::rhos;
-        else if ( subl*dt - hs*physical::rhos <= h1*physical::rhoi )
-        {
-            hs  = 0.;
-            h1 -= (subl*dt - hs*physical::rhos)/physical::rhoi;
-        }
-        else if ( subl*dt - h1*physical::rhoi - hs*physical::rhos <= h2*physical::rhoi )
-        {
-            hs  = 0.;
-            h1  = 0.;
-            h2 -= (subl*dt - h1*physical::rhoi - hs*physical::rhos)/physical::rhoi;
-        }
-        else
-        {
-            hs = 0.;
-            h1 = 0.;
-            h2 = 0.;
-            double ocn_evap_err = ( subl*dt - (h1+h2)*physical::rhoi - hs*physical::rhos )/physical::rhow;
-			LOG(WARNING) << "All the ice has sublimated. This shouldn't happen and will result in lack of evaporation from the ocean of "
-                << ocn_evap_err*1e3 << " mm over the current time step, in element " << i << ".\n";
-        }
-
 
         // Melting at the surface
         assert(Msurf >= 0); // Sanity check
@@ -3684,7 +3704,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
 
 // This is Semtner zero layer
 void
-FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfr,
+FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfall,
         double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf)
 {
 
@@ -3786,7 +3806,8 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         del_ht = std::min(hs+del_hs,0.)*qs/qi;
         /* Can't have negative hs! */
         del_hs = std::max(del_hs,-hs);
-        hs  = hs + del_hs + M_precip[i]*snowfr/physical::rhos*time_step;
+        // snowfall in kg/m^2/s
+        hs  = hs + del_hs + snowfall/physical::rhos*time_step;
 
         /* Heatflux from ocean */
         Qio = FiniteElement::iceOceanHeatflux(M_sst[i], M_sss[i], mld, time_step);
@@ -3901,7 +3922,7 @@ FiniteElement::finalise()
     if (M_drifter_type == setup::DrifterType::IABP)
     {
         M_iabp_file.close();
-        M_drifters_out.close();
+        M_iabp_out.close();
     }
 
     this->clear();
@@ -4021,8 +4042,8 @@ FiniteElement::init()
         // We should tag the file name with the init time in case of a re-start.
         std::stringstream filename;
         filename << M_export_path << "/drifters_out_" << current_time << ".txt";
-        M_drifters_out.open(filename.str(), std::fstream::out);
-        if ( ! M_drifters_out.good() )
+        M_iabp_out.open(filename.str(), std::fstream::out);
+        if ( ! M_iabp_out.good() )
             throw std::runtime_error("Cannot write to file: " + filename.str());
     }
 
@@ -4068,6 +4089,11 @@ FiniteElement::step(int &pcpt)
             // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
             if ( M_use_moorings && ! M_moorings_snapshot )
                 M_moorings.updateGridMean(M_mesh);
+            if ( M_drifter_type == setup::DrifterType::EQUALLYSPACED )
+                M_drifters.move(M_mesh, M_UT);
+            if ( M_drifter_type == setup::DrifterType::OSISAF )
+                for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
+                    it->move(M_mesh, M_UT);
             LOG(DEBUG) <<"Regridding starts\n";
             chrono.restart();
             this->regrid(pcpt);
@@ -4095,7 +4121,7 @@ FiniteElement::step(int &pcpt)
     {
         this->updateIABPDrifter();
         // TODO: Do we want to output drifters at a different time interval?
-        this->outputDrifter(M_drifters_out);
+        this->outputDrifter(M_iabp_out);
     }
 
     if ( M_regrid || M_use_restart )
@@ -4236,6 +4262,27 @@ FiniteElement::step(int &pcpt)
         }
     }
 
+    if ( M_drifter_type == setup::DrifterType::EQUALLYSPACED && fmod(pcpt*time_step,drifter_output_time_step) == 0 )
+        M_drifters.appendNetCDF(current_time, M_mesh, M_UT);
+
+    if ( M_drifter_type == setup::DrifterType::OSISAF && fmod(current_time+0.5,1.) == 0 )
+    {
+        // OSISAF drift is calculated as a dirfter displacement over 48 hours
+        // and they have two sets of drifters in the field at all times.
+
+        // Write out the contents of [1] if it's meaningfull
+        if ( M_osisaf_drifters[1].isInitialised() )
+            M_osisaf_drifters[1].appendNetCDF(current_time, M_mesh, M_UT);
+
+        // Flip the vector so we move [0] to be [1]
+        std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
+
+        // Create a new M_drifters instance in [0], with a properly initialised netCDF file
+        M_osisaf_drifters[0] = Drifters("data", "ice_drift_nh_polstere-625_multi-oi.nc", "yc", "yx", "lat", "lon", M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
+        M_osisaf_drifters[0].initNetCDF(M_export_path+"/OSISAF_", current_time);
+        M_osisaf_drifters[0].appendNetCDF(current_time, M_mesh, M_UT);
+    }
+
 #endif
 
     if ( fmod(pcpt*time_step,restart_time_step) == 0)
@@ -4252,7 +4299,7 @@ FiniteElement::updateMeans(GridOutput &means, double time_factor)
     // Update elements and multiply with time_factor
     for ( auto it=means.M_elemental_variables.begin(); it!=means.M_elemental_variables.end(); ++it )
     {
-        switch (it->variableID)
+        switch (it->varID)
         {
             case (GridOutput::variableID::conc):
                 for (int i=0; i<M_num_elements; i++)
@@ -4311,7 +4358,7 @@ FiniteElement::updateMeans(GridOutput &means, double time_factor)
     // Update nodes
     for ( auto it=means.M_nodal_variables.begin(); it!=means.M_nodal_variables.end(); ++it )
     {
-        switch (it->variableID)
+        switch (it->varID)
         {
             case (GridOutput::variableID::VT_x):
                 for (int i=0; i<M_num_nodes; i++)
@@ -4332,140 +4379,27 @@ FiniteElement::updateMeans(GridOutput &means, double time_factor)
 void
 FiniteElement::initMoorings()
 {
-    // Output dimensions
-    DataSet::Dimension dimension_x={
-        name:"x",
-        cyclic:false
-    };
-
-    DataSet::Dimension dimension_y={
-        name:"y",
-        cyclic:false
-    };
-
-    DataSet::Dimension dimension_time={
-        name:"time",
-        cyclic:false
-    };
-
-    std::vector<DataSet::Dimension> dimensions(3);
-    dimensions[0] = dimension_x;
-    dimensions[1] = dimension_y;
-    dimensions[2] = dimension_time;
-
     // Output and averaging grids
     std::vector<double> data_nodes(M_num_nodes);
     std::vector<double> data_elements(M_num_elements);
     std::vector<double> data_grid;
 
     // Output variables - elements
-    GridOutput::Variable conc={
-        name:"sic",
-        longName:"Sea Ice Concentration",
-        stdName:"sea_ice_area_fraction",
-        dimensions: dimensions,
-        Units:"1",
-        data_mesh:data_elements,
-        data_grid:data_grid,
-        variableID: GridOutput::variableID::conc
-    };
+    GridOutput::Variable conc(GridOutput::variableID::conc, data_elements, data_grid);
 
-    GridOutput::Variable thick={
-        name:"sit",
-        longName:"Sea Ice Thickness",
-        stdName:"sea_ice_thickness",
-        dimensions: dimensions,
-        Units:"m",
-        data_mesh:data_elements,
-        data_grid:data_grid,
-        variableID: GridOutput::variableID::thick
-    };
+    GridOutput::Variable thick(GridOutput::variableID::thick, data_elements, data_grid);
 
-    GridOutput::Variable snow_thick={
-        name:"snt",
-        longName:"Surface Snow Thickness",
-        stdName:"surface_snow_thickness",
-        dimensions: dimensions,
-        Units:"m",
-        data_mesh:data_elements,
-        data_grid:data_grid,
-        variableID: GridOutput::variableID::snow_thick
-    };
+    GridOutput::Variable snow_thick(GridOutput::variableID::snow_thick, data_elements, data_grid);
 
     std::vector<GridOutput::Variable> elemental_variables(3);
     elemental_variables[0] = conc;
     elemental_variables[1] = thick;
     elemental_variables[2] = snow_thick;
 
-    if ( M_thermo_type == setup::ThermoType::WINTON )
-    {
-        // Technically, cannonical units for temperature are K, but that's just anoying here!
-        GridOutput::Variable tsurf={
-            name:"ts",
-            longName:"Surface Temperature",
-            stdName:"surface_temperature",
-            dimensions: dimensions,
-            Units:"degC",
-            data_mesh:data_elements,
-            data_grid:data_grid,
-            variableID: GridOutput::variableID::tsurf
-        };
-
-        elemental_variables.push_back(tsurf);
-
-        GridOutput::Variable t1={
-            name:"t1",
-            longName:"Ice Temperature 1",
-            stdName:"ice_temperature_1",
-            dimensions: dimensions,
-            Units:"degC",
-            data_mesh:data_elements,
-            data_grid:data_grid,
-            variableID: GridOutput::variableID::t1
-        };
-
-        elemental_variables.push_back(t1);
-
-        GridOutput::Variable t2={
-            name:"t2",
-            longName:"Ice Temperature 2",
-            stdName:"ice_temperature_2",
-            dimensions: dimensions,
-            Units:"degC",
-            data_mesh:data_elements,
-            data_grid:data_grid,
-            variableID: GridOutput::variableID::t2
-        };
-
-        elemental_variables.push_back(t2);
-    }
-
     // Output variables - nodes
-    GridOutput::Variable siu={
-        name:"siu",
-        // longName:"Eastward Sea Ice Velocity",
-        // stdName:"eastward_sea_ice_velocity",
-        longName:"Sea Ice X Velocity",
-        stdName:"sea_ice_x_velocity",
-        dimensions: dimensions,
-        Units:"m s-1",
-        data_mesh:data_nodes,
-        data_grid:data_grid,
-        variableID: GridOutput::variableID::VT_x
-    };
+    GridOutput::Variable siu(GridOutput::variableID::VT_x, data_nodes, data_grid);
 
-    GridOutput::Variable siv={
-        name:"siv",
-        // longName:"Northward Sea Ice Velocity",
-        // stdName:"northward_sea_ice_velocity",
-        longName:"Sea Ice Y Velocity",
-        stdName:"sea_ice_y_velocity",
-        dimensions: dimensions,
-        Units:"m s-1",
-        data_mesh:data_nodes,
-        data_grid:data_grid,
-        variableID: GridOutput::variableID::VT_y
-    };
+    GridOutput::Variable siv(GridOutput::variableID::VT_y, data_nodes, data_grid);
 
     std::vector<GridOutput::Variable> nodal_variables(2);
     nodal_variables[0] = siu;
@@ -4493,71 +4427,28 @@ FiniteElement::initMoorings()
     auto ycoords = std::minmax_element( RY.begin(), RY.end() );
 
     double mooring_spacing = 1e3 * vm["simul.mooring_spacing"].as<double>();
-    int nrows = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/mooring_spacing );
-    int ncols = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
+    int ncols = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/mooring_spacing );
+    int nrows = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
 
     // Define the mooring dataset
     M_moorings = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first, nodal_variables, elemental_variables, vectorial_variables);
 #else
     // Read the grid in from file
-    std::vector<DataSet::Dimension> dimensions_latlon(2);
-    dimensions_latlon[0] = dimension_y;
-    dimensions_latlon[1] = dimension_x;
-
-    std::vector<std::vector<double>> data2_tmp;
-    data2_tmp.resize(2);
-
-    DataSet::Variable latitude={
-        name: "latitude",
-        dimensions: dimensions_latlon,
-        land_mask_defined: false,
-        land_mask_value: 0.,
-        NaN_mask_defined: false,
-        NaN_mask_value: 0.,
-        a: 1.,
-        b: 0.,
-        Units: "degree_north",
-        data2: data2_tmp};
-
-    DataSet::Variable longitude={
-        name: "longitude",
-        dimensions: dimensions_latlon,
-        land_mask_defined: false,
-        land_mask_value: 0.,
-        NaN_mask_defined: false,
-        NaN_mask_value: 0.,
-        a: 1.,
-        b: 0.,
-        Units: "degree_east",
-        data2: data2_tmp};
-
-    DataSet::Grid grid={
-        interpolation_method: InterpolationType::None,
-        interp_type: -1,
+    // Define a grid
+    GridOutput::Grid grid{
+        gridFile: "TP4DAILY_200710_3m.nc",
         dirname: "data",
-        //filename: "TP4DAILY_200803_3m.nc",
-        prefix:"TP4DAILY_200803",
-        postfix: "_3m.nc",
-
-        latitude: latitude,
-        longitude: longitude,
-
-        dimension_x: dimension_x,
-        dimension_y: dimension_y,
-
-        mpp_file: vm["simul.proj_filename"].as<std::string>(),
-        interpolation_in_latlon: false,
-
-        loaded: false,
-        monthly_dataset:true,
-
-        masking: false,
-        masking_variable: latitude
+        mpp_file: Environment::vm()["simul.proj_filename"].as<std::string>(),
+        dimNameX: "y",
+        dimNameY: "x",
+        latName: "latitude",
+        lonName: "longitude"
     };
 
     // Define the mooring dataset
     M_moorings = GridOutput(grid, nodal_variables, elemental_variables, vectorial_variables);
 
+    /* Just for debuging
     // Save the grid info - this is still just an ascii dump!
     std::ofstream myfile;
     myfile.open("lon_grid.dat");
@@ -4566,44 +4457,17 @@ FiniteElement::initMoorings()
     myfile.open("lat_grid.dat");
     std::copy(M_moorings.M_grid.gridLAT.begin(), M_moorings.M_grid.gridLAT.end(), ostream_iterator<float>(myfile," "));
     myfile.close();
+
+    myfile.open("x_grid.dat");
+    std::copy(M_moorings.M_grid.gridX.begin(), M_moorings.M_grid.gridX.end(), ostream_iterator<float>(myfile," "));
+    myfile.close();
+    myfile.open("y_grid.dat");
+    std::copy(M_moorings.M_grid.gridY.begin(), M_moorings.M_grid.gridY.end(), ostream_iterator<float>(myfile," "));
+    myfile.close();
+    */
 #endif
 
     M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, time_init);
-
-#if 0
-    // Prepare the moorings grid for output
-    std::vector<DataSet::Dimension> dimensions_2d(2);
-    dimensions_2d[0] = dimension_x;
-    dimensions_2d[1] = dimension_y;
-
-    GridOutput::Variable lat={
-        name: "lat",
-        longName: "Latitude",
-        stdName: "latitude",
-        dimensions: dimensions_2d,
-        Units: "degrees",
-        data_mesh: M_mesh.lat(),
-        data_grid: data_grid
-    };
-
-    GridOutput::Variable lon={
-        name: "lon",
-        longName: "Longitude",
-        stdName: "longitude",
-        dimensions: dimensions_2d,
-        Units: "degrees",
-        data_mesh: M_mesh.lon(),
-        data_grid: data_grid
-    };
-
-    std::vector<GridOutput::Variable> grid_variables(2);
-    grid_variables[0] = lon;
-    grid_variables[1] = lat;
-
-    M_moorings_grid = GridOutput(ncols, nrows, mooring_spacing, grid_variables, GridOutput::variableKind::nodal);
-    M_moorings_grid.updateGridMean(M_mesh);
-    M_moorings_grid.exportGridMeans("_grid.dat", 1., 1.);
-#endif
 
 } //initMoorings
 
@@ -4681,6 +4545,7 @@ FiniteElement::writeRestart(int pcpt, int step)
     exporter.writeField(outbin, M_VTM, "M_VTM");
     exporter.writeField(outbin, M_VTMM, "M_VTMM");
     exporter.writeField(outbin, M_UM, "M_UM");
+    exporter.writeField(outbin, M_UT, "M_UT");
 
     if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
     {
@@ -4691,13 +4556,13 @@ FiniteElement::writeRestart(int pcpt, int step)
 
     if (M_drifter_type == setup::DrifterType::IABP)
     {
-        std::vector<int> drifter_no(M_drifter.size());
-        std::vector<double> drifter_x(M_drifter.size());
-        std::vector<double> drifter_y(M_drifter.size());
+        std::vector<int> drifter_no(M_iabpDrifters.size());
+        std::vector<double> drifter_x(M_iabpDrifters.size());
+        std::vector<double> drifter_y(M_iabpDrifters.size());
 
         // Sort the drifters so the restart files are identical (this is just to make testing easier)
         int j=0;
-        for ( auto it = M_drifter.begin(); it != M_drifter.end(); ++it )
+        for ( auto it = M_iabpDrifters.begin(); it != M_iabpDrifters.end(); ++it )
         {
             drifter_no[j] = it->first;
             ++j;
@@ -4707,8 +4572,8 @@ FiniteElement::writeRestart(int pcpt, int step)
         j=0;
         for ( auto it = drifter_no.begin(); it != drifter_no.end(); it++ )
         {
-            drifter_x[j] = M_drifter[drifter_no[j]][0];
-            drifter_y[j] = M_drifter[drifter_no[j]][1];
+            drifter_x[j] = M_iabpDrifters[drifter_no[j]][0];
+            drifter_y[j] = M_iabpDrifters[drifter_no[j]][1];
             j++;
         }
 
@@ -4892,6 +4757,7 @@ FiniteElement::readRestart(int step)
     M_VTM        = field_map_dbl["M_VTM"];
     M_VTMM       = field_map_dbl["M_VTMM"];
     M_UM         = field_map_dbl["M_UM"];
+    M_UT         = field_map_dbl["M_UT"];
 
     //for (int i=0; i < M_thick.size(); i++)
     //{
@@ -4919,7 +4785,7 @@ FiniteElement::readRestart(int step)
         } else {
             for ( int i=0; i<drifter_no.size(); ++i )
             {
-                M_drifter.emplace(drifter_no[i], std::array<double,2>{drifter_x[i], drifter_y[i]});
+                M_iabpDrifters.emplace(drifter_no[i], std::array<double,2>{drifter_x[i], drifter_y[i]});
             }
         }
     }
@@ -5133,7 +4999,7 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             variables[1] = dair;
             variables[2] = mslp;
             variables[3] = Qsw_in;
-            variables[4] = tcc;
+            variables[4] = Qlw_in;
             variables[5] = precip;
             */
 
@@ -5149,11 +5015,14 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
             M_external_data.push_back(&M_Qsw_in);
 
-            M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
-            M_external_data.push_back(&M_tcc);
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            M_external_data.push_back(&M_Qlw_in);
 
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
             M_external_data.push_back(&M_precip);
+
+            M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
+            M_external_data.push_back(&M_snowfall);
         break;
 
         case setup::AtmosphereType::EC:
@@ -6190,25 +6059,26 @@ FiniteElement::initThermodynamics()
 void
 FiniteElement::initDrifter()
 {
-    if ( vm["simul.use_drifters"].as<bool>() )
+    switch (M_drifter_type)
     {
-        switch (M_drifter_type)
-        {
-            // case setup::DrifterType::NONE:
-            //         break;
+        case setup::DrifterType::NONE:
+            break;
 
-            case setup::DrifterType::EQUALLYSPACED:
-                this->equallySpacedDrifter();
-                break;
+        case setup::DrifterType::EQUALLYSPACED:
+            this->equallySpacedDrifter();
+            break;
 
-            case setup::DrifterType::IABP:
-                this->initIABPDrifter();
-                break;
+        case setup::DrifterType::IABP:
+            this->initIABPDrifter();
+            break;
 
-            default:
-                std::cout << "invalid initialization of drifter"<<"\n";
-                throw std::logic_error("invalid initialization of drifter");
-        }
+        case setup::DrifterType::OSISAF:
+            this->initOSISAFDrifters();
+            break;
+
+        default:
+            std::cout << "invalid initialization of drifter"<<"\n";
+            throw std::logic_error("invalid initialization of drifter");
     }
 }
 
@@ -6303,25 +6173,25 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
     map = init_mapx(&str[0]);
 
     // Assemble the coordinates from the unordered_map
-    std::vector<double> drifter_X(M_drifter.size());
-    std::vector<double> drifter_Y(M_drifter.size());
+    std::vector<double> drifter_X(M_iabpDrifters.size());
+    std::vector<double> drifter_Y(M_iabpDrifters.size());
     int j=0;
-    for ( auto it = M_drifter.begin(); it != M_drifter.end(); ++it )
+    for ( auto it = M_iabpDrifters.begin(); it != M_iabpDrifters.end(); ++it )
     {
         drifter_X[j] = it->second[0];
         drifter_Y[j] = it->second[1];
         ++j;
     }
 
-    // Interpolate the velocity and concentration onto the drifter positions
+    // Interpolate the total displacement and concentration onto the drifter positions
     int nb_var=2;
     std::vector<double> interp_drifter_in(nb_var*M_mesh.numNodes());
 
     // Interpolate the velocity
     for (int i=0; i<M_mesh.numNodes(); ++i)
     {
-        interp_drifter_in[nb_var*i]   = M_UM[i];
-        interp_drifter_in[nb_var*i+1] = M_UM[i+M_mesh.numNodes()];
+        interp_drifter_in[nb_var*i]   = M_UT[i];
+        interp_drifter_in[nb_var*i+1] = M_UT[i+M_mesh.numNodes()];
     }
 
     double* interp_drifter_out;
@@ -6330,17 +6200,17 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
         M_mesh.numNodes(),M_mesh.numTriangles(),
         &interp_drifter_in[0],
         M_mesh.numNodes(),nb_var,
-        &drifter_X[0],&drifter_Y[0],M_drifter.size(),
+        &drifter_X[0],&drifter_Y[0],M_iabpDrifters.size(),
         true, 0.);
 
     // Loop over the map and output
     j=0;
     boost::gregorian::date           date = Nextsim::parse_date( current_time );
     boost::posix_time::time_duration time = Nextsim::parse_time( current_time );
-    for ( auto it = M_drifter.begin(); it != M_drifter.end(); ++it )
+    for ( auto it = M_iabpDrifters.begin(); it != M_iabpDrifters.end(); ++it )
     {
         double lat, lon;
-        inverse_mapx(map,it->second[0]+interp_drifter_out[j],it->second[1]+interp_drifter_out[j+M_drifter.size()],&lat,&lon);
+        inverse_mapx(map,it->second[0]+interp_drifter_out[j],it->second[1]+interp_drifter_out[j+M_iabpDrifters.size()],&lat,&lon);
         j++;
 
         drifters_out << setw(4) << date.year()
@@ -6393,19 +6263,19 @@ FiniteElement::updateIABPDrifter()
         keepers.push_back(number);
 
         // Project and add the buoy to the map if it's missing
-        if ( M_drifter.count(number) == 0 )
+        if ( M_iabpDrifters.count(number) == 0 )
         {
             double x, y;
             forward_mapx(map,lat,lon,&x,&y);
-            M_drifter.emplace(number, std::array<double,2>{x, y});
+            M_iabpDrifters.emplace(number, std::array<double,2>{x, y});
 
         }
     }
     close_mapx(map);
 
-    // Go through the M_drifter map and throw out the ones which IABP doesn't
+    // Go through the M_iabpDrifters map and throw out the ones which IABP doesn't
     // report as being in the ice anymore
-    for ( auto model = M_drifter.begin(); model != M_drifter.end(); /* ++model is not allowed here, because we use 'erase' */ )
+    for ( auto model = M_iabpDrifters.begin(); model != M_iabpDrifters.end(); /* ++model is not allowed here, because we use 'erase' */ )
     {
         bool keep = false;
         // Check against all the buoys we want to keep
@@ -6420,7 +6290,7 @@ FiniteElement::updateIABPDrifter()
 
         // Delete or advance the iterator
         if ( ! keep )
-            model = M_drifter.erase(model);
+            model = M_iabpDrifters.erase(model);
         else
             ++model;
     }
@@ -6459,12 +6329,15 @@ FiniteElement::initIABPDrifter()
 void
 FiniteElement::equallySpacedDrifter()
 {
-    LOG(DEBUG) << "equally spaced drifters not yet implemented" << "\n";
-    throw std::logic_error("equally spaced drifters not yet implemented");
-    /*if (M_drifter.size() ==0)
-        M_drifter.resize(M_num_elements);
+    M_drifters = Drifters(1e3*vm["simul.drifter_spacing"].as<double>(), M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
+    M_drifters.initNetCDF(M_export_path+"/Drifters_", current_time);
+    M_drifters.appendNetCDF(current_time, M_mesh, M_UT);
+}
 
-    std::fill(M_drifter.begin(), M_drifter.end(), 0.);*/
+void
+FiniteElement::initOSISAFDrifters()
+{
+    M_osisaf_drifters.resize(2);
 }
 
 void
@@ -6699,7 +6572,7 @@ FiniteElement::exportInitMesh()
 void
 FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, bool apply_displacement)
 {
-    Exporter exporter("float");
+    Exporter exporter(vm["setup.exporter_precision"].as<std::string>());
     std::string fileout;
 
 
@@ -6803,9 +6676,11 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
             if ( M_tcc.M_initialized )
                 exporter.writeField(outbin,M_tcc.getVector(), "M_tcc");       // Incoming long-wave radiation [W/m2]
             if ( M_precip.M_initialized )
-                exporter.writeField(outbin,M_precip.getVector(), "M_precip");       // Total precipitation [m]
+                exporter.writeField(outbin,M_precip.getVector(), "M_precip");       // Total precipitation rate [kg/m^2/s]
             if ( M_snowfr.M_initialized )
                 exporter.writeField(outbin,M_snowfr.getVector(), "M_snowfr");       // Fraction of precipitation that is snow
+            if ( M_snowfall.M_initialized )
+                exporter.writeField(outbin,M_snowfall.getVector(), "M_snowfall");       // Snow fall rate [kg/m^2/s]
             if ( M_dair.M_initialized )
                 exporter.writeField(outbin,M_dair.getVector(), "M_dair");         // 2 m dew point [C]
 

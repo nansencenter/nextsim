@@ -35,6 +35,7 @@
 #include <externaldata.hpp>
 #include <gridoutput.hpp>
 #include <dataset.hpp>
+#include <drifters.hpp>
 
 #ifdef WITHGPERFTOOLS
 #include <gperftools/profiler.h>
@@ -261,6 +262,7 @@ private:
     std::vector<double> M_surface;
     std::vector<double> M_sigma;
     std::vector<double> M_UM;
+    std::vector<double> M_UT;
     std::vector<double> M_VT;
     std::vector<double> M_VTM;
     std::vector<double> M_VTMM;
@@ -323,6 +325,7 @@ private:
     double output_time_step;
     double mooring_output_time_step;
     double mooring_time_factor;
+    double drifter_output_time_step;
     double restart_time_step;
     double time_step;
     double duration;
@@ -397,8 +400,9 @@ private:
     external_data M_mslp;         // Atmospheric pressure [Pa]
     external_data M_Qsw_in;       // Incoming short-wave radiation [W/m2]
     external_data M_Qlw_in;       // Incoming long-wave radiation [W/m2]
-    external_data M_tcc;       // Incoming long-wave radiation [W/m2]
-    external_data M_precip;       // Total precipitation [m]
+    external_data M_tcc;          // Incoming long-wave radiation [W/m2]
+    external_data M_precip;       // Total precipitation rate [kg/m^2/s]
+    external_data M_snowfall;     // Snowfall rate [kg/m^2/s]
     external_data M_snowfr;       // Fraction of precipitation that is snow
     external_data M_dair;         // 2 m dew point [C]
 
@@ -419,9 +423,12 @@ private:
     external_data M_element_depth;
 
     // Drifters
-    boost::unordered_map<int, std::array<double,2>> M_drifter; // Drifters are kept in an unordered map containing number and coordinates
-    std::fstream M_iabp_file;             // The file we read the IABP buoy data from
-    std::fstream M_drifters_out;    // The file we write our simulated drifter positions into
+    boost::unordered_map<int, std::array<double,2>> M_iabpDrifters; // Drifters are kept in an unordered map containing number and coordinates
+    std::fstream M_iabp_file;   // The file we read the IABP buoy data from
+    std::fstream M_iabp_out;    // The file we write our simulated drifter positions into
+
+    Drifters M_drifters; // Drifters on a grid
+    std::vector<Drifters> M_osisaf_drifters; // A vector of drifters for the OSISAF emulation
 
     // Element variable
     std::vector<double> M_element_age;         // Age of the element (model time since its last adaptation)
@@ -466,6 +473,7 @@ private:
     void topazAmsreIce();
     void topazAmsr2Ice();
 
+    void initOSISAFDrifters();
     void equallySpacedDrifter();
     void outputDrifter(std::fstream &iabp_out);
     void initIABPDrifter();

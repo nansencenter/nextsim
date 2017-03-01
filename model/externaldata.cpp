@@ -416,13 +416,6 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                     value_year--;
                 }
                 f_timestr=(boost::format( "%1%%2%" ) % boost::io::group(std::setw(4), std::setfill('0'), value_year) % boost::io::group(std::setw(2), std::setfill('0'), value_month)).str();
-
-                // change the reference_date if erai forcing according to the xxxx-01-01, where xxxx is the current year
-                if ((dataset->name).find("ERAi") != std::string::npos)
-                {
-                    dataset->grid.reference_date = (boost::format( "%1%" ) % boost::io::group(std::setw(4), std::setfill('0'), value_year)).str() + "-01-01";
-                    //std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@DETECT ERAi: Dataset->grid.reference_date= "<< dataset->grid.reference_date <<"\n";
-                }
             }
             else if(dataset->grid.dataset_frequency=="yearly")
             {
@@ -495,7 +488,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                     f = from_date_string((boost::format( "%1%-%2%-%3%" ) % f_timestr.substr(0,4) % f_timestr.substr(4,2) % f_timestr.substr(6,2)).str())+0.5;
                 else
                     f = (XTIME[it]*dataset->time.a+dataset->time.b)/24.0+from_date_string(dataset->grid.reference_date);
-                
+
                 if(f>M_current_time && index_next==-1)
                 {
                     time_next=f;
