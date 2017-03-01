@@ -25,7 +25,6 @@ namespace Nextsim
      * function (maskXY), called only by the constructors, to mask out drifters
      * placed outside the ice cover.
      * There is also a default, constructor which initialises things to zero and false.
-     * The destructor is empty.
      */
 
 	Drifters::Drifters()
@@ -35,9 +34,6 @@ namespace Nextsim
         M_X.resize(0);
         M_Y.resize(0);
     }
-
-    Drifters::~Drifters()
-    {}
 
 	Drifters::Drifters(double spacing, GmshMesh const &mesh, std::vector<double> &conc, double climit)
     {

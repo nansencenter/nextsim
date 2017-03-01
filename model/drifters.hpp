@@ -49,7 +49,6 @@ namespace Nextsim
             Drifters();
             Drifters(double spacing, GmshMesh const &mesh, std::vector<double> &conc, double climit);
             Drifters(std::string dirname, std::string gridFile, std::string dimNameX, std::string dimNameY, std::string latName, std::string lonName, GmshMesh const &mesh, std::vector<double> &conc, double climit);
-            ~Drifters();
 
             void move(GmshMesh const &mesh, std::vector<double> const &UT);
 
