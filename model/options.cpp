@@ -131,7 +131,7 @@ namespace Nextsim
             ("simul.fixed_cohesion", po::value<bool>()->default_value( true ), "")
             ("simul.use_coriolis", po::value<bool>()->default_value( true ), "")
             ("simul.alea_factor", po::value<double>()->default_value( 0. ), "")
-            ("simul.young", po::value<double>()->default_value( 9000e+6 ), "Pa")
+            ("simul.young", po::value<double>()->default_value( 5.49e+9 ), "Pa") // 5.49e+9 is a more reasonable than 9GPa, and same as used in WIM paper.
             ("simul.cfix", po::value<double>()->default_value( 40e+3 ), "Pa")
             ("simul.nu0", po::value<double>()->default_value( 0.3 ), "")
             ("simul.tan_phi", po::value<double>()->default_value( 0.7 ), "")
