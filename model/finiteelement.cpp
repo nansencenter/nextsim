@@ -81,6 +81,7 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
     LOG(DEBUG) <<"Convert MESH done\n";
 
     // set M_flag_fix to its correct value when PhysicalNames section is present in the msh file (version 2.2)
+    LOG(DEBUG) <<"M_flag_fix : " << M_flag_fix << "\n";
     if (!(M_mesh.markerNames()).empty())
     {
         LOG(DEBUG) <<"M_flag_fix before being changed was: " << M_flag_fix << "\n";
@@ -2030,7 +2031,7 @@ FiniteElement::adaptMesh()
         M_boundary_flags.push_back(bamgmesh->Edges[3*edg]-1);
         //M_boundary_flags.push_back(bamgmesh->Edges[3*edg+1]-1);
 
-        if (bamgmesh->Edges[3*edg+2] == M_flag_fix)
+        if (bamggeom->Edges[3*edg+2] == M_flag_fix)
         {
             M_dirichlet_flags.push_back(bamgmesh->Edges[3*edg]-1);
             //M_dirichlet_flags.push_back(bamgmesh->Edges[3*edg+1]-1);
@@ -4703,7 +4704,7 @@ FiniteElement::readRestart(int step)
     for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
     {
         M_boundary_flags.push_back(bamgmesh->Edges[3*edg]-1);
-        if (bamgmesh->Edges[3*edg+2] == M_flag_fix)
+        if (bamggeom->Edges[3*edg+2] == M_flag_fix)
             M_dirichlet_flags.push_back(bamgmesh->Edges[3*edg]-1);
     }
 
@@ -5358,12 +5359,22 @@ FiniteElement::constantIce()
 void
 FiniteElement::targetIce()
 {
+    /*
     double y_max=300000.;
     double y_min=150000.;
     double x_max1=240000.;
     double x_min1=150000.;
     double x_max2=300000.;
     double x_min2=260000.;
+    */
+    
+    double y_max=300000.;
+    double y_min=0000.;
+    double x_max1=400000.;
+    double x_min1=200000.;
+    double x_max2=300000.;
+    double x_min2=260000.;
+    
 
     double transition=(y_max-y_min)/10.;
 
@@ -5375,9 +5386,11 @@ FiniteElement::targetIce()
 
     for (int i=0; i<M_num_elements; ++i)
     {
-        tmp_var = (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max1)*(RX[i]>=x_min1)
-            + (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max2)*(RX[i]>=x_min2);
+        //tmp_var = (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max1)*(RX[i]>=x_min1)
+        //    + (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max2)*(RX[i]>=x_min2);
 
+        tmp_var = (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max1)*(RX[i]>=x_min1);
+        
             /*
             +     (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<x_min)*std::max(cmin,(1.-std::hypot(RX[i]-x_min,0.         )/transition))
             +     (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]>x_max)*std::max(cmin,(1.-std::hypot(RX[i]-x_max,0.         )/transition))
