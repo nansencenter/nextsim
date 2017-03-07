@@ -419,7 +419,6 @@ FiniteElement::initConstant()
     quad_drag_coef_water = vm["simul.quad_drag_coef_water"].as<double>();
 
     basal_k2 = vm["simul.Lemieux_basal_k2"].as<double>();
-    basal_drag_coef_air = vm["simul.Lemieux_drag_coef_air"].as<double>();
     basal_u_0 = vm["simul.Lemieux_basal_u_0"].as<double>();
     basal_Cb = vm["simul.Lemieux_basal_Cb"].as<double>();
 
@@ -2170,7 +2169,8 @@ FiniteElement::assemble(int pcpt)
         double coef_Y       = 0.;
 
         double mloc = 0.;
-
+        double dloc = 0.;
+        
         double b0tj_sigma_hu = 0.;
         double b0tj_sigma_hv = 0.;
 
@@ -2180,12 +2180,22 @@ FiniteElement::assemble(int pcpt)
         double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-M_damage[cpt],exponent_relaxation_sigma-1.);
         double multiplicator=time_viscous/(time_viscous+time_step);
         
+        double norm_Voce_ice=0.;
+        double norm_Voce_ice_min= 0.01; // minimum value to avoid 0 water drag term.
+        
+        double norm_Vair_ice=0.;
+        double norm_Vair_ice_min= 0.01; // minimum value to avoid 0 water drag term.
+        
+        double norm_Vice=0.;
+        
+        double element_ssh=0.;
+        double critical_h = 0.;
+        
+        
         if(tmp_conc > vm["simul.min_c"].as<double>())
         {
 
             /* Compute the value that only depends on the element */
-            double welt_oce_ice = 0.;
-            double welt_air_ice = 0.;
             double welt_ice = 0.;
             double welt_ssh = 0.;
             int nind;
@@ -2193,38 +2203,12 @@ FiniteElement::assemble(int pcpt)
             for (int i=0; i<3; ++i)
             {
                 nind = (M_elements[cpt]).indices[i]-1;
-
-                welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
-                welt_air_ice += std::hypot(M_VT[nind]-M_wind [nind],M_VT[nind+M_num_nodes]-M_wind [nind+M_num_nodes]);
-                welt_ice += std::hypot(M_VT[nind],M_VT[nind+M_num_nodes]);
-
                 welt_ssh += M_ssh[nind];
             }
-
-            double norm_Voce_ice = welt_oce_ice/3.;
-            double norm_Voce_ice_min= 0.01; // minimum value to avoid 0 water drag term.
-            norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
-
-            double norm_Vair_ice = welt_air_ice/3.;
-            double norm_Vair_ice_min= 0.01; // minimum value to avoid 0 water drag term.
-            norm_Vair_ice = (norm_Vair_ice > norm_Vair_ice_min) ? (norm_Vair_ice):norm_Vair_ice_min;
-
-            double norm_Vice = welt_ice/3.;
-
-            double element_ssh = welt_ssh/3.;
-
-            coef_Vair = (vm["simul.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*norm_Vair_ice));
-            coef_Vair *= (physical::rhoa);
-
-            coef_Voce = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
-            coef_Voce *= physical::rhow; //(vm["simul.rho_water"].as<double>());
-
-            double critical_h = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
-
-            double _coef = std::max(0., M_thick[cpt]-critical_h);
-            coef_basal = quad_drag_coef_air*basal_k2/(basal_drag_coef_air*(norm_Vice+basal_u_0));
-            coef_basal *= _coef*std::exp(-basal_Cb*(1.-M_conc[cpt]));
-
+            
+            element_ssh = welt_ssh/3.;
+            critical_h = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
+            
     #if 1
             //option 1 (original)
             coef = multiplicator*young*(1.-M_damage[cpt])*tmp_thick*std::exp(ridging_exponent*(1.-tmp_conc));
@@ -2303,6 +2287,7 @@ FiniteElement::assemble(int pcpt)
 
                 /* Select the nodal weight values from M_loc */
                 mloc = M_Mass[3*j+i];
+                dloc = M_Diag[3*j+i];
 
                 b0tj_sigma_hu = 0.;
                 b0tj_sigma_hv = 0.;
@@ -2314,7 +2299,34 @@ FiniteElement::assemble(int pcpt)
                 }
 
                 /* ---------- UU component */
-                duu = surface_e*( mloc*(coef_Vair+coef_Voce*cos_ocean_turning_angle+coef_V+coef_basal)
+                
+                norm_Voce_ice = std::hypot(M_VT[index_u]-M_ocean[index_u],M_VT[index_v]-M_ocean[index_v]);
+                norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
+
+                coef_Voce = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
+                coef_Voce *= physical::rhow; //(vm["simul.rho_water"].as<double>());
+                
+                norm_Vair_ice = std::hypot(M_VT[index_u]-M_wind [index_u],M_VT[index_v]-M_wind [index_v]);
+                norm_Vair_ice = (norm_Vair_ice > norm_Vair_ice_min) ? (norm_Vair_ice):norm_Vair_ice_min;
+
+                coef_Vair = (vm["simul.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*norm_Vair_ice));
+                coef_Vair *= (physical::rhoa);
+                
+                norm_Vice = std::hypot(M_VT[index_u],M_VT[index_v]);
+                norm_Vice = (norm_Vice > basal_u_0) ? (norm_Vice):basal_u_0;
+                                
+                coef_basal = basal_k2/norm_Vice;
+                coef_basal *= std::max(0., M_thick[cpt]-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
+                   
+                if(tmp_conc == vm["simul.min_c"].as<double>())
+                {
+                    coef_Voce=0.;
+                    coef_Vair=0.;
+                    coef_basal=0.;
+                }
+                
+                duu = surface_e*( mloc*(coef_V)
+                                  +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)  
                                   +M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*time_step);
 
                 /* ---------- VU component */
@@ -2324,7 +2336,8 @@ FiniteElement::assemble(int pcpt)
                 duv = surface_e*(+M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j+1]*coef*time_step);
 
                 /* ---------- VV component */
-                dvv = surface_e*( mloc*(coef_Vair+coef_Voce*cos_ocean_turning_angle+coef_V+coef_basal)
+                dvv = surface_e*( mloc*(coef_V)
+                                  +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
                                   +M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*time_step);
 
                 data[(2*i  )*6+2*j  ] = duu;
@@ -2332,22 +2345,30 @@ FiniteElement::assemble(int pcpt)
                 data[(2*i  )*6+2*j+1] = duv;
                 data[(2*i+1)*6+2*j+1] = dvv;
 
-                fvdata[2*i] += surface_e*( mloc*(   +M_tau[index_u]
-                                                    +coef_Vair*M_wind[index_u]
-                                                    +coef_Voce*cos_ocean_turning_angle*M_ocean[index_u]
+                fvdata[2*i]     += surface_e*( mloc*(   
+                                                    +M_tau[index_u]
                                                     +coef_X
                                                     +coef_V*M_VT[index_u]
+                                                    +coef_C*Vcor_index_v
+                                                        )
+                                                + dloc*(   
+                                                    +coef_Vair*M_wind[index_u]
+                                                    +coef_Voce*cos_ocean_turning_angle*M_ocean[index_u]
                                                     -coef_Voce*sin_ocean_turning_angle*(M_ocean[index_v]-M_VT[index_v])
-                                                    +coef_C*Vcor_index_v)
+                                                    )
                                             - b0tj_sigma_hu/3);
 
-                fvdata[2*i+1] += surface_e*( mloc*( +M_tau[index_v]
-                                                    +coef_Vair*M_wind[index_v]
-                                                    +coef_Voce*cos_ocean_turning_angle*M_ocean[index_v]
+                fvdata[2*i+1]   += surface_e*( mloc*( 
+                                                    +M_tau[index_v]
                                                     +coef_Y
                                                     +coef_V*M_VT[index_v]
+                                                    -coef_C*Vcor_index_u
+                                                        )
+                                                +dloc*( 
+                                                    +coef_Vair*M_wind[index_v]
+                                                    +coef_Voce*cos_ocean_turning_angle*M_ocean[index_v]
                                                     +coef_Voce*sin_ocean_turning_angle*(M_ocean[index_u]-M_VT[index_u])
-                                                    -coef_C*Vcor_index_u)
+                                                        )
                                             - b0tj_sigma_hv/3);
             }
 
@@ -2486,6 +2507,7 @@ FiniteElement::tensors()
 {
     M_Dunit.assign(9,0);
     M_Mass.assign(9,0);
+    M_Diag.assign(9,0);
 
     for (int k=0; k<6; k+=3)
     {
@@ -2510,6 +2532,7 @@ FiniteElement::tensors()
         for (int j=0; j<3; ++j)
         {
             M_Mass[3*i+j] = ((i == j) ? 2.0 : 1.0)/12.0;
+            M_Diag[3*i+j] = ((i == j) ? 1.0 : 0.0)/3.0;
             //std::cout<< std::left << std::setw(12) << Mass[3*i+j] <<"  ";
         }
 

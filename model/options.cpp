@@ -168,7 +168,6 @@ namespace Nextsim
             // basal stress parameterization
             ("simul.Lemieux_basal_k1", po::value<double>()->default_value( 10. ), "")
             ("simul.Lemieux_basal_k2", po::value<double>()->default_value( 15. ), "")
-            ("simul.Lemieux_drag_coef_air", po::value<double>()->default_value( 0.0012 ), "")
             ("simul.Lemieux_basal_Cb", po::value<double>()->default_value( 20. ), "")
             ("simul.Lemieux_basal_u_0", po::value<double>()->default_value( 5e-5 ), "")
             ("simul.Lemieux_basal_u_crit", po::value<double>()->default_value( 5e-4 ), "")

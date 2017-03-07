@@ -285,6 +285,7 @@ private:
 
     std::vector<double> M_Dunit;
     std::vector<double> M_Mass;
+    std::vector<double> M_Diag;
     std::vector<std::vector<double>> M_shape_coeff;
     std::vector<std::vector<double>> M_B0T;
     std::vector<std::vector<double>> M_B0T_Dunit_B0T;
@@ -338,7 +339,6 @@ private:
     //double water_depth;
 
     double basal_k2;
-    double basal_drag_coef_air;
     double basal_u_0;
     double basal_Cb;
 
