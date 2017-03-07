@@ -1965,9 +1965,16 @@ FiniteElement::adaptMesh()
         fnd = bamgmesh_previous->Edges[3*edg]-1;
 
         if ((std::binary_search(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),fnd)))
+        {
             bamggeom_previous->Edges[3*edg+2] = M_flag_fix;
+            bamgmesh_previous->Edges[3*edg+2] = M_flag_fix;      
+        }
         else
-            bamgmesh_previous->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
+        {
+            bamggeom_previous->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix 
+            bamgmesh_previous->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix 
+        }
+        
     }
 
     //Environment::logMemoryUsage("before adaptMesh");
@@ -4672,9 +4679,15 @@ FiniteElement::readRestart(int step)
     {
         int fnd = bamgmesh->Edges[3*edg]-1;
         if ((std::binary_search(dirichlet_flags.begin(),dirichlet_flags.end(),fnd)))
+        {
             bamggeom->Edges[3*edg+2] = M_flag_fix;
+            bamgmesh->Edges[3*edg+2] = M_flag_fix;    
+        }
         else
-            bamgmesh->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
+        {
+            bamggeom->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
+            bamgmesh->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix        
+        }
     }
 
     // Import the bamg structs
