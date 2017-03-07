@@ -5371,14 +5371,21 @@ FiniteElement::constantIce()
 void
 FiniteElement::targetIce()
 {
+    /*
     double y_max=300000.;
     double y_min=150000.;
     double x_max1=240000.;
     double x_min1=150000.;
     double x_max2=300000.;
     double x_min2=260000.;
+    */
+    
+    double y_max=350000.;
+    double y_min=0000.;
+    double x_max=400000.;
+    double x_min=200000.;
 
-    double transition=(y_max-y_min)/10.;
+    double transition=(x_max-x_min)/10.;
 
 	double tmp_var;
 
@@ -5388,9 +5395,11 @@ FiniteElement::targetIce()
 
     for (int i=0; i<M_num_elements; ++i)
     {
-        tmp_var = (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max1)*(RX[i]>=x_min1)
+        tmp_var = (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max)*(RX[i]>=x_min);
+        
+/*        tmp_var = (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max1)*(RX[i]>=x_min1)
             + (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max2)*(RX[i]>=x_min2);
-
+*/
             /*
             +     (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<x_min)*std::max(cmin,(1.-std::hypot(RX[i]-x_min,0.         )/transition))
             +     (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]>x_max)*std::max(cmin,(1.-std::hypot(RX[i]-x_max,0.         )/transition))
