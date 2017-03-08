@@ -83,19 +83,21 @@ public:
 
     enum variableID
     {
+        lsm         =  0,
+
         // Prognostic variables
-        conc        =  0,
-        thick       =  1,
-        damage      =  2,
-        snow_thick  =  3,
-        VT_x        =  4,
-        VT_y        =  5,
-        tsurf       =  6,
-        sst         =  7,
-        sss         =  8,
-        tsurf_ice   =  9,
-        t1          = 10,
-        t2          = 11
+        conc        =  1,
+        thick       =  2,
+        damage      =  3,
+        snow_thick  =  4,
+        VT_x        =  5,
+        VT_y        =  6,
+        tsurf       =  7,
+        sst         =  8,
+        sss         =  9,
+        tsurf_ice   = 10,
+        t1          = 11,
+        t2          = 12
 
         // Diagnostic variables
     };
@@ -109,6 +111,12 @@ public:
         {
             switch (varID)
             {
+                case (variableID::lsm):
+                    name     = "lsm";
+                    longName = "Land Sea Mask";
+                    stdName  = "land_sea_mask";
+                    Units    = "1";
+                    break;
                 case (variableID::conc):
                     name     = "sic";
                     longName = "Sea Ice Concentration";
@@ -225,6 +233,8 @@ public:
     std::string initNetCDF(std::string file_prefix, GridOutput::fileLength file_length, double current_time);
     void appendNetCDF(std::string filename, double timestamp);
 
+    std::vector<int> getMask(GmshMesh const &mesh, variableKind kind);
+
     int M_ncols;
     int M_nrows;
     double M_mooring_spacing;
@@ -248,7 +258,7 @@ private:
 
     void initArbitraryGrid(Grid grid);
 
-    void updateGridMeanWorker(GmshMesh const& mesh, int mesh_size, std::vector<Variable>& variables);
+    void updateGridMeanWorker(GmshMesh const& mesh, int mesh_size, std::vector<Variable>& variables, double miss_val);
 
     void rotateVectors(GmshMesh const& mesh, Vectorial_Variable const& vectorial_variable, std::vector<Variable>& variables);
 

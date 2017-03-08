@@ -3955,6 +3955,10 @@ FiniteElement::finalise()
         M_iabp_out.close();
     }
 
+#ifdef OASIS
+    int ierror = OASIS3::terminate();
+#endif
+
     this->clear();
 }
 
@@ -4081,6 +4085,194 @@ FiniteElement::init()
     if ( M_use_moorings )
         this->initMoorings();
 
+#ifdef OASIS
+    //!!!!!!!!!!!!!!!!! OASIS_INIT !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    int ierror, rank;
+    int  mype, npes;            // rank and  number of pe
+    MPI_Comm localComm;         // local MPI communicator and Initialized
+    int comp_id;                // Component identification
+    char comp_name = "nxtsim";  // Component name (6 characters) same as in the namcouple
+
+    ierror = OASIS3::init_comp(&comp_id, comp_name);
+    if (ierror != 0) {
+        std::cout << "oasis_init_comp abort by nextsim with error code " << ierror << std::endl;
+        OASIS3::abort(comp_id, comp_name, "Problem calling OASIS3::init_comp");
+    }
+
+    // Unit for output messages : one file for each process
+    ierror =  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+
+    //!!!!!!!!!!!!!!!!! OASIS_GET_LOCALCOMM !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ierror = OASIS3::get_localcomm(&localComm);
+    if (ierror != 0) {
+        std::cout << "oasis_get_localcomm abort by nextsim with error code " << ierror << std::endl;
+        OASIS3::abort(comp_id, comp_name, "Problem calling OASIS3::get_localcomm");
+    }
+
+
+    // Get MPI size and rank
+    ierror = MPI_Comm_size(localComm, &npes);
+    ierror = MPI_Comm_rank (localComm, &mype);
+    std::cout << "npes : " << npes << "  mype : " << mype << std::endl;
+
+    //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    //  GRID DEFINITION
+    //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    // Output and averaging grids
+    std::vector<double> data_nodes(M_num_nodes);
+    std::vector<double> data_elements(M_num_elements);
+    std::vector<double> data_grid;
+
+    // Output variables - elements
+    GridOutput::Variable conc(GridOutput::variableID::conc, data_elements, data_grid);
+
+    GridOutput::Variable thick(GridOutput::variableID::thick, data_elements, data_grid);
+
+    GridOutput::Variable snow_thick(GridOutput::variableID::snow_thick, data_elements, data_grid);
+
+    std::vector<GridOutput::Variable> elemental_variables(3);
+    elemental_variables[0] = conc;
+    elemental_variables[1] = thick;
+    elemental_variables[2] = snow_thick;
+
+    // Calculate the grid spacing (assuming a regular grid for now)
+    auto RX = M_mesh.coordX();
+    auto RY = M_mesh.coordY();
+    auto xcoords = std::minmax_element( RX.begin(), RX.end() );
+    auto ycoords = std::minmax_element( RY.begin(), RY.end() );
+
+    double mooring_spacing = 1e3 * vm["simul.mooring_spacing"].as<double>();
+    int nrows = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/mooring_spacing );
+    int ncols = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
+
+    // Define the mooring dataset
+    M_cpl_out = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first, elemental_variables, GridOutput::varibleKind::elemental);
+    std::vector<int> lsm = M_cpl_out.getMask(M_mesh, GridOutput::variableKind::elemental);
+
+    /*
+    // Reading global grid netcdf file
+
+    // Reading dimensions of the global grid
+    read_dimgrid_c_(&nlon,&nlat,data_filename,&data_filename_len,&w_unit);
+
+    cout << "nlon : " << nlon << "  nlat : " << nlat << endl;
+
+    globalgrid_lon = (double*) malloc(nlon*nlat*sizeof(double));
+    globalgrid_lat = (double*) malloc(nlon*nlat*sizeof(double));
+    globalgrid_clo = (double*) malloc(nlon*nlat*nc*sizeof(double));
+    globalgrid_cla = (double*) malloc(nlon*nlat*nc*sizeof(double));
+    globalgrid_srf = (double*) malloc(nlon*nlat*sizeof(double));
+    indice_mask = (int*) malloc(nlon*nlat*sizeof(int));
+
+    // Reading of the longitudes, latitudes, longitude and latitudes of the corners, mask of the global grid
+    read_grid_c_(&nlon,&nlat,&nc, data_filename, &data_filename_len, &w_unit,
+        globalgrid_lon,globalgrid_lat,
+        globalgrid_clo,globalgrid_cla,
+        globalgrid_srf,
+        indice_mask);
+
+    //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    //  PARTITION DEFINITION
+    //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    // Definition of the partition of the grid (calling oasis_def_partition)
+    ntot=nlon*nlat;
+
+#ifdef DECOMP_APPLE
+    il_paral_size = 3;
+#elif defined DECOMP_BOX
+    il_paral_size = 5;
+#endif
+
+    il_paral = (int*) malloc(il_paral_size*sizeof(int));
+
+    decomp_def_(il_paral,&il_paral_size,&nlon,&nlat,&mype,&npes,&w_unit);
+    //! The data are exchanged in the global grid so you do not need to pass
+    //! isize to oasis_def_partition
+    ierror = OASIS3::def_partition(&part_id, il_paral, 3);
+    if (ierror != 0) {
+        std::cout << "oasis_def_partition abort by nextsim with error code " << ierror << std::endl;
+        OASIS3::abort(comp_id, comp_name, "Problem calling OASIS3::def_partition");
+    }
+
+    */
+    int part_id;                        // partition id
+    int ig_paral[3];
+    ig_paral[0] = 0;                    // a serial partition
+    ig_paral[1] = 0;
+    ig_paral[2] = M_mesh.num_elements;  // the total grid size
+    ierror = OASIS3::def_partition(&part_id, &ig_paral, sizeof(ig_paral));
+    if (ierror != 0) {
+        std::cout << "oasis_def_partition abort by nextsim with error code " << ierror << std::endl;
+        OASIS3::abort(comp_id, comp_name, "Problem calling OASIS3::def_partition");
+    }
+
+    // (Global) grid definition for OASIS3
+    // Writing of the file grids.nc and masks.nc by the processor 0 from the grid read in
+
+    //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    //  GRID WRITING
+    //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ 
+    if (mype == 0) {
+        OASIS3::start_grids_writing(ierror);
+        OASIS3::write_grid("nxts", ncols, nrows, &M_cpl_out.M_grid.lon[0], &M_cpl_out.lat[0]);
+        // OASIS3::write_corner("nxts", ncols, nrows, 4, globalgrid_clo, globalgrid_cla);
+        // OASIS3::write_area("nxts", ncols, nrows, globalgrid_srf);
+        OASIS3::write_mask("nxts", ncols, nrows, &lsm[0]);
+        OASIS3::terminate_grids_writing();
+    }
+    std::cout << "model1_cpp ====> After grids writing" << std::endl;
+
+
+    //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    // DEFINITION OF THE LOCAL FIELDS
+    //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    //!!!!!!!!!!!!!!! !!!!!!!!! OASIS_DEF_VAR !!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    //!  Define transient variables
+
+    // ---------------------"12345678"
+    const char var_snd1[] = "FSendCnc"; // !8 characters field sent by model1 to model2
+    const char var_rcv1[] = "FRecvSST"; //! 8 characters field received by model1 from model2
+    int var_id[2];
+    int var_nodims[2];
+    var_nodims[0] = 2 ; //   ! Rank of the field array is 2
+    var_nodims[1] = 1 ; //   ! Bundles always 1 for OASIS3
+    //var_type = OASIS3::OASIS_Real;
+    int var_type = OASIS3::OASIS_Double;
+
+    int var_actual_shape[4]; // ! local dimensions of the arrays to the pe. 2 x field rank (= 4 because fields are of rank = 2)
+    var_actual_shape[0] = 1;
+    var_actual_shape[1] = ncols;
+    var_actual_shape[2] = 1;
+    var_actual_shape[3] = nrows;
+
+    // Declaration of the field associated with the partition
+    ierror = OASIS3::def_var(&var_id[0],var_snd1, part_id,
+        var_nodims, OASIS3::OASIS_Out, var_actual_shape, var_type);
+    cout << "model1_cpp ====> After def_var 1 " << endl;
+
+    ierror = OASIS3::def_var(&var_id[1],var_rcv1, part_id,
+        var_nodims, OASIS3::OASIS_In, var_actual_shape, var_type);
+
+    cout << "model1_cpp ====> After def_var 2 " << endl;
+
+    //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    //         TERMINATION OF DEFINITION PHASE
+    //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    //  All processes involved in the coupling must call oasis_enddef;
+    //  here all processes are involved in coupling
+
+    //!!!!!!!!!!!!!!!!!! OASIS_ENDDEF !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    OASIS3::enddef();
+    cout << "======>After oasis_enddef" << endl;
+#endif
+
     return pcpt;
 }
 
@@ -4116,6 +4308,7 @@ FiniteElement::step(int &pcpt)
         if ( minang < vm["simul.regrid_angle"].as<double>() || flip_test )
         {
             M_regrid = true;
+
             // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
             if ( M_use_moorings && ! M_moorings_snapshot )
                 M_moorings.updateGridMean(M_mesh);
@@ -4124,12 +4317,19 @@ FiniteElement::step(int &pcpt)
             if ( M_drifter_type == setup::DrifterType::OSISAF )
                 for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
                     it->move(M_mesh, M_UT);
+#ifdef OASIS
+            M_cpl_out.updateGridMean(M_mesh);
+#endif
+
             LOG(DEBUG) <<"Regridding starts\n";
             chrono.restart();
             this->regrid(pcpt);
             LOG(DEBUG) <<"Regridding done in "<< chrono.elapsed() <<"s\n";
             if ( M_use_moorings )
                 M_moorings.resetMeshMean(M_mesh);
+#ifdef OASIS
+            M_cpl_out.resetMeshMean(M_mesh);
+#endif
         }
     }
 
@@ -4291,6 +4491,19 @@ FiniteElement::step(int &pcpt)
             }
         }
     }
+
+#ifdef OASIS
+    this->updateMeans(M_cpl_out, cpl_time_factor);
+    if ( fmod(pcpt*time_step,cpl_time_step) == 0 )
+    {
+        M_cpl_out.updateGridMean(M_mesh);
+
+        ierror = OASIS3::put_2d(var_id[0], pcpt*time_step, M_cpl_out.M_elemental_variables[0].data_mesh, M_cpl_out.M_ncols, M_cpl_out.M_nrows);
+
+        M_cpl_out.resetMeshMean(M_mesh);
+        M_cpl_out.resetGridMean();
+    }
+#endif
 
     if ( M_drifter_type == setup::DrifterType::EQUALLYSPACED && fmod(pcpt*time_step,drifter_output_time_step) == 0 )
         M_drifters.appendNetCDF(current_time, M_mesh, M_UT);

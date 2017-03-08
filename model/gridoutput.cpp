@@ -231,7 +231,7 @@ void GridOutput::initArbitraryGrid(Grid grid)
 void GridOutput::updateGridMean(GmshMesh const& mesh)
 {
     // Call the worker routine for the elements
-    this->updateGridMeanWorker(mesh, mesh.numTriangles(), M_elemental_variables);
+    this->updateGridMeanWorker(mesh, mesh.numTriangles(), M_elemental_variables, M_miss_val);
 
     // Rotate vectors if needed (these are assumed to be on the nodes)
     for ( auto it=M_vectorial_variables.begin(); it!=M_vectorial_variables.end(); it++ )
@@ -243,11 +243,11 @@ void GridOutput::updateGridMean(GmshMesh const& mesh)
     }
 
     // Call the worker routine for the nodes
-    this->updateGridMeanWorker(mesh, mesh.numNodes(), M_nodal_variables);
+    this->updateGridMeanWorker(mesh, mesh.numNodes(), M_nodal_variables, M_miss_val);
 }
 
     // Interpolate from the mesh to the grid - updateing the gridded mean
-void GridOutput::updateGridMeanWorker(GmshMesh const& mesh, int source_size, std::vector<Variable>& variables)
+void GridOutput::updateGridMeanWorker(GmshMesh const& mesh, int source_size, std::vector<Variable>& variables, double miss_val)
 {
     int nb_var = variables.size();
 
@@ -282,7 +282,7 @@ void GridOutput::updateGridMeanWorker(GmshMesh const& mesh, int source_size, std
                                 &interp_in[0],
                                 source_size,nb_var,
                                 &M_grid.gridX[0],&M_grid.gridY[0],M_grid_size,
-                                true, M_miss_val);
+                                true, miss_val);
     }
     else if ( (M_ncols>0) && (M_nrows>0) && (M_mooring_spacing>0) )
     {
@@ -294,7 +294,7 @@ void GridOutput::updateGridMeanWorker(GmshMesh const& mesh, int source_size, std
                               xmin,ymax,
                               M_mooring_spacing,M_mooring_spacing,
                               M_ncols, M_nrows,
-                              M_miss_val);
+                              miss_val);
     }
     else
     {
@@ -307,13 +307,13 @@ void GridOutput::updateGridMeanWorker(GmshMesh const& mesh, int source_size, std
         for (int j=0; j<M_grid_size; ++j)
         {
             double val = interp_out[nb_var*j+i];
-            if ( val != M_miss_val )
+            if ( val != miss_val )
             {
                 variables[i].data_grid[j] += val;
             }
             else
             {
-                variables[i].data_grid[j] = M_miss_val;
+                variables[i].data_grid[j] = miss_val;
             }
         }
 
@@ -321,6 +321,38 @@ void GridOutput::updateGridMeanWorker(GmshMesh const& mesh, int source_size, std
 
     xDelete<double>(interp_out);
 }
+
+    // Return a mask
+    std::vector<int> GridOutput::getMask(GmshMesh const &mesh, variableKind kind)
+    {
+        double source_size;
+        switch (kind)
+        {
+            case variableKind::nodal:
+                source_size = mesh.numNodes();
+                break;
+
+            case variableKind::elemental:
+                source_size = mesh.numTriangles();
+                break;
+
+            default:
+                std::logic_error("Incorrect variable kind in GridOutput::getMask");
+        }
+
+        // Call the worker routine using a vector of ones and give zero for missing values (land mask)
+        std::vector<double> data_mesh(source_size);
+        data_mesh.assign(source_size, 1.);
+        std::vector<double> data_grid(M_grid_size);
+
+        GridOutput::Variable lsm(GridOutput::variableID::lsm, data_mesh, data_grid);
+
+        std::vector<Variable> variables(1);
+        variables[0] = lsm;
+        updateGridMeanWorker(mesh, source_size, variables, 0.);
+
+        return std::vector<int>(variables[1].data_grid.begin(), variables[1].data_grid.end());
+    }
 
     // Rotate the vectors as needed
 void GridOutput::rotateVectors(GmshMesh const& mesh, Vectorial_Variable const& vectorial_variable, std::vector<Variable>& variables)
