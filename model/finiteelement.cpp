@@ -1402,7 +1402,7 @@ FiniteElement::regrid(bool step)
                 {
                     if ( interp_drifter_c_out[j] > clim )
                     {
-                        M_iabpDrifters[it->first] = std::array<double,2> {it->second[0]+interp_drifter_out[j], it->second[1]+interp_drifter_out[j+M_iabpDrifters.size()]};
+                        M_iabpDrifters[it->first] = std::array<double,2> {it->second[0]+interp_drifter_out[nb_var*j], it->second[1]+interp_drifter_out[nb_var*j+1]};
                         ++it;
                     } else {
                         // Throw out drifters that drift out of the ice
@@ -6265,7 +6265,7 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
     for ( auto it = M_iabpDrifters.begin(); it != M_iabpDrifters.end(); ++it )
     {
         double lat, lon;
-        inverse_mapx(map,it->second[0]+interp_drifter_out[j],it->second[1]+interp_drifter_out[j+M_iabpDrifters.size()],&lat,&lon);
+        inverse_mapx(map,it->second[0]+interp_drifter_out[nb_var*j],it->second[1]+interp_drifter_out[nb_var*j+1],&lat,&lon);
         j++;
 
         drifters_out << setw(4) << date.year()

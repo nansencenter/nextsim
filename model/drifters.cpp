@@ -263,8 +263,8 @@ namespace Nextsim
 
         for ( int i=0; i<M_no_drifters; ++i )
         {
-            X[i] = M_X[i] + interp_drifter_out[i];
-            Y[i] = M_Y[i] + interp_drifter_out[i+M_no_drifters];
+            X[i] = M_X[i] + interp_drifter_out[nb_var*i];
+            Y[i] = M_Y[i] + interp_drifter_out[nb_var*i+1];
         }
 
         xDelete<double>(interp_drifter_out);
