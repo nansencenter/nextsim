@@ -69,6 +69,69 @@ namespace Nextsim
 
         M_is_initialised = true;
     }
+    
+    Drifters::Drifters(std::string filename, GmshMesh const &mesh, std::vector<double> &conc, double climit, double current_time)
+    {
+        
+        // Load the nodes from file
+        // Check file
+        std::fstream M_rgps_file;   // The file we read the IABP buoy data from
+        
+        M_rgps_file.open(filename, std::fstream::in);
+        if ( ! M_rgps_file.good() )
+            throw std::runtime_error("File not found: " + filename);
+
+        // Read the current buoys from file
+        int pos;    // To be able to rewind one line
+        double time = current_time;
+        std::vector<int> keepers;
+        int gridSize=0;
+        
+        std::vector<double> LAT(0);
+        std::vector<double> LON(0);
+
+        int year, month, day, hour, number;
+        double lat, lon;
+        
+        // Read the next line
+        while ( M_rgps_file >> year >> month >> day >> hour >> number >> lat >> lon )
+        {
+            std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
+            time = from_date_string(date) + hour/24.;
+            
+            if(time== current_time )
+            {
+                LAT.push_back(lat);
+                LON.push_back(lon);
+                gridSize++;
+            }
+        }
+    
+        std::cout<<"gridSize: "<< gridSize <<"\n";
+    
+        // Calculate x and y
+        std::vector<double> X(gridSize);
+        std::vector<double> Y(gridSize);
+
+        mapx_class *map;
+        filename = Environment::nextsimDir().string() + "/data/" + Environment::vm()["simul.proj_filename"].as<std::string>();
+        std::vector<char> str(filename.begin(), filename.end());
+        str.push_back('\0');
+
+        map = init_mapx(&str[0]);
+
+        for (int i=0; i<gridSize; ++i)
+            forward_mapx(map, LAT[i], LON[i], &X[i], &Y[i]);
+
+        close_mapx(map);
+
+        // Apply mask using conc and climit, and save to M_X and M_Y
+        maskXY(mesh, X, Y, conc, -1.);//climit);
+
+        M_is_initialised = true;
+        
+        M_rgps_file.close();
+    }
 
     Drifters::Drifters(std::string dirname, std::string gridFile, std::string dimNameX, std::string dimNameY, std::string latName, std::string lonName, GmshMesh const &mesh, std::vector<double> &conc, double climit)
     {

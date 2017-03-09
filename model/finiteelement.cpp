@@ -513,6 +513,7 @@ FiniteElement::initConstant()
         ("none", setup::DrifterType::NONE)
         ("equallyspaced", setup::DrifterType::EQUALLYSPACED)
         ("iabp", setup::DrifterType::IABP)
+        ("rgps", setup::DrifterType::RGPS)
         ("osisaf", setup::DrifterType::OSISAF);
     M_drifter_type = str2drifter.find(vm["setup.drifter-type"].as<std::string>())->second;
 
@@ -4121,6 +4122,8 @@ FiniteElement::step(int &pcpt)
                 M_moorings.updateGridMean(M_mesh);
             if ( M_drifter_type == setup::DrifterType::EQUALLYSPACED )
                 M_drifters.move(M_mesh, M_UT);
+            if ( M_drifter_type == setup::DrifterType::RGPS )
+                M_rgps_drifters.move(M_mesh, M_UT);
             if ( M_drifter_type == setup::DrifterType::OSISAF )
                 for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
                     it->move(M_mesh, M_UT);
@@ -4294,6 +4297,9 @@ FiniteElement::step(int &pcpt)
 
     if ( M_drifter_type == setup::DrifterType::EQUALLYSPACED && fmod(pcpt*time_step,drifter_output_time_step) == 0 )
         M_drifters.appendNetCDF(current_time, M_mesh, M_UT);
+
+    if ( M_drifter_type == setup::DrifterType::RGPS && fmod(pcpt*time_step,drifter_output_time_step) == 0 )
+        M_rgps_drifters.appendNetCDF(current_time, M_mesh, M_UT);
 
     if ( M_drifter_type == setup::DrifterType::OSISAF && fmod(current_time+0.5,1.) == 0 )
     {
@@ -6117,6 +6123,10 @@ FiniteElement::initDrifter()
             this->initIABPDrifter();
             break;
 
+        case setup::DrifterType::RGPS:
+            this->initRGPSDrifters();
+            break;
+
         case setup::DrifterType::OSISAF:
             this->initOSISAFDrifters();
             break;
@@ -6377,6 +6387,20 @@ FiniteElement::equallySpacedDrifter()
     M_drifters = Drifters(1e3*vm["simul.drifter_spacing"].as<double>(), M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
     M_drifters.initNetCDF(M_export_path+"/Drifters_", current_time);
     M_drifters.appendNetCDF(current_time, M_mesh, M_UT);
+}
+
+
+
+void
+FiniteElement::initRGPSDrifters()
+{
+    double time = from_date_string("2008-01-01");
+    
+    std::string filename = Environment::nextsimDir().string() + "/data/RGPS_2008.txt";
+    M_rgps_drifters = Drifters(filename, M_mesh, M_conc, vm["simul.drifter_climit"].as<double>(),time);
+    
+    M_rgps_drifters.initNetCDF(M_export_path+"/RGPS_Drifters_", current_time);
+    M_rgps_drifters.appendNetCDF(current_time, M_mesh, M_UT);
 }
 
 void

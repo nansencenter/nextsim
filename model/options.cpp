@@ -123,6 +123,8 @@ namespace Nextsim
             ("simul.drifter_climit", po::value<double>()->default_value( 0.15 ), "")
             ("simul.drifter_spacing", po::value<double>()->default_value( 10 ), "")
 
+            ("simul.RGPS_time_init", po::value<std::string>()->default_value( "2008-Jan-01" ), "")
+               
             /*
              *-----------------------------------------------------------------------------------
              * DYNAMICS
