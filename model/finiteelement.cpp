@@ -5041,7 +5041,7 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             variables[1] = dair;
             variables[2] = mslp;
             variables[3] = Qsw_in;
-            variables[4] = Qlw_in;
+            variables[4] = tcc;
             variables[5] = precip;
             */
 
@@ -5057,8 +5057,8 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
             M_external_data.push_back(&M_Qsw_in);
 
-            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
-            M_external_data.push_back(&M_Qlw_in);
+            M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            M_external_data.push_back(&M_tcc);
 
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
             M_external_data.push_back(&M_precip);
