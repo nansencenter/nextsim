@@ -4298,9 +4298,19 @@ FiniteElement::step(int &pcpt)
     if ( M_drifter_type == setup::DrifterType::EQUALLYSPACED && fmod(pcpt*time_step,drifter_output_time_step) == 0 )
         M_drifters.appendNetCDF(current_time, M_mesh, M_UT);
 
-    if ( M_drifter_type == setup::DrifterType::RGPS && fmod(pcpt*time_step,drifter_output_time_step) == 0 )
-        M_rgps_drifters.appendNetCDF(current_time, M_mesh, M_UT);
-
+    if ( M_drifter_type == setup::DrifterType::RGPS )
+    {
+        std::string time_str = vm["simul.RGPS_time_init"].as<std::string>();
+        double RGPS_time_init = from_date_time_string(time_str);
+        
+        if( !M_rgps_drifters.isInitialised() && current_time == RGPS_time_init)
+            this->updateRGPSDrifters();
+            
+        if( current_time != RGPS_time_init && fmod(pcpt*time_step,drifter_output_time_step) == 0 )
+            if ( M_rgps_drifters.isInitialised() )
+                M_rgps_drifters.appendNetCDF(current_time, M_mesh, M_UT);
+    }
+     
     if ( M_drifter_type == setup::DrifterType::OSISAF && fmod(current_time+0.5,1.) == 0 )
     {
         // OSISAF drift is calculated as a dirfter displacement over 48 hours
@@ -6389,15 +6399,20 @@ FiniteElement::equallySpacedDrifter()
     M_drifters.appendNetCDF(current_time, M_mesh, M_UT);
 }
 
-
-
 void
 FiniteElement::initRGPSDrifters()
 {
-    double time = from_date_string("2008-01-01");
+    M_rgps_drifters = Drifters();
+}
+
+void
+FiniteElement::updateRGPSDrifters()
+{    
+    std::string time_str = vm["simul.RGPS_time_init"].as<std::string>();
+    double RGPS_time_init = from_date_time_string(time_str);
     
-    std::string filename = Environment::nextsimDir().string() + "/data/RGPS_2008.txt";
-    M_rgps_drifters = Drifters(filename, M_mesh, M_conc, vm["simul.drifter_climit"].as<double>(),time);
+    std::string filename = Environment::nextsimDir().string() + "/data/RGPS_" + time_str + ".txt";
+    M_rgps_drifters = Drifters(filename, M_mesh, M_conc, vm["simul.drifter_climit"].as<double>(),RGPS_time_init);
     
     M_rgps_drifters.initNetCDF(M_export_path+"/RGPS_Drifters_", current_time);
     M_rgps_drifters.appendNetCDF(current_time, M_mesh, M_UT);
