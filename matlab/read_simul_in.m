@@ -19,9 +19,9 @@ while ischar(tline)
     
     if(length(tline)>=length(look_for))
         if(strcmp(tline(1:length(look_for)),look_for))
-            disp(tline)
+            disp(tline);
         
-            A = sscanf(tline(length(look_for)+1:end), '%s')
+            A = sscanf(tline(length(look_for)+1:end), '%s');
         end
     end
     tline = fgetl(fid);
