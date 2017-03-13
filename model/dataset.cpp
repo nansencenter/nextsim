@@ -2543,16 +2543,16 @@ namespace Nextsim
            loaded_data: loaded_data_tmp,
          interpolated_data: interpolated_data_tmp
     	};
-        Variable Qlw_in={
-            name:"strd",
+        Variable tcc={
+            name:"tcc",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
             NaN_mask_value: 0.,
-            a:1./(6.*3600),
+            a:1.,
             b:0.,
-            Units:"W/m^2",
+            Units:"",
            loaded_data: loaded_data_tmp,
          interpolated_data: interpolated_data_tmp
     	};
@@ -2590,7 +2590,7 @@ namespace Nextsim
         variables_tmp[1] = dair;
         variables_tmp[2] = mslp;
         variables_tmp[3] = Qsw_in;
-        variables_tmp[4] = Qlw_in;
+        variables_tmp[4] = tcc;
         variables_tmp[5] = precip;
         variables_tmp[6] = snowfall;
 
