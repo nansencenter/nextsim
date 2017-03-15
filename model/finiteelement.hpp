@@ -29,6 +29,9 @@
 #if defined (WAVES)
 #include <wimdiscr.hpp>
 #endif
+#if defined OASIS
+#include<oasis_cpp_interface.h>
+#endif
 #include "enums.hpp"
 #include <debug.hpp>
 #include <omp.h>
