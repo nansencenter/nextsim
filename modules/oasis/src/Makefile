@@ -30,7 +30,7 @@ CXX = g++
 CXXFLAGS += -std=c++11 -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v #-pedantic
 
 CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
-CXXFLAGS += -I $(OASIS_DIR)/include -I $(NEXTSIMDIR)/modules/oasis/include
+CXXFLAGS += -I $(NEXTSIMDIR)/modules/oasis/include
 
 # ========================================================
 
@@ -44,8 +44,8 @@ FCDEPS=$(FCSRC:%.F90=$(DEPENDDIR)%.d)
 
 FC = gfortran
 FFLAGS = -std=f2008 -fopenmp -lstdc++ -fPIC
-FFLAGS += -I $(OASIS_DIR)/include -I $(NEXTSIMDIR)/modules/oasis/include
-FFLAGS += -I $(OASIS_MOD_DIR)/mct -I $(OASIS_MOD_DIR)/psmile.MPI1
+FFLAGS += -I $(NEXTSIMDIR)/modules/oasis/include
+FFLAGS += -I $(OASIS_DIR)/build/lib/mct -I $(OASIS_DIR)/build/lib/psmile.MPI1
 FFLAGS += -I $(NETCDF_FOR_DIR)/include
 # ========================================================
 

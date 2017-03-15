@@ -186,6 +186,24 @@ make wim
 
 simul.use_wim=True (as in coupling_wim.cfg)
 
+##------- Compile with OASIS3-MCT support -------
+
+You must have OASIS3-MCT installed. Instructions to come, but the neccesary libraries are installed on johansen in /Data/sim/packages/oasis3-mct
+You must have Fortran netCDF libraries installed. Instructions to come, but the neccesary libraries are installed on johansen in /Data/sim/packages/netcdf-fortran
+
+In order to compile with OASIS3-MCT support you must set the following environment variables: USE_OASIS, OASIS_DIR, and NETCDF_FOR_DIR. On johansen do:
+export USE_OASIS="true" # or any non-empty value
+export OASIS_DIR=/Data/sim/packages/oasis3-mct/
+export NETCDF_FOR_DIR=/Data/sim/packages/netcdf-fortran
+
+Compile the OASIS C++ module:
+cd $NEXTSIMDIR
+make
+
+Compile the model with OASIS3-MCT support:
+cd $NEXTSIMDIR/model
+make
+
 ##-------Debugging-------
 
 # install gdb on mac following those links:
