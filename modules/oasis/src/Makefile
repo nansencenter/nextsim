@@ -43,10 +43,10 @@ FCOBJS=$(FCSRC:%.F90=$(OBJECTDIR)%.o)
 FCDEPS=$(FCSRC:%.F90=$(DEPENDDIR)%.d)
 
 FC = gfortran
-FFLAGS = -std=f2008 -fopenmp -lstdc++
+FFLAGS = -std=f2008 -fopenmp -lstdc++ -fPIC
 FFLAGS += -I $(OASIS_DIR)/include -I $(NEXTSIMDIR)/modules/oasis/include
 FFLAGS += -I $(OASIS_MOD_DIR)/mct -I $(OASIS_MOD_DIR)/psmile.MPI1
-FFLAGS += -I /opt/local/netcdf-fortran/include
+FFLAGS += -I $(NETCDF_FOR_DIR)/include
 # ========================================================
 
 # ========================================================
@@ -58,7 +58,7 @@ LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
 #LDFLAGS += -L /Users/abdama/COUPLE/oasis3-mct/build_darwin/lib -lmct -lmpeu -lpsmile.MPI1 -lscrip
 
 LDFLAGS += -Wl,-rpath,/opt/local/netcdf-fortran/lib
-LDFLAGS += -L /opt/local/netcdf-fortran/lib -lnetcdff
+LDFLAGS += -L $(NETCDF_FOR_DIR)/lib -lnetcdff
 # ========================================================
 
 

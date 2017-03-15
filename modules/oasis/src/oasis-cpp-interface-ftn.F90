@@ -297,8 +297,8 @@ integer function oasis3_write_grid(gridname, nx, ny, lon,lat, lgridname)
   implicit none
   
   ! Arguments
-  character(len=1), intent(in) :: gridname(lgridname+1)
   integer,          intent(in) :: nx, ny, lgridname
+  character(len=1), intent(in) :: gridname(lgridname+1)
   double precision, intent(in) :: lon(nx,ny), lat(nx,ny)
   
   ! Locals
@@ -327,8 +327,8 @@ integer function oasis3_write_corner(gridname, nx, ny, nc, clon,clat, lgridname)
   implicit none
   
   ! Arguments
-  character(len=1)             :: gridname(lgridname+1)
   integer,          intent(in) :: nx, ny, nc, lgridname
+  character(len=1)             :: gridname(lgridname+1)
   double precision, intent(in) :: clon(nx,ny,nc), clat(nx,ny,nc)
   
   ! Locals
@@ -359,8 +359,8 @@ integer function oasis3_write_area(gridname, nx, ny, area, lgridname)
   implicit none
   
   ! Arguments
-  character(len=1)             :: gridname(lgridname+1)
   integer,          intent(in) :: nx, ny, lgridname
+  character(len=1)             :: gridname(lgridname+1)
   double precision, intent(in) :: area(nx,ny)
   
   ! Locals
@@ -391,8 +391,8 @@ integer function oasis3_write_mask(gridname, nx, ny, mask, lgridname)
   implicit none
   
   ! Arguments
-  character(len=1)    :: gridname(lgridname+1)
   integer, intent(in) :: nx, ny, lgridname
+  character(len=1)    :: gridname(lgridname+1)
   integer, intent(in) :: mask(nx,ny)
   
   ! Locals
