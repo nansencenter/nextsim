@@ -57,7 +57,7 @@ LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
 #LDFLAGS += -Wl,-rpath,$(OASIS_DIR)/lib
 #LDFLAGS += -L /Users/abdama/COUPLE/oasis3-mct/build_darwin/lib -lmct -lmpeu -lpsmile.MPI1 -lscrip
 
-LDFLAGS += -Wl,-rpath,/opt/local/netcdf-fortran/lib
+LDFLAGS += -Wl,-rpath,$(NETCDF_FOR_DIR)/lib
 LDFLAGS += -L $(NETCDF_FOR_DIR)/lib -lnetcdff
 # ========================================================
 
