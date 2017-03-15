@@ -95,13 +95,13 @@ password: gmsh
 2) In the gmsh directory do
 
 i) full install (OSX):
-mkdir Build
+* mkdir Build
 edit CMakeLists.txt:
 * paste set(CMAKE_MACOSX_RPATH 1)
   under set(CMAKE_LEGACY_CYGWIN_WIN32 0)
 * cd Build
 * cmake ..
-* ccmake .
+* ccmake ..
    change  CMAKE_BUILD_TYPE      to Release
    change  CMAKE_INSTALL_PREFIX  to /opt/local/gmsh
    change  ENABLE_BUILD_DYNAMIC  to ON
@@ -156,7 +156,7 @@ sudo ln -sf /opt/local/include/openmpi-gcc48 /opt/local/include/openmpi-mp
 sudo rm -rf /opt/local/lib/openmpi-mp
 sudo ln -sf /opt/local/lib/openmpi-gcc48 /opt/local/lib/openmpi-mp
 
-# Go to $NEXTSIM_DIR and type "make"
+# Go to $NEXTSIMDIR and type "make"
 
 ##------- For the model application -------
 

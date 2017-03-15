@@ -123,6 +123,8 @@ namespace Nextsim
             ("simul.drifter_climit", po::value<double>()->default_value( 0.15 ), "")
             ("simul.drifter_spacing", po::value<double>()->default_value( 10 ), "")
 
+            ("simul.RGPS_time_init", po::value<std::string>()->default_value( "2008-Jan-01" ), "")
+               
             /*
              *-----------------------------------------------------------------------------------
              * DYNAMICS
@@ -145,7 +147,7 @@ namespace Nextsim
             ("simul.deltaT_relaxation_damage", po::value<double>()->default_value( 40. ), "Kelvin")
             
             ("simul.undamaged_time_relaxation_sigma", po::value<double>()->default_value( 1e7 ), "seconds") // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
-            ("simul.exponent_relaxation_sigma", po::value<double>()->default_value( 4. ), "s")              // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
+            ("simul.exponent_relaxation_sigma", po::value<double>()->default_value( 4. ), "")              // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
 
             // ridge tracer
             ("simul.ridge_h", po::value<double>()->default_value( 3. ), "")

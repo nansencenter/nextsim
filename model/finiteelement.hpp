@@ -428,6 +428,7 @@ private:
     std::fstream M_iabp_out;    // The file we write our simulated drifter positions into
 
     Drifters M_drifters; // Drifters on a grid
+    Drifters M_rgps_drifters; // Drifters as in the RGPS data
     std::vector<Drifters> M_osisaf_drifters; // A vector of drifters for the OSISAF emulation
 
     // Element variable
@@ -474,6 +475,8 @@ private:
     void topazAmsr2Ice();
 
     void initOSISAFDrifters();
+    void initRGPSDrifters();
+    void updateRGPSDrifters();
     void equallySpacedDrifter();
     void outputDrifter(std::fstream &iabp_out);
     void initIABPDrifter();
