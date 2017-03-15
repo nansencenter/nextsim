@@ -345,7 +345,7 @@ void GridOutput::updateGridMeanWorker(GmshMesh const& mesh, int source_size, std
         data_mesh.assign(source_size, 1.);
         std::vector<double> data_grid(M_grid_size);
 
-        GridOutput::Variable lsm(GridOutput::variableID::lsm, data_mesh, data_grid);
+        Variable lsm(variableID::lsm, data_mesh, data_grid);
 
         std::vector<Variable> variables(1);
         variables[0] = lsm;
@@ -444,7 +444,7 @@ void GridOutput::resetMeshMean(GmshMesh const& mesh)
 }
 
     // Initialise a netCDF file and return the file name in an std::string
-std::string GridOutput::initNetCDF(std::string file_prefix, GridOutput::fileLength file_length, double current_time)
+std::string GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double current_time)
 {
     // Choose the right file name, depending on how much data goes in there
     boost::gregorian::date now = Nextsim::parse_date(current_time);
@@ -453,10 +453,10 @@ std::string GridOutput::initNetCDF(std::string file_prefix, GridOutput::fileLeng
     filename << file_prefix;
     switch (file_length)
     {
-       case GridOutput::fileLength::daily:
+       case fileLength::daily:
            filename << "_" << now.year() << "d" << setw(3) << setfill('0') << now.day_of_year();
            break;
-       case GridOutput::fileLength::weekly:
+       case fileLength::weekly:
            // The last week of the year is troublesome!
            // The boost library will (sometimes) give this the number 1, even though week 1 should be in January
            if ( (now.month().as_number() == 12) && (now.week_number() == 1) )
@@ -468,13 +468,13 @@ std::string GridOutput::initNetCDF(std::string file_prefix, GridOutput::fileLeng
                filename << "_" << now.year() << "w" << setw(2) << setfill('0') << now.week_number();
            }
            break;
-       case GridOutput::fileLength::monthly:
+       case fileLength::monthly:
            filename << "_" << now.year() << "m" << setw(2) << setfill('0') << now.month().as_number();
            break;
-       case GridOutput::fileLength::yearly:
+       case fileLength::yearly:
            filename << "_" << now.year();
            break;
-       case GridOutput::fileLength::inf:
+       case fileLength::inf:
            break;
        default:
            throw std::logic_error("invalid file length");

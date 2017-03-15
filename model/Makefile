@@ -8,6 +8,11 @@ CXX = g++
 
 CXXFLAGS += -std=c++11 -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v -DHAVE_CONFIG_H -D_MULTITHREADING_ -DWAVES
 
+ifdef USE_OASIS
+	CXXFLAGS += -DOASIS -I $(NEXTSIMDIR)/modules/oasis/include
+	LDFLAGS += -L $(NEXTSIMDIR)/lib -loasis
+endif
+
 ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
 	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))

@@ -230,7 +230,7 @@ public:
     void updateGridMean(GmshMesh const& mesh);
     void resetGridMean();
     void resetMeshMean(GmshMesh const& mesh);
-    std::string initNetCDF(std::string file_prefix, GridOutput::fileLength file_length, double current_time);
+    std::string initNetCDF(std::string file_prefix, fileLength file_length, double current_time);
     void appendNetCDF(std::string filename, double timestamp);
 
     std::vector<int> getMask(GmshMesh const &mesh, variableKind kind);
