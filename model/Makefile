@@ -6,7 +6,16 @@ FPROGNAME=FWrap.x
 
 CXX = g++
 
-CXXFLAGS += -std=c++11 -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v -DHAVE_CONFIG_H -D_MULTITHREADING_ -DWAVES
+CXXFLAGS += -std=c++11 -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v -DHAVE_CONFIG_H -D_MULTITHREADING_ -DWAVES #-DOASIS
+
+ifdef USE_OASIS
+	CXXFLAGS += -DOASIS
+	CXXFLAGS += -I $(NEXTSIMDIR)/modules/oasis/include
+	LDFLAGS += -lgfortran
+	LDFLAGS += -L $(NEXTSIMDIR)/lib -loasis
+	CHAN = MPI1
+	#LIBPSMILE = $(OASIS_DIR)/lib/libpsmile.${CHAN}.a $(OASIS_DIR)/lib/libmct.a $(OASIS_DIR)/lib/libmpeu.a $(OASIS_DIR)/lib/libscrip.a
+endif
 
 ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
 	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
@@ -17,6 +26,7 @@ endif
 CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I $(NEXTSIMDIR)/contrib/bamg/include
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include # -I $(NEXTSIMDIR)/contrib/interp/include
 CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
+#CXXFLAGS += -I $(NEXTSIMDIR)/modules/oasis/include
 
 
 CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
@@ -71,6 +81,7 @@ LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
 #LDFLAGS += -L $(NEXTSIMDIR)/lib -linterp
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lwim
+#LDFLAGS += -L $(NEXTSIMDIR)/lib -loasis
 
 ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
 #ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
@@ -108,7 +119,7 @@ mrproper: clean
 # Rule for making the actual target
 $(PROGNAME): $(OBJS) #$(CCOBJS)
 	@mkdir -p $(BINARYDIR)
-	$(CXX) $(CXXFLAGS) -o $(BINARYDIR)$@ $^ $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) -o $(BINARYDIR)$@ $^ $(LIBPSMILE) $(LDFLAGS)
 
 # Rules for object files from cpp files
 $(OBJECTDIR)%.o: %.cpp

@@ -82,7 +82,8 @@ You can run the code with the options:
 4) From netcdf directory, type: "./configure_c.sh" then "make", "make check" and finally "sudo make install"
 5) download latest stable c-xx version of netcdf on http://www.unidata.ucar.edu/downloads/netcdf/index.jsp and unzip it
 6) copy configure_cxx.sh from /nextsim/scripts/netcdf
-7) From netcdf-cxx directory, type: "./configure_cxx.sh"then "make" "make check" and finally "sudo make install"
+7) From netcdf-cxx directory, type: "./configure_cxx.sh", then "make", "make check", and finally "sudo make install"
+8) do "sudo cp /opt/local/netcdf/include/* /opt/local/netcdf-cxx/include/."
 
 ####### install gmsh from the source code #######
 
@@ -94,25 +95,20 @@ password: gmsh
 2) In the gmsh directory do
 
 i) full install (OSX):
-* mkdir Build
-edit CMakeLists.txt:
+* edit CMakeLists.txt:
 * paste set(CMAKE_MACOSX_RPATH 1)
   under set(CMAKE_LEGACY_CYGWIN_WIN32 0)
+* mkdir Build
 * cd Build
-* cmake ..
-* ccmake ..
-   change  CMAKE_BUILD_TYPE      to Release
-   change  CMAKE_INSTALL_PREFIX  to /opt/local/gmsh
-   change  ENABLE_BUILD_DYNAMIC  to ON
-   change  ENABLE_BUILD_LIB      to ON
-   change  ENABLE_BUILD_SHARED   to ON
-   "c" to configure
-   "g" to generate and exit
+* copy gconfigure.sh from /nextsim/scripts/gmsh
+* if needed, you can edit gconfigure.sh to change the prefix with your prefered path for the installation (default is /opt/local/gmsh)
+* type "./gconfigure"
 * make -j8
 * sudo make install
-* shouldn't need to do this, but...
-   sudo mkdir /opt/local/gmsh/lib
-   sudo cp libGmsh.a *.dylib /opt/local/gmsh/lib
+* sudo mkdir /opt/local/gmsh/lib
+* sudo cp libGmsh.a *.dylib /opt/local/gmsh/lib
+* sudo mkdir /opt/local/gmsh/bin
+* sudo cp /opt/local/MacOS/gmsh /opt/local/gmsh/bin/.
 
 ii) quick install:
 mkdir lib
@@ -135,6 +131,9 @@ export PETSC_DIR=/opt/local/petsc
 export PETSC_ARCH=arch-darwin-c-opt
 
 export BOOST_DIR=/opt/local/boost
+
+export OPENMPI_LIB_DIR=/opt/local/lib/openmpi-gcc48
+export OPENMPI_INCLUDE_DIR=/opt/local/include/openmpi-gcc48
 
 export DYLD_LIBRARY_PATH="/opt/local/boost/lib"
 export DYLD_LIBRARY_PATH=NEXTSIMDIR/lib:$DYLD_LIBRARY_PATH
@@ -179,6 +178,35 @@ make clean
 make wim
 
 simul.use_wim=True (as in coupling_wim.cfg)
+
+##------- Compile with OASIS3-MCT support -------
+
+You must have Fortran netCDF libraries installed. Instructions to come, but the neccesary libraries are installed on johansen in /Data/sim/packages/netcdf-fortran
+
+####### Install OASIS3-MCT #######
+1) Download OASIS3-MCT from https://verc.enes.org/oasis/download (you have to register first).
+2) You need a site-specific makefile header. We have one for johansen in $NEXTSIMDIR/scripts/oasis and you can adapt that or have a look at the make.* files in util/make_dir in the oasis3-mct source tree.
+3) When you have created your site-specific  makefile header, copy it to util/make_dir in the oasis3-mct source tree and edit make.inc to link to it.
+4) In util/make_dir edit TopMakefileOasis3, adding the FCFLAGS, CFLAGS, LD, and LDFLAGS variables so that the third line of the makemct rule (line 56 in version 3.0/revision 1874) reads
+	./configure MPIFC="$(F90)" FC="$(F90)" FCFLAGS="$(F90FLAGS_1)" CC="$(CC)" CFLAGS="$(CCFLAGS_1)" LD="$(LD)" LDFLAGS="$(LDFLAGS)" \
+   ... make sure the line starts with a tab!
+5) In util/make_dir type "make -f TopMakefileOasis3"
+6) In your ~/.bash_rc, or similar export OASIS_DIR pointing to the build directory defined in your site-spcific make file header in the ARCHDIR variable.
+
+####### Compile neXtSIM with OASIS3-MCT support#######
+In order to compile with OASIS3-MCT support you must set the following environment variables: USE_OASIS, OASIS_DIR, and NETCDF_FOR_DIR. On johansen do:
+export USE_OASIS="true" # or any non-empty value
+export OASIS_DIR=/Data/sim/packages/oasis3-mct/
+export NETCDF_FOR_DIR=/Data/sim/packages/netcdf-fortran
+
+To compile the OASIS C++ module:
+cd $NEXTSIMDIR
+make
+
+To compile the model with OASIS3-MCT support:
+cd $NEXTSIMDIR/model
+make clean
+make
 
 ##-------Debugging-------
 
