@@ -38,7 +38,7 @@ else
 	endif
 
 	CXXFLAGS += -I /usr/local/include #-I /opt/local/include/openmpi-mp
-	#CXXFLAGS +=	-I /opt/local/netcdf/include/
+	CXXFLAGS +=	-I /opt/local/netcdf/include/
 
 	#LDFLAGS += -Wl,-rpath,/usr/local/lib #-Wl,-rpath,/opt/local/lib/openmpi-mp
 	#LDFLAGS += -L /usr/local/lib #-L /opt/local/lib/openmpi-mp -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread

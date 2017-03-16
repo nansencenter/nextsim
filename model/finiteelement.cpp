@@ -3145,6 +3145,7 @@ FiniteElement::thermo()
         {
             double tsa = M_tice[0][i] + tfrwK;
             double taa = M_tair[i]  + tfrwK;
+            // s.b.idso & r.d.jackson, thermal radiation from the atmosphere, j. geophys. res. 74, 5397-5403, 1969
         	tmp_Qlw_in = sigma_sb*pow(taa,4) \
         			*( 1. - 0.261*exp(-7.77e-4*std::pow(taa-tfrwK,2)) ) \
         			*( 1. + 0.275*M_tcc[i] );
