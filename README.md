@@ -188,19 +188,29 @@ simul.use_wim=True (as in coupling_wim.cfg)
 
 ##------- Compile with OASIS3-MCT support -------
 
-You must have OASIS3-MCT installed. Instructions to come, but the neccesary libraries are installed on johansen in /Data/sim/packages/oasis3-mct
 You must have Fortran netCDF libraries installed. Instructions to come, but the neccesary libraries are installed on johansen in /Data/sim/packages/netcdf-fortran
 
+####### Install OASIS3-MCT #######
+1) Download OASIS3-MCT from https://verc.enes.org/oasis/download (you have to register first).
+2) You need a site-specific makefile header. We have one for johansen in $NEXTSIMDIR/scripts/oasis and you can adapt that or have a look at the make.* files in util/make_dir in the oasis3-mct source tree.
+3) When you have created your site-specific  makefile header, copy it to util/make_dir in the oasis3-mct source tree and edit make.inc to link to it.
+4) In util/make_dir edit TopMakefileOasis3, adding the FCFLAGS, CFLAGS, LD, and LDFLAGS variables so that the third line of the makemct rule (line 56 in version 3.0/revision 1874) reads
+	./configure MPIFC="$(F90)" FC="$(F90)" FCFLAGS="$(F90FLAGS_1)" CC="$(CC)" CFLAGS="$(CCFLAGS_1)" LD="$(LD)" LDFLAGS="$(LDFLAGS)" \
+   ... make sure the line starts with a tab!
+5) In util/make_dir type "make -f TopMakefileOasis3"
+6) In your ~/.bash_rc, or similar export OASIS_DIR pointing to the build directory defined in your site-spcific make file header in the ARCHDIR variable.
+
+####### Compile neXtSIM with OASIS3-MCT support#######
 In order to compile with OASIS3-MCT support you must set the following environment variables: USE_OASIS, OASIS_DIR, and NETCDF_FOR_DIR. On johansen do:
 export USE_OASIS="true" # or any non-empty value
 export OASIS_DIR=/Data/sim/packages/oasis3-mct/
 export NETCDF_FOR_DIR=/Data/sim/packages/netcdf-fortran
 
-Compile the OASIS C++ module:
+To compile the OASIS C++ module:
 cd $NEXTSIMDIR
 make
 
-Compile the model with OASIS3-MCT support:
+To compile the model with OASIS3-MCT support:
 cd $NEXTSIMDIR/model
 make
 
