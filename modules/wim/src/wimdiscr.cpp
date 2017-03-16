@@ -418,8 +418,8 @@ void WimDiscr<T>::readFromBinary(std::fstream &in, array2_type& in_array, int of
     }
     else
     {
-        std::cout << "Cannot open " << in << "\n";
-        std::cerr << "error: open file " << in << " for input failed!" <<"\n";
+//        std::cout << "Cannot open " << in << "\n";
+//        std::cerr << "error: open file " << in << " for input failed!" <<"\n";
         std::abort();
     }
 }

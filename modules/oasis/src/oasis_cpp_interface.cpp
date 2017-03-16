@@ -1,4 +1,4 @@
-#include <oasis-cpp-interface.h>
+#include <oasis_cpp_interface.h>
 
 extern "C"
 {

@@ -84,6 +84,7 @@ You can run the code with the options:
 5) download latest stable c-xx version of netcdf on http://www.unidata.ucar.edu/downloads/netcdf/index.jsp and unzip it
 6) copy configure_cxx.sh from /nextsim/scripts/netcdf
 7) From netcdf-cxx directory, type: “./configure_cxx.sh”then "make" "make check" and finally "sudo make install"
+8) do "sudo cp /opt/local/netcdf/include/* /opt/local/netcdf-cxx/include/."
 
 ####### install gmsh from the source code #######
 
@@ -95,25 +96,20 @@ password: gmsh
 2) In the gmsh directory do
 
 i) full install (OSX):
-* mkdir Build
-edit CMakeLists.txt:
+* edit CMakeLists.txt:
 * paste set(CMAKE_MACOSX_RPATH 1)
   under set(CMAKE_LEGACY_CYGWIN_WIN32 0)
+* mkdir Build
 * cd Build
-* cmake ..
-* ccmake ..
-   change  CMAKE_BUILD_TYPE      to Release
-   change  CMAKE_INSTALL_PREFIX  to /opt/local/gmsh
-   change  ENABLE_BUILD_DYNAMIC  to ON
-   change  ENABLE_BUILD_LIB      to ON
-   change  ENABLE_BUILD_SHARED   to ON
-   "c" to configure
-   "g" to generate and exit
+* copy gconfigure.sh from /nextsim/scripts/gmsh
+* if needed, you can edit gconfigure.sh to change the prefix with your prefered path for the installation (default is /opt/local/gmsh)
+* type "./gconfigure"
 * make -j8
 * sudo make install
-* shouldn't need to do this, but...
-   sudo mkdir /opt/local/gmsh/lib
-   sudo cp libGmsh.a *.dylib /opt/local/gmsh/lib
+* sudo mkdir /opt/local/gmsh/lib
+* sudo cp libGmsh.a *.dylib /opt/local/gmsh/lib
+* sudo mkdir /opt/local/gmsh/bin
+* sudo cp /opt/local/MacOS/gmsh /opt/local/gmsh/bin/.
 
 ii) quick install:
 mkdir lib
@@ -136,6 +132,9 @@ export PETSC_DIR=/opt/local/petsc
 export PETSC_ARCH=arch-darwin-c-opt
 
 export BOOST_DIR=/opt/local/boost
+
+export OPENMPI_LIB_DIR=/opt/local/lib/openmpi-gcc48
+export OPENMPI_INCLUDE_DIR=/opt/local/include/openmpi-gcc48
 
 export DYLD_LIBRARY_PATH="/opt/local/boost/lib"
 export DYLD_LIBRARY_PATH=NEXTSIMDIR/lib:$DYLD_LIBRARY_PATH
