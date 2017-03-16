@@ -14,9 +14,6 @@
 #include <redistribute.hpp>
 #include <exporter.hpp>
 #include <numeric>
-#ifdef OASIS
-#include "oasis-cpp-interface.h"
-#endif
 
 
 #define GMSH_EXECUTABLE gmsh
