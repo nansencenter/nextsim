@@ -42,11 +42,11 @@ ARFLAGS     = -ruv
 CPPDEF    = -Duse_comm_$(CHAN) -D__VERBOSE -DTREAT_OVERLAY
 #
 # 
-F90FLAGS_1  = -ffree-line-length-0 -fbounds-check -fPIC
+F90FLAGS_1  = -ffree-line-length-0 -fbounds-check -fPIC -O3
 f90FLAGS_1  = $(F90FLAGS_1)
 FFLAGS_1    = $(F90FLAGS_1)
 fFLAGS_1    = $(F90FLAGS_1)
-CCFLAGS_1   = -fPIC
+CCFLAGS_1   = -fPIC -O3
 LDFLAGS     = -fPIC
 #
 #

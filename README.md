@@ -212,6 +212,7 @@ make
 
 To compile the model with OASIS3-MCT support:
 cd $NEXTSIMDIR/model
+make clean
 make
 
 ##-------Debugging-------
