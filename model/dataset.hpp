@@ -67,7 +67,7 @@ public:
         // Information on the input data
         std::string name;   // name of the dimension in the input file
         bool cyclic;        // if cyclic, then the first value will also be used for interpolation after the last value
-    } Dimesion;
+    } Dimension;
 
     typedef struct Variable
     {
