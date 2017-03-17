@@ -27,9 +27,19 @@ DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
 
 CXX = g++
-#CXXFLAGS += -std=c++0x -std=c++11 -ftemplate-depth-256 -Wno-inline
-CXXFLAGS += -std=c++11 -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -v#-pedantic
-CXXFLAGS += -fPIC -O3 -pthread -fopenmp  -v # -MMD -MP -lm #-Wall#-pedantic
+#CXXFLAGS += -std=c++0x -std=c++11
+
+# setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
+ifeq ($(shell echo `$(CXX) -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc),1)
+	CXXFLAGS += -std=c++14
+else
+	CXXFLAGS += -std=c++11
+endif
+
+# add g++ option flags
+CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v #-pedantic
+
+# add include paths
 CXXFLAGS += -I . -I $(BOOST_DIR)/include -I $(OPENMPI_INCLUDE_DIR)/ #-I $(WIM2D_CXX)/include
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include -I $(NEXTSIMDIR)/contrib/bamg/include
 CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
