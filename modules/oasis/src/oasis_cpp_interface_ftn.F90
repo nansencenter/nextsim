@@ -1,15 +1,16 @@
 ! ------------------------------------------------------------------------------
 ! *** int oasis3_init_comp_(int *, char *);
 ! ------------------------------------------------------------------------------
-integer function oasis3_init_comp(compid,model_name)
+integer function oasis3_init_comp(compid,model_name) bind(c)
 
     use mod_oasis
+    use iso_c_binding
 
     implicit none
   
     ! Arguments
-    integer,         intent(out) :: compid
-    character(len=1),intent(in)  :: model_name(7)
+    integer(c_int),   intent(out) :: compid
+    character(c_char),intent(in)  :: model_name(7)
     
     ! Locals
     integer :: ierror, i
@@ -29,9 +30,10 @@ end function oasis3_init_comp
 ! ------------------------------------------------------------------------------
 ! *** int oasis3_terminate_(void);
 ! ------------------------------------------------------------------------------
-integer function oasis3_terminate()
+integer function oasis3_terminate() bind(c)
 
     use mod_oasis
+    use iso_c_binding
 
     implicit none
 
@@ -47,16 +49,17 @@ end function oasis3_terminate
 ! ------------------------------------------------------------------------------
 ! *** int oasis3_def_partition_(int *, int *, int *);
 ! ------------------------------------------------------------------------------
-integer function oasis3_def_partition(il_part_id,ig_paral,ig_paral_len)
+integer function oasis3_def_partition(il_part_id,ig_paral,ig_paral_len) bind(c)
 
     use mod_oasis
+    use iso_c_binding
 
     implicit none
 
     ! Arguments
-    integer,intent(out) :: il_part_id
-    integer,intent(in)  :: ig_paral_len
-    integer,intent(in)  :: ig_paral(ig_paral_len)
+    integer(c_int),intent(out) :: il_part_id
+    integer(c_int),intent(in)  :: ig_paral_len
+    integer(c_int),intent(in)  :: ig_paral(ig_paral_len)
     
     ! Locals
     integer :: ierror
@@ -70,19 +73,20 @@ end function  oasis3_def_partition
 ! ------------------------------------------------------------------------------
 ! *** int oasis3_def_var_(int *, char *, int *, int *, int *, int *, int *);
 ! ------------------------------------------------------------------------------
-integer function oasis3_def_var(var_id,name,il_part_id,var_nodims,kinout,var_actual_shape,var_type)
+integer function oasis3_def_var(var_id,name,il_part_id,var_nodims,kinout,var_actual_shape,var_type) bind(c)
 
     use mod_oasis
+    use iso_c_binding
 
     implicit none
     ! Arguments
-    integer,         intent(out) :: var_id
-    character(len=1),intent(in)  :: name(9)
-    integer,         intent(in)  :: il_part_id
-    integer,         intent(in)  :: var_nodims(2)
-    integer,         intent(in)  :: kinout
-    integer,         intent(in)  :: var_actual_shape(2*var_nodims(1))
-    integer,         intent(in)  :: var_type
+    integer(c_int),   intent(out) :: var_id
+    character(c_char),intent(in)  :: name(9)
+    integer(c_int),   intent(in)  :: il_part_id
+    integer(c_int),   intent(in)  :: var_nodims(2)
+    integer(c_int),   intent(in)  :: kinout
+    integer(c_int),   intent(in)  :: var_actual_shape(2*var_nodims(1))
+    integer(c_int),   intent(in)  :: var_type
 
     ! Locals
     integer :: ierror, i
@@ -102,9 +106,10 @@ end function oasis3_def_var
 ! ------------------------------------------------------------------------------
 ! *** int oasis3_enddef_(void);
 ! ------------------------------------------------------------------------------
-integer function oasis3_enddef()
+integer function oasis3_enddef() bind(c)
 
     use mod_oasis
+    use iso_c_binding
 
     implicit none
 
@@ -120,17 +125,18 @@ end function oasis3_enddef
 ! ------------------------------------------------------------------------------
 ! *** int oasis3_put_1d_(int *, int *, double *, int *);
 ! ------------------------------------------------------------------------------
-integer function oasis3_put_1d(var_id,date,field_array,field_array_len)
+integer function oasis3_put_1d(var_id,date,field_array,field_array_len) bind(c)
 
     use mod_oasis
+    use iso_c_binding
 
     implicit none
 
     ! Arguments
-    integer,         intent(in) :: var_id
-    integer,         intent(in) :: date
-    integer,         intent(in) :: field_array_len
-    double precision,intent(in) :: field_array(field_array_len)
+    integer(c_int),            intent(in) :: var_id
+    integer(c_int),            intent(in) :: date
+    integer(c_int),            intent(in) :: field_array_len
+    real(c_double),intent(in) :: field_array(field_array_len)
 
     ! Locals
     integer :: info
@@ -144,18 +150,19 @@ end function oasis3_put_1d
 ! ------------------------------------------------------------------------------
 ! *** int oasis3_put_2d_(int *, int *, double *, int *, int *);
 ! ------------------------------------------------------------------------------
-integer function oasis3_put_2d(var_id,date,field_array,field_array_len_x,field_array_len_y)
+integer function oasis3_put_2d(var_id,date,field_array,field_array_len_x,field_array_len_y) bind(c)
 
     use mod_oasis
+    use iso_c_binding
 
     implicit none
 
     ! Arguments
-    integer,         intent(in) :: var_id
-    integer,         intent(in) :: date
-    integer,         intent(in) :: field_array_len_x
-    integer,         intent(in) :: field_array_len_y
-    double precision,intent(in) :: field_array(field_array_len_x,field_array_len_y)
+    integer(c_int),            intent(in) :: var_id
+    integer(c_int),            intent(in) :: date
+    integer(c_int),            intent(in) :: field_array_len_x
+    integer(c_int),            intent(in) :: field_array_len_y
+    real(c_double),intent(in) :: field_array(field_array_len_x,field_array_len_y)
 
     ! Locals
     integer :: info
@@ -169,17 +176,18 @@ end function oasis3_put_2d
 ! ------------------------------------------------------------------------------
 ! *** int oasis3_get_1d_(int *, int *, double *, int *);
 ! ------------------------------------------------------------------------------
-integer function oasis3_get_1d(var_id,date,field_array,field_array_len)
+integer function oasis3_get_1d(var_id,date,field_array,field_array_len) bind(c)
 
     use mod_oasis
+    use iso_c_binding
 
     implicit none
 
     ! Arguments
-    integer,         intent(in)  :: var_id
-    integer,         intent(in)  :: date
-    integer,         intent(in)  :: field_array_len
-    double precision,intent(out) :: field_array(field_array_len)
+    integer(c_int),            intent(in)  :: var_id
+    integer(c_int),            intent(in)  :: date
+    integer(c_int),            intent(in)  :: field_array_len
+    real(c_double),intent(out) :: field_array(field_array_len)
 
     ! Locals
     integer :: info
@@ -193,17 +201,18 @@ end function oasis3_get_1d
 ! ------------------------------------------------------------------------------
 ! *** int oasis3_get_2d_(int *, int *, double *, int *);
 ! ------------------------------------------------------------------------------
-integer function oasis3_get_2d(var_id,date,field_array,field_array_len_x,field_array_len_y)
+integer function oasis3_get_2d(var_id,date,field_array,field_array_len_x,field_array_len_y) bind(c)
 
     use mod_oasis
+    use iso_c_binding
 
     implicit none
 
     ! Arguments
-    integer,         intent(in)  :: var_id
-    integer,         intent(in)  :: date
-    integer,         intent(in)  :: field_array_len_x,field_array_len_y
-    double precision,intent(out) :: field_array(field_array_len_x,field_array_len_y)
+    integer(c_int),            intent(in)  :: var_id
+    integer(c_int),            intent(in)  :: date
+    integer(c_int),            intent(in)  :: field_array_len_x,field_array_len_y
+    real(c_double),intent(out) :: field_array(field_array_len_x,field_array_len_y)
 
     ! Locals
     integer :: info
@@ -217,16 +226,17 @@ end function oasis3_get_2d
 ! ------------------------------------------------------------------------------
 ! *** oasis3_abort(int *, const char *, const char *, int *, int *);
 ! ------------------------------------------------------------------------------
-integer function oasis3_abort(comp_id, routine_name, abort_message, lname, lmess)
+integer function oasis3_abort(comp_id, routine_name, abort_message, lname, lmess) bind(c)
 
   use mod_oasis
+  use iso_c_binding
 
   implicit none
   
   ! Arguments
-  integer,         intent(in)  :: comp_id, lname, lmess
-  character(len=1),intent(in)  :: routine_name(lname+1)
-  character(len=1),intent(in)  :: abort_message(lmess+1)
+  integer(c_int),   intent(in)  :: comp_id, lname, lmess
+  character(c_char),intent(in)  :: routine_name(lname+1)
+  character(c_char),intent(in)  :: abort_message(lmess+1)
   
   ! Locals
   integer :: info, i
@@ -250,14 +260,15 @@ end function oasis3_abort
 ! ------------------------------------------------------------------------------
 ! *** oasis3_get_localcomm(MPI_Comm *);
 ! ------------------------------------------------------------------------------
-integer function oasis3_get_localcomm(localcomm)
+integer function oasis3_get_localcomm(localcomm) bind(c)
 
   use mod_oasis
+  use iso_c_binding
 
   implicit none
   
   ! Arguments
-  integer,         intent(out)  :: localcomm
+  integer(c_int),         intent(out)  :: localcomm
   
   ! Locals
   integer :: info
@@ -271,14 +282,15 @@ end function oasis3_get_localcomm
 ! ------------------------------------------------------------------------------
 ! *** oasis3_terminate_grids_writing
 ! ------------------------------------------------------------------------------
-integer function oasis3_start_grids_writing(flag)
+integer function oasis3_start_grids_writing(flag) bind(c)
 
   use mod_oasis
+  use iso_c_binding
 
   implicit none
 
   ! Arguments
-  integer,         intent(out)  :: flag
+  integer(c_int),         intent(out)  :: flag
   
   call oasis_start_grids_writing(flag)
   
@@ -290,16 +302,17 @@ end function oasis3_start_grids_writing
 ! ------------------------------------------------------------------------------
 ! *** oasis3_write_grid
 ! ------------------------------------------------------------------------------
-integer function oasis3_write_grid(gridname, nx, ny, lon,lat, lgridname)
+integer function oasis3_write_grid(gridname, nx, ny, lon,lat, lgridname) bind(c)
 
   use mod_oasis
+  use iso_c_binding
 
   implicit none
   
   ! Arguments
-  integer,          intent(in) :: nx, ny, lgridname
-  character(len=1), intent(in) :: gridname(lgridname+1)
-  double precision, intent(in) :: lon(nx,ny), lat(nx,ny)
+  integer(c_int),             intent(in) :: nx, ny, lgridname
+  character(c_char),          intent(in) :: gridname(lgridname+1)
+  real(c_double), intent(in) :: lon(nx,ny), lat(nx,ny)
   
   ! Locals
   integer :: i
@@ -320,16 +333,17 @@ end function oasis3_write_grid
 ! ------------------------------------------------------------------------------
 ! *** oasis3_write_corner
 ! ------------------------------------------------------------------------------
-integer function oasis3_write_corner(gridname, nx, ny, nc, clon,clat, lgridname)
+integer function oasis3_write_corner(gridname, nx, ny, nc, clon,clat, lgridname) bind(c)
 
   use mod_oasis
+  use iso_c_binding
 
   implicit none
   
   ! Arguments
-  integer,          intent(in) :: nx, ny, nc, lgridname
-  character(len=1)             :: gridname(lgridname+1)
-  double precision, intent(in) :: clon(nx,ny,nc), clat(nx,ny,nc)
+  integer(c_int),             intent(in) :: nx, ny, nc, lgridname
+  character(c_char),          intent(in) :: gridname(lgridname+1)
+  real(c_double), intent(in) :: clon(nx,ny,nc), clat(nx,ny,nc)
   
   ! Locals
   integer :: i
@@ -352,16 +366,17 @@ end function oasis3_write_corner
 ! ------------------------------------------------------------------------------
 ! *** oasis3_write_area
 ! ------------------------------------------------------------------------------
-integer function oasis3_write_area(gridname, nx, ny, area, lgridname)
+integer function oasis3_write_area(gridname, nx, ny, area, lgridname) bind(c)
 
   use mod_oasis
+  use iso_c_binding
 
   implicit none
   
   ! Arguments
-  integer,          intent(in) :: nx, ny, lgridname
-  character(len=1)             :: gridname(lgridname+1)
-  double precision, intent(in) :: area(nx,ny)
+  integer(c_int),             intent(in) :: nx, ny, lgridname
+  character(c_char),          intent(in) :: gridname(lgridname+1)
+  real(c_double), intent(in) :: area(nx,ny)
   
   ! Locals
   integer :: i
@@ -384,16 +399,17 @@ end function oasis3_write_area
 ! ------------------------------------------------------------------------------
 ! *** oasis3_write_mask
 ! ------------------------------------------------------------------------------
-integer function oasis3_write_mask(gridname, nx, ny, mask, lgridname)
+integer function oasis3_write_mask(gridname, nx, ny, mask, lgridname) bind(c)
 
   use mod_oasis
+  use iso_c_binding
 
   implicit none
   
   ! Arguments
-  integer, intent(in) :: nx, ny, lgridname
-  character(len=1)    :: gridname(lgridname+1)
-  integer, intent(in) :: mask(nx,ny)
+  integer(c_int),         intent(in) :: nx, ny, lgridname
+  character(c_char),      intent(in) :: gridname(lgridname+1)
+  integer(c_int),         intent(in) :: mask(nx,ny)
   
   ! Locals
   integer :: i
@@ -415,9 +431,10 @@ end function oasis3_write_mask
 ! ------------------------------------------------------------------------------
 ! *** oasis3_terminate_grids_writing
 ! ------------------------------------------------------------------------------
-integer function oasis3_terminate_grids_writing()
+integer function oasis3_terminate_grids_writing() bind(c)
 
   use mod_oasis
+  use iso_c_binding
 
   implicit none
   

@@ -34,13 +34,13 @@ This README would normally document whatever steps are necessary to get your app
 
 ####### Install macport #######
 	by following the instructions on https://www.macports.org/install.php
-	Check that "/opt/local/bin” and “/opt/local/sbin” are defined in PATH (“echo $PATH” in a new command window)
+	Check that "/opt/local/bin" and "/opt/local/sbin" are defined in PATH ("echo $PATH" in a new command window)
 
 ####### Install gcc48 (or more recent versions) with macport #######
-	by doing "sudo port search gcc”, "sudo port install gcc48”, "sudo port select --list gcc" and “sudo port select --set gcc mp-gcc48"
+	by doing "sudo port search gcc", "sudo port install gcc48", "sudo port select --list gcc" and "sudo port select --set gcc mp-gcc48"
 
 ####### Install openmpi-gcc48 (or a version compatible with your gcc) with macport #######
-	by doing "sudo port search openmp”,"sudo port install openmpi-gcc48”, "sudo port select --list mpi”, “sudo port select --set mpi openmpi-gcc48-fortran” and “sudo ln -s /opt/local/bin/mpicxx /opt/local/bin/mpic++”
+	by doing "sudo port search openmp","sudo port install openmpi-gcc48", "sudo port select --list mpi", "sudo port select --set mpi openmpi-gcc48-fortran" and "sudo ln -s /opt/local/bin/mpicxx /opt/local/bin/mpic++"
 
 
 ##------- Installation of the needed libraries ----------
@@ -48,12 +48,11 @@ This README would normally document whatever steps are necessary to get your app
 ####### Install boost #######
 	1) Download version 1.55 of boost on http://www.boost.org (It is better to restart from here if you had an upgrade of your os)
 	2) copy bconfigure.sh and binstall.sh from /nextsim/scripts/boost/ to your boost directory
-	3) Add the line “using mpi ;” at the end of the file tools/build/v2/user-config.jam
-	NOte: if you install the version 1.56 or more recent of Boost, the file user-config.jam is locate in tools/build/example and you NEED to copy this file in your home directory before the compilation.
-	4) type the command “unset BOOST_DIR”
-	5) check if bconfigure.sh corresponds to your architecture
-	6) From boost directory, type: “./bconfigure.sh”
-	7) From boost directory, type: “./binstall.sh” (sudo password is required during the process)
+	3) type the command "unset BOOST_DIR"
+	4) check if bconfigure.sh corresponds to your architecture
+	5) From boost directory, type: "./bconfigure.sh"
+	6) Add the line "using mpi ;" at the end of the file project-config.jam
+	7) From boost directory, type: "./binstall.sh" (sudo password is required during the process)
 
 ####### Install petsc #######
     First, install cmake with macports if not already installed: "sudo port install cmake" (note: make sure this is used and not ISSM version)
@@ -61,15 +60,15 @@ This README would normally document whatever steps are necessary to get your app
 	   or from http://ftp.mcs.anl.gov/pub/petsc/release-snapshots/
             - choose 3.6.XX version
     1) Check mpicc, mpicxx, mpiexec use correct version of gcc (gcc --version)
-	2) Uninstall other version of petsc by doing (It is better to restart from here if you had an upgrade of your os)
+	2) copy the contents of /nextsim/scripts/petsc/ in petsc directory
+	3) Uninstall other version of petsc by doing (It is better to restart from here if you had an upgrade of your os)
 			sudo rm -rf /opt/local/petsc
 		or by changing the prefix in pconfigure.sh, for example:
 			--prefix=/opt/local/petsc/3.6
-	3) copy the contents of /nextsim/scripts/petsc/ in petsc directory
-	4) type the command “unset PETSC_DIR”
+	4) type the command "unset PETSC_DIR"
 	5) check if pconfigure.sh corresponds to your architecture and change the permission to make it executable.
-	6) From petsc directory, type: “./pconfigure.sh” (sudo password is required during the process)
-	7) From petsc directory, follow the instruction for the rest of the compilation (something like: “make PETSC_DIR=/Users/syloui/Developer/petsc-3.6.1 PETSC_ARCH=arch-darwin-c-opt all”, “sudo make PETSC_DIR=/Users/syloui/Developer/petsc-3.6.1 PETSC_ARCH=arch-darwin-c-opt install” and “make PETSC_DIR=/opt/local/petsc PETSC_ARCH="" test”)
+	6) From petsc directory, type: "./pconfigure.sh" (sudo password is required during the process)
+	7) From petsc directory, follow the instruction for the rest of the compilation (something like: "make PETSC_DIR=/Users/syloui/Developer/petsc-3.6.1 PETSC_ARCH=arch-darwin-c-opt all", "sudo make PETSC_DIR=/Users/syloui/Developer/petsc-3.6.1 PETSC_ARCH=arch-darwin-c-opt install" and "make PETSC_DIR=/opt/local/petsc PETSC_ARCH="" test")
 
 Note: for debugging, use another copy of petsc compiled with --download-mpich and --with-debugging and using another path, for example using export PETSC_PREFIX=/opt/local/petsc-debug. Set this path in your .bashprofile by using export PETSC_DIR=/opt/local/petsc-debug before recompiling the whole neXtSIM code (core + model).
 
@@ -80,10 +79,10 @@ You can run the code with the options:
 1) install hdf5 via macport: "sudo port install hdf5"
 2) download latest stable c version of netcdf on http://www.unidata.ucar.edu/downloads/netcdf/index.jsp and unzip it
 3) copy configure_c.sh from /nextsim/scripts/netcdf
-4) From netcdf directory, type: “./configure_c.sh” then "make", "make check" and finally "sudo make install"
+4) From netcdf directory, type: "./configure_c.sh" then "make", "make check" and finally "sudo make install"
 5) download latest stable c-xx version of netcdf on http://www.unidata.ucar.edu/downloads/netcdf/index.jsp and unzip it
 6) copy configure_cxx.sh from /nextsim/scripts/netcdf
-7) From netcdf-cxx directory, type: “./configure_cxx.sh”then "make" "make check" and finally "sudo make install"
+7) From netcdf-cxx directory, type: "./configure_cxx.sh", then "make", "make check", and finally "sudo make install"
 8) do "sudo cp /opt/local/netcdf/include/* /opt/local/netcdf-cxx/include/."
 
 ####### install gmsh from the source code #######
@@ -139,6 +138,9 @@ export OPENMPI_INCLUDE_DIR=/opt/local/include/openmpi-gcc48
 export DYLD_LIBRARY_PATH="/opt/local/boost/lib"
 export DYLD_LIBRARY_PATH=NEXTSIMDIR/lib:$DYLD_LIBRARY_PATH
 
+export OPENMPI_INCLUDE_DIR=/opt/local/include/openmpi-gcc48
+export OPENMPI_LIB_DIR=/opt/local/lib/openmpi-gcc48
+
 # Check your environment variables
 Check if you have the environment variable WIM2D_PATH (echo $WIM2D_PATH)?
 if so, you will need to unset it (unset WIM2D_PATH)
@@ -147,15 +149,7 @@ if so, you will need to unset it (unset WIM2D_PATH)
 
 # Open a new command window
 
-# Either modify the Makefile to have the right link to openmpi or do the following:
-
-sudo rm -rf /opt/local/include/openmpi-mp
-sudo ln -sf /opt/local/include/openmpi-gcc48 /opt/local/include/openmpi-mp
-
-sudo rm -rf /opt/local/lib/openmpi-mp
-sudo ln -sf /opt/local/lib/openmpi-gcc48 /opt/local/lib/openmpi-mp
-
-# Go to $NEXTSIMDIR and type "make"
+# Go to $NEXTSIM_DIR and type "make"
 
 ##------- For the model application -------
 
@@ -163,7 +157,7 @@ sudo ln -sf /opt/local/lib/openmpi-gcc48 /opt/local/lib/openmpi-mp
 
 # Type "make"
 
-# type “bin/nextsim.exec --configfile=nextsim.cfg”
+# type "bin/nextsim.exec --configfile=nextsim.cfg"
 
 ##-------  Compile neXtWIM itself ---------
 
@@ -187,20 +181,31 @@ simul.use_wim=True (as in coupling_wim.cfg)
 
 ##------- Compile with OASIS3-MCT support -------
 
-You must have OASIS3-MCT installed. Instructions to come, but the neccesary libraries are installed on johansen in /Data/sim/packages/oasis3-mct
 You must have Fortran netCDF libraries installed. Instructions to come, but the neccesary libraries are installed on johansen in /Data/sim/packages/netcdf-fortran
 
+####### Install OASIS3-MCT #######
+1) Download OASIS3-MCT from https://verc.enes.org/oasis/download (you have to register first).
+2) You need a site-specific makefile header. We have one for johansen in $NEXTSIMDIR/scripts/oasis and you can adapt that or have a look at the make.* files in util/make_dir in the oasis3-mct source tree.
+3) When you have created your site-specific  makefile header, copy it to util/make_dir in the oasis3-mct source tree and edit make.inc to link to it.
+4) In util/make_dir edit TopMakefileOasis3, adding the FCFLAGS, CFLAGS, LD, and LDFLAGS variables so that the third line of the makemct rule (line 56 in version 3.0/revision 1874) reads
+	./configure MPIFC="$(F90)" FC="$(F90)" FCFLAGS="$(F90FLAGS_1)" CC="$(CC)" CFLAGS="$(CCFLAGS_1)" LD="$(LD)" LDFLAGS="$(LDFLAGS)" \
+   ... make sure the line starts with a tab!
+5) In util/make_dir type "make -f TopMakefileOasis3"
+6) In your ~/.bash_rc, or similar export OASIS_DIR pointing to the build directory defined in your site-spcific make file header in the ARCHDIR variable.
+
+####### Compile neXtSIM with OASIS3-MCT support#######
 In order to compile with OASIS3-MCT support you must set the following environment variables: USE_OASIS, OASIS_DIR, and NETCDF_FOR_DIR. On johansen do:
 export USE_OASIS="true" # or any non-empty value
 export OASIS_DIR=/Data/sim/packages/oasis3-mct/
 export NETCDF_FOR_DIR=/Data/sim/packages/netcdf-fortran
 
-Compile the OASIS C++ module:
+To compile the OASIS C++ module:
 cd $NEXTSIMDIR
 make
 
-Compile the model with OASIS3-MCT support:
+To compile the model with OASIS3-MCT support:
 cd $NEXTSIMDIR/model
+make clean
 make
 
 ##-------Debugging-------

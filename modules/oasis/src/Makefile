@@ -64,6 +64,7 @@ FFLAGS += -I $(NETCDF_FOR_DIR)/include
 LDFLAGS += -fopenmp
 LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
 LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
+LDFLAGS += -L $(OASIS_DIR)/lib
 #LDFLAGS += -Wl,-rpath,$(OASIS_DIR)/lib
 #LDFLAGS += -L /Users/abdama/COUPLE/oasis3-mct/build_darwin/lib -lmct -lmpeu -lpsmile.MPI1 -lscrip
 
@@ -92,7 +93,8 @@ execlean:
 	$(RM) $(PROGOBJS) $(BINARYDIR)$(PROG)
 
 # ========================================================
-
+CHAN = MPI1
+LIBPSMILE = $(OASIS_DIR)/lib/libpsmile.${CHAN}.a $(OASIS_DIR)/lib/libmct.a $(OASIS_DIR)/lib/libmpeu.a $(OASIS_DIR)/lib/libscrip.a
 
 # ================================================================
 # Rules for .F90 files
@@ -137,7 +139,7 @@ lib: $(OBJS) $(FCOBJS)
 	@echo "============================================"
 	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
 	@echo "============================================"
-	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LDFLAGSLIB)
+	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LIBPSMILE) $(LDFLAGSLIB)
 	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)liboasis.so
 	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)liboasis.so.1
 else
@@ -146,7 +148,7 @@ lib: $(OBJS) $(FCOBJS)
 	@echo "============================================"
 	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
 	@echo "============================================"
-	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LDFLAGSLIB)
+	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LIBPSMILE) $(LDFLAGSLIB)
 	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)liboasis.dylib.0
 	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)liboasis.dylib.1
 endif

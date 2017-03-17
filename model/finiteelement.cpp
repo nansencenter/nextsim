@@ -934,7 +934,7 @@ FiniteElement::AllMinAngle(mesh_type const& mesh, std::vector<double> const& um,
     int thread_id;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
-#pragma omp parallel for num_threads(max_threads) private(thread_id)
+//#pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
         all_min_angle[cpt] = this->minAngles(movedmesh.triangles()[cpt],movedmesh);
@@ -2143,7 +2143,7 @@ FiniteElement::assemble(int pcpt)
     int total_threads;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
-#pragma omp parallel for num_threads(max_threads) private(thread_id)
+//#pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
         // if(thread_id == 0)
@@ -3145,6 +3145,7 @@ FiniteElement::thermo()
         {
             double tsa = M_tice[0][i] + tfrwK;
             double taa = M_tair[i]  + tfrwK;
+            // s.b.idso & r.d.jackson, thermal radiation from the atmosphere, j. geophys. res. 74, 5397-5403, 1969
         	tmp_Qlw_in = sigma_sb*pow(taa,4) \
         			*( 1. - 0.261*exp(-7.77e-4*std::pow(taa-tfrwK,2)) ) \
         			*( 1. + 0.275*M_tcc[i] );
@@ -4093,7 +4094,7 @@ FiniteElement::init()
     int  mype, npes;            // rank and  number of pe
     MPI_Comm localComm;         // local MPI communicator and Initialized
     int comp_id;                // Component identification
-    char comp_name = "nxtsim";  // Component name (6 characters) same as in the namcouple
+    const char * comp_name = "nxtsim";  // Component name (6 characters) same as in the namcouple
 
     ierror = OASIS3::init_comp(&comp_id, comp_name);
     if (ierror != 0) {
@@ -4150,7 +4151,7 @@ FiniteElement::init()
     int ncols = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
 
     // Define the mooring dataset
-    M_cpl_out = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first, elemental_variables, GridOutput::varibleKind::elemental);
+    M_cpl_out = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first, elemental_variables, GridOutput::variableKind::elemental);
     std::vector<int> lsm = M_cpl_out.getMask(M_mesh, GridOutput::variableKind::elemental);
 
     /*
@@ -4200,12 +4201,12 @@ FiniteElement::init()
     }
 
     */
-    int part_id;                        // partition id
+    int part_id;                    // partition id
     int ig_paral[3];
-    ig_paral[0] = 0;                    // a serial partition
+    ig_paral[0] = 0;                // a serial partition
     ig_paral[1] = 0;
-    ig_paral[2] = M_mesh.num_elements;  // the total grid size
-    ierror = OASIS3::def_partition(&part_id, &ig_paral, sizeof(ig_paral));
+    ig_paral[2] = M_num_elements;   // the total grid size
+    ierror = OASIS3::def_partition(&part_id, ig_paral, (int) sizeof(ig_paral));
     if (ierror != 0) {
         std::cout << "oasis_def_partition abort by nextsim with error code " << ierror << std::endl;
         OASIS3::abort(comp_id, comp_name, "Problem calling OASIS3::def_partition");
@@ -4219,7 +4220,7 @@ FiniteElement::init()
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ 
     if (mype == 0) {
         OASIS3::start_grids_writing(ierror);
-        OASIS3::write_grid("nxts", ncols, nrows, &M_cpl_out.M_grid.lon[0], &M_cpl_out.lat[0]);
+        OASIS3::write_grid("nxts", ncols, nrows, &M_cpl_out.M_grid.gridLON[0], &M_cpl_out.M_grid.gridLAT[0]);
         // OASIS3::write_corner("nxts", ncols, nrows, 4, globalgrid_clo, globalgrid_cla);
         // OASIS3::write_area("nxts", ncols, nrows, globalgrid_srf);
         OASIS3::write_mask("nxts", ncols, nrows, &lsm[0]);
@@ -4239,7 +4240,7 @@ FiniteElement::init()
     // ---------------------"12345678"
     const char var_snd1[] = "FSendCnc"; // !8 characters field sent by model1 to model2
     const char var_rcv1[] = "FRecvSST"; //! 8 characters field received by model1 from model2
-    int var_id[2];
+    //int var_id[2];
     int var_nodims[2];
     var_nodims[0] = 2 ; //   ! Rank of the field array is 2
     var_nodims[1] = 1 ; //   ! Bundles always 1 for OASIS3
@@ -4253,10 +4254,12 @@ FiniteElement::init()
     var_actual_shape[3] = nrows;
 
     // Declaration of the field associated with the partition
+    var_id.push_back(-1);
     ierror = OASIS3::def_var(&var_id[0],var_snd1, part_id,
         var_nodims, OASIS3::OASIS_Out, var_actual_shape, var_type);
     cout << "model1_cpp ====> After def_var 1 " << endl;
 
+    var_id.push_back(-1);
     ierror = OASIS3::def_var(&var_id[1],var_rcv1, part_id,
         var_nodims, OASIS3::OASIS_In, var_actual_shape, var_type);
 
@@ -4501,7 +4504,7 @@ FiniteElement::step(int &pcpt)
     {
         M_cpl_out.updateGridMean(M_mesh);
 
-        ierror = OASIS3::put_2d(var_id[0], pcpt*time_step, M_cpl_out.M_elemental_variables[0].data_mesh, M_cpl_out.M_ncols, M_cpl_out.M_nrows);
+        int ierror = OASIS3::put_2d(var_id[0], pcpt*time_step, &M_cpl_out.M_elemental_variables[0].data_mesh[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
 
         M_cpl_out.resetMeshMean(M_mesh);
         M_cpl_out.resetGridMean();

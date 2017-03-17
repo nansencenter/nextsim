@@ -461,6 +461,14 @@ private:
     GridOutput::fileLength M_moorings_file_length;
     GridOutput M_moorings;
 
+#ifdef OASIS
+    // Coupling with OASIS
+    GridOutput M_cpl_out;
+    std::vector<int> var_id;
+    double cpl_time_factor;
+    int cpl_time_step;
+#endif
+
 private:
     void constantIce();
     void targetIce();
