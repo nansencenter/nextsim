@@ -19,8 +19,7 @@ namespace setup
         ASR      = 1,
         ERAi     = 2,
         EC       = 3,
-        ASRFINAL = 4,
-        EC_ERAi  = 5
+        EC_ERAi  = 4
     };
 
 	enum class OceanType
@@ -46,7 +45,9 @@ namespace setup
         PIOMAS              = 11,
         TOPAZ4FAMSR2        = 12,
         TOPAZ4FAMSR2OSISAF  = 13,
-        CS2_SMOS            = 14
+        CS2_SMOS            = 14,
+        SMOS                = 15,
+        BINARY              = 16
 	};
 
     enum class WaveType
@@ -73,7 +74,9 @@ namespace setup
     {
         NONE          = 0,
         EQUALLYSPACED = 1,
-        IABP          = 2
+        IABP          = 2,
+        OSISAF        = 3,
+        RGPS          = 4
     };
 
     enum class DomainType

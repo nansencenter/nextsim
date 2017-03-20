@@ -12,8 +12,15 @@ DEPENDDIR=$(NEXTSIMDIR)/.deps/
 LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
 CXX = g++
-#CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -pthread -v
-CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -v -D_MULTITHREADING_
+
+# setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
+ifeq ($(shell echo `$(CXX) -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc),1)
+	CXXFLAGS += -std=c++14
+else
+	CXXFLAGS += -std=c++11
+endif
+
+CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -v -D_MULTITHREADING_
 
 ifeq ($(KERNEL),Linux)
 	CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include -I /usr/lib/openmpi/include

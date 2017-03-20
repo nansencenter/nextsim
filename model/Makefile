@@ -3,7 +3,16 @@ KERNEL := $(shell uname -s)
 PROGNAME=nextsim.exec
 
 CXX = g++
-CXXFLAGS += -std=c++11 -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v -DHAVE_CONFIG_H -D_MULTITHREADING_
+
+# setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
+ifeq ($(shell echo `$(CXX) -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc),1)
+	CXXFLAGS += -std=c++14
+else
+	CXXFLAGS += -std=c++11
+endif
+
+# add g++ option flags
+CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v -DHAVE_CONFIG_H -D_MULTITHREADING_
 
 # nextsim
 CXXFLAGS += -I $(NEXTSIMDIR)/core/include

@@ -70,8 +70,15 @@ int InterpFromMeshToMesh2dx(double** pdata_interp,int* index_data,double* x_data
 	}
 
 	/*Loop over output nodes*/
-	for(i=0;i<N_interp;i++){
-		//if(i%100==0) _printf_("\r      interpolation progress: "<<setw(6)<<setprecision(2)<<double(i)/double(N_interp)*100.<<"%   ");
+	//for(i=0;i<N_interp;i++){
+    int thread_id;
+    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
+
+#pragma omp parallel for num_threads(max_threads) private(thread_id)
+    for (int i=0; i < N_interp; ++i)
+    {
+    
+    	//if(i%100==0) _printf_("\r      interpolation progress: "<<setw(6)<<setprecision(2)<<double(i)/double(N_interp)*100.<<"%   ");
 
 		if(isdefault){
 			if(x_interp[i]<xmin || x_interp[i]>xmax || y_interp[i]<ymin || y_interp[i]>ymax){

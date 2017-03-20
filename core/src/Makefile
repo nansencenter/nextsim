@@ -13,8 +13,18 @@ LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
 
 CXX = g++
-CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v
 
+# setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
+ifeq ($(shell echo `$(CXX) -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc),1)
+	CXXFLAGS += -std=c++14
+else
+	CXXFLAGS += -std=c++11
+endif
+
+# add g++ option flags
+CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v
+
+# add include paths
 CXXFLAGS += -I $(NEXTSIMDIR)/core/include
 CXXFLAGS += -I /usr/local/include
 CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
@@ -22,16 +32,11 @@ CXXFLAGS += -I $(BOOST_DIR)/include
 CXXFLAGS += -I $(GMSH_DIR)/include/gmsh
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
 CXXFLAGS += -I $(PETSC_DIR)/include
-#CXXFLAGS += -I $(BOOST_DIR)/include
-#CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
 
 ifeq ($(KERNEL),Linux)
 	#CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -lm -pthread -v #-MMD -MP
-
 	LDFLAGS += -shared -Wl,-soname,libnextsim.so.1
-
 else
-
 	ifeq ($(CXX),clang)
 		CXXFLAGS += -stdlib=libc++
 	endif
@@ -44,7 +49,6 @@ else
 	ifeq ($(CXX),clang)
 		LDFLAGS += -stdlib=libc++
 	endif
-
 endif
 
 LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/

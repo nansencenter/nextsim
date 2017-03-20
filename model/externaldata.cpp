@@ -248,10 +248,10 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
     // Define the mapping and rotation_angle
 	mapx_class *mapNextsim;
 	std::string configfileNextsim = (boost::format( "%1%/%2%/%3%" )
-                              % Environment::nextsimDir().string()
-                              % "data"
-                              % Environment::vm()["mesh.mppfile"].as<std::string>()
-                              ).str();
+                                     % Environment::nextsimDir().string()
+                                     % "data"
+                                     % Environment::vm()["mesh.mppfile"].as<std::string>()
+                                     ).str();
 
 	std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
 	strNextsim.push_back('\0');
@@ -416,13 +416,6 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                     value_year--;
                 }
                 f_timestr=(boost::format( "%1%%2%" ) % boost::io::group(std::setw(4), std::setfill('0'), value_year) % boost::io::group(std::setw(2), std::setfill('0'), value_month)).str();
-
-                // change the reference_date if erai forcing according to the xxxx-01-01, where xxxx is the current year
-                if ((dataset->name).find("ERAi") != std::string::npos)
-                {
-                    dataset->grid.reference_date = (boost::format( "%1%" ) % boost::io::group(std::setw(4), std::setfill('0'), value_year)).str() + "-01-01";
-                    //std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@DETECT ERAi: Dataset->grid.reference_date= "<< dataset->grid.reference_date <<"\n";
-                }
             }
             else if(dataset->grid.dataset_frequency=="yearly")
             {
@@ -900,10 +893,10 @@ ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(doubl
     // Define the mapping and rotation_angle
 	mapx_class *mapNextsim;
 	std::string configfileNextsim = (boost::format( "%1%/%2%/%3%" )
-                              % Environment::nextsimDir().string()
-                              % "data"
-                              % Environment::vm()["mesh.mppfile"].as<std::string>()
-                              ).str();
+                                     % Environment::nextsimDir().string()
+                                     % "data"
+                                     % Environment::vm()["mesh.mppfile"].as<std::string>()
+                                     ).str();
 
 	std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
 	strNextsim.push_back('\0');

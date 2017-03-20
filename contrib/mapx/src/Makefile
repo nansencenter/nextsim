@@ -12,7 +12,9 @@ DEPENDDIR=$(NEXTSIMDIR)/.deps/
 LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
 CC = gcc
-CCFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -v
+
+# add gcc option flags
+CCFLAGS += -pedantic -Wno-inline -fPIC -O3 -pthread -v
 
 ifeq ($(KERNEL),Linux)
 	CCFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include -I /usr/lib/openmpi/include
