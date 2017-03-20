@@ -432,12 +432,14 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 }
                 f_timestr=(boost::format( "%1%%2%" ) % boost::io::group(std::setw(4), std::setfill('0'), value_year) % boost::io::group(std::setw(2), std::setfill('0'), value_month)).str();
 
+#if 0
                 // change the reference_date if erai forcing according to the xxxx-01-01, where xxxx is the current year
                 if ((dataset->name).find("ERAi") != std::string::npos)
                 {
                     dataset->grid.reference_date = (boost::format( "%1%" ) % boost::io::group(std::setw(4), std::setfill('0'), value_year)).str() + "-01-01";
                     //std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@DETECT ERAi: Dataset->grid.reference_date= "<< dataset->grid.reference_date <<"\n";
                 }
+#endif
             }
             else if(dataset->grid.dataset_frequency=="yearly")
             {
