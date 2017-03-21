@@ -7139,13 +7139,15 @@ FiniteElement::nextsimToWim(bool step)
                 // significant wave height
                 M_SWH_grid[i] = cfac*M_SWH[i];
 
-                // wave mean direction
+                // mean wave direction
                 uwave   = cfac*M_MWD[i];
                 vwave   = cfac*M_MWD[i+num_elements_wim_grid];
-                if ( std::hypot(uwave,vwave)<.5 )
+                if ( std::hypot(uwave,vwave)>.5 )
                 {
-                    //convert to wave-from direction
-                    M_MWD_grid[i] = std::atan2(-uwave,-vwave);
+                    // if there are waves |(uwave,vwave)|=1,
+                    // so convert to wave-from direction
+                    // (degrees, clockwise from north)
+                    M_MWD_grid[i] = 90.-(180./PI)*std::atan2(-uwave,-vwave);
                 }
 
                 // wave peak period
