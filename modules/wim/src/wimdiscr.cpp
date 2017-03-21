@@ -427,9 +427,9 @@ void WimDiscr<T>::readFromBinary(std::fstream &in, array2_type& in_array, int of
 template<typename T>
 void WimDiscr<T>::init()
 {
-    // wim grid generation
+
+    // wim grid generation/reading
     this->gridProcessing();
-    //this->readGridFromFile("wim_grid.a");
 
     // parameters
     nwavedirn = vm["wim.nwavedirn"].template as<int>();
@@ -518,18 +518,23 @@ void WimDiscr<T>::init()
         break_on_mesh   =  ( vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh");
     }
 
+    //no of cosines/sines to use - for isotropic scattering code
+    ncs = std::round(nwavedirn/2);
+
     std::cout<<"wim.init() finished\n";
+
+    // call assign to set sizes of arrays
+    // and initialise some arrays that are stationary in time
+    this->assign();
+
 }//end ::init()
 
+
 template<typename T>
-void WimDiscr<T>::assign(std::vector<value_type> const& icec_in,
-        std::vector<value_type> const& iceh_in,
-        std::vector<value_type> const& nfloes_in,
-        std::vector<value_type> const& swh_in,
-        std::vector<value_type> const& mwp_in,
-        std::vector<value_type> const& mwd_in,
-        bool step) // reset
+void WimDiscr<T>::assign()
 {
+    //this doesn't need to be called each time wim.run is called
+    // set sizes of arrays, initialises some others that are constant in time
     wt_simp.resize(nwavefreq);
     wt_om.resize(nwavefreq);
 
@@ -539,14 +544,9 @@ void WimDiscr<T>::assign(std::vector<value_type> const& icec_in,
     ag.resize(nwavefreq);
     ap.resize(nwavefreq);
 
-    steady_mask.resize(boost::extents[nx][ny]);
     wave_mask.resize(nx*ny);
 
-    if (!step)
-    {
-        sdf_dir.resize(boost::extents[nx][ny][nwavedirn][nwavefreq]);
-    }
-
+    sdf_dir.resize(boost::extents[nx][ny][nwavedirn][nwavefreq]);
     sdf_inc.resize(boost::extents[nx][ny][nwavedirn][nwavefreq]);
 
     ag_eff.resize(boost::extents[nx][ny][nwavefreq]);
@@ -580,25 +580,26 @@ void WimDiscr<T>::assign(std::vector<value_type> const& icec_in,
     tauy_om.resize(boost::extents[nx][ny]);
     hp.resize(boost::extents[nxext][nyext]);
 
-    Hs .resize(nx*ny);
-    Tp .resize(nx*ny);
+    Hs.resize(nx*ny);
+    Tp.resize(nx*ny);
     mwd.resize(nx*ny);
-    swh_in_array.resize(boost::extents[0][0]);
-    mwp_in_array.resize(boost::extents[0][0]);
-    mwd_in_array.resize(boost::extents[0][0]);
 
-    //std::fill( steady_mask.data(), steady_mask.data() + steady_mask.num_elements(), 10 );
+
     // steady_mask
+    // - NB works only for ideal domain
+    // TODO add check?
     if (steady)
+    {
+        steady_mask.resize(boost::extents[nx][ny]);
         std::fill( &steady_mask[0][0], &steady_mask[3][0], 1. );
+    }
 
     std::fill( disp_ratio.data(), disp_ratio.data() + disp_ratio.num_elements(), 1. );
 
-    // freq_vec
+    // =============================================
+    // set frequencies to use (freq_vec)
     if (nwavefreq == 1)
-    {
         freq_vec[0] = 1./Tp_inc;
-    }
     else
     {
         // multiple frequencies
@@ -612,12 +613,13 @@ void WimDiscr<T>::assign(std::vector<value_type> const& icec_in,
             //freq_vec[i] = fmax-i*df;
         }
     }
+    // =============================================
 
-    // set directional grid
+
+    // =============================================
+    // set directions to use (wavedir)
     if (nwavedirn == 1)
-    {
         wavedir.push_back(mwd_inc);
-    }
     else
     {
         value_type theta_max = 90.;
@@ -629,11 +631,16 @@ void WimDiscr<T>::assign(std::vector<value_type> const& icec_in,
             wavedir.push_back(theta_max+i*dtheta);
         }
     }
+    // =============================================
 
 
-    // wt_simp (weights for Simpson's rule)
-    if (nwavefreq >1)
+    // =============================================
+    // weights for integration with respect to frequency
+    if (nwavefreq==1)
+        wt_om[0] = 1.;
+    else
     {
+        // (wt_simp  = weights for Simpson's rule)
         std::fill(wt_simp.begin(), wt_simp.end(), 2.);
         wt_simp[0] = 1.;
         wt_simp[nwavefreq-1] = 1.;
@@ -646,35 +653,49 @@ void WimDiscr<T>::assign(std::vector<value_type> const& icec_in,
         }
 
         dom   = 2*PI*(freq_vec[nwavefreq-1]-freq_vec[0])/(nwavefreq-1);
-        //wt_om = dom*wt_simp/3.0;
         wt_om = wt_simp;
         std::for_each(wt_om.begin(), wt_om.end(), [&](value_type& f){ f = dom*f/3.0; });
     }
-    else
-    {
-        wt_om[0] = 1.;
-    }
+    // =============================================
 
 
-    // vec_period
+    // =============================================
+    // vector of periods, open water wavelength, phase and group velocities
+
+    // periods
     vec_period = freq_vec;
     std::for_each(vec_period.begin(), vec_period.end(), [&](value_type& f){ f = 1./f; });
 
-    // wlng
+    // open water wavelengths
     wlng = freq_vec;
     std::for_each(wlng.begin(), wlng.end(), [&](value_type& f){ f = gravity/(2*PI*std::pow(f,2.)); });
 
-    // ap
+    // open water phase velocities
     ap = wlng;
     std::for_each(ap.begin(), ap.end(), [&](value_type& f){ f = std::sqrt(gravity*f/(2*PI)); });
 
-    // ag
+    // open water group velocities
     ag = ap;
     std::for_each(ag.begin(), ag.end(), [&](value_type& f){ f = f/2. ; });
+    // =============================================
+
+}//end: assign()
+
+
+template<typename T>
+void WimDiscr<T>::update(std::vector<value_type> const& icec_in,
+        std::vector<value_type> const& iceh_in,
+        std::vector<value_type> const& nfloes_in,
+        std::vector<value_type> const& swh_in,
+        std::vector<value_type> const& mwp_in,
+        std::vector<value_type> const& mwd_in,
+        bool const step) // reset
+{
+
+    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
     //====================================================
     //set ice conditions
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
     if (icec_in.size() == 0)
        this->idealIceFields(0.7);
     else
@@ -683,49 +704,319 @@ void WimDiscr<T>::assign(std::vector<value_type> const& icec_in,
 
 
     //====================================================
-    // wave fields
-    // - set Hs,Tp,mwd,wave_mask
+    // set wave fields
+    // - Hs, Tp, mwd, wave_mask
     if (swh_in.size()==0)
-        this->idealWaveFields(.8);
+        this->idealWaveFields(.8);//.8 sets ice edge location
     else
-#if 1
         this->inputWaveFields(swh_in,mwp_in,mwd_in);
-#else
-    {
-        //test new routine against ideal version
-        std::cout<<"assign wave fields 2\n";
-        auto Hs_old=Hs;
-        auto Tp_old=Tp;
-        auto mwd_old=mwd;
-        auto WM_old=mwd;
-        this->idealWaveFields(.8);
-        auto Hs_ideal = Hs;
-        auto Tp_ideal = Tp;
-        auto mwd_ideal = mwd;
-        auto WM_ideal=wave_mask;
-        Hs  = Hs_old;
-        Tp  = Tp_old;
-        mwd = mwd_old;
-        wave_mask = WM_old;
-        this->inputWaveFields(swh_in,mwp_in,mwd_in);
-#pragma omp parallel for num_threads(max_threads) collapse(1)
-        for (int i = 0; i < nx*ny; i++)
-        {
-            std::cout<<"Hs["<<i<<"]="<<Hs[i]<<","<<Hs_ideal[i]<<","<<swh_in[i]<<"\n";
-             std::cout<<"Tp["<<i<<"]="<<Tp[i]<<","<<Tp_ideal[i]<<","<<mwp_in[i]<<"\n";
-             std::cout<<"mwd["<<i<<"]="<<mwd[i]<<","<<mwd_ideal[i]<<","<<mwd_in[i]<<"\n";
-             std::cout<<"wave_mask["<<i<<"]="<<wave_mask[i]<<","<<WM_ideal[i]<<"\n\n";
-        }
-        std::abort();
-    }
+    //====================================================
+
+
+    //====================================================
+    // set incident wave spec;
+    // also if step==0,
+    // initialise sdf_dir from sdf_inc
+    this->setIncWaveSpec(step);
+    //====================================================
+
+
+    //====================================================
+    // update attenuation coefficients, wavelengths and phase/group velocities
+    this->updateWaveMedium();
+    //====================================================
+
+
+    // ====================================================================================
+    // set time step
+    // - this can change with time if using group velocity for ice
+    // - NB needs to be done after updateWaveMedium
+    amax = *std::max_element(ag_eff.data(),ag_eff.data() + ag_eff.num_elements());
+    std::cout<<"dx= "<< dx <<"\n";
+    std::cout<<"amax= "<< amax <<"\n";
+    std::cout<<"cfl= "<< cfl <<"\n";
+    dt = cfl*dx/amax;
+
+    //reduce time step slightly (if necessary) to make duration an integer multiple of dt
+    nt = std::ceil(duration/dt);
+    dt = duration/nt;
+    // ====================================================================================
+
+
+#if 0
+    std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n";
+    std::cout<<"icec_max= "<< *std::max_element(icec.data(), icec.data()+icec.num_elements()) <<"\n";
+    std::cout<<"icec_min= "<< *std::min_element(icec.data(), icec.data()+icec.num_elements()) <<"\n";
+    std::cout<<"icec_acc= "<< std::accumulate(icec.data(), icec.data()+icec.num_elements(),0.) <<"\n";
+
+    std::cout<<"--------------------------------------------------------\n";
+
+    std::cout<<"iceh_max= "<< *std::max_element(iceh.data(), iceh.data()+iceh.num_elements()) <<"\n";
+    std::cout<<"iceh_min= "<< *std::min_element(iceh.data(), iceh.data()+iceh.num_elements()) <<"\n";
+    std::cout<<"iceh_acc= "<< std::accumulate(iceh.data(), iceh.data()+iceh.num_elements(),0.) <<"\n";
+
+    std::cout<<"--------------------------------------------------------\n";
+
+    std::cout<<"dfloe_max= "<< *std::max_element(dfloe.begin(), dfloe.end()) <<"\n";
+    std::cout<<"dfloe_min= "<< *std::min_element(dfloe.begin(), dfloe.end()) <<"\n";
+    std::cout<<"dfloe_acc= "<< std::accumulate(dfloe.begin(), dfloe.end(),0.) <<"\n";
+
+    std::cout<<"--------------------------------------------------------\n";
+
+    std::cout<<"nfloes_max= "<< *std::max_element(nfloes_in.begin(), nfloes_in.end()) <<"\n";
+    std::cout<<"nfloes_min= "<< *std::min_element(nfloes_in.begin(), nfloes_in.end()) <<"\n";
+    std::cout<<"nfloes_acc= "<< std::accumulate(nfloes_in.begin(), nfloes_in.end(),0.) <<"\n";
 #endif
-    // end wave fields
-    //====================================================
 
 
-    //====================================================
-    //set incident wave spec TODO sep function
-    om = 2*PI*freq_vec[0];
+}//end: update()
+
+
+template<typename T>
+void WimDiscr<T>::updateWaveMedium()
+{
+    //updates attenuation coefficients, wavelengths and phase/group velocities
+
+    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
+
+    // =============================================================================================
+    //std::cout<<"attenuation loop starts (big loop)\n";
+    std::fill( disp_ratio.data(), disp_ratio.data() + disp_ratio.num_elements(), 1. );
+    for (int fq = 0; fq < nwavefreq; fq++)
+    {
+#pragma omp parallel for num_threads(max_threads) collapse(2)
+        for (int i = 0; i < nx; i++)
+        {
+            for (int j = 0; j < ny; j++)
+            {
+
+                double params[5];
+                params[0] = young;
+                params[1] = gravity;
+                params[2] = rhowtr;
+                params[3] = rhoice;
+                params[4] = poisson;
+
+                double outputs[8];
+
+                if (ice_mask[i][j] == 1.)
+                {
+                    om = 2*PI*freq_vec[fq];
+
+                    if (fq == 0)
+                        guess = std::pow(om,2.)/gravity;
+                    else
+                        guess = 2*PI/wlng_ice[i][j][fq-1];
+
+                    RTparam_outer(outputs,iceh[i][j],double(om),double(visc_rp),double(guess),params);
+
+                    value_type kice, kwtr, int_adm, modT, argR, argT;
+
+                    damping[i][j][fq] = outputs[0];
+                    kice = outputs[1];
+                    kwtr = outputs[2];
+                    int_adm = outputs[3];
+                    atten_nond[i][j][fq] = outputs[4];
+                    modT = outputs[5];
+                    argR = outputs[6];
+                    argT = outputs[7];
+
+                    disp_ratio[i][j][fq] = (kice*modT)/kwtr;
+                    //wavelength to use in ice
+                    if (1)
+                    {
+                       //use ice wavelength TODO make an option?
+                       wlng_ice[i][j][fq] = 2*PI/kice;
+                    }
+                    else
+                    {
+                       //use water wavelength instead of ice wavelength
+                       wlng_ice[i][j][fq] = wlng[fq];
+                    }
+
+                    //group and phase velocities to use in ice
+                    if (!useicevel)
+                    {
+                       //water group and phase velocities
+                       //(ice ones not implemented)
+                       ag_eff[i][j][fq] = ag[fq];
+                       ap_eff[i][j][fq] = ap[fq];
+                    }
+
+                }
+                else
+                {
+                    ag_eff[i][j][fq] = ag[fq];
+                    ap_eff[i][j][fq] = ap[fq];
+                    wlng_ice[i][j][fq] = wlng[fq];
+                }
+            }
+        }
+
+        if (fq == 0)
+        {
+            amax = *std::max_element(ag_eff.data(),ag_eff.data() + ag_eff.num_elements());
+        }
+
+        if (fq == nwavefreq-1)
+        {
+            amin = *std::min_element(ag_eff.data(),ag_eff.data() + ag_eff.num_elements());
+        }
+    }
+    //std::cout<<"big loop done\n";
+    // =============================================================================================
+
+    if (!atten)
+    {
+        std::fill( atten_nond.data(), atten_nond.data() + atten_nond.num_elements(), 0. );
+        std::fill( damping.data(), damping.data() + damping.num_elements(), 0. );
+    }
+
+}//end: update()
+
+
+template<typename T>
+void WimDiscr<T>::idealWaveFields(value_type const xfac)
+{
+   value_type x0,xmax,x_edge;
+   x0 = X_array[0][0];
+   xmax = X_array[nx-1][ny-1]; //x0+(nx-1)*dx;
+
+   //waves initialised for x<x_edge
+   x_edge = 0.5*(x0+xmax)-xfac*(0.5*(xmax-x0));
+
+   int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
+#pragma omp parallel for num_threads(max_threads) collapse(2)
+   for (int i = 0; i < nx; i++)
+   {
+      for (int j = 0; j < ny; j++)
+      {
+         if ((X_array[i][j] < x_edge) && (LANDMASK_array[i][j]<1.))
+         {
+            wave_mask[i*ny+j] = 1.;
+            Hs [i*ny+j] = Hs_inc;
+            Tp [i*ny+j] = Tp_inc;
+            mwd[i*ny+j] = mwd_inc;
+            //std::cout<<Hs[i*ny+j]<<" "<<Tp[i*ny+j]<<" "<<mwd[i*ny+j];
+         }
+         else
+            wave_mask[i*ny+j] = 0.;
+      }
+   }
+}
+
+
+template<typename T>
+void WimDiscr<T>::inputWaveFields(value_type_vec const& swh_in,
+                                  value_type_vec const& mwp_in,
+                                  value_type_vec const& mwd_in)
+{
+
+    bool checkincwaves = vm["wim.checkincwaves"].template as<bool>();
+    if (checkincwaves)
+    {
+        //these arrays are only needed for diagnostics
+        swh_in_array.resize(boost::extents[nx][ny]);
+        mwp_in_array.resize(boost::extents[nx][ny]);
+        mwd_in_array.resize(boost::extents[nx][ny]);
+    }
+
+#if 0
+    // test routine against ideal version
+    // - also need to uncomment printout loop after Hs, Tp, mwd & wave_mask are set
+    std::cout<<"assign wave fields 2\n";
+    auto Hs_old=Hs;
+    auto Tp_old=Tp;
+    auto mwd_old=mwd;
+    auto WM_old=wave_mask;
+    this->idealWaveFields(.8);//.8 determines ice edge location
+    auto Hs_ideal = Hs;
+    auto Tp_ideal = Tp;
+    auto mwd_ideal = mwd;
+    auto WM_ideal=wave_mask;
+    Hs  = Hs_old;
+    Tp  = Tp_old;
+    mwd = mwd_old;
+    wave_mask = WM_old;
+#endif
+
+
+    double Hs_min=100.;
+    double Hs_max=0.;
+    double Hs_min_i=100.;
+    double Hs_max_i=0.;
+    double Hs_min_ice=100.;
+    double Hs_max_ice=0.;
+
+    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
+#pragma omp parallel for num_threads(max_threads) collapse(2)
+    for (int i = 0; i < nx; i++)
+    {
+        for (int j = 0; j < ny; j++)
+        {
+            
+            if (checkincwaves)
+            {
+                //only needed for diagnostics
+                swh_in_array[i][j] = swh_in[ny*i+j];
+                mwp_in_array[i][j] = mwp_in[ny*i+j];
+                mwd_in_array[i][j] = mwd_in[ny*i+j];
+            }
+
+            if ((ice_mask[i][j]<1.)&&(swh_in[ny*i+j]>1.e-3))
+            {
+               wave_mask[i*ny+j] = 1.;
+               Hs [i*ny+j] = swh_in[i*ny+j];
+               Tp [i*ny+j] = mwp_in[i*ny+j];
+               mwd[i*ny+j] = mwd_in[i*ny+j];
+               //std::cout<<Hs[i*ny+j]<<" "<<Tp[i*ny+j]<<" "<<mwd[i*ny+j];
+            }
+            else
+               wave_mask[i*ny+j] = 0.;
+            
+            if (ice_mask[i][j]>0.)
+            {
+                Hs_min_ice    = std::min(Hs_min_ice,Hs[i*ny+j]);
+                Hs_max_ice    = std::max(Hs_max_ice,Hs[i*ny+j]);
+            }
+            Hs_min = std::min(Hs_min,Hs[i*ny+j]);
+            Hs_max = std::max(Hs_max,Hs[i*ny+j]);
+            Hs_min_i = std::min(Hs_min_i,swh_in[i*ny+j]);
+            Hs_max_i = std::max(Hs_max_i,swh_in[i*ny+j]);
+        }
+    }
+
+    std::cout<<"Hs range from outside:\n";
+    std::cout<<"Hs_min = "<<Hs_min_i<<"\n";
+    std::cout<<"Hs_max = "<<Hs_max_i<<"\n";
+    std::cout<<"Hs_min (processed) = "<<Hs_min<<"\n";
+    std::cout<<"Hs_max (processed) = "<<Hs_max<<"\n";
+    std::cout<<"Hs_min (in ice) = "<<Hs_min_ice<<"\n";
+    std::cout<<"Hs_max (in ice) = "<<Hs_max_ice<<"\n";
+
+#if 0
+    // print out for test vs ideal case
+#pragma omp parallel for num_threads(max_threads) collapse(1)
+    for (int i = 0; i < nx*ny; i++)
+    {
+        std::cout<<"Hs["<<i<<"]="<<Hs[i]<<","<<Hs_ideal[i]<<","<<swh_in[i]<<"\n";
+         std::cout<<"Tp["<<i<<"]="<<Tp[i]<<","<<Tp_ideal[i]<<","<<mwp_in[i]<<"\n";
+         std::cout<<"mwd["<<i<<"]="<<mwd[i]<<","<<mwd_ideal[i]<<","<<mwd_in[i]<<"\n";
+         std::cout<<"wave_mask["<<i<<"]="<<wave_mask[i]<<","<<WM_ideal[i]<<"\n\n";
+    }
+    std::abort();
+#endif
+}
+
+template<typename T>
+void WimDiscr<T>::setIncWaveSpec(bool const step)
+{
+    // set incident directional wave spectrum (sdf_inc)
+    // - if step == 0, also initialise sdf_dir to sdf_inc where wave_mask==1
+    if (!step)
+        std::fill( sdf_dir.data(), sdf_dir.data() + sdf_dir.num_elements(), 0. );
+
+    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
 #pragma omp parallel for num_threads(max_threads) collapse(2)
     for (int i = 0; i < nx; i++)
@@ -821,8 +1112,8 @@ void WimDiscr<T>::assign(std::vector<value_type> const& icec_in,
 #else
                     //more accurate way of calculating spreading
                     //(integrate cos^2 over interval)
-                    theta_fac[dn] = thetaDirFrac(wavedir[dn]-dtheta/2.,dtheta,mwd[i*ny+j]);
-                    theta_fac[dn] = theta_fac[dn]*180./(PI*dtheta);
+                    theta_fac[dn] = 180./(PI*dtheta)*thetaDirFrac(
+                            wavedir[dn]-dtheta/2., dtheta, mwd[i*ny+j] );
 #endif
 
                     //if (Hs[i*ny+j]!=0.)
@@ -838,277 +1129,16 @@ void WimDiscr<T>::assign(std::vector<value_type> const& icec_in,
                 {
                     sdf_inc[i][j][dn][fq] = Sfreq[fq]*theta_fac[dn];
 
-                    // if ((i==1) && (j==1))
-                    //     adv_dir = (-PI/180.0)*(wavedir[dn]+90.0);
+                    // initialise sdf_dir from sdf_inc
+                    // - NB only do this if step==0
+                    if (!step)
+                        sdf_dir[i][j][dn][fq] = Sfreq[fq]*theta_fac[dn];
                 }
             }
         }
     }
-    //end: set incident wave spec TODO sep function
-    //====================================================
-
-#if 0
-    std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n";
-    std::cout<<"icec_max= "<< *std::max_element(icec.data(), icec.data()+icec.num_elements()) <<"\n";
-    std::cout<<"icec_min= "<< *std::min_element(icec.data(), icec.data()+icec.num_elements()) <<"\n";
-    std::cout<<"icec_acc= "<< std::accumulate(icec.data(), icec.data()+icec.num_elements(),0.) <<"\n";
-
-    std::cout<<"--------------------------------------------------------\n";
-
-    std::cout<<"iceh_max= "<< *std::max_element(iceh.data(), iceh.data()+iceh.num_elements()) <<"\n";
-    std::cout<<"iceh_min= "<< *std::min_element(iceh.data(), iceh.data()+iceh.num_elements()) <<"\n";
-    std::cout<<"iceh_acc= "<< std::accumulate(iceh.data(), iceh.data()+iceh.num_elements(),0.) <<"\n";
-
-    std::cout<<"--------------------------------------------------------\n";
-
-    std::cout<<"dfloe_max= "<< *std::max_element(dfloe.begin(), dfloe.end()) <<"\n";
-    std::cout<<"dfloe_min= "<< *std::min_element(dfloe.begin(), dfloe.end()) <<"\n";
-    std::cout<<"dfloe_acc= "<< std::accumulate(dfloe.begin(), dfloe.end(),0.) <<"\n";
-
-    std::cout<<"--------------------------------------------------------\n";
-
-    std::cout<<"nfloes_max= "<< *std::max_element(nfloes_in.begin(), nfloes_in.end()) <<"\n";
-    std::cout<<"nfloes_min= "<< *std::min_element(nfloes_in.begin(), nfloes_in.end()) <<"\n";
-    std::cout<<"nfloes_acc= "<< std::accumulate(nfloes_in.begin(), nfloes_in.end(),0.) <<"\n";
-#endif
-
-    //std::cout<<"attenuation loop starts (big loop)\n";
-    for (int fq = 0; fq < nwavefreq; fq++)
-    {
-#pragma omp parallel for num_threads(max_threads) collapse(2)
-        for (int i = 0; i < nx; i++)
-        {
-            for (int j = 0; j < ny; j++)
-            {
-
-                double params[5];
-                params[0] = young;
-                params[1] = gravity;
-                params[2] = rhowtr;
-                params[3] = rhoice;
-                params[4] = poisson;
-
-                double outputs[8];
-
-                if (ice_mask[i][j] == 1.)
-                {
-                    om = 2*PI*freq_vec[fq];
-
-                    if (fq == 0)
-                        guess = std::pow(om,2.)/gravity;
-                    else
-                        guess = 2*PI/wlng_ice[i][j][fq-1];
-
-                    RTparam_outer(outputs,iceh[i][j],double(om),double(visc_rp),double(guess),params);
-
-                    value_type kice, kwtr, int_adm, modT, argR, argT;
-
-                    damping[i][j][fq] = outputs[0];
-                    kice = outputs[1];
-                    kwtr = outputs[2];
-                    int_adm = outputs[3];
-                    atten_nond[i][j][fq] = outputs[4];
-                    modT = outputs[5];
-                    argR = outputs[6];
-                    argT = outputs[7];
-
-                    disp_ratio[i][j][fq] = (kice*modT)/kwtr;
-                    //wavelength to use in ice
-                    if (1)
-                    {
-                       //use ice wavelength TODO make an option?
-                       wlng_ice[i][j][fq] = 2*PI/kice;
-                    }
-                    else
-                    {
-                       //use water wavelength instead of ice wavelength
-                       wlng_ice[i][j][fq] = wlng[fq];
-                    }
-
-                    //group and phase velocities to use in ice
-                    if (!useicevel)
-                    {
-                       //water group and phase velocities
-                       //(ice ones not implemented)
-                       ag_eff[i][j][fq] = ag[fq];
-                       ap_eff[i][j][fq] = ap[fq];
-                    }
-
-                }
-                else
-                {
-                    ag_eff[i][j][fq] = ag[fq];
-                    ap_eff[i][j][fq] = ap[fq];
-                    wlng_ice[i][j][fq] = wlng[fq];
-                }
-            }
-        }
-
-        if (fq == 0)
-        {
-            amax = *std::max_element(ag_eff.data(),ag_eff.data() + ag_eff.num_elements());
-        }
-
-        if (fq == nwavefreq-1)
-        {
-            amin = *std::min_element(ag_eff.data(),ag_eff.data() + ag_eff.num_elements());
-        }
-    }
-    //std::cout<<"big loop done\n";
-
-    if (!atten)
-    {
-        std::fill( atten_nond.data(), atten_nond.data() + atten_nond.num_elements(), 0. );
-        std::fill( damping.data(), damping.data() + damping.num_elements(), 0. );
-    }
-
-    //int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-
-
-    // ========================================================================
-    // initialise sdf_dir from sdf_inc
-    // - only do this if step==0
-    if (!step)
-    {
-        std::fill( sdf_dir.data(), sdf_dir.data() + sdf_dir.num_elements(), 0. );
-
-        //#pragma omp parallel for num_threads(max_threads) collapse(4)
-        for (int i = 0; i < nwavefreq; i++)
-        {
-            for (int j = 0; j < nwavedirn; j++)
-            {
-                for (int k = 0; k < nx; k++)
-                {
-                    for (int l = 0; l < ny; l++)
-                    {
-                        if (wave_mask[k*ny+l] == 1.)
-                        {
-                            sdf_dir[k][l][j][i] = sdf_inc[k][l][j][i];
-                            //std::cout<<"sdf_dir[k][l][j][i]= "<< sdf_dir[k][l][j][i] <<"\n";
-                        }
-                    }
-                }
-            }
-        }
-    }
-    // end: initialise sdf_dir from sdf_inc
-    // ========================================================================
-
-
-    //dt = cfl*std::min(dx,dy)/amax;
-    amax = *std::max_element(ag_eff.data(),ag_eff.data() + ag_eff.num_elements());
-    std::cout<<"dx= "<< dx <<"\n";
-    std::cout<<"amax= "<< amax <<"\n";
-    std::cout<<"cfl= "<< cfl <<"\n";
-    dt = cfl*dx/amax;
-
-    //reduce time step slightly to make duration an integer multiple of dt
-    nt = std::ceil(duration/dt);
-    dt = duration/nt;
-
-
-    //ncs = std::ceil(nwavedirn/2);
-    ncs = std::round(nwavedirn/2);
-}//end: assign()
-
-template<typename T>
-void WimDiscr<T>::idealWaveFields(value_type const xfac)
-{
-   value_type x0,xmax,x_edge;
-   x0 = X_array[0][0];
-   xmax = X_array[nx-1][ny-1]; //x0+(nx-1)*dx;
-
-   //waves initialised for x<x_edge
-   x_edge = 0.5*(x0+xmax)-xfac*(0.5*(xmax-x0));
-
-   int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-#pragma omp parallel for num_threads(max_threads) collapse(2)
-   for (int i = 0; i < nx; i++)
-   {
-      for (int j = 0; j < ny; j++)
-      {
-         if ((X_array[i][j] < x_edge) && (LANDMASK_array[i][j]<1.))
-         {
-            wave_mask[i*ny+j] = 1.;
-            Hs [i*ny+j] = Hs_inc;
-            Tp [i*ny+j] = Tp_inc;
-            mwd[i*ny+j] = mwd_inc;
-            //std::cout<<Hs[i*ny+j]<<" "<<Tp[i*ny+j]<<" "<<mwd[i*ny+j];
-         }
-         else
-            wave_mask[i*ny+j] = 0.;
-      }
-   }
 }
 
-template<typename T>
-void WimDiscr<T>::inputWaveFields(value_type_vec const& swh_in,
-                                  value_type_vec const& mwp_in,
-                                  value_type_vec const& mwd_in)
-{
-
-    bool checkincwaves = vm["wim.checkincwaves"].template as<bool>();
-    if (checkincwaves)
-    {
-        swh_in_array.resize(boost::extents[nx][ny]);
-        mwp_in_array.resize(boost::extents[nx][ny]);
-        mwd_in_array.resize(boost::extents[nx][ny]);
-    }
-
-
-    double Hs_min=100.;
-    double Hs_max=0.;
-    double Hs_min_i=100.;
-    double Hs_max_i=0.;
-    double Hs_min_ice=100.;
-    double Hs_max_ice=0.;
-
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-#pragma omp parallel for num_threads(max_threads) collapse(2)
-    for (int i = 0; i < nx; i++)
-    {
-        for (int j = 0; j < ny; j++)
-        {
-            
-            if (checkincwaves)
-            {
-                //only needed for diagnostics
-                swh_in_array[i][j] = swh_in[ny*i+j];
-                mwp_in_array[i][j] = mwp_in[ny*i+j];
-                mwd_in_array[i][j] = mwd_in[ny*i+j];
-            }
-
-            if ((ice_mask[i][j]<1.)&&(swh_in[ny*i+j]>1.e-3))
-            {
-               wave_mask[i*ny+j] = 1.;
-               Hs [i*ny+j] = swh_in[i*ny+j];
-               Tp [i*ny+j] = mwp_in[i*ny+j];
-               mwd[i*ny+j] = mwd_in[i*ny+j];
-               //std::cout<<Hs[i*ny+j]<<" "<<Tp[i*ny+j]<<" "<<mwd[i*ny+j];
-            }
-            else
-               wave_mask[i*ny+j] = 0.;
-            
-            if (ice_mask[i][j]>0.)
-            {
-                Hs_min_ice    = std::min(Hs_min_ice,Hs[i*ny+j]);
-                Hs_max_ice    = std::max(Hs_max_ice,Hs[i*ny+j]);
-            }
-            Hs_min = std::min(Hs_min,Hs[i*ny+j]);
-            Hs_max = std::max(Hs_max,Hs[i*ny+j]);
-            Hs_min_i = std::min(Hs_min_i,swh_in[i*ny+j]);
-            Hs_max_i = std::max(Hs_max_i,swh_in[i*ny+j]);
-        }
-    }
-
-    std::cout<<"Hs range from outside:\n";
-    std::cout<<"Hs_min = "<<Hs_min_i<<"\n";
-    std::cout<<"Hs_max = "<<Hs_max_i<<"\n";
-    std::cout<<"Hs_min (processed) = "<<Hs_min<<"\n";
-    std::cout<<"Hs_max (processed) = "<<Hs_max<<"\n";
-    std::cout<<"Hs_min (in ice) = "<<Hs_min_ice<<"\n";
-    std::cout<<"Hs_max (in ice) = "<<Hs_max_ice<<"\n";
-}
 
 template<typename T>
 void WimDiscr<T>::idealIceFields(value_type const xfac)
@@ -1936,15 +1966,18 @@ void WimDiscr<T>::run(std::vector<value_type> const& icec_in,
         std::vector<value_type> const& mwd_in,
         bool step)
 {
-    this->assign(icec_in,iceh_in,nfloes_in,swh_in,mwp_in,mwd_in,step);
 
-    bool critter;
+    // set ice conditions, incident wave spectrum,
+    // attenuation coefficients and wave speeds/lengths,
+    // initialise sdf_dir (step==0)
+    this->update(icec_in,iceh_in,nfloes_in,swh_in,mwp_in,mwd_in,step);
+
 
     int lcpt  = 0;//local counter
     if ((!docoupling) || (!step))
         cpt = 0;//global counter
 
-    std::cout << "-----------------------Simulation started on "<< current_time_local() <<"\n";
+    std::cout << "-----------------------Simulation started at "<< current_time_local() <<"\n";
 
     //init_time_str is human readable time eg "2015-01-01 00:00:00"
     //init_time is "formal" time format eg "20150101T000000Z"
@@ -1967,12 +2000,30 @@ void WimDiscr<T>::run(std::vector<value_type> const& icec_in,
     std::cout<<"dt= "<< dt <<"\n";
     std::cout<<"nt= "<< nt <<"\n";
 
-
     if (vm["wim.checkinit"].template as<bool>())
         exportResults("init",t_in);
+
     if (vm["wim.checkincwaves"].template as<bool>()
         &&(swh_in.size()>0))
         exportResults("incwaves",t_in);
+
+#if 1
+    //test inc waves
+    value_type _min = *std::min_element(swh_in.begin(),swh_in.end());
+    value_type _max = *std::max_element(swh_in.begin(),swh_in.end());
+    std::cout<<"Min swh in = " << _min <<"\n";
+    std::cout<<"Max swh in = " << _max <<"\n";
+    //
+    _min = *std::min_element(mwp_in.begin(),mwp_in.end());
+    _max = *std::max_element(mwp_in.begin(),mwp_in.end());
+    std::cout<<"Min mwp in = " << _min <<"\n";
+    std::cout<<"Max mwp in = " << _max <<"\n";
+    //
+    _min = *std::min_element(mwd_in.begin(),mwd_in.end());
+    _max = *std::max_element(mwd_in.begin(),mwd_in.end());
+    std::cout<<"Min mwd in = " << _min <<"\n";
+    std::cout<<"Max mwd in = " << _max <<"\n";
+#endif
 
     while (lcpt < nt)
     {
@@ -1980,24 +2031,16 @@ void WimDiscr<T>::run(std::vector<value_type> const& icec_in,
            <<" (out of "<<nt<<")"<<"\n";
         value_type t_out = dt*cpt;
 
-        critter = !(cpt % vm["wim.dumpfreq"].template as<int>())
+        bool exportProg = !(cpt % vm["wim.dumpfreq"].template as<int>())
            && (vm["wim.checkprog"].template as<bool>());
         dumpDiag  = !(cpt % vm["wim.dumpfreq"].template as<int>())
            && (wim_itest>0) && (wim_jtest>0);
 
-        if ( critter )
+        if ( exportProg )
         {
             if (vm["nextwim.exportresults"].template as <bool>())
                 exportResults("prog",t_out);
         }
-
-        // if (cpt == 30)
-        // {
-        //     for (int i = 0; i < nx; i++)
-        //         for (int j = 0; j < ny; j++)
-        //             std::cout<<"Hs["<< i << "," << j << "]= "<< Tp[i*ny+j] /*- Tp.data()[ny*i+j]*/ <<"\n";
-
-        // }
 
         timeStep(step);
 
@@ -2014,7 +2057,7 @@ void WimDiscr<T>::run(std::vector<value_type> const& icec_in,
 
     std::cout<<"Running done in "<< chrono.elapsed() <<"s\n";
 
-    std::cout << "-----------------------Simulation completed on "<< current_time_local() <<"\n";
+    std::cout << "-----------------------Simulation completed at "<< current_time_local() <<"\n";
 }
 
 template<typename T>
