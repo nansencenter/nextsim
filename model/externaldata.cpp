@@ -432,14 +432,6 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 }
                 f_timestr=(boost::format( "%1%%2%" ) % boost::io::group(std::setw(4), std::setfill('0'), value_year) % boost::io::group(std::setw(2), std::setfill('0'), value_month)).str();
 
-#if 0
-                // change the reference_date if erai forcing according to the xxxx-01-01, where xxxx is the current year
-                if ((dataset->name).find("ERAi") != std::string::npos)
-                {
-                    dataset->grid.reference_date = (boost::format( "%1%" ) % boost::io::group(std::setw(4), std::setfill('0'), value_year)).str() + "-01-01";
-                    //std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@DETECT ERAi: Dataset->grid.reference_date= "<< dataset->grid.reference_date <<"\n";
-                }
-#endif
             }
             else if(dataset->grid.dataset_frequency=="yearly")
             {
@@ -627,7 +619,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             }
 
             // time dimension
-			if(dataset->variables[j].dimensions.size()>2 && dataset->grid.dataset_frequency!="constant" && dataset->grid.dataset_frequency!="nearest_daily")
+			if(dataset->variables[j].dimensions.size()>2
+                    && dataset->grid.dataset_frequency!="constant"
+                    && dataset->grid.dataset_frequency!="nearest_daily")
 			{
             	index_start[0] = index;
             	index_count[0] = 1;
@@ -722,7 +716,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                         LATtmp,LONtmp,Xtmp,Ytmp,mapNextsim);
 
                 //now get data and rotate
-                double mwd,uwave,vwave,delta_r_bis,lon_factor;
+                double mwd,uwave,vwave,delta_r_bis,lon_factor,lat_factor;
+                double R_pol = 1.e3*mapNextsim->polar_radius;//m
+                double R_eq  = 1.e3*mapNextsim->equatorial_radius;//m
                 for (int i=0; i<final_MN; ++i)
                 {
                     lon_tmp = LONtmp[i];
@@ -739,11 +735,27 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                     }
                     else
                     {
-                        uwave       = disp_factor*std::sin((PI/180.)*mwd);
-                        vwave       = disp_factor*std::cos((PI/180.)*mwd);
-                        lon_factor  = delta_r/(R*std::cos((PI/180.)*lat_tmp));
-                        delta_lat   = (180./PI)*uwave*delta_r/R;
-                        delta_lon   = (180./PI)*vwave*lon_factor;
+#if 1
+                        //use shape of earth according to nextsim projection 
+                        lon_factor  = R_eq*std::cos((PI/180.)*lat_tmp);
+                        lat_factor  = std::hypot( R_eq*std::sin((PI/180.)*lat_tmp),
+                                                 R_pol*std::cos((PI/180.)*lat_tmp));
+#else
+                        // use spherical earth
+                        // - difference is ~1 degree in the direction
+                        lon_factor  = R*std::cos((PI/180.)*lat_tmp);
+                        lat_factor  = R;
+#endif
+
+                        delta_x     = delta_r*disp_factor*std::sin( (PI/180.)*mwd );
+                        delta_y     = delta_r*disp_factor*std::cos( (PI/180.)*mwd );
+                        delta_lon   = (180./PI)*delta_x/lon_factor;
+                        delta_lat   = (180./PI)*delta_y/lat_factor;
+#if 0
+                        if(i==83)
+                            std::cout<<std::setprecision(15)
+                                <<i<<" - dlon,dlat,dx,dy = "<<delta_lon<<","<<delta_lat<<","<<delta_x<<","<<delta_y<<"\n";
+#endif
 
                         //new lon,lat after moving delta_r
                         lat_tmp_bis = lat_tmp+delta_lat;
@@ -758,11 +770,39 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                         delta_r_bis = std::hypot(delta_x,delta_y);
                         tmp_data0   = delta_x/delta_r_bis;
                         tmp_data1   = delta_y/delta_r_bis;
+
+#if 1
+                        if (i==83)
+                        {
+                            std::cout<<std::setprecision(15)
+                                <<i<<" - checking rotation of mwd:\n";
+#if 0
+                            std::cout<<std::setprecision(15)
+                                <<i<<" - R,a,b (km) = "<<R/1.e3<<","<<mapNextsim->equatorial_radius<<","<<mapNextsim->polar_radius<<"\n";
+                            std::cout<<std::setprecision(15)
+                                <<i<<" - dlon,dlat,dx,dy = "<<delta_lon<<","<<delta_lat<<","<<delta_x<<","<<delta_y<<"\n";
+                            std::cout<<std::setprecision(15)
+                                <<i<<" - x2,y2 = "<<x_tmp_bis<<","<<y_tmp_bis<<"\n";
+#endif
+                            std::cout<<std::setprecision(15)
+                                <<i<<" - fstep,lon,lat,x,y,mwd = "<<fstep<<","<<lon_tmp<<","<<lat_tmp<<","<<x_tmp<<","<<y_tmp<<","<<mwd<<"\n";
+                            std::cout<<std::setprecision(15)
+                                <<i<<" - Hs,Tp,uwave,vwave ="
+                                <<" "<<dataset->variables[0].loaded_data[fstep][i] //Hs
+                                <<","<<dataset->variables[1].loaded_data[fstep][i] //Tp
+                                <<","<<tmp_data0
+                                <<","<<tmp_data1
+                                <<"\n";
+                        }
+#endif
                     }//rotation of unit vector representing mwd
 
-                    //modify original scalar variables
+                    // modify original scalar variables
+                    // - store unit vector representing wave direction 
+                    // as a unit vector in nextsim's x/y coordinates
                     dataset->variables[j0].loaded_data[fstep][i] = tmp_data0;
                     dataset->variables[j1].loaded_data[fstep][i] = tmp_data1;
+
                 }//i loop
 
                 Xtmp.resize(0);
