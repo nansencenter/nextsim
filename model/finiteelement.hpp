@@ -30,6 +30,7 @@
 #include <externaldata.hpp>
 #include <gridoutput.hpp>
 #include <dataset.hpp>
+#include <drifters.hpp>
 #include "enums.hpp"
 #include <debug.hpp>
 #include <omp.h>
@@ -164,8 +165,10 @@ public:
     Dataset M_ice_piomas_elements_dataset;
     Dataset M_ice_amsre_elements_dataset;
     Dataset M_ice_osisaf_elements_dataset;
+    Dataset M_ice_osisaf_type_elements_dataset;
     Dataset M_ice_amsr2_elements_dataset;
     Dataset M_ice_cs2_smos_elements_dataset;
+    Dataset M_ice_smos_elements_dataset;
 
     template<typename FEMeshType>
     double minAngles(element_type const& element, FEMeshType const& mesh) const;
@@ -244,7 +247,6 @@ private:
     mesh_type M_mesh_previous;
     solver_ptrtype M_solver;
     matrix_ptrtype M_matrix;
-    //matrix_ptrtype M_mass;
     vector_ptrtype M_vector;
     vector_ptrtype M_solution;
     vector_ptrtype M_exact;
@@ -310,22 +312,16 @@ private:
     // interpolation method
     std::vector<int> M_interp_method;
 
-    // std::vector<double> M_vector_reduction;
-    // std::vector<bool> M_valid_conc;
-
-
     std::vector<double> M_surface;
     std::vector<double> M_sigma;
-    //std::vector<double> M_divergence_rate;
-    //std::vector<double> M_UT;
     std::vector<double> M_UM;
+    std::vector<double> M_UT;
     std::vector<double> M_VT;
     std::vector<double> M_VTM;
     std::vector<double> M_VTMM;
 
     std::vector<double> M_bathy_depth;
 
-    //std::vector<double> M_h;
     std::vector<double> M_hminVertices;
     std::vector<double> M_hmaxVertices;
 
@@ -333,7 +329,7 @@ private:
     std::vector<double> M_Voce_factor;
     std::vector<double> M_basal_factor;
     std::vector<double> M_water_elements;
-    //std::vector<double> M_ssh;
+
     std::vector<double> M_h_thin;
     std::vector<double> M_hs_thin;
     std::vector<double> M_h_ridged_thin_ice;
@@ -353,12 +349,13 @@ private:
     //std::vector<double> M_speed_scaling;
 
     std::vector<double> M_Dunit;
-    std::vector<double> M_Dunit_comp;
+    //std::vector<double> M_Dunit_comp;
     std::vector<double> M_Mass;
+    std::vector<double> M_Diag;
     std::vector<std::vector<double>> M_shape_coeff;
     std::vector<std::vector<double>> M_B0T;
     std::vector<std::vector<double>> M_B0T_Dunit_B0T;
-    std::vector<std::vector<double>> M_B0T_Dunit_comp_B0T;
+    //std::vector<std::vector<double>> M_B0T_Dunit_comp_B0T;
     std::vector<double> M_random_number;
     std::vector<double> M_Cohesion;
     std::vector<double> M_Compressive_strength;
@@ -461,6 +458,7 @@ private:
     external_data M_Qlw_in;       // Incoming long-wave radiation [W/m2]
     external_data M_tcc;          // Incoming long-wave radiation [W/m2]
     external_data M_precip;       // Total precipitation [m]
+    external_data M_snowfall;     // Snowfall rate [kg/m^2/s]
     external_data M_snowfr;       // Fraction of precipitation that is snow
     external_data M_dair;         // 2 m dew point [C]
 
@@ -476,9 +474,13 @@ private:
     external_data M_element_depth;
 
     // Drifters
-    boost::unordered_map<int, std::array<double,2>> M_drifter; // Drifters are kept in an unordered map containing number and coordinates
-    std::fstream M_iabp_file;             // The file we read the IABP buoy data from
-    std::fstream M_drifters_out;    // The file we write our simulated drifter positions into
+    boost::unordered_map<int, std::array<double,2>> M_iabpDrifters; // Drifters are kept in an unordered map containing number and coordinates
+    std::fstream M_iabp_file;   // The file we read the IABP buoy data from
+    std::fstream M_iabp_out;    // The file we write our simulated drifter positions into
+
+    Drifters M_drifters; // Drifters on a grid
+    Drifters M_rgps_drifters; // Drifters as in the RGPS data
+    std::vector<Drifters> M_osisaf_drifters; // A vector of drifters for the OSISAF emulation
 
     // Prognostic ice variables
     std::vector<double> M_conc;         // Ice concentration
@@ -523,16 +525,22 @@ private:
 
     void constantIce();
     void targetIce();
+    void binaryIce();
     void topazIce();
     void piomasIce();
     void topazForecastIce();
     void topazForecastAmsr2Ice();
     void topazForecastAmsr2OsisafIce();
     void cs2SmosIce();
+    void warrenClimatology();
+    void smosIce();
 
     void topazAmsreIce();
     void topazAmsr2Ice();
 
+    void initOSISAFDrifters();
+    void initRGPSDrifters();
+    void updateRGPSDrifters();
     void equallySpacedDrifter();
     void outputDrifter(std::fstream &iabp_out);
     void initIABPDrifter();
