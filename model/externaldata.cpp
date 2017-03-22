@@ -129,6 +129,9 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             //loadDataset(M_dataset, mesh);
             loadDataset(M_dataset, RX_in, RY_in);
             std::cout << "Done\n";
+
+            //need to interpolate again if reloading
+            M_dataset->interpolated = false;
         }
         
         if (!M_dataset->interpolated)
@@ -719,6 +722,20 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 double mwd,uwave,vwave,delta_r_bis,lon_factor,lat_factor;
                 double R_pol = 1.e3*mapNextsim->polar_radius;//m
                 double R_eq  = 1.e3*mapNextsim->equatorial_radius;//m
+
+#if 0
+                double lon_check = 4.1589999;
+                double lat_check = 76.560997;
+                double xcheck = 0.;
+                double ycheck = 0.;
+                double Rcheck_min = 1000.e3;
+                double mwd_check = 1000.;
+                int Icheck = 0;
+
+                forward_mapx(mapNextsim,lat_check,lon_check,
+                    &xcheck,&ycheck);
+#endif
+
                 for (int i=0; i<final_MN; ++i)
                 {
                     lon_tmp = LONtmp[i];
@@ -751,11 +768,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                         delta_y     = delta_r*disp_factor*std::cos( (PI/180.)*mwd );
                         delta_lon   = (180./PI)*delta_x/lon_factor;
                         delta_lat   = (180./PI)*delta_y/lat_factor;
-#if 0
-                        if(i==83)
-                            std::cout<<std::setprecision(15)
-                                <<i<<" - dlon,dlat,dx,dy = "<<delta_lon<<","<<delta_lat<<","<<delta_x<<","<<delta_y<<"\n";
-#endif
+
 
                         //new lon,lat after moving delta_r
                         lat_tmp_bis = lat_tmp+delta_lat;
@@ -771,7 +784,17 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                         tmp_data0   = delta_x/delta_r_bis;
                         tmp_data1   = delta_y/delta_r_bis;
 
-#if 1
+#if 0
+                        double Rcheck  = std::hypot(x_tmp-xcheck,y_tmp-ycheck);
+                        if (Rcheck<Rcheck_min)
+                        {
+                            Rcheck_min  = Rcheck;
+                            Icheck      = i;
+                            mwd_check   = mwd;
+                        }
+#endif
+
+#if 0
                         if (i==83)
                         {
                             std::cout<<std::setprecision(15)
@@ -804,6 +827,28 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                     dataset->variables[j1].loaded_data[fstep][i] = tmp_data1;
 
                 }//i loop
+#if 0
+                lon_tmp = LONtmp[Icheck];
+                lat_tmp = LATtmp[Icheck];
+                x_tmp   = Xtmp[Icheck];
+                y_tmp   = Ytmp[Icheck];
+                mwd     = mwd_check;
+                //
+                std::cout<<std::setprecision(15)
+                    <<Icheck<<" - checking rotation of mwd near:\n";
+                std::cout<<std::setprecision(15)
+                    <<"time,lon,lat,x,y = "
+                    <<M_current_time<<lon_check<<","<<lat_check<<","<<xcheck<<","<<ycheck<<"\n";
+                std::cout<<std::setprecision(15)
+                    <<Icheck<<" - fstep,lon,lat,x,y,mwd = "<<fstep<<","<<lon_tmp<<","<<lat_tmp<<","<<x_tmp<<","<<y_tmp<<","<<mwd<<"\n";
+                std::cout<<std::setprecision(15)
+                    <<Icheck<<" - Hs,Tp,uwave,vwave ="
+                    <<" "<<dataset->variables[0].loaded_data[fstep][Icheck] //Hs
+                    <<","<<dataset->variables[1].loaded_data[fstep][Icheck] //Tp
+                    <<","<<dataset->variables[j0].loaded_data[fstep][Icheck]//uwave
+                    <<","<<dataset->variables[j1].loaded_data[fstep][Icheck]//vwave
+                    <<"\n";
+#endif
 
                 Xtmp.resize(0);
                 Ytmp.resize(0);
