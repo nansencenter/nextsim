@@ -419,7 +419,8 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
 #if defined (WAVES)
             else if ( (*it)->M_dataset->grid.target_location=="wim_grid" )
             {
-                LOG(DEBUG)<<"in wim_grid: dataset = "<<(*it)->M_dataset->name<<"\n";
+                //LOG(DEBUG)<<"in wim_grid: dataset = "<<(*it)->M_dataset->name<<"\n";
+                std::cout<<"in wim_grid: dataset = "<<(*it)->M_dataset->name<<"\n";
                 //interp to WIM grid
                 (*it)->check_and_reload(wim_grid.X,wim_grid.Y,CRtime);
             }
@@ -7091,7 +7092,7 @@ FiniteElement::nextsimToWim(bool step)
         }
 
         //std::cout<<"after interp mesh2grid\n";
-        std::cout<<"ideal wave forcing: "<<wim_ideal_forcing<<"\n";
+        //std::cout<<"Use ideal wave forcing? "<<wim_ideal_forcing<<"\n";
 
         // move back the mesh after the interpolation
 		M_mesh.move(M_UM,-1.);
@@ -7176,12 +7177,33 @@ FiniteElement::nextsimToWim(bool step)
         LOG(DEBUG)<<"sim2wim (check wave forcing): "<<wim_ideal_forcing<<","<<M_SWH_grid.size()<<"\n";
         if (M_SWH_grid.size()>0)//( !wim_ideal_forcing )
         {
+#if 0
             LOG(DEBUG)<<"min SWH_grid= "<< *std::min_element(M_SWH_grid.begin(),M_SWH_grid.end() )<<"\n";
             LOG(DEBUG)<<"max SWH_grid= "<< *std::max_element(M_SWH_grid.begin(),M_SWH_grid.end() )<<"\n";
             LOG(DEBUG)<<"min MWD_grid= "<< *std::min_element(M_MWD_grid.begin(),M_MWD_grid.end() )<<"\n";
             LOG(DEBUG)<<"max MWD_grid= "<< *std::max_element(M_MWD_grid.begin(),M_MWD_grid.end() )<<"\n";
             LOG(DEBUG)<<"min MWP_grid= "<< *std::min_element(M_MWP_grid.begin(),M_MWP_grid.end() )<<"\n";
             LOG(DEBUG)<<"max MWP_grid= "<< *std::max_element(M_MWP_grid.begin(),M_MWP_grid.end() )<<"\n";
+#elif 0
+            std::cout<<"nextsimToWim check wave inputs at t="<<current_time<<"\n";
+            std::cout<<"min SWH_grid= "<< *std::min_element(M_SWH_grid.begin(),M_SWH_grid.end() )<<"\n";
+            std::cout<<"max SWH_grid= "<< *std::max_element(M_SWH_grid.begin(),M_SWH_grid.end() )<<"\n";
+            std::cout<<"min MWD_grid= "<< *std::min_element(M_MWD_grid.begin(),M_MWD_grid.end() )<<"\n";
+            std::cout<<"max MWD_grid= "<< *std::max_element(M_MWD_grid.begin(),M_MWD_grid.end() )<<"\n";
+            std::cout<<"min MWP_grid= "<< *std::min_element(M_MWP_grid.begin(),M_MWP_grid.end() )<<"\n";
+            std::cout<<"max MWP_grid= "<< *std::max_element(M_MWP_grid.begin(),M_MWP_grid.end() )<<"\n";
+#elif 0
+            int icheck      = 116;
+            int jcheck      = 112;
+            int Icheck      = jcheck+icheck*wim_grid.ny;
+            double xcheck   = wim_grid.X[Icheck];
+            double ycheck   = wim_grid.Y[Icheck];
+            std::cout<<"nextsimToWim check wave inputs at t="<<current_time<<"\n";
+            std::cout<<"near i,j,x,y = "<<icheck<<","<<jcheck<<","<<xcheck<<","<<ycheck<<","<<"\n";
+            std::cout<<"SWH_grid= "<< M_SWH_grid[Icheck]<<"\n";
+            std::cout<<"MWD_grid= "<< M_MWD_grid[Icheck]<<"\n";
+            std::cout<<"MWP_grid= "<< M_MWP_grid[Icheck]<<"\n";
+#endif
         }
 
         xDelete<double>(interp_elt_out);
