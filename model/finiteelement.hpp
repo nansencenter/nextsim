@@ -233,6 +233,12 @@ public:
 
     void clear();
 
+public:
+    std::string gitRevision();
+    std::string system(std::string const& command);
+    std::string getEnv(std::string const& envname);
+    void writeLogFile();
+
 private:
     void advect(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out);
     void collectVariables(std::vector<double>& interp_elt_in_local, bool slab = false, bool ghosts = false);

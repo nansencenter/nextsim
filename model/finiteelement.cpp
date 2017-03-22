@@ -822,16 +822,12 @@ FiniteElement::initConstant()
         throw std::logic_error("restart_time_step not an integer multiple of time_step");
     }
 
-    //divergence_min = /*(1./days_in_sec)**/vm["simul.divergence_min"].as<double>();
-    //compression_factor = vm["simul.compression_factor"].as<double>();
-    //exponent_compression_factor = vm["simul.exponent_compression_factor"].as<double>();
     ocean_turning_angle_rad = (PI/180.)*vm["simul.oceanic_turning_angle"].as<double>();
     ridging_exponent = vm["simul.ridging_exponent"].as<double>();
 
     quad_drag_coef_water = vm["simul.quad_drag_coef_water"].as<double>();
 
     basal_k2 = vm["simul.Lemieux_basal_k2"].as<double>();
-    //basal_drag_coef_air = vm["simul.Lemieux_drag_coef_air"].as<double>();
     basal_u_0 = vm["simul.Lemieux_basal_u_0"].as<double>();
     basal_Cb = vm["simul.Lemieux_basal_Cb"].as<double>();
 
@@ -888,8 +884,6 @@ FiniteElement::initConstant()
         default:
             std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
-
-    //std::cout<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::OceanType> str2ocean = boost::assign::map_list_of
         ("constant", setup::OceanType::CONSTANT)
@@ -3328,7 +3322,6 @@ void
 FiniteElement::tensors()
 {
     M_Dunit.assign(9,0);
-    //M_Dunit_comp.assign(9,0);
     M_Mass.assign(9,0);
     M_Diag.assign(9,0);
 
@@ -3337,7 +3330,6 @@ FiniteElement::tensors()
         for (int kk=0; kk<2; ++kk )
         {
             M_Dunit[k+kk] = (1-((k+kk)%2)*(1-nu0))/(1-std::pow(nu0,2.));
-            //M_Dunit_comp[k+kk] = 1.;
         }
     }
     M_Dunit[8] = (1-nu0)/(2.*(1-std::pow(nu0,2.)));
@@ -3354,19 +3346,14 @@ FiniteElement::tensors()
 
     M_B0T.resize(M_num_elements);
     M_B0T_Dunit_B0T.resize(M_num_elements);
-    //M_B0T_Dunit_comp_B0T.resize(M_num_elements);
     M_shape_coeff.resize(M_num_elements);
 
     std::vector<double> B0T(18,0);
     std::vector<double> B0Tj_Dunit(6,0);
     std::vector<double> B0T_Dunit_B0T(36,0);
-    //std::vector<double> B0Tj_Dunit_comp(6,0);
-    //std::vector<double> B0T_Dunit_comp_B0T(36,0);
 
     double B0Tj_Dunit_tmp0, B0Tj_Dunit_tmp1;
     double B0Tj_Dunit_B0Ti_tmp0, B0Tj_Dunit_B0Ti_tmp1, B0Tj_Dunit_B0Ti_tmp2, B0Tj_Dunit_B0Ti_tmp3;
-    //double B0Tj_Dunit_comp_tmp0, B0Tj_Dunit_comp_tmp1;
-    //double B0Tj_Dunit_comp_B0Ti_tmp0, B0Tj_Dunit_comp_B0Ti_tmp1, B0Tj_Dunit_comp_B0Ti_tmp2, B0Tj_Dunit_comp_B0Ti_tmp3;
 
     int cpt = 0;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
@@ -3416,23 +3403,14 @@ FiniteElement::tensors()
                 B0Tj_Dunit_tmp0 = 0.;
                 B0Tj_Dunit_tmp1 = 0.;
 
-                //B0Tj_Dunit_comp_tmp0 = 0.;
-                //B0Tj_Dunit_comp_tmp1 = 0.;
-
                 for(int kk=0; kk<3; kk++)
                 {
                     B0Tj_Dunit_tmp0 += B0T[kk*6+2*j]*M_Dunit[3*i+kk];
                     B0Tj_Dunit_tmp1 += B0T[kk*6+2*j+1]*M_Dunit[3*i+kk];
-
-                    //B0Tj_Dunit_comp_tmp0 += B0T[kk*6+2*j]*M_Dunit_comp[3*i+kk];
-                    //B0Tj_Dunit_comp_tmp1 += B0T[kk*6+2*j+1]*M_Dunit_comp[3*i+kk];
                 }
 
                 B0Tj_Dunit[2*i] = B0Tj_Dunit_tmp0;
                 B0Tj_Dunit[2*i+1] = B0Tj_Dunit_tmp1;
-
-                //B0Tj_Dunit_comp[2*i] = B0Tj_Dunit_comp_tmp0;
-                //B0Tj_Dunit_comp[2*i+1] = B0Tj_Dunit_comp_tmp1;
             }
 
             for(int i=0; i<3; i++)
@@ -3444,34 +3422,18 @@ FiniteElement::tensors()
                 B0Tj_Dunit_B0Ti_tmp2 = 0.;
                 B0Tj_Dunit_B0Ti_tmp3 = 0.;
 
-                /* scalar product of B0Ti_Dunit_comp and the first column of B0T */
-                // B0Tj_Dunit_comp_B0Ti_tmp0 = 0.;
-                // B0Tj_Dunit_comp_B0Ti_tmp1 = 0.;
-                // B0Tj_Dunit_comp_B0Ti_tmp2 = 0.;
-                // B0Tj_Dunit_comp_B0Ti_tmp3 = 0.;
-
                 for(int kk=0; kk<3; kk++)
                 {
                     B0Tj_Dunit_B0Ti_tmp0 += B0Tj_Dunit[2*kk]*B0T[kk*6+2*i];
                     B0Tj_Dunit_B0Ti_tmp1 += B0Tj_Dunit[2*kk]*B0T[kk*6+2*i+1];
                     B0Tj_Dunit_B0Ti_tmp2 += B0Tj_Dunit[2*kk+1]*B0T[kk*6+2*i];
                     B0Tj_Dunit_B0Ti_tmp3 += B0Tj_Dunit[2*kk+1]*B0T[kk*6+2*i+1];
-
-                    // B0Tj_Dunit_comp_B0Ti_tmp0 += B0Tj_Dunit_comp[2*kk]*B0T[kk*6+2*i];
-                    // B0Tj_Dunit_comp_B0Ti_tmp1 += B0Tj_Dunit_comp[2*kk]*B0T[kk*6+2*i+1];
-                    // B0Tj_Dunit_comp_B0Ti_tmp2 += B0Tj_Dunit_comp[2*kk+1]*B0T[kk*6+2*i];
-                    // B0Tj_Dunit_comp_B0Ti_tmp3 += B0Tj_Dunit_comp[2*kk+1]*B0T[kk*6+2*i+1];
                 }
 
                 B0T_Dunit_B0T[(2*i)*6+2*j] = B0Tj_Dunit_B0Ti_tmp0;
                 B0T_Dunit_B0T[(2*i+1)*6+2*j] = B0Tj_Dunit_B0Ti_tmp1;
                 B0T_Dunit_B0T[(2*i)*6+2*j+1] = B0Tj_Dunit_B0Ti_tmp2;
                 B0T_Dunit_B0T[(2*i+1)*6+2*j+1] = B0Tj_Dunit_B0Ti_tmp3;
-
-                // B0T_Dunit_comp_B0T[(2*i)*6+2*j] = B0Tj_Dunit_comp_B0Ti_tmp0;
-                // B0T_Dunit_comp_B0T[(2*i+1)*6+2*j] = B0Tj_Dunit_comp_B0Ti_tmp1;
-                // B0T_Dunit_comp_B0T[(2*i)*6+2*j+1] = B0Tj_Dunit_comp_B0Ti_tmp2;
-                // B0T_Dunit_comp_B0T[(2*i+1)*6+2*j+1] = B0Tj_Dunit_comp_B0Ti_tmp3;
             }
         }
 
@@ -3485,14 +3447,12 @@ FiniteElement::tensors()
             for(int j=0; j<i; j++)
             {
                 B0T_Dunit_B0T[i*6+j] = B0T_Dunit_B0T[j*6+i];
-                //B0T_Dunit_comp_B0T[i*6+j] = B0T_Dunit_comp_B0T[j*6+i];
             }
         }
 
         M_shape_coeff[cpt]        = shapecoeff;
         M_B0T[cpt]                = B0T;
         M_B0T_Dunit_B0T[cpt]      = B0T_Dunit_B0T;
-        //M_B0T_Dunit_comp_B0T[cpt] = B0T_Dunit_comp_B0T;
 
         ++cpt;
     }
@@ -5050,12 +5010,38 @@ FiniteElement::run()
         std::cout << "[INFO]: " << "-----------------------Simulation started on "<< current_time_local() <<"\n";
     }
 
+    if (M_comm.rank() == 0)
+    {
+        // define export path
+        M_export_path = Environment::nextsimDir().string() + "/matlab";
+        // change directory for outputs if the option "output_directory" is not empty
+        if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
+        {
+            M_export_path = vm["simul.output_directory"].as<std::string>();
+
+            fs::path path(M_export_path);
+            // add a subdirecory if needed
+            // path /= "subdir";
+
+            // create the output directory if it does not exist
+            if ( !fs::exists(path) )
+                fs::create_directories(path);
+        }
+        // export path
+
+        // write the logfile
+        this->writeLogFile();
+
+    } // master rank
+
     std::string current_time_system = current_time_local();
 
     // Initialise everything that doesn't depend on the mesh (constants, data set description, and time)
     this->initConstant();
     current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
     this->initDatasets();
+
+
 
     int pcpt = 0;
     int niter = vm["simul.maxiteration"].as<int>();
@@ -5303,7 +5289,7 @@ FiniteElement::run()
         this->assemble(pcpt);
         if (M_rank == 0)
             std::cout <<"---timer assemble:             "<< timer["assemble"].first.elapsed() <<"s\n";
-#if 0
+#if 1
         //======================================================================
         // Solve the linear problem
         //======================================================================
@@ -7429,6 +7415,192 @@ FiniteElement::exportResults(int step, bool export_mesh)
 
         exporter.writeRecord(outrecord);
         outrecord.close();
+    }
+}
+
+std::string
+FiniteElement::gitRevision()
+{
+    //std::string command = "git rev-parse HEAD";
+    return this->system("git rev-parse HEAD");
+}
+
+std::string
+FiniteElement::system(std::string const& command)
+{
+    char buffer[128];
+    //std::string command = "git rev-parse HEAD";
+    std::string result = "";
+    std::shared_ptr<FILE> pipe(popen(command.c_str(), "r"), pclose);
+    if (!pipe)
+    {
+        throw std::runtime_error("popen() failed!");
+    }
+
+    while (!feof(pipe.get()))
+    {
+        if (fgets(buffer, 128, pipe.get()) != NULL)
+        {
+            // remove newline from the buffer
+            int len = strlen(buffer);
+            if( buffer[len-1] == '\n' )
+                buffer[len-1] = 0;
+
+            result += buffer;
+        }
+    }
+
+    // return the result of the command
+    return result;
+}
+
+std::string
+FiniteElement::getEnv(std::string const& envname)
+{
+    char* senv = ::getenv(envname.c_str());
+    return std::string(senv);
+}
+
+void
+FiniteElement::writeLogFile()
+{
+    std::string logfilename = "";
+    if ((vm["simul.logfile"].as<std::string>()).empty())
+    {
+        logfilename = "nextsim.log";
+    }
+    else
+    {
+        logfilename = vm["simul.logfile"].as<std::string>();
+    }
+
+    std::string fileout = (boost::format( "%1%/%2%" )
+               % M_export_path
+               % logfilename ).str();
+
+    std::fstream logfile(fileout, std::ios::out | std::ios::trunc);
+    std::cout << "Writing log file " << fileout << "...\n";
+
+    if (logfile.is_open())
+    {
+        logfile << "#----------Info\n";
+        logfile << std::setw(40) << std::left << "Build date "  << current_time_local() <<"\n";
+        logfile << std::setw(40) << std::left << "Git revision "  << gitRevision() <<"\n";
+
+        logfile << "#----------Compilers\n";
+        logfile << std::setw(40) << std::left << "C "  << system("which gcc") << " (version "<< system("gcc -dumpversion") << ")" <<"\n";
+        logfile << std::setw(40) << std::left << "C++ "  << system("which g++") << " (version "<< system("g++ -dumpversion") << ")" <<"\n";
+
+        logfile << "#----------Environment variables\n";
+        logfile << std::setw(40) << std::left << "NEXTSIMDIR "  << getEnv("NEXTSIMDIR") <<"\n";
+        logfile << std::setw(40) << std::left << "SIMDATADIR "  << getEnv("SIMDATADIR") <<"\n";
+        logfile << std::setw(40) << std::left << "SIMFORECASTDIR "  << getEnv("SIMFORECASTDIR") <<"\n";
+        logfile << std::setw(40) << std::left << "PETSC_DIR "  << getEnv("PETSC_DIR") <<"\n";
+        logfile << std::setw(40) << std::left << "BOOST_DIR "  << getEnv("BOOST_DIR") <<"\n";
+        logfile << std::setw(40) << std::left << "GMSH_DIR "  << getEnv("GMSH_DIR") <<"\n";
+        logfile << std::setw(40) << std::left << "NETCDF_DIR "  << getEnv("NETCDF_DIR") <<"\n";
+        logfile << std::setw(40) << std::left << "OPENMPI_LIB_DIR "  << getEnv("OPENMPI_LIB_DIR") <<"\n";
+        logfile << std::setw(40) << std::left << "OPENMPI_INCLUDE_DIR "  << getEnv("OPENMPI_INCLUDE_DIR") <<"\n";
+
+        logfile << "#----------Program options\n";
+
+        for (po::variables_map::iterator it = vm.begin(); it != vm.end(); it++)
+        {
+            // ignore wim options if no coupling
+#if !defined (WAVES)
+            if ((it->first.find("nextwim.") != std::string::npos) || (it->first.find("wim.") != std::string::npos))
+            {
+                continue;
+            }
+#endif
+
+            logfile << std::setw(40) << std::left << it->first;
+
+#if 0
+            if (((boost::any)it->second.value()).empty())
+            {
+                std::cout << "(empty)";
+            }
+            if (vm[it->first].defaulted() || it->second.defaulted()) {
+                std::cout << "(default)";
+            }
+#endif
+
+            bool is_char;
+            try
+            {
+                boost::any_cast<const char *>(it->second.value());
+                is_char = true;
+            }
+            catch (const boost::bad_any_cast &)
+            {
+                is_char = false;
+            }
+
+            bool is_str;
+            try
+            {
+                boost::any_cast<std::string>(it->second.value());
+                is_str = true;
+            }
+            catch (const boost::bad_any_cast &)
+            {
+                is_str = false;
+            }
+
+            if (((boost::any)it->second.value()).type() == typeid(int))
+            {
+                logfile << vm[it->first].as<int>() <<"\n";
+            }
+            else if (((boost::any)it->second.value()).type() == typeid(bool))
+            {
+                logfile << vm[it->first].as<bool>() <<"\n";
+            }
+            else if (((boost::any)it->second.value()).type() == typeid(double))
+            {
+                logfile << vm[it->first].as<double>() <<"\n";
+            }
+            else if (is_char)
+            {
+                logfile << vm[it->first].as<const char * >() <<"\n";
+            }
+            else if (is_str)
+            {
+                std::string temp = vm[it->first].as<std::string>();
+
+                logfile << temp <<"\n";
+#if 0
+                if (temp.size())
+                {
+                    logfile << temp <<"\n";
+                }
+                else
+                {
+                    logfile << "true" <<"\n";
+                }
+#endif
+            }
+            else
+            { // Assumes that the only remainder is vector<string>
+                try
+                {
+                    std::vector<std::string> vect = vm[it->first].as<std::vector<std::string> >();
+                    uint i = 0;
+                    for (std::vector<std::string>::iterator oit=vect.begin(); oit != vect.end(); oit++, ++i)
+                    {
+                        //logfile << it->first << "[" << i << "]=" << (*oit) <<"\n";
+                        if (i > 0)
+                            logfile << std::setw(41) << std::right;
+
+                        logfile << "[" << i << "]=" << (*oit) <<"\n";
+                    }
+                }
+                catch (const boost::bad_any_cast &)
+                {
+                    std::cout << "UnknownType(" << ((boost::any)it->second.value()).type().name() << ")" <<"\n";
+                }
+            }
+        }
     }
 }
 
