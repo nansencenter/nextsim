@@ -1,3 +1,11 @@
+export BOOST_PREFIX=/opt/local/boost
+
+GCCDPC=$(echo `gcc -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc)
+STDFLAG="\"-std=c++11\""
+if [ "$GCCDPC" == "1" ]; then
+	STDFLAG="\"-std=c++14\""
+fi
+
 sudo ./b2 -j8 \
 	 --layout=tagged \
 	 --debug-configuration \
@@ -6,7 +14,7 @@ sudo ./b2 -j8 \
 	 variant=release \
 	 threading=single,multi \
 	 link=shared,static \
-	 cxxflags="-std=c++11"
+	 cxxflags=$STDFLAG
 
 sudo ./b2 install --prefix=$BOOST_PREFIX
 

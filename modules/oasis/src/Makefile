@@ -3,9 +3,9 @@
 KERNEL := $(shell uname -s)
 
 ifeq ($(KERNEL),Linux)
-	LIBRARYNAME=libwim.so.1.0
+	LIBRARYNAME=liboasis.so.1.0
 else
-	LIBRARYNAME=libwim.dylib
+	LIBRARYNAME=liboasis.dylib
 endif
 
 # ========================================================
@@ -27,7 +27,6 @@ DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
 
 CXX = g++
-#CXXFLAGS += -std=c++0x -std=c++11
 
 # setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
 ifeq ($(shell echo `$(CXX) -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc),1)
@@ -40,23 +39,24 @@ endif
 CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v #-pedantic
 
 # add include paths
-CXXFLAGS += -I . -I $(BOOST_DIR)/include -I $(OPENMPI_INCLUDE_DIR)/ #-I $(WIM2D_CXX)/include
-CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include -I $(NEXTSIMDIR)/contrib/bamg/include
-CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
-# ========================================================
-
+CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
+CXXFLAGS += -I $(NEXTSIMDIR)/modules/oasis/include
 
 # ========================================================
-# C files
-CCSRCDIR=.
-CCSRC=$(wildcard $(CCSRCDIR)/*.c)
-CCOBJS=$(CCSRC:%.c=$(OBJECTDIR)%.o)
-CCDEPS=$(CCSRC:%.c=$(DEPENDDIR)%.d)
 
 
-CC = gcc
-CFLAGS += -Wno-inline -fPIC -O3 #-v # -MMD -MP -lm #-Wall -pedantic
-CFLAGS += -I $(NEXTSIMDIR)/modules/wim/include #-I $(CCSRCDIR) -I . -I $(WIM2D_CXX)/include
+# ========================================================
+# Fortran files
+FCSRCDIR=.
+FCSRC=$(wildcard $(FCSRCDIR)/*.F90)
+FCOBJS=$(FCSRC:%.F90=$(OBJECTDIR)%.o)
+FCDEPS=$(FCSRC:%.F90=$(DEPENDDIR)%.d)
+
+FC = gfortran
+FFLAGS = -std=f2008 -fopenmp -lstdc++ -fPIC
+FFLAGS += -I $(NEXTSIMDIR)/modules/oasis/include
+FFLAGS += -I $(OASIS_DIR)/build/lib/mct -I $(OASIS_DIR)/build/lib/psmile.MPI1
+FFLAGS += -I $(NETCDF_FOR_DIR)/include
 # ========================================================
 
 # ========================================================
@@ -64,9 +64,12 @@ CFLAGS += -I $(NEXTSIMDIR)/modules/wim/include #-I $(CCSRCDIR) -I . -I $(WIM2D_C
 LDFLAGS += -fopenmp
 LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
 LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
-LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib
-LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi -lboost_date_time
-LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx -lbamg
+LDFLAGS += -L $(OASIS_DIR)/lib
+#LDFLAGS += -Wl,-rpath,$(OASIS_DIR)/lib
+#LDFLAGS += -L /Users/abdama/COUPLE/oasis3-mct/build_darwin/lib -lmct -lmpeu -lpsmile.MPI1 -lscrip
+
+LDFLAGS += -Wl,-rpath,$(NETCDF_FOR_DIR)/lib
+LDFLAGS += -L $(NETCDF_FOR_DIR)/lib -lnetcdff
 # ========================================================
 
 
@@ -79,7 +82,7 @@ all: lib
 
 # Delete the object and dependancy files.
 clean:
-	$(RM) $(OBJS) $(CCOBJS) $(DEPS) $(CCDEPS)
+	$(RM) $(OBJS) $(FCOBJS) $(DEPS) $(FCDEPS)
 
 # Delete the object and dependancy files, and the executable
 vclean: clean
@@ -90,18 +93,19 @@ execlean:
 	$(RM) $(PROGOBJS) $(BINARYDIR)$(PROG)
 
 # ========================================================
-
+CHAN = MPI1
+LIBPSMILE = $(OASIS_DIR)/lib/libpsmile.${CHAN}.a $(OASIS_DIR)/lib/libmct.a $(OASIS_DIR)/lib/libmpeu.a $(OASIS_DIR)/lib/libscrip.a
 
 # ================================================================
-# Rules for .c files
-$(CCOBJS): $(OBJECTDIR)%.o : $(CCSRCDIR)/%.c
+# Rules for .F90 files
+$(FCOBJS): $(OBJECTDIR)%.o : $(FCSRCDIR)/%.F90
 	@mkdir -p $(OBJECTDIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(FC) $(FFLAGS) -c $< -o $@
 
-# Make dependancy rules for .c files
-$(CCDEPS): $(DEPENDDIR)%.d : $(CCSRCDIR)/%.c
+# Make dependancy rules for .F90 files
+$(FCDEPS): $(DEPENDDIR)%.d : $(FCSRCDIR)/%.F90
 	@mkdir -p $(DEPENDDIR)
-	@$(SHELL) -ec '$(CC) -M $(CFLAGS) $< | sed "s^$*.o^$(OBJECTDIR)$*.o^" > $@'
+	@$(SHELL) -ec '$(FC) -M $(FFLAGS) $< | sed "s^$*.o^$(OBJECTDIR)$*.o^" > $@'
 # ================================================================
 
 
@@ -117,60 +121,36 @@ $(DEPENDDIR)%.d: $(CXXSRCDIR)/%.cpp
 	@$(SHELL) -ec '$(CXX) -M $(CXXFLAGS) $< | sed "s^$*.o^$(OBJECTDIR)$*.o^" > $@'
 # ================================================================
 
-# ================================================================
-# Programs
-PROGDIR=$(CXXSRCDIR)/programs
-PROG=WIM2d_single_call_cpp.exec
-
-# Rules to compile all programs
-ALLPROGS=$(wildcard $(PROGDIR)/*.cpp)
-PROGOBJS=$(ALLPROGS:$(PROGDIR)/%.cpp=$(OBJECTDIR)/%.o)
-$(PROGOBJS): $(OBJECTDIR)%.o : $(PROGDIR)/%.cpp
-	@mkdir -p $(OBJECTDIR)
-	$(CXX) -o $@ -c $< $(CXXFLAGS)
-# ================================================================
-
-
 # ========================================================
-# make executable 1
-single: $(PROGOBJS) $(OBJS) $(CCOBJS)
-	@mkdir -p $(BINARYDIR)
-	$(CXX) $(CXXLAGS) -o $(BINARYDIR)$(PROG) $^ $(LDFLAGS)
-# ========================================================
-
-
-# ========================================================
-# make wim library
+# make oasis library
 
 LDFLAGSLIB = $(LDFLAGS)
 ifeq ($(KERNEL),Linux)
-	LDFLAGSLIB += -shared -Wl,-soname,libwim.so.1
+	LDFLAGSLIB += -shared -Wl,-soname,liboasis.so.1
 	#LDFLAGSLIB += -lm -ldl #-lhwloc
 else
 	LDFLAGSLIB += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,$(LIBRARYDIR)$(LIBRARYNAME)
 	#LDFLAGSLIB += -ldl -lstdc++
 endif
 
-LOBJS := $(filter-out $(OBJECTDIR)/main.o, $(OBJS))
-
 ifeq ($(KERNEL),Linux)
-lib: $(OBJS) $(CCOBJS)
+lib: $(OBJS) $(FCOBJS)
 	@mkdir -p $(LIBRARYDIR)
 	@echo "============================================"
 	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
 	@echo "============================================"
-	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LDFLAGSLIB)
-	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)libwim.so
-	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)libwim.so.1
+	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LIBPSMILE) $(LDFLAGSLIB)
+	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)liboasis.so
+	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)liboasis.so.1
 else
-lib: $(OBJS) $(CCOBJS)
+lib: $(OBJS) $(FCOBJS)
 	@mkdir -p $(LIBRARYDIR)
 	@echo "============================================"
 	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
 	@echo "============================================"
-	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LDFLAGSLIB)
-	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)libwim.dylib.0
-	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)libwim.dylib.1
+	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LIBPSMILE) $(LDFLAGSLIB)
+	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)liboasis.dylib.0
+	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)liboasis.dylib.1
 endif
 # ========================================================
 
@@ -178,4 +158,4 @@ endif
 $(OBJS): Makefile
 
 -include $(DEPS)
--include $(CCDEPS)
+-include $(FCDEPS)
