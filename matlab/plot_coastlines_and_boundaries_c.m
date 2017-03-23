@@ -42,6 +42,7 @@ free_boundaryY=reshape(0.001*free_boundaryY,size(free_boundaryLon));
 
 %Plotting closed mesh boundaries (e.g. coastlines)
 plot(closed_boundaryX,closed_boundaryY,'Color',[0.3 0.3 0.3],'LineWidth',0.2);
+%plot(closed_boundaryX,closed_boundaryY,'Color',[1 1 1],'LineWidth',0.2);
 %Plotting open mesh boundaries
 plot(free_boundaryX,free_boundaryY,'g','LineWidth',2);
 
