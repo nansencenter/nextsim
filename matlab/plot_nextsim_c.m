@@ -1,19 +1,59 @@
 function plot_nextsim_c(field,step,domain,region_of_zoom,is_sequential,dir,save_figure)
 %% CALL: plot_nextsim_c(field,step,domain,region_of_zoom,is_sequential,dir,save_figure)
-
-% clearvars -except step;
-%field='Velocity';
-%field='mld';
-%field='Concentration';
-%field='Thickness';
-%field='SSS';
-%field='SST';
-%field='Wind';
-%field='Ocean';
-%field='Vair_factor';
-%field='Voce_factor';
-%field='Damage';
-%field='bathy';
+%% field:
+%%    Element_area
+%%    M_node_max_conc 
+%%    M_VT, M_VTu, M_VTv
+%%    Concentration 
+%%    Thickness 
+%%    Snow
+%%    Damage
+%%    Tice_0
+%%    SST
+%%    SSS
+%%    M_wind
+%%    M_tair
+%%    M_mslp
+%%    M_Qsw_in
+%%    M_tcc 
+%%    M_precip 
+%%    M_dair
+%%    M_ocean
+%%    M_ssh
+%%    M_ocean_temp
+%%    M_ocean_salt
+%%    M_mld
+%%    M_element_depth
+%%    Stresses, Stresses_x, Stresses_y
+%%    Nfloes
+%%    Dfloe
+%%    Sigma1
+%%    Sigma2
+%%
+%% step: eg if it's 0, want to read mesh_0.* & field_0.*
+%%
+%% domain:
+%%    'topaz'
+%%    'topaz_matthias'
+%%    'mitgcm4km'
+%%    'mitgcm9km'
+%%
+%% region_of_zoom:
+%%    'framstrait';
+%%    'naresstrait';
+%%    'karagate';
+%%    'beaufort';
+%%    'central_arctic';
+%%    'extended_arctic';
+%%    'kara_landfast';
+%%    'tip_novazem';
+%%
+%% is_sequential==0: results are from MPI; 1: single processor
+%%
+%% dir: folder containing the outputs on the mesh
+%%
+%% [OPTIONAL]
+%% save_figure
 
 if nargin==5, dir=''; end
 
@@ -27,6 +67,7 @@ background_color    = [0.85 0.85 0.85];% white color [1 1 1] by default. A subst
 figure_format       = 'png';        % can be pdf, tiff, png or jpeg
 pic_quality         = '-r300';      % Resolution for eps, pdf, tiff, and png
 visible             = 1;            % we display the figure on the screen (may be set to 0 when generating a large amount of figures)
+show_vec_dirn       = 0;            % if plotting vector magnitude, show the direction as arrows
 
 if nargin<7, save_figure = 0; end;     % 0 (default) we do not save the figure
 
@@ -51,10 +92,12 @@ for p=0:0
   mask_ice=find(mask>0);
   mask_water=find(mask==0);
   
+  plot_dirn = 0;
   i=1;
   %In case we want to plot the velocity or one of its components
   if strcmp(field,'M_VT')
       i=3;
+      plot_dirn = show_vec_dirn;
   elseif strcmp(field,'M_VTu')
       field='M_VT';
       i=1;
@@ -62,12 +105,32 @@ for p=0:0
       field='M_VT';
       i=2;
   end;
+  if strcmp(field,'Stresses')
+      i=3;
+      plot_dirn = show_vec_dirn;
+  elseif strcmp(field,'Stresses_x')
+      field='Stresses';
+      i=1;
+  elseif strcmp(field,'Stresses_y')
+      field='Stresses';
+      i=2;
+  end;
+  if strcmp(field,'M_wind')
+      i=3;
+      plot_dirn = show_vec_dirn;
+  elseif strcmp(field,'M_wind_u')
+      field='M_wind';
+      i=1;
+  elseif strcmp(field,'M_wind_v')
+      field='M_wind';
+      i=2;
+  end;
   
   %---------------------------
   % We extract the data fields
   %---------------------------
   field_tmp=data_out.(field);
-  length(field_tmp)
+  {length(field_tmp),Ne,Nn,2*Nn}
   if(length(field_tmp)==Ne)
     v{1}=[field_tmp,field_tmp,field_tmp]';
   elseif(length(field_tmp)==2*Nn)
@@ -80,7 +143,8 @@ for p=0:0
     var_mc=field_tmp(mesh_out.Elements);
     v{1}=reshape(var_mc,[3,Ne]);
   else
-    error('Not the right dimensions')
+    %error('Not the right dimensions')
+    return
   end
   
   %-------------------------------------------------------------------------------------------------------------------
@@ -101,6 +165,12 @@ for p=0:0
       patch(x(:,mask_ice)/1000,y(:,mask_ice)/1000,v{i}(:,mask_ice),'FaceColor','flat','EdgeColor',[0.3 0.3 0.3],'LineWidth',0.2)
   end;
   hold on;
+
+  if plot_dirn
+     NI  = length(mask_ice);
+     JP  = 1:100:NI;
+     quiver(x(:,mask_ice(JP))/1000,y(:,mask_ice(JP))/1000,v{1}(:,mask_ice(JP)),v{1}(:,mask_ice(JP)),.5)
+  end
 
   %----------------------------------------------------------------------------------------------------------------------
   % We arrange the figure in an "optimal" manner using subfunctions (you can check them out at the bottom of this script)
@@ -296,7 +366,7 @@ function set_region_adjustment(domain,region_of_zoom)
         if ~isempty(region_of_zoom)
             %%Then we adjust depending on chosen region to zoom in
             if strcmp(region_of_zoom,'framstrait')
-                axis([200 1200 -1400 0]);
+                axis([100 1550 -1850 100]);
             elseif strcmp(region_of_zoom,'naresstrait')
                 axis([-400 100 -950 -450]);
             elseif strcmp(region_of_zoom,'karagate')
