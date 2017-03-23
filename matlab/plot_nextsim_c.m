@@ -28,7 +28,7 @@ plot_coastlines     = 1;            % When 1 the actual domain baoundaries are p
 plot_date           = 1;            % 0 by default, 1 if we want to display the date on the figure
 font_size           = 14;           % Sets font size of colorbar and date
 background_color    = [0.85 0.85 0.85];% white color [1 1 1] by default. A substitute could be gray [0.5 0.5 0.5]
-figure_format       = 'png';        % can be pdf, tiff, png or jpeg
+figure_format       = '-png';        % can be pdf, tiff, png or jpeg
 pic_quality         = '-r300';      % Resolution for eps, pdf, tiff, and png
 visible             = 1;            % we display the figure on the screen (may be set to 0 when generating a large amount of figures)
 
@@ -133,12 +133,12 @@ for p=0:0
       set(fig,'Color',[1 1 1]);
       filename=sprintf('neXtSIM_%s_%d',field,step);
       %Call export_fig to save figure
-      if strcmp(figure_format,'png') || strcmp(figure_format,'jpg')
+      if strcmp(figure_format,'-png') || strcmp(figure_format,'-jpg')
           if isempty(pic_quality)
               pic_quality = '-r300'; %if figure saved as a pdf, this will have no impact
           end;
-          export_fig(filename,pic_quality);
-      elseif strcmp(figure_format,'pdf')
+          export_fig(filename,figure_format,pic_quality);
+      elseif strcmp(figure_format,'-pdf')
           export_fig(filename)
       end;
   end;
@@ -268,7 +268,7 @@ function set_region_adjustment(mesh_filename,region_of_zoom)
         if ~isempty(region_of_zoom)
             %%Then we adjust depending on chosen region to zoom in
             if strcmp(region_of_zoom,'framstrait')
-                axis([200 1200 -1400 0]);
+                axis([200 1200 -1300 0]);
             elseif strcmp(region_of_zoom,'naresstrait')
                 axis([-400 100 -950 -450]);
             elseif strcmp(region_of_zoom,'karagate')
