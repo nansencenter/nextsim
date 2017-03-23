@@ -3145,6 +3145,7 @@ FiniteElement::thermo()
         {
             double tsa = M_tice[0][i] + tfrwK;
             double taa = M_tair[i]  + tfrwK;
+            // s.b.idso & r.d.jackson, thermal radiation from the atmosphere, j. geophys. res. 74, 5397-5403, 1969
         	tmp_Qlw_in = sigma_sb*pow(taa,4) \
         			*( 1. - 0.261*exp(-7.77e-4*std::pow(taa-tfrwK,2)) ) \
         			*( 1. + 0.275*M_tcc[i] );
@@ -3652,7 +3653,8 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
             double delhs = -std::min(std::max(  ( Mbot*dt + E2*h2 + E1*h1 )/qs, 0.), hs); // (32) - with added division with rhoi and rhos
 
             // If everyting melts we need to give back to the ocean
-            Qio -= std::max(Mbot*dt - qs*hs + E1*h1 + E2*h2, 0.)/dt; // (34) - with added multiplication of rhoi and rhos and division with dt
+            if ( h2+h1+hs -delh2-delh1-delhs <= 0. )
+                Qio -= std::max(Mbot*dt - qs*hs + E1*h1 + E2*h2, 0.)/dt; // (34) - with added multiplication of rhoi and rhos and division with dt
 
             hs += delhs;
             h1 += delh1;
@@ -3666,7 +3668,8 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         double delh2 = -std::min(std::max( -( Msurf*dt - qs*hs + E1*h1 ) / E2, 0.), h2); // (29) - with division of rhoi and rhos
 
         // If everyting melts we need to give back to the ocean
-        Qio -= std::max(Msurf*dt - qs*hs + E1*h1 + E2*h2, 0.)/dt; // (30) - with multiplication of rhoi and rhos and division with dt
+        if ( h2+h1+hs -delh2-delh1-delhs <= 0. )
+            Qio -= std::max(Msurf*dt - qs*hs + E1*h1 + E2*h2, 0.)/dt; // (30) - with multiplication of rhoi and rhos and division with dt
 
         hs += delhs;
         h1 += delh1;
