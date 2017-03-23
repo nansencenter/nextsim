@@ -1354,7 +1354,10 @@ FiniteElement::regrid(bool step)
 
 #if defined (WAVES)
             if (nfloes_interp)
+            {
                 M_nfloes.assign(M_num_elements,0.);
+                M_dfloe.assign(M_num_elements,0.);
+            }
 #endif
 
 			for (int i=0; i<M_num_elements; ++i)
@@ -1446,10 +1449,14 @@ FiniteElement::regrid(bool step)
 				tmp_nb_var++;
 
 #if defined (WAVES)
-                // Nfloes from wim model
+                // regridding Nfloes and Dfloe
                 if (nfloes_interp)
                 {
-                    M_nfloes[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+                    if (M_conc[i]>=vm["wim.cicemin"].template as<double>())
+                    {
+                        M_nfloes[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+                        M_dfloe[i]  = wim.nfloesToDfloe(M_nfloes[i],M_conc[i]);
+                    }
                     tmp_nb_var++;
                 }
 #endif
@@ -1658,6 +1665,13 @@ FiniteElement::regrid(bool step)
                 LOG(DEBUG) <<"DRIFTER: Interp done\n";
                 LOG(DEBUG) <<"Drifter interp done in "<< chrono.elapsed() <<"s\n";
             }
+
+#if 0//defined (WAVES)
+            if(nfloes_interp)
+                //need to update Dfloe if regridding Nfloes 
+                M_dfloe = wim.nfloesToDfloe(M_nfloes,M_conc);
+#endif
+
 		}
 	}
 
@@ -1722,7 +1736,7 @@ FiniteElement::regrid(bool step)
     M_ice_smos_elements_dataset.interpolated=false;
     M_bathymetry_elements_dataset.interpolated=false;
 
-    // for the parallel code, it will be necessary to add those lines
+    // for the parallel code, it will be necessary to add these lines
     // as the domain covered by the partitions changes at each remeshing/partitioning
 #if 0
     M_atmosphere_nodes_dataset.grid.interpolated=false;
@@ -1757,7 +1771,8 @@ FiniteElement::regrid(bool step)
     M_Cohesion.resize(M_num_elements);
     M_Compressive_strength.resize(M_num_elements);
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
-}
+
+}//regrid
 
 void
 FiniteElement::adaptMesh()
@@ -2539,12 +2554,6 @@ FiniteElement::update()
     int total_threads;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
-    //std::cout<<"MAX THREADS= "<< max_threads <<"\n";
-#if defined (WAVES)
-    if (M_use_wim)
-        M_dfloe.assign(M_num_elements,0.);
-#endif
-
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
@@ -2931,22 +2940,22 @@ FiniteElement::update()
 #if defined (WAVES)
         if (M_use_wim)
         {
-            //update Dfloe
-            if (M_nfloes[cpt] > 0)
-                M_dfloe[cpt] = std::sqrt(M_conc[cpt]/M_nfloes[cpt]);
-
-            if (M_dfloe[cpt] > vm["wim.dfloepackthresh"].template as<double>())
-                M_dfloe[cpt] = vm["wim.dfloepackinit"].template as<double>();
-
+            //update Nfloes
             if (M_conc[cpt] < vm["wim.cicemin"].template as<double>())
-            {
                 M_nfloes[cpt] = 0.;
-                M_dfloe[cpt] = 0.;
-            }
         }
 #endif
     }
-}
+
+#if defined(WAVES)
+    if (M_use_wim)
+    {
+        //update Dfloe from Nfloes
+        M_dfloe = wim.nfloesToDfloe(M_nfloes,M_conc);
+    }
+#endif
+
+}//update
 
 void
 FiniteElement::solve()
@@ -6411,17 +6420,24 @@ FiniteElement::bathymetry()//(double const& u, double const& v)
 void
 FiniteElement::initNFloes()
 {
-    M_nfloes.resize(M_num_elements);
+    M_nfloes.assign(M_num_elements,0.);
+    M_dfloe.assign(M_num_elements,0.);
 
     for (int i=0; i<M_num_elements; ++i)
     {
-        M_nfloes[i] = M_conc[i]/std::pow(vm["wim.dfloepackinit"].as<double>(),2.);
+        if (M_conc[i]>=vm["wim.cicemin"].as<double>())
+        {
+            M_nfloes[i] = M_conc[i]/std::pow(vm["wim.dfloepackinit"].as<double>(),2.);
+            M_dfloe[i]  = wim.nfloesToDfloe(M_nfloes[i],M_conc[i]);
+        }
     }
     std::cout<<"initNfloes:\n";
     std::cout<<"init dfloe "<<vm["wim.dfloepackinit"].as<double>()<<"\n";
     std::cout<<"Min Nfloes = "<<*std::min_element(M_nfloes.begin(),M_nfloes.end())<<"\n";
     std::cout<<"Max Nfloes = "<<*std::max_element(M_nfloes.begin(),M_nfloes.end())<<"\n";
-}
+
+    //initialise Dfloe on the mesh too
+}//initNFloes
 #endif
 
 
@@ -7378,12 +7394,16 @@ FiniteElement::wimToNextsim(bool step)
                                 );
             std::cout<<"\nINTERP GRID TO ELEMENTS\n";
 
-            M_nfloes.resize(M_num_elements);
+            // if conc is not too low, reset Nfloes after breaking
+            // (& Dfloe will also change)
+            M_nfloes.assign(M_num_elements,0.);
+            M_dfloe.assign(M_num_elements,0.);
             for (int i=0; i<M_num_elements; ++i)
-            {
-                // nfloes
-                M_nfloes[i] = interp_out[i];
-            }
+                if (M_conc[i] >= vm["wim.cicemin"].template as<double>())
+                {
+                    M_nfloes[i] = interp_out[i];
+                    M_dfloe[i]  = wim.nfloesToDfloe(M_nfloes[i],M_conc[i]);
+                }
 
             xDelete<double>(interp_out);
             std::cout<<"Min Nfloes on grid = "<< *std::min_element(M_nfloes_grid.begin(),M_nfloes_grid.end()) <<"\n";
@@ -7396,23 +7416,6 @@ FiniteElement::wimToNextsim(bool step)
 
     if (!M_regrid)//move the mesh back
         M_mesh.move(M_UM,-1.);
-
-#if 0
-    // set dfloe each time step (can be changed due to advection of nfloes by nextsim)
-    M_dfloe.assign(M_num_elements,0.);
-
-    for (int i=0; i<M_num_elements; ++i)
-    {
-        if (M_nfloes[i] > 0)
-            M_dfloe[i] = std::sqrt(M_conc[i]/M_nfloes[i]);
-
-        if (M_dfloe[i] > vm["wim.dfloepackthresh"].template as<double>())
-            M_dfloe[i] = vm["wim.dfloepackinit"].template as<double>();
-
-        if (M_conc[i] < vm["wim.cicemin"].template as<double>())
-            M_dfloe[i] = 0.;
-    }
-#endif
 
     std::cout<<"Finished wimToNextsim\n";
 }//wimToNextsim

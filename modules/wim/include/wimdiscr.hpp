@@ -136,10 +136,16 @@ public:
                  std::vector<value_type> const& m_nfloes,
                  std::string const& units="km");
 
+    value_type nfloesToDfloe(
+                 value_type const& m_nfloes,
+                 value_type const& m_conc);
     std::vector<value_type> nfloesToDfloe(
                  std::vector<value_type> const& m_nfloes,
                  std::vector<value_type> const& m_conc);
     
+    value_type dfloeToNfloes(
+                 value_type const& m_dfloe,
+                 value_type const& m_conc);
     std::vector<value_type> dfloeToNfloes(
                  std::vector<value_type> const& m_dfloe,
                  std::vector<value_type> const& m_conc);

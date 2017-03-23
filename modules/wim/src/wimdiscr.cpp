@@ -585,6 +585,7 @@ void WimDiscr<T>::assign()
     mwd.resize(nx*ny);
 
 
+    // =============================================
     // steady_mask
     // - NB works only for ideal domain
     // TODO add check?
@@ -594,7 +595,10 @@ void WimDiscr<T>::assign()
         std::fill( &steady_mask[0][0], &steady_mask[3][0], 1. );
     }
 
-    std::fill( disp_ratio.data(), disp_ratio.data() + disp_ratio.num_elements(), 1. );
+    //set dir spec to 0. on 1st call to init/assign
+    std::fill( sdf_dir.data(), sdf_dir.data() + sdf_dir.num_elements(), 0. );
+    // =============================================
+
 
     // =============================================
     // set frequencies to use (freq_vec)
@@ -714,9 +718,8 @@ void WimDiscr<T>::update(std::vector<value_type> const& icec_in,
 
 
     //====================================================
-    // set incident wave spec;
-    // also if step==0,
-    // initialise sdf_dir from sdf_inc
+    // set incident wave spec (sdf_inc) where wave_mask==1;
+    // this also sets sdf_dir to sdf_inc in this region
     this->setIncWaveSpec(step);
     //====================================================
 
@@ -1011,10 +1014,10 @@ void WimDiscr<T>::inputWaveFields(value_type_vec const& swh_in,
 template<typename T>
 void WimDiscr<T>::setIncWaveSpec(bool const step)
 {
-    // set incident directional wave spectrum (sdf_inc)
-    // - if step == 0, also initialise sdf_dir to sdf_inc where wave_mask==1
-    if (!step)
-        std::fill( sdf_dir.data(), sdf_dir.data() + sdf_dir.num_elements(), 0. );
+    // set incident directional wave spectrum (sdf_inc) where wave_mask==1
+    // also set sdf_dir to sdf_inc in this region
+    // TODO is sdf_inc needed if (!steady)? 
+    std::fill( sdf_inc.data(), sdf_inc.data() + sdf_inc.num_elements(), 0. );
 
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
@@ -1916,35 +1919,70 @@ void WimDiscr<T>::doBreaking(BreakInfo const& breakinfo)
 
 
 template<typename T>
-typename WimDiscr<T>::value_type_vec
-WimDiscr<T>::dfloeToNfloes(std::vector<value_type> const& dfloe_in,
-                           std::vector<value_type> const& conc_in)
+typename WimDiscr<T>::value_type
+WimDiscr<T>::dfloeToNfloes(value_type const& dfloe_in,
+                           value_type const& conc_in)
 {
-    int N   = conc_in.size();
-    std::vector<value_type> nfloes_out(N);
+    value_type nfloes_out   = 0.;
 
-    for (int i=0;i<N;i++)
+    if ( (dfloe_in>0)
+            &&(conc_in >= vm["wim.cicemin"].template as<double>()) )
     {
-        if (dfloe_in[i]>0)
-            nfloes_out[i]   = conc_in[i]/std::pow(dfloe_in[i],2.);
+        //conc high enough & dfloe OK
+        nfloes_out = conc_in/std::pow(dfloe_in,2.);
     }
+
     return nfloes_out;
 }
 
 
 template<typename T>
 typename WimDiscr<T>::value_type_vec
-WimDiscr<T>::nfloesToDfloe(std::vector<value_type> const& nfloes_in,
-                           std::vector<value_type> const& conc_in)
+WimDiscr<T>::dfloeToNfloes(value_type_vec const& dfloe_in,
+                           value_type_vec const& conc_in)
 {
     int N   = conc_in.size();
-    std::vector<value_type> dfloe_out(N);
+    value_type_vec nfloes_out(N);
 
     for (int i=0;i<N;i++)
-    {
-        if (nfloes_in[i]>0)
-            dfloe_out[i]   = std::sqrt(conc_in[i]/nfloes_in[i]);
-    }
+        nfloes_out[i]   = this->dfloeToNfloes(dfloe_in[i],conc_in[i]);
+
+    return nfloes_out;
+}
+
+
+template<typename T>
+typename WimDiscr<T>::value_type
+WimDiscr<T>::nfloesToDfloe(value_type const& nfloes_in,
+                           value_type const& conc_in)
+{
+        value_type dfloe_out  = 0.;
+        if ( (nfloes_in>0)
+                &&(conc_in >= vm["wim.cicemin"].template as<double>()) )
+        {
+            //conc high enough & Nfloes OK
+            dfloe_out   = std::sqrt(conc_in/nfloes_in);
+        }
+
+        //dfloe shouldn't get too big
+        if ( dfloe_out>=vm["wim.dfloepackthresh"].template as<double>() )
+            dfloe_out = vm["wim.dfloepackinit"].template as<double>();
+
+    return dfloe_out;
+}
+
+
+template<typename T>
+typename WimDiscr<T>::value_type_vec
+WimDiscr<T>::nfloesToDfloe(value_type_vec const& nfloes_in,
+                           value_type_vec const& conc_in)
+{
+    int N   = conc_in.size();
+    value_type_vec dfloe_out(N);
+
+    for (int i=0;i<N;i++)
+        dfloe_out[i] = this->nfloesToDfloe(nfloes_in[i],conc_in[i]);
+
     return dfloe_out;
 }
 
