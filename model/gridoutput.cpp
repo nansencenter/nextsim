@@ -481,6 +481,8 @@ std::string GridOutput::initNetCDF(std::string file_prefix, fileLength file_leng
     }
     filename << ".nc";
 
+    std::cout<<"@@@@@@@@@@@@FILE= "<< filename.str() <<"\n";
+
     // Create the netCDF file.
     netCDF::NcFile dataFile(filename.str(), netCDF::NcFile::replace);
 

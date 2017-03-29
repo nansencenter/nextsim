@@ -809,10 +809,14 @@ FiniteElement::initConstant()
     time_init = from_date_time_string(vm["simul.time_init"].as<std::string>());
     output_time_step =  days_in_sec/vm["simul.output_per_day"].as<int>();
     ptime_step =  days_in_sec/vm["simul.ptime_per_day"].as<int>();
-    mooring_output_time_step =  vm["simul.mooring_output_timestep"].as<double>()*days_in_sec;
 
     time_step = vm["simul.timestep"].as<double>();
     duration = (vm["simul.duration"].as<double>())*days_in_sec;
+
+    mooring_output_time_step =  vm["simul.mooring_output_timestep"].as<double>()*days_in_sec;
+    mooring_time_factor = time_step/mooring_output_time_step;
+    drifter_output_time_step =  vm["simul.drifter_output_timestep"].as<double>()*days_in_sec;
+
     restart_time_step =  vm["setup.restart_time_step"].as<double>()*days_in_sec;
     M_use_restart   = vm["setup.use_restart"].as<bool>();
     M_write_restart = vm["setup.write_restart"].as<bool>();
@@ -921,6 +925,14 @@ FiniteElement::initConstant()
         ("osisaf", setup::DrifterType::OSISAF);
     M_drifter_type = str2drifter.find(vm["setup.drifter-type"].as<std::string>())->second;
 
+    const boost::unordered_map<const std::string, GridOutput::fileLength> str2mooringsfl = boost::assign::map_list_of
+        ("inf", GridOutput::fileLength::inf)
+        ("daily", GridOutput::fileLength::daily)
+        ("weekly", GridOutput::fileLength::weekly)
+        ("monthly", GridOutput::fileLength::monthly)
+        ("yearly", GridOutput::fileLength::yearly);
+    M_moorings_file_length = str2mooringsfl.find(vm["simul.mooring_file_length"].as<std::string>())->second;
+
     const boost::unordered_map<const std::string, mesh::Partitioner> str2partitioner = boost::assign::map_list_of
         ("chaco", mesh::Partitioner::CHACO)
         ("metis", mesh::Partitioner::METIS);
@@ -954,6 +966,10 @@ FiniteElement::initConstant()
     }
 
     M_mesh_fileformat = vm["mesh.fileformat"].as<std::string>();
+
+    // option for enabling/disabling the moorings
+    M_use_moorings =  vm["simul.use_moorings"].as<bool>();
+    M_moorings_snapshot =  vm["simul.mooring_snapshot"].as<bool>();
 }
 
 void
@@ -5010,29 +5026,31 @@ FiniteElement::run()
         std::cout << "[INFO]: " << "-----------------------Simulation started on "<< current_time_local() <<"\n";
     }
 
+    // define export path
+    M_export_path = Environment::nextsimDir().string() + "/matlab";
+    // change directory for outputs if the option "output_directory" is not empty
+    if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
+    {
+        M_export_path = vm["simul.output_directory"].as<std::string>();
+
+        fs::path path(M_export_path);
+        // add a subdirecory if needed
+        // path /= "subdir";
+
+        // create the output directory if it does not exist
+        if ( (!fs::exists(path)) && (M_comm.rank()==0) )
+            fs::create_directories(path);
+    }
+    // export path
+
+    M_comm.barrier();
+
+    // write the logfile: assigned to the process master (rank 0)
     if (M_comm.rank() == 0)
     {
-        // define export path
-        M_export_path = Environment::nextsimDir().string() + "/matlab";
-        // change directory for outputs if the option "output_directory" is not empty
-        if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
-        {
-            M_export_path = vm["simul.output_directory"].as<std::string>();
-
-            fs::path path(M_export_path);
-            // add a subdirecory if needed
-            // path /= "subdir";
-
-            // create the output directory if it does not exist
-            if ( !fs::exists(path) )
-                fs::create_directories(path);
-        }
-        // export path
-
-        // write the logfile
         this->writeLogFile();
+    }
 
-    } // master rank
 
     std::string current_time_system = current_time_local();
 
@@ -5143,21 +5161,19 @@ FiniteElement::run()
 
     // Open the output file for drifters
     // TODO: Is this the right place to open the file?
-#if 0
     if (M_drifter_type == setup::DrifterType::IABP )
     {
         // We should tag the file name with the init time in case of a re-start.
         std::stringstream filename;
         filename << M_export_path << "/drifters_out_" << current_time << ".txt";
-        M_drifters_out.open(filename.str(), std::fstream::out);
-        if ( ! M_drifters_out.good() )
+        M_iabp_out.open(filename.str(), std::fstream::out);
+        if ( ! M_iabp_out.good() )
             throw std::runtime_error("Cannot write to file: " + filename.str());
     }
-#endif
 
-    // // Initialise the moorings - if requested
-    // if ( M_use_moorings )
-    //     this->initMoorings();
+    // Initialise the moorings - if requested
+    if ( M_use_moorings )
+        this->initMoorings();
 
 #endif
 
@@ -5335,6 +5351,87 @@ FiniteElement::run()
         std::cout << "[INFO]: " << "-----------------------Simulation done on "<< current_time_local() <<"\n";
         std::cout << "[INFO]: " << "-----------------------Total time spent:  "<< time_spent(current_time_system) <<"\n";
     }
+}
+
+// Initialise everything w.r.t. the moorings
+void
+FiniteElement::initMoorings()
+{
+    // Output and averaging grids
+    std::vector<double> data_nodes(M_num_nodes);
+    std::vector<double> data_elements(M_num_elements);
+    std::vector<double> data_grid;
+
+    // Output variables - elements
+    GridOutput::Variable conc(GridOutput::variableID::conc, data_elements, data_grid);
+
+    GridOutput::Variable thick(GridOutput::variableID::thick, data_elements, data_grid);
+
+    GridOutput::Variable snow_thick(GridOutput::variableID::snow_thick, data_elements, data_grid);
+
+    std::vector<GridOutput::Variable> elemental_variables(3);
+    elemental_variables[0] = conc;
+    elemental_variables[1] = thick;
+    elemental_variables[2] = snow_thick;
+
+    // Output variables - nodes
+    GridOutput::Variable siu(GridOutput::variableID::VT_x, data_nodes, data_grid);
+
+    GridOutput::Variable siv(GridOutput::variableID::VT_y, data_nodes, data_grid);
+
+    std::vector<GridOutput::Variable> nodal_variables(2);
+    nodal_variables[0] = siu;
+    nodal_variables[1] = siv;
+
+    // The vectorial variables are (always on the nodes) ...
+    std::vector<int> siuv_id(2);
+    siuv_id[0] = 0;
+    siuv_id[1] = 1;
+
+    DataSet::Vectorial_Variable siuv
+    {
+       components_Id: siuv_id,
+       // east_west_oriented: true
+       east_west_oriented: false
+    };
+
+    std::vector<DataSet::Vectorial_Variable> vectorial_variables(1);
+    vectorial_variables[0] = siuv;
+
+#if 1
+    // Calculate the grid spacing (assuming a regular grid for now)
+    auto RX = M_mesh.coordX();
+    auto RY = M_mesh.coordY();
+    auto xcoords = std::minmax_element( RX.begin(), RX.end() );
+    auto ycoords = std::minmax_element( RY.begin(), RY.end() );
+
+
+    double mooring_spacing = 1e3 * vm["simul.mooring_spacing"].as<double>();
+    int ncols = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/mooring_spacing );
+    int nrows = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
+
+    // Define the mooring dataset
+    M_moorings = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first, nodal_variables, elemental_variables, vectorial_variables);
+
+#else
+    // Read the grid in from file
+    // Define a grid
+    GridOutput::Grid grid
+    {
+        gridFile: "TP4DAILY_200710_3m.nc",
+        dirname: "data",
+        mpp_file: Environment::vm()["mesh.mppfile"].as<std::string>(),
+        dimNameX: "y",
+        dimNameY: "x",
+        latName: "latitude",
+        lonName: "longitude"
+    };
+
+    // Define the mooring dataset
+    M_moorings = GridOutput(grid, nodal_variables, elemental_variables, vectorial_variables);
+#endif
+
+    M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, time_init);
 }
 
 void
@@ -6664,7 +6761,7 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
     std::string configfile = (boost::format( "%1%/%2%/%3%" )
                               % Environment::nextsimDir().string()
                               % "data"
-                              % vm["simul.proj_filename"].as<std::string>()
+                              % vm["mesh.mppfile"].as<std::string>()
                               ).str();
 
     std::vector<char> str(configfile.begin(), configfile.end());
@@ -6735,7 +6832,7 @@ FiniteElement::updateIABPDrifter()
     std::string configfile = (boost::format( "%1%/%2%/%3%" )
                               % Environment::nextsimDir().string()
                               % "data"
-                              % vm["simul.proj_filename"].as<std::string>()
+                              % vm["mesh.mppfile"].as<std::string>()
                               ).str();
 
     std::vector<char> str(configfile.begin(), configfile.end());

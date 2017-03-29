@@ -75,7 +75,7 @@ namespace Nextsim
             ("simul.mooring_spacing", po::value<double>()->default_value( 10 ), "km")
             ("simul.mooring_output_timestep", po::value<double>()->default_value( 1 ), "days")
 
-            ("simul.drifters_output_timestep", po::value<double>()->default_value( std::numeric_limits<double>::infinity() ), "")
+            ("simul.drifter_output_timestep", po::value<double>()->default_value( 1 ), "days")
             ("simul.drifter_climit", po::value<double>()->default_value( 0.15 ), "")
             ("simul.drifter_spacing", po::value<double>()->default_value( 10 ), "")
 

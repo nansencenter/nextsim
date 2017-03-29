@@ -380,6 +380,8 @@ private:
     double output_time_step;
     double ptime_step;
     double mooring_output_time_step;
+    double mooring_time_factor;
+    double drifter_output_time_step;
     double restart_time_step;
     double time_step;
     double duration;
@@ -507,9 +509,6 @@ private:
 private:
     // Variables for the moorings
 
-    // bool M_use_moorings;
-    // int M_grid_size, M_ncols, M_nrows;
-
     std::vector<double> M_conc_mean;    // Mean concentration (on the mesh)
     std::vector<double> M_thick_mean;   // Mean ice thickness (on the mesh)
     std::vector<double> M_snow_thick_mean;  // Mean snow thickness (on the mesh)
@@ -524,8 +523,10 @@ private:
     // Variables for the moorings
 
     bool M_use_moorings;
+    bool M_moorings_snapshot;
+    std::string M_moorings_file;
+    GridOutput::fileLength M_moorings_file_length;
     GridOutput M_moorings;
-    GridOutput M_moorings_grid;
 
 private:
 
