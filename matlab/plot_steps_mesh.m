@@ -1,4 +1,4 @@
-function plot_steps_mesh(rootdir);
+function plot_steps_mesh(rootdir,vars_to_plot);
 
 if ~exist('rootdir','var');
    %% location of outputs
@@ -21,14 +21,22 @@ figdir   = [figdir,'/mesh']
 eval(['!mkdir -p ',figdir]);
 
 %%variables to plot
-vbls  = {'Dfloe' ,...            %1
+if ~exist('vars_to_plot','var');
+   vars_to_plot  = {...
+         'Dfloe',...             %1
          'Stresses',...          %2
          'Concentration',...     %3
          'Thickness'  ,...       %4
          'Damage',...            %5
-         'Nfloes'...             %6
-         'M_wind'...             %7
+         'Nfloes',...            %6
+         'M_wind',...            %7
+         'SST'...                %8
          };
+
+   %%shorten more manually
+   jkeep          = [1,2,3,4,5,7,8];
+   vars_to_plot   = vars_to_plot(jkeep);
+end
 %cmaps = {};
 %lims  = {[0,350]};
 
@@ -39,25 +47,19 @@ N0    = length(dir0)-2;%%starts from 0, mesh_1000.dat is final state
 %% ==================================================
 %% shorten list of var's
 %% check simul_in to see if waves are present
-jkeep = 1:7;
-if 1
-   %%shorten more manually
-   %jkeep = [3,4,5,7];
-   jkeep = 6;
-end
-vbls  = vbls(jkeep);
 %cmaps = cmaps(jkeep);
 %lims  = lims(jkeep);
-Nv = length(vbls);
+Nv = length(vars_to_plot);
 %% ==================================================
 
 domain         = 'topaz';
-region_of_zoom = 'framstrait';
+%region_of_zoom = 'framstrait';
+region_of_zoom = [];
 is_sequential  = 1;
 for step=0:N0
 
    for k=1:Nv
-      vbl   = vbls{k};
+      vbl   = vars_to_plot{k};
       %cmap  = cmaps{k};
       %lim   = lims{k};
 
