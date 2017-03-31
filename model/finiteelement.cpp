@@ -2143,7 +2143,7 @@ FiniteElement::assemble(int pcpt)
     int total_threads;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
-//#pragma omp parallel for num_threads(max_threads) private(thread_id)
+#pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
         // if(thread_id == 0)
@@ -2782,7 +2782,7 @@ FiniteElement::update()
             //sigma_dot_i += factor*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
             }
             
-            sigma_pred[i] = (M_sigma[3*cpt+i]+2*time_step*sigma_dot_i)*multiplicator;
+            sigma_pred[i] = (M_sigma[3*cpt+i]+4*time_step*sigma_dot_i)*multiplicator;
             sigma_pred[i] = (M_conc[cpt] > vm["simul.min_c"].as<double>()) ? (sigma_pred[i]):0.;
             
             M_sigma[3*cpt+i] = (M_sigma[3*cpt+i]+time_step*sigma_dot_i)*multiplicator;
@@ -2882,7 +2882,7 @@ FiniteElement::update()
          */
         for(int i=0;i<3;i++)
         {
-#if 1
+#if 0
             if(old_damage<1.0)
             {
                 M_sigma[3*cpt+i] = (1.-M_damage[cpt])/(1.-old_damage)*M_sigma[3*cpt+i] ;
@@ -3653,7 +3653,8 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
             double delhs = -std::min(std::max(  ( Mbot*dt + E2*h2 + E1*h1 )/qs, 0.), hs); // (32) - with added division with rhoi and rhos
 
             // If everyting melts we need to give back to the ocean
-            Qio -= std::max(Mbot*dt - qs*hs + E1*h1 + E2*h2, 0.)/dt; // (34) - with added multiplication of rhoi and rhos and division with dt
+            if ( h2+h1+hs -delh2-delh1-delhs <= 0. )
+                Qio -= std::max(Mbot*dt - qs*hs + E1*h1 + E2*h2, 0.)/dt; // (34) - with added multiplication of rhoi and rhos and division with dt
 
             hs += delhs;
             h1 += delh1;
@@ -3667,7 +3668,8 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         double delh2 = -std::min(std::max( -( Msurf*dt - qs*hs + E1*h1 ) / E2, 0.), h2); // (29) - with division of rhoi and rhos
 
         // If everyting melts we need to give back to the ocean
-        Qio -= std::max(Msurf*dt - qs*hs + E1*h1 + E2*h2, 0.)/dt; // (30) - with multiplication of rhoi and rhos and division with dt
+        if ( h2+h1+hs -delh2-delh1-delhs <= 0. )
+            Qio -= std::max(Msurf*dt - qs*hs + E1*h1 + E2*h2, 0.)/dt; // (30) - with multiplication of rhoi and rhos and division with dt
 
         hs += delhs;
         h1 += delh1;
@@ -4032,6 +4034,16 @@ FiniteElement::init()
         LOG(DEBUG) <<"Reading restart file\n";
         pcpt = this->readRestart(vm["setup.step_nb"].as<int>());
         current_time = time_init + pcpt*time_step/(24*3600.0);
+        
+//        for (int i=0; i<M_num_elements; i++)
+//            M_damage[i]=(M_damage[i]>0.95 ? 1. : 0.);
+        
+        if(fmod(pcpt*time_step,output_time_step) == 0)
+        {
+            LOG(DEBUG) <<"export starts\n";
+            this->exportResults((int) pcpt*time_step/output_time_step);
+            LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
+        }
     }
     else
     {
@@ -7028,7 +7040,7 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
             exporter.writeField(outbin, conc_thin, "Concentration_thin_ice");
         }
 
-#if 0
+#if 1
         // EXPORT sigma1 sigma2
         std::vector<double> sigma1(M_mesh.numTriangles());
         std::vector<double> sigma2(M_mesh.numTriangles());
