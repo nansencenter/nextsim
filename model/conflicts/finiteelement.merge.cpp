@@ -1748,7 +1748,7 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var)
 
 #if defined (WAVES)
         // FSD from wim model
-        if (M_interp_FSD)
+        if (M_interp_fsd)
         {
             if (M_conc[i]>=vm["wim.cicemin"].template as<double>())
             {
@@ -7127,7 +7127,7 @@ FiniteElement::exportInitMesh()
 }
 
 void
-FiniteElement::exportResults(int step, bool export_mesh, bool export_fields)
+FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, bool apply_displacement)
 {
     Exporter exporter(vm["setup.exporter_precision"].as<std::string>());
     std::string fileout;
