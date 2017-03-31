@@ -1,5 +1,7 @@
 #! /bin/bash
 
+export DYLD_LIBRARY_PATH=$NEXTSIMDIR/lib:$BOOST_DIR/lib
+
 if [ "$1" == "--help" ]
 then
 	echo "Usage: $0 [config.cfg [executable.exec]]"

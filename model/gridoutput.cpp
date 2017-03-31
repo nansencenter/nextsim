@@ -231,7 +231,7 @@ void GridOutput::initArbitraryGrid(Grid grid)
 void GridOutput::updateGridMean(GmshMesh const& mesh)
 {
     // Call the worker routine for the elements
-    this->updateGridMeanWorker(mesh, mesh.numTriangles(), M_elemental_variables);
+    this->updateGridMeanWorker(mesh, mesh.numTriangles(), M_elemental_variables, M_miss_val);
 
     // Rotate vectors if needed (these are assumed to be on the nodes)
     for ( auto it=M_vectorial_variables.begin(); it!=M_vectorial_variables.end(); it++ )
@@ -243,11 +243,11 @@ void GridOutput::updateGridMean(GmshMesh const& mesh)
     }
 
     // Call the worker routine for the nodes
-    this->updateGridMeanWorker(mesh, mesh.numNodes(), M_nodal_variables);
+    this->updateGridMeanWorker(mesh, mesh.numNodes(), M_nodal_variables, M_miss_val);
 }
 
     // Interpolate from the mesh to the grid - updateing the gridded mean
-void GridOutput::updateGridMeanWorker(GmshMesh const& mesh, int source_size, std::vector<Variable>& variables)
+void GridOutput::updateGridMeanWorker(GmshMesh const& mesh, int source_size, std::vector<Variable>& variables, double miss_val)
 {
     int nb_var = variables.size();
 
@@ -282,7 +282,7 @@ void GridOutput::updateGridMeanWorker(GmshMesh const& mesh, int source_size, std
                                 &interp_in[0],
                                 source_size,nb_var,
                                 &M_grid.gridX[0],&M_grid.gridY[0],M_grid_size,
-                                true, M_miss_val);
+                                true, miss_val);
     }
     else if ( (M_ncols>0) && (M_nrows>0) && (M_mooring_spacing>0) )
     {
@@ -294,7 +294,7 @@ void GridOutput::updateGridMeanWorker(GmshMesh const& mesh, int source_size, std
                               xmin,ymax,
                               M_mooring_spacing,M_mooring_spacing,
                               M_ncols, M_nrows,
-                              M_miss_val);
+                              miss_val);
     }
     else
     {
@@ -307,13 +307,13 @@ void GridOutput::updateGridMeanWorker(GmshMesh const& mesh, int source_size, std
         for (int j=0; j<M_grid_size; ++j)
         {
             double val = interp_out[nb_var*j+i];
-            if ( val != M_miss_val )
+            if ( val != miss_val )
             {
                 variables[i].data_grid[j] += val;
             }
             else
             {
-                variables[i].data_grid[j] = M_miss_val;
+                variables[i].data_grid[j] = miss_val;
             }
         }
 
@@ -321,6 +321,38 @@ void GridOutput::updateGridMeanWorker(GmshMesh const& mesh, int source_size, std
 
     xDelete<double>(interp_out);
 }
+
+    // Return a mask
+    std::vector<int> GridOutput::getMask(GmshMesh const &mesh, variableKind kind)
+    {
+        double source_size;
+        switch (kind)
+        {
+            case variableKind::nodal:
+                source_size = mesh.numNodes();
+                break;
+
+            case variableKind::elemental:
+                source_size = mesh.numTriangles();
+                break;
+
+            default:
+                std::logic_error("Incorrect variable kind in GridOutput::getMask");
+        }
+
+        // Call the worker routine using a vector of ones and give zero for missing values (land mask)
+        std::vector<double> data_mesh(source_size);
+        data_mesh.assign(source_size, 1.);
+        std::vector<double> data_grid(M_grid_size);
+
+        Variable lsm(variableID::lsm, data_mesh, data_grid);
+
+        std::vector<Variable> variables(1);
+        variables[0] = lsm;
+        updateGridMeanWorker(mesh, source_size, variables, 0.);
+
+        return std::vector<int>(variables[1].data_grid.begin(), variables[1].data_grid.end());
+    }
 
     // Rotate the vectors as needed
 void GridOutput::rotateVectors(GmshMesh const& mesh, Vectorial_Variable const& vectorial_variable, std::vector<Variable>& variables)
@@ -412,7 +444,7 @@ void GridOutput::resetMeshMean(GmshMesh const& mesh)
 }
 
     // Initialise a netCDF file and return the file name in an std::string
-std::string GridOutput::initNetCDF(std::string file_prefix, GridOutput::fileLength file_length, double current_time)
+std::string GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double current_time)
 {
     // Choose the right file name, depending on how much data goes in there
     boost::gregorian::date now = Nextsim::parse_date(current_time);
@@ -421,10 +453,10 @@ std::string GridOutput::initNetCDF(std::string file_prefix, GridOutput::fileLeng
     filename << file_prefix;
     switch (file_length)
     {
-       case GridOutput::fileLength::daily:
+       case fileLength::daily:
            filename << "_" << now.year() << "d" << setw(3) << setfill('0') << now.day_of_year();
            break;
-       case GridOutput::fileLength::weekly:
+       case fileLength::weekly:
            // The last week of the year is troublesome!
            // The boost library will (sometimes) give this the number 1, even though week 1 should be in January
            if ( (now.month().as_number() == 12) && (now.week_number() == 1) )
@@ -436,13 +468,13 @@ std::string GridOutput::initNetCDF(std::string file_prefix, GridOutput::fileLeng
                filename << "_" << now.year() << "w" << setw(2) << setfill('0') << now.week_number();
            }
            break;
-       case GridOutput::fileLength::monthly:
+       case fileLength::monthly:
            filename << "_" << now.year() << "m" << setw(2) << setfill('0') << now.month().as_number();
            break;
-       case GridOutput::fileLength::yearly:
+       case fileLength::yearly:
            filename << "_" << now.year();
            break;
-       case GridOutput::fileLength::inf:
+       case fileLength::inf:
            break;
        default:
            throw std::logic_error("invalid file length");
