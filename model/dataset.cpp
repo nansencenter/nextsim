@@ -59,7 +59,7 @@ namespace Nextsim
             };
 
             Dimension dimension_time={
-                name:"time",
+                name:"Time",
                 cyclic:false
             };
 
@@ -106,7 +106,7 @@ namespace Nextsim
             };
 
             Variable time_tmp={
-                name: "time",
+                name: "Time",
                 dimensions: dimensions_time,
                 land_mask_defined: false,
                 land_mask_value: 0.,
@@ -122,7 +122,7 @@ namespace Nextsim
 
             // conversion factors: xnew = a*x + b
             Variable u={
-                name: "U10", // U10M
+                name: "U10M", // U10M
                 dimensions: dimensions,
                 land_mask_defined: false,
                 land_mask_value: 0.,
@@ -137,7 +137,7 @@ namespace Nextsim
             };
 
             Variable v={
-                name: "V10", // U10M
+                name: "V10M", // V10M
                 dimensions: dimensions,
                 land_mask_defined: false,
                 land_mask_value: 0.,
@@ -158,7 +158,7 @@ namespace Nextsim
                     //interp_type : NearestInterpEnum,
 
                     dirname:"data",
-                    prefix: "asr30km.comb.2d.", // "asr30km.comb.2D.";
+                    prefix: "asr30km.comb.2D.",
                     postfix:".nc",
                     reference_date: "1901-01-01",
 
@@ -222,7 +222,7 @@ namespace Nextsim
             };
 
             Dimension dimension_time={
-                name:"time",
+                name:"Time",
                 cyclic:false
             };
 
@@ -269,7 +269,7 @@ namespace Nextsim
             };
 
             Variable time_tmp={
-                name: "time",
+                name: "Time",
                 dimensions: dimensions_time,
                 land_mask_defined: false,
                 land_mask_value: 0.,
@@ -291,7 +291,7 @@ namespace Nextsim
                 //interp_type : NearestInterpEnum,
 
                 dirname:"data",
-                prefix:"asr30km.comb.2d.", // "asr30km.comb.2D.";
+                prefix:"asr30km.comb.2D.",
                 postfix:".nc",
                 reference_date: "1901-01-01",
 
@@ -317,7 +317,7 @@ namespace Nextsim
 
             // conversion factors: xnew = a*x + b
             Variable tair={
-                name:"T2",
+                name:"T2M",
                 dimensions: dimensions,
                 land_mask_defined: false,
                 land_mask_value: 0.,
@@ -331,7 +331,7 @@ namespace Nextsim
                 wavDirOptions: wavdiropt_none
             }; // T2M
             Variable mixrat={
-                name:"Q2",
+                name:"Q2M",
                 dimensions: dimensions,
                 land_mask_defined: false,
                 land_mask_value: 0.,
@@ -345,13 +345,13 @@ namespace Nextsim
                 wavDirOptions: wavdiropt_none
             }; // Q2M
             Variable mslp={
-                name:"SLP",
+                name:"PSFC",
                 dimensions: dimensions,
                 land_mask_defined: false,
                 land_mask_value: 0.,
                 NaN_mask_defined: false,
                 NaN_mask_value: 0.,
-                a:1e2,
+                a:1.,
                 b:0.,
                 Units:"Pa",
                 loaded_data: loaded_data_tmp,
@@ -451,7 +451,7 @@ namespace Nextsim
             };
 
             Dimension dimension_time={
-                name:"time", // "Time"
+                name:"time",
                 cyclic:false
             };
 
@@ -2481,7 +2481,7 @@ namespace Nextsim
          	};
 
             Dimension dimension_time={
-                 name:"time", // "Time"
+                 name:"time",
                  cyclic:false
          	};
 
@@ -2606,6 +2606,7 @@ namespace Nextsim
                 interpolated_data: interpolated_data_tmp,
                 wavDirOptions: wavdiropt_none
         	}; // Q2M
+
             Variable mslp={
                 name:"msl",
                 dimensions: dimensions,
@@ -2620,6 +2621,7 @@ namespace Nextsim
                 interpolated_data: interpolated_data_tmp,
                 wavDirOptions: wavdiropt_none
         	}; //PSFC, a=1.
+
             Variable Qsw_in={
                 name:"ssrd",
                 dimensions: dimensions,
@@ -2635,16 +2637,16 @@ namespace Nextsim
                 wavDirOptions: wavdiropt_none
         	};
 
-            Variable Qlw_in={
-                name:"strd",
+            Variable tcc={
+                name:"tcc",
                 dimensions: dimensions,
                 land_mask_defined: false,
                 land_mask_value: 0.,
                 NaN_mask_defined: false,
                 NaN_mask_value: 0.,
-                a:1./(6.*3600.),
+                a:1.,
                 b:0.,
-                Units:"W/m^2",
+                Units:"",
                 loaded_data: loaded_data_tmp,
                 interpolated_data: interpolated_data_tmp,
                 wavDirOptions: wavdiropt_none
@@ -2666,9 +2668,9 @@ namespace Nextsim
         	};
 
             Variable snowfall={
-                name:"sf", 
-                dimensions: dimensions, 
-                land_mask_defined: false, 
+                name:"sf",
+                dimensions: dimensions,
+                land_mask_defined: false,
                 land_mask_value: 0.,
                 NaN_mask_defined: false,
                 NaN_mask_value: 0.,
@@ -2676,17 +2678,16 @@ namespace Nextsim
                 b:0.,
                 Units:"kg/m^2/s",
                 loaded_data: loaded_data_tmp,
-                interpolated_data: interpolated_data_tmp,
-                wavDirOptions: wavdiropt_none
+                interpolated_data: interpolated_data_tmp
             };
-            
+
 
             std::vector<Variable> variables_tmp(7);
             variables_tmp[0] = tair;
             variables_tmp[1] = dair;
             variables_tmp[2] = mslp;
             variables_tmp[3] = Qsw_in;
-            variables_tmp[4] = Qlw_in;
+            variables_tmp[4] = tcc;
             variables_tmp[5] = precip;
             variables_tmp[6] = snowfall;
 
@@ -2716,7 +2717,7 @@ namespace Nextsim
             };
 
             Dimension dimension_time={
-                name:"time", // "Time"
+                name:"time",
                 cyclic:false};
 
             // Definition of the grid
@@ -2813,7 +2814,7 @@ namespace Nextsim
 
             // conversion factors: xnew = a*x + b
             Variable u={
-                name: "u10", // U10M
+                name: "u10", //U10M
                 dimensions: dimensions,
                 land_mask_defined: false,
                 land_mask_value: 0.,
@@ -2828,7 +2829,7 @@ namespace Nextsim
             };
 
             Variable v={
-                name: "v10", // U10M
+                name: "v10", //V10M
                 dimensions: dimensions,
                 land_mask_defined: false,
                 land_mask_value: 0.,
@@ -3380,7 +3381,7 @@ namespace Nextsim
 
 
             Variable FICE={
-                name: "ice", // wave peak frequency
+                name: "ice", // ice concentration
                 dimensions: dimensions,
                 land_mask_defined: false,
                 land_mask_value: 0.,
@@ -4285,11 +4286,7 @@ DataSet::getLatLonRegularLatLon(double* LAT, double* LON,netCDF::NcVar* VLAT_ptr
     {}
 
     for (int i=0; i<(index_x_count[0]); ++i)
-    {
         LON[i]=LON[i]*scale_factor + add_offset;
-        //LON[i]=thetaInRange(LON[i]*scale_factor + add_offset,-180.,false);
-        //make sure lon is in range [-180,180) to correspond to branch cut in mapx
-    }
 
 }
 

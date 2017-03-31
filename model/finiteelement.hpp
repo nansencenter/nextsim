@@ -29,12 +29,20 @@
 #if defined (WAVES)
 #include <wimdiscr.hpp>
 #endif
+#if defined OASIS
+#include<oasis_cpp_interface.h>
+#endif
 #include "enums.hpp"
 #include <debug.hpp>
 #include <omp.h>
 #include <externaldata.hpp>
 #include <gridoutput.hpp>
 #include <dataset.hpp>
+#include <drifters.hpp>
+
+#ifdef WITHGPERFTOOLS
+#include <gperftools/profiler.h>
+#endif
 
 extern "C"
 {
@@ -152,6 +160,8 @@ public:
     std::vector<double> hminVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const;
     std::vector<double> hmaxVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh) const;
 
+    std::vector<double> AllMinAngle(mesh_type const& mesh, std::vector<double> const& um, double factor) const;
+
     void initBamg();
     void initConstant();
     void forcing();
@@ -184,7 +194,8 @@ public:
     void updateVelocity();
     void scalingVelocity();
     void update();
-    void exportResults(int step, bool export_mesh = true, bool export_fields = true);
+    void exportInitMesh();
+    void exportResults(int step, bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
 
     void writeRestart(int pcpt, int step);
     int readRestart(int step);
@@ -250,18 +261,19 @@ private:
     std::string M_mesh_filename;
 
     int M_flag_fix;
+    std::vector<bool> M_mask ;
+    std::vector<bool> M_mask_dirichlet ;
 
     int mesh_adapt_step;
     bool had_remeshed;
 
     std::vector<double> M_surface;
     std::vector<double> M_sigma;
-    std::vector<double> M_divergence_rate;
     std::vector<double> M_UM;
+    std::vector<double> M_UT;
     std::vector<double> M_VT;
     std::vector<double> M_VTM;
     std::vector<double> M_VTMM;
-    std::vector<double> M_node_max_conc;
 
     std::vector<double> M_bathy_depth;
 
@@ -274,8 +286,6 @@ private:
     std::vector<double> M_water_elements;
     std::vector<double> M_h_thin;
     std::vector<double> M_hs_thin;
-    std::vector<double> M_h_ridged_thin_ice;
-    std::vector<double> M_h_ridged_thick_ice;
 
     external_data_vec M_external_data;
     external_data_vec M_external_data_tmp;
@@ -283,12 +293,11 @@ private:
     std::vector<double> M_fcor;
 
     std::vector<double> M_Dunit;
-    std::vector<double> M_Dunit_comp;
     std::vector<double> M_Mass;
+    std::vector<double> M_Diag;
     std::vector<std::vector<double>> M_shape_coeff;
     std::vector<std::vector<double>> M_B0T;
     std::vector<std::vector<double>> M_B0T_Dunit_B0T;
-    std::vector<std::vector<double>> M_B0T_Dunit_comp_B0T;
     std::vector<double> M_random_number;
     std::vector<double> M_Cohesion;
     std::vector<double> M_Compressive_strength;
@@ -329,12 +338,10 @@ private:
     double output_time_step;
     double mooring_output_time_step;
     double mooring_time_factor;
+    double drifter_output_time_step;
     double restart_time_step;
     double time_step;
     double duration;
-    double divergence_min;
-    double compression_factor;
-    double exponent_compression_factor;
     double ocean_turning_angle_rad;
     double ridging_exponent;
     double quad_drag_coef_air;
@@ -344,7 +351,6 @@ private:
     //double water_depth;
 
     double basal_k2;
-    double basal_drag_coef_air;
     double basal_u_0;
     double basal_Cb;
 
@@ -363,9 +369,11 @@ private:
     double current_time;
     bool M_reuse_prec;
     bool M_regrid;
+    int M_nb_regrid;
 #if defined (WAVES)
     bool M_run_wim;
     bool M_use_wim;
+    bool M_interp_fsd;
 #endif
 
     bool M_use_restart;
@@ -405,8 +413,9 @@ private:
     external_data M_mslp;         // Atmospheric pressure [Pa]
     external_data M_Qsw_in;       // Incoming short-wave radiation [W/m2]
     external_data M_Qlw_in;       // Incoming long-wave radiation [W/m2]
-    external_data M_tcc;       // Incoming long-wave radiation [W/m2]
-    external_data M_precip;       // Total precipitation [m]
+    external_data M_tcc;          // Incoming long-wave radiation [W/m2]
+    external_data M_precip;       // Total precipitation rate [kg/m^2/s]
+    external_data M_snowfall;     // Snowfall rate [kg/m^2/s]
     external_data M_snowfr;       // Fraction of precipitation that is snow
     external_data M_dair;         // 2 m dew point [C]
 
@@ -430,9 +439,16 @@ private:
     external_data M_element_depth;
 
     // Drifters
-    boost::unordered_map<int, std::array<double,2>> M_drifter; // Drifters are kept in an unordered map containing number and coordinates
-    std::fstream M_iabp_file;             // The file we read the IABP buoy data from
-    std::fstream M_drifters_out;    // The file we write our simulated drifter positions into
+    boost::unordered_map<int, std::array<double,2>> M_iabpDrifters; // Drifters are kept in an unordered map containing number and coordinates
+    std::fstream M_iabp_file;   // The file we read the IABP buoy data from
+    std::fstream M_iabp_out;    // The file we write our simulated drifter positions into
+
+    Drifters M_drifters; // Drifters on a grid
+    Drifters M_rgps_drifters; // Drifters as in the RGPS data
+    std::vector<Drifters> M_osisaf_drifters; // A vector of drifters for the OSISAF emulation
+
+    // Element variable
+    std::vector<double> M_element_age;         // Age of the element (model time since its last adaptation)
 
     // Prognostic ice variables
     std::vector<double> M_conc;         // Ice concentration
@@ -458,6 +474,14 @@ private:
     GridOutput::fileLength M_moorings_file_length;
     GridOutput M_moorings;
 
+#ifdef OASIS
+    // Coupling with OASIS
+    GridOutput M_cpl_out;
+    std::vector<int> var_id;
+    double cpl_time_factor;
+    int cpl_time_step;
+#endif
+
 private:
     void constantIce();
     void targetIce();
@@ -474,6 +498,9 @@ private:
     void topazAmsreIce();
     void topazAmsr2Ice();
 
+    void initOSISAFDrifters();
+    void initRGPSDrifters();
+    void updateRGPSDrifters();
     void equallySpacedDrifter();
     void outputDrifter(std::fstream &iabp_out);
     void initIABPDrifter();
@@ -481,6 +508,10 @@ private:
 
     void updateMeans(GridOutput &means, double time_factor);
     void initMoorings();
+
+    void redistributeVariables(double* interp_elt_out,int nb_var);
+    int collectVariables(double** interp_elt_in_ptr, int** interp_elt_method, int num_elements);
+    void advect(double** interp_elt_out_ptr,double* interp_elt_in,int* interp_method,int nb_var);
 
 };
 } // Nextsim

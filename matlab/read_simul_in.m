@@ -3,9 +3,10 @@ function simul_in=read_simul_in(saved_simul_in)
 %   Detailed explanation goes here
 % Example: simul_in=read_simul_in('log_simul')
 
-simul_in.time_init=datenum(get_value(saved_simul_in,'simul.time_init'),'yyyy-mmm-dd');
+simul_in.time_init=datenum(get_value(saved_simul_in,'simul.time_init'),'yyyy-mm-ddHH:MM:SS');
 simul_in.duration=str2num(get_value(saved_simul_in,'simul.duration'));
 simul_in.output_per_day=str2num(get_value(saved_simul_in,'simul.output_per_day'));
+simul_in.mesh_filename=get_value(saved_simul_in,'simul.mesh_filename');
 
 end
 
@@ -18,9 +19,9 @@ while ischar(tline)
     
     if(length(tline)>=length(look_for))
         if(strcmp(tline(1:length(look_for)),look_for))
-            disp(tline)
+            disp(tline);
         
-            A = sscanf(tline(length(look_for)+1:end), '%s')
+            A = sscanf(tline(length(look_for)+1:end), '%s');
         end
     end
     tline = fgetl(fid);

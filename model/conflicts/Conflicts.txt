@@ -1,0 +1,13 @@
+.gitignore 
+Makefile 
+matlab/plot_nextsim_c.m 
+model/Makefile
+model/options.cpp
+model/run_wim.sh
+modules/wim/include/wimdiscr.hpp 
+modules/wim/src/wimdiscr.cpp 
+model/externaldata.cpp
+model/datasets.cpp
+
+TODO:
+finiteelement.cpp

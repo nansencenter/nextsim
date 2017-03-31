@@ -58,9 +58,7 @@ for j=1:nb_fields,
 
     field_tmp=data_out.(field{j});
     
-    if(nb_fields==2)
-        field_scatter{j}=field_tmp;
-    end
+    
     length(field_tmp)
     if(length(field_tmp)==Ne)
         c{1}=[field_tmp,field_tmp,field_tmp]';
@@ -86,11 +84,22 @@ for j=1:nb_fields,
         end
         colorbar
     end
+    
+    if(nb_fields==2)
+        field_scatter{j}=field_tmp;
+        field_patch{j}=c{1};
+    end
+    
+    
 end
+
 
 if(nb_fields==2)
    figure
-   scatter(field_scatter{1},field_scatter{2});
+   scatter(field_scatter{1},field_scatter{2}./field_scatter{1});
+   
+   figure
+        patch(x,y,field_patch{2}./field_patch{1},'EdgeColor','none')
 %   hold on
 %   scatter(field_scatter{2},field_scatter{1});
 %    tan_phi=0.7;

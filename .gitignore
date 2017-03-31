@@ -27,4 +27,8 @@ model/libboost_system.dylib
 nextsim_pierre.cfg
 run_pierre.sh
 
+model/out_cpp/*
 model/results/*
+model/bak/*
+matlab/mapx_forward.mexmaci64
+matlab/mapx_inverse.mexmaci64
