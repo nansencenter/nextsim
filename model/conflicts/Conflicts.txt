@@ -8,6 +8,4 @@ modules/wim/include/wimdiscr.hpp
 modules/wim/src/wimdiscr.cpp 
 model/externaldata.cpp
 model/datasets.cpp
-
-TODO:
-finiteelement.cpp
+model/finiteelement.cpp
