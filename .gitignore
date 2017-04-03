@@ -24,6 +24,11 @@ model/libboost_mpi.dylib
 model/libboost_program_options.dylib
 model/libboost_serialization.dylib
 model/libboost_system.dylib
+
+model/run_wim.log
+model/coupling_wim.cfg
+model/wim.cfg
+
 nextsim_pierre.cfg
 run_pierre.sh
 
