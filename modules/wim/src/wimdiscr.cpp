@@ -45,7 +45,7 @@ void WimDiscr<T>::gridProcessing()
 
         x0 = vm["wim.xmin"].template as<double>();
         y0 = vm["wim.ymin"].template as<double>();
-        
+
         if ( vm["wim.gridremoveouter"].template as<bool>() )
         {
             nx -= 2;
@@ -418,8 +418,8 @@ void WimDiscr<T>::readFromBinary(std::fstream &in, array2_type& in_array, int of
     }
     else
     {
-        std::cout << "Cannot open " << in << "\n";
-        std::cerr << "error: open file " << in << " for input failed!" <<"\n";
+        //std::cout << "Cannot open " << in << "\n";
+        //std::cerr << "error: open file " << in << " for input failed!" <<"\n";
         std::abort();
     }
 }
@@ -514,7 +514,7 @@ void WimDiscr<T>::init()
 
         //get initial time from simul.time_init
         init_time_str  = vm["simul.time_init"].template as<std::string>();
- 
+
         break_on_mesh   =  ( vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh");
     }
 
@@ -1029,7 +1029,7 @@ void WimDiscr<T>::inputWaveFields(value_type_vec const& swh_in,
     {
         for (int j = 0; j < ny; j++)
         {
-            
+
             if (checkincwaves)
             {
                 //only needed for diagnostics
@@ -1048,7 +1048,7 @@ void WimDiscr<T>::inputWaveFields(value_type_vec const& swh_in,
             }
             else
                wave_mask[i*ny+j] = 0.;
-            
+
             if (ice_mask[i][j]>0.)
             {
                 Hs_min_ice    = std::min(Hs_min_ice,Hs[i*ny+j]);
@@ -1653,7 +1653,7 @@ void WimDiscr<T>::timeStep(bool step)
                               &mesh_y[0],           // y vector (target)
                               mesh_num_elements,0., //target_size,default value
                               interptype,           //interpolation type
-                              true                  //row_major (false = fortran/matlab order)         
+                              true                  //row_major (false = fortran/matlab order)
                               );
         // ======================================================
 
@@ -1682,7 +1682,7 @@ void WimDiscr<T>::timeStep(bool step)
 
 
         if (TEST_INTERP_MESH)
-        {   
+        {
             value_type t_out = dt*cpt;
             std::vector<std::vector<value_type>> vectors;
             std::vector<std::string> names;
@@ -2876,7 +2876,7 @@ WimDiscr<T>::thetaInRange(value_type const& th_, value_type const& th1, bool con
 }
 
 
-template<typename T> 
+template<typename T>
 typename WimDiscr<T>::WimGrid WimDiscr<T>::wimGrid(std::string const& units)
 {
     value_type fac = 1.;

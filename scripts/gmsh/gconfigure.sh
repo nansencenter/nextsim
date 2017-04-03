@@ -1,7 +1,7 @@
 cmake .. \
 	-DCMAKE_CXX_COMPILER=`which g++` \
 	-DCMAKE_C_COMPILER=`which gcc` \
-	-DCMAKE_INSTALL_PREFIX=/opt/local/gmsh/version \
+	-DCMAKE_INSTALL_PREFIX=/opt/local/gmsh \
 	-DCMAKE_BUILD_TYPE=release \
 	-DENABLE_BUILD_LIB=ON \
 	-DENABLE_BUILD_SHARED=ON \
