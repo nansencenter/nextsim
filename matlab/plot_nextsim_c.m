@@ -1,4 +1,4 @@
-function plot_nextsim_c(field,step,domain,region_of_zoom,is_sequential,dir,save_figure)
+function plot_nextsim_c(field,step,domain,region_of_zoom,is_sequential,dirname,save_figure)
 
 % example of usage:
 % plot_nextsim_c('Concentration',4,'topaz',[],true)
@@ -18,8 +18,10 @@ function plot_nextsim_c(field,step,domain,region_of_zoom,is_sequential,dir,save_
 %field='Voce_factor';
 %field='Damage';
 %field='bathy';
+%field='Lambda';
 
-if nargin==5, dir=''; end
+
+if nargin==5, dirname=''; end
 
 %Here are a list of various options which can be set
 plot_grid           = 0;            % If not zero the mesh lines are ploted. If zoomed out only the mesh lines will be visible
@@ -37,10 +39,16 @@ if nargin<7, save_figure = 0; end;     % 0 (default) we do not save the figure
 for p=0:0
 
   if(is_sequential)
-      [mesh_out,data_out] = neXtSIM_bin_revert(dir, [], step);
+      [mesh_out,data_out] = neXtSIM_bin_revert(dirname, [], step);
   else
-      [mesh_out,data_out] = neXtSIM_bin_revert(dir, p, step);
+      [mesh_out,data_out] = neXtSIM_bin_revert(dirname, p, step);
   end
+  
+  if(~isempty(dirname)&& dirname(end)~='/')
+    dirname=[dirname, '/'];
+  end
+  simul_in=read_simul_in([dirname 'nextsim.log' ]); 
+  
   %reshape
   var_mx=mesh_out.Nodes_x(mesh_out.Elements);
   var_my=mesh_out.Nodes_y(mesh_out.Elements);
@@ -67,6 +75,18 @@ for p=0:0
       i=2;
   end;
   
+  field_plotted=field;
+  
+  if strcmp(field,'Lambda')
+      field='Damage';
+      field_plotted='Lambda';
+  end
+  
+  if strcmp(field,'Viscosity')
+      field='Damage';
+      field_plotted='Viscosity';
+  end
+  
   %---------------------------
   % We extract the data fields
   %---------------------------
@@ -85,6 +105,19 @@ for p=0:0
     v{1}=reshape(var_mc,[3,Ne]);
   else
     error('Not the right dimensions')
+  end
+  
+  if strcmp(field_plotted,'Lambda')
+      lambda0=simul_in.undamaged_time_relaxation_sigma;
+      alpha=simul_in.exponent_relaxation_sigma;
+      v{1}=(lambda0*(1.-v{1}).^(alpha-1));
+  end
+  
+  if strcmp(field_plotted,'Viscosity')
+      lambda0=simul_in.undamaged_time_relaxation_sigma;
+      alpha=simul_in.exponent_relaxation_sigma;
+      young=simul_in.young;
+      v{1}=lambda0.*(1.-v{1}).^alpha.*young;
   end
   
   %-------------------------------------------------------------------------------------------------------------------
@@ -112,7 +145,7 @@ for p=0:0
   %
   set_region_adjustment(domain,region_of_zoom);
   %
-  set_axis_colormap_colorbar(domain,field,v,i,region_of_zoom);
+  set_axis_colormap_colorbar(domain,field_plotted,v,i,region_of_zoom);
   %
   set_figure_cosmetics(data_out,domain,region_of_zoom,plot_date,background_color,font_size);
   
@@ -129,7 +162,7 @@ for p=0:0
   %------------------------------
   if save_figure
       set(fig,'Color',[1 1 1]);
-      filename=sprintf('neXtSIM_%s_%d',field,step);
+      filename=sprintf('neXtSIM_%s_%d',field_plotted,step);
       %Call export_fig to save figure
       if strcmp(figure_format,'png') || strcmp(figure_format,'jpg')
           if isempty(pic_quality)
@@ -156,8 +189,16 @@ function set_axis_colormap_colorbar(domain,field,v,i,region_of_zoom)
         caxis([0, 4]);
         colormap('parula');
         name_colorbar='Thickness (m)';
+    elseif (strcmp(field,'Lambda'))
+        caxis([0, 1e5]);
+        colormap('parula');
+        name_colorbar='Lambda (s)';
+   elseif (strcmp(field,'Viscosity'))
+        caxis([0, 1e11]);
+        colormap('parula');
+        name_colorbar='Viscosity (Pa s)';
     elseif strcmp(field,'Damage')
-        caxis([0.9995, 1]);
+        caxis([0.9, 1]);
         load('ice_damage_cmap128.mat')
         colormap(ice_damage_cmap128);
         name_colorbar='Damage';
