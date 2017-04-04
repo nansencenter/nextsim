@@ -1,4 +1,6 @@
 # untracked files to ignore
+.DS_Store
+._.DS_Store
 .*.swp
 *.mat
 *.msh
@@ -29,11 +31,12 @@ model/run_wim.log
 model/coupling_wim.cfg
 model/wim.cfg
 
+nextsim.src
 nextsim_pierre.cfg
 run_pierre.sh
 
 model/out_cpp/*
 model/results/*
 model/bak/*
-matlab/mapx_forward.mexmaci64
-matlab/mapx_inverse.mexmaci64
+matlab/mapx_forward.mex*
+matlab/mapx_inverse.mex*
