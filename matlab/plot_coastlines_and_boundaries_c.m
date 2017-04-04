@@ -4,8 +4,15 @@ function plot_coastlines_and_boundaries_c(mesh_filename)
 fprintf('Coastlines are being loaded from the file ''%s'' ...\r',mesh_filename)
 if(strcmp(mesh_filename(end-3:end),'.msh'))
     mesh=msh2mat_c(mesh_filename);
-    flag_boundary_fix=1;  %may need to be changed depending on the meshfile (here works for the new meshes created with gmsh)
-    flag_boundary_free=2; %may need to be changed depending on the meshfile (here works for the new meshes created with gmsh)
+    if isfield(mesh,'flags')
+       flag_boundary_fix   = mesh.flags.coast;
+       flag_boundary_free  = mesh.flags.open;
+    else
+       flag_boundary_fix=10000;  %may need to be changed depending on the meshfile (here works for the old meshes created with myConvertArctic.m)
+       flag_boundary_free=10001; %may need to be changed depending on the meshfile (here works for the old meshes created with myConvertArctic.m)
+       %flag_boundary_fix=1;  %may need to be changed depending on the meshfile (here works for the new meshes created with gmsh)
+       %flag_boundary_free=2; %may need to be changed depending on the meshfile (here works for the new meshes created with gmsh)
+    end
 elseif(strcmp(mesh_filename(end-3:end),'.mat'))
     load mesh_filename;
     flag_boundary_fix=10001;  %may need to be changed depending on the meshfile (here works with the old TOPAZ and MIT meshes)
@@ -29,6 +36,9 @@ free_boundaryLat = node_lat(boundary(free ,1:2,1))';
 free_boundaryLon = node_lon(boundary(free ,1:2,1))';
 
 mppfile = which('NpsNextsim.mpp');
+if ~exist(mppfile,'file')
+   error(['Can''t find mppfile ',mppfile]);
+end
 
 % projection
 [closed_boundaryX,closed_boundaryY]= mapx_forward(mppfile,closed_boundaryLon(:)',closed_boundaryLat(:)');

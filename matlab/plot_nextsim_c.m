@@ -1,6 +1,10 @@
-<<<<<<< HEAD
-function plot_nextsim_c(field,step,domain,region_of_zoom,is_sequential,dir,save_figure)
-%% CALL: plot_nextsim_c(field,step,domain,region_of_zoom,is_sequential,dir,save_figure)
+function plot_nextsim_c(field,step,region_of_zoom,is_sequential,dir,save_figure)
+%% CALL: plot_nextsim_c(field,step,region_of_zoom,is_sequential,dir,save_figure)
+%% example of usage:
+%%    plot_nextsim_c('Concentration',4,[],true)
+%%    plot_nextsim_c('Damage',4,[],true)
+%%    plot_nextsim_c('M_VT',4,[],true)
+%%
 %% field:
 %%    Element_area
 %%    M_node_max_conc 
@@ -33,12 +37,6 @@ function plot_nextsim_c(field,step,domain,region_of_zoom,is_sequential,dir,save_
 %%
 %% step: eg if it's 0, want to read mesh_0.* & field_0.*
 %%
-%% domain:
-%%    'topaz'
-%%    'topaz_matthias'
-%%    'mitgcm4km'
-%%    'mitgcm9km'
-%%
 %% region_of_zoom:
 %%    'framstrait';
 %%    'naresstrait';
@@ -55,28 +53,6 @@ function plot_nextsim_c(field,step,domain,region_of_zoom,is_sequential,dir,save_
 %%
 %% [OPTIONAL]
 %% save_figure
-=======
-function plot_nextsim_c(field,step,region_of_zoom,is_sequential,dir,save_figure)
-
-% example of usage:
-% plot_nextsim_c('Concentration',4,[],true)
-% plot_nextsim_c('Damage',4,[],true)
-% plot_nextsim_c('M_VT',4,[],true)
-
-% clearvars -except step;
-%field='M_VT';
-%field='mld';
-%field='Concentration';
-%field='Thickness';
-%field='SSS';
-%field='SST';
-%field='Wind';
-%field='Ocean';
-%field='Vair_factor';
-%field='Voce_factor';
-%field='Damage';
-%field='bathy';
->>>>>>> develop
 
 if nargin==4, dir=''; end
 
@@ -199,8 +175,19 @@ for p=0:0
   % We arrange the figure in an "optimal" manner using subfunctions (you can check them out at the bottom of this script)
   %----------------------------------------------------------------------------------------------------------------------
   % We first read in the log file to know which mesh has been used
-  simul_in=read_simul_in('nextsim.log'); %nextsim.log must be in your path
+
+  if exist('nextsim.log','file')
+     simul_in  = read_simul_in('nextsim.log'); %nextsim.log is in your path
+  elseif exist([dir,'/nextsim.log'],'file')
+     simul_in  = read_simul_in([dir,'/nextsim.log']); %nextsim.log is in your path
+  else
+     error('can''t find nextsim.log');
+  end
   %
+  if ~exist(simul_in.mesh_filename)
+     error(['add directory with meshfile ''',simul_in.mesh_filename,''' to path']);
+  end
+
   set_region_adjustment(simul_in.mesh_filename,region_of_zoom);
   %
   set_axis_colormap_colorbar(simul_in.mesh_filename,field,v,i,region_of_zoom);
@@ -237,6 +224,14 @@ end
 
 function set_axis_colormap_colorbar(mesh_filename,field,v,i,region_of_zoom)
     
+
+    cmap_def   = 'parula';
+    try
+       colormap(cmap_def);
+    catch ME
+       cmap_def   = 'jet';
+    end
+
     %We set the axis limits, the colormap and set the name for the colorbar
     if (strcmp(field,'Concentration'))
         caxis([0 1]);
@@ -245,7 +240,7 @@ function set_axis_colormap_colorbar(mesh_filename,field,v,i,region_of_zoom)
         name_colorbar='Concentration';
     elseif (strcmp(field,'Thickness'))
         caxis([0, 4]);
-        colormap('parula');
+        colormap(cmap_def);
         name_colorbar='Thickness (m)';
     elseif strcmp(field,'Damage')
         caxis([0.9, 1]);
@@ -271,13 +266,13 @@ function set_axis_colormap_colorbar(mesh_filename,field,v,i,region_of_zoom)
         name_colorbar='Divergence rate (/day)';
     elseif strcmp(field,'Snow')
         caxis([0, 0.5]);
-        colormap('parula');
+        colormap(cmap_def);
         name_colorbar='Snow thickness (m)';
     elseif strcmp(field,'Cohesion')
-        colormap('parula');
+        colormap(cmap_def);
         name_colorbar='Cohesion (Pa)';
     else
-        colormap('parula');
+        colormap(cmap_def);
         name_colorbar='';
     end;
 
@@ -357,11 +352,7 @@ function set_region_adjustment(mesh_filename,region_of_zoom)
         if ~isempty(region_of_zoom)
             %%Then we adjust depending on chosen region to zoom in
             if strcmp(region_of_zoom,'framstrait')
-<<<<<<< HEAD
                 axis([100 1550 -1850 100]);
-=======
-                axis([200 1200 -1300 0]);
->>>>>>> develop
             elseif strcmp(region_of_zoom,'naresstrait')
                 axis([-400 100 -950 -450]);
             elseif strcmp(region_of_zoom,'karagate')
