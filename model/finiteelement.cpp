@@ -4181,9 +4181,10 @@ FiniteElement::init()
 
     LOG(DEBUG) <<"Initialize forcingOcean\n";
     this->forcingOcean();
+
 #if defined (WAVES)
-        LOG(DEBUG) <<"Initialize forcingWave\n";
-        this->forcingWave();
+    LOG(DEBUG) <<"Initialize forcingWave\n";
+    this->forcingWave();
 #endif
 
     LOG(DEBUG) <<"Initialize bathymetry\n";
@@ -7129,16 +7130,29 @@ FiniteElement::exportInitMesh()
 void
 FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, bool apply_displacement)
 {
+    //define filenames from step
+    std::string meshfile    = (boost::format( "%1%/mesh_%2%" )
+                               % M_export_path
+                               % step ).str();
+
+    std::string fieldfile   = (boost::format( "%1%/field_%2%" )
+                               % M_export_path
+                               % step ).str();
+
+    std::vector<std::string> filenames = {meshfile,fieldfile}; 
+    this->exportResults(filenames, export_mesh, export_fields, apply_displacement);
+}
+
+void
+FiniteElement::exportResults(std::vector<std::string> const &filenames, bool export_mesh, bool export_fields, bool apply_displacement)
+{
     Exporter exporter(vm["setup.exporter_precision"].as<std::string>());
     std::string fileout;
 
 
     if (export_mesh)
     {
-        fileout = (boost::format( "%1%/mesh_%2%.bin" )
-                   % M_export_path
-                   % step ).str();
-
+        fileout = filenames[0]+".bin";
         LOG(INFO) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
 
         if(apply_displacement)
@@ -7156,10 +7170,7 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
             // move it back after the export
             M_mesh.move(M_UM,-1.);
 
-        fileout = (boost::format( "%1%/mesh_%2%.dat" )
-               % M_export_path
-               % step ).str();
-
+        fileout = filenames[0]+".dat";
         LOG(INFO) <<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
 
         std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
@@ -7172,10 +7183,7 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
 
     if (export_fields)
     {
-        fileout = (boost::format( "%1%/field_%2%.bin" )
-                   % M_export_path
-                   % step ).str();
-
+        fileout = filenames[1]+".bin";
         LOG(INFO) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
 
         std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
@@ -7328,10 +7336,7 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
 #endif
         outbin.close();
 
-        fileout = (boost::format( "%1%/field_%2%.dat" )
-                   % M_export_path
-                   % step ).str();
-
+        fileout = filenames[1]+".dat";
         LOG(INFO) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
 
         std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);

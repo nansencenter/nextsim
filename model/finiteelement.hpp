@@ -195,7 +195,10 @@ public:
     void scalingVelocity();
     void update();
     void exportInitMesh();
-    void exportResults(int step, bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
+    void exportResults(int step,
+            bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
+    void exportResults(std::vector<std::string> const &filenames,
+            bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
 
     void writeRestart(int pcpt, int step);
     int readRestart(int step);
