@@ -74,14 +74,17 @@ GmshMesh::readFromFile(std::string const& filename)
 {   
     std::string meshpath = Environment::vm()["simul.mesh_path"].as<std::string>();
     std::string gmshmshfile;
+
     if(meshpath=="nextsimdir")
-    {
+        // default location of meshes
+        // - mesh dir of repo ($NEXTSIMDIR/mesh)
         gmshmshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
-    }
     else if(meshpath=="simdatadir")
-    {
+        // usual location on johansen ($SIMDATADIR/data/mesh)
         gmshmshfile = Environment::simdataDir().string() + "/data/mesh/" + filename;
-    }
+    else
+        // manual path
+        gmshmshfile = meshpath + "/" + filename;
 
     std::cout<<"Reading Msh file "<< gmshmshfile <<"\n";
     std::ifstream __is ( gmshmshfile.c_str() );
