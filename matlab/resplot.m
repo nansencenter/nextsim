@@ -59,7 +59,12 @@ x=reshape(var_mx,[3,Ne]);
 y=reshape(var_my,[3,Ne]);
 
 if(~isempty(field))
-    field_tmp=data_out.(field);
+    try
+        field_tmp=data_out.(field);
+    catch err
+        disp(['Available fields are: ' fieldnames(data_out)'])
+        rethrow(err)
+    end
 else
     field_tmp=zeros(Ne,1);
     plot_edge=true;

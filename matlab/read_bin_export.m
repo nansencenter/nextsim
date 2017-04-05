@@ -1,7 +1,8 @@
 function out=read_bin_export(file_info,file_data)
 %Getting info
 % disp(['Read: ' file_info])
-fileID = fopen(file_info,'r');
+[fileID, mssg] = fopen(file_info,'r');
+if fileID < 0, error([file_info ': ' mssg]), end
 info_tmp=textscan(fileID,'%s %s');
 data_names=info_tmp{1};
 data_types=info_tmp{2};
