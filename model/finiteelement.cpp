@@ -294,6 +294,16 @@ FiniteElement::initDatasets()
             M_atmosphere_bis_elements_dataset=DataSet("ERAi_elements",M_num_elements);
             break;
 
+        case setup::AtmosphereType::CFSR:
+            M_atmosphere_nodes_dataset=DataSet("cfsr_nodes",M_num_nodes);
+            M_atmosphere_elements_dataset=DataSet("cfsr_elements",M_num_elements);
+            break;
+
+        case setup::AtmosphereType::CFSR_HI:
+            M_atmosphere_nodes_dataset=DataSet("cfsr_nodes_hi",M_num_nodes);
+            M_atmosphere_elements_dataset=DataSet("cfsr_elements",M_num_elements);
+            break;
+
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
 
@@ -454,12 +464,14 @@ FiniteElement::initConstant()
         ("asr", setup::AtmosphereType::ASR)
         ("erai", setup::AtmosphereType::ERAi)
         ("ec", setup::AtmosphereType::EC)
-        ("ec_erai", setup::AtmosphereType::EC_ERAi);
+        ("ec_erai", setup::AtmosphereType::EC_ERAi)
+        ("cfsr", setup::AtmosphereType::CFSR);
     M_atmosphere_type = str2atmosphere.find(vm["setup.atmosphere-type"].as<std::string>())->second;
 
     switch(M_atmosphere_type){
         case setup::AtmosphereType::CONSTANT:   quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ASR:        quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>(); break;
+        case setup::AtmosphereType::CFSR:       quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ERAi:       quad_drag_coef_air = vm["simul.ERAi_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::EC:
         case setup::AtmosphereType::EC_ERAi:
@@ -3106,7 +3118,9 @@ FiniteElement::thermo()
         /* There are two ways to calculate this. We decide which one by
          * checking mixrat - the calling routine must set this to a negative
          * value if the dewpoint should be used. */
-        if ( M_dair.M_initialized )
+        if ( M_sphuma.M_initialized )
+            sphuma = M_sphuma[i];
+        else if ( M_dair.M_initialized )
         {
             double fa     = 1. + Aw + M_mslp[i]*1e-2*( Bw + Cw*M_dair[i]*M_dair[i] );
             double esta   = fa*aw*std::exp( (bw-M_dair[i]/dw)*M_dair[i]/(M_dair[i]+cw) );
@@ -5344,6 +5358,34 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
 
             M_precip=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,5,false,time_init);
             M_external_data.push_back(&M_precip);
+        break;
+
+        case setup::AtmosphereType::CFSR:
+            M_wind=ExternalData(
+                &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
+                time_init, vm["simul.spinup_duration"].as<double>());
+            M_external_data.push_back(&M_wind);
+
+            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
+            M_external_data.push_back(&M_tair);
+
+            M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
+            M_external_data.push_back(&M_mixrat);
+
+            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
+            M_external_data.push_back(&M_mslp);
+
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
+            M_external_data.push_back(&M_Qsw_in);
+
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            M_external_data.push_back(&M_Qlw_in);
+
+            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
+            M_external_data.push_back(&M_precip);
+
+            M_snowfr=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
+            M_external_data.push_back(&M_snowfr);
         break;
 
         default:
