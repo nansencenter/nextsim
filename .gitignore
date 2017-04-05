@@ -27,7 +27,7 @@ model/libboost_program_options.dylib
 model/libboost_serialization.dylib
 model/libboost_system.dylib
 
-model/run_wim.log
+model/RunWim.log
 model/coupling_wim.cfg
 model/wim.cfg
 
