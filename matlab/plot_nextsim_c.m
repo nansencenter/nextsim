@@ -20,8 +20,7 @@ function plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,save_fig
 %field='bathy';
 %field='Lambda';
 
-if nargin==4, dirname=''; end
-
+if nargin==4, dirname='.'; end
 
 %Here are a list of various options which can be set
 plot_grid           = 0;            % If not zero the mesh lines are ploted. If zoomed out only the mesh lines will be visible
@@ -74,7 +73,7 @@ for p=0:0
       field='M_VT';
       i=2;
   end;
-  
+
   field_plotted=field;
   
   if strcmp(field,'Lambda')
@@ -143,7 +142,7 @@ for p=0:0
   % We arrange the figure in an "optimal" manner using subfunctions (you can check them out at the bottom of this script)
   %----------------------------------------------------------------------------------------------------------------------
   % We first read in the log file to know which mesh has been used
-  simul_in=read_simul_in([dirname 'nextsim.log']); %nextsim.log must be in your path
+  simul_in=read_simul_in([dirname 'nextsim.log']);
   %
   set_region_adjustment(simul_in.mesh_filename,region_of_zoom);
   %

@@ -408,6 +408,7 @@ private:
     external_data M_snowfall;     // Snowfall rate [kg/m^2/s]
     external_data M_snowfr;       // Fraction of precipitation that is snow
     external_data M_dair;         // 2 m dew point [C]
+    external_data M_sphuma;       // Speciffic humidity of the atmosphere [kg/kg]
 
     // Ocean
     external_data M_ocean;        // "Geostrophic" ocean currents [m/s]
