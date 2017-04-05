@@ -3089,8 +3089,8 @@ FiniteElement::thermo()
     double const tanalpha  = h_thin_max/c_thin_max;
     double const rtanalpha = 1./tanalpha;
 
-    double const qi = physical::Lf * physical::rhoi;
-    double const qs = physical::Lf * physical::rhos;
+    double const qi = physical::Lf * physical::rhoi;// J m^{-3}
+    double const qs = physical::Lf * physical::rhos;// J m^{-3}
 
     int const newice_type = vm["simul.newice_type"].as<int>();
     int const melt_type = vm["simul.melt_type"].as<int>();
@@ -3267,6 +3267,10 @@ FiniteElement::thermo()
         			*( 1. + 0.275*M_tcc[i] );
         }
 
+        // Qow>0 => flux out of ocean:
+        // - subtract shortwave and longwave input;
+        // add heat loss from longwave radiation, sensible heat loss (temp changes)
+        // and evaporation (latent heat loss - temp doesn't change, but phase changes)
         Qow = -tmp_Qsw_in*(1.-ocean_albedo) - tmp_Qlw_in + Qlw_out + Qsh + Qlh;
 
         // -------------------------------------------------
@@ -3275,17 +3279,20 @@ FiniteElement::thermo()
         switch ( M_thermo_type )
         {
             case setup::ThermoType::ZERO_LAYER:
-                this->thermoIce0(i, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfall, hi, hs, hi_old, Qio, del_hi, M_tice[0][i]);
+                this->thermoIce0(i, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i],
+                        tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfall, hi, hs, hi_old, Qio, del_hi, M_tice[0][i]);
                 break;
             case setup::ThermoType::WINTON:
-                this->thermoWinton(i, time_step, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfall, hi, hs, hi_old, Qio, del_hi,
+                this->thermoWinton(i, time_step, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i],
+                        tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfall, hi, hs, hi_old, Qio, del_hi,
                         M_tice[0][i], M_tice[1][i], M_tice[2][i]);
                 break;
         }
 
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
-            this->thermoIce0(i, wspeed, sphuma, old_conc_thin, M_h_thin[i], M_hs_thin[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfall, hi_thin, hs_thin, hi_thin_old, Qio_thin, del_hi_thin, M_tsurf_thin[i]);
+            this->thermoIce0(i, wspeed, sphuma, old_conc_thin, M_h_thin[i], M_hs_thin[i],
+                    tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfall, hi_thin, hs_thin, hi_thin_old, Qio_thin, del_hi_thin, M_tsurf_thin[i]);
             M_h_thin[i]  = hi_thin * old_conc_thin;
             M_hs_thin[i] = hs_thin * old_conc_thin;
         }
@@ -3296,14 +3303,14 @@ FiniteElement::thermo()
         /* Local variables */
         double tw_new, tfrw, newice, del_c, newsnow, h0;
 
-        /* dT/dt due to heatflux atmos.-ocean */
+        /* dT/dt due to heatflux ocean->atmosphere */
         tw_new = M_sst[i] - Qow*time_step/(tmp_mld*physical::rhow*physical::cpw);
         tfrw   = -physical::mu*M_sss[i];
 
         /* Form new ice in case of super cooling, and reset Qow and evap */
         if ( tw_new < tfrw )
         {
-            newice  = (1.-M_conc[i])*(tfrw-tw_new)*tmp_mld*physical::rhow*physical::cpw/qi;
+            newice  = (1.-M_conc[i])*(tfrw-tw_new)*tmp_mld*physical::rhow*physical::cpw/qi;// m
             Qow  = -(tfrw-M_sst[i])*tmp_mld*physical::rhow*physical::cpw/time_step;
             // evap = 0.;
         } else {
@@ -3360,7 +3367,7 @@ FiniteElement::thermo()
             {
                 case 1:
                     /* Hibler (79) using PhiM to tune. PhiM = 0.5 is
-                     * equivilent Hibler's (79) approach */
+                     * equivalent to Hibler's (79) approach */
                     if ( M_conc[i] < 1. )
                         del_c = del_hi*M_conc[i]*PhiM/hi_old;
                     else
@@ -3624,7 +3631,8 @@ FiniteElement::albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, do
 
 // Winton thermo dynamics (ice temperature, growth, and melt)
 void
-FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfall,
+FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols,
+        double Qlw_in, double Qsw_in, double mld, double snowfall,
         double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double &T1, double &T2)
 {
     // Constants
