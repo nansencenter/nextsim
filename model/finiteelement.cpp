@@ -7495,6 +7495,8 @@ FiniteElement::nextsimToWim(bool step)
                 }
 
                 // significant wave height
+                // - Hs given to the WIM should have the waves-in-ice
+                // removed (so we can do our own attenuation)
                 M_SWH_grid[i] = cfac*M_SWH[i];
 
                 // mean wave direction
@@ -7509,12 +7511,23 @@ FiniteElement::nextsimToWim(bool step)
                 }
 
                 // wave peak period
-                if ( wim_forcing_options.use_mwp )
-                    M_MWP_grid[i] = cfac*M_MWP[i];
-                else if ( M_MWP[i]>0. )
-                    M_MWP_grid[i] = cfac/M_MWP[i];
+                if ( M_MWP[i]>0. )
+                    if ( wim_forcing_options.use_mwp )
+                        //Tp given to the WIM should have the waves-in-ice
+                        //removed (so we can do our own attenuation)
+                        M_MWP_grid[i] = cfac*M_MWP[i];
+                    else 
+                        // we are given fp, so convert to Tp,
+                        // taking account of the ice
+                        M_MWP_grid[i] = cfac/M_MWP[i];
                 else
+                {
+                    //if fp or Tp are 0, set all wave inputs to 0
                     M_MWP_grid[i] = 0.;
+                    M_SWH_grid[i] = 0.;
+                    M_MWD_grid[i] = 0.;
+                }
+                    
             }
 
             if(tmp_nb_var>nb_var)
