@@ -100,8 +100,8 @@ Exporter::writeField(std::fstream& out, std::vector<Type> const& field, std::str
         precision = M_precision;
 
     // Time should always be in double
-    if ( name == "Time" )
-        precision = "double";
+    //if ( name == "Time" )
+    //    precision = "double";
 
     description = (boost::format( "%1% %2%" )
                    % name
