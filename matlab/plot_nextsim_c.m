@@ -1,4 +1,4 @@
-function plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,save_figure)
+function plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,save_figure,apply_mask)
 
 % example of usage:
 % plot_nextsim_c('Concentration',4,[],true)
@@ -20,7 +20,9 @@ function plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,save_fig
 %field='bathy';
 %field='Lambda';
 
-if nargin==4, dirname='.'; end
+if nargin<=4, dirname='.'; end
+if nargin<=6, apply_mask=true; end
+
 
 %Here are a list of various options which can be set
 plot_grid           = 0;            % If not zero the mesh lines are ploted. If zoomed out only the mesh lines will be visible
@@ -58,10 +60,15 @@ for p=0:0
   y=reshape(var_my,[3,Ne]);
   
   %ice mask and water mask extraction
-  mask=data_out.Concentration;
-  mask_ice=find(mask>0);
-  mask_water=find(mask==0);
-  
+  if(apply_mask)
+    mask=data_out.Concentration;
+    mask_ice=find(mask>0);
+    mask_water=find(mask==0);
+  else
+    mask_ice=1:length(data_out.Concentration);
+    mask_water=[];
+  end
+      
   i=1;
   %In case we want to plot the velocity or one of its components
   if strcmp(field,'M_VT')
@@ -86,24 +93,56 @@ for p=0:0
       field_plotted='Viscosity';
   end
   
+  if strcmp(field,'Freezing_Temperature')
+      field={'SST','SSS'};
+      field_plotted='Freezing_Temperature';
+  end
+  
   %---------------------------
   % We extract the data fields
   %---------------------------
-  field_tmp=data_out.(field);
-  length(field_tmp)
-  if(length(field_tmp)==Ne)
-    v{1}=[field_tmp,field_tmp,field_tmp]';
-  elseif(length(field_tmp)==2*Nn)
-    var_mc=field_tmp(mesh_out.Elements);
-    v{1}=reshape(var_mc,[3,Ne]);
-    var_mc=field_tmp(mesh_out.Elements+Nn);
-    v{2}=reshape(var_mc,[3,Ne]);
-    v{3}=hypot(v{1},v{2});
-  elseif(length(field_tmp)==Nn)
-    var_mc=field_tmp(mesh_out.Elements);
-    v{1}=reshape(var_mc,[3,Ne]);
+  field
+  if(iscell(field))
+      
+      for j=1:length(field)
+          field{j}
+        clear field_tmp;
+          field_tmp=data_out.(field{j});
+        length(field_tmp)
+        if(length(field_tmp)==Ne)
+             v{1}=[field_tmp,field_tmp,field_tmp]';
+        elseif(length(field_tmp)==2*Nn)
+            var_mc=field_tmp(mesh_out.Elements);
+            v{1}=reshape(var_mc,[3,Ne]);
+            var_mc=field_tmp(mesh_out.Elements+Nn);
+            v{2}=reshape(var_mc,[3,Ne]);
+            v{3}=hypot(v2{j}{1},v2{j}{2});
+        elseif(length(field_tmp)==Nn)
+            var_mc=field_tmp(mesh_out.Elements);
+            v{1}=reshape(var_mc,[3,Ne]);
+        else
+            error('Not the right dimensions')
+        end
+        
+        v2{j}=v;
+      end
   else
-    error('Not the right dimensions')
+      field_tmp=data_out.(field);
+      length(field_tmp)
+      if(length(field_tmp)==Ne)
+          v{1}=[field_tmp,field_tmp,field_tmp]';
+      elseif(length(field_tmp)==2*Nn)
+          var_mc=field_tmp(mesh_out.Elements);
+          v{1}=reshape(var_mc,[3,Ne]);
+          var_mc=field_tmp(mesh_out.Elements+Nn);
+          v{2}=reshape(var_mc,[3,Ne]);
+          v{3}=hypot(v{1},v{2});
+      elseif(length(field_tmp)==Nn)
+          var_mc=field_tmp(mesh_out.Elements);
+          v{1}=reshape(var_mc,[3,Ne]);
+      else
+          error('Not the right dimensions')
+      end
   end
   
   if strcmp(field_plotted,'Lambda')
@@ -117,6 +156,10 @@ for p=0:0
       alpha=simul_in.exponent_relaxation_sigma;
       young=simul_in.young;
       v{1}=lambda0.*(1.-v{1}).^alpha.*young;
+  end
+  
+  if strcmp(field_plotted,'Freezing_Temperature')
+      v{1}=v2{1}{1}+0.055*v2{2}{1};
   end
   
   %-------------------------------------------------------------------------------------------------------------------
