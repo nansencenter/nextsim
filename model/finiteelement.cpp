@@ -3313,7 +3313,7 @@ FiniteElement::thermo()
                 M_tice[2][i] = f1*M_tice[2][i] + (1-f1)*tfrw; // (26) slightly rewritten
             }
         }
-
+#if 0
         /* Check limits */
         if ( M_conc[i] < physical::cmin || hi < physical::hmin )
         {
@@ -3327,7 +3327,7 @@ FiniteElement::thermo()
             hi     = 0.;
             hs     = 0.;
         }
-
+#endif
         // -------------------------------------------------
         // 6) Calculate effective ice and snow thickness
         M_thick[i] = hi*M_conc[i];
@@ -3547,7 +3547,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
     double Qai, dQaidT, subl;
 
     /* Don't do anything if there's no ice */
-    if ( conc <=0. )
+    if ( conc <=0. || voli<=0.)
     {
         hi       = 0.;
         hs       = 0.;
@@ -3773,7 +3773,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
     double Qai = 0;
 
     /* Don't do anything if there's no ice */
-    if ( conc <=0. )
+    if ( conc <=0. || voli<=0.)
     {
         hi      = 0.;
         hi_old  = 0.;
