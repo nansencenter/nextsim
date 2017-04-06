@@ -3878,7 +3878,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         /* Make sure we don't get too small hi_new */
         if ( hi < physical::hmin )
         {
-            del_hi  = del_hi-hi;
+            del_hi  = -hi_old; //del_hi-hi;
             Qio     = Qio + hi*qi/time_step + hs*qs/time_step;
 
             hi      = 0.;
