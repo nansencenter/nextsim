@@ -1,4 +1,4 @@
-function plot_nextsim_c(field,step,region_of_zoom,is_sequential,dir,save_figure)
+function plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,save_figure,apply_mask)
 
 % example of usage:
 % plot_nextsim_c('Concentration',4,[],true)
@@ -18,8 +18,11 @@ function plot_nextsim_c(field,step,region_of_zoom,is_sequential,dir,save_figure)
 %field='Voce_factor';
 %field='Damage';
 %field='bathy';
+%field='Lambda';
 
-if nargin==4, dir=''; end
+if nargin<=4, dirname='.'; end
+if nargin<=6, apply_mask=true; end
+
 
 %Here are a list of various options which can be set
 plot_grid           = 0;            % If not zero the mesh lines are ploted. If zoomed out only the mesh lines will be visible
@@ -37,10 +40,16 @@ if nargin<6, save_figure = 0; end;     % 0 (default) we do not save the figure
 for p=0:0
 
   if(is_sequential)
-      [mesh_out,data_out] = neXtSIM_bin_revert(dir, [], step);
+      [mesh_out,data_out] = neXtSIM_bin_revert(dirname, [], step);
   else
-      [mesh_out,data_out] = neXtSIM_bin_revert(dir, p, step);
+      [mesh_out,data_out] = neXtSIM_bin_revert(dirname, p, step);
   end
+  
+  if(~isempty(dirname)&& dirname(end)~='/')
+    dirname=[dirname, '/'];
+  end
+  simul_in=read_simul_in([dirname 'nextsim.log' ]); 
+  
   %reshape
   var_mx=mesh_out.Nodes_x(mesh_out.Elements);
   var_my=mesh_out.Nodes_y(mesh_out.Elements);
@@ -51,10 +60,15 @@ for p=0:0
   y=reshape(var_my,[3,Ne]);
   
   %ice mask and water mask extraction
-  mask=data_out.Concentration;
-  mask_ice=find(mask>0);
-  mask_water=find(mask==0);
-  
+  if(apply_mask)
+    mask=data_out.Concentration;
+    mask_ice=find(mask>0);
+    mask_water=find(mask==0);
+  else
+    mask_ice=1:length(data_out.Concentration);
+    mask_water=[];
+  end
+      
   i=1;
   %In case we want to plot the velocity or one of its components
   if strcmp(field,'M_VT')
@@ -66,25 +80,86 @@ for p=0:0
       field='M_VT';
       i=2;
   end;
+
+  field_plotted=field;
+  
+  if strcmp(field,'Lambda')
+      field='Damage';
+      field_plotted='Lambda';
+  end
+  
+  if strcmp(field,'Viscosity')
+      field='Damage';
+      field_plotted='Viscosity';
+  end
+  
+  if strcmp(field,'Freezing_Temperature')
+      field={'SST','SSS'};
+      field_plotted='Freezing_Temperature';
+  end
   
   %---------------------------
   % We extract the data fields
   %---------------------------
-  field_tmp=data_out.(field);
-  length(field_tmp)
-  if(length(field_tmp)==Ne)
-    v{1}=[field_tmp,field_tmp,field_tmp]';
-  elseif(length(field_tmp)==2*Nn)
-    var_mc=field_tmp(mesh_out.Elements);
-    v{1}=reshape(var_mc,[3,Ne]);
-    var_mc=field_tmp(mesh_out.Elements+Nn);
-    v{2}=reshape(var_mc,[3,Ne]);
-    v{3}=hypot(v{1},v{2});
-  elseif(length(field_tmp)==Nn)
-    var_mc=field_tmp(mesh_out.Elements);
-    v{1}=reshape(var_mc,[3,Ne]);
+  field
+  if(iscell(field))
+      
+      for j=1:length(field)
+          field{j}
+        clear field_tmp;
+          field_tmp=data_out.(field{j});
+        length(field_tmp)
+        if(length(field_tmp)==Ne)
+             v{1}=[field_tmp,field_tmp,field_tmp]';
+        elseif(length(field_tmp)==2*Nn)
+            var_mc=field_tmp(mesh_out.Elements);
+            v{1}=reshape(var_mc,[3,Ne]);
+            var_mc=field_tmp(mesh_out.Elements+Nn);
+            v{2}=reshape(var_mc,[3,Ne]);
+            v{3}=hypot(v2{j}{1},v2{j}{2});
+        elseif(length(field_tmp)==Nn)
+            var_mc=field_tmp(mesh_out.Elements);
+            v{1}=reshape(var_mc,[3,Ne]);
+        else
+            error('Not the right dimensions')
+        end
+        
+        v2{j}=v;
+      end
   else
-    error('Not the right dimensions')
+      field_tmp=data_out.(field);
+      length(field_tmp)
+      if(length(field_tmp)==Ne)
+          v{1}=[field_tmp,field_tmp,field_tmp]';
+      elseif(length(field_tmp)==2*Nn)
+          var_mc=field_tmp(mesh_out.Elements);
+          v{1}=reshape(var_mc,[3,Ne]);
+          var_mc=field_tmp(mesh_out.Elements+Nn);
+          v{2}=reshape(var_mc,[3,Ne]);
+          v{3}=hypot(v{1},v{2});
+      elseif(length(field_tmp)==Nn)
+          var_mc=field_tmp(mesh_out.Elements);
+          v{1}=reshape(var_mc,[3,Ne]);
+      else
+          error('Not the right dimensions')
+      end
+  end
+  
+  if strcmp(field_plotted,'Lambda')
+      lambda0=simul_in.undamaged_time_relaxation_sigma;
+      alpha=simul_in.exponent_relaxation_sigma;
+      v{1}=(lambda0*(1.-v{1}).^(alpha-1));
+  end
+  
+  if strcmp(field_plotted,'Viscosity')
+      lambda0=simul_in.undamaged_time_relaxation_sigma;
+      alpha=simul_in.exponent_relaxation_sigma;
+      young=simul_in.young;
+      v{1}=lambda0.*(1.-v{1}).^alpha.*young;
+  end
+  
+  if strcmp(field_plotted,'Freezing_Temperature')
+      v{1}=v2{1}{1}+0.055*v2{2}{1};
   end
   
   %-------------------------------------------------------------------------------------------------------------------
@@ -110,11 +185,11 @@ for p=0:0
   % We arrange the figure in an "optimal" manner using subfunctions (you can check them out at the bottom of this script)
   %----------------------------------------------------------------------------------------------------------------------
   % We first read in the log file to know which mesh has been used
-  simul_in=read_simul_in('nextsim.log'); %nextsim.log must be in your path
+  simul_in=read_simul_in([dirname 'nextsim.log']);
   %
   set_region_adjustment(simul_in.mesh_filename,region_of_zoom);
   %
-  set_axis_colormap_colorbar(simul_in.mesh_filename,field,v,i,region_of_zoom);
+  set_axis_colormap_colorbar(simul_in.mesh_filename,field_plotted,v,i,region_of_zoom);
   %
   set_figure_cosmetics(data_out,simul_in.mesh_filename,region_of_zoom,plot_date,background_color,font_size);
   
@@ -123,6 +198,7 @@ for p=0:0
   
   %We plot the coastlines and boundaries (optional).
   if plot_coastlines == 1
+      disp(['plot the coastline from ' simul_in.mesh_filename])
       plot_coastlines_and_boundaries_c(simul_in.mesh_filename);
   end;
   
@@ -131,7 +207,7 @@ for p=0:0
   %------------------------------
   if save_figure
       set(fig,'Color',[1 1 1]);
-      filename=sprintf('neXtSIM_%s_%d',field,step);
+      filename=sprintf('neXtSIM_%s_%d',field_plotted,step);
       %Call export_fig to save figure
       if strcmp(figure_format,'-png') || strcmp(figure_format,'-jpg')
           if isempty(pic_quality)
@@ -158,6 +234,14 @@ function set_axis_colormap_colorbar(mesh_filename,field,v,i,region_of_zoom)
         caxis([0, 4]);
         colormap('parula');
         name_colorbar='Thickness (m)';
+    elseif (strcmp(field,'Lambda'))
+        caxis([0, 1e5]);
+        colormap('parula');
+        name_colorbar='Lambda (s)';
+   elseif (strcmp(field,'Viscosity'))
+        caxis([0, 1e11]);
+        colormap('parula');
+        name_colorbar='Viscosity (Pa s)';
     elseif strcmp(field,'Damage')
         caxis([0.9, 1]);
         load('ice_damage_cmap128.mat')

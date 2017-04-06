@@ -294,6 +294,16 @@ FiniteElement::initDatasets()
             M_atmosphere_bis_elements_dataset=DataSet("ERAi_elements",M_num_elements);
             break;
 
+        case setup::AtmosphereType::CFSR:
+            M_atmosphere_nodes_dataset=DataSet("cfsr_nodes",M_num_nodes);
+            M_atmosphere_elements_dataset=DataSet("cfsr_elements",M_num_elements);
+            break;
+
+        case setup::AtmosphereType::CFSR_HI:
+            M_atmosphere_nodes_dataset=DataSet("cfsr_nodes_hi",M_num_nodes);
+            M_atmosphere_elements_dataset=DataSet("cfsr_elements",M_num_elements);
+            break;
+
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
 
@@ -455,12 +465,14 @@ FiniteElement::initConstant()
         ("asr", setup::AtmosphereType::ASR)
         ("erai", setup::AtmosphereType::ERAi)
         ("ec", setup::AtmosphereType::EC)
-        ("ec_erai", setup::AtmosphereType::EC_ERAi);
+        ("ec_erai", setup::AtmosphereType::EC_ERAi)
+        ("cfsr", setup::AtmosphereType::CFSR);
     M_atmosphere_type = str2atmosphere.find(vm["setup.atmosphere-type"].as<std::string>())->second;
 
     switch(M_atmosphere_type){
         case setup::AtmosphereType::CONSTANT:   quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ASR:        quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>(); break;
+        case setup::AtmosphereType::CFSR:       quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ERAi:       quad_drag_coef_air = vm["simul.ERAi_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::EC:
         case setup::AtmosphereType::EC_ERAi:
@@ -3120,7 +3132,9 @@ FiniteElement::thermo()
         /* There are two ways to calculate this. We decide which one by
          * checking mixrat - the calling routine must set this to a negative
          * value if the dewpoint should be used. */
-        if ( M_dair.M_initialized )
+        if ( M_sphuma.M_initialized )
+            sphuma = M_sphuma[i];
+        else if ( M_dair.M_initialized )
         {
             double fa     = 1. + Aw + M_mslp[i]*1e-2*( Bw + Cw*M_dair[i]*M_dair[i] );
             double esta   = fa*aw*std::exp( (bw-M_dair[i]/dw)*M_dair[i]/(M_dair[i]+cw) );
@@ -3139,7 +3153,7 @@ FiniteElement::thermo()
 
         // -------------------------------------------------
         /* Density of air */
-        double rhoair = M_mslp[i]/(physical::Ra*(M_tair[i]+tfrwK)) * (1.+sphuma)/(1.+1.609*sphuma);
+        double rhoair = M_mslp[i]/(physical::Ra*(M_tair[i]+physical::tfrwK)) * (1.+sphuma)/(1.+1.609*sphuma);
 
         /* Sensible heat flux */
         double Qsh = drag_ocean_t*rhoair*physical::cpa*wspeed*( M_sst[i] - M_tair[i] );
@@ -3157,11 +3171,11 @@ FiniteElement::thermo()
             tmp_Qlw_in=M_Qlw_in[i];
         else
         {
-            double tsa = M_tice[0][i] + tfrwK;
-            double taa = M_tair[i]  + tfrwK;
+            double tsa = M_tice[0][i] + physical::tfrwK;
+            double taa = M_tair[i]  + physical::tfrwK;
             // s.b.idso & r.d.jackson, thermal radiation from the atmosphere, j. geophys. res. 74, 5397-5403, 1969
-        	tmp_Qlw_in = sigma_sb*pow(taa,4) \
-        			*( 1. - 0.261*exp(-7.77e-4*std::pow(taa-tfrwK,2)) ) \
+        	tmp_Qlw_in = sigma_sb*std::pow(taa,4) \
+        			*( 1. - 0.261*std::exp(-7.77e-4*std::pow(taa-physical::tfrwK,2)) ) \
         			*( 1. + 0.275*M_tcc[i] );
         }
 
@@ -3313,7 +3327,7 @@ FiniteElement::thermo()
                 M_tice[2][i] = f1*M_tice[2][i] + (1-f1)*tfrw; // (26) slightly rewritten
             }
         }
-
+#if 0
         /* Check limits */
         if ( M_conc[i] < physical::cmin || hi < physical::hmin )
         {
@@ -3327,7 +3341,7 @@ FiniteElement::thermo()
             hi     = 0.;
             hs     = 0.;
         }
-
+#endif
         // -------------------------------------------------
         // 6) Calculate effective ice and snow thickness
         M_thick[i] = hi*M_conc[i];
@@ -3547,7 +3561,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
     double Qai, dQaidT, subl;
 
     /* Don't do anything if there's no ice */
-    if ( conc <=0. )
+    if ( conc <=0. || voli<=0.)
     {
         hi       = 0.;
         hs       = 0.;
@@ -3773,7 +3787,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
     double Qai = 0;
 
     /* Don't do anything if there's no ice */
-    if ( conc <=0. )
+    if ( conc <=0. || voli<=0.)
     {
         hi      = 0.;
         hi_old  = 0.;
@@ -5368,6 +5382,34 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
 
             M_precip=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,5,false,time_init);
             M_external_data.push_back(&M_precip);
+        break;
+
+        case setup::AtmosphereType::CFSR:
+            M_wind=ExternalData(
+                &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
+                time_init, vm["simul.spinup_duration"].as<double>());
+            M_external_data.push_back(&M_wind);
+
+            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
+            M_external_data.push_back(&M_tair);
+
+            M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
+            M_external_data.push_back(&M_mixrat);
+
+            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
+            M_external_data.push_back(&M_mslp);
+
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
+            M_external_data.push_back(&M_Qsw_in);
+
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            M_external_data.push_back(&M_Qlw_in);
+
+            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
+            M_external_data.push_back(&M_precip);
+
+            M_snowfr=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
+            M_external_data.push_back(&M_snowfr);
         break;
 
         default:

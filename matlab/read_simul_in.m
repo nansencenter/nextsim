@@ -3,9 +3,17 @@ function simul_in=read_simul_in(saved_simul_in)
 %   Detailed explanation goes here
 % Example: simul_in=read_simul_in('log_simul')
 
-simul_in.time_init=datenum(get_value(saved_simul_in,'simul.time_init'),'yyyy-mm-ddHH:MM:SS');
+try
+    simul_in.time_init=datenum(get_value(saved_simul_in,'simul.time_init'),'yyyy-mm-ddHH:MM:SS');
+catch
+    simul_in.time_init=datenum(get_value(saved_simul_in,'simul.time_init'),'yyyy-mm-dd');
+end
 simul_in.duration=str2num(get_value(saved_simul_in,'simul.duration'));
 simul_in.output_per_day=str2num(get_value(saved_simul_in,'simul.output_per_day'));
+            
+simul_in.undamaged_time_relaxation_sigma=str2num(get_value(saved_simul_in,'simul.undamaged_time_relaxation_sigma'));
+simul_in.exponent_relaxation_sigma=str2num(get_value(saved_simul_in,'simul.exponent_relaxation_sigma'));
+simul_in.young=str2num(get_value(saved_simul_in,'simul.young'));
 simul_in.mesh_filename=get_value(saved_simul_in,'simul.mesh_filename');
 
 end
