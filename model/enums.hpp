@@ -73,15 +73,6 @@ namespace setup
         MULTI       = 2
     };
 
-    enum class DrifterType
-    {
-        NONE          = 0,
-        EQUALLYSPACED = 1,
-        IABP          = 2,
-        OSISAF        = 3,
-        RGPS          = 4
-    };
-
     enum class DomainType
     {
         DEFAULT        = 0,

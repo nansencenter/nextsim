@@ -411,7 +411,6 @@ FiniteElement::initConstant()
     output_time_step =  days_in_sec/vm["simul.output_per_day"].as<int>();
     mooring_output_time_step =  vm["simul.mooring_output_timestep"].as<double>()*days_in_sec;
     mooring_time_factor = time_step/mooring_output_time_step;
-    drifter_output_time_step =  vm["simul.drifter_output_timestep"].as<double>()*days_in_sec;
 
     // output_time_step =  time_step*vm["simul.output_per_day"].as<int>(); // useful for debuging
     duration = (vm["simul.duration"].as<double>())*days_in_sec;
@@ -523,15 +522,24 @@ FiniteElement::initConstant()
         ("etopo", setup::BathymetryType::ETOPO);
     M_bathymetry_type = str2bathymetry.find(vm["setup.bathymetry-type"].as<std::string>())->second;
 
-    const boost::unordered_map<const std::string, setup::DrifterType> str2drifter = boost::assign::map_list_of
-        ("none", setup::DrifterType::NONE)
-        ("equallyspaced", setup::DrifterType::EQUALLYSPACED)
-        ("iabp", setup::DrifterType::IABP)
-        ("rgps", setup::DrifterType::RGPS)
-        ("osisaf", setup::DrifterType::OSISAF);
-    M_drifter_type = str2drifter.find(vm["setup.drifter-type"].as<std::string>())->second;
-
-    //LOG(DEBUG) <<"GMSH VERSION= "<< M_mesh.version() <<"\n";
+    M_iabp_drifters_output_time_step=vm["simul.iabp_drifters_output_time_step"].as<double>()*days_in_sec;
+    M_drifters_output_time_step=vm["simul.equallyspaced_drifters_output_time_step"].as<double>()*days_in_sec;
+    M_rgps_drifters_output_time_step=vm["simul.rgps_drifters_output_time_step"].as<double>()*days_in_sec;
+    M_osisaf_drifters_output_time_step=vm["simul.osisaf_drifters_output_time_step"].as<double>()*days_in_sec;
+    
+    M_iabp_drifters_activated=false;
+    M_drifters_activated=false;
+    M_rgps_drifters_activated=false;
+    M_osisaf_drifters_activated=false;
+    
+    if(M_iabp_drifters_output_time_step>0.)
+        M_iabp_drifters_activated=true;
+    if(M_drifters_output_time_step>0.)
+        M_drifters_activated=true;
+    if(M_rgps_drifters_output_time_step>0.)
+        M_rgps_drifters_activated=true;
+    if(M_osisaf_drifters_output_time_step>0.)
+        M_osisaf_drifters_activated=true;
 
     M_mesh_filename = vm["simul.mesh_filename"].as<std::string>();
 
@@ -1355,17 +1363,17 @@ FiniteElement::regrid(bool step)
 			LOG(DEBUG) <<"Nodal interp done in "<< chrono.elapsed() <<"s\n";
 
             // Drifters - if requested
-            if ( M_drifter_type != setup::DrifterType::NONE )
+            if ( M_iabp_drifters_activated )
             {
                 chrono.restart();
                 LOG(DEBUG) <<"Drifter starts\n";
                 LOG(DEBUG) <<"DRIFTER: Interp starts\n";
 
                 // Assemble the coordinates from the unordered_map
-                std::vector<double> drifter_X(M_iabpDrifters.size());
-                std::vector<double> drifter_Y(M_iabpDrifters.size());
+                std::vector<double> drifter_X(M_iabp_drifters.size());
+                std::vector<double> drifter_Y(M_iabp_drifters.size());
                 int j=0;
-                for ( auto it = M_iabpDrifters.begin(); it != M_iabpDrifters.end(); ++it )
+                for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
                 {
                     drifter_X[j] = it->second[0];
                     drifter_Y[j] = it->second[1];
@@ -1389,7 +1397,7 @@ FiniteElement::regrid(bool step)
                                         M_mesh.numNodes(),M_mesh.numTriangles(),
                                         &interp_drifter_in[0],
                                         M_mesh.numNodes(),nb_var,
-                                        &drifter_X[0],&drifter_Y[0],M_iabpDrifters.size(),
+                                        &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
                                         true, 0.);
 
 
@@ -1406,21 +1414,21 @@ FiniteElement::regrid(bool step)
                                         M_mesh.numNodes(),M_mesh.numTriangles(),
                                         &interp_drifter_in[0],
                                         M_mesh.numTriangles(),1,
-                                        &drifter_X[0],&drifter_Y[0],M_iabpDrifters.size(),
+                                        &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
                                         true, 0.);
 
-                // Rebuild the M_iabpDrifters map
+                // Rebuild the M_iabp_drifters map
                 double clim = vm["simul.drifter_climit"].as<double>();
                 j=0;
-                for ( auto it = M_iabpDrifters.begin(); it != M_iabpDrifters.end(); /* ++it is not allowed here, because we use 'erase' */ )
+                for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); /* ++it is not allowed here, because we use 'erase' */ )
                 {
                     if ( interp_drifter_c_out[j] > clim )
                     {
-                        M_iabpDrifters[it->first] = std::array<double,2> {it->second[0]+interp_drifter_out[nb_var*j], it->second[1]+interp_drifter_out[nb_var*j+1]};
+                        M_iabp_drifters[it->first] = std::array<double,2> {it->second[0]+interp_drifter_out[nb_var*j], it->second[1]+interp_drifter_out[nb_var*j+1]};
                         ++it;
                     } else {
                         // Throw out drifters that drift out of the ice
-                        it = M_iabpDrifters.erase(it);
+                        it = M_iabp_drifters.erase(it);
                     }
                     ++j;
                 }
@@ -3981,7 +3989,7 @@ void
 FiniteElement::finalise()
 {
     // Don't forget to close the iabp file!
-    if (M_drifter_type == setup::DrifterType::IABP)
+    if (M_iabp_drifters_activated)
     {
         M_iabp_file.close();
         M_iabp_out.close();
@@ -4113,7 +4121,7 @@ FiniteElement::init()
 
     // Open the output file for drifters
     // TODO: Is this the right place to open the file?
-    if (M_drifter_type == setup::DrifterType::IABP )
+    if (M_iabp_drifters_activated )
     {
         // We should tag the file name with the init time in case of a re-start.
         std::stringstream filename;
@@ -4356,11 +4364,11 @@ FiniteElement::step(int &pcpt)
             // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
             if ( M_use_moorings && ! M_moorings_snapshot )
                 M_moorings.updateGridMean(M_mesh);
-            if ( M_drifter_type == setup::DrifterType::EQUALLYSPACED )
+            if ( M_drifters_activated )
                 M_drifters.move(M_mesh, M_UT);
-            if ( M_drifter_type == setup::DrifterType::RGPS )
+            if ( M_rgps_drifters_activated )
                 M_rgps_drifters.move(M_mesh, M_UT);
-            if ( M_drifter_type == setup::DrifterType::OSISAF )
+            if ( M_osisaf_drifters_activated )
                 for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
                     it->move(M_mesh, M_UT);
 #ifdef OASIS
@@ -4393,7 +4401,7 @@ FiniteElement::step(int &pcpt)
 
 
     // Read in the new buoys and output
-    if ( M_drifter_type == setup::DrifterType::IABP && ( pcpt==0 || std::fmod(current_time,0.5)==0 ) )
+    if ( M_iabp_drifters_activated && ( pcpt==0 || std::fmod(current_time,0.5)==0 ) )
     {
         this->updateIABPDrifter();
         // TODO: Do we want to output drifters at a different time interval?
@@ -4551,10 +4559,10 @@ FiniteElement::step(int &pcpt)
     }
 #endif
 
-    if ( M_drifter_type == setup::DrifterType::EQUALLYSPACED && fmod(pcpt*time_step,drifter_output_time_step) == 0 )
+    if ( M_drifters_activated && fmod(pcpt*time_step,M_drifters_output_time_step) == 0 )
         M_drifters.appendNetCDF(current_time, M_mesh, M_UT);
 
-    if ( M_drifter_type == setup::DrifterType::RGPS )
+    if ( M_rgps_drifters_activated )
     {
         std::string time_str = vm["simul.RGPS_time_init"].as<std::string>();
         double RGPS_time_init = from_date_time_string(time_str);
@@ -4562,12 +4570,12 @@ FiniteElement::step(int &pcpt)
         if( !M_rgps_drifters.isInitialised() && current_time == RGPS_time_init)
             this->updateRGPSDrifters();
             
-        if( current_time != RGPS_time_init && fmod(pcpt*time_step,drifter_output_time_step) == 0 )
+        if( current_time != RGPS_time_init && fmod(pcpt*time_step,M_iabp_drifters_output_time_step) == 0 )
             if ( M_rgps_drifters.isInitialised() )
                 M_rgps_drifters.appendNetCDF(current_time, M_mesh, M_UT);
     }
      
-    if ( M_drifter_type == setup::DrifterType::OSISAF && fmod(current_time+0.5,1.) == 0 )
+    if ( M_osisaf_drifters_activated && fmod(current_time+0.5,1.) == 0 )
     {
         // OSISAF drift is calculated as a dirfter displacement over 48 hours
         // and they have two sets of drifters in the field at all times.
@@ -4856,15 +4864,15 @@ FiniteElement::writeRestart(int pcpt, int step)
         exporter.writeField(outbin, M_tsurf_thin, "M_tsurf_thin");
     }
 
-    if (M_drifter_type == setup::DrifterType::IABP)
+    if (M_iabp_drifters_activated)
     {
-        std::vector<int> drifter_no(M_iabpDrifters.size());
-        std::vector<double> drifter_x(M_iabpDrifters.size());
-        std::vector<double> drifter_y(M_iabpDrifters.size());
+        std::vector<int> drifter_no(M_iabp_drifters.size());
+        std::vector<double> drifter_x(M_iabp_drifters.size());
+        std::vector<double> drifter_y(M_iabp_drifters.size());
 
         // Sort the drifters so the restart files are identical (this is just to make testing easier)
         int j=0;
-        for ( auto it = M_iabpDrifters.begin(); it != M_iabpDrifters.end(); ++it )
+        for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
         {
             drifter_no[j] = it->first;
             ++j;
@@ -4874,8 +4882,8 @@ FiniteElement::writeRestart(int pcpt, int step)
         j=0;
         for ( auto it = drifter_no.begin(); it != drifter_no.end(); it++ )
         {
-            drifter_x[j] = M_iabpDrifters[drifter_no[j]][0];
-            drifter_y[j] = M_iabpDrifters[drifter_no[j]][1];
+            drifter_x[j] = M_iabp_drifters[drifter_no[j]][0];
+            drifter_y[j] = M_iabp_drifters[drifter_no[j]][1];
             j++;
         }
 
@@ -5079,7 +5087,7 @@ FiniteElement::readRestart(int step)
         M_tsurf_thin = field_map_dbl["M_tsurf_thin"];
     }
 
-    if (M_drifter_type == setup::DrifterType::IABP)
+    if (M_iabp_drifters_activated)
     {
         std::vector<int>    drifter_no = field_map_int["Drifter_no"];
         std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
@@ -5093,7 +5101,7 @@ FiniteElement::readRestart(int step)
         } else {
             for ( int i=0; i<drifter_no.size(); ++i )
             {
-                M_iabpDrifters.emplace(drifter_no[i], std::array<double,2>{drifter_x[i], drifter_y[i]});
+                M_iabp_drifters.emplace(drifter_no[i], std::array<double,2>{drifter_x[i], drifter_y[i]});
             }
         }
     }
@@ -6428,31 +6436,17 @@ FiniteElement::initThermodynamics()
 void
 FiniteElement::initDrifter()
 {
-    switch (M_drifter_type)
-    {
-        case setup::DrifterType::NONE:
-            break;
+    if(M_drifters_activated)
+        this->equallySpacedDrifter();
 
-        case setup::DrifterType::EQUALLYSPACED:
-            this->equallySpacedDrifter();
-            break;
+    if(M_iabp_drifters_activated)
+        this->initIABPDrifter();
 
-        case setup::DrifterType::IABP:
-            this->initIABPDrifter();
-            break;
+    if(M_rgps_drifters_activated)
+        this->initRGPSDrifters();
 
-        case setup::DrifterType::RGPS:
-            this->initRGPSDrifters();
-            break;
-
-        case setup::DrifterType::OSISAF:
-            this->initOSISAFDrifters();
-            break;
-
-        default:
-            std::cout << "invalid initialization of drifter"<<"\n";
-            throw std::logic_error("invalid initialization of drifter");
-    }
+    if(M_osisaf_drifters_activated)
+        this->initOSISAFDrifters();
 }
 
 void
@@ -6546,10 +6540,10 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
     map = init_mapx(&str[0]);
 
     // Assemble the coordinates from the unordered_map
-    std::vector<double> drifter_X(M_iabpDrifters.size());
-    std::vector<double> drifter_Y(M_iabpDrifters.size());
+    std::vector<double> drifter_X(M_iabp_drifters.size());
+    std::vector<double> drifter_Y(M_iabp_drifters.size());
     int j=0;
-    for ( auto it = M_iabpDrifters.begin(); it != M_iabpDrifters.end(); ++it )
+    for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
     {
         drifter_X[j] = it->second[0];
         drifter_Y[j] = it->second[1];
@@ -6573,14 +6567,14 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
         M_mesh.numNodes(),M_mesh.numTriangles(),
         &interp_drifter_in[0],
         M_mesh.numNodes(),nb_var,
-        &drifter_X[0],&drifter_Y[0],M_iabpDrifters.size(),
+        &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
         true, 0.);
 
     // Loop over the map and output
     j=0;
     boost::gregorian::date           date = Nextsim::parse_date( current_time );
     boost::posix_time::time_duration time = Nextsim::parse_time( current_time );
-    for ( auto it = M_iabpDrifters.begin(); it != M_iabpDrifters.end(); ++it )
+    for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
     {
         double lat, lon;
         inverse_mapx(map,it->second[0]+interp_drifter_out[nb_var*j],it->second[1]+interp_drifter_out[nb_var*j+1],&lat,&lon);
@@ -6636,19 +6630,19 @@ FiniteElement::updateIABPDrifter()
         keepers.push_back(number);
 
         // Project and add the buoy to the map if it's missing
-        if ( M_iabpDrifters.count(number) == 0 )
+        if ( M_iabp_drifters.count(number) == 0 )
         {
             double x, y;
             forward_mapx(map,lat,lon,&x,&y);
-            M_iabpDrifters.emplace(number, std::array<double,2>{x, y});
+            M_iabp_drifters.emplace(number, std::array<double,2>{x, y});
 
         }
     }
     close_mapx(map);
 
-    // Go through the M_iabpDrifters map and throw out the ones which IABP doesn't
+    // Go through the M_iabp_drifters map and throw out the ones which IABP doesn't
     // report as being in the ice anymore
-    for ( auto model = M_iabpDrifters.begin(); model != M_iabpDrifters.end(); /* ++model is not allowed here, because we use 'erase' */ )
+    for ( auto model = M_iabp_drifters.begin(); model != M_iabp_drifters.end(); /* ++model is not allowed here, because we use 'erase' */ )
     {
         bool keep = false;
         // Check against all the buoys we want to keep
@@ -6663,7 +6657,7 @@ FiniteElement::updateIABPDrifter()
 
         // Delete or advance the iterator
         if ( ! keep )
-            model = M_iabpDrifters.erase(model);
+            model = M_iabp_drifters.erase(model);
         else
             ++model;
     }

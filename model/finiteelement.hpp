@@ -247,7 +247,6 @@ private:
     setup::ThermoType M_thermo_type;
 
     setup::IceCategoryType M_ice_cat_type;
-    setup::DrifterType M_drifter_type;
     setup::DomainType M_domain_type;
     setup::MeshType M_mesh_type;
 
@@ -329,7 +328,6 @@ private:
     double output_time_step;
     double mooring_output_time_step;
     double mooring_time_factor;
-    double drifter_output_time_step;
     double restart_time_step;
     double time_step;
     double duration;
@@ -426,14 +424,27 @@ private:
     // Bathymetry
     external_data M_element_depth;
 
-    // Drifters
-    boost::unordered_map<int, std::array<double,2>> M_iabpDrifters; // Drifters are kept in an unordered map containing number and coordinates
+    // IABP-like drifters
+    double M_iabp_drifters_output_time_step;
+    bool M_iabp_drifters_activated;
+    boost::unordered_map<int, std::array<double,2>> M_iabp_drifters; // Drifters are kept in an unordered map containing number and coordinates
     std::fstream M_iabp_file;   // The file we read the IABP buoy data from
     std::fstream M_iabp_out;    // The file we write our simulated drifter positions into
 
-    Drifters M_drifters; // Drifters on a grid
-    Drifters M_rgps_drifters; // Drifters as in the RGPS data
-    std::vector<Drifters> M_osisaf_drifters; // A vector of drifters for the OSISAF emulation
+    // Drifters on a grid
+    double M_drifters_output_time_step;
+    bool M_drifters_activated;
+    Drifters M_drifters; 
+    
+    // Drifters as in the RGPS data
+    double M_rgps_drifters_output_time_step;
+    bool M_rgps_drifters_activated;
+    Drifters M_rgps_drifters; 
+    
+    // drifters for the OSISAF emulation
+    double M_osisaf_drifters_output_time_step;
+    bool M_osisaf_drifters_activated;
+    std::vector<Drifters> M_osisaf_drifters;
 
     // Element variable
     std::vector<double> M_element_age;         // Age of the element (model time since its last adaptation)
