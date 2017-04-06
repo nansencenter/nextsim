@@ -124,6 +124,7 @@ void ExternalData::check_and_reload(GmshMesh const& mesh, const double current_t
         {
             std::cout << "Load " << M_datasetname << "\n";
             loadDataset(M_dataset, mesh);
+            M_dataset->interpolated=false;
             std::cout << "Done\n";
         }
         
@@ -538,7 +539,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                     ).str();
         
         filename_fstep.push_back(filename);
-        index_fstep.push_back(0);
+        index_fstep.push_back(0);  
     }
 
     // Initialise counters etc.
