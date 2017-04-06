@@ -3139,7 +3139,7 @@ FiniteElement::thermo()
 
         // -------------------------------------------------
         /* Density of air */
-        double rhoair = M_mslp[i]/(physical::Ra*(M_tair[i]+tfrwK)) * (1.+sphuma)/(1.+1.609*sphuma);
+        double rhoair = M_mslp[i]/(physical::Ra*(M_tair[i]+physical::tfrwK)) * (1.+sphuma)/(1.+1.609*sphuma);
 
         /* Sensible heat flux */
         double Qsh = drag_ocean_t*rhoair*physical::cpa*wspeed*( M_sst[i] - M_tair[i] );
@@ -3157,11 +3157,11 @@ FiniteElement::thermo()
             tmp_Qlw_in=M_Qlw_in[i];
         else
         {
-            double tsa = M_tice[0][i] + tfrwK;
-            double taa = M_tair[i]  + tfrwK;
+            double tsa = M_tice[0][i] + physical::tfrwK;
+            double taa = M_tair[i]  + physical::tfrwK;
             // s.b.idso & r.d.jackson, thermal radiation from the atmosphere, j. geophys. res. 74, 5397-5403, 1969
-        	tmp_Qlw_in = sigma_sb*pow(taa,4) \
-        			*( 1. - 0.261*exp(-7.77e-4*std::pow(taa-tfrwK,2)) ) \
+        	tmp_Qlw_in = sigma_sb*std::pow(taa,4) \
+        			*( 1. - 0.261*std::exp(-7.77e-4*std::pow(taa-physical::tfrwK,2)) ) \
         			*( 1. + 0.275*M_tcc[i] );
         }
 
