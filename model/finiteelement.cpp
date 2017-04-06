@@ -303,6 +303,7 @@ FiniteElement::initDatasets()
         break;
 
         case setup::OceanType::TOPAZR:
+        case setup::OceanType::TOPAZR_atrest:
             M_ocean_nodes_dataset=DataSet("topaz_nodes",M_num_nodes);
             M_ocean_elements_dataset=DataSet("topaz_elements",M_num_elements);
             break;
@@ -472,6 +473,7 @@ FiniteElement::initConstant()
     const boost::unordered_map<const std::string, setup::OceanType> str2ocean = boost::assign::map_list_of
         ("constant", setup::OceanType::CONSTANT)
         ("topaz", setup::OceanType::TOPAZR)
+        ("topaz_atrest", setup::OceanType::TOPAZR_atrest)
         ("topaz_forecast", setup::OceanType::TOPAZF);
     M_ocean_type = str2ocean.find(vm["setup.ocean-type"].as<std::string>())->second;
 
@@ -1657,7 +1659,8 @@ FiniteElement::advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
     int Nd = bamgmesh->NodalConnectivitySize[1];
 
     int ALE_smoothing_step_nb=vm["simul.ALE_smoothing_step_nb"].as<int>();
-    // ALE_smoothing_step_nb<0 is the diffusive eulerian case where M_UM is not changed and then =0.
+    // ALE_smoothing_step_nb==-2 is the case with no advection M_UM is not changed and then =0 and no fluxes are computed.
+    // ALE_smoothing_step_nb==-1 is the diffusive eulerian case where M_UM is not changed and then =0.
     // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
     // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
 
@@ -1746,8 +1749,16 @@ FiniteElement::advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
             x[i]    =M_nodes[(M_elements[cpt]).indices[i]-1].coords[0]+UM_P[x_ind];
             y[i]    =M_nodes[(M_elements[cpt]).indices[i]-1].coords[1]+UM_P[y_ind];
 
-            VC_x[i] =M_VT[x_ind]-(M_UM[x_ind]-UM_P[x_ind])/time_step;
-            VC_y[i] =M_VT[y_ind]-(M_UM[y_ind]-UM_P[y_ind])/time_step;
+            if(ALE_smoothing_step_nb==-2)
+            {
+                VC_x[i] =0.;
+                VC_y[i] =0.;
+            }
+            else
+            {
+                VC_x[i] =M_VT[x_ind]-(M_UM[x_ind]-UM_P[x_ind])/time_step;
+                VC_y[i] =M_VT[y_ind]-(M_UM[y_ind]-UM_P[y_ind])/time_step;
+            }
         }
         for(int i=0;i<3;i++)
         {
@@ -2233,7 +2244,10 @@ FiniteElement::assemble(int pcpt)
             //}
             //double coef = young*(1.-M_damage[cpt])*tmp_thick*factor;
 
-            mass_e = (rhoi*tmp_thick + rhos*M_snow_thick[cpt])/tmp_conc;
+            if (vm["simul.use_coriolis"].as<bool>())
+                mass_e = (rhoi*tmp_thick + rhos*M_snow_thick[cpt])/tmp_conc;
+            else
+                mass_e=0.;
 
             // /* compute the x and y derivative of g*ssh */
             double g_ssh_e_x = 0.;
@@ -2782,7 +2796,7 @@ FiniteElement::update()
             //sigma_dot_i += factor*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
             }
             
-            sigma_pred[i] = (M_sigma[3*cpt+i]+4*time_step*sigma_dot_i)*multiplicator;
+            sigma_pred[i] = (M_sigma[3*cpt+i]+2*time_step*sigma_dot_i)*multiplicator;
             sigma_pred[i] = (M_conc[cpt] > vm["simul.min_c"].as<double>()) ? (sigma_pred[i]):0.;
             
             M_sigma[3*cpt+i] = (M_sigma[3*cpt+i]+time_step*sigma_dot_i)*multiplicator;
@@ -3864,7 +3878,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         /* Make sure we don't get too small hi_new */
         if ( hi < physical::hmin )
         {
-            del_hi  = del_hi-hi;
+            del_hi  = -hi_old; //del_hi-hi;
             Qio     = Qio + hi*qi/time_step + hs*qs/time_step;
 
             hi      = 0.;
@@ -5409,6 +5423,29 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             // SYL: there was a capping of the mld at minimum vm["simul.constant_mld"].as<double>()
             // but Einar said it is not necessary, so it is not implemented
     		break;
+        case setup::OceanType::TOPAZR_atrest:
+            M_ocean=ExternalData(
+                vm["simul.constant_ocean_v"].as<double>(),
+                vm["simul.constant_ocean_v"].as<double>(),
+                time_init, vm["simul.spinup_duration"].as<double>());
+            M_external_data.push_back(&M_ocean);
+
+            M_ssh=ExternalData(
+                &M_ocean_nodes_dataset, M_mesh, 2, false,
+                time_init, vm["simul.spinup_duration"].as<double>());
+            M_external_data.push_back(&M_ssh);
+
+            M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
+            M_external_data.push_back(&M_ocean_temp);
+
+            M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
+            M_external_data.push_back(&M_ocean_salt);
+
+            M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
+            M_external_data.push_back(&M_mld);
+            // SYL: there was a capping of the mld at minimum vm["simul.constant_mld"].as<double>()
+            // but Einar said it is not necessary, so it is not implemented
+    		break;
 
         default:
             std::cout << "invalid ocean forcing"<<"\n";
@@ -5490,6 +5527,7 @@ FiniteElement::initSlabOcean()
             std::fill(M_sss.begin(), M_sss.end(),  1.8/physical::mu);
             break;
         case setup::OceanType::TOPAZR:
+        case setup::OceanType::TOPAZR_atrest:
         case setup::OceanType::TOPAZF:
             for ( int i=0; i<M_num_elements; ++i)
             {

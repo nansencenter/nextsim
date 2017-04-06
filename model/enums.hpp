@@ -27,7 +27,8 @@ namespace setup
 		CONSTANT = 0,
 		TOPAZR   = 1,
 		TOPAZF   = 2,
-		MITGCM   = 3
+		MITGCM   = 3,
+		TOPAZR_atrest   = 4
     };
 
     enum class IceType
