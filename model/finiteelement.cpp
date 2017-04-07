@@ -3335,7 +3335,7 @@ FiniteElement::thermo()
                 M_tice[2][i] = f1*M_tice[2][i] + (1-f1)*tfrw; // (26) slightly rewritten
             }
         }
-#if 0
+#if 1
         /* Check limits */
         if ( M_conc[i] < physical::cmin || hi < physical::hmin )
         {
