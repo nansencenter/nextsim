@@ -1,28 +1,70 @@
 function plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,save_figure,apply_mask)
+%% CALL: plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,save_figure,apply_mask)
+%% example of usage:
+%%    plot_nextsim_c('Concentration',4,[],true)
+%%    plot_nextsim_c('Damage',4,[],true)
+%%    plot_nextsim_c('M_VT',4,[],true)
+%%
+%% field:
+%%    Element_area
+%%    M_node_max_conc 
+%%    M_VT, M_VTu, M_VTv
+%%    Concentration 
+%%    Thickness 
+%%    Snow
+%%    Damage
+%%    Lambda
+%%    Viscosity
+%%    Freezing_Temperature
+%%    Tice_0
+%%    SST
+%%    SSS
+%%    M_wind
+%%    M_tair
+%%    M_mslp
+%%    M_Qsw_in
+%%    M_tcc 
+%%    M_precip 
+%%    M_dair
+%%    M_ocean
+%%    M_ssh
+%%    M_ocean_temp
+%%    M_ocean_salt
+%%    M_mld
+%%    M_element_depth
+%%    Stresses, Stresses_x, Stresses_y
+%%    Nfloes
+%%    Dfloe
+%%    Sigma1
+%%    Sigma2
+%%    mld
+%%    Wind
+%%    Ocean
+%%    Vair_factor
+%%    Voce_factor
+%%    bathy
+%%
+%% step: eg if it's 0, want to read mesh_0.* & field_0.*
+%%
+%% region_of_zoom:
+%%    'framstrait';
+%%    'naresstrait';
+%%    'karagate';
+%%    'beaufort';
+%%    'central_arctic';
+%%    'extended_arctic';
+%%    'kara_landfast';
+%%    'tip_novazem';
+%%
+%% is_sequential==0: results are from MPI; 1: single processor
+%%
+%% dir: folder containing the outputs on the mesh
+%%
+%% [OPTIONAL]
+%% save_figure
 
-% example of usage:
-% plot_nextsim_c('Concentration',4,[],true)
-% plot_nextsim_c('Damage',4,[],true)
-% plot_nextsim_c('M_VT',4,[],true)
-
-% clearvars -except step;
-%field='M_VT';
-%field='mld';
-%field='Concentration';
-%field='Thickness';
-%field='SSS';
-%field='SST';
-%field='Wind';
-%field='Ocean';
-%field='Vair_factor';
-%field='Voce_factor';
-%field='Damage';
-%field='bathy';
-%field='Lambda';
-
-if nargin<=4, dirname='.'; end
-if nargin<=6, apply_mask=true; end
-
+if ~exist('dirname','var'), dirname='.'; end
+if ~exist('apply_mask','var'), apply_mask=true; end
 
 %Here are a list of various options which can be set
 plot_grid           = 0;            % If not zero the mesh lines are ploted. If zoomed out only the mesh lines will be visible
@@ -34,6 +76,7 @@ background_color    = [0.85 0.85 0.85];% white color [1 1 1] by default. A subst
 figure_format       = '-png';        % can be pdf, tiff, png or jpeg
 pic_quality         = '-r300';      % Resolution for eps, pdf, tiff, and png
 visible             = 1;            % we display the figure on the screen (may be set to 0 when generating a large amount of figures)
+show_vec_dirn       = 0;            % if plotting vector magnitude, show the direction as arrows
 
 if nargin<6, save_figure = 0; end;     % 0 (default) we do not save the figure
 
@@ -68,11 +111,13 @@ for p=0:0
     mask_ice=1:length(data_out.Concentration);
     mask_water=[];
   end
-      
+  
+  plot_dirn = 0;
   i=1;
   %In case we want to plot the velocity or one of its components
   if strcmp(field,'M_VT')
       i=3;
+      plot_dirn = show_vec_dirn;
   elseif strcmp(field,'M_VTu')
       field='M_VT';
       i=1;
@@ -82,7 +127,7 @@ for p=0:0
   end;
 
   field_plotted=field;
-  
+
   if strcmp(field,'Lambda')
       field='Damage';
       field_plotted='Lambda';
@@ -93,58 +138,105 @@ for p=0:0
       field_plotted='Viscosity';
   end
   
-  if strcmp(field,'Freezing_Temperature')
-      field={'SST','SSS'};
-      field_plotted='Freezing_Temperature';
-  end
-  
+
+  if strcmp(field,'Stresses')
+      i=3;
+      plot_dirn = show_vec_dirn;
+  elseif strcmp(field,'Stresses_x')
+      field='Stresses';
+      i=1;
+  elseif strcmp(field,'Stresses_y')
+      field='Stresses';
+      i=2;
+  end;
+  if strcmp(field,'M_wind')
+      i=3;
+      plot_dirn = show_vec_dirn;
+  elseif strcmp(field,'M_wind_u')
+      field='M_wind';
+      i=1;
+  elseif strcmp(field,'M_wind_v')
+      field='M_wind';
+      i=2;
+  end;
+
   %---------------------------
   % We extract the data fields
   %---------------------------
-  field
-  if(iscell(field))
-      
-      for j=1:length(field)
-          field{j}
-        clear field_tmp;
-          field_tmp=data_out.(field{j});
-        length(field_tmp)
-        if(length(field_tmp)==Ne)
-             v{1}=[field_tmp,field_tmp,field_tmp]';
-        elseif(length(field_tmp)==2*Nn)
-            var_mc=field_tmp(mesh_out.Elements);
-            v{1}=reshape(var_mc,[3,Ne]);
-            var_mc=field_tmp(mesh_out.Elements+Nn);
-            v{2}=reshape(var_mc,[3,Ne]);
-            v{3}=hypot(v2{j}{1},v2{j}{2});
-        elseif(length(field_tmp)==Nn)
-            var_mc=field_tmp(mesh_out.Elements);
-            v{1}=reshape(var_mc,[3,Ne]);
-        else
-            error('Not the right dimensions')
+  if strcmp(field,'Freezing_Temperature')
+     fld = 'SST';
+     try
+        field_tmp=data_out.(fld);
+     catch ME
+        disp([fld,' not present in ',dirname,'(step=',num2str(step),')']);
+        disp(' ');
+        disp('Available fields are:');
+        disp(' ');
+
+        flds   = fieldnames(data_out);
+        for k=1:length(flds)
+           disp(flds{k});
         end
-        
-        v2{j}=v;
-      end
+
+        error([fld,' not present in ',dir,'(step=',num2str(step),')']);
+     end
+
+     fld = 'SSS';
+     try
+        field_tmp2=data_out.(fld);
+     catch ME
+        disp([fld,' not present in ',dirname,'(step=',num2str(step),')']);
+        disp(' ');
+        disp('Available fields are:');
+        disp(' ');
+
+        flds   = fieldnames(data_out);
+        for k=1:length(flds)
+           disp(flds{k});
+        end
+
+        error([fld,' not present in ',dir,'(step=',num2str(step),')']);
+     end
+
+     %freezing temp = sst+.055*sss
+     field_tmp = field_tmp+0.055*field_tmp2;
+     field_plotted='Freezing_Temperature';
   else
-      field_tmp=data_out.(field);
-      length(field_tmp)
-      if(length(field_tmp)==Ne)
-          v{1}=[field_tmp,field_tmp,field_tmp]';
-      elseif(length(field_tmp)==2*Nn)
-          var_mc=field_tmp(mesh_out.Elements);
-          v{1}=reshape(var_mc,[3,Ne]);
-          var_mc=field_tmp(mesh_out.Elements+Nn);
-          v{2}=reshape(var_mc,[3,Ne]);
-          v{3}=hypot(v{1},v{2});
-      elseif(length(field_tmp)==Nn)
-          var_mc=field_tmp(mesh_out.Elements);
-          v{1}=reshape(var_mc,[3,Ne]);
-      else
-          error('Not the right dimensions')
-      end
+    
+    try
+       field_tmp=data_out.(field);
+    catch ME
+       disp([field,' not present in ',dirname,'(step=',num2str(step),')']);
+       disp(' ');
+       disp('Available fields are:');
+       disp(' ');
+
+       flds   = fieldnames(data_out);
+       for k=1:length(flds)
+          disp(flds{k});
+       end
+
+       error([field,' not present in ',dir,'(step=',num2str(step),')']);
+    end
   end
-  
+
+  % {length(field_tmp),Ne,Nn,2*Nn}
+  if(length(field_tmp)==Ne)
+    v{1}=[field_tmp,field_tmp,field_tmp]';
+  elseif(length(field_tmp)==2*Nn)
+    var_mc=field_tmp(mesh_out.Elements);
+    v{1}=reshape(var_mc,[3,Ne]);
+    var_mc=field_tmp(mesh_out.Elements+Nn);
+    v{2}=reshape(var_mc,[3,Ne]);
+    v{3}=hypot(v{1},v{2});
+  elseif(length(field_tmp)==Nn)
+    var_mc=field_tmp(mesh_out.Elements);
+    v{1}=reshape(var_mc,[3,Ne]);
+  else
+    %error('Not the right dimensions')
+    return
+  end
+
   if strcmp(field_plotted,'Lambda')
       lambda0=simul_in.undamaged_time_relaxation_sigma;
       alpha=simul_in.exponent_relaxation_sigma;
@@ -156,10 +248,6 @@ for p=0:0
       alpha=simul_in.exponent_relaxation_sigma;
       young=simul_in.young;
       v{1}=lambda0.*(1.-v{1}).^alpha.*young;
-  end
-  
-  if strcmp(field_plotted,'Freezing_Temperature')
-      v{1}=v2{1}{1}+0.055*v2{2}{1};
   end
   
   %-------------------------------------------------------------------------------------------------------------------
@@ -174,6 +262,15 @@ for p=0:0
   %-----------------------------------------------------------------------
   % We plot the actual data on the current figure, as well as the landmask
   %-----------------------------------------------------------------------
+  if 0
+     disp(' ');
+     disp(['Range in ',field]);
+     Z   = v{i}(:,mask_ice);
+     disp([min(Z(:)),max(Z(:))]);
+     disp(' ');
+     clear Z;
+  end
+
   if plot_grid == 0
       patch(x(:,mask_ice)/1000,y(:,mask_ice)/1000,v{i}(:,mask_ice),'FaceColor','flat','EdgeColor','none')
   else
@@ -181,12 +278,22 @@ for p=0:0
   end;
   hold on;
 
+  if plot_dirn
+     NI  = length(mask_ice);
+     JP  = 1:100:NI;
+     quiver(x(:,mask_ice(JP))/1000,y(:,mask_ice(JP))/1000,v{1}(:,mask_ice(JP)),v{1}(:,mask_ice(JP)),.5)
+  end
+
   %----------------------------------------------------------------------------------------------------------------------
   % We arrange the figure in an "optimal" manner using subfunctions (you can check them out at the bottom of this script)
   %----------------------------------------------------------------------------------------------------------------------
   % We first read in the log file to know which mesh has been used
-  simul_in=read_simul_in([dirname 'nextsim.log']);
+  simul_in  = read_simul_in([dirname,'nextsim.log']);
   %
+  if ~exist(simul_in.mesh_filename)
+     error(['add directory with meshfile ''',simul_in.mesh_filename,''' to path']);
+  end
+
   set_region_adjustment(simul_in.mesh_filename,region_of_zoom);
   %
   set_axis_colormap_colorbar(simul_in.mesh_filename,field_plotted,v,i,region_of_zoom);
@@ -224,6 +331,15 @@ end
 
 function set_axis_colormap_colorbar(mesh_filename,field,v,i,region_of_zoom)
     
+    % parula not available on older versions of matlab
+    % - test if it works
+    cmap_def   = 'parula';
+    try
+       colormap(cmap_def);
+    catch ME
+       cmap_def   = 'jet';
+    end
+
     %We set the axis limits, the colormap and set the name for the colorbar
     if (strcmp(field,'Concentration'))
         caxis([0 1]);
@@ -232,15 +348,15 @@ function set_axis_colormap_colorbar(mesh_filename,field,v,i,region_of_zoom)
         name_colorbar='Concentration';
     elseif (strcmp(field,'Thickness'))
         caxis([0, 4]);
-        colormap('parula');
+        colormap(cmap_def);
         name_colorbar='Thickness (m)';
     elseif (strcmp(field,'Lambda'))
         caxis([0, 1e5]);
-        colormap('parula');
+        colormap(cmap_def);
         name_colorbar='Lambda (s)';
    elseif (strcmp(field,'Viscosity'))
         caxis([0, 1e11]);
-        colormap('parula');
+        colormap(cmap_def);
         name_colorbar='Viscosity (Pa s)';
     elseif strcmp(field,'Damage')
         caxis([0.9, 1]);
@@ -266,13 +382,13 @@ function set_axis_colormap_colorbar(mesh_filename,field,v,i,region_of_zoom)
         name_colorbar='Divergence rate (/day)';
     elseif strcmp(field,'Snow')
         caxis([0, 0.5]);
-        colormap('parula');
+        colormap(cmap_def);
         name_colorbar='Snow thickness (m)';
     elseif strcmp(field,'Cohesion')
-        colormap('parula');
+        colormap(cmap_def);
         name_colorbar='Cohesion (Pa)';
     else
-        colormap('parula');
+        colormap(cmap_def);
         name_colorbar='';
     end;
 
@@ -352,7 +468,7 @@ function set_region_adjustment(mesh_filename,region_of_zoom)
         if ~isempty(region_of_zoom)
             %%Then we adjust depending on chosen region to zoom in
             if strcmp(region_of_zoom,'framstrait')
-                axis([200 1200 -1300 0]);
+                axis([100 1550 -1850 100]);
             elseif strcmp(region_of_zoom,'naresstrait')
                 axis([-400 100 -950 -450]);
             elseif strcmp(region_of_zoom,'karagate')
