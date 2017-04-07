@@ -26,9 +26,25 @@ for i = 1:numel(data_names)
 	  prec = 'int';
     end
 
-    N_data=fread(fileID,1,'int');
+    N_data     = fread(fileID,1,'int');
+    position   = ftell(fileID);
     if strcmp('Time',field{i})
-        out.(field{i}) = fread(fileID,N_data,prec) + datenum(1900,1,1);
+        if strcmp(prec,'double')
+           Time   = fread(fileID,N_data,prec)
+           if Time<1e-12 | Time>1e30
+              %%probably read wrong, try again with single
+              fseek(fileID,position,'bof');
+              Time   = fread(fileID,N_data,'float');
+           end
+        elseif strcmp(prec,'single')
+           Time   = fread(fileID,N_data,prec);
+           if Time<1e-12 | Time>1e30
+              %%probably read wrong, try again with double
+              fseek(fileID,position,'bof');
+              Time   = fread(fileID,N_data,'double');
+           end
+        end
+        out.(field{i}) = Time + datenum(1900,1,1);
     else
         out.(field{i}) = fread(fileID,N_data,prec);
     end

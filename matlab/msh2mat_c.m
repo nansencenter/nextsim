@@ -2,8 +2,24 @@ function [mesh,element]=msh2mat_c(filename)
 % Read a .msh file and create mesh and element
 
 fid=fopen(filename);
-fgetl(fid); fgetl(fid); fgetl(fid); fgetl(fid);
-fgetl(fid); fgetl(fid); fgetl(fid); fgetl(fid); fgetl(fid);
+Stop  = 0;
+while ~Stop
+   ss    = fgetl(fid);
+
+   %1st check if (eg) the boundary flags are defined
+   if strcmp(ss,'$PhysicalNames')
+      Nflags   = fscanf(fid, '%d\n',1);
+      for n=1:Nflags
+         tc = strsplit(fgetl(fid));
+         mesh.flags.(tc{3}(2:end-1))   = str2num(tc{2});
+      end
+      ss    = fgetl(fid);
+      ss    = fgetl(fid);
+   end
+   Stop  = strcmp(ss,'$Nodes');
+end
+%fgetl(fid); fgetl(fid); fgetl(fid); fgetl(fid)
+%fgetl(fid), fgetl(fid); fgetl(fid); fgetl(fid); fgetl(fid);
 
 % number of nodes
 mesh.Nn=fscanf(fid, '%d',1);
@@ -21,7 +37,12 @@ mesh.node.lat=rad2deg(lat);
 mesh.node.lon=rad2deg(lon);
 
 % load the elements and boundary condition (both are objects for Gmsh)
-fgetl(fid); fgetl(fid); fgetl(fid);
+Stop  = 0;
+while ~Stop
+   ss    = fgetl(fid);
+   Stop  = strcmp(ss,'$Elements');
+end
+%fgetl(fid); fgetl(fid); fgetl(fid);
 nb_elements=fscanf(fid, '%d',1);
 
 % initialization to the maximum size (nb_objects)
@@ -55,6 +76,7 @@ for i=1:nb_elements
         return;
     end
 end
+fclose(fid);
 
 % reduction of the size of element.num_node and mesh.boundary.from_msh
 element.num_node      =element.num_node      (1:ind_el-1,:);
