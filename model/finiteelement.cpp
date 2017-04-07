@@ -1362,83 +1362,6 @@ FiniteElement::regrid(bool step)
 			LOG(DEBUG) <<"NODAL: Interp done\n";
 			LOG(DEBUG) <<"Nodal interp done in "<< chrono.elapsed() <<"s\n";
 
-            // Drifters - if requested
-            if ( M_iabp_drifters_activated )
-            {
-                chrono.restart();
-                LOG(DEBUG) <<"Drifter starts\n";
-                LOG(DEBUG) <<"DRIFTER: Interp starts\n";
-
-                // Assemble the coordinates from the unordered_map
-                std::vector<double> drifter_X(M_iabp_drifters.size());
-                std::vector<double> drifter_Y(M_iabp_drifters.size());
-                int j=0;
-                for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
-                {
-                    drifter_X[j] = it->second[0];
-                    drifter_Y[j] = it->second[1];
-                    ++j;
-                }
-
-                // Interpolate the total displacement and concentration onto the drifter positions
-                nb_var=2;
-                std::vector<double> interp_drifter_in(nb_var*M_mesh.numNodes());
-
-                // Interpolate the velocity
-                for (int i=0; i<M_mesh.numNodes(); ++i)
-                {
-                    interp_drifter_in[nb_var*i]   = M_UT[i];
-                    interp_drifter_in[nb_var*i+1] = M_UT[i+M_mesh.numNodes()];
-                }
-
-                double* interp_drifter_out;
-                InterpFromMeshToMesh2dx(&interp_drifter_out,
-                                        &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-                                        M_mesh.numNodes(),M_mesh.numTriangles(),
-                                        &interp_drifter_in[0],
-                                        M_mesh.numNodes(),nb_var,
-                                        &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
-                                        true, 0.);
-
-
-                // Interpolate the concentration - re-use interp_drifter_in
-                interp_drifter_in.resize(M_mesh.numTriangles());
-                for (int i=0; i<M_mesh.numTriangles(); ++i)
-                {
-                    interp_drifter_in[i]   = M_conc[i];
-                }
-
-                double* interp_drifter_c_out;
-                InterpFromMeshToMesh2dx(&interp_drifter_c_out,
-                                        &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-                                        M_mesh.numNodes(),M_mesh.numTriangles(),
-                                        &interp_drifter_in[0],
-                                        M_mesh.numTriangles(),1,
-                                        &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
-                                        true, 0.);
-
-                // Rebuild the M_iabp_drifters map
-                double clim = vm["simul.drifter_climit"].as<double>();
-                j=0;
-                for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); /* ++it is not allowed here, because we use 'erase' */ )
-                {
-                    if ( interp_drifter_c_out[j] > clim )
-                    {
-                        M_iabp_drifters[it->first] = std::array<double,2> {it->second[0]+interp_drifter_out[nb_var*j], it->second[1]+interp_drifter_out[nb_var*j+1]};
-                        ++it;
-                    } else {
-                        // Throw out drifters that drift out of the ice
-                        it = M_iabp_drifters.erase(it);
-                    }
-                    ++j;
-                }
-
-                xDelete<double>(interp_drifter_out);
-                xDelete<double>(interp_drifter_c_out);
-
-                LOG(DEBUG) <<"DRIFTER: Interp done\n";
-                LOG(DEBUG) <<"Drifter interp done in "<< chrono.elapsed() <<"s\n";
-            }
 		}
 	}
 
@@ -1449,10 +1372,6 @@ FiniteElement::regrid(bool step)
 			// UM
 			M_UM[i] = 0.;
 			M_UM[i+M_num_nodes] = 0.;
-
-			// UT
-			M_UT[i] = 0.;
-			M_UT[i+M_num_nodes] = 0.;
 		}
 
         //M_matrix->init(2*M_num_nodes,2*M_num_nodes,22);
@@ -1684,6 +1603,12 @@ FiniteElement::advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
     // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
     // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
 
+    // increment M_UT that is used for the drifters
+    for (int nd=0; nd<M_UM.size(); ++nd)
+    {
+        M_UT[nd] += time_step*M_VT[nd]; // Total displacement (for drifters)
+    }
+
     if(ALE_smoothing_step_nb>=0)
     {
         std::vector<double> M_VT_smoothed = M_VT;
@@ -1719,7 +1644,6 @@ FiniteElement::advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
         for (int nd=0; nd<M_UM.size(); ++nd)
         {
             M_UM[nd] += time_step*M_VT_smoothed[nd];
-            M_UT[nd] += time_step*M_VT[nd]; // Total displacement (for drifters)
         }
 
         // set back the neumann nodes (open boundaries) at their position, the fluxes will be computed thanks to the convective velocity
@@ -4341,7 +4265,108 @@ FiniteElement::step(int &pcpt)
         this->nextsimToWim(pcpt);
 #endif
 
-    // step 0: preparation
+    // Update the drifters position twice a day, important to keep the same frequency as the IABP data, for the moment
+    if( pcpt==0 || std::fmod(current_time,0.5)==0 )
+    {   
+        // Read in the new buoys and output
+        if ( M_iabp_drifters_activated )
+        {
+            this->updateIABPDrifter();
+            
+            chrono.restart();
+            LOG(DEBUG) <<"Drifter starts\n";
+            LOG(DEBUG) <<"DRIFTER: Interp starts\n";
+
+            // Assemble the coordinates from the unordered_map
+            std::vector<double> drifter_X(M_iabp_drifters.size());
+            std::vector<double> drifter_Y(M_iabp_drifters.size());
+            int j=0;
+            for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
+            {
+                drifter_X[j] = it->second[0];
+                drifter_Y[j] = it->second[1];
+                ++j;
+            }
+
+            // Interpolate the total displacement and concentration onto the drifter positions
+            int nb_var=2;
+            std::vector<double> interp_drifter_in(nb_var*M_mesh.numNodes());
+
+            // Interpolate the velocity
+            for (int i=0; i<M_mesh.numNodes(); ++i)
+            {
+                interp_drifter_in[nb_var*i]   = M_UT[i];
+                interp_drifter_in[nb_var*i+1] = M_UT[i+M_mesh.numNodes()];
+            }
+
+            double* interp_drifter_out;
+            InterpFromMeshToMesh2dx(&interp_drifter_out,
+                                    &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
+                                    M_mesh.numNodes(),M_mesh.numTriangles(),
+                                    &interp_drifter_in[0],
+                                    M_mesh.numNodes(),nb_var,
+                                    &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
+                                    true, 0.);
+
+
+            // Interpolate the concentration - re-use interp_drifter_in
+            interp_drifter_in.resize(M_mesh.numTriangles());
+            for (int i=0; i<M_mesh.numTriangles(); ++i)
+            {
+                interp_drifter_in[i]   = M_conc[i];
+            }
+
+            double* interp_drifter_c_out;
+            InterpFromMeshToMesh2dx(&interp_drifter_c_out,
+                                    &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
+                                    M_mesh.numNodes(),M_mesh.numTriangles(),
+                                    &interp_drifter_in[0],
+                                    M_mesh.numTriangles(),1,
+                                    &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
+                                    true, 0.);
+
+            // Rebuild the M_iabp_drifters map
+            double clim = vm["simul.drifter_climit"].as<double>();
+            j=0;
+            for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); /* ++it is not allowed here, because we use 'erase' */ )
+            {
+                if ( interp_drifter_c_out[j] > clim )
+                {
+                    M_iabp_drifters[it->first] = std::array<double,2> {it->second[0]+interp_drifter_out[nb_var*j], it->second[1]+interp_drifter_out[nb_var*j+1]};
+                    ++it;
+                } else {
+                    // Throw out drifters that drift out of the ice
+                    it = M_iabp_drifters.erase(it);
+                }
+                ++j;
+            }
+
+            xDelete<double>(interp_drifter_out);
+            xDelete<double>(interp_drifter_c_out);
+
+            LOG(DEBUG) <<"DRIFTER: Interp done\n";
+            LOG(DEBUG) <<"Drifter interp done in "<< chrono.elapsed() <<"s\n";
+
+            // TODO: Do we want to output drifters at a different time interval?
+            this->outputDrifter(M_iabp_out);
+        }
+        
+        if ( M_drifters_activated )
+            M_drifters.move(M_mesh, M_UT);
+        if ( M_rgps_drifters_activated )
+            M_rgps_drifters.move(M_mesh, M_UT);
+        if ( M_osisaf_drifters_activated )
+            for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
+                it->move(M_mesh, M_UT);
+    
+	    for (int i=0; i<M_num_nodes; ++i)
+	    {
+	        // UM
+		    M_UT[i] = 0.;
+		    M_UT[i+M_num_nodes] = 0.;
+	    }
+    }
+
     // remeshing and remapping of the prognostic variables
 
     // The first time step we behave as if we just did a regrid
@@ -4364,13 +4389,6 @@ FiniteElement::step(int &pcpt)
             // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
             if ( M_use_moorings && ! M_moorings_snapshot )
                 M_moorings.updateGridMean(M_mesh);
-            if ( M_drifters_activated )
-                M_drifters.move(M_mesh, M_UT);
-            if ( M_rgps_drifters_activated )
-                M_rgps_drifters.move(M_mesh, M_UT);
-            if ( M_osisaf_drifters_activated )
-                for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
-                    it->move(M_mesh, M_UT);
 #ifdef OASIS
             M_cpl_out.updateGridMean(M_mesh);
 #endif
@@ -4400,13 +4418,6 @@ FiniteElement::step(int &pcpt)
 #endif
 
 
-    // Read in the new buoys and output
-    if ( M_iabp_drifters_activated && ( pcpt==0 || std::fmod(current_time,0.5)==0 ) )
-    {
-        this->updateIABPDrifter();
-        // TODO: Do we want to output drifters at a different time interval?
-        this->outputDrifter(M_iabp_out);
-    }
 
     if ( M_regrid || M_use_restart )
     {
@@ -4570,7 +4581,7 @@ FiniteElement::step(int &pcpt)
         if( !M_rgps_drifters.isInitialised() && current_time == RGPS_time_init)
             this->updateRGPSDrifters();
             
-        if( current_time != RGPS_time_init && fmod(pcpt*time_step,M_iabp_drifters_output_time_step) == 0 )
+        if( current_time != RGPS_time_init && fmod(pcpt*time_step,M_rgps_drifters_output_time_step) == 0 )
             if ( M_rgps_drifters.isInitialised() )
                 M_rgps_drifters.appendNetCDF(current_time, M_mesh, M_UT);
     }
