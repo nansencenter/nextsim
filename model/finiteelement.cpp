@@ -3259,7 +3259,7 @@ FiniteElement::thermo()
                 M_tice[2][i] = f1*M_tice[2][i] + (1-f1)*tfrw; // (26) slightly rewritten
             }
         }
-#if 0
+#if 1
         /* Check limits */
         if ( M_conc[i] < physical::cmin || hi < physical::hmin )
         {
@@ -5413,7 +5413,7 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             M_external_data.push_back(&M_tair);
 
             M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
-            M_external_data.push_back(&M_mixrat);
+            M_external_data.push_back(&M_sphuma);
 
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
             M_external_data.push_back(&M_mslp);
