@@ -29,7 +29,8 @@ namespace setup
 		CONSTANT = 0,
 		TOPAZR   = 1,
 		TOPAZF   = 2,
-		MITGCM   = 3
+		MITGCM   = 3,
+		TOPAZR_atrest   = 4
     };
 
     enum class IceType
@@ -70,15 +71,6 @@ namespace setup
         CLASSIC     = 0,
         THIN_ICE    = 1,
         MULTI       = 2
-    };
-
-    enum class DrifterType
-    {
-        NONE          = 0,
-        EQUALLYSPACED = 1,
-        IABP          = 2,
-        OSISAF        = 3,
-        RGPS          = 4
     };
 
     enum class DomainType

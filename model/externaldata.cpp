@@ -539,7 +539,7 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                     ).str();
         
         filename_fstep.push_back(filename);
-        index_fstep.push_back(0);
+        index_fstep.push_back(0);  
     }
 
     // Initialise counters etc.
