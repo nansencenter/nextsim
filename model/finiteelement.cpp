@@ -3212,10 +3212,14 @@ FiniteElement::thermo()
                     break;
                 case 2:
                     /* Mellor and Kantha (89) */
-                    /* Use the fraction PhiM of (1-c)*Qow to melt laterally */
-                    del_c = PhiM*(1.-M_conc[i])*std::min(0.,Qow)*time_step/( hi*qi+hs*qs );
-                    /* Deliver the fraction (1-PhiM) of Qow to the ocean */
-                    Qow = (1.-PhiM)*Qow;
+                    if ( hi > 0. )
+                    {
+                        /* Use the fraction PhiM of (1-c)*Qow to melt laterally */
+                        del_c = PhiM*(1.-M_conc[i])*std::min(0.,Qow)*time_step/( hi*qi+hs*qs );
+                        /* Deliver the fraction (1-PhiM) of Qow to the ocean */
+                        Qow = (1.-PhiM)*Qow;
+                    } else
+                        del_c = -M_conc[i];
                     // This is handled below
                     // /* + Deliver excess energy to the ocean when there's no ice left */
                     //         + std::min(0., std::max(0.,M_conc[i]+del_c)*( hi*qi+hs*qs )/time_step);
