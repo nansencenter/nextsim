@@ -4098,9 +4098,13 @@ FiniteElement::init()
 
     LOG(DEBUG) <<"Initialize forcingOcean\n";
     this->forcingOcean();
+
 #if defined (WAVES)
+    if (M_use_wim)
+    {
         LOG(DEBUG) <<"Initialize forcingWave\n";
         this->forcingWave();
+    }
 #endif
 
     LOG(DEBUG) <<"Initialize bathymetry\n";
@@ -4984,7 +4988,7 @@ FiniteElement::readRestart(int step)
         if ((std::binary_search(dirichlet_flags.begin(),dirichlet_flags.end(),fnd)))
         {
             bamggeom->Edges[3*edg+2] = M_flag_fix;
-            bamgmesh->Edges[3*edg+2] = M_flag_fix;    
+            bamgmesh->Edges[3*edg+2] = M_flag_fix;
         }
         else
         {
@@ -5125,8 +5129,11 @@ FiniteElement::readRestart(int step)
     M_ice_smos_elements_dataset.target_size=M_num_elements;
     M_bathymetry_elements_dataset.target_size=M_num_elements;
 #if defined (WAVES)
-    M_WW3A_elements_dataset.target_size=M_num_elements;
-    M_ERAIW_1DEG_elements_dataset.target_size=M_num_elements;
+    if (M_use_wim)
+    {
+        M_WW3A_elements_dataset.target_size=M_num_elements;
+        M_ERAIW_1DEG_elements_dataset.target_size=M_num_elements;
+    }
 #endif
     return pcpt;
 }//readRestart
