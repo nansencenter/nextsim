@@ -1,36 +1,57 @@
-function simul_in=read_simul_in(saved_simul_in)
+function simul_in=read_simul_in(saved_simul_in,DO_DISP)
 %UNTITLED2 Summary of this function goes here
 %   Detailed explanation goes here
 % Example: simul_in=read_simul_in('log_simul')
 
-try
-    simul_in.time_init=datenum(get_value(saved_simul_in,'simul.time_init'),'yyyy-mm-ddHH:MM:SS');
-catch
-    simul_in.time_init=datenum(get_value(saved_simul_in,'simul.time_init'),'yyyy-mm-dd');
+if ~exist('DO_DISP','var')
+   DO_DISP  = 1;
 end
-simul_in.duration=str2num(get_value(saved_simul_in,'simul.duration'));
-simul_in.output_per_day=str2num(get_value(saved_simul_in,'simul.output_per_day'));
-            
-simul_in.undamaged_time_relaxation_sigma=str2num(get_value(saved_simul_in,'simul.undamaged_time_relaxation_sigma'));
-simul_in.exponent_relaxation_sigma=str2num(get_value(saved_simul_in,'simul.exponent_relaxation_sigma'));
-simul_in.young=str2num(get_value(saved_simul_in,'simul.young'));
-simul_in.mesh_filename=get_value(saved_simul_in,'simul.mesh_filename');
+
+fields   = {'time_init',...
+            'duration',...
+            'output_per_day',...
+            'undamaged_time_relaxation_sigma',...
+            'exponent_relaxation_sigma',...
+            'young',...
+            'mesh_filename'};
+
+Nfld  = length(fields);
+for j=1:Nfld
+   fld   = fields{j};
+   lin   = get_value(saved_simul_in,['simul.',fld],DO_DISP);
+   nlin  = str2num(lin);
+   if ~isempty(nlin)
+      % see if it's a number
+      simul_in.(fld) = nlin;
+   else
+      % leave as a string
+      simul_in.(fld) = lin;
+   end
+end
+
+try
+    simul_in.time_init=datenum(simul_in.time_init,'yyyy-mm-ddHH:MM:SS');
+catch
+    simul_in.time_init=datenum(simul_in.time_init,'yyyy-mm-dd');
+end
 
 end
 
 %-----------------------
-function A=get_value(saved_simul_in,look_for)
+function A=get_value(saved_simul_in,look_for,DO_DISP)
 
 fid = fopen(saved_simul_in);
 tline = fgetl(fid);
 while ischar(tline)
     
     if(length(tline)>=length(look_for))
-        if(strcmp(tline(1:length(look_for)),look_for))
-            disp(tline);
-        
-            A = sscanf(tline(length(look_for)+1:end), '%s');
-        end
+       if(strcmp(tline(1:length(look_for)),look_for))
+          if DO_DISP
+             disp(tline);
+          end
+       
+          A = sscanf(tline(length(look_for)+1:end), '%s');
+       end
     end
     tline = fgetl(fid);
 end
