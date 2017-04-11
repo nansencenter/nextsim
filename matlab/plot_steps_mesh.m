@@ -1,4 +1,6 @@
-function plot_steps_mesh(rootdir,variables);
+function plot_steps_mesh(rootdir,variables,plot_options);
+%% CALL: plot_steps_mesh(rootdir,variables,plot_options);
+%% variables is a cell with strings of variables to plot
 
 if ~exist('rootdir','var');
    %% location of outputs
@@ -13,6 +15,25 @@ if ~exist('rootdir','var');
    rootdir  = [rootdir,'/Model-Results/neXtSIM/Oban-test16/run',num2str(run_no)];
 end
 OVER_WRITE  = 0;
+
+% default plot options
+visible     = 0;
+apply_mask  = 1;
+save_figure = 0;
+if ~exist('plot_options','var');
+   plot_options.visible       = visible;
+   plot_options.apply_mask    = apply_mask;
+   plot_options.save_figure   = save_figure;
+end
+if ~isfield(plot_options,'visible')
+   plot_options.visible = visible;
+end
+if ~isfield(plot_options,'apply_mask')
+   plot_options.apply_mask = apply_mask;
+end
+if ~isfield(plot_options,'save_figure')
+   plot_options.apply_mask = save_figure;
+end
 
 outdir   = [rootdir,'/mesh']
 figdir   = [rootdir,'/figs']
@@ -66,7 +87,7 @@ for step=0:N0
       fig_full = [figdir,'/',vbl,'/',vbl,'_',num2str(step,'%2.2d'),'.png'];
 
       if ~(exist(fig_full)&~OVER_WRITE)
-         plot_nextsim_c(vbl,step,region_of_zoom,is_sequential,outdir);
+         plot_nextsim_c(vbl,step,region_of_zoom,is_sequential,outdir,plot_options);
          %%
          eval(['!mkdir -p ',figdir,'/',vbl]);
          disp(['saving to ',fig_full]);
