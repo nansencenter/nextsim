@@ -222,13 +222,15 @@ for p=0:0
 
   % {length(field_tmp),Ne,Nn,2*Nn}
   if(length(field_tmp)==Ne)
-    v{1}=[field_tmp,field_tmp,field_tmp]';
+     % scalar on elements
+     v{1}=[field_tmp,field_tmp,field_tmp]';
   elseif(length(field_tmp)==2*Nn)
-    var_mc=field_tmp(mesh_out.Elements);
-    v{1}=reshape(var_mc,[3,Ne]);
-    var_mc=field_tmp(mesh_out.Elements+Nn);
-    v{2}=reshape(var_mc,[3,Ne]);
-    v{3}=hypot(v{1},v{2});
+     % vector on nodes
+     var_mc=field_tmp(mesh_out.Elements);
+     v{1}=reshape(var_mc,[3,Ne]);
+     var_mc=field_tmp(mesh_out.Elements+Nn);
+     v{2}=reshape(var_mc,[3,Ne]);
+     v{3}=hypot(v{1},v{2});
   elseif(length(field_tmp)==Nn)
     var_mc=field_tmp(mesh_out.Elements);
     v{1}=reshape(var_mc,[3,Ne]);
