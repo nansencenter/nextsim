@@ -91,7 +91,7 @@ for p=0:0
   if(~isempty(dirname)&& dirname(end)~='/')
     dirname=[dirname, '/'];
   end
-  simul_in=read_simul_in([dirname 'nextsim.log' ]); 
+  simul_in=read_simul_in([dirname 'nextsim.log' ],0); 
   
   %reshape
   var_mx=mesh_out.Nodes_x(mesh_out.Elements);
@@ -290,7 +290,7 @@ for p=0:0
   % We arrange the figure in an "optimal" manner using subfunctions (you can check them out at the bottom of this script)
   %----------------------------------------------------------------------------------------------------------------------
   % We first read in the log file to know which mesh has been used
-  simul_in  = read_simul_in([dirname,'nextsim.log']);
+  simul_in  = read_simul_in([dirname,'nextsim.log'],0);
   %
   if ~exist(simul_in.mesh_filename)
      error(['add directory with meshfile ''',simul_in.mesh_filename,''' to path']);

@@ -133,6 +133,8 @@ for i=1:length(fields)
    jok   = find(~isnan(anomaly.(fld)));
    err1  = max(abs(anomaly.(fld)(jok)));
    disp(['Maximum absolute error in ',fld,' = ',num2str(err1,'%f')])
+   disp(['  Minimums: ',num2str(min(data1.(fld)(:))),' | ',num2str(min(data2.(fld)(:)))])
+   disp(['  Maximums: ',num2str(max(data1.(fld)(:))),' | ',num2str(max(data2.(fld)(:)))])
    %err   = max(err,err1);
 end
 
