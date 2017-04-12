@@ -189,17 +189,17 @@ FiniteElement::initVariables()
     M_h_thin.assign(M_num_elements,0.);
     M_hs_thin.assign(M_num_elements,0.);
     M_tsurf_thin.assign(M_num_elements,0.);
-
+    
     M_sigma.resize(3*M_num_elements,0.);
 
     M_random_number.resize(M_num_elements);
     for (int i=0; i<M_random_number.size(); ++i)
         M_random_number[i] = static_cast <double> (std::rand()) / static_cast <double> (RAND_MAX);
 
-
     M_conc.resize(M_num_elements);
     M_thick.resize(M_num_elements);
     M_damage.resize(M_num_elements);
+    M_ridge_ratio.assign(M_num_elements,0.);
     M_snow_thick.resize(M_num_elements);
 
     M_sst.resize(M_num_elements);
@@ -1251,7 +1251,8 @@ FiniteElement::regrid(bool step)
 			M_snow_thick.assign(M_num_elements,0.);
 			M_sigma.assign(3*M_num_elements,0.);
 			M_damage.assign(M_num_elements,0.);
-
+            M_ridge_ratio.assign(M_num_elements,0.);
+            
 			M_random_number.resize(M_num_elements);
 
             for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
@@ -1260,6 +1261,7 @@ FiniteElement::regrid(bool step)
             M_h_thin.assign(M_num_elements,0.);
             M_hs_thin.assign(M_num_elements,0.);
             M_tsurf_thin.assign(M_num_elements,0.);
+            
 
 #if defined (WAVES)
             bool nfloes_interp = M_use_wim;
@@ -1464,7 +1466,7 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var)
 		int tmp_nb_var=0;
 
 		// concentration
-		M_conc[i] = std::max(0., std::min(1.,interp_elt_out[nb_var*i+tmp_nb_var]));
+		M_conc[i] = std::max(0., interp_elt_out[nb_var*i+tmp_nb_var]);
 		tmp_nb_var++;
 
 		// thickness
@@ -1492,6 +1494,10 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var)
             // damage
 		    M_damage[i] = std::max(0., std::min(1.,interp_elt_out[nb_var*i+tmp_nb_var]));
 		    tmp_nb_var++;
+            
+            // damage
+		    M_ridge_ratio[i] = std::max(0., std::min(1.,interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i]));
+		    tmp_nb_var++;
 		}
 		else
 		{
@@ -1509,6 +1515,10 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var)
 
             // damage
 		    M_damage[i] = 1.;
+		    tmp_nb_var++;
+            
+            // damage
+		    M_ridge_ratio[i] = 0.;
 		    tmp_nb_var++;
 		}
 
@@ -1767,7 +1777,7 @@ int
 FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_ptr, int prv_num_elements)
 {
     // ELEMENT INTERPOLATION With Cavities
-	int nb_var=11 + M_tice.size();
+	int nb_var=12 + M_tice.size();
 
 #if defined (WAVES)
     // coupling with wim
@@ -1833,6 +1843,11 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
 		// damage
 		interp_elt_in[nb_var*i+tmp_nb_var] = M_damage[i];
         interp_method[tmp_nb_var] = 0;
+		tmp_nb_var++;
+
+		// damage
+		interp_elt_in[nb_var*i+tmp_nb_var] = M_ridge_ratio[i]*M_thick[i];
+        interp_method[tmp_nb_var] = 1;
 		tmp_nb_var++;
 
 		// random_number
@@ -2650,7 +2665,7 @@ FiniteElement::update()
 	xDelete<double>(interp_elt_out);
     xDelete<int>(interp_method);
 	xDelete<double>(interp_elt_in);
-
+    
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
@@ -2673,6 +2688,17 @@ FiniteElement::update()
 
         // Temporary memory
         old_damage = M_damage[cpt];
+
+       /*======================================================================
+        * Ridging scheme 
+        * After the advection the concentration can be higher than 1, meaning that ridging should have occured.
+        *======================================================================
+        */
+        if(M_conc[cpt]>1.)
+        {
+            M_ridge_ratio[cpt]=M_ridge_ratio[cpt]+(1.-M_ridge_ratio[cpt])*(M_conc[cpt]-1.)/M_conc[cpt];
+            M_conc[cpt]==1.;
+        }
 
         /*======================================================================
          * Diagnostic:
@@ -2861,11 +2887,6 @@ FiniteElement::update()
          * Update:
          *======================================================================
          */
-
-
-        /* Ridging scheme */
-        /* upper bounds (only for the concentration) */
-        M_conc[cpt] = ((M_conc[cpt]<1.)?(M_conc[cpt]):(1.)) ;
 
         /* lower bounds */
         M_conc[cpt] = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
@@ -3312,12 +3333,14 @@ FiniteElement::thermo()
         // local variables
         double deltaT;      // Temperature difference between ice bottom and the snow-ice interface
 
-        // Newly formed ice is undamaged - calculate damage as a weighted
-        // average of the old damage and 0, weighted with volume.
+        // Newly formed ice is undamaged - and unridged
+        // calculate damage and ridge ratio as a weighted
+        // average of the old damage - ridge ratio and 0, weighted with volume.
         if ( M_thick[i] > old_vol )
+        {
             M_damage[i] = M_damage[i]*old_vol/M_thick[i];
-
-        // SYL: manipulation of the ridged ice missing??
+            M_ridge_ratio[i] = M_ridge_ratio[i]*old_vol/M_thick[i];
+        }
 
         // Set time_relaxation_damage to be inversely proportional to
         // temperature difference between bottom and snow-ice interface
@@ -4852,7 +4875,8 @@ FiniteElement::writeRestart(int pcpt, int step)
     exporter.writeField(outbin, M_snow_thick, "M_snow_thick");
     exporter.writeField(outbin, M_sigma, "M_sigma");
     exporter.writeField(outbin, M_damage, "M_damage");
-    exporter.writeField(outbin, M_random_number, "M_random_number");
+    exporter.writeField(outbin, M_ridge_ratio, "M_ridge_ratio");
+        exporter.writeField(outbin, M_random_number, "M_random_number");
     int i=0;
     for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
     {
@@ -5070,6 +5094,7 @@ FiniteElement::readRestart(int step)
     M_snow_thick = field_map_dbl["M_snow_thick"];
     M_sigma      = field_map_dbl["M_sigma"];
     M_damage     = field_map_dbl["M_damage"];
+    M_ridge_ratio     = field_map_dbl["M_ridge_ratio"];
     M_random_number      = field_map_dbl["M_random_number"];
     int i=0;
     for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
@@ -7033,6 +7058,7 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
         exporter.writeField(outbin, M_thick, "Thickness");
         exporter.writeField(outbin, M_snow_thick, "Snow");
         exporter.writeField(outbin, M_damage, "Damage");
+        exporter.writeField(outbin, M_ridge_ratio, "Ridge_ratio");
 
         std::vector<double> AllMinAngle = this->AllMinAngle(M_mesh, M_UM, 0.);
         exporter.writeField(outbin, AllMinAngle, "AllMinAngle");

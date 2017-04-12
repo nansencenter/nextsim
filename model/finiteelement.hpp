@@ -280,6 +280,7 @@ private:
     std::vector<double> M_water_elements;
     std::vector<double> M_h_thin;
     std::vector<double> M_hs_thin;
+    std::vector<double> M_ridge_ratio;
 
     std::vector<external_data*> M_external_data;
 
