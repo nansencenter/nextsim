@@ -2666,6 +2666,10 @@ FiniteElement::update()
     xDelete<int>(interp_method);
 	xDelete<double>(interp_elt_in);
     
+    // Constant values
+    double const tanalpha  = h_thin_max/c_thin_max;
+    double const rtanalpha = 1./tanalpha;
+    
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
@@ -2697,8 +2701,32 @@ FiniteElement::update()
         if(M_conc[cpt]>1.)
         {
             M_ridge_ratio[cpt]=M_ridge_ratio[cpt]+(1.-M_ridge_ratio[cpt])*(M_conc[cpt]-1.)/M_conc[cpt];
-            M_conc[cpt]==1.;
+            M_conc[cpt]=1.;
         }
+        
+        /* Initialise to be safe */
+        double newice = 0.;
+        double del_c = 0.;
+        double newsnow = 0.;
+        /* Thin ice category */    
+        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        {
+            thin_ice_redistribute(M_h_thin[cpt], M_hs_thin[cpt], 0., M_conc[cpt],
+                          tanalpha, rtanalpha, h_thin_max, &M_h_thin[cpt], &newice, &del_c, &newsnow);
+        
+            // Change the snow _thickness_ for thick ice and _volume_ for thin ice
+            M_hs_thin[cpt] -= newsnow;
+            M_snow_thick[cpt] += newsnow;
+            M_conc[cpt] += del_c;
+            M_thick[cpt] += newice;
+            
+            if(M_thick[cpt]>0.)
+                M_ridge_ratio[cpt]=(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt];
+            else
+                M_ridge_ratio[cpt]=0.;
+        }
+        
+        
 
         /*======================================================================
          * Diagnostic:
@@ -2924,7 +2952,6 @@ FiniteElement::solve()
 }
 
 // Routine for the 1D thermodynamical model
-// No thin ice for now
 // No stability dependent drag for now
 void
 FiniteElement::thermo()
@@ -2947,7 +2974,7 @@ FiniteElement::thermo()
 
     double const tanalpha  = h_thin_max/c_thin_max;
     double const rtanalpha = 1./tanalpha;
-
+    
     double const qi = physical::Lf * physical::rhoi;
     double const qs = physical::Lf * physical::rhos;
 

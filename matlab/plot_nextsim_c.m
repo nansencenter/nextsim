@@ -184,59 +184,33 @@ for p=0:0
   %---------------------------
   if strcmp(field,'Freezing_Temperature')
      fld = 'SST';
-     try
-        field_tmp=data_out.(fld);
-     catch ME
-        disp([fld,' not present in ',dirname,'(step=',num2str(step),')']);
-        disp(' ');
-        disp('Available fields are:');
-        disp(' ');
-
-        flds   = fieldnames(data_out);
-        for k=1:length(flds)
-           disp(flds{k});
-        end
-
-        error([fld,' not present in ',dir,'(step=',num2str(step),')']);
-     end
+     [field_tmp]=get_and_check(fld,data_out,dirname,step);
 
      fld = 'SSS';
-     try
-        field_tmp2=data_out.(fld);
-     catch ME
-        disp([fld,' not present in ',dirname,'(step=',num2str(step),')']);
-        disp(' ');
-        disp('Available fields are:');
-        disp(' ');
-
-        flds   = fieldnames(data_out);
-        for k=1:length(flds)
-           disp(flds{k});
-        end
-
-        error([fld,' not present in ',dir,'(step=',num2str(step),')']);
-     end
-
-     %freezing temp = sst+.055*sss
+     [field_tmp2]=get_and_check(fld,data_out,dirname,step);
+     
      field_tmp = field_tmp+0.055*field_tmp2;
      field_plotted='Freezing_Temperature';
+  elseif strcmp(field,'Ridged_volume_per_area')
+     fld = 'Ridge_ratio';
+     [field_tmp]=get_and_check(fld,data_out,dirname,step);
+
+     fld = 'Thickness';
+     [field_tmp2]=get_and_check(fld,data_out,dirname,step);
+     
+     field_tmp = field_tmp.*field_tmp2;
+     field_plotted='Ridged_volume_per_area';
+  elseif strcmp(field,'Total_thickness')
+     fld = 'Thickness';
+     [field_tmp]=get_and_check(fld,data_out,dirname,step);
+
+     fld = 'Thin_ice';
+     [field_tmp2]=get_and_check(fld,data_out,dirname,step);
+     
+     field_tmp = field_tmp+field_tmp2;
+     field_plotted='Ridged_volume_per_area';
   else
-    
-    try
-       field_tmp=data_out.(field);
-    catch ME
-       disp([field,' not present in ',dirname,'(step=',num2str(step),')']);
-       disp(' ');
-       disp('Available fields are:');
-       disp(' ');
-
-       flds   = fieldnames(data_out);
-       for k=1:length(flds)
-          disp(flds{k});
-       end
-
-       error([field,' not present in ',dir,'(step=',num2str(step),')']);
-    end
+    [field_tmp]=get_and_check(field,data_out,dirname,step);
   end
 
   % {length(field_tmp),Ne,Nn,2*Nn}
@@ -311,24 +285,27 @@ for p=0:0
   % We first read in the log file to know which mesh has been used
   simul_in  = read_simul_in([dirname,'nextsim.log'],0);
   %
-  if ~exist(simul_in.mesh_filename)
-     error(['add directory with meshfile ''',simul_in.mesh_filename,''' to path']);
+  if exist(simul_in.mesh_filename)
+      mesh_filename=simul_in.mesh_filename;
+  else
+      mesh_filename='';
+      warning(['add directory with meshfile ''',simul_in.mesh_filename,''' to path']);
   end
-
-  set_region_adjustment(simul_in.mesh_filename,region_of_zoom);
+  
+  set_region_adjustment(mesh_filename,region_of_zoom);
   %
-  set_axis_colormap_colorbar(simul_in.mesh_filename,field_plotted,v,i,region_of_zoom);
+  set_axis_colormap_colorbar(mesh_filename,field_plotted,v,i,region_of_zoom);
   %
-  set_figure_cosmetics(data_out,simul_in.mesh_filename,region_of_zoom,plot_date,background_color,font_size);
+  set_figure_cosmetics(data_out,mesh_filename,region_of_zoom,plot_date,background_color,font_size);
+  
+  %We plot the coastlines and boundaries (optional).
+  if (plot_coastlines == 1 && ~isempty(mesh_filename))
+      disp(['plot the coastline from ' mesh_filename])
+      plot_coastlines_and_boundaries_c(mesh_filename);
+  end;
   
   %We can now color the ocean in blue...
   patch(x(:,mask_water)/1000,y(:,mask_water)/1000,[0 0.021 0.53],'EdgeColor','none');
-  
-  %We plot the coastlines and boundaries (optional).
-  if plot_coastlines == 1
-      disp(['plot the coastline from ' simul_in.mesh_filename])
-      plot_coastlines_and_boundaries_c(simul_in.mesh_filename);
-  end;
   
   %------------------------------
   % We save the figure (optional)
@@ -349,6 +326,23 @@ for p=0:0
 end;
 end
 
+function [field_tmp]=get_and_check(fld,data_out,dirname,step)
+    try
+        field_tmp=data_out.(fld);
+     catch ME
+        disp([fld,' not present in ',dirname,'(step=',num2str(step),')']);
+        disp(' ');
+        disp('Available fields are:');
+        disp(' ');
+
+        flds   = fieldnames(data_out);
+        for k=1:length(flds)
+           disp(flds{k});
+        end
+
+        error([fld,' not present in ',dir,'(step=',num2str(step),')']);
+     end
+end
 
 function set_axis_colormap_colorbar(mesh_filename,field,v,i,region_of_zoom)
     
