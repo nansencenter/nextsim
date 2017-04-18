@@ -91,8 +91,8 @@ for p=0:0
     % Plots
     for j=1:nb_fields
        figure
-       %plot(step_start:step_end,integrated_fields(j,:));
-       plot(step_start:step_end,integrated_fields(j,:)/integrated_fields(j,1));
+       plot(step_start:step_end,integrated_fields(j,:));
+       %plot(step_start:step_end,integrated_fields(j,:)/integrated_fields(j,1));
        title(fields{j})
     end
     
