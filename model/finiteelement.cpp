@@ -2099,6 +2099,8 @@ FiniteElement::assemble(int pcpt)
     double cos_ocean_turning_angle=std::cos(ocean_turning_angle_rad);
     double sin_ocean_turning_angle=std::sin(ocean_turning_angle_rad);
 
+    double const rtanalpha = c_thin_max/h_thin_max;
+
     // ---------- Assembling starts -----------
     LOG(DEBUG) <<"Assembling starts\n";
     chrono.restart();
@@ -2117,9 +2119,17 @@ FiniteElement::assemble(int pcpt)
         //     std::cout<<"Total number of threads are "<< total_threads <<"\n";
         // }
 
+        double tmp_conc=M_conc[cpt];
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {            
+            // Re-create the variable 'concentration of thin ice'
+            double conc_thin = std::min(std::min(M_h_thin[cpt]/physical::hmin,
+                            std::sqrt(2.*M_h_thin[cpt]*rtanalpha)), 1.-M_conc[cpt]);
+            tmp_conc+=conc_thin;
+        }
 
         double tmp_thick=(vm["simul.min_h"].as<double>()>M_thick[cpt]) ? vm["simul.min_h"].as<double>() : M_thick[cpt];
-        double tmp_conc=(vm["simul.min_c"].as<double>()>M_conc[cpt]) ? vm["simul.min_c"].as<double>() : M_conc[cpt];
+        tmp_conc=(vm["simul.min_c"].as<double>()>tmp_conc) ? vm["simul.min_c"].as<double>() : tmp_conc;
 
         int index_u, index_v;
 
@@ -5833,6 +5843,21 @@ FiniteElement::targetIce()
 		M_thick[i] = vm["simul.init_thickness"].as<double>()*M_conc[i];
 		M_snow_thick[i] = vm["simul.init_snow_thickness"].as<double>()*M_conc[i];
         M_damage[i]=0.;
+        
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {
+            M_h_thin[i]     = vm["simul.init_thin_max_thickness"].as<double>();
+            
+            // Re-create the variable 'concentration of thin ice'
+            double conc_thin;
+            double const rtanalpha = c_thin_max/h_thin_max;
+            conc_thin = std::min(std::min(M_h_thin[i]/physical::hmin,
+                            std::sqrt(2.*M_h_thin[i]*rtanalpha)), 1.-M_conc[i]);
+            
+            M_h_thin[i]=std::pow(conc_thin,2.)/(2.*rtanalpha);
+            
+            M_hs_thin[i]    = vm["simul.init_snow_thickness"].as<double>()*conc_thin;
+        }
 
         //if either c or h equal zero, we set the others to zero as well
         if(M_conc[i]<=0.)
