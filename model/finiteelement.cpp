@@ -1751,7 +1751,7 @@ FiniteElement::advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
 
         surface = this->measure(M_elements[cpt],M_mesh, UM_P);
         surface_new = this->measure(M_elements[cpt],M_mesh,M_UM);
-
+        M_surface[cpt] = surface_new;
 
         for(int j=0; j<nb_var; j++)
         {
@@ -5107,14 +5107,6 @@ FiniteElement::readRestart(int step)
         M_neumann_nodes[2*i+1] = M_neumann_flags[i]+M_num_nodes;
     }
 
-    M_surface.assign(M_num_elements,0.);
-    int cpt = 0;
-    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
-    {
-        M_surface[cpt] = this->measure(*it,M_mesh);
-        ++cpt;
-    }
-
     // === Set the prognostic variables ===
     M_conc       = field_map_dbl["M_conc"];
     M_thick      = field_map_dbl["M_thick"];
@@ -5136,6 +5128,14 @@ FiniteElement::readRestart(int step)
     M_VTMM       = field_map_dbl["M_VTMM"];
     M_UM         = field_map_dbl["M_UM"];
     M_UT         = field_map_dbl["M_UT"];
+
+    M_surface.assign(M_num_elements,0.);
+    int cpt = 0;
+    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
+    {
+        M_surface[cpt] = this->measure(*it,M_mesh,M_UM);
+        ++cpt;
+    }
 
     //for (int i=0; i < M_thick.size(); i++)
     //{
