@@ -99,6 +99,12 @@ if ~exist('visible','var'),            visible = 1; end;
 if ~exist('show_vec_dirn','var'),      show_vec_dirn = 0; end;
    % if plotting vector magnitude, show the direction as arrows
 
+     
+if(~isempty(dirname)&& dirname(end)~='/')
+    dirname=[dirname, '/'];
+end
+simul_in=read_simul_in([dirname 'nextsim.log' ],0);
+   
 for p=0:0
 
   if(is_sequential)
@@ -106,11 +112,7 @@ for p=0:0
   else
       [mesh_out,data_out] = neXtSIM_bin_revert(dirname, p, step);
   end
-  
-  if(~isempty(dirname)&& dirname(end)~='/')
-    dirname=[dirname, '/'];
-  end
-  simul_in=read_simul_in([dirname 'nextsim.log' ],0);
+
   
   %reshape
   var_mx=mesh_out.Nodes_x(mesh_out.Elements);
@@ -182,36 +184,7 @@ for p=0:0
   %---------------------------
   % We extract the data fields
   %---------------------------
-  if strcmp(field,'Freezing_Temperature')
-     fld = 'SST';
-     [field_tmp]=get_and_check(fld,data_out,dirname,step);
-
-     fld = 'SSS';
-     [field_tmp2]=get_and_check(fld,data_out,dirname,step);
-     
-     field_tmp = field_tmp+0.055*field_tmp2;
-     field_plotted='Freezing_Temperature';
-  elseif strcmp(field,'Ridged_volume_per_area')
-     fld = 'Ridge_ratio';
-     [field_tmp]=get_and_check(fld,data_out,dirname,step);
-
-     fld = 'Thickness';
-     [field_tmp2]=get_and_check(fld,data_out,dirname,step);
-     
-     field_tmp = field_tmp.*field_tmp2;
-     field_plotted='Ridged_volume_per_area';
-  elseif strcmp(field,'Total_thickness')
-     fld = 'Thickness';
-     [field_tmp]=get_and_check(fld,data_out,dirname,step);
-
-     fld = 'Thin_ice';
-     [field_tmp2]=get_and_check(fld,data_out,dirname,step);
-     
-     field_tmp = field_tmp+field_tmp2;
-     field_plotted='Ridged_volume_per_area';
-  else
-    [field_tmp]=get_and_check(field,data_out,dirname,step);
-  end
+  [field_tmp]=extract_field(field,data_out,dirname,step);
 
   % {length(field_tmp),Ne,Nn,2*Nn}
   if(length(field_tmp)==Ne)
@@ -324,24 +297,6 @@ for p=0:0
       end;
   end;
 end;
-end
-
-function [field_tmp]=get_and_check(fld,data_out,dirname,step)
-    try
-        field_tmp=data_out.(fld);
-     catch ME
-        disp([fld,' not present in ',dirname,'(step=',num2str(step),')']);
-        disp(' ');
-        disp('Available fields are:');
-        disp(' ');
-
-        flds   = fieldnames(data_out);
-        for k=1:length(flds)
-           disp(flds{k});
-        end
-
-        error([fld,' not present in ',dir,'(step=',num2str(step),')']);
-     end
 end
 
 function set_axis_colormap_colorbar(mesh_filename,field,v,i,region_of_zoom)
