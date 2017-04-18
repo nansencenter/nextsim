@@ -523,8 +523,8 @@ FiniteElement::initConstant()
     M_bathymetry_type = str2bathymetry.find(vm["setup.bathymetry-type"].as<std::string>())->second;
 
     M_use_iabp_drifters=vm["simul.use_iabp_drifters"].as<bool>();
-    M_equallyspaced_drifters_output_time_step=vm["simul.equallyspaced_drifters_output_time_step"].as<double>()*days_in_sec;
-    M_rgps_drifters_output_time_step=vm["simul.rgps_drifters_output_time_step"].as<double>()*days_in_sec;
+    M_equallyspaced_drifters_output_time_step=vm["simul.equallyspaced_drifters_output_time_step"].as<double>();
+    M_rgps_drifters_output_time_step=vm["simul.rgps_drifters_output_time_step"].as<double>();
     M_use_osisaf_drifters=vm["simul.use_osisaf_drifters"].as<bool>();
     
     M_use_equallyspaced_drifters=false;
