@@ -3398,12 +3398,28 @@ FiniteElement::atmFluxBulk(int i, double Tsurf, double sphuma, double drag_ice_t
 // Ice-ocean heat flux
 // We can do better than this ... but it'll wait
 double
-FiniteElement::iceOceanHeatflux(double sst, double sss, double mld, double dt)
+FiniteElement::iceOceanHeatflux(int cpt, double sst, double sss, double mld, double dt)
 {
     /* Use all excess heat to melt or grow ice. This is not
      * accurate, but will have to do for now! */
     double const Tbot = -physical::mu*sss; // Temperature at ice base (bottom), also freezing point of sea-water
-    return (sst-Tbot)*physical::rhow*physical::cpw*mld/dt;
+    if ( vm["simul.Qio-type"].as<std::string>() == "basic" )
+    {
+        return (sst-Tbot)*physical::rhow*physical::cpw*mld/dt;
+    } else if ( vm["simul.Qio-type"].as<std::string>() == "exchange" ) {
+        double welt_oce_ice = 0.;
+        for (int i=0; i<3; ++i)
+        {
+            int nind = (M_elements[cpt]).indices[i]-1;
+            welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
+        }
+        double norm_Voce_ice = welt_oce_ice/3.;
+        double Csens_io = 1e-3;
+        return (sst-Tbot)*norm_Voce_ice*Csens_io*physical::rhow*physical::cpw;
+    } else {
+        std::cout << "Qio-type = " << vm["simul.Qio-type"].as<std::string>() << "\n";
+        throw std::logic_error("Wrong Qio-type");
+    }
 }
 
 // Albedo
@@ -3595,7 +3611,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         }
 
         // Bottom melt/freezing
-        Qio    = FiniteElement::iceOceanHeatflux(M_sst[i], M_sss[i], mld, dt);
+        Qio    = FiniteElement::iceOceanHeatflux(i, M_sst[i], M_sss[i], mld, dt);
         double Mbot  = Qio - 4*physical::ki*(Tbot-T2)/hi; // (23)
 
         // Growth/melt at the ice-ocean interface
@@ -3804,7 +3820,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         hs  = hs + del_hs + snowfall/physical::rhos*time_step;
 
         /* Heatflux from ocean */
-        Qio = FiniteElement::iceOceanHeatflux(M_sst[i], M_sss[i], mld, time_step);
+        Qio = FiniteElement::iceOceanHeatflux(i, M_sst[i], M_sss[i], mld, time_step);
         /* Bottom melt/growth */
         del_hb = (Qic-Qio)*time_step/qi;
 
@@ -7618,6 +7634,8 @@ std::string
 FiniteElement::getEnv(std::string const& envname)
 {
     char* senv = ::getenv(envname.c_str());
+    if ( senv == NULL )
+        senv = "NULL";
     return std::string(senv);
 }
 

@@ -183,6 +183,7 @@ namespace Nextsim
              */
 
             ("setup.thermo-type", po::value<std::string>()->default_value( "zero-layer" ), "")
+            ("simul.Qio-type", po::value<std::string>()->default_value( "basic" ), "")
             ("simul.use_thermo_forcing", po::value<bool>()->default_value( true ), "")
             ("simul.albedoW", po::value<double>()->default_value( 0.07 ), "")
             // not used: ("simul.read_hw", po::value<double>()->default_value( 1. ), "")

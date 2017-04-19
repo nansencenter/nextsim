@@ -127,7 +127,7 @@ public:
     double albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, double alb_ice, double I_0);
     void atmFluxBulk(int i, double Tsurf, double sphuma, double drag_ice_t, double Qsw, double Qlw_in, double wspeed,
             double &Qai, double &dQaidT, double &subl);
-    double iceOceanHeatflux(double sst, double tbot, double mld, double dt);
+    double iceOceanHeatflux(int cpt, double sst, double tbot, double mld, double dt);
 
     Dataset M_atmosphere_nodes_dataset;
     Dataset M_atmosphere_elements_dataset;
