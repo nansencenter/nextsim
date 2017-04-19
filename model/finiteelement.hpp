@@ -280,6 +280,7 @@ private:
     std::vector<double> M_water_elements;
     std::vector<double> M_h_thin;
     std::vector<double> M_hs_thin;
+    std::vector<double> M_ridge_ratio;
 
     std::vector<external_data*> M_external_data;
 
@@ -425,25 +426,23 @@ private:
     external_data M_element_depth;
 
     // IABP-like drifters
-    double M_iabp_drifters_output_time_step;
-    bool M_iabp_drifters_activated;
+    bool M_use_iabp_drifters;
     boost::unordered_map<int, std::array<double,2>> M_iabp_drifters; // Drifters are kept in an unordered map containing number and coordinates
     std::fstream M_iabp_file;   // The file we read the IABP buoy data from
     std::fstream M_iabp_out;    // The file we write our simulated drifter positions into
 
     // Drifters on a grid
-    double M_drifters_output_time_step;
-    bool M_drifters_activated;
-    Drifters M_drifters; 
+    double M_equallyspaced_drifters_output_time_step;
+    bool M_use_equallyspaced_drifters;
+    Drifters M_equallyspaced_drifters; 
     
     // Drifters as in the RGPS data
     double M_rgps_drifters_output_time_step;
-    bool M_rgps_drifters_activated;
+    bool M_use_rgps_drifters;
     Drifters M_rgps_drifters; 
     
     // drifters for the OSISAF emulation
-    double M_osisaf_drifters_output_time_step;
-    bool M_osisaf_drifters_activated;
+    bool M_use_osisaf_drifters;
     std::vector<Drifters> M_osisaf_drifters;
 
     // Element variable

@@ -79,7 +79,7 @@ namespace Nextsim
             // not used: ("simul.init_damage", po::value<std::string>()->default_value( "No-damage" ), "")
             ("simul.init_thickness", po::value<double>()->default_value( 1.0 ), "")
             ("simul.init_concentration", po::value<double>()->default_value( 1.0 ), "")
-            // not used: ("simul.init_thin_max_thickness", po::value<double>()->default_value( 0.1 ), "")
+            ("simul.init_thin_max_thickness", po::value<double>()->default_value( 0. ), "")
             ("simul.init_snow_thickness", po::value<double>()->default_value( 0. ), "")
             // not used: ("simul.init_snow_thin_thickness", po::value<double>()->default_value( 0. ), "")
 
@@ -117,10 +117,10 @@ namespace Nextsim
             // not used: ("simul.mooring_grid_file", po::value<std::string>()->default_value( "" ), "")
             ("simul.mooring_output_timestep", po::value<double>()->default_value( 1 ), "days")
 
-            ("simul.iabp_drifters_output_time_step", po::value<double>()->default_value( 0), "days")
-            ("simul.equallyspaced_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days")
-            ("simul.rgps_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days")
-            ("simul.osisaf_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days")
+            ("simul.use_iabp_drifters", po::value<bool>()->default_value( false), "")
+            ("simul.equallyspaced_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days") // must be a multiple of 0.5
+            ("simul.rgps_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days") // must be a multiple of 0.5
+            ("simul.use_osisaf_drifters", po::value<bool>()->default_value( false ), "") 
             
             ("simul.drifter_climit", po::value<double>()->default_value( 0.15 ), "")
             ("simul.drifter_spacing", po::value<double>()->default_value( 10 ), "")
@@ -170,7 +170,7 @@ namespace Nextsim
             ("simul.lin_drag_coef_water", po::value<double>()->default_value( 0. ), "")
 
             // basal stress parameterization
-            ("simul.Lemieux_basal_k1", po::value<double>()->default_value( 10. ), "")
+            ("simul.Lemieux_basal_gamma", po::value<double>()->default_value( 10. ), "")
             ("simul.Lemieux_basal_k2", po::value<double>()->default_value( 15. ), "")
             ("simul.Lemieux_basal_Cb", po::value<double>()->default_value( 20. ), "")
             ("simul.Lemieux_basal_u_0", po::value<double>()->default_value( 5e-5 ), "")
