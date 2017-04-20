@@ -2119,17 +2119,25 @@ FiniteElement::assemble(int pcpt)
         //     std::cout<<"Total number of threads are "<< total_threads <<"\n";
         // }
 
-        double tmp_conc=M_conc[cpt];
+        // total thickness and concentration
+        double total_concentration=M_conc[cpt];
+        double total_thickness=M_thick[cpt];
+        double total_snow=M_snow_thick[cpt];
+       
+        // Add the thin ice concentration and thickness 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {            
             // Re-create the variable 'concentration of thin ice'
             double conc_thin = std::min(std::min(M_h_thin[cpt]/physical::hmin,
                             std::sqrt(2.*M_h_thin[cpt]*rtanalpha)), 1.-M_conc[cpt]);
-            tmp_conc+=conc_thin;
+            total_concentration += conc_thin;
+            total_thickness     += M_h_thin[cpt];
+            total_snow          += M_hs_thin[cpt];
         }
 
-        double tmp_thick=(vm["simul.min_h"].as<double>()>M_thick[cpt]) ? vm["simul.min_h"].as<double>() : M_thick[cpt];
-        tmp_conc=(vm["simul.min_c"].as<double>()>tmp_conc) ? vm["simul.min_c"].as<double>() : tmp_conc;
+        // Limits to avoid very small values
+        total_thickness =       (vm["simul.min_h"].as<double>()>total_thickness)        ? vm["simul.min_h"].as<double>() : total_thickness;
+        total_concentration =   (vm["simul.min_c"].as<double>()>total_concentration)    ? vm["simul.min_c"].as<double>() : total_concentration;
 
         int index_u, index_v;
 
@@ -2167,7 +2175,7 @@ FiniteElement::assemble(int pcpt)
         double critical_h = 0.;
         
         
-        if(tmp_conc > vm["simul.min_c"].as<double>())
+        if(total_concentration > vm["simul.min_c"].as<double>())
         {
 
             /* Compute the value that only depends on the element */
@@ -2188,29 +2196,29 @@ FiniteElement::assemble(int pcpt)
             
     #if 1
             //option 1 (original)
-            coef = multiplicator*young*(1.-M_damage[cpt])*tmp_thick*std::exp(ridging_exponent*(1.-tmp_conc));
+            coef = multiplicator*young*(1.-M_damage[cpt])*M_thick[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt]));
 
     #else
             //option 2 (we just change the value of the ridging exponent and we renamed it "damaging_exponent")
             double damaging_exponent = -80.;
-            double coef = young*(1.-M_damage[cpt])*tmp_thick*std::exp(damaging_exponent*(1.-tmp_conc));
+            double coef = young*(1.-M_damage[cpt])*M_thick[cpt]*std::exp(damaging_exponent*(1.-M_conc[cpt]));
     #endif
             //option 3: We change the formulation of f(A) and make it piecewise linear between limit_conc_fordamage and 1, and 0 otherwise
             //double factor = 0.;
             //double limit_conc_fordamage = 0.;
             //limit_conc_fordamage=0.95;
-            //if(tmp_conc<limit_conc_fordamage)
+            //if(M_conc[cpt]<limit_conc_fordamage)
             //{
             //factor=0.;
             //}
             //else
             //{
-            //factor=(tmp_conc-limit_conc_fordamage)/(1.-limit_conc_fordamage);
+            //factor=(M_conc[cpt]-limit_conc_fordamage)/(1.-limit_conc_fordamage);
             //}
-            //double coef = young*(1.-M_damage[cpt])*tmp_thick*factor;
+            //double coef = young*(1.-M_damage[cpt])*M_thick[cpt]*factor;
 
             if (vm["simul.use_coriolis"].as<bool>())
-                mass_e = (rhoi*tmp_thick + rhos*M_snow_thick[cpt])/tmp_conc;
+                mass_e = (rhoi*total_thickness + rhos*total_snow)/total_concentration;
             else
                 mass_e=0.;
 
@@ -2257,8 +2265,7 @@ FiniteElement::assemble(int pcpt)
             Vcor_index_v=beta0*M_VT[index_v] + beta1*M_VTM[index_v] + beta2*M_VTMM[index_v];
             Vcor_index_u=beta0*M_VT[index_u] + beta1*M_VTM[index_u] + beta2*M_VTMM[index_u];
 
-            double coef_sigma = tmp_thick*multiplicator;
-            coef_sigma = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_sigma):0.;
+            double coef_sigma = M_thick[cpt]*multiplicator;
 
             for(int i=0; i<3; i++)
             {
@@ -2298,13 +2305,6 @@ FiniteElement::assemble(int pcpt)
                 coef_basal = basal_k2/norm_Vice;
                 coef_basal *= std::max(0., M_thick[cpt]-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
                    
-                if(tmp_conc == vm["simul.min_c"].as<double>())
-                {
-                    coef_Voce=0.;
-                    coef_Vair=0.;
-                    coef_basal=0.;
-                }
-                
                 duu = surface_e*( mloc*(coef_V)
                                   +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)  
                                   +M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*time_step);
