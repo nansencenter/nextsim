@@ -2173,7 +2173,10 @@ FiniteElement::assemble(int pcpt)
         
         double element_ssh=0.;
         double critical_h = 0.;
-        
+        double max_keel_height=28; // [m] from "A comprehensive analysis of the morphology of first-year sea ice ridges"
+        double ice_to_keel_factor=19.28; // from "A comprehensive analysis of the morphology of first-year sea ice ridges"
+        double keel_height_estimate;
+        double critical_h_mod=0.; 
         
         if(total_concentration > vm["simul.min_c"].as<double>())
         {
@@ -2190,10 +2193,20 @@ FiniteElement::assemble(int pcpt)
             }
             
             element_ssh = welt_ssh/3.;
+            
             //critical_h = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
             //critical_h = M_conc[cpt]/(physical::rhoi/physical::rhow)*(M_element_depth[cpt]+element_ssh)/vm["simul.Lemieux_basal_gamma"].as<double>();
-            critical_h = M_conc[cpt]/(physical::rhoi/physical::rhow)*std::pow((M_element_depth[cpt]+element_ssh)/20.,2.); // As in Amundrud et al. [2004] figure 5
+            //critical_h = M_conc[cpt]/(physical::rhoi/physical::rhow)*std::pow((M_element_depth[cpt]+element_ssh)/20.,2.); // As in Amundrud et al. [2004] figure 5
+           
+            if(M_conc[cpt]>vm["simul.min_c"].as<double>())
+            {
+                keel_height_estimate = ice_to_keel_factor*std::pow(M_thick[cpt]/M_conc[cpt],0.5);
+                keel_height_estimate = ( keel_height_estimate > max_keel_height ) ? max_keel_height : keel_height_estimate;
             
+                critical_h      = M_conc[cpt]*std::pow((M_element_depth[cpt]+element_ssh)/ice_to_keel_factor,2.); 
+                critical_h_mod  = M_conc[cpt]*std::pow(keel_height_estimate/ice_to_keel_factor,2.); 
+            } 
+
     #if 1
             //option 1 (original)
             coef = multiplicator*young*(1.-M_damage[cpt])*M_thick[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt]));
@@ -2303,7 +2316,8 @@ FiniteElement::assemble(int pcpt)
                 norm_Vice = (norm_Vice > basal_u_0) ? (norm_Vice):basal_u_0;
                                 
                 coef_basal = basal_k2/norm_Vice;
-                coef_basal *= std::max(0., M_thick[cpt]-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
+                //coef_basal *= std::max(0., M_thick[cpt]-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
+                coef_basal *= std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
                    
                 duu = surface_e*( mloc*(coef_V)
                                   +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)  
@@ -5819,6 +5833,9 @@ FiniteElement::targetIce()
     auto RX = M_mesh.bcoordX();
     auto RY = M_mesh.bcoordY();
     double cmin= 0.;
+            
+    double conc_thin;
+    double const rtanalpha = c_thin_max/h_thin_max;
 
     for (int i=0; i<M_num_elements; ++i)
     {
@@ -5849,8 +5866,6 @@ FiniteElement::targetIce()
             M_h_thin[i]     = vm["simul.init_thin_max_thickness"].as<double>();
             
             // Re-create the variable 'concentration of thin ice'
-            double conc_thin;
-            double const rtanalpha = c_thin_max/h_thin_max;
             conc_thin = std::min(std::min(M_h_thin[i]/physical::hmin,
                             std::sqrt(2.*M_h_thin[i]*rtanalpha)), 1.-M_conc[i]);
             
