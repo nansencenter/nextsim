@@ -459,8 +459,6 @@ FiniteElement::initConstant()
         ("winton", setup::ThermoType::WINTON);
     M_thermo_type = str2thermo.find(vm["setup.thermo-type"].as<std::string>())->second;
 
-    std::cout << "Here\n";
-
     const boost::unordered_map<const std::string, setup::AtmosphereType> str2atmosphere = boost::assign::map_list_of
         ("constant", setup::AtmosphereType::CONSTANT)
         ("asr", setup::AtmosphereType::ASR)
@@ -470,8 +468,6 @@ FiniteElement::initConstant()
         ("cfsr", setup::AtmosphereType::CFSR)
         ("cfsr_hi", setup::AtmosphereType::CFSR_HI);
     M_atmosphere_type = str2atmosphere.find(vm["setup.atmosphere-type"].as<std::string>())->second;
-
-    std::cout<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
 
     switch(M_atmosphere_type){
         case setup::AtmosphereType::CONSTANT:   quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>(); break;
