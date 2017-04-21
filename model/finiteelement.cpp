@@ -7710,7 +7710,7 @@ FiniteElement::system(std::string const& command)
 std::string
 FiniteElement::getEnv(std::string const& envname)
 {
-    char* senv = ::getenv(envname.c_str());
+    const char* senv = ::getenv(envname.c_str());
     if ( senv == NULL )
         senv = "NULL";
     return std::string(senv);
