@@ -2765,6 +2765,165 @@ namespace Nextsim
       averaging_period=0.;
       time= time_tmp;
       }
+     else if (strcmp (DatasetName, "cfsr_nodes_hi") == 0)
+     {
+     // Definition of dimensions
+     Dimension dimension_x={
+          name:"lon",
+          cyclic:true
+     };
+
+     Dimension dimension_y={
+          name:"lat",
+          cyclic:false
+     };
+
+     Dimension dimension_time={
+          name:"time1", // "Time"
+          cyclic:false};
+
+     // Definition of the grid
+      std::vector<Dimension> dimensions_lon(1);
+      dimensions_lon[0] = dimension_x;
+
+      std::vector<Dimension> dimensions_lat(1);
+      dimensions_lat[0] = dimension_y;
+
+      Variable latitude={
+          name: "lat",
+          dimensions: dimensions_lat,
+          land_mask_defined: false,
+          land_mask_value: 0.,
+          NaN_mask_defined: false,
+          NaN_mask_value: 0.,
+          a: 1.,
+          b: 0.,
+          Units: "degree_north",
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
+
+      Variable longitude={
+          name: "lon",
+          dimensions: dimensions_lon,
+          land_mask_defined: false,
+          land_mask_value: 0.,
+          NaN_mask_defined: false,
+          NaN_mask_value: 0.,
+          a: 1.,
+          b: 0.,
+          Units: "degree_east",
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
+
+      Grid grid_tmp={
+        interpolation_method: InterpolationType::FromGridToMesh,
+        //interp_type : TriangleInterpEnum, // slower
+        interp_type : BilinearInterpEnum,
+        //interp_type : NearestInterpEnum,
+        dirname:"data",
+        prefix: "cfsr_h.3h.",
+        postfix:".nc",
+        reference_date:"1901-01-01",
+
+        latitude: latitude,
+        longitude: longitude,
+
+        dimension_x: dimension_x,
+        dimension_y: dimension_y,
+
+        mpp_file: "",
+        interpolation_in_latlon: true,
+
+        loaded: false,
+
+        dataset_frequency:"monthly",
+
+        waveOptions: wavopt_none,
+
+        masking: false
+    };
+
+     grid= grid_tmp;
+
+     // Definition of the data
+
+     std::vector<Dimension> dimensions_time(1);
+     dimensions_time[0] = dimension_time;
+
+     std::vector<Dimension> dimensions(3);
+     dimensions[0] = dimension_time;
+     dimensions[1] = dimension_y;
+     dimensions[2] = dimension_x;
+
+     Variable time_tmp={
+         name: "time1",
+         dimensions: dimensions_time,
+         land_mask_defined: false,
+         land_mask_value: 0.,
+         NaN_mask_defined: false,
+         NaN_mask_value: 0.,
+         a: 1.,
+         b: 0.,
+         Units: "hours",
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
+     };
+
+      // conversion factors: xnew = a*x + b
+      Variable u={
+          name: "U_GRD_L103", // U10M
+          dimensions: dimensions,
+          land_mask_defined: false,
+          land_mask_value: 0.,
+          NaN_mask_defined: false,
+          NaN_mask_value: 0.,
+          a: 1.,
+          b: 0.,
+          Units: "m/s",
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
+      };
+
+      Variable v={
+          name: "V_GRD_L103", // U10M
+          dimensions: dimensions,
+          land_mask_defined: false,
+          land_mask_value: 0.,
+          NaN_mask_defined: false,
+          NaN_mask_value: 0.,
+          a: 1.,
+          b: 0.,
+          Units: "m/s",
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
+      };
+
+      std::vector<Variable> variables_tmp(2);
+      variables_tmp[0] = u;
+      variables_tmp[1] = v;
+
+      std::vector<int> uv_tmp(2);
+          uv_tmp[0] = 0;
+          uv_tmp[1] = 1;
+
+      Vectorial_Variable uv={
+          components_Id: uv_tmp,
+          east_west_oriented: true
+      };
+
+      std::vector<Vectorial_Variable> vectorial_variables_tmp(1);
+      vectorial_variables_tmp[0] = uv;
+
+      variables= variables_tmp;
+      vectorial_variables= vectorial_variables_tmp;
+      target_size= target_size_tmp;
+
+      loaded=false;
+      interpolated=false;
+
+      averaging_period=0.;
+      time= time_tmp;
+      }
      else if (strcmp (DatasetName, "ERAi_elements") == 0)
      {
      	// Definition of dimensions
