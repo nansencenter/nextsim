@@ -2835,18 +2835,21 @@ FiniteElement::update()
         sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
         sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
 
-        q=std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
-        sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
+        double ridge_to_normal_cohesion_ratio=vm["simul.ridge_to_normal_cohesion_ratio"].as<double>();
+        double effective_cohesion=M_Cohesion[cpt]*(1. + M_ridge_ratio[cpt]*(ridge_to_normal_cohesion_ratio-1.) );
+        double effective_compressive_strength=M_Compressive_strength[cpt]*(1. + M_ridge_ratio[cpt]*(ridge_to_normal_cohesion_ratio-1.) );
 
+        q=std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
+        sigma_c=2.*effective_cohesion/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
         sigma_t=-sigma_c/q;
 
         /* minimum and maximum normal stress */
-        tract_max=-tract_coef*M_Cohesion[cpt]/tan_phi;
+        tract_max=-tract_coef*effective_cohesion/tan_phi;
 
         /* Correction of the damage */
-        if(sigma_n>M_Compressive_strength[cpt])
+        if(sigma_n>effective_compressive_strength)
         {
-            sigma_target=M_Compressive_strength[cpt];
+            sigma_target=effective_compressive_strength;
 
             tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
 
