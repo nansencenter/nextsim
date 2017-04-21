@@ -165,6 +165,7 @@ namespace Nextsim
             ("simul.ERAi_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("simul.ECMWF_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("simul.ASR_quad_drag_coef_air", po::value<double>()->default_value( 0.0049 ), "")
+            ("simul.CFSR_quad_drag_coef_air", po::value<double>()->default_value( 0.0036 ), "") // Initial value - consistent with Schweiger and Zhang, 2015
             ("simul.lin_drag_coef_air", po::value<double>()->default_value( 0. ), "")
             ("simul.quad_drag_coef_water", po::value<double>()->default_value( 0.0055 ), "")
             ("simul.lin_drag_coef_water", po::value<double>()->default_value( 0. ), "")

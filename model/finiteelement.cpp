@@ -471,7 +471,7 @@ FiniteElement::initConstant()
     switch(M_atmosphere_type){
         case setup::AtmosphereType::CONSTANT:   quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ASR:        quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>(); break;
-        case setup::AtmosphereType::CFSR:       quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>(); break;
+        case setup::AtmosphereType::CFSR:       quad_drag_coef_air = vm["simul.CFSR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ERAi:       quad_drag_coef_air = vm["simul.ERAi_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::EC:
         case setup::AtmosphereType::EC_ERAi:
