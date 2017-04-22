@@ -137,6 +137,7 @@ public:
     Dataset M_bathymetry_elements_dataset;
 
     Dataset M_ice_topaz_elements_dataset;
+    Dataset M_ice_icesat_elements_dataset;
     Dataset M_ice_piomas_elements_dataset;
     Dataset M_ice_amsre_elements_dataset;
     Dataset M_ice_osisaf_elements_dataset;
@@ -485,6 +486,7 @@ private:
     void targetIce();
     void binaryIce();
     void topazIce();
+    void topazIceOsisafIcesat();
     void piomasIce();
     void topazForecastIce();
     void topazForecastAmsr2Ice();
