@@ -2708,6 +2708,12 @@ FiniteElement::update()
         double epsilon_veloc_i;
         std::vector<double> epsilon_veloc(3);
         double divergence_rate;
+        double shear_rate;
+
+        // ridging scheme
+        double delta_ridging;
+        double G_star=0.15;
+        double e_factor=2.;
 
         std::vector<double> sigma_pred(3);
         double sigma_dot_i;
@@ -2721,12 +2727,71 @@ FiniteElement::update()
 
         // Temporary memory
         old_damage = M_damage[cpt];
+        
+        /*======================================================================
+         * Diagnostic:
+         * Elastic deformation and instantaneous deformation rate
+         *======================================================================
+         */
+
+        /* Compute the elastic deformation and the instantaneous deformation rate */
+        for(int i=0;i<3;i++)
+        {
+            epsilon_veloc_i = 0.0;
+            for(int j=0;j<3;j++)
+            {
+                /* deformation */
+                //col = (mwIndex)it[j]-1;
+                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j]*M_VT[(M_elements[cpt]).indices[j]-1]  ;
+                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j + 1]*M_VT[(M_elements[cpt]).indices[j]-1+M_num_nodes]  ;
+            }
+
+            epsilon_veloc[i] = epsilon_veloc_i;
+        }
+
+        divergence_rate= (epsilon_veloc[0]+epsilon_veloc[1]);
+        shear_rate= std::hypot(epsilon_veloc[0]-epsilon_veloc[1],epsilon_veloc[2]);
+        delta_ridging= std::hypot(divergence_rate,shear_rate/e_factor);
 
        /*======================================================================
         * Ridging scheme 
         * After the advection the concentration can be higher than 1, meaning that ridging should have occured.
         *======================================================================
         */
+        //if(M_conc[cpt]>1.)
+        //{
+        //    M_ridge_ratio[cpt]=M_ridge_ratio[cpt]+(1.-M_ridge_ratio[cpt])*(M_conc[cpt]-1.)/M_conc[cpt];
+        //    M_conc[cpt]=1.;
+        //}
+        //
+        double open_water_concentration=1.-M_conc[cpt];
+        
+        /* Thin ice category */    
+        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        {
+            // Re-create the variable 'concentration of thin ice'
+            double conc_thin = std::min(M_h_thin[cpt]/physical::hmin,
+                            std::sqrt(2.*M_h_thin[cpt]*rtanalpha));
+            open_water_concentration-=conc_thin;
+        }
+        // limit open_water concentration to 0.
+        //open_water_concentration=(open_water_concentration<0.)?0.:open_water_concentration;
+
+        // ridging scheme
+        double opening_factor=(open_water_concentration>G_star)?0.:std::pow(1.-open_water_concentration/G_star,2.);
+        open_water_concentration+=time_step*0.5*(delta_ridging-divergence_rate)*opening_factor;
+        
+        /* Thin ice category */
+        double conc_thin=0.;   
+        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        {
+            // Re-create the variable 'concentration of thin ice'
+            conc_thin = std::max(1.-M_conc[cpt]-open_water_concentration,0.);
+            M_h_thin[cpt]=std::pow(conc_thin,2.)/(2.*rtanalpha);
+        }
+        
+        M_conc[cpt]=1.-conc_thin-open_water_concentration;
+
         if(M_conc[cpt]>1.)
         {
             M_ridge_ratio[cpt]=M_ridge_ratio[cpt]+(1.-M_ridge_ratio[cpt])*(M_conc[cpt]-1.)/M_conc[cpt];
@@ -2757,28 +2822,6 @@ FiniteElement::update()
         
         
 
-        /*======================================================================
-         * Diagnostic:
-         * Elastic deformation and instantaneous deformation rate
-         *======================================================================
-         */
-
-        /* Compute the elastic deformation and the instantaneous deformation rate */
-        for(int i=0;i<3;i++)
-        {
-            epsilon_veloc_i = 0.0;
-            for(int j=0;j<3;j++)
-            {
-                /* deformation */
-                //col = (mwIndex)it[j]-1;
-                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j]*M_VT[(M_elements[cpt]).indices[j]-1]  ;
-                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j + 1]*M_VT[(M_elements[cpt]).indices[j]-1+M_num_nodes]  ;
-            }
-
-            epsilon_veloc[i] = epsilon_veloc_i;
-        }
-
-        divergence_rate= (epsilon_veloc[0]+epsilon_veloc[1]);
 
         /*======================================================================
          * Update the internal stress
