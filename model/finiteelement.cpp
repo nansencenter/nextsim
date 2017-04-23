@@ -2819,7 +2819,7 @@ FiniteElement::update()
             //sigma_dot_i += factor*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
             }
             
-            sigma_pred[i] = (M_sigma[3*cpt+i]+4*time_step*sigma_dot_i)*multiplicator;
+            sigma_pred[i] = (M_sigma[3*cpt+i]+2*time_step*sigma_dot_i)*multiplicator;
             sigma_pred[i] = (M_conc[cpt] > vm["simul.min_c"].as<double>()) ? (sigma_pred[i]):0.;
             
             M_sigma[3*cpt+i] = (M_sigma[3*cpt+i]+time_step*sigma_dot_i)*multiplicator;
