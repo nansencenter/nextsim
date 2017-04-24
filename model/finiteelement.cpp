@@ -187,17 +187,17 @@ FiniteElement::initVariables()
     M_h_thin.assign(M_num_elements,0.);
     M_hs_thin.assign(M_num_elements,0.);
     M_tsurf_thin.assign(M_num_elements,0.);
-
+    
     M_sigma.resize(3*M_num_elements,0.);
 
     M_random_number.resize(M_num_elements);
     for (int i=0; i<M_random_number.size(); ++i)
         M_random_number[i] = static_cast <double> (std::rand()) / static_cast <double> (RAND_MAX);
 
-
     M_conc.resize(M_num_elements);
     M_thick.resize(M_num_elements);
     M_damage.resize(M_num_elements);
+    M_ridge_ratio.assign(M_num_elements,0.);
     M_snow_thick.resize(M_num_elements);
 
     M_sst.resize(M_num_elements);
@@ -488,12 +488,14 @@ FiniteElement::initConstant()
         ("ec", setup::AtmosphereType::EC)
         ("ec_erai", setup::AtmosphereType::EC_ERAi)
         ("cfsr", setup::AtmosphereType::CFSR);
+        ("cfsr_hi", setup::AtmosphereType::CFSR_HI);
     M_atmosphere_type = str2atmosphere.find(vm["setup.atmosphere-type"].as<std::string>())->second;
 
     switch(M_atmosphere_type){
         case setup::AtmosphereType::CONSTANT:   quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ASR:        quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>(); break;
-        case setup::AtmosphereType::CFSR:       quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>(); break;
+        case setup::AtmosphereType::CFSR_HI:
+        case setup::AtmosphereType::CFSR:       quad_drag_coef_air = vm["simul.CFSR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ERAi:       quad_drag_coef_air = vm["simul.ERAi_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::EC:
         case setup::AtmosphereType::EC_ERAi:
@@ -549,24 +551,18 @@ FiniteElement::initConstant()
         ("etopo", setup::BathymetryType::ETOPO);
     M_bathymetry_type = str2bathymetry.find(vm["setup.bathymetry-type"].as<std::string>())->second;
 
-    M_iabp_drifters_output_time_step=vm["simul.iabp_drifters_output_time_step"].as<double>()*days_in_sec;
-    M_drifters_output_time_step=vm["simul.equallyspaced_drifters_output_time_step"].as<double>()*days_in_sec;
-    M_rgps_drifters_output_time_step=vm["simul.rgps_drifters_output_time_step"].as<double>()*days_in_sec;
-    M_osisaf_drifters_output_time_step=vm["simul.osisaf_drifters_output_time_step"].as<double>()*days_in_sec;
+    M_use_iabp_drifters=vm["simul.use_iabp_drifters"].as<bool>();
+    M_equallyspaced_drifters_output_time_step=vm["simul.equallyspaced_drifters_output_time_step"].as<double>();
+    M_rgps_drifters_output_time_step=vm["simul.rgps_drifters_output_time_step"].as<double>();
+    M_use_osisaf_drifters=vm["simul.use_osisaf_drifters"].as<bool>();
     
-    M_iabp_drifters_activated=false;
-    M_drifters_activated=false;
-    M_rgps_drifters_activated=false;
-    M_osisaf_drifters_activated=false;
+    M_use_equallyspaced_drifters=false;
+    M_use_rgps_drifters=false;
     
-    if(M_iabp_drifters_output_time_step>0.)
-        M_iabp_drifters_activated=true;
-    if(M_drifters_output_time_step>0.)
-        M_drifters_activated=true;
+    if(M_equallyspaced_drifters_output_time_step>0.)
+        M_use_equallyspaced_drifters=true;
     if(M_rgps_drifters_output_time_step>0.)
-        M_rgps_drifters_activated=true;
-    if(M_osisaf_drifters_output_time_step>0.)
-        M_osisaf_drifters_activated=true;
+        M_use_rgps_drifters=true;
 
     M_mesh_filename = vm["simul.mesh_filename"].as<std::string>();
 
@@ -1284,7 +1280,8 @@ FiniteElement::regrid(bool step)
 			M_snow_thick.assign(M_num_elements,0.);
 			M_sigma.assign(3*M_num_elements,0.);
 			M_damage.assign(M_num_elements,0.);
-
+            M_ridge_ratio.assign(M_num_elements,0.);
+            
 			M_random_number.resize(M_num_elements);
 
             for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
@@ -1293,6 +1290,7 @@ FiniteElement::regrid(bool step)
             M_h_thin.assign(M_num_elements,0.);
             M_hs_thin.assign(M_num_elements,0.);
             M_tsurf_thin.assign(M_num_elements,0.);
+            
 
 #if defined (WAVES)
             bool nfloes_interp = M_use_wim;
@@ -1389,83 +1387,6 @@ FiniteElement::regrid(bool step)
 			LOG(DEBUG) <<"NODAL: Interp done\n";
 			LOG(DEBUG) <<"Nodal interp done in "<< chrono.elapsed() <<"s\n";
 
-            // Drifters - if requested
-            if ( M_iabp_drifters_activated )
-            {
-                chrono.restart();
-                LOG(DEBUG) <<"Drifter starts\n";
-                LOG(DEBUG) <<"DRIFTER: Interp starts\n";
-
-                // Assemble the coordinates from the unordered_map
-                std::vector<double> drifter_X(M_iabp_drifters.size());
-                std::vector<double> drifter_Y(M_iabp_drifters.size());
-                int j=0;
-                for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
-                {
-                    drifter_X[j] = it->second[0];
-                    drifter_Y[j] = it->second[1];
-                    ++j;
-                }
-
-                // Interpolate the total displacement and concentration onto the drifter positions
-                nb_var=2;
-                std::vector<double> interp_drifter_in(nb_var*M_mesh.numNodes());
-
-                // Interpolate the velocity
-                for (int i=0; i<M_mesh.numNodes(); ++i)
-                {
-                    interp_drifter_in[nb_var*i]   = M_UT[i];
-                    interp_drifter_in[nb_var*i+1] = M_UT[i+M_mesh.numNodes()];
-                }
-
-                double* interp_drifter_out;
-                InterpFromMeshToMesh2dx(&interp_drifter_out,
-                                        &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-                                        M_mesh.numNodes(),M_mesh.numTriangles(),
-                                        &interp_drifter_in[0],
-                                        M_mesh.numNodes(),nb_var,
-                                        &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
-                                        true, 0.);
-
-
-                // Interpolate the concentration - re-use interp_drifter_in
-                interp_drifter_in.resize(M_mesh.numTriangles());
-                for (int i=0; i<M_mesh.numTriangles(); ++i)
-                {
-                    interp_drifter_in[i]   = M_conc[i];
-                }
-
-                double* interp_drifter_c_out;
-                InterpFromMeshToMesh2dx(&interp_drifter_c_out,
-                                        &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-                                        M_mesh.numNodes(),M_mesh.numTriangles(),
-                                        &interp_drifter_in[0],
-                                        M_mesh.numTriangles(),1,
-                                        &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
-                                        true, 0.);
-
-                // Rebuild the M_iabp_drifters map
-                double clim = vm["simul.drifter_climit"].as<double>();
-                j=0;
-                for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); /* ++it is not allowed here, because we use 'erase' */ )
-                {
-                    if ( interp_drifter_c_out[j] > clim )
-                    {
-                        M_iabp_drifters[it->first] = std::array<double,2> {it->second[0]+interp_drifter_out[nb_var*j], it->second[1]+interp_drifter_out[nb_var*j+1]};
-                        ++it;
-                    } else {
-                        // Throw out drifters that drift out of the ice
-                        it = M_iabp_drifters.erase(it);
-                    }
-                    ++j;
-                }
-
-                xDelete<double>(interp_drifter_out);
-                xDelete<double>(interp_drifter_c_out);
-
-                LOG(DEBUG) <<"DRIFTER: Interp done\n";
-                LOG(DEBUG) <<"Drifter interp done in "<< chrono.elapsed() <<"s\n";
-            }
 		}
 	}
 
@@ -1476,10 +1397,6 @@ FiniteElement::regrid(bool step)
 			// UM
 			M_UM[i] = 0.;
 			M_UM[i+M_num_nodes] = 0.;
-
-			// UT
-			M_UT[i] = 0.;
-			M_UT[i+M_num_nodes] = 0.;
 		}
 
         //M_matrix->init(2*M_num_nodes,2*M_num_nodes,22);
@@ -1578,7 +1495,7 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var)
 		int tmp_nb_var=0;
 
 		// concentration
-		M_conc[i] = std::max(0., std::min(1.,interp_elt_out[nb_var*i+tmp_nb_var]));
+		M_conc[i] = std::max(0., interp_elt_out[nb_var*i+tmp_nb_var]);
 		tmp_nb_var++;
 
 		// thickness
@@ -1606,6 +1523,10 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var)
             // damage
 		    M_damage[i] = std::max(0., std::min(1.,interp_elt_out[nb_var*i+tmp_nb_var]));
 		    tmp_nb_var++;
+            
+            // damage
+		    M_ridge_ratio[i] = std::max(0., std::min(1.,interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i]));
+		    tmp_nb_var++;
 		}
 		else
 		{
@@ -1623,6 +1544,10 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var)
 
             // damage
 		    M_damage[i] = 1.;
+		    tmp_nb_var++;
+            
+            // damage
+		    M_ridge_ratio[i] = 0.;
 		    tmp_nb_var++;
 		}
 
@@ -1711,6 +1636,12 @@ FiniteElement::advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
     // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
     // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
 
+    // increment M_UT that is used for the drifters
+    for (int nd=0; nd<M_UM.size(); ++nd)
+    {
+        M_UT[nd] += time_step*M_VT[nd]; // Total displacement (for drifters)
+    }
+
     if(ALE_smoothing_step_nb>=0)
     {
         std::vector<double> M_VT_smoothed = M_VT;
@@ -1746,7 +1677,6 @@ FiniteElement::advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
         for (int nd=0; nd<M_UM.size(); ++nd)
         {
             M_UM[nd] += time_step*M_VT_smoothed[nd];
-            M_UT[nd] += time_step*M_VT[nd]; // Total displacement (for drifters)
         }
 
         // set back the neumann nodes (open boundaries) at their position, the fluxes will be computed thanks to the convective velocity
@@ -1850,7 +1780,7 @@ FiniteElement::advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
 
         surface = this->measure(M_elements[cpt],M_mesh, UM_P);
         surface_new = this->measure(M_elements[cpt],M_mesh,M_UM);
-
+        M_surface[cpt] = surface_new;
 
         for(int j=0; j<nb_var; j++)
         {
@@ -1876,7 +1806,7 @@ int
 FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_ptr, int prv_num_elements)
 {
     // ELEMENT INTERPOLATION With Cavities
-	int nb_var=11 + M_tice.size();
+	int nb_var=12 + M_tice.size();
 
 #if defined (WAVES)
     // coupling with wim
@@ -1942,6 +1872,11 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
 		// damage
 		interp_elt_in[nb_var*i+tmp_nb_var] = M_damage[i];
         interp_method[tmp_nb_var] = 0;
+		tmp_nb_var++;
+
+		// damage
+		interp_elt_in[nb_var*i+tmp_nb_var] = M_ridge_ratio[i]*M_thick[i];
+        interp_method[tmp_nb_var] = 1;
 		tmp_nb_var++;
 
 		// random_number
@@ -2193,6 +2128,8 @@ FiniteElement::assemble(int pcpt)
     double cos_ocean_turning_angle=std::cos(ocean_turning_angle_rad);
     double sin_ocean_turning_angle=std::sin(ocean_turning_angle_rad);
 
+    double const rtanalpha = c_thin_max/h_thin_max;
+
     // ---------- Assembling starts -----------
     LOG(DEBUG) <<"Assembling starts\n";
     chrono.restart();
@@ -2211,9 +2148,25 @@ FiniteElement::assemble(int pcpt)
         //     std::cout<<"Total number of threads are "<< total_threads <<"\n";
         // }
 
+        // total thickness and concentration
+        double total_concentration=M_conc[cpt];
+        double total_thickness=M_thick[cpt];
+        double total_snow=M_snow_thick[cpt];
+       
+        // Add the thin ice concentration and thickness 
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {            
+            // Re-create the variable 'concentration of thin ice'
+            double conc_thin = std::min(std::min(M_h_thin[cpt]/physical::hmin,
+                            std::sqrt(2.*M_h_thin[cpt]*rtanalpha)), 1.-M_conc[cpt]);
+            total_concentration += conc_thin;
+            total_thickness     += M_h_thin[cpt];
+            total_snow          += M_hs_thin[cpt];
+        }
 
-        double tmp_thick=(vm["simul.min_h"].as<double>()>M_thick[cpt]) ? vm["simul.min_h"].as<double>() : M_thick[cpt];
-        double tmp_conc=(vm["simul.min_c"].as<double>()>M_conc[cpt]) ? vm["simul.min_c"].as<double>() : M_conc[cpt];
+        // Limits to avoid very small values
+        total_thickness =       (vm["simul.min_h"].as<double>()>total_thickness)        ? vm["simul.min_h"].as<double>() : total_thickness;
+        total_concentration =   (vm["simul.min_c"].as<double>()>total_concentration)    ? vm["simul.min_c"].as<double>() : total_concentration;
 
         int index_u, index_v;
 
@@ -2249,9 +2202,12 @@ FiniteElement::assemble(int pcpt)
         
         double element_ssh=0.;
         double critical_h = 0.;
+        double max_keel_height=28; // [m] from "A comprehensive analysis of the morphology of first-year sea ice ridges"
+        double ice_to_keel_factor=19.28; // from "A comprehensive analysis of the morphology of first-year sea ice ridges"
+        double keel_height_estimate;
+        double critical_h_mod=0.; 
         
-        
-        if(tmp_conc > vm["simul.min_c"].as<double>())
+        if(total_concentration > vm["simul.min_c"].as<double>())
         {
 
             /* Compute the value that only depends on the element */
@@ -2266,33 +2222,45 @@ FiniteElement::assemble(int pcpt)
             }
             
             element_ssh = welt_ssh/3.;
-            critical_h = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
             
+            //critical_h = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
+            //critical_h = M_conc[cpt]/(physical::rhoi/physical::rhow)*(M_element_depth[cpt]+element_ssh)/vm["simul.Lemieux_basal_gamma"].as<double>();
+            //critical_h = M_conc[cpt]/(physical::rhoi/physical::rhow)*std::pow((M_element_depth[cpt]+element_ssh)/20.,2.); // As in Amundrud et al. [2004] figure 5
+           
+            if(M_conc[cpt]>vm["simul.min_c"].as<double>())
+            {
+                keel_height_estimate = ice_to_keel_factor*std::pow(M_thick[cpt]/M_conc[cpt],0.5);
+                keel_height_estimate = ( keel_height_estimate > max_keel_height ) ? max_keel_height : keel_height_estimate;
+            
+                critical_h      = M_conc[cpt]*std::pow((M_element_depth[cpt]+element_ssh)/ice_to_keel_factor,2.); 
+                critical_h_mod  = M_conc[cpt]*std::pow(keel_height_estimate/ice_to_keel_factor,2.); 
+            } 
+
     #if 1
             //option 1 (original)
-            coef = multiplicator*young*(1.-M_damage[cpt])*tmp_thick*std::exp(ridging_exponent*(1.-tmp_conc));
+            coef = multiplicator*young*(1.-M_damage[cpt])*M_thick[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt]));
 
     #else
             //option 2 (we just change the value of the ridging exponent and we renamed it "damaging_exponent")
             double damaging_exponent = -80.;
-            double coef = young*(1.-M_damage[cpt])*tmp_thick*std::exp(damaging_exponent*(1.-tmp_conc));
+            double coef = young*(1.-M_damage[cpt])*M_thick[cpt]*std::exp(damaging_exponent*(1.-M_conc[cpt]));
     #endif
             //option 3: We change the formulation of f(A) and make it piecewise linear between limit_conc_fordamage and 1, and 0 otherwise
             //double factor = 0.;
             //double limit_conc_fordamage = 0.;
             //limit_conc_fordamage=0.95;
-            //if(tmp_conc<limit_conc_fordamage)
+            //if(M_conc[cpt]<limit_conc_fordamage)
             //{
             //factor=0.;
             //}
             //else
             //{
-            //factor=(tmp_conc-limit_conc_fordamage)/(1.-limit_conc_fordamage);
+            //factor=(M_conc[cpt]-limit_conc_fordamage)/(1.-limit_conc_fordamage);
             //}
-            //double coef = young*(1.-M_damage[cpt])*tmp_thick*factor;
+            //double coef = young*(1.-M_damage[cpt])*M_thick[cpt]*factor;
 
             if (vm["simul.use_coriolis"].as<bool>())
-                mass_e = (rhoi*tmp_thick + rhos*M_snow_thick[cpt])/tmp_conc;
+                mass_e = (rhoi*total_thickness + rhos*total_snow)/total_concentration;
             else
                 mass_e=0.;
 
@@ -2339,8 +2307,7 @@ FiniteElement::assemble(int pcpt)
             Vcor_index_v=beta0*M_VT[index_v] + beta1*M_VTM[index_v] + beta2*M_VTMM[index_v];
             Vcor_index_u=beta0*M_VT[index_u] + beta1*M_VTM[index_u] + beta2*M_VTMM[index_u];
 
-            double coef_sigma = tmp_thick*multiplicator;
-            coef_sigma = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_sigma):0.;
+            double coef_sigma = M_thick[cpt]*multiplicator;
 
             for(int i=0; i<3; i++)
             {
@@ -2378,15 +2345,9 @@ FiniteElement::assemble(int pcpt)
                 norm_Vice = (norm_Vice > basal_u_0) ? (norm_Vice):basal_u_0;
                                 
                 coef_basal = basal_k2/norm_Vice;
-                coef_basal *= std::max(0., M_thick[cpt]-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
+                //coef_basal *= std::max(0., M_thick[cpt]-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
+                coef_basal *= std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
                    
-                if(tmp_conc == vm["simul.min_c"].as<double>())
-                {
-                    coef_Voce=0.;
-                    coef_Vair=0.;
-                    coef_basal=0.;
-                }
-                
                 duu = surface_e*( mloc*(coef_V)
                                   +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)  
                                   +M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*time_step);
@@ -2757,7 +2718,11 @@ FiniteElement::update()
 	xDelete<double>(interp_elt_out);
     xDelete<int>(interp_method);
 	xDelete<double>(interp_elt_in);
-
+    
+    // Constant values
+    double const tanalpha  = h_thin_max/c_thin_max;
+    double const rtanalpha = 1./tanalpha;
+    
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
@@ -2780,6 +2745,41 @@ FiniteElement::update()
 
         // Temporary memory
         old_damage = M_damage[cpt];
+
+       /*======================================================================
+        * Ridging scheme 
+        * After the advection the concentration can be higher than 1, meaning that ridging should have occured.
+        *======================================================================
+        */
+        if(M_conc[cpt]>1.)
+        {
+            M_ridge_ratio[cpt]=M_ridge_ratio[cpt]+(1.-M_ridge_ratio[cpt])*(M_conc[cpt]-1.)/M_conc[cpt];
+            M_conc[cpt]=1.;
+        }
+        
+        /* Initialise to be safe */
+        double newice = 0.;
+        double del_c = 0.;
+        double newsnow = 0.;
+        /* Thin ice category */    
+        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        {
+            thin_ice_redistribute(M_h_thin[cpt], M_hs_thin[cpt], 0., M_conc[cpt],
+                          tanalpha, rtanalpha, h_thin_max, &M_h_thin[cpt], &newice, &del_c, &newsnow);
+        
+            // Change the snow _thickness_ for thick ice and _volume_ for thin ice
+            M_hs_thin[cpt] -= newsnow;
+            M_snow_thick[cpt] += newsnow;
+            M_conc[cpt] += del_c;
+            M_thick[cpt] += newice;
+            
+            if(M_thick[cpt]>0.)
+                M_ridge_ratio[cpt]=(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt];
+            else
+                M_ridge_ratio[cpt]=0.;
+        }
+        
+        
 
         /*======================================================================
          * Diagnostic:
@@ -2969,11 +2969,6 @@ FiniteElement::update()
          *======================================================================
          */
 
-
-        /* Ridging scheme */
-        /* upper bounds (only for the concentration) */
-        M_conc[cpt] = ((M_conc[cpt]<1.)?(M_conc[cpt]):(1.)) ;
-
         /* lower bounds */
         M_conc[cpt] = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
         M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
@@ -3030,7 +3025,6 @@ FiniteElement::solve()
 }
 
 // Routine for the 1D thermodynamical model
-// No thin ice for now
 // No stability dependent drag for now
 void
 FiniteElement::thermo()
@@ -3446,12 +3440,14 @@ FiniteElement::thermo()
         // local variables
         double deltaT;      // Temperature difference between ice bottom and the snow-ice interface
 
-        // Newly formed ice is undamaged - calculate damage as a weighted
-        // average of the old damage and 0, weighted with volume.
+        // Newly formed ice is undamaged - and unridged
+        // calculate damage and ridge ratio as a weighted
+        // average of the old damage - ridge ratio and 0, weighted with volume.
         if ( M_thick[i] > old_vol )
+        {
             M_damage[i] = M_damage[i]*old_vol/M_thick[i];
-
-        // SYL: manipulation of the ridged ice missing??
+            M_ridge_ratio[i] = M_ridge_ratio[i]*old_vol/M_thick[i];
+        }
 
         // Set time_relaxation_damage to be inversely proportional to
         // temperature difference between bottom and snow-ice interface
@@ -3528,12 +3524,28 @@ FiniteElement::atmFluxBulk(int i, double Tsurf, double sphuma, double drag_ice_t
 // Ice-ocean heat flux
 // We can do better than this ... but it'll wait
 double
-FiniteElement::iceOceanHeatflux(double sst, double sss, double mld, double dt)
+FiniteElement::iceOceanHeatflux(int cpt, double sst, double sss, double mld, double dt)
 {
     /* Use all excess heat to melt or grow ice. This is not
      * accurate, but will have to do for now! */
     double const Tbot = -physical::mu*sss; // Temperature at ice base (bottom), also freezing point of sea-water
-    return (sst-Tbot)*physical::rhow*physical::cpw*mld/dt;
+    if ( vm["simul.Qio-type"].as<std::string>() == "basic" )
+    {
+        return (sst-Tbot)*physical::rhow*physical::cpw*mld/dt;
+    } else if ( vm["simul.Qio-type"].as<std::string>() == "exchange" ) {
+        double welt_oce_ice = 0.;
+        for (int i=0; i<3; ++i)
+        {
+            int nind = (M_elements[cpt]).indices[i]-1;
+            welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
+        }
+        double norm_Voce_ice = welt_oce_ice/3.;
+        double Csens_io = 1e-3;
+        return (sst-Tbot)*norm_Voce_ice*Csens_io*physical::rhow*physical::cpw;
+    } else {
+        std::cout << "Qio-type = " << vm["simul.Qio-type"].as<std::string>() << "\n";
+        throw std::logic_error("Wrong Qio-type");
+    }
 }
 
 // Albedo
@@ -3726,7 +3738,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         }
 
         // Bottom melt/freezing
-        Qio    = FiniteElement::iceOceanHeatflux(M_sst[i], M_sss[i], mld, dt);
+        Qio    = FiniteElement::iceOceanHeatflux(i, M_sst[i], M_sss[i], mld, dt);
         double Mbot  = Qio - 4*physical::ki*(Tbot-T2)/hi; // (23)
 
         // Growth/melt at the ice-ocean interface
@@ -3935,7 +3947,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         hs  = hs + del_hs + snowfall/physical::rhos*time_step;
 
         /* Heatflux from ocean */
-        Qio = FiniteElement::iceOceanHeatflux(M_sst[i], M_sss[i], mld, time_step);
+        Qio = FiniteElement::iceOceanHeatflux(i, M_sst[i], M_sss[i], mld, time_step);
         /* Bottom melt/growth */
         del_hb = (Qic-Qio)*time_step/qi;
 
@@ -4044,7 +4056,7 @@ void
 FiniteElement::finalise()
 {
     // Don't forget to close the iabp file!
-    if (M_iabp_drifters_activated)
+    if (M_use_iabp_drifters)
     {
         M_iabp_file.close();
         M_iabp_out.close();
@@ -4180,7 +4192,7 @@ FiniteElement::init()
 
     // Open the output file for drifters
     // TODO: Is this the right place to open the file?
-    if (M_iabp_drifters_activated )
+    if (M_use_iabp_drifters )
     {
         // We should tag the file name with the init time in case of a re-start.
         std::stringstream filename;
@@ -4400,7 +4412,144 @@ FiniteElement::step(int &pcpt)
         this->nextsimToWim(pcpt);
 #endif
 
-    // step 0: preparation
+    // Update the drifters position twice a day, important to keep the same frequency as the IABP data, for the moment
+    if( pcpt==0 || std::fmod(current_time,0.5)==0 )
+    {   
+        // Read in the new buoys and output
+        if ( M_use_iabp_drifters )
+        {
+            this->updateIABPDrifter();
+            
+            chrono.restart();
+            LOG(DEBUG) <<"Drifter starts\n";
+            LOG(DEBUG) <<"DRIFTER: Interp starts\n";
+
+            // Assemble the coordinates from the unordered_map
+            std::vector<double> drifter_X(M_iabp_drifters.size());
+            std::vector<double> drifter_Y(M_iabp_drifters.size());
+            int j=0;
+            for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
+            {
+                drifter_X[j] = it->second[0];
+                drifter_Y[j] = it->second[1];
+                ++j;
+            }
+
+            // Interpolate the total displacement and concentration onto the drifter positions
+            int nb_var=2;
+            std::vector<double> interp_drifter_in(nb_var*M_mesh.numNodes());
+
+            // Interpolate the velocity
+            for (int i=0; i<M_mesh.numNodes(); ++i)
+            {
+                interp_drifter_in[nb_var*i]   = M_UT[i];
+                interp_drifter_in[nb_var*i+1] = M_UT[i+M_mesh.numNodes()];
+            }
+
+            double* interp_drifter_out;
+            InterpFromMeshToMesh2dx(&interp_drifter_out,
+                                    &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
+                                    M_mesh.numNodes(),M_mesh.numTriangles(),
+                                    &interp_drifter_in[0],
+                                    M_mesh.numNodes(),nb_var,
+                                    &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
+                                    true, 0.);
+
+
+            // Interpolate the concentration - re-use interp_drifter_in
+            interp_drifter_in.resize(M_mesh.numTriangles());
+            for (int i=0; i<M_mesh.numTriangles(); ++i)
+            {
+                interp_drifter_in[i]   = M_conc[i];
+            }
+
+            double* interp_drifter_c_out;
+            InterpFromMeshToMesh2dx(&interp_drifter_c_out,
+                                    &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
+                                    M_mesh.numNodes(),M_mesh.numTriangles(),
+                                    &interp_drifter_in[0],
+                                    M_mesh.numTriangles(),1,
+                                    &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
+                                    true, 0.);
+
+            // Rebuild the M_iabp_drifters map
+            double clim = vm["simul.drifter_climit"].as<double>();
+            j=0;
+            for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); /* ++it is not allowed here, because we use 'erase' */ )
+            {
+                if ( interp_drifter_c_out[j] > clim )
+                {
+                    M_iabp_drifters[it->first] = std::array<double,2> {it->second[0]+interp_drifter_out[nb_var*j], it->second[1]+interp_drifter_out[nb_var*j+1]};
+                    ++it;
+                } else {
+                    // Throw out drifters that drift out of the ice
+                    it = M_iabp_drifters.erase(it);
+                }
+                ++j;
+            }
+
+            xDelete<double>(interp_drifter_out);
+            xDelete<double>(interp_drifter_c_out);
+
+            LOG(DEBUG) <<"DRIFTER: Interp done\n";
+            LOG(DEBUG) <<"Drifter interp done in "<< chrono.elapsed() <<"s\n";
+
+            // TODO: Do we want to output drifters at a different time interval?
+            this->outputDrifter(M_iabp_out);
+        }
+        
+        if ( M_use_equallyspaced_drifters )
+            M_equallyspaced_drifters.move(M_mesh, M_UT);
+        if ( M_use_rgps_drifters )
+            M_rgps_drifters.move(M_mesh, M_UT);
+        if ( M_use_osisaf_drifters )
+            for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
+                it->move(M_mesh, M_UT);
+    
+	    for (int i=0; i<M_num_nodes; ++i)
+	    {
+	        // UM
+		    M_UT[i] = 0.;
+		    M_UT[i+M_num_nodes] = 0.;
+	    }
+    }
+    if(pcpt>0)
+    {
+        if ( M_use_equallyspaced_drifters && fmod(current_time,M_equallyspaced_drifters_output_time_step) == 0 )
+            M_equallyspaced_drifters.appendNetCDF(current_time, M_mesh, M_UT);
+
+        if ( M_use_rgps_drifters )
+        {
+            std::string time_str = vm["simul.RGPS_time_init"].as<std::string>();
+            double RGPS_time_init = from_date_time_string(time_str);
+        
+            if( !M_rgps_drifters.isInitialised() && current_time == RGPS_time_init)
+                this->updateRGPSDrifters();
+            
+            if( current_time != RGPS_time_init && fmod(current_time,M_rgps_drifters_output_time_step) == 0 )
+                if ( M_rgps_drifters.isInitialised() )
+                    M_rgps_drifters.appendNetCDF(current_time, M_mesh, M_UT);
+        }
+    }
+     
+    if ( M_use_osisaf_drifters && fmod(current_time+0.5,1.) == 0 )
+    {
+        // OSISAF drift is calculated as a dirfter displacement over 48 hours
+        // and they have two sets of drifters in the field at all times.
+
+        // Write out the contents of [1] if it's meaningfull
+        if ( M_osisaf_drifters[1].isInitialised() )
+            M_osisaf_drifters[1].appendNetCDF(current_time, M_mesh, M_UT);
+
+        // Flip the vector so we move [0] to be [1]
+        std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
+
+        // Create a new M_drifters instance in [0], with a properly initialised netCDF file
+        M_osisaf_drifters[0] = Drifters("data", "ice_drift_nh_polstere-625_multi-oi.nc", "yc", "yx", "lat", "lon", M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
+        M_osisaf_drifters[0].initNetCDF(M_export_path+"/OSISAF_", current_time);
+        M_osisaf_drifters[0].appendNetCDF(current_time, M_mesh, M_UT);
+    }
+
     // remeshing and remapping of the prognostic variables
 
     // The first time step we behave as if we just did a regrid
@@ -4423,13 +4572,6 @@ FiniteElement::step(int &pcpt)
             // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
             if ( M_use_moorings && ! M_moorings_snapshot )
                 M_moorings.updateGridMean(M_mesh);
-            if ( M_drifters_activated )
-                M_drifters.move(M_mesh, M_UT);
-            if ( M_rgps_drifters_activated )
-                M_rgps_drifters.move(M_mesh, M_UT);
-            if ( M_osisaf_drifters_activated )
-                for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
-                    it->move(M_mesh, M_UT);
 #ifdef OASIS
             M_cpl_out.updateGridMean(M_mesh);
 #endif
@@ -4459,13 +4601,6 @@ FiniteElement::step(int &pcpt)
 #endif
 
 
-    // Read in the new buoys and output
-    if ( M_iabp_drifters_activated && ( pcpt==0 || std::fmod(current_time,0.5)==0 ) )
-    {
-        this->updateIABPDrifter();
-        // TODO: Do we want to output drifters at a different time interval?
-        this->outputDrifter(M_iabp_out);
-    }
 
     if ( M_regrid || M_use_restart )
     {
@@ -4618,39 +4753,6 @@ FiniteElement::step(int &pcpt)
     }
 #endif
 
-    if ( M_drifters_activated && fmod(pcpt*time_step,M_drifters_output_time_step) == 0 )
-        M_drifters.appendNetCDF(current_time, M_mesh, M_UT);
-
-    if ( M_rgps_drifters_activated )
-    {
-        std::string time_str = vm["simul.RGPS_time_init"].as<std::string>();
-        double RGPS_time_init = from_date_time_string(time_str);
-        
-        if( !M_rgps_drifters.isInitialised() && current_time == RGPS_time_init)
-            this->updateRGPSDrifters();
-            
-        if( current_time != RGPS_time_init && fmod(pcpt*time_step,M_iabp_drifters_output_time_step) == 0 )
-            if ( M_rgps_drifters.isInitialised() )
-                M_rgps_drifters.appendNetCDF(current_time, M_mesh, M_UT);
-    }
-     
-    if ( M_osisaf_drifters_activated && fmod(current_time+0.5,1.) == 0 )
-    {
-        // OSISAF drift is calculated as a dirfter displacement over 48 hours
-        // and they have two sets of drifters in the field at all times.
-
-        // Write out the contents of [1] if it's meaningfull
-        if ( M_osisaf_drifters[1].isInitialised() )
-            M_osisaf_drifters[1].appendNetCDF(current_time, M_mesh, M_UT);
-
-        // Flip the vector so we move [0] to be [1]
-        std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
-
-        // Create a new M_drifters instance in [0], with a properly initialised netCDF file
-        M_osisaf_drifters[0] = Drifters("data", "ice_drift_nh_polstere-625_multi-oi.nc", "yc", "yx", "lat", "lon", M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
-        M_osisaf_drifters[0].initNetCDF(M_export_path+"/OSISAF_", current_time);
-        M_osisaf_drifters[0].appendNetCDF(current_time, M_mesh, M_UT);
-    }
 
 #endif
 
@@ -4901,7 +5003,8 @@ FiniteElement::writeRestart(int pcpt, int step)
     exporter.writeField(outbin, M_snow_thick, "M_snow_thick");
     exporter.writeField(outbin, M_sigma, "M_sigma");
     exporter.writeField(outbin, M_damage, "M_damage");
-    exporter.writeField(outbin, M_random_number, "M_random_number");
+    exporter.writeField(outbin, M_ridge_ratio, "M_ridge_ratio");
+        exporter.writeField(outbin, M_random_number, "M_random_number");
     int i=0;
     for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
     {
@@ -4923,7 +5026,7 @@ FiniteElement::writeRestart(int pcpt, int step)
         exporter.writeField(outbin, M_tsurf_thin, "M_tsurf_thin");
     }
 
-    if (M_iabp_drifters_activated)
+    if (M_use_iabp_drifters)
     {
         std::vector<int> drifter_no(M_iabp_drifters.size());
         std::vector<double> drifter_x(M_iabp_drifters.size());
@@ -5105,20 +5208,13 @@ FiniteElement::readRestart(int step)
         M_neumann_nodes[2*i+1] = M_neumann_flags[i]+M_num_nodes;
     }
 
-    M_surface.assign(M_num_elements,0.);
-    int cpt = 0;
-    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
-    {
-        M_surface[cpt] = this->measure(*it,M_mesh);
-        ++cpt;
-    }
-
     // === Set the prognostic variables ===
     M_conc       = field_map_dbl["M_conc"];
     M_thick      = field_map_dbl["M_thick"];
     M_snow_thick = field_map_dbl["M_snow_thick"];
     M_sigma      = field_map_dbl["M_sigma"];
     M_damage     = field_map_dbl["M_damage"];
+    M_ridge_ratio     = field_map_dbl["M_ridge_ratio"];
     M_random_number      = field_map_dbl["M_random_number"];
     int i=0;
     for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
@@ -5134,6 +5230,14 @@ FiniteElement::readRestart(int step)
     M_UM         = field_map_dbl["M_UM"];
     M_UT         = field_map_dbl["M_UT"];
 
+    M_surface.assign(M_num_elements,0.);
+    int cpt = 0;
+    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
+    {
+        M_surface[cpt] = this->measure(*it,M_mesh,M_UM);
+        ++cpt;
+    }
+
     //for (int i=0; i < M_thick.size(); i++)
     //{
     //  M_thick[i] *= 2.0;
@@ -5146,7 +5250,7 @@ FiniteElement::readRestart(int step)
         M_tsurf_thin = field_map_dbl["M_tsurf_thin"];
     }
 
-    if (M_iabp_drifters_activated)
+    if (M_use_iabp_drifters)
     {
         std::vector<int>    drifter_no = field_map_int["Drifter_no"];
         std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
@@ -5451,6 +5555,7 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             M_external_data.push_back(&M_precip);
         break;
 
+        case setup::AtmosphereType::CFSR_HI:
         case setup::AtmosphereType::CFSR:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
@@ -5806,6 +5911,9 @@ FiniteElement::targetIce()
     auto RX = M_mesh.bcoordX();
     auto RY = M_mesh.bcoordY();
     double cmin= 0.;
+            
+    double conc_thin;
+    double const rtanalpha = c_thin_max/h_thin_max;
 
     for (int i=0; i<M_num_elements; ++i)
     {
@@ -5830,6 +5938,19 @@ FiniteElement::targetIce()
 		M_thick[i] = vm["simul.init_thickness"].as<double>()*M_conc[i];
 		M_snow_thick[i] = vm["simul.init_snow_thickness"].as<double>()*M_conc[i];
         M_damage[i]=0.;
+        
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {
+            M_h_thin[i]     = vm["simul.init_thin_max_thickness"].as<double>();
+            
+            // Re-create the variable 'concentration of thin ice'
+            conc_thin = std::min(std::min(M_h_thin[i]/physical::hmin,
+                            std::sqrt(2.*M_h_thin[i]*rtanalpha)), 1.-M_conc[i]);
+            
+            M_h_thin[i]=std::pow(conc_thin,2.)/(2.*rtanalpha);
+            
+            M_hs_thin[i]    = vm["simul.init_snow_thickness"].as<double>()*conc_thin;
+        }
 
         //if either c or h equal zero, we set the others to zero as well
         if(M_conc[i]<=0.)
@@ -6495,16 +6616,16 @@ FiniteElement::initThermodynamics()
 void
 FiniteElement::initDrifter()
 {
-    if(M_drifters_activated)
+    if(M_use_equallyspaced_drifters)
         this->equallySpacedDrifter();
 
-    if(M_iabp_drifters_activated)
+    if(M_use_iabp_drifters)
         this->initIABPDrifter();
 
-    if(M_rgps_drifters_activated)
+    if(M_use_rgps_drifters)
         this->initRGPSDrifters();
 
-    if(M_osisaf_drifters_activated)
+    if(M_use_osisaf_drifters)
         this->initOSISAFDrifters();
 }
 
@@ -6755,9 +6876,9 @@ FiniteElement::initIABPDrifter()
 void
 FiniteElement::equallySpacedDrifter()
 {
-    M_drifters = Drifters(1e3*vm["simul.drifter_spacing"].as<double>(), M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
-    M_drifters.initNetCDF(M_export_path+"/Drifters_", current_time);
-    M_drifters.appendNetCDF(current_time, M_mesh, M_UT);
+    M_equallyspaced_drifters = Drifters(1e3*vm["simul.drifter_spacing"].as<double>(), M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
+    M_equallyspaced_drifters.initNetCDF(M_export_path+"/Drifters_", current_time);
+    M_equallyspaced_drifters.appendNetCDF(current_time, M_mesh, M_UT);
 }
 
 void
@@ -7082,6 +7203,7 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
         exporter.writeField(outbin, M_thick, "Thickness");
         exporter.writeField(outbin, M_snow_thick, "Snow");
         exporter.writeField(outbin, M_damage, "Damage");
+        exporter.writeField(outbin, M_ridge_ratio, "Ridge_ratio");
 
         std::vector<double> AllMinAngle = this->AllMinAngle(M_mesh, M_UM, 0.);
         exporter.writeField(outbin, AllMinAngle, "AllMinAngle");
@@ -7667,7 +7789,9 @@ FiniteElement::system(std::string const& command)
 std::string
 FiniteElement::getEnv(std::string const& envname)
 {
-    char* senv = ::getenv(envname.c_str());
+    const char* senv = ::getenv(envname.c_str());
+    if ( senv == NULL )
+        senv = "NULL";
     return std::string(senv);
 }
 
