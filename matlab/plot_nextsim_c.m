@@ -184,7 +184,7 @@ for p=0:0
   %---------------------------
   % We extract the data fields
   %---------------------------
-  [field_tmp]=extract_field(field,data_out,dirname,step);
+  [field_tmp]=extract_field(field,data_out,dirname,step,simul_in);
 
   % {length(field_tmp),Ne,Nn,2*Nn}
   if(length(field_tmp)==Ne)
@@ -316,6 +316,16 @@ function set_axis_colormap_colorbar(mesh_filename,field,v,i,region_of_zoom)
         load('ice_conc_cmap64.mat')
         colormap(ice_conc_cmap64);
         name_colorbar='Concentration';
+    elseif (strcmp(field,'Total_concentration'))
+        caxis([0 1]);
+        load('ice_conc_cmap64.mat')
+        colormap(ice_conc_cmap64);
+        name_colorbar='Total concentration';
+    elseif (strcmp(field,'Concentration_thin_ice'))
+        caxis([0 1]);
+        load('ice_conc_cmap64.mat')
+        colormap(ice_conc_cmap64);
+        name_colorbar='Concentration thin ice';
     elseif (strcmp(field,'Thickness'))
         caxis([0, 4]);
         colormap(cmap_def);
