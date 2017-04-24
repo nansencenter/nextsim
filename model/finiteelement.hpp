@@ -71,6 +71,7 @@ public:
     typedef boost::shared_ptr<graph_type> graph_ptrtype;
 
     typedef ExternalData external_data;
+    typedef typename std::vector<external_data*> external_data_vec ;
 
     typedef DataSet Dataset;
 
@@ -145,8 +146,7 @@ public:
     Dataset M_ice_cs2_smos_elements_dataset;
     Dataset M_ice_smos_elements_dataset;
 #if defined (WAVES)
-    Dataset M_WW3A_elements_dataset;
-    Dataset M_ERAIW_1DEG_elements_dataset;
+    Dataset M_wave_elements_dataset;
 #endif
     double minAngles(element_type const& element, mesh_type const& mesh) const;
     double minAngle(mesh_type const& mesh) const;
@@ -194,7 +194,8 @@ public:
     void scalingVelocity();
     void update();
     void exportInitMesh();
-    void exportResults(int step, bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
+    void exportResults(int step,
+            bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
 
     void writeRestart(int pcpt, int step);
     int readRestart(int step);
@@ -281,7 +282,7 @@ private:
     std::vector<double> M_h_thin;
     std::vector<double> M_hs_thin;
 
-    std::vector<external_data*> M_external_data;
+    external_data_vec M_external_data;
 
     std::vector<double> M_fcor;
 
@@ -304,9 +305,12 @@ private:
 
     std::vector<double> M_SWH_grid;
     std::vector<double> M_MWD_grid;
-    std::vector<double> M_FP_grid;
+    std::vector<double> M_MWP_grid;
 
     wim_type::WimGrid wim_grid;
+    double xmin_wim,xmax_wim;
+    double ymin_wim,ymax_wim;
+    int num_elements_wim_grid;
 #endif
     std::vector<double> M_tau;//this can just be set to zero if not using WIM
 
@@ -417,9 +421,12 @@ private:
     external_data M_mld;          // Mixed-layer depth [m]
 
     // Wave
-    external_data M_SWH;	  // Significant wave height [m]
-    external_data M_MWD;	  // Wave mean direction (deg)
-    external_data M_FP;		  // Wave peak frequency (/sec)
+    external_data M_SWH;	      // Significant wave height [m]
+    external_data M_MWD;	      // Mean wave direction (deg)
+    external_data M_MWP;          // Peak wave frequency (s)
+    external_data M_fice_waves;   // Waves masked if ice used in external wave model 
+                                  // - due to inconsistent ice masks,
+                                  // there could be attenuation in the open ocean
 
     // Bathymetry
     external_data M_element_depth;
