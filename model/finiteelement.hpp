@@ -175,7 +175,8 @@ public:
 #endif
 
 	void bathymetry();
-
+    void checkReloadDatasets(external_data_vec const& ext_data_vec,
+        double const& CRtime, std::string const& printout);
     void initIce();
     void initThermodynamics();
     void initSlabOcean();
@@ -196,6 +197,8 @@ public:
     void exportInitMesh();
     void exportResults(int step,
             bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
+    void exportResults(std::vector<std::string> const &filenames,
+            bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
 
     void writeRestart(int pcpt, int step);
     int readRestart(int step);
@@ -203,6 +206,10 @@ public:
 #if defined (WAVES)
     void nextsimToWim(bool step);
     void wimToNextsim(bool step);
+#if 0
+    std::vector<double> FiniteElements::rotatedWimElementsX(double const& rotangle) const;
+    std::vector<double> FiniteElements::rotatedWimElementsY(double const& rotangle) const;
+#endif
 #endif
 
     std::string gitRevision();
@@ -284,6 +291,7 @@ private:
     std::vector<double> M_ridge_ratio;
 
     external_data_vec M_external_data;
+    external_data_vec M_external_data_tmp;
 
     std::vector<double> M_fcor;
 
@@ -367,6 +375,7 @@ private:
 #if defined (WAVES)
     bool M_run_wim;
     bool M_use_wim;
+    bool M_interp_fsd;
 #endif
 
     bool M_use_restart;
@@ -424,7 +433,7 @@ private:
     // Wave
     external_data M_SWH;	      // Significant wave height [m]
     external_data M_MWD;	      // Mean wave direction (deg)
-    external_data M_MWP;          // Peak wave frequency (s)
+    external_data M_MWP;          // Peak wave period (s)
     external_data M_fice_waves;   // Waves masked if ice used in external wave model 
                                   // - due to inconsistent ice masks,
                                   // there could be attenuation in the open ocean
