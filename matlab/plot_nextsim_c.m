@@ -61,7 +61,20 @@ function plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,plot_opt
 %% dir: folder containing the outputs on the mesh
 %%
 %% [OPTIONAL]
-%% plot_options
+%% plot_options = [default: NB don't need to specify all fields if want to keep default]
+%%       save_figure: 0              % 0 (default) we do not save the figure
+%%        apply_mask: true           % If true, apply ice mask
+%%         plot_grid: 0              % If not zero the mesh lines are plotted. If zoomed out only the mesh lines will be visible
+%%   plot_coastlines: 1              % When 1 the actual domain boundaries are plotted, closed in light gray and opened in cyan.
+%%                                   %  Note though that plotting the coastlines or the grid makes the figure much heavier
+%%         plot_date: 0              % 1 if we want to display the date on the figure
+%%         font_size: 14             % Sets font size of colorbar and date
+%%  background_color: [0.85,.85,.85] % gray-white color. A substitute could be gray [0.5 0.5 0.5]
+%%     figure_format: '-png'         % can be pdf, tiff, png or jpeg
+%%       pic_quality: '-r300'        % Resolution for eps, pdf, tiff, and png
+%%           visible: 1              % We display the figure on the screen
+%%                                   %  (useful to set to 0 when generating a large amount of figures)
+%%     show_vec_dirn: 0              % If plotting vector magnitude, show the direction as arrows
 
 if ~exist('dirname','var'), dirname='.'; end
 
@@ -357,6 +370,26 @@ function set_axis_colormap_colorbar(mesh_filename,field,v,i,region_of_zoom)
     elseif strcmp(field,'Cohesion')
         colormap(cmap_def);
         name_colorbar='Cohesion (Pa)';
+    elseif strcmp(field,'M_ocean_temp')
+        caxis([-2, 3]);
+        colormap(cmap_def);
+        name_colorbar='Ocean temp (^oC)';
+    elseif strcmp(field,'M_ocean_salt')
+        caxis([29, 35]);
+        colormap(cmap_def);
+        name_colorbar='Ocean salt (psu)';
+    elseif strcmp(field,'SST')
+        caxis([-2, 3]);
+        colormap(cmap_def);
+        name_colorbar='SST (^oC)';
+    elseif strcmp(field,'SSS')
+        caxis([29, 35]);
+        colormap(cmap_def);
+        name_colorbar='SSS (psu)';
+    elseif strcmp(field,'M_tair')
+        caxis([-35, 5]);
+        colormap(cmap_def);
+        name_colorbar='T_{air} (^oC)';
     else
         colormap(cmap_def);
         name_colorbar='';

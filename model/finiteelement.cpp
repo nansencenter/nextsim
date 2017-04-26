@@ -1976,7 +1976,7 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
         interp_method[tmp_nb_var] = 0;
 		tmp_nb_var++;
 
-		// damage
+		// ridge_ratio
 		interp_elt_in[nb_var*i+tmp_nb_var] = M_ridge_ratio[i]*M_thick[i];
         interp_method[tmp_nb_var] = 1;
 		tmp_nb_var++;
