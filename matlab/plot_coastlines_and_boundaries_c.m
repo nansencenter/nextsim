@@ -29,6 +29,9 @@ free_boundaryLat = node_lat(boundary(free ,1:2,1))';
 free_boundaryLon = node_lon(boundary(free ,1:2,1))';
 
 mppfile = which('NpsNextsim.mpp');
+if strcmp(mppfile,'')
+   error('add path to mppfile');
+end
 
 % projection
 [closed_boundaryX,closed_boundaryY]= mapx_forward(mppfile,closed_boundaryLon(:)',closed_boundaryLat(:)');

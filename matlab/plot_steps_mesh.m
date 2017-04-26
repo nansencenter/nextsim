@@ -1,6 +1,20 @@
 function plot_steps_mesh(rootdir,variables,plot_options);
 %% CALL: plot_steps_mesh(rootdir,variables,plot_options);
-%% variables is a cell with strings of variables to plot
+%% INPUTS:
+%% *rootdir is the root directory containing directory called mesh (with results on mesh)
+%%  figures are saved to rootdir/figs/[variable name]
+%% *variables is a cell with strings of variables to plot
+%% *plot_options = [default: NB don't need to specify all fields if want to keep default values]
+%%        apply_mask: true           % If true, apply ice mask
+%%         plot_grid: 0              % If not zero the mesh lines are plotted. If zoomed out only the mesh lines will be visible
+%%   plot_coastlines: 1              % When 1 the actual domain boundaries are plotted, closed in light gray and opened in cyan.
+%%                                   %  Note though that plotting the coastlines or the grid makes the figure much heavier
+%%         plot_date: 0              % 1 if we want to display the date on the figure
+%%         font_size: 14             % Sets font size of colorbar and date
+%%  background_color: [0.85,.85,.85] % gray-white color. A substitute could be gray [0.5 0.5 0.5]
+%%     figure_format: '-png'         % can be pdf, tiff, png or jpeg
+%%       pic_quality: '-r300'        % Resolution for eps, pdf, tiff, and png
+%%     show_vec_dirn: 0              % If plotting vector magnitude, show the direction as arrows
 
 if ~exist('rootdir','var');
    %% location of outputs
