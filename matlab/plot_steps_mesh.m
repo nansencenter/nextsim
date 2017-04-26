@@ -84,13 +84,35 @@ Nv = length(vbls);
 
 % steps to be loaded
 dir0  = dir([outdir,'/mesh_*.dat']);
-N0    = length(dir0)-2;%%starts from 0, mesh_1000.dat is final state
+N0    = -1;
+step1 = 1e30;
+step2 = -1e30;
+for j=1:length(dir0)
+   f  = dir0(j).name;
+   nf = length(f);
+   cstep = f(6:nf-4);
+   try
+      %% eg don't want 'init'
+      step  = str2num(cstep);
+   catch ME
+      continue
+   end
+
+   if step<length(dir0)+5
+      %% eg don't want final - usually 1000
+      step1 = min(step1,step);
+      step2 = max(step2,step);
+   end
+end
+
+disp(['Plotting steps from ',num2str(step1),' to ',num2str(step2),'...']);
+disp(' ');
 
 region_of_zoom = [];
 %region_of_zoom = 'framstrait';
 is_sequential  = 1;
 
-for step=0:N0
+for step=step1:step2
 
    for k=1:Nv
       vbl   = vbls{k};
