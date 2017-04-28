@@ -89,7 +89,7 @@ public:
         conc        =  1,
         thick       =  2,
         damage      =  3,
-        snow_thick  =  4,
+        snow        =  4,
         VT_x        =  5,
         VT_y        =  6,
         tsurf       =  7,
@@ -97,9 +97,12 @@ public:
         sss         =  9,
         tsurf_ice   = 10,
         t1          = 11,
-        t2          = 12
+        t2          = 12,
+        h_thin      = 13,
+        hs_thin     = 14,
 
         // Diagnostic variables
+        conc_thin   = 100
     };
 
     typedef struct Variable
@@ -135,7 +138,7 @@ public:
                     stdName  = "sea_ice_damage";
                     Units    = "1";
                     break;
-                case (variableID::snow_thick):
+                case (variableID::snow):
                     name     = "snt";
                     longName = "Surface Snow Thickness";
                     stdName  = "surface_snow_thickness";
@@ -193,6 +196,24 @@ public:
                     stdName  = "ice_temperature_2";
                     Units    = "degree_Celsius";
                     // CF cannonical units are K, but we can use C also
+                    break;
+                case (variableID::conc_thin):
+                    name     = "sic_thin";
+                    longName = "Thin Ice Concentration";
+                    stdName  = "thin_ice_area_fraction";
+                    Units    = "1";
+                    break;
+                case (variableID::h_thin):
+                    name     = "sit_thin";
+                    longName = "Thin Ice Thickness";
+                    stdName  = "thin_ice_thickness";
+                    Units    = "m";
+                    break;
+                case (variableID::hs_thin):
+                    name     = "snt_thin";
+                    longName = "Surface Snow Thickness on thin ice";
+                    stdName  = "surface_snow_thickness_on_thin_ice";
+                    Units    = "m";
                     break;
             }
         }

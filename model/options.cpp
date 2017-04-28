@@ -100,6 +100,7 @@ namespace Nextsim
 
             // simulation
             ("simul.mesh_filename", po::value<std::string>()->default_value( "bigarctic10km.msh" ), "")
+            ("simul.mesh_path", po::value<std::string>()->default_value( "nextsimdir" ), "nextsimdir or simdatadir")
             ("simul.proj_filename", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "")
             ("simul.time_init", po::value<std::string>()->default_value( "2008-Mar-05" ), "")
             ("simul.duration", po::value<double>()->default_value( 1. ), "")
@@ -166,6 +167,7 @@ namespace Nextsim
             ("simul.ERAi_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("simul.ECMWF_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("simul.ASR_quad_drag_coef_air", po::value<double>()->default_value( 0.0049 ), "")
+            ("simul.CFSR_quad_drag_coef_air", po::value<double>()->default_value( 0.0036 ), "") // Initial value - consistent with Schweiger and Zhang, 2015
             ("simul.lin_drag_coef_air", po::value<double>()->default_value( 0. ), "")
             ("simul.quad_drag_coef_water", po::value<double>()->default_value( 0.0055 ), "")
             ("simul.lin_drag_coef_water", po::value<double>()->default_value( 0. ), "")
@@ -184,6 +186,7 @@ namespace Nextsim
              */
 
             ("setup.thermo-type", po::value<std::string>()->default_value( "zero-layer" ), "")
+            ("simul.Qio-type", po::value<std::string>()->default_value( "basic" ), "")
             ("simul.use_thermo_forcing", po::value<bool>()->default_value( true ), "")
             ("simul.albedoW", po::value<double>()->default_value( 0.07 ), "")
             // not used: ("simul.read_hw", po::value<double>()->default_value( 1. ), "")

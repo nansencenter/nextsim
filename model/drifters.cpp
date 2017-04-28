@@ -294,7 +294,7 @@ namespace Nextsim
         std::stringstream filename;
 
         filename << file_prefix;
-        filename << now.year() << setw(2) << setfill('0') << now.month().as_number() << now.day();
+        filename << now.year() << setw(2) << setfill('0') << now.month().as_number() << setw(2) << setfill('0') << now.day();
         filename << ".nc";
         M_filename = filename.str();
 
