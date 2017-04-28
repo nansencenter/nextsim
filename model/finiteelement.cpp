@@ -4193,12 +4193,12 @@ FiniteElement::init()
 
     GridOutput::Variable thick(GridOutput::variableID::thick, data_elements, data_grid);
 
-    GridOutput::Variable snow_thick(GridOutput::variableID::snow_thick, data_elements, data_grid);
+    GridOutput::Variable snow(GridOutput::variableID::snow, data_elements, data_grid);
 
     std::vector<GridOutput::Variable> elemental_variables(3);
     elemental_variables[0] = conc;
     elemental_variables[1] = thick;
-    elemental_variables[2] = snow_thick;
+    elemental_variables[2] = snow;
 
     // Calculate the grid spacing (assuming a regular grid for now)
     auto RX = M_mesh.coordX();
@@ -4708,6 +4708,7 @@ FiniteElement::step(int &pcpt)
 void
 FiniteElement::updateMeans(GridOutput &means, double time_factor)
 {
+    double const rtanalpha = c_thin_max/h_thin_max;
     // Update elements and multiply with time_factor
     for ( auto it=means.M_elemental_variables.begin(); it!=means.M_elemental_variables.end(); ++it )
     {
@@ -4728,7 +4729,7 @@ FiniteElement::updateMeans(GridOutput &means, double time_factor)
                     it->data_mesh[i] += M_damage[i]*time_factor;
                 break;
 
-            case (GridOutput::variableID::snow_thick):
+            case (GridOutput::variableID::snow):
                 for (int i=0; i<M_num_elements; i++)
                     it->data_mesh[i] += M_snow_thick[i]*time_factor;
                 break;
@@ -4761,6 +4762,25 @@ FiniteElement::updateMeans(GridOutput &means, double time_factor)
             case (GridOutput::variableID::t2):
                 for (int i=0; i<M_num_elements; i++)
                     it->data_mesh[i] += M_tice[2][i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::conc_thin):
+                for (int i=0; i<M_num_elements; i++)
+                {
+                    double conc_thin = std::min(std::min(M_h_thin[i]/physical::hmin,
+                                        std::sqrt(2.*M_h_thin[i]*rtanalpha)), 1.-M_conc[i]);
+                    it->data_mesh[i] += conc_thin*time_factor;
+                }
+                break;
+
+            case (GridOutput::variableID::h_thin):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_h_thin[i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::hs_thin):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_hs_thin[i]*time_factor;
                 break;
 
             default: std::logic_error("Updating of given variableID not implimented (elements)");
@@ -4798,15 +4818,23 @@ FiniteElement::initMoorings()
 
     // Output variables - elements
     GridOutput::Variable conc(GridOutput::variableID::conc, data_elements, data_grid);
-
     GridOutput::Variable thick(GridOutput::variableID::thick, data_elements, data_grid);
-
-    GridOutput::Variable snow_thick(GridOutput::variableID::snow_thick, data_elements, data_grid);
+    GridOutput::Variable snow(GridOutput::variableID::snow, data_elements, data_grid);
 
     std::vector<GridOutput::Variable> elemental_variables(3);
     elemental_variables[0] = conc;
     elemental_variables[1] = thick;
-    elemental_variables[2] = snow_thick;
+    elemental_variables[2] = snow;
+    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+    {
+        GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin, data_elements, data_grid);
+        GridOutput::Variable h_thin(GridOutput::variableID::h_thin, data_elements, data_grid);
+        GridOutput::Variable hs_thin(GridOutput::variableID::hs_thin, data_elements, data_grid);
+
+        elemental_variables.push_back(conc_thin);
+        elemental_variables.push_back(h_thin);
+        elemental_variables.push_back(hs_thin);
+    }
 
     // Output variables - nodes
     GridOutput::Variable siu(GridOutput::variableID::VT_x, data_nodes, data_grid);
@@ -4848,13 +4876,13 @@ FiniteElement::initMoorings()
     // Read the grid in from file
     // Define a grid
     GridOutput::Grid grid{
-        gridFile: "TP4DAILY_200710_3m.nc",
+        gridFile: "ice_drift_nh_polstere-625_multi-oi.nc",
         dirname: "data",
         mpp_file: Environment::vm()["simul.proj_filename"].as<std::string>(),
-        dimNameX: "y",
-        dimNameY: "x",
-        latName: "latitude",
-        lonName: "longitude"
+        dimNameX: "yc",
+        dimNameY: "xc",
+        latName: "lat",
+        lonName: "lon"
     };
 
     // Define the mooring dataset
