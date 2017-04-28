@@ -258,10 +258,10 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 	strNextsim.push_back('\0');
 	mapNextsim = init_mapx(&strNextsim[0]);
 
-	mapx_class *map;
     double cos_m_diff_angle, sin_m_diff_angle;
     if(dataset->grid.mpp_file!="")
     {
+        mapx_class *map;
 	    std::string configfile = (boost::format( "%1%/%2%/%3%" )
                               % Environment::nextsimDir().string()
                               % dataset->grid.dirname
