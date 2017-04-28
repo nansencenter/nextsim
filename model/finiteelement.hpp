@@ -138,6 +138,7 @@ public:
     Dataset M_bathymetry_elements_dataset;
 
     Dataset M_ice_topaz_elements_dataset;
+    Dataset M_ice_icesat_elements_dataset;
     Dataset M_ice_piomas_elements_dataset;
     Dataset M_ice_amsre_elements_dataset;
     Dataset M_ice_osisaf_elements_dataset;
@@ -287,6 +288,7 @@ private:
     std::vector<double> M_basal_factor;
     std::vector<double> M_water_elements;
     std::vector<double> M_h_thin;
+    std::vector<double> M_conc_thin;
     std::vector<double> M_hs_thin;
     std::vector<double> M_ridge_ratio;
 
@@ -357,7 +359,7 @@ private:
     double basal_Cb;
 
     double h_thin_max;
-    double c_thin_max;
+    double h_thin_min;
 
     double compr_strength;
     double tract_coef;
@@ -501,6 +503,7 @@ private:
     void targetIce();
     void binaryIce();
     void topazIce();
+    void topazIceOsisafIcesat();
     void piomasIce();
     void topazForecastIce();
     void topazForecastAmsr2Ice();

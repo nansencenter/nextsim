@@ -185,6 +185,7 @@ FiniteElement::initVariables()
     M_UT.resize(2*M_num_nodes,0.);
 
     M_h_thin.assign(M_num_elements,0.);
+    M_conc_thin.assign(M_num_elements,0.);
     M_hs_thin.assign(M_num_elements,0.);
     M_tsurf_thin.assign(M_num_elements,0.);
     
@@ -353,6 +354,8 @@ FiniteElement::initDatasets()
 #endif
 
     M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements",M_num_elements);
+
+    M_ice_icesat_elements_dataset=DataSet("ice_icesat_elements",M_num_elements);
 
     M_ice_piomas_elements_dataset=DataSet("ice_piomas_elements",M_num_elements);
 
@@ -532,7 +535,7 @@ FiniteElement::initConstant()
     //std::cout<<"time_init second= "<< std::setprecision(18) << time_init <<"\n";
     time_step = vm["simul.timestep"].as<double>();
 
-    output_time_step =  days_in_sec/vm["simul.output_per_day"].as<int>();
+    output_time_step =  (vm["simul.output_per_day"].as<int>()<0) ? time_step : days_in_sec/vm["simul.output_per_day"].as<int>();
     mooring_output_time_step =  vm["simul.mooring_output_timestep"].as<double>()*days_in_sec;
     mooring_time_factor = time_step/mooring_output_time_step;
 
@@ -560,7 +563,7 @@ FiniteElement::initConstant()
     deltaT_relaxation_damage = vm["simul.deltaT_relaxation_damage"].as<double>();
 
     h_thin_max = vm["simul.h_thin_max"].as<double>();
-    c_thin_max = vm["simul.c_thin_max"].as<double>();
+    h_thin_min = vm["simul.h_thin_min"].as<double>();
 
     compr_strength = vm["simul.compr_strength"].as<double>();
     tract_coef = vm["simul.tract_coef"].as<double>();
@@ -630,7 +633,8 @@ FiniteElement::initConstant()
         ("osisaf", setup::IceType::OSISAF)
         ("piomas", setup::IceType::PIOMAS)
         ("cs2_smos", setup::IceType::CS2_SMOS)
-        ("smos", setup::IceType::SMOS);
+        ("smos", setup::IceType::SMOS)
+        ("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT);
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
 
 #if defined (WAVES)
@@ -1390,6 +1394,7 @@ FiniteElement::regrid(bool step)
                 it->assign(M_num_elements,0.);
 
             M_h_thin.assign(M_num_elements,0.);
+            M_conc_thin.assign(M_num_elements,0.);
             M_hs_thin.assign(M_num_elements,0.);
             M_tsurf_thin.assign(M_num_elements,0.);
             
@@ -1518,6 +1523,7 @@ FiniteElement::regrid(bool step)
     M_ocean_elements_dataset.target_size=M_num_elements;
 
     M_ice_topaz_elements_dataset.target_size=M_num_elements;
+    M_ice_icesat_elements_dataset.target_size=M_num_elements;
     M_ice_piomas_elements_dataset.target_size=M_num_elements;
     M_ice_amsre_elements_dataset.target_size=M_num_elements;
     M_ice_osisaf_elements_dataset.target_size=M_num_elements;
@@ -1539,6 +1545,7 @@ FiniteElement::regrid(bool step)
     M_ocean_elements_dataset.interpolated=false;
 
     M_ice_topaz_elements_dataset.interpolated=false;
+    M_ice_icesat_elements_dataset.interpolated=false;
     M_ice_piomas_elements_dataset.interpolated=false;
     M_ice_amsre_elements_dataset.interpolated=false;
     M_ice_osisaf_elements_dataset.interpolated=false;
@@ -1561,6 +1568,7 @@ FiniteElement::regrid(bool step)
     M_ocean_nodes_dataset.grid.interpolated=false;
     M_ocean_elements_dataset.grid.interpolated=false;
     M_ice_topaz_elements_dataset.grid.interpolated=false;
+    M_ice_icesat_elements_dataset.grid.interpolated=false;
     M_ice_amsre_elements_dataset.grid.interpolated=false;
     M_ice_osisaf_elements_dataset.grid.interpolated=false;
     M_ice_osisaf_type_elements_dataset.grid.interpolated=false;
@@ -1575,6 +1583,7 @@ FiniteElement::regrid(bool step)
     M_ocean_nodes_dataset.grid.loaded=false;
     M_ocean_elements_dataset.grid.loaded=false;
     M_ice_topaz_elements_dataset.grid.loaded=false;
+    M_ice_icesat_elements_dataset.grid.loaded=false;
     M_ice_amsre_elements_dataset.grid.loaded=false;
     M_ice_osisaf_elements_dataset.grid.loaded=false;
     M_ice_osisaf_type_elements_dataset.grid.loaded=false;
@@ -1685,6 +1694,10 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var)
 
 		// thin ice thickness
 		M_h_thin[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+		tmp_nb_var++;
+
+		// thin ice thickness
+		M_conc_thin[i] = interp_elt_out[nb_var*i+tmp_nb_var];
 		tmp_nb_var++;
 
 		// snow on thin ice
@@ -1908,7 +1921,7 @@ int
 FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_ptr, int prv_num_elements)
 {
     // ELEMENT INTERPOLATION With Cavities
-	int nb_var=12 + M_tice.size();
+	int nb_var=13 + M_tice.size();
 
 #if defined (WAVES)
     // coupling with wim
@@ -1922,8 +1935,6 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
 
     if (nfloes_interp)
         std::cout<<"IN REGRID: "<< "interpolate nfloes\n";
-    else
-        std::cout<<"IN REGRID: "<< "do not interpolate nfloes\n";
 
     if (nfloes_interp)
         nb_var++;
@@ -2004,6 +2015,11 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
 
 		// thin ice thickness
 		interp_elt_in[nb_var*i+tmp_nb_var] = M_h_thin[i];
+        interp_method[tmp_nb_var] = 1;
+		tmp_nb_var++;
+
+		// thin ice thickness
+		interp_elt_in[nb_var*i+tmp_nb_var] = M_conc_thin[i];
         interp_method[tmp_nb_var] = 1;
 		tmp_nb_var++;
 
@@ -2230,8 +2246,6 @@ FiniteElement::assemble(int pcpt)
     double cos_ocean_turning_angle=std::cos(ocean_turning_angle_rad);
     double sin_ocean_turning_angle=std::sin(ocean_turning_angle_rad);
 
-    double const rtanalpha = c_thin_max/h_thin_max;
-
     // ---------- Assembling starts -----------
     LOG(DEBUG) <<"Assembling starts\n";
     chrono.restart();
@@ -2258,10 +2272,7 @@ FiniteElement::assemble(int pcpt)
         // Add the thin ice concentration and thickness 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {            
-            // Re-create the variable 'concentration of thin ice'
-            double conc_thin = std::min(std::min(M_h_thin[cpt]/physical::hmin,
-                            std::sqrt(2.*M_h_thin[cpt]*rtanalpha)), 1.-M_conc[cpt]);
-            total_concentration += conc_thin;
+            total_concentration += M_conc_thin[cpt];
             total_thickness     += M_h_thin[cpt];
             total_snow          += M_hs_thin[cpt];
         }
@@ -2309,7 +2320,8 @@ FiniteElement::assemble(int pcpt)
         double keel_height_estimate;
         double critical_h_mod=0.; 
         
-        if(total_concentration > vm["simul.min_c"].as<double>())
+        //if(total_concentration > vm["simul.min_c"].as<double>())
+        if( (total_concentration > vm["simul.min_c"].as<double>()) && (total_thickness > vm["simul.min_h"].as<double>()) )
         {
 
             /* Compute the value that only depends on the element */
@@ -2821,10 +2833,6 @@ FiniteElement::update()
     xDelete<int>(interp_method);
 	xDelete<double>(interp_elt_in);
     
-    // Constant values
-    double const tanalpha  = h_thin_max/c_thin_max;
-    double const rtanalpha = 1./tanalpha;
-    
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
@@ -2834,6 +2842,12 @@ FiniteElement::update()
         double epsilon_veloc_i;
         std::vector<double> epsilon_veloc(3);
         double divergence_rate;
+        double shear_rate;
+
+        // ridging scheme
+        double delta_ridging;
+        double G_star=0.15;
+        double e_factor=2.;
 
         std::vector<double> sigma_pred(3);
         double sigma_dot_i;
@@ -2847,42 +2861,7 @@ FiniteElement::update()
 
         // Temporary memory
         old_damage = M_damage[cpt];
-
-       /*======================================================================
-        * Ridging scheme 
-        * After the advection the concentration can be higher than 1, meaning that ridging should have occured.
-        *======================================================================
-        */
-        if(M_conc[cpt]>1.)
-        {
-            M_ridge_ratio[cpt]=M_ridge_ratio[cpt]+(1.-M_ridge_ratio[cpt])*(M_conc[cpt]-1.)/M_conc[cpt];
-            M_conc[cpt]=1.;
-        }
         
-        /* Initialise to be safe */
-        double newice = 0.;
-        double del_c = 0.;
-        double newsnow = 0.;
-        /* Thin ice category */    
-        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
-        {
-            thin_ice_redistribute(M_h_thin[cpt], M_hs_thin[cpt], 0., M_conc[cpt],
-                          tanalpha, rtanalpha, h_thin_max, &M_h_thin[cpt], &newice, &del_c, &newsnow);
-        
-            // Change the snow _thickness_ for thick ice and _volume_ for thin ice
-            M_hs_thin[cpt] -= newsnow;
-            M_snow_thick[cpt] += newsnow;
-            M_conc[cpt] += del_c;
-            M_thick[cpt] += newice;
-            
-            if(M_thick[cpt]>0.)
-                M_ridge_ratio[cpt]=(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt];
-            else
-                M_ridge_ratio[cpt]=0.;
-        }
-        
-        
-
         /*======================================================================
          * Diagnostic:
          * Elastic deformation and instantaneous deformation rate
@@ -2905,6 +2884,118 @@ FiniteElement::update()
         }
 
         divergence_rate= (epsilon_veloc[0]+epsilon_veloc[1]);
+        shear_rate= std::hypot(epsilon_veloc[0]-epsilon_veloc[1],epsilon_veloc[2]);
+        delta_ridging= std::hypot(divergence_rate,shear_rate/e_factor);
+
+       /*======================================================================
+        * Ridging scheme 
+        * After the advection the concentration can be higher than 1, meaning that ridging should have occured.
+        *======================================================================
+        */
+        //if(M_conc[cpt]>1.)
+        //{
+        //    M_ridge_ratio[cpt]=M_ridge_ratio[cpt]+(1.-M_ridge_ratio[cpt])*(M_conc[cpt]-1.)/M_conc[cpt];
+        //    M_conc[cpt]=1.;
+        //}
+        //
+        double open_water_concentration=1.-M_conc[cpt];
+        
+        /* Thin ice category */    
+        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        {
+            open_water_concentration-=M_conc_thin[cpt];
+        }
+        // limit open_water concentration to 0.
+        //open_water_concentration=(open_water_concentration<0.)?0.:open_water_concentration;
+
+        // ridging scheme
+        double opening_factor=(open_water_concentration>G_star) ? 0. : std::pow(1.-open_water_concentration/G_star,2.);
+        //open_water_concentration += time_step*0.5*(delta_ridging-divergence_rate)*opening_factor;
+        open_water_concentration += time_step*0.5*shear_rate/e_factor*opening_factor;
+        
+        /* Thin ice category */
+        double new_conc_thin=0.;   
+        double new_h_thin=0.;   
+        double new_hs_thin=0.;   
+        
+        double newice = 0.;
+        double del_c = 0.;
+        double newsnow = 0.;
+        
+        double ridge_thin_ice_aspect_ratio=10.;
+#if 1
+        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        {
+            if(M_conc_thin[cpt]>0.)
+            {
+            new_conc_thin   = std::max(1.-M_conc[cpt]-open_water_concentration,0.);
+            new_h_thin      = new_conc_thin*M_h_thin[cpt]/M_conc_thin[cpt]; // so that we keep the same h0, no preferences for the ridging
+            new_hs_thin     = new_conc_thin*M_hs_thin[cpt]/M_conc_thin[cpt];
+            
+            newice = M_h_thin[cpt]-new_h_thin;
+            del_c   = (M_conc_thin[cpt]-new_conc_thin)/ridge_thin_ice_aspect_ratio;            
+            newsnow = M_hs_thin[cpt]-new_hs_thin;
+
+            M_conc_thin[cpt]= new_conc_thin;
+            M_h_thin[cpt]   = new_h_thin;
+            M_hs_thin[cpt]  = new_hs_thin;
+            
+            M_thick[cpt]        += newice;
+            M_conc[cpt]         += del_c;
+            M_snow_thick[cpt]   += newsnow;
+            
+            if(M_thick[cpt]>0.)
+                M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt]));
+            else
+                M_ridge_ratio[cpt]=0.;
+            }
+            else
+            {
+                M_conc_thin[cpt]=0.;
+                M_h_thin[cpt]=0.;
+            }
+        }
+#endif
+        double new_conc=std::max(1.-M_conc_thin[cpt]-open_water_concentration+del_c,0.);
+        if(new_conc<M_conc[cpt])
+        {
+            M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]+(1.-M_ridge_ratio[cpt])*(M_conc[cpt]-new_conc)/M_conc[cpt])));
+        }
+        M_conc[cpt]=new_conc;
+    
+        double max_true_thickness = 50;
+        if(M_conc[cpt]>0.)
+        {
+            double test_h_thick=M_thick[cpt]/M_conc[cpt];
+            test_h_thick = (test_h_thick>max_true_thickness) ? max_true_thickness : test_h_thick ;
+            M_conc[cpt]=M_thick[cpt]/test_h_thick;
+        }
+        
+#if 0
+        /* Initialise to be safe */
+        newice = 0.;
+        del_c = 0.;
+        newsnow = 0.;
+        /* Thin ice category */    
+        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        {
+            thin_ice_redistribute(M_h_thin[cpt], M_hs_thin[cpt], 0., M_conc[cpt],
+                          tanalpha, rtanalpha, h_thin_max, &M_h_thin[cpt], &newice, &del_c, &newsnow);
+        
+            // Change the snow _thickness_ for thick ice and _volume_ for thin ice
+            M_hs_thin[cpt] -= newsnow;
+            M_snow_thick[cpt] += newsnow;
+            M_conc[cpt] += del_c;
+            M_thick[cpt] += newice;
+            
+            if(M_thick[cpt]>0.)
+                M_ridge_ratio[cpt]=(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt];
+            else
+                M_ridge_ratio[cpt]=0.;
+        }
+#endif   
+        
+
 
         /*======================================================================
          * Update the internal stress
@@ -2966,18 +3057,21 @@ FiniteElement::update()
         sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
         sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
 
-        q=std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
-        sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
+        double ridge_to_normal_cohesion_ratio=vm["simul.ridge_to_normal_cohesion_ratio"].as<double>();
+        double effective_cohesion=M_Cohesion[cpt]*(1. + M_ridge_ratio[cpt]*(ridge_to_normal_cohesion_ratio-1.) );
+        double effective_compressive_strength=M_Compressive_strength[cpt]*(1. + M_ridge_ratio[cpt]*(ridge_to_normal_cohesion_ratio-1.) );
 
+        q=std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
+        sigma_c=2.*effective_cohesion/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
         sigma_t=-sigma_c/q;
 
         /* minimum and maximum normal stress */
-        tract_max=-tract_coef*M_Cohesion[cpt]/tan_phi;
+        tract_max=-tract_coef*effective_cohesion/tan_phi;
 
         /* Correction of the damage */
-        if(sigma_n>M_Compressive_strength[cpt])
+        if(sigma_n>effective_compressive_strength)
         {
-            sigma_target=M_Compressive_strength[cpt];
+            sigma_target=effective_compressive_strength;
 
             tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
 
@@ -3147,9 +3241,6 @@ FiniteElement::thermo()
     double const rh0   = 1./vm["simul.hnull"].as<double>();
     double const rPhiF = 1./vm["simul.PhiF"].as<double>();
 
-    double const tanalpha  = h_thin_max/c_thin_max;
-    double const rtanalpha = 1./tanalpha;
-
     double const qi = physical::Lf * physical::rhoi;// J m^{-3}
     double const qs = physical::Lf * physical::rhos;// J m^{-3}
 
@@ -3205,8 +3296,8 @@ FiniteElement::thermo()
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
             old_h_thin  = M_h_thin[i];
+            old_conc_thin  = M_conc_thin[i];
             old_hs_thin = M_hs_thin[i];
-            old_conc_thin = std::min(std::min(old_h_thin/physical::hmin, std::sqrt(2.*old_h_thin*rtanalpha)), 1-old_conc);
         }
 
         double sum_u=0.;
@@ -3373,7 +3464,7 @@ FiniteElement::thermo()
         /* Form new ice in case of super cooling, and reset Qow and evap */
         if ( tw_new < tfrw )
         {
-            newice  = (1.-M_conc[i])*(tfrw-tw_new)*tmp_mld*physical::rhow*physical::cpw/qi;// m
+            newice  = (1.-M_conc[i]-M_conc_thin[i])*(tfrw-tw_new)*tmp_mld*physical::rhow*physical::cpw/qi;// m
             Qow  = -(tfrw-M_sst[i])*tmp_mld*physical::rhow*physical::cpw/time_step;
             // evap = 0.;
         } else {
@@ -3384,9 +3475,8 @@ FiniteElement::thermo()
         /* Initialise to be safe */
         del_c = 0.;
         newsnow = 0.;
-        if ( newice > 0. )
-        {
-            /* Freezing conditions */
+        
+        /* Freezing conditions */
             switch ( newice_type )
             {
                 case 1:
@@ -3399,7 +3489,10 @@ FiniteElement::thermo()
                     {
                             del_c = newice*PhiF/hi_old;
                     } else {
+                        if ( newice > 0. )
                             del_c = 1.;
+                        else
+                            del_c = 0.;
                     }
                     break;
                 case 3:
@@ -3409,12 +3502,41 @@ FiniteElement::thermo()
                     break;
                 case 4:
                     /* Thin ice category */
-                    thin_ice_redistribute(M_h_thin[i], M_hs_thin[i], newice/(1.-M_conc[i]), M_conc[i],
-                                      tanalpha, rtanalpha, h_thin_max, &M_h_thin[i], &newice, &del_c, &newsnow);
+                    //thin_ice_redistribute(M_h_thin[i], M_hs_thin[i], newice/(1.-M_conc[i]), M_conc[i],
+                    //                  tanalpha, rtanalpha, h_thin_max, &M_h_thin[i], &newice, &del_c, &newsnow);
 
-                    // Change the snow _thickness_ for thick ice and _volume_ for thin ice
-                    M_hs_thin[i]    -= newsnow;
-                    // M_snow_thick[i] += newsnow; <- this is done properly below
+                    M_h_thin[i]+=newice;
+                    M_conc_thin[i]+=newice/h_thin_min; // 5 cm
+
+                    if(M_conc_thin[i]>0.)
+                    {
+                    /* Two cases: Thin ice fills the cell or not */
+                    if ( M_h_thin[i] < h_thin_min*M_conc_thin[i] )
+                         M_conc_thin[i] = M_h_thin[i]/h_thin_min;
+                    else
+                    {
+                        h0 = h_thin_min + 2.*(M_h_thin[i]-h_thin_min*M_conc_thin[i])/(M_conc_thin[i]);
+                        if(h0>h_thin_max)
+                        {
+                            double new_conc_thin = M_conc_thin[i]*(h_thin_max-h_thin_min)/(h0-h_thin_min);
+                            double new_h_thin    = (h_thin_max-h_thin_min)/2.*new_conc_thin + h_thin_min*new_conc_thin ;
+                            double new_hs_thin   = new_conc_thin*M_hs_thin[i]/M_conc_thin[i];
+                        
+                            M_thick[i] += new_h_thin-M_h_thin[i];
+                            
+                            del_c = new_conc_thin-M_conc_thin[i];
+                            // M_conc[i]  += del_c; ; <- this is done properly below
+                            
+                            newsnow = new_hs_thin-M_hs_thin[i];
+                            // M_snow_thick[i] += newsnow; <- this is done properly below
+
+                            M_conc_thin[i]  = new_conc_thin;
+                            M_h_thin[i]     = new_h_thin;
+                            M_hs_thin[i]    = new_hs_thin;
+                        }
+
+                   }
+                    }
                     break;
                 default:
                     std::cout << "newice_type = " << newice_type << "\n";
@@ -3422,8 +3544,8 @@ FiniteElement::thermo()
             }
             /* Check bounds on del_c */
             del_c = std::min( 1.-M_conc[i], del_c );
-        }
-        else if ( del_hi < 0. )
+        
+        if ( del_hi < 0. )
         {
             /* Melting conditions */
             switch ( melt_type )
@@ -3432,14 +3554,14 @@ FiniteElement::thermo()
                     /* Hibler (79) using PhiM to tune. PhiM = 0.5 is
                      * equivalent to Hibler's (79) approach */
                     if ( M_conc[i] < 1. )
-                        del_c = del_hi*M_conc[i]*PhiM/hi_old;
+                        del_c += del_hi*M_conc[i]*PhiM/hi_old;
                     else
-                        del_c = 0.;
+                        del_c += 0.;
                     break;
                 case 2:
                     /* Mellor and Kantha (89) */
                     /* Use the fraction PhiM of (1-c)*Qow to melt laterally */
-                    del_c = PhiM*(1.-M_conc[i])*std::min(0.,Qow)*time_step/( hi*qi+hs*qs );
+                    del_c += PhiM*(1.-M_conc[i])*std::min(0.,Qow)*time_step/( hi*qi+hs*qs );
                     /* Deliver the fraction (1-PhiM) of Qow to the ocean */
                     Qow = (1.-PhiM)*Qow;
                     // This is handled below
@@ -3452,11 +3574,6 @@ FiniteElement::thermo()
                     std::cout << "newice_type = " << newice_type << "\n";
                     throw std::logic_error("Wrong newice_type");
             }
-        }
-        else
-        {
-            /* There is no ice growing or melting */
-            del_c = 0.;
         }
 
         /* New concentration */
@@ -4889,7 +5006,6 @@ FiniteElement::step(int &pcpt)
 void
 FiniteElement::updateMeans(GridOutput &means, double time_factor)
 {
-    double const rtanalpha = c_thin_max/h_thin_max;
     // Update elements and multiply with time_factor
     for ( auto it=means.M_elemental_variables.begin(); it!=means.M_elemental_variables.end(); ++it )
     {
@@ -4948,9 +5064,7 @@ FiniteElement::updateMeans(GridOutput &means, double time_factor)
             case (GridOutput::variableID::conc_thin):
                 for (int i=0; i<M_num_elements; i++)
                 {
-                    double conc_thin = std::min(std::min(M_h_thin[i]/physical::hmin,
-                                        std::sqrt(2.*M_h_thin[i]*rtanalpha)), 1.-M_conc[i]);
-                    it->data_mesh[i] += conc_thin*time_factor;
+                    it->data_mesh[i] += M_conc_thin[i]*time_factor;
                 }
                 break;
 
@@ -5172,6 +5286,7 @@ FiniteElement::writeRestart(int pcpt, int step)
     if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
     {
         exporter.writeField(outbin, M_h_thin, "M_h_thin");
+        exporter.writeField(outbin, M_conc_thin, "M_conc_thin");
         exporter.writeField(outbin, M_hs_thin, "M_hs_thin");
         exporter.writeField(outbin, M_tsurf_thin, "M_tsurf_thin");
     }
@@ -5396,6 +5511,7 @@ FiniteElement::readRestart(int step)
     if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
     {
         M_h_thin     = field_map_dbl["M_h_thin"];
+        M_conc_thin     = field_map_dbl["M_conc_thin"];
         M_hs_thin    = field_map_dbl["M_hs_thin"];
         M_tsurf_thin = field_map_dbl["M_tsurf_thin"];
     }
@@ -5431,6 +5547,7 @@ FiniteElement::readRestart(int step)
     M_ocean_elements_dataset.target_size=M_num_elements;
 
     M_ice_topaz_elements_dataset.target_size=M_num_elements;
+    M_ice_icesat_elements_dataset.target_size=M_num_elements;
     M_ice_piomas_elements_dataset.target_size=M_num_elements;
     M_ice_amsre_elements_dataset.target_size=M_num_elements;
     M_ice_osisaf_elements_dataset.target_size=M_num_elements;
@@ -5972,6 +6089,9 @@ FiniteElement::initIce()
         case setup::IceType::TOPAZ4:
             this->topazIce();
             break;
+        case setup::IceType::TOPAZ4OSISAFICESAT:
+            this->topazIceOsisafIcesat();
+            break;
         case setup::IceType::TOPAZ4F:
             this->topazForecastIce();
             break;
@@ -6098,9 +6218,6 @@ FiniteElement::targetIce()
     auto RY = M_mesh.bcoordY();
     double cmin= 0.;
             
-    double conc_thin;
-    double const rtanalpha = c_thin_max/h_thin_max;
-
     for (int i=0; i<M_num_elements; ++i)
     {
         tmp_var = (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max)*(RX[i]>=x_min);
@@ -6127,15 +6244,11 @@ FiniteElement::targetIce()
         
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
-            M_h_thin[i]     = vm["simul.init_thin_max_thickness"].as<double>();
+            M_conc_thin[i]  = vm["simul.init_thin_conc"].as<double>();
             
-            // Re-create the variable 'concentration of thin ice'
-            conc_thin = std::min(std::min(M_h_thin[i]/physical::hmin,
-                            std::sqrt(2.*M_h_thin[i]*rtanalpha)), 1.-M_conc[i]);
+            M_h_thin[i]     = (vm["simul.h_thin_min"].as<double>()+(vm["simul.h_thin_max"].as<double>()-vm["simul.h_thin_min"].as<double>())/2.)*M_conc_thin[i];
             
-            M_h_thin[i]=std::pow(conc_thin,2.)/(2.*rtanalpha);
-            
-            M_hs_thin[i]    = vm["simul.init_snow_thickness"].as<double>()*conc_thin;
+            M_hs_thin[i]    = vm["simul.init_snow_thickness"].as<double>()*M_conc_thin[i];
         }
 
         //if either c or h equal zero, we set the others to zero as well
@@ -6246,6 +6359,91 @@ FiniteElement::topazIce()
         {
             M_conc[i]=0.;
             M_snow_thick[i]=0.;
+        }
+
+		M_damage[i]=0.;
+	}
+}
+void
+FiniteElement::topazIceOsisafIcesat()
+{
+    external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
+    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    
+    external_data M_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init);
+    //M_type.check_and_reload(M_mesh,time_init);
+ 
+    external_data M_icesat_thick=ExternalData(&M_ice_icesat_elements_dataset,M_mesh,0,false,time_init);
+    //M_icesat_thick.check_and_reload(M_mesh,time_init);
+    
+    external_data M_conc_amsre=ExternalData(&M_ice_amsre_elements_dataset,M_mesh,0,false,time_init);
+    //M_conc_amsre.check_and_reload(M_mesh,time_init);
+
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_init_snow_thick);
+    M_external_data_tmp.push_back(&M_type);
+    M_external_data_tmp.push_back(&M_icesat_thick);
+    M_external_data_tmp.push_back(&M_conc_amsre);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,"init - TOPAZ ice");
+    M_external_data_tmp.resize(0);
+    
+    double tmp_var;
+    for (int i=0; i<M_num_elements; ++i)
+    {
+		tmp_var=std::min(1.,M_init_conc[i]);
+		M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+		tmp_var=M_init_thick[i];
+		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+		tmp_var=M_icesat_thick[i]*M_conc[i]; // Icesat gives the actual thickness (see "Uncertainties in Arctic sea ice thickness and volume: new estimates and implications for trends")
+		M_thick[i] = (tmp_var>1e-3) ? tmp_var : M_thick[i]; 
+		tmp_var=M_init_snow_thick[i];
+		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+
+        // Correction of the value given by Warren as a function of the ice type
+        //M_type[i]==1. // No ice
+        //M_type[i]==2. // First-Year ice
+        //M_type[i]==3. // Multi-Year ice
+        //M_type[i]==4. // Mixed
+        double ratio_FYI=0.3;
+        double ratio_MYI=0.9;
+        double ratio_Mixed=0.6;
+
+        if((M_thick[i]>0)&&(M_conc[i])>0.2)
+        {
+            if(M_type[i]>1. && M_type[i]<=2)
+                M_ridge_ratio[i]=(M_type[i]-1.)*ratio_FYI;
+            if(M_type[i]>2. && M_type[i]<=3.)
+                M_ridge_ratio[i]=(1.-(M_type[i]-2.))*ratio_FYI + (M_type[i]-2.)*ratio_MYI;
+            if(M_type[i]>3. && M_type[i]<=4.)
+                M_ridge_ratio[i]=(1.-(M_type[i]-3.))*ratio_MYI + (M_type[i]-3.)*ratio_Mixed;
+        }
+        M_ridge_ratio[i]=M_ridge_ratio[i]*std::exp(ridging_exponent*(1.-M_conc[i]));
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+
+        
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {
+            M_conc_thin[i]=std::max(M_conc_amsre[i]-M_conc[i],0.);
+            M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
         }
 
 		M_damage[i]=0.;
@@ -7618,16 +7816,7 @@ FiniteElement::exportResults(std::vector<std::string> const &filenames, bool exp
             exporter.writeField(outbin, M_h_thin, "Thin_ice");
             exporter.writeField(outbin, M_hs_thin, "Snow_thin_ice");
             exporter.writeField(outbin, M_tsurf_thin, "Tsurf_thin_ice");
-
-            // Re-create the diagnostic variable 'concentration of thin ice'
-            std::vector<double> conc_thin(M_mesh.numTriangles());
-            double const rtanalpha = c_thin_max/h_thin_max;
-            for ( int i=0; i<M_mesh.numTriangles(); ++i )
-            {
-                conc_thin[i] = std::min(std::min(M_h_thin[i]/physical::hmin,
-                            std::sqrt(2.*M_h_thin[i]*rtanalpha)), 1.-M_conc[i]);
-            }
-            exporter.writeField(outbin, conc_thin, "Concentration_thin_ice");
+            exporter.writeField(outbin, M_conc_thin, "Concentration_thin_ice");
         }
 
 #if 1

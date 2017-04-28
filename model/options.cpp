@@ -145,6 +145,7 @@ namespace Nextsim
             ("simul.tract_coef", po::value<double>()->default_value( 5./6 ), "")
             ("simul.compr_strength", po::value<double>()->default_value( 750e+3 ), "Pa")
             ("simul.ridging_exponent", po::value<double>()->default_value( -20. ), "")
+            ("simul.ridge_to_normal_cohesion_ratio", po::value<double>()->default_value( 1. ), "") // Ratio of ridged ice cohesion and compressive strength compared to level ice (1. does nothing)
 
             ("simul.time_relaxation_damage", po::value<double>()->default_value( 28. ), "days")
             ("simul.deltaT_relaxation_damage", po::value<double>()->default_value( 40. ), "Kelvin")
@@ -202,7 +203,7 @@ namespace Nextsim
             ("simul.PhiF", po::value<double>()->default_value( 4. ), "")
             ("simul.PhiM", po::value<double>()->default_value( 0.5 ), "")
             ("simul.h_thin_max", po::value<double>()->default_value( 0.5 ), "")
-            ("simul.c_thin_max", po::value<double>()->default_value( 1. ), "")
+            ("simul.h_thin_min", po::value<double>()->default_value( 0.05 ), "")
 
             ("simul.drag_ice_t", po::value<double>()->default_value( 1.3e-3 ), "")
             ("simul.drag_ocean_u", po::value<double>()->default_value( 1.1e-3 ), "")

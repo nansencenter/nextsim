@@ -2332,6 +2332,97 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
+         averaging_period=365./12; // days
+         time= time_tmp;
+     }
+     else if (strcmp (DatasetName, "ice_icesat_elements") == 0)
+     {
+     	// Definition of the icesat grid and datasets
+         Dimension dimension_x={
+             name:"x",
+             cyclic:false
+     	};
+
+         Dimension dimension_y={
+             name:"y",
+             cyclic:false
+     	};
+
+         std::vector<Dimension> dimensions_latlon(2);
+         dimensions_latlon[0] = dimension_y;
+         dimensions_latlon[1] = dimension_x;
+
+         Variable latitude={
+             name: "Lat",
+             dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_north",
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
+
+         Variable longitude={
+             name: "Lon",
+             dimensions: dimensions_latlon,
+             land_mask_defined: false,
+             land_mask_value: 0.,
+             NaN_mask_defined: false,
+             NaN_mask_value: 0.,
+             a: 1.,
+             b: 0.,
+             Units: "degree_east",
+            loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp};
+
+         Variable thickness={
+     		name: "Th",
+     		dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+     		a: 0.01,
+     		b: 0.,
+     		Units: "",
+         loaded_data: loaded_data_tmp,
+         interpolated_data: interpolated_data_tmp
+     	};
+
+         Grid grid_tmp={
+             interpolation_method: InterpolationType::FromMeshToMesh2dx,
+             interp_type: -1,
+             dirname: "data",
+             prefix: "icesat_icethk_ON06",
+             postfix: "_filled.nc",
+             reference_date: "",
+
+             latitude: latitude,
+             longitude: longitude,
+
+             dimension_x: dimension_x,
+             dimension_y: dimension_y,
+
+             mpp_file: projfilename,
+     		 interpolation_in_latlon: false,
+            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+
+             loaded: false,
+             dataset_frequency:"constant",
+             target_location:"mesh_elements",
+
+            waveOptions: wavopt_none,
+
+     		masking: false
+        };
+
+        std::vector<Variable> variables_tmp(1);
+        variables_tmp[0] = thickness;
+
+        std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
@@ -2341,9 +2432,8 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         loaded=false;
         interpolated=false;
 
-        averaging_period=1.; // days
-        time= time_tmp;
-    }
+        averaging_period=0.; // days
+     }
     else if (strcmp (DatasetName, "etopo_elements") == 0)
     {
         // Definition of etopo grid and datasets
@@ -2535,7 +2625,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -180.,
+            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"monthly",
@@ -3657,7 +3747,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
               b: 0.,
               Units: "degree_north",
              loaded_data: loaded_data_tmp,
-             interpolated_data: interpolated_data_tmp};
+             interpolated_data: interpolated_data_tmp,
+             wavDirOptions: wavdiropt_none
+             };
 
           Variable longitude={
               name: "lon",
@@ -3670,7 +3762,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
               b: 0.,
               Units: "degree_east",
              loaded_data: loaded_data_tmp,
-             interpolated_data: interpolated_data_tmp};
+             interpolated_data: interpolated_data_tmp,
+             wavDirOptions: wavdiropt_none
+             };
 
           Grid grid_tmp={
             interpolation_method: InterpolationType::FromGridToMesh,
@@ -3725,8 +3819,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
              b: 0.,
              Units: "hours",
              loaded_data: loaded_data_tmp,
-             interpolated_data: interpolated_data_tmp
-         };
+             interpolated_data: interpolated_data_tmp,
+             wavDirOptions: wavdiropt_none
+             };
 
           // conversion factors: xnew = a*x + b
           Variable u={
@@ -3740,7 +3835,8 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
               b: 0.,
               Units: "m/s",
              loaded_data: loaded_data_tmp,
-             interpolated_data: interpolated_data_tmp
+             interpolated_data: interpolated_data_tmp,
+             wavDirOptions: wavdiropt_none
           };
 
           Variable v={
@@ -3754,7 +3850,8 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
               b: 0.,
               Units: "m/s",
              loaded_data: loaded_data_tmp,
-             interpolated_data: interpolated_data_tmp
+             interpolated_data: interpolated_data_tmp,
+             wavDirOptions: wavdiropt_none
           };
 
           std::vector<Variable> variables_tmp(2);
@@ -3818,7 +3915,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
               b: 0.,
               Units: "degree_north",
              loaded_data: loaded_data_tmp,
-             interpolated_data: interpolated_data_tmp};
+             interpolated_data: interpolated_data_tmp,
+             wavDirOptions: wavdiropt_none
+             };
 
           Variable longitude={
               name: "lon",
@@ -3831,7 +3930,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
               b: 0.,
               Units: "degree_east",
              loaded_data: loaded_data_tmp,
-             interpolated_data: interpolated_data_tmp};
+             interpolated_data: interpolated_data_tmp,
+             wavDirOptions: wavdiropt_none
+            };
 
           Grid grid_tmp={
             interpolation_method: InterpolationType::FromGridToMesh,
@@ -3886,7 +3987,8 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
              b: 0.,
              Units: "hours",
              loaded_data: loaded_data_tmp,
-             interpolated_data: interpolated_data_tmp
+             interpolated_data: interpolated_data_tmp,
+             wavDirOptions: wavdiropt_none
          };
 
           // conversion factors: xnew = a*x + b
@@ -3901,7 +4003,8 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
               b: 0.,
               Units: "m/s",
              loaded_data: loaded_data_tmp,
-             interpolated_data: interpolated_data_tmp
+             interpolated_data: interpolated_data_tmp,
+             wavDirOptions: wavdiropt_none
           };
 
           Variable v={
@@ -3915,7 +4018,8 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
               b: 0.,
               Units: "m/s",
              loaded_data: loaded_data_tmp,
-             interpolated_data: interpolated_data_tmp
+             interpolated_data: interpolated_data_tmp,
+             wavDirOptions: wavdiropt_none
           };
 
           std::vector<Variable> variables_tmp(2);
