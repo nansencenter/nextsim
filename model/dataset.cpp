@@ -3690,10 +3690,12 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             mpp_file: "",
             interpolation_in_latlon: true,
+            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
 
             dataset_frequency:"monthly",
+            target_location:"mesh_nodes",
 
             waveOptions: wavopt_none,
 
@@ -3849,10 +3851,12 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             mpp_file: "",
             interpolation_in_latlon: true,
+            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
 
             dataset_frequency:"monthly",
+            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
