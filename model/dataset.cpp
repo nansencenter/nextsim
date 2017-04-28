@@ -2348,37 +2348,41 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
              cyclic:false
      	};
 
-         std::vector<Dimension> dimensions_latlon(2);
-         dimensions_latlon[0] = dimension_y;
-         dimensions_latlon[1] = dimension_x;
+        std::vector<Dimension> dimensions_latlon(2);
+        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[1] = dimension_x;
 
-         Variable latitude={
-             name: "Lat",
-             dimensions: dimensions_latlon,
-             land_mask_defined: false,
-             land_mask_value: 0.,
-             NaN_mask_defined: false,
-             NaN_mask_value: 0.,
-             a: 1.,
-             b: 0.,
-             Units: "degree_north",
+        Variable latitude={
+            name: "Lat",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a: 1.,
+            b: 0.,
+            Units: "degree_north",
             loaded_data: loaded_data_tmp,
-         interpolated_data: interpolated_data_tmp};
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
 
-         Variable longitude={
-             name: "Lon",
-             dimensions: dimensions_latlon,
-             land_mask_defined: false,
-             land_mask_value: 0.,
-             NaN_mask_defined: false,
-             NaN_mask_value: 0.,
-             a: 1.,
-             b: 0.,
-             Units: "degree_east",
+        Variable longitude={
+            name: "Lon",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a: 1.,
+            b: 0.,
+            Units: "degree_east",
             loaded_data: loaded_data_tmp,
-         interpolated_data: interpolated_data_tmp};
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
 
-         Variable thickness={
+        Variable thickness={
      		name: "Th",
      		dimensions: dimensions_latlon,
             land_mask_defined: false,
@@ -2388,31 +2392,32 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
      		a: 0.01,
      		b: 0.,
      		Units: "",
-         loaded_data: loaded_data_tmp,
-         interpolated_data: interpolated_data_tmp
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
      	};
 
-         Grid grid_tmp={
-             interpolation_method: InterpolationType::FromMeshToMesh2dx,
-             interp_type: -1,
-             dirname: "data",
-             prefix: "icesat_icethk_ON06",
-             postfix: "_filled.nc",
-             reference_date: "",
+        Grid grid_tmp={
+            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interp_type: -1,
+            dirname: "data",
+            prefix: "icesat_icethk_ON06",
+            postfix: "_filled.nc",
+            reference_date: "",
 
-             latitude: latitude,
-             longitude: longitude,
+            latitude: latitude,
+            longitude: longitude,
 
-             dimension_x: dimension_x,
-             dimension_y: dimension_y,
+            dimension_x: dimension_x,
+            dimension_y: dimension_y,
 
-             mpp_file: projfilename,
-     		 interpolation_in_latlon: false,
+            mpp_file: projfilename,
+     		interpolation_in_latlon: false,
             branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
-             loaded: false,
-             dataset_frequency:"constant",
-             target_location:"mesh_elements",
+            loaded: false,
+            dataset_frequency:"constant",
+            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
