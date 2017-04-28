@@ -324,12 +324,20 @@ function set_axis_colormap_colorbar(mesh_filename,field,v,i,region_of_zoom)
     end
 
     %We set the axis limits, the colormap and set the name for the colorbar
-    if contains(field,'Concentration','IgnoreCase',true)
+    if exist('contains')
+       CONC    = contains(field,'Concentration','IgnoreCase',true);
+       THICK   = contains(field,'Thickness','IgnoreCase',true);
+    else
+       CONC    = ~isempty(strfind(field,'oncentration'));
+       THICK   = ~isempty(strfind(field,'hickness'));
+    end
+
+    if CONC
         caxis([0 1]);
         load('ice_conc_cmap64.mat')
         colormap(ice_conc_cmap64);
         name_colorbar='Concentration';
-    elseif contains(field,'Thickness','IgnoreCase',true)
+    elseif THICK
         caxis([0, 4]);
         colormap(cmap_def);
         name_colorbar='Thickness (m)';
