@@ -390,6 +390,10 @@ function set_axis_colormap_colorbar(mesh_filename,field,v,i,region_of_zoom)
         caxis([-35, 5]);
         colormap(cmap_def);
         name_colorbar='T_{air} (^oC)';
+    elseif strcmp(field,'Dfloe')
+        caxis([0, 300]);
+        colormap(cmap_def);
+        name_colorbar='D_{max} (m)';
     else
         colormap(cmap_def);
         name_colorbar='';
