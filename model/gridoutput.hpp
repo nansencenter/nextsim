@@ -15,10 +15,10 @@
 #include <boost/format.hpp>
 #include <gmshmesh.hpp>
 #include <Bamgx.h>
+#include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromMeshToGridx.h>
 #include <BamgTriangulatex.h>
 #include <netcdf>
-#include <dataset.hpp>
 
 /**
  * @class GridOutput
@@ -30,7 +30,7 @@
 
 namespace Nextsim
 {
-class GridOutput: public DataSet
+class GridOutput
 {
 public:
 
@@ -228,6 +228,12 @@ public:
         std::vector<double> data_grid;
 
     } Variable;
+
+    typedef struct Vectorial_Variable
+    {
+        std::vector<int> components_Id;
+        bool east_west_oriented;
+    } Vectorial_Variable;
 
     ///////////////////////////////////////////////////////////////////////
     // Constructors (and destructor)

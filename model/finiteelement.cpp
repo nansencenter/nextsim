@@ -5031,13 +5031,13 @@ FiniteElement::initMoorings()
     siuv_id[0] = 0;
     siuv_id[1] = 1;
 
-    DataSet::Vectorial_Variable siuv{
+    GridOutput::Vectorial_Variable siuv{
         components_Id: siuv_id,
         // east_west_oriented: true
         east_west_oriented: false
     };
 
-    std::vector<DataSet::Vectorial_Variable> vectorial_variables(1);
+    std::vector<GridOutput::Vectorial_Variable> vectorial_variables(1);
     vectorial_variables[0] = siuv;
 
 #if 1
