@@ -200,7 +200,7 @@ namespace Nextsim
             ("simul.PhiF", po::value<double>()->default_value( 4. ), "")
             ("simul.PhiM", po::value<double>()->default_value( 0.5 ), "")
             ("simul.h_thin_max", po::value<double>()->default_value( 0.5 ), "")
-            ("simul.c_thin_max", po::value<double>()->default_value( 1. ), "")
+            ("simul.h_thin_min", po::value<double>()->default_value( 0.05 ), "")
 
             ("simul.drag_ice_t", po::value<double>()->default_value( 1.3e-3 ), "")
             ("simul.drag_ocean_u", po::value<double>()->default_value( 1.1e-3 ), "")

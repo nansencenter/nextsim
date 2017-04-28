@@ -280,6 +280,7 @@ private:
     std::vector<double> M_basal_factor;
     std::vector<double> M_water_elements;
     std::vector<double> M_h_thin;
+    std::vector<double> M_conc_thin;
     std::vector<double> M_hs_thin;
     std::vector<double> M_ridge_ratio;
 
@@ -346,7 +347,7 @@ private:
     double basal_Cb;
 
     double h_thin_max;
-    double c_thin_max;
+    double h_thin_min;
 
     double compr_strength;
     double tract_coef;
