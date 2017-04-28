@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim:fenc=utf-8:ft=cpp:et:sw=4:ts=4:sts=4 */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
  * @file   wimdiscr.hpp
@@ -111,15 +111,19 @@ public:
                     std::vector<std::string> const& names
                     ) const;
     void saveLog(value_type const& t_out) const;
-    void init();
 
-    void assign(std::vector<value_type> const& icec_in = std::vector<value_type>(),
+    void init();
+    void assign();
+
+    void update(std::vector<value_type> const& icec_in = std::vector<value_type>(),
                 std::vector<value_type> const& iceh_in = std::vector<value_type>(),
                 std::vector<value_type> const& nfloes_in = std::vector<value_type>(),
                 std::vector<value_type> const& swh_in = std::vector<value_type>(),
                 std::vector<value_type> const& mwp_in = std::vector<value_type>(),
                 std::vector<value_type> const& mwd_in = std::vector<value_type>(),
                 bool step = false);
+
+    void updateWaveMedium();
 
     void timeStep(bool step = false);
 
@@ -132,10 +136,16 @@ public:
                  std::vector<value_type> const& m_nfloes,
                  std::string const& units="km");
 
+    value_type nfloesToDfloe(
+                 value_type const& m_nfloes,
+                 value_type const& m_conc);
     std::vector<value_type> nfloesToDfloe(
                  std::vector<value_type> const& m_nfloes,
                  std::vector<value_type> const& m_conc);
     
+    value_type dfloeToNfloes(
+                 value_type const& m_dfloe,
+                 value_type const& m_conc);
     std::vector<value_type> dfloeToNfloes(
                  std::vector<value_type> const& m_dfloe,
                  std::vector<value_type> const& m_conc);
@@ -189,6 +199,7 @@ public:
     void inputWaveFields(value_type_vec const& swh_in,
             value_type_vec const& mwp_in,
             value_type_vec const& mwd_in);
+    void setIncWaveSpec(bool const step);
     void inputIceFields(value_type_vec const& icec_in,
             value_type_vec const& iceh_in,
             value_type_vec const& nfloes_in);

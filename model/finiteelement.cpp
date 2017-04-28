@@ -60,9 +60,7 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
 
     M_mesh.readFromFile(M_mesh_filename);
 
-    //if (!vm["simul.wim_grid"].as<bool>())
     // setup the stereographic projection
-    //M_mesh.setProjectionFile("toto.mpp");
     M_mesh.stereographicProjection();
     // M_mesh.writeTofile("copy_init_mesh.msh");
 
@@ -323,8 +321,36 @@ FiniteElement::initDatasets()
             M_ocean_elements_dataset=DataSet("topaz_forecast_elements",M_num_elements);
             break;
 
-        default:        std::cout << "invalid ocean forcing"<<"\n";throw std::logic_error("invalid wind forcing");
+        default:        std::cout << "invalid ocean forcing"<<"\n";throw std::logic_error("invalid ocean forcing");
     }
+#if defined (WAVES)
+    if (M_use_wim)
+    {
+        switch (M_wave_type)
+        {
+            case setup::WaveType::SET_IN_WIM:
+                break;
+
+            case setup::WaveType::CONSTANT:
+                break;
+
+            case setup::WaveType::CONSTANT_PARTIAL:
+                break;
+
+            case setup::WaveType::WW3A:
+                M_wave_elements_dataset=DataSet("ww3a_elements",M_num_elements);
+                break;
+
+            case setup::WaveType::ERAI_WAVES_1DEG:
+                M_wave_elements_dataset=DataSet("erai_waves_1deg_elements",M_num_elements);
+                break;
+
+            default:
+                std::cout << "invalid wave forcing"<<"\n";
+                throw std::logic_error("invalid wave forcing");
+        }
+    }
+#endif
 
     M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements",M_num_elements);
 
@@ -344,12 +370,110 @@ FiniteElement::initDatasets()
 
     M_bathymetry_elements_dataset=DataSet("etopo_elements",M_num_elements);//M_num_nodes);
 
-#if defined (WAVES)
-    M_WW3A_elements_dataset=DataSet("ww3a_elements",M_num_elements);
-    M_ERAIW_1DEG_elements_dataset=DataSet("erai_waves_1deg_elements",M_num_elements);
+
+}//initDatasets
+
+#if 0
+std::vector<double>
+FiniteElements::rotatedWimElementsX(double const& rotangle) const
+{
+    //get x coord of WIM centers (rotated)
+    std::vector<double> x(num_elements_wim_grid);
+    double cos_rotangle=std::cos(rotangle);
+    double sin_rotangle=std::sin(rotangle);
+    for (int i=0; i<num_elements_wim_grid; ++i)
+    {
+        x[i] = cos_rotangle*wim_grid.X[i] + sin_rotangle*wim_grid.Y[i];
+    }
+
+    return x;
+}
+
+std::vector<double>
+FiniteElements::rotatedWimElementsY(double const& rotangle) const
+{
+    //get x coord of WIM centers (rotated)
+    std::vector<double> y(num_elements_wim_grid);
+    double cos_rotangle=std::cos(rotangle);
+    double sin_rotangle=std::sin(rotangle);
+    for (int i=0; i<num_elements_wim_grid; ++i)
+    {
+        y[i] = -sin_rotangle*wim_grid.X[i] + cos_rotangle*wim_grid.Y[i];
+    }
+
+    return y;
+}
 #endif
 
-}
+void
+FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
+        double const& CRtime, std::string const& printout)
+{
+    std::cout<<"size of external data vector = "<<ext_data_vec.size()<<"\n";
+    if ( ext_data_vec.size()==0 )
+    {
+        LOG(DEBUG) <<"check_and_reload ("<<printout<<"):\n";
+        LOG(DEBUG) <<"nothing to do\n";
+        return;
+    }
+
+    //loop over M_external_data and call check and reload for each:
+    chrono.restart();
+    LOG(DEBUG) <<"check_and_reload ("<<printout<<") starts\n";
+
+    //don't rotate yet since rotation angle not always defined yet
+    auto RX_nod = M_mesh.coordX ();//nodes
+    auto RY_nod = M_mesh.coordY ();
+    auto RX_el  = M_mesh.bcoordX();//elements
+    auto RY_el  = M_mesh.bcoordY();
+
+    for ( auto it = ext_data_vec.begin(); it != ext_data_vec.end(); ++it )
+    {
+        if ( (*it)->M_is_constant )
+        {
+            std::vector<double> RX,RY;//not needed for constant forcings
+            (*it)->check_and_reload(RX,RY,CRtime);
+        }
+        else
+        {
+            //dataset & interpolation etc needed
+            if ( (*it)->M_dataset->grid.target_location=="mesh_nodes" )
+            {
+                LOG(DEBUG)<<"in nodes: dataset = "<<(*it)->M_dataset->name<<"\n";
+                (*it)->check_and_reload(RX_nod,RY_nod,CRtime);
+            }
+            else if ( (*it)->M_dataset->grid.target_location=="mesh_elements" )
+            {
+                LOG(DEBUG)<<"in elements: dataset = "<<(*it)->M_dataset->name<<"\n";
+                (*it)->check_and_reload(RX_el,RY_el,CRtime);
+            }
+#if defined (WAVES)
+            else if ( (*it)->M_dataset->grid.target_location=="wim_grid" )
+            {
+                //LOG(DEBUG)<<"in wim_grid: dataset = "<<(*it)->M_dataset->name<<"\n";
+                std::cout<<"in wim_grid: dataset = "<<(*it)->M_dataset->name<<"\n";
+                //interp to WIM grid
+                (*it)->check_and_reload(wim_grid.X,wim_grid.Y,CRtime);
+            }
+#endif
+            else
+            {
+                std::cout<<"Bad value for dataset->grid.target_location: "<<(*it)->M_dataset->grid.target_location<<"\n";
+                std::cout<<"- set to \"mesh_nodes\", or \"mesh_elements\"\n";
+#if defined (WAVES)
+                std::cout<<"or \"wim_grid\"\n";
+#endif
+                std::abort();
+            }
+        }
+    }
+
+    RX_el.resize(0);
+    RY_el.resize(0);
+    RX_nod.resize(0);
+    RY_nod.resize(0);
+    LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
+}//checkReloadDatasets
 
 void
 FiniteElement::initBamg()
@@ -510,13 +634,18 @@ FiniteElement::initConstant()
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
 
 #if defined (WAVES)
-    const boost::unordered_map<const std::string, setup::WaveType> str2wave = boost::assign::map_list_of
-        ("constant", setup::WaveType::CONSTANT)
-        ("ww3a", setup::WaveType::WW3A)
-        ("eraiw_1deg", setup::WaveType::ERAI_WAVES_1DEG);
-    M_wave_type = str2wave.find(vm["setup.wave-type"].as<std::string>())->second;
-    std::cout<<"wave forcing type "<<vm["setup.wave-type"].as<std::string>()<<"\n";
-    std::cout<<"wave forcing enum "<<(int)M_wave_type<<"\n";
+    if (M_use_wim)
+    {
+        const boost::unordered_map<const std::string, setup::WaveType> str2wave = boost::assign::map_list_of
+            ("set_in_wim", setup::WaveType::SET_IN_WIM)
+            ("constant", setup::WaveType::CONSTANT)
+            ("constant_partial", setup::WaveType::CONSTANT_PARTIAL)
+            ("ww3a", setup::WaveType::WW3A)
+            ("eraiw_1deg", setup::WaveType::ERAI_WAVES_1DEG);
+        M_wave_type = str2wave.find(vm["setup.wave-type"].as<std::string>())->second;
+        std::cout<<"wave forcing type "<<vm["setup.wave-type"].as<std::string>()<<"\n";
+        std::cout<<"wave forcing enum "<<(int)M_wave_type<<"\n";
+    }
 #endif
 
     const boost::unordered_map<const std::string, setup::BathymetryType> str2bathymetry = boost::assign::map_list_of
@@ -1398,8 +1527,8 @@ FiniteElement::regrid(bool step)
     M_ice_smos_elements_dataset.target_size=M_num_elements;
     M_bathymetry_elements_dataset.target_size=M_num_elements;
 #if defined (WAVES)
-    M_WW3A_elements_dataset.target_size=M_num_elements;
-    M_ERAIW_1DEG_elements_dataset.target_size=M_num_elements;
+    if (M_use_wim)
+        M_wave_elements_dataset.target_size=M_num_elements;
 #endif
 
 
@@ -1419,11 +1548,11 @@ FiniteElement::regrid(bool step)
     M_ice_smos_elements_dataset.interpolated=false;
     M_bathymetry_elements_dataset.interpolated=false;
 #if defined (WAVES)
-    M_WW3A_elements_dataset.interpolated=false;
-    M_ERAIW_1DEG_elements_dataset.interpolated=false;
+    if (M_use_wim)
+        M_wave_elements_dataset.interpolated=false;
 #endif
 
-    // for the parallel code, it will be necessary to add those lines
+    // for the parallel code, it will be necessary to add these lines
     // as the domain covered by the partitions changes at each remeshing/partitioning
 #if 0
     M_atmosphere_nodes_dataset.grid.interpolated=false;
@@ -1847,7 +1976,7 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
         interp_method[tmp_nb_var] = 0;
 		tmp_nb_var++;
 
-		// damage
+		// ridge_ratio
 		interp_elt_in[nb_var*i+tmp_nb_var] = M_ridge_ratio[i]*M_thick[i];
         interp_method[tmp_nb_var] = 1;
 		tmp_nb_var++;
@@ -1933,7 +2062,7 @@ FiniteElement::adaptMesh()
         if ((std::binary_search(M_dirichlet_flags.begin(),M_dirichlet_flags.end(),fnd)))
         {
             bamggeom_previous->Edges[3*edg+2] = M_flag_fix;
-            bamgmesh_previous->Edges[3*edg+2] = M_flag_fix;      
+            bamgmesh_previous->Edges[3*edg+2] = M_flag_fix;
         }
         else
         {
@@ -2957,8 +3086,28 @@ FiniteElement::update()
         if(M_thick[cpt]==0.)
             tmp=0.;
         M_damage[cpt]=((tmp>0.)?(tmp):(0.));
-    }
-}
+
+#if 0
+        if (M_conc[cpt]>physical::cmin)
+        {
+            // sanity checks on thickness and snow thickness
+            if (M_thick[cpt]/M_conc[cpt]>50.)
+            {
+                std::cout<<"True thickness too large\n";
+                std::cout<<"c,vol,h = "<<M_conc[cpt]<<","<<M_thick[cpt]<<","<<M_thick[cpt]/M_conc[cpt]<<"\n";
+                throw std::runtime_error("True thickness too large");
+            }
+            if (M_snow_thick[cpt]/M_conc[cpt]>20.)
+            {
+                std::cout<<"True snow thickness too large\n";
+                std::cout<<"c,vol,h = "<<M_conc[cpt]<<","<<M_snow_thick[cpt]<<M_snow_thick[cpt]/M_conc[cpt]<<"\n";
+                throw std::runtime_error("True snow thickness too large");
+            }
+        }
+#endif
+
+    }//loop over elements
+}//update
 
 void
 FiniteElement::solve()
@@ -3000,9 +3149,9 @@ FiniteElement::thermo()
 
     double const tanalpha  = h_thin_max/c_thin_max;
     double const rtanalpha = 1./tanalpha;
-    
-    double const qi = physical::Lf * physical::rhoi;
-    double const qs = physical::Lf * physical::rhos;
+
+    double const qi = physical::Lf * physical::rhoi;// J m^{-3}
+    double const qs = physical::Lf * physical::rhos;// J m^{-3}
 
     int const newice_type = vm["simul.newice_type"].as<int>();
     int const melt_type = vm["simul.melt_type"].as<int>();
@@ -3181,6 +3330,10 @@ FiniteElement::thermo()
         			*( 1. + 0.275*M_tcc[i] );
         }
 
+        // Qow>0 => flux out of ocean:
+        // - subtract shortwave and longwave input;
+        // add heat loss from longwave radiation, sensible heat loss (temp changes)
+        // and evaporation (latent heat loss - temp doesn't change, but phase changes)
         Qow = -tmp_Qsw_in*(1.-ocean_albedo) - tmp_Qlw_in + Qlw_out + Qsh + Qlh;
 
         // -------------------------------------------------
@@ -3189,17 +3342,20 @@ FiniteElement::thermo()
         switch ( M_thermo_type )
         {
             case setup::ThermoType::ZERO_LAYER:
-                this->thermoIce0(i, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfall, hi, hs, hi_old, Qio, del_hi, M_tice[0][i]);
+                this->thermoIce0(i, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i],
+                        tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfall, hi, hs, hi_old, Qio, del_hi, M_tice[0][i]);
                 break;
             case setup::ThermoType::WINTON:
-                this->thermoWinton(i, time_step, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfall, hi, hs, hi_old, Qio, del_hi,
+                this->thermoWinton(i, time_step, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i],
+                        tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfall, hi, hs, hi_old, Qio, del_hi,
                         M_tice[0][i], M_tice[1][i], M_tice[2][i]);
                 break;
         }
 
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
-            this->thermoIce0(i, wspeed, sphuma, old_conc_thin, M_h_thin[i], M_hs_thin[i], tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfall, hi_thin, hs_thin, hi_thin_old, Qio_thin, del_hi_thin, M_tsurf_thin[i]);
+            this->thermoIce0(i, wspeed, sphuma, old_conc_thin, M_h_thin[i], M_hs_thin[i],
+                    tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfall, hi_thin, hs_thin, hi_thin_old, Qio_thin, del_hi_thin, M_tsurf_thin[i]);
             M_h_thin[i]  = hi_thin * old_conc_thin;
             M_hs_thin[i] = hs_thin * old_conc_thin;
         }
@@ -3210,14 +3366,14 @@ FiniteElement::thermo()
         /* Local variables */
         double tw_new, tfrw, newice, del_c, newsnow, h0;
 
-        /* dT/dt due to heatflux atmos.-ocean */
+        /* dT/dt due to heatflux ocean->atmosphere */
         tw_new = M_sst[i] - Qow*time_step/(tmp_mld*physical::rhow*physical::cpw);
         tfrw   = -physical::mu*M_sss[i];
 
         /* Form new ice in case of super cooling, and reset Qow and evap */
         if ( tw_new < tfrw )
         {
-            newice  = (1.-M_conc[i])*(tfrw-tw_new)*tmp_mld*physical::rhow*physical::cpw/qi;
+            newice  = (1.-M_conc[i])*(tfrw-tw_new)*tmp_mld*physical::rhow*physical::cpw/qi;// m
             Qow  = -(tfrw-M_sst[i])*tmp_mld*physical::rhow*physical::cpw/time_step;
             // evap = 0.;
         } else {
@@ -3274,7 +3430,7 @@ FiniteElement::thermo()
             {
                 case 1:
                     /* Hibler (79) using PhiM to tune. PhiM = 0.5 is
-                     * equivilent Hibler's (79) approach */
+                     * equivalent to Hibler's (79) approach */
                     if ( M_conc[i] < 1. )
                         del_c = del_hi*M_conc[i]*PhiM/hi_old;
                     else
@@ -3556,7 +3712,8 @@ FiniteElement::albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, do
 
 // Winton thermo dynamics (ice temperature, growth, and melt)
 void
-FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfall,
+FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols,
+        double Qlw_in, double Qsw_in, double mld, double snowfall,
         double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double &T1, double &T2)
 {
     // Constants
@@ -4065,8 +4222,21 @@ FiniteElement::init()
 
         // get wim grid
         std::cout<<"Getting WIM grid info\n";
-        //wim_grid    = wim.wimGrid("km");
-        wim_grid    = wim.wimGrid("m");
+        //wim_grid = wim.wimGrid("km");
+        wim_grid = wim.wimGrid("m");
+
+        //total number of grid cells
+        num_elements_wim_grid   = wim_grid.nx*wim_grid.ny;
+
+        //range of x,y
+        xmin_wim = *std::min_element(wim_grid.X.begin(),wim_grid.X.end());
+        xmax_wim = *std::max_element(wim_grid.X.begin(),wim_grid.X.end());
+        ymin_wim = *std::min_element(wim_grid.Y.begin(),wim_grid.Y.end());
+        ymax_wim = *std::max_element(wim_grid.Y.begin(),wim_grid.Y.end());
+        std::cout<<"xmin (WIM grid) = "<<xmin_wim<<"\n";
+        std::cout<<"xmax (WIM grid) = "<<xmax_wim<<"\n";
+        std::cout<<"ymin (WIM grid) = "<<ymin_wim<<"\n";
+        std::cout<<"ymax (WIM grid) = "<<ymax_wim<<"\n";
     }
 #endif
 
@@ -4110,19 +4280,26 @@ FiniteElement::init()
 
     LOG(DEBUG) <<"Initialize forcingOcean\n";
     this->forcingOcean();
+
 #if defined (WAVES)
+    if (M_use_wim)
+    {
         LOG(DEBUG) <<"Initialize forcingWave\n";
         this->forcingWave();
+    }
 #endif
 
     LOG(DEBUG) <<"Initialize bathymetry\n";
     this->bathymetry();
 
+    this->checkReloadDatasets(M_external_data,current_time,"init - time-dependant");
+#if 0
     chrono.restart();
     LOG(DEBUG) <<"check_and_reload starts\n";
     for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
         (*it)->check_and_reload(M_mesh,current_time);
     LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
+#endif
 
     if ( ! M_use_restart )
     {
@@ -4560,10 +4737,14 @@ FiniteElement::step(int &pcpt)
     }
 
     chrono.restart();
+    this->checkReloadDatasets(M_external_data,current_time+time_step/(24*3600.0),
+            "step - time-dependant");
+#if 0
     LOG(DEBUG) <<"check_and_reload starts\n";
     for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
         (*it)->check_and_reload(M_mesh,current_time+time_step/(24*3600.0));
     LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
+#endif
 
     M_use_restart = false;
 
@@ -4973,7 +5154,7 @@ FiniteElement::writeRestart(int pcpt, int step)
     exporter.writeField(outbin, M_sigma, "M_sigma");
     exporter.writeField(outbin, M_damage, "M_damage");
     exporter.writeField(outbin, M_ridge_ratio, "M_ridge_ratio");
-        exporter.writeField(outbin, M_random_number, "M_random_number");
+    exporter.writeField(outbin, M_random_number, "M_random_number");
     int i=0;
     for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
     {
@@ -5115,7 +5296,7 @@ FiniteElement::readRestart(int step)
         if ((std::binary_search(dirichlet_flags.begin(),dirichlet_flags.end(),fnd)))
         {
             bamggeom->Edges[3*edg+2] = M_flag_fix;
-            bamgmesh->Edges[3*edg+2] = M_flag_fix;    
+            bamgmesh->Edges[3*edg+2] = M_flag_fix;
         }
         else
         {
@@ -5240,6 +5421,8 @@ FiniteElement::readRestart(int step)
 
     inbin.close();
 
+#if 0
+    //TW: these lines shouldn't be necessary now - set in check_and_reload
     // Set the target size for the data sets
     M_atmosphere_nodes_dataset.target_size=M_num_nodes;
     M_atmosphere_elements_dataset.target_size=M_num_elements;
@@ -5257,8 +5440,9 @@ FiniteElement::readRestart(int step)
     M_ice_smos_elements_dataset.target_size=M_num_elements;
     M_bathymetry_elements_dataset.target_size=M_num_elements;
 #if defined (WAVES)
-    M_WW3A_elements_dataset.target_size=M_num_elements;
-    M_ERAIW_1DEG_elements_dataset.target_size=M_num_elements;
+    if (M_use_wim)
+        M_wave_elements_dataset.target_size=M_num_elements;
+#endif
 #endif
     return pcpt;
 }//readRestart
@@ -5640,55 +5824,88 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
 void
 FiniteElement::forcingWave()
 {
+    wim_ideal_forcing = true;
+    double xedge = xmin_wim + 0.25*(xmax_wim-xmin_wim);
+
     switch (M_wave_type)
     {
+        case setup::WaveType::SET_IN_WIM:
+            //pass in empty vectors to wim.run()
+            //- then waves are set in there
+            M_SWH_grid.resize(0);
+            M_MWP_grid.resize(0);
+            M_MWD_grid.resize(0);
+            break;
+
         case setup::WaveType::CONSTANT:
+            //set arrays to pass in to wim.run()
+            M_SWH_grid.assign(num_elements_wim_grid,vm["wim.hsinc" ].as<double>());
+            M_MWP_grid.assign(num_elements_wim_grid,vm["wim.tpinc" ].as<double>());
+            M_MWD_grid.assign(num_elements_wim_grid,vm["wim.mwdinc"].as<double>());
+            // mwd is relative to the nextsim/WIM x-y coord system in this case
+            break;
 
-//            std::cout<<"simul.constant_significant_wave_height"<<"\n";
-//            std::cout<<vm["simul.constant_significant_wave_height"].as<double>()<<"\n";
-//            std::cout<<"simul.constant_significant_wave_height"<<"\n";
-            M_SWH=ExternalData(vm["simul.constant_significant_wave_height"].as<double>());
-            M_external_data.push_back(&M_SWH);
 
-            M_MWD=ExternalData(vm["simul.constant_wave_mean_direction"].as<double>());
-            M_external_data.push_back(&M_MWD);
-
-            M_FP=ExternalData(vm["simul.constant_wave_peak_frequency"].as<double>());
-            M_external_data.push_back(&M_FP);
-
-            //wim_forcing_options = M_WW3A_elements_dataset.grid.waveOptions;
-            wim_ideal_forcing   = true;
-		break;
-
-        //std::cout << age[0] << std::endl;
+        case setup::WaveType::CONSTANT_PARTIAL:
+            //set arrays to pass in to wim.run()
+            std::cout<<"wim elements"<<num_elements_wim_grid<<"\n";
+            M_SWH_grid.assign(num_elements_wim_grid,vm["wim.hsinc" ].as<double>());
+            M_MWP_grid.assign(num_elements_wim_grid,vm["wim.tpinc" ].as<double>());
+            M_MWD_grid.assign(num_elements_wim_grid,vm["wim.mwdinc"].as<double>());
+            std::cout<<"wim elements"<<num_elements_wim_grid<<"\n";
+            for (int i=0;i<num_elements_wim_grid;i++)
+            {
+                if(wim_grid.X[i]>=xedge)
+                {
+                    M_SWH_grid[i]   = 0.;
+                    M_MWP_grid[i]   = 0.;
+                    M_MWD_grid[i]   = 0.;
+                    // mwd is relative to the nextsim/WIM x-y coord system in this case
+                }
+            }
+            break;
         case setup::WaveType::WW3A:
 
-	        M_SWH=ExternalData(&M_WW3A_elements_dataset, M_mesh, 0,false,time_init);
+            //initialise arrays to pass in to wim.run()
+            M_SWH_grid.assign(num_elements_wim_grid,0);
+            M_MWP_grid.assign(num_elements_wim_grid,0);
+            M_MWD_grid.assign(num_elements_wim_grid,0);
+
+            // define external_data objects
+            M_SWH        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init);
+            M_MWP        = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
+            M_MWD        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,true,time_init);//now a vector
+            M_fice_waves = ExternalData(&M_wave_elements_dataset, M_mesh, 4,false,time_init);
+
+            // add them to a vector for looping
             M_external_data.push_back(&M_SWH);
-
-            M_MWD=ExternalData(&M_WW3A_elements_dataset, M_mesh, 1,false,time_init);
+            M_external_data.push_back(&M_MWP);
             M_external_data.push_back(&M_MWD);
+            M_external_data.push_back(&M_fice_waves);
 
-            M_FP=ExternalData(&M_WW3A_elements_dataset, M_mesh, 2,false,time_init);
-            M_external_data.push_back(&M_FP);
-
-            wim_forcing_options = M_WW3A_elements_dataset.grid.waveOptions;
+            wim_forcing_options = M_wave_elements_dataset.grid.waveOptions;
             wim_ideal_forcing   = false;
 
             break;
 
         case setup::WaveType::ERAI_WAVES_1DEG:
 
-            M_SWH=ExternalData(&M_ERAIW_1DEG_elements_dataset, M_mesh, 0,false,time_init);
-            M_external_data.push_back(&M_SWH);
+            //initialise arrays to pass in to wim.run()
+            M_SWH_grid.assign(num_elements_wim_grid,0);
+            M_MWP_grid.assign(num_elements_wim_grid,0);
+            M_MWD_grid.assign(num_elements_wim_grid,0);
 
-            M_MWD=ExternalData(&M_ERAIW_1DEG_elements_dataset, M_mesh, 1,false,time_init);
+            // define external_data objects
+            M_SWH = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init);
+            M_MWP = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
+            M_MWD = ExternalData(&M_wave_elements_dataset, M_mesh, 0,true,time_init);//now a vector
+
+            // add them to a vector for looping
+            M_external_data.push_back(&M_SWH);
+            M_external_data.push_back(&M_MWP);
             M_external_data.push_back(&M_MWD);
 
-            M_FP=ExternalData(&M_ERAIW_1DEG_elements_dataset, M_mesh, 2,false,time_init);
-            M_external_data.push_back(&M_FP);
-
-            wim_forcing_options = M_ERAIW_1DEG_elements_dataset.grid.waveOptions;
+            wim_forcing_options = M_wave_elements_dataset.grid.waveOptions;
             wim_ideal_forcing   = false;
 
             break;
@@ -5994,13 +6211,20 @@ void
 FiniteElement::topazIce()
 {
     external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,"init - TOPAZ ice");
+    M_external_data_tmp.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -6031,13 +6255,20 @@ void
 FiniteElement::topazForecastIce()
 {
     external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,"init - TOPAZ ice forecast");
+    M_external_data_tmp.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -6071,16 +6302,25 @@ FiniteElement::topazForecastAmsr2Ice()
     double real_thickness, init_conc_tmp;
 
     external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
-    M_conc_amsr2.check_and_reload(M_mesh,time_init);
+    //M_conc_amsr2.check_and_reload(M_mesh,time_init);
 
     external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_conc_amsr2);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,
+            "init - TOPAZ ice forecast + AMSR2");
+    M_external_data_tmp.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -6137,22 +6377,33 @@ FiniteElement::topazForecastAmsr2OsisafIce()
     double real_thickness, init_conc_tmp;
 
     external_data M_conc_osisaf=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,0,false,time_init);
-    M_conc_osisaf.check_and_reload(M_mesh,time_init);
+    //M_conc_osisaf.check_and_reload(M_mesh,time_init);
 
     external_data M_confidence_osisaf=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,1,false,time_init);
-    M_confidence_osisaf.check_and_reload(M_mesh,time_init);
+    //M_confidence_osisaf.check_and_reload(M_mesh,time_init);
 
     external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
-    M_conc_amsr2.check_and_reload(M_mesh,time_init);
+    //M_conc_amsr2.check_and_reload(M_mesh,time_init);
 
     external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_conc_osisaf);
+    M_external_data_tmp.push_back(&M_confidence_osisaf);
+    M_external_data_tmp.push_back(&M_conc_amsr2);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,
+            "init - TOPAZ ice forecast + AMSR2 + OSISAF");
+    M_external_data_tmp.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -6204,13 +6455,21 @@ void
 FiniteElement::piomasIce()
 {
     external_data M_init_conc=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,1,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_init_snow_thick=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,2,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,
+            "init ice - PIOMAS");
+    M_external_data_tmp.resize(0);
 
     for (int i=0; i<M_num_elements; ++i)
     {
@@ -6239,16 +6498,25 @@ FiniteElement::topazAmsreIce()
     double real_thickness, init_conc_tmp;
 
     external_data M_conc_amsre=ExternalData(&M_ice_amsre_elements_dataset,M_mesh,0,false,time_init);
-    M_conc_amsre.check_and_reload(M_mesh,time_init);
+    //M_conc_amsre.check_and_reload(M_mesh,time_init);
 
     external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_conc_amsre);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,
+            "init ice - TOPAZ + AMSR-E");
+    M_external_data_tmp.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -6294,16 +6562,25 @@ FiniteElement::topazAmsr2Ice()
     double real_thickness, init_conc_tmp;
 
     external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
-    M_conc_amsr2.check_and_reload(M_mesh,time_init);
+    //M_conc_amsr2.check_and_reload(M_mesh,time_init);
 
     external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_conc_amsr2);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,
+            "init ice - TOPAZ + AMSR2");
+    M_external_data_tmp.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -6346,13 +6623,21 @@ void
 FiniteElement::cs2SmosIce()
 {
     external_data M_init_conc=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,1,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init);
-    M_type.check_and_reload(M_mesh,time_init);
+    //M_type.check_and_reload(M_mesh,time_init);
+
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_type);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,
+            "init ice - CS2 + SMOS");
+    M_external_data_tmp.resize(0);
 
     warrenClimatology();
 
@@ -6397,10 +6682,10 @@ void
 FiniteElement::smosIce()
 {
     external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_smos_elements_dataset,M_mesh,0,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     boost::gregorian::date dt = Nextsim::parse_date(time_init);
     int month_id=dt.month().as_number(); // 1 for January, 2 for February, and so on. This will be used to compute the snow from Warren climatology
@@ -6408,7 +6693,15 @@ FiniteElement::smosIce()
     std::cout << "month_id: " << month_id <<"\n";
 
     external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,
+            "init ice - SMOS");
+    M_external_data_tmp.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -6640,17 +6933,22 @@ FiniteElement::bathymetry()//(double const& u, double const& v)
 void
 FiniteElement::initNFloes()
 {
-    M_nfloes.resize(M_num_elements);
+    M_nfloes.assign(M_num_elements,0.);
+    M_dfloe.assign(M_num_elements,0.);
 
     for (int i=0; i<M_num_elements; ++i)
     {
-        M_nfloes[i] = M_conc[i]/std::pow(vm["wim.dfloepackinit"].as<double>(),2.);
+        if (M_conc[i]>=vm["wim.cicemin"].as<double>())
+        {
+            M_nfloes[i] = M_conc[i]/std::pow(vm["wim.dfloepackinit"].as<double>(),2.);
+            M_dfloe[i]  = wim.nfloesToDfloe(M_nfloes[i],M_conc[i]);
+        }
     }
     std::cout<<"initNfloes:\n";
     std::cout<<"init dfloe "<<vm["wim.dfloepackinit"].as<double>()<<"\n";
     std::cout<<"Min Nfloes = "<<*std::min_element(M_nfloes.begin(),M_nfloes.end())<<"\n";
     std::cout<<"Max Nfloes = "<<*std::max_element(M_nfloes.begin(),M_nfloes.end())<<"\n";
-}
+}//initNFloes
 #endif
 
 
@@ -7107,20 +7405,33 @@ FiniteElement::exportInitMesh()
 void
 FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, bool apply_displacement)
 {
+    //define filenames from step
+    std::string meshfile    = (boost::format( "%1%/mesh_%2%" )
+                               % M_export_path
+                               % step ).str();
+
+    std::string fieldfile   = (boost::format( "%1%/field_%2%" )
+                               % M_export_path
+                               % step ).str();
+
+    std::vector<std::string> filenames = {meshfile,fieldfile}; 
+    this->exportResults(filenames, export_mesh, export_fields, apply_displacement);
+}
+
+void
+FiniteElement::exportResults(std::vector<std::string> const &filenames, bool export_mesh, bool export_fields, bool apply_displacement)
+{
     Exporter exporter(vm["setup.exporter_precision"].as<std::string>());
     std::string fileout;
 
 
     if (export_mesh)
     {
-        fileout = (boost::format( "%1%/mesh_%2%.bin" )
-                   % M_export_path
-                   % step ).str();
-
+        fileout = filenames[0]+".bin";
         LOG(INFO) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
 
-		// move the mesh for the export
         if(apply_displacement)
+            // move the mesh for the export
             M_mesh.move(M_UM,1.);
 
         std::fstream meshbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
@@ -7130,13 +7441,11 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
         exporter.writeMesh(meshbin, M_mesh);
         meshbin.close();
 
-        // move it back after the export
         if(apply_displacement)
+            // move it back after the export
 		    M_mesh.move(M_UM,-1.);
 
-        fileout = (boost::format( "%1%/mesh_%2%.dat" )
-               % M_export_path
-               % step ).str();
+        fileout = filenames[0]+".dat";
 
         LOG(INFO) <<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
 
@@ -7150,10 +7459,7 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
 
     if (export_fields)
     {
-        fileout = (boost::format( "%1%/field_%2%.bin" )
-                   % M_export_path
-                   % step ).str();
-
+        fileout = filenames[1]+".bin";
         LOG(INFO) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
 
         std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
@@ -7197,6 +7503,31 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
         {
             // Thermodynamic and dynamic forcing
             // Atmosphere
+            std::vector<std::string> ext_data_names;
+#if 1
+            M_external_data_tmp.push_back(&M_wind);         // Surface wind [m/s]
+            ext_data_names.push_back("M_wind");
+            M_external_data_tmp.push_back(&M_tair);         // 2 m temperature [C]
+            ext_data_names.push_back("M_tair");
+            M_external_data_tmp.push_back(&M_mixrat);       // Mixing ratio
+            ext_data_names.push_back("M_mixrat");
+            M_external_data_tmp.push_back(&M_mslp);         // Atmospheric pressure [Pa]
+            ext_data_names.push_back("M_mslp");
+            M_external_data_tmp.push_back(&M_Qsw_in);       // Incoming short-wave radiation [W/m2]
+            ext_data_names.push_back("M_Qsw_in");
+            M_external_data_tmp.push_back(&M_Qlw_in);       // Incoming long-wave radiation [W/m2]
+            ext_data_names.push_back("M_Qlw_in");
+            M_external_data_tmp.push_back(&M_tcc);          // Total cloud cover [?]
+            ext_data_names.push_back("M_tcc");
+            M_external_data_tmp.push_back(&M_precip);       // Total precipitation [m]
+            ext_data_names.push_back("M_precip");
+            M_external_data_tmp.push_back(&M_snowfr);       // Fraction of precipitation that is snow
+            ext_data_names.push_back("M_snowfr");
+            M_external_data_tmp.push_back(&M_snowfall);       // Fraction of precipitation that is snow
+            ext_data_names.push_back("M_snowfall");
+            M_external_data_tmp.push_back(&M_dair);         // 2 m dew point [C]
+            ext_data_names.push_back("M_dair");
+#else
             if ( M_wind.M_initialized )
                 exporter.writeField(outbin,M_wind.getVector(), "M_wind");         // Surface wind [m/s]
             if ( M_tair.M_initialized )
@@ -7219,8 +7550,21 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
                 exporter.writeField(outbin,M_snowfall.getVector(), "M_snowfall");       // Snow fall rate [kg/m^2/s]
             if ( M_dair.M_initialized )
                 exporter.writeField(outbin,M_dair.getVector(), "M_dair");         // 2 m dew point [C]
+#endif
 
             // Ocean
+#if 1
+            M_external_data_tmp.push_back(&M_ocean);        // "Geostrophic" ocean currents [m/s]
+            ext_data_names.push_back("M_ocean");
+            M_external_data_tmp.push_back(&M_ssh);          // Sea surface elevation [m]
+            ext_data_names.push_back("M_ssh");
+            M_external_data_tmp.push_back(&M_ocean_temp);   // Ocean temperature in top layer [C]
+            ext_data_names.push_back("M_ocean_temp");
+            M_external_data_tmp.push_back(&M_ocean_salt);   // Ocean salinity in top layer [?]
+            ext_data_names.push_back("M_ocean_salt");
+            M_external_data_tmp.push_back(&M_mld);           // Mixed-layer depth [m]
+            ext_data_names.push_back("M_mld");
+#else
             if ( M_ocean.M_initialized )
                 exporter.writeField(outbin,M_ocean.getVector(), "M_ocean");        // "Geostrophic" ocean currents [m/s]
             if ( M_ssh.M_initialized )
@@ -7232,11 +7576,33 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
                 exporter.writeField(outbin,M_ocean_salt.getVector(), "M_ocean_salt");   // Ocean salinity in top layer [C]
             if ( M_mld.M_initialized )
                 exporter.writeField(outbin,M_mld.getVector(), "M_mld");          // Mixed-layer depth [m]
+#endif
 
             // Bathymetry
+#if 1
+            M_external_data_tmp.push_back(&M_element_depth);           // Mixed-layer depth [m]
+            ext_data_names.push_back("M_element_depth");
+#else
             if ( M_element_depth.M_initialized )
                 exporter.writeField(outbin,M_element_depth.getVector(), "M_element_depth");
-        }
+#endif
+
+#if 1
+            //loop over external data pointers and check if they should be saved
+            for (int i=0;i<M_external_data_tmp.size();i++)
+            {
+                if ((M_external_data_tmp[i]->M_initialized)&&
+                    (!M_external_data_tmp[i]->M_is_constant))
+                {
+                    exporter.writeField(outbin,M_external_data_tmp[i]->getVector(), ext_data_names[i]);
+                }
+            }
+
+            //clear
+            M_external_data_tmp.resize(0);
+            ext_data_names.resize(0);
+#endif
+        }//save forcing
 
 #if defined (WAVES)
         if (M_use_wim)
@@ -7288,10 +7654,7 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
 #endif
         outbin.close();
 
-        fileout = (boost::format( "%1%/field_%2%.dat" )
-                   % M_export_path
-                   % step ).str();
-
+        fileout = filenames[1]+".dat";
         LOG(INFO) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
 
         std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
@@ -7313,20 +7676,9 @@ FiniteElement::nextsimToWim(bool step)
         LOG(DEBUG) <<"Element Interp starts\n";
         // ELEMENT INTERPOLATION (c, h, Nfloes)
 
-        int nb_var;
-        if ( wim_ideal_forcing )
-        {
-            nb_var=3;
-            M_SWH_grid.resize(0);
-            M_FP_grid.resize(0);
-            M_MWD_grid.resize(0);
-        }
-        else
-            nb_var=6;
-
+        int nb_var=3;
+        double* interp_elt_out;//output
         std::vector<double> interp_elt_in(nb_var*M_num_elements);
-
-        double* interp_elt_out;
 
         LOG(DEBUG) <<"ELEMENT: Interp starts\n";
 
@@ -7345,7 +7697,7 @@ FiniteElement::nextsimToWim(bool step)
             interp_elt_in[nb_var*i+tmp_nb_var] = M_conc[i];
             tmp_nb_var++;
 
-            // thickness
+            // effective thickness (volume)
             interp_elt_in[nb_var*i+tmp_nb_var] = M_thick[i];
             tmp_nb_var++;
 
@@ -7353,73 +7705,52 @@ FiniteElement::nextsimToWim(bool step)
             interp_elt_in[nb_var*i+tmp_nb_var] = M_nfloes[i];
             tmp_nb_var++;
 
-            if ( !wim_ideal_forcing )
-            {
-                // significant wave height
-                interp_elt_in[nb_var*i+tmp_nb_var] = M_SWH[i];
-                tmp_nb_var++;
-
-                // wave mean direction
-                interp_elt_in[nb_var*i+tmp_nb_var] = M_MWD[i];
-                tmp_nb_var++;
-
-                // wave peak period
-                if ( wim_forcing_options.use_mwp )
-                    interp_elt_in[nb_var*i+tmp_nb_var] = M_FP[i];
-                else
-                {
-                    interp_elt_in[nb_var*i+tmp_nb_var] = 0.;
-                    if (M_FP[i]>0.)
-                        interp_elt_in[nb_var*i+tmp_nb_var] = 1/M_FP[i];
-                }
-                tmp_nb_var++;
-            }
-
             if(tmp_nb_var>nb_var)
             {
                 throw std::logic_error("tmp_nb_var not equal to nb_var");
             }
         }
 
-        // interpolation from mesh to grid
-        int nx = wim_grid.nx;
-        int ny = wim_grid.ny;
-        double dx = wim_grid.dx;
-        double dy = wim_grid.dy;
-
-        double xmin = (wim_grid.x)[0];
-        double xmax = (wim_grid.x)[nx-1];
-        double ymin = (wim_grid.y)[0];
-        double ymax = (wim_grid.y)[ny-1];
-
-        auto RX = M_mesh.coordX();
-        auto RY = M_mesh.coordY();
-
-        int num_elements_grid = nx*ny;
-
         // move the mesh for the interpolation on to the wim grid
 		M_mesh.move(M_UM,1.);
 
-        //std::cout<<"before interp mesh2grid\n";
-        InterpFromMeshToGridx(interp_elt_out,
-                              &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-                              M_mesh.numNodes(),M_mesh.numTriangles(),
-                              &interp_elt_in[0],
-                              M_mesh.numTriangles(),nb_var,
-                              xmin,ymax,
-                              dx,dy,
-                              nx,ny,
-                              0.);
+        //needed for interp (mesh2mesh) and assigning outputs
+        //TODO: add bool "regular" to wim_grid
+
+        if (1)//(wim_grid.regular)
+        {
+            std::cout<<"sim2wim: before interp mesh2grid\n";
+            InterpFromMeshToGridx(interp_elt_out,
+                                  &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
+                                  M_mesh.numNodes(),M_mesh.numTriangles(),
+                                  &interp_elt_in[0],
+                                  M_mesh.numTriangles(),nb_var,
+                                  xmin_wim,ymax_wim,
+                                  wim_grid.dx,wim_grid.dy,
+                                  wim_grid.nx,wim_grid.ny,
+                                  0.);
+        }
+        else
+        {
+            //std::cout<<"sim2wim: before interp mesh2mesh2d\n";
+            InterpFromMeshToMesh2dx(&interp_elt_out,
+                                  &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
+                                  M_mesh.numNodes(),M_mesh.numTriangles(),
+                                  &interp_elt_in[0],
+                                  M_mesh.numNodes(),nb_var,
+                                  &wim_grid.X[0], &wim_grid.Y[0], num_elements_wim_grid,
+                                  false);
+        }
 
         if (1)
         {
-            std::cout<<"nx = "<< nx <<"\n";
-            std::cout<<"ny = "<< ny <<"\n";
-            std::cout<<"dx = "<< dx <<"\n";
-            std::cout<<"dy = "<< dy <<"\n";
-            std::cout<<"xmin = "<< xmin <<"\n";
-            std::cout<<"ymax = "<< ymax <<"\n";
+            std::cout<<"nx = "<< wim_grid.nx <<"\n";
+            std::cout<<"ny = "<< wim_grid.ny <<"\n";
+            std::cout<<"dx = "<< wim_grid.dx <<"\n";
+            std::cout<<"dy = "<< wim_grid.dy <<"\n";
 
+            auto RX = M_mesh.coordX();
+            auto RY = M_mesh.coordY();
             std::cout<<"MIN BOUND MESHX= "<< *std::min_element(RX.begin(),RX.end()) <<"\n";
             std::cout<<"MAX BOUND MESHX= "<< *std::max_element(RX.begin(),RX.end()) <<"\n";
 
@@ -7428,37 +7759,32 @@ FiniteElement::nextsimToWim(bool step)
 
             std::cout<<"------------------------------------------\n";
 
-            std::cout<<"MIN BOUND GRIDX= "<< xmin <<"\n";
-            std::cout<<"MAX BOUND GRIDX= "<< xmax <<"\n";
+            std::cout<<"MIN BOUND GRIDX= "<< *std::min_element(wim_grid.X.begin(),wim_grid.X.end()) <<"\n";
+            std::cout<<"MAX BOUND GRIDX= "<< *std::max_element(wim_grid.X.begin(),wim_grid.X.end()) <<"\n";
 
-            std::cout<<"MIN BOUND GRIDY= "<< ymin <<"\n";
-            std::cout<<"MAX BOUND GRIDY= "<< ymax <<"\n";
+            std::cout<<"MIN BOUND GRIDY= "<< *std::min_element(wim_grid.Y.begin(),wim_grid.Y.end()) <<"\n";
+            std::cout<<"MAX BOUND GRIDY= "<< *std::max_element(wim_grid.Y.begin(),wim_grid.Y.end()) <<"\n";
         }
 
         //std::cout<<"after interp mesh2grid\n";
-        std::cout<<"ideal wave forcing: "<<wim_ideal_forcing<<"\n";
+        //std::cout<<"ideal wave forcing: "<<wim_ideal_forcing<<"\n";
 
         // move back the mesh after the interpolation
 		M_mesh.move(M_UM,-1.);
 
         if (!step)
         {
-            M_icec_grid.assign(num_elements_grid,0.);
-            M_iceh_grid.assign(num_elements_grid,0.);
-            M_nfloes_grid.assign(num_elements_grid,0.);
-
-            if ( !wim_ideal_forcing )
-            {
-                M_SWH_grid.assign(num_elements_grid,0.);
-                M_MWD_grid.assign(num_elements_grid,0.);
-                M_FP_grid.assign(num_elements_grid,0.);
-            }
-
-            M_taux_grid.assign(num_elements_grid,0.);
-            M_tauy_grid.assign(num_elements_grid,0.);
+            M_icec_grid.assign  (num_elements_wim_grid,0.);
+            M_iceh_grid.assign  (num_elements_wim_grid,0.);
+            M_nfloes_grid.assign(num_elements_wim_grid,0.);
+            M_taux_grid.assign  (num_elements_wim_grid,0.);
+            M_tauy_grid.assign  (num_elements_wim_grid,0.);
         }
 
-        for (int i=0; i<num_elements_grid; ++i)
+        // set inputs to WIM:
+        // - ice from interpolation from mesh
+        // - waves from datasets if needed
+        for (int i=0; i<num_elements_wim_grid; ++i)
         {
             tmp_nb_var=0;
 
@@ -7466,7 +7792,7 @@ FiniteElement::nextsimToWim(bool step)
             M_icec_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
             tmp_nb_var++;
 
-            // thickness
+            // effective thickness (volume)
             M_iceh_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
             tmp_nb_var++;
 
@@ -7474,47 +7800,105 @@ FiniteElement::nextsimToWim(bool step)
             M_nfloes_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
             tmp_nb_var++;
 
-            if ( !wim_ideal_forcing )
-            {
-                // significant wave height
-                M_SWH_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-                tmp_nb_var++;
-
-                // wave mean direction
-                M_MWD_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-                tmp_nb_var++;
-
-                // wave peak frequency
-                M_FP_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-                tmp_nb_var++;
-            }
-
             if(tmp_nb_var>nb_var)
             {
                 throw std::logic_error("tmp_nb_var not equal to nb_var");
             }
-        }
 
+            if ( !wim_ideal_forcing )
+            {
+                //get incident waves from datasets
+                double cfac = 1.;
+                double uwave,vwave;
+                if ( wim_forcing_options.use_ice )
+                {
+                    //cancel waves if ice present
+                    if (M_fice_waves[i]>0.)
+                        cfac = 0.;
+                }
+
+                // significant wave height
+                // - Hs given to the WIM should have the waves-in-ice
+                // removed (so we can do our own attenuation)
+                M_SWH_grid[i] = cfac*M_SWH[i];
+
+                // mean wave direction
+                uwave   = cfac*M_MWD[i];
+                vwave   = cfac*M_MWD[i+num_elements_wim_grid];
+                if ( std::hypot(uwave,vwave)>.5 )
+                {
+                    // if there are waves |(uwave,vwave)|=1,
+                    // so convert to wave-from direction
+                    // (degrees, clockwise from north)
+                    M_MWD_grid[i] = 90.-(180./PI)*std::atan2(-uwave,-vwave);
+                }
+
+                // peak wave period
+                if ( M_MWP[i]>0. )
+                    if ( wim_forcing_options.use_mwp )
+                        //Tp given to the WIM should have the waves-in-ice
+                        //removed (so we can do our own attenuation)
+                        M_MWP_grid[i] = cfac*M_MWP[i];
+                    else 
+                        // we are given fp, so convert to Tp,
+                        // taking account of the ice
+                        M_MWP_grid[i] = cfac/M_MWP[i];
+                else
+                {
+                    //if fp or Tp are 0, set all wave inputs to 0
+                    M_MWP_grid[i] = 0.;
+                    M_SWH_grid[i] = 0.;
+                    M_MWD_grid[i] = 0.;
+                }
+                    
+            }//using non-ideal wave forcing
+        }//loop over wim grid cells
+
+#if 1
         //test interp
+        std::cout<<"sim2wim: check ice inputs to WIM\n";
         std::cout<<"min conc   grid= "<< *std::min_element(M_icec_grid.begin(),M_icec_grid.end() )<<"\n";
         std::cout<<"max conc   grid= "<< *std::max_element(M_icec_grid.begin(),M_icec_grid.end() )<<"\n";
         std::cout<<"min thick  grid= "<< *std::min_element(M_iceh_grid.begin(),M_iceh_grid.end() )<<"\n";
         std::cout<<"max thick  grid= "<< *std::max_element(M_iceh_grid.begin(),M_iceh_grid.end() )<<"\n";
         std::cout<<"min Nfloes grid= "<< *std::min_element(M_nfloes_grid.begin(),M_nfloes_grid.end() )<<"\n";
         std::cout<<"max Nfloes grid= "<< *std::max_element(M_nfloes_grid.begin(),M_nfloes_grid.end() )<<"\n";
+#endif
 
-        if ( !wim_ideal_forcing )
+        LOG(DEBUG)<<"sim2wim (check wave forcing): "<<wim_ideal_forcing<<","<<M_SWH_grid.size()<<"\n";
+        if (M_SWH_grid.size()>0)//( !wim_ideal_forcing )
         {
+#if 0
+            LOG(DEBUG)<<"min SWH_grid= "<< *std::min_element(M_SWH_grid.begin(),M_SWH_grid.end() )<<"\n";
+            LOG(DEBUG)<<"max SWH_grid= "<< *std::max_element(M_SWH_grid.begin(),M_SWH_grid.end() )<<"\n";
+            LOG(DEBUG)<<"min MWD_grid= "<< *std::min_element(M_MWD_grid.begin(),M_MWD_grid.end() )<<"\n";
+            LOG(DEBUG)<<"max MWD_grid= "<< *std::max_element(M_MWD_grid.begin(),M_MWD_grid.end() )<<"\n";
+            LOG(DEBUG)<<"min MWP_grid= "<< *std::min_element(M_MWP_grid.begin(),M_MWP_grid.end() )<<"\n";
+            LOG(DEBUG)<<"max MWP_grid= "<< *std::max_element(M_MWP_grid.begin(),M_MWP_grid.end() )<<"\n";
+#elif 0
+            std::cout<<"nextsimToWim check wave inputs at t="<<current_time<<"\n";
             std::cout<<"min SWH_grid= "<< *std::min_element(M_SWH_grid.begin(),M_SWH_grid.end() )<<"\n";
             std::cout<<"max SWH_grid= "<< *std::max_element(M_SWH_grid.begin(),M_SWH_grid.end() )<<"\n";
             std::cout<<"min MWD_grid= "<< *std::min_element(M_MWD_grid.begin(),M_MWD_grid.end() )<<"\n";
             std::cout<<"max MWD_grid= "<< *std::max_element(M_MWD_grid.begin(),M_MWD_grid.end() )<<"\n";
-            std::cout<<"min FP_grid= "<< *std::min_element(M_FP_grid.begin(),M_FP_grid.end() )<<"\n";
-            std::cout<<"max FP_grid= "<< *std::max_element(M_FP_grid.begin(),M_FP_grid.end() )<<"\n";
+            std::cout<<"min MWP_grid= "<< *std::min_element(M_MWP_grid.begin(),M_MWP_grid.end() )<<"\n";
+            std::cout<<"max MWP_grid= "<< *std::max_element(M_MWP_grid.begin(),M_MWP_grid.end() )<<"\n";
+#elif 0
+            int icheck      = 116;
+            int jcheck      = 112;
+            int Icheck      = jcheck+icheck*wim_grid.ny;
+            double xcheck   = wim_grid.X[Icheck];
+            double ycheck   = wim_grid.Y[Icheck];
+            std::cout<<"nextsimToWim check wave inputs at t="<<current_time<<"\n";
+            std::cout<<"near i,j,x,y = "<<icheck<<","<<jcheck<<","<<xcheck<<","<<ycheck<<","<<"\n";
+            std::cout<<"SWH_grid= "<< M_SWH_grid[Icheck]<<"\n";
+            std::cout<<"MWD_grid= "<< M_MWD_grid[Icheck]<<"\n";
+            std::cout<<"MWP_grid= "<< M_MWP_grid[Icheck]<<"\n";
+#endif
         }
 
         xDelete<double>(interp_elt_out);
-    }
+    }//if (M_run_wim)
 }//nextsimToWim
 #endif
 
@@ -7526,14 +7910,16 @@ FiniteElement::wimToNextsim(bool step)
         ( vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh");
     //std::cout<<"break_on_mesh="<<break_on_mesh<<"\n";
 
+    if (!M_regrid)
+        M_mesh.move(M_UM,1.);
+
     if (M_run_wim)
     {
 
         // run wim
-        std::vector<double> mf1, mf2, mf3;
-
         if ( break_on_mesh )
         {
+            //give moved mesh to WIM
             wim.setMesh(M_mesh.bcoordX(),//elements of mesh (x)
                         M_mesh.bcoordY(),//elements of mesh (y)
                         M_conc,
@@ -7549,10 +7935,18 @@ FiniteElement::wimToNextsim(bool step)
         if (TEST_INTERP_MESH)
             this->exportResults(1001,true,false);
 
-        wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, mf1, mf2, mf3, step);
-        // test this later
-        //wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, M_SWH_grid, M_MWD_grid, M_FP_grid, step);
+        LOG(DEBUG)<<"wim2sim (check wave forcing): "<<wim_ideal_forcing<<","<<M_SWH_grid.size()<<"\n";
+        if (M_SWH_grid.size()>0)//( !wim_ideal_forcing )
+        {
+            LOG(DEBUG)<<"min SWH_grid= "<< *std::min_element(M_SWH_grid.begin(),M_SWH_grid.end() )<<"\n";
+            LOG(DEBUG)<<"max SWH_grid= "<< *std::max_element(M_SWH_grid.begin(),M_SWH_grid.end() )<<"\n";
+            LOG(DEBUG)<<"min MWD_grid= "<< *std::min_element(M_MWD_grid.begin(),M_MWD_grid.end() )<<"\n";
+            LOG(DEBUG)<<"max MWD_grid= "<< *std::max_element(M_MWD_grid.begin(),M_MWD_grid.end() )<<"\n";
+            LOG(DEBUG)<<"min MWP_grid= "<< *std::min_element(M_MWP_grid.begin(),M_MWP_grid.end() )<<"\n";
+            LOG(DEBUG)<<"max MWP_grid= "<< *std::max_element(M_MWP_grid.begin(),M_MWP_grid.end() )<<"\n";
+        }
 
+        wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, M_SWH_grid, M_MWP_grid, M_MWD_grid, step);
         M_taux_grid = wim.getTaux();
         M_tauy_grid = wim.getTauy();
 
@@ -7575,23 +7969,31 @@ FiniteElement::wimToNextsim(bool step)
                 }
             }
         }
-    }
+    }//run WIM & get outputs on grid
 
-    if (!M_regrid)
-        M_mesh.move(M_UM,1.);
+    //if (!M_regrid)
+    //    M_mesh.move(M_UM,1.);
 
-    if (M_run_wim || M_regrid)
+    bool interp_taux = vm["nextwim.applywavestress"].as<bool>();
+    // can turn off effect of wave stress for testing
+    // - if this is not done, we currently interp tau_x,tau_y each time step
+    // TODO rethink this? (let them be advected? - this could lead to instability perhaps)
+
+    // Set type of interpolation for grid-to-mesh
+    // int interptype = TriangleInterpEnum;
+    int interptype = BilinearInterpEnum;
+    //int interptype = NearestInterpEnum;
+
+    int    nx = wim_grid.nx;
+    int    ny = wim_grid.ny;
+    double dx = wim_grid.dx;
+    double dy = wim_grid.dy;
+
+    if (interp_taux)
     {
-        int nx = wim_grid.nx;
-        int ny = wim_grid.ny;
-        double dx = wim_grid.dx;
-        double dy = wim_grid.dy;
-
         chrono.restart();
         LOG(DEBUG) <<"Nodal Interp starts\n";
         LOG(DEBUG) <<"NODAL: Interp starts\n";
-
-        int num_elements_grid = nx*ny;
 
         // NODAL INTERPOLATION
         // - taux and tauy from waves
@@ -7599,65 +8001,58 @@ FiniteElement::wimToNextsim(bool step)
            //initialisation or after regridding (need to reset sizes)
             M_tau.assign(2*M_num_nodes,0);
 
-        // Set type of interpolation for grid-to-mesh
-        // int interptype = TriangleInterpEnum;
-        int interptype = BilinearInterpEnum;
-        //int interptype = NearestInterpEnum;
 
-        if (vm["nextwim.applywavestress"].as<bool>())
+        int nb_var=2;
+        std::vector<double> interp_in(nb_var*num_elements_wim_grid,0.);
+        double* interp_out;
+
+        for (int i=0; i<num_elements_wim_grid; ++i)
         {
-           // can turn off effect of wave stress for testing
-           // - if this is not done, we currently interp tau_x,tau_y each time step
-           // TODO rethink this? (let them be advected? - this could lead to instability perhaps)
-           int nb_var=2;
-           std::vector<double> interp_in(nb_var*num_elements_grid,0.);
-           double* interp_out;
+            // interp taux,tauy to nodes of mesh
+            interp_in[nb_var*i]   = M_taux_grid[i];
+            interp_in[nb_var*i+1] = M_tauy_grid[i];
+        }
 
-           for (int i=0; i<num_elements_grid; ++i)
-           {
-               // interp taux,tauy to nodes of mesh
-               interp_in[nb_var*i] = M_taux_grid[i];
-               interp_in[nb_var*i+1] = M_tauy_grid[i];
-           }
+        InterpFromGridToMeshx(interp_out,            //data (out)
+                              &(wim_grid.x)[0], nx,  //x vector (source), length of x vector
+                              &(wim_grid.y)[0], ny,  //y vector (source), length of y vector
+                              &interp_in[0],         //data (in)
+                              ny,nx,                 //M,N: no of grid cells in y,x directions
+                                                     //(to determine if corners or centers of grid have been input)
+                              nb_var,                //no of variables
+                              &M_mesh.coordX()[0],   // x vector (target)
+                              &M_mesh.coordY()[0],   // y vector (target)
+                              M_num_nodes,0.,        //target_size,default value
+                              interptype,            //interpolation type
+                              true                   //row_major (false = fortran/matlab order)
+                              );
 
-           InterpFromGridToMeshx(interp_out,            //data (out)
-                                 &(wim_grid.x)[0], nx,  //x vector (source), length of x vector
-                                 &(wim_grid.y)[0], ny,  //y vector (source), length of y vector
-                                 &interp_in[0],         //data (in)
-                                 ny,nx,                 //M,N: no of grid cells in y,x directions
-                                                        //(to determine if corners or centers of grid have been input)
-                                 nb_var,                //no of variables
-                                 &M_mesh.coordX()[0],   // x vector (target)
-                                 &M_mesh.coordY()[0],   // y vector (target)
-                                 M_num_nodes,0.,        //target_size,default value
-                                 interptype,            //interpolation type
-                                 true                   //row_major (false = fortran/matlab order)
-                                 );
-
-            std::cout<<"\nINTERP GRID TO NODES\n";
+        std::cout<<"\nINTERP GRID TO NODES\n";
 
 
-            //assign taux,tauy
-            for (int i=0; i<M_num_nodes; ++i)
-            {
-                // tau
-                M_tau[i] = interp_out[nb_var*i];//tau_x
-                M_tau[i+M_num_nodes] = interp_out[nb_var*i+1];//tau_y
-            }
-            std::cout<<"Min tau_x on grid = "<< *std::min_element(M_taux_grid.begin(),M_taux_grid.end()) <<"\n";
-            std::cout<<"Max tau_x on grid = "<< *std::max_element(M_taux_grid.begin(),M_taux_grid.end()) <<"\n";
-            std::cout<<"Min tau_y on grid = "<< *std::min_element(M_tauy_grid.begin(),M_tauy_grid.end()) <<"\n";
-            std::cout<<"Max tau_y on grid = "<< *std::max_element(M_tauy_grid.begin(),M_tauy_grid.end()) <<"\n";
-            std::cout<<"Min tau_x on mesh = "<< *std::min_element(M_tau.begin(),M_tau.begin()+M_num_nodes) <<"\n";
-            std::cout<<"Max tau_x on mesh = "<< *std::max_element(M_tau.begin(),M_tau.begin()+M_num_nodes) <<"\n";
-            std::cout<<"Min tau_y on mesh = "<< *std::min_element(M_tau.begin()+M_num_nodes,M_tau.end()) <<"\n";
-            std::cout<<"Max tau_y on mesh = "<< *std::max_element(M_tau.begin()+M_num_nodes,M_tau.end()) <<"\n";
+        //assign taux,tauy
+        for (int i=0; i<M_num_nodes; ++i)
+        {
+            // tau
+            M_tau[i] = interp_out[nb_var*i];//tau_x
+            M_tau[i+M_num_nodes] = interp_out[nb_var*i+1];//tau_y
+        }
+        std::cout<<"Min tau_x on grid = "<< *std::min_element(M_taux_grid.begin(),M_taux_grid.end()) <<"\n";
+        std::cout<<"Max tau_x on grid = "<< *std::max_element(M_taux_grid.begin(),M_taux_grid.end()) <<"\n";
+        std::cout<<"Min tau_y on grid = "<< *std::min_element(M_tauy_grid.begin(),M_tauy_grid.end()) <<"\n";
+        std::cout<<"Max tau_y on grid = "<< *std::max_element(M_tauy_grid.begin(),M_tauy_grid.end()) <<"\n";
+        std::cout<<"Min tau_x on mesh = "<< *std::min_element(M_tau.begin(),M_tau.begin()+M_num_nodes) <<"\n";
+        std::cout<<"Max tau_x on mesh = "<< *std::max_element(M_tau.begin(),M_tau.begin()+M_num_nodes) <<"\n";
+        std::cout<<"Min tau_y on mesh = "<< *std::min_element(M_tau.begin()+M_num_nodes,M_tau.end()) <<"\n";
+        std::cout<<"Max tau_y on mesh = "<< *std::max_element(M_tau.begin()+M_num_nodes,M_tau.end()) <<"\n";
 
-            xDelete<double>(interp_out);
-            //std::abort();
-        }//interp taux,tauy
+        xDelete<double>(interp_out);
+    }//interp taux,tauy
 
-        if ((M_run_wim) && (!break_on_mesh))
+    if (M_run_wim)
+    {
+        //interp Nfloes
+        if (!break_on_mesh)
         {
             // interpolate nfloes to elements of mesh
             double* interp_out;
@@ -7676,12 +8071,16 @@ FiniteElement::wimToNextsim(bool step)
                                 );
             std::cout<<"\nINTERP GRID TO ELEMENTS\n";
 
-            M_nfloes.resize(M_num_elements);
+            // if conc is not too low, reset Nfloes after breaking
+            // (& Dfloe will also change)
+            M_nfloes.assign(M_num_elements,0.);
+            M_dfloe.assign(M_num_elements,0.);
             for (int i=0; i<M_num_elements; ++i)
-            {
-                // nfloes
-                M_nfloes[i] = interp_out[i];
-            }
+                if (M_conc[i] >= vm["wim.cicemin"].template as<double>())
+                {
+                    M_nfloes[i] = interp_out[i];
+                    M_dfloe[i]  = wim.nfloesToDfloe(M_nfloes[i],M_conc[i]);
+                }
 
             xDelete<double>(interp_out);
             std::cout<<"Min Nfloes on grid = "<< *std::min_element(M_nfloes_grid.begin(),M_nfloes_grid.end()) <<"\n";
@@ -7690,10 +8089,9 @@ FiniteElement::wimToNextsim(bool step)
             std::cout<<"Max Nfloes on mesh = "<< *std::max_element(M_nfloes.begin(),M_nfloes.end()) <<"\n";
             //std::abort();
         }
-
     }
 
-    if (!M_regrid)
+    if (!M_regrid)//move the mesh back
         M_mesh.move(M_UM,-1.);
 
 #if 0

@@ -3,10 +3,19 @@ function out=read_bin_export(file_info,file_data)
 % disp(['Read: ' file_info])
 [fileID, mssg] = fopen(file_info,'r');
 if fileID < 0, error([file_info ': ' mssg]), end
-info_tmp=textscan(fileID,'%s %s');
+
+line1 = strsplit(fgetl(fileID));
+fseek(fileID,0,'bof');%go back to start of file
+N     = length(line1);
+fmt   = '%s %s';
+if N>=3; fmt   = [fmt,' %d']; end % length of record
+if N>=4; fmt   = [fmt,' %f']; end % min
+if N>=5; fmt   = [fmt,' %f']; end % max
+info_tmp=textscan(fileID,fmt);
+fclose(fileID);
+
 data_names=info_tmp{1};
 data_types=info_tmp{2};
-fclose(fileID);
 
 field = cell(numel(data_names));
 fileID = fopen(file_data,'r');
