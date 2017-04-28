@@ -184,7 +184,7 @@ for p=0:0
   %---------------------------
   % We extract the data fields
   %---------------------------
-  [field_tmp]=extract_field(field,data_out,dirname,step);
+  [field_tmp, field_plotted]=extract_field(field,data_out,dirname,step);
 
   % {length(field_tmp),Ne,Nn,2*Nn}
   if(length(field_tmp)==Ne)
@@ -311,12 +311,12 @@ function set_axis_colormap_colorbar(mesh_filename,field,v,i,region_of_zoom)
     end
 
     %We set the axis limits, the colormap and set the name for the colorbar
-    if (strcmp(field,'Concentration'))
+    if contains(field,'Concentration','IgnoreCase',true)
         caxis([0 1]);
         load('ice_conc_cmap64.mat')
         colormap(ice_conc_cmap64);
         name_colorbar='Concentration';
-    elseif (strcmp(field,'Thickness'))
+    elseif contains(field,'Thickness','IgnoreCase',true)
         caxis([0, 4]);
         colormap(cmap_def);
         name_colorbar='Thickness (m)';

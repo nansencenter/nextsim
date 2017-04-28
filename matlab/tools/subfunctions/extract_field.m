@@ -1,4 +1,4 @@
-function [field_tmp]=extract_field(field,data_out,dirname,step)
+function [field_tmp, field_plotted]=extract_field(field,data_out,dirname,step)
 %---------------------------
 % We extract the data fields
 %---------------------------
@@ -29,7 +29,17 @@ function [field_tmp]=extract_field(field,data_out,dirname,step)
      
      field_tmp = field_tmp+field_tmp2;
      field_plotted='Thick and thin ice thickness';
+  elseif strcmp(field,'Total_concentration')
+     fld = 'Concentration';
+     [field_tmp]=get_and_check(fld,data_out,dirname,step);
+
+     fld = 'Concentration_thin_ice';
+     [field_tmp2]=get_and_check(fld,data_out,dirname,step);
+
+     field_tmp = field_tmp+field_tmp2;
+     field_plotted='Thick and thin ice concentration';
   else
     [field_tmp]=get_and_check(field,data_out,dirname,step);
+    field_plotted=field;
   end
 end
