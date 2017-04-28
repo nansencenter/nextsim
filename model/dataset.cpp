@@ -2779,7 +2779,7 @@ namespace Nextsim
      };
 
      Dimension dimension_time={
-          name:"time1", // "Time"
+          name:"time", // "Time"
           cyclic:false};
 
      // Definition of the grid
@@ -2856,7 +2856,7 @@ namespace Nextsim
      dimensions[2] = dimension_x;
 
      Variable time_tmp={
-         name: "time1",
+         name: "time",
          dimensions: dimensions_time,
          land_mask_defined: false,
          land_mask_value: 0.,
