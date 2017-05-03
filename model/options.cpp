@@ -79,7 +79,7 @@ namespace Nextsim
             // not used: ("simul.init_damage", po::value<std::string>()->default_value( "No-damage" ), "")
             ("simul.init_thickness", po::value<double>()->default_value( 1.0 ), "")
             ("simul.init_concentration", po::value<double>()->default_value( 1.0 ), "")
-            ("simul.init_thin_max_thickness", po::value<double>()->default_value( 0. ), "")
+            ("simul.init_thin_conc", po::value<double>()->default_value( 0. ), "")
             ("simul.init_snow_thickness", po::value<double>()->default_value( 0. ), "")
             // not used: ("simul.init_snow_thin_thickness", po::value<double>()->default_value( 0. ), "")
 
