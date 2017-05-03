@@ -3522,12 +3522,12 @@ FiniteElement::thermo()
                             double new_h_thin    = (h_thin_max-h_thin_min)/2.*new_conc_thin + h_thin_min*new_conc_thin ;
                             double new_hs_thin   = new_conc_thin*M_hs_thin[i]/M_conc_thin[i];
                         
-                            M_thick[i] += new_h_thin-M_h_thin[i];
+                            M_thick[i] += M_h_thin[i]-new_h_thin;
                             
-                            del_c = new_conc_thin-M_conc_thin[i];
+                            del_c = M_conc_thin[i]-new_conc_thin;
                             // M_conc[i]  += del_c; ; <- this is done properly below
                             
-                            newsnow = new_hs_thin-M_hs_thin[i];
+                            newsnow = M_hs_thin[i]-new_hs_thin;
                             // M_snow_thick[i] += newsnow; <- this is done properly below
 
                             M_conc_thin[i]  = new_conc_thin;
