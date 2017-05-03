@@ -35,3 +35,5 @@ model/Run.log
 nextsim.src
 .DS_Store
 ._.DS_Store
+
+*.pyc

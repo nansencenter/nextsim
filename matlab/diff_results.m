@@ -1,4 +1,5 @@
-function diff_final(outdir1,outdir2,step,PLOT_ANOMALIES)
+function diff_results(outdir1,outdir2,step,PLOT_ANOMALIES)
+%% CALL: diff_results(outdir1,outdir2,step,PLOT_ANOMALIES)
 
 if ~exist('step','var')
    step  = 1000;%final results

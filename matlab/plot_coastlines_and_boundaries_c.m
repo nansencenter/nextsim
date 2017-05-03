@@ -1,11 +1,27 @@
 function plot_coastlines_and_boundaries_c(mesh_filename)
 % The files defining the domain are on /Data/sim/data/mesh and have to be
 % in your matlab path
+
 fprintf('Coastlines are being loaded from the file ''%s'' ...\r',mesh_filename)
 if(strcmp(mesh_filename(end-3:end),'.msh'))
     mesh=msh2mat_c(mesh_filename);
-    flag_boundary_fix=1;  %may need to be changed depending on the meshfile (here works for the new meshes created with gmsh)
-    flag_boundary_free=2; %may need to be changed depending on the meshfile (here works for the new meshes created with gmsh)
+    if ~isfield(mesh,'flags')
+       flag_boundary_fix=1;
+       flag_boundary_free=2;
+       % these may need to be changed depending on the meshfile (here works for the new meshes created with gmsh)
+       % - otherwise it may be easier to manually edit the mesh file,
+       %   adding the following lines (with the correct values for open and coast)
+       %   underneath $EndMeshFormat
+       %
+       % $PhysicalNames
+       % 2
+       % 1 10001 "open"
+       % 1 10000 "coast"
+       % $EndPhysicalNames
+    else
+       flag_boundary_fix=mesh.flags.coast;
+       flag_boundary_free=mesh.flags.open;
+    end
 elseif(strcmp(mesh_filename(end-3:end),'.mat'))
     load mesh_filename;
     flag_boundary_fix=10001;  %may need to be changed depending on the meshfile (here works with the old TOPAZ and MIT meshes)
@@ -29,6 +45,9 @@ free_boundaryLat = node_lat(boundary(free ,1:2,1))';
 free_boundaryLon = node_lon(boundary(free ,1:2,1))';
 
 mppfile = which('NpsNextsim.mpp');
+if strcmp(mppfile,'')
+   error('add path to mppfile');
+end
 
 % projection
 [closed_boundaryX,closed_boundaryY]= mapx_forward(mppfile,closed_boundaryLon(:)',closed_boundaryLat(:)');
