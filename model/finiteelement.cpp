@@ -3502,41 +3502,39 @@ FiniteElement::thermo()
                     break;
                 case 4:
                     /* Thin ice category */
-                    //thin_ice_redistribute(M_h_thin[i], M_hs_thin[i], newice/(1.-M_conc[i]), M_conc[i],
-                    //                  tanalpha, rtanalpha, h_thin_max, &M_h_thin[i], &newice, &del_c, &newsnow);
 
                     M_h_thin[i]+=newice;
                     M_conc_thin[i]+=newice/h_thin_min; // 5 cm
+                    newice  = 0.;
+                    newsnow = 0.;
 
                     if(M_conc_thin[i]>0.)
-                    {
-                    /* Two cases: Thin ice fills the cell or not */
-                    if ( M_h_thin[i] < h_thin_min*M_conc_thin[i] )
-                         M_conc_thin[i] = M_h_thin[i]/h_thin_min;
-                    else
-                    {
-                        h0 = h_thin_min + 2.*(M_h_thin[i]-h_thin_min*M_conc_thin[i])/(M_conc_thin[i]);
-                        if(h0>h_thin_max)
-                        {
-                            double new_conc_thin = M_conc_thin[i]*(h_thin_max-h_thin_min)/(h0-h_thin_min);
-                            double new_h_thin    = (h_thin_max-h_thin_min)/2.*new_conc_thin + h_thin_min*new_conc_thin ;
-                            double new_hs_thin   = new_conc_thin*M_hs_thin[i]/M_conc_thin[i];
-                        
-                            M_thick[i] += M_h_thin[i]-new_h_thin;
-                            
-                            del_c = M_conc_thin[i]-new_conc_thin;
-                            // M_conc[i]  += del_c; ; <- this is done properly below
-                            
-                            newsnow = M_hs_thin[i]-new_hs_thin;
-                            // M_snow_thick[i] += newsnow; <- this is done properly below
+                    {    
+                        /* Two cases: Thin ice fills the cell or not */
+                            if ( M_h_thin[i] < h_thin_min*M_conc_thin[i] )
+                                M_conc_thin[i] = M_h_thin[i]/h_thin_min;
+                        else 
+                        {    
+                            h0 = h_thin_min + 2.*(M_h_thin[i]-h_thin_min*M_conc_thin[i])/(M_conc_thin[i]);
+                            if(h0>h_thin_max)
+                            {    
+                                del_c = M_conc_thin[i]/(h0-h_thin_min) * (h0-h_thin_max);
+                                double del_h_thin = del_c*(h0+h_thin_max)/2.;
+                                double del_hs_thin = del_c*M_hs_thin[i]/M_conc_thin[i];
+     
+                                M_thick[i] += del_h_thin;
+                                // M_conc[i]  += del_c; ; <- this is done properly below
 
-                            M_conc_thin[i]  = new_conc_thin;
-                            M_h_thin[i]     = new_h_thin;
-                            M_hs_thin[i]    = new_hs_thin;
-                        }
+                                newice  = del_h_thin; // Reset newice to use below
+                                newsnow = del_hs_thin;
+                                // M_snow_thick[i] += newsnow; <- this is done properly below
 
-                   }
-                    }
+                                M_conc_thin[i] -= del_c;
+                                M_h_thin[i]    -= del_h_thin;
+                                M_hs_thin[i]   -= del_hs_thin;
+                            }    
+                        }    
+                    }    
                     break;
                 default:
                     std::cout << "newice_type = " << newice_type << "\n";
