@@ -86,6 +86,8 @@ public:
 
     void loadDataset(Dataset *dataset, GmshMesh const& mesh);
 
+    void transformData(Dataset *dataset, GmshMesh const& mesh);
+
     void interpolateDataset(Dataset *dataset, GmshMesh const& mesh);
     
 #if 0

@@ -124,6 +124,7 @@ void ExternalData::check_and_reload(GmshMesh const& mesh, const double current_t
         {
             std::cout << "Load " << M_datasetname << "\n";
             loadDataset(M_dataset, mesh);
+            transformData(M_dataset, mesh);
             M_dataset->interpolated=false;
             std::cout << "Done\n";
         }
@@ -259,7 +260,6 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 	mapNextsim = init_mapx(&strNextsim[0]);
 
 	mapx_class *map;
-    double cos_m_diff_angle, sin_m_diff_angle;
     if(dataset->grid.mpp_file!="")
     {
 	    std::string configfile = (boost::format( "%1%/%2%/%3%" )
@@ -279,9 +279,6 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
     {
         dataset->rotation_angle=0.;
     }
-
-    cos_m_diff_angle=std::cos(-dataset->rotation_angle);
-    sin_m_diff_angle=std::sin(-dataset->rotation_angle);
 
     // ---------------------------------
     // Projection of the mesh positions into the coordinate system of the data before the interpolation
@@ -311,6 +308,9 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 			//RX[i]=tmp_latlon[1];
 		}
 	}
+
+    // closing maps
+    close_mapx(mapNextsim);
 
     double RX_min=*std::min_element(RX.begin(),RX.end());
     double RX_max=*std::max_element(RX.begin(),RX.end());
@@ -645,25 +645,60 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
                 dataset->variables[j].loaded_data[fstep][i]=tmp_data_i;
             }
         }
+    }
+
+    dataset->nb_forcing_step=nb_forcing_step;
+    dataset->loaded=true;
+}
     
 
-        // ---------------------------------
+    // ---------------------------------
+
+    //std::cout<<"Start transformation on the data\n";
+
+    // Transformation of the vectorial variables from the coordinate system of the data to the polar stereographic projection used in the model
+    // Once we are in the polar stereographic projection, we can do spatial interpolation without bothering about the North Pole
+void
+ExternalData::transformData(Dataset *dataset, GmshMesh const& mesh)
+{
+
+    double tmp_data0, tmp_data1, new_tmp_data0, new_tmp_data1;
+    double tmp_data0_deg, tmp_data1_deg;
+    double lat_tmp, lon_tmp, lat_tmp_bis, lon_tmp_bis;
+    double x_tmp, y_tmp, x_tmp_bis, y_tmp_bis;
+    double speed, new_speed;
+    int j0, j1;
+
+    double R=mapx_Re_km*1000.; // Earth radius
+    double delta_t=1.; // 1 sec. This value needs to be small.
+
+    // size of the data
+    int M  = dataset->grid.dimension_y_count;
+    int N  = dataset->grid.dimension_x_count;
+
+    int MN = M*N;
     
-        //std::cout<<"Start transformation on the data\n";
-    
-        // Transformation of the vectorial variables from the coordinate system of the data to the polar stereographic projection used in the model
-        // Once we are in the polar stereographic projection, we can do spatial interpolation without bothering about the North Pole
+    int final_MN=MN;
 
-        double tmp_data0, tmp_data1, new_tmp_data0, new_tmp_data1;
-        double tmp_data0_deg, tmp_data1_deg;
-        double lat_tmp, lon_tmp, lat_tmp_bis, lon_tmp_bis;
-        double x_tmp, y_tmp, x_tmp_bis, y_tmp_bis;
-        double speed, new_speed;
-        int j0, j1;
+    double cos_m_diff_angle, sin_m_diff_angle;
+    cos_m_diff_angle=std::cos(-dataset->rotation_angle);
+    sin_m_diff_angle=std::sin(-dataset->rotation_angle);
 
-        double R=mapx_Re_km*1000.; // Earth radius
-        double delta_t=1.; // 1 sec. This value needs to be small.
+    // ---------------------------------
+    // Define the mapping and rotation_angle
+	mapx_class *mapNextsim;
+	std::string configfileNextsim = (boost::format( "%1%/%2%/%3%" )
+                              % Environment::nextsimDir().string()
+                              % "data"
+                              % Environment::vm()["simul.proj_filename"].as<std::string>()
+                              ).str();
 
+	std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
+	strNextsim.push_back('\0');
+	mapNextsim = init_mapx(&strNextsim[0]);
+
+    for (int fstep=0; fstep < dataset->nb_forcing_step; ++fstep) // always need one step before and one after the target time
+    {
         for(int j=0; j<dataset->vectorial_variables.size(); ++j)
         {
             j0=dataset->vectorial_variables[j].components_Id[0];
@@ -790,9 +825,6 @@ ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const
 
     // closing maps
     close_mapx(mapNextsim);
-
-    dataset->nb_forcing_step=nb_forcing_step;
-    dataset->loaded=true;
 }   
     
 void
