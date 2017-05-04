@@ -262,6 +262,13 @@ namespace Nextsim
              * MODULES
              * -----------------------------------------------------------------------------------
              */
+#if defined(OASIS)
+            ("coupler.timestep", po::value<double>()->default_value( 3600. ), "") // The coupling time step
+            ("coupler.with_ocean", po::value<bool>()->default_value( false ), "") // Do we couple with an ocean model
+            ("coupler.atm_from_ocean", po::value<bool>()->default_value( false ), "") // Do we get atmospheric state from the ocean model
+            ("coupler.with_waves", po::value<bool>()->default_value( false ), "") // Do we couple with a wave model
+            ("coupler.with_atm", po::value<bool>()->default_value( false ), "")  // Do we couple with an atmospheric model
+#endif
 
 #if defined(WAVES)
             ("simul.use_wim", po::value<bool>()->default_value( false ), "")

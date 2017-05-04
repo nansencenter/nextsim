@@ -483,8 +483,8 @@ private:
     // Coupling with OASIS
     GridOutput M_cpl_out;
     std::vector<int> var_id;
-    double cpl_time_factor;
     int cpl_time_step;
+    void initOASIS();
 #endif
 
 private:
