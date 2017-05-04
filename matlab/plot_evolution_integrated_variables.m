@@ -80,7 +80,7 @@ for p=0:0
       
       for j=1:nb_fields
           
-          [field_tmp]=extract_field(fields{j},data_out,dirname,step);
+          [field_tmp]=extract_field(fields{j},data_out,dirname,step,simul_in);
           %integrated_fields(j,i)=integrated_fields(j,i)+sum(Element_area);
           integrated_fields(j,i)=integrated_fields(j,i)+(field_tmp'*Element_area);
           %integrated_fields(j,i)=integrated_fields(j,i)+(field_tmp'*Element_area)./sum(Element_area);

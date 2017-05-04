@@ -13,7 +13,10 @@ fields   = {'time_init',...
             'undamaged_time_relaxation_sigma',...
             'exponent_relaxation_sigma',...
             'young',...
-            'mesh_filename'};
+            'mesh_filename',...
+            'cfix',...
+            'scale_coef',...
+            'ridging_exponent'};
 
 Nfld  = length(fields);
 for j=1:Nfld
@@ -32,7 +35,12 @@ end
 try
     simul_in.time_init=datenum(simul_in.time_init,'yyyy-mm-ddHH:MM:SS');
 catch
-    simul_in.time_init=datenum(simul_in.time_init,'yyyy-mm-dd');
+    try
+        simul_in.time_init=datenum(simul_in.time_init,'yyyy-mm-dd');
+    catch err
+        warning('Couldn''t read time from nextsim.log - check the file!')
+        simul_in.time_init=datenum(1900,1,1);
+    end
 end
 
 end

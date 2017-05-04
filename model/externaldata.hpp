@@ -54,17 +54,17 @@ public:
         double StartingTime );
 
     ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId, bool is_vector,
-        double StartingTime, double SpinUpDuration  );
+        double StartingTime, double SpinUpDuration );
 
     ExternalData(double ConstantValue );
 
     ExternalData(double ConstantValue, double ConstantValuebis );
 
     ExternalData(double ConstantValue,
-        double StartingTime, double SpinUpDuration  );
+        double StartingTime, double SpinUpDuration );
 
     ExternalData(double ConstantValue, double ConstantValuebis,
-        double StartingTime, double SpinUpDuration  );
+        double StartingTime, double SpinUpDuration );
 
 	~ExternalData();
 #if 0
@@ -74,7 +74,9 @@ public:
 
 	void close();
 #endif
-    void check_and_reload(GmshMesh const& mesh, const double current_time );
+    //void check_and_reload(GmshMesh const& mesh, const double current_time );
+    void check_and_reload(std::vector<double> const& RX,
+            std::vector<double> const& RY, const double current_time );
 
 	value_type operator[] (const size_type i);
 
@@ -84,11 +86,20 @@ public:
 
 	void clear();
 
-    void loadDataset(Dataset *dataset, GmshMesh const& mesh);
+    //void loadDataset(Dataset *dataset, GmshMesh const& mesh);
+    void loadDataset(Dataset *dataset, std::vector<double> const& RX,
+            std::vector<double> const& RY );
 
-    void transformData(Dataset *dataset, GmshMesh const& mesh);
+    void transformData(Dataset *dataset);
 
-    void interpolateDataset(Dataset *dataset, GmshMesh const& mesh);
+    //void interpolateDataset(Dataset *dataset, GmshMesh const& mesh);
+    void interpolateDataset(Dataset *dataset, std::vector<double> const& RX,
+            std::vector<double> const& RY );
+
+    void convertTargetXY(Dataset *dataset,
+        std::vector<double> const& RX_in,  std::vector<double> const& RY_in,
+        std::vector<double> & RX_out, std::vector<double> & RY_out,
+        mapx_class *mapNextsim);//(double const& u, double const& v)
     
 #if 0
 	size_type size() const;
@@ -102,13 +113,13 @@ public:
     double fdt;
     std::vector<double> fcoeff;
     Dataset *M_dataset;
+    bool M_is_constant;
     bool M_initialized;
 
 private:
     std::string M_datasetname;
     int M_VariableId;
     double M_current_time;
-    bool M_is_constant;
     double M_constant_value;
     double M_constant_valuebis;
     bool M_is_vector;
