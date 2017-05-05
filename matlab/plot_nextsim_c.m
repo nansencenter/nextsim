@@ -1,9 +1,11 @@
 function plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,plot_options)
 %% CALL: plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,plot_options)
+%% OR:   plot_nextsim_c(field,date_string,region_of_zoom,is_sequential,dirname,plot_options)
 %% example of usage:
 %%    plot_nextsim_c('Concentration',4,[],true)
 %%    plot_nextsim_c('Damage',4,[],true)
 %%    plot_nextsim_c('M_VT',4,[],true)
+%%    plot_nextsim_c('Thickness,'April 4, 2012',[],true)
 %%
 %% field:
 %%    Element_area
@@ -117,6 +119,12 @@ if(~isempty(dirname)&& dirname(end)~='/')
     dirname=[dirname, '/'];
 end
 simul_in=read_simul_in([dirname 'nextsim.log' ],0);
+
+% Deduce the step if step is a string (which we assume is a date)
+if ischar(step)
+    step = (datenum(step) - datenum(simul_in.time_init)) * simul_in.output_per_day;
+    if step<0, error('Date given is before the start of the run'); end
+end
    
 for p=0:0
 
