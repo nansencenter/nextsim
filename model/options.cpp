@@ -105,6 +105,7 @@ namespace Nextsim
             ("simul.time_init", po::value<std::string>()->default_value( "2008-Mar-05" ), "")
             ("simul.duration", po::value<double>()->default_value( 1. ), "")
             ("setup.bathymetry-type", po::value<std::string>()->default_value( "etopo" ), "")
+            ("simul.basal_stress-type", po::value<std::string>()->default_value( "lemieux" ), "")
             ("simul.constant_bathymetry", po::value<double>()->default_value( 200. ), "")
             ("simul.timestep", po::value<double>()->default_value( 200. ), "")
             ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "")

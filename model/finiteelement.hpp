@@ -253,6 +253,7 @@ private:
     setup::IceType M_ice_type;
     setup::WaveType M_wave_type;
     setup::BathymetryType M_bathymetry_type;
+    setup::BasalStressType M_basal_stress_type;
     setup::ThermoType M_thermo_type;
 
     setup::IceCategoryType M_ice_cat_type;

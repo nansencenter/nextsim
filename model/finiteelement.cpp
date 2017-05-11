@@ -657,6 +657,11 @@ FiniteElement::initConstant()
         ("etopo", setup::BathymetryType::ETOPO);
     M_bathymetry_type = str2bathymetry.find(vm["setup.bathymetry-type"].as<std::string>())->second;
 
+    const boost::unordered_map<const std::string, setup::BasalStressType> str2basal_stress= boost::assign::map_list_of
+        ("lemieux", setup::BasalStressType::LEMIEUX)
+        ("bouillon", setup::BasalStressType::BOUILLON);
+    M_basal_stress_type = str2basal_stress.find(vm["simul.bathymetry-type"].as<std::string>())->second;
+
     M_use_iabp_drifters=vm["simul.use_iabp_drifters"].as<bool>();
     M_equallyspaced_drifters_output_time_step=vm["simul.equallyspaced_drifters_output_time_step"].as<double>();
     M_rgps_drifters_output_time_step=vm["simul.rgps_drifters_output_time_step"].as<double>();
@@ -2316,6 +2321,7 @@ FiniteElement::assemble(int pcpt)
         double element_ssh=0.;
         double critical_h = 0.;
         double max_keel_height=28; // [m] from "A comprehensive analysis of the morphology of first-year sea ice ridges"
+        double ice_to_keel_factor=19.28; // from "A comprehensive analysis of the morphology of first-year sea ice ridges"
         double keel_height_estimate;
         double critical_h_mod=0.; 
         
@@ -2339,12 +2345,24 @@ FiniteElement::assemble(int pcpt)
            
             if(M_conc[cpt]>vm["simul.min_c"].as<double>())
             {
-                
-                keel_height_estimate = vm["simul.Lemieux_basal_k1"].as<double>()*M_thick[cpt]/M_conc[cpt];
-                keel_height_estimate = ( keel_height_estimate > max_keel_height ) ? max_keel_height : keel_height_estimate;
-            
-                critical_h      = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
-                critical_h_mod  = M_conc[cpt]*keel_height_estimate/(vm["simul.Lemieux_basal_k1"].as<double>()); 
+                switch ( M_basal_stress_type )
+                {
+                    case setup::BasalStressType::BOUILLON:
+                        // Sylvain's grounding scheme
+                        keel_height_estimate = ice_to_keel_factor*std::pow(M_thick[cpt]/M_conc[cpt],0.5);
+                        keel_height_estimate = ( keel_height_estimate > max_keel_height ) ? max_keel_height : keel_height_estimate;
+                        critical_h      = M_conc[cpt]*std::pow((M_element_depth[cpt]+element_ssh)/ice_to_keel_factor,2.); 
+                        critical_h_mod  = M_conc[cpt]*std::pow(keel_height_estimate/ice_to_keel_factor,2.); 
+                        break;
+                    case setup::BasalStressType::LEMIEUX:
+                        // JF Lemieux's grounding
+                        keel_height_estimate = vm["simul.Lemieux_basal_k1"].as<double>()*M_thick[cpt]/M_conc[cpt];
+                        keel_height_estimate = ( keel_height_estimate > max_keel_height ) ? max_keel_height : keel_height_estimate;
+
+                        critical_h      = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
+                        critical_h_mod  = M_conc[cpt]*keel_height_estimate/(vm["simul.Lemieux_basal_k1"].as<double>()); 
+                        break;
+                }
             } 
 
     #if 1
