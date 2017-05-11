@@ -4124,6 +4124,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         /* ---------------------------------------------------------------
         * Calculate the surface temperature within a while-loop
         * --------------------------------------------------------------- */
+        double albedo = this->albedo(alb_scheme, Tsurf, hs, alb_sn, alb_ice, I_0);
         double dtsurf   = 1.;
         double Tbot     = -physical::mu*M_sss[i];
         int nb_iter_while=0;
@@ -4133,7 +4134,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
 
             /* Calculate atmospheric fluxes */
             // Shortwave is modulated by the albedo
-            Qsw = -Qsw_in*(1.-FiniteElement::albedo(alb_scheme, Tsurf, hs, alb_sn, alb_ice, I_0))*(1.-I_0);
+            Qsw = -Qsw_in*(1.-albedo)*(1.-I_0);
             // The rest is calculated by bulk formula
             FiniteElement::atmFluxBulk(i, Tsurf, sphuma, drag_ice_t, Qsw, Qlw_in, wspeed,
                     Qai, dQaidT,subl);
@@ -4158,7 +4159,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         if(nb_iter_while>10)
         {
             LOG(DEBUG) << "nb_iter_while = " << nb_iter_while << "\n";
-            throw std::logic_error("nb_iter_while larger than 10");
+            //throw std::logic_error("nb_iter_while larger than 10");
         }
 
         /* Conductive flux through the ice */
