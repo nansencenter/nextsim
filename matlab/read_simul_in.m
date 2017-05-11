@@ -22,10 +22,10 @@ Nfld  = length(fields);
 for j=1:Nfld
    fld   = fields{j};
    lin   = get_value(saved_simul_in,['simul.',fld],DO_DISP);
-   nlin  = str2num(lin);
-   if ~isempty(nlin)
+   % nlin  = str2num(lin);
+   if all(isstrprop(lin,'digit')) %~isempty(nlin)
       % see if it's a number
-      simul_in.(fld) = nlin;
+      simul_in.(fld) = str2num(lin);
    else
       % leave as a string
       simul_in.(fld) = lin;

@@ -11,6 +11,7 @@ function [field_tmp, field_plotted]=extract_field(field,data_out,dirname,step,si
      [field_tmp2]=get_and_check(fld,data_out,dirname,step);
      
      field_tmp = field_tmp+0.055*field_tmp2;
+     field_plotted = 'Ocean degrees above the freezing point';
   elseif strcmp(field,'Ridged_volume_per_area')
      fld = 'Ridge_ratio';
      [field_tmp]=get_and_check(fld,data_out,dirname,step);
@@ -19,6 +20,7 @@ function [field_tmp, field_plotted]=extract_field(field,data_out,dirname,step,si
      [field_tmp2]=get_and_check(fld,data_out,dirname,step);
      
      field_tmp = field_tmp.*field_tmp2;
+     field_plotted = 'Ridged volume per area';
   elseif strcmp(field,'Total_thickness')
      fld = 'Thickness';
      [field_tmp]=get_and_check(fld,data_out,dirname,step);
