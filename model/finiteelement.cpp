@@ -1288,7 +1288,7 @@ FiniteElement::regrid(bool step)
 
 		if (step)
 		{
-
+#if 0
 	        chrono.restart();
 	        LOG(DEBUG) <<"Slab Interp starts\n";
 
@@ -1342,16 +1342,19 @@ FiniteElement::regrid(bool step)
 			M_mesh_previous.move(M_UM,displacement_factor);
 			LOG(DEBUG) <<"ELEMENT SLAB: Interp done\n";
 			LOG(DEBUG) <<"Slab Interp done in "<< chrono.elapsed() <<"s\n";
-
+#endif
             chrono.restart();
 
             LOG(DEBUG) <<"Element Interp starts\n";
 
             // 1) collect the variables into a single structure
+            int prv_num_elements = M_mesh_previous.numTriangles();
+            
             double* interp_elt_in;
             int* interp_method;
-
-            nb_var = this->collectVariables(&interp_elt_in, &interp_method, prv_num_elements);
+            double* diffusivity_parameters;
+            
+            int nb_var = this->collectVariables(&interp_elt_in, &interp_method, &diffusivity_parameters, prv_num_elements);
 
             // 2) Interpolate
             std::vector<double> surface_previous(prv_num_elements);
@@ -1394,6 +1397,9 @@ FiniteElement::regrid(bool step)
             M_ridge_ratio.assign(M_num_elements,0.);
             
 			M_random_number.resize(M_num_elements);
+            
+			M_sst.assign(M_num_elements,0.);
+			M_sss.assign(M_num_elements,0.);
 
             for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
                 it->assign(M_num_elements,0.);
@@ -1417,6 +1423,8 @@ FiniteElement::regrid(bool step)
             // 5) cleaning
 			xDelete<double>(interp_elt_out);
 			xDelete<double>(interp_elt_in);
+            xDelete<int>(interp_method);
+            xDelete<double>(diffusivity_parameters);
 
 			LOG(DEBUG) <<"ELEMENT: Interp done\n";
 			LOG(DEBUG) <<"Element Interp done in "<< chrono.elapsed() <<"s\n";
@@ -1672,6 +1680,14 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var)
 		//M_random_number[i] = std::max(0., std::min(1.,interp_elt_in[11*i+tmp_nb_var]));
 		tmp_nb_var++;
 
+		// SSS
+		M_sss[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+		tmp_nb_var++;
+
+		// SST
+		M_sst[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+		tmp_nb_var++;
+
 		// Ice temperature
         M_tice[0][i] = interp_elt_out[nb_var*i+tmp_nb_var];
         tmp_nb_var++;
@@ -1922,11 +1938,69 @@ FiniteElement::advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
 	*interp_elt_out_ptr=interp_elt_out;
 }
 
+
+void
+    FiniteElement::diffuse(double** interp_elt_out_ptr,double* interp_elt_in, double* diffusivity_parameters,int nb_var,double dx)
+{
+
+    /*Initialize output*/
+    double* interp_elt_out=NULL;
+
+    interp_elt_out=xNew<double>(nb_var*M_num_elements);
+
+    int thread_id;
+    int total_threads;
+    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
+
+    std::vector<double> UM_P = M_UM;
+
+    int Nd = bamgmesh->NodalConnectivitySize[1];
+
+#pragma omp parallel for num_threads(max_threads) private(thread_id)
+    for (int cpt=0; cpt < M_num_elements; ++cpt)
+    {
+        /* some variables used for the advection*/
+        int neighbour_int;
+        double fluxes_source[3];
+        int fluxes_source_id;
+
+        double neighbour_double;
+        int other_vertex[3*2]={1,2 , 2,0 , 0,1};
+      
+        for(int j=0; j<nb_var; j++)
+        {
+            if(diffusivity_parameters[j]==0.)
+                interp_elt_out[cpt*nb_var+j] = interp_elt_in[cpt*nb_var+j];
+            else
+            {
+                
+                for(int i=0;i<3;i++)
+                {
+                    neighbour_double=bamgmesh->ElementConnectivity[cpt*3+i];
+                    neighbour_int=(int) bamgmesh->ElementConnectivity[cpt*3+i];
+                    
+                    if (!std::isnan(neighbour_double) && neighbour_int>0)
+                    {
+                        fluxes_source_id=neighbour_int-1;
+                        fluxes_source[i]=diffusivity_parameters[j]*time_step/std::pow(dx,2.)*(interp_elt_in[fluxes_source_id*nb_var+j]-interp_elt_in[cpt*nb_var+j]);
+                    }
+                    else // no diffusion crosses open nor closed boundaries
+                        fluxes_source[i]=0.;
+                }
+                
+                interp_elt_out[cpt*nb_var+j] = interp_elt_in[cpt*nb_var+j] + fluxes_source[0] + fluxes_source[1] + fluxes_source[2];                
+            }
+        }
+    }
+    *interp_elt_out_ptr=interp_elt_out;
+}
+
+
 int
-FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_ptr, int prv_num_elements)
+FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_ptr, double** diffusivity_parameters_ptr, int prv_num_elements)
 {
     // ELEMENT INTERPOLATION With Cavities
-	int nb_var=13 + M_tice.size();
+	int nb_var=15 + M_tice.size();
 
 #if defined (WAVES)
     // coupling with wim
@@ -1948,9 +2022,11 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
 	/*Initialize output*/
 	double* interp_elt_in=NULL;
 	int* interp_method=NULL;
+	double* diffusivity_parameters=NULL;
 
     interp_elt_in=xNew<double>(nb_var*prv_num_elements);
     interp_method=xNew<int>(nb_var); // 0 for non conservative method, 1 for conservative method (for variables defined in terms of blabla/per unit area)
+    diffusivity_parameters=xNew<double>(nb_var); // 0 for non added diffusion, positive value for active diffusion in [m^2/s] (only non conservative implementation available)
 
 	int tmp_nb_var=0;
 	for (int i=0; i<prv_num_elements; ++i)
@@ -1960,72 +2036,98 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
 		// concentration
 		interp_elt_in[nb_var*i+tmp_nb_var] = M_conc[i];
         interp_method[tmp_nb_var] = 1;
+        diffusivity_parameters[tmp_nb_var]=0.;
 		tmp_nb_var++;
 
 		// thickness
 		interp_elt_in[nb_var*i+tmp_nb_var] = M_thick[i];
         interp_method[tmp_nb_var] = 1;
+        diffusivity_parameters[tmp_nb_var]=0.;
 		tmp_nb_var++;
 
 		// snow thickness
 		interp_elt_in[nb_var*i+tmp_nb_var] = M_snow_thick[i];
         interp_method[tmp_nb_var] = 1;
+        diffusivity_parameters[tmp_nb_var]=0.;
 		tmp_nb_var++;
 
 		// integrated_stress1
 		interp_elt_in[nb_var*i+tmp_nb_var] = M_sigma[3*i]*M_thick[i];
         interp_method[tmp_nb_var] = 1;
+        diffusivity_parameters[tmp_nb_var]=0.;
 		tmp_nb_var++;
 
 		// integrated_stress2
 		interp_elt_in[nb_var*i+tmp_nb_var] = M_sigma[3*i+1]*M_thick[i];
         interp_method[tmp_nb_var] = 1;
+        diffusivity_parameters[tmp_nb_var]=0.;
 		tmp_nb_var++;
 
 		// integrated_stress3
 		interp_elt_in[nb_var*i+tmp_nb_var] = M_sigma[3*i+2]*M_thick[i];
         interp_method[tmp_nb_var] = 1;
+        diffusivity_parameters[tmp_nb_var]=0.;
 		tmp_nb_var++;
 
 		// damage
 		interp_elt_in[nb_var*i+tmp_nb_var] = M_damage[i];
         interp_method[tmp_nb_var] = 0;
+        diffusivity_parameters[tmp_nb_var]=0.;
 		tmp_nb_var++;
 
 		// ridge_ratio
 		interp_elt_in[nb_var*i+tmp_nb_var] = M_ridge_ratio[i]*M_thick[i];
         interp_method[tmp_nb_var] = 1;
+        diffusivity_parameters[tmp_nb_var]=0.;
 		tmp_nb_var++;
 
 		// random_number
 		interp_elt_in[nb_var*i+tmp_nb_var] = M_random_number[i];
         interp_method[tmp_nb_var] = 0;
+        diffusivity_parameters[tmp_nb_var]=0.;
+		tmp_nb_var++;
+
+		// random_number
+		interp_elt_in[nb_var*i+tmp_nb_var] = M_sss[i];
+        interp_method[tmp_nb_var] = 0;
+        diffusivity_parameters[tmp_nb_var]=vm["simul.diffusivity_sss"].as<double>();
+		tmp_nb_var++;
+        
+		// random_number
+		interp_elt_in[nb_var*i+tmp_nb_var] = M_sst[i];
+        interp_method[tmp_nb_var] = 0;
+        diffusivity_parameters[tmp_nb_var]=vm["simul.diffusivity_sst"].as<double>();
 		tmp_nb_var++;
 
 		// Ice temperature
         interp_elt_in[nb_var*i+tmp_nb_var] = M_tice[0][i];
         interp_method[tmp_nb_var] = 0;
+        diffusivity_parameters[tmp_nb_var]=0.;
         tmp_nb_var++;
 
         if ( M_thermo_type == setup::ThermoType::WINTON )
         {
             interp_elt_in[nb_var*i+tmp_nb_var] = ( M_tice[1][i] - physical::mu*physical::si*physical::Lf/(physical::C*M_tice[1][i]) ) * M_thick[i]; // (39) times volume with f1=1
             interp_method[tmp_nb_var] = 1;
+            diffusivity_parameters[tmp_nb_var]=0.;
             tmp_nb_var++;
 
             interp_elt_in[nb_var*i+tmp_nb_var] = ( M_tice[2][i] ) * M_thick[i]; // (39) times volume with f1=0
             interp_method[tmp_nb_var] = 1;
+            diffusivity_parameters[tmp_nb_var]=0.;
             tmp_nb_var++;
         }
 
 		// thin ice thickness
 		interp_elt_in[nb_var*i+tmp_nb_var] = M_h_thin[i];
         interp_method[tmp_nb_var] = 1;
+        diffusivity_parameters[tmp_nb_var]=0.;
 		tmp_nb_var++;
 
 		// thin ice thickness
 		interp_elt_in[nb_var*i+tmp_nb_var] = M_conc_thin[i];
         interp_method[tmp_nb_var] = 1;
+        diffusivity_parameters[tmp_nb_var]=0.;
 		tmp_nb_var++;
 
 		// snow on thin ice
@@ -2036,6 +2138,7 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
 		// Ice surface temperature for thin ice
 		interp_elt_in[nb_var*i+tmp_nb_var] = M_tsurf_thin[i];
         interp_method[tmp_nb_var] = 0;
+        diffusivity_parameters[tmp_nb_var]=0.;
 		tmp_nb_var++;
 
 #if defined (WAVES)
@@ -2044,6 +2147,7 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
         {
             interp_elt_in[nb_var*i+tmp_nb_var] = M_nfloes[i];
             interp_method[tmp_nb_var] = 1;
+            diffusivity_parameters[tmp_nb_var]=0.;
             tmp_nb_var++;
         }
 #endif
@@ -2055,6 +2159,8 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
 	}
 	*interp_elt_in_ptr=interp_elt_in;
     *interp_method_ptr=interp_method;
+    *diffusivity_parameters_ptr=diffusivity_parameters;
+
 
     return nb_var;
 }
@@ -2831,22 +2937,31 @@ FiniteElement::update()
 #endif
 
 
-    // 1) collect the variables into a single structure
+    // collect the variables into a single structure
     int prv_num_elements = M_mesh.numTriangles();
     double* interp_elt_in;
     int* interp_method;
-    int nb_var = this->collectVariables(&interp_elt_in, &interp_method, prv_num_elements);
+    double* diffusivity_parameters;
+    int nb_var = this->collectVariables(&interp_elt_in, &interp_method, &diffusivity_parameters, prv_num_elements);
 
+    // Advection
     double* interp_elt_out;
-	this->advect(&interp_elt_out,&interp_elt_in[0],&interp_method[0],nb_var);
-
-    // 4) redistribute the interpolated values
-    this->redistributeVariables(&interp_elt_out[0],nb_var);
-
-    // 5) cleaning
-	xDelete<double>(interp_elt_out);
+    this->advect(&interp_elt_out,&interp_elt_in[0],&interp_method[0],nb_var);
+	
+    // cleaning
+    xDelete<double>(interp_elt_in);
     xDelete<int>(interp_method);
-	xDelete<double>(interp_elt_in);
+            
+    double* interp_elt_out_bis;
+    this->diffuse(&interp_elt_out_bis,&interp_elt_out[0],&diffusivity_parameters[0],nb_var,this->resolution(M_mesh));
+
+    // redistribute the interpolated values
+    this->redistributeVariables(&interp_elt_out_bis[0],nb_var);
+
+    // cleaning
+    xDelete<double>(interp_elt_out);
+    xDelete<double>(interp_elt_out_bis);
+    xDelete<double>(diffusivity_parameters);
     
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
@@ -6065,7 +6180,8 @@ FiniteElement::initSlabOcean()
     switch (M_ocean_type)
     {
         case setup::OceanType::CONSTANT:
-            std::fill(M_sst.begin(), M_sst.end(), -1.8);
+            //std::fill(M_sst.begin(), M_sst.end(), -1.8);
+            std::fill(M_sst.begin(), M_sst.end(), 1.);
             std::fill(M_sss.begin(), M_sss.end(),  1.8/physical::mu);
             break;
         case setup::OceanType::TOPAZR:
@@ -6167,7 +6283,7 @@ FiniteElement::initIce()
         conc_tot=M_conc[i]+M_conc_thin[i];
         weight_conc=std::min(1.,conc_tot*2.);
         if(conc_tot>0.)
-            M_sst[i] = -M_sss[i]*physical::mu*weight_conc+M_ocean_temp[i]*(1.-weight_conc);
+            M_sst[i] = -M_sss[i]*physical::mu*weight_conc+M_sst[i]*(1.-weight_conc);
             //M_sst[i] = -M_sss[i]*physical::mu;//*M_conc[i]+M_ocean_temp[i]*(1.-M_conc[i]);
         
         if ( M_snow_thick[i] > 0. )
@@ -6252,7 +6368,7 @@ FiniteElement::targetIce()
     double x_max2=300000.;
     double x_min2=260000.;
     */
-    
+ 
     double y_max=350000.;
     double y_min=0000.;
     double x_max=400000.;
@@ -6284,11 +6400,20 @@ FiniteElement::targetIce()
             +     (RY[i]> y_max)*(RX[i]> x_max)              *std::max(cmin,(1.-std::hypot(RX[i]-x_max,RY[i]-y_max)/transition));
             */
         std::cout<<"RX: "<< RX[i] << "RY: "<< RY[i] << "tmp_var: " << tmp_var << "\n";
+	
+        //M_conc[i]  = std::max(vm["simul.init_concentration"].as<double>()*tmp_var,cmin);
+	//	M_thick[i] = vm["simul.init_thickness"].as<double>()*M_conc[i];
+	//	M_snow_thick[i] = vm["simul.init_snow_thickness"].as<double>()*M_conc[i];
 
-        M_conc[i]  = std::max(vm["simul.init_concentration"].as<double>()*tmp_var,cmin);
-		M_thick[i] = vm["simul.init_thickness"].as<double>()*M_conc[i];
-		M_snow_thick[i] = vm["simul.init_snow_thickness"].as<double>()*M_conc[i];
-        M_damage[i]=0.;
+        M_conc[i]  = 1.; //vm["simul.init_concentration"].as<double>();
+	
+	if(i==10)
+		M_conc[i]=0.;
+	
+	M_thick[i] = vm["simul.init_thickness"].as<double>()*M_conc[i];
+	M_snow_thick[i] = vm["simul.init_snow_thickness"].as<double>()*M_conc[i];
+	
+	M_damage[i]=0.;
         
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
