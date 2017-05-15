@@ -3056,7 +3056,7 @@ FiniteElement::update()
 #if 1
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
-            if(M_conc_thin[cpt]>0.)
+            if(M_conc_thin[cpt]>0. && M_thick[cpt]>0.)
             {
             new_conc_thin   = std::max(1.-M_conc[cpt]-open_water_concentration,0.);
             new_h_thin      = new_conc_thin*M_h_thin[cpt]/M_conc_thin[cpt]; // so that we keep the same h0, no preferences for the ridging
@@ -3074,17 +3074,15 @@ FiniteElement::update()
             M_conc[cpt]         += del_c;
             M_snow_thick[cpt]   += newsnow;
             
-            if(M_thick[cpt]>0.)
-                M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt]));
-            else
-                M_ridge_ratio[cpt]=0.;
+            M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt]));
             }
             else
             {
                 M_conc_thin[cpt]=0.;
                 M_h_thin[cpt]=0.;
+                M_hs_thin[cpt]=0.;
+                M_ridge_ratio[cpt]=0.;
             }
-
         }
 #endif
         double new_conc=std::max(1.-M_conc_thin[cpt]-open_water_concentration+del_c,0.);
@@ -3100,6 +3098,12 @@ FiniteElement::update()
             double test_h_thick=M_thick[cpt]/M_conc[cpt];
             test_h_thick = (test_h_thick>max_true_thickness) ? max_true_thickness : test_h_thick ;
             M_conc[cpt]=M_thick[cpt]/test_h_thick;
+        }
+    else
+        {
+            M_ridge_ratio[cpt]=0.;
+            M_thick[cpt]=0.;
+            M_snow_thick[cpt]=0.;
         }
         
 #if 0
