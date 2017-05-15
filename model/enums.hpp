@@ -69,6 +69,12 @@ namespace setup
         ETOPO    = 1
     };
 
+    enum class BasalStressType
+    {
+        LEMIEUX  = 0,
+        BOUILLON = 1
+    };
+
     enum class IceCategoryType
     {
         CLASSIC     = 0,

@@ -105,6 +105,7 @@ namespace Nextsim
             ("simul.time_init", po::value<std::string>()->default_value( "2008-Mar-05" ), "")
             ("simul.duration", po::value<double>()->default_value( 1. ), "")
             ("setup.bathymetry-type", po::value<std::string>()->default_value( "etopo" ), "")
+            ("simul.basal_stress-type", po::value<std::string>()->default_value( "lemieux" ), "")
             ("simul.constant_bathymetry", po::value<double>()->default_value( 200. ), "")
             ("simul.timestep", po::value<double>()->default_value( 200. ), "")
             ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "")
@@ -173,7 +174,8 @@ namespace Nextsim
             ("simul.lin_drag_coef_water", po::value<double>()->default_value( 0. ), "")
 
             // basal stress parameterization
-            ("simul.Lemieux_basal_gamma", po::value<double>()->default_value( 10. ), "")
+            //("simul.Lemieux_basal_gamma", po::value<double>()->default_value( 10. ), "")
+            ("simul.Lemieux_basal_k1", po::value<double>()->default_value( 10. ), "")
             ("simul.Lemieux_basal_k2", po::value<double>()->default_value( 15. ), "")
             ("simul.Lemieux_basal_Cb", po::value<double>()->default_value( 20. ), "")
             ("simul.Lemieux_basal_u_0", po::value<double>()->default_value( 5e-5 ), "")

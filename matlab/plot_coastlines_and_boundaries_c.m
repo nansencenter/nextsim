@@ -2,25 +2,34 @@ function plot_coastlines_and_boundaries_c(mesh_filename)
 % The files defining the domain are on /Data/sim/data/mesh and have to be
 % in your matlab path
 
-fprintf('Coastlines are being loaded from the file ''%s'' ...\r',mesh_filename)
+% fprintf('Coastlines are being loaded from the file ''%s'' ...\r',mesh_filename)
 if(strcmp(mesh_filename(end-3:end),'.msh'))
-    mesh=msh2mat_c(mesh_filename);
-    if ~isfield(mesh,'flags')
-       flag_boundary_fix=1;
-       flag_boundary_free=2;
-       % these may need to be changed depending on the meshfile (here works for the new meshes created with gmsh)
-       % - otherwise it may be easier to manually edit the mesh file,
-       %   adding the following lines (with the correct values for open and coast)
-       %   underneath $EndMeshFormat
-       %
-       % $PhysicalNames
-       % 2
-       % 1 10001 "open"
-       % 1 10000 "coast"
-       % $EndPhysicalNames
+    if exist([mesh_filename(1:end-4) '_coasts.mat'], 'file')
+        load([mesh_filename(1:end-4) '_coasts.mat'])
+        fprintf('Coastlines are being loaded from the file ''%s'' ...\r', [mesh_filename(1:end-4) '_coasts.mat'])
     else
-       flag_boundary_fix=mesh.flags.coast;
-       flag_boundary_free=mesh.flags.open;
+        fprintf('Coastlines are being loaded from the file ''%s'' ...\r',mesh_filename)
+        mesh=msh2mat_c(mesh_filename);
+        mesh_full_name=which('small_arctic_10km.msh');
+        fprintf('Saving coastlines to ''%s'' \r', [mesh_full_name(1:end-4) '_coasts.mat'])
+        save([mesh_full_name(1:end-4) '_coasts.mat'], 'mesh')
+    end
+    if ~isfield(mesh,'flags')
+        flag_boundary_fix=1;
+        flag_boundary_free=2;
+        % these may need to be changed depending on the meshfile (here works for the new meshes created with gmsh)
+        % - otherwise it may be easier to manually edit the mesh file,
+        %   adding the following lines (with the correct values for open and coast)
+        %   underneath $EndMeshFormat
+        %
+        % $PhysicalNames
+        % 2
+        % 1 10001 "open"
+        % 1 10000 "coast"
+        % $EndPhysicalNames
+    else
+        flag_boundary_fix=mesh.flags.coast;
+        flag_boundary_free=mesh.flags.open;
     end
 elseif(strcmp(mesh_filename(end-3:end),'.mat'))
     load mesh_filename;
