@@ -2924,7 +2924,7 @@ FiniteElement::update()
         //open_water_concentration=(open_water_concentration<0.)?0.:open_water_concentration;
 
         // ridging scheme
-        double opening_factor=(open_water_concentration>G_star) ? 0. : std::pow(1.-open_water_concentration/G_star,2.);
+        double opening_factor=((1.-M_conc[cpt])>G_star) ? 0. : std::pow(M_conc[cpt]/G_star,2.);
         //open_water_concentration += time_step*0.5*(delta_ridging-divergence_rate)*opening_factor;
         open_water_concentration += time_step*0.5*shear_rate/e_factor*opening_factor;
         
