@@ -2941,25 +2941,28 @@ FiniteElement::update()
 #if 1
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
-            if(M_conc_thin[cpt]>0. && M_thick[cpt]>0.)
+            if(M_conc_thin[cpt]>0.)
             {
-            new_conc_thin   = std::max(1.-M_conc[cpt]-open_water_concentration,0.);
-            new_h_thin      = new_conc_thin*M_h_thin[cpt]/M_conc_thin[cpt]; // so that we keep the same h0, no preferences for the ridging
-            new_hs_thin     = new_conc_thin*M_hs_thin[cpt]/M_conc_thin[cpt];
- 
-            newice = M_h_thin[cpt]-new_h_thin;
-            del_c   = (M_conc_thin[cpt]-new_conc_thin)/ridge_thin_ice_aspect_ratio;            
-            newsnow = M_hs_thin[cpt]-new_hs_thin;
+                if (M_thick[cpt]>0.) // Only ridge if there is thick ice in the element
+                {
+                    new_conc_thin   = std::max(1.-M_conc[cpt]-open_water_concentration,0.);
+                    new_h_thin      = new_conc_thin*M_h_thin[cpt]/M_conc_thin[cpt]; // so that we keep the same h0, no preferences for the ridging
+                    new_hs_thin     = new_conc_thin*M_hs_thin[cpt]/M_conc_thin[cpt];
+         
+                    newice = M_h_thin[cpt]-new_h_thin;
+                    del_c   = (M_conc_thin[cpt]-new_conc_thin)/ridge_thin_ice_aspect_ratio;            
+                    newsnow = M_hs_thin[cpt]-new_hs_thin;
 
-            M_conc_thin[cpt]= new_conc_thin;
-            M_h_thin[cpt]   = new_h_thin;
-            M_hs_thin[cpt]  = new_hs_thin;
-            
-            M_thick[cpt]        += newice;
-            M_conc[cpt]         += del_c;
-            M_snow_thick[cpt]   += newsnow;
-            
-            M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt]));
+                    M_conc_thin[cpt]= new_conc_thin;
+                    M_h_thin[cpt]   = new_h_thin;
+                    M_hs_thin[cpt]  = new_hs_thin;
+                    
+                    M_thick[cpt]        += newice;
+                    M_conc[cpt]         += del_c;
+                    M_snow_thick[cpt]   += newsnow;
+                    
+                    M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt]));
+                }
             }
             else
             {
