@@ -212,8 +212,8 @@ namespace Nextsim
             ("simul.drag_ocean_t", po::value<double>()->default_value( 0.83e-3 ), "")
             ("simul.drag_ocean_q", po::value<double>()->default_value( 1.5e-3 ), "")
 
-            ("simul.diffusivity_sss", po::value<double>()->default_value( 10. ), "") //[m^2/s]
-            ("simul.diffusivity_sst", po::value<double>()->default_value( 10. ), "") //[m^2/s]
+            ("simul.diffusivity_sss", po::value<double>()->default_value( 100. ), "") //[m^2/s]
+            ("simul.diffusivity_sst", po::value<double>()->default_value( 100. ), "") //[m^2/s]
 
             ("simul.constant_tair", po::value<double>()->default_value( -25. ), "")
             ("simul.constant_dair", po::value<double>()->default_value( -1. ), "")
