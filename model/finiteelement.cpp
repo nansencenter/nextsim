@@ -1169,6 +1169,9 @@ FiniteElement::regrid(bool step)
 	{
 		if(step)
 		{
+            if(substep>=10)
+			    throw std::logic_error("substep larger than 10, simulation stopped to avoid infinite loop");
+
             flip = this->flip(M_mesh,M_UM,displacement_factor);
 
             minang = this->minAngle(M_mesh,M_UM,displacement_factor);
@@ -2394,22 +2397,28 @@ FiniteElement::assemble(int pcpt)
 
         int index_u, index_v;
 
-        double coef_Vair    = 0.;
-        double coef_Voce    = 0.;
-        double coef_basal   = 0.;
+        // values used when no ice
+        double coef_drag    = 0.;
         double coef         = 10.;
         double mass_e       = 0.;
         double coef_C       = 0.;
         double coef_V       = 0.;
         double coef_X       = 0.;
         double coef_Y       = 0.;
+        double coef_sigma   = 0.;
 
-        double mloc = 0.;
-        double dloc = 0.;
+
+        // temporary variables
+        double mloc ;
+        double dloc ;
         
-        double b0tj_sigma_hu = 0.;
-        double b0tj_sigma_hv = 0.;
+        double b0tj_sigma_hu ;
+        double b0tj_sigma_hv ;
 
+        double coef_Vair;
+        double coef_Voce;
+        double coef_basal;
+        
         double undamaged_time_relaxation_sigma=vm["simul.undamaged_time_relaxation_sigma"].as<double>();
         double exponent_relaxation_sigma=vm["simul.exponent_relaxation_sigma"].as<double>();
 
@@ -2432,7 +2441,8 @@ FiniteElement::assemble(int pcpt)
         double critical_h_mod=0.; 
         
         //if(total_concentration > vm["simul.min_c"].as<double>())
-        if( (total_concentration > vm["simul.min_c"].as<double>()) && (total_thickness > vm["simul.min_h"].as<double>()) )
+        //if( (total_concentration > vm["simul.min_c"].as<double>()) && (total_thickness > vm["simul.min_h"].as<double>()) )
+        if( (M_conc[cpt] > vm["simul.min_c"].as<double>()) && (M_thick[cpt] > vm["simul.min_h"].as<double>()) )
         {
 
             /* Compute the value that only depends on the element */
@@ -2509,11 +2519,12 @@ FiniteElement::assemble(int pcpt)
                 g_ssh_e_x += M_shape_coeff[cpt][i]*g_ssh_e; /* x derivative of g*ssh */
                 g_ssh_e_y += M_shape_coeff[cpt][i+3]*g_ssh_e; /* y derivative of g*ssh */
             }
-
+            coef_drag  = 1.;
             coef_C     = mass_e*M_fcor[cpt];              /* for the Coriolis term */
             coef_V     = mass_e/time_step;             /* for the inertial term */
             coef_X     = - mass_e*g_ssh_e_x;              /* for the ocean slope */
             coef_Y     = - mass_e*g_ssh_e_y;              /* for the ocean slope */
+            coef_sigma = M_thick[cpt]*multiplicator;
         }
 
         /* Loop over the 6 by 6 components of the finite element integral
@@ -2542,7 +2553,6 @@ FiniteElement::assemble(int pcpt)
             Vcor_index_v=beta0*M_VT[index_v] + beta1*M_VTM[index_v] + beta2*M_VTMM[index_v];
             Vcor_index_u=beta0*M_VT[index_u] + beta1*M_VTM[index_u] + beta2*M_VTMM[index_u];
 
-            double coef_sigma = M_thick[cpt]*multiplicator;
 
             for(int i=0; i<3; i++)
             {
@@ -2568,20 +2578,20 @@ FiniteElement::assemble(int pcpt)
                 norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
 
                 coef_Voce = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
-                coef_Voce *= physical::rhow; //(vm["simul.rho_water"].as<double>());
+                coef_Voce *= coef_drag*physical::rhow; //(vm["simul.rho_water"].as<double>());
                 
                 norm_Vair_ice = std::hypot(M_VT[index_u]-M_wind [index_u],M_VT[index_v]-M_wind [index_v]);
                 norm_Vair_ice = (norm_Vair_ice > norm_Vair_ice_min) ? (norm_Vair_ice):norm_Vair_ice_min;
 
                 coef_Vair = (vm["simul.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*norm_Vair_ice));
-                coef_Vair *= (physical::rhoa);
+                coef_Vair *= coef_drag*(physical::rhoa);
                 
                 norm_Vice = std::hypot(M_VT[index_u],M_VT[index_v]);
                 norm_Vice = (norm_Vice > basal_u_0) ? (norm_Vice):basal_u_0;
                                 
                 coef_basal = basal_k2/norm_Vice;
                 //coef_basal *= std::max(0., M_thick[cpt]-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
-                coef_basal *= std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
+                coef_basal *= coef_drag*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
                    
                 duu = surface_e*( mloc*(coef_V)
                                   +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)  
@@ -3056,25 +3066,31 @@ FiniteElement::update()
 #if 1
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
-            if(M_conc_thin[cpt]>0. && M_thick[cpt]>0.)
+            if(M_conc_thin[cpt]>0. )
             {
-            new_conc_thin   = std::max(1.-M_conc[cpt]-open_water_concentration,0.);
-            new_h_thin      = new_conc_thin*M_h_thin[cpt]/M_conc_thin[cpt]; // so that we keep the same h0, no preferences for the ridging
-            new_hs_thin     = new_conc_thin*M_hs_thin[cpt]/M_conc_thin[cpt];
+                new_conc_thin   = std::min(1.,std::max(1.-M_conc[cpt]-open_water_concentration,0.));
+                
+                // Ridging
+                if(M_thick[cpt]>0.)
+                {
+                    new_h_thin      = new_conc_thin*M_h_thin[cpt]/M_conc_thin[cpt]; // so that we keep the same h0, no preferences for the ridging
+                    new_hs_thin     = new_conc_thin*M_hs_thin[cpt]/M_conc_thin[cpt];
  
-            newice = M_h_thin[cpt]-new_h_thin;
-            del_c   = (M_conc_thin[cpt]-new_conc_thin)/ridge_thin_ice_aspect_ratio;            
-            newsnow = M_hs_thin[cpt]-new_hs_thin;
+                    newice = M_h_thin[cpt]-new_h_thin;
+                    del_c   = (M_conc_thin[cpt]-new_conc_thin)/ridge_thin_ice_aspect_ratio;            
+                    newsnow = M_hs_thin[cpt]-new_hs_thin;
 
-            M_conc_thin[cpt]= new_conc_thin;
-            M_h_thin[cpt]   = new_h_thin;
-            M_hs_thin[cpt]  = new_hs_thin;
+                    M_h_thin[cpt]   = new_h_thin;
+                    M_hs_thin[cpt]  = new_hs_thin;
             
-            M_thick[cpt]        += newice;
-            M_conc[cpt]         += del_c;
-            M_snow_thick[cpt]   += newsnow;
+                    M_thick[cpt]        += newice;
+                    M_conc[cpt]         += del_c;
+                    M_snow_thick[cpt]   += newsnow;
             
-            M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt]));
+                    M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt]));
+                }
+
+                M_conc_thin[cpt]= new_conc_thin;
             }
             else
             {
@@ -3171,7 +3187,7 @@ FiniteElement::update()
             //sigma_dot_i += factor*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
             }
             
-            sigma_pred[i] = (M_sigma[3*cpt+i]+4*time_step*sigma_dot_i)*multiplicator;
+            sigma_pred[i] = (M_sigma[3*cpt+i]+4.*time_step*sigma_dot_i)*multiplicator;
             sigma_pred[i] = (M_conc[cpt] > vm["simul.min_c"].as<double>()) ? (sigma_pred[i]):0.;
             
             M_sigma[3*cpt+i] = (M_sigma[3*cpt+i]+time_step*sigma_dot_i)*multiplicator;
@@ -3425,9 +3441,9 @@ FiniteElement::thermo()
         double  old_snow_vol=M_snow_thick[i];
         double  old_conc=M_conc[i];
 
-        double  old_h_thin = 0;
-        double  old_hs_thin = 0;
-        double  old_conc_thin=0;
+        double  old_h_thin = 0.;
+        double  old_hs_thin = 0.;
+        double  old_conc_thin=0.;
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
             old_h_thin  = M_h_thin[i];
@@ -3793,8 +3809,11 @@ FiniteElement::thermo()
         M_sst[i] = M_sst[i] - time_step*( Qio_mean + Qow_mean - Qdw )/(physical::rhow*physical::cpw*tmp_mld);
 
         /* Change in salinity */
+        double denominator= ( tmp_mld*physical::rhow - del_vi*physical::rhoi - ( del_vs*physical::rhos + (emp-Fdw)*time_step) );
+        denominator = ( denominator > 1.*physical::rhow ) ? denominator : 1.*physical::rhow;        
+
         M_sss[i] = M_sss[i] + ( (M_sss[i]-physical::si)*physical::rhoi*del_vi + M_sss[i]*(del_vs*physical::rhos + (emp-Fdw)*time_step) )
-            / ( tmp_mld*physical::rhow - del_vi*physical::rhoi - ( del_vs*physical::rhos + (emp-Fdw)*time_step) );
+            / denominator;
 
         // -------------------------------------------------
         // 8) Damage manipulation (thermoDamage in matlab)
