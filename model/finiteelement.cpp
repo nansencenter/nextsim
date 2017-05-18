@@ -3152,6 +3152,8 @@ FiniteElement::update()
          * Update the internal stress
          *======================================================================
          */
+        if( (M_conc[cpt] > vm["simul.min_c"].as<double>()) && (M_thick[cpt] > vm["simul.min_h"].as<double>()) )
+        {
 
 #if 0
         // To be uncommented if we use option 3:
@@ -3231,20 +3233,7 @@ FiniteElement::update()
                 M_damage[cpt]=tmp;
             }
         }
-#if 0
-        if(sigma_1<0 && sigma_2<sigma_t)
-        {
-            sigma_target=sigma_t;
-
-            tmp=1.0-sigma_target/sigma_2*(1.0-old_damage);
-
-            if(tmp>M_damage[cpt])
-            {
-                M_damage[cpt]=tmp;
-            }
-        }
-#endif
-#if 1
+        
         if(sigma_1-q*sigma_2>sigma_c)
         {
             sigma_target=sigma_c;
@@ -3256,9 +3245,7 @@ FiniteElement::update()
                 M_damage[cpt]=tmp;
             }
         }
-#endif
 
-#if 1
         if(sigma_n<tract_max)
         {
             sigma_target=tract_max;
@@ -3270,46 +3257,17 @@ FiniteElement::update()
                 M_damage[cpt]=tmp;
             }
         }
-#endif
 
-#if 0
-        if(sigma_s>M_Cohesion[cpt]-sigma_n*tan_phi)
+        }
+        else // if M_conc or M_thick too low, set sigma to 0.
         {
-            tmp=1.0-M_Cohesion[cpt]/(sigma_s+sigma_n*tan_phi)*(1.0-old_damage);
 
-            if(tmp>M_damage[cpt])
+            for(int i=0;i<3;i++)
             {
-                M_damage[cpt]=tmp;
+                M_sigma[3*cpt+i] = 0.;
+                M_sigma[3*cpt+i] = 0.;
             }
         }
-#endif
-
-        /*
-         * Diagnostic:
-         * Recompute the internal stress
-         */
-        for(int i=0;i<3;i++)
-        {
-#if 0
-            if(old_damage<1.0)
-            {
-                M_sigma[3*cpt+i] = (1.-M_damage[cpt])/(1.-old_damage)*M_sigma[3*cpt+i] ;
-            }
-            else
-            {
-                M_sigma[3*cpt+i] = 0. ;
-            }
-#endif
-#if 0
-            // test to boost the localization
-            if(M_damage[cpt]!=old_damage)
-            {
-                M_damage[cpt]=1.;
-                M_sigma[3*cpt+i] = 0. ;
-            }
-#endif
-        }
-
 
         /*======================================================================
          * Update:
