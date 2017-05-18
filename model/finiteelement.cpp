@@ -2397,9 +2397,11 @@ FiniteElement::assemble(int pcpt)
 
         int index_u, index_v;
 
+        double coef_min = 1000.;
+
         // values used when no ice
         double coef_drag    = 0.;
-        double coef         = 100.;
+        double coef         = coef_min;
         double mass_e       = 0.;
         double coef_C       = 0.;
         double coef_V       = 0.;
@@ -2484,6 +2486,7 @@ FiniteElement::assemble(int pcpt)
     #if 1
             //option 1 (original)
             coef = multiplicator*young*(1.-M_damage[cpt])*M_thick[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+            coef = (coef<coef_min) ? coef_min : coef ;
 
     #else
             //option 2 (we just change the value of the ridging exponent and we renamed it "damaging_exponent")
