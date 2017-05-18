@@ -2397,7 +2397,7 @@ FiniteElement::assemble(int pcpt)
 
         int index_u, index_v;
 
-        double coef_min = 1000.;
+        double coef_min = 10.;
 
         // values used when no ice
         double coef_drag    = 0.;
