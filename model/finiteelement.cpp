@@ -3088,6 +3088,8 @@ FiniteElement::update()
             
                     M_thick[cpt]        += newice;
                     M_conc[cpt]         += del_c;
+                    M_conc[cpt] = std::min(1.,std::max(M_conc[cpt],0.));
+
                     M_snow_thick[cpt]   += newsnow;
             
                     M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt]));
@@ -3104,19 +3106,19 @@ FiniteElement::update()
             }
         }
 #endif
-        double new_conc=std::max(1.-M_conc_thin[cpt]-open_water_concentration+del_c,0.);
+        double new_conc=std::min(1.,std::max(1.-M_conc_thin[cpt]-open_water_concentration+del_c,0.));
         if(new_conc<M_conc[cpt])
         {
             M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]+(1.-M_ridge_ratio[cpt])*(M_conc[cpt]-new_conc)/M_conc[cpt])));
         }
         M_conc[cpt]=new_conc;
     
-        double max_true_thickness = 50;
+        double max_true_thickness = 50.;
         if(M_conc[cpt]>0.)
         {
             double test_h_thick=M_thick[cpt]/M_conc[cpt];
             test_h_thick = (test_h_thick>max_true_thickness) ? max_true_thickness : test_h_thick ;
-            M_conc[cpt]=M_thick[cpt]/test_h_thick;
+            M_conc[cpt]=std::min(1.,M_thick[cpt]/test_h_thick);
         }
     else
         {
