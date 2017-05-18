@@ -2399,7 +2399,7 @@ FiniteElement::assemble(int pcpt)
 
         // values used when no ice
         double coef_drag    = 0.;
-        double coef         = 10.;
+        double coef         = 100.;
         double mass_e       = 0.;
         double coef_C       = 0.;
         double coef_V       = 0.;
