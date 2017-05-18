@@ -2397,9 +2397,11 @@ FiniteElement::assemble(int pcpt)
 
         int index_u, index_v;
 
+        double coef_min = 10.;
+
         // values used when no ice
         double coef_drag    = 0.;
-        double coef         = 10.;
+        double coef         = coef_min;
         double mass_e       = 0.;
         double coef_C       = 0.;
         double coef_V       = 0.;
@@ -2484,6 +2486,7 @@ FiniteElement::assemble(int pcpt)
     #if 1
             //option 1 (original)
             coef = multiplicator*young*(1.-M_damage[cpt])*M_thick[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+            coef = (coef<coef_min) ? coef_min : coef ;
 
     #else
             //option 2 (we just change the value of the ridging exponent and we renamed it "damaging_exponent")
@@ -3049,7 +3052,7 @@ FiniteElement::update()
         //open_water_concentration=(open_water_concentration<0.)?0.:open_water_concentration;
 
         // ridging scheme
-        double opening_factor=((1.-M_conc[cpt])>G_star) ? 0. : std::pow(M_conc[cpt]/G_star,2.);
+        double opening_factor=((1.-M_conc[cpt])>G_star) ? 0. : std::pow(1.-(1.-M_conc[cpt])/G_star,2.);
         //open_water_concentration += time_step*0.5*(delta_ridging-divergence_rate)*opening_factor;
         open_water_concentration += time_step*0.5*shear_rate/e_factor*opening_factor;
         
@@ -3085,6 +3088,8 @@ FiniteElement::update()
             
                     M_thick[cpt]        += newice;
                     M_conc[cpt]         += del_c;
+                    M_conc[cpt] = std::min(1.,std::max(M_conc[cpt],0.));
+
                     M_snow_thick[cpt]   += newsnow;
             
                     M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt]));
@@ -3101,19 +3106,19 @@ FiniteElement::update()
             }
         }
 #endif
-        double new_conc=std::max(1.-M_conc_thin[cpt]-open_water_concentration+del_c,0.);
+        double new_conc=std::min(1.,std::max(1.-M_conc_thin[cpt]-open_water_concentration+del_c,0.));
         if(new_conc<M_conc[cpt])
         {
             M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]+(1.-M_ridge_ratio[cpt])*(M_conc[cpt]-new_conc)/M_conc[cpt])));
         }
         M_conc[cpt]=new_conc;
     
-        double max_true_thickness = 50;
+        double max_true_thickness = 50.;
         if(M_conc[cpt]>0.)
         {
             double test_h_thick=M_thick[cpt]/M_conc[cpt];
             test_h_thick = (test_h_thick>max_true_thickness) ? max_true_thickness : test_h_thick ;
-            M_conc[cpt]=M_thick[cpt]/test_h_thick;
+            M_conc[cpt]=std::min(1.,M_thick[cpt]/test_h_thick);
         }
     else
         {
@@ -3152,6 +3157,8 @@ FiniteElement::update()
          * Update the internal stress
          *======================================================================
          */
+        if( (M_conc[cpt] > vm["simul.min_c"].as<double>()) && (M_thick[cpt] > vm["simul.min_h"].as<double>()) )
+        {
 
 #if 0
         // To be uncommented if we use option 3:
@@ -3231,20 +3238,7 @@ FiniteElement::update()
                 M_damage[cpt]=tmp;
             }
         }
-#if 0
-        if(sigma_1<0 && sigma_2<sigma_t)
-        {
-            sigma_target=sigma_t;
-
-            tmp=1.0-sigma_target/sigma_2*(1.0-old_damage);
-
-            if(tmp>M_damage[cpt])
-            {
-                M_damage[cpt]=tmp;
-            }
-        }
-#endif
-#if 1
+        
         if(sigma_1-q*sigma_2>sigma_c)
         {
             sigma_target=sigma_c;
@@ -3256,9 +3250,7 @@ FiniteElement::update()
                 M_damage[cpt]=tmp;
             }
         }
-#endif
 
-#if 1
         if(sigma_n<tract_max)
         {
             sigma_target=tract_max;
@@ -3270,46 +3262,17 @@ FiniteElement::update()
                 M_damage[cpt]=tmp;
             }
         }
-#endif
 
-#if 0
-        if(sigma_s>M_Cohesion[cpt]-sigma_n*tan_phi)
+        }
+        else // if M_conc or M_thick too low, set sigma to 0.
         {
-            tmp=1.0-M_Cohesion[cpt]/(sigma_s+sigma_n*tan_phi)*(1.0-old_damage);
 
-            if(tmp>M_damage[cpt])
+            for(int i=0;i<3;i++)
             {
-                M_damage[cpt]=tmp;
+                M_sigma[3*cpt+i] = 0.;
+                M_sigma[3*cpt+i] = 0.;
             }
         }
-#endif
-
-        /*
-         * Diagnostic:
-         * Recompute the internal stress
-         */
-        for(int i=0;i<3;i++)
-        {
-#if 0
-            if(old_damage<1.0)
-            {
-                M_sigma[3*cpt+i] = (1.-M_damage[cpt])/(1.-old_damage)*M_sigma[3*cpt+i] ;
-            }
-            else
-            {
-                M_sigma[3*cpt+i] = 0. ;
-            }
-#endif
-#if 0
-            // test to boost the localization
-            if(M_damage[cpt]!=old_damage)
-            {
-                M_damage[cpt]=1.;
-                M_sigma[3*cpt+i] = 0. ;
-            }
-#endif
-        }
-
 
         /*======================================================================
          * Update:
