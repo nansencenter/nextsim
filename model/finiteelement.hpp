@@ -71,6 +71,7 @@ public:
     typedef boost::shared_ptr<graph_type> graph_ptrtype;
 
     typedef ExternalData external_data;
+    typedef typename std::vector<external_data*> external_data_vec ;
 
     typedef DataSet Dataset;
 
@@ -127,7 +128,7 @@ public:
     double albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, double alb_ice, double I_0);
     void atmFluxBulk(int i, double Tsurf, double sphuma, double drag_ice_t, double Qsw, double Qlw_in, double wspeed,
             double &Qai, double &dQaidT, double &subl);
-    double iceOceanHeatflux(double sst, double tbot, double mld, double dt);
+    double iceOceanHeatflux(int cpt, double sst, double tbot, double mld, double dt);
 
     Dataset M_atmosphere_nodes_dataset;
     Dataset M_atmosphere_elements_dataset;
@@ -137,6 +138,7 @@ public:
     Dataset M_bathymetry_elements_dataset;
 
     Dataset M_ice_topaz_elements_dataset;
+    Dataset M_ice_icesat_elements_dataset;
     Dataset M_ice_piomas_elements_dataset;
     Dataset M_ice_amsre_elements_dataset;
     Dataset M_ice_osisaf_elements_dataset;
@@ -145,8 +147,7 @@ public:
     Dataset M_ice_cs2_smos_elements_dataset;
     Dataset M_ice_smos_elements_dataset;
 #if defined (WAVES)
-    Dataset M_WW3A_elements_dataset;
-    Dataset M_ERAIW_1DEG_elements_dataset;
+    Dataset M_wave_elements_dataset;
 #endif
     double minAngles(element_type const& element, mesh_type const& mesh) const;
     double minAngle(mesh_type const& mesh) const;
@@ -175,7 +176,8 @@ public:
 #endif
 
 	void bathymetry();
-
+    void checkReloadDatasets(external_data_vec const& ext_data_vec,
+        double const& CRtime, std::string const& printout);
     void initIce();
     void initThermodynamics();
     void initSlabOcean();
@@ -194,7 +196,10 @@ public:
     void scalingVelocity();
     void update();
     void exportInitMesh();
-    void exportResults(int step, bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
+    void exportResults(int step,
+            bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
+    void exportResults(std::vector<std::string> const &filenames,
+            bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
 
     void writeRestart(int pcpt, int step);
     int readRestart(int step);
@@ -202,6 +207,10 @@ public:
 #if defined (WAVES)
     void nextsimToWim(bool step);
     void wimToNextsim(bool step);
+#if 0
+    std::vector<double> FiniteElements::rotatedWimElementsX(double const& rotangle) const;
+    std::vector<double> FiniteElements::rotatedWimElementsY(double const& rotangle) const;
+#endif
 #endif
 
     std::string gitRevision();
@@ -244,10 +253,10 @@ private:
     setup::IceType M_ice_type;
     setup::WaveType M_wave_type;
     setup::BathymetryType M_bathymetry_type;
+    setup::BasalStressType M_basal_stress_type;
     setup::ThermoType M_thermo_type;
 
     setup::IceCategoryType M_ice_cat_type;
-    setup::DrifterType M_drifter_type;
     setup::DomainType M_domain_type;
     setup::MeshType M_mesh_type;
 
@@ -280,9 +289,12 @@ private:
     std::vector<double> M_basal_factor;
     std::vector<double> M_water_elements;
     std::vector<double> M_h_thin;
+    std::vector<double> M_conc_thin;
     std::vector<double> M_hs_thin;
+    std::vector<double> M_ridge_ratio;
 
-    std::vector<external_data*> M_external_data;
+    external_data_vec M_external_data;
+    external_data_vec M_external_data_tmp;
 
     std::vector<double> M_fcor;
 
@@ -305,9 +317,12 @@ private:
 
     std::vector<double> M_SWH_grid;
     std::vector<double> M_MWD_grid;
-    std::vector<double> M_FP_grid;
+    std::vector<double> M_MWP_grid;
 
     wim_type::WimGrid wim_grid;
+    double xmin_wim,xmax_wim;
+    double ymin_wim,ymax_wim;
+    int num_elements_wim_grid;
 #endif
     std::vector<double> M_tau;//this can just be set to zero if not using WIM
 
@@ -329,7 +344,6 @@ private:
     double output_time_step;
     double mooring_output_time_step;
     double mooring_time_factor;
-    double drifter_output_time_step;
     double restart_time_step;
     double time_step;
     double duration;
@@ -346,7 +360,7 @@ private:
     double basal_Cb;
 
     double h_thin_max;
-    double c_thin_max;
+    double h_thin_min;
 
     double compr_strength;
     double tract_coef;
@@ -364,6 +378,7 @@ private:
 #if defined (WAVES)
     bool M_run_wim;
     bool M_use_wim;
+    bool M_interp_fsd;
 #endif
 
     bool M_use_restart;
@@ -408,6 +423,7 @@ private:
     external_data M_snowfall;     // Snowfall rate [kg/m^2/s]
     external_data M_snowfr;       // Fraction of precipitation that is snow
     external_data M_dair;         // 2 m dew point [C]
+    external_data M_sphuma;       // Speciffic humidity of the atmosphere [kg/kg]
 
     // Ocean
     external_data M_ocean;        // "Geostrophic" ocean currents [m/s]
@@ -418,21 +434,35 @@ private:
     external_data M_mld;          // Mixed-layer depth [m]
 
     // Wave
-    external_data M_SWH;	  // Significant wave height [m]
-    external_data M_MWD;	  // Wave mean direction (deg)
-    external_data M_FP;		  // Wave peak frequency (/sec)
+    external_data M_SWH;	      // Significant wave height [m]
+    external_data M_MWD;	      // Mean wave direction (deg)
+    external_data M_MWP;          // Peak wave period (s)
+    external_data M_fice_waves;   // Waves masked if ice used in external wave model 
+                                  // - due to inconsistent ice masks,
+                                  // there could be attenuation in the open ocean
 
     // Bathymetry
     external_data M_element_depth;
 
-    // Drifters
-    boost::unordered_map<int, std::array<double,2>> M_iabpDrifters; // Drifters are kept in an unordered map containing number and coordinates
+    // IABP-like drifters
+    bool M_use_iabp_drifters;
+    boost::unordered_map<int, std::array<double,2>> M_iabp_drifters; // Drifters are kept in an unordered map containing number and coordinates
     std::fstream M_iabp_file;   // The file we read the IABP buoy data from
     std::fstream M_iabp_out;    // The file we write our simulated drifter positions into
 
-    Drifters M_drifters; // Drifters on a grid
-    Drifters M_rgps_drifters; // Drifters as in the RGPS data
-    std::vector<Drifters> M_osisaf_drifters; // A vector of drifters for the OSISAF emulation
+    // Drifters on a grid
+    double M_equallyspaced_drifters_output_time_step;
+    bool M_use_equallyspaced_drifters;
+    Drifters M_equallyspaced_drifters; 
+    
+    // Drifters as in the RGPS data
+    double M_rgps_drifters_output_time_step;
+    bool M_use_rgps_drifters;
+    Drifters M_rgps_drifters; 
+    
+    // drifters for the OSISAF emulation
+    bool M_use_osisaf_drifters;
+    std::vector<Drifters> M_osisaf_drifters;
 
     // Element variable
     std::vector<double> M_element_age;         // Age of the element (model time since its last adaptation)
@@ -474,6 +504,7 @@ private:
     void targetIce();
     void binaryIce();
     void topazIce();
+    void topazIceOsisafIcesat();
     void piomasIce();
     void topazForecastIce();
     void topazForecastAmsr2Ice();
@@ -497,8 +528,10 @@ private:
     void initMoorings();
 
     void redistributeVariables(double* interp_elt_out,int nb_var);
-    int collectVariables(double** interp_elt_in_ptr, int** interp_elt_method, int num_elements);
-    void advect(double** interp_elt_out_ptr,double* interp_elt_in,int* interp_method,int nb_var);
+    int collectVariables(double** interp_elt_in_ptr, int** interp_elt_method, double** diffusivity_parameters, int num_elements);
+    void advect (double** interp_elt_out_ptr,double* interp_elt_in, int* interp_method, int nb_var);
+    void diffuse(double** interp_elt_out_ptr,double* interp_elt_in, double* diffusivity_parameters, int nb_var, double dx);
+    
 
 };
 } // Nextsim

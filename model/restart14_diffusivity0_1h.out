@@ -1,0 +1,203 @@
+Reading longRun.cfg...
+[INFO] : -----------------------Simulation started on 2017-May-16 17:36:23
+[INFO] : TIMESTEP= 200
+[INFO] : DURATION= 1.61568e+08
+Reading Msh file /Users/sylvain/src/nextsim//mesh/small_arctic_10km.msh
+GMSH mesh file version : 2.2 format: ascii size of double: 8
+[gmshmesh] $PhysicalNames (expect $PhysicalNames)
+[gmshmesh] reading topodim: 1 id: 1 name: "coast"
+[gmshmesh] reading topodim: 1 id: 2 name: "open"
+Reading 75886 nodes
+Reading 151882 elements...
+Read 4146 Line 2 elements
+Read 147736 Triangle 3 elements
+MFILE= /Users/sylvain/src/nextsim//data/NpsNextsim.mpp
+PROJE= POLARSTEREOGRAPHICELLIPSOID
+Reading vertices (75886)
+Reading triangles (147736)
+Building Geometry
+Completing geometry
+[INFO] : MESH BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_init.bin
+[INFO] : RECORD MESH: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_init.dat
+[INFO] : BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_init.bin
+[INFO] : RECORD FIELD: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_init.dat
+Reading vertices (66017)
+Reading triangles (127998)
+Building Geometry
+Completing geometry
+[INFO] : MESH BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5040.bin
+[INFO] : RECORD MESH: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5040.dat
+[INFO] : BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5040.bin
+[INFO] : RECORD FIELD: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5040.dat
+size of external data vector = 14
+Load cfsr.6h.....nc
+GRID : FILENAME = /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+0,720,721
+GRID : READ NETCDF done
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201105
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201105.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201106
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201107
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201107.nc
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+Done
+Interpolate cfsr.6h.....nc
+Done
+Load cfsr.6h.....nc
+GRID : FILENAME = /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+0,720,721
+GRID : READ NETCDF done
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201105
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201105.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201106
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201107
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201107.nc
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+Done
+Interpolate cfsr.6h.....nc
+Done
+Load TP4DAILY_..._30m.nc
+GRID : FILENAME = /Users/sylvain/src/nextsim//data/TP4DAILY_201106_30m.nc
+GRID : FILENAME = /Users/sylvain/src/nextsim//data/TP4DAILY_201106_30m.nc
+GRID : Triangulate starts
+GRID : NUMTRIANGLES= 351877
+GRID : Triangulate done
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201105
+FILENAME= /Users/sylvain/src/nextsim//data/TP4DAILY_201105_30m.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201106
+FILENAME= /Users/sylvain/src/nextsim//data/TP4DAILY_201106_30m.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201107
+FILENAME= /Users/sylvain/src/nextsim//data/TP4DAILY_201107_30m.nc
+FILENAME= /Users/sylvain/src/nextsim//data/TP4DAILY_201106_30m.nc
+FILENAME= /Users/sylvain/src/nextsim//data/TP4DAILY_201106_30m.nc
+Done
+Interpolate TP4DAILY_..._30m.nc
+Reading vertices (176180)
+Reading triangles (351877)
+Building Geometry
+Completing geometry
+Done
+Load TP4DAILY_..._3m.nc
+GRID : FILENAME = /Users/sylvain/src/nextsim//data/TP4DAILY_201106_3m.nc
+GRID : FILENAME = /Users/sylvain/src/nextsim//data/TP4DAILY_201106_3m.nc
+GRID : Triangulate starts
+GRID : NUMTRIANGLES= 211416
+GRID : Triangulate done
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201105
+FILENAME= /Users/sylvain/src/nextsim//data/TP4DAILY_201105_3m.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201106
+FILENAME= /Users/sylvain/src/nextsim//data/TP4DAILY_201106_3m.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201107
+FILENAME= /Users/sylvain/src/nextsim//data/TP4DAILY_201107_3m.nc
+FILENAME= /Users/sylvain/src/nextsim//data/TP4DAILY_201106_3m.nc
+FILENAME= /Users/sylvain/src/nextsim//data/TP4DAILY_201106_3m.nc
+Done
+Interpolate TP4DAILY_..._3m.nc
+Reading vertices (105781)
+Reading triangles (211416)
+Building Geometry
+Completing geometry
+Done
+Load ETOPO_Arctic_1arcmin.nc...
+GRID : FILENAME = /Users/sylvain/src/nextsim//data/ETOPO_Arctic_1arcmin.nc
+0,21600,21601
+GRID : READ NETCDF done
+FILENAME= /Users/sylvain/src/nextsim//data/ETOPO_Arctic_1arcmin.nc
+Done
+Interpolate ETOPO_Arctic_1arcmin.nc...
+Done
+Writing log file /Users/sylvain/experiments/longRun_restart14_diffusivity0/nextsim.log...
+---------------------- TIME STEP 90720 : 2011-Jun-16 00:00:00 ---------- progression: (11.2299%) ---------- time spent: 00:00:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 1.04836s
+[INFO] : TIMER SOLUTION= 1.41365s
+---------------------- TIME STEP 90721 : 2011-Jun-16 00:03:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 1.06905s
+[INFO] : TIMER SOLUTION= 0.609375s
+---------------------- TIME STEP 90722 : 2011-Jun-16 00:06:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 1.05799s
+[INFO] : TIMER SOLUTION= 0.652138s
+---------------------- TIME STEP 90723 : 2011-Jun-16 00:10:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 1.15532s
+[INFO] : TIMER SOLUTION= 0.565638s
+---------------------- TIME STEP 90724 : 2011-Jun-16 00:13:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 1.02702s
+CHOLMOD warning: matrix not positive definite
+[0]PETSC ERROR: --------------------- Error Message --------------------------------------------------------------
+[0]PETSC ERROR: Zero pivot in Cholesky factorization: http://www.mcs.anl.gov/petsc/documentation/faq.html#zeropivot
+[0]PETSC ERROR: CHOLMOD detected that the matrix is not positive definite, failure at column 0
+[0]PETSC ERROR: See http://www.mcs.anl.gov/petsc/documentation/faq.html for trouble shooting.
+[0]PETSC ERROR: Petsc Release Version 3.6.4, Apr, 12, 2016 
+[0]PETSC ERROR: bin/nextsim.exec on a arch-darwin-c-opt named seoul.ad.nersc.no by sylvain Tue May 16 17:36:23 2017
+[0]PETSC ERROR: Configure options -with-python --with-cxx=mpicxx --with-cc=mpicc --with-fc=mpif90 --with-mpiexec=mpiexec --with-debugging=0 --with-c-support=1 --with-c++-support=1 --with-shared-libraries=1 --with-blacs --download-blacs=yes --with-parmetis=1 --download-parmetis=yes --with-scalapack=1 --download-scalapack=yes --with-mumps=1 --download-mumps=yes --with-suitesparse=1 --download-suitesparse=yes --with-c2html=0 --with-metis=1 --download-metis=yes --prefix=/opt/local/petsc
+[0]PETSC ERROR: #1 MatCholeskyFactorNumeric_CHOLMOD() line 328 in /Users/rampal/neXtSIM/petsc-3.6.4/src/mat/impls/sbaij/seq/cholmod/sbaijcholmod.c
+[0]PETSC ERROR: #2 MatCholeskyFactorNumeric() line 3128 in /Users/rampal/neXtSIM/petsc-3.6.4/src/mat/interface/matrix.c
+[0]PETSC ERROR: #3 PCSetUp_Cholesky() line 148 in /Users/rampal/neXtSIM/petsc-3.6.4/src/ksp/pc/impls/factor/cholesky/cholesky.c
+[0]PETSC ERROR: #4 PCSetUp() line 983 in /Users/rampal/neXtSIM/petsc-3.6.4/src/ksp/pc/interface/precon.c
+[0]PETSC ERROR: #5 KSPSetUp() line 332 in /Users/rampal/neXtSIM/petsc-3.6.4/src/ksp/ksp/interface/itfunc.c
+[0]PETSC ERROR: #6 KSPSolve() line 547 in /Users/rampal/neXtSIM/petsc-3.6.4/src/ksp/ksp/interface/itfunc.c
+[0]PETSC ERROR: #7 solveLinearSystem() line 137 in solverpetsc.cpp
+--------------------------------------------------------------------------
+MPI_ABORT was invoked on rank 0 in communicator MPI_COMM_WORLD 
+with errorcode 81.
+
+NOTE: invoking MPI_ABORT causes Open MPI to kill all MPI processes.
+You may or may not see output from other processes, depending on
+exactly when Open MPI kills them.
+--------------------------------------------------------------------------

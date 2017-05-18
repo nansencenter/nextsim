@@ -19,7 +19,9 @@ namespace setup
         ASR      = 1,
         ERAi     = 2,
         EC       = 3,
-        EC_ERAi  = 4
+        EC_ERAi  = 4,
+        CFSR     = 5,
+        CFSR_HI  = 6
     };
 
 	enum class OceanType
@@ -27,7 +29,8 @@ namespace setup
 		CONSTANT = 0,
 		TOPAZR   = 1,
 		TOPAZF   = 2,
-		MITGCM   = 3
+		MITGCM   = 3,
+		TOPAZR_atrest   = 4
     };
 
     enum class IceType
@@ -47,14 +50,17 @@ namespace setup
         TOPAZ4FAMSR2OSISAF  = 13,
         CS2_SMOS            = 14,
         SMOS                = 15,
-        BINARY              = 16
+        BINARY              = 16,
+        TOPAZ4OSISAFICESAT  = 17
 	};
 
     enum class WaveType
     {
-        CONSTANT = 0,
-        WW3A     = 1,
-        ERAI_WAVES_1DEG = 2
+        SET_IN_WIM          = 0,
+        CONSTANT            = 1,
+        CONSTANT_PARTIAL    = 2,
+        WW3A                = 3,
+        ERAI_WAVES_1DEG     = 4
     };
 
     enum class BathymetryType
@@ -63,20 +69,17 @@ namespace setup
         ETOPO    = 1
     };
 
+    enum class BasalStressType
+    {
+        LEMIEUX  = 0,
+        BOUILLON = 1
+    };
+
     enum class IceCategoryType
     {
         CLASSIC     = 0,
         THIN_ICE    = 1,
         MULTI       = 2
-    };
-
-    enum class DrifterType
-    {
-        NONE          = 0,
-        EQUALLYSPACED = 1,
-        IABP          = 2,
-        OSISAF        = 3,
-        RGPS          = 4
     };
 
     enum class DomainType

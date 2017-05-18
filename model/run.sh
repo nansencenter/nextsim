@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /bin/bash
 
 if [ "$1" ]
 then
@@ -12,8 +12,7 @@ if [ $kernel == "Darwin" ]
 then
     export DYLD_LIBRARY_PATH=$NEXTSIMDIR/lib:$BOOST_DIR/lib
     # Run the nextsim model
-    bin/nextsim.exec --config-files=$config &
-    caffeinate -simw $!
+    bin/nextsim.exec --config-files=$config
 else
     # Run the nextsim model
     bin/nextsim.exec --config-files=$config

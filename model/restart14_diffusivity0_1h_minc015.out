@@ -1,0 +1,1307 @@
+Reading longRun.cfg...
+[INFO] : -----------------------Simulation started on 2017-May-16 18:00:10
+[INFO] : TIMESTEP= 200
+[INFO] : DURATION= 1.61568e+08
+Reading Msh file /Users/sylvain/src/nextsim//mesh/small_arctic_10km.msh
+GMSH mesh file version : 2.2 format: ascii size of double: 8
+[gmshmesh] $PhysicalNames (expect $PhysicalNames)
+[gmshmesh] reading topodim: 1 id: 1 name: "coast"
+[gmshmesh] reading topodim: 1 id: 2 name: "open"
+Reading 75886 nodes
+Reading 151882 elements...
+Read 4146 Line 2 elements
+Read 147736 Triangle 3 elements
+MFILE= /Users/sylvain/src/nextsim//data/NpsNextsim.mpp
+PROJE= POLARSTEREOGRAPHICELLIPSOID
+Reading vertices (75886)
+Reading triangles (147736)
+Building Geometry
+Completing geometry
+[INFO] : MESH BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_init.bin
+[INFO] : RECORD MESH: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_init.dat
+[INFO] : BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_init.bin
+[INFO] : RECORD FIELD: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_init.dat
+Reading vertices (66017)
+Reading triangles (127998)
+Building Geometry
+Completing geometry
+[INFO] : MESH BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5040.bin
+[INFO] : RECORD MESH: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5040.dat
+[INFO] : BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5040.bin
+[INFO] : RECORD FIELD: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5040.dat
+size of external data vector = 14
+Load cfsr.6h.....nc
+GRID : FILENAME = /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+0,720,721
+GRID : READ NETCDF done
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201105
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201105.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201106
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201107
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201107.nc
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+Done
+Interpolate cfsr.6h.....nc
+Done
+Load cfsr.6h.....nc
+GRID : FILENAME = /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+0,720,721
+GRID : READ NETCDF done
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201105
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201105.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201106
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201107
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201107.nc
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+Done
+Interpolate cfsr.6h.....nc
+Done
+Load TP4DAILY_..._30m.nc
+GRID : FILENAME = /Users/sylvain/src/nextsim//data/TP4DAILY_201106_30m.nc
+GRID : FILENAME = /Users/sylvain/src/nextsim//data/TP4DAILY_201106_30m.nc
+GRID : Triangulate starts
+GRID : NUMTRIANGLES= 351877
+GRID : Triangulate done
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201105
+FILENAME= /Users/sylvain/src/nextsim//data/TP4DAILY_201105_30m.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201106
+FILENAME= /Users/sylvain/src/nextsim//data/TP4DAILY_201106_30m.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201107
+FILENAME= /Users/sylvain/src/nextsim//data/TP4DAILY_201107_30m.nc
+FILENAME= /Users/sylvain/src/nextsim//data/TP4DAILY_201106_30m.nc
+FILENAME= /Users/sylvain/src/nextsim//data/TP4DAILY_201106_30m.nc
+Done
+Interpolate TP4DAILY_..._30m.nc
+Reading vertices (176180)
+Reading triangles (351877)
+Building Geometry
+Completing geometry
+Done
+Load TP4DAILY_..._3m.nc
+GRID : FILENAME = /Users/sylvain/src/nextsim//data/TP4DAILY_201106_3m.nc
+GRID : FILENAME = /Users/sylvain/src/nextsim//data/TP4DAILY_201106_3m.nc
+GRID : Triangulate starts
+GRID : NUMTRIANGLES= 211416
+GRID : Triangulate done
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201105
+FILENAME= /Users/sylvain/src/nextsim//data/TP4DAILY_201105_3m.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201106
+FILENAME= /Users/sylvain/src/nextsim//data/TP4DAILY_201106_3m.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201107
+FILENAME= /Users/sylvain/src/nextsim//data/TP4DAILY_201107_3m.nc
+FILENAME= /Users/sylvain/src/nextsim//data/TP4DAILY_201106_3m.nc
+FILENAME= /Users/sylvain/src/nextsim//data/TP4DAILY_201106_3m.nc
+Done
+Interpolate TP4DAILY_..._3m.nc
+Reading vertices (105781)
+Reading triangles (211416)
+Building Geometry
+Completing geometry
+Done
+Load ETOPO_Arctic_1arcmin.nc...
+GRID : FILENAME = /Users/sylvain/src/nextsim//data/ETOPO_Arctic_1arcmin.nc
+0,21600,21601
+GRID : READ NETCDF done
+FILENAME= /Users/sylvain/src/nextsim//data/ETOPO_Arctic_1arcmin.nc
+Done
+Interpolate ETOPO_Arctic_1arcmin.nc...
+Done
+Writing log file /Users/sylvain/experiments/longRun_restart14_diffusivity0/nextsim.log...
+---------------------- TIME STEP 90720 : 2011-Jun-16 00:00:00 ---------- progression: (11.2299%) ---------- time spent: 00:00:16
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.850035s
+[INFO] : TIMER SOLUTION= 0.975378s
+---------------------- TIME STEP 90721 : 2011-Jun-16 00:03:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.794318s
+[INFO] : TIMER SOLUTION= 0.257705s
+---------------------- TIME STEP 90722 : 2011-Jun-16 00:06:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.648341s
+[INFO] : TIMER SOLUTION= 0.471367s
+---------------------- TIME STEP 90723 : 2011-Jun-16 00:10:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.69061s
+[INFO] : TIMER SOLUTION= 0.429079s
+---------------------- TIME STEP 90724 : 2011-Jun-16 00:13:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.783031s
+[INFO] : TIMER SOLUTION= 0.474096s
+---------------------- TIME STEP 90725 : 2011-Jun-16 00:16:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.81139s
+[INFO] : TIMER SOLUTION= 0.409692s
+---------------------- TIME STEP 90726 : 2011-Jun-16 00:20:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.868569s
+[INFO] : TIMER SOLUTION= 0.491132s
+---------------------- TIME STEP 90727 : 2011-Jun-16 00:23:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.87987s
+[INFO] : TIMER SOLUTION= 0.43008s
+---------------------- TIME STEP 90728 : 2011-Jun-16 00:26:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.884523s
+[INFO] : TIMER SOLUTION= 0.530371s
+---------------------- TIME STEP 90729 : 2011-Jun-16 00:30:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.902171s
+[INFO] : TIMER SOLUTION= 0.617625s
+---------------------- TIME STEP 90730 : 2011-Jun-16 00:33:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 1.36329s
+[INFO] : TIMER SOLUTION= 0.467107s
+---------------------- TIME STEP 90731 : 2011-Jun-16 00:36:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.808961s
+[INFO] : TIMER SOLUTION= 0.429336s
+---------------------- TIME STEP 90732 : 2011-Jun-16 00:40:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.578954s
+[INFO] : TIMER SOLUTION= 0.26665s
+---------------------- TIME STEP 90733 : 2011-Jun-16 00:43:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.55113s
+[INFO] : TIMER SOLUTION= 0.269365s
+---------------------- TIME STEP 90734 : 2011-Jun-16 00:46:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.57305s
+[INFO] : TIMER SOLUTION= 0.254553s
+---------------------- TIME STEP 90735 : 2011-Jun-16 00:50:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.653291s
+[INFO] : TIMER SOLUTION= 0.50001s
+---------------------- TIME STEP 90736 : 2011-Jun-16 00:53:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.622534s
+[INFO] : TIMER SOLUTION= 0.406315s
+---------------------- TIME STEP 90737 : 2011-Jun-16 00:56:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.697081s
+[INFO] : TIMER SOLUTION= 0.462134s
+[INFO] : MESH BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5041.bin
+[INFO] : RECORD MESH: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5041.dat
+[INFO] : BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5041.bin
+[INFO] : RECORD FIELD: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5041.dat
+---------------------- TIME STEP 90738 : 2011-Jun-16 01:00:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.905912s
+[INFO] : TIMER SOLUTION= 0.463449s
+---------------------- TIME STEP 90739 : 2011-Jun-16 01:03:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.985438s
+[INFO] : TIMER SOLUTION= 0.404241s
+---------------------- TIME STEP 90740 : 2011-Jun-16 01:06:40 ---------- progression: (11.2324%) ---------- time spent: 00:00:59
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.909685s
+[INFO] : TIMER SOLUTION= 0.395948s
+---------------------- TIME STEP 90741 : 2011-Jun-16 01:10:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.961882s
+[INFO] : TIMER SOLUTION= 0.339758s
+---------------------- TIME STEP 90742 : 2011-Jun-16 01:13:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.982858s
+[INFO] : TIMER SOLUTION= 0.33135s
+---------------------- TIME STEP 90743 : 2011-Jun-16 01:16:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.93206s
+[INFO] : TIMER SOLUTION= 0.340423s
+---------------------- TIME STEP 90744 : 2011-Jun-16 01:20:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.904702s
+[INFO] : TIMER SOLUTION= 0.280996s
+---------------------- TIME STEP 90745 : 2011-Jun-16 01:23:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.98087s
+[INFO] : TIMER SOLUTION= 0.276705s
+---------------------- TIME STEP 90746 : 2011-Jun-16 01:26:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.909465s
+[INFO] : TIMER SOLUTION= 0.284089s
+---------------------- TIME STEP 90747 : 2011-Jun-16 01:30:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.931166s
+[INFO] : TIMER SOLUTION= 0.27592s
+---------------------- TIME STEP 90748 : 2011-Jun-16 01:33:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.92478s
+[INFO] : TIMER SOLUTION= 0.29547s
+---------------------- TIME STEP 90749 : 2011-Jun-16 01:36:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.870367s
+[INFO] : TIMER SOLUTION= 0.333632s
+---------------------- TIME STEP 90750 : 2011-Jun-16 01:40:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.779519s
+[INFO] : TIMER SOLUTION= 0.381684s
+---------------------- TIME STEP 90751 : 2011-Jun-16 01:43:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.702759s
+[INFO] : TIMER SOLUTION= 0.414646s
+---------------------- TIME STEP 90752 : 2011-Jun-16 01:46:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.68662s
+[INFO] : TIMER SOLUTION= 0.459124s
+---------------------- TIME STEP 90753 : 2011-Jun-16 01:50:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.707222s
+[INFO] : TIMER SOLUTION= 0.463587s
+---------------------- TIME STEP 90754 : 2011-Jun-16 01:53:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.866339s
+[INFO] : TIMER SOLUTION= 0.456276s
+---------------------- TIME STEP 90755 : 2011-Jun-16 01:56:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.976045s
+[INFO] : TIMER SOLUTION= 0.467248s
+[INFO] : MESH BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5042.bin
+[INFO] : RECORD MESH: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5042.dat
+[INFO] : BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5042.bin
+[INFO] : RECORD FIELD: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5042.dat
+---------------------- TIME STEP 90756 : 2011-Jun-16 02:00:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.932698s
+[INFO] : TIMER SOLUTION= 0.280658s
+---------------------- TIME STEP 90757 : 2011-Jun-16 02:03:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.926598s
+[INFO] : TIMER SOLUTION= 0.315238s
+---------------------- TIME STEP 90758 : 2011-Jun-16 02:06:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.87026s
+[INFO] : TIMER SOLUTION= 0.345485s
+---------------------- TIME STEP 90759 : 2011-Jun-16 02:10:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.695507s
+[INFO] : TIMER SOLUTION= 0.53372s
+---------------------- TIME STEP 90760 : 2011-Jun-16 02:13:20 ---------- progression: (11.2349%) ---------- time spent: 00:01:44
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.753814s
+[INFO] : TIMER SOLUTION= 0.466482s
+---------------------- TIME STEP 90761 : 2011-Jun-16 02:16:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.761183s
+[INFO] : TIMER SOLUTION= 0.488597s
+---------------------- TIME STEP 90762 : 2011-Jun-16 02:20:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.947541s
+[INFO] : TIMER SOLUTION= 0.407411s
+---------------------- TIME STEP 90763 : 2011-Jun-16 02:23:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.892909s
+[INFO] : TIMER SOLUTION= 0.370658s
+---------------------- TIME STEP 90764 : 2011-Jun-16 02:26:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.940897s
+[INFO] : TIMER SOLUTION= 0.332536s
+---------------------- TIME STEP 90765 : 2011-Jun-16 02:30:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.856926s
+[INFO] : TIMER SOLUTION= 0.386051s
+---------------------- TIME STEP 90766 : 2011-Jun-16 02:33:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.998675s
+[INFO] : TIMER SOLUTION= 0.348098s
+---------------------- TIME STEP 90767 : 2011-Jun-16 02:36:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.939762s
+[INFO] : TIMER SOLUTION= 0.364035s
+---------------------- TIME STEP 90768 : 2011-Jun-16 02:40:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.95573s
+[INFO] : TIMER SOLUTION= 0.360119s
+---------------------- TIME STEP 90769 : 2011-Jun-16 02:43:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.975181s
+[INFO] : TIMER SOLUTION= 0.329252s
+---------------------- TIME STEP 90770 : 2011-Jun-16 02:46:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 1.02685s
+[INFO] : TIMER SOLUTION= 0.279002s
+---------------------- TIME STEP 90771 : 2011-Jun-16 02:50:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.9587s
+[INFO] : TIMER SOLUTION= 0.326808s
+---------------------- TIME STEP 90772 : 2011-Jun-16 02:53:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.960502s
+[INFO] : TIMER SOLUTION= 0.328432s
+---------------------- TIME STEP 90773 : 2011-Jun-16 02:56:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 1.01631s
+[INFO] : TIMER SOLUTION= 0.334094s
+[INFO] : MESH BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5043.bin
+[INFO] : RECORD MESH: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5043.dat
+[INFO] : BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5043.bin
+[INFO] : RECORD FIELD: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5043.dat
+---------------------- TIME STEP 90774 : 2011-Jun-16 03:00:00
+size of external data vector = 14
+Load cfsr.6h.....nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201105
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201105.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201106
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201107
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201107.nc
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+Done
+Interpolate cfsr.6h.....nc
+Done
+Load cfsr.6h.....nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201105
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201105.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201106
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201107
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201107.nc
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+Done
+Interpolate cfsr.6h.....nc
+Done
+[INFO] : TIMER ASSEMBLY= 0.832137s
+[INFO] : TIMER SOLUTION= 0.423875s
+---------------------- TIME STEP 90775 : 2011-Jun-16 03:03:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.925189s
+[INFO] : TIMER SOLUTION= 0.483305s
+---------------------- TIME STEP 90776 : 2011-Jun-16 03:06:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.695638s
+[INFO] : TIMER SOLUTION= 0.443087s
+---------------------- TIME STEP 90777 : 2011-Jun-16 03:10:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.830443s
+[INFO] : TIMER SOLUTION= 0.429858s
+---------------------- TIME STEP 90778 : 2011-Jun-16 03:13:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.930493s
+[INFO] : TIMER SOLUTION= 0.414973s
+---------------------- TIME STEP 90779 : 2011-Jun-16 03:16:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.853623s
+[INFO] : TIMER SOLUTION= 0.493514s
+---------------------- TIME STEP 90780 : 2011-Jun-16 03:20:00 ---------- progression: (11.2374%) ---------- time spent: 00:02:28
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.941544s
+[INFO] : TIMER SOLUTION= 0.430509s
+---------------------- TIME STEP 90781 : 2011-Jun-16 03:23:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.945912s
+[INFO] : TIMER SOLUTION= 0.344747s
+---------------------- TIME STEP 90782 : 2011-Jun-16 03:26:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.964979s
+[INFO] : TIMER SOLUTION= 0.32374s
+---------------------- TIME STEP 90783 : 2011-Jun-16 03:30:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.994007s
+[INFO] : TIMER SOLUTION= 0.326485s
+---------------------- TIME STEP 90784 : 2011-Jun-16 03:33:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.942423s
+[INFO] : TIMER SOLUTION= 0.346272s
+---------------------- TIME STEP 90785 : 2011-Jun-16 03:36:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.97301s
+[INFO] : TIMER SOLUTION= 0.316988s
+---------------------- TIME STEP 90786 : 2011-Jun-16 03:40:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 1.02276s
+[INFO] : TIMER SOLUTION= 0.32011s
+---------------------- TIME STEP 90787 : 2011-Jun-16 03:43:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.961713s
+[INFO] : TIMER SOLUTION= 0.289494s
+---------------------- TIME STEP 90788 : 2011-Jun-16 03:46:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.85223s
+[INFO] : TIMER SOLUTION= 0.337729s
+---------------------- TIME STEP 90789 : 2011-Jun-16 03:50:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.816381s
+[INFO] : TIMER SOLUTION= 0.347596s
+---------------------- TIME STEP 90790 : 2011-Jun-16 03:53:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.729053s
+[INFO] : TIMER SOLUTION= 0.394373s
+---------------------- TIME STEP 90791 : 2011-Jun-16 03:56:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.73675s
+[INFO] : TIMER SOLUTION= 0.428348s
+[INFO] : MESH BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5044.bin
+[INFO] : RECORD MESH: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5044.dat
+[INFO] : BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5044.bin
+[INFO] : RECORD FIELD: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5044.dat
+---------------------- TIME STEP 90792 : 2011-Jun-16 04:00:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.923899s
+[INFO] : TIMER SOLUTION= 0.420623s
+---------------------- TIME STEP 90793 : 2011-Jun-16 04:03:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.95227s
+[INFO] : TIMER SOLUTION= 0.354246s
+---------------------- TIME STEP 90794 : 2011-Jun-16 04:06:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.990723s
+[INFO] : TIMER SOLUTION= 0.3368s
+---------------------- TIME STEP 90795 : 2011-Jun-16 04:10:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.971011s
+[INFO] : TIMER SOLUTION= 0.301477s
+---------------------- TIME STEP 90796 : 2011-Jun-16 04:13:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.944246s
+[INFO] : TIMER SOLUTION= 0.284295s
+---------------------- TIME STEP 90797 : 2011-Jun-16 04:16:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.948028s
+[INFO] : TIMER SOLUTION= 0.280181s
+---------------------- TIME STEP 90798 : 2011-Jun-16 04:20:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.927192s
+[INFO] : TIMER SOLUTION= 0.308639s
+---------------------- TIME STEP 90799 : 2011-Jun-16 04:23:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.799313s
+[INFO] : TIMER SOLUTION= 0.399865s
+---------------------- TIME STEP 90800 : 2011-Jun-16 04:26:40 ---------- progression: (11.2398%) ---------- time spent: 00:03:13
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.68185s
+[INFO] : TIMER SOLUTION= 0.45918s
+---------------------- TIME STEP 90801 : 2011-Jun-16 04:30:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.699329s
+[INFO] : TIMER SOLUTION= 0.538041s
+---------------------- TIME STEP 90802 : 2011-Jun-16 04:33:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.905071s
+[INFO] : TIMER SOLUTION= 0.421416s
+---------------------- TIME STEP 90803 : 2011-Jun-16 04:36:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.952043s
+[INFO] : TIMER SOLUTION= 0.495906s
+---------------------- TIME STEP 90804 : 2011-Jun-16 04:40:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.920347s
+[INFO] : TIMER SOLUTION= 0.395255s
+---------------------- TIME STEP 90805 : 2011-Jun-16 04:43:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.923696s
+[INFO] : TIMER SOLUTION= 0.402686s
+---------------------- TIME STEP 90806 : 2011-Jun-16 04:46:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.975384s
+[INFO] : TIMER SOLUTION= 0.375379s
+---------------------- TIME STEP 90807 : 2011-Jun-16 04:50:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.977256s
+[INFO] : TIMER SOLUTION= 0.370571s
+---------------------- TIME STEP 90808 : 2011-Jun-16 04:53:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 1.01712s
+[INFO] : TIMER SOLUTION= 0.360003s
+---------------------- TIME STEP 90809 : 2011-Jun-16 04:56:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 1.01256s
+[INFO] : TIMER SOLUTION= 0.315385s
+[INFO] : MESH BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5045.bin
+[INFO] : RECORD MESH: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5045.dat
+[INFO] : BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5045.bin
+[INFO] : RECORD FIELD: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5045.dat
+---------------------- TIME STEP 90810 : 2011-Jun-16 05:00:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.734455s
+[INFO] : TIMER SOLUTION= 0.401906s
+---------------------- TIME STEP 90811 : 2011-Jun-16 05:03:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.701054s
+[INFO] : TIMER SOLUTION= 0.532581s
+---------------------- TIME STEP 90812 : 2011-Jun-16 05:06:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.941714s
+[INFO] : TIMER SOLUTION= 0.499835s
+---------------------- TIME STEP 90813 : 2011-Jun-16 05:10:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.873646s
+[INFO] : TIMER SOLUTION= 0.476893s
+---------------------- TIME STEP 90814 : 2011-Jun-16 05:13:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.96181s
+[INFO] : TIMER SOLUTION= 0.394332s
+---------------------- TIME STEP 90815 : 2011-Jun-16 05:16:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.839096s
+[INFO] : TIMER SOLUTION= 0.462267s
+---------------------- TIME STEP 90816 : 2011-Jun-16 05:20:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.954116s
+[INFO] : TIMER SOLUTION= 0.436166s
+---------------------- TIME STEP 90817 : 2011-Jun-16 05:23:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.905538s
+[INFO] : TIMER SOLUTION= 0.424011s
+---------------------- TIME STEP 90818 : 2011-Jun-16 05:26:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.947671s
+[INFO] : TIMER SOLUTION= 0.385847s
+---------------------- TIME STEP 90819 : 2011-Jun-16 05:30:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.966481s
+[INFO] : TIMER SOLUTION= 0.370975s
+---------------------- TIME STEP 90820 : 2011-Jun-16 05:33:20 ---------- progression: (11.2423%) ---------- time spent: 00:03:57
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 1.12541s
+[INFO] : TIMER SOLUTION= 0.313403s
+---------------------- TIME STEP 90821 : 2011-Jun-16 05:36:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.942121s
+[INFO] : TIMER SOLUTION= 0.296549s
+---------------------- TIME STEP 90822 : 2011-Jun-16 05:40:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.998707s
+[INFO] : TIMER SOLUTION= 0.288567s
+---------------------- TIME STEP 90823 : 2011-Jun-16 05:43:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.948679s
+[INFO] : TIMER SOLUTION= 0.272364s
+---------------------- TIME STEP 90824 : 2011-Jun-16 05:46:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.908484s
+[INFO] : TIMER SOLUTION= 0.288153s
+---------------------- TIME STEP 90825 : 2011-Jun-16 05:50:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.870292s
+[INFO] : TIMER SOLUTION= 0.31316s
+---------------------- TIME STEP 90826 : 2011-Jun-16 05:53:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.848525s
+[INFO] : TIMER SOLUTION= 0.335472s
+---------------------- TIME STEP 90827 : 2011-Jun-16 05:56:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.582013s
+[INFO] : TIMER SOLUTION= 0.269108s
+[INFO] : MESH BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5046.bin
+[INFO] : RECORD MESH: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5046.dat
+[INFO] : BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5046.bin
+[INFO] : RECORD FIELD: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5046.dat
+---------------------- TIME STEP 90828 : 2011-Jun-16 06:00:00
+size of external data vector = 14
+Load cfsr.6h.....nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201105
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201105.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201106
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201107
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201107.nc
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+Done
+Interpolate cfsr.6h.....nc
+Done
+Load cfsr.6h.....nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201105
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201105.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201106
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201107
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201107.nc
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+Done
+Interpolate cfsr.6h.....nc
+Done
+[INFO] : TIMER ASSEMBLY= 0.545928s
+[INFO] : TIMER SOLUTION= 0.297032s
+---------------------- TIME STEP 90829 : 2011-Jun-16 06:03:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.53826s
+[INFO] : TIMER SOLUTION= 0.269447s
+---------------------- TIME STEP 90830 : 2011-Jun-16 06:06:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.574636s
+[INFO] : TIMER SOLUTION= 0.263828s
+---------------------- TIME STEP 90831 : 2011-Jun-16 06:10:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.883454s
+[INFO] : TIMER SOLUTION= 0.420744s
+---------------------- TIME STEP 90832 : 2011-Jun-16 06:13:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.689294s
+[INFO] : TIMER SOLUTION= 0.558818s
+---------------------- TIME STEP 90833 : 2011-Jun-16 06:16:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.757776s
+[INFO] : TIMER SOLUTION= 0.408597s
+---------------------- TIME STEP 90834 : 2011-Jun-16 06:20:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.779378s
+[INFO] : TIMER SOLUTION= 0.491362s
+---------------------- TIME STEP 90835 : 2011-Jun-16 06:23:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.922922s
+[INFO] : TIMER SOLUTION= 0.490601s
+---------------------- TIME STEP 90836 : 2011-Jun-16 06:26:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.92312s
+[INFO] : TIMER SOLUTION= 0.395811s
+---------------------- TIME STEP 90837 : 2011-Jun-16 06:30:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.937946s
+[INFO] : TIMER SOLUTION= 0.365764s
+---------------------- TIME STEP 90838 : 2011-Jun-16 06:33:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.893798s
+[INFO] : TIMER SOLUTION= 0.401004s
+---------------------- TIME STEP 90839 : 2011-Jun-16 06:36:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.660166s
+[INFO] : TIMER SOLUTION= 0.286838s
+---------------------- TIME STEP 90840 : 2011-Jun-16 06:40:00 ---------- progression: (11.2448%) ---------- time spent: 00:04:39
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.532389s
+[INFO] : TIMER SOLUTION= 0.259053s
+---------------------- TIME STEP 90841 : 2011-Jun-16 06:43:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.568962s
+[INFO] : TIMER SOLUTION= 0.270862s
+---------------------- TIME STEP 90842 : 2011-Jun-16 06:46:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.573866s
+[INFO] : TIMER SOLUTION= 0.266152s
+---------------------- TIME STEP 90843 : 2011-Jun-16 06:50:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.874328s
+[INFO] : TIMER SOLUTION= 0.407945s
+---------------------- TIME STEP 90844 : 2011-Jun-16 06:53:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.783725s
+[INFO] : TIMER SOLUTION= 0.496478s
+---------------------- TIME STEP 90845 : 2011-Jun-16 06:56:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.902314s
+[INFO] : TIMER SOLUTION= 0.491129s
+[INFO] : MESH BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5047.bin
+[INFO] : RECORD MESH: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5047.dat
+[INFO] : BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5047.bin
+[INFO] : RECORD FIELD: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5047.dat
+---------------------- TIME STEP 90846 : 2011-Jun-16 07:00:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.960217s
+[INFO] : TIMER SOLUTION= 0.332525s
+---------------------- TIME STEP 90847 : 2011-Jun-16 07:03:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.789003s
+[INFO] : TIMER SOLUTION= 0.474246s
+---------------------- TIME STEP 90848 : 2011-Jun-16 07:06:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.647886s
+[INFO] : TIMER SOLUTION= 0.489968s
+---------------------- TIME STEP 90849 : 2011-Jun-16 07:10:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.758571s
+[INFO] : TIMER SOLUTION= 0.437131s
+---------------------- TIME STEP 90850 : 2011-Jun-16 07:13:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.784139s
+[INFO] : TIMER SOLUTION= 0.457672s
+---------------------- TIME STEP 90851 : 2011-Jun-16 07:16:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.914733s
+[INFO] : TIMER SOLUTION= 0.498842s
+---------------------- TIME STEP 90852 : 2011-Jun-16 07:20:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.871359s
+[INFO] : TIMER SOLUTION= 0.428497s
+---------------------- TIME STEP 90853 : 2011-Jun-16 07:23:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.923467s
+[INFO] : TIMER SOLUTION= 0.418163s
+---------------------- TIME STEP 90854 : 2011-Jun-16 07:26:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.906544s
+[INFO] : TIMER SOLUTION= 0.40324s
+---------------------- TIME STEP 90855 : 2011-Jun-16 07:30:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.97616s
+[INFO] : TIMER SOLUTION= 0.39643s
+---------------------- TIME STEP 90856 : 2011-Jun-16 07:33:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 1.01145s
+[INFO] : TIMER SOLUTION= 0.402258s
+---------------------- TIME STEP 90857 : 2011-Jun-16 07:36:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 1.01271s
+[INFO] : TIMER SOLUTION= 0.325143s
+---------------------- TIME STEP 90858 : 2011-Jun-16 07:40:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 1.00725s
+[INFO] : TIMER SOLUTION= 0.308434s
+---------------------- TIME STEP 90859 : 2011-Jun-16 07:43:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.987218s
+[INFO] : TIMER SOLUTION= 0.291519s
+---------------------- TIME STEP 90860 : 2011-Jun-16 07:46:40 ---------- progression: (11.2473%) ---------- time spent: 00:05:22
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.980517s
+[INFO] : TIMER SOLUTION= 0.309557s
+---------------------- TIME STEP 90861 : 2011-Jun-16 07:50:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.964114s
+[INFO] : TIMER SOLUTION= 0.286995s
+---------------------- TIME STEP 90862 : 2011-Jun-16 07:53:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.852781s
+[INFO] : TIMER SOLUTION= 0.349557s
+---------------------- TIME STEP 90863 : 2011-Jun-16 07:56:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 1.02591s
+[INFO] : TIMER SOLUTION= 0.594743s
+[INFO] : MESH BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5048.bin
+[INFO] : RECORD MESH: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5048.dat
+[INFO] : BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5048.bin
+[INFO] : RECORD FIELD: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5048.dat
+---------------------- TIME STEP 90864 : 2011-Jun-16 08:00:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.994729s
+[INFO] : TIMER SOLUTION= 0.629397s
+---------------------- TIME STEP 90865 : 2011-Jun-16 08:03:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 1.12207s
+[INFO] : TIMER SOLUTION= 0.53429s
+---------------------- TIME STEP 90866 : 2011-Jun-16 08:06:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.989495s
+[INFO] : TIMER SOLUTION= 0.444568s
+---------------------- TIME STEP 90867 : 2011-Jun-16 08:10:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.963311s
+[INFO] : TIMER SOLUTION= 0.40044s
+---------------------- TIME STEP 90868 : 2011-Jun-16 08:13:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.965355s
+[INFO] : TIMER SOLUTION= 0.40844s
+---------------------- TIME STEP 90869 : 2011-Jun-16 08:16:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.948558s
+[INFO] : TIMER SOLUTION= 0.355178s
+---------------------- TIME STEP 90870 : 2011-Jun-16 08:20:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.938495s
+[INFO] : TIMER SOLUTION= 0.393264s
+---------------------- TIME STEP 90871 : 2011-Jun-16 08:23:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.999191s
+[INFO] : TIMER SOLUTION= 0.318532s
+---------------------- TIME STEP 90872 : 2011-Jun-16 08:26:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.918091s
+[INFO] : TIMER SOLUTION= 0.289908s
+---------------------- TIME STEP 90873 : 2011-Jun-16 08:30:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.882118s
+[INFO] : TIMER SOLUTION= 0.307285s
+---------------------- TIME STEP 90874 : 2011-Jun-16 08:33:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.863247s
+[INFO] : TIMER SOLUTION= 0.362536s
+---------------------- TIME STEP 90875 : 2011-Jun-16 08:36:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.766857s
+[INFO] : TIMER SOLUTION= 0.433517s
+---------------------- TIME STEP 90876 : 2011-Jun-16 08:40:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.733938s
+[INFO] : TIMER SOLUTION= 0.462593s
+---------------------- TIME STEP 90877 : 2011-Jun-16 08:43:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.791814s
+[INFO] : TIMER SOLUTION= 0.524178s
+---------------------- TIME STEP 90878 : 2011-Jun-16 08:46:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.909853s
+[INFO] : TIMER SOLUTION= 0.458569s
+---------------------- TIME STEP 90879 : 2011-Jun-16 08:50:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.84234s
+[INFO] : TIMER SOLUTION= 0.449096s
+---------------------- TIME STEP 90880 : 2011-Jun-16 08:53:20 ---------- progression: (11.2498%) ---------- time spent: 00:06:09
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.935108s
+[INFO] : TIMER SOLUTION= 0.409437s
+---------------------- TIME STEP 90881 : 2011-Jun-16 08:56:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.976852s
+[INFO] : TIMER SOLUTION= 0.391285s
+[INFO] : MESH BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5049.bin
+[INFO] : RECORD MESH: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5049.dat
+[INFO] : BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5049.bin
+[INFO] : RECORD FIELD: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5049.dat
+---------------------- TIME STEP 90882 : 2011-Jun-16 09:00:00
+size of external data vector = 14
+Load cfsr.6h.....nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201105
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201105.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201106
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201107
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201107.nc
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+Done
+Interpolate cfsr.6h.....nc
+Done
+Load cfsr.6h.....nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201105
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201105.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201106
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+month= 06
+year= 2011
+value_year= 2011
+value_month= 6
+F_TIMESTR= 201107
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201107.nc
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+FILENAME= /Users/sylvain/src/nextsim//data/cfsr.6h.201106.nc
+Done
+Interpolate cfsr.6h.....nc
+Done
+[INFO] : TIMER ASSEMBLY= 0.819794s
+[INFO] : TIMER SOLUTION= 0.422482s
+---------------------- TIME STEP 90883 : 2011-Jun-16 09:03:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.757891s
+[INFO] : TIMER SOLUTION= 0.479392s
+---------------------- TIME STEP 90884 : 2011-Jun-16 09:06:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.724905s
+[INFO] : TIMER SOLUTION= 0.31165s
+---------------------- TIME STEP 90885 : 2011-Jun-16 09:10:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.806384s
+[INFO] : TIMER SOLUTION= 0.378739s
+---------------------- TIME STEP 90886 : 2011-Jun-16 09:13:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.682s
+[INFO] : TIMER SOLUTION= 0.481116s
+---------------------- TIME STEP 90887 : 2011-Jun-16 09:16:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.739708s
+[INFO] : TIMER SOLUTION= 0.461331s
+---------------------- TIME STEP 90888 : 2011-Jun-16 09:20:00
+[INFO] : AdaptMesh starts
+Anisotropic mesh adaptation
+   Processing initial mesh and geometry...
+      processing Vertices
+      processing Edges
+      processing MaxCornerAngle
+      processing RequiredVertices
+      processing SubDomains
+      processing Vertices
+      processing Triangles
+      processing VerticesOnGeomVertex
+      processing Edges
+      processing EdgesOnGeomEdge
+      processing SubDomains
+   Generating initial Metric...
+   Generating Mesh...
+
+      -- current number of vertices = 4146
+      Creating initial Constrained Delaunay Triangulation...
+         Inserting boundary points
+         Forcing boundaries
+         Extracting subdomains
+      Inserting internal points
+         Inserting initial mesh points
+WARNING: One or more points of the initial mesh fall outside of the geometric boundary
+         Big loop
+      -- current number of vertices = 66061
+   new number of triangles = 128086
+   Write Mesh...
+      writing Vertices
+      writing Edges
+      writing element edges
+      writing IssmSegments
+      writing Triangles
+      writing SubDomains
+      writing SubDomainsFromGeom
+      writing VerticesOnGeomVertex
+      writing VerticesOnGeomEdge
+      writing EdgesOnGeomEdge
+      writing Element connectivity
+      writing Nodal element connectivity
+      writing Nodal connectivity
+   Write Geometry...
+      writing Vertices
+      writing Edges
+      writing 0 RequiredEdges
+      writing 4146 RequiredVertices
+      writing SubDomains
+      writing TangentAtEdges
+   Write Metric...
+   Exiting Bamg.
+[INFO] : AdaptMesh done in 2.19135s
+Reading vertices (66017)
+Reading triangles (127998)
+Building Geometry
+Completing geometry
+size of external data vector = 14
+Interpolate cfsr.6h.....nc
+Done
+Interpolate cfsr.6h.....nc
+Done
+Interpolate TP4DAILY_..._30m.nc
+Reading vertices (176180)
+Reading triangles (351877)
+Building Geometry
+Completing geometry
+Done
+Interpolate TP4DAILY_..._3m.nc
+Reading vertices (105781)
+Reading triangles (211416)
+Building Geometry
+Completing geometry
+Done
+Interpolate ETOPO_Arctic_1arcmin.nc...
+Done
+[INFO] : TIMER ASSEMBLY= 0.882404s
+[INFO] : TIMER SOLUTION= 0.843169s
+---------------------- TIME STEP 90889 : 2011-Jun-16 09:23:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.94406s
+[INFO] : TIMER SOLUTION= 0.275623s
+---------------------- TIME STEP 90890 : 2011-Jun-16 09:26:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.967642s
+[INFO] : TIMER SOLUTION= 0.29365s
+---------------------- TIME STEP 90891 : 2011-Jun-16 09:30:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.982318s
+[INFO] : TIMER SOLUTION= 0.285257s
+---------------------- TIME STEP 90892 : 2011-Jun-16 09:33:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.990501s
+[INFO] : TIMER SOLUTION= 0.283147s
+---------------------- TIME STEP 90893 : 2011-Jun-16 09:36:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.968039s
+[INFO] : TIMER SOLUTION= 0.293695s
+---------------------- TIME STEP 90894 : 2011-Jun-16 09:40:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.844568s
+[INFO] : TIMER SOLUTION= 0.350913s
+---------------------- TIME STEP 90895 : 2011-Jun-16 09:43:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.768071s
+[INFO] : TIMER SOLUTION= 0.445188s
+---------------------- TIME STEP 90896 : 2011-Jun-16 09:46:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.685085s
+[INFO] : TIMER SOLUTION= 0.522841s
+---------------------- TIME STEP 90897 : 2011-Jun-16 09:50:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.911297s
+[INFO] : TIMER SOLUTION= 0.45138s
+---------------------- TIME STEP 90898 : 2011-Jun-16 09:53:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.973989s
+[INFO] : TIMER SOLUTION= 0.448568s
+---------------------- TIME STEP 90899 : 2011-Jun-16 09:56:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.957352s
+[INFO] : TIMER SOLUTION= 0.414667s
+[INFO] : MESH BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5050.bin
+[INFO] : RECORD MESH: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5050.dat
+[INFO] : BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5050.bin
+[INFO] : RECORD FIELD: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5050.dat
+---------------------- TIME STEP 90900 : 2011-Jun-16 10:00:00 ---------- progression: (11.2522%) ---------- time spent: 00:07:01
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.940729s
+[INFO] : TIMER SOLUTION= 0.278305s
+---------------------- TIME STEP 90901 : 2011-Jun-16 10:03:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.825362s
+[INFO] : TIMER SOLUTION= 0.357424s
+---------------------- TIME STEP 90902 : 2011-Jun-16 10:06:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.791551s
+[INFO] : TIMER SOLUTION= 0.448359s
+---------------------- TIME STEP 90903 : 2011-Jun-16 10:10:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.71037s
+[INFO] : TIMER SOLUTION= 0.516843s
+---------------------- TIME STEP 90904 : 2011-Jun-16 10:13:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 1.00389s
+[INFO] : TIMER SOLUTION= 0.47255s
+---------------------- TIME STEP 90905 : 2011-Jun-16 10:16:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.867958s
+[INFO] : TIMER SOLUTION= 0.482179s
+---------------------- TIME STEP 90906 : 2011-Jun-16 10:20:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.846989s
+[INFO] : TIMER SOLUTION= 0.481421s
+---------------------- TIME STEP 90907 : 2011-Jun-16 10:23:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.941186s
+[INFO] : TIMER SOLUTION= 0.391041s
+---------------------- TIME STEP 90908 : 2011-Jun-16 10:26:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.999175s
+[INFO] : TIMER SOLUTION= 0.393557s
+---------------------- TIME STEP 90909 : 2011-Jun-16 10:30:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.907365s
+[INFO] : TIMER SOLUTION= 0.368697s
+---------------------- TIME STEP 90910 : 2011-Jun-16 10:33:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.986175s
+[INFO] : TIMER SOLUTION= 0.345507s
+---------------------- TIME STEP 90911 : 2011-Jun-16 10:36:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.964502s
+[INFO] : TIMER SOLUTION= 0.38304s
+---------------------- TIME STEP 90912 : 2011-Jun-16 10:40:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 1.0523s
+[INFO] : TIMER SOLUTION= 0.289236s
+---------------------- TIME STEP 90913 : 2011-Jun-16 10:43:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.959256s
+[INFO] : TIMER SOLUTION= 0.295457s
+---------------------- TIME STEP 90914 : 2011-Jun-16 10:46:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.95086s
+[INFO] : TIMER SOLUTION= 0.275936s
+---------------------- TIME STEP 90915 : 2011-Jun-16 10:50:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 1.04738s
+[INFO] : TIMER SOLUTION= 0.309005s
+---------------------- TIME STEP 90916 : 2011-Jun-16 10:53:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 1.06807s
+[INFO] : TIMER SOLUTION= 0.368611s
+---------------------- TIME STEP 90917 : 2011-Jun-16 10:56:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 1.02366s
+[INFO] : TIMER SOLUTION= 0.32977s
+[INFO] : MESH BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5051.bin
+[INFO] : RECORD MESH: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/mesh_5051.dat
+[INFO] : BINARY: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5051.bin
+[INFO] : RECORD FIELD: Exporter Filename= /Users/sylvain/experiments/longRun_restart14_diffusivity0/field_5051.dat
+---------------------- TIME STEP 90918 : 2011-Jun-16 11:00:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.985314s
+[INFO] : TIMER SOLUTION= 0.406547s
+---------------------- TIME STEP 90919 : 2011-Jun-16 11:03:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.767077s
+[INFO] : TIMER SOLUTION= 0.418367s
+---------------------- TIME STEP 90920 : 2011-Jun-16 11:06:40 ---------- progression: (11.2547%) ---------- time spent: 00:07:46
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.689564s
+[INFO] : TIMER SOLUTION= 0.586818s
+---------------------- TIME STEP 90921 : 2011-Jun-16 11:10:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.793859s
+[INFO] : TIMER SOLUTION= 0.39153s
+---------------------- TIME STEP 90922 : 2011-Jun-16 11:13:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.756452s
+[INFO] : TIMER SOLUTION= 0.376793s
+---------------------- TIME STEP 90923 : 2011-Jun-16 11:16:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.767129s
+[INFO] : TIMER SOLUTION= 0.436301s
+---------------------- TIME STEP 90924 : 2011-Jun-16 11:20:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.793504s
+[INFO] : TIMER SOLUTION= 0.46367s
+---------------------- TIME STEP 90925 : 2011-Jun-16 11:23:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.768922s
+[INFO] : TIMER SOLUTION= 0.44343s
+---------------------- TIME STEP 90926 : 2011-Jun-16 11:26:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.940272s
+[INFO] : TIMER SOLUTION= 0.434153s
+---------------------- TIME STEP 90927 : 2011-Jun-16 11:30:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.933216s
+[INFO] : TIMER SOLUTION= 0.513437s
+---------------------- TIME STEP 90928 : 2011-Jun-16 11:33:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.931677s
+[INFO] : TIMER SOLUTION= 0.421866s
+---------------------- TIME STEP 90929 : 2011-Jun-16 11:36:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.977078s
+[INFO] : TIMER SOLUTION= 0.411073s
+---------------------- TIME STEP 90930 : 2011-Jun-16 11:40:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.964829s
+[INFO] : TIMER SOLUTION= 0.396323s
+---------------------- TIME STEP 90931 : 2011-Jun-16 11:43:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.79387s
+[INFO] : TIMER SOLUTION= 0.482392s
+---------------------- TIME STEP 90932 : 2011-Jun-16 11:46:40
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.90036s
+[INFO] : TIMER SOLUTION= 0.404459s
+---------------------- TIME STEP 90933 : 2011-Jun-16 11:50:00
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.906383s
+[INFO] : TIMER SOLUTION= 0.377857s
+---------------------- TIME STEP 90934 : 2011-Jun-16 11:53:20
+size of external data vector = 14
+[INFO] : TIMER ASSEMBLY= 0.921811s
+[INFO] : TIMER SOLUTION= 0.378048s
+[0]PETSC ERROR: ------------------------------------------------------------------------
+[0]PETSC ERROR: Caught signal number 15 Terminate: Some process (or the batch system) has told this process to end
+[0]PETSC ERROR: Try option -start_in_debugger or -on_error_attach_debugger
+[0]PETSC ERROR: or see http://www.mcs.anl.gov/petsc/documentation/faq.html#valgrind
+[0]PETSC ERROR: or try http://valgrind.org on GNU/linux and Apple Mac OS X to find memory corruption errors
+[0]PETSC ERROR: configure using --with-debugging=yes, recompile, link, and run 
+[0]PETSC ERROR: to get more information on the crash.
+[0]PETSC ERROR: --------------------- Error Message --------------------------------------------------------------
+[0]PETSC ERROR: Signal received
+[0]PETSC ERROR: See http://www.mcs.anl.gov/petsc/documentation/faq.html for trouble shooting.
+[0]PETSC ERROR: Petsc Release Version 3.6.4, Apr, 12, 2016 
+[0]PETSC ERROR: bin/nextsim.exec on a arch-darwin-c-opt named seoul.ad.nersc.no by sylvain Tue May 16 18:00:10 2017
+[0]PETSC ERROR: Configure options -with-python --with-cxx=mpicxx --with-cc=mpicc --with-fc=mpif90 --with-mpiexec=mpiexec --with-debugging=0 --with-c-support=1 --with-c++-support=1 --with-shared-libraries=1 --with-blacs --download-blacs=yes --with-parmetis=1 --download-parmetis=yes --with-scalapack=1 --download-scalapack=yes --with-mumps=1 --download-mumps=yes --with-suitesparse=1 --download-suitesparse=yes --with-c2html=0 --with-metis=1 --download-metis=yes --prefix=/opt/local/petsc
+[0]PETSC ERROR: #1 User provided function() line 0 in  unknown file
+--------------------------------------------------------------------------
+MPI_ABORT was invoked on rank 0 in communicator MPI_COMM_WORLD 
+with errorcode 59.
+
+NOTE: invoking MPI_ABORT causes Open MPI to kill all MPI processes.
+You may or may not see output from other processes, depending on
+exactly when Open MPI kills them.
+--------------------------------------------------------------------------
+---------------------- TIME STEP 90935 : 2011-Jun-16 11:56:40
+size of external data vector = 14
