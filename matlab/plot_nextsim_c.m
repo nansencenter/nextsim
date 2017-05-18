@@ -146,12 +146,17 @@ for p=0:0
   
   %ice mask and water mask extraction
   if(apply_mask)
-    mask=data_out.Concentration;
-    mask_ice=find(mask>0);
-    mask_water=find(mask==0);
+      mask=data_out.Concentration;
+      try
+          mask=mask+data_out.Concentration_thin_ice;
+      catch ME
+      end
+      
+      mask_ice=find(mask>0);
+      mask_water=find(mask==0);
   else
-    mask_ice=1:length(data_out.Concentration);
-    mask_water=[];
+      mask_ice=1:length(data_out.Concentration);
+      mask_water=[];
   end
   
   plot_dirn = 0;
