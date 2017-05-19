@@ -3102,7 +3102,6 @@ FiniteElement::update()
                 M_conc_thin[cpt]=0.;
                 M_h_thin[cpt]=0.;
                 M_hs_thin[cpt]=0.;
-                M_ridge_ratio[cpt]=0.;
             }
         }
 #endif
