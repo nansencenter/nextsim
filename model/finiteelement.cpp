@@ -2768,6 +2768,26 @@ FiniteElement::assemble(int pcpt)
         LOG(DEBUG) <<"[PETSC MATRIX] NORM        = "<< M_matrix->linftyNorm() <<"\n";
         LOG(DEBUG) <<"[PETSC VECTOR] NORM        = "<< M_vector->l2Norm() <<"\n";
     }
+    
+    double inf=1.0/0.0; 
+    if(M_vector->l2Norm() ==inf)
+    {
+        std::string meshfile    = (boost::format( "%1%/mesh_%2%" )
+                                   % M_export_path
+                                   % "inf" ).str();
+
+        std::string fieldfile   = (boost::format( "%1%/field_%2%" )
+                                   % M_export_path
+                                   % "inf" ).str();
+
+        std::vector<std::string> filenames = {meshfile,fieldfile}; 
+
+        this->exportResults(filenames);
+        
+        std::cout<<"---------------------- TIME STEP "<< pcpt << " : "
+                 << model_time_str(vm["simul.time_init"].as<std::string>(), pcpt*time_step);
+        throw std::runtime_error("inf in the solution, results outputed with output name inf");
+    }
 
     //M_matrix->printMatlab("stiffness.m");
     //M_vector->printMatlab("rhs.m");
