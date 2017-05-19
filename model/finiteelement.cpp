@@ -1271,10 +1271,16 @@ FiniteElement::regrid(bool step)
 		}
 
 
+        had_remeshed=true;
         if(step && (vm["simul.regrid_output_flag"].as<bool>()))
         {
-            had_remeshed=true;
-            this->exportResults(400000+mesh_adapt_step+substep*100000,true,true,false);
+        
+            std::string tmp_string1    = (boost::format( "before_adaptMesh_%1%_mesh_adapt_step_%2%_substep_%3%" )
+                                   % step
+                                   % mesh_adapt_step
+                                   % substep ).str();
+            
+            this->exportResults(tmp_string1,true,true,false);
 		}
 
         chrono.restart();
@@ -1285,8 +1291,12 @@ FiniteElement::regrid(bool step)
 
         if(step && (vm["simul.regrid_output_flag"].as<bool>()))
         {
-            had_remeshed=true;
-            this->exportResults(4000000+mesh_adapt_step+substep*100000,true,false,false);
+            std::string tmp_string2    = (boost::format( "after_adaptMesh_%1%_mesh_adapt_step_%2%_substep_%3%" )
+                                   % step
+                                   % mesh_adapt_step
+                                   % substep ).str();
+            
+            this->exportResults(tmp_string2,true,false,false);
 		}
 
 		if (step)
@@ -2772,17 +2782,7 @@ FiniteElement::assemble(int pcpt)
     double inf=1.0/0.0; 
     if(M_vector->l2Norm() ==inf)
     {
-        std::string meshfile    = (boost::format( "%1%/mesh_%2%" )
-                                   % M_export_path
-                                   % "inf" ).str();
-
-        std::string fieldfile   = (boost::format( "%1%/field_%2%" )
-                                   % M_export_path
-                                   % "inf" ).str();
-
-        std::vector<std::string> filenames = {meshfile,fieldfile}; 
-
-        this->exportResults(filenames);
+        this->exportResults("inf");
         
         std::cout<<"---------------------- TIME STEP "<< pcpt << " : "
                  << model_time_str(vm["simul.time_init"].as<std::string>(), pcpt*time_step);
@@ -4400,8 +4400,8 @@ FiniteElement::run()
 
     pcpt_file.close();
 
-    if ( pcpt*time_step/output_time_step < 1000 )
-        this->exportResults(1000);
+    this->exportResults("final");
+    
     LOG(INFO) <<"TIMER total = " << chrono_tot.elapsed() <<"s\n";
     LOG(INFO) <<"nb regrid total = " << M_nb_regrid <<"\n";
 
@@ -5044,8 +5044,12 @@ FiniteElement::step(int &pcpt)
 
     if(had_remeshed && (vm["simul.regrid_output_flag"].as<bool>()))
     {
-        had_remeshed=false;
-        this->exportResults(300000+mesh_adapt_step);
+        std::string tmp_string3    = (boost::format( "after_assemble_%1%_mesh_adapt_step_%2%" )
+                               % pcpt
+                               % mesh_adapt_step ).str();
+            
+        this->exportResults(tmp_string3);
+        
         had_remeshed=false;
     }
 
@@ -7802,18 +7806,30 @@ FiniteElement::exportInitMesh()
 void
 FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, bool apply_displacement)
 {
-    //define filenames from step
+    //define name_str from step
+    std::string name_str    = (boost::format( "%1%" )
+                               % step ).str();
+
+    this->exportResults(name_str, export_mesh, export_fields, apply_displacement);
+}
+
+
+void
+FiniteElement::exportResults(std::string name_str, bool export_mesh, bool export_fields, bool apply_displacement)
+{
+    //define filenames from iname_str
     std::string meshfile    = (boost::format( "%1%/mesh_%2%" )
                                % M_export_path
-                               % step ).str();
+                               % name_str ).str();
 
     std::string fieldfile   = (boost::format( "%1%/field_%2%" )
                                % M_export_path
-                               % step ).str();
+                               % name_str ).str();
 
     std::vector<std::string> filenames = {meshfile,fieldfile}; 
     this->exportResults(filenames, export_mesh, export_fields, apply_displacement);
 }
+
 
 void
 FiniteElement::exportResults(std::vector<std::string> const &filenames, bool export_mesh, bool export_fields, bool apply_displacement)
@@ -8321,7 +8337,7 @@ FiniteElement::wimToNextsim(bool step)
         //save mesh before entering WIM:
         // mesh file can then be copied inside WIM to correct path to allow plotting
         if (TEST_INTERP_MESH)
-            this->exportResults(1001,true,false);
+            this->exportResults("test_interp_mesh",true,false);
 
         LOG(DEBUG)<<"wim2sim (check wave forcing): "<<wim_ideal_forcing<<","<<M_SWH_grid.size()<<"\n";
         if (M_SWH_grid.size()>0)//( !wim_ideal_forcing )
