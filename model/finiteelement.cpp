@@ -6514,16 +6514,23 @@ FiniteElement::topazIceOsisafIcesat()
         double ratio_MYI=0.9;
         double ratio_Mixed=0.6;
 
-        if((M_thick[i]>0)&&(M_conc[i])>0.2)
+        if((M_thick[i]>0.)&&(M_conc[i])>0.2)
         {
-            if(M_type[i]>1. && M_type[i]<=2)
+            if(M_type[i]<=1.)
+                M_ridge_ratio[i]=0.;
+            if(M_type[i]>1. && M_type[i]<=2.)
                 M_ridge_ratio[i]=(M_type[i]-1.)*ratio_FYI;
             if(M_type[i]>2. && M_type[i]<=3.)
                 M_ridge_ratio[i]=(1.-(M_type[i]-2.))*ratio_FYI + (M_type[i]-2.)*ratio_MYI;
             if(M_type[i]>3. && M_type[i]<=4.)
                 M_ridge_ratio[i]=(1.-(M_type[i]-3.))*ratio_MYI + (M_type[i]-3.)*ratio_Mixed;
+            if(M_type[i]>4.)
+                M_ridge_ratio[i]=ratio_Mixed;
+        
+            M_ridge_ratio[i]=M_ridge_ratio[i]*std::exp(ridging_exponent*(1.-M_conc[i]));
         }
-        M_ridge_ratio[i]=M_ridge_ratio[i]*std::exp(ridging_exponent*(1.-M_conc[i]));
+        else
+            M_ridge_ratio[i]=0.;
 
         //if either c or h equal zero, we set the others to zero as well
         if(M_conc[i]<=0.)
@@ -6948,16 +6955,24 @@ FiniteElement::cs2SmosIce()
         double ratio_MYI=0.9;
         double ratio_Mixed=0.6;
 
-        if((M_thick[i]>0)&&(M_conc[i])>0.2)
+        if((M_thick[i]>0.)&&(M_conc[i])>0.2)
         {
-            if(M_type[i]>1. && M_type[i]<=2)
+            if(M_type[i]<=1.)
+                M_ridge_ratio[i]=0.;
+            if(M_type[i]>1. && M_type[i]<=2.)
                 M_ridge_ratio[i]=(M_type[i]-1.)*ratio_FYI;
             if(M_type[i]>2. && M_type[i]<=3.)
                 M_ridge_ratio[i]=(1.-(M_type[i]-2.))*ratio_FYI + (M_type[i]-2.)*ratio_MYI;
             if(M_type[i]>3. && M_type[i]<=4.)
                 M_ridge_ratio[i]=(1.-(M_type[i]-3.))*ratio_MYI + (M_type[i]-3.)*ratio_Mixed;
+            if(M_type[i]>4.)
+                M_ridge_ratio[i]=ratio_Mixed;
+        
+            M_ridge_ratio[i]=M_ridge_ratio[i]*std::exp(ridging_exponent*(1.-M_conc[i]));
         }
-        M_ridge_ratio[i]=M_ridge_ratio[i]*std::exp(ridging_exponent*(1.-M_conc[i]));
+        else
+            M_ridge_ratio[i]=0.;
+
 
         //if either c or h equal zero, we set the others to zero as well
         if(M_conc[i]<=0.)
