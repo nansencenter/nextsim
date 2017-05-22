@@ -101,6 +101,14 @@ ExternalData::~ExternalData()
 //void ExternalData::check_and_reload(GmshMesh const& mesh, const double current_time)
 void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             std::vector<double> const& RY_in, const double current_time)
+#ifdef OASIS
+{
+    this->check_and_reload(RX_in, Y_in, current_time, -1);
+}
+
+void ExternalData::check_and_reload(std::vector<double> const& RX_in,
+            std::vector<double> const& RY_in, const double current_time, const int cpl_time)
+#endif
 {
     M_current_time = current_time;
 
@@ -122,6 +130,12 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             to_be_reloaded=(to_date_string_yd(current_time)!=to_date_string_yd(M_dataset->ftime_range[0]) || !M_dataset->loaded);
         else
             to_be_reloaded=((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp) || !M_dataset->loaded);            
+
+#ifdef OASIS
+        // We call oasis_get every time step, but only actually recieve data at coupling times
+        if (M_dataset->coupled)
+            recieveCouplingData(M_dataset, cpl_time);
+#endif
 
         if (to_be_reloaded)
         {
@@ -274,6 +288,16 @@ ExternalData::getVector()
 
 	return vector_tmp;
 }
+
+#ifdef OASIS
+void
+ExternalData::recieveCouplingData(Dataset *dataset)
+{
+        // ierror = OASIS3::get_2d(var_id[1], pcpt*time_step, &field2_recv[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
+        for(int j=0; j<dataset->vectorial_variables.size(); ++j)
+            int ierror = OASIS3::get_2d(M_VariableId, pcpt*time_step, &dataset->variables[j].loaded_data[0][0], dataset->grid.dimension_x_count, dataset->grid.dimension_y_count);
+}
+#endif
 
 void
 //ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const& u, double const& v)

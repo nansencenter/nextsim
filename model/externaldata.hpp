@@ -90,6 +90,11 @@ public:
     void loadDataset(Dataset *dataset, std::vector<double> const& RX,
             std::vector<double> const& RY );
 
+#ifdef OASIS
+    void check_and_reload(std::vector<double> const& RX_in,
+            std::vector<double> const& RY_in, const double current_time, const int cpl_time);
+#endif
+
     void transformData(Dataset *dataset);
 
     //void interpolateDataset(Dataset *dataset, GmshMesh const& mesh);
@@ -101,6 +106,10 @@ public:
         std::vector<double> & RX_out, std::vector<double> & RY_out,
         mapx_class *mapNextsim);//(double const& u, double const& v)
     
+#ifdef OASIS
+    void recieveCouplingData(Dataset *dataset);
+#endif
+
 #if 0
 	size_type size() const;
 

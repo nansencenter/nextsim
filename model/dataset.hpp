@@ -205,6 +205,10 @@ public:
     // name of the dataSet
     std::string name;
     std::string projfilename;
+
+#ifdef OSISAF
+    bool coupled;
+#endif
 };
 
 } // Nextsim
