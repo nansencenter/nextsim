@@ -2480,29 +2480,8 @@ FiniteElement::assemble(int pcpt)
                 }
             } 
 
-    #if 1
-            //option 1 (original)
             coef = multiplicator*young*(1.-M_damage[cpt])*M_thick[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt]));
             coef = (coef<coef_min) ? coef_min : coef ;
-
-    #else
-            //option 2 (we just change the value of the ridging exponent and we renamed it "damaging_exponent")
-            double damaging_exponent = -80.;
-            double coef = young*(1.-M_damage[cpt])*M_thick[cpt]*std::exp(damaging_exponent*(1.-M_conc[cpt]));
-    #endif
-            //option 3: We change the formulation of f(A) and make it piecewise linear between limit_conc_fordamage and 1, and 0 otherwise
-            //double factor = 0.;
-            //double limit_conc_fordamage = 0.;
-            //limit_conc_fordamage=0.95;
-            //if(M_conc[cpt]<limit_conc_fordamage)
-            //{
-            //factor=0.;
-            //}
-            //else
-            //{
-            //factor=(M_conc[cpt]-limit_conc_fordamage)/(1.-limit_conc_fordamage);
-            //}
-            //double coef = young*(1.-M_damage[cpt])*M_thick[cpt]*factor;
 
             if (vm["simul.use_coriolis"].as<bool>())
                 mass_e = (rhoi*total_thickness + rhos*total_snow)/total_concentration;
@@ -3126,32 +3105,6 @@ FiniteElement::update()
             M_snow_thick[cpt]=0.;
         }
         
-#if 0
-        /* Initialise to be safe */
-        newice = 0.;
-        del_c = 0.;
-        newsnow = 0.;
-        /* Thin ice category */    
-        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
-        {
-            thin_ice_redistribute(M_h_thin[cpt], M_hs_thin[cpt], 0., M_conc[cpt],
-                          tanalpha, rtanalpha, h_thin_max, &M_h_thin[cpt], &newice, &del_c, &newsnow);
-        
-            // Change the snow _thickness_ for thick ice and _volume_ for thin ice
-            M_hs_thin[cpt] -= newsnow;
-            M_snow_thick[cpt] += newsnow;
-            M_conc[cpt] += del_c;
-            M_thick[cpt] += newice;
-            
-            if(M_thick[cpt]>0.)
-                M_ridge_ratio[cpt]=(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt];
-            else
-                M_ridge_ratio[cpt]=0.;
-        }
-#endif   
-        
-
-
         /*======================================================================
          * Update the internal stress
          *======================================================================
@@ -3159,24 +3112,7 @@ FiniteElement::update()
         if( (M_conc[cpt] > vm["simul.min_c"].as<double>()) && (M_thick[cpt] > vm["simul.min_h"].as<double>()) )
         {
 
-#if 0
-        // To be uncommented if we use option 3:
-        double factor = 0.;
-        double limit_conc_fordamage = 0.95;
-
-        if(limit_conc_fordamage <= old_conc)
-        {
-            factor = (old_conc-limit_conc_fordamage)/(1.-limit_conc_fordamage);
-        }
-#endif
-
-#if 1
-        //option 1 (original)
         double damaging_exponent = ridging_exponent;
-#else
-        //option 2
-        double damaging_exponent = -80.;
-#endif
         double undamaged_time_relaxation_sigma=vm["simul.undamaged_time_relaxation_sigma"].as<double>();
         double exponent_relaxation_sigma=vm["simul.exponent_relaxation_sigma"].as<double>();
 
