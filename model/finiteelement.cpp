@@ -3040,12 +3040,6 @@ FiniteElement::update()
         * After the advection the concentration can be higher than 1, meaning that ridging should have occured.
         *======================================================================
         */
-        //if(M_conc[cpt]>1.)
-        //{
-        //    M_ridge_ratio[cpt]=M_ridge_ratio[cpt]+(1.-M_ridge_ratio[cpt])*(M_conc[cpt]-1.)/M_conc[cpt];
-        //    M_conc[cpt]=1.;
-        //}
-        //
         double open_water_concentration=1.-M_conc[cpt];
         
         /* Thin ice category */    
@@ -3079,7 +3073,7 @@ FiniteElement::update()
                 new_conc_thin   = std::min(1.,std::max(1.-M_conc[cpt]-open_water_concentration,0.));
                 
                 // Ridging
-                if(M_thick[cpt]>0.)
+                if( (M_conc[cpt] > vm["simul.min_c"].as<double>()) && (M_thick[cpt] > vm["simul.min_h"].as<double>()) && (new_conc_thin < M_conc_thin[cpt] ))
                 {
                     new_h_thin      = new_conc_thin*M_h_thin[cpt]/M_conc_thin[cpt]; // so that we keep the same h0, no preferences for the ridging
                     new_hs_thin     = new_conc_thin*M_hs_thin[cpt]/M_conc_thin[cpt];
@@ -3096,8 +3090,9 @@ FiniteElement::update()
                     M_conc[cpt] = std::min(1.,std::max(M_conc[cpt],0.));
 
                     M_snow_thick[cpt]   += newsnow;
-            
-                    M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt]));
+           
+                    if( newice>0. ) 
+                        M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt]));
                 }
 
                 M_conc_thin[cpt]= new_conc_thin;
