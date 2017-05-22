@@ -198,6 +198,8 @@ public:
     void exportInitMesh();
     void exportResults(int step,
             bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
+    void exportResults(std::string const name_str,
+            bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
     void exportResults(std::vector<std::string> const &filenames,
             bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
 
@@ -530,7 +532,7 @@ private:
     void redistributeVariables(double* interp_elt_out,int nb_var);
     int collectVariables(double** interp_elt_in_ptr, int** interp_elt_method, double** diffusivity_parameters, int num_elements);
     void advect (double** interp_elt_out_ptr,double* interp_elt_in, int* interp_method, int nb_var);
-    void diffuse(double** interp_elt_out_ptr,double* interp_elt_in, double* diffusivity_parameters, int nb_var, double dx);
+    void diffuse(double* variable_elt, double diffusivity_parameters, double dx);
     
 
 };

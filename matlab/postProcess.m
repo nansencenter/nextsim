@@ -49,6 +49,37 @@ maskll  = [ -47.9017   80.9993
 % [x_ICE, y_ICE] = m_ll2xy(maskll(:,1),maskll(:,2));
 [x_ICE, y_ICE] = mapx_forward(mppfile, maskll(:,1)',maskll(:,2)');
 
+% Now points south of the DRA north of Greenland, Canada, and in the
+% Beaufort Sea
+maskll = [ -141.0000   70.0000
+           -141.0000   80.0000
+           -130.0000   80.0000
+            -60.0000   86.5800
+            -15.0000   87.0000
+              8.0000   84.0800
+            -12.2516   81.5707
+            -47.9017   80.9993
+            -73.7776   83.7842
+           -103.2309   79.6701
+           -121.9610   77.1352
+           -128.5021   68.9701
+           -140.9908   68.9919 ];
+       
+[x_GCB, y_GCB] = mapx_forward(mppfile, maskll(:,1)',maskll(:,2)');
+
+% And points south of the DRA, north of Greenland and Canada only
+maskll = [ -130.0000   80.0000
+            -60.0000   86.5800
+            -15.0000   87.0000
+              8.0000   84.0800
+            -12.2516   81.5707
+            -47.9017   80.9993
+            -73.7776   83.7842
+           -103.2309   79.6701
+           -121.9610   77.1352 ];
+       
+[x_GC, y_GC] = mapx_forward(mppfile, maskll(:,1)',maskll(:,2)');
+
 % Then we load all the data
 files = dir([directory '/field_*.bin']);
 
