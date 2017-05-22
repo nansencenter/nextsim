@@ -1,6 +1,30 @@
-#! /bin/sh
+#! /bin/bash
 
-export NEXTSIM_DATADIR=/net/sverdrup-1/vol/sim/data
+if [ -z "$LOCALDATADIR" ]; then 
+	echo "LOCALDATADIR is unset, we try to link withe the data from /Data/sim/data or /net/sverdrup-1/vol/sim/data"; 
+
+	TMP_NEXTSIM_DATADIR=/net/sverdrup-1/vol/sim/data
+	if [ -d "$TMP_NEXTSIM_DATADIR" ]; then
+  		# Control will enter here if $DIRECTORY exists.
+		export NEXTSIM_DATADIR=$TMP_NEXTSIM_DATADIR
+	fi
+
+	TMP_NEXTSIM_DATADIR=/Data/sim/data
+	if [ -d "$TMP_NEXTSIM_DATADIR" ]; then
+  		# Control will enter here if $DIRECTORY exists.
+		export NEXTSIM_DATADIR=$TMP_NEXTSIM_DATADIR
+	fi
+
+else 
+	echo "data are linked from '$LOCALDATADIR'"; 
+	
+	TMP_NEXTSIM_DATADIR=$LOCALDATADIR
+	if [ -d "$TMP_NEXTSIM_DATADIR" ]; then
+  		# Control will enter here if $DIRECTORY exists.
+		export NEXTSIM_DATADIR=$TMP_NEXTSIM_DATADIR
+	fi
+fi
+
 
 # link the data
 ln -s $NEXTSIM_DATADIR/BATHYMETRY/*.nc .
@@ -11,11 +35,12 @@ ln -s $NEXTSIM_DATADIR/CFSR/*.nc .
 ln -s $NEXTSIM_DATADIR/CS2_SMOS_thickness/*.nc .
 ln -s $NEXTSIM_DATADIR/AMSR2_ice_conc/*.nc .
 ln -s $NEXTSIM_DATADIR/SIT_data/icesat_filled_10prods/*.nc .
-for year in {2002..20011..1}
+
+for year in {2002..2011}
 	do
-		ln -s $NEXTSIM_DATADIR/AMSRE_ice_conc/year/*.nc .
+		ln -s $NEXTSIM_DATADIR/AMSRE_ice_conc/$year/*.nc .
 	done
-for year in {2000..20017..1}
+for year in {2005..2017}
 	do
-		ln -s $NEXTSIM_DATADIR/OSISAF_ice_type/year/*/*.nc .
+		ln -s $NEXTSIM_DATADIR/OSISAF_ice_type/$year/*/*.nc .
 	done
