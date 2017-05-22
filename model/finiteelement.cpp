@@ -178,9 +178,6 @@ FiniteElement::initVariables()
     M_VTM.resize(2*M_num_nodes,0.);
     M_VTMM.resize(2*M_num_nodes,0.);
 
-    M_sst.resize(M_num_elements);
-    M_sss.resize(M_num_elements);
-
     M_UM.resize(2*M_num_nodes,0.);
     M_UT.resize(2*M_num_nodes,0.);
 
@@ -1680,7 +1677,7 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var)
 			tmp_nb_var++;
 
             // damage
-		    M_damage[i] = 1.;
+		    M_damage[i] = 0.;
 		    tmp_nb_var++;
             
             // damage
@@ -1951,21 +1948,25 @@ FiniteElement::advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
 	*interp_elt_out_ptr=interp_elt_out;
 }
 
-
 void
-    FiniteElement::diffuse(double** interp_elt_out_ptr,double* interp_elt_in, double* diffusivity_parameters,int nb_var,double dx)
+    FiniteElement::diffuse(double* variable_elt, double diffusivity_parameters, double dx)
 {
+    if(diffusivity_parameters<=0.)
+    {
+        LOG(DEBUG) <<"diffusivity parameter lower or equal to 0 \n";
+        LOG(DEBUG) <<"nothing to do\n";
+        return;
+    }   
 
-    /*Initialize output*/
-    double* interp_elt_out=NULL;
-
-    interp_elt_out=xNew<double>(nb_var*M_num_elements);
+    double factor=diffusivity_parameters*time_step/std::pow(dx,2.);
+    double* old_variable_elt=xNew<double>(M_num_elements);
+    
+    for (int cpt=0; cpt < M_num_elements; ++cpt)
+        old_variable_elt[cpt]=variable_elt[cpt];
 
     int thread_id;
     int total_threads;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-
-    std::vector<double> UM_P = M_UM;
 
     int Nd = bamgmesh->NodalConnectivitySize[1];
 
@@ -1978,36 +1979,23 @@ void
         int fluxes_source_id;
 
         double neighbour_double;
-        int other_vertex[3*2]={1,2 , 2,0 , 0,1};
       
-        for(int j=0; j<nb_var; j++)
+        for(int i=0;i<3;i++)
         {
-            if(diffusivity_parameters[j]==0.)
-                interp_elt_out[cpt*nb_var+j] = interp_elt_in[cpt*nb_var+j];
-            else
-            {
-                
-                for(int i=0;i<3;i++)
-                {
-                    neighbour_double=bamgmesh->ElementConnectivity[cpt*3+i];
-                    neighbour_int=(int) bamgmesh->ElementConnectivity[cpt*3+i];
+            neighbour_double=bamgmesh->ElementConnectivity[cpt*3+i];
+            neighbour_int=(int) bamgmesh->ElementConnectivity[cpt*3+i];
                     
-                    if (!std::isnan(neighbour_double) && neighbour_int>0)
-                    {
-                        fluxes_source_id=neighbour_int-1;
-                        fluxes_source[i]=diffusivity_parameters[j]*time_step/std::pow(dx,2.)*(interp_elt_in[fluxes_source_id*nb_var+j]-interp_elt_in[cpt*nb_var+j]);
-                    }
-                    else // no diffusion crosses open nor closed boundaries
-                        fluxes_source[i]=0.;
-                }
-                
-                interp_elt_out[cpt*nb_var+j] = interp_elt_in[cpt*nb_var+j] + fluxes_source[0] + fluxes_source[1] + fluxes_source[2];                
+            if (!std::isnan(neighbour_double) && neighbour_int>0)
+            {
+                fluxes_source_id=neighbour_int-1;
+                fluxes_source[i]=factor*(old_variable_elt[fluxes_source_id]-old_variable_elt[cpt]);
             }
+            else // no diffusion crosses open nor closed boundaries
+                 fluxes_source[i]=0.;        
         }
+        variable_elt[cpt] += fluxes_source[0] + fluxes_source[1] + fluxes_source[2];                
     }
-    *interp_elt_out_ptr=interp_elt_out;
 }
-
 
 int
 FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_ptr, double** diffusivity_parameters_ptr, int prv_num_elements)
@@ -2980,22 +2968,20 @@ FiniteElement::update()
     // Advection
     double* interp_elt_out;
     this->advect(&interp_elt_out,&interp_elt_in[0],&interp_method[0],nb_var);
-	
-    // cleaning
-    xDelete<double>(interp_elt_in);
-    xDelete<int>(interp_method);
-            
-    double* interp_elt_out_bis;
-    this->diffuse(&interp_elt_out_bis,&interp_elt_out[0],&diffusivity_parameters[0],nb_var,this->resolution(M_mesh));
 
     // redistribute the interpolated values
-    this->redistributeVariables(&interp_elt_out_bis[0],nb_var);
+    this->redistributeVariables(&interp_elt_out[0],nb_var);
 
     // cleaning
     xDelete<double>(interp_elt_out);
-    xDelete<double>(interp_elt_out_bis);
     xDelete<double>(diffusivity_parameters);
-    
+    xDelete<double>(interp_elt_in);
+    xDelete<int>(interp_method);
+
+    // Horizontal diffusion
+    this->diffuse(&M_sst[0],vm["simul.diffusivity_sst"].as<double>(),this->resolution(M_mesh));
+    this->diffuse(&M_sss[0],vm["simul.diffusivity_sss"].as<double>(),this->resolution(M_mesh));
+
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
@@ -3258,7 +3244,7 @@ FiniteElement::update()
             }
         }
         
-        if(sigma_1-q*sigma_2>sigma_c)
+        if((sigma_1-q*sigma_2)>sigma_c)
         {
             sigma_target=sigma_c;
 
@@ -6438,13 +6424,13 @@ FiniteElement::targetIce()
         {
             M_thick[i]=0.;
             M_snow_thick[i]=0.;
-            M_damage[i]=1.;
+            M_damage[i]=0.;
         }
         if(M_thick[i]<=0.)
         {
             M_conc[i]=0.;
             M_snow_thick[i]=0.;
-            M_damage[i]=1.;
+            M_damage[i]=0.;
         }
     }
 }
@@ -8367,7 +8353,7 @@ FiniteElement::wimToNextsim(bool step)
                 for (int i=1;i<M_num_elements;i++)
                 {
                     if (M_broken[i])
-                        M_damage[i] = max(M_damage[i],
+                        M_damage[i] = std::max(M_damage[i],
                            (vm["nextwim.wim_damage_value"].template as<double>()));
                     //std::cout<<"broken?,damage"<<M_broken[i]<<","<<M_damage[i]<<"\n";
                 }
