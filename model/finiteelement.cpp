@@ -571,7 +571,6 @@ FiniteElement::initConstant()
     C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     tan_phi = vm["simul.tan_phi"].as<double>();
-    ridge_h = vm["simul.ridge_h"].as<double>();
 
     if ( vm["simul.newice_type"].as<int>() == 4 )
         M_ice_cat_type = setup::IceCategoryType::THIN_ICE;
@@ -2481,29 +2480,8 @@ FiniteElement::assemble(int pcpt)
                 }
             } 
 
-    #if 1
-            //option 1 (original)
             coef = multiplicator*young*(1.-M_damage[cpt])*M_thick[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt]));
             coef = (coef<coef_min) ? coef_min : coef ;
-
-    #else
-            //option 2 (we just change the value of the ridging exponent and we renamed it "damaging_exponent")
-            double damaging_exponent = -80.;
-            double coef = young*(1.-M_damage[cpt])*M_thick[cpt]*std::exp(damaging_exponent*(1.-M_conc[cpt]));
-    #endif
-            //option 3: We change the formulation of f(A) and make it piecewise linear between limit_conc_fordamage and 1, and 0 otherwise
-            //double factor = 0.;
-            //double limit_conc_fordamage = 0.;
-            //limit_conc_fordamage=0.95;
-            //if(M_conc[cpt]<limit_conc_fordamage)
-            //{
-            //factor=0.;
-            //}
-            //else
-            //{
-            //factor=(M_conc[cpt]-limit_conc_fordamage)/(1.-limit_conc_fordamage);
-            //}
-            //double coef = young*(1.-M_damage[cpt])*M_thick[cpt]*factor;
 
             if (vm["simul.use_coriolis"].as<bool>())
                 mass_e = (rhoi*total_thickness + rhos*total_snow)/total_concentration;
@@ -3041,12 +3019,6 @@ FiniteElement::update()
         * After the advection the concentration can be higher than 1, meaning that ridging should have occured.
         *======================================================================
         */
-        //if(M_conc[cpt]>1.)
-        //{
-        //    M_ridge_ratio[cpt]=M_ridge_ratio[cpt]+(1.-M_ridge_ratio[cpt])*(M_conc[cpt]-1.)/M_conc[cpt];
-        //    M_conc[cpt]=1.;
-        //}
-        //
         double open_water_concentration=1.-M_conc[cpt];
         
         /* Thin ice category */    
@@ -3080,7 +3052,7 @@ FiniteElement::update()
                 new_conc_thin   = std::min(1.,std::max(1.-M_conc[cpt]-open_water_concentration,0.));
                 
                 // Ridging
-                if(M_thick[cpt]>0.)
+                if( (M_conc[cpt] > vm["simul.min_c"].as<double>()) && (M_thick[cpt] > vm["simul.min_h"].as<double>()) && (new_conc_thin < M_conc_thin[cpt] ))
                 {
                     new_h_thin      = new_conc_thin*M_h_thin[cpt]/M_conc_thin[cpt]; // so that we keep the same h0, no preferences for the ridging
                     new_hs_thin     = new_conc_thin*M_hs_thin[cpt]/M_conc_thin[cpt];
@@ -3097,8 +3069,9 @@ FiniteElement::update()
                     M_conc[cpt] = std::min(1.,std::max(M_conc[cpt],0.));
 
                     M_snow_thick[cpt]   += newsnow;
-            
-                    M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt]));
+           
+                    if( newice>0. ) 
+                        M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt]));
                 }
 
                 M_conc_thin[cpt]= new_conc_thin;
@@ -3132,32 +3105,6 @@ FiniteElement::update()
             M_snow_thick[cpt]=0.;
         }
         
-#if 0
-        /* Initialise to be safe */
-        newice = 0.;
-        del_c = 0.;
-        newsnow = 0.;
-        /* Thin ice category */    
-        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
-        {
-            thin_ice_redistribute(M_h_thin[cpt], M_hs_thin[cpt], 0., M_conc[cpt],
-                          tanalpha, rtanalpha, h_thin_max, &M_h_thin[cpt], &newice, &del_c, &newsnow);
-        
-            // Change the snow _thickness_ for thick ice and _volume_ for thin ice
-            M_hs_thin[cpt] -= newsnow;
-            M_snow_thick[cpt] += newsnow;
-            M_conc[cpt] += del_c;
-            M_thick[cpt] += newice;
-            
-            if(M_thick[cpt]>0.)
-                M_ridge_ratio[cpt]=(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt];
-            else
-                M_ridge_ratio[cpt]=0.;
-        }
-#endif   
-        
-
-
         /*======================================================================
          * Update the internal stress
          *======================================================================
@@ -3165,24 +3112,7 @@ FiniteElement::update()
         if( (M_conc[cpt] > vm["simul.min_c"].as<double>()) && (M_thick[cpt] > vm["simul.min_h"].as<double>()) )
         {
 
-#if 0
-        // To be uncommented if we use option 3:
-        double factor = 0.;
-        double limit_conc_fordamage = 0.95;
-
-        if(limit_conc_fordamage <= old_conc)
-        {
-            factor = (old_conc-limit_conc_fordamage)/(1.-limit_conc_fordamage);
-        }
-#endif
-
-#if 1
-        //option 1 (original)
         double damaging_exponent = ridging_exponent;
-#else
-        //option 2
-        double damaging_exponent = -80.;
-#endif
         double undamaged_time_relaxation_sigma=vm["simul.undamaged_time_relaxation_sigma"].as<double>();
         double exponent_relaxation_sigma=vm["simul.exponent_relaxation_sigma"].as<double>();
 
@@ -3687,10 +3617,14 @@ FiniteElement::thermo()
                     break;
                 case 2:
                     /* Mellor and Kantha (89) */
-                    /* Use the fraction PhiM of (1-c)*Qow to melt laterally */
-                    del_c += PhiM*(1.-M_conc[i])*std::min(0.,Qow)*time_step/( hi*qi+hs*qs );
-                    /* Deliver the fraction (1-PhiM) of Qow to the ocean */
-                    Qow = (1.-PhiM)*Qow;
+                    if ( hi > 0. )
+                    {
+                        /* Use the fraction PhiM of (1-c)*Qow to melt laterally */
+                        del_c += PhiM*(1.-M_conc[i])*std::min(0.,Qow)*time_step/( hi*qi+hs*qs );
+                        /* Deliver the fraction (1-PhiM) of Qow to the ocean */
+                        Qow = (1.-PhiM)*Qow;
+                    } else
+                        del_c = -M_conc[i];
                     // This is handled below
                     // /* + Deliver excess energy to the ocean when there's no ice left */
                     //         + std::min(0., std::max(0.,M_conc[i]+del_c)*( hi*qi+hs*qs )/time_step);
@@ -6584,16 +6518,23 @@ FiniteElement::topazIceOsisafIcesat()
         double ratio_MYI=0.9;
         double ratio_Mixed=0.6;
 
-        if((M_thick[i]>0)&&(M_conc[i])>0.2)
+        if((M_thick[i]>0.)&&(M_conc[i])>0.2)
         {
-            if(M_type[i]>1. && M_type[i]<=2)
+            if(M_type[i]<=1.)
+                M_ridge_ratio[i]=0.;
+            if(M_type[i]>1. && M_type[i]<=2.)
                 M_ridge_ratio[i]=(M_type[i]-1.)*ratio_FYI;
             if(M_type[i]>2. && M_type[i]<=3.)
                 M_ridge_ratio[i]=(1.-(M_type[i]-2.))*ratio_FYI + (M_type[i]-2.)*ratio_MYI;
             if(M_type[i]>3. && M_type[i]<=4.)
                 M_ridge_ratio[i]=(1.-(M_type[i]-3.))*ratio_MYI + (M_type[i]-3.)*ratio_Mixed;
+            if(M_type[i]>4.)
+                M_ridge_ratio[i]=ratio_Mixed;
+        
+            M_ridge_ratio[i]=M_ridge_ratio[i]*std::exp(ridging_exponent*(1.-M_conc[i]));
         }
-        M_ridge_ratio[i]=M_ridge_ratio[i]*std::exp(ridging_exponent*(1.-M_conc[i]));
+        else
+            M_ridge_ratio[i]=0.;
 
         //if either c or h equal zero, we set the others to zero as well
         if(M_conc[i]<=0.)
@@ -7018,16 +6959,24 @@ FiniteElement::cs2SmosIce()
         double ratio_MYI=0.9;
         double ratio_Mixed=0.6;
 
-        if((M_thick[i]>0)&&(M_conc[i])>0.2)
+        if((M_thick[i]>0.)&&(M_conc[i])>0.2)
         {
-            if(M_type[i]>1. && M_type[i]<=2)
+            if(M_type[i]<=1.)
+                M_ridge_ratio[i]=0.;
+            if(M_type[i]>1. && M_type[i]<=2.)
                 M_ridge_ratio[i]=(M_type[i]-1.)*ratio_FYI;
             if(M_type[i]>2. && M_type[i]<=3.)
                 M_ridge_ratio[i]=(1.-(M_type[i]-2.))*ratio_FYI + (M_type[i]-2.)*ratio_MYI;
             if(M_type[i]>3. && M_type[i]<=4.)
                 M_ridge_ratio[i]=(1.-(M_type[i]-3.))*ratio_MYI + (M_type[i]-3.)*ratio_Mixed;
+            if(M_type[i]>4.)
+                M_ridge_ratio[i]=ratio_Mixed;
+        
+            M_ridge_ratio[i]=M_ridge_ratio[i]*std::exp(ridging_exponent*(1.-M_conc[i]));
         }
-        M_ridge_ratio[i]=M_ridge_ratio[i]*std::exp(ridging_exponent*(1.-M_conc[i]));
+        else
+            M_ridge_ratio[i]=0.;
+
 
         //if either c or h equal zero, we set the others to zero as well
         if(M_conc[i]<=0.)
