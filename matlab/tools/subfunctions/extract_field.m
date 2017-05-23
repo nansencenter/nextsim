@@ -32,13 +32,14 @@ function [field_tmp, field_plotted]=extract_field(field,data_out,dirname,step,si
      field_plotted='Thick and thin ice thickness';
   elseif strcmp(field,'Ice_thickness')
      fld = 'Thickness';
-     [field_tmp]=get_and_check(fld,data_out,dirname,step);
+     [field_tmp1]=get_and_check(fld,data_out,dirname,step);
 
      fld = 'Concentration';
      [field_tmp2]=get_and_check(fld,data_out,dirname,step);
      
-     field_tmp = field_tmp./field_tmp2;
-     field_tmp(field_tmp2<=0.01) = 0.;
+     field_tmp = field_tmp1./field_tmp2;
+     %field_tmp(field_tmp2<=0.01) = 0.;
+     field_tmp(field_tmp1==0.0) = 0.;
      field_plotted='Thick and thin ice thickness';
   elseif strcmp(field,'Thin_ice_thickness')
      fld = 'Thin_ice';
