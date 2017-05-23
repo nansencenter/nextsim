@@ -178,9 +178,6 @@ FiniteElement::initVariables()
     M_VTM.resize(2*M_num_nodes,0.);
     M_VTMM.resize(2*M_num_nodes,0.);
 
-    M_sst.resize(M_num_elements);
-    M_sss.resize(M_num_elements);
-
     M_UM.resize(2*M_num_nodes,0.);
     M_UT.resize(2*M_num_nodes,0.);
 
@@ -574,7 +571,6 @@ FiniteElement::initConstant()
     C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     tan_phi = vm["simul.tan_phi"].as<double>();
-    ridge_h = vm["simul.ridge_h"].as<double>();
 
     if ( vm["simul.newice_type"].as<int>() == 4 )
         M_ice_cat_type = setup::IceCategoryType::THIN_ICE;
@@ -1271,10 +1267,16 @@ FiniteElement::regrid(bool step)
 		}
 
 
+        had_remeshed=true;
         if(step && (vm["simul.regrid_output_flag"].as<bool>()))
         {
-            had_remeshed=true;
-            this->exportResults(400000+mesh_adapt_step+substep*100000,true,true,false);
+        
+            std::string tmp_string1    = (boost::format( "before_adaptMesh_%1%_mesh_adapt_step_%2%_substep_%3%" )
+                                   % step
+                                   % mesh_adapt_step
+                                   % substep ).str();
+            
+            this->exportResults(tmp_string1,true,true,false);
 		}
 
         chrono.restart();
@@ -1285,8 +1287,12 @@ FiniteElement::regrid(bool step)
 
         if(step && (vm["simul.regrid_output_flag"].as<bool>()))
         {
-            had_remeshed=true;
-            this->exportResults(4000000+mesh_adapt_step+substep*100000,true,false,false);
+            std::string tmp_string2    = (boost::format( "after_adaptMesh_%1%_mesh_adapt_step_%2%_substep_%3%" )
+                                   % step
+                                   % mesh_adapt_step
+                                   % substep ).str();
+            
+            this->exportResults(tmp_string2,true,false,false);
 		}
 
 		if (step)
@@ -1670,7 +1676,7 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var)
 			tmp_nb_var++;
 
             // damage
-		    M_damage[i] = 1.;
+		    M_damage[i] = 0.;
 		    tmp_nb_var++;
             
             // damage
@@ -1941,21 +1947,25 @@ FiniteElement::advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
 	*interp_elt_out_ptr=interp_elt_out;
 }
 
-
 void
-    FiniteElement::diffuse(double** interp_elt_out_ptr,double* interp_elt_in, double* diffusivity_parameters,int nb_var,double dx)
+    FiniteElement::diffuse(double* variable_elt, double diffusivity_parameters, double dx)
 {
+    if(diffusivity_parameters<=0.)
+    {
+        LOG(DEBUG) <<"diffusivity parameter lower or equal to 0 \n";
+        LOG(DEBUG) <<"nothing to do\n";
+        return;
+    }   
 
-    /*Initialize output*/
-    double* interp_elt_out=NULL;
-
-    interp_elt_out=xNew<double>(nb_var*M_num_elements);
+    double factor=diffusivity_parameters*time_step/std::pow(dx,2.);
+    double* old_variable_elt=xNew<double>(M_num_elements);
+    
+    for (int cpt=0; cpt < M_num_elements; ++cpt)
+        old_variable_elt[cpt]=variable_elt[cpt];
 
     int thread_id;
     int total_threads;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-
-    std::vector<double> UM_P = M_UM;
 
     int Nd = bamgmesh->NodalConnectivitySize[1];
 
@@ -1968,36 +1978,23 @@ void
         int fluxes_source_id;
 
         double neighbour_double;
-        int other_vertex[3*2]={1,2 , 2,0 , 0,1};
       
-        for(int j=0; j<nb_var; j++)
+        for(int i=0;i<3;i++)
         {
-            if(diffusivity_parameters[j]==0.)
-                interp_elt_out[cpt*nb_var+j] = interp_elt_in[cpt*nb_var+j];
-            else
-            {
-                
-                for(int i=0;i<3;i++)
-                {
-                    neighbour_double=bamgmesh->ElementConnectivity[cpt*3+i];
-                    neighbour_int=(int) bamgmesh->ElementConnectivity[cpt*3+i];
+            neighbour_double=bamgmesh->ElementConnectivity[cpt*3+i];
+            neighbour_int=(int) bamgmesh->ElementConnectivity[cpt*3+i];
                     
-                    if (!std::isnan(neighbour_double) && neighbour_int>0)
-                    {
-                        fluxes_source_id=neighbour_int-1;
-                        fluxes_source[i]=diffusivity_parameters[j]*time_step/std::pow(dx,2.)*(interp_elt_in[fluxes_source_id*nb_var+j]-interp_elt_in[cpt*nb_var+j]);
-                    }
-                    else // no diffusion crosses open nor closed boundaries
-                        fluxes_source[i]=0.;
-                }
-                
-                interp_elt_out[cpt*nb_var+j] = interp_elt_in[cpt*nb_var+j] + fluxes_source[0] + fluxes_source[1] + fluxes_source[2];                
+            if (!std::isnan(neighbour_double) && neighbour_int>0)
+            {
+                fluxes_source_id=neighbour_int-1;
+                fluxes_source[i]=factor*(old_variable_elt[fluxes_source_id]-old_variable_elt[cpt]);
             }
+            else // no diffusion crosses open nor closed boundaries
+                 fluxes_source[i]=0.;        
         }
+        variable_elt[cpt] += fluxes_source[0] + fluxes_source[1] + fluxes_source[2];                
     }
-    *interp_elt_out_ptr=interp_elt_out;
 }
-
 
 int
 FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_ptr, double** diffusivity_parameters_ptr, int prv_num_elements)
@@ -2483,29 +2480,8 @@ FiniteElement::assemble(int pcpt)
                 }
             } 
 
-    #if 1
-            //option 1 (original)
             coef = multiplicator*young*(1.-M_damage[cpt])*M_thick[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt]));
             coef = (coef<coef_min) ? coef_min : coef ;
-
-    #else
-            //option 2 (we just change the value of the ridging exponent and we renamed it "damaging_exponent")
-            double damaging_exponent = -80.;
-            double coef = young*(1.-M_damage[cpt])*M_thick[cpt]*std::exp(damaging_exponent*(1.-M_conc[cpt]));
-    #endif
-            //option 3: We change the formulation of f(A) and make it piecewise linear between limit_conc_fordamage and 1, and 0 otherwise
-            //double factor = 0.;
-            //double limit_conc_fordamage = 0.;
-            //limit_conc_fordamage=0.95;
-            //if(M_conc[cpt]<limit_conc_fordamage)
-            //{
-            //factor=0.;
-            //}
-            //else
-            //{
-            //factor=(M_conc[cpt]-limit_conc_fordamage)/(1.-limit_conc_fordamage);
-            //}
-            //double coef = young*(1.-M_damage[cpt])*M_thick[cpt]*factor;
 
             if (vm["simul.use_coriolis"].as<bool>())
                 mass_e = (rhoi*total_thickness + rhos*total_snow)/total_concentration;
@@ -2768,6 +2744,16 @@ FiniteElement::assemble(int pcpt)
         LOG(DEBUG) <<"[PETSC MATRIX] NORM        = "<< M_matrix->linftyNorm() <<"\n";
         LOG(DEBUG) <<"[PETSC VECTOR] NORM        = "<< M_vector->l2Norm() <<"\n";
     }
+    
+    double inf=1.0/0.0; 
+    if(M_vector->l2Norm() ==inf)
+    {
+        this->exportResults("inf");
+        
+        std::cout<<"---------------------- TIME STEP "<< pcpt << " : "
+                 << model_time_str(vm["simul.time_init"].as<std::string>(), pcpt*time_step);
+        throw std::runtime_error("inf in the solution, results outputed with output name inf");
+    }
 
     //M_matrix->printMatlab("stiffness.m");
     //M_vector->printMatlab("rhs.m");
@@ -2960,22 +2946,20 @@ FiniteElement::update()
     // Advection
     double* interp_elt_out;
     this->advect(&interp_elt_out,&interp_elt_in[0],&interp_method[0],nb_var);
-	
-    // cleaning
-    xDelete<double>(interp_elt_in);
-    xDelete<int>(interp_method);
-            
-    double* interp_elt_out_bis;
-    this->diffuse(&interp_elt_out_bis,&interp_elt_out[0],&diffusivity_parameters[0],nb_var,this->resolution(M_mesh));
 
     // redistribute the interpolated values
-    this->redistributeVariables(&interp_elt_out_bis[0],nb_var);
+    this->redistributeVariables(&interp_elt_out[0],nb_var);
 
     // cleaning
     xDelete<double>(interp_elt_out);
-    xDelete<double>(interp_elt_out_bis);
     xDelete<double>(diffusivity_parameters);
-    
+    xDelete<double>(interp_elt_in);
+    xDelete<int>(interp_method);
+
+    // Horizontal diffusion
+    this->diffuse(&M_sst[0],vm["simul.diffusivity_sst"].as<double>(),this->resolution(M_mesh));
+    this->diffuse(&M_sss[0],vm["simul.diffusivity_sss"].as<double>(),this->resolution(M_mesh));
+
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
@@ -3035,12 +3019,6 @@ FiniteElement::update()
         * After the advection the concentration can be higher than 1, meaning that ridging should have occured.
         *======================================================================
         */
-        //if(M_conc[cpt]>1.)
-        //{
-        //    M_ridge_ratio[cpt]=M_ridge_ratio[cpt]+(1.-M_ridge_ratio[cpt])*(M_conc[cpt]-1.)/M_conc[cpt];
-        //    M_conc[cpt]=1.;
-        //}
-        //
         double open_water_concentration=1.-M_conc[cpt];
         
         /* Thin ice category */    
@@ -3074,7 +3052,7 @@ FiniteElement::update()
                 new_conc_thin   = std::min(1.,std::max(1.-M_conc[cpt]-open_water_concentration,0.));
                 
                 // Ridging
-                if(M_thick[cpt]>0.)
+                if( (M_conc[cpt] > vm["simul.min_c"].as<double>()) && (M_thick[cpt] > vm["simul.min_h"].as<double>()) && (new_conc_thin < M_conc_thin[cpt] ))
                 {
                     new_h_thin      = new_conc_thin*M_h_thin[cpt]/M_conc_thin[cpt]; // so that we keep the same h0, no preferences for the ridging
                     new_hs_thin     = new_conc_thin*M_hs_thin[cpt]/M_conc_thin[cpt];
@@ -3091,8 +3069,9 @@ FiniteElement::update()
                     M_conc[cpt] = std::min(1.,std::max(M_conc[cpt],0.));
 
                     M_snow_thick[cpt]   += newsnow;
-            
-                    M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt]));
+           
+                    if( newice>0. ) 
+                        M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt]));
                 }
 
                 M_conc_thin[cpt]= new_conc_thin;
@@ -3102,7 +3081,6 @@ FiniteElement::update()
                 M_conc_thin[cpt]=0.;
                 M_h_thin[cpt]=0.;
                 M_hs_thin[cpt]=0.;
-                M_ridge_ratio[cpt]=0.;
             }
         }
 #endif
@@ -3127,32 +3105,6 @@ FiniteElement::update()
             M_snow_thick[cpt]=0.;
         }
         
-#if 0
-        /* Initialise to be safe */
-        newice = 0.;
-        del_c = 0.;
-        newsnow = 0.;
-        /* Thin ice category */    
-        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
-        {
-            thin_ice_redistribute(M_h_thin[cpt], M_hs_thin[cpt], 0., M_conc[cpt],
-                          tanalpha, rtanalpha, h_thin_max, &M_h_thin[cpt], &newice, &del_c, &newsnow);
-        
-            // Change the snow _thickness_ for thick ice and _volume_ for thin ice
-            M_hs_thin[cpt] -= newsnow;
-            M_snow_thick[cpt] += newsnow;
-            M_conc[cpt] += del_c;
-            M_thick[cpt] += newice;
-            
-            if(M_thick[cpt]>0.)
-                M_ridge_ratio[cpt]=(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt];
-            else
-                M_ridge_ratio[cpt]=0.;
-        }
-#endif   
-        
-
-
         /*======================================================================
          * Update the internal stress
          *======================================================================
@@ -3160,24 +3112,7 @@ FiniteElement::update()
         if( (M_conc[cpt] > vm["simul.min_c"].as<double>()) && (M_thick[cpt] > vm["simul.min_h"].as<double>()) )
         {
 
-#if 0
-        // To be uncommented if we use option 3:
-        double factor = 0.;
-        double limit_conc_fordamage = 0.95;
-
-        if(limit_conc_fordamage <= old_conc)
-        {
-            factor = (old_conc-limit_conc_fordamage)/(1.-limit_conc_fordamage);
-        }
-#endif
-
-#if 1
-        //option 1 (original)
         double damaging_exponent = ridging_exponent;
-#else
-        //option 2
-        double damaging_exponent = -80.;
-#endif
         double undamaged_time_relaxation_sigma=vm["simul.undamaged_time_relaxation_sigma"].as<double>();
         double exponent_relaxation_sigma=vm["simul.exponent_relaxation_sigma"].as<double>();
 
@@ -3239,7 +3174,7 @@ FiniteElement::update()
             }
         }
         
-        if(sigma_1-q*sigma_2>sigma_c)
+        if((sigma_1-q*sigma_2)>sigma_c)
         {
             sigma_target=sigma_c;
 
@@ -3682,10 +3617,14 @@ FiniteElement::thermo()
                     break;
                 case 2:
                     /* Mellor and Kantha (89) */
-                    /* Use the fraction PhiM of (1-c)*Qow to melt laterally */
-                    del_c += PhiM*(1.-M_conc[i])*std::min(0.,Qow)*time_step/( hi*qi+hs*qs );
-                    /* Deliver the fraction (1-PhiM) of Qow to the ocean */
-                    Qow = (1.-PhiM)*Qow;
+                    if ( hi > 0. )
+                    {
+                        /* Use the fraction PhiM of (1-c)*Qow to melt laterally */
+                        del_c += PhiM*(1.-M_conc[i])*std::min(0.,Qow)*time_step/( hi*qi+hs*qs );
+                        /* Deliver the fraction (1-PhiM) of Qow to the ocean */
+                        Qow = (1.-PhiM)*Qow;
+                    } else
+                        del_c = -M_conc[i];
                     // This is handled below
                     // /* + Deliver excess energy to the ocean when there's no ice left */
                     //         + std::min(0., std::max(0.,M_conc[i]+del_c)*( hi*qi+hs*qs )/time_step);
@@ -4381,8 +4320,8 @@ FiniteElement::run()
 
     pcpt_file.close();
 
-    if ( pcpt*time_step/output_time_step < 1000 )
-        this->exportResults(1000);
+    this->exportResults("final");
+    
     LOG(INFO) <<"TIMER total = " << chrono_tot.elapsed() <<"s\n";
     LOG(INFO) <<"nb regrid total = " << M_nb_regrid <<"\n";
 
@@ -5025,8 +4964,12 @@ FiniteElement::step(int &pcpt)
 
     if(had_remeshed && (vm["simul.regrid_output_flag"].as<bool>()))
     {
-        had_remeshed=false;
-        this->exportResults(300000+mesh_adapt_step);
+        std::string tmp_string3    = (boost::format( "after_assemble_%1%_mesh_adapt_step_%2%" )
+                               % pcpt
+                               % mesh_adapt_step ).str();
+            
+        this->exportResults(tmp_string3);
+        
         had_remeshed=false;
     }
 
@@ -6415,13 +6358,13 @@ FiniteElement::targetIce()
         {
             M_thick[i]=0.;
             M_snow_thick[i]=0.;
-            M_damage[i]=1.;
+            M_damage[i]=0.;
         }
         if(M_thick[i]<=0.)
         {
             M_conc[i]=0.;
             M_snow_thick[i]=0.;
-            M_damage[i]=1.;
+            M_damage[i]=0.;
         }
     }
 }
@@ -6575,16 +6518,23 @@ FiniteElement::topazIceOsisafIcesat()
         double ratio_MYI=0.9;
         double ratio_Mixed=0.6;
 
-        if((M_thick[i]>0)&&(M_conc[i])>0.2)
+        if((M_thick[i]>0.)&&(M_conc[i])>0.2)
         {
-            if(M_type[i]>1. && M_type[i]<=2)
+            if(M_type[i]<=1.)
+                M_ridge_ratio[i]=0.;
+            if(M_type[i]>1. && M_type[i]<=2.)
                 M_ridge_ratio[i]=(M_type[i]-1.)*ratio_FYI;
             if(M_type[i]>2. && M_type[i]<=3.)
                 M_ridge_ratio[i]=(1.-(M_type[i]-2.))*ratio_FYI + (M_type[i]-2.)*ratio_MYI;
             if(M_type[i]>3. && M_type[i]<=4.)
                 M_ridge_ratio[i]=(1.-(M_type[i]-3.))*ratio_MYI + (M_type[i]-3.)*ratio_Mixed;
+            if(M_type[i]>4.)
+                M_ridge_ratio[i]=ratio_Mixed;
+        
+            M_ridge_ratio[i]=M_ridge_ratio[i]*std::exp(ridging_exponent*(1.-M_conc[i]));
         }
-        M_ridge_ratio[i]=M_ridge_ratio[i]*std::exp(ridging_exponent*(1.-M_conc[i]));
+        else
+            M_ridge_ratio[i]=0.;
 
         //if either c or h equal zero, we set the others to zero as well
         if(M_conc[i]<=0.)
@@ -7009,16 +6959,24 @@ FiniteElement::cs2SmosIce()
         double ratio_MYI=0.9;
         double ratio_Mixed=0.6;
 
-        if((M_thick[i]>0)&&(M_conc[i])>0.2)
+        if((M_thick[i]>0.)&&(M_conc[i])>0.2)
         {
-            if(M_type[i]>1. && M_type[i]<=2)
+            if(M_type[i]<=1.)
+                M_ridge_ratio[i]=0.;
+            if(M_type[i]>1. && M_type[i]<=2.)
                 M_ridge_ratio[i]=(M_type[i]-1.)*ratio_FYI;
             if(M_type[i]>2. && M_type[i]<=3.)
                 M_ridge_ratio[i]=(1.-(M_type[i]-2.))*ratio_FYI + (M_type[i]-2.)*ratio_MYI;
             if(M_type[i]>3. && M_type[i]<=4.)
                 M_ridge_ratio[i]=(1.-(M_type[i]-3.))*ratio_MYI + (M_type[i]-3.)*ratio_Mixed;
+            if(M_type[i]>4.)
+                M_ridge_ratio[i]=ratio_Mixed;
+        
+            M_ridge_ratio[i]=M_ridge_ratio[i]*std::exp(ridging_exponent*(1.-M_conc[i]));
         }
-        M_ridge_ratio[i]=M_ridge_ratio[i]*std::exp(ridging_exponent*(1.-M_conc[i]));
+        else
+            M_ridge_ratio[i]=0.;
+
 
         //if either c or h equal zero, we set the others to zero as well
         if(M_conc[i]<=0.)
@@ -7783,18 +7741,30 @@ FiniteElement::exportInitMesh()
 void
 FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, bool apply_displacement)
 {
-    //define filenames from step
+    //define name_str from step
+    std::string name_str    = (boost::format( "%1%" )
+                               % step ).str();
+
+    this->exportResults(name_str, export_mesh, export_fields, apply_displacement);
+}
+
+
+void
+FiniteElement::exportResults(std::string name_str, bool export_mesh, bool export_fields, bool apply_displacement)
+{
+    //define filenames from iname_str
     std::string meshfile    = (boost::format( "%1%/mesh_%2%" )
                                % M_export_path
-                               % step ).str();
+                               % name_str ).str();
 
     std::string fieldfile   = (boost::format( "%1%/field_%2%" )
                                % M_export_path
-                               % step ).str();
+                               % name_str ).str();
 
     std::vector<std::string> filenames = {meshfile,fieldfile}; 
     this->exportResults(filenames, export_mesh, export_fields, apply_displacement);
 }
+
 
 void
 FiniteElement::exportResults(std::vector<std::string> const &filenames, bool export_mesh, bool export_fields, bool apply_displacement)
@@ -8302,7 +8272,7 @@ FiniteElement::wimToNextsim(bool step)
         //save mesh before entering WIM:
         // mesh file can then be copied inside WIM to correct path to allow plotting
         if (TEST_INTERP_MESH)
-            this->exportResults(1001,true,false);
+            this->exportResults("test_interp_mesh",true,false);
 
         LOG(DEBUG)<<"wim2sim (check wave forcing): "<<wim_ideal_forcing<<","<<M_SWH_grid.size()<<"\n";
         if (M_SWH_grid.size()>0)//( !wim_ideal_forcing )
@@ -8332,7 +8302,7 @@ FiniteElement::wimToNextsim(bool step)
                 for (int i=1;i<M_num_elements;i++)
                 {
                     if (M_broken[i])
-                        M_damage[i] = max(M_damage[i],
+                        M_damage[i] = std::max(M_damage[i],
                            (vm["nextwim.wim_damage_value"].template as<double>()));
                     //std::cout<<"broken?,damage"<<M_broken[i]<<","<<M_damage[i]<<"\n";
                 }
