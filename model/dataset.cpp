@@ -1744,8 +1744,8 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
-            NaN_mask_defined: false,
-            NaN_mask_value: 0.,
+            NaN_mask_defined: true,
+            NaN_mask_value: -999.,
             a: 0.01,
             b: 0.,
             Units: "",
@@ -1788,12 +1788,12 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
-            dataset_frequency:"daily",
+            dataset_frequency:"nearest_daily",
             target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
-            masking: false,
+            masking: true,
             masking_variable: conc
         };
 
@@ -1893,7 +1893,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             land_mask_value: -1.,
             NaN_mask_defined: false,
             NaN_mask_value: 0.,
-            a: 1,
+            a: 1.,
             b: 0.,
             Units: "",
             loaded_data: loaded_data_tmp,

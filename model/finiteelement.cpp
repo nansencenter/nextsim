@@ -6471,73 +6471,99 @@ FiniteElement::topazIce()
 void
 FiniteElement::topazIceOsisafIcesat()
 {
-    external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
-    //M_init_conc.check_and_reload(M_mesh,time_init);
+    external_data M_topaz_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
 
-    external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
-    //M_init_thick.check_and_reload(M_mesh,time_init);
+    external_data M_topaz_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
 
-    external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
-    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    external_data M_topaz_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
     
-    external_data M_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init);
-    //M_type.check_and_reload(M_mesh,time_init);
+    external_data M_osisaf_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init);
+    
+    external_data M_osisaf_conc=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,0,false,time_init);
  
     external_data M_icesat_thick=ExternalData(&M_ice_icesat_elements_dataset,M_mesh,0,false,time_init);
-    //M_icesat_thick.check_and_reload(M_mesh,time_init);
     
-    external_data M_conc_amsre=ExternalData(&M_ice_amsre_elements_dataset,M_mesh,0,false,time_init);
-    //M_conc_amsre.check_and_reload(M_mesh,time_init);
+    external_data M_amsre_conc=ExternalData(&M_ice_amsre_elements_dataset,M_mesh,0,false,time_init);
 
     M_external_data_tmp.resize(0);
-    M_external_data_tmp.push_back(&M_init_conc);
-    M_external_data_tmp.push_back(&M_init_thick);
-    M_external_data_tmp.push_back(&M_init_snow_thick);
-    M_external_data_tmp.push_back(&M_type);
+    M_external_data_tmp.push_back(&M_topaz_conc);
+    M_external_data_tmp.push_back(&M_topaz_thick);
+    M_external_data_tmp.push_back(&M_topaz_snow_thick);
+    M_external_data_tmp.push_back(&M_osisaf_type);
+    M_external_data_tmp.push_back(&M_osisaf_conc);
     M_external_data_tmp.push_back(&M_icesat_thick);
-    M_external_data_tmp.push_back(&M_conc_amsre);
+    M_external_data_tmp.push_back(&M_amsre_conc);
     this->checkReloadDatasets(M_external_data_tmp,time_init,"init - TOPAZ ice");
     M_external_data_tmp.resize(0);
     
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
     {
-		tmp_var=std::min(1.,M_init_conc[i]);
+		tmp_var=std::min(1.,M_topaz_conc[i]);
 		M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
-		tmp_var=M_init_thick[i];
+		tmp_var=M_topaz_thick[i];
 		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
-		tmp_var=M_icesat_thick[i]*M_conc[i]; // Icesat gives the actual thickness (see "Uncertainties in Arctic sea ice thickness and volume: new estimates and implications for trends")
-		M_thick[i] = (M_icesat_thick[i]>physical::hmin) ? tmp_var : M_thick[i]; 
-		tmp_var=M_init_snow_thick[i];
-		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+        double hi_topaz=M_thick[i]/M_conc[i];		
+        hi_topaz=std::min(hi_topaz,3.); // TOPAZ thickness is only used for FYI and then capped to 3 m, to avoid unrealistic thickness where concentration is low		
 
-        // Correction of the value given by Warren as a function of the ice type
+        if(M_conc[i]>0.) // use osisaf only where topaz says there is ice to avoid near land issues and fake concentration over the ocean
+            M_conc[i]=M_osisaf_conc[i];
+
+		tmp_var=M_topaz_snow_thick[i];
+		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+        if(M_conc[i]<M_topaz_conc[i])
+            M_snow_thick[i] *= M_conc[i]/M_topaz_conc[i]; 
+
+
         //M_type[i]==1. // No ice
         //M_type[i]==2. // First-Year ice
         //M_type[i]==3. // Multi-Year ice
         //M_type[i]==4. // Mixed
         double ratio_FYI=0.3;
         double ratio_MYI=0.9;
-        double ratio_Mixed=0.6;
+        double ratio_Mixed=0.5*(ratio_FYI+ratio_MYI);
+
+        double thick_FYI=hi_topaz;
+        double thick_MYI=std::max(M_icesat_thick[i],hi_topaz);
+        double thick_Mixed=0.5*(thick_FYI+thick_MYI);
 
         if((M_thick[i]>0.)&&(M_conc[i])>0.2)
         {
-            if(M_type[i]<=1.)
+            if(M_osisaf_type[i]<=1.)
+            {
                 M_ridge_ratio[i]=0.;
-            if(M_type[i]>1. && M_type[i]<=2.)
-                M_ridge_ratio[i]=(M_type[i]-1.)*ratio_FYI;
-            if(M_type[i]>2. && M_type[i]<=3.)
-                M_ridge_ratio[i]=(1.-(M_type[i]-2.))*ratio_FYI + (M_type[i]-2.)*ratio_MYI;
-            if(M_type[i]>3. && M_type[i]<=4.)
-                M_ridge_ratio[i]=(1.-(M_type[i]-3.))*ratio_MYI + (M_type[i]-3.)*ratio_Mixed;
-            if(M_type[i]>4.)
+                M_thick[i]=thick_FYI;
+            }
+            if(M_osisaf_type[i]>1. && M_osisaf_type[i]<=2.)
+            {
+                M_ridge_ratio[i]=(M_osisaf_type[i]-1.)*ratio_FYI;
+                M_thick[i]      =thick_FYI;
+            }
+            if(M_osisaf_type[i]>2. && M_osisaf_type[i]<=3.)
+            {
+                M_ridge_ratio[i]=(1.-(M_osisaf_type[i]-2.))*ratio_FYI + (M_osisaf_type[i]-2.)*ratio_MYI;
+                M_thick[i]      =(1.-(M_osisaf_type[i]-2.))*thick_FYI + (M_osisaf_type[i]-2.)*thick_MYI;
+            }
+            if(M_osisaf_type[i]>3. && M_osisaf_type[i]<=4.)
+            {
+                M_ridge_ratio[i]=(1.-(M_osisaf_type[i]-3.))*ratio_MYI + (M_osisaf_type[i]-3.)*ratio_Mixed;
+                M_thick[i]      =(1.-(M_osisaf_type[i]-3.))*thick_MYI + (M_osisaf_type[i]-3.)*thick_Mixed;
+            }
+            if(M_osisaf_type[i]>4.)
+            {
                 M_ridge_ratio[i]=ratio_Mixed;
-        
-            M_ridge_ratio[i]=M_ridge_ratio[i]*std::exp(ridging_exponent*(1.-M_conc[i]));
+                M_thick[i]=thick_Mixed;
+            }
         }
         else
+        {
             M_ridge_ratio[i]=0.;
-
+            M_thick[i]=hi_topaz;    
+        }
+        
+        M_ridge_ratio[i]=M_ridge_ratio[i]*M_conc[i]; // Icesat gives the actual thickness (see "Uncertainties in Arctic sea ice thickness and volume: new estimates and implications for trends")
+        M_thick[i]=M_thick[i]*M_conc[i];
+            
         //if either c or h equal zero, we set the others to zero as well
         double hi=M_thick[i]/M_conc[i];
         if ( M_conc[i] < 0.01 || hi < physical::hmin )
@@ -6550,7 +6576,7 @@ FiniteElement::topazIceOsisafIcesat()
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
-            M_conc_thin[i]=std::max(M_conc_amsre[i]-M_conc[i],0.);
+            M_conc_thin[i]=std::max(M_amsre_conc[i]-M_conc[i],0.);
             M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
         }
 
