@@ -294,7 +294,7 @@ namespace Nextsim
         std::stringstream filename;
 
         filename << file_prefix;
-        filename << now.year() << setw(2) << setfill('0') << now.month().as_number() << now.day();
+        filename << now.year() << setw(2) << setfill('0') << now.month().as_number() << setw(2) << setfill('0') << now.day();
         filename << ".nc";
         M_filename = filename.str();
 
@@ -348,10 +348,12 @@ namespace Nextsim
     // Write data to the netCDF file
     void Drifters::appendNetCDF(double current_time, GmshMesh const &mesh, std::vector<double> const &UT)
     {
+#if 0 // not necessary anymore ence the position are updated twice a day, so that it works also with an Eulerian and ALE scheme
         // Move the drifters before export, but save the result in a different variable
         std::vector<double> X(M_no_drifters);
         std::vector<double> Y(M_no_drifters);
         move(mesh, UT, X, Y);
+#endif
 
         // Calculate lat and lon
         mapx_class *map;
@@ -364,7 +366,8 @@ namespace Nextsim
         std::vector<double> lat(M_no_drifters);
         std::vector<double> lon(M_no_drifters);
         for (int i=0; i<M_no_drifters; ++i)
-            inverse_mapx(map, X[i], Y[i], &lat[i], &lon[i]);
+            inverse_mapx(map, M_X[i], M_Y[i], &lat[i], &lon[i]);
+//            inverse_mapx(map, X[i], Y[i], &lat[i], &lon[i]);
 
         close_mapx(map);
 

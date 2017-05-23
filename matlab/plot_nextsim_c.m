@@ -1,9 +1,11 @@
-function plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,save_figure,apply_mask)
-%% CALL: plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,save_figure,apply_mask)
+function plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,plot_options)
+%% CALL: plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,plot_options)
+%% OR:   plot_nextsim_c(field,date_string,region_of_zoom,is_sequential,dirname,plot_options)
 %% example of usage:
 %%    plot_nextsim_c('Concentration',4,[],true)
 %%    plot_nextsim_c('Damage',4,[],true)
 %%    plot_nextsim_c('M_VT',4,[],true)
+%%    plot_nextsim_c('Thickness,'April 4, 2012',[],true)
 %%
 %% field:
 %%    Element_area
@@ -61,25 +63,69 @@ function plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,save_fig
 %% dir: folder containing the outputs on the mesh
 %%
 %% [OPTIONAL]
-%% save_figure
+%% plot_options = [default: NB don't need to specify all fields if want to keep default]
+%%       save_figure: 0              % 0 (default) we do not save the figure
+%%        apply_mask: true           % If true, apply ice mask
+%%         plot_grid: 0              % If not zero the mesh lines are plotted. If zoomed out only the mesh lines will be visible
+%%   plot_coastlines: 1              % When 1 the actual domain boundaries are plotted, closed in light gray and opened in cyan.
+%%                                   %  Note though that plotting the coastlines or the grid makes the figure much heavier
+%%         plot_date: 0              % 1 if we want to display the date on the figure
+%%         font_size: 14             % Sets font size of colorbar and date
+%%  background_color: [0.85,.85,.85] % gray-white color. A substitute could be gray [0.5 0.5 0.5]
+%%     figure_format: '-png'         % can be pdf, tiff, png or jpeg
+%%       pic_quality: '-r300'        % Resolution for eps, pdf, tiff, and png
+%%           visible: 1              % We display the figure on the screen
+%%                                   %  (useful to set to 0 when generating a large amount of figures)
+%%     show_vec_dirn: 0              % If plotting vector magnitude, show the direction as arrows
 
 if ~exist('dirname','var'), dirname='.'; end
-if ~exist('apply_mask','var'), apply_mask=true; end
 
-%Here are a list of various options which can be set
-plot_grid           = 0;            % If not zero the mesh lines are ploted. If zoomed out only the mesh lines will be visible
-plot_coastlines     = 1;            % When 1 the actual domain baoundaries are plotted, closed in light gray and opened in cyan. 
-                                    % Note though that plotting the coastlines or the grid makes the figure much heavier
-plot_date           = 1;            % 0 by default, 1 if we want to display the date on the figure
-font_size           = 14;           % Sets font size of colorbar and date
-background_color    = [0.85 0.85 0.85];% white color [1 1 1] by default. A substitute could be gray [0.5 0.5 0.5]
-figure_format       = '-png';        % can be pdf, tiff, png or jpeg
-pic_quality         = '-r300';      % Resolution for eps, pdf, tiff, and png
-visible             = 1;            % we display the figure on the screen (may be set to 0 when generating a large amount of figures)
-show_vec_dirn       = 0;            % if plotting vector magnitude, show the direction as arrows
+%other plot options:
+if exist('plot_options','var')
+   flds  = fieldnames(plot_options);
+   for j=1:length(flds)
+      fld   = flds{j};
+      cmd   = [fld,' = plot_options.',fld,';'];
+      eval(cmd);
+   end
+end
 
-if nargin<6, save_figure = 0; end;     % 0 (default) we do not save the figure
+if ~exist('save_figure','var'),        save_figure = 0; end;
+   % 0 (default) we do not save the figure
+if ~exist('apply_mask','var'),         apply_mask=true; end
+   % If true, apply ice mask
+if ~exist('plot_grid','var'),          plot_grid = 0; end;
+   % If not zero the mesh lines are ploted. If zoomed out only the mesh lines will be visible
+if ~exist('plot_coastlines','var'),    plot_coastlines = 1; end;
+   % When 1 the actual domain boundaries are plotted, closed in light gray and opened in cyan.
+   % Note though that plotting the coastlines or the grid makes the figure much heavier
+if ~exist('plot_date','var'),          plot_date = 1; end;
+   % 0 by default, 1 if we want to display the date on the figure
+if ~exist('font_size','var'),          font_size = 14; end;
+   % Sets font size of colorbar and date
+if ~exist('background_color','var'),   background_color = [0.85,.85,.85]; end;
+   % white color [1 1 1] by default. A substitute could be gray [0.5 0.5 0.5]
+if ~exist('figure_format','var'),      figure_format = '-png'; end;
+   % can be pdf, tiff, png or jpeg
+if ~exist('pic_quality','var'),        pic_quality = '-r300'; end;
+   % Resolution for eps, pdf, tiff, and png
+if ~exist('visible','var'),            visible = 1; end;
+   % we display the figure on the screen (may be set to 0 when generating a large amount of figures)
+if ~exist('show_vec_dirn','var'),      show_vec_dirn = 0; end;
+   % if plotting vector magnitude, show the direction as arrows
 
+     
+if(~isempty(dirname)&& dirname(end)~='/')
+    dirname=[dirname, '/'];
+end
+simul_in=read_simul_in([dirname 'nextsim.log' ],0);
+
+% Deduce the step if step is a string (which we assume is a date)
+if ischar(step)
+    step = (datenum(step) - datenum(simul_in.time_init)) * simul_in.output_per_day;
+    if step<0, error('Date given is before the start of the run'); end
+end
+   
 for p=0:0
 
   if(is_sequential)
@@ -87,11 +133,7 @@ for p=0:0
   else
       [mesh_out,data_out] = neXtSIM_bin_revert(dirname, p, step);
   end
-  
-  if(~isempty(dirname)&& dirname(end)~='/')
-    dirname=[dirname, '/'];
-  end
-  simul_in=read_simul_in([dirname 'nextsim.log' ]); 
+
   
   %reshape
   var_mx=mesh_out.Nodes_x(mesh_out.Elements);
@@ -104,12 +146,17 @@ for p=0:0
   
   %ice mask and water mask extraction
   if(apply_mask)
-    mask=data_out.Concentration;
-    mask_ice=find(mask>0);
-    mask_water=find(mask==0);
+      mask=data_out.Concentration;
+      try
+          mask=mask+data_out.Concentration_thin_ice;
+      catch ME
+      end
+      
+      mask_ice=find(mask>0);
+      mask_water=find(mask==0);
   else
-    mask_ice=1:length(data_out.Concentration);
-    mask_water=[];
+      mask_ice=1:length(data_out.Concentration);
+      mask_water=[];
   end
   
   plot_dirn = 0;
@@ -163,72 +210,19 @@ for p=0:0
   %---------------------------
   % We extract the data fields
   %---------------------------
-  if strcmp(field,'Freezing_Temperature')
-     fld = 'SST';
-     try
-        field_tmp=data_out.(fld);
-     catch ME
-        disp([fld,' not present in ',dirname,'(step=',num2str(step),')']);
-        disp(' ');
-        disp('Available fields are:');
-        disp(' ');
-
-        flds   = fieldnames(data_out);
-        for k=1:length(flds)
-           disp(flds{k});
-        end
-
-        error([fld,' not present in ',dir,'(step=',num2str(step),')']);
-     end
-
-     fld = 'SSS';
-     try
-        field_tmp2=data_out.(fld);
-     catch ME
-        disp([fld,' not present in ',dirname,'(step=',num2str(step),')']);
-        disp(' ');
-        disp('Available fields are:');
-        disp(' ');
-
-        flds   = fieldnames(data_out);
-        for k=1:length(flds)
-           disp(flds{k});
-        end
-
-        error([fld,' not present in ',dir,'(step=',num2str(step),')']);
-     end
-
-     %freezing temp = sst+.055*sss
-     field_tmp = field_tmp+0.055*field_tmp2;
-     field_plotted='Freezing_Temperature';
-  else
-    
-    try
-       field_tmp=data_out.(field);
-    catch ME
-       disp([field,' not present in ',dirname,'(step=',num2str(step),')']);
-       disp(' ');
-       disp('Available fields are:');
-       disp(' ');
-
-       flds   = fieldnames(data_out);
-       for k=1:length(flds)
-          disp(flds{k});
-       end
-
-       error([field,' not present in ',dir,'(step=',num2str(step),')']);
-    end
-  end
+  [field_tmp, field_plotted]=extract_field(field,data_out,dirname,step,simul_in);
 
   % {length(field_tmp),Ne,Nn,2*Nn}
   if(length(field_tmp)==Ne)
-    v{1}=[field_tmp,field_tmp,field_tmp]';
+     % scalar on elements
+     v{1}=[field_tmp,field_tmp,field_tmp]';
   elseif(length(field_tmp)==2*Nn)
-    var_mc=field_tmp(mesh_out.Elements);
-    v{1}=reshape(var_mc,[3,Ne]);
-    var_mc=field_tmp(mesh_out.Elements+Nn);
-    v{2}=reshape(var_mc,[3,Ne]);
-    v{3}=hypot(v{1},v{2});
+     % vector on nodes
+     var_mc=field_tmp(mesh_out.Elements);
+     v{1}=reshape(var_mc,[3,Ne]);
+     var_mc=field_tmp(mesh_out.Elements+Nn);
+     v{2}=reshape(var_mc,[3,Ne]);
+     v{3}=hypot(v{1},v{2});
   elseif(length(field_tmp)==Nn)
     var_mc=field_tmp(mesh_out.Elements);
     v{1}=reshape(var_mc,[3,Ne]);
@@ -288,26 +282,29 @@ for p=0:0
   % We arrange the figure in an "optimal" manner using subfunctions (you can check them out at the bottom of this script)
   %----------------------------------------------------------------------------------------------------------------------
   % We first read in the log file to know which mesh has been used
-  simul_in  = read_simul_in([dirname,'nextsim.log']);
+  simul_in  = read_simul_in([dirname,'nextsim.log'],0);
   %
-  if ~exist(simul_in.mesh_filename)
-     error(['add directory with meshfile ''',simul_in.mesh_filename,''' to path']);
+  if exist(simul_in.mesh_filename)
+      mesh_filename=simul_in.mesh_filename;
+  else
+      mesh_filename='';
+      warning(['add directory with meshfile ''',simul_in.mesh_filename,''' to path']);
   end
-
-  set_region_adjustment(simul_in.mesh_filename,region_of_zoom);
+  
+  set_region_adjustment(mesh_filename,region_of_zoom);
   %
-  set_axis_colormap_colorbar(simul_in.mesh_filename,field_plotted,v,i,region_of_zoom);
+  set_axis_colormap_colorbar(mesh_filename,field_plotted,v,i,region_of_zoom);
   %
-  set_figure_cosmetics(data_out,simul_in.mesh_filename,region_of_zoom,plot_date,background_color,font_size);
+  set_figure_cosmetics(data_out,mesh_filename,region_of_zoom,plot_date,background_color,font_size);
+  
+  %We plot the coastlines and boundaries (optional).
+  if (plot_coastlines == 1 && ~isempty(mesh_filename))
+      disp(['plot the coastline from ' mesh_filename])
+      plot_coastlines_and_boundaries_c(mesh_filename);
+  end;
   
   %We can now color the ocean in blue...
   patch(x(:,mask_water)/1000,y(:,mask_water)/1000,[0 0.021 0.53],'EdgeColor','none');
-  
-  %We plot the coastlines and boundaries (optional).
-  if plot_coastlines == 1
-      disp(['plot the coastline from ' simul_in.mesh_filename])
-      plot_coastlines_and_boundaries_c(simul_in.mesh_filename);
-  end;
   
   %------------------------------
   % We save the figure (optional)
@@ -328,7 +325,6 @@ for p=0:0
 end;
 end
 
-
 function set_axis_colormap_colorbar(mesh_filename,field,v,i,region_of_zoom)
     
     % parula not available on older versions of matlab
@@ -341,12 +337,20 @@ function set_axis_colormap_colorbar(mesh_filename,field,v,i,region_of_zoom)
     end
 
     %We set the axis limits, the colormap and set the name for the colorbar
-    if (strcmp(field,'Concentration'))
+    if exist('contains')
+       CONC    = contains(field,'Concentration','IgnoreCase',true);
+       THICK   = contains(field,'Thickness','IgnoreCase',true);
+    else
+       CONC    = ~isempty(strfind(field,'oncentration'));
+       THICK   = ~isempty(strfind(field,'hickness'));
+    end
+
+    if CONC
         caxis([0 1]);
         load('ice_conc_cmap64.mat')
         colormap(ice_conc_cmap64);
         name_colorbar='Concentration';
-    elseif (strcmp(field,'Thickness'))
+    elseif THICK
         caxis([0, 4]);
         colormap(cmap_def);
         name_colorbar='Thickness (m)';
@@ -387,6 +391,30 @@ function set_axis_colormap_colorbar(mesh_filename,field,v,i,region_of_zoom)
     elseif strcmp(field,'Cohesion')
         colormap(cmap_def);
         name_colorbar='Cohesion (Pa)';
+    elseif strcmp(field,'M_ocean_temp')
+        caxis([-2, 3]);
+        colormap(cmap_def);
+        name_colorbar='Ocean temp (^oC)';
+    elseif strcmp(field,'M_ocean_salt')
+        caxis([29, 35]);
+        colormap(cmap_def);
+        name_colorbar='Ocean salt (psu)';
+    elseif strcmp(field,'SST')
+        caxis([-2, 3]);
+        colormap(cmap_def);
+        name_colorbar='SST (^oC)';
+    elseif strcmp(field,'SSS')
+        caxis([29, 35]);
+        colormap(cmap_def);
+        name_colorbar='SSS (psu)';
+    elseif strcmp(field,'M_tair')
+        caxis([-35, 5]);
+        colormap(cmap_def);
+        name_colorbar='T_{air} (^oC)';
+    elseif strcmp(field,'Dfloe')
+        caxis([0, 300]);
+        colormap(cmap_def);
+        name_colorbar='D_{max} (m)';
     else
         colormap(cmap_def);
         name_colorbar='';

@@ -79,7 +79,7 @@ namespace Nextsim
             // not used: ("simul.init_damage", po::value<std::string>()->default_value( "No-damage" ), "")
             ("simul.init_thickness", po::value<double>()->default_value( 1.0 ), "")
             ("simul.init_concentration", po::value<double>()->default_value( 1.0 ), "")
-            // not used: ("simul.init_thin_max_thickness", po::value<double>()->default_value( 0.1 ), "")
+            ("simul.init_thin_conc", po::value<double>()->default_value( 0. ), "")
             ("simul.init_snow_thickness", po::value<double>()->default_value( 0. ), "")
             // not used: ("simul.init_snow_thin_thickness", po::value<double>()->default_value( 0. ), "")
 
@@ -100,10 +100,12 @@ namespace Nextsim
 
             // simulation
             ("simul.mesh_filename", po::value<std::string>()->default_value( "bigarctic10km.msh" ), "")
+            ("simul.mesh_path", po::value<std::string>()->default_value( "nextsimdir" ), "nextsimdir or simdatadir")
             ("simul.proj_filename", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "")
             ("simul.time_init", po::value<std::string>()->default_value( "2008-Mar-05" ), "")
             ("simul.duration", po::value<double>()->default_value( 1. ), "")
             ("setup.bathymetry-type", po::value<std::string>()->default_value( "etopo" ), "")
+            ("simul.basal_stress-type", po::value<std::string>()->default_value( "lemieux" ), "")
             ("simul.constant_bathymetry", po::value<double>()->default_value( 200. ), "")
             ("simul.timestep", po::value<double>()->default_value( 200. ), "")
             ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "")
@@ -117,10 +119,10 @@ namespace Nextsim
             // not used: ("simul.mooring_grid_file", po::value<std::string>()->default_value( "" ), "")
             ("simul.mooring_output_timestep", po::value<double>()->default_value( 1 ), "days")
 
-            ("simul.iabp_drifters_output_time_step", po::value<double>()->default_value( 0), "days")
-            ("simul.equallyspaced_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days")
-            ("simul.rgps_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days")
-            ("simul.osisaf_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days")
+            ("simul.use_iabp_drifters", po::value<bool>()->default_value( false), "")
+            ("simul.equallyspaced_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days") // must be a multiple of 0.5
+            ("simul.rgps_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days") // must be a multiple of 0.5
+            ("simul.use_osisaf_drifters", po::value<bool>()->default_value( false ), "") 
             
             ("simul.drifter_climit", po::value<double>()->default_value( 0.15 ), "")
             ("simul.drifter_spacing", po::value<double>()->default_value( 10 ), "")
@@ -144,15 +146,13 @@ namespace Nextsim
             ("simul.tract_coef", po::value<double>()->default_value( 5./6 ), "")
             ("simul.compr_strength", po::value<double>()->default_value( 750e+3 ), "Pa")
             ("simul.ridging_exponent", po::value<double>()->default_value( -20. ), "")
+            ("simul.ridge_to_normal_cohesion_ratio", po::value<double>()->default_value( 4. ), "") // Ratio of ridged ice cohesion and compressive strength compared to level ice (1. does nothing)
 
             ("simul.time_relaxation_damage", po::value<double>()->default_value( 28. ), "days")
             ("simul.deltaT_relaxation_damage", po::value<double>()->default_value( 40. ), "Kelvin")
             
             ("simul.undamaged_time_relaxation_sigma", po::value<double>()->default_value( 1e7 ), "seconds") // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
             ("simul.exponent_relaxation_sigma", po::value<double>()->default_value( 4. ), "")              // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
-
-            // ridge tracer
-            ("simul.ridge_h", po::value<double>()->default_value( 3. ), "")
 
             // scaling with respect to horizontal resolution
             ("simul.scale_coef", po::value<double>()->default_value( 0.2 ), "")
@@ -165,11 +165,13 @@ namespace Nextsim
             ("simul.ERAi_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("simul.ECMWF_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("simul.ASR_quad_drag_coef_air", po::value<double>()->default_value( 0.0049 ), "")
+            ("simul.CFSR_quad_drag_coef_air", po::value<double>()->default_value( 0.0017 ), "") // Updated value, based on comparison with OSISAF drift in the free drift case
             ("simul.lin_drag_coef_air", po::value<double>()->default_value( 0. ), "")
             ("simul.quad_drag_coef_water", po::value<double>()->default_value( 0.0055 ), "")
             ("simul.lin_drag_coef_water", po::value<double>()->default_value( 0. ), "")
 
             // basal stress parameterization
+            //("simul.Lemieux_basal_gamma", po::value<double>()->default_value( 10. ), "")
             ("simul.Lemieux_basal_k1", po::value<double>()->default_value( 10. ), "")
             ("simul.Lemieux_basal_k2", po::value<double>()->default_value( 15. ), "")
             ("simul.Lemieux_basal_Cb", po::value<double>()->default_value( 20. ), "")
@@ -183,6 +185,7 @@ namespace Nextsim
              */
 
             ("setup.thermo-type", po::value<std::string>()->default_value( "zero-layer" ), "")
+            ("simul.Qio-type", po::value<std::string>()->default_value( "basic" ), "")
             ("simul.use_thermo_forcing", po::value<bool>()->default_value( true ), "")
             ("simul.albedoW", po::value<double>()->default_value( 0.07 ), "")
             // not used: ("simul.read_hw", po::value<double>()->default_value( 1. ), "")
@@ -199,12 +202,15 @@ namespace Nextsim
             ("simul.PhiF", po::value<double>()->default_value( 4. ), "")
             ("simul.PhiM", po::value<double>()->default_value( 0.5 ), "")
             ("simul.h_thin_max", po::value<double>()->default_value( 0.5 ), "")
-            ("simul.c_thin_max", po::value<double>()->default_value( 1. ), "")
+            ("simul.h_thin_min", po::value<double>()->default_value( 0.05 ), "")
 
             ("simul.drag_ice_t", po::value<double>()->default_value( 1.3e-3 ), "")
             ("simul.drag_ocean_u", po::value<double>()->default_value( 1.1e-3 ), "")
             ("simul.drag_ocean_t", po::value<double>()->default_value( 0.83e-3 ), "")
             ("simul.drag_ocean_q", po::value<double>()->default_value( 1.5e-3 ), "")
+
+            ("simul.diffusivity_sss", po::value<double>()->default_value( 100. ), "") //[m^2/s]
+            ("simul.diffusivity_sst", po::value<double>()->default_value( 100. ), "") //[m^2/s]
 
             ("simul.constant_tair", po::value<double>()->default_value( -25. ), "")
             ("simul.constant_dair", po::value<double>()->default_value( -1. ), "")

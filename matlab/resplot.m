@@ -48,8 +48,8 @@ if(isfield(data_out,'M_dirichlet_flags'))
     
     dirichlet_x=mesh_out.Nodes_x(data_out.M_dirichlet_flags+1);
     dirichlet_y=mesh_out.Nodes_y(data_out.M_dirichlet_flags+1);
-    figure
-    plot(dirichlet_x,dirichlet_y,'.')
+    %figure
+    %plot(dirichlet_x,dirichlet_y,'.')
 end
 
 [nr,nc]= size(var_mx);
