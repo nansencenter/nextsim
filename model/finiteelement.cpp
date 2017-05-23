@@ -1994,6 +1994,8 @@ void
         }
         variable_elt[cpt] += fluxes_source[0] + fluxes_source[1] + fluxes_source[2];                
     }
+    // Cleaning
+    xDelete<double>(old_variable_elt);
 }
 
 int
