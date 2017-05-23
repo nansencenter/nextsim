@@ -5638,6 +5638,24 @@ FiniteElement::readRestart(int step)
         ++cpt;
     }
 
+    // // Pre-processing
+    if(vm["setup.restart_at_rest"].as<bool>())
+    {
+        for (int i=0; i < M_sigma.size(); i++)
+        {
+            M_sigma[i] = 0.;
+        }
+        for (int i=0; i < M_VT.size(); i++)
+        {
+            M_VT[i] = 0.;
+            M_VTM[i] = 0.;
+            M_VTMM[i] = 0.;
+            M_UM[i] = 0.;
+            M_UT[i] = 0.;
+        }
+    }
+    
+
     //for (int i=0; i < M_thick.size(); i++)
     //{
     //  M_thick[i] *= 2.0;

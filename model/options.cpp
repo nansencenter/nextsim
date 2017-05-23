@@ -86,6 +86,7 @@ namespace Nextsim
             // outputs
             ("setup.use_restart", po::value<bool>()->default_value( false ), "")
             ("setup.write_restart", po::value<bool>()->default_value( false ), "")
+            ("setup.restart_at_rest", po::value<bool>()->default_value( false ), "")
             ("setup.restart_time_step", po::value<double>()->default_value( 20 ), "days")
             ("setup.step_nb", po::value<int>()->default_value( 0 ), "")
             ("simul.output_per_day", po::value<int>()->default_value( 4 ), "")
