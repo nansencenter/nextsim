@@ -6539,15 +6539,13 @@ FiniteElement::topazIceOsisafIcesat()
             M_ridge_ratio[i]=0.;
 
         //if either c or h equal zero, we set the others to zero as well
-        if(M_conc[i]<=0.)
-        {
-            M_thick[i]=0.;
-            M_snow_thick[i]=0.;
-        }
-        if(M_thick[i]<=0.)
+        double hi=M_thick[i]/M_conc[i];
+        if ( M_conc[i] < 0.01 || hi < physical::hmin )
         {
             M_conc[i]=0.;
+            M_thick[i]=0.;
             M_snow_thick[i]=0.;
+            M_ridge_ratio[i]=0.;
         }
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
