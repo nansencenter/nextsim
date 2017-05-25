@@ -206,7 +206,7 @@ public:
     std::string name;
     std::string projfilename;
 
-#ifdef OSISAF
+#if defined OASIS
     bool coupled;
 #endif
 };

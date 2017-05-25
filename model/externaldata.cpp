@@ -13,6 +13,9 @@ extern "C"
 {
 #include <mapx.h>
 }
+#if defined OASIS
+#include<oasis_cpp_interface.h>
+#endif
 
 
 /**
@@ -103,7 +106,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             std::vector<double> const& RY_in, const double current_time)
 #ifdef OASIS
 {
-    this->check_and_reload(RX_in, Y_in, current_time, -1);
+    this->check_and_reload(RX_in, RY_in, current_time, -1);
 }
 
 void ExternalData::check_and_reload(std::vector<double> const& RX_in,
@@ -291,11 +294,11 @@ ExternalData::getVector()
 
 #ifdef OASIS
 void
-ExternalData::recieveCouplingData(Dataset *dataset)
+ExternalData::recieveCouplingData(Dataset *dataset, int cpl_time)
 {
         // ierror = OASIS3::get_2d(var_id[1], pcpt*time_step, &field2_recv[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
         for(int j=0; j<dataset->vectorial_variables.size(); ++j)
-            int ierror = OASIS3::get_2d(M_VariableId, pcpt*time_step, &dataset->variables[j].loaded_data[0][0], dataset->grid.dimension_x_count, dataset->grid.dimension_y_count);
+            int ierror = OASIS3::get_2d(M_VariableId, cpl_time, &dataset->variables[j].loaded_data[0][0], dataset->grid.dimension_x_count, dataset->grid.dimension_y_count);
 }
 #endif
 

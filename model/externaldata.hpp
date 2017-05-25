@@ -90,7 +90,7 @@ public:
     void loadDataset(Dataset *dataset, std::vector<double> const& RX,
             std::vector<double> const& RY );
 
-#ifdef OASIS
+#if defined OASIS
     void check_and_reload(std::vector<double> const& RX_in,
             std::vector<double> const& RY_in, const double current_time, const int cpl_time);
 #endif
@@ -106,8 +106,8 @@ public:
         std::vector<double> & RX_out, std::vector<double> & RY_out,
         mapx_class *mapNextsim);//(double const& u, double const& v)
     
-#ifdef OASIS
-    void recieveCouplingData(Dataset *dataset);
+#if defined OASIS
+    void recieveCouplingData(Dataset *dataset, int cpl_time);
 #endif
 
 #if 0

@@ -202,6 +202,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=0.;
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "asr_elements") == 0)
     {
@@ -431,6 +434,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=0.;         
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "topaz_nodes") == 0)
     {
@@ -617,6 +623,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=1.; // days
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "topaz_elements") == 0)
     {
@@ -791,6 +800,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=1.; // days
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "topaz_forecast_nodes") == 0)
     {
@@ -975,6 +987,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=1.; // days
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "topaz_forecast_elements") == 0)
     {
@@ -1197,6 +1212,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=1.; // days
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "ice_topaz_elements") == 0)
     {
@@ -1371,6 +1389,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=1.; // days
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "ice_piomas_elements") == 0)
     {
@@ -1535,6 +1556,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=365./12; // days
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "ice_amsre_elements") == 0)
     {
@@ -1666,6 +1690,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=1.; // days
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "ice_osisaf_elements") == 0)
     {
@@ -1813,6 +1840,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=1.; // days
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
      }
      else if (strcmp (DatasetName, "ice_osisaf_type_elements") == 0)
      {
@@ -1944,6 +1974,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=1.; // days
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
      }
      else if (strcmp (DatasetName, "ice_smos_elements") == 0)
      {
@@ -2075,6 +2108,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         
         averaging_period=1.; // days
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "ice_cs2_smos_elements") == 0)
     {
@@ -2196,6 +2232,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         interpolated=false;
 
         averaging_period=1.; // days
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "ice_amsr2_elements") == 0)
     {
@@ -2334,6 +2373,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
          averaging_period=365./12; // days
          time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
      }
      else if (strcmp (DatasetName, "ice_icesat_elements") == 0)
      {
@@ -2438,6 +2480,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         interpolated=false;
 
         averaging_period=0.; // days
+#ifdef OASIS
+        coupled = false;
+#endif
      }
     else if (strcmp (DatasetName, "etopo_elements") == 0)
     {
@@ -2556,6 +2601,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         interpolated=false;
 
         averaging_period=0.;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "cfsr_elements") == 0)
     {
@@ -2789,6 +2837,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=0.;
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "cfsr_nodes") == 0)
     {
@@ -2958,6 +3009,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=0.;
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "cfsr_nodes_hi") == 0)
     {
@@ -3126,6 +3180,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=0.;
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "ERAi_elements") == 0)
     {
@@ -3361,6 +3418,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
          averaging_period=0.;
          time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "ERAi_nodes") == 0)
     {
@@ -3527,6 +3587,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=0.;
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "ec_elements") == 0)
     {
@@ -3716,6 +3779,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
          averaging_period=0.;
          time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "cfsr_nodes") == 0)
     {
@@ -3884,6 +3950,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
           averaging_period=0.;
           time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "cfsr_nodes_hi") == 0)
     {
@@ -4052,6 +4121,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
           averaging_period=0.;
           time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "ec_nodes") == 0)
     {
@@ -4220,6 +4292,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=0.;
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "ww3a_elements") == 0)
     {
@@ -4462,6 +4537,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         averaging_period=0.;
 
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "erai_waves_1deg_elements") == 0)
     {
