@@ -119,6 +119,8 @@ for i = steps(1):skip:steps(end)
     
     mask_DRA = inpolygon(elementx,elementy,x_DRA,y_DRA);
     mask_ICE = inpolygon(elementx,elementy,x_ICE,y_ICE);
+    mask_GCB = inpolygon(elementx,elementy,x_GCB,y_GCB);
+    mask_GC = inpolygon(elementx,elementy,x_GC,y_GC);
     mask_SSMI  = element_lat <= 87.24;
     mask_AMSRE = element_lat <= 89.24;
 
@@ -127,6 +129,8 @@ for i = steps(1):skip:steps(end)
     vice(k)   = simul_out.h'*simul_out.surface;
     vice_DRA(k)   = simul_out.h(mask_DRA)'*simul_out.surface(mask_DRA);
     vice_ICE(k)   = simul_out.h(mask_ICE)'*simul_out.surface(mask_ICE);
+    vice_GCB(k)   = simul_out.h(mask_GCB)'*simul_out.surface(mask_GCB);
+    vice_GC(k)   = simul_out.h(mask_GC)'*simul_out.surface(mask_GC);
 
     area(k)       = simul_out.c'*simul_out.surface;
     area_SSMI(k)  = simul_out.c(mask_SSMI)'*simul_out.surface(mask_SSMI);
@@ -139,7 +143,9 @@ for i = steps(1):skip:steps(end)
     vsnow(k)     = simul_out.hs'*simul_out.surface;
 end
 
-save(outputfile, 'directory', 'vice', 'area', 'extent', 'vsnow', 't', 'vice_ICE', 'vice_DRA', 'area_SSMI', 'area_AMSRE', 'extent_SSMI', 'extent_AMSRE')
+save(outputfile, 'directory', 'vice', 'area', 'extent', 'vsnow', 't', ...
+    'vice_ICE', 'vice_DRA', 'vice_GCB', 'vice_GC', ...
+    'area_SSMI', 'area_AMSRE', 'extent_SSMI', 'extent_AMSRE')
 
 end
 
