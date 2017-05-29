@@ -313,6 +313,11 @@ FiniteElement::initDatasets()
             M_ocean_nodes_dataset=DataSet("topaz_nodes",M_num_nodes);
             M_ocean_elements_dataset=DataSet("topaz_elements",M_num_elements);
             break;
+            
+        case setup::OceanType::TOPAZR_ALTIMETER:
+            M_ocean_nodes_dataset=DataSet("ocean_currents_nodes",M_num_nodes);
+            M_ocean_elements_dataset=DataSet("topaz_elements",M_num_elements);
+            break;
 
         case setup::OceanType::TOPAZF:
             M_ocean_nodes_dataset=DataSet("topaz_forecast_nodes",M_num_nodes);
@@ -610,7 +615,8 @@ FiniteElement::initConstant()
         ("constant", setup::OceanType::CONSTANT)
         ("topaz", setup::OceanType::TOPAZR)
         ("topaz_atrest", setup::OceanType::TOPAZR_atrest)
-        ("topaz_forecast", setup::OceanType::TOPAZF);
+        ("topaz_forecast", setup::OceanType::TOPAZF)
+        ("topaz_altimeter", setup::OceanType::TOPAZR_ALTIMETER);
     M_ocean_type = str2ocean.find(vm["setup.ocean-type"].as<std::string>())->second;
 
     //std::cout<<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
@@ -5978,6 +5984,30 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             // SYL: there was a capping of the mld at minimum vm["simul.constant_mld"].as<double>()
             // but Einar said it is not necessary, so it is not implemented
     		break;
+            
+        case setup::OceanType::TOPAZR_ALTIMETER:
+            M_ocean=ExternalData(
+                &M_ocean_nodes_dataset, M_mesh, 0, true,
+            time_init, vm["simul.spinup_duration"].as<double>());
+            M_external_data.push_back(&M_ocean);
+
+            M_ssh=ExternalData(
+                &M_ocean_nodes_dataset, M_mesh, 2, false,
+            time_init, vm["simul.spinup_duration"].as<double>());
+            M_external_data.push_back(&M_ssh);
+
+            M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
+            M_external_data.push_back(&M_ocean_temp);
+
+            M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
+            M_external_data.push_back(&M_ocean_salt);
+
+            M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
+            M_external_data.push_back(&M_mld);
+            // SYL: there was a capping of the mld at minimum vm["simul.constant_mld"].as<double>()
+            // but Einar said it is not necessary, so it is not implemented
+            break;
+            
         case setup::OceanType::TOPAZR_atrest:
             M_ocean=ExternalData(
                 vm["simul.constant_ocean_v"].as<double>(),
@@ -6118,6 +6148,7 @@ FiniteElement::initSlabOcean()
         case setup::OceanType::TOPAZR:
         case setup::OceanType::TOPAZR_atrest:
         case setup::OceanType::TOPAZF:
+        case setup::OceanType::TOPAZR_ALTIMETER:
             for ( int i=0; i<M_num_elements; ++i)
             {
                 // Make sure the erroneous salinity and temperature don't screw up the initialisation too badly
