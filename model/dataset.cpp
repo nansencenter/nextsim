@@ -1660,7 +1660,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
                 //interp_type : NearestInterpEnum,
 
                 dirname:"data",
-                prefix: "ENV_current_",
+                prefix: "current_",
                 postfix:".nc",
                 reference_date: "1950-01-01",
 
