@@ -2488,7 +2488,11 @@ FiniteElement::assemble(int pcpt)
                 }
             } 
 
-            coef = multiplicator*young*(1.-M_damage[cpt])*M_thick[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+            if(young>0.) // EB rheology
+                coef = multiplicator*young*(1.-M_damage[cpt])*M_thick[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+            else // Linear viscous rheology where nominal viscosity is defined as -young*time_step
+                coef = -young*M_thick[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+            
             coef = (coef<coef_min) ? coef_min : coef ;
 
             if (vm["simul.use_coriolis"].as<bool>())
@@ -3117,7 +3121,7 @@ FiniteElement::update()
          * Update the internal stress
          *======================================================================
          */
-        if( (M_conc[cpt] > vm["simul.min_c"].as<double>()) && (M_thick[cpt] > vm["simul.min_h"].as<double>()) )
+        if( (M_conc[cpt] > vm["simul.min_c"].as<double>()) && (M_thick[cpt] > vm["simul.min_h"].as<double>()) && (young>0.))
         {
 
         double damaging_exponent = ridging_exponent;
