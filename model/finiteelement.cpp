@@ -3043,6 +3043,10 @@ FiniteElement::update()
 
         // ridging scheme
         double opening_factor=((1.-M_conc[cpt])>G_star) ? 0. : std::pow(1.-(1.-M_conc[cpt])/G_star,2.);
+
+        // opening factor set to 0 for viscous case.
+        opening_factor=(young>0.) ? opening_factor : 0.; 
+
         //open_water_concentration += time_step*0.5*(delta_ridging-divergence_rate)*opening_factor;
         open_water_concentration += time_step*0.5*shear_rate/e_factor*opening_factor;
         
