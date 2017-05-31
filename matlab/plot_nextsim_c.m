@@ -358,6 +358,9 @@ function set_axis_colormap_colorbar(mesh_filename,field,v,i,region_of_zoom)
         caxis([0, 1e5]);
         colormap(cmap_def);
         name_colorbar='Lambda (s)';
+    elseif (strcmp(field,'Ridge_ratio'))
+        caxis([0, 1]);
+        name_colorbar='Ridge_ratio ()';
    elseif (strcmp(field,'Viscosity'))
         caxis([0, 1e11]);
         colormap(cmap_def);
