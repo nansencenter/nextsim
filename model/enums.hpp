@@ -30,7 +30,8 @@ namespace setup
 		TOPAZR   = 1,
 		TOPAZF   = 2,
 		MITGCM   = 3,
-		TOPAZR_atrest   = 4
+		TOPAZR_atrest   = 4,
+        TOPAZR_ALTIMETER   = 5
     };
 
     enum class IceType
