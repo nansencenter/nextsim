@@ -147,6 +147,9 @@ namespace Nextsim
             ("simul.compr_strength", po::value<double>()->default_value( 750e+3 ), "Pa")
             ("simul.ridging_exponent", po::value<double>()->default_value( -20. ), "")
             ("simul.ridge_to_normal_cohesion_ratio", po::value<double>()->default_value( 4. ), "") // Ratio of ridged ice cohesion and compressive strength compared to level ice (1. does nothing)
+            // Scaling of cohesion w.r.t. ice thickness (normalisation factor = 1 and exponent = 0 does nothing)
+            ("simul.cohesion_thickness_normalisation", po::value<double>()->default_value( 3. ), "")
+            ("simul.cohesion_thickness_exponent", po::value<double>()->default_value( 1. ), "")
 
             ("simul.time_relaxation_damage", po::value<double>()->default_value( 28. ), "days")
             ("simul.deltaT_relaxation_damage", po::value<double>()->default_value( 40. ), "Kelvin")
@@ -266,6 +269,13 @@ namespace Nextsim
              * MODULES
              * -----------------------------------------------------------------------------------
              */
+#if defined(OASIS)
+            ("coupler.timestep", po::value<double>()->default_value( 3600. ), "") // The coupling time step
+            ("coupler.with_ocean", po::value<bool>()->default_value( false ), "") // Do we couple with an ocean model
+            ("coupler.atm_from_ocean", po::value<bool>()->default_value( false ), "") // Do we get atmospheric state from the ocean model
+            ("coupler.with_waves", po::value<bool>()->default_value( false ), "") // Do we couple with a wave model
+            ("coupler.with_atm", po::value<bool>()->default_value( false ), "")  // Do we couple with an atmospheric model
+#endif
 
 #if defined(WAVES)
             ("simul.use_wim", po::value<bool>()->default_value( false ), "")

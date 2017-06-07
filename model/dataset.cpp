@@ -202,6 +202,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=0.;
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "asr_elements") == 0)
     {
@@ -431,6 +434,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=0.;         
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "topaz_nodes") == 0)
     {
@@ -617,6 +623,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=1.; // days
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "topaz_elements") == 0)
     {
@@ -791,6 +800,375 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=1.; // days
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
+    }
+    else if (strcmp (DatasetName, "topaz_cpl_nodes") == 0)
+    {
+        // Definition of topaz grid and datasets
+        Dimension dimension_x={
+            name:"x",
+            cyclic:false
+        };
+
+        Dimension dimension_y={
+            name:"y",
+            cyclic:false
+        };
+
+        Dimension dimension_time={
+            name:"time",
+            cyclic:false
+        };
+
+        Dimension dimension_depth={
+            name:"depth",
+            cyclic:false
+        };
+
+        std::vector<Dimension> dimensions_uv(4);
+        dimensions_uv[0] = dimension_time;
+        dimensions_uv[1] = dimension_depth;
+        dimensions_uv[2] = dimension_y;
+        dimensions_uv[3] = dimension_x;
+
+        std::vector<Dimension> dimensions(3);
+        dimensions[0] = dimension_time;
+        dimensions[1] = dimension_y;
+        dimensions[2] = dimension_x;
+
+        std::vector<Dimension> dimensions_latlon(2);
+        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[1] = dimension_x;
+
+        std::vector<Dimension> dimensions_time(1);
+        dimensions_time[0] = dimension_time;
+
+        Variable latitude={
+            name: "latitude",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a: 1.,
+            b: 0.,
+            Units: "degree_north",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none};
+
+        Variable longitude={
+            name: "longitude",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a: 1.,
+            b: 0.,
+            Units: "degree_east",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none};
+
+        Variable time_tmp={
+            name: "time",
+            dimensions: dimensions_time,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a: 1.,
+            b: 12., // to center the time on the middle of the day
+            Units: "hours",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none};
+
+        Variable u={
+            name: "u",
+            dimensions: dimensions_uv,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a: 1.,
+            b: 0.,
+            Units: "m/s",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable v={
+            name: "v",
+            dimensions: dimensions_uv,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a: 1.,
+            b: 0.,
+            Units: "m/s",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable ssh={
+            name: "ssh",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a: 1.,
+            b: 0.,
+            Units: "m/s",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Grid grid_tmp={
+            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interp_type: -1,
+            dirname: "data",
+            prefix: "TP4DAILY_",
+            postfix: "_30m.nc",
+            reference_date: "1950-01-01",
+
+            latitude: latitude,
+            longitude: longitude,
+
+            dimension_x: dimension_x,
+            dimension_y: dimension_y,
+
+            mpp_file: projfilename,
+            interpolation_in_latlon: false,
+            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+
+            loaded: false,
+            dataset_frequency:"monthly",
+            target_location:"mesh_nodes",
+
+            waveOptions: wavopt_none,
+
+            masking: true,
+            masking_variable: ssh
+        };
+
+        std::vector<Variable> variables_tmp(3);
+        variables_tmp[0] = u;
+        variables_tmp[1] = v;
+        variables_tmp[2] = ssh;
+
+        std::vector<int> uv_tmp(2);
+        uv_tmp[0] = 0;
+        uv_tmp[1] = 1;
+
+        Vectorial_Variable uv={
+            components_Id: uv_tmp,
+            east_west_oriented: false
+                // if false, then we assume it is oriented
+                // following the mpp_file defined for the grid
+        };
+
+        std::vector<Vectorial_Variable> vectorial_variables_tmp(1);
+        vectorial_variables_tmp[0] = uv;
+
+        variables= variables_tmp;
+        vectorial_variables= vectorial_variables_tmp;
+        target_size= target_size_tmp;
+        grid= grid_tmp;
+
+        loaded=false;
+        interpolated=false;
+
+        averaging_period=1.; // days
+        time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
+    }
+    else if (strcmp (DatasetName, "topaz_cpl_elements") == 0)
+    {
+        // Definition of topaz grid and datasets
+        Dimension dimension_x={
+            name:"x",
+            cyclic:false
+        };
+
+        Dimension dimension_y={
+            name:"y",
+            cyclic:false
+        };
+
+        Dimension dimension_time={
+            name:"time", // "Time"
+            cyclic:false
+        };
+
+        Dimension dimension_depth={
+            name:"depth", // "Time"
+            cyclic:false
+        };
+
+        std::vector<Dimension> dimensions_uv(4);
+        dimensions_uv[0] = dimension_time;
+        dimensions_uv[1] = dimension_depth;
+        dimensions_uv[2] = dimension_y;
+        dimensions_uv[3] = dimension_x;
+
+        std::vector<Dimension> dimensions(3);
+        dimensions[0] = dimension_time;
+        dimensions[1] = dimension_y;
+        dimensions[2] = dimension_x;
+
+        std::vector<Dimension> dimensions_latlon(2);
+        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[1] = dimension_x;
+
+        std::vector<Dimension> dimensions_time(1);
+        dimensions_time[0] = dimension_time;
+
+        Variable latitude={
+            name: "latitude",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a: 1.,
+            b: 0.,
+            Units: "degree_north",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none};
+
+        Variable longitude={
+            name: "longitude",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a: 1.,
+            b: 0.,
+            Units: "degree_east",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none};
+
+        Variable time_tmp={
+            name: "time",
+            dimensions: dimensions_time,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a: 1.,
+            b: 12., // to center the time on the middle of the day
+            Units: "hours",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none};
+
+        Variable sst={
+            name: "temperature",
+            dimensions: dimensions_uv,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a: 1.,
+            b: 0.,
+            Units: "deg celsius",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable sss={
+            name: "salinity",
+            dimensions: dimensions_uv,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a: 1.,
+            b: 0.,
+            Units: "",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable mld={
+            name: "mlp",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a: 1.,
+            b: 0.,
+            Units: "m",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Grid grid_tmp={
+            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interp_type: -1,
+            dirname: "data",
+            prefix: "TP4DAILY_",
+            postfix: "_3m.nc",
+            reference_date: "1950-01-01",
+
+            latitude: latitude,
+            longitude: longitude,
+
+            dimension_x: dimension_x,
+            dimension_y: dimension_y,
+
+            mpp_file: projfilename,
+            interpolation_in_latlon: false,
+            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+
+            loaded: false,
+            dataset_frequency:"monthly",
+            target_location:"mesh_elements",
+
+            waveOptions: wavopt_none,
+
+            masking: true,
+            masking_variable: sss
+        };
+
+        std::vector<Variable> variables_tmp(3);
+        variables_tmp[0] = sst;
+        variables_tmp[1] = sss;
+        variables_tmp[2] = mld;
+
+        std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+        variables= variables_tmp;
+        vectorial_variables= vectorial_variables_tmp;
+        target_size= target_size_tmp;
+        grid= grid_tmp;
+
+        loaded=false;
+        interpolated=false;
+
+        averaging_period=1.; // days
+        time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "topaz_forecast_nodes") == 0)
     {
@@ -975,6 +1353,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=1.; // days
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "topaz_forecast_elements") == 0)
     {
@@ -1197,6 +1578,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=1.; // days
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "ice_topaz_elements") == 0)
     {
@@ -1371,6 +1755,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=1.; // days
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "ice_piomas_elements") == 0)
     {
@@ -1535,6 +1922,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=365./12; // days
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "ocean_currents_nodes") == 0)
     {
@@ -1842,6 +2232,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=1.; // days
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "ice_osisaf_elements") == 0)
     {
@@ -1989,6 +2382,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=1.; // days
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
      }
      else if (strcmp (DatasetName, "ice_osisaf_type_elements") == 0)
      {
@@ -2120,6 +2516,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=1.; // days
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
      }
      else if (strcmp (DatasetName, "ice_smos_elements") == 0)
      {
@@ -2251,6 +2650,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         
         averaging_period=1.; // days
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "ice_cs2_smos_elements") == 0)
     {
@@ -2372,6 +2774,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         interpolated=false;
 
         averaging_period=1.; // days
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "ice_amsr2_elements") == 0)
     {
@@ -2510,6 +2915,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
          averaging_period=365./12; // days
          time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
      }
      else if (strcmp (DatasetName, "ice_icesat_elements") == 0)
      {
@@ -2614,6 +3022,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         interpolated=false;
 
         averaging_period=0.; // days
+#ifdef OASIS
+        coupled = false;
+#endif
      }
     else if (strcmp (DatasetName, "etopo_elements") == 0)
     {
@@ -2732,6 +3143,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         interpolated=false;
 
         averaging_period=0.;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "cfsr_elements") == 0)
     {
@@ -2965,6 +3379,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=0.;
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "cfsr_nodes") == 0)
     {
@@ -3134,6 +3551,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=0.;
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "cfsr_nodes_hi") == 0)
     {
@@ -3302,6 +3722,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=0.;
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "ERAi_elements") == 0)
     {
@@ -3537,6 +3960,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
          averaging_period=0.;
          time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "ERAi_nodes") == 0)
     {
@@ -3703,6 +4129,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=0.;
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "ec_elements") == 0)
     {
@@ -3892,6 +4321,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
          averaging_period=0.;
          time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "cfsr_nodes") == 0)
     {
@@ -4060,6 +4492,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
           averaging_period=0.;
           time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "cfsr_nodes_hi") == 0)
     {
@@ -4228,6 +4663,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
           averaging_period=0.;
           time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "ec_nodes") == 0)
     {
@@ -4396,6 +4834,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         averaging_period=0.;
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "ww3a_elements") == 0)
     {
@@ -4638,6 +5079,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         averaging_period=0.;
 
         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
     }
     else if (strcmp (DatasetName, "erai_waves_1deg_elements") == 0)
     {
@@ -4879,6 +5323,8 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         fprintf (stderr, "cfsr_nodes_hi\n");
         fprintf (stderr, "topaz_nodes\n");
         fprintf (stderr, "topaz_elements\n");
+        fprintf (stderr, "topaz_cpl_nodes\n");
+        fprintf (stderr, "topaz_cpl_elements\n");
         fprintf (stderr, "ice_topaz_elements\n");
         fprintf (stderr, "ice_amsre_elements\n");
         fprintf (stderr, "ice_osisaf_elements\n");

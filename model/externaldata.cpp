@@ -13,6 +13,9 @@ extern "C"
 {
 #include <mapx.h>
 }
+#if defined OASIS
+#include<oasis_cpp_interface.h>
+#endif
 
 
 /**
@@ -101,6 +104,14 @@ ExternalData::~ExternalData()
 //void ExternalData::check_and_reload(GmshMesh const& mesh, const double current_time)
 void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             std::vector<double> const& RY_in, const double current_time)
+#ifdef OASIS
+{
+    this->check_and_reload(RX_in, RY_in, current_time, -1);
+}
+
+void ExternalData::check_and_reload(std::vector<double> const& RX_in,
+            std::vector<double> const& RY_in, const double current_time, const int cpl_time)
+#endif
 {
     M_current_time = current_time;
 
@@ -123,11 +134,18 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
         else
             to_be_reloaded=((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp) || !M_dataset->loaded);            
 
+#ifdef OASIS
+        // We call oasis_get every time step, but only actually recieve data at coupling times
+        if (M_dataset->coupled)
+            recieveCouplingData(M_dataset, cpl_time);
+#endif
+
         if (to_be_reloaded)
         {
             std::cout << "Load " << M_datasetname << "\n";
             //loadDataset(M_dataset, mesh);
             loadDataset(M_dataset, RX_in, RY_in);
+            transformData(M_dataset);
             std::cout << "Done\n";
 
             //need to interpolate again if reloading
@@ -274,6 +292,16 @@ ExternalData::getVector()
 	return vector_tmp;
 }
 
+#ifdef OASIS
+void
+ExternalData::recieveCouplingData(Dataset *dataset, int cpl_time)
+{
+        // ierror = OASIS3::get_2d(var_id[1], pcpt*time_step, &field2_recv[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
+        for(int j=0; j<dataset->vectorial_variables.size(); ++j)
+            int ierror = OASIS3::get_2d(M_VariableId, cpl_time, &dataset->variables[j].loaded_data[0][0], dataset->grid.dimension_x_count, dataset->grid.dimension_y_count);
+}
+#endif
+
 void
 //ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const& u, double const& v)
 ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
@@ -292,7 +320,6 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 	strNextsim.push_back('\0');
 	mapNextsim = init_mapx(&strNextsim[0]);
 
-    double cos_m_diff_angle, sin_m_diff_angle;
     if(dataset->grid.mpp_file!="")
     {
         mapx_class *map;
@@ -313,9 +340,6 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     {
         dataset->rotation_angle=0.;
     }
-
-    cos_m_diff_angle=std::cos(-dataset->rotation_angle);
-    sin_m_diff_angle=std::sin(-dataset->rotation_angle);
 
     // ---------------------------------
     // Projection of the mesh positions into the coordinate system of the data before the interpolation
@@ -350,6 +374,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 		}
 	}
 #endif
+
+    // closing maps
+    close_mapx(mapNextsim);
 
     double RX_min=*std::min_element(RX.begin(),RX.end());
     double RX_max=*std::max_element(RX.begin(),RX.end());
@@ -699,6 +726,11 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 dataset->variables[j].loaded_data[fstep][i]=tmp_data_i;
             }
         }
+    }
+
+    dataset->nb_forcing_step=nb_forcing_step;
+    dataset->loaded=true;
+}
     
 
         // ---------------------------------
@@ -707,6 +739,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     
         // Transformation of the vectorial variables from the coordinate system of the data to the polar stereographic projection used in the model
         // Once we are in the polar stereographic projection, we can do spatial interpolation without bothering about the North Pole
+void
+ExternalData::transformData(Dataset *dataset)
+{
 
         double tmp_data0, tmp_data1, new_tmp_data0, new_tmp_data1;
         double tmp_data0_deg, tmp_data1_deg;
@@ -720,6 +755,41 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         double delta_r=10.; // 10m. This value needs to be small.
         double delta_x,delta_y,delta_lon,delta_lat;
 
+    // ---------------------------------
+    // Define the mapping and rotation_angle
+    mapx_class *mapNextsim;
+    std::string configfileNextsim = (boost::format( "%1%/%2%/%3%" )
+                              % Environment::nextsimDir().string()
+                              % "data"
+                              % Environment::vm()["simul.proj_filename"].as<std::string>()
+                              ).str();
+
+    std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
+    strNextsim.push_back('\0');
+    mapNextsim = init_mapx(&strNextsim[0]);
+
+    double cos_m_diff_angle, sin_m_diff_angle;
+    cos_m_diff_angle=std::cos(-dataset->rotation_angle);
+    sin_m_diff_angle=std::sin(-dataset->rotation_angle);
+
+    // size of the data
+    int M        = dataset->grid.dimension_y_count;
+    int N        = dataset->grid.dimension_x_count;
+    int MN       = M*N;
+    int final_MN = MN;
+
+    if(dataset->grid.reduced_nodes_ind.size()!=0)
+    {
+        if((dataset->grid.dimension_y.cyclic) || (dataset->grid.dimension_x.cyclic))
+            throw std::runtime_error("Using reduced grid and cyclic grid at the same time is not yet implemented");
+
+        final_MN=dataset->grid.reduced_nodes_ind.size();
+    }
+
+
+    //std::cout<<"Start loading data\n";
+    for (int fstep=0; fstep < dataset->nb_forcing_step; ++fstep) // always need one step before and one after the target time
+    {
         for(int j=0; j<dataset->vectorial_variables.size(); ++j)
         {
             j0=dataset->vectorial_variables[j].components_Id[0];
@@ -999,9 +1069,6 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
     // closing maps
     close_mapx(mapNextsim);
-
-    dataset->nb_forcing_step=nb_forcing_step;
-    dataset->loaded=true;
 }   
 
 

@@ -100,9 +100,11 @@ public:
         t2          = 12,
         h_thin      = 13,
         hs_thin     = 14,
+        conc_thin   = 15,
 
         // Diagnostic variables
-        conc_thin   = 100
+        Qa          = 100,
+        Qo          = 101,
     };
 
     typedef struct Variable
@@ -120,6 +122,8 @@ public:
                     stdName  = "land_sea_mask";
                     Units    = "1";
                     break;
+
+                // Prognostic variables
                 case (variableID::conc):
                     name     = "sic";
                     longName = "Sea Ice Concentration";
@@ -214,6 +218,20 @@ public:
                     longName = "Surface Snow Thickness on thin ice";
                     stdName  = "surface_snow_thickness_on_thin_ice";
                     Units    = "m";
+                    break;
+
+                // Diagnostic variables
+                case (variableID::Qa):
+                    name     = "hfs";
+                    longName = "Surface Upward Heatflux In Air";
+                    stdName  = "surface_upward_heatflux_in_air";
+                    Units    = "W m-2";
+                    break;
+                case (variableID::Qo):
+                    name     = "hfos";
+                    longName = "Surface Upward Heatflux In Ocean";
+                    stdName  = "surface_upward_heatflux_in_ocean";
+                    Units    = "W m-2";
                     break;
             }
         }
