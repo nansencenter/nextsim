@@ -3175,9 +3175,7 @@ FiniteElement::update()
         sigma_t=-sigma_c/q;
 
         /* minimum and maximum normal stress */
-        // tract_max=-tract_coef*effective_cohesion/tan_phi; // this is the case we assume tensile strnegth is influenced by the ridged
-        // tract_max=-tract_coef*M_Cohesion[cpt]/tan_phi; // this is in the case we assume the tensile strength does not depend on the ridges
-        tract_max=-tract_coef*M_Cohesion[cpt]/tan_phi*scale_coef; // this is in the case we assume the tensile strength does not depend on the ridges and depends as a quadratic function to the scale factor, as the cohesion is already multiplied by scale_factor, we just multiply once more by the scale_factor.
+        tract_max=-tract_coef*effective_cohesion/tan_phi;
 
         /* Correction of the damage */
         if(sigma_n>effective_compressive_strength)
