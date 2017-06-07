@@ -3192,8 +3192,12 @@ FiniteElement::update()
         sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
 
         double ridge_to_normal_cohesion_ratio=vm["simul.ridge_to_normal_cohesion_ratio"].as<double>();
-        double effective_cohesion=M_Cohesion[cpt]*(1. + M_ridge_ratio[cpt]*(ridge_to_normal_cohesion_ratio-1.) );
-        double effective_compressive_strength=M_Compressive_strength[cpt]*(1. + M_ridge_ratio[cpt]*(ridge_to_normal_cohesion_ratio-1.) );
+        double norm_factor=vm["simul.cohesion_thickness_normalisation"].as<double>();
+        double exponent=vm["simul.cohesion_thickness_exponent"].as<double>();
+        double mult_factor = pow(M_thick[cpt],exponent)/norm_factor*(1. + M_ridge_ratio[cpt]*(ridge_to_normal_cohesion_ratio-1.) );
+
+        double effective_cohesion = mult_factor * M_Cohesion[cpt];
+        double effective_compressive_strength = mult_factor * M_Compressive_strength[cpt];
 
         q=std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
         sigma_c=2.*effective_cohesion/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
