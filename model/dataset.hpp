@@ -205,6 +205,10 @@ public:
     // name of the dataSet
     std::string name;
     std::string projfilename;
+
+#if defined OASIS
+    bool coupled;
+#endif
 };
 
 } // Nextsim

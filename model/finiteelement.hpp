@@ -122,9 +122,11 @@ public:
 
     void thermo();
     void thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfr,
-            double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf);
+            double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf,
+            double &Qai);
     void thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfr,
-            double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double &T1, double &T2);
+            double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double &T1, double &T2,
+            double &Qai);
     double albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, double alb_ice, double I_0);
     void atmFluxBulk(int i, double Tsurf, double sphuma, double drag_ice_t, double Qsw, double Qlw_in, double wspeed,
             double &Qai, double &dQaidT, double &subl);
@@ -198,6 +200,8 @@ public:
     void exportInitMesh();
     void exportResults(int step,
             bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
+    void exportResults(std::string const name_str,
+            bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
     void exportResults(std::vector<std::string> const &filenames,
             bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
 
@@ -253,6 +257,7 @@ private:
     setup::IceType M_ice_type;
     setup::WaveType M_wave_type;
     setup::BathymetryType M_bathymetry_type;
+    setup::BasalStressType M_basal_stress_type;
     setup::ThermoType M_thermo_type;
 
     setup::IceCategoryType M_ice_cat_type;
@@ -494,8 +499,8 @@ private:
     // Coupling with OASIS
     GridOutput M_cpl_out;
     std::vector<int> var_id;
-    double cpl_time_factor;
     int cpl_time_step;
+    void initOASIS();
 #endif
 
 private:
@@ -527,8 +532,14 @@ private:
     void initMoorings();
 
     void redistributeVariables(double* interp_elt_out,int nb_var);
-    int collectVariables(double** interp_elt_in_ptr, int** interp_elt_method, int num_elements);
-    void advect(double** interp_elt_out_ptr,double* interp_elt_in,int* interp_method,int nb_var);
+    int collectVariables(double** interp_elt_in_ptr, int** interp_elt_method, double** diffusivity_parameters, int num_elements);
+    void advect (double** interp_elt_out_ptr,double* interp_elt_in, int* interp_method, int nb_var);
+    void diffuse(double* variable_elt, double diffusivity_parameters, double dx);
+
+    // Diagnostic variables
+    std::vector<double> D_Qo; // Heat loss from ocean [W/m2]
+    std::vector<double> D_Qa; // Heat loss to atmosphere [W/m2]
+    
 
 };
 } // Nextsim

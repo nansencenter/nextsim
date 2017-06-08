@@ -2,11 +2,11 @@ function plot_coastlines_and_boundaries_c(mesh_filename)
 % The files defining the domain are on /Data/sim/data/mesh and have to be
 % in your matlab path
 
-fprintf('Coastlines are being loaded from the file ''%s'' ...\r',mesh_filename)
+% fprintf('Coastlines are being loaded from the file ''%s'' ...\r',mesh_filename)
 if(strcmp(mesh_filename(end-3:end),'.msh'))
     mesh=msh2mat_c(mesh_filename);
 elseif(strcmp(mesh_filename(end-3:end),'.mat'))
-    load mesh_filename;
+    load(mesh_filename);
 end;
 
 if isfield(mesh,'flags')
