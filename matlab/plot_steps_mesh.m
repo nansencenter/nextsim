@@ -46,7 +46,7 @@ if ~isfield(plot_options,'apply_mask')
    plot_options.apply_mask = apply_mask;
 end
 if ~isfield(plot_options,'save_figure')
-   plot_options.apply_mask = save_figure;
+   plot_options.save_figure = save_figure;
 end
 
 outdir   = [rootdir,'/mesh']

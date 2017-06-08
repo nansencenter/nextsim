@@ -1,5 +1,28 @@
-function [mesh,element]=msh2mat_c(filename)
+function [mesh,element]=msh2mat_c(filename,options)
+% CALL:  [mesh,element]=msh2mat_c(filename,options)
 % Read a .msh file and create mesh and element
+% For speed next time, saves mesh and element to a .mat file
+% This matfile is not used if options.OVER_WRITE=1 (default=0),
+% and not saved if options.SAVE_MATFILE=0 (default=1)
+if exist('options','var')
+   fields   = fieldnames(options);
+   for n=1:length(fields)
+      fld   = fields{n};
+      eval([fld,'=options.',fld,';']);
+   end
+   clear options fields fld;
+end
+
+%set default options, if not passed in
+if ~exist('OVER_WRITE'  ,'var'); OVER_WRITE   = 0; end
+if ~exist('SAVE_MATFILE','var'); SAVE_MATFILE = 1; end
+
+matfile  = strrep(which(filename),'.msh','.mat');
+if exist(matfile,'file')&~OVER_WRITE
+   disp(['Using ',matfile,' instead of ',filename]);
+   load(matfile);
+   return;
+end
 
 fid=fopen(filename);
 Stop  = 0;
@@ -84,6 +107,9 @@ mesh.boundary.from_msh=mesh.boundary.from_msh(1:ind_bc-1,:);
 
 % number of elements
 mesh.Ne=ind_el-1;
-
+if SAVE_MATFILE
+   disp(['Saving ',matfile]);
+   save(matfile,'mesh','element');
+end
 return
 

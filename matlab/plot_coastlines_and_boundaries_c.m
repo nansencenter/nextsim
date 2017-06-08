@@ -5,40 +5,46 @@ function plot_coastlines_and_boundaries_c(mesh_filename)
 fprintf('Coastlines are being loaded from the file ''%s'' ...\r',mesh_filename)
 if(strcmp(mesh_filename(end-3:end),'.msh'))
     mesh=msh2mat_c(mesh_filename);
-    if ~isfield(mesh,'flags')
-       flag_boundary_fix=1;
-       flag_boundary_free=2;
-       % these may need to be changed depending on the meshfile (here works for the new meshes created with gmsh)
-       % - otherwise it may be easier to manually edit the mesh file,
-       %   adding the following lines (with the correct values for open and coast)
-       %   underneath $EndMeshFormat
-       %
-       % $PhysicalNames
-       % 2
-       % 1 10001 "open"
-       % 1 10000 "coast"
-       % $EndPhysicalNames
-    else
-       flag_boundary_fix=mesh.flags.coast;
-       flag_boundary_free=mesh.flags.open;
-    end
 elseif(strcmp(mesh_filename(end-3:end),'.mat'))
     load mesh_filename;
-    flag_boundary_fix=10001;  %may need to be changed depending on the meshfile (here works with the old TOPAZ and MIT meshes)
-    flag_boundary_free=10002; %may need to be changed depending on the meshfile (here works with the old TOPAZ and MIT meshes)
 end;
+
+if isfield(mesh,'flags')
+   flag_boundary_fix=mesh.flags.coast;
+   flag_boundary_free=mesh.flags.open;
+   % mesh.flags comes from running msh2mat_c.m on .msh file,
+   % which reads the following lines (with the correct values for open and coast)
+   % underneath $EndMeshFormat:
+   %
+   % $PhysicalNames
+   % 2
+   % 1 10001 "open"
+   % 1 10000 "coast"
+   % $EndPhysicalNames
+   %
+   % If they are not present, could manually edit the .msh file, then rerun
+else
+   flags   = sort(unique(mesh.boundary.from_msh(:,3)));
+
+   %may need to be changed depending on the meshfile (most have free = fix+1)
+   flag_boundary_fix=flags(1);
+   flag_boundary_free=flags(2);
+end
 
 boundary   = mesh.boundary.from_msh;
 node_lat   = mesh.node.lat;
 node_lon   = mesh.node.lon;
+
 %Selecting closed boundaries
 fix = find(flag_boundary_fix==boundary(:,3));
+
 %Selecting free boundaries
 free   = [];
 for loop_i=1:length(flag_boundary_free)
     fbf = flag_boundary_free(loop_i);
     free= [free;find(fbf==boundary(:,3))];
 end
+
 closed_boundaryLat  = node_lat(boundary(fix ,1:2,1))';
 closed_boundaryLon  = node_lon(boundary(fix ,1:2,1))';
 free_boundaryLat = node_lat(boundary(free ,1:2,1))';
@@ -65,14 +71,4 @@ plot(closed_boundaryX,closed_boundaryY,'Color',[0.3 0.3 0.3],'LineWidth',0.2);
 %Plotting open mesh boundaries
 plot(free_boundaryX,free_boundaryY,'g','LineWidth',2);
 
-%-----------------------------------------------------------------------------------
-
-% elseif (strcmp(domain,'topaz'))
-%     load topazreducedsplit2.mat
-% elseif (strcmp(domain,'topaz_matthias'))
-%     load topaz_matthias_split2.mat
-% elseif (strcmp(domain,'mitgcm4km'))
-%     load MITgcm4kmsplit2.mat
-% elseif (strcmp(domain,'mitgcm9km'))
-%     load MITgcm9kmsplit2.mat
-end
+return;
