@@ -46,3 +46,14 @@ for year in {2005..2017}
 	do
 		ln -s $NEXTSIM_DATADIR/OSISAF_ice_type/$year/*/*.nc .
 	done
+for year in {2005..2017}
+	do
+		TMP_DATADIR=$NEXTSIM_DATADIR/OSISAF_ice_conc/polstere/${year}_nh_polstere
+        	
+		echo $TMP_DATADIR
+		if [ -d "$TMP_DATADIR" ]; then
+                # Control will enter here if $DIRECTORY exists.
+			ln -s $TMP_DATADIR/*.nc .
+        	fi
+
+	done
