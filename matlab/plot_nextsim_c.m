@@ -496,7 +496,7 @@ function set_region_adjustment(mesh_filename,region_of_zoom)
         if ~isempty(region_of_zoom)
             %%Then we adjust depending on chosen region to zoom in
             if strcmp(region_of_zoom,'framstrait')
-                axis([100 1550 -1850 100]);
+                axis([100 1700 -1250 100]);
             elseif strcmp(region_of_zoom,'naresstrait')
                 axis([-400 100 -950 -450]);
             elseif strcmp(region_of_zoom,'karagate')
