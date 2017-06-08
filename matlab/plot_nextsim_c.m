@@ -284,7 +284,7 @@ for p=0:0
   % We first read in the log file to know which mesh has been used
   simul_in  = read_simul_in([dirname,'nextsim.log'],0);
   %
-  if exist(simul_in.mesh_filename)
+  if exist(simul_in.mesh_filename,'file')
       mesh_filename=simul_in.mesh_filename;
   else
       mesh_filename='';
@@ -301,6 +301,7 @@ for p=0:0
   if (plot_coastlines == 1 && ~isempty(mesh_filename))
       disp(['plot the coastline from ' mesh_filename])
       plot_coastlines_and_boundaries_c(mesh_filename);
+      disp(' ');
   end;
   
   %We can now color the ocean in blue...
@@ -358,6 +359,9 @@ function set_axis_colormap_colorbar(mesh_filename,field,v,i,region_of_zoom)
         caxis([0, 1e5]);
         colormap(cmap_def);
         name_colorbar='Lambda (s)';
+    elseif (strcmp(field,'Ridge_ratio'))
+        caxis([0, 1]);
+        name_colorbar='Ridge_ratio ()';
    elseif (strcmp(field,'Viscosity'))
         caxis([0, 1e11]);
         colormap(cmap_def);
