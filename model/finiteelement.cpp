@@ -3194,7 +3194,7 @@ FiniteElement::update()
         double ridge_to_normal_cohesion_ratio=vm["simul.ridge_to_normal_cohesion_ratio"].as<double>();
         double norm_factor=vm["simul.cohesion_thickness_normalisation"].as<double>();
         double exponent=vm["simul.cohesion_thickness_exponent"].as<double>();
-        double mult_factor = pow(M_thick[cpt],exponent)/norm_factor*(1. + M_ridge_ratio[cpt]*(ridge_to_normal_cohesion_ratio-1.) );
+        double mult_factor = std::pow(M_thick[cpt]/norm_factor,exponent)*(1. + M_ridge_ratio[cpt]*(ridge_to_normal_cohesion_ratio-1.) );
 
         double effective_cohesion = mult_factor * M_Cohesion[cpt];
         double effective_compressive_strength = mult_factor * M_Compressive_strength[cpt];
