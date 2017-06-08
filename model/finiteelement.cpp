@@ -3203,7 +3203,7 @@ FiniteElement::update()
         double ridge_to_normal_cohesion_ratio=vm["simul.ridge_to_normal_cohesion_ratio"].as<double>();
         double norm_factor=vm["simul.cohesion_thickness_normalisation"].as<double>();
         double exponent=vm["simul.cohesion_thickness_exponent"].as<double>();
-        double mult_factor = pow(M_thick[cpt],exponent)/norm_factor*(1. + M_ridge_ratio[cpt]*(ridge_to_normal_cohesion_ratio-1.) );
+        double mult_factor = std::pow(M_thick[cpt]/norm_factor,exponent)*(1. + M_ridge_ratio[cpt]*(ridge_to_normal_cohesion_ratio-1.) );
 
         double effective_cohesion = mult_factor * M_Cohesion[cpt];
         double effective_compressive_strength = mult_factor * M_Compressive_strength[cpt];
@@ -5667,6 +5667,24 @@ FiniteElement::readRestart(int step)
         M_surface[cpt] = this->measure(*it,M_mesh,M_UM);
         ++cpt;
     }
+
+    // // Pre-processing
+    if(vm["setup.restart_at_rest"].as<bool>())
+    {
+        for (int i=0; i < M_sigma.size(); i++)
+        {
+            M_sigma[i] = 0.;
+        }
+        for (int i=0; i < M_VT.size(); i++)
+        {
+            M_VT[i] = 0.;
+            M_VTM[i] = 0.;
+            M_VTMM[i] = 0.;
+            M_UM[i] = 0.;
+            M_UT[i] = 0.;
+        }
+    }
+    
 
     //for (int i=0; i < M_thick.size(); i++)
     //{
