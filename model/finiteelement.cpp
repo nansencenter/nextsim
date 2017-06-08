@@ -2520,8 +2520,13 @@ FiniteElement::assemble(int pcpt)
             if(young>0.) // EB rheology
                 coef = multiplicator*young*(1.-M_damage[cpt])*M_thick[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt]));
             else // Linear viscous rheology where nominal viscosity is defined as -young*time_step
-                coef = -young*M_thick[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt]));
-            
+            {
+
+                double norm_factor=vm["simul.cohesion_thickness_normalisation"].as<double>();
+                double exponent=vm["simul.cohesion_thickness_exponent"].as<double>();
+                double mult_factor = std::pow(M_thick[cpt]/norm_factor,exponent);
+                coef = -young*M_thick[cpt]*mult_factor*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+            }
             coef = (coef<coef_min) ? coef_min : coef ;
 
             if (vm["simul.use_coriolis"].as<bool>())
