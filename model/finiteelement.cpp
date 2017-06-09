@@ -242,6 +242,7 @@ FiniteElement::initVariables()
     // Diagnostics
     D_Qa.resize(M_num_elements);
     D_Qo.resize(M_num_elements);
+    D_delS.resize(M_num_elements);
 
 }//end initVariables
 
@@ -1436,6 +1437,7 @@ FiniteElement::regrid(bool step)
             // Diagnostics
 			D_Qa.assign(M_num_elements,0.);
 			D_Qo.assign(M_num_elements,0.);
+			D_delS.assign(M_num_elements,0.);
 
 #if defined (WAVES)
             bool nfloes_interp = M_use_wim;
@@ -1774,6 +1776,8 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var)
 		tmp_nb_var++;
 		D_Qa[i] = interp_elt_out[nb_var*i+tmp_nb_var];
 		tmp_nb_var++;
+		D_delS[i] = interp_elt_out[nb_var*i+tmp_nb_var];
+		tmp_nb_var++;
 
 		if(tmp_nb_var!=nb_var)
 		{
@@ -2026,7 +2030,7 @@ int
 FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_ptr, double** diffusivity_parameters_ptr, int prv_num_elements)
 {
     // ELEMENT INTERPOLATION With Cavities
-	int nb_var=17 + M_tice.size();
+	int nb_var=18 + M_tice.size();
 
 #if defined (WAVES)
     // coupling with wim
@@ -2186,6 +2190,12 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
 
 		// Diagnostics - Heatflux from ocean
 		interp_elt_in[nb_var*i+tmp_nb_var] = D_Qo[i];
+        interp_method[tmp_nb_var] = 1;
+        diffusivity_parameters[tmp_nb_var]=0.;
+		tmp_nb_var++;
+
+		// Diagnostics - Saltflux to ocean
+		interp_elt_in[nb_var*i+tmp_nb_var] = D_delS[i];
         interp_method[tmp_nb_var] = 1;
         diffusivity_parameters[tmp_nb_var]=0.;
 		tmp_nb_var++;
@@ -3204,7 +3214,14 @@ FiniteElement::update()
         double ridge_to_normal_cohesion_ratio=vm["simul.ridge_to_normal_cohesion_ratio"].as<double>();
         double norm_factor=vm["simul.cohesion_thickness_normalisation"].as<double>();
         double exponent=vm["simul.cohesion_thickness_exponent"].as<double>();
-        double mult_factor = std::pow(M_thick[cpt]/norm_factor,exponent)*(1. + M_ridge_ratio[cpt]*(ridge_to_normal_cohesion_ratio-1.) );
+        
+	double hi=0.; 
+        if(M_conc[cpt]>0.1)
+            hi = M_thick[cpt]/M_conc[cpt];
+	else
+	    hi = M_thick[cpt]/0.1;
+
+        double mult_factor = std::pow(hi/norm_factor,exponent)*(1. + M_ridge_ratio[cpt]*(ridge_to_normal_cohesion_ratio-1.) );
 
         double effective_cohesion = mult_factor * M_Cohesion[cpt];
         double effective_compressive_strength = mult_factor * M_Compressive_strength[cpt];
@@ -3770,6 +3787,7 @@ FiniteElement::thermo()
         double denominator= ( tmp_mld*physical::rhow - del_vi*physical::rhoi - ( del_vs*physical::rhos + (emp-Fdw)*time_step) );
         denominator = ( denominator > 1.*physical::rhow ) ? denominator : 1.*physical::rhow;        
 
+        double sss_old = M_sss[i];
         M_sss[i] = M_sss[i] + ( (M_sss[i]-physical::si)*physical::rhoi*del_vi + M_sss[i]*(del_vs*physical::rhos + (emp-Fdw)*time_step) )
             / denominator;
 
@@ -3807,6 +3825,8 @@ FiniteElement::thermo()
         D_Qo[i] = Qio_mean + Qow_mean;
         // Total heat flux to the atmosphere
         D_Qa[i] = Qai*old_conc + Qai_thin*old_conc_thin + Qow_mean;
+        // Salt release into the ocean - kg/day
+        D_delS[i] = (M_sss[i] - sss_old)*physical::rhow*tmp_mld/time_step;
 
     }// end for loop
 }// end thermo function
@@ -5239,6 +5259,10 @@ FiniteElement::updateMeans(GridOutput &means, double time_factor)
                 for (int i=0; i<M_num_elements; i++)
                     it->data_mesh[i] += D_Qo[i]*time_factor;
                 break;
+            case (GridOutput::variableID::delS):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += D_delS[i]*time_factor;
+                break;
 
             default: std::logic_error("Updating of given variableID not implimented (elements)");
         }
@@ -5279,13 +5303,15 @@ FiniteElement::initMoorings()
     GridOutput::Variable snow(GridOutput::variableID::snow, data_elements, data_grid);
     GridOutput::Variable Qa(GridOutput::variableID::Qa, data_elements, data_grid);
     GridOutput::Variable Qo(GridOutput::variableID::Qo, data_elements, data_grid);
+    GridOutput::Variable delS(GridOutput::variableID::delS, data_elements, data_grid);
 
-    std::vector<GridOutput::Variable> elemental_variables(5);
+    std::vector<GridOutput::Variable> elemental_variables(6);
     elemental_variables[0] = conc;
     elemental_variables[1] = thick;
     elemental_variables[2] = snow;
     elemental_variables[3] = Qa;
     elemental_variables[4] = Qo;
+    elemental_variables[5] = delS;
     if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
     {
         GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin, data_elements, data_grid);
