@@ -706,6 +706,7 @@ FiniteElement::initConstant()
 
     M_mesh_type = str2mesh.find(M_mesh_filename)->second;
 #endif
+    M_domain_type = setup::DomainType::ARCTIC;
 
     if (M_mesh_filename.find("split") != std::string::npos)
     {
