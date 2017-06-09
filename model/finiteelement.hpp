@@ -539,6 +539,7 @@ private:
     // Diagnostic variables
     std::vector<double> D_Qo; // Heat loss from ocean [W/m2]
     std::vector<double> D_Qa; // Heat loss to atmosphere [W/m2]
+    std::vector<double> D_delS; // Salt flux to ocean
     
 
 };

@@ -105,6 +105,7 @@ public:
         // Diagnostic variables
         Qa          = 100,
         Qo          = 101,
+        delS        = 102,
     };
 
     typedef struct Variable
@@ -232,6 +233,12 @@ public:
                     longName = "Surface Upward Heatflux In Ocean";
                     stdName  = "surface_upward_heatflux_in_ocean";
                     Units    = "W m-2";
+                    break;
+                case (variableID::delS):
+                    name     = "sfo";
+                    longName = "Downward Saltflux In Ocean";
+                    stdName  = "downward_slatflux_in_ocean";
+                    Units    = "s-1";
                     break;
             }
         }
