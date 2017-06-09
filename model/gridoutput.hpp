@@ -238,7 +238,7 @@ public:
                     name     = "sfo";
                     longName = "Downward Saltflux In Ocean";
                     stdName  = "downward_slatflux_in_ocean";
-                    Units    = "s-1";
+                    Units    = "kg m-2 s-1";
                     break;
             }
         }

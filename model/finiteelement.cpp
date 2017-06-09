@@ -3808,8 +3808,8 @@ FiniteElement::thermo()
         D_Qo[i] = Qio_mean + Qow_mean;
         // Total heat flux to the atmosphere
         D_Qa[i] = Qai*old_conc + Qai_thin*old_conc_thin + Qow_mean;
-        // Salt release into the ocean
-        D_delS[i] = (M_sss[i] - sss_old)/time_step;
+        // Salt release into the ocean - kg/day
+        D_delS[i] = (M_sss[i] - sss_old)*physical::rhow*tmp_mld/time_step;
 
     }// end for loop
 }// end thermo function
