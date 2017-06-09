@@ -5294,7 +5294,7 @@ FiniteElement::initMoorings()
     elemental_variables[2] = snow;
     elemental_variables[3] = Qa;
     elemental_variables[4] = Qo;
-    elemental_variables[4] = delS;
+    elemental_variables[5] = delS;
     if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
     {
         GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin, data_elements, data_grid);
