@@ -484,7 +484,7 @@ std::string GridOutput::initNetCDF(std::string file_prefix, fileLength file_leng
     filename << ".nc";
 
     // Create the netCDF file.
-    LOG(DEBUG) <<"Initialise mooring file named " << filename.str() << "\n";
+    //LOG(DEBUG) <<"Initialise mooring file named " << filename.str() << "\n";
     netCDF::NcFile dataFile(filename.str(), netCDF::NcFile::replace);
 
     // Create the time dimension
