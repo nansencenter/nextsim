@@ -424,7 +424,7 @@ void
 FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
         double const& CRtime, std::string const& printout)
 {
-    std::cout<<"size of external data vector = "<<ext_data_vec.size()<<"\n";
+    //std::cout<<"size of external data vector = "<<ext_data_vec.size()<<"\n";
     if ( ext_data_vec.size()==0 )
     {
         LOG(DEBUG) <<"check_and_reload ("<<printout<<"):\n";
