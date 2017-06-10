@@ -4577,7 +4577,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -179.875,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"daily",
@@ -4699,7 +4699,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         // Definition of dimensions
         Dimension dimension_x={
             name:"lon",
-            cyclic:false
+            cyclic:true
         };
 
         Dimension dimension_y={
@@ -4766,7 +4766,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -179.875,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
 
