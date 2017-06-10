@@ -186,10 +186,12 @@ public:
     Variable time;
 
     std::vector<double> ftime_range;
+            
+    std::string getFilename(Grid *grid, double init_time, double current_time); 
 
-    void loadGrid(Grid *grid, int current_time);
+    void loadGrid(Grid *grid, double init_time, double current_time);
 
-    void loadGrid(Grid *grid, int current_time, double RX_min, double RX_max, double RY_min, double RY_max);
+    void loadGrid(Grid *grid, double init_time, double current_time, double RX_min, double RX_max, double RY_min, double RY_max);
 
     void getLatLonRegularLatLon(double* LAT, double* LON,
                                   netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);

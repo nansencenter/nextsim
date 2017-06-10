@@ -386,7 +386,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     // ---------------------------------
     // Load grid if unloaded
     if(!dataset->grid.loaded)
-        dataset->loadGrid(&(dataset->grid), M_current_time, RX_min, RX_max, RY_min, RY_max);
+        dataset->loadGrid(&(dataset->grid), M_StartingTime, M_current_time, RX_min, RX_max, RY_min, RY_max);
 
     // ---------------------------------
 	std::vector<double> XTIME(1);
@@ -423,7 +423,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
     // Define variables for this scope
     double ftime, time_prev, time_next;
-    std::string filename, filename_prev, filename_next;
+    std::string filename;
+    std::string filename_prev="";
+    std::string filename_next="";
     std::vector<int> file_jump;
 
 	int index = 0;
@@ -438,6 +440,11 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     // Filename depends on the date for time varying data
 	if(dataset->grid.dataset_frequency!="constant" && dataset->grid.dataset_frequency!="nearest_daily")
 	{
+        std::string init_timestr="";
+
+        if(dataset->grid.dataset_frequency=="daily_forecast")
+            init_timestr = to_date_string_yd(M_StartingTime-1.);//yyyymmdd
+        
         // when using forcing from a forecast, we select the file based on the StartingTime
         if ((dataset->grid.prefix).find("start") != std::string::npos)
         {
@@ -494,7 +501,17 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
             std::cout <<"F_TIMESTR= "<< f_timestr <<"\n";
 
-            filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
+            if(dataset->grid.dataset_frequency=="daily_forecast")
+                filename = (boost::format( "%1%/%2%/%3%%4%%5%%6%" )
+                        % Environment::simdataDir().string()
+                        % dataset->grid.dirname
+                        % f_timestr
+                        % dataset->grid.prefix
+                        % init_timestr
+                        % dataset->grid.postfix
+                        ).str();
+            else
+                filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                         % Environment::simdataDir().string()
                         % dataset->grid.dirname
                         % dataset->grid.prefix
@@ -569,11 +586,22 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             }
         }
 
-        filename_fstep.push_back(filename_prev);
-        index_fstep.push_back(index_prev);
+        if(filename_prev!="")
+        {
+            filename_fstep.push_back(filename_prev);
+            index_fstep.push_back(index_prev);
+        }
+        else
+            throw std::runtime_error("Not found a a file for before current_date!");
+            
 
-        filename_fstep.push_back(filename_next);
-        index_fstep.push_back(index_next);
+        if(filename_prev!="")
+        {
+            filename_fstep.push_back(filename_next);
+            index_fstep.push_back(index_next);
+        }
+        else
+            throw std::runtime_error("Not found a a file for after current_date!");
 
 		dataset->ftime_range.resize(0);
 		dataset->ftime_range.push_back(time_prev);
@@ -609,7 +637,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     // Initialise counters etc.
 	int nb_forcing_step =filename_fstep.size();
 
-    //std::cout<<"Start loading data\n";
+    std::cout<<"Start loading data\n";
     for (int fstep=0; fstep < nb_forcing_step; ++fstep) // always need one step before and one after the target time
     {
         filename=filename_fstep[fstep];
@@ -625,6 +653,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         // Load each variable and copy its data into loaded_data
         for(int j=0; j<dataset->variables.size(); ++j)
         {
+            std::cout<<"variables number:" << j  << "\n";
             if ((dataset->variables[j].wavDirOptions.isWavDir)
                     &&(!dataset->variables[j].wavDirOptions.xComponent))
             {
@@ -675,7 +704,14 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             	index_start[0] = index;
             	index_count[0] = 1;
 			}
-
+            
+            // depth dimension
+			if(dataset->variables[j].dimensions.size()>3)
+			{
+            	index_start[1] = 0;
+            	index_count[1] = 1;
+			}
+            
             // Reading the netcdf
             NcVars[j].getVar(index_start,index_count,&data_in_tmp[0]);    
                 
@@ -733,12 +769,8 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 }
     
 
-        // ---------------------------------
-    
-        //std::cout<<"Start transformation of the data\n";
-    
-        // Transformation of the vectorial variables from the coordinate system of the data to the polar stereographic projection used in the model
-        // Once we are in the polar stereographic projection, we can do spatial interpolation without bothering about the North Pole
+// Transformation of the vectorial variables from the coordinate system of the data to the polar stereographic projection used in the model
+// Once we are in the polar stereographic projection, we can do spatial interpolation without bothering about the North Pole
 void
 ExternalData::transformData(Dataset *dataset)
 {
@@ -787,11 +819,12 @@ ExternalData::transformData(Dataset *dataset)
     }
 
 
-    //std::cout<<"Start loading data\n";
+    std::cout<<"Start transforming the data\n";
     for (int fstep=0; fstep < dataset->nb_forcing_step; ++fstep) // always need one step before and one after the target time
     {
         for(int j=0; j<dataset->vectorial_variables.size(); ++j)
         {
+
             j0=dataset->vectorial_variables[j].components_Id[0];
             j1=dataset->vectorial_variables[j].components_Id[1];
 
@@ -1119,7 +1152,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
 {
     // ---------------------------------
     // Spatial interpolation
-    //std::cout<<"Spatial interpolation of the data\n";
+    std::cout<<"Spatial interpolation of the data\n";
     
     // size of the data
     int M  = dataset->grid.dimension_y_count;
@@ -1156,7 +1189,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
     }
     
     // Collect all the data before the interpolation
-    //std::cout << "Collect the ivariables before interpolation:" <<"\n";
+    std::cout << "Collect the ivariables before interpolation:" <<"\n";
     std::vector<double> data_in(dataset->variables.size()*dataset->nb_forcing_step*final_MN);
     
     for (int fstep=0; fstep < dataset->nb_forcing_step; ++fstep)
@@ -1209,7 +1242,6 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
     // (either the lat,lon projection or a polar stereographic projection with another rotaion angle (for ASR))
     // we should need to that also for the TOPAZ native grid, so that we could use a gridtomesh, now we use the latlon of the TOPAZ grid
 
-    //std::cout << "RX, RY:" <<"\n";
     // Define the mapping and rotation_angle
 	mapx_class *mapNextsim;
 	std::string configfileNextsim = (boost::format( "%1%/%2%/%3%" )
@@ -1254,7 +1286,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
     close_mapx(mapNextsim);
 
 
-    //std::cout << "Interpolation:" <<"\n";
+    std::cout << "Interpolation:" <<"\n";
     
     double* data_out;
     
