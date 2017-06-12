@@ -456,6 +456,21 @@ function set_axis_colormap_colorbar(mesh_filename,field,v,i,region_of_zoom)
         c.Position=cpos;    
         set(get(c,'title'),'string',name_colorbar);
     
+    elseif (~isempty(strfind(mesh_filename,'FramStrait')) && isempty(region_of_zoom))
+        colorbar_Xposition=0.37;%(position in the left/right direction. to be modified by hand to your convenience)
+        colorbar_Yposition=0.15;
+        width_scale_factor=0.5;%(width of the colorbar. to be modified to your convenience)
+        height_scale_factor=0.3;%(height of the colorbar. to be modified to your convenience)
+        % We add a colorbar
+        c=colorbar;
+        cpos = c.Position;
+        cpos(1) = colorbar_Xposition;
+        cpos(2) = colorbar_Yposition;
+        cpos(3) = width_scale_factor*cpos(3);
+        cpos(4) = height_scale_factor*cpos(4);
+        c.Position=cpos;    
+        set(get(c,'title'),'string',name_colorbar);    
+        
     else
         % We add a colorbar (settings below are (at least) good for MITgcm or Topaz setups)
         c=colorbar;
@@ -466,6 +481,8 @@ function set_region_adjustment(mesh_filename,region_of_zoom)
         %%first we adjust depending on the domain
         if ~isempty(strfind(mesh_filename,'small_arctic'))
             axis([-2400 1800 -1400 2200]);
+        elseif ~isempty(strfind(mesh_filename,'FramStrait'))
+            axis([-350 1300 -1950 250]);
         elseif ~isempty(strfind(mesh_filename,'topaz'))
             axis([-2800 3800 -4800 2250]);
         elseif ~isempty(strfind(mesh_filename,'mitgcm4km')) || ~isempty(strfind(mesh_filename,'mitgcm9km'))
@@ -500,7 +517,7 @@ function set_region_adjustment(mesh_filename,region_of_zoom)
         if ~isempty(region_of_zoom)
             %%Then we adjust depending on chosen region to zoom in
             if strcmp(region_of_zoom,'framstrait')
-                axis([100 1700 -1250 100]);
+                axis([-350 1300 -1950 250]);
             elseif strcmp(region_of_zoom,'naresstrait')
                 axis([-400 100 -950 -450]);
             elseif strcmp(region_of_zoom,'karagate')
@@ -532,6 +549,8 @@ function set_figure_cosmetics(data_out,mesh_filename,region_of_zoom,plot_date,ba
                 text(0.1, 0.03,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
             elseif ~isempty(strfind(mesh_filename,'topaz_matthias')) || ~isempty(strfind(mesh_filename,'small_arctic'))
                 text(0.027, 0.95,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
+            elseif ~isempty(strfind(mesh_filename,'FramStrait'))
+                text(0.05, 0.95,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
             else
                 text(0.2, 0.95,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
             end;
