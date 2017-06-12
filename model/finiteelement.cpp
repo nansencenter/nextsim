@@ -3819,14 +3819,16 @@ FiniteElement::thermo()
 #if 0
         if ( M_thick[i] > 0. )
         {
-            double C = physical::ki*M_snow_thick[i]/(physical::ks*M_thick[i]);
             double Tbot = -physical::mu*M_sss[i];
+            double C;
             switch (M_thermo_type)
             {
                 case (setup::ThermoType::ZERO_LAYER):
+                    C = physical::ki*M_snow_thick[i]/(physical::ks*M_thick[i]);
                     deltaT = std::max(1e-36, Tbot - M_tice[0][i] ) / ( 1. + C );
                     break;
                 case (setup::ThermoType::WINTON):
+                    C = physical::ki*M_snow_thick[i]/(physical::ks*M_thick[i]/4.);
                     deltaT = std::max(1e-36, Tbot + C*(Tbot-M_tice[1][i]) - M_tice[0][i] ) / ( 1. + C );
                     break;
                 default:
