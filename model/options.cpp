@@ -152,8 +152,8 @@ namespace Nextsim
             ("simul.cohesion_thickness_normalisation", po::value<double>()->default_value( 3. ), "")
             ("simul.cohesion_thickness_exponent", po::value<double>()->default_value( 1. ), "")
 
-            ("simul.time_relaxation_damage", po::value<double>()->default_value( 28. ), "days")
-            ("simul.deltaT_relaxation_damage", po::value<double>()->default_value( 40. ), "Kelvin")
+            ("simul.time_relaxation_damage", po::value<double>()->default_value( 25. ), "days")
+            ("simul.deltaT_relaxation_damage", po::value<double>()->default_value( 20. ), "Kelvin")
             
             ("simul.undamaged_time_relaxation_sigma", po::value<double>()->default_value( 1e7 ), "seconds") // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
             ("simul.exponent_relaxation_sigma", po::value<double>()->default_value( 4. ), "")              // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
