@@ -1209,6 +1209,12 @@ FiniteElement::regrid(bool step)
     		{
     			LOG(WARNING) << "substeps will be needed for the remeshing!" <<"\n";
     			LOG(WARNING) << "Warning: It is probably due to very high ice speed, check your fields!\n";
+               
+                 std::string tmp_string3    = (boost::format( "substeping_time_step_%1%_substep_%2%" )
+                               % step
+                               % substep ).str();
+            
+                this->exportResults(tmp_string3, true, true, false);
     		}
 
 	        chrono.restart();
