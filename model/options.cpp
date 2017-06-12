@@ -87,7 +87,7 @@ namespace Nextsim
             ("setup.use_restart", po::value<bool>()->default_value( false ), "")
             ("setup.write_restart", po::value<bool>()->default_value( false ), "")
             ("setup.restart_at_rest", po::value<bool>()->default_value( false ), "")
-            ("setup.restart_time_step", po::value<double>()->default_value( 20 ), "days")
+            ("setup.restart_time_step", po::value<double>()->default_value( 15 ), "days")
             ("setup.step_nb", po::value<int>()->default_value( 0 ), "")
             ("simul.output_per_day", po::value<int>()->default_value( 4 ), "")
             ("simul.output_directory", po::value<std::string>()->default_value( "" ), "")
@@ -147,12 +147,12 @@ namespace Nextsim
             ("simul.tract_coef", po::value<double>()->default_value( 5./6 ), "")
             ("simul.compr_strength", po::value<double>()->default_value( 750e+3 ), "Pa")
             ("simul.ridging_exponent", po::value<double>()->default_value( -20. ), "")
-            ("simul.ridge_to_normal_cohesion_ratio", po::value<double>()->default_value( 4. ), "") // Ratio of ridged ice cohesion and compressive strength compared to level ice (1. does nothing)
+            ("simul.ridge_to_normal_cohesion_ratio", po::value<double>()->default_value( 1. ), "") // Ratio of ridged ice cohesion and compressive strength compared to level ice (1. does nothing)
             // Scaling of cohesion w.r.t. ice thickness (normalisation factor = 1 and exponent = 0 does nothing)
-            ("simul.cohesion_thickness_normalisation", po::value<double>()->default_value( 3. ), "")
+            ("simul.cohesion_thickness_normalisation", po::value<double>()->default_value( 1. ), "")
             ("simul.cohesion_thickness_exponent", po::value<double>()->default_value( 1. ), "")
 
-            ("simul.time_relaxation_damage", po::value<double>()->default_value( 28. ), "days")
+            ("simul.time_relaxation_damage", po::value<double>()->default_value( 25. ), "days")
             ("simul.deltaT_relaxation_damage", po::value<double>()->default_value( 40. ), "Kelvin")
             
             ("simul.undamaged_time_relaxation_sigma", po::value<double>()->default_value( 1e7 ), "seconds") // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
@@ -169,7 +169,7 @@ namespace Nextsim
             ("simul.ERAi_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("simul.ECMWF_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("simul.ASR_quad_drag_coef_air", po::value<double>()->default_value( 0.0049 ), "")
-            ("simul.CFSR_quad_drag_coef_air", po::value<double>()->default_value( 0.0017 ), "") // Updated value, based on comparison with OSISAF drift in the free drift case
+            ("simul.CFSR_quad_drag_coef_air", po::value<double>()->default_value( 0.0023 ), "") // Updated value, based on comparison with OSISAF drift in the free drift case
             ("simul.lin_drag_coef_air", po::value<double>()->default_value( 0. ), "")
             ("simul.quad_drag_coef_water", po::value<double>()->default_value( 0.0055 ), "")
             ("simul.lin_drag_coef_water", po::value<double>()->default_value( 0. ), "")

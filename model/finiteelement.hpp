@@ -514,6 +514,7 @@ private:
     void topazForecastAmsr2Ice();
     void topazForecastAmsr2OsisafIce();
     void cs2SmosIce();
+    void cs2SmosAmsr2Ice();
     void warrenClimatology();
     void smosIce();
 
