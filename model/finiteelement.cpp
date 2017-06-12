@@ -6941,6 +6941,9 @@ FiniteElement::topazForecastAmsr2OsisafIce()
 
         if(M_conc[i]>0.) // use osisaf only where topaz says there is ice to avoid near land issues and fake concentration over the ocean
             M_conc[i]=M_osisaf_conc[i];
+            
+        if(M_amsr2_conc[i]<M_conc[i]) // AMSR2 is higher resolution and see small opening that would not be see in OSISAF
+            M_conc[i]=M_amsr2_conc[i];
 
 		tmp_var=M_topaz_snow_thick[i];
 		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
@@ -6960,8 +6963,17 @@ FiniteElement::topazForecastAmsr2OsisafIce()
         double thick_MYI=1.5*hi_topaz;
         double thick_Mixed=0.5*(thick_FYI+thick_MYI);
 
-        if((M_thick[i]>0.)&&(M_conc[i])>0.2)
+        if( (M_thick[i]>0.) && (M_conc[i])>0.2 )
         {
+            
+            if(M_mesh_filename.find("kara") != std::string::npos)
+            {
+                LOG(DEBUG) <<"Type information is not used for the kara mesh, we assume there is only FYI\n";
+                M_ridge_ratio[i]=ratio_FYI;
+                M_thick[i]=thick_FYI;
+            } 
+            else
+            {
             if(M_osisaf_type[i]<=1.)
             {
                 M_ridge_ratio[i]=0.;
@@ -6987,6 +6999,7 @@ FiniteElement::topazForecastAmsr2OsisafIce()
                 M_ridge_ratio[i]=ratio_Mixed;
                 M_thick[i]=thick_Mixed;
             }
+            }
         }
         else
         {
@@ -6994,7 +7007,8 @@ FiniteElement::topazForecastAmsr2OsisafIce()
             M_thick[i]=hi_topaz;    
         }
         
-        M_ridge_ratio[i]=M_ridge_ratio[i]*M_conc[i]; // Icesat gives the actual thickness (see "Uncertainties in Arctic sea ice thickness and volume: new estimates and implications for trends")
+        M_ridge_ratio[i]=M_ridge_ratio[i]*M_conc[i]; 
+        // Icesat gives the actual thickness (see "Uncertainties in Arctic sea ice thickness and volume: new estimates and implications for trends")
         M_thick[i]=M_thick[i]*M_conc[i];
             
         //if either c or h equal zero, we set the others to zero as well
