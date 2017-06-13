@@ -657,6 +657,7 @@ FiniteElement::initConstant()
 #endif
 
 #if defined (WAVES)
+    M_use_wim   = vm["simul.use_wim"].as<bool>();
     if (M_use_wim)
     {
         const boost::unordered_map<const std::string, setup::WaveType> str2wave = boost::assign::map_list_of
@@ -4488,7 +4489,6 @@ FiniteElement::init()
 
 #if defined (WAVES)
     // Extract the WIM grid;
-    M_use_wim   = vm["simul.use_wim"].as<bool>();
     if (M_use_wim)
     {
         // initialize wim here to have access to grid information
