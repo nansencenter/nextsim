@@ -1462,9 +1462,9 @@ FiniteElement::regrid(bool step)
                 M_nfloes.assign(M_num_elements,0.);
 #endif
             // 4) redistribute the interpolated values
-            this->redistributeVariables(&interp_elt_out[0],nb_var);
+            this->redistributeVariables(&interp_elt_out[0],nb_var,true);
 
-            // 5) cleaning
+	    // 5) cleaning
 			xDelete<double>(interp_elt_out);
 			xDelete<double>(interp_elt_in);
             xDelete<int>(interp_method);
@@ -1656,7 +1656,7 @@ FiniteElement::regrid(bool step)
 }
 
 void
-FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var)
+FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var, bool check_max_conc)
 {
 	for (int i=0; i<M_num_elements; ++i)
 	{
@@ -1798,7 +1798,25 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var)
 		{
 			throw std::logic_error("tmp_nb_var not equal to nb_var");
 		}
+	
+	if(check_max_conc)
+	{
+		M_conc[i]=(M_conc[i]>1.) ? 1.:M_conc[i];
+		double conc_thin_tmp = ( (M_conc[i]+M_conc_thin[i])>1.) ? 1.-M_conc[i]:M_conc_thin[i];
+		double h_thin_tmp ;
+		if(M_conc_thin[i]>0.)
+			h_thin_tmp = M_h_thin[i]*conc_thin_tmp/M_conc_thin[i];
+		else
+			h_thin_tmp = 0.;
+		
+		M_thick[i]+=M_h_thin[i]-h_thin_tmp;
+		
+		M_h_thin[i]=h_thin_tmp;
+		M_conc_thin[i]=conc_thin_tmp;
 	}
+	
+	}
+
 }
 
 void
@@ -3007,7 +3025,6 @@ FiniteElement::update()
         M_dfloe.assign(M_num_elements,0.);
 #endif
 
-
     // collect the variables into a single structure
     int prv_num_elements = M_mesh.numTriangles();
     double* interp_elt_in;
@@ -3020,7 +3037,7 @@ FiniteElement::update()
     this->advect(&interp_elt_out,&interp_elt_in[0],&interp_method[0],nb_var);
 
     // redistribute the interpolated values
-    this->redistributeVariables(&interp_elt_out[0],nb_var);
+    this->redistributeVariables(&interp_elt_out[0],nb_var,false);
 
     // cleaning
     xDelete<double>(interp_elt_out);
@@ -3098,8 +3115,6 @@ FiniteElement::update()
         {
             open_water_concentration-=M_conc_thin[cpt];
         }
-        // limit open_water concentration to 0.
-        //open_water_concentration=(open_water_concentration<0.)?0.:open_water_concentration;
 
         // ridging scheme
         double opening_factor=((1.-M_conc[cpt])>G_star) ? 0. : std::pow(1.-(1.-M_conc[cpt])/G_star,2.);
@@ -3109,7 +3124,11 @@ FiniteElement::update()
 
         //open_water_concentration += time_step*0.5*(delta_ridging-divergence_rate)*opening_factor;
         open_water_concentration += time_step*0.5*shear_rate/e_factor*opening_factor;
-        
+       
+
+        // limit open_water concentration to 0.
+        open_water_concentration=(open_water_concentration<0.)?0.:open_water_concentration;
+ 
         /* Thin ice category */
         double new_conc_thin=0.;   
         double new_h_thin=0.;   
@@ -3161,6 +3180,10 @@ FiniteElement::update()
         }
 #endif
         double new_conc=std::min(1.,std::max(1.-M_conc_thin[cpt]-open_water_concentration+del_c,0.));
+
+        if((new_conc+M_conc_thin[cpt])>1.)
+		new_conc=1.-M_conc_thin[cpt];
+
         if(new_conc<M_conc[cpt])
         {
             M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]+(1.-M_ridge_ratio[cpt])*(M_conc[cpt]-new_conc)/M_conc[cpt])));
@@ -3172,9 +3195,9 @@ FiniteElement::update()
         {
             double test_h_thick=M_thick[cpt]/M_conc[cpt];
             test_h_thick = (test_h_thick>max_true_thickness) ? max_true_thickness : test_h_thick ;
-            M_conc[cpt]=std::min(1.,M_thick[cpt]/test_h_thick);
+            M_conc[cpt]=std::min(1.-M_conc_thin[cpt],M_thick[cpt]/test_h_thick);
         }
-    else
+    	else
         {
             M_ridge_ratio[cpt]=0.;
             M_thick[cpt]=0.;
@@ -6558,7 +6581,7 @@ FiniteElement::targetIce()
 	//	M_thick[i] = vm["simul.init_thickness"].as<double>()*M_conc[i];
 	//	M_snow_thick[i] = vm["simul.init_snow_thickness"].as<double>()*M_conc[i];
 
-        M_conc[i]  = 1.; //vm["simul.init_concentration"].as<double>();
+        M_conc[i]  = vm["simul.init_concentration"].as<double>();
 	
 	if(i==10)
 		M_conc[i]=0.;
