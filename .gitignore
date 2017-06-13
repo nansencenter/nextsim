@@ -37,3 +37,4 @@ nextsim.src
 ._.DS_Store
 
 *.pyc
+model/expt_*

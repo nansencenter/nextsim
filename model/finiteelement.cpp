@@ -648,6 +648,7 @@ FiniteElement::initConstant()
         ("osisaf", setup::IceType::OSISAF)
         ("piomas", setup::IceType::PIOMAS)
         ("cs2_smos", setup::IceType::CS2_SMOS)
+        ("cs2_smos_amsr2", setup::IceType::CS2_SMOS_AMSR2)
         ("smos", setup::IceType::SMOS)
         ("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT);
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
@@ -1462,9 +1463,9 @@ FiniteElement::regrid(bool step)
                 M_nfloes.assign(M_num_elements,0.);
 #endif
             // 4) redistribute the interpolated values
-            this->redistributeVariables(&interp_elt_out[0],nb_var);
+            this->redistributeVariables(&interp_elt_out[0],nb_var,true);
 
-            // 5) cleaning
+	    // 5) cleaning
 			xDelete<double>(interp_elt_out);
 			xDelete<double>(interp_elt_in);
             xDelete<int>(interp_method);
@@ -1656,7 +1657,7 @@ FiniteElement::regrid(bool step)
 }
 
 void
-FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var)
+FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var, bool check_max_conc)
 {
 	for (int i=0; i<M_num_elements; ++i)
 	{
@@ -1798,7 +1799,25 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var)
 		{
 			throw std::logic_error("tmp_nb_var not equal to nb_var");
 		}
+	
+	if(check_max_conc)
+	{
+		M_conc[i]=(M_conc[i]>1.) ? 1.:M_conc[i];
+		double conc_thin_tmp = ( (M_conc[i]+M_conc_thin[i])>1.) ? 1.-M_conc[i]:M_conc_thin[i];
+		double h_thin_tmp ;
+		if(M_conc_thin[i]>0.)
+			h_thin_tmp = M_h_thin[i]*conc_thin_tmp/M_conc_thin[i];
+		else
+			h_thin_tmp = 0.;
+		
+		M_thick[i]+=M_h_thin[i]-h_thin_tmp;
+		
+		M_h_thin[i]=h_thin_tmp;
+		M_conc_thin[i]=conc_thin_tmp;
 	}
+	
+	}
+
 }
 
 void
@@ -3007,7 +3026,6 @@ FiniteElement::update()
         M_dfloe.assign(M_num_elements,0.);
 #endif
 
-
     // collect the variables into a single structure
     int prv_num_elements = M_mesh.numTriangles();
     double* interp_elt_in;
@@ -3020,7 +3038,7 @@ FiniteElement::update()
     this->advect(&interp_elt_out,&interp_elt_in[0],&interp_method[0],nb_var);
 
     // redistribute the interpolated values
-    this->redistributeVariables(&interp_elt_out[0],nb_var);
+    this->redistributeVariables(&interp_elt_out[0],nb_var,false);
 
     // cleaning
     xDelete<double>(interp_elt_out);
@@ -3098,8 +3116,6 @@ FiniteElement::update()
         {
             open_water_concentration-=M_conc_thin[cpt];
         }
-        // limit open_water concentration to 0.
-        //open_water_concentration=(open_water_concentration<0.)?0.:open_water_concentration;
 
         // ridging scheme
         double opening_factor=((1.-M_conc[cpt])>G_star) ? 0. : std::pow(1.-(1.-M_conc[cpt])/G_star,2.);
@@ -3109,7 +3125,11 @@ FiniteElement::update()
 
         //open_water_concentration += time_step*0.5*(delta_ridging-divergence_rate)*opening_factor;
         open_water_concentration += time_step*0.5*shear_rate/e_factor*opening_factor;
-        
+       
+
+        // limit open_water concentration to 0.
+        open_water_concentration=(open_water_concentration<0.)?0.:open_water_concentration;
+ 
         /* Thin ice category */
         double new_conc_thin=0.;   
         double new_h_thin=0.;   
@@ -3161,6 +3181,10 @@ FiniteElement::update()
         }
 #endif
         double new_conc=std::min(1.,std::max(1.-M_conc_thin[cpt]-open_water_concentration+del_c,0.));
+
+        if((new_conc+M_conc_thin[cpt])>1.)
+		new_conc=1.-M_conc_thin[cpt];
+
         if(new_conc<M_conc[cpt])
         {
             M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]+(1.-M_ridge_ratio[cpt])*(M_conc[cpt]-new_conc)/M_conc[cpt])));
@@ -3172,9 +3196,9 @@ FiniteElement::update()
         {
             double test_h_thick=M_thick[cpt]/M_conc[cpt];
             test_h_thick = (test_h_thick>max_true_thickness) ? max_true_thickness : test_h_thick ;
-            M_conc[cpt]=std::min(1.,M_thick[cpt]/test_h_thick);
+            M_conc[cpt]=std::min(1.-M_conc_thin[cpt],M_thick[cpt]/test_h_thick);
         }
-    else
+    	else
         {
             M_ridge_ratio[cpt]=0.;
             M_thick[cpt]=0.;
@@ -3826,8 +3850,22 @@ FiniteElement::thermo()
 #if 0
         if ( M_thick[i] > 0. )
         {
-            deltaT = std::max(0., -physical::mu*M_sss[i] - M_tice[0][i] )
-                / ( 1. + physical::ki*M_snow_thick[i]/(physical::ks*M_thick[i]) );
+            double Tbot = -physical::mu*M_sss[i];
+            double C;
+            switch (M_thermo_type)
+            {
+                case (setup::ThermoType::ZERO_LAYER):
+                    C = physical::ki*M_snow_thick[i]/(physical::ks*M_thick[i]);
+                    deltaT = std::max(1e-36, Tbot - M_tice[0][i] ) / ( 1. + C );
+                    break;
+                case (setup::ThermoType::WINTON):
+                    C = physical::ki*M_snow_thick[i]/(physical::ks*M_thick[i]/4.);
+                    deltaT = std::max(1e-36, Tbot + C*(Tbot-M_tice[1][i]) - M_tice[0][i] ) / ( 1. + C );
+                    break;
+                default:
+                    std::cout << "thermo_type= " << (int)M_thermo_type << "\n";
+                    throw std::logic_error("Wrong thermo_type");
+            }
             M_time_relaxation_damage[i] = std::max(time_relaxation_damage*deltaT_relaxation_damage/deltaT, time_step);
         } else {
             M_time_relaxation_damage[i] = 1e36;
@@ -6381,6 +6419,9 @@ FiniteElement::initIce()
         case setup::IceType::CS2_SMOS:
             this->cs2SmosIce();
             break;
+        case setup::IceType::CS2_SMOS_AMSR2:
+            this->cs2SmosAmsr2Ice();
+            break;    
         case setup::IceType::SMOS:
             this->smosIce();
             break;
@@ -6540,7 +6581,7 @@ FiniteElement::targetIce()
 	//	M_thick[i] = vm["simul.init_thickness"].as<double>()*M_conc[i];
 	//	M_snow_thick[i] = vm["simul.init_snow_thickness"].as<double>()*M_conc[i];
 
-        M_conc[i]  = 1.; //vm["simul.init_concentration"].as<double>();
+        M_conc[i]  = vm["simul.init_concentration"].as<double>();
 	
 	if(i==10)
 		M_conc[i]=0.;
@@ -7292,6 +7333,101 @@ FiniteElement::cs2SmosIce()
         M_snow_thick[i] = std::min(max_snow, M_snow_thick[i]);
 
 	}
+}
+void
+FiniteElement::cs2SmosAmsr2Ice()
+{
+    external_data M_init_conc=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,0,false,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
+
+    external_data M_amsr2_conc=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
+    //M_conc_amsr2.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_thick=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,1,false,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
+
+    external_data M_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init);
+    //M_type.check_and_reload(M_mesh,time_init);
+
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_type);
+    M_external_data_tmp.push_back(&M_amsr2_conc);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,
+            "init ice - CS2 + SMOS + AMSR2");
+    M_external_data_tmp.resize(0);
+
+    warrenClimatology();
+
+    double tmp_var, correction_factor_warren;
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        tmp_var=std::min(1.,M_init_conc[i]);
+        M_conc[i] = tmp_var;
+        tmp_var=M_init_thick[i];
+        M_thick[i] = tmp_var ;
+        if(M_amsr2_conc[i]<M_conc[i]) // AMSR2 is higher resolution and see small opening that would not be see in OSISAF
+            M_conc[i]=M_amsr2_conc[i];
+
+        double ratio_FYI=0.3;
+        double ratio_MYI=0.9;
+        double ratio_Mixed=0.6;
+
+        if((M_thick[i]>0.)&&(M_conc[i])>0.2)
+        {
+            if(M_type[i]<=1.)
+                M_ridge_ratio[i]=0.;
+            if(M_type[i]>1. && M_type[i]<=2.)
+                M_ridge_ratio[i]=(M_type[i]-1.)*ratio_FYI;
+            if(M_type[i]>2. && M_type[i]<=3.)
+                M_ridge_ratio[i]=(1.-(M_type[i]-2.))*ratio_FYI + (M_type[i]-2.)*ratio_MYI;
+            if(M_type[i]>3. && M_type[i]<=4.)
+                M_ridge_ratio[i]=(1.-(M_type[i]-3.))*ratio_MYI + (M_type[i]-3.)*ratio_Mixed;
+            if(M_type[i]>4.)
+                M_ridge_ratio[i]=ratio_Mixed;
+        
+            M_ridge_ratio[i]=M_ridge_ratio[i]*std::exp(ridging_exponent*(1.-M_conc[i]));
+        }
+        else
+            M_ridge_ratio[i]=0.;
+
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+
+        // Correction of the value given by Warren as a function of the ice type
+        //M_type[i]==1. // No ice
+        //M_type[i]==2. // First-Year ice
+        //M_type[i]==3. // Multi-Year ice
+        //M_type[i]==4. // Mixed
+        correction_factor_warren=std::max(0.,std::min(1.,(M_type[i]-1.)*0.5)); // == 1. for MY, and mixed, 0.5 for FY, 0. for No ice
+
+        M_snow_thick[i]=correction_factor_warren*M_snow_thick[i]*M_conc[i];
+
+        M_damage[i]=0.;
+
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {
+            //M_conc_thin[i]=std::max(M_conc_amsre[i]-M_conc[i],0.);
+            M_conc_thin[i]=std::min(1.-M_conc[i], 0.2*M_conc[i]);
+            M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
+        }
+
+        // Check that the snow is not so thick that the ice is flooded
+        double max_snow = M_thick[i]*(physical::rhow-physical::rhoi)/physical::rhos;
+        M_snow_thick[i] = std::min(max_snow, M_snow_thick[i]);
+
+    }
 }
 void
 FiniteElement::smosIce()

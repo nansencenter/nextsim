@@ -514,6 +514,7 @@ private:
     void topazForecastAmsr2Ice();
     void topazForecastAmsr2OsisafIce();
     void cs2SmosIce();
+    void cs2SmosAmsr2Ice();
     void warrenClimatology();
     void smosIce();
 
@@ -531,7 +532,7 @@ private:
     void updateMeans(GridOutput &means, double time_factor);
     void initMoorings();
 
-    void redistributeVariables(double* interp_elt_out,int nb_var);
+    void redistributeVariables(double* interp_elt_out,int nb_var, bool check_conc_max);
     int collectVariables(double** interp_elt_in_ptr, int** interp_elt_method, double** diffusivity_parameters, int num_elements);
     void advect (double** interp_elt_out_ptr,double* interp_elt_in, int* interp_method, int nb_var);
     void diffuse(double* variable_elt, double diffusivity_parameters, double dx);
