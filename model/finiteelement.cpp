@@ -648,6 +648,7 @@ FiniteElement::initConstant()
         ("osisaf", setup::IceType::OSISAF)
         ("piomas", setup::IceType::PIOMAS)
         ("cs2_smos", setup::IceType::CS2_SMOS)
+        ("cs2_smos_amsr2", setup::IceType::CS2_SMOS_AMSR2)
         ("smos", setup::IceType::SMOS)
         ("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT);
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
@@ -1209,6 +1210,12 @@ FiniteElement::regrid(bool step)
     		{
     			LOG(WARNING) << "substeps will be needed for the remeshing!" <<"\n";
     			LOG(WARNING) << "Warning: It is probably due to very high ice speed, check your fields!\n";
+               
+                 std::string tmp_string3    = (boost::format( "substeping_time_step_%1%_substep_%2%" )
+                               % step
+                               % substep ).str();
+            
+                this->exportResults(tmp_string3, true, true, false);
     		}
 
 	        chrono.restart();
@@ -6389,6 +6396,9 @@ FiniteElement::initIce()
         case setup::IceType::CS2_SMOS:
             this->cs2SmosIce();
             break;
+        case setup::IceType::CS2_SMOS_AMSR2:
+            this->cs2SmosAmsr2Ice();
+            break;    
         case setup::IceType::SMOS:
             this->smosIce();
             break;
@@ -7300,6 +7310,101 @@ FiniteElement::cs2SmosIce()
         M_snow_thick[i] = std::min(max_snow, M_snow_thick[i]);
 
 	}
+}
+void
+FiniteElement::cs2SmosAmsr2Ice()
+{
+    external_data M_init_conc=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,0,false,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
+
+    external_data M_amsr2_conc=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
+    //M_conc_amsr2.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_thick=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,1,false,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
+
+    external_data M_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init);
+    //M_type.check_and_reload(M_mesh,time_init);
+
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_type);
+    M_external_data_tmp.push_back(&M_amsr2_conc);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,
+            "init ice - CS2 + SMOS + AMSR2");
+    M_external_data_tmp.resize(0);
+
+    warrenClimatology();
+
+    double tmp_var, correction_factor_warren;
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        tmp_var=std::min(1.,M_init_conc[i]);
+        M_conc[i] = tmp_var;
+        tmp_var=M_init_thick[i];
+        M_thick[i] = tmp_var ;
+        if(M_amsr2_conc[i]<M_conc[i]) // AMSR2 is higher resolution and see small opening that would not be see in OSISAF
+            M_conc[i]=M_amsr2_conc[i];
+
+        double ratio_FYI=0.3;
+        double ratio_MYI=0.9;
+        double ratio_Mixed=0.6;
+
+        if((M_thick[i]>0.)&&(M_conc[i])>0.2)
+        {
+            if(M_type[i]<=1.)
+                M_ridge_ratio[i]=0.;
+            if(M_type[i]>1. && M_type[i]<=2.)
+                M_ridge_ratio[i]=(M_type[i]-1.)*ratio_FYI;
+            if(M_type[i]>2. && M_type[i]<=3.)
+                M_ridge_ratio[i]=(1.-(M_type[i]-2.))*ratio_FYI + (M_type[i]-2.)*ratio_MYI;
+            if(M_type[i]>3. && M_type[i]<=4.)
+                M_ridge_ratio[i]=(1.-(M_type[i]-3.))*ratio_MYI + (M_type[i]-3.)*ratio_Mixed;
+            if(M_type[i]>4.)
+                M_ridge_ratio[i]=ratio_Mixed;
+        
+            M_ridge_ratio[i]=M_ridge_ratio[i]*std::exp(ridging_exponent*(1.-M_conc[i]));
+        }
+        else
+            M_ridge_ratio[i]=0.;
+
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+
+        // Correction of the value given by Warren as a function of the ice type
+        //M_type[i]==1. // No ice
+        //M_type[i]==2. // First-Year ice
+        //M_type[i]==3. // Multi-Year ice
+        //M_type[i]==4. // Mixed
+        correction_factor_warren=std::max(0.,std::min(1.,(M_type[i]-1.)*0.5)); // == 1. for MY, and mixed, 0.5 for FY, 0. for No ice
+
+        M_snow_thick[i]=correction_factor_warren*M_snow_thick[i]*M_conc[i];
+
+        M_damage[i]=0.;
+
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {
+            //M_conc_thin[i]=std::max(M_conc_amsre[i]-M_conc[i],0.);
+            M_conc_thin[i]=std::min(1.-M_conc[i], 0.2*M_conc[i]);
+            M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
+        }
+
+        // Check that the snow is not so thick that the ice is flooded
+        double max_snow = M_thick[i]*(physical::rhow-physical::rhoi)/physical::rhos;
+        M_snow_thick[i] = std::min(max_snow, M_snow_thick[i]);
+
+    }
 }
 void
 FiniteElement::smosIce()

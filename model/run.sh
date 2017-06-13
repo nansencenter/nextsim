@@ -7,15 +7,16 @@ else
         config=nextsim.cfg
 fi
 
+# Run the nextsim model
 kernel=$(uname -s)
 if [ $kernel == "Darwin" ]
 then
+    # mac
     export DYLD_LIBRARY_PATH=$NEXTSIMDIR/lib:$BOOST_DIR/lib
-    # Run the nextsim model
-    bin/nextsim.exec --config-files=$config
+    $NEXTSIMDIR/model/bin/nextsim.exec --config-files=$config
 else
-    # Run the nextsim model
-    bin/nextsim.exec --config-files=$config
+    # linux
+    $NEXTSIMDIR/model/bin/nextsim.exec --config-files=$config
 fi
 
 # Run the CPU profiler (google perftools)
