@@ -339,6 +339,7 @@ FiniteElement::initDatasets()
 #if defined (WAVES)
     if (M_use_wim)
     {
+        bool have_wave_dataset=false;
         switch (M_wave_type)
         {
             case setup::WaveType::SET_IN_WIM:
@@ -352,10 +353,12 @@ FiniteElement::initDatasets()
 
             case setup::WaveType::WW3A:
                 M_wave_elements_dataset=DataSet("ww3a_elements",M_num_elements);
+                have_wave_dataset=true;
                 break;
 
             case setup::WaveType::ERAI_WAVES_1DEG:
                 M_wave_elements_dataset=DataSet("erai_waves_1deg_elements",M_num_elements);
+                have_wave_dataset=true;
                 break;
 
             default:
@@ -385,6 +388,24 @@ FiniteElement::initDatasets()
 
     M_bathymetry_elements_dataset=DataSet("etopo_elements",M_num_elements);//M_num_nodes);
 
+    // datasets that need to be re-interpolated after regridding
+    // - not needed if only used at initialisation, or if not interpolated onto
+    // mesh (eg wave datasets are interpolated onto a fixed grid)
+    M_datasets_regrid.push_back(&M_atmosphere_nodes_dataset);
+    M_datasets_regrid.push_back(&M_atmosphere_elements_dataset);
+    M_datasets_regrid.push_back(&M_atmosphere_bis_elements_dataset);
+    M_datasets_regrid.push_back(&M_ocean_nodes_dataset);
+    M_datasets_regrid.push_back(&M_ocean_elements_dataset);
+    M_datasets_regrid.push_back(&M_bathymetry_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_topaz_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_icesat_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_piomas_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_amsre_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_osisaf_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_osisaf_type_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_amsr2_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_cs2_smos_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_smos_elements_dataset);
 
 }//initDatasets
 
@@ -658,6 +679,7 @@ FiniteElement::initConstant()
 #endif
 
 #if defined (WAVES)
+    M_use_wim   = vm["simul.use_wim"].as<bool>();
     if (M_use_wim)
     {
         const boost::unordered_map<const std::string, setup::WaveType> str2wave = boost::assign::map_list_of
@@ -1573,87 +1595,23 @@ FiniteElement::regrid(bool step)
         M_fcor.resize(M_num_elements);
     }
 
-    M_atmosphere_nodes_dataset.target_size=M_num_nodes;
-    M_atmosphere_elements_dataset.target_size=M_num_elements;
-    M_atmosphere_bis_elements_dataset.target_size=M_num_elements;
-    M_ocean_nodes_dataset.target_size=M_num_nodes;
-    M_ocean_elements_dataset.target_size=M_num_elements;
-
-    M_ice_topaz_elements_dataset.target_size=M_num_elements;
-    M_ice_icesat_elements_dataset.target_size=M_num_elements;
-    M_ice_piomas_elements_dataset.target_size=M_num_elements;
-    M_ice_amsre_elements_dataset.target_size=M_num_elements;
-    M_ice_osisaf_elements_dataset.target_size=M_num_elements;
-    M_ice_osisaf_type_elements_dataset.target_size=M_num_elements;
-    M_ice_amsr2_elements_dataset.target_size=M_num_elements;
-    M_ice_cs2_smos_elements_dataset.target_size=M_num_elements;
-    M_ice_smos_elements_dataset.target_size=M_num_elements;
-    M_bathymetry_elements_dataset.target_size=M_num_elements;
-#if defined (WAVES)
-    if (M_use_wim)
-        M_wave_elements_dataset.target_size=M_num_elements;
-#endif
-
-
-    M_atmosphere_nodes_dataset.interpolated=false;
-    M_atmosphere_elements_dataset.interpolated=false;
-    M_atmosphere_bis_elements_dataset.interpolated=false;
-    M_ocean_nodes_dataset.interpolated=false;
-    M_ocean_elements_dataset.interpolated=false;
-
-    M_ice_topaz_elements_dataset.interpolated=false;
-    M_ice_icesat_elements_dataset.interpolated=false;
-    M_ice_piomas_elements_dataset.interpolated=false;
-    M_ice_amsre_elements_dataset.interpolated=false;
-    M_ice_osisaf_elements_dataset.interpolated=false;
-    M_ice_osisaf_type_elements_dataset.interpolated=false;
-    M_ice_amsr2_elements_dataset.interpolated=false;
-    M_ice_cs2_smos_elements_dataset.interpolated=false;
-    M_ice_smos_elements_dataset.interpolated=false;
-    M_bathymetry_elements_dataset.interpolated=false;
-#if defined (WAVES)
-    if (M_use_wim)
-        M_wave_elements_dataset.interpolated=false;
-#endif
-
-    // for the parallel code, it will be necessary to add these lines
-    // as the domain covered by the partitions changes at each remeshing/partitioning
+    //loop over vector of pointers to datasets defined in initDatasets()
+    for (auto it=M_datasets_regrid.begin(), end=M_datasets_regrid.end(); it!=end; ++it)
+    {
+        std::cout<<"REGRIDDING: need to re-interpolate dataset "<<(*it)->name<<"\n";
+        (*it)->interpolated=false;
 #if 0
-    M_atmosphere_nodes_dataset.grid.interpolated=false;
-    M_atmosphere_elements_dataset.grid.interpolated=false;
-    M_atmosphere_bis_elements_dataset.grid.interpolated=false;
-    M_ocean_nodes_dataset.grid.interpolated=false;
-    M_ocean_elements_dataset.grid.interpolated=false;
-    M_ice_topaz_elements_dataset.grid.interpolated=false;
-    M_ice_icesat_elements_dataset.grid.interpolated=false;
-    M_ice_amsre_elements_dataset.grid.interpolated=false;
-    M_ice_osisaf_elements_dataset.grid.interpolated=false;
-    M_ice_osisaf_type_elements_dataset.grid.interpolated=false;
-    M_ice_amsr2_elements_dataset.grid.interpolated=false;
-    M_ice_cs2_smos_elements_dataset.grid.interpolated=false;
-    M_ice_smos_elements_dataset.grid.interpolated=false;
-    M_bathymetry_elements_dataset.grid.interpolated=false;
-
-    M_atmosphere_nodes_dataset.grid.loaded=false;
-    M_atmosphere_elements_dataset.grid.loaded=false;
-    M_atmosphere_bis_elements_dataset.grid.loaded=false;
-    M_ocean_nodes_dataset.grid.loaded=false;
-    M_ocean_elements_dataset.grid.loaded=false;
-    M_ice_topaz_elements_dataset.grid.loaded=false;
-    M_ice_icesat_elements_dataset.grid.loaded=false;
-    M_ice_amsre_elements_dataset.grid.loaded=false;
-    M_ice_osisaf_elements_dataset.grid.loaded=false;
-    M_ice_osisaf_type_elements_dataset.grid.loaded=false;
-    M_ice_amsr2_elements_dataset.grid.loaded=false;
-    M_ice_cs2_smos_elements_dataset.grid.loaded=false;
-    M_ice_smos_elements_dataset.grid.loaded=false;
-    M_bathymetry_elements_dataset.grid.loaded=false;
+        // for the parallel code, it will be necessary to add these lines
+        // as the domain covered by the partitions changes at each remeshing/partitioning
+        (*it)->grid.interpolated=false;
+        (*it)->grid.loaded=false;
 #endif
+    }
 
     M_Cohesion.resize(M_num_elements);
     M_Compressive_strength.resize(M_num_elements);
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
-}
+}//regrid
 
 void
 FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var, bool check_max_conc)
@@ -4528,7 +4486,6 @@ FiniteElement::init()
 
 #if defined (WAVES)
     // Extract the WIM grid;
-    M_use_wim   = vm["simul.use_wim"].as<bool>();
     if (M_use_wim)
     {
         // initialize wim here to have access to grid information
@@ -5051,8 +5008,6 @@ FiniteElement::step(int &pcpt)
     M_tau.resize(2*M_num_nodes,0.);
 #endif
 
-
-
     if ( M_regrid || M_use_restart )
     {
         chrono.restart();
@@ -5072,6 +5027,7 @@ FiniteElement::step(int &pcpt)
     chrono.restart();
     this->checkReloadDatasets(M_external_data,current_time+time_step/(24*3600.0),
             "step - time-dependant");
+
 #if 0
     LOG(DEBUG) <<"check_and_reload starts\n";
     for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
@@ -8595,7 +8551,7 @@ FiniteElement::nextsimToWim(bool step)
                         //Tp given to the WIM should have the waves-in-ice
                         //removed (so we can do our own attenuation)
                         M_MWP_grid[i] = cfac*M_MWP[i];
-                    else 
+                    else
                         // we are given fp, so convert to Tp,
                         // taking account of the ice
                         M_MWP_grid[i] = cfac/M_MWP[i];
@@ -8662,6 +8618,13 @@ FiniteElement::nextsimToWim(bool step)
 void
 FiniteElement::wimToNextsim(bool step)
 {
+
+    //set counter (no of times to call wim)
+    if (!step)
+        wim_cpt = 0;
+    else
+        wim_cpt++;
+
     bool break_on_mesh =
         ( vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh");
     //std::cout<<"break_on_mesh="<<break_on_mesh<<"\n";
@@ -8866,6 +8829,13 @@ FiniteElement::wimToNextsim(bool step)
             M_dfloe[i] = 0.;
     }
 #endif
+
+    if((vm["simul.export_after_wim_call"].as<bool>()))
+    {
+        std::string tmp_string3
+            = ( boost::format( "after_wim_call_%1%" ) % wim_cpt ).str();
+        this->exportResults(tmp_string3);
+    }
 
     std::cout<<"Finished wimToNextsim";
 }//wimToNextsim

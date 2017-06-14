@@ -186,7 +186,8 @@ ExternalData::get(const size_type i)
         bool interp_linear_time = (M_dataset->grid.dataset_frequency!="constant"
                 && M_dataset->grid.dataset_frequency!="nearest_daily");
         bool interp_const_wave  = ((M_dataset->grid.waveOptions.wave_dataset)
-                && (M_dataset->grid.waveOptions.time_interp_option=="step"));
+                && (Environment::vm()["setup.wave-time-interp-option"].as<std::string>()=="step"));
+                //&& (M_dataset->grid.waveOptions.time_interp_option=="step"));
         interp_linear_time  = (interp_linear_time && !interp_const_wave);
 
         if(interp_linear_time)
