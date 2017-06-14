@@ -3118,17 +3118,19 @@ FiniteElement::update()
 
         // ridging scheme
         double opening_factor=((1.-M_conc[cpt])>G_star) ? 0. : std::pow(1.-(1.-M_conc[cpt])/G_star,2.);
+        
+        // limit open_water concentration to 0.
+        open_water_concentration=(open_water_concentration<0.)?0.:open_water_concentration;
 
         // opening factor set to 0 for viscous case.
         opening_factor=(young>0.) ? opening_factor : 0.; 
 
         //open_water_concentration += time_step*0.5*(delta_ridging-divergence_rate)*opening_factor;
         open_water_concentration += time_step*0.5*shear_rate/e_factor*opening_factor;
+        
+        // limit open_water concentration to 1.
+        open_water_concentration=(open_water_concentration>1.)?1.:open_water_concentration;
        
-
-        // limit open_water concentration to 0.
-        open_water_concentration=(open_water_concentration<0.)?0.:open_water_concentration;
- 
         /* Thin ice category */
         double new_conc_thin=0.;   
         double new_h_thin=0.;   
