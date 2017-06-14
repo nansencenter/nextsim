@@ -998,7 +998,8 @@ void WimDiscr<T>::inputWaveFields(value_type_vec const& swh_in,
                 mwd_in_array[i][j] = mwd_in[ny*i+j];
             }
 
-            if ((ice_mask[i][j]<.5)&&(swh_in[ny*i+j]>1.e-3)&&(mwp_in[ny*i+j]>1.e-8))
+            if ((ice_mask[i][j]<.5)&&(swh_in[ny*i+j]>1.e-3)&&(mwp_in[ny*i+j]>1.e-8)
+                    || (mwp_in[ny*i+j]>1.5*Tmax))
             {
                wave_mask[i*ny+j] = 1.;
                Hs [i*ny+j] = swh_in[i*ny+j];
@@ -2214,6 +2215,7 @@ void WimDiscr<T>::run(std::vector<value_type> const& icec_in,
     std::cout<<"Min mwd in = " << _min <<"\n";
     std::cout<<"Max mwd in = " << _max <<"\n";
 #endif
+    std::cout<<"checked incwaves...\n";
 
     while (lcpt < nt)
     {

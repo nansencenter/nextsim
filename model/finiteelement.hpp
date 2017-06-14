@@ -327,6 +327,7 @@ private:
     double xmin_wim,xmax_wim;
     double ymin_wim,ymax_wim;
     int num_elements_wim_grid;
+    int wim_cpt;
 #endif
     std::vector<double> M_tau;//this can just be set to zero if not using WIM
 

@@ -658,6 +658,7 @@ FiniteElement::initConstant()
 #endif
 
 #if defined (WAVES)
+    M_use_wim   = vm["simul.use_wim"].as<bool>();
     if (M_use_wim)
     {
         const boost::unordered_map<const std::string, setup::WaveType> str2wave = boost::assign::map_list_of
@@ -4489,7 +4490,6 @@ FiniteElement::init()
 
 #if defined (WAVES)
     // Extract the WIM grid;
-    M_use_wim   = vm["simul.use_wim"].as<bool>();
     if (M_use_wim)
     {
         // initialize wim here to have access to grid information
@@ -5012,8 +5012,6 @@ FiniteElement::step(int &pcpt)
     M_tau.resize(2*M_num_nodes,0.);
 #endif
 
-
-
     if ( M_regrid || M_use_restart )
     {
         chrono.restart();
@@ -5033,6 +5031,7 @@ FiniteElement::step(int &pcpt)
     chrono.restart();
     this->checkReloadDatasets(M_external_data,current_time+time_step/(24*3600.0),
             "step - time-dependant");
+
 #if 0
     LOG(DEBUG) <<"check_and_reload starts\n";
     for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
@@ -8556,7 +8555,7 @@ FiniteElement::nextsimToWim(bool step)
                         //Tp given to the WIM should have the waves-in-ice
                         //removed (so we can do our own attenuation)
                         M_MWP_grid[i] = cfac*M_MWP[i];
-                    else 
+                    else
                         // we are given fp, so convert to Tp,
                         // taking account of the ice
                         M_MWP_grid[i] = cfac/M_MWP[i];
@@ -8623,6 +8622,13 @@ FiniteElement::nextsimToWim(bool step)
 void
 FiniteElement::wimToNextsim(bool step)
 {
+
+    //set counter (no of times to call wim)
+    if (!step)
+        wim_cpt = 0;
+    else
+        wim_cpt++;
+
     bool break_on_mesh =
         ( vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh");
     //std::cout<<"break_on_mesh="<<break_on_mesh<<"\n";
@@ -8827,6 +8833,13 @@ FiniteElement::wimToNextsim(bool step)
             M_dfloe[i] = 0.;
     }
 #endif
+
+    if((vm["simul.export_after_wim_call"].as<bool>()))
+    {
+        std::string tmp_string3
+            = ( boost::format( "after_wim_call_%1%" ) % wim_cpt ).str();
+        this->exportResults(tmp_string3);
+    }
 
     std::cout<<"Finished wimToNextsim";
 }//wimToNextsim

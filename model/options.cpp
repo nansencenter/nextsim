@@ -282,10 +282,13 @@ namespace Nextsim
             ("simul.use_wim", po::value<bool>()->default_value( false ), "")
             ("simul.wim_grid", po::value<bool>()->default_value( false ), "")
             ("setup.wave-type", po::value<std::string>()->default_value( "constant" ), "constant, ww3a")
+            ("setup.wave-time-interp-option", po::value<std::string>()->default_value( "step" ), "step, linear")
 
             ("simul.constant_significant_wave_height", po::value<double>()->default_value( 2. ), "")
             ("simul.constant_wave_mean_direction", po::value<double>()->default_value( 90. ), "")
             ("simul.constant_wave_peak_frequency", po::value<double>()->default_value( 0.05 ), "")
+
+            ("simul.export_after_wim_call", po::value<bool>()->default_value( false ), "")
             ;
 
         return desc.add( Wim::descrWimOptions() );
