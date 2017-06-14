@@ -70,10 +70,10 @@ public:
     typedef GraphCSR graph_type;
     typedef boost::shared_ptr<graph_type> graph_ptrtype;
 
+    typedef DataSet Dataset;
     typedef ExternalData external_data;
     typedef typename std::vector<external_data*> external_data_vec ;
-
-    typedef DataSet Dataset;
+    typedef typename std::vector<Dataset*> Dataset_vec ;
 
     typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
 
@@ -299,6 +299,7 @@ private:
 
     external_data_vec M_external_data;
     external_data_vec M_external_data_tmp;
+    Dataset_vec M_datasets_regrid;
 
     std::vector<double> M_fcor;
 
