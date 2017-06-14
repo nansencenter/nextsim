@@ -153,7 +153,7 @@ namespace Nextsim
             ("simul.cohesion_thickness_exponent", po::value<double>()->default_value( 1. ), "")
 
             ("simul.time_relaxation_damage", po::value<double>()->default_value( 25. ), "days")
-            ("simul.deltaT_relaxation_damage", po::value<double>()->default_value( 40. ), "Kelvin")
+            ("simul.deltaT_relaxation_damage", po::value<double>()->default_value( 20. ), "Kelvin")
             
             ("simul.undamaged_time_relaxation_sigma", po::value<double>()->default_value( 1e7 ), "seconds") // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
             ("simul.exponent_relaxation_sigma", po::value<double>()->default_value( 4. ), "")              // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
@@ -193,14 +193,14 @@ namespace Nextsim
             ("simul.use_thermo_forcing", po::value<bool>()->default_value( true ), "")
             ("simul.albedoW", po::value<double>()->default_value( 0.07 ), "")
             // not used: ("simul.read_hw", po::value<double>()->default_value( 1. ), "")
-            ("simul.alb_scheme", po::value<int>()->default_value( 1 ), "")
+            ("simul.alb_scheme", po::value<int>()->default_value( 3 ), "")
             ("simul.flooding", po::value<bool>()->default_value( true ), "")
-            ("simul.alb_ice", po::value<double>()->default_value( 0.64 ), "")
-            ("simul.alb_sn", po::value<double>()->default_value( 0.85 ), "")
+            ("simul.alb_ice", po::value<double>()->default_value( 0.63 ), "")
+            ("simul.alb_sn", po::value<double>()->default_value( 0.88 ), "")
             ("simul.I_0", po::value<double>()->default_value( 0.17 ), "")
             ("simul.Qdw", po::value<double>()->default_value( 0.5 ), "")
             ("simul.Fdw", po::value<double>()->default_value( 0. ), "")
-            ("simul.newice_type", po::value<int>()->default_value( 1 ), "")
+            ("simul.newice_type", po::value<int>()->default_value( 4 ), "")
             ("simul.melt_type", po::value<int>()->default_value( 1 ), "")
             ("simul.hnull", po::value<double>()->default_value( 0.25 ), "")
             ("simul.PhiF", po::value<double>()->default_value( 4. ), "")
