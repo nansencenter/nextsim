@@ -94,6 +94,7 @@ namespace Nextsim
             ("simul.logfile", po::value<std::string>()->default_value( "" ), "")
             // not used: ("simul.diagnostics_frequency", po::value<int>()->default_value( 1 ), "")
             ("simul.save_forcing_field", po::value<bool>()->default_value( false ), "")
+            ("simul.save_diagnostics", po::value<bool>()->default_value( false ), "")
             // not used: ("simul.slim_bin.use", po::value<bool>()->default_value( false ), "")
             // not used: ("simul.slim_bin.names", po::value<std::vector<std::string>>()->multitoken()->zero_tokens()->composing(), "")
             // not used: ("simul.slim_bin.output_timestep", po::value<double>()->default_value( std::numeric_limits<double>::infinity() ), "")

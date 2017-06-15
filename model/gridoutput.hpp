@@ -104,8 +104,12 @@ public:
 
         // Diagnostic variables
         Qa          = 100,
-        Qo          = 101,
-        delS        = 102,
+        Qsw         = 101,
+        Qlw         = 102,
+        Qsh         = 103,
+        Qlh         = 104,
+        Qo          = 105,
+        delS        = 106
     };
 
     typedef struct Variable
@@ -224,8 +228,32 @@ public:
                 // Diagnostic variables
                 case (variableID::Qa):
                     name     = "hfs";
-                    longName = "Surface Upward Heatflux In Air";
-                    stdName  = "surface_upward_heatflux_in_air";
+                    longName = "Surface Upward Heat Flux In Air";
+                    stdName  = "surface_upward_heat_flux_in_air";
+                    Units    = "W m-2";
+                    break;
+                case (variableID::Qsw):
+                    name     = "rss";
+                    longName = "Surface Net Upward Shortwave Flux";
+                    stdName  = "surface_net_upward_shortwave_flux";
+                    Units    = "W m-2";
+                    break;
+                case (variableID::Qlw):
+                    name     = "rls";
+                    longName = "Surface Net Upward Longwave Flux";
+                    stdName  = "surface_net_upward_longwave_flux";
+                    Units    = "W m-2";
+                    break;
+                case (variableID::Qsh):
+                    name     = "hfss";
+                    longName = "Surface Upward Sensible Heat Flux";
+                    stdName  = "surface_upward_sensible_heat_flux";
+                    Units    = "W m-2";
+                    break;
+                case (variableID::Qlh):
+                    name     = "hfsl";
+                    longName = "Surface Upward Latent Heat Flux";
+                    stdName  = "surface_upward_latent_heat_flux";
                     Units    = "W m-2";
                     break;
                 case (variableID::Qo):
