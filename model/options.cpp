@@ -153,6 +153,7 @@ namespace Nextsim
             ("simul.cohesion_thickness_normalisation", po::value<double>()->default_value( 1. ), "")
             ("simul.cohesion_thickness_exponent", po::value<double>()->default_value( 1. ), "")
 
+            ("simul.use_temperature_dependent_healing", po::value<bool>()->default_value( false ), "")
             ("simul.time_relaxation_damage", po::value<double>()->default_value( 25. ), "days")
             ("simul.deltaT_relaxation_damage", po::value<double>()->default_value( 20. ), "Kelvin")
             

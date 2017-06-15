@@ -3894,32 +3894,33 @@ FiniteElement::thermo()
             M_ridge_ratio[i] = M_ridge_ratio[i]*old_vol/M_thick[i];
         }
 
-        // Set time_relaxation_damage to be inversely proportional to
-        // temperature difference between bottom and snow-ice interface
-#if 0
-        if ( M_thick[i] > 0. )
+        if ( vm["simul.use_temperature_dependent_healing"].as<bool>() )
         {
-            double Tbot = -physical::mu*M_sss[i];
-            double C;
-            switch (M_thermo_type)
+            // Set time_relaxation_damage to be inversely proportional to
+            // temperature difference between bottom and snow-ice interface
+            if ( M_thick[i] > 0. )
             {
-                case (setup::ThermoType::ZERO_LAYER):
-                    C = physical::ki*M_snow_thick[i]/(physical::ks*M_thick[i]);
-                    deltaT = std::max(1e-36, Tbot - M_tice[0][i] ) / ( 1. + C );
-                    break;
-                case (setup::ThermoType::WINTON):
-                    C = physical::ki*M_snow_thick[i]/(physical::ks*M_thick[i]/4.);
-                    deltaT = std::max(1e-36, Tbot + C*(Tbot-M_tice[1][i]) - M_tice[0][i] ) / ( 1. + C );
-                    break;
-                default:
-                    std::cout << "thermo_type= " << (int)M_thermo_type << "\n";
-                    throw std::logic_error("Wrong thermo_type");
+                double Tbot = -physical::mu*M_sss[i];
+                double C;
+                switch (M_thermo_type)
+                {
+                    case (setup::ThermoType::ZERO_LAYER):
+                        C = physical::ki*M_snow_thick[i]/(physical::ks*M_thick[i]);
+                        deltaT = std::max(1e-36, Tbot - M_tice[0][i] ) / ( 1. + C );
+                        break;
+                    case (setup::ThermoType::WINTON):
+                        C = physical::ki*M_snow_thick[i]/(physical::ks*M_thick[i]/4.);
+                        deltaT = std::max(1e-36, Tbot + C*(Tbot-M_tice[1][i]) - M_tice[0][i] ) / ( 1. + C );
+                        break;
+                    default:
+                        std::cout << "thermo_type= " << (int)M_thermo_type << "\n";
+                        throw std::logic_error("Wrong thermo_type");
+                }
+                M_time_relaxation_damage[i] = std::max(time_relaxation_damage*deltaT_relaxation_damage/deltaT, time_step);
+            } else {
+                M_time_relaxation_damage[i] = 1e36;
             }
-            M_time_relaxation_damage[i] = std::max(time_relaxation_damage*deltaT_relaxation_damage/deltaT, time_step);
-        } else {
-            M_time_relaxation_damage[i] = 1e36;
         }
-#endif
         // -------------------------------------------------
 
         // Diagnostics
