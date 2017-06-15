@@ -136,6 +136,7 @@ namespace Nextsim
              * -----------------------------------------------------------------------------------
              */
 
+            ("setup.dynamics-type", po::value<std::string>()->default_value( "default" ), "")
             // internal stresses
             // not used: ("simul.fixed_cohesion", po::value<bool>()->default_value( true ), "")
             ("simul.use_coriolis", po::value<bool>()->default_value( true ), "")

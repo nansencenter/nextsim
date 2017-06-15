@@ -654,6 +654,12 @@ FiniteElement::initConstant()
         ("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT);
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
 
+    const boost::unordered_map<const std::string, setup::DynamicsType> str2dynamics = boost::assign::map_list_of
+        ("default", setup::DynamicsType::DEFAULT)
+        ("no_motion", setup::DynamicsType::NO_MOTION)
+        ("free_drift", setup::DynamicsType::FREE_DRIFT);
+    M_dynamics_type = str2dynamics.find(vm["setup.dynamics-type"].as<std::string>())->second;
+
 #ifdef OASIS
     cpl_time_step = vm["coupler.timestep"].as<double>();
 #endif
@@ -1737,12 +1743,6 @@ FiniteElement::advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
     // ALE_smoothing_step_nb==-1 is the diffusive eulerian case where M_UM is not changed and then =0.
     // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
     // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
-
-    // increment M_UT that is used for the drifters
-    for (int nd=0; nd<M_UM.size(); ++nd)
-    {
-        M_UT[nd] += time_step*M_VT[nd]; // Total displacement (for drifters)
-    }
 
     if(ALE_smoothing_step_nb>=0)
     {
@@ -4998,39 +4998,48 @@ FiniteElement::step(int &pcpt)
     }
 
     //======================================================================
-    // Assemble the matrix
+    // Do the dynamics
     //======================================================================
 
-    this->assemble(pcpt);
-
-    //======================================================================
-    // Solve the linear problem
-    //======================================================================
-
-    if(had_remeshed && (vm["simul.regrid_output_flag"].as<bool>()))
+    if ( M_dynamics_type == setup::DynamicsType::DEFAULT )
     {
-        std::string tmp_string3    = (boost::format( "after_assemble_%1%_mesh_adapt_step_%2%" )
-                               % pcpt
-                               % mesh_adapt_step ).str();
+        this->assemble(pcpt);
+
+        if(had_remeshed && (vm["simul.regrid_output_flag"].as<bool>()))
+        {
+            std::string tmp_string3    = (boost::format( "after_assemble_%1%_mesh_adapt_step_%2%" )
+                                   % pcpt
+                                   % mesh_adapt_step ).str();
             
-        this->exportResults(tmp_string3);
+            this->exportResults(tmp_string3);
         
-        had_remeshed=false;
+            had_remeshed=false;
+        }
+
+        chrono.restart();
+        this->solve();
+        LOG(INFO) <<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";
+
+        chrono.restart();
+        LOG(DEBUG) <<"updateVelocity starts\n";
+        this->updateVelocity();
+        LOG(DEBUG) <<"updateVelocity done in "<< chrono.elapsed() <<"s\n";
+
+        chrono.restart();
+        LOG(DEBUG) <<"update starts\n";
+        this->update();
+        LOG(DEBUG) <<"update done in "<< chrono.elapsed() <<"s\n";
     }
 
-    chrono.restart();
-    this->solve();
-    LOG(INFO) <<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";
+    if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
+    {
+        this->updateFreeDriftVelocity();
+    }
 
-    chrono.restart();
-    LOG(DEBUG) <<"updateVelocity starts\n";
-    this->updateVelocity();
-    LOG(DEBUG) <<"updateVelocity done in "<< chrono.elapsed() <<"s\n";
 
-    chrono.restart();
-    LOG(DEBUG) <<"update starts\n";
-    this->update();
-    LOG(DEBUG) <<"update done in "<< chrono.elapsed() <<"s\n";
+    //======================================================================
+    // Update time, do post-processing and check output
+    //======================================================================
 
     ++pcpt;
     current_time = time_init + pcpt*time_step/(24*3600.0);
@@ -5771,6 +5780,54 @@ FiniteElement::updateVelocity()
 
     // std::cout<<"MAX SPEED= "<< *std::max_element(speed_c_scaling_test.begin(),speed_c_scaling_test.end()) <<"\n";
     // std::cout<<"MIN SPEED= "<< *std::min_element(speed_c_scaling_test.begin(),speed_c_scaling_test.end()) <<"\n";
+    
+    // increment M_UT that is used for the drifters
+    for (int nd=0; nd<M_UM.size(); ++nd)
+    {
+        M_UT[nd] += time_step*M_VT[nd]; // Total displacement (for drifters)
+    }
+}
+
+void
+FiniteElement::updateFreeDriftVelocity()
+{
+    M_VTMM = M_VTM;
+    M_VTM  = M_VT;
+
+    int index_u, index_v;
+    double norm_Voce_ice, coef_Voce, norm_Vair_ice, coef_Vair;
+    
+    double norm_Voce_ice_min= 0.01; // minimum value to avoid 0 water drag term.
+    double norm_Vair_ice_min= 0.01; // minimum value to avoid 0 water drag term.
+
+    for (int nd=0; nd<M_num_nodes; ++nd)
+    {
+        if(M_mask_dirichlet[nd]==false)
+        {
+            index_u = nd;
+            index_v = nd+M_num_nodes;
+        
+            // Free drift case
+            norm_Voce_ice = std::hypot(M_VT[index_u]-M_ocean[index_u],M_VT[index_v]-M_ocean[index_v]);
+            norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
+
+            coef_Voce = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
+            coef_Voce *= physical::rhow; 
+                
+            norm_Vair_ice = std::hypot(M_VT[index_u]-M_wind [index_u],M_VT[index_v]-M_wind [index_v]);
+            norm_Vair_ice = (norm_Vair_ice > norm_Vair_ice_min) ? (norm_Vair_ice):norm_Vair_ice_min;
+
+            coef_Vair = (vm["simul.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*norm_Vair_ice));
+            coef_Vair *= (physical::rhoa);
+
+            M_VT[index_u] = ( coef_Vair*M_wind [index_u] + coef_Voce*M_ocean [index_u] ) / ( coef_Vair+coef_Voce );
+            M_VT[index_v] = ( coef_Vair*M_wind [index_v] + coef_Voce*M_ocean [index_v] ) / ( coef_Vair+coef_Voce );
+        
+            // increment M_UT that is used for the drifters
+            M_UT[index_u] += time_step*M_VT[index_u]; // Total displacement (for drifters)
+            M_UT[index_v] += time_step*M_VT[index_v]; // Total displacement (for drifters)
+        }
+    }
 }
 
 void

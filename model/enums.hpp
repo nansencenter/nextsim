@@ -96,6 +96,13 @@ namespace setup
         ZERO_LAYER = 0,
         WINTON     = 1
     };
+    
+    enum class DynamicsType
+	{
+		DEFAULT         = 0,
+		NO_MOTION       = 1,
+		FREE_DRIFT      = 2
+	};
 
 } // setup
 } // Nextsim

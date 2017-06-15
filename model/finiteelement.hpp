@@ -195,7 +195,7 @@ public:
     void tensors();
     void cohesion();
     void updateVelocity();
-    void scalingVelocity();
+    void updateFreeDriftVelocity();
     void update();
     void exportInitMesh();
     void exportResults(int step,
@@ -259,6 +259,7 @@ private:
     setup::BathymetryType M_bathymetry_type;
     setup::BasalStressType M_basal_stress_type;
     setup::ThermoType M_thermo_type;
+    setup::DynamicsType M_dynamics_type;
 
     setup::IceCategoryType M_ice_cat_type;
     setup::MeshType M_mesh_type;
