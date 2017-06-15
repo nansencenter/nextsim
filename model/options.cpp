@@ -160,7 +160,7 @@ namespace Nextsim
             ("simul.exponent_relaxation_sigma", po::value<double>()->default_value( 4. ), "")              // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
 
             // scaling with respect to horizontal resolution
-            ("simul.scale_coef", po::value<double>()->default_value( 0.2 ), "")
+            ("simul.scale_coef", po::value<double>()->default_value( 0.1 ), "") // optimized value for 10km resolution mesh
             // not used: ("simul.rheology_scaling", po::value<bool>()->default_value( false ), "")
             // not used: ("simul.rheology_scaling_ref_dx", po::value<double>()->default_value( 10. ), "")
             // not used: ("simul.rheology_scaling_factor", po::value<double>()->default_value( -0.0638 ), "")
