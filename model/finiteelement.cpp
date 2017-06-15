@@ -31,33 +31,10 @@ FiniteElement::FiniteElement()
 
 // Initialisation of the mesh and forcing
 void
-FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType const& mesh_type)
+FiniteElement::initMesh(setup::MeshType const& mesh_type)
 {
-    switch (domain_type)
-    {
-        case setup::DomainType::DEFAULT:
-            M_flag_fix = 10000; // free = [10001 10002];
-            break;
-        case setup::DomainType::KARA:
-            M_flag_fix = 17; // free = [15 16];
-            break;
-        case setup::DomainType::BERINGKARA:
-            M_flag_fix = 1; // free = [];
-            break;
-        case setup::DomainType::BIGKARA:
-            M_flag_fix = 158; // free = 157;
-            break;
-        case setup::DomainType::ARCTIC:
-            M_flag_fix = 174; // free = [172 173];
-            break;
-        case setup::DomainType::BIGARCTIC:
-            M_flag_fix = 161; // free = 158:160;
-            break;
-        default:
-            std::cout << "invalid domain type"<<"\n";
-            throw std::logic_error("invalid domain type");
-    }
-
+    // ------ Mesh loading -----------
+    
     M_mesh.readFromFile(M_mesh_filename);
 
     // setup the stereographic projection
@@ -77,7 +54,12 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
                      M_mesh.numNodes(), M_mesh.numTriangles()
                      );
     LOG(DEBUG) <<"Convert MESH done\n";
+    
+    // ------ Boundary conditions -----------
 
+    // Default M_flag_fix value used if  
+    M_flag_fix = 10000; // free = [10001 10002];
+    
     // set M_flag_fix to its correct value when PhysicalNames section is present in the msh file (version 2.2)
     if (!(M_mesh.markerNames()).empty())
     {
@@ -106,11 +88,18 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
     for (int vert=0; vert<bamgmesh->VerticesOnGeomVertexSize[0]; ++vert)
         M_mask[bamgmesh->VerticesOnGeomVertex[2*vert]-1]=true; // The factor 2 is because VerticesOnGeomVertex has 2 dimensions in bamg
 
+    // ------ Define and save initial mesh -----------
     M_mesh_init = M_mesh;
+    
+    exportInitMesh();
 
-    M_edges = M_mesh.edges();
+    M_elements = M_mesh.triangles();
+    M_nodes = M_mesh.nodes();
 
-    // Definition of the hmin, hmax, hminVertices or hmaxVertices
+    M_num_elements = M_mesh.numTriangles();
+    M_num_nodes = M_mesh.numNodes();
+
+    // ------  Definition of the hmin, hmax, hminVertices or hmaxVertices -----------
     auto h = this->minMaxSide(M_mesh);
 
     LOG(DEBUG) <<"MESH: HMIN= "<< h[0] <<"\n";
@@ -138,20 +127,11 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
                 bamgopt->hminVertices[i] = M_hminVertices[i];
                 bamgopt->hmaxVertices[i] = M_hmaxVertices[i];
             }
-
-
             break;
         default:
             std::cout << "invalid mesh type"<<"\n";
             throw std::logic_error("invalid mesh type");
     }
-    exportInitMesh();
-
-    M_elements = M_mesh.triangles();
-    M_nodes = M_mesh.nodes();
-
-    M_num_elements = M_mesh.numTriangles();
-    M_num_nodes = M_mesh.numNodes();
 }
 
 // Initialise size of all physical variables with values set to zero
@@ -719,68 +699,25 @@ FiniteElement::initConstant()
 
     M_mesh_filename = vm["simul.mesh_filename"].as<std::string>();
 
-#if 0
-    const boost::unordered_map<const std::string, setup::DomainType> str2domain = boost::assign::map_list_of
-        ("bigarctic10km.msh", setup::DomainType::BIGARCTIC)
-        ("topazreducedsplit2.msh", setup::DomainType::DEFAULT)
-        ("topazreducedsplit4.msh", setup::DomainType::DEFAULT)
-        ("topazreducedsplit8.msh", setup::DomainType::DEFAULT)
-        ("simplesquaresplit2.msh", setup::DomainType::DEFAULT);
-
-    M_domain_type = str2domain.find(M_mesh_filename)->second;
-
-    const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
-        ("bigarctic10km.msh", setup::MeshType::FROM_GMSH)
-        ("topazreducedsplit2.msh", setup::MeshType::FROM_SPLIT)
-        ("topazreducedsplit4.msh", setup::MeshType::FROM_SPLIT)
-        ("topazreducedsplit8.msh", setup::MeshType::FROM_SPLIT)
-        ("simplesquaresplit2.msh", setup::MeshType::FROM_SPLIT);
-
-    M_mesh_type = str2mesh.find(M_mesh_filename)->second;
-#endif
-    M_domain_type = setup::DomainType::ARCTIC;
-
+    // mesh type
+    M_mesh_type = setup::MeshType::FROM_GMSH;
     if (M_mesh_filename.find("split") != std::string::npos)
-    {
-        M_domain_type = setup::DomainType::DEFAULT;
         M_mesh_type = setup::MeshType::FROM_SPLIT;
-    }
-    else if (M_mesh_filename.find("arctic") != std::string::npos)
-    {
-        if (M_mesh_filename.find("bigarctic") != std::string::npos)
-        {
-            M_domain_type = setup::DomainType::BIGARCTIC;
-        }
-        else
-        {
-            M_domain_type = setup::DomainType::ARCTIC;
-        }
 
-        M_mesh_type = setup::MeshType::FROM_GMSH;
-    }
-
+    // mesh ordering convention
     if (M_mesh_type == setup::MeshType::FROM_SPLIT)
     {
-        if (M_mesh_filename.find("wim") == std::string::npos)
-        {
-            //if "wim" not in name use bamg ordering
-            // WIM grids are with gmsh ordering (default)
+        if (M_mesh_filename.find("wim") == std::string::npos) //if "wim" not in name use bamg ordering
             M_mesh.setOrdering("bamg");
-        }
-    }
-    else if (M_mesh_type == setup::MeshType::FROM_GMSH)
-    {
-        if (M_domain_type != setup::DomainType::ARCTIC)
-        {
-            M_mesh.setOrdering("bamg"); /* The .msh files bigarctic.msh,... that are on Johansen are actually using the bamg ordering*/
-        }
         else
             M_mesh.setOrdering("gmsh");
     }
+    else if (M_mesh_type == setup::MeshType::FROM_GMSH)
+        M_mesh.setOrdering("gmsh");
     else
         throw std::logic_error("Unknown setup::MeshType");
 
-
+    // log
     const boost::unordered_map<const std::string, LogLevel> str2log = boost::assign::map_list_of
         ("info", INFO)
         ("warning", WARNING)
@@ -789,6 +726,7 @@ FiniteElement::initConstant()
 
     M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
 
+    // Moorings
     M_use_moorings =  vm["simul.use_moorings"].as<bool>();
 
     M_moorings_snapshot =  vm["simul.mooring_snapshot"].as<bool>();
@@ -4482,7 +4420,7 @@ FiniteElement::init()
     LOG(INFO) <<"DURATION= "<< duration <<"\n";
 
     // Initialise the mesh
-    this->initMesh(M_domain_type, M_mesh_type);
+    this->initMesh(M_mesh_type);
 
 #if defined (WAVES)
     // Extract the WIM grid;

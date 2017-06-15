@@ -95,7 +95,7 @@ public:
     vector_type const& rhs() const {return *M_vector;}
     vector_type const& solution() const {return *M_solution;}
 
-    void initMesh(setup::DomainType const& domain_type, setup::MeshType const& mesh_type);
+    void initMesh(setup::MeshType const& mesh_type);
     void initDatasets();
     void createGMSHMesh(std::string const& geofilename);
     double jacobian(element_type const& element, mesh_type const& mesh) const;
@@ -261,7 +261,6 @@ private:
     setup::ThermoType M_thermo_type;
 
     setup::IceCategoryType M_ice_cat_type;
-    setup::DomainType M_domain_type;
     setup::MeshType M_mesh_type;
 
     LogLevel M_log_level;
