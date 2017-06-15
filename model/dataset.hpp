@@ -110,8 +110,7 @@ public:
     WaveOptions wavopt_none  = {
         wave_dataset: false,
         use_mwp: false,
-        use_ice: false,
-        time_interp_option:"linear",
+        use_ice: false
     };
 
     WaveDirOptions wavdiropt_none  = {

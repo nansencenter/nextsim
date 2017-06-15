@@ -70,10 +70,10 @@ public:
     typedef GraphCSR graph_type;
     typedef boost::shared_ptr<graph_type> graph_ptrtype;
 
+    typedef DataSet Dataset;
     typedef ExternalData external_data;
     typedef typename std::vector<external_data*> external_data_vec ;
-
-    typedef DataSet Dataset;
+    typedef typename std::vector<Dataset*> Dataset_vec ;
 
     typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
 
@@ -299,6 +299,7 @@ private:
 
     external_data_vec M_external_data;
     external_data_vec M_external_data_tmp;
+    Dataset_vec M_datasets_regrid;
 
     std::vector<double> M_fcor;
 
@@ -327,6 +328,7 @@ private:
     double xmin_wim,xmax_wim;
     double ymin_wim,ymax_wim;
     int num_elements_wim_grid;
+    int wim_cpt;
 #endif
     std::vector<double> M_tau;//this can just be set to zero if not using WIM
 
@@ -532,7 +534,7 @@ private:
     void updateMeans(GridOutput &means, double time_factor);
     void initMoorings();
 
-    void redistributeVariables(double* interp_elt_out,int nb_var);
+    void redistributeVariables(double* interp_elt_out,int nb_var, bool check_conc_max);
     int collectVariables(double** interp_elt_in_ptr, int** interp_elt_method, double** diffusivity_parameters, int num_elements);
     void advect (double** interp_elt_out_ptr,double* interp_elt_in, int* interp_method, int nb_var);
     void diffuse(double* variable_elt, double diffusivity_parameters, double dx);
