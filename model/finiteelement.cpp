@@ -5229,44 +5229,47 @@ FiniteElement::step(int &pcpt)
 
         if ( fmod(pcpt*time_step,mooring_output_time_step) == 0 )
         {
+            double output_time;
             if ( M_moorings_snapshot )
+            {
                 // Update the snapshot
                 this->updateMeans(M_moorings, 1.);
-
-            M_moorings.updateGridMean(M_mesh);
-
-            if ( M_moorings_snapshot )
-                M_moorings.appendNetCDF(M_moorings_file, current_time);
-            else
                 // shift the timestamp in the file to the centre of the output interval
-                M_moorings.appendNetCDF(M_moorings_file, current_time-mooring_output_time_step/86400/2);
+                output_time = current_time;
+            } else {
+                output_time = current_time - mooring_output_time_step/86400/2;
+            }
 
-            M_moorings.resetMeshMean(M_mesh);
-            M_moorings.resetGridMean();
-
+            // If it's a new day we check if we need a new file
             double not_used;
-            if ( M_moorings_file_length != GridOutput::fileLength::inf && modf(current_time, &not_used) < time_step*86400 )
-            // It's a new day, so we check if we need a new file
+            if ( M_moorings_file_length != GridOutput::fileLength::inf && modf(output_time, &not_used) < time_step*86400 )
             {
-                boost::gregorian::date now = Nextsim::parse_date(current_time);
+                boost::gregorian::date now = Nextsim::parse_date(output_time);
                 switch (M_moorings_file_length)
                 {
                     case GridOutput::fileLength::daily:
-                        M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, current_time);
+                        M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
                         break;
                     case GridOutput::fileLength::weekly:
                         if ( now.day_of_week().as_number() == 1 )
-                            M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, current_time);
+                            M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
                         break;
                     case GridOutput::fileLength::monthly:
                         if ( now.day().as_number() == 1 )
-                            M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, current_time);
+                            M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
                         break;
                     case GridOutput::fileLength::yearly:
                         if ( now.day_of_year() == 1 )
-                            M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, current_time);
+                            M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
                 }
             }
+
+            M_moorings.updateGridMean(M_mesh);
+
+            M_moorings.appendNetCDF(M_moorings_file, output_time);
+
+            M_moorings.resetMeshMean(M_mesh);
+            M_moorings.resetGridMean();
         }
     }
 
