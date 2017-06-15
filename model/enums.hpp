@@ -85,17 +85,6 @@ namespace setup
         MULTI       = 2
     };
 
-    enum class DomainType
-    {
-        DEFAULT        = 0,
-        KARA           = 1,
-        BERINGKARA     = 2,
-        BIGKARA        = 3,
-        ARCTIC         = 4,
-        BIGARCTIC      = 5,
-        WIM            = 6
-    };
-
     enum class MeshType
     {
         FROM_GMSH      = 0,
@@ -107,6 +96,13 @@ namespace setup
         ZERO_LAYER = 0,
         WINTON     = 1
     };
+    
+    enum class DynamicsType
+	{
+		DEFAULT         = 0,
+		NO_MOTION       = 1,
+		FREE_DRIFT      = 2
+	};
 
 } // setup
 } // Nextsim

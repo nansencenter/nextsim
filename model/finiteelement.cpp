@@ -31,33 +31,10 @@ FiniteElement::FiniteElement()
 
 // Initialisation of the mesh and forcing
 void
-FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType const& mesh_type)
+FiniteElement::initMesh(setup::MeshType const& mesh_type)
 {
-    switch (domain_type)
-    {
-        case setup::DomainType::DEFAULT:
-            M_flag_fix = 10000; // free = [10001 10002];
-            break;
-        case setup::DomainType::KARA:
-            M_flag_fix = 17; // free = [15 16];
-            break;
-        case setup::DomainType::BERINGKARA:
-            M_flag_fix = 1; // free = [];
-            break;
-        case setup::DomainType::BIGKARA:
-            M_flag_fix = 158; // free = 157;
-            break;
-        case setup::DomainType::ARCTIC:
-            M_flag_fix = 174; // free = [172 173];
-            break;
-        case setup::DomainType::BIGARCTIC:
-            M_flag_fix = 161; // free = 158:160;
-            break;
-        default:
-            std::cout << "invalid domain type"<<"\n";
-            throw std::logic_error("invalid domain type");
-    }
-
+    // ------ Mesh loading -----------
+    
     M_mesh.readFromFile(M_mesh_filename);
 
     // setup the stereographic projection
@@ -77,7 +54,12 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
                      M_mesh.numNodes(), M_mesh.numTriangles()
                      );
     LOG(DEBUG) <<"Convert MESH done\n";
+    
+    // ------ Boundary conditions -----------
 
+    // Default M_flag_fix value used if  
+    M_flag_fix = 10000; // free = [10001 10002];
+    
     // set M_flag_fix to its correct value when PhysicalNames section is present in the msh file (version 2.2)
     if (!(M_mesh.markerNames()).empty())
     {
@@ -106,11 +88,18 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
     for (int vert=0; vert<bamgmesh->VerticesOnGeomVertexSize[0]; ++vert)
         M_mask[bamgmesh->VerticesOnGeomVertex[2*vert]-1]=true; // The factor 2 is because VerticesOnGeomVertex has 2 dimensions in bamg
 
+    // ------ Define and save initial mesh -----------
     M_mesh_init = M_mesh;
+    
+    exportInitMesh();
 
-    M_edges = M_mesh.edges();
+    M_elements = M_mesh.triangles();
+    M_nodes = M_mesh.nodes();
 
-    // Definition of the hmin, hmax, hminVertices or hmaxVertices
+    M_num_elements = M_mesh.numTriangles();
+    M_num_nodes = M_mesh.numNodes();
+
+    // ------  Definition of the hmin, hmax, hminVertices or hmaxVertices -----------
     auto h = this->minMaxSide(M_mesh);
 
     LOG(DEBUG) <<"MESH: HMIN= "<< h[0] <<"\n";
@@ -138,20 +127,11 @@ FiniteElement::initMesh(setup::DomainType const& domain_type, setup::MeshType co
                 bamgopt->hminVertices[i] = M_hminVertices[i];
                 bamgopt->hmaxVertices[i] = M_hmaxVertices[i];
             }
-
-
             break;
         default:
             std::cout << "invalid mesh type"<<"\n";
             throw std::logic_error("invalid mesh type");
     }
-    exportInitMesh();
-
-    M_elements = M_mesh.triangles();
-    M_nodes = M_mesh.nodes();
-
-    M_num_elements = M_mesh.numTriangles();
-    M_num_nodes = M_mesh.numNodes();
 }
 
 // Initialise size of all physical variables with values set to zero
@@ -343,6 +323,7 @@ FiniteElement::initDatasets()
 #if defined (WAVES)
     if (M_use_wim)
     {
+        bool have_wave_dataset=false;
         switch (M_wave_type)
         {
             case setup::WaveType::SET_IN_WIM:
@@ -356,10 +337,12 @@ FiniteElement::initDatasets()
 
             case setup::WaveType::WW3A:
                 M_wave_elements_dataset=DataSet("ww3a_elements",M_num_elements);
+                have_wave_dataset=true;
                 break;
 
             case setup::WaveType::ERAI_WAVES_1DEG:
                 M_wave_elements_dataset=DataSet("erai_waves_1deg_elements",M_num_elements);
+                have_wave_dataset=true;
                 break;
 
             default:
@@ -389,6 +372,24 @@ FiniteElement::initDatasets()
 
     M_bathymetry_elements_dataset=DataSet("etopo_elements",M_num_elements);//M_num_nodes);
 
+    // datasets that need to be re-interpolated after regridding
+    // - not needed if only used at initialisation, or if not interpolated onto
+    // mesh (eg wave datasets are interpolated onto a fixed grid)
+    M_datasets_regrid.push_back(&M_atmosphere_nodes_dataset);
+    M_datasets_regrid.push_back(&M_atmosphere_elements_dataset);
+    M_datasets_regrid.push_back(&M_atmosphere_bis_elements_dataset);
+    M_datasets_regrid.push_back(&M_ocean_nodes_dataset);
+    M_datasets_regrid.push_back(&M_ocean_elements_dataset);
+    M_datasets_regrid.push_back(&M_bathymetry_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_topaz_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_icesat_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_piomas_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_amsre_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_osisaf_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_osisaf_type_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_amsr2_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_cs2_smos_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_smos_elements_dataset);
 
 }//initDatasets
 
@@ -657,6 +658,12 @@ FiniteElement::initConstant()
         ("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT);
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
 
+    const boost::unordered_map<const std::string, setup::DynamicsType> str2dynamics = boost::assign::map_list_of
+        ("default", setup::DynamicsType::DEFAULT)
+        ("no_motion", setup::DynamicsType::NO_MOTION)
+        ("free_drift", setup::DynamicsType::FREE_DRIFT);
+    M_dynamics_type = str2dynamics.find(vm["setup.dynamics-type"].as<std::string>())->second;
+
 #ifdef OASIS
     cpl_time_step = vm["coupler.timestep"].as<double>();
 #endif
@@ -702,68 +709,25 @@ FiniteElement::initConstant()
 
     M_mesh_filename = vm["simul.mesh_filename"].as<std::string>();
 
-#if 0
-    const boost::unordered_map<const std::string, setup::DomainType> str2domain = boost::assign::map_list_of
-        ("bigarctic10km.msh", setup::DomainType::BIGARCTIC)
-        ("topazreducedsplit2.msh", setup::DomainType::DEFAULT)
-        ("topazreducedsplit4.msh", setup::DomainType::DEFAULT)
-        ("topazreducedsplit8.msh", setup::DomainType::DEFAULT)
-        ("simplesquaresplit2.msh", setup::DomainType::DEFAULT);
-
-    M_domain_type = str2domain.find(M_mesh_filename)->second;
-
-    const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
-        ("bigarctic10km.msh", setup::MeshType::FROM_GMSH)
-        ("topazreducedsplit2.msh", setup::MeshType::FROM_SPLIT)
-        ("topazreducedsplit4.msh", setup::MeshType::FROM_SPLIT)
-        ("topazreducedsplit8.msh", setup::MeshType::FROM_SPLIT)
-        ("simplesquaresplit2.msh", setup::MeshType::FROM_SPLIT);
-
-    M_mesh_type = str2mesh.find(M_mesh_filename)->second;
-#endif
-    M_domain_type = setup::DomainType::ARCTIC;
-
+    // mesh type
+    M_mesh_type = setup::MeshType::FROM_GMSH;
     if (M_mesh_filename.find("split") != std::string::npos)
-    {
-        M_domain_type = setup::DomainType::DEFAULT;
         M_mesh_type = setup::MeshType::FROM_SPLIT;
-    }
-    else if (M_mesh_filename.find("arctic") != std::string::npos)
-    {
-        if (M_mesh_filename.find("bigarctic") != std::string::npos)
-        {
-            M_domain_type = setup::DomainType::BIGARCTIC;
-        }
-        else
-        {
-            M_domain_type = setup::DomainType::ARCTIC;
-        }
 
-        M_mesh_type = setup::MeshType::FROM_GMSH;
-    }
-
+    // mesh ordering convention
     if (M_mesh_type == setup::MeshType::FROM_SPLIT)
     {
-        if (M_mesh_filename.find("wim") == std::string::npos)
-        {
-            //if "wim" not in name use bamg ordering
-            // WIM grids are with gmsh ordering (default)
+        if (M_mesh_filename.find("wim") == std::string::npos) //if "wim" not in name use bamg ordering
             M_mesh.setOrdering("bamg");
-        }
-    }
-    else if (M_mesh_type == setup::MeshType::FROM_GMSH)
-    {
-        if (M_domain_type != setup::DomainType::ARCTIC)
-        {
-            M_mesh.setOrdering("bamg"); /* The .msh files bigarctic.msh,... that are on Johansen are actually using the bamg ordering*/
-        }
         else
             M_mesh.setOrdering("gmsh");
     }
+    else if (M_mesh_type == setup::MeshType::FROM_GMSH)
+        M_mesh.setOrdering("gmsh");
     else
         throw std::logic_error("Unknown setup::MeshType");
 
-
+    // log
     const boost::unordered_map<const std::string, LogLevel> str2log = boost::assign::map_list_of
         ("info", INFO)
         ("warning", WARNING)
@@ -772,6 +736,7 @@ FiniteElement::initConstant()
 
     M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
 
+    // Moorings
     M_use_moorings =  vm["simul.use_moorings"].as<bool>();
 
     M_moorings_snapshot =  vm["simul.mooring_snapshot"].as<bool>();
@@ -1582,87 +1547,23 @@ FiniteElement::regrid(bool step)
         M_fcor.resize(M_num_elements);
     }
 
-    M_atmosphere_nodes_dataset.target_size=M_num_nodes;
-    M_atmosphere_elements_dataset.target_size=M_num_elements;
-    M_atmosphere_bis_elements_dataset.target_size=M_num_elements;
-    M_ocean_nodes_dataset.target_size=M_num_nodes;
-    M_ocean_elements_dataset.target_size=M_num_elements;
-
-    M_ice_topaz_elements_dataset.target_size=M_num_elements;
-    M_ice_icesat_elements_dataset.target_size=M_num_elements;
-    M_ice_piomas_elements_dataset.target_size=M_num_elements;
-    M_ice_amsre_elements_dataset.target_size=M_num_elements;
-    M_ice_osisaf_elements_dataset.target_size=M_num_elements;
-    M_ice_osisaf_type_elements_dataset.target_size=M_num_elements;
-    M_ice_amsr2_elements_dataset.target_size=M_num_elements;
-    M_ice_cs2_smos_elements_dataset.target_size=M_num_elements;
-    M_ice_smos_elements_dataset.target_size=M_num_elements;
-    M_bathymetry_elements_dataset.target_size=M_num_elements;
-#if defined (WAVES)
-    if (M_use_wim)
-        M_wave_elements_dataset.target_size=M_num_elements;
-#endif
-
-
-    M_atmosphere_nodes_dataset.interpolated=false;
-    M_atmosphere_elements_dataset.interpolated=false;
-    M_atmosphere_bis_elements_dataset.interpolated=false;
-    M_ocean_nodes_dataset.interpolated=false;
-    M_ocean_elements_dataset.interpolated=false;
-
-    M_ice_topaz_elements_dataset.interpolated=false;
-    M_ice_icesat_elements_dataset.interpolated=false;
-    M_ice_piomas_elements_dataset.interpolated=false;
-    M_ice_amsre_elements_dataset.interpolated=false;
-    M_ice_osisaf_elements_dataset.interpolated=false;
-    M_ice_osisaf_type_elements_dataset.interpolated=false;
-    M_ice_amsr2_elements_dataset.interpolated=false;
-    M_ice_cs2_smos_elements_dataset.interpolated=false;
-    M_ice_smos_elements_dataset.interpolated=false;
-    M_bathymetry_elements_dataset.interpolated=false;
-#if defined (WAVES)
-    if (M_use_wim)
-        M_wave_elements_dataset.interpolated=false;
-#endif
-
-    // for the parallel code, it will be necessary to add these lines
-    // as the domain covered by the partitions changes at each remeshing/partitioning
+    //loop over vector of pointers to datasets defined in initDatasets()
+    for (auto it=M_datasets_regrid.begin(), end=M_datasets_regrid.end(); it!=end; ++it)
+    {
+        std::cout<<"REGRIDDING: need to re-interpolate dataset "<<(*it)->name<<"\n";
+        (*it)->interpolated=false;
 #if 0
-    M_atmosphere_nodes_dataset.grid.interpolated=false;
-    M_atmosphere_elements_dataset.grid.interpolated=false;
-    M_atmosphere_bis_elements_dataset.grid.interpolated=false;
-    M_ocean_nodes_dataset.grid.interpolated=false;
-    M_ocean_elements_dataset.grid.interpolated=false;
-    M_ice_topaz_elements_dataset.grid.interpolated=false;
-    M_ice_icesat_elements_dataset.grid.interpolated=false;
-    M_ice_amsre_elements_dataset.grid.interpolated=false;
-    M_ice_osisaf_elements_dataset.grid.interpolated=false;
-    M_ice_osisaf_type_elements_dataset.grid.interpolated=false;
-    M_ice_amsr2_elements_dataset.grid.interpolated=false;
-    M_ice_cs2_smos_elements_dataset.grid.interpolated=false;
-    M_ice_smos_elements_dataset.grid.interpolated=false;
-    M_bathymetry_elements_dataset.grid.interpolated=false;
-
-    M_atmosphere_nodes_dataset.grid.loaded=false;
-    M_atmosphere_elements_dataset.grid.loaded=false;
-    M_atmosphere_bis_elements_dataset.grid.loaded=false;
-    M_ocean_nodes_dataset.grid.loaded=false;
-    M_ocean_elements_dataset.grid.loaded=false;
-    M_ice_topaz_elements_dataset.grid.loaded=false;
-    M_ice_icesat_elements_dataset.grid.loaded=false;
-    M_ice_amsre_elements_dataset.grid.loaded=false;
-    M_ice_osisaf_elements_dataset.grid.loaded=false;
-    M_ice_osisaf_type_elements_dataset.grid.loaded=false;
-    M_ice_amsr2_elements_dataset.grid.loaded=false;
-    M_ice_cs2_smos_elements_dataset.grid.loaded=false;
-    M_ice_smos_elements_dataset.grid.loaded=false;
-    M_bathymetry_elements_dataset.grid.loaded=false;
+        // for the parallel code, it will be necessary to add these lines
+        // as the domain covered by the partitions changes at each remeshing/partitioning
+        (*it)->grid.interpolated=false;
+        (*it)->grid.loaded=false;
 #endif
+    }
 
     M_Cohesion.resize(M_num_elements);
     M_Compressive_strength.resize(M_num_elements);
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
-}
+}//regrid
 
 void
 FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var, bool check_max_conc)
@@ -1858,12 +1759,6 @@ FiniteElement::advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
     // ALE_smoothing_step_nb==-1 is the diffusive eulerian case where M_UM is not changed and then =0.
     // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
     // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
-
-    // increment M_UT that is used for the drifters
-    for (int nd=0; nd<M_UM.size(); ++nd)
-    {
-        M_UT[nd] += time_step*M_VT[nd]; // Total displacement (for drifters)
-    }
 
     if(ALE_smoothing_step_nb>=0)
     {
@@ -3155,17 +3050,19 @@ FiniteElement::update()
 
         // ridging scheme
         double opening_factor=((1.-M_conc[cpt])>G_star) ? 0. : std::pow(1.-(1.-M_conc[cpt])/G_star,2.);
+        
+        // limit open_water concentration to 0.
+        open_water_concentration=(open_water_concentration<0.)?0.:open_water_concentration;
 
         // opening factor set to 0 for viscous case.
         opening_factor=(young>0.) ? opening_factor : 0.; 
 
         //open_water_concentration += time_step*0.5*(delta_ridging-divergence_rate)*opening_factor;
         open_water_concentration += time_step*0.5*shear_rate/e_factor*opening_factor;
+        
+        // limit open_water concentration to 1.
+        open_water_concentration=(open_water_concentration>1.)?1.:open_water_concentration;
        
-
-        // limit open_water concentration to 0.
-        open_water_concentration=(open_water_concentration<0.)?0.:open_water_concentration;
- 
         /* Thin ice category */
         double new_conc_thin=0.;   
         double new_h_thin=0.;   
@@ -4597,7 +4494,7 @@ FiniteElement::init()
     LOG(INFO) <<"DURATION= "<< duration <<"\n";
 
     // Initialise the mesh
-    this->initMesh(M_domain_type, M_mesh_type);
+    this->initMesh(M_mesh_type);
 
 #if defined (WAVES)
     // Extract the WIM grid;
@@ -5175,39 +5072,48 @@ FiniteElement::step(int &pcpt)
     }
 
     //======================================================================
-    // Assemble the matrix
+    // Do the dynamics
     //======================================================================
 
-    this->assemble(pcpt);
-
-    //======================================================================
-    // Solve the linear problem
-    //======================================================================
-
-    if(had_remeshed && (vm["simul.regrid_output_flag"].as<bool>()))
+    if ( M_dynamics_type == setup::DynamicsType::DEFAULT )
     {
-        std::string tmp_string3    = (boost::format( "after_assemble_%1%_mesh_adapt_step_%2%" )
-                               % pcpt
-                               % mesh_adapt_step ).str();
+        this->assemble(pcpt);
+
+        if(had_remeshed && (vm["simul.regrid_output_flag"].as<bool>()))
+        {
+            std::string tmp_string3    = (boost::format( "after_assemble_%1%_mesh_adapt_step_%2%" )
+                                   % pcpt
+                                   % mesh_adapt_step ).str();
             
-        this->exportResults(tmp_string3);
+            this->exportResults(tmp_string3);
         
-        had_remeshed=false;
+            had_remeshed=false;
+        }
+
+        chrono.restart();
+        this->solve();
+        LOG(INFO) <<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";
+
+        chrono.restart();
+        LOG(DEBUG) <<"updateVelocity starts\n";
+        this->updateVelocity();
+        LOG(DEBUG) <<"updateVelocity done in "<< chrono.elapsed() <<"s\n";
+
+        chrono.restart();
+        LOG(DEBUG) <<"update starts\n";
+        this->update();
+        LOG(DEBUG) <<"update done in "<< chrono.elapsed() <<"s\n";
     }
 
-    chrono.restart();
-    this->solve();
-    LOG(INFO) <<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";
+    if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
+    {
+        this->updateFreeDriftVelocity();
+    }
 
-    chrono.restart();
-    LOG(DEBUG) <<"updateVelocity starts\n";
-    this->updateVelocity();
-    LOG(DEBUG) <<"updateVelocity done in "<< chrono.elapsed() <<"s\n";
 
-    chrono.restart();
-    LOG(DEBUG) <<"update starts\n";
-    this->update();
-    LOG(DEBUG) <<"update done in "<< chrono.elapsed() <<"s\n";
+    //======================================================================
+    // Update time, do post-processing and check output
+    //======================================================================
 
     ++pcpt;
     current_time = time_init + pcpt*time_step/(24*3600.0);
@@ -5975,6 +5881,54 @@ FiniteElement::updateVelocity()
 
     // std::cout<<"MAX SPEED= "<< *std::max_element(speed_c_scaling_test.begin(),speed_c_scaling_test.end()) <<"\n";
     // std::cout<<"MIN SPEED= "<< *std::min_element(speed_c_scaling_test.begin(),speed_c_scaling_test.end()) <<"\n";
+    
+    // increment M_UT that is used for the drifters
+    for (int nd=0; nd<M_UM.size(); ++nd)
+    {
+        M_UT[nd] += time_step*M_VT[nd]; // Total displacement (for drifters)
+    }
+}
+
+void
+FiniteElement::updateFreeDriftVelocity()
+{
+    M_VTMM = M_VTM;
+    M_VTM  = M_VT;
+
+    int index_u, index_v;
+    double norm_Voce_ice, coef_Voce, norm_Vair_ice, coef_Vair;
+    
+    double norm_Voce_ice_min= 0.01; // minimum value to avoid 0 water drag term.
+    double norm_Vair_ice_min= 0.01; // minimum value to avoid 0 water drag term.
+
+    for (int nd=0; nd<M_num_nodes; ++nd)
+    {
+        if(M_mask_dirichlet[nd]==false)
+        {
+            index_u = nd;
+            index_v = nd+M_num_nodes;
+        
+            // Free drift case
+            norm_Voce_ice = std::hypot(M_VT[index_u]-M_ocean[index_u],M_VT[index_v]-M_ocean[index_v]);
+            norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
+
+            coef_Voce = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
+            coef_Voce *= physical::rhow; 
+                
+            norm_Vair_ice = std::hypot(M_VT[index_u]-M_wind [index_u],M_VT[index_v]-M_wind [index_v]);
+            norm_Vair_ice = (norm_Vair_ice > norm_Vair_ice_min) ? (norm_Vair_ice):norm_Vair_ice_min;
+
+            coef_Vair = (vm["simul.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*norm_Vair_ice));
+            coef_Vair *= (physical::rhoa);
+
+            M_VT[index_u] = ( coef_Vair*M_wind [index_u] + coef_Voce*M_ocean [index_u] ) / ( coef_Vair+coef_Voce );
+            M_VT[index_v] = ( coef_Vair*M_wind [index_v] + coef_Voce*M_ocean [index_v] ) / ( coef_Vair+coef_Voce );
+        
+            // increment M_UT that is used for the drifters
+            M_UT[index_u] += time_step*M_VT[index_u]; // Total displacement (for drifters)
+            M_UT[index_v] += time_step*M_VT[index_v]; // Total displacement (for drifters)
+        }
+    }
 }
 
 void

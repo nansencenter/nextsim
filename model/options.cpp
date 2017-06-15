@@ -101,7 +101,7 @@ namespace Nextsim
             ("setup.exporter_precision", po::value<std::string>()->default_value("float"), "float (default) or double (almost only for testing)")
 
             // simulation
-            ("simul.mesh_filename", po::value<std::string>()->default_value( "bigarctic10km.msh" ), "")
+            ("simul.mesh_filename", po::value<std::string>()->default_value( "medium_Arctic_10km.msh" ), "")
             ("simul.mesh_path", po::value<std::string>()->default_value( "nextsimdir" ), "nextsimdir or simdatadir")
             ("simul.proj_filename", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "")
             ("simul.time_init", po::value<std::string>()->default_value( "2008-Mar-05" ), "")
@@ -137,6 +137,7 @@ namespace Nextsim
              * -----------------------------------------------------------------------------------
              */
 
+            ("setup.dynamics-type", po::value<std::string>()->default_value( "default" ), "")
             // internal stresses
             // not used: ("simul.fixed_cohesion", po::value<bool>()->default_value( true ), "")
             ("simul.use_coriolis", po::value<bool>()->default_value( true ), "")
@@ -161,7 +162,7 @@ namespace Nextsim
             ("simul.exponent_relaxation_sigma", po::value<double>()->default_value( 4. ), "")              // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
 
             // scaling with respect to horizontal resolution
-            ("simul.scale_coef", po::value<double>()->default_value( 0.2 ), "")
+            ("simul.scale_coef", po::value<double>()->default_value( 0.1 ), "") // optimized value for 10km resolution mesh
             // not used: ("simul.rheology_scaling", po::value<bool>()->default_value( false ), "")
             // not used: ("simul.rheology_scaling_ref_dx", po::value<double>()->default_value( 10. ), "")
             // not used: ("simul.rheology_scaling_factor", po::value<double>()->default_value( -0.0638 ), "")

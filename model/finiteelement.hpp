@@ -70,10 +70,10 @@ public:
     typedef GraphCSR graph_type;
     typedef boost::shared_ptr<graph_type> graph_ptrtype;
 
+    typedef DataSet Dataset;
     typedef ExternalData external_data;
     typedef typename std::vector<external_data*> external_data_vec ;
-
-    typedef DataSet Dataset;
+    typedef typename std::vector<Dataset*> Dataset_vec ;
 
     typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
 
@@ -95,7 +95,7 @@ public:
     vector_type const& rhs() const {return *M_vector;}
     vector_type const& solution() const {return *M_solution;}
 
-    void initMesh(setup::DomainType const& domain_type, setup::MeshType const& mesh_type);
+    void initMesh(setup::MeshType const& mesh_type);
     void initDatasets();
     void createGMSHMesh(std::string const& geofilename);
     double jacobian(element_type const& element, mesh_type const& mesh) const;
@@ -197,7 +197,7 @@ public:
     void tensors();
     void cohesion();
     void updateVelocity();
-    void scalingVelocity();
+    void updateFreeDriftVelocity();
     void update();
     void exportInitMesh();
     void exportResults(int step,
@@ -261,9 +261,9 @@ private:
     setup::BathymetryType M_bathymetry_type;
     setup::BasalStressType M_basal_stress_type;
     setup::ThermoType M_thermo_type;
+    setup::DynamicsType M_dynamics_type;
 
     setup::IceCategoryType M_ice_cat_type;
-    setup::DomainType M_domain_type;
     setup::MeshType M_mesh_type;
 
     LogLevel M_log_level;
@@ -301,6 +301,7 @@ private:
 
     external_data_vec M_external_data;
     external_data_vec M_external_data_tmp;
+    Dataset_vec M_datasets_regrid;
 
     std::vector<double> M_fcor;
 
