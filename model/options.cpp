@@ -94,13 +94,14 @@ namespace Nextsim
             ("simul.logfile", po::value<std::string>()->default_value( "" ), "")
             // not used: ("simul.diagnostics_frequency", po::value<int>()->default_value( 1 ), "")
             ("simul.save_forcing_field", po::value<bool>()->default_value( false ), "")
+            ("simul.save_diagnostics", po::value<bool>()->default_value( false ), "")
             // not used: ("simul.slim_bin.use", po::value<bool>()->default_value( false ), "")
             // not used: ("simul.slim_bin.names", po::value<std::vector<std::string>>()->multitoken()->zero_tokens()->composing(), "")
             // not used: ("simul.slim_bin.output_timestep", po::value<double>()->default_value( std::numeric_limits<double>::infinity() ), "")
             ("setup.exporter_precision", po::value<std::string>()->default_value("float"), "float (default) or double (almost only for testing)")
 
             // simulation
-            ("simul.mesh_filename", po::value<std::string>()->default_value( "bigarctic10km.msh" ), "")
+            ("simul.mesh_filename", po::value<std::string>()->default_value( "medium_Arctic_10km.msh" ), "")
             ("simul.mesh_path", po::value<std::string>()->default_value( "nextsimdir" ), "nextsimdir or simdatadir")
             ("simul.proj_filename", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "")
             ("simul.time_init", po::value<std::string>()->default_value( "2008-Mar-05" ), "")
@@ -136,6 +137,7 @@ namespace Nextsim
              * -----------------------------------------------------------------------------------
              */
 
+            ("setup.dynamics-type", po::value<std::string>()->default_value( "default" ), "")
             // internal stresses
             // not used: ("simul.fixed_cohesion", po::value<bool>()->default_value( true ), "")
             ("simul.use_coriolis", po::value<bool>()->default_value( true ), "")
@@ -152,6 +154,7 @@ namespace Nextsim
             ("simul.cohesion_thickness_normalisation", po::value<double>()->default_value( 1. ), "")
             ("simul.cohesion_thickness_exponent", po::value<double>()->default_value( 1. ), "")
 
+            ("simul.use_temperature_dependent_healing", po::value<bool>()->default_value( false ), "")
             ("simul.time_relaxation_damage", po::value<double>()->default_value( 25. ), "days")
             ("simul.deltaT_relaxation_damage", po::value<double>()->default_value( 20. ), "Kelvin")
             
@@ -159,7 +162,7 @@ namespace Nextsim
             ("simul.exponent_relaxation_sigma", po::value<double>()->default_value( 4. ), "")              // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
 
             // scaling with respect to horizontal resolution
-            ("simul.scale_coef", po::value<double>()->default_value( 0.2 ), "")
+            ("simul.scale_coef", po::value<double>()->default_value( 0.1 ), "") // optimized value for 10km resolution mesh
             // not used: ("simul.rheology_scaling", po::value<bool>()->default_value( false ), "")
             // not used: ("simul.rheology_scaling_ref_dx", po::value<double>()->default_value( 10. ), "")
             // not used: ("simul.rheology_scaling_factor", po::value<double>()->default_value( -0.0638 ), "")
