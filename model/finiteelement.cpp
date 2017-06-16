@@ -3824,19 +3824,19 @@ FiniteElement::thermo()
         double ow_fraction = 1. - old_conc - old_conc_thin;
 
         // Total heat flux to the atmosphere
-        D_Qa[i] = Qai*old_conc + Qai_thin*old_conc_thin + Qow_mean;
+        D_Qa[i] = Qai*old_conc + Qai_thin*old_conc_thin + (Qsw_ow+Qlw_ow+Qsh_ow+Qlh_ow)*ow_fraction;
 
         // Short wave flux to the atmosphere
-        D_Qa[i] = Qswi*old_conc + Qsw_thin*old_conc_thin + Qsw_ow*ow_fraction;
+        D_Qsw[i] = Qswi*old_conc + Qsw_thin*old_conc_thin + Qsw_ow*ow_fraction;
 
         // Long wave flux to the atmosphere
-        D_Qa[i] = Qlwi*old_conc + Qlw_thin*old_conc_thin + Qlw_ow*ow_fraction;
+        D_Qlw[i] = Qlwi*old_conc + Qlw_thin*old_conc_thin + Qlw_ow*ow_fraction;
 
         // Sensible heat flux to the atmosphere
-        D_Qa[i] = Qshi*old_conc + Qsh_thin*old_conc_thin + Qsh_ow*ow_fraction;
+        D_Qsh[i] = Qshi*old_conc + Qsh_thin*old_conc_thin + Qsh_ow*ow_fraction;
 
         // Latent heat flux to the atmosphere
-        D_Qa[i] = Qlhi*old_conc + Qlh_thin*old_conc_thin + Qlh_ow*ow_fraction;
+        D_Qlh[i] = Qlhi*old_conc + Qlh_thin*old_conc_thin + Qlh_ow*ow_fraction;
 
         // Total heat lost by ocean
         D_Qo[i] = Qio_mean + Qow_mean;
@@ -8475,7 +8475,7 @@ FiniteElement::exportResults(std::vector<std::string> const &filenames, bool exp
             exporter.writeField(outbin, D_Qlw, "Qlw");
             exporter.writeField(outbin, D_Qsh, "Qsh");
             exporter.writeField(outbin, D_Qlh, "Qlh");
-            exporter.writeField(outbin, D_Qo, "Qocean");
+            exporter.writeField(outbin, D_Qo,  "Qocean");
             exporter.writeField(outbin, D_delS, "Saltflux");
         }
         outbin.close();
