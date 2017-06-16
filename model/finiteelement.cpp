@@ -4511,6 +4511,8 @@ FiniteElement::init()
         std::cout<<"xmax (WIM grid) = "<<xmax_wim<<"\n";
         std::cout<<"ymin (WIM grid) = "<<ymin_wim<<"\n";
         std::cout<<"ymax (WIM grid) = "<<ymax_wim<<"\n";
+
+        M_export_stokes_drift_mesh  = vm["nextwim.export_stokes_drift_mesh"].as<bool>();
     }
 #endif
 
@@ -8223,7 +8225,7 @@ FiniteElement::exportResults(std::vector<std::string> const &filenames, bool exp
             // Thermodynamic and dynamic forcing
             // Atmosphere
             std::vector<std::string> ext_data_names;
-#if 1
+
             M_external_data_tmp.push_back(&M_wind);         // Surface wind [m/s]
             ext_data_names.push_back("M_wind");
             M_external_data_tmp.push_back(&M_tair);         // 2 m temperature [C]
@@ -8246,33 +8248,8 @@ FiniteElement::exportResults(std::vector<std::string> const &filenames, bool exp
             ext_data_names.push_back("M_snowfall");
             M_external_data_tmp.push_back(&M_dair);         // 2 m dew point [C]
             ext_data_names.push_back("M_dair");
-#else
-            if ( M_wind.M_initialized )
-                exporter.writeField(outbin,M_wind.getVector(), "M_wind");         // Surface wind [m/s]
-            if ( M_tair.M_initialized )
-                exporter.writeField(outbin,M_tair.getVector(), "M_tair");         // 2 m temperature [C]
-            if ( M_mixrat.M_initialized )
-                exporter.writeField(outbin,M_mixrat.getVector(), "M_mixrat");       // Mixing ratio
-            if ( M_mslp.M_initialized )
-                exporter.writeField(outbin,M_mslp.getVector(), "M_mslp");         // Atmospheric pressure [Pa]
-            if ( M_Qsw_in.M_initialized )
-                exporter.writeField(outbin,M_Qsw_in.getVector(), "M_Qsw_in");       // Incoming short-wave radiation [W/m2]
-            if ( M_Qlw_in.M_initialized )
-                exporter.writeField(outbin,M_Qlw_in.getVector(), "M_Qlw_in");       // Incoming long-wave radiation [W/m2]
-            if ( M_tcc.M_initialized )
-                exporter.writeField(outbin,M_tcc.getVector(), "M_tcc");       // Incoming long-wave radiation [W/m2]
-            if ( M_precip.M_initialized )
-                exporter.writeField(outbin,M_precip.getVector(), "M_precip");       // Total precipitation rate [kg/m^2/s]
-            if ( M_snowfr.M_initialized )
-                exporter.writeField(outbin,M_snowfr.getVector(), "M_snowfr");       // Fraction of precipitation that is snow
-            if ( M_snowfall.M_initialized )
-                exporter.writeField(outbin,M_snowfall.getVector(), "M_snowfall");       // Snow fall rate [kg/m^2/s]
-            if ( M_dair.M_initialized )
-                exporter.writeField(outbin,M_dair.getVector(), "M_dair");         // 2 m dew point [C]
-#endif
 
             // Ocean
-#if 1
             M_external_data_tmp.push_back(&M_ocean);        // "Geostrophic" ocean currents [m/s]
             ext_data_names.push_back("M_ocean");
             M_external_data_tmp.push_back(&M_ssh);          // Sea surface elevation [m]
@@ -8283,30 +8260,11 @@ FiniteElement::exportResults(std::vector<std::string> const &filenames, bool exp
             ext_data_names.push_back("M_ocean_salt");
             M_external_data_tmp.push_back(&M_mld);           // Mixed-layer depth [m]
             ext_data_names.push_back("M_mld");
-#else
-            if ( M_ocean.M_initialized )
-                exporter.writeField(outbin,M_ocean.getVector(), "M_ocean");        // "Geostrophic" ocean currents [m/s]
-            if ( M_ssh.M_initialized )
-                exporter.writeField(outbin,M_ssh.getVector(), "M_ssh");          // Sea surface elevation [m]
-
-            if ( M_ocean_temp.M_initialized )
-                exporter.writeField(outbin,M_ocean_temp.getVector(), "M_ocean_temp");   // Ocean temperature in top layer [C]
-            if ( M_ocean_salt.M_initialized )
-                exporter.writeField(outbin,M_ocean_salt.getVector(), "M_ocean_salt");   // Ocean salinity in top layer [C]
-            if ( M_mld.M_initialized )
-                exporter.writeField(outbin,M_mld.getVector(), "M_mld");          // Mixed-layer depth [m]
-#endif
 
             // Bathymetry
-#if 1
             M_external_data_tmp.push_back(&M_element_depth);           // Mixed-layer depth [m]
             ext_data_names.push_back("M_element_depth");
-#else
-            if ( M_element_depth.M_initialized )
-                exporter.writeField(outbin,M_element_depth.getVector(), "M_element_depth");
-#endif
 
-#if 1
             //loop over external data pointers and check if they should be saved
             for (int i=0;i<M_external_data_tmp.size();i++)
             {
@@ -8320,7 +8278,7 @@ FiniteElement::exportResults(std::vector<std::string> const &filenames, bool exp
             //clear
             M_external_data_tmp.resize(0);
             ext_data_names.resize(0);
-#endif
+
         }//save forcing
 
 #if defined (WAVES)
@@ -8329,6 +8287,8 @@ FiniteElement::exportResults(std::vector<std::string> const &filenames, bool exp
             exporter.writeField(outbin, M_tau, "Stresses");
             exporter.writeField(outbin, M_nfloes, "Nfloes");
             exporter.writeField(outbin, M_dfloe, "Dfloe");
+            if (M_export_stokes_drift_mesh)
+                exporter.writeField(outbin, M_stokes_drift, "Stokes_drift");
         }
 #endif
 
@@ -8666,6 +8626,11 @@ FiniteElement::wimToNextsim(bool step)
         wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, M_SWH_grid, M_MWP_grid, M_MWD_grid, step);
         M_taux_grid = wim.getTaux();
         M_tauy_grid = wim.getTauy();
+        if (M_export_stokes_drift_mesh)
+        {
+            M_stokes_drift_x_grid   = wim.getStokesDriftx();
+            M_stokes_drift_y_grid   = wim.getStokesDrifty();
+        }
 
         if ( !break_on_mesh )
             M_nfloes_grid = wim.getNfloes();
@@ -8685,7 +8650,7 @@ FiniteElement::wimToNextsim(bool step)
                     //std::cout<<"broken?,damage"<<M_broken[i]<<","<<M_damage[i]<<"\n";
                 }
             }
-        }
+        }//break on mesh
     }//run WIM & get outputs on grid
 
     //if (!M_regrid)
@@ -8706,29 +8671,63 @@ FiniteElement::wimToNextsim(bool step)
     double dx = wim_grid.dx;
     double dy = wim_grid.dy;
 
-    if (interp_taux)
+    // NODAL INTERPOLATION
+    // - taux and tauy from waves
+    // - maybe Stokes drift
+    bool interp_stokes = ( M_export_stokes_drift_mesh
+            && (M_run_wim||M_regrid||(!step)) );
+
+    int nb_var;
+    if (interp_taux&&interp_stokes)
+        nb_var  = 4;
+    else if (interp_taux||interp_stokes)
+        nb_var  = 2;
+    else
+        nb_var  = 0;
+
+    std::cout<<"nb_var (interp grid to nodes) = "<<nb_var<<"\n";
+
+    if ((!step) || M_regrid)
+    {
+        //initialisation or after regridding (need to reset sizes)
+        if (interp_taux)
+            M_tau.assign(2*M_num_nodes,0);
+        if (interp_stokes)
+            M_stokes_drift.assign(2*M_num_nodes,0);
+    }
+
+    if (interp_taux||interp_stokes)
     {
         chrono.restart();
         LOG(DEBUG) <<"Nodal Interp starts\n";
         LOG(DEBUG) <<"NODAL: Interp starts\n";
 
-        // NODAL INTERPOLATION
-        // - taux and tauy from waves
-        if ((!step) || M_regrid)
-           //initialisation or after regridding (need to reset sizes)
-            M_tau.assign(2*M_num_nodes,0);
-
-
-        int nb_var=2;
         std::vector<double> interp_in(nb_var*num_elements_wim_grid,0.);
         double* interp_out;
+        int tmp_nb_var = 0;
 
         for (int i=0; i<num_elements_wim_grid; ++i)
         {
-            // interp taux,tauy to nodes of mesh
-            interp_in[nb_var*i]   = M_taux_grid[i];
-            interp_in[nb_var*i+1] = M_tauy_grid[i];
-        }
+            tmp_nb_var = 0;
+            if (interp_taux)
+            {
+                // interp taux,tauy to nodes of mesh
+                interp_in[nb_var*i+tmp_nb_var]  = M_taux_grid[i];
+                tmp_nb_var++;
+                interp_in[nb_var*i+tmp_nb_var]  = M_tauy_grid[i];
+                tmp_nb_var++;
+            }
+            if (interp_stokes)
+            {
+                interp_in[nb_var*i+tmp_nb_var]  = M_stokes_drift_x_grid[i];
+                tmp_nb_var++;
+                interp_in[nb_var*i+tmp_nb_var]  = M_stokes_drift_y_grid[i];
+                tmp_nb_var++;
+            }
+        }//collect variables in interp_in
+
+        if (tmp_nb_var!=nb_var)
+            throw std::logic_error("tmp_nb_var not equal to nb_var");
 
         InterpFromGridToMeshx(interp_out,            //data (out)
                               &(wim_grid.x)[0], nx,  //x vector (source), length of x vector
@@ -8747,24 +8746,76 @@ FiniteElement::wimToNextsim(bool step)
         std::cout<<"\nINTERP GRID TO NODES\n";
 
 
-        //assign taux,tauy
+        //assign taux,tauy &/or stokes drift
         for (int i=0; i<M_num_nodes; ++i)
         {
-            // tau
-            M_tau[i] = interp_out[nb_var*i];//tau_x
-            M_tau[i+M_num_nodes] = interp_out[nb_var*i+1];//tau_y
-        }
-        std::cout<<"Min tau_x on grid = "<< *std::min_element(M_taux_grid.begin(),M_taux_grid.end()) <<"\n";
-        std::cout<<"Max tau_x on grid = "<< *std::max_element(M_taux_grid.begin(),M_taux_grid.end()) <<"\n";
-        std::cout<<"Min tau_y on grid = "<< *std::min_element(M_tauy_grid.begin(),M_tauy_grid.end()) <<"\n";
-        std::cout<<"Max tau_y on grid = "<< *std::max_element(M_tauy_grid.begin(),M_tauy_grid.end()) <<"\n";
-        std::cout<<"Min tau_x on mesh = "<< *std::min_element(M_tau.begin(),M_tau.begin()+M_num_nodes) <<"\n";
-        std::cout<<"Max tau_x on mesh = "<< *std::max_element(M_tau.begin(),M_tau.begin()+M_num_nodes) <<"\n";
-        std::cout<<"Min tau_y on mesh = "<< *std::min_element(M_tau.begin()+M_num_nodes,M_tau.end()) <<"\n";
-        std::cout<<"Max tau_y on mesh = "<< *std::max_element(M_tau.begin()+M_num_nodes,M_tau.end()) <<"\n";
+            tmp_nb_var  = 0;
+            if (interp_taux)
+            {
+                M_tau[i]                = interp_out[nb_var*i+tmp_nb_var];//tau_x
+                tmp_nb_var++;
+                M_tau[i+M_num_nodes]    = interp_out[nb_var*i+tmp_nb_var];//tau_y
+                tmp_nb_var++;
+            }
+            if (interp_stokes)
+            {
+                M_stokes_drift[i]               = interp_out[nb_var*i+tmp_nb_var];
+                tmp_nb_var++;
+                M_stokes_drift[i+M_num_nodes]   = interp_out[nb_var*i+tmp_nb_var];
+                tmp_nb_var++;
+            }
+        }//assign nodal values
 
         xDelete<double>(interp_out);
-    }//interp taux,tauy
+        if (tmp_nb_var!=nb_var)
+            throw std::logic_error("tmp_nb_var not equal to nb_var");
+
+        if(interp_taux)
+        {
+            //grid
+            std::cout<<"Min tau_x on grid = "<<
+                *std::min_element(M_taux_grid.begin(),M_taux_grid.end()) <<"\n";
+            std::cout<<"Max tau_x on grid = "<<
+                *std::max_element(M_taux_grid.begin(),M_taux_grid.end()) <<"\n";
+            std::cout<<"Min tau_y on grid = "<<
+                *std::min_element(M_tauy_grid.begin(),M_tauy_grid.end()) <<"\n";
+            std::cout<<"Max tau_y on grid = "<<
+                *std::max_element(M_tauy_grid.begin(),M_tauy_grid.end()) <<"\n";
+
+            //mesh
+            std::cout<<"Min tau_x on mesh = "<<
+                *std::min_element(M_tau.begin(),M_tau.begin()+M_num_nodes) <<"\n";
+            std::cout<<"Max tau_x on mesh = "<<
+                *std::max_element(M_tau.begin(),M_tau.begin()+M_num_nodes) <<"\n";
+            std::cout<<"Min tau_y on mesh = "<<
+                *std::min_element(M_tau.begin()+M_num_nodes,M_tau.end()) <<"\n";
+            std::cout<<"Max tau_y on mesh = "<<
+                *std::max_element(M_tau.begin()+M_num_nodes,M_tau.end()) <<"\n";
+        }
+
+        if(interp_stokes)
+        {
+            //grid
+            std::cout<<"Min stokes_drift_x on grid = "<<
+                *std::min_element(M_stokes_drift_x_grid.begin(),M_stokes_drift_x_grid.end()) <<"\n";
+            std::cout<<"Max stokes_drift_x on grid = "<<
+                *std::max_element(M_stokes_drift_x_grid.begin(),M_stokes_drift_x_grid.end()) <<"\n";
+            std::cout<<"Min stokes_drift_y on grid = "<<
+                *std::min_element(M_stokes_drift_y_grid.begin(),M_stokes_drift_y_grid.end()) <<"\n";
+            std::cout<<"Max stokes_drift_y on grid = "<<
+                *std::max_element(M_stokes_drift_y_grid.begin(),M_stokes_drift_y_grid.end()) <<"\n";
+
+            //mesh
+            std::cout<<"Min stokes_drift_x on mesh = "<<
+                *std::min_element(M_stokes_drift.begin(),M_stokes_drift.begin()+M_num_nodes) <<"\n";
+            std::cout<<"Max stokes_drift_x on mesh = "<<
+                *std::max_element(M_stokes_drift.begin(),M_stokes_drift.begin()+M_num_nodes) <<"\n";
+            std::cout<<"Min stokes_drift_y on mesh = "<<
+                *std::min_element(M_stokes_drift.begin()+M_num_nodes,M_stokes_drift.end()) <<"\n";
+            std::cout<<"Max stokes_drift_y on mesh = "<<
+                *std::max_element(M_stokes_drift.begin()+M_num_nodes,M_stokes_drift.end()) <<"\n";
+        }
+    }//interp taux,tauy &/or Stokes drift
 
     if (M_run_wim)
     {
@@ -8800,11 +8851,14 @@ FiniteElement::wimToNextsim(bool step)
                 }
 
             xDelete<double>(interp_out);
-            std::cout<<"Min Nfloes on grid = "<< *std::min_element(M_nfloes_grid.begin(),M_nfloes_grid.end()) <<"\n";
-            std::cout<<"Max Nfloes on grid = "<< *std::max_element(M_nfloes_grid.begin(),M_nfloes_grid.end()) <<"\n";
-            std::cout<<"Min Nfloes on mesh = "<< *std::min_element(M_nfloes.begin(),M_nfloes.end()) <<"\n";
-            std::cout<<"Max Nfloes on mesh = "<< *std::max_element(M_nfloes.begin(),M_nfloes.end()) <<"\n";
-            //std::abort();
+            std::cout<<"Min Nfloes on grid = "<<
+                *std::min_element(M_nfloes_grid.begin(),M_nfloes_grid.end()) <<"\n";
+            std::cout<<"Max Nfloes on grid = "<<
+                *std::max_element(M_nfloes_grid.begin(),M_nfloes_grid.end()) <<"\n";
+            std::cout<<"Min Nfloes on mesh = "<<
+                *std::min_element(M_nfloes.begin(),M_nfloes.end()) <<"\n";
+            std::cout<<"Max Nfloes on mesh = "<<
+                *std::max_element(M_nfloes.begin(),M_nfloes.end()) <<"\n";
         }
     }
 

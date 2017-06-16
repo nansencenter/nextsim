@@ -331,6 +331,7 @@ private:
     int wim_cpt;
 #endif
     std::vector<double> M_tau;//this can just be set to zero if not using WIM
+    std::vector<double> M_stokes_drift;//this can just be set to zero if not using WIM
 
     std::vector<double> M_icec_grid;
     std::vector<double> M_iceh_grid;
@@ -338,6 +339,9 @@ private:
 
     std::vector<double> M_taux_grid;
     std::vector<double> M_tauy_grid;
+    std::vector<double> M_stokes_drift_x_grid;
+    std::vector<double> M_stokes_drift_y_grid;
+    bool M_export_stokes_drift_mesh;
 
 private:
 

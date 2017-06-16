@@ -130,6 +130,8 @@ namespace Wim
                   "If ice is broken by waves, increase damage to nextwim.wim_damage_value (if nextwim_coupling_option=breaking_on_mesh)")
             ("nextwim.wim_damage_value", po::value<double>()->default_value( 0.999 ),
                   "If ice is broken by waves, increase damage to this value (if wim_damage_mesh=true)")
+            ("nextwim.export_stokes_drift_mesh", po::value<bool>()->default_value( false ),
+                  "export Stokes drift on mesh or not")
             ;
         return desc;
     }
