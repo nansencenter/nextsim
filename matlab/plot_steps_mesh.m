@@ -1,4 +1,4 @@
-function plot_steps_mesh(rootdir,variables,plot_options);
+function plot_steps_mesh(rootdir,variables,plot_options,step_range);
 %% CALL: plot_steps_mesh(rootdir,variables,plot_options);
 %% INPUTS:
 %% *rootdir is the root directory containing directory called mesh (with results on mesh)
@@ -34,6 +34,9 @@ OVER_WRITE  = 0;
 visible     = 0;
 apply_mask  = 1;
 save_figure = 0;
+
+if ~exist('step_range','var'); step_range  = []; end
+
 if ~exist('plot_options','var');
    plot_options.visible       = visible;
    plot_options.apply_mask    = apply_mask;
@@ -104,6 +107,10 @@ for j=1:length(dir0)
       step2 = max(step2,step);
    end
 end
+if ~isempty(step_range)
+   step1 = max(step_range(1),step1);
+   step2 = min(step_range(2),step2);
+end
 
 disp(['Plotting steps from ',num2str(step1),' to ',num2str(step2),'...']);
 disp(' ');
@@ -123,10 +130,14 @@ for step=step1:step2
       fig_full = [figdir,'/',vbl,'/',vbl,'_',num2str(step,'%2.2d'),'.png'];
 
       if ~(exist(fig_full)&~OVER_WRITE)
+         disp([vbl,' - ',num2str(step),' (',num2str(step2),')']);
          plot_nextsim_c(vbl,step,region_of_zoom,is_sequential,outdir,plot_options);
          %%
          eval(['!mkdir -p ',figdir,'/',vbl]);
          disp(['saving to ',fig_full]);
+         disp(['-----------------------------------------------------',...
+               '-------------------------------']);
+         disp(' ');
          %%
          saveas(gcf,fig_full);
          close;
