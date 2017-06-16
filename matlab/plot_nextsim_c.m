@@ -113,25 +113,42 @@ if ~exist('visible','var'),            visible = 1; end;
    % we display the figure on the screen (may be set to 0 when generating a large amount of figures)
 if ~exist('show_vec_dirn','var'),      show_vec_dirn = 0; end;
    % if plotting vector magnitude, show the direction as arrows
+if ~exist('manual_axis_range','var'),  manual_axis_range = []; end;
+   % range to be shown on colorbar
+if ~exist('check_field_range','var'),  check_field_range = 0; end;
+   % eg to plot field_after_wim_call_0.[bin,dat] use filename_string='after_wim_call'
 
      
 if(~isempty(dirname)&& dirname(end)~='/')
     dirname=[dirname, '/'];
 end
 simul_in=read_simul_in([dirname 'nextsim.log' ],0);
+simul = simul_in.simul;
 
-% Deduce the step if step is a string (which we assume is a date)
-if ischar(step)
-    step = (datenum(step) - datenum(simul_in.time_init)) * simul_in.output_per_day;
-    if step<0, error('Date given is before the start of the run'); end
+if ~ischar(step)
+    step = num2str(step);
+else
+    try
+        % check if step is a date string and if so deduce the step
+        step = (datenum(step) - datenum(simul.time_init)) * simul.output_per_day;
+    catch ME;
+    end
+end
+
+if ~ischar(step)
+    if step<0
+        error('Date given is before the start of the run');
+    else
+        step = num2str(step);
+    end
 end
    
 for p=0:0
 
-  if(is_sequential)
-      [mesh_out,data_out] = neXtSIM_bin_revert(dirname, [], step);
-  else
+  if ~is_sequential
       [mesh_out,data_out] = neXtSIM_bin_revert(dirname, p, step);
+  else
+      [mesh_out,data_out] = neXtSIM_bin_revert(dirname, [], step);
   end
 
   
@@ -210,7 +227,7 @@ for p=0:0
   %---------------------------
   % We extract the data fields
   %---------------------------
-  [field_tmp, field_plotted]=extract_field(field,data_out,dirname,step,simul_in);
+  [field_tmp, field_plotted_]=extract_field(field,data_out,dirname,step,simul_in);%don't overwrite field_plotted yet
 
   % {length(field_tmp),Ne,Nn,2*Nn}
   if(length(field_tmp)==Ne)
@@ -232,16 +249,16 @@ for p=0:0
   end
 
   if strcmp(field_plotted,'Lambda')
-      lambda0=simul_in.undamaged_time_relaxation_sigma;
-      alpha=simul_in.exponent_relaxation_sigma;
+      lambda0=simul.undamaged_time_relaxation_sigma;
+      alpha=simul.exponent_relaxation_sigma;
       v{1}=(lambda0*(1.-v{1}).^(alpha-1));
-  end
-  
-  if strcmp(field_plotted,'Viscosity')
-      lambda0=simul_in.undamaged_time_relaxation_sigma;
-      alpha=simul_in.exponent_relaxation_sigma;
-      young=simul_in.young;
+  elseif strcmp(field_plotted,'Viscosity')
+      lambda0=simul.undamaged_time_relaxation_sigma;
+      alpha=simul.exponent_relaxation_sigma;
+      young=simul.young;
       v{1}=lambda0.*(1.-v{1}).^alpha.*young;
+  else
+      field_plotted  = field_plotted_;
   end
   
   %-------------------------------------------------------------------------------------------------------------------
@@ -256,7 +273,7 @@ for p=0:0
   %-----------------------------------------------------------------------
   % We plot the actual data on the current figure, as well as the landmask
   %-----------------------------------------------------------------------
-  if 0
+  if check_field_range
      disp(' ');
      disp(['Range in ',field]);
      Z   = v{i}(:,mask_ice);
@@ -281,19 +298,20 @@ for p=0:0
   %----------------------------------------------------------------------------------------------------------------------
   % We arrange the figure in an "optimal" manner using subfunctions (you can check them out at the bottom of this script)
   %----------------------------------------------------------------------------------------------------------------------
-  % We first read in the log file to know which mesh has been used
-  simul_in  = read_simul_in([dirname,'nextsim.log'],0);
   %
-  if exist(simul_in.mesh_filename,'file')
-      mesh_filename=simul_in.mesh_filename;
+  if exist(simul.mesh_filename,'file')
+      mesh_filename=simul.mesh_filename;
   else
       mesh_filename='';
-      warning(['add directory with meshfile ''',simul_in.mesh_filename,''' to path']);
+      warning(['add directory with meshfile ''',simul.mesh_filename,''' to path']);
   end
   
   set_region_adjustment(mesh_filename,region_of_zoom);
   %
-  set_axis_colormap_colorbar(mesh_filename,field_plotted,v,i,region_of_zoom);
+  if strcmp(field_plotted,'Divergence')&isempty(manual_axis_range)
+     manual_axis_range  = [min(min(v{:})), max(max(v{:}))];
+  end
+  set_axis_colormap_colorbar(mesh_filename,field_plotted,region_of_zoom,manual_axis_range);
   %
   set_figure_cosmetics(data_out,mesh_filename,region_of_zoom,plot_date,background_color,font_size);
   
@@ -326,7 +344,7 @@ for p=0:0
 end;
 end
 
-function set_axis_colormap_colorbar(mesh_filename,field,v,i,region_of_zoom)
+function set_axis_colormap_colorbar(mesh_filename,field,region_of_zoom,manual_axis_range)
     
     % parula not available on older versions of matlab
     % - test if it works
@@ -346,83 +364,90 @@ function set_axis_colormap_colorbar(mesh_filename,field,v,i,region_of_zoom)
        THICK   = ~isempty(strfind(field,'hickness'));
     end
 
+    default_axis_range = [];
     if CONC
-        caxis([0 1]);
+        default_axis_range = [0,1];
         load('ice_conc_cmap64.mat')
         colormap(ice_conc_cmap64);
         name_colorbar='Concentration';
     elseif THICK
-        caxis([0, 4]);
+        default_axis_range = [0,4];
         colormap(cmap_def);
         name_colorbar='Thickness (m)';
     elseif (strcmp(field,'Lambda'))
-        caxis([0, 1e5]);
+        default_axis_range = [0,1e5];
         colormap(cmap_def);
         name_colorbar='Lambda (s)';
     elseif (strcmp(field,'Ridge_ratio'))
-        caxis([0, 1]);
+        default_axis_range = [0,1];
+        colormap(cmap_def);
         name_colorbar='Ridge_ratio ()';
    elseif (strcmp(field,'Viscosity'))
-        caxis([0, 1e11]);
+        default_axis_range = [0,1e11];
         colormap(cmap_def);
         name_colorbar='Viscosity (Pa s)';
     elseif strcmp(field,'Damage')
-        caxis([0.9, 1]);
+        default_axis_range = [0.9,1];
         load('ice_damage_cmap128.mat')
         colormap(ice_damage_cmap128);
         name_colorbar='Damage';
-    elseif (strcmp(field,'M_VT') && i==3)
-        caxis([0, 0.8]);
+    elseif (strcmp(field,'M_VT'))
+        default_axis_range = [0,0.8];
         load('ice_speed_cmap128.mat')
         colormap(ice_speed_cmap128);
         name_colorbar='Speed (m/s)';
-    elseif (strcmp(field,'M_VT') && i==1)
-        caxis([-0.25, 0.25]);
+    elseif (strcmp(field,'M_VTu'))
+        default_axis_range = [-.25,0.25];
         colormap('blue2red');
         name_colorbar='Speed Ux (m/s)';
-    elseif (strcmp(field,'M_VT') && i==2)
-        caxis([-0.25, 0.25]);
+    elseif (strcmp(field,'M_VTv'))
+        default_axis_range = [-.25,0.25];
         colormap('blue2red');
         name_colorbar='Speed Uy (m/s)';
     elseif strcmp(field,'Divergence')
-        caxis([min(min(v{:})), max(max(v{:}))]);
         colormap('blue2red');
         name_colorbar='Divergence rate (/day)';
     elseif strcmp(field,'Snow')
-        caxis([0, 0.5]);
+        default_axis_range = [0,0.5];
         colormap(cmap_def);
         name_colorbar='Snow thickness (m)';
     elseif strcmp(field,'Cohesion')
         colormap(cmap_def);
         name_colorbar='Cohesion (Pa)';
     elseif strcmp(field,'M_ocean_temp')
-        caxis([-2, 3]);
+        default_axis_range = [-2 3];
         colormap(cmap_def);
         name_colorbar='Ocean temp (^oC)';
     elseif strcmp(field,'M_ocean_salt')
-        caxis([29, 35]);
+        default_axis_range = [29 35];
         colormap(cmap_def);
         name_colorbar='Ocean salt (psu)';
     elseif strcmp(field,'SST')
-        caxis([-2, 3]);
+        default_axis_range = [-2 3];
         colormap(cmap_def);
         name_colorbar='SST (^oC)';
     elseif strcmp(field,'SSS')
-        caxis([29, 35]);
+        default_axis_range = [29 35];
         colormap(cmap_def);
         name_colorbar='SSS (psu)';
     elseif strcmp(field,'M_tair')
-        caxis([-35, 5]);
+        default_axis_range = [-35 5];
         colormap(cmap_def);
         name_colorbar='T_{air} (^oC)';
     elseif strcmp(field,'Dfloe')
-        caxis([0, 300]);
+        default_axis_range = [0,300];
         colormap(cmap_def);
         name_colorbar='D_{max} (m)';
     else
         colormap(cmap_def);
         name_colorbar='';
     end;
+
+    if ~isempty(manual_axis_range)
+       caxis(manual_axis_range);
+    elseif ~isempty(default_axis_range)
+       caxis(default_axis_range);
+    end
 
     % We predefine the position of the colorbar (only made for TOPAZ and MITgcm) that fits well the
     % figure and we add it to the figure

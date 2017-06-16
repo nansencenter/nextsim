@@ -1,5 +1,7 @@
 function [field_tmp, field_plotted]=extract_field(field,data_out,dirname,step,simul_in)
 
+  simul = simul_in.simul;
+
 %---------------------------
 % We extract the data fields
 %---------------------------
@@ -70,7 +72,7 @@ function [field_tmp, field_plotted]=extract_field(field,data_out,dirname,step,si
      [field_tmp3]=get_and_check(fld,data_out,dirname,step);
      
      
-     field_tmp = simul_in.cfix*field_tmp2*simul_in.scale_coef.*exp(simul_in.ridging_exponent*(1.-field_tmp));
+     field_tmp = simul.cfix*field_tmp2*simul.scale_coef.*exp(simul.ridging_exponent*(1.-field_tmp));
      field_plotted='Critical_external_stress';   
   elseif strcmp(field,'New_critical_external_stress')
      fld = 'Concentration';
@@ -83,7 +85,7 @@ function [field_tmp, field_plotted]=extract_field(field,data_out,dirname,step,si
      [field_tmp3]=get_and_check(fld,data_out,dirname,step);
      
      
-     field_tmp = (simul_in.cfix*(1-field_tmp3)+6*simul_in.cfix*field_tmp3).*field_tmp2*simul_in.scale_coef.*exp(simul_in.ridging_exponent*(1.-field_tmp));
+     field_tmp = (simul.cfix*(1-field_tmp3)+6*simul.cfix*field_tmp3).*field_tmp2*simul.scale_coef.*exp(simul.ridging_exponent*(1.-field_tmp));
      field_plotted='New_critical_external_stress';   
   else
     [field_tmp]=get_and_check(field,data_out,dirname,step);
