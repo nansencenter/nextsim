@@ -5452,7 +5452,14 @@ FiniteElement::initMoorings()
     */
 #endif
 
-    M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, time_init);
+    double output_time;
+    if ( M_moorings_snapshot )
+        // shift the timestamp in the file to the centre of the output interval
+        output_time = current_time;
+    else
+        output_time = current_time - mooring_output_time_step/86400/2;
+
+    M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
 
 } //initMoorings
 
