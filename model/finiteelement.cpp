@@ -6254,7 +6254,7 @@ FiniteElement::forcingWave()
             M_MWD_grid.assign(num_elements_wim_grid,0);
 
             // define external_data objects
-            M_SWH        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init);
+            M_SWH        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init, vm["simul.spinup_duration"].as<double>());
             M_MWP        = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
             M_MWD        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,true,time_init);//now a vector
             M_fice_waves = ExternalData(&M_wave_elements_dataset, M_mesh, 4,false,time_init);
@@ -6278,7 +6278,7 @@ FiniteElement::forcingWave()
             M_MWD_grid.assign(num_elements_wim_grid,0);
 
             // define external_data objects
-            M_SWH = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init);
+            M_SWH = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init, vm["simul.spinup_duration"].as<double>());
             M_MWP = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
             M_MWD = ExternalData(&M_wave_elements_dataset, M_mesh, 0,true,time_init);//now a vector
 
