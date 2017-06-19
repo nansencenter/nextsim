@@ -28,6 +28,7 @@ fi
 
 # link the data
 ln -s $NEXTSIM_DATADIR/BATHYMETRY/*.nc .
+ln -s $NEXTSIM_DATADIR/IABP/IABP_buoys.txt .
 ln -s $NEXTSIM_DATADIR/TOPAZ4/198910_201512/*.nc .
 ln -s $NEXTSIM_DATADIR/ERAI/*.nc .
 ln -s $NEXTSIM_DATADIR/ASR_FINAL/*.nc .
