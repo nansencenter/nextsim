@@ -178,9 +178,11 @@ public:
     void advAttenSimple(
           array3_type& Sdir, array2_type& Sfreq,
           array2_type& taux_omega,array2_type& tauy_omega,
+          array2_type& sdx_omega,array2_type& sdy_omega,
           array2_type const& ag2d_eff);
     void advAttenIsotropic(array3_type& Sdir, array2_type& Sfreq,
           array2_type& taux_omega,array2_type& tauy_omega,
+          array2_type& sdx_omega,array2_type& sdy_omega,
           array2_type const& ag2d_eff);
     void waveAdvWeno(
           array2_type& h, array2_type const& u, array2_type const& v);
@@ -221,6 +223,8 @@ public:
 
     std::vector<value_type> getTaux() const { return tau_x; }
     std::vector<value_type> getTauy() const { return tau_y; }
+    std::vector<value_type> getStokesDriftx() const { return stokes_drift_x; }
+    std::vector<value_type> getStokesDrifty() const { return stokes_drift_y; }
     std::vector<value_type> getNfloes() const { return nfloes; }
 
 
@@ -255,11 +259,12 @@ private:
     array3_type ag_eff, ap_eff, wlng_ice, atten_nond, damping, disp_ratio, sdf3d_dir_temp;
     array4_type sdf_dir, sdf_inc;
 
-    array2_type S_freq, taux_om, tauy_om;
+    array2_type S_freq, taux_om, tauy_om,
+                stokes_drift_x_om, stokes_drift_y_om;
     array2_type hp;
     array2_type Fdmax, Ftaux, Ftauy, Fhs, Ftp;
 
-    std::vector<value_type> dfloe, nfloes, tau_x, tau_y;//row-major order (C)
+    std::vector<value_type> dfloe, nfloes, tau_x, tau_y,stokes_drift_x,stokes_drift_y;//row-major order (C)
     std::vector<value_type> mesh_x, mesh_y, mesh_conc, mesh_thick, mesh_dfloe;
     std::vector<bool> mesh_broken;
     bool break_on_mesh;

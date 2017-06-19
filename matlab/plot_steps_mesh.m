@@ -1,20 +1,25 @@
-function plot_steps_mesh(rootdir,variables,plot_options);
-%% CALL: plot_steps_mesh(rootdir,variables,plot_options);
+function plot_steps_mesh(rootdir,variables,plot_options,step_range);
+%% CALL: plot_steps_mesh(rootdir,variables,plot_options,step_range);
 %% INPUTS:
-%% *rootdir is the root directory containing directory called mesh (with results on mesh)
+%% *rootdir is the root directory containing results on mesh
 %%  figures are saved to rootdir/figs/[variable name]
 %% *variables is a cell with strings of variables to plot
-%% *plot_options = [default: NB don't need to specify all fields if want to keep default values]
-%%        apply_mask: true           % If true, apply ice mask
-%%         plot_grid: 0              % If not zero the mesh lines are plotted. If zoomed out only the mesh lines will be visible
-%%   plot_coastlines: 1              % When 1 the actual domain boundaries are plotted, closed in light gray and opened in cyan.
-%%                                   %  Note though that plotting the coastlines or the grid makes the figure much heavier
-%%         plot_date: 0              % 1 if we want to display the date on the figure
-%%         font_size: 14             % Sets font size of colorbar and date
-%%  background_color: [0.85,.85,.85] % gray-white color. A substitute could be gray [0.5 0.5 0.5]
-%%     figure_format: '-png'         % can be pdf, tiff, png or jpeg
-%%       pic_quality: '-r300'        % Resolution for eps, pdf, tiff, and png
-%%     show_vec_dirn: 0              % If plotting vector magnitude, show the direction as arrows
+%% *plot_options = structure eg.
+%%    OVER_WRITE: 1           % overwrite figure even if already present, otherwise skip steps that are already plotted
+%%    RESPLOT: 0              % if 1, use resplot.m (faster, and doesn't apply restricted range to variables),
+%%                            % else use plot_nextsim_c.m (nicer plots)
+%%    figdir: [1x99 char]     % where to save figures (default is [rootdir,'/figs'])
+%%
+%% plot_options can also be used to pass options to plot_nextsim_c.m
+%% - default options used are:
+%%        apply_mask: true         % If true, apply ice mask
+%%         save_figure: 0          % Don't save fig inside plot_nextsim_c
+%%         visible: 0              % Don't show figures while plotting
+%%
+%% *step_range can be used to restrict files to plot:
+%% step_range  = []: plot all result files ['field_',num2str(step),'.bin'] where step is numeric
+%% step_range  = [step1 step2]: similar to [], but where step1<=step<=step2
+%% step_range  = name_filter (a string), to only get files following pattern ['field_',name_filter,'*.bin']
 
 if ~exist('rootdir','var');
    %% location of outputs
@@ -28,31 +33,66 @@ if ~exist('rootdir','var');
    end
    rootdir  = [rootdir,'/Model-Results/neXtSIM/Oban-test16/run',num2str(run_no)];
 end
-OVER_WRITE  = 0;
 
-% default plot options
-visible     = 0;
-apply_mask  = 1;
-save_figure = 0;
+% default options that are not for plot_nextsim_c.m
+other_prams.OVER_WRITE  = 0;
+other_prams.RESPLOT     = 0;
+other_prams.figdir      = [rootdir,'/figs'];%%default place to save figures
+
+% default plot options for plot_nextsim_c.m
+po_def.visible       = 0;
+po_def.apply_mask    = 1;
+po_def.save_figure   = 0;
+
+if ~exist('step_range','var'); step_range  = []; end
+if ~ischar(step_range)
+   %%look for ['mesh_*.dat']
+   name_filter = '';
+else
+   %%look for ['mesh_', name_filter, '*.dat']
+   name_filter = step_range;
+   step_range  = [];
+end
+
+% ========================================================================
 if ~exist('plot_options','var');
-   plot_options.visible       = visible;
-   plot_options.apply_mask    = apply_mask;
-   plot_options.save_figure   = save_figure;
-end
-if ~isfield(plot_options,'visible')
-   plot_options.visible = visible;
-end
-if ~isfield(plot_options,'apply_mask')
-   plot_options.apply_mask = apply_mask;
-end
-if ~isfield(plot_options,'save_figure')
-   plot_options.save_figure = save_figure;
+   plot_options   = po_def;
+else
+   if isempty(plot_options)
+      plot_options   = po_def;
+   else
+      fields   = fieldnames(po_def);
+      for n=1:length(fields)
+         fld   = fields{n};
+         if ~isfield(plot_options,fld)
+            plot_options.(fld)   = po_def.(fld);
+         end
+      end
+   end
 end
 
-outdir   = [rootdir,'/mesh']
-figdir   = [rootdir,'/figs']
+%% can also pass other_prams (options that don't get passed to plot_nextsim_c.m)
+%% with plot_options
+fields   = fieldnames(other_prams);
+for n=1:length(fields)
+   fld   = fields{n};
+   if isfield(plot_options,fld)
+      other_prams.(fld) = plot_options.(fld);
+      plot_options      = rmfield(plot_options,fld);
+   end
+   eval([fld,' = other_prams.',fld,';']);
+end
+disp('Options (not for plot_nextsim_c):')
+disp(other_prams);
+disp('Options (for plot_nextsim_c):')
+disp(plot_options);
+clear other_prams;
+% ========================================================================
+
+%outdir   = [rootdir,'/mesh']
+outdir   = rootdir;
 eval(['!mkdir -p ',figdir]);
-figdir   = [figdir,'/mesh']
+figdir   = [figdir,'/mesh'];
 eval(['!mkdir -p ',figdir]);
 
 %%variables to plot
@@ -83,36 +123,57 @@ Nv = length(vbls);
 %lims  = {[0,350]};
 
 % steps to be loaded
-dir0  = dir([outdir,'/mesh_*.dat']);
-N0    = -1;
-step1 = 1e30;
-step2 = -1e30;
-for j=1:length(dir0)
-   f  = dir0(j).name;
-   nf = length(f);
-   cstep = f(6:nf-4);
-   try
-      %% eg don't want 'init'
-      step  = str2num(cstep);
-   catch ME
-      continue
+dir0  = dir([outdir,'/mesh_',name_filter,'*.dat']);
+if isempty(name_filter)
+   %%only consider numeric steps
+   step1 = 1e30;
+   step2 = -1e30;
+   for j=1:length(dir0)
+      f  = dir0(j).name;
+      nf = length(f);
+      cstep = f(6:nf-4);
+      %%
+      [step,status]  = str2num(cstep);
+      if status==0
+         continue
+      end
+      if step<length(dir0)+5
+         %% eg don't want final - usually 1000
+         step1 = min(step1,step);
+         step2 = max(step2,step);
+      end
+   end
+   if ~isempty(step_range)
+      step1 = max(step_range(1),step1);
+      step2 = min(step_range(2),step2);
    end
 
-   if step<length(dir0)+5
-      %% eg don't want final - usually 1000
-      step1 = min(step1,step);
-      step2 = max(step2,step);
+   disp(['Plotting steps from ',num2str(step1),' to ',num2str(step2),'...']);
+   steps = {};
+   for step=step1:step2
+      steps{end+1}   = num2str(step);
+   end
+   Nfmt  = num2str(length(steps{end}));
+   fmt   = ['%',Nfmt,'.',Nfmt,'d'];
+else
+   steps = {};
+   for j=1:length(dir0)
+      f              = dir0(j).name;
+      nf             = length(f);
+      cstep          = f(6:nf-4);
+      steps{end+1}   = cstep;
    end
 end
 
-disp(['Plotting steps from ',num2str(step1),' to ',num2str(step2),'...']);
+Nsteps   = length(steps);
 disp(' ');
 
 region_of_zoom = [];
 %region_of_zoom = 'framstrait';
 is_sequential  = 1;
 
-for step=step1:step2
+for nstep=1:Nsteps
+   step  = steps{nstep};
 
    for k=1:Nv
       vbl   = vbls{k};
@@ -120,16 +181,29 @@ for step=step1:step2
       %lim   = lims{k};
 
       %% initial/final filenames
-      fig_full = [figdir,'/',vbl,'/',vbl,'_',num2str(step,'%2.2d'),'.png'];
+      if isempty(name_filter)
+         %%if numeric
+         fig_full = [figdir,'/',vbl,'/',vbl,'_',num2str(str2num(step),fmt),'.png'];
+      else
+         fig_full = [figdir,'/',vbl,'/',vbl,'_',step,'.png'];
+      end
 
       if ~(exist(fig_full)&~OVER_WRITE)
-         plot_nextsim_c(vbl,step,region_of_zoom,is_sequential,outdir,plot_options);
+         disp([vbl,' - ',step,' (',num2str(nstep),'/',num2str(Nsteps),')']);
+         if ~RESPLOT
+            plot_nextsim_c(vbl,step,region_of_zoom,is_sequential,outdir,plot_options);
+         else
+            resplot(vbl,step,outdir,plot_options);
+         end
          %%
          eval(['!mkdir -p ',figdir,'/',vbl]);
          disp(['saving to ',fig_full]);
+         disp(['-----------------------------------------------------',...
+               '-------------------------------']);
+         disp(' ');
          %%
          saveas(gcf,fig_full);
-         close;
+         close all;
       end%check if fig is present already
    end%loop over variables
 end%loop over time steps

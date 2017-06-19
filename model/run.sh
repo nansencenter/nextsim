@@ -7,6 +7,13 @@ else
         config=nextsim.cfg
 fi
 
+# record changes from last git commit:
+# file gets moved to "output_directory"
+P=`pwd`
+cd $NEXTSIMDIR
+git diff > $P/git_changes.txt
+cd $P
+
 # Run the nextsim model
 kernel=$(uname -s)
 if [ $kernel == "Darwin" ]
@@ -18,6 +25,11 @@ else
     # linux
     $NEXTSIMDIR/model/bin/nextsim.exec --config-files=$config
 fi
+
+# do git diff to record changes to code
+outdir=(`grep "output_directory" expt_01/out_cpp_1dirn/mesh/nextsim.log`)
+P=`pwd`
+cd $NEXTSIMDIR
 
 # Run the CPU profiler (google perftools)
 if [ \( "$NEXTSIM_BUILD_TYPE" == "DEBUG" \) -o \( "$NEXTSIM_BUILD_TYPE" == "Debug" \) -o \( "$NEXTSIM_BUILD_TYPE" == "debug" \) ]; then

@@ -574,10 +574,14 @@ void WimDiscr<T>::assign()
 
     tau_x.resize(nx*ny);
     tau_y.resize(nx*ny);
+    stokes_drift_x.resize(nx*ny);
+    stokes_drift_y.resize(nx*ny);
 
     S_freq.resize(boost::extents[nx][ny]);
     taux_om.resize(boost::extents[nx][ny]);
     tauy_om.resize(boost::extents[nx][ny]);
+    stokes_drift_x_om.resize(boost::extents[nx][ny]);
+    stokes_drift_y_om.resize(boost::extents[nx][ny]);
     hp.resize(boost::extents[nxext][nyext]);
 
     Hs.resize(nx*ny);
@@ -1327,6 +1331,8 @@ void WimDiscr<T>::timeStep(bool step)
 {
     std::fill( tau_x.begin(), tau_x.end(), 0. );
     std::fill( tau_y.begin(), tau_y.end(), 0. );
+    std::fill( stokes_drift_x.begin(), stokes_drift_x.end(), 0. );
+    std::fill( stokes_drift_y.begin(), stokes_drift_y.end(), 0. );
 
     std::vector<value_type> mom0, mom2, var_strain, mom0w, mom2w;
     mom0      .resize(nx*ny);
@@ -1517,9 +1523,11 @@ void WimDiscr<T>::timeStep(bool step)
 
         // std::cout<<"applied advection starts\n";
         if (scatmod == "dissipated")
-            this->advAttenSimple(sdf3d_dir_temp, S_freq, taux_om, tauy_om, ag2d_eff_temp);
+            this->advAttenSimple(sdf3d_dir_temp, S_freq, taux_om, tauy_om,
+                    stokes_drift_x_om, stokes_drift_y_om,ag2d_eff_temp);
         else if (scatmod == "isotropic")
-            this->advAttenIsotropic(sdf3d_dir_temp, S_freq, taux_om, tauy_om, ag2d_eff_temp);
+            this->advAttenIsotropic(sdf3d_dir_temp, S_freq, taux_om, tauy_om,
+                    stokes_drift_x_om, stokes_drift_y_om,ag2d_eff_temp);
         // std::cout<<"applied advection done\n";
 
         // update after application of advAttenSimple
@@ -1563,7 +1571,7 @@ void WimDiscr<T>::timeStep(bool step)
             }
         }
 
-        // integrate stress densities over frequency
+        // integrate stress and stokes drift densities over frequency
 #pragma omp parallel for num_threads(max_threads) collapse(2)
         for (int i = 0; i < nx; i++)
         {
@@ -1575,7 +1583,13 @@ void WimDiscr<T>::timeStep(bool step)
                 tmp1 = rhowtr*gravity*tauy_om[i][j]/ap_eff[i][j][fq];
                 tau_y[ny*i+j] += wt_om[fq]*tmp1;//row-major order (C)
 
-                //std::cout<<"tau_x["<< i << "," << j << "]= "<< taux_om[i][j] <<"\n";
+                //2*\omega*k*\int_0^\pi S(\omega,\theta)\cos(\theta)d\theta
+                tmp1 = 2*(2*PI*freq_vec[fq])*(2*PI/wlng_ice[i][j][fq])*stokes_drift_x_om[i][j];
+                stokes_drift_x[ny*i+j] += wt_om[fq]*tmp1;//row-major order (C)
+
+                //2*\omega*k*\int_0^\pi S(\omega,\theta)\sin(\theta)d\theta
+                tmp1 = 2*(2*PI*freq_vec[fq])*(2*PI/wlng_ice[i][j][fq])*stokes_drift_y_om[i][j];
+                stokes_drift_y[ny*i+j] += wt_om[fq]*tmp1;//row-major order (C)
             }
         }
 
@@ -2335,7 +2349,10 @@ void WimDiscr<T>::floeScalingSmooth(
 }
 
 template<typename T>
-void WimDiscr<T>::advAttenSimple(array3_type& Sdir, array2_type& Sfreq, array2_type& taux_omega, array2_type& tauy_omega, array2_type const& ag2d_eff)
+void WimDiscr<T>::advAttenSimple(array3_type& Sdir, array2_type& Sfreq,
+        array2_type& taux_omega, array2_type& tauy_omega,
+        array2_type& sdx_omega, array2_type& sdy_omega,
+        array2_type const& ag2d_eff)
 {
     array2_type uwave, vwave, temp;
     uwave.resize(boost::extents[nx][ny]);
@@ -2387,6 +2404,8 @@ void WimDiscr<T>::advAttenSimple(array3_type& Sdir, array2_type& Sfreq, array2_t
     std::fill( Sfreq.data(), Sfreq.data() + Sfreq.num_elements(), 0. );
     std::fill( taux_omega.data(), taux_omega.data() + taux_omega.num_elements(), 0. );
     std::fill( tauy_omega.data(), tauy_omega.data() + tauy_omega.num_elements(), 0. );
+    std::fill( sdx_omega.data(), sdx_omega.data() + sdx_omega.num_elements(), 0. );
+    std::fill( sdy_omega.data(), sdy_omega.data() + sdy_omega.num_elements(), 0. );
 
 #pragma omp parallel for num_threads(max_threads) collapse(2)
     for (int i = 0; i < nx; i++)
@@ -2425,10 +2444,20 @@ void WimDiscr<T>::advAttenSimple(array3_type& Sdir, array2_type& Sfreq, array2_t
                 }
             }//end "if ice"
 
-            // integrate spectrum over direction
+            // integrals to be done everywhere (not just in ice)
             for (int wnd = 0; wnd < nwavedirn; wnd++)
             {
+                //frequency spectrum
                 Sfreq[i][j] += wt_theta[wnd]*Sdir[i][j][wnd];
+
+                //Stoke's drift at surface (x)
+                adv_dir = -PI*(90.0+wavedir[wnd])/180.0;
+                tmp     = std::cos(adv_dir)*wt_theta[wnd]*Sdir[i][j][wnd];
+                sdx_omega[i][j] += tmp;
+
+                //Stoke's drift at surface (y)
+                tmp = std::sin(adv_dir)*wt_theta[wnd]*Sdir[i][j][wnd];
+                sdy_omega[i][j] += tmp;
             }
             //std::cout<<"taux_om["<< i << "," << j << "]= "<< taux_om[i][j] <<"\n";
             if ((i==wim_itest)&&(j==wim_jtest))
@@ -2444,7 +2473,10 @@ void WimDiscr<T>::advAttenSimple(array3_type& Sdir, array2_type& Sfreq, array2_t
 
 
 template<typename T>
-void WimDiscr<T>::advAttenIsotropic(array3_type& Sdir, array2_type& Sfreq, array2_type& taux_omega, array2_type& tauy_omega, array2_type const& ag2d_eff)
+void WimDiscr<T>::advAttenIsotropic(array3_type& Sdir, array2_type& Sfreq,
+        array2_type& taux_omega, array2_type& tauy_omega,
+        array2_type& sdx_omega, array2_type& sdy_omega,
+        array2_type const& ag2d_eff)
 {
     array2_type uwave, vwave, temp;
     uwave.resize(boost::extents[nx][ny]);
@@ -2512,6 +2544,8 @@ void WimDiscr<T>::advAttenIsotropic(array3_type& Sdir, array2_type& Sfreq, array
     std::fill( Sfreq.data(), Sfreq.data() + Sfreq.num_elements(), 0. );
     std::fill( taux_omega.data(), taux_omega.data() + taux_omega.num_elements(), 0. );
     std::fill( tauy_omega.data(), tauy_omega.data() + tauy_omega.num_elements(), 0. );
+    std::fill( sdx_omega.data(), sdx_omega.data() + sdx_omega.num_elements(), 0. );
+    std::fill( sdy_omega.data(), sdy_omega.data() + sdy_omega.num_elements(), 0. );
 
     int cpt=0;
 
@@ -2596,6 +2630,9 @@ void WimDiscr<T>::advAttenIsotropic(array3_type& Sdir, array2_type& Sfreq, array
 
                 taux_omega[i][j] = -src_cos_1;
                 tauy_omega[i][j] = -src_sin_1;
+
+                sdx_omega[i][j] = std::real(.5*(S_fou[jp1]+S_fou[jm1]));
+                sdy_omega[i][j] = std::real(-.5*zi*(S_fou[jp1]-S_fou[jm1]));
 
                 // if (cpt==1)
                 // {
@@ -3275,6 +3312,8 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
         bool Dmax;
         bool taux;
         bool tauy;
+        bool sdx;
+        bool sdy;
         bool swh;
         bool mwp;
         bool mwd;
@@ -3295,7 +3334,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
     std::string fileout,fileoutb;
     if ( output_type == "prog" )
     {
-        Nrecs   = 6;
+        Nrecs   = 8;
         fileout = (boost::format( "%1%/wim_prog%2%" ) % path.string() % timestpstr).str();
 
         //fields to extract
@@ -3306,6 +3345,8 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
             Dmax:   true,
             taux:   true,
             tauy:   true,
+            sdx:    true,
+            sdy:    true,
             swh:    true,
             mwp:    true,
             mwd:    true,
@@ -3316,7 +3357,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
     }
     else if ( output_type == "final" )
     {
-        Nrecs   = 6;
+        Nrecs   = 8;
         fileout = (boost::format( "%1%/wim_out%2%" ) % path.string() % timestpstr).str();
 
         //fields to extract
@@ -3327,6 +3368,8 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
             Dmax:   true,
             taux:   true,
             tauy:   true,
+            sdx:    true,
+            sdy:    true,
             swh:    true,
             mwp:    true,
             mwd:    true,
@@ -3348,6 +3391,8 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
             Dmax:   true,
             taux:   false,
             tauy:   false,
+            sdx:    false,
+            sdy:    false,
             swh:    true,
             mwp:    true,
             mwd:    true,
@@ -3369,6 +3414,8 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
             Dmax:   false,
             taux:   false,
             tauy:   false,
+            sdx:    false,
+            sdy:    false,
             swh:    false,
             mwp:    false,
             mwd:    false,
@@ -3477,6 +3524,30 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
         rstr   = std::string(2-std::to_string(recno).length(),'0')
            + std::to_string(recno);
         outb << std::setw(9) << rstr << "tau_y" <<"\n";
+        ++recno;
+    }
+
+    if ( extract_fields.sdx )
+    {
+        for (int i = 0; i < nx; i++)
+            for (int j = 0; j < ny; j++)
+                out.write((char *)&stokes_drift_x[ny*i+j], sizeof(value_type));
+
+        rstr   = std::string(2-std::to_string(recno).length(),'0')
+           + std::to_string(recno);
+        outb << std::setw(9) << rstr << "stokes_drift_x" <<"\n";
+        ++recno;
+    }
+
+    if ( extract_fields.sdy )
+    {
+        for (int i = 0; i < nx; i++)
+            for (int j = 0; j < ny; j++)
+                out.write((char *)&stokes_drift_y[ny*i+j], sizeof(value_type));
+
+        rstr   = std::string(2-std::to_string(recno).length(),'0')
+           + std::to_string(recno);
+        outb << std::setw(9) << rstr << "stokes_drift_y" <<"\n";
         ++recno;
     }
 
