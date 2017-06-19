@@ -8806,10 +8806,8 @@ FiniteElement::wimToNextsim(bool step)
     if ((!step) || M_regrid)
     {
         //initialisation or after regridding (need to reset sizes)
-        if (interp_taux)
-            M_tau.assign(2*M_num_nodes,0);
-        if (interp_stokes)
-            M_stokes_drift.assign(2*M_num_nodes,0);
+        M_tau.assign(2*M_num_nodes,0);
+        M_stokes_drift.assign(2*M_num_nodes,0);
     }
 
     if (interp_taux||interp_stokes)
