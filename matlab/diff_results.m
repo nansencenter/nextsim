@@ -17,33 +17,38 @@ end
 
 [Mesh1,Data1] = convert_mesh(mesh1, data1);
 [Mesh2,Data2] = convert_mesh(mesh2, data2);
-
+disp(['#elements       : ',num2str(Mesh1.Ne),',',num2str(Mesh2.Ne)]);
+disp(['#nodes          : ',num2str(Mesh1.Nn),',',num2str(Mesh2.Nn)]);
+disp(['resolution (km) : ',num2str(Mesh1.resolution/1e3),',',num2str(Mesh2.resolution/1e3)]);
 
 % check if on the same mesh
 SAME_MESH   = 0;
+thresh      = 1;%threshold for positions of mesh nodes (km)
 if Mesh1.Nn==Mesh2.Nn & Mesh1.Ne==Mesh2.Ne
    % meshes could be the same
-   dist  = hypot(Mesh1.Nodes_x-Mesh2.Nodes_x,Mesh1.Nodes_y-Mesh2.Nodes_y);%distance in m
-   if max(dist)<1e-3
-      SAME_MESH   = 1;
+   disp('meshes are same size...')
+   dist  = hypot(Mesh1.Nodes_x-Mesh2.Nodes_x,Mesh1.Nodes_y-Mesh2.Nodes_y)/1e3;%distance in km
+   disp(['range in distances between nodes (km): ',num2str(min(dist)),' - ',num2str(max(dist))]);
+   if max(dist)<thresh
+      SAME_MESH   = 1
    end
 end
 
 
 if SAME_MESH
-   disp('Results are on the same mesh');
+   disp(['Results are on similar meshes (threshold = ',num2str(thresh),'km)']);
    %
    disp(' ');
    disp('Comparing scalars...');
-   compare_fields(Data1.Scalars,Data2.Scalars);
+   anomaly.Scalars   = compare_fields(Data1.Scalars,Data2.Scalars);
    %
    disp(' ');
    disp('Comparing elements...');
-   compare_fields(Data1.Elements,Data2.Elements);
+   anomaly.Elements  = compare_fields(Data1.Elements,Data2.Elements);
    %
    disp(' ');
    disp('Comparing nodes...');
-   compare_fields(Data1.Nodes,Data2.Nodes);
+   anomaly.Nodes  = compare_fields(Data1.Nodes,Data2.Nodes);
 else
    disp('Results are on different meshes');
    disp(' - interpolating onto a grid');
@@ -58,7 +63,7 @@ else
    %interp and compare elements
    disp(' ');
    disp('Comparing elements...');
-   USE_ISSM = 1;
+   USE_ISSM = 0;
    if USE_ISSM
       Gdata1   = interp_ISSM(Grid,Mesh1,Data1.Elements);
       Gdata2   = interp_ISSM(Grid,Mesh2,Data2.Elements);
@@ -87,7 +92,8 @@ if PLOT_ANOMALIES
       plot_fields_grid(anomaly.Elements);
       plot_fields_grid(anomaly.Nodes);
    else
-      error('Plotting of anomalies on mesh not implemented');
+      plot_fields_mesh(Mesh1,anomaly.Elements);
+      plot_fields_mesh(Mesh1,anomaly.Nodes);
    end
 end
 
@@ -95,6 +101,79 @@ end
 return
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function plot_fields_mesh(mesh,Data)
+
+Nn  = length(mesh.Nodes_x);
+Ne  = length(mesh.Elements)/3;
+x   = reshape(mesh.Nodes_x(mesh.Elements),[3,Ne]);
+y   = reshape(mesh.Nodes_y(mesh.Elements),[3,Ne]);
+
+SCATTERPLOT = 0;
+plot_grid   = 0;
+mask_ice    = 1:Ne;
+
+if SCATTERPLOT
+   %scatterplot at elements
+   x  = mean(x);
+   y  = mean(y);
+else
+   %plot with patch using nodes
+end
+
+fields   = fieldnames(Data);
+for j=1:length(fields)
+   fld   = fields{j};
+   data  = flipud(Data.(fld)');
+   if length(data)==2*Nn
+      %vector on nodes - take average to interp to elements
+      var_mc   = data(mesh.Elements);
+      v{1}     = mean(reshape(var_mc,[3,Ne]));
+      var_mc   = data(mesh.Elements+Nn);
+      v{2}     = mean(reshape(var_mc,[3,Ne]));
+      v{3}     = hypot(v{1},v{2});
+      names    = {[strrep(fld,'_','-'),'_x'],[strrep(fld,'_','-'),'_y'],strrep(fld,'_','-')};
+   elseif length(data)==Nn
+      %scalar on nodes - take average to interp to elements
+      var_mc   = data(mesh.Elements);
+      v{1}     = mean(reshape(var_mc,[3,Ne]));
+      names    = {strrep(fld,'_','-')};
+   elseif length(data)==Ne
+      %scalar on elements
+      v{1}  = data;
+      names = {strrep(fld,'_','-')};
+   else
+      error([fld,' is the wrong size']);
+   end
+
+   for i=1:length(v)
+      figure;
+      if ~SCATTERPLOT
+         if plot_grid == 0
+            patch(x(:,mask_ice)/1000,y(:,mask_ice)/1000,...
+               v{i}(mask_ice),'FaceColor','flat','EdgeColor','none')
+         else
+            {Ne,x,y,v{i}}
+            patch(x(:,mask_ice)/1000,y(:,mask_ice)/1000,...
+               v{i}(mask_ice),'FaceColor','flat','EdgeColor',[0.3 0.3 0.3],'LineWidth',0.2)
+         end;
+         title(names{i});
+         colorbar;
+         caxis([min(v{i}(:)),max(v{i}(:))]);
+         colormap('jet');
+      else
+         title(names{i});
+         scatter(x,y,[],v{i},'filled');
+         colorbar;
+         caxis([min(v{i}(:)),max(v{i}(:))]);
+         colormap('jet');
+      end
+   end
+   clear v names;
+end
+
+return
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function plot_fields_grid(Data,Grid)
@@ -261,7 +340,7 @@ G.ymin  = min(mesh1.ymin,mesh2.ymin);
 G.xmax  = max(mesh1.xmax,mesh2.xmax);
 G.ymax  = max(mesh1.ymax,mesh2.ymax);
 
-res   = .5*min(mesh1.resolution,mesh2.resolution);
+res   = min(mesh1.resolution,mesh2.resolution);
 G.nx    = ceil((G.xmax-G.xmin)/res);
 G.dx    = (G.xmax-G.xmin)/G.nx;
 G.ny    = ceil((G.ymax-G.ymin)/res);
@@ -270,6 +349,9 @@ G.dy    = (G.ymax-G.ymin)/G.ny;
 G.x         = G.xmin+.5*G.dx+(1:G.nx)'*G.dx;
 G.y         = G.ymin+.5*G.dy+(1:G.ny)'*G.dy;
 [G.Y,G.X]   = meshgrid(G.y,G.x);
+
+disp(['Grid size       : ',num2str(G.nx),' x ',num2str(G.ny)]);
+disp(['Grid resolution : ',num2str(res/1e3),'km']);
 return
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -323,9 +405,9 @@ xx          = gridprams.X(:);
 yy          = gridprams.Y(:);
 for j=1:nvar
    fld   = fields{j}
-   {xx,yy,gridprams.nx*gridprams.ny}
+   % {xx,yy,gridprams.nx*gridprams.ny}
    data              = griddata(x_mesh,y_mesh,mesh_data.(fields{j}),xx,yy,method);
-   {data}
+   % {data}
    grid_data.(fld)   = reshape(data,gridprams.nx,gridprams.ny);
 end
 

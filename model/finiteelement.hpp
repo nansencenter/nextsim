@@ -121,15 +121,17 @@ public:
     void error();
 
     void thermo();
-    void thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfr,
-            double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf,
-            double &Qai);
-    void thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfr,
-            double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double &T1, double &T2,
-            double &Qai);
+    void thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfall,
+        double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf,
+        double &Qai, double &Qsw, double &Qlw, double &Qsh, double &Qlh);
+    void thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols,
+        double Qlw_in, double Qsw_in, double mld, double snowfall,
+        double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double &T1, double &T2,
+        double &Qai, double &Qsw, double &Qlw, double &Qsh, double &Qlh);
     double albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, double alb_ice, double I_0);
     void atmFluxBulk(int i, double Tsurf, double sphuma, double drag_ice_t, double Qsw, double Qlw_in, double wspeed,
-            double &Qai, double &dQaidT, double &subl);
+        double &Qai, double &dQaidT, double &subl,
+        double &Qsh, double &Qlh, double &Qlw);
     double iceOceanHeatflux(int cpt, double sst, double tbot, double mld, double dt);
 
     Dataset M_atmosphere_nodes_dataset;
@@ -331,6 +333,7 @@ private:
     int wim_cpt;
 #endif
     std::vector<double> M_tau;//this can just be set to zero if not using WIM
+    std::vector<double> M_stokes_drift;//this can just be set to zero if not using WIM
 
     std::vector<double> M_icec_grid;
     std::vector<double> M_iceh_grid;
@@ -338,6 +341,9 @@ private:
 
     std::vector<double> M_taux_grid;
     std::vector<double> M_tauy_grid;
+    std::vector<double> M_stokes_drift_x_grid;
+    std::vector<double> M_stokes_drift_y_grid;
+    bool M_export_stokes_drift_mesh;
 
 private:
 
@@ -540,8 +546,12 @@ private:
     void diffuse(double* variable_elt, double diffusivity_parameters, double dx);
 
     // Diagnostic variables
-    std::vector<double> D_Qo; // Heat loss from ocean [W/m2]
     std::vector<double> D_Qa; // Heat loss to atmosphere [W/m2]
+    std::vector<double> D_Qsw; // Total short wave at surface [W/m2]
+    std::vector<double> D_Qlw; // Total long wave at surface [W/m2]
+    std::vector<double> D_Qsh; // Total sensible heat flux at surface [W/m2]
+    std::vector<double> D_Qlh; // Total latent heat flux at surface [W/m2]
+    std::vector<double> D_Qo; // Heat loss from ocean [W/m2]
     std::vector<double> D_delS; // Salt flux to ocean
     
 

@@ -1,70 +1,132 @@
 function simul_in=read_simul_in(saved_simul_in,DO_DISP)
-%UNTITLED2 Summary of this function goes here
-%   Detailed explanation goes here
-% Example: simul_in=read_simul_in('log_simul')
 
-if ~exist('DO_DISP','var')
-   DO_DISP  = 1;
+if ~exist('saved_simul_in','var'); saved_simul_in  = 'nextsim.log'; end
+if ~exist('DO_DISP','var'); DO_DISP  = 0; end
+
+%treat this differently, since can have multiple config files
+simul_in.info.config_files   = {};
+
+fid   = fopen(saved_simul_in);
+
+%%read in rest of variables:
+while ~feof(fid)
+   [x,name] = read_next(fid);
+   if ~isempty(name)
+      if strcmp(name,'config_files')
+         simul_in.info.config_files{end+1}  = x;
+      else
+         eval(['simul_in.',name,' = x;']);
+      end
+   end
 end
+fclose(fid);
 
-fields   = {'time_init',...
-            'duration',...
-            'output_per_day',...
-            'undamaged_time_relaxation_sigma',...
-            'exponent_relaxation_sigma',...
-            'young',...
-            'mesh_filename',...
-            'cfix',...
-            'scale_coef',...
-            'ridging_exponent'};
-
-Nfld  = length(fields);
-for j=1:Nfld
-   fld   = fields{j};
-   lin   = get_value(saved_simul_in,['simul.',fld],DO_DISP);
-   % nlin  = str2num(lin);
-   if all(isstrprop(lin,'digit')) %~isempty(nlin)
-      % see if it's a number
-      simul_in.(fld) = str2num(lin);
-   else
-      % leave as a string
-      simul_in.(fld) = lin;
+if DO_DISP
+   fields   = fieldnames(simul_in);
+   for n=1:length(fields)
+      fld   = fields{n};
+      disp([fld,':']);
+      disp(simul_in.(fld));
    end
 end
 
-try
-    simul_in.time_init=datenum(simul_in.time_init,'yyyy-mm-ddHH:MM:SS');
-catch
-    try
-        simul_in.time_init=datenum(simul_in.time_init,'yyyy-mm-dd');
-    catch err
-        warning('Couldn''t read time from nextsim.log - check the file!')
-        simul_in.time_init=datenum(1900,1,1);
-    end
+return
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [x,name]  = read_next(fid)
+%% read next line in text file
+
+lin   = strtrim(fgets(fid));  %% trim leading white space
+lin2  = strsplit(lin);        %%split using spaces
+name  = lin2{1};              %%get 1st thing in line (as string)
+
+% blank line
+if strcmp(name,'')
+   x     = [];
+   name  = [];
+   return
 end
 
+% comment
+if strcmp(lin(1),'#')
+   x     = [];
+   name  = [];
+   return
 end
 
-%-----------------------
-function A=get_value(saved_simul_in,look_for,DO_DISP)
 
-fid = fopen(saved_simul_in);
-tline = fgetl(fid);
-while ischar(tline)
-    
-    if(length(tline)>=length(look_for))
-       if(strcmp(tline(1:length(look_for)),look_for))
-          if DO_DISP
-             disp(tline);
-          end
-       
-          A = sscanf(tline(length(look_for)+1:end), '%s');
-       end
-    end
-    tline = fgetl(fid);
+% ===============================================================
+% special cases
+% - config files
+if~isempty(strfind(lin,']='))
+   name  = 'config_files';
+   x     = strsplit(lin,']=');
+   x     = x{2};
+   return
 end
 
-fclose(fid);
-
+% - spaces in names)
+if length(lin2)>2
+   if strcmp('Git',lin2{1}) & strcmp('revision',lin2{2})
+      name  = 'info.Git_revision';
+      x     = strtrim(lin(length(name)-4:end));
+      return
+   end
+   if strcmp('Build',lin2{1}) & strcmp('date',lin2{2})
+      name  = 'info.Build_date';
+      x     = strtrim(lin(length(name)-4:end));
+      return
+   end
 end
 
+% - name too long
+if length(name)==length(lin);
+   x     = NaN;
+   msg   = ['error in reading simul_in: ',name ' = NaN'];
+   warning(msg);
+   return
+end
+
+% names that are dates (convert to datenum)
+time_fields   = {'simul.time_init'};%list of names that are dates
+time_field    = [];
+for n=1:length(time_fields)
+   if strcmp(time_fields{n},name)
+      try
+         x  = datenum(strtrim(lin(length(name)+1:end)));
+      catch
+         warning(['Couldn''t read time (',name,') from nextsim.log - check the file!'])
+         x  = datenum(1900,1,1);
+      end
+      return;
+   end
+end
+% ===============================================================
+
+% proper variable
+xs          = strtrim(lin(length(name)+1:end));
+[x,status]  = str2num(xs);
+if status==0
+   %% numerical conversion failed
+   %% - leave as string
+   x  = xs;
+end
+if isempty(strfind(name,'.'))
+   name  = ['info.',name];
+end
+
+% remove '-' from name (can't be a field name for a structure)
+name  = strrep(name,'-','_');
+
+% rename some fields to make them more informative:
+if strcmp(name,'info.C++')
+   % also can't have '+' in name (can't be a field name for a structure)
+   name  = 'info.Cpp_compiler';
+end
+if strcmp(name,'info.C')
+   name  = 'info.C_compiler';
+end
+
+return
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
