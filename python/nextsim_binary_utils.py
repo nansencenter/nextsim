@@ -157,6 +157,63 @@ class mesh_element:
       self.elementary   = elementary
       return
 
+   def get_coords(self,xnod,ynod):
+      ccl  = []
+      for n in self.vertices:
+         ccl.append((xnod[n],ynod[n]))
+
+      return ccl
+
+class gmsh_boundary:
+   def __init__(self,exterior,islands=None,open_boundaries=None,coastal_boundaries=None):
+      self.exterior_polygon   = exterior           # Shapely Polygon
+      self.island_polygons    = islands            # List of shapely Polygons
+      self.open_boundaries    = open_boundaries    # List of shapely LineStrings
+      self.coastal_boundaries = coastal_boundaries # List of shapely LineStrings
+      return
+
+   def plot(self,sort=True,show=True):
+      from matplotlib import pyplot as plt
+      fig   = plt.figure()
+      ax    = fig.add_subplot(1,1,1)
+      sfac  = 1e-3 #m to km
+      lw    = 1.35
+
+      # ===============================================================
+      # plot exterior
+      if not sort:
+         pp    = self.exterior_polygon
+         cc    = list(pp.exterior.coords)
+         x,y   = np.array(cc).transpose()
+         ax.plot(sfac*x,sfac*y,'k',linewidth=lw)
+      else:
+         if self.open_boundaries is not None:
+            for ll in self.open_boundaries:
+               cc    = list(ll.coords)
+               x,y   = np.array(cc).transpose()
+               ax.plot(sfac*x,sfac*y,'c',linewidth=lw)
+
+         if self.coastal_boundaries is not None:
+            for ll in self.coastal_boundaries:
+               cc    = list(ll.coords)
+               x,y   = np.array(cc).transpose()
+               ax.plot(sfac*x,sfac*y,'k',linewidth=lw)
+      # ===============================================================
+
+      if self.island_polygons is not None:
+         for pp in self.island_polygons:
+            cc    = list(pp.exterior.coords)
+            x,y   = np.array(cc).transpose()
+            if not sort:
+               ax.plot(sfac*x,sfac*y,'k',linewidth=lw)
+            else:
+               ax.plot(sfac*x,sfac*y,'r',linewidth=lw)
+
+      if show:
+         plt.show(fig)
+
+      return fig,ax
+
 class gmsh_mesh:
 
    # ================================================================
@@ -177,6 +234,8 @@ class gmsh_mesh:
          self.mapping   = mppfile_to_pyproj(self.mppfile)
 
       self.stereographic_projection()
+
+      self.get_boundary()
       return
    # ================================================================
 
@@ -242,12 +301,14 @@ class gmsh_mesh:
       lin               = fid.readline()
       self.num_nodes    = int(lin)
       self.nodes_id     = []
+      self.nodes_map    = {}# map from node id to index
       self.nodes_lon    = []
       self.nodes_lat    = []
       for n in range(self.num_nodes):
          lin            = fid.readline()
          ident,c1,c2,c3 = lin.split()
          self.nodes_id.append(int(ident))
+         self.nodes_map.update({int(ident):n})
 
          lon,lat  = xyz_to_lonlat(float(c1),float(c2),float(c3))
          self.nodes_lon.append(lon)
@@ -293,7 +354,11 @@ class gmsh_mesh:
          # get vertices of elements
          verts = []
          for j in range(num_vertices):
-            verts.append(int(slin[jcpt]))
+            # convert from node id to node index
+            # ind   = self.nodes_id.index(int(slin[jcpt]))
+            ind   = self.nodes_map[int(slin[jcpt])]
+            # ind   = int(slin[jcpt])-1 # faster, but less general
+            verts.append(ind)
             jcpt  +=1
 
          if len(slin)!=jcpt:
@@ -324,4 +389,247 @@ class gmsh_mesh:
    def stereographic_projection(self):
       self.nodes_x,self.nodes_y  = self.mapping(self.nodes_lon,self.nodes_lat)
       return
+   # ================================================================
+
+
+   # ================================================================
+   def get_indices(self,eltype="triangles"):
+
+      indices  = []
+      if eltype=="triangles":
+         els   = self.triangles
+      else:
+         els   = self.edges
+      for el in els:
+         indices.append(el.vertices)
+         
+      return np.array(indices)
+   # ================================================================
+
+
+   # ================================================================
+   def plot_mesh(self,plotter="pyplot",**kwargs):
+
+      if plotter=="pyplot":
+         # patches used in self.plot_data() is quicker than trying to
+         # plot individual triangles
+         self.plot_data(plot_grid=True,plot_coast=True,**kwargs)
+
+      elif plotter=="mlab":
+         from mayavi import mlab
+         z        = 0*self.nodes_x
+         indices  = self.get_indices("triangles")
+         mlab.triangular_mesh(self.nodes_x,self.nodes_y,z,indices,\
+               representation='wireframe',color=(0,0,0))
+         mlab.view(0,0)
+         mlab.show()
+
+      return
+   # ================================================================
+
+
+   # ================================================================
+   def plot_data(self,data=None,clabel=None,plot_grid=False,plot_coast=True,show=True,colorbar=True):
+      from matplotlib import patches,cm,collections
+      from matplotlib import pyplot as plt
+      fig   = plt.figure()
+      ax    = fig.add_subplot(1,1,1)
+      sfac  = 1e-3 #m to km
+      ax.set_xlim([sfac*self.nodes_x.min(),sfac*self.nodes_x.max()])
+      ax.set_ylim([sfac*self.nodes_y.min(),sfac*self.nodes_y.max()])
+
+      indices  = self.get_indices("triangles")
+      if data is None:
+         # test data: plot latitude
+         data     = np.mean(self.nodes_lat[indices],axis=1)
+         clabel   = 'Latitude'
+
+      patch_list  = []
+      for triangle in self.triangles:
+         ccl   = triangle.get_coords(sfac*self.nodes_x,sfac*self.nodes_y)
+         ccl.append(ccl[0]) # close the contour
+         patch_list.append(patches.Polygon(ccl,True))
+
+      pc = collections.PatchCollection(patch_list, cmap=cm.jet, alpha=.5)
+      pc.set_array(data)
+
+      if plot_grid:
+         pc.set_edgecolor('k')
+
+      ax.add_collection(pc)
+      ax.set_xlabel('x, km')
+      ax.set_ylabel('y, km')
+
+      if colorbar:
+         cbar  = fig.colorbar(pc)
+         if clabel is not None:
+            cbar.set_label(clabel,rotation=270)
+
+      if plot_coast:
+         self.plot_boundary(fig=fig,ax=ax,sort=True,show=False)
+
+      if show:
+         fig.show()
+      
+      return fig,ax
+   # ================================================================
+
+   def get_boundary(self):
+      import shapely.geometry as shg
+      import shapely.ops as shops
+
+
+      # ============================================================
+      # get open and coast vals
+      if len(self.PhysicalNames)==0:
+         plabs = []
+         cpt   = 0
+         while (self.edges[cpt].physical not in plabs) and (len(plabs)<2):
+            plabs.append(self.edges[cpt].physical)
+            cpt  += 1
+         self.coast_val = plabs[0]
+         self.open_val  = plabs[1]
+      else:
+         for ident in self.PhysicalNames:
+            if self.PhysicalNames[ident].name=="open":
+               self.open_val = ident
+            if self.PhysicalNames[ident].name=="coast":
+               self.coast_val   = ident
+      # ============================================================
+
+      # ============================================================
+      # sorting
+      line_list   = [] # will be a list of shapely line strings
+      open_list   = [] # will be a list of shapely line strings
+      coast_list  = [] # will be a list of shapely line strings
+      for edge in self.edges:
+         ccl   = edge.get_coords(self.nodes_x,self.nodes_y)
+         line_list.append(shg.LineString(ccl))
+         if edge.physical==self.open_val:
+            open_list.append(ccl)
+         else:
+            coast_list.append(ccl)
+      # ===============================================================
+
+
+      # ===============================================================
+      # merge line segments to polygons
+      lm    = shops.linemerge(line_list) #fewer multi-line strings
+      lens  = []
+      polys = []
+      for ll in lm:
+         pp = shg.Polygon(ll)
+         polys.append(pp)
+         lens.append(len(pp.exterior.coords))
+
+      if len(polys)==1:
+         islands  = None
+      else:
+         lst      = sorted([(e,i) for i,e in enumerate(lens)],reverse=True)
+         polys    = [polys[i] for l,i in lst]
+         islands  = polys[1:]
+
+      exterior = polys[0]
+      # ===============================================================
+
+
+      # ===============================================================
+      if len(open_list)==0:
+         open_boundaries = None
+      else:
+         omm   = shops.linemerge(open_list) #fewer multi-line strings
+         if hasattr(omm,'geoms'):
+            open_boundaries = [e for e in omm]
+         else:
+            open_boundaries = [omm]
+
+      # ===============================================================
+      # here only give coasts that are not islands
+      if len(coast_list)==0:
+         coastal_boundaries = None
+      else:
+         cmm   = shops.linemerge(coast_list) #fewer multi-line strings
+         coastal_boundaries = []
+         if hasattr(cmm,'geoms'):
+            for ll in cmm:
+               if ll.intersects(exterior.exterior):
+                  coastal_boundaries.append(ll)
+         else:
+            if cmm.intersects(exterior.exterior):
+               coastal_boundaries = [cmm]
+
+         if len(coastal_boundaries)==0:
+            coastal_boundaries = None
+      # ===============================================================
+
+      self.boundary  = gmsh_boundary(exterior,islands=islands,\
+                           open_boundaries=open_boundaries,coastal_boundaries=coastal_boundaries)
+
+      return
+
+   # ================================================================
+   def plot_boundary(self,sort=False,show=True,fig=None,ax=None):
+      from matplotlib import collections
+      from matplotlib import pyplot as plt
+
+      sfac     = 1e-3 # m to km
+      haveax   = True
+      if fig is None:
+         fig      = plt.figure()
+         ax       = fig.add_subplot(1,1,1)
+         haveax   = False
+      elif ax is None:
+         ax       = fig.add_subplot(1,1,1)
+         haveax   = False
+
+      if not haveax:
+         # if ax was passed in, assume these are set outside
+         ax.set_xlim([sfac*self.nodes_x.min(),sfac*self.nodes_x.max()])
+         ax.set_ylim([sfac*self.nodes_y.min(),sfac*self.nodes_y.max()])
+         ax.set_xlabel('x, km')
+         ax.set_ylabel('y, km')
+
+      if sort:
+         if len(self.PhysicalNames)==0:
+            plabs = []
+            cpt   = 0
+            while (self.edges[cpt].physical not in plabs) and (len(plabs)<2):
+               plabs.append(self.edges[cpt].physical)
+               cpt  += 1
+            coast_val   = plabs[0]
+            open_val    = plabs[1]
+         else:
+            for ident in self.PhysicalNames:
+               if self.PhysicalNames[ident].name=="open":
+                  open_val = ident
+               if self.PhysicalNames[ident].name=="coast":
+                  coast_val   = ident
+
+      if not sort:
+         line_list  = []
+         for edge in self.edges:
+            ccl   = edge.get_coords(sfac*self.nodes_x,sfac*self.nodes_y)
+            line_list.append(ccl)
+         lcols = [collections.LineCollection(line_list,colors='k')]
+      else:
+         open_list   = []
+         coast_list  = []
+         for edge in self.edges:
+            ccl   = edge.get_coords(sfac*self.nodes_x,sfac*self.nodes_y)
+            if edge.physical==open_val:
+               open_list.append(ccl)
+            else:
+               coast_list.append(ccl)
+
+         lcols = [collections.LineCollection(open_list ,colors='c'),\
+                  collections.LineCollection(coast_list,colors='k')]
+
+      for lc in lcols:
+         lc.set_linewidth(1.)
+         ax.add_collection(lc)
+
+      if show:
+         fig.show()
+      
+      return fig,ax
    # ================================================================
