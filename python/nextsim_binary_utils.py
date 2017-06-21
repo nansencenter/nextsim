@@ -165,13 +165,133 @@ class mesh_element:
       return ccl
 
 class gmsh_boundary:
+
+   # ==================================================================
    def __init__(self,exterior,islands=None,open_boundaries=None,coastal_boundaries=None):
+
       self.exterior_polygon   = exterior           # Shapely Polygon
       self.island_polygons    = islands            # List of shapely Polygons
       self.open_boundaries    = open_boundaries    # List of shapely LineStrings
       self.coastal_boundaries = coastal_boundaries # List of shapely LineStrings
+      
+      xe,ye = exterior.exterior.xy
+      self.xmin   = xe.min()
+      self.xmax   = xe.max()
+      self.ymin   = ye.min()
+      self.ymax   = ye.max()
       return
+   # ==================================================================
 
+
+   # ==================================================================
+   def iswet(self,x,y):
+      """
+      CALL: self.iswet(x,y)
+      use matplotlib.path to test if multiple points are contained
+      inside the polygon self.exterior_polygon
+      INPUTS:
+      x,y: numpy arrays with x and y coordinates to test respectively
+      coords: list of coordinates of polygon's boundary (as tuples or lists)
+      [(x0,y0),(x1,y1),...] or [[x0,y0],[x1,y1],...]
+      RETURNS:
+      mask of same shape as x and y
+      > mask element is True/False if corresponding point is inside/outside the polygon
+      """
+      
+      from matplotlib import path
+      
+      Nx    = x.size
+      shp   = x.shape
+      x     = x.reshape(Nx)
+      y     = y.reshape(Nx)
+
+      coords   = list(self.exterior_polygon.exterior.coords)
+      bbPath   = path.Path(np.array(coords))
+
+      # test if inside external polygon
+      # points to test [(xi,yi)]
+      # coords2  = [(x[i],y[i]) for i in range(Nx*Ny)]
+      coords2  = np.array([x,y]).transpose()
+      mask     = np.array(bbPath.contains_points(coords2),dtype=bool)
+
+      for pp in self.island_polygons:
+         # test not inside island polygons
+         coords   = list(pp.exterior.coords)
+         bbPath   = path.Path(np.array(coords))
+         tmp      = np.array(bbPath.contains_points(coords2),dtype=bool)
+         mask     = np.logical_and(mask,np.logical_not(tmp))
+
+      return mask.reshape(shp)
+   # ==================================================================
+
+
+   # ==================================================================
+   def define_wim_grid(self,resolution,select_opt=1):
+
+      # ============================================================
+      # initialise
+      res   = float(resolution)
+      xmin  = self.xmin
+      xmax  = self.xmax
+      ymin  = self.ymin
+      ymax  = self.ymax
+      
+      # reduce xmax,ymax to give correct resolution
+      Dx    = xmax-xmin
+      Dy    = ymax-ymin
+      nx    = int(np.floor(Dx/res))
+      ny    = int(np.floor(Dy/res))
+      xmax  = self.xmin+nx*res
+      ymax  = self.ymin+ny*res
+      Dx    = xmax-xmin
+      Dy    = ymax-ymin
+      # ============================================================
+
+
+      # ============================================================
+      # corners
+      qx    = res*np.arange(nx+1)
+      qy    = res*np.arange(ny+1)
+      qY,qX = np.meshgrid(qy,qx)
+
+      # centers
+      px    = .5*(qx[1:]+qx[:-1])
+      py    = .5*(qy[1:]+qy[:-1])
+      pY,pX = np.meshgrid(py,px)
+
+      # side points: (nx+1)*ny
+      uY,uX = np.meshgrid(py,qx)
+
+      # top/bottom points: nx*(ny+1)
+      vY,vX = np.meshgrid(qy,px)
+      # ============================================================
+      
+
+      # ============================================================
+      if select_opt==1:
+         # wet cell if centers inside the mesh
+         pmask = self.iswet(pY,pX)
+      else:
+         # wet cell if all corners are inside the mesh
+
+         # corners inside the mesh
+         qmask = self.iswet(qY,qX)
+         
+         # check if all corners are inside
+         pmask = np.logical_and(qmask[:nx-1,1:],qmask[:nx-1,:ny-1])
+         pmask = np.logical_and(pmask,qmask[1:,1:])
+         pmask = np.logical_and(pmask,qmask[1:,:ny-1])
+      # ============================================================
+
+      return { 'qx':qX, 'qy':qY,
+               'px':pX, 'px':pY,
+               'ux':uX, 'ux':uY,
+               'vx':vX, 'vx':vY,
+               'LANDMASK': np.logical_not(pmask).astype('int') }
+   # ==================================================================
+
+
+   # ==================================================================
    def plot(self,sort=True,show=True):
       from matplotlib import pyplot as plt
       fig   = plt.figure()
@@ -213,6 +333,7 @@ class gmsh_boundary:
          plt.show(fig)
 
       return fig,ax
+   # ==================================================================
 
 class gmsh_mesh:
 
