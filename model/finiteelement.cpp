@@ -2409,8 +2409,8 @@ FiniteElement::assemble(int pcpt)
 
         double coef_min = 10.;
 
-        // values used when no ice
-        double coef_drag    = 0.;
+        // values used when no ice or when ice too thin
+        double coef_drag    = 0.;  // coef_drag is a switch that set the external forcings to 0 (wind, ocean, bottom drag, waves stress) where there is too little ice
         double coef         = coef_min;
         double mass_e       = 0.;
         double coef_C       = 0.;
@@ -2615,7 +2615,7 @@ FiniteElement::assemble(int pcpt)
                 data[(2*i+1)*6+2*j+1] = dvv;
 
                 fvdata[2*i]     += surface_e*( mloc*(   
-                                                    +M_tau[index_u]
+                                                    +coef_drag*M_tau[index_u]
                                                     +coef_X
                                                     +coef_V*M_VT[index_u]
                                                     +coef_C*Vcor_index_v
@@ -2628,7 +2628,7 @@ FiniteElement::assemble(int pcpt)
                                             - b0tj_sigma_hu/3);
 
                 fvdata[2*i+1]   += surface_e*( mloc*( 
-                                                    +M_tau[index_v]
+                                                    +coef_drag*M_tau[index_v]
                                                     +coef_Y
                                                     +coef_V*M_VT[index_v]
                                                     -coef_C*Vcor_index_u
@@ -6364,7 +6364,7 @@ FiniteElement::forcingWave()
             M_MWD_grid.assign(num_elements_wim_grid,0);
 
             // define external_data objects
-            M_SWH        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init);
+            M_SWH        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init, vm["simul.spinup_duration"].as<double>());
             M_MWP        = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
             M_MWD        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,true,time_init);//now a vector
             M_fice_waves = ExternalData(&M_wave_elements_dataset, M_mesh, 4,false,time_init);
@@ -6388,7 +6388,7 @@ FiniteElement::forcingWave()
             M_MWD_grid.assign(num_elements_wim_grid,0);
 
             // define external_data objects
-            M_SWH = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init);
+            M_SWH = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init, vm["simul.spinup_duration"].as<double>());
             M_MWP = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
             M_MWD = ExternalData(&M_wave_elements_dataset, M_mesh, 0,true,time_init);//now a vector
 
@@ -8806,10 +8806,8 @@ FiniteElement::wimToNextsim(bool step)
     if ((!step) || M_regrid)
     {
         //initialisation or after regridding (need to reset sizes)
-        if (interp_taux)
-            M_tau.assign(2*M_num_nodes,0);
-        if (interp_stokes)
-            M_stokes_drift.assign(2*M_num_nodes,0);
+        M_tau.assign(2*M_num_nodes,0);
+        M_stokes_drift.assign(2*M_num_nodes,0);
     }
 
     if (interp_taux||interp_stokes)

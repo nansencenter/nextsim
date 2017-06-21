@@ -154,7 +154,7 @@ if isempty(name_filter)
       steps{end+1}   = num2str(step);
    end
    Nfmt  = num2str(length(steps{end}));
-   fmt   = ['%',Nfmt,'.',Nfmt,'d']
+   fmt   = ['%',Nfmt,'.',Nfmt,'d'];
 else
    steps = {};
    for j=1:length(dir0)
@@ -193,7 +193,7 @@ for nstep=1:Nsteps
          if ~RESPLOT
             plot_nextsim_c(vbl,step,region_of_zoom,is_sequential,outdir,plot_options);
          else
-            resplot(vbl,step,outdir);
+            resplot(vbl,step,outdir,plot_options);
          end
          %%
          eval(['!mkdir -p ',figdir,'/',vbl]);

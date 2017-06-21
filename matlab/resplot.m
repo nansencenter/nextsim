@@ -1,8 +1,5 @@
-function resplot(field,step,dir,plot_edge)
-%% CALL: resplot(field,step,dir)
-if nargin==1, step='init'; end
-if nargin<=2, dir=''; end
-if nargin<=3, plot_edge=false; end
+function resplot(field,step,dirname,plot_options)
+%% CALL: resplot(field,step,dirname,plot_options)
 
 % clearvars -except step;
 
@@ -38,7 +35,40 @@ if nargin<=3, plot_edge=false; end
 %field='Voce_factor';
 %field='Damage';
 %field='bathy';
-[mesh_out,data_out] = neXtSIM_bin_revert(dir,[], step);
+
+% plot_options = struct eg
+%     visible        : 1
+%   plot_grid        : 1
+%  vector_components : []
+
+if ~exist('dirname','var'), dirname='.'; end
+if ~exist('step','var'); step='init'; end
+
+%other plot options:
+if exist('plot_options','var')
+   if ~isstruct(plot_options)
+      % backwards compatibility
+      plot_grid   = plot_options;
+   else
+      flds  = fieldnames(plot_options);
+      for j=1:length(flds)
+         fld   = flds{j};
+         cmd   = [fld,' = plot_options.',fld,';'];
+         eval(cmd);
+      end
+   end
+end
+
+if ~exist('plot_grid','var'),          plot_grid = 0; end;
+   % If not zero the mesh lines are ploted. If zoomed out only the mesh lines will be visible
+if ~exist('visible','var'),            visible = 1; end;
+   % we display the figure on the screen (may be set to 0 when generating a large amount of figures)
+if ~exist('vector_components','var'),  vector_components = []; end;
+   % if a vector: vector_components is [] (plot all components) or vector of components to plot,
+   % where i=1 is x-component, i=2 is y-component, i=3 is modulus
+
+
+[mesh_out,data_out] = neXtSIM_bin_revert(dirname,[], step);
 
 % reshape
 var_mx=mesh_out.Nodes_x(mesh_out.Elements);
@@ -67,7 +97,7 @@ if(~isempty(field))
     end
 else
     field_tmp=zeros(Ne,1);
-    plot_edge=true;
+    plot_grid=true;
 end
 
 if(length(field_tmp)==Ne)
@@ -88,27 +118,40 @@ else
     error('Not the right dimensions')
 end
 
+
+if visible
+   visible  = 'on';
+else
+   visible  = 'off';
+end
+
+if length(c)>1
+   %vector
+   if ~isempty(vector_components)
+      c  = c(vector_components);
+   end
+end
 for i=1:length(c)
-    figure
-    if(plot_edge)
+    figure('visible',visible);
+    if(plot_grid)
         patch(x,y,c{i});
     else
         patch(x,y,c{i},'EdgeColor','none')
-    min_value=min(min(c{i}))
-    max_value=max(max(c{i}))
-    if(min_value<max_value)
-        caxis([min_value, max_value])
-    end
-    colorbar
-    
-    try
-        font_size=12;
-        textstring=datestr(data_out.Time);
-        text(0.55, 0.95,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
-    catch e
-        display(e)
-    end
-    set(gca,'DataAspectRatio',[1 1 1], 'Color', [.7 .7 .7])
+        min_value=min(min(c{i}))
+        max_value=max(max(c{i}))
+        if(min_value<max_value)
+            caxis([min_value, max_value])
+        end
+        colorbar
+        
+        try
+            font_size=12;
+            textstring=datestr(data_out.Time);
+            text(0.55, 0.95,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
+        catch e
+            display(e)
+        end
+        set(gca,'DataAspectRatio',[1 1 1], 'Color', [.7 .7 .7])
     end
     
 if(~isempty(field))

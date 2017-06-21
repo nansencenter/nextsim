@@ -38,3 +38,5 @@ nextsim.src
 
 *.pyc
 model/expt_*
+pierre.cfg
+longRun_ccsm.cfg
