@@ -187,7 +187,6 @@ public:
     void initSlabOcean();
     void initDrifter();
     void coriolis();
-    void initNFloes();
     void nodesToElements(double const* depth, std::vector<double>& v);
 
     void PwlInterp2D();
@@ -211,8 +210,10 @@ public:
     int readRestart(int step);
 
 #if defined (WAVES)
-    void nextsimToWim(bool step);
-    void wimToNextsim(bool step);
+    void initWim(int const pcpt);
+    void initWimVariables();
+    void nextsimToWim();
+    void wimToNextsim();
 #if 0
     std::vector<double> FiniteElements::rotatedWimElementsX(double const& rotangle) const;
     std::vector<double> FiniteElements::rotatedWimElementsY(double const& rotangle) const;
@@ -316,6 +317,7 @@ private:
     std::vector<double> M_Compressive_strength;
     std::vector<double> M_time_relaxation_damage;
 
+    // =============================================================================
     // variables needed for coupling with wim
 #if defined (WAVES)
     wim_type wim;
@@ -330,10 +332,10 @@ private:
     double xmin_wim,xmax_wim;
     double ymin_wim,ymax_wim;
     int num_elements_wim_grid;
-    int wim_cpt;
-#endif
-    std::vector<double> M_tau;//this can just be set to zero if not using WIM
-    std::vector<double> M_stokes_drift;//this can just be set to zero if not using WIM
+    int wim_cpt;//no of times WIM has been called
+    int steps_since_last_wim_call;//no of time steps since WIM was last called
+
+    std::vector<double> M_stokes_drift;
 
     std::vector<double> M_icec_grid;
     std::vector<double> M_iceh_grid;
@@ -344,6 +346,9 @@ private:
     std::vector<double> M_stokes_drift_x_grid;
     std::vector<double> M_stokes_drift_y_grid;
     bool M_export_stokes_drift_mesh;
+#endif
+    std::vector<double> M_tau;//this can just be set to zero if not using WIM
+    // =============================================================================
 
 private:
 
