@@ -742,26 +742,7 @@ FiniteElement::initConstant()
         ("monthly", GridOutput::fileLength::monthly)
         ("yearly", GridOutput::fileLength::yearly);
     M_moorings_file_length = str2mooringsfl.find(vm["simul.mooring_file_length"].as<std::string>())->second;
-
-#if 0
-    M_export_path = Environment::nextsimDir().string() + "/matlab";
-    // change directory for outputs if the option "output_directory" is not empty
-    if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
-    {
-        M_export_path = vm["simul.output_directory"].as<std::string>();
-
-        fs::path path(M_export_path);
-        // add a subdirecory if needed
-        // path /= "subdir";
-
-        // create the output directory if it does not exist
-        if ( !fs::exists(path) )
-            fs::create_directories(path);
-    }
-#endif
-
-    // this->writeLogFile(); // already called in the fonction run()
-}
+}//initConstant
 
 void
 FiniteElement::createGMSHMesh(std::string const& geofilename)
@@ -5586,9 +5567,16 @@ FiniteElement::readRestart(int step)
     boost::unordered_map<std::string, std::vector<double>> field_map_dbl;
 
     // === Read in the mesh restart files ===
+    std::string restart_path;
+    if ( (vm["setup.restart_path"].as<std::string>()).empty() )
+        //default restart path is $NEXTSIMDIR/restart
+        restart_path = Environment::nextsimDir().string()+"/restart";
+    else
+        restart_path = vm["setup.restart_path"].as<std::string>();
+
     // Start with the record
-    filename = (boost::format( "%1%/restart/mesh_%2%.dat" )
-               % Environment::nextsimDir().string()
+    filename = (boost::format( "%1%/mesh_%2%.dat" )
+               % restart_path
                % step ).str();
     std::ifstream meshrecord(filename);
     if ( ! meshrecord.good() )
@@ -5598,8 +5586,8 @@ FiniteElement::readRestart(int step)
     meshrecord.close();
 
     // Then onto the data itself
-    filename = (boost::format( "%1%/restart/mesh_%2%.bin" )
-               % Environment::nextsimDir().string()
+    filename = (boost::format( "%1%/mesh_%2%.bin" )
+               % restart_path
                % step ).str();
     std::fstream meshbin(filename, std::ios::binary | std::ios::in );
     if ( ! meshbin.good() )
@@ -5614,8 +5602,8 @@ FiniteElement::readRestart(int step)
 
     // === Read in the prognostic variables ===
     // Start with the record
-    filename = (boost::format( "%1%/restart/field_%2%.dat" )
-               % Environment::nextsimDir().string()
+    filename = (boost::format( "%1%/field_%2%.dat" )
+               % restart_path
                % step ).str();
     std::ifstream inrecord(filename);
     if ( ! inrecord.good() )
@@ -5625,8 +5613,8 @@ FiniteElement::readRestart(int step)
     inrecord.close();
 
     // Then onto the data itself
-    filename = (boost::format( "%1%/restart/field_%2%.bin" )
-               % Environment::nextsimDir().string()
+    filename = (boost::format( "%1%/field_%2%.bin" )
+               % restart_path
                % step ).str();
     std::fstream inbin(filename, std::ios::binary | std::ios::in );
     if ( ! inbin.good() )

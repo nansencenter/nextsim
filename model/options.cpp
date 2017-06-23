@@ -101,6 +101,8 @@ namespace Nextsim
             ("setup.exporter_precision", po::value<std::string>()->default_value("float"), "float (default) or double (almost only for testing)")
 
             // simulation
+            ("setup.restart_path", po::value<std::string>()->default_value( "" ),
+                "where to find restarts (default is $NEXTSIMDIR/restart)")
             ("simul.mesh_filename", po::value<std::string>()->default_value( "medium_Arctic_10km.msh" ), "")
             ("simul.mesh_path", po::value<std::string>()->default_value( "nextsimdir" ), "nextsimdir or simdatadir")
             ("simul.proj_filename", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "")
