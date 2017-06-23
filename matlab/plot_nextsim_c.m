@@ -160,19 +160,40 @@ for p=0:0
   Nn=length(mesh_out.Nodes_x);
   x=reshape(var_mx,[3,Ne]);
   y=reshape(var_my,[3,Ne]);
+
+  if isfield(data_out,'Concentration')
+      is_restart     = 0;
+      conc_name      = 'Concentration';
+      thin_conc_name = 'Concentration_thin_ice';
+  elseif isfield(data_out,'M_conc')
+      %conc has different name in restart files
+      is_restart     = 1;
+      conc_name      = 'M_conc';
+      thin_conc_name = 'M_conc_thin';
+
+      % work out time (in matlab time = days)
+      t0 = simul_in.simul.time_init;
+      t1 = str2num(step)*simul_in.setup.restart_time_step;
+      data_out.Time  = t0+t1;
+  end
+
   
   %ice mask and water mask extraction
   if(apply_mask)
-      mask=data_out.Concentration;
+
+      %check for thick ice
+      mask=data_out.(conc_name);
+
+      %check if thin ice is present
       try
-          mask=mask+data_out.Concentration_thin_ice;
-      catch ME
+          mask=mask+data_out.(thin_conc_name);
+      catch
       end
       
       mask_ice=find(mask>0);
       mask_water=find(mask==0);
   else
-      mask_ice=1:length(data_out.Concentration);
+      mask_ice=1:Ne;
       mask_water=[];
   end
   
@@ -569,15 +590,20 @@ function set_figure_cosmetics(data_out,mesh_filename,region_of_zoom,plot_date,ba
             date=data_out.Time;
             textstring = datestr(date,'yyyy/mm/dd HH:MM');
             if ~isempty(strfind(mesh_filename,'4MIT')) || ~isempty(strfind(mesh_filename,'BKF'))
-                text(0.025, 0.1,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
+                text(0.025, 0.1,textstring,'units','normalized','BackgroundColor','white',...
+                     'FontSize',font_size,'EdgeColor','k')
             elseif ~isempty(strfind(mesh_filename,'arch'))
-                text(0.1, 0.03,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
+                text(0.1, 0.03,textstring,'units','normalized','BackgroundColor','white',...
+                     'FontSize',font_size,'EdgeColor','k')
             elseif ~isempty(strfind(mesh_filename,'topaz_matthias')) || ~isempty(strfind(mesh_filename,'small_arctic'))
-                text(0.027, 0.95,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
+                text(0.027, 0.95,textstring,'units','normalized','BackgroundColor','white',...
+                     'FontSize',font_size,'EdgeColor','k')
             elseif ~isempty(strfind(mesh_filename,'FramStrait'))
-                text(0.05, 0.95,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
+                text(0.05, 0.95,textstring,'units','normalized','BackgroundColor','white',...
+                     'FontSize',font_size,'EdgeColor','k')
             else
-                text(0.2, 0.95,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
+                text(0.2, 0.95,textstring,'units','normalized','BackgroundColor','white',...
+                     'FontSize',font_size,'EdgeColor','k')
             end;
         end;
         whitebg(background_color);
