@@ -7,17 +7,25 @@ cd $NEXTSIMDIR
 git diff > $P/git_changes.txt
 cd $P
 
-# Run the nextsim model coupled with wim
+prog=bin/nextsim.exec
+if [ `pwd` != $NEXTSIMDIR/model ]
+then
+   # make a local copy of executable
+   # (so can recompile code and run somewhere else)
+   mkdir -p bin
+   cp $NEXTSIMDIR/model/$prog $prog
+fi
+
+# extra settings needed for mac
 kernel=$(uname -s)
 if [ $kernel == "Darwin" ]
 then
     # mac
     export DYLD_LIBRARY_PATH=$NEXTSIMDIR/lib:$BOOST_DIR/lib
-    $NEXTSIMDIR/model/bin/nextsim.exec --config-files=coupling_wim.cfg wim.cfg
-else
-    # linux
-    $NEXTSIMDIR/model/bin/nextsim.exec --config-files=coupling_wim.cfg wim.cfg
 fi
+
+# Run the nextsim model coupled with wim
+$prog --config-files=coupling_wim.cfg wim.cfg
 
 # print info on plotting on grid
 scr=$WIM2D_PATH/fortran/tools/plot_prog.sh
