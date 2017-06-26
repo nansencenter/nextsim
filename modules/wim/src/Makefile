@@ -14,7 +14,7 @@ endif
 # output names/locations
 OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
-BINARYDIR=bin/
+BINARYDIR=../run/bin/
 LIBRARYDIR=$(NEXTSIMDIR)/lib/
 # ========================================================
 
