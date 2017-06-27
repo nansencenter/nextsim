@@ -102,7 +102,7 @@ public:
     void gridProcessing();
     void saveGrid();
     void readGridFromFile();
-    void readFromBinary(std::fstream &in, array2_type& in_array, int off = 0, std::ios_base::seekdir direction = std::ios::beg, int addx = 0, int addy = 0);
+    void readFromBinary(std::fstream &in, value_type_vec& in_array, int off = 0, std::ios_base::seekdir direction = std::ios::beg, int addx = 0, int addy = 0);
     void readDataFromFile(std::string const& filein);
     void exportResults(std::string const& output_type, value_type const& t_out) const;
     void testInterp(std::string const& output_type,
@@ -174,22 +174,22 @@ public:
     //===========================================================================
     //advection/attenuation
     void advAttenSimple(
-          array3_type& Sdir, array2_type& Sfreq,
-          array2_type& taux_omega,array2_type& tauy_omega,
-          array2_type& sdx_omega,array2_type& sdy_omega,
-          array2_type const& ag2d_eff);
-    void advAttenIsotropic(array3_type& Sdir, array2_type& Sfreq,
-          array2_type& taux_omega,array2_type& tauy_omega,
-          array2_type& sdx_omega,array2_type& sdy_omega,
-          array2_type const& ag2d_eff);
+          array3_type& Sdir, value_type_vec& Sfreq,
+          value_type_vec& taux_omega,value_type_vec& tauy_omega,
+          value_type_vec& sdx_omega,value_type_vec& sdy_omega,
+          value_type_vec const& ag2d_eff);
+    void advAttenIsotropic(array3_type& Sdir, value_type_vec& Sfreq,
+          value_type_vec& taux_omega,value_type_vec& tauy_omega,
+          value_type_vec& sdx_omega,value_type_vec& sdy_omega,
+          value_type_vec const& ag2d_eff);
     void waveAdvWeno(
-          array2_type& h, array2_type const& u, array2_type const& v);
+          value_type_vec& h, value_type_vec const& u, value_type_vec const& v);
     void weno3pdV2(
-          array2_type const& gin, array2_type const& u, array2_type const& v,
-          array2_type const& scuy, array2_type const& scvx,
-          array2_type const& scp2i, array2_type const& scp2,
-          array2_type& saoout);
-    void padVar(array2_type const& u, array2_type& upad,std::string const& advopt_);
+          value_type_vec const& gin, value_type_vec const& u, value_type_vec const& v,
+          value_type_vec const& scuy, value_type_vec const& scvx,
+          value_type_vec const& scp2i, value_type_vec const& scp2,
+          value_type_vec& saoout);
+    void padVar(value_type_vec const& u, value_type_vec& upad,std::string const& advopt_);
     //===========================================================================
 
 
@@ -208,13 +208,13 @@ public:
     value_type thetaDirFrac(value_type const& th1_, value_type const& dtheta_, value_type const& mwd_);
     value_type thetaInRange(value_type const& th_, value_type const& th1, bool const& close_on_right=false);
 
-    array2_type getX() const { return X_array; }
-    array2_type getY() const { return Y_array; }
-    array2_type getSCUY() const { return SCUY_array; }
-    array2_type getSCVX() const { return SCVX_array; }
-    array2_type getSCP2() const { return SCP2_array; }
-    array2_type getSCP2I() const { return SCP2I_array; }
-    array2_type getLANDMASK() const { return LANDMASK_array; }
+    value_type_vec getX() const { return X_array; }
+    value_type_vec getY() const { return Y_array; }
+    value_type_vec getSCUY() const { return SCUY_array; }
+    value_type_vec getSCVX() const { return SCVX_array; }
+    value_type_vec getSCP2() const { return SCP2_array; }
+    value_type_vec getSCP2I() const { return SCP2I_array; }
+    value_type_vec getLANDMASK() const { return LANDMASK_array; }
 
     std::string getWimGridFilename() const { return wim_gridfile; }
     //std::vector<int> getWimShape();
@@ -230,8 +230,9 @@ private:
 
     po::variables_map vm;
     int nx, ny, nxext, nyext, nbdy, nbdx, nghost;
-    int wim_itest, wim_jtest;
-    array2_type X_array, Y_array, SCUY_array, SCVX_array,
+    int num_p_wim,num_q_wim,num_u_wim,num_v_wim;
+    int wim_itest, wim_jtest,wim_test_i;
+    value_type_vec X_array, Y_array, SCUY_array, SCVX_array,
                 SCP2_array, SCP2I_array, LANDMASK_array;
     std::vector<value_type> x_col,y_row;
 
@@ -248,19 +249,19 @@ private:
     bool docoupling;
     std::string scatmod, advopt, fsdopt;
     std::string wim_gridfile;
-    std::vector<value_type> wavedir, wt_simp, wt_om, freq_vec, vec_period, wlng, ag, ap;
-    std::vector<value_type> Hs,Tp,mwd,wave_mask;
+    value_type_vec wavedir, wt_simp, wt_om, freq_vec, vec_period, wlng, ag, ap;
+    value_type_vec Hs,Tp,mwd,wave_mask;
 
-    array2_type steady_mask, ice_mask, wtr_mask,
+    value_type_vec steady_mask, ice_mask, wtr_mask,
                 icec, iceh, swh_in_array,mwp_in_array,mwd_in_array,
                 dave, atten_dim, damp_dim, ag2d_eff_temp;
     array3_type ag_eff, ap_eff, wlng_ice, atten_nond, damping, disp_ratio, sdf3d_dir_temp;
-    array4_type sdf_dir, sdf_inc;
+    array3_type sdf_dir, sdf_inc;//was 4D!!
 
-    array2_type S_freq, taux_om, tauy_om,
+    value_type_vec S_freq, taux_om, tauy_om,
                 stokes_drift_x_om, stokes_drift_y_om;
-    array2_type hp;
-    array2_type Fdmax, Ftaux, Ftauy, Fhs, Ftp;
+    value_type_vec hp;
+    value_type_vec Fdmax, Ftaux, Ftauy, Fhs, Ftp;
 
     std::vector<value_type> dfloe, nfloes, tau_x, tau_y,stokes_drift_x,stokes_drift_y;//row-major order (C)
     std::vector<value_type> mesh_x, mesh_y, mesh_conc, mesh_thick, mesh_dfloe;
