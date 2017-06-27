@@ -273,6 +273,7 @@ private:
     std::string init_time_str;
     value_type restart_time_shift;
     int cpt;
+    int max_threads;
 
 };
 

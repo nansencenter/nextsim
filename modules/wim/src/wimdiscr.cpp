@@ -46,14 +46,6 @@ void WimDiscr<T>::gridProcessing()
         x0 = vm["wim.xmin"].template as<double>();
         y0 = vm["wim.ymin"].template as<double>();
         
-        if ( vm["wim.gridremoveouter"].template as<bool>() )
-        {
-            nx -= 2;
-            ny -= 2;
-            x0 += dx;
-            y0 += dy;
-        }
-
         num_p_wim    = nx*ny;//number of p points
         num_q_wim    = (nx+1)*(ny+1);//number of q points
         num_u_wim    = (nx+1)*ny;//number of u points
@@ -69,7 +61,6 @@ void WimDiscr<T>::gridProcessing()
 
         // int thread_id;
         // int total_threads;
-        int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
         // std::cout<<"MAX THREADS= "<< max_threads <<"\n";
 
         std::cout<<"grid generation starts\n";
@@ -122,8 +113,6 @@ void WimDiscr<T>::gridProcessing()
     if (DoSaveGrid)
        this->saveGrid(); //save grid to binary
     //std::cout<<" ---after saving\n";
-
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
     //for use in wim_grid
     x_col.resize(nx);
@@ -269,8 +258,6 @@ void WimDiscr<T>::readGridFromFile()
     }
 
     bool column_major = record[1];
-    //nx = vm["wim.gridremoveouter"].template as<bool>() ? record[2]-2 : record[2];
-    //ny = vm["wim.gridremoveouter"].template as<bool>() ? record[3]-2 : record[3];
     nx = record[2];
     ny = record[3];
     std::cout<<"nx= "<< nx <<"\n";
@@ -365,8 +352,6 @@ void WimDiscr<T>::readFromBinary(std::fstream &in, value_type_vec& in_array, int
         in.seekg(off, direction); // skip from the direction (beginning/current/end) position of the file
     }
 
-    bool remove_outer = vm["wim.gridremoveouter"].template as<bool>();
-
     int nx_in = nx+addx;
     int ny_in = ny+addy;
     in_array.resize(nx_in*ny_in);
@@ -388,6 +373,7 @@ void WimDiscr<T>::readFromBinary(std::fstream &in, value_type_vec& in_array, int
 template<typename T>
 void WimDiscr<T>::init(int nextsim_cpt)
 {
+    max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
     // wim grid generation/reading
     this->gridProcessing();
@@ -601,8 +587,8 @@ void WimDiscr<T>::assign()
         fmax = 1./Tmin;
         df = (fmax-fmin)/(nwavefreq-1);
 
-        for (int i = 0; i < nwavefreq; i++)
-            freq_vec[i] = fmin+i*df;
+        for (int fq = 0; fq < nwavefreq; fq++)
+            freq_vec[fq] = fmin+fq*df;
     }
     // =============================================
 
@@ -617,8 +603,8 @@ void WimDiscr<T>::assign()
         value_type theta_min = -270.;
         value_type dtheta = (theta_min-theta_max)/nwavedirn;
 
-        for (int i = 0; i < nwavedirn; i++)
-            wavedir.push_back(theta_max+i*dtheta);
+        for (int nth = 0; nth < nwavedirn; nth++)
+            wavedir.push_back(theta_max+nth*dtheta);
     }
     // =============================================
 
@@ -679,8 +665,6 @@ void WimDiscr<T>::update(std::vector<value_type> const& icec_in,
         std::vector<value_type> const& mwp_in,
         std::vector<value_type> const& mwd_in)
 {
-
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
     //====================================================
     //set ice conditions
@@ -762,8 +746,6 @@ template<typename T>
 void WimDiscr<T>::updateWaveMedium()
 {
     //updates attenuation coefficients, wavelengths and phase/group velocities
-
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
     // =============================================================================================
     //std::cout<<"attenuation loop starts (big loop)\n";
@@ -892,7 +874,6 @@ void WimDiscr<T>::idealWaveFields(value_type const xfac)
     //waves initialised for x<x_edge
     x_edge = 0.5*(x0+xmax)-xfac*(0.5*(xmax-x0));
 
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 #pragma omp parallel for num_threads(max_threads) collapse(1)
     for (int i = 0; i < num_p_wim; i++)
     {
@@ -952,7 +933,6 @@ void WimDiscr<T>::inputWaveFields(value_type_vec const& swh_in,
     double Hs_min_ice=100.;
     double Hs_max_ice=0.;
 
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 #pragma omp parallel for num_threads(max_threads) collapse(1)
     for (int i = 0; i < num_p_wim; i++)
     {
@@ -998,7 +978,7 @@ void WimDiscr<T>::inputWaveFields(value_type_vec const& swh_in,
 #if 0
     // print out for test vs ideal case
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-    for (int i = 0; i < nx*ny; i++)
+    for (int i = 0; i < num_p_wim; i++)
     {
         std::cout<<"Hs["<<i<<"]="<<Hs[i]<<","<<Hs_ideal[i]<<","<<swh_in[i]<<"\n";
          std::cout<<"Tp["<<i<<"]="<<Tp[i]<<","<<Tp_ideal[i]<<","<<mwp_in[i]<<"\n";
@@ -1016,8 +996,6 @@ void WimDiscr<T>::setIncWaveSpec()
     // also set sdf_dir to sdf_inc in this region
     // TODO is sdf_inc needed if (!steady)? 
     std::fill( sdf_inc.data(), sdf_inc.data() + sdf_inc.num_elements(), 0. );
-
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
 #pragma omp parallel for num_threads(max_threads) collapse(1)
     for (int i = 0; i < num_p_wim; i++)
@@ -1066,28 +1044,28 @@ void WimDiscr<T>::setIncWaveSpec()
             {
                 value_type dtheta = std::abs(wavedir[1]-wavedir[0]);
 
-                //if (mwd[ny*i+j]!=0.)
-                //   std::cout<<"dir-frac ("<<i<<","<<j<<")"<<std::endl;
-                for (int dn = 0; dn < nwavedirn; dn++)
+                //if (mwd[i]!=0.)
+                //   std::cout<<"dir-frac ("<<i<<")"<<std::endl;
+                for (int nth = 0; nth < nwavedirn; nth++)
                 {
 #if 0
                     //less accurate way of calculating spreading
                     //(sample cos^2 at mid-point of interval)
-                    chi = PI*(wavedir[dn]-mwd[i*ny+j])/180.0;
+                    chi = PI*(wavedir[nth]-mwd[i])/180.0;
                     if (std::cos(chi) > 0.)
-                        theta_fac[dn] = 2.0*std::pow(std::cos(chi),2.)/PI;
+                        theta_fac[nth] = 2.0*std::pow(std::cos(chi),2.)/PI;
                     else
-                        theta_fac[dn] = 0.;
+                        theta_fac[nth] = 0.;
 #else
                     //more accurate way of calculating spreading
                     //(integrate cos^2 over interval)
-                    theta_fac[dn] = 180./(PI*dtheta)*thetaDirFrac(
-                            wavedir[dn]-dtheta/2., dtheta, mwd[i] );
+                    theta_fac[nth] = 180./(PI*dtheta)*thetaDirFrac(
+                            wavedir[nth]-dtheta/2., dtheta, mwd[i] );
 #endif
 
                     //if (Hs[i*ny+j]!=0.)
-                    //   std::cout<<wavedir[dn]<<" "<<mwd[i]<<" "
-                    //            <<theta_fac[dn]<<std::endl;
+                    //   std::cout<<wavedir[nth]<<" "<<mwd[i]<<" "
+                    //            <<theta_fac[nth]<<std::endl;
                 }
             }//multiple directions
             // ============================================================
@@ -1096,19 +1074,19 @@ void WimDiscr<T>::setIncWaveSpec()
             // ============================================================
             // combine freq and dir
             for (int fq = 0; fq < nwavefreq; fq++)
-                for (int dn = 0; dn < nwavedirn; dn++)
+                for (int nth = 0; nth < nwavedirn; nth++)
                 {
                     // set sdf_dir to inc waves each time new waves are input called
                     // NB but only inside the wave mask
-                    sdf_dir[i][dn][fq] = Sfreq[fq]*theta_fac[dn];
-                    sdf_inc[i][dn][fq] = Sfreq[fq]*theta_fac[dn];//NB only needed if steady?
+                    sdf_dir[i][nth][fq] = Sfreq[fq]*theta_fac[nth];
+                    sdf_inc[i][nth][fq] = Sfreq[fq]*theta_fac[nth];//NB only needed if steady?
 
 #if 0
                     if (i==wim_test_i)
                     {
-                        std::cout<<"fq,dn="<<fq<<","<<dn<<"\n";
+                        std::cout<<"fq,nth="<<fq<<","<<nth<<"\n";
                         std::cout<<"wave_mask,Sfreq,theta_fac="
-                            <<wave_mask[i]<<","<<Sfreq[fq]<<","<<theta_fac[dn]<<"\n";
+                            <<wave_mask[i]<<","<<Sfreq[fq]<<","<<theta_fac[nth]<<"\n";
                     }
 #endif
 
@@ -1159,14 +1137,14 @@ void WimDiscr<T>::setIncWaveSpec()
     }//end i loop
 
 #if 0
-    if((wim_itest>=0)&&(wim_jtest>=0))
+    if(wim_test_i>=0)
     {
-        std::cout<<"i,j="<<wim_itest<<","<<wim_jtest<<"\n";
+        std::cout<<"i="<<wim_test_i<<"\n";
         for (int fq = 0; fq < nwavefreq; fq++)
-            for (int dn = 0; dn < nwavedirn; dn++)
+            for (int nth = 0; nth < nwavedirn; nth++)
             {
-                std::cout<<"fq,dn="<<fq<<","<<dn<<"\n";
-                std::cout<<"sdf_dir (setIncWaveSpec) ="<<sdf_dir[wim_itest][wim_jtest][dn][fq]<<"\n";
+                std::cout<<"fq,nth="<<fq<<","<<nth<<"\n";
+                std::cout<<"sdf_dir (setIncWaveSpec) ="<<sdf_dir[wim_test_i][nth][fq]<<"\n";
             }
     }
 #endif
@@ -1184,21 +1162,17 @@ void WimDiscr<T>::idealIceFields(value_type const xfac)
    //ice initialised for x>=x_edge
    x_edge = 0.5*(x0+xmax)-xfac*(0.5*(xmax-x0));
 
-   int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-#pragma omp parallel for num_threads(max_threads) collapse(2)
-   for (int i = 0; i < nx; i++)
+#pragma omp parallel for num_threads(max_threads) collapse(1)
+   for (int i = 0; i < num_p_wim; i++)
    {
-      for (int j = 0; j < ny; j++)
-      {
-         if ((X_array[ny*i+j] >= x_edge) && (LANDMASK_array[ny*i+j]<1.))
-         {
-            ice_mask[ny*i+j] = 1.;
-            icec[ny*i+j] = unifc;
-            iceh[ny*i+j] = unifh;
-            dfloe[ny*i+j] = dfloe_pack_init;
-            //std::cout<<Hs[i*ny+j]<<" "<<Tp[i*ny+j]<<" "<<mwd[i*ny+j];
-         }
-      }
+     if ((X_array[i] >= x_edge) && (LANDMASK_array[i]<1.))
+     {
+        ice_mask[i] = 1.;
+        icec[i] = unifc;
+        iceh[i] = unifh;
+        dfloe[i] = dfloe_pack_init;
+        //std::cout<<Hs[i]<<" "<<Tp[i]<<" "<<mwd[i];
+     }
    }
 }
 
@@ -1209,48 +1183,43 @@ void WimDiscr<T>::inputIceFields(value_type_vec const& icec_in,   // conc
                                  value_type_vec const& nfloes_in) // c/Dmax^2
 {
 
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-#pragma omp parallel for num_threads(max_threads) collapse(2)
-    for (int i = 0; i < nx; i++)
+#pragma omp parallel for num_threads(max_threads) collapse(1)
+    for (int i = 0; i < num_p_wim; i++)
     {
-        for (int j = 0; j < ny; j++)
+        if (icec_in[i] < vm["wim.cicemin"].template as<double>())
         {
+            ice_mask[i]  = 0.;
+            icec[i]      = 0.;
+            iceh[i]      = 0.;
+            nfloes[i]    = 0.;
+        }//water
+        else
+        {
+            ice_mask[i]  = 1.;
+            icec[i]      = icec_in[i];
+            iceh[i]      = iceh_in[i]/icec_in[i];//convert to true thickness
+            nfloes[i]    = nfloes_in[i];
+        }//ice
 
-            if (icec_in[ny*i+j] < vm["wim.cicemin"].template as<double>())
-            {
-                ice_mask[ny*i+j]  = 0.;
-                icec[ny*i+j]      = 0.;
-                iceh[ny*i+j]      = 0.;
-                nfloes[ny*i+j]    = 0.;
-            }//water
-            else
-            {
-                ice_mask[ny*i+j]  = 1.;
-                icec[ny*i+j]      = icec_in[ny*i+j];
-                iceh[ny*i+j]      = iceh_in[ny*i+j]/icec_in[ny*i+j];//convert to true thickness
-                nfloes[ny*i+j]    = nfloes_in[ny*i+j];
-            }//ice
-
-            //nfloe->dfloe
-            dfloe[ny*i+j] = this->nfloesToDfloe(nfloes[ny*i+j],icec[ny*i+j]);
+        //nfloe->dfloe
+        dfloe[i] = this->nfloesToDfloe(nfloes[i],icec[i]);
 
 #if 1
-            //check ranges of inputs
-            if ((iceh[ny*i+j]<0.)||(iceh[ny*i+j]>50.))
-            {
-                std::cout<<"thickness on WIM grid out of range for i,j="<<i<<","<<j<<"\n";
-                std::cout<<"thick,h,c="<<iceh_in[ny*i+j]<<","<<iceh[ny*i+j]<<","<<icec[ny*i+j]<<"\n";
-                throw std::runtime_error("thickness on WIM grid out of range");
-            }
-            if ((icec[ny*i+j]<0.)||(icec[ny*i+j]>1.))
-            {
-                std::cout<<"conc on WIM grid out of range for i,j="<<i<<","<<j<<"\n";
-                std::cout<<"c="<<icec[ny*i+j]<<"\n";
-                throw std::runtime_error("conc on WIM grid out of range");
-            }
+        //check ranges of inputs
+        if ((iceh[i]<0.)||(iceh[i]>50.))
+        {
+            std::cout<<"thickness on WIM grid out of range for i="<<i<<"\n";
+            std::cout<<"thick,h,c="<<iceh_in[i]<<","<<iceh[i]<<","<<icec[i]<<"\n";
+            throw std::runtime_error("thickness on WIM grid out of range");
+        }
+        if ((icec[i]<0.)||(icec[i]>1.))
+        {
+            std::cout<<"conc on WIM grid out of range for i="<<i<<"\n";
+            std::cout<<"c="<<icec[i]<<"\n";
+            throw std::runtime_error("conc on WIM grid out of range");
+        }
 #endif
 
-        }//end j loop
     }//end i loop
 }//inputIceFields
 
@@ -1293,11 +1262,11 @@ void WimDiscr<T>::timeStep()
     std::fill( stokes_drift_y.begin(), stokes_drift_y.end(), 0. );
 
     std::vector<value_type> mom0, mom2, var_strain, mom0w, mom2w;
-    mom0      .resize(nx*ny);
-    mom2      .resize(nx*ny);
-    var_strain.resize(nx*ny);
-    mom0w     .resize(nx*ny);
-    mom2w     .resize(nx*ny);
+    mom0      .resize(num_p_wim);
+    mom2      .resize(num_p_wim);
+    var_strain.resize(num_p_wim);
+    mom0w     .resize(num_p_wim);
+    mom2w     .resize(num_p_wim);
 
     value_type E_tot, sig_strain, Pstrain, P_crit, wlng_crest, Dc;
     value_type adv_dir, F, kicel, om, ommin, ommax, om1, lam1, lam2, dom, c1d, tmp;
@@ -1348,9 +1317,6 @@ void WimDiscr<T>::timeStep()
     }//end dumpDiag
 
     dom = 2*PI*(freq_vec[nwavefreq-1]-freq_vec[0])/(nwavefreq-1);
-
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-
 
     if (vm["wim.steady"].template as<bool>())
     {
@@ -1632,7 +1598,7 @@ void WimDiscr<T>::timeStep()
     }
 
     //update mwd
-    calcMWD();
+    this->calcMWD();
 
     if ( dumpDiag )
     {
@@ -1688,7 +1654,7 @@ void WimDiscr<T>::timeStep()
         int jcrest;
         bool break_criterion;
 
-        //std::cout << "MASK[" << i << "," << j << "]= " << ice_mask[ny*i+j] << " and "<< mom0[i*ny+j]  <<"\n";
+        //std::cout << "MASK[" << i << "," << j << "]= " << ice_mask[i] << " and "<< mom0[i]  <<"\n";
 
         Pstrain      = 0.;
         P_crit       = std::exp(-1.0);
@@ -2040,6 +2006,7 @@ WimDiscr<T>::dfloeToNfloes(value_type_vec const& dfloe_in,
     int N   = conc_in.size();
     value_type_vec nfloes_out(N);
 
+#pragma omp parallel for num_threads(max_threads) collapse(1)
     for (int i=0;i<N;i++)
         nfloes_out[i]   = this->dfloeToNfloes(dfloe_in[i],conc_in[i]);
 
@@ -2076,6 +2043,7 @@ WimDiscr<T>::nfloesToDfloe(value_type_vec const& nfloes_in,
     int N   = conc_in.size();
     value_type_vec dfloe_out(N);
 
+#pragma omp parallel for num_threads(max_threads) collapse(1)
     for (int i=0;i<N;i++)
         dfloe_out[i] = this->nfloesToDfloe(nfloes_in[i],conc_in[i]);
 
@@ -2129,11 +2097,11 @@ void WimDiscr<T>::run(std::vector<value_type> const& icec_in,
     std::cout<<"nt= "<< nt <<"\n";
 
     if (vm["wim.checkinit"].template as<bool>())
-        exportResults("init",t_in);
+        this->exportResults("init",t_in);
 
     if (vm["wim.checkincwaves"].template as<bool>()
         &&(swh_in.size()>0))
-        exportResults("incwaves",t_in);
+        this->exportResults("incwaves",t_in);
 
 #if 1
     //test inc waves
@@ -2168,10 +2136,10 @@ void WimDiscr<T>::run(std::vector<value_type> const& icec_in,
         if ( exportProg )
         {
             if (vm["nextwim.exportresults"].template as <bool>())
-                exportResults("prog",t_out);
+                this->exportResults("prog",t_out);
         }
 
-        timeStep();
+        this->timeStep();
 
         ++lcpt;//local counter incremented in wim.run()
         ++cpt;//global counter incremented in wim.run()
@@ -2179,11 +2147,11 @@ void WimDiscr<T>::run(std::vector<value_type> const& icec_in,
     }
 
     if (vm["wim.checkfinal"].template as<bool>())
-       exportResults("final",t_out);
+       this->exportResults("final",t_out);
 
     // save diagnostic file
     if (vm["wim.savelog"].template as<bool>())
-       saveLog(t_in);
+       this->saveLog(t_in);
 
     std::cout<<"Running done in "<< chrono.elapsed() <<"s\n";
 
@@ -2239,7 +2207,7 @@ void WimDiscr<T>::floeScaling(
           //std::cout<<"nsum,dm: "<<nsum<<" , "<<dm<<"\n";
        }
     }
-}
+}//floeScaling
 
 template<typename T>
 void WimDiscr<T>::floeScalingSmooth(
@@ -2285,8 +2253,6 @@ void WimDiscr<T>::advAttenSimple(array2_type& Sdir, value_type_vec& Sfreq,
 
 	std::vector<value_type> wt_theta(nwavedirn);
 	value_type adv_dir, S_th, tmp, alp_dim, source;
-
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
 	for (int nth = 0; nth < nwavedirn; nth++)
     {
@@ -2626,8 +2592,6 @@ void WimDiscr<T>::waveAdvWeno(value_type_vec& h, value_type_vec const& u, value_
     padVar(SCVX_array, scvx_pad,"xy-periodic");
     padVar(h, h_pad,advopt);
 
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-
     // prediction step
     weno3pdV2(h_pad, u_pad, v_pad, scuy_pad, scvx_pad, scp2i_pad, scp2_pad, sao);
 
@@ -2715,8 +2679,6 @@ void WimDiscr<T>::weno3pdV2(value_type_vec const& gin, value_type_vec const& u, 
         ymargin = 1;
     else
         ymargin = 0;
-
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
     // fluxes in x direction
 #pragma omp parallel for num_threads(max_threads) collapse(2)
@@ -2872,8 +2834,6 @@ void WimDiscr<T>::padVar(value_type_vec const& u, value_type_vec& upad, std::str
     int num_p_ext   = nxext*nyext;
     upad.resize(num_p_ext);
 
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-
 #pragma omp parallel for num_threads(max_threads) collapse(2)
     for (int i = 0; i < nxext; i++)
     {
@@ -2958,8 +2918,6 @@ void WimDiscr<T>::calcMWD()
     cmom_dir.resize(num_p_wim);
     CSfreq.resize(num_p_wim);
     cmom_dir0.resize(num_p_wim);
-
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
     if (nwavedirn == 1)
         wt_theta = 1.;
@@ -3111,7 +3069,6 @@ typename WimDiscr<T>::WimGrid WimDiscr<T>::wimGrid(std::string const& units)
     std::vector<value_type> x(nx);
     std::vector<value_type> y(ny);
 
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 #pragma omp parallel for num_threads(max_threads) collapse(2)
     for (int i=0;i<nx;i++)
     {
@@ -3159,6 +3116,8 @@ void WimDiscr<T>::readDataFromFile(std::string const& filein)
 
     std::fstream in(_filein, std::ios::binary | std::ios::in);
 
+    // NB data is in fortran order (column major)
+    // - convert to row major
     if (in.is_open())
     {
         for (int j = 0; j < ny; j++)
@@ -3312,6 +3271,29 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
             swh_in: true,
             mwp_in: true,
             mwd_in: true
+        };
+    }
+    else if ( output_type == "nextwim" )
+    {
+        Nrecs   = 8;
+        fileout = (boost::format( "%1%/nextwim%2%" ) % path.string() % timestpstr).str();
+
+        //fields to extract
+        extract_fields  =
+        {
+            icec:   false,
+            iceh:   false,
+            Dmax:   true,
+            taux:   true,
+            tauy:   true,
+            sdx:    true,
+            sdy:    true,
+            swh:    true,
+            mwp:    true,
+            mwd:    true,
+            swh_in: false,
+            mwp_in: false,
+            mwd_in: false
         };
     }
 
@@ -3751,7 +3733,6 @@ void WimDiscr<T>::saveLog(value_type const& t_out) const
     value_type Dmax_max = 0.e3;
     int Nmiz   = 0;
 
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 #pragma omp parallel for num_threads(max_threads) collapse(1)
     for (int j = 0; j < dfloe.size(); j++)
     {
