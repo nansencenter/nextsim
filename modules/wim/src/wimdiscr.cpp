@@ -425,7 +425,7 @@ void WimDiscr<T>::readFromBinary(std::fstream &in, array2_type& in_array, int of
 }
 
 template<typename T>
-void WimDiscr<T>::init()
+void WimDiscr<T>::init(int nextsim_cpt)
 {
 
     // wim grid generation/reading
@@ -496,6 +496,7 @@ void WimDiscr<T>::init()
 
     //some options need to be disabled if being called from nextsim
     docoupling = !( vm.count("simul.use_wim")==0 );
+    restart_time_shift  = 0.;
     if (!docoupling)
     {
         //set duration of call to wim.run() from wim.duration
@@ -509,14 +510,25 @@ void WimDiscr<T>::init()
     else
     {
         //set duration of call to wim.run() from nextwim.couplingfreq
-        duration   = vm["nextwim.couplingfreq"].template as<int>()*
-                     vm["simul.timestep"].template as<double>();
-
+        value_type nextsim_time_step = vm["simul.timestep"].template as<double>();
+        duration   = vm["nextwim.couplingfreq"].template as<int>()*nextsim_time_step;
+                     
         //get initial time from simul.time_init
         init_time_str  = vm["simul.time_init"].template as<std::string>();
+
+        //if using restart, need to calculate shift from initial
+        //time
+        restart_time_shift = nextsim_cpt*nextsim_time_step;//model time of current call to wim
  
         break_on_mesh   =  ( vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh");
     }
+
+#if 1
+    //print initial & restart times
+    std::cout<<"initial time = "<<init_time_str<<"\n";
+    auto time_str1     = ptime(init_time_str,restart_time_shift);
+    std::cout<<"restart time = "<<time_str1<<"\n";
+#endif
 
     //no of cosines/sines to use - for isotropic scattering code
     ncs = std::round(nwavedirn/2);
@@ -524,6 +536,9 @@ void WimDiscr<T>::init()
     // call assign to set sizes of arrays
     // and initialise some arrays that are stationary in time
     this->assign();
+
+    //set global counter to 0
+    cpt = 0;
 
     std::cout<<"wim.init() finished\n";
 
@@ -697,8 +712,7 @@ void WimDiscr<T>::update(std::vector<value_type> const& icec_in,
         std::vector<value_type> const& nfloes_in,
         std::vector<value_type> const& swh_in,
         std::vector<value_type> const& mwp_in,
-        std::vector<value_type> const& mwd_in,
-        bool const step) // reset
+        std::vector<value_type> const& mwd_in)
 {
 
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
@@ -725,7 +739,7 @@ void WimDiscr<T>::update(std::vector<value_type> const& icec_in,
     //====================================================
     // set incident wave spec (sdf_inc) where wave_mask==1;
     // this also sets sdf_dir to sdf_inc in this region
-    this->setIncWaveSpec(step);
+    this->setIncWaveSpec();
     //====================================================
 
 
@@ -740,14 +754,13 @@ void WimDiscr<T>::update(std::vector<value_type> const& icec_in,
     // - this can change with time if using group velocity for ice
     // - NB needs to be done after updateWaveMedium
     amax = *std::max_element(ag_eff.data(),ag_eff.data() + ag_eff.num_elements());
-    std::cout<<"dx= "<< dx <<"\n";
-    std::cout<<"amax= "<< amax <<"\n";
-    std::cout<<"cfl= "<< cfl <<"\n";
+    //std::cout<<"dx,amax,cfl= "<< dx<<","<<amax<<","<<cfl <<"\n";
     dt = cfl*dx/amax;
 
     //reduce time step slightly (if necessary) to make duration an integer multiple of dt
     nt = std::ceil(duration/dt);
     dt = duration/nt;
+    //std::cout<<"dt,nt= "<< dt<<","<<nt<<"\n";
     // ====================================================================================
 
 
@@ -1049,7 +1062,7 @@ void WimDiscr<T>::inputWaveFields(value_type_vec const& swh_in,
 }
 
 template<typename T>
-void WimDiscr<T>::setIncWaveSpec(bool const step)
+void WimDiscr<T>::setIncWaveSpec()
 {
     // set incident directional wave spectrum (sdf_inc) where wave_mask==1
     // also set sdf_dir to sdf_inc in this region
@@ -1304,16 +1317,16 @@ void getWimCenters(value_type &x,value_type &y,value_type const& rotangle)
     //get x coord of nodes (rotated)
     std::vector<value_type> x(nx*ny);
     std::vector<value_type> y(nx*ny);
-    int cpt = 0;
+    int kpt = 0;
     double cos_rotangle=std::cos(rotangle);
     double sin_rotangle=std::sin(rotangle);
     for (int i = 0; i<nx; i++)
     {
         for (int j = 0; j<nx; j++)
         {
-        x[cpt] = cos_rotangle*X_array[i][j] + sin_rotangle*Y_array[i][j];
-        y[cpt] = -sin_rotangle*X_array[i][j] + cos_rotangle*Y_array[i][j];
-        ++cpt;
+        x[kpt] = cos_rotangle*X_array[i][j] + sin_rotangle*Y_array[i][j];
+        y[kpt] = -sin_rotangle*X_array[i][j] + cos_rotangle*Y_array[i][j];
+        ++kpt;
     }
 }
 
@@ -1327,7 +1340,7 @@ void getWimShape() const
 #endif
 
 template<typename T>
-void WimDiscr<T>::timeStep(bool step)
+void WimDiscr<T>::timeStep()
 {
     std::fill( tau_x.begin(), tau_x.end(), 0. );
     std::fill( tau_y.begin(), tau_y.end(), 0. );
@@ -1346,7 +1359,7 @@ void WimDiscr<T>::timeStep(bool step)
     int jcrest;
     bool break_criterion,test_ij;
 
-    value_type t_step = cpt*dt;//seconds from start time
+    value_type t_step = restart_time_shift+cpt*dt;//seconds from initial time
     std::string timestpstr = ptime(init_time_str, t_step);
 
     // dump local diagnostic file
@@ -1832,7 +1845,6 @@ void WimDiscr<T>::timeStep(bool step)
         {
             mesh_dfloe_old = mesh_dfloe;//copy before breaking
 
-            value_type t_out = dt*cpt;
             std::vector<std::vector<value_type>> vectors;
             std::vector<std::string> names;
             vectors.resize(nb_var);
@@ -1843,7 +1855,7 @@ void WimDiscr<T>::timeStep(bool step)
             names[0]    = "mom0";
             names[1]    = "mom2";
             names[2]    = "var_strain";
-            this->testInterp("grid",t_out,vectors,names);
+            this->testInterp("grid",t_step,vectors,names);
             vectors.resize(0);
             names.resize(0);
         }
@@ -1899,7 +1911,6 @@ void WimDiscr<T>::timeStep(bool step)
 
         if (TEST_INTERP_MESH)
         {   
-            value_type t_out = dt*cpt;
             std::vector<std::vector<value_type>> vectors;
             std::vector<std::string> names;
             int nbvar=7;
@@ -1929,7 +1940,7 @@ void WimDiscr<T>::timeStep(bool step)
             names[4]    = "Mom2";
             names[5]    = "Var_strain";
             names[6]    = "Dfloe_old";
-            this->testInterp("mesh",t_out,vectors,names);
+            this->testInterp("mesh",t_step,vectors,names);
             vectors        .resize(0);
             names          .resize(0);
             mom0_mesh      .resize(0);
@@ -1972,7 +1983,7 @@ void WimDiscr<T>::timeStep(bool step)
     // std::cout<<"------------------------------------------------------\n";
     // std::cout<<"dfloe_max= "<< *std::max_element(dfloe.data(), dfloe.data()+dfloe.num_elements()) <<"\n";
     // std::cout<<"dfloe_min= "<< *std::min_element(dfloe.data(), dfloe.data()+dfloe.num_elements()) <<"\n";
-}
+}//timeStep
 
 template<typename T>
 void WimDiscr<T>::setMesh(std::vector<value_type> const& m_rx,      // x coords of mesh elements
@@ -2168,19 +2179,15 @@ void WimDiscr<T>::run(std::vector<value_type> const& icec_in,
         std::vector<value_type> const& nfloes_in,
         std::vector<value_type> const& swh_in,
         std::vector<value_type> const& mwp_in,
-        std::vector<value_type> const& mwd_in,
-        bool step)
+        std::vector<value_type> const& mwd_in)
 {
 
     // set ice conditions, incident wave spectrum,
     // attenuation coefficients and wave speeds/lengths,
-    // initialise sdf_dir (step==0)
-    this->update(icec_in,iceh_in,nfloes_in,swh_in,mwp_in,mwd_in,step);
+    this->update(icec_in,iceh_in,nfloes_in,swh_in,mwp_in,mwd_in);
 
 
     int lcpt  = 0;//local counter
-    if ((!docoupling) || (!step))
-        cpt = 0;//global counter
 
     std::cout << "-----------------------Simulation started at "<< current_time_local() <<"\n";
 
@@ -2189,9 +2196,7 @@ void WimDiscr<T>::run(std::vector<value_type> const& icec_in,
 
     std::string init_time = ptime(init_time_str);
 
-    std::cout<<"init_time= "<< init_time <<"\n";
-
-    value_type t_in  = cpt*dt;//model time of current call to wim
+    value_type t_in  = restart_time_shift+cpt*dt;//model time of current call to wim (relative to when it was first called)
     std::string call_time = ptime(init_time_str,t_in);
     std::cout<<"---------------INITIAL TIME: "<< init_time <<"\n";
     std::cout<<"---------------CALLING TIME: "<< call_time <<"\n";
@@ -2231,11 +2236,11 @@ void WimDiscr<T>::run(std::vector<value_type> const& icec_in,
 #endif
     std::cout<<"checked incwaves...\n";
 
+    value_type t_out = t_in;
     while (lcpt < nt)
     {
         std::cout <<  ":[WIM2D TIME STEP]^"<< lcpt+1
            <<" (out of "<<nt<<")"<<"\n";
-        value_type t_out = dt*cpt;
 
         bool exportProg = !(cpt % vm["wim.dumpfreq"].template as<int>())
            && (vm["wim.checkprog"].template as<bool>());
@@ -2248,14 +2253,15 @@ void WimDiscr<T>::run(std::vector<value_type> const& icec_in,
                 exportResults("prog",t_out);
         }
 
-        timeStep(step);
+        timeStep();
 
         ++lcpt;//local counter incremented in wim.run()
         ++cpt;//global counter incremented in wim.run()
+        t_out = restart_time_shift+dt*cpt;//time in seconds since init time
     }
 
     if (vm["wim.checkfinal"].template as<bool>())
-       exportResults("final",t_in+nt*dt);
+       exportResults("final",t_out);
 
     // save diagnostic file
     if (vm["wim.savelog"].template as<bool>())
@@ -2547,7 +2553,7 @@ void WimDiscr<T>::advAttenIsotropic(array3_type& Sdir, array2_type& Sfreq,
     std::fill( sdx_omega.data(), sdx_omega.data() + sdx_omega.num_elements(), 0. );
     std::fill( sdy_omega.data(), sdy_omega.data() + sdy_omega.num_elements(), 0. );
 
-    int cpt=0;
+    int kpt=0;
 
 	for (int i = 0; i < nx; i++)
     {
@@ -2563,7 +2569,7 @@ void WimDiscr<T>::advAttenIsotropic(array3_type& Sdir, array2_type& Sfreq,
 
             if (ice_mask[i][j] > 0.)
             {
-                ++cpt;
+                ++kpt;
 
                 if (dfloe[ny*i+j] < dfloe_pack_init)
                 {
@@ -2634,7 +2640,7 @@ void WimDiscr<T>::advAttenIsotropic(array3_type& Sdir, array2_type& Sfreq,
                 sdx_omega[i][j] = std::real(.5*(S_fou[jp1]+S_fou[jm1]));
                 sdy_omega[i][j] = std::real(-.5*zi*(S_fou[jp1]-S_fou[jm1]));
 
-                // if (cpt==1)
+                // if (kpt==1)
                 // {
                 //     std::cout<<"taux_omega= "<< taux_omega[i][j] <<"\n";
                 //     std::cout<<"tauy_omega= "<< tauy_omega[i][j] <<"\n";

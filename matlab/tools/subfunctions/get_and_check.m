@@ -12,6 +12,6 @@ function [field_tmp]=get_and_check(fld,data_out,dirname,step)
            disp(flds{k});
         end
 
-        error([fld,' not present in ',dir,'(step=',num2str(step),')']);
+        error([fld,' not present in ',dirname,'(step=',num2str(step),')']);
      end
 end
