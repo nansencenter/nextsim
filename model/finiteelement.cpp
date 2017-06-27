@@ -4538,13 +4538,6 @@ FiniteElement::init()
 #endif
 
     this->checkReloadDatasets(M_external_data,current_time,"init - time-dependant");
-#if 0
-    chrono.restart();
-    LOG(DEBUG) <<"check_and_reload starts\n";
-    for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
-        (*it)->check_and_reload(M_mesh,current_time);
-    LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
-#endif
 
     if ( ! M_use_restart )
     {
@@ -5008,13 +5001,6 @@ FiniteElement::step(int &pcpt)
     chrono.restart();
     this->checkReloadDatasets(M_external_data,current_time+time_step/(24*3600.0),
             "step - time-dependant");
-
-#if 0
-    LOG(DEBUG) <<"check_and_reload starts\n";
-    for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
-        (*it)->check_and_reload(M_mesh,current_time+time_step/(24*3600.0));
-    LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
-#endif
 
     M_use_restart = false;
 
@@ -6686,13 +6672,8 @@ void
 FiniteElement::topazIce()
 {
     external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
-    //M_init_conc.check_and_reload(M_mesh,time_init);
-
     external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
-    //M_init_thick.check_and_reload(M_mesh,time_init);
-
     external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
-    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
 
     M_external_data_tmp.resize(0);
     M_external_data_tmp.push_back(&M_init_conc);
