@@ -174,11 +174,11 @@ public:
     //===========================================================================
     //advection/attenuation
     void advAttenSimple(
-          array3_type& Sdir, value_type_vec& Sfreq,
+          array2_type& Sdir, value_type_vec& Sfreq,
           value_type_vec& taux_omega,value_type_vec& tauy_omega,
           value_type_vec& sdx_omega,value_type_vec& sdy_omega,
           value_type_vec const& ag2d_eff);
-    void advAttenIsotropic(array3_type& Sdir, value_type_vec& Sfreq,
+    void advAttenIsotropic(array2_type& Sdir, value_type_vec& Sfreq,
           value_type_vec& taux_omega,value_type_vec& tauy_omega,
           value_type_vec& sdx_omega,value_type_vec& sdy_omega,
           value_type_vec const& ag2d_eff);
@@ -255,8 +255,8 @@ private:
     value_type_vec steady_mask, ice_mask, wtr_mask,
                 icec, iceh, swh_in_array,mwp_in_array,mwd_in_array,
                 dave, atten_dim, damp_dim, ag2d_eff_temp;
-    array3_type ag_eff, ap_eff, wlng_ice, atten_nond, damping, disp_ratio, sdf3d_dir_temp;
-    array3_type sdf_dir, sdf_inc;//was 4D!!
+    array2_type ag_eff, ap_eff, wlng_ice, atten_nond, damping, disp_ratio, sdf3d_dir_temp;
+    array3_type sdf_dir, sdf_inc;
 
     value_type_vec S_freq, taux_om, tauy_om,
                 stokes_drift_x_om, stokes_drift_y_om;
