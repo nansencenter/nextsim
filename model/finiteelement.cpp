@@ -7592,7 +7592,7 @@ FiniteElement::warrenClimatology()
     std::vector<double> lon = M_mesh.meanLon();
     std::vector<double> lat = M_mesh.meanLat();
 
-    for ( int i=0; i<=M_num_elements; i++ )
+    for ( int i=0; i<M_num_elements; i++ )
     {
         const double pi = std::acos(-1);
 
