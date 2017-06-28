@@ -767,13 +767,12 @@ void WimDiscr<T>::updateWaveMedium()
 
             double outputs[8];
 
-            bool ij_test    = (i==wim_test_i);
             if (ice_mask[i] == 1.)
             {
                 om = 2*PI*freq_vec[fq];
                 guess = std::pow(om,2.)/gravity;
 
-                //if (ij_test)
+                //if (i==wim_test_i)
                 //{
                 //    std::cout<<"fq,om,freq,period = "<<fq<<","<<om<<","<<freq_vec[fq]<<","<<1./freq_vec[fq]<<"\n";
                 //    std::cout<<"guess (open water) = "<<guess<<"\n";
@@ -1365,8 +1364,7 @@ void WimDiscr<T>::timeStep()
         }
 
 
-        test_ij = (i==wim_test_i);
-        if ( dumpDiag && test_ij )
+        if ( dumpDiag && (i==wim_test_i) )
         {
             std::fstream diagID(diagfile, std::ios::out | std::ios::app);
             diagID << "\n# Ice info: pre-breaking\n";
@@ -1408,8 +1406,7 @@ void WimDiscr<T>::timeStep()
                 // damping
                 damp_dim[i] = 2*damping[i][fq]*icec[i];
 
-                test_ij = (i==wim_test_i);
-                if ( dumpDiag && test_ij )
+                if ( dumpDiag && (i==wim_test_i) )
                 {
                    std::fstream diagID(diagfile, std::ios::out | std::ios::app);
                    diagID << vec_period[fq] << "   "
@@ -1690,8 +1687,7 @@ void WimDiscr<T>::timeStep()
         if (dfloe[i] > 0.)
             nfloes[i] = icec[i]/std::pow(dfloe[i],2.);
 
-        test_ij  = (i==wim_test_i);
-        if (dumpDiag && (ice_mask[i] == 1.) && test_ij)
+        if (dumpDiag && (ice_mask[i] == 1.) && (i==wim_test_i))
         {
            //dump diagnostic even if no waves (but only if ice)
            std::fstream diagID(diagfile, std::ios::out | std::ios::app);
@@ -2312,6 +2308,7 @@ void WimDiscr<T>::advAttenSimple(array2_type& Sdir, value_type_vec& Sfreq,
                 taux_omega[i] += tmp;
                 tmp = -std::sin(adv_dir)*wt_theta[nth]*source;
                 tauy_omega[i] += tmp;
+#if 0
                 if (i==wim_test_i)
                 {
                     std::cout<<"i,nth,adv_dir = "<<i<<","<<nth<<","<<adv_dir<<"\n";
@@ -2320,12 +2317,13 @@ void WimDiscr<T>::advAttenSimple(array2_type& Sdir, value_type_vec& Sfreq,
                     std::cout<<"taux_omega = "<<taux_omega[i]<<"\n";
                     std::cout<<"tauy_omega = "<<tauy_omega[i]<<"\n";
                 }
+#endif
 
                 // do attenuation
                 Sdir[i][nth] = S_th*std::exp(-alp_dim*ag2d_eff[i]*dt);
 
                 //std::cout<<"tau_x["<< i << "]= "<< atten_dim[i] <<"\n";
-            }
+            }//loop over directions
         }//end "if ice"
 
         // integrals to be done everywhere (not just in ice)
@@ -2344,7 +2342,7 @@ void WimDiscr<T>::advAttenSimple(array2_type& Sdir, value_type_vec& Sfreq,
             sdy_omega[i] += tmp;
         }
 
-        //std::cout<<"taux_om["<< i << "," << j << "]= "<< taux_om[i] <<"\n";
+#if 0
         if (i==wim_test_i)
         {
             std::cout<<"i = "<<i<<"\n";
@@ -2352,6 +2350,7 @@ void WimDiscr<T>::advAttenSimple(array2_type& Sdir, value_type_vec& Sfreq,
             std::cout<<"taux_omega = "<<taux_omega[i]<<"\n";
             std::cout<<"tauy_omega = "<<tauy_omega[i]<<"\n";
         }
+#endif
     }
 }//advAttenSimple
 
