@@ -174,7 +174,7 @@ lib: $(OBJS) $(CCOBJS)
 else
 lib: $(OBJS) $(CCOBJS)
 	@mkdir -p $(LIBRARYDIR)
-	@echo "========================================================================================""
+	@echo "========================================================================================"
 	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
 	@echo "========================================================================================"
 	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LDFLAGSLIB)
