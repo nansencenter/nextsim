@@ -750,9 +750,9 @@ void WimDiscr<T>::updateWaveMedium()
     // =============================================================================================
     //std::cout<<"attenuation loop starts (big loop)\n";
     std::fill( disp_ratio.data(), disp_ratio.data() + disp_ratio.num_elements(), 1. );
-#pragma omp parallel for num_threads(max_threads) collapse(2)
     for (int fq = 0; fq < nwavefreq; fq++)
     {
+#pragma omp parallel for num_threads(max_threads) collapse(1)
         for (int i = 0; i < num_p_wim; i++)
         {
             double params[5];
@@ -2104,21 +2104,24 @@ void WimDiscr<T>::run(std::vector<value_type> const& icec_in,
         this->exportResults("incwaves",t_in);
 
 #if 1
-    //test inc waves
-    value_type _min = *std::min_element(swh_in.begin(),swh_in.end());
-    value_type _max = *std::max_element(swh_in.begin(),swh_in.end());
-    std::cout<<"Min swh in = " << _min <<"\n";
-    std::cout<<"Max swh in = " << _max <<"\n";
-    //
-    _min = *std::min_element(mwp_in.begin(),mwp_in.end());
-    _max = *std::max_element(mwp_in.begin(),mwp_in.end());
-    std::cout<<"Min mwp in = " << _min <<"\n";
-    std::cout<<"Max mwp in = " << _max <<"\n";
-    //
-    _min = *std::min_element(mwd_in.begin(),mwd_in.end());
-    _max = *std::max_element(mwd_in.begin(),mwd_in.end());
-    std::cout<<"Min mwd in = " << _min <<"\n";
-    std::cout<<"Max mwd in = " << _max <<"\n";
+    if (swh_in.size()>0)
+    {
+        //test inc waves
+        value_type _min = *std::min_element(swh_in.begin(),swh_in.end());
+        value_type _max = *std::max_element(swh_in.begin(),swh_in.end());
+        std::cout<<"Min swh in = " << _min <<"\n";
+        std::cout<<"Max swh in = " << _max <<"\n";
+        //
+        _min = *std::min_element(mwp_in.begin(),mwp_in.end());
+        _max = *std::max_element(mwp_in.begin(),mwp_in.end());
+        std::cout<<"Min mwp in = " << _min <<"\n";
+        std::cout<<"Max mwp in = " << _max <<"\n";
+        //
+        _min = *std::min_element(mwd_in.begin(),mwd_in.end());
+        _max = *std::max_element(mwd_in.begin(),mwd_in.end());
+        std::cout<<"Min mwd in = " << _min <<"\n";
+        std::cout<<"Max mwd in = " << _max <<"\n";
+    }
 #endif
     std::cout<<"checked incwaves...\n";
 
