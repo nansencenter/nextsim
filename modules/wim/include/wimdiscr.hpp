@@ -111,6 +111,7 @@ public:
                     std::vector<std::string> const& names
                     ) const;
     void saveLog(value_type const& t_out) const;
+    void saveOptionsLog();
 
     void init(int const nextsim_cpt=0);
     void assign();

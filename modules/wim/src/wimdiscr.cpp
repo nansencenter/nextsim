@@ -458,6 +458,9 @@ void WimDiscr<T>::init(int nextsim_cpt)
         init_time_str = vm["wim.initialtime"].as<std::string>();
 
         break_on_mesh   =  false;
+
+        //save options from wimoptions.cpp
+        this->saveOptionsLog();
     }
     else
     {
@@ -3776,7 +3779,96 @@ void WimDiscr<T>::saveLog(value_type const& t_out) const
     out << "***********************************************\n";
 
     out.close();
-}
+}//saveLog
+
+template<typename T>
+void WimDiscr<T>::saveOptionsLog()
+{
+    std::string fileout = vm["wim.outparentdir"].template as<std::string>();
+    fileout += "/diagnostics/global";
+    fs::path path(fileout);
+    if ( !fs::exists(path) )
+       fs::create_directories(path);
+
+    fileout += "/wimoptions.log";
+
+    std::fstream logfile(fileout, std::ios::out | std::ios::trunc);
+    std::cout << "Writing log file " << fileout << "...\n";
+
+    int log_width = 55;
+    if (logfile.is_open())
+    {
+        for (po::variables_map::iterator it = vm.begin(); it != vm.end(); it++)
+        {
+            logfile << std::setw(log_width) << std::left << it->first;
+
+            bool is_char;
+            try
+            {
+                boost::any_cast<const char *>(it->second.value());
+                is_char = true;
+            }
+            catch (const boost::bad_any_cast &)
+            {
+                is_char = false;
+            }
+
+            bool is_str;
+            try
+            {
+                boost::any_cast<std::string>(it->second.value());
+                is_str = true;
+            }
+            catch (const boost::bad_any_cast &)
+            {
+                is_str = false;
+            }
+
+            if (((boost::any)it->second.value()).type() == typeid(int))
+            {
+                logfile << vm[it->first].as<int>() <<"\n";
+            }
+            else if (((boost::any)it->second.value()).type() == typeid(bool))
+            {
+                logfile << vm[it->first].as<bool>() <<"\n";
+            }
+            else if (((boost::any)it->second.value()).type() == typeid(double))
+            {
+                logfile << vm[it->first].as<double>() <<"\n";
+            }
+            else if (is_char)
+            {
+                logfile << vm[it->first].as<const char * >() <<"\n";
+            }
+            else if (is_str)
+            {
+                std::string temp = vm[it->first].as<std::string>();
+
+                logfile << temp <<"\n";
+            }
+            else
+            { // Assumes that the only remainder is vector<string>
+                try
+                {
+                    std::vector<std::string> vect = vm[it->first].as<std::vector<std::string> >();
+                    int i = 0;
+                    for (std::vector<std::string>::iterator oit=vect.begin(); oit != vect.end(); oit++, ++i)
+                    {
+                        //logfile << it->first << "[" << i << "]=" << (*oit) <<"\n";
+                        if (i > 0)
+                            logfile << std::setw(41) << std::right;
+
+                        logfile << "[" << i << "]=" << (*oit) <<"\n";
+                    }
+                }
+                catch (const boost::bad_any_cast &)
+                {
+                    std::cout << "UnknownType(" << ((boost::any)it->second.value()).type().name() << ")" <<"\n";
+                }
+            }
+        }//loop over options in variable map
+    }//check if file opens
+}//saveOptionsLog
 
 // instantiate wim class for type float
 //template class WimDiscr<float>;
