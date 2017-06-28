@@ -1592,7 +1592,7 @@ void WimDiscr<T>::timeStep()
     else
     {
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-        for (int i = 0; i < nx; i++)
+        for (int i = 0; i < num_p_wim; i++)
         {
             Hs[i] = 4*std::sqrt(mom0w[i]);
             if (mom2w[i] > 0.)
@@ -1745,7 +1745,7 @@ void WimDiscr<T>::timeStep()
             names.resize(0);
         }
 
-        for (int i = 0; i < nx; i++)
+        for (int i = 0; i < num_p_wim; i++)
         {
             interp_in[nb_var*i  ] = mom0      [i];
             interp_in[nb_var*i+1] = mom2      [i];
@@ -1836,27 +1836,23 @@ void WimDiscr<T>::timeStep()
         xDelete<value_type>(interp_out);
     }//finish breaking on mesh
 
+#if 0
+    double Hs_max=0;
+    for (int i = 0; i < nx; i++)
+    {
+        int j = ny-1;
+        Hs_max  = max(Hs_max,Hs[i*ny+j]);
+    }
+    std::cout<<"Hs_max (j=ny) = "<< Hs_max <<"\n";
 
-
-
-    // for (int i = 0; i < num_p_wim; i++)
-    //     std::cout << "Dmax[" << i  << "]= " << dfloe[i] <<"\n";
-
-    //double Hs_max=0;
-    //for (int i = 0; i < nx; i++)
-    //{
-    //    int j = ny-1;
-    //    Hs_max  = max(Hs_max,Hs[i*ny+j]);
-    //}
-    //std::cout<<"Hs_max, j=ny = "<< Hs_max <<"\n";
-
-    // Hs_max=0;
-    // for (int i = 0; i < nx; i++)
-    //     {
-    //         int j = 0;
-    //         Hs_max  = max(Hs_max,Hs[i*ny+j]);
-    //     }
-    // std::cout<<"Hs_max, j=0 = "<< Hs_max <<"\n";
+    Hs_max=0;
+    for (int i = 0; i < nx; i++)
+        {
+            int j = 0;
+            Hs_max  = max(Hs_max,Hs[i*ny+j]);
+        }
+    std::cout<<"Hs_max (j=0) = "<< Hs_max <<"\n";
+#endif
 
     std::cout<<"Hs_max= "<< *std::max_element(Hs.begin(), Hs.end()) <<"\n";
 
@@ -1980,7 +1976,7 @@ void WimDiscr<T>::doBreaking(BreakInfo const& breakinfo)
             breakinfo.broken = true;
         }
     }
-}
+}//doBreaking
 
 
 template<typename T>
@@ -1998,7 +1994,7 @@ WimDiscr<T>::dfloeToNfloes(value_type const& dfloe_in,
     }
 
     return nfloes_out;
-}
+}//dfloesToNfloes
 
 
 template<typename T>
@@ -2014,7 +2010,7 @@ WimDiscr<T>::dfloeToNfloes(value_type_vec const& dfloe_in,
         nfloes_out[i]   = this->dfloeToNfloes(dfloe_in[i],conc_in[i]);
 
     return nfloes_out;
-}
+}//dfloesToNfloes
 
 
 template<typename T>
@@ -2035,7 +2031,7 @@ WimDiscr<T>::nfloesToDfloe(value_type const& nfloes_in,
             dfloe_out = vm["wim.dfloepackinit"].template as<double>();
 
     return dfloe_out;
-}
+}//nfloesToDfloe
 
 
 template<typename T>
@@ -2051,7 +2047,7 @@ WimDiscr<T>::nfloesToDfloe(value_type_vec const& nfloes_in,
         dfloe_out[i] = this->nfloesToDfloe(nfloes_in[i],conc_in[i]);
 
     return dfloe_out;
-}
+}//nfloesToDfloe
 
 
 template<typename T>
@@ -2059,7 +2055,7 @@ typename WimDiscr<T>::value_type_vec
 WimDiscr<T>::getNfloesMesh()
 {
     return this->dfloeToNfloes(mesh_dfloe,mesh_conc);
-}
+}//getNfloesMesh
 
 
 template<typename T>
@@ -2162,7 +2158,7 @@ void WimDiscr<T>::run(std::vector<value_type> const& icec_in,
     std::cout<<"Running done in "<< chrono.elapsed() <<"s\n";
 
     std::cout << "-----------------------Simulation completed at "<< current_time_local() <<"\n";
-}
+}//run
 
 template<typename T>
 void WimDiscr<T>::floeScaling(
@@ -2576,7 +2572,7 @@ void WimDiscr<T>::advAttenIsotropic(array2_type& Sdir, value_type_vec& Sfreq,
     std::cout<<"Min OUT= " << _min <<"\n";
     std::cout<<"Max OUT= " << _max <<"\n";
 #endif
-}
+}//advAttenIsotropic
 
 template<typename T>
 void WimDiscr<T>::waveAdvWeno(value_type_vec& h, value_type_vec const& u, value_type_vec const& v)
@@ -2661,7 +2657,8 @@ void WimDiscr<T>::waveAdvWeno(value_type_vec& h, value_type_vec const& u, value_
     //   <<*std::max_element(LANDMASK_array.data(),LANDMASK_array.data() + LANDMASK_array.num_elements())
     //   <<"\n";
     //std::cout<<"advected thing at [nx-1,ny-1]: "<<h[nx-1][ny-1]<<"\n";
-}
+
+}//waveAdvWeno
 
 template<typename T>
 void WimDiscr<T>::weno3pdV2(value_type_vec const& gin, value_type_vec const& u, value_type_vec const& v, value_type_vec const& scuy,
@@ -2832,7 +2829,7 @@ void WimDiscr<T>::weno3pdV2(value_type_vec const& gin, value_type_vec const& u, 
     }
 #endif
 
-}
+}//weno3pdV2
 
 template<typename T>
 void WimDiscr<T>::padVar(value_type_vec const& u, value_type_vec& upad, std::string const & advopt_)
@@ -2913,7 +2910,7 @@ void WimDiscr<T>::padVar(value_type_vec const& u, value_type_vec& upad, std::str
             }//advdim==2
         }//j
     }//i
-}
+}//padVar
 
 template<typename T>
 void WimDiscr<T>::calcMWD()
@@ -3019,7 +3016,7 @@ WimDiscr<T>::thetaDirFrac(value_type const& th1_, value_type const& dtheta_, val
     value_type theta_dirfrac  = integral/(2.*PI);
     return theta_dirfrac;
 
-}
+}//thetaDirFrac
 
 template<typename T>
 typename WimDiscr<T>::value_type
@@ -3054,7 +3051,7 @@ WimDiscr<T>::thetaInRange(value_type const& th_, value_type const& th1, bool con
         th = th2;
 
     return th;
-}
+}//thetaInRange
 
 
 template<typename T> 
@@ -3100,7 +3097,7 @@ typename WimDiscr<T>::WimGrid WimDiscr<T>::wimGrid(std::string const& units)
     };
 
     return wim_grid;
-}
+}//WimGrid
 
 template<typename T>
 void WimDiscr<T>::readDataFromFile(std::string const& filein)
@@ -3154,7 +3151,7 @@ void WimDiscr<T>::readDataFromFile(std::string const& filein)
         std::cerr << "error: open file " << _filein << " for input failed!" <<"\n";
         std::abort();
     }
-}
+}//readDataFromFile
 
 template<typename T>
 void WimDiscr<T>::exportResults(std::string const& output_type,
@@ -3491,7 +3488,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
 
     out.close();
     outb.close();
-}
+}//exportResults
 
 template<typename T>
 void WimDiscr<T>::testInterp(std::string const& output_type,
@@ -3642,7 +3639,7 @@ void WimDiscr<T>::testInterp(std::string const& output_type,
         fs::copy_file(fs::path(meshfile),fs::path(fileout),fs::copy_option::overwrite_if_exists);
         fs::copy_file(fs::path(meshfile2),fs::path(fileoutb),fs::copy_option::overwrite_if_exists);
     }//export on grid
-}
+}//testInterp
 
 template<typename T>
 void WimDiscr<T>::saveLog(value_type const& t_out) const
