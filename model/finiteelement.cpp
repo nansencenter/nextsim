@@ -4178,7 +4178,6 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         Qio     = 0.;
         Qai     = 0.;
         del_hi  = 0.;
-        Qai     = 0.;
         Qsw     = 0.;
         Qlw     = 0.;
         Qsh     = 0.;
@@ -4435,7 +4434,9 @@ FiniteElement::init()
     {
         LOG(DEBUG) <<"Reading restart file\n";
         pcpt = this->readRestart(vm["setup.step_nb"].as<int>());
-        current_time = time_init + pcpt*time_step/(24*3600.0);
+        // current_time = time_init + pcpt*time_step/(24*3600.0);
+        if(M_use_osisaf_drifters)
+            this->initOSISAFDrifters();
         
 //        for (int i=0; i<M_num_elements; i++)
 //            M_damage[i]=(M_damage[i]>0.95 ? 1. : 0.);
@@ -5259,6 +5260,7 @@ FiniteElement::initMoorings()
     GridOutput::Variable conc(GridOutput::variableID::conc, data_elements, data_grid);
     GridOutput::Variable thick(GridOutput::variableID::thick, data_elements, data_grid);
     GridOutput::Variable snow(GridOutput::variableID::snow, data_elements, data_grid);
+    GridOutput::Variable tsurf(GridOutput::variableID::tsurf, data_elements, data_grid);
     GridOutput::Variable Qa(GridOutput::variableID::Qa, data_elements, data_grid);
     GridOutput::Variable Qsw(GridOutput::variableID::Qsw, data_elements, data_grid);
     GridOutput::Variable Qlw(GridOutput::variableID::Qlw, data_elements, data_grid);
@@ -5267,17 +5269,18 @@ FiniteElement::initMoorings()
     GridOutput::Variable Qo(GridOutput::variableID::Qo, data_elements, data_grid);
     GridOutput::Variable delS(GridOutput::variableID::delS, data_elements, data_grid);
 
-    std::vector<GridOutput::Variable> elemental_variables(10);
+    std::vector<GridOutput::Variable> elemental_variables(11);
     elemental_variables[0] = conc;
     elemental_variables[1] = thick;
     elemental_variables[2] = snow;
-    elemental_variables[3] = Qa;
-    elemental_variables[4] = Qsw;
-    elemental_variables[5] = Qlw;
-    elemental_variables[6] = Qsh;
-    elemental_variables[7] = Qlh;
-    elemental_variables[8] = Qo;
-    elemental_variables[9] = delS;
+    elemental_variables[3] = tsurf;
+    elemental_variables[4] = Qa;
+    elemental_variables[5] = Qsw;
+    elemental_variables[6] = Qlw;
+    elemental_variables[7] = Qsh;
+    elemental_variables[8] = Qlh;
+    elemental_variables[9] = Qo;
+    elemental_variables[10] = delS;
     if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
     {
         GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin, data_elements, data_grid);
@@ -5572,9 +5575,11 @@ FiniteElement::readRestart(int step)
             );
 
     // Fix boundaries
-    int pcpt   = field_map_int["Misc_int"].at(0);
-    M_flag_fix = field_map_int["Misc_int"].at(1);
+    //int pcpt     = field_map_int["Misc_int"].at(0);
+    M_flag_fix   = field_map_int["Misc_int"].at(1);
+    current_time = field_map_int["Misc_int"].at(2);
     mesh_adapt_step = field_map_int["Misc_int"].at(3);
+    int pcpt = (current_time-time_init)*(24*3600)/time_step;
 
     std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
     for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)

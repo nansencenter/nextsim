@@ -8,7 +8,7 @@ function postProcess(directory,skip,outputfile)
 
 global mppfile
 mppfile = which('NpsNextsim.mpp');
-addpath('~/src/nextsim/matlab/')
+%addpath('~/src/nextsim/matlab/')
 
 % First we define the DRA mask
 maskll  = [ -15.00 87.00
