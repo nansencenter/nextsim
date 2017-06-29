@@ -5114,6 +5114,11 @@ FiniteElement::step(int &pcpt)
         std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
         this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
     }
+
+#if defined (WAVES)
+    if(M_use_wim)
+        steps_since_last_wim_call++;
+#endif
 }//step
 
 // Add to the mean on the mesh
@@ -8659,7 +8664,6 @@ FiniteElement::wimToNextsim()
 
     if (M_run_wim)
     {
-
         // run wim
         if ( break_on_mesh )
         {
@@ -8722,11 +8726,6 @@ FiniteElement::wimToNextsim()
         //reset counter
         steps_since_last_wim_call   = 0;
     }//run WIM & get outputs on grid
-    else
-    {
-        //update counter
-        steps_since_last_wim_call++;
-    }
 
     //if (!M_regrid)
     //    M_mesh.move(M_UM,1.);
