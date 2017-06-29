@@ -14,6 +14,39 @@ function [field_tmp, field_plotted]=extract_field(field,data_out,dirname,step,si
      
      field_tmp = field_tmp+0.055*field_tmp2;
      field_plotted = 'Ocean degrees above the freezing point';
+  elseif strcmp(field,'Skin_temperature')
+     fld = 'SST';
+     [sst]=get_and_check(fld,data_out,dirname,step);
+
+     fld = 'Tice_0';
+     [tsurf]=get_and_check(fld,data_out,dirname,step);
+     
+     fld = 'Tsurf_thin_ice';
+     [tsurf_thin]=get_and_check(fld,data_out,dirname,step);
+     
+     fld = 'Concentration';
+     [conc]=get_and_check(fld,data_out,dirname,step);
+     
+     fld = 'Concentration_thin_ice';
+     [conc_thin]=get_and_check(fld,data_out,dirname,step);
+     
+     field_tmp = conc.*tsurf + conc_thin.*tsurf_thin + (1-conc-conc_thin).*sst;
+     field_plotted = 'Ocean degrees above the freezing point';
+%   elseif strcmp(field,'Qatm')
+%      fld = 'Qsw';
+%      [Qsw]=get_and_check(fld,data_out,dirname,step);
+% 
+%      fld = 'Qlw';
+%      [Qlw]=get_and_check(fld,data_out,dirname,step);
+%      
+%      fld = 'Qsh';
+%      [Qsh]=get_and_check(fld,data_out,dirname,step);
+%      
+%      fld = 'Qlh';
+%      [Qlh]=get_and_check(fld,data_out,dirname,step);
+%           
+%      field_tmp = Qsw + Qlw + Qsh + Qlh;
+%      field_plotted = 'Total atmospheric heat flux';
   elseif strcmp(field,'Ridged_volume_per_area')
      fld = 'Ridge_ratio';
      [field_tmp]=get_and_check(fld,data_out,dirname,step);
