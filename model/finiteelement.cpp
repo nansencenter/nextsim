@@ -375,15 +375,15 @@ FiniteElement::initDatasets()
     M_datasets_regrid.push_back(&M_ocean_nodes_dataset);
     M_datasets_regrid.push_back(&M_ocean_elements_dataset);
     M_datasets_regrid.push_back(&M_bathymetry_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_topaz_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_icesat_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_piomas_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_amsre_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_osisaf_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_osisaf_type_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_amsr2_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_cs2_smos_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_smos_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_topaz_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_icesat_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_piomas_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_amsre_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_osisaf_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_osisaf_type_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_amsr2_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_cs2_smos_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_smos_elements_dataset);
 
 }//initDatasets
 
@@ -1672,22 +1672,6 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var, bool che
         }
 #endif
 
-		// Diagnostics
-		D_Qa[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-		tmp_nb_var++;
-		D_Qsh[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-		tmp_nb_var++;
-		D_Qlh[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-		tmp_nb_var++;
-		D_Qlw[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-		tmp_nb_var++;
-		D_Qsw[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-		tmp_nb_var++;
-		D_Qo[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-		tmp_nb_var++;
-		D_delS[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-		tmp_nb_var++;
-
 		if(tmp_nb_var!=nb_var)
 		{
 			throw std::logic_error("tmp_nb_var not equal to nb_var");
@@ -1951,7 +1935,7 @@ int
 FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_ptr, double** diffusivity_parameters_ptr, int prv_num_elements)
 {
     // ELEMENT INTERPOLATION With Cavities
-	int nb_var=22 + M_tice.size();
+	int nb_var=15 + M_tice.size();
 
 #if defined (WAVES)
     // coupling with wim
@@ -2102,44 +2086,6 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
             tmp_nb_var++;
         }
 #endif
-
-		// Diagnostics - Heatflux to atmosphere
-		interp_elt_in[nb_var*i+tmp_nb_var] = D_Qa[i];
-        interp_method[tmp_nb_var] = 1;
-        diffusivity_parameters[tmp_nb_var]=0.;
-		tmp_nb_var++;
-
-		interp_elt_in[nb_var*i+tmp_nb_var] = D_Qsh[i];
-        interp_method[tmp_nb_var] = 1;
-        diffusivity_parameters[tmp_nb_var]=0.;
-		tmp_nb_var++;
-
-		interp_elt_in[nb_var*i+tmp_nb_var] = D_Qlh[i];
-        interp_method[tmp_nb_var] = 1;
-        diffusivity_parameters[tmp_nb_var]=0.;
-		tmp_nb_var++;
-
-		interp_elt_in[nb_var*i+tmp_nb_var] = D_Qlw[i];
-        interp_method[tmp_nb_var] = 1;
-        diffusivity_parameters[tmp_nb_var]=0.;
-		tmp_nb_var++;
-
-		interp_elt_in[nb_var*i+tmp_nb_var] = D_Qsw[i];
-        interp_method[tmp_nb_var] = 1;
-        diffusivity_parameters[tmp_nb_var]=0.;
-		tmp_nb_var++;
-
-		// Diagnostics - Heatflux from ocean
-		interp_elt_in[nb_var*i+tmp_nb_var] = D_Qo[i];
-        interp_method[tmp_nb_var] = 1;
-        diffusivity_parameters[tmp_nb_var]=0.;
-		tmp_nb_var++;
-
-		// Diagnostics - Saltflux to ocean
-		interp_elt_in[nb_var*i+tmp_nb_var] = D_delS[i];
-        interp_method[tmp_nb_var] = 1;
-        diffusivity_parameters[tmp_nb_var]=0.;
-		tmp_nb_var++;
 
 		if(tmp_nb_var>nb_var)
 		{
@@ -5201,7 +5147,7 @@ FiniteElement::updateMeans(GridOutput &means, double time_factor)
 
             case (GridOutput::variableID::tsurf):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += ( M_conc[i]*M_tice[0][i] + (1-M_conc[i])*M_sst[i] )*time_factor;
+                    it->data_mesh[i] += ( M_conc[i]*M_tice[0][i] + M_conc_thin[i]*M_tsurf_thin[i] + (1-M_conc[i]-M_conc_thin[i])*M_sst[i] )*time_factor;
                 break;
 
             case (GridOutput::variableID::sst):
@@ -6673,6 +6619,17 @@ FiniteElement::binaryIce()
 
     input.read((char*) &M_snow_thick[0], M_num_elements*sizeof(double));
     input.close();
+
+    // Make sure damage is zero and do something for thin ice
+    for (int i=0; i<M_num_elements; ++i)
+    {
+		M_damage[i]=0.;
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {
+            M_conc_thin[i]=std::min(1.-M_conc[i], 0.2*M_conc[i]);
+            M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
+        }
+    }
 }
 
 void
