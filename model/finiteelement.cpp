@@ -375,15 +375,15 @@ FiniteElement::initDatasets()
     M_datasets_regrid.push_back(&M_ocean_nodes_dataset);
     M_datasets_regrid.push_back(&M_ocean_elements_dataset);
     M_datasets_regrid.push_back(&M_bathymetry_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_topaz_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_icesat_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_piomas_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_amsre_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_osisaf_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_osisaf_type_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_amsr2_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_cs2_smos_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_smos_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_topaz_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_icesat_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_piomas_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_amsre_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_osisaf_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_osisaf_type_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_amsr2_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_cs2_smos_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_smos_elements_dataset);
 
 }//initDatasets
 
