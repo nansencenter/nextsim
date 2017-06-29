@@ -240,7 +240,7 @@ private:
     value_type cfl, dom, guess, Hs_inc, Tp_inc, mwd_inc, Tmin, Tmax, gravity, om;
     value_type xmax, ym, x0, y0, dx, dy, x_edge, unifc, unifh,
                dfloe_pack_init, dfloe_pack_thresh, amin, amax;
-    value_type rhowtr, rhoice, poisson, dmin, xi, fragility,
+    value_type rhowtr, rhoice, poisson, dmin, xi, fragility, cice_min, dfloe_miz_thresh,
                young, visc_rp, kice, kwtr, int_adm, modT, argR, argT, rhoi, rho, rhow;
     value_type fmin, fmax, df, epsc, sigma_c, vbf, vb, flex_rig_coeff;
     value_type dt,duration;

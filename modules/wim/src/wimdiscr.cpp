@@ -432,13 +432,15 @@ void WimDiscr<T>::init(int nextsim_cpt)
     nxext = nx+2*nbdx;
     nyext = ny+2*nbdy;//ny if advdim==1
 
-    gravity = 9.81;
-    rhowtr = 1025.;
-    rhoice = 922.5;
-    poisson = 0.3;
-    dmin = 20.;
-    xi = 2.;
-    fragility = 0.9;
+    gravity             = 9.81;
+    rhowtr              = 1025.;
+    rhoice              = 922.5;
+    poisson             = 0.3;
+    dmin                = 20.;
+    xi                  = 2.;
+    fragility           = 0.9;
+    cice_min            = vm["wim.cicemin"].template as<double>();
+    dfloe_miz_thresh    = 200.;
 
     vbf = 0.1;//brine volume fraction
     vb = vbf;
@@ -1347,7 +1349,7 @@ void WimDiscr<T>::timeStep()
         if (ice_mask[i] == 1.)
         {
             //std::cout<<"setting dave, Dmax="<<dfloe[i]<<"\n";
-            if (dfloe[i] <200.)
+            if (dfloe[i] <dfloe_miz_thresh)
             {
                 if ( fsdopt == "RG" )
                     this->floeScaling(dfloe[i],1,dave[i]);
@@ -1982,8 +1984,7 @@ WimDiscr<T>::dfloeToNfloes(value_type const& dfloe_in,
 {
     value_type nfloes_out   = 0.;
 
-    if ( (dfloe_in>0)
-            &&(conc_in >= vm["wim.cicemin"].template as<double>()) )
+    if ( (dfloe_in>0) &&(conc_in >= cice_min) )
     {
         //conc high enough & dfloe OK
         nfloes_out = conc_in/std::pow(dfloe_in,2.);
@@ -3651,7 +3652,9 @@ void WimDiscr<T>::saveLog(value_type const& t_out) const
 
     std::string init_time  = ptime(init_time_str);
     std::string timestpstr = ptime(init_time_str, t_out);
-    std::string fileout    = (boost::format( "%1%/WIMdiagnostics%2%.txt" ) % path.string() % timestpstr).str();
+    std::string fileout    = (boost::format( "%1%/WIMdiagnostics%2%.txt" )
+                                % path.string()
+                                % timestpstr).str();
 
     std::fstream out(fileout, std::ios::out | std::ios::trunc);
     if ( !out.is_open() )
@@ -3661,21 +3664,23 @@ void WimDiscr<T>::saveLog(value_type const& t_out) const
         std::abort();
     }
 
+    int log_width = 34;
+
     out << "***********************************************\n";
     out << "Outer subroutine:\n";
     out << ">> " << "wimdiscr.cpp\n\n";
-    out << std::left << std::setw(32) << "Start time:  " << init_time << "\n";
-    out << std::left << std::setw(32) << "Call time:   " << timestpstr << "\n";
+    out << std::left << std::setw(log_width) << "Start time"<<" : " << init_time << "\n";
+    out << std::left << std::setw(log_width) << "Call time" <<" : " << timestpstr << "\n";
     out << "***********************************************\n";
 
     out << "\n***********************************************\n";
     out << "Main parameters:" << "\n";
-    out << std::left << std::setw(32) << "SCATMOD:" << scatmod << "\n";
-    out << std::left << std::setw(32) << "ADV_DIM:" << advdim << "\n";
-    out << std::left << std::setw(32) << "ADV_OPT:" << advopt << "\n";
+    out << std::left << std::setw(log_width) << "SCATMOD"<<" : " << scatmod << "\n";
+    out << std::left << std::setw(log_width) << "ADV_DIM"<<" : " << advdim << "\n";
+    out << std::left << std::setw(log_width) << "ADV_OPT"<<" : " << advopt << "\n";
 #if 0
     //TODO implement brkopt
-    out << std::left << std::setw(32) << "BRK_OPT:" << brkopt << "\n";
+    out << std::left << std::setw(log_width) << "BRK_OPT:" << brkopt << "\n";
     if (BRK_OPT.eq.0) then
        write(fid,'(a)'),'(No breaking)'
     elseif (BRK_OPT.eq.1) then
@@ -3686,49 +3691,60 @@ void WimDiscr<T>::saveLog(value_type const& t_out) const
        write(fid,'(a)'),'(Mohr-Coulomb)'
     end if
 #endif
-    out << std::left << std::setw(32) << "STEADY:" << steady << "\n";
-    out << std::left << std::setw(32) << "DO_ATTEN:" << atten << "\n";
+    out << std::left << std::setw(log_width) << "STEADY"<<" : " << steady << "\n";
+    out << std::left << std::setw(log_width) << "DO_ATTEN"<<" : " << atten << "\n";
     out << "***********************************************\n";
 
     out << "\n***********************************************\n";
     out << "Other integer parameters:" << "\n";
-    out << std::left << std::setw(32) << "FSD_OPT:" << fsdopt << "\n";
+    out << std::left << std::setw(log_width) << "FSD_OPT"<<" : " << fsdopt << "\n";
     out << "***********************************************\n";
 
     out << "\n***********************************************\n";
     out << "WIM parameters:" << "\n";
-    out << std::left << std::setw(32) << "Brine volume fraction:" << vbf << "\n";
-    out << std::left << std::setw(32) << "Youngs modulus (Pa):" << young << "\n";
-    out << std::left << std::setw(32) << "Flexural strength (Pa):" << sigma_c << "\n";
-//    out << std::left << std::setw(32) << "Breaking stress (Pa):" << stress_c << "\n";
-    out << std::left << std::setw(32) << "Breaking strain:" << epsc << "\n";
-    out << std::left << std::setw(32) << "Damping (Pa.s/m):" << visc_rp << "\n";
+    out << std::left << std::setw(log_width) << "Brine volume fraction"  <<" : " << vbf << "\n";
+    out << std::left << std::setw(log_width) << "Youngs modulus (Pa)"    <<" : " << young << "\n";
+    out << std::left << std::setw(log_width) << "Flexural strength (Pa)" <<" : " << sigma_c << "\n";
+//    out << std::left << std::setw(log_width) << "Breaking stress (Pa)"<<" : " << stress_c << "\n";
+    out << std::left << std::setw(log_width) << "Breaking strain"        <<" : " << epsc << "\n";
+    out << std::left << std::setw(log_width) << "Damping (Pa.s/m)"       <<" : " << visc_rp << "\n";
+    out << "***********************************************\n";
+
+    out << "\n***********************************************\n";
+    out << "FSD parameters:" << "\n";
+    out << std::left << std::setw(log_width) << "Dmin (m)"  <<" : " << dmin << "\n";
+    out << std::left << std::setw(log_width) << "xi"        <<" : " << xi << "\n";
+    out << std::left << std::setw(log_width) << "fragility" <<" : " << fragility << "\n";
+    out << std::left << std::setw(log_width) << "Dthresh"   <<" : " << dfloe_miz_thresh << "\n";
+    out << std::left << std::setw(log_width) << "cice_min"  <<" : " << cice_min << "\n";
     out << "***********************************************\n";
 
     out << "\n***********************************************\n";
     out << "Other parameters:" << "\n";
-    out << std::left << std::setw(32) << "Time step (s):" << dt << "\n";
-    out << std::left << std::setw(32) << "CFL number:" << cfl << "\n";
-    out << std::left << std::setw(32) << "Max wave group vel (m/s):" << amax << "\n";
-    out << std::left << std::setw(32) << "Number of time steps:" << nt << "\n";
-    out << std::left << std::setw(32) << "Time interval (h):" << duration/60.0/60.0 << "\n";
+    out << std::left << std::setw(log_width) << "Time step (s)" <<" : "     << dt << "\n";
+    out << std::left << std::setw(log_width) << "CFL number"                <<" : " << cfl << "\n";
+    out << std::left << std::setw(log_width) << "Max wave group vel (m/s)"  <<" : " << amax << "\n";
+    out << std::left << std::setw(log_width) << "Number of time steps"      <<" : " << nt << "\n";
+    out << std::left << std::setw(log_width) << "Time interval (h)"         <<" : " << duration/60.0/60.0 << "\n";
     out << "***********************************************\n";
 
     out << "\n***********************************************\n";
-    out << std::left << std::setw(32) << "Grid dimensions:" << nx << ", " << ny << "\n";
-    out << std::left << std::setw(32) << "Spatial resolution (km):" << dx/1.0e3 << ", " << dy/1.0e3 << "\n";
-    out << std::left << std::setw(32) << "Extent of domain (km):" << nx*dx/1.e3 << ", " << ny*dy/1.e3 << "\n";
-    out << std::left << std::setw(32) << "Minimum period (s):" << 1.0/freq_vec[nwavefreq-1] << "\n";
-    out << std::left << std::setw(32) << "Maximum period (s):" << 1.0/freq_vec[0] << "\n";
-    out << std::left << std::setw(32) << "Number of wave frequencies:" << nwavefreq << "\n";
-    out << std::left << std::setw(32) << "Number of wave directions:"  << nwavedirn << "\n";
-    out << std::left << std::setw(32) << "Directional resolution (deg):" << 360.0/nwavedirn << "\n";
+    out << std::left << std::setw(log_width) << "Grid dimensions"        <<" : " << nx << ", " << ny << "\n";
+    out << std::left << std::setw(log_width) << "Spatial resolution (km)"<<" : " << dx/1.0e3 << ", " << dy/1.0e3 << "\n";
+    out << std::left << std::setw(log_width) << "Extent of domain (km)"  <<" : "
+        << nx*dx/1.e3 << ", " << ny*dy/1.e3 << "\n";
+    out << std::left << std::setw(log_width) << "Minimum period (s)"          <<" : " << 1.0/freq_vec[nwavefreq-1] << "\n";
+    out << std::left << std::setw(log_width) << "Maximum period (s)"          <<" : " << 1.0/freq_vec[0] << "\n";
+    out << std::left << std::setw(log_width) << "Number of wave frequencies"  <<" : " << nwavefreq << "\n";
+    out << std::left << std::setw(log_width) << "Number of wave directions"   <<" : "  << nwavedirn << "\n";
+    out << std::left << std::setw(log_width) << "Directional resolution (deg)"<<" : " << 360.0/nwavedirn << "\n";
     out << "***********************************************\n";
 
     value_type taux_min  = *std::min_element(tau_x.begin(), tau_x.end());
     value_type taux_max  = *std::max_element(tau_x.begin(), tau_x.end());
     value_type tauy_min  = *std::min_element(tau_y.begin(), tau_y.end());
     value_type tauy_max  = *std::max_element(tau_y.begin(), tau_y.end());
+    value_type Hs_max    = *std::max_element(Hs.begin(), Hs.end());
 
     //MIZ diagnostics
     value_type Dmax_min = 10.e3;
@@ -3767,11 +3783,12 @@ void WimDiscr<T>::saveLog(value_type const& t_out) const
     out << "\n***********************************************\n";
     out << "Diagnostics:\n";
 #if defined (WIMDIAG1D)
-    out << std::left << std::setw(32) << "MIZ width (km):"         << W_miz/1.e3 << "\n";
+    out << std::left << std::setw(log_width) << "MIZ width (km)"<<" : "         << W_miz/1.e3 << "\n";
 #endif
-    out << std::left << std::setw(32) << "Dmax range in MIZ (m):"  << Dmax_min << ", " << Dmax_max << "\n";
-    out << std::left << std::setw(32) << "tau_x range (Pa):"       << taux_min << ", " << taux_max << "\n";
-    out << std::left << std::setw(32) << "tau_y range (Pa):"       << tauy_min << ", " << tauy_max << "\n";
+    out << std::left << std::setw(log_width) << "Dmax range in MIZ (m)" <<" : " << Dmax_min << ", " << Dmax_max << "\n";
+    out << std::left << std::setw(log_width) << "tau_x range (Pa)"      <<" : " << taux_min << ", " << taux_max << "\n";
+    out << std::left << std::setw(log_width) << "tau_y range (Pa)"      <<" : " << tauy_min << ", " << tauy_max << "\n";
+    out << std::left << std::setw(log_width) << "Hs max (m)"            <<" : " << Hs_max << "\n";
     out << "***********************************************\n";
 
     out.close();
