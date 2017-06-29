@@ -1672,22 +1672,6 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var, bool che
         }
 #endif
 
-		// Diagnostics
-		D_Qa[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-		tmp_nb_var++;
-		D_Qsh[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-		tmp_nb_var++;
-		D_Qlh[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-		tmp_nb_var++;
-		D_Qlw[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-		tmp_nb_var++;
-		D_Qsw[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-		tmp_nb_var++;
-		D_Qo[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-		tmp_nb_var++;
-		D_delS[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-		tmp_nb_var++;
-
 		if(tmp_nb_var!=nb_var)
 		{
 			throw std::logic_error("tmp_nb_var not equal to nb_var");
@@ -1951,7 +1935,7 @@ int
 FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_ptr, double** diffusivity_parameters_ptr, int prv_num_elements)
 {
     // ELEMENT INTERPOLATION With Cavities
-	int nb_var=22 + M_tice.size();
+	int nb_var=15 + M_tice.size();
 
 #if defined (WAVES)
     // coupling with wim
@@ -2102,44 +2086,6 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
             tmp_nb_var++;
         }
 #endif
-
-		// Diagnostics - Heatflux to atmosphere
-		interp_elt_in[nb_var*i+tmp_nb_var] = D_Qa[i];
-        interp_method[tmp_nb_var] = 1;
-        diffusivity_parameters[tmp_nb_var]=0.;
-		tmp_nb_var++;
-
-		interp_elt_in[nb_var*i+tmp_nb_var] = D_Qsh[i];
-        interp_method[tmp_nb_var] = 1;
-        diffusivity_parameters[tmp_nb_var]=0.;
-		tmp_nb_var++;
-
-		interp_elt_in[nb_var*i+tmp_nb_var] = D_Qlh[i];
-        interp_method[tmp_nb_var] = 1;
-        diffusivity_parameters[tmp_nb_var]=0.;
-		tmp_nb_var++;
-
-		interp_elt_in[nb_var*i+tmp_nb_var] = D_Qlw[i];
-        interp_method[tmp_nb_var] = 1;
-        diffusivity_parameters[tmp_nb_var]=0.;
-		tmp_nb_var++;
-
-		interp_elt_in[nb_var*i+tmp_nb_var] = D_Qsw[i];
-        interp_method[tmp_nb_var] = 1;
-        diffusivity_parameters[tmp_nb_var]=0.;
-		tmp_nb_var++;
-
-		// Diagnostics - Heatflux from ocean
-		interp_elt_in[nb_var*i+tmp_nb_var] = D_Qo[i];
-        interp_method[tmp_nb_var] = 1;
-        diffusivity_parameters[tmp_nb_var]=0.;
-		tmp_nb_var++;
-
-		// Diagnostics - Saltflux to ocean
-		interp_elt_in[nb_var*i+tmp_nb_var] = D_delS[i];
-        interp_method[tmp_nb_var] = 1;
-        diffusivity_parameters[tmp_nb_var]=0.;
-		tmp_nb_var++;
 
 		if(tmp_nb_var>nb_var)
 		{
