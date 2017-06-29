@@ -146,7 +146,7 @@ if ~ischar(step)
         step = num2str(step);
     end
 end
-   
+
 for p=0:0
 
   if ~is_sequential
@@ -355,7 +355,7 @@ for p=0:0
   %------------------------------
   if save_figure
       set(fig,'Color',[1 1 1]);
-      filename=sprintf('neXtSIM_%s_%d',field_plotted,step);
+      filename=sprintf('neXtSIM_%s_%s',field_plotted,step)
       %Call export_fig to save figure
       if strcmp(figure_format,'-png') || strcmp(figure_format,'-jpg')
           if isempty(pic_quality)
