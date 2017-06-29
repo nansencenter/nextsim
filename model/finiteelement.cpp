@@ -5259,6 +5259,7 @@ FiniteElement::initMoorings()
     GridOutput::Variable conc(GridOutput::variableID::conc, data_elements, data_grid);
     GridOutput::Variable thick(GridOutput::variableID::thick, data_elements, data_grid);
     GridOutput::Variable snow(GridOutput::variableID::snow, data_elements, data_grid);
+    GridOutput::Variable tsurf(GridOutput::variableID::tsurf, data_elements, data_grid);
     GridOutput::Variable Qa(GridOutput::variableID::Qa, data_elements, data_grid);
     GridOutput::Variable Qsw(GridOutput::variableID::Qsw, data_elements, data_grid);
     GridOutput::Variable Qlw(GridOutput::variableID::Qlw, data_elements, data_grid);
@@ -5267,17 +5268,18 @@ FiniteElement::initMoorings()
     GridOutput::Variable Qo(GridOutput::variableID::Qo, data_elements, data_grid);
     GridOutput::Variable delS(GridOutput::variableID::delS, data_elements, data_grid);
 
-    std::vector<GridOutput::Variable> elemental_variables(10);
+    std::vector<GridOutput::Variable> elemental_variables(11);
     elemental_variables[0] = conc;
     elemental_variables[1] = thick;
     elemental_variables[2] = snow;
-    elemental_variables[3] = Qa;
-    elemental_variables[4] = Qsw;
-    elemental_variables[5] = Qlw;
-    elemental_variables[6] = Qsh;
-    elemental_variables[7] = Qlh;
-    elemental_variables[8] = Qo;
-    elemental_variables[9] = delS;
+    elemental_variables[3] = tsurf;
+    elemental_variables[4] = Qa;
+    elemental_variables[5] = Qsw;
+    elemental_variables[6] = Qlw;
+    elemental_variables[7] = Qsh;
+    elemental_variables[8] = Qlh;
+    elemental_variables[9] = Qo;
+    elemental_variables[10] = delS;
     if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
     {
         GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin, data_elements, data_grid);
