@@ -32,8 +32,6 @@ namespace Wim
             //("wim.gridfilename", po::value<std::string>()->default_value( "wim_grid_full_ONR_Oct2015_2km_big.a" ),
             ("wim.gridfilename", po::value<std::string>()->default_value( "" ),
                   "wim grid binary filename")
-            ("wim.gridremoveouter", po::value<bool>()->default_value( true ),
-                  "Remove outer nodes from the grid (=true), or not (=false)")
 
             //'int_prams' in fortran
             ("wim.scatmod", po::value<std::string>()->default_value( "dissipated" ),

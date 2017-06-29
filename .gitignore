@@ -42,5 +42,3 @@ pierre.cfg
 longRun_ccsm.cfg
 
 modules/wim/run/out_cpp*
-
-modules/wim/run/out_cpp_16dir/binaries/final/wim_out20150101T120000Z.a
