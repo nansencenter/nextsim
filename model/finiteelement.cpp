@@ -6619,6 +6619,17 @@ FiniteElement::binaryIce()
 
     input.read((char*) &M_snow_thick[0], M_num_elements*sizeof(double));
     input.close();
+
+    // Make sure damage is zero and do something for thin ice
+    for (int i=0; i<M_num_elements; ++i)
+    {
+		M_damage[i]=0.;
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {
+            M_conc_thin[i]=std::min(1.-M_conc[i], 0.2*M_conc[i]);
+            M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
+        }
+    }
 }
 
 void
