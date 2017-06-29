@@ -358,6 +358,7 @@ void WimDiscr<T>::readFromBinary(std::fstream &in, value_type_vec& in_array, int
 
     if (in.is_open())
     {
+        // NB assumes files are saved with fortran ordering
         for (int j = 0; j < ny_in; j++)
             for (int i = 0; i < nx_in; i++)
                 in.read((char *)&in_array[ny_in*i+j], sizeof(value_type));

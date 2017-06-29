@@ -375,15 +375,15 @@ FiniteElement::initDatasets()
     M_datasets_regrid.push_back(&M_ocean_nodes_dataset);
     M_datasets_regrid.push_back(&M_ocean_elements_dataset);
     M_datasets_regrid.push_back(&M_bathymetry_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_topaz_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_icesat_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_piomas_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_amsre_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_osisaf_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_osisaf_type_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_amsr2_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_cs2_smos_elements_dataset);
-    M_datasets_regrid.push_back(&M_ice_smos_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_topaz_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_icesat_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_piomas_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_amsre_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_osisaf_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_osisaf_type_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_amsr2_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_cs2_smos_elements_dataset);
+    // M_datasets_regrid.push_back(&M_ice_smos_elements_dataset);
 
 }//initDatasets
 
@@ -579,12 +579,13 @@ FiniteElement::initConstant()
 
     compr_strength = vm["simul.compr_strength"].as<double>();
     tract_coef = vm["simul.tract_coef"].as<double>();
-    scale_coef = vm["simul.scale_coef"].as<double>();
+    // scale_coef is now set after initialising the mesh
+    // scale_coef = vm["simul.scale_coef"].as<double>();
     alea_factor = vm["simul.alea_factor"].as<double>();
     cfix = vm["simul.cfix"].as<double>();
 
-    C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
-    C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
+    // C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
+    // C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     tan_phi = vm["simul.tan_phi"].as<double>();
 
     if ( vm["simul.newice_type"].as<int>() == 4 )
@@ -1671,22 +1672,6 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var, bool che
         }
 #endif
 
-		// Diagnostics
-		D_Qa[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-		tmp_nb_var++;
-		D_Qsh[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-		tmp_nb_var++;
-		D_Qlh[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-		tmp_nb_var++;
-		D_Qlw[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-		tmp_nb_var++;
-		D_Qsw[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-		tmp_nb_var++;
-		D_Qo[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-		tmp_nb_var++;
-		D_delS[i] = interp_elt_out[nb_var*i+tmp_nb_var];
-		tmp_nb_var++;
-
 		if(tmp_nb_var!=nb_var)
 		{
 			throw std::logic_error("tmp_nb_var not equal to nb_var");
@@ -1950,7 +1935,7 @@ int
 FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_ptr, double** diffusivity_parameters_ptr, int prv_num_elements)
 {
     // ELEMENT INTERPOLATION With Cavities
-	int nb_var=22 + M_tice.size();
+	int nb_var=15 + M_tice.size();
 
 #if defined (WAVES)
     // coupling with wim
@@ -2101,44 +2086,6 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
             tmp_nb_var++;
         }
 #endif
-
-		// Diagnostics - Heatflux to atmosphere
-		interp_elt_in[nb_var*i+tmp_nb_var] = D_Qa[i];
-        interp_method[tmp_nb_var] = 1;
-        diffusivity_parameters[tmp_nb_var]=0.;
-		tmp_nb_var++;
-
-		interp_elt_in[nb_var*i+tmp_nb_var] = D_Qsh[i];
-        interp_method[tmp_nb_var] = 1;
-        diffusivity_parameters[tmp_nb_var]=0.;
-		tmp_nb_var++;
-
-		interp_elt_in[nb_var*i+tmp_nb_var] = D_Qlh[i];
-        interp_method[tmp_nb_var] = 1;
-        diffusivity_parameters[tmp_nb_var]=0.;
-		tmp_nb_var++;
-
-		interp_elt_in[nb_var*i+tmp_nb_var] = D_Qlw[i];
-        interp_method[tmp_nb_var] = 1;
-        diffusivity_parameters[tmp_nb_var]=0.;
-		tmp_nb_var++;
-
-		interp_elt_in[nb_var*i+tmp_nb_var] = D_Qsw[i];
-        interp_method[tmp_nb_var] = 1;
-        diffusivity_parameters[tmp_nb_var]=0.;
-		tmp_nb_var++;
-
-		// Diagnostics - Heatflux from ocean
-		interp_elt_in[nb_var*i+tmp_nb_var] = D_Qo[i];
-        interp_method[tmp_nb_var] = 1;
-        diffusivity_parameters[tmp_nb_var]=0.;
-		tmp_nb_var++;
-
-		// Diagnostics - Saltflux to ocean
-		interp_elt_in[nb_var*i+tmp_nb_var] = D_delS[i];
-        interp_method[tmp_nb_var] = 1;
-        diffusivity_parameters[tmp_nb_var]=0.;
-		tmp_nb_var++;
 
 		if(tmp_nb_var>nb_var)
 		{
@@ -4231,7 +4178,6 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         Qio     = 0.;
         Qai     = 0.;
         del_hi  = 0.;
-        Qai     = 0.;
         Qsw     = 0.;
         Qlw     = 0.;
         Qsh     = 0.;
@@ -4470,6 +4416,12 @@ FiniteElement::init()
 
     // Initialise the mesh
     this->initMesh(M_mesh_type);
+    // We need to set the scale_coeff et al after initialising the mesh - this was previously done in initConstants
+    // The mean resolution of the small_arctic_10km mesh is 7446.71 m. Using 74.5 gives scale_coef = 0.100022, for that mesh
+    scale_coef = std::sqrt(74.5/this->resolution(M_mesh));
+    C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
+    C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
+    LOG(DEBUG) << "SCALE_COEF = " << scale_coef << "\n";
 
     // Check the minimum angle of the grid
     double minang = this->minAngle(M_mesh);
@@ -4482,7 +4434,9 @@ FiniteElement::init()
     {
         LOG(DEBUG) <<"Reading restart file\n";
         pcpt = this->readRestart(vm["setup.step_nb"].as<int>());
-        current_time = time_init + pcpt*time_step/(24*3600.0);
+        // current_time = time_init + pcpt*time_step/(24*3600.0);
+        if(M_use_osisaf_drifters)
+            this->initOSISAFDrifters();
         
 //        for (int i=0; i<M_num_elements; i++)
 //            M_damage[i]=(M_damage[i]>0.95 ? 1. : 0.);
@@ -5194,7 +5148,7 @@ FiniteElement::updateMeans(GridOutput &means, double time_factor)
 
             case (GridOutput::variableID::tsurf):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += ( M_conc[i]*M_tice[0][i] + (1-M_conc[i])*M_sst[i] )*time_factor;
+                    it->data_mesh[i] += ( M_conc[i]*M_tice[0][i] + M_conc_thin[i]*M_tsurf_thin[i] + (1-M_conc[i]-M_conc_thin[i])*M_sst[i] )*time_factor;
                 break;
 
             case (GridOutput::variableID::sst):
@@ -5306,6 +5260,7 @@ FiniteElement::initMoorings()
     GridOutput::Variable conc(GridOutput::variableID::conc, data_elements, data_grid);
     GridOutput::Variable thick(GridOutput::variableID::thick, data_elements, data_grid);
     GridOutput::Variable snow(GridOutput::variableID::snow, data_elements, data_grid);
+    GridOutput::Variable tsurf(GridOutput::variableID::tsurf, data_elements, data_grid);
     GridOutput::Variable Qa(GridOutput::variableID::Qa, data_elements, data_grid);
     GridOutput::Variable Qsw(GridOutput::variableID::Qsw, data_elements, data_grid);
     GridOutput::Variable Qlw(GridOutput::variableID::Qlw, data_elements, data_grid);
@@ -5314,17 +5269,18 @@ FiniteElement::initMoorings()
     GridOutput::Variable Qo(GridOutput::variableID::Qo, data_elements, data_grid);
     GridOutput::Variable delS(GridOutput::variableID::delS, data_elements, data_grid);
 
-    std::vector<GridOutput::Variable> elemental_variables(10);
+    std::vector<GridOutput::Variable> elemental_variables(11);
     elemental_variables[0] = conc;
     elemental_variables[1] = thick;
     elemental_variables[2] = snow;
-    elemental_variables[3] = Qa;
-    elemental_variables[4] = Qsw;
-    elemental_variables[5] = Qlw;
-    elemental_variables[6] = Qsh;
-    elemental_variables[7] = Qlh;
-    elemental_variables[8] = Qo;
-    elemental_variables[9] = delS;
+    elemental_variables[3] = tsurf;
+    elemental_variables[4] = Qa;
+    elemental_variables[5] = Qsw;
+    elemental_variables[6] = Qlw;
+    elemental_variables[7] = Qsh;
+    elemental_variables[8] = Qlh;
+    elemental_variables[9] = Qo;
+    elemental_variables[10] = delS;
     if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
     {
         GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin, data_elements, data_grid);
@@ -5619,9 +5575,11 @@ FiniteElement::readRestart(int step)
             );
 
     // Fix boundaries
-    int pcpt   = field_map_int["Misc_int"].at(0);
-    M_flag_fix = field_map_int["Misc_int"].at(1);
+    //int pcpt     = field_map_int["Misc_int"].at(0);
+    M_flag_fix   = field_map_int["Misc_int"].at(1);
+    current_time = field_map_int["Misc_int"].at(2);
     mesh_adapt_step = field_map_int["Misc_int"].at(3);
+    int pcpt = (current_time-time_init)*(24*3600)/time_step;
 
     std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
     for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
@@ -6666,6 +6624,17 @@ FiniteElement::binaryIce()
 
     input.read((char*) &M_snow_thick[0], M_num_elements*sizeof(double));
     input.close();
+
+    // Make sure damage is zero and do something for thin ice
+    for (int i=0; i<M_num_elements; ++i)
+    {
+		M_damage[i]=0.;
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {
+            M_conc_thin[i]=std::min(1.-M_conc[i], 0.2*M_conc[i]);
+            M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
+        }
+    }
 }
 
 void
