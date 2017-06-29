@@ -4178,7 +4178,6 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         Qio     = 0.;
         Qai     = 0.;
         del_hi  = 0.;
-        Qai     = 0.;
         Qsw     = 0.;
         Qlw     = 0.;
         Qsh     = 0.;
@@ -4435,7 +4434,9 @@ FiniteElement::init()
     {
         LOG(DEBUG) <<"Reading restart file\n";
         pcpt = this->readRestart(vm["setup.step_nb"].as<int>());
-        current_time = time_init + pcpt*time_step/(24*3600.0);
+        // current_time = time_init + pcpt*time_step/(24*3600.0);
+        if(M_use_osisaf_drifters)
+            this->initOSISAFDrifters();
         
 //        for (int i=0; i<M_num_elements; i++)
 //            M_damage[i]=(M_damage[i]>0.95 ? 1. : 0.);
@@ -5574,9 +5575,11 @@ FiniteElement::readRestart(int step)
             );
 
     // Fix boundaries
-    int pcpt   = field_map_int["Misc_int"].at(0);
-    M_flag_fix = field_map_int["Misc_int"].at(1);
+    //int pcpt     = field_map_int["Misc_int"].at(0);
+    M_flag_fix   = field_map_int["Misc_int"].at(1);
+    current_time = field_map_int["Misc_int"].at(2);
     mesh_adapt_step = field_map_int["Misc_int"].at(3);
+    int pcpt = (current_time-time_init)*(24*3600)/time_step;
 
     std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
     for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
