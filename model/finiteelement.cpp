@@ -579,12 +579,13 @@ FiniteElement::initConstant()
 
     compr_strength = vm["simul.compr_strength"].as<double>();
     tract_coef = vm["simul.tract_coef"].as<double>();
-    scale_coef = vm["simul.scale_coef"].as<double>();
+    // scale_coef is now set after initialising the mesh
+    // scale_coef = vm["simul.scale_coef"].as<double>();
     alea_factor = vm["simul.alea_factor"].as<double>();
     cfix = vm["simul.cfix"].as<double>();
 
-    C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
-    C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
+    // C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
+    // C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     tan_phi = vm["simul.tan_phi"].as<double>();
 
     if ( vm["simul.newice_type"].as<int>() == 4 )
@@ -4470,6 +4471,12 @@ FiniteElement::init()
 
     // Initialise the mesh
     this->initMesh(M_mesh_type);
+    // We need to set the scale_coeff et al after initialising the mesh - this was previously done in initConstants
+    // The mean resolution of the small_arctic_10km mesh is 7446.71 m. Using 74.5 gives scale_coef = 0.100022, for that mesh
+    scale_coef = std::sqrt(74.5/this->resolution(M_mesh));
+    C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
+    C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
+    LOG(DEBUG) << "SCALE_COEF = " << scale_coef << "\n";
 
     // Check the minimum angle of the grid
     double minang = this->minAngle(M_mesh);
