@@ -5147,7 +5147,7 @@ FiniteElement::updateMeans(GridOutput &means, double time_factor)
 
             case (GridOutput::variableID::tsurf):
                 for (int i=0; i<M_num_elements; i++)
-                    it->data_mesh[i] += ( M_conc[i]*M_tice[0][i] + (1-M_conc[i])*M_sst[i] )*time_factor;
+                    it->data_mesh[i] += ( M_conc[i]*M_tice[0][i] + M_conc_thin[i]*M_tsurf_thin[i] + (1-M_conc[i]-M_conc_thin[i])*M_sst[i] )*time_factor;
                 break;
 
             case (GridOutput::variableID::sst):
