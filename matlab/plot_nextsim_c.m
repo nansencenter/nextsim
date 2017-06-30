@@ -1,4 +1,4 @@
-function plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,plot_options)
+function step=plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,plot_options)
 %% CALL: plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,plot_options)
 %% OR:   plot_nextsim_c(field,date_string,region_of_zoom,is_sequential,dirname,plot_options)
 %% example of usage:
@@ -131,6 +131,10 @@ else
     try
         % check if step is a date string and if so deduce the step
         step = (datenum(step) - datenum(simul.time_init)) * simul.output_per_day;
+        if mod(step,1) ~= 0
+            warning(['No model output for given time. Plotting the output that is closest in time.'])
+            step = round(step);
+        end
     catch ME;
     end
 end
@@ -142,7 +146,7 @@ if ~ischar(step)
         step = num2str(step);
     end
 end
-   
+
 for p=0:0
 
   if ~is_sequential
@@ -285,11 +289,11 @@ for p=0:0
   %-------------------------------------------------------------------------------------------------------------------
   % We set on a new figure, which we display or not (useful when creating and saving on disk a large bunch of figures)
   %-------------------------------------------------------------------------------------------------------------------
-  if(visible)
-      fig=figure;
-  else
-      fig=figure('visible','off');
-  end
+      if(visible)
+          fig=figure;
+      else
+          fig=figure('visible','off');
+      end
   
   %-----------------------------------------------------------------------
   % We plot the actual data on the current figure, as well as the landmask
@@ -351,7 +355,7 @@ for p=0:0
   %------------------------------
   if save_figure
       set(fig,'Color',[1 1 1]);
-      filename=sprintf('neXtSIM_%s_%d',field_plotted,step);
+      filename=sprintf('neXtSIM_%s_%s',field_plotted,step)
       %Call export_fig to save figure
       if strcmp(figure_format,'-png') || strcmp(figure_format,'-jpg')
           if isempty(pic_quality)

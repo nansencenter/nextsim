@@ -72,10 +72,13 @@ LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx -lbamg
 
 # ========================================================
 # Rules to always execute.
-.PHONY: all clean mrproper
+.PHONY: default all lib clean mrproper single
 
 # Default action.
-all: lib
+default: lib
+
+# make lib and stand-alone executable
+all: lib single
 
 # Delete the object and dependancy files.
 clean:
@@ -136,6 +139,9 @@ $(PROGOBJS): $(OBJECTDIR)%.o : $(PROGDIR)/%.cpp
 single: $(PROGOBJS) $(OBJS) $(CCOBJS)
 	@mkdir -p $(BINARYDIR)
 	$(CXX) $(CXXLAGS) -o $(BINARYDIR)$(PROG) $^ $(LDFLAGS)
+	@echo "========================================================================================"
+	@echo "output: $(BINARYDIR)$(PROG)"
+	@echo "========================================================================================"
 # ========================================================
 
 
@@ -156,21 +162,27 @@ LOBJS := $(filter-out $(OBJECTDIR)/main.o, $(OBJS))
 ifeq ($(KERNEL),Linux)
 lib: $(OBJS) $(CCOBJS)
 	@mkdir -p $(LIBRARYDIR)
-	@echo "============================================"
+	@echo "========================================================================================"
 	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
-	@echo "============================================"
+	@echo "========================================================================================"
 	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LDFLAGSLIB)
 	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)libwim.so
 	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)libwim.so.1
+	@echo "========================================================================================"
+	@echo Created shared library $(LIBRARYDIR)$(LIBRARYNAME)
+	@echo "========================================================================================"
 else
 lib: $(OBJS) $(CCOBJS)
 	@mkdir -p $(LIBRARYDIR)
-	@echo "============================================"
+	@echo "========================================================================================"
 	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
-	@echo "============================================"
+	@echo "========================================================================================"
 	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LDFLAGSLIB)
 	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)libwim.dylib.0
 	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)libwim.dylib.1
+	@echo "========================================================================================"
+	@echo Created shared library $(LIBRARYDIR)$(LIBRARYNAME)
+	@echo "========================================================================================"
 endif
 # ========================================================
 
