@@ -58,8 +58,8 @@ namespace Wim
             // 'real_prams' in fortran code
             ("wim.young", po::value<double>()->default_value( 5.49e+9 ),
                   "Young's modulus [Pa]")
-            ("wim.viscrp", po::value<double>()->default_value( 13. ),
-                  "Robinson-Palmer viscosity [Pa.s/m]")
+            ("wim.dragrp", po::value<double>()->default_value( 13. ),
+                  "Robinson-Palmer drag coefficient [Pa.s/m]")
             ("wim.duration", po::value<double>()->default_value( 43200.0 ),
                   "length of simulation [s]")
             ("wim.cfl", po::value<double>()->default_value( 0.7 ),

@@ -23,9 +23,11 @@
 #include <boost/format.hpp>
 #include <boost/mpi/timer.hpp>
 #include <InterpFromGridToMeshx.h>
-#include <date.hpp>
+#include <date_wim.hpp>
 #include <iomanip>
 #include <omp.h>
+#include <gmshmesh.hpp>
+#include <tools.hpp>
 
 #ifdef __cplusplus
 extern "C"
@@ -47,6 +49,7 @@ namespace fs = boost::filesystem;
 
 template<typename T=float> class WimDiscr
 {
+    // ==========================================================================================
 	typedef T value_type;
     typedef typename std::vector<value_type> value_type_vec;
     typedef size_t size_type;
@@ -54,6 +57,12 @@ template<typename T=float> class WimDiscr
     typedef boost::multi_array<value_type, 3> array3_type;
     typedef boost::multi_array<value_type, 4> array4_type;
     typedef typename array2_type::index index;
+    
+    //gmsh types
+    typedef typename Nextsim::GmshMesh::point_type point_type;
+    typedef typename Nextsim::GmshMesh::element_type element_type;
+    typedef Nextsim::GmshMesh mesh_type;
+    // ==========================================================================================
 
 public:
 
@@ -99,7 +108,12 @@ public:
         ny(vm["wim.ny"].template as<int>())
     {}
 
+    //make a grid
     void gridProcessing();
+    void gridProcessing(mesh_type const &mesh);
+    void gridFromParameters();
+    void gridPostProcessing();
+
     void saveGrid();
     void readGridFromFile();
     void readFromBinary(std::fstream &in, value_type_vec& in_array, int off = 0, std::ios_base::seekdir direction = std::ios::beg, int addx = 0, int addy = 0);
@@ -114,6 +128,9 @@ public:
     void saveOptionsLog();
 
     void init(int const nextsim_cpt=0);
+    void init(mesh_type const &mesh,int const nextsim_cpt=0);
+
+    void initConstant(int const nextsim_cpt);
     void assign();
 
     void update(std::vector<value_type> const& icec_in = std::vector<value_type>(),
@@ -241,7 +258,7 @@ private:
     value_type xmax, ym, x0, y0, dx, dy, x_edge, unifc, unifh,
                dfloe_pack_init, dfloe_pack_thresh, amin, amax;
     value_type rhowtr, rhoice, poisson, dmin, xi, fragility, cice_min, dfloe_miz_thresh,
-               young, visc_rp, kice, kwtr, int_adm, modT, argR, argT, rhoi, rho, rhow;
+               young, drag_rp, kice, kwtr, int_adm, modT, argR, argT, rhoi, rho, rhow;
     value_type fmin, fmax, df, epsc, sigma_c, vbf, vb, flex_rig_coeff;
     value_type dt,duration;
 
@@ -275,6 +292,7 @@ private:
     value_type restart_time_shift;
     int cpt;
     int max_threads;
+    bool M_run_on_mesh = false;
 
 };
 

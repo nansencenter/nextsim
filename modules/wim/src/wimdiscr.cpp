@@ -32,78 +32,70 @@ void WimDiscr<T>::gridProcessing()
     {
         std::cout<<"Getting WIM grid from file: "<<wim_gridfile<<"\n";
         this->readGridFromFile();
-        //this->test(&X_array[0][0]);
     }
     else
     {
         std::cout<<"Generating WIM grid manually...\n";
-        nx = vm["wim.nx"].template as<int>();
-        ny = vm["wim.ny"].template as<int>();
-
-        dx = vm["wim.dx"].template as<double>();
-        dy = vm["wim.dy"].template as<double>();
-
-        x0 = vm["wim.xmin"].template as<double>();
-        y0 = vm["wim.ymin"].template as<double>();
-        
-        num_p_wim    = nx*ny;//number of p points
-        num_q_wim    = (nx+1)*(ny+1);//number of q points
-        num_u_wim    = (nx+1)*ny;//number of u points
-        num_v_wim    = nx*(ny+1);//number of v points
-        X_array.resize(num_p_wim);
-        Y_array.resize(num_p_wim);
-        SCUY_array.resize(num_u_wim);
-        SCVX_array.resize(num_v_wim);
-        SCP2_array.resize(num_p_wim);
-        SCP2I_array.resize(num_p_wim);
-        LANDMASK_array.resize(num_p_wim);
-
-
-        // int thread_id;
-        // int total_threads;
-        // std::cout<<"MAX THREADS= "<< max_threads <<"\n";
-
-        std::cout<<"grid generation starts\n";
         chrono.restart();
 
-#pragma omp parallel for num_threads(max_threads) collapse(2)
-        for (int i = 0; i < nx; i++)
-        {
-            for (int j = 0; j < ny; j++)
-            {
-                X_array[ny*i+j] = x0 + i*dx+.5*dx;
-                Y_array[ny*i+j] = y0 + j*dy+.5*dy;
-                SCP2_array[ny*i+j] = dx*dy;
-                SCP2I_array[ny*i+j] = 1./(dx*dy);
+        nx = vm["wim.nx"].template as<int>();
+        ny = vm["wim.ny"].template as<int>();
+        dx = vm["wim.dx"].template as<double>();
+        dy = vm["wim.dy"].template as<double>();
+        x0 = vm["wim.xmin"].template as<double>();
+        y0 = vm["wim.ymin"].template as<double>();
 
-                //add land on 3 edges (upper,lower,RH)
-                if (vm["wim.landon3edges"].template as<bool>())
-                {
-                   if (i==nx-1)
-                   {
-                       LANDMASK_array[ny*i+j] = 1.;
-                   }
-
-                   if ((j==0) || (j==ny-1))
-                   {
-                       LANDMASK_array[ny*i+j] = 1.;
-                   }
-                }
-
-            }
-        }
-
-#pragma omp parallel for num_threads(max_threads) collapse(1)
-        for (int i = 0; i < num_u_wim; i++)
-                SCUY_array[i] = dy;
-
-#pragma omp parallel for num_threads(max_threads) collapse(1)
-        for (int i = 0; i < num_v_wim; i++)
-                SCVX_array[i] = dx;
-
-        std::cout<<"grid generation done in "<< chrono.elapsed() <<"s\n";
+        this->gridFromParameters();
+        std::cout<<"Grid generation done in "<< chrono.elapsed() <<"s\n";
     }
 
+    this->gridPostProcessing();//save grid, set some other variables
+
+}//gridProcessing
+
+template<typename T>
+void WimDiscr<T>::gridProcessing(mesh_type const &mesh_in)
+{
+    // * sets the following arrays:
+    // X_array.resize(boost::extents[nx][ny]);
+    // Y_array.resize(boost::extents[nx][ny]);
+    // SCUY_array.resize(boost::extents[nx][ny]);
+    // SCVX_array.resize(boost::extents[nx][ny]);
+    // SCP2_array.resize(boost::extents[nx][ny]);
+    // SCP2I_array.resize(boost::extents[nx][ny]);
+    // LANDMASK_array.resize(boost::extents[nx][ny]);
+    //
+
+    std::cout<<"Generating WIM grid from mesh...\n";
+    chrono.restart();
+
+    auto xnod = mesh_in.coordX();
+    auto ynod = mesh_in.coordY();
+    auto res = NextsimTools::resolution(mesh_in);
+    auto x1 = *std::min_element(xnod.begin(),xnod.end());
+    auto y1 = *std::min_element(ynod.begin(),ynod.end());
+    std::cout<<"Resolution (km) = "<<res/1.e3<<"\n";
+
+    //parameters required for regular grid
+    x0  = *std::min_element(xnod.begin(),xnod.end());
+    y0  = *std::min_element(ynod.begin(),ynod.end());
+    nx  = std::ceil((x1-x0)/res);//round up to lower resolution
+    ny  = std::ceil((y1-y0)/res);
+    dx  = (x1-x0)/nx;
+    dy  = (y1-y0)/ny;
+
+    this->gridFromParameters();
+    std::cout<<"Grid generation done in "<< chrono.elapsed() <<"s\n";
+
+    this->gridPostProcessing();//save grid, set some other variables
+
+    //TODO use InterpFromMeshToGrid (or InterpFromMeshToMesh) to set LANDMASK_array
+
+}//gridProcessing
+
+template<typename T>
+void WimDiscr<T>::gridPostProcessing()
+{
     bool DoSaveGrid = (vm["wim.checkprog"].template as<bool>())
                    || (vm["wim.checkinit"].template as<bool>())
                    || (vm["wim.checkfinal"].template as<bool>())
@@ -125,7 +117,78 @@ void WimDiscr<T>::gridProcessing()
     for (int j = 0; j < ny; j++)
         y_row[j] = Y_array[j];
 
-}//gridProcessing
+}//gridPostProcessing
+
+template<typename T>
+void WimDiscr<T>::gridFromParameters()
+{
+    // * sets the following arrays:
+    // X_array.resize(boost::extents[nx][ny]);
+    // Y_array.resize(boost::extents[nx][ny]);
+    // SCUY_array.resize(boost::extents[nx][ny]);
+    // SCVX_array.resize(boost::extents[nx][ny]);
+    // SCP2_array.resize(boost::extents[nx][ny]);
+    // SCP2I_array.resize(boost::extents[nx][ny]);
+    // LANDMASK_array.resize(boost::extents[nx][ny]);
+
+    std::cout<<"nx,ny = "<<nx<<","<<ny<<"\n";
+    std::cout<<"dx,dy = "<<dx<<","<<dy<<"\n";
+    std::cout<<"xmin,ymin = "<<x0<<","<<y0<<"\n";
+
+    
+    num_p_wim    = nx*ny;//number of p points
+    num_q_wim    = (nx+1)*(ny+1);//number of q points
+    num_u_wim    = (nx+1)*ny;//number of u points
+    num_v_wim    = nx*(ny+1);//number of v points
+    X_array.resize(num_p_wim);
+    Y_array.resize(num_p_wim);
+    SCUY_array.resize(num_u_wim);
+    SCVX_array.resize(num_v_wim);
+    SCP2_array.resize(num_p_wim);
+    SCP2I_array.resize(num_p_wim);
+    LANDMASK_array.resize(num_p_wim);
+
+
+    // int thread_id;
+    // int total_threads;
+    // std::cout<<"MAX THREADS= "<< max_threads <<"\n";
+
+#pragma omp parallel for num_threads(max_threads) collapse(2)
+    for (int i = 0; i < nx; i++)
+    {
+        for (int j = 0; j < ny; j++)
+        {
+            X_array[ny*i+j] = x0 + i*dx+.5*dx;
+            Y_array[ny*i+j] = y0 + j*dy+.5*dy;
+            SCP2_array[ny*i+j] = dx*dy;
+            SCP2I_array[ny*i+j] = 1./(dx*dy);
+
+            //add land on 3 edges (upper,lower,RH)
+            if (vm["wim.landon3edges"].template as<bool>())
+            {
+               if (i==nx-1)
+               {
+                   LANDMASK_array[ny*i+j] = 1.;
+               }
+
+               if ((j==0) || (j==ny-1))
+               {
+                   LANDMASK_array[ny*i+j] = 1.;
+               }
+            }
+
+        }
+    }
+
+#pragma omp parallel for num_threads(max_threads) collapse(1)
+    for (int i = 0; i < num_u_wim; i++)
+            SCUY_array[i] = dy;
+
+#pragma omp parallel for num_threads(max_threads) collapse(1)
+    for (int i = 0; i < num_v_wim; i++)
+            SCVX_array[i] = dx;
+
+}//gridFromParameters
 
 template<typename T>
 void WimDiscr<T>::saveGrid()
@@ -379,6 +442,49 @@ void WimDiscr<T>::init(int nextsim_cpt)
     // wim grid generation/reading
     this->gridProcessing();
 
+    //parameters
+    this->initConstant(nextsim_cpt);
+
+    // call assign to set sizes of arrays
+    // and initialise some arrays that are stationary in time
+    this->assign();
+
+    //set global counter to 0
+    cpt = 0;
+
+    std::cout<<"wim.init() finished\n";
+
+}//end ::init()
+
+template<typename T>
+void WimDiscr<T>::init(mesh_type const &mesh_in,int nextsim_cpt)
+{
+    max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
+
+    // can either init from MESH or ON mesh
+    if (!M_run_on_mesh)
+        this->gridProcessing(mesh_in);
+    else
+        throw std::runtime_error("Running on mesh not implemented");
+
+    //parameters
+    this->initConstant(nextsim_cpt);
+
+    // call assign to set sizes of arrays
+    // and initialise some arrays that are stationary in time
+    this->assign();
+
+    //set global counter to 0
+    cpt = 0;
+
+    std::cout<<"wim.init() finished\n";
+
+}//end ::init()
+
+template<typename T>
+void WimDiscr<T>::initConstant(int nextsim_cpt)
+{
+
     // parameters
     nwavedirn = vm["wim.nwavedirn"].template as<int>();
     nwavefreq = vm["wim.nwavefreq"].template as<int>();
@@ -402,7 +508,7 @@ void WimDiscr<T>::init(int nextsim_cpt)
     dfloe_pack_init = vm["wim.dfloepackinit"].template as<double>(); /* 300.0 */
     dfloe_pack_thresh = vm["wim.dfloepackthresh"].template as<double>(); /* 400.0 */
     young = vm["wim.young"].template as<double>();
-    visc_rp = vm["wim.viscrp"].template as<double>();
+    drag_rp = vm["wim.dragrp"].template as<double>();
     wim_itest = vm["wim.itest"].template as<int>();
     wim_jtest = vm["wim.jtest"].template as<int>();
 
@@ -490,17 +596,7 @@ void WimDiscr<T>::init(int nextsim_cpt)
 
     //no of cosines/sines to use - for isotropic scattering code
     ncs = std::round(nwavedirn/2);
-
-    // call assign to set sizes of arrays
-    // and initialise some arrays that are stationary in time
-    this->assign();
-
-    //set global counter to 0
-    cpt = 0;
-
-    std::cout<<"wim.init() finished\n";
-
-}//end ::init()
+}//end ::initConstant()
 
 
 template<typename T>
@@ -786,7 +882,7 @@ void WimDiscr<T>::updateWaveMedium()
                     guess = 2*PI/wlng_ice[i][fq-1];
                 }
 
-                RTparam_outer(outputs,iceh[i],double(om),double(visc_rp),double(guess),params);
+                RTparam_outer(outputs,iceh[i],double(om),double(drag_rp),double(guess),params);
 
                 value_type kice, kwtr, int_adm, modT, argR, argT;
 
@@ -809,7 +905,7 @@ void WimDiscr<T>::updateWaveMedium()
                     std::cout<<"\ninputs to RTparam_outer:\n";
                     std::cout<<"h = "<<iceh[i]<<"\n";
                     std::cout<<"om = "<<om<<"\n";
-                    std::cout<<"visc_rp = "<<visc_rp<<"\n";
+                    std::cout<<"drag_rp = "<<drag_rp<<"\n";
                     std::cout<<"guess = "<<guess<<"\n";
                     //
                     std::cout<<"\noutputs from RTparam_outer:\n";
@@ -1964,7 +2060,7 @@ void WimDiscr<T>::doBreaking(BreakInfo const& breakinfo)
         value_type om = std::sqrt(breakinfo.mom2/breakinfo.mom0);
         value_type guess = std::pow(om,2.)/gravity;
 
-        RTparam_outer(outputs,breakinfo.thick,double(om),double(visc_rp),double(guess),params);
+        RTparam_outer(outputs,breakinfo.thick,double(om),double(drag_rp),double(guess),params);
 
         value_type kice = outputs[1];
         value_type lam = 2*PI/kice;
@@ -3708,7 +3804,7 @@ void WimDiscr<T>::saveLog(value_type const& t_out) const
     out << std::left << std::setw(log_width) << "Flexural strength (Pa)" <<" : " << sigma_c << "\n";
 //    out << std::left << std::setw(log_width) << "Breaking stress (Pa)"<<" : " << stress_c << "\n";
     out << std::left << std::setw(log_width) << "Breaking strain"        <<" : " << epsc << "\n";
-    out << std::left << std::setw(log_width) << "Damping (Pa.s/m)"       <<" : " << visc_rp << "\n";
+    out << std::left << std::setw(log_width) << "Damping (Pa.s/m)"       <<" : " << drag_rp << "\n";
     out << "***********************************************\n";
 
     out << "\n***********************************************\n";
