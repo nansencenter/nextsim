@@ -621,8 +621,7 @@ FiniteElement::initConstant()
                     quad_drag_coef_air = vm["simul.ECMWF_quad_drag_coef_air"].as<double>(); break;
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
-
-    //std::cout<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
+    LOG(DEBUG)<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::OceanType> str2ocean = boost::assign::map_list_of
         ("constant", setup::OceanType::CONSTANT)
@@ -631,8 +630,7 @@ FiniteElement::initConstant()
         ("topaz_forecast", setup::OceanType::TOPAZF)
         ("topaz_altimeter", setup::OceanType::TOPAZR_ALTIMETER);
     M_ocean_type = str2ocean.find(vm["setup.ocean-type"].as<std::string>())->second;
-
-    //std::cout<<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
+    LOG(DEBUG)<<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::IceType> str2conc = boost::assign::map_list_of
         ("constant", setup::IceType::CONSTANT)
@@ -652,12 +650,14 @@ FiniteElement::initConstant()
         ("smos", setup::IceType::SMOS)
         ("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT);
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
+    LOG(DEBUG)<<"ICETYPE= "<< (int)M_ice_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::DynamicsType> str2dynamics = boost::assign::map_list_of
         ("default", setup::DynamicsType::DEFAULT)
         ("no_motion", setup::DynamicsType::NO_MOTION)
         ("free_drift", setup::DynamicsType::FREE_DRIFT);
     M_dynamics_type = str2dynamics.find(vm["setup.dynamics-type"].as<std::string>())->second;
+    LOG(DEBUG)<<"DYNAMICSTYPE= "<< (int)M_dynamics_type <<"\n";
 
 #ifdef OASIS
     cpl_time_step = vm["coupler.timestep"].as<double>();
@@ -673,9 +673,13 @@ FiniteElement::initConstant()
             ("constant_partial", setup::WaveType::CONSTANT_PARTIAL)
             ("ww3a", setup::WaveType::WW3A)
             ("eraiw_1deg", setup::WaveType::ERAI_WAVES_1DEG);
-        M_wave_type = str2wave.find(vm["setup.wave-type"].as<std::string>())->second;
-        std::cout<<"wave forcing type "<<vm["setup.wave-type"].as<std::string>()<<"\n";
-        std::cout<<"wave forcing enum "<<(int)M_wave_type<<"\n";
+
+        std::string swave = vm["setup.wave-type"].as<std::string>();
+        if ( str2wave.count(swave) == 0)
+            throw std::runtime_error("Unknown wave forcing type: "+swave);
+
+        M_wave_type = str2wave.find(swave)->second;
+        LOG(DEBUG)<<"WAVETYPE = "+swave+"(enum = "<< (int)M_wave_type <<")\n";
     }
 #endif
 

@@ -286,7 +286,8 @@ namespace Nextsim
 #if defined(WAVES)
             ("simul.use_wim", po::value<bool>()->default_value( false ), "")
             ("simul.wim_grid", po::value<bool>()->default_value( false ), "")
-            ("setup.wave-type", po::value<std::string>()->default_value( "constant" ), "constant, ww3a")
+            ("setup.wave-type", po::value<std::string>()->default_value( "constant" ),
+                "constant, constant_partial, set_in_wim, ww3a, eraiw_1deg")
             ("setup.wave-time-interp-option", po::value<std::string>()->default_value( "step" ), "step, linear")
 
             ("simul.constant_significant_wave_height", po::value<double>()->default_value( 2. ), "")
