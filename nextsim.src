@@ -1,0 +1,13 @@
+sourced=$BASH_SOURCE
+kernel=`uname -s`
+if [ "$kernel" == Darwin ]
+then
+   me=`greadlink -f $sourced`
+   echo "Sourced from Darwin: $me"
+else
+   me=`readlink -f $sourced`
+   echo "Sourced: $me"
+fi
+NEXTSIMDIR=`dirname $me`
+echo $NEXTSIMDIR
+export SIMFORECASTDIR=$NEXTSIMDIR

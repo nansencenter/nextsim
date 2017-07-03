@@ -32,7 +32,6 @@ matlab/mapx_forward.mexmaci64
 matlab/mapx_inverse.mexmaci64
 
 model/Run.log
-nextsim.src
 .DS_Store
 ._.DS_Store
 
