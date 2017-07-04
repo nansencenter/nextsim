@@ -31,7 +31,7 @@ namespace Wim
                   "Number of wave directions")
             //("wim.gridfilename", po::value<std::string>()->default_value( "wim_grid_full_ONR_Oct2015_2km_big.a" ),
             ("wim.gridfilename", po::value<std::string>()->default_value( "" ),
-                  "wim grid binary filename")
+                  "wim grid binary filename - default is to create the grid from parameters in cfg file (uncoupled code), or to use the nextsim mesh to determine the parameters (coupled code)")
 
             //'int_prams' in fortran
             ("wim.scatmod", po::value<std::string>()->default_value( "dissipated" ),

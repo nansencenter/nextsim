@@ -543,7 +543,7 @@ FiniteElement::initConstant()
     rhos = physical::rhos;
 
     days_in_sec = 24.0*3600.0;
-    time_init = from_date_time_string(vm["simul.time_init"].as<std::string>());
+    time_init = Nextsim::from_date_time_string(vm["simul.time_init"].as<std::string>());
     //std::cout<<"time_init second= "<< std::setprecision(18) << time_init <<"\n";
     time_step = vm["simul.timestep"].as<double>();
 
@@ -2699,7 +2699,7 @@ FiniteElement::assemble(int pcpt)
         this->exportResults("inf");
         
         std::cout<<"---------------------- TIME STEP "<< pcpt << " : "
-                 << model_time_str(vm["simul.time_init"].as<std::string>(), pcpt*time_step);
+                 << Nextsim::model_time_str(vm["simul.time_init"].as<std::string>(), pcpt*time_step);
         throw std::runtime_error("inf in the solution, results outputed with output name inf");
     }
 
@@ -4301,7 +4301,7 @@ FiniteElement::run()
     ProfilerStart("profile.log");
 #endif
 
-    std::string current_time_system = current_time_local();
+    std::string current_time_system = Nextsim::current_time_local();
 
     int pcpt = this->init();
     int niter = vm["simul.maxiteration"].as<int>();
@@ -4319,12 +4319,12 @@ FiniteElement::run()
     {
         //std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
         std::cout<<"---------------------- TIME STEP "<< pcpt << " : "
-                 << model_time_str(vm["simul.time_init"].as<std::string>(), pcpt*time_step);
+                 << Nextsim::model_time_str(vm["simul.time_init"].as<std::string>(), pcpt*time_step);
 
         if (!(pcpt % 20))
         {
             std::cout<<" ---------- progression: ("<< 100.0*(pcpt*time_step/duration) <<"%)"
-                     <<" ---------- time spent: "<< time_spent(current_time_system);
+                     <<" ---------- time spent: "<< Nextsim::time_spent(current_time_system);
         }
 
         std::cout <<"\n";
@@ -4346,7 +4346,7 @@ FiniteElement::run()
         //std::cout<< "pcpt= " << pcpt  <<"\n";
 
         pcpt_file << pcpt << "\n";
-        pcpt_file << to_date_string(current_time) << "\n";
+        pcpt_file << Nextsim::to_date_string(current_time) << "\n";
         pcpt_file.seekp(0);
     }
 
@@ -4364,7 +4364,7 @@ FiniteElement::run()
 
     this->finalise();
 
-    LOG(INFO) << "-----------------------Simulation done on "<< current_time_local() <<"\n";
+    LOG(INFO) << "-----------------------Simulation done on "<< Nextsim::current_time_local() <<"\n";
 }
 
 // Finalise everything
@@ -4413,7 +4413,7 @@ FiniteElement::init()
     current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
     this->initDatasets();
 
-    LOG(INFO) << "-----------------------Simulation started on "<< current_time_local() <<"\n";
+    LOG(INFO) << "-----------------------Simulation started on "<< Nextsim::current_time_local() <<"\n";
 
     LOG(INFO) <<"TIMESTEP= "<< time_step <<"\n";
     LOG(INFO) <<"DURATION= "<< duration <<"\n";
@@ -4851,7 +4851,7 @@ FiniteElement::step(int &pcpt)
         if ( M_use_rgps_drifters )
         {
             std::string time_str = vm["simul.RGPS_time_init"].as<std::string>();
-            double RGPS_time_init = from_date_time_string(time_str);
+            double RGPS_time_init = Nextsim::from_date_time_string(time_str);
         
             if( !M_rgps_drifters.isInitialised() && current_time == RGPS_time_init)
                 this->updateRGPSDrifters();
@@ -7859,7 +7859,7 @@ void
 FiniteElement::updateRGPSDrifters()
 {    
     std::string time_str = vm["simul.RGPS_time_init"].as<std::string>();
-    double RGPS_time_init = from_date_time_string(time_str);
+    double RGPS_time_init = Nextsim::from_date_time_string(time_str);
     
     std::string filename = Environment::nextsimDir().string() + "/data/RGPS_" + time_str + ".txt";
     M_rgps_drifters = Drifters(filename, M_mesh, M_conc, vm["simul.drifter_climit"].as<double>(),RGPS_time_init);
@@ -8573,7 +8573,13 @@ FiniteElement::initWim(int const pcpt)
     wim = wim_type(vm);
 
     // initialization of wim
-    wim.init(pcpt);//need pcpt to get correct initial start time if restarting
+    // - need pcpt to get correct initial start time if restarting
+    // - initialise grid using mesh if no gridfilename is present
+    std::string wim_gridfile = vm["wim.gridfilename"].as<std::string>();
+    if ( wim_gridfile != "" )
+        wim.init(pcpt);
+    else
+        wim.init(M_mesh,pcpt);
 
     // get wim grid
     std::cout<<"Getting WIM grid info\n";
@@ -9035,7 +9041,7 @@ FiniteElement::writeLogFile()
     if (logfile.is_open())
     {
         logfile << "#----------Info\n";
-        logfile << std::setw(log_width) << std::left << "Build date "  << current_time_local() <<"\n";
+        logfile << std::setw(log_width) << std::left << "Build date "  << Nextsim::current_time_local() <<"\n";
         logfile << std::setw(log_width) << std::left << "Git revision "  << gitRevision() <<"\n";
 
         logfile << "#----------Compilers\n";

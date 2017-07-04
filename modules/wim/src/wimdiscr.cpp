@@ -7,6 +7,17 @@
  */
 
 #include <wimdiscr.hpp>
+#include <date_wim.hpp>
+#include <tools.hpp>
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+#include <RTparam_outer.h>
+#include <mapx.h>
+#ifdef __cplusplus
+}
+#endif
 
 namespace Wim
 {
@@ -72,8 +83,8 @@ void WimDiscr<T>::gridProcessing(mesh_type const &mesh_in)
     auto xnod = mesh_in.coordX();
     auto ynod = mesh_in.coordY();
     auto res = NextsimTools::resolution(mesh_in);
-    auto x1 = *std::min_element(xnod.begin(),xnod.end());
-    auto y1 = *std::min_element(ynod.begin(),ynod.end());
+    auto x1 = *std::max_element(xnod.begin(),xnod.end());
+    auto y1 = *std::max_element(ynod.begin(),ynod.end());
     std::cout<<"Resolution (km) = "<<res/1.e3<<"\n";
 
     //parameters required for regular grid

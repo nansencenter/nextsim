@@ -23,21 +23,10 @@
 #include <boost/format.hpp>
 #include <boost/mpi/timer.hpp>
 #include <InterpFromGridToMeshx.h>
-#include <date_wim.hpp>
 #include <iomanip>
 #include <omp.h>
 #include <gmshmesh.hpp>
-#include <tools.hpp>
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-#include<RTparam_outer.h>
-#include <mapx.h>
-#ifdef __cplusplus
-}
-#endif
 
 #define PI M_PI
 
