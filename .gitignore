@@ -41,3 +41,4 @@ pierre.cfg
 longRun_ccsm.cfg
 
 modules/wim/run/out_cpp*
+modules/wim/run/*.log
