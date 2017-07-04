@@ -41,5 +41,4 @@ model/expt_*
 pierre.cfg
 longRun_ccsm.cfg
 
-modules/wim/run/out_cpp
-fluxtest_contr.cfg
+modules/wim/run/out_cpp*
