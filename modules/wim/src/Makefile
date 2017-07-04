@@ -73,6 +73,7 @@ LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
 LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib
 LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi -lboost_date_time
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx -lbamg
+LDFLAGS += -lnextsim # eg has gmsh
 # ========================================================
 
 
