@@ -1821,6 +1821,49 @@ void WimDiscr<T>::timeStep()
     }//end spatial loop i
 
 
+#if 1
+    if (break_on_mesh) // breaking on nextsim mesh
+    {
+        std::cout<<"break_on_mesh: before interp grid to mesh\n";
+        // do interpolation
+        // - set input data
+        value_type_vec_ptrs input_data = {&mom0,&mom2,&var_strain};
+
+        // - set output data
+        value_type_vec mom0_mesh(mesh_x.size(),0.);
+        value_type_vec mom2_mesh(mesh_x.size(),0.);
+        value_type_vec var_strain_mesh(mesh_x.size(),0.);
+        value_type_vec_ptrs output_data = {&mom0_mesh,&mom2_mesh,&var_strain_mesh};
+        this->gridToPoints(output_data,input_data,mesh_x, mesh_y);
+        std::cout<<"break_on_mesh: after interp grid to mesh\n";
+
+        //do breaking
+        for (int i=0; i<mesh_num_elements; ++i)
+        {
+            // set inputs to doBreaking
+            BreakInfo breakinfo =
+            {
+                conc:       mesh_conc[i],
+                thick:      mesh_thick[i],
+                mom0:       mom0_mesh[i],
+                mom2:       mom2_mesh[i],
+                var_strain: var_strain_mesh[i],
+                dfloe:      mesh_dfloe[i],
+                broken:     false
+            };
+
+            //do breaking
+            this->doBreaking(breakinfo);
+
+            //update mesh vectors
+            mesh_dfloe[i]   = breakinfo.dfloe;
+            mesh_broken[i]  = breakinfo.broken;
+
+        }//finish loop over elements
+
+        std::cout<<"break_on_mesh: after breaking\n";
+    }
+#else
     if (break_on_mesh) // breaking on nextsim mesh
     {
 
@@ -1941,6 +1984,7 @@ void WimDiscr<T>::timeStep()
 
         xDelete<value_type>(interp_out);
     }//finish breaking on mesh
+#endif
 
 #if 0
     double Hs_max=0;
@@ -2050,6 +2094,53 @@ void WimDiscr<T>::clearMesh()
     mesh_dfloe.resize(0);
     mesh_broken.resize(0);
 }
+
+template<typename T>
+void WimDiscr<T>::gridToPoints(
+        value_type_vec_ptrs &output_data,       //output data
+        value_type_vec_ptrs const &input_data,  //input data
+        value_type_vec &Rx, value_type_vec &Ry)
+{
+    int nb_var      = input_data.size();
+    int Ninterp     = (*(input_data[0])).size();//get pointer, then get size
+    int target_size = Rx.size();
+
+    value_type_vec interp_in(Ninterp*nb_var);   //input to interp routine
+    for (int i=0;i<Ninterp;i++)
+        for (int p=0;p<nb_var;p++)
+            interp_in[nb_var*i+p]   = (*(input_data[p]))[i];
+
+    value_type* interp_out;
+
+    //bool regular_source = (source_grid.grid_type == "RegularGrid")&&M_regular;
+    bool regular_source = true;
+    if (regular_source)
+    {
+        //regular source needs to be the wim grid
+        int interptype = BilinearInterpEnum;
+        InterpFromGridToMeshx(interp_out,       //data (out)
+                              &x_col[0], nx,    //x vector (source), length of x vector
+                              &y_row[0], ny,    //y vector (source), length of y vector
+                              &interp_in[0],    //data (in)
+                              ny, nx,           //M,N: no of grid cells in y,x directions
+                                                //(to determine if corners or centers of grid have been input)
+                              nb_var,           //no of variables
+                              &Rx[0],           // x vector (target) (NB already a reference)
+                              &Ry[0],           // x vector (target) (NB already a reference)
+                              target_size,0.,   //target_size,default value
+                              interptype,       //interpolation type
+                              true              //row_major (false = fortran/matlab order)         
+                              );
+    }
+
+    //output
+    for (int i=0;i<target_size;i++)
+        for (int p=0;p<nb_var;p++)
+            (*(output_data[p]))[i]  = interp_out[nb_var*i+p];
+
+    xDelete<value_type>(interp_out);
+
+}//doInterpolation
 
 template<typename T>
 void WimDiscr<T>::doBreaking(BreakInfo const& breakinfo)

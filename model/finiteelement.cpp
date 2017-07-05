@@ -8404,7 +8404,7 @@ FiniteElement::nextsimToWim()
     }
     else
     {
-        //std::cout<<"sim2wim: before interp mesh2mesh2d\n";
+        std::cout<<"sim2wim: before interp mesh2mesh2d\n";
         InterpFromMeshToMesh2dx(&interp_elt_out,
                               &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
                               M_mesh.numNodes(),M_mesh.numTriangles(),
@@ -8454,6 +8454,8 @@ FiniteElement::nextsimToWim()
         // concentration
         M_icec_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
         tmp_nb_var++;
+        //if (M_icec_grid[i]>1.e-5)
+        //    std::cout<<"icec["<<i<<"] = "<<M_icec_grid[i]<<"\n";
 
         // effective thickness (volume)
         M_iceh_grid[i] = interp_elt_out[nb_var*i+tmp_nb_var];
@@ -8693,7 +8695,7 @@ FiniteElement::wimToNextsim()
         if (TEST_INTERP_MESH)
             this->exportResults("test_interp_mesh",true,false);
 
-        LOG(DEBUG)<<"wim2sim (check wave forcing): "<<wim_ideal_forcing<<","<<M_SWH_grid.size()<<"\n";
+        LOG(DEBUG)<<"wim2sim (check wave forcing): "<<wim_ideal_forcing<<","<<M_SWH_grid.size()<<","<<M_MWP_grid.size()<<","<<M_MWD_grid.size()<<"\n";
         if (M_SWH_grid.size()>0)//( !wim_ideal_forcing )
         {
             LOG(DEBUG)<<"min SWH_grid= "<< *std::min_element(M_SWH_grid.begin(),M_SWH_grid.end() )<<"\n";

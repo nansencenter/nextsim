@@ -41,6 +41,7 @@ template<typename T=float> class WimDiscr
     // ==========================================================================================
 	typedef T value_type;
     typedef typename std::vector<value_type> value_type_vec;
+    typedef typename std::vector<std::vector<value_type>*> value_type_vec_ptrs;
     typedef size_t size_type;
 	typedef boost::multi_array<value_type, 2> array2_type;
     typedef boost::multi_array<value_type, 3> array3_type;
@@ -132,15 +133,7 @@ public:
     void updateWaveMedium();
 
     void timeStep();
-
     void doBreaking(BreakInfo const& breakinfo);
-
-    void setMesh(std::vector<value_type> const& m_rx,
-            std::vector<value_type> const& m_ry,
-                 std::vector<value_type> const& m_conc,
-                 std::vector<value_type> const& m_thick,
-                 std::vector<value_type> const& m_nfloes,
-                 std::string const& units="km");
 
     value_type nfloesToDfloe(
                  value_type const& m_nfloes,
@@ -159,7 +152,20 @@ public:
     std::vector<bool> getBrokenMesh() const {return mesh_broken;}
     std::vector<value_type> getNfloesMesh();
 
+    // ========================================================================
+    // breaking on mesh
+    void setMesh(std::vector<value_type> const& m_rx,
+                 std::vector<value_type> const& m_ry,
+                 std::vector<value_type> const& m_conc,
+                 std::vector<value_type> const& m_thick,
+                 std::vector<value_type> const& m_nfloes,
+                 std::string const& units="m");
     void clearMesh();
+    void gridToPoints(
+        value_type_vec_ptrs &output_data,
+        value_type_vec_ptrs const &input_data,
+        value_type_vec &Rx, value_type_vec &Ry);
+    // ========================================================================
 
     WimGrid wimGrid(std::string const& units="m");
 
