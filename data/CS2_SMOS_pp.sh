@@ -13,6 +13,7 @@ $ ./CS2_SMOS_pp.sh cs2_smos_ice_thickness_2010*
 $ ./CS2_SMOS_pp.sh cs2_smos_ice_thickness_*
 $ ./CS2_SMOS_pp.sh cs2_smos_ice_thickness_201[12]*
 $ ./CS2_SMOS_pp.sh cs2_smos_ice_thickness_????????_????????.nc
+$ ./CS2_SMOS_pp.sh cs2smos_ice_thickness_????????_????????_v1.3.nc
 
 for each weekly file, this script creates 7 daily files (by linking)
 in the directory where the script is run from
@@ -30,7 +31,8 @@ do
         file0=`basename $file`
 
         # Check the file name
-        if [ "${file0::23}" != "cs2_smos_ice_thickness_" -o ${#file0} -ne 43 ]
+        echo ${#file0}
+        if [ "${file0::22}" != "cs2smos_ice_thickness_" -o ${#file0} -ne 47 ]
         then
                 echo "Illegal file name: $file --- skipping"
                 continue
@@ -40,8 +42,8 @@ do
         kernel=`uname -s`
         if [ $kernel == "Darwin" ]
         then
-           t0=$( date -j -f %Y%m%d ${file0:23:8} +%s )
-           t1=$( date -j -f %Y%m%d ${file0:32:8} +%s )
+           t0=$( date -j -f %Y%m%d ${file0:22:8} +%s )
+           t1=$( date -j -f %Y%m%d ${file0:31:8} +%s )
 
            # Loop over the dates and link
            # I use the -v option so the script prints out the links as it creates them
@@ -50,11 +52,11 @@ do
                    ln -vs $file cs2_smos_ice_thickness_$( date -j -f %s $t +%Y%m%d ).nc
            done
         else
-           t0=${file0:23:8}
+           t0=${file0:22:8}
            for i in `seq 0 6`
            do
               t1=`date --date="$t0 +${i}days" +%Y%m%d`
-              ln -vs `readlink -f $file` cs2_smos_ice_thickness_$t1.nc
+              ln -vs `readlink -f $file` cs2_smos_ice_thickness_${t1}.nc
            done
         fi
 done
