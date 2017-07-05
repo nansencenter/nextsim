@@ -42,3 +42,4 @@ pierre.cfg
 longRun_ccsm.cfg
 
 modules/wim/run/out_cpp*
+fluxtest_contr_nomotion.cfg
