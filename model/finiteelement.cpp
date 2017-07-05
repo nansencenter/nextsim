@@ -8706,6 +8706,7 @@ FiniteElement::wimToNextsim()
             LOG(DEBUG)<<"max MWP_grid= "<< *std::max_element(M_MWP_grid.begin(),M_MWP_grid.end() )<<"\n";
         }
 
+        std::cout<<"before wim.run()\n";
         wim.run(M_icec_grid, M_iceh_grid, M_nfloes_grid, M_SWH_grid, M_MWP_grid, M_MWD_grid);
         M_taux_grid = wim.getTaux();
         M_tauy_grid = wim.getTauy();

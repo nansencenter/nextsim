@@ -23,6 +23,8 @@
 #include <boost/format.hpp>
 #include <boost/mpi/timer.hpp>
 #include <InterpFromGridToMeshx.h>
+#include <InterpFromMeshToMesh2dx.h>
+#include <BamgTriangulatex.h>
 #include <iomanip>
 #include <omp.h>
 #include <gmshmesh.hpp>
@@ -52,6 +54,21 @@ template<typename T=float> class WimDiscr
     typedef typename Nextsim::GmshMesh::point_type point_type;
     typedef typename Nextsim::GmshMesh::element_type element_type;
     typedef Nextsim::GmshMesh mesh_type;
+
+    typedef struct MeshInfo
+    {
+        // information describing nextsim mesh
+        // - only basic info
+        // - ie that needed for interpMeshToGrid, interpMeshToMesh
+        bool initialised;           // number of nodes (not needed for structured grids)
+        int num_nodes;              // number of nodes (not needed for structured grids)
+        int num_elements;           // number of elements 
+        std::vector<int> index;     // indices of nodes corresponding to the elements
+        value_type_vec nodes_x;     // x-coords of nodes (not needed for structured grids)
+        value_type_vec nodes_y;     // y-coords of nodes (not needed for structured grids)
+        value_type_vec elements_x;  // x-coords of elements
+        value_type_vec elements_y;  // y-coords of elements
+    } MeshInfo;
     // ==========================================================================================
 
 public:
@@ -288,7 +305,10 @@ private:
     int cpt;
     int max_threads;
     bool M_run_on_mesh = false;
+    bool M_regular = false;
 
+    MeshInfo M_wim_triangulation;
+    std::vector<int> wet_indices;
 };
 
 } // namespace Wim

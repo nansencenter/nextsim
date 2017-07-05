@@ -128,6 +128,40 @@ void WimDiscr<T>::gridPostProcessing()
     for (int j = 0; j < ny; j++)
         y_row[j] = Y_array[j];
 
+    //Do triangulation
+    M_wim_triangulation.initialised = false;
+    if (!M_regular)
+    {
+        //wet cells
+        for (int i=0;i<num_p_wim;i++)
+            if (LANDMASK_array[i]<.5)
+            {
+                M_wim_triangulation.nodes_x.push_back(X_array[i]);
+                M_wim_triangulation.nodes_y.push_back(Y_array[i]);
+                wet_indices.push_back(i);
+            }
+
+        M_wim_triangulation.num_nodes   = wet_indices.size();
+        std::cout<<"#nodes for triangulation = "<<M_wim_triangulation.num_nodes<<"\n";
+        int* index;
+		BamgTriangulatex(&index,                        //pointer to index              (output)
+                &(M_wim_triangulation.num_elements),    //pointer to num elements       (output)
+                &(M_wim_triangulation.nodes_x)[0],      //pointer to x-coord of nodes   (input)
+                &(M_wim_triangulation.nodes_y)[0],      //pointer to x-coord of nodes   (input)
+                M_wim_triangulation.num_nodes);         //num nodes                     (input)
+
+        std::cout<<"#elements from triangulation = "<<M_wim_triangulation.num_elements<<"\n";
+        M_wim_triangulation.index.resize(3*M_wim_triangulation.num_elements);
+        for (int i=0;i<M_wim_triangulation.index.size();i++)
+        {
+            M_wim_triangulation.index[i] = index[i];
+            //std::cout<<"index ["<<i<<"] = "<<M_wim_triangulation.index[i]<<"\n";
+        }
+        xDelete<int>(index);
+
+        M_wim_triangulation.initialised = true;
+    }
+
 }//gridPostProcessing
 
 template<typename T>
@@ -1821,9 +1855,33 @@ void WimDiscr<T>::timeStep()
     }//end spatial loop i
 
 
-#if 1
     if (break_on_mesh) // breaking on nextsim mesh
     {
+
+        // =================================================================
+        bool TEST_INTERP_MESH   = false;
+            //set to true if want to save mesh quantities inside WIM for testing
+            //TODO get this option working  
+
+        std::vector<value_type> mesh_dfloe_old;
+        if (TEST_INTERP_MESH)
+        {
+            mesh_dfloe_old = mesh_dfloe;//copy before breaking
+
+            std::vector<std::vector<value_type>> vectors(3);
+            std::vector<std::string> names(3);
+            vectors[0]  = mom0;
+            vectors[1]  = mom2;
+            vectors[2]  = var_strain;
+            names[0]    = "mom0";
+            names[1]    = "mom2";
+            names[2]    = "var_strain";
+            this->testInterp("grid",t_step,vectors,names);
+            std::cout<<"TEST_INTERP_MESH: after export of grid results\n";
+        }
+        // =================================================================
+
+        // =================================================================
         std::cout<<"break_on_mesh: before interp grid to mesh\n";
         // do interpolation
         // - set input data
@@ -1834,9 +1892,14 @@ void WimDiscr<T>::timeStep()
         value_type_vec mom2_mesh(mesh_x.size(),0.);
         value_type_vec var_strain_mesh(mesh_x.size(),0.);
         value_type_vec_ptrs output_data = {&mom0_mesh,&mom2_mesh,&var_strain_mesh};
+
+        // - call routine
         this->gridToPoints(output_data,input_data,mesh_x, mesh_y);
         std::cout<<"break_on_mesh: after interp grid to mesh\n";
+        // =================================================================
 
+
+        // =================================================================
         //do breaking
         for (int i=0; i<mesh_num_elements; ++i)
         {
@@ -1860,105 +1923,14 @@ void WimDiscr<T>::timeStep()
             mesh_broken[i]  = breakinfo.broken;
 
         }//finish loop over elements
-
         std::cout<<"break_on_mesh: after breaking\n";
-    }
-#else
-    if (break_on_mesh) // breaking on nextsim mesh
-    {
+        // =================================================================
 
-        // ======================================================
-        // Interpolate mom0, mom2 and var_strain onto mesh
-        int nb_var=3;
-        std::vector<value_type> interp_in(nb_var*num_p_wim, 0.);
-        value_type* interp_out;
-
-        bool TEST_INTERP_MESH   = false;//set to true if want to save mesh quantities inside WIM for testing
-        std::vector<value_type> mesh_dfloe_old;
-        if (TEST_INTERP_MESH)
-        {
-            mesh_dfloe_old = mesh_dfloe;//copy before breaking
-
-            std::vector<std::vector<value_type>> vectors;
-            std::vector<std::string> names;
-            vectors.resize(nb_var);
-            names.resize(nb_var);
-            vectors[0]  = mom0;
-            vectors[1]  = mom2;
-            vectors[2]  = var_strain;
-            names[0]    = "mom0";
-            names[1]    = "mom2";
-            names[2]    = "var_strain";
-            this->testInterp("grid",t_step,vectors,names);
-            vectors.resize(0);
-            names.resize(0);
-        }
-
-        for (int i = 0; i < num_p_wim; i++)
-        {
-            interp_in[nb_var*i  ] = mom0      [i];
-            interp_in[nb_var*i+1] = mom2      [i];
-            interp_in[nb_var*i+2] = var_strain[i];
-        }
-
-        int interptype = BilinearInterpEnum;
-
-        InterpFromGridToMeshx(interp_out,           //data (out)
-                              &x_col[0], nx,        //x vector (source), length of x vector
-                              &y_row[0], ny,        //y vector (source), length of y vector
-                              &interp_in[0],        //data (in)
-                              ny, nx,               //M,N: no of grid cells in y,x directions
-                                                    //(to determine if corners or centers of grid have been input)
-                              nb_var,               //no of variables
-                              &mesh_x[0],           // x vector (target)
-                              &mesh_y[0],           // y vector (target)
-                              mesh_num_elements,0., //target_size,default value
-                              interptype,           //interpolation type
-                              true                  //row_major (false = fortran/matlab order)         
-                              );
-        // ======================================================
-
-        for (int i=0; i<mesh_num_elements; ++i)
-        {
-            // set inputs to doBreaking
-            BreakInfo breakinfo =
-            {
-                conc:       mesh_conc[i],
-                thick:      mesh_thick[i],
-                mom0:       interp_out[nb_var*i],
-                mom2:       interp_out[nb_var*i+1],
-                var_strain: interp_out[nb_var*i+2],
-                dfloe:      mesh_dfloe[i],
-                broken:     false
-            };
-
-            //do breaking
-            this->doBreaking(breakinfo);
-
-            //update mesh vectors
-            mesh_dfloe[i]   = breakinfo.dfloe;
-            mesh_broken[i]  = breakinfo.broken;
-
-        }//finish loop over elements
-
-
+        // =================================================================
         if (TEST_INTERP_MESH)
         {   
-            std::vector<std::vector<value_type>> vectors;
-            std::vector<std::string> names;
-            int nbvar=7;
-            vectors.resize(nbvar);
-            names.resize(nbvar);
-            std::vector<value_type> mom0_mesh,mom2_mesh,var_strain_mesh;
-            mom0_mesh      .resize(mesh_num_elements);
-            mom2_mesh      .resize(mesh_num_elements);
-            var_strain_mesh.resize(mesh_num_elements);
-            for (int i=0; i<mesh_num_elements; ++i)
-            {
-                mom0_mesh      [i] = interp_out[nb_var*i];
-                mom2_mesh      [i] = interp_out[nb_var*i+1];
-                var_strain_mesh[i] = interp_out[nb_var*i+2];
-            }
+            std::vector<std::vector<value_type>> vectors(7);
+            std::vector<std::string> names(7);
             vectors[0]  = mesh_conc;
             vectors[1]  = mesh_thick;
             vectors[2]  = mesh_dfloe;
@@ -1974,17 +1946,10 @@ void WimDiscr<T>::timeStep()
             names[5]    = "Var_strain";
             names[6]    = "Dfloe_old";
             this->testInterp("mesh",t_step,vectors,names);
-            vectors        .resize(0);
-            names          .resize(0);
-            mom0_mesh      .resize(0);
-            mom2_mesh      .resize(0);
-            var_strain_mesh.resize(0);
-            mesh_dfloe_old.resize(0);
+            std::cout<<"TEST_INTERP_MESH: after export of mesh results\n";
         }
-
-        xDelete<value_type>(interp_out);
-    }//finish breaking on mesh
-#endif
+        // =================================================================
+    }
 
 #if 0
     double Hs_max=0;
@@ -2099,7 +2064,7 @@ template<typename T>
 void WimDiscr<T>::gridToPoints(
         value_type_vec_ptrs &output_data,       //output data
         value_type_vec_ptrs const &input_data,  //input data
-        value_type_vec &Rx, value_type_vec &Ry)
+        value_type_vec &Rx, value_type_vec &Ry) //output locations
 {
     int nb_var      = input_data.size();
     int Ninterp     = (*(input_data[0])).size();//get pointer, then get size
@@ -2113,10 +2078,9 @@ void WimDiscr<T>::gridToPoints(
     value_type* interp_out;
 
     //bool regular_source = (source_grid.grid_type == "RegularGrid")&&M_regular;
-    bool regular_source = true;
-    if (regular_source)
+    if (M_regular)
     {
-        //regular source needs to be the wim grid
+        std::cout<<"gridToPoints: InterpFromGridToMeshx\n";
         int interptype = BilinearInterpEnum;
         InterpFromGridToMeshx(interp_out,       //data (out)
                               &x_col[0], nx,    //x vector (source), length of x vector
@@ -2132,6 +2096,24 @@ void WimDiscr<T>::gridToPoints(
                               true              //row_major (false = fortran/matlab order)         
                               );
     }
+    else
+    {
+        std::cout<<"gridToPoints: InterpFromMeshToMesh2dx\n";
+        InterpFromMeshToMesh2dx(&interp_out,                        //output data
+                              &(M_wim_triangulation.index)[0],      //index 
+                              &(M_wim_triangulation.nodes_x)[0],    //input location (x-coord)
+                              &(M_wim_triangulation.nodes_y)[0],    //input location (y-coord)
+                              M_wim_triangulation.num_nodes,        //num nodes
+                              M_wim_triangulation.num_elements,     //num elements
+                              &interp_in[0],                        //input data
+                              M_wim_triangulation.num_nodes,        //num input locations
+                              nb_var,                               //num input variables
+                              &Rx[0],                               //output location (x-coord)
+                              &Ry[0],                               //output location (y-coord)
+                              Rx.size(),                            //num output locations
+                              false);                               //use default value if outside mesh (use nearest)
+    }
+    
 
     //output
     for (int i=0;i<target_size;i++)
