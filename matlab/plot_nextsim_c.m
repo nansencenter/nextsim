@@ -367,6 +367,12 @@ for p=0:0
       end;
   end;
 end;
+
+% Don't return 'step' if it's not asked for
+if nargout==0
+  clear step
+end
+
 end
 
 function set_axis_colormap_colorbar(mesh_filename,field,region_of_zoom,manual_axis_range)
