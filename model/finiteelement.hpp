@@ -212,8 +212,8 @@ public:
 #if defined (WAVES)
     void initWim(int const pcpt);
     void initWimVariables();
-    void nextsimToWim();
-    void wimToNextsim();
+    void wimPreRegrid();
+    void wimPostRegrid();
 #if 0
     std::vector<double> FiniteElements::rotatedWimElementsX(double const& rotangle) const;
     std::vector<double> FiniteElements::rotatedWimElementsY(double const& rotangle) const;
@@ -346,6 +346,7 @@ private:
     std::vector<double> M_stokes_drift_x_grid;
     std::vector<double> M_stokes_drift_y_grid;
     bool M_export_stokes_drift_mesh;
+    bool M_wim_on_mesh = false;
 #endif
     std::vector<double> M_tau;//this can just be set to zero if not using WIM
     // =============================================================================

@@ -24,6 +24,7 @@
 #include <boost/mpi/timer.hpp>
 #include <InterpFromGridToMeshx.h>
 #include <InterpFromMeshToMesh2dx.h>
+#include <InterpFromMeshToGridx.h>
 #include <BamgTriangulatex.h>
 #include <iomanip>
 #include <omp.h>
@@ -60,7 +61,7 @@ template<typename T=float> class WimDiscr
         // information describing nextsim mesh
         // - only basic info
         // - ie that needed for interpMeshToGrid, interpMeshToMesh
-        bool initialised;           // number of nodes (not needed for structured grids)
+        bool initialised;           // initialised yet?
         int num_nodes;              // number of nodes (not needed for structured grids)
         int num_elements;           // number of elements 
         std::vector<int> index;     // indices of nodes corresponding to the elements
@@ -140,16 +141,11 @@ public:
     void initConstant(int const nextsim_cpt);
     void assign();
 
-    void update(std::vector<value_type> const& icec_in = std::vector<value_type>(),
-                std::vector<value_type> const& iceh_in = std::vector<value_type>(),
-                std::vector<value_type> const& nfloes_in = std::vector<value_type>(),
-                std::vector<value_type> const& swh_in = std::vector<value_type>(),
-                std::vector<value_type> const& mwp_in = std::vector<value_type>(),
-                std::vector<value_type> const& mwd_in = std::vector<value_type>());
+    void update();
 
     void updateWaveMedium();
 
-    void timeStep();
+    void timeStep(int &lcpt);
     void doBreaking(BreakInfo const& breakinfo);
 
     value_type nfloesToDfloe(
@@ -168,30 +164,38 @@ public:
 
     std::vector<bool> getBrokenMesh() const {return mesh_broken;}
     std::vector<value_type> getNfloesMesh();
+    value_type getModelTime(int lcpt=0) const {return M_update_time+lcpt*M_timestep;}
 
     // ========================================================================
     // breaking on mesh
-    void setMesh(std::vector<value_type> const& m_rx,
-                 std::vector<value_type> const& m_ry,
-                 std::vector<value_type> const& m_conc,
-                 std::vector<value_type> const& m_thick,
-                 std::vector<value_type> const& m_nfloes,
-                 std::string const& units="m");
-    void clearMesh();
+    void setMesh( mesh_type const &mesh);
+    void setMesh( mesh_type const &mesh,value_type_vec const &um);
+    void resetMesh( mesh_type const &mesh);
+    void resetMesh( mesh_type const &mesh,value_type_vec const &um);
+    value_type_vec relativeMeshDisplacement(mesh_type const &mesh_in,value_type_vec const &um_in) const;
+    void setIceFields( std::vector<value_type> const& m_conc,  // conc
+                       std::vector<value_type> const& m_vol, // ice vol or effective thickness (conc*thickness)
+                       std::vector<value_type> const& m_nfloes,// Nfloes=conc/Dmax^2
+                       bool const pre_regrid);
+    value_type_vec transformIce(value_type_vec &m_thick,  // thickness
+                                value_type_vec &m_conc,   // conc
+                                value_type_vec &m_vol,    // ice vol or effective thickness (conc*thickness)
+                                value_type_vec &m_nfloes);// Nfloes=conc/Dmax^2
+
+
+    void clearMeshFields();
     void gridToPoints(
         value_type_vec_ptrs &output_data,
         value_type_vec_ptrs const &input_data,
         value_type_vec &Rx, value_type_vec &Ry);
+    void meshToGrid(
+        value_type_vec_ptrs &output_data,       //output data
+        value_type_vec_ptrs const &input_data); //input data
     // ========================================================================
 
     WimGrid wimGrid(std::string const& units="m");
 
-    void run(std::vector<value_type> const& icec_in = std::vector<value_type>(),
-             std::vector<value_type> const& iceh_in = std::vector<value_type>(),
-             std::vector<value_type> const& nfloes_in = std::vector<value_type>(),
-             std::vector<value_type> const& swh_in = std::vector<value_type>(),
-             std::vector<value_type> const& mwp_in = std::vector<value_type>(),
-             std::vector<value_type> const& mwd_in = std::vector<value_type>());
+    void run();
 
     //===========================================================================
     //FSD: Dmax -> <D^moment> conversion
@@ -272,7 +276,7 @@ private:
     value_type rhowtr, rhoice, poisson, dmin, xi, fragility, cice_min, dfloe_miz_thresh,
                young, drag_rp, kice, kwtr, int_adm, modT, argR, argT, rhoi, rho, rhow;
     value_type fmin, fmax, df, epsc, sigma_c, vbf, vb, flex_rig_coeff;
-    value_type dt,duration;
+    value_type M_timestep,duration;
 
     int nwavedirn, nwavefreq, advdim, ncs ,nt;
     bool ref_Hs_ice, atten, useicevel, steady, breaking, dumpDiag;
@@ -282,7 +286,7 @@ private:
     value_type_vec wavedir, wt_simp, wt_om, freq_vec, vec_period, wlng, ag, ap;
     value_type_vec Hs,Tp,mwd,wave_mask;
 
-    value_type_vec steady_mask, ice_mask, wtr_mask,
+    value_type_vec ice_mask, wtr_mask,
                 icec, iceh, swh_in_array,mwp_in_array,mwd_in_array,
                 dave, atten_dim, damp_dim, ag2d_eff_temp;
     array2_type ag_eff, ap_eff, wlng_ice, atten_nond, damping, disp_ratio, sdf3d_dir_temp;
@@ -297,18 +301,29 @@ private:
     std::vector<value_type> mesh_x, mesh_y, mesh_conc, mesh_thick, mesh_dfloe;
     std::vector<bool> mesh_broken;
     bool break_on_mesh;
-    int mesh_num_elements;
 
     boost::mpi::timer chrono;
     std::string init_time_str;
-    value_type restart_time_shift;
-    int cpt;
+    value_type M_restart_time = 0.;//time of restarting, relative to init_time
+    value_type M_update_time  = 0;//time of start of call to wim.run(), relative to init_time
+    value_type M_time_mesh_set = 0;//time of start of call to wim.run(), relative to init_time
+    int M_cpt = 0;//global counter
+    int M_num_elements;
     int max_threads;
-    bool M_run_on_mesh = false;
     bool M_regular = false;
+    bool M_initialised_ice = false;
+    bool M_initialised_waves = false;
 
-    MeshInfo M_wim_triangulation;
+    MeshInfo M_wim_triangulation,nextsim_mesh,nextsim_mesh_old;
     std::vector<int> wet_indices;
+
+    // =========================================================================
+    //to run WIM on nextsim mesh
+    bool M_wim_on_mesh = false;
+    value_type_vec M_UM;//displacement of mesh nodes between calls to wim.run()
+                        //- for correction to group velocity at advection time
+    // =========================================================================
+
 };
 
 } // namespace Wim
