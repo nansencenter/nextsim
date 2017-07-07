@@ -588,7 +588,9 @@ advect(double** interp_elt_out_ptr,double* interp_elt_in, int* interp_method,int
     }
 	*interp_elt_out_ptr=interp_elt_out;
 }//advect
+#endif
 
+#if 0
 void
 diffuse(double* variable_elt, double diffusivity_parameters, double dx)
 {

@@ -207,12 +207,13 @@ public:
 
     //===========================================================================
     //advection/attenuation
-    void advAttenSimple(
+    void advectDirections( array2_type& Sdir, value_type_vec const& ag2d_eff);
+    void attenSimple(
           array2_type& Sdir, value_type_vec& Sfreq,
           value_type_vec& taux_omega,value_type_vec& tauy_omega,
           value_type_vec& sdx_omega,value_type_vec& sdy_omega,
           value_type_vec const& ag2d_eff);
-    void advAttenIsotropic(array2_type& Sdir, value_type_vec& Sfreq,
+    void attenIsotropic(array2_type& Sdir, value_type_vec& Sfreq,
           value_type_vec& taux_omega,value_type_vec& tauy_omega,
           value_type_vec& sdx_omega,value_type_vec& sdy_omega,
           value_type_vec const& ag2d_eff);

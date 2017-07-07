@@ -453,8 +453,6 @@ void WimDiscr<T>::readGridFromFile()
     std::cout<<"dx= "<< dx <<"\n";
     std::cout<<"dy= "<< dy <<"\n";
 
-
-
 #if 0
     for (int i = 0; i < nx; i++)
     {
@@ -1606,14 +1604,16 @@ void WimDiscr<T>::timeStep(int &lcpt)
             }
         }
 
-        // std::cout<<"applied advection starts\n";
+        //advect all directions
+        this->advectDirections(sdf3d_dir_temp,ag2d_eff_temp);
+
+        //do attenuation &/or scattering, and integrate over directions 
         if (scatmod == "dissipated")
-            this->advAttenSimple(sdf3d_dir_temp, S_freq, taux_om, tauy_om,
+            this->attenSimple(sdf3d_dir_temp, S_freq, taux_om, tauy_om,
                     stokes_drift_x_om, stokes_drift_y_om,ag2d_eff_temp);
         else if (scatmod == "isotropic")
-            this->advAttenIsotropic(sdf3d_dir_temp, S_freq, taux_om, tauy_om,
+            this->attenIsotropic(sdf3d_dir_temp, S_freq, taux_om, tauy_om,
                     stokes_drift_x_om, stokes_drift_y_om,ag2d_eff_temp);
-        // std::cout<<"applied advection done\n";
 
         // update after application of advAtten*()
 #pragma omp parallel for num_threads(max_threads) collapse(1)
@@ -2602,6 +2602,7 @@ void WimDiscr<T>::run()
        this->saveLog(t_in);
 
     if (M_wim_on_mesh)
+        //set M_UM to zero again
         std::fill(M_UM.begin(),M_UM.end(),0.);
 
     std::cout<<"Running done in "<< chrono.elapsed() <<"s\n";
@@ -2692,49 +2693,52 @@ void WimDiscr<T>::floeScalingSmooth(
 }//floeScalingSmooth
 
 template<typename T>
-void WimDiscr<T>::advAttenSimple(array2_type& Sdir, value_type_vec& Sfreq,
-        value_type_vec& taux_omega, value_type_vec& tauy_omega,
-        value_type_vec& sdx_omega, value_type_vec& sdy_omega,
-        value_type_vec const& ag2d_eff)
+void WimDiscr<T>::advectDirections(array2_type& Sdir,value_type_vec const& ag2d_eff)
 {
-    value_type_vec uwave, vwave, temp;
-    uwave.resize(num_p_wim);
-    vwave.resize(num_p_wim);
-    temp.resize(num_p_wim);
-
-	std::vector<value_type> wt_theta(nwavedirn);
-	value_type adv_dir, S_th, tmp, alp_dim, source;
 
 	for (int nth = 0; nth < nwavedirn; nth++)
     {
-        adv_dir = -PI*(90.0+wavedir[nth])/180.0;
-        uwave   = ag2d_eff;
-        std::for_each(uwave.begin(), uwave.end(), [&](value_type& f){ f *= std::cos(adv_dir); });
+        value_type adv_dir      = -PI*(90.0+wavedir[nth])/180.0;
+        value_type_vec uwave   = ag2d_eff;
+        value_type_vec vwave   = ag2d_eff;
 
+        //set wave speeds
+        //TODO if M_wim_on_mesh, subtract average mesh velocity
+        std::for_each(uwave.begin(), uwave.end(), [&](value_type& f){ f *= std::cos(adv_dir); });
         if (advdim == 2)
-        {
-            vwave = ag2d_eff;
             std::for_each(vwave.begin(), vwave.end(), [&](value_type& f){ f *= std::sin(adv_dir); });
-        }
 
         // copy from 3D input array to 2D temporary array
+        value_type_vec temp(num_p_wim,0.);
 #pragma omp parallel for num_threads(max_threads) collapse(1)
         for (int i = 0; i < num_p_wim; i++)
             temp[i] = Sdir[i][nth];
 
-        waveAdvWeno(temp,uwave,vwave);
+        //do advection
+        //TODO if M_wim_on_mesh call NextsimTools::advect here
+        this->waveAdvWeno(temp,uwave,vwave);
 
         // copy from 2D temporary array back to 3D input array
 #pragma omp parallel for num_threads(max_threads) collapse(1)
         for (int i = 0; i < num_p_wim; i++)
             Sdir[i][nth] = temp[i];
     }//advection of each direction done
+}//advectDirections()
+
+template<typename T>
+void WimDiscr<T>::attenSimple(array2_type& Sdir, value_type_vec& Sfreq,
+        value_type_vec& taux_omega, value_type_vec& tauy_omega,
+        value_type_vec& sdx_omega, value_type_vec& sdy_omega,
+        value_type_vec const& ag2d_eff)
+{
+
+	std::vector<value_type> wt_theta(nwavedirn);
+	value_type S_th, tmp, alp_dim, source;
 
     if (nwavedirn == 1)
         std::fill( wt_theta.begin(), wt_theta.end(), 1. );
     else
         std::fill( wt_theta.begin(), wt_theta.end(), 2*PI/(1.0*nwavedirn) );
-
 
     std::fill( Sfreq.begin()      ,Sfreq.end()      ,0. );
     std::fill( taux_omega.begin() ,taux_omega.end() ,0. );
@@ -2805,24 +2809,19 @@ void WimDiscr<T>::advAttenSimple(array2_type& Sdir, value_type_vec& Sfreq,
         }
 #endif
     }
-}//advAttenSimple
+}//attenSimple
 
 
 template<typename T>
-void WimDiscr<T>::advAttenIsotropic(array2_type& Sdir, value_type_vec& Sfreq,
+void WimDiscr<T>::attenIsotropic(array2_type& Sdir, value_type_vec& Sfreq,
         value_type_vec& taux_omega, value_type_vec& tauy_omega,
         value_type_vec& sdx_omega, value_type_vec& sdy_omega,
         value_type_vec const& ag2d_eff)
 {
-    value_type_vec uwave, vwave, temp;
-    uwave.resize(num_p_wim);
-    vwave.resize(num_p_wim);
-    temp.resize(num_p_wim);
-
     std::vector<value_type> nvec(nwavedirn);
 	std::vector<value_type> K_fou(nwavedirn), S_th(nwavedirn), theta_vec(nwavedirn), wt_theta(nwavedirn);
 	std::vector<value_type> tmp1(nwavedirn), evals_x(nwavedirn);
-	value_type adv_dir, tmp, alp_dim, source;
+	value_type tmp, alp_dim, source;
 
 	std::vector<std::complex<value_type> > S_fou(nwavedirn);
 	std::complex<value_type> zi, src_fou_p1, src_fou_m1;
@@ -2833,39 +2832,7 @@ void WimDiscr<T>::advAttenIsotropic(array2_type& Sdir, value_type_vec& Sfreq,
 
 	zi = std::complex<value_type>(0.,1.);
 
-	std::fill( wt_theta.begin(), wt_theta.end(), 2*PI/(1.0*nwavedirn) );
-
-	for (int nth = 0; nth < nwavedirn; nth++)
-    {
-        adv_dir = -PI*(90.0+wavedir[nth])/180.0;
-
-        uwave = ag2d_eff;
-
-        std::for_each(uwave.begin(), uwave.end(), [&](value_type& f){ f *= std::cos(adv_dir); });
-
-        if (advdim == 2)
-        {
-	        vwave = ag2d_eff;
-            std::for_each(vwave.begin(), vwave.end(), [&](value_type& f){ f *= std::sin(adv_dir); });
-        }
-
-        // copy from 3D input array to 2D temporary array
-        for (int i = 0; i < num_p_wim; i++)
-		        temp[i] = Sdir[i][nth];
-
-        // advection
-        waveAdvWeno(temp,uwave,vwave);
-
-        // copy from 2D temporary array to 3D input array
-        for (int i = 0; i < num_p_wim; i++)
-		        Sdir[i][nth] = temp[i];
-
-        theta_vec[nth] = adv_dir;
-
-        //std::cout<<"theta_vec["<< nth <<"]= "<< std::setprecision(9) << std::sin((nth+1)*theta_vec[nth]) <<"\n";
-
-        nvec[nth] = (value_type)nth;
-    }//advection of each direction done
+	std::fill( wt_theta.begin(), wt_theta.end(), 2*PI/(1.0*nwavedirn) );//TODO ok for ndir==1?
 
     std::fill( Sfreq.begin()      ,Sfreq.end()      ,0. );
     std::fill( taux_omega.begin() ,taux_omega.end() ,0. );
@@ -3024,7 +2991,7 @@ void WimDiscr<T>::advAttenIsotropic(array2_type& Sdir, value_type_vec& Sfreq,
     std::cout<<"Min OUT= " << _min <<"\n";
     std::cout<<"Max OUT= " << _max <<"\n";
 #endif
-}//advAttenIsotropic
+}//attenIsotropic
 
 template<typename T>
 void WimDiscr<T>::waveAdvWeno(value_type_vec& h, value_type_vec const& u, value_type_vec const& v)
