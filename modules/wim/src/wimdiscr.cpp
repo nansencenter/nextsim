@@ -409,25 +409,51 @@ void WimDiscr<T>::readGridFromFile()
 
     map = init_mapx(&_str[0]);
 
-    for (int i = 0; i < num_p_wim; i++)
+    value_type dx_min = 1.e30;
+    value_type dy_min = 1.e30;
+    value_type dx_max = -1.e30;
+    value_type dy_max = -1.e30;
+    for (int k = 0; k < num_p_wim; k++)
     {
         double x, y;
-        int status = forward_mapx(map,PLat_array[i],PLon_array[i],&x,&y);
+        int status = forward_mapx(map,PLat_array[k],PLon_array[k],&x,&y);
 
-        X_array[i] = x;
-        Y_array[i] = y;
+        X_array[k]      = x;
+        Y_array[k]      = y;
+        SCP2I_array[k]  = 1./SCP2_array[k];
 
-        // SCP2I_array = 1./(SCP2_array[i][j]);
-        SCP2I_array[i] = 1./SCP2_array[i];
+        //k=i*ny+j
+        int i = k/ny;
+        int j = k%ny;
+        if (i>1)
+        {
+            value_type dx_ = X_array[ny*(i)+j]-X_array[ny*(i-1)+j];
+            dx_min  = std::min(dx_min,dx_);
+            dx_max  = std::max(dx_max,dx_);
+        }
+        if (j>1)
+        {
+            value_type dy_ = Y_array[ny*(i)+j]-Y_array[ny*(i)+j-1];
+            dy_min  = std::min(dy_min,dy_);
+            dy_max  = std::max(dy_max,dy_);
+        }
     }
+    close_mapx(map);
 
-    dx = X_array[ny]-X_array[0];
-    dy = Y_array[1]-Y_array[0];
+    dx = .5*(dx_min+dx_max);
+    dy = .5*(dy_min+dy_max);
+    //dx = X_array[ny]-X_array[0];
+    //dy = Y_array[1]-Y_array[0];
+
+    // is the grid regular?
+    value_type tol = 1.;//threshold for range in dx,dy (m)
+    if ((dx_max-dx_min>tol)||(dy_max-dy_min>tol))
+        M_regular = false;
 
     std::cout<<"dx= "<< dx <<"\n";
     std::cout<<"dy= "<< dy <<"\n";
 
-    close_mapx(map);
+
 
 #if 0
     for (int i = 0; i < nx; i++)
