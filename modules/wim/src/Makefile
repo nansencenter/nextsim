@@ -79,7 +79,7 @@ LDFLAGS += -lnextsim # eg has gmsh
 
 # ========================================================
 # Rules to always execute.
-.PHONY: default all lib clean mrproper single
+.PHONY: default all lib clean mrproper single execlean
 
 # Default action.
 default: lib
@@ -89,7 +89,7 @@ all: lib single
 
 # Delete the object and dependancy files.
 clean:
-	$(RM) $(OBJS) $(CCOBJS) $(DEPS) $(CCDEPS)
+	$(RM) $(OBJS) $(CCOBJS) $(DEPS) $(CCDEPS) $(PROGOBJS) 
 
 # Delete the object and dependancy files, and the executable
 vclean: clean
@@ -97,8 +97,7 @@ vclean: clean
 
 # Delete the executable
 execlean:
-	$(RM) $(PROGOBJS) $(BINARYDIR)$(PROG)
-
+	$(RM) $(BINARYDIR)$(PROG) $(PROGOBJS)
 # ========================================================
 
 
@@ -117,7 +116,7 @@ $(CCDEPS): $(DEPENDDIR)%.d : $(CCSRCDIR)/%.c
 
 # ================================================================
 # Rules for .cpp files
-$(OBJECTDIR)%.o: $(CXXSRCDIR)/%.cpp
+$(OBJS): $(OBJECTDIR)%.o: $(CXXSRCDIR)/%.cpp
 	@mkdir -p $(OBJECTDIR)
 	$(CXX) -o $@ -c $< $(CXXFLAGS)
 
@@ -135,6 +134,7 @@ PROG=WIM2d_single_call_cpp.exec
 # Rules to compile all programs
 ALLPROGS=$(wildcard $(PROGDIR)/*.cpp)
 PROGOBJS=$(ALLPROGS:$(PROGDIR)/%.cpp=$(OBJECTDIR)/%.o)
+$(PROGOBJS): $(OBJS) $(CCOBJS)
 $(PROGOBJS): $(OBJECTDIR)%.o : $(PROGDIR)/%.cpp
 	@mkdir -p $(OBJECTDIR)
 	$(CXX) -o $@ -c $< $(CXXFLAGS)
@@ -145,7 +145,7 @@ $(PROGOBJS): $(OBJECTDIR)%.o : $(PROGDIR)/%.cpp
 # make executable 1
 single: $(PROGOBJS) $(OBJS) $(CCOBJS)
 	@mkdir -p $(BINARYDIR)
-	$(CXX) $(CXXLAGS) -o $(BINARYDIR)$(PROG) $^ $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) -o $(BINARYDIR)$(PROG) $^ $(LDFLAGS)
 	@echo "========================================================================================"
 	@echo "output: $(BINARYDIR)$(PROG)"
 	@echo "========================================================================================"
