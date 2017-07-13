@@ -616,7 +616,7 @@ function set_figure_cosmetics(data_out,mesh_filename,region_of_zoom,plot_date,ba
                      'FontSize',font_size,'EdgeColor','k')
             end;
         end;
-        whitebg(background_color);
+        whitebg(gcf,background_color);
         %set(gcf,'InvertHardcopy','off'); %Makes the background be included when the file is saved
         set(gca,'XColor','k','YColor','k');
         box on;
