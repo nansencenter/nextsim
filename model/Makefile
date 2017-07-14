@@ -6,17 +6,37 @@ FPROGNAME=FWrap.x
 
 CXX = g++
 
-CXXFLAGS += -std=c++11 -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v -DHAVE_CONFIG_H -D_MULTITHREADING_ -DWAVES
+# setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
+ifeq ($(shell echo `$(CXX) -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc),1)
+	CXXFLAGS += -std=c++14
+else
+	CXXFLAGS += -std=c++11
+endif
 
-#ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
-ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
+# add g++ option flags
+CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v -DHAVE_CONFIG_H -D_MULTITHREADING_ -DWAVES #-DOASIS
+#CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v -DHAVE_CONFIG_H -D_MULTITHREADING_ #-DOASIS
+
+ifdef USE_OASIS
+	CXXFLAGS += -DOASIS
+	CXXFLAGS += -I $(NEXTSIMDIR)/modules/oasis/include
+	LDFLAGS += -lgfortran
+	LDFLAGS += -L $(NEXTSIMDIR)/lib -loasis
+	CHAN = MPI1
+	#LIBPSMILE = $(OASIS_DIR)/lib/libpsmile.${CHAN}.a $(OASIS_DIR)/lib/libmct.a $(OASIS_DIR)/lib/libmpeu.a $(OASIS_DIR)/lib/libscrip.a
+endif
+
+ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
+	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
 	CXXFLAGS += -g -O0 -Wl,-no_pie -DNDEBUG -DWITHGPERFTOOLS
 endif
 
+# add include paths
 CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I $(NEXTSIMDIR)/contrib/bamg/include
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include # -I $(NEXTSIMDIR)/contrib/interp/include
 CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
+#CXXFLAGS += -I $(NEXTSIMDIR)/modules/oasis/include
 
 
 CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
@@ -38,7 +58,7 @@ else
 	endif
 
 	CXXFLAGS += -I /usr/local/include #-I /opt/local/include/openmpi-mp
-	#CXXFLAGS +=	-I /opt/local/netcdf/include/
+	CXXFLAGS +=	-I /opt/local/netcdf/include/
 
 	#LDFLAGS += -Wl,-rpath,/usr/local/lib #-Wl,-rpath,/opt/local/lib/openmpi-mp
 	#LDFLAGS += -L /usr/local/lib #-L /opt/local/lib/openmpi-mp -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
@@ -71,9 +91,10 @@ LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
 #LDFLAGS += -L $(NEXTSIMDIR)/lib -linterp
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lwim
+#LDFLAGS += -L $(NEXTSIMDIR)/lib -loasis
 
-#ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
-ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
+ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
+#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	LDFLAGS += -Wl,-rpath,/opt/local/lib
 	LDFLAGS += -L /opt/local/lib -lprofiler
 endif
@@ -108,7 +129,7 @@ mrproper: clean
 # Rule for making the actual target
 $(PROGNAME): $(OBJS) #$(CCOBJS)
 	@mkdir -p $(BINARYDIR)
-	$(CXX) $(CXXFLAGS) -o $(BINARYDIR)$@ $^ $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) -o $(BINARYDIR)$@ $^ $(LIBPSMILE) $(LDFLAGS)
 
 # Rules for object files from cpp files
 $(OBJECTDIR)%.o: %.cpp

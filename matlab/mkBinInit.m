@@ -25,7 +25,7 @@ function mkBinInit(data, lon, lat, fname, meshdir, mppfile)
 
 % Inputs
 if nargin < 6
-    mppfile = '../data/NpsNextsim.mpp';
+    mppfile = which('NpsNextsim.mpp');
     if nargin < 5
         meshdir = '';
         if nargin < 4

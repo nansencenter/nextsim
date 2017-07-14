@@ -38,7 +38,6 @@ int RTparam_outer(double outputs[],double h,double om,double visc_rp,double gues
    h_nd     = h/L;
    zeta_nd  = rho*h_nd;
 
-   /* printf("E=          %f\n",h); */
 
    /* get wavenumber for ice; */
    varpi = 1/alp_nd-zeta_nd;
@@ -46,6 +45,15 @@ int RTparam_outer(double outputs[],double h,double om,double visc_rp,double gues
    gen_root_ice(&ki,&BG2,&avc,varpi,H_nd,guess*L);
    /* *kice = ki/L; */
    outputs[1] = ki/L;
+
+#if 0
+   printf("guess = %f\n",guess);
+   printf("L = %f\n",L);
+   printf("varpi = %f\n",varpi);
+   printf("H_nd = %f\n",H_nd);
+   printf("kice (non-dimensional) = %f\n",ki);
+   printf("kice = %f\n",ki/L);
+#endif
 
    /* get wavenumber for water; */
    varpi = 1/alp_nd;
@@ -81,23 +89,24 @@ int RTparam_outer(double outputs[],double h,double om,double visc_rp,double gues
                 alp_nd,h_nd,outputs[3]);
 
 
-
-   /* printf("inp[0]          %d\n",params[0]); */
-   /* printf("inp[1]          %d\n",params[1]); */
-   /* printf("inp[2]          %d\n",params[2]); */
-   /* printf("inp[3]          %d\n",params[3]); */
-   /* printf("inp[4]          %d\n",params[4]); */
-
-
-
-   /* printf("out[0]          %d\n",outputs[0]); */
-   /* printf("out[1]          %d\n",outputs[1]); */
-   /* printf("out[2]          %d\n",outputs[2]); */
-   /* printf("out[3]          %d\n",outputs[3]); */
-   /* printf("out[4]          %d\n",outputs[4]); */
-   /* printf("out[5]          %d\n",outputs[5]); */
-   /* printf("out[6]          %d\n",outputs[6]); */
-   /* printf("out[7]          %d\n",outputs[7]); */
+#if 0
+    printf("inp[0]          %f\n",params[0]);
+    printf("inp[1]          %f\n",params[1]);
+    printf("inp[2]          %f\n",params[2]);
+    printf("inp[3]          %f\n",params[3]);
+    printf("inp[4]          %f\n",params[4]);
+    
+    
+    
+    printf("out[0]          %f\n",outputs[0]);
+    printf("out[1]          %f\n",outputs[1]);
+    printf("out[2]          %f\n",outputs[2]);
+    printf("out[3]          %f\n",outputs[3]);
+    printf("out[4]          %f\n",outputs[4]);
+    printf("out[5]          %f\n",outputs[5]);
+    printf("out[6]          %f\n",outputs[6]);
+    printf("out[7]          %f\n",outputs[7]);
+#endif
 
 }
 
@@ -114,20 +123,20 @@ int gen_root_ice(double *ki2, double *BG2,double *avc,
 
    fac   = 1.0;
    k0    = guess;
-
-   /* Call dispersion relation function; */
-   /* dk    = NR_corr_term(k0,del,H,fac); */
-   NR_corr_term(&dk,&Lam,&Lampr,k0,del,H,fac);
-   ki = k0-dk;
+   dk    = 2*EPS;
 
    while(fabs(dk) > EPS) {
-     k0 = ki;
-
-     /* Call dispersion relation function; */
-     /* dk = NR_corr_term(k0,del,H,fac); */
-     NR_corr_term(&dk,&Lam,&Lampr,k0,del,H,fac);
-     ki = k0-dk;
+      /* Call dispersion relation function; */
+      /* dk = NR_corr_term(k0,del,H,fac); */
+      NR_corr_term(&dk,&Lam,&Lampr,k0,del,H,fac);
+      ki = k0-dk;
+      /*printf("k_old,k_new (iterating) %f, %f\n",k0,ki);*/
+      k0 = ki;
    }
+
+   //algorithm can sometimes converge to a negative root
+   //so allow for this possibility
+   ki = fabs(ki);
 
    /* Call dispersion relation function; */
    /* [dk,Lam,Lampr] = NR_corr_term(ki,del,H,fac); */
@@ -155,20 +164,19 @@ int gen_root_wtr(double *kw2, double *BG1,
 
    fac   = 0.0;
    k0    = guess;
-
-   /* Call dispersion relation function; */
-   /* dk    = NR_corr_term(k0,del,H,fac); */
-   NR_corr_term(&dk,&Lam,&Lampr,k0,del,H,fac);
-   kw = k0-dk;
+   dk    = 2*EPS;
 
    while(fabs(dk) > EPS) {
-      k0       = kw;
-
       /* Call dispersion relation function; */
       /* dk       = NR_corr_term(k0,del,H,fac); */
       NR_corr_term(&dk,&Lam,&Lampr,k0,del,H,fac);
-      kw       = k0-dk;
+      kw = k0-dk;
+      k0 = kw;
    }
+
+   //algorithm can sometimes converge to a negative root
+   //so allow for this possibility
+   kw = fabs(kw);
 
    /* Call dispersion relation function; */
    /* [dk,Lam,Lampr] = NR_corr_term(kw,del,H,fac); */

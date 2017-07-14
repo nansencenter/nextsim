@@ -1,5 +1,7 @@
 #! /bin/bash
 
+export DYLD_LIBRARY_PATH=$NEXTSIMDIR/lib:$BOOST_DIR/lib
+
 if [ "$1" == "--help" ]
 then
 	echo "Usage: $0 [config.cfg [executable.exec]]"
@@ -16,28 +18,32 @@ cfgfile=$1
 execfile=$2
 : ${execfile:="bin/nextsim.exec"}
 
-# Run with one thread
-OMP_NUM_THREADS=1 $execfile --simul.duration=0.25 --simul.output_per_day=4 --config-file=$cfgfile #|| exit 5
+# Create temporary directories
+tmpdir1=$(mktemp -d)
+tmpdir8=$(mktemp -d)
 
-# Save the old final files
-mkdir -p ../matlab/omp_test
-mv ../matlab/*_1000.??? ../matlab/omp_test/
+# Run with one thread
+OMP_NUM_THREADS=1 $execfile --setup.exporter_precision=double --simul.output_directory=$tmpdir1 --simul.duration=0.25 --simul.output_per_day=4 --config-files=$cfgfile || exit 5
 
 # Run with 8 threads
-OMP_NUM_THREADS=8 $execfile --simul.duration=0.25 --simul.ouput_per_day=4 --config-file=$cfgfile #|| exit 5
+OMP_NUM_THREADS=8 $execfile --setup.exporter_precision=double --simul.output_directory=$tmpdir8 --simul.duration=0.25 --simul.output_per_day=4 --config-files=$cfgfile || exit 6
 
 # Test for diff
 results=0
-diff -qs ../matlab/omp_test/field_1000.bin ../matlab/field_1000.bin
+diff -qs $tmpdir1/field_1000.bin $tmpdir8/field_1000.bin
 (( results=results+$? ))
-diff -qs ../matlab/omp_test/mesh_1000.bin ../matlab/mesh_1000.bin
+diff -qs $tmpdir1/mesh_1000.bin $tmpdir8/mesh_1000.bin
 (( results=results+$? ))
 
 if [ $results -gt 0 ]
 then
-	echo "Different threads DO NOT produce bit-wise identical results"
+    echo "Different threads DO NOT produce bit-wise identical results"
+    echo "Leaving temporary files in place:"
+    echo "Run using 1 thread is in: $tmpdir1"
+    echo "Run using 8 threads is in: $tmpdir8"
+    exit 1
 else
-	echo "Different threads produce bit-wise identical results"
+    echo "Different threads produce bit-wise identical results"
 fi
 
 

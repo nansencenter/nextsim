@@ -1,4 +1,4 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim:fenc=utf-8:ft=cpp:et:sw=4:ts=4:sts=4 */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
  * @file   wimdiscr.hpp
@@ -111,17 +111,20 @@ public:
                     std::vector<std::string> const& names
                     ) const;
     void saveLog(value_type const& t_out) const;
-    void init();
 
-    void assign(std::vector<value_type> const& icec_in = std::vector<value_type>(),
+    void init(int const nextsim_cpt=0);
+    void assign();
+
+    void update(std::vector<value_type> const& icec_in = std::vector<value_type>(),
                 std::vector<value_type> const& iceh_in = std::vector<value_type>(),
                 std::vector<value_type> const& nfloes_in = std::vector<value_type>(),
                 std::vector<value_type> const& swh_in = std::vector<value_type>(),
                 std::vector<value_type> const& mwp_in = std::vector<value_type>(),
-                std::vector<value_type> const& mwd_in = std::vector<value_type>(),
-                bool step = false);
+                std::vector<value_type> const& mwd_in = std::vector<value_type>());
 
-    void timeStep(bool step = false);
+    void updateWaveMedium();
+
+    void timeStep();
 
     void doBreaking(BreakInfo const& breakinfo);
 
@@ -132,10 +135,16 @@ public:
                  std::vector<value_type> const& m_nfloes,
                  std::string const& units="km");
 
+    value_type nfloesToDfloe(
+                 value_type const& m_nfloes,
+                 value_type const& m_conc);
     std::vector<value_type> nfloesToDfloe(
                  std::vector<value_type> const& m_nfloes,
                  std::vector<value_type> const& m_conc);
     
+    value_type dfloeToNfloes(
+                 value_type const& m_dfloe,
+                 value_type const& m_conc);
     std::vector<value_type> dfloeToNfloes(
                  std::vector<value_type> const& m_dfloe,
                  std::vector<value_type> const& m_conc);
@@ -152,8 +161,7 @@ public:
              std::vector<value_type> const& nfloes_in = std::vector<value_type>(),
              std::vector<value_type> const& swh_in = std::vector<value_type>(),
              std::vector<value_type> const& mwp_in = std::vector<value_type>(),
-             std::vector<value_type> const& mwd_in = std::vector<value_type>(),
-             bool step = false);
+             std::vector<value_type> const& mwd_in = std::vector<value_type>());
 
     //===========================================================================
     //FSD: Dmax -> <D^moment> conversion
@@ -168,9 +176,11 @@ public:
     void advAttenSimple(
           array3_type& Sdir, array2_type& Sfreq,
           array2_type& taux_omega,array2_type& tauy_omega,
+          array2_type& sdx_omega,array2_type& sdy_omega,
           array2_type const& ag2d_eff);
     void advAttenIsotropic(array3_type& Sdir, array2_type& Sfreq,
           array2_type& taux_omega,array2_type& tauy_omega,
+          array2_type& sdx_omega,array2_type& sdy_omega,
           array2_type const& ag2d_eff);
     void waveAdvWeno(
           array2_type& h, array2_type const& u, array2_type const& v);
@@ -189,6 +199,7 @@ public:
     void inputWaveFields(value_type_vec const& swh_in,
             value_type_vec const& mwp_in,
             value_type_vec const& mwd_in);
+    void setIncWaveSpec();
     void inputIceFields(value_type_vec const& icec_in,
             value_type_vec const& iceh_in,
             value_type_vec const& nfloes_in);
@@ -210,6 +221,8 @@ public:
 
     std::vector<value_type> getTaux() const { return tau_x; }
     std::vector<value_type> getTauy() const { return tau_y; }
+    std::vector<value_type> getStokesDriftx() const { return stokes_drift_x; }
+    std::vector<value_type> getStokesDrifty() const { return stokes_drift_y; }
     std::vector<value_type> getNfloes() const { return nfloes; }
 
 
@@ -244,11 +257,12 @@ private:
     array3_type ag_eff, ap_eff, wlng_ice, atten_nond, damping, disp_ratio, sdf3d_dir_temp;
     array4_type sdf_dir, sdf_inc;
 
-    array2_type S_freq, taux_om, tauy_om;
+    array2_type S_freq, taux_om, tauy_om,
+                stokes_drift_x_om, stokes_drift_y_om;
     array2_type hp;
     array2_type Fdmax, Ftaux, Ftauy, Fhs, Ftp;
 
-    std::vector<value_type> dfloe, nfloes, tau_x, tau_y;//row-major order (C)
+    std::vector<value_type> dfloe, nfloes, tau_x, tau_y,stokes_drift_x,stokes_drift_y;//row-major order (C)
     std::vector<value_type> mesh_x, mesh_y, mesh_conc, mesh_thick, mesh_dfloe;
     std::vector<bool> mesh_broken;
     bool break_on_mesh;
@@ -256,6 +270,7 @@ private:
 
     boost::mpi::timer chrono;
     std::string init_time_str;
+    value_type restart_time_shift;
     int cpt;
 
 };

@@ -8,14 +8,14 @@ ifeq ($(KERNEL),Linux)
 		MEX = mex
 	endif
 else
-	MEX = /Applications/MATLAB_R2014b.app/bin/mex
+	MEX = /Applications/MATLAB_R2016b.app/bin/mex
 endif
 
 MEX += -largeArrayDims
 
-LDFLAGS = -L../lib -I../contrib/mapx/include -lmapx
+LDFLAGS = -L../lib -I../contrib/mapx/include -lmapx -I../contrib/bamg/include -lbamg
 
-all: *.c
+all: *.c *.cpp
 	$(foreach file, $^, $(MEX) $(file) $(LDFLAGS);)
 	#for file in $^; do $(MEX) $$file $(LDFLAGS); done
 

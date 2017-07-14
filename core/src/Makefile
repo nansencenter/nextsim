@@ -13,14 +13,24 @@ LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
 
 CXX = g++
-CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v
 
-#ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
-ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
+# setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
+ifeq ($(shell echo `$(CXX) -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc),1)
+	CXXFLAGS += -std=c++14
+else
+	CXXFLAGS += -std=c++11
+endif
+
+# add g++ option flags
+CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v
+
+ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
+	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
 	CXXFLAGS += -g -O0 -Wl,-no_pie -DNDEBUG
 endif
 
+# add include paths
 CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I /usr/local/include -I $(OPENMPI_INCLUDE_DIR)/
 CXXFLAGS += -I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I $(GMSH_DIR)/include/gmsh
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
