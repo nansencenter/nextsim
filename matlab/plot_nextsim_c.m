@@ -496,6 +496,21 @@ function set_axis_colormap_colorbar(mesh_filename,field,region_of_zoom,manual_ax
         cpos(4) = height_scale_factor*cpos(4);
         c.Position = cpos;
         set(get(c,'title'),'string',name_colorbar);
+    
+    elseif (~isempty(strfind(mesh_filename,'largearctic')) && isempty(region_of_zoom))
+        colorbar_Xposition=0.69;
+        colorbar_Yposition=0.13;
+        width_scale_factor=0.5;
+        height_scale_factor=0.25;
+        % We add a colorbar (settings below are (at least) good for MITgcm or Topaz setups)
+        c=colorbar;
+        cpos = c.Position;
+        cpos(1) = colorbar_Xposition;
+        cpos(2) = colorbar_Yposition;
+        cpos(3) = width_scale_factor*cpos(3);
+        cpos(4) = height_scale_factor*cpos(4);
+        c.Position = cpos;
+        set(get(c,'title'),'string',name_colorbar);    
         
     elseif (~isempty(strfind(mesh_filename,'mitgcm4km')) || ~isempty(strfind(mesh_filename,'mitgcm9km')) && isempty(region_of_zoom))
         colorbar_Xposition=0.67;%(position in the left/right direction. to be modified by hand to your convenience)
@@ -537,6 +552,8 @@ function set_region_adjustment(mesh_filename,region_of_zoom)
         %%first we adjust depending on the domain
         if ~isempty(strfind(mesh_filename,'small_arctic'))
             axis([-2400 1800 -1400 2200]);
+        elseif ~isempty(strfind(mesh_filename,'largearctic'))
+            axis([-2800 3250 -4800 2250]);
         elseif ~isempty(strfind(mesh_filename,'FramStrait'))
             axis([-350 1300 -1950 250]);
         elseif ~isempty(strfind(mesh_filename,'topaz'))
@@ -611,6 +628,9 @@ function set_figure_cosmetics(data_out,mesh_filename,region_of_zoom,plot_date,ba
             elseif ~isempty(strfind(mesh_filename,'FramStrait'))
                 text(0.05, 0.95,textstring,'units','normalized','BackgroundColor','white',...
                      'FontSize',font_size,'EdgeColor','k')
+            elseif ~isempty(strfind(mesh_filename,'largearctic'))
+                text(0.6, 0.95,textstring,'units','normalized','BackgroundColor','white',...
+                     'FontSize',12,'EdgeColor','k')
             else
                 text(0.2, 0.95,textstring,'units','normalized','BackgroundColor','white',...
                      'FontSize',font_size,'EdgeColor','k')
