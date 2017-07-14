@@ -412,7 +412,7 @@ function set_axis_colormap_colorbar(mesh_filename,field,region_of_zoom,manual_ax
         colormap(cmap_def);
         name_colorbar='Viscosity (Pa s)';
     elseif strcmp(field,'Damage')
-        default_axis_range = [0.9,1];
+        default_axis_range = [0.7,1];
         load('ice_damage_cmap128.mat')
         colormap(ice_damage_cmap128);
         name_colorbar='Damage';
