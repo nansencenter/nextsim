@@ -47,6 +47,10 @@ for year in {2005..2017}
 	do
 		ln -s $NEXTSIM_DATADIR/OSISAF_ice_type/$year/*/*.nc .
 	done
+for year in {2009..2017}
+	do
+		ln -s $NEXTSIM_DATADIR/OSISAF_ice_drift/$year/*/*.nc .
+	done
 for year in {2005..2017}
 	do
 		TMP_DATADIR=$NEXTSIM_DATADIR/OSISAF_ice_conc/polstere/${year}_nh_polstere

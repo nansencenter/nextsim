@@ -367,6 +367,12 @@ for p=0:0
       end;
   end;
 end;
+
+% Don't return 'step' if it's not asked for
+if nargout==0
+  clear step
+end
+
 end
 
 function set_axis_colormap_colorbar(mesh_filename,field,region_of_zoom,manual_axis_range)
@@ -610,7 +616,7 @@ function set_figure_cosmetics(data_out,mesh_filename,region_of_zoom,plot_date,ba
                      'FontSize',font_size,'EdgeColor','k')
             end;
         end;
-        whitebg(background_color);
+        whitebg(gcf,background_color);
         %set(gcf,'InvertHardcopy','off'); %Makes the background be included when the file is saved
         set(gca,'XColor','k','YColor','k');
         box on;
