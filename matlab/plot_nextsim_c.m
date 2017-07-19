@@ -1,4 +1,4 @@
-function plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,plot_options)
+function step=plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,plot_options)
 %% CALL: plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,plot_options)
 %% OR:   plot_nextsim_c(field,date_string,region_of_zoom,is_sequential,dirname,plot_options)
 %% example of usage:
@@ -131,6 +131,10 @@ else
     try
         % check if step is a date string and if so deduce the step
         step = (datenum(step) - datenum(simul.time_init)) * simul.output_per_day;
+        if mod(step,1) ~= 0
+            warning(['No model output for given time. Plotting the output that is closest in time.'])
+            step = round(step);
+        end
     catch ME;
     end
 end
@@ -142,7 +146,7 @@ if ~ischar(step)
         step = num2str(step);
     end
 end
-   
+
 for p=0:0
 
   if ~is_sequential
@@ -160,19 +164,40 @@ for p=0:0
   Nn=length(mesh_out.Nodes_x);
   x=reshape(var_mx,[3,Ne]);
   y=reshape(var_my,[3,Ne]);
+
+  if isfield(data_out,'Concentration')
+      is_restart     = 0;
+      conc_name      = 'Concentration';
+      thin_conc_name = 'Concentration_thin_ice';
+  elseif isfield(data_out,'M_conc')
+      %conc has different name in restart files
+      is_restart     = 1;
+      conc_name      = 'M_conc';
+      thin_conc_name = 'M_conc_thin';
+
+      % work out time (in matlab time = days)
+      t0 = simul_in.simul.time_init;
+      t1 = str2num(step)*simul_in.setup.restart_time_step;
+      data_out.Time  = t0+t1;
+  end
+
   
   %ice mask and water mask extraction
   if(apply_mask)
-      mask=data_out.Concentration;
+
+      %check for thick ice
+      mask=data_out.(conc_name);
+
+      %check if thin ice is present
       try
-          mask=mask+data_out.Concentration_thin_ice;
-      catch ME
+          mask=mask+data_out.(thin_conc_name);
+      catch
       end
       
       mask_ice=find(mask>0);
       mask_water=find(mask==0);
   else
-      mask_ice=1:length(data_out.Concentration);
+      mask_ice=1:Ne;
       mask_water=[];
   end
   
@@ -264,11 +289,11 @@ for p=0:0
   %-------------------------------------------------------------------------------------------------------------------
   % We set on a new figure, which we display or not (useful when creating and saving on disk a large bunch of figures)
   %-------------------------------------------------------------------------------------------------------------------
-  if(visible)
-      fig=figure;
-  else
-      fig=figure('visible','off');
-  end
+      if(visible)
+          fig=figure;
+      else
+          fig=figure('visible','off');
+      end
   
   %-----------------------------------------------------------------------
   % We plot the actual data on the current figure, as well as the landmask
@@ -330,7 +355,7 @@ for p=0:0
   %------------------------------
   if save_figure
       set(fig,'Color',[1 1 1]);
-      filename=sprintf('neXtSIM_%s_%d',field_plotted,step);
+      filename=sprintf('neXtSIM_%s_%s',field_plotted,step)
       %Call export_fig to save figure
       if strcmp(figure_format,'-png') || strcmp(figure_format,'-jpg')
           if isempty(pic_quality)
@@ -342,6 +367,12 @@ for p=0:0
       end;
   end;
 end;
+
+% Don't return 'step' if it's not asked for
+if nargout==0
+  clear step
+end
+
 end
 
 function set_axis_colormap_colorbar(mesh_filename,field,region_of_zoom,manual_axis_range)
@@ -387,7 +418,7 @@ function set_axis_colormap_colorbar(mesh_filename,field,region_of_zoom,manual_ax
         colormap(cmap_def);
         name_colorbar='Viscosity (Pa s)';
     elseif strcmp(field,'Damage')
-        default_axis_range = [0.9,1];
+        default_axis_range = [0.7,1];
         load('ice_damage_cmap128.mat')
         colormap(ice_damage_cmap128);
         name_colorbar='Damage';
@@ -465,6 +496,21 @@ function set_axis_colormap_colorbar(mesh_filename,field,region_of_zoom,manual_ax
         cpos(4) = height_scale_factor*cpos(4);
         c.Position = cpos;
         set(get(c,'title'),'string',name_colorbar);
+    
+    elseif (~isempty(strfind(mesh_filename,'largearctic')) && isempty(region_of_zoom))
+        colorbar_Xposition=0.69;
+        colorbar_Yposition=0.13;
+        width_scale_factor=0.5;
+        height_scale_factor=0.25;
+        % We add a colorbar (settings below are (at least) good for MITgcm or Topaz setups)
+        c=colorbar;
+        cpos = c.Position;
+        cpos(1) = colorbar_Xposition;
+        cpos(2) = colorbar_Yposition;
+        cpos(3) = width_scale_factor*cpos(3);
+        cpos(4) = height_scale_factor*cpos(4);
+        c.Position = cpos;
+        set(get(c,'title'),'string',name_colorbar);    
         
     elseif (~isempty(strfind(mesh_filename,'mitgcm4km')) || ~isempty(strfind(mesh_filename,'mitgcm9km')) && isempty(region_of_zoom))
         colorbar_Xposition=0.67;%(position in the left/right direction. to be modified by hand to your convenience)
@@ -506,6 +552,8 @@ function set_region_adjustment(mesh_filename,region_of_zoom)
         %%first we adjust depending on the domain
         if ~isempty(strfind(mesh_filename,'small_arctic'))
             axis([-2400 1800 -1400 2200]);
+        elseif ~isempty(strfind(mesh_filename,'largearctic'))
+            axis([-2800 3250 -4800 2250]);
         elseif ~isempty(strfind(mesh_filename,'FramStrait'))
             axis([-350 1300 -1950 250]);
         elseif ~isempty(strfind(mesh_filename,'topaz'))
@@ -569,18 +617,26 @@ function set_figure_cosmetics(data_out,mesh_filename,region_of_zoom,plot_date,ba
             date=data_out.Time;
             textstring = datestr(date,'yyyy/mm/dd HH:MM');
             if ~isempty(strfind(mesh_filename,'4MIT')) || ~isempty(strfind(mesh_filename,'BKF'))
-                text(0.025, 0.1,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
+                text(0.025, 0.1,textstring,'units','normalized','BackgroundColor','white',...
+                     'FontSize',font_size,'EdgeColor','k')
             elseif ~isempty(strfind(mesh_filename,'arch'))
-                text(0.1, 0.03,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
+                text(0.1, 0.03,textstring,'units','normalized','BackgroundColor','white',...
+                     'FontSize',font_size,'EdgeColor','k')
             elseif ~isempty(strfind(mesh_filename,'topaz_matthias')) || ~isempty(strfind(mesh_filename,'small_arctic'))
-                text(0.027, 0.95,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
+                text(0.027, 0.95,textstring,'units','normalized','BackgroundColor','white',...
+                     'FontSize',font_size,'EdgeColor','k')
             elseif ~isempty(strfind(mesh_filename,'FramStrait'))
-                text(0.05, 0.95,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
+                text(0.05, 0.95,textstring,'units','normalized','BackgroundColor','white',...
+                     'FontSize',font_size,'EdgeColor','k')
+            elseif ~isempty(strfind(mesh_filename,'largearctic'))
+                text(0.6, 0.95,textstring,'units','normalized','BackgroundColor','white',...
+                     'FontSize',12,'EdgeColor','k')
             else
-                text(0.2, 0.95,textstring,'units','normalized','BackgroundColor','white','FontSize',font_size,'EdgeColor','k')
+                text(0.2, 0.95,textstring,'units','normalized','BackgroundColor','white',...
+                     'FontSize',font_size,'EdgeColor','k')
             end;
         end;
-        whitebg(background_color);
+        whitebg(gcf,background_color);
         %set(gcf,'InvertHardcopy','off'); %Makes the background be included when the file is saved
         set(gca,'XColor','k','YColor','k');
         box on;

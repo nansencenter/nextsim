@@ -112,7 +112,7 @@ public:
                     ) const;
     void saveLog(value_type const& t_out) const;
 
-    void init();
+    void init(int const nextsim_cpt=0);
     void assign();
 
     void update(std::vector<value_type> const& icec_in = std::vector<value_type>(),
@@ -120,12 +120,11 @@ public:
                 std::vector<value_type> const& nfloes_in = std::vector<value_type>(),
                 std::vector<value_type> const& swh_in = std::vector<value_type>(),
                 std::vector<value_type> const& mwp_in = std::vector<value_type>(),
-                std::vector<value_type> const& mwd_in = std::vector<value_type>(),
-                bool step = false);
+                std::vector<value_type> const& mwd_in = std::vector<value_type>());
 
     void updateWaveMedium();
 
-    void timeStep(bool step = false);
+    void timeStep();
 
     void doBreaking(BreakInfo const& breakinfo);
 
@@ -162,8 +161,7 @@ public:
              std::vector<value_type> const& nfloes_in = std::vector<value_type>(),
              std::vector<value_type> const& swh_in = std::vector<value_type>(),
              std::vector<value_type> const& mwp_in = std::vector<value_type>(),
-             std::vector<value_type> const& mwd_in = std::vector<value_type>(),
-             bool step = false);
+             std::vector<value_type> const& mwd_in = std::vector<value_type>());
 
     //===========================================================================
     //FSD: Dmax -> <D^moment> conversion
@@ -201,7 +199,7 @@ public:
     void inputWaveFields(value_type_vec const& swh_in,
             value_type_vec const& mwp_in,
             value_type_vec const& mwd_in);
-    void setIncWaveSpec(bool const step);
+    void setIncWaveSpec();
     void inputIceFields(value_type_vec const& icec_in,
             value_type_vec const& iceh_in,
             value_type_vec const& nfloes_in);
@@ -272,6 +270,7 @@ private:
 
     boost::mpi::timer chrono;
     std::string init_time_str;
+    value_type restart_time_shift;
     int cpt;
 
 };

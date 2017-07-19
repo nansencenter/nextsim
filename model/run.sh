@@ -14,17 +14,25 @@ cd $NEXTSIMDIR
 git diff > $P/git_changes.txt
 cd $P
 
-# Run the nextsim model
+prog=bin/nextsim.exec
+if [ `pwd` != $NEXTSIMDIR ]
+then
+   # make a local copy of executable
+   # (so can recompile code and run somewhere else)
+   mkdir -p bin
+   cp $NEXTSIMDIR/model/$prog $prog
+fi
+
+# extra settings required for mac
 kernel=$(uname -s)
 if [ $kernel == "Darwin" ]
 then
     # mac
     export DYLD_LIBRARY_PATH=$NEXTSIMDIR/lib:$BOOST_DIR/lib
-    $NEXTSIMDIR/model/bin/nextsim.exec --config-files=$config
-else
-    # linux
-    $NEXTSIMDIR/model/bin/nextsim.exec --config-files=$config
 fi
+
+# Run the nextsim model
+$prog --config-files=$config
 
 # do git diff to record changes to code
 outdir=(`grep "output_directory" expt_01/out_cpp_1dirn/mesh/nextsim.log`)
