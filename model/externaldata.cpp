@@ -443,11 +443,11 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 	{
         std::string init_timestr="";
 
-        if(dataset->grid.dataset_frequency=="daily_forecast")
-            init_timestr = to_date_string_yd(M_StartingTime-1.);//yyyymmdd
+        if((dataset->grid.dataset_frequency=="daily_forecast") || (dataset->grid.dataset_frequency=="daily_ec2_forecast"))
+            init_timestr = to_date_string_yd(M_StartingTime);//yyyymmdd
         
         // when using forcing from a forecast, we select the file based on the StartingTime
-        if ((dataset->grid.prefix).find("start") != std::string::npos)
+        if ( (dataset->grid.dataset_frequency!="daily_forecast") && (((dataset->grid.prefix).find("start") != std::string::npos) || (Environment::vm()["simul.forecast"].as<bool>())))
         {
             ftime = M_StartingTime;
             file_jump.push_back(0);
@@ -500,6 +500,10 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             else
                 f_timestr = to_date_string_yd(std::floor(ftime)+*jump);
 
+            if((std::floor(ftime)+*jump)<M_StartingTime)
+                init_timestr = f_timestr;//yyyymmdd
+            
+
             std::cout <<"F_TIMESTR= "<< f_timestr <<"\n";
 
             if(dataset->grid.dataset_frequency=="daily_forecast")
@@ -511,6 +515,17 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                         % init_timestr
                         % dataset->grid.postfix
                         ).str();
+            else
+            if(dataset->grid.dataset_frequency=="daily_ec2_forecast")
+            {
+                filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
+                       % Environment::simdataDir().string()
+                       % dataset->grid.dirname
+                       % dataset->grid.prefix
+                       % init_timestr
+                       % dataset->grid.postfix
+                       ).str();
+            }
             else
                 filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                         % Environment::simdataDir().string()
@@ -613,6 +628,11 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         if(dataset->grid.dataset_frequency=="nearest_daily")
         {
             ftime = M_current_time;
+            // when using forcing from a forecast, we select the file based on the StartingTime
+            if ( (dataset->grid.dataset_frequency!="daily_forecast") && (((dataset->grid.prefix).find("start") != std::string::npos) || (Environment::vm()["simul.forecast"].as<bool>())))
+            {
+                ftime = M_StartingTime;
+            }
             f_timestr = to_date_string_yd(std::floor(ftime));
             
             double f=from_date_string((boost::format( "%1%-%2%-%3%" ) % f_timestr.substr(0,4) % f_timestr.substr(4,2) % f_timestr.substr(6,2)).str())+0.5;
