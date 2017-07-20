@@ -120,7 +120,7 @@ namespace Nextsim
             ("simul.mooring_file_length", po::value<std::string>()->default_value( "inf" ), "")
             // not used: ("simul.mooring_names", po::value<std::vector<std::string>>()->multitoken()->zero_tokens()->composing(), "")
             ("simul.mooring_spacing", po::value<double>()->default_value( 10 ), "km")
-            // not used: ("simul.mooring_grid_file", po::value<std::string>()->default_value( "" ), "")
+            ("simul.mooring_grid_file", po::value<std::string>()->default_value( "" ), "") // It must be a netcdf file having x y as dimensions and latitude longitude as variables
             ("simul.mooring_output_timestep", po::value<double>()->default_value( 1 ), "days")
 
             ("simul.use_iabp_drifters", po::value<bool>()->default_value( false), "")

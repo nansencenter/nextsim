@@ -4871,7 +4871,7 @@ FiniteElement::step(int &pcpt)
         std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
 
         // Create a new M_drifters instance in [0], with a properly initialised netCDF file
-        M_osisaf_drifters[0] = Drifters("data", "ice_drift_nh_polstere-625_multi-oi.nc", "yc", "yx", "lat", "lon", M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
+        M_osisaf_drifters[0] = Drifters("data", "ice_drift_nh_polstere-625_multi-oi.nc", "xc", "yc", "lat", "lon", M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
         M_osisaf_drifters[0].initNetCDF(M_export_path+"/OSISAF_", current_time);
         M_osisaf_drifters[0].appendNetCDF(current_time, M_mesh, M_UT);
     }
@@ -5264,28 +5264,29 @@ FiniteElement::initMoorings()
     // Output variables - elements
     GridOutput::Variable conc(GridOutput::variableID::conc, data_elements, data_grid);
     GridOutput::Variable thick(GridOutput::variableID::thick, data_elements, data_grid);
-    GridOutput::Variable snow(GridOutput::variableID::snow, data_elements, data_grid);
-    GridOutput::Variable tsurf(GridOutput::variableID::tsurf, data_elements, data_grid);
-    GridOutput::Variable Qa(GridOutput::variableID::Qa, data_elements, data_grid);
-    GridOutput::Variable Qsw(GridOutput::variableID::Qsw, data_elements, data_grid);
-    GridOutput::Variable Qlw(GridOutput::variableID::Qlw, data_elements, data_grid);
-    GridOutput::Variable Qsh(GridOutput::variableID::Qsh, data_elements, data_grid);
-    GridOutput::Variable Qlh(GridOutput::variableID::Qlh, data_elements, data_grid);
-    GridOutput::Variable Qo(GridOutput::variableID::Qo, data_elements, data_grid);
-    GridOutput::Variable delS(GridOutput::variableID::delS, data_elements, data_grid);
+    //GridOutput::Variable snow(GridOutput::variableID::snow, data_elements, data_grid);
+    //GridOutput::Variable tsurf(GridOutput::variableID::tsurf, data_elements, data_grid);
+    //GridOutput::Variable Qa(GridOutput::variableID::Qa, data_elements, data_grid);
+    //GridOutput::Variable Qsw(GridOutput::variableID::Qsw, data_elements, data_grid);
+    //GridOutput::Variable Qlw(GridOutput::variableID::Qlw, data_elements, data_grid);
+    //GridOutput::Variable Qsh(GridOutput::variableID::Qsh, data_elements, data_grid);
+    //GridOutput::Variable Qlh(GridOutput::variableID::Qlh, data_elements, data_grid);
+    //GridOutput::Variable Qo(GridOutput::variableID::Qo, data_elements, data_grid);
+    //GridOutput::Variable delS(GridOutput::variableID::delS, data_elements, data_grid);
 
-    std::vector<GridOutput::Variable> elemental_variables(11);
+    //std::vector<GridOutput::Variable> elemental_variables(11);
+    std::vector<GridOutput::Variable> elemental_variables(2);
     elemental_variables[0] = conc;
     elemental_variables[1] = thick;
-    elemental_variables[2] = snow;
-    elemental_variables[3] = tsurf;
-    elemental_variables[4] = Qa;
-    elemental_variables[5] = Qsw;
-    elemental_variables[6] = Qlw;
-    elemental_variables[7] = Qsh;
-    elemental_variables[8] = Qlh;
-    elemental_variables[9] = Qo;
-    elemental_variables[10] = delS;
+    //elemental_variables[2] = snow;
+    //elemental_variables[3] = tsurf;
+    //elemental_variables[4] = Qa;
+    //elemental_variables[5] = Qsw;
+    //elemental_variables[6] = Qlw;
+    //elemental_variables[7] = Qsh;
+    //elemental_variables[8] = Qlh;
+    //elemental_variables[9] = Qo;
+    //elemental_variables[10] = delS;
     if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
     {
         GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin, data_elements, data_grid);
@@ -5294,7 +5295,7 @@ FiniteElement::initMoorings()
 
         elemental_variables.push_back(conc_thin);
         elemental_variables.push_back(h_thin);
-        elemental_variables.push_back(hs_thin);
+        //elemental_variables.push_back(hs_thin);
     }
 
     // Output variables - nodes
@@ -5313,29 +5314,33 @@ FiniteElement::initMoorings()
 
     GridOutput::Vectorial_Variable siuv{
         components_Id: siuv_id,
-        // east_west_oriented: true
-        east_west_oriented: false
+        east_west_oriented: true
+        //east_west_oriented: false
     };
 
     std::vector<GridOutput::Vectorial_Variable> vectorial_variables(1);
     vectorial_variables[0] = siuv;
 
-#if 1
-    // Calculate the grid spacing (assuming a regular grid for now)
-    auto RX = M_mesh.coordX();
-    auto RY = M_mesh.coordY();
-    auto xcoords = std::minmax_element( RX.begin(), RX.end() );
-    auto ycoords = std::minmax_element( RY.begin(), RY.end() );
+    if(vm["simul.mooring_grid_file"].as<std::string>()=="")
+    {
+        // Calculate the grid spacing (assuming a regular grid for now)
+        auto RX = M_mesh.coordX();
+        auto RY = M_mesh.coordY();
+        auto xcoords = std::minmax_element( RX.begin(), RX.end() );
+        auto ycoords = std::minmax_element( RY.begin(), RY.end() );
 
-    double mooring_spacing = 1e3 * vm["simul.mooring_spacing"].as<double>();
-    int ncols = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/mooring_spacing );
-    int nrows = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
+        double mooring_spacing = 1e3 * vm["simul.mooring_spacing"].as<double>();
+        int ncols = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/mooring_spacing );
+        int nrows = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
 
-    // Define the mooring dataset
-    M_moorings = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first, nodal_variables, elemental_variables, vectorial_variables);
-#else
+        // Define the mooring dataset
+        M_moorings = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first, nodal_variables, elemental_variables, vectorial_variables);
+    }
+    else
+    {
     // Read the grid in from file
     // Define a grid
+#if 0
     GridOutput::Grid grid{
         gridFile: "ice_drift_nh_polstere-625_multi-oi.nc",
         dirname: "data",
@@ -5344,6 +5349,17 @@ FiniteElement::initMoorings()
         dimNameY: "xc",
         latName: "lat",
         lonName: "lon"
+    };
+#endif
+    // Define a grid
+    GridOutput::Grid grid{
+        gridFile: Environment::vm()["simul.mooring_grid_file"].as<std::string>(),
+        dirname: "data",
+        mpp_file: Environment::vm()["simul.proj_filename"].as<std::string>(),
+        dimNameX: "y",
+        dimNameY: "x",
+        latName: "latitude",
+        lonName: "longitude"
     };
 
     // Define the mooring dataset
@@ -5366,7 +5382,7 @@ FiniteElement::initMoorings()
     std::copy(M_moorings.M_grid.gridY.begin(), M_moorings.M_grid.gridY.end(), ostream_iterator<float>(myfile," "));
     myfile.close();
     */
-#endif
+    }
 
     double output_time;
     if ( M_moorings_snapshot )
@@ -6039,14 +6055,16 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
             M_external_data.push_back(&M_mslp);
 
-            M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
-            M_external_data.push_back(&M_tcc);
-
-            // Syl: The following two lines should be removed when approxSW will be implemented in Thermo()
-            M_Qsw_in=ExternalData(vm["simul.constant_Qsw_in"].as<double>());
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
             M_external_data.push_back(&M_Qsw_in);
 
-            M_precip=ExternalData(0.);
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            M_external_data.push_back(&M_Qlw_in);
+
+            M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
+            M_external_data.push_back(&M_tcc);
+            
+            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
             M_external_data.push_back(&M_precip);
         break;
 
@@ -6419,7 +6437,7 @@ FiniteElement::initIce()
         }
 
         conc_tot=M_conc[i]+M_conc_thin[i];
-        weight_conc=std::min(1.,conc_tot*2.);
+        weight_conc=std::min(1.,conc_tot*100.);
         if(conc_tot>0.)
             M_sst[i] = -M_sss[i]*physical::mu*weight_conc+M_sst[i]*(1.-weight_conc);
             //M_sst[i] = -M_sss[i]*physical::mu;//*M_conc[i]+M_ocean_temp[i]*(1.-M_conc[i]);
@@ -6846,7 +6864,7 @@ FiniteElement::topazForecastAmsr2Ice()
 {
     double real_thickness, init_conc_tmp;
 
-    external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
+    external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init-0.5);
     //M_conc_amsr2.check_and_reload(M_mesh,time_init);
 
     external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
@@ -6860,11 +6878,15 @@ FiniteElement::topazForecastAmsr2Ice()
 
     M_external_data_tmp.resize(0);
     M_external_data_tmp.push_back(&M_conc_amsr2);
+    this->checkReloadDatasets(M_external_data_tmp,time_init-0.5,
+            "init - AMSR2");
+    
+    M_external_data_tmp.resize(0);
     M_external_data_tmp.push_back(&M_init_conc);
     M_external_data_tmp.push_back(&M_init_thick);
     M_external_data_tmp.push_back(&M_init_snow_thick);
     this->checkReloadDatasets(M_external_data_tmp,time_init,
-            "init - TOPAZ ice forecast + AMSR2");
+            "init - TOPAZ ice forecast");
     M_external_data_tmp.resize(0);
 
     double tmp_var;
@@ -6913,7 +6935,7 @@ FiniteElement::topazForecastAmsr2Ice()
         if(M_thick[i]<0.1*M_conc[i])
             M_thick[i]=0.1*M_conc[i];
 
-		M_damage[i]=0.;
+		M_damage[i]=1.-M_conc[i];
 	}
 }
 void
@@ -6921,11 +6943,11 @@ FiniteElement::topazForecastAmsr2OsisafIce()
 {
     double real_thickness, init_conc_tmp;
 
-    external_data M_osisaf_conc=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,0,false,time_init);
+    external_data M_osisaf_conc=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,0,false,time_init-0.5);
     
-    external_data M_osisaf_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init);
+    external_data M_osisaf_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init-0.5);
 
-    external_data M_amsr2_conc=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
+    external_data M_amsr2_conc=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init-0.5);
 
     external_data M_topaz_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
 
@@ -6937,11 +6959,15 @@ FiniteElement::topazForecastAmsr2OsisafIce()
     M_external_data_tmp.push_back(&M_osisaf_conc);
     M_external_data_tmp.push_back(&M_osisaf_type);
     M_external_data_tmp.push_back(&M_amsr2_conc);
+    this->checkReloadDatasets(M_external_data_tmp,time_init-0.5,
+            "init - OSISAF - AMSR2");
+    
+    M_external_data_tmp.resize(0);
     M_external_data_tmp.push_back(&M_topaz_conc);
     M_external_data_tmp.push_back(&M_topaz_thick);
     M_external_data_tmp.push_back(&M_topaz_snow_thick);
     this->checkReloadDatasets(M_external_data_tmp,time_init,
-            "init - TOPAZ ice forecast + AMSR2 + OSISAF");
+            "init - TOPAZ ice forecast");
     M_external_data_tmp.resize(0);
 
     double tmp_var;
@@ -7042,7 +7068,8 @@ FiniteElement::topazForecastAmsr2OsisafIce()
             M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
         }
 
-		M_damage[i]=0.;
+		M_damage[i]=1.-M_conc[i];
+		//M_damage[i]=0.;
 	}
 }
 void
