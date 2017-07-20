@@ -26,6 +26,10 @@ else
 fi
 
 
+if [ -z "$NEXTSIM_DATADIR" ]; then 
+	echo "Not able to define NEXTSIM_DATADIR, some data may not be linked"; 
+else
+	echo "We link the data from $NEXTSIM_DATADIR"; 
 # link the data
 ln -s $NEXTSIM_DATADIR/BATHYMETRY/*.nc .
 ln -s $NEXTSIM_DATADIR/TOPAZ4/198910_201512/*.nc .
@@ -37,7 +41,14 @@ ln -s $NEXTSIM_DATADIR/AMSR2_ice_conc/*.nc .
 ln -s $NEXTSIM_DATADIR/SIT_data/icesat_filled_10prods/*.nc .
 ln -s $NEXTSIM_DATADIR/currents_from_altimeter/*.nc .
 ln -s $NEXTSIM_DATADIR/RGPS_ice_drift/trajectories/*.txt .
-ln -s /Data/sim/data/WW3arctic_RT/*.nc .
+ln -s $NEXTSIM_DATADIR/WW3arctic_RT/*.nc .
+ln -s $NEXTSIM_DATADIR/ECMWF_forecast_arctic/*.nc .
+
+# For the OSISAF drifters
+ln -s $NEXTSIM_DATADIR/OSISAF_ice_drift/2017/07/ice_drift_nh_polstere-625_multi-oi_201707101200-201707121200.nc ice_drift_nh_polstere-625_multi-oi.nc
+
+# For the Moorings
+ln -s $NEXTSIM_DATADIR/AMSR2_ice_conc/Arc_20170710_res3.125_pyres.nc Arc_res3.125_pyres.nc
 
 for year in {2002..2011}
 	do
@@ -62,3 +73,4 @@ for year in {2005..2017}
         	fi
 
 	done
+fi
