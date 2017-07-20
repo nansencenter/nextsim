@@ -317,7 +317,7 @@ for p=0:0
   if plot_dirn
      NI  = length(mask_ice);
      JP  = 1:100:NI;
-     quiver(x(:,mask_ice(JP))/1000,y(:,mask_ice(JP))/1000,v{1}(:,mask_ice(JP)),v{1}(:,mask_ice(JP)),.5)
+     quiver(x(:,mask_ice(JP))/1000,y(:,mask_ice(JP))/1000,v{1}(:,mask_ice(JP)),v{2}(:,mask_ice(JP)),.5)
   end
 
   %----------------------------------------------------------------------------------------------------------------------
