@@ -2899,12 +2899,12 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
-            dataset_frequency:"daily",
+            dataset_frequency:"nearest_daily",
             target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
-            masking: false,
+            masking: true,
             masking_variable: mask
         };
 
@@ -3034,6 +3034,124 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         coupled = false;
 #endif
      }
+    else if (strcmp (DatasetName, "dist2coast_elements") == 0)
+    {
+        // Definition of dist2coast grid and datasets
+        Dimension dimension_x={
+            name:"lon",
+            cyclic:true
+        };
+
+        Dimension dimension_y={
+            name:"lat",
+            cyclic:false
+        };
+
+        std::vector<Dimension> dimensions_lon(1);
+        dimensions_lon[0] = dimension_x;
+
+        std::vector<Dimension> dimensions_lat(1);
+        dimensions_lat[0] = dimension_y;
+
+        std::vector<Dimension> dimensions(2);
+        dimensions[0] = dimension_y;
+        dimensions[1] = dimension_x;
+
+        Variable latitude={
+            name: "lat",
+            dimensions: dimensions_lat,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a: 1.,
+            b: 0.,
+            Units: "degree_north",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable longitude={
+            name: "lon",
+            dimensions: dimensions_lon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a: 1.,
+            b: 0.,
+            Units: "degree_east",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Grid grid_tmp={
+            interpolation_method: InterpolationType::FromGridToMesh,
+            //interp_type : TriangleInterpEnum, // slower
+            interp_type : BilinearInterpEnum,
+            //interp_type : NearestInterpEnum,
+            dirname:"data",
+            prefix:"dist2coast_4deg.nc",
+            //prefix:"dist2coast_1deg.nc",
+            postfix:"",
+            reference_date: "",
+
+            latitude: latitude,
+            longitude: longitude,
+
+            dimension_x: dimension_x,
+            dimension_y: dimension_y,
+
+            mpp_file: "",
+            interpolation_in_latlon: true,
+            branch_cut_lon: -179.98, // for the 4 deg dataset  // where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            //branch_cut_lon: -180,// for the 1 deg dataset // where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+
+            loaded: false,
+            dataset_frequency:"constant",
+            target_location:"mesh_elements",
+
+            waveOptions: wavopt_none,
+
+             masking: false
+        };
+
+        Variable dist={
+            name:"dist",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a:1000.,
+            b:0.,
+            Units:"m",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        std::vector<Variable> variables_tmp(1);
+        variables_tmp[0] = dist;
+
+        std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+        variables= variables_tmp;
+        vectorial_variables= vectorial_variables_tmp;
+        target_size=target_size_tmp;
+
+        grid= grid_tmp;
+
+        loaded=false;
+        interpolated=false;
+
+        averaging_period=0.;
+#ifdef OASIS
+        coupled = false;
+#endif
+    }
     else if (strcmp (DatasetName, "etopo_elements") == 0)
     {
         // Definition of etopo grid and datasets
@@ -4580,7 +4698,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             branch_cut_lon: -179.875,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
-            dataset_frequency:"daily",
+            dataset_frequency:"daily_ec2_forecast",
             target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
@@ -4658,6 +4776,36 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             wavDirOptions: wavdiropt_none
         }; //PSFC, a=1.
 
+        Variable Qsw_in={
+            name:"SSRD",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a:1./(6.*3600),
+            b:0.,
+            Units:"W/m^2",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable Qlw_in={
+            name:"STRD",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a:1./(6.*3600),
+            b:0.,
+            Units:"W/m^2",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+        
         Variable tcc={
             name:"TCC",
             dimensions: dimensions,
@@ -4672,12 +4820,30 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
         };
+        
+        Variable precip={
+            name:"TP",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a:physical::rhow/(6.*3600),
+            b:0.,
+            Units:"kg/m^2/s",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
 
-        std::vector<Variable> variables_tmp(4);
+        std::vector<Variable> variables_tmp(7);
         variables_tmp[0] = tair;
         variables_tmp[1] = dair;
         variables_tmp[2] = mslp;
-        variables_tmp[3] = tcc;
+        variables_tmp[3] = Qsw_in;
+        variables_tmp[4] = Qlw_in;
+        variables_tmp[5] = tcc;
+        variables_tmp[6] = precip;
 
         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
@@ -4770,7 +4936,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
 
-            dataset_frequency:"daily",
+            dataset_frequency:"daily_ec2_forecast",
             target_location:"mesh_nodes",
 
             waveOptions: wavopt_none,
@@ -5362,6 +5528,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         fprintf (stderr, "ice_osisaf_type_elements\n");
         fprintf (stderr, "ice_amsr2_elements\n");
         fprintf (stderr, "ice_piomas_elements\n");
+        fprintf (stderr, "dist2coast_elements\n");
         fprintf (stderr, "etopo_elements\n");
         fprintf (stderr, "ERAi_nodes\n");
         fprintf (stderr, "ERAi_elements\n");
@@ -5396,7 +5563,7 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time)
             current_timestr = to_date_string_ym(current_time);//yyyymm
         else if(grid_ptr->dataset_frequency=="yearly")
             current_timestr = to_date_string_y(std::floor(current_time));//yyyy
-        else if(grid_ptr->dataset_frequency=="daily" || grid_ptr->dataset_frequency=="nearest_daily" || grid_ptr->dataset_frequency=="daily_forecast")
+        else if(grid_ptr->dataset_frequency=="daily" || grid_ptr->dataset_frequency=="nearest_daily" || grid_ptr->dataset_frequency=="daily_forecast"  || grid_ptr->dataset_frequency=="daily_ec2_forecast")
             current_timestr = to_date_string_yd(current_time);//yyyymmdd
         else if(grid_ptr->dataset_frequency=="constant")
             current_timestr = "";
@@ -5411,7 +5578,7 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time)
 
     if(grid_ptr->dataset_frequency=="daily_forecast")
     { 
-        std::string init_timestr= to_date_string_yd(init_time-1.);//yyyymmdd
+        std::string init_timestr= to_date_string_yd(init_time);//yyyymmdd
         filename = (boost::format( "%1%/%2%/%3%%4%%5%%6%" )
                             % Environment::simdataDir().string()
                             % grid_ptr->dirname
@@ -5419,6 +5586,18 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time)
                             % grid_ptr->prefix
                             % init_timestr
                             % grid_ptr->postfix
+                       ).str();
+    }
+    else
+    if(grid_ptr->dataset_frequency=="daily_ec2_forecast")
+    {
+        std::string init_timestr= to_date_string_yd(init_time);//yyyymmdd
+        filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
+                       % Environment::simdataDir().string()
+                       % grid_ptr->dirname
+                       % grid_ptr->prefix
+                       % init_timestr
+                       % grid_ptr->postfix
                        ).str();
     }
     else
@@ -5454,7 +5633,8 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
     double scale_factor;
     double add_offset;
 
-    std::string filename = getFilename(grid_ptr, init_time, current_time); 
+    //std::string filename = getFilename(grid_ptr, init_time, current_time); 
+    std::string filename = getFilename(grid_ptr, init_time, init_time); 
 
     std::cout<<"GRID : FILENAME = "<< filename <<"\n";
 
@@ -5705,7 +5885,8 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
             netCDF::NcDim tmpDim;
 
             // Open the datafile
-            std::string filename = getFilename(grid_ptr, init_time, current_time); 
+            //std::string filename = getFilename(grid_ptr, init_time, current_time); 
+            std::string filename = getFilename(grid_ptr, init_time, init_time); 
 
             std::cout<<"GRID for masking: FILENAME = "<< filename <<"\n";
 
