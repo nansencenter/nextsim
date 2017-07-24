@@ -22,6 +22,7 @@
 #include <boost/any.hpp>
 #include <boost/format.hpp>
 #include <boost/mpi/timer.hpp>
+#include <boost/unordered_map.hpp>
 #include <InterpFromGridToMeshx.h>
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromMeshToGridx.h>
@@ -70,6 +71,8 @@ template<typename T=float> class WimDiscr
         value_type_vec elements_x;  // x-coords of elements
         value_type_vec elements_y;  // y-coords of elements
     } MeshInfo;
+
+    typedef boost::unordered_map<std::string,value_type_vec>  unord_map_vecs;
     // ==========================================================================================
 
 public:
@@ -191,6 +194,14 @@ public:
     void meshToGrid(
         value_type_vec_ptrs &output_data,       //output data
         value_type_vec_ptrs const &input_data); //input data
+    void meshToPoints(
+        value_type_vec_ptrs &output_data,       //output data
+        value_type_vec_ptrs const &input_data,  //input data
+        value_type_vec &Rx,                     //location of output data (x-coord)
+        value_type_vec &Ry);                    //location of output data (y-coord)
+    void returnFields(unord_map_vecs &output_nodes,unord_map_vecs &output_els);
+    void returnWaveStress(value_type_vec &M_tau);
+
     // ========================================================================
 
     WimGrid wimGrid(std::string const& units="m");

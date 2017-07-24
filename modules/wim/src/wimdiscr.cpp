@@ -2026,14 +2026,27 @@ void WimDiscr<T>::setMesh(mesh_type const &mesh_in,value_type_vec const &um_in)
     M_time_mesh_set     = this->getModelTime();//used in check when ice fields are set on mesh
     nextsim_mesh_old    = nextsim_mesh;
 
-    //update nextsim_mesh
-    auto movedmesh = mesh_in;
-    movedmesh.move(um_in,1);
-    this->resetMesh(movedmesh);//don't change M_UM yet
+    //update nextsim_mesh with moved mesh
+    this->resetMesh(mesh_in,um_in);
 
     // ================================================================================
     if(M_wim_on_mesh)
     {
+        // ================================================================================
+        // this interface should be called after regridding (if M_wim_on_mesh)
+        //
+        // regridding procedure INSIDE NEXTSIM:
+        // *BEFORE REGRID:
+        // 1) um0 = wim.RelativeMeshDisplacement(M_mesh_old,M_UM_old);
+        //    - relative displacement between moved mesh just before displacement
+        //      & mesh at last call to WIM
+        // 2) interp um0 -> new mesh (after regrid)
+        //    - this gives um1
+        // 3) wim.resetMesh(M_mesh,um1)
+        // 4) interp sdf_dir,taux,tauy -> new mesh
+        // 5) integrate sdf_dir? (puts Hs etc on new mesh)
+        // ================================================================================
+
         // get relative displacement of nodes since last call
         // - M_UM may already be nonzero if regridding has happened
         // - it is reset to zero at end of wim.run() and at initialisation
@@ -2052,37 +2065,20 @@ void WimDiscr<T>::setMesh(mesh_type const &mesh_in,value_type_vec const &um_in)
 
 }//setMesh
 
+
 template<typename T>
 void WimDiscr<T>::resetMesh(mesh_type const &mesh,value_type_vec const &um_in)
 {
-    // ================================================================================
-    // this interface should be called after regridding (if M_wim_on_mesh = true)
-    //
-    // regridding procedure INSIDE NEXTSIM:
-    // *BEFORE REGRID:
-    // 1) um0 = wim.RelativeMeshDisplacement(M_mesh_old,M_UM_old);
-    //    - relative displacement between moved mesh just before displacement
-    //      & mesh at last call to WIM
-    // 2) interp um0 -> new mesh (after regrid)
-    //    - this gives um1
-    // 3) wim.resetMesh(M_mesh,um1)
-    // 4) interp sdf_dir,taux,tauy -> new mesh
-    // 5) integrate sdf_dir? (puts Hs etc on new mesh)
-    // ================================================================================
-
-    // Store displacement of mesh till next time
-    // wim.setMesh() is called
-    // (before wim.run() is called)
-    M_UM = um_in;
-
-    //update nextsim_mesh
-    this->resetMesh(mesh);
-}
+    //move the mesh then set nextsim_mesh
+    auto movedmesh = mesh;
+    movedmesh.move(um_in,1.);
+    this->resetMesh(movedmesh);
+}//resetMesh()
 
 template<typename T>
 void WimDiscr<T>::resetMesh(mesh_type const &mesh)
 {
-
+    //sets the variable "nextsim_mesh"
     nextsim_mesh.initialised    = true;
     nextsim_mesh.num_nodes      = mesh.numNodes();
     nextsim_mesh.num_elements   = mesh.numTriangles();
@@ -2300,9 +2296,12 @@ void WimDiscr<T>::gridToPoints(
     
 
     //output
-    for (int i=0;i<target_size;i++)
-        for (int p=0;p<nb_var;p++)
+    for (int p=0;p<nb_var;p++)
+    {
+        output_data[p]->resize(target_size,0.);
+        for (int i=0;i<target_size;i++)
             (*(output_data[p]))[i]  = interp_out[nb_var*i+p];
+    }
 
     xDelete<value_type>(interp_out);
 
@@ -2374,13 +2373,221 @@ void WimDiscr<T>::meshToGrid(
     
 
     //output
-    for (int i=0;i<target_size;i++)
-        for (int p=0;p<nb_var;p++)
+    for (int p=0;p<nb_var;p++)
+    {
+        output_data[p]->resize(target_size);
+        for (int i=0;i<target_size;i++)
             (*(output_data[p]))[i]  = interp_out[nb_var*i+p];
+    }
 
     xDelete<value_type>(interp_out);
 
 }//meshToGrid
+
+template<typename T>
+void WimDiscr<T>::meshToPoints(
+        value_type_vec_ptrs &output_data,       //output data
+        value_type_vec_ptrs const &input_data,  //input data
+        value_type_vec &Rx,                     //location of output data (x-coord)
+        value_type_vec &Ry)                     //location of output data (y-coord)
+{
+    int nb_var      = input_data.size();
+    int Ninterp     = (*(input_data[0])).size();//get pointer, then get size
+
+    value_type_vec interp_in(Ninterp*nb_var);   //input to interp routine
+    for (int i=0;i<Ninterp;i++)
+        for (int p=0;p<nb_var;p++)
+            interp_in[nb_var*i+p]   = (*(input_data[p]))[i];
+
+    value_type* interp_out;
+    int target_size = Rx.size();
+
+
+    value_type_vec xdata = nextsim_mesh.nodes_x;
+    value_type_vec ydata = nextsim_mesh.nodes_y;
+    if(Ninterp==nextsim_mesh.num_nodes)
+    {
+        xdata = nextsim_mesh.elements_x;
+        ydata = nextsim_mesh.elements_y;
+    }
+
+    std::cout<<"meshToPoints: InterpFromMeshToMesh2dx\n";
+    InterpFromMeshToMesh2dx(&interp_out,             // output data
+                          &(nextsim_mesh.index)[0],  // index 
+                          &xdata[0],                 // input location (x-coord)
+                          &ydata[0],                 // input location (y-coord)
+                          nextsim_mesh.num_nodes,    // num nodes
+                          nextsim_mesh.num_elements, // num elements
+                          &interp_in[0],             // input data
+                          Ninterp,                   // num input locations
+                          nb_var,                    // num input variables
+                          &Rx[0],                    // output location (x-coord)
+                          &Ry[0],                    // output location (y-coord)
+                          target_size,               // num output locations
+                          false);                    // use default value if outside mesh (use nearest)
+    
+
+    //output
+    for (int p=0;p<nb_var;p++)
+    {
+        output_data[p]->resize(target_size);
+        for (int i=0;i<target_size;i++)
+            (*(output_data[p]))[i]  = interp_out[nb_var*i+p];
+    }
+
+    xDelete<value_type>(interp_out);
+
+}//meshToPoints
+
+
+template<typename T>
+void WimDiscr<T>::returnFields(unord_map_vecs &output_nodes,unord_map_vecs &output_els)
+{
+    //return fields - usually to export diagnostic fields on nextsim mesh
+
+    int nb_var_nod  = output_nodes.bucket_count();
+    int nb_var_els  = output_els.bucket_count();
+
+    int Nnod = nextsim_mesh.num_nodes;
+    int Nel  = nextsim_mesh.num_elements;
+
+    // ==========================================================================================
+    //nodes - vectors
+
+    //input to and output from interpolation routines
+    value_type_vec_ptrs input_nodes, out_nodes;
+
+    //need to make some dummy variables since vector components handled individually
+    value_type_vec tx_out,ty_out,sdfx_out,sdfy_out;
+    for (typename unord_map_vecs::iterator it = output_nodes.begin(); it != output_nodes.end(); it++)
+    {
+        //resize output
+        (it->second).resize(2*Nnod,0.);//"second" is a vector
+
+        //get inputs
+        if(it->first=="tau_waves")
+        {
+            input_nodes.push_back(&tau_x);
+            input_nodes.push_back(&tau_y);
+            out_nodes.push_back(&tx_out);
+            out_nodes.push_back(&ty_out);
+        }
+        else if(it->first=="stokes_drift")
+        {
+            input_nodes.push_back(&stokes_drift_x);
+            input_nodes.push_back(&stokes_drift_y);
+            out_nodes.push_back(&sdfx_out);
+            out_nodes.push_back(&sdfy_out);
+        }
+        else
+            throw runtime_error("returnFields (nodes): unknown variable name - "+it->first+"\n");
+    }
+    // ==========================================================================================
+
+    // ==========================================================================================
+    //elements - scalars
+
+    //input to and output from interpolation routines
+    value_type_vec_ptrs input_els, out_els;
+    for (typename unord_map_vecs::iterator it = output_els.begin(); it != output_els.end(); it++)
+    {
+        //resize output
+        (it->second).resize(Nel,0.);//"second" is a pointer to a vector
+
+        //get inputs
+        if(it->first=="Hs")
+        {
+            if (M_wim_on_mesh)
+                it->second = Hs;
+            else
+            {
+                input_els.push_back(&Hs);
+                out_els.push_back(&(it->second));
+            }
+        }
+        else if(it->first=="Tp")
+        {
+            if (M_wim_on_mesh)
+                it->second = Tp;
+            else
+            {
+                input_els.push_back(&Tp);
+                out_els.push_back(&(it->second));
+            }
+        }
+        else if(it->first=="mwd")
+        {
+            if (M_wim_on_mesh)
+                it->second = mwd;
+            else
+            {
+                input_els.push_back(&mwd);
+                out_els.push_back(&(it->second));
+            }
+        }
+        else
+            throw runtime_error("returnFields (elements): unknown variable name - "+it->first+"\n");
+    }
+    // ==========================================================================================
+
+    //interp to elements if necessary
+    if ((!M_wim_on_mesh) && (nb_var_els>0))
+        this->gridToPoints(out_els,input_els,nextsim_mesh.elements_x,nextsim_mesh.elements_y);//out_els already points to output_els
+
+    //interp to nodes if necessary
+    if(nb_var_nod>0)
+    {
+        if(M_wim_on_mesh)
+            this->meshToPoints(out_nodes,input_nodes,nextsim_mesh.nodes_x,nextsim_mesh.nodes_y);
+        else
+            this->gridToPoints(out_nodes,input_nodes,nextsim_mesh.nodes_x,nextsim_mesh.nodes_y);
+
+        for (typename unord_map_vecs::iterator it = output_nodes.begin(); it != output_nodes.end(); it++)
+            if(it->first=="tau_waves")
+                for (int i=0;i<Nnod;i++)
+                {
+                    (it->second)[i]         = tx_out[i];
+                    (it->second)[i+Nnod]    = ty_out[i];
+                }
+            else if(it->first=="stokes_drift")
+                for (int i=0;i<Nnod;i++)
+                {
+                    (it->second)[i]         = sdfx_out[i];
+                    (it->second)[i+Nnod]    = sdfy_out[i];
+                }
+    }//interp to nodes
+
+}//returnFields
+
+
+template<typename T>
+void WimDiscr<T>::returnWaveStress(value_type_vec &M_tau)
+{
+    //return wave stress on nodes of nextsim mesh
+
+    int Nnod = nextsim_mesh.num_nodes;
+    int Nel  = nextsim_mesh.num_elements;
+
+    //nodes - vectors
+    value_type_vec tx_out,ty_out;
+    value_type_vec_ptrs input_nodes = {&tau_x,&tau_y};
+    value_type_vec_ptrs out_nodes   = {&tx_out,&ty_out};
+
+    //interp to nodes
+    if(M_wim_on_mesh)
+        this->meshToPoints(out_nodes,input_nodes,nextsim_mesh.nodes_x,nextsim_mesh.nodes_y);
+    else
+        this->gridToPoints(out_nodes,input_nodes,nextsim_mesh.nodes_x,nextsim_mesh.nodes_y);
+
+    M_tau.resize(2*Nnod,0.);
+    for (int i=0;i<Nnod;i++)
+    {
+        M_tau[i]        = tx_out[i];
+        M_tau[i+Nnod]   = ty_out[i];
+    }
+
+}//returnWaveStress
+
 
 template<typename T>
 void WimDiscr<T>::doBreaking(BreakInfo const& breakinfo)
