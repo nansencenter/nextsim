@@ -2439,6 +2439,13 @@ void WimDiscr<T>::meshToPoints(
 
 }//meshToPoints
 
+template<typename T>
+void WimDiscr<T>::returnFields(unord_map_vecs &output_nodes,unord_map_vecs &output_els,
+        mesh_type &mesh_in,value_type_vec &um_in)
+{
+    this->resetMesh(mesh_in,um_in);//set nextsim_mesh before doing interpolations
+    this->returnFields(output_nodes,output_els);
+}
 
 template<typename T>
 void WimDiscr<T>::returnFields(unord_map_vecs &output_nodes,unord_map_vecs &output_els)
@@ -2559,6 +2566,13 @@ void WimDiscr<T>::returnFields(unord_map_vecs &output_nodes,unord_map_vecs &outp
 
 }//returnFields
 
+
+template<typename T>
+void WimDiscr<T>::returnWaveStress(value_type_vec &M_tau,mesh_type &mesh_in,value_type_vec &um_in)
+{
+    this->resetMesh(mesh_in,um_in);//set nextsim_mesh before doing interpolations
+    this->returnWaveStress(M_tau);
+}
 
 template<typename T>
 void WimDiscr<T>::returnWaveStress(value_type_vec &M_tau)

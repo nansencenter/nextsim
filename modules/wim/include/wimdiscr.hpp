@@ -200,7 +200,10 @@ public:
         value_type_vec &Rx,                     //location of output data (x-coord)
         value_type_vec &Ry);                    //location of output data (y-coord)
     void returnFields(unord_map_vecs &output_nodes,unord_map_vecs &output_els);
+    void returnFields(unord_map_vecs &output_nodes,unord_map_vecs &output_els,
+        mesh_type &mesh_in,value_type_vec &um_in);
     void returnWaveStress(value_type_vec &M_tau);
+    void returnWaveStress(value_type_vec &M_tau, mesh_type &mesh_in,value_type_vec &um_in);
 
     // ========================================================================
 
