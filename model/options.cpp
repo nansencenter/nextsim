@@ -84,6 +84,7 @@ namespace Nextsim
             // not used: ("simul.init_snow_thin_thickness", po::value<double>()->default_value( 0. ), "")
 
             // outputs
+            ("setup.use_assimilation", po::value<bool>()->default_value( false ), "")
             ("setup.use_restart", po::value<bool>()->default_value( false ), "")
             ("setup.write_restart", po::value<bool>()->default_value( false ), "")
             ("setup.restart_at_rest", po::value<bool>()->default_value( false ), "")

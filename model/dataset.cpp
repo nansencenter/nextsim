@@ -2926,6 +2926,155 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 #ifdef OASIS
         coupled = false;
 #endif
+    }
+    else if (strcmp (DatasetName, "ice_nic_elements") == 0)
+    {
+        // Definition of topaz grid and datasets
+        Dimension dimension_x={
+            name:"x",
+            cyclic:false
+        };
+
+        Dimension dimension_y={
+            name:"y",
+            cyclic:false
+        };
+
+        Dimension dimension_time={
+            name:"time", // "Time"
+            cyclic:false
+        };
+
+        std::vector<Dimension> dimensions(3);
+        dimensions[0] = dimension_time;
+        dimensions[1] = dimension_y;
+        dimensions[2] = dimension_x;
+
+        std::vector<Dimension> dimensions_latlon(2);
+        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[1] = dimension_x;
+
+        std::vector<Dimension> dimensions_time(1);
+        dimensions_time[0] = dimension_time;
+
+        Variable latitude={
+            name: "latitude",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a: 1.,
+            b: 0.,
+            Units: "degree_north",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none};
+
+        Variable longitude={
+            name: "longitude",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a: 1.,
+            b: 0.,
+            Units: "degree_east",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none};
+
+        Variable time_tmp={
+            name: "time",
+            dimensions: dimensions_time,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a: 24.,
+            b: 12., // to center the time on the middle of the day
+            Units: "hours",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none};
+
+        Variable conc={
+            name: "sea_ice_concentration",
+            dimensions: dimensions,
+            land_mask_defined: true,
+            land_mask_value: 125.,
+            NaN_mask_defined: true,
+            NaN_mask_value: 115.,
+            a: 0.01,
+            b: 0.,
+            Units: "",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable mask={
+            name: "land",
+            dimensions: dimensions_latlon,
+            land_mask_defined: true,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            a: 1.,
+            b: 0.,
+            Units: "",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Grid grid_tmp={
+            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interp_type: -1,
+            dirname: "data",
+            prefix: "NIC_",
+            postfix: "_res3.125_pyres.nc",
+            reference_date: "0001-01-01",
+
+            latitude: latitude,
+            longitude: longitude,
+
+            dimension_x: dimension_x,
+            dimension_y: dimension_y,
+
+            mpp_file: projfilename,
+            interpolation_in_latlon: false,
+            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+
+            loaded: false,
+            dataset_frequency:"nearest_daily",
+            target_location:"mesh_elements",
+
+            waveOptions: wavopt_none,
+
+            masking: true,
+            masking_variable: conc
+        };
+
+        std::vector<Variable> variables_tmp(1);
+        variables_tmp[0] = conc;
+
+        std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+        
+        variables= variables_tmp;
+        vectorial_variables= vectorial_variables_tmp;
+        target_size= target_size_tmp;
+        grid= grid_tmp;
+
+        loaded=false;
+        interpolated=false;
+
+         averaging_period=1.; // days
+         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
      }
      else if (strcmp (DatasetName, "ice_icesat_elements") == 0)
      {
