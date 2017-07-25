@@ -8350,6 +8350,8 @@ FiniteElement::wimPreRegrid()
         //nothing to do
         return;
 
+    bool pre_regrid = true;
+
     chrono.restart();
     LOG(DEBUG) <<"Interp mesh to grid starts\n";
 
@@ -8367,7 +8369,11 @@ FiniteElement::wimPreRegrid()
             ctot[i] += M_conc_thin[i];
             vtot[i] += M_h_thin[i];
         }
-    wim.setIceFields(ctot,vtot,M_nfloes,true);
+
+    //interp here
+    wim.setIceFields(ctot,vtot,M_nfloes,pre_regrid);
+    ctot.resize(0);
+    vtot.resize(0);
     // ============================================================
 
     // set inputs to WIM:
@@ -8557,6 +8563,7 @@ FiniteElement::wimPostRegrid()
 {
 
     std::cout<<"w2ns: M_run_wim = "<<M_run_wim<<"\n";
+    bool pre_regrid = false;
 
     bool break_on_mesh =
         ( vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh");
@@ -8568,11 +8575,22 @@ FiniteElement::wimPostRegrid()
     if (M_run_wim)
     {
         // run wim
-        if ( break_on_mesh )
+        auto ctot   = M_conc; //total ice conc
+        auto vtot   = M_thick;//total ice vol
+        if ( break_on_mesh || M_wim_on_mesh )
         {
             //give moved mesh to WIM
             wim.setMesh(M_mesh,M_UM);
-            wim.setIceFields(M_conc,M_thick,M_nfloes,false);
+
+            //set ice fields on mesh
+            if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+                for (int i=0;i<ctot.size();i++)
+                {
+                    //add thin ice
+                    ctot[i] += M_conc_thin[i];
+                    vtot[i] += M_h_thin[i];
+                }
+            wim.setIceFields(ctot,vtot,M_nfloes,pre_regrid);
         }
 
         bool TEST_INTERP_MESH = false;
@@ -8597,6 +8615,31 @@ FiniteElement::wimPostRegrid()
 
         std::cout<<"before wim.run()\n";
         wim.run();
+
+        //FSD info
+        std::vector<double> broken;
+        if (break_on_mesh||M_wim_on_mesh)
+            wim.getFsdMesh(M_nfloes,M_dfloe,broken);
+        else
+            wim.getFsdMesh(M_nfloes,M_dfloe,broken,ctot,M_mesh,M_UM);
+
+        if ( vm["nextwim.wim_damage_mesh"].template as<bool>() )
+        {
+            //wim.clearMeshFields();
+
+            for (int i=1;i<M_num_elements;i++)
+            {
+                if (broken[i])
+                    M_damage[i] = std::max(M_damage[i],
+                       (vm["nextwim.wim_damage_value"].template as<double>()));
+                //std::cout<<"broken?,damage"<<M_broken[i]<<","<<M_damage[i]<<"\n";
+            }
+        }//break on mesh
+
+        //reset counter
+        steps_since_last_wim_call   = 0;
+
+#if 0
         M_taux_grid = wim.getTaux();
         M_tauy_grid = wim.getTauy();
         if (M_export_stokes_drift_mesh)
@@ -8604,30 +8647,9 @@ FiniteElement::wimPostRegrid()
             M_stokes_drift_x_grid   = wim.getStokesDriftx();
             M_stokes_drift_y_grid   = wim.getStokesDrifty();
         }
+#endif
 
-        if ( !break_on_mesh )
-            M_nfloes_grid = wim.getNfloes();
-        else
-        {
-            M_nfloes        = wim.getNfloesMesh();
-            auto M_broken   = wim.getBrokenMesh();//TODO check this - maybe change damage later
-            wim.clearMeshFields();
-
-            if (vm["nextwim.wim_damage_mesh"].template as<bool>())
-            {
-                for (int i=1;i<M_num_elements;i++)
-                {
-                    if (M_broken[i])
-                        M_damage[i] = std::max(M_damage[i],
-                           (vm["nextwim.wim_damage_value"].template as<double>()));
-                    //std::cout<<"broken?,damage"<<M_broken[i]<<","<<M_damage[i]<<"\n";
-                }
-            }
-        }//break on mesh
-
-        //reset counter
-        steps_since_last_wim_call   = 0;
-    }//run WIM & get outputs on grid
+    }//run WIM
 
     //if (!M_regrid)
     //    M_mesh.move(M_UM,1.);
@@ -8636,7 +8658,10 @@ FiniteElement::wimPostRegrid()
     // can turn off effect of wave stress for testing
     // - if this is not done, we currently interp tau_x,tau_y each time step
     // TODO rethink this? (let them be advected? - this could lead to instability perhaps)
+    if (interp_taux)
+        wim.returnWaveStress(M_tau,M_mesh,M_UM);
 
+#if 0
     // Set type of interpolation for grid-to-mesh
     // int interptype = TriangleInterpEnum;
     int interptype = BilinearInterpEnum;
@@ -8783,7 +8808,9 @@ FiniteElement::wimPostRegrid()
                 *std::max_element(M_stokes_drift.begin()+M_num_nodes,M_stokes_drift.end()) <<"\n";
         }
     }//interp taux,tauy &/or Stokes drift
+#endif
 
+#if 0
     if (M_run_wim)
     {
         //interp Nfloes
@@ -8828,26 +8855,10 @@ FiniteElement::wimPostRegrid()
                 *std::max_element(M_nfloes.begin(),M_nfloes.end()) <<"\n";
         }
     }
-
-    if (!M_regrid)//move the mesh back
-        M_mesh.move(M_UM,-1.);
-
-#if 0
-    // set dfloe each time step (can be changed due to advection of nfloes by nextsim)
-    M_dfloe.assign(M_num_elements,0.);
-
-    for (int i=0; i<M_num_elements; ++i)
-    {
-        if (M_nfloes[i] > 0)
-            M_dfloe[i] = std::sqrt(M_conc[i]/M_nfloes[i]);
-
-        if (M_dfloe[i] > vm["wim.dfloepackthresh"].template as<double>())
-            M_dfloe[i] = vm["wim.dfloepackinit"].template as<double>();
-
-        if (M_conc[i] < vm["wim.cicemin"].template as<double>())
-            M_dfloe[i] = 0.;
-    }
 #endif
+
+    //if (!M_regrid)//move the mesh back
+    //    M_mesh.move(M_UM,-1.);
 
     if((vm["simul.export_after_wim_call"].as<bool>()))
     {

@@ -72,6 +72,32 @@ template<typename T=float> class WimDiscr
         value_type_vec elements_y;  // y-coords of elements
     } MeshInfo;
 
+    std::vector<int> iv_tmp = {};
+    value_type_vec   vtv_tmp = {};
+    MeshInfo mesh_info_tmp = {
+            initialised : false,
+            num_nodes   : 0,
+            num_elements: 0,
+            index       : iv_tmp,
+            nodes_x     : vtv_tmp,
+            nodes_y     : vtv_tmp,
+            elements_x  : vtv_tmp,
+            elements_y  : vtv_tmp
+    };
+
+    typedef struct IceInfo
+    {
+        // information describing ice fields
+        // - ie that needed for interpMeshToGrid, interpMeshToMesh
+        value_type_vec conc;        // total ice conc
+        value_type_vec vol;         // total ice volume (conc*thickness)
+        value_type_vec thick;       // ice thickness
+        value_type_vec nfloes;      // N_floes = conc/Dfloe^2
+        value_type_vec dfloe;       // max floe size
+        value_type_vec mask;        // 1 if ice present, else 0
+        value_type_vec broken;      // 1 if broken during this call to the wim
+    } IceInfo;
+
     typedef boost::unordered_map<std::string,value_type_vec>  unord_map_vecs;
     // ==========================================================================================
 
@@ -127,7 +153,8 @@ public:
 
     void saveGrid();
     void readGridFromFile();
-    void readFromBinary(std::fstream &in, value_type_vec& in_array, int off = 0, std::ios_base::seekdir direction = std::ios::beg, int addx = 0, int addy = 0);
+    void readFromBinary(std::fstream &in, value_type_vec& in_array, int off = 0, std::ios_base::seekdir direction = std::ios::beg,
+            int addx = 0, int addy = 0);
     void readDataFromFile(std::string const& filein);
     void exportResults(std::string const& output_type, value_type const& t_out) const;
     void testInterp(std::string const& output_type,
@@ -165,8 +192,11 @@ public:
                  std::vector<value_type> const& m_dfloe,
                  std::vector<value_type> const& m_conc);
 
-    std::vector<bool> getBrokenMesh() const {return mesh_broken;}
-    std::vector<value_type> getNfloesMesh();
+    //std::vector<bool> getBrokenMesh() const {return mesh_broken;}
+    void getFsdMesh(value_type_vec &nfloes_out,value_type_vec &dfloe_out,value_type_vec &broken);
+    void getFsdMesh(value_type_vec &nfloes_out,value_type_vec &dfloe_out, value_type_vec &broken,
+            value_type_vec const & conc_tot, mesh_type const &mesh_in,value_type_vec const &um_in);
+
     value_type getModelTime(int lcpt=0) const {return M_update_time+lcpt*M_timestep;}
 
     // ========================================================================
@@ -180,11 +210,7 @@ public:
                        std::vector<value_type> const& m_vol, // ice vol or effective thickness (conc*thickness)
                        std::vector<value_type> const& m_nfloes,// Nfloes=conc/Dmax^2
                        bool const pre_regrid);
-    value_type_vec transformIce(value_type_vec &m_thick,  // thickness
-                                value_type_vec &m_conc,   // conc
-                                value_type_vec &m_vol,    // ice vol or effective thickness (conc*thickness)
-                                value_type_vec &m_nfloes);// Nfloes=conc/Dmax^2
-
+    void transformIce(IceInfo &ice_info);
 
     void clearMeshFields();
     void gridToPoints(
@@ -199,11 +225,13 @@ public:
         value_type_vec_ptrs const &input_data,  //input data
         value_type_vec &Rx,                     //location of output data (x-coord)
         value_type_vec &Ry);                    //location of output data (y-coord)
-    void returnFields(unord_map_vecs &output_nodes,unord_map_vecs &output_els);
+
     void returnFields(unord_map_vecs &output_nodes,unord_map_vecs &output_els,
-        mesh_type &mesh_in,value_type_vec &um_in);
-    void returnWaveStress(value_type_vec &M_tau);
-    void returnWaveStress(value_type_vec &M_tau, mesh_type &mesh_in,value_type_vec &um_in);
+            value_type_vec &xnod, value_type_vec &ynod, value_type_vec &xel, value_type_vec &yel);
+    void returnFields(unord_map_vecs &output_nodes,unord_map_vecs &output_els,
+        mesh_type const &mesh_in,value_type_vec const &um_in);
+    void returnWaveStress(value_type_vec &M_tau, value_type_vec &xnod, value_type_vec &ynod);
+    void returnWaveStress(value_type_vec &M_tau, mesh_type const &mesh_in,value_type_vec const &um_in);
 
     // ========================================================================
 
@@ -272,7 +300,7 @@ public:
     std::vector<value_type> getTauy() const { return tau_y; }
     std::vector<value_type> getStokesDriftx() const { return stokes_drift_x; }
     std::vector<value_type> getStokesDrifty() const { return stokes_drift_y; }
-    std::vector<value_type> getNfloes() const { return nfloes; }
+    std::vector<value_type> getNfloes() const { return wim_ice.nfloes; }
 
 
 private:
@@ -301,8 +329,8 @@ private:
     value_type_vec wavedir, wt_simp, wt_om, freq_vec, vec_period, wlng, ag, ap;
     value_type_vec Hs,Tp,mwd,wave_mask;
 
-    value_type_vec ice_mask, wtr_mask,
-                icec, iceh, swh_in_array,mwp_in_array,mwd_in_array,
+    //value_type_vec ice_mask, icec, iceh;
+    value_type_vec swh_in_array,mwp_in_array,mwd_in_array,
                 dave, atten_dim, damp_dim, ag2d_eff_temp;
     array2_type ag_eff, ap_eff, wlng_ice, atten_nond, damping, disp_ratio, sdf3d_dir_temp;
     array3_type sdf_dir, sdf_inc;
@@ -312,9 +340,10 @@ private:
     value_type_vec hp;
     value_type_vec Fdmax, Ftaux, Ftauy, Fhs, Ftp;
 
-    std::vector<value_type> dfloe, nfloes, tau_x, tau_y,stokes_drift_x,stokes_drift_y;//row-major order (C)
-    std::vector<value_type> mesh_x, mesh_y, mesh_conc, mesh_thick, mesh_dfloe;
-    std::vector<bool> mesh_broken;
+    //std::vector<value_type> dfloe, nfloes;
+    std::vector<value_type> tau_x, tau_y,stokes_drift_x,stokes_drift_y;//row-major order (C)
+    //std::vector<value_type> mesh_x, mesh_y, mesh_conc, mesh_thick, mesh_dfloe;
+    //std::vector<bool> mesh_broken;
     bool break_on_mesh;
 
     boost::mpi::timer chrono;
@@ -330,6 +359,7 @@ private:
     bool M_initialised_waves = false;
 
     MeshInfo M_wim_triangulation,nextsim_mesh,nextsim_mesh_old;
+    IceInfo wim_ice, nextsim_ice;
     std::vector<int> wet_indices;
 
     // =========================================================================
