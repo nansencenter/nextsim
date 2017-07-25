@@ -132,12 +132,11 @@ void WimDiscr<T>::gridPostProcessing()
     if (!M_regular)
     {
         //wet cells
-        value_type_vec xnod,ynod,xel,yel;
         for (int i=0;i<num_p_wim;i++)
             if (LANDMASK_array[i]<.5)
             {
-                xnod.push_back(X_array[i]);
-                ynod.push_back(Y_array[i]);
+                M_wim_triangulation.nodes_x.push_back(X_array[i]);
+                M_wim_triangulation.nodes_y.push_back(Y_array[i]);
                 wet_indices.push_back(i);
             }
 
@@ -149,29 +148,23 @@ void WimDiscr<T>::gridPostProcessing()
         int Nel  = 0;
 		BamgTriangulatex(&index,    //pointer to index              (output)
                          &Nel,      //pointer to num elements       (output)
-                         &xnod[0],  //pointer to x-coord of nodes   (input)
-                         &ynod[0],  //pointer to y-coord of nodes   (input)
+                         &(M_wim_triangulation.nodes_x)[0],  //pointer to x-coord of nodes   (input)
+                         &(M_wim_triangulation.nodes_y)[0],  //pointer to y-coord of nodes   (input)
                          Nnod);     //num nodes                     (input)
 
         std::cout<<"#elements from triangulation = "<<Nel<<"\n";
-        std::vector<int> Index(3*Nel);
+        M_wim_triangulation.index.resize(3*Nel);
         for (int i=0; i<3*Nel; i++)
         {
             //std::cout<<"index["<<i<<"] = "<<index[i]<<"\n";
-            Index[i]   = index[i];
+            M_wim_triangulation.index[i]   = index[i];
         }
         xDelete<int>(index);
 
-        M_wim_triangulation = {
-                initialised : true,
-                num_nodes   : Nnod,
-                num_elements: Nel,
-                index       : Index,
-                nodes_x     : xnod,
-                nodes_y     : ynod,
-                elements_x  : xel,//not needed
-                elements_y  : yel //not needed
-        };
+        //finish M_wim_triangulation (NB don't need coords of elements)
+        M_wim_triangulation.initialised     = true;
+        M_wim_triangulation.num_nodes       = Nnod;
+        M_wim_triangulation.num_elements    = Nel;
     }
 
 }//gridPostProcessing
