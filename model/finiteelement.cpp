@@ -1409,11 +1409,14 @@ FiniteElement::regrid(bool step)
 			D_delS.assign(M_num_elements,0.);
 
 #if defined (WAVES)
-            bool nfloes_interp = M_use_wim;
-            if ( !(vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh"))
-                bool nfloes_interp = (M_use_wim && (!M_run_wim));
-            if (nfloes_interp)
+            //bool nfloes_interp = M_use_wim;
+            //if ( !(vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh"))
+            //    bool nfloes_interp = (M_use_wim && (!M_run_wim));
+            if (M_use_wim)
+            {
                 M_nfloes.assign(M_num_elements,0.);
+                M_dfloe.assign(M_num_elements,0.);
+            }
 #endif
             // 4) redistribute the interpolated values
             this->redistributeVariables(&interp_elt_out[0],nb_var,true);
@@ -1664,12 +1667,17 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var, bool che
 		tmp_nb_var++;
 
 #if defined (WAVES)
-        bool nfloes_interp = M_use_wim;
-        if ( !(vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh"))
-            bool nfloes_interp = (M_use_wim && (!M_run_wim));
+        //if using WIM:
+        //if breaking on mesh, always need to regrid nfloes
+        //if not, regridding wasted, since overwritten later
+        //but always need to do it inside update (advect)
+        //bool nfloes_interp = M_use_wim;
+        //if ( !(vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh"))
+        //    bool nfloes_interp = (M_use_wim && (!M_run_wim));
 
         // Nfloes from wim model
-        if (nfloes_interp)
+        //if (nfloes_interp)
+        if (M_use_wim)
         {
             M_nfloes[i] = interp_elt_out[nb_var*i+tmp_nb_var];
             tmp_nb_var++;
@@ -1681,25 +1689,36 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var, bool che
 			throw std::logic_error("tmp_nb_var not equal to nb_var");
 		}
 	
-	if(check_max_conc)
-	{
-		M_conc[i]=(M_conc[i]>1.) ? 1.:M_conc[i];
-		double conc_thin_tmp = ( (M_conc[i]+M_conc_thin[i])>1.) ? 1.-M_conc[i]:M_conc_thin[i];
-		double h_thin_tmp ;
-		if(M_conc_thin[i]>0.)
-			h_thin_tmp = M_h_thin[i]*conc_thin_tmp/M_conc_thin[i];
-		else
-			h_thin_tmp = 0.;
-		
-		M_thick[i]+=M_h_thin[i]-h_thin_tmp;
-		
-		M_h_thin[i]=h_thin_tmp;
-		M_conc_thin[i]=conc_thin_tmp;
-	}
+        if(check_max_conc)
+        {
+            M_conc[i]=(M_conc[i]>1.) ? 1.:M_conc[i];
+            double conc_thin_tmp = ( (M_conc[i]+M_conc_thin[i])>1.) ? 1.-M_conc[i]:M_conc_thin[i];
+            double h_thin_tmp ;
+            if(M_conc_thin[i]>0.)
+                h_thin_tmp = M_h_thin[i]*conc_thin_tmp/M_conc_thin[i];
+            else
+                h_thin_tmp = 0.;
+            
+            M_thick[i]+=M_h_thin[i]-h_thin_tmp;
+            
+            M_h_thin[i]=h_thin_tmp;
+            M_conc_thin[i]=conc_thin_tmp;
+        }
 	
-	}
+#if defined (WAVES)
+        if (M_use_wim)
+        {
+            //just need this line here since redistributeVariables() is called from
+            //regrid(), update() TODO check updateFreeDriftVelocity()
+            double ctot = M_conc[i];
+            if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+                ctot += M_conc_thin[i];//WIM uses total concentration
+            M_dfloe[i]  = wim.nfloesToDfloe(M_nfloes[i],ctot);
+        }
+#endif
+	}//loop over elements
 
-}
+}//redistributeVariables()
 
 void
 FiniteElement::advect(double** interp_elt_out_ptr,double* interp_elt_in, int* interp_method,int nb_var)
@@ -1942,6 +1961,7 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
 	int nb_var=15 + M_tice.size();
 
 #if defined (WAVES)
+#if 0
     // coupling with wim
     // - only interpolate if not at a coupling time step
     // - else nfloes will just be overwritten with wimPostRegrid()
@@ -1950,11 +1970,11 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
     bool nfloes_interp = M_use_wim;
     if ( !(vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh"))
         bool nfloes_interp = (M_use_wim && (!M_run_wim));
+#endif
 
-    if (nfloes_interp)
-        std::cout<<"IN REGRID: "<< "interpolate nfloes\n";
-
-    if (nfloes_interp)
+    //always interp Nfloes - sometimes overwritten but no problem
+    //also this routine is used for advect() as well as regrid()
+    if (M_use_wim)
         nb_var++;
 #endif
 
@@ -2082,7 +2102,7 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
 
 #if defined (WAVES)
         // Nfloes from wim model
-        if (nfloes_interp)
+        if (M_use_wim)
         {
             interp_elt_in[nb_var*i+tmp_nb_var] = M_nfloes[i];
             interp_method[tmp_nb_var] = 1;
@@ -2102,7 +2122,7 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
 
 
     return nb_var;
-}
+}//collectVariables
 
 void
 FiniteElement::adaptMesh()
@@ -8377,7 +8397,7 @@ FiniteElement::wimPreRegrid()
     // ============================================================
 
     // set inputs to WIM:
-    // - waves from datasets if needed TODO move to postRegrid()
+    // - waves from datasets if needed TODO move to wimPostRegrid()
     for (int i=0; i<num_elements_wim_grid; ++i)
     {
         if ( !wim_ideal_forcing )
@@ -8537,10 +8557,15 @@ FiniteElement::initWimVariables()
 
     for (int i=0; i<M_num_elements; ++i)
     {
-        if (M_conc[i]>=vm["wim.cicemin"].as<double>())
+        double ctot = M_conc[i];
+        if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+            //add thin ice
+            ctot += M_conc_thin[i];
+
+        if (ctot>=vm["wim.cicemin"].as<double>())
         {
-            M_nfloes[i] = M_conc[i]/std::pow(vm["wim.dfloepackinit"].as<double>(),2.);
-            M_dfloe[i]  = wim.nfloesToDfloe(M_nfloes[i],M_conc[i]);
+            M_dfloe[i]  = vm["wim.dfloepackinit"].as<double>();
+            M_nfloes[i] = wim.dfloeToNfloes(M_dfloe[i],ctot);
         }
     }
     std::cout<<"init dfloe in pack = "<<vm["wim.dfloepackinit"].as<double>()<<"\n";
@@ -8619,9 +8644,17 @@ FiniteElement::wimPostRegrid()
         //FSD info
         std::vector<double> broken;
         if (break_on_mesh||M_wim_on_mesh)
-            wim.getFsdMesh(M_nfloes,M_dfloe,broken);
+            //already have moved mesh and conc
+            wim.getFsdMesh(M_nfloes,M_dfloe,broken);//outputs
         else
-            wim.getFsdMesh(M_nfloes,M_dfloe,broken,ctot,M_mesh,M_UM);
+            wim.getFsdMesh(M_nfloes,M_dfloe,broken, //outputs
+                    ctot,M_mesh,M_UM);              //extra inputs
+#if 1
+        LOG(DEBUG)<<"min Dfloe on mesh = "<< *std::min_element(M_dfloe.begin(),M_dfloe.end() )<<"\n";
+        LOG(DEBUG)<<"max Dfloe on mesh = "<< *std::max_element(M_dfloe.begin(),M_dfloe.end() )<<"\n";
+        LOG(DEBUG)<<"min Nfloes on mesh = "<< *std::min_element(M_nfloes.begin(),M_nfloes.end() )<<"\n";
+        LOG(DEBUG)<<"max Nfloes on mesh = "<< *std::max_element(M_nfloes.begin(),M_nfloes.end() )<<"\n";
+#endif
 
         if ( vm["nextwim.wim_damage_mesh"].template as<bool>() )
         {

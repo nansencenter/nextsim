@@ -599,30 +599,25 @@ void WimDiscr<T>::initConstant(int nextsim_cpt)
 
     M_itest  = -1;
     if(M_wim_on_mesh)
-        if(wim_itest>0)
+        M_itest  = wim_itest;//could still be -1
+    else if((wim_itest>=0)&&(wim_jtest>=0))
+    {
+        //(!M_wim_on_mesh) && positive itest,jtest input
+        std::cout<<"\nitest,jtest: "<<wim_itest<<","<<wim_jtest<<"\n";
+        M_itest  = wim_itest*ny+wim_jtest;
+        if ((wim_itest>=nx)||(wim_jtest>=ny))
         {
-            M_itest  = wim_itest;
-            if (M_itest>=M_num_elements)
-            {
-                std::cout<<"\nM_itest: "<<M_itest<<"\n";
-                throw std::runtime_error("wim.itest/jtest out of range");
-            }
+            std::cout<<"\nitest,jtest: "<<wim_itest<<","<<wim_jtest<<"\n";
+            std::cout<<"\nnx,ny: "<<nx<<","<<ny<<"\n";
+            throw std::runtime_error("wim.itest/jtest out of range");
         }
-    else
-        if ((wim_itest>=0)&&(wim_jtest>=0))
-        {
-            if ((wim_itest<nx)&&(wim_jtest<ny))
-                M_itest  = wim_itest*ny+wim_jtest;
-            else
-            {
-                std::cout<<"\nitest,jtest: "<<wim_itest<<","<<wim_jtest<<"\n";
-                throw std::runtime_error("wim.itest/jtest out of range");
-            }
-            std::cout<<"\nitest,jtest,M_itest: "<<wim_itest<<","<<wim_jtest<<","<<M_itest<<"\n";
-        }
+    }
 
     //global test index
-    std::cout<<"\nM_itest: "<<M_itest<<"\n";
+    std::cout<<"\nWIM diagnostics to be done at global index: "
+        <<M_itest<<"(of "<<M_num_elements<<")\n";
+    if (M_itest>=M_num_elements)
+        throw std::runtime_error("M_itest out of range");
     // ==============================================================================
 
 
@@ -1849,6 +1844,7 @@ void WimDiscr<T>::timeStep(int &lcpt)
 
         //std::cout << "MASK[" << i << "," << j << "]= " << wim_ice.mask[i] << " and "<< mom0[i]  <<"\n";
 
+        bool broken_this_timestep = false;
         if ((wim_ice.mask[i] == 1.) && (mom0[i] >= 0.))
         {
             BreakInfo breakinfo =
@@ -1864,10 +1860,11 @@ void WimDiscr<T>::timeStep(int &lcpt)
 
             this->doBreaking(breakinfo);
 
-            if (breakinfo.broken)
+            broken_this_timestep = breakinfo.broken;
+            if (broken_this_timestep)
             {
-                wim_ice.dfloe[i] = breakinfo.dfloe;
-                wim_ice.broken[i] = 1.;
+                wim_ice.dfloe[i]     = breakinfo.dfloe;
+                wim_ice.broken[i]    = 1.;
             }
 
         }//end test for ice and waves
@@ -1886,6 +1883,8 @@ void WimDiscr<T>::timeStep(int &lcpt)
               << wlng_crest << " # peak wavelength, m\n";
            diagID << std::setw(16) << std::left
               << wim_ice.dfloe[i] << " # D_max, m\n";
+           diagID << std::setw(16) << std::left
+              << broken_this_timestep << " # broken_this_timestep, bool\n";
            diagID.close();
         }
 
@@ -2183,6 +2182,8 @@ void WimDiscr<T>::setIceFields(
         std::cout<<"max conc   grid = "<< *std::max_element((wim_ice.conc).begin()  ,(wim_ice.conc).end()   )<<"\n";
         std::cout<<"min thick  grid = "<< *std::min_element((wim_ice.thick).begin() ,(wim_ice.thick).end()  )<<"\n";
         std::cout<<"max thick  grid = "<< *std::max_element((wim_ice.thick).begin() ,(wim_ice.thick).end()  )<<"\n";
+        std::cout<<"min dfloe  grid = "<< *std::min_element((wim_ice.dfloe).begin() ,(wim_ice.dfloe).end()  )<<"\n";
+        std::cout<<"max dfloe  grid = "<< *std::max_element((wim_ice.dfloe).begin() ,(wim_ice.dfloe).end()  )<<"\n";
         std::cout<<"min Nfloes grid = "<< *std::min_element((wim_ice.nfloes).begin(),(wim_ice.nfloes).end() )<<"\n";
         std::cout<<"max Nfloes grid = "<< *std::max_element((wim_ice.nfloes).begin(),(wim_ice.nfloes).end() )<<"\n";
 #endif
