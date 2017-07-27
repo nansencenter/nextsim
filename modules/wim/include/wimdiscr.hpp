@@ -308,12 +308,12 @@ private:
     po::variables_map vm;
     int nx, ny, nxext, nyext, nbdy, nbdx, nghost;
     int num_p_wim,num_q_wim,num_u_wim,num_v_wim;
-    int wim_itest, wim_jtest,wim_test_i;
+    int M_itest;
     value_type_vec X_array, Y_array, SCUY_array, SCVX_array,
                 SCP2_array, SCP2I_array, LANDMASK_array;
     std::vector<value_type> x_col,y_row;
 
-    value_type cfl, dom, guess, Hs_inc, Tp_inc, mwd_inc, Tmin, Tmax, gravity, om;
+    value_type cfl, dom, guess, Tmin, Tmax, gravity, om;
     value_type xmax, ym, x0, y0, dx, dy, x_edge, unifc, unifh,
                dfloe_pack_init, dfloe_pack_thresh, amin, amax;
     value_type rhowtr, rhoice, poisson, dmin, xi, fragility, cice_min, dfloe_miz_thresh,
@@ -322,12 +322,13 @@ private:
     value_type M_timestep,duration;
 
     int nwavedirn, nwavefreq, advdim, ncs ,nt;
-    bool ref_Hs_ice, atten, useicevel, steady, breaking, dumpDiag;
+    bool ref_Hs_ice, atten, useicevel, M_steady, breaking;
+    bool M_dump_diag;
     bool docoupling;
     std::string scatmod, advopt, fsdopt;
     std::string wim_gridfile;
     value_type_vec wavedir, wt_simp, wt_om, freq_vec, vec_period, wlng, ag, ap;
-    value_type_vec Hs,Tp,mwd,wave_mask;
+    value_type_vec Hs,Tp,mwd,wave_mask,M_steady_mask;
 
     //value_type_vec ice_mask, icec, iceh;
     value_type_vec swh_in_array,mwp_in_array,mwd_in_array,
