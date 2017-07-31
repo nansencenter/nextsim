@@ -48,16 +48,28 @@ rotatedWimElementsY(double const& rotangle)
 #endif
 
 
+double
+measure(double x0,double y0,double x1,double y1,double x2,double y2)
+{
+    double jac = (x1-x0)*(y2-y0)-(x2-x0)*(y1-y0);
+    return .5*std::abs(jac);
+}
+double
+jacobian(double x0,double y0,double x1,double y1,double x2,double y2)
+{
+    return (x1-x0)*(y2-y0)-(x2-x0)*(y1-y0);
+}
 
 double
 jacobian(element_type const& element, mesh_type const& mesh)
 {
-    std::vector<double> vertex_0 = mesh.nodes()[element.indices[0]-1].coords;
-    std::vector<double> vertex_1 = mesh.nodes()[element.indices[1]-1].coords;
-    std::vector<double> vertex_2 = mesh.nodes()[element.indices[2]-1].coords;
+    std::vector<double> vertex_0 = mesh.nodes()[element.indices[0]-1].coords;//{x0,y0}
+    std::vector<double> vertex_1 = mesh.nodes()[element.indices[1]-1].coords;//{x1,y1}
+    std::vector<double> vertex_2 = mesh.nodes()[element.indices[2]-1].coords;//{x2,y2}
 
-    double jac = (vertex_1[0]-vertex_0[0])*(vertex_2[1]-vertex_0[1]);
-    jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);
+    //jacobian = determinant([x1-x0,y1-y0;x2-x0,y2-y0]);
+    double jac = (vertex_1[0]-vertex_0[0])*(vertex_2[1]-vertex_0[1]);//(x1-x0)*(y2-y0)
+    jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);//(x2-x0)*(y1-y0)
 
     return  jac;
 }
@@ -402,85 +414,34 @@ shapeCoeff(element_type const& element, mesh_type const& mesh)
 }//shapeCoeff
 
 
-#if 0
+#if 1
 void
-advect(double** interp_elt_out_ptr,double* interp_elt_in, int* interp_method,int nb_var)
+advect(double** interp_elt_out_ptr,     // pointer to pointer to output data
+        double* interp_elt_in,          // pointer to input data
+        mesh_info_type_dbl* mesh_info,  // pointer to structure with mesh info: positions of nodes and elements,
+                                        //  index (maps elements to nodes), element connectivity
+        double* VC_in,                  // pointer to convective velocities (len = 2*num_nodes)
+        int* interp_method,             // pointer to interp methods for each variable
+        int nb_var,                     // number of variables
+        double time_step)               // time step (s)
 {
-    //needs extra inputs: bamgmesh,M_num_elements
-    //
-    //M_VT,ALE_smoothing_step_nb,M_UM?? or just VC_x,VC_y
 
 	/*Initialize output*/
+    int Nels = mesh_info->num_elements;
+    int Nnod = mesh_info->num_nodes;
 	double* interp_elt_out=NULL;
 
-    interp_elt_out=xNew<double>(nb_var*M_num_elements);
+    interp_elt_out=xNew<double>(nb_var*Nels);
 
     int thread_id;
     int total_threads;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
-    std::vector<double> UM_P = M_UM;
-
-    int Nd = bamgmesh->NodalConnectivitySize[1];
-
-    int ALE_smoothing_step_nb=vm["simul.ALE_smoothing_step_nb"].as<int>();
-    // ALE_smoothing_step_nb==-2 is the case with no advection M_UM is not changed and then =0 and no fluxes are computed.
-    // ALE_smoothing_step_nb==-1 is the diffusive eulerian case where M_UM is not changed and then =0.
-    // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
-    // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
-
-    if(ALE_smoothing_step_nb>=0)
-    {
-        std::vector<double> M_VT_smoothed = M_VT;
-        std::vector<double> M_VT_tmp = M_VT_smoothed;
-
-        for (int k=0; k<ALE_smoothing_step_nb; ++k)
-        {
-            M_VT_tmp=M_VT_smoothed;
-
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
-            for (int i=0; i<M_num_nodes; ++i)
-            {
-                int Nc;
-                double UM_x, UM_y;
-
-                if(M_mask_dirichlet[i]==false)
-                {
-                    Nc = bamgmesh->NodalConnectivity[Nd*(i+1)-1];
-
-                    UM_x=0.;
-                    UM_y=0.;
-                    for (int j=0; j<Nc; ++j)
-                    {
-                        UM_x += M_VT_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1]  ;
-                        UM_y += M_VT_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1+M_num_nodes]  ;
-                    }
-
-                    M_VT_smoothed[i             ]=UM_x/Nc;
-                    M_VT_smoothed[i+M_num_nodes ]=UM_y/Nc;
-                }
-            }
-        }
-        for (int nd=0; nd<M_UM.size(); ++nd)
-        {
-            M_UM[nd] += time_step*M_VT_smoothed[nd];
-        }
-
-        // set back the neumann nodes (open boundaries) at their position, the fluxes will be computed thanks to the convective velocity
-        for (const int& nd : M_neumann_nodes)
-        {
-            M_UM[nd] = UM_P[nd];
-        }
-    }
-
-    LOG(DEBUG) <<"VT MIN= "<< *std::min_element(M_VT.begin(),M_VT.end()) <<"\n";
-    LOG(DEBUG) <<"VT MAX= "<< *std::max_element(M_VT.begin(),M_VT.end()) <<"\n";
-
-#pragma omp parallel for num_threads(max_threads) private(thread_id)
-    for (int cpt=0; cpt < M_num_elements; ++cpt)
+    for (int cpt=0; cpt < Nels; ++cpt)
     {
         /* some variables used for the advection*/
-        double surface, surface_new;
+        double surface  = mesh_info->surface[cpt];
         double integrated_variable;
 
         /* some variables used for the advection*/
@@ -492,38 +453,23 @@ advect(double** interp_elt_out_ptr,double* interp_elt_in, int* interp_method,int
         double neighbour_double;
         int other_vertex[3*2]={1,2 , 2,0 , 0,1};
 
-        /*======================================================================
-         * Update:
-         * Ice and snow thickness, and concentration using a Lagrangian or an Eulerian scheme
-         *======================================================================
-         */
 
         /* convective velocity */
         for(int i=0;i<3;i++)
         {
-            x_ind=(M_elements[cpt]).indices[i]-1;
-            y_ind=(M_elements[cpt]).indices[i]-1+M_num_nodes;
+            x_ind   = mesh_info->index[3*cpt+i];
+            y_ind   = x_ind+Nnod;
 
-            x[i] = M_nodes[(M_elements[cpt]).indices[i]-1].coords[0];
-            y[i] = M_nodes[(M_elements[cpt]).indices[i]-1].coords[1];
+            //positions of nodes
+            x[i] = mesh_info->nodes_x[x_ind];
+            y[i] = mesh_info->nodes_y[x_ind];
 
-            /* old and new positions of the mesh */
-            x_new[i]=M_nodes[(M_elements[cpt]).indices[i]-1].coords[0]+M_UM[x_ind];
-            y_new[i]=M_nodes[(M_elements[cpt]).indices[i]-1].coords[1]+M_UM[y_ind];
-            x[i]    =M_nodes[(M_elements[cpt]).indices[i]-1].coords[0]+UM_P[x_ind];
-            y[i]    =M_nodes[(M_elements[cpt]).indices[i]-1].coords[1]+UM_P[y_ind];
-
-            if(ALE_smoothing_step_nb==-2)
-            {
-                VC_x[i] =0.;
-                VC_y[i] =0.;
-            }
-            else
-            {
-                VC_x[i] =M_VT[x_ind]-(M_UM[x_ind]-UM_P[x_ind])/time_step;
-                VC_y[i] =M_VT[y_ind]-(M_UM[y_ind]-UM_P[y_ind])/time_step;
-            }
+            //convective velocity
+            VC_x[i] = VC_in[x_ind];
+            VC_y[i] = VC_in[y_ind];
         }
+
+        //fluxes
         for(int i=0;i<3;i++)
         {
             outer_fluxes_area[i]=0;
@@ -545,19 +491,18 @@ advect(double** interp_elt_out_ptr,double* interp_elt_in, int* interp_method,int
 
             if(outer_fluxes_area[i]>0)
             {
-                surface = NextsimTools::measure(M_elements[cpt],M_mesh, UM_P);
                 outer_fluxes_area[i]=std::min(surface/time_step/3.,outer_fluxes_area[i]);
                 fluxes_source_id[i]=cpt;
             }
             else
             {
-			    neighbour_double=bamgmesh->ElementConnectivity[cpt*3+i];
-                neighbour_int=(int) bamgmesh->ElementConnectivity[cpt*3+i];
+			    neighbour_double=mesh_info->element_connectivity[cpt*3+i];
+                neighbour_int=(int) neighbour_double;
 			    if (!std::isnan(neighbour_double) && neighbour_int>0)
                 {
-                    surface = NextsimTools::measure(M_elements[neighbour_int-1],M_mesh, UM_P);
+                    double surface = mesh_info->surface[neighbour_int];//NB don't want to reset "surface" outside this scope
                     outer_fluxes_area[i]=-std::min(surface/time_step/3.,-outer_fluxes_area[i]);
-                    fluxes_source_id[i]=neighbour_int-1;
+                    fluxes_source_id[i]=neighbour_int;
                 }
                 else // open boundary with incoming fluxes
                     fluxes_source_id[i]=cpt;
@@ -565,25 +510,18 @@ advect(double** interp_elt_out_ptr,double* interp_elt_in, int* interp_method,int
         }
 
 
-        surface = NextsimTools::measure(M_elements[cpt],M_mesh, UM_P);
-        surface_new = NextsimTools::measure(M_elements[cpt],M_mesh,M_UM);
-        M_surface[cpt] = surface_new;
-
+        double surface_new = surface;
         for(int j=0; j<nb_var; j++)
         {
             if(interp_method[j]==1)
             {
-                integrated_variable=interp_elt_in[cpt*nb_var+j]*surface -
-                    (interp_elt_in[fluxes_source_id[0]*nb_var+j]*outer_fluxes_area[0]  +
-                    interp_elt_in[fluxes_source_id[1]*nb_var+j]*outer_fluxes_area[1]  +
-                    interp_elt_in[fluxes_source_id[2]*nb_var+j]*outer_fluxes_area[2]  )*time_step;
-
-                interp_elt_out[cpt*nb_var+j]    = integrated_variable/surface_new;
+                double tmp = 0.;
+                for (int k=0;k<3;k++)
+                    tmp += interp_elt_in[fluxes_source_id[k]*nb_var+j]*outer_fluxes_area[k];
+                interp_elt_out[cpt*nb_var+j] = interp_elt_in[cpt*nb_var+j] - (tmp/surface)*time_step;
             }
             else
-            {
                 interp_elt_out[cpt*nb_var+j] = interp_elt_in[cpt*nb_var+j];
-            }
         }
     }
 	*interp_elt_out_ptr=interp_elt_out;

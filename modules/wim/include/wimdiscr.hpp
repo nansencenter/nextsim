@@ -57,34 +57,6 @@ template<typename T=float> class WimDiscr
     typedef typename Nextsim::GmshMesh::element_type element_type;
     typedef Nextsim::GmshMesh mesh_type;
 
-    typedef struct MeshInfo
-    {
-        // information describing nextsim mesh
-        // - only basic info
-        // - ie that needed for interpMeshToGrid, interpMeshToMesh
-        bool initialised;           // initialised yet?
-        int num_nodes;              // number of nodes (not needed for structured grids)
-        int num_elements;           // number of elements 
-        std::vector<int> index;     // indices of nodes corresponding to the elements
-        value_type_vec nodes_x;     // x-coords of nodes (not needed for structured grids)
-        value_type_vec nodes_y;     // y-coords of nodes (not needed for structured grids)
-        value_type_vec elements_x;  // x-coords of elements
-        value_type_vec elements_y;  // y-coords of elements
-    } MeshInfo;
-
-    std::vector<int> iv_tmp = {};
-    value_type_vec   vtv_tmp = {};
-    MeshInfo mesh_info_tmp = {
-            initialised : false,
-            num_nodes   : 0,
-            num_elements: 0,
-            index       : iv_tmp,
-            nodes_x     : vtv_tmp,
-            nodes_y     : vtv_tmp,
-            elements_x  : vtv_tmp,
-            elements_y  : vtv_tmp
-    };
-
     typedef struct IceInfo
     {
         // information describing ice fields
@@ -102,6 +74,23 @@ template<typename T=float> class WimDiscr
     // ==========================================================================================
 
 public:
+
+    typedef struct MeshInfo
+    {
+        // information describing nextsim mesh
+        // - only basic info
+        // - ie that needed for interpMeshToGrid, interpMeshToMesh
+        bool initialised;                       // initialised yet?
+        int num_nodes;                          // number of nodes (not needed for structured grids)
+        int num_elements;                       // number of elements 
+        std::vector<int> index;                 // indices of nodes corresponding to the elements
+        std::vector<int> element_connectivity;  // indices of nodes corresponding to the elements
+        value_type_vec nodes_x;                 // x-coords of nodes (not needed for structured grids)
+        value_type_vec nodes_y;                 // y-coords of nodes (not needed for structured grids)
+        value_type_vec elements_x;              // x-coords of elements
+        value_type_vec elements_y;              // y-coords of elements
+        value_type_vec surface;                 // y-coords of elements
+    } MeshInfo;
 
     typedef struct BreakInfo
     {
@@ -304,6 +293,21 @@ public:
 
 
 private:
+
+    std::vector<int> iv_tmp = {};
+    value_type_vec   vtv_tmp = {};
+    MeshInfo mesh_info_tmp = {
+            initialised             : false,
+            num_nodes               : 0,
+            num_elements            : 0,
+            index                   : iv_tmp,
+            element_connectivity    : iv_tmp,
+            nodes_x                 : vtv_tmp,
+            nodes_y                 : vtv_tmp,
+            elements_x              : vtv_tmp,
+            elements_y              : vtv_tmp,
+            surface                 : vtv_tmp
+    };
 
     po::variables_map vm;
     int nx, ny, nxext, nyext, nbdy, nbdx, nghost;

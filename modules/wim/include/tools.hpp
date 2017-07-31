@@ -41,6 +41,7 @@ extern "C"
 #include <mapx.h>
 }
 
+#include <wimdiscr.hpp>
 
 namespace NextsimTools
 {
@@ -50,6 +51,7 @@ namespace NextsimTools
     typedef typename Nextsim::GmshMesh::point_type point_type;
     typedef typename Nextsim::GmshMesh::element_type element_type;
     typedef Nextsim::GmshMesh mesh_type;
+    typedef typename Wim::WimDiscr<double>::MeshInfo mesh_info_type_dbl;
     // ==========================================================================================
 
 
@@ -82,7 +84,16 @@ namespace NextsimTools
     //void nodesToElements(double const* depth, std::vector<double>& v);
     // ==========================================================================================
 
-    //void advect
+#if 1
+    void advect(double** interp_elt_out_ptr, // pointer to pointer to output data
+        double* interp_elt_in,      // pointer to input data
+        mesh_info_type_dbl* mesh_info,        // pointer to structure with mesh info: positions of nodes and elements,
+                                    //  index (maps elements to nodes), element connectivity
+        double* VC_in,              // pointer to convective velocities (len = 2*num_nodes)
+        int* interp_method,         // pointer to interp methods for each variable
+        int nb_var,                 // number of variables
+        double time_step);          // time step (s)
+#endif
     //void diffuse
 
     // ==========================================================================================
