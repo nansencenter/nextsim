@@ -57,12 +57,14 @@ namespace NextsimTools
 
     // ==========================================================================================
     // mesh functions
+    double jacobian(double const x0, double const y0, double const x1, double const y1,double const x2, double const y2);
     double jacobian(element_type const& element, mesh_type const& mesh);
     double jacobian(element_type const& element, mesh_type const& mesh,
                     std::vector<double> const& um, double factor = 1.);
     std::vector<double> sides(element_type const& element, mesh_type const& mesh);
     std::vector<double> minMaxSide(mesh_type const& mesh);
     //void movedMesh(std::vector<double> const& um, double factor = 0);
+    double measure(double const x0, double const y0, double const x1, double const y1,double const x2, double const y2);
     double measure(element_type const& element, mesh_type const& mesh);
     double measure(element_type const& element, mesh_type const& mesh,
                    std::vector<double> const& um, double factor = 1.);

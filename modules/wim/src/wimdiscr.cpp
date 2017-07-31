@@ -2032,57 +2032,84 @@ void WimDiscr<T>::timeStep(int &lcpt)
 }//timeStep
 
 template<typename T>
-void WimDiscr<T>::setMesh(mesh_type const &mesh_in)
-{
-    value_type_vec vtmp(mesh_in.numNodes(),0);//move mesh by 0
-    this->setMesh(mesh_in,vtmp);
-}
-
-template<typename T>
-void WimDiscr<T>::setMesh(mesh_type const &mesh_in,value_type_vec const &um_in)
+void WimDiscr<T>::setMesh(mesh_type const &movedmesh)
 {
     M_time_mesh_set     = this->getModelTime();//used in check when ice fields are set on mesh
     nextsim_mesh_old    = nextsim_mesh;
 
     //update nextsim_mesh with moved mesh
-    this->resetMesh(mesh_in,um_in);
+    this->resetMesh(movedmesh);
+}
+
+template<typename T>
+void WimDiscr<T>::setMesh(mesh_type const &mesh_in,value_type_vec const &um_in)
+{
+    auto movedmesh = mesh_in;
+    movedmesh.move(um_in,1.);
+    this->setMesh(movedmesh);
+}//setMesh
+
+template<typename T>
+void WimDiscr<T>::setMesh(mesh_type const &mesh_in,value_type_vec const &um_in,BamgMesh *bamgmesh)
+{
+    //update nextsim_mesh with moved mesh
+    auto movedmesh = mesh_in;
+    movedmesh.move(um_in,1.);
+    this->setMesh(movedmesh);
 
     // ================================================================================
-    if(M_wim_on_mesh)
+    // this interface should be called after regridding (if M_wim_on_mesh)
+    //
+    // regridding procedure INSIDE NEXTSIM:
+    // *BEFORE REGRID:
+    // 1) um0 = wim.RelativeMeshDisplacement(M_mesh_old,M_UM_old);
+    //    - relative displacement between moved mesh just before displacement
+    //      & mesh at last call to WIM
+    // 2) interp um0 -> new mesh (after regrid)
+    //    - this gives um1
+    // 3) wim.resetMesh(M_mesh,um1)
+    // 4) interp sdf_dir,taux,tauy -> new mesh
+    // 5) integrate sdf_dir? (puts Hs etc on new mesh)
+    // ================================================================================
+
+    // get relative displacement of nodes since last call
+    // - M_UM may already be nonzero if regridding has happened
+    // - it is reset to zero at end of wim.run() and at initialisation
+    // - used to correct group velocity when waves are advected
+    int Nn = nextsim_mesh.num_nodes;
+    if (M_UM.size()==0)
+        M_UM.assign(2*Nn,0.);
+
+    for (int i=0;i<Nn;i++)
     {
-        // ================================================================================
-        // this interface should be called after regridding (if M_wim_on_mesh)
-        //
-        // regridding procedure INSIDE NEXTSIM:
-        // *BEFORE REGRID:
-        // 1) um0 = wim.RelativeMeshDisplacement(M_mesh_old,M_UM_old);
-        //    - relative displacement between moved mesh just before displacement
-        //      & mesh at last call to WIM
-        // 2) interp um0 -> new mesh (after regrid)
-        //    - this gives um1
-        // 3) wim.resetMesh(M_mesh,um1)
-        // 4) interp sdf_dir,taux,tauy -> new mesh
-        // 5) integrate sdf_dir? (puts Hs etc on new mesh)
-        // ================================================================================
+        M_UM[i]    += nextsim_mesh.nodes_x[i]-nextsim_mesh_old.nodes_x[i];
+        M_UM[i+Nn] += nextsim_mesh.nodes_y[i]-nextsim_mesh_old.nodes_y[i];
+    }
 
-        // get relative displacement of nodes since last call
-        // - M_UM may already be nonzero if regridding has happened
-        // - it is reset to zero at end of wim.run() and at initialisation
-        // - used to correct group velocity when waves are advected
-        int Nn = nextsim_mesh.num_nodes;
-        if (M_UM.size()==0)
-            M_UM.assign(2*Nn,0.);
-
-        for (int i=0;i<Nn;i++)
+    //caluculate the surface areas,
+    //get the element connectivity from bamgmesh
+    int Nels = nextsim_mesh.num_elements;
+    nextsim_mesh.surface.assign(Nels,0);
+    nextsim_mesh.element_connectivity.assign(3*Nels,0);
+    for (int i=0;i<Nels;i++)
+    {
+        value_type_vec xnods(3);
+        value_type_vec ynods(3);
+        for (int k=0;k<3;k++)
         {
-            M_UM[i]    += nextsim_mesh.nodes_x[i]-nextsim_mesh_old.nodes_x[i];
-            M_UM[i+Nn] += nextsim_mesh.nodes_y[i]-nextsim_mesh_old.nodes_y[i];
+            int ind  = nextsim_mesh.index[3*i+k];
+            xnods[k] = nextsim_mesh.nodes_x[ind];
+            ynods[k] = nextsim_mesh.nodes_y[ind];
+
+            nextsim_mesh.element_connectivity[3*i+k]
+                = bamgmesh->ElementConnectivity[3*i+k]-1;//NB bamg indices go from 1 to Nels
         }
+        nextsim_mesh.surface[i] = NextsimTools::measure(
+                xnods[0],ynods[0],xnods[1],ynods[1],xnods[2],ynods[2]);
     }
     // ================================================================================
 
 }//setMesh
-
 
 template<typename T>
 void WimDiscr<T>::resetMesh(mesh_type const &mesh,value_type_vec const &um_in)
@@ -2094,17 +2121,17 @@ void WimDiscr<T>::resetMesh(mesh_type const &mesh,value_type_vec const &um_in)
 }//resetMesh()
 
 template<typename T>
-void WimDiscr<T>::resetMesh(mesh_type const &mesh)
+void WimDiscr<T>::resetMesh(mesh_type const &mesh_in)
 {
     //sets the variable "nextsim_mesh"
     nextsim_mesh.initialised    = true;
-    nextsim_mesh.num_nodes      = mesh.numNodes();
-    nextsim_mesh.num_elements   = mesh.numTriangles();
-    nextsim_mesh.index          = mesh.indexTr();
-    nextsim_mesh.nodes_x        = mesh.coordX();
-    nextsim_mesh.nodes_y        = mesh.coordY();
-    nextsim_mesh.elements_x     = mesh.bcoordX();
-    nextsim_mesh.elements_y     = mesh.bcoordY();
+    nextsim_mesh.num_nodes      = mesh_in.numNodes();
+    nextsim_mesh.num_elements   = mesh_in.numTriangles();
+    nextsim_mesh.index          = mesh_in.indexTr();
+    nextsim_mesh.nodes_x        = mesh_in.coordX();
+    nextsim_mesh.nodes_y        = mesh_in.coordY();
+    nextsim_mesh.elements_x     = mesh_in.bcoordX();
+    nextsim_mesh.elements_y     = mesh_in.bcoordY();
 
 }//resetMesh
 

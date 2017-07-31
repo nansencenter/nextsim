@@ -49,13 +49,13 @@ rotatedWimElementsY(double const& rotangle)
 
 
 double
-measure(double x0,double y0,double x1,double y1,double x2,double y2)
+measure(double const x0,double const y0,double const x1,double const y1,double const x2,double const y2)
 {
     double jac = (x1-x0)*(y2-y0)-(x2-x0)*(y1-y0);
     return .5*std::abs(jac);
 }
 double
-jacobian(double x0,double y0,double x1,double y1,double x2,double y2)
+jacobian(double const x0,double const y0,double const x1,double const y1,double const x2,double const y2)
 {
     return (x1-x0)*(y2-y0)-(x2-x0)*(y1-y0);
 }

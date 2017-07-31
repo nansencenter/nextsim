@@ -27,6 +27,7 @@
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromMeshToGridx.h>
 #include <BamgTriangulatex.h>
+#include <Bamgx.h>
 #include <iomanip>
 #include <omp.h>
 #include <gmshmesh.hpp>
@@ -192,6 +193,7 @@ public:
     // breaking on mesh
     void setMesh( mesh_type const &mesh);
     void setMesh( mesh_type const &mesh,value_type_vec const &um);
+    void setMesh( mesh_type const &mesh,value_type_vec const &um,BamgMesh *bamgmesh);
     void resetMesh( mesh_type const &mesh);
     void resetMesh( mesh_type const &mesh,value_type_vec const &um);
     value_type_vec relativeMeshDisplacement(mesh_type const &mesh_in,value_type_vec const &um_in) const;
