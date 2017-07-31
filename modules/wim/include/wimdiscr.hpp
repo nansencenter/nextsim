@@ -241,6 +241,7 @@ public:
     //===========================================================================
     //advection/attenuation
     void advectDirections( array2_type& Sdir, value_type_vec const& ag2d_eff);
+    void advectDirectionsMesh( array2_type& Sdir, value_type_vec& ag2d_eff);
     void attenSimple(
           array2_type& Sdir, value_type_vec& Sfreq,
           value_type_vec& taux_omega,value_type_vec& tauy_omega,

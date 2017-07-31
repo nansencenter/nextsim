@@ -1623,7 +1623,10 @@ void WimDiscr<T>::timeStep(int &lcpt)
         }
 
         //advect all directions
-        this->advectDirections(sdf3d_dir_temp,ag2d_eff_temp);
+        if (!M_wim_on_mesh)
+            this->advectDirections(sdf3d_dir_temp,ag2d_eff_temp);
+        else
+            this->advectDirectionsMesh(sdf3d_dir_temp,ag2d_eff_temp);
 
         //do attenuation &/or scattering, and integrate over directions 
         if (scatmod == "dissipated")
@@ -3060,9 +3063,9 @@ void WimDiscr<T>::advectDirections(array2_type& Sdir,value_type_vec const& ag2d_
             std::for_each(vwave.begin(), vwave.end(), [&](value_type& f){ f *= std::sin(adv_dir); });
 
         // copy from 3D input array to 2D temporary array
-        value_type_vec temp(num_p_wim,0.);
+        value_type_vec temp(M_num_elements,0.);
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-        for (int i = 0; i < num_p_wim; i++)
+        for (int i = 0; i < M_num_elements; i++)
             temp[i] = Sdir[i][nth];
 
         //do advection
@@ -3071,10 +3074,59 @@ void WimDiscr<T>::advectDirections(array2_type& Sdir,value_type_vec const& ag2d_
 
         // copy from 2D temporary array back to 3D input array
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-        for (int i = 0; i < num_p_wim; i++)
+        for (int i = 0; i < M_num_elements; i++)
             Sdir[i][nth] = temp[i];
     }//advection of each direction done
 }//advectDirections()
+
+template<typename T>
+void WimDiscr<T>::advectDirectionsMesh(array2_type& Sdir,value_type_vec& ag2d_eff)
+{
+
+    //interpolate ag2d_eff from elements to nodes
+    int Nnod = nextsim_mesh.num_nodes;
+    value_type_vec agnod(Nnod,0.);
+    value_type_vec_ptrs input  = {&ag2d_eff};
+    value_type_vec_ptrs output = {&agnod};
+    this->meshToPoints(output,input,nextsim_mesh.nodes_x,nextsim_mesh.nodes_y);
+    value_type* advect_out;
+    int nb_var  = 1;                    //have to advect 1 vbl at a time
+    std::vector<int> adv_method = {1};  //alternative (0) is do nothing
+
+    //advect the directions
+	for (int nth = 0; nth < nwavedirn; nth++)
+    {
+        value_type adv_dir = -PI*(90.0+wavedir[nth])/180.0;
+        value_type_vec VC(2*Nnod,0.);
+
+        // set wave speeds
+        // - subtract average mesh velocity
+        // (average over length of call to wim = "duration")
+#pragma omp parallel for num_threads(max_threads) collapse(1)
+        for (int i=0;i<Nnod;i++)
+        {
+            VC[i]      = agnod[i]*std::cos(adv_dir)-M_UM[i]/duration;
+            VC[i+Nnod] = agnod[i]*std::sin(adv_dir)-M_UM[i+Nnod]/duration;
+        }
+
+        // copy from 3D input array to 2D temporary array
+        value_type_vec advect_in(M_num_elements,0.);
+#pragma omp parallel for num_threads(max_threads) collapse(1)
+        for (int i = 0; i < M_num_elements; i++)
+            advect_in[i] = Sdir[i][nth];
+
+        //do advection
+        NextsimTools::advect(&advect_out,&advect_in[0],&nextsim_mesh,
+            &VC[0],&adv_method[0],nb_var,M_timestep);
+
+        // copy from 2D temporary array back to 3D input array
+#pragma omp parallel for num_threads(max_threads) collapse(1)
+        for (int i = 0; i < num_p_wim; i++)
+            Sdir[i][nth] = advect_out[i];
+    }//advection of each direction done
+
+    xDelete<value_type>(advect_out);
+}//advectDirectionsMesh()
 
 template<typename T>
 void WimDiscr<T>::attenSimple(array2_type& Sdir, value_type_vec& Sfreq,
