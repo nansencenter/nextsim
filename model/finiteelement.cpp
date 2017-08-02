@@ -1901,10 +1901,10 @@ FiniteElement::advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
         }
     }
 	*interp_elt_out_ptr=interp_elt_out;
-}
+}//advect()
 
 void
-    FiniteElement::diffuse(double* variable_elt, double diffusivity_parameters, double dx)
+FiniteElement::diffuse(double* variable_elt, double diffusivity_parameters, double dx)
 {
     if(diffusivity_parameters<=0.)
     {
@@ -1952,7 +1952,7 @@ void
     }
     // Cleaning
     xDelete<double>(old_variable_elt);
-}
+}//diffuse()
 
 int
 FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_ptr, double** diffusivity_parameters_ptr, int prv_num_elements)
@@ -4944,8 +4944,8 @@ FiniteElement::step(int &pcpt)
     if ( M_regrid || M_use_restart ) // We need to make sure M_tau is the right size
     {
         M_tau.assign(2*M_num_nodes,0.);
-#if defined (WAVES)
-        if (M_export_stokes_drift_mesh)
+#if 0//defined (WAVES)
+        if (M_export_wim_diags_mesh)
             M_stokes_drift.assign(2*M_num_nodes,0.);
 #endif
     }
@@ -8299,11 +8299,28 @@ FiniteElement::exportResults(std::vector<std::string> const &filenames, bool exp
 #if defined (WAVES)
         if (M_use_wim)
         {
-            exporter.writeField(outbin, M_tau, "Stresses");
+            exporter.writeField(outbin, M_tau, "Stress_waves_ice");
             exporter.writeField(outbin, M_nfloes, "Nfloes");
             exporter.writeField(outbin, M_dfloe, "Dfloe");
-            if (M_export_stokes_drift_mesh)
-                exporter.writeField(outbin, M_stokes_drift, "Stokes_drift");
+            if (M_export_wim_diags_mesh)
+            {
+                this->getWimDiagnostics();
+
+                //export diagnostics on elements (eg Hs,Tp,MWD)
+                for (unord_map_vecs_type::iterator it=M_wim_fields_els.begin();it!=M_wim_fields_els.end();it++)
+                    exporter.writeField(outbin, it->second, it->first);//"first" is a string, "second" a vector
+
+                //export diagnostics on nodes (eg Stokes_drift)
+                for (unord_map_vecs_type::iterator it=M_wim_fields_nodes.begin();it!=M_wim_fields_nodes.end();it++)
+                    exporter.writeField(outbin, it->second, it->first);//"first" is a string, "second" a vector
+
+                //clear the fields
+                M_wim_fields_els.clear();
+                if(!M_wim_on_mesh)
+                    // if M_wim_on_mesh, easier to keep the things on the nodes
+                    // and regrid them
+                    M_wim_fields_nodes.clear();
+            }
         }
 #endif
 
@@ -8519,7 +8536,7 @@ FiniteElement::initWim(int const pcpt)
     std::cout<<"ymax (WIM grid) = "<<ymax_wim<<"\n";
 
     //check if we want to export the Stokes drift
-    M_export_stokes_drift_mesh  = (M_use_wim && vm["nextwim.export_stokes_drift_mesh"].as<bool>());
+    M_export_wim_diags_mesh  = vm["nextwim.export_diags_mesh"].as<bool>();
 
     // init counters to 0
     wim_cpt                     = 0;
@@ -8536,6 +8553,7 @@ FiniteElement::initWimVariables()
     // ==============================================================
     //WIM variables on the grid
 
+#if 0
     //set sizes of inputs to WIM
     // - these are set by interpolating from mesh to grid 
     M_icec_grid.assign  (num_elements_wim_grid,0.);
@@ -8545,6 +8563,7 @@ FiniteElement::initWimVariables()
     //set sizes of outputs from WIM
     M_taux_grid.assign  (num_elements_wim_grid,0.);
     M_tauy_grid.assign  (num_elements_wim_grid,0.);
+#endif
     // ==============================================================
 
 
@@ -8572,14 +8591,16 @@ FiniteElement::initWimVariables()
     std::cout<<"Min Nfloes = "<<*std::min_element(M_nfloes.begin(),M_nfloes.end())<<"\n";
     std::cout<<"Max Nfloes = "<<*std::max_element(M_nfloes.begin(),M_nfloes.end())<<"\n";
 
+#if 0
     //NB initialise M_tau in initVariables()
     //since it is used even if 
-    if (M_export_stokes_drift_mesh)
+    if (M_export_wim_diags_mesh)
         M_stokes_drift.assign(2*M_num_nodes,0.);
     // ==============================================================
+#endif
 
     std::cout<<"end initWimVariables()\n";
-}
+}//initWimVariables()
 #endif
 
 #if defined (WAVES)
@@ -8645,7 +8666,7 @@ FiniteElement::wimPostRegrid()
         std::vector<double> broken;
         if (break_on_mesh||M_wim_on_mesh)
             //already have moved mesh and conc
-            wim.getFsdMesh(M_nfloes,M_dfloe,broken);//outputs
+            wim.getFsdMesh(M_nfloes,M_dfloe,broken);//outputs (already calculated on mesh)
         else
             wim.getFsdMesh(M_nfloes,M_dfloe,broken, //outputs
                     ctot,M_mesh,M_UM);              //extra inputs
@@ -8654,6 +8675,8 @@ FiniteElement::wimPostRegrid()
         LOG(DEBUG)<<"max Dfloe on mesh = "<< *std::max_element(M_dfloe.begin(),M_dfloe.end() )<<"\n";
         LOG(DEBUG)<<"min Nfloes on mesh = "<< *std::min_element(M_nfloes.begin(),M_nfloes.end() )<<"\n";
         LOG(DEBUG)<<"max Nfloes on mesh = "<< *std::max_element(M_nfloes.begin(),M_nfloes.end() )<<"\n";
+        LOG(DEBUG)<<"min broken on mesh = "<< *std::min_element(broken.begin(),broken.end() )<<"\n";
+        LOG(DEBUG)<<"max broken on mesh = "<< *std::max_element(broken.begin(),broken.end() )<<"\n";
 #endif
 
         if ( vm["nextwim.wim_damage_mesh"].template as<bool>() )
@@ -8675,7 +8698,7 @@ FiniteElement::wimPostRegrid()
 #if 0
         M_taux_grid = wim.getTaux();
         M_tauy_grid = wim.getTauy();
-        if (M_export_stokes_drift_mesh)
+        if (M_export_wim_diags_mesh)
         {
             M_stokes_drift_x_grid   = wim.getStokesDriftx();
             M_stokes_drift_y_grid   = wim.getStokesDrifty();
@@ -8709,7 +8732,7 @@ FiniteElement::wimPostRegrid()
     // - taux and tauy from waves
     // - maybe Stokes drift
     bool interp_stokes
-        = ( M_export_stokes_drift_mesh && (M_run_wim||M_regrid) );
+        = ( M_export_wim_diags_mesh && (M_run_wim||M_regrid) );
 
     int nb_var;
     if (interp_taux&&interp_stokes)
@@ -8905,6 +8928,29 @@ FiniteElement::wimPostRegrid()
     //update counter
     wim_cpt++;
 }//wimPostRegrid
+#endif
+
+#if defined (WAVES)
+void
+FiniteElement::getWimDiagnostics()
+{
+    //call from exportResults()
+
+    //fields on elements - reset each call to exportResults()
+    std::vector<std::string> fields = {"Hs","Tp","MWD"};
+    M_wim_fields_els    = wim.returnFieldsElements(fields,M_mesh,M_UM);
+
+    // fields on nodes
+    // - only if not M_wim_on_mesh
+    // - if M_wim_on_mesh, fields move on the mesh
+    //      - reinterpolated at regrid time
+    //      - NB fields on elements are also re-calculated at regrid time
+    if(!M_wim_on_mesh)
+    {
+        fields              = {"Stokes_drift"};
+        M_wim_fields_nodes  = wim.returnFieldsNodes(fields,M_mesh,M_UM);
+    }
+}
 #endif
 
 std::string
