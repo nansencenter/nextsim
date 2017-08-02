@@ -8536,7 +8536,7 @@ FiniteElement::initWim(int const pcpt)
     std::cout<<"ymax (WIM grid) = "<<ymax_wim<<"\n";
 
     //check if we want to export the Stokes drift
-    M_export_wim_diags_mesh  = (M_use_wim && vm["nextwim.export_diags_mesh"].as<bool>());
+    M_export_wim_diags_mesh  = vm["nextwim.export_diags_mesh"].as<bool>();
 
     // init counters to 0
     wim_cpt                     = 0;
@@ -8553,6 +8553,7 @@ FiniteElement::initWimVariables()
     // ==============================================================
     //WIM variables on the grid
 
+#if 0
     //set sizes of inputs to WIM
     // - these are set by interpolating from mesh to grid 
     M_icec_grid.assign  (num_elements_wim_grid,0.);
@@ -8562,6 +8563,7 @@ FiniteElement::initWimVariables()
     //set sizes of outputs from WIM
     M_taux_grid.assign  (num_elements_wim_grid,0.);
     M_tauy_grid.assign  (num_elements_wim_grid,0.);
+#endif
     // ==============================================================
 
 
@@ -8664,7 +8666,7 @@ FiniteElement::wimPostRegrid()
         std::vector<double> broken;
         if (break_on_mesh||M_wim_on_mesh)
             //already have moved mesh and conc
-            wim.getFsdMesh(M_nfloes,M_dfloe,broken);//outputs
+            wim.getFsdMesh(M_nfloes,M_dfloe,broken);//outputs (already calculated on mesh)
         else
             wim.getFsdMesh(M_nfloes,M_dfloe,broken, //outputs
                     ctot,M_mesh,M_UM);              //extra inputs
@@ -8673,6 +8675,8 @@ FiniteElement::wimPostRegrid()
         LOG(DEBUG)<<"max Dfloe on mesh = "<< *std::max_element(M_dfloe.begin(),M_dfloe.end() )<<"\n";
         LOG(DEBUG)<<"min Nfloes on mesh = "<< *std::min_element(M_nfloes.begin(),M_nfloes.end() )<<"\n";
         LOG(DEBUG)<<"max Nfloes on mesh = "<< *std::max_element(M_nfloes.begin(),M_nfloes.end() )<<"\n";
+        LOG(DEBUG)<<"min broken on mesh = "<< *std::min_element(broken.begin(),broken.end() )<<"\n";
+        LOG(DEBUG)<<"max broken on mesh = "<< *std::max_element(broken.begin(),broken.end() )<<"\n";
 #endif
 
         if ( vm["nextwim.wim_damage_mesh"].template as<bool>() )

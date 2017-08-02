@@ -2860,7 +2860,10 @@ void WimDiscr<T>::getFsdMesh(value_type_vec &nfloes_out,value_type_vec &dfloe_ou
     if((M_wim_on_mesh)||(break_on_mesh))
         throw runtime_error("getFsdMesh: using wrong interface");
 
-    //set nextsim_mesh (need to know where to interpolate to)
+    // set nextsim_mesh (need to know where to interpolate to)
+    // - NB set in FiniteElement::wimPreRegrid(),
+    // but this function is called from FiniteElement::wimPostRegrid(),
+    // and mesh could have changed due to regridding
     this->resetMesh(mesh_in,um_in);
 
     //do interpolation
@@ -2869,22 +2872,33 @@ void WimDiscr<T>::getFsdMesh(value_type_vec &nfloes_out,value_type_vec &dfloe_ou
     value_type_vec_ptrs output_data = {&nfloes_out,&cinterp,&broken};
     this->gridToPoints(output_data,input_data,nextsim_mesh.elements_x,nextsim_mesh.elements_y);
 
-    dfloe_out.resize(M_num_elements,0.);
-    for (int i=0;i<M_num_elements;i++)
+    int Nel = nextsim_mesh.num_elements;
+    dfloe_out.assign(Nel,0.);
+    for (int i=0;i<Nel;i++)
     {
-        broken[i]   = std::round(broken[i]);
-        if(conc_tot[i]<vm["wim.cicemin"].template as<double>())
-            broken[i]   = 0.;
-
-        if(cinterp[i]>0.)
+        if(conc_tot[i]>=vm["wim.cicemin"].template as<double>())
         {
-            //difference between cinterp and nextsim_ice.conc should give the error
-            //due to interpolation from mesh to grid and back again (roughly)
-            value_type cfac = nextsim_ice.conc[i]/cinterp[i];
-            nfloes_out[i]   = cfac*nfloes_out[i];
+            if(cinterp[i]>0.)
+            {
+                // if conc_tot is high enough:
+                // nfloes  has      been interpolated: old mesh->grid->new mesh
+                // cinterp has      been interpolated: old mesh->grid->new mesh
+                // ctot    may have been interpolated: old mesh->new mesh (if no regridding, old = new & nextsim_ice.conc = ctot)
+                // cinterp and ctot should be the same, apart from errors in interpolation,
+                // so hopefully the errors in nfloes can be estimated from this process
+                value_type cfac = conc_tot[i]/cinterp[i];
+                nfloes_out[i]   = cfac*nfloes_out[i];
+            }
+
+            //else keep nfloes_out the same
             dfloe_out[i]    = nfloesToDfloe(nfloes_out[i],conc_tot[i]);
+            broken[i]       = std::round(broken[i]);
         }
-        
+        else
+        {
+            nfloes_out[i]   = 0.;
+            broken[i]       = 0.;
+        }
     }
 }//getFsdMesh
 
