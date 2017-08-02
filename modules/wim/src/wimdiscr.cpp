@@ -2512,30 +2512,49 @@ void WimDiscr<T>::meshToPoints(
 
 
 template<typename T>
-void WimDiscr<T>::returnFields(unord_map_vecs &output_nodes,unord_map_vecs &output_els,
+typename WimDiscr<T>::unord_map_vecs_type
+WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const & fields,
         mesh_type const &mesh_in,value_type_vec const &um_in)
 {
     auto movedmesh  = mesh_in;
     movedmesh.move(um_in,1.);
     auto xnod = movedmesh.coordX();
     auto ynod = movedmesh.coordY();
-    auto xel  = movedmesh.bcoordX();
-    auto yel  = movedmesh.bcoordY();
-    this->returnFields(output_nodes,output_els,xnod,ynod,xel,yel);
+    return this->returnFieldsNodes(fields,xnod,ynod);
 }
 
+template<typename T>
+typename WimDiscr<T>::unord_map_vecs_type
+WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
+        mesh_type const &mesh_in,value_type_vec const &um_in)
+{
+    auto movedmesh  = mesh_in;
+    movedmesh.move(um_in,1.);
+    auto xel  = movedmesh.bcoordX();
+    auto yel  = movedmesh.bcoordY();
+    return this->returnFieldsElements(fields,xel,yel);
+}
 
 template<typename T>
-void WimDiscr<T>::returnFields(unord_map_vecs &output_nodes,unord_map_vecs &output_els,
-        value_type_vec &xnod, value_type_vec &ynod, value_type_vec &xel, value_type_vec &yel)
+typename WimDiscr<T>::unord_map_vecs_type
+WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const &fields,
+        value_type_vec &xnod, value_type_vec &ynod)
 {
-    //return fields - usually to export diagnostic fields on nextsim mesh
-
-    int nb_var_nod  = output_nodes.bucket_count();
-    int nb_var_els  = output_els.bucket_count();
-
+    // return fields to nodes of nextsim mesh
+    // - usually to export diagnostic fields on nextsim mesh
+    unord_map_vecs_type output_nodes;
     int Nnod = xnod.size();
-    int Nel  = xel.size();
+
+    if (fields.size()==0)
+        //nothing to do
+        return output_nodes;
+    else
+        //initialise outputs
+        for (auto it=fields.begin();it!=fields.end();it++)
+        {
+            value_type_vec tmp(2*Nnod,0.);
+            output_nodes.emplace(*it,tmp);
+        }
 
     // ==========================================================================================
     //nodes - vectors
@@ -2545,20 +2564,17 @@ void WimDiscr<T>::returnFields(unord_map_vecs &output_nodes,unord_map_vecs &outp
 
     //need to make some dummy variables since vector components handled individually
     value_type_vec tx_out,ty_out,sdfx_out,sdfy_out;
-    for (typename unord_map_vecs::iterator it = output_nodes.begin(); it != output_nodes.end(); it++)
+    for (typename unord_map_vecs_type::iterator it = output_nodes.begin(); it != output_nodes.end(); it++)
     {
-        //resize output
-        (it->second).resize(2*Nnod,0.);//"second" is a vector
-
         //get inputs
-        if(it->first=="tau_waves")
+        if(it->first=="Stress_waves_ice")
         {
             input_nodes.push_back(&tau_x);
             input_nodes.push_back(&tau_y);
             out_nodes.push_back(&tx_out);
             out_nodes.push_back(&ty_out);
         }
-        else if(it->first=="stokes_drift")
+        else if(it->first=="Stokes_drift")
         {
             input_nodes.push_back(&stokes_drift_x);
             input_nodes.push_back(&stokes_drift_y);
@@ -2566,20 +2582,72 @@ void WimDiscr<T>::returnFields(unord_map_vecs &output_nodes,unord_map_vecs &outp
             out_nodes.push_back(&sdfy_out);
         }
         else
-            throw runtime_error("returnFields (nodes): unknown variable name - "+it->first+"\n");
+            throw runtime_error("returnFieldsNodes: unknown variable name - "+it->first+"\n");
     }
     // ==========================================================================================
+
+    // ==========================================================================================
+    // Do the interpolation
+    if(M_wim_on_mesh)
+        //from elements of last mesh to nodes of the input mesh
+        this->meshToPoints(out_nodes,input_nodes,xnod,ynod);
+    else
+        //from grid elements to mesh nodes
+        this->gridToPoints(out_nodes,input_nodes,xnod,ynod);
+    // ==========================================================================================
+
+
+    // ==========================================================================================
+    // assign the outputs
+    for (typename unord_map_vecs_type::iterator it = output_nodes.begin(); it != output_nodes.end(); it++)
+    {
+        if(it->first=="Stress_waves_ice")
+            for (int i=0;i<Nnod;i++)
+            {
+                (it->second)[i]         = tx_out[i];
+                (it->second)[i+Nnod]    = ty_out[i];
+            }
+        else if(it->first=="Stokes_drift")
+            for (int i=0;i<Nnod;i++)
+            {
+                (it->second)[i]         = sdfx_out[i];
+                (it->second)[i+Nnod]    = sdfy_out[i];
+            }
+    }
+    // ==========================================================================================
+
+    return output_nodes;
+}//returnFieldsNodes
+
+template<typename T>
+typename WimDiscr<T>::unord_map_vecs_type
+WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
+        value_type_vec &xel, value_type_vec &yel)
+{
+    // return fields to elements of nextsim_mesh
+    // - usually to export diagnostic fields on nextsim mesh
+    unord_map_vecs_type output_els;
+    int Nels = xel.size();
+
+    if (fields.size()==0)
+        //do nothing
+        return output_els;
+    else
+        //initialise outputs
+        for (auto it=fields.begin();it!=fields.end();it++)
+        {
+            value_type_vec tmp(Nels,0.);
+            output_els.emplace(*it,tmp);
+        }
+
 
     // ==========================================================================================
     //elements - scalars
 
     //input to and output from interpolation routines
     value_type_vec_ptrs input_els, out_els;
-    for (typename unord_map_vecs::iterator it = output_els.begin(); it != output_els.end(); it++)
+    for (typename unord_map_vecs_type::iterator it = output_els.begin(); it != output_els.end(); it++)
     {
-        //resize output
-        (it->second).resize(Nel,0.);//"second" is a pointer to a vector
-
         //get inputs
         if(it->first=="Hs")
         {
@@ -2601,7 +2669,7 @@ void WimDiscr<T>::returnFields(unord_map_vecs &output_nodes,unord_map_vecs &outp
                 out_els.push_back(&(it->second));
             }
         }
-        else if(it->first=="mwd")
+        else if(it->first=="MWD")
         {
             if (M_wim_on_mesh)
                 it->second = mwd;
@@ -2612,38 +2680,16 @@ void WimDiscr<T>::returnFields(unord_map_vecs &output_nodes,unord_map_vecs &outp
             }
         }
         else
-            throw runtime_error("returnFields (elements): unknown variable name - "+it->first+"\n");
+            throw runtime_error("returnFieldsElements): unknown variable name - "+it->first+"\n");
     }
     // ==========================================================================================
 
     //interp to elements if necessary
-    if ((!M_wim_on_mesh) && (nb_var_els>0))
+    if (!M_wim_on_mesh)
         this->gridToPoints(out_els,input_els,xel,yel);//out_els already points to output_els
 
-    //interp to nodes if necessary
-    if(nb_var_nod>0)
-    {
-        if(M_wim_on_mesh)
-            this->meshToPoints(out_nodes,input_nodes,xnod,ynod);
-        else
-            this->gridToPoints(out_nodes,input_nodes,xnod,ynod);
-
-        for (typename unord_map_vecs::iterator it = output_nodes.begin(); it != output_nodes.end(); it++)
-            if(it->first=="tau_waves")
-                for (int i=0;i<Nnod;i++)
-                {
-                    (it->second)[i]         = tx_out[i];
-                    (it->second)[i+Nnod]    = ty_out[i];
-                }
-            else if(it->first=="stokes_drift")
-                for (int i=0;i<Nnod;i++)
-                {
-                    (it->second)[i]         = sdfx_out[i];
-                    (it->second)[i+Nnod]    = sdfy_out[i];
-                }
-    }//interp to nodes
-
-}//returnFields
+    return output_els;
+}//returnFieldsElements
 
 
 template<typename T>

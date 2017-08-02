@@ -79,6 +79,7 @@ public:
 
 #if defined (WAVES)
     typedef Wim::WimDiscr<double> wim_type;
+    typedef Wim::WimDiscr<double>::unord_map_vecs_type unord_map_vecs_type;
 #endif
 
     FiniteElement();
@@ -214,6 +215,7 @@ public:
     void initWimVariables();
     void wimPreRegrid();
     void wimPostRegrid();
+    void getWimDiagnostics();
 #if 0
     std::vector<double> FiniteElements::rotatedWimElementsX(double const& rotangle) const;
     std::vector<double> FiniteElements::rotatedWimElementsY(double const& rotangle) const;
@@ -335,7 +337,9 @@ private:
     int wim_cpt;//no of times WIM has been called
     int steps_since_last_wim_call;//no of time steps since WIM was last called
 
-    std::vector<double> M_stokes_drift;
+    unord_map_vecs_type M_wim_fields_nodes;
+    unord_map_vecs_type M_wim_fields_els;
+    //std::vector<double> M_stokes_drift;
 
     std::vector<double> M_icec_grid;
     std::vector<double> M_iceh_grid;
@@ -345,7 +349,7 @@ private:
     std::vector<double> M_tauy_grid;
     std::vector<double> M_stokes_drift_x_grid;
     std::vector<double> M_stokes_drift_y_grid;
-    bool M_export_stokes_drift_mesh;
+    bool M_export_wim_diags_mesh;
     bool M_wim_on_mesh = false;
 #endif
     std::vector<double> M_tau;//this can just be set to zero if not using WIM

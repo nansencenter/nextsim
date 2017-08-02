@@ -71,10 +71,26 @@ template<typename T=float> class WimDiscr
         value_type_vec broken;      // 1 if broken during this call to the wim
     } IceInfo;
 
-    typedef boost::unordered_map<std::string,value_type_vec>  unord_map_vecs;
+    typedef struct BreakInfo
+    {
+        // information needed for breaking
+        value_type conc;   // concentration
+        value_type thick;  // thickness
+        value_type mom0;
+        value_type mom2;
+        value_type var_strain;
+        mutable value_type dfloe;
+        mutable bool broken;
+    } BreakInfo;
+
+
     // ==========================================================================================
 
 public:
+
+    // ====================================================================================
+    // public types
+    typedef boost::unordered_map<std::string,value_type_vec>  unord_map_vecs_type;
 
     typedef struct MeshInfo
     {
@@ -93,18 +109,6 @@ public:
         value_type_vec surface;                 // y-coords of elements
     } MeshInfo;
 
-    typedef struct BreakInfo
-    {
-        // information needed for breaking
-        value_type conc;   // concentration
-        value_type thick;  // thickness
-        value_type mom0;
-        value_type mom2;
-        value_type var_strain;
-        mutable value_type dfloe;
-        mutable bool broken;
-    } BreakInfo;
-
     typedef struct WimGrid
     {
         // information describing wim grid
@@ -117,6 +121,7 @@ public:
         std::vector<value_type> x;
         std::vector<value_type> y;
     } WimGrid;
+    // ====================================================================================
 
 
 public:
@@ -217,10 +222,15 @@ public:
         value_type_vec &Rx,                     //location of output data (x-coord)
         value_type_vec &Ry);                    //location of output data (y-coord)
 
-    void returnFields(unord_map_vecs &output_nodes,unord_map_vecs &output_els,
-            value_type_vec &xnod, value_type_vec &ynod, value_type_vec &xel, value_type_vec &yel);
-    void returnFields(unord_map_vecs &output_nodes,unord_map_vecs &output_els,
-        mesh_type const &mesh_in,value_type_vec const &um_in);
+    unord_map_vecs_type returnFieldsElements(std::vector<std::string> const&fields,
+            value_type_vec &xel, value_type_vec &yel);
+    unord_map_vecs_type returnFieldsElements(std::vector<std::string> const&fields,
+            mesh_type const &mesh_in,value_type_vec const &um_in);
+    unord_map_vecs_type returnFieldsNodes(std::vector<std::string> const&fields,
+            value_type_vec &xnod, value_type_vec &ynod);
+    unord_map_vecs_type returnFieldsNodes(std::vector<std::string> const&fields,
+            mesh_type const &mesh_in,value_type_vec const &um_in);
+
     void returnWaveStress(value_type_vec &M_tau, value_type_vec &xnod, value_type_vec &ynod);
     void returnWaveStress(value_type_vec &M_tau, mesh_type const &mesh_in,value_type_vec const &um_in);
 
