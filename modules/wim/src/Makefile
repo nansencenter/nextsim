@@ -36,7 +36,7 @@ else
 endif
 
 # add g++ option flags
-CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v
+CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp
 CXXFLAGS += -Wfatal-errors
 # CXXFLAGS += -pedantic
 
@@ -61,9 +61,14 @@ CCDEPS=$(CCSRC:%.c=$(DEPENDDIR)%.d)
 
 
 CC = gcc
-CFLAGS += -Wno-inline -fPIC -O3 #-v # -MMD -MP -lm #-Wall -pedantic
+CFLAGS += -Wno-inline -fPIC -O3 # -MMD -MP -lm #-Wall -pedantic
 CFLAGS += -I $(NEXTSIMDIR)/modules/wim/include #-I $(CCSRCDIR) -I . -I $(WIM2D_CXX)/include
 # ========================================================
+
+ifneq ($(XSIMCOMP_VERBOSE),no)
+	CXXFLAGS += -v
+	CFLAGS   += -v
+endif
 
 # ========================================================
 # Libraries

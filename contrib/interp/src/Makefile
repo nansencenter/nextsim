@@ -13,7 +13,11 @@ LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
 CXX = g++
 #CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -pthread -v
-CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -v
+CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread
+
+ifneq ($(XSIMCOMP_VERBOSE),no)
+	CXXFLAGS += -v
+endif
 
 ifeq ($(KERNEL),Linux)
 	CXXFLAGS += -I $(NEXTSIMDIR)/contrib/interp/include -I /usr/lib/openmpi/include

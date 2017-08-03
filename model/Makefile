@@ -14,8 +14,13 @@ else
 endif
 
 # add g++ option flags
-CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v -DHAVE_CONFIG_H -D_MULTITHREADING_ -DWAVES #-DOASIS
-#CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v -DHAVE_CONFIG_H -D_MULTITHREADING_ #-DOASIS
+CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -DHAVE_CONFIG_H -D_MULTITHREADING_ -DWAVES #-DOASIS
+#CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -DHAVE_CONFIG_H -D_MULTITHREADING_ #-DOASIS
+
+ifneq ($(XSIMCOMP_VERBOSE),no)
+	CXXFLAGS += -v
+endif
+
 
 ifdef USE_OASIS
 	CXXFLAGS += -DOASIS

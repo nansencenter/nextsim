@@ -14,7 +14,11 @@ LIBRARYDIR=$(NEXTSIMDIR)/lib/
 CC = gcc
 
 # add gcc option flags
-CCFLAGS += -pedantic -Wno-inline -fPIC -O3 -pthread -v
+CCFLAGS += -pedantic -Wno-inline -fPIC -O3 -pthread
+
+ifneq ($(XSIMCOMP_VERBOSE),no)
+   	CXXFLAGS += -v
+endif
 
 ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
 	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
