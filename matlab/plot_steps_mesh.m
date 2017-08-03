@@ -111,7 +111,7 @@ if simul_in.simul.use_wim==1
              'Stress_waves_ice',...  %4
              'Dfloe' ,...            %5
              'Nfloes',...            %6
-            }
+            };
    vbls_def(end+1:end+length(tmp))  = tmp;
 
    if simul_in.nextwim.export_diags_mesh==1
