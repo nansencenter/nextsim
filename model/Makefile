@@ -121,7 +121,7 @@ OBJS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.o)
 DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
 # Rules to always execute.
-.PHONY: all clean mrproper
+.PHONY: all clean mrproper fortran libs cleanlibs mrproperlibs
 
 # Default action.
 all: $(EXEC)
@@ -153,6 +153,18 @@ $(OBJS): Makefile
 
 # The fortran wrapper
 fortran: $(FPROGNAME)
+
+# Make the required libraries
+libs:
+	cd ..; make
+
+# Clean the required libraries
+cleanlibs:
+	cd ..; make clean
+
+# Fully clean the required libraries
+mrproperlibs:
+	cd ..; make mrproper
 
 $(FPROGNAME): $(filter-out $(OBJECTDIR)$(CXXSRCDIR)/main.o, $(OBJS)) finiteelement_mod.f90
 	$(FC) $(FFLAGS) $(LDFLAGS) -o $(BINARYDIR)$@ $^ FE.f90
