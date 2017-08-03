@@ -581,7 +581,7 @@ void WimDiscr<T>::initConstant(int nextsim_cpt)
     ref_Hs_ice  = vm["wim.refhsice"].template as<bool>();
     atten       = vm["wim.atten"].template as<bool>();
     useicevel   = vm["wim.useicevel"].template as<bool>();
-    M_steady      = vm["wim.steady"].template as<bool>();
+    M_steady    = vm["wim.steady"].template as<bool>();
     scatmod     = vm["wim.scatmod"].template as<std::string>();
 
     // ice parameters
@@ -622,29 +622,30 @@ void WimDiscr<T>::initConstant(int nextsim_cpt)
 
 
     //numerical parameters
-    advdim      = vm["wim.advdim"].template as<int>();
-    advopt      = vm["wim.advopt"].template as<std::string>();
-    cfl         = vm["wim.cfl"].template as<double>();
-    //nghost==3 needs padVar (boundary conditions) between prediction/advection step
-    //nghost>3 doesn't
-    //nghost<3 is not possible
+    M_advdim    = vm["wim.advdim"].template as<int>();
+    M_advopt    = vm["wim.advopt"].template as<std::string>();
+    M_cfl       = vm["wim.cfl"].template as<double>();
+
+    //need nghost>=4 for WENO advection
     nghost  = 4;
     nbdx    = nghost;
     nbdy    = nghost;
 
     if (useicevel)
+        throw std::runtime_error("useicevel=true not implemented\n");
+
+    if(M_steady && (M_advopt=="xy-periodic"))
     {
-      std::cerr << std::endl
-      << "useicevel=true not implemented"
-      << std::endl;
-      std::abort();
+        std::string tmps = "advopt = xy-periodic and steady options incompatible - ";
+        tmps += "use y-periodic with steady or turn off steady\n";
+        throw std::runtime_error(tmps);
     }
 
-    if (advdim == 1)
+    if (M_advdim == 1)
         nbdy = 0;
 
     nxext = nx+2*nbdx;
-    nyext = ny+2*nbdy;//ny if advdim==1
+    nyext = ny+2*nbdy;//ny if M_advdim==1
 
     gravity             = 9.81;
     rhowtr              = 1025.;
@@ -725,7 +726,8 @@ void WimDiscr<T>::assign()
 
     //4D var's
     sdf_dir.resize(boost::extents[M_num_elements][nwavedirn][nwavefreq]);
-    sdf_inc.resize(boost::extents[M_num_elements][nwavedirn][nwavefreq]);
+    if(M_steady)
+        sdf_inc.resize(boost::extents[M_num_elements][nwavedirn][nwavefreq]);
 
     //3D var's
     // - space and dirn
@@ -863,8 +865,8 @@ void WimDiscr<T>::update()
 {
 
     //====================================================
-    // set incident wave spec (sdf_inc) where wave_mask==1;
-    // this also sets sdf_dir to sdf_inc in this region
+    // set incident wave spec where wave_mask==1;
+    // this also sets sdf_dir in this region
     this->setIncWaveSpec();
     //====================================================
 
@@ -880,8 +882,8 @@ void WimDiscr<T>::update()
     // - this can change with time if using group velocity for ice
     // - NB needs to be done after updateWaveMedium
     amax = *std::max_element(ag_eff.data(),ag_eff.data() + ag_eff.num_elements());
-    //std::cout<<"dx,amax,cfl= "<< dx<<","<<amax<<","<<cfl <<"\n";
-    M_timestep = cfl*dx/amax;
+    //std::cout<<"dx,amax,M_cfl= "<< dx<<","<<amax<<","<<M_cfl <<"\n";
+    M_timestep = M_cfl*dx/amax;
 
     //reduce time step slightly (if necessary) to make duration an integer multiple of M_timestep
     nt = std::ceil(duration/M_timestep);
@@ -1565,7 +1567,8 @@ void WimDiscr<T>::timeStep(int &lcpt)
             diagID << std::setw(16) << std::left
                 << wim_ice.dfloe[i] << " # D_max, m\n";
 
-            if (atten)
+            if (atten && (wim_ice.mask[i]>.5))
+                //no attenuation outside ice
                 diagID << "\n# period, s | atten_dim, m^{-1}| damp_dim, m^{-1}\n";
 
             diagID.close();
@@ -2582,7 +2585,7 @@ WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const &fields,
             out_nodes.push_back(&sdfy_out);
         }
         else
-            throw runtime_error("returnFieldsNodes: unknown variable name - "+it->first+"\n");
+            throw std::runtime_error("returnFieldsNodes: unknown variable name - "+it->first+"\n");
     }
     // ==========================================================================================
 
@@ -2680,7 +2683,7 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
             }
         }
         else
-            throw runtime_error("returnFieldsElements): unknown variable name - "+it->first+"\n");
+            throw std::runtime_error("returnFieldsElements): unknown variable name - "+it->first+"\n");
     }
     // ==========================================================================================
 
@@ -2850,7 +2853,7 @@ void WimDiscr<T>::getFsdMesh(value_type_vec &nfloes_out,value_type_vec &dfloe_ou
         nfloes_out  = dfloeToNfloes(nextsim_ice.dfloe,nextsim_ice.conc);
     }
     else
-        throw runtime_error("getFsdMesh: using wrong interface");
+        throw std::runtime_error("getFsdMesh: using wrong interface");
 }//getFsdMesh
 
 template<typename T>
@@ -2858,7 +2861,7 @@ void WimDiscr<T>::getFsdMesh(value_type_vec &nfloes_out,value_type_vec &dfloe_ou
         value_type_vec const & conc_tot, mesh_type const &mesh_in,value_type_vec const &um_in)
 {
     if((M_wim_on_mesh)||(break_on_mesh))
-        throw runtime_error("getFsdMesh: using wrong interface");
+        throw std::runtime_error("getFsdMesh: using wrong interface");
 
     // set nextsim_mesh (need to know where to interpolate to)
     // - NB set in FiniteElement::wimPreRegrid(),
@@ -3119,7 +3122,7 @@ void WimDiscr<T>::advectDirections(array2_type& Sdir,value_type_vec const& ag2d_
         //set wave speeds
         //TODO if M_wim_on_mesh, subtract average mesh velocity
         std::for_each(uwave.begin(), uwave.end(), [&](value_type& f){ f *= std::cos(adv_dir); });
-        if (advdim == 2)
+        if (M_advdim == 2)
             std::for_each(vwave.begin(), vwave.end(), [&](value_type& f){ f *= std::sin(adv_dir); });
 
         // copy from 3D input array to 2D temporary array
@@ -3474,45 +3477,25 @@ void WimDiscr<T>::waveAdvWeno(value_type_vec& h, value_type_vec const& u, value_
     padVar(SCP2I_array, scp2i_pad,"xy-periodic");
     padVar(SCUY_array, scuy_pad,"xy-periodic");
     padVar(SCVX_array, scvx_pad,"xy-periodic");
-    padVar(h, h_pad,advopt);
+
+#if 1
+    padVar(h, h_pad,M_advopt);
+#else
+    //apply "steady" forcing here by adjusting the far-left ghost cells
+    //doesn't work for some reason if nwavefreq>1
+    padVar(h, h_pad,M_advopt,M_steady);
+#endif
 
     // prediction step
     weno3pdV2(h_pad, u_pad, v_pad, scuy_pad, scvx_pad, scp2i_pad, scp2_pad, sao);
 
-    if (nghost==3)
-    {
-       // if only using nghost==3, need to apply boundary conditions
-       // before correction step
-#pragma omp parallel for num_threads(max_threads) collapse(2)
-       for (int i = 0; i < nx; i++)
-       {
-           for (int j = 0; j < ny; j++)
-           {
-               hp[(i+nbdx)*nyext+j+nbdy] = h_pad[(i+nbdx)*nyext+j+nbdy]+M_timestep*sao[(i+nbdx)*nyext+j+nbdy];
-               hp_temp[ny*i+j]    = hp[(i+nbdx)*nyext+j+nbdy];
-           }
-       }
+    if (nghost<4)
+        throw std::runtime_error("Advection (WENO): 'nghost' should be >=4\n");
 
-       padVar(hp_temp,hp,advopt);//apply boundary conditions
-    }
-    else if (nghost>3)
-    {
-       // if using nghost>3, don't need to apply boundary conditions
-       //  before correction step,
-       // but need to loop over full padded domain
 
-       //std::cout<<"not using padVar\n";
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-       for (int i = 0; i < num_p_ext; i++)
-           hp[i] = h_pad[i]+M_timestep*sao[i];
-    }
-    else
-    {
-       std::cerr<<std::endl
-                <<"Advection (WENO): 'nghost' should be >=3"
-                <<std::endl;
-       std::abort();
-    }
+   for (int i = 0; i < h_pad.size(); i++)
+       hp[i] = h_pad[i]+M_timestep*sao[i];
 
     // correction step
     weno3pdV2(hp, u_pad, v_pad, scuy_pad, scvx_pad, scp2i_pad, scp2_pad, sao);
@@ -3522,7 +3505,6 @@ void WimDiscr<T>::waveAdvWeno(value_type_vec& h, value_type_vec const& u, value_
     //std::cout<<"in WENO\n";
 #pragma omp parallel for num_threads(max_threads) collapse(2)
     for (int i = 0; i < nx; i++)
-    {
         for (int j = 0; j < ny; j++)
         {
             h[ny*i+j] = 0.5*(h_pad[(i+nbdx)*nyext+j+nbdy]+hp[(i+nbdx)*nyext+j+nbdy]+M_timestep*sao[(i+nbdx)*nyext+j+nbdy]);
@@ -3530,7 +3512,6 @@ void WimDiscr<T>::waveAdvWeno(value_type_vec& h, value_type_vec const& u, value_
             //mask land cells
             h[ny*i+j] *= 1-LANDMASK_array[ny*i+j];
         }
-    }
 
     //std::cout<<"min LANDMASK"
     //   <<*std::min_element(LANDMASK_array.data(),LANDMASK_array.data() + LANDMASK_array.num_elements())
@@ -3560,7 +3541,7 @@ void WimDiscr<T>::weno3pdV2(value_type_vec const& gin, value_type_vec const& u, 
     fvh.resize(num_p_ext);
     gt.resize (num_p_ext);
 
-    if (advdim == 2)
+    if (M_advdim == 2)
         ymargin = 1;
     else
         ymargin = 0;
@@ -3608,7 +3589,7 @@ void WimDiscr<T>::weno3pdV2(value_type_vec const& gin, value_type_vec const& u, 
     }
 
     // fluxes in y direction
-    if (advdim == 2)
+    if (M_advdim == 2)
     {
 #pragma omp parallel for num_threads(max_threads) collapse(2)
         for (int i = 0; i < nxext; i++)
@@ -3650,11 +3631,11 @@ void WimDiscr<T>::weno3pdV2(value_type_vec const& gin, value_type_vec const& u, 
     {
         for (int j = 0; j < nyext-ymargin; j++)//nyext-1 if 2d advection; else nyext
         {
-            if (advdim == 2)
+            if (M_advdim == 2)
             {
                 gt[nyext*i+j] = gin[nyext*i+j]-M_timestep*(ful[(i+1)*nyext+j]-ful[nyext*i+j]+fvl[nyext*i+j+1]-fvl[nyext*i+j])*scp2i[nyext*i+j];
             }
-            else if (advdim == 1)
+            else if (M_advdim == 1)
             {
                 gt[nyext*i+j] = gin[nyext*i+j]-M_timestep*(ful[(i+1)*nyext+j]-ful[nyext*i+j])*scp2i[nyext*i+j];
             }
@@ -3678,7 +3659,7 @@ void WimDiscr<T>::weno3pdV2(value_type_vec const& gin, value_type_vec const& u, 
 
     // obtain fluxes with limited high order correction fluxes
     // - y dirn
-    if (advdim == 2)
+    if (M_advdim == 2)
     {
 #pragma omp parallel for num_threads(max_threads) collapse(2)
         for (int i = 0; i < nxext; i++)
@@ -3699,11 +3680,11 @@ void WimDiscr<T>::weno3pdV2(value_type_vec const& gin, value_type_vec const& u, 
     {
         for (int j = 0; j < nyext-ymargin; j++)
         {
-            if (advdim == 2)
+            if (M_advdim == 2)
             {
                 saoout[nyext*i+j] = -(fuh[(i+1)*nyext+j]-fuh[nyext*i+j]+fvh[nyext*i+j+1]-fvh[nyext*i+j])*scp2i[nyext*i+j];
             }
-            else if (advdim == 1)
+            else if (M_advdim == 1)
             {
                 saoout[nyext*i+j] = -(fuh[(i+1)*nyext+j]-fuh[nyext*i+j])*scp2i[nyext*i+j];
             }
@@ -3714,7 +3695,8 @@ void WimDiscr<T>::weno3pdV2(value_type_vec const& gin, value_type_vec const& u, 
 }//weno3pdV2
 
 template<typename T>
-void WimDiscr<T>::padVar(value_type_vec const& u, value_type_vec& upad, std::string const & advopt_)
+void WimDiscr<T>::padVar(value_type_vec const& u, value_type_vec& upad,
+        std::string const & advopt, bool const & steady)
 {
     int num_p_ext   = nxext*nyext;
     upad.resize(num_p_ext);
@@ -3725,34 +3707,43 @@ void WimDiscr<T>::padVar(value_type_vec const& u, value_type_vec& upad, std::str
         for (int j = 0; j < nyext; j++)
         {
 
-            if ((nbdx-1 < i) && (i < nx+nbdx) && (nbdy-1 < j) && (j < ny+nbdy))
-            {
+            bool i_inner = ((nbdx-1 < i) && (i < nx+nbdx));
+            bool j_inner = ((nbdy-1 < j) && (j < ny+nbdy));//also works for adv_dim==1 (-1<j<ny: ie all j)
+
+            // interior cells
+            if ( i_inner && j_inner )
                 upad[nyext*i+j] = u[(i-nbdx)*ny+j-nbdy];
+
+            // apply steady conditions here by setting the far-left ghost cells
+            // to be the same as the far-left "real" cells
+            if( steady && i<nbdx )
+            {
+                int ju = std::max(0,std::min(ny,j-nbdy));
+                upad[nyext*i+j] = u[nyext*nbdx+ju];
             }
 
-            if (advdim == 1)
+            if (M_advdim == 1)
             {
-                if (advopt_ != "notperiodic")
+                if (advopt == "xy-periodic")
                 {
-                   // make periodic in i
-                   if ((i < nbdx) && (nbdy-1 < j) && (j < ny+nbdy))
-                   {
-                       upad[nyext*i+j] = u[(nx-nbdx+i)*ny+j-nbdy];
-                   }
+                    // make periodic in i
+                    if ((i < nbdx) && j_inner && (!steady) )
+                        //far-left cells
+                        upad[nyext*i+j] = u[(nx-nbdx+i)*ny+j-nbdy];
 
-                   if ((nx+nbdx-1 < i) && (nbdy-1 < j) && (j < ny+nbdy))
-                   {
-                       upad[nyext*i+j] = u[(i-nx-nbdx)*ny+j-nbdy];
-                   }
+                    if ((nx+nbdx-1 < i) && j_inner )
+                        //far-right cells
+                        upad[nyext*i+j] = u[(i-nx-nbdx)*ny+j-nbdy];
                 }
             }
-            else if (advdim == 2)
+            else if (M_advdim == 2)
             {
-                if (advopt_ != "notperiodic")
+                if (advopt != "notperiodic")
                 {
+                    // ie either y-periodic or xy-periodic
+
                     // make periodic in j
                     // - lower cells
-                    bool i_inner = ((nbdx-1 < i) && (i < nx+nbdx));
                     if ((j < nbdy) && i_inner)
                         upad[nyext*i+j] = u[(i-nbdx)*ny+ny-nbdy+j];
 
@@ -3761,11 +3752,10 @@ void WimDiscr<T>::padVar(value_type_vec const& u, value_type_vec& upad, std::str
                         upad[nyext*i+j] = u[(i-nbdx)*ny+j-ny-nbdy];
                 }
 
-                if (advopt_ == "xy-periodic")
+                if (advopt == "xy-periodic")
                 {
                     // make periodic in i
                     // - far-left cells
-                    bool j_inner = ((nbdy-1 < j) && (j < ny+nbdy));
                     if ((i < nbdx) && j_inner )
                         upad[nyext*i+j] = u[(nx-nbdx+i)*ny+j-nbdy];
 
@@ -3773,23 +3763,24 @@ void WimDiscr<T>::padVar(value_type_vec const& u, value_type_vec& upad, std::str
                     if ((nx+nbdx-1 < i) && j_inner )
                         upad[nyext*i+j] = u[(i-nx-nbdx)*ny+j-nbdy];
 
-                    // TR
-                    if ((nx+nbdx-1 < i) && (ny+nbdy-1 < j))
-                        upad[nyext*i+j] = u[(i-nx-nbdx)*ny+j-ny-nbdy];
+                    // TL
+                    if ((i < nbdx) && (ny+nbdy-1 < j))
+                        upad[nyext*i+j] = u[(i+nx-nbdx)*ny+j-ny-nbdy];
 
                     // BL
                     if ((i < nbdx) && (j < nbdy))
                         upad[nyext*i+j] = u[(i+nx-nbdx)*ny+j];
 
+                    // TR
+                    if ((nx+nbdx-1 < i) && (ny+nbdy-1 < j))
+                        upad[nyext*i+j] = u[(i-nx-nbdx)*ny+j-ny-nbdy];
+
                     // BR
                     if ((nx+nbdx-1 < i) && (j < nbdy))
                         upad[nyext*i+j] = u[(i-nx-nbdx)*ny+ny-nbdy+j];
 
-                    // TL
-                    if ((i < nbdx) && (ny+nbdy-1 < j))
-                        upad[nyext*i+j] = u[(i+nx-nbdx)*ny+j-ny-nbdy];
-                }//advopt_=="xy-periodic"
-            }//advdim==2
+                }//advopt=="xy-periodic"
+            }//M_advdim==2
         }//j
     }//i
 }//padVar
@@ -4558,8 +4549,8 @@ void WimDiscr<T>::saveLog(value_type const& t_out) const
     out << "\n***********************************************\n";
     out << "Main parameters:" << "\n";
     out << std::left << std::setw(log_width) << "SCATMOD"<<" : " << scatmod << "\n";
-    out << std::left << std::setw(log_width) << "ADV_DIM"<<" : " << advdim << "\n";
-    out << std::left << std::setw(log_width) << "ADV_OPT"<<" : " << advopt << "\n";
+    out << std::left << std::setw(log_width) << "ADV_DIM"<<" : " << M_advdim << "\n";
+    out << std::left << std::setw(log_width) << "ADV_OPT"<<" : " << M_advopt << "\n";
 #if 0
     //TODO implement brkopt
     out << std::left << std::setw(log_width) << "BRK_OPT:" << brkopt << "\n";
@@ -4604,7 +4595,7 @@ void WimDiscr<T>::saveLog(value_type const& t_out) const
     out << "\n***********************************************\n";
     out << "Other parameters:" << "\n";
     out << std::left << std::setw(log_width) << "Time step (s)" <<" : "     << M_timestep << "\n";
-    out << std::left << std::setw(log_width) << "CFL number"                <<" : " << cfl << "\n";
+    out << std::left << std::setw(log_width) << "CFL number"                <<" : " << M_cfl << "\n";
     out << std::left << std::setw(log_width) << "Max wave group vel (m/s)"  <<" : " << amax << "\n";
     out << std::left << std::setw(log_width) << "Number of time steps"      <<" : " << nt << "\n";
     out << std::left << std::setw(log_width) << "Time interval (h)"         <<" : " << duration/60.0/60.0 << "\n";

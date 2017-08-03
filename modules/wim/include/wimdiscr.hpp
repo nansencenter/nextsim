@@ -32,8 +32,10 @@
 #include <omp.h>
 #include <gmshmesh.hpp>
 
-
+#ifdef PI
+#undef PI
 #define PI M_PI
+#endif
 
 namespace Wim
 {
@@ -45,8 +47,10 @@ template<typename T=float> class WimDiscr
 {
     // ==========================================================================================
 	typedef T value_type;
-    typedef typename std::vector<value_type> value_type_vec;
-    typedef typename std::vector<std::vector<value_type>*> value_type_vec_ptrs;
+    typedef typename std::vector<value_type>        value_type_vec;
+    typedef typename std::vector<value_type_vec*>   value_type_vec_ptrs;
+    typedef typename std::vector<value_type_vec>    value_type_vec2d;//vector of vectors
+    typedef typename std::vector<value_type_vec2d>  value_type_vec3d;//vector of vectors of vectors
     typedef size_t size_type;
 	typedef boost::multi_array<value_type, 2> array2_type;
     typedef boost::multi_array<value_type, 3> array3_type;
@@ -253,22 +257,24 @@ public:
     void advectDirections( array2_type& Sdir, value_type_vec const& ag2d_eff);
     void advectDirectionsMesh( array2_type& Sdir, value_type_vec& ag2d_eff);
     void attenSimple(
-          array2_type& Sdir, value_type_vec& Sfreq,
-          value_type_vec& taux_omega,value_type_vec& tauy_omega,
-          value_type_vec& sdx_omega,value_type_vec& sdy_omega,
-          value_type_vec const& ag2d_eff);
-    void attenIsotropic(array2_type& Sdir, value_type_vec& Sfreq,
-          value_type_vec& taux_omega,value_type_vec& tauy_omega,
-          value_type_vec& sdx_omega,value_type_vec& sdy_omega,
-          value_type_vec const& ag2d_eff);
+            array2_type& Sdir, value_type_vec& Sfreq,
+            value_type_vec& taux_omega,value_type_vec& tauy_omega,
+            value_type_vec& sdx_omega,value_type_vec& sdy_omega,
+            value_type_vec const& ag2d_eff);
+    void attenIsotropic(
+            array2_type& Sdir, value_type_vec& Sfreq,
+            value_type_vec& taux_omega,value_type_vec& tauy_omega,
+            value_type_vec& sdx_omega,value_type_vec& sdy_omega,
+            value_type_vec const& ag2d_eff);
     void waveAdvWeno(
-          value_type_vec& h, value_type_vec const& u, value_type_vec const& v);
+            value_type_vec& h, value_type_vec const& u, value_type_vec const& v);
     void weno3pdV2(
-          value_type_vec const& gin, value_type_vec const& u, value_type_vec const& v,
-          value_type_vec const& scuy, value_type_vec const& scvx,
-          value_type_vec const& scp2i, value_type_vec const& scp2,
-          value_type_vec& saoout);
-    void padVar(value_type_vec const& u, value_type_vec& upad,std::string const& advopt_);
+            value_type_vec const& gin, value_type_vec const& u, value_type_vec const& v,
+            value_type_vec const& scuy, value_type_vec const& scvx,
+            value_type_vec const& scp2i, value_type_vec const& scp2,
+            value_type_vec& saoout);
+    void padVar(value_type_vec const& u, value_type_vec& upad,
+            std::string const& advopt_,bool const&steady=false);
     //===========================================================================
 
 
@@ -330,7 +336,7 @@ private:
                 SCP2_array, SCP2I_array, LANDMASK_array;
     std::vector<value_type> x_col,y_row;
 
-    value_type cfl, dom, guess, Tmin, Tmax, gravity, om;
+    value_type M_cfl, dom, guess, Tmin, Tmax, gravity, om;
     value_type xmax, ym, x0, y0, dx, dy, x_edge, unifc, unifh,
                dfloe_pack_init, dfloe_pack_thresh, amin, amax;
     value_type rhowtr, rhoice, poisson, dmin, xi, fragility, cice_min, dfloe_miz_thresh,
@@ -338,11 +344,11 @@ private:
     value_type fmin, fmax, df, epsc, sigma_c, vbf, vb, flex_rig_coeff;
     value_type M_timestep,duration;
 
-    int nwavedirn, nwavefreq, advdim, ncs ,nt;
+    int nwavedirn, nwavefreq, M_advdim, ncs ,nt;
     bool ref_Hs_ice, atten, useicevel, M_steady, breaking;
     bool M_dump_diag;
     bool docoupling;
-    std::string scatmod, advopt, fsdopt;
+    std::string scatmod, M_advopt, fsdopt;
     std::string wim_gridfile;
     value_type_vec wavedir, wt_simp, wt_om, freq_vec, vec_period, wlng, ag, ap;
     value_type_vec Hs,Tp,mwd,wave_mask,M_steady_mask;
@@ -350,8 +356,14 @@ private:
     //value_type_vec ice_mask, icec, iceh;
     value_type_vec swh_in_array,mwp_in_array,mwd_in_array,
                 dave, atten_dim, damp_dim, ag2d_eff_temp;
+
+    //depend on freq and position
     array2_type ag_eff, ap_eff, wlng_ice, atten_nond, damping, disp_ratio, sdf3d_dir_temp;
-    array3_type sdf_dir, sdf_inc;
+
+    //depend on freq, dirn and position
+    array3_type sdf_dir;
+    array3_type sdf_inc;
+    //value_type_vec3d M_steady_col;
 
     value_type_vec S_freq, taux_om, tauy_om,
                 stokes_drift_x_om, stokes_drift_y_om;
