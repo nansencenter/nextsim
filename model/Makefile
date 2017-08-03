@@ -38,8 +38,10 @@ ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
 endif
 
 # add include paths
-CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I $(NEXTSIMDIR)/contrib/bamg/include
-CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include # -I $(NEXTSIMDIR)/contrib/interp/include
+CXXFLAGS += -I $(NEXTSIMDIR)/core/include
+CXXFLAGS += -isystem $(NEXTSIMDIR)/contrib/bamg/include # suppress annoying compilation warnings from -I
+CXXFLAGS += -isystem $(NEXTSIMDIR)/contrib/mapx/include # suppress annoying compilation warnings from -I
+# CXXFLAGS += -I $(NEXTSIMDIR)/contrib/interp/include
 CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
 #CXXFLAGS += -I $(NEXTSIMDIR)/modules/oasis/include
 

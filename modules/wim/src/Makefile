@@ -39,14 +39,21 @@ endif
 CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp
 CXXFLAGS += -Wfatal-errors
 # CXXFLAGS += -pedantic
+ifneq ($(XSIMCOMP_VERBOSE),no)
+	CXXFLAGS += -v
+	CFLAGS   += -v
+endif
+
 
 # add include paths
-CXXFLAGS += -I . -I $(BOOST_DIR)/include
-CXXFLAGS += -I . -I $(PETSC_DIR)/include
-CXXFLAGS += -I . -I $(GMSH_DIR)/include/gmsh
-CXXFLAGS += -I . -I $(OPENMPI_INCLUDE_DIR)
+
+CXXFLAGS += -I .
+CXXFLAGS += -I $(BOOST_DIR)/include
+CXXFLAGS += -I $(PETSC_DIR)/include
+CXXFLAGS += -I $(GMSH_DIR)/include/gmsh
+CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
-CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include
+CXXFLAGS += -isystem $(NEXTSIMDIR)/contrib/bamg/include # turn off annoying bamg warnings during compilation
 CXXFLAGS += -I $(NEXTSIMDIR)/core/include
 CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
 # ========================================================
@@ -62,13 +69,10 @@ CCDEPS=$(CCSRC:%.c=$(DEPENDDIR)%.d)
 
 CC = gcc
 CFLAGS += -Wno-inline -fPIC -O3 # -MMD -MP -lm #-Wall -pedantic
-CFLAGS += -I $(NEXTSIMDIR)/modules/wim/include #-I $(CCSRCDIR) -I . -I $(WIM2D_CXX)/include
+CFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
+# CFLAGS += -I .
+# CFLAGS += -I $(CCSRCDIR)
 # ========================================================
-
-ifneq ($(XSIMCOMP_VERBOSE),no)
-	CXXFLAGS += -v
-	CFLAGS   += -v
-endif
 
 # ========================================================
 # Libraries

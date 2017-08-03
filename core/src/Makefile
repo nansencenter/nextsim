@@ -30,7 +30,7 @@ ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
 	CXXFLAGS += -g -O0 -Wl,-no_pie -DNDEBUG
 endif
 
-ifneq (XSIMCOMP_VERBOSE,no)
+ifneq ($(XSIMCOMP_VERBOSE),no)
 	CXXFLAGS += -v
 endif
 
@@ -40,7 +40,7 @@ CXXFLAGS += -I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I $(GMSH_DIR)/inclu
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
 
 ifeq ($(KERNEL),Linux)
-	#CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -lm -pthread -v #-MMD -MP
+	#CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -lm -pthread #-MMD -MP
 
 	LDFLAGS += -shared -Wl,-soname,libnextsim.so.1
 
