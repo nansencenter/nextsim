@@ -838,6 +838,8 @@ void WimDiscr<T>::assignSpatial()
 
     tau_x.assign(M_num_elements,0.);
     tau_y.assign(M_num_elements,0.);
+    mwd_x.assign(M_num_elements,0.);
+    mwd_y.assign(M_num_elements,0.);
     stokes_drift_x.assign(M_num_elements,0.);
     stokes_drift_y.assign(M_num_elements,0.);
     Hs.assign(M_num_elements,0.);
@@ -1464,6 +1466,8 @@ void WimDiscr<T>::timeStep()
 {
     std::fill( tau_x.begin(), tau_x.end(), 0. );
     std::fill( tau_y.begin(), tau_y.end(), 0. );
+    std::fill( mwd_x.begin(), mwd_x.end(), 0. );
+    std::fill( mwd_y.begin(), mwd_y.end(), 0. );
     std::fill( stokes_drift_x.begin(), stokes_drift_x.end(), 0. );
     std::fill( stokes_drift_y.begin(), stokes_drift_y.end(), 0. );
 
@@ -1598,8 +1602,11 @@ void WimDiscr<T>::timeStep()
 
     for (int fq = 0; fq < nwavefreq; fq++)
     {
-        std::fill( atten_dim.begin(), atten_dim.end(), 0. );
-        std::fill( damp_dim.begin(), damp_dim.end(), 0. );
+        if(atten)
+        {
+            std::fill( atten_dim.begin(), atten_dim.end(), 0. );
+            std::fill( damp_dim .begin(), damp_dim .end(), 0. );
+        }
 
 #pragma omp parallel for num_threads(max_threads) collapse(1)
         for (int i = 0; i < M_num_elements; i++)
@@ -1695,14 +1702,17 @@ void WimDiscr<T>::timeStep()
 #pragma omp parallel for num_threads(max_threads) collapse(1)
         for (int i = 0; i < M_num_elements; i++)
         {
-            value_type om    = 2*PI*freq_vec[fq];    //radial freq
-            value_type cp    = ap_eff[fq][i];        //phase velocity
-            value_type kicel = 2*PI/wlng_ice[fq][i]; //ice wave number
+            value_type om    = 2*PI*freq_vec[fq];    // radial freq
+            value_type cp    = ap_eff[fq][i];        // phase velocity
+            value_type kicel = 2*PI/wlng_ice[fq][i]; // ice wave number (just water wavelenght if no ice)
             value_type F     = disp_ratio   [fq][i]; // convert from water amp's to ice amp's
-            value_type tmp1  = 0;
+            value_type tmp1  = 0.;
+            value_type F2    = 1.;
+            if (ref_Hs_ice)
+                F2  = std::pow(F,2);//for outputs only
 
             // ================================================================================
-            // integrate stress and stokes drift densities over frequency
+            // integrate stress, MWD and stokes drift densities over frequency
             if(atten)
             {
                 tmp1 = rhowtr*gravity*taux_om[i]/cp;
@@ -1712,12 +1722,16 @@ void WimDiscr<T>::timeStep()
                 tau_y[i] += wt_om[fq]*tmp1;
             }
 
+            //integrals for MWD
+            mwd_x[i] += wt_om[fq]*F2*stokes_drift_x_om[i];
+            mwd_y[i] += wt_om[fq]*F2*stokes_drift_y_om[i];
+
             //2*\omega*k*\int_0^\pi S(\omega,\theta)\cos(\theta)d\theta
-            tmp1 = 2*(2*PI*freq_vec[fq])*kicel*stokes_drift_x_om[i];
+            tmp1 = 2*om*kicel*F2*stokes_drift_x_om[i];
             stokes_drift_x[i] += wt_om[fq]*tmp1;
 
             //2*\omega*k*\int_0^\pi S(\omega,\theta)\sin(\theta)d\theta
-            tmp1 = 2*(2*PI*freq_vec[fq])*kicel*stokes_drift_y_om[i];
+            tmp1 = 2*om*kicel*F2*stokes_drift_y_om[i];
             stokes_drift_y[i] += wt_om[fq]*tmp1;
             // ================================================================================
 
@@ -1773,23 +1787,27 @@ void WimDiscr<T>::timeStep()
                 std::cout<<"F,kicel,om,wt_om="<<F<<","<<kicel<<","<<om<<","<<wt_om[fq]<<"\n";
                 throw std::runtime_error("S_freq has NaN (after advection & attenuation)");
             }
-            if (std::isnan(taux_om[i]))
-            {
-                std::cout<<"fq = "<<fq<<"\n";
-                std::cout<<"found NaN in taux_om at i = "<<i<<"\n";
-                throw std::runtime_error("taux_om has NaN (after advection & attenuation)");
-            }
-            if (std::isnan(tauy_om[i]))
-            {
-                std::cout<<"fq = "<<fq<<"\n";
-                std::cout<<"found NaN in tauy_om at i = "<<i<<"\n";
-                throw std::runtime_error("tauy_om has NaN (after advection & attenuation)");
-            }
             if (std::isnan(F))
             {
                 std::cout<<"fq = "<<fq<<"\n";
                 std::cout<<"found NaN in disp_ratio at i = "<<i<<"\n";
                 throw std::runtime_error("disp_ratio has NaN");
+            }
+
+            if(atten)
+            {
+                if (std::isnan(taux_om[i]))
+                {
+                    std::cout<<"fq = "<<fq<<"\n";
+                    std::cout<<"found NaN in taux_om at i = "<<i<<"\n";
+                    throw std::runtime_error("taux_om has NaN (after advection & attenuation)");
+                }
+                if (std::isnan(tauy_om[i]))
+                {
+                    std::cout<<"fq = "<<fq<<"\n";
+                    std::cout<<"found NaN in tauy_om at i = "<<i<<"\n";
+                    throw std::runtime_error("tauy_om has NaN (after advection & attenuation)");
+                }
             }
             // ================================================================================
         }//end i loop
@@ -1804,31 +1822,32 @@ void WimDiscr<T>::timeStep()
     // for (int i = 0; i < M_num_elements; i++)
     //     std::cout << "VRT[" << i < "]= " << var_strain[i] <<"\n";
 
-    //udate integrated variables
-    std::fill( Tp.begin(), Tp.end(), 0. );
-    if (ref_Hs_ice)
-    {
+    //update integrated variables
+    std::fill( Tp .begin(), Tp .end(), 0. );
+    std::fill( mwd.begin(), mwd.end(), 0. );
+
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-        for (int i = 0; i < M_num_elements; i++)
+    for (int i = 0; i < M_num_elements; i++)
+    {
+        if (ref_Hs_ice)
         {
             Hs[i] = 4*std::sqrt(mom0[i]);
             if (mom2[i] > 0.)
-                Tp[i] = 2*PI*std::sqrt(mom0[i]/mom2[i]);
+                Tp[i]   = 2*PI*std::sqrt(mom0[i]/mom2[i]);
         }
-    }
-    else
-    {
-#pragma omp parallel for num_threads(max_threads) collapse(1)
-        for (int i = 0; i < M_num_elements; i++)
+        else
         {
             Hs[i] = 4*std::sqrt(mom0w[i]);
             if (mom2w[i] > 0.)
-                Tp[i] = 2*PI*std::sqrt(mom0w[i]/mom2w[i]);
+                Tp[i]   = 2*PI*std::sqrt(mom0w[i]/mom2w[i]);
         }
+
+        //mwd: waves-from dirn and degrees
+        mwd[i]  = -90.-(180./PI)*std::atan2(mwd_y[i],mwd_x[i]);
     }
 
     //update mwd
-    this->calcMWD();//TODO move this inside freq loop
+    //this->calcMWD();//TODO move this inside freq loop
 
     if ( M_dump_diag )
     {
@@ -2591,6 +2610,12 @@ WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const &fields,
         {
             value_type_vec tmp(2*Nnod,0.);
             output_nodes.emplace(*it,tmp);
+#if 0
+            //TODO add check for M_wim_on_mesh after sdf_dir is reset at regrid time
+            //check if need to integrate spectrum before the export
+            if ( (!M_wavespec_integrated) && (*it=="Stokes_drift") )
+                this->intWaveSpec(); TODO define this function
+#endif
         }
 
     // ==========================================================================================
@@ -2675,8 +2700,14 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
         {
             value_type_vec tmp(Nels,0.);
             output_els.emplace(*it,tmp);
-        }
 
+#if 0
+            //TODO add check for M_wim_on_mesh after sdf_dir is reset at regrid time
+            //check if need to integrate spectrum before the export
+            if ( (!M_wavespec_integrated) && ((*it=="Hs")||(*it=="Tp")||(*it=="MWD")) )
+                this->intWaveSpec(); TODO define this function
+#endif
+        }
 
     // ==========================================================================================
     //elements - scalars

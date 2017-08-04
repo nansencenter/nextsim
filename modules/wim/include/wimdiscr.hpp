@@ -374,7 +374,7 @@ private:
     value_type_vec Fdmax, Ftaux, Ftauy, Fhs, Ftp;
 
     //std::vector<value_type> dfloe, nfloes;
-    std::vector<value_type> tau_x, tau_y,stokes_drift_x,stokes_drift_y;//row-major order (C)
+    value_type_vec mwd_x, mwd_y, tau_x, tau_y,stokes_drift_x,stokes_drift_y;//row-major order (C)
     //std::vector<value_type> mesh_x, mesh_y, mesh_conc, mesh_thick, mesh_dfloe;
     //std::vector<bool> mesh_broken;
     bool break_on_mesh;
