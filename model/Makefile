@@ -108,7 +108,6 @@ endif
 
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lnextsim
 
-EXEC=$(PROGNAME)
 OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
 BINARYDIR=bin/
@@ -124,23 +123,42 @@ DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 .PHONY: all clean mrproper fortran libs cleanlibs mrproperlibs
 
 # Default action.
-all: $(EXEC)
+default: $(PROGNAME)
+
+# Compile the libraries as well as the executable
+all: libs $(PROGNAME)
 
 # Delete the object files.
 clean:
+	@echo " "
 	$(RM) $(OBJS) $(DEPS)
+	@echo " "
 
 mrproper: clean
 	$(RM) $(BINARYDIR)$(PROGNAME)
+	@echo " "
 
 # Rule for making the actual target
+lines="=========="
+Lines=$(lines)$(lines)$(lines)$(lines)$(lines)$(lines)$(lines)$(lines)
 $(PROGNAME): $(OBJS) #$(CCOBJS)
 	@mkdir -p $(BINARYDIR)
+	@echo " "
+	@echo $(Lines)$(Lines)
+	@echo "Creating executable: $(BINARYDIR)$(PROGNAME)"
+	@echo $(Lines)$(Lines)
+	@echo " "
 	$(CXX) $(CXXFLAGS) -o $(BINARYDIR)$@ $^ $(LIBPSMILE) $(LDFLAGS)
+	@echo " "
+	@echo $(Lines)$(Lines)
+	@echo "Created executable: $(BINARYDIR)$(PROGNAME)"
+	@echo $(Lines)$(Lines)
+	@echo " "
 
 # Rules for object files from cpp files
 $(OBJECTDIR)%.o: %.cpp
 	@mkdir -p $(OBJECTDIR) # $(dir $@)
+	@echo " "
 	$(CXX) -o $@ -c $< $(CXXFLAGS)
 
 # Make dependancy rules
