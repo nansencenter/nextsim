@@ -257,8 +257,6 @@ public:
     //advection/attenuation
     void advectDirections( value_type_vec2d& Sdir, value_type_vec const& ag2d_eff);
     void advectDirectionsMesh( value_type_vec2d& Sdir, value_type_vec& ag2d_eff);
-    void intDirns(value_type_vec2d const& Sdir, value_type_vec& Sfreq,
-            value_type_vec& sdx_omega, value_type_vec& sdy_omega);
     void attenSimple(
             value_type_vec2d& Sdir, value_type_vec& Sfreq,
             value_type_vec& taux_omega,value_type_vec& tauy_omega,
@@ -280,8 +278,11 @@ public:
             std::string const& advopt_,bool const&steady=false);
     //===========================================================================
 
+    void intWaveSpec();//TODO test this
+    void intDirns(value_type_vec2d const& Sdir, value_type_vec& Sfreq,
+            value_type_vec& sdx_omega, value_type_vec& sdy_omega);
+    //void calcMWD();
 
-    void calcMWD();
     void idealWaveFields(value_type const xfac);
     void idealIceFields (value_type const xfac);
     void inputWaveFields(value_type_vec const& swh_in,
@@ -353,7 +354,8 @@ private:
     bool docoupling;
     std::string scatmod, M_advopt, fsdopt;
     std::string wim_gridfile;
-    value_type_vec wavedir, wt_simp, wt_om, freq_vec, vec_period, wlng, ag, ap;
+    value_type_vec wavedir, wt_theta;//dimension of wavedir
+    value_type_vec wt_simp, wt_om, freq_vec, vec_period, wlng, ag, ap;//dimension of freq
     value_type_vec Hs,Tp,mwd,wave_mask,M_steady_mask;
 
     //value_type_vec ice_mask, icec, iceh;

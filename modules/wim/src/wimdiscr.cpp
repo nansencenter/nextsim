@@ -750,16 +750,18 @@ void WimDiscr<T>::assign()
     // =============================================
     // set directions to use (wavedir)
     value_type avgdir = vm["wim.mwdinc"].template as<double>();
-    if (nwavedirn == 1)
-        wavedir.push_back(avgdir);
-    else
+    wavedir.assign(nwavedirn,avgdir);
+    wt_theta.assign(nwavedirn,1.);
+    if (nwavedirn > 1)
     {
         value_type theta_max = 90.;
         value_type theta_min = -270.;
         value_type dtheta = (theta_min-theta_max)/nwavedirn;
 
         for (int nth = 0; nth < nwavedirn; nth++)
-            wavedir.push_back(theta_max+nth*dtheta);
+            wavedir[nth]    = theta_max+nth*dtheta;
+
+        std::fill( wt_theta.begin(), wt_theta.end(), (2*PI)/nwavedirn );
     }
     // =============================================
 
@@ -1207,8 +1209,8 @@ void WimDiscr<T>::setIncWaveSpec()
     {
         if (wave_mask[i] == 1.)
         {
-            std::vector<value_type> Sfreq(nwavefreq);
-            std::vector<value_type> theta_fac(nwavedirn);
+            value_type_vec Sfreq(nwavefreq);
+            value_type_vec theta_fac(nwavedirn);
             value_type f1, f2, f3, t_m, om_m, chi, om;
 
             // ============================================================
@@ -1833,17 +1835,24 @@ void WimDiscr<T>::timeStep()
         {
             Hs[i] = 4*std::sqrt(mom0[i]);
             if (mom2[i] > 0.)
+            {
                 Tp[i]   = 2*PI*std::sqrt(mom0[i]/mom2[i]);
+
+                //mwd: waves-from dirn and degrees
+                mwd[i]  = -90.-(180./PI)*std::atan2(mwd_y[i],mwd_x[i]);
+            }
         }
         else
         {
             Hs[i] = 4*std::sqrt(mom0w[i]);
             if (mom2w[i] > 0.)
+            {
                 Tp[i]   = 2*PI*std::sqrt(mom0w[i]/mom2w[i]);
-        }
 
-        //mwd: waves-from dirn and degrees
-        mwd[i]  = -90.-(180./PI)*std::atan2(mwd_y[i],mwd_x[i]);
+                //mwd: waves-from dirn and degrees
+                mwd[i]  = -90.-(180./PI)*std::atan2(mwd_y[i],mwd_x[i]);
+            }
+        }
     }
 
     //update mwd
@@ -2626,7 +2635,7 @@ WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const &fields,
 
     //need to make some dummy variables since vector components handled individually
     value_type_vec tx_out,ty_out,sdfx_out,sdfy_out;
-    for (typename unord_map_vecs_type::iterator it = output_nodes.begin(); it != output_nodes.end(); it++)
+    for (auto it = output_nodes.begin(); it != output_nodes.end(); it++)
     {
         //get inputs
         if(it->first=="Stress_waves_ice")
@@ -2661,7 +2670,7 @@ WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const &fields,
 
     // ==========================================================================================
     // assign the outputs
-    for (typename unord_map_vecs_type::iterator it = output_nodes.begin(); it != output_nodes.end(); it++)
+    for (auto it = output_nodes.begin(); it != output_nodes.end(); it++)
     {
         if(it->first=="Stress_waves_ice")
             for (int i=0;i<Nnod;i++)
@@ -2714,7 +2723,7 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
 
     //input to and output from interpolation routines
     value_type_vec_ptrs input_els, out_els;
-    for (typename unord_map_vecs_type::iterator it = output_els.begin(); it != output_els.end(); it++)
+    for (auto it = output_els.begin(); it != output_els.end(); it++)
     {
         //get inputs
         if(it->first=="Hs")
@@ -3266,19 +3275,62 @@ void WimDiscr<T>::advectDirectionsMesh(value_type_vec2d& Sdir,value_type_vec & a
     xDelete<value_type>(advect_out);
 }//advectDirectionsMesh()
 
+template<typename T>
+void WimDiscr<T>::intWaveSpec()
+{
+    std::fill( mwd_x.begin(), mwd_x.end(), 0. );
+    std::fill( mwd_y.begin(), mwd_y.end(), 0. );
+    std::fill( stokes_drift_x.begin(), stokes_drift_x.end(), 0. );
+    std::fill( stokes_drift_y.begin(), stokes_drift_y.end(), 0. );
+    value_type_vec mom0(M_num_elements,0.);
+    value_type_vec mom2(M_num_elements,0.);
+    for (int fq=0;fq<nwavefreq;fq++)
+    {
+        value_type om    = 2*PI*freq_vec[fq];    // radial freq
+        this->intDirns(sdf_dir[fq], S_freq,
+                stokes_drift_x_om, stokes_drift_y_om);
+
+        for (int i=0;i<M_num_elements;i++)
+        {
+            value_type kicel = 2*PI/wlng_ice[fq][i]; // ice wave number (just water wavelenght if no ice)
+            value_type F     = disp_ratio   [fq][i]; // convert from water amp's to ice amp's
+            value_type F2    = 1.;
+            if (ref_Hs_ice)
+                F2  = std::pow(F,2);//for outputs only
+
+            //integrals for Hs,Tp
+            value_type tmp1  = wt_om[fq]*F2*S_freq[i];
+            mom0[i] += tmp1;
+            mom2[i] += tmp1*std::pow(om,2);
+
+            //integrals for MWD
+            mwd_x[i] += wt_om[fq]*F2*stokes_drift_x_om[i];
+            mwd_y[i] += wt_om[fq]*F2*stokes_drift_y_om[i];
+
+            //2*\omega*k*\int_0^\pi S(\omega,\theta)\cos(\theta)d\theta
+            tmp1 = 2*om*kicel*F2*stokes_drift_x_om[i];
+            stokes_drift_x[i] += wt_om[fq]*tmp1;
+
+            //2*\omega*k*\int_0^\pi S(\omega,\theta)\sin(\theta)d\theta
+            tmp1 = 2*om*kicel*F2*stokes_drift_y_om[i];
+            stokes_drift_y[i] += wt_om[fq]*tmp1;
+        }//i loop
+    }//freq loop
+
+    std::fill( Tp.begin(), Tp.end(), 0. );
+    std::fill( mwd.begin(), mwd.end(), 0. );
+    for (int i=0;i<M_num_elements;i++)
+        if(mom2[i]>0)
+        {
+            Tp[i]   = 2*PI*std::sqrt(mom0[i]/mom2[i]);
+            mwd[i]  = -90.-(180./PI)*std::atan2(mwd_y[i],mwd_x[i]);
+        }
+}//intWaveSpec()
 
 template<typename T>
 void WimDiscr<T>::intDirns(value_type_vec2d const& Sdir, value_type_vec& Sfreq,
         value_type_vec& sdx_omega, value_type_vec& sdy_omega)
 {
-
-	std::vector<value_type> wt_theta(nwavedirn);
-	value_type S_th, tmp, alp_dim, source;
-
-    if (nwavedirn == 1)
-        std::fill( wt_theta.begin(), wt_theta.end(), 1. );
-    else
-        std::fill( wt_theta.begin(), wt_theta.end(), 2*PI/(1.0*nwavedirn) );
 
     std::fill( Sfreq.begin()      ,Sfreq.end()      ,0. );
     std::fill( sdx_omega.begin()  ,sdx_omega.end()  ,0. );
@@ -3324,13 +3376,7 @@ void WimDiscr<T>::attenSimple(value_type_vec2d& Sdir, value_type_vec& Sfreq,
         value_type_vec const& ag2d_eff)
 {
 
-	std::vector<value_type> wt_theta(nwavedirn);
 	value_type S_th, tmp, alp_dim, source;
-
-    if (nwavedirn == 1)
-        std::fill( wt_theta.begin(), wt_theta.end(), 1. );
-    else
-        std::fill( wt_theta.begin(), wt_theta.end(), 2*PI/(1.0*nwavedirn) );
 
     std::fill( Sfreq.begin()      ,Sfreq.end()      ,0. );
     std::fill( taux_omega.begin() ,taux_omega.end() ,0. );
@@ -3410,7 +3456,7 @@ void WimDiscr<T>::attenIsotropic(value_type_vec2d& Sdir, value_type_vec& Sfreq,
         value_type_vec const& ag2d_eff)
 {
     std::vector<value_type> nvec(nwavedirn);
-	std::vector<value_type> K_fou(nwavedirn), S_th(nwavedirn), theta_vec(nwavedirn), wt_theta(nwavedirn);
+	std::vector<value_type> K_fou(nwavedirn), S_th(nwavedirn), theta_vec(nwavedirn);
 	std::vector<value_type> tmp1(nwavedirn), evals_x(nwavedirn);
 	value_type tmp, alp_dim, source;
 
@@ -3422,8 +3468,6 @@ void WimDiscr<T>::attenIsotropic(value_type_vec2d& Sdir, value_type_vec& Sfreq,
     int n, jp1, jm1;
 
 	zi = std::complex<value_type>(0.,1.);
-
-	std::fill( wt_theta.begin(), wt_theta.end(), 2*PI/(1.0*nwavedirn) );//TODO ok for ndir==1?
 
     std::fill( Sfreq.begin()      ,Sfreq.end()      ,0. );
     std::fill( taux_omega.begin() ,taux_omega.end() ,0. );
@@ -3910,6 +3954,7 @@ void WimDiscr<T>::padVar(value_type_vec const& u, value_type_vec& upad,
     }//i
 }//padVar
 
+#if 0
 template<typename T>
 void WimDiscr<T>::calcMWD()
 {
@@ -3972,6 +4017,7 @@ void WimDiscr<T>::calcMWD()
     }//end spatial loop i
 
 }//end calcMWD
+#endif
 
 template<typename T>
 typename WimDiscr<T>::value_type
