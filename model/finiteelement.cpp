@@ -317,7 +317,6 @@ FiniteElement::initDatasets()
 #if defined (WAVES)
     if (M_use_wim)
     {
-        bool have_wave_dataset=false;
         switch (M_wave_type)
         {
             case setup::WaveType::SET_IN_WIM:
@@ -331,12 +330,10 @@ FiniteElement::initDatasets()
 
             case setup::WaveType::WW3A:
                 M_wave_elements_dataset=DataSet("ww3a_elements",M_num_elements);
-                have_wave_dataset=true;
                 break;
 
             case setup::WaveType::ERAI_WAVES_1DEG:
                 M_wave_elements_dataset=DataSet("erai_waves_1deg_elements",M_num_elements);
-                have_wave_dataset=true;
                 break;
 
             default:
@@ -4451,7 +4448,7 @@ FiniteElement::init()
     double minang = this->minAngle(M_mesh);
     if (minang < vm["simul.regrid_angle"].as<double>())
     {
-        LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
+        LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the initial grid\n";
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
     }
     if ( M_use_restart )
@@ -4488,6 +4485,7 @@ FiniteElement::init()
 #if defined (WAVES)
     // initialize wim here to give access to WIM grid
     // - before forcingWave() but after readRestart()
+    // - also after 1st regrid
     if (M_use_wim)
         this->initWim(pcpt);
 #endif
