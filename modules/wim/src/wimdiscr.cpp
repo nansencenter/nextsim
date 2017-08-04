@@ -527,6 +527,7 @@ void WimDiscr<T>::init(int nextsim_cpt)
     // call assign to set sizes of arrays
     // and initialise some arrays that are stationary in time
     this->assign();
+    this->assignSpatial();
 
     //set global counter to 0
     M_cpt = 0;
@@ -560,6 +561,7 @@ void WimDiscr<T>::init(mesh_type const &mesh_in,int nextsim_cpt)
     // call assign to set sizes of arrays
     // and initialise some arrays that are stationary in time
     this->assign();
+    this->assignSpatial();
 
     std::cout<<"wim.init() finished\n";
 
@@ -713,8 +715,8 @@ void WimDiscr<T>::initConstant(int nextsim_cpt)
 template<typename T>
 void WimDiscr<T>::assign()
 {
-    //this doesn't need to be called each time wim.run is called
-    // set sizes of arrays, initialises some others that are constant in time
+    // this doesn't need to be called each time wim.run is called
+    // - sets arrays with dimensions depending on frequency, wave dirn (never change)
     wt_simp.resize(nwavefreq);
     wt_om.resize(nwavefreq);
 
@@ -724,58 +726,8 @@ void WimDiscr<T>::assign()
     ag.resize(nwavefreq);
     ap.resize(nwavefreq);
 
-    //4D var's
-    sdf_dir.resize(boost::extents[M_num_elements][nwavedirn][nwavefreq]);
-    if(M_steady)
-        sdf_inc.resize(boost::extents[M_num_elements][nwavedirn][nwavefreq]);
-
-    //3D var's
-    // - space and dirn
-    sdf3d_dir_temp.resize(boost::extents[num_p_wim][nwavedirn]);
-
-    // - space and freq
-    ag_eff.resize(boost::extents[num_p_wim][nwavefreq]);
-    ap_eff.resize(boost::extents[num_p_wim][nwavefreq]);
-    wlng_ice.resize(boost::extents[num_p_wim][nwavefreq]);
-    atten_nond.resize(boost::extents[num_p_wim][nwavefreq]);
-    damping.resize(boost::extents[num_p_wim][nwavefreq]);
-    disp_ratio.resize(boost::extents[num_p_wim][nwavefreq]);
-
-    //2D var's
-    ag2d_eff_temp.resize(num_p_wim);
-    wave_mask.resize(num_p_wim);
-
-    (wim_ice.mask)  .resize(num_p_wim);
-    (wim_ice.conc)  .resize(num_p_wim);
-    (wim_ice.thick) .resize(num_p_wim);
-    (wim_ice.dfloe) .resize(num_p_wim);
-    (wim_ice.nfloes).resize(num_p_wim);
-
-    dave.resize(num_p_wim);
-    atten_dim.resize(num_p_wim);
-    damp_dim.resize(num_p_wim);
-
-    tau_x.resize(num_p_wim);
-    tau_y.resize(num_p_wim);
-    stokes_drift_x.resize(num_p_wim);
-    stokes_drift_y.resize(num_p_wim);
-
-    S_freq.resize(num_p_wim);
-    taux_om.resize(num_p_wim);
-    tauy_om.resize(num_p_wim);
-    stokes_drift_x_om.resize(num_p_wim);
-    stokes_drift_y_om.resize(num_p_wim);
-
-    Hs.resize(num_p_wim);
-    Tp.resize(num_p_wim);
-    mwd.resize(num_p_wim);
-
-
-    //set dir spec to 0. on 1st call to init/assign
-    //std::cout<<"Init sdf_dir in wim.assign()\n";
-    std::fill( sdf_dir.data(), sdf_dir.data() + sdf_dir.num_elements(), 0. );
-    // =============================================
-
+    //4d vec
+    sdf_dir.resize(nwavefreq);
 
     // =============================================
     // set frequencies to use (freq_vec)
@@ -859,6 +811,73 @@ void WimDiscr<T>::assign()
 
 }//end: assign()
 
+template<typename T>
+void WimDiscr<T>::assignSpatial()
+{
+    // this needs to be called each time grid or mesh changes
+    // ie initially, and if(M_wim_on_mesh), after regridding
+    // set sizes of arrays, initialises some others that are constant in time
+
+    value_type_vec vtmp(M_num_elements,0.);//temp vector of correct size, but filled with zeros;
+
+    //3D var's
+    // - space and dirn
+    //sdf3d_dir_temp.resize(boost::extents[num_p_wim][nwavedirn]);
+
+    // - space and freq
+#if 0
+    ag_eff.assign(nwavefreq,vtmp);
+    ap_eff.assign(nwavefreq,vtmp);
+    wlng_ice.assign(nwavefreq,vtmp);
+    atten_nond.assign(nwavefreq,vtmp);
+    damping.assign(nwavefreq,vtmp);
+    disp_ratio.assign(nwavefreq,vtmp);
+#else
+    ag_eff.resize(boost::extents[M_num_elements][nwavefreq]);
+    ap_eff.resize(boost::extents[M_num_elements][nwavefreq]);
+    wlng_ice.resize(boost::extents[M_num_elements][nwavefreq]);
+    atten_nond.resize(boost::extents[M_num_elements][nwavefreq]);
+    damping.resize(boost::extents[M_num_elements][nwavefreq]);
+    disp_ratio.resize(boost::extents[M_num_elements][nwavefreq]);
+#endif
+
+    //2D var's
+    ag2d_eff_temp   = vtmp;
+    wave_mask       = vtmp;
+
+    wim_ice.mask    = vtmp;
+    wim_ice.conc    = vtmp;
+    wim_ice.thick   = vtmp;
+    wim_ice.dfloe   = vtmp;
+    wim_ice.nfloes  = vtmp;
+
+    dave        = vtmp;
+    atten_dim   = vtmp;
+    damp_dim    = vtmp;
+
+    tau_x           = vtmp;
+    tau_y           = vtmp;
+    stokes_drift_x  = vtmp;
+    stokes_drift_y  = vtmp;
+    Hs              = vtmp;
+    Tp              = vtmp;
+    mwd             = vtmp;
+
+    S_freq              = vtmp;
+    taux_om             = vtmp;
+    tauy_om             = vtmp;
+    stokes_drift_x_om   = vtmp;
+    stokes_drift_y_om   = vtmp;
+
+    if (sdf_dir[0].size()==0)
+        //set dir spec to 0. on 1st call to init/assign
+        //std::cout<<"Init sdf_dir in wim.assign()\n";
+        for (auto it=sdf_dir.begin();it!=sdf_dir.end();it++)
+            it->assign(nwavedirn,vtmp);
+    // =============================================
+
+}//end: assignSpatial()
+
 
 template<typename T>
 void WimDiscr<T>::update()
@@ -932,7 +951,7 @@ void WimDiscr<T>::updateWaveMedium()
     for (int fq = 0; fq < nwavefreq; fq++)
     {
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-        for (int i = 0; i < num_p_wim; i++)
+        for (int i = 0; i < M_num_elements; i++)
         {
             double params[5];
             params[0] = young;
@@ -1047,15 +1066,14 @@ void WimDiscr<T>::idealWaveFields(value_type const xfac)
 {
     M_initialised_waves = true;
 
-    value_type x0,xmax,x_edge;
-    x0   = X_array[0];
-    xmax = X_array[num_p_wim-1]; //x0+(nx-1)*dx;
+    value_type x0   = *std::min_element(X_array.begin(),X_array.end());
+    value_type xmax = *std::max_element(X_array.begin(),X_array.end());
 
     //waves initialised for x<x_edge
-    x_edge = 0.5*(x0+xmax)-xfac*(0.5*(xmax-x0));
+    value_type x_edge = 0.5*(x0+xmax)-xfac*(0.5*(xmax-x0));
 
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-    for (int i = 0; i < num_p_wim; i++)
+    for (int i = 0; i < M_num_elements; i++)
     {
         if ((X_array[i] < x_edge) && (LANDMASK_array[i]<1.))
         {
@@ -1257,7 +1275,7 @@ void WimDiscr<T>::setIncWaveSpec()
                 {
                     // set sdf_dir to inc waves each time new waves are input called
                     // NB but only inside the wave mask
-                    sdf_dir[i][nth][fq] = Sfreq[fq]*theta_fac[nth];
+                    sdf_dir[fq][nth][i] = Sfreq[fq]*theta_fac[nth];
 
 #if 0
                     if (i==M_itest)
@@ -1345,7 +1363,7 @@ void WimDiscr<T>::idealIceFields(value_type const xfac)
     value_type unifc = vm["wim.unifc"].template as<double>(); /* 0.7 */
     value_type unifh = vm["wim.unifh"].template as<double>(); /* 2.0 */
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-   for (int i = 0; i < num_p_wim; i++)
+   for (int i = 0; i < M_num_elements; i++)
    {
        if ((X_array[i] >= x_edge) && (LANDMASK_array[i]<.5))
        {
@@ -1366,7 +1384,7 @@ void WimDiscr<T>::inputIceFields(value_type_vec const& icec_in,   // conc
 {
 
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-    for (int i = 0; i < num_p_wim; i++)
+    for (int i = 0; i < M_num_elements; i++)
     {
         if (icec_in[i] < vm["wim.cicemin"].template as<double>())
         {
@@ -1436,7 +1454,7 @@ void getWimShape() const
 #endif
 
 template<typename T>
-void WimDiscr<T>::timeStep(int &lcpt)
+void WimDiscr<T>::timeStep()
 {
     std::fill( tau_x.begin(), tau_x.end(), 0. );
     std::fill( tau_y.begin(), tau_y.end(), 0. );
@@ -1444,11 +1462,11 @@ void WimDiscr<T>::timeStep(int &lcpt)
     std::fill( stokes_drift_y.begin(), stokes_drift_y.end(), 0. );
 
     std::vector<value_type> mom0, mom2, var_strain, mom0w, mom2w;
-    mom0      .resize(num_p_wim);
-    mom2      .resize(num_p_wim);
-    var_strain.resize(num_p_wim);
-    mom0w     .resize(num_p_wim);
-    mom2w     .resize(num_p_wim);
+    mom0      .resize(M_num_elements);
+    mom2      .resize(M_num_elements);
+    var_strain.resize(M_num_elements);
+    mom0w     .resize(M_num_elements);
+    mom2w     .resize(M_num_elements);
 
     value_type E_tot, wlng_crest, Dc;
     value_type F, kicel, om, ommin, ommax, om1, lam1, lam2, dom, c1d, tmp;
@@ -1511,26 +1529,23 @@ void WimDiscr<T>::timeStep(int &lcpt)
     if (M_steady)
     {
         for (int fq = 0; fq < nwavefreq; fq++)
-            for (int dn = 0; dn < nwavedirn; dn++)
+            for (int nth = 0; nth < nwavedirn; nth++)
             {
-                value_type adv_dir = (-PI/180.)*(wavedir[dn]+90.);
+                value_type adv_dir = (-PI/180.)*(wavedir[nth]+90.);
 
                 if (std::cos(adv_dir) >= 0.)
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-                    for (int k = 0; k < num_p_wim; k++)
-                        if (M_steady_mask[k] > 0.)
-                        {
-                            sdf_dir[k][dn][fq] = sdf_inc[k][dn][fq];
-                            //std::cout<<"sdf_dir[k][dn][fq]= "<< sdf_dir[k][dn][fq] <<"\n";
-                        }
+                    for (int i = 0; i < M_num_elements; i++)
+                        if (M_steady_mask[i] > 0.5)
+                            sdf_dir[fq][nth][i] = sdf_inc[fq][nth][i];
             }
     }//M_steady
 
     //calc mean floe size outside of frequency loop;
-    dave.assign(num_p_wim,0.);
+    dave.assign(M_num_elements,0.);
 
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-    for (int i = 0; i < num_p_wim; i++)
+    for (int i = 0; i < M_num_elements; i++)
     {
         if (wim_ice.mask[i] > .5)
         {
@@ -1581,7 +1596,7 @@ void WimDiscr<T>::timeStep(int &lcpt)
         std::fill( damp_dim.begin(), damp_dim.end(), 0. );
 
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-        for (int i = 0; i < num_p_wim; i++)
+        for (int i = 0; i < M_num_elements; i++)
         {
             value_type c1d;
             if ((wim_ice.mask[i] >.5) && (atten))
@@ -1609,12 +1624,13 @@ void WimDiscr<T>::timeStep(int &lcpt)
 
         // set group velocity and directional spectrum to pass into advAtten*()
 #pragma omp parallel for num_threads(max_threads) collapse(2)
-        for (int i = 0; i < num_p_wim; i++)
+        for (int i = 0; i < M_num_elements; i++)
         {
             for (int nth = 0; nth < nwavedirn; nth++)
             {
                 ag2d_eff_temp[i] = ag_eff[i][fq];//move inside loop to use OMP
 
+#if 0
                 sdf3d_dir_temp[i][nth] = sdf_dir[i][nth][fq];
                 if (std::isnan(sdf_dir[i][nth][fq]))
                 {
@@ -1622,29 +1638,31 @@ void WimDiscr<T>::timeStep(int &lcpt)
                     std::cout<<"ag_eff="<<ag_eff[i][fq]<<"\n";
                     throw std::runtime_error("sdf_dir has NaN (before advection & attenuation)");
                 }
+#endif
             }
         }
 
         //advect all directions
         if (!M_wim_on_mesh)
-            this->advectDirections(sdf3d_dir_temp,ag2d_eff_temp);
+            this->advectDirections(sdf_dir[fq],ag2d_eff_temp);
         else
-            this->advectDirectionsMesh(sdf3d_dir_temp,ag2d_eff_temp);
+            this->advectDirectionsMesh(sdf_dir[fq],ag2d_eff_temp);
 
         //do attenuation &/or scattering, and integrate over directions 
         if (scatmod == "dissipated")
-            this->attenSimple(sdf3d_dir_temp, S_freq, taux_om, tauy_om,
+            this->attenSimple(sdf_dir[fq], S_freq, taux_om, tauy_om,
                     stokes_drift_x_om, stokes_drift_y_om,ag2d_eff_temp);
         else if (scatmod == "isotropic")
-            this->attenIsotropic(sdf3d_dir_temp, S_freq, taux_om, tauy_om,
+            this->attenIsotropic(sdf_dir[fq], S_freq, taux_om, tauy_om,
                     stokes_drift_x_om, stokes_drift_y_om,ag2d_eff_temp);
 
         // update after application of advAtten*()
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-        for (int i = 0; i < num_p_wim; i++)
+        for (int i = 0; i < M_num_elements; i++)
         {
             ag_eff[i][fq] = ag2d_eff_temp[i];//is this necessary?
 
+#if 0
             for (int nth = 0; nth < nwavedirn; nth++)
             {
                 sdf_dir[i][nth][fq] = sdf3d_dir_temp[i][nth];
@@ -1656,6 +1674,7 @@ void WimDiscr<T>::timeStep(int &lcpt)
                 }
                 // std::cout<<"AFTER: SDIR["<< i << "]= "<< sdf_dir[i][nth][fq] <<"\n";
             }
+#endif
 
             //std::cout<<"AFTER: taux_om["<< i << "]= "<< taux_om[i] <<"\n";
 #if 1
@@ -1679,7 +1698,7 @@ void WimDiscr<T>::timeStep(int &lcpt)
 
         // integrate stress and stokes drift densities over frequency
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-        for (int i = 0; i < num_p_wim; i++)
+        for (int i = 0; i < M_num_elements; i++)
         {
             value_type tmp1 = rhowtr*gravity*taux_om[i]/ap_eff[i][fq];
             tau_x[i] += wt_om[fq]*tmp1;
@@ -1698,7 +1717,7 @@ void WimDiscr<T>::timeStep(int &lcpt)
 
         // integrals for breaking program_options
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-        for (int i = 0; i < num_p_wim; i++)
+        for (int i = 0; i < M_num_elements; i++)
         {
             // convert from water amp's to ice amp's
             value_type F     = disp_ratio[i][fq];
@@ -1765,7 +1784,7 @@ void WimDiscr<T>::timeStep(int &lcpt)
     // std::cout<<"Max f= " << _max <<"\n";
 
 
-    // for (int i = 0; i < num_p_wim; i++)
+    // for (int i = 0; i < M_num_elements; i++)
     //     std::cout << "VRT[" << i < "]= " << var_strain[i] <<"\n";
 
     std::fill( Tp.begin(), Tp.end(), 0. );
@@ -1773,7 +1792,7 @@ void WimDiscr<T>::timeStep(int &lcpt)
     if (ref_Hs_ice)
     {
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-        for (int i = 0; i < num_p_wim; i++)
+        for (int i = 0; i < M_num_elements; i++)
         {
             Hs[i] = 4*std::sqrt(mom0[i]);
             if (mom2[i] > 0.)
@@ -1783,7 +1802,7 @@ void WimDiscr<T>::timeStep(int &lcpt)
     else
     {
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-        for (int i = 0; i < num_p_wim; i++)
+        for (int i = 0; i < M_num_elements; i++)
         {
             Hs[i] = 4*std::sqrt(mom0w[i]);
             if (mom2w[i] > 0.)
@@ -2033,8 +2052,6 @@ void WimDiscr<T>::timeStep(int &lcpt)
     // std::cout<<"------------------------------------------------------\n";
     // std::cout<<"dfloe_max= "<< *std::max_element(dfloe.data(), dfloe.data()+dfloe.num_elements()) <<"\n";
     // std::cout<<"dfloe_min= "<< *std::min_element(dfloe.data(), dfloe.data()+dfloe.num_elements()) <<"\n";
-
-    lcpt++;
 }//timeStep
 
 template<typename T>
@@ -3003,7 +3020,7 @@ void WimDiscr<T>::run()
 
         //integrate model
         M_dump_diag = export_now && (M_itest>0); 
-        this->timeStep(lcpt);
+        this->timeStep();
 
         ++lcpt;//local counter incremented in wim.run()
         ++M_cpt;//global counter incremented in wim.run()
@@ -3110,7 +3127,8 @@ void WimDiscr<T>::floeScalingSmooth(
 }//floeScalingSmooth
 
 template<typename T>
-void WimDiscr<T>::advectDirections(array2_type& Sdir,value_type_vec const& ag2d_eff)
+void WimDiscr<T>::advectDirections(value_type_vec2d& Sdir,value_type_vec const& ag2d_eff)
+//void WimDiscr<T>::advectDirections(array2_type& Sdir,value_type_vec const& ag2d_eff)
 {
 
 	for (int nth = 0; nth < nwavedirn; nth++)
@@ -3125,25 +3143,30 @@ void WimDiscr<T>::advectDirections(array2_type& Sdir,value_type_vec const& ag2d_
         if (M_advdim == 2)
             std::for_each(vwave.begin(), vwave.end(), [&](value_type& f){ f *= std::sin(adv_dir); });
 
+#if 0
         // copy from 3D input array to 2D temporary array
         value_type_vec temp(M_num_elements,0.);
 #pragma omp parallel for num_threads(max_threads) collapse(1)
         for (int i = 0; i < M_num_elements; i++)
-            temp[i] = Sdir[i][nth];
+            temp[i] = Sdir[nth][i];
+#endif
 
         //do advection
         //TODO if M_wim_on_mesh call NextsimTools::advect here
-        this->waveAdvWeno(temp,uwave,vwave);
+        this->waveAdvWeno(Sdir[nth],uwave,vwave);
 
+#if 0
         // copy from 2D temporary array back to 3D input array
 #pragma omp parallel for num_threads(max_threads) collapse(1)
         for (int i = 0; i < M_num_elements; i++)
             Sdir[i][nth] = temp[i];
+#endif
     }//advection of each direction done
 }//advectDirections()
 
 template<typename T>
-void WimDiscr<T>::advectDirectionsMesh(array2_type& Sdir,value_type_vec& ag2d_eff)
+void WimDiscr<T>::advectDirectionsMesh(value_type_vec2d& Sdir,value_type_vec & ag2d_eff)
+//void WimDiscr<T>::advectDirectionsMesh(array2_type& Sdir,value_type_vec& ag2d_eff)
 {
 
     //interpolate ag2d_eff from elements to nodes
@@ -3172,27 +3195,32 @@ void WimDiscr<T>::advectDirectionsMesh(array2_type& Sdir,value_type_vec& ag2d_ef
             VC[i+Nnod] = agnod[i]*std::sin(adv_dir)-M_UM[i+Nnod]/duration;
         }
 
+#if 0
         // copy from 3D input array to 2D temporary array
         value_type_vec advect_in(M_num_elements,0.);
 #pragma omp parallel for num_threads(max_threads) collapse(1)
         for (int i = 0; i < M_num_elements; i++)
             advect_in[i] = Sdir[i][nth];
+#endif
 
         //do advection
-        NextsimTools::advect(&advect_out,&advect_in[0],&nextsim_mesh,
+        //auto advect_in  = Sdir[nth];
+        //NextsimTools::advect(&advect_out,&advect_in[0],&nextsim_mesh,
+        NextsimTools::advect(&advect_out,&(Sdir[nth])[0],&nextsim_mesh,
             &VC[0],&adv_method[0],nb_var,M_timestep);
 
         // copy from 2D temporary array back to 3D input array
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-        for (int i = 0; i < num_p_wim; i++)
-            Sdir[i][nth] = advect_out[i];
+        for (int i = 0; i < M_num_elements; i++)
+            Sdir[nth][i] = advect_out[i];
     }//advection of each direction done
 
     xDelete<value_type>(advect_out);
 }//advectDirectionsMesh()
 
 template<typename T>
-void WimDiscr<T>::attenSimple(array2_type& Sdir, value_type_vec& Sfreq,
+//void WimDiscr<T>::attenSimple(array2_type& Sdir, value_type_vec& Sfreq,
+void WimDiscr<T>::attenSimple(value_type_vec2d& Sdir, value_type_vec& Sfreq,
         value_type_vec& taux_omega, value_type_vec& tauy_omega,
         value_type_vec& sdx_omega, value_type_vec& sdy_omega,
         value_type_vec const& ag2d_eff)
@@ -3213,21 +3241,19 @@ void WimDiscr<T>::attenSimple(array2_type& Sdir, value_type_vec& Sfreq,
     std::fill( sdy_omega.begin()  ,sdy_omega.end()  ,0. );
 
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-    for (int i = 0; i < num_p_wim; i++)
+    for (int i = 0; i < M_num_elements; i++)
     {
-        value_type adv_dir, S_th, tmp, alp_dim, source;
-
         if (wim_ice.mask[i] > .5)
         {
             for (int nth = 0; nth < nwavedirn; nth++)
             {
-                adv_dir = -PI*(90.0+wavedir[nth])/180.0;
-                S_th = Sdir[i][nth];
-                alp_dim = atten_dim[i]+damp_dim[i];
+                value_type adv_dir = -PI*(90.0+wavedir[nth])/180.0;
+                value_type S_th = Sdir[nth][i];
+                value_type alp_dim = atten_dim[i]+damp_dim[i];
 
                 // stress calculation
-                source = -alp_dim*ag2d_eff[i]*S_th;
-                tmp = -std::cos(adv_dir)*wt_theta[nth]*source;
+                value_type source = -alp_dim*ag2d_eff[i]*S_th;
+                value_type tmp = -std::cos(adv_dir)*wt_theta[nth]*source;
                 taux_omega[i] += tmp;
                 tmp = -std::sin(adv_dir)*wt_theta[nth]*source;
                 tauy_omega[i] += tmp;
@@ -3243,7 +3269,7 @@ void WimDiscr<T>::attenSimple(array2_type& Sdir, value_type_vec& Sfreq,
 #endif
 
                 // do attenuation
-                Sdir[i][nth] = S_th*std::exp(-alp_dim*ag2d_eff[i]*M_timestep);
+                Sdir[nth][i] = S_th*std::exp(-alp_dim*ag2d_eff[i]*M_timestep);
 
                 //std::cout<<"tau_x["<< i << "]= "<< atten_dim[i] <<"\n";
             }//loop over directions
@@ -3253,15 +3279,15 @@ void WimDiscr<T>::attenSimple(array2_type& Sdir, value_type_vec& Sfreq,
         for (int nth = 0; nth < nwavedirn; nth++)
         {
             //frequency spectrum
-            Sfreq[i] += wt_theta[nth]*Sdir[i][nth];
+            Sfreq[i] += wt_theta[nth]*Sdir[nth][i];
 
             //Stoke's drift at surface (x)
-            adv_dir = -PI*(90.0+wavedir[nth])/180.0;
-            tmp     = std::cos(adv_dir)*wt_theta[nth]*Sdir[i][nth];
+            value_type adv_dir = -PI*(90.0+wavedir[nth])/180.0;
+            value_type tmp     = std::cos(adv_dir)*wt_theta[nth]*Sdir[nth][i];
             sdx_omega[i] += tmp;
 
             //Stoke's drift at surface (y)
-            tmp = std::sin(adv_dir)*wt_theta[nth]*Sdir[i][nth];
+            tmp = std::sin(adv_dir)*wt_theta[nth]*Sdir[nth][i];
             sdy_omega[i] += tmp;
         }
 
@@ -3279,7 +3305,8 @@ void WimDiscr<T>::attenSimple(array2_type& Sdir, value_type_vec& Sfreq,
 
 
 template<typename T>
-void WimDiscr<T>::attenIsotropic(array2_type& Sdir, value_type_vec& Sfreq,
+//void WimDiscr<T>::attenIsotropic(array2_type& Sdir, value_type_vec& Sfreq,
+void WimDiscr<T>::attenIsotropic(value_type_vec2d& Sdir, value_type_vec& Sfreq,
         value_type_vec& taux_omega, value_type_vec& tauy_omega,
         value_type_vec& sdx_omega, value_type_vec& sdy_omega,
         value_type_vec const& ag2d_eff)
@@ -3307,17 +3334,17 @@ void WimDiscr<T>::attenIsotropic(array2_type& Sdir, value_type_vec& Sfreq,
     std::fill( sdy_omega.begin()  ,sdy_omega.end()  ,0. );
 
 
-	for (int i = 0; i < num_p_wim; i++)
+	for (int i = 0; i < M_num_elements; i++)
     {
         for (int nth = 0; nth < nwavedirn; nth++)
-            S_th[nth] = Sdir[i][nth];
+            S_th[nth] = Sdir[nth][i];
 
         std::fill( S_fou.begin(), S_fou.end(), zi );
 
         //S_fou[0] = std::complex<value_type>( sum(wt_theta*S_th) );
         S_fou[0] = std::complex<value_type>( std::inner_product(wt_theta.begin(), wt_theta.end(), S_th.begin(), 0.) );
 
-        if (wim_ice.mask[i] > 0.)
+        if (wim_ice.mask[i] > 0.5 )
         {
             if (wim_ice.dfloe[i] < dfloe_pack_init)
             {
@@ -3437,8 +3464,8 @@ void WimDiscr<T>::attenIsotropic(array2_type& Sdir, value_type_vec& Sfreq,
                     tmp1[kth] = Sfoutempcos[kth]-Sfoutempsin[kth];
                 }
 
-                Sdir[i][nth] = std::accumulate(tmp1.begin(), tmp1.end(), 0.0)/(2*PI);
-                S_th[nth] = Sdir[i][nth];
+                Sdir[nth][i] = std::accumulate(tmp1.begin(), tmp1.end(), 0.0)/(2*PI);
+                S_th[nth]    = Sdir[nth][i];
             }
         }
 
@@ -3790,10 +3817,10 @@ void WimDiscr<T>::calcMWD()
 {
     value_type adv_dir, wt_theta, om, CF;
     value_type_vec cmom0,cmom_dir,CSfreq, cmom_dir0;
-    cmom0.resize(num_p_wim);
-    cmom_dir.resize(num_p_wim);
-    CSfreq.resize(num_p_wim);
-    cmom_dir0.resize(num_p_wim);
+    cmom0.resize(M_num_elements);
+    cmom_dir.resize(M_num_elements);
+    CSfreq.resize(M_num_elements);
+    cmom_dir0.resize(M_num_elements);
 
     if (nwavedirn == 1)
         wt_theta = 1.;
@@ -3816,15 +3843,15 @@ void WimDiscr<T>::calcMWD()
             adv_dir = -PI*(90.0+wavedir[nth])/180.0;
 
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-            for (int i = 0; i < num_p_wim; i++)
+            for (int i = 0; i < M_num_elements; i++)
             {
-                CSfreq[i] += wt_theta*sdf_dir[i][nth][fq];
-                cmom_dir0[i] += wt_theta*sdf_dir[i][nth][fq]*adv_dir;
+                CSfreq[i] += wt_theta*sdf_dir[fq][nth][i];
+                cmom_dir0[i] += wt_theta*sdf_dir[fq][nth][i]*adv_dir;
             }
         }//end loop over directions (still in freq loop)
 
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-        for (int i = 0; i < num_p_wim; i++)
+        for (int i = 0; i < M_num_elements; i++)
         {
             if (ref_Hs_ice)
                 CF = std::pow(disp_ratio[i][fq],2);
@@ -3840,7 +3867,7 @@ void WimDiscr<T>::calcMWD()
     std::fill( mwd.begin(), mwd.end(), 0. );
 
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-    for (int i = 0; i < num_p_wim; i++)
+    for (int i = 0; i < M_num_elements; i++)
     {
         if (cmom0[i] > 0.)
             mwd[i] = -90.-180*(cmom_dir[i]/cmom0[i])/PI;
@@ -4217,7 +4244,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
     if ( extract_fields.icec )
     {
         //icec,iceh,dfloe,swh,mwp,mwd
-        for (int i = 0; i < num_p_wim; i++)
+        for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&wim_ice.conc[i], sizeof(value_type));
 
         rstr   = std::string(2-std::to_string(recno).length(),'0')
@@ -4228,7 +4255,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
 
     if ( extract_fields.iceh )
     {
-        for (int i = 0; i < num_p_wim; i++)
+        for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&wim_ice.thick[i], sizeof(value_type));
 
         rstr   = std::string(2-std::to_string(recno).length(),'0')
@@ -4239,7 +4266,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
 
     if ( extract_fields.Dmax )
     {
-        for (int i = 0; i < num_p_wim; i++)
+        for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&wim_ice.dfloe[i], sizeof(value_type));
 
         rstr   = std::string(2-std::to_string(recno).length(),'0')
@@ -4250,7 +4277,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
 
     if ( extract_fields.taux )
     {
-        for (int i = 0; i < num_p_wim; i++)
+        for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&tau_x[i], sizeof(value_type));
 
         rstr   = std::string(2-std::to_string(recno).length(),'0')
@@ -4261,7 +4288,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
 
     if ( extract_fields.tauy )
     {
-        for (int i = 0; i < num_p_wim; i++)
+        for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&tau_y[i], sizeof(value_type));
 
         rstr   = std::string(2-std::to_string(recno).length(),'0')
@@ -4272,7 +4299,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
 
     if ( extract_fields.sdx )
     {
-        for (int i = 0; i < num_p_wim; i++)
+        for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&stokes_drift_x[i], sizeof(value_type));
 
         rstr   = std::string(2-std::to_string(recno).length(),'0')
@@ -4283,7 +4310,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
 
     if ( extract_fields.sdy )
     {
-        for (int i = 0; i < num_p_wim; i++)
+        for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&stokes_drift_y[i], sizeof(value_type));
 
         rstr   = std::string(2-std::to_string(recno).length(),'0')
@@ -4294,7 +4321,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
 
     if ( extract_fields.swh )
     {
-        for (int i = 0; i < num_p_wim; i++)
+        for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&Hs[i], sizeof(value_type));
 
         rstr   = std::string(2-std::to_string(recno).length(),'0')
@@ -4305,7 +4332,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
 
     if ( extract_fields.mwp )
     {
-        for (int i = 0; i < num_p_wim; i++)
+        for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&Tp[i], sizeof(value_type));
 
         rstr   = std::string(2-std::to_string(recno).length(),'0')
@@ -4316,7 +4343,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
 
     if ( extract_fields.mwd )
     {
-        for (int i = 0; i < num_p_wim; i++)
+        for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&mwd[i], sizeof(value_type));
 
         rstr   = std::string(2-std::to_string(recno).length(),'0')
@@ -4328,7 +4355,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
     if ( extract_fields.swh_in )
     {
         //swh_in,mwp_in,mwd_in: test incident waves
-        for (int i = 0; i < num_p_wim; i++)
+        for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&swh_in_array[i], sizeof(value_type));
 
         rstr   = std::string(2-std::to_string(recno).length(),'0')
@@ -4339,7 +4366,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
 
     if ( extract_fields.mwp_in )
     {
-        for (int i = 0; i < num_p_wim; i++)
+        for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&mwp_in_array[i], sizeof(value_type));
 
         rstr   = std::string(2-std::to_string(recno).length(),'0')
@@ -4350,7 +4377,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
 
     if ( extract_fields.mwd_in )
     {
-        for (int i = 0; i < num_p_wim; i++)
+        for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&mwd_in_array[i], sizeof(value_type));
 
         rstr   = std::string(2-std::to_string(recno).length(),'0')

@@ -169,12 +169,13 @@ public:
 
     void initConstant(int const nextsim_cpt);
     void assign();
+    void assignSpatial();
 
     void update();
 
     void updateWaveMedium();
 
-    void timeStep(int &lcpt);
+    void timeStep();
     void doBreaking(BreakInfo const& breakinfo);
 
     value_type nfloesToDfloe(
@@ -254,6 +255,7 @@ public:
 
     //===========================================================================
     //advection/attenuation
+#if 0
     void advectDirections( array2_type& Sdir, value_type_vec const& ag2d_eff);
     void advectDirectionsMesh( array2_type& Sdir, value_type_vec& ag2d_eff);
     void attenSimple(
@@ -266,6 +268,20 @@ public:
             value_type_vec& taux_omega,value_type_vec& tauy_omega,
             value_type_vec& sdx_omega,value_type_vec& sdy_omega,
             value_type_vec const& ag2d_eff);
+#else
+    void advectDirections( value_type_vec2d& Sdir, value_type_vec const& ag2d_eff);
+    void advectDirectionsMesh( value_type_vec2d& Sdir, value_type_vec& ag2d_eff);
+    void attenSimple(
+            value_type_vec2d& Sdir, value_type_vec& Sfreq,
+            value_type_vec& taux_omega,value_type_vec& tauy_omega,
+            value_type_vec& sdx_omega,value_type_vec& sdy_omega,
+            value_type_vec const& ag2d_eff);
+    void attenIsotropic(
+            value_type_vec2d& Sdir, value_type_vec& Sfreq,
+            value_type_vec& taux_omega,value_type_vec& tauy_omega,
+            value_type_vec& sdx_omega,value_type_vec& sdy_omega,
+            value_type_vec const& ag2d_eff);
+#endif
     void waveAdvWeno(
             value_type_vec& h, value_type_vec const& u, value_type_vec const& v);
     void weno3pdV2(
@@ -358,12 +374,11 @@ private:
                 dave, atten_dim, damp_dim, ag2d_eff_temp;
 
     //depend on freq and position
-    array2_type ag_eff, ap_eff, wlng_ice, atten_nond, damping, disp_ratio, sdf3d_dir_temp;
+    array2_type ag_eff, ap_eff, wlng_ice, atten_nond, damping, disp_ratio;//, sdf3d_dir_temp;
 
     //depend on freq, dirn and position
-    array3_type sdf_dir;
-    array3_type sdf_inc;
-    //value_type_vec3d M_steady_col;
+    value_type_vec3d sdf_dir, sdf_inc;
+    //array3_type sdf_dir, sdf_inc;
 
     value_type_vec S_freq, taux_om, tauy_om,
                 stokes_drift_x_om, stokes_drift_y_om;
