@@ -255,22 +255,10 @@ public:
 
     //===========================================================================
     //advection/attenuation
-#if 0
-    void advectDirections( array2_type& Sdir, value_type_vec const& ag2d_eff);
-    void advectDirectionsMesh( array2_type& Sdir, value_type_vec& ag2d_eff);
-    void attenSimple(
-            array2_type& Sdir, value_type_vec& Sfreq,
-            value_type_vec& taux_omega,value_type_vec& tauy_omega,
-            value_type_vec& sdx_omega,value_type_vec& sdy_omega,
-            value_type_vec const& ag2d_eff);
-    void attenIsotropic(
-            array2_type& Sdir, value_type_vec& Sfreq,
-            value_type_vec& taux_omega,value_type_vec& tauy_omega,
-            value_type_vec& sdx_omega,value_type_vec& sdy_omega,
-            value_type_vec const& ag2d_eff);
-#else
     void advectDirections( value_type_vec2d& Sdir, value_type_vec const& ag2d_eff);
     void advectDirectionsMesh( value_type_vec2d& Sdir, value_type_vec& ag2d_eff);
+    void intDirns(value_type_vec2d const& Sdir, value_type_vec& Sfreq,
+            value_type_vec& sdx_omega, value_type_vec& sdy_omega);
     void attenSimple(
             value_type_vec2d& Sdir, value_type_vec& Sfreq,
             value_type_vec& taux_omega,value_type_vec& tauy_omega,
@@ -281,7 +269,6 @@ public:
             value_type_vec& taux_omega,value_type_vec& tauy_omega,
             value_type_vec& sdx_omega,value_type_vec& sdy_omega,
             value_type_vec const& ag2d_eff);
-#endif
     void waveAdvWeno(
             value_type_vec& h, value_type_vec const& u, value_type_vec const& v);
     void weno3pdV2(
@@ -354,7 +341,7 @@ private:
 
     value_type M_cfl, dom, guess, Tmin, Tmax, gravity, om;
     value_type xmax, ym, x0, y0, dx, dy, x_edge, unifc, unifh,
-               dfloe_pack_init, dfloe_pack_thresh, amin, amax;
+               dfloe_pack_init, dfloe_pack_thresh, amin, M_max_cg;
     value_type rhowtr, rhoice, poisson, dmin, xi, fragility, cice_min, dfloe_miz_thresh,
                young, drag_rp, kice, kwtr, int_adm, modT, argR, argT, rhoi, rho, rhow;
     value_type fmin, fmax, df, epsc, sigma_c, vbf, vb, flex_rig_coeff;
@@ -371,10 +358,11 @@ private:
 
     //value_type_vec ice_mask, icec, iceh;
     value_type_vec swh_in_array,mwp_in_array,mwd_in_array,
-                dave, atten_dim, damp_dim, ag2d_eff_temp;
+                dave, atten_dim, damp_dim;// ag2d_eff_temp;
 
     //depend on freq and position
-    array2_type ag_eff, ap_eff, wlng_ice, atten_nond, damping, disp_ratio;//, sdf3d_dir_temp;
+    //array2_type ag_eff, ap_eff, wlng_ice, atten_nond, damping, disp_ratio;//, sdf3d_dir_temp;
+    value_type_vec2d ag_eff, ap_eff, wlng_ice, atten_nond, damping, disp_ratio;
 
     //depend on freq, dirn and position
     value_type_vec3d sdf_dir, sdf_inc;
