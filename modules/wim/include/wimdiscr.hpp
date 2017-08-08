@@ -110,7 +110,7 @@ public:
         value_type_vec nodes_y;                 // y-coords of nodes (not needed for structured grids)
         value_type_vec elements_x;              // x-coords of elements
         value_type_vec elements_y;              // y-coords of elements
-        value_type_vec surface;                 // y-coords of elements
+        value_type_vec surface;                 // surface area of elements
     } MeshInfo;
 
     typedef struct WimGrid
@@ -196,6 +196,8 @@ public:
     void getFsdMesh(value_type_vec &nfloes_out,value_type_vec &dfloe_out,value_type_vec &broken);
     void getFsdMesh(value_type_vec &nfloes_out,value_type_vec &dfloe_out, value_type_vec &broken,
             value_type_vec const & conc_tot, mesh_type const &mesh_in,value_type_vec const &um_in);
+    void getFsdMesh(value_type_vec &nfloes_out,value_type_vec &dfloe_out, value_type_vec &broken,
+            value_type_vec const & conc_tot, mesh_type const &mesh_in);
 
     value_type getModelTime(int lcpt=0) const {return M_update_time+lcpt*M_timestep;}
 
@@ -203,15 +205,22 @@ public:
     // breaking on mesh
     void setMesh( mesh_type const &mesh);
     void setMesh( mesh_type const &mesh,value_type_vec const &um);
-    void setMesh( mesh_type const &mesh,value_type_vec const &um,BamgMesh *bamgmesh);
+    void setMesh( mesh_type const &mesh,value_type_vec const &um,BamgMesh* bamgmesh);
+    void setMesh( mesh_type const &mesh,BamgMesh* bamgmesh);
+
     void resetMesh( mesh_type const &mesh);
     void resetMesh( mesh_type const &mesh,value_type_vec const &um);
-    value_type_vec relativeMeshDisplacement(mesh_type const &mesh_in,value_type_vec const &um_in) const;
+
     void setIceFields( std::vector<value_type> const& m_conc,  // conc
                        std::vector<value_type> const& m_vol, // ice vol or effective thickness (conc*thickness)
                        std::vector<value_type> const& m_nfloes,// Nfloes=conc/Dmax^2
                        bool const pre_regrid);
     void transformIce(IceInfo &ice_info);
+
+    value_type_vec getRelativeMeshDisplacement(mesh_type const &mesh_in) const;
+    value_type_vec getRelativeMeshDisplacement(mesh_type const &mesh_in,value_type_vec const &um_in) const;
+    void updateWaveSpec( mesh_type const &mesh);
+    void updateWaveSpec( mesh_type const &mesh,value_type_vec const &um);
 
     void clearMeshFields();
     void gridToPoints(
@@ -228,16 +237,24 @@ public:
         value_type_vec &Ry);                    //location of output data (y-coord)
 
     unord_map_vecs_type returnFieldsElements(std::vector<std::string> const&fields,
-            value_type_vec &xel, value_type_vec &yel);
+            value_type_vec &xel, value_type_vec &yel, value_type_vec const&surface_fac);
     unord_map_vecs_type returnFieldsElements(std::vector<std::string> const&fields,
             mesh_type const &mesh_in,value_type_vec const &um_in);
+    unord_map_vecs_type returnFieldsElements(std::vector<std::string> const&fields,
+            mesh_type const &mesh_in);
+
     unord_map_vecs_type returnFieldsNodes(std::vector<std::string> const&fields,
             value_type_vec &xnod, value_type_vec &ynod);
     unord_map_vecs_type returnFieldsNodes(std::vector<std::string> const&fields,
             mesh_type const &mesh_in,value_type_vec const &um_in);
+    unord_map_vecs_type returnFieldsNodes(std::vector<std::string> const&fields,
+            mesh_type const &mesh_in);
+
+    value_type_vec getSurfaceFactor(mesh_type const &mesh_in);
 
     void returnWaveStress(value_type_vec &M_tau, value_type_vec &xnod, value_type_vec &ynod);
     void returnWaveStress(value_type_vec &M_tau, mesh_type const &mesh_in,value_type_vec const &um_in);
+    void returnWaveStress(value_type_vec &M_tau, mesh_type const &mesh_in);
 
     // ========================================================================
 
@@ -304,6 +321,20 @@ public:
     value_type_vec getSCP2() const { return SCP2_array; }
     value_type_vec getSCP2I() const { return SCP2I_array; }
     value_type_vec getLANDMASK() const { return LANDMASK_array; }
+
+    //for use at regridding time (M_wim_on_mesh)
+    value_type_vec getMeshDisplacement() const { return M_UM; }
+    value_type_vec3d getWaveSpec() const { return sdf_dir; }
+    void setRelativeMeshDisplacement(value_type_vec const&um_in) { M_UM = um_in; return; }
+    void setWaveSpec(value_type_vec3d const&sdf_in)
+    {
+        // reset wave spectrum after regrid;
+        // also integrate if now so that initial wave fields are correct
+        // and so they are ready for export;
+        sdf_dir = sdf_in;
+        this->intWaveSpec();
+        return;
+    }
 
     std::string getWimGridFilename() const { return wim_gridfile; }
     //std::vector<int> getWimShape();

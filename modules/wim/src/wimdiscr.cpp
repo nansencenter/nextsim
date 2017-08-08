@@ -2118,11 +2118,17 @@ void WimDiscr<T>::setMesh(mesh_type const &mesh_in,value_type_vec const &um_in)
 }//setMesh
 
 template<typename T>
-void WimDiscr<T>::setMesh(mesh_type const &mesh_in,value_type_vec const &um_in,BamgMesh *bamgmesh)
+void WimDiscr<T>::setMesh(mesh_type const &mesh_in,value_type_vec const &um_in,BamgMesh* bamgmesh)
 {
-    //update nextsim_mesh with moved mesh
     auto movedmesh = mesh_in;
     movedmesh.move(um_in,1.);
+    this->setMesh(movedmesh,bamgmesh);
+}
+
+template<typename T>
+void WimDiscr<T>::setMesh(mesh_type const &movedmesh,BamgMesh* bamgmesh)
+{
+    //update nextsim_mesh with moved mesh
     this->setMesh(movedmesh);
 
     // ================================================================================
@@ -2150,11 +2156,12 @@ void WimDiscr<T>::setMesh(mesh_type const &mesh_in,value_type_vec const &um_in,B
 
     for (int i=0;i<Nn;i++)
     {
+        //nextsim_mesh_old is either from last WIM call or last regrid
         M_UM[i]    += nextsim_mesh.nodes_x[i]-nextsim_mesh_old.nodes_x[i];
         M_UM[i+Nn] += nextsim_mesh.nodes_y[i]-nextsim_mesh_old.nodes_y[i];
     }
 
-    //caluculate the surface areas,
+    //calculate the surface areas,
     //get the element connectivity from bamgmesh
     int Nels = nextsim_mesh.num_elements;
     nextsim_mesh.surface.assign(Nels,0);
@@ -2205,10 +2212,133 @@ void WimDiscr<T>::resetMesh(mesh_type const &mesh_in)
 
 template<typename T>
 typename WimDiscr<T>::value_type_vec
-WimDiscr<T>::relativeMeshDisplacement(mesh_type const &mesh_in,value_type_vec const &um_in) const
+WimDiscr<T>::getSurfaceFactor(mesh_type const &movedmesh)
+{
+    // wave spectrum needs to be updated if mesh changes due to divergence of mesh velocity
+    // ie element surface area changes need to be taken into account;
+    // call this before setMesh() at regrid time or before call to WIM
+    auto nodes_x = movedmesh.coordX();
+    auto nodes_y = movedmesh.coordY();
+    auto index   = movedmesh.indexTr();
+
+    int Nels = movedmesh.numTriangles();
+    value_type_vec surface_fac(Nels,0.);
+    for (int i=0;i<Nels;i++)
+    {
+        value_type_vec xnods(3);
+        value_type_vec ynods(3);
+        for (int k=0;k<3;k++)
+        {
+            int ind  = index[3*i+k];
+            xnods[k] = nodes_x[ind];
+            ynods[k] = nodes_y[ind];
+        }
+
+        surface_fac[i] = NextsimTools::measure(
+                xnods[0],ynods[0],xnods[1],ynods[1],xnods[2],ynods[2])
+                    /nextsim_mesh.surface[i];
+    }
+
+    return surface_fac;
+}//getSurfaceFactor()
+
+template<typename T>
+void WimDiscr<T>::updateWaveSpec(mesh_type const &movedmesh)
+{
+    // wave spectrum needs to be updated if mesh changes due to divergence of mesh velocity
+    // ie element surface area changes need to be taken into account;
+    // call this before setMesh() at regrid time or before call to WIM
+    auto nodes_x = movedmesh.coordX();
+    auto nodes_y = movedmesh.coordY();
+    auto index   = movedmesh.indexTr();
+
+    int Nels = movedmesh.numTriangles();
+    value_type_vec surface(Nels,0.);
+    std::fill(Tp.begin(),Tp.end(),0.);
+    std::fill(mwd.begin(),mwd.end(),0.);
+    for (int i=0;i<Nels;i++)
+    {
+        value_type_vec xnods(3);
+        value_type_vec ynods(3);
+        for (int k=0;k<3;k++)
+        {
+            int ind  = index[3*i+k];
+            xnods[k] = nodes_x[ind];
+            ynods[k] = nodes_y[ind];
+        }
+
+        value_type surface_fac = NextsimTools::measure(
+                xnods[0],ynods[0],xnods[1],ynods[1],xnods[2],ynods[2])
+                    /nextsim_mesh.surface[i];
+
+        //integrate wave spectrum here
+        value_type mom0 = 0.;
+        value_type mom2 = 0.;
+        value_type momc = 0.;
+        value_type moms = 0.;
+        value_type sdfx = 0.;
+        value_type sdfy = 0.;
+
+        for(int fq=0;fq<nwavefreq;fq++)
+        {
+            value_type kice = 2*PI/wlng_ice[fq][i];
+            value_type om   = 2*PI*freq_vec[fq];
+            value_type om2  = std::pow(om,2);
+            value_type F2   = 1.;
+            if(ref_Hs_ice)
+                F2   = std::pow(disp_ratio[fq][i],2);//TODO should stokes drift be a relative thing? maybe should take conc-weighted average?
+
+            for(int nth=0;nth<nwavedirn;nth++)
+            {
+                value_type adv_dir   = -PI*(90.0+wavedir[nth])/180.0;
+                sdf_dir[fq][nth][i] *= surface_fac;
+                value_type sdf       = sdf_dir[fq][nth][i];
+
+                mom0 += wt_om[fq]*wt_theta[nth]*sdf*F2;
+                mom2 += wt_om[fq]*wt_theta[nth]*sdf*F2*om2;
+                //
+                value_type tmp = wt_om[fq]*wt_theta[nth]*sdf*F2*std::cos(adv_dir);
+                momc          += tmp;
+                sdfx          += 2*om*kice*tmp;
+                //
+                tmp   = wt_om[fq]*wt_theta[nth]*sdf*F2*std::sin(adv_dir);
+                moms += tmp;
+                sdfy += 2*om*kice*tmp;
+            }//nth
+        }//fq
+
+        Hs[i]   = 4*std::sqrt(mom0);
+        if(mom2>0.);
+        {
+            Tp[i]   = 2*PI*std::sqrt(mom0/mom2);
+            mwd[i]  = std::atan2(moms,momc);
+        }
+        stokes_drift_x[i]   = sdfx;
+        stokes_drift_y[i]   = sdfy;
+    }//loop over elements
+}//updateWaveSpec
+
+template<typename T>
+void WimDiscr<T>::updateWaveSpec(mesh_type const &mesh_in,value_type_vec const &um_in)
 {
     auto movedmesh = mesh_in;
     movedmesh.move(um_in,1);
+    this->updateWaveSpec(movedmesh);
+}//updateWaveSpec
+
+template<typename T>
+typename WimDiscr<T>::value_type_vec
+WimDiscr<T>::getRelativeMeshDisplacement(mesh_type const &mesh_in,value_type_vec const &um_in) const
+{
+    auto movedmesh = mesh_in;
+    movedmesh.move(um_in,1);
+    this->getRelativeMeshDisplacement(movedmesh);
+}//getRelativeMeshDisplacement
+
+template<typename T>
+typename WimDiscr<T>::value_type_vec
+WimDiscr<T>::getRelativeMeshDisplacement(mesh_type const &movedmesh) const
+{
     auto nodes_x = movedmesh.coordX();
     auto nodes_y = movedmesh.coordY();
     int Nn = nodes_x.size();
@@ -2218,14 +2348,15 @@ WimDiscr<T>::relativeMeshDisplacement(mesh_type const &mesh_in,value_type_vec co
     if (nextsim_mesh.num_nodes!=Nn)
         throw std::runtime_error("relativeMeshDisplacement: mesh_in and nextsim_mesh have different sizes");
 
-    value_type_vec um(2*Nn);
+    auto um_out = M_UM;//in case there has been another regrid already
+
     for (int i=0;i<Nn;i++)
     {
-        um[i]    = nodes_x[i]-nextsim_mesh.nodes_x[i];
-        um[i+Nn] = nodes_y[i]-nextsim_mesh.nodes_y[i];
+        um_out[i]    += nodes_x[i]-nextsim_mesh.nodes_x[i];
+        um_out[i+Nn] += nodes_y[i]-nextsim_mesh.nodes_y[i];
     }
 
-    return um;
+    return um_out;
 }//relativeMeshDisplacement
 
 template<typename T>
@@ -2575,6 +2706,15 @@ void WimDiscr<T>::meshToPoints(
 
 }//meshToPoints
 
+template<typename T>
+typename WimDiscr<T>::unord_map_vecs_type
+WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const & fields,
+        mesh_type const &movedmesh)
+{
+    auto xnod = movedmesh.coordX();
+    auto ynod = movedmesh.coordY();
+    return this->returnFieldsNodes(fields,xnod,ynod);
+}
 
 template<typename T>
 typename WimDiscr<T>::unord_map_vecs_type
@@ -2583,9 +2723,22 @@ WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const & fields,
 {
     auto movedmesh  = mesh_in;
     movedmesh.move(um_in,1.);
-    auto xnod = movedmesh.coordX();
-    auto ynod = movedmesh.coordY();
-    return this->returnFieldsNodes(fields,xnod,ynod);
+    return this->returnFieldsNodes(fields,movedmesh);
+}
+
+template<typename T>
+typename WimDiscr<T>::unord_map_vecs_type
+WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
+        mesh_type const &movedmesh)
+{
+    auto xel  = movedmesh.bcoordX();
+    auto yel  = movedmesh.bcoordY();
+
+    value_type_vec surface_fac(xel.size(),1.);
+    if(M_wim_on_mesh)
+        surface_fac = this->getSurfaceFactor(movedmesh);
+
+    return this->returnFieldsElements(fields,xel,yel,surface_fac);
 }
 
 template<typename T>
@@ -2595,9 +2748,7 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
 {
     auto movedmesh  = mesh_in;
     movedmesh.move(um_in,1.);
-    auto xel  = movedmesh.bcoordX();
-    auto yel  = movedmesh.bcoordY();
-    return this->returnFieldsElements(fields,xel,yel);
+    return this->returnFieldsElements(fields,movedmesh);
 }
 
 template<typename T>
@@ -2693,9 +2844,9 @@ WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const &fields,
 template<typename T>
 typename WimDiscr<T>::unord_map_vecs_type
 WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
-        value_type_vec &xel, value_type_vec &yel)
+        value_type_vec &xel, value_type_vec &yel, value_type_vec const& surface_fac)
 {
-    // return fields to elements of nextsim_mesh
+    // return fields on elements of nextsim_mesh
     // - usually to export diagnostic fields on nextsim mesh
     unord_map_vecs_type output_els;
     int Nels = xel.size();
@@ -2709,13 +2860,6 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
         {
             value_type_vec tmp(Nels,0.);
             output_els.emplace(*it,tmp);
-
-#if 0
-            //TODO add check for M_wim_on_mesh after sdf_dir is reset at regrid time
-            //check if need to integrate spectrum before the export
-            if ( (!M_wavespec_integrated) && ((*it=="Hs")||(*it=="Tp")||(*it=="MWD")) )
-                this->intWaveSpec(); TODO define this function
-#endif
         }
 
     // ==========================================================================================
@@ -2729,7 +2873,8 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
         if(it->first=="Hs")
         {
             if (M_wim_on_mesh)
-                it->second = Hs;
+                for(int i=0;i<M_num_elements;i++)
+                    it->second[i] = std::sqrt(surface_fac[i])*Hs[i];//NB SDF scales with surface area, so Hs scales by sqrt(SDF)
             else
             {
                 input_els.push_back(&Hs);
@@ -2739,7 +2884,7 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
         else if(it->first=="Tp")
         {
             if (M_wim_on_mesh)
-                it->second = Tp;
+                it->second = Tp;//NB indep of surface area
             else
             {
                 input_els.push_back(&Tp);
@@ -2749,7 +2894,7 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
         else if(it->first=="MWD")
         {
             if (M_wim_on_mesh)
-                it->second = mwd;
+                it->second = mwd;//NB indep of surface area
             else
             {
                 input_els.push_back(&mwd);
@@ -2774,6 +2919,12 @@ void WimDiscr<T>::returnWaveStress(value_type_vec &M_tau,mesh_type const &mesh_i
 {
     auto movedmesh  = mesh_in;
     movedmesh.move(um_in,1.);
+    this->returnWaveStress(M_tau,movedmesh);
+}
+
+template<typename T>
+void WimDiscr<T>::returnWaveStress(value_type_vec &M_tau,mesh_type const &movedmesh)
+{
     auto xnod = movedmesh.coordX();
     auto ynod = movedmesh.coordY();
     this->returnWaveStress(M_tau,xnod,ynod);
@@ -2941,7 +3092,23 @@ void WimDiscr<T>::getFsdMesh(value_type_vec &nfloes_out,value_type_vec &dfloe_ou
     // - NB set in FiniteElement::wimPreRegrid(),
     // but this function is called from FiniteElement::wimPostRegrid(),
     // and mesh could have changed due to regridding
-    this->resetMesh(mesh_in,um_in);
+    auto movedmesh  = mesh_in;
+    movedmesh.move(um_in,1.);
+    this->getFsdMesh(nfloes_out,dfloe_out,broken,conc_tot,movedmesh);
+}
+
+template<typename T>
+void WimDiscr<T>::getFsdMesh(value_type_vec &nfloes_out,value_type_vec &dfloe_out,value_type_vec &broken,
+        value_type_vec const & conc_tot, mesh_type const &movedmesh)
+{
+    if((M_wim_on_mesh)||(break_on_mesh))
+        throw std::runtime_error("getFsdMesh: using wrong interface");
+
+    // set nextsim_mesh (need to know where to interpolate to)
+    // - NB set in FiniteElement::wimPreRegrid(),
+    // but this function is called from FiniteElement::wimPostRegrid(),
+    // and mesh could have changed due to regridding
+    this->resetMesh(movedmesh);
 
     //do interpolation
     value_type_vec cinterp;//interp conc as well, to correct for interpolation error
