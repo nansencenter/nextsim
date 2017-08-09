@@ -8,7 +8,7 @@
 
 #include <wimdiscr.hpp>
 #include <date_wim.hpp>
-#include <tools.hpp>
+#include <meshtools.hpp>
 #ifdef __cplusplus
 extern "C"
 {
@@ -82,7 +82,7 @@ void WimDiscr<T>::gridProcessing(mesh_type const &mesh_in)
 
     auto xnod = mesh_in.coordX();
     auto ynod = mesh_in.coordY();
-    auto res = NextsimTools::resolution(mesh_in);
+    auto res = MeshTools::resolution(mesh_in);
     auto x1 = *std::max_element(xnod.begin(),xnod.end());
     auto y1 = *std::max_element(ynod.begin(),ynod.end());
     std::cout<<"Resolution (km) = "<<res/1.e3<<"\n";
@@ -2179,7 +2179,7 @@ void WimDiscr<T>::setMesh(mesh_type const &movedmesh,BamgMesh* bamgmesh)
             nextsim_mesh.element_connectivity[3*i+k]
                 = bamgmesh->ElementConnectivity[3*i+k]-1;//NB bamg indices go from 1 to Nels
         }
-        nextsim_mesh.surface[i] = NextsimTools::measure(
+        nextsim_mesh.surface[i] = MeshTools::measure(
                 xnods[0],ynods[0],xnods[1],ynods[1],xnods[2],ynods[2]);
     }
     // ================================================================================
@@ -2234,7 +2234,7 @@ WimDiscr<T>::getSurfaceFactor(mesh_type const &movedmesh)
             ynods[k] = nodes_y[ind];
         }
 
-        surface_fac[i] = NextsimTools::measure(
+        surface_fac[i] = MeshTools::measure(
                 xnods[0],ynods[0],xnods[1],ynods[1],xnods[2],ynods[2])
                     /nextsim_mesh.surface[i];
     }
@@ -2267,7 +2267,7 @@ void WimDiscr<T>::updateWaveSpec(mesh_type const &movedmesh)
             ynods[k] = nodes_y[ind];
         }
 
-        value_type surface_fac = NextsimTools::measure(
+        value_type surface_fac = MeshTools::measure(
                 xnods[0],ynods[0],xnods[1],ynods[1],xnods[2],ynods[2])
                     /nextsim_mesh.surface[i];
 
@@ -3376,7 +3376,7 @@ void WimDiscr<T>::advectDirections(value_type_vec2d& Sdir,value_type_vec const& 
 #endif
 
         //do advection
-        //TODO if M_wim_on_mesh call NextsimTools::advect here
+        //TODO if M_wim_on_mesh call MeshTools::advect here
         this->waveAdvWeno(Sdir[nth],uwave,vwave);
 
 #if 0
@@ -3429,8 +3429,8 @@ void WimDiscr<T>::advectDirectionsMesh(value_type_vec2d& Sdir,value_type_vec & a
 
         //do advection
         //auto advect_in  = Sdir[nth];
-        //NextsimTools::advect(&advect_out,&advect_in[0],&nextsim_mesh,
-        NextsimTools::advect(&advect_out,&(Sdir[nth])[0],&nextsim_mesh,
+        //MeshTools::advect(&advect_out,&advect_in[0],&nextsim_mesh,
+        MeshTools::advect(&advect_out,&(Sdir[nth])[0],&nextsim_mesh,
             &VC[0],&adv_method[0],nb_var,M_timestep);
 
         // copy from 2D temporary array back to 3D input array

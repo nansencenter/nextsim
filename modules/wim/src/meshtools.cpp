@@ -8,10 +8,10 @@
  * @date   Mon Aug 24 11:02:45 2015
  */
 
-#include <tools.hpp>
+#include <meshtools.hpp>
 
 
-namespace NextsimTools
+namespace MeshTools
 {
 
 
@@ -122,7 +122,7 @@ minMaxSide(mesh_type const& mesh)
     int cpt = 0;
     for (auto it=mesh.triangles().begin(), end=mesh.triangles().end(); it!=end; ++it)
     {
-        auto side = NextsimTools::sides(*it,mesh);
+        auto side = MeshTools::sides(*it,mesh);
         all_min_side[cpt] = *std::min_element(side.begin(),side.end());
         all_max_side[cpt] = *std::max_element(side.begin(),side.end());
         ++cpt;
@@ -140,7 +140,7 @@ minMaxSide(mesh_type const& mesh)
 double
 minAngles(element_type const& element, mesh_type const& mesh)
 {
-    std::vector<double> side = NextsimTools::sides(element,mesh);
+    std::vector<double> side = MeshTools::sides(element,mesh);
     //std::for_each(side.begin(), side.end(), [&](double& f){ f = 1000.*f; });
     std::sort(side.begin(),side.end());
     double minang = std::acos( (std::pow(side[1],2.) + std::pow(side[2],2.) - std::pow(side[0],2.) )/(2*side[1]*side[2]) );
@@ -161,7 +161,7 @@ minAngle(mesh_type const& mesh)
     int cpt = 0;
     for (auto it=mesh.triangles().begin(), end=mesh.triangles().end(); it!=end; ++it)
     {
-        all_min_angle[cpt] = NextsimTools::minAngles(*it,mesh);
+        all_min_angle[cpt] = MeshTools::minAngles(*it,mesh);
         ++cpt;
     }
 #endif
@@ -173,7 +173,7 @@ minAngle(mesh_type const& mesh)
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
-        all_min_angle[cpt] = NextsimTools::minAngles(M_elements[cpt],mesh);
+        all_min_angle[cpt] = MeshTools::minAngles(M_elements[cpt],mesh);
     }
 #endif
 
@@ -194,7 +194,7 @@ minAngle(mesh_type const& mesh, std::vector<double> const& um, double factor)
     // int cpt = 0;
     // for (auto it=movedmesh.triangles().begin(), end=movedmesh.triangles().end(); it!=end; ++it)
     // {
-    //     all_min_angle[cpt] = NextsimTools::minAngles(*it,movedmesh);
+    //     all_min_angle[cpt] = MeshTools::minAngles(*it,movedmesh);
     //     ++cpt;
     // }
 #endif
@@ -206,7 +206,7 @@ minAngle(mesh_type const& mesh, std::vector<double> const& um, double factor)
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
-        all_min_angle[cpt] = NextsimTools::minAngles(movedmesh.triangles()[cpt],movedmesh);
+        all_min_angle[cpt] = MeshTools::minAngles(movedmesh.triangles()[cpt],movedmesh);
     }
 #endif
 
@@ -226,7 +226,7 @@ flip(mesh_type const& mesh, std::vector<double> const& um, double factor)
     int cpt = 0;
     for (auto it=movedmesh.triangles().begin(), end=movedmesh.triangles().end(); it!=end; ++it)
     {
-        area[cpt] = NextsimTools::jacobian(*it,movedmesh);
+        area[cpt] = MeshTools::jacobian(*it,movedmesh);
         ++cpt;
     }
 #endif
@@ -239,8 +239,8 @@ flip(mesh_type const& mesh, std::vector<double> const& um, double factor)
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
-        area_init = NextsimTools::jacobian(mesh.triangles()[cpt],mesh);
-        area[cpt] = NextsimTools::jacobian(movedmesh.triangles()[cpt],movedmesh);
+        area_init = MeshTools::jacobian(mesh.triangles()[cpt],mesh);
+        area[cpt] = MeshTools::jacobian(movedmesh.triangles()[cpt],movedmesh);
 
         if(area_init*area[cpt]<=0.)
         {
@@ -263,7 +263,7 @@ resolution(mesh_type const& mesh)
     int cpt = 0;
     for (auto it=mesh.triangles().begin(), end=mesh.triangles().end(); it!=end; ++it)
     {
-        all_min_measure[cpt] = NextsimTools::measure(*it,mesh);
+        all_min_measure[cpt] = MeshTools::measure(*it,mesh);
         ++cpt;
     }
 
@@ -289,7 +289,7 @@ hminVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh)
 
             if ((0 <= elt_num) && (elt_num < mesh.numTriangles()) && (elt_num != NAN))
             {
-                measure[j] = NextsimTools::measure(mesh.triangles()[elt_num],mesh);
+                measure[j] = MeshTools::measure(mesh.triangles()[elt_num],mesh);
             }
             else
             {
@@ -319,7 +319,7 @@ hmaxVertices(mesh_type const& mesh, BamgMesh const* bamg_mesh)
 
             if ((0 <= elt_num) && (elt_num < mesh.numTriangles()) && (elt_num != NAN))
             {
-                measure[j] = NextsimTools::measure(mesh.triangles()[elt_num],mesh);
+                measure[j] = MeshTools::measure(mesh.triangles()[elt_num],mesh);
             }
             else
             {
@@ -346,7 +346,7 @@ AllMinAngle(mesh_type const& mesh, std::vector<double> const& um, double factor)
     // int cpt = 0;
     // for (auto it=movedmesh.triangles().begin(), end=movedmesh.triangles().end(); it!=end; ++it)
     // {
-    //     all_min_angle[cpt] = NextsimTools::minAngles(*it,movedmesh);
+    //     all_min_angle[cpt] = MeshTools::minAngles(*it,movedmesh);
     //     ++cpt;
     // }
 #endif
@@ -359,7 +359,7 @@ AllMinAngle(mesh_type const& mesh, std::vector<double> const& um, double factor)
 //#pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
-        all_min_angle[cpt] = NextsimTools::minAngles(movedmesh.triangles()[cpt],movedmesh);
+        all_min_angle[cpt] = MeshTools::minAngles(movedmesh.triangles()[cpt],movedmesh);
     }
 #endif
 
@@ -625,7 +625,7 @@ adaptMesh()
     std::vector<int> old_node_id=M_mesh.id();
 
     // Import the mesh from bamg
-    NextsimTools::importBamg(bamgmesh);
+    MeshTools::importBamg(bamgmesh);
 
     // We mask out the boundary nodes
     M_mask.assign(bamgmesh->VerticesSize[0],false) ;
@@ -723,7 +723,7 @@ adaptMesh()
     int cpt = 0;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
     {
-        M_surface[cpt] = NextsimTools::measure(*it,M_mesh);
+        M_surface[cpt] = MeshTools::measure(*it,M_mesh);
         ++cpt;
     }
 }//adaptMesh
@@ -776,7 +776,7 @@ std::string
 gitRevision()
 {
     //std::string command = "git rev-parse HEAD";
-    return NextsimTools::system("git rev-parse HEAD");
+    return MeshTools::system("git rev-parse HEAD");
 }//gitRevision
 
 std::string
@@ -817,4 +817,4 @@ getEnv(std::string const& envname)
     return std::string(senv);
 }//getEnv
 
-} // namespace NextsimTools
+} // namespace MeshTools
