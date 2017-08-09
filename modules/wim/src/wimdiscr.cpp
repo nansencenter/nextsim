@@ -2203,6 +2203,7 @@ void WimDiscr<T>::resetMesh(mesh_type const &mesh_in)
     nextsim_mesh.num_nodes      = mesh_in.numNodes();
     nextsim_mesh.num_elements   = mesh_in.numTriangles();
     nextsim_mesh.index          = mesh_in.indexTr();
+    nextsim_mesh.id             = mesh_in.id();
     nextsim_mesh.nodes_x        = mesh_in.coordX();
     nextsim_mesh.nodes_y        = mesh_in.coordY();
     nextsim_mesh.elements_x     = mesh_in.bcoordX();

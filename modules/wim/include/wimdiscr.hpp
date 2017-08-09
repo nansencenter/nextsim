@@ -111,6 +111,7 @@ public:
         value_type_vec elements_x;              // x-coords of elements
         value_type_vec elements_y;              // y-coords of elements
         value_type_vec surface;                 // surface area of elements
+        std::vector<int> id;                    // id's of nodes
     } MeshInfo;
 
     typedef struct WimGrid
@@ -348,19 +349,18 @@ public:
 
 private:
 
-    std::vector<int> iv_tmp = {};
-    value_type_vec   vtv_tmp = {};
     MeshInfo mesh_info_tmp = {
             initialised             : false,
             num_nodes               : 0,
             num_elements            : 0,
-            index                   : iv_tmp,
-            element_connectivity    : iv_tmp,
-            nodes_x                 : vtv_tmp,
-            nodes_y                 : vtv_tmp,
-            elements_x              : vtv_tmp,
-            elements_y              : vtv_tmp,
-            surface                 : vtv_tmp
+            index                   : {},
+            element_connectivity    : {},
+            nodes_x                 : {},
+            nodes_y                 : {},
+            elements_x              : {},
+            elements_y              : {},
+            surface                 : {},
+            id                      : {}
     };
 
     po::variables_map vm;
