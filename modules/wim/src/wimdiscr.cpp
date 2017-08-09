@@ -4370,24 +4370,24 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
                                  value_type const& t_out) const
 {
 
-    typedef struct extractFields {
-        bool icec;
-        bool iceh;
-        bool Dmax;
-        bool taux;
-        bool tauy;
-        bool sdx;
-        bool sdy;
-        bool swh;
-        bool mwp;
-        bool mwd;
-        bool swh_in;
-        bool mwp_in;
-        bool mwd_in;
-    } extractFields;
+    ExtractFields extract_fields =
+    {
+        Nrecs   : 0,
+        icec    : false,
+        iceh    : false,
+        Dmax    : false,
+        taux    : false,
+        tauy    : false,
+        sdx     : false,
+        sdy     : false,
+        swh     : false,
+        mwp     : false,
+        mwd     : false,
+        swh_in  : false,
+        mwp_in  : false,
+        mwd_in  : false,
+    };
 
-    extractFields extract_fields;
-    int Nrecs,recno;
 
     std::string str = vm["wim.outparentdir"].template as<std::string>();
     fs::path path(str);
@@ -4398,118 +4398,99 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
     std::string fileout,fileoutb;
     if ( output_type == "prog" )
     {
-        Nrecs   = 8;
         fileout = (boost::format( "%1%/wim_prog%2%" ) % path.string() % timestpstr).str();
 
         //fields to extract
-        extract_fields  =
-        {
-            icec:   false,
-            iceh:   false,
-            Dmax:   true,
-            taux:   true,
-            tauy:   true,
-            sdx:    true,
-            sdy:    true,
-            swh:    true,
-            mwp:    true,
-            mwd:    true,
-            swh_in: false,
-            mwp_in: false,
-            mwd_in: false
-        };
+        extract_fields.Dmax = true;
+        extract_fields.Nrecs++;
+        extract_fields.taux = true;
+        extract_fields.Nrecs++;
+        extract_fields.tauy = true;
+        extract_fields.Nrecs++;
+        extract_fields.sdx  = true;
+        extract_fields.Nrecs++;
+        extract_fields.sdy  = true;
+        extract_fields.Nrecs++;
+        extract_fields.swh  = true;
+        extract_fields.Nrecs++;
+        extract_fields.mwp  = true;
+        extract_fields.Nrecs++;
+        extract_fields.mwd  = true;
+        extract_fields.Nrecs++;
     }
     else if ( output_type == "final" )
     {
-        Nrecs   = 8;
         fileout = (boost::format( "%1%/wim_out%2%" ) % path.string() % timestpstr).str();
 
         //fields to extract
-        extract_fields  =
-        {
-            icec:   false,
-            iceh:   false,
-            Dmax:   true,
-            taux:   true,
-            tauy:   true,
-            sdx:    true,
-            sdy:    true,
-            swh:    true,
-            mwp:    true,
-            mwd:    true,
-            swh_in: false,
-            mwp_in: false,
-            mwd_in: false
-        };
+        extract_fields.Dmax = true;
+        extract_fields.Nrecs++;
+        extract_fields.taux = true;
+        extract_fields.Nrecs++;
+        extract_fields.tauy = true;
+        extract_fields.Nrecs++;
+        extract_fields.sdx  = true;
+        extract_fields.Nrecs++;
+        extract_fields.sdy  = true;
+        extract_fields.Nrecs++;
+        extract_fields.swh  = true;
+        extract_fields.Nrecs++;
+        extract_fields.mwp  = true;
+        extract_fields.Nrecs++;
+        extract_fields.mwd  = true;
+        extract_fields.Nrecs++;
     }
     else if ( output_type == "init" )
     {
-        Nrecs   = 6;
         fileout = (boost::format( "%1%/wim_init%2%" ) % path.string() % timestpstr).str();
 
         //fields to extract
-        extract_fields  =
-        {
-            icec:   true,
-            iceh:   true,
-            Dmax:   true,
-            taux:   false,
-            tauy:   false,
-            sdx:    false,
-            sdy:    false,
-            swh:    true,
-            mwp:    true,
-            mwd:    true,
-            swh_in: false,
-            mwp_in: false,
-            mwd_in: false
-        };
+        extract_fields.icec = true;
+        extract_fields.Nrecs++;
+        extract_fields.iceh = true;
+        extract_fields.Nrecs++;
+        extract_fields.Dmax = true;
+        extract_fields.Nrecs++;
+        extract_fields.swh  = true;
+        extract_fields.Nrecs++;
+        extract_fields.mwp  = true;
+        extract_fields.Nrecs++;
+        extract_fields.mwd  = true;
+        extract_fields.Nrecs++;
     }
     else if ( output_type == "incwaves" )
     {
-        Nrecs   = 3;
         fileout = (boost::format( "%1%/wim_inc%2%" ) % path.string() % timestpstr).str();
 
         //fields to extract
-        extract_fields  =
-        {
-            icec:   false,
-            iceh:   false,
-            Dmax:   false,
-            taux:   false,
-            tauy:   false,
-            sdx:    false,
-            sdy:    false,
-            swh:    false,
-            mwp:    false,
-            mwd:    false,
-            swh_in: true,
-            mwp_in: true,
-            mwd_in: true
-        };
+        extract_fields.swh_in = true;
+        extract_fields.Nrecs++;
+        extract_fields.mwp_in = true;
+        extract_fields.Nrecs++;
+        extract_fields.mwd_in = true;
+        extract_fields.Nrecs++;
     }
     else if ( output_type == "nextwim" )
     {
-        Nrecs   = 8;
         fileout = (boost::format( "%1%/nextwim%2%" ) % path.string() % timestpstr).str();
 
         //fields to extract
-        extract_fields  =
-        {
-            icec:   false,
-            iceh:   false,
-            Dmax:   true,
-            taux:   true,
-            tauy:   true,
-            sdx:    true,
-            sdy:    true,
-            swh:    true,
-            mwp:    true,
-            mwd:    true,
-            swh_in: false,
-            mwp_in: false,
-            mwd_in: false
-        };
+        extract_fields.Dmax = true;
+        extract_fields.Nrecs++;
+        extract_fields.taux = true;
+        extract_fields.Nrecs++;
+        extract_fields.tauy = true;
+        extract_fields.Nrecs++;
+        extract_fields.sdx  = true;
+        extract_fields.Nrecs++;
+        extract_fields.sdy  = true;
+        extract_fields.Nrecs++;
+        extract_fields.swh  = true;
+        extract_fields.Nrecs++;
+        extract_fields.mwp  = true;
+        extract_fields.Nrecs++;
+        extract_fields.mwd  = true;
+        extract_fields.Nrecs++;
     }
 
     fileoutb   = fileout+".b";
@@ -4536,8 +4517,8 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
 
     // ==================================================================================================
     //.b file header
-    std::string rstr   = std::string(2-std::to_string(Nrecs).length(),'0')
-                          + std::to_string(Nrecs);
+    std::string rstr   = std::string(2-std::to_string(extract_fields.Nrecs).length(),'0')
+                          + std::to_string(extract_fields.Nrecs);
     outb << std::setw(15) << std::left << rstr  << "    Nrecs    # "<< "Number of records" <<"\n";
     outb << std::setw(15) << std::left << "0"   << "    Norder   # "
          << "Storage order [column-major (F/matlab) = 1; row-major (C) = 0]" <<"\n";
@@ -4552,17 +4533,17 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
     outb << "Record number and name:" <<"\n";
     // ==================================================================================================
 
-    recno = 1;
+    int recno = 0;
     if ( extract_fields.icec )
     {
         //icec,iceh,dfloe,swh,mwp,mwd
         for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&wim_ice.conc[i], sizeof(value_type));
 
+        ++recno;
         rstr   = std::string(2-std::to_string(recno).length(),'0')
            + std::to_string(recno);
         outb << std::setw(9) << rstr << "icec" <<"\n";
-        ++recno;
     }
 
     if ( extract_fields.iceh )
@@ -4570,10 +4551,10 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
         for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&wim_ice.thick[i], sizeof(value_type));
 
+        ++recno;
         rstr   = std::string(2-std::to_string(recno).length(),'0')
            + std::to_string(recno);
         outb << std::setw(9) << rstr << "iceh" <<"\n";
-        ++recno;
     }
 
     if ( extract_fields.Dmax )
@@ -4581,10 +4562,10 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
         for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&wim_ice.dfloe[i], sizeof(value_type));
 
+        ++recno;
         rstr   = std::string(2-std::to_string(recno).length(),'0')
            + std::to_string(recno);
         outb << std::setw(9) << rstr << "Dmax" <<"\n";
-        ++recno;
     }
 
     if ( extract_fields.taux )
@@ -4592,10 +4573,10 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
         for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&tau_x[i], sizeof(value_type));
 
+        ++recno;
         rstr   = std::string(2-std::to_string(recno).length(),'0')
            + std::to_string(recno);
         outb << std::setw(9) << rstr << "tau_x" <<"\n";
-        ++recno;
     }
 
     if ( extract_fields.tauy )
@@ -4603,10 +4584,10 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
         for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&tau_y[i], sizeof(value_type));
 
+        ++recno;
         rstr   = std::string(2-std::to_string(recno).length(),'0')
            + std::to_string(recno);
         outb << std::setw(9) << rstr << "tau_y" <<"\n";
-        ++recno;
     }
 
     if ( extract_fields.sdx )
@@ -4614,10 +4595,10 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
         for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&stokes_drift_x[i], sizeof(value_type));
 
+        ++recno;
         rstr   = std::string(2-std::to_string(recno).length(),'0')
            + std::to_string(recno);
         outb << std::setw(9) << rstr << "stokes_drift_x" <<"\n";
-        ++recno;
     }
 
     if ( extract_fields.sdy )
@@ -4625,10 +4606,10 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
         for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&stokes_drift_y[i], sizeof(value_type));
 
+        ++recno;
         rstr   = std::string(2-std::to_string(recno).length(),'0')
            + std::to_string(recno);
         outb << std::setw(9) << rstr << "stokes_drift_y" <<"\n";
-        ++recno;
     }
 
     if ( extract_fields.swh )
@@ -4636,10 +4617,10 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
         for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&Hs[i], sizeof(value_type));
 
+        ++recno;
         rstr   = std::string(2-std::to_string(recno).length(),'0')
            + std::to_string(recno);
         outb << std::setw(9) << rstr << "Hs" <<"\n";
-        ++recno;
     }
 
     if ( extract_fields.mwp )
@@ -4647,10 +4628,10 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
         for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&Tp[i], sizeof(value_type));
 
+        ++recno;
         rstr   = std::string(2-std::to_string(recno).length(),'0')
            + std::to_string(recno);
         outb << std::setw(9) << rstr << "Tp" <<"\n";
-        ++recno;
     }
 
     if ( extract_fields.mwd )
@@ -4658,10 +4639,10 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
         for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&mwd[i], sizeof(value_type));
 
+        ++recno;
         rstr   = std::string(2-std::to_string(recno).length(),'0')
            + std::to_string(recno);
         outb << std::setw(9) << rstr << "mwd" <<"\n";
-        ++recno;
     }
 
     if ( extract_fields.swh_in )
@@ -4670,10 +4651,10 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
         for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&swh_in_array[i], sizeof(value_type));
 
+        ++recno;
         rstr   = std::string(2-std::to_string(recno).length(),'0')
            + std::to_string(recno);
         outb << std::setw(9) << rstr << "Hs" <<"\n";
-        ++recno;
     }
 
     if ( extract_fields.mwp_in )
@@ -4681,10 +4662,10 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
         for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&mwp_in_array[i], sizeof(value_type));
 
+        ++recno;
         rstr   = std::string(2-std::to_string(recno).length(),'0')
            + std::to_string(recno);
         outb << std::setw(9) << rstr << "Tp" <<"\n";
-        ++recno;
     }
 
     if ( extract_fields.mwd_in )
@@ -4692,10 +4673,10 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
         for (int i = 0; i < M_num_elements; i++)
             out.write((char *)&mwd_in_array[i], sizeof(value_type));
 
+        ++recno;
         rstr   = std::string(2-std::to_string(recno).length(),'0')
            + std::to_string(recno);
         outb << std::setw(9) << rstr << "mwd" <<"\n";
-        ++recno;
     }
 
     out.close();

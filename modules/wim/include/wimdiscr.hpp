@@ -87,6 +87,25 @@ template<typename T=float> class WimDiscr
         mutable bool broken;
     } BreakInfo;
 
+    typedef struct ExtractFields
+    {
+        int  Nrecs;
+        bool icec;
+        bool iceh;
+        bool Dmax;
+        bool taux;
+        bool tauy;
+        bool sdx;
+        bool sdy;
+        bool swh;
+        bool mwp;
+        bool mwd;
+        bool swh_in;
+        bool mwp_in;
+        bool mwd_in;
+    } ExtractFields;
+
+
 
     // ==========================================================================================
 
@@ -349,20 +368,6 @@ public:
 
 private:
 
-    MeshInfo mesh_info_tmp = {
-            initialised             : false,
-            num_nodes               : 0,
-            num_elements            : 0,
-            index                   : {},
-            element_connectivity    : {},
-            nodes_x                 : {},
-            nodes_y                 : {},
-            elements_x              : {},
-            elements_y              : {},
-            surface                 : {},
-            id                      : {}
-    };
-
     po::variables_map vm;
     int nx, ny, nxext, nyext, nbdy, nbdx, nghost;
     int num_p_wim,num_q_wim,num_u_wim,num_v_wim;
@@ -434,6 +439,21 @@ private:
     value_type_vec M_UM;//displacement of mesh nodes between calls to wim.run()
                         //- for correction to group velocity at advection time
     // =========================================================================
+
+    MeshInfo mesh_info_tmp = {
+            initialised             : false,
+            num_nodes               : 0,
+            num_elements            : 0,
+            index                   : {},
+            element_connectivity    : {},
+            nodes_x                 : {},
+            nodes_y                 : {},
+            elements_x              : {},
+            elements_y              : {},
+            surface                 : {},
+            id                      : {}
+    };
+
 
 };
 
