@@ -46,13 +46,13 @@ namespace fs = boost::filesystem;
 template<typename T=float> class WimDiscr
 {
     // ==========================================================================================
-	typedef T value_type;
+    typedef T value_type;
     typedef typename std::vector<value_type>        value_type_vec;
     typedef typename std::vector<value_type_vec*>   value_type_vec_ptrs;
     typedef typename std::vector<value_type_vec>    value_type_vec2d;//vector of vectors
     typedef typename std::vector<value_type_vec2d>  value_type_vec3d;//vector of vectors of vectors
     typedef size_t size_type;
-	typedef boost::multi_array<value_type, 2> array2_type;
+    typedef boost::multi_array<value_type, 2> array2_type;
     typedef boost::multi_array<value_type, 3> array3_type;
     typedef boost::multi_array<value_type, 4> array4_type;
     typedef typename array2_type::index index;
@@ -87,6 +87,7 @@ template<typename T=float> class WimDiscr
         mutable bool broken;
     } BreakInfo;
 
+#if 1
     typedef struct ExtractFields
     {
         int  Nrecs;
@@ -104,6 +105,7 @@ template<typename T=float> class WimDiscr
         bool mwp_in;
         bool mwd_in;
     } ExtractFields;
+#endif
 
 
 
@@ -176,6 +178,8 @@ public:
             int addx = 0, int addy = 0);
     void readDataFromFile(std::string const& filein);
     void exportResults(std::string const& output_type, value_type const& t_out) const;
+    void exportResultsGrid(ExtractFields const& extract_fields,
+            std::vector<std::string> const& strings) const;
     void testInterp(std::string const& output_type,
                     value_type const& t_out,
                     std::vector<std::vector<value_type>> const& vectors,

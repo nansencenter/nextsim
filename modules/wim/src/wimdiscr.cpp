@@ -4389,16 +4389,16 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
     };
 
 
-    std::string str = vm["wim.outparentdir"].template as<std::string>();
-    fs::path path(str);
-    path   /= "binaries/"+output_type;
+    std::string pathstr = vm["wim.outparentdir"].template as<std::string>();
+    pathstr += "/binaries/"+output_type;
 
-    std::string init_time  = ptime(init_time_str);
-    std::string timestpstr = ptime(init_time_str, t_out);
-    std::string fileout,fileoutb;
+    std::string init_time  = Wim::ptime(init_time_str);
+    std::string timestpstr = Wim::ptime(init_time_str, t_out);
+    std::string prefix     = output_type;
+
     if ( output_type == "prog" )
     {
-        fileout = (boost::format( "%1%/wim_prog%2%" ) % path.string() % timestpstr).str();
+        prefix  = "wim_prog";
 
         //fields to extract
         extract_fields.Dmax = true;
@@ -4420,7 +4420,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
     }
     else if ( output_type == "final" )
     {
-        fileout = (boost::format( "%1%/wim_out%2%" ) % path.string() % timestpstr).str();
+        prefix  = "wim_out";
 
         //fields to extract
         extract_fields.Dmax = true;
@@ -4442,7 +4442,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
     }
     else if ( output_type == "init" )
     {
-        fileout = (boost::format( "%1%/wim_init%2%" ) % path.string() % timestpstr).str();
+        prefix  = "wim_init";
 
         //fields to extract
         extract_fields.icec = true;
@@ -4460,7 +4460,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
     }
     else if ( output_type == "incwaves" )
     {
-        fileout = (boost::format( "%1%/wim_inc%2%" ) % path.string() % timestpstr).str();
+        prefix  = "wim_inc";
 
         //fields to extract
         extract_fields.swh_in = true;
@@ -4472,8 +4472,6 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
     }
     else if ( output_type == "nextwim" )
     {
-        fileout = (boost::format( "%1%/nextwim%2%" ) % path.string() % timestpstr).str();
-
         //fields to extract
         extract_fields.Dmax = true;
         extract_fields.Nrecs++;
@@ -4493,10 +4491,35 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
         extract_fields.Nrecs++;
     }
 
-    fileoutb   = fileout+".b";
-    fileout    = fileout+".a";
+    if(!M_wim_on_mesh)
+    {
+        std::vector<std::string> export_strings = {pathstr,prefix,init_time,timestpstr};
+        this->exportResultsGrid(extract_fields,export_strings);
+    }
+}//exportResults
+
+template<typename T>
+void WimDiscr<T>::exportResultsGrid(ExtractFields const& extract_fields,
+        std::vector<std::string> const& strings) const
+{
+
+    // ==========================================================================================
+    //filenames
+    std::string pathstr     = strings[0];
+    std::string prefix      = strings[1];
+    std::string init_time   = strings[2];
+    std::string timestpstr  = strings[3];
+
+    fs::path path(pathstr);
     if ( !fs::exists(path) )
         fs::create_directories(path);
+
+    //fileout  = (boost::format( "%1%/%2%" ) % pathstr % prefix).str();
+    //fileout += timestpstr;
+    std::string fileout  = (boost::format( "%1%/%2%%3%" ) % pathstr % prefix % timestpstr).str();
+    std::string fileoutb = fileout;
+    fileout  += ".a";
+    fileoutb += ".b";
 
     std::fstream out(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
     if (!out.is_open())
@@ -4514,6 +4537,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
         std::cerr << "error: open file " << fileoutb << " for output failed!" <<"\n";
         std::abort();
     }
+    // ==========================================================================================
 
     // ==================================================================================================
     //.b file header
@@ -4681,7 +4705,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
 
     out.close();
     outb.close();
-}//exportResults
+}//exportResultsGrid
 
 template<typename T>
 void WimDiscr<T>::testInterp(std::string const& output_type,
