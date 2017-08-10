@@ -66,13 +66,13 @@ template<typename T=float> class WimDiscr
     {
         // information describing ice fields
         // - ie that needed for interpMeshToGrid, interpMeshToMesh
-        value_type_vec conc;        // total ice conc
-        value_type_vec vol;         // total ice volume (conc*thickness)
-        value_type_vec thick;       // ice thickness
-        value_type_vec nfloes;      // N_floes = conc/Dfloe^2
-        value_type_vec dfloe;       // max floe size
-        value_type_vec mask;        // 1 if ice present, else 0
-        value_type_vec broken;      // 1 if broken during this call to the wim
+        mutable value_type_vec conc;        // total ice conc
+        mutable value_type_vec vol;         // total ice volume (conc*thickness)
+        mutable value_type_vec thick;       // ice thickness
+        mutable value_type_vec nfloes;      // N_floes = conc/Dfloe^2
+        mutable value_type_vec dfloe;       // max floe size
+        mutable value_type_vec mask;        // 1 if ice present, else 0
+        mutable value_type_vec broken;      // 1 if broken during this call to the wim
     } IceInfo;
 
     typedef struct BreakInfo
@@ -87,7 +87,9 @@ template<typename T=float> class WimDiscr
         mutable bool broken;
     } BreakInfo;
 
-#if 1
+#if 0
+    typedef Wim::Extract_Fields ExtractFields;
+#else
     typedef struct ExtractFields
     {
         int  Nrecs;
@@ -116,6 +118,7 @@ public:
     // ====================================================================================
     // public types
     typedef boost::unordered_map<std::string,value_type_vec>  unord_map_vecs_type;
+    typedef boost::unordered_map<std::string,value_type_vec*> unord_map_vec_ptrs_type;
 
     typedef struct MeshInfo
     {
@@ -177,9 +180,10 @@ public:
     void readFromBinary(std::fstream &in, value_type_vec& in_array, int off = 0, std::ios_base::seekdir direction = std::ios::beg,
             int addx = 0, int addy = 0);
     void readDataFromFile(std::string const& filein);
-    void exportResults(std::string const& output_type, value_type const& t_out) const;
-    void exportResultsGrid(ExtractFields const& extract_fields,
-            std::vector<std::string> const& strings) const;
+    void exportResults(std::string const& output_type, value_type const& t_out);
+    void exportResultsGrid(unord_map_vec_ptrs_type& extract_fields,
+            std::vector<std::string> const& strings);
+
     void testInterp(std::string const& output_type,
                     value_type const& t_out,
                     std::vector<std::vector<value_type>> const& vectors,
