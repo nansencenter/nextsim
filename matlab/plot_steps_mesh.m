@@ -94,7 +94,12 @@ outdir   = rootdir;
 eval(['!mkdir -p ',figdir]);
 figdir   = [figdir,'/mesh'];
 eval(['!mkdir -p ',figdir]);
-simul_in = read_simul_in([rootdir,'/nextsim.log'],0);
+
+if isfield(plot_options,'logfile')
+   simul_in = read_simul_in(plot_options.logfile,0);
+else
+   simul_in = read_simul_in([rootdir,'/nextsim.log'],0);
+end
 
 % ========================================================================
 %% default variables to plot
