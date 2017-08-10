@@ -9,6 +9,7 @@
 #include <wimdiscr.hpp>
 #include <date_wim.hpp>
 #include <meshtools.hpp>
+#include <exporter.hpp>
 #ifdef __cplusplus
 extern "C"
 {
@@ -4372,13 +4373,11 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
 
     unord_map_vec_ptrs_type extract_fields;
 
-
     std::string pathstr = vm["wim.outparentdir"].template as<std::string>();
     pathstr += "/binaries/"+output_type;
 
-    std::string init_time  = Wim::ptime(init_time_str);
-    std::string timestpstr = Wim::ptime(init_time_str, t_out);
     std::string prefix     = output_type;
+    int step = 0;
 
     if ( output_type == "prog" )
     {
@@ -4393,6 +4392,9 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
         extract_fields.emplace("tau_y",&(tau_y));
         extract_fields.emplace("tau_x",&(tau_x));
         extract_fields.emplace("Dmax",&(wim_ice.dfloe));
+
+        step = M_nb_export_prog;
+        M_nb_export_prog++;
     }
     else if ( output_type == "final" )
     {
@@ -4407,6 +4409,9 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
         extract_fields.emplace("tau_y",&(tau_y));
         extract_fields.emplace("tau_x",&(tau_x));
         extract_fields.emplace("Dmax",&(wim_ice.dfloe));
+
+        step = M_nb_export_final;
+        M_nb_export_final++;
     }
     else if ( output_type == "init" )
     {
@@ -4419,6 +4424,9 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
         extract_fields.emplace("Dmax",&(wim_ice.dfloe));
         extract_fields.emplace("iceh",&(wim_ice.thick));
         extract_fields.emplace("icec",&(wim_ice.conc));
+
+        step = M_nb_export_init;
+        M_nb_export_init++;
     }
     else if ( output_type == "incwaves" )
     {
@@ -4428,6 +4436,9 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
         extract_fields.emplace("MWD",&(mwd_in_array));
         extract_fields.emplace("Tp",&(mwp_in_array));
         extract_fields.emplace("Hs",&(swh_in_array));
+
+        step = M_nb_export_inc;
+        M_nb_export_inc++;
     }
     else if ( output_type == "nextwim" )
     {
@@ -4440,12 +4451,29 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
         extract_fields.emplace("tau_y",&(tau_y));
         extract_fields.emplace("tau_x",&(tau_x));
         extract_fields.emplace("Dmax",&(wim_ice.dfloe));
+
+        step = M_nb_export_nextwim;
+        M_nb_export_nextwim++;
     }
+
+    fs::path path(pathstr);
+    if ( !fs::exists(path) )
+        fs::create_directories(path);
 
     if((!M_wim_on_mesh)&&(extract_fields.size()>0))
     {
-        std::vector<std::string> export_strings = {pathstr,prefix,init_time,timestpstr};
+        std::string init_time  = Wim::ptime(init_time_str);
+        std::string timestpstr = Wim::ptime(init_time_str, t_out);
+        std::string fileout    = (boost::format( "%1%/%2%%3%" ) % pathstr % prefix % timestpstr).str();
+        std::vector<std::string> export_strings = {fileout,init_time,timestpstr};
         this->exportResultsGrid(extract_fields,export_strings);
+    }
+    else
+    {
+        std::string mfile  = (boost::format( "%1%/mesh%2%_%3%" ) % pathstr % prefix % step).str();
+        std::string ffile  = (boost::format( "%1%/field_%2%_%3%" ) % pathstr % prefix % step).str();
+        std::vector<std::string> filenames = {mfile,ffile};
+        this->exportResultsMesh(extract_fields,filenames,t_out);//fix time to nextsim standard
     }
 }//exportResults
 
@@ -4456,11 +4484,12 @@ void WimDiscr<T>::exportResultsGrid(unord_map_vec_ptrs_type & extract_fields,
 
     // ==========================================================================================
     //filenames
-    std::string pathstr     = strings[0];
-    std::string prefix      = strings[1];
-    std::string init_time   = strings[2];
-    std::string timestpstr  = strings[3];
+    std::string fileout     = strings[0]+".a";
+    std::string fileoutb    = strings[0]+".b";
+    std::string init_time   = strings[1];
+    std::string timestpstr  = strings[2];
 
+#if 0
     fs::path path(pathstr);
     if ( !fs::exists(path) )
         fs::create_directories(path);
@@ -4471,6 +4500,7 @@ void WimDiscr<T>::exportResultsGrid(unord_map_vec_ptrs_type & extract_fields,
     std::string fileoutb = fileout;
     fileout  += ".a";
     fileoutb += ".b";
+#endif
 
     std::fstream out(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
     if (!out.is_open())
@@ -4536,23 +4566,18 @@ void WimDiscr<T>::exportResultsGrid(unord_map_vec_ptrs_type & extract_fields,
     outb.close();
 }//exportResultsGrid
 
-#if 0
+#if 1
 template<typename T>
-void WimDiscr<T>::exportResultsMesh(std::vector<std::string> const &filenames, bool export_mesh, bool export_fields, bool apply_displacement)
+void WimDiscr<T>::exportResultsMesh(unord_map_vec_ptrs_type & extract_fields,
+        std::vector<std::string> const &filenames,value_type const&current_time,
+        bool export_mesh, bool export_fields)
 {
-    Exporter exporter(vm["setup.exporter_precision"].as<std::string>());
+    Nextsim::Exporter exporter(vm["setup.exporter_precision"].as<std::string>());
     std::string fileout;
-
 
     if (export_mesh)
     {
         fileout = filenames[0]+".bin";
-        LOG(INFO) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
-
-        if(apply_displacement)
-            // move the mesh for the export
-            M_mesh.move(M_UM,1.);
-
         std::fstream meshbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
         if ( ! meshbin.good() )
             throw std::runtime_error("Cannot write to file: " + fileout);
@@ -4561,17 +4586,11 @@ void WimDiscr<T>::exportResultsMesh(std::vector<std::string> const &filenames, b
                 nextsim_mesh.id,nextsim_mesh.index);
         meshbin.close();
 
-        if(apply_displacement)
-            // move it back after the export
-		    M_mesh.move(M_UM,-1.);
-
         fileout = filenames[0]+".dat";
-
-        LOG(INFO) <<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
-
         std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
         if ( ! outrecord.good() )
             throw std::runtime_error("Cannot write to file: " + fileout);
+
         exporter.writeRecord(outrecord,"mesh");
         outrecord.close();
     }
@@ -4580,183 +4599,25 @@ void WimDiscr<T>::exportResultsMesh(std::vector<std::string> const &filenames, b
     if (export_fields)
     {
         fileout = filenames[1]+".bin";
-        LOG(INFO) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
-
         std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
         if ( ! outbin.good() )
             throw std::runtime_error("Cannot write to file: " + fileout);
-        std::vector<double> timevec(1);
-        timevec[0] = current_time;
-        std::vector<int> regridvec(1);
-        regridvec[0] = M_nb_regrid;
+
+        std::vector<double> timevec = {current_time};
         exporter.writeField(outbin, timevec, "Time");
-        exporter.writeField(outbin, regridvec, "M_nb_regrid");
-        exporter.writeField(outbin, M_surface, "Element_area");
-        exporter.writeField(outbin, M_VT, "M_VT");
-        exporter.writeField(outbin, M_dirichlet_flags, "M_dirichlet_flags");
-        exporter.writeField(outbin, M_conc, "Concentration");
-        exporter.writeField(outbin, M_thick, "Thickness");
-        exporter.writeField(outbin, M_snow_thick, "Snow");
-        exporter.writeField(outbin, M_damage, "Damage");
-        exporter.writeField(outbin, M_ridge_ratio, "Ridge_ratio");
+        exporter.writeField(outbin, nextsim_mesh.surface, "Element_area");
 
-        std::vector<double> AllMinAngle = this->AllMinAngle(M_mesh, M_UM, 0.);
-        exporter.writeField(outbin, AllMinAngle, "AllMinAngle");
 
-        int i=0;
-        for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
-        {
-            exporter.writeField(outbin, *it, "Tice_"+std::to_string(i));
-            i++;
-        }
-        exporter.writeField(outbin, M_sst, "SST");
-        exporter.writeField(outbin, M_sss, "SSS");
+        for (auto it=extract_fields.begin();it!=extract_fields.end();it++)
+            exporter.writeField(outbin, *(it->second), it->first);//"first" is a string, "second" points to a vector
 
-        std::vector<double> PreviousNumbering(M_mesh.numNodes());
-
-        for ( int i=0; i<M_mesh.numNodes(); ++i )
-            PreviousNumbering[i]=bamgmesh->PreviousNumbering[i];
-
-        exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering");
-
-        if(vm["simul.save_forcing_field"].as<bool>())
-        {
-            // Thermodynamic and dynamic forcing
-            // Atmosphere
-            std::vector<std::string> ext_data_names;
-
-            M_external_data_tmp.push_back(&M_wind);         // Surface wind [m/s]
-            ext_data_names.push_back("M_wind");
-            M_external_data_tmp.push_back(&M_tair);         // 2 m temperature [C]
-            ext_data_names.push_back("M_tair");
-            M_external_data_tmp.push_back(&M_mixrat);       // Mixing ratio
-            ext_data_names.push_back("M_mixrat");
-            M_external_data_tmp.push_back(&M_mslp);         // Atmospheric pressure [Pa]
-            ext_data_names.push_back("M_mslp");
-            M_external_data_tmp.push_back(&M_Qsw_in);       // Incoming short-wave radiation [W/m2]
-            ext_data_names.push_back("M_Qsw_in");
-            M_external_data_tmp.push_back(&M_Qlw_in);       // Incoming long-wave radiation [W/m2]
-            ext_data_names.push_back("M_Qlw_in");
-            M_external_data_tmp.push_back(&M_tcc);          // Total cloud cover [?]
-            ext_data_names.push_back("M_tcc");
-            M_external_data_tmp.push_back(&M_precip);       // Total precipitation [m]
-            ext_data_names.push_back("M_precip");
-            M_external_data_tmp.push_back(&M_snowfr);       // Fraction of precipitation that is snow
-            ext_data_names.push_back("M_snowfr");
-            M_external_data_tmp.push_back(&M_snowfall);       // Fraction of precipitation that is snow
-            ext_data_names.push_back("M_snowfall");
-            M_external_data_tmp.push_back(&M_dair);         // 2 m dew point [C]
-            ext_data_names.push_back("M_dair");
-
-            // Ocean
-            M_external_data_tmp.push_back(&M_ocean);        // "Geostrophic" ocean currents [m/s]
-            ext_data_names.push_back("M_ocean");
-            M_external_data_tmp.push_back(&M_ssh);          // Sea surface elevation [m]
-            ext_data_names.push_back("M_ssh");
-            M_external_data_tmp.push_back(&M_ocean_temp);   // Ocean temperature in top layer [C]
-            ext_data_names.push_back("M_ocean_temp");
-            M_external_data_tmp.push_back(&M_ocean_salt);   // Ocean salinity in top layer [?]
-            ext_data_names.push_back("M_ocean_salt");
-            M_external_data_tmp.push_back(&M_mld);           // Mixed-layer depth [m]
-            ext_data_names.push_back("M_mld");
-
-            // Bathymetry
-            M_external_data_tmp.push_back(&M_element_depth);           // Mixed-layer depth [m]
-            ext_data_names.push_back("M_element_depth");
-
-            //loop over external data pointers and check if they should be saved
-            for (int i=0;i<M_external_data_tmp.size();i++)
-            {
-                if ((M_external_data_tmp[i]->M_initialized)&&
-                    (!M_external_data_tmp[i]->M_is_constant))
-                {
-                    exporter.writeField(outbin,M_external_data_tmp[i]->getVector(), ext_data_names[i]);
-                }
-            }
-
-            //clear
-            M_external_data_tmp.resize(0);
-            ext_data_names.resize(0);
-
-        }//save forcing
-
-#if defined (WAVES)
-        if (M_use_wim)
-        {
-            exporter.writeField(outbin, M_tau, "Stress_waves_ice");
-            exporter.writeField(outbin, M_nfloes, "Nfloes");
-            exporter.writeField(outbin, M_dfloe, "Dfloe");
-            if (M_export_wim_diags_mesh)
-            {
-                this->getWimDiagnostics();
-
-                //export diagnostics on elements (eg Hs,Tp,MWD)
-                for (unord_map_vecs_type::iterator it=M_wim_fields_els.begin();it!=M_wim_fields_els.end();it++)
-                    exporter.writeField(outbin, it->second, it->first);//"first" is a string, "second" a vector
-
-                //export diagnostics on nodes (eg Stokes_drift)
-                for (unord_map_vecs_type::iterator it=M_wim_fields_nodes.begin();it!=M_wim_fields_nodes.end();it++)
-                    exporter.writeField(outbin, it->second, it->first);//"first" is a string, "second" a vector
-
-                //clear the fields
-                M_wim_fields_els.clear();
-                if(!M_wim_on_mesh)
-                    // if M_wim_on_mesh, easier to keep the things on the nodes
-                    // and regrid them
-                    M_wim_fields_nodes.clear();
-            }
-        }
-#endif
-
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        {
-            exporter.writeField(outbin, M_h_thin, "Thin_ice");
-            exporter.writeField(outbin, M_hs_thin, "Snow_thin_ice");
-            exporter.writeField(outbin, M_tsurf_thin, "Tsurf_thin_ice");
-            exporter.writeField(outbin, M_conc_thin, "Concentration_thin_ice");
-        }
-
-#if 1
-        // EXPORT sigma1 sigma2
-        std::vector<double> sigma1(M_mesh.numTriangles());
-        std::vector<double> sigma2(M_mesh.numTriangles());
-        double sigma_s, sigma_n;
-        std::vector<double> sigma_pred(3);
-
-        for ( int i=0; i<M_mesh.numTriangles(); ++i )
-        {
-            sigma_pred[0]=M_sigma[3*i];
-            sigma_pred[1]=M_sigma[3*i+1];
-            sigma_pred[2]=M_sigma[3*i+2];
-
-            sigma_s=std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
-            sigma_n= -         (sigma_pred[0]+sigma_pred[1])/2.;
-
-            sigma1[i] = sigma_n+sigma_s;
-            sigma2[i] = sigma_n-sigma_s;
-        }
-        exporter.writeField(outbin, sigma1, "Sigma1");
-        exporter.writeField(outbin, sigma2, "Sigma2");
-#endif
-
-        if(vm["simul.save_diagnostics"].as<bool>())
-        {
-            exporter.writeField(outbin, D_Qa, "Qatm");
-            exporter.writeField(outbin, D_Qsw, "Qsw");
-            exporter.writeField(outbin, D_Qlw, "Qlw");
-            exporter.writeField(outbin, D_Qsh, "Qsh");
-            exporter.writeField(outbin, D_Qlh, "Qlh");
-            exporter.writeField(outbin, D_Qo,  "Qocean");
-            exporter.writeField(outbin, D_delS, "Saltflux");
-        }
         outbin.close();
 
         fileout = filenames[1]+".dat";
-        LOG(INFO) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
-
         std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
         if ( ! outrecord.good() )
             throw std::runtime_error("Cannot write to file: " + fileout);
+
         exporter.writeRecord(outrecord);
         outrecord.close();
     }

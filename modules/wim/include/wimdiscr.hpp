@@ -180,9 +180,13 @@ public:
     void readFromBinary(std::fstream &in, value_type_vec& in_array, int off = 0, std::ios_base::seekdir direction = std::ios::beg,
             int addx = 0, int addy = 0);
     void readDataFromFile(std::string const& filein);
+
     void exportResults(std::string const& output_type, value_type const& t_out);
     void exportResultsGrid(unord_map_vec_ptrs_type& extract_fields,
             std::vector<std::string> const& strings);
+    void exportResultsMesh(unord_map_vec_ptrs_type & extract_fields,
+            std::vector<std::string> const &filenames,value_type const&current_time,
+            bool export_mesh=true, bool export_fields=true);
 
     void testInterp(std::string const& output_type,
                     value_type const& t_out,
@@ -436,6 +440,12 @@ private:
     bool M_regular = false;
     bool M_initialised_ice = false;
     bool M_initialised_waves = false;
+
+    int M_nb_export_nextwim = 0;
+    int M_nb_export_inc     = 0;
+    int M_nb_export_init    = 0;
+    int M_nb_export_prog    = 0;
+    int M_nb_export_final   = 0;
 
     MeshInfo M_wim_triangulation,nextsim_mesh,nextsim_mesh_old;
     IceInfo wim_ice, nextsim_ice;
