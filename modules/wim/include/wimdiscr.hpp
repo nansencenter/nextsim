@@ -46,13 +46,13 @@ namespace fs = boost::filesystem;
 template<typename T=float> class WimDiscr
 {
     // ==========================================================================================
-	typedef T value_type;
+    typedef T value_type;
     typedef typename std::vector<value_type>        value_type_vec;
     typedef typename std::vector<value_type_vec*>   value_type_vec_ptrs;
     typedef typename std::vector<value_type_vec>    value_type_vec2d;//vector of vectors
     typedef typename std::vector<value_type_vec2d>  value_type_vec3d;//vector of vectors of vectors
     typedef size_t size_type;
-	typedef boost::multi_array<value_type, 2> array2_type;
+    typedef boost::multi_array<value_type, 2> array2_type;
     typedef boost::multi_array<value_type, 3> array3_type;
     typedef boost::multi_array<value_type, 4> array4_type;
     typedef typename array2_type::index index;
@@ -66,13 +66,13 @@ template<typename T=float> class WimDiscr
     {
         // information describing ice fields
         // - ie that needed for interpMeshToGrid, interpMeshToMesh
-        value_type_vec conc;        // total ice conc
-        value_type_vec vol;         // total ice volume (conc*thickness)
-        value_type_vec thick;       // ice thickness
-        value_type_vec nfloes;      // N_floes = conc/Dfloe^2
-        value_type_vec dfloe;       // max floe size
-        value_type_vec mask;        // 1 if ice present, else 0
-        value_type_vec broken;      // 1 if broken during this call to the wim
+        mutable value_type_vec conc;        // total ice conc
+        mutable value_type_vec vol;         // total ice volume (conc*thickness)
+        mutable value_type_vec thick;       // ice thickness
+        mutable value_type_vec nfloes;      // N_floes = conc/Dfloe^2
+        mutable value_type_vec dfloe;       // max floe size
+        mutable value_type_vec mask;        // 1 if ice present, else 0
+        mutable value_type_vec broken;      // 1 if broken during this call to the wim
     } IceInfo;
 
     typedef struct BreakInfo
@@ -87,6 +87,29 @@ template<typename T=float> class WimDiscr
         mutable bool broken;
     } BreakInfo;
 
+#if 0
+    typedef Wim::Extract_Fields ExtractFields;
+#else
+    typedef struct ExtractFields
+    {
+        int  Nrecs;
+        bool icec;
+        bool iceh;
+        bool Dmax;
+        bool taux;
+        bool tauy;
+        bool sdx;
+        bool sdy;
+        bool swh;
+        bool mwp;
+        bool mwd;
+        bool swh_in;
+        bool mwp_in;
+        bool mwd_in;
+    } ExtractFields;
+#endif
+
+
 
     // ==========================================================================================
 
@@ -95,6 +118,7 @@ public:
     // ====================================================================================
     // public types
     typedef boost::unordered_map<std::string,value_type_vec>  unord_map_vecs_type;
+    typedef boost::unordered_map<std::string,value_type_vec*> unord_map_vec_ptrs_type;
 
     typedef struct MeshInfo
     {
@@ -105,12 +129,13 @@ public:
         int num_nodes;                          // number of nodes (not needed for structured grids)
         int num_elements;                       // number of elements 
         std::vector<int> index;                 // indices of nodes corresponding to the elements
-        std::vector<int> element_connectivity;  // indices of nodes corresponding to the elements
+        std::vector<int> element_connectivity;  // indices of neighbouring elements
         value_type_vec nodes_x;                 // x-coords of nodes (not needed for structured grids)
         value_type_vec nodes_y;                 // y-coords of nodes (not needed for structured grids)
         value_type_vec elements_x;              // x-coords of elements
         value_type_vec elements_y;              // y-coords of elements
-        value_type_vec surface;                 // y-coords of elements
+        value_type_vec surface;                 // surface area of elements
+        std::vector<int> id;                    // id's of nodes
     } MeshInfo;
 
     typedef struct WimGrid
@@ -155,7 +180,14 @@ public:
     void readFromBinary(std::fstream &in, value_type_vec& in_array, int off = 0, std::ios_base::seekdir direction = std::ios::beg,
             int addx = 0, int addy = 0);
     void readDataFromFile(std::string const& filein);
-    void exportResults(std::string const& output_type, value_type const& t_out) const;
+
+    void exportResults(std::string const& output_type, value_type const& t_out);
+    void exportResultsGrid(unord_map_vec_ptrs_type& extract_fields,
+            std::vector<std::string> const& strings);
+    void exportResultsMesh(unord_map_vec_ptrs_type & extract_fields,
+            std::vector<std::string> const &filenames,value_type const&current_time,
+            bool export_mesh=true, bool export_fields=true);
+
     void testInterp(std::string const& output_type,
                     value_type const& t_out,
                     std::vector<std::vector<value_type>> const& vectors,
@@ -196,6 +228,8 @@ public:
     void getFsdMesh(value_type_vec &nfloes_out,value_type_vec &dfloe_out,value_type_vec &broken);
     void getFsdMesh(value_type_vec &nfloes_out,value_type_vec &dfloe_out, value_type_vec &broken,
             value_type_vec const & conc_tot, mesh_type const &mesh_in,value_type_vec const &um_in);
+    void getFsdMesh(value_type_vec &nfloes_out,value_type_vec &dfloe_out, value_type_vec &broken,
+            value_type_vec const & conc_tot, mesh_type const &mesh_in);
 
     value_type getModelTime(int lcpt=0) const {return M_update_time+lcpt*M_timestep;}
 
@@ -203,15 +237,22 @@ public:
     // breaking on mesh
     void setMesh( mesh_type const &mesh);
     void setMesh( mesh_type const &mesh,value_type_vec const &um);
-    void setMesh( mesh_type const &mesh,value_type_vec const &um,BamgMesh *bamgmesh);
+    void setMesh( mesh_type const &mesh,value_type_vec const &um,BamgMesh* bamgmesh);
+    void setMesh( mesh_type const &mesh,BamgMesh* bamgmesh);
+
     void resetMesh( mesh_type const &mesh);
     void resetMesh( mesh_type const &mesh,value_type_vec const &um);
-    value_type_vec relativeMeshDisplacement(mesh_type const &mesh_in,value_type_vec const &um_in) const;
+
     void setIceFields( std::vector<value_type> const& m_conc,  // conc
                        std::vector<value_type> const& m_vol, // ice vol or effective thickness (conc*thickness)
                        std::vector<value_type> const& m_nfloes,// Nfloes=conc/Dmax^2
                        bool const pre_regrid);
     void transformIce(IceInfo &ice_info);
+
+    value_type_vec getRelativeMeshDisplacement(mesh_type const &mesh_in) const;
+    value_type_vec getRelativeMeshDisplacement(mesh_type const &mesh_in,value_type_vec const &um_in) const;
+    void updateWaveSpec( mesh_type const &mesh);
+    void updateWaveSpec( mesh_type const &mesh,value_type_vec const &um);
 
     void clearMeshFields();
     void gridToPoints(
@@ -228,16 +269,24 @@ public:
         value_type_vec &Ry);                    //location of output data (y-coord)
 
     unord_map_vecs_type returnFieldsElements(std::vector<std::string> const&fields,
-            value_type_vec &xel, value_type_vec &yel);
+            value_type_vec &xel, value_type_vec &yel, value_type_vec const&surface_fac);
     unord_map_vecs_type returnFieldsElements(std::vector<std::string> const&fields,
             mesh_type const &mesh_in,value_type_vec const &um_in);
+    unord_map_vecs_type returnFieldsElements(std::vector<std::string> const&fields,
+            mesh_type const &mesh_in);
+
     unord_map_vecs_type returnFieldsNodes(std::vector<std::string> const&fields,
             value_type_vec &xnod, value_type_vec &ynod);
     unord_map_vecs_type returnFieldsNodes(std::vector<std::string> const&fields,
             mesh_type const &mesh_in,value_type_vec const &um_in);
+    unord_map_vecs_type returnFieldsNodes(std::vector<std::string> const&fields,
+            mesh_type const &mesh_in);
+
+    value_type_vec getSurfaceFactor(mesh_type const &mesh_in);
 
     void returnWaveStress(value_type_vec &M_tau, value_type_vec &xnod, value_type_vec &ynod);
     void returnWaveStress(value_type_vec &M_tau, mesh_type const &mesh_in,value_type_vec const &um_in);
+    void returnWaveStress(value_type_vec &M_tau, mesh_type const &mesh_in);
 
     // ========================================================================
 
@@ -257,8 +306,6 @@ public:
     //advection/attenuation
     void advectDirections( value_type_vec2d& Sdir, value_type_vec const& ag2d_eff);
     void advectDirectionsMesh( value_type_vec2d& Sdir, value_type_vec& ag2d_eff);
-    void intDirns(value_type_vec2d const& Sdir, value_type_vec& Sfreq,
-            value_type_vec& sdx_omega, value_type_vec& sdy_omega);
     void attenSimple(
             value_type_vec2d& Sdir, value_type_vec& Sfreq,
             value_type_vec& taux_omega,value_type_vec& tauy_omega,
@@ -280,8 +327,11 @@ public:
             std::string const& advopt_,bool const&steady=false);
     //===========================================================================
 
+    void intWaveSpec();//TODO test this
+    void intDirns(value_type_vec2d const& Sdir, value_type_vec& Sfreq,
+            value_type_vec& sdx_omega, value_type_vec& sdy_omega);
+    //void calcMWD();
 
-    void calcMWD();
     void idealWaveFields(value_type const xfac);
     void idealIceFields (value_type const xfac);
     void inputWaveFields(value_type_vec const& swh_in,
@@ -304,6 +354,20 @@ public:
     value_type_vec getSCP2I() const { return SCP2I_array; }
     value_type_vec getLANDMASK() const { return LANDMASK_array; }
 
+    //for use at regridding time (M_wim_on_mesh)
+    value_type_vec getMeshDisplacement() const { return M_UM; }
+    value_type_vec3d getWaveSpec() const { return sdf_dir; }
+    void setRelativeMeshDisplacement(value_type_vec const&um_in) { M_UM = um_in; return; }
+    void setWaveSpec(value_type_vec3d const&sdf_in)
+    {
+        // reset wave spectrum after regrid;
+        // also integrate if now so that initial wave fields are correct
+        // and so they are ready for export;
+        sdf_dir = sdf_in;
+        this->intWaveSpec();
+        return;
+    }
+
     std::string getWimGridFilename() const { return wim_gridfile; }
     //std::vector<int> getWimShape();
 
@@ -315,21 +379,6 @@ public:
 
 
 private:
-
-    std::vector<int> iv_tmp = {};
-    value_type_vec   vtv_tmp = {};
-    MeshInfo mesh_info_tmp = {
-            initialised             : false,
-            num_nodes               : 0,
-            num_elements            : 0,
-            index                   : iv_tmp,
-            element_connectivity    : iv_tmp,
-            nodes_x                 : vtv_tmp,
-            nodes_y                 : vtv_tmp,
-            elements_x              : vtv_tmp,
-            elements_y              : vtv_tmp,
-            surface                 : vtv_tmp
-    };
 
     po::variables_map vm;
     int nx, ny, nxext, nyext, nbdy, nbdx, nghost;
@@ -353,7 +402,8 @@ private:
     bool docoupling;
     std::string scatmod, M_advopt, fsdopt;
     std::string wim_gridfile;
-    value_type_vec wavedir, wt_simp, wt_om, freq_vec, vec_period, wlng, ag, ap;
+    value_type_vec wavedir, wt_theta;//dimension of wavedir
+    value_type_vec wt_simp, wt_om, freq_vec, vec_period, wlng, ag, ap;//dimension of freq
     value_type_vec Hs,Tp,mwd,wave_mask,M_steady_mask;
 
     //value_type_vec ice_mask, icec, iceh;
@@ -391,6 +441,12 @@ private:
     bool M_initialised_ice = false;
     bool M_initialised_waves = false;
 
+    int M_nb_export_nextwim = 0;
+    int M_nb_export_inc     = 0;
+    int M_nb_export_init    = 0;
+    int M_nb_export_prog    = 0;
+    int M_nb_export_final   = 0;
+
     MeshInfo M_wim_triangulation,nextsim_mesh,nextsim_mesh_old;
     IceInfo wim_ice, nextsim_ice;
     std::vector<int> wet_indices;
@@ -401,6 +457,21 @@ private:
     value_type_vec M_UM;//displacement of mesh nodes between calls to wim.run()
                         //- for correction to group velocity at advection time
     // =========================================================================
+
+    MeshInfo mesh_info_tmp = {
+            initialised             : false,
+            num_nodes               : 0,
+            num_elements            : 0,
+            index                   : {},
+            element_connectivity    : {},
+            nodes_x                 : {},
+            nodes_y                 : {},
+            elements_x              : {},
+            elements_y              : {},
+            surface                 : {},
+            id                      : {}
+    };
+
 
 };
 

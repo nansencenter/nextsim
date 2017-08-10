@@ -77,6 +77,10 @@ public:
 
     typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
 
+    typedef typename std::vector<double>    dbl_vec;
+    typedef typename std::vector<dbl_vec>   dbl_vec2d;
+    typedef typename std::vector<dbl_vec2d> dbl_vec3d;
+
 #if defined (WAVES)
     typedef Wim::WimDiscr<double> wim_type;
     typedef Wim::WimDiscr<double>::unord_map_vecs_type unord_map_vecs_type;
@@ -213,8 +217,10 @@ public:
 #if defined (WAVES)
     void initWim(int const pcpt);
     void initWimVariables();
+    void wimCommPreRegrid();
     void wimPreRegrid();
     void wimPostRegrid();
+    void wimCall();
     void getWimDiagnostics();
 #if 0
     std::vector<double> FiniteElements::rotatedWimElementsX(double const& rotangle) const;
@@ -341,16 +347,11 @@ private:
     unord_map_vecs_type M_wim_fields_els;
     //std::vector<double> M_stokes_drift;
 
-    std::vector<double> M_icec_grid;
-    std::vector<double> M_iceh_grid;
-    std::vector<double> M_nfloes_grid;
-
-    std::vector<double> M_taux_grid;
-    std::vector<double> M_tauy_grid;
-    std::vector<double> M_stokes_drift_x_grid;
-    std::vector<double> M_stokes_drift_y_grid;
     bool M_export_wim_diags_mesh;
+    bool M_collect_wavespec = false;
     bool M_wim_on_mesh = false;
+    dbl_vec   M_wim_meshdisp;
+    dbl_vec3d M_wavespec;
 #endif
     std::vector<double> M_tau;//this can just be set to zero if not using WIM
     // =============================================================================
@@ -501,7 +502,7 @@ private:
 
 	// Non-prognostic variables used to speed up the convergence of a non-linear equation in thermodynamics
     // std::vector<double> M_tsurf;        // Ice surface temperature [C]
-    std::vector<std::vector<double>> M_tice;    // Ice temperature - 0 for surface and higher ordinals for layers in the ice
+    dbl_vec2d M_tice;    // Ice temperature - 0 for surface and higher ordinals for layers in the ice
     std::vector<double> M_tsurf_thin;   // Ice surface temperature of thin ice [C]
 
 private:

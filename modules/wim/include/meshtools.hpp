@@ -43,7 +43,7 @@ extern "C"
 
 #include <wimdiscr.hpp>
 
-namespace NextsimTools
+namespace MeshTools
 {
 
     // ==========================================================================================
@@ -105,4 +105,4 @@ namespace NextsimTools
     std::string getEnv(std::string const& envname);
     // ==========================================================================================
 
-} // namespace NextsimTools
+} // namespace MeshTools
