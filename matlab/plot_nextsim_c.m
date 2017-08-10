@@ -476,7 +476,7 @@ function set_axis_colormap_colorbar(mesh_filename,field,region_of_zoom,manual_ax
         colormap(cmap_def);
         name_colorbar='H_{s} (m)';
     elseif strcmp(field,'Tp')
-        default_axis_range = [0,5];
+        default_axis_range = [0,20];
         colormap(cmap_def);
         name_colorbar='T_{p} (s)';
     elseif strcmp(field,'MWD')
