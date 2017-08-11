@@ -1,4 +1,4 @@
-function step=plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,plot_options,simul_in)
+function step = plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,plot_options,simul_in)
 %% CALL: plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,plot_options)
 %% OR:   plot_nextsim_c(field,date_string,region_of_zoom,is_sequential,dirname,plot_options)
 %% example of usage:
