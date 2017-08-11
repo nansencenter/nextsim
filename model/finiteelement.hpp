@@ -266,7 +266,10 @@ private:
     setup::AtmosphereType M_atmosphere_type;
     setup::OceanType M_ocean_type;
     setup::IceType M_ice_type;
+#if defined (WAVES)
     setup::WaveType M_wave_type;
+    setup::WaveMode M_wave_mode;
+#endif
     setup::BathymetryType M_bathymetry_type;
     setup::BasalStressType M_basal_stress_type;
     setup::ThermoType M_thermo_type;
@@ -349,7 +352,6 @@ private:
 
     bool M_export_wim_diags_mesh;
     bool M_collect_wavespec = false;
-    bool M_wim_on_mesh = false;
     dbl_vec   M_wim_meshdisp;
     dbl_vec3d M_wavespec;
 #endif
