@@ -1,6 +1,8 @@
-function out=read_bin_export(file_info,file_data)
+function out=read_bin_export(file_info,file_data,SHOW_INFO)
 %Getting info
 % disp(['Read: ' file_info])
+if ~exist('SHOW_INFO','var'); SHOW_INFO = 0; end
+
 [fileID, mssg] = fopen(file_info,'r');
 if fileID < 0, error([file_info ': ' mssg]), end
 
@@ -53,9 +55,20 @@ for i = 1:numel(data_names)
               Time   = fread(fileID,N_data,'double');
            end
         end
-        out.(field{i}) = Time + datenum(1900,1,1);
+        out.Time = Time + datenum(1900,1,1);
+        if SHOW_INFO
+           disp(' ');
+           disp(['Time = ',num2str(out.Time)]);
+           disp(['Date = ',datestr(out.Time,'yyyy-mm-dd HH:MM:SS')]);
+        end
     else
         out.(field{i}) = fread(fileID,N_data,prec);
+        if SHOW_INFO
+           dat = out.(field{i});
+           disp(' ');
+           disp(['Min ',field{i},' = ',num2str(min(dat(:)))]);
+           disp(['Max ',field{i},' = ',num2str(max(dat(:)))]);
+        end
     end
 end
 fclose(fileID);
