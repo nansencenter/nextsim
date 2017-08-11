@@ -2200,7 +2200,7 @@ void WimDiscr<T>::setMesh(mesh_type const &movedmesh,BamgMesh* bamgmesh)
     // ================================================================================
 
     M_num_elements  = Nels;
-    LOG(DEBUG)<<"on mesh, M_num_elements = "<<M_num_elements<<"\n";
+    std::cout<<"on mesh, M_num_elements = "<<M_num_elements<<"\n";
 
     //set some arrays that are still needed by some functions
     X_array = nextsim_mesh.elements_x;
