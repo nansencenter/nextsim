@@ -66,6 +66,13 @@ namespace setup
         ERAI_WAVES_1DEG     = 4
     };
 
+    enum class WaveMode
+    {
+        SIMPLE              = 0,
+        BREAK_ON_MESH       = 1,
+        RUN_ON_MESH         = 2
+    };
+
     enum class BathymetryType
     {
         CONSTANT = 0,
