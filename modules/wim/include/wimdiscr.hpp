@@ -119,6 +119,7 @@ public:
     // public types
     typedef boost::unordered_map<std::string,value_type_vec>  unord_map_vecs_type;
     typedef boost::unordered_map<std::string,value_type_vec*> unord_map_vec_ptrs_type;
+    typedef boost::unordered_map<std::string,std::string>     unord_map_type;
 
     typedef struct MeshInfo
     {
@@ -196,9 +197,12 @@ public:
     void saveLog(value_type const& t_out) const;
     void saveOptionsLog();
 
+    void init1();
     void init(int const nextsim_cpt=0);
     void init(mesh_type const &mesh,int const nextsim_cpt=0);
+    void init(mesh_type const &mesh,BamgMesh* bamgmesh,int const nextsim_cpt=0);
 
+    void init2(int nextsim_cpt);
     void initConstant(int const nextsim_cpt);
     void assign();
     void assignSpatial();

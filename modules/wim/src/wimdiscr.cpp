@@ -168,6 +168,9 @@ void WimDiscr<T>::gridPostProcessing()
         M_wim_triangulation.num_elements    = Nel;
     }
 
+    //global variable needed by assign(), all loops
+    M_num_elements  = X_array.size();
+    std::cout<<"on grid, M_num_elements = "<<M_num_elements<<"\n";
 }//gridPostProcessing
 
 template<typename T>
@@ -512,34 +515,18 @@ void WimDiscr<T>::readFromBinary(std::fstream &in, value_type_vec& in_array, int
 template<typename T>
 void WimDiscr<T>::init(int nextsim_cpt)
 {
-    max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-
-    //set initialised to false for all MeshInfo objects
-    nextsim_mesh        = mesh_info_tmp;
-    nextsim_mesh_old    = mesh_info_tmp;
-    M_wim_triangulation = mesh_info_tmp;
+    this->init1();
 
     // wim grid generation/reading
     this->gridProcessing();
 
-    //parameters
-    this->initConstant(nextsim_cpt);
-
-    // call assign to set sizes of arrays
-    // and initialise some arrays that are stationary in time
-    this->assign();
-    this->assignSpatial();
-
-    //set global counter to 0
-    M_cpt = 0;
-
-    std::cout<<"wim.init() finished\n";
-
+    this->init2(nextsim_cpt);
 }//end ::init()
 
 template<typename T>
-void WimDiscr<T>::init(mesh_type const &mesh_in,int nextsim_cpt)
+void WimDiscr<T>::init1()
 {
+    //before grid/mesh are set
     max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
     //set initialised to false for all MeshInfo objects
@@ -549,12 +536,12 @@ void WimDiscr<T>::init(mesh_type const &mesh_in,int nextsim_cpt)
 
     //set global counter to 0
     M_cpt = 0;
+}
 
-    // can either init from MESH or ON mesh
-    if (!M_wim_on_mesh)
-        this->gridProcessing(mesh_in);
-    else
-        this->setMesh(mesh_in);
+template<typename T>
+void WimDiscr<T>::init2(int nextsim_cpt)
+{
+    //after grid/mesh are set
 
     //parameters
     this->initConstant(nextsim_cpt);
@@ -565,16 +552,34 @@ void WimDiscr<T>::init(mesh_type const &mesh_in,int nextsim_cpt)
     this->assignSpatial();
 
     std::cout<<"wim.init() finished\n";
+}
+
+template<typename T>
+void WimDiscr<T>::init(mesh_type const &mesh_in,int nextsim_cpt)
+{
+    this->init1();
+
+    // init grid FROM mesh
+    this->gridProcessing(mesh_in);
+
+    this->init2(nextsim_cpt);
+}//end ::init()
+
+template<typename T>
+void WimDiscr<T>::init(mesh_type const &mesh_in,BamgMesh* bamgmesh,int nextsim_cpt)
+{
+    this->init1();
+
+    // init ON mesh
+    this->setMesh(mesh_in,bamgmesh);
+
+    this->init2(nextsim_cpt);
 
 }//end ::init()
 
 template<typename T>
 void WimDiscr<T>::initConstant(int nextsim_cpt)
 {
-
-    // needed to set sizes of variables
-    // - grid should have been set before this function has been called
-    M_num_elements  = X_array.size();
 
     // wave parameters
     nwavedirn   = vm["wim.nwavedirn"].template as<int>();
@@ -594,35 +599,6 @@ void WimDiscr<T>::initConstant(int nextsim_cpt)
     dfloe_pack_thresh   = vm["wim.dfloepackthresh"].template as<double>(); /* 400.0 */
     young               = vm["wim.young"].template as<double>();
     drag_rp             = vm["wim.dragrp"].template as<double>();
-
-    // ==============================================================================
-    //local diagnostics
-    int wim_itest = vm["wim.itest"].template as<int>();
-    int wim_jtest = vm["wim.jtest"].template as<int>();
-
-    M_itest  = -1;
-    if(M_wim_on_mesh)
-        M_itest  = wim_itest;//could still be -1
-    else if((wim_itest>=0)&&(wim_jtest>=0))
-    {
-        //(!M_wim_on_mesh) && positive itest,jtest input
-        std::cout<<"\nitest,jtest: "<<wim_itest<<","<<wim_jtest<<"\n";
-        M_itest  = wim_itest*ny+wim_jtest;
-        if ((wim_itest>=nx)||(wim_jtest>=ny))
-        {
-            std::cout<<"\nitest,jtest: "<<wim_itest<<","<<wim_jtest<<"\n";
-            std::cout<<"\nnx,ny: "<<nx<<","<<ny<<"\n";
-            throw std::runtime_error("wim.itest/jtest out of range");
-        }
-    }
-
-    //global test index
-    std::cout<<"\nWIM diagnostics to be done at global index: "
-        <<M_itest<<"(of "<<M_num_elements<<")\n";
-    if (M_itest>=M_num_elements)
-        throw std::runtime_error("M_itest out of range");
-    // ==============================================================================
-
 
     //numerical parameters
     M_advdim    = vm["wim.advdim"].template as<int>();
@@ -669,6 +645,7 @@ void WimDiscr<T>::initConstant(int nextsim_cpt)
     //some options need to be disabled if being called from nextsim
     docoupling = !( vm.count("simul.use_wim")==0 );
     M_restart_time  = 0.;
+    break_on_mesh   =  false;
     if (!docoupling)
     {
         //set duration of call to wim.run() from wim.duration
@@ -677,7 +654,6 @@ void WimDiscr<T>::initConstant(int nextsim_cpt)
         //get initial time from wim.initialtime
         init_time_str = vm["wim.initialtime"].as<std::string>();
 
-        break_on_mesh   =  false;
 
         //save options from wimoptions.cpp
         this->saveOptionsLog();
@@ -695,7 +671,10 @@ void WimDiscr<T>::initConstant(int nextsim_cpt)
         //time
         M_restart_time = nextsim_cpt*nextsim_time_step;//model time of current call to wim
  
-        break_on_mesh   =  ( vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh");
+        if ( vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh")
+            break_on_mesh   =  true;
+        else if ( vm["nextwim.coupling-option"].template as<std::string>() == "run_on_mesh")
+            M_wim_on_mesh   = true;
     }
 
     M_update_time   = M_restart_time;//reset at last update
@@ -709,6 +688,34 @@ void WimDiscr<T>::initConstant(int nextsim_cpt)
 
     //no of cosines/sines to use - for isotropic scattering code
     ncs = std::round(nwavedirn/2);
+
+    // ==============================================================================
+    //local diagnostics
+    int wim_itest = vm["wim.itest"].template as<int>();
+    int wim_jtest = vm["wim.jtest"].template as<int>();
+
+    M_itest  = -1;
+    if(M_wim_on_mesh)
+        M_itest  = wim_itest;//could still be -1
+    else if((wim_itest>=0)&&(wim_jtest>=0))
+    {
+        //(!M_wim_on_mesh) && positive itest,jtest input
+        std::cout<<"\nitest,jtest: "<<wim_itest<<","<<wim_jtest<<"\n";
+        M_itest  = wim_itest*ny+wim_jtest;
+        if ((wim_itest>=nx)||(wim_jtest>=ny))
+        {
+            std::cout<<"\nitest,jtest: "<<wim_itest<<","<<wim_jtest<<"\n";
+            std::cout<<"\nnx,ny: "<<nx<<","<<ny<<"\n";
+            throw std::runtime_error("wim.itest/jtest out of range");
+        }
+    }
+
+    //global test index
+    std::cout<<"\nWIM diagnostics to be done at global index: "
+        <<M_itest<<"(of "<<M_num_elements<<")\n";
+    if (M_itest>=M_num_elements)
+        throw std::runtime_error("M_itest out of range");
+    // ==============================================================================
 
 }//end ::initConstant()
 
@@ -1362,29 +1369,33 @@ void WimDiscr<T>::setIncWaveSpec()
 template<typename T>
 void WimDiscr<T>::idealIceFields(value_type const xfac)
 {
-   value_type x0   = *std::min_element(X_array.begin(),X_array.end());
-   value_type xmax = *std::max_element(X_array.begin(),X_array.end());
 
-   //ice initialised for x>=x_edge
-   value_type x_edge = 0.5*(x0+xmax)-xfac*(0.5*(xmax-x0));
+    M_initialised_ice    = true;
 
-   (wim_ice.conc  ).assign(M_num_elements,0.);
-   (wim_ice.vol   ).assign(M_num_elements,0.);
-   (wim_ice.nfloes).assign(M_num_elements,0.);
+    value_type x0   = *std::min_element(X_array.begin(),X_array.end());
+    value_type xmax = *std::max_element(X_array.begin(),X_array.end());
+
+    //ice initialised for x>=x_edge
+    value_type x_edge = 0.5*(x0+xmax)-xfac*(0.5*(xmax-x0));
+
+    wim_ice.conc  .assign(M_num_elements,0.);
+    wim_ice.vol   .assign(M_num_elements,0.);
+    wim_ice.nfloes.assign(M_num_elements,0.);
     value_type unifc = vm["wim.unifc"].template as<double>(); /* 0.7 */
     value_type unifh = vm["wim.unifh"].template as<double>(); /* 2.0 */
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-   for (int i = 0; i < M_num_elements; i++)
-   {
-       if ((X_array[i] >= x_edge) && (LANDMASK_array[i]<.5))
-       {
-           wim_ice.conc[i]      = unifc;
-           wim_ice.vol[i]       = unifc*unifh;
-           wim_ice.nfloes[i]    = unifc/std::pow(dfloe_pack_init,2);
-           //std::cout<<Hs[i]<<" "<<Tp[i]<<" "<<mwd[i];
-       }
-   }
-   this->transformIce(wim_ice);
+    for (int i = 0; i < M_num_elements; i++)
+    {
+        if ((X_array[i] >= x_edge) && (LANDMASK_array[i]<.5))
+        {
+            wim_ice.conc[i]      = unifc;
+            wim_ice.vol[i]       = unifc*unifh;
+            wim_ice.nfloes[i]    = unifc/std::pow(dfloe_pack_init,2);
+            //std::cout<<Hs[i]<<" "<<Tp[i]<<" "<<mwd[i];
+        }
+    }
+    this->transformIce(wim_ice);
+
 }//idealIceFields()
 
 
@@ -2121,6 +2132,7 @@ void WimDiscr<T>::setMesh(mesh_type const &mesh_in,value_type_vec const &um_in)
 template<typename T>
 void WimDiscr<T>::setMesh(mesh_type const &mesh_in,value_type_vec const &um_in,BamgMesh* bamgmesh)
 {
+    //interface for M_wim_on_mesh
     auto movedmesh = mesh_in;
     movedmesh.move(um_in,1.);
     this->setMesh(movedmesh,bamgmesh);
@@ -2129,6 +2141,8 @@ void WimDiscr<T>::setMesh(mesh_type const &mesh_in,value_type_vec const &um_in,B
 template<typename T>
 void WimDiscr<T>::setMesh(mesh_type const &movedmesh,BamgMesh* bamgmesh)
 {
+    //interface for M_wim_on_mesh
+
     //update nextsim_mesh with moved mesh
     this->setMesh(movedmesh);
 
@@ -2152,15 +2166,15 @@ void WimDiscr<T>::setMesh(mesh_type const &movedmesh,BamgMesh* bamgmesh)
     // - it is reset to zero at end of wim.run() and at initialisation
     // - used to correct group velocity when waves are advected
     int Nn = nextsim_mesh.num_nodes;
-    if (M_UM.size()==0)
+    if (M_cpt==0)
         M_UM.assign(2*Nn,0.);
-
-    for (int i=0;i<Nn;i++)
-    {
-        //nextsim_mesh_old is either from last WIM call or last regrid
-        M_UM[i]    += nextsim_mesh.nodes_x[i]-nextsim_mesh_old.nodes_x[i];
-        M_UM[i+Nn] += nextsim_mesh.nodes_y[i]-nextsim_mesh_old.nodes_y[i];
-    }
+    else
+        for (int i=0;i<Nn;i++)
+        {
+            //nextsim_mesh_old is either from last WIM call or last regrid
+            M_UM[i]    += nextsim_mesh.nodes_x[i]-nextsim_mesh_old.nodes_x[i];
+            M_UM[i+Nn] += nextsim_mesh.nodes_y[i]-nextsim_mesh_old.nodes_y[i];
+        }
 
     //calculate the surface areas,
     //get the element connectivity from bamgmesh
@@ -2185,6 +2199,13 @@ void WimDiscr<T>::setMesh(mesh_type const &movedmesh,BamgMesh* bamgmesh)
     }
     // ================================================================================
 
+    M_num_elements  = Nels;
+    LOG(DEBUG)<<"on mesh, M_num_elements = "<<M_num_elements<<"\n";
+
+    //set some arrays that are still needed by some functions
+    X_array = nextsim_mesh.elements_x;
+    Y_array = nextsim_mesh.elements_y;
+    LANDMASK_array.assign(Nels,0.);//mesh is only defined on wet cells
 }//setMesh
 
 template<typename T>
@@ -3156,14 +3177,10 @@ void WimDiscr<T>::run()
     //====================================================
     //set ice & wave conditions
     if (!M_initialised_ice)
-    {
-        M_initialised_ice   = true;
         this->idealIceFields(0.7);
-    }
+
     if (!M_initialised_waves)
-    {
         this->idealWaveFields(0.8);
-    }
     // ===================================================
 
 
@@ -4470,10 +4487,10 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
     }
     else
     {
-        std::string mfile  = (boost::format( "%1%/mesh%2%_%3%" ) % pathstr % prefix % step).str();
+        std::string mfile  = (boost::format( "%1%/mesh_%2%_%3%" ) % pathstr % prefix % step).str();
         std::string ffile  = (boost::format( "%1%/field_%2%_%3%" ) % pathstr % prefix % step).str();
         std::vector<std::string> filenames = {mfile,ffile};
-        this->exportResultsMesh(extract_fields,filenames,t_out);//fix time to nextsim standard
+        this->exportResultsMesh(extract_fields,filenames,t_out);//TODO fix time to nextsim standard
     }
 }//exportResults
 
@@ -4595,6 +4612,11 @@ void WimDiscr<T>::exportResultsMesh(unord_map_vec_ptrs_type & extract_fields,
         outrecord.close();
     }
 
+    //need to convert some names from WIM to neXtSIM conventions
+    unord_map_type dict;
+    dict.emplace("icec","Concentration");
+    dict.emplace("iceh","Thickness");
+    dict.emplace("Dmax","Dfloe");
 
     if (export_fields)
     {
@@ -4609,7 +4631,17 @@ void WimDiscr<T>::exportResultsMesh(unord_map_vec_ptrs_type & extract_fields,
 
 
         for (auto it=extract_fields.begin();it!=extract_fields.end();it++)
-            exporter.writeField(outbin, *(it->second), it->first);//"first" is a string, "second" points to a vector
+        {
+            auto vname = it->first;
+            if(dict.count(vname))
+                vname=dict[vname];
+            exporter.writeField(outbin, *(it->second), vname);//"first" is a string, "second" points to a vector
+#if 0
+            std::cout<<"Size "<<vname<<" = "<<(*(it->second)).size()<<"\n";
+            std::cout<<M_num_elements<<","<<nextsim_mesh.elements_x.size()<<"\n";
+            std::cout<<nextsim_mesh.nodes_x.size()<<","<<2*nextsim_mesh.nodes_x.size()<<"\n";
+#endif
+        }
 
         outbin.close();
 
