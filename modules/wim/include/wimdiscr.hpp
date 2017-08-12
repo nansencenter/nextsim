@@ -392,7 +392,8 @@ private:
                 SCP2_array, SCP2I_array, LANDMASK_array;
     std::vector<value_type> x_col,y_row;
 
-    value_type M_cfl, dom, guess, Tmin, Tmax, gravity, om;
+    value_type M_cfl, M_resolution;
+    value_type dom, guess, Tmin, Tmax, gravity, om;
     value_type xmax, ym, x0, y0, dx, dy, x_edge, unifc, unifh,
                dfloe_pack_init, dfloe_pack_thresh, amin, M_max_cg;
     value_type rhowtr, rhoice, poisson, dmin, xi, fragility, cice_min, dfloe_miz_thresh,

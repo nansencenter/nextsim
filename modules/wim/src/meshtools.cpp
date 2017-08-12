@@ -268,7 +268,7 @@ resolution(mesh_type const& mesh)
     }
 
     double resol = std::accumulate(all_min_measure.begin(),all_min_measure.end(),0.)/(all_min_measure.size());
-    resol = std::pow(resol,0.5);
+    resol = std::pow(resol,0.5);//sqrt of the mean area of the triangles
 
     return resol;
 }//resolution

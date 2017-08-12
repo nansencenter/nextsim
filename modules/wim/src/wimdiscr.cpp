@@ -171,6 +171,9 @@ void WimDiscr<T>::gridPostProcessing()
     //global variable needed by assign(), all loops
     M_num_elements  = X_array.size();
     std::cout<<"on grid, M_num_elements = "<<M_num_elements<<"\n";
+
+    //length scale to determine the time step from (CFL criterion)
+    M_resolution    = std::min(dx,dy);
 }//gridPostProcessing
 
 template<typename T>
@@ -914,7 +917,7 @@ void WimDiscr<T>::update()
     // - NB needs to be done after updateWaveMedium
     //M_max_cg = *std::max_element(ag_eff.begin(),ag_eff.end());
     //std::cout<<"dx,M_max_cg,M_cfl= "<< dx<<","<<M_max_cg<<","<<M_cfl <<"\n";
-    M_timestep = M_cfl*dx/M_max_cg;
+    M_timestep = M_cfl*M_resolution/M_max_cg;
 
     //reduce time step slightly (if necessary) to make duration an integer multiple of M_timestep
     nt = std::ceil(duration/M_timestep);
@@ -2202,6 +2205,9 @@ void WimDiscr<T>::setMesh(mesh_type const &movedmesh,BamgMesh* bamgmesh)
     M_num_elements  = Nels;
     std::cout<<"on mesh, M_num_elements = "<<M_num_elements<<"\n";
 
+    //length scale to determine the time step from (CFL criterion)
+    M_resolution    = MeshTools::resolution(movedmesh);
+
     //set some arrays that are still needed by some functions
     X_array = nextsim_mesh.elements_x;
     Y_array = nextsim_mesh.elements_y;
@@ -3213,10 +3219,11 @@ void WimDiscr<T>::run()
     std::cout<<"Running starts\n";
     chrono.restart();
 
-    std::cout<<"duration= "<< duration <<"\n";
-    std::cout<<"M_max_cg= "<< M_max_cg <<"\n";
-    std::cout<<"M_timestep= "<< M_timestep <<"\n";
-    std::cout<<"nt= "<< nt <<"\n";
+    std::cout<<"duration = "<< duration <<"\n";
+    std::cout<<"M_max_cg = "<< M_max_cg <<"\n";
+    std::cout<<"M_resolution = "<< M_resolution <<"\n";
+    std::cout<<"M_timestep = "<< M_timestep <<"\n";
+    std::cout<<"nt = "<< nt <<"\n";
 
     if (vm["wim.checkinit"].template as<bool>())
         this->exportResults("init",t_in);
@@ -4888,7 +4895,8 @@ void WimDiscr<T>::saveLog(value_type const& t_out) const
 
     out << "\n***********************************************\n";
     out << "Other parameters:" << "\n";
-    out << std::left << std::setw(log_width) << "Time step (s)" <<" : "     << M_timestep << "\n";
+    out << std::left << std::setw(log_width) << "Time step (s)"             <<" : " << M_timestep << "\n";
+    out << std::left << std::setw(log_width) << "Grid/mesh resolution (km)" <<" : " << M_resolution/1.e3 << "\n";
     out << std::left << std::setw(log_width) << "CFL number"                <<" : " << M_cfl << "\n";
     out << std::left << std::setw(log_width) << "Max wave group vel (m/s)"  <<" : " << M_max_cg << "\n";
     out << std::left << std::setw(log_width) << "Number of time steps"      <<" : " << nt << "\n";
