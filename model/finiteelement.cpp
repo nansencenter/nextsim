@@ -1367,7 +1367,7 @@ FiniteElement::regrid(bool step)
 
 #if defined (WAVES)
             //bool nfloes_interp = M_use_wim;
-            //if ( !(vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh"))
+            //if ( !(vm["nextwim.coupling-option"].template as<std::string>() == "break_on_mesh"))
             //    bool nfloes_interp = (M_use_wim && (!M_run_wim));
             if (M_use_wim)
             {
@@ -1738,7 +1738,7 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var, bool che
         //if not, regridding wasted, since overwritten later
         //but always need to do it inside update (advect)
         //bool nfloes_interp = M_use_wim;
-        //if ( !(vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh"))
+        //if ( !(vm["nextwim.coupling-option"].template as<std::string>() == "break_on_mesh"))
         //    bool nfloes_interp = (M_use_wim && (!M_run_wim));
 
         // Nfloes from wim model
@@ -5051,17 +5051,16 @@ FiniteElement::step(int &pcpt)
 
 
     // ====================================================================================
-#if defined (WAVES)
-    // coupling with wim
-    // 2. run wim
-    // 3. exchange from wim to nextsim
-    if (M_use_wim)
-        this->wimCall();
-#endif
-
     if(!M_use_wim)
         //other cases taken care of inside wimCall()
         M_tau.assign(2*M_num_nodes,0.);
+#if defined (WAVES)
+    else
+        // coupling with wim
+        // 2. run wim
+        // 3. exchange from wim to nextsim
+        this->wimCall();
+#endif
     // ====================================================================================
 
 
@@ -8516,7 +8515,7 @@ FiniteElement::wimPostRegrid()
     M_collect_wavespec  = false;
 
     //wim.nextsim_mesh
-    wim.setMesh(M_mesh,M_UM,bamgmesh);
+    wim.setMesh(M_mesh,M_UM,bamgmesh,true);//true means wim.assignSpatial() is called here
 
     // pass back interpolated wave spectrum to new elements;
     // interpolation scheme interp2cavities is conservative
@@ -8763,7 +8762,8 @@ FiniteElement::wimCall()
             //give moved mesh to WIM
             if(M_wave_mode==setup::WaveMode::BREAK_ON_MESH)
                 wim.setMesh(movedmesh);
-            else if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
+            else if((M_wave_mode==setup::WaveMode::RUN_ON_MESH)&&(wim_cpt>0))
+                //NB setMesh() already called in init
                 wim.setMesh(movedmesh,bamgmesh);
 
             //set ice fields on mesh
