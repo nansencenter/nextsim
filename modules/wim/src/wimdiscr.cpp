@@ -873,6 +873,7 @@ void WimDiscr<T>::assignSpatial()
     // - space and freq
     value_type_vec ztmp(M_num_elements,0.);
     ag_eff.assign(nwavefreq,ztmp);
+    agnod_eff.assign(nwavefreq,{});//if(M_wim_on_mesh), interp group vel from elements to nodes
     ap_eff.assign(nwavefreq,ztmp);
     wlng_ice.assign(nwavefreq,ztmp);
     disp_ratio.assign(nwavefreq,ztmp);
@@ -889,6 +890,7 @@ void WimDiscr<T>::assignSpatial()
             it->assign(nwavedirn,ztmp);
     // =============================================
 
+
 }//end: assignSpatial()
 
 
@@ -902,11 +904,12 @@ void WimDiscr<T>::update()
     this->setIncWaveSpec();
     //====================================================
 
-
+    std::cout<<"907\n";
     //====================================================
     // update attenuation coefficients, wavelengths and phase/group velocities
     this->updateWaveMedium();
     //====================================================
+    std::cout<<"912\n";
 
 
     // ====================================================================================
@@ -961,9 +964,17 @@ void WimDiscr<T>::updateWaveMedium()
     // =============================================================================================
     //std::cout<<"attenuation loop starts (big loop)\n";
     M_max_cg    = -1;
-    //std::fill( disp_ratio.begin(), disp_ratio.end(), 1. );
+    value_type_vec_ptrs ag_ptrs = {};   //input to interp
+    value_type_vec_ptrs agnod_ptrs = {};//output from interp
+
     for (int fq = 0; fq < nwavefreq; fq++)
     {
+        if(M_wim_on_mesh)
+        {
+            ag_ptrs.push_back(&(ag_eff[fq]));//input to interp;
+            agnod_ptrs.push_back(&(agnod_eff[fq]));//output of interp;
+        }
+
 #pragma omp parallel for num_threads(max_threads) collapse(1)
         for (int i = 0; i < M_num_elements; i++)
         {
@@ -1066,8 +1077,11 @@ void WimDiscr<T>::updateWaveMedium()
             M_max_cg    = std::max(ag_eff[fq][i],M_max_cg);
         }//end i loop
     }//end freq loop
-    //std::cout<<"big loop done\n";
     // =============================================================================================
+
+    if(M_wim_on_mesh)
+        //get group velocity on nodes of mesh
+        this->elementsToNodes(agnod_ptrs,ag_ptrs);
 
 #if 0
     if (!atten)
@@ -1568,7 +1582,7 @@ void WimDiscr<T>::timeStep()
 
 
     //calc mean floe size outside of frequency loop;
-    //std::cout<<"calculating <D>\n";
+    std::cout<<"calculating <D>\n";
     dave.assign(M_num_elements,0.);
 #pragma omp parallel for num_threads(max_threads) collapse(1)
     for (int i = 0; i < M_num_elements; i++)
@@ -1656,10 +1670,13 @@ void WimDiscr<T>::timeStep()
         if (!M_wim_on_mesh)
             this->advectDirections(sdf_dir[fq],ag_eff[fq]);
         else
-            this->advectDirectionsMesh(sdf_dir[fq],ag_eff[fq]);
+        {
+            std::cout<<"advecting on mesh\n";
+            this->advectDirectionsMesh(sdf_dir[fq],agnod_eff[fq]);
+        }
 
         //do attenuation &/or scattering, and integrate over directions 
-        //std::cout<<"attenuating\n";
+        std::cout<<"attenuating\n";
         if(!atten)
             this->intDirns(sdf_dir[fq], S_freq,
                     stokes_drift_x_om, stokes_drift_y_om);
@@ -2151,7 +2168,7 @@ void WimDiscr<T>::setMesh(mesh_type const &movedmesh,BamgMesh* bamgmesh,bool reg
             ynods[k] = nextsim_mesh.nodes_y[ind];
 
             nextsim_mesh.element_connectivity[3*i+k]
-                = bamgmesh->ElementConnectivity[3*i+k]-1;//NB bamg indices go from 1 to Nels
+                = bamgmesh->ElementConnectivity[3*i+k];//NB stick to bamg convention (indices go from 1 to Nels)
         }
         value_type area = .5*MeshTools::jacobian(
                 xnods[0],ynods[0],xnods[1],ynods[1],xnods[2],ynods[2]);
@@ -2161,6 +2178,22 @@ void WimDiscr<T>::setMesh(mesh_type const &movedmesh,BamgMesh* bamgmesh,bool reg
         {
             std::cout<<"Area of triangle "<<i<<" <0 : "<<area<<"\n";
             throw std::runtime_error("setMesh (wim on mesh): negative area found\n");
+        }
+    }
+
+    int max_nec = bamgmesh->NodalElementConnectivitySize[1];
+    nextsim_mesh.max_node_el_conn = max_nec;
+    nextsim_mesh.node_element_connectivity.resize(Nn*max_nec);
+    for (int i=0;i<Nn;i++)
+    {
+        for (int j=0; j<max_nec; ++j)
+        {
+            nextsim_mesh.node_element_connectivity[max_nec*i+j]
+                = bamgmesh->NodalElementConnectivity[max_nec*i+j];
+            // NB stick to bamg convention (element indices go from 1 to Nels)
+            // To test if element is OK:
+            // elt_num  = nextsim_mesh.node_element_connectivity[max_nec*i+j]-1;
+            // OK if ((0 <= elt_num) && (elt_num < mesh.numTriangles()) && (elt_num != NAN))
         }
     }
     // ================================================================================
@@ -2661,6 +2694,56 @@ void WimDiscr<T>::meshToPoints(
 
 }//meshToPoints
 
+
+template<typename T>
+void WimDiscr<T>::elementsToNodes(
+        value_type_vec_ptrs &output_data,       //output data
+        value_type_vec_ptrs const &input_data)  //input data
+{
+
+    if(0)
+    {
+        //just use meshToPoints()
+        this->meshToPoints(output_data,input_data,nextsim_mesh.nodes_x,nextsim_mesh.nodes_y);
+        return;
+    }
+
+    // meshToPoints method currently crashes
+    // - here we take nodal value to be the average of connected elements
+    // TODO just do this for the boundary nodes, and interp to interior?
+    // TODO better way?
+    int Nn      = nextsim_mesh.num_nodes;
+    for (auto it=output_data.begin();it!=output_data.end();it++)
+        (*it)->assign(Nn,0.);
+
+    int max_nec = nextsim_mesh.max_node_el_conn;
+    int nb_var  = input_data.size();
+    for (int i=0;i<Nn;i++)
+    {
+        int nec = 0;
+
+        // check which elements are connected to the nodes
+        // and accumulate the values
+        // (take average once we know the number of good values)
+        for (int j=0; j<max_nec; ++j)
+        {
+            int elt_num  = nextsim_mesh.node_element_connectivity[max_nec*i+j]-1;//NB bamg indices start at 1
+            if ((0 <= elt_num) && (elt_num < M_num_elements) && (elt_num != NAN))
+            {
+                nec++;//it's a good element
+                for(int tmp_nb_var=0;tmp_nb_var<nb_var;tmp_nb_var++)
+                    (*(output_data[tmp_nb_var]))[i] += (*(input_data[tmp_nb_var]))[elt_num];
+            }
+        }
+
+        //divide by number of connected elements (nec) to get the average
+        if(nec>0)
+            for(int tmp_nb_var=0;tmp_nb_var<nb_var;tmp_nb_var++)
+                (*(output_data[tmp_nb_var]))[i] /= nec;
+    }
+
+}//elementsToNodes()
+
 template<typename T>
 typename WimDiscr<T>::unord_map_vecs_type
 WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const & fields,
@@ -2767,7 +2850,7 @@ WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const &fields,
     // Do the interpolation
     if(M_wim_on_mesh)
         //from elements of last mesh to nodes of the input mesh
-        this->meshToPoints(out_nodes,input_nodes,xnod,ynod);
+        this->elementsToNodes(out_nodes,input_nodes);
     else
         //from grid elements to mesh nodes
         this->gridToPoints(out_nodes,input_nodes,xnod,ynod);
@@ -3118,7 +3201,9 @@ void WimDiscr<T>::run()
 
     // set incident wave spectrum,
     // attenuation coefficients and wave speeds/lengths
+    std::cout<<"3200\n";
     this->update();
+    std::cout<<"3202\n";
     if(M_steady&&(M_cpt==0))
     {
         //at first time step, set these, and top up initial area
@@ -3341,19 +3426,15 @@ void WimDiscr<T>::advectDirections(value_type_vec2d& Sdir,value_type_vec const& 
 }//advectDirections()
 
 template<typename T>
-void WimDiscr<T>::advectDirectionsMesh(value_type_vec2d& Sdir,value_type_vec & ag2d_eff)
+void WimDiscr<T>::advectDirectionsMesh(value_type_vec2d& Sdir,value_type_vec & agnod)
 //void WimDiscr<T>::advectDirectionsMesh(array2_type& Sdir,value_type_vec& ag2d_eff)
 {
 
-    //interpolate ag2d_eff from elements to nodes
     int Nnod = nextsim_mesh.num_nodes;
-    value_type_vec agnod(Nnod,0.);
-    value_type_vec_ptrs input  = {&ag2d_eff};
-    value_type_vec_ptrs output = {&agnod};
-    std::cout<<"3410: "<<ag2d_eff.size()<<","<<nextsim_mesh.num_elements<<","<<nextsim_mesh.num_nodes<<"\n";
+#if 0
     std::cout<<"advectDirectionsMesh: calling testMesh\n";
     this->testMesh();
-    this->meshToPoints(output,input,nextsim_mesh.nodes_x,nextsim_mesh.nodes_y);
+#endif
     value_type* advect_out;
     int nb_var  = 1;                    //have to advect 1 vbl at a time
     std::vector<int> adv_method = {1};  //alternative (0) is do nothing
@@ -3374,17 +3455,8 @@ void WimDiscr<T>::advectDirectionsMesh(value_type_vec2d& Sdir,value_type_vec & a
             VC[i+Nnod] = agnod[i]*std::sin(adv_dir)-M_UM[i+Nnod]/duration;
         }
 
-#if 0
-        // copy from 3D input array to 2D temporary array
-        value_type_vec advect_in(M_num_elements,0.);
-#pragma omp parallel for num_threads(max_threads) collapse(1)
-        for (int i = 0; i < M_num_elements; i++)
-            advect_in[i] = Sdir[i][nth];
-#endif
-
         //do advection
-        //auto advect_in  = Sdir[nth];
-        //MeshTools::advect(&advect_out,&advect_in[0],&nextsim_mesh,
+        std::cout<<"advectDirectionsMesh: calling MeshTools::advect()\n";
         MeshTools::advect(&advect_out,&(Sdir[nth])[0],&nextsim_mesh,
             &VC[0],&adv_method[0],nb_var,M_timestep);
 

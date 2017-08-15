@@ -126,17 +126,19 @@ public:
         // information describing nextsim mesh
         // - only basic info
         // - ie that needed for interpMeshToGrid, interpMeshToMesh
-        bool initialised;                       // initialised yet?
-        int num_nodes;                          // number of nodes (not needed for structured grids)
-        int num_elements;                       // number of elements 
-        std::vector<int> index;                 // indices of nodes corresponding to the elements
-        std::vector<int> element_connectivity;  // indices of neighbouring elements
-        value_type_vec nodes_x;                 // x-coords of nodes (not needed for structured grids)
-        value_type_vec nodes_y;                 // y-coords of nodes (not needed for structured grids)
-        value_type_vec elements_x;              // x-coords of elements
-        value_type_vec elements_y;              // y-coords of elements
-        value_type_vec surface;                 // surface area of elements
-        std::vector<int> id;                    // id's of nodes
+        bool initialised;                           // initialised yet?
+        int num_nodes;                              // number of nodes (not needed for structured grids)
+        int num_elements;                           // number of elements 
+        int max_node_el_conn;                       // max number of elements connected to a node
+        std::vector<int> index;                     // indices of nodes corresponding to the elements
+        std::vector<int> element_connectivity;      // indices of neighbouring elements
+        std::vector<int> node_element_connectivity; // indices of elements connected to each node
+        value_type_vec nodes_x;                     // x-coords of nodes (not needed for structured grids)
+        value_type_vec nodes_y;                     // y-coords of nodes (not needed for structured grids)
+        value_type_vec elements_x;                  // x-coords of elements
+        value_type_vec elements_y;                  // y-coords of elements
+        value_type_vec surface;                     // surface area of elements
+        std::vector<int> id;                        // id's of nodes
     } MeshInfo;
 
     typedef struct WimGrid
@@ -273,6 +275,9 @@ public:
         value_type_vec_ptrs const &input_data,  //input data
         value_type_vec &Rx,                     //location of output data (x-coord)
         value_type_vec &Ry);                    //location of output data (y-coord)
+    void elementsToNodes(
+        value_type_vec_ptrs &output_data,       //output data
+        value_type_vec_ptrs const &input_data); //input data
 
     unord_map_vecs_type returnFieldsElements(std::vector<std::string> const&fields,
             value_type_vec &xel, value_type_vec &yel, value_type_vec const&surface_fac);
@@ -418,12 +423,10 @@ private:
                 dave, atten_dim, damp_dim;// ag2d_eff_temp;
 
     //depend on freq and position
-    //array2_type ag_eff, ap_eff, wlng_ice, atten_nond, damping, disp_ratio;//, sdf3d_dir_temp;
-    value_type_vec2d ag_eff, ap_eff, wlng_ice, atten_nond, damping, disp_ratio;
+    value_type_vec2d ag_eff, agnod_eff, ap_eff, wlng_ice, atten_nond, damping, disp_ratio;
 
     //depend on freq, dirn and position
     value_type_vec3d sdf_dir, sdf_inc;
-    //array3_type sdf_dir, sdf_inc;
 
     value_type_vec S_freq, taux_om, tauy_om,
                 stokes_drift_x_om, stokes_drift_y_om;
@@ -432,8 +435,6 @@ private:
 
     //std::vector<value_type> dfloe, nfloes;
     value_type_vec mwd_x, mwd_y, tau_x, tau_y,stokes_drift_x,stokes_drift_y;//row-major order (C)
-    //std::vector<value_type> mesh_x, mesh_y, mesh_conc, mesh_thick, mesh_dfloe;
-    //std::vector<bool> mesh_broken;
     bool break_on_mesh;
 
     boost::mpi::timer chrono;
@@ -467,19 +468,20 @@ private:
     // =========================================================================
 
     MeshInfo mesh_info_tmp = {
-            initialised             : false,
-            num_nodes               : 0,
-            num_elements            : 0,
-            index                   : {},
-            element_connectivity    : {},
-            nodes_x                 : {},
-            nodes_y                 : {},
-            elements_x              : {},
-            elements_y              : {},
-            surface                 : {},
-            id                      : {}
+            initialised               : false,
+            num_nodes                 : 0,
+            num_elements              : 0,
+            max_node_el_conn          : 0,
+            index                     : {},
+            element_connectivity      : {},
+            node_element_connectivity : {},
+            nodes_x                   : {},
+            nodes_y                   : {},
+            elements_x                : {},
+            elements_y                : {},
+            surface                   : {},
+            id                        : {}
     };
-
 
 };
 

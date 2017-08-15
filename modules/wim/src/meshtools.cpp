@@ -496,7 +496,7 @@ advect(double** interp_elt_out_ptr,     // pointer to pointer to output data
             }
             else
             {
-			    neighbour_double=mesh_info->element_connectivity[cpt*3+i];
+			    neighbour_double = mesh_info->element_connectivity[cpt*3+i] -1;//NB bamg indices start at 1
                 neighbour_int=(int) neighbour_double;
 			    if (!std::isnan(neighbour_double) && neighbour_int>0)
                 {
