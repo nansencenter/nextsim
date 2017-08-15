@@ -188,6 +188,8 @@ public:
     void exportResultsMesh(unord_map_vec_ptrs_type & extract_fields,
             std::vector<std::string> const &filenames,value_type const&current_time,
             bool export_mesh=true, bool export_fields=true);
+    void exportMesh(std::string const &filename);
+    void testMesh();
 
     void testInterp(std::string const& output_type,
                     value_type const& t_out,
@@ -241,8 +243,8 @@ public:
     // breaking on mesh
     void setMesh( mesh_type const &mesh);
     void setMesh( mesh_type const &mesh,value_type_vec const &um);
-    void setMesh( mesh_type const &mesh,value_type_vec const &um,BamgMesh* bamgmesh);
-    void setMesh( mesh_type const &mesh,BamgMesh* bamgmesh);
+    void setMesh( mesh_type const &mesh,value_type_vec const &um,BamgMesh* bamgmesh,bool regridding=false);
+    void setMesh( mesh_type const &mesh,BamgMesh* bamgmesh,bool regridding=false);
 
     void resetMesh( mesh_type const &mesh);
     void resetMesh( mesh_type const &mesh,value_type_vec const &um);
@@ -451,6 +453,7 @@ private:
     int M_nb_export_init    = 0;
     int M_nb_export_prog    = 0;
     int M_nb_export_final   = 0;
+    int M_nb_mesh_test      = 0;
 
     MeshInfo M_wim_triangulation,nextsim_mesh,nextsim_mesh_old;
     IceInfo wim_ice, nextsim_ice;

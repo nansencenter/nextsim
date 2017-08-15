@@ -552,6 +552,7 @@ void WimDiscr<T>::init2(int nextsim_cpt)
     // call assign to set sizes of arrays
     // and initialise some arrays that are stationary in time
     this->assign();
+
     this->assignSpatial();
 
     std::cout<<"wim.init() finished\n";
@@ -574,6 +575,7 @@ void WimDiscr<T>::init(mesh_type const &mesh_in,BamgMesh* bamgmesh,int nextsim_c
     this->init1();
 
     // init ON mesh
+    std::cout<<"Init on mesh\n";
     this->setMesh(mesh_in,bamgmesh);
 
     this->init2(nextsim_cpt);
@@ -674,7 +676,7 @@ void WimDiscr<T>::initConstant(int nextsim_cpt)
         //time
         M_restart_time = nextsim_cpt*nextsim_time_step;//model time of current call to wim
  
-        if ( vm["nextwim.coupling-option"].template as<std::string>() == "breaking_on_mesh")
+        if ( vm["nextwim.coupling-option"].template as<std::string>() == "break_on_mesh")
             break_on_mesh   =  true;
         else if ( vm["nextwim.coupling-option"].template as<std::string>() == "run_on_mesh")
             M_wim_on_mesh   = true;
@@ -838,7 +840,6 @@ void WimDiscr<T>::assignSpatial()
     wim_ice.dfloe.assign(M_num_elements,0.);
     wim_ice.nfloes.assign(M_num_elements,0.);
 
-    wave_mask.assign(M_num_elements,0.);
     dave.assign(M_num_elements,0.);
 
     if (atten)
@@ -849,15 +850,20 @@ void WimDiscr<T>::assignSpatial()
         tauy_om.assign(M_num_elements,0.);
     }
 
+
+    // NB this clears wave diagnostics
+    // so take care to reset them after regrid
+    // if running WIM on mesh
+    Hs.assign(M_num_elements,0.);
+    Tp.assign(M_num_elements,0.);
+    mwd.assign(M_num_elements,0.);
+    wave_mask.assign(M_num_elements,0.);
+    stokes_drift_x.assign(M_num_elements,0.);
+    stokes_drift_y.assign(M_num_elements,0.);
     tau_x.assign(M_num_elements,0.);
     tau_y.assign(M_num_elements,0.);
     mwd_x.assign(M_num_elements,0.);
     mwd_y.assign(M_num_elements,0.);
-    stokes_drift_x.assign(M_num_elements,0.);
-    stokes_drift_y.assign(M_num_elements,0.);
-    Hs.assign(M_num_elements,0.);
-    Tp.assign(M_num_elements,0.);
-    mwd.assign(M_num_elements,0.);
 
     S_freq.assign(M_num_elements,0.);
     stokes_drift_x_om.assign(M_num_elements,0.);
@@ -865,30 +871,22 @@ void WimDiscr<T>::assignSpatial()
     
     //3D var's
     // - space and freq
-#if 1
-    ag_eff.assign(nwavefreq,Hs);//NB Hs is just full of zeros at this point
-    ap_eff.assign(nwavefreq,Hs);
-    wlng_ice.assign(nwavefreq,Hs);
-    disp_ratio.assign(nwavefreq,Hs);
+    value_type_vec ztmp(M_num_elements,0.);
+    ag_eff.assign(nwavefreq,ztmp);
+    ap_eff.assign(nwavefreq,ztmp);
+    wlng_ice.assign(nwavefreq,ztmp);
+    disp_ratio.assign(nwavefreq,ztmp);
     if(atten)
     {
-        atten_nond.assign(nwavefreq,Hs);
-        damping.assign(nwavefreq,Hs);
+        atten_nond.assign(nwavefreq,ztmp);
+        damping.assign(nwavefreq,ztmp);
     }
-#else
-    ag_eff.resize(boost::extents[M_num_elements][nwavefreq]);
-    ap_eff.resize(boost::extents[M_num_elements][nwavefreq]);
-    wlng_ice.resize(boost::extents[M_num_elements][nwavefreq]);
-    atten_nond.resize(boost::extents[M_num_elements][nwavefreq]);
-    damping.resize(boost::extents[M_num_elements][nwavefreq]);
-    disp_ratio.resize(boost::extents[M_num_elements][nwavefreq]);
-#endif
 
     if (sdf_dir[0].size()==0)
         //set dir spec to 0. on 1st call to init/assign
         //std::cout<<"Init sdf_dir in wim.assign()\n";
         for (auto it=sdf_dir.begin();it!=sdf_dir.end();it++)
-            it->assign(nwavedirn,Hs);
+            it->assign(nwavedirn,ztmp);
     // =============================================
 
 }//end: assignSpatial()
@@ -1568,9 +1566,10 @@ void WimDiscr<T>::timeStep()
             }
     }//M_steady
 
-    //calc mean floe size outside of frequency loop;
-    dave.assign(M_num_elements,0.);
 
+    //calc mean floe size outside of frequency loop;
+    //std::cout<<"calculating <D>\n";
+    dave.assign(M_num_elements,0.);
 #pragma omp parallel for num_threads(max_threads) collapse(1)
     for (int i = 0; i < M_num_elements; i++)
     {
@@ -1619,6 +1618,7 @@ void WimDiscr<T>::timeStep()
 
     for (int fq = 0; fq < nwavefreq; fq++)
     {
+        //std::cout<<"calculating dimensional atten\n";
         if(atten)
         {
             std::fill( atten_dim.begin(), atten_dim.end(), 0. );
@@ -1652,34 +1652,14 @@ void WimDiscr<T>::timeStep()
         }//end of spatial loop i
 
 
-#if 0
-        // set group velocity and directional spectrum to pass into advAtten*()
-#pragma omp parallel for num_threads(max_threads) collapse(2)
-        for (int i = 0; i < M_num_elements; i++)
-        {
-            for (int nth = 0; nth < nwavedirn; nth++)
-            {
-                ag2d_eff_temp[i] = ag_eff[fq][i];//move inside loop to use OMP
-
-                sdf3d_dir_temp[i][nth] = sdf_dir[i][nth][fq];
-                if (std::isnan(sdf_dir[i][nth][fq]))
-                {
-                    std::cout<<"found NaN in sdf_dir at i,nth,fq="<<i<<","<<nth<<","<<fq<<"\n";
-                    std::cout<<"ag_eff="<<ag_eff[i][fq]<<"\n";
-                    throw std::runtime_error("sdf_dir has NaN (before advection & attenuation)");
-                }
-            }
-        }
-#endif
-
         //advect all directions
         if (!M_wim_on_mesh)
-            //this->advectDirections(sdf_dir[fq],ag2d_eff_temp);
             this->advectDirections(sdf_dir[fq],ag_eff[fq]);
         else
             this->advectDirectionsMesh(sdf_dir[fq],ag_eff[fq]);
 
         //do attenuation &/or scattering, and integrate over directions 
+        //std::cout<<"attenuating\n";
         if(!atten)
             this->intDirns(sdf_dir[fq], S_freq,
                     stokes_drift_x_om, stokes_drift_y_om);
@@ -1690,29 +1670,6 @@ void WimDiscr<T>::timeStep()
             this->attenIsotropic(sdf_dir[fq], S_freq, taux_om, tauy_om,
                     stokes_drift_x_om, stokes_drift_y_om,ag_eff[fq]);
 
-
-#if 0
-        // update after application of advAtten*()
-#pragma omp parallel for num_threads(max_threads) collapse(1)
-        for (int i = 0; i < M_num_elements; i++)
-        {
-            ag_eff[i][fq] = ag2d_eff_temp[i];//is this necessary?
-
-            for (int nth = 0; nth < nwavedirn; nth++)
-            {
-                sdf_dir[i][nth][fq] = sdf3d_dir_temp[i][nth];
-                if (std::isnan(sdf_dir[i][nth][fq]))
-                {
-                    std::cout<<"found NaN in sdf_dir at i,nth,fq="<<i<<","<<nth<<","<<fq<<"\n";
-                    std::cout<<"ag_eff="<<ag_eff[i][fq]<<"\n";
-                    throw std::runtime_error("sdf_dir has NaN (after advection & attenuation)");
-                }
-                // std::cout<<"AFTER: SDIR["<< i << "]= "<< sdf_dir[i][nth][fq] <<"\n";
-            }
-
-            //std::cout<<"AFTER: taux_om["<< i << "]= "<< taux_om[i] <<"\n";
-        }//update sdf_dir after advAtten*()
-#endif
 
         // integrate stress and stokes drift densities over frequency
         // integrals for breaking
@@ -1870,8 +1827,6 @@ void WimDiscr<T>::timeStep()
         }
     }
 
-    //update mwd
-    //this->calcMWD();//TODO move this inside freq loop
 
     if ( M_dump_diag )
     {
@@ -2133,16 +2088,17 @@ void WimDiscr<T>::setMesh(mesh_type const &mesh_in,value_type_vec const &um_in)
 }//setMesh
 
 template<typename T>
-void WimDiscr<T>::setMesh(mesh_type const &mesh_in,value_type_vec const &um_in,BamgMesh* bamgmesh)
+void WimDiscr<T>::setMesh(mesh_type const &mesh_in,
+        value_type_vec const &um_in,BamgMesh* bamgmesh,bool regridding)
 {
     //interface for M_wim_on_mesh
     auto movedmesh = mesh_in;
     movedmesh.move(um_in,1.);
-    this->setMesh(movedmesh,bamgmesh);
+    this->setMesh(movedmesh,bamgmesh,regridding);
 }
 
 template<typename T>
-void WimDiscr<T>::setMesh(mesh_type const &movedmesh,BamgMesh* bamgmesh)
+void WimDiscr<T>::setMesh(mesh_type const &movedmesh,BamgMesh* bamgmesh,bool regridding)
 {
     //interface for M_wim_on_mesh
 
@@ -2190,15 +2146,22 @@ void WimDiscr<T>::setMesh(mesh_type const &movedmesh,BamgMesh* bamgmesh)
         value_type_vec ynods(3);
         for (int k=0;k<3;k++)
         {
-            int ind  = nextsim_mesh.index[3*i+k];
+            int ind  = nextsim_mesh.index[3*i+k]-1;//NB bamg indices go from 1 to Nels
             xnods[k] = nextsim_mesh.nodes_x[ind];
             ynods[k] = nextsim_mesh.nodes_y[ind];
 
             nextsim_mesh.element_connectivity[3*i+k]
                 = bamgmesh->ElementConnectivity[3*i+k]-1;//NB bamg indices go from 1 to Nels
         }
-        nextsim_mesh.surface[i] = MeshTools::measure(
+        value_type area = .5*MeshTools::jacobian(
                 xnods[0],ynods[0],xnods[1],ynods[1],xnods[2],ynods[2]);
+        if(area>=0.)
+            nextsim_mesh.surface[i] = area;
+        else
+        {
+            std::cout<<"Area of triangle "<<i<<" <0 : "<<area<<"\n";
+            throw std::runtime_error("setMesh (wim on mesh): negative area found\n");
+        }
     }
     // ================================================================================
 
@@ -2211,7 +2174,17 @@ void WimDiscr<T>::setMesh(mesh_type const &movedmesh,BamgMesh* bamgmesh)
     //set some arrays that are still needed by some functions
     X_array = nextsim_mesh.elements_x;
     Y_array = nextsim_mesh.elements_y;
-    LANDMASK_array.assign(Nels,0.);//mesh is only defined on wet cells
+
+    LANDMASK_array.assign(Nels,0.);//mesh is only defined on wet cells (ie no land)
+
+    if(regridding)
+        //need to set sizes each time mesh changes: regrid
+        this->assignSpatial();
+
+#if 0
+    std::cout<<"setMesh: calling testMesh\n";
+    this->testMesh();
+#endif
 }//setMesh
 
 template<typename T>
@@ -2412,24 +2385,12 @@ void WimDiscr<T>::setIceFields(
         nextsim_ice.vol     = m_vol;
         nextsim_ice.nfloes  = m_nfloes;
         this->transformIce(nextsim_ice);
-#if 0
-        value_type_vec v1 = m_conc;
-        value_type_vec v2 = m_vol;
-        value_type_vec v3 = m_nfloes;
-        value_type_vec_ptrs input_data = {&v1,&v2,&v3};
-        icec  .assign(M_num_elements,0);
-        nfloes.assign(M_num_elements,0);
-        value_type_vec icevol(M_num_elements,0);
-        value_type_vec_ptrs output_data = {&icec,&icevol,&nfloes};
-#endif
+
         value_type_vec_ptrs input_data = {&(nextsim_ice.conc),&(nextsim_ice.vol),&(nextsim_ice.nfloes)};
         value_type_vec_ptrs output_data = {&(wim_ice.conc),&(wim_ice.vol),&(wim_ice.nfloes)};
         this->meshToGrid(output_data,input_data);
         this->transformIce(wim_ice);
-#if 0
-        ice_mask    = this->transformIce(iceh,icec,icevol,nfloes);
-        dfloe   = this->nfloesToDfloe(nfloes,icec);
-#endif
+
 #if 1
         //test interp
         std::cout<<"setIceFields (pre_regrid): check ice inputs to WIM\n";
@@ -2455,13 +2416,6 @@ void WimDiscr<T>::setIceFields(
         wim_ice.vol     = m_vol;
         wim_ice.nfloes  = m_nfloes;
         this->transformIce(wim_ice);
-#if 0
-        icec        = m_conc;
-        nfloes      = m_nfloes;
-        auto icevol = m_vol;
-        ice_mask    = this->transformIce(iceh,icec,icevol,nfloes);
-        dfloe       = this->nfloesToDfloe(nfloes,icec);
-#endif
     }
     else if (break_on_mesh)
     {
@@ -2469,17 +2423,6 @@ void WimDiscr<T>::setIceFields(
         nextsim_ice.vol     = m_vol;
         nextsim_ice.nfloes  = m_nfloes;
         this->transformIce(nextsim_ice);
-#if 0
-        auto tmp_nfloes = m_nfloes;
-        auto tmp_vol    = m_vol;
-        mesh_conc       = m_conc;
-        auto tmp_mask   = this->transformIce(mesh_thick,mesh_conc,tmp_vol,tmp_nfloes);
-        mesh_dfloe      = this->nfloesToDfloe(tmp_nfloes,mesh_conc);
-
-        //need extra field to return to nextsim
-        mesh_broken.assign(nextsim_mesh.num_elements,0);
-        std::fill(mesh_broken.begin(),mesh_broken.end(),false);
-#endif
     }
     // end of post-regrid options
     // ================================================================
@@ -2643,28 +2586,24 @@ void WimDiscr<T>::meshToGrid(
     }
     else
     {
-        value_type_vec xdata = nextsim_mesh.nodes_x;
-        value_type_vec ydata = nextsim_mesh.nodes_y;
-        if(Ninterp==nextsim_mesh.num_nodes)
-        {
-            xdata = nextsim_mesh.elements_x;
-            ydata = nextsim_mesh.elements_y;
-        }
-
+#if 0
+        std::cout<<"meshToGrid: calling testMesh\n";
+        this->testMesh();
+#endif
         std::cout<<"meshToGrid: InterpFromMeshToMesh2dx\n";
-        InterpFromMeshToMesh2dx(&interp_out,             // output data
-                              &(nextsim_mesh.index)[0],  // index 
-                              &xdata[0],                 // input location (x-coord)
-                              &ydata[0],                 // input location (y-coord)
-                              nextsim_mesh.num_nodes,    // num nodes
-                              nextsim_mesh.num_elements, // num elements
-                              &interp_in[0],             // input data
-                              Ninterp,                   // num input locations
-                              nb_var,                    // num input variables
-                              &X_array[0],               // output location (x-coord)
-                              &Y_array[0],               // output location (y-coord)
-                              target_size,               // num output locations
-                              false);                    // use default value if outside mesh (use nearest)
+        InterpFromMeshToMesh2dx(&interp_out,              // output data
+                              &(nextsim_mesh.index)[0],   // index 
+                              &(nextsim_mesh.nodes_x)[0], // location of input nodes (x-coord)
+                              &(nextsim_mesh.nodes_y)[0], // location of input nodes (y-coord)
+                              nextsim_mesh.num_nodes,     // num nodes
+                              nextsim_mesh.num_elements,  // num elements
+                              &interp_in[0],              // input data
+                              Ninterp,                    // num input locations
+                              nb_var,                     // num input variables
+                              &X_array[0],                // output location (x-coord)
+                              &Y_array[0],                // output location (y-coord)
+                              target_size,                // num output locations
+                              false);                     // use default value if outside mesh (use nearest)
     }
     
 
@@ -2689,6 +2628,7 @@ void WimDiscr<T>::meshToPoints(
 {
     int nb_var      = input_data.size();
     int Ninterp     = (*(input_data[0])).size();//get pointer, then get size
+    std::cout<<"meshToPoints: Ninterp,nb_var = "<<Ninterp<<","<<nb_var<<"\n";
 
     value_type_vec interp_in(Ninterp*nb_var);   //input to interp routine
     for (int i=0;i<Ninterp;i++)
@@ -2699,28 +2639,20 @@ void WimDiscr<T>::meshToPoints(
     int target_size = Rx.size();
 
 
-    value_type_vec xdata = nextsim_mesh.nodes_x;
-    value_type_vec ydata = nextsim_mesh.nodes_y;
-    if(Ninterp==nextsim_mesh.num_nodes)
-    {
-        xdata = nextsim_mesh.elements_x;
-        ydata = nextsim_mesh.elements_y;
-    }
-
     std::cout<<"meshToPoints: InterpFromMeshToMesh2dx\n";
-    InterpFromMeshToMesh2dx(&interp_out,             // output data
-                          &(nextsim_mesh.index)[0],  // index 
-                          &xdata[0],                 // input location (x-coord)
-                          &ydata[0],                 // input location (y-coord)
-                          nextsim_mesh.num_nodes,    // num nodes
-                          nextsim_mesh.num_elements, // num elements
-                          &interp_in[0],             // input data
-                          Ninterp,                   // num input locations
-                          nb_var,                    // num input variables
-                          &Rx[0],                    // output location (x-coord)
-                          &Ry[0],                    // output location (y-coord)
-                          target_size,               // num output locations
-                          false);                    // use default value if outside mesh (use nearest)
+    InterpFromMeshToMesh2dx(&interp_out,              // output data
+                          &(nextsim_mesh.index)[0],   // index 
+                          &(nextsim_mesh.nodes_x)[0], // location of input nodes (x-coord)
+                          &(nextsim_mesh.nodes_y)[0], // location of input nodes (y-coord)
+                          nextsim_mesh.num_nodes,     // num nodes
+                          nextsim_mesh.num_elements,  // num elements
+                          &interp_in[0],              // input data
+                          Ninterp,                    // num input locations
+                          nb_var,                     // num input variables
+                          &Rx[0],                     // output location (x-coord)
+                          &Ry[0],                     // output location (y-coord)
+                          target_size,                // num output locations
+                          false);                     // use default value if outside mesh (use nearest)
     
 
     //output
@@ -3252,7 +3184,6 @@ void WimDiscr<T>::run()
         std::cout<<"Max mwd in = " << _max <<"\n";
     }
 #endif
-    std::cout<<"checked incwaves...\n";
 
     while (lcpt < nt)
     {
@@ -3272,8 +3203,9 @@ void WimDiscr<T>::run()
         M_dump_diag = export_now && (M_itest>0); 
         this->timeStep();
 
-        ++lcpt;//local counter incremented in wim.run()
-        ++M_cpt;//global counter incremented in wim.run()
+        ++lcpt;//local counter incremented here now
+        ++M_cpt;//global counter incremented here now
+        //std::cout<<"lcpt,M_cpt = "<<lcpt<<","<<M_cpt<<"\n";
     }
 
     M_update_time   = this->getModelTime(lcpt);//next time run is called, lcpt will be relative to this
@@ -3424,6 +3356,9 @@ void WimDiscr<T>::advectDirectionsMesh(value_type_vec2d& Sdir,value_type_vec & a
     value_type_vec agnod(Nnod,0.);
     value_type_vec_ptrs input  = {&ag2d_eff};
     value_type_vec_ptrs output = {&agnod};
+    std::cout<<"3410: "<<ag2d_eff.size()<<","<<nextsim_mesh.num_elements<<","<<nextsim_mesh.num_nodes<<"\n";
+    std::cout<<"advectDirectionsMesh: calling testMesh\n";
+    this->testMesh();
     this->meshToPoints(output,input,nextsim_mesh.nodes_x,nextsim_mesh.nodes_y);
     value_type* advect_out;
     int nb_var  = 1;                    //have to advect 1 vbl at a time
@@ -4590,34 +4525,20 @@ void WimDiscr<T>::exportResultsGrid(unord_map_vec_ptrs_type & extract_fields,
     outb.close();
 }//exportResultsGrid
 
-#if 1
+
 template<typename T>
 void WimDiscr<T>::exportResultsMesh(unord_map_vec_ptrs_type & extract_fields,
         std::vector<std::string> const &filenames,value_type const&current_time,
         bool export_mesh, bool export_fields)
 {
-    Nextsim::Exporter exporter(vm["setup.exporter_precision"].as<std::string>());
-    std::string fileout;
 
+    //export the mesh
     if (export_mesh)
-    {
-        fileout = filenames[0]+".bin";
-        std::fstream meshbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
-        if ( ! meshbin.good() )
-            throw std::runtime_error("Cannot write to file: " + fileout);
+        this->exportMesh(filenames[0]);
 
-        exporter.writeMesh(meshbin, nextsim_mesh.nodes_x, nextsim_mesh.nodes_y,
-                nextsim_mesh.id,nextsim_mesh.index);
-        meshbin.close();
-
-        fileout = filenames[0]+".dat";
-        std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
-        if ( ! outrecord.good() )
-            throw std::runtime_error("Cannot write to file: " + fileout);
-
-        exporter.writeRecord(outrecord,"mesh");
-        outrecord.close();
-    }
+    //can stop here if not exporting the fields
+    if (!export_fields)
+        return;
 
     //need to convert some names from WIM to neXtSIM conventions
     unord_map_type dict;
@@ -4625,43 +4546,78 @@ void WimDiscr<T>::exportResultsMesh(unord_map_vec_ptrs_type & extract_fields,
     dict.emplace("iceh","Thickness");
     dict.emplace("Dmax","Dfloe");
 
-    if (export_fields)
+    std::string fileout;
+    fileout = filenames[1]+".bin";
+    std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
+    if ( ! outbin.good() )
+        throw std::runtime_error("Cannot write to file: " + fileout);
+
+    //construct exporter
+    Nextsim::Exporter exporter(vm["setup.exporter_precision"].as<std::string>());
+    std::vector<double> timevec = {current_time};
+    exporter.writeField(outbin, timevec, "Time");
+    exporter.writeField(outbin, nextsim_mesh.surface, "Element_area");
+
+    //loop over the fields and write them
+    for (auto it=extract_fields.begin();it!=extract_fields.end();it++)
     {
-        fileout = filenames[1]+".bin";
-        std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
-        if ( ! outbin.good() )
-            throw std::runtime_error("Cannot write to file: " + fileout);
-
-        std::vector<double> timevec = {current_time};
-        exporter.writeField(outbin, timevec, "Time");
-        exporter.writeField(outbin, nextsim_mesh.surface, "Element_area");
-
-
-        for (auto it=extract_fields.begin();it!=extract_fields.end();it++)
-        {
-            auto vname = it->first;
-            if(dict.count(vname))
-                vname=dict[vname];
-            exporter.writeField(outbin, *(it->second), vname);//"first" is a string, "second" points to a vector
-#if 0
-            std::cout<<"Size "<<vname<<" = "<<(*(it->second)).size()<<"\n";
-            std::cout<<M_num_elements<<","<<nextsim_mesh.elements_x.size()<<"\n";
-            std::cout<<nextsim_mesh.nodes_x.size()<<","<<2*nextsim_mesh.nodes_x.size()<<"\n";
-#endif
-        }
-
-        outbin.close();
-
-        fileout = filenames[1]+".dat";
-        std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
-        if ( ! outrecord.good() )
-            throw std::runtime_error("Cannot write to file: " + fileout);
-
-        exporter.writeRecord(outrecord);
-        outrecord.close();
+        auto vname = it->first;//"first" is a string
+        if(dict.count(vname))
+            vname=dict[vname];
+        exporter.writeField(outbin, *(it->second), vname);//"second" points to a vector
     }
+    outbin.close();
+
+    //write the .dat file
+    fileout = filenames[1]+".dat";
+    std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
+    if ( ! outrecord.good() )
+        throw std::runtime_error("Cannot write to file: " + fileout);
+
+    exporter.writeRecord(outrecord);
+    outrecord.close();
+
 }//exportResultsMesh()
-#endif
+
+
+template<typename T>
+void WimDiscr<T>::testMesh()
+{
+    std::string pathstr = vm["wim.outparentdir"].template as<std::string>();
+    pathstr += "/binaries/test_mesh";
+    fs::path path(pathstr);
+    if ( !fs::exists(path) )
+        fs::create_directories(path);
+
+    std::string filename = (boost::format( "%1%/mesh_%2%" ) % pathstr  % M_nb_mesh_test).str();
+    this->exportMesh(filename);
+    M_nb_mesh_test++;
+}
+
+
+template<typename T>
+void WimDiscr<T>::exportMesh(std::string const &filename)
+{
+    Nextsim::Exporter exporter(vm["setup.exporter_precision"].as<std::string>());
+    std::string fileout;
+
+    fileout = filename+".bin";
+    std::fstream meshbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
+    if ( ! meshbin.good() )
+        throw std::runtime_error("Cannot write to file: " + fileout);
+
+    exporter.writeMesh(meshbin, nextsim_mesh.nodes_x, nextsim_mesh.nodes_y,
+            nextsim_mesh.id,nextsim_mesh.index);
+    meshbin.close();
+
+    fileout = filename+".dat";
+    std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
+    if ( ! outrecord.good() )
+        throw std::runtime_error("Cannot write to file: " + fileout);
+
+    exporter.writeRecord(outrecord,"mesh");
+    outrecord.close();
+}//exportMesh()
 
 
 template<typename T>
