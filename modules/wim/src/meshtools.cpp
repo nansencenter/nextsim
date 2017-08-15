@@ -457,7 +457,7 @@ advect(double** interp_elt_out_ptr,     // pointer to pointer to output data
         /* convective velocity */
         for(int i=0;i<3;i++)
         {
-            x_ind   = mesh_info->index[3*cpt+i];
+            x_ind   = mesh_info->index[3*cpt+i]-1;//NB bamg index starts at 1
             y_ind   = x_ind+Nnod;
 
             //positions of nodes
@@ -510,7 +510,6 @@ advect(double** interp_elt_out_ptr,     // pointer to pointer to output data
         }
 
 
-        double surface_new = surface;
         for(int j=0; j<nb_var; j++)
         {
             if(interp_method[j]==1)

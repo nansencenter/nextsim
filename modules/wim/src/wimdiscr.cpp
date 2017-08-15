@@ -2231,14 +2231,20 @@ WimDiscr<T>::getSurfaceFactor(mesh_type const &movedmesh)
         value_type_vec ynods(3);
         for (int k=0;k<3;k++)
         {
-            int ind  = index[3*i+k];
+            int ind  = index[3*i+k]-1;//NB bamg index starts at 1
             xnods[k] = nodes_x[ind];
             ynods[k] = nodes_y[ind];
         }
 
-        surface_fac[i] = MeshTools::measure(
-                xnods[0],ynods[0],xnods[1],ynods[1],xnods[2],ynods[2])
-                    /nextsim_mesh.surface[i];
+        value_type area = .5*MeshTools::jacobian(
+                xnods[0],ynods[0],xnods[1],ynods[1],xnods[2],ynods[2]);
+        if (area>0)
+            surface_fac[i] = area/nextsim_mesh.surface[i];
+        else
+        {
+            std::cout<<"Area of triangle "<<i<<" <0: "<<area<<"\n";
+            throw std::runtime_error("getSurfaceFactor: found negative area\n");
+        }
     }
 
     return surface_fac;
@@ -2253,6 +2259,7 @@ void WimDiscr<T>::updateWaveSpec(mesh_type const &movedmesh)
     auto nodes_x = movedmesh.coordX();
     auto nodes_y = movedmesh.coordY();
     auto index   = movedmesh.indexTr();
+    auto surface_fac = this->getSurfaceFactor(movedmesh);
 
     int Nels = movedmesh.numTriangles();
     value_type_vec surface(Nels,0.);
@@ -2260,19 +2267,6 @@ void WimDiscr<T>::updateWaveSpec(mesh_type const &movedmesh)
     std::fill(mwd.begin(),mwd.end(),0.);
     for (int i=0;i<Nels;i++)
     {
-        value_type_vec xnods(3);
-        value_type_vec ynods(3);
-        for (int k=0;k<3;k++)
-        {
-            int ind  = index[3*i+k];
-            xnods[k] = nodes_x[ind];
-            ynods[k] = nodes_y[ind];
-        }
-
-        value_type surface_fac = MeshTools::measure(
-                xnods[0],ynods[0],xnods[1],ynods[1],xnods[2],ynods[2])
-                    /nextsim_mesh.surface[i];
-
         //integrate wave spectrum here
         value_type mom0 = 0.;
         value_type mom2 = 0.;
@@ -2293,7 +2287,7 @@ void WimDiscr<T>::updateWaveSpec(mesh_type const &movedmesh)
             for(int nth=0;nth<nwavedirn;nth++)
             {
                 value_type adv_dir   = -PI*(90.0+wavedir[nth])/180.0;
-                sdf_dir[fq][nth][i] *= surface_fac;
+                sdf_dir[fq][nth][i] *= surface_fac[i];
                 value_type sdf       = sdf_dir[fq][nth][i];
 
                 mom0 += wt_om[fq]*wt_theta[nth]*sdf*F2;
