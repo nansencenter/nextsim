@@ -205,16 +205,23 @@ else
 end
 
 Nsteps   = length(steps);
+if Nsteps==0
+   disp('No files found');
+   return;
+end
 disp(' ');
 
 region_of_zoom = [];
 %region_of_zoom = 'framstrait';
 is_sequential  = 1;
+ignore         = zeros(Nv,1);
 
 for nstep=1:Nsteps
    step  = steps{nstep};
 
    for k=1:Nv
+      if ignore(k); continue; end
+
       vbl   = vbls{k};
       %cmap  = cmaps{k};
       %lim   = lims{k};
@@ -237,11 +244,13 @@ for nstep=1:Nsteps
       if ~(exist(fig_full)&~OVER_WRITE)
          disp([vbl,' - ',step,' (',num2str(nstep),'/',num2str(Nsteps),')']);
          if ~RESPLOT
-            plot_nextsim_c(vbl,step,region_of_zoom,is_sequential,outdir,po_tmp,simul_in);
+            [step_,failed] = plot_nextsim_c(vbl,step,region_of_zoom,is_sequential,outdir,po_tmp,simul_in);
          else
-            resplot(vbl,step,outdir,po_tmp);
+            failed = resplot(vbl,step,outdir,po_tmp);
          end
          clear po_tmp;
+
+         if failed;ignore(k)=1;continue;end
          %%
          eval(['!mkdir -p ',figdir,'/',vbl]);
          disp(['saving to ',fig_full]);

@@ -1,4 +1,4 @@
-function step = plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,plot_options,simul_in)
+function [step,failed] = plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,plot_options,simul_in)
 %% CALL: plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,plot_options)
 %% OR:   plot_nextsim_c(field,date_string,region_of_zoom,is_sequential,dirname,plot_options)
 %% example of usage:
@@ -79,6 +79,7 @@ function step = plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,p
 %%      show_vec_dirn: 0              % If plotting vector magnitude, show the direction as arrows
 %%  manual_axis_range: []             % Set the colorbar limits
 %%  check_field_range: 0              % Print out range of variable
+%%           no_error: 0              % Don't crash if variable not present
 
 if ~exist('dirname','var'), dirname='.'; end
 
@@ -119,6 +120,7 @@ if ~exist('manual_axis_range','var'),  manual_axis_range = []; end;
    % range to be shown on colorbar
 if ~exist('check_field_range','var'),  check_field_range = 0; end;
    % eg to plot field_after_wim_call_0.[bin,dat] use filename_string='after_wim_call'
+if ~exist('no_error','var'); no_error = 0; end
 
      
 if(~isempty(dirname)&& dirname(end)~='/')
@@ -127,7 +129,8 @@ end
 if ~exist('simul_in','var')
    simul_in=read_simul_in([dirname 'nextsim.log' ],0);
 end
-simul = simul_in.simul;
+simul    = simul_in.simul;
+failed   = 0;
 
 if ~ischar(step)
     step = num2str(step);
@@ -183,6 +186,10 @@ for p=0:0
       t0 = simul_in.simul.time_init;
       t1 = str2num(step)*simul_in.setup.restart_time_step;
       data_out.Time  = t0+t1;
+  end
+
+  if ~exist('conc_name','var')
+     apply_mask   = 0;
   end
 
   
@@ -256,7 +263,8 @@ for p=0:0
   %---------------------------
   % We extract the data fields
   %---------------------------
-  [field_tmp, field_plotted_]=extract_field(field,data_out,dirname,step,simul_in);%don't overwrite field_plotted yet
+  [field_tmp, field_plotted_]=extract_field(...
+      field,data_out,dirname,step,simul_in,no_error);%don't overwrite field_plotted yet
 
   % {length(field_tmp),Ne,Nn,2*Nn}
   if(length(field_tmp)==Ne)
@@ -274,6 +282,7 @@ for p=0:0
     v{1}=reshape(var_mc,[3,Ne]);
   else
     %error('Not the right dimensions')
+    failed  = 1;
     return
   end
 
