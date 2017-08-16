@@ -180,6 +180,12 @@ libs:
 cleanlibs:
 	cd ..; make clean
 
+# Clean libs and current dir
+cleanall: cleanlibs clean
+
+# Clean recompile
+fresh: cleanall all
+
 # Fully clean the required libraries
 mrproperlibs:
 	cd ..; make mrproper
