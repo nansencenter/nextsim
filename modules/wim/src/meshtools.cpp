@@ -426,56 +426,55 @@ advect(double** interp_elt_out_ptr,     // pointer to pointer to output data
         double time_step)               // time step (s)
 {
 
-	/*Initialize output*/
+    //general variables
     int Nels = mesh_info->num_elements;
     int Nnod = mesh_info->num_nodes;
-	double* interp_elt_out=NULL;
-
-    interp_elt_out=xNew<double>(nb_var*Nels);
-
     int thread_id;
     int total_threads;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
+	/*Initialize output*/
+	double* interp_elt_out=NULL;
+    interp_elt_out=xNew<double>(nb_var*Nels);
+
+
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < Nels; ++cpt)
     {
+        //std::cout<<"advect: cpt,Nels = "<<cpt<<","<<Nels<<"\n";
         /* some variables used for the advection*/
         double surface  = mesh_info->surface[cpt];
-        double integrated_variable;
 
         /* some variables used for the advection*/
-        double x[3],y[3],x_new[3],y_new[3];
-        int x_ind, y_ind, neighbour_int, vertex_1, vertex_2;
+        double x[3],y[3];
         double outer_fluxes_area[3], vector_edge[2], outer_vector[2], VC_middle[2], VC_x[3], VC_y[3];
         int fluxes_source_id[3];
-
-        double neighbour_double;
         int other_vertex[3*2]={1,2 , 2,0 , 0,1};
 
 
         /* convective velocity */
         for(int i=0;i<3;i++)
         {
-            x_ind   = mesh_info->index[3*cpt+i]-1;//NB bamg index starts at 1
-            y_ind   = x_ind+Nnod;
+            int ind   = mesh_info->index[3*cpt+i]-1;//NB bamg index starts at 1
 
             //positions of nodes
-            x[i] = mesh_info->nodes_x[x_ind];
-            y[i] = mesh_info->nodes_y[x_ind];
+            x[i] = mesh_info->nodes_x[ind];
+            y[i] = mesh_info->nodes_y[ind];
 
             //convective velocity
-            VC_x[i] = VC_in[x_ind];
-            VC_y[i] = VC_in[y_ind];
+            VC_x[i] = VC_in[ind];
+            VC_y[i] = VC_in[ind+Nnod];
         }
 
         //fluxes
+        //std::cout<<"fluxes\n";
         for(int i=0;i<3;i++)
         {
+            //std::cout<<"node = "<<i<<"\n";
             outer_fluxes_area[i]=0;
 
-            vertex_1=other_vertex[2*i  ];
-            vertex_2=other_vertex[2*i+1];
+            int vertex_1 = other_vertex[2*i  ];
+            int vertex_2 = other_vertex[2*i+1];
 
             vector_edge[0]=x[vertex_2]-x[vertex_1];
             vector_edge[1]=y[vertex_2]-y[vertex_1];
@@ -488,28 +487,37 @@ advect(double** interp_elt_out_ptr,     // pointer to pointer to output data
 
             outer_fluxes_area[i]=outer_vector[0]*VC_middle[0]+outer_vector[1]*VC_middle[1];
 
-
             if(outer_fluxes_area[i]>0)
             {
-                outer_fluxes_area[i]=std::min(surface/time_step/3.,outer_fluxes_area[i]);
+                //std::cout<<"outward flux\n";
+                //fluxes are going out of the cell
+                outer_fluxes_area[i]=std::min(surface/time_step/3.,outer_fluxes_area[i]);//limit the flux
                 fluxes_source_id[i]=cpt;
             }
             else
             {
-			    neighbour_double = mesh_info->element_connectivity[cpt*3+i] -1;//NB bamg indices start at 1
-                neighbour_int=(int) neighbour_double;
-			    if (!std::isnan(neighbour_double) && neighbour_int>0)
+                //std::cout<<"inward flux\n";
+                // fluxes are coming into the cell
+                // - find which element it is coming from
+			    double neighbour_double = mesh_info->element_connectivity[cpt*3+i] -1;//NB bamg indices start at 1
+                int neighbour_int=(int) neighbour_double;
+                //std::cout<<"neighbour = "<<neighbour_double<<","<<neighbour_int<<"\n";
+			    if (!std::isnan(neighbour_double) && neighbour_int>=0 && neighbour_int<Nels)
                 {
-                    double surface = mesh_info->surface[neighbour_int];//NB don't want to reset "surface" outside this scope
-                    outer_fluxes_area[i]=-std::min(surface/time_step/3.,-outer_fluxes_area[i]);
+                    //std::cout<<"neighbour = "<<neighbour_double<<","<<neighbour_int<<"\n";
+                    double surface2 = mesh_info->surface[neighbour_int];
+                    outer_fluxes_area[i]=-std::min(surface2/time_step/3.,-outer_fluxes_area[i]);//limit the flux
                     fluxes_source_id[i]=neighbour_int;
                 }
-                else // open boundary with incoming fluxes
+                else
+                    // open boundary with incoming fluxes
                     fluxes_source_id[i]=cpt;
             }
-        }
+        }// loop over nodes (fluxes)
 
 
+        //loop over variables
+        //std::cout<<"variables\n";
         for(int j=0; j<nb_var; j++)
         {
             if(interp_method[j]==1)

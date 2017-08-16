@@ -1582,7 +1582,7 @@ void WimDiscr<T>::timeStep()
 
 
     //calc mean floe size outside of frequency loop;
-    std::cout<<"calculating <D>\n";
+    //std::cout<<"calculating <D>\n";
     dave.assign(M_num_elements,0.);
 #pragma omp parallel for num_threads(max_threads) collapse(1)
     for (int i = 0; i < M_num_elements; i++)
@@ -1671,12 +1671,12 @@ void WimDiscr<T>::timeStep()
             this->advectDirections(sdf_dir[fq],ag_eff[fq]);
         else
         {
-            std::cout<<"advecting on mesh\n";
+            //std::cout<<"advecting on mesh\n";
             this->advectDirectionsMesh(sdf_dir[fq],agnod_eff[fq]);
         }
 
         //do attenuation &/or scattering, and integrate over directions 
-        std::cout<<"attenuating\n";
+        //std::cout<<"attenuating\n";
         if(!atten)
             this->intDirns(sdf_dir[fq], S_freq,
                     stokes_drift_x_om, stokes_drift_y_om);
@@ -3456,7 +3456,7 @@ void WimDiscr<T>::advectDirectionsMesh(value_type_vec2d& Sdir,value_type_vec & a
         }
 
         //do advection
-        std::cout<<"advectDirectionsMesh: calling MeshTools::advect()\n";
+        //std::cout<<"advectDirectionsMesh: calling MeshTools::advect()\n";
         MeshTools::advect(&advect_out,&(Sdir[nth])[0],&nextsim_mesh,
             &VC[0],&adv_method[0],nb_var,M_timestep);
 
