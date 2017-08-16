@@ -130,6 +130,8 @@ namespace Wim
                   "If ice is broken by waves, increase damage to this value (if wim_damage_mesh=true)")
             ("nextwim.export_diags_mesh", po::value<bool>()->default_value( false ),
                   "export wave diagnostics on mesh or not")
+            ("nextwim.test_and_exit", po::value<bool>()->default_value( false ),
+                  "Stop the run after 1 call to the wim")
             ;
         return desc;
     }

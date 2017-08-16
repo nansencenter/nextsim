@@ -8873,6 +8873,9 @@ FiniteElement::wimCall()
 
     std::cout<<"Finished wimCall()\n";
 
+    if((vm["nextwim.test_and_exit"].as<bool>()))
+        throw std::runtime_error("Quitting after calling WIM\n");
+
     //update counter
     wim_cpt++;
 }//wimCall()
