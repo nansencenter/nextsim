@@ -3179,7 +3179,9 @@ void WimDiscr<T>::run()
 {
 
     //====================================================
-    //set ice & wave conditions
+    // set ice & wave conditions
+    // - incident wave spectrum set in here now
+    // (or in inputWaveFields)
     if (!M_initialised_ice)
         this->idealIceFields(0.7);
 
@@ -3187,13 +3189,8 @@ void WimDiscr<T>::run()
         this->idealWaveFields(0.8);
     // ===================================================
 
-
-    // set incident wave spectrum,
-    // attenuation coefficients and wave speeds/lengths
-    std::cout<<"3200\n";
+    // set attenuation coefficients and wave speeds/lengths
     this->update();
-    std::cout<<"3202\n";
-
 
     std::cout << "-----------------------Simulation started at "<< Wim::current_time_local() <<"\n";
 
