@@ -173,7 +173,7 @@ void WimDiscr<T>::gridPostProcessing()
     std::cout<<"on grid, M_num_elements = "<<M_num_elements<<"\n";
 
     //length scale to determine the time step from (CFL criterion)
-    M_resolution    = std::min(dx,dy);
+    M_length_cfl    = std::min(dx,dy);
 }//gridPostProcessing
 
 template<typename T>
@@ -857,7 +857,6 @@ void WimDiscr<T>::assignSpatial()
     Hs.assign(M_num_elements,0.);
     Tp.assign(M_num_elements,0.);
     mwd.assign(M_num_elements,0.);
-    wave_mask.assign(M_num_elements,0.);
     stokes_drift_x.assign(M_num_elements,0.);
     stokes_drift_y.assign(M_num_elements,0.);
     tau_x.assign(M_num_elements,0.);
@@ -899,17 +898,9 @@ void WimDiscr<T>::update()
 {
 
     //====================================================
-    // set incident wave spec where wave_mask==1;
-    // this also sets sdf_dir in this region
-    this->setIncWaveSpec();
-    //====================================================
-
-    std::cout<<"907\n";
-    //====================================================
     // update attenuation coefficients, wavelengths and phase/group velocities
     this->updateWaveMedium();
     //====================================================
-    std::cout<<"912\n";
 
 
     // ====================================================================================
@@ -918,7 +909,7 @@ void WimDiscr<T>::update()
     // - NB needs to be done after updateWaveMedium
     //M_max_cg = *std::max_element(ag_eff.begin(),ag_eff.end());
     //std::cout<<"dx,M_max_cg,M_cfl= "<< dx<<","<<M_max_cg<<","<<M_cfl <<"\n";
-    M_timestep = M_cfl*M_resolution/M_max_cg;
+    M_timestep = M_cfl*M_length_cfl/M_max_cg;
 
     //reduce time step slightly (if necessary) to make duration an integer multiple of M_timestep
     nt = std::ceil(duration/M_timestep);
@@ -1104,6 +1095,7 @@ void WimDiscr<T>::idealWaveFields(value_type const xfac)
 
     //waves initialised for x<x_edge
     value_type x_edge = 0.5*(x0+xmax)-xfac*(0.5*(xmax-x0));
+    value_type_vec wave_mask(M_num_elements,0.); 
 
 #pragma omp parallel for num_threads(max_threads) collapse(1)
     for (int i = 0; i < M_num_elements; i++)
@@ -1116,9 +1108,9 @@ void WimDiscr<T>::idealWaveFields(value_type const xfac)
            mwd[i] = vm["wim.mwdinc"].template as<double>();
            //std::cout<<Hs[i]<<" "<<Tp[i]<<" "<<mwd[i];
         }
-        else
-           wave_mask[i] = 0.;
     }
+
+    this->setIncWaveSpec(wave_mask);
 }//idealWaveFields
 
 
@@ -1133,9 +1125,9 @@ void WimDiscr<T>::inputWaveFields(value_type_vec const& swh_in,
     if (checkincwaves)
     {
         //these arrays are only needed for diagnostics
-        swh_in_array.resize(num_p_wim);
-        mwp_in_array.resize(num_p_wim);
-        mwd_in_array.resize(num_p_wim);
+        swh_in_array = swh_in;
+        mwp_in_array = mwp_in;
+        mwd_in_array = mwd_in;
     }
 
 #if 0
@@ -1164,17 +1156,11 @@ void WimDiscr<T>::inputWaveFields(value_type_vec const& swh_in,
     double Hs_max_i=0.;
     double Hs_min_ice=100.;
     double Hs_max_ice=0.;
+    value_type_vec wave_mask(M_num_elements,0.);
 
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-    for (int i = 0; i < num_p_wim; i++)
+    for (int i = 0; i < M_num_elements; i++)
     {
-        if (checkincwaves)
-        {
-            //only needed for diagnostics
-            swh_in_array[i] = swh_in[i];
-            mwp_in_array[i] = mwp_in[i];
-            mwd_in_array[i] = mwd_in[i];
-        }
 
         if ((wim_ice.mask[i]<.5)                    //not ice
             &&(LANDMASK_array[i]<.5)                //not land
@@ -1187,8 +1173,6 @@ void WimDiscr<T>::inputWaveFields(value_type_vec const& swh_in,
            mwd[i] = mwd_in[i];
            //std::cout<<Hs[i]<<" "<<Tp[i]<<" "<<mwd[i];
         }
-        else
-           wave_mask[i] = 0.;
         
         if (wim_ice.mask[i]>0.)
         {
@@ -1221,14 +1205,16 @@ void WimDiscr<T>::inputWaveFields(value_type_vec const& swh_in,
     }
     std::abort();
 #endif
+
+    this->setIncWaveSpec(wave_mask);
 }//inputWaveFields()
 
 template<typename T>
-void WimDiscr<T>::setIncWaveSpec()
+void WimDiscr<T>::setIncWaveSpec(value_type_vec const& wave_mask)
 {
 
 #pragma omp parallel for num_threads(max_threads) collapse(1)
-    for (int i = 0; i < num_p_wim; i++)
+    for (int i = 0; i < M_num_elements; i++)
     {
         if (wave_mask[i] == 1.)
         {
@@ -1306,7 +1292,7 @@ void WimDiscr<T>::setIncWaveSpec()
             for (int fq = 0; fq < nwavefreq; fq++)
                 for (int nth = 0; nth < nwavedirn; nth++)
                 {
-                    // set sdf_dir to inc waves each time new waves are input called
+                    // set sdf_dir to inc waves each time new waves are input
                     // NB but only inside the wave mask
                     sdf_dir[fq][nth][i] = Sfreq[fq]*theta_fac[nth];
 
@@ -1377,6 +1363,12 @@ void WimDiscr<T>::setIncWaveSpec()
             }
     }
 #endif
+
+    if(M_steady&&(M_cpt==0))
+    {
+        M_steady_mask = wave_mask;
+        sdf_inc       = sdf_dir;
+    }
 
 }//setIncWaveSpec
 
@@ -1670,10 +1662,7 @@ void WimDiscr<T>::timeStep()
         if (!M_wim_on_mesh)
             this->advectDirections(sdf_dir[fq],ag_eff[fq]);
         else
-        {
-            //std::cout<<"advecting on mesh\n";
             this->advectDirectionsMesh(sdf_dir[fq],agnod_eff[fq]);
-        }
 
         //do attenuation &/or scattering, and integrate over directions 
         //std::cout<<"attenuating\n";
@@ -2202,7 +2191,7 @@ void WimDiscr<T>::setMesh(mesh_type const &movedmesh,BamgMesh* bamgmesh,bool reg
     std::cout<<"on mesh, M_num_elements = "<<M_num_elements<<"\n";
 
     //length scale to determine the time step from (CFL criterion)
-    M_resolution    = MeshTools::resolution(movedmesh);
+    M_length_cfl = .33*MeshTools::resolution(movedmesh);
 
     //set some arrays that are still needed by some functions
     X_array = nextsim_mesh.elements_x;
@@ -3204,25 +3193,17 @@ void WimDiscr<T>::run()
     std::cout<<"3200\n";
     this->update();
     std::cout<<"3202\n";
-    if(M_steady&&(M_cpt==0))
-    {
-        //at first time step, set these, and top up initial area
-        M_steady_mask = wave_mask;
-        sdf_inc       = sdf_dir;
-    }
 
 
-    int lcpt  = 0;//local counter
-
-    std::cout << "-----------------------Simulation started at "<< current_time_local() <<"\n";
+    std::cout << "-----------------------Simulation started at "<< Wim::current_time_local() <<"\n";
 
     //init_time_str is human readable time eg "2015-01-01 00:00:00"
     //init_time is "formal" time format eg "20150101T000000Z"
-
     std::string init_time = ptime(init_time_str);
 
-    value_type t_in  = this->getModelTime(lcpt);//model time of current call to wim (relative to when it was first called)
-    std::string call_time = ptime(init_time_str,t_in);
+    int lcpt  = 0;//local counter
+    M_current_time  = this->getModelTime(lcpt);//model time of current call to wim (relative to init_time)
+    std::string call_time = ptime(init_time_str,M_current_time);
     std::cout<<"---------------INITIAL TIME: "<< init_time <<"\n";
     std::cout<<"---------------CALLING TIME: "<< call_time <<"\n";
 
@@ -3232,16 +3213,16 @@ void WimDiscr<T>::run()
 
     std::cout<<"duration = "<< duration <<"\n";
     std::cout<<"M_max_cg = "<< M_max_cg <<"\n";
-    std::cout<<"M_resolution = "<< M_resolution <<"\n";
+    std::cout<<"M_length_cfl = "<< M_length_cfl <<"\n";
     std::cout<<"M_timestep = "<< M_timestep <<"\n";
     std::cout<<"nt = "<< nt <<"\n";
 
     if (vm["wim.checkinit"].template as<bool>())
-        this->exportResults("init",t_in);
+        this->exportResults("init");
 
     if (vm["wim.checkincwaves"].template as<bool>()
         &&(swh_in_array.size()>0))
-        this->exportResults("incwaves",t_in);
+        this->exportResults("incwaves");
 
 #if 1
     if (swh_in_array.size()>0)
@@ -3276,7 +3257,7 @@ void WimDiscr<T>::run()
             export_now = !(M_cpt % dump_freq);
         bool exportProg = export_now && (vm["wim.checkprog"].template as<bool>());
         if ( exportProg )
-            this->exportResults("prog",this->getModelTime(lcpt));
+            this->exportResults("prog");
 
         //integrate model
         M_dump_diag = export_now && (M_itest>0); 
@@ -3285,20 +3266,23 @@ void WimDiscr<T>::run()
         ++lcpt;//local counter incremented here now
         ++M_cpt;//global counter incremented here now
         //std::cout<<"lcpt,M_cpt = "<<lcpt<<","<<M_cpt<<"\n";
+
+        M_current_time  = this->getModelTime(lcpt);//model time of current call to wim (relative to init_time)
     }
 
-    M_update_time   = this->getModelTime(lcpt);//next time run is called, lcpt will be relative to this
 
     if (vm["wim.checkfinal"].template as<bool>())
-       this->exportResults("final",M_update_time);
+       this->exportResults("final");
 
     // save diagnostic file
     if (vm["wim.savelog"].template as<bool>())
-       this->saveLog(t_in);
+       this->saveLog(M_update_time);
 
     if (M_wim_on_mesh)
         //set M_UM to zero again
         std::fill(M_UM.begin(),M_UM.end(),0.);
+
+    M_update_time   = M_current_time;//next time run is called, lcpt will be relative to this
 
     std::cout<<"Running done in "<< chrono.elapsed() <<"s\n";
 
@@ -3427,7 +3411,6 @@ void WimDiscr<T>::advectDirections(value_type_vec2d& Sdir,value_type_vec const& 
 
 template<typename T>
 void WimDiscr<T>::advectDirectionsMesh(value_type_vec2d& Sdir,value_type_vec & agnod)
-//void WimDiscr<T>::advectDirectionsMesh(array2_type& Sdir,value_type_vec& ag2d_eff)
 {
 
     int Nnod = nextsim_mesh.num_nodes;
@@ -3438,6 +3421,8 @@ void WimDiscr<T>::advectDirectionsMesh(value_type_vec2d& Sdir,value_type_vec & a
     value_type* advect_out;
     int nb_var  = 1;                    //have to advect 1 vbl at a time
     std::vector<int> adv_method = {1};  //alternative (0) is do nothing
+
+    auto test_vec = Sdir[0];//energy pre-advection
 
     //advect the directions
 	for (int nth = 0; nth < nwavedirn; nth++)
@@ -3467,6 +3452,31 @@ void WimDiscr<T>::advectDirectionsMesh(value_type_vec2d& Sdir,value_type_vec & a
     }//advection of each direction done
 
     xDelete<value_type>(advect_out);
+
+#if 1
+    std::cout<<"export: test advection\n";
+
+    //choose the variables
+    unord_map_vec_ptrs_type extract_fields;
+    extract_fields.emplace("agnod",&agnod);
+    extract_fields.emplace("M_UM",&M_UM);
+    extract_fields.emplace("E_pre",&(test_vec));
+    extract_fields.emplace("E_post",&(Sdir[0]));
+
+    //filenames
+    std::string pathstr = vm["wim.outparentdir"].template as<std::string>();
+    pathstr += "/binaries/test_advection";
+    fs::path path(pathstr);
+    if ( !fs::exists(path) )
+        fs::create_directories(path);
+    std::string mfile  = (boost::format(  "%1%/mesh_%2%" ) % pathstr % M_cpt).str();
+    std::string ffile  = (boost::format( "%1%/field_%2%" ) % pathstr % M_cpt).str();
+    std::vector<std::string> filenames = {mfile,ffile};
+
+    //export
+    this->exportResultsMesh(extract_fields,filenames);//TODO fix time to nextsim standard
+#endif
+
 }//advectDirectionsMesh()
 
 template<typename T>
@@ -4392,8 +4402,7 @@ void WimDiscr<T>::readDataFromFile(std::string const& filein)
 }//readDataFromFile
 
 template<typename T>
-void WimDiscr<T>::exportResults(std::string const& output_type,
-                                 value_type const& t_out)
+void WimDiscr<T>::exportResults(std::string const& output_type)
 {
 
     unord_map_vec_ptrs_type extract_fields;
@@ -4401,7 +4410,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
     std::string pathstr = vm["wim.outparentdir"].template as<std::string>();
     pathstr += "/binaries/"+output_type;
 
-    std::string prefix     = output_type;
+    std::string prefix = output_type;
     int step = 0;
 
     if ( output_type == "prog" )
@@ -4488,17 +4497,17 @@ void WimDiscr<T>::exportResults(std::string const& output_type,
     if((!M_wim_on_mesh)&&(extract_fields.size()>0))
     {
         std::string init_time  = Wim::ptime(init_time_str);
-        std::string timestpstr = Wim::ptime(init_time_str, t_out);
+        std::string timestpstr = Wim::ptime(init_time_str, M_current_time);
         std::string fileout    = (boost::format( "%1%/%2%%3%" ) % pathstr % prefix % timestpstr).str();
         std::vector<std::string> export_strings = {fileout,init_time,timestpstr};
         this->exportResultsGrid(extract_fields,export_strings);
     }
     else
     {
-        std::string mfile  = (boost::format( "%1%/mesh_%2%_%3%" ) % pathstr % prefix % step).str();
-        std::string ffile  = (boost::format( "%1%/field_%2%_%3%" ) % pathstr % prefix % step).str();
+        std::string mfile  = (boost::format(  "%1%/mesh_%2%" ) % pathstr % step).str();
+        std::string ffile  = (boost::format( "%1%/field_%2%" ) % pathstr % step).str();
         std::vector<std::string> filenames = {mfile,ffile};
-        this->exportResultsMesh(extract_fields,filenames,t_out);//TODO fix time to nextsim standard
+        this->exportResultsMesh(extract_fields,filenames);//TODO fix time to nextsim standard
     }
 }//exportResults
 
@@ -4594,7 +4603,7 @@ void WimDiscr<T>::exportResultsGrid(unord_map_vec_ptrs_type & extract_fields,
 
 template<typename T>
 void WimDiscr<T>::exportResultsMesh(unord_map_vec_ptrs_type & extract_fields,
-        std::vector<std::string> const &filenames,value_type const&current_time,
+        std::vector<std::string> const &filenames,
         bool export_mesh, bool export_fields)
 {
 
@@ -4620,7 +4629,7 @@ void WimDiscr<T>::exportResultsMesh(unord_map_vec_ptrs_type & extract_fields,
 
     //construct exporter
     Nextsim::Exporter exporter(vm["setup.exporter_precision"].as<std::string>());
-    std::vector<double> timevec = {current_time};
+    std::vector<double> timevec = {this->getNextsimTime()};
     exporter.writeField(outbin, timevec, "Time");
     exporter.writeField(outbin, nextsim_mesh.surface, "Element_area");
 
@@ -4918,7 +4927,7 @@ void WimDiscr<T>::saveLog(value_type const& t_out) const
     out << "\n***********************************************\n";
     out << "Other parameters:" << "\n";
     out << std::left << std::setw(log_width) << "Time step (s)"             <<" : " << M_timestep << "\n";
-    out << std::left << std::setw(log_width) << "Grid/mesh resolution (km)" <<" : " << M_resolution/1.e3 << "\n";
+    out << std::left << std::setw(log_width) << "CFL length (km)"           <<" : " << M_length_cfl/1.e3 << "\n";
     out << std::left << std::setw(log_width) << "CFL number"                <<" : " << M_cfl << "\n";
     out << std::left << std::setw(log_width) << "Max wave group vel (m/s)"  <<" : " << M_max_cg << "\n";
     out << std::left << std::setw(log_width) << "Number of time steps"      <<" : " << nt << "\n";
@@ -5079,6 +5088,14 @@ void WimDiscr<T>::saveOptionsLog()
         }//loop over options in variable map
     }//check if file opens
 }//saveOptionsLog
+
+template<typename T>
+typename WimDiscr<T>::value_type
+WimDiscr<T>::getNextsimTime() const
+{
+    value_type t0 = Wim::dateStr2Num(init_time_str); //days from ref time (1901-1-1) to init_time
+    return t0+M_current_time/(24*3600.);             //days from ref time (1901-1-1) to model time
+}
 
 // instantiate wim class for type float
 //template class WimDiscr<float>;
