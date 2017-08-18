@@ -437,6 +437,10 @@ advect(double** interp_elt_out_ptr,     // pointer to pointer to output data
 	double* interp_elt_out=NULL;
     interp_elt_out=xNew<double>(nb_var*Nels);
 
+    // value incoming from open boundaries
+    // - currently just specify a constant (ie spatially invariant) value for each variable
+    // TODO make this an input
+    std::vector<double> inc_value(nb_var,0.);
 
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < Nels; ++cpt)
@@ -448,22 +452,22 @@ advect(double** interp_elt_out_ptr,     // pointer to pointer to output data
         /* some variables used for the advection*/
         double x[3],y[3];
         double outer_fluxes_area[3], vector_edge[2], outer_vector[2], VC_middle[2], VC_x[3], VC_y[3];
-        int fluxes_source_id[3];
+        int fluxes_source_id[3], node_nums[3];
         int other_vertex[3*2]={1,2 , 2,0 , 0,1};
 
 
         /* convective velocity */
         for(int i=0;i<3;i++)
         {
-            int ind   = mesh_info->index[3*cpt+i]-1;//NB bamg index starts at 1
+            node_nums[i] = mesh_info->index[3*cpt+i]-1;//NB bamg index starts at 1
 
             //positions of nodes
-            x[i] = mesh_info->nodes_x[ind];
-            y[i] = mesh_info->nodes_y[ind];
+            x[i] = mesh_info->nodes_x[node_nums[i]];
+            y[i] = mesh_info->nodes_y[node_nums[i]];
 
             //convective velocity
-            VC_x[i] = VC_in[ind];
-            VC_y[i] = VC_in[ind+Nnod];
+            VC_x[i] = VC_in[node_nums[i]];
+            VC_y[i] = VC_in[node_nums[i]+Nnod];
         }
 
         //fluxes
@@ -475,6 +479,9 @@ advect(double** interp_elt_out_ptr,     // pointer to pointer to output data
 
             int vertex_1 = other_vertex[2*i  ];
             int vertex_2 = other_vertex[2*i+1];
+
+            int node_num1   = node_nums[vertex_1];
+            int node_num2   = node_nums[vertex_2];
 
             vector_edge[0]=x[vertex_2]-x[vertex_1];
             vector_edge[1]=y[vertex_2]-y[vertex_1];
@@ -489,11 +496,13 @@ advect(double** interp_elt_out_ptr,     // pointer to pointer to output data
 
             if(outer_fluxes_area[i]>0)
             {
-                //std::cout<<"outward flux\n";
-                //fluxes are going out of the cell
+                // std::cout<<"outward flux\n";
+                // fluxes are going out of the cell
+                // - this should let the quantity leave the cell without problems, even on boundaries
+                // - we treat open and closed boundaries the same
                 outer_fluxes_area[i]=std::min(surface/time_step/3.,outer_fluxes_area[i]);//limit the flux
                 fluxes_source_id[i]=cpt;
-            }
+            }//outgoing fluxes
             else
             {
                 //std::cout<<"inward flux\n";
@@ -504,15 +513,28 @@ advect(double** interp_elt_out_ptr,     // pointer to pointer to output data
                 //std::cout<<"neighbour = "<<neighbour_double<<","<<neighbour_int<<"\n";
 			    if (!std::isnan(neighbour_double) && neighbour_int>=0 && neighbour_int<Nels)
                 {
+                    // not on a boundary
                     //std::cout<<"neighbour = "<<neighbour_double<<","<<neighbour_int<<"\n";
                     double surface2 = mesh_info->surface[neighbour_int];
                     outer_fluxes_area[i]=-std::min(surface2/time_step/3.,-outer_fluxes_area[i]);//limit the flux
                     fluxes_source_id[i]=neighbour_int;
-                }
+                }//not on boundary
                 else
-                    // open boundary with incoming fluxes
-                    fluxes_source_id[i]=cpt;
-            }
+                {
+                    // on a boundary with incoming fluxes
+                    if (mesh_info->mask_dirichlet[node_num1]&&mesh_info->mask_dirichlet[node_num2])
+                    {
+                        // closed boundary (on coast) - zero flux coming in
+                        fluxes_source_id[i] = cpt;
+                        outer_fluxes_area[i] = 0.;
+                    }
+                    else
+                    {
+                        // open boundary - zero flux coming in
+                        fluxes_source_id[i] = -1;//flag to use inc_value
+                    }
+                }//on boundary
+            }//incoming fluxes
         }// loop over nodes (fluxes)
 
 
@@ -523,8 +545,11 @@ advect(double** interp_elt_out_ptr,     // pointer to pointer to output data
             if(interp_method[j]==1)
             {
                 double tmp = 0.;
-                for (int k=0;k<3;k++)
-                    tmp += interp_elt_in[fluxes_source_id[k]*nb_var+j]*outer_fluxes_area[k];
+                for (int i=0;i<3;i++)
+                    if(fluxes_source_id[i]>=0)
+                        tmp += interp_elt_in[fluxes_source_id[i]*nb_var+j]*outer_fluxes_area[i];
+                    else
+                        tmp += inc_value[j]*outer_fluxes_area[i];
                 interp_elt_out[cpt*nb_var+j] = interp_elt_in[cpt*nb_var+j] - (tmp/surface)*time_step;
             }
             else

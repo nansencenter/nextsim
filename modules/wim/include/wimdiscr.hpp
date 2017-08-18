@@ -111,6 +111,7 @@ public:
         std::vector<int> index;                     // indices of nodes corresponding to the elements
         std::vector<int> element_connectivity;      // indices of neighbouring elements
         std::vector<int> node_element_connectivity; // indices of elements connected to each node
+        std::vector<bool> mask_dirichlet;           // is the node on a coast (edge is coastal if this is true for both nodes)?
         value_type_vec nodes_x;                     // x-coords of nodes (not needed for structured grids)
         value_type_vec nodes_y;                     // y-coords of nodes (not needed for structured grids)
         value_type_vec elements_x;                  // x-coords of elements
@@ -180,12 +181,12 @@ public:
     void saveOptionsLog();
 
     void init1();
-    void init(int const nextsim_cpt=0);
-    void init(mesh_type const &mesh,int const nextsim_cpt=0);
-    void init(mesh_type const &mesh,BamgMesh* bamgmesh,int const nextsim_cpt=0);
+    void init(int const& nextsim_cpt=0);
+    void init(mesh_type const &mesh,int const& nextsim_cpt=0);
+    void init(mesh_type const &mesh,BamgMesh* bamgmesh,int const& flag_fix,int const& nextsim_cpt=0);
 
-    void init2(int nextsim_cpt);
-    void initConstant(int const nextsim_cpt);
+    void init2(int const& nextsim_cpt);
+    void initConstant(int const& nextsim_cpt);
     void assign();
     void assignSpatial();
 
@@ -226,8 +227,8 @@ public:
     // breaking on mesh
     void setMesh( mesh_type const &mesh);
     void setMesh( mesh_type const &mesh,value_type_vec const &um);
-    void setMesh( mesh_type const &mesh,value_type_vec const &um,BamgMesh* bamgmesh,bool regridding=false);
-    void setMesh( mesh_type const &mesh,BamgMesh* bamgmesh,bool regridding=false);
+    void setMesh( mesh_type const &mesh,value_type_vec const &um,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding=false);
+    void setMesh( mesh_type const &mesh,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding=false);
 
     void resetMesh( mesh_type const &mesh);
     void resetMesh( mesh_type const &mesh,value_type_vec const &um);
@@ -457,6 +458,7 @@ private:
             index                     : {},
             element_connectivity      : {},
             node_element_connectivity : {},
+            mask_dirichlet            : {},
             nodes_x                   : {},
             nodes_y                   : {},
             elements_x                : {},

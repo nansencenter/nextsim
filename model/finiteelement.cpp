@@ -8520,7 +8520,7 @@ FiniteElement::wimPostRegrid()
     M_collect_wavespec  = false;
 
     //wim.nextsim_mesh
-    wim.setMesh(M_mesh,M_UM,bamgmesh,true);//true means wim.assignSpatial() is called here
+    wim.setMesh(M_mesh,M_UM,bamgmesh,M_flag_fix,true);//true means wim.assignSpatial() is called here
 
     // pass back interpolated wave spectrum to new elements;
     // interpolation scheme interp2cavities is conservative
@@ -8699,7 +8699,7 @@ FiniteElement::initWim(int const pcpt)
     else
     {
         //init WIM on mesh
-        wim.init(M_mesh,bamgmesh,pcpt);
+        wim.init(M_mesh,bamgmesh,M_flag_fix,pcpt);
     }
 
     //check if we want to export the Stokes drift
@@ -8769,7 +8769,7 @@ FiniteElement::wimCall()
                 wim.setMesh(movedmesh);
             else if((M_wave_mode==setup::WaveMode::RUN_ON_MESH)&&(wim_cpt>0))
                 //NB setMesh() already called in init
-                wim.setMesh(movedmesh,bamgmesh);
+                wim.setMesh(movedmesh,bamgmesh,M_flag_fix);
 
             //set ice fields on mesh
             if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE)

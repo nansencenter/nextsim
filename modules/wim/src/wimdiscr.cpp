@@ -516,7 +516,7 @@ void WimDiscr<T>::readFromBinary(std::fstream &in, value_type_vec& in_array, int
 }//readFromBinary
 
 template<typename T>
-void WimDiscr<T>::init(int nextsim_cpt)
+void WimDiscr<T>::init(int const& nextsim_cpt)
 {
     this->init1();
 
@@ -542,7 +542,7 @@ void WimDiscr<T>::init1()
 }
 
 template<typename T>
-void WimDiscr<T>::init2(int nextsim_cpt)
+void WimDiscr<T>::init2(int const& nextsim_cpt)
 {
     //after grid/mesh are set
 
@@ -559,7 +559,7 @@ void WimDiscr<T>::init2(int nextsim_cpt)
 }
 
 template<typename T>
-void WimDiscr<T>::init(mesh_type const &mesh_in,int nextsim_cpt)
+void WimDiscr<T>::init(mesh_type const &mesh_in,int const& nextsim_cpt)
 {
     this->init1();
 
@@ -570,20 +570,21 @@ void WimDiscr<T>::init(mesh_type const &mesh_in,int nextsim_cpt)
 }//end ::init()
 
 template<typename T>
-void WimDiscr<T>::init(mesh_type const &mesh_in,BamgMesh* bamgmesh,int nextsim_cpt)
+void WimDiscr<T>::init(mesh_type const &mesh_in,BamgMesh* bamgmesh,
+        int const& flag_fix,int const& nextsim_cpt)
 {
     this->init1();
 
     // init ON mesh
     std::cout<<"Init on mesh\n";
-    this->setMesh(mesh_in,bamgmesh);
+    this->setMesh(mesh_in,bamgmesh,flag_fix);
 
     this->init2(nextsim_cpt);
 
 }//end ::init()
 
 template<typename T>
-void WimDiscr<T>::initConstant(int nextsim_cpt)
+void WimDiscr<T>::initConstant(int const& nextsim_cpt)
 {
 
     // wave parameters
@@ -2095,7 +2096,7 @@ void WimDiscr<T>::setMesh(mesh_type const &mesh_in,value_type_vec const &um_in)
 
 template<typename T>
 void WimDiscr<T>::setMesh(mesh_type const &mesh_in,
-        value_type_vec const &um_in,BamgMesh* bamgmesh,bool regridding)
+        value_type_vec const &um_in,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding)
 {
     //interface for M_wim_on_mesh
     auto movedmesh = mesh_in;
@@ -2104,7 +2105,7 @@ void WimDiscr<T>::setMesh(mesh_type const &mesh_in,
 }
 
 template<typename T>
-void WimDiscr<T>::setMesh(mesh_type const &movedmesh,BamgMesh* bamgmesh,bool regridding)
+void WimDiscr<T>::setMesh(mesh_type const &movedmesh,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding)
 {
     //interface for M_wim_on_mesh
 
@@ -2170,6 +2171,18 @@ void WimDiscr<T>::setMesh(mesh_type const &movedmesh,BamgMesh* bamgmesh,bool reg
         }
     }
 
+    // ================================================================
+    //get the Dirichlet mask
+    std::vector<int> dirichlet_flags(0);
+    for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
+        if (bamgmesh->Edges[3*edg+2] == flag_fix)
+            dirichlet_flags.push_back(bamgmesh->Edges[3*edg]-1);
+    
+    nextsim_mesh.mask_dirichlet.assign(Nn,false);
+    for (int i=0; i<dirichlet_flags.size(); ++i)
+        nextsim_mesh.mask_dirichlet[dirichlet_flags[i]] = true;
+    // ================================================================
+
     int max_nec = bamgmesh->NodalElementConnectivitySize[1];
     nextsim_mesh.max_node_el_conn = max_nec;
     nextsim_mesh.node_element_connectivity.resize(Nn*max_nec);
@@ -2184,6 +2197,7 @@ void WimDiscr<T>::setMesh(mesh_type const &movedmesh,BamgMesh* bamgmesh,bool reg
             // elt_num  = nextsim_mesh.node_element_connectivity[max_nec*i+j]-1;
             // OK if ((0 <= elt_num) && (elt_num < mesh.numTriangles()) && (elt_num != NAN))
         }
+        
     }
     // ================================================================================
 
@@ -2191,7 +2205,9 @@ void WimDiscr<T>::setMesh(mesh_type const &movedmesh,BamgMesh* bamgmesh,bool reg
     std::cout<<"on mesh, M_num_elements = "<<M_num_elements<<"\n";
 
     //length scale to determine the time step from (CFL criterion)
-    M_length_cfl = .33*MeshTools::resolution(movedmesh);
+    //M_length_cfl = .33*MeshTools::resolution(movedmesh);
+    //M_length_cfl = .25*MeshTools::resolution(movedmesh);
+    M_length_cfl = .1*MeshTools::resolution(movedmesh);
 
     //set some arrays that are still needed by some functions
     X_array = nextsim_mesh.elements_x;
