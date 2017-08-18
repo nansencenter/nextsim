@@ -87,28 +87,6 @@ template<typename T=float> class WimDiscr
         mutable bool broken;
     } BreakInfo;
 
-#if 0
-    typedef Wim::Extract_Fields ExtractFields;
-#else
-    typedef struct ExtractFields
-    {
-        int  Nrecs;
-        bool icec;
-        bool iceh;
-        bool Dmax;
-        bool taux;
-        bool tauy;
-        bool sdx;
-        bool sdy;
-        bool swh;
-        bool mwp;
-        bool mwd;
-        bool swh_in;
-        bool mwp_in;
-        bool mwd_in;
-    } ExtractFields;
-#endif
-
 
 
     // ==========================================================================================
@@ -133,6 +111,7 @@ public:
         std::vector<int> index;                     // indices of nodes corresponding to the elements
         std::vector<int> element_connectivity;      // indices of neighbouring elements
         std::vector<int> node_element_connectivity; // indices of elements connected to each node
+        std::vector<bool> mask_dirichlet;           // is the node on a coast (edge is coastal if this is true for both nodes)?
         value_type_vec nodes_x;                     // x-coords of nodes (not needed for structured grids)
         value_type_vec nodes_y;                     // y-coords of nodes (not needed for structured grids)
         value_type_vec elements_x;                  // x-coords of elements
@@ -184,11 +163,11 @@ public:
             int addx = 0, int addy = 0);
     void readDataFromFile(std::string const& filein);
 
-    void exportResults(std::string const& output_type, value_type const& t_out);
+    void exportResults(std::string const& output_type);
     void exportResultsGrid(unord_map_vec_ptrs_type& extract_fields,
             std::vector<std::string> const& strings);
     void exportResultsMesh(unord_map_vec_ptrs_type & extract_fields,
-            std::vector<std::string> const &filenames,value_type const&current_time,
+            std::vector<std::string> const &filenames,
             bool export_mesh=true, bool export_fields=true);
     void exportMesh(std::string const &filename);
     void testMesh();
@@ -202,12 +181,12 @@ public:
     void saveOptionsLog();
 
     void init1();
-    void init(int const nextsim_cpt=0);
-    void init(mesh_type const &mesh,int const nextsim_cpt=0);
-    void init(mesh_type const &mesh,BamgMesh* bamgmesh,int const nextsim_cpt=0);
+    void init(int const& nextsim_cpt=0);
+    void init(mesh_type const &mesh,int const& nextsim_cpt=0);
+    void init(mesh_type const &mesh,BamgMesh* bamgmesh,int const& flag_fix,int const& nextsim_cpt=0);
 
-    void init2(int nextsim_cpt);
-    void initConstant(int const nextsim_cpt);
+    void init2(int const& nextsim_cpt);
+    void initConstant(int const& nextsim_cpt);
     void assign();
     void assignSpatial();
 
@@ -232,21 +211,24 @@ public:
                  std::vector<value_type> const& m_dfloe,
                  std::vector<value_type> const& m_conc);
 
-    //std::vector<bool> getBrokenMesh() const {return mesh_broken;}
     void getFsdMesh(value_type_vec &nfloes_out,value_type_vec &dfloe_out,value_type_vec &broken);
     void getFsdMesh(value_type_vec &nfloes_out,value_type_vec &dfloe_out, value_type_vec &broken,
             value_type_vec const & conc_tot, mesh_type const &mesh_in,value_type_vec const &um_in);
     void getFsdMesh(value_type_vec &nfloes_out,value_type_vec &dfloe_out, value_type_vec &broken,
             value_type_vec const & conc_tot, mesh_type const &mesh_in);
 
+    //time in seconds from init_time
     value_type getModelTime(int lcpt=0) const {return M_update_time+lcpt*M_timestep;}
+
+    //time in days from ref time (1900-1-1)
+    value_type getNextsimTime() const;
 
     // ========================================================================
     // breaking on mesh
     void setMesh( mesh_type const &mesh);
     void setMesh( mesh_type const &mesh,value_type_vec const &um);
-    void setMesh( mesh_type const &mesh,value_type_vec const &um,BamgMesh* bamgmesh,bool regridding=false);
-    void setMesh( mesh_type const &mesh,BamgMesh* bamgmesh,bool regridding=false);
+    void setMesh( mesh_type const &mesh,value_type_vec const &um,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding=false);
+    void setMesh( mesh_type const &mesh,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding=false);
 
     void resetMesh( mesh_type const &mesh);
     void resetMesh( mesh_type const &mesh,value_type_vec const &um);
@@ -348,7 +330,7 @@ public:
     void inputWaveFields(value_type_vec const& swh_in,
             value_type_vec const& mwp_in,
             value_type_vec const& mwd_in);
-    void setIncWaveSpec();
+    void setIncWaveSpec(value_type_vec const& wave_mask);
     void inputIceFields(value_type_vec const& icec_in,
             value_type_vec const& iceh_in,
             value_type_vec const& nfloes_in);
@@ -399,7 +381,8 @@ private:
                 SCP2_array, SCP2I_array, LANDMASK_array;
     std::vector<value_type> x_col,y_row;
 
-    value_type M_cfl, M_resolution;
+    value_type M_cfl, M_length_cfl;
+    value_type M_current_time;
     value_type dom, guess, Tmin, Tmax, gravity, om;
     value_type xmax, ym, x0, y0, dx, dy, x_edge, unifc, unifh,
                dfloe_pack_init, dfloe_pack_thresh, amin, M_max_cg;
@@ -416,7 +399,7 @@ private:
     std::string wim_gridfile;
     value_type_vec wavedir, wt_theta;//dimension of wavedir
     value_type_vec wt_simp, wt_om, freq_vec, vec_period, wlng, ag, ap;//dimension of freq
-    value_type_vec Hs,Tp,mwd,wave_mask,M_steady_mask;
+    value_type_vec Hs,Tp,mwd,M_steady_mask;
 
     //value_type_vec ice_mask, icec, iceh;
     value_type_vec swh_in_array,mwp_in_array,mwd_in_array,
@@ -475,6 +458,7 @@ private:
             index                     : {},
             element_connectivity      : {},
             node_element_connectivity : {},
+            mask_dirichlet            : {},
             nodes_x                   : {},
             nodes_y                   : {},
             elements_x                : {},

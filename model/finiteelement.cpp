@@ -1301,7 +1301,9 @@ FiniteElement::regrid(bool step)
             int* interp_method;
             double* diffusivity_parameters;
 
+            std::cout<<"1304\n";
             int nb_var = this->collectVariables(&interp_elt_in, &interp_method, &diffusivity_parameters, prv_num_elements);
+            std::cout<<"1306\n";
 
             // 2) Interpolate
             std::vector<double> surface_previous(prv_num_elements);
@@ -1378,8 +1380,7 @@ FiniteElement::regrid(bool step)
                     int num_wavefreq = M_wavespec.size();
                     int num_wavedirn = M_wavespec[0].size();
                     for(int fq=0;fq<num_wavefreq;fq++)
-                        for(int nth=0;nth<num_wavedirn;nth++)
-                            M_wavespec[fq][nth].assign(M_num_elements,0.);
+                        M_wavespec[fq].assign(num_wavedirn,M_dfloe);//vec of zeros of right size
                 }
             }
 #endif
@@ -1393,7 +1394,6 @@ FiniteElement::regrid(bool step)
             xDelete<int>(interp_method);
             xDelete<double>(diffusivity_parameters);
 
-			LOG(DEBUG) <<"ELEMENT: Interp done\n";
 			LOG(DEBUG) <<"Element Interp done in "<< chrono.elapsed() <<"s\n";
 
 			// NODAL INTERPOLATION
@@ -1410,7 +1410,8 @@ FiniteElement::regrid(bool step)
                     nb_var += 2;//M_tau
                     nb_var += 2;//M_meshdisp
                     if (M_export_wim_diags_mesh)
-                        nb_var += 2*(M_wim_fields_nodes.bucket_count());//usually just Stokes drift
+                        nb_var += 2*(M_wim_fields_nodes.size());//usually just Stokes drift
+                    //std::cout<<"nb_var = "<<nb_var<<"\n";
                 }
 #endif
 
@@ -1422,7 +1423,6 @@ FiniteElement::regrid(bool step)
 
 	        chrono.restart();
 	        LOG(DEBUG) <<"Nodal Interp starts\n";
-			LOG(DEBUG) <<"NODAL: Interp starts\n";
 
 			for (int i=0; i<prv_num_nodes; ++i)
 			{
@@ -1487,7 +1487,10 @@ FiniteElement::regrid(bool step)
 #endif
 
                 if(tmp_nb_var!=nb_var)
-                    throw std::runtime_error("regrid (nodal interp): tmp_nb_var != nb_var");
+                {
+                    std::cout<<"tmp_nb_var,nb_var = "<<tmp_nb_var<<","<<nb_var<<"\n";
+                    throw std::runtime_error("regrid (nodal interp - collection): tmp_nb_var != nb_var");
+                }
 
 			}//loop over nodes
 
@@ -1565,13 +1568,17 @@ FiniteElement::regrid(bool step)
                             }
                     }//M_wim_on_mesh
 #endif
+
                 if(tmp_nb_var!=nb_var)
-                    throw std::runtime_error("regrid (nodes): tmp_nb_var!=nb_var\n");
+                {
+                    std::cout<<"tmp_nb_var,nb_var = "<<tmp_nb_var<<","<<nb_var<<"\n";
+                    throw std::runtime_error("regrid (nodal interp - redistribution): tmp_nb_var != nb_var");
+                }
+
 			}//loop over nodes
 
 			xDelete<double>(interp_out);
 
-			LOG(DEBUG) <<"NODAL: Interp done\n";
 			LOG(DEBUG) <<"Nodal interp done in "<< chrono.elapsed() <<"s\n";
 
 		}//if(step) (applied_displacement_factor<1.)
@@ -1750,6 +1757,7 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var, bool che
 
             if(M_collect_wavespec)
             {
+                //wave spec
                 int nfreq = M_wavespec.size();
                 int ndir  = M_wavespec[0].size();
                 for(int fq=0;fq<nfreq;fq++)
@@ -2051,6 +2059,7 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
             num_wavefreq = M_wavespec.size();
             num_wavedirn = M_wavespec[0].size();
             nb_var += num_wavefreq*num_wavedirn;
+            //std::cout<<"nfq,ndir,nb_var = "<<num_wavefreq<<","<<num_wavedirn<<","<<nb_var<<"\n";
         }
     }
 #endif
@@ -2188,11 +2197,6 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
 
             if(M_collect_wavespec)
             {
-                interp_elt_in[nb_var*i+tmp_nb_var] = M_wim_meshdisp[i];
-                interp_method[tmp_nb_var] = 1;
-                diffusivity_parameters[tmp_nb_var]=0.;
-                tmp_nb_var++;
-
                 for(int fq=0;fq<num_wavefreq;fq++)
                     for(int nth=0;nth<num_wavedirn;nth++)
                     {
@@ -2207,6 +2211,7 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
 
 		if(tmp_nb_var>nb_var)
 		{
+            std::cout<<"tmp_nb_var,nb_var = "<<tmp_nb_var<<","<<nb_var<<"\n";
 			throw std::logic_error("tmp_nb_var not equal to nb_var");
 		}
 	}
@@ -8515,7 +8520,7 @@ FiniteElement::wimPostRegrid()
     M_collect_wavespec  = false;
 
     //wim.nextsim_mesh
-    wim.setMesh(M_mesh,M_UM,bamgmesh,true);//true means wim.assignSpatial() is called here
+    wim.setMesh(M_mesh,M_UM,bamgmesh,M_flag_fix,true);//true means wim.assignSpatial() is called here
 
     // pass back interpolated wave spectrum to new elements;
     // interpolation scheme interp2cavities is conservative
@@ -8694,7 +8699,7 @@ FiniteElement::initWim(int const pcpt)
     else
     {
         //init WIM on mesh
-        wim.init(M_mesh,bamgmesh,pcpt);
+        wim.init(M_mesh,bamgmesh,M_flag_fix,pcpt);
     }
 
     //check if we want to export the Stokes drift
@@ -8764,7 +8769,7 @@ FiniteElement::wimCall()
                 wim.setMesh(movedmesh);
             else if((M_wave_mode==setup::WaveMode::RUN_ON_MESH)&&(wim_cpt>0))
                 //NB setMesh() already called in init
-                wim.setMesh(movedmesh,bamgmesh);
+                wim.setMesh(movedmesh,bamgmesh,M_flag_fix);
 
             //set ice fields on mesh
             if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
@@ -8833,6 +8838,9 @@ FiniteElement::wimCall()
 
         //reset counter
         steps_since_last_wim_call   = 0;
+
+        //update counter
+        wim_cpt++;
     }//run WIM
 
     bool interp_taux = vm["nextwim.applywavestress"].as<bool>();
@@ -8844,27 +8852,30 @@ FiniteElement::wimCall()
     // TODO rethink this? (let them be advected? - this could lead to instability perhaps)
     if (M_wave_mode==setup::WaveMode::RUN_ON_MESH)
     {
-        if (M_export_wim_diags_mesh)
+        if(M_run_wim)
         {
-            std::vector<std::string> ss = {"Stokes_drift"};
-            if(interp_taux)
-                ss.push_back("Stress_waves_ice");
-
-            M_wim_fields_nodes  = wim.returnFieldsNodes(ss,movedmesh);
-
-            if(interp_taux)
+            if (M_export_wim_diags_mesh)
             {
-                M_tau   = M_wim_fields_nodes["Stress_waves_ice"];
-                M_wim_fields_nodes.erase("Stress_waves_ice");
+                std::vector<std::string> ss = {"Stokes_drift"};
+                if(interp_taux)
+                    ss.push_back("Stress_waves_ice");
+
+                M_wim_fields_nodes  = wim.returnFieldsNodes(ss,movedmesh);
+
+                if(interp_taux)
+                {
+                    M_tau   = M_wim_fields_nodes["Stress_waves_ice"];
+                    M_wim_fields_nodes.erase("Stress_waves_ice");
+                }
             }
+            else if (interp_taux)
+                wim.returnWaveStress(M_tau,movedmesh);
         }
-        else if (interp_taux)
-            wim.returnWaveStress(M_tau,movedmesh);
     }
     else if(interp_taux)
         wim.returnWaveStress(M_tau,movedmesh);
 
-    if((vm["simul.export_after_wim_call"].as<bool>()))
+    if(M_run_wim&&(vm["simul.export_after_wim_call"].as<bool>()))
     {
         std::string tmp_string3
             = ( boost::format( "after_wim_call_%1%" ) % wim_cpt ).str();
@@ -8876,8 +8887,6 @@ FiniteElement::wimCall()
     if((vm["nextwim.test_and_exit"].as<bool>()))
         throw std::runtime_error("Quitting after calling WIM\n");
 
-    //update counter
-    wim_cpt++;
 }//wimCall()
 #endif
 
