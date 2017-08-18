@@ -88,13 +88,14 @@ namespace MeshTools
 
 #if 1
     void advect(double** interp_elt_out_ptr, // pointer to pointer to output data
-        double* interp_elt_in,      // pointer to input data
-        mesh_info_type_dbl* mesh_info,        // pointer to structure with mesh info: positions of nodes and elements,
-                                    //  index (maps elements to nodes), element connectivity
-        double* VC_in,              // pointer to convective velocities (len = 2*num_nodes)
-        int* interp_method,         // pointer to interp methods for each variable
-        int nb_var,                 // number of variables
-        double time_step);          // time step (s)
+        double* interp_elt_in,               // pointer to input data
+        mesh_info_type_dbl* mesh_info,       // pointer to structure with mesh info: positions of nodes and elements,
+                                             //  index (maps elements to nodes), element connectivity
+        double* VC_in,                       // pointer to convective velocities (len = 2*num_nodes)
+        int* interp_method,                  // pointer to interp methods for each variable
+        int nb_var,                          // number of variables
+        double time_step,                    // time step (s)
+        double* inc_values);                 // pointer to values coming in from open boundaries (len = nb_var)
 #endif
     //void diffuse
 

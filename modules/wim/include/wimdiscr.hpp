@@ -298,7 +298,8 @@ public:
     //===========================================================================
     //advection/attenuation
     void advectDirections( value_type_vec2d& Sdir, value_type_vec const& ag2d_eff);
-    void advectDirectionsMesh( value_type_vec2d& Sdir, value_type_vec& ag2d_eff);
+    void advectDirectionsMesh( value_type_vec2d& Sdir, value_type_vec& ag2d_eff,
+            value_type_vec const& boundary_vals);
     void attenSimple(
             value_type_vec2d& Sdir, value_type_vec& Sfreq,
             value_type_vec& taux_omega,value_type_vec& tauy_omega,
@@ -323,7 +324,6 @@ public:
     void intWaveSpec();//TODO test this
     void intDirns(value_type_vec2d const& Sdir, value_type_vec& Sfreq,
             value_type_vec& sdx_omega, value_type_vec& sdy_omega);
-    //void calcMWD();
 
     void idealWaveFields(value_type const xfac);
     void idealIceFields (value_type const xfac);
@@ -400,6 +400,7 @@ private:
     value_type_vec wavedir, wt_theta;//dimension of wavedir
     value_type_vec wt_simp, wt_om, freq_vec, vec_period, wlng, ag, ap;//dimension of freq
     value_type_vec Hs,Tp,mwd,M_steady_mask;
+    value_type_vec2d M_open_boundary_vals;
 
     //value_type_vec ice_mask, icec, iceh;
     value_type_vec swh_in_array,mwp_in_array,mwd_in_array,

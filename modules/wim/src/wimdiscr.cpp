@@ -825,6 +825,11 @@ void WimDiscr<T>::assign()
     std::for_each(ag.begin(), ag.end(), [&](value_type& f){ f = f/2. ; });
     // =============================================
 
+    //if running on mesh, take these values as input from open boundaries
+    //default is zero, unless using ideal waves and "steady" option
+    value_type_vec ztmp(nwavedirn,0.);
+    M_open_boundary_vals.assign(nwavefreq,ztmp);
+
 }//end: assign()
 
 template<typename T>
@@ -1112,6 +1117,23 @@ void WimDiscr<T>::idealWaveFields(value_type const xfac)
     }
 
     this->setIncWaveSpec(wave_mask);
+
+    if(M_steady)
+    {
+        bool set_steady = true;
+        int i = 0;
+        while(set_steady&&(i<M_num_elements))
+        {
+            if(wave_mask[i]>.5)
+            {
+                set_steady  = false;
+                for(int fq=0;fq<nwavefreq;fq++)
+                    for(int nth=0;nth<nwavedirn;nth++)
+                        M_open_boundary_vals[fq][nth] = sdf_dir[fq][nth][i];
+            }
+        }
+    }
+
 }//idealWaveFields
 
 
@@ -1365,7 +1387,7 @@ void WimDiscr<T>::setIncWaveSpec(value_type_vec const& wave_mask)
     }
 #endif
 
-    if(M_steady&&(M_cpt==0))
+    if(M_steady&&(M_cpt==0)&&(!M_wim_on_mesh))
     {
         M_steady_mask = wave_mask;
         sdf_inc       = sdf_dir;
@@ -1558,7 +1580,7 @@ void WimDiscr<T>::timeStep()
 
     dom = 2*PI*(freq_vec[nwavefreq-1]-freq_vec[0])/(nwavefreq-1);
 
-    if (M_steady)
+    if (M_steady&&(!M_wim_on_mesh))//if wim on mesh, use M_open_boundary_vals instead
     {
         for (int fq = 0; fq < nwavefreq; fq++)
             for (int nth = 0; nth < nwavedirn; nth++)
@@ -1663,7 +1685,7 @@ void WimDiscr<T>::timeStep()
         if (!M_wim_on_mesh)
             this->advectDirections(sdf_dir[fq],ag_eff[fq]);
         else
-            this->advectDirectionsMesh(sdf_dir[fq],agnod_eff[fq]);
+            this->advectDirectionsMesh(sdf_dir[fq],agnod_eff[fq],M_open_boundary_vals[fq]);
 
         //do attenuation &/or scattering, and integrate over directions 
         //std::cout<<"attenuating\n";
@@ -3423,7 +3445,7 @@ void WimDiscr<T>::advectDirections(value_type_vec2d& Sdir,value_type_vec const& 
 }//advectDirections()
 
 template<typename T>
-void WimDiscr<T>::advectDirectionsMesh(value_type_vec2d& Sdir,value_type_vec & agnod)
+void WimDiscr<T>::advectDirectionsMesh(value_type_vec2d& Sdir,value_type_vec & agnod,value_type_vec const &boundary_vals)
 {
 
     int Nnod = nextsim_mesh.num_nodes;
@@ -3442,6 +3464,7 @@ void WimDiscr<T>::advectDirectionsMesh(value_type_vec2d& Sdir,value_type_vec & a
     {
         value_type adv_dir = -PI*(90.0+wavedir[nth])/180.0;
         value_type_vec VC(2*Nnod,0.);
+        value_type_vec bvals    = {boundary_vals[nth]};
 
         // set wave speeds
         // - subtract average mesh velocity
@@ -3456,7 +3479,7 @@ void WimDiscr<T>::advectDirectionsMesh(value_type_vec2d& Sdir,value_type_vec & a
         //do advection
         //std::cout<<"advectDirectionsMesh: calling MeshTools::advect()\n";
         MeshTools::advect(&advect_out,&(Sdir[nth])[0],&nextsim_mesh,
-            &VC[0],&adv_method[0],nb_var,M_timestep);
+            &VC[0],&adv_method[0],nb_var,M_timestep,&bvals[0]);
 
         // copy from 2D temporary array back to 3D input array
 #pragma omp parallel for num_threads(max_threads) collapse(1)

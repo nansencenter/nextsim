@@ -423,7 +423,9 @@ advect(double** interp_elt_out_ptr,     // pointer to pointer to output data
         double* VC_in,                  // pointer to convective velocities (len = 2*num_nodes)
         int* interp_method,             // pointer to interp methods for each variable
         int nb_var,                     // number of variables
-        double time_step)               // time step (s)
+        double time_step,               // time step (s)
+        double* inc_values)             // values incoming from open boundaries
+                                        // - currently just specify a constant (ie spatially invariant) value for each variable
 {
 
     //general variables
@@ -437,10 +439,6 @@ advect(double** interp_elt_out_ptr,     // pointer to pointer to output data
 	double* interp_elt_out=NULL;
     interp_elt_out=xNew<double>(nb_var*Nels);
 
-    // value incoming from open boundaries
-    // - currently just specify a constant (ie spatially invariant) value for each variable
-    // TODO make this an input
-    std::vector<double> inc_value(nb_var,0.);
 
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < Nels; ++cpt)
@@ -531,7 +529,7 @@ advect(double** interp_elt_out_ptr,     // pointer to pointer to output data
                     else
                     {
                         // open boundary - zero flux coming in
-                        fluxes_source_id[i] = -1;//flag to use inc_value
+                        fluxes_source_id[i] = -1;//flag to use inc_values
                     }
                 }//on boundary
             }//incoming fluxes
@@ -549,7 +547,7 @@ advect(double** interp_elt_out_ptr,     // pointer to pointer to output data
                     if(fluxes_source_id[i]>=0)
                         tmp += interp_elt_in[fluxes_source_id[i]*nb_var+j]*outer_fluxes_area[i];
                     else
-                        tmp += inc_value[j]*outer_fluxes_area[i];
+                        tmp += inc_values[j]*outer_fluxes_area[i];
                 interp_elt_out[cpt*nb_var+j] = interp_elt_in[cpt*nb_var+j] - (tmp/surface)*time_step;
             }
             else

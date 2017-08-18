@@ -8878,7 +8878,7 @@ FiniteElement::wimCall()
     if(M_run_wim&&(vm["simul.export_after_wim_call"].as<bool>()))
     {
         std::string tmp_string3
-            = ( boost::format( "after_wim_call_%1%" ) % wim_cpt ).str();
+            = ( boost::format( "after_wim_call_%1%" ) % wim_cpt-1 ).str();
         this->exportResults(tmp_string3);
     }
 
