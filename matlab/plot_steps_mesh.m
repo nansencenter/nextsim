@@ -43,6 +43,7 @@ other_prams.figdir      = [rootdir,'/figs'];%%default place to save figures
 po_def.visible       = 0;
 po_def.apply_mask    = 1;
 po_def.save_figure   = 0;
+po_def.no_error      = 1;
 
 if ~exist('step_range','var'); step_range  = []; end
 if ~ischar(step_range)
