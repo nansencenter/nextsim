@@ -8668,7 +8668,6 @@ FiniteElement::initWim(int const pcpt)
     // - need pcpt to get correct initial start time if restarting
     if(!(M_wave_mode==setup::WaveMode::RUN_ON_MESH))
     {
-        std::cout<<"8668\n";
         // - initialise grid using mesh if no gridfilename is present
         std::string wim_gridfile = vm["wim.gridfilename"].as<std::string>();
         if ( wim_gridfile != "" )
@@ -8878,7 +8877,7 @@ FiniteElement::wimCall()
     if(M_run_wim&&(vm["simul.export_after_wim_call"].as<bool>()))
     {
         std::string tmp_string3
-            = ( boost::format( "after_wim_call_%1%" ) % wim_cpt-1 ).str();
+            = ( boost::format( "after_wim_call_%1%" ) % (wim_cpt-1) ).str();
         this->exportResults(tmp_string3);
     }
 

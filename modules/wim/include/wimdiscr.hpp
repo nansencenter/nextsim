@@ -349,14 +349,14 @@ public:
 
     //for use at regridding time (M_wim_on_mesh)
     value_type_vec getMeshDisplacement() const { return M_UM; }
-    value_type_vec3d getWaveSpec() const { return sdf_dir; }
+    value_type_vec3d getWaveSpec() const { return M_sdf_dir; }
     void setRelativeMeshDisplacement(value_type_vec const&um_in) { M_UM = um_in; return; }
     void setWaveSpec(value_type_vec3d const&sdf_in)
     {
         // reset wave spectrum after regrid;
         // also integrate if now so that initial wave fields are correct
         // and so they are ready for export;
-        sdf_dir = sdf_in;
+        M_sdf_dir = sdf_in;
         this->intWaveSpec();
         return;
     }
@@ -381,11 +381,11 @@ private:
                 SCP2_array, SCP2I_array, LANDMASK_array;
     std::vector<value_type> x_col,y_row;
 
-    value_type M_cfl, M_length_cfl;
+    value_type M_cfl, M_length_cfl, M_max_cg;
     value_type M_current_time;
-    value_type dom, guess, Tmin, Tmax, gravity, om;
+    value_type Tmin, Tmax, gravity;
     value_type xmax, ym, x0, y0, dx, dy, x_edge, unifc, unifh,
-               dfloe_pack_init, dfloe_pack_thresh, amin, M_max_cg;
+               dfloe_pack_init, dfloe_pack_thresh, amin;
     value_type rhowtr, rhoice, poisson, dmin, xi, fragility, cice_min, dfloe_miz_thresh,
                young, drag_rp, kice, kwtr, int_adm, modT, argR, argT, rhoi, rho, rhow;
     value_type fmin, fmax, df, epsc, sigma_c, vbf, vb, flex_rig_coeff;
@@ -403,23 +403,27 @@ private:
     value_type_vec2d M_open_boundary_vals;
 
     //value_type_vec ice_mask, icec, iceh;
-    value_type_vec swh_in_array,mwp_in_array,mwd_in_array,
-                dave, atten_dim, damp_dim;// ag2d_eff_temp;
+    value_type_vec M_swh_in,M_mwp_in,M_mwd_in;
+    value_type_vec M_dave, M_atten_dim, M_damp_dim;
 
     //depend on freq and position
-    value_type_vec2d ag_eff, agnod_eff, ap_eff, wlng_ice, atten_nond, damping, disp_ratio;
+    value_type_vec2d M_ag_eff, M_agnod_eff, M_ap_eff, M_wlng_ice, M_atten_nond, M_damping, M_disp_ratio;
 
     //depend on freq, dirn and position
-    value_type_vec3d sdf_dir, sdf_inc;
+    value_type_vec3d M_sdf_dir;
+    value_type_vec3d M_sdf_dir_inc;//
 
-    value_type_vec S_freq, taux_om, tauy_om,
-                stokes_drift_x_om, stokes_drift_y_om;
-    value_type_vec hp;
-    value_type_vec Fdmax, Ftaux, Ftauy, Fhs, Ftp;
+    //these are only temporary vectors, but they are global in order to
+    //save creating and destroying them extremely often
+    value_type_vec Mtmp_sdf_freq;                                   //for mom0 integral
+    value_type_vec Mtmp_taux_om, Mtmp_tauy_om;                      //for taux,tau_y integrals
+    value_type_vec Mtmp_stokes_drift_x_om, Mtmp_stokes_drift_y_om;  //for mwd_x,mwd_y, stokes_drift_x,stokes_drift_y integrals
+    value_type_vec Mtmp_mom0,Mtmp_mom2,Mtmp_var_strain;
+    value_type_vec Mtmp_mom0w,Mtmp_mom2w;
 
     //std::vector<value_type> dfloe, nfloes;
     value_type_vec mwd_x, mwd_y, tau_x, tau_y,stokes_drift_x,stokes_drift_y;//row-major order (C)
-    bool break_on_mesh;
+    bool M_break_on_mesh;
 
     boost::mpi::timer chrono;
     std::string init_time_str;
