@@ -9,6 +9,8 @@
  * (eg so they can be called from the WIM)
  */
 
+#ifndef __MESHTOOLS_H
+#define __MESHTOOLS_H 1
 
 //#include <solverpetsc.hpp>
 //#include <boost/ptr_container/ptr_vector.hpp>
@@ -107,3 +109,4 @@ namespace MeshTools
     // ==========================================================================================
 
 } // namespace MeshTools
+#endif

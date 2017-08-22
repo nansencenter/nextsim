@@ -180,12 +180,12 @@ public:
     void saveLog(value_type const& t_out) const;
     void saveOptionsLog();
 
-    void init1();
+    void init1(int const& nextsim_cpt);
     void init(int const& nextsim_cpt=0);
     void init(mesh_type const &mesh,int const& nextsim_cpt=0);
     void init(mesh_type const &mesh,BamgMesh* bamgmesh,int const& flag_fix,int const& nextsim_cpt=0);
 
-    void init2(int const& nextsim_cpt);
+    void init2();
     void initConstant(int const& nextsim_cpt);
     void assign();
     void assignSpatial();
@@ -364,12 +364,6 @@ public:
     std::string getWimGridFilename() const { return wim_gridfile; }
     //std::vector<int> getWimShape();
 
-    std::vector<value_type> getTaux() const { return tau_x; }
-    std::vector<value_type> getTauy() const { return tau_y; }
-    std::vector<value_type> getStokesDriftx() const { return stokes_drift_x; }
-    std::vector<value_type> getStokesDrifty() const { return stokes_drift_y; }
-    std::vector<value_type> getNfloes() const { return wim_ice.nfloes; }
-
 
 private:
 
@@ -384,34 +378,42 @@ private:
     value_type M_cfl, M_length_cfl, M_max_cg;
     value_type M_current_time;
     value_type Tmin, Tmax, gravity;
-    value_type xmax, ym, x0, y0, dx, dy, x_edge, unifc, unifh,
-               dfloe_pack_init, dfloe_pack_thresh, amin;
+    value_type xmax, ym, x0, y0, dx, dy, x_edge;
+    value_type dfloe_pack_init, dfloe_pack_thresh;
     value_type rhowtr, rhoice, poisson, dmin, xi, fragility, cice_min, dfloe_miz_thresh,
-               young, drag_rp, kice, kwtr, int_adm, modT, argR, argT, rhoi, rho, rhow;
-    value_type fmin, fmax, df, epsc, sigma_c, vbf, vb, flex_rig_coeff;
-    value_type M_timestep,duration;
+               young, drag_rp;
+    value_type epsc, sigma_c, vbf, vb, flex_rig_coeff;
+    value_type kice, kwtr, int_adm, modT, argR, argT, rhoi, rho, rhow;//TODO these are temporary?
+    value_type M_timestep,M_duration;
+    int M_num_timesteps;
 
-    int nwavedirn, nwavefreq, M_advdim, ncs ,nt;
+    int nwavedirn, nwavefreq, M_advdim;
     bool ref_Hs_ice, atten, useicevel, M_steady, breaking;
     bool M_dump_diag;
     bool docoupling;
     std::string scatmod, M_advopt, fsdopt;
     std::string wim_gridfile;
-    value_type_vec wavedir, wt_theta;//dimension of wavedir
-    value_type_vec wt_simp, wt_om, freq_vec, vec_period, wlng, ag, ap;//dimension of freq
-    value_type_vec Hs,Tp,mwd,M_steady_mask;
-    value_type_vec2d M_open_boundary_vals;
 
-    //value_type_vec ice_mask, icec, iceh;
+    //dimension of wavedir
+    value_type_vec M_wavedir, M_quadrature_wt_dir;
+    
+    //dimension of freq
+    value_type_vec M_quadrature_wt_freq, M_freq_vec;
+    value_type_vec M_wlng_wtr, M_ag_wtr, M_ap_wtr;
+
+    //dimension of space
+    value_type_vec M_Hs,M_Tp,M_mwd;
     value_type_vec M_swh_in,M_mwp_in,M_mwd_in;
-    value_type_vec M_dave, M_atten_dim, M_damp_dim;
+    value_type_vec M_dave;
 
     //depend on freq and position
     value_type_vec2d M_ag_eff, M_agnod_eff, M_ap_eff, M_wlng_ice, M_atten_nond, M_damping, M_disp_ratio;
 
     //depend on freq, dirn and position
+    value_type_vec2d M_open_boundary_vals;
     value_type_vec3d M_sdf_dir;
     value_type_vec3d M_sdf_dir_inc;//
+    value_type_vec M_steady_mask;//TODO for grid advection, make steady a boundary condition
 
     //these are only temporary vectors, but they are global in order to
     //save creating and destroying them extremely often
@@ -420,19 +422,19 @@ private:
     value_type_vec Mtmp_stokes_drift_x_om, Mtmp_stokes_drift_y_om;  //for mwd_x,mwd_y, stokes_drift_x,stokes_drift_y integrals
     value_type_vec Mtmp_mom0,Mtmp_mom2,Mtmp_var_strain;
     value_type_vec Mtmp_mom0w,Mtmp_mom2w;
+    value_type_vec Mtmp_atten_dim, Mtmp_damp_dim;
 
-    //std::vector<value_type> dfloe, nfloes;
-    value_type_vec mwd_x, mwd_y, tau_x, tau_y,stokes_drift_x,stokes_drift_y;//row-major order (C)
-    bool M_break_on_mesh;
+    value_type_vec M_mwd_x, M_mwd_y, M_tau_x, M_tau_y,M_stokes_drift_x,M_stokes_drift_y;//row-major order (C)
 
+    int M_max_threads;
     boost::mpi::timer chrono;
-    std::string init_time_str;
-    value_type M_restart_time = 0.;//time of restarting, relative to init_time
-    value_type M_update_time  = 0;//time of start of call to wim.run(), relative to init_time
-    value_type M_time_mesh_set = 0;//time of start of call to wim.run(), relative to init_time
+
+    std::string M_init_time_str;
+    value_type M_restart_time = 0.;// time of restarting, relative to init_time
+    value_type M_update_time  = 0; // time of start of call to wim.run(), relative to init_time
+    value_type M_time_mesh_set = 0;// time of start of call to wim.run(), relative to init_time
     int M_cpt = 0;//global counter
     int M_num_elements;
-    int max_threads;
     bool M_regular = false;
     bool M_initialised_ice = false;
     bool M_initialised_waves = false;
@@ -448,11 +450,12 @@ private:
     IceInfo wim_ice, nextsim_ice;
     std::vector<int> wet_indices;
 
-    // =========================================================================
-    //to run WIM on nextsim mesh
-    bool M_wim_on_mesh = false;
-    value_type_vec M_UM;//displacement of mesh nodes between calls to wim.run()
-                        //- for correction to group velocity at advection time
+    bool M_break_on_mesh = false;// do breaking on nextsim mesh as well as on grid
+    bool M_wim_on_mesh   = false;// to run WIM on nextsim mesh
+    
+    value_type_vec M_UM;// displacement of mesh nodes between calls to wim.run()
+                        // - only used if running WIM on nextsim mesh
+                        // - for correction to group velocity at advection time
     // =========================================================================
 
     MeshInfo mesh_info_tmp = {
