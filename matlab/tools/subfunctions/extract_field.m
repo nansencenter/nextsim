@@ -60,9 +60,13 @@ function [field_tmp, field_plotted]=extract_field(field,data_out,dirname,step,si
      fld = 'Thickness';
      [field_tmp]=get_and_check(fld,data_out,dirname,step);
 
-     fld = 'Thin_ice';
-     [field_tmp2]=get_and_check(fld,data_out,dirname,step);
-     
+     try
+          fld = 'Thin_ice';
+          [field_tmp2]=get_and_check(fld,data_out,dirname,step);
+     catch
+     	  field_tmp2=0.;
+     end
+
      field_tmp = field_tmp+field_tmp2;
      field_plotted='Thick and thin ice thickness';
   elseif strcmp(field,'Ice_thickness')
@@ -90,9 +94,14 @@ function [field_tmp, field_plotted]=extract_field(field,data_out,dirname,step,si
      fld = 'Concentration';
      [field_tmp]=get_and_check(fld,data_out,dirname,step);
 
-     fld = 'Concentration_thin_ice';
-     [field_tmp2]=get_and_check(fld,data_out,dirname,step);     
+     try
+     	fld = 'Concentration_thin_ice';
+     	[field_tmp2]=get_and_check(fld,data_out,dirname,step);     
+     catch
+        field_tmp2=0.;	
+     end
      field_tmp = field_tmp+field_tmp2;
+
      field_plotted='Thick and thin ice concentration';
   elseif strcmp(field,'Critical_external_stress')
      fld = 'Concentration';
