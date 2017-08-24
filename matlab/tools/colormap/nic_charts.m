@@ -1,4 +1,4 @@
-function map = NIC_charts(varargin)
+function map = nic_charts(varargin)
 %GRAY2RED  colormap used for NIC ice charts
 %
 %   MAP = NIC_charts
