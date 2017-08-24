@@ -11,7 +11,7 @@
 #include <constants.hpp>
 
 #if defined (WAVES)
-#include <wimoptions.hpp>
+#include <options_wim.hpp>
 #endif
 
 namespace po = boost::program_options;
