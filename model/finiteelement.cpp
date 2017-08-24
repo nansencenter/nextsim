@@ -372,6 +372,8 @@ FiniteElement::initDatasets()
     M_ice_amsr2_elements_dataset=DataSet("ice_amsr2_elements",M_num_elements);
     
     M_ice_nic_elements_dataset=DataSet("ice_nic_elements",M_num_elements);
+    
+    M_ice_nic_weekly_elements_dataset=DataSet("ice_nic_weekly_elements",M_num_elements);
 
     M_ice_cs2_smos_elements_dataset=DataSet("ice_cs2_smos_elements",M_num_elements);
 
@@ -658,6 +660,7 @@ FiniteElement::initConstant()
         ("topaz_forecast_amsr2", setup::IceType::TOPAZ4FAMSR2)
         ("topaz_forecast_amsr2_osisaf", setup::IceType::TOPAZ4FAMSR2OSISAF)
         ("topaz_forecast_amsr2_osisaf_nic", setup::IceType::TOPAZ4FAMSR2OSISAFNIC)
+        ("topaz_forecast_amsr2_osisaf_nic_weekly", setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY)
         ("amsre", setup::IceType::AMSRE)
         ("amsr2", setup::IceType::AMSR2)
         ("osisaf", setup::IceType::OSISAF)
@@ -6463,7 +6466,8 @@ FiniteElement::initIce()
             this->topazForecastAmsr2OsisafIce();
             break;
         case setup::IceType::TOPAZ4FAMSR2OSISAFNIC:
-            this->topazForecastAmsr2OsisafNicIce();
+        case setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY:
+            this->topazForecastAmsr2OsisafNicIce(M_ice_type==setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY);
             break;
         case setup::IceType::PIOMAS:
             this->piomasIce();
@@ -6555,7 +6559,8 @@ FiniteElement::assimilateIce()
             this->assimilate_topazForecastAmsr2OsisafIce();
             break;
         case setup::IceType::TOPAZ4FAMSR2OSISAFNIC:
-            this->assimilate_topazForecastAmsr2OsisafNicIce();
+        case setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY:
+            this->assimilate_topazForecastAmsr2OsisafNicIce(M_ice_type==setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY);
             break;
         default:
             std::cout << "invalid choice for data assimilation of the ice"<<"\n";
@@ -7091,7 +7096,7 @@ FiniteElement::topazForecastAmsr2Ice()
 	}
 }
 void
-FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce()
+FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 {
     double real_thickness, init_conc_tmp;
 
@@ -7102,7 +7107,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce()
     external_data M_amsr2_conc=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init-0.5);
     
     external_data M_nic_conc=ExternalData(&M_ice_nic_elements_dataset,M_mesh,0,false,time_init-0.5);
-
+    
     external_data M_topaz_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
 
     external_data M_topaz_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
@@ -7114,6 +7119,12 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce()
     M_external_data_tmp.push_back(&M_osisaf_type);
     M_external_data_tmp.push_back(&M_amsr2_conc);
     M_external_data_tmp.push_back(&M_nic_conc);
+    if(use_weekly_nic)
+    {
+        external_data M_nic_weekly_conc=ExternalData(&M_ice_nic_weekly_elements_dataset,M_mesh,0,false,time_init-0.5);
+        M_external_data_tmp.push_back(&M_nic_weekly_conc);
+    }
+
     this->checkReloadDatasets(M_external_data_tmp,time_init-0.5,
             "init - OSISAF - AMSR2 - NIC");
     
@@ -7519,7 +7530,7 @@ FiniteElement::topazForecastAmsr2OsisafIce()
 	}
 }
 void
-FiniteElement::topazForecastAmsr2OsisafNicIce()
+FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 {
     double real_thickness, init_conc_tmp;
 
@@ -7530,7 +7541,7 @@ FiniteElement::topazForecastAmsr2OsisafNicIce()
     external_data M_amsr2_conc=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init-0.5);
     
     external_data M_nic_conc=ExternalData(&M_ice_nic_elements_dataset,M_mesh,0,false,time_init-0.5);
-
+    
     external_data M_topaz_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
 
     external_data M_topaz_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
@@ -7542,6 +7553,12 @@ FiniteElement::topazForecastAmsr2OsisafNicIce()
     M_external_data_tmp.push_back(&M_osisaf_type);
     M_external_data_tmp.push_back(&M_amsr2_conc);
     M_external_data_tmp.push_back(&M_nic_conc);
+    if(use_weekly_nic)
+    {
+        external_data M_nic_weekly_conc=ExternalData(&M_ice_nic_weekly_elements_dataset,M_mesh,0,false,time_init-0.5);
+        M_external_data_tmp.push_back(&M_nic_weekly_conc);
+    }
+    
     this->checkReloadDatasets(M_external_data_tmp,time_init-0.5,
             "init - OSISAF - AMSR2");
     

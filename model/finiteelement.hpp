@@ -149,6 +149,7 @@ public:
     Dataset M_ice_osisaf_type_elements_dataset;
     Dataset M_ice_amsr2_elements_dataset;
     Dataset M_ice_nic_elements_dataset;
+    Dataset M_ice_nic_weekly_elements_dataset;
     Dataset M_ice_cs2_smos_elements_dataset;
     Dataset M_ice_smos_elements_dataset;
 #if defined (WAVES)
@@ -531,9 +532,9 @@ private:
     void topazForecastIce();
     void topazForecastAmsr2Ice();
     void topazForecastAmsr2OsisafIce();
-    void topazForecastAmsr2OsisafNicIce();
+    void topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
     void assimilate_topazForecastAmsr2OsisafIce();
-    void assimilate_topazForecastAmsr2OsisafNicIce();
+    void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
     void cs2SmosIce();
     void cs2SmosAmsr2Ice();
     void warrenClimatology();

@@ -55,7 +55,8 @@ namespace setup
         SMOS                = 16,
         BINARY              = 17,
         TOPAZ4OSISAFICESAT  = 18,
-        TOPAZ4FAMSR2OSISAFNIC= 19
+        TOPAZ4FAMSR2OSISAFNIC= 19,
+        TOPAZ4FAMSR2OSISAFNICWEEKLY= 20
 	};
 
     enum class WaveType

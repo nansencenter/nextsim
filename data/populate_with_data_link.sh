@@ -39,6 +39,7 @@ ln -s $NEXTSIM_DATADIR/CFSR/*.nc .
 ln -s $NEXTSIM_DATADIR/CS2_SMOS_v13/*.nc .
 ln -s $NEXTSIM_DATADIR/AMSR2_ice_conc/*.nc .
 ln -s $NEXTSIM_DATADIR/NIC_ice_charts/*.nc .
+ln -s $NEXTSIM_DATADIR/NIC_weekly_ice_charts/*.nc .
 ln -s $NEXTSIM_DATADIR/SIT_data/icesat_filled_10prods/*.nc .
 ln -s $NEXTSIM_DATADIR/currents_from_altimeter/*.nc .
 ln -s $NEXTSIM_DATADIR/RGPS_ice_drift/trajectories/*.txt .
