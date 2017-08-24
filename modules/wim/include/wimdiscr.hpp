@@ -114,6 +114,7 @@ public:
 
 public:
 
+    // ====================================================================================
     //constructors
     WimDiscr()
         :
@@ -128,6 +129,11 @@ public:
         nx(vm["wim.nx"].template as<int>()),
         ny(vm["wim.ny"].template as<int>())
     {}
+    // ====================================================================================
+
+
+    // ====================================================================================
+    // functions
 
     //make a grid
     void gridProcessing();
@@ -150,11 +156,6 @@ public:
     void exportMesh(std::string const &filename);
     void testMesh();
 
-    void testInterp(std::string const& output_type,
-                    value_type const& t_out,
-                    std::vector<std::vector<value_type>> const& vectors,
-                    std::vector<std::string> const& names
-                    ) const;
     void saveLog(value_type const& t_out) const;
     void saveOptionsLog();
 
