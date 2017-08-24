@@ -83,6 +83,9 @@ public:
         bool NaN_mask_defined;
         double NaN_mask_value;
 
+        bool use_FillValue;
+        bool use_missing_value;
+
         // Information on the unit transform
         double a;           // scale_factor defined by us to have the data in the units system used by nextsim
         double b;           // add_offset defined by us to have the data in the units system used by nextsim
