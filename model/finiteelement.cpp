@@ -7184,25 +7184,29 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce()
         double thin_conc_obs;
         double thin_conc_obs_min, thin_conc_obs_max;
         double alpha_up;
+
+                
         if(M_nic_conc[i]<=0.45)
         {
             alpha_up=(0.45-M_nic_conc[i])/0.45;
             thin_conc_obs_min=0.*alpha_up+0.1*(1-alpha_up);
             thin_conc_obs_max=0.1*alpha_up+0.8*(1-alpha_up);
         }
-        else 
+        else if(M_nic_conc[i]<=0.9)
         {
-            if(M_nic_conc[i]<=0.9)
-            {
-                alpha_up=(0.9-M_nic_conc[i])/0.45;
-                thin_conc_obs_min=0.1*alpha_up+0.8*(1-alpha_up);
-                thin_conc_obs_max=0.8*alpha_up+1.0*(1-alpha_up);
-            }
-            else
-            {
-                thin_conc_obs_min=0.8;
-                thin_conc_obs_max=1.;
-            }
+            alpha_up=(0.9-M_nic_conc[i])/0.45;
+            thin_conc_obs_min=0.1*alpha_up+0.8*(1-alpha_up);
+            thin_conc_obs_max=0.8*alpha_up+1.0*(1-alpha_up);
+        }
+        else if(M_nic_conc[i]<=1.)
+        {
+            thin_conc_obs_min=0.8;
+            thin_conc_obs_max=1.;
+        }
+        else // should not happen
+        {
+            thin_conc_obs_min=1.;
+            thin_conc_obs_max=1.;
         }
         
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
@@ -7625,7 +7629,7 @@ FiniteElement::topazForecastAmsr2OsisafNicIce()
         }
         
         M_ridge_ratio[i]=M_ridge_ratio[i]*M_conc[i]; 
-        // Icesat gives the actual thickness (see "Uncertainties in Arctic sea ice thickness and volume: new estimates and implications for trends")
+        // M_thick was until here the actual thickness
         M_thick[i]=M_thick[i]*M_conc[i];
             
         //if either c or h equal zero, we set the others to zero as well
@@ -7647,20 +7651,23 @@ FiniteElement::topazForecastAmsr2OsisafNicIce()
             thin_conc_obs_min=0.05*alpha_up+0.45*(1-alpha_up);
             thin_conc_obs_max=0.05*alpha_up+0.45*(1-alpha_up);
         }
-        else 
+        else if(M_nic_conc[i]<=0.9)
         {
-            if(M_nic_conc[i]<=0.9)
-            {
-                alpha_up=(0.9-M_nic_conc[i])/0.45;
-                thin_conc_obs_min=0.45*alpha_up+0.9*(1-alpha_up);
-                thin_conc_obs_max=0.45*alpha_up+0.9*(1-alpha_up);
-            }
-            else
-            {
-                thin_conc_obs_min=0.9;
-                thin_conc_obs_max=0.9;
-            }
+            alpha_up=(0.9-M_nic_conc[i])/0.45;
+            thin_conc_obs_min=0.45*alpha_up+0.9*(1-alpha_up);
+            thin_conc_obs_max=0.45*alpha_up+0.9*(1-alpha_up);
         }
+        else if(M_nic_conc[i]<=1.)
+        {
+            thin_conc_obs_min=0.9;
+            thin_conc_obs_max=0.9;
+        }
+        else // should not happen
+        {
+            thin_conc_obs_min=1.;
+            thin_conc_obs_max=1.;
+        }
+        
         
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
