@@ -633,27 +633,27 @@ void WimDiscr<T>::initConstant(int const& nextsim_cpt)
     nwavefreq   = vm["wim.nwavefreq"].template as<int>();
     Tmin        = vm["wim.tmin"].template as<double>(); /* 2.5 */
     Tmax        = vm["wim.tmax"].template as<double>(); /* 25. */
-    ref_Hs_ice  = vm["wim.refhsice"].template as<bool>();
-    atten       = vm["wim.atten"].template as<bool>();
-    useicevel   = vm["wim.useicevel"].template as<bool>();
+    M_ref_Hs_ice  = vm["wim.refhsice"].template as<bool>();
+    M_atten       = vm["wim.atten"].template as<bool>();
+    M_useicevel   = vm["wim.useicevel"].template as<bool>();
     M_steady    = vm["wim.steady"].template as<bool>();
-    scatmod     = vm["wim.scatmod"].template as<std::string>();
+    M_scatmod     = vm["wim.scatmod"].template as<std::string>();
 
     // ice parameters
-    breaking            = vm["wim.breaking"].template as<bool>();
-    fsdopt              = vm["wim.fsdopt"].template as<std::string>();
-    dfloe_pack_init     = vm["wim.dfloepackinit"].template as<double>(); /* 300.0 */
-    dfloe_pack_thresh   = vm["wim.dfloepackthresh"].template as<double>(); /* 400.0 */
-    young               = vm["wim.young"].template as<double>();
-    drag_rp             = vm["wim.dragrp"].template as<double>();
+    M_breaking          = vm["wim.breaking"].template as<bool>();
+    //fsdopt              = vm["wim.fsdopt"].template as<std::string>();
+    M_dfloe_pack_init   = vm["wim.dfloepackinit"].template as<double>(); /* 300.0 */
+    //dfloe_pack_thresh   = vm["wim.dfloepackthresh"].template as<double>(); /* 400.0 */
+    //young               = vm["wim.young"].template as<double>();
+    //drag_rp             = vm["wim.dragrp"].template as<double>();
 
     //numerical parameters
     M_advdim    = vm["wim.advdim"].template as<int>();
     M_advopt    = vm["wim.advopt"].template as<std::string>();
     M_cfl       = vm["wim.cfl"].template as<double>();
 
-    if (useicevel)
-        throw std::runtime_error("useicevel=true not implemented\n");
+    if (M_useicevel)
+        throw std::runtime_error("M_useicevel=true not implemented\n");
 
     if(M_steady && (M_advopt=="xy-periodic"))
     {
@@ -662,6 +662,7 @@ void WimDiscr<T>::initConstant(int const& nextsim_cpt)
         throw std::runtime_error(tmps);
     }
 
+#if 0
     gravity             = 9.81;
     rhowtr              = 1025.;
     rhoice              = 922.5;
@@ -673,10 +674,9 @@ void WimDiscr<T>::initConstant(int const& nextsim_cpt)
     dfloe_miz_thresh    = 200.;
 
     vbf = 0.1;//brine volume fraction
-    vb = vbf;
     sigma_c  = (1.76e+6)*std::exp(-5.88*std::sqrt(vbf));//flexural strength (Pa)
     epsc = sigma_c/young;//breaking strain
-    flex_rig_coeff = young/(12.0*(1-std::pow(poisson,2.)));
+#endif
 
     //some options need to be disabled if being called from nextsim
     docoupling = !( vm.count("simul.use_wim")==0 );
@@ -728,6 +728,19 @@ void WimDiscr<T>::assign()
 {
     // this doesn't need to be called each time wim.run is called
     // - sets arrays with dimensions depending on frequency, wave dirn (never change)
+
+    // initialise IceInfo types 1st
+    // - NB don't set vectors yet
+#if 1
+    wim_ice.update(vm);
+    nextsim_ice.update(vm);
+#else
+    //doesn't compile with different constructor
+    //- error: use of deleted function ‘Wim::IceInfo<double>& Wim::IceInfo<double>::operator=(const Wim::IceInfo<double>&)'
+    wim_ice     = ice_type(vm);
+    nextsim_ice = ice_type(vm);
+#endif
+
     M_quadrature_wt_freq.resize(nwavefreq);
     M_freq_vec.resize(nwavefreq);
 
@@ -799,6 +812,7 @@ void WimDiscr<T>::assign()
     // vector of periods, open water wavelength, phase and group velocities
 
     // open water wavelengths
+    value_type gravity = wim_ice.gravity();
     M_wlng_wtr = M_freq_vec;
     std::for_each(M_wlng_wtr.begin(), M_wlng_wtr.end(), [&](value_type& f){ f = gravity/(2*PI*std::pow(f,2.)); });
 
@@ -826,11 +840,13 @@ void WimDiscr<T>::assignSpatial()
     // set sizes of arrays, initialises some others that are constant in time
 
     //2D var's
+#if 0
     wim_ice.mask.assign(M_num_elements,0.);
     wim_ice.conc.assign(M_num_elements,0.);
     wim_ice.thick.assign(M_num_elements,0.);
     wim_ice.dfloe.assign(M_num_elements,0.);
     wim_ice.nfloes.assign(M_num_elements,0.);
+#endif
     M_dave.assign(M_num_elements,0.);
 
 
@@ -857,7 +873,7 @@ void WimDiscr<T>::assignSpatial()
     Mtmp_var_strain.assign( M_num_elements, 0. );
     Mtmp_mom0w     .assign( M_num_elements, 0. );
     Mtmp_mom2w     .assign( M_num_elements, 0. );
-    if(atten)
+    if(M_atten)
     {
         Mtmp_atten_dim.assign(M_num_elements,0.);
         Mtmp_damp_dim.assign(M_num_elements,0.);
@@ -873,7 +889,7 @@ void WimDiscr<T>::assignSpatial()
     M_ap_eff.assign(nwavefreq,ztmp);
     M_wlng_ice.assign(nwavefreq,ztmp);
     M_disp_ratio.assign(nwavefreq,ztmp);
-    if(atten)
+    if(M_atten)
     {
         M_atten_nond.assign(nwavefreq,ztmp);
         M_damping.assign(nwavefreq,ztmp);
@@ -953,6 +969,9 @@ void WimDiscr<T>::updateWaveMedium()
     value_type_vec_ptrs ag_ptrs = {};   //input to interp
     value_type_vec_ptrs agnod_ptrs = {};//output from interp
 
+    std::vector<double> params = wim_ice.getAttenParams();
+    value_type drag_rp = wim_ice.dragRp();
+    value_type gravity = wim_ice.gravity();
     for (int fq = 0; fq < nwavefreq; fq++)
     {
         if(M_wim_on_mesh)
@@ -964,16 +983,17 @@ void WimDiscr<T>::updateWaveMedium()
 #pragma omp parallel for num_threads(M_max_threads) collapse(1)
         for (int i = 0; i < M_num_elements; i++)
         {
-            double params[5];
-            params[0] = young;
-            params[1] = gravity;
-            params[2] = rhowtr;
-            params[3] = rhoice;
-            params[4] = poisson;
+#if 0
+            params[0] = wim_ice.M_young;
+            params[1] = wim_ice.M_gravity;
+            params[2] = wim_ice.M_rhowtr;
+            params[3] = wim_ice.M_rhoice;
+            params[4] = wim_ice.M_poisson;
+#endif
 
             double outputs[8];
 
-            if (wim_ice.mask[i] >.5)
+            if (wim_ice.M_mask[i] >.5)
             {
                 value_type om = 2*PI*M_freq_vec[fq];
                 value_type guess = std::pow(om,2.)/gravity;
@@ -989,7 +1009,7 @@ void WimDiscr<T>::updateWaveMedium()
                     guess = 2*PI/M_wlng_ice[fq-1][i];
                 }
 
-                RTparam_outer(outputs,wim_ice.thick[i],double(om),double(drag_rp),double(guess),params);
+                RTparam_outer(outputs,wim_ice.M_thick[i],double(om),double(drag_rp),double(guess),&params[0]);
                 value_type kice    = outputs[1];
                 value_type kwtr    = outputs[2];
                 value_type int_adm = outputs[3];
@@ -997,7 +1017,7 @@ void WimDiscr<T>::updateWaveMedium()
                 value_type argR    = outputs[6];
                 value_type argT    = outputs[7];
 
-                if(atten)
+                if(M_atten)
                 {
                     M_damping[fq][i]      = outputs[0];
                     M_atten_nond[fq][i]   = outputs[4];
@@ -1011,9 +1031,9 @@ void WimDiscr<T>::updateWaveMedium()
                 {
                     std::cout<<"found NaN in some outputs of RTparam_outer at i,fq="<<i<<","<<fq<<"\n";
                     std::cout<<"\ninputs to RTparam_outer:\n";
-                    std::cout<<"h = "<<wim_ice.thick[i]<<"\n";
+                    std::cout<<"h = "<<wim_ice.M_thick[i]<<"\n";
                     std::cout<<"om = "<<om<<"\n";
-                    std::cout<<"drag_rp = "<<drag_rp<<"\n";
+                    std::cout<<"drag_rp = "<<wim_ice.dragRp()<<"\n";
                     std::cout<<"guess = "<<guess<<"\n";
                     //
                     std::cout<<"\noutputs from RTparam_outer:\n";
@@ -1040,7 +1060,7 @@ void WimDiscr<T>::updateWaveMedium()
                    M_wlng_ice[fq][i] = M_wlng_wtr[fq];
 
                 //group and phase velocities to use in ice
-                if (!useicevel)
+                if (!M_useicevel)
                 {
                    //water group and phase velocities
                    //(ice ones not implemented)
@@ -1163,7 +1183,7 @@ void WimDiscr<T>::inputWaveFields(value_type_vec const& swh_in,
     for (int i = 0; i < M_num_elements; i++)
     {
 
-        if ((wim_ice.mask[i]<.5)                    //not ice
+        if ((wim_ice.M_mask[i]<.5)                    //not ice
             &&(LANDMASK_array[i]<.5)                //not land
             &&(swh_in[i]>1.e-3)&&(mwp_in[i]>1.e-8)  //some waves
             &&(mwp_in[i]<1.5*Tmax))                 //wave period not too big
@@ -1175,7 +1195,7 @@ void WimDiscr<T>::inputWaveFields(value_type_vec const& swh_in,
            //std::cout<<M_Hs[i]<<" "<<M_Tp[i]<<" "<<M_mwd[i];
         }
         
-        if (wim_ice.mask[i]>0.)
+        if (wim_ice.M_mask[i]>0.5)
         {
             Hs_min_ice    = std::min(Hs_min_ice,M_Hs[i]);
             Hs_max_ice    = std::max(Hs_max_ice,M_Hs[i]);
@@ -1344,9 +1364,9 @@ void WimDiscr<T>::idealIceFields(value_type const xfac)
     //ice initialised for x>=x_edge
     value_type x_edge = 0.5*(x0+xmax)-xfac*(0.5*(xmax-x0));
 
-    wim_ice.conc  .assign(M_num_elements,0.);
-    wim_ice.vol   .assign(M_num_elements,0.);
-    wim_ice.nfloes.assign(M_num_elements,0.);
+    value_type_vec conc  (M_num_elements,0.);
+    value_type_vec vol   (M_num_elements,0.);
+    value_type_vec nfloes(M_num_elements,0.);
     value_type unifc = vm["wim.unifc"].template as<double>(); /* 0.7 */
     value_type unifh = vm["wim.unifh"].template as<double>(); /* 2.0 */
 #pragma omp parallel for num_threads(M_max_threads) collapse(1)
@@ -1354,17 +1374,19 @@ void WimDiscr<T>::idealIceFields(value_type const xfac)
     {
         if ((X_array[i] >= x_edge) && (LANDMASK_array[i]<.5))
         {
-            wim_ice.conc[i]      = unifc;
-            wim_ice.vol[i]       = unifc*unifh;
-            wim_ice.nfloes[i]    = unifc/std::pow(dfloe_pack_init,2);
+            conc[i]      = unifc;
+            vol[i]       = unifc*unifh;
+            nfloes[i]    = unifc/std::pow(M_dfloe_pack_init,2);
             //std::cout<<M_Hs[i]<<" "<<M_Tp[i]<<" "<<M_mwd[i];
         }
     }
-    this->transformIce(wim_ice);
+    wim_ice.setFields(conc,vol,nfloes);
+    //this->transformIce(wim_ice);
 
 }//idealIceFields()
 
 
+#if 0
 template<typename T>
 void WimDiscr<T>::inputIceFields(value_type_vec const& icec_in,   // conc
                                  value_type_vec const& iceh_in,   // effective thickness
@@ -1410,6 +1432,7 @@ void WimDiscr<T>::inputIceFields(value_type_vec const& icec_in,   // conc
 
     }//end i loop
 }//inputIceFields
+#endif
 
 
 #if 0
@@ -1501,7 +1524,7 @@ void WimDiscr<T>::timeStep()
                     << wim_jtest << " # jtest\n";
             }
             diagID << std::setw(16) << std::left
-                << wim_ice.mask[M_itest] << " # ICE_MASK\n";
+                << wim_ice.M_mask[M_itest] << " # ICE_MASK\n";
         }
         else
         {
@@ -1531,6 +1554,8 @@ void WimDiscr<T>::timeStep()
 
     //calc mean floe size outside of frequency loop;
     //std::cout<<"calculating <D>\n";
+    wim_ice.getDave(M_dave,1.);
+#if 0
     std::fill(M_dave.begin(),M_dave.end(),0.);
 #pragma omp parallel for num_threads(M_max_threads) collapse(1)
     for (int i = 0; i < M_num_elements; i++)
@@ -1570,18 +1595,42 @@ void WimDiscr<T>::timeStep()
             diagID << std::setw(16) << std::left
                 << wim_ice.dfloe[i] << " # D_max, m\n";
 
-            if (atten && (wim_ice.mask[i]>.5))
+            if (M_atten && (wim_ice.mask[i]>.5))
                 //no attenuation outside ice
                 diagID << "\n# period, s | Mtmp_atten_dim, m^{-1}| damp_dim, m^{-1}\n";
 
             diagID.close();
         }
     }//end spatial loop i - have M_dave
+#else
+    if ( M_dump_diag && (M_itest>-1) )
+    {
+        int i = M_itest;
+        std::fstream diagID(diagfile, std::ios::out | std::ios::app);
+        diagID << "\n# Ice info: pre-breaking\n";
+        diagID << std::setw(16) << std::left
+            << wim_ice.M_mask[i] << " # ice mask\n";
+        diagID << std::setw(16) << std::left
+            << wim_ice.M_conc[i] << " # conc\n";
+        diagID << std::setw(16) << std::left
+            << wim_ice.M_thick[i] << " # h, m\n";
+        diagID << std::setw(16) << std::left
+            << M_dave[i] << " # D_av, m\n";
+        diagID << std::setw(16) << std::left
+            << wim_ice.M_dfloe[i] << " # D_max, m\n";
+
+        if (M_atten && (wim_ice.M_mask[i]>.5))
+            //no attenuation outside ice
+            diagID << "\n# period, s | Mtmp_atten_dim, m^{-1}| damp_dim, m^{-1}\n";
+
+        diagID.close();
+    }
+#endif
 
     for (int fq = 0; fq < nwavefreq; fq++)
     {
-        //std::cout<<"calculating dimensional atten\n";
-        if(atten)
+        //std::cout<<"calculating dimensional M_atten\n";
+        if(M_atten)
         {
             std::fill( Mtmp_atten_dim.begin(), Mtmp_atten_dim.end(), 0. );
             std::fill( Mtmp_damp_dim .begin(), Mtmp_damp_dim .end(), 0. );
@@ -1590,16 +1639,16 @@ void WimDiscr<T>::timeStep()
 #pragma omp parallel for num_threads(M_max_threads) collapse(1)
         for (int i = 0; i < M_num_elements; i++)
         {
-            if ((wim_ice.mask[i] >.5) && (atten))
+            if ((wim_ice.M_mask[i] >.5) && (M_atten))
             {
                 // floes per unit length
-                value_type c1d = wim_ice.conc[i]/M_dave[i];
+                value_type c1d = wim_ice.M_conc[i]/M_dave[i];
 
                 // scattering
                 Mtmp_atten_dim[i] = M_atten_nond[fq][i]*c1d;
 
                 // damping
-                Mtmp_damp_dim[i] = 2*M_damping[fq][i]*wim_ice.conc[i];
+                Mtmp_damp_dim[i] = 2*M_damping[fq][i]*wim_ice.M_conc[i];
 
                 if ( M_dump_diag && (i==M_itest) )
                 {
@@ -1621,19 +1670,20 @@ void WimDiscr<T>::timeStep()
 
         //do attenuation &/or scattering, and integrate over directions 
         //std::cout<<"attenuating\n";
-        if(!atten)
+        if(!M_atten)
             this->intDirns(M_sdf_dir[fq], Mtmp_sdf_freq,
                     Mtmp_stokes_drift_x_om, Mtmp_stokes_drift_y_om);
-        else if (scatmod == "dissipated")
+        else if (M_scatmod == "dissipated")
             this->attenSimple(M_sdf_dir[fq], Mtmp_sdf_freq, Mtmp_taux_om, Mtmp_tauy_om,
                     Mtmp_stokes_drift_x_om, Mtmp_stokes_drift_y_om,M_ag_eff[fq]);
-        else if (scatmod == "isotropic")
+        else if (M_scatmod == "isotropic")
             this->attenIsotropic(M_sdf_dir[fq], Mtmp_sdf_freq, Mtmp_taux_om, Mtmp_tauy_om,
                     Mtmp_stokes_drift_x_om, Mtmp_stokes_drift_y_om,M_ag_eff[fq]);
 
 
         // integrate stress and stokes drift densities over frequency
         // integrals for breaking
+        value_type tau_fac = wim_ice.rhowtr()*wim_ice.gravity();
 #pragma omp parallel for num_threads(M_max_threads) collapse(1)
         for (int i = 0; i < M_num_elements; i++)
         {
@@ -1643,17 +1693,17 @@ void WimDiscr<T>::timeStep()
             value_type F     = M_disp_ratio   [fq][i]; // convert from water amp's to ice amp's
             value_type tmp1  = 0.;
             value_type F2    = 1.;
-            if (ref_Hs_ice)
+            if (M_ref_Hs_ice)
                 F2  = std::pow(F,2);//for outputs only
 
             // ================================================================================
             // integrate stress, MWD and stokes drift densities over frequency
-            if(atten)
+            if(M_atten)
             {
-                tmp1 = rhowtr*gravity*Mtmp_taux_om[i]/cp;
+                tmp1 = tau_fac*Mtmp_taux_om[i]/cp;
                 M_tau_x[i] += M_quadrature_wt_freq[fq]*tmp1;
 
-                tmp1 = rhowtr*gravity*Mtmp_tauy_om[i]/cp;
+                tmp1 = tau_fac*Mtmp_tauy_om[i]/cp;
                 M_tau_y[i] += M_quadrature_wt_freq[fq]*tmp1;
             }
 
@@ -1698,11 +1748,11 @@ void WimDiscr<T>::timeStep()
 
             // -----------------------------------------------------------------
             // variance of strain
-            if (wim_ice.mask[i] == 1.)
+            if (wim_ice.M_mask[i] == 1.)
             {
                 // strain conversion factor
                 // = k^2*h/2*F
-                tmp1 = F*std::pow(kicel,2.)*wim_ice.thick[i]/2.0;
+                tmp1 = F*std::pow(kicel,2.)*wim_ice.M_thick[i]/2.0;
 
                 // strain density
                 tmp1           = M_quadrature_wt_freq[fq]*Mtmp_sdf_freq[i]*std::pow(tmp1,2.);
@@ -1729,7 +1779,7 @@ void WimDiscr<T>::timeStep()
                 throw std::runtime_error("M_disp_ratio has NaN");
             }
 
-            if(atten)
+            if(M_atten)
             {
                 if (std::isnan(Mtmp_taux_om[i]))
                 {
@@ -1764,7 +1814,7 @@ void WimDiscr<T>::timeStep()
 #pragma omp parallel for num_threads(M_max_threads) collapse(1)
     for (int i = 0; i < M_num_elements; i++)
     {
-        if (ref_Hs_ice)
+        if (M_ref_Hs_ice)
         {
             M_Hs[i] = 4*std::sqrt(Mtmp_mom0[i]);
             if (Mtmp_mom2[i] > 0.)
@@ -1817,7 +1867,10 @@ void WimDiscr<T>::timeStep()
 
 
     // finally do floe breaking
+    if(M_breaking)
+        wim_ice.doBreaking(Mtmp_mom0,Mtmp_mom2,Mtmp_var_strain);
 
+#if 0
 #pragma omp parallel for num_threads(M_max_threads) collapse(1)
     for (int i = 0; i < M_num_elements; i++)
     {
@@ -1870,9 +1923,10 @@ void WimDiscr<T>::timeStep()
             throw std::runtime_error("mom0 has NaN");
         }
     }//end spatial loop i
+#endif
 
 
-    if (M_break_on_mesh) // breaking on nextsim mesh
+    if (M_break_on_mesh&&M_breaking) // breaking on nextsim mesh
     {
 
         // =================================================================
@@ -1898,6 +1952,9 @@ void WimDiscr<T>::timeStep()
 
         // =================================================================
         //do breaking
+        nextsim_ice.doBreaking(mom0_mesh,mom2_mesh,var_strain_mesh);
+        std::cout<<"break_on_mesh: after breaking\n";
+#if 0
         for (int i=0; i<Ne; ++i)
         {
             // set inputs to doBreaking
@@ -1925,6 +1982,7 @@ void WimDiscr<T>::timeStep()
         }//finish loop over elements
         std::cout<<"break_on_mesh: after breaking\n";
         // =================================================================
+#endif
     }
 
 
@@ -2181,7 +2239,7 @@ void WimDiscr<T>::updateWaveSpec(mesh_type const &movedmesh)
             value_type om   = 2*PI*M_freq_vec[fq];
             value_type om2  = std::pow(om,2);
             value_type F2   = 1.;
-            if(ref_Hs_ice)
+            if(M_ref_Hs_ice)
                 F2   = std::pow(M_disp_ratio[fq][i],2);//TODO should stokes drift be a relative thing? maybe should take conc-weighted average?
 
             for(int nth=0;nth<nwavedirn;nth++)
@@ -2275,27 +2333,31 @@ void WimDiscr<T>::setIceFields(
     if (pre_regrid)//not M_wim_on_mesh
     {
         //interp from mesh to grid
+        nextsim_ice.setFields(m_conc,m_vol,m_nfloes);
+#if 0
         nextsim_ice.conc    = m_conc;
         nextsim_ice.vol     = m_vol;
         nextsim_ice.nfloes  = m_nfloes;
         this->transformIce(nextsim_ice);
+#endif
 
-        value_type_vec_ptrs input_data = {&(nextsim_ice.conc),&(nextsim_ice.vol),&(nextsim_ice.nfloes)};
-        value_type_vec_ptrs output_data = {&(wim_ice.conc),&(wim_ice.vol),&(wim_ice.nfloes)};
+        value_type_vec_ptrs input_data = {&(nextsim_ice.M_conc),&(nextsim_ice.M_vol),&(nextsim_ice.M_nfloes)};
+        value_type_vec_ptrs output_data = {&(wim_ice.M_conc),&(wim_ice.M_vol),&(wim_ice.M_nfloes)};
         this->meshToGrid(output_data,input_data);
-        this->transformIce(wim_ice);
+        wim_ice.setFields();
+        //this->transformIce(wim_ice);
 
 #if 1
         //test interp
         std::cout<<"setIceFields (pre_regrid): check ice inputs to WIM\n";
-        std::cout<<"min conc   grid = "<< *std::min_element((wim_ice.conc).begin()  ,(wim_ice.conc).end()   )<<"\n";
-        std::cout<<"max conc   grid = "<< *std::max_element((wim_ice.conc).begin()  ,(wim_ice.conc).end()   )<<"\n";
-        std::cout<<"min thick  grid = "<< *std::min_element((wim_ice.thick).begin() ,(wim_ice.thick).end()  )<<"\n";
-        std::cout<<"max thick  grid = "<< *std::max_element((wim_ice.thick).begin() ,(wim_ice.thick).end()  )<<"\n";
-        std::cout<<"min dfloe  grid = "<< *std::min_element((wim_ice.dfloe).begin() ,(wim_ice.dfloe).end()  )<<"\n";
-        std::cout<<"max dfloe  grid = "<< *std::max_element((wim_ice.dfloe).begin() ,(wim_ice.dfloe).end()  )<<"\n";
-        std::cout<<"min Nfloes grid = "<< *std::min_element((wim_ice.nfloes).begin(),(wim_ice.nfloes).end() )<<"\n";
-        std::cout<<"max Nfloes grid = "<< *std::max_element((wim_ice.nfloes).begin(),(wim_ice.nfloes).end() )<<"\n";
+        std::cout<<"min conc   grid = "<< *std::min_element((wim_ice.M_conc).begin()  ,(wim_ice.M_conc).end()   )<<"\n";
+        std::cout<<"max conc   grid = "<< *std::max_element((wim_ice.M_conc).begin()  ,(wim_ice.M_conc).end()   )<<"\n";
+        std::cout<<"min thick  grid = "<< *std::min_element((wim_ice.M_thick).begin() ,(wim_ice.M_thick).end()  )<<"\n";
+        std::cout<<"max thick  grid = "<< *std::max_element((wim_ice.M_thick).begin() ,(wim_ice.M_thick).end()  )<<"\n";
+        std::cout<<"min dfloe  grid = "<< *std::min_element((wim_ice.M_dfloe).begin() ,(wim_ice.M_dfloe).end()  )<<"\n";
+        std::cout<<"max dfloe  grid = "<< *std::max_element((wim_ice.M_dfloe).begin() ,(wim_ice.M_dfloe).end()  )<<"\n";
+        std::cout<<"min Nfloes grid = "<< *std::min_element((wim_ice.M_nfloes).begin(),(wim_ice.M_nfloes).end() )<<"\n";
+        std::cout<<"max Nfloes grid = "<< *std::max_element((wim_ice.M_nfloes).begin(),(wim_ice.M_nfloes).end() )<<"\n";
 #endif
     }
     // end of pre-regrid options
@@ -2304,24 +2366,16 @@ void WimDiscr<T>::setIceFields(
     // ================================================================
     // post-regrid options:
     else if (M_wim_on_mesh)
-    {
         //ice fields already where we need them
-        wim_ice.conc    = m_conc;
-        wim_ice.vol     = m_vol;
-        wim_ice.nfloes  = m_nfloes;
-        this->transformIce(wim_ice);
-    }
+        wim_ice.setFields(m_conc,m_vol,m_nfloes);
     else if (M_break_on_mesh)
-    {
-        nextsim_ice.conc    = m_conc;
-        nextsim_ice.vol     = m_vol;
-        nextsim_ice.nfloes  = m_nfloes;
-        this->transformIce(nextsim_ice);
-    }
+        //ice fields already where we need them
+        nextsim_ice.setFields(m_conc,m_vol,m_nfloes);
     // end of post-regrid options
     // ================================================================
 }//setIceFields()
 
+#if 0
 template<typename T>
 void WimDiscr<T>::transformIce(IceInfo &ice_info)
 {
@@ -2362,16 +2416,8 @@ void WimDiscr<T>::transformIce(IceInfo &ice_info)
 #endif
     }
 }//transformIce()
+#endif
 
-
-template<typename T>
-void WimDiscr<T>::clearMeshFields()
-{
-    (nextsim_ice.conc  ).resize(0);
-    (nextsim_ice.thick ).resize(0);
-    (nextsim_ice.dfloe ).resize(0);
-    (nextsim_ice.broken).resize(0);
-}
 
 template<typename T>
 void WimDiscr<T>::gridToPoints(
@@ -2863,6 +2909,7 @@ void WimDiscr<T>::returnWaveStress(value_type_vec &M_tau,value_type_vec &xnod,va
 }//returnWaveStress
 
 
+#if 0
 template<typename T>
 void WimDiscr<T>::doBreaking(BreakInfo const& breakinfo)
 {
@@ -2895,6 +2942,8 @@ void WimDiscr<T>::doBreaking(BreakInfo const& breakinfo)
         }
     }
 }//doBreaking
+#endif
+
 
 
 template<typename T>
@@ -2904,7 +2953,7 @@ WimDiscr<T>::dfloeToNfloes(value_type const& dfloe_in,
 {
     value_type nfloes_out   = 0.;
 
-    if ( (dfloe_in>0) &&(conc_in >= cice_min) )
+    if ( (dfloe_in>0) &&(conc_in >= wim_ice.ciceMin()) )
     {
         //conc high enough & dfloe OK
         nfloes_out = conc_in/std::pow(dfloe_in,2.);
@@ -2972,15 +3021,15 @@ void WimDiscr<T>::getFsdMesh(value_type_vec &nfloes_out,value_type_vec &dfloe_ou
 {
     if (M_wim_on_mesh)
     {
-        nfloes_out  = wim_ice.nfloes;
-        dfloe_out   = wim_ice.dfloe;
-        broken      = wim_ice.broken;
+        nfloes_out  = wim_ice.M_nfloes;
+        dfloe_out   = wim_ice.M_dfloe;
+        broken      = wim_ice.M_broken;
     }
     else if (M_break_on_mesh)
     {
-        broken      = nextsim_ice.broken;
-        dfloe_out   = nextsim_ice.dfloe;
-        nfloes_out  = dfloeToNfloes(nextsim_ice.dfloe,nextsim_ice.conc);
+        nfloes_out  = nextsim_ice.M_nfloes;
+        dfloe_out   = nextsim_ice.M_dfloe;
+        broken      = nextsim_ice.M_broken;
     }
     else
         throw std::runtime_error("getFsdMesh: using wrong interface");
@@ -3017,7 +3066,7 @@ void WimDiscr<T>::getFsdMesh(value_type_vec &nfloes_out,value_type_vec &dfloe_ou
 
     //do interpolation
     value_type_vec cinterp;//interp conc as well, to correct for interpolation error
-    value_type_vec_ptrs input_data = {&(wim_ice.nfloes),&(wim_ice.conc),&(wim_ice.broken)};
+    value_type_vec_ptrs input_data = {&(wim_ice.M_nfloes),&(wim_ice.M_conc),&(wim_ice.M_broken)};
     value_type_vec_ptrs output_data = {&nfloes_out,&cinterp,&broken};
     this->gridToPoints(output_data,input_data,nextsim_mesh.elements_x,nextsim_mesh.elements_y);
 
@@ -3165,6 +3214,7 @@ void WimDiscr<T>::run()
     std::cout << "-----------------------Simulation completed at "<< current_time_local() <<"\n";
 }//run
 
+#if 0
 template<typename T>
 void WimDiscr<T>::floeScaling(
       value_type const& dmax, int const& moment, value_type& dave)
@@ -3246,6 +3296,7 @@ void WimDiscr<T>::floeScalingSmooth(
         //std::cout<<"dave (3) = "<<dave_<<"\n";
     }
 }//floeScalingSmooth
+#endif
 
 template<typename T>
 void WimDiscr<T>::advectDirections(value_type_vec2d& Sdir,value_type_vec const& ag2d_eff)
@@ -3380,7 +3431,7 @@ void WimDiscr<T>::intWaveSpec()
             value_type kicel = 2*PI/M_wlng_ice[fq][i]; // ice wave number (just water wavelenght if no ice)
             value_type F     = M_disp_ratio   [fq][i]; // convert from water amp's to ice amp's
             value_type F2    = 1.;
-            if (ref_Hs_ice)
+            if (M_ref_Hs_ice)
                 F2  = std::pow(F,2);//for outputs only
 
             //integrals for Hs,Tp
@@ -3470,7 +3521,7 @@ void WimDiscr<T>::attenSimple(value_type_vec2d& Sdir, value_type_vec& Sfreq,
 #pragma omp parallel for num_threads(M_max_threads) collapse(1)
     for (int i = 0; i < M_num_elements; i++)
     {
-        if (wim_ice.mask[i] > .5)
+        if (wim_ice.M_mask[i] > .5)
         {
             for (int nth = 0; nth < nwavedirn; nth++)
             {
@@ -3571,9 +3622,9 @@ void WimDiscr<T>::attenIsotropic(value_type_vec2d& Sdir, value_type_vec& Sfreq,
         //S_fou[0] = std::complex<value_type>( sum(M_quadrature_wt_dir*S_th) );
         S_fou[0] = std::complex<value_type>( std::inner_product(M_quadrature_wt_dir.begin(), M_quadrature_wt_dir.end(), S_th.begin(), 0.) );
 
-        if (wim_ice.mask[i] > 0.5 )
+        if (wim_ice.M_mask[i] > 0.5 )
         {
-            if (wim_ice.dfloe[i] < dfloe_pack_init)
+            if (wim_ice.M_dfloe[i] < M_dfloe_pack_init)
             {
                 q_scat = Mtmp_atten_dim[i];
                 q_abs = Mtmp_damp_dim[i];
@@ -4075,7 +4126,7 @@ void WimDiscr<T>::calcMWD()
 #pragma omp parallel for num_threads(M_max_threads) collapse(1)
         for (int i = 0; i < M_num_elements; i++)
         {
-            if (ref_Hs_ice)
+            if (M_ref_Hs_ice)
                 CF = std::pow(M_disp_ratio[fq][i],2);
             else
                 CF = 1.;
@@ -4303,7 +4354,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type)
         extract_fields.emplace("stokes_drift_x",&(M_stokes_drift_x));
         extract_fields.emplace("tau_y"         ,&(M_tau_y));
         extract_fields.emplace("tau_x"         ,&(M_tau_x));
-        extract_fields.emplace("Dmax"          ,&(wim_ice.dfloe));
+        extract_fields.emplace("Dmax"          ,&(wim_ice.M_dfloe));
 
         step = M_nb_export_prog;
         M_nb_export_prog++;
@@ -4320,7 +4371,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type)
         extract_fields.emplace("stokes_drift_x",&(M_stokes_drift_x));
         extract_fields.emplace("tau_y"         ,&(M_tau_y));
         extract_fields.emplace("tau_x"         ,&(M_tau_x));
-        extract_fields.emplace("Dmax"          ,&(wim_ice.dfloe));
+        extract_fields.emplace("Dmax"          ,&(wim_ice.M_dfloe));
 
         step = M_nb_export_final;
         M_nb_export_final++;
@@ -4333,9 +4384,9 @@ void WimDiscr<T>::exportResults(std::string const& output_type)
         extract_fields.emplace("MWD" ,&(M_mwd));
         extract_fields.emplace("Tp"  ,&(M_Tp));
         extract_fields.emplace("Hs"  ,&(M_Hs));
-        extract_fields.emplace("Dmax",&(wim_ice.dfloe));
-        extract_fields.emplace("iceh",&(wim_ice.thick));
-        extract_fields.emplace("icec",&(wim_ice.conc));
+        extract_fields.emplace("Dmax",&(wim_ice.M_dfloe));
+        extract_fields.emplace("iceh",&(wim_ice.M_thick));
+        extract_fields.emplace("icec",&(wim_ice.M_conc));
 
         step = M_nb_export_init;
         M_nb_export_init++;
@@ -4362,7 +4413,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type)
         extract_fields.emplace("stokes_drift_x",&(M_stokes_drift_x));
         extract_fields.emplace("tau_y"         ,&(M_tau_y));
         extract_fields.emplace("tau_x"         ,&(M_tau_x));
-        extract_fields.emplace("Dmax"          ,&(wim_ice.dfloe));
+        extract_fields.emplace("Dmax"          ,&(wim_ice.M_dfloe));
 
         step = M_nb_export_nextwim;
         M_nb_export_nextwim++;
@@ -4758,7 +4809,7 @@ void WimDiscr<T>::saveLog(value_type const& t_out) const
 
     out << "\n***********************************************\n";
     out << "Main parameters:" << "\n";
-    out << std::left << std::setw(log_width) << "SCATMOD"<<" : " << scatmod << "\n";
+    out << std::left << std::setw(log_width) << "SCATMOD"<<" : " << M_scatmod << "\n";
     out << std::left << std::setw(log_width) << "ADV_DIM"<<" : " << M_advdim << "\n";
     out << std::left << std::setw(log_width) << "ADV_OPT"<<" : " << M_advopt << "\n";
 #if 0
@@ -4775,31 +4826,31 @@ void WimDiscr<T>::saveLog(value_type const& t_out) const
     end if
 #endif
     out << std::left << std::setw(log_width) << "STEADY"<<" : " << M_steady << "\n";
-    out << std::left << std::setw(log_width) << "DO_ATTEN"<<" : " << atten << "\n";
+    out << std::left << std::setw(log_width) << "DO_ATTEN"<<" : " << M_atten << "\n";
     out << "***********************************************\n";
 
     out << "\n***********************************************\n";
     out << "Other integer parameters:" << "\n";
-    out << std::left << std::setw(log_width) << "FSD_OPT"<<" : " << fsdopt << "\n";
+    out << std::left << std::setw(log_width) << "FSD_OPT"<<" : " << wim_ice.fsdopt() << "\n";
     out << "***********************************************\n";
 
     out << "\n***********************************************\n";
     out << "WIM parameters:" << "\n";
-    out << std::left << std::setw(log_width) << "Brine volume fraction"  <<" : " << vbf << "\n";
-    out << std::left << std::setw(log_width) << "Youngs modulus (Pa)"    <<" : " << young << "\n";
-    out << std::left << std::setw(log_width) << "Flexural strength (Pa)" <<" : " << sigma_c << "\n";
-//    out << std::left << std::setw(log_width) << "Breaking stress (Pa)"<<" : " << stress_c << "\n";
-    out << std::left << std::setw(log_width) << "Breaking strain"        <<" : " << epsc << "\n";
-    out << std::left << std::setw(log_width) << "Damping (Pa.s/m)"       <<" : " << drag_rp << "\n";
+    out << std::left << std::setw(log_width) << "Brine volume fraction"  <<" : " << wim_ice.vbf() << "\n";
+    out << std::left << std::setw(log_width) << "Youngs modulus (Pa)"    <<" : " << wim_ice.young() << "\n";
+    out << std::left << std::setw(log_width) << "Flexural strength (Pa)" <<" : " << wim_ice.sigmac() << "\n";
+//    out << std::left << std::setw(log_width) << "Breaking stress (Pa)"<<" : " << wim_ice.stressc() << "\n";
+    out << std::left << std::setw(log_width) << "Breaking strain"        <<" : " << wim_ice.epsc() << "\n";
+    out << std::left << std::setw(log_width) << "Damping (Pa.s/m)"       <<" : " << wim_ice.dragRp() << "\n";
     out << "***********************************************\n";
 
     out << "\n***********************************************\n";
     out << "FSD parameters:" << "\n";
-    out << std::left << std::setw(log_width) << "Dmin (m)"  <<" : " << dmin << "\n";
-    out << std::left << std::setw(log_width) << "xi"        <<" : " << xi << "\n";
-    out << std::left << std::setw(log_width) << "fragility" <<" : " << fragility << "\n";
-    out << std::left << std::setw(log_width) << "Dthresh"   <<" : " << dfloe_miz_thresh << "\n";
-    out << std::left << std::setw(log_width) << "cice_min"  <<" : " << cice_min << "\n";
+    out << std::left << std::setw(log_width) << "Dmin (m)"  <<" : " << wim_ice.dmin() << "\n";
+    out << std::left << std::setw(log_width) << "xi"        <<" : " << wim_ice.xi() << "\n";
+    out << std::left << std::setw(log_width) << "fragility" <<" : " << wim_ice.fragility() << "\n";
+    out << std::left << std::setw(log_width) << "Dthresh"   <<" : " << wim_ice.dfloeMizThresh() << "\n";
+    out << std::left << std::setw(log_width) << "cice_min"  <<" : " << wim_ice.ciceMin() << "\n";
     out << "***********************************************\n";
 
     out << "\n***********************************************\n";
@@ -4836,13 +4887,13 @@ void WimDiscr<T>::saveLog(value_type const& t_out) const
     int Nmiz   = 0;
 
 #pragma omp parallel for num_threads(M_max_threads) collapse(1)
-    for (int j = 0; j < wim_ice.dfloe.size(); j++)
+    for (int j = 0; j < wim_ice.M_dfloe.size(); j++)
     {
-       if ((wim_ice.dfloe[j]<dfloe_pack_init)&&(wim_ice.dfloe[j]>0))
+       if ((wim_ice.M_dfloe[j]<M_dfloe_pack_init)&&(wim_ice.M_dfloe[j]>0))
        {
           ++Nmiz;
-          Dmax_min   = std::min(wim_ice.dfloe[j],Dmax_min);
-          Dmax_max   = std::max(wim_ice.dfloe[j],Dmax_max);
+          Dmax_min   = std::min(wim_ice.M_dfloe[j],Dmax_min);
+          Dmax_max   = std::max(wim_ice.M_dfloe[j],Dmax_max);
        }
     }
 

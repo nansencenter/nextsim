@@ -31,6 +31,7 @@
 #include <iomanip>
 #include <omp.h>
 #include <gmshmesh.hpp>
+#include <iceinfo.hpp>
 
 #ifdef PI
 #undef PI
@@ -62,6 +63,8 @@ template<typename T=float> class WimDiscr
     typedef typename Nextsim::GmshMesh::element_type element_type;
     typedef Nextsim::GmshMesh mesh_type;
 
+    typedef Wim::IceInfo<double> ice_type;
+#if 0
     typedef struct IceInfo
     {
         // information describing ice fields
@@ -74,6 +77,7 @@ template<typename T=float> class WimDiscr
         mutable value_type_vec mask;        // 1 if ice present, else 0
         mutable value_type_vec broken;      // 1 if broken during this call to the wim
     } IceInfo;
+#endif
 
     typedef struct BreakInfo
     {
@@ -237,14 +241,14 @@ public:
                        std::vector<value_type> const& m_vol, // ice vol or effective thickness (conc*thickness)
                        std::vector<value_type> const& m_nfloes,// Nfloes=conc/Dmax^2
                        bool const pre_regrid);
-    void transformIce(IceInfo &ice_info);
+    //void transformIce(IceInfo &ice_info);
 
     value_type_vec getRelativeMeshDisplacement(mesh_type const &mesh_in) const;
     value_type_vec getRelativeMeshDisplacement(mesh_type const &mesh_in,value_type_vec const &um_in) const;
     void updateWaveSpec( mesh_type const &mesh);
     void updateWaveSpec( mesh_type const &mesh,value_type_vec const &um);
 
-    void clearMeshFields();
+    void clearMeshFields() {nextsim_ice.clearFields();}
     void gridToPoints(
         value_type_vec_ptrs &output_data,
         value_type_vec_ptrs const &input_data,
@@ -377,21 +381,22 @@ private:
 
     value_type M_cfl, M_length_cfl, M_max_cg;
     value_type M_current_time;
-    value_type Tmin, Tmax, gravity;
+    value_type Tmin, Tmax;// gravity;
     value_type xmax, ym, x0, y0, dx, dy, x_edge;
-    value_type dfloe_pack_init, dfloe_pack_thresh;
-    value_type rhowtr, rhoice, poisson, dmin, xi, fragility, cice_min, dfloe_miz_thresh,
-               young, drag_rp;
-    value_type epsc, sigma_c, vbf, vb, flex_rig_coeff;
-    value_type kice, kwtr, int_adm, modT, argR, argT, rhoi, rho, rhow;//TODO these are temporary?
+    value_type M_dfloe_pack_init;
+    //value_type dfloe_pack_thresh;
+    //value_type rhowtr, rhoice, poisson, dmin, xi, fragility, cice_min, dfloe_miz_thresh,
+               //young, drag_rp;
+    //value_type epsc, sigma_c, vbf;
+    //value_type kice, kwtr, int_adm, modT, argR, argT, rhoi, rho, rhow;//TODO these are temporary?
     value_type M_timestep,M_duration;
     int M_num_timesteps;
 
     int nwavedirn, nwavefreq, M_advdim;
-    bool ref_Hs_ice, atten, useicevel, M_steady, breaking;
+    bool M_ref_Hs_ice, M_atten, M_useicevel, M_steady, M_breaking;
     bool M_dump_diag;
     bool docoupling;
-    std::string scatmod, M_advopt, fsdopt;
+    std::string M_scatmod, M_advopt;// fsdopt;
     std::string wim_gridfile;
 
     //dimension of wavedir
@@ -447,7 +452,9 @@ private:
     int M_nb_mesh_test      = 0;
 
     MeshInfo M_wim_triangulation,nextsim_mesh,nextsim_mesh_old;
-    IceInfo wim_ice, nextsim_ice;
+
+    
+    ice_type wim_ice, nextsim_ice;
     std::vector<int> wet_indices;
 
     bool M_break_on_mesh = false;// do breaking on nextsim mesh as well as on grid
