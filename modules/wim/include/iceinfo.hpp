@@ -77,9 +77,6 @@ public:
     IceInfo();
     IceInfo(po::variables_map const& vm);
 
-    //explicit copy operator
-    //IceInfo(IceInfo<value_type> const& tmp);
-
     // ===============================================================
     // public functions
     void update(po::variables_map const& vm);

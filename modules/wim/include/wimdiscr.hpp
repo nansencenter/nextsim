@@ -63,34 +63,7 @@ template<typename T=float> class WimDiscr
     typedef typename Nextsim::GmshMesh::element_type element_type;
     typedef Nextsim::GmshMesh mesh_type;
 
-    typedef Wim::IceInfo<double> ice_type;
-#if 0
-    typedef struct IceInfo
-    {
-        // information describing ice fields
-        // - ie that needed for interpMeshToGrid, interpMeshToMesh
-        mutable value_type_vec conc;        // total ice conc
-        mutable value_type_vec vol;         // total ice volume (conc*thickness)
-        mutable value_type_vec thick;       // ice thickness
-        mutable value_type_vec nfloes;      // N_floes = conc/Dfloe^2
-        mutable value_type_vec dfloe;       // max floe size
-        mutable value_type_vec mask;        // 1 if ice present, else 0
-        mutable value_type_vec broken;      // 1 if broken during this call to the wim
-    } IceInfo;
-#endif
-
-    typedef struct BreakInfo
-    {
-        // information needed for breaking
-        value_type conc;   // concentration
-        value_type thick;  // thickness
-        value_type mom0;
-        value_type mom2;
-        value_type var_strain;
-        mutable value_type dfloe;
-        mutable bool broken;
-    } BreakInfo;
-
+    typedef Wim::IceInfo<value_type> ice_type;
 
 
     // ==========================================================================================
@@ -141,6 +114,7 @@ public:
 
 public:
 
+    //constructors
     WimDiscr()
         :
         vm(),
@@ -199,7 +173,6 @@ public:
     void updateWaveMedium();
 
     void timeStep();
-    void doBreaking(BreakInfo const& breakinfo);
 
     value_type nfloesToDfloe(
                  value_type const& m_nfloes,
@@ -241,7 +214,6 @@ public:
                        std::vector<value_type> const& m_vol, // ice vol or effective thickness (conc*thickness)
                        std::vector<value_type> const& m_nfloes,// Nfloes=conc/Dmax^2
                        bool const pre_regrid);
-    //void transformIce(IceInfo &ice_info);
 
     value_type_vec getRelativeMeshDisplacement(mesh_type const &mesh_in) const;
     value_type_vec getRelativeMeshDisplacement(mesh_type const &mesh_in,value_type_vec const &um_in) const;
@@ -325,7 +297,7 @@ public:
             std::string const& advopt_,bool const&steady=false);
     //===========================================================================
 
-    void intWaveSpec();//TODO test this
+    void intWaveSpec();
     void intDirns(value_type_vec2d const& Sdir, value_type_vec& Sfreq,
             value_type_vec& sdx_omega, value_type_vec& sdy_omega);
 
@@ -335,10 +307,6 @@ public:
             value_type_vec const& mwp_in,
             value_type_vec const& mwd_in);
     void setIncWaveSpec(value_type_vec const& wave_mask);
-    void inputIceFields(value_type_vec const& icec_in,
-            value_type_vec const& iceh_in,
-            value_type_vec const& nfloes_in);
-    //void getWimCenters(value_type& x,value_type& y,value_type const& rotangle);
 
     value_type thetaDirFrac(value_type const& th1_, value_type const& dtheta_, value_type const& mwd_);
     value_type thetaInRange(value_type const& th_, value_type const& th1, bool const& close_on_right=false);
@@ -366,7 +334,6 @@ public:
     }
 
     std::string getWimGridFilename() const { return wim_gridfile; }
-    //std::vector<int> getWimShape();
 
 
 private:
@@ -381,14 +348,9 @@ private:
 
     value_type M_cfl, M_length_cfl, M_max_cg;
     value_type M_current_time;
-    value_type Tmin, Tmax;// gravity;
+    value_type Tmin, Tmax;
     value_type xmax, ym, x0, y0, dx, dy, x_edge;
     value_type M_dfloe_pack_init;
-    //value_type dfloe_pack_thresh;
-    //value_type rhowtr, rhoice, poisson, dmin, xi, fragility, cice_min, dfloe_miz_thresh,
-               //young, drag_rp;
-    //value_type epsc, sigma_c, vbf;
-    //value_type kice, kwtr, int_adm, modT, argR, argT, rhoi, rho, rhow;//TODO these are temporary?
     value_type M_timestep,M_duration;
     int M_num_timesteps;
 
