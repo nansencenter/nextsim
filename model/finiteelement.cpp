@@ -7230,31 +7230,43 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         
         if(use_weekly_nic)
         {
-            if(M_nic_weekly_conc[i]<=0.25)
+            if(M_nic_weekly_conc[i]<=0.05) // CT01
+            {
+                alpha_up=(0.05-M_nic_weekly_conc[i])/(0.05-0.);
+                thin_conc_obs_min=0.0*alpha_up+0.0*(1-alpha_up);
+                thin_conc_obs_max=0.0*alpha_up+0.1*(1-alpha_up);
+            }
+            if(M_nic_weekly_conc[i]<=0.10) // CT02
+            {
+                alpha_up=(0.10-M_nic_weekly_conc[i])/(0.10-0.);
+                thin_conc_obs_min=0.0*alpha_up+0.0*(1-alpha_up);
+                thin_conc_obs_max=0.0*alpha_up+0.2*(1-alpha_up);
+            }
+            if(M_nic_weekly_conc[i]<=0.25) // CT14, CT13, CT24
             {
                 alpha_up=(0.25-M_nic_weekly_conc[i])/(0.25-0.);
                 thin_conc_obs_min=0.0*alpha_up+0.1*(1-alpha_up);
                 thin_conc_obs_max=0.1*alpha_up+0.4*(1-alpha_up);
             }
-            else if(M_nic_weekly_conc[i]<=0.50)
+            else if(M_nic_weekly_conc[i]<=0.50) // CT46
             {
                 alpha_up=(0.50-M_nic_weekly_conc[i])/(0.50-0.25);
                 thin_conc_obs_min=0.1*alpha_up+0.40*(1-alpha_up);
                 thin_conc_obs_max=0.4*alpha_up+0.60*(1-alpha_up);
             }
-            else if(M_nic_weekly_conc[i]<=0.70)
+            else if(M_nic_weekly_conc[i]<=0.70) //CT68
             {
                 alpha_up=(0.70-M_nic_weekly_conc[i])/(0.70-0.50);
                 thin_conc_obs_min=0.40*alpha_up+0.60*(1-alpha_up);
                 thin_conc_obs_max=0.60*alpha_up+0.80*(1-alpha_up);
             }
-            else if(M_nic_weekly_conc[i]<=0.90)
+            else if(M_nic_weekly_conc[i]<=0.90) // CT81
             {
                 alpha_up=(0.90-M_nic_weekly_conc[i])/(0.90-0.70);
                 thin_conc_obs_min=0.60*alpha_up+0.80*(1-alpha_up);
                 thin_conc_obs_max=0.80*alpha_up+1.0*(1-alpha_up);
             }
-            else if(M_nic_weekly_conc[i]<=1.)
+            else if(M_nic_weekly_conc[i]<=1.) // CT92
             {
                 alpha_up=(1.0-M_nic_weekly_conc[i])/(1.0-0.9);
                 thin_conc_obs_min=0.8*alpha_up+1.0*(1-alpha_up);
@@ -7743,6 +7755,18 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 
         if(use_weekly_nic)
         {
+            if(M_nic_weekly_conc[i]<=0.05) // CT01
+            {
+                alpha_up=(0.05-M_nic_weekly_conc[i])/(0.05-0.);
+                thin_conc_obs_min=0.0*alpha_up+0.0*(1-alpha_up);
+                thin_conc_obs_max=0.0*alpha_up+0.1*(1-alpha_up);
+            }
+            if(M_nic_weekly_conc[i]<=0.10) // CT02
+            {
+                alpha_up=(0.10-M_nic_weekly_conc[i])/(0.10-0.);
+                thin_conc_obs_min=0.0*alpha_up+0.0*(1-alpha_up);
+                thin_conc_obs_max=0.0*alpha_up+0.2*(1-alpha_up);
+            }
             if(M_nic_weekly_conc[i]<=0.25)
             {
                 alpha_up=(0.25-M_nic_weekly_conc[i])/(0.25-0.);
