@@ -6885,14 +6885,17 @@ FiniteElement::topazIceOsisafIcesat()
     M_external_data_tmp.resize(0);
     
     double tmp_var;
+    double hi;
     for (int i=0; i<M_num_elements; ++i)
     {
 		tmp_var=std::min(1.,M_topaz_conc[i]);
 		M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
 		tmp_var=M_topaz_thick[i];
 		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
-        double hi_topaz=M_thick[i]/M_conc[i];		
-        hi_topaz=std::min(hi_topaz,3.); // TOPAZ thickness is only used for FYI and then capped to 3 m, to avoid unrealistic thickness where concentration is low		
+        
+        hi=M_thick[i]/M_conc[i];		
+        if(M_conc[i]<0.1)
+            hi=M_thick[i];
 
         if(M_conc[i]>0.) // use osisaf only where topaz says there is ice to avoid near land issues and fake concentration over the ocean
             M_conc[i]=M_osisaf_conc[i];
@@ -6911,8 +6914,8 @@ FiniteElement::topazIceOsisafIcesat()
         double ratio_MYI=0.9;
         double ratio_Mixed=0.5*(ratio_FYI+ratio_MYI);
 
-        double thick_FYI=hi_topaz;
-        double thick_MYI=std::max(M_icesat_thick[i],hi_topaz);
+        double thick_FYI=hi;
+        double thick_MYI=std::max(M_icesat_thick[i],hi);
         double thick_Mixed=0.5*(thick_FYI+thick_MYI);
 
         if((M_thick[i]>0.)&&(M_conc[i])>0.2)
@@ -6946,7 +6949,7 @@ FiniteElement::topazIceOsisafIcesat()
         else
         {
             M_ridge_ratio[i]=0.;
-            M_thick[i]=hi_topaz;    
+            M_thick[i]=hi;    
         }
         
         M_ridge_ratio[i]=M_ridge_ratio[i]*M_conc[i]; // Icesat gives the actual thickness (see "Uncertainties in Arctic sea ice thickness and volume: new estimates and implications for trends")
@@ -7114,6 +7117,8 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 
     external_data M_topaz_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
 
+    external_data M_nic_weekly_conc;
+    
     M_external_data_tmp.resize(0);
     M_external_data_tmp.push_back(&M_osisaf_conc);
     M_external_data_tmp.push_back(&M_osisaf_type);
@@ -7121,7 +7126,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
     M_external_data_tmp.push_back(&M_nic_conc);
     if(use_weekly_nic)
     {
-        external_data M_nic_weekly_conc=ExternalData(&M_ice_nic_weekly_elements_dataset,M_mesh,0,false,time_init-0.5);
+        M_nic_weekly_conc=ExternalData(&M_ice_nic_weekly_elements_dataset,M_mesh,0,false,time_init-0.5);
         M_external_data_tmp.push_back(&M_nic_weekly_conc);
     }
 
@@ -7143,7 +7148,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 
     double topaz_conc, topaz_thick;
     double h_model, c_model;
-
+    double hi;
     for (int i=0; i<M_num_elements; ++i)
     {
         h_model=M_thick[i];
@@ -7183,7 +7188,10 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         }
 
         //if either c or h equal zero, we set the others to zero as well
-        double hi=M_thick[i]/M_conc[i];
+        hi=M_thick[i]/M_conc[i];
+        if(M_conc[i]<0.1)
+            hi=M_thick[i];
+
         if ( M_conc[i] < 0.01 || hi < physical::hmin )
         {
             M_conc[i]=0.;
@@ -7218,6 +7226,45 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         {
             thin_conc_obs_min=1.;
             thin_conc_obs_max=1.;
+        }
+        
+        if(use_weekly_nic)
+        {
+            if(M_nic_weekly_conc[i]<=0.25)
+            {
+                alpha_up=(0.25-M_nic_weekly_conc[i])/(0.25-0.);
+                thin_conc_obs_min=0.0*alpha_up+0.1*(1-alpha_up);
+                thin_conc_obs_max=0.1*alpha_up+0.4*(1-alpha_up);
+            }
+            else if(M_nic_weekly_conc[i]<=0.50)
+            {
+                alpha_up=(0.50-M_nic_weekly_conc[i])/(0.50-0.25);
+                thin_conc_obs_min=0.1*alpha_up+0.40*(1-alpha_up);
+                thin_conc_obs_max=0.4*alpha_up+0.60*(1-alpha_up);
+            }
+            else if(M_nic_weekly_conc[i]<=0.70)
+            {
+                alpha_up=(0.70-M_nic_weekly_conc[i])/(0.70-0.50);
+                thin_conc_obs_min=0.40*alpha_up+0.60*(1-alpha_up);
+                thin_conc_obs_max=0.60*alpha_up+0.80*(1-alpha_up);
+            }
+            else if(M_nic_weekly_conc[i]<=0.90)
+            {
+                alpha_up=(0.90-M_nic_weekly_conc[i])/(0.90-0.70);
+                thin_conc_obs_min=0.60*alpha_up+0.80*(1-alpha_up);
+                thin_conc_obs_max=0.80*alpha_up+1.0*(1-alpha_up);
+            }
+            else if(M_nic_weekly_conc[i]<=1.)
+            {
+                alpha_up=(1.0-M_nic_weekly_conc[i])/(1.0-0.9);
+                thin_conc_obs_min=0.8*alpha_up+1.0*(1-alpha_up);
+                thin_conc_obs_max=1.0*alpha_up+1.0*(1-alpha_up);
+            }
+            else // should not happen
+            {
+                thin_conc_obs_min=1.;
+                thin_conc_obs_max=1.;
+            }
         }
         
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
@@ -7284,7 +7331,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
             if(M_conc[i]<thin_conc_obs_min)
             { 
                 thin_conc_obs = ( thin_conc_obs_min + (thin_conc_obs_min+thin_conc_obs_max)/2.) /2.;
-                M_thick[i] = M_thick[i]+2.*(thin_conc_obs-M_conc[i]); 
+                M_thick[i] = M_thick[i] + std::max(hi,1.)*(thin_conc_obs-M_conc[i]); 
                 M_conc[i] = thin_conc_obs;
             }
             else if(M_conc[i]>thin_conc_obs_max)
@@ -7428,14 +7475,16 @@ FiniteElement::topazForecastAmsr2OsisafIce()
     M_external_data_tmp.resize(0);
 
     double tmp_var;
+    double hi;
     for (int i=0; i<M_num_elements; ++i)
     {
 		tmp_var=std::min(1.,M_topaz_conc[i]);
 		M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
 		tmp_var=M_topaz_thick[i];
 		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
-        double hi_topaz=M_thick[i]/M_conc[i];		
-        hi_topaz=std::min(hi_topaz,3.); // TOPAZ thickness is only used for FYI and then capped to 3 m, to avoid unrealistic thickness where concentration is low		
+        hi=M_thick[i]/M_conc[i];		
+        if(M_conc[i]<0.1)
+            hi=M_thick[i];
 
         if(M_conc[i]>0.) // use osisaf only where topaz says there is ice to avoid near land issues and fake concentration over the ocean
             M_conc[i]=M_osisaf_conc[i];
@@ -7457,8 +7506,8 @@ FiniteElement::topazForecastAmsr2OsisafIce()
         double ratio_MYI=0.9;
         double ratio_Mixed=0.5*(ratio_FYI+ratio_MYI);
 
-        double thick_FYI=hi_topaz;
-        double thick_MYI=1.5*hi_topaz;
+        double thick_FYI=hi;
+        double thick_MYI=1.5*hi;
         double thick_Mixed=0.5*(thick_FYI+thick_MYI);
 
         if( (M_thick[i]>0.) && (M_conc[i])>0.2 )
@@ -7502,7 +7551,7 @@ FiniteElement::topazForecastAmsr2OsisafIce()
         else
         {
             M_ridge_ratio[i]=0.;
-            M_thick[i]=hi_topaz;    
+            M_thick[i]=hi;    
         }
         
         M_ridge_ratio[i]=M_ridge_ratio[i]*M_conc[i]; 
@@ -7553,9 +7602,11 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
     M_external_data_tmp.push_back(&M_osisaf_type);
     M_external_data_tmp.push_back(&M_amsr2_conc);
     M_external_data_tmp.push_back(&M_nic_conc);
+    
+    external_data M_nic_weekly_conc;
     if(use_weekly_nic)
     {
-        external_data M_nic_weekly_conc=ExternalData(&M_ice_nic_weekly_elements_dataset,M_mesh,0,false,time_init-0.5);
+        M_nic_weekly_conc=ExternalData(&M_ice_nic_weekly_elements_dataset,M_mesh,0,false,time_init-0.5);
         M_external_data_tmp.push_back(&M_nic_weekly_conc);
     }
     
@@ -7570,6 +7621,7 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
             "init - TOPAZ ice forecast");
     M_external_data_tmp.resize(0);
 
+    double hi;		
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
     {
@@ -7577,8 +7629,9 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 		M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
 		tmp_var=M_topaz_thick[i];
 		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
-        double hi_topaz=M_thick[i]/M_conc[i];		
-        hi_topaz=std::min(hi_topaz,3.); // TOPAZ thickness is only used for FYI and then capped to 3 m, to avoid unrealistic thickness where concentration is low		
+        hi=M_thick[i]/M_conc[i];		
+        if(M_conc[i]<0.1)
+            hi=M_thick[i];
 
         if(M_conc[i]>0.) // use osisaf only where topaz says there is ice to avoid near land issues and fake concentration over the ocean
             M_conc[i]=M_amsr2_conc[i];
@@ -7597,8 +7650,8 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         double ratio_MYI=0.9;
         double ratio_Mixed=0.5*(ratio_FYI+ratio_MYI);
 
-        double thick_FYI=hi_topaz;
-        double thick_MYI=1.5*hi_topaz;
+        double thick_FYI=hi;
+        double thick_MYI=1.5*hi;
         double thick_Mixed=0.5*(thick_FYI+thick_MYI);
 
         if( (M_thick[i]>0.) && (M_conc[i])>0.2 )
@@ -7642,7 +7695,7 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         else
         {
             M_ridge_ratio[i]=0.;
-            M_thick[i]=hi_topaz;    
+            M_thick[i]=hi;    
         }
         
         M_ridge_ratio[i]=M_ridge_ratio[i]*M_conc[i]; 
@@ -7650,7 +7703,10 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         M_thick[i]=M_thick[i]*M_conc[i];
             
         //if either c or h equal zero, we set the others to zero as well
-        double hi=M_thick[i]/M_conc[i];
+        hi=M_thick[i]/M_conc[i];
+        if(M_conc[i]<0.1)
+            hi=M_thick[i];
+
         if ( M_conc[i] < 0.01 || hi < physical::hmin )
         {
             M_conc[i]=0.;
@@ -7665,8 +7721,8 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         if(M_nic_conc[i]<=0.45)
         {
             alpha_up=(0.45-M_nic_conc[i])/0.45;
-            thin_conc_obs_min=0.05*alpha_up+0.45*(1-alpha_up);
-            thin_conc_obs_max=0.05*alpha_up+0.45*(1-alpha_up);
+            thin_conc_obs_min=0.0*alpha_up+0.45*(1-alpha_up);
+            thin_conc_obs_max=0.0*alpha_up+0.45*(1-alpha_up);
         }
         else if(M_nic_conc[i]<=0.9)
         {
@@ -7684,8 +7740,46 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
             thin_conc_obs_min=1.;
             thin_conc_obs_max=1.;
         }
-        
-        
+
+        if(use_weekly_nic)
+        {
+            if(M_nic_weekly_conc[i]<=0.25)
+            {
+                alpha_up=(0.25-M_nic_weekly_conc[i])/(0.25-0.);
+                thin_conc_obs_min=0.0*alpha_up+0.25*(1-alpha_up);
+                thin_conc_obs_max=0.0*alpha_up+0.25*(1-alpha_up);
+            }
+            else if(M_nic_weekly_conc[i]<=0.50)
+            {
+                alpha_up=(0.50-M_nic_weekly_conc[i])/(0.50-0.25);
+                thin_conc_obs_min=0.25*alpha_up+0.50*(1-alpha_up);
+                thin_conc_obs_max=0.25*alpha_up+0.50*(1-alpha_up);
+            }
+            else if(M_nic_weekly_conc[i]<=0.70)
+            {
+                alpha_up=(0.70-M_nic_weekly_conc[i])/(0.70-0.50);
+                thin_conc_obs_min=0.50*alpha_up+0.70*(1-alpha_up);
+                thin_conc_obs_max=0.50*alpha_up+0.70*(1-alpha_up);
+            }
+            else if(M_nic_weekly_conc[i]<=0.90)
+            {
+                alpha_up=(0.90-M_nic_weekly_conc[i])/(0.90-0.70);
+                thin_conc_obs_min=0.70*alpha_up+0.90*(1-alpha_up);
+                thin_conc_obs_max=0.70*alpha_up+0.90*(1-alpha_up);
+            }
+            else if(M_nic_weekly_conc[i]<=1.)
+            {
+                alpha_up=(1.0-M_nic_weekly_conc[i])/(1.0-0.9);
+                thin_conc_obs_min=0.90*alpha_up+1.0*(1-alpha_up);
+                thin_conc_obs_max=0.90*alpha_up+1.0*(1-alpha_up);
+            }
+            else // should not happen
+            {
+                thin_conc_obs_min=1.;
+                thin_conc_obs_max=1.;
+            }
+        }
+       
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
             M_conc_thin[i]=0.;
@@ -7715,7 +7809,7 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         {
             if(M_conc[i]<thin_conc_obs_min)
             {
-                M_thick[i] = M_thick[i]+2.0*(thin_conc_obs_min-M_conc[i]); 
+                M_thick[i] = M_thick[i] + std::max(hi,1.)*(thin_conc_obs_min-M_conc[i]); 
                 M_conc[i] = thin_conc_obs_min;
             }
             else if(M_conc[i]>thin_conc_obs_max)
