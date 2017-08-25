@@ -83,7 +83,7 @@ public:
 
 #if defined (WAVES)
     typedef Wim::WimDiscr<double> wim_type;
-    typedef Wim::WimDiscr<double>::unord_map_vecs_type unord_map_vecs_type;
+    typedef Wim::WimDiscr<double>::T_map_vec T_map_vec;
 #endif
 
     FiniteElement();
@@ -346,8 +346,8 @@ private:
     int wim_cpt;//no of times WIM has been called
     int steps_since_last_wim_call;//no of time steps since WIM was last called
 
-    unord_map_vecs_type M_wim_fields_nodes;
-    unord_map_vecs_type M_wim_fields_els;
+    T_map_vec M_wim_fields_nodes;
+    T_map_vec M_wim_fields_els;
     //std::vector<double> M_stokes_drift;
 
     bool M_export_wim_diags_mesh;

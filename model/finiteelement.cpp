@@ -8416,11 +8416,11 @@ FiniteElement::exportResults(std::vector<std::string> const &filenames, bool exp
                 this->getWimDiagnostics();
 
                 //export diagnostics on elements (eg Hs,Tp,MWD)
-                for (unord_map_vecs_type::iterator it=M_wim_fields_els.begin();it!=M_wim_fields_els.end();it++)
+                for (auto it=M_wim_fields_els.begin();it!=M_wim_fields_els.end();it++)
                     exporter.writeField(outbin, it->second, it->first);//"first" is a string, "second" a vector
 
                 //export diagnostics on nodes (eg Stokes_drift)
-                for (unord_map_vecs_type::iterator it=M_wim_fields_nodes.begin();it!=M_wim_fields_nodes.end();it++)
+                for (auto it=M_wim_fields_nodes.begin();it!=M_wim_fields_nodes.end();it++)
                     exporter.writeField(outbin, it->second, it->first);//"first" is a string, "second" a vector
 
                 //clear the fields
