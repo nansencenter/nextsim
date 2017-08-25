@@ -7331,7 +7331,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
             if(M_conc[i]<thin_conc_obs_min)
             { 
                 thin_conc_obs = ( thin_conc_obs_min + (thin_conc_obs_min+thin_conc_obs_max)/2.) /2.;
-                M_thick[i] = M_thick[i] + std::max(hi,1.)*(thin_conc_obs-M_conc[i]); 
+                M_thick[i] = M_thick[i] + std::max(hi,0.5)*(thin_conc_obs-M_conc[i]); // 50 cm minimum for the added ice 
                 M_conc[i] = thin_conc_obs;
             }
             else if(M_conc[i]>thin_conc_obs_max)
@@ -7721,19 +7721,19 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         if(M_nic_conc[i]<=0.45)
         {
             alpha_up=(0.45-M_nic_conc[i])/0.45;
-            thin_conc_obs_min=0.0*alpha_up+0.45*(1-alpha_up);
-            thin_conc_obs_max=0.0*alpha_up+0.45*(1-alpha_up);
+            thin_conc_obs_min=0.0*alpha_up+0.1*(1-alpha_up);
+            thin_conc_obs_max=0.0*alpha_up+0.8*(1-alpha_up);
         }
         else if(M_nic_conc[i]<=0.9)
         {
             alpha_up=(0.9-M_nic_conc[i])/0.45;
-            thin_conc_obs_min=0.45*alpha_up+0.9*(1-alpha_up);
-            thin_conc_obs_max=0.45*alpha_up+0.9*(1-alpha_up);
+            thin_conc_obs_min=0.1*alpha_up+0.8*(1-alpha_up);
+            thin_conc_obs_max=0.8*alpha_up+1.0*(1-alpha_up);
         }
         else if(M_nic_conc[i]<=1.)
         {
-            thin_conc_obs_min=0.9;
-            thin_conc_obs_max=0.9;
+            thin_conc_obs_min=0.8;
+            thin_conc_obs_max=1.0;
         }
         else // should not happen
         {
@@ -7746,32 +7746,32 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
             if(M_nic_weekly_conc[i]<=0.25)
             {
                 alpha_up=(0.25-M_nic_weekly_conc[i])/(0.25-0.);
-                thin_conc_obs_min=0.0*alpha_up+0.25*(1-alpha_up);
-                thin_conc_obs_max=0.0*alpha_up+0.25*(1-alpha_up);
+                thin_conc_obs_min=0.0*alpha_up+0.1*(1-alpha_up);
+                thin_conc_obs_max=0.0*alpha_up+0.4*(1-alpha_up);
             }
             else if(M_nic_weekly_conc[i]<=0.50)
             {
                 alpha_up=(0.50-M_nic_weekly_conc[i])/(0.50-0.25);
-                thin_conc_obs_min=0.25*alpha_up+0.50*(1-alpha_up);
-                thin_conc_obs_max=0.25*alpha_up+0.50*(1-alpha_up);
+                thin_conc_obs_min=0.1*alpha_up+0.4*(1-alpha_up);
+                thin_conc_obs_max=0.4*alpha_up+0.6*(1-alpha_up);
             }
             else if(M_nic_weekly_conc[i]<=0.70)
             {
                 alpha_up=(0.70-M_nic_weekly_conc[i])/(0.70-0.50);
-                thin_conc_obs_min=0.50*alpha_up+0.70*(1-alpha_up);
-                thin_conc_obs_max=0.50*alpha_up+0.70*(1-alpha_up);
+                thin_conc_obs_min=0.4*alpha_up+0.6*(1-alpha_up);
+                thin_conc_obs_max=0.6*alpha_up+0.8*(1-alpha_up);
             }
             else if(M_nic_weekly_conc[i]<=0.90)
             {
                 alpha_up=(0.90-M_nic_weekly_conc[i])/(0.90-0.70);
-                thin_conc_obs_min=0.70*alpha_up+0.90*(1-alpha_up);
-                thin_conc_obs_max=0.70*alpha_up+0.90*(1-alpha_up);
+                thin_conc_obs_min=0.6*alpha_up+0.8*(1-alpha_up);
+                thin_conc_obs_max=0.8*alpha_up+1.0*(1-alpha_up);
             }
             else if(M_nic_weekly_conc[i]<=1.)
             {
                 alpha_up=(1.0-M_nic_weekly_conc[i])/(1.0-0.9);
-                thin_conc_obs_min=0.90*alpha_up+1.0*(1-alpha_up);
-                thin_conc_obs_max=0.90*alpha_up+1.0*(1-alpha_up);
+                thin_conc_obs_min=0.8*alpha_up+1.0*(1-alpha_up);
+                thin_conc_obs_max=1.0*alpha_up+1.0*(1-alpha_up);
             }
             else // should not happen
             {
@@ -7780,6 +7780,17 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
             }
         }
        
+        if((M_amsr2_conc[i]>=thin_conc_obs_min) && (M_amsr2_conc[i]<=thin_conc_obs_max))
+        {
+            thin_conc_obs_min=M_amsr2_conc[i];
+            thin_conc_obs_max=M_amsr2_conc[i];
+        }
+        else
+        {
+            thin_conc_obs_min=0.5*(thin_conc_obs_min+thin_conc_obs_max);
+            thin_conc_obs_max=thin_conc_obs_min;
+        }
+
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
             M_conc_thin[i]=0.;
@@ -7809,7 +7820,7 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         {
             if(M_conc[i]<thin_conc_obs_min)
             {
-                M_thick[i] = M_thick[i] + std::max(hi,1.)*(thin_conc_obs_min-M_conc[i]); 
+                M_thick[i] = M_thick[i] + std::max(hi,0.5)*(thin_conc_obs_min-M_conc[i]); // 50 cm minimum for the added ice 
                 M_conc[i] = thin_conc_obs_min;
             }
             else if(M_conc[i]>thin_conc_obs_max)
