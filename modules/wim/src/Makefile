@@ -103,6 +103,8 @@ clean:
 	$(RM) $(OBJS) $(CCOBJS) $(DEPS) $(CCDEPS) $(PROGOBJS) 
 	@echo " "
 
+fresh: clean all
+
 # Delete the object and dependancy files, and the executable
 vclean: clean
 	$(RM) $(BINARYDIR)$(PROG) $(LIBRARYDIR)/*
