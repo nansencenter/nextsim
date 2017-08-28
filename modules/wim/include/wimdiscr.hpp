@@ -354,7 +354,6 @@ private:
     T_val_vec x_col,y_row;
 
     T_val M_cfl, M_length_cfl, M_max_cg;
-    T_val M_current_time;
     T_val Tmin, Tmax;
     T_val xmax, ym, x0, y0, dx, dy, x_edge;
     T_val M_dfloe_pack_init;
@@ -405,10 +404,11 @@ private:
     boost::mpi::timer chrono;
 
     std::string M_init_time_str;
-    T_val M_restart_time     = 0.;// time of restarting, relative to init_time
-    T_val M_update_time      = 0; // time of start of call to wim.run(), relative to init_time
-    T_val M_time_mesh_set    = 0;// time of start of call to wim.run(), relative to init_time
-    int M_cpt                = 0;//global counter
+    T_val M_current_time     = 0.;// current model time (s), relative to init_time (updated every timestep)
+    T_val M_restart_time     = 0.;// time (s) of restarting, relative to init_time
+    T_val M_update_time      = 0; // time (s) of start of call to wim.run(), relative to init_time
+    T_val M_time_mesh_set    = 0; // time (s) of start of call to wim.run(), relative to init_time
+    int M_cpt                = 0; // global counter
     int M_num_elements       = 0;
     bool M_regular           = false;
     bool M_initialised_ice   = false;
