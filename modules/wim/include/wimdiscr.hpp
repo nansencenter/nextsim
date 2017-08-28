@@ -168,7 +168,6 @@ public:
     void init1(int const& nextsim_cpt);
     void init(int const& nextsim_cpt=0);
     void init(T_gmsh const &mesh,int const& nextsim_cpt=0);//init WIM from gmsh mesh
-    void init(T_gmsh const &mesh,BamgMesh* bamgmesh,int const& flag_fix,int const& nextsim_cpt=0);
 
     void init2();
     void initConstant(int const& nextsim_cpt);
@@ -413,6 +412,7 @@ private:
     bool M_regular           = false;
     bool M_initialised_ice   = false;
     bool M_initialised_waves = false;
+    bool M_assigned          = false;// if (false), need to call assignSpatial() inside setMesh()
 
     int M_nb_export_nextwim = 0;
     int M_nb_export_inc     = 0;

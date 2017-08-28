@@ -520,8 +520,11 @@ void WimDiscr<T>::init(int const& nextsim_cpt)
 {
     this->init1(nextsim_cpt);
 
-    // wim grid generation/reading
-    this->gridProcessing();
+    if(!M_wim_on_mesh)
+        // wim grid generation/reading
+        // NB if M_wim_on_mesh, setMesh before wim.run() and at regridding
+        // time
+        this->gridProcessing();
 
     this->init2();
 }//end ::init()
@@ -592,10 +595,14 @@ void WimDiscr<T>::init2()
     // call assign to set sizes of some arrays (not depending on space)
     this->assign();
 
-    this->assignSpatial();
+    if(!M_wim_on_mesh)
+        // if(M_wim_on_mesh), assignSpatial() called in run()
+        // - since mesh is changing each time
+        this->assignSpatial();
 
     std::cout<<"wim.init() finished\n";
 }//init2
+
 
 template<typename T>
 void WimDiscr<T>::init(T_gmsh const &mesh_in,int const& nextsim_cpt)
@@ -608,19 +615,6 @@ void WimDiscr<T>::init(T_gmsh const &mesh_in,int const& nextsim_cpt)
     this->init2();
 }//end ::init()
 
-template<typename T>
-void WimDiscr<T>::init(T_gmsh const &mesh_in,BamgMesh* bamgmesh,
-        int const& flag_fix,int const& nextsim_cpt)
-{
-    this->init1(nextsim_cpt);
-
-    // init ON mesh
-    std::cout<<"Init on mesh\n";
-    this->setMesh(mesh_in,bamgmesh,flag_fix);
-
-    this->init2();
-
-}//end ::init()
 
 template<typename T>
 void WimDiscr<T>::initConstant(int const& nextsim_cpt)
@@ -814,6 +808,8 @@ void WimDiscr<T>::assignSpatial()
     // this needs to be called each time grid or mesh changes
     // ie initially, and if(M_wim_on_mesh), after regridding
     // set sizes of arrays, initialises some others that are constant in time
+
+    M_assigned  = true;
 
     //2D var's
     M_dave.assign(M_num_elements,0.);
@@ -1736,18 +1732,23 @@ void WimDiscr<T>::setMesh(T_gmsh const &mesh_in,T_val_vec const &um_in)
 
 template<typename T>
 void WimDiscr<T>::setMesh(T_gmsh const &mesh_in,
-        T_val_vec const &um_in,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding)
+        T_val_vec const &um_in,BamgMesh* bamgmesh,int const& flag_fix,bool const& assign_spatial)
 {
     //interface for M_wim_on_mesh
     auto movedmesh = mesh_in;
     movedmesh.move(um_in,1.);
-    this->setMesh(movedmesh,bamgmesh,regridding);
+    this->setMesh(movedmesh,bamgmesh,assign_spatial);
 }
 
 template<typename T>
-void WimDiscr<T>::setMesh(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding)
+void WimDiscr<T>::setMesh(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& flag_fix,bool const& assign_spatial)
 {
     //interface for M_wim_on_mesh
+
+    //can force call to assignSpatial() by passing in assign_spatial=true (eg after regrid)
+    //also needs to be called at initialisation time
+    if(assign_spatial)
+        M_assigned  = false;
 
     //update nextsim_mesh with moved mesh
     this->setMesh(movedmesh);
@@ -1855,9 +1856,13 @@ void WimDiscr<T>::setMesh(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& 
 
     LANDMASK_array.assign(Nels,0.);//mesh is only defined on wet cells (ie no land)
 
-    if(regridding)
-        //need to set sizes each time mesh changes: regrid
+    std::cout<<"M_assigned = "<<M_assigned<<"\n";
+    if(!M_assigned)
+        //need to set sizes each time mesh changes: init,regrid
+    {
+        std::cout<<"calling assignSpatial() inside setMesh()\n";
         this->assignSpatial();
+    }
 
 #if 0
     std::cout<<"setMesh: calling testMesh\n";
@@ -2925,7 +2930,7 @@ void WimDiscr<T>::advectDirectionsMesh(T_val_vec2d& Sdir,T_val_vec & agnod,
 
     xDelete<T_val>(advect_out);
 
-#if 1
+#if 0
     std::cout<<"export: test advection\n";
 
     //choose the variables

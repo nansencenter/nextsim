@@ -8696,10 +8696,9 @@ FiniteElement::initWim(int const pcpt)
         std::cout<<"ymax (WIM grid) = "<<ymax_wim<<"\n";
     }
     else
-    {
-        //init WIM on mesh
-        wim.init(M_mesh,bamgmesh,M_flag_fix,pcpt);
-    }
+        // init WIM on mesh
+        // NB setMesh() is called before wim.run() and at regridding time
+        wim.init(pcpt);
 
     //check if we want to export the Stokes drift
     M_export_wim_diags_mesh  = vm["nextwim.export_diags_mesh"].as<bool>();
@@ -8766,7 +8765,7 @@ FiniteElement::wimCall()
             //give moved mesh to WIM
             if(M_wave_mode==setup::WaveMode::BREAK_ON_MESH)
                 wim.setMesh(movedmesh);
-            else if((M_wave_mode==setup::WaveMode::RUN_ON_MESH)&&(wim_cpt>0))
+            else if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
                 //NB setMesh() already called in init
                 wim.setMesh(movedmesh,bamgmesh,M_flag_fix);
 
