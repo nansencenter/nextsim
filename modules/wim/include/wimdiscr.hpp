@@ -167,7 +167,7 @@ public:
 
     void init1(int const& nextsim_cpt);
     void init(int const& nextsim_cpt=0);
-    void init(T_gmsh const &mesh,int const& nextsim_cpt=0);
+    void init(T_gmsh const &mesh,int const& nextsim_cpt=0);//init WIM from gmsh mesh
     void init(T_gmsh const &mesh,BamgMesh* bamgmesh,int const& flag_fix,int const& nextsim_cpt=0);
 
     void init2();
@@ -184,14 +184,14 @@ public:
     T_val nfloesToDfloe(
                  T_val const& m_nfloes,
                  T_val const& m_conc);
-    std::vector<T_val> nfloesToDfloe(
+    T_val_vec nfloesToDfloe(
                  std::vector<T_val> const& m_nfloes,
                  std::vector<T_val> const& m_conc);
     
     T_val dfloeToNfloes(
                  T_val const& m_dfloe,
                  T_val const& m_conc);
-    std::vector<T_val> dfloeToNfloes(
+    T_val_vec dfloeToNfloes(
                  std::vector<T_val> const& m_dfloe,
                  std::vector<T_val> const& m_conc);
 
@@ -351,7 +351,7 @@ private:
     int M_itest;
     T_val_vec X_array, Y_array, SCUY_array, SCVX_array,
                 SCP2_array, SCP2I_array, LANDMASK_array;
-    std::vector<T_val> x_col,y_row;
+    T_val_vec x_col,y_row;
 
     T_val M_cfl, M_length_cfl, M_max_cg;
     T_val M_current_time;
@@ -405,13 +405,13 @@ private:
     boost::mpi::timer chrono;
 
     std::string M_init_time_str;
-    T_val M_restart_time = 0.;// time of restarting, relative to init_time
-    T_val M_update_time  = 0; // time of start of call to wim.run(), relative to init_time
-    T_val M_time_mesh_set = 0;// time of start of call to wim.run(), relative to init_time
-    int M_cpt = 0;//global counter
-    int M_num_elements;
-    bool M_regular = false;
-    bool M_initialised_ice = false;
+    T_val M_restart_time     = 0.;// time of restarting, relative to init_time
+    T_val M_update_time      = 0; // time of start of call to wim.run(), relative to init_time
+    T_val M_time_mesh_set    = 0;// time of start of call to wim.run(), relative to init_time
+    int M_cpt                = 0;//global counter
+    int M_num_elements       = 0;
+    bool M_regular           = false;
+    bool M_initialised_ice   = false;
     bool M_initialised_waves = false;
 
     int M_nb_export_nextwim = 0;

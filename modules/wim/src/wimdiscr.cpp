@@ -568,20 +568,19 @@ void WimDiscr<T>::init2()
     int wim_jtest = vm["wim.jtest"].template as<int>();
 
     M_itest  = -1;
-    if(M_wim_on_mesh)
-        M_itest  = wim_itest;//could still be -1
-    else if((wim_itest>=0)&&(wim_jtest>=0))
-    {
-        //(!M_wim_on_mesh) && positive itest,jtest input
-        std::cout<<"\nitest,jtest: "<<wim_itest<<","<<wim_jtest<<"\n";
-        M_itest  = wim_itest*ny+wim_jtest;
-        if ((wim_itest>=nx)||(wim_jtest>=ny))
+    if(!M_wim_on_mesh)
+        if((wim_itest>=0)&&(wim_jtest>=0))
         {
+            //(!M_wim_on_mesh) && positive itest,jtest input
             std::cout<<"\nitest,jtest: "<<wim_itest<<","<<wim_jtest<<"\n";
-            std::cout<<"\nnx,ny: "<<nx<<","<<ny<<"\n";
-            throw std::runtime_error("wim.itest/jtest out of range");
+            M_itest  = wim_itest*ny+wim_jtest;
+            if ((wim_itest>=nx)||(wim_jtest>=ny))
+            {
+                std::cout<<"\nitest,jtest: "<<wim_itest<<","<<wim_jtest<<"\n";
+                std::cout<<"\nnx,ny: "<<nx<<","<<ny<<"\n";
+                throw std::runtime_error("wim.itest/jtest out of range");
+            }
         }
-    }
 
     //global test index
     std::cout<<"\nWIM diagnostics to be done at global index: "
@@ -590,8 +589,7 @@ void WimDiscr<T>::init2()
         throw std::runtime_error("M_itest out of range");
     // ==============================================================================
 
-    // call assign to set sizes of arrays
-    // and initialise some arrays that are stationary in time
+    // call assign to set sizes of some arrays (not depending on space)
     this->assign();
 
     this->assignSpatial();
