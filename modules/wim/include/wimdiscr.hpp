@@ -32,12 +32,12 @@
 #include <InterpFromGridToMeshx.h>
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromMeshToGridx.h>
-#include <BamgTriangulatex.h>
 #include <Bamgx.h>
 #include <iomanip>
 #include <omp.h>
 #include <gmshmesh.hpp>
 #include <iceinfo.hpp>
+#include <meshtools.hpp>
 
 #ifdef PI
 #undef PI
@@ -65,6 +65,7 @@ template<typename T=float> class WimDiscr
     //other types
     typedef Wim::IceParams<T_val>                         T_icep;
     typedef Wim::IceInfo<T_val>                           T_ice;
+    typedef Wim::MeshInfo<T_val>                          T_mesh;
     typedef std::vector<T_ice>                            T_vec_ice;
     typedef boost::unordered_map<std::string,std::string> T_map;
     typedef boost::unordered_map<std::string,T_val_vec*>  T_map_vec_ptrs;
@@ -81,27 +82,6 @@ public:
     // ====================================================================================
     // public types
     typedef boost::unordered_map<std::string,T_val_vec> T_map_vec;
-
-    typedef struct MeshInfo
-    {
-        // information describing nextsim mesh
-        // - only basic info
-        // - ie that needed for interpMeshToGrid, interpMeshToMesh
-        bool initialised;                           // initialised yet?
-        int num_nodes;                              // number of nodes (not needed for structured grids)
-        int num_elements;                           // number of elements 
-        int max_node_el_conn;                       // max number of elements connected to a node
-        std::vector<int> index;                     // indices of nodes corresponding to the elements
-        std::vector<int> element_connectivity;      // indices of neighbouring elements
-        std::vector<int> node_element_connectivity; // indices of elements connected to each node
-        std::vector<bool> mask_dirichlet;           // is the node on a coast (edge is coastal if this is true for both nodes)?
-        T_val_vec nodes_x;                     // x-coords of nodes (not needed for structured grids)
-        T_val_vec nodes_y;                     // y-coords of nodes (not needed for structured grids)
-        T_val_vec elements_x;                  // x-coords of elements
-        T_val_vec elements_y;                  // y-coords of elements
-        T_val_vec surface;                     // surface area of elements
-        std::vector<int> id;                        // id's of nodes
-    } MeshInfo;
 
     typedef struct WimGrid
     {
@@ -213,9 +193,6 @@ public:
     void setMesh( T_gmsh const &mesh,T_val_vec const &um,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding=false);
     void setMesh( T_gmsh const &mesh,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding=false);
 
-    void resetMesh( T_gmsh const &mesh);
-    void resetMesh( T_gmsh const &mesh,T_val_vec const &um);
-
     void setIceFields( std::vector<T_val> const& m_conc,  // conc
                        std::vector<T_val> const& m_vol, // ice vol or effective thickness (conc*thickness)
                        std::vector<T_val> const& m_nfloes,// Nfloes=conc/Dmax^2
@@ -262,20 +239,13 @@ public:
     void returnWaveStress(T_val_vec &M_tau, T_val_vec &xnod, T_val_vec &ynod);
     void returnWaveStress(T_val_vec &M_tau, T_gmsh const &mesh_in,T_val_vec const &um_in);
     void returnWaveStress(T_val_vec &M_tau, T_gmsh const &mesh_in);
+    void returnWaveStress(T_val_vec &M_tau);
 
     // ========================================================================
 
     WimGrid wimGrid(std::string const& units="m");
 
     void run();
-
-    //===========================================================================
-    //FSD: Dmax -> <D^moment> conversion
-    void floeScaling(
-          T_val const& dmax, int const& moment, T_val& dave);
-    void floeScalingSmooth(
-          T_val const& dmax, int const& moment, T_val& dave);
-    //===========================================================================
 
     //===========================================================================
     //advection/attenuation
@@ -421,8 +391,8 @@ private:
     int M_nb_export_final   = 0;
     int M_nb_mesh_test      = 0;
 
-    MeshInfo M_wim_triangulation,nextsim_mesh,nextsim_mesh_old;
-    std::vector<int> wet_indices;
+    T_mesh M_wim_triangulation,nextsim_mesh,nextsim_mesh_old;
+    std::vector<int> M_wet_indices;
 
     T_icep M_ice_params;
     //T_map_ice M_ice;
@@ -436,6 +406,7 @@ private:
                         // - for correction to group velocity at advection time
     // =========================================================================
 
+#if 0
     MeshInfo mesh_info_tmp = {
             initialised               : false,
             num_nodes                 : 0,
@@ -452,6 +423,7 @@ private:
             surface                   : {},
             id                        : {}
     };
+#endif
 
 };
 

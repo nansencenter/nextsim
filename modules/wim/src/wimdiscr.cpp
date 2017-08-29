@@ -8,7 +8,6 @@
 
 #include <wimdiscr.hpp>
 #include <date_wim.hpp>
-#include <meshtools.hpp>
 #include <exporter.hpp>
 #ifdef __cplusplus
 extern "C"
@@ -65,6 +64,7 @@ void WimDiscr<T>::gridProcessing()
 
 }//gridProcessing
 
+
 template<typename T>
 void WimDiscr<T>::gridProcessing(T_gmsh const &mesh_in)
 {
@@ -105,6 +105,7 @@ void WimDiscr<T>::gridProcessing(T_gmsh const &mesh_in)
 
 }//gridProcessing
 
+
 template<typename T>
 void WimDiscr<T>::gridPostProcessing()
 {
@@ -132,40 +133,18 @@ void WimDiscr<T>::gridPostProcessing()
     //Do triangulation
     if (!M_regular)
     {
-        //wet cells
+        // wet cells
+        // - centres become nodes for a new mesh that can be used for interpolation
+        T_val_vec nodes_x,nodes_y;
         for (int i=0;i<num_p_wim;i++)
             if (LANDMASK_array[i]<.5)
             {
-                M_wim_triangulation.nodes_x.push_back(X_array[i]);
-                M_wim_triangulation.nodes_y.push_back(Y_array[i]);
-                wet_indices.push_back(i);
+                nodes_x.push_back(X_array[i]);
+                nodes_y.push_back(Y_array[i]);
+                M_wet_indices.push_back(i);
             }
 
-        int Nnod = wet_indices.size();
-        std::cout<<"#nodes for triangulation = "<<Nnod<<"\n";
-
-        //do triangulation
-        int* index;
-        int Nel  = 0;
-		BamgTriangulatex(&index,    //pointer to index              (output)
-                         &Nel,      //pointer to num elements       (output)
-                         &(M_wim_triangulation.nodes_x)[0],  //pointer to x-coord of nodes   (input)
-                         &(M_wim_triangulation.nodes_y)[0],  //pointer to y-coord of nodes   (input)
-                         Nnod);     //num nodes                     (input)
-
-        std::cout<<"#elements from triangulation = "<<Nel<<"\n";
-        M_wim_triangulation.index.resize(3*Nel);
-        for (int i=0; i<3*Nel; i++)
-        {
-            //std::cout<<"index["<<i<<"] = "<<index[i]<<"\n";
-            M_wim_triangulation.index[i]   = index[i];
-        }
-        xDelete<int>(index);
-
-        //finish M_wim_triangulation (NB don't need coords of elements)
-        M_wim_triangulation.initialised     = true;
-        M_wim_triangulation.num_nodes       = Nnod;
-        M_wim_triangulation.num_elements    = Nel;
+        M_wim_triangulation = T_mesh(nodes_x,nodes_y);
     }
 
     //global variable needed by assign(), all loops
@@ -175,6 +154,7 @@ void WimDiscr<T>::gridPostProcessing()
     //length scale to determine the time step from (CFL criterion)
     M_length_cfl    = std::min(dx,dy);
 }//gridPostProcessing
+
 
 template<typename T>
 void WimDiscr<T>::gridFromParameters()
@@ -246,6 +226,7 @@ void WimDiscr<T>::gridFromParameters()
             SCVX_array[i] = dx;
 
 }//gridFromParameters
+
 
 template<typename T>
 void WimDiscr<T>::saveGrid()
@@ -331,6 +312,7 @@ void WimDiscr<T>::saveGrid()
         std::abort();
     }
 }//saveGrid
+
 
 template<typename T>
 void WimDiscr<T>::readGridFromFile()
@@ -488,6 +470,7 @@ void WimDiscr<T>::readGridFromFile()
     std::cout<<"Reading grid done...\n";
 }//readGridFromFile
 
+
 template<typename T>
 void WimDiscr<T>::readFromBinary(std::fstream &in, T_val_vec& in_array, int off, std::ios_base::seekdir direction, int addx, int addy)
 {
@@ -515,6 +498,7 @@ void WimDiscr<T>::readFromBinary(std::fstream &in, T_val_vec& in_array, int off,
     }
 }//readFromBinary
 
+
 template<typename T>
 void WimDiscr<T>::init(int const& nextsim_cpt)
 {
@@ -529,16 +513,12 @@ void WimDiscr<T>::init(int const& nextsim_cpt)
     this->init2();
 }//end ::init()
 
+
 template<typename T>
 void WimDiscr<T>::init1(int const& nextsim_cpt)
 {
     //before grid/mesh are set
     M_max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-
-    //set initialised to false for all MeshInfo objects
-    nextsim_mesh        = mesh_info_tmp;
-    nextsim_mesh_old    = mesh_info_tmp;
-    M_wim_triangulation = mesh_info_tmp;
 
     //set global counter to 0
     M_cpt = 0;
@@ -546,6 +526,7 @@ void WimDiscr<T>::init1(int const& nextsim_cpt)
     //parameters
     this->initConstant(nextsim_cpt);
 }//init1
+
 
 template<typename T>
 void WimDiscr<T>::init2()
@@ -802,6 +783,7 @@ void WimDiscr<T>::assign()
 
 }//end: assign()
 
+
 template<typename T>
 void WimDiscr<T>::assignSpatial()
 {
@@ -1013,7 +995,7 @@ void WimDiscr<T>::updateWaveMedium()
 
     if(M_wim_on_mesh)
         //get group velocity on nodes of mesh
-        this->elementsToNodes(agnod_ptrs,ag_ptrs);
+        nextsim_mesh.elementsToNodes(agnod_ptrs,ag_ptrs);
 
 }//end: update()
 
@@ -1158,6 +1140,7 @@ void WimDiscr<T>::inputWaveFields(T_val_vec const& swh_in,
 
     this->setIncWaveSpec(wave_mask);
 }//inputWaveFields()
+
 
 template<typename T>
 void WimDiscr<T>::setIncWaveSpec(T_val_vec const& wave_mask)
@@ -1682,7 +1665,6 @@ void WimDiscr<T>::timeStep()
 
         // - set output data
         // - these are automatically resized in gridToPoints
-        int Ne = nextsim_mesh.num_elements;
         T_val_vec mom0_mesh;
         T_val_vec mom2_mesh;
         T_val_vec var_strain_mesh;
@@ -1690,7 +1672,7 @@ void WimDiscr<T>::timeStep()
 
         // - call routine
         this->gridToPoints(output_data,input_data,
-                nextsim_mesh.elements_x, nextsim_mesh.elements_y);
+                nextsim_mesh.M_elements_x, nextsim_mesh.M_elements_y);
         std::cout<<"break_on_mesh: after interp grid to mesh\n";
         // =================================================================
 
@@ -1711,16 +1693,17 @@ void WimDiscr<T>::timeStep()
              <<std::setprecision(10)<< taux_max <<"\n";
 }//timeStep
 
+
 template<typename T>
 void WimDiscr<T>::setMesh(T_gmsh const &movedmesh)
 {
     M_time_mesh_set     = M_update_time;//used in check when ice fields are set on mesh
-
     nextsim_mesh_old    = nextsim_mesh;
 
     //update nextsim_mesh with moved mesh
-    this->resetMesh(movedmesh);
+    nextsim_mesh    = T_mesh(movedmesh);
 }
+
 
 template<typename T>
 void WimDiscr<T>::setMesh(T_gmsh const &mesh_in,T_val_vec const &um_in)
@@ -1729,6 +1712,7 @@ void WimDiscr<T>::setMesh(T_gmsh const &mesh_in,T_val_vec const &um_in)
     movedmesh.move(um_in,1.);
     this->setMesh(movedmesh);
 }//setMesh
+
 
 template<typename T>
 void WimDiscr<T>::setMesh(T_gmsh const &mesh_in,
@@ -1740,6 +1724,7 @@ void WimDiscr<T>::setMesh(T_gmsh const &mesh_in,
     this->setMesh(movedmesh,bamgmesh,assign_spatial);
 }
 
+
 template<typename T>
 void WimDiscr<T>::setMesh(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& flag_fix,bool const& assign_spatial)
 {
@@ -1750,113 +1735,37 @@ void WimDiscr<T>::setMesh(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& 
     if(assign_spatial)
         M_assigned  = false;
 
-    //update nextsim_mesh with moved mesh
-    this->setMesh(movedmesh);
+    M_time_mesh_set     = M_update_time;//used in check when ice fields are set on mesh
+    nextsim_mesh_old    = nextsim_mesh;
 
-    // ================================================================================
-    // this interface should be called after regridding (if M_wim_on_mesh)
-    //
-    // regridding procedure INSIDE NEXTSIM:
-    // *BEFORE REGRID:
-    // 1) um0 = wim.RelativeMeshDisplacement(M_mesh_old,M_UM_old);
-    //    - relative displacement between moved mesh just before displacement
-    //      & mesh at last call to WIM
-    // 2) interp um0 -> new mesh (after regrid)
-    //    - this gives um1
-    // 3) wim.resetMesh(M_mesh,um1)
-    // 4) interp M_sdf_dir,taux,tauy -> new mesh
-    // 5) integrate M_sdf_dir? (puts Hs etc on new mesh)
-    // ================================================================================
+    nextsim_mesh    = T_mesh(movedmesh,bamgmesh,flag_fix);
 
     // get relative displacement of nodes since last call
     // - M_UM may already be nonzero if regridding has happened
     // - it is reset to zero at end of wim.run() and at initialisation
     // - used to correct group velocity when waves are advected
-    int Nn = nextsim_mesh.num_nodes;
+    int Nn = nextsim_mesh.M_num_nodes;
     if (M_cpt==0)
         M_UM.assign(2*Nn,0.);
     else
         for (int i=0;i<Nn;i++)
         {
             //nextsim_mesh_old is either from last WIM call or last regrid
-            M_UM[i]    += nextsim_mesh.nodes_x[i]-nextsim_mesh_old.nodes_x[i];
-            M_UM[i+Nn] += nextsim_mesh.nodes_y[i]-nextsim_mesh_old.nodes_y[i];
+            M_UM[i]    += nextsim_mesh.M_nodes_x[i]-nextsim_mesh_old.M_nodes_x[i];
+            M_UM[i+Nn] += nextsim_mesh.M_nodes_y[i]-nextsim_mesh_old.M_nodes_y[i];
         }
 
-    //calculate the surface areas,
-    //get the element connectivity from bamgmesh
-    int Nels = nextsim_mesh.num_elements;
-    nextsim_mesh.surface.assign(Nels,0);
-    nextsim_mesh.element_connectivity.assign(3*Nels,0);
-    for (int i=0;i<Nels;i++)
-    {
-        T_val_vec xnods(3);
-        T_val_vec ynods(3);
-        for (int k=0;k<3;k++)
-        {
-            int ind  = nextsim_mesh.index[3*i+k]-1;//NB bamg indices go from 1 to Nels
-            xnods[k] = nextsim_mesh.nodes_x[ind];
-            ynods[k] = nextsim_mesh.nodes_y[ind];
-
-            nextsim_mesh.element_connectivity[3*i+k]
-                = bamgmesh->ElementConnectivity[3*i+k];//NB stick to bamg convention (indices go from 1 to Nels)
-        }
-        T_val area = .5*MeshTools::jacobian(
-                xnods[0],ynods[0],xnods[1],ynods[1],xnods[2],ynods[2]);
-        if(area>=0.)
-            nextsim_mesh.surface[i] = area;
-        else
-        {
-            std::cout<<"Area of triangle "<<i<<" <0 : "<<area<<"\n";
-            throw std::runtime_error("setMesh (wim on mesh): negative area found\n");
-        }
-    }
-
-    // ================================================================
-    //get the Dirichlet mask
-    std::vector<int> dirichlet_flags(0);
-    for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
-        if (bamgmesh->Edges[3*edg+2] == flag_fix)
-            dirichlet_flags.push_back(bamgmesh->Edges[3*edg]-1);
-    
-    nextsim_mesh.mask_dirichlet.assign(Nn,false);
-    for (int i=0; i<dirichlet_flags.size(); ++i)
-        nextsim_mesh.mask_dirichlet[dirichlet_flags[i]] = true;
-    // ================================================================
-
-    int max_nec = bamgmesh->NodalElementConnectivitySize[1];
-    nextsim_mesh.max_node_el_conn = max_nec;
-    nextsim_mesh.node_element_connectivity.resize(Nn*max_nec);
-    for (int i=0;i<Nn;i++)
-    {
-        for (int j=0; j<max_nec; ++j)
-        {
-            nextsim_mesh.node_element_connectivity[max_nec*i+j]
-                = bamgmesh->NodalElementConnectivity[max_nec*i+j];
-            // NB stick to bamg convention (element indices go from 1 to Nels)
-            // To test if element is OK:
-            // elt_num  = nextsim_mesh.node_element_connectivity[max_nec*i+j]-1;
-            // OK if ((0 <= elt_num) && (elt_num < mesh.numTriangles()) && (elt_num != NAN))
-        }
-        
-    }
     // ================================================================================
 
-    M_num_elements  = Nels;
+    M_num_elements  = nextsim_mesh.M_num_elements;
     std::cout<<"on mesh, M_num_elements = "<<M_num_elements<<"\n";
 
-    //length scale to determine the time step from (CFL criterion)
-    //M_length_cfl = .33*MeshTools::resolution(movedmesh);
-    //M_length_cfl = .25*MeshTools::resolution(movedmesh);
-    M_length_cfl = .1*MeshTools::resolution(movedmesh);
-
     //set some arrays that are still needed by some functions
-    X_array = nextsim_mesh.elements_x;
-    Y_array = nextsim_mesh.elements_y;
+    X_array = nextsim_mesh.M_elements_x;
+    Y_array = nextsim_mesh.M_elements_y;
 
-    LANDMASK_array.assign(Nels,0.);//mesh is only defined on wet cells (ie no land)
+    LANDMASK_array.assign(M_num_elements,0.);//mesh is only defined on wet cells (ie no land)
 
-    std::cout<<"M_assigned = "<<M_assigned<<"\n";
     if(!M_assigned)
         //need to set sizes each time mesh changes: init,regrid
     {
@@ -1864,36 +1773,13 @@ void WimDiscr<T>::setMesh(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& 
         this->assignSpatial();
     }
 
+    M_length_cfl    = nextsim_mesh.lengthCfl();
 #if 0
     std::cout<<"setMesh: calling testMesh\n";
     this->testMesh();
 #endif
 }//setMesh
 
-template<typename T>
-void WimDiscr<T>::resetMesh(T_gmsh const &mesh,T_val_vec const &um_in)
-{
-    //move the mesh then set nextsim_mesh
-    auto movedmesh = mesh;
-    movedmesh.move(um_in,1.);
-    this->resetMesh(movedmesh);
-}//resetMesh()
-
-template<typename T>
-void WimDiscr<T>::resetMesh(T_gmsh const &mesh_in)
-{
-    //sets the variable "nextsim_mesh"
-    nextsim_mesh.initialised    = true;
-    nextsim_mesh.num_nodes      = mesh_in.numNodes();
-    nextsim_mesh.num_elements   = mesh_in.numTriangles();
-    nextsim_mesh.index          = mesh_in.indexTr();
-    nextsim_mesh.id             = mesh_in.id();
-    nextsim_mesh.nodes_x        = mesh_in.coordX();
-    nextsim_mesh.nodes_y        = mesh_in.coordY();
-    nextsim_mesh.elements_x     = mesh_in.bcoordX();
-    nextsim_mesh.elements_y     = mesh_in.bcoordY();
-
-}//resetMesh
 
 template<typename T>
 typename WimDiscr<T>::T_val_vec
@@ -1922,7 +1808,7 @@ WimDiscr<T>::getSurfaceFactor(T_gmsh const &movedmesh)
         T_val area = .5*MeshTools::jacobian(
                 xnods[0],ynods[0],xnods[1],ynods[1],xnods[2],ynods[2]);
         if (area>0)
-            surface_fac[i] = area/nextsim_mesh.surface[i];
+            surface_fac[i] = area/nextsim_mesh.M_surface[i];
         else
         {
             std::cout<<"Area of triangle "<<i<<" <0: "<<area<<"\n";
@@ -1932,6 +1818,7 @@ WimDiscr<T>::getSurfaceFactor(T_gmsh const &movedmesh)
 
     return surface_fac;
 }//getSurfaceFactor()
+
 
 template<typename T>
 void WimDiscr<T>::updateWaveSpec(T_gmsh const &movedmesh)
@@ -1945,7 +1832,6 @@ void WimDiscr<T>::updateWaveSpec(T_gmsh const &movedmesh)
     auto surface_fac = this->getSurfaceFactor(movedmesh);
 
     int Nels = movedmesh.numTriangles();
-    T_val_vec surface(Nels,0.);
     std::fill(M_Tp.begin() ,M_Tp.end() ,0.);
     std::fill(M_mwd.begin(),M_mwd.end(),0.);
     for (int i=0;i<Nels;i++)
@@ -1969,16 +1855,16 @@ void WimDiscr<T>::updateWaveSpec(T_gmsh const &movedmesh)
 
             for(int nth=0;nth<nwavedirn;nth++)
             {
-                T_val adv_dir   = -PI*(90.0+M_wavedir[nth])/180.0;
+                T_val adv_dir          = -PI*(90.0+M_wavedir[nth])/180.0;
                 M_sdf_dir[fq][nth][i] *= surface_fac[i];
-                T_val sdf       = M_sdf_dir[fq][nth][i];
+                T_val sdf              = M_sdf_dir[fq][nth][i];
 
                 mom0 += M_quadrature_wt_freq[fq]*M_quadrature_wt_dir[nth]*sdf*F2;
                 mom2 += M_quadrature_wt_freq[fq]*M_quadrature_wt_dir[nth]*sdf*F2*om2;
                 //
                 T_val tmp = M_quadrature_wt_freq[fq]*M_quadrature_wt_dir[nth]*sdf*F2*std::cos(adv_dir);
-                momc          += tmp;
-                sdfx          += 2*om*kice*tmp;
+                momc     += tmp;
+                sdfx     += 2*om*kice*tmp;
                 //
                 tmp   = M_quadrature_wt_freq[fq]*M_quadrature_wt_dir[nth]*sdf*F2*std::sin(adv_dir);
                 moms += tmp;
@@ -1997,6 +1883,7 @@ void WimDiscr<T>::updateWaveSpec(T_gmsh const &movedmesh)
     }//loop over elements
 }//updateWaveSpec
 
+
 template<typename T>
 void WimDiscr<T>::updateWaveSpec(T_gmsh const &mesh_in,T_val_vec const &um_in)
 {
@@ -2004,6 +1891,7 @@ void WimDiscr<T>::updateWaveSpec(T_gmsh const &mesh_in,T_val_vec const &um_in)
     movedmesh.move(um_in,1);
     this->updateWaveSpec(movedmesh);
 }//updateWaveSpec
+
 
 template<typename T>
 typename WimDiscr<T>::T_val_vec
@@ -2014,6 +1902,7 @@ WimDiscr<T>::getRelativeMeshDisplacement(T_gmsh const &mesh_in,T_val_vec const &
     this->getRelativeMeshDisplacement(movedmesh);
 }//getRelativeMeshDisplacement
 
+
 template<typename T>
 typename WimDiscr<T>::T_val_vec
 WimDiscr<T>::getRelativeMeshDisplacement(T_gmsh const &movedmesh) const
@@ -2022,21 +1911,22 @@ WimDiscr<T>::getRelativeMeshDisplacement(T_gmsh const &movedmesh) const
     auto nodes_y = movedmesh.coordY();
     int Nn = nodes_x.size();
 
-    if (!nextsim_mesh.initialised)
+    if (nextsim_mesh.M_mesh_type==T_mesh::E_mesh_type::uninitialised)
         throw std::runtime_error("relativeMeshDisplacement: nextsim_mesh not initialised yet");
-    if (nextsim_mesh.num_nodes!=Nn)
+    if (nextsim_mesh.M_num_nodes!=Nn)
         throw std::runtime_error("relativeMeshDisplacement: mesh_in and nextsim_mesh have different sizes");
 
     auto um_out = M_UM;//in case there has been another regrid already
 
     for (int i=0;i<Nn;i++)
     {
-        um_out[i]    += nodes_x[i]-nextsim_mesh.nodes_x[i];
-        um_out[i+Nn] += nodes_y[i]-nextsim_mesh.nodes_y[i];
+        um_out[i]    += nodes_x[i]-nextsim_mesh.M_nodes_x[i];
+        um_out[i+Nn] += nodes_y[i]-nextsim_mesh.M_nodes_y[i];
     }
 
     return um_out;
 }//relativeMeshDisplacement
+
 
 template<typename T>
 void WimDiscr<T>::setIceFields(
@@ -2102,6 +1992,13 @@ void WimDiscr<T>::gridToPoints(
         T_val_vec_ptrs const &input_data,  //input data
         T_val_vec &Rx, T_val_vec &Ry) //output locations
 {
+
+    if (!M_regular)
+    {
+        M_wim_triangulation.interpToPoints(output_data,input_data,Rx,Ry,M_wet_indices);
+        return;
+    }
+        
     int nb_var      = input_data.size();
     int Ninterp     = (*(input_data[0])).size();//get pointer, then get size
     int target_size = Rx.size();
@@ -2113,43 +2010,21 @@ void WimDiscr<T>::gridToPoints(
 
     T_val* interp_out;
 
-    //bool regular_source = (source_grid.grid_type == "RegularGrid")&&M_regular;
-    if (M_regular)
-    {
-        std::cout<<"gridToPoints: InterpFromGridToMeshx\n";
-        int interptype = BilinearInterpEnum;
-        InterpFromGridToMeshx(interp_out,       //data (out)
-                              &x_col[0], nx,    //x vector (source), length of x vector
-                              &y_row[0], ny,    //y vector (source), length of y vector
-                              &interp_in[0],    //data (in)
-                              ny, nx,           //M,N: no of grid cells in y,x directions
-                                                //(to determine if corners or centers of grid have been input)
-                              nb_var,           //no of variables
-                              &Rx[0],           // x vector (target) (NB already a reference)
-                              &Ry[0],           // x vector (target) (NB already a reference)
-                              target_size,0.,   //target_size,default value
-                              interptype,       //interpolation type
-                              true              //row_major (false = fortran/matlab order)         
-                              );
-    }
-    else
-    {
-        std::cout<<"gridToPoints: InterpFromMeshToMesh2dx\n";
-        InterpFromMeshToMesh2dx(&interp_out,                        //output data
-                              &(M_wim_triangulation.index)[0],      //index 
-                              &(M_wim_triangulation.nodes_x)[0],    //input location (x-coord)
-                              &(M_wim_triangulation.nodes_y)[0],    //input location (y-coord)
-                              M_wim_triangulation.num_nodes,        //num nodes
-                              M_wim_triangulation.num_elements,     //num elements
-                              &interp_in[0],                        //input data
-                              M_wim_triangulation.num_nodes,        //num input locations
-                              nb_var,                               //num input variables
-                              &Rx[0],                               //output location (x-coord)
-                              &Ry[0],                               //output location (y-coord)
-                              Rx.size(),                            //num output locations
-                              false);                               //use default value if outside mesh (use nearest)
-    }
-    
+    std::cout<<"gridToPoints: InterpFromGridToMeshx\n";
+    int interptype = BilinearInterpEnum;
+    InterpFromGridToMeshx(interp_out,       //data (out)
+                          &x_col[0], nx,    //x vector (source), length of x vector
+                          &y_row[0], ny,    //y vector (source), length of y vector
+                          &interp_in[0],    //data (in)
+                          ny, nx,           //M,N: no of grid cells in y,x directions
+                                            //(to determine if corners or centers of grid have been input)
+                          nb_var,           //no of variables
+                          &Rx[0],           // x vector (target) (NB already a reference)
+                          &Ry[0],           // x vector (target) (NB already a reference)
+                          target_size,0.,   //target_size,default value
+                          interptype,       //interpolation type
+                          true              //row_major (false = fortran/matlab order)         
+                          );
 
     //output
     for (int p=0;p<nb_var;p++)
@@ -2163,176 +2038,24 @@ void WimDiscr<T>::gridToPoints(
 
 }//gridToPoints
 
+
 template<typename T>
 void WimDiscr<T>::meshToGrid(
         T_val_vec_ptrs &output_data,       //output data
         T_val_vec_ptrs const &input_data)  //input data
 {
-    int nb_var      = input_data.size();
-    int Ninterp     = (*(input_data[0])).size();//get pointer, then get size
 
-    T_val_vec interp_in(Ninterp*nb_var);   //input to interp routine
-    for (int i=0;i<Ninterp;i++)
-        for (int p=0;p<nb_var;p++)
-            interp_in[nb_var*i+p]   = (*(input_data[p]))[i];
-
-    T_val* interp_out;
-    int target_size = X_array.size();
-
-    //bool regular_source = (source_grid.grid_type == "RegularGrid")&&M_regular;
-    if (M_regular)
-    {
-        T_val ymax = *std::max_element(Y_array.begin(),Y_array.end());
-        std::cout<<"sim2wim: before interp mesh2grid\n";
-        InterpFromMeshToGridx(interp_out,                   //output data (pointer)
-                              &(nextsim_mesh.index)[0],     //mesh index (element->node map)
-                              &(nextsim_mesh.nodes_x)[0],   //node positions (x-coords)
-                              &(nextsim_mesh.nodes_y)[0],   //node positions (y-coords)
-                              nextsim_mesh.num_nodes,       //num nodes
-                              nextsim_mesh.num_elements,    //num elements
-                              &interp_in[0],                //input data
-                              Ninterp,                      //data length
-                              nb_var,                       //no of variables
-                              x0,                           //xmin (of grid elements' positions)
-                              ymax,                         //ymax (of grid elements' positions)
-                              dx,                           //grid dx
-                              dy,                           //grid dy
-                              nx,                           //grid nx
-                              ny,                           //grid ny
-                              0.);                          //default value (given to points outside mesh)
-    }
+    if(!M_regular)
+        nextsim_mesh.interpToPoints(output_data,input_data,X_array,Y_array);
     else
     {
-#if 0
-        std::cout<<"meshToGrid: calling testMesh\n";
-        this->testMesh();
-#endif
-        std::cout<<"meshToGrid: InterpFromMeshToMesh2dx\n";
-        InterpFromMeshToMesh2dx(&interp_out,              // output data
-                              &(nextsim_mesh.index)[0],   // index 
-                              &(nextsim_mesh.nodes_x)[0], // location of input nodes (x-coord)
-                              &(nextsim_mesh.nodes_y)[0], // location of input nodes (y-coord)
-                              nextsim_mesh.num_nodes,     // num nodes
-                              nextsim_mesh.num_elements,  // num elements
-                              &interp_in[0],              // input data
-                              Ninterp,                    // num input locations
-                              nb_var,                     // num input variables
-                              &X_array[0],                // output location (x-coord)
-                              &Y_array[0],                // output location (y-coord)
-                              target_size,                // num output locations
-                              false);                     // use default value if outside mesh (use nearest)
+        T_val ymax = *std::max_element(Y_array.begin(),Y_array.end());
+        nextsim_mesh.interpToGrid(output_data,input_data,
+                x0,ymax,nx,ny,dx,dy);
     }
-    
-
-    //output
-    for (int p=0;p<nb_var;p++)
-    {
-        output_data[p]->assign(target_size,0.);
-        for (int i=0;i<target_size;i++)
-            (*(output_data[p]))[i]  = interp_out[nb_var*i+p];
-    }
-
-    xDelete<T_val>(interp_out);
 
 }//meshToGrid
 
-template<typename T>
-void WimDiscr<T>::meshToPoints(
-        T_val_vec_ptrs &output_data,       //output data
-        T_val_vec_ptrs const &input_data,  //input data
-        T_val_vec &Rx,                     //location of output data (x-coord)
-        T_val_vec &Ry)                     //location of output data (y-coord)
-{
-    int nb_var      = input_data.size();
-    int Ninterp     = (*(input_data[0])).size();//get pointer, then get size
-    std::cout<<"meshToPoints: Ninterp,nb_var = "<<Ninterp<<","<<nb_var<<"\n";
-
-    T_val_vec interp_in(Ninterp*nb_var);   //input to interp routine
-    for (int i=0;i<Ninterp;i++)
-        for (int p=0;p<nb_var;p++)
-            interp_in[nb_var*i+p]   = (*(input_data[p]))[i];
-
-    T_val* interp_out;
-    int target_size = Rx.size();
-
-
-    std::cout<<"meshToPoints: InterpFromMeshToMesh2dx\n";
-    InterpFromMeshToMesh2dx(&interp_out,              // output data
-                          &(nextsim_mesh.index)[0],   // index 
-                          &(nextsim_mesh.nodes_x)[0], // location of input nodes (x-coord)
-                          &(nextsim_mesh.nodes_y)[0], // location of input nodes (y-coord)
-                          nextsim_mesh.num_nodes,     // num nodes
-                          nextsim_mesh.num_elements,  // num elements
-                          &interp_in[0],              // input data
-                          Ninterp,                    // num input locations
-                          nb_var,                     // num input variables
-                          &Rx[0],                     // output location (x-coord)
-                          &Ry[0],                     // output location (y-coord)
-                          target_size,                // num output locations
-                          false);                     // use default value if outside mesh (use nearest)
-    
-
-    //output
-    for (int p=0;p<nb_var;p++)
-    {
-        output_data[p]->assign(target_size,0.);
-        for (int i=0;i<target_size;i++)
-            (*(output_data[p]))[i]  = interp_out[nb_var*i+p];
-    }
-
-    xDelete<T_val>(interp_out);
-
-}//meshToPoints
-
-
-template<typename T>
-void WimDiscr<T>::elementsToNodes(
-        T_val_vec_ptrs &output_data,       //output data
-        T_val_vec_ptrs const &input_data)  //input data
-{
-
-    if(0)
-    {
-        //just use meshToPoints()
-        this->meshToPoints(output_data,input_data,nextsim_mesh.nodes_x,nextsim_mesh.nodes_y);
-        return;
-    }
-
-    // meshToPoints method currently crashes
-    // - here we take nodal value to be the average of connected elements
-    // TODO just do this for the boundary nodes, and interp to interior?
-    // TODO better way?
-    int Nn      = nextsim_mesh.num_nodes;
-    for (auto it=output_data.begin();it!=output_data.end();it++)
-        (*it)->assign(Nn,0.);
-
-    int max_nec = nextsim_mesh.max_node_el_conn;
-    int nb_var  = input_data.size();
-    for (int i=0;i<Nn;i++)
-    {
-        int nec = 0;
-
-        // check which elements are connected to the nodes
-        // and accumulate the values
-        // (take average once we know the number of good values)
-        for (int j=0; j<max_nec; ++j)
-        {
-            int elt_num  = nextsim_mesh.node_element_connectivity[max_nec*i+j]-1;//NB bamg indices start at 1
-            if ((0 <= elt_num) && (elt_num < M_num_elements) && (elt_num != NAN))
-            {
-                nec++;//it's a good element
-                for(int tmp_nb_var=0;tmp_nb_var<nb_var;tmp_nb_var++)
-                    (*(output_data[tmp_nb_var]))[i] += (*(input_data[tmp_nb_var]))[elt_num];
-            }
-        }
-
-        //divide by number of connected elements (nec) to get the average
-        if(nec>0)
-            for(int tmp_nb_var=0;tmp_nb_var<nb_var;tmp_nb_var++)
-                (*(output_data[tmp_nb_var]))[i] /= nec;
-    }
-
-}//elementsToNodes()
 
 template<typename T>
 typename WimDiscr<T>::T_map_vec
@@ -2344,6 +2067,7 @@ WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const & fields,
     return this->returnFieldsNodes(fields,xnod,ynod);
 }
 
+
 template<typename T>
 typename WimDiscr<T>::T_map_vec
 WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const & fields,
@@ -2353,6 +2077,7 @@ WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const & fields,
     movedmesh.move(um_in,1.);
     return this->returnFieldsNodes(fields,movedmesh);
 }
+
 
 template<typename T>
 typename WimDiscr<T>::T_map_vec
@@ -2369,6 +2094,7 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
     return this->returnFieldsElements(fields,xel,yel,surface_fac);
 }
 
+
 template<typename T>
 typename WimDiscr<T>::T_map_vec
 WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
@@ -2378,6 +2104,7 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
     movedmesh.move(um_in,1.);
     return this->returnFieldsElements(fields,movedmesh);
 }
+
 
 template<typename T>
 typename WimDiscr<T>::T_map_vec
@@ -2440,7 +2167,7 @@ WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const &fields,
     // Do the interpolation
     if(M_wim_on_mesh)
         //from elements of last mesh to nodes of the input mesh
-        this->elementsToNodes(out_nodes,input_nodes);
+        nextsim_mesh.elementsToNodes(out_nodes,input_nodes);
     else
         //from grid elements to mesh nodes
         this->gridToPoints(out_nodes,input_nodes,xnod,ynod);
@@ -2468,6 +2195,7 @@ WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const &fields,
 
     return output_nodes;
 }//returnFieldsNodes
+
 
 template<typename T>
 typename WimDiscr<T>::T_map_vec
@@ -2550,6 +2278,7 @@ void WimDiscr<T>::returnWaveStress(T_val_vec &M_tau,T_gmsh const &mesh_in,T_val_
     this->returnWaveStress(M_tau,movedmesh);
 }
 
+
 template<typename T>
 void WimDiscr<T>::returnWaveStress(T_val_vec &M_tau,T_gmsh const &movedmesh)
 {
@@ -2557,6 +2286,7 @@ void WimDiscr<T>::returnWaveStress(T_val_vec &M_tau,T_gmsh const &movedmesh)
     auto ynod = movedmesh.coordY();
     this->returnWaveStress(M_tau,xnod,ynod);
 }
+
 
 template<typename T>
 void WimDiscr<T>::returnWaveStress(T_val_vec &M_tau,T_val_vec &xnod,T_val_vec &ynod)
@@ -2571,10 +2301,10 @@ void WimDiscr<T>::returnWaveStress(T_val_vec &M_tau,T_val_vec &xnod,T_val_vec &y
     T_val_vec_ptrs out_nodes   = {&tx_out,&ty_out};
 
     //interp to nodes
-    if(M_wim_on_mesh)
-        this->meshToPoints(out_nodes,input_nodes,xnod,ynod);
-    else
+    if(!M_wim_on_mesh)
         this->gridToPoints(out_nodes,input_nodes,xnod,ynod);
+    else
+        throw std::runtime_error("returnWaveStress: using wrong interface for M_wim_on_mesh");
 
     M_tau.resize(2*Nnod,0.);
     for (int i=0;i<Nnod;i++)
@@ -2584,6 +2314,17 @@ void WimDiscr<T>::returnWaveStress(T_val_vec &M_tau,T_val_vec &xnod,T_val_vec &y
     }
 
 }//returnWaveStress
+
+
+template<typename T>
+void WimDiscr<T>::returnWaveStress(T_val_vec &M_tau)
+{
+    //nodes - vectors
+    T_val_vec tx_out,ty_out;
+    T_val_vec_ptrs input_nodes = {&M_tau_x,&M_tau_y};
+    T_val_vec_ptrs out_nodes   = {&tx_out,&ty_out};
+    nextsim_mesh.elementsToNodes(out_nodes,input_nodes);
+}
 
 
 template<typename T>
@@ -2675,6 +2416,7 @@ void WimDiscr<T>::getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out,T_val_ve
         throw std::runtime_error("getFsdMesh: using wrong interface");
 }//getFsdMesh
 
+
 template<typename T>
 void WimDiscr<T>::getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out,T_val_vec &broken,
         T_val_vec const & conc_tot, T_gmsh const &mesh_in,T_val_vec const &um_in)
@@ -2691,6 +2433,7 @@ void WimDiscr<T>::getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out,T_val_ve
     this->getFsdMesh(nfloes_out,dfloe_out,broken,conc_tot,movedmesh);
 }
 
+
 template<typename T>
 void WimDiscr<T>::getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out,T_val_vec &broken,
         T_val_vec const & conc_tot, T_gmsh const &movedmesh)
@@ -2702,15 +2445,15 @@ void WimDiscr<T>::getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out,T_val_ve
     // - NB set in FiniteElement::wimPreRegrid(),
     // but this function is called from FiniteElement::wimPostRegrid(),
     // and mesh could have changed due to regridding
-    this->resetMesh(movedmesh);
+    nextsim_mesh    = T_mesh(movedmesh);
 
     //do interpolation
     T_val_vec cinterp;//interp conc as well, to correct for interpolation error
     T_val_vec_ptrs input_data = {&(M_ice[IceType::wim].M_nfloes),&(M_ice[IceType::wim].M_conc),&(M_ice[IceType::wim].M_broken)};
     T_val_vec_ptrs output_data = {&nfloes_out,&cinterp,&broken};
-    this->gridToPoints(output_data,input_data,nextsim_mesh.elements_x,nextsim_mesh.elements_y);
+    this->gridToPoints(output_data,input_data,nextsim_mesh.M_elements_x,nextsim_mesh.M_elements_y);
 
-    int Nel = nextsim_mesh.num_elements;
+    int Nel = nextsim_mesh.M_num_elements;
     dfloe_out.assign(Nel,0.);
     for (int i=0;i<Nel;i++)
     {
@@ -2884,12 +2627,13 @@ void WimDiscr<T>::advectDirections(T_val_vec2d& Sdir,T_val_vec const& ag2d_eff)
     }//advection of each direction done
 }//advectDirections()
 
+
 template<typename T>
 void WimDiscr<T>::advectDirectionsMesh(T_val_vec2d& Sdir,T_val_vec & agnod,
         T_val_vec const &boundary_vals)
 {
 
-    int Nnod = nextsim_mesh.num_nodes;
+    int Nnod = nextsim_mesh.M_num_nodes;
 #if 0
     std::cout<<"advectDirectionsMesh: calling testMesh\n";
     this->testMesh();
@@ -2919,8 +2663,8 @@ void WimDiscr<T>::advectDirectionsMesh(T_val_vec2d& Sdir,T_val_vec & agnod,
 
         //do advection
         //std::cout<<"advectDirectionsMesh: calling MeshTools::advect()\n";
-        MeshTools::advect(&advect_out,&(Sdir[nth])[0],&nextsim_mesh,
-            &VC[0],&adv_method[0],nb_var,M_timestep,&bvals[0]);
+        nextsim_mesh.advect(&advect_out,&(Sdir[nth])[0],&VC[0],
+                &adv_method[0],nb_var,M_timestep,&bvals[0]);
 
         // copy from 2D temporary array back to 3D input array
 #pragma omp parallel for num_threads(M_max_threads) collapse(1)
@@ -3314,6 +3058,7 @@ void WimDiscr<T>::attenIsotropic(T_val_vec2d& Sdir, T_val_vec& Sfreq,
 #endif
 }//attenIsotropic
 
+
 template<typename T>
 void WimDiscr<T>::waveAdvWeno(T_val_vec& h, T_val_vec const& u, T_val_vec const& v)
 {
@@ -3375,6 +3120,7 @@ void WimDiscr<T>::waveAdvWeno(T_val_vec& h, T_val_vec const& u, T_val_vec const&
     //std::cout<<"advected thing at [nx-1,ny-1]: "<<h[nx-1][ny-1]<<"\n";
 
 }//waveAdvWeno
+
 
 template<typename T>
 void WimDiscr<T>::weno3pdV2(T_val_vec const& gin, T_val_vec const& u, T_val_vec const& v, T_val_vec const& scuy,
@@ -3546,6 +3292,7 @@ void WimDiscr<T>::weno3pdV2(T_val_vec const& gin, T_val_vec const& u, T_val_vec 
 #endif
 
 }//weno3pdV2
+
 
 template<typename T>
 void WimDiscr<T>::padVar(T_val_vec const& u, T_val_vec& upad,
@@ -3983,7 +3730,7 @@ void WimDiscr<T>::exportResultsMesh(T_map_vec_ptrs & extract_fields,
     Nextsim::Exporter exporter(vm["setup.exporter_precision"].as<std::string>());
     std::vector<double> timevec = {this->getNextsimTime()};
     exporter.writeField(outbin, timevec, "Time");
-    exporter.writeField(outbin, nextsim_mesh.surface, "Element_area");
+    exporter.writeField(outbin, nextsim_mesh.M_surface, "Element_area");
 
     //loop over the fields and write them
     for (auto it=extract_fields.begin();it!=extract_fields.end();it++)
@@ -4033,8 +3780,8 @@ void WimDiscr<T>::exportMesh(std::string const &filename)
     if ( ! meshbin.good() )
         throw std::runtime_error("Cannot write to file: " + fileout);
 
-    exporter.writeMesh(meshbin, nextsim_mesh.nodes_x, nextsim_mesh.nodes_y,
-            nextsim_mesh.id,nextsim_mesh.index);
+    exporter.writeMesh(meshbin, nextsim_mesh.M_nodes_x, nextsim_mesh.M_nodes_y,
+            nextsim_mesh.M_id,nextsim_mesh.M_index);
     meshbin.close();
 
     fileout = filename+".dat";
@@ -4289,6 +4036,7 @@ void WimDiscr<T>::saveOptionsLog()
     }//check if file opens
 }//saveOptionsLog
 
+
 template<typename T>
 typename WimDiscr<T>::T_val
 WimDiscr<T>::getNextsimTime() const
@@ -4296,6 +4044,7 @@ WimDiscr<T>::getNextsimTime() const
     T_val t0 = Wim::dateStr2Num(M_init_time_str); //days from ref time (1901-1-1) to init_time
     return t0+M_current_time/(24*3600.);             //days from ref time (1901-1-1) to model time
 }
+
 
 // instantiate wim class for type float
 //template class WimDiscr<float>;
