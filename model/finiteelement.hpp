@@ -329,9 +329,9 @@ private:
     std::vector<double> M_time_relaxation_damage;
 
     // =============================================================================
-    // variables needed for coupling with wim
+    // variables needed for coupling with M_wim
 #if defined (WAVES)
-    wim_type wim;
+    wim_type M_wim;
     std::vector<double> M_nfloes;
     std::vector<double> M_dfloe;
 
@@ -339,10 +339,6 @@ private:
     std::vector<double> M_MWD_grid;
     std::vector<double> M_MWP_grid;
 
-    wim_type::WimGrid wim_grid;
-    double xmin_wim,xmax_wim;
-    double ymin_wim,ymax_wim;
-    int num_elements_wim_grid;
     int wim_cpt;//no of times WIM has been called
     int steps_since_last_wim_call;//no of time steps since WIM was last called
 

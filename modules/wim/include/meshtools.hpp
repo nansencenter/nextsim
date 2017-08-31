@@ -120,6 +120,9 @@ public:
             int const&nx, int const&ny,
             T_val const &dx, T_val const &dy,
             T_val const &default_value=0.);
+
+    T_val_vec getX() const { return M_elements_x; }
+    T_val_vec getY() const { return M_elements_y; }
     // ===============================================================
 
 };//class MeshInfo

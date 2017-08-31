@@ -52,12 +52,9 @@ int main(int argc, char** argv )
         return ERROR_IN_COMMAND_LINE;
     }
 
-    // instantiation of wim2d
+    // instantiation & initialization of wim2d
     WimDiscr<double> wim(vm);
     //WimDiscr<float> wim(vm);
-
-    // initialization of wim2d
-    wim.init();
 
 #if 0
     //test fsd:

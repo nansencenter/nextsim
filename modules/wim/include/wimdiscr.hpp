@@ -38,6 +38,7 @@
 #include <gmshmesh.hpp>
 #include <iceinfo.hpp>
 #include <meshtools.hpp>
+#include <gridinfo.hpp>
 
 #ifdef PI
 #undef PI
@@ -66,6 +67,7 @@ template<typename T=float> class WimDiscr
     typedef Wim::IceParams<T_val>                         T_icep;
     typedef Wim::IceInfo<T_val>                           T_ice;
     typedef Wim::MeshInfo<T_val>                          T_mesh;
+    typedef Wim::GridInfo<T_val>                          T_grid;
     typedef std::vector<T_ice>                            T_vec_ice;
     typedef boost::unordered_map<std::string,std::string> T_map;
     typedef boost::unordered_map<std::string,T_val_vec*>  T_map_vec_ptrs;
@@ -82,19 +84,6 @@ public:
     // ====================================================================================
     // public types
     typedef boost::unordered_map<std::string,T_val_vec> T_map_vec;
-
-    typedef struct WimGrid
-    {
-        // information describing wim grid
-        int nx;
-        int ny;
-        T_val dx;
-        T_val dy;
-        std::vector<T_val> X;
-        std::vector<T_val> Y;
-        std::vector<T_val> x;
-        std::vector<T_val> y;
-    } WimGrid;
     // ====================================================================================
 
 
@@ -102,37 +91,18 @@ public:
 
     // ====================================================================================
     //constructors
-    WimDiscr()
-        :
-        vm(),
-        nx(),
-        ny()
-    {}
+    ~WimDiscr() {}
+    WimDiscr() {}
 
-    WimDiscr(po::variables_map const& vmIn)
-        :
-        vm(vmIn),
-        nx(vm["wim.nx"].template as<int>()),
-        ny(vm["wim.ny"].template as<int>())
-    {}
+    WimDiscr(po::variables_map const& vmIn,int const& nextsim_cpt=0);
+    WimDiscr(po::variables_map const& vmIn,T_gmsh const &mesh,int const& nextsim_cpt=0);
     // ====================================================================================
 
 
     // ====================================================================================
     // functions
 
-    //make a grid
-    void gridProcessing();
-    void gridProcessing(T_gmsh const &mesh);
-    void gridFromParameters();
-    void gridPostProcessing();
-
-    void saveGrid();
-    void readGridFromFile();
-    void readFromBinary(std::fstream &in, T_val_vec& in_array, int off = 0, std::ios_base::seekdir direction = std::ios::beg,
-            int addx = 0, int addy = 0);
-    void readDataFromFile(std::string const& filein);
-
+    // export
     void exportResults(std::string const& output_type);
     void exportResultsGrid(T_map_vec_ptrs& extract_fields,
             std::vector<std::string> const& strings);
@@ -141,25 +111,25 @@ public:
             bool export_mesh=true, bool export_fields=true);
     void exportMesh(std::string const &filename);
     void testMesh();
-
     void saveLog(T_val const& t_out) const;
     void saveOptionsLog();
 
+    // init
     void init1(int const& nextsim_cpt);
-    void init(int const& nextsim_cpt=0);
-    void init(T_gmsh const &mesh,int const& nextsim_cpt=0);//init WIM from gmsh mesh
-
     void init2();
     void initConstant(int const& nextsim_cpt);
     void assign();
     void assignSpatial();
 
+    // update
     void update();
-
     void updateWaveMedium();
 
+    // main routines
+    void run();
     void timeStep();
 
+    // fsd stuff
     T_val nfloesToDfloe(
                  T_val const& m_nfloes,
                  T_val const& m_conc);
@@ -187,36 +157,27 @@ public:
     T_val getNextsimTime() const;
 
     // ========================================================================
-    // breaking on mesh
+    // set mesh
     void setMesh( T_gmsh const &mesh);
     void setMesh( T_gmsh const &mesh,T_val_vec const &um);
     void setMesh( T_gmsh const &mesh,T_val_vec const &um,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding=false);
     void setMesh( T_gmsh const &mesh,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding=false);
+
+    T_val_vec getRelativeMeshDisplacement(T_gmsh const &mesh_in) const;
+    T_val_vec getRelativeMeshDisplacement(T_gmsh const &mesh_in,T_val_vec const &um_in) const;
 
     void setIceFields( std::vector<T_val> const& m_conc,  // conc
                        std::vector<T_val> const& m_vol, // ice vol or effective thickness (conc*thickness)
                        std::vector<T_val> const& m_nfloes,// Nfloes=conc/Dmax^2
                        bool const pre_regrid);
 
-    T_val_vec getRelativeMeshDisplacement(T_gmsh const &mesh_in) const;
-    T_val_vec getRelativeMeshDisplacement(T_gmsh const &mesh_in,T_val_vec const &um_in) const;
     void updateWaveSpec( T_gmsh const &mesh);
     void updateWaveSpec( T_gmsh const &mesh,T_val_vec const &um);
 
     void clearMeshFields() {M_ice[IceType::sim].clearFields();}
-    void gridToPoints(
-        T_val_vec_ptrs &output_data,
-        T_val_vec_ptrs const &input_data,
-        T_val_vec &Rx, T_val_vec &Ry);
+
+    //interpolation
     void meshToGrid(
-        T_val_vec_ptrs &output_data,       //output data
-        T_val_vec_ptrs const &input_data); //input data
-    void meshToPoints(
-        T_val_vec_ptrs &output_data,       //output data
-        T_val_vec_ptrs const &input_data,  //input data
-        T_val_vec &Rx,                     //location of output data (x-coord)
-        T_val_vec &Ry);                    //location of output data (y-coord)
-    void elementsToNodes(
         T_val_vec_ptrs &output_data,       //output data
         T_val_vec_ptrs const &input_data); //input data
 
@@ -243,9 +204,7 @@ public:
 
     // ========================================================================
 
-    WimGrid wimGrid(std::string const& units="m");
 
-    void run();
 
     //===========================================================================
     //advection/attenuation
@@ -262,15 +221,6 @@ public:
             T_val_vec& taux_omega,T_val_vec& tauy_omega,
             T_val_vec& sdx_omega,T_val_vec& sdy_omega,
             T_val_vec const& ag2d_eff);
-    void waveAdvWeno(
-            T_val_vec& h, T_val_vec const& u, T_val_vec const& v);
-    void weno3pdV2(
-            T_val_vec const& gin, T_val_vec const& u, T_val_vec const& v,
-            T_val_vec const& scuy, T_val_vec const& scvx,
-            T_val_vec const& scp2i, T_val_vec const& scp2,
-            T_val_vec& saoout);
-    void padVar(T_val_vec const& u, T_val_vec& upad,
-            std::string const& advopt_,bool const&steady=false);
     //===========================================================================
 
     void intWaveSpec();
@@ -287,13 +237,20 @@ public:
     T_val thetaDirFrac(T_val const& th1_, T_val const& dtheta_, T_val const& mwd_);
     T_val thetaInRange(T_val const& th_, T_val const& th1, bool const& close_on_right=false);
 
-    T_val_vec getX() const { return X_array; }
-    T_val_vec getY() const { return Y_array; }
-    T_val_vec getSCUY() const { return SCUY_array; }
-    T_val_vec getSCVX() const { return SCVX_array; }
-    T_val_vec getSCP2() const { return SCP2_array; }
-    T_val_vec getSCP2I() const { return SCP2I_array; }
-    T_val_vec getLANDMASK() const { return LANDMASK_array; }
+    T_val_vec getX() const
+    { 
+        if(!M_wim_on_mesh)
+            return M_grid.getX();
+        else
+            return M_mesh.getX();
+    }
+    T_val_vec getY() const
+    { 
+        if(!M_wim_on_mesh)
+            return M_grid.getY();
+        else
+            return M_mesh.getY();
+    }
 
     //for use at regridding time (M_wim_on_mesh)
     T_val_vec getMeshDisplacement() const { return M_UM; }
@@ -309,22 +266,16 @@ public:
         return;
     }
 
-    std::string getWimGridFilename() const { return wim_gridfile; }
+    std::string getWimGridFilename() const { return M_grid.M_gridfile; }
 
 
 private:
 
     po::variables_map vm;
-    int nx, ny, nxext, nyext, nbdy, nbdx, nghost;
-    int num_p_wim,num_q_wim,num_u_wim,num_v_wim;
     int M_itest;
-    T_val_vec X_array, Y_array, SCUY_array, SCVX_array,
-                SCP2_array, SCP2I_array, LANDMASK_array;
-    T_val_vec x_col,y_row;
 
     T_val M_cfl, M_length_cfl, M_max_cg;
     T_val Tmin, Tmax;
-    T_val xmax, ym, x0, y0, dx, dy, x_edge;
     T_val M_dfloe_pack_init;
     T_val M_timestep = 0.;
     T_val M_duration = 0.;
@@ -391,7 +342,8 @@ private:
     int M_nb_export_final   = 0;
     int M_nb_mesh_test      = 0;
 
-    T_mesh M_wim_triangulation,nextsim_mesh,nextsim_mesh_old;
+    T_mesh M_mesh,M_mesh_old;
+    T_grid M_grid;
     std::vector<int> M_wet_indices;
 
     T_icep M_ice_params;
