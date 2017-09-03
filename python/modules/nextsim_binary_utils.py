@@ -76,6 +76,76 @@ def read_file_info(file_info):
 
       return variables,record_numbers,variable_types
 
+def get_array(vname,binfile,vnames,vtypes):
+
+   if vname not in vnames:
+      raise ValueError(vname+ ' not in '+binfile)
+
+   import struct
+   sizes = {'f':4,'i':4,'d':8}
+
+   f  = open(binfile,'rb')
+   for v in vnames:
+      # print(v)
+      fmt   = vtypes[v]
+      size  = sizes[fmt]
+
+      # determine record length
+      N  = f.read(4)
+      N  = struct.unpack('i',N)[0]
+
+      if v!=vname:
+         f.seek(N*size,1)
+      else:
+         data  = f.read(N*size)
+         data  = np.array(struct.unpack(N*fmt,data))
+         break
+
+   f.close()
+   return data
+
+def get_variable_lengths(binfile,vnames,vtypes):
+
+   import struct
+   sizes = {'f':4,'i':4,'d':8}
+
+   vlens = {}
+   f  = open(binfile,'rb')
+   for v in vnames:
+      # print(i,v)
+      fmt   = vtypes[v]
+      size  = sizes[fmt]
+
+      N  = f.read(4)
+      N  = struct.unpack('i',N)[0]
+      vlens.update({v:N})
+      f.seek(N*size,1)
+
+   f.close()
+   return vlens
+
+def get_arrays(binfile,vnames,vtypes):
+
+   import struct
+   sizes = {'f':4,'i':4,'d':8}
+   out   = {}
+
+   f  = open(binfile,'rb')
+   for v in vnames:
+      # print(v)
+      fmt   = vtypes[v]
+      size  = sizes[fmt]
+
+      # determine record length
+      N  = f.read(4)
+      N  = struct.unpack('i',N)[0]
+
+      data  = f.read(N*size)
+      out.update({v:np.array(struct.unpack(N*fmt,data))})
+
+   f.close()
+   return out
+
 class nextsim_mesh_info:
    def __init__(self,mesh_file):
 
@@ -84,6 +154,10 @@ class nextsim_mesh_info:
       self.mesh_file_info  = self.mesh_file.replace('.bin','.dat')
 
       self.variables,self.record_numbers,self.variable_types  = read_file_info(self.mesh_file_info)
+      self.variable_lengths   = get_variable_lengths(self.mesh_file,self.variables,self.variable_types)
+
+      self.num_nodes    = self.variable_lengths['Nodes_x']
+      self.num_elements = self.variable_lengths['Elements']/3
 
       return
 
@@ -128,18 +202,19 @@ class nextsim_binary_info:
       elif fmt == 'd':
          size = 8
 
-      f  = open(self.data_file,'rb')
-      f.read(4)
-      Time  = f.read(size)
-      f.close()
-
-      Time  = struct.unpack(fmt,Time)[0] #days
+      Time  =  get_array("Time",self.data_file,self.variables,self.variable_types)[0]
       
       refdate        = DT(1900,1,1)
       self.datetime  = refdate+TD(Time)
       self.datetimes = [self.datetime]
 
       return
+
+   def get_var(self,vname):
+      return get_array(vname,self.data_file,self.variables,self.variable_types)
+
+   def get_vars(self):
+      return get_arrays(self.data_file,self.variables,self.variable_types)
 
 class mesh_physical_name:
    def __init__(self,name,ident,topodim):
