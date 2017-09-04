@@ -1,6 +1,14 @@
 import os,sys
 import numpy as np
 
+class plot_object:
+   def __init__(self):
+      from matplotlib import pyplot as plt
+      self.fig   = plt.figure()
+      self.ax    = self.fig.add_subplot(1,1,1)
+      return
+
+
 def xyz_to_lonlat(x,y,z):
    PI       = np.pi
    radius   = np.sqrt(pow(x,2.)+pow(y,2.)+pow(z,2.));
@@ -146,6 +154,80 @@ def get_arrays(binfile,vnames,vtypes):
    f.close()
    return out
 
+# ================================================================
+def plot_mesh_data(mesh_obj,pobj=None,data=None,clabel=None,plot_grid=False,gmsh_boundary=None,show=True,figname=None,colorbar=True):
+   from matplotlib import patches,cm,collections
+   from matplotlib import pyplot as plt
+
+   if pobj is None:
+      pobj  = plot_object()
+
+   fig   = pobj.fig
+   ax    = pobj.ax
+   sfac  = 1e-3 #m to km
+
+   # get nodes and indices
+   nodes_x,nodes_y   = mesh_obj.get_nodes_xy()
+   indices           = mesh_obj.get_indices("triangles")
+   Nn = mesh_obj.num_nodes
+   Ne = mesh_obj.num_triangles
+      
+   # set axes ranges
+   ax.set_xlim([sfac*nodes_x.min(),sfac*nodes_x.max()])
+   ax.set_ylim([sfac*nodes_y.min(),sfac*nodes_y.max()])
+
+   if data is None:
+      # test data: zeros (to just plot mesh)
+      zz       = np.zeros(Ne)
+      colorbar = False
+   elif len(data)!=Ne:
+      # TODO scalars on nodes
+      # TODO vectors on nodes - plot magnitude or component
+      raise ValueError("plotting of nodal data not yet implemented")
+
+   # get patches
+   patch_list  = []
+   # print(indices.shape)
+   for inds in indices:
+      # print(inds)
+      ccl   = []
+      for ind in inds:
+         n  = ind-1 # convert from matlab index to c/python
+         ccl.append((sfac*nodes_x[n],sfac*nodes_y[n]))
+      ccl.append(ccl[0]) # close the contour
+      patch_list.append(patches.Polygon(ccl,True))
+
+   pc = collections.PatchCollection(patch_list, cmap=cm.jet, alpha=1)
+   pc.set_array(data)
+
+   if plot_grid:
+      pc.set_edgecolor('k')
+   else:
+      pc.set_linewidth(0)
+
+   ax.add_collection(pc)
+   ax.set_xlabel('x, km')
+   ax.set_ylabel('y, km')
+
+   if colorbar:
+      cbar  = fig.colorbar(pc)
+      if clabel is not None:
+         cbar.set_label(clabel,rotation=270)
+
+   if gmsh_boundary is not None:
+      gmsh_boundary.plot(pobj=pobj,sort=True,show=False)
+
+   if figname is not None:
+      print("Saving as "+figname)
+      fig.savefig(figname)
+
+   if show:
+      plt.show(fig)
+
+   plt.close(fig)
+   return pobj
+# ================================================================
+
 class nextsim_mesh_info:
    def __init__(self,mesh_file):
 
@@ -156,12 +238,52 @@ class nextsim_mesh_info:
       self.variables,self.record_numbers,self.variable_types  = read_file_info(self.mesh_file_info)
       self.variable_lengths   = get_variable_lengths(self.mesh_file,self.variables,self.variable_types)
 
-      self.num_nodes    = self.variable_lengths['Nodes_x']
-      self.num_elements = self.variable_lengths['Elements']/3
+      self.num_nodes       = self.variable_lengths['Nodes_x']
+      self.num_elements    = self.variable_lengths['Elements']/3
+      self.num_triangles   = self.num_elements
+      self.num_edges       = np.nan
 
       return
 
+   def get_var(self,vname):
+      return get_array(vname,self.mesh_file,self.variables,self.variable_types)
+
+   def get_vars(self,vname):
+      return get_arrays(self.mesh_file,self.variables,self.variable_types)
+
+   def get_nodes_xy(self):
+      return self.get_var('Nodes_x'),self.get_var('Nodes_y')
+
+   def get_indices(self,eltype="triangles"):
+
+      if eltype!="triangles":
+         raise ValueError("nextsim_mesh_info object only has elements of type 'triangles'")
+
+      indices = self.get_var('Elements')
+      return indices.reshape((self.num_triangles,3))
+
+   def get_vertex_coords(self):
+      vv       = self.get_vars()
+      indices  = vv["Elements"].reshape((3,self.num_triangles)).transpose()
+      verts    = []
+      for inds in indices:
+         x  = 1*vv["Nodes_x"][ind] # take a copy to destroy pointer
+         y  = 1*vv["Nodes_y"][ind] # take a copy to destroy pointer
+         verts.append((x,y))
+
+   def plot(self,**kwargs):
+      """
+      plot the mesh
+      self.plot(pobj=None,show=True,gmsh_boundary=None)
+      """
+      return plot_mesh_data(self,plot_grid=True,**kwargs)
+# ================================================================================
+
+
+# ================================================================================
 class nextsim_binary_info:
+
+   # =============================================================================
    def __init__(self,data_file):
 
       # full or relative path to file
@@ -186,7 +308,9 @@ class nextsim_binary_info:
       #TODO or pass them in as arguments?
 
       return
+   # =============================================================================
 
+   # =============================================================================
    def _read_field_info(self):
 
       import struct
@@ -209,20 +333,35 @@ class nextsim_binary_info:
       self.datetimes = [self.datetime]
 
       return
+   # =============================================================================
 
+   # =============================================================================
    def get_var(self,vname):
       return get_array(vname,self.data_file,self.variables,self.variable_types)
 
    def get_vars(self):
       return get_arrays(self.data_file,self.variables,self.variable_types)
 
+   def plot_mesh(self,**kwargs):
+      return self.mesh_info.plot(**kwargs)
+
+   def plot_var(self,vname,**kwargs):
+      return plot_mesh_data(self.mesh_info,data=self.get_var(vname),**kwargs)
+   # =============================================================================
+
+# ================================================================================
+
+
+# ================================================================================
 class mesh_physical_name:
    def __init__(self,name,ident,topodim):
       self.name      = name
       self.ident     = ident
       self.topodim   = topodim
       return
+# ================================================================================
 
+# ================================================================================
 class mesh_element:
    def __init__(self,ident,vertices,physical=None,elementary=None):
       self.ident        = ident
@@ -238,7 +377,9 @@ class mesh_element:
          ccl.append((xnod[n],ynod[n]))
 
       return ccl
+# ================================================================================
 
+# ================================================================================
 class gmsh_boundary:
 
    # ==================================================================
@@ -367,11 +508,17 @@ class gmsh_boundary:
 
 
    # ==================================================================
-   def plot(self,sort=True,show=True):
-      from matplotlib import pyplot as plt
-      fig   = plt.figure()
-      ax    = fig.add_subplot(1,1,1)
-      sfac  = 1e-3 #m to km
+   def plot(self,pobj=None,sort=True,show=True,units="km"):
+
+      if pobj is None:
+         pobj  = plot_object()
+
+      fig   = pobj.fig
+      ax    = pobj.ax
+      if units=="km":
+         sfac  = 1e-3 #m to km
+      elif units=="m":
+         sfac  = 1
       lw    = 1.35
 
       # ===============================================================
@@ -405,11 +552,14 @@ class gmsh_boundary:
                ax.plot(sfac*x,sfac*y,'r',linewidth=lw)
 
       if show:
-         plt.show(fig)
+         fig.show()
 
-      return fig,ax
+      return pobj
    # ==================================================================
 
+# ================================================================================
+
+# ================================================================================
 class gmsh_mesh:
 
    # ================================================================
@@ -587,6 +737,9 @@ class gmsh_mesh:
       return
    # ================================================================
 
+   def get_nodes_xy(self):
+      return self.nodes_x,self.nodes_y
+
 
    # ================================================================
    def get_indices(self,eltype="triangles"):
@@ -596,6 +749,7 @@ class gmsh_mesh:
          els   = self.triangles
       else:
          els   = self.edges
+
       for el in els:
          indices.append(el.vertices)
          
@@ -762,6 +916,7 @@ class gmsh_mesh:
                            open_boundaries=open_boundaries,coastal_boundaries=coastal_boundaries)
 
       return
+   # ================================================================
 
    # ================================================================
    def plot_boundary(self,sort=False,show=True,fig=None,ax=None):
