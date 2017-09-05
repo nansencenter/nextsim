@@ -175,6 +175,7 @@ def plot_mesh_data(mesh_obj,pobj=None,data=None,clabel=None,plot_grid=False,gmsh
    # set axes ranges
    ax.set_xlim([sfac*nodes_x.min(),sfac*nodes_x.max()])
    ax.set_ylim([sfac*nodes_y.min(),sfac*nodes_y.max()])
+   ax.set_aspect('equal')
 
    if data is None:
       # test data: zeros (to just plot mesh)
@@ -210,9 +211,16 @@ def plot_mesh_data(mesh_obj,pobj=None,data=None,clabel=None,plot_grid=False,gmsh
    ax.set_ylabel('y, km')
 
    if colorbar:
-      cbar  = fig.colorbar(pc)
+      from mpl_toolkits.axes_grid1 import make_axes_locatable as MAL
+      divider  = MAL(ax)
+      cax   = divider.new_horizontal(pad=.45,size="5%",pack_start=False)
+      fig.add_axes(cax)
+
+      cbar  = fig.colorbar(pc,cax=cax,orientation="vertical")
       if clabel is not None:
          cbar.set_label(clabel,rotation=270)
+
+   fig.tight_layout()
 
    if gmsh_boundary is not None:
       gmsh_boundary.plot(pobj=pobj,sort=True,show=False)
