@@ -17,6 +17,7 @@
 
 #include <cmath>
 #include <iostream>
+#include <iomanip>
 #include <boost/program_options.hpp>
 #include <omp.h>
 
@@ -76,14 +77,13 @@ public:
     ~IceParams() {}
 
     //constructors
-    IceParams() {}
-    IceParams(po::variables_map const& vm) { this->update(vm); }
+    IceParams() { this->init(); }
+    IceParams(po::variables_map const& vm);
     // ===============================================================
 
 
     // ===============================================================
     // public functions
-    void update(po::variables_map const& vm);
     std::vector<double> getAttenParams();
 
     // get parameters
@@ -113,14 +113,17 @@ template<typename T=float> class IceInfo
 
     typedef T T_val;
     typedef typename std::vector<T_val> T_val_vec;
-    typedef IceParams<T_val>*           T_icep_ptr;
-    T_icep_ptr M_ice_params;//pointer to IceParams object - will be wim.M_ice_params
+    //typedef IceParams<T_val>*           T_icep_ptr;
+    typedef IceParams<T_val> T_icep;
+    T_icep M_ice_params;
+    std::string M_name = "";
 
     int M_num_elements = 0;
     int M_max_threads  = 0;
+    bool M_initialized = false;
 
     //private functions
-    void init();
+    void printRange(std::string const &name, T_val_vec const &vec, int const & prec=0) const;
 
 public:
 
@@ -130,12 +133,7 @@ public:
 
     //constructors
     IceInfo() {}
-    IceInfo(T_icep_ptr ice_params)
-        :
-        M_ice_params(ice_params)
-    {
-        this->init();
-    }
+    IceInfo(T_icep ice_params,std::string const &name);
     // ===============================================================
 
     // ===============================================================
@@ -164,6 +162,7 @@ public:
             T_val const& dmax,int const& moment, T_val& dave);
 
     void getDave(T_val_vec &dave,int const& moment);
+    std::string getName() { return M_name; }
     // ===============================================================
 
 

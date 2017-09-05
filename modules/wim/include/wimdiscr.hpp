@@ -29,9 +29,9 @@
 #include <boost/format.hpp>
 #include <boost/mpi/timer.hpp>
 #include <boost/unordered_map.hpp>
-#include <InterpFromGridToMeshx.h>
-#include <InterpFromMeshToMesh2dx.h>
-#include <InterpFromMeshToGridx.h>
+//#include <InterpFromGridToMeshx.h>
+//#include <InterpFromMeshToMesh2dx.h>
+//#include <InterpFromMeshToGridx.h>
 #include <Bamgx.h>
 #include <iomanip>
 #include <omp.h>
@@ -115,9 +115,8 @@ public:
     void saveOptionsLog();
 
     // init
-    void init1(int const& nextsim_cpt);
-    void init2();
     void initConstant(int const& nextsim_cpt);
+    void initRemaining();
     void assign();
     void assignSpatial();
 
@@ -251,6 +250,10 @@ public:
         else
             return M_mesh.getY();
     }
+    int getNumElements() { return M_num_elements; }
+    void getRangeXY(T_val &xmin,T_val &xmax, T_val &ymin, T_val &ymax) const;
+    void printRange(std::string const &name, T_val_vec const &vec, int const & prec=0) const;
+    void getRange(T_val_vec const &vec, T_val &xmin, T_val &xmax) const;
 
     //for use at regridding time (M_wim_on_mesh)
     T_val_vec getMeshDisplacement() const { return M_UM; }
@@ -353,6 +356,7 @@ private:
     bool M_break_on_mesh = false;// do breaking on nextsim mesh as well as on grid
     bool M_wim_on_mesh   = false;// to run WIM on nextsim mesh
     
+    T_val_vec M_land_mask;
     T_val_vec M_UM;// displacement of mesh nodes between calls to wim.run()
                         // - only used if running WIM on nextsim mesh
                         // - for correction to group velocity at advection time

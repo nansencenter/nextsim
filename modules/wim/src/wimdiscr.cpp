@@ -28,7 +28,7 @@ WimDiscr<T>::WimDiscr(po::variables_map const& vmIn,int const& nextsim_cpt)
 {
 
     vm  = vmIn;
-    this->init1(nextsim_cpt);
+    this->initConstant(nextsim_cpt);
 
     if(!M_wim_on_mesh)
         // wim grid generation/reading
@@ -36,42 +36,26 @@ WimDiscr<T>::WimDiscr(po::variables_map const& vmIn,int const& nextsim_cpt)
         // time
         M_grid  = T_grid(vm);
 
-    this->init2();
-}//end ::init()
+    this->initRemaining();
+}//WimDiscr()
 
 
 template<typename T>
 WimDiscr<T>::WimDiscr(po::variables_map const& vmIn,T_gmsh const &mesh_in,int const& nextsim_cpt)
 {
     vm  = vmIn;
-    this->init1(nextsim_cpt);
+    this->initConstant(nextsim_cpt);
 
     // init grid FROM mesh
     T_mesh mesh(mesh_in);//tmp mesh object
     M_grid  = T_grid(vm,mesh);
 
-    this->init2();
-}//end ::init()
-
-
-
-
-template<typename T>
-void WimDiscr<T>::init1(int const& nextsim_cpt)
-{
-    //before grid/mesh are set
-    M_max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-
-    //set global counter to 0
-    M_cpt = 0;
-
-    //parameters
-    this->initConstant(nextsim_cpt);
-}//init1
+    this->initRemaining();
+}//WimDiscr()
 
 
 template<typename T>
-void WimDiscr<T>::init2()
+void WimDiscr<T>::initRemaining()
 {
     //after grid/mesh are set
 
@@ -96,8 +80,9 @@ void WimDiscr<T>::init2()
         }
 
     //global test index
-    std::cout<<"\nWIM diagnostics to be done at global index: "
-        <<M_itest<<"(of "<<M_num_elements<<")\n";
+    if (M_itest>=0)
+        std::cout<<"\nWIM diagnostics to be done at global index: "
+            <<M_itest<<"(of "<<M_num_elements<<")\n";
     if (M_itest>=M_num_elements)
         throw std::runtime_error("M_itest out of range");
     // ==============================================================================
@@ -110,16 +95,23 @@ void WimDiscr<T>::init2()
         // if(M_wim_on_mesh), assignSpatial() called in run()
         // - since mesh is changing each time
         M_num_elements  = M_grid.M_num_elements;
+        M_land_mask     = M_grid.M_land_mask;
         this->assignSpatial();
     }
 
-    std::cout<<"wim.init() finished\n";
-}//init2
+    std::cout<<"wim instantiation finished\n";
+}//initRemaining
 
 
 template<typename T>
 void WimDiscr<T>::initConstant(int const& nextsim_cpt)
 {
+
+    //OMP max threads
+    M_max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
+
+    //set global counter to 0
+    M_cpt = 0;
 
     // wave parameters
     nwavedirn   = vm["wim.nwavedirn"].template as<int>();
@@ -206,11 +198,15 @@ void WimDiscr<T>::assign()
 
     // initialise IceInfo types 1st
     // - NB don't set vectors yet
-    M_ice.push_back(T_ice(&M_ice_params));
+    std::cout<<"init M_ice["<<M_ice.size()<<"]: wim\n";
+    M_ice.push_back(T_ice(M_ice_params,"wim"));
     if(!M_wim_on_mesh)
+    {
         //if not on mesh we need a separate T_ice object for the
         //sea ice model
-        M_ice.push_back(T_ice(&M_ice_params));
+        std::cout<<"init M_ice["<<M_ice.size()<<"]: sim\n";
+        M_ice.push_back(T_ice(M_ice_params,"sim"));
+    }
 
     M_quadrature_wt_freq.resize(nwavefreq);
     M_freq_vec.resize(nwavefreq);
@@ -525,17 +521,17 @@ void WimDiscr<T>::idealWaveFields(T_val const xfac)
 {
     M_initialised_waves = true;
 
-    T_val x0   = *std::min_element(M_grid.M_px.begin(),M_grid.M_px.end());
-    T_val xmax = *std::max_element(M_grid.M_px.begin(),M_grid.M_px.end());
-
     //waves initialised for x<x_edge
-    T_val x_edge = 0.5*(x0+xmax)-xfac*(0.5*(xmax-x0));
+    auto xvec = this->getX();
+    T_val xmin = *std::min_element(xvec.begin(),xvec.end());
+    T_val xmax = *std::max_element(xvec.begin(),xvec.end());
+    T_val x_edge = 0.5*(xmin+xmax)-xfac*(0.5*(xmax-xmin));
     T_val_vec wave_mask(M_num_elements,0.); 
 
 #pragma omp parallel for num_threads(M_max_threads) collapse(1)
     for (int i = 0; i < M_num_elements; i++)
     {
-        if ((M_grid.M_px[i] < x_edge) && (M_grid.M_land_mask[i]<1.))
+        if ((xvec[i] < x_edge) && (M_land_mask[i]<.5))
         {
            wave_mask[i] = 1.;
            M_Hs [i] = vm["wim.hsinc"].template as<double>();
@@ -614,8 +610,8 @@ void WimDiscr<T>::inputWaveFields(T_val_vec const& swh_in,
     for (int i = 0; i < M_num_elements; i++)
     {
 
-        if ((M_ice[IceType::wim].M_mask[i]<.5)                    //not ice
-            &&(M_grid.M_land_mask[i]<.5)                //not land
+        if ((M_ice[IceType::wim].M_mask[i]<.5)      //not ice
+            &&(M_land_mask[i]<.5)                   //not land
             &&(swh_in[i]>1.e-3)&&(mwp_in[i]>1.e-8)  //some waves
             &&(mwp_in[i]<1.5*Tmax))                 //wave period not too big
         {
@@ -790,11 +786,12 @@ void WimDiscr<T>::idealIceFields(T_val const xfac)
 
     M_initialised_ice    = true;
 
-    T_val x0   = *std::min_element(M_grid.M_px.begin(),M_grid.M_px.end());
-    T_val xmax = *std::max_element(M_grid.M_px.begin(),M_grid.M_px.end());
+    auto xvec = this->getX();
+    T_val xmin = *std::min_element(xvec.begin(),xvec.end());
+    T_val xmax = *std::max_element(xvec.begin(),xvec.end());
 
     //ice initialised for x>=x_edge
-    T_val x_edge = 0.5*(x0+xmax)-xfac*(0.5*(xmax-x0));
+    T_val x_edge = 0.5*(xmin+xmax)-xfac*(0.5*(xmax-xmin));
 
     T_val_vec conc  (M_num_elements,0.);
     T_val_vec vol   (M_num_elements,0.);
@@ -804,7 +801,7 @@ void WimDiscr<T>::idealIceFields(T_val const xfac)
 #pragma omp parallel for num_threads(M_max_threads) collapse(1)
     for (int i = 0; i < M_num_elements; i++)
     {
-        if ((M_grid.M_px[i] >= x_edge) && (M_grid.M_land_mask[i]<.5))
+        if ((xvec[i] >= x_edge) && (M_land_mask[i]<.5))
         {
             conc[i]      = unifc;
             vol[i]       = unifc*unifh;
@@ -827,11 +824,11 @@ void WimDiscr<T>::timeStep()
     std::fill( M_stokes_drift_x.begin(), M_stokes_drift_x.end(), 0. );
     std::fill( M_stokes_drift_y.begin(), M_stokes_drift_y.end(), 0. );
 
-    std::fill( Mtmp_mom0      .begin(),Mtmp_mom0      .end(), 0. );
-    std::fill( Mtmp_mom2      .begin(),Mtmp_mom2      .end(), 0. );
-    std::fill( Mtmp_var_strain.begin(),Mtmp_var_strain.end(), 0. );
-    std::fill( Mtmp_mom0w     .begin(),Mtmp_mom0w     .end(), 0. );
-    std::fill( Mtmp_mom2w     .begin(),Mtmp_mom2w     .end(), 0. );
+    std::fill( Mtmp_mom0      .begin(), Mtmp_mom0      .end(), 0. );
+    std::fill( Mtmp_mom2      .begin(), Mtmp_mom2      .end(), 0. );
+    std::fill( Mtmp_var_strain.begin(), Mtmp_var_strain.end(), 0. );
+    std::fill( Mtmp_mom0w     .begin(), Mtmp_mom0w     .end(), 0. );
+    std::fill( Mtmp_mom2w     .begin(), Mtmp_mom2w     .end(), 0. );
 
     T_val wlng_crest, Dc;
     T_val F, kicel, om, ommin, ommax, om1, lam1, lam2, tmp;
@@ -1204,13 +1201,8 @@ void WimDiscr<T>::timeStep()
     }//break_on_mesh
 
 
-    std::cout<<"Hs_max= "<< *std::max_element(M_Hs.begin(), M_Hs.end()) <<"\n";
-    T_val taux_min  = *std::min_element(M_tau_x.begin(), M_tau_x.end());
-    std::cout<<"taux_min= "
-             <<std::setprecision(10)<< taux_min <<"\n";
-    T_val taux_max  = *std::max_element(M_tau_x.begin(), M_tau_x.end());
-    std::cout<<"taux_max= "
-             <<std::setprecision(10)<< taux_max <<"\n";
+    this->printRange("Hs",M_Hs);
+    this->printRange("tau_x",M_tau_x,10);
 }//timeStep
 
 
@@ -1281,10 +1273,11 @@ void WimDiscr<T>::setMesh(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& 
     std::cout<<"on mesh, M_num_elements = "<<M_num_elements<<"\n";
 
     if(!M_assigned)
-        //need to set sizes each time mesh changes: init,regrid
     {
+        //need to set sizes each time mesh changes: init,regrid
         std::cout<<"calling assignSpatial() inside setMesh()\n";
         this->assignSpatial();
+        M_land_mask.assign(M_num_elements,0.);
     }
 
     M_length_cfl = M_mesh.lengthCfl();
@@ -1466,7 +1459,7 @@ void WimDiscr<T>::setIceFields(
     {
         //interp from mesh to grid
         M_ice[IceType::sim].setFields(m_conc,m_vol,m_nfloes);
-        T_val_vec_ptrs input_data = {&(M_ice[IceType::sim].M_conc),&(M_ice[IceType::sim].M_vol),&(M_ice[IceType::sim].M_nfloes)};
+        T_val_vec_ptrs input_data  = {&(M_ice[IceType::sim].M_conc),&(M_ice[IceType::sim].M_vol),&(M_ice[IceType::sim].M_nfloes)};
         T_val_vec_ptrs output_data = {&(M_ice[IceType::wim].M_conc),&(M_ice[IceType::wim].M_vol),&(M_ice[IceType::wim].M_nfloes)};
         this->meshToGrid(output_data,input_data);
         M_ice[IceType::wim].setFields();
@@ -1474,27 +1467,43 @@ void WimDiscr<T>::setIceFields(
 #if 1
         //test interp
         std::cout<<"setIceFields (pre_regrid): check ice inputs to WIM\n";
-        std::cout<<"min conc   grid = "<< *std::min_element((M_ice[IceType::wim].M_conc).begin()  ,(M_ice[IceType::wim].M_conc).end()   )<<"\n";
-        std::cout<<"max conc   grid = "<< *std::max_element((M_ice[IceType::wim].M_conc).begin()  ,(M_ice[IceType::wim].M_conc).end()   )<<"\n";
-        std::cout<<"min thick  grid = "<< *std::min_element((M_ice[IceType::wim].M_thick).begin() ,(M_ice[IceType::wim].M_thick).end()  )<<"\n";
-        std::cout<<"max thick  grid = "<< *std::max_element((M_ice[IceType::wim].M_thick).begin() ,(M_ice[IceType::wim].M_thick).end()  )<<"\n";
-        std::cout<<"min dfloe  grid = "<< *std::min_element((M_ice[IceType::wim].M_dfloe).begin() ,(M_ice[IceType::wim].M_dfloe).end()  )<<"\n";
-        std::cout<<"max dfloe  grid = "<< *std::max_element((M_ice[IceType::wim].M_dfloe).begin() ,(M_ice[IceType::wim].M_dfloe).end()  )<<"\n";
-        std::cout<<"min Nfloes grid = "<< *std::min_element((M_ice[IceType::wim].M_nfloes).begin(),(M_ice[IceType::wim].M_nfloes).end() )<<"\n";
-        std::cout<<"max Nfloes grid = "<< *std::max_element((M_ice[IceType::wim].M_nfloes).begin(),(M_ice[IceType::wim].M_nfloes).end() )<<"\n";
+        this->printRange("conc (grid)",M_ice[IceType::wim].M_conc);
+        this->printRange("thickness (grid)",M_ice[IceType::wim].M_thick);
+        this->printRange("dfloe (grid)",M_ice[IceType::wim].M_dfloe);
+        this->printRange("Nfloes (grid)",M_ice[IceType::wim].M_nfloes);
 #endif
+
+        return;
     }
     // end of pre-regrid options
     // ================================================================
 
     // ================================================================
     // post-regrid options:
-    else if (M_wim_on_mesh)
+    int ice_int = IceType::sim;
+    if (M_wim_on_mesh)
+    {
         //ice fields already where we need them
-        M_ice[IceType::wim].setFields(m_conc,m_vol,m_nfloes);
-    else if (M_break_on_mesh)
-        //ice fields already where we need them
-        M_ice[IceType::sim].setFields(m_conc,m_vol,m_nfloes);
+        ice_int = IceType::wim;
+    }
+    else if (!M_break_on_mesh)
+        //if(M_break_on_mesh), ice fields already where we need them,
+        // and ice_int is set already;
+        //else, nothing to do.
+        return;
+
+    M_ice[ice_int].setFields(m_conc,m_vol,m_nfloes);
+
+#if 1
+    //test inputs
+    std::cout<<"setIceFields (post_regrid): check ice inputs to WIM\n";
+    std::cout<<" - check M_ice["<<ice_int<<"] ("<<M_ice[ice_int].getName()<<")\n";
+    this->printRange( "conc      (in)" , M_ice[ice_int].M_conc   );
+    this->printRange( "thickness (in)" , M_ice[ice_int].M_thick  );
+    this->printRange( "Nfloes    (in)" , M_ice[ice_int].M_nfloes );
+    this->printRange( "dfloe     (in)" , M_ice[ice_int].M_dfloe  );
+#endif
+
     // end of post-regrid options
     // ================================================================
 }//setIceFields()
@@ -1996,20 +2005,9 @@ void WimDiscr<T>::run()
     if (M_swh_in.size()>0)
     {
         //test inc waves
-        T_val _min = *std::min_element(M_swh_in.begin(),M_swh_in.end());
-        T_val _max = *std::max_element(M_swh_in.begin(),M_swh_in.end());
-        std::cout<<"Min swh in = " << _min <<"\n";
-        std::cout<<"Max swh in = " << _max <<"\n";
-        //
-        _min = *std::min_element(M_mwp_in.begin(),M_mwp_in.end());
-        _max = *std::max_element(M_mwp_in.begin(),M_mwp_in.end());
-        std::cout<<"Min mwp in = " << _min <<"\n";
-        std::cout<<"Max mwp in = " << _max <<"\n";
-        //
-        _min = *std::min_element(M_mwd_in.begin(),M_mwd_in.end());
-        _max = *std::max_element(M_mwd_in.begin(),M_mwd_in.end());
-        std::cout<<"Min mwd in = " << _min <<"\n";
-        std::cout<<"Max mwd in = " << _max <<"\n";
+        this->printRange("swh (in)",M_swh_in);
+        this->printRange("mwp (in)",M_mwp_in);
+        this->printRange("mwd (in)",M_mwd_in);
     }
 #endif
 
@@ -2498,18 +2496,6 @@ void WimDiscr<T>::attenIsotropic(T_val_vec2d& Sdir, T_val_vec& Sfreq,
         Sfreq[i] = std::real(S_fou[0]);
     }
 
-#if 0
-    // T_val _min = *std::min_element(Sdir.data(),Sdir.data() + Sdir.num_elements());
-    // T_val _max = *std::max_element(Sdir.data(),Sdir.data() + Sdir.num_elements());
-    // std::cout<<"Min OUT= " << _min <<"\n";
-    // std::cout<<"Max OUT= " << _max <<"\n";
-
-
-    T_val _min = *std::min_element(Sfreq.data(),Sfreq.data() + Sfreq.num_elements());
-    T_val _max = *std::max_element(Sfreq.data(),Sfreq.data() + Sfreq.num_elements());
-    std::cout<<"Min OUT= " << _min <<"\n";
-    std::cout<<"Max OUT= " << _max <<"\n";
-#endif
 }//attenIsotropic
 
 
@@ -3126,7 +3112,52 @@ typename WimDiscr<T>::T_val
 WimDiscr<T>::getNextsimTime() const
 {
     T_val t0 = Wim::dateStr2Num(M_init_time_str); //days from ref time (1901-1-1) to init_time
-    return t0+M_current_time/(24*3600.);             //days from ref time (1901-1-1) to model time
+    return t0+M_current_time/(24*3600.);          //days from ref time (1901-1-1) to model time
+}
+
+
+template<typename T>
+void WimDiscr<T>::getRangeXY(T_val &xmin,T_val &xmax,T_val &ymin,T_val &ymax) const
+{
+    if(!M_wim_on_mesh)
+    {
+        this->getRange(M_grid.M_px,xmin,xmax);
+        this->getRange(M_grid.M_py,ymin,ymax);
+    }
+    else
+    {
+        this->getRange(M_mesh.M_elements_x,xmin,xmax);
+        this->getRange(M_mesh.M_elements_y,ymin,ymax);
+    }
+}
+
+
+template<typename T>
+void WimDiscr<T>::getRange(T_val_vec const &vec, T_val &vmin, T_val &vmax) const
+{
+
+    vmin = *std::min_element(vec.begin(),vec.end());
+    vmax = *std::max_element(vec.begin(),vec.end());
+}
+
+template<typename T>
+void WimDiscr<T>::printRange(std::string const &name,T_val_vec const &vec, int const & prec) const
+{
+
+    T_val vmin = *std::min_element(vec.begin(),vec.end());
+    T_val vmax = *std::max_element(vec.begin(),vec.end());
+    if(prec==0)
+    {
+        //automatic precision
+        std::cout<<"Min "<<name<<" = "<<vmin<<"\n";
+        std::cout<<"Max "<<name<<" = "<<vmax<<"\n";
+    }
+    else
+    {
+        //specified precision
+        std::cout<<"Min "<<name<<" = "<<std::setprecision(prec)<<vmin<<"\n";
+        std::cout<<"Max "<<name<<" = "<<std::setprecision(prec)<<vmax<<"\n";
+    }
 }
 
 

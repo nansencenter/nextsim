@@ -696,7 +696,7 @@ FiniteElement::initConstant()
     // mesh ordering convention
     if (M_mesh_type == setup::MeshType::FROM_SPLIT)
     {
-        if (M_mesh_filename.find("M_wim") == std::string::npos) //if "M_wim" not in name use bamg ordering
+        if (M_mesh_filename.find("wim") == std::string::npos) //if "wim" not in name use bamg ordering
             M_mesh.setOrdering("bamg");
         else
             M_mesh.setOrdering("gmsh");
@@ -1371,7 +1371,7 @@ FiniteElement::regrid(bool step)
             if(M_use_wim)
                 if (M_wave_mode==setup::WaveMode::RUN_ON_MESH)
                 {
-                    // regrid M_wim fields on nodes
+                    // regrid wim fields on nodes
                     // - otherwise lose M_tau at regrid time
                     // - can retrieve Stokes drift from wave spectrum,
                     // but then need to interpolate from elements to nodes,
@@ -1717,7 +1717,7 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var, bool che
         //if ( !(vm["nextwim.coupling-option"].template as<std::string>() == "break_on_mesh"))
         //    bool nfloes_interp = (M_use_wim && (!M_run_wim));
 
-        // Nfloes from M_wim model
+        // Nfloes from wim model
         //if (nfloes_interp)
         if (M_use_wim)
         {
@@ -2156,7 +2156,7 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
 		tmp_nb_var++;
 
 #if defined (WAVES)
-        // Nfloes from M_wim model
+        // Nfloes from wim model
         if (M_use_wim)
         {
             interp_elt_in[nb_var*i+tmp_nb_var] = M_nfloes[i];
@@ -4824,8 +4824,8 @@ void
 FiniteElement::step(int &pcpt)
 {
 #if defined (WAVES)
-    // coupling with M_wim
-    // 1. exchange from nextsim to M_wim
+    // coupling with wim
+    // 1. exchange from nextsim to wim
     if (M_use_wim)
     {
         M_run_wim = !(steps_since_last_wim_call % vm["nextwim.couplingfreq"].as<int>());
@@ -5030,9 +5030,9 @@ FiniteElement::step(int &pcpt)
         M_tau.assign(2*M_num_nodes,0.);
 #if defined (WAVES)
     else
-        // coupling with M_wim
-        // 2. run M_wim
-        // 3. exchange from M_wim to nextsim
+        // coupling with wim
+        // 2. run wim
+        // 3. exchange from wim to nextsim
         this->wimCall();
 #endif
     // ====================================================================================
@@ -6318,99 +6318,91 @@ void
 FiniteElement::forcingWave()
 {
     wim_ideal_forcing = true;
-    auto xwim = M_wim.getX();
-    double xmin_wim = *std::min_element( xwim.begin(),xwim.end() );
-    double xmax_wim = *std::max_element( xwim.begin(),xwim.end() );
-    double xedge = xmin_wim + 0.25*(xmax_wim-xmin_wim);
-    int num_elements_wim = xwim.size();
+    int num_elements_wim = M_wim.getNumElements();
 
-    switch (M_wave_type)
+    if (M_wave_type==setup::WaveType::SET_IN_WIM)
     {
-        case setup::WaveType::SET_IN_WIM:
-            //pass in empty vectors to M_wim.run()
-            //- then waves are set in there
-            M_SWH_grid.resize(0);
-            M_MWP_grid.resize(0);
-            M_MWD_grid.resize(0);
-            break;
-
-        case setup::WaveType::CONSTANT:
-            //set arrays to pass in to M_wim.run()
-            M_SWH_grid.assign(num_elements_wim,vm["M_wim.hsinc" ].as<double>());
-            M_MWP_grid.assign(num_elements_wim,vm["M_wim.tpinc" ].as<double>());
-            M_MWD_grid.assign(num_elements_wim,vm["M_wim.mwdinc"].as<double>());
-            // mwd is relative to the nextsim/WIM x-y coord system in this case
-            break;
-
-
-        case setup::WaveType::CONSTANT_PARTIAL:
-            //set arrays to pass in to M_wim.run()
-            std::cout<<"M_wim elements"<<num_elements_wim<<"\n";
-            M_SWH_grid.assign(num_elements_wim,vm["M_wim.hsinc" ].as<double>());
-            M_MWP_grid.assign(num_elements_wim,vm["M_wim.tpinc" ].as<double>());
-            M_MWD_grid.assign(num_elements_wim,vm["M_wim.mwdinc"].as<double>());
-            std::cout<<"M_wim elements"<<num_elements_wim<<"\n";
-            for (int i=0;i<num_elements_wim;i++)
-            {
-                if(xwim[i]>=xedge)
-                {
-                    M_SWH_grid[i]   = 0.;
-                    M_MWP_grid[i]   = 0.;
-                    M_MWD_grid[i]   = 0.;
-                    // mwd is relative to the nextsim/WIM x-y coord system in this case
-                }
-            }
-            break;
-        case setup::WaveType::WW3A:
-
-            //initialise arrays to pass in to M_wim.run()
-            M_SWH_grid.assign(num_elements_wim,0);
-            M_MWP_grid.assign(num_elements_wim,0);
-            M_MWD_grid.assign(num_elements_wim,0);
-
-            // define external_data objects
-            M_SWH        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init, vm["simul.spinup_duration"].as<double>());
-            M_MWP        = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
-            M_MWD        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,true,time_init);//now a vector
-            M_fice_waves = ExternalData(&M_wave_elements_dataset, M_mesh, 4,false,time_init);
-
-            // add them to a vector for looping
-            M_external_data.push_back(&M_SWH);
-            M_external_data.push_back(&M_MWP);
-            M_external_data.push_back(&M_MWD);
-            M_external_data.push_back(&M_fice_waves);
-
-            wim_forcing_options = M_wave_elements_dataset.grid.waveOptions;
-            wim_ideal_forcing   = false;
-
-            break;
-
-        case setup::WaveType::ERAI_WAVES_1DEG:
-
-            //initialise arrays to pass in to M_wim.run()
-            M_SWH_grid.assign(num_elements_wim,0);
-            M_MWP_grid.assign(num_elements_wim,0);
-            M_MWD_grid.assign(num_elements_wim,0);
-
-            // define external_data objects
-            M_SWH = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init, vm["simul.spinup_duration"].as<double>());
-            M_MWP = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
-            M_MWD = ExternalData(&M_wave_elements_dataset, M_mesh, 0,true,time_init);//now a vector
-
-            // add them to a vector for looping
-            M_external_data.push_back(&M_SWH);
-            M_external_data.push_back(&M_MWP);
-            M_external_data.push_back(&M_MWD);
-
-            wim_forcing_options = M_wave_elements_dataset.grid.waveOptions;
-            wim_ideal_forcing   = false;
-
-            break;
-
-        default:
-            std::cout << "invalid wave forcing"<<"\n";
-            throw std::logic_error("invalid wave forcing");
+        //pass in empty vectors to M_wim.run()
+        //- then waves are set in there
+        M_SWH_grid.resize(0);
+        M_MWP_grid.resize(0);
+        M_MWD_grid.resize(0);
     }
+    else if (M_wave_type==setup::WaveType::CONSTANT)
+    {
+        //set arrays to pass in to M_wim.run()
+        M_SWH_grid.assign(num_elements_wim,vm["wim.hsinc" ].as<double>());
+        M_MWP_grid.assign(num_elements_wim,vm["wim.tpinc" ].as<double>());
+        M_MWD_grid.assign(num_elements_wim,vm["wim.mwdinc"].as<double>());
+        // mwd is relative to the nextsim/WIM x-y coord system in this case
+    }
+    else if (M_wave_type==setup::WaveType::CONSTANT_PARTIAL)
+    {
+        //set arrays to pass in to M_wim.run()
+        auto   xwim = M_wim.getX();
+        double xmin_wim = *std::min_element( xwim.begin(),xwim.end() );
+        double xmax_wim = *std::max_element( xwim.begin(),xwim.end() );
+        double xedge = xmin_wim + 0.25*(xmax_wim-xmin_wim);
+        std::cout<<"xmin,xmax,num_elements"<<xmin_wim<<","<<xmax_wim<<","<<num_elements_wim<<"\n";
+        //
+        M_SWH_grid.assign(num_elements_wim,vm["wim.hsinc" ].as<double>());
+        M_MWP_grid.assign(num_elements_wim,vm["wim.tpinc" ].as<double>());
+        M_MWD_grid.assign(num_elements_wim,vm["wim.mwdinc"].as<double>());
+        for (int i=0;i<num_elements_wim;i++)
+        {
+            if(xwim[i]>=xedge)
+            {
+                M_SWH_grid[i]   = 0.;
+                M_MWP_grid[i]   = 0.;
+                M_MWD_grid[i]   = 0.;
+                // mwd is relative to the nextsim/WIM x-y coord system in this case
+            }
+        }
+    }
+    else if (M_wave_type==setup::WaveType::WW3A)
+    {
+        //initialise arrays to pass in to M_wim.run()
+        M_SWH_grid.assign(num_elements_wim,0);
+        M_MWP_grid.assign(num_elements_wim,0);
+        M_MWD_grid.assign(num_elements_wim,0);
+
+        // define external_data objects
+        M_SWH        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init, vm["simul.spinup_duration"].as<double>());
+        M_MWP        = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
+        M_MWD        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,true,time_init);//now a vector
+        M_fice_waves = ExternalData(&M_wave_elements_dataset, M_mesh, 4,false,time_init);
+
+        // add them to a vector for looping
+        M_external_data.push_back(&M_SWH);
+        M_external_data.push_back(&M_MWP);
+        M_external_data.push_back(&M_MWD);
+        M_external_data.push_back(&M_fice_waves);
+
+        wim_forcing_options = M_wave_elements_dataset.grid.waveOptions;
+        wim_ideal_forcing   = false;
+    }
+    else if (M_wave_type==setup::WaveType::ERAI_WAVES_1DEG)
+    {
+        //initialise arrays to pass in to M_wim.run()
+        M_SWH_grid.assign(num_elements_wim,0);
+        M_MWP_grid.assign(num_elements_wim,0);
+        M_MWD_grid.assign(num_elements_wim,0);
+
+        // define external_data objects
+        M_SWH = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init, vm["simul.spinup_duration"].as<double>());
+        M_MWP = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
+        M_MWD = ExternalData(&M_wave_elements_dataset, M_mesh, 0,true,time_init);//now a vector
+
+        // add them to a vector for looping
+        M_external_data.push_back(&M_SWH);
+        M_external_data.push_back(&M_MWP);
+        M_external_data.push_back(&M_MWD);
+
+        wim_forcing_options = M_wave_elements_dataset.grid.waveOptions;
+        wim_ideal_forcing   = false;
+    }
+    else
+        throw std::logic_error("invalid wave forcing");
 }
 #endif
 
@@ -8594,7 +8586,7 @@ FiniteElement::wimCommPreRegrid()
             }
                 
         }//using non-ideal wave forcing
-    }//loop over M_wim grid cells
+    }//loop over wim grid cells
 
     LOG(DEBUG)<<"sim2wim (check wave forcing): "<<wim_ideal_forcing<<","<<M_SWH_grid.size()<<"\n";
     if (M_SWH_grid.size()>0)//( !wim_ideal_forcing )
@@ -8639,7 +8631,7 @@ FiniteElement::initWim(int const pcpt)
     if(!(M_wave_mode==setup::WaveMode::RUN_ON_MESH))
     {
         // - initialise grid using mesh if no gridfilename is present
-        std::string wim_gridfile = vm["M_wim.gridfilename"].as<std::string>();
+        std::string wim_gridfile = vm["wim.gridfilename"].as<std::string>();
         if ( wim_gridfile != "" )
             //init grid from gridfile
             M_wim = wim_type(vm,pcpt);
@@ -8699,13 +8691,13 @@ FiniteElement::initWimVariables()
             //add thin ice
             ctot += M_conc_thin[i];
 
-        if (ctot>=vm["M_wim.cicemin"].as<double>())
+        if (ctot>=vm["wim.cicemin"].as<double>())
         {
-            M_dfloe[i]  = vm["M_wim.dfloepackinit"].as<double>();
+            M_dfloe[i]  = vm["wim.dfloepackinit"].as<double>();
             M_nfloes[i] = M_wim.dfloeToNfloes(M_dfloe[i],ctot);
         }
     }
-    std::cout<<"init dfloe in pack = "<<vm["M_wim.dfloepackinit"].as<double>()<<"\n";
+    std::cout<<"init dfloe in pack = "<<vm["wim.dfloepackinit"].as<double>()<<"\n";
     std::cout<<"Min Nfloes = "<<*std::min_element(M_nfloes.begin(),M_nfloes.end())<<"\n";
     std::cout<<"Max Nfloes = "<<*std::max_element(M_nfloes.begin(),M_nfloes.end())<<"\n";
 
@@ -8718,7 +8710,7 @@ void
 FiniteElement::wimCall()
 {
 
-    std::cout<<"w2ns: M_run_wim = "<<M_run_wim<<"\n";
+    std::cout<<"wimCall(): M_run_wim = "<<M_run_wim<<"\n";
     bool pre_regrid = false;
     auto movedmesh  = M_mesh;
     movedmesh.move(M_UM,1.);
@@ -8976,7 +8968,7 @@ FiniteElement::writeLogFile()
         {
             // ignore wim options if no coupling
 #if !defined (WAVES)
-            if ((it->first.find("nextwim.") != std::string::npos) || (it->first.find("M_wim.") != std::string::npos))
+            if ((it->first.find("nextwim.") != std::string::npos) || (it->first.find("wim.") != std::string::npos))
             {
                 continue;
             }

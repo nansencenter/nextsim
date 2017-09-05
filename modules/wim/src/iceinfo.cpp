@@ -21,7 +21,7 @@ namespace Wim
 
 
 template<typename T>
-void IceParams<T>::update(po::variables_map const& vm)
+IceParams<T>::IceParams(po::variables_map const& vm)
 {
     M_cice_min          = vm["wim.cicemin"].template as<double>();
     M_fsdopt            = vm["wim.fsdopt"].template as<std::string>();
@@ -29,6 +29,7 @@ void IceParams<T>::update(po::variables_map const& vm)
     M_dfloe_pack_thresh = vm["wim.dfloepackthresh"].template as<double>();
     M_young             = vm["wim.young"].template as<double>();
     M_drag_rp           = vm["wim.dragrp"].template as<double>();
+
     this->init();
 }
 
@@ -53,11 +54,19 @@ std::vector<double> IceParams<T>::getAttenParams()
     return params;
 }
 
+
 template<typename T>
-void IceInfo<T>::init()
+//IceInfo<T>::IceInfo(T_icep_ptr ice_params,std::string const &name)
+IceInfo<T>::IceInfo(T_icep ice_params,std::string const &name)
 {
+    M_initialized = true;
     M_max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-}//end ::init()
+    M_ice_params  = ice_params;
+    M_name        = name;
+    std::cout<<"Init IceInfo(), name = "<<M_name<<"\n";
+    std::cout<<"cicemin (IceInfo) = "<<M_ice_params.M_cice_min<<"\n";
+}
+
 
 template<typename T>
 void IceInfo<T>::clearFields()
@@ -98,27 +107,34 @@ void IceInfo<T>::setFields()
     // ie initially, and if(M_wim_on_mesh), after regridding
     // set sizes of arrays, initialises some others that are constant in time
 
+    if(!M_initialized)
+        throw std::runtime_error("IceInfo objected (name="+M_name+") not initialised yet - can't call setFields()\n");
     M_num_elements  = M_conc.size();
 
     //2D var's
-    M_dfloe.assign(M_num_elements,0.);
-    M_thick.assign(M_num_elements,0.);
-    M_broken.assign(M_num_elements,0.);
-    M_mask.assign(M_num_elements,1.);
+    M_dfloe.assign (M_num_elements ,0.);
+    M_thick.assign (M_num_elements ,0.);
+    M_broken.assign(M_num_elements ,0.);
+    M_mask.assign  (M_num_elements ,0.);
+    //std::cout<<"cicemin (setFields) = "<<M_ice_params.M_cice_min<<"\n";
 
 #pragma omp parallel for num_threads(M_max_threads) collapse(1)
     for (int i=0;i<M_num_elements;i++)
     {
-        if (M_conc[i]>=M_ice_params->M_cice_min)
+        if (M_conc[i]>=M_ice_params.M_cice_min)
+        {
+            //set dependant variables
             M_thick[i]  = M_vol[i]/M_conc[i];//convert to actual thickness
+            M_dfloe[i]  = this->nfloesToDfloe(M_nfloes[i],M_conc[i]);
+            M_mask[i]   = 1.;
+        }
         else
         {
+            //set input variables to 0.
             M_conc[i]   = 0;
             M_vol[i]    = 0;
             M_nfloes[i] = 0;
-            M_mask[i]   = 0.;
         }
-        M_dfloe[i]  = this->nfloesToDfloe(M_nfloes[i],M_conc[i]);
 
 #if 1
         //check ranges of inputs
@@ -135,36 +151,50 @@ void IceInfo<T>::setFields()
             throw std::runtime_error("conc out of range");
         }
 #endif
-    }
+
+        //std::cout<<"c,Nfloes,dfloe,mask = "<<M_conc[i]<<","<<M_nfloes[i]<<","<<M_dfloe[i]<<","<<M_mask[i]<<"\n";
+
+    }//loop over elements
+
+#if 1
+    //test fields
+    std::cout<<"setIceFields IceInfo("<<M_name<<"): check ice inputs to WIM\n";
+    this->printRange( "conc      (iceinfo)" , M_conc   );
+    this->printRange( "thickness (iceinfo)" , M_thick  );
+    this->printRange( "Nfloes    (iceinfo)" , M_nfloes );
+    this->printRange( "dfloe     (iceinfo)" , M_dfloe  );
+    this->printRange( "M_mask    (iceinfo)" , M_mask   );
+#endif
+
 }//setFields()
 
 template<typename T>
 void IceInfo<T>::doBreaking(T_val_vec const& mom0,T_val_vec const& mom2,T_val_vec const& var_strain)
 {
 
-    std::vector<double> params = M_ice_params->getAttenParams();//currently independant of space
+    std::vector<double> params = M_ice_params.getAttenParams();//currently independant of space
 
 #pragma omp parallel for num_threads(M_max_threads) collapse(1)
     for (int i=0;i<M_num_elements;i++)
     {
         bool break_criterion = (M_mask[i] > 0.5)          //ice present
-            && ((2*var_strain[i]) > std::pow(M_ice_params->M_epsc, 2.));//big enough waves
+            && ((2*var_strain[i]) > std::pow(M_ice_params.M_epsc, 2.));//big enough waves
 
         if (break_criterion)
         {
             double outputs[8];
 
             T_val om    = std::sqrt(mom2[i]/mom0[i]);
-            T_val guess = std::pow(om,2.)/M_ice_params->M_gravity;
+            T_val guess = std::pow(om,2.)/M_ice_params.M_gravity;
 
-            RTparam_outer(outputs,M_thick[i],double(om),double(M_ice_params->M_drag_rp),double(guess),&params[0]);
+            RTparam_outer(outputs,M_thick[i],double(om),double(M_ice_params.M_drag_rp),double(guess),&params[0]);
 
             T_val kice = outputs[1];
             T_val lam = 2*PI/kice;
 
             if (lam < (2*M_dfloe[i]))
             {
-                M_dfloe[i]  = std::max<T_val>(M_ice_params->M_dmin,lam/2.);
+                M_dfloe[i]  = std::max<T_val>(M_ice_params.M_dmin,lam/2.);
                 M_broken[i] = 1.;
                 M_nfloes[i] = this->dfloeToNfloes(M_dfloe[i],M_conc[i]);
             }
@@ -182,7 +212,7 @@ IceInfo<T>::dfloeToNfloes(T_val const& dfloe_in,
 {
     T_val nfloes_out   = 0.;
 
-    if ( (dfloe_in>0) &&(conc_in >= M_ice_params->M_cice_min) )
+    if ( (dfloe_in>0) &&(conc_in >= M_ice_params.M_cice_min) )
     {
         //conc high enough & dfloe OK
         nfloes_out = conc_in/std::pow(dfloe_in,2.);
@@ -214,14 +244,14 @@ IceInfo<T>::nfloesToDfloe(T_val const& nfloes_in,
                            T_val const& conc_in)
 {
         T_val dfloe_out  = 0.;
-        if ( (nfloes_in>0) && (conc_in >= M_ice_params->M_cice_min) )
+        if ( (nfloes_in>0) && (conc_in >= M_ice_params.M_cice_min) )
         {
             //conc high enough & Nfloes OK
             dfloe_out   = std::sqrt(conc_in/nfloes_in);
         }
 
         //dfloe shouldn't get too big
-        dfloe_out   = std::min(M_ice_params->M_dfloe_pack_thresh,dfloe_out);
+        dfloe_out   = std::min(M_ice_params.M_dfloe_pack_thresh,dfloe_out);
 
     return dfloe_out;
 }//nfloesToDfloe
@@ -250,19 +280,19 @@ void IceInfo<T>::floeScaling(
     T_val nm,nm1,dm,nsum,ndsum,r;
 
     int mm;
-    T_val ffac     = M_ice_params->M_fragility*std::pow(M_ice_params->M_xi,2);
+    T_val ffac     = M_ice_params.M_fragility*std::pow(M_ice_params.M_xi,2);
 
-    dave = std::max(std::pow(M_ice_params->M_dmin,moment),std::pow(dmax,moment));
-    if (dmax>=M_ice_params->M_xi*M_ice_params->M_dmin)
+    dave = std::max(std::pow(M_ice_params.M_dmin,moment),std::pow(dmax,moment));
+    if (dmax>=M_ice_params.M_xi*M_ice_params.M_dmin)
     {
        //determine number of breaks
-       r    = dmax/M_ice_params->M_dmin;
+       r    = dmax/M_ice_params.M_dmin;
        mm   = 0;
-       while (r >= M_ice_params->M_xi)
+       while (r >= M_ice_params.M_xi)
        {
           //r<2,mm=0 => doesn't break in 2
           //dave stays at dmax^moment;
-          r  = r/M_ice_params->M_xi;
+          r  = r/M_ice_params.M_xi;
           ++mm;
        }
 
@@ -276,13 +306,13 @@ void IceInfo<T>::floeScaling(
           for (int m=0; m<mm; ++m)
           {
               //no of floes of length dm;
-              nm     = nm1*(1-M_ice_params->M_fragility);
+              nm     = nm1*(1-M_ice_params.M_fragility);
               nsum  += nm;
               ndsum += nm*std::pow(dm,moment);
               //std::cout<<"nsum,dm: "<<nsum<<" , "<<dm<<"\n";
 
               nm1   *= ffac;
-              dm    /= M_ice_params->M_xi;
+              dm    /= M_ice_params.M_xi;
           }
 
           //m=mm:
@@ -301,7 +331,7 @@ void IceInfo<T>::floeScalingSmooth(
 
     T_val fsd_exp,b,A;
 
-    fsd_exp = 2+log(M_ice_params->M_fragility)/log(M_ice_params->M_xi);//power law exponent: P(d>D)=(D_min/D)^fsd_exp;
+    fsd_exp = 2+log(M_ice_params.M_fragility)/log(M_ice_params.M_xi);//power law exponent: P(d>D)=(D_min/D)^fsd_exp;
     b       = moment-fsd_exp;
 
     // calculate <D^moment> from Dmax
@@ -309,18 +339,18 @@ void IceInfo<T>::floeScalingSmooth(
     dave = std::pow(dmax,moment);
     //std::cout<<"dave (1) = "<<dave<<"\n";
 
-    if (dmax<=M_ice_params->M_dmin)
+    if (dmax<=M_ice_params.M_dmin)
     {
         // small floes
-        dave = std::pow(M_ice_params->M_dmin,moment);
+        dave = std::pow(M_ice_params.M_dmin,moment);
         //std::cout<<"dave (2) = "<<dave<<"\n";
     }
     else
     {
         // bigger floes
-        A    = (fsd_exp*std::exp(fsd_exp*(std::log(M_ice_params->M_dmin)+std::log(dmax))));
-        A    = A/(std::exp(fsd_exp*std::log(dmax))-std::exp(fsd_exp*std::log(M_ice_params->M_dmin)));
-        dave = -(A/b)*(std::exp(b*std::log(M_ice_params->M_dmin))-exp(b*std::log(dmax)));
+        A    = (fsd_exp*std::exp(fsd_exp*(std::log(M_ice_params.M_dmin)+std::log(dmax))));
+        A    = A/(std::exp(fsd_exp*std::log(dmax))-std::exp(fsd_exp*std::log(M_ice_params.M_dmin)));
+        dave = -(A/b)*(std::exp(b*std::log(M_ice_params.M_dmin))-exp(b*std::log(dmax)));
         //std::cout<<"dave (3) = "<<dave_<<"\n";
     }
 }//floeScalingSmooth
@@ -335,11 +365,11 @@ void IceInfo<T>::getDave(T_val_vec &dave,int const& moment)
         if(M_mask[i]<.5)//not ice
             dave[i] = 0.;
         else//ice
-            if (M_dfloe[i] <M_ice_params->M_dfloe_miz_thresh)
+            if (M_dfloe[i] <M_ice_params.M_dfloe_miz_thresh)
             {
-                if ( M_ice_params->M_fsdopt == "RG" )
+                if ( M_ice_params.M_fsdopt == "RG" )
                     this->floeScaling(M_dfloe[i],moment,dave[i]);
-                else if ( M_ice_params->M_fsdopt == "PowerLawSmooth" )
+                else if ( M_ice_params.M_fsdopt == "PowerLawSmooth" )
                     this->floeScalingSmooth(M_dfloe[i],moment,dave[i]);
                 //std::cout<<"dave ("<<fsdopt<<") = "<<dave[i]<<"\n";
             }
@@ -349,6 +379,26 @@ void IceInfo<T>::getDave(T_val_vec &dave,int const& moment)
                 dave[i] = M_dfloe[i];
                 //std::cout<<"dave (uniform) = "<<dave[i]<<"\n";
             }
+    }
+}
+
+template<typename T>
+void IceInfo<T>::printRange(std::string const &name,T_val_vec const &vec, int const & prec) const
+{
+
+    T_val vmin = *std::min_element(vec.begin(),vec.end());
+    T_val vmax = *std::max_element(vec.begin(),vec.end());
+    if(prec==0)
+    {
+        //automatic precision
+        std::cout<<"Min "<<name<<" = "<<vmin<<"\n";
+        std::cout<<"Max "<<name<<" = "<<vmax<<"\n";
+    }
+    else
+    {
+        //specified precision
+        std::cout<<"Min "<<name<<" = "<<std::setprecision(prec)<<vmin<<"\n";
+        std::cout<<"Max "<<name<<" = "<<std::setprecision(prec)<<vmax<<"\n";
     }
 }
 
