@@ -180,8 +180,7 @@ public:
 
 #if defined (WAVES)
     void forcingWave();
-    WaveOptions wim_forcing_options;
-    bool        wim_ideal_forcing;
+    WaveOptions M_wim_forcing_options;
 #endif
 
 	void bathymetry();
@@ -220,6 +219,7 @@ public:
     void wimCommPreRegrid();
     void wimPreRegrid();
     void wimPostRegrid();
+    void wimCheckWaves();
     void wimCall();
     void getWimDiagnostics();
 #if 0
@@ -312,6 +312,7 @@ private:
     std::vector<double> M_ridge_ratio;
 
     external_data_vec M_external_data;
+    external_data_vec M_external_data_waves;
     external_data_vec M_external_data_tmp;
     Dataset_vec M_datasets_regrid;
 
@@ -334,10 +335,6 @@ private:
     wim_type M_wim;
     std::vector<double> M_nfloes;
     std::vector<double> M_dfloe;
-
-    std::vector<double> M_SWH_grid;
-    std::vector<double> M_MWD_grid;
-    std::vector<double> M_MWP_grid;
 
     int wim_cpt;//no of times WIM has been called
     int steps_since_last_wim_call;//no of time steps since WIM was last called

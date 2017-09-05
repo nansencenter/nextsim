@@ -5057,7 +5057,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"daily",
-            target_location:"wim_grid",
+            target_location:"wim_elements",
 
             waveOptions: {
                wave_dataset:true,
@@ -5193,7 +5193,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"yearly",
-            target_location:"wim_grid",
+            target_location:"wim_elements",
 
             waveOptions: {
                 wave_dataset:true,
