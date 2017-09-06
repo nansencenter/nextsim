@@ -252,12 +252,10 @@ public:
     // other functions
 
     // interpolation
-    void meshToGrid(
-        T_val_vec_ptrs &output_data,       //output data
-        T_val_vec_ptrs const &input_data); //input data
+    void interpIceMeshToGrid();
 
     // time in seconds from init_time
-    T_val getModelTime(int lcpt=0) const {return M_update_time+lcpt*M_timestep;}
+    T_val getModelTime(int lcpt=0) const { return M_update_time+lcpt*M_timestep; }
 
     // time in days from ref time (1900-1-1)
     T_val getNextsimTime() const;

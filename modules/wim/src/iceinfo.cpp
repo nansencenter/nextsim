@@ -158,7 +158,7 @@ void IceInfo<T>::setFields()
 
 #if 1
     //test fields
-    std::cout<<"setIceFields IceInfo("<<M_name<<"): check ice inputs to WIM\n";
+    std::cout<<"IceInfo::setFields ("<<M_name<<"): check ice fields\n";
     this->printRange( "conc      (iceinfo)" , M_conc   );
     this->printRange( "thickness (iceinfo)" , M_thick  );
     this->printRange( "Nfloes    (iceinfo)" , M_nfloes );

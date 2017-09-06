@@ -417,7 +417,7 @@ void MeshInfo<T>::interpToPoints(
     }
     else
     {
-        int Ninterp = wet_indices.size();//get pointer, then get size
+        Ninterp = wet_indices.size();//get pointer, then get size
         std::cout<<"interpToPoints: Ninterp (wet),nb_var = "<<Ninterp<<","<<nb_var<<"\n";
 
         interp_in.resize(Ninterp*nb_var);   //input to interp routine

@@ -64,6 +64,7 @@ template<typename T=float> class GridInfo
     //other types
     typedef boost::unordered_map<std::string,std::string> T_map;
     typedef boost::unordered_map<std::string,T_val_vec*>  T_map_vec_ptrs;
+    typedef po::variables_map T_vmap;
 
     enum IceType//distinguish between wim ice and sim ice
     {
@@ -78,14 +79,12 @@ public:
     //constructors
     ~GridInfo() {}
     GridInfo() {}
-    GridInfo(po::variables_map const& vmIn);
-    GridInfo(po::variables_map const& vmIn,T_mesh & mesh_in);
+    GridInfo(T_vmap const& vmIn);
+    GridInfo(T_vmap const& vmIn,T_mesh & mesh_in);
     // ====================================================================================
 
 
-    // ====================================================================================
-    // functions
-
+    //===========================================================================
     //make a grid
     void gridFromParameters();
     void gridPostProcessing();
@@ -95,15 +94,23 @@ public:
     void readGridFromFile();
     void readFromBinary(std::fstream &in, T_val_vec& in_array, int off = 0, std::ios_base::seekdir direction = std::ios::beg,
             int addx = 0, int addy = 0);
+    //===========================================================================
 
+
+    //===========================================================================
+    // interpolation
     void interpToPoints(
         T_val_vec_ptrs &output_data,
         T_val_vec_ptrs const &input_data,
         T_val_vec &Rx, T_val_vec &Ry);
+    void interpFromMesh(T_mesh &mesh,
+        T_val_vec_ptrs &output_data,       //output data
+        T_val_vec_ptrs const &input_data); //input data
+    //===========================================================================
 
 
     //===========================================================================
-    //advection/attenuation
+    //advection
     void waveAdvWeno(
             T_val_vec& h, T_val_vec const& u, T_val_vec const& v, T_val const& timestep);
     void weno3pdV2(
@@ -115,12 +122,17 @@ public:
             std::string const& advopt_,bool const&steady=false);
     //===========================================================================
 
+
+    //===========================================================================
+    // functions
     T_val_vec getX() const { return M_px; }
     T_val_vec getY() const { return M_py; }
     bool isRegular() const { return (M_use_regular&&M_regular); }
     std::string getWimGridFilename() const { return M_gridfile; }
+    //===========================================================================
 
 
+    //===========================================================================
     // public variables
     // - scalars
     int M_num_px, M_num_py;
@@ -133,10 +145,11 @@ public:
     // - arrays
     T_val_vec M_px, M_py, M_scuy, M_scvx,
                 M_scp2, M_scp2i, M_land_mask;
+    //===========================================================================
 
 private:
 
-    po::variables_map vm;
+    T_vmap vm;
     int M_num_px_ext, M_num_py_ext, M_nbdy_y, M_nbdy_x;
     int M_num_p, M_num_q, M_num_u, M_num_v;
 
@@ -151,7 +164,7 @@ private:
     bool M_use_regular = false;//use interp routines for regular grid if possible
     bool M_regular     = false;//is the grid regular
 
-    T_mesh M_wim_triangulation;
+    T_mesh M_triangulation;
     std::vector<int> M_wet_indices;
 
     //tmp variables in advection

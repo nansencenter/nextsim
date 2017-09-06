@@ -23,10 +23,10 @@ namespace Wim
 {
 
 template<typename T>
-GridInfo<T>::GridInfo(po::variables_map const& vmIn)
+GridInfo<T>::GridInfo(T_vmap const& vmIn)
 {
     M_max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-    auto vm = vmIn;
+    vm = vmIn;
     M_initialised = true;
 
     M_gridfile    = vm["wim.gridfilename"].template as<std::string>();
@@ -40,14 +40,14 @@ GridInfo<T>::GridInfo(po::variables_map const& vmIn)
         std::cout<<"Generating WIM grid manually...\n";
         chrono.restart();
 
-        M_num_px   = vm["wim.M_num_px"].template as<int>();
-        M_num_py   = vm["wim.M_num_py"].template as<int>();
-        M_dx   = vm["wim.M_dx"].template as<double>();
-        M_dy   = vm["wim.M_dy"].template as<double>();
-        M_xmin = vm["wim.M_xmin"].template as<double>();
-        M_ymin = vm["wim.M_ymin"].template as<double>();
-        M_xmax = M_xmin+(M_num_px-1)*M_dx;
-        M_ymax = M_ymin+(M_num_py-1)*M_dy;
+        M_num_px = vm["wim.M_num_px"].template as<int>();
+        M_num_py = vm["wim.M_num_py"].template as<int>();
+        M_dx     = vm["wim.M_dx"].template as<double>();
+        M_dy     = vm["wim.M_dy"].template as<double>();
+        M_xmin   = vm["wim.M_xmin"].template as<double>();
+        M_ymin   = vm["wim.M_ymin"].template as<double>();
+        M_xmax   = M_xmin+(M_num_px-1)*M_dx;
+        M_ymax   = M_ymin+(M_num_py-1)*M_dy;
 
         this->gridFromParameters();
 
@@ -80,11 +80,11 @@ GridInfo<T>::GridInfo(po::variables_map const& vmIn)
 
 
 template<typename T>
-GridInfo<T>::GridInfo(po::variables_map const &vmIn,T_mesh &mesh_in)
+GridInfo<T>::GridInfo(T_vmap const &vmIn,T_mesh &mesh_in)
 {
 
     M_max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-    auto vm = vmIn;
+    vm = vmIn;
     M_initialised = true;
 
     std::cout<<"Generating WIM grid from mesh...\n";
@@ -208,7 +208,7 @@ void GridInfo<T>::gridPostProcessing()
                 M_wet_indices.push_back(i);
             }
 
-        M_wim_triangulation = T_mesh(nodes_x,nodes_y);
+        M_triangulation = T_mesh(nodes_x,nodes_y);
     }
 
     //global variable needed by assign(), all loops
@@ -520,7 +520,7 @@ void GridInfo<T>::interpToPoints(
 
     if (!(M_regular&&M_use_regular))
     {
-        M_wim_triangulation.interpToPoints(output_data,input_data,Rx,Ry,M_wet_indices);
+        M_triangulation.interpToPoints(output_data,input_data,Rx,Ry,M_wet_indices);
         return;
     }
         
@@ -562,6 +562,19 @@ void GridInfo<T>::interpToPoints(
     xDelete<T_val>(interp_out);
 
 }//interpToPoints
+
+
+template<typename T>
+void GridInfo<T>::interpFromMesh(T_mesh &mesh,
+        T_val_vec_ptrs &output_data,       //output data
+        T_val_vec_ptrs const &input_data)  //input data
+{
+    if(this->isRegular())
+        mesh.interpToPoints(output_data,input_data,M_px,M_py);
+    else
+        mesh.interpToGrid(output_data,input_data,
+                M_xmin,M_ymax,M_num_px,M_num_py,M_dx,M_dy);
+}//meshToGrid
 
 
 template<typename T>
