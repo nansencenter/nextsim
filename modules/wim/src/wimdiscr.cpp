@@ -563,7 +563,7 @@ void WimDiscr<T>::idealWaveFields(T_val const xfac)
 
 
 template<typename T>
-void WimDiscr<T>::inputWaveFields(T_val_vec const& swh_in,
+void WimDiscr<T>::setWaveFields(T_val_vec const& swh_in,
                                   T_val_vec const& mwp_in,
                                   T_val_vec const& mwd_in)
 {
@@ -655,7 +655,7 @@ void WimDiscr<T>::inputWaveFields(T_val_vec const& swh_in,
 #endif
 
     this->setIncWaveSpec(wave_mask);
-}//inputWaveFields()
+}//setWaveFields()
 
 
 template<typename T>
@@ -1437,9 +1437,9 @@ WimDiscr<T>::getRelativeMeshDisplacement(T_gmsh const &movedmesh) const
 
 template<typename T>
 void WimDiscr<T>::setIceFields(
-                          std::vector<T_val> const& m_conc,  // conc
-                          std::vector<T_val> const& m_vol,   // ice vol or effective thickness (conc*thickness)
-                          std::vector<T_val> const& m_nfloes,// Nfloes=conc/Dmax^2
+                          std::vector<T_val> const& conc,  // conc
+                          std::vector<T_val> const& vol,   // ice vol or effective thickness (conc*thickness)
+                          std::vector<T_val> const& nfloes,// Nfloes=conc/Dmax^2
                           bool pre_regrid)
 {
     if(M_time_mesh_set != M_current_time)
@@ -1458,7 +1458,7 @@ void WimDiscr<T>::setIceFields(
     if (pre_regrid)//not M_wim_on_mesh
     {
         //interp from mesh to grid
-        M_ice[IceType::sim].setFields(m_conc,m_vol,m_nfloes);
+        M_ice[IceType::sim].setFields(conc,vol,nfloes);
         T_val_vec_ptrs input_data  = {&(M_ice[IceType::sim].M_conc),&(M_ice[IceType::sim].M_vol),&(M_ice[IceType::sim].M_nfloes)};
         T_val_vec_ptrs output_data = {&(M_ice[IceType::wim].M_conc),&(M_ice[IceType::wim].M_vol),&(M_ice[IceType::wim].M_nfloes)};
         this->meshToGrid(output_data,input_data);
@@ -1480,28 +1480,27 @@ void WimDiscr<T>::setIceFields(
 
     // ================================================================
     // post-regrid options:
-    int ice_int = IceType::sim;
+    int ice_type = IceType::sim;
     if (M_wim_on_mesh)
-    {
-        //ice fields already where we need them
-        ice_int = IceType::wim;
-    }
+        // ice fields already where we need them,
+        //  but need to change ice_type
+        ice_type = IceType::wim;
     else if (!M_break_on_mesh)
         //if(M_break_on_mesh), ice fields already where we need them,
-        // and ice_int is set already;
+        // and ice_type is set already;
         //else, nothing to do.
         return;
 
-    M_ice[ice_int].setFields(m_conc,m_vol,m_nfloes);
+    M_ice[ice_type].setFields(conc,vol,nfloes);
 
 #if 1
     //test inputs
     std::cout<<"setIceFields (post_regrid): check ice inputs to WIM\n";
-    std::cout<<" - check M_ice["<<ice_int<<"] ("<<M_ice[ice_int].getName()<<")\n";
-    this->printRange( "conc      (in)" , M_ice[ice_int].M_conc   );
-    this->printRange( "thickness (in)" , M_ice[ice_int].M_thick  );
-    this->printRange( "Nfloes    (in)" , M_ice[ice_int].M_nfloes );
-    this->printRange( "dfloe     (in)" , M_ice[ice_int].M_dfloe  );
+    std::cout<<" - check M_ice["<<ice_type<<"] ("<<M_ice[ice_type].getName()<<")\n";
+    this->printRange( "conc      (in)" , M_ice[ice_type].M_conc   );
+    this->printRange( "thickness (in)" , M_ice[ice_type].M_thick  );
+    this->printRange( "Nfloes    (in)" , M_ice[ice_type].M_nfloes );
+    this->printRange( "dfloe     (in)" , M_ice[ice_type].M_dfloe  );
 #endif
 
     // end of post-regrid options
@@ -1960,7 +1959,7 @@ void WimDiscr<T>::run()
     //====================================================
     // set ice & wave conditions
     // - incident wave spectrum set in here now
-    // (or in inputWaveFields)
+    // (or in setWaveFields)
     if (!M_initialised_ice)
         this->idealIceFields(0.7);
 
@@ -2501,7 +2500,7 @@ void WimDiscr<T>::attenIsotropic(T_val_vec2d& Sdir, T_val_vec& Sfreq,
 
 template<typename T>
 typename WimDiscr<T>::T_val
-WimDiscr<T>::thetaDirFrac(T_val const& th1_, T_val const& dtheta_, T_val const& mwd_)
+WimDiscr<T>::thetaDirFrac(T_val const& th1_, T_val const& dtheta_, T_val const& mwd_) const
 {
     //get mwd\pm90 inside [th1_,th1_+360)
     T_val phi1  = thetaInRange(mwd_-90.,th1_);//>=th1_
@@ -2545,7 +2544,7 @@ WimDiscr<T>::thetaDirFrac(T_val const& th1_, T_val const& dtheta_, T_val const& 
 
 template<typename T>
 typename WimDiscr<T>::T_val
-WimDiscr<T>::thetaInRange(T_val const& th_, T_val const& th1, bool const& close_on_right)
+WimDiscr<T>::thetaInRange(T_val const& th_, T_val const& th1, bool const& close_on_right) const
 {
     T_val th2, dth, th;
     int njump;

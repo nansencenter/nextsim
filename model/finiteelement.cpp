@@ -8531,16 +8531,16 @@ FiniteElement::wimCheckWaves()
 
 
 #if 1
-    LOG(DEBUG)<<"min swh_in= "<< *std::min_element(swh_in.begin(),swh_in.end() )<<"\n";
-    LOG(DEBUG)<<"max swh_in= "<< *std::max_element(swh_in.begin(),swh_in.end() )<<"\n";
-    LOG(DEBUG)<<"min mwd_in= "<< *std::min_element(mwd_in.begin(),mwd_in.end() )<<"\n";
-    LOG(DEBUG)<<"max mwd_in= "<< *std::max_element(mwd_in.begin(),mwd_in.end() )<<"\n";
-    LOG(DEBUG)<<"min mwp_in= "<< *std::min_element(mwp_in.begin(),mwp_in.end() )<<"\n";
-    LOG(DEBUG)<<"max mwp_in= "<< *std::max_element(mwp_in.begin(),mwp_in.end() )<<"\n";
+    LOG(DEBUG)<<"min swh_in = "<< *std::min_element(swh_in.begin(),swh_in.end() )<<"\n";
+    LOG(DEBUG)<<"max swh_in = "<< *std::max_element(swh_in.begin(),swh_in.end() )<<"\n";
+    LOG(DEBUG)<<"min mwd_in = "<< *std::min_element(mwd_in.begin(),mwd_in.end() )<<"\n";
+    LOG(DEBUG)<<"max mwd_in = "<< *std::max_element(mwd_in.begin(),mwd_in.end() )<<"\n";
+    LOG(DEBUG)<<"min mwp_in = "<< *std::min_element(mwp_in.begin(),mwp_in.end() )<<"\n";
+    LOG(DEBUG)<<"max mwp_in = "<< *std::max_element(mwp_in.begin(),mwp_in.end() )<<"\n";
 #endif
 
 
-    M_wim.inputWaveFields(swh_in, mwp_in, mwd_in);
+    M_wim.setWaveFields(swh_in, mwp_in, mwd_in);
 }//wimCheckWaves()
 #endif
 

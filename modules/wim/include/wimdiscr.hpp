@@ -100,20 +100,6 @@ public:
 
 
     // ====================================================================================
-    // functions
-
-    // export
-    void exportResults(std::string const& output_type);
-    void exportResultsGrid(T_map_vec_ptrs& extract_fields,
-            std::vector<std::string> const& strings);
-    void exportResultsMesh(T_map_vec_ptrs & extract_fields,
-            std::vector<std::string> const &filenames,
-            bool export_mesh=true, bool export_fields=true);
-    void exportMesh(std::string const &filename);
-    void testMesh();
-    void saveLog(T_val const& t_out) const;
-    void saveOptionsLog();
-
     // init
     void initConstant(int const& nextsim_cpt);
     void initRemaining();
@@ -127,7 +113,95 @@ public:
     // main routines
     void run();
     void timeStep();
+    // ====================================================================================
 
+
+    // ====================================================================================
+    // export
+    void exportResults(std::string const& output_type);
+    void exportResultsGrid(T_map_vec_ptrs& extract_fields,
+            std::vector<std::string> const& strings);
+    void exportResultsMesh(T_map_vec_ptrs & extract_fields,
+            std::vector<std::string> const &filenames,
+            bool export_mesh=true, bool export_fields=true);
+    void exportMesh(std::string const &filename);
+    void testMesh();
+    void saveLog(T_val const& t_out) const;
+    void saveOptionsLog();
+    // ====================================================================================
+
+
+    // ========================================================================
+    // set mesh
+    void setMesh( T_gmsh const &mesh);
+    void setMesh( T_gmsh const &mesh,T_val_vec const &um);
+    void setMesh( T_gmsh const &mesh,T_val_vec const &um,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding=false);
+    void setMesh( T_gmsh const &mesh,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding=false);
+
+    T_val_vec getRelativeMeshDisplacement(T_gmsh const &mesh_in) const;
+    T_val_vec getRelativeMeshDisplacement(T_gmsh const &mesh_in,T_val_vec const &um_in) const;
+    T_val_vec getMeshDisplacement() const { return M_UM; }
+    void setRelativeMeshDisplacement(T_val_vec const&um_in) { M_UM = um_in; return; }
+
+    void updateWaveSpec( T_gmsh const &mesh);
+    void updateWaveSpec( T_gmsh const &mesh,T_val_vec const &um);
+    T_val_vec getSurfaceFactor(T_gmsh const &mesh_in);
+
+    T_val_vec3d getWaveSpec() const { return M_sdf_dir; }
+    void setWaveSpec(T_val_vec3d const&sdf_in)
+    {
+        // reset wave spectrum after regrid;
+        // also integrate if now so that initial wave fields are correct
+        // and so they are ready for export;
+        M_sdf_dir = sdf_in;
+        this->intWaveSpec();
+        return;
+    }
+    // ==============================================================================
+
+
+    // ==============================================================================
+    // set ice
+    void idealIceFields (T_val const xfac);
+    void setIceFields( std::vector<T_val> const& conc,  // conc
+                       std::vector<T_val> const& vol, // ice vol or effective thickness (conc*thickness)
+                       std::vector<T_val> const& nfloes,// Nfloes=conc/Dmax^2
+                       bool const pre_regrid);
+    void clearMeshFields() { M_ice[IceType::sim].clearFields(); }
+
+    // set waves
+    void idealWaveFields(T_val const xfac);
+    void setWaveFields(T_val_vec const& swh_in,
+            T_val_vec const& mwp_in,
+            T_val_vec const& mwd_in);
+    void setIncWaveSpec(T_val_vec const& wave_mask);
+    // ==============================================================================
+
+
+    // ==============================================================================
+    // output fields, wave stress,...
+    T_map_vec returnFieldsElements(std::vector<std::string> const&fields,
+            T_val_vec &xel, T_val_vec &yel, T_val_vec const&surface_fac);
+    T_map_vec returnFieldsElements(std::vector<std::string> const&fields,
+            T_gmsh const &mesh_in,T_val_vec const &um_in);
+    T_map_vec returnFieldsElements(std::vector<std::string> const&fields,
+            T_gmsh const &mesh_in);
+
+    T_map_vec returnFieldsNodes(std::vector<std::string> const&fields,
+            T_val_vec &xnod, T_val_vec &ynod);
+    T_map_vec returnFieldsNodes(std::vector<std::string> const&fields,
+            T_gmsh const &mesh_in,T_val_vec const &um_in);
+    T_map_vec returnFieldsNodes(std::vector<std::string> const&fields,
+            T_gmsh const &mesh_in);
+
+    void returnWaveStress(T_val_vec &M_tau, T_val_vec &xnod, T_val_vec &ynod);
+    void returnWaveStress(T_val_vec &M_tau, T_gmsh const &mesh_in,T_val_vec const &um_in);
+    void returnWaveStress(T_val_vec &M_tau, T_gmsh const &mesh_in);
+    void returnWaveStress(T_val_vec &M_tau);
+    // ========================================================================
+
+
+    // ========================================================================
     // fsd stuff
     T_val nfloesToDfloe(
                  T_val const& m_nfloes,
@@ -148,65 +222,11 @@ public:
             T_val_vec const & conc_tot, T_gmsh const &mesh_in,T_val_vec const &um_in);
     void getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out, T_val_vec &broken,
             T_val_vec const & conc_tot, T_gmsh const &mesh_in);
-
-    //time in seconds from init_time
-    T_val getModelTime(int lcpt=0) const {return M_update_time+lcpt*M_timestep;}
-
-    //time in days from ref time (1900-1-1)
-    T_val getNextsimTime() const;
-
-    // ========================================================================
-    // set mesh
-    void setMesh( T_gmsh const &mesh);
-    void setMesh( T_gmsh const &mesh,T_val_vec const &um);
-    void setMesh( T_gmsh const &mesh,T_val_vec const &um,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding=false);
-    void setMesh( T_gmsh const &mesh,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding=false);
-
-    T_val_vec getRelativeMeshDisplacement(T_gmsh const &mesh_in) const;
-    T_val_vec getRelativeMeshDisplacement(T_gmsh const &mesh_in,T_val_vec const &um_in) const;
-
-    void setIceFields( std::vector<T_val> const& m_conc,  // conc
-                       std::vector<T_val> const& m_vol, // ice vol or effective thickness (conc*thickness)
-                       std::vector<T_val> const& m_nfloes,// Nfloes=conc/Dmax^2
-                       bool const pre_regrid);
-
-    void updateWaveSpec( T_gmsh const &mesh);
-    void updateWaveSpec( T_gmsh const &mesh,T_val_vec const &um);
-
-    void clearMeshFields() {M_ice[IceType::sim].clearFields();}
-
-    //interpolation
-    void meshToGrid(
-        T_val_vec_ptrs &output_data,       //output data
-        T_val_vec_ptrs const &input_data); //input data
-
-    T_map_vec returnFieldsElements(std::vector<std::string> const&fields,
-            T_val_vec &xel, T_val_vec &yel, T_val_vec const&surface_fac);
-    T_map_vec returnFieldsElements(std::vector<std::string> const&fields,
-            T_gmsh const &mesh_in,T_val_vec const &um_in);
-    T_map_vec returnFieldsElements(std::vector<std::string> const&fields,
-            T_gmsh const &mesh_in);
-
-    T_map_vec returnFieldsNodes(std::vector<std::string> const&fields,
-            T_val_vec &xnod, T_val_vec &ynod);
-    T_map_vec returnFieldsNodes(std::vector<std::string> const&fields,
-            T_gmsh const &mesh_in,T_val_vec const &um_in);
-    T_map_vec returnFieldsNodes(std::vector<std::string> const&fields,
-            T_gmsh const &mesh_in);
-
-    T_val_vec getSurfaceFactor(T_gmsh const &mesh_in);
-
-    void returnWaveStress(T_val_vec &M_tau, T_val_vec &xnod, T_val_vec &ynod);
-    void returnWaveStress(T_val_vec &M_tau, T_gmsh const &mesh_in,T_val_vec const &um_in);
-    void returnWaveStress(T_val_vec &M_tau, T_gmsh const &mesh_in);
-    void returnWaveStress(T_val_vec &M_tau);
-
     // ========================================================================
 
 
-
-    //===========================================================================
-    //advection/attenuation
+    // ==========================================================================
+    // advection/attenuation
     void advectDirections( T_val_vec2d& Sdir, T_val_vec const& ag2d_eff);
     void advectDirectionsMesh( T_val_vec2d& Sdir, T_val_vec& ag2d_eff,
             T_val_vec const& boundary_vals);
@@ -220,21 +240,30 @@ public:
             T_val_vec& taux_omega,T_val_vec& tauy_omega,
             T_val_vec& sdx_omega,T_val_vec& sdy_omega,
             T_val_vec const& ag2d_eff);
-    //===========================================================================
 
+    // integrate the wave spectrum
     void intWaveSpec();
     void intDirns(T_val_vec2d const& Sdir, T_val_vec& Sfreq,
             T_val_vec& sdx_omega, T_val_vec& sdy_omega);
+    // ==========================================================================
 
-    void idealWaveFields(T_val const xfac);
-    void idealIceFields (T_val const xfac);
-    void inputWaveFields(T_val_vec const& swh_in,
-            T_val_vec const& mwp_in,
-            T_val_vec const& mwd_in);
-    void setIncWaveSpec(T_val_vec const& wave_mask);
 
-    T_val thetaDirFrac(T_val const& th1_, T_val const& dtheta_, T_val const& mwd_);
-    T_val thetaInRange(T_val const& th_, T_val const& th1, bool const& close_on_right=false);
+    // ==========================================================================
+    // other functions
+
+    // interpolation
+    void meshToGrid(
+        T_val_vec_ptrs &output_data,       //output data
+        T_val_vec_ptrs const &input_data); //input data
+
+    // time in seconds from init_time
+    T_val getModelTime(int lcpt=0) const {return M_update_time+lcpt*M_timestep;}
+
+    // time in days from ref time (1900-1-1)
+    T_val getNextsimTime() const;
+
+    T_val thetaDirFrac(T_val const& th1_, T_val const& dtheta_, T_val const& mwd_) const;
+    T_val thetaInRange(T_val const& th_, T_val const& th1, bool const& close_on_right=false) const;
 
     T_val_vec getX() const
     { 
@@ -255,21 +284,8 @@ public:
     void printRange(std::string const &name, T_val_vec const &vec, int const & prec=0) const;
     void getRange(T_val_vec const &vec, T_val &xmin, T_val &xmax) const;
 
-    //for use at regridding time (M_wim_on_mesh)
-    T_val_vec getMeshDisplacement() const { return M_UM; }
-    T_val_vec3d getWaveSpec() const { return M_sdf_dir; }
-    void setRelativeMeshDisplacement(T_val_vec const&um_in) { M_UM = um_in; return; }
-    void setWaveSpec(T_val_vec3d const&sdf_in)
-    {
-        // reset wave spectrum after regrid;
-        // also integrate if now so that initial wave fields are correct
-        // and so they are ready for export;
-        M_sdf_dir = sdf_in;
-        this->intWaveSpec();
-        return;
-    }
-
     std::string getWimGridFilename() const { return M_grid.M_gridfile; }
+    // ==========================================================================
 
 
 private:
@@ -345,13 +361,12 @@ private:
     int M_nb_export_final   = 0;
     int M_nb_mesh_test      = 0;
 
+    // mesh, grid objects
     T_mesh M_mesh,M_mesh_old;
     T_grid M_grid;
-    std::vector<int> M_wet_indices;
 
-    T_icep M_ice_params;
-    //T_map_ice M_ice;
-    T_vec_ice M_ice;
+    T_icep M_ice_params;// ice parameters
+    T_vec_ice M_ice;    // vector of ice objects
 
     bool M_break_on_mesh = false;// do breaking on nextsim mesh as well as on grid
     bool M_wim_on_mesh   = false;// to run WIM on nextsim mesh
@@ -361,26 +376,6 @@ private:
                         // - only used if running WIM on nextsim mesh
                         // - for correction to group velocity at advection time
     // =========================================================================
-
-#if 0
-    MeshInfo mesh_info_tmp = {
-            initialised               : false,
-            num_nodes                 : 0,
-            num_elements              : 0,
-            max_node_el_conn          : 0,
-            index                     : {},
-            element_connectivity      : {},
-            node_element_connectivity : {},
-            mask_dirichlet            : {},
-            nodes_x                   : {},
-            nodes_y                   : {},
-            elements_x                : {},
-            elements_y                : {},
-            surface                   : {},
-            id                        : {}
-    };
-#endif
-
 };
 
 } // namespace Wim
