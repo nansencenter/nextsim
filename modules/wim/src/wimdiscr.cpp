@@ -31,10 +31,14 @@ WimDiscr<T>::WimDiscr(po::variables_map const& vmIn,int const& nextsim_cpt)
     this->initConstant(nextsim_cpt);
 
     if(!M_wim_on_mesh)
+    {
         // wim grid generation/reading
         // NB if M_wim_on_mesh, setMesh before wim.run() and at regridding
         // time
-        M_grid  = T_grid(vm);
+        M_grid          = T_grid(vm);
+        M_num_elements  = M_grid.M_num_elements;
+        M_length_cfl    = M_grid.M_resolution;
+    }
 
     this->initRemaining();
 }//WimDiscr()
@@ -48,7 +52,9 @@ WimDiscr<T>::WimDiscr(po::variables_map const& vmIn,T_gmsh const &mesh_in,int co
 
     // init grid FROM mesh
     T_mesh mesh(mesh_in);//tmp mesh object
-    M_grid  = T_grid(vm,mesh);
+    M_grid          = T_grid(vm,mesh);
+    M_num_elements  = M_grid.M_num_elements;
+    M_length_cfl    = M_grid.M_resolution;
 
     this->initRemaining();
 }//WimDiscr()
@@ -527,17 +533,19 @@ void WimDiscr<T>::idealWaveFields(T_val const xfac)
     T_val xmax = *std::max_element(xvec.begin(),xvec.end());
     T_val x_edge = 0.5*(xmin+xmax)-xfac*(0.5*(xmax-xmin));
     T_val_vec wave_mask(M_num_elements,0.); 
+    int i_wave = -1;
 
 #pragma omp parallel for num_threads(M_max_threads) collapse(1)
     for (int i = 0; i < M_num_elements; i++)
     {
         if ((xvec[i] < x_edge) && (M_land_mask[i]<.5))
         {
-           wave_mask[i] = 1.;
-           M_Hs [i] = vm["wim.hsinc"].template as<double>();
-           M_Tp [i] = vm["wim.tpinc"].template as<double>();
-           M_mwd[i] = vm["wim.mwdinc"].template as<double>();
-           //std::cout<<M_Hs[i]<<" "<<M_Tp[i]<<" "<<M_mwd[i];
+            i_wave  = i;// just need index of one element inside wave mask
+            wave_mask[i] = 1.;
+            M_Hs [i] = vm["wim.hsinc"].template as<double>();
+            M_Tp [i] = vm["wim.tpinc"].template as<double>();
+            M_mwd[i] = vm["wim.mwdinc"].template as<double>();
+            //std::cout<<M_Hs[i]<<" "<<M_Tp[i]<<" "<<M_mwd[i];
         }
     }
 
@@ -545,18 +553,13 @@ void WimDiscr<T>::idealWaveFields(T_val const xfac)
 
     if(M_steady)
     {
-        bool set_steady = true;
-        int i = 0;
-        while(set_steady&&(i<M_num_elements))
-        {
-            if(wave_mask[i]>.5)
-            {
-                set_steady  = false;
-                for(int fq=0;fq<nwavefreq;fq++)
-                    for(int nth=0;nth<nwavedirn;nth++)
-                        M_open_boundary_vals[fq][nth] = M_sdf_dir[fq][nth][i];
-            }
-        }
+        if(i_wave<0)
+            throw std::runtime_error("idealWaveFields(): i_wave<0\n");
+
+        for(int fq=0;fq<nwavefreq;fq++)
+            for(int nth=0;nth<nwavedirn;nth++)
+                // can use any element from inside wave mask since ideal fields are constant in space
+                M_open_boundary_vals[fq][nth] = M_sdf_dir[fq][nth][i_wave];
     }
 
 }//idealWaveFields
@@ -1175,7 +1178,7 @@ void WimDiscr<T>::timeStep()
     {
 
         // =================================================================
-        std::cout<<"break_on_mesh: before interp grid to mesh\n";
+        //std::cout<<"break_on_mesh: before interp grid to mesh\n";
         // do interpolation
         // - set input data
         T_val_vec_ptrs input_data = {&Mtmp_mom0,&Mtmp_mom2,&Mtmp_var_strain};
@@ -1190,14 +1193,14 @@ void WimDiscr<T>::timeStep()
         // - call routine
         M_grid.interpToPoints(output_data,input_data,
                 M_mesh.M_elements_x, M_mesh.M_elements_y);
-        std::cout<<"break_on_mesh: after interp grid to mesh\n";
+        //std::cout<<"break_on_mesh: after interp grid to mesh\n";
         // =================================================================
 
 
         // =================================================================
         //do breaking
         M_ice[IceType::sim].doBreaking(mom0_mesh,mom2_mesh,var_strain_mesh);
-        std::cout<<"break_on_mesh: after breaking\n";
+        //std::cout<<"break_on_mesh: after breaking\n";
     }//break_on_mesh
 
 
@@ -1459,20 +1462,7 @@ void WimDiscr<T>::setIceFields(
     {
         //interp from mesh to grid
         M_ice[IceType::sim].setFields(conc,vol,nfloes);
-        T_val_vec_ptrs input_data  = {&(M_ice[IceType::sim].M_conc),&(M_ice[IceType::sim].M_vol),&(M_ice[IceType::sim].M_nfloes)};
-        T_val_vec_ptrs output_data = {&(M_ice[IceType::wim].M_conc),&(M_ice[IceType::wim].M_vol),&(M_ice[IceType::wim].M_nfloes)};
-        this->meshToGrid(output_data,input_data);
-        M_ice[IceType::wim].setFields();
-
-#if 1
-        //test interp
-        std::cout<<"setIceFields (pre_regrid): check ice inputs to WIM\n";
-        this->printRange("conc (grid)",M_ice[IceType::wim].M_conc);
-        this->printRange("thickness (grid)",M_ice[IceType::wim].M_thick);
-        this->printRange("dfloe (grid)",M_ice[IceType::wim].M_dfloe);
-        this->printRange("Nfloes (grid)",M_ice[IceType::wim].M_nfloes);
-#endif
-
+        this->interpIceMeshToGrid();
         return;
     }
     // end of pre-regrid options
@@ -1480,49 +1470,27 @@ void WimDiscr<T>::setIceFields(
 
     // ================================================================
     // post-regrid options:
-    int ice_type = IceType::sim;
     if (M_wim_on_mesh)
         // ice fields already where we need them,
-        //  but need to change ice_type
-        ice_type = IceType::wim;
-    else if (!M_break_on_mesh)
+        M_ice[IceType::wim].setFields(conc,vol,nfloes);
+    else if (M_break_on_mesh)
         //if(M_break_on_mesh), ice fields already where we need them,
-        // and ice_type is set already;
-        //else, nothing to do.
-        return;
-
-    M_ice[ice_type].setFields(conc,vol,nfloes);
-
-#if 1
-    //test inputs
-    std::cout<<"setIceFields (post_regrid): check ice inputs to WIM\n";
-    std::cout<<" - check M_ice["<<ice_type<<"] ("<<M_ice[ice_type].getName()<<")\n";
-    this->printRange( "conc      (in)" , M_ice[ice_type].M_conc   );
-    this->printRange( "thickness (in)" , M_ice[ice_type].M_thick  );
-    this->printRange( "Nfloes    (in)" , M_ice[ice_type].M_nfloes );
-    this->printRange( "dfloe     (in)" , M_ice[ice_type].M_dfloe  );
-#endif
+        M_ice[IceType::sim].setFields(conc,vol,nfloes);
 
     // end of post-regrid options
     // ================================================================
+
 }//setIceFields()
 
 
 template<typename T>
-void WimDiscr<T>::meshToGrid(
-        T_val_vec_ptrs &output_data,       //output data
-        T_val_vec_ptrs const &input_data)  //input data
+void WimDiscr<T>::interpIceMeshToGrid()
 {
-
-    if(!M_grid.isRegular())
-        M_mesh.interpToPoints(output_data,input_data,M_grid.M_px,M_grid.M_py);
-    else
-        M_mesh.interpToGrid(output_data,input_data,
-                M_grid.M_xmin,M_grid.M_ymax,
-                M_grid.M_num_px,M_grid.M_num_py,
-                M_grid.M_dx,M_grid.M_dy);
-
-}//meshToGrid
+    T_val_vec_ptrs input_data  = {&(M_ice[IceType::sim].M_conc),&(M_ice[IceType::sim].M_vol),&(M_ice[IceType::sim].M_nfloes)};
+    T_val_vec_ptrs output_data = {&(M_ice[IceType::wim].M_conc),&(M_ice[IceType::wim].M_vol),&(M_ice[IceType::wim].M_nfloes)};
+    M_grid.interpFromMesh(M_mesh,output_data,input_data);
+    M_ice[IceType::wim].setFields();
+}//iceMeshToGrid
 
 
 template<typename T>
@@ -1966,6 +1934,7 @@ void WimDiscr<T>::run()
     if (!M_initialised_waves)
         this->idealWaveFields(0.8);
     // ===================================================
+
 
     // set attenuation coefficients and wave speeds/lengths
     // - also set M_timestep

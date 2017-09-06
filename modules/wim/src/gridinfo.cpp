@@ -142,10 +142,10 @@ void GridInfo<T>::gridFromParameters()
     M_num_v    = M_num_px*(M_num_py+1);//number of v points
     M_px       .assign(M_num_p,0.);
     M_py       .assign(M_num_p,0.);
-    M_scuy    .assign(M_num_u,0.);
-    M_scvx    .assign(M_num_v,0.);
-    M_scp2    .assign(M_num_p,0.);
-    M_scp2i   .assign(M_num_p,0.);
+    M_scuy     .assign(M_num_u,0.);
+    M_scvx     .assign(M_num_v,0.);
+    M_scp2     .assign(M_num_p,0.);
+    M_scp2i    .assign(M_num_p,0.);
     M_land_mask.assign(M_num_p,0.);
 
 
