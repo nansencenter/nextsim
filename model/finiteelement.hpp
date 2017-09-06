@@ -236,7 +236,9 @@ public:
     void clear();
 
 private:
+    boost::mpi::timer chrono, chrono_tot;
     po::variables_map vm;
+
     mesh_type M_mesh;
     graph_type M_graph;
     mesh_type M_mesh_init;
@@ -260,8 +262,6 @@ private:
     std::vector<int> M_dirichlet_nodes;
     std::vector<int> M_neumann_flags;
     std::vector<int> M_neumann_nodes;
-
-    boost::mpi::timer chrono, chrono_tot;
 
     setup::AtmosphereType M_atmosphere_type;
     setup::OceanType M_ocean_type;
@@ -313,7 +313,6 @@ private:
 
     external_data_vec M_external_data;
     external_data_vec M_external_data_waves;
-    external_data_vec M_external_data_tmp;
     Dataset_vec M_datasets_regrid;
 
     std::vector<double> M_fcor;
@@ -336,8 +335,9 @@ private:
     std::vector<double> M_nfloes;
     std::vector<double> M_dfloe;
 
-    int wim_cpt;//no of times WIM has been called
-    int steps_since_last_wim_call;//no of time steps since WIM was last called
+    int M_wim_cpt;//no of times WIM has been called
+    int M_wim_steps_since_last_call;//no of time steps since WIM was last called
+    int M_wim_cpl_freq;//call wim every "M_wim_cpl_freq" nextsim time steps
 
     T_map_vec M_wim_fields_nodes;
     T_map_vec M_wim_fields_els;
