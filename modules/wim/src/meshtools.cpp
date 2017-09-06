@@ -24,6 +24,9 @@ MeshInfo<T>::MeshInfo(T_gmsh const &movedmesh)
 
     //update mesh with moved mesh
     this->setFields(movedmesh);
+
+    // set some other things (eg resolution)
+    this->initSimple();
 }//MeshInfo constructor (simple)
 
 
@@ -40,10 +43,10 @@ MeshInfo<T>::MeshInfo(std::vector<int> const& index,T_val_vec const &nodes_x,T_v
     M_nodes_x = nodes_x;
     M_nodes_y = nodes_y;
 
-    //get the element locations
-    this->setElements();
+    // set some other things (eg resolution)
+    this->initSimple();
 
-}//MeshInfo constructor (nodes_only)
+}//MeshInfo constructor (simple)
 
 
 template<typename T>
@@ -78,10 +81,10 @@ MeshInfo<T>::MeshInfo(T_val_vec const &nodes_x,T_val_vec const &nodes_y)
 
     xDelete<int>(index);
 
-    //get the element locations
-    this->setElements();
+    // set some other things (eg resolution)
+    this->initSimple();
 
-}//MeshInfo constructor (nodes_only)
+}//MeshInfo constructor (simple)
 
 
 template<typename T>
@@ -99,6 +102,10 @@ MeshInfo<T>::MeshInfo(std::vector<int> const& index,T_val_vec const &nodes_x,T_v
     M_nodes_y    = nodes_y;
     M_elements_x = elements_x;
     M_elements_y = elements_y;
+
+    // set some other things (eg resolution)
+    this->initSimple();
+
 }//MeshInfo constructor (simple)
 
 
@@ -173,6 +180,32 @@ MeshInfo<T>::MeshInfo(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& flag
     M_resolution = MeshTools::resolution(movedmesh);
 }//MeshInfo constructor (full)
 
+
+template<typename T>
+void MeshInfo<T>::initSimple()
+{
+    if(M_elements_x.size()==0)
+        this->setElements();
+
+    int Nels = M_num_elements;
+    T_val area_tot = 0.;
+    for (int i=0;i<Nels;i++)
+    {
+        T_val_vec xnods(3);
+        T_val_vec ynods(3);
+        for (int k=0;k<3;k++)
+        {
+            int ind  = M_index[3*i+k]-1;//NB bamg indices go from 1 to Nels
+            xnods[k] = M_nodes_x[ind];
+            ynods[k] = M_nodes_y[ind];
+        }
+
+        area_tot += .5*MeshTools::jacobian(
+                xnods[0],ynods[0],xnods[1],ynods[1],xnods[2],ynods[2]);
+    }
+
+    M_resolution = std::sqrt(area_tot/Nels);//sqrt of the mean area of the triangles
+}
 
 template<typename T>
 void MeshInfo<T>::setElements()

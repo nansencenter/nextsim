@@ -91,6 +91,7 @@ public:
 
     // ===============================================================
     //functions
+    void initSimple();
     void setElements();
     void setFields( T_gmsh const &mesh);
     T_val lengthCfl() const { return 0.1*M_resolution; }
