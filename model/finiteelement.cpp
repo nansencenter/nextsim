@@ -1259,9 +1259,7 @@ FiniteElement::regrid(bool step)
             int* interp_method;
             double* diffusivity_parameters;
 
-            std::cout<<"1304\n";
             int nb_var = this->collectVariables(&interp_elt_in, &interp_method, &diffusivity_parameters, prv_num_elements);
-            std::cout<<"1306\n";
 
             // 2) Interpolate
             std::vector<double> surface_previous(prv_num_elements);
@@ -1326,9 +1324,6 @@ FiniteElement::regrid(bool step)
 			D_delS.assign(M_num_elements,0.);
 
 #if defined (WAVES)
-            //bool nfloes_interp = M_use_wim;
-            //if ( !(vm["nextwim.coupling-option"].template as<std::string>() == "break_on_mesh"))
-            //    bool nfloes_interp = (M_use_wim && (!M_run_wim));
             if (M_use_wim)
             {
                 M_nfloes.assign(M_num_elements,0.);
@@ -1369,7 +1364,6 @@ FiniteElement::regrid(bool step)
                     nb_var += 2;//M_meshdisp
                     if (M_export_wim_diags_mesh)
                         nb_var += 2*(M_wim_fields_nodes.size());//usually just Stokes drift
-                    //std::cout<<"nb_var = "<<nb_var<<"\n";
                 }
 #endif
 
@@ -1386,34 +1380,34 @@ FiniteElement::regrid(bool step)
 			{
                 int tmp_nb_var = 0;
 
-				// VT
-				interp_in[nb_var*i+tmp_nb_var] = M_VT[i];
+                // VT
+                interp_in[nb_var*i+tmp_nb_var] = M_VT[i];
                 tmp_nb_var++;
-				interp_in[nb_var*i+tmp_nb_var] = M_VT[i+prv_num_nodes];
-                tmp_nb_var++;
-
-				// VTM
-				interp_in[nb_var*i+tmp_nb_var] = M_VTM[i];
-                tmp_nb_var++;
-				interp_in[nb_var*i+tmp_nb_var] = M_VTM[i+prv_num_nodes];
+                interp_in[nb_var*i+tmp_nb_var] = M_VT[i+prv_num_nodes];
                 tmp_nb_var++;
 
-				// VTMM
-				interp_in[nb_var*i+tmp_nb_var] = M_VTMM[i];
+                // VTM
+                interp_in[nb_var*i+tmp_nb_var] = M_VTM[i];
                 tmp_nb_var++;
-				interp_in[nb_var*i+tmp_nb_var] = M_VTMM[i+prv_num_nodes];
-                tmp_nb_var++;
-
-				// UM
-				interp_in[nb_var*i+tmp_nb_var] = M_UM[i];
-                tmp_nb_var++;
-				interp_in[nb_var*i+tmp_nb_var] = M_UM[i+prv_num_nodes];
+                interp_in[nb_var*i+tmp_nb_var] = M_VTM[i+prv_num_nodes];
                 tmp_nb_var++;
 
-				// UT
-				interp_in[nb_var*i+tmp_nb_var] = M_UT[i];
+                // VTMM
+                interp_in[nb_var*i+tmp_nb_var] = M_VTMM[i];
                 tmp_nb_var++;
-				interp_in[nb_var*i+tmp_nb_var] = M_UT[i+prv_num_nodes];
+                interp_in[nb_var*i+tmp_nb_var] = M_VTMM[i+prv_num_nodes];
+                tmp_nb_var++;
+
+                // UM
+                interp_in[nb_var*i+tmp_nb_var] = M_UM[i];
+                tmp_nb_var++;
+                interp_in[nb_var*i+tmp_nb_var] = M_UM[i+prv_num_nodes];
+                tmp_nb_var++;
+
+                // UT
+                interp_in[nb_var*i+tmp_nb_var] = M_UT[i];
+                tmp_nb_var++;
+                interp_in[nb_var*i+tmp_nb_var] = M_UT[i+prv_num_nodes];
                 tmp_nb_var++;
 
 #if defined (WAVES)
@@ -1450,7 +1444,7 @@ FiniteElement::regrid(bool step)
                     throw std::runtime_error("regrid (nodal interp - collection): tmp_nb_var != nb_var");
                 }
 
-			}//loop over nodes
+            }//loop over nodes
 
 			InterpFromMeshToMesh2dx(&interp_out,
                                     &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
@@ -1702,12 +1696,8 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var, bool che
         //if breaking on mesh, always need to regrid nfloes
         //if not, regridding wasted, since overwritten later
         //but always need to do it inside update (advect)
-        //bool nfloes_interp = M_use_wim;
-        //if ( !(vm["nextwim.coupling-option"].template as<std::string>() == "break_on_mesh"))
-        //    bool nfloes_interp = (M_use_wim && (!M_run_wim));
 
         // Nfloes from wim model
-        //if (nfloes_interp)
         if (M_use_wim)
         {
             M_nfloes[i] = interp_elt_out[nb_var*i+tmp_nb_var];
@@ -1742,9 +1732,9 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var, bool che
                 h_thin_tmp = M_h_thin[i]*conc_thin_tmp/M_conc_thin[i];
             else
                 h_thin_tmp = 0.;
-            
+
             M_thick[i]+=M_h_thin[i]-h_thin_tmp;
-            
+
             M_h_thin[i]=h_thin_tmp;
             M_conc_thin[i]=conc_thin_tmp;
         }
@@ -2017,7 +2007,6 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
             num_wavefreq = M_wavespec.size();
             num_wavedirn = M_wavespec[0].size();
             nb_var += num_wavefreq*num_wavedirn;
-            //std::cout<<"nfq,ndir,nb_var = "<<num_wavefreq<<","<<num_wavedirn<<","<<nb_var<<"\n";
         }
     }
 #endif
@@ -8644,7 +8633,7 @@ FiniteElement::wimCall()
 
     if (M_run_wim)
     {
-        // run M_wim
+        // run wim
         auto ctot   = M_conc; //total ice conc
         auto vtot   = M_thick;//total ice vol
         if ( (M_wave_mode==setup::WaveMode::BREAK_ON_MESH) ||
