@@ -77,8 +77,13 @@ public:
 
     typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
 
+    typedef typename std::vector<double>    dbl_vec;
+    typedef typename std::vector<dbl_vec>   dbl_vec2d;
+    typedef typename std::vector<dbl_vec2d> dbl_vec3d;
+
 #if defined (WAVES)
     typedef Wim::WimDiscr<double> wim_type;
+    typedef Wim::WimDiscr<double>::T_map_vec T_map_vec;
 #endif
 
     FiniteElement();
@@ -175,8 +180,7 @@ public:
 
 #if defined (WAVES)
     void forcingWave();
-    WaveOptions wim_forcing_options;
-    bool        wim_ideal_forcing;
+    WaveOptions M_wim_forcing_options;
 #endif
 
 	void bathymetry();
@@ -212,8 +216,12 @@ public:
 #if defined (WAVES)
     void initWim(int const pcpt);
     void initWimVariables();
-    void nextsimToWim();
-    void wimToNextsim();
+    void wimCommPreRegrid();
+    void wimPreRegrid();
+    void wimPostRegrid();
+    void wimCheckWaves();
+    void wimCall();
+    void getWimDiagnostics();
 #if 0
     std::vector<double> FiniteElements::rotatedWimElementsX(double const& rotangle) const;
     std::vector<double> FiniteElements::rotatedWimElementsY(double const& rotangle) const;
@@ -228,7 +236,9 @@ public:
     void clear();
 
 private:
+    boost::mpi::timer chrono, chrono_tot;
     po::variables_map vm;
+
     mesh_type M_mesh;
     graph_type M_graph;
     mesh_type M_mesh_init;
@@ -253,12 +263,13 @@ private:
     std::vector<int> M_neumann_flags;
     std::vector<int> M_neumann_nodes;
 
-    boost::mpi::timer chrono, chrono_tot;
-
     setup::AtmosphereType M_atmosphere_type;
     setup::OceanType M_ocean_type;
     setup::IceType M_ice_type;
+#if defined (WAVES)
     setup::WaveType M_wave_type;
+    setup::WaveMode M_wave_mode;
+#endif
     setup::BathymetryType M_bathymetry_type;
     setup::BasalStressType M_basal_stress_type;
     setup::ThermoType M_thermo_type;
@@ -301,7 +312,7 @@ private:
     std::vector<double> M_ridge_ratio;
 
     external_data_vec M_external_data;
-    external_data_vec M_external_data_tmp;
+    external_data_vec M_external_data_waves;
     Dataset_vec M_datasets_regrid;
 
     std::vector<double> M_fcor;
@@ -318,34 +329,24 @@ private:
     std::vector<double> M_time_relaxation_damage;
 
     // =============================================================================
-    // variables needed for coupling with wim
+    // variables needed for coupling with M_wim
 #if defined (WAVES)
-    wim_type wim;
+    wim_type M_wim;
     std::vector<double> M_nfloes;
     std::vector<double> M_dfloe;
 
-    std::vector<double> M_SWH_grid;
-    std::vector<double> M_MWD_grid;
-    std::vector<double> M_MWP_grid;
+    int M_wim_cpt;//no of times WIM has been called
+    int M_wim_steps_since_last_call;//no of time steps since WIM was last called
+    int M_wim_cpl_freq;//call wim every "M_wim_cpl_freq" nextsim time steps
 
-    wim_type::WimGrid wim_grid;
-    double xmin_wim,xmax_wim;
-    double ymin_wim,ymax_wim;
-    int num_elements_wim_grid;
-    int wim_cpt;//no of times WIM has been called
-    int steps_since_last_wim_call;//no of time steps since WIM was last called
+    T_map_vec M_wim_fields_nodes;
+    T_map_vec M_wim_fields_els;
+    //std::vector<double> M_stokes_drift;
 
-    std::vector<double> M_stokes_drift;
-
-    std::vector<double> M_icec_grid;
-    std::vector<double> M_iceh_grid;
-    std::vector<double> M_nfloes_grid;
-
-    std::vector<double> M_taux_grid;
-    std::vector<double> M_tauy_grid;
-    std::vector<double> M_stokes_drift_x_grid;
-    std::vector<double> M_stokes_drift_y_grid;
-    bool M_export_stokes_drift_mesh;
+    bool M_export_wim_diags_mesh;
+    bool M_collect_wavespec = false;
+    dbl_vec   M_wim_meshdisp;
+    dbl_vec3d M_wavespec;
 #endif
     std::vector<double> M_tau;//this can just be set to zero if not using WIM
     // =============================================================================
@@ -496,7 +497,7 @@ private:
 
 	// Non-prognostic variables used to speed up the convergence of a non-linear equation in thermodynamics
     // std::vector<double> M_tsurf;        // Ice surface temperature [C]
-    std::vector<std::vector<double>> M_tice;    // Ice temperature - 0 for surface and higher ordinals for layers in the ice
+    dbl_vec2d M_tice;    // Ice temperature - 0 for surface and higher ordinals for layers in the ice
     std::vector<double> M_tsurf_thin;   // Ice surface temperature of thin ice [C]
 
 private:

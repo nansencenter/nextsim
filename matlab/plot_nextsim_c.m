@@ -1,4 +1,4 @@
-function step=plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,plot_options)
+function [step,failed] = plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,plot_options,simul_in)
 %% CALL: plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,plot_options)
 %% OR:   plot_nextsim_c(field,date_string,region_of_zoom,is_sequential,dirname,plot_options)
 %% example of usage:
@@ -34,7 +34,7 @@ function step=plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,plo
 %%    M_ocean_salt
 %%    M_mld
 %%    M_element_depth
-%%    Stresses, Stresses_x, Stresses_y
+%%    Stress_waves_ice, Stress_waves_ice_x, Stress_waves_ice_y
 %%    Nfloes
 %%    Dfloe
 %%    Sigma1
@@ -64,19 +64,22 @@ function step=plot_nextsim_c(field,step,region_of_zoom,is_sequential,dirname,plo
 %%
 %% [OPTIONAL]
 %% plot_options = [default: NB don't need to specify all fields if want to keep default]
-%%       save_figure: 0              % 0 (default) we do not save the figure
-%%        apply_mask: true           % If true, apply ice mask
-%%         plot_grid: 0              % If not zero the mesh lines are plotted. If zoomed out only the mesh lines will be visible
-%%   plot_coastlines: 1              % When 1 the actual domain boundaries are plotted, closed in light gray and opened in cyan.
-%%                                   %  Note though that plotting the coastlines or the grid makes the figure much heavier
-%%         plot_date: 0              % 1 if we want to display the date on the figure
-%%         font_size: 14             % Sets font size of colorbar and date
-%%  background_color: [0.85,.85,.85] % gray-white color. A substitute could be gray [0.5 0.5 0.5]
-%%     figure_format: '-png'         % can be pdf, tiff, png or jpeg
-%%       pic_quality: '-r300'        % Resolution for eps, pdf, tiff, and png
-%%           visible: 1              % We display the figure on the screen
-%%                                   %  (useful to set to 0 when generating a large amount of figures)
-%%     show_vec_dirn: 0              % If plotting vector magnitude, show the direction as arrows
+%%        save_figure: 0              % 0 (default) we do not save the figure
+%%         apply_mask: true           % If true, apply ice mask
+%%          plot_grid: 0              % If not zero the mesh lines are plotted. If zoomed out only the mesh lines will be visible
+%%    plot_coastlines: 1              % When 1 the actual domain boundaries are plotted, closed in light gray and opened in cyan.
+%%                                    %  Note though that plotting the coastlines or the grid makes the figure much heavier
+%%          plot_date: 0              % 1 if we want to display the date on the figure
+%%          font_size: 14             % Sets font size of colorbar and date
+%%   background_color: [0.85,.85,.85] % gray-white color. A substitute could be gray [0.5 0.5 0.5]
+%%      figure_format: '-png'         % can be pdf, tiff, png or jpeg
+%%        pic_quality: '-r300'        % Resolution for eps, pdf, tiff, and png
+%%            visible: 1              % We display the figure on the screen
+%%                                    %  (useful to set to 0 when generating a large amount of figures)
+%%      show_vec_dirn: 0              % If plotting vector magnitude, show the direction as arrows
+%%  manual_axis_range: []             % Set the colorbar limits
+%%  check_field_range: 0              % Print out range of variable
+%%           no_error: 0              % Don't crash if variable not present
 
 if ~exist('dirname','var'), dirname='.'; end
 
@@ -117,13 +120,17 @@ if ~exist('manual_axis_range','var'),  manual_axis_range = []; end;
    % range to be shown on colorbar
 if ~exist('check_field_range','var'),  check_field_range = 0; end;
    % eg to plot field_after_wim_call_0.[bin,dat] use filename_string='after_wim_call'
+if ~exist('no_error','var'); no_error = 0; end
 
      
 if(~isempty(dirname)&& dirname(end)~='/')
     dirname=[dirname, '/'];
 end
-simul_in=read_simul_in([dirname 'nextsim.log' ],0);
-simul = simul_in.simul;
+if ~exist('simul_in','var')
+   simul_in=read_simul_in([dirname 'nextsim.log' ],0);
+end
+simul    = simul_in.simul;
+failed   = 0;
 
 if ~ischar(step)
     step = num2str(step);
@@ -181,6 +188,10 @@ for p=0:0
       data_out.Time  = t0+t1;
   end
 
+  if ~exist('conc_name','var')
+     apply_mask   = 0;
+  end
+
   
   %ice mask and water mask extraction
   if(apply_mask)
@@ -228,14 +239,14 @@ for p=0:0
   end
   
 
-  if strcmp(field,'Stresses')
+  if strcmp(field,'Stress_waves_ice')
       i=3;
       plot_dirn = show_vec_dirn;
-  elseif strcmp(field,'Stresses_x')
-      field='Stresses';
+  elseif strcmp(field,'Stress_waves_ice_x')
+      field='Stress_waves_ice';
       i=1;
-  elseif strcmp(field,'Stresses_y')
-      field='Stresses';
+  elseif strcmp(field,'Stress_waves_ice_y')
+      field='Stress_waves_ice';
       i=2;
   end;
   if strcmp(field,'M_wind')
@@ -252,7 +263,8 @@ for p=0:0
   %---------------------------
   % We extract the data fields
   %---------------------------
-  [field_tmp, field_plotted_]=extract_field(field,data_out,dirname,step,simul_in);%don't overwrite field_plotted yet
+  [field_tmp, field_plotted_]=extract_field(...
+      field,data_out,dirname,step,simul_in,no_error);%don't overwrite field_plotted yet
 
   % {length(field_tmp),Ne,Nn,2*Nn}
   if(length(field_tmp)==Ne)
@@ -270,6 +282,7 @@ for p=0:0
     v{1}=reshape(var_mc,[3,Ne]);
   else
     %error('Not the right dimensions')
+    failed  = 1;
     return
   end
 
@@ -469,6 +482,22 @@ function set_axis_colormap_colorbar(mesh_filename,field,region_of_zoom,manual_ax
         default_axis_range = [0,300];
         colormap(cmap_def);
         name_colorbar='D_{max} (m)';
+    elseif strcmp(field,'Nfloes')
+        default_axis_range = [0,8e-5];
+        colormap(cmap_def);
+        name_colorbar='N_{floes} (m^{-2})';
+    elseif strcmp(field,'Hs')
+        default_axis_range = [0,5];
+        colormap(cmap_def);
+        name_colorbar='H_{s} (m)';
+    elseif strcmp(field,'Tp')
+        default_axis_range = [0,20];
+        colormap(cmap_def);
+        name_colorbar='T_{p} (s)';
+    elseif strcmp(field,'MWD')
+        default_axis_range = [-90,270];
+        colormap(cmap_def);
+        name_colorbar='MWD (^o)';
     else
         colormap(cmap_def);
         name_colorbar='';

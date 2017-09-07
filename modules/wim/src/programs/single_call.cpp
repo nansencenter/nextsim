@@ -1,8 +1,8 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim:fenc=utf-8:ft=cpp:et:sw=4:ts=4:sts=4 */
+/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 #include <wimdiscr.hpp>
 #include <iomanip>
-#include <wimoptions.hpp>
+#include <options_wim.hpp>
 
 namespace
 {
@@ -52,12 +52,9 @@ int main(int argc, char** argv )
         return ERROR_IN_COMMAND_LINE;
     }
 
-    // instantiation of wim2d
+    // instantiation & initialization of wim2d
     WimDiscr<double> wim(vm);
     //WimDiscr<float> wim(vm);
-
-    // initialization of wim2d
-    wim.init();
 
 #if 0
     //test fsd:

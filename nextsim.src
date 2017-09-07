@@ -1,0 +1,17 @@
+sourced=$BASH_SOURCE
+kernel=`uname -s`
+if [ "$kernel" == Darwin ]
+then
+   me=`greadlink -f $sourced`
+else
+   me=`readlink -f $sourced`
+fi
+
+export NEXTSIMDIR=`dirname $me`
+echo export NEXTSIMDIR=$NEXTSIMDIR
+
+export SIMFORECASTDIR=$NEXTSIMDIR
+echo export SIMFORECASTDIR=$NEXTSIMDIR
+
+export PYTHONPATH=$PYTHONPATH:$NEXTSIMDIR/python/modules
+echo export PYTHONPATH=$PYTHONPATH:$NEXTSIMDIR/python/modules
