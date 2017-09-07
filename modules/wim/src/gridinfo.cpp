@@ -28,6 +28,7 @@ GridInfo<T>::GridInfo(T_vmap const& vmIn)
     M_max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
     vm = vmIn;
     M_initialised = true;
+    M_use_regular = (vm["wim.useregulargridtools"].template as<bool>());
 
     M_gridfile    = vm["wim.gridfilename"].template as<std::string>();
     if ( M_gridfile != "" )
@@ -86,6 +87,7 @@ GridInfo<T>::GridInfo(T_vmap const &vmIn,T_mesh &mesh_in)
     M_max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
     vm = vmIn;
     M_initialised = true;
+    M_use_regular = (vm["wim.useregulargridtools"].template as<bool>());
 
     std::cout<<"Generating WIM grid from mesh...\n";
     chrono.restart();
@@ -108,7 +110,16 @@ GridInfo<T>::GridInfo(T_vmap const &vmIn,T_mesh &mesh_in)
     T_val_vec mask_in(mesh_in.M_num_nodes,0.);
     T_val_vec_ptrs interp_out = {&M_land_mask};
     T_val_vec_ptrs interp_in  = {&mask_in};
-    mesh_in.interpToGrid(interp_out,interp_in,M_xmin,M_ymax,M_num_px,M_num_py,M_dx,M_dy,1.);
+    //if(M_use_regular&&M_regular)
+    if(false)
+        //default value doesn't work well for InterpMeshToGrid
+        mesh_in.interpToGrid(interp_out,interp_in,M_xmin,M_ymax,M_num_px,M_num_py,M_dx,M_dy,1.);
+    else
+    {
+        //seems to work
+        std::vector<int> tmp = {};
+        mesh_in.interpToPoints(interp_out,interp_in,M_px,M_py,tmp,true,1.);
+    }
 
     std::cout<<"Grid generation done in "<< chrono.elapsed() <<"s\n";
 
@@ -173,6 +184,7 @@ void GridInfo<T>::gridFromParameters()
 template<typename T>
 void GridInfo<T>::gridPostProcessing()
 {
+    M_use_regular   = (vm["wim.useregulargridtools"].template as<bool>());
     bool DoSaveGrid = (vm["wim.checkprog"].template as<bool>())
                    || (vm["wim.checkinit"].template as<bool>())
                    || (vm["wim.checkfinal"].template as<bool>())
@@ -325,8 +337,8 @@ void GridInfo<T>::saveGrid()
     {
         outb << std::setw(15) << std::left << "07"  << "    Nrecs    # "<< "Number of records" <<"\n";
         outb << std::setw(15) << std::left << "0"   << "    Norder   # "<< "Storage order [column-major (F/matlab) = 1; row-major (C) = 0]" <<"\n";
-        outb << std::setw(15) << std::left << nxstr << "    M_num_px       # "<< "Record length in x direction (elements)" <<"\n";
-        outb << std::setw(15) << std::left << nystr << "    M_num_py       # "<< "Record length in y direction (elements)" <<"\n";
+        outb << std::setw(15) << std::left << nxstr << "    nx       # "<< "Record length in x direction (elements)" <<"\n";
+        outb << std::setw(15) << std::left << nystr << "    ny       # "<< "Record length in y direction (elements)" <<"\n";
 
         outb <<"\n";
 
@@ -570,10 +582,10 @@ void GridInfo<T>::interpFromMesh(T_mesh &mesh,
         T_val_vec_ptrs const &input_data)  //input data
 {
     if(this->isRegular())
-        mesh.interpToPoints(output_data,input_data,M_px,M_py);
-    else
         mesh.interpToGrid(output_data,input_data,
                 M_xmin,M_ymax,M_num_px,M_num_py,M_dx,M_dy);
+    else
+        mesh.interpToPoints(output_data,input_data,M_px,M_py);
 }//meshToGrid
 
 

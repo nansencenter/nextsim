@@ -394,7 +394,9 @@ void MeshInfo<T>::interpToPoints(
         T_val_vec_ptrs const &input_data,    //input data
         T_val_vec &Rx,                       //location of output data (x-coord)
         T_val_vec &Ry,                       //location of output data (y-coord)
-        std::vector<int> const& wet_indices) //optional (say which cells in input_data are wet)
+        std::vector<int> const& wet_indices, //optional (say which cells in input_data are wet)
+        bool  const& use_default,            //optional: use a default value for points outside the mesh (else use the nearest element)
+        T_val const& default_val)            //optional: default value for points outside the mesh
 {
 
     if(M_mesh_type==E_mesh_type::uninitialised)
@@ -410,7 +412,7 @@ void MeshInfo<T>::interpToPoints(
 
     if (wet_indices.size()==0)
     {
-        std::cout<<"interpToPoints: Ninterp,nb_var = "<<Ninterp<<","<<nb_var<<"\n";
+        //std::cout<<"interpToPoints: Ninterp,nb_var = "<<Ninterp<<","<<nb_var<<"\n";
         for (int i=0;i<Ninterp;i++)
             for (int p=0;p<nb_var;p++)
                 interp_in[nb_var*i+p]   = (*(input_data[p]))[i];
@@ -418,7 +420,7 @@ void MeshInfo<T>::interpToPoints(
     else
     {
         Ninterp = wet_indices.size();//get pointer, then get size
-        std::cout<<"interpToPoints: Ninterp (wet),nb_var = "<<Ninterp<<","<<nb_var<<"\n";
+        //std::cout<<"interpToPoints: Ninterp (wet),nb_var = "<<Ninterp<<","<<nb_var<<"\n";
 
         interp_in.resize(Ninterp*nb_var);   //input to interp routine
         for (int i=0;i<Ninterp;i++)

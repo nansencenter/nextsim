@@ -277,7 +277,13 @@ public:
         else
             return M_mesh.getY();
     }
-    int getNumElements() { return M_num_elements; }
+    int getNumElements()
+    { 
+        if(M_wim_on_mesh)
+            return M_mesh.M_num_elements;
+        else
+            return M_grid.M_num_elements;
+    }
     void getRangeXY(T_val &xmin,T_val &xmax, T_val &ymin, T_val &ymax) const;
     void printRange(std::string const &name, T_val_vec const &vec, int const & prec=0) const;
     void getRange(T_val_vec const &vec, T_val &xmin, T_val &xmax) const;

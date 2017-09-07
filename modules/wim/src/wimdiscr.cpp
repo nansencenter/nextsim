@@ -35,9 +35,7 @@ WimDiscr<T>::WimDiscr(po::variables_map const& vmIn,int const& nextsim_cpt)
         // wim grid generation/reading
         // NB if M_wim_on_mesh, setMesh before wim.run() and at regridding
         // time
-        M_grid          = T_grid(vm);
-        M_num_elements  = M_grid.M_num_elements;
-        M_length_cfl    = M_grid.M_resolution;
+        M_grid  = T_grid(vm);
     }
 
     this->initRemaining();
@@ -53,8 +51,6 @@ WimDiscr<T>::WimDiscr(po::variables_map const& vmIn,T_gmsh const &mesh_in,int co
     // init grid FROM mesh
     T_mesh mesh(mesh_in);//tmp mesh object
     M_grid          = T_grid(vm,mesh);
-    M_num_elements  = M_grid.M_num_elements;
-    M_length_cfl    = M_grid.M_resolution;
 
     this->initRemaining();
 }//WimDiscr()
@@ -64,6 +60,11 @@ template<typename T>
 void WimDiscr<T>::initRemaining()
 {
     //after grid/mesh are set
+    if(!M_wim_on_mesh)
+    {
+        M_num_elements  = M_grid.M_num_elements;
+        M_length_cfl    = M_grid.M_resolution;
+    }
 
     // ==============================================================================
     //local diagnostics

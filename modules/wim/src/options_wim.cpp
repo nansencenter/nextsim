@@ -82,6 +82,8 @@ namespace Wim
                   "Add land on upper,lower and RH edges")
             ("wim.initialtime", po::value<std::string>()->default_value( "2015-01-01 00:00:00" ),
                   "Initial time")
+            ("wim.useregulargridtools", po::value<bool>()->default_value( false ),
+                  "use regular grid tools if possible (else triangulate grid and use mesh tools)")
 
             //outputs of WIM
             ("wim.checkinit", po::value<bool>()->default_value( true ),

@@ -104,12 +104,13 @@ public:
             T_val* inc_values);             // values incoming from open boundaries
                                             // - currently just specify a constant (ie spatially invariant) value for each variable
     void interpToPoints(
-            T_val_vec_ptrs &output_data,          //output data
-            T_val_vec_ptrs const &input_data,     //input data
-            T_val_vec &Rx,                        //location of output data (x-coord)
-            T_val_vec &Ry,                        //location of output data (y-coord)
-            std::vector<int> const& wet_indices={}); //optional: say which cells of input_data are wet
-
+            T_val_vec_ptrs &output_data,            //output data
+            T_val_vec_ptrs const &input_data,       //input data
+            T_val_vec &Rx,                          //location of output data (x-coord)
+            T_val_vec &Ry,                          //location of output data (y-coord)
+            std::vector<int> const& wet_indices={}, //optional: say which cells of input_data are wet
+            bool  const &use_default=false,         //optional: use a default value for points outside the mesh (else use the nearest element)
+            T_val const &default_val=0.);           //optional: default value for points outside the mesh
     void elementsToNodes(
             T_val_vec_ptrs &output_data,       //output data
             T_val_vec_ptrs const &input_data); //input data
