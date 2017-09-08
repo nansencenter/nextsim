@@ -239,7 +239,6 @@ def plot_mesh_data(mesh_obj,pobj=None,data=None,clabel=None,plot_grid=False,gmsh
 class nextsim_mesh_info:
    def __init__(self,mesh_file):
 
-      self.mesh_file       = mesh_file
       self.mesh_file       = os.path.abspath(mesh_file)
       self.mesh_file_info  = self.mesh_file.replace('.bin','.dat')
 
