@@ -8,23 +8,11 @@ import os
 
 # ========================================================================
 # source files
-sources = [] # .cpp
-pyxsrc  = [] # .pyx files
-pyxsrc_ = [] # .cpp files from .pyx files
+sources = [] # .cpp, .pyx (need to be converted to .cpp)
 for src in os.listdir('.'):
    if len(src)>4:
-      if src[-4:]=='.cpp':
+      if src[-4:]=='.cpp' or src[-4:]=='.pyx':
          sources.append(src)
-      elif src[-4:]=='.pyx':
-         pyxsrc.append(src)
-         pyxsrc_.append(src[:-4]+'.cpp')
-
-# remove .cpp files made from 
-for cppfil in pyxsrc_:
-   if cppfil in sources:
-      sources.remove(cppfil)
-
-sources.extend(pyxsrc)
 # ========================================================================
 
 
@@ -54,6 +42,9 @@ libdirs.append(nsdir+'/lib/')
 xargs = ['-fopenmp'] # openMP
 # ========================================================================
 
+
+# ========================================================================
+# compile
 ext = Extension('lib/bamg',
                 language='c++',
                 sources=sources,
@@ -64,5 +55,5 @@ ext = Extension('lib/bamg',
                 extra_compile_args=xargs,
                 extra_link_args=xargs
                 )
-
 setup(name='lib/bamg', ext_modules = cythonize(ext,build_dir='build'))
+# ========================================================================

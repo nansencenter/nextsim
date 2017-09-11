@@ -8,10 +8,17 @@ else
 fi
 
 export NEXTSIMDIR=`dirname $me`
+echo " "
 echo export NEXTSIMDIR=$NEXTSIMDIR
 
 export SIMFORECASTDIR=$NEXTSIMDIR
+echo " "
 echo export SIMFORECASTDIR=$NEXTSIMDIR
 
 export PYTHONPATH=$PYTHONPATH:$NEXTSIMDIR/python/modules
+echo " "
 echo export PYTHONPATH=$PYTHONPATH:$NEXTSIMDIR/python/modules
+
+export PYTHONPATH=$PYTHONPATH:$NEXTSIMDIR/python/lib
+echo " "
+echo export PYTHONPATH=$PYTHONPATH:$NEXTSIMDIR/python/lib
