@@ -1,6 +1,7 @@
 from libcpp.vector cimport vector
 from libcpp cimport bool
 
+# declare function to call
 cdef extern from "bamg_wrap.hpp" namespace "PyWrap":
    vector[vector[double]] interpMeshToPointsCpp(
          vector[int] index,
@@ -10,17 +11,6 @@ cdef extern from "bamg_wrap.hpp" namespace "PyWrap":
          vector[double] xout,
          vector[double] yout,
          bool isdefault, double defaultvalue)
-
-# Import the Python-level symbols of numpy
-# import numpy as np
-
-# Import the C-level symbols of numpy
-# cimport numpy as np
-
-# Numpy must be initialized. When using numpy from C or Cython you must
-# _always_ do that, or you will have segfaults
-# np.import_array()
-
 
 def interpMeshToPoints(index,xnods,ynods, data,xout,yout,
       isdefault=False, defaultvalue=1.e-24 ):

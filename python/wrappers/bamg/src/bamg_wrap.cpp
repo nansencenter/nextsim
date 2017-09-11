@@ -14,13 +14,13 @@
 namespace PyWrap
 {
 
-std::vector<std::vector<double>> interpMeshToPointsCpp(
+dbl_vec2d interpMeshToPointsCpp(
       std::vector<int> index,
-      std::vector<double> xnods,
-      std::vector<double> ynods,
-      std::vector<std::vector<double>> data,
-      std::vector<double> xout,
-      std::vector<double> yout,
+      dbl_vec xnods,
+      dbl_vec ynods,
+      std::vector< std::vector<double> > data,
+      dbl_vec xout,
+      dbl_vec yout,
       bool isdefault, double defaultvalue)
 {
 
@@ -40,8 +40,8 @@ std::vector<std::vector<double>> interpMeshToPointsCpp(
                              &interp_in[0],Npts_in,Nvars,&xout[0],&yout[0],Npts_out,
                              isdefault,defaultvalue);
  
-    std::vector<double> tmp(Npts_out,0.);
-    std::vector<std::vector<double>> output(Nvars,tmp);
+    dbl_vec tmp(Npts_out,0.);
+    dbl_vec2d output(Nvars,tmp);
     for (int i=0;i<Npts_out;i++)
         for (int p=0;p<Nvars;p++)
             output[p][i] = interp_out[Nvars*i+p];

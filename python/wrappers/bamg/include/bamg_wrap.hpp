@@ -6,13 +6,16 @@
 namespace PyWrap
 {
 
-std::vector<std::vector<double>> interpMeshToPointsCpp(
+typedef std::vector<double> dbl_vec;
+typedef std::vector<dbl_vec> dbl_vec2d;
+
+dbl_vec2d interpMeshToPointsCpp(
       std::vector<int> index,
-      std::vector<double> xnods,
-      std::vector<double> ynods,
-      std::vector<std::vector<double>> data,
-      std::vector<double> xout,
-      std::vector<double> yout,
+      dbl_vec xnods,
+      dbl_vec ynods,
+      std::vector< std::vector<double> > data,
+      dbl_vec xout,
+      dbl_vec yout,
       bool isdefault, double defaultvalue);
 
 } //namespace PyWrappers
