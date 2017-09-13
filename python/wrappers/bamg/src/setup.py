@@ -8,11 +8,21 @@ import os
 
 # ========================================================================
 # source files
-sources = [] # .cpp, .pyx (need to be converted to .cpp)
+sources  = [] # .cpp, .pyx (need to be converted to .cpp)
+ignore   = [] # if compilation fails, 
 for src in os.listdir('.'):
    if len(src)>4:
-      if src[-4:]=='.cpp' or src[-4:]=='.pyx':
+      if src[-4:]=='.cpp':
          sources.append(src)
+      elif src[-4:]=='.pyx':
+         sources.append(src)
+         ignore.append(src.replace('.pyx','.cpp'))
+
+# check cpp files made from pyx files aren't included
+# - eg if compilation fails, they can sometimes be left in the working directory
+for src in ignore:
+   if src in sources:
+      sources.remove(src)
 # ========================================================================
 
 

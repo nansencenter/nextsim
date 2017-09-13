@@ -39,27 +39,17 @@ def interpMeshToPoints(index,xnods,ynods, data,xout,yout,
 
    """
 
-   if type(data)==type({}):
-      # if data is a dictionary,
-      #  convert to list for input
-      interp_in   = []
-      interp_out  = {}
-      for key in data:
-         interp_in.append(data[key])
+   # check sizes
+   Ne = len(index)/3
+   Nn = len(xnods)
+   for i,dat in enumerate(data):
+      if len(dat)!=Ne and len(dat)!=Nn:
+         ss = 'data[%i] should have either %i or %i lines (not %i)' %(i,Ne,Nn,len(dat))
+         raise ValueError(ss)
 
-      out   = interpMeshToPointsCpp(index,xnods,ynods, interp_in,xout,yout,
-                  usedefault, defaultvalue )
-
-      # return output as dictionary
-      for i,key in enumerate(data):
-         interp_out.update({key:out[i]})
-
-      return interp_out
-
-   else:
-      # if data is a list of vectors or 2d numpy array:
-      out =  interpMeshToPointsCpp(index,xnods,ynods, data,xout,yout,
-                  usedefault, defaultvalue )
+   # data is a list of vectors or 2d numpy array:
+   out =  interpMeshToPointsCpp(index,xnods,ynods,data,xout,yout,
+               usedefault, defaultvalue )
 
    if type(data)==type([]):
       # return list if list is input
