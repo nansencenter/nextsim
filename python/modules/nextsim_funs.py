@@ -22,7 +22,7 @@ def get_areas(mesh_obj):
 
    import numpy as np
    nodes_x,nodes_y   = mesh_obj.get_nodes_xy()
-   indices           = mesh_obj.get_indices("triangles",numbering='gmsh')
+   indices           = mesh_obj.get_indices(eltype="triangles",numbering='gmsh',asvector=False)
    areas             = []
 
    for inds in indices:
@@ -232,7 +232,6 @@ def define_grid(mesh_obj,resolution=None):
    # increase Dx,Dy to give correct resolution
    Dx    = xmax-xmin
    Dy    = ymax-ymin
-   print(Dx,Dy,res)
    nx    = int(np.ceil(Dx/res))
    ny    = int(np.ceil(Dy/res))
    Dx    = nx*res
@@ -252,4 +251,52 @@ def define_grid(mesh_obj,resolution=None):
    grid_params.update({'ny':ny})
 
    return grid_params
+# ===============================================================
+
+
+# ===============================================================
+def interp_mesh_to_points(mesh_obj,xout,yout,data_in,**kwargs):
+      
+   import bamg # wrapper for some functions in bamg c++ library
+   import numpy as np
+
+   nodes_x,nodes_y   = mesh_obj.get_nodes_xy(dtype='double')
+   indices           = mesh_obj.get_indices(eltype="triangles",numbering='bamg',asvector=True)
+
+   # make sure input data is list of arrays of type double
+   data     = []
+   dtype    = type(data_in)
+   islist   = dtype==type([])
+   isdict   = dtype==type({})
+
+   shp   = xout.shape
+   sz    = xout.size
+
+   # make xout,yout into vectors
+   X     = np.reshape(xout.astype('double'),(sz))
+   Y     = np.reshape(yout.astype('double'),(sz))
+
+   if isdict:
+      for key in data_in:
+         data.append( np.array(data_in[key],dtype='double') )
+   else:
+      for dat in data_in:
+         data.append( np.array(dat,dtype='double') )
+
+   print('calling bamg interp')
+   data_out = bamg.interpMeshToPoints(indices,nodes_x,nodes_y,
+                                       data,X,Y,**kwargs)
+
+   if isdict:
+      # return as dict of arrays the same shape as xout,yout
+      out   = {}
+      for i,key in enumerate(data_in):
+         out.update({ key:np.reshape(data_out[i],shp) })
+      return out
+   else: 
+      out   = []
+      for dat in data_out:
+         # return as list of arrays the same shape as xout,yout
+         out.append( np.reshape(dat,shp) )
+      return out
 # ===============================================================

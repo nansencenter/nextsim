@@ -365,20 +365,24 @@ class gmsh_mesh:
       return
    # ================================================================
 
-   def get_nodes_xy(self):
-      return self.nodes_x,self.nodes_y
+   def get_nodes_xy(self,dtype='float'):
+      import numpy as np
+      return np.array(self.nodes_x,dtype=dtype),\
+               np.array(self.nodes_y,dtype=dtype)
 
 
    # ================================================================
-   def get_indices(self,eltype="triangles",numbering='gmsh'):
+   def get_indices(self,eltype="triangles",numbering='gmsh',asvector=True):
 
       import numpy as np
 
       indices  = []
       if eltype=="triangles":
-         els   = self.triangles
+         els      = self.triangles
+         nverts   = 3
       else:
-         els   = self.edges
+         els      = self.edges
+         nverts   = 2
 
       shift = 0
       if numbering=='bamg':
@@ -391,8 +395,12 @@ class gmsh_mesh:
          for v in el.vertices:
             inds.append(v+shift)
          indices.append(inds)
-         
-      return np.array(indices)
+
+      if asvector:
+         return np.array(indices).reshape((len(els)*nverts))
+      else:
+         # 
+         return np.array(indices)
    # ================================================================
 
 
@@ -502,7 +510,9 @@ class gmsh_mesh:
    # ================================================================
    def plot_data(self,data=None,plotter="pyplot",**kwargs):
 
-      indices  = self.get_indices("triangles")
+      indices  = self.get_indices(eltype="triangles",
+            numbering='gmsh',asvector=False)
+
       if data is None:
          import numpy as np
          data     = np.mean(self.nodes_lat[indices],axis=1)
@@ -539,8 +549,17 @@ class gmsh_mesh:
    # ================================================================
 
 
+   # ================================================================
+   def define_grid(self,**kwargs):
+      import nextsim_funs as nsf
+      return nsf.define_grid(self,**kwargs)
+   # ================================================================
+
+
 # ===================================================================
 class nextsim_mesh_info:
+
+   # ================================================================
    def __init__(self,mesh_file,mapping=None,mppfile=None,gmsh_obj=None,gmsh_file=None,**kwargs):
       import nextsim_funs as nsf
       import numpy as np
@@ -583,19 +602,33 @@ class nextsim_mesh_info:
 
       self.resolution   = nsf.get_resolution(self)
       return
+   # ================================================================
 
+
+   # ================================================================
    def get_var(self,vname):
       import nextsim_funs as nsf
       return nsf.get_array(vname,self.mesh_file,self.variables,self.variable_types)
+   # ================================================================
 
+
+   # ================================================================
    def get_vars(self,vname):
       import nextsim_funs as nsf
       return nsf.get_arrays(self.mesh_file,self.variables,self.variable_types)
+   # ================================================================
 
-   def get_nodes_xy(self):
-      return self.get_var('Nodes_x'),self.get_var('Nodes_y')
 
-   def get_indices(self,eltype="triangles",numbering='bamg',reshape=True):
+   # ================================================================
+   def get_nodes_xy(self,dtype='float'):
+      import numpy as np
+      return np.array(self.get_var('Nodes_x'),dtype=dtype),\
+               np.array(self.get_var('Nodes_y'),dtype=dtype)
+   # ================================================================
+
+
+   # ================================================================
+   def get_indices(self,eltype="triangles",numbering='bamg',asvector=False):
 
       if eltype!="triangles":
          raise ValueError("nextsim_mesh_info object only has elements of type 'triangles'")
@@ -606,23 +639,32 @@ class nextsim_mesh_info:
          # gmsh nodes go from 0 to num_nodes-1
          shift = -1
 
-      if not reshape:
+      if asvector:
          # return a vector [node_00,node_01,node_02,node_10,node_11,node_12,...]
          return self.get_var('Elements')+shift
       else:
          # reshape vector to 2d array out = [[node_00,node_01,node_02],[node_10,node_11,node_12],...],
          # where out[i] corresonds to i-th element
          return self.get_var('Elements').reshape((self.num_triangles,3))+shift
+   # ================================================================
 
+
+   # ================================================================
    def get_vertex_coords(self):
       vv       = self.get_vars()
-      indices  = vv["Elements"].reshape((3,self.num_triangles)).transpose()
+      indices  = vv["Elements"].reshape((self.num_triangles,3))
       verts    = []
+
       for inds in indices:
          x  = 1*vv["Nodes_x"][ind] # take a copy to destroy pointer
          y  = 1*vv["Nodes_y"][ind] # take a copy to destroy pointer
          verts.append((x,y))
 
+      return verts
+   # ================================================================
+
+
+   # ================================================================
    def plot(self,**kwargs):
       """
       plot the mesh
@@ -630,6 +672,16 @@ class nextsim_mesh_info:
       """
       import nextsim_plot as nsp
       return nsp.plot_mesh_data(self,plot_grid=True,**kwargs)
+   # ================================================================
+
+
+   # ================================================================
+   def define_grid(self,**kwargs):
+      import nextsim_funs as nsf
+      return nsf.define_grid(self,**kwargs)
+   # ================================================================
+
+# gmsh_mesh class
 # ================================================================================
 
 
