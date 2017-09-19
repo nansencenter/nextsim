@@ -495,6 +495,7 @@ FiniteElement::initVariables()
     M_sss.resize(M_num_elements);
 
     M_h_thin.assign(M_num_elements,0.);
+    M_conc_thin.assign(M_num_elements,0.);
     M_hs_thin.assign(M_num_elements,0.);
     M_tsurf_thin.assign(M_num_elements,0.);
 
@@ -534,6 +535,7 @@ FiniteElement::initVariables()
     M_conc.resize(M_num_elements);
     M_thick.resize(M_num_elements);
     M_damage.resize(M_num_elements);
+    M_ridge_ratio.resize(M_num_elements);
     M_snow_thick.resize(M_num_elements);
 
     switch (M_thermo_type)
@@ -560,6 +562,15 @@ FiniteElement::initVariables()
             M_thick[i] = 0.;
         }
     }
+
+    // Diagnostics
+    D_Qa.resize(M_num_elements);
+    D_Qsh.resize(M_num_elements);
+    D_Qlh.resize(M_num_elements);
+    D_Qlw.resize(M_num_elements);
+    D_Qsw.resize(M_num_elements);
+    D_Qo.resize(M_num_elements);
+    D_delS.resize(M_num_elements);
 
     this->assignVariables();
 }
@@ -703,10 +714,25 @@ FiniteElement::initDatasets()
             M_atmosphere_elements_dataset=DataSet("ec_elements",M_num_elements);
             break;
 
+        case setup::AtmosphereType::EC2:
+            M_atmosphere_nodes_dataset=DataSet("ec2_nodes",M_num_nodes);
+            M_atmosphere_elements_dataset=DataSet("ec2_elements",M_num_elements);
+            break;
+
         case setup::AtmosphereType::EC_ERAi:
             M_atmosphere_nodes_dataset=DataSet("ec_nodes",M_num_nodes);
             M_atmosphere_elements_dataset=DataSet("ec_elements",M_num_elements);
             M_atmosphere_bis_elements_dataset=DataSet("ERAi_elements",M_num_elements);
+            break;
+
+        case setup::AtmosphereType::CFSR:
+            M_atmosphere_nodes_dataset=DataSet("cfsr_nodes",M_num_nodes);
+            M_atmosphere_elements_dataset=DataSet("cfsr_elements",M_num_elements);
+            break;
+
+        case setup::AtmosphereType::CFSR_HI:
+            M_atmosphere_nodes_dataset=DataSet("cfsr_nodes_hi",M_num_nodes);
+            M_atmosphere_elements_dataset=DataSet("cfsr_elements",M_num_elements);
             break;
 
         default:
@@ -719,7 +745,13 @@ FiniteElement::initDatasets()
         break;
 
         case setup::OceanType::TOPAZR:
+        case setup::OceanType::TOPAZR_atrest:
             M_ocean_nodes_dataset=DataSet("topaz_nodes",M_num_nodes);
+            M_ocean_elements_dataset=DataSet("topaz_elements",M_num_elements);
+            break;
+
+        case setup::OceanType::TOPAZR_ALTIMETER:
+            M_ocean_nodes_dataset=DataSet("ocean_currents_nodes",M_num_nodes);
             M_ocean_elements_dataset=DataSet("topaz_elements",M_num_elements);
             break;
 
@@ -734,6 +766,8 @@ FiniteElement::initDatasets()
 
     M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements",M_num_elements);
 
+    M_ice_icesat_elements_dataset=DataSet("ice_icesat_elements",M_num_elements);
+
     M_ice_piomas_elements_dataset=DataSet("ice_piomas_elements",M_num_elements);
 
     M_ice_amsre_elements_dataset=DataSet("ice_amsre_elements",M_num_elements);
@@ -744,8 +778,92 @@ FiniteElement::initDatasets()
 
     M_ice_cs2_smos_elements_dataset=DataSet("ice_cs2_smos_elements",M_num_elements);
 
+    M_ice_smos_elements_dataset=DataSet("ice_smos_elements",M_num_elements);
+
     M_bathymetry_elements_dataset=DataSet("etopo_elements",M_num_elements);//M_num_nodes);
+
+    // datasets that need to be re-interpolated after regridding
+    // - not needed if only used at initialisation, or if not interpolated onto
+    // mesh (eg wave datasets are interpolated onto a fixed grid)
+    M_datasets_regrid.push_back(&M_atmosphere_nodes_dataset);
+    M_datasets_regrid.push_back(&M_atmosphere_elements_dataset);
+    M_datasets_regrid.push_back(&M_atmosphere_bis_elements_dataset);
+    M_datasets_regrid.push_back(&M_ocean_nodes_dataset);
+    M_datasets_regrid.push_back(&M_ocean_elements_dataset);
+    M_datasets_regrid.push_back(&M_bathymetry_elements_dataset);
 }
+
+void
+FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
+        double const& CRtime, std::string const& printout)
+{
+    //std::cout<<"size of external data vector = "<<ext_data_vec.size()<<"\n";
+    if ( ext_data_vec.size()==0 )
+    {
+        LOG(DEBUG) <<"check_and_reload ("<<printout<<"):\n";
+        LOG(DEBUG) <<"nothing to do\n";
+        return;
+    }
+
+    //loop over M_external_data and call check and reload for each:
+    chrono.restart();
+    LOG(DEBUG) <<"check_and_reload ("<<printout<<") starts\n";
+
+    //don't rotate yet since rotation angle not always defined yet
+    auto RX_nod = M_mesh.coordX ();//nodes
+    auto RY_nod = M_mesh.coordY ();
+    auto RX_el  = M_mesh.bCoordX();//elements
+    auto RY_el  = M_mesh.bCoordY();
+
+    for ( auto it = ext_data_vec.begin(); it != ext_data_vec.end(); ++it )
+    {
+        if ( (*it)->M_is_constant )
+        {
+            std::vector<double> RX,RY;//not needed for constant forcings
+            (*it)->check_and_reload(RX,RY,CRtime);
+        }
+        else
+        {
+            LOG(DEBUG)<<" dataset = "<<(*it)->M_dataset->name<<"\n";
+            //dataset & interpolation etc needed
+            if ( (*it)->M_dataset->grid.target_location=="mesh_nodes" )
+            {
+                LOG(DEBUG)<<"in nodes: dataset = "<<(*it)->M_dataset->name<<"\n";
+                (*it)->check_and_reload(RX_nod,RY_nod,CRtime);
+            }
+            else if ( (*it)->M_dataset->grid.target_location=="mesh_elements" )
+            {
+                LOG(DEBUG)<<"in elements: dataset = "<<(*it)->M_dataset->name<<"\n";
+                (*it)->check_and_reload(RX_el,RY_el,CRtime);
+            }
+#if defined (WAVES)
+            else if ( (*it)->M_dataset->grid.target_location=="wim_grid" )
+            {
+                //LOG(DEBUG)<<"in wim_grid: dataset = "<<(*it)->M_dataset->name<<"\n";
+                std::cout<<"in wim_grid: dataset = "<<(*it)->M_dataset->name<<"\n";
+                //interp to WIM grid
+                (*it)->check_and_reload(wim_grid.X,wim_grid.Y,CRtime);
+            }
+#endif
+            else
+            {
+                std::cout<<"Bad value for dataset->grid.target_location: "<<(*it)->M_dataset->grid.target_location<<"\n";
+                std::cout<<"- set to \"mesh_nodes\", or \"mesh_elements\"\n";
+#if defined (WAVES)
+                std::cout<<"or \"wim_grid\"\n";
+#endif
+                std::abort();
+            }
+        }
+    }
+
+    RX_el.resize(0);
+    RY_el.resize(0);
+    RX_nod.resize(0);
+    RY_nod.resize(0);
+    LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
+}//checkReloadDatasets
+
 
 void
 FiniteElement::initBamg()
@@ -838,8 +956,8 @@ FiniteElement::initConstant()
     time_relaxation_damage = vm["simul.time_relaxation_damage"].as<double>()*days_in_sec;
     deltaT_relaxation_damage = vm["simul.deltaT_relaxation_damage"].as<double>()/**days_in_sec*/;
 
+    h_thin_min = vm["simul.h_thin_min"].as<double>();
     h_thin_max = vm["simul.h_thin_max"].as<double>();
-    c_thin_max = vm["simul.c_thin_max"].as<double>();
 
     compr_strength = vm["simul.compr_strength"].as<double>();
     tract_coef = vm["simul.tract_coef"].as<double>();
@@ -867,7 +985,10 @@ FiniteElement::initConstant()
         ("asr", setup::AtmosphereType::ASR)
         ("erai", setup::AtmosphereType::ERAi)
         ("ec", setup::AtmosphereType::EC)
-        ("ec_erai", setup::AtmosphereType::EC_ERAi);
+        ("ec2", setup::AtmosphereType::EC2)
+        ("ec_erai", setup::AtmosphereType::EC_ERAi)
+        ("cfsr", setup::AtmosphereType::CFSR)
+        ("cfsr_hi", setup::AtmosphereType::CFSR_HI);
     M_atmosphere_type = str2atmosphere.find(vm["setup.atmosphere-type"].as<std::string>())->second;
 
     switch(M_atmosphere_type)
@@ -878,10 +999,15 @@ FiniteElement::initConstant()
         case setup::AtmosphereType::ASR:
             quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>();
             break;
+        case setup::AtmosphereType::CFSR_HI:
+        case setup::AtmosphereType::CFSR:
+            quad_drag_coef_air = vm["simul.CFSR_quad_drag_coef_air"].as<double>();
+            break;
         case setup::AtmosphereType::ERAi:
             quad_drag_coef_air = vm["simul.ERAi_quad_drag_coef_air"].as<double>();
             break;
         case setup::AtmosphereType::EC:
+        case setup::AtmosphereType::EC2:
         case setup::AtmosphereType::EC_ERAi:
             quad_drag_coef_air = vm["simul.ECMWF_quad_drag_coef_air"].as<double>();
             break;
@@ -892,7 +1018,9 @@ FiniteElement::initConstant()
     const boost::unordered_map<const std::string, setup::OceanType> str2ocean = boost::assign::map_list_of
         ("constant", setup::OceanType::CONSTANT)
         ("topaz", setup::OceanType::TOPAZR)
-        ("topaz_forecast", setup::OceanType::TOPAZF);
+        ("topaz_atrest", setup::OceanType::TOPAZR_atrest)
+        ("topaz_forecast", setup::OceanType::TOPAZF)
+        ("topaz_altimeter", setup::OceanType::TOPAZR_ALTIMETER);
     M_ocean_type = str2ocean.find(vm["setup.ocean-type"].as<std::string>())->second;
 
     const boost::unordered_map<const std::string, setup::IceType> str2conc = boost::assign::map_list_of
@@ -909,22 +1037,52 @@ FiniteElement::initConstant()
         ("osisaf", setup::IceType::OSISAF)
         ("piomas", setup::IceType::PIOMAS)
         ("cs2_smos", setup::IceType::CS2_SMOS)
-        ("smos", setup::IceType::SMOS);
+        ("cs2_smos_amsr2", setup::IceType::CS2_SMOS_AMSR2)
+        ("smos", setup::IceType::SMOS)
+        ("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT);
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
+
+    const boost::unordered_map<const std::string, setup::DynamicsType> str2dynamics = boost::assign::map_list_of
+        ("default", setup::DynamicsType::DEFAULT)
+        ("no_motion", setup::DynamicsType::NO_MOTION)
+        ("free_drift", setup::DynamicsType::FREE_DRIFT);
+    M_dynamics_type = str2dynamics.find(vm["setup.dynamics-type"].as<std::string>())->second;
 
     const boost::unordered_map<const std::string, setup::BathymetryType> str2bathymetry = boost::assign::map_list_of
         ("constant", setup::BathymetryType::CONSTANT)
         ("etopo", setup::BathymetryType::ETOPO);
     M_bathymetry_type = str2bathymetry.find(vm["setup.bathymetry-type"].as<std::string>())->second;
 
-    const boost::unordered_map<const std::string, setup::DrifterType> str2drifter = boost::assign::map_list_of
-        ("none", setup::DrifterType::NONE)
-        ("equallyspaced", setup::DrifterType::EQUALLYSPACED)
-        ("iabp", setup::DrifterType::IABP)
-        ("rgps", setup::DrifterType::RGPS)
-        ("osisaf", setup::DrifterType::OSISAF);
-    M_drifter_type = str2drifter.find(vm["setup.drifter-type"].as<std::string>())->second;
+    const boost::unordered_map<const std::string, setup::BasalStressType> str2basal_stress= boost::assign::map_list_of
+        ("lemieux", setup::BasalStressType::LEMIEUX)
+        ("bouillon", setup::BasalStressType::BOUILLON);
+    M_basal_stress_type = str2basal_stress.find(vm["simul.basal_stress-type"].as<std::string>())->second;
 
+    // const boost::unordered_map<const std::string, setup::DrifterType> str2drifter = boost::assign::map_list_of
+    //     ("none", setup::DrifterType::NONE)
+    //     ("equallyspaced", setup::DrifterType::EQUALLYSPACED)
+    //     ("iabp", setup::DrifterType::IABP)
+    //     ("rgps", setup::DrifterType::RGPS)
+    //     ("osisaf", setup::DrifterType::OSISAF);
+    // M_drifter_type = str2drifter.find(vm["setup.drifter-type"].as<std::string>())->second;
+
+    M_use_iabp_drifters=vm["simul.use_iabp_drifters"].as<bool>();
+    M_equallyspaced_drifters_output_time_step=vm["simul.equallyspaced_drifters_output_time_step"].as<double>();
+    M_rgps_drifters_output_time_step=vm["simul.rgps_drifters_output_time_step"].as<double>();
+    M_use_osisaf_drifters=vm["simul.use_osisaf_drifters"].as<bool>();
+
+    M_use_equallyspaced_drifters=false;
+    M_use_rgps_drifters=false;
+
+    if(M_equallyspaced_drifters_output_time_step>0.)
+        M_use_equallyspaced_drifters=true;
+    if(M_rgps_drifters_output_time_step>0.)
+        M_use_rgps_drifters=true;
+
+
+    // option for enabling/disabling the moorings
+    M_use_moorings =  vm["simul.use_moorings"].as<bool>();
+    M_moorings_snapshot =  vm["simul.mooring_snapshot"].as<bool>();
     const boost::unordered_map<const std::string, GridOutput::fileLength> str2mooringsfl = boost::assign::map_list_of
         ("inf", GridOutput::fileLength::inf)
         ("daily", GridOutput::fileLength::daily)
@@ -967,9 +1125,6 @@ FiniteElement::initConstant()
 
     M_mesh_fileformat = vm["mesh.fileformat"].as<std::string>();
 
-    // option for enabling/disabling the moorings
-    M_use_moorings =  vm["simul.use_moorings"].as<bool>();
-    M_moorings_snapshot =  vm["simul.mooring_snapshot"].as<bool>();
 }
 
 void
@@ -4089,21 +4244,18 @@ FiniteElement::thermo()
     double const rh0   = 1./vm["simul.hnull"].as<double>();
     double const rPhiF = 1./vm["simul.PhiF"].as<double>();
 
-    double const tanalpha  = h_thin_max/c_thin_max;
-    double const rtanalpha = 1./tanalpha;
-
-    double const qi = physical::Lf * physical::rhoi;
-    double const qs = physical::Lf * physical::rhos;
+    double const qi = physical::Lf * physical::rhoi;// J m^{-3}
+    double const qs = physical::Lf * physical::rhos;// J m^{-3}
 
     int const newice_type = vm["simul.newice_type"].as<int>();
     int const melt_type = vm["simul.melt_type"].as<int>();
     double const PhiM = vm["simul.PhiM"].as<double>();
     double const PhiF = vm["simul.PhiF"].as<double>();
 
-    const double aw = 6.1121e2, bw = 18.729, cw = 257.87, dw = 227.3;
-    const double Aw = 7.2e-4, Bw = 3.20e-6, Cw = 5.9e-10;
+    const double aw=6.1121e2, bw=18.729, cw=257.87, dw=227.3;
+    const double Aw=7.2e-4, Bw=3.20e-6, Cw=5.9e-10;
 
-    const double alpha = 0.62197, beta = 0.37803;
+    const double alpha=0.62197, beta=0.37803;
 
     // initialisation of the multithreading
     int thread_id;
@@ -4115,45 +4267,53 @@ FiniteElement::thermo()
         // -------------------------------------------------
         // 1) Initialization of the temporary variables
 
-        double  hi = 0.;     // Ice thickness (slab)
-        double  hi_old = 0.; // Ice thickness at the start of the time step (slab)
-        double  hs = 0.;     // Snow thickness (slab)
+        double  hi=0.;     // Ice thickness (slab)
+        double  hi_old=0.; // Ice thickness at the start of the time step (slab)
+        double  hs=0.;     // Snow thickness (slab)
 
-        double  hi_thin = 0.;     // Thin ice thickness (slab)
-        double  hi_thin_old = 0.; // Thin ice thickness at the start of the time step (slab)
-        double  hs_thin = 0.;     // Snow thickness on thin ice (slab)
+        double  hi_thin=0.;     // Thin ice thickness (slab)
+        double  hi_thin_old=0.; // Thin ice thickness at the start of the time step (slab)
+        double  hs_thin=0.;     // Snow thickness on thin ice (slab)
 
-        double  del_hi = 0.; // Change in ice thickness (slab only)
-        double  del_hi_thin = 0.; // Change in thin ice thickness (slab only)
+        double  del_hi=0.; // Change in ice thickness (slab only)
+        double  del_hi_thin=0.; // Change in thin ice thickness (slab only)
 
-        double  evap = 0.;   // Evaporation
+        double  evap=0.;   // Evaporation
 
-        double  Qdw = 0.;    // Heat flux from ocean nudging
-        double  Fdw = 0.;    // Fresh water flux from ocean nudging
+        double  Qdw=0.;    // Heat flux from ocean nudging
+        double  Fdw=0.;    // Fresh water flux from ocean nudging
 
-        double  Qio = 0.;    // Ice-ocean heat flux
-        double  Qio_thin = 0.;    // Ice-ocean heat flux through thin ice
-        double  Qai = 0.;    // Atmosphere-ice heat flux
-        double  Qow = 0.;    // Open water heat flux
+        double  Qio=0.;    // Ice-ocean heat flux
+        double  Qio_thin=0.;    // Ice-ocean heat flux through thin ice
+        double  Qai=0.;    // Atmosphere-ice heat flux
+        double  Qai_thin=0.;    // Atmosphere-ice heat flux over thin ice
+        double  Qswi=0.;    // Atmosphere-ice heat flux
+        double  Qsw_thin=0.;    // Atmosphere-ice heat flux over thin ice
+        double  Qlwi=0.;    // Atmosphere-ice heat flux
+        double  Qlw_thin=0.;    // Atmosphere-ice heat flux over thin ice
+        double  Qshi=0.;    // Atmosphere-ice heat flux
+        double  Qsh_thin=0.;    // Atmosphere-ice heat flux over thin ice
+        double  Qlhi=0.;    // Atmosphere-ice heat flux
+        double  Qlh_thin=0.;    // Atmosphere-ice heat flux over thin ice
+        double  Qow=0.;    // Open water heat flux
 
         // Save old _volumes_ and concentration and calculate wind speed
-        double  old_vol = M_thick[i];
-        double  old_snow_vol = M_snow_thick[i];
-        double  old_conc = M_conc[i];
+        double  old_vol=M_thick[i];
+        double  old_snow_vol=M_snow_thick[i];
+        double  old_conc=M_conc[i];
 
-        double  old_h_thin = 0;
-        double  old_hs_thin = 0;
-        double  old_conc_thin=0;
-
+        double  old_h_thin = 0.;
+        double  old_hs_thin = 0.;
+        double  old_conc_thin=0.;
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
             old_h_thin  = M_h_thin[i];
+            old_conc_thin  = M_conc_thin[i];
             old_hs_thin = M_hs_thin[i];
-            old_conc_thin = std::min(std::min(old_h_thin/physical::hmin, std::sqrt(2.*old_h_thin*rtanalpha)), 1-old_conc);
         }
 
-        double sum_u = 0.;
-        double sum_v = 0.;
+        double sum_u=0.;
+        double sum_v=0.;
 
         for (int j=0; j<3; ++j)
         {
@@ -4165,39 +4325,28 @@ FiniteElement::thermo()
 
         // definition of the snow fall in kg/m^2/s
         double tmp_snowfall;
-
         if(M_snowfr.M_initialized)
-        {
-            tmp_snowfall = M_precip[i]*M_snowfr[i];
-        }
+            tmp_snowfall=M_precip[i]*M_snowfr[i];
         else if (M_snowfall.M_initialized)
-        {
-            tmp_snowfall = M_snowfall[i];
-        }
+            tmp_snowfall=M_snowfall[i];
         else
         {
             if(M_tair[i]<0)
-            {
-                tmp_snowfall = M_precip[i];
-            }
+                tmp_snowfall=M_precip[i];
             else
-            {
-                tmp_snowfall = 0.;
-            }
+                tmp_snowfall=0.;
         }
 
-        double tmp_Qsw_in;
+        double Qsw_in;
         if(M_Qsw_in.M_initialized)
-        {
-            tmp_Qsw_in = M_Qsw_in[i];
-        }
+            Qsw_in=M_Qsw_in[i];
         else
         {
             throw std::logic_error("The function approxSW not yet implemented, you need to initialized M_Qsw_in");
-            //tmp_Qsw_in=approxSW();
+            //Qsw_in=approxSW();
         }
 
-        double tmp_mld=( M_mld[i] > vm["simul.constant_mld"].as<double>() ) ? M_mld[i] : vm["simul.constant_mld"].as<double>();
+        double mld=( M_mld[i] > vm["simul.constant_mld"].as<double>() ) ? M_mld[i] : vm["simul.constant_mld"].as<double>();
 
         // -------------------------------------------------
         // 2) We calculate or set the flux due to nudging
@@ -4211,13 +4360,11 @@ FiniteElement::thermo()
             // nudgeFlux
             if ( M_ocean_salt[i] > physical::si )
             {
-                Qdw = -(M_sst[i]-M_ocean_temp[i]) * tmp_mld * physical::rhow * physical::cpw/timeT;
+                Qdw = -(M_sst[i]-M_ocean_temp[i]) * mld * physical::rhow * physical::cpw/timeT;
 
                 double delS = M_sss[i] - M_ocean_salt[i];
-                Fdw = delS * tmp_mld * physical::rhow /(timeS*M_sss[i] - time_step*delS);
-            }
-            else
-            {
+                Fdw = delS * mld * physical::rhow /(timeS*M_sss[i] - time_step*delS);
+            } else {
                 Qdw = Qdw_const;
                 Fdw = Fdw_const;
             }
@@ -4239,20 +4386,18 @@ FiniteElement::thermo()
         /* There are two ways to calculate this. We decide which one by
          * checking mixrat - the calling routine must set this to a negative
          * value if the dewpoint should be used. */
-        if ( M_dair.M_initialized )
+        if ( M_sphuma.M_initialized )
+            sphuma = M_sphuma[i];
+        else if ( M_dair.M_initialized )
         {
             double fa     = 1. + Aw + M_mslp[i]*1e-2*( Bw + Cw*M_dair[i]*M_dair[i] );
             double esta   = fa*aw*std::exp( (bw-M_dair[i]/dw)*M_dair[i]/(M_dair[i]+cw) );
             sphuma = alpha*fa*esta/(M_mslp[i]-beta*fa*esta) ;
         }
         else if ( M_mixrat.M_initialized )
-        {
             sphuma = M_mixrat[i]/(1.+M_mixrat[i]) ;
-        }
         else
-        {
             throw std::logic_error("Neither M_dair nor M_mixrat have been initialized. I cannot calculate sphuma.");
-        }
 
         // -------------------------------------------------
         // 3.2) Specific humidity - ocean surface (calcSphumW in matlab)
@@ -4262,56 +4407,63 @@ FiniteElement::thermo()
 
         // -------------------------------------------------
         /* Density of air */
-        double rhoair = M_mslp[i]/(physical::Ra*(M_tair[i]+tfrwK)) * (1.+sphuma)/(1.+1.609*sphuma);
+        double rhoair = M_mslp[i]/(physical::Ra*(M_tair[i]+physical::tfrwK)) * (1.+sphuma)/(1.+1.609*sphuma);
 
         /* Sensible heat flux */
-        double Qsh = drag_ocean_t*rhoair*physical::cpa*wspeed*( M_sst[i] - M_tair[i] );
+        double Qsh_ow = drag_ocean_t*rhoair*physical::cpa*wspeed*( M_sst[i] - M_tair[i] );
 
         /* Latent heat flux */
         double Lv  = physical::Lv0 - 2.36418e3*M_tair[i] + 1.58927*M_tair[i]*M_tair[i] - 6.14342e-2*std::pow(M_tair[i],3.);
-        double Qlh = drag_ocean_q*rhoair*Lv*wspeed*( sphumw - sphuma );
+        double Qlh_ow = drag_ocean_q*rhoair*Lv*wspeed*( sphumw - sphuma );
 
         /* Evaporation */
-        evap = Qlh/(physical::rhofw*Lv);
+        evap = Qlh_ow/(physical::rhofw*Lv);
 
         // Sum them up
-        double tmp_Qlw_in;
+        double Qlw_in;
         if(M_Qlw_in.M_initialized)
-        {
-            tmp_Qlw_in=M_Qlw_in[i];
-        }
+            Qlw_in=M_Qlw_in[i];
         else
         {
-            double tsa = M_tice[0][i] + tfrwK;
-            double taa = M_tair[i]  + tfrwK;
+            double tsa = M_tice[0][i] + physical::tfrwK;
+            double taa = M_tair[i]  + physical::tfrwK;
             // s.b.idso & r.d.jackson, thermal radiation from the atmosphere, j. geophys. res. 74, 5397-5403, 1969
-            tmp_Qlw_in = sigma_sb*pow(taa,4)*( 1. - 0.261*exp(-7.77e-4*std::pow(taa-tfrwK,2)) )*( 1. + 0.275*M_tcc[i] );
+        	Qlw_in = sigma_sb*std::pow(taa,4) \
+        			*( 1. - 0.261*std::exp(-7.77e-4*std::pow(taa-physical::tfrwK,2)) ) \
+        			*( 1. + 0.275*M_tcc[i] );
         }
 
-        Qow = -tmp_Qsw_in*(1.-ocean_albedo) - tmp_Qlw_in + Qlw_out + Qsh + Qlh;
+        // Qow>0 => flux out of ocean:
+        // - subtract shortwave and longwave input;
+        // add heat loss from longwave radiation, sensible heat loss (temp changes)
+        // and evaporation (latent heat loss - temp doesn't change, but phase changes)
+        double Qsw_ow = -Qsw_in*(1.-ocean_albedo);
+        double Qlw_ow = -Qlw_in + Qlw_out;
+        Qow = Qsw_ow + Qlw_ow + Qsh_ow + Qlh_ow;
 
         // -------------------------------------------------
         // 4) Thickness change of the ice slab (thermoIce0 in matlab)
 
         switch ( M_thermo_type )
         {
-           case setup::ThermoType::ZERO_LAYER:
-               this->thermoIce0(i, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i],
-                                tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfall, hi, hs, hi_old, Qio, del_hi, M_tice[0][i]);
-               break;
-           case setup::ThermoType::WINTON:
-               this->thermoWinton(i, time_step, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i],
-                                  tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfall, hi, hs, hi_old, Qio, del_hi, M_tice[0][i],
-                                  M_tice[1][i], M_tice[2][i]);
-               break;
+            case setup::ThermoType::ZERO_LAYER:
+                this->thermoIce0(i, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i],
+                        Qlw_in, Qsw_in, mld, tmp_snowfall, hi, hs, hi_old, Qio, del_hi, M_tice[0][i],
+                        Qai, Qswi, Qlwi, Qshi, Qlhi);
+                break;
+            case setup::ThermoType::WINTON:
+                this->thermoWinton(i, time_step, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i],
+                        Qlw_in, Qsw_in, mld, tmp_snowfall, hi, hs, hi_old, Qio, del_hi,
+                        M_tice[0][i], M_tice[1][i], M_tice[2][i],
+                        Qai, Qswi, Qlwi, Qshi, Qlhi);
+                break;
         }
 
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
             this->thermoIce0(i, wspeed, sphuma, old_conc_thin, M_h_thin[i], M_hs_thin[i],
-                             tmp_Qlw_in, tmp_Qsw_in, tmp_mld, tmp_snowfall, hi_thin, hs_thin, hi_thin_old,
-                             Qio_thin, del_hi_thin, M_tsurf_thin[i]);
-
+                    Qlw_in, Qsw_in, mld, tmp_snowfall, hi_thin, hs_thin, hi_thin_old, Qio_thin, del_hi_thin, M_tsurf_thin[i],
+                        Qai_thin, Qsw_thin, Qlw_thin, Qsh_thin, Qlh_thin);
             M_h_thin[i]  = hi_thin * old_conc_thin;
             M_hs_thin[i] = hs_thin * old_conc_thin;
         }
@@ -4322,18 +4474,17 @@ FiniteElement::thermo()
         /* Local variables */
         double tw_new, tfrw, newice, del_c, newsnow, h0;
 
-        /* dT/dt due to heatflux atmos.-ocean */
-        tw_new = M_sst[i] - Qow*time_step/(tmp_mld*physical::rhow*physical::cpw);
+        /* dT/dt due to heatflux ocean->atmosphere */
+        tw_new = M_sst[i] - Qow*time_step/(mld*physical::rhow*physical::cpw);
         tfrw   = -physical::mu*M_sss[i];
 
         /* Form new ice in case of super cooling, and reset Qow and evap */
         if ( tw_new < tfrw )
         {
-            newice  = (1.-M_conc[i])*(tfrw-tw_new)*tmp_mld*physical::rhow*physical::cpw/qi;
-            Qow  = -(tfrw-M_sst[i])*tmp_mld*physical::rhow*physical::cpw/time_step;
-        }
-        else
-        {
+            newice  = (1.-M_conc[i]-M_conc_thin[i])*(tfrw-tw_new)*mld*physical::rhow*physical::cpw/qi;// m
+            Qow  = -(tfrw-M_sst[i])*mld*physical::rhow*physical::cpw/time_step;
+            // evap = 0.;
+        } else {
             newice  = 0.;
         }
 
@@ -4341,9 +4492,8 @@ FiniteElement::thermo()
         /* Initialise to be safe */
         del_c = 0.;
         newsnow = 0.;
-        if ( newice > 0. )
-        {
-            /* Freezing conditions */
+
+        /* Freezing conditions */
             switch ( newice_type )
             {
                 case 1:
@@ -4354,11 +4504,12 @@ FiniteElement::thermo()
                     /* Mellor and Kantha (89) */
                     if ( hi_old > 0. )
                     {
-                        del_c = newice*PhiF/hi_old;
-                    }
-                    else
-                    {
-                        del_c = 1.;
+                            del_c = newice*PhiF/hi_old;
+                    } else {
+                        if ( newice > 0. )
+                            del_c = 1.;
+                        else
+                            del_c = 0.;
                     }
                     break;
                 case 3:
@@ -4368,12 +4519,49 @@ FiniteElement::thermo()
                     break;
                 case 4:
                     /* Thin ice category */
-                    thin_ice_redistribute(M_h_thin[i], M_hs_thin[i], newice/(1.-M_conc[i]), M_conc[i],
-                                          tanalpha, rtanalpha, h_thin_max, &M_h_thin[i], &newice, &del_c, &newsnow);
 
-                    // Change the snow _thickness_ for thick ice and _volume_ for thin ice
-                    M_hs_thin[i]    -= newsnow;
-                    // M_snow_thick[i] += newsnow; <- this is done properly below
+                    M_h_thin[i]+=newice;
+                    M_conc_thin[i]=std::min(1.-M_conc[i],M_conc_thin[i]+newice/h_thin_min);
+                    newice  = 0.;
+                    newsnow = 0.;
+
+                    if(M_conc_thin[i]>0.)
+                    {
+                        /* Two cases: Thin ice fills the cell or not */
+                            if ( M_h_thin[i] < h_thin_min*M_conc_thin[i] )
+                                M_conc_thin[i] = M_h_thin[i]/h_thin_min;
+                        else
+                        {
+                            h0 = h_thin_min + 2.*(M_h_thin[i]-h_thin_min*M_conc_thin[i])/(M_conc_thin[i]);
+                            if(h0>h_thin_max)
+                            {
+                                del_c = M_conc_thin[i]/(h0-h_thin_min) * (h0-h_thin_max);
+                                double del_h_thin = del_c*(h0+h_thin_max)/2.;
+                                double del_hs_thin = del_c*M_hs_thin[i]/M_conc_thin[i];
+
+                                M_thick[i] += del_h_thin;
+                                // M_conc[i]  += del_c; ; <- this is done properly below
+
+                                newice  = del_h_thin; // Reset newice to use below
+                                newsnow = del_hs_thin;
+                                // M_snow_thick[i] += newsnow; <- this is done properly below
+
+                                M_conc_thin[i] -= del_c;
+                                M_h_thin[i]    -= del_h_thin;
+                                M_hs_thin[i]   -= del_hs_thin;
+                            }
+                        }
+                    }
+                    else // we should not have thin ice, no space for it
+                    {
+                        M_thick[i] += M_h_thin[i];
+
+                        newice  = M_h_thin[i];
+                        newsnow = M_hs_thin[i];
+
+                        M_h_thin[i] = 0.;
+                        M_hs_thin[i]= 0.;
+                    }
                     break;
                 default:
                     std::cout << "newice_type = " << newice_type << "\n";
@@ -4381,30 +4569,30 @@ FiniteElement::thermo()
             }
             /* Check bounds on del_c */
             del_c = std::min( 1.-M_conc[i], del_c );
-        }
-        else if ( del_hi < 0. )
+
+        if ( del_hi < 0. )
         {
             /* Melting conditions */
             switch ( melt_type )
             {
                 case 1:
                     /* Hibler (79) using PhiM to tune. PhiM = 0.5 is
-                     * equivilent Hibler's (79) approach */
+                     * equivalent to Hibler's (79) approach */
                     if ( M_conc[i] < 1. )
-                    {
-                        del_c = del_hi*M_conc[i]*PhiM/hi_old;
-                    }
+                        del_c += del_hi*M_conc[i]*PhiM/hi_old;
                     else
-                    {
-                        del_c = 0.;
-                    }
+                        del_c += 0.;
                     break;
                 case 2:
                     /* Mellor and Kantha (89) */
-                    /* Use the fraction PhiM of (1-c)*Qow to melt laterally */
-                    del_c = PhiM*(1.-M_conc[i])*std::min(0.,Qow)*time_step/( hi*qi+hs*qs );
-                    /* Deliver the fraction (1-PhiM) of Qow to the ocean */
-                    Qow = (1.-PhiM)*Qow;
+                    if ( hi > 0. )
+                    {
+                        /* Use the fraction PhiM of (1-c)*Qow to melt laterally */
+                        del_c += PhiM*(1.-M_conc[i])*std::min(0.,Qow)*time_step/( hi*qi+hs*qs );
+                        /* Deliver the fraction (1-PhiM) of Qow to the ocean */
+                        Qow = (1.-PhiM)*Qow;
+                    } else
+                        del_c = -M_conc[i];
                     // This is handled below
                     // /* + Deliver excess energy to the ocean when there's no ice left */
                     //         + std::min(0., std::max(0.,M_conc[i]+del_c)*( hi*qi+hs*qs )/time_step);
@@ -4416,11 +4604,6 @@ FiniteElement::thermo()
                     throw std::logic_error("Wrong newice_type");
             }
         }
-        else
-        {
-            /* There is no ice growing or melting */
-            del_c = 0.;
-        }
 
         /* New concentration */
         M_conc[i] = M_conc[i] + del_c;
@@ -4430,14 +4613,11 @@ FiniteElement::thermo()
         if ( M_conc[i] >= physical::cmin )
         {
             hi = ( hi*old_conc + newice )/M_conc[i];
-
             if ( del_c < 0. )
             {
                 /* We conserve the snow height, but melt away snow as the concentration decreases */
                 Qow = Qow + del_c*hs*qs/time_step;
-            }
-            else
-            {
+            } else {
                 /* Snow volume is conserved as concentration increases */
                 hs  = ( hs*old_conc + newsnow )/M_conc[i];
             }
@@ -4451,7 +4631,7 @@ FiniteElement::thermo()
                 M_tice[2][i] = f1*M_tice[2][i] + (1-f1)*tfrw; // (26) slightly rewritten
             }
         }
-
+#if 1
         /* Check limits */
         if ( M_conc[i] < physical::cmin || hi < physical::hmin )
         {
@@ -4459,17 +4639,13 @@ FiniteElement::thermo()
             // remaining ice and snow
             Qow    = Qow + M_conc[i]*hi*qi/time_step + M_conc[i]*hs*qs/time_step;
             M_conc[i]  = 0.;
-
             for (int j=0; j<M_tice.size(); j++)
-            {
                 M_tice[j][i] = tfrw;
-            }
-
             M_tsurf_thin[i] = tfrw;
             hi     = 0.;
             hs     = 0.;
         }
-
+#endif
         // -------------------------------------------------
         // 6) Calculate effective ice and snow thickness
         M_thick[i] = hi*M_conc[i];
@@ -4500,11 +4676,15 @@ FiniteElement::thermo()
         Qow_mean = Qow*(1.-old_conc-old_conc_thin);
 
         /* Heat-flux */
-        M_sst[i] = M_sst[i] - time_step*( Qio_mean + Qow_mean - Qdw )/(physical::rhow*physical::cpw*tmp_mld);
+        M_sst[i] = M_sst[i] - time_step*( Qio_mean + Qow_mean - Qdw )/(physical::rhow*physical::cpw*mld);
 
         /* Change in salinity */
+        double denominator= ( mld*physical::rhow - del_vi*physical::rhoi - ( del_vs*physical::rhos + (emp-Fdw)*time_step) );
+        denominator = ( denominator > 1.*physical::rhow ) ? denominator : 1.*physical::rhow;
+
+        double sss_old = M_sss[i];
         M_sss[i] = M_sss[i] + ( (M_sss[i]-physical::si)*physical::rhoi*del_vi + M_sss[i]*(del_vs*physical::rhos + (emp-Fdw)*time_step) )
-            / ( tmp_mld*physical::rhow - del_vi*physical::rhoi - ( del_vs*physical::rhos + (emp-Fdw)*time_step) );
+            / denominator;
 
         // -------------------------------------------------
         // 8) Damage manipulation (thermoDamage in matlab)
@@ -4512,22 +4692,76 @@ FiniteElement::thermo()
         // local variables
         double deltaT;      // Temperature difference between ice bottom and the snow-ice interface
 
-        // Newly formed ice is undamaged - calculate damage as a weighted
-        // average of the old damage and 0, weighted with volume.
+        // Newly formed ice is undamaged - and unridged
+        // calculate damage and ridge ratio as a weighted
+        // average of the old damage - ridge ratio and 0, weighted with volume.
         if ( M_thick[i] > old_vol )
+        {
             M_damage[i] = M_damage[i]*old_vol/M_thick[i];
+            M_ridge_ratio[i] = M_ridge_ratio[i]*old_vol/M_thick[i];
+        }
 
-        // SYL: manipulation of the ridged ice missing??
-
+        if ( vm["simul.use_temperature_dependent_healing"].as<bool>() )
+        {
+            // Set time_relaxation_damage to be inversely proportional to
+            // temperature difference between bottom and snow-ice interface
+            if ( M_thick[i] > 0. )
+            {
+                double Tbot = -physical::mu*M_sss[i];
+                double C;
+                switch (M_thermo_type)
+                {
+                    case (setup::ThermoType::ZERO_LAYER):
+                        C = physical::ki*M_snow_thick[i]/(physical::ks*M_thick[i]);
+                        deltaT = std::max(1e-36, Tbot - M_tice[0][i] ) / ( 1. + C );
+                        break;
+                    case (setup::ThermoType::WINTON):
+                        C = physical::ki*M_snow_thick[i]/(physical::ks*M_thick[i]/4.);
+                        deltaT = std::max(1e-36, Tbot + C*(Tbot-M_tice[1][i]) - M_tice[0][i] ) / ( 1. + C );
+                        break;
+                    default:
+                        std::cout << "thermo_type= " << (int)M_thermo_type << "\n";
+                        throw std::logic_error("Wrong thermo_type");
+                }
+                M_time_relaxation_damage[i] = std::max(time_relaxation_damage*deltaT_relaxation_damage/deltaT, time_step);
+            } else {
+                M_time_relaxation_damage[i] = 1e36;
+            }
+        }
         // -------------------------------------------------
+
+        // Diagnostics
+        double ow_fraction = 1. - old_conc - old_conc_thin;
+
+        // Total heat flux to the atmosphere
+        D_Qa[i] = Qai*old_conc + Qai_thin*old_conc_thin + (Qsw_ow+Qlw_ow+Qsh_ow+Qlh_ow)*ow_fraction;
+
+        // Short wave flux to the atmosphere
+        D_Qsw[i] = Qswi*old_conc + Qsw_thin*old_conc_thin + Qsw_ow*ow_fraction;
+
+        // Long wave flux to the atmosphere
+        D_Qlw[i] = Qlwi*old_conc + Qlw_thin*old_conc_thin + Qlw_ow*ow_fraction;
+
+        // Sensible heat flux to the atmosphere
+        D_Qsh[i] = Qshi*old_conc + Qsh_thin*old_conc_thin + Qsh_ow*ow_fraction;
+
+        // Latent heat flux to the atmosphere
+        D_Qlh[i] = Qlhi*old_conc + Qlh_thin*old_conc_thin + Qlh_ow*ow_fraction;
+
+        // Total heat lost by ocean
+        D_Qo[i] = Qio_mean + Qow_mean;
+
+        // Salt release into the ocean - kg/day
+        D_delS[i] = (M_sss[i] - sss_old)*physical::rhow*mld/time_step;
 
     }// end for loop
 }// end thermo function
 
 // Atmospheric fluxes through bulk formula
 void
-FiniteElement::atmFluxBulk(int i, double Tsurf, double sphuma, double drag_ice_t, double Qsw, double Qlw_in,
-                           double wspeed, double &Qai, double &dQaidT, double &subl)
+FiniteElement::atmFluxBulk(int i, double Tsurf, double sphuma, double drag_ice_t, double Qsw, double Qlw_in, double wspeed,
+        double &Qai, double &dQaidT, double &subl,
+        double &Qsh, double &Qlh, double &Qlw)
 {
     // Constants
     const double ai=6.1115e2, bi=23.036, ci=279.82, di=333.7;
@@ -4561,33 +4795,48 @@ FiniteElement::atmFluxBulk(int i, double Tsurf, double sphuma, double drag_ice_t
     double rhoair = M_mslp[i]/(physical::Ra*tairK) * (1.+sphuma)/(1.+1.609*sphuma);
 
     /* Sensible heat flux and derivative */
-    double Qsh    = drag_ice_t * rhoair * physical::cpa * wspeed*( Tsurf - M_tair[i] );
+    Qsh    = drag_ice_t * rhoair * physical::cpa * wspeed*( Tsurf - M_tair[i] );
     double dQshdT = drag_ice_t * rhoair * physical::cpa * wspeed;
 
     /* Latent heat flux and derivative */
-    double Qlh    = drag_ice_t*rhoair*(physical::Lf+physical::Lv0)*wspeed*( sphumi - sphuma );
+    Qlh    = drag_ice_t*rhoair*(physical::Lf+physical::Lv0)*wspeed*( sphumi - sphuma );
     double dQlhdT = drag_ice_t*(physical::Lf+physical::Lv0)*rhoair*wspeed*dsphumidT;
 
     /* Sum them up */
-    double Qout    = Qlw_out + Qsh + Qlh;
     dQaidT = dQlwdT + dQshdT + dQlhdT;
 
     /* Sublimation */
     subl    = Qlh/(physical::Lf+physical::Lv0);
 
     /* Sum them up */
-    Qai = Qsw - Qlw_in + Qout;
+    Qlw = Qlw_out - Qlw_in;
+    Qai = Qsw + Qlw + Qsh + Qlh;
 }
 
 // Ice-ocean heat flux
-// We can do better than this ... but it'll wait
 double
-FiniteElement::iceOceanHeatflux(double sst, double sss, double mld, double dt)
+FiniteElement::iceOceanHeatflux(int cpt, double sst, double sss, double mld, double dt)
 {
     /* Use all excess heat to melt or grow ice. This is not
      * accurate, but will have to do for now! */
     double const Tbot = -physical::mu*sss; // Temperature at ice base (bottom), also freezing point of sea-water
-    return (sst-Tbot)*physical::rhow*physical::cpw*mld/dt;
+    if ( vm["simul.Qio-type"].as<std::string>() == "basic" )
+    {
+        return (sst-Tbot)*physical::rhow*physical::cpw*mld/dt;
+    } else if ( vm["simul.Qio-type"].as<std::string>() == "exchange" ) {
+        double welt_oce_ice = 0.;
+        for (int i=0; i<3; ++i)
+        {
+            int nind = (M_elements[cpt]).indices[i]-1;
+            welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
+        }
+        double norm_Voce_ice = welt_oce_ice/3.;
+        double Csens_io = 1e-3;
+        return (sst-Tbot)*norm_Voce_ice*Csens_io*physical::rhow*physical::cpw;
+    } else {
+        std::cout << "Qio-type = " << vm["simul.Qio-type"].as<std::string>() << "\n";
+        throw std::logic_error("Wrong Qio-type");
+    }
 }
 
 // Albedo
@@ -4652,8 +4901,10 @@ FiniteElement::albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, do
 
 // Winton thermo dynamics (ice temperature, growth, and melt)
 void
-FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfall,
-        double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double &T1, double &T2)
+FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols,
+        double Qlw_in, double Qsw_in, double mld, double snowfall,
+        double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double &T1, double &T2,
+        double &Qai, double &Qsw, double &Qlw, double &Qsh, double &Qlh)
 {
     // Constants
     double const alb_ice = vm["simul.alb_ice"].as<double>();
@@ -4674,19 +4925,24 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
     double const Tfr_ice  = -physical::mu*physical::si; // Freezing point of ice
 
     /* Local variables */
-    double Qai, dQaidT, subl;
+    double dQaidT, subl;
 
     /* Don't do anything if there's no ice */
-    if ( conc <=0. )
+    if ( conc <=0. || voli<=0.)
     {
         hi       = 0.;
         hs       = 0.;
         hi_old   = 0.;
         Qio      = 0.;
+        Qai      = 0.;
         del_hi   = 0.;
         Tsurf    = Tbot;
         T1       = Tbot;
         T2       = Tbot;
+        Qsw      = 0.;
+        Qlw      = 0.;
+        Qsh      = 0.;
+        Qlh      = 0.;
     } else {
         /* Calculate the slab thickness */
         hi     = voli/conc;
@@ -4705,8 +4961,8 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         // Shortwave is modulated by the albedo
         double Qsw = -Qsw_in*(1.-FiniteElement::albedo(alb_scheme, Tsurf, hs, alb_sn, alb_ice, I_0))*(1.-I_0);
         // The rest is calculated by bulk formula
-        FiniteElement::atmFluxBulk(i, Tsurf, sphuma, drag_ice_t, Qsw, Qlw_in, wspeed,
-                Qai, dQaidT,subl);
+        FiniteElement::atmFluxBulk(i, Tsurf, sphuma, drag_ice_t, Qsw, Qlw_in, wspeed, Qai, dQaidT,subl,
+                Qsh, Qlh, Qlw);
 
         // First some coefficients based on temperatures from the previous time step
         double K12 = 4*physical::ki*physical::ks / ( physical::ks*hi + 4*physical::ki*hs ); // (5)
@@ -4779,7 +5035,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         }
 
         // Bottom melt/freezing
-        Qio    = FiniteElement::iceOceanHeatflux(M_sst[i], M_sss[i], mld, dt);
+        Qio    = FiniteElement::iceOceanHeatflux(i, M_sst[i], M_sss[i], mld, dt);
         double Mbot  = Qio - 4*physical::ki*(Tbot-T2)/hi; // (23)
 
         // Growth/melt at the ice-ocean interface
@@ -4797,7 +5053,8 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
             double delhs = -std::min(std::max(  ( Mbot*dt + E2*h2 + E1*h1 )/qs, 0.), hs); // (32) - with added division with rhoi and rhos
 
             // If everyting melts we need to give back to the ocean
-            Qio -= std::max(Mbot*dt - qs*hs + E1*h1 + E2*h2, 0.)/dt; // (34) - with added multiplication of rhoi and rhos and division with dt
+            if ( h2+h1+hs -delh2-delh1-delhs <= 0. )
+                Qio -= std::max(Mbot*dt - qs*hs + E1*h1 + E2*h2, 0.)/dt; // (34) - with added multiplication of rhoi and rhos and division with dt
 
             hs += delhs;
             h1 += delh1;
@@ -4811,7 +5068,8 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         double delh2 = -std::min(std::max( -( Msurf*dt - qs*hs + E1*h1 ) / E2, 0.), h2); // (29) - with division of rhoi and rhos
 
         // If everyting melts we need to give back to the ocean
-        Qio -= std::max(Msurf*dt - qs*hs + E1*h1 + E2*h2, 0.)/dt; // (30) - with multiplication of rhoi and rhos and division with dt
+        if ( h2+h1+hs -delh2-delh1-delhs <= 0. )
+            Qio -= std::max(Msurf*dt - qs*hs + E1*h1 + E2*h2, 0.)/dt; // (30) - with multiplication of rhoi and rhos and division with dt
 
         hs += delhs;
         h1 += delh1;
@@ -4881,7 +5139,8 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
 // This is Semtner zero layer
 void
 FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfall,
-        double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf)
+        double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf,
+        double &Qai, double &Qsw, double &Qlw, double &Qsh, double &Qlh)
 {
 
     // Constants
@@ -4897,19 +5156,20 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
     double const qi = physical::Lf * physical::rhoi;
     double const qs = physical::Lf * physical::rhos;
 
-    // local variables
-    double Qai = 0;
-
     /* Don't do anything if there's no ice */
-    if ( conc <=0. )
+    if ( conc <=0. || voli<=0.)
     {
         hi      = 0.;
         hi_old  = 0.;
         hs      = 0.;
         Tsurf   = 0.;
         Qio     = 0.;
-        del_hi  = 0.;
         Qai     = 0.;
+        del_hi  = 0.;
+        Qsw     = 0.;
+        Qlw     = 0.;
+        Qsh     = 0.;
+        Qlh     = 0.;
     } else {
         /* Calculate the slab thickness */
         hi     = voli/conc;
@@ -4931,6 +5191,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         /* ---------------------------------------------------------------
         * Calculate the surface temperature within a while-loop
         * --------------------------------------------------------------- */
+        double albedo = this->albedo(alb_scheme, Tsurf, hs, alb_sn, alb_ice, I_0);
         double dtsurf   = 1.;
         double Tbot     = -physical::mu*M_sss[i];
         int nb_iter_while=0;
@@ -4940,10 +5201,10 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
 
             /* Calculate atmospheric fluxes */
             // Shortwave is modulated by the albedo
-            Qsw = -Qsw_in*(1.-FiniteElement::albedo(alb_scheme, Tsurf, hs, alb_sn, alb_ice, I_0))*(1.-I_0);
+            Qsw = -Qsw_in*(1.-albedo)*(1.-I_0);
             // The rest is calculated by bulk formula
-            FiniteElement::atmFluxBulk(i, Tsurf, sphuma, drag_ice_t, Qsw, Qlw_in, wspeed,
-                    Qai, dQaidT,subl);
+            FiniteElement::atmFluxBulk(i, Tsurf, sphuma, drag_ice_t, Qsw, Qlw_in, wspeed, Qai, dQaidT,subl,
+                    Qsh, Qlh, Qlw);
 
             // -------------------------------------------------
             /* Recalculate Tsurf */
@@ -4965,7 +5226,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         if(nb_iter_while>10)
         {
             LOG(DEBUG) << "nb_iter_while = " << nb_iter_while << "\n";
-            throw std::logic_error("nb_iter_while larger than 10");
+            //throw std::logic_error("nb_iter_while larger than 10");
         }
 
         /* Conductive flux through the ice */
@@ -4986,7 +5247,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         hs  = hs + del_hs + snowfall/physical::rhos*time_step;
 
         /* Heatflux from ocean */
-        Qio = FiniteElement::iceOceanHeatflux(M_sst[i], M_sss[i], mld, time_step);
+        Qio = FiniteElement::iceOceanHeatflux(i, M_sst[i], M_sss[i], mld, time_step);
         /* Bottom melt/growth */
         del_hb = (Qic-Qio)*time_step/qi;
 
@@ -5006,7 +5267,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         /* Make sure we don't get too small hi_new */
         if ( hi < physical::hmin )
         {
-            del_hi  = del_hi-hi;
+            del_hi  = -hi_old; //del_hi-hi;
             Qio     = Qio + hi*qi/time_step + hs*qs/time_step;
 
             hi      = 0.;
@@ -5102,8 +5363,12 @@ FiniteElement::run()
 
         this->bathymetry();
 
-        for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
-            (*it)->check_and_reload(M_mesh,time_init);
+        // for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
+        //     (*it)->check_and_reload(M_mesh,time_init);
+
+        this->checkReloadDatasets(M_external_data,
+                                  time_init,
+                                  "init - time-dependant");
     }
     else
     {
@@ -5145,8 +5410,14 @@ FiniteElement::run()
         timer["checkload"].first.restart();
         // if (M_rank == 0)
         //     std::cout <<"check_and_reload starts\n";
+#if 0
         for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
             (*it)->check_and_reload(M_mesh,time_init);
+#else
+        this->checkReloadDatasets(M_external_data,
+                                  time_init,
+                                  "init - time-dependant");
+#endif
         if (M_rank == 0)
             std::cout <<"check_and_reload in "<< timer["checkload"].first.elapsed() <<"s\n";
 
@@ -5274,8 +5545,14 @@ FiniteElement::run()
         }
 
         timer["reload"].first.restart();
+#if 0
         for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
             (*it)->check_and_reload(M_mesh,current_time+time_step/(24*3600.0));
+#else
+        this->checkReloadDatasets(M_external_data,
+                                  current_time+time_step/(24*3600.0),
+                                  "init - time-dependant");
+#endif
         if (M_rank == 0)
             std::cout <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
 
@@ -5710,6 +5987,32 @@ FiniteElement::forcingAtmosphere()
             M_external_data.push_back(&M_precip);
         break;
 
+        case setup::AtmosphereType::EC2:
+            M_wind=ExternalData(
+                &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
+                time_init, vm["simul.spinup_duration"].as<double>());
+            M_external_data.push_back(&M_wind);
+
+            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
+            M_external_data.push_back(&M_tair);
+
+            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
+            M_external_data.push_back(&M_dair);
+
+            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
+            M_external_data.push_back(&M_mslp);
+
+            M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
+            M_external_data.push_back(&M_tcc);
+
+            // Syl: The following two lines should be removed when approxSW will be implemented in Thermo()
+            M_Qsw_in=ExternalData(vm["simul.constant_Qsw_in"].as<double>());
+            M_external_data.push_back(&M_Qsw_in);
+
+            M_precip=ExternalData(0.);
+            M_external_data.push_back(&M_precip);
+        break;
+
         case setup::AtmosphereType::EC_ERAi:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
@@ -5733,6 +6036,35 @@ FiniteElement::forcingAtmosphere()
 
             M_precip=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,5,false,time_init);
             M_external_data.push_back(&M_precip);
+        break;
+
+        case setup::AtmosphereType::CFSR_HI:
+        case setup::AtmosphereType::CFSR:
+            M_wind=ExternalData(
+                &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
+                time_init, vm["simul.spinup_duration"].as<double>());
+            M_external_data.push_back(&M_wind);
+
+            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
+            M_external_data.push_back(&M_tair);
+
+            M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
+            M_external_data.push_back(&M_sphuma);
+
+            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
+            M_external_data.push_back(&M_mslp);
+
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
+            M_external_data.push_back(&M_Qsw_in);
+
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            M_external_data.push_back(&M_Qlw_in);
+
+            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
+            M_external_data.push_back(&M_precip);
+
+            M_snowfr=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
+            M_external_data.push_back(&M_snowfr);
         break;
 
         default:
@@ -5789,6 +6121,53 @@ FiniteElement::forcingOcean()
             // but Einar said it is not necessary, so it is not implemented
     		break;
 
+        case setup::OceanType::TOPAZR_ALTIMETER:
+            M_ocean=ExternalData(
+                &M_ocean_nodes_dataset, M_mesh, 0, true,
+            time_init, vm["simul.spinup_duration"].as<double>());
+            M_external_data.push_back(&M_ocean);
+
+            M_ssh=ExternalData(
+                &M_ocean_nodes_dataset, M_mesh, 2, false,
+            time_init, vm["simul.spinup_duration"].as<double>());
+            M_external_data.push_back(&M_ssh);
+
+            M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
+            M_external_data.push_back(&M_ocean_temp);
+
+            M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
+            M_external_data.push_back(&M_ocean_salt);
+
+            M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
+            M_external_data.push_back(&M_mld);
+            // SYL: there was a capping of the mld at minimum vm["simul.constant_mld"].as<double>()
+            // but Einar said it is not necessary, so it is not implemented
+            break;
+
+        case setup::OceanType::TOPAZR_atrest:
+            M_ocean=ExternalData(
+                vm["simul.constant_ocean_v"].as<double>(),
+                vm["simul.constant_ocean_v"].as<double>(),
+                time_init, vm["simul.spinup_duration"].as<double>());
+            M_external_data.push_back(&M_ocean);
+
+            M_ssh=ExternalData(
+                &M_ocean_nodes_dataset, M_mesh, 2, false,
+                time_init, vm["simul.spinup_duration"].as<double>());
+            M_external_data.push_back(&M_ssh);
+
+            M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
+            M_external_data.push_back(&M_ocean_temp);
+
+            M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
+            M_external_data.push_back(&M_ocean_salt);
+
+            M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
+            M_external_data.push_back(&M_mld);
+            // SYL: there was a capping of the mld at minimum vm["simul.constant_mld"].as<double>()
+            // but Einar said it is not necessary, so it is not implemented
+    		break;
+
         default:
             std::cout << "invalid ocean forcing"<<"\n";
             throw std::logic_error("invalid ocean forcing");
@@ -5801,11 +6180,14 @@ FiniteElement::initSlabOcean()
     switch (M_ocean_type)
     {
         case setup::OceanType::CONSTANT:
-            std::fill(M_sst.begin(), M_sst.end(), -1.8);
+            //std::fill(M_sst.begin(), M_sst.end(), -1.8);
+            std::fill(M_sst.begin(), M_sst.end(), 1.);
             std::fill(M_sss.begin(), M_sss.end(),  1.8/physical::mu);
             break;
         case setup::OceanType::TOPAZR:
+        case setup::OceanType::TOPAZR_atrest:
         case setup::OceanType::TOPAZF:
+        case setup::OceanType::TOPAZR_ALTIMETER:
             for ( int i=0; i<M_num_elements; ++i)
             {
                 // Make sure the erroneous salinity and temperature don't screw up the initialisation too badly
@@ -5819,14 +6201,6 @@ FiniteElement::initSlabOcean()
             std::cout << "invalid ocean initialisation"<<"\n";
             throw std::logic_error("invalid ocean forcing");
     }
-#if 1
-    // setting SST to the freezing point for the part cover by sea ice
-    for ( int i=0; i<M_num_elements; ++i)
-    {
-        if(M_conc[i]>0.)
-            M_sst[i] = -M_sss[i]*physical::mu;//*M_conc[i]+M_ocean_temp[i]*(1.-M_conc[i]);
-    }
-#endif
 }
 
 void
@@ -5878,6 +6252,64 @@ FiniteElement::initIce()
             throw std::logic_error("invalid initialization of the ice");
     }
 
+    double hi, conc_tot, weight_conc;
+    // Consistency check for the slab ocean + initialization of the ice temperature (especially for Winton)
+    for ( int i=0; i<M_num_elements; i++ )
+    {
+        hi=0.;
+        if(M_conc[i]>0.)
+            hi = M_thick[i]/M_conc[i];
+
+        if ( M_conc[i] < physical::cmin || hi < physical::hmin)
+        {
+            M_conc[i]=0.;
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+
+        hi = 0.;
+        if(M_conc_thin[i]>0.)
+            hi = M_h_thin[i]/M_conc_thin[i];
+
+        if ( M_conc_thin[i] < physical::cmin || hi < physical::hmin)
+        {
+            M_conc_thin[i]=0.;
+            M_h_thin[i]=0.;
+            M_hs_thin[i]=0.;
+        }
+
+        conc_tot=M_conc[i]+M_conc_thin[i];
+        weight_conc=std::min(1.,conc_tot*2.);
+        if(conc_tot>0.)
+            M_sst[i] = -M_sss[i]*physical::mu*weight_conc+M_sst[i]*(1.-weight_conc);
+        //M_sst[i] = -M_sss[i]*physical::mu;//*M_conc[i]+M_ocean_temp[i]*(1.-M_conc[i]);
+
+        if ( M_snow_thick[i] > 0. )
+            M_tice[0][i] = std::min(0., M_tair[i]);
+        else
+            M_tice[0][i] = std::min(-physical::mu*physical::si, M_tair[i]);
+    }
+
+    if ( M_thermo_type == setup::ThermoType::WINTON )
+    {
+        for ( int i=0; i<M_num_elements; i++ )
+        {
+            double Tbot  = -physical::mu*M_sss[i];
+            if ( M_thick[i] > 0. )
+            {
+                // Just a linear interpolation between bottom and snow-ice interface (i.e. a zero layer model)
+                double deltaT = (Tbot - M_tice[0][i] ) / ( 1. + physical::ki*M_snow_thick[i]/(physical::ks*M_thick[i]) );
+                double slope = -deltaT/M_thick[i];
+                M_tice[1][i] = Tbot + 3*slope*M_thick[i]/4;
+                M_tice[2][i] = Tbot +   slope*M_thick[i]/4;
+            } else {
+                M_tice[1][i] = Tbot;
+                M_tice[2][i] = Tbot;
+            }
+        }
+    }
+
+#if 0
     // It's nice to initialise the ice temperature (especially for Winton)
     for ( int i=0; i<M_num_elements; i++ )
         if ( M_snow_thick[i] > 0. )
@@ -5903,6 +6335,7 @@ FiniteElement::initIce()
             }
         }
     }
+#endif
 }
 
 void
@@ -5994,23 +6427,41 @@ FiniteElement::targetIce()
             */
         std::cout<<"RX: "<< RX[i] << "RY: "<< RY[i] << "tmp_var: " << tmp_var << "\n";
 
-        M_conc[i]  = std::max(vm["simul.init_concentration"].as<double>()*tmp_var,cmin);
-		M_thick[i] = vm["simul.init_thickness"].as<double>()*M_conc[i];
-		M_snow_thick[i] = vm["simul.init_snow_thickness"].as<double>()*M_conc[i];
-        M_damage[i]=0.;
+        //M_conc[i]  = std::max(vm["simul.init_concentration"].as<double>()*tmp_var,cmin);
+	//	M_thick[i] = vm["simul.init_thickness"].as<double>()*M_conc[i];
+	//	M_snow_thick[i] = vm["simul.init_snow_thickness"].as<double>()*M_conc[i];
+
+        M_conc[i]  = vm["simul.init_concentration"].as<double>();
+
+	if(i==10)
+		M_conc[i]=0.;
+
+	M_thick[i] = vm["simul.init_thickness"].as<double>()*M_conc[i];
+	M_snow_thick[i] = vm["simul.init_snow_thickness"].as<double>()*M_conc[i];
+
+	M_damage[i]=0.;
+
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {
+            M_conc_thin[i]  = vm["simul.init_thin_conc"].as<double>();
+
+            M_h_thin[i]     = (vm["simul.h_thin_min"].as<double>()+(vm["simul.h_thin_max"].as<double>()-vm["simul.h_thin_min"].as<double>())/2.)*M_conc_thin[i];
+
+            M_hs_thin[i]    = vm["simul.init_snow_thickness"].as<double>()*M_conc_thin[i];
+        }
 
         //if either c or h equal zero, we set the others to zero as well
         if(M_conc[i]<=0.)
         {
             M_thick[i]=0.;
             M_snow_thick[i]=0.;
-            M_damage[i]=1.;
+            M_damage[i]=0.;
         }
         if(M_thick[i]<=0.)
         {
             M_conc[i]=0.;
             M_snow_thick[i]=0.;
-            M_damage[i]=1.;
+            M_damage[i]=0.;
         }
     }
 }
@@ -6066,19 +6517,32 @@ FiniteElement::binaryIce()
 
     input.read((char*) &M_snow_thick[0], M_num_elements*sizeof(double));
     input.close();
+
+    // Make sure damage is zero and do something for thin ice
+    for (int i=0; i<M_num_elements; ++i)
+    {
+		M_damage[i]=0.;
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {
+            M_conc_thin[i]=std::min(1.-M_conc[i], 0.2*M_conc[i]);
+            M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
+        }
+    }
 }
 
 void
 FiniteElement::topazIce()
 {
     external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
-
     external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
-
     external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,"init - TOPAZ ice");
+    M_external_data_tmp.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -6107,16 +6571,139 @@ FiniteElement::topazIce()
 }
 
 void
+FiniteElement::topazIceOsisafIcesat()
+{
+    external_data M_topaz_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
+
+    external_data M_topaz_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
+
+    external_data M_topaz_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
+
+    external_data M_osisaf_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init);
+
+    external_data M_osisaf_conc=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,0,false,time_init);
+
+    external_data M_icesat_thick=ExternalData(&M_ice_icesat_elements_dataset,M_mesh,0,false,time_init);
+
+    external_data M_amsre_conc=ExternalData(&M_ice_amsre_elements_dataset,M_mesh,0,false,time_init);
+
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_topaz_conc);
+    M_external_data_tmp.push_back(&M_topaz_thick);
+    M_external_data_tmp.push_back(&M_topaz_snow_thick);
+    M_external_data_tmp.push_back(&M_osisaf_type);
+    M_external_data_tmp.push_back(&M_osisaf_conc);
+    M_external_data_tmp.push_back(&M_icesat_thick);
+    M_external_data_tmp.push_back(&M_amsre_conc);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,"init - TOPAZ ice");
+    M_external_data_tmp.resize(0);
+
+    double tmp_var;
+    for (int i=0; i<M_num_elements; ++i)
+    {
+		tmp_var=std::min(1.,M_topaz_conc[i]);
+		M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+		tmp_var=M_topaz_thick[i];
+		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+        double hi_topaz=M_thick[i]/M_conc[i];
+        hi_topaz=std::min(hi_topaz,3.); // TOPAZ thickness is only used for FYI and then capped to 3 m, to avoid unrealistic thickness where concentration is low
+
+        if(M_conc[i]>0.) // use osisaf only where topaz says there is ice to avoid near land issues and fake concentration over the ocean
+            M_conc[i]=M_osisaf_conc[i];
+
+		tmp_var=M_topaz_snow_thick[i];
+		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+        if(M_conc[i]<M_topaz_conc[i])
+            M_snow_thick[i] *= M_conc[i]/M_topaz_conc[i];
+
+
+        //M_type[i]==1. // No ice
+        //M_type[i]==2. // First-Year ice
+        //M_type[i]==3. // Multi-Year ice
+        //M_type[i]==4. // Mixed
+        double ratio_FYI=0.3;
+        double ratio_MYI=0.9;
+        double ratio_Mixed=0.5*(ratio_FYI+ratio_MYI);
+
+        double thick_FYI=hi_topaz;
+        double thick_MYI=std::max(M_icesat_thick[i],hi_topaz);
+        double thick_Mixed=0.5*(thick_FYI+thick_MYI);
+
+        if((M_thick[i]>0.)&&(M_conc[i])>0.2)
+        {
+            if(M_osisaf_type[i]<=1.)
+            {
+                M_ridge_ratio[i]=0.;
+                M_thick[i]=thick_FYI;
+            }
+            if(M_osisaf_type[i]>1. && M_osisaf_type[i]<=2.)
+            {
+                M_ridge_ratio[i]=(M_osisaf_type[i]-1.)*ratio_FYI;
+                M_thick[i]      =thick_FYI;
+            }
+            if(M_osisaf_type[i]>2. && M_osisaf_type[i]<=3.)
+            {
+                M_ridge_ratio[i]=(1.-(M_osisaf_type[i]-2.))*ratio_FYI + (M_osisaf_type[i]-2.)*ratio_MYI;
+                M_thick[i]      =(1.-(M_osisaf_type[i]-2.))*thick_FYI + (M_osisaf_type[i]-2.)*thick_MYI;
+            }
+            if(M_osisaf_type[i]>3. && M_osisaf_type[i]<=4.)
+            {
+                M_ridge_ratio[i]=(1.-(M_osisaf_type[i]-3.))*ratio_MYI + (M_osisaf_type[i]-3.)*ratio_Mixed;
+                M_thick[i]      =(1.-(M_osisaf_type[i]-3.))*thick_MYI + (M_osisaf_type[i]-3.)*thick_Mixed;
+            }
+            if(M_osisaf_type[i]>4.)
+            {
+                M_ridge_ratio[i]=ratio_Mixed;
+                M_thick[i]=thick_Mixed;
+            }
+        }
+        else
+        {
+            M_ridge_ratio[i]=0.;
+            M_thick[i]=hi_topaz;
+        }
+
+        M_ridge_ratio[i]=M_ridge_ratio[i]*M_conc[i]; // Icesat gives the actual thickness (see "Uncertainties in Arctic sea ice thickness and volume: new estimates and implications for trends")
+        M_thick[i]=M_thick[i]*M_conc[i];
+
+        //if either c or h equal zero, we set the others to zero as well
+        double hi=M_thick[i]/M_conc[i];
+        if ( M_conc[i] < 0.01 || hi < physical::hmin )
+        {
+            M_conc[i]=0.;
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+            M_ridge_ratio[i]=0.;
+        }
+
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {
+            M_conc_thin[i]=std::max(M_amsre_conc[i]-M_conc[i],0.);
+            M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
+        }
+
+		M_damage[i]=0.;
+	}
+}
+
+void
 FiniteElement::topazForecastIce()
 {
     external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,"init - TOPAZ ice forecast");
+    M_external_data_tmp.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -6150,16 +6737,25 @@ FiniteElement::topazForecastAmsr2Ice()
     double real_thickness, init_conc_tmp;
 
     external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
-    M_conc_amsr2.check_and_reload(M_mesh,time_init);
+    //M_conc_amsr2.check_and_reload(M_mesh,time_init);
 
     external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_conc_amsr2);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,
+            "init - TOPAZ ice forecast + AMSR2");
+    M_external_data_tmp.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -6216,65 +6812,125 @@ FiniteElement::topazForecastAmsr2OsisafIce()
 {
     double real_thickness, init_conc_tmp;
 
-    external_data M_conc_osisaf=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,0,false,time_init);
-    M_conc_osisaf.check_and_reload(M_mesh,time_init);
+    external_data M_osisaf_conc=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,0,false,time_init);
 
-    external_data M_confidence_osisaf=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,1,false,time_init);
-    M_confidence_osisaf.check_and_reload(M_mesh,time_init);
+    external_data M_osisaf_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init);
 
-    external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
-    M_conc_amsr2.check_and_reload(M_mesh,time_init);
+    external_data M_amsr2_conc=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
 
-    external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    external_data M_topaz_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
 
-    external_data M_init_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    external_data M_topaz_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
 
-    external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    external_data M_topaz_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
+
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_osisaf_conc);
+    M_external_data_tmp.push_back(&M_osisaf_type);
+    M_external_data_tmp.push_back(&M_amsr2_conc);
+    M_external_data_tmp.push_back(&M_topaz_conc);
+    M_external_data_tmp.push_back(&M_topaz_thick);
+    M_external_data_tmp.push_back(&M_topaz_snow_thick);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,
+            "init - TOPAZ ice forecast + AMSR2 + OSISAF");
+    M_external_data_tmp.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
     {
-        double weight;
-        if(M_confidence_osisaf[i]>4.9)
-            M_conc[i] = (std::min(1.,M_conc_osisaf[i])+M_init_conc[i])/2.;
+		tmp_var=std::min(1.,M_topaz_conc[i]);
+		M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+		tmp_var=M_topaz_thick[i];
+		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+        double hi_topaz=M_thick[i]/M_conc[i];
+        hi_topaz=std::min(hi_topaz,3.); // TOPAZ thickness is only used for FYI and then capped to 3 m, to avoid unrealistic thickness where concentration is low
+
+        if(M_conc[i]>0.) // use osisaf only where topaz says there is ice to avoid near land issues and fake concentration over the ocean
+            M_conc[i]=M_osisaf_conc[i];
+
+        if(M_amsr2_conc[i]<M_conc[i]) // AMSR2 is higher resolution and see small opening that would not be see in OSISAF
+            M_conc[i]=M_amsr2_conc[i];
+
+		tmp_var=M_topaz_snow_thick[i];
+		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
+        if(M_conc[i]<M_topaz_conc[i])
+            M_snow_thick[i] *= M_conc[i]/M_topaz_conc[i];
+
+
+        //M_type[i]==1. // No ice
+        //M_type[i]==2. // First-Year ice
+        //M_type[i]==3. // Multi-Year ice
+        //M_type[i]==4. // Mixed
+        double ratio_FYI=0.3;
+        double ratio_MYI=0.9;
+        double ratio_Mixed=0.5*(ratio_FYI+ratio_MYI);
+
+        double thick_FYI=hi_topaz;
+        double thick_MYI=1.5*hi_topaz;
+        double thick_Mixed=0.5*(thick_FYI+thick_MYI);
+
+        if( (M_thick[i]>0.) && (M_conc[i])>0.2 )
+        {
+
+            if(M_mesh_filename.find("kara") != std::string::npos)
+            {
+                LOG(DEBUG) <<"Type information is not used for the kara mesh, we assume there is only FYI\n";
+                M_ridge_ratio[i]=ratio_FYI;
+                M_thick[i]=thick_FYI;
+            }
+            else
+            {
+            if(M_osisaf_type[i]<=1.)
+            {
+                M_ridge_ratio[i]=0.;
+                M_thick[i]=thick_FYI;
+            }
+            if(M_osisaf_type[i]>1. && M_osisaf_type[i]<=2.)
+            {
+                M_ridge_ratio[i]=(M_osisaf_type[i]-1.)*ratio_FYI;
+                M_thick[i]      =thick_FYI;
+            }
+            if(M_osisaf_type[i]>2. && M_osisaf_type[i]<=3.)
+            {
+                M_ridge_ratio[i]=(1.-(M_osisaf_type[i]-2.))*ratio_FYI + (M_osisaf_type[i]-2.)*ratio_MYI;
+                M_thick[i]      =(1.-(M_osisaf_type[i]-2.))*thick_FYI + (M_osisaf_type[i]-2.)*thick_MYI;
+            }
+            if(M_osisaf_type[i]>3. && M_osisaf_type[i]<=4.)
+            {
+                M_ridge_ratio[i]=(1.-(M_osisaf_type[i]-3.))*ratio_MYI + (M_osisaf_type[i]-3.)*ratio_Mixed;
+                M_thick[i]      =(1.-(M_osisaf_type[i]-3.))*thick_MYI + (M_osisaf_type[i]-3.)*thick_Mixed;
+            }
+            if(M_osisaf_type[i]>4.)
+            {
+                M_ridge_ratio[i]=ratio_Mixed;
+                M_thick[i]=thick_Mixed;
+            }
+            }
+        }
         else
         {
-            if(M_conc_amsr2[i]<0.8)
-                weight=1.-std::pow(1.-M_conc_amsr2[i],2.);
-            else
-                weight=1.-std::pow(1.-M_conc_amsr2[i],2.);
-            M_conc[i] = std::min(1.,M_conc_amsr2[i])*(weight)+M_init_conc[i]*(1.-weight);
+            M_ridge_ratio[i]=0.;
+            M_thick[i]=hi_topaz;
         }
-        // TOPAZ puts very small values instead of 0.
-		tmp_var=M_init_conc[i];
-		init_conc_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
-		tmp_var=M_init_thick[i];
-		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
-		tmp_var=M_init_snow_thick[i];
-		M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
 
-        // Use 0.05 to get rid of slight inconsistencies in the TOPAZ output.
-        if(init_conc_tmp>0.05)
-        {
-            real_thickness=M_thick[i]/init_conc_tmp;
-            M_thick[i]=real_thickness*M_conc[i];
-        }
+        M_ridge_ratio[i]=M_ridge_ratio[i]*M_conc[i];
+        // Icesat gives the actual thickness (see "Uncertainties in Arctic sea ice thickness and volume: new estimates and implications for trends")
+        M_thick[i]=M_thick[i]*M_conc[i];
 
         //if either c or h equal zero, we set the others to zero as well
-        if(M_conc[i]<=0.)
+        double hi=M_thick[i]/M_conc[i];
+        if ( M_conc[i] < 0.01 || hi < physical::hmin )
         {
             M_conc[i]=0.;
             M_thick[i]=0.;
             M_snow_thick[i]=0.;
+            M_ridge_ratio[i]=0.;
         }
-        if(M_thick[i]<=0.)
+
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
-            M_thick[i]=0.;
-            M_conc[i]=0.;
-            M_snow_thick[i]=0.;
+            M_conc_thin[i]=std::max(M_amsr2_conc[i]-M_conc[i],0.);
+            M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
         }
 
 		M_damage[i]=0.;
@@ -6285,13 +6941,21 @@ void
 FiniteElement::piomasIce()
 {
     external_data M_init_conc=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,1,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_init_snow_thick=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,2,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,
+            "init ice - PIOMAS");
+    M_external_data_tmp.resize(0);
 
     for (int i=0; i<M_num_elements; ++i)
     {
@@ -6321,16 +6985,25 @@ FiniteElement::topazAmsreIce()
     double real_thickness, init_conc_tmp;
 
     external_data M_conc_amsre=ExternalData(&M_ice_amsre_elements_dataset,M_mesh,0,false,time_init);
-    M_conc_amsre.check_and_reload(M_mesh,time_init);
+    //M_conc_amsre.check_and_reload(M_mesh,time_init);
 
     external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_conc_amsre);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,
+            "init ice - TOPAZ + AMSR-E");
+    M_external_data_tmp.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -6376,16 +7049,25 @@ FiniteElement::topazAmsr2Ice()
     double real_thickness, init_conc_tmp;
 
     external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
-    M_conc_amsr2.check_and_reload(M_mesh,time_init);
+    //M_conc_amsr2.check_and_reload(M_mesh,time_init);
 
     external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_conc_amsr2);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,
+            "init ice - TOPAZ + AMSR2");
+    M_external_data_tmp.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -6429,13 +7111,21 @@ void
 FiniteElement::cs2SmosIce()
 {
     external_data M_init_conc=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,0,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,1,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init);
-    M_type.check_and_reload(M_mesh,time_init);
+    //M_type.check_and_reload(M_mesh,time_init);
+
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_type);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,
+            "init ice - CS2 + SMOS");
+    M_external_data_tmp.resize(0);
 
     warrenClimatology();
 
@@ -6446,6 +7136,29 @@ FiniteElement::cs2SmosIce()
 		M_conc[i] = tmp_var;
 		tmp_var=M_init_thick[i];
 		M_thick[i] = tmp_var ;
+
+        double ratio_FYI=0.3;
+        double ratio_MYI=0.9;
+        double ratio_Mixed=0.6;
+
+        if((M_thick[i]>0.)&&(M_conc[i])>0.2)
+        {
+            if(M_type[i]<=1.)
+                M_ridge_ratio[i]=0.;
+            if(M_type[i]>1. && M_type[i]<=2.)
+                M_ridge_ratio[i]=(M_type[i]-1.)*ratio_FYI;
+            if(M_type[i]>2. && M_type[i]<=3.)
+                M_ridge_ratio[i]=(1.-(M_type[i]-2.))*ratio_FYI + (M_type[i]-2.)*ratio_MYI;
+            if(M_type[i]>3. && M_type[i]<=4.)
+                M_ridge_ratio[i]=(1.-(M_type[i]-3.))*ratio_MYI + (M_type[i]-3.)*ratio_Mixed;
+            if(M_type[i]>4.)
+                M_ridge_ratio[i]=ratio_Mixed;
+
+            M_ridge_ratio[i]=M_ridge_ratio[i]*std::exp(ridging_exponent*(1.-M_conc[i]));
+        }
+        else
+            M_ridge_ratio[i]=0.;
+
 
         //if either c or h equal zero, we set the others to zero as well
         if(M_conc[i]<=0.)
@@ -6470,20 +7183,124 @@ FiniteElement::cs2SmosIce()
 
 		M_damage[i]=0.;
 
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {
+            //M_conc_thin[i]=std::max(M_conc_amsre[i]-M_conc[i],0.);
+            M_conc_thin[i]=std::min(1.-M_conc[i], 0.2*M_conc[i]);
+            M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
+        }
+
         // Check that the snow is not so thick that the ice is flooded
         double max_snow = M_thick[i]*(physical::rhow-physical::rhoi)/physical::rhos;
         M_snow_thick[i] = std::min(max_snow, M_snow_thick[i]);
+
 	}
+}
+
+void
+FiniteElement::cs2SmosAmsr2Ice()
+{
+    external_data M_init_conc=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,0,false,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
+
+    external_data M_amsr2_conc=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
+    //M_conc_amsr2.check_and_reload(M_mesh,time_init);
+
+    external_data M_init_thick=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,1,false,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
+
+    external_data M_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init);
+    //M_type.check_and_reload(M_mesh,time_init);
+
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_type);
+    M_external_data_tmp.push_back(&M_amsr2_conc);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,
+            "init ice - CS2 + SMOS + AMSR2");
+    M_external_data_tmp.resize(0);
+
+    warrenClimatology();
+
+    double tmp_var, correction_factor_warren;
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        tmp_var=std::min(1.,M_init_conc[i]);
+        M_conc[i] = tmp_var;
+        tmp_var=M_init_thick[i];
+        M_thick[i] = tmp_var ;
+        if(M_amsr2_conc[i]<M_conc[i]) // AMSR2 is higher resolution and see small opening that would not be see in OSISAF
+            M_conc[i]=M_amsr2_conc[i];
+
+        double ratio_FYI=0.3;
+        double ratio_MYI=0.9;
+        double ratio_Mixed=0.6;
+
+        if((M_thick[i]>0.)&&(M_conc[i])>0.2)
+        {
+            if(M_type[i]<=1.)
+                M_ridge_ratio[i]=0.;
+            if(M_type[i]>1. && M_type[i]<=2.)
+                M_ridge_ratio[i]=(M_type[i]-1.)*ratio_FYI;
+            if(M_type[i]>2. && M_type[i]<=3.)
+                M_ridge_ratio[i]=(1.-(M_type[i]-2.))*ratio_FYI + (M_type[i]-2.)*ratio_MYI;
+            if(M_type[i]>3. && M_type[i]<=4.)
+                M_ridge_ratio[i]=(1.-(M_type[i]-3.))*ratio_MYI + (M_type[i]-3.)*ratio_Mixed;
+            if(M_type[i]>4.)
+                M_ridge_ratio[i]=ratio_Mixed;
+
+            M_ridge_ratio[i]=M_ridge_ratio[i]*std::exp(ridging_exponent*(1.-M_conc[i]));
+        }
+        else
+            M_ridge_ratio[i]=0.;
+
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+
+        // Correction of the value given by Warren as a function of the ice type
+        //M_type[i]==1. // No ice
+        //M_type[i]==2. // First-Year ice
+        //M_type[i]==3. // Multi-Year ice
+        //M_type[i]==4. // Mixed
+        correction_factor_warren=std::max(0.,std::min(1.,(M_type[i]-1.)*0.5)); // == 1. for MY, and mixed, 0.5 for FY, 0. for No ice
+
+        M_snow_thick[i]=correction_factor_warren*M_snow_thick[i]*M_conc[i];
+
+        M_damage[i]=0.;
+
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {
+            //M_conc_thin[i]=std::max(M_conc_amsre[i]-M_conc[i],0.);
+            M_conc_thin[i]=std::min(1.-M_conc[i], 0.2*M_conc[i]);
+            M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
+        }
+
+        // Check that the snow is not so thick that the ice is flooded
+        double max_snow = M_thick[i]*(physical::rhow-physical::rhoi)/physical::rhos;
+        M_snow_thick[i] = std::min(max_snow, M_snow_thick[i]);
+
+    }
 }
 
 void
 FiniteElement::smosIce()
 {
     external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
-    M_init_conc.check_and_reload(M_mesh,time_init);
+    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_smos_elements_dataset,M_mesh,0,false,time_init);
-    M_init_thick.check_and_reload(M_mesh,time_init);
+    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     boost::gregorian::date dt = Nextsim::parse_date(time_init);
     int month_id=dt.month().as_number(); // 1 for January, 2 for February, and so on. This will be used to compute the snow from Warren climatology
@@ -6491,7 +7308,15 @@ FiniteElement::smosIce()
     std::cout << "month_id: " << month_id <<"\n";
 
     external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
-    M_init_snow_thick.check_and_reload(M_mesh,time_init);
+    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
+
+    M_external_data_tmp.resize(0);
+    M_external_data_tmp.push_back(&M_init_conc);
+    M_external_data_tmp.push_back(&M_init_thick);
+    M_external_data_tmp.push_back(&M_init_snow_thick);
+    this->checkReloadDatasets(M_external_data_tmp,time_init,
+            "init ice - SMOS");
+    M_external_data_tmp.resize(0);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -6637,7 +7462,7 @@ FiniteElement::warrenClimatology()
     std::vector<double> lon = M_mesh.meanLon();
     std::vector<double> lat = M_mesh.meanLat();
 
-    for ( int i=0; i<=M_num_elements; i++ )
+    for ( int i=0; i<M_num_elements; i++ )
     {
         const double pi = std::acos(-1);
 
@@ -6645,12 +7470,11 @@ FiniteElement::warrenClimatology()
         double y = (90 - lat[i]) * std::sin(lon[i]*pi/180.);
 
         M_snow_thick[i] = 1e-2*dt/eomday*std::max(0.,
-                                                  coeffs[month-1][0] + coeffs[month-1][1]*x + coeffs[month-1][2]*y
-                                                  + coeffs[month-1][3]*x*y + coeffs[month-1][4]*x*x + coeffs[month-1][5]*y*y)
+                coeffs[month-1][0] + coeffs[month-1][1]*x + coeffs[month-1][2]*y + coeffs[month-1][3]*x*y + coeffs[month-1][4]*x*x + coeffs[month-1][5]*y*y)
             + 1e-2*(eomday-dt)/eomday*std::max(0.,
-                                               coeffs[month2-1][0] + coeffs[month2-1][1]*x + coeffs[month2-1][2]*y
-                                               + coeffs[month2-1][3]*x*y + coeffs[month2-1][4]*x*x + coeffs[month2-1][5]*y*y);
+                coeffs[month2-1][0] + coeffs[month2-1][1]*x + coeffs[month2-1][2]*y + coeffs[month2-1][3]*x*y + coeffs[month2-1][4]*x*x + coeffs[month2-1][5]*y*y);
     }
+
 }
 
 void
@@ -6669,31 +7493,17 @@ FiniteElement::initThermodynamics()
 void
 FiniteElement::initDrifter()
 {
-    switch (M_drifter_type)
-    {
-        case setup::DrifterType::NONE:
-            break;
+    if(M_use_equallyspaced_drifters)
+        this->equallySpacedDrifter();
 
-        case setup::DrifterType::EQUALLYSPACED:
-            this->equallySpacedDrifter();
-            break;
+    if(M_use_iabp_drifters)
+        this->initIABPDrifter();
 
-        case setup::DrifterType::IABP:
-            this->initIABPDrifter();
-            break;
+    if(M_use_rgps_drifters)
+        this->initRGPSDrifters();
 
-        case setup::DrifterType::RGPS:
-            this->initRGPSDrifters();
-            break;
-
-        case setup::DrifterType::OSISAF:
-            this->initOSISAFDrifters();
-            break;
-
-        default:
-            std::cout << "invalid initialization of drifter"<<"\n";
-            throw std::logic_error("invalid initialization of drifter");
-    }
+    if(M_use_osisaf_drifters)
+        this->initOSISAFDrifters();
 }
 
 void
@@ -6769,10 +7579,10 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
     map = init_mapx(&str[0]);
 
     // Assemble the coordinates from the unordered_map
-    std::vector<double> drifter_X(M_iabpDrifters.size());
-    std::vector<double> drifter_Y(M_iabpDrifters.size());
+    std::vector<double> drifter_X(M_iabp_drifters.size());
+    std::vector<double> drifter_Y(M_iabp_drifters.size());
     int j=0;
-    for ( auto it = M_iabpDrifters.begin(); it != M_iabpDrifters.end(); ++it )
+    for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
     {
         drifter_X[j] = it->second[0];
         drifter_Y[j] = it->second[1];
@@ -6796,14 +7606,14 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
         M_mesh.numNodes(),M_mesh.numTriangles(),
         &interp_drifter_in[0],
         M_mesh.numNodes(),nb_var,
-        &drifter_X[0],&drifter_Y[0],M_iabpDrifters.size(),
+        &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
         true, 0.);
 
     // Loop over the map and output
     j=0;
     boost::gregorian::date           date = Nextsim::parse_date( current_time );
     boost::posix_time::time_duration time = Nextsim::parse_time( current_time );
-    for ( auto it = M_iabpDrifters.begin(); it != M_iabpDrifters.end(); ++it )
+    for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
     {
         double lat, lon;
         inverse_mapx(map,it->second[0]+interp_drifter_out[nb_var*j],it->second[1]+interp_drifter_out[nb_var*j+1],&lat,&lon);
@@ -6859,19 +7669,19 @@ FiniteElement::updateIABPDrifter()
         keepers.push_back(number);
 
         // Project and add the buoy to the map if it's missing
-        if ( M_iabpDrifters.count(number) == 0 )
+        if ( M_iabp_drifters.count(number) == 0 )
         {
             double x, y;
             forward_mapx(map,lat,lon,&x,&y);
-            M_iabpDrifters.emplace(number, std::array<double,2>{x, y});
+            M_iabp_drifters.emplace(number, std::array<double,2>{x, y});
 
         }
     }
     close_mapx(map);
 
-    // Go through the M_iabpDrifters map and throw out the ones which IABP doesn't
+    // Go through the M_iabp_drifters map and throw out the ones which IABP doesn't
     // report as being in the ice anymore
-    for ( auto model = M_iabpDrifters.begin(); model != M_iabpDrifters.end(); /* ++model is not allowed here, because we use 'erase' */ )
+    for ( auto model = M_iabp_drifters.begin(); model != M_iabp_drifters.end(); /* ++model is not allowed here, because we use 'erase' */ )
     {
         bool keep = false;
         // Check against all the buoys we want to keep
@@ -6886,7 +7696,7 @@ FiniteElement::updateIABPDrifter()
 
         // Delete or advance the iterator
         if ( ! keep )
-            model = M_iabpDrifters.erase(model);
+            model = M_iabp_drifters.erase(model);
         else
             ++model;
     }
@@ -6925,9 +7735,12 @@ FiniteElement::initIABPDrifter()
 void
 FiniteElement::equallySpacedDrifter()
 {
-    M_drifters = Drifters(1e3*vm["simul.drifter_spacing"].as<double>(), M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
-    M_drifters.initNetCDF(M_export_path+"/Drifters_", current_time);
-    M_drifters.appendNetCDF(current_time, M_mesh, M_UT);
+    // M_drifters = Drifters(1e3*vm["simul.drifter_spacing"].as<double>(), M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
+    // M_drifters.initNetCDF(M_export_path+"/Drifters_", current_time);
+    // M_drifters.appendNetCDF(current_time, M_mesh, M_UT);
+    M_equallyspaced_drifters = Drifters(1e3*vm["simul.drifter_spacing"].as<double>(), M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
+    M_equallyspaced_drifters.initNetCDF(M_export_path+"/Drifters_", current_time);
+    M_equallyspaced_drifters.appendNetCDF(current_time, M_mesh, M_UT);
 }
 
 void
@@ -7488,7 +8301,7 @@ FiniteElement::exportResults(int step, bool export_mesh)
 
             // Re-create the diagnostic variable 'concentration of thin ice'
             std::vector<double> conc_thin(M_mesh.numTriangles());
-            double const rtanalpha = c_thin_max/h_thin_max;
+            double const rtanalpha = 1.;//c_thin_max/h_thin_max;
             for ( int i=0; i<M_mesh.numTriangles(); ++i )
             {
                 conc_thin[i] = std::min(std::min(M_h_thin[i]/physical::hmin, std::sqrt(2.*M_h_thin[i]*rtanalpha)), 1.-M_conc[i]);
