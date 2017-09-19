@@ -20,15 +20,20 @@ function [field_tmp, field_plotted]=extract_field(field,data_out,dirname,step,si
 
      fld = 'Tice_0';
      [tsurf]=get_and_check(fld,data_out,dirname,step);
+
+     try % Try to read the thin ice 
+        fld = 'Tsurf_thin_ice';
+        [tsurf_thin]=get_and_check(fld,data_out,dirname,step,true);
      
-     fld = 'Tsurf_thin_ice';
-     [tsurf_thin]=get_and_check(fld,data_out,dirname,step);
+        fld = 'Concentration_thin_ice';
+        [conc_thin]=get_and_check(fld,data_out,dirname,step,true);
+     catch ERR
+         tsurf_thin = 0;
+         conc_thin  = 0;
+     end
      
      fld = 'Concentration';
      [conc]=get_and_check(fld,data_out,dirname,step);
-     
-     fld = 'Concentration_thin_ice';
-     [conc_thin]=get_and_check(fld,data_out,dirname,step);
      
      field_tmp = conc.*tsurf + conc_thin.*tsurf_thin + (1-conc-conc_thin).*sst;
      field_plotted = 'Ocean degrees above the freezing point';
