@@ -15,10 +15,10 @@
 #include <boost/format.hpp>
 #include <gmshmesh.hpp>
 #include <Bamgx.h>
+#include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromMeshToGridx.h>
 #include <BamgTriangulatex.h>
 #include <netcdf>
-#include <dataset.hpp>
 
 /**
  * @class GridOutput
@@ -30,7 +30,7 @@
 
 namespace Nextsim
 {
-class GridOutput: public DataSet
+class GridOutput
 {
 public:
 
@@ -89,7 +89,7 @@ public:
         conc        =  1,
         thick       =  2,
         damage      =  3,
-        snow_thick  =  4,
+        snow        =  4,
         VT_x        =  5,
         VT_y        =  6,
         tsurf       =  7,
@@ -97,9 +97,19 @@ public:
         sss         =  9,
         tsurf_ice   = 10,
         t1          = 11,
-        t2          = 12
+        t2          = 12,
+        h_thin      = 13,
+        hs_thin     = 14,
+        conc_thin   = 15,
 
         // Diagnostic variables
+        Qa          = 100,
+        Qsw         = 101,
+        Qlw         = 102,
+        Qsh         = 103,
+        Qlh         = 104,
+        Qo          = 105,
+        delS        = 106
     };
 
     typedef struct Variable
@@ -117,6 +127,8 @@ public:
                     stdName  = "land_sea_mask";
                     Units    = "1";
                     break;
+
+                // Prognostic variables
                 case (variableID::conc):
                     name     = "sic";
                     longName = "Sea Ice Concentration";
@@ -135,7 +147,7 @@ public:
                     stdName  = "sea_ice_damage";
                     Units    = "1";
                     break;
-                case (variableID::snow_thick):
+                case (variableID::snow):
                     name     = "snt";
                     longName = "Surface Snow Thickness";
                     stdName  = "surface_snow_thickness";
@@ -194,6 +206,68 @@ public:
                     Units    = "degree_Celsius";
                     // CF cannonical units are K, but we can use C also
                     break;
+                case (variableID::conc_thin):
+                    name     = "sic_thin";
+                    longName = "Thin Ice Concentration";
+                    stdName  = "thin_ice_area_fraction";
+                    Units    = "1";
+                    break;
+                case (variableID::h_thin):
+                    name     = "sit_thin";
+                    longName = "Thin Ice Thickness";
+                    stdName  = "thin_ice_thickness";
+                    Units    = "m";
+                    break;
+                case (variableID::hs_thin):
+                    name     = "snt_thin";
+                    longName = "Surface Snow Thickness on thin ice";
+                    stdName  = "surface_snow_thickness_on_thin_ice";
+                    Units    = "m";
+                    break;
+
+                // Diagnostic variables
+                case (variableID::Qa):
+                    name     = "hfs";
+                    longName = "Surface Upward Heat Flux In Air";
+                    stdName  = "surface_upward_heat_flux_in_air";
+                    Units    = "W m-2";
+                    break;
+                case (variableID::Qsw):
+                    name     = "rss";
+                    longName = "Surface Net Upward Shortwave Flux";
+                    stdName  = "surface_net_upward_shortwave_flux";
+                    Units    = "W m-2";
+                    break;
+                case (variableID::Qlw):
+                    name     = "rls";
+                    longName = "Surface Net Upward Longwave Flux";
+                    stdName  = "surface_net_upward_longwave_flux";
+                    Units    = "W m-2";
+                    break;
+                case (variableID::Qsh):
+                    name     = "hfss";
+                    longName = "Surface Upward Sensible Heat Flux";
+                    stdName  = "surface_upward_sensible_heat_flux";
+                    Units    = "W m-2";
+                    break;
+                case (variableID::Qlh):
+                    name     = "hfsl";
+                    longName = "Surface Upward Latent Heat Flux";
+                    stdName  = "surface_upward_latent_heat_flux";
+                    Units    = "W m-2";
+                    break;
+                case (variableID::Qo):
+                    name     = "hfos";
+                    longName = "Surface Upward Heatflux In Ocean";
+                    stdName  = "surface_upward_heatflux_in_ocean";
+                    Units    = "W m-2";
+                    break;
+                case (variableID::delS):
+                    name     = "sfo";
+                    longName = "Downward Saltflux In Ocean";
+                    stdName  = "downward_slatflux_in_ocean";
+                    Units    = "kg m-2 s-1";
+                    break;
             }
         }
 
@@ -207,6 +281,12 @@ public:
         std::vector<double> data_grid;
 
     } Variable;
+
+    typedef struct Vectorial_Variable
+    {
+        std::vector<int> components_Id;
+        bool east_west_oriented;
+    } Vectorial_Variable;
 
     ///////////////////////////////////////////////////////////////////////
     // Constructors (and destructor)

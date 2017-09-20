@@ -931,9 +931,10 @@ FiniteElement::initConstant()
     time_step = vm["simul.timestep"].as<double>();
     duration = (vm["simul.duration"].as<double>())*days_in_sec;
 
+
     mooring_output_time_step =  vm["simul.mooring_output_timestep"].as<double>()*days_in_sec;
     mooring_time_factor = time_step/mooring_output_time_step;
-    drifter_output_time_step =  vm["simul.drifter_output_timestep"].as<double>()*days_in_sec;
+    //drifter_output_time_step =  vm["simul.drifter_output_timestep"].as<double>()*days_in_sec;
 
     restart_time_step =  vm["setup.restart_time_step"].as<double>()*days_in_sec;
     M_use_restart   = vm["setup.use_restart"].as<bool>();
@@ -968,7 +969,7 @@ FiniteElement::initConstant()
     C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     tan_phi = vm["simul.tan_phi"].as<double>();
-    ridge_h = vm["simul.ridge_h"].as<double>();
+    //ridge_h = vm["simul.ridge_h"].as<double>();
 
     if ( vm["simul.newice_type"].as<int>() == 4 )
         M_ice_cat_type = setup::IceCategoryType::THIN_ICE;
@@ -1058,14 +1059,6 @@ FiniteElement::initConstant()
         ("bouillon", setup::BasalStressType::BOUILLON);
     M_basal_stress_type = str2basal_stress.find(vm["simul.basal_stress-type"].as<std::string>())->second;
 
-    // const boost::unordered_map<const std::string, setup::DrifterType> str2drifter = boost::assign::map_list_of
-    //     ("none", setup::DrifterType::NONE)
-    //     ("equallyspaced", setup::DrifterType::EQUALLYSPACED)
-    //     ("iabp", setup::DrifterType::IABP)
-    //     ("rgps", setup::DrifterType::RGPS)
-    //     ("osisaf", setup::DrifterType::OSISAF);
-    // M_drifter_type = str2drifter.find(vm["setup.drifter-type"].as<std::string>())->second;
-
     M_use_iabp_drifters=vm["simul.use_iabp_drifters"].as<bool>();
     M_equallyspaced_drifters_output_time_step=vm["simul.equallyspaced_drifters_output_time_step"].as<double>();
     M_rgps_drifters_output_time_step=vm["simul.rgps_drifters_output_time_step"].as<double>();
@@ -1124,7 +1117,6 @@ FiniteElement::initConstant()
     }
 
     M_mesh_fileformat = vm["mesh.fileformat"].as<std::string>();
-
 }
 
 void
@@ -5336,10 +5328,10 @@ FiniteElement::run()
     double minang = 0.;
     bool is_running = true;
 
+
     // Initialise the mesh
     this->initMesh();
 
-#if 1
     // Check the minimum angle of the grid
     minang = this->minAngle(M_mesh);
 
@@ -5350,6 +5342,7 @@ FiniteElement::run()
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
     }
 
+#if 1
     bool use_restart   = false;//vm["setup.use_restart"].as<bool>();
     bool write_restart = false;//vm["setup.write_restart"].as<bool>();
     if (0)//( use_restart )
@@ -5403,7 +5396,7 @@ FiniteElement::run()
         // if (M_rank == 0)
         //     std::cout <<"Initialize bathymetry\n";
         this->bathymetry();
-        if (M_rank == 0)
+        //if (M_rank == 0)
             std::cout <<"Initialize bathymetry done in "<< timer["bathy"].first.elapsed() <<"s\n";
 #endif
 
@@ -5432,7 +5425,7 @@ FiniteElement::run()
 
     // Open the output file for drifters
     // TODO: Is this the right place to open the file?
-    if (M_drifter_type == setup::DrifterType::IABP )
+    if ( M_use_iabp_drifters )
     {
         // We should tag the file name with the init time in case of a re-start.
         std::stringstream filename;
@@ -5556,12 +5549,12 @@ FiniteElement::run()
         if (M_rank == 0)
             std::cout <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
 
-        if (pcpt == 0)
-        {
-            LOG(DEBUG) <<"first export starts\n";
-            this->exportResults(0);
-            LOG(DEBUG) <<"first export done\n";
-        }
+        // if (pcpt == 0)
+        // {
+        //     LOG(DEBUG) <<"first export starts\n";
+        //     this->exportResults(0);
+        //     LOG(DEBUG) <<"first export done\n";
+        // }
 
 
         //======================================================================
@@ -5582,7 +5575,8 @@ FiniteElement::run()
         this->assemble(pcpt);
         if (M_rank == 0)
             std::cout <<"---timer assemble:             "<< timer["assemble"].first.elapsed() <<"s\n";
-#if 1
+
+
         //======================================================================
         // Solve the linear problem
         //======================================================================
@@ -5590,6 +5584,7 @@ FiniteElement::run()
         this->solve();
         if (M_rank == 0)
             std::cout <<"---timer solve:                "<< timer["solve"].first.elapsed() <<"s\n";
+
 
         timer["updatevelocity"].first.restart();
         this->updateVelocity();
@@ -5600,6 +5595,8 @@ FiniteElement::run()
         this->update();
         if (M_rank == 0)
             std::cout <<"---timer update:               "<< timer["update"].first.elapsed() <<"s\n";
+
+#if 0
 
         if(fmod((pcpt+1)*time_step,output_time_step) == 0)
         {
@@ -5612,9 +5609,9 @@ FiniteElement::run()
         ++pcpt;
     }
 
-    this->exportResults(1000);
+    //this->exportResults(1000);
 
-    this->clear();
+    //this->clear();
 
 #endif
 
@@ -5641,15 +5638,39 @@ FiniteElement::initMoorings()
 
     // Output variables - elements
     GridOutput::Variable conc(GridOutput::variableID::conc, data_elements, data_grid);
-
     GridOutput::Variable thick(GridOutput::variableID::thick, data_elements, data_grid);
+    GridOutput::Variable snow(GridOutput::variableID::snow, data_elements, data_grid);
+    GridOutput::Variable tsurf(GridOutput::variableID::tsurf, data_elements, data_grid);
+    GridOutput::Variable Qa(GridOutput::variableID::Qa, data_elements, data_grid);
+    GridOutput::Variable Qsw(GridOutput::variableID::Qsw, data_elements, data_grid);
+    GridOutput::Variable Qlw(GridOutput::variableID::Qlw, data_elements, data_grid);
+    GridOutput::Variable Qsh(GridOutput::variableID::Qsh, data_elements, data_grid);
+    GridOutput::Variable Qlh(GridOutput::variableID::Qlh, data_elements, data_grid);
+    GridOutput::Variable Qo(GridOutput::variableID::Qo, data_elements, data_grid);
+    GridOutput::Variable delS(GridOutput::variableID::delS, data_elements, data_grid);
 
-    GridOutput::Variable snow_thick(GridOutput::variableID::snow_thick, data_elements, data_grid);
-
-    std::vector<GridOutput::Variable> elemental_variables(3);
+    std::vector<GridOutput::Variable> elemental_variables(11);
     elemental_variables[0] = conc;
     elemental_variables[1] = thick;
-    elemental_variables[2] = snow_thick;
+    elemental_variables[2] = snow;
+    elemental_variables[3] = tsurf;
+    elemental_variables[4] = Qa;
+    elemental_variables[5] = Qsw;
+    elemental_variables[6] = Qlw;
+    elemental_variables[7] = Qsh;
+    elemental_variables[8] = Qlh;
+    elemental_variables[9] = Qo;
+    elemental_variables[10] = delS;
+    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+    {
+        GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin, data_elements, data_grid);
+        GridOutput::Variable h_thin(GridOutput::variableID::h_thin, data_elements, data_grid);
+        GridOutput::Variable hs_thin(GridOutput::variableID::hs_thin, data_elements, data_grid);
+
+        elemental_variables.push_back(conc_thin);
+        elemental_variables.push_back(h_thin);
+        elemental_variables.push_back(hs_thin);
+    }
 
     // Output variables - nodes
     GridOutput::Variable siu(GridOutput::variableID::VT_x, data_nodes, data_grid);
@@ -5665,14 +5686,13 @@ FiniteElement::initMoorings()
     siuv_id[0] = 0;
     siuv_id[1] = 1;
 
-    DataSet::Vectorial_Variable siuv
-    {
-       components_Id: siuv_id,
-       // east_west_oriented: true
-       east_west_oriented: false
+    GridOutput::Vectorial_Variable siuv{
+        components_Id: siuv_id,
+        // east_west_oriented: true
+        east_west_oriented: false
     };
 
-    std::vector<DataSet::Vectorial_Variable> vectorial_variables(1);
+    std::vector<GridOutput::Vectorial_Variable> vectorial_variables(1);
     vectorial_variables[0] = siuv;
 
 #if 1
@@ -5682,43 +5702,415 @@ FiniteElement::initMoorings()
     auto xcoords = std::minmax_element( RX.begin(), RX.end() );
     auto ycoords = std::minmax_element( RY.begin(), RY.end() );
 
-
     double mooring_spacing = 1e3 * vm["simul.mooring_spacing"].as<double>();
     int ncols = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/mooring_spacing );
     int nrows = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
 
     // Define the mooring dataset
     M_moorings = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first, nodal_variables, elemental_variables, vectorial_variables);
-
 #else
     // Read the grid in from file
     // Define a grid
-    GridOutput::Grid grid
-    {
-        gridFile: "TP4DAILY_200710_3m.nc",
+    GridOutput::Grid grid{
+        gridFile: "ice_drift_nh_polstere-625_multi-oi.nc",
         dirname: "data",
         mpp_file: Environment::vm()["mesh.mppfile"].as<std::string>(),
-        dimNameX: "y",
-        dimNameY: "x",
-        latName: "latitude",
-        lonName: "longitude"
+        dimNameX: "yc",
+        dimNameY: "xc",
+        latName: "lat",
+        lonName: "lon"
     };
 
     // Define the mooring dataset
     M_moorings = GridOutput(grid, nodal_variables, elemental_variables, vectorial_variables);
+
+    /* Just for debuging
+    // Save the grid info - this is still just an ascii dump!
+    std::ofstream myfile;
+    myfile.open("lon_grid.dat");
+    std::copy(M_moorings.M_grid.gridLON.begin(), M_moorings.M_grid.gridLON.end(), ostream_iterator<float>(myfile," "));
+    myfile.close();
+    myfile.open("lat_grid.dat");
+    std::copy(M_moorings.M_grid.gridLAT.begin(), M_moorings.M_grid.gridLAT.end(), ostream_iterator<float>(myfile," "));
+    myfile.close();
+
+    myfile.open("x_grid.dat");
+    std::copy(M_moorings.M_grid.gridX.begin(), M_moorings.M_grid.gridX.end(), ostream_iterator<float>(myfile," "));
+    myfile.close();
+    myfile.open("y_grid.dat");
+    std::copy(M_moorings.M_grid.gridY.begin(), M_moorings.M_grid.gridY.end(), ostream_iterator<float>(myfile," "));
+    myfile.close();
+    */
 #endif
 
-    M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, time_init);
+    double output_time;
+    if ( M_moorings_snapshot )
+        // shift the timestamp in the file to the centre of the output interval
+        output_time = current_time;
+    else
+        output_time = current_time - mooring_output_time_step/86400/2;
+
+    M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
 }
 
 void
 FiniteElement::writeRestart(int pcpt, int step)
 {
+    Exporter exporter;
+    std::string filename;
+
+    // === Start with the mesh ===
+    // First the data
+    std::string directory = Environment::nextsimDir().string() + "/restart";
+    // change directory for outputs if the option "output_directory" is not empty
+    if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
+        directory = vm["simul.output_directory"].as<std::string>() + "/restart";
+
+    // create the output directory if it does not exist
+    fs::path path(directory);
+    if ( !fs::exists(path) )
+        fs::create_directories(path);
+
+    filename = (boost::format( "%1%/mesh_%2%.bin" )
+            % directory
+            % step ).str();
+
+    std::fstream meshbin(filename, std::ios::binary | std::ios::out | std::ios::trunc);
+    if ( ! meshbin.good() )
+        throw std::runtime_error("Cannot write to file: " + filename);
+    exporter.writeMesh(meshbin, M_mesh);
+    meshbin.close();
+
+    // Then the record
+    filename = (boost::format( "%1%/mesh_%2%.dat" )
+           % directory
+           % step ).str();
+
+    std::fstream meshrecord(filename, std::ios::out | std::ios::trunc);
+    if ( ! meshrecord.good() )
+        throw std::runtime_error("Cannot write to file: " + filename);
+    exporter.writeRecord(meshrecord,"mesh");
+    meshrecord.close();
+
+    // === Write the prognostic variables ===
+    // First the data
+    filename = (boost::format( "%1%/field_%2%.bin" )
+               % directory
+               % step ).str();
+    std::fstream outbin(filename, std::ios::binary | std::ios::out | std::ios::trunc );
+    if ( ! outbin.good() )
+        throw std::runtime_error("Cannot write to file: " + filename);
+
+    std::vector<int> misc_int(4);
+    misc_int[0] = pcpt;
+    misc_int[1] = M_flag_fix;
+    misc_int[2] = current_time;
+    int mesh_adapt_step = 0;
+    misc_int[3] = mesh_adapt_step;
+    exporter.writeField(outbin, misc_int, "Misc_int");
+    exporter.writeField(outbin, M_dirichlet_flags, "M_dirichlet_flags");
+
+    exporter.writeField(outbin, M_conc, "M_conc");
+    exporter.writeField(outbin, M_thick, "M_thick");
+    exporter.writeField(outbin, M_snow_thick, "M_snow_thick");
+    exporter.writeField(outbin, M_sigma, "M_sigma");
+    exporter.writeField(outbin, M_damage, "M_damage");
+    exporter.writeField(outbin, M_ridge_ratio, "M_ridge_ratio");
+    exporter.writeField(outbin, M_random_number, "M_random_number");
+    int i=0;
+    for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
+    {
+        exporter.writeField(outbin, *it, "M_Tice_"+std::to_string(i));
+        i++;
+    }
+    exporter.writeField(outbin, M_sst, "M_sst");
+    exporter.writeField(outbin, M_sss, "M_sss");
+    exporter.writeField(outbin, M_VT, "M_VT");
+    exporter.writeField(outbin, M_VTM, "M_VTM");
+    exporter.writeField(outbin, M_VTMM, "M_VTMM");
+    exporter.writeField(outbin, M_UM, "M_UM");
+    exporter.writeField(outbin, M_UT, "M_UT");
+
+    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+    {
+        exporter.writeField(outbin, M_h_thin, "M_h_thin");
+        exporter.writeField(outbin, M_conc_thin, "M_conc_thin");
+        exporter.writeField(outbin, M_hs_thin, "M_hs_thin");
+        exporter.writeField(outbin, M_tsurf_thin, "M_tsurf_thin");
+    }
+
+    if (M_use_iabp_drifters)
+    {
+        std::vector<int> drifter_no(M_iabp_drifters.size());
+        std::vector<double> drifter_x(M_iabp_drifters.size());
+        std::vector<double> drifter_y(M_iabp_drifters.size());
+
+        // Sort the drifters so the restart files are identical (this is just to make testing easier)
+        int j=0;
+        for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
+        {
+            drifter_no[j] = it->first;
+            ++j;
+        }
+        std::sort(drifter_no.begin(), drifter_no.end());
+
+        j=0;
+        for ( auto it = drifter_no.begin(); it != drifter_no.end(); it++ )
+        {
+            drifter_x[j] = M_iabp_drifters[drifter_no[j]][0];
+            drifter_y[j] = M_iabp_drifters[drifter_no[j]][1];
+            j++;
+        }
+
+        exporter.writeField(outbin, drifter_no, "Drifter_no");
+        exporter.writeField(outbin, drifter_x, "Drifter_x");
+        exporter.writeField(outbin, drifter_y, "Drifter_y");
+    }
+
+    outbin.close();
+
+    // Then the record
+    filename = (boost::format( "%1%/field_%2%.dat" )
+               % directory
+               % step ).str();
+    std::fstream outrecord(filename, std::ios::out | std::ios::trunc);
+    if ( ! outrecord.good() )
+        throw std::runtime_error("Cannot write to file: " + filename);
+    exporter.writeRecord(outrecord);
+    outrecord.close();
 }
 
 void
 FiniteElement::readRestart(int &pcpt, int step)
 {
+    Exporter exp_field, exp_mesh;
+    std::string filename;
+    boost::unordered_map<std::string, std::vector<int>>    field_map_int;
+    boost::unordered_map<std::string, std::vector<double>> field_map_dbl;
+
+    // === Read in the mesh restart files ===
+    std::string restart_path;
+    if ( (vm["setup.restart_path"].as<std::string>()).empty() )
+        //default restart path is $NEXTSIMDIR/restart
+        restart_path = Environment::nextsimDir().string()+"/restart";
+    else
+        restart_path = vm["setup.restart_path"].as<std::string>();
+
+    // Start with the record
+    filename = (boost::format( "%1%/mesh_%2%.dat" )
+               % restart_path
+               % step ).str();
+    std::ifstream meshrecord(filename);
+    if ( ! meshrecord.good() )
+        throw std::runtime_error("File not found: " + filename);
+
+    exp_mesh.readRecord(meshrecord);
+    meshrecord.close();
+
+    // Then onto the data itself
+    filename = (boost::format( "%1%/mesh_%2%.bin" )
+               % restart_path
+               % step ).str();
+    std::fstream meshbin(filename, std::ios::binary | std::ios::in );
+    if ( ! meshbin.good() )
+        throw std::runtime_error("File not found: " + filename);
+    exp_mesh.loadFile(meshbin, field_map_int, field_map_dbl);
+    meshbin.close();
+
+    std::vector<int>   indexTr = field_map_int["Elements"];
+    std::vector<double> coordX = field_map_dbl["Nodes_x"];
+    std::vector<double> coordY = field_map_dbl["Nodes_y"];
+    std::vector<int>   nodeId = field_map_int["id"];
+
+    // === Read in the prognostic variables ===
+    // Start with the record
+    filename = (boost::format( "%1%/field_%2%.dat" )
+               % restart_path
+               % step ).str();
+    std::ifstream inrecord(filename);
+    if ( ! inrecord.good() )
+        throw std::runtime_error("File not found: " + filename);
+
+    exp_field.readRecord(inrecord);
+    inrecord.close();
+
+    // Then onto the data itself
+    filename = (boost::format( "%1%/field_%2%.bin" )
+               % restart_path
+               % step ).str();
+    std::fstream inbin(filename, std::ios::binary | std::ios::in );
+    if ( ! inbin.good() )
+        throw std::runtime_error("File not found: " + filename);
+    field_map_int.clear();
+    field_map_dbl.clear();
+    exp_field.loadFile(inbin, field_map_int, field_map_dbl);
+    inbin.close();
+
+    // === Recreate the mesh ===
+    // Create bamgmesh and bamggeom
+    BamgConvertMeshx(
+            bamgmesh,bamggeom,
+	    &indexTr[0],&coordX[0],&coordY[0],
+	    coordX.size(), indexTr.size()/3.
+            );
+
+    // Fix boundaries
+    //int pcpt     = field_map_int["Misc_int"].at(0);
+    M_flag_fix   = field_map_int["Misc_int"].at(1);
+    current_time = field_map_int["Misc_int"].at(2);
+    int mesh_adapt_step = field_map_int["Misc_int"].at(3);
+    pcpt = (current_time-time_init)*(24*3600)/time_step;
+
+    std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
+    for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
+    {
+        int fnd = bamgmesh->Edges[3*edg]-1;
+        if ((std::binary_search(dirichlet_flags.begin(),dirichlet_flags.end(),fnd)))
+        {
+            bamggeom->Edges[3*edg+2] = M_flag_fix;
+            bamgmesh->Edges[3*edg+2] = M_flag_fix;
+        }
+        else
+        {
+            bamggeom->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
+            bamgmesh->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
+        }
+    }
+
+    // Import the bamg structs
+    this->importBamg(bamgmesh);
+
+    // We mask out the boundary nodes
+    M_mask.assign(bamgmesh->VerticesSize[0],false) ;
+    M_mask_dirichlet.assign(bamgmesh->VerticesSize[0],false) ;
+    for (int vert=0; vert<bamgmesh->VerticesOnGeomVertexSize[0]; ++vert)
+        M_mask[bamgmesh->VerticesOnGeomVertex[2*vert]-1]=true; // The factor 2 is because VerticesOnGeomVertex has 2 dimensions in bamg
+
+    M_mesh.setId(nodeId);
+
+    M_elements = M_mesh.triangles();
+    M_nodes = M_mesh.nodes();
+
+    M_num_elements = M_mesh.numTriangles();
+    M_num_nodes = M_mesh.numNodes();
+
+    // Initialise all the variables to zero
+    this->initVariables();
+
+    // update dirichlet nodes
+    M_boundary_flags.resize(0);
+    M_dirichlet_flags.resize(0);
+    for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
+    {
+        M_boundary_flags.push_back(bamgmesh->Edges[3*edg]-1);
+        if (bamgmesh->Edges[3*edg+2] == M_flag_fix)
+            M_dirichlet_flags.push_back(bamgmesh->Edges[3*edg]-1);
+    }
+
+    std::sort(M_dirichlet_flags.begin(), M_dirichlet_flags.end());
+    std::sort(M_boundary_flags.begin(), M_boundary_flags.end());
+
+    M_neumann_flags.resize(0);
+    std::set_difference(M_boundary_flags.begin(), M_boundary_flags.end(),
+                        M_dirichlet_flags.begin(), M_dirichlet_flags.end(),
+                        std::back_inserter(M_neumann_flags));
+
+    M_dirichlet_nodes.resize(2*(M_dirichlet_flags.size()));
+    for (int i=0; i<M_dirichlet_flags.size(); ++i)
+    {
+        M_dirichlet_nodes[2*i] = M_dirichlet_flags[i];
+        M_dirichlet_nodes[2*i+1] = M_dirichlet_flags[i]+M_num_nodes;
+        M_mask_dirichlet[M_dirichlet_flags[i]]=true;
+    }
+
+    M_neumann_nodes.resize(2*(M_neumann_flags.size()));
+    for (int i=0; i<M_neumann_flags.size(); ++i)
+    {
+        M_neumann_nodes[2*i] = M_neumann_flags[i];
+        M_neumann_nodes[2*i+1] = M_neumann_flags[i]+M_num_nodes;
+    }
+
+    // === Set the prognostic variables ===
+    M_conc       = field_map_dbl["M_conc"];
+    M_thick      = field_map_dbl["M_thick"];
+    M_snow_thick = field_map_dbl["M_snow_thick"];
+    M_sigma      = field_map_dbl["M_sigma"];
+    M_damage     = field_map_dbl["M_damage"];
+    M_ridge_ratio     = field_map_dbl["M_ridge_ratio"];
+    M_random_number      = field_map_dbl["M_random_number"];
+    int i=0;
+    for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
+    {
+        *it = field_map_dbl["M_Tice_"+std::to_string(i)];
+        i++;
+    }
+    M_sst        = field_map_dbl["M_sst"];
+    M_sss        = field_map_dbl["M_sss"];
+    M_VT         = field_map_dbl["M_VT"];
+    M_VTM        = field_map_dbl["M_VTM"];
+    M_VTMM       = field_map_dbl["M_VTMM"];
+    M_UM         = field_map_dbl["M_UM"];
+    M_UT         = field_map_dbl["M_UT"];
+
+    M_surface.assign(M_num_elements,0.);
+    int cpt = 0;
+    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
+    {
+        M_surface[cpt] = this->measure(*it,M_mesh,M_UM);
+        ++cpt;
+    }
+
+    // // Pre-processing
+    if(vm["setup.restart_at_rest"].as<bool>())
+    {
+        for (int i=0; i < M_sigma.size(); i++)
+        {
+            M_sigma[i] = 0.;
+        }
+        for (int i=0; i < M_VT.size(); i++)
+        {
+            M_VT[i] = 0.;
+            M_VTM[i] = 0.;
+            M_VTMM[i] = 0.;
+            M_UM[i] = 0.;
+            M_UT[i] = 0.;
+        }
+    }
+
+
+    //for (int i=0; i < M_thick.size(); i++)
+    //{
+    //  M_thick[i] *= 2.0;
+    //}
+
+    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+    {
+        M_h_thin     = field_map_dbl["M_h_thin"];
+        M_conc_thin  = field_map_dbl["M_conc_thin"];
+        M_hs_thin    = field_map_dbl["M_hs_thin"];
+        M_tsurf_thin = field_map_dbl["M_tsurf_thin"];
+    }
+
+    if (M_use_iabp_drifters)
+    {
+        std::vector<int>    drifter_no = field_map_int["Drifter_no"];
+        std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
+        std::vector<double> drifter_y  = field_map_dbl["Drifter_y"];
+
+        this->initIABPDrifter();
+        if (drifter_no.size() == 0)
+        {
+            LOG(WARNING) << "Warning: Couldn't read drifter positions from restart file. Drifter positions initialised as if there was no restart.\n";
+            this->updateIABPDrifter();
+        } else {
+            for ( int i=0; i<drifter_no.size(); ++i )
+            {
+                M_iabp_drifters.emplace(drifter_no[i], std::array<double,2>{drifter_x[i], drifter_y[i]});
+            }
+        }
+    }
+
+    inbin.close();
 }
 
 void

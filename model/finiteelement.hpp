@@ -314,7 +314,7 @@ private:
     setup::DynamicsType M_dynamics_type;
 
     setup::IceCategoryType M_ice_cat_type;
-    setup::DrifterType M_drifter_type;
+    //setup::DrifterType M_drifter_type;
     setup::DomainType M_domain_type;
     setup::MeshType M_mesh_type;
     mesh::Partitioner M_partitioner;

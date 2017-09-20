@@ -371,10 +371,10 @@ void GridOutput::rotateVectors(GmshMesh const& mesh, Vectorial_Variable const& v
     mapNextsim = init_mapx(&strNextsim[0]);
 
     // Try to get the rotation of the data set
-    mapx_class *map;
     double rotation_angle;
     if((!vectorial_variable.east_west_oriented) && (M_grid.mpp_file!=""))
     {
+        mapx_class *map;
         std::string configfile = (boost::format( "%1%/%2%/%3%" )
                                   % Environment::nextsimDir().string()
                                   % M_grid.dirname
@@ -385,6 +385,7 @@ void GridOutput::rotateVectors(GmshMesh const& mesh, Vectorial_Variable const& v
         str.push_back('\0');
         map = init_mapx(&str[0]);
         rotation_angle = (mapNextsim->rotation-map->rotation)*PI/180.;
+        close_mapx(map);
     }
     else if (vectorial_variable.east_west_oriented)
     {
@@ -396,6 +397,7 @@ void GridOutput::rotateVectors(GmshMesh const& mesh, Vectorial_Variable const& v
         // or do nothing
         rotation_angle=0.;
     }
+    close_mapx(mapNextsim);
 
     // Rotate!
     if ( (rotation_angle!=0.) || (vectorial_variable.east_west_oriented) )
@@ -481,9 +483,8 @@ std::string GridOutput::initNetCDF(std::string file_prefix, fileLength file_leng
     }
     filename << ".nc";
 
-    std::cout<<"@@@@@@@@@@@@FILE= "<< filename.str() <<"\n";
-
     // Create the netCDF file.
+    //LOG(DEBUG) <<"Initialise mooring file named " << filename.str() << "\n";
     netCDF::NcFile dataFile(filename.str(), netCDF::NcFile::replace);
 
     // Create the time dimension

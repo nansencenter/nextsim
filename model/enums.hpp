@@ -59,9 +59,11 @@ namespace setup
 
     enum class WaveType
     {
-        CONSTANT = 0,
-        WW3A     = 1,
-        ERAI_WAVES_1DEG = 2
+        SET_IN_WIM          = 0,
+        CONSTANT            = 1,
+        CONSTANT_PARTIAL    = 2,
+        WW3A                = 3,
+        ERAI_WAVES_1DEG     = 4
     };
 
     enum class BathymetryType
@@ -81,15 +83,6 @@ namespace setup
         CLASSIC     = 0,
         THIN_ICE    = 1,
         MULTI       = 2
-    };
-
-    enum class DrifterType
-    {
-        NONE          = 0,
-        EQUALLYSPACED = 1,
-        IABP          = 2,
-        OSISAF        = 3,
-        RGPS          = 4
     };
 
     enum class DomainType

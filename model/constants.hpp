@@ -18,7 +18,7 @@ namespace physical
     const double C = 2100;
 
     /* Minimum ice concentration allowed [0 1] */
-    const double cmin = 0.001;
+    const double cmin = 1e-12; // 0.001
 
     /* Speciffic heat of air [J/K/kg] */
     const double cpa = 1004.64;
