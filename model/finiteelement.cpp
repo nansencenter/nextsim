@@ -1460,6 +1460,15 @@ FiniteElement::regrid(bool step)
 			M_UM.assign(2*M_num_nodes,0.);
 			M_UT.assign(2*M_num_nodes,0.);
 
+            if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
+            {
+                M_tau.assign(2*M_num_nodes,0.);
+                M_wim_meshdisp.assign(2*M_num_nodes,0.);
+                if(M_export_wim_diags_mesh)
+                    for (auto it=M_wim_fields_nodes.begin();it!=M_wim_fields_nodes.end();it++)
+                        (it->second).assign(2*M_num_nodes,0.);
+            }//M_wim_on_mesh
+
 			for (int i=0; i<M_num_nodes; ++i)
 			{
                 int tmp_nb_var = 0;
