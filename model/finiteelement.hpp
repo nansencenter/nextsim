@@ -335,6 +335,9 @@ private:
     // interpolation method
     std::vector<int> M_interp_method;
 
+    // diffusivity parameters
+    std::vector<double> M_diffusivity_parameters;
+
     std::vector<double> M_surface;
     std::vector<double> M_sigma;
     std::vector<double> M_UM;
