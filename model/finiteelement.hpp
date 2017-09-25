@@ -149,6 +149,7 @@ public:
 
     void assemble(int cpt);
     void solve();
+    void init();
     void run();
 
     void thermo();
@@ -234,7 +235,7 @@ public:
     void exportResults(int step, bool export_mesh = true);
 
     void writeRestart(int pcpt, int step);
-    void readRestart(int &pcpt, int step);
+    int readRestart(int step);
 
     void rootMeshProcessing();
 
@@ -295,6 +296,13 @@ private:
     int M_prv_num_elements;
     int M_prv_global_num_nodes;
     int M_prv_global_num_elements;
+
+    int pcpt;
+    int niter;
+    int mesh_adapt_step;
+    bool had_remeshed;
+    double minang;
+    double M_res_root_mesh;
 
     std::vector<int> M_boundary_flags;
     std::vector<int> M_dirichlet_flags;

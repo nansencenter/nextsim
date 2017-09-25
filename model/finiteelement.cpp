@@ -345,10 +345,11 @@ FiniteElement::rootMeshProcessing()
 
         // Definition of the hmin, hmax, hminVertices or hmaxVertices
         auto h = this->minMaxSide(M_mesh_root);
+        M_res_root_mesh = this->resolution(M_mesh_root);
 
         std::cout <<"MESH: HMIN= "<< h[0] <<"\n";
         std::cout <<"MESH: HMAX= "<< h[1] <<"\n";
-        std::cout <<"MESH: RESOLUTION= "<< this->resolution(M_mesh_root) <<"\n";
+        std::cout <<"MESH: RESOLUTION= "<< M_res_root_mesh <<"\n";
 
         switch (M_mesh_type)
         {
@@ -5583,16 +5584,9 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
     }
 }
 
-// This is the main working function, called from main.cpp (same as perform_simul in the old code)
 void
-FiniteElement::run()
+FiniteElement::init()
 {
-    if (M_comm.rank() == 0)
-    {
-        // LOG(INFO) << "-----------------------Simulation started on "<< current_time_local() <<"\n";
-        std::cout << "[INFO]: " << "-----------------------Simulation started on "<< current_time_local() <<"\n";
-    }
-
     // define export path
     M_export_path = Environment::nextsimDir().string() + "/matlab";
     // change directory for outputs if the option "output_directory" is not empty
@@ -5618,19 +5612,16 @@ FiniteElement::run()
         this->writeLogFile();
     }
 
-
-    std::string current_time_system = current_time_local();
-
     // Initialise everything that doesn't depend on the mesh (constants, data set description, and time)
     this->initConstant();
     current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
     this->initDatasets();
 
-
-
-    int pcpt = 0;
-    int niter = vm["simul.maxiteration"].as<int>();
-    //std::cout<<"MAXITER= "<< maxiter <<"\n";
+    pcpt = 0;
+    niter = vm["simul.maxiteration"].as<int>();
+    mesh_adapt_step = 0;
+    had_remeshed = false;
+    minang = 0.;
 
     if (M_rank==0)
     {
@@ -5638,13 +5629,16 @@ FiniteElement::run()
         LOG(DEBUG) <<"DURATION= "<< duration <<"\n";
     }
 
-    double displacement_factor = 1.;
-    double minang = 0.;
-    bool is_running = true;
-
-
     // Initialise the mesh
     this->initMesh();
+
+    // We need to set the scale_coeff et al after initialising the mesh - this was previously done in initConstants
+    // The mean resolution of the small_arctic_10km mesh is 7446.71 m. Using 74.5 gives scale_coef = 0.100022, for that mesh
+    boost::mpi::broadcast(M_comm, M_res_root_mesh, 0);
+    scale_coef = std::sqrt(74.5/M_res_root_mesh/*this->resolution(M_mesh)*/);
+    C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
+    C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
+    LOG(DEBUG) << "SCALE_COEF = " << scale_coef << "\n";
 
     // Check the minimum angle of the grid
     minang = this->minAngle(M_mesh);
@@ -5657,25 +5651,20 @@ FiniteElement::run()
     }
 
 #if 1
-    bool use_restart   = false;//vm["setup.use_restart"].as<bool>();
-    bool write_restart = false;//vm["setup.write_restart"].as<bool>();
-    if (0)//( use_restart )
+    if ( M_use_restart )
     {
-        //pcpt = this->readRestart(vm["setup.step_nb"].as<int>());
-        //current_time = time_init + pcpt*time_step/(24*3600.0);
+        LOG(DEBUG) <<"Reading restart file\n";
+        pcpt = this->readRestart(vm["setup.step_nb"].as<int>());
+        // current_time = time_init + pcpt*time_step/(24*3600.0);
+        if(M_use_osisaf_drifters)
+            this->initOSISAFDrifters();
 
-        this->forcingAtmosphere();
-
-        this->forcingOcean();
-
-        this->bathymetry();
-
-        // for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
-        //     (*it)->check_and_reload(M_mesh,time_init);
-
-        this->checkReloadDatasets(M_external_data,
-                                  time_init,
-                                  "init - time-dependant");
+        if(fmod(pcpt*time_step,output_time_step) == 0)
+        {
+            LOG(DEBUG) <<"export starts\n";
+            this->exportResults((int) pcpt*time_step/output_time_step);
+            LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
+        }
     }
     else
     {
@@ -5690,45 +5679,41 @@ FiniteElement::run()
         this->initVariables();
         if (M_rank == 0)
             std::cout <<"Initialize variables done "<< timer["initvar"].first.elapsed() <<"s\n";
+    }
 
-        timer["atmost"].first.restart();
-        // if (M_rank == 0)
-        //     std::cout <<"Initialize forcingAtmosphere\n";
-        this->forcingAtmosphere();
-        if (M_rank == 0)
-            std::cout <<"Initialize forcingAtmosphere done in "<< timer["atmost"].first.elapsed() <<"s\n";
+    timer["atmost"].first.restart();
+    // if (M_rank == 0)
+    //     std::cout <<"Initialize forcingAtmosphere\n";
+    this->forcingAtmosphere();
+    if (M_rank == 0)
+        std::cout <<"Initialize forcingAtmosphere done in "<< timer["atmost"].first.elapsed() <<"s\n";
 
-        timer["ocean"].first.restart();
-        // if (M_rank == 0)
-        //     std::cout <<"Initialize forcingOcean\n";
-        this->forcingOcean();
-        if (M_rank == 0)
-            std::cout <<"Initialize forcingOcean done in "<< timer["ocean"].first.elapsed() <<"s\n";
+    timer["ocean"].first.restart();
+    // if (M_rank == 0)
+    //     std::cout <<"Initialize forcingOcean\n";
+    this->forcingOcean();
+    if (M_rank == 0)
+        std::cout <<"Initialize forcingOcean done in "<< timer["ocean"].first.elapsed() <<"s\n";
 
-#if 1
-        timer["bathy"].first.restart();
-        // if (M_rank == 0)
-        //     std::cout <<"Initialize bathymetry\n";
-        this->bathymetry();
-        //if (M_rank == 0)
-            std::cout <<"Initialize bathymetry done in "<< timer["bathy"].first.elapsed() <<"s\n";
-#endif
+    timer["bathy"].first.restart();
+    // if (M_rank == 0)
+    //     std::cout <<"Initialize bathymetry\n";
+    this->bathymetry();
+    //if (M_rank == 0)
+    std::cout <<"Initialize bathymetry done in "<< timer["bathy"].first.elapsed() <<"s\n";
 
-        timer["checkload"].first.restart();
-        // if (M_rank == 0)
-        //     std::cout <<"check_and_reload starts\n";
-#if 0
-        for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
-            (*it)->check_and_reload(M_mesh,time_init);
-#else
-        this->checkReloadDatasets(M_external_data,
-                                  time_init,
-                                  "init - time-dependant");
-#endif
-        if (M_rank == 0)
-            std::cout <<"check_and_reload in "<< timer["checkload"].first.elapsed() <<"s\n";
+    timer["checkload"].first.restart();
+    // if (M_rank == 0)
+    //     std::cout <<"check_and_reload starts\n";
 
+    this->checkReloadDatasets(M_external_data,
+                              time_init,
+                              "init - time-dependant");
+    if (M_rank == 0)
+        std::cout <<"check_and_reload in "<< timer["checkload"].first.elapsed() <<"s\n";
 
+    if (!M_use_restart)
+    {
         timer["state"].first.restart();
         // if (M_rank == 0)
         //     std::cout <<"initModelState starts\n";
@@ -5754,6 +5739,23 @@ FiniteElement::run()
         this->initMoorings();
 
 #endif
+
+}
+
+// This is the main working function, called from main.cpp (same as perform_simul in the old code)
+void
+FiniteElement::run()
+{
+    if (M_comm.rank() == 0)
+    {
+        // LOG(INFO) << "-----------------------Simulation started on "<< current_time_local() <<"\n";
+        std::cout << "[INFO]: " << "-----------------------Simulation started on "<< current_time_local() <<"\n";
+    }
+
+    std::string current_time_system = current_time_local();
+    double displacement_factor = 1.;
+    // double minang = 0.;
+    bool is_running = true;
 
 #if 1
     // main loop for nextsim program
@@ -5833,7 +5835,7 @@ FiniteElement::run()
         //     this->outputDrifter(M_drifters_out);
         // }
 
-        if ( M_regrid || use_restart )
+        if ( M_regrid || M_use_restart )
         {
             timer["tensors"].first.restart();
             this->tensors();
@@ -6119,7 +6121,6 @@ FiniteElement::writeRestart(int pcpt, int step)
     misc_int[0] = pcpt;
     misc_int[1] = M_flag_fix;
     misc_int[2] = current_time;
-    int mesh_adapt_step = 0;
     misc_int[3] = mesh_adapt_step;
     exporter.writeField(outbin, misc_int, "Misc_int");
     exporter.writeField(outbin, M_dirichlet_flags, "M_dirichlet_flags");
@@ -6194,8 +6195,8 @@ FiniteElement::writeRestart(int pcpt, int step)
     outrecord.close();
 }
 
-void
-FiniteElement::readRestart(int &pcpt, int step)
+int
+FiniteElement::readRestart(int step)
 {
     Exporter exp_field, exp_mesh;
     std::string filename;
@@ -6272,8 +6273,8 @@ FiniteElement::readRestart(int &pcpt, int step)
     //int pcpt     = field_map_int["Misc_int"].at(0);
     M_flag_fix   = field_map_int["Misc_int"].at(1);
     current_time = field_map_int["Misc_int"].at(2);
-    int mesh_adapt_step = field_map_int["Misc_int"].at(3);
-    pcpt = (current_time-time_init)*(24*3600)/time_step;
+    mesh_adapt_step = field_map_int["Misc_int"].at(3);
+    int pcpt = (current_time-time_init)*(24*3600)/time_step;
 
     std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
     for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
