@@ -64,7 +64,10 @@ FiniteElement::initMesh()
 
     this->rootMeshProcessing();
 
-    this->distributedMeshProcessing(true);
+    if (!M_use_restart)
+    {
+        this->distributedMeshProcessing(true);
+    }
 }
 
 void
@@ -400,43 +403,46 @@ FiniteElement::rootMeshProcessing()
             this->interpVertices();
         }
 
-        chrono.restart();
-        LOG(DEBUG) <<"AdaptMesh starts\n";
-        this->adaptMesh();
-        LOG(DEBUG) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
-
-        // Add information on the number of partition to mesh filename
-        M_mesh_filename = (boost::format( "par%1%%2%" ) % M_comm.size() % M_mesh_filename ).str();
-        LOG(DEBUG) <<"["<< M_rank <<"] " <<"filename= "<< M_mesh_filename <<"\n";
-
-        std::cout<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
-        std::cout<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
-        std::cout<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
-        std::cout<<"------------------------------space         = "<< vm["mesh.partition-space"].as<std::string>() <<"\n";
-        std::cout<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
-
-
-        // save mesh (only root process)
-        chrono.restart();
-        if (M_partition_space == mesh::PartitionSpace::MEMORY)
+        if (!M_use_restart)
         {
-            // Environment::logMemoryUsage("before gmodel...");
-            M_mesh_root.initGModel();
-            M_mesh_root.writeToGModel(M_mesh_filename);
-            // Environment::logMemoryUsage("before after...");
-        }
-        else if (M_partition_space == mesh::PartitionSpace::DISK)
-        {
-            M_mesh_root.writeTofile(M_mesh_filename);
-        }
-        //LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
-        std::cout <<"Writing mesh done in "<< chrono.elapsed() <<"s\n";
+            chrono.restart();
+            LOG(DEBUG) <<"AdaptMesh starts\n";
+            this->adaptMesh();
+            LOG(DEBUG) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
 
-        // partition the mesh on root process (rank 0)
-        chrono.restart();
-        M_mesh_root.partition(M_mesh_filename,M_partitioner,M_partition_space, M_mesh_fileformat);
-        //LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
-        std::cout <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
+            // Add information on the number of partition to mesh filename
+            M_mesh_filename = (boost::format( "par%1%%2%" ) % M_comm.size() % M_mesh_filename ).str();
+            LOG(DEBUG) <<"["<< M_rank <<"] " <<"filename= "<< M_mesh_filename <<"\n";
+
+            std::cout<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
+            std::cout<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
+            std::cout<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
+            std::cout<<"------------------------------space         = "<< vm["mesh.partition-space"].as<std::string>() <<"\n";
+            std::cout<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
+
+
+            // save mesh (only root process)
+            chrono.restart();
+            if (M_partition_space == mesh::PartitionSpace::MEMORY)
+            {
+                // Environment::logMemoryUsage("before gmodel...");
+                M_mesh_root.initGModel();
+                M_mesh_root.writeToGModel(M_mesh_filename);
+                // Environment::logMemoryUsage("before after...");
+            }
+            else if (M_partition_space == mesh::PartitionSpace::DISK)
+            {
+                M_mesh_root.writeTofile(M_mesh_filename);
+            }
+            //LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
+            std::cout <<"Writing mesh done in "<< chrono.elapsed() <<"s\n";
+
+            // partition the mesh on root process (rank 0)
+            chrono.restart();
+            M_mesh_root.partition(M_mesh_filename,M_partitioner,M_partition_space, M_mesh_fileformat);
+            //LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
+            std::cout <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
+        }
     }
     else
     {
@@ -1766,22 +1772,6 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool s
         M_diffusivity_parameters[tmp_nb_var]=0.;
         tmp_nb_var++;
 
-#if 0
-        // slab ocean (Msst and M_sss)
-        if (slab)
-        {
-            // Sea surface temperature
-            interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_sst[i];
-            M_interp_method[tmp_nb_var] = 0;
-            tmp_nb_var++;
-
-            // Sea surface salinity
-            interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_sss[i];
-            M_interp_method[tmp_nb_var] = 0;
-            tmp_nb_var++;
-        }
-#endif
-
         if(tmp_nb_var>M_nb_var_element)
         {
             throw std::logic_error("tmp_nb_var not equal to nb_var");
@@ -3056,6 +3046,12 @@ FiniteElement::adaptMesh()
 
     this->importBamg(bamgmesh_root);
 
+    this->updateBoundaryFlags();
+}
+
+void
+FiniteElement::updateBoundaryFlags()
+{
     LOG(DEBUG) <<"CLOSED: FLAGS SIZE BEFORE= "<< M_dirichlet_flags_root.size() <<"\n";
     LOG(DEBUG) <<"OPEN  : FLAGS SIZE BEFORE= "<< M_neumann_flags_root.size() <<"\n";
 
@@ -5749,6 +5745,8 @@ FiniteElement::run()
         std::cout << "[INFO]: " << "-----------------------Simulation started on "<< current_time_local() <<"\n";
     }
 
+    this->init();
+
     std::string current_time_system = current_time_local();
     double displacement_factor = 1.;
     // double minang = 0.;
@@ -6130,18 +6128,13 @@ FiniteElement::writeRestart(int pcpt, int step)
         }
     }
 
-    // std::vector<double> interp_elt_in_local;
-    // this->gatherFieldsElement(interp_elt_in_local);
-
     // fields defined on mesh elements
     std::vector<int> sizes_elements = M_sizes_elements;
-
-    // ELEMENT INTERPOLATION With Cavities
-    int nb_var_element=7;//15;
+    int nb_var_element = 15 + M_tice.size();//15;
     std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = nb_var_element*f; });
     std::vector<double> interp_elt_in_local(nb_var_element*M_local_nelements);
 
-    int tmp_nb_var=0;
+
     for (int i=0; i<M_local_nelements; ++i)
     {
         tmp_nb_var=0;
@@ -6225,110 +6218,8 @@ FiniteElement::writeRestart(int pcpt, int step)
         }
     }
 
-    // std::vector<double> conc_root(M_mesh_root.numTriangles());
-    // std::vector<double> thick_root(M_mesh_root.numTriangles());
-    // std::vector<double> thick_snow(M_mesh_root.numTriangles());
-    // std::vector<double> stress1(M_mesh_root.numTriangles());
-    // std::vector<double> stress2(M_mesh_root.numTriangles());
-    // std::vector<double> stress3(M_mesh_root.numTriangles());
-    // std::vector<double> damage(M_mesh_root.numTriangles());
-
-
-
-    if (M_rank == 0)
-    {
-        for (int i=0; i<M_mesh_root.numTriangles(); ++i)
-        {
-            tmp_nb_var=0;
-            int ri = M_rmap_elements[i];
-
-            // concentration
-            conc_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // thickness
-            thick_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // snow thickness
-            thick_snow[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // integrated_stress1
-            stress1[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // integrated_stress2
-            stress2[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // integrated_stress3
-            stress3[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // damage
-            damage[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // ridge_ratio
-            ridge_ratio[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // ridge_ratio
-            random_number[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // sss
-            sss[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // sst
-            sst[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // M_tice1
-            M_tice1 = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // M_tice2
-            M_tice2 = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // M_tice3
-            M_tice3 = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // h_thin
-            M_hs_thin = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // conc_thin
-            M_conc_thin = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // hs_thin
-            M_hs_thin = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // tsurf_thin
-            M_tsurf_thin = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            if(tmp_nb_var>nb_var_element)
-            {
-                throw std::logic_error("tmp_nb_var not equal to nb_var");
-            }
-        }
-    }
-
-
-
-
-
-
-
     std::vector<double> interp_in_elements;
-    //M_comm.barrier();
+
     if (M_rank == 0)
     {
         interp_in_elements.resize(nb_var_element*M_mesh_root.numTriangles());
@@ -6339,389 +6230,242 @@ FiniteElement::writeRestart(int pcpt, int step)
         boost::mpi::gatherv(M_comm, interp_elt_in_local, 0);
     }
 
-    std::vector<double> conc_root(M_mesh_root.numTriangles());
-    std::vector<double> thick_root(M_mesh_root.numTriangles());
-    std::vector<double> thick_snow(M_mesh_root.numTriangles());
-    std::vector<double> stress1(M_mesh_root.numTriangles());
-    std::vector<double> stress2(M_mesh_root.numTriangles());
-    std::vector<double> stress3(M_mesh_root.numTriangles());
-    std::vector<double> damage(M_mesh_root.numTriangles());
-    // std::vector<double> ridged_thin(M_mesh_root.numTriangles());
-    // std::vector<double> ridged_thick(M_mesh_root.numTriangles());
-    // std::vector<double> random(M_mesh_root.numTriangles());
-    // std::vector<double> tsurf(M_mesh_root.numTriangles());
-    // std::vector<double> hthin(M_mesh_root.numTriangles());
-    // std::vector<double> hsthin(M_mesh_root.numTriangles());
-    // std::vector<double> tsurfthin(M_mesh_root.numTriangles());
 
     if (M_rank == 0)
     {
-        tmp_nb_var=0;
-        //auto rmap_elements = M_mesh.mapElements();
-        //auto interp_in_elements_nrd = interp_in_elements;
+        int num_elements_root = M_mesh_root.numTriangles();
+        int tice_size = M_tice.size();
+
+        std::vector<double> M_conc_root(num_elements_root);
+        std::vector<double> M_thick_root(num_elements_root);
+        std::vector<double> M_snow_thick_root(num_elements_root);
+        std::vector<double> M_sigma_root(3*num_elements_root);
+        std::vector<double> M_damage_root(num_elements_root);
+        std::vector<double> M_ridge_ratio_root(num_elements_root);
+        std::vector<double> M_random_number_root(num_elements_root);
+        std::vector<double> M_sss_root(num_elements_root);
+        std::vector<double> M_sst_root(num_elements_root);
+        std::vector<double> M_tice_root(tice_size*num_elements_root);
+        std::vector<double> M_h_thin_root(num_elements_root);
+        std::vector<double> M_conc_thin_root(num_elements_root);
+        std::vector<double> M_hs_thin_root(num_elements_root);
+        std::vector<double> M_tsurf_thin_root(num_elements_root);
 
         for (int i=0; i<M_mesh_root.numTriangles(); ++i)
         {
             tmp_nb_var=0;
-            //int ri = rmap_elements.left.find(i+1)->second-1;
             int ri = M_rmap_elements[i];
 
-            // for (int j=0; j<nb_var_element; ++j)
-            // {
-            //     interp_in_elements[nb_var_element*i+j] = interp_in_elements_nrd[nb_var_element*ri+j];
-            // }
-
             // concentration
-            conc_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+            M_conc_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
             tmp_nb_var++;
 
             // thickness
-            thick_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+            M_thick_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
             tmp_nb_var++;
 
             // snow thickness
-            thick_snow[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+            M_snow_thick_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
             tmp_nb_var++;
 
             // integrated_stress1
-            stress1[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+            M_sigma_root[3*i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
             tmp_nb_var++;
 
             // integrated_stress2
-            stress2[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+            M_sigma_root[3*i+1] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
             tmp_nb_var++;
 
             // integrated_stress3
-            stress3[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+            M_sigma_root[3*i+2] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
             tmp_nb_var++;
 
             // damage
-            damage[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+            M_damage_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
             tmp_nb_var++;
 
-#if 0
-            // h_ridged_thin_ice
-            ridged_thin[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+            // ridge_ratio
+            M_ridge_ratio_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
             tmp_nb_var++;
 
-            // h_ridged_thick_ice
-            ridged_thick[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+            // ridge_ratio
+            M_random_number_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
             tmp_nb_var++;
 
-            // random_number
-            random[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+            // sss
+            M_sss_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
             tmp_nb_var++;
 
-            // Ice surface temperature
-            tsurf[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+            // sst
+            M_sst_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
             tmp_nb_var++;
 
-            // thin ice thickness
-            hthin[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+            // tice1
+            M_tice_root[tice_size*i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
             tmp_nb_var++;
 
-            // snow on thin ice
-            hsthin[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+            if ( M_thermo_type == setup::ThermoType::WINTON )
+            {
+                // tice2
+                M_tice_root[tice_size*i+1] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                tmp_nb_var++;
+
+                // tice3
+                M_tice_root[tice_size*i+2] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                tmp_nb_var++;
+            }
+
+            // h_thin
+            M_h_thin_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
             tmp_nb_var++;
 
-            // Ice surface temperature for thin ice
-            tsurfthin[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+            // conc_thin
+            M_conc_thin_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
             tmp_nb_var++;
-#endif
+
+            // hs_thin
+            M_hs_thin_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+            tmp_nb_var++;
+
+            // tsurf_thin
+            M_tsurf_thin_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+            tmp_nb_var++;
 
             if(tmp_nb_var>nb_var_element)
             {
                 throw std::logic_error("tmp_nb_var not equal to nb_var");
             }
         }
-    }
-
-#endif
-
-    if (M_rank == 0)
-    {
-        Exporter exporter("float");
-        std::string fileout;
-
-        if (export_mesh)
-        {
-            fileout = (boost::format( "%1%/matlab/mesh_%2%_%3%.bin" )
-                       % Environment::nextsimDir().string()
-                       % M_comm.size() /*M_rank*/
-                       % step ).str();
-
-            std::cout<<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
-
-            // move the mesh for the export
-            // M_mesh.move(M_UM,1.);
-
-            std::fstream meshbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
-            if ( ! meshbin.good() )
-                throw std::runtime_error("Cannot write to file: " + fileout);
-
-#if 0
-            auto rmap_nodes = M_mesh.mapNodes();
-            auto rmap_elements = M_mesh.mapElements();
-
-            auto meshr = M_mesh_root;
-            meshr.reorder(rmap_nodes,rmap_elements);
-            //exporter.writeMesh(meshbin, M_mesh);
-            //exporter.writeMesh(meshbin, M_mesh_root);
-            exporter.writeMesh(meshbin, meshr);
-            meshbin.close();
-#endif
-            exporter.writeMesh(meshbin, M_mesh_root);
-            meshbin.close();
-
-            // move it back after the export
-            //M_mesh.move(M_UM,-1.);
-
-            fileout = (boost::format( "%1%/matlab/mesh_%2%_%3%.dat" )
-                       % Environment::nextsimDir().string()
-                       % M_comm.size()
-                       % step ).str();
-
-            std::cout<<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
-
-            std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
-            if ( ! outrecord.good() )
-                throw std::runtime_error("Cannot write to file: " + fileout);
-
-            exporter.writeRecord(outrecord,"mesh");
-            outrecord.close();
-        }
 
 
-        fileout = (boost::format( "%1%/matlab/field_%2%_%3%.bin" )
-                   % Environment::nextsimDir().string()
-                   % M_comm.size() /*M_rank*/
-                   % step ).str();
+        Exporter exporter;
+        std::string filename;
 
-        std::cout<<"BINARY: Exporter Filename= "<< fileout <<"\n";
+        // === Start with the mesh ===
+        // First the data
+        std::string directory = Environment::nextsimDir().string() + "/restart";
+        // change directory for outputs if the option "output_directory" is not empty
+        if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
+            directory = vm["simul.output_directory"].as<std::string>() + "/restart";
 
-        std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
+        // create the output directory if it does not exist
+        fs::path path(directory);
+        if ( !fs::exists(path) )
+            fs::create_directories(path);
+
+        filename = (boost::format( "%1%/mesh_%2%.bin" )
+                    % directory
+                    % step ).str();
+
+        std::fstream meshbin(filename, std::ios::binary | std::ios::out | std::ios::trunc);
+        if ( ! meshbin.good() )
+            throw std::runtime_error("Cannot write to file: " + filename);
+        exporter.writeMesh(meshbin, M_mesh);
+        meshbin.close();
+
+        // Then the record
+        filename = (boost::format( "%1%/mesh_%2%.dat" )
+                    % directory
+                    % step ).str();
+
+        std::fstream meshrecord(filename, std::ios::out | std::ios::trunc);
+        if ( ! meshrecord.good() )
+            throw std::runtime_error("Cannot write to file: " + filename);
+        exporter.writeRecord(meshrecord,"mesh");
+        meshrecord.close();
+
+        // === Write the prognostic variables ===
+        // First the data
+        filename = (boost::format( "%1%/field_%2%.bin" )
+                    % directory
+                    % step ).str();
+        std::fstream outbin(filename, std::ios::binary | std::ios::out | std::ios::trunc );
         if ( ! outbin.good() )
-            throw std::runtime_error("Cannot write to file: " + fileout);
+            throw std::runtime_error("Cannot write to file: " + filename);
 
+        std::vector<int> misc_int(4);
+        misc_int[0] = pcpt;
+        misc_int[1] = M_flag_fix;
+        misc_int[2] = current_time;
+        misc_int[3] = mesh_adapt_step;
+        exporter.writeField(outbin, misc_int, "Misc_int");
+        exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
 
-        //auto rmap_nodes = M_mesh.mapNodes();
-        int prv_global_num_nodes = M_mesh.numGlobalNodes();
+        exporter.writeField(outbin, M_conc_root, "M_conc");
+        exporter.writeField(outbin, M_thick_root, "M_thick");
+        exporter.writeField(outbin, M_snow_thick_root, "M_snow_thick");
+        exporter.writeField(outbin, M_sigma_root, "M_sigma");
+        exporter.writeField(outbin, M_damage_root, "M_damage");
+        exporter.writeField(outbin, M_ridge_ratio_root, "M_ridge_ratio");
+        exporter.writeField(outbin, M_random_number_root, "M_random_number");
 
-        auto interp_in_nodes_nrd = vt_root;
-
-        for (int i=0; i<prv_global_num_nodes; ++i)
+        int i=0;
+        for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
         {
-            //int ri =  rmap_nodes.left.find(i+1)->second-1;
-            int ri =  M_rmap_nodes[i];
-
-            vt_root[i] = interp_in_nodes_nrd[2*ri];
-            vt_root[i+prv_global_num_nodes] = interp_in_nodes_nrd[2*ri+1];
-
-            //if reorder mesh
-            //vt_root[i] = interp_in_nodes_nrd[2*i];
-            //vt_root[i+prv_global_num_nodes] = interp_in_nodes_nrd[2*i+1];
-
-            // if ((vt_root[i] == 0) && (vt_root[i+prv_global_num_nodes] == 0))
-            // {
-            //     std::cout<<"vt_root["<< 2*i+j <<"]---["<< 2*ri+j <<"]" << ": global "<< ri <<"\n";
-            //     std::cout<<"vt_root["<< i <<"]---["<< 2*ri <<"]" << ": global "<< ri <<"\n";
-            //     std::cout<<"vt_root["<< i+prv_global_num_nodes <<"]---["<< 2*ri+1 <<"]" << ": global "<< 2*ri+1 <<"\n";
-            // }
+            exporter.writeField(outbin, *it, "M_Tice_" + std::to_string(i));
+            i++;
         }
 
-        // Add time info and export it for plotting
-        std::vector<double> timevec(1,current_time);
-
-        exporter.writeField(outbin, timevec, "Time");
-        exporter.writeField(outbin, vt_root, "M_VT");
-        exporter.writeField(outbin, conc_root, "Concentration");
-        exporter.writeField(outbin, thick_root, "Thickness");
-        exporter.writeField(outbin, thick_snow, "Snow");
-        exporter.writeField(outbin, stress1, "Stress1");
-        exporter.writeField(outbin, stress2, "Stress2");
-        exporter.writeField(outbin, stress3, "Stress3");
-        exporter.writeField(outbin, damage, "Damage");
-        // exporter.writeField(outbin, ridged_thin, "Ridgedthin");
-        // exporter.writeField(outbin, ridged_thick, "Ridgedthick");
-        // exporter.writeField(outbin, random, "Random");
-        // exporter.writeField(outbin, tsurf, "Tsurf");
-        // exporter.writeField(outbin, hthin, "Hthin");
-        // exporter.writeField(outbin, hsthin, "Hsthin");
-        // exporter.writeField(outbin, tsurfthin, "Tsurfthin");
-
-
-
-        // exporter.writeField(outbin, M_tsurf, "Tsurf");
-        // exporter.writeField(outbin, M_sst, "SST");
-        // exporter.writeField(outbin, M_sss, "SSS");
+        exporter.writeField(outbin, M_sst_root, "M_sst");
+        exporter.writeField(outbin, M_sss_root, "M_sss");
+        exporter.writeField(outbin, M_VT_root, "M_VT");
+        exporter.writeField(outbin, M_VTM_root, "M_VTM");
+        exporter.writeField(outbin, M_VTMM_root, "M_VTMM");
+        exporter.writeField(outbin, M_UM_root, "M_UM");
+        exporter.writeField(outbin, M_UT_root, "M_UT");
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
-            exporter.writeField(outbin, M_h_thin, "Thin_ice");
-            exporter.writeField(outbin, M_hs_thin, "Snow_thin_ice");
-            exporter.writeField(outbin, M_tsurf_thin, "Tsurf_thin_ice");
+            exporter.writeField(outbin, M_h_thin_root, "M_h_thin");
+            exporter.writeField(outbin, M_conc_thin_root, "M_conc_thin");
+            exporter.writeField(outbin, M_hs_thin_root, "M_hs_thin");
+            exporter.writeField(outbin, M_tsurf_thin_root, "M_tsurf_thin");
+        }
 
-            // Re-create the diagnostic variable 'concentration of thin ice'
-            std::vector<double> conc_thin(M_mesh.numTriangles());
-            double const rtanalpha = 1.;//c_thin_max/h_thin_max;
-            for ( int i=0; i<M_mesh.numTriangles(); ++i )
+        if (M_use_iabp_drifters)
+        {
+            std::vector<int> drifter_no(M_iabp_drifters.size());
+            std::vector<double> drifter_x(M_iabp_drifters.size());
+            std::vector<double> drifter_y(M_iabp_drifters.size());
+
+            // Sort the drifters so the restart files are identical (this is just to make testing easier)
+            int j=0;
+            for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
             {
-                conc_thin[i] = std::min(std::min(M_h_thin[i]/physical::hmin, std::sqrt(2.*M_h_thin[i]*rtanalpha)), 1.-M_conc[i]);
+                drifter_no[j] = it->first;
+                ++j;
             }
-            exporter.writeField(outbin, conc_thin, "Concentration_thin_ice");
+            std::sort(drifter_no.begin(), drifter_no.end());
+
+            j=0;
+            for ( auto it = drifter_no.begin(); it != drifter_no.end(); it++ )
+            {
+                drifter_x[j] = M_iabp_drifters[drifter_no[j]][0];
+                drifter_y[j] = M_iabp_drifters[drifter_no[j]][1];
+                j++;
+            }
+
+            exporter.writeField(outbin, drifter_no, "Drifter_no");
+            exporter.writeField(outbin, drifter_x, "Drifter_x");
+            exporter.writeField(outbin, drifter_y, "Drifter_y");
         }
 
         outbin.close();
 
+        // Then the record
+        filename = (boost::format( "%1%/field_%2%.dat" )
+                    % directory
+                    % step ).str();
 
-        fileout = (boost::format( "%1%/matlab/field_%2%_%3%.dat" )
-                   % Environment::nextsimDir().string()
-                   % M_comm.size()
-                   % step ).str();
-
-        std::cout<<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
-
-        std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
+        std::fstream outrecord(filename, std::ios::out | std::ios::trunc);
         if ( ! outrecord.good() )
-            throw std::runtime_error("Cannot write to file: " + fileout);
+        {
+            throw std::runtime_error("Cannot write to file: " + filename);
+        }
 
         exporter.writeRecord(outrecord);
         outrecord.close();
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-    Exporter exporter;
-    std::string filename;
-
-    // === Start with the mesh ===
-    // First the data
-    std::string directory = Environment::nextsimDir().string() + "/restart";
-    // change directory for outputs if the option "output_directory" is not empty
-    if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
-        directory = vm["simul.output_directory"].as<std::string>() + "/restart";
-
-    // create the output directory if it does not exist
-    fs::path path(directory);
-    if ( !fs::exists(path) )
-        fs::create_directories(path);
-
-    filename = (boost::format( "%1%/mesh_%2%.bin" )
-            % directory
-            % step ).str();
-
-    std::fstream meshbin(filename, std::ios::binary | std::ios::out | std::ios::trunc);
-    if ( ! meshbin.good() )
-        throw std::runtime_error("Cannot write to file: " + filename);
-    exporter.writeMesh(meshbin, M_mesh);
-    meshbin.close();
-
-    // Then the record
-    filename = (boost::format( "%1%/mesh_%2%.dat" )
-           % directory
-           % step ).str();
-
-    std::fstream meshrecord(filename, std::ios::out | std::ios::trunc);
-    if ( ! meshrecord.good() )
-        throw std::runtime_error("Cannot write to file: " + filename);
-    exporter.writeRecord(meshrecord,"mesh");
-    meshrecord.close();
-
-    // === Write the prognostic variables ===
-    // First the data
-    filename = (boost::format( "%1%/field_%2%.bin" )
-               % directory
-               % step ).str();
-    std::fstream outbin(filename, std::ios::binary | std::ios::out | std::ios::trunc );
-    if ( ! outbin.good() )
-        throw std::runtime_error("Cannot write to file: " + filename);
-
-    std::vector<int> misc_int(4);
-    misc_int[0] = pcpt;
-    misc_int[1] = M_flag_fix;
-    misc_int[2] = current_time;
-    misc_int[3] = mesh_adapt_step;
-    exporter.writeField(outbin, misc_int, "Misc_int");
-    exporter.writeField(outbin, M_dirichlet_flags, "M_dirichlet_flags");
-
-    exporter.writeField(outbin, M_conc, "M_conc");
-    exporter.writeField(outbin, M_thick, "M_thick");
-    exporter.writeField(outbin, M_snow_thick, "M_snow_thick");
-    exporter.writeField(outbin, M_sigma, "M_sigma");
-    exporter.writeField(outbin, M_damage, "M_damage");
-    exporter.writeField(outbin, M_ridge_ratio, "M_ridge_ratio");
-    exporter.writeField(outbin, M_random_number, "M_random_number");
-    int i=0;
-    for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
-    {
-        exporter.writeField(outbin, *it, "M_Tice_"+std::to_string(i));
-        i++;
-    }
-    exporter.writeField(outbin, M_sst, "M_sst");
-    exporter.writeField(outbin, M_sss, "M_sss");
-    exporter.writeField(outbin, M_VT, "M_VT");
-    exporter.writeField(outbin, M_VTM, "M_VTM");
-    exporter.writeField(outbin, M_VTMM, "M_VTMM");
-    exporter.writeField(outbin, M_UM, "M_UM");
-    exporter.writeField(outbin, M_UT, "M_UT");
-
-    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-    {
-        exporter.writeField(outbin, M_h_thin, "M_h_thin");
-        exporter.writeField(outbin, M_conc_thin, "M_conc_thin");
-        exporter.writeField(outbin, M_hs_thin, "M_hs_thin");
-        exporter.writeField(outbin, M_tsurf_thin, "M_tsurf_thin");
-    }
-
-    if (M_use_iabp_drifters)
-    {
-        std::vector<int> drifter_no(M_iabp_drifters.size());
-        std::vector<double> drifter_x(M_iabp_drifters.size());
-        std::vector<double> drifter_y(M_iabp_drifters.size());
-
-        // Sort the drifters so the restart files are identical (this is just to make testing easier)
-        int j=0;
-        for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
-        {
-            drifter_no[j] = it->first;
-            ++j;
-        }
-        std::sort(drifter_no.begin(), drifter_no.end());
-
-        j=0;
-        for ( auto it = drifter_no.begin(); it != drifter_no.end(); it++ )
-        {
-            drifter_x[j] = M_iabp_drifters[drifter_no[j]][0];
-            drifter_y[j] = M_iabp_drifters[drifter_no[j]][1];
-            j++;
-        }
-
-        exporter.writeField(outbin, drifter_no, "Drifter_no");
-        exporter.writeField(outbin, drifter_x, "Drifter_x");
-        exporter.writeField(outbin, drifter_y, "Drifter_y");
-    }
-
-    outbin.close();
-
-    // Then the record
-    filename = (boost::format( "%1%/field_%2%.dat" )
-               % directory
-               % step ).str();
-    std::fstream outrecord(filename, std::ios::out | std::ios::trunc);
-    if ( ! outrecord.good() )
-        throw std::runtime_error("Cannot write to file: " + filename);
-    exporter.writeRecord(outrecord);
-    outrecord.close();
 }
 
 int
@@ -6732,229 +6476,275 @@ FiniteElement::readRestart(int step)
     boost::unordered_map<std::string, std::vector<int>>    field_map_int;
     boost::unordered_map<std::string, std::vector<double>> field_map_dbl;
 
-    // === Read in the mesh restart files ===
-    std::string restart_path;
-    if ( (vm["setup.restart_path"].as<std::string>()).empty() )
-        //default restart path is $NEXTSIMDIR/restart
-        restart_path = Environment::nextsimDir().string()+"/restart";
-    else
-        restart_path = vm["setup.restart_path"].as<std::string>();
+    std::fstream inbin;
 
-    // Start with the record
-    filename = (boost::format( "%1%/mesh_%2%.dat" )
-               % restart_path
-               % step ).str();
-    std::ifstream meshrecord(filename);
-    if ( ! meshrecord.good() )
-        throw std::runtime_error("File not found: " + filename);
-
-    exp_mesh.readRecord(meshrecord);
-    meshrecord.close();
-
-    // Then onto the data itself
-    filename = (boost::format( "%1%/mesh_%2%.bin" )
-               % restart_path
-               % step ).str();
-    std::fstream meshbin(filename, std::ios::binary | std::ios::in );
-    if ( ! meshbin.good() )
-        throw std::runtime_error("File not found: " + filename);
-    exp_mesh.loadFile(meshbin, field_map_int, field_map_dbl);
-    meshbin.close();
-
-    std::vector<int>   indexTr = field_map_int["Elements"];
-    std::vector<double> coordX = field_map_dbl["Nodes_x"];
-    std::vector<double> coordY = field_map_dbl["Nodes_y"];
-    std::vector<int>   nodeId = field_map_int["id"];
-
-    // === Read in the prognostic variables ===
-    // Start with the record
-    filename = (boost::format( "%1%/field_%2%.dat" )
-               % restart_path
-               % step ).str();
-    std::ifstream inrecord(filename);
-    if ( ! inrecord.good() )
-        throw std::runtime_error("File not found: " + filename);
-
-    exp_field.readRecord(inrecord);
-    inrecord.close();
-
-    // Then onto the data itself
-    filename = (boost::format( "%1%/field_%2%.bin" )
-               % restart_path
-               % step ).str();
-    std::fstream inbin(filename, std::ios::binary | std::ios::in );
-    if ( ! inbin.good() )
-        throw std::runtime_error("File not found: " + filename);
-    field_map_int.clear();
-    field_map_dbl.clear();
-    exp_field.loadFile(inbin, field_map_int, field_map_dbl);
-    inbin.close();
-
-    // === Recreate the mesh ===
-    // Create bamgmesh and bamggeom
-    BamgConvertMeshx(
-            bamgmesh,bamggeom,
-	    &indexTr[0],&coordX[0],&coordY[0],
-	    coordX.size(), indexTr.size()/3.
-            );
-
-    // Fix boundaries
-    //int pcpt     = field_map_int["Misc_int"].at(0);
-    M_flag_fix   = field_map_int["Misc_int"].at(1);
-    current_time = field_map_int["Misc_int"].at(2);
-    mesh_adapt_step = field_map_int["Misc_int"].at(3);
-    int pcpt = (current_time-time_init)*(24*3600)/time_step;
-
-    std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
-    for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
+    if (M_rank == 0)
     {
-        int fnd = bamgmesh->Edges[3*edg]-1;
-        if ((std::binary_search(dirichlet_flags.begin(),dirichlet_flags.end(),fnd)))
+        // === Read in the mesh restart files ===
+        std::string restart_path;
+        if ( (vm["setup.restart_path"].as<std::string>()).empty() )
         {
-            bamggeom->Edges[3*edg+2] = M_flag_fix;
-            bamgmesh->Edges[3*edg+2] = M_flag_fix;
+            //default restart path is $NEXTSIMDIR/restart
+            restart_path = Environment::nextsimDir().string()+"/restart";
         }
         else
         {
-            bamggeom->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
-            bamgmesh->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
+            restart_path = vm["setup.restart_path"].as<std::string>();
         }
+
+        // Start with the record
+        filename = (boost::format( "%1%/mesh_%2%.dat" )
+                    % restart_path
+                    % step ).str();
+
+        std::ifstream meshrecord(filename);
+        if ( ! meshrecord.good() )
+        {
+            throw std::runtime_error("File not found: " + filename);
+        }
+
+        exp_mesh.readRecord(meshrecord);
+        meshrecord.close();
+
+        // Then onto the data itself
+        filename = (boost::format( "%1%/mesh_%2%.bin" )
+                    % restart_path
+                    % step ).str();
+
+        std::fstream meshbin(filename, std::ios::binary | std::ios::in );
+        if ( ! meshbin.good() )
+        {
+            throw std::runtime_error("File not found: " + filename);
+        }
+
+        exp_mesh.loadFile(meshbin, field_map_int, field_map_dbl);
+        meshbin.close();
+
+        std::vector<int>   indexTr = field_map_int["Elements"];
+        std::vector<double> coordX = field_map_dbl["Nodes_x"];
+        std::vector<double> coordY = field_map_dbl["Nodes_y"];
+        std::vector<int>   nodeId = field_map_int["id"];
+
+        // === Read in the prognostic variables ===
+        // Start with the record
+        filename = (boost::format( "%1%/field_%2%.dat" )
+                    % restart_path
+                    % step ).str();
+
+        std::ifstream inrecord(filename);
+        if ( ! inrecord.good() )
+        {
+            throw std::runtime_error("File not found: " + filename);
+        }
+
+        exp_field.readRecord(inrecord);
+        inrecord.close();
+
+        // Then onto the data itself
+        filename = (boost::format( "%1%/field_%2%.bin" )
+                    % restart_path
+                    % step ).str();
+
+        inbin.open(filename, std::ios::binary | std::ios::in );
+
+        if ( ! inbin.good() )
+        {
+            throw std::runtime_error("File not found: " + filename);
+        }
+
+        field_map_int.clear();
+        field_map_dbl.clear();
+        exp_field.loadFile(inbin, field_map_int, field_map_dbl);
+        inbin.close();
+
+        // === Recreate the mesh ===
+        // Create bamgmesh and bamggeom
+        BamgConvertMeshx(
+                         bamgmesh_root,bamggeom_root,
+                         &indexTr[0],&coordX[0],&coordY[0],
+                         coordX.size(), indexTr.size()/3.
+                         );
+
+        // Fix boundaries
+        // int pcpt     = field_map_int["Misc_int"].at(0);
+        M_flag_fix   = field_map_int["Misc_int"].at(1);
+        current_time = field_map_int["Misc_int"].at(2);
+        mesh_adapt_step = field_map_int["Misc_int"].at(3);
+        int pcpt = (current_time-time_init)*(24*3600)/time_step;
+
+        std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
+
+        for (int edg=0; edg<bamgmesh_root->EdgesSize[0]; ++edg)
+        {
+            int fnd = bamgmesh_root->Edges[3*edg];
+
+            if ((std::binary_search(dirichlet_flags.begin(),dirichlet_flags.end(),fnd)))
+            {
+                bamggeom_root->Edges[3*edg+2] = M_flag_fix;
+                bamgmesh_root->Edges[3*edg+2] = M_flag_fix;
+            }
+            // else
+            // {
+            //     bamggeom_root->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
+            //     bamgmesh_root->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
+            // }
+        }
+
+        // Import the bamg structs
+        this->importBamg(bamgmesh_root);
+
+        // update the boundary flags
+        this->updateBoundaryFlags();
     }
 
-    // Import the bamg structs
-    this->importBamg(bamgmesh);
-
-    // We mask out the boundary nodes
-    M_mask.assign(bamgmesh->VerticesSize[0],false) ;
-    M_mask_dirichlet.assign(bamgmesh->VerticesSize[0],false) ;
-    for (int vert=0; vert<bamgmesh->VerticesOnGeomVertexSize[0]; ++vert)
-        M_mask[bamgmesh->VerticesOnGeomVertex[2*vert]-1]=true; // The factor 2 is because VerticesOnGeomVertex has 2 dimensions in bamg
-
-    M_mesh.setId(nodeId);
-
-    M_elements = M_mesh.triangles();
-    M_nodes = M_mesh.nodes();
-
-    M_num_elements = M_mesh.numTriangles();
-    M_num_nodes = M_mesh.numNodes();
+    // mesh partitioning
+    this->partitionMeshRestart();
 
     // Initialise all the variables to zero
     this->initVariables();
 
-    // update dirichlet nodes
-    M_boundary_flags.resize(0);
-    M_dirichlet_flags.resize(0);
-    for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
+    if (M_rank == 0)
     {
-        M_boundary_flags.push_back(bamgmesh->Edges[3*edg]-1);
-        if (bamgmesh->Edges[3*edg+2] == M_flag_fix)
-            M_dirichlet_flags.push_back(bamgmesh->Edges[3*edg]-1);
-    }
+        int num_elements_root = M_mesh_root.numTriangles();
+        int tice_size = M_tice.size();
 
-    std::sort(M_dirichlet_flags.begin(), M_dirichlet_flags.end());
-    std::sort(M_boundary_flags.begin(), M_boundary_flags.end());
+        std::vector<double> M_VT_root(2*M_ndof);
+        std::vector<double> M_VTM_root(2*M_ndof);
+        std::vector<double> M_VTMM_root(2*M_ndof);
+        std::vector<double> M_UM_root(2*M_ndof);
+        std::vector<double> M_UT_root(2*M_ndof);
 
-    M_neumann_flags.resize(0);
-    std::set_difference(M_boundary_flags.begin(), M_boundary_flags.end(),
-                        M_dirichlet_flags.begin(), M_dirichlet_flags.end(),
-                        std::back_inserter(M_neumann_flags));
+        std::vector<double> M_conc_root(num_elements_root);
+        std::vector<double> M_thick_root(num_elements_root);
+        std::vector<double> M_snow_thick_root(num_elements_root);
+        std::vector<double> M_sigma_root(3*num_elements_root);
+        std::vector<double> M_damage_root(num_elements_root);
+        std::vector<double> M_ridge_ratio_root(num_elements_root);
+        std::vector<double> M_random_number_root(num_elements_root);
+        std::vector<double> M_sss_root(num_elements_root);
+        std::vector<double> M_sst_root(num_elements_root);
+        std::vector<double> M_tice_root(tice_size*num_elements_root);
+        std::vector<double> M_h_thin_root(num_elements_root);
+        std::vector<double> M_conc_thin_root(num_elements_root);
+        std::vector<double> M_hs_thin_root(num_elements_root);
+        std::vector<double> M_tsurf_thin_root(num_elements_root);
 
-    M_dirichlet_nodes.resize(2*(M_dirichlet_flags.size()));
-    for (int i=0; i<M_dirichlet_flags.size(); ++i)
-    {
-        M_dirichlet_nodes[2*i] = M_dirichlet_flags[i];
-        M_dirichlet_nodes[2*i+1] = M_dirichlet_flags[i]+M_num_nodes;
-        M_mask_dirichlet[M_dirichlet_flags[i]]=true;
-    }
+        M_conc_root            = field_map_dbl["M_conc"];
+        M_thick_root           = field_map_dbl["M_thick"];
+        M_snow_thick_root      = field_map_dbl["M_snow_thick"];
+        M_sigma_root           = field_map_dbl["M_sigma"];
+        M_damage_root          = field_map_dbl["M_damage"];
+        M_ridge_ratio_root     = field_map_dbl["M_ridge_ratio"];
+        M_random_number_root   = field_map_dbl["M_random_number"];
 
-    M_neumann_nodes.resize(2*(M_neumann_flags.size()));
-    for (int i=0; i<M_neumann_flags.size(); ++i)
-    {
-        M_neumann_nodes[2*i] = M_neumann_flags[i];
-        M_neumann_nodes[2*i+1] = M_neumann_flags[i]+M_num_nodes;
-    }
-
-    // === Set the prognostic variables ===
-    M_conc       = field_map_dbl["M_conc"];
-    M_thick      = field_map_dbl["M_thick"];
-    M_snow_thick = field_map_dbl["M_snow_thick"];
-    M_sigma      = field_map_dbl["M_sigma"];
-    M_damage     = field_map_dbl["M_damage"];
-    M_ridge_ratio     = field_map_dbl["M_ridge_ratio"];
-    M_random_number      = field_map_dbl["M_random_number"];
-    int i=0;
-    for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
-    {
-        *it = field_map_dbl["M_Tice_"+std::to_string(i)];
-        i++;
-    }
-    M_sst        = field_map_dbl["M_sst"];
-    M_sss        = field_map_dbl["M_sss"];
-    M_VT         = field_map_dbl["M_VT"];
-    M_VTM        = field_map_dbl["M_VTM"];
-    M_VTMM       = field_map_dbl["M_VTMM"];
-    M_UM         = field_map_dbl["M_UM"];
-    M_UT         = field_map_dbl["M_UT"];
-
-    M_surface.assign(M_num_elements,0.);
-    int cpt = 0;
-    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
-    {
-        M_surface[cpt] = this->measure(*it,M_mesh,M_UM);
-        ++cpt;
-    }
-
-    // // Pre-processing
-    if(vm["setup.restart_at_rest"].as<bool>())
-    {
-        for (int i=0; i < M_sigma.size(); i++)
+        int i=0;
+        for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
         {
-            M_sigma[i] = 0.;
+            *it = field_map_dbl["M_Tice_"+std::to_string(i)];
+            i++;
         }
-        for (int i=0; i < M_VT.size(); i++)
+
+        M_sst_root        = field_map_dbl["M_sst"];
+        M_sss_root        = field_map_dbl["M_sss"];
+
+        // Pre-processing
+        if(vm["setup.restart_at_rest"].as<bool>())
         {
-            M_VT[i] = 0.;
-            M_VTM[i] = 0.;
-            M_VTMM[i] = 0.;
-            M_UM[i] = 0.;
-            M_UT[i] = 0.;
-        }
-    }
-
-
-    //for (int i=0; i < M_thick.size(); i++)
-    //{
-    //  M_thick[i] *= 2.0;
-    //}
-
-    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-    {
-        M_h_thin     = field_map_dbl["M_h_thin"];
-        M_conc_thin  = field_map_dbl["M_conc_thin"];
-        M_hs_thin    = field_map_dbl["M_hs_thin"];
-        M_tsurf_thin = field_map_dbl["M_tsurf_thin"];
-    }
-
-    if (M_use_iabp_drifters)
-    {
-        std::vector<int>    drifter_no = field_map_int["Drifter_no"];
-        std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
-        std::vector<double> drifter_y  = field_map_dbl["Drifter_y"];
-
-        this->initIABPDrifter();
-        if (drifter_no.size() == 0)
-        {
-            LOG(WARNING) << "Warning: Couldn't read drifter positions from restart file. Drifter positions initialised as if there was no restart.\n";
-            this->updateIABPDrifter();
-        } else {
-            for ( int i=0; i<drifter_no.size(); ++i )
+            for (int i=0; i < M_sigma_root.size(); i++)
             {
-                M_iabp_drifters.emplace(drifter_no[i], std::array<double,2>{drifter_x[i], drifter_y[i]});
+                M_sigma_root[i] = 0.;
+            }
+
+            for (int i=0; i < M_VT.size(); i++)
+            {
+                M_VT_root[i]   = 0.;
+                M_VTM_root[i]  = 0.;
+                M_VTMM_root[i] = 0.;
+                M_UM_root[i]   = 0.;
+                M_UT_root[i]   = 0.;
             }
         }
+        else
+        {
+            M_VT_root         = field_map_dbl["M_VT"];
+            M_VTM_root        = field_map_dbl["M_VTM"];
+            M_VTMM_root       = field_map_dbl["M_VTMM"];
+            M_UM_root         = field_map_dbl["M_UM"];
+            M_UT_root         = field_map_dbl["M_UT"];
+        }
+
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {
+            M_h_thin_root     = field_map_dbl["M_h_thin"];
+            M_conc_thin_root  = field_map_dbl["M_conc_thin"];
+            M_hs_thin_root    = field_map_dbl["M_hs_thin"];
+            M_tsurf_thin_root = field_map_dbl["M_tsurf_thin"];
+        }
+
+        if (M_use_iabp_drifters)
+        {
+            std::vector<int>    drifter_no = field_map_int["Drifter_no"];
+            std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
+            std::vector<double> drifter_y  = field_map_dbl["Drifter_y"];
+
+            this->initIABPDrifter();
+            if (drifter_no.size() == 0)
+            {
+                LOG(WARNING) << "Warning: Couldn't read drifter positions from restart file. Drifter positions initialised as if there was no restart.\n";
+                this->updateIABPDrifter();
+            }
+            else
+            {
+                for ( int i=0; i<drifter_no.size(); ++i )
+                {
+                    M_iabp_drifters.emplace(drifter_no[i], std::array<double,2>{drifter_x[i], drifter_y[i]});
+                }
+            }
+        }
+
+        inbin.close();
+    }
+}
+
+void
+FiniteElement::partitionMeshRestart()
+{
+    if (M_rank == 0)
+    {
+        std::cout<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
+        std::cout<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
+        std::cout<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
+        std::cout<<"------------------------------space         = "<< vm["mesh.partition-space"].as<std::string>() <<"\n";
+        std::cout<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
+
+        // Environment::logMemoryUsage("before partitioning...");
+        timer["savemesh"].first.restart();
+        LOG(DEBUG) <<"Saving mesh starts\n";
+        if (M_partition_space == mesh::PartitionSpace::MEMORY)
+        {
+            M_mesh_root.writeToGModel(M_mesh_filename);
+        }
+        else if (M_partition_space == mesh::PartitionSpace::DISK)
+        {
+            M_mesh_root.writeTofile(M_mesh_filename);
+        }
+
+        std::cout <<"Saving mesh done in "<< timer["savemesh"].first.elapsed() <<"s\n";
+
+        // partition the mesh on root process (rank 0)
+        timer["meshpartition"].first.restart();
+        LOG(DEBUG) <<"Partitioning mesh starts\n";
+        M_mesh_root.partition(M_mesh_filename,M_partitioner,M_partition_space, M_mesh_fileformat);
+        std::cout <<"Partitioning mesh done in "<< timer["meshpartition"].first.elapsed() <<"s\n";
     }
 
-    inbin.close();
+    M_prv_local_ndof = M_local_ndof;
+    M_prv_num_nodes = M_num_nodes;
+    M_prv_num_elements = M_local_nelements;
+    M_prv_global_num_nodes = M_mesh.numGlobalNodes();
+    M_prv_global_num_elements = M_mesh.numGlobalElements();
+
+    this->distributedMeshProcessing(true);
 }
 
 void

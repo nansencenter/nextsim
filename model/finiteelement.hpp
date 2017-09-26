@@ -132,6 +132,7 @@ public:
 
     void regrid(bool step = true);
     void adaptMesh();
+    void updateBoundaryFlags();
 
     void gatherSizes();
     void gatherFieldsElement(std::vector<double>& interp_in_elements);
@@ -236,6 +237,7 @@ public:
 
     void writeRestart(int pcpt, int step);
     int readRestart(int step);
+    void partitionMeshRestart();
 
     void rootMeshProcessing();
 
