@@ -96,6 +96,7 @@ public:
     void stereographicProjection();
 
     std::vector<int> indexTr() const;
+
     std::vector<double> coordX() const;
     std::vector<double> coordY() const;
 

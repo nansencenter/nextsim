@@ -2579,7 +2579,6 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
 
         for (int i=0; i<M_prv_global_num_nodes; ++i)
         {
-            //int ri =  rmap_nodes.left.find(i+1)->second-1;
             int ri =  rmap_nodes[i];
 
             for (int j=0; j<M_nb_var_node; ++j)
@@ -5860,13 +5859,16 @@ FiniteElement::run()
         if (M_rank == 0)
             std::cout <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
 
-        // if (pcpt == 0)
-        // {
-        //     LOG(DEBUG) <<"first export starts\n";
-        //     this->exportResults(0);
-        //     LOG(DEBUG) <<"first export done\n";
-        // }
+        if (pcpt == 0)
+        {
+            LOG(DEBUG) <<"first export starts\n";
+            //this->exportResults(0);
+            this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
+            LOG(DEBUG) <<"first export done\n";
+        }
 
+        ++pcpt;
+#if 0
 
         //======================================================================
         // Do the thermodynamics
@@ -5918,6 +5920,7 @@ FiniteElement::run()
         }
 #endif
         ++pcpt;
+#endif
     }
 
     //this->exportResults(1000);
@@ -6067,64 +6070,82 @@ FiniteElement::initMoorings()
 void
 FiniteElement::writeRestart(int pcpt, int step)
 {
+    M_prv_local_ndof = M_local_ndof;
+    M_prv_num_nodes = M_num_nodes;
+    M_prv_num_elements = M_local_nelements;
+    M_prv_global_num_nodes = M_mesh.numGlobalNodes();
+    M_prv_global_num_elements = M_mesh.numGlobalElements();
+
     // fields defined on mesh nodes
     std::vector<double> interp_in_nodes;
     this->gatherFieldsNode(interp_in_nodes, M_rmap_nodes, M_sizes_nodes);
 
-    std::vector<double> M_VT_root(2*M_ndof);
-    std::vector<double> M_VTM_root(2*M_ndof);
-    std::vector<double> M_VTMM_root(2*M_ndof);
-    std::vector<double> M_UM_root(2*M_ndof);
-    std::vector<double> M_UT_root(2*M_ndof);
+    std::cout<< "Rank "<< M_rank <<": Arrived here\n";
+
+    std::vector<double> M_VT_root;
+    std::vector<double> M_VTM_root;
+    std::vector<double> M_VTMM_root;
+    std::vector<double> M_UM_root;
+    std::vector<double> M_UT_root;
 
     int tmp_nb_var=0;
-    for (int i=0; i<M_ndof; ++i)
+
+    if (M_rank == 0)
     {
-        tmp_nb_var = 0;
+        M_VT_root.resize(2*M_ndof);
+        M_VTM_root.resize(2*M_ndof);
+        M_VTMM_root.resize(2*M_ndof);
+        M_UM_root.resize(2*M_ndof);
+        M_UT_root.resize(2*M_ndof);
 
-        // VT_X
-        M_VT_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // VT_Y
-        M_VT_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // VTM_X
-        M_VTM_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // VTM_Y
-        M_VTM_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // VTMM_X
-        M_VTMM_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // VTMM_Y
-        M_VTMM_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // UM_X
-        M_UM_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // UM_Y
-        M_UM_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // UT_X
-        M_UT_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // UT_Y
-        M_UT_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        if(tmp_nb_var>M_nb_var_node)
+        for (int i=0; i<M_ndof; ++i)
         {
-            throw std::logic_error("tmp_nb_var not equal to nb_var");
+            tmp_nb_var = 0;
+
+            // VT_X
+            M_VT_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            tmp_nb_var++;
+
+            // VT_Y
+            M_VT_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            tmp_nb_var++;
+
+            // VTM_X
+            M_VTM_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            tmp_nb_var++;
+
+            // VTM_Y
+            M_VTM_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            tmp_nb_var++;
+
+            // VTMM_X
+            M_VTMM_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            tmp_nb_var++;
+
+            // VTMM_Y
+            M_VTMM_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            tmp_nb_var++;
+
+            // UM_X
+            M_UM_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            tmp_nb_var++;
+
+            // UM_Y
+            M_UM_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            tmp_nb_var++;
+
+            // UT_X
+            M_UT_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            tmp_nb_var++;
+
+            // UT_Y
+            M_UT_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            tmp_nb_var++;
+
+            if(tmp_nb_var>M_nb_var_node)
+            {
+                throw std::logic_error("tmp_nb_var not equal to nb_var");
+            }
         }
     }
 
@@ -6230,6 +6251,7 @@ FiniteElement::writeRestart(int pcpt, int step)
         boost::mpi::gatherv(M_comm, interp_elt_in_local, 0);
     }
 
+#if 1
 
     if (M_rank == 0)
     {
@@ -6466,6 +6488,7 @@ FiniteElement::writeRestart(int pcpt, int step)
         exporter.writeRecord(outrecord);
         outrecord.close();
     }
+#endif
 }
 
 int

@@ -850,15 +850,15 @@ GmshMeshSeq::setId(std::vector<int> const& newid)
 std::vector<int>
 GmshMeshSeq::id() const
 {
-    std::vector<int> mesh_id(M_num_nodes);
+    std::vector<int> node_id(M_num_nodes);
     int cpt = 0;
     for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
     {
-        mesh_id[cpt] = it->id;
+        node_id[cpt] = it->id;
         ++cpt;
     }
 
-    return mesh_id;
+    return node_id;
 }
 
 } // Nextsim
