@@ -5632,31 +5632,49 @@ FiniteElement::init()
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     LOG(DEBUG) << "SCALE_COEF = " << scale_coef << "\n";
 
-    // Check the minimum angle of the grid
-    minang = this->minAngle(M_mesh);
 
-    if (minang < vm["simul.regrid_angle"].as<double>())
+    if (!M_use_restart)
     {
-        // LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
-        std::cout << "[INFO]: " <<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
-        throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
+        // Check the minimum angle of the grid
+        minang = this->minAngle(M_mesh);
+
+        if (minang < vm["simul.regrid_angle"].as<double>())
+        {
+            // LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
+            std::cout << "[INFO]: " <<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
+            throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
+        }
     }
 
-#if 1
+    std::cout<<"-----------------------------------------------------------USE RESTART= "<< M_use_restart <<"\n";
+
     if ( M_use_restart )
     {
         LOG(DEBUG) <<"Reading restart file\n";
         pcpt = this->readRestart(vm["setup.step_nb"].as<int>());
-        // current_time = time_init + pcpt*time_step/(24*3600.0);
-        if(M_use_osisaf_drifters)
-            this->initOSISAFDrifters();
 
-        if(fmod(pcpt*time_step,output_time_step) == 0)
-        {
-            LOG(DEBUG) <<"export starts\n";
-            this->exportResults((int) pcpt*time_step/output_time_step);
-            LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
-        }
+        // // Check the minimum angle of the grid
+        // minang = this->minAngle(M_mesh);
+
+        // if (minang < vm["simul.regrid_angle"].as<double>())
+        // {
+        //     // LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
+        //     std::cout << "[INFO]: " <<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
+        //     throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
+        // }
+
+        // // current_time = time_init + pcpt*time_step/(24*3600.0);
+        // if(M_use_osisaf_drifters)
+        //     this->initOSISAFDrifters();
+
+        std::cout<< "-----------------------------------------------------------pcpt= "<< pcpt <<"\n";
+
+        // if(fmod(pcpt*time_step,output_time_step) == 0)
+        // {
+        //     LOG(DEBUG) <<"export starts\n";
+        //     this->exportResults((int) pcpt*time_step/output_time_step);
+        //     LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
+        // }
     }
     else
     {
@@ -5673,6 +5691,9 @@ FiniteElement::init()
             std::cout <<"Initialize variables done "<< timer["initvar"].first.elapsed() <<"s\n";
     }
 
+#if 0
+
+#if 0
     timer["atmost"].first.restart();
     // if (M_rank == 0)
     //     std::cout <<"Initialize forcingAtmosphere\n";
@@ -5729,6 +5750,7 @@ FiniteElement::init()
     // Initialise the moorings - if requested
     if ( M_use_moorings )
         this->initMoorings();
+#endif
 
 #endif
 
@@ -5750,8 +5772,9 @@ FiniteElement::run()
     double displacement_factor = 1.;
     // double minang = 0.;
     bool is_running = true;
+    pcpt = 0;
 
-#if 1
+#if 0
     // main loop for nextsim program
     while (is_running)
     {
@@ -6076,6 +6099,13 @@ FiniteElement::writeRestart(int pcpt, int step)
     M_prv_global_num_nodes = M_mesh.numGlobalNodes();
     M_prv_global_num_elements = M_mesh.numGlobalElements();
 
+    std::cout<< "["<< M_rank << "] "<<"M_prv_local_ndof         = "<< M_prv_local_ndof <<"\n";
+    std::cout<< "["<< M_rank << "] "<<"M_prv_num_nodes          = "<< M_prv_num_nodes <<"\n";
+    std::cout<< "["<< M_rank << "] "<< "M_prv_num_elements      = "<< M_prv_num_elements <<"\n";
+    std::cout<< "["<< M_rank << "] "<<"M_prv_global_num_nodes   = "<< M_prv_global_num_nodes <<"\n";
+    std::cout<< "["<< M_rank << "] "<<"M_prv_global_num_elements= "<< M_prv_global_num_elements <<"\n";
+    std::cout<< "["<< M_rank << "] "<<"M_ndof                   = "<< M_ndof <<"\n";
+
     // fields defined on mesh nodes
     std::vector<double> interp_in_nodes;
     this->gatherFieldsNode(interp_in_nodes, M_rmap_nodes, M_sizes_nodes);
@@ -6251,12 +6281,16 @@ FiniteElement::writeRestart(int pcpt, int step)
         boost::mpi::gatherv(M_comm, interp_elt_in_local, 0);
     }
 
-#if 1
+    M_comm.barrier();
 
     if (M_rank == 0)
     {
         int num_elements_root = M_mesh_root.numTriangles();
         int tice_size = M_tice.size();
+
+        std::cout<<"tice_size        = "<< tice_size <<"\n";
+
+        std::cout<< "["<< M_rank << "] "<<"num_elements_root                   = "<< num_elements_root <<"\n";
 
         std::vector<double> M_conc_root(num_elements_root);
         std::vector<double> M_thick_root(num_elements_root);
@@ -6382,7 +6416,7 @@ FiniteElement::writeRestart(int pcpt, int step)
         std::fstream meshbin(filename, std::ios::binary | std::ios::out | std::ios::trunc);
         if ( ! meshbin.good() )
             throw std::runtime_error("Cannot write to file: " + filename);
-        exporter.writeMesh(meshbin, M_mesh);
+        exporter.writeMesh(meshbin, M_mesh_root);
         meshbin.close();
 
         // Then the record
@@ -6405,11 +6439,18 @@ FiniteElement::writeRestart(int pcpt, int step)
         if ( ! outbin.good() )
             throw std::runtime_error("Cannot write to file: " + filename);
 
-        std::vector<int> misc_int(4);
+        std::vector<int> misc_int(3);
+
+        std::cout<<"*********pcpt           = "<< pcpt <<"\n";
+        std::cout<<"*********M_flag_fix     = "<< M_flag_fix <<"\n";
+        std::cout<<"*********current_time   = "<< current_time <<"\n";
+        std::cout<<"*********mesh_adapt_step= "<< mesh_adapt_step <<"\n";
+
         misc_int[0] = pcpt;
         misc_int[1] = M_flag_fix;
-        misc_int[2] = current_time;
-        misc_int[3] = mesh_adapt_step;
+        //misc_int[2] = current_time;
+        misc_int[2] = mesh_adapt_step;
+
         exporter.writeField(outbin, misc_int, "Misc_int");
         exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
 
@@ -6421,12 +6462,15 @@ FiniteElement::writeRestart(int pcpt, int step)
         exporter.writeField(outbin, M_ridge_ratio_root, "M_ridge_ratio");
         exporter.writeField(outbin, M_random_number_root, "M_random_number");
 
-        int i=0;
-        for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
-        {
-            exporter.writeField(outbin, *it, "M_Tice_" + std::to_string(i));
-            i++;
-        }
+        exporter.writeField(outbin, M_tice_root, "M_Tice");
+
+        // int i=0;
+        // for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
+        // {
+        //     std::cout<<"TICE TO STORE SIE= "<< it->size() <<"\n";
+        //     exporter.writeField(outbin, *it, "M_Tice_" + std::to_string(i));
+        //     i++;
+        // }
 
         exporter.writeField(outbin, M_sst_root, "M_sst");
         exporter.writeField(outbin, M_sss_root, "M_sss");
@@ -6488,7 +6532,6 @@ FiniteElement::writeRestart(int pcpt, int step)
         exporter.writeRecord(outrecord);
         outrecord.close();
     }
-#endif
 }
 
 int
@@ -6499,10 +6542,12 @@ FiniteElement::readRestart(int step)
     boost::unordered_map<std::string, std::vector<int>>    field_map_int;
     boost::unordered_map<std::string, std::vector<double>> field_map_dbl;
 
-    std::fstream inbin;
+    //std::fstream inbin;
 
     if (M_rank == 0)
     {
+        M_mesh_filename = (boost::format( "par%1%%2%" ) % M_comm.size() % M_mesh_filename ).str();
+
         // === Read in the mesh restart files ===
         std::string restart_path;
         if ( (vm["setup.restart_path"].as<std::string>()).empty() )
@@ -6560,6 +6605,8 @@ FiniteElement::readRestart(int step)
             throw std::runtime_error("File not found: " + filename);
         }
 
+        std::cout<<"filename= "<< filename <<"\n";
+
         exp_field.readRecord(inrecord);
         inrecord.close();
 
@@ -6568,17 +6615,22 @@ FiniteElement::readRestart(int step)
                     % restart_path
                     % step ).str();
 
-        inbin.open(filename, std::ios::binary | std::ios::in );
+        //inbin.open(filename, std::ios::binary | std::ios::in);
+        std::fstream inbin(filename, std::ios::binary | std::ios::in);
 
         if ( ! inbin.good() )
         {
             throw std::runtime_error("File not found: " + filename);
         }
 
+        std::cout<<"filename= "<< filename <<"\n";
+
         field_map_int.clear();
         field_map_dbl.clear();
         exp_field.loadFile(inbin, field_map_int, field_map_dbl);
         inbin.close();
+
+        std::cout<<".......................END PROCESS\n";
 
         // === Recreate the mesh ===
         // Create bamgmesh and bamggeom
@@ -6588,12 +6640,26 @@ FiniteElement::readRestart(int step)
                          coordX.size(), indexTr.size()/3.
                          );
 
+        std::cout<<".....................SIZE= "<< field_map_int["Misc_int"].size() <<"\n";
+
+
         // Fix boundaries
-        // int pcpt     = field_map_int["Misc_int"].at(0);
-        M_flag_fix   = field_map_int["Misc_int"].at(1);
-        current_time = field_map_int["Misc_int"].at(2);
-        mesh_adapt_step = field_map_int["Misc_int"].at(3);
-        int pcpt = (current_time-time_init)*(24*3600)/time_step;
+        auto map_field  = field_map_int["Misc_int"];
+        int pcpt        = map_field.at(0);
+        M_flag_fix      = map_field.at(1);
+        mesh_adapt_step = map_field.at(2);
+
+        std::cout<<".....................PCPT      = "<< pcpt <<"\n";
+        std::cout<<".....................M_flag_fix= "<< M_flag_fix <<"\n";
+        //std::cout<<".....................M_current_time= "<< current_time <<"\n";
+        std::cout<<".....................M_mesh_adapt_step= "<< mesh_adapt_step <<"\n";
+
+        current_time = time_init + (pcpt*time_step)/(24*3600);
+
+        std::cout<<"current_time= "<< current_time <<"\n";
+
+
+        //int pcpt = (current_time-time_init)*(24*3600)/time_step;
 
         std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
 
@@ -6601,7 +6667,7 @@ FiniteElement::readRestart(int step)
         {
             int fnd = bamgmesh_root->Edges[3*edg];
 
-            if ((std::binary_search(dirichlet_flags.begin(),dirichlet_flags.end(),fnd)))
+            if ((std::binary_search(dirichlet_flags .begin(),dirichlet_flags.end(),fnd)))
             {
                 bamggeom_root->Edges[3*edg+2] = M_flag_fix;
                 bamgmesh_root->Edges[3*edg+2] = M_flag_fix;
@@ -6625,6 +6691,7 @@ FiniteElement::readRestart(int step)
 
     // Initialise all the variables to zero
     this->initVariables();
+#if 1
 
     if (M_rank == 0)
     {
@@ -6660,12 +6727,14 @@ FiniteElement::readRestart(int step)
         M_ridge_ratio_root     = field_map_dbl["M_ridge_ratio"];
         M_random_number_root   = field_map_dbl["M_random_number"];
 
-        int i=0;
-        for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
-        {
-            *it = field_map_dbl["M_Tice_"+std::to_string(i)];
-            i++;
-        }
+        M_tice_root   = field_map_dbl["M_tice"];
+
+        // int i=0;
+        // for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
+        // {
+        //     *it = field_map_dbl["M_Tice_"+std::to_string(i)];
+        //     i++;
+        // }
 
         M_sst_root        = field_map_dbl["M_sst"];
         M_sss_root        = field_map_dbl["M_sss"];
@@ -6724,14 +6793,16 @@ FiniteElement::readRestart(int step)
                 }
             }
         }
-
-        inbin.close();
     }
+#endif
+    return pcpt;
 }
 
 void
 FiniteElement::partitionMeshRestart()
 {
+    M_comm.barrier();
+
     if (M_rank == 0)
     {
         std::cout<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";

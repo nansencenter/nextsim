@@ -93,9 +93,18 @@ Exporter::writeField(std::fstream& out, std::vector<Type> const& field, std::str
     std::string description;
     writeContainer(out, field);
 
-    description = (boost::format( "%1% %2%" )
-               % name
-               % M_precision ).str();
+    if (((boost::any)field[0]).type() == typeid(int))
+    {
+        description = (boost::format( "%1% %2%" )
+                       % name
+                       % "int" ).str();
+    }
+    else
+    {
+        description = (boost::format( "%1% %2%" )
+                       % name
+                       % M_precision ).str();
+    }
 
 	M_frecord.push_back(description);
 }
@@ -151,11 +160,15 @@ Exporter::loadFile(std::fstream &in, boost::unordered_map<std::string, std::vect
     {
         in.read((char*) &reclen, sizeof(reclen));
 
+        std::cout<<"___________NAME: "<< M_name_record[i] << "  --- Record Length: "<< reclen <<"\n";
+
         if ( M_type_record[i] == "double" )
         {
+            std::cout<<"___________here double starts\n";
             std::vector<double> dvec(reclen);
             in.read((char*) &dvec[0], reclen*sizeof(double));
             field_map_dbl.emplace(M_name_record[i], dvec);
+            std::cout<<"___________here double done\n";
         }
         else if ( M_type_record[i] == "int" )
         {
