@@ -5653,19 +5653,19 @@ FiniteElement::init()
         LOG(DEBUG) <<"Reading restart file\n";
         pcpt = this->readRestart(vm["setup.step_nb"].as<int>());
 
-        // // Check the minimum angle of the grid
-        // minang = this->minAngle(M_mesh);
+        // Check the minimum angle of the grid
+        minang = this->minAngle(M_mesh);
 
-        // if (minang < vm["simul.regrid_angle"].as<double>())
-        // {
-        //     // LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
-        //     std::cout << "[INFO]: " <<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
-        //     throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
-        // }
+        if (minang < vm["simul.regrid_angle"].as<double>())
+        {
+            // LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
+            std::cout << "[INFO]: " <<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
+            throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
+        }
 
-        // // current_time = time_init + pcpt*time_step/(24*3600.0);
-        // if(M_use_osisaf_drifters)
-        //     this->initOSISAFDrifters();
+        // current_time = time_init + pcpt*time_step/(24*3600.0);
+        if(M_use_osisaf_drifters)
+            this->initOSISAFDrifters();
 
         std::cout<< "-----------------------------------------------------------pcpt= "<< pcpt <<"\n";
 
@@ -5691,9 +5691,8 @@ FiniteElement::init()
             std::cout <<"Initialize variables done "<< timer["initvar"].first.elapsed() <<"s\n";
     }
 
-#if 0
+#if 1
 
-#if 0
     timer["atmost"].first.restart();
     // if (M_rank == 0)
     //     std::cout <<"Initialize forcingAtmosphere\n";
@@ -5713,7 +5712,7 @@ FiniteElement::init()
     //     std::cout <<"Initialize bathymetry\n";
     this->bathymetry();
     //if (M_rank == 0)
-    std::cout <<"Initialize bathymetry done in "<< timer["bathy"].first.elapsed() <<"s\n";
+    //std::cout <<"Initialize bathymetry done in "<< timer["bathy"].first.elapsed() <<"s\n";
 
     timer["checkload"].first.restart();
     // if (M_rank == 0)
@@ -5750,6 +5749,7 @@ FiniteElement::init()
     // Initialise the moorings - if requested
     if ( M_use_moorings )
         this->initMoorings();
+#if 0
 #endif
 
 #endif
@@ -5766,15 +5766,15 @@ FiniteElement::run()
         std::cout << "[INFO]: " << "-----------------------Simulation started on "<< current_time_local() <<"\n";
     }
 
-    this->init();
-
     std::string current_time_system = current_time_local();
     double displacement_factor = 1.;
     // double minang = 0.;
     bool is_running = true;
     pcpt = 0;
 
-#if 0
+    this->init();
+
+#if 1
     // main loop for nextsim program
     while (is_running)
     {
@@ -5882,16 +5882,13 @@ FiniteElement::run()
         if (M_rank == 0)
             std::cout <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
 
-        if (pcpt == 0)
+        if (0) //(pcpt == 0)
         {
             LOG(DEBUG) <<"first export starts\n";
             //this->exportResults(0);
             this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
             LOG(DEBUG) <<"first export done\n";
         }
-
-        ++pcpt;
-#if 0
 
         //======================================================================
         // Do the thermodynamics
@@ -5912,7 +5909,6 @@ FiniteElement::run()
         if (M_rank == 0)
             std::cout <<"---timer assemble:             "<< timer["assemble"].first.elapsed() <<"s\n";
 
-
         //======================================================================
         // Solve the linear problem
         //======================================================================
@@ -5931,9 +5927,10 @@ FiniteElement::run()
         this->update();
         if (M_rank == 0)
             std::cout <<"---timer update:               "<< timer["update"].first.elapsed() <<"s\n";
+        ++pcpt;
 
 #if 0
-
+#if 0
         if(fmod((pcpt+1)*time_step,output_time_step) == 0)
         {
             timer["export"].first.restart();
@@ -6834,12 +6831,15 @@ FiniteElement::readRestart(int step)
     }
 
     std::vector<double> interp_elt_out;
-    this->collectRootRestart(interp_elt_out);
+    std::vector<double> interp_nd_out;
+    this->collectRootRestart(interp_elt_out, interp_nd_out);
 
     // Initialise all the variables to zero
     this->initVariables();
 
     this->scatterFieldsElement(&interp_elt_out[0]);
+
+    this->scatterFieldsNode(&interp_nd_out[0]);
 
 #endif
     return pcpt;
@@ -6889,7 +6889,7 @@ FiniteElement::partitionMeshRestart()
 }
 
 void
-FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out)
+FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out, std::vector<double>& interp_nd_out)
 {
     M_nb_var_element = 15 + M_tice.size();//15;
 
@@ -6990,6 +6990,63 @@ FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out)
             }
         }
     }
+
+#if 1
+    M_nb_var_node = 10;
+
+    if (M_rank == 0)
+    {
+        int num_nodes_root = M_mesh_root.numNodes();
+        interp_nd_out.resize(M_nb_var_node*num_nodes_root,0.);
+
+        int tmp_nb_var = 0;
+
+        for (int i=0; i<num_nodes_root; ++i)
+        {
+            tmp_nb_var = 0;
+
+            // VT
+            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VT[i];
+            tmp_nb_var++;
+
+            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VT[i+num_nodes_root];
+            tmp_nb_var++;
+
+            // VTM
+            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VTM[i];
+            tmp_nb_var++;
+
+            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VTM[i+num_nodes_root];
+            tmp_nb_var++;
+
+            // VTMM
+            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VTMM[i];
+            tmp_nb_var++;
+
+            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VTMM[i+num_nodes_root];
+            tmp_nb_var++;
+
+            // UM
+            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_UM[i];
+            tmp_nb_var++;
+
+            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_UM[i+num_nodes_root];
+            tmp_nb_var++;
+
+            // UT
+            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_UT[i];
+            tmp_nb_var++;
+
+            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_UT[i+num_nodes_root];
+            tmp_nb_var++;
+
+            if(tmp_nb_var>M_nb_var_node)
+            {
+                throw std::logic_error("tmp_nb_var not equal to nb_var");
+            }
+        }
+    }
+#endif
 }
 
 void
