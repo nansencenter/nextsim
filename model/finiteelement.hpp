@@ -238,6 +238,7 @@ public:
     void writeRestart(int pcpt, int step);
     int readRestart(int step);
     void partitionMeshRestart();
+    void collectRootRestart(std::vector<double>& interp_elt_out);
 
     void rootMeshProcessing();
 

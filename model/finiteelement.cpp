@@ -2305,19 +2305,19 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     M_snow_thick.assign(M_num_elements,0.);
     M_sigma.assign(3*M_num_elements,0.);
     M_damage.assign(M_num_elements,0.);
-
+    M_ridge_ratio.assign(M_num_elements,0.);
     M_random_number.resize(M_num_elements);
+
+    M_sst.resize(M_num_elements);
+    M_sss.resize(M_num_elements);
 
     for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
         it->assign(M_num_elements,0.);
 
     M_h_thin.assign(M_num_elements,0.);
+    M_conc_thin.assign(M_num_elements,0.);
     M_hs_thin.assign(M_num_elements,0.);
     M_tsurf_thin.assign(M_num_elements,0.);
-
-    M_sst.resize(M_num_elements);
-    M_sss.resize(M_num_elements);
-
 
     this->redistributeVariables(out_elt_values, true);
 
@@ -6690,7 +6690,7 @@ FiniteElement::readRestart(int step)
     this->partitionMeshRestart();
 
     // Initialise all the variables to zero
-    this->initVariables();
+    // this->initVariables();
 #if 1
 
     if (M_rank == 0)
@@ -6698,36 +6698,72 @@ FiniteElement::readRestart(int step)
         int num_elements_root = M_mesh_root.numTriangles();
         int tice_size = M_tice.size();
 
-        std::vector<double> M_VT_root(2*M_ndof);
-        std::vector<double> M_VTM_root(2*M_ndof);
-        std::vector<double> M_VTMM_root(2*M_ndof);
-        std::vector<double> M_UM_root(2*M_ndof);
-        std::vector<double> M_UT_root(2*M_ndof);
+        M_VT.resize(2*M_ndof);
+        M_VTM.resize(2*M_ndof);
+        M_VTMM.resize(2*M_ndof);
+        M_UM.resize(2*M_ndof);
+        M_UT.resize(2*M_ndof);
 
-        std::vector<double> M_conc_root(num_elements_root);
-        std::vector<double> M_thick_root(num_elements_root);
-        std::vector<double> M_snow_thick_root(num_elements_root);
-        std::vector<double> M_sigma_root(3*num_elements_root);
-        std::vector<double> M_damage_root(num_elements_root);
-        std::vector<double> M_ridge_ratio_root(num_elements_root);
-        std::vector<double> M_random_number_root(num_elements_root);
-        std::vector<double> M_sss_root(num_elements_root);
-        std::vector<double> M_sst_root(num_elements_root);
-        std::vector<double> M_tice_root(tice_size*num_elements_root);
-        std::vector<double> M_h_thin_root(num_elements_root);
-        std::vector<double> M_conc_thin_root(num_elements_root);
-        std::vector<double> M_hs_thin_root(num_elements_root);
-        std::vector<double> M_tsurf_thin_root(num_elements_root);
+        M_conc.resize(num_elements_root);
+        M_thick.resize(num_elements_root);
+        M_snow_thick.resize(num_elements_root);
+        M_sigma.resize(3*num_elements_root);
+        M_damage.resize(num_elements_root);
+        M_ridge_ratio.resize(num_elements_root);
+        M_random_number.resize(num_elements_root);
+        M_sss.resize(num_elements_root);
+        M_sst.resize(num_elements_root);
 
-        M_conc_root            = field_map_dbl["M_conc"];
-        M_thick_root           = field_map_dbl["M_thick"];
-        M_snow_thick_root      = field_map_dbl["M_snow_thick"];
-        M_sigma_root           = field_map_dbl["M_sigma"];
-        M_damage_root          = field_map_dbl["M_damage"];
-        M_ridge_ratio_root     = field_map_dbl["M_ridge_ratio"];
-        M_random_number_root   = field_map_dbl["M_random_number"];
 
-        M_tice_root   = field_map_dbl["M_tice"];
+        std::vector<double> M_tice_all(tice_size*num_elements_root);
+
+        switch (M_thermo_type)
+        {
+            case (setup::ThermoType::ZERO_LAYER):
+                M_tice.resize(1);
+                break;
+            case (setup::ThermoType::WINTON):
+                M_tice.resize(3);
+                break;
+            default:
+                std::cout << "thermo_type= " << (int)M_thermo_type << "\n";
+                throw std::logic_error("Wrong thermo_type");
+        }
+
+        for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
+        {
+            it->resize(num_elements_root);
+        }
+
+        for (int i=0; i<M_tice.size(); ++i)
+        {
+            std::cout<<"M_tice[i]= "<< (M_tice[i]).size() <<"\n";
+        }
+
+        M_h_thin.resize(num_elements_root);
+        M_conc_thin.resize(num_elements_root);
+        M_hs_thin.resize(num_elements_root);
+        M_tsurf_thin.resize(num_elements_root);
+
+        M_conc            = field_map_dbl["M_conc"];
+        M_thick           = field_map_dbl["M_thick"];
+        M_snow_thick      = field_map_dbl["M_snow_thick"];
+        M_sigma           = field_map_dbl["M_sigma"];
+        M_damage          = field_map_dbl["M_damage"];
+        M_ridge_ratio     = field_map_dbl["M_ridge_ratio"];
+        M_random_number   = field_map_dbl["M_random_number"];
+        M_tice_all   = field_map_dbl["M_Tice"];
+
+        for (int i=0; i<num_elements_root; ++i)
+        {
+            M_tice[0][i] = M_tice_all[tice_size*i];
+
+            if ( M_thermo_type == setup::ThermoType::WINTON )
+            {
+                M_tice[1][i] = M_tice_all[tice_size*i+1];
+                M_tice[2][i] = M_tice_all[tice_size*i+2];
+            }
+        }
 
         // int i=0;
         // for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
@@ -6736,41 +6772,41 @@ FiniteElement::readRestart(int step)
         //     i++;
         // }
 
-        M_sst_root        = field_map_dbl["M_sst"];
-        M_sss_root        = field_map_dbl["M_sss"];
+        M_sst        = field_map_dbl["M_sst"];
+        M_sss        = field_map_dbl["M_sss"];
 
         // Pre-processing
         if(vm["setup.restart_at_rest"].as<bool>())
         {
-            for (int i=0; i < M_sigma_root.size(); i++)
+            for (int i=0; i < M_sigma.size(); i++)
             {
-                M_sigma_root[i] = 0.;
+                M_sigma[i] = 0.;
             }
 
             for (int i=0; i < M_VT.size(); i++)
             {
-                M_VT_root[i]   = 0.;
-                M_VTM_root[i]  = 0.;
-                M_VTMM_root[i] = 0.;
-                M_UM_root[i]   = 0.;
-                M_UT_root[i]   = 0.;
+                M_VT[i]   = 0.;
+                M_VTM[i]  = 0.;
+                M_VTMM[i] = 0.;
+                M_UM[i]   = 0.;
+                M_UT[i]   = 0.;
             }
         }
         else
         {
-            M_VT_root         = field_map_dbl["M_VT"];
-            M_VTM_root        = field_map_dbl["M_VTM"];
-            M_VTMM_root       = field_map_dbl["M_VTMM"];
-            M_UM_root         = field_map_dbl["M_UM"];
-            M_UT_root         = field_map_dbl["M_UT"];
+            M_VT         = field_map_dbl["M_VT"];
+            M_VTM        = field_map_dbl["M_VTM"];
+            M_VTMM       = field_map_dbl["M_VTMM"];
+            M_UM         = field_map_dbl["M_UM"];
+            M_UT         = field_map_dbl["M_UT"];
         }
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
-            M_h_thin_root     = field_map_dbl["M_h_thin"];
-            M_conc_thin_root  = field_map_dbl["M_conc_thin"];
-            M_hs_thin_root    = field_map_dbl["M_hs_thin"];
-            M_tsurf_thin_root = field_map_dbl["M_tsurf_thin"];
+            M_h_thin     = field_map_dbl["M_h_thin"];
+            M_conc_thin  = field_map_dbl["M_conc_thin"];
+            M_hs_thin    = field_map_dbl["M_hs_thin"];
+            M_tsurf_thin = field_map_dbl["M_tsurf_thin"];
         }
 
         if (M_use_iabp_drifters)
@@ -6793,7 +6829,18 @@ FiniteElement::readRestart(int step)
                 }
             }
         }
+#if 0
+#endif
     }
+
+    std::vector<double> interp_elt_out;
+    this->collectRootRestart(interp_elt_out);
+
+    // Initialise all the variables to zero
+    this->initVariables();
+
+    this->scatterFieldsElement(&interp_elt_out[0]);
+
 #endif
     return pcpt;
 }
@@ -6839,6 +6886,110 @@ FiniteElement::partitionMeshRestart()
     M_prv_global_num_elements = M_mesh.numGlobalElements();
 
     this->distributedMeshProcessing(true);
+}
+
+void
+FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out)
+{
+    M_nb_var_element = 15 + M_tice.size();//15;
+
+    if (M_rank == 0)
+    {
+        int num_elements_root = M_mesh_root.numTriangles();
+        int tice_size = M_tice.size();
+
+        interp_elt_out.resize(M_nb_var_element*num_elements_root);
+
+        // std::cout<< "["<< M_rank << "] "<<"num_elements_root                   = "<< num_elements_root <<"\n";
+
+        int tmp_nb_var = 0;
+
+        for (int i=0; i<num_elements_root; ++i)
+        {
+            tmp_nb_var=0;
+            //int ri = M_rmap_elements[i];
+
+            // concentration
+            interp_elt_out[M_nb_var_element*i+tmp_nb_var] = M_conc[i];
+            tmp_nb_var++;
+
+            // thickness
+            interp_elt_out[M_nb_var_element*i+tmp_nb_var] = M_thick[i];
+            tmp_nb_var++;
+
+            // snow thickness
+            interp_elt_out[M_nb_var_element*i+tmp_nb_var] = M_snow_thick[i];
+            tmp_nb_var++;
+
+            // integrated_stress1
+            interp_elt_out[M_nb_var_element*i+tmp_nb_var] = M_sigma[3*i];
+            tmp_nb_var++;
+
+            // integrated_stress2
+            interp_elt_out[M_nb_var_element*i+tmp_nb_var] = M_sigma[3*i+1];
+            tmp_nb_var++;
+
+            // integrated_stress3
+            interp_elt_out[M_nb_var_element*i+tmp_nb_var] = M_sigma[3*i+2];
+            tmp_nb_var++;
+
+            // damage
+            interp_elt_out[M_nb_var_element*i+tmp_nb_var] = M_damage[i];
+            tmp_nb_var++;
+
+            // ridge_ratio
+            interp_elt_out[M_nb_var_element*i+tmp_nb_var] = M_ridge_ratio[i];
+            tmp_nb_var++;
+
+            // ridge_ratio
+            interp_elt_out[M_nb_var_element*i+tmp_nb_var] = M_random_number[i];
+            tmp_nb_var++;
+
+            // sss
+            interp_elt_out[M_nb_var_element*i+tmp_nb_var] = M_sss[i];
+            tmp_nb_var++;
+
+            // sst
+            interp_elt_out[M_nb_var_element*i+tmp_nb_var] = M_sst[i];
+            tmp_nb_var++;
+
+            // tice1
+            interp_elt_out[M_nb_var_element*i+tmp_nb_var] = M_tice[0][i];
+            tmp_nb_var++;
+
+            if ( interp_elt_out[M_nb_var_element*i+tmp_nb_var] = M_thermo_type == setup::ThermoType::WINTON )
+            {
+                // tice2
+                interp_elt_out[M_nb_var_element*i+tmp_nb_var] = M_tice[1][i];
+                tmp_nb_var++;
+
+                // tice3
+                interp_elt_out[M_nb_var_element*i+tmp_nb_var] = M_tice[2][i];
+                tmp_nb_var++;
+            }
+
+            // h_thin
+            interp_elt_out[M_nb_var_element*i+tmp_nb_var] = M_h_thin[i];
+            tmp_nb_var++;
+
+            // conc_thin
+            interp_elt_out[M_nb_var_element*i+tmp_nb_var] = M_conc_thin[i];
+            tmp_nb_var++;
+
+            // hs_thin
+            interp_elt_out[M_nb_var_element*i+tmp_nb_var] = M_hs_thin[i];
+            tmp_nb_var++;
+
+            // tsurf_thin
+            interp_elt_out[M_nb_var_element*i+tmp_nb_var] = M_tsurf_thin[i];
+            tmp_nb_var++;
+
+            if(tmp_nb_var>M_nb_var_element)
+            {
+                throw std::logic_error("tmp_nb_var not equal to nb_var");
+            }
+        }
+    }
 }
 
 void
