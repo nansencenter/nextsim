@@ -7550,34 +7550,36 @@ FiniteElement::targetIce()
     {
         tmp_var = (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max)*(RX[i]>=x_min);
 
-/*        tmp_var = (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max1)*(RX[i]>=x_min1)
-            + (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max2)*(RX[i]>=x_min2);
+        /*        tmp_var = (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max1)*(RX[i]>=x_min1)
+                  + (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max2)*(RX[i]>=x_min2);
 */
-            /*
-            +     (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<x_min)*std::max(cmin,(1.-std::hypot(RX[i]-x_min,0.         )/transition))
-            +     (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]>x_max)*std::max(cmin,(1.-std::hypot(RX[i]-x_max,0.         )/transition))
-            +     (RX[i]<=x_max)*(RX[i]>=x_min)*(RY[i]<y_min)*std::max(cmin,(1.-std::hypot(RY[i]-y_min,0.         )/transition))
-            +     (RX[i]<=x_max)*(RX[i]>=x_min)*(RY[i]>y_max)*std::max(cmin,(1.-std::hypot(RY[i]-y_max,0.         )/transition))
-            +     (RY[i]< y_min)*(RX[i]< x_min)              *std::max(cmin,(1.-std::hypot(RX[i]-x_min,RY[i]-y_min)/transition))
-            +     (RY[i]< y_min)*(RX[i]> x_max)              *std::max(cmin,(1.-std::hypot(RX[i]-x_max,RY[i]-y_min)/transition))
-            +     (RY[i]> y_max)*(RX[i]< x_min)              *std::max(cmin,(1.-std::hypot(RX[i]-x_min,RY[i]-y_max)/transition))
-            +     (RY[i]> y_max)*(RX[i]> x_max)              *std::max(cmin,(1.-std::hypot(RX[i]-x_max,RY[i]-y_max)/transition));
-            */
+        /*
+          +     (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<x_min)*std::max(cmin,(1.-std::hypot(RX[i]-x_min,0.         )/transition))
+          +     (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]>x_max)*std::max(cmin,(1.-std::hypot(RX[i]-x_max,0.         )/transition))
+          +     (RX[i]<=x_max)*(RX[i]>=x_min)*(RY[i]<y_min)*std::max(cmin,(1.-std::hypot(RY[i]-y_min,0.         )/transition))
+          +     (RX[i]<=x_max)*(RX[i]>=x_min)*(RY[i]>y_max)*std::max(cmin,(1.-std::hypot(RY[i]-y_max,0.         )/transition))
+          +     (RY[i]< y_min)*(RX[i]< x_min)              *std::max(cmin,(1.-std::hypot(RX[i]-x_min,RY[i]-y_min)/transition))
+          +     (RY[i]< y_min)*(RX[i]> x_max)              *std::max(cmin,(1.-std::hypot(RX[i]-x_max,RY[i]-y_min)/transition))
+          +     (RY[i]> y_max)*(RX[i]< x_min)              *std::max(cmin,(1.-std::hypot(RX[i]-x_min,RY[i]-y_max)/transition))
+          +     (RY[i]> y_max)*(RX[i]> x_max)              *std::max(cmin,(1.-std::hypot(RX[i]-x_max,RY[i]-y_max)/transition));
+        */
         std::cout<<"RX: "<< RX[i] << "RY: "<< RY[i] << "tmp_var: " << tmp_var << "\n";
 
-        //M_conc[i]  = std::max(vm["simul.init_concentration"].as<double>()*tmp_var,cmin);
-	//	M_thick[i] = vm["simul.init_thickness"].as<double>()*M_conc[i];
-	//	M_snow_thick[i] = vm["simul.init_snow_thickness"].as<double>()*M_conc[i];
+        //  M_conc[i]  = std::max(vm["simul.init_concentration"].as<double>()*tmp_var,cmin);
+        //	M_thick[i] = vm["simul.init_thickness"].as<double>()*M_conc[i];
+        //	M_snow_thick[i] = vm["simul.init_snow_thickness"].as<double>()*M_conc[i];
 
         M_conc[i]  = vm["simul.init_concentration"].as<double>();
 
-	if(i==10)
-		M_conc[i]=0.;
+        if(i==10)
+        {
+            M_conc[i]=0.;
+        }
 
-	M_thick[i] = vm["simul.init_thickness"].as<double>()*M_conc[i];
-	M_snow_thick[i] = vm["simul.init_snow_thickness"].as<double>()*M_conc[i];
+        M_thick[i] = vm["simul.init_thickness"].as<double>()*M_conc[i];
+        M_snow_thick[i] = vm["simul.init_snow_thickness"].as<double>()*M_conc[i];
 
-	M_damage[i]=0.;
+        M_damage[i]=0.;
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
@@ -7595,6 +7597,7 @@ FiniteElement::targetIce()
             M_snow_thick[i]=0.;
             M_damage[i]=0.;
         }
+
         if(M_thick[i]<=0.)
         {
             M_conc[i]=0.;

@@ -41,7 +41,6 @@ namespace Nextsim
             ("setup.ice-type", po::value<std::string>()->default_value( "constant" ), "")
             ("setup.bathymetry-type", po::value<std::string>()->default_value( "etopo" ), "")
             ("simul.basal_stress-type", po::value<std::string>()->default_value( "lemieux" ), "")
-            //("setup.drifter-type", po::value<std::string>()->default_value( "none" ), "")
 
             // mesh
             ("mesh.path", po::value<std::string>()->default_value( "nextsimdir" ), "nextsimdir or simdatadir")
@@ -84,7 +83,6 @@ namespace Nextsim
             ("simul.rgps_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days") // must be a multiple of 0.5
             ("simul.use_osisaf_drifters", po::value<bool>()->default_value( false ), "")
 
-            //("simul.drifter_output_timestep", po::value<double>()->default_value( 1 ), "days")
             ("simul.drifter_climit", po::value<double>()->default_value( 0.15 ), "")
             ("simul.drifter_spacing", po::value<double>()->default_value( 10 ), "")
             ("simul.RGPS_time_init", po::value<std::string>()->default_value( "2008-Jan-01" ), "")
@@ -94,7 +92,6 @@ namespace Nextsim
             ("simul.regrid_output_flag", po::value<bool>()->default_value( false ), "")
             ("simul.regrid_angle", po::value<double>()->default_value( 10. ), "")
             ("simul.interp_with_cavities", po::value<bool>()->default_value( true ), "")
-            //("simul.interp_forcing_every_timestep", po::value<bool>()->default_value( false ), "")
 
             // water and air drag parameterizations
             ("simul.ERAi_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
@@ -102,7 +99,6 @@ namespace Nextsim
             ("simul.ASR_quad_drag_coef_air", po::value<double>()->default_value( 0.0049 ), "")
             ("simul.CFSR_quad_drag_coef_air", po::value<double>()->default_value( 0.0023 ), "")
             ("simul.lin_drag_coef_air", po::value<double>()->default_value( 0. ), "")
-            //("simul.rho_water", po::value<double>()->default_value( 1025. ), "")
             ("simul.quad_drag_coef_water", po::value<double>()->default_value( 0.0055 ), "")
             ("simul.lin_drag_coef_water", po::value<double>()->default_value( 0. ), "")
 
@@ -135,9 +131,6 @@ namespace Nextsim
             ("simul.Lemieux_basal_Cb", po::value<double>()->default_value( 20. ), "")
             ("simul.Lemieux_basal_u_0", po::value<double>()->default_value( 5e-5 ), "")
             ("simul.Lemieux_basal_u_crit", po::value<double>()->default_value( 5e-4 ), "")
-
-            // ridge tracer
-            //("simul.ridge_h", po::value<double>()->default_value( 3. ), "")
 
             // scaling with respect to horizontal resolution
             ("simul.scale_coef", po::value<double>()->default_value( 0.2 ), "")
@@ -228,8 +221,6 @@ namespace Nextsim
             ("simul.close_all_boundaries", po::value<bool>()->default_value( false ), "")
             ("simul.use_stability_drag", po::value<double>()->default_value( 0. ), "")
             ("simul.expansion-factor", po::value<double>()->default_value( 0.05 ), "")
-
-
 
         /*
          *-----------------------------------------------------------------------------------
