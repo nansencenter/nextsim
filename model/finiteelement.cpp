@@ -1890,20 +1890,6 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
         M_tsurf_thin[i] = out_elt_values[M_nb_var_element*i+tmp_nb_var];
         tmp_nb_var++;
 
-#if 0
-        // slab ocean (Msst and M_sss)
-        if (slab)
-        {
-            // Sea surface temperature
-            M_sst[i] = out_elt_values[M_nb_var_element*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // Sea surface salinity
-            M_sss[i] = out_elt_values[M_nb_var_element*i+tmp_nb_var];
-            tmp_nb_var++;
-        }
-#endif
-
         if(tmp_nb_var!=M_nb_var_element)
         {
             throw std::logic_error("tmp_nb_var not equal to nb_var");
@@ -2112,106 +2098,6 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
     std::vector<double> interp_elt_in_local;
     this->collectVariables(interp_elt_in_local, true);
 
-#if 0
-    int prv_num_nodes = M_local_ndof;
-    int prv_num_elements = M_local_nelements;
-
-    std::vector<double> interp_elt_in_local(M_nb_var_element*prv_num_elements);
-
-    //LOG(DEBUG) <<"ELEMENT: Interp starts\n";
-
-    int tmp_nb_var=0;
-    for (int i=0; i<prv_num_elements; ++i)
-    {
-        tmp_nb_var=0;
-
-        // concentration
-        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_conc[i];
-        tmp_nb_var++;
-
-        // thickness
-        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_thick[i];
-        tmp_nb_var++;
-
-        // snow thickness
-        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_snow_thick[i];
-        tmp_nb_var++;
-
-        // integrated_stress1
-        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_sigma[3*i]*M_thick[i];
-        tmp_nb_var++;
-
-        // integrated_stress2
-        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_sigma[3*i+1]*M_thick[i];
-        tmp_nb_var++;
-
-        // integrated_stress3
-        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_sigma[3*i+2]*M_thick[i];
-        tmp_nb_var++;
-
-        // compliance
-        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = 1./(1.-M_damage[i]);
-        tmp_nb_var++;
-
-#if 0
-        // divergence_rate
-        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_divergence_rate[i];
-        tmp_nb_var++;
-
-        // h_ridged_thin_ice
-        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_h_ridged_thin_ice[i];
-        tmp_nb_var++;
-
-        // h_ridged_thick_ice
-        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_h_ridged_thick_ice[i];
-        tmp_nb_var++;
-#endif
-
-        // random_number
-        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_random_number[i];
-        tmp_nb_var++;
-
-        // // Ice surface temperature
-        // interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_tsurf[i];
-        // tmp_nb_var++;
-
-        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_tice[0][i];
-        tmp_nb_var++;
-        if ( M_thermo_type == setup::ThermoType::WINTON )
-        {
-            interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = ( M_tice[1][i] - physical::mu*physical::si*physical::Lf/(physical::C*M_tice[1][i]) ) * M_thick[i]; // (39) times volume with f1=1
-            tmp_nb_var++;
-            interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = ( M_tice[2][i] ) * M_thick[i]; // (39) times volume with f1=0
-            tmp_nb_var++;
-        }
-
-        // thin ice thickness
-        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_h_thin[i];
-        tmp_nb_var++;
-
-        // snow on thin ice
-        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_hs_thin[i];
-        tmp_nb_var++;
-
-        // Ice surface temperature for thin ice
-        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_tsurf_thin[i];
-        tmp_nb_var++;
-
-        // Sea surface temperature
-        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_sst[i];
-        tmp_nb_var++;
-
-        // Sea surface salinity
-        interp_elt_in_local[M_nb_var_element*i+tmp_nb_var] = M_sss[i];
-        tmp_nb_var++;
-
-        if(tmp_nb_var>M_nb_var_element)
-        {
-            throw std::logic_error("tmp_nb_var not equal to nb_var");
-        }
-    }
-#endif
-
     if (M_rank == 0)
     {
         interp_in_elements.resize(M_nb_var_element*M_mesh_previous_root.numTriangles());
@@ -2320,118 +2206,6 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     M_tsurf_thin.assign(M_num_elements,0.);
 
     this->redistributeVariables(out_elt_values, true);
-
-#if 0
-    int tmp_nb_var=0;
-
-    for (int i=0; i<M_num_elements; ++i)
-    {
-        tmp_nb_var=0;
-
-        // concentration
-        M_conc[i] = std::max(0., std::min(1.,out_elt_values[M_nb_var_element*i+tmp_nb_var]));
-        tmp_nb_var++;
-
-        // thickness
-        M_thick[i] = std::max(0., out_elt_values[M_nb_var_element*i+tmp_nb_var]);
-        tmp_nb_var++;
-
-        // snow thickness
-        M_snow_thick[i] = std::max(0., out_elt_values[M_nb_var_element*i+tmp_nb_var]);
-        tmp_nb_var++;
-
-        if (M_thick[i] != 0.)
-        {
-            // integrated_stress1
-            M_sigma[3*i] = out_elt_values[M_nb_var_element*i+tmp_nb_var]/M_thick[i];
-            tmp_nb_var++;
-
-            // integrated_stress2
-            M_sigma[3*i+1] = out_elt_values[M_nb_var_element*i+tmp_nb_var]/M_thick[i];
-            tmp_nb_var++;
-
-            // integrated_stress3
-            M_sigma[3*i+2] = out_elt_values[M_nb_var_element*i+tmp_nb_var]/M_thick[i];
-            tmp_nb_var++;
-        }
-        else
-        {
-            tmp_nb_var+=3;
-        }
-
-        // compliance
-        if (out_elt_values[M_nb_var_element*i+tmp_nb_var] != 0.)
-        {
-            M_damage[i] = std::max(0., std::min(1.,1.-(1./out_elt_values[M_nb_var_element*i+tmp_nb_var])));
-            tmp_nb_var++;
-        }
-        else
-        {
-            M_damage[i] = 0.;
-            tmp_nb_var++;
-        }
-
-#if 0
-        // divergence_rate
-        M_divergence_rate[i] = out_elt_values[M_nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // h_ridged_thin_ice
-        M_h_ridged_thin_ice[i] = out_elt_values[M_nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // h_ridged_thick_ice
-        M_h_ridged_thick_ice[i] = out_elt_values[M_nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-#endif
-
-        // random_number
-        M_random_number[i] = out_elt_values[M_nb_var_element*i+tmp_nb_var];
-        //M_random_number[i] = std::max(0., std::min(1.,out_elt_values[M_nb_var_element*i+tmp_nb_var]));
-        tmp_nb_var++;
-
-        // // Ice surface temperature
-        // M_tsurf[i] = out_elt_values[M_nb_var_element*i+tmp_nb_var];
-        // tmp_nb_var++;
-
-        // Ice temperature
-        M_tice[0][i] = out_elt_values[M_nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-        if ( M_thermo_type == setup::ThermoType::WINTON )
-        {
-            double tmp = out_elt_values[M_nb_var_element*i+tmp_nb_var]/M_thick[i];
-            M_tice[1][i] = 0.5*( tmp - std::sqrt(tmp*tmp + 4*physical::mu*physical::si*physical::Lf/physical::C) ); // (38) divided with volume with f1=1
-            tmp_nb_var++;
-            M_tice[2][i] = out_elt_values[M_nb_var_element*i+tmp_nb_var]/M_thick[i]; // (40) divided with volume with f1=0
-            tmp_nb_var++;
-        }
-
-        // thin ice thickness
-        M_h_thin[i] = out_elt_values[M_nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // snow on thin ice
-        M_hs_thin[i] = out_elt_values[M_nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // Ice surface temperature for thin ice
-        M_tsurf_thin[i] = out_elt_values[M_nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // Sea surface temperature
-        M_sst[i] = out_elt_values[M_nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // Sea surface salinity
-        M_sss[i] = out_elt_values[M_nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        if(tmp_nb_var!=M_nb_var_element)
-        {
-            throw std::logic_error("tmp_nb_var not equal to nb_var");
-        }
-    }
-#endif
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
 }
@@ -3025,17 +2799,6 @@ FiniteElement::regrid(bool step)
         std::cout <<"TIMER REGRIDDING= "<< timer["regrid"].first.elapsed() <<"s\n";
 
     this->assignVariables();
-
-#if 0
-    M_comm.barrier();
-
-    if (step)
-    {
-        M_solver->clear();
-        M_solver.reset();
-        M_solver = solver_ptrtype(new solver_type());
-    }
-#endif
 }
 
 void
@@ -3374,17 +3137,6 @@ FiniteElement::assemble(int pcpt)
 
         surface_e = M_surface[cpt];
 
-
-        //double coef_sigma = tmp_thick*multiplicator;
-        //coef_sigma = (tmp_conc > vm["simul.min_c"].as<double>()) ? (coef_sigma):0.;
-
-        // coef_Voce = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
-        // coef_Voce *= physical::rhow;
-
-        // coef_Vair = (vm["simul.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*norm_Vair_ice));
-        // coef_Vair *= (physical::rhoa);
-
-
         if (0)
         {
             std::cout<<"************************\n";
@@ -3443,19 +3195,6 @@ FiniteElement::assemble(int pcpt)
             index_u = it->indices[j]-1;
             index_v = it->indices[j]-1+M_num_nodes;
 
-#if 0
-            Vcor_index_v=beta0*M_VT[index_v] + beta1*M_VTM[index_v] + beta2*M_VTMM[index_v];
-            Vcor_index_u=beta0*M_VT[index_u] + beta1*M_VTM[index_u] + beta2*M_VTMM[index_u];
-
-            norm_Voce_ice = std::hypot(M_VT[index_u]-M_ocean[index_u],M_VT[index_v]-M_ocean[index_v]);
-            norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
-
-            norm_Vair_ice = std::hypot(M_VT[index_u]-M_wind [index_u],M_VT[index_v]-M_wind [index_v]);
-            norm_Vair_ice = (norm_Vair_ice > norm_Vair_ice_min) ? (norm_Vair_ice):norm_Vair_ice_min;
-
-            norm_Vice = std::hypot(M_VT[index_u],M_VT[index_v]);
-            norm_Vice = (norm_Vice > basal_u_0) ? (norm_Vice):basal_u_0;
-#else
             double vt_u = M_VT[index_u];
             double vt_v = M_VT[index_v];
 
@@ -3468,27 +3207,6 @@ FiniteElement::assemble(int pcpt)
 
             Vcor_index_v = beta0*vt_v + beta1*M_VTM[index_v] + beta2*M_VTMM[index_v];
             Vcor_index_u = beta0*vt_u + beta1*M_VTM[index_u] + beta2*M_VTMM[index_u];
-
-            // norm_Voce_ice = std::hypot(vt_u-ocean_u,vt_v-ocean_v);
-            // norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
-
-            // norm_Vair_ice = std::hypot(vt_u-wind_u,vt_v-wind_v);
-            // norm_Vair_ice = (norm_Vair_ice > norm_Vair_ice_min) ? (norm_Vair_ice):norm_Vair_ice_min;
-
-            // norm_Vice = std::hypot(vt_u,vt_v);
-            // norm_Vice = (norm_Vice > basal_u_0) ? (norm_Vice):basal_u_0;
-#endif
-
-            // coef_basal = basal_k2/norm_Vice;
-            // coef_basal *= std::max(0., M_thick[cpt]-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
-
-            // if(tmp_conc == vm["simul.min_c"].as<double>())
-            // {
-            //     coef_Voce = 0.;
-            //     coef_Vair = 0.;
-            //     coef_basal = 0.;
-            // }
-
 
             if (!it->ghostNodes[j])
             {
@@ -3998,9 +3716,6 @@ FiniteElement::update()
             M_snow_thick[cpt]=0.;
         }
 
-
-
-
         /*======================================================================
          * Update the internal stress
          *======================================================================
@@ -4159,362 +3874,6 @@ FiniteElement::update()
         M_damage[cpt]=((tmp>0.)?(tmp):(0.));
     }
 }
-
-#if 0
-void
-FiniteElement::update()
-{
-    M_comm.barrier();
-
-    std::vector<double> UM_P = M_UM;
-
-    for (int nd=0; nd<M_UM.size(); ++nd)
-    {
-        M_UM[nd] += time_step*M_VT[nd];
-    }
-
-    for (const int& nd : M_neumann_nodes)
-    {
-        M_UM[nd] = UM_P[nd];
-    }
-
-    //std::cout<<"[" << M_rank <<"] " <<" Divergence_Rate MIN= "<< *std::min_element(M_divergence_rate.begin(),M_divergence_rate.end()) <<"\n";
-    //std::cout<<"[" << M_rank <<"] " <<" Divergence_Rate MAX= "<< *std::max_element(M_divergence_rate.begin(),M_divergence_rate.end()) <<"\n";
-
-    double old_thick;
-    double old_snow_thick;
-    double old_conc;
-    double old_damage;
-    double old_h_ridged_thick_ice;
-
-    double old_h_thin;
-    double old_hs_thin;
-    double old_h_ridged_thin_ice;
-
-    /* deformation, deformation rate and internal stress tensor and temporary variables */
-    double epsilon_veloc_i;
-    std::vector<double> epsilon_veloc(3);
-    std::vector<double> sigma_pred(3);
-    double sigma_dot_i;
-
-    /* divergence */
-    double divergence_rate;
-
-    /* some variables used for the advection*/
-    double surface, surface_new, ar, ar_new;
-    double ice_surface, ice_volume, snow_volume;
-    double thin_ice_surface, thin_ice_volume, thin_snow_volume;
-    double ridging_thin_ice, ridging_thick_ice, ridging_snow_thin_ice;
-    double ridged_thin_ice_volume, ridged_thick_ice_volume;
-
-    /* invariant of the internal stress tensor and some variables used for the damaging process*/
-    double sigma_s, sigma_n, sigma_1, sigma_2;
-    double tract_max, sigma_t, sigma_c, q;
-    double tmp, sigma_target;
-
-    /* some variables used for the ice redistribution*/
-    double tanalpha, rtanalpha, del_v, del_c, del_vs, new_v_thin;
-
-    /* Indices loop*/
-    int i,j;
-
-    bool to_be_updated;
-
-    for (int cpt=0; cpt < M_num_elements; ++cpt)
-    {
-        // std::cout<<"-------------------"<< cpt << "-------------------"<<"\n";
-        if (0)//(M_rank == 5)
-        {
-            std::cout<<"--------------------------------------"<<"\n";
-            std::cout<<"(M_elements[cpt]).rank                = "<< M_rank <<"\n";
-            std::cout<<"(M_elements[cpt]).number              = "<< (M_elements[cpt]).number <<"\n";
-            std::cout<<"(M_elements[cpt]).type                = "<< (M_elements[cpt]).type <<"\n";
-            std::cout<<"(M_elements[cpt]).physical            = "<< (M_elements[cpt]).physical <<"\n";
-            std::cout<<"(M_elements[cpt]).elementary          = "<< (M_elements[cpt]).elementary <<"\n";
-            std::cout<<"(M_elements[cpt]).numPartitions       = "<< (M_elements[cpt]).numPartitions <<"\n";
-            std::cout<<"(M_elements[cpt]).partition           = "<< (M_elements[cpt]).partition <<"\n";
-            std::cout<<"(M_elements[cpt]).is_ghost            = "<< (M_elements[cpt]).is_ghost <<"\n";
-            std::cout<<"(M_elements[cpt]).ghosts              = "<<"\n";
-
-            for (int k=0; k<(M_elements[cpt]).ghosts.size(); ++k)
-            {
-                std::cout<<"                    ghosts["<< k <<"]= "<< (M_elements[cpt]).ghosts[k] <<"\n";
-            }
-
-            std::cout<<"(M_elements[cpt]).is_on_processor     = "<< (M_elements[cpt]).is_on_processor <<"\n";
-            std::cout<<"(M_elements[cpt]).ghost_partition_id  = "<< (M_elements[cpt]).ghost_partition_id <<"\n";
-        }
-
-
-
-        /* set constants for the ice redistribution */
-        tanalpha  = h_thin_max/c_thin_max;
-        rtanalpha = 1./tanalpha;
-
-        // beginning of the original code (without openMP)
-        // Temporary memory
-        old_thick = M_thick[cpt];
-        old_snow_thick = M_snow_thick[cpt];
-        old_conc = M_conc[cpt];
-        old_damage = M_damage[cpt];
-        //old_h_ridged_thick_ice = M_h_ridged_thick_ice[cpt];
-
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        {
-            old_h_thin = M_h_thin[cpt];
-            old_hs_thin = M_hs_thin[cpt];
-            //old_h_ridged_thin_ice = M_h_ridged_thin_ice[cpt];
-        }
-
-        /*======================================================================
-         * Diagnostic:
-         * Elastic deformation and instantaneous deformation rate
-         *======================================================================
-         */
-
-        /* Compute the elastic deformation and the instantaneous deformation rate */
-        for(i=0;i<3;i++)
-        {
-            epsilon_veloc_i = 0.0;
-            for(j=0;j<3;j++)
-            {
-                /* deformation */
-                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j]*M_VT[(M_elements[cpt]).indices[j]-1];
-                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j + 1]*M_VT[(M_elements[cpt]).indices[j]-1+M_num_nodes];
-            }
-
-            epsilon_veloc[i] = epsilon_veloc_i;
-        }
-
-        divergence_rate[cpt]= (epsilon_veloc[0]+epsilon_veloc[1]);
-
-        /*======================================================================
-         * Update the internal stress
-         *======================================================================
-         */
-
-        for(i=0;i<3;i++)
-        {
-            sigma_dot_i = 0.0;
-            for(j=0;j<3;j++)
-            {
-                sigma_dot_i += std::exp(ridging_exponent*(1.-old_conc))*young*(1.-old_damage)*M_Dunit[3*i + j]*epsilon_veloc[j];
-            }
-
-            M_sigma[3*cpt+i] += time_step*sigma_dot_i;
-            sigma_pred[i]    = M_sigma[3*cpt+i] + time_step*sigma_dot_i;
-        }
-
-        /*======================================================================
-         * Correct the internal stress and the damage
-         *======================================================================
-         */
-
-        /* Compute the shear and normal stress, which are two invariants of the internal stress tensor */
-
-        sigma_s=std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
-        sigma_n=-          (sigma_pred[0]+sigma_pred[1])/2.;
-
-        sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
-        sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
-
-        q=std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
-        sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
-
-        sigma_t=-sigma_c/q;
-
-        /* minimum and maximum normal stress */
-        tract_max=-tract_coef*M_Cohesion[cpt]/tan_phi;
-
-        /* Correction of the damage */
-        if(sigma_n>M_Compressive_strength[cpt])
-        {
-            sigma_target=M_Compressive_strength[cpt];
-
-            tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
-
-            if(tmp>M_damage[cpt])
-            {
-                M_damage[cpt]=tmp;
-            }
-        }
-
-
-        if(sigma_1-q*sigma_2>sigma_c)
-        {
-            sigma_target=sigma_c;
-
-            tmp=1.0-sigma_target/(sigma_1-q*sigma_2)*(1.0-old_damage);
-
-            if(tmp>M_damage[cpt])
-            {
-                M_damage[cpt]=tmp;
-            }
-        }
-
-        if(sigma_n<tract_max)
-        {
-            sigma_target=tract_max;
-
-            tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
-
-            if(tmp>M_damage[cpt])
-            {
-                M_damage[cpt]=tmp;
-            }
-        }
-
-
-        /*
-         * Diagnostic:
-         * Recompute the internal stress
-         */
-        for(i=0;i<3;i++)
-        {
-            if(old_damage<1.0)
-            {
-                M_sigma[3*cpt+i] = (1.-M_damage[cpt])/(1.-old_damage)*M_sigma[3*cpt+i] ;
-            }
-            else
-            {
-                M_sigma[3*cpt+i] = 0. ;
-            }
-        }
-
-
-        /*======================================================================
-         * Update:
-         * Ice damage
-         * We use now a constant healing rate defined as 1/time_recovery_damage
-         * so that we are now able to reset the damage to 0.
-         * otherwise, it will never heal completely.
-         * time_recovery_damage still depends on the temperature when themodynamics is activated.
-         *======================================================================
-         */
-        tmp=1./(1.-M_damage[cpt]);
-        tmp-= 1000*time_step/M_time_relaxation_damage[cpt];
-        tmp=((tmp>1.)?(tmp):(1.));
-        M_damage[cpt]=-1./tmp + 1.;
-
-        /*======================================================================
-         * Update:
-         * Ice and snow thickness, and concentration using a Lagrangian or an Eulerian scheme
-         *======================================================================
-         */
-
-        to_be_updated=false;
-        if( divergence_rate[cpt]!=0.)
-            to_be_updated=true;
-
-
-        if(std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[0]-1) ||
-           std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[1]-1) ||
-           std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[2]-1))
-            to_be_updated=false;
-
-        if((old_conc>0.)  && (to_be_updated))
-        {
-            surface = this->measure(M_elements[cpt],M_mesh, UM_P);
-            surface_new = this->measure(M_elements[cpt],M_mesh,M_UM);
-
-            ice_surface = old_conc*surface;
-            ice_volume = old_thick*surface;
-            snow_volume = old_snow_thick*surface;
-            ridged_thick_ice_volume = old_h_ridged_thick_ice*surface;
-
-            M_conc[cpt]    = ice_surface/surface_new;
-            M_thick[cpt]   = ice_volume/surface_new; // Hold on! Isn't M_thick the effective thickness?
-            M_snow_thick[cpt]   = snow_volume/surface_new;
-            //M_h_ridged_thick_ice[cpt]   =   ridged_thick_ice_volume/surface_new;
-
-
-            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-            {
-                thin_ice_volume = old_h_thin*surface;
-                thin_snow_volume = old_hs_thin*surface;
-                ridged_thin_ice_volume = old_h_ridged_thin_ice*surface;
-
-                M_h_thin[cpt]        = thin_ice_volume/surface_new;
-                M_hs_thin[cpt]   = thin_snow_volume/surface_new;
-                //M_h_ridged_thin_ice[cpt]    =   ridged_thin_ice_volume/surface_new;
-            }
-
-            /* Ridging scheme */
-            if(surface_new<surface)
-            {
-                if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-                {
-                    ridging_thin_ice=(surface-surface_new)/surface_new*old_h_thin;
-                    ridging_snow_thin_ice=(surface-surface_new)/surface_new*old_hs_thin;
-
-                    ridging_thin_ice=((ridging_thin_ice<old_h_thin)?(ridging_thin_ice):(old_h_thin));
-                    ridging_snow_thin_ice=((ridging_snow_thin_ice<old_hs_thin)?(ridging_snow_thin_ice):(old_hs_thin)) ;
-
-                    M_thick[cpt] += ridging_thin_ice ;
-                    M_h_thin[cpt] -= ridging_thin_ice ;
-
-                    M_snow_thick[cpt] += ridging_snow_thin_ice ;
-                    M_hs_thin[cpt] -= ridging_snow_thin_ice ;
-
-                    //M_h_ridged_thin_ice[cpt] += ridging_thin_ice;
-                    M_conc[cpt] += ridging_thin_ice/ridge_h;
-
-                    /* upper bounds (only for the concentration) */
-                    ridging_thin_ice = ((M_conc[cpt]<1.)?(0.):(M_h_thin[cpt])) ;
-                    ridging_snow_thin_ice = ((M_conc[cpt]<1.)?(0.):(M_hs_thin[cpt])) ;
-
-                    M_snow_thick[cpt] += ridging_snow_thin_ice ;
-                    M_hs_thin[cpt] -= ridging_snow_thin_ice ;
-
-                    M_thick[cpt] += ridging_thin_ice;
-                    M_h_thin[cpt] -= ridging_thin_ice;
-                }
-                /* upper bounds (only for the concentration) */
-                ridging_thick_ice=((M_conc[cpt]<1.)?(0.):(M_thick[cpt]*(M_conc[cpt]-1.)));
-                M_conc[cpt] = ((M_conc[cpt]<1.)?(M_conc[cpt]):(1.)) ;
-            }
-
-            /* lower bounds */
-            M_conc[cpt] = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
-            M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
-            M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
-
-            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-            {
-                M_h_thin[cpt]    = ((M_h_thin[cpt]>0.)?(M_h_thin[cpt] ):(0.)) ;
-                M_hs_thin[cpt]   = ((M_hs_thin[cpt]>0.)?(M_hs_thin[cpt]):(0.)) ;
-            }
-        }
-
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        {
-            /* Compute the redistribution of thin ice. */
-            /* Returns the change in volume and concentration of thick ice as well as the
-             * change in volume of thin ice. It is called after the
-             * dynamics are done. */
-
-            if(M_h_thin[cpt]>0.)
-            {
-                thin_ice_redistribute(M_h_thin[cpt], M_hs_thin[cpt], 0., M_conc[cpt],
-                                      tanalpha, rtanalpha, h_thin_max, &new_v_thin, &del_v, &del_c, &del_vs);
-
-                M_conc[cpt]       += del_c;
-
-                M_thick[cpt]           += del_v;
-                M_h_thin[cpt]      -= del_v;
-
-                M_snow_thick[cpt]      += del_vs;
-                M_hs_thin[cpt] -= del_vs;
-            }
-            else
-            {
-                M_snow_thick[cpt] += M_hs_thin[cpt];
-                M_hs_thin[cpt] = 0. ;
-            }
-        }
-    }
-}
-#endif
 
 void
 FiniteElement::solve()
@@ -6020,7 +5379,6 @@ FiniteElement::run()
 
     this->exportResults(1000);
 
-    //this->clear();
     this->finalise();
 
 #endif
@@ -9515,9 +8873,6 @@ FiniteElement::initIABPDrifter()
 void
 FiniteElement::equallySpacedDrifter()
 {
-    // M_drifters = Drifters(1e3*vm["simul.drifter_spacing"].as<double>(), M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
-    // M_drifters.initNetCDF(M_export_path+"/Drifters_", current_time);
-    // M_drifters.appendNetCDF(current_time, M_mesh, M_UT);
     M_equallyspaced_drifters = Drifters(1e3*vm["simul.drifter_spacing"].as<double>(), M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
     M_equallyspaced_drifters.initNetCDF(M_export_path+"/Drifters_", current_time);
     M_equallyspaced_drifters.appendNetCDF(current_time, M_mesh, M_UT);
