@@ -2921,10 +2921,36 @@ FiniteElement::regrid(bool step)
                 std::cout <<"Interp vertices done in "<< timer["interpvertices"].first.elapsed() <<"\n";
             }
 
+#if 0
+            had_remeshed=true;
+            if(step && (vm["simul.regrid_output_flag"].as<bool>()))
+            {
+
+                std::string tmp_string1    = (boost::format( "before_adaptMesh_%1%_mesh_adapt_step_%2%_substep_%3%" )
+                                                                                 % step
+                                                                                 % mesh_adapt_step
+                                              % substep ).str();
+
+                this->exportResults(tmp_string1,true,true,false);
+            }
+#endif
+
             timer["adaptmesh"].first.restart();
             LOG(DEBUG) <<"---TRUE AdaptMesh starts\n";
             this->adaptMesh();
             std::cout <<"---TRUE AdaptMesh done in "<< timer["adaptmesh"].first.elapsed() <<"s\n";
+
+#if 0
+            if(step && (vm["simul.regrid_output_flag"].as<bool>()))
+            {
+                std::string tmp_string2    = (boost::format( "after_adaptMesh_%1%_mesh_adapt_step_%2%_substep_%3%" )
+                                              % step
+                                              % mesh_adapt_step
+                                              % substep ).str();
+
+                this->exportResults(tmp_string2,true,false,false);
+            }
+#endif
 
             // save mesh (only root process)
 
@@ -5598,22 +5624,11 @@ FiniteElement::init()
 
     M_comm.barrier();
 
-    // write the logfile: assigned to the process master (rank 0)
-    if (M_comm.rank() == 0)
-    {
-        this->writeLogFile();
-    }
 
     // Initialise everything that doesn't depend on the mesh (constants, data set description, and time)
     this->initConstant();
     current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
     this->initDatasets();
-
-    pcpt = 0;
-    niter = vm["simul.maxiteration"].as<int>();
-    mesh_adapt_step = 0;
-    had_remeshed = false;
-    minang = 0.;
 
     if (M_rank==0)
     {
@@ -5667,14 +5682,14 @@ FiniteElement::init()
         if(M_use_osisaf_drifters)
             this->initOSISAFDrifters();
 
-        std::cout<< "-----------------------------------------------------------pcpt= "<< pcpt <<"\n";
+        if(fmod(pcpt*time_step,output_time_step) == 0)
+        {
+            LOG(DEBUG) <<"export starts\n";
+            this->exportResults((int) pcpt*time_step/output_time_step);
+            LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
+        }
 
-        // if(fmod(pcpt*time_step,output_time_step) == 0)
-        // {
-        //     LOG(DEBUG) <<"export starts\n";
-        //     this->exportResults((int) pcpt*time_step/output_time_step);
-        //     LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
-        // }
+        std::cout<< "-----------------------------------------------------------pcpt= "<< pcpt <<"\n";
     }
     else
     {
@@ -5749,14 +5764,175 @@ FiniteElement::init()
     // Initialise the moorings - if requested
     if ( M_use_moorings )
         this->initMoorings();
-#if 0
-#endif
 
 #endif
 
 }
 
-// This is the main working function, called from main.cpp (same as perform_simul in the old code)
+ void
+ FiniteElement::step()
+ {
+     this->updateDrifterPosition();
+
+     // The first time step we behave as if we just did a regrid
+     M_regrid = (pcpt==0);
+
+     double displacement_factor = 1.;
+     bool force_regrid = (!(pcpt % 30)) && (pcpt != 0);
+
+     if (vm["simul.regrid"].as<std::string>() == "bamg")
+     {
+         minang = this->minAngle(M_mesh,M_UM,displacement_factor);
+
+         if (M_rank == 0)
+         {
+             std::cout <<"REGRID ANGLE= "<< minang <<"\n";
+         }
+
+         if ( minang < vm["simul.regrid_angle"].as<double>() )
+         {
+             if ( M_use_moorings && ! M_moorings_snapshot )
+                 M_moorings.updateGridMean(M_mesh);
+
+             LOG(DEBUG) <<"Regriding starts\n";
+             chrono.restart();
+             this->regrid(pcpt);
+             LOG(DEBUG) <<"Regriding done in "<< chrono.elapsed() <<"s\n";
+
+             if ( M_use_moorings && ! M_moorings_snapshot )
+                 M_moorings.updateGridMean(M_mesh);
+
+             M_regrid = true;
+             ++M_nb_regrid;
+         }
+     }
+
+     M_comm.barrier();
+
+     if ( M_regrid || M_use_restart )
+     {
+         timer["tensors"].first.restart();
+         this->tensors();
+         if (M_rank == 0)
+             std::cout <<"---timer tensors:              "<< timer["tensors"].first.elapsed() <<"\n";
+
+         timer["cohesion"].first.restart();
+         this->cohesion();
+         if (M_rank == 0)
+             std::cout <<"---timer cohesion:             "<< timer["cohesion"].first.elapsed() <<"\n";
+
+         timer["coriolis"].first.restart();
+         this->coriolis();
+         if (M_rank == 0)
+             std::cout <<"---timer coriolis:             "<< timer["coriolis"].first.elapsed() <<"\n";
+     }
+
+     timer["reload"].first.restart();
+     this->checkReloadDatasets(M_external_data,
+                               current_time+time_step/(24*3600.0),
+                               "init - time-dependant");
+     if (M_rank == 0)
+         std::cout <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
+
+     if (pcpt == 0)
+     {
+         LOG(DEBUG) <<"first export starts\n";
+         this->exportResults(0);
+         this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
+         LOG(DEBUG) <<"first export done\n";
+     }
+
+    //======================================================================
+    // Do the thermodynamics
+    //======================================================================
+    if(vm["simul.use_thermo_forcing"].as<bool>())
+    {
+        timer["thermo"].first.restart();
+        this->thermo();
+        if (M_rank == 0)
+            std::cout <<"---timer thermo:               "<< timer["thermo"].first.elapsed() <<"s\n";
+    }
+
+    //======================================================================
+    // Do the dynamics
+    //======================================================================
+
+    if ( M_dynamics_type == setup::DynamicsType::DEFAULT )
+    {
+        //======================================================================
+        // Assemble the matrix
+        //======================================================================
+        timer["assemble"].first.restart();
+        this->assemble(pcpt);
+        if (M_rank == 0)
+            std::cout <<"---timer assemble:             "<< timer["assemble"].first.elapsed() <<"s\n";
+
+#if 0
+        if(had_remeshed && (vm["simul.regrid_output_flag"].as<bool>()))
+        {
+            std::string tmp_string3    = (boost::format( "after_assemble_%1%_mesh_adapt_step_%2%" )
+                                                                             % pcpt
+                                          % mesh_adapt_step ).str();
+
+            this->exportResults(tmp_string3);
+
+            had_remeshed=false;
+        }
+#endif
+
+        //======================================================================
+        // Solve the linear problem
+        //======================================================================
+        timer["solve"].first.restart();
+        this->solve();
+        if (M_rank == 0)
+            std::cout <<"---timer solve:                "<< timer["solve"].first.elapsed() <<"s\n";
+
+        timer["updatevelocity"].first.restart();
+        this->updateVelocity();
+        if (M_rank == 0)
+            std::cout <<"---timer updateVelocity:       "<< timer["updatevelocity"].first.elapsed() <<"s\n";
+
+        timer["update"].first.restart();
+        this->update();
+        if (M_rank == 0)
+            std::cout <<"---timer update:               "<< timer["update"].first.elapsed() <<"s\n";
+    }
+
+    if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
+    {
+        this->updateFreeDriftVelocity();
+    }
+
+    ++pcpt;
+    current_time = time_init + pcpt*time_step/(24*3600.0);
+
+#if 1
+#if 1
+    if(fmod(pcpt*time_step,output_time_step) == 0)
+    {
+        chrono.restart();
+        LOG(DEBUG) <<"export starts\n";
+        this->exportResults((int) pcpt*time_step/output_time_step);
+        LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
+    }
+
+    if ( M_use_moorings )
+    {
+        this->updateMoorings();
+    }
+
+    if ( fmod(pcpt*time_step,restart_time_step) == 0)
+    {
+        std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
+        this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
+    }
+#endif
+#endif
+
+ }
+
+ // This is the main working function, called from main.cpp (same as perform_simul in the old code)
 void
 FiniteElement::run()
 {
@@ -5768,13 +5944,33 @@ FiniteElement::run()
 
     std::string current_time_system = current_time_local();
     double displacement_factor = 1.;
-    // double minang = 0.;
-    bool is_running = true;
+
     pcpt = 0;
+    niter = vm["simul.maxiteration"].as<int>();
+    mesh_adapt_step = 0;
+    had_remeshed = false;
+    minang = 0.;
 
     this->init();
 
+    // write the logfile: assigned to the process master (rank 0)
+    if (M_comm.rank() == 0)
+    {
+        this->writeLogFile();
+    }
+
+    // Debug file that records the time step
+    std::fstream pcpt_file;
+
+    if (M_rank == 0)
+    {
+        pcpt_file.open(M_export_path + "/Timestamp.txt", std::ios::out | std::ios::trunc);
+    }
+
 #if 1
+    current_time = time_init + pcpt*time_step/(24*3600.0);
+    bool is_running = true;
+
     // main loop for nextsim program
     while (is_running)
     {
@@ -5794,170 +5990,323 @@ FiniteElement::run()
             std::cout <<"\n";
         }
 
+        std::cout<<"pcpt = "<< pcpt <<"\n";
 
-        is_running = ((pcpt+1)*time_step) < duration;
+        //is_running = ((pcpt+1)*time_step) < duration;
+        is_running = (pcpt*time_step) < duration;
 
         if (pcpt == niter)
             is_running = false;
 
-        current_time = time_init + pcpt*time_step/days_in_sec;
+        //current_time = time_init + pcpt*time_step/days_in_sec;
 
-        // step 0: preparation
-        // remeshing and remapping of the prognostic variables
-
-#if 0
-        minang = 0.;
+        // **********************************************************************
+        // Take one time-step
+        // **********************************************************************
+        this->step();
 
         if (M_rank == 0)
-            minang = this->minAngle(M_mesh_root,M_UM_root,1.);
-
-        double min_angle = minang;
-
-        minang = boost::mpi::all_reduce(M_comm, min_angle, boost::mpi::maximum<double>());
-#endif
-        // The first time step we behave as if we just did a regrid
-        M_regrid = (pcpt==0);
-
-        bool force_regrid = (!(pcpt % 30)) && (pcpt != 0);
-
-        if (vm["simul.regrid"].as<std::string>() == "bamg")
         {
-            minang = this->minAngle(M_mesh,M_UM,displacement_factor);
-
-            if (M_rank == 0)
-            {
-                std::cout <<"REGRID ANGLE= "<< minang <<"\n";
-            }
-
-            //if (pcpt == 2)
-            if ( minang < vm["simul.regrid_angle"].as<double>() )
-            {
-                LOG(DEBUG) <<"Regriding starts\n";
-				chrono.restart();
-                this->regrid(pcpt);
-                LOG(DEBUG) <<"Regriding done in "<< chrono.elapsed() <<"s\n";
-
-                M_regrid = true;
-                ++M_nb_regrid;
-            }
+            pcpt_file << pcpt << "\n";
+            pcpt_file << to_date_string(current_time) << "\n";
+            pcpt_file.seekp(0);
         }
-
-        M_comm.barrier();
-
-        // Read in the new buoys and output
-        // if (M_drifter_type == setup::DrifterType::IABP && std::fmod(current_time,0.5) == 0)
-        // {
-        //     this->updateIABPDrifter();
-        //     // TODO: Do we want to output drifters at a different time interval?
-        //     this->outputDrifter(M_drifters_out);
-        // }
-
-        if ( M_regrid || M_use_restart )
-        {
-            timer["tensors"].first.restart();
-            this->tensors();
-            if (M_rank == 0)
-                std::cout <<"---timer tensors:              "<< timer["tensors"].first.elapsed() <<"\n";
-
-            timer["cohesion"].first.restart();
-            this->cohesion();
-            if (M_rank == 0)
-                std::cout <<"---timer cohesion:             "<< timer["cohesion"].first.elapsed() <<"\n";
-
-            timer["coriolis"].first.restart();
-            this->coriolis();
-            if (M_rank == 0)
-                std::cout <<"---timer coriolis:             "<< timer["coriolis"].first.elapsed() <<"\n";
-        }
-
-        timer["reload"].first.restart();
-#if 0
-        for ( auto it = M_external_data.begin(); it != M_external_data.end(); ++it )
-            (*it)->check_and_reload(M_mesh,current_time+time_step/(24*3600.0));
-#else
-        this->checkReloadDatasets(M_external_data,
-                                  current_time+time_step/(24*3600.0),
-                                  "init - time-dependant");
-#endif
-        if (M_rank == 0)
-            std::cout <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
-
-        if (0) //(pcpt == 0)
-        {
-            LOG(DEBUG) <<"first export starts\n";
-            //this->exportResults(0);
-            this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
-            LOG(DEBUG) <<"first export done\n";
-        }
-
-        //======================================================================
-        // Do the thermodynamics
-        //======================================================================
-        if(vm["simul.use_thermo_forcing"].as<bool>())
-        {
-            timer["thermo"].first.restart();
-            this->thermo();
-            if (M_rank == 0)
-                std::cout <<"---timer thermo:               "<< timer["thermo"].first.elapsed() <<"s\n";
-        }
-
-        //======================================================================
-        // Assemble the matrix
-        //======================================================================
-        timer["assemble"].first.restart();
-        this->assemble(pcpt);
-        if (M_rank == 0)
-            std::cout <<"---timer assemble:             "<< timer["assemble"].first.elapsed() <<"s\n";
-
-        //======================================================================
-        // Solve the linear problem
-        //======================================================================
-        timer["solve"].first.restart();
-        this->solve();
-        if (M_rank == 0)
-            std::cout <<"---timer solve:                "<< timer["solve"].first.elapsed() <<"s\n";
-
-
-        timer["updatevelocity"].first.restart();
-        this->updateVelocity();
-        if (M_rank == 0)
-            std::cout <<"---timer updateVelocity:       "<< timer["updatevelocity"].first.elapsed() <<"s\n";
-
-        timer["update"].first.restart();
-        this->update();
-        if (M_rank == 0)
-            std::cout <<"---timer update:               "<< timer["update"].first.elapsed() <<"s\n";
-        ++pcpt;
-
-#if 0
-#if 0
-        if(fmod((pcpt+1)*time_step,output_time_step) == 0)
-        {
-            timer["export"].first.restart();
-            this->exportResults((int) (pcpt+1)*time_step/output_time_step);
-            if (M_rank == 0)
-                std::cout <<"---timer export:           "<< timer["export"].first.elapsed() <<"s\n";
-        }
-#endif
-        ++pcpt;
-#endif
     }
 
-    //this->exportResults(1000);
+    if (M_rank == 0)
+    {
+        pcpt_file.close();
+    }
+
+    this->exportResults(1000);
 
     //this->clear();
+    this->finalise();
 
 #endif
+
+    M_comm.barrier();
 
     if (M_rank==0)
     {
-        // LOG(INFO) << "-----------------------Simulation done on "<< current_time_local() <<"\n";
-        // LOG(INFO) << "-----------------------Total time spent:  "<< time_spent(current_time_system) <<"\n";
-
-        //std::cout << "[INFO]: " << "-----------------------Number of mesh adaptation: "<< M_nb_regrid <<"\n";
+        std::cout <<"nb regrid total = " << M_nb_regrid <<"\n";
 
         std::cout << "[INFO]: " << "-----------------------Simulation done on "<< current_time_local() <<"\n";
         std::cout << "[INFO]: " << "-----------------------Total time spent:  "<< time_spent(current_time_system) <<"\n";
+    }
+}
+
+void
+FiniteElement::updateDrifterPosition()
+{
+    // Update the drifters position twice a day, important to keep the same frequency as the IABP data, for the moment
+    if( pcpt==0 || std::fmod(current_time,0.5)==0 )
+    {
+        // Read in the new buoys and output
+        if ( M_use_iabp_drifters )
+        {
+            this->updateIABPDrifter();
+
+            chrono.restart();
+            LOG(DEBUG) <<"Drifter starts\n";
+            LOG(DEBUG) <<"DRIFTER: Interp starts\n";
+
+            // Assemble the coordinates from the unordered_map
+            std::vector<double> drifter_X(M_iabp_drifters.size());
+            std::vector<double> drifter_Y(M_iabp_drifters.size());
+            int j=0;
+            for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
+            {
+                drifter_X[j] = it->second[0];
+                drifter_Y[j] = it->second[1];
+                ++j;
+            }
+
+            // Interpolate the total displacement and concentration onto the drifter positions
+            int nb_var=2;
+            std::vector<double> interp_drifter_in(nb_var*M_mesh.numNodes());
+
+            // Interpolate the velocity
+            for (int i=0; i<M_mesh.numNodes(); ++i)
+            {
+                interp_drifter_in[nb_var*i]   = M_UT[i];
+                interp_drifter_in[nb_var*i+1] = M_UT[i+M_mesh.numNodes()];
+            }
+
+            double* interp_drifter_out;
+            InterpFromMeshToMesh2dx(&interp_drifter_out,
+                                    &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
+                                    M_mesh.numNodes(),M_mesh.numTriangles(),
+                                    &interp_drifter_in[0],
+                                    M_mesh.numNodes(),nb_var,
+                                    &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
+                                    true, 0.);
+
+
+            // Interpolate the concentration - re-use interp_drifter_in
+            interp_drifter_in.resize(M_mesh.numTriangles());
+            for (int i=0; i<M_mesh.numTriangles(); ++i)
+            {
+                interp_drifter_in[i]   = M_conc[i];
+            }
+
+            double* interp_drifter_c_out;
+            InterpFromMeshToMesh2dx(&interp_drifter_c_out,
+                                    &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
+                                    M_mesh.numNodes(),M_mesh.numTriangles(),
+                                    &interp_drifter_in[0],
+                                    M_mesh.numTriangles(),1,
+                                    &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
+                                    true, 0.);
+
+            // Rebuild the M_iabp_drifters map
+            double clim = vm["simul.drifter_climit"].as<double>();
+            j=0;
+            for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); /* ++it is not allowed here, because we use 'erase' */ )
+            {
+                if ( interp_drifter_c_out[j] > clim )
+                {
+                    M_iabp_drifters[it->first] = std::array<double,2> {it->second[0]+interp_drifter_out[nb_var*j], it->second[1]+interp_drifter_out[nb_var*j+1]};
+                    ++it;
+                } else {
+                    // Throw out drifters that drift out of the ice
+                    it = M_iabp_drifters.erase(it);
+                }
+                ++j;
+            }
+
+            xDelete<double>(interp_drifter_out);
+            xDelete<double>(interp_drifter_c_out);
+
+            LOG(DEBUG) <<"DRIFTER: Interp done\n";
+            LOG(DEBUG) <<"Drifter interp done in "<< chrono.elapsed() <<"s\n";
+
+            // TODO: Do we want to output drifters at a different time interval?
+            this->outputDrifter(M_iabp_out);
+        }
+
+        if ( M_use_equallyspaced_drifters )
+            M_equallyspaced_drifters.move(M_mesh, M_UT);
+        if ( M_use_rgps_drifters )
+            M_rgps_drifters.move(M_mesh, M_UT);
+        if ( M_use_osisaf_drifters )
+            for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
+                it->move(M_mesh, M_UT);
+
+	    for (int i=0; i<M_num_nodes; ++i)
+	    {
+	        // UM
+		    M_UT[i] = 0.;
+		    M_UT[i+M_num_nodes] = 0.;
+	    }
+    }
+
+    if(pcpt>0)
+    {
+        if ( M_use_equallyspaced_drifters && fmod(current_time,M_equallyspaced_drifters_output_time_step) == 0 )
+            M_equallyspaced_drifters.appendNetCDF(current_time, M_mesh, M_UT);
+
+        if ( M_use_rgps_drifters )
+        {
+            std::string time_str = vm["simul.RGPS_time_init"].as<std::string>();
+            double RGPS_time_init = from_date_time_string(time_str);
+
+            if( !M_rgps_drifters.isInitialised() && current_time == RGPS_time_init)
+                this->updateRGPSDrifters();
+
+            if( current_time != RGPS_time_init && fmod(current_time,M_rgps_drifters_output_time_step) == 0 )
+                if ( M_rgps_drifters.isInitialised() )
+                    M_rgps_drifters.appendNetCDF(current_time, M_mesh, M_UT);
+        }
+    }
+
+    if ( M_use_osisaf_drifters && fmod(current_time+0.5,1.) == 0 )
+    {
+        // OSISAF drift is calculated as a dirfter displacement over 48 hours
+        // and they have two sets of drifters in the field at all times.
+
+        // Write out the contents of [1] if it's meaningfull
+        if ( M_osisaf_drifters[1].isInitialised() )
+            M_osisaf_drifters[1].appendNetCDF(current_time, M_mesh, M_UT);
+
+        // Flip the vector so we move [0] to be [1]
+        std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
+
+        // Create a new M_drifters instance in [0], with a properly initialised netCDF file
+        M_osisaf_drifters[0] = Drifters("data", "ice_drift_nh_polstere-625_multi-oi.nc", "yc", "yx", "lat", "lon", M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
+        M_osisaf_drifters[0].initNetCDF(M_export_path+"/OSISAF_", current_time);
+        M_osisaf_drifters[0].appendNetCDF(current_time, M_mesh, M_UT);
+    }
+}
+
+// Add to the mean on the mesh
+void
+FiniteElement::updateMeans(GridOutput &means, double time_factor)
+{
+    // Update elements and multiply with time_factor
+    for ( auto it=means.M_elemental_variables.begin(); it!=means.M_elemental_variables.end(); ++it )
+    {
+        switch (it->varID)
+        {
+            // Prognostic variables
+            case (GridOutput::variableID::conc):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_conc[i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::thick):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_thick[i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::damage):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_damage[i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::snow):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_snow_thick[i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::tsurf):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += ( M_conc[i]*M_tice[0][i] + M_conc_thin[i]*M_tsurf_thin[i] + (1-M_conc[i]-M_conc_thin[i])*M_sst[i] )*time_factor;
+                break;
+
+            case (GridOutput::variableID::sst):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_sst[i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::sss):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_sss[i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::tsurf_ice):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_tice[0][i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::t1):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_tice[1][i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::t2):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_tice[2][i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::conc_thin):
+                for (int i=0; i<M_num_elements; i++)
+                {
+                    it->data_mesh[i] += M_conc_thin[i]*time_factor;
+                }
+                break;
+
+            case (GridOutput::variableID::h_thin):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_h_thin[i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::hs_thin):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_hs_thin[i]*time_factor;
+                break;
+
+            // Diagnostic variables
+            case (GridOutput::variableID::Qa):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += D_Qa[i]*time_factor;
+                break;
+            case (GridOutput::variableID::Qsw):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += D_Qsw[i]*time_factor;
+                break;
+            case (GridOutput::variableID::Qlw):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += D_Qlw[i]*time_factor;
+                break;
+            case (GridOutput::variableID::Qsh):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += D_Qsh[i]*time_factor;
+                break;
+            case (GridOutput::variableID::Qlh):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += D_Qlh[i]*time_factor;
+                break;
+            case (GridOutput::variableID::Qo):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += D_Qo[i]*time_factor;
+                break;
+            case (GridOutput::variableID::delS):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += D_delS[i]*time_factor;
+                break;
+
+            default: std::logic_error("Updating of given variableID not implimented (elements)");
+        }
+    }
+
+    // Update nodes
+    for ( auto it=means.M_nodal_variables.begin(); it!=means.M_nodal_variables.end(); ++it )
+    {
+        switch (it->varID)
+        {
+            case (GridOutput::variableID::VT_x):
+                for (int i=0; i<M_num_nodes; i++)
+                    it->data_mesh[i] += M_VT[i];
+                break;
+
+            case (GridOutput::variableID::VT_y):
+                for (int i=0; i<M_num_nodes; i++)
+                    it->data_mesh[i] += M_VT[i+M_num_nodes];
+                break;
+
+            default: std::logic_error("Updating of given variableID not implimented (nodes)");
+        }
     }
 }
 
@@ -6085,6 +6434,61 @@ FiniteElement::initMoorings()
         output_time = current_time - mooring_output_time_step/86400/2;
 
     M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
+}
+
+void
+FiniteElement::updateMoorings()
+{
+    // If we're taking snapshots the we only call updateMeans before writing to file
+    if ( ! M_moorings_snapshot )
+        this->updateMeans(M_moorings, mooring_time_factor);
+
+    if ( fmod(pcpt*time_step,mooring_output_time_step) == 0 )
+    {
+        double output_time;
+        if ( M_moorings_snapshot )
+        {
+            // Update the snapshot
+            this->updateMeans(M_moorings, 1.);
+            // shift the timestamp in the file to the centre of the output interval
+            output_time = current_time;
+        }
+        else
+        {
+            output_time = current_time - mooring_output_time_step/86400/2;
+        }
+
+        // If it's a new day we check if we need a new file
+        double not_used;
+        if ( M_moorings_file_length != GridOutput::fileLength::inf && modf(output_time, &not_used) < time_step*86400 )
+        {
+            boost::gregorian::date now = Nextsim::parse_date(output_time);
+            switch (M_moorings_file_length)
+            {
+            case GridOutput::fileLength::daily:
+                M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
+                break;
+            case GridOutput::fileLength::weekly:
+                if ( now.day_of_week().as_number() == 1 )
+                    M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
+                break;
+            case GridOutput::fileLength::monthly:
+                if ( now.day().as_number() == 1 )
+                    M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
+                break;
+            case GridOutput::fileLength::yearly:
+                if ( now.day_of_year() == 1 )
+                    M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
+            }
+        }
+
+        M_moorings.updateGridMean(M_mesh);
+
+        M_moorings.appendNetCDF(M_moorings_file, output_time);
+
+        M_moorings.resetMeshMean(M_mesh);
+        M_moorings.resetGridMean();
+    }
 }
 
 void
@@ -7088,6 +7492,54 @@ FiniteElement::updateVelocity()
         std::cout<<"----------------------------VT MAX= "<< gmax <<"\n";
     }
 #endif
+
+    // increment M_UT that is used for the drifters
+    for (int nd=0; nd<M_UM.size(); ++nd)
+    {
+        M_UT[nd] += time_step*M_VT[nd]; // Total displacement (for drifters)
+    }
+}
+
+void
+FiniteElement::updateFreeDriftVelocity()
+{
+    M_VTMM = M_VTM;
+    M_VTM  = M_VT;
+
+    int index_u, index_v;
+    double norm_Voce_ice, coef_Voce, norm_Vair_ice, coef_Vair;
+
+    double norm_Voce_ice_min= 0.01; // minimum value to avoid 0 water drag term.
+    double norm_Vair_ice_min= 0.01; // minimum value to avoid 0 water drag term.
+
+    for (int nd=0; nd<M_num_nodes; ++nd)
+    {
+        if(M_mask_dirichlet[nd]==false)
+        {
+            index_u = nd;
+            index_v = nd+M_num_nodes;
+
+            // Free drift case
+            norm_Voce_ice = std::hypot(M_VT[index_u]-M_ocean[index_u],M_VT[index_v]-M_ocean[index_v]);
+            norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
+
+            coef_Voce = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
+            coef_Voce *= physical::rhow;
+
+            norm_Vair_ice = std::hypot(M_VT[index_u]-M_wind [index_u],M_VT[index_v]-M_wind [index_v]);
+            norm_Vair_ice = (norm_Vair_ice > norm_Vair_ice_min) ? (norm_Vair_ice):norm_Vair_ice_min;
+
+            coef_Vair = (vm["simul.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*norm_Vair_ice));
+            coef_Vair *= (physical::rhoa);
+
+            M_VT[index_u] = ( coef_Vair*M_wind [index_u] + coef_Voce*M_ocean [index_u] ) / ( coef_Vair+coef_Voce );
+            M_VT[index_v] = ( coef_Vair*M_wind [index_v] + coef_Voce*M_ocean [index_v] ) / ( coef_Vair+coef_Voce );
+
+            // increment M_UT that is used for the drifters
+            M_UT[index_u] += time_step*M_VT[index_u]; // Total displacement (for drifters)
+            M_UT[index_v] += time_step*M_VT[index_v]; // Total displacement (for drifters)
+        }
+    }
 }
 
 void
@@ -9876,6 +10328,20 @@ FiniteElement::clear()
     M_vector->clear();
     M_solution->clear();
     M_solver->clear();
+}
+
+// Finalise everything
+void
+FiniteElement::finalise()
+{
+    // Don't forget to close the iabp file!
+    if (M_use_iabp_drifters)
+    {
+        M_iabp_file.close();
+        M_iabp_out.close();
+    }
+
+    this->clear();
 }
 
 } // Nextsim

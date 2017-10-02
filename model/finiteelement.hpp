@@ -148,9 +148,10 @@ public:
     //void interpFieldsNode(bimap_type const& rmap_nodes, std::vector<int> sizes_nodes);
     void interpFieldsNode(std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
 
-    void assemble(int cpt);
+    void assemble(int pcpt);
     void solve();
     void init();
+    void step();
     void run();
 
     void thermo();
@@ -217,6 +218,8 @@ public:
     void initThermodynamics();
     void initSlabOcean();
     void initDrifter();
+    void updateDrifterPosition();
+
     void coriolis();
     //void timeInterpolation(int step);
     void nodesToElements(double const* depth, std::vector<double>& v);
@@ -230,6 +233,7 @@ public:
     void tensors();
     void cohesion();
     void updateVelocity();
+    void updateFreeDriftVelocity();
     void speedScaling(std::vector<double>& speed_scaling);
     void scalingVelocity();
     void update();
@@ -251,6 +255,7 @@ public:
     void bcMarkedNodes();
 
     void clear();
+    void finalise();
 
 public:
     std::string gitRevision();
@@ -525,10 +530,6 @@ private:
     std::fstream M_iabp_file;   // The file we read the IABP buoy data from
     std::fstream M_iabp_out;    // The file we write our simulated drifter positions into
 
-    // Drifters M_drifters; // Drifters on a grid
-    // Drifters M_rgps_drifters; // Drifters as in the RGPS data
-    // std::vector<Drifters> M_osisaf_drifters; // A vector of drifters for the OSISAF emulation
-
     // Drifters on a grid
     double M_equallyspaced_drifters_output_time_step;
     bool M_use_equallyspaced_drifters;
@@ -611,8 +612,10 @@ private:
     void initIABPDrifter();
     void updateIABPDrifter();
 
-    void updateMeans(GridOutput &means);
+    //void updateMeans(GridOutput &means);
+    void updateMeans(GridOutput &means, double time_factor);
     void initMoorings();
+    void updateMoorings();
 
 private:
 
