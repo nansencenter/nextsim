@@ -237,6 +237,15 @@ public:
     void update();
     void exportResults(int step, bool export_mesh = true);
 
+    // void exportResults(int step,
+    //                    bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
+
+    // void exportResults(std::string const name_str,
+    //                    bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
+
+    // void exportResults(std::vector<std::string> const& filenames,
+    //                    bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
+
     void writeRestart(int pcpt, int step);
     int readRestart(int step);
     void partitionMeshRestart();
@@ -263,8 +272,15 @@ public:
 
 private:
     void advect(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out);
-    void collectVariables(std::vector<double>& interp_elt_in_local, bool slab = false, bool ghosts = false);
-    void redistributeVariables(std::vector<double> const& out_elt_values, bool slab = false);
+    void collectVariables(std::vector<double>& interp_elt_in_local, bool ghosts = false);
+    void redistributeVariables(std::vector<double> const& out_elt_values);
+
+    // IO
+    void collectVariablesIO(std::vector<double>& interp_elt_in_local, bool ghosts, bool thin_ice);
+    void gatherFieldsElementIO(std::vector<double>& interp_in_elements, bool thin_ice);
+
+    void redistributeVariablesIO(std::vector<double> const& out_elt_values, bool thin_ice);
+    void scatterFieldsElementIO(std::vector<double> const& interp_elt_out, bool thin_ice);
 
 private:
     po::variables_map vm;
