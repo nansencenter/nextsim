@@ -680,7 +680,16 @@ FiniteElement::assignVariables()
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
 
     // root
-    M_UM_root.assign(2*M_mesh.numGlobalNodes(),0.);
+    //M_UM_root.assign(2*M_mesh.numGlobalNodes(),0.);
+
+    // Diagnostics
+    D_Qa.assign(M_num_elements,0.);
+    D_Qsh.assign(M_num_elements,0.);
+    D_Qlh.assign(M_num_elements,0.);
+    D_Qlw.assign(M_num_elements,0.);
+    D_Qsw.assign(M_num_elements,0.);
+    D_Qo.assign(M_num_elements,0.);
+    D_delS.assign(M_num_elements,0.);
 
     // number of variables to interpolate
     M_nb_var_element = /*11*/15 + M_tice.size();
@@ -5373,7 +5382,7 @@ FiniteElement::init()
         if(fmod(pcpt*time_step,output_time_step) == 0)
         {
             LOG(DEBUG) <<"export starts\n";
-            this->exportResults((int) pcpt*time_step/output_time_step);
+            //this->exportResults((int) pcpt*time_step/output_time_step);
             LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
         }
 
@@ -5525,8 +5534,8 @@ FiniteElement::init()
      if (pcpt == 0)
      {
          LOG(DEBUG) <<"first export starts\n";
-         //this->exportResults(0);
-         this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
+         this->exportResults(0);
+         //this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
          LOG(DEBUG) <<"first export done\n";
      }
 
@@ -5613,7 +5622,7 @@ FiniteElement::init()
     if ( fmod(pcpt*time_step,restart_time_step) == 0)
     {
         std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
-        this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
+        //this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
     }
 #endif
 #endif
@@ -5706,7 +5715,7 @@ FiniteElement::run()
         pcpt_file.close();
     }
 
-    //this->exportResults(1000);
+    this->exportResults("final");
 
     this->finalise();
 
@@ -9356,10 +9365,43 @@ FiniteElement::createGraph()
 }
 
 void
-FiniteElement::exportResults(int step, bool export_mesh)
+FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, bool apply_displacement)
+{
+    //define name_str from step
+    std::string name_str    = (boost::format( "%1%" )
+                               % step ).str();
+
+    this->exportResults(name_str, export_mesh, export_fields, apply_displacement);
+}
+
+void
+FiniteElement::exportResults(std::string const& name_str, bool export_mesh, bool export_fields, bool apply_displacement)
+{
+    //define filenames from iname_str
+    std::string meshfile    = (boost::format( "%1%/mesh_%2%" )
+                               % M_export_path
+                               % name_str ).str();
+
+    std::string fieldfile   = (boost::format( "%1%/field_%2%" )
+                               % M_export_path
+                               % name_str ).str();
+
+    std::vector<std::string> filenames = {meshfile,fieldfile};
+    this->exportResults(filenames, export_mesh, export_fields, apply_displacement);
+}
+
+void
+//FiniteElement::exportResults(int step, bool export_mesh)
+FiniteElement::exportResults(std::vector<std::string> const& filenames, bool export_mesh, bool export_fields, bool apply_displacement)
 {
     std::vector<double> M_VT_root;
     this->gatherNodalField(M_VT,M_VT_root);
+
+    std::vector<double> M_UM_root;
+    if (apply_displacement)
+    {
+        this->gatherNodalField(M_UM,M_UM_root);
+    }
 
     // fields defined on mesh elements
 #if 1
@@ -9503,6 +9545,151 @@ FiniteElement::exportResults(int step, bool export_mesh)
         Exporter exporter(vm["setup.exporter_precision"].as<std::string>());
         std::string fileout;
 
+        if (export_mesh)
+        {
+            fileout = filenames[0]+".bin";
+            LOG(INFO) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
+
+            if(apply_displacement)
+            {
+                // move the mesh for the export
+                M_mesh_root.move(M_UM_root,1.);
+            }
+
+            std::fstream meshbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
+            if ( !meshbin.good() )
+            {
+                throw std::runtime_error("Cannot write to file: " + fileout);
+            }
+
+            exporter.writeMesh(meshbin, M_mesh_root);
+            meshbin.close();
+
+            if(apply_displacement)
+            {
+                // move it back after the export
+                M_mesh_root.move(M_UM_root,-1.);
+            }
+
+            fileout = filenames[0]+".dat";
+
+            LOG(INFO) <<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
+
+            std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
+            if ( !outrecord.good() )
+            {
+                throw std::runtime_error("Cannot write to file: " + fileout);
+            }
+
+            exporter.writeRecord(outrecord,"mesh");
+            outrecord.close();
+        }
+
+        if (export_fields)
+        {
+            fileout = filenames[1]+".bin";
+            LOG(INFO) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
+
+            std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
+            if ( !outbin.good() )
+            {
+                throw std::runtime_error("Cannot write to file: " + fileout);
+            }
+
+            std::vector<double> timevec = {current_time};
+            std::vector<int> regridvec = {M_nb_regrid};
+
+            exporter.writeField(outbin, timevec, "Time");
+            exporter.writeField(outbin, regridvec, "M_nb_regrid");
+            exporter.writeField(outbin, M_surface, "Element_area");
+            exporter.writeField(outbin, M_VT_root, "M_VT");
+            exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
+            exporter.writeField(outbin, M_conc_root, "Concentration");
+            exporter.writeField(outbin, M_thick_root, "Thickness");
+            exporter.writeField(outbin, M_snow_thick_root, "Snow");
+            exporter.writeField(outbin, M_damage_root, "Damage");
+            exporter.writeField(outbin, M_ridge_ratio_root, "Ridge_ratio");
+
+            // std::vector<double> AllMinAngle = this->AllMinAngle(M_mesh, M_UM, 0.);
+            // exporter.writeField(outbin, AllMinAngle, "AllMinAngle");
+
+            for (int i=0; i<num_elements_root; ++i)
+            {
+                M_tice[0][i] = M_tice_root[tice_size*i];
+
+                if ( M_thermo_type == setup::ThermoType::WINTON )
+                {
+                    M_tice[1][i] = M_tice_root[tice_size*i+1];
+                    M_tice[2][i] = M_tice_root[tice_size*i+2];
+                }
+            }
+
+            int i=0;
+            for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
+            {
+                exporter.writeField(outbin, *it, "Tice_"+std::to_string(i));
+                i++;
+            }
+
+            exporter.writeField(outbin, M_sst_root, "SST");
+            exporter.writeField(outbin, M_sss_root, "SSS");
+
+            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+            {
+                exporter.writeField(outbin, M_h_thin_root, "Thin_ice");
+                exporter.writeField(outbin, M_hs_thin_root, "Snow_thin_ice");
+                exporter.writeField(outbin, M_tsurf_thin_root, "Tsurf_thin_ice");
+                exporter.writeField(outbin, M_conc_thin_root, "Concentration_thin_ice");
+            }
+
+#if 1
+            // EXPORT sigma1 sigma2
+            std::vector<double> sigma1(M_mesh_root.numTriangles());
+            std::vector<double> sigma2(M_mesh_root.numTriangles());
+            double sigma_s, sigma_n;
+            std::vector<double> sigma_pred(3);
+
+            for ( int i=0; i<M_mesh_root.numTriangles(); ++i )
+            {
+                sigma_pred[0]=M_sigma_root[3*i];
+                sigma_pred[1]=M_sigma_root[3*i+1];
+                sigma_pred[2]=M_sigma_root[3*i+2];
+
+                sigma_s=std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
+                sigma_n= -         (sigma_pred[0]+sigma_pred[1])/2.;
+
+                sigma1[i] = sigma_n+sigma_s;
+                sigma2[i] = sigma_n-sigma_s;
+            }
+            exporter.writeField(outbin, sigma1, "Sigma1");
+            exporter.writeField(outbin, sigma2, "Sigma2");
+#endif
+
+            if (0) //(vm["simul.save_diagnostics"].as<bool>())
+            {
+                exporter.writeField(outbin, D_Qa, "Qatm");
+                exporter.writeField(outbin, D_Qsw, "Qsw");
+                exporter.writeField(outbin, D_Qlw, "Qlw");
+                exporter.writeField(outbin, D_Qsh, "Qsh");
+                exporter.writeField(outbin, D_Qlh, "Qlh");
+                exporter.writeField(outbin, D_Qo,  "Qocean");
+                exporter.writeField(outbin, D_delS, "Saltflux");
+            }
+
+            outbin.close();
+
+            fileout = filenames[1]+".dat";
+            LOG(INFO) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
+
+            std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
+            if ( !outrecord.good() )
+            {
+                throw std::runtime_error("Cannot write to file: " + fileout);
+            }
+
+            exporter.writeRecord(outrecord);
+            outrecord.close();
+        }
     }
 
 #endif
