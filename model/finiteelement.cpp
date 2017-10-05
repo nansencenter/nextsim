@@ -570,6 +570,18 @@ FiniteElement::initVariables()
         }
     }
 
+    if (M_rank == 0)
+    {
+        M_surface_root.assign(M_mesh_root.numTriangles(),0.);
+
+        int cpt = 0;
+        for (auto it=M_mesh_root.triangles().begin(), end=M_mesh_root.triangles().end(); it!=end; ++it)
+        {
+            M_surface_root[cpt] = this->measure(*it,M_mesh_root);
+            ++cpt;
+        }
+    }
+
     // Diagnostics
     D_Qa.resize(M_num_elements);
     D_Qsh.resize(M_num_elements);
@@ -679,8 +691,22 @@ FiniteElement::assignVariables()
     M_Compressive_strength.resize(M_num_elements);
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
 
+#if 0
     // root
-    //M_UM_root.assign(2*M_mesh.numGlobalNodes(),0.);
+    M_UM_root.assign(2*M_mesh.numGlobalNodes(),0.);
+
+    if (M_rank == 0)
+    {
+        M_surface_root.assign(M_mesh_root.numTriangles(),0.);
+
+        cpt = 0;
+        for (auto it=M_mesh_root.triangles().begin(), end=M_mesh_root.triangles().end(); it!=end; ++it)
+        {
+            M_surface_root[cpt] = this->measure(*it,M_mesh_root);
+            ++cpt;
+        }
+    }
+#endif
 
     // number of variables to interpolate
     M_nb_var_element = /*11*/15 + M_tice.size();
@@ -2357,7 +2383,7 @@ FiniteElement::gatherFieldsElementIO(std::vector<double>& interp_in_elements, bo
 
     if (M_rank == 0)
     {
-        interp_in_elements.resize(nb_var_element*M_mesh_previous_root.numTriangles());
+        interp_in_elements.resize(nb_var_element*M_mesh_root.numTriangles());
         boost::mpi::gatherv(M_comm, interp_elt_in_local, &interp_in_elements[0], sizes_elements, 0);
     }
     else
@@ -2563,7 +2589,8 @@ FiniteElement::interpFieldsElement()
     if (M_rank == 0)
     {
         std::vector<double> surface_previous(M_mesh_previous_root.numTriangles());
-        std::vector<double> surface(M_mesh_root.numTriangles());
+        //std::vector<double> surface(M_mesh_root.numTriangles());
+        M_surface_root.resize(M_mesh_root.numTriangles());
 
         int cpt = 0;
         for (auto it=M_mesh_previous_root.triangles().begin(), end=M_mesh_previous_root.triangles().end(); it!=end; ++it)
@@ -2575,7 +2602,7 @@ FiniteElement::interpFieldsElement()
         cpt = 0;
         for (auto it=M_mesh_root.triangles().begin(), end=M_mesh_root.triangles().end(); it!=end; ++it)
         {
-            surface[cpt] = this->measure(*it,M_mesh_root);
+            M_surface_root[cpt] = this->measure(*it,M_mesh_root);
             ++cpt;
         }
 
@@ -2585,7 +2612,7 @@ FiniteElement::interpFieldsElement()
         timer["cavities"].first.restart();
         InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_in_elements[0],
                                        &M_interp_method[0], M_nb_var_element,
-                                       &surface_previous[0], &surface[0], bamgmesh_previous, bamgmesh_root);
+                                       &surface_previous[0], &M_surface_root[0], bamgmesh_previous, bamgmesh_root);
 
         if (M_rank == 0)
             std::cout<<"-------------------CAVITIES done in "<< timer["cavities"].first.elapsed() <<"s\n";
@@ -9404,7 +9431,12 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
     }
 
     // fields defined on mesh elements
-#if 1
+
+    M_prv_local_ndof = M_local_ndof;
+    M_prv_num_nodes = M_num_nodes;
+    M_prv_num_elements = M_local_nelements;
+    M_prv_global_num_nodes = M_mesh.numGlobalNodes();
+    M_prv_global_num_elements = M_mesh.numGlobalElements();
 
     M_nb_var_element = 15 + M_tice.size();//15;
     int nb_var_element = M_nb_var_element;
@@ -9417,7 +9449,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
     this->gatherFieldsElementIO(interp_in_elements,M_ice_cat_type==setup::IceCategoryType::THIN_ICE);
 
     M_comm.barrier();
-
+#if 1
     if (M_rank == 0)
     {
         int num_elements_root = M_mesh_root.numTriangles();
@@ -9436,7 +9468,16 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
         std::vector<double> M_random_number_root(num_elements_root);
         std::vector<double> M_sss_root(num_elements_root);
         std::vector<double> M_sst_root(num_elements_root);
-        std::vector<double> M_tice_root(tice_size*num_elements_root);
+        //std::vector<double> M_tice_root(tice_size*num_elements_root);
+        std::vector<double> M_tice0_root(num_elements_root);
+        std::vector<double> M_tice1_root;
+        std::vector<double> M_tice2_root;
+
+        if ( M_thermo_type == setup::ThermoType::WINTON )
+        {
+            M_tice1_root.resize(num_elements_root);
+            M_tice2_root.resize(num_elements_root);
+        }
 
         std::vector<double> M_h_thin_root;
         std::vector<double> M_conc_thin_root;
@@ -9503,17 +9544,17 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
             tmp_nb_var++;
 
             // tice1
-            M_tice_root[tice_size*i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+            M_tice0_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
             tmp_nb_var++;
 
             if ( M_thermo_type == setup::ThermoType::WINTON )
             {
                 // tice2
-                M_tice_root[tice_size*i+1] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                M_tice1_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
                 tmp_nb_var++;
 
                 // tice3
-                M_tice_root[tice_size*i+2] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                M_tice2_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
                 tmp_nb_var++;
             }
 
@@ -9601,7 +9642,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
 
             exporter.writeField(outbin, timevec, "Time");
             exporter.writeField(outbin, regridvec, "M_nb_regrid");
-            exporter.writeField(outbin, M_surface, "Element_area");
+            exporter.writeField(outbin, M_surface_root, "Element_area");
             exporter.writeField(outbin, M_VT_root, "M_VT");
             exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
             exporter.writeField(outbin, M_conc_root, "Concentration");
@@ -9613,22 +9654,29 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
             // std::vector<double> AllMinAngle = this->AllMinAngle(M_mesh, M_UM, 0.);
             // exporter.writeField(outbin, AllMinAngle, "AllMinAngle");
 
-            for (int i=0; i<num_elements_root; ++i)
-            {
-                M_tice[0][i] = M_tice_root[tice_size*i];
+            // for (int i=0; i<num_elements_root; ++i)
+            // {
+            //     M_tice[0][i] = M_tice_root[tice_size*i];
 
-                if ( M_thermo_type == setup::ThermoType::WINTON )
-                {
-                    M_tice[1][i] = M_tice_root[tice_size*i+1];
-                    M_tice[2][i] = M_tice_root[tice_size*i+2];
-                }
-            }
+            //     if ( M_thermo_type == setup::ThermoType::WINTON )
+            //     {
+            //         M_tice[1][i] = M_tice_root[tice_size*i+1];
+            //         M_tice[2][i] = M_tice_root[tice_size*i+2];
+            //     }
+            // }
 
-            int i=0;
-            for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
+            // int i=0;
+            // for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
+            // {
+            //     exporter.writeField(outbin, *it, "Tice_"+std::to_string(i));
+            //     i++;
+            // }
+
+            exporter.writeField(outbin, M_tice0_root, "Tice_0");
+            if ( M_thermo_type == setup::ThermoType::WINTON )
             {
-                exporter.writeField(outbin, *it, "Tice_"+std::to_string(i));
-                i++;
+                exporter.writeField(outbin, M_tice1_root, "Tice_1");
+                exporter.writeField(outbin, M_tice2_root, "Tice_2");
             }
 
             exporter.writeField(outbin, M_sst_root, "SST");

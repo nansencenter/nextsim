@@ -491,7 +491,8 @@ private: // only on root process (rank 0)
     mesh_type_root M_mesh_init_root;
     mesh_type_root M_mesh_previous_root;
 
-    std::vector<double> M_UM_root;
+    //std::vector<double> M_UM_root;
+    std::vector<double> M_surface_root;
     std::vector<int> M_dirichlet_flags_root;
     std::vector<int> M_neumann_flags_root;
 
