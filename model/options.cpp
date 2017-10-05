@@ -256,6 +256,7 @@ namespace Nextsim
              */
 
             ("simul.forecast", po::value<bool>()->default_value( false ), "")
+            ("simul.air_temperature_correction", po::value<double>()->default_value( 0. ), "")
             ("simul.use_ship", po::value<bool>()->default_value( false ), "")
             ("simul.min_h", po::value<double>()->default_value( 0.05 ), "")
             ("simul.min_c", po::value<double>()->default_value( 0.01 ), "")
