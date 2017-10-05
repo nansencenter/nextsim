@@ -117,7 +117,8 @@ if ~exist('manual_axis_range','var'),  manual_axis_range = []; end;
    % range to be shown on colorbar
 if ~exist('check_field_range','var'),  check_field_range = 0; end;
    % eg to plot field_after_wim_call_0.[bin,dat] use filename_string='after_wim_call'
-
+if ~exist('color_map','var'),        color_map = ''; end;
+   % '' (default) we do change the default colormap
      
 if(~isempty(dirname)&& dirname(end)~='/')
     dirname=[dirname, '/'];
@@ -338,6 +339,10 @@ for p=0:0
   end
   set_axis_colormap_colorbar(mesh_filename,field_plotted,region_of_zoom,manual_axis_range);
   %
+  if(~isempty(color_map))
+      colormap(color_map);
+  end
+  %
   set_figure_cosmetics(data_out,mesh_filename,region_of_zoom,plot_date,background_color,font_size);
   
   %We plot the coastlines and boundaries (optional).
@@ -405,6 +410,11 @@ function set_axis_colormap_colorbar(mesh_filename,field,region_of_zoom,manual_ax
         default_axis_range = [0,4];
         colormap(cmap_def);
         name_colorbar='Thickness (m)';
+    elseif (strcmp(field,'Lead_fraction'))
+        default_axis_range = [0,0.1];
+        load('ice_conc_cmap64.mat')
+        colormap(ice_conc_cmap64);
+        name_colorbar='Concentration';
     elseif (strcmp(field,'Lambda'))
         default_axis_range = [0,1e5];
         colormap(cmap_def);
