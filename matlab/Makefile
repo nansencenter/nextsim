@@ -1,7 +1,12 @@
 KERNEL := $(shell uname -s)
+NODENAME := $(shell uname -n)
 
 ifeq ($(KERNEL),Linux)
-	MEX = mex
+	ifeq ($(NODENAME),johansen.ad.nersc.no)
+		MEX = /opt/MATLAB/R2014b/bin/mex
+	else
+		MEX = mex
+	endif
 else
 	MEX = /Applications/MATLAB_R2016b.app/bin/mex
 endif
