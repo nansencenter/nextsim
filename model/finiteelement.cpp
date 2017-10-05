@@ -4332,6 +4332,9 @@ FiniteElement::run()
     // main loop for nextsim program
     current_time = time_init + pcpt*time_step/(24*3600.0);
     bool is_running = true;
+    if(duration<=0)
+        is_running = false;
+
     while (is_running)
     {
         //std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
@@ -4904,6 +4907,17 @@ FiniteElement::step(int &pcpt)
         M_osisaf_drifters[0].initNetCDF(M_export_path+"/OSISAF_", current_time);
         M_osisaf_drifters[0].appendNetCDF(current_time, M_mesh, M_UT);
     }
+#if 1
+    if (pcpt == 0)
+    {
+        chrono.restart();
+        LOG(DEBUG) <<"first export starts\n";
+        this->exportResults(0);
+        this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
+        LOG(DEBUG) <<"first export done in " << chrono.elapsed() <<"s\n";
+    }
+#endif
+
 
     // remeshing and remapping of the prognostic variables
 
@@ -4990,17 +5004,6 @@ FiniteElement::step(int &pcpt)
             "step - time-dependant");
 
     M_use_restart = false;
-
-#if 1
-    if (pcpt == 0)
-    {
-        chrono.restart();
-        LOG(DEBUG) <<"first export starts\n";
-        this->exportResults(0);
-        this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
-        LOG(DEBUG) <<"first export done in " << chrono.elapsed() <<"s\n";
-    }
-#endif
 
     //======================================================================
     // Do the thermodynamics
@@ -5948,6 +5951,8 @@ FiniteElement::error()
 void
 FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
 {
+    double air_temperature_correction=vm["simul.air_temperature_correction"].as<double>();
+    
     switch (M_atmosphere_type)
     {
         case setup::AtmosphereType::CONSTANT:
@@ -6053,10 +6058,11 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_wind);
 
-            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
+
+            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,air_temperature_correction,false,time_init);
             M_external_data.push_back(&M_tair);
 
-            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
+            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,air_temperature_correction,false,time_init);
             M_external_data.push_back(&M_dair);
 
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
@@ -6079,10 +6085,10 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_wind);
 
-            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
+            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,air_temperature_correction,false,time_init);
             M_external_data.push_back(&M_tair);
 
-            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
+            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,air_temperature_correction,false,time_init);
             M_external_data.push_back(&M_dair);
 
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
