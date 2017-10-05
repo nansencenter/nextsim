@@ -682,15 +682,6 @@ FiniteElement::assignVariables()
     // root
     //M_UM_root.assign(2*M_mesh.numGlobalNodes(),0.);
 
-    // Diagnostics
-    D_Qa.assign(M_num_elements,0.);
-    D_Qsh.assign(M_num_elements,0.);
-    D_Qlh.assign(M_num_elements,0.);
-    D_Qlw.assign(M_num_elements,0.);
-    D_Qsw.assign(M_num_elements,0.);
-    D_Qo.assign(M_num_elements,0.);
-    D_delS.assign(M_num_elements,0.);
-
     // number of variables to interpolate
     M_nb_var_element = /*11*/15 + M_tice.size();
 }
@@ -2455,6 +2446,15 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     M_conc_thin.assign(M_num_elements,0.);
     M_hs_thin.assign(M_num_elements,0.);
     M_tsurf_thin.assign(M_num_elements,0.);
+
+    // Diagnostics
+    D_Qa.assign(M_num_elements,0.);
+    D_Qsh.assign(M_num_elements,0.);
+    D_Qlh.assign(M_num_elements,0.);
+    D_Qlw.assign(M_num_elements,0.);
+    D_Qsw.assign(M_num_elements,0.);
+    D_Qo.assign(M_num_elements,0.);
+    D_delS.assign(M_num_elements,0.);
 
     this->redistributeVariables(out_elt_values);
 
@@ -5592,8 +5592,8 @@ FiniteElement::init()
 
         timer["update"].first.restart();
         this->update();
-        if (M_rank == 0)
-            std::cout <<"---timer update:               "<< timer["update"].first.elapsed() <<"s\n";
+        //if (M_rank == 0)
+        std::cout <<"---timer update:               "<< timer["update"].first.elapsed() <<"s\n";
     }
 
     if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
