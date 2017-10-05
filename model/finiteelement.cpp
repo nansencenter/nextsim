@@ -9037,6 +9037,8 @@ FiniteElement::exportResults(std::vector<std::string> const &filenames, bool exp
             ext_data_names.push_back("M_wind");
             M_external_data_tmp.push_back(&M_tair);         // 2 m temperature [C]
             ext_data_names.push_back("M_tair");
+            M_external_data_tmp.push_back(&M_sphuma);       // Speciffic humidity (atmosphere)
+            ext_data_names.push_back("M_sphuma");
             M_external_data_tmp.push_back(&M_mixrat);       // Mixing ratio
             ext_data_names.push_back("M_mixrat");
             M_external_data_tmp.push_back(&M_mslp);         // Atmospheric pressure [Pa]
