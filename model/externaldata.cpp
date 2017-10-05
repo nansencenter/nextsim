@@ -38,6 +38,7 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
     M_is_constant( false ),
     M_dataset( dataset ),
     M_VariableId( VariableId ),
+    M_bias_correction( 0. ),
     M_is_vector( is_vector ),
     M_current_time( 0. ),
     M_StartingTime( StartingTime ),
@@ -60,10 +61,25 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
         M_SpinUpDuration= SpinUpDuration ;
     }
 
+ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, double bias_correction, bool is_vector, double StartingTime )
+	:
+    ExternalData(dataset, mesh, VariableId, is_vector, StartingTime )
+    {
+        M_bias_correction= bias_correction ;
+    }
+
+ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, double bias_correction, bool is_vector, double StartingTime, double SpinUpDuration )
+	:
+    ExternalData(dataset, mesh, VariableId, is_vector, StartingTime, SpinUpDuration )
+    {
+        M_bias_correction= bias_correction ;
+    }
+
 ExternalData::ExternalData( double ConstantValue )
 	:
     M_is_constant( true ),
     M_constant_value( ConstantValue ),
+    M_bias_correction( 0. ),
     M_is_vector( false ),
     M_current_time( 0. ),
     M_StartingTime( 0. ),
@@ -177,7 +193,7 @@ ExternalData::get(const size_type i)
     if(M_is_constant)
     {
         // for the moment same value is given to all the components
-        value = M_constant_value;
+        value = M_constant_value + M_bias_correction;
     }
     else
     {
@@ -257,7 +273,7 @@ ExternalData::get(const size_type i)
         }
     }
 
-	return static_cast<value_type>( value );
+	return static_cast<value_type>( value + M_bias_correction );
 }
 typename std::vector<double>
 ExternalData::getVector()
@@ -274,7 +290,7 @@ ExternalData::getVector()
 
         for (int i=0; i<size_vector; ++i)
         {
-            vector_tmp[i]=(double) get(i);
+            vector_tmp[i]=(double) get(i) ;
         }
     }
     else if (M_is_constant)
@@ -283,11 +299,11 @@ ExternalData::getVector()
         if(M_is_vector)
         {
             vector_tmp.resize(2);
-            vector_tmp[0]   = M_constant_value;
-            vector_tmp[1]   = M_constant_valuebis;
+            vector_tmp[0]   = M_constant_value + M_bias_correction;
+            vector_tmp[1]   = M_constant_valuebis + M_bias_correction;
         }
         else
-            vector_tmp[0]   = M_constant_value;
+            vector_tmp[0]   = M_constant_value + M_bias_correction;
     }
 
 	return vector_tmp;

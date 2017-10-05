@@ -55,6 +55,13 @@ public:
 
     ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId, bool is_vector,
         double StartingTime, double SpinUpDuration );
+    
+    ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId, double bias_correction, bool is_vector,
+        double StartingTime );
+
+    ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId, double bias_correction, bool is_vector,
+        double StartingTime, double SpinUpDuration );
+
 
     ExternalData(double ConstantValue );
 
@@ -131,6 +138,7 @@ private:
     double M_current_time;
     double M_constant_value;
     double M_constant_valuebis;
+    double M_bias_correction;
     bool M_is_vector;
     int M_VariableIdbis;
     double M_StartingTime;
