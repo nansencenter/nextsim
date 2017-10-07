@@ -148,6 +148,10 @@ FiniteElement::distributedMeshProcessing(bool start)
     if (M_rank == 0)
         std::cout<<"-------------------GATHERSIZE done in "<< timer["gathersize"].first.elapsed() <<"s\n";
 
+    timer["scattercvt"].first.restart();
+    this->scatterElementConnectivity();
+    //if (M_rank == 0)
+    std::cout<<"-------------------CONNECTIVITY done in "<< timer["gathersize"].first.elapsed() <<"s\n";
 
 #if 0
     // LOG(INFO) <<"["<< M_rank << "] NODES   = "<< M_mesh.numGlobalNodes() << " --- "<< M_local_ndof <<"\n";
@@ -509,6 +513,9 @@ FiniteElement::initVariables()
     // stresses
     M_sigma.resize(3*M_num_elements,0.);
 
+    // random numbers
+    //M_random_number.resize(M_num_elements);
+
     M_random_number_root.resize(M_mesh.numGlobalElements());
 
     if (M_rank == 0)
@@ -523,6 +530,24 @@ FiniteElement::initVariables()
         }
     }
 
+#if 0
+    //std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
+    M_comm.barrier();
+
+    if (M_rank == 0)
+    {
+        //std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = nb_var_element*f; });
+        boost::mpi::scatterv(M_comm, M_random_number_root, M_sizes_elements_with_ghost, &M_random_number[0], 0);
+    }
+    else
+    {
+        boost::mpi::scatterv(M_comm, &M_random_number[0], M_num_elements, 0);
+    }
+
+    std::cout<<"TERMINATED........................................\n";
+#endif
+
+#if 1
     // if (M_rank == 0)
     // {
     //     std::cout<<"Random MIN= "<< *std::min_element(M_random_number_root.begin(), M_random_number_root.end()) <<"\n";
@@ -538,6 +563,7 @@ FiniteElement::initVariables()
     {
         M_random_number[i] = M_random_number_root[id_elements[i]-1];
     }
+#endif
 
     M_conc.resize(M_num_elements);
     M_thick.resize(M_num_elements);
@@ -1005,14 +1031,18 @@ FiniteElement::initConstant()
     //ridge_h = vm["simul.ridge_h"].as<double>();
 
     if ( vm["simul.newice_type"].as<int>() == 4 )
+    {
         M_ice_cat_type = setup::IceCategoryType::THIN_ICE;
+    }
     else
+    {
         M_ice_cat_type = setup::IceCategoryType::CLASSIC;
+    }
 
     const boost::unordered_map<const std::string, setup::ThermoType> str2thermo = boost::assign::map_list_of
         ("zero-layer", setup::ThermoType::ZERO_LAYER)
         ("winton", setup::ThermoType::WINTON);
-    M_thermo_type = str2thermo.find(vm["setup.thermo-type"].as<std::string>())->second;
+    M_thermo_type = str2thermo.find(vm["simul.thermo-type"].as<std::string>())->second;
 
     const boost::unordered_map<const std::string, setup::AtmosphereType> str2atmosphere = boost::assign::map_list_of
         ("constant", setup::AtmosphereType::CONSTANT)
@@ -1652,14 +1682,30 @@ FiniteElement::gatherSizes()
 
     if (M_rank == 0)
     {
-        int out_size = std::accumulate(sizes_nodes.begin(),sizes_nodes.end(),0);
-        M_id_nodes.resize(out_size);
+        int out_size_nodes = std::accumulate(sizes_nodes.begin(),sizes_nodes.end(),0);
+        M_id_nodes.resize(out_size_nodes);
 
         boost::mpi::gatherv(M_comm, M_mesh.localDofWithGhostInit(), &M_id_nodes[0], sizes_nodes, 0);
     }
     else
     {
         boost::mpi::gatherv(M_comm, M_mesh.localDofWithGhostInit(), 0);
+    }
+
+    std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
+    //std::vector<int> id_elements;
+    //int out_size;
+
+    if (M_rank == 0)
+    {
+        int out_size_elements = std::accumulate(sizes_elements.begin(),sizes_elements.end(),0);
+        M_id_elements.resize(out_size_elements);
+
+        boost::mpi::gatherv(M_comm, M_mesh.trianglesIdWithGhost(), &M_id_elements[0], sizes_elements, 0);
+    }
+    else
+    {
+        boost::mpi::gatherv(M_comm, M_mesh.trianglesIdWithGhost(), 0);
     }
 
     // -------------------------------------------------------------
@@ -1913,7 +1959,7 @@ FiniteElement::collectVariablesIO(std::vector<double>& interp_elt_in_local, bool
 }
 
 void
-FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values)
+FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, bool check_conc)
 {
     int nb_var_element = M_nb_var_element;
 
@@ -1959,8 +2005,8 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values)
         }
         else
         {
-            tmp_nb_var += 3;
-
+            tmp_nb_var += 5;
+#if 0
             // damage
             M_damage[i] = 0.;
             tmp_nb_var++;
@@ -1968,11 +2014,11 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values)
             // ridge_ratio
             M_ridge_ratio[i] = 0;
             tmp_nb_var++;
+#endif
         }
 
         // random_number
         M_random_number[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        //M_random_number[i] = std::max(0., std::min(1.,out_elt_values[nb_var_element*i+tmp_nb_var]));
         tmp_nb_var++;
 
         // SSS
@@ -2027,6 +2073,22 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values)
         if(tmp_nb_var!=nb_var_element)
         {
             throw std::logic_error("tmp_nb_var not equal to nb_var");
+        }
+
+        if(check_conc)
+        {
+            M_conc[i]=(M_conc[i]>1.) ? 1. : M_conc[i];
+            double conc_thin_tmp = ( (M_conc[i]+M_conc_thin[i])>1.) ? 1.-M_conc[i] : M_conc_thin[i];
+            double h_thin_tmp = 0.;
+
+            if(M_conc_thin[i]>0.)
+            {
+                h_thin_tmp = M_h_thin[i]*conc_thin_tmp/M_conc_thin[i];
+            }
+
+            M_thick[i] += M_h_thin[i] - h_thin_tmp;
+            M_h_thin[i] = h_thin_tmp;
+            M_conc_thin[i] = conc_thin_tmp;
         }
     }
 }
@@ -2138,7 +2200,7 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
     // ALE_smoothing_step_nb<0 is the diffusive eulerian case where M_UM is not changed and then =0.
     // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
     // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
-
+    std::cout<<"CONNECTIVITY SIZE..................= "<< M_element_connectivity.size() << " and "<< M_num_elements <<"\n";
     std::vector<double> vt_root;
     std::vector<double> M_VT_smoothed;
     std::vector<double> M_VT_smoothed_root;
@@ -2274,6 +2336,9 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
                 neighbour_double = bamgmesh->ElementConnectivity[cpt*3+i];
                 neighbour_int = (int)bamgmesh->ElementConnectivity[cpt*3+i];
 
+                // neighbour_double = M_element_connectivity[cpt*3+i];
+                // neighbour_int = (int)M_element_connectivity[cpt*3+i];
+
                 if (!std::isnan(neighbour_double) && neighbour_int>0)
                 {
                     surface = this->measure(M_elements[neighbour_int-1],M_mesh, UM_P);
@@ -2282,7 +2347,7 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
                 }
                 else // open boundary with incoming fluxes
                 {
-                    fluxes_source_id[i]=cpt;
+                    fluxes_source_id[i] = cpt;
                 }
             }
         }
@@ -2308,6 +2373,96 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
             {
                 interp_elt_out[cpt*M_nb_var_element+j] = interp_elt_in[cpt*M_nb_var_element+j];
             }
+        }
+    }
+}
+
+void
+FiniteElement::scatterElementConnectivity()
+{
+    auto transfer_map_local = M_mesh.transferMapElt();
+    std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
+
+#if 0
+    std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
+    std::vector<int> id_elements;
+    int out_size;
+
+    chrono.restart();
+    if (M_rank == 0)
+    {
+        out_size = std::accumulate(sizes_elements.begin(),sizes_elements.end(),0);
+        id_elements.resize(out_size);
+
+        boost::mpi::gatherv(M_comm, M_mesh.trianglesIdWithGhost(), &id_elements[0], sizes_elements, 0);
+    }
+    else
+    {
+        boost::mpi::gatherv(M_comm, M_mesh.trianglesIdWithGhost(), 0);
+    }
+#endif
+
+    // double neighbour_double = bamgmesh_root->ElementConnectivity[cpt*3+i];
+    // std::vector<double> in_elt_values;
+
+    int nb_var_element = 3;
+    std::vector<double> connectivity_root;
+
+    if (M_rank == 0)
+    {
+        connectivity_root.resize(nb_var_element*M_id_elements.size());
+
+        for (int i=0; i<M_id_elements.size(); ++i)
+        {
+            int ri = M_id_elements[i]-1;
+
+            for (int j=0; j<nb_var_element; ++j)
+            {
+                // in_elt_values[nb_var_element*i+j] = interp_elt_out[nb_var_element*ri+j];
+                connectivity_root[nb_var_element*i+j] = bamgmesh_root->ElementConnectivity[nb_var_element*ri+j];
+            }
+        }
+    }
+
+    M_element_connectivity.resize(nb_var_element*M_num_elements);
+
+    if (M_rank == 0)
+    {
+        std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = nb_var_element*f; });
+        boost::mpi::scatterv(M_comm, connectivity_root, sizes_elements, &M_element_connectivity[0], 0);
+    }
+    else
+    {
+        boost::mpi::scatterv(M_comm, &M_element_connectivity[0], nb_var_element*M_num_elements, 0);
+    }
+
+    M_comm.barrier();
+
+    std::cout<<"*************************************************M_id_elements.size()= "<< M_id_elements.size() <<"\n";
+    if (M_rank == 0)
+    {
+        std::cout <<"M_id_elements= "<< *std::min_element(M_id_elements.begin(), M_id_elements.end()) <<"\n";
+        std::cout <<"M_id_elements= "<< *std::max_element(M_id_elements.begin(), M_id_elements.end()) <<"\n";
+    }
+
+    auto element_connectivity_gid = M_element_connectivity;
+    for (int cpt=0; cpt < M_num_elements; ++cpt)
+    {
+        for (int j=0; j<nb_var_element; ++j)
+        {
+            double neighbour_id_global_db = element_connectivity_gid[nb_var_element*cpt+j];
+            int neighbour_id_global_int = (int)element_connectivity_gid[nb_var_element*cpt+j];
+
+            if (!std::isnan(neighbour_id_global_db) && neighbour_id_global_int>0)
+            {
+                if (transfer_map_local.left.find(neighbour_id_global_int) == transfer_map_local.left.end())
+                {
+                    std::cout<<".........................THIS IS WRONG  " << neighbour_id_global_int <<" ...........\n";
+                }
+            }
+
+            int neighbour_id_local = transfer_map_local.left.find(neighbour_id_global_int)->second;
+            M_element_connectivity[nb_var_element*cpt+j] = neighbour_id_local;
         }
     }
 }
@@ -2404,6 +2559,9 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     int nb_var_element = M_nb_var_element;
 
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
+
+#if 0
+    std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
     std::vector<int> id_elements;
     int out_size;
 
@@ -2419,17 +2577,18 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     {
         boost::mpi::gatherv(M_comm, M_mesh.trianglesIdWithGhost(), 0);
     }
+#endif
 
     std::vector<double> in_elt_values;
 
     if (M_rank == 0)
     {
-        in_elt_values.resize(nb_var_element*id_elements.size());
+        in_elt_values.resize(nb_var_element*M_id_elements.size());
 
-        for (int i=0; i<id_elements.size(); ++i)
+        for (int i=0; i<M_id_elements.size(); ++i)
         {
-            //int ri = rmap_elements.right.find(id_elements[i])->second-1;
-            int ri = id_elements[i]-1;
+            //int ri = rmap_elements.right.find(M_id_elements[i])->second-1;
+            int ri = M_id_elements[i]-1;
 
             for (int j=0; j<nb_var_element; ++j)
             {
@@ -2482,7 +2641,7 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     D_Qo.assign(M_num_elements,0.);
     D_delS.assign(M_num_elements,0.);
 
-    this->redistributeVariables(out_elt_values);
+    this->redistributeVariables(out_elt_values,true);
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
 }
@@ -2501,6 +2660,9 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
     }
 
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
+
+#if 0
+    std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
     std::vector<int> id_elements;
     int out_size;
 
@@ -2516,17 +2678,18 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
     {
         boost::mpi::gatherv(M_comm, M_mesh.trianglesIdWithGhost(), 0);
     }
+#endif
 
     std::vector<double> in_elt_values;
 
     if (M_rank == 0)
     {
-        in_elt_values.resize(nb_var_element*id_elements.size());
+        in_elt_values.resize(nb_var_element*M_id_elements.size());
 
-        for (int i=0; i<id_elements.size(); ++i)
+        for (int i=0; i<M_id_elements.size(); ++i)
         {
             //int ri = rmap_elements.right.find(id_elements[i])->second-1;
-            int ri = id_elements[i]-1;
+            int ri = M_id_elements[i]-1;
 
             for (int j=0; j<nb_var_element; ++j)
             {
@@ -5331,10 +5494,10 @@ FiniteElement::init()
 {
     // define export path
     M_export_path = Environment::nextsimDir().string() + "/matlab";
-    // change directory for outputs if the option "output_directory" is not empty
-    if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
+    // change directory for outputs if the option "exporter.path" is not empty
+    if ( ! (vm["exporter.path"].as<std::string>()).empty() )
     {
-        M_export_path = vm["simul.output_directory"].as<std::string>();
+        M_export_path = vm["exporter.path"].as<std::string>();
 
         fs::path path(M_export_path);
         // add a subdirecory if needed
@@ -5619,8 +5782,8 @@ FiniteElement::init()
 
         timer["update"].first.restart();
         this->update();
-        //if (M_rank == 0)
-        std::cout <<"---timer update:               "<< timer["update"].first.elapsed() <<"s\n";
+        if (M_rank == 0)
+            std::cout <<"---timer update:               "<< timer["update"].first.elapsed() <<"s\n";
     }
 
     if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
@@ -5631,7 +5794,6 @@ FiniteElement::init()
     ++pcpt;
     current_time = time_init + pcpt*time_step/(24*3600.0);
 
-#if 1
 #if 1
     if(fmod(pcpt*time_step,output_time_step) == 0)
     {
@@ -5649,9 +5811,8 @@ FiniteElement::init()
     if ( fmod(pcpt*time_step,restart_time_step) == 0)
     {
         std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
-        //this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
+        this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
     }
-#endif
 #endif
 
  }
@@ -5714,7 +5875,7 @@ FiniteElement::run()
             std::cout <<"\n";
         }
 
-        std::cout<<"pcpt = "<< pcpt <<"\n";
+        //std::cout<<"pcpt = "<< pcpt <<"\n";
 
         //is_running = ((pcpt+1)*time_step) < duration;
         is_running = (pcpt*time_step) < duration;
@@ -6320,10 +6481,6 @@ FiniteElement::writeRestart(int pcpt, int step)
         int num_elements_root = M_mesh_root.numTriangles();
         int tice_size = M_tice.size();
 
-        std::cout<<"tice_size        = "<< tice_size <<"\n";
-
-        std::cout<< "["<< M_rank << "] "<<"num_elements_root                   = "<< num_elements_root <<"\n";
-
         std::vector<double> M_conc_root(num_elements_root);
         std::vector<double> M_thick_root(num_elements_root);
         std::vector<double> M_snow_thick_root(num_elements_root);
@@ -6444,9 +6601,11 @@ FiniteElement::writeRestart(int pcpt, int step)
         // === Start with the mesh ===
         // First the data
         std::string directory = Environment::nextsimDir().string() + "/restart";
-        // change directory for outputs if the option "output_directory" is not empty
-        if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
-            directory = vm["simul.output_directory"].as<std::string>() + "/restart";
+        // change directory for outputs if the option "exporter.path" is not empty
+        if ( !(vm["exporter.path"].as<std::string>()).empty() )
+        {
+            directory = vm["exporter.path"].as<std::string>() + "/restart";
+        }
 
         // create the output directory if it does not exist
         fs::path path(directory);
@@ -9455,10 +9614,6 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
         int num_elements_root = M_mesh_root.numTriangles();
         int tice_size = M_tice.size();
 
-        std::cout<<"tice_size        = "<< tice_size <<"\n";
-
-        std::cout<< "["<< M_rank << "] "<<"num_elements_root                   = "<< num_elements_root <<"\n";
-
         std::vector<double> M_conc_root(num_elements_root);
         std::vector<double> M_thick_root(num_elements_root);
         std::vector<double> M_snow_thick_root(num_elements_root);
@@ -9583,7 +9738,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
             }
         }
 
-        Exporter exporter(vm["setup.exporter_precision"].as<std::string>());
+        Exporter exporter(vm["exporter.precision"].as<std::string>());
         std::string fileout;
 
         if (export_mesh)

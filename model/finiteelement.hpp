@@ -274,7 +274,7 @@ public:
 private:
     void advect(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out);
     void collectVariables(std::vector<double>& interp_elt_in_local, bool ghosts = false);
-    void redistributeVariables(std::vector<double> const& out_elt_values);
+    void redistributeVariables(std::vector<double> const& out_elt_values, bool check_conc = false);
 
     // IO
     void collectVariablesIO(std::vector<double>& interp_elt_in_local, bool ghosts, bool thin_ice);
@@ -282,6 +282,8 @@ private:
 
     void redistributeVariablesIO(std::vector<double> const& out_elt_values, bool thin_ice);
     void scatterFieldsElementIO(std::vector<double> const& interp_elt_out, bool thin_ice);
+
+    void scatterElementConnectivity();
 
 private:
     po::variables_map vm;
@@ -408,8 +410,11 @@ private:
     std::vector<int> M_sizes_elements_with_ghost;
     std::vector<int> M_id_nodes;
     std::vector<int> M_rmap_nodes;
+
+    std::vector<int> M_id_elements;
     std::vector<int> M_rmap_elements;
     //std::vector<double> M_speed_scaling;
+    std::vector<double> M_element_connectivity;
 
     std::vector<double> M_Dunit;
     //std::vector<double> M_Dunit_comp;

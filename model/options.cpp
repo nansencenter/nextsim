@@ -136,7 +136,7 @@ namespace Nextsim
             ("simul.scale_coef", po::value<double>()->default_value( 0.2 ), "")
 
             // thermodynamics
-            ("setup.thermo-type", po::value<std::string>()->default_value( "zero-layer" ), "")
+            ("simul.thermo-type", po::value<std::string>()->default_value( "zero-layer" ), "")
             ("simul.Qio-type", po::value<std::string>()->default_value( "basic" ), "")
             ("simul.use_thermo_forcing", po::value<bool>()->default_value( true ), "")
             ("simul.albedoW", po::value<double>()->default_value( 0.07 ), "")
@@ -209,11 +209,13 @@ namespace Nextsim
             ("setup.restart_time_step", po::value<double>()->default_value( 20 ), "days")
             ("setup.step_nb", po::value<int>()->default_value( 0 ), "")
             ("simul.output_per_day", po::value<int>()->default_value( 24 ), "")
-            ("simul.output_directory", po::value<std::string>()->default_value( "" ), "")
             ("simul.logfile", po::value<std::string>()->default_value( "" ), "")
             ("simul.save_forcing_field", po::value<bool>()->default_value( false ), "")
             ("simul.save_diagnostics", po::value<bool>()->default_value( false ), "")
-            ("setup.exporter_precision", po::value<std::string>()->default_value("float"), "float (default) or double (almost only for testing)")
+
+            // exporter
+            ("exporter.path", po::value<std::string>()->default_value( "" ), "")
+            ("exporter.precision", po::value<std::string>()->default_value("float"), "float (default) or double (almost only for testing)")
 
             // others
             ("simul.drift_limit_concentration", po::value<double>()->default_value( 0.05 ), "")
