@@ -2378,6 +2378,54 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
 }
 
 void
+FiniteElement::diffuse(std::vector<double>& variable_elt, double diffusivity_parameters, double dx)
+{
+    if(diffusivity_parameters<=0.)
+    {
+        LOG(DEBUG) <<"diffusivity parameter lower or equal to 0 \n";
+        LOG(DEBUG) <<"nothing to do\n";
+        return;
+    }
+
+    double factor = diffusivity_parameters*time_step/std::pow(dx,2.);
+    std::vector<double> old_variable_elt = variable_elt;
+
+    // for (int cpt=0; cpt < M_num_elements; ++cpt)
+    //     old_variable_elt[cpt]=variable_elt[cpt];
+
+    for (int cpt=0; cpt < M_num_elements; ++cpt)
+    {
+        /* some variables used for the advection*/
+        double fluxes_source[3];
+        int fluxes_source_id;
+
+        int neighbour_int;
+        double neighbour_double;
+
+        for(int i=0;i<3;i++)
+        {
+            neighbour_double = bamgmesh->ElementConnectivity[cpt*3+i];
+            neighbour_int = (int)bamgmesh->ElementConnectivity[cpt*3+i];
+
+            // neighbour_double = M_element_connectivity[cpt*3+i];
+            // neighbour_int = (int)M_element_connectivity[cpt*3+i];
+
+            if (!std::isnan(neighbour_double) && neighbour_int>0)
+            {
+                fluxes_source_id=neighbour_int-1;
+                fluxes_source[i]=factor*(old_variable_elt[fluxes_source_id]-old_variable_elt[cpt]);
+            }
+            else // no diffusion crosses open nor closed boundaries
+            {
+                fluxes_source[i]=0.;
+            }
+        }
+
+        variable_elt[cpt] += fluxes_source[0] + fluxes_source[1] + fluxes_source[2];
+    }
+}
+
+void
 FiniteElement::scatterElementConnectivity()
 {
     auto transfer_map_local = M_mesh.transferMapElt();
@@ -2419,7 +2467,17 @@ FiniteElement::scatterElementConnectivity()
             for (int j=0; j<nb_var_element; ++j)
             {
                 // in_elt_values[nb_var_element*i+j] = interp_elt_out[nb_var_element*ri+j];
-                connectivity_root[nb_var_element*i+j] = bamgmesh_root->ElementConnectivity[nb_var_element*ri+j];
+                double neighbour_id_db = bamgmesh_root->ElementConnectivity[nb_var_element*ri+j];
+                int neighbour_id_int = (int)neighbour_id_db;
+
+                if (!std::isnan(neighbour_id_db) && neighbour_id_int>0)
+                {
+                    connectivity_root[nb_var_element*i+j] = neighbour_id_db;
+                }
+                else
+                {
+                    connectivity_root[nb_var_element*i+j] = -100.;
+                }
             }
         }
     }
@@ -2438,14 +2496,21 @@ FiniteElement::scatterElementConnectivity()
 
     M_comm.barrier();
 
-    std::cout<<"*************************************************M_id_elements.size()= "<< M_id_elements.size() <<"\n";
+    std::cout<<"*************************************************M_id_elements.size()=          "<< M_id_elements.size() <<"\n";
+    std::cout<<"*************************************************transfer_map_local.size()=     "<< transfer_map_local.size() <<"\n";
+    std::cout<<"*************************************************M_element_connectivity.size()= "<< M_element_connectivity.size() <<"\n";
+
     if (M_rank == 0)
     {
-        std::cout <<"M_id_elements= "<< *std::min_element(M_id_elements.begin(), M_id_elements.end()) <<"\n";
-        std::cout <<"M_id_elements= "<< *std::max_element(M_id_elements.begin(), M_id_elements.end()) <<"\n";
+        // std::cout <<"M_id_elements= "<< *std::min_element(M_id_elements.begin(), M_id_elements.end()) <<"\n";
+        // std::cout <<"M_id_elements= "<< *std::max_element(M_id_elements.begin(), M_id_elements.end()) <<"\n";
+
+        std::cout <<"M_element_connectivity= "<< *std::min_element(M_element_connectivity.begin(), M_element_connectivity.end()) <<"\n";
+        std::cout <<"M_element_connectivity= "<< *std::max_element(M_element_connectivity.begin(), M_element_connectivity.end()) <<"\n";
     }
 
     auto element_connectivity_gid = M_element_connectivity;
+    int compt = 0;
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
         for (int j=0; j<nb_var_element; ++j)
@@ -2453,18 +2518,35 @@ FiniteElement::scatterElementConnectivity()
             double neighbour_id_global_db = element_connectivity_gid[nb_var_element*cpt+j];
             int neighbour_id_global_int = (int)element_connectivity_gid[nb_var_element*cpt+j];
 
-            if (!std::isnan(neighbour_id_global_db) && neighbour_id_global_int>0)
+#if 0
+            //if (!std::isnan(neighbour_id_global_db) && neighbour_id_global_int>0)
+            if ((neighbour_id_global_int>0) && (M_rank == 0))
             {
                 if (transfer_map_local.left.find(neighbour_id_global_int) == transfer_map_local.left.end())
                 {
-                    std::cout<<".........................THIS IS WRONG  " << neighbour_id_global_int <<" ...........\n";
+                    std::cout<< "["<< M_rank <<"] .........................THIS IS WRONG  " << neighbour_id_global_int <<" ...........\n";
+                    ++compt;
                 }
             }
+#endif
 
-            int neighbour_id_local = transfer_map_local.left.find(neighbour_id_global_int)->second;
-            M_element_connectivity[nb_var_element*cpt+j] = neighbour_id_local;
+            if (neighbour_id_global_int>0)
+            {
+                if (transfer_map_local.left.find(neighbour_id_global_int) != transfer_map_local.left.end())
+                {
+                    int neighbour_id_local = transfer_map_local.left.find(neighbour_id_global_int)->second;
+                    M_element_connectivity[nb_var_element*cpt+j] = neighbour_id_local;
+                }
+                else
+                {
+                    M_element_connectivity[nb_var_element*cpt+j] = -100.;
+                }
+            }
         }
     }
+
+    if (M_rank == 0)
+        std::cout<<"NUmber global= "<< compt <<"\n";
 }
 
 void
@@ -4107,6 +4189,9 @@ FiniteElement::update()
     double tract_max, sigma_t, sigma_c, q;
     double tmp, sigma_target;
 
+    // Horizontal diffusion
+    this->diffuse(M_sst,vm["simul.diffusivity_sst"].as<double>(),M_res_root_mesh);
+    this->diffuse(M_sss,vm["simul.diffusivity_sss"].as<double>(),M_res_root_mesh);
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
