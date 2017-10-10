@@ -511,7 +511,7 @@ FiniteElement::initVariables()
     M_tsurf_thin.assign(M_num_elements,0.);
 
     // stresses
-    M_sigma.resize(3*M_num_elements,0.);
+    M_sigma.assign(3*M_num_elements,0.);
 
     // random numbers
     //M_random_number.resize(M_num_elements);
@@ -643,11 +643,13 @@ FiniteElement::assignVariables()
     M_UT.assign(2*M_num_nodes,0.);
     M_fcor.resize(M_num_elements);
 
+#if 1
     M_atmosphere_nodes_dataset.target_size=M_num_nodes;
     M_atmosphere_elements_dataset.target_size=M_num_elements;
     M_atmosphere_bis_elements_dataset.target_size=M_num_elements;
     M_ocean_nodes_dataset.target_size=M_num_nodes;
     M_ocean_elements_dataset.target_size=M_num_elements;
+
 
     M_ice_topaz_elements_dataset.target_size=M_num_elements;
     M_ice_piomas_elements_dataset.target_size=M_num_elements;
@@ -712,6 +714,21 @@ FiniteElement::assignVariables()
     M_ice_smos_elements_dataset.interpolated=false;
     M_bathymetry_elements_dataset.interpolated=false;
     // --------------------------------------------------------------
+#endif
+
+    // //loop over vector of pointers to datasets defined in initDatasets()
+    // for (auto it=M_datasets_regrid.begin(), end=M_datasets_regrid.end(); it!=end; ++it)
+    // {
+    //     if (M_rank == 0)
+    //         std::cout<<"REGRIDDING: need to re-interpolate dataset "<<(*it)->name<<"\n";
+
+    //     (*it)->interpolated=false;
+
+    //     // for the parallel code, it will be necessary to add these lines
+    //     // as the domain covered by the partitions changes at each remeshing/partitioning
+    //     // (*it)->grid.interpolated=false;
+    //     (*it)->grid.loaded=false;
+    // }
 
     M_Cohesion.resize(M_num_elements);
     M_Compressive_strength.resize(M_num_elements);
@@ -1131,9 +1148,14 @@ FiniteElement::initConstant()
     M_use_rgps_drifters=false;
 
     if(M_equallyspaced_drifters_output_time_step>0.)
+    {
         M_use_equallyspaced_drifters=true;
+    }
+
     if(M_rgps_drifters_output_time_step>0.)
+    {
         M_use_rgps_drifters=true;
+    }
 
 
     // option for enabling/disabling the moorings
@@ -1513,7 +1535,7 @@ FiniteElement::hminVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mes
         }
 
         measure.resize(j);
-        hmin[i] = std::sqrt(2.)*std::sqrt(*std::min_element(measure.begin(),measure.end()))*0.9;
+        hmin[i] = std::sqrt(2.)*std::sqrt(*std::min_element(measure.begin(),measure.end()))*0.8/*0.9*/;
     }
 
     return hmin;
@@ -2200,7 +2222,8 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
     // ALE_smoothing_step_nb<0 is the diffusive eulerian case where M_UM is not changed and then =0.
     // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
     // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
-    std::cout<<"CONNECTIVITY SIZE..................= "<< M_element_connectivity.size() << " and "<< M_num_elements <<"\n";
+
+    // std::cout<<"CONNECTIVITY SIZE..................= "<< M_element_connectivity.size() << " and "<< M_num_elements <<"\n";
     std::vector<double> vt_root;
     std::vector<double> M_VT_smoothed;
     std::vector<double> M_VT_smoothed_root;
@@ -3728,7 +3751,7 @@ FiniteElement::assemble(int pcpt)
             /* compute the x and y derivative of g*ssh */
             g_ssh_e_x = 0.;
             g_ssh_e_y = 0.;
-            g_ssh_e;
+            g_ssh_e = 0.;
             for(int i=0; i<3; i++)
             {
                 g_ssh_e = (physical::gravity)*M_ssh[it->indices[i]-1] /*g_ssh*/;   /* g*ssh at the node k of the element e */
@@ -4554,11 +4577,6 @@ FiniteElement::thermo()
 
     const double alpha=0.62197, beta=0.37803;
 
-    // initialisation of the multithreading
-    int thread_id;
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-
-    // #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int i=0; i < M_num_elements; ++i)
     {
         // -------------------------------------------------
@@ -4623,20 +4641,30 @@ FiniteElement::thermo()
         // definition of the snow fall in kg/m^2/s
         double tmp_snowfall;
         if(M_snowfr.M_initialized)
+        {
             tmp_snowfall=M_precip[i]*M_snowfr[i];
+        }
         else if (M_snowfall.M_initialized)
+        {
             tmp_snowfall=M_snowfall[i];
+        }
         else
         {
             if(M_tair[i]<0)
+            {
                 tmp_snowfall=M_precip[i];
+            }
             else
+            {
                 tmp_snowfall=0.;
+            }
         }
 
         double Qsw_in;
         if(M_Qsw_in.M_initialized)
+        {
             Qsw_in=M_Qsw_in[i];
+        }
         else
         {
             throw std::logic_error("The function approxSW not yet implemented, you need to initialized M_Qsw_in");
@@ -4661,7 +4689,9 @@ FiniteElement::thermo()
 
                 double delS = M_sss[i] - M_ocean_salt[i];
                 Fdw = delS * mld * physical::rhow /(timeS*M_sss[i] - time_step*delS);
-            } else {
+            }
+            else
+            {
                 Qdw = Qdw_const;
                 Fdw = Fdw_const;
             }
@@ -4684,7 +4714,9 @@ FiniteElement::thermo()
          * checking mixrat - the calling routine must set this to a negative
          * value if the dewpoint should be used. */
         if ( M_sphuma.M_initialized )
+        {
             sphuma = M_sphuma[i];
+        }
         else if ( M_dair.M_initialized )
         {
             double fa     = 1. + Aw + M_mslp[i]*1e-2*( Bw + Cw*M_dair[i]*M_dair[i] );
@@ -4692,9 +4724,13 @@ FiniteElement::thermo()
             sphuma = alpha*fa*esta/(M_mslp[i]-beta*fa*esta) ;
         }
         else if ( M_mixrat.M_initialized )
+        {
             sphuma = M_mixrat[i]/(1.+M_mixrat[i]) ;
+        }
         else
+        {
             throw std::logic_error("Neither M_dair nor M_mixrat have been initialized. I cannot calculate sphuma.");
+        }
 
         // -------------------------------------------------
         // 3.2) Specific humidity - ocean surface (calcSphumW in matlab)
@@ -4719,7 +4755,9 @@ FiniteElement::thermo()
         // Sum them up
         double Qlw_in;
         if(M_Qlw_in.M_initialized)
+        {
             Qlw_in=M_Qlw_in[i];
+        }
         else
         {
             double tsa = M_tice[0][i] + physical::tfrwK;
@@ -4781,7 +4819,9 @@ FiniteElement::thermo()
             newice  = (1.-M_conc[i]-M_conc_thin[i])*(tfrw-tw_new)*mld*physical::rhow*physical::cpw/qi;// m
             Qow  = -(tfrw-M_sst[i])*mld*physical::rhow*physical::cpw/time_step;
             // evap = 0.;
-        } else {
+        }
+        else
+        {
             newice  = 0.;
         }
 
@@ -4791,78 +4831,85 @@ FiniteElement::thermo()
         newsnow = 0.;
 
         /* Freezing conditions */
-            switch ( newice_type )
-            {
-                case 1:
-                    /* Hibler's (79) approach */
-                    del_c = newice*rh0;
-                    break;
-                case 2:
-                    /* Mellor and Kantha (89) */
-                    if ( hi_old > 0. )
-                    {
-                            del_c = newice*PhiF/hi_old;
-                    } else {
-                        if ( newice > 0. )
-                            del_c = 1.;
-                        else
-                            del_c = 0.;
-                    }
-                    break;
-                case 3:
-                    /* Olason and Harms (09) */
-                    h0    = (1.+0.1*wspeed)/15.;
-                    del_c = newice/std::max(rPhiF*hi_old,h0);
-                    break;
-                case 4:
-                    /* Thin ice category */
+        switch ( newice_type )
+        {
+             case 1:
+                 /* Hibler's (79) approach */
+                 del_c = newice*rh0;
+                 break;
+             case 2:
+                 /* Mellor and Kantha (89) */
+                 if ( hi_old > 0. )
+                 {
+                     del_c = newice*PhiF/hi_old;
+                 }
+                 else
+                 {
+                     if ( newice > 0. )
+                     {
+                         del_c = 1.;
+                     }
+                     else
+                     {
+                         del_c = 0.;
+                     }
+                 }
+                 break;
+             case 3:
+                 /* Olason and Harms (09) */
+                 h0    = (1.+0.1*wspeed)/15.;
+                 del_c = newice/std::max(rPhiF*hi_old,h0);
+                 break;
+             case 4:
+                 /* Thin ice category */
+                 M_h_thin[i]+=newice;
+                 M_conc_thin[i]=std::min(1.-M_conc[i],M_conc_thin[i]+newice/h_thin_min);
+                 newice  = 0.;
+                 newsnow = 0.;
 
-                    M_h_thin[i]+=newice;
-                    M_conc_thin[i]=std::min(1.-M_conc[i],M_conc_thin[i]+newice/h_thin_min);
-                    newice  = 0.;
-                    newsnow = 0.;
+                 if(M_conc_thin[i]>0.)
+                 {
+                     /* Two cases: Thin ice fills the cell or not */
+                     if ( M_h_thin[i] < h_thin_min*M_conc_thin[i] )
+                     {
+                         M_conc_thin[i] = M_h_thin[i]/h_thin_min;
+                     }
+                     else
+                     {
+                         h0 = h_thin_min + 2.*(M_h_thin[i]-h_thin_min*M_conc_thin[i])/(M_conc_thin[i]);
+                         if(h0>h_thin_max)
+                         {
+                             del_c = M_conc_thin[i]/(h0-h_thin_min) * (h0-h_thin_max);
+                             double del_h_thin = del_c*(h0+h_thin_max)/2.;
+                             double del_hs_thin = del_c*M_hs_thin[i]/M_conc_thin[i];
 
-                    if(M_conc_thin[i]>0.)
-                    {
-                        /* Two cases: Thin ice fills the cell or not */
-                            if ( M_h_thin[i] < h_thin_min*M_conc_thin[i] )
-                                M_conc_thin[i] = M_h_thin[i]/h_thin_min;
-                        else
-                        {
-                            h0 = h_thin_min + 2.*(M_h_thin[i]-h_thin_min*M_conc_thin[i])/(M_conc_thin[i]);
-                            if(h0>h_thin_max)
-                            {
-                                del_c = M_conc_thin[i]/(h0-h_thin_min) * (h0-h_thin_max);
-                                double del_h_thin = del_c*(h0+h_thin_max)/2.;
-                                double del_hs_thin = del_c*M_hs_thin[i]/M_conc_thin[i];
+                             M_thick[i] += del_h_thin;
+                             // M_conc[i]  += del_c; ; <- this is done properly below
 
-                                M_thick[i] += del_h_thin;
-                                // M_conc[i]  += del_c; ; <- this is done properly below
+                             newice  = del_h_thin; // Reset newice to use below
+                             newsnow = del_hs_thin;
+                             // M_snow_thick[i] += newsnow; <- this is done properly below
 
-                                newice  = del_h_thin; // Reset newice to use below
-                                newsnow = del_hs_thin;
-                                // M_snow_thick[i] += newsnow; <- this is done properly below
+                             M_conc_thin[i] -= del_c;
+                             M_h_thin[i]    -= del_h_thin;
+                             M_hs_thin[i]   -= del_hs_thin;
+                         }
+                     }
+                 }
+                 else // we should not have thin ice, no space for it
+                 {
+                     M_thick[i] += M_h_thin[i];
 
-                                M_conc_thin[i] -= del_c;
-                                M_h_thin[i]    -= del_h_thin;
-                                M_hs_thin[i]   -= del_hs_thin;
-                            }
-                        }
-                    }
-                    else // we should not have thin ice, no space for it
-                    {
-                        M_thick[i] += M_h_thin[i];
+                     newice  = M_h_thin[i];
+                     newsnow = M_hs_thin[i];
 
-                        newice  = M_h_thin[i];
-                        newsnow = M_hs_thin[i];
-
-                        M_h_thin[i] = 0.;
-                        M_hs_thin[i]= 0.;
-                    }
-                    break;
-                default:
-                    std::cout << "newice_type = " << newice_type << "\n";
-                    throw std::logic_error("Wrong newice_type");
+                     M_h_thin[i] = 0.;
+                     M_hs_thin[i]= 0.;
+                 }
+                 break;
+             default:
+                 std::cout << "newice_type = " << newice_type << "\n";
+                 throw std::logic_error("Wrong newice_type");
             }
             /* Check bounds on del_c */
             del_c = std::min( 1.-M_conc[i], del_c );
@@ -4876,9 +4923,13 @@ FiniteElement::thermo()
                     /* Hibler (79) using PhiM to tune. PhiM = 0.5 is
                      * equivalent to Hibler's (79) approach */
                     if ( M_conc[i] < 1. )
+                    {
                         del_c += del_hi*M_conc[i]*PhiM/hi_old;
+                    }
                     else
+                    {
                         del_c += 0.;
+                    }
                     break;
                 case 2:
                     /* Mellor and Kantha (89) */
@@ -4888,8 +4939,11 @@ FiniteElement::thermo()
                         del_c += PhiM*(1.-M_conc[i])*std::min(0.,Qow)*time_step/( hi*qi+hs*qs );
                         /* Deliver the fraction (1-PhiM) of Qow to the ocean */
                         Qow = (1.-PhiM)*Qow;
-                    } else
+                    }
+                    else
+                    {
                         del_c = -M_conc[i];
+                    }
                     // This is handled below
                     // /* + Deliver excess energy to the ocean when there's no ice left */
                     //         + std::min(0., std::max(0.,M_conc[i]+del_c)*( hi*qi+hs*qs )/time_step);
@@ -4914,7 +4968,9 @@ FiniteElement::thermo()
             {
                 /* We conserve the snow height, but melt away snow as the concentration decreases */
                 Qow = Qow + del_c*hs*qs/time_step;
-            } else {
+            }
+            else
+            {
                 /* Snow volume is conserved as concentration increases */
                 hs  = ( hs*old_conc + newsnow )/M_conc[i];
             }
@@ -4928,16 +4984,21 @@ FiniteElement::thermo()
                 M_tice[2][i] = f1*M_tice[2][i] + (1-f1)*tfrw; // (26) slightly rewritten
             }
         }
+
 #if 1
         /* Check limits */
-        if ( M_conc[i] < physical::cmin || hi < physical::hmin )
+        if ( (M_conc[i] < physical::cmin) || (hi < physical::hmin) )
         {
             // Extract heat from the ocean corresponding to the heat in the
             // remaining ice and snow
             Qow    = Qow + M_conc[i]*hi*qi/time_step + M_conc[i]*hs*qs/time_step;
             M_conc[i]  = 0.;
+
             for (int j=0; j<M_tice.size(); j++)
+            {
                 M_tice[j][i] = tfrw;
+            }
+
             M_tsurf_thin[i] = tfrw;
             hi     = 0.;
             hs     = 0.;
@@ -5020,8 +5081,11 @@ FiniteElement::thermo()
                         std::cout << "thermo_type= " << (int)M_thermo_type << "\n";
                         throw std::logic_error("Wrong thermo_type");
                 }
+
                 M_time_relaxation_damage[i] = std::max(time_relaxation_damage*deltaT_relaxation_damage/deltaT, time_step);
-            } else {
+            }
+            else
+            {
                 M_time_relaxation_damage[i] = 1e36;
             }
         }
@@ -5050,7 +5114,6 @@ FiniteElement::thermo()
 
         // Salt release into the ocean - kg/day
         D_delS[i] = (M_sss[i] - sss_old)*physical::rhow*mld/time_step;
-
     }// end for loop
 }// end thermo function
 
@@ -5652,7 +5715,9 @@ FiniteElement::init()
 
         // current_time = time_init + pcpt*time_step/(24*3600.0);
         if(M_use_osisaf_drifters)
+        {
             this->initOSISAFDrifters();
+        }
 
         if(fmod(pcpt*time_step,output_time_step) == 0)
         {
@@ -7959,8 +8024,10 @@ FiniteElement::initIce()
         conc_tot=M_conc[i]+M_conc_thin[i];
         weight_conc=std::min(1.,conc_tot*2.);
         if(conc_tot>0.)
+        {
             M_sst[i] = -M_sss[i]*physical::mu*weight_conc+M_sst[i]*(1.-weight_conc);
-        //M_sst[i] = -M_sss[i]*physical::mu;//*M_conc[i]+M_ocean_temp[i]*(1.-M_conc[i]);
+            //M_sst[i] = -M_sss[i]*physical::mu;//*M_conc[i]+M_ocean_temp[i]*(1.-M_conc[i]);
+        }
 
         if ( M_snow_thick[i] > 0. )
             M_tice[0][i] = std::min(0., M_tair[i]);
