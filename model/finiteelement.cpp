@@ -148,10 +148,12 @@ FiniteElement::distributedMeshProcessing(bool start)
     if (M_rank == 0)
         std::cout<<"-------------------GATHERSIZE done in "<< timer["gathersize"].first.elapsed() <<"s\n";
 
+#if 0
     timer["scattercvt"].first.restart();
     this->scatterElementConnectivity();
     //if (M_rank == 0)
     std::cout<<"-------------------CONNECTIVITY done in "<< timer["gathersize"].first.elapsed() <<"s\n";
+#endif
 
 #if 0
     // LOG(INFO) <<"["<< M_rank << "] NODES   = "<< M_mesh.numGlobalNodes() << " --- "<< M_local_ndof <<"\n";
@@ -608,6 +610,12 @@ FiniteElement::initVariables()
         }
     }
 
+    if (M_rank == 0)
+    {
+        M_UT_root.assign(2*M_ndof,0.);
+        M_conc_root.resize(M_mesh_root.numTriangles());
+    }
+
     // Diagnostics
     D_Qa.resize(M_num_elements);
     D_Qsh.resize(M_num_elements);
@@ -641,6 +649,7 @@ FiniteElement::assignVariables()
 
     M_UM.assign(2*M_num_nodes,0.);
     M_UT.assign(2*M_num_nodes,0.);
+
     M_fcor.resize(M_num_elements);
 
 #if 1
@@ -1715,8 +1724,6 @@ FiniteElement::gatherSizes()
     }
 
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
-    //std::vector<int> id_elements;
-    //int out_size;
 
     if (M_rank == 0)
     {
@@ -2028,15 +2035,6 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
         else
         {
             tmp_nb_var += 5;
-#if 0
-            // damage
-            M_damage[i] = 0.;
-            tmp_nb_var++;
-
-            // ridge_ratio
-            M_ridge_ratio[i] = 0;
-            tmp_nb_var++;
-#endif
         }
 
         // random_number
@@ -2223,7 +2221,6 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
     // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
     // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
 
-    // std::cout<<"CONNECTIVITY SIZE..................= "<< M_element_connectivity.size() << " and "<< M_num_elements <<"\n";
     std::vector<double> vt_root;
     std::vector<double> M_VT_smoothed;
     std::vector<double> M_VT_smoothed_root;
@@ -2413,9 +2410,6 @@ FiniteElement::diffuse(std::vector<double>& variable_elt, double diffusivity_par
     double factor = diffusivity_parameters*time_step/std::pow(dx,2.);
     std::vector<double> old_variable_elt = variable_elt;
 
-    // for (int cpt=0; cpt < M_num_elements; ++cpt)
-    //     old_variable_elt[cpt]=variable_elt[cpt];
-
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
         /* some variables used for the advection*/
@@ -2454,28 +2448,6 @@ FiniteElement::scatterElementConnectivity()
     auto transfer_map_local = M_mesh.transferMapElt();
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
 
-#if 0
-    std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
-    std::vector<int> id_elements;
-    int out_size;
-
-    chrono.restart();
-    if (M_rank == 0)
-    {
-        out_size = std::accumulate(sizes_elements.begin(),sizes_elements.end(),0);
-        id_elements.resize(out_size);
-
-        boost::mpi::gatherv(M_comm, M_mesh.trianglesIdWithGhost(), &id_elements[0], sizes_elements, 0);
-    }
-    else
-    {
-        boost::mpi::gatherv(M_comm, M_mesh.trianglesIdWithGhost(), 0);
-    }
-#endif
-
-    // double neighbour_double = bamgmesh_root->ElementConnectivity[cpt*3+i];
-    // std::vector<double> in_elt_values;
-
     int nb_var_element = 3;
     std::vector<double> connectivity_root;
 
@@ -2489,7 +2461,6 @@ FiniteElement::scatterElementConnectivity()
 
             for (int j=0; j<nb_var_element; ++j)
             {
-                // in_elt_values[nb_var_element*i+j] = interp_elt_out[nb_var_element*ri+j];
                 double neighbour_id_db = bamgmesh_root->ElementConnectivity[nb_var_element*ri+j];
                 int neighbour_id_int = (int)neighbour_id_db;
 
@@ -2519,39 +2490,14 @@ FiniteElement::scatterElementConnectivity()
 
     M_comm.barrier();
 
-    std::cout<<"*************************************************M_id_elements.size()=          "<< M_id_elements.size() <<"\n";
-    std::cout<<"*************************************************transfer_map_local.size()=     "<< transfer_map_local.size() <<"\n";
-    std::cout<<"*************************************************M_element_connectivity.size()= "<< M_element_connectivity.size() <<"\n";
-
-    if (M_rank == 0)
-    {
-        // std::cout <<"M_id_elements= "<< *std::min_element(M_id_elements.begin(), M_id_elements.end()) <<"\n";
-        // std::cout <<"M_id_elements= "<< *std::max_element(M_id_elements.begin(), M_id_elements.end()) <<"\n";
-
-        std::cout <<"M_element_connectivity= "<< *std::min_element(M_element_connectivity.begin(), M_element_connectivity.end()) <<"\n";
-        std::cout <<"M_element_connectivity= "<< *std::max_element(M_element_connectivity.begin(), M_element_connectivity.end()) <<"\n";
-    }
-
     auto element_connectivity_gid = M_element_connectivity;
-    int compt = 0;
+
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
         for (int j=0; j<nb_var_element; ++j)
         {
             double neighbour_id_global_db = element_connectivity_gid[nb_var_element*cpt+j];
             int neighbour_id_global_int = (int)element_connectivity_gid[nb_var_element*cpt+j];
-
-#if 0
-            //if (!std::isnan(neighbour_id_global_db) && neighbour_id_global_int>0)
-            if ((neighbour_id_global_int>0) && (M_rank == 0))
-            {
-                if (transfer_map_local.left.find(neighbour_id_global_int) == transfer_map_local.left.end())
-                {
-                    std::cout<< "["<< M_rank <<"] .........................THIS IS WRONG  " << neighbour_id_global_int <<" ...........\n";
-                    ++compt;
-                }
-            }
-#endif
 
             if (neighbour_id_global_int>0)
             {
@@ -2567,9 +2513,6 @@ FiniteElement::scatterElementConnectivity()
             }
         }
     }
-
-    if (M_rank == 0)
-        std::cout<<"NUmber global= "<< compt <<"\n";
 }
 
 void
@@ -2602,12 +2545,10 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
 
     if (M_rank == 0)
     {
-        //auto rmap_elements = M_mesh.mapElements();
         auto interp_in_elements_nrd = interp_in_elements;
 
         for (int i=0; i<M_mesh_previous_root.numTriangles(); ++i)
         {
-            //int ri = rmap_elements.left.find(i+1)->second-1;
             int ri = M_rmap_elements[i];
 
             for (int j=0; j<nb_var_element; ++j)
@@ -2664,26 +2605,6 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     int nb_var_element = M_nb_var_element;
 
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
-
-#if 0
-    std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
-    std::vector<int> id_elements;
-    int out_size;
-
-    chrono.restart();
-    if (M_rank == 0)
-    {
-        out_size = std::accumulate(sizes_elements.begin(),sizes_elements.end(),0);
-        id_elements.resize(out_size);
-
-        boost::mpi::gatherv(M_comm, M_mesh.trianglesIdWithGhost(), &id_elements[0], sizes_elements, 0);
-    }
-    else
-    {
-        boost::mpi::gatherv(M_comm, M_mesh.trianglesIdWithGhost(), 0);
-    }
-#endif
-
     std::vector<double> in_elt_values;
 
     if (M_rank == 0)
@@ -2692,7 +2613,6 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
 
         for (int i=0; i<M_id_elements.size(); ++i)
         {
-            //int ri = rmap_elements.right.find(M_id_elements[i])->second-1;
             int ri = M_id_elements[i]-1;
 
             for (int j=0; j<nb_var_element; ++j)
@@ -2766,25 +2686,6 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
 
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
 
-#if 0
-    std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
-    std::vector<int> id_elements;
-    int out_size;
-
-    chrono.restart();
-    if (M_rank == 0)
-    {
-        out_size = std::accumulate(sizes_elements.begin(),sizes_elements.end(),0);
-        id_elements.resize(out_size);
-
-        boost::mpi::gatherv(M_comm, M_mesh.trianglesIdWithGhost(), &id_elements[0], sizes_elements, 0);
-    }
-    else
-    {
-        boost::mpi::gatherv(M_comm, M_mesh.trianglesIdWithGhost(), 0);
-    }
-#endif
-
     std::vector<double> in_elt_values;
 
     if (M_rank == 0)
@@ -2793,7 +2694,6 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
 
         for (int i=0; i<M_id_elements.size(); ++i)
         {
-            //int ri = rmap_elements.right.find(id_elements[i])->second-1;
             int ri = M_id_elements[i]-1;
 
             for (int j=0; j<nb_var_element; ++j)
@@ -2886,15 +2786,6 @@ FiniteElement::interpFieldsElement()
             std::cout<<"-------------------CAVITIES done in "<< timer["cavities"].first.elapsed() <<"s\n";
 
 #if 0
-
-        // std::cout<<"M_mesh_previous_root.indexTr().size()= "<< M_mesh_previous_root.indexTr().size() <<"\n";
-        // std::cout<<"M_mesh_previous_root.numTriangles()  = "<< M_mesh_previous_root.numTriangles() <<"\n";
-
-        // auto indextr_ = M_mesh_previous_root.indexTr();
-        // std::cout<<"["<< M_rank <<"]: " <<"Min index= "<< *std::min_element(indextr_.begin(), indextr_.end()) <<"\n";
-        // std::cout<<"["<< M_rank <<"]: " <<"Max index= "<< *std::max_element(indextr_.begin(), indextr_.end()) <<"\n";
-
-
         // chrono.restart();
         // std::cout<<"InterpFromMeshToMesh2dx starts\n";
 
@@ -3098,9 +2989,6 @@ FiniteElement::interpFieldsNode(std::vector<int> const& rmap_nodes, std::vector<
     {
         xDelete<double>(interp_nd_out);
     }
-
-    //carefull here (merging)
-    //M_comm.barrier();
 }
 
 void
@@ -3130,14 +3018,12 @@ FiniteElement::gatherNodalField(std::vector<double> const& field_local, std::vec
 
     if (M_rank == 0)
     {
-        //auto rmap_nodes = M_mesh.mapNodes();
         int global_num_nodes = M_mesh.numGlobalNodes();
 
         auto field_root_nrd = field_root;
 
         for (int i=0; i<global_num_nodes; ++i)
         {
-            //int ri =  rmap_nodes.left.find(i+1)->second-1;
             int ri =  M_rmap_nodes[i];
 
             field_root[i] = field_root_nrd[2*ri];
@@ -3192,6 +3078,68 @@ FiniteElement::scatterNodalField(std::vector<double> const& field_root, std::vec
         field_local[i] = field_local_copy[2*i];
         // V component
         field_local[i+M_num_nodes] = field_local_copy[2*i+1];
+    }
+}
+
+void
+FiniteElement::gatherElementField(std::vector<double> const& field_local, std::vector<double>& field_root)
+{
+    std::vector<double> field_local_copy(M_local_nelements);
+
+    for (int i=0; i<M_local_nelements; ++i)
+    {
+        // copy values without ghosts
+        field_local_copy[i] = field_local[i];
+    }
+
+    if (M_rank == 0)
+    {
+        field_root.resize(M_mesh_root.numTriangles());
+        boost::mpi::gatherv(M_comm, field_local_copy, &field_root[0], M_sizes_elements, 0);
+    }
+    else
+    {
+        boost::mpi::gatherv(M_comm, field_local_copy, 0);
+    }
+
+    if (M_rank == 0)
+    {
+        auto field_root_nrd = field_root;
+
+        for (int i=0; i<M_mesh_root.numTriangles(); ++i)
+        {
+            int ri = M_rmap_elements[i];
+            field_root[i] = field_root_nrd[ri];
+        }
+    }
+
+}
+
+void
+FiniteElement::scatterElementField(std::vector<double> const& field_root, std::vector<double>& field_local)
+{
+    std::vector<double> field_root_extended;
+
+    if (M_rank == 0)
+    {
+        field_root_extended.resize(M_id_elements.size());
+
+        for (int i=0; i<M_id_elements.size(); ++i)
+        {
+            int ri = M_id_elements[i]-1;
+            field_root_extended[i] = field_root[ri];
+        }
+    }
+
+    field_local.resize(M_num_elements);
+
+    if (M_rank == 0)
+    {
+        boost::mpi::scatterv(M_comm, field_root_extended, M_sizes_elements_with_ghost, &field_local[0], 0);
+    }
+    else
+    {
+        boost::mpi::scatterv(M_comm, &field_local[0], M_num_elements, 0);
     }
 }
 
@@ -3257,7 +3205,6 @@ FiniteElement::regrid(bool step)
 
     std::vector<double> um_root;
 
-    //this->gatherUM(um_root);
     this->gatherNodalField(M_UM,um_root);
 
     if (M_rank == 0)
@@ -3483,6 +3430,7 @@ FiniteElement::updateBoundaryFlags()
     // get the global number of nodes
     int num_nodes = M_mesh_root.numNodes();
 
+#if 0
     // We mask out the boundary nodes
     M_mask_root.assign(num_nodes,false);
     M_mask_dirichlet_root.assign(num_nodes,false);
@@ -3503,12 +3451,83 @@ FiniteElement::updateBoundaryFlags()
 
         M_mask_root[edg] = true;
     }
+#endif
+
+#if 1
+    // We mask out the boundary nodes
+    M_mask_root.assign(bamgmesh_root->VerticesSize[0],false) ;
+    M_mask_dirichlet_root.assign(bamgmesh_root->VerticesSize[0],false) ;
+
+    for (int vert=0; vert<bamgmesh_root->VerticesOnGeomVertexSize[0]; ++vert)
+    {
+        M_mask_root[bamgmesh_root->VerticesOnGeomVertex[2*vert]-1] = true; // The factor 2 is because VerticesOnGeomVertex has 2 dimensions in bamg
+    }
+
+    // Recompute the node ids
+    if(bamgopt->KeepVertices)
+    {
+        std::vector<int> old_node_id=M_mesh_previous_root.id();
+        std::vector<int> new_nodes_id=M_mesh_root.id();
+
+        int Boundary_id = 0;
+        int nb_new_nodes = 0;
+
+        // The new id will have values higher than the previous one
+        int first_new_node = *std::max_element(old_node_id.begin(),old_node_id.end())+1;
+
+        for (int vert=0; vert<bamgmesh_root->VerticesSize[0]; ++vert)
+        {
+            if(M_mask_root[vert])
+            {
+                Boundary_id++;
+                new_nodes_id[vert] = Boundary_id;
+            }
+            else
+            {
+                if(bamgmesh_root->PreviousNumbering[vert]==0)
+                {
+                    nb_new_nodes++;
+                    new_nodes_id[vert] = first_new_node+nb_new_nodes-1;
+                }
+                else
+                {
+                    new_nodes_id[vert] = old_node_id[bamgmesh_root->PreviousNumbering[vert]-1];
+                }
+            }
+        }
+
+        M_mesh_root.setId(new_nodes_id);
+    }
+
+    std::vector<int> boundary_flags_root;
+
+    for (int edg=0; edg<bamgmesh_root->EdgesSize[0]; ++edg)
+    {
+        boundary_flags_root.push_back(bamgmesh_root->Edges[3*edg]);
+
+        if (bamgmesh_root->Edges[3*edg+2] == M_flag_fix)
+        {
+            M_dirichlet_flags_root.push_back(bamgmesh_root->Edges[3*edg]);
+        }
+    }
+
+    std::sort(M_dirichlet_flags_root.begin(), M_dirichlet_flags_root.end());
+
+    std::sort(boundary_flags_root.begin(), boundary_flags_root.end());
+
+    std::set_difference(boundary_flags_root.begin(), boundary_flags_root.end(),
+                        M_dirichlet_flags_root.begin(), M_dirichlet_flags_root.end(),
+                        std::back_inserter(M_neumann_flags_root));
+
+#endif
+
 
     M_dirichlet_nodes_root.resize(2*(M_dirichlet_flags_root.size()));
     for (int i=0; i<M_dirichlet_flags_root.size(); ++i)
     {
         M_dirichlet_nodes_root[2*i] = M_dirichlet_flags_root[i];
         M_dirichlet_nodes_root[2*i+1] = M_dirichlet_flags_root[i]+num_nodes;
+        M_mask_dirichlet_root[M_dirichlet_flags_root[i]] = true;
     }
 
     M_neumann_nodes_root.resize(2*(M_neumann_flags_root.size()));
@@ -3580,10 +3599,7 @@ FiniteElement::assemble(int pcpt)
 
     int nind;
 
-    //double epsilon_veloc_i;
-    //double divergence_rate;
-
-    std::vector<int> extended_dirichlet_nodes = M_dirichlet_nodes;
+    //std::vector<int> extended_dirichlet_nodes = M_dirichlet_nodes;
 
     // ---------- Identical values for all the elements -----------
     // coriolis term
@@ -3687,7 +3703,6 @@ FiniteElement::assemble(int pcpt)
         keel_height_estimate;
         critical_h_mod=0.;
 
-        //if(tmp_conc > vm["simul.min_c"].as<double>())
         if( (M_conc[cpt] > vm["simul.min_c"].as<double>()) && (M_thick[cpt] > vm["simul.min_h"].as<double>()) )
         {
             /* Compute the value that only depends on the element */
@@ -3752,6 +3767,7 @@ FiniteElement::assemble(int pcpt)
             g_ssh_e_x = 0.;
             g_ssh_e_y = 0.;
             g_ssh_e = 0.;
+
             for(int i=0; i<3; i++)
             {
                 g_ssh_e = (physical::gravity)*M_ssh[it->indices[i]-1] /*g_ssh*/;   /* g*ssh at the node k of the element e */
@@ -3997,7 +4013,7 @@ FiniteElement::assemble(int pcpt)
     std::cout<<"["<< M_rank <<"] DIRICHLET= "<< M_dirichlet_nodes.size() <<"\n";
 #endif
 
-    M_matrix->on(extended_dirichlet_nodes,*M_vector);
+    M_matrix->on(M_dirichlet_nodes,*M_vector);
 
     // if (M_rank==0)
     //     std::cout <<"TIMER DBCA= " << timer["dirichlet"].first.elapsed() <<"s\n";
@@ -5696,7 +5712,7 @@ FiniteElement::init()
         }
     }
 
-    std::cout<<"-----------------------------------------------------------USE RESTART= "<< M_use_restart <<"\n";
+    //std::cout<<"-----------------------------------------------------------USE RESTART= "<< M_use_restart <<"\n";
 
     if ( M_use_restart )
     {
@@ -5726,7 +5742,7 @@ FiniteElement::init()
             LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
         }
 
-        std::cout<< "-----------------------------------------------------------pcpt= "<< pcpt <<"\n";
+        // std::cout<< "-----------------------------------------------------------pcpt= "<< pcpt <<"\n";
     }
     else
     {
@@ -5736,14 +5752,13 @@ FiniteElement::init()
         // Initialise variables
         chrono.restart();
         timer["initvar"].first.restart();
-        // if (M_rank == 0)
-        //     std::cout <<"Initialize variables\n";
+        if (M_rank == 0)
+            std::cout <<"Initialize variables\n";
         this->initVariables();
         if (M_rank == 0)
             std::cout <<"Initialize variables done "<< timer["initvar"].first.elapsed() <<"s\n";
     }
 
-#if 1
 
     timer["atmost"].first.restart();
     // if (M_rank == 0)
@@ -5776,6 +5791,7 @@ FiniteElement::init()
     if (M_rank == 0)
         std::cout <<"check_and_reload in "<< timer["checkload"].first.elapsed() <<"s\n";
 
+
     if (!M_use_restart)
     {
         timer["state"].first.restart();
@@ -5788,11 +5804,12 @@ FiniteElement::init()
 
     // Open the output file for drifters
     // TODO: Is this the right place to open the file?
-    if ( M_use_iabp_drifters )
+    if ( (M_rank == 0) && M_use_iabp_drifters )
     {
         // We should tag the file name with the init time in case of a re-start.
         std::stringstream filename;
         filename << M_export_path << "/drifters_out_" << current_time << ".txt";
+
         M_iabp_out.open(filename.str(), std::fstream::out);
         if ( ! M_iabp_out.good() )
             throw std::runtime_error("Cannot write to file: " + filename.str());
@@ -5801,9 +5818,6 @@ FiniteElement::init()
     // Initialise the moorings - if requested
     if ( M_use_moorings )
         this->initMoorings();
-
-#endif
-
 }
 
  void
@@ -5944,7 +5958,7 @@ FiniteElement::init()
     ++pcpt;
     current_time = time_init + pcpt*time_step/(24*3600.0);
 
-#if 1
+
     if(fmod(pcpt*time_step,output_time_step) == 0)
     {
         chrono.restart();
@@ -5963,6 +5977,7 @@ FiniteElement::init()
         std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
         this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
     }
+#if 0
 #endif
 
  }
@@ -6025,8 +6040,6 @@ FiniteElement::run()
             std::cout <<"\n";
         }
 
-        //std::cout<<"pcpt = "<< pcpt <<"\n";
-
         //is_running = ((pcpt+1)*time_step) < duration;
         is_running = (pcpt*time_step) < duration;
 
@@ -6073,8 +6086,13 @@ FiniteElement::run()
 void
 FiniteElement::updateDrifterPosition()
 {
+    // std::vector<double> M_VT_root;
+    this->gatherNodalField(M_UT,M_UT_root);
+
+    //std::cout<<"fine"
+
     // Update the drifters position twice a day, important to keep the same frequency as the IABP data, for the moment
-    if( pcpt==0 || std::fmod(current_time,0.5)==0 )
+    if ( (M_rank==0) && ((pcpt==0) || (std::fmod(current_time,0.5)==0)) )
     {
         // Read in the new buoys and output
         if ( M_use_iabp_drifters )
@@ -6098,38 +6116,39 @@ FiniteElement::updateDrifterPosition()
 
             // Interpolate the total displacement and concentration onto the drifter positions
             int nb_var=2;
-            std::vector<double> interp_drifter_in(nb_var*M_mesh.numNodes());
+            int ndof_root = M_mesh_root.numNodes();
+            std::vector<double> interp_drifter_in(nb_var*ndof_root);
 
             // Interpolate the velocity
-            for (int i=0; i<M_mesh.numNodes(); ++i)
+            for (int i=0; i<ndof_root; ++i)
             {
-                interp_drifter_in[nb_var*i]   = M_UT[i];
-                interp_drifter_in[nb_var*i+1] = M_UT[i+M_mesh.numNodes()];
+                interp_drifter_in[nb_var*i]   = M_UT_root[i];
+                interp_drifter_in[nb_var*i+1] = M_UT_root[i+ndof_root];
             }
 
             double* interp_drifter_out;
             InterpFromMeshToMesh2dx(&interp_drifter_out,
-                                    &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-                                    M_mesh.numNodes(),M_mesh.numTriangles(),
+                                    &M_mesh_root.indexTr()[0],&M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],
+                                    M_mesh_root.numNodes(),M_mesh_root.numTriangles(),
                                     &interp_drifter_in[0],
-                                    M_mesh.numNodes(),nb_var,
+                                    M_mesh_root.numNodes(),nb_var,
                                     &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
                                     true, 0.);
 
 
             // Interpolate the concentration - re-use interp_drifter_in
-            interp_drifter_in.resize(M_mesh.numTriangles());
-            for (int i=0; i<M_mesh.numTriangles(); ++i)
+            interp_drifter_in.resize(M_mesh_root.numTriangles());
+            for (int i=0; i<M_mesh_root.numTriangles(); ++i)
             {
-                interp_drifter_in[i]   = M_conc[i];
+                interp_drifter_in[i]   = M_conc_root[i];
             }
 
             double* interp_drifter_c_out;
             InterpFromMeshToMesh2dx(&interp_drifter_c_out,
-                                    &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-                                    M_mesh.numNodes(),M_mesh.numTriangles(),
+                                    &M_mesh_root.indexTr()[0],&M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],
+                                    M_mesh_root.numNodes(),M_mesh_root.numTriangles(),
                                     &interp_drifter_in[0],
-                                    M_mesh.numTriangles(),1,
+                                    M_mesh_root.numTriangles(),1,
                                     &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
                                     true, 0.);
 
@@ -6142,7 +6161,9 @@ FiniteElement::updateDrifterPosition()
                 {
                     M_iabp_drifters[it->first] = std::array<double,2> {it->second[0]+interp_drifter_out[nb_var*j], it->second[1]+interp_drifter_out[nb_var*j+1]};
                     ++it;
-                } else {
+                }
+                else
+                {
                     // Throw out drifters that drift out of the ice
                     it = M_iabp_drifters.erase(it);
                 }
@@ -6160,12 +6181,22 @@ FiniteElement::updateDrifterPosition()
         }
 
         if ( M_use_equallyspaced_drifters )
-            M_equallyspaced_drifters.move(M_mesh, M_UT);
+        {
+            M_equallyspaced_drifters.move(M_mesh_root, M_UT_root);
+        }
+
         if ( M_use_rgps_drifters )
-            M_rgps_drifters.move(M_mesh, M_UT);
+        {
+            M_rgps_drifters.move(M_mesh_root, M_UT_root);
+        }
+
         if ( M_use_osisaf_drifters )
+        {
             for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
-                it->move(M_mesh, M_UT);
+            {
+                it->move(M_mesh_root, M_UT_root);
+            }
+        }
 
 	    for (int i=0; i<M_num_nodes; ++i)
 	    {
@@ -6175,41 +6206,56 @@ FiniteElement::updateDrifterPosition()
 	    }
     }
 
-    if(pcpt>0)
+    if( (M_rank == 0) && (pcpt>0))
     {
         if ( M_use_equallyspaced_drifters && fmod(current_time,M_equallyspaced_drifters_output_time_step) == 0 )
-            M_equallyspaced_drifters.appendNetCDF(current_time, M_mesh, M_UT);
+        {
+            M_equallyspaced_drifters.appendNetCDF(current_time, M_mesh_root, M_UT_root);
+        }
 
         if ( M_use_rgps_drifters )
         {
             std::string time_str = vm["simul.RGPS_time_init"].as<std::string>();
             double RGPS_time_init = from_date_time_string(time_str);
 
-            if( !M_rgps_drifters.isInitialised() && current_time == RGPS_time_init)
+            if( (!M_rgps_drifters.isInitialised()) && (current_time == RGPS_time_init))
+            {
+                std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@updateIABPDrifter():1:\n";
                 this->updateRGPSDrifters();
+            }
 
-            if( current_time != RGPS_time_init && fmod(current_time,M_rgps_drifters_output_time_step) == 0 )
+            if( (current_time != RGPS_time_init) && (fmod(current_time,M_rgps_drifters_output_time_step) == 0) )
+            {
                 if ( M_rgps_drifters.isInitialised() )
-                    M_rgps_drifters.appendNetCDF(current_time, M_mesh, M_UT);
+                {
+                    M_rgps_drifters.appendNetCDF(current_time, M_mesh_root, M_UT_root);
+                }
+            }
         }
     }
 
-    if ( M_use_osisaf_drifters && fmod(current_time+0.5,1.) == 0 )
+    if ( (M_rank==0) && (M_use_osisaf_drifters && fmod(current_time+0.5,1.) == 0) )
     {
         // OSISAF drift is calculated as a dirfter displacement over 48 hours
         // and they have two sets of drifters in the field at all times.
 
         // Write out the contents of [1] if it's meaningfull
         if ( M_osisaf_drifters[1].isInitialised() )
-            M_osisaf_drifters[1].appendNetCDF(current_time, M_mesh, M_UT);
+        {
+            M_osisaf_drifters[1].appendNetCDF(current_time, M_mesh_root, M_UT_root);
+        }
 
         // Flip the vector so we move [0] to be [1]
         std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
 
         // Create a new M_drifters instance in [0], with a properly initialised netCDF file
-        M_osisaf_drifters[0] = Drifters("data", "ice_drift_nh_polstere-625_multi-oi.nc", "yc", "yx", "lat", "lon", M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
+        M_osisaf_drifters[0] = Drifters("data", "ice_drift_nh_polstere-625_multi-oi.nc",
+                                        "yc", "yx",
+                                        "lat", "lon",
+                                        M_mesh_root, M_conc_root, vm["simul.drifter_climit"].as<double>());
+
         M_osisaf_drifters[0].initNetCDF(M_export_path+"/OSISAF_", current_time);
-        M_osisaf_drifters[0].appendNetCDF(current_time, M_mesh, M_UT);
+        M_osisaf_drifters[0].appendNetCDF(current_time, M_mesh_root, M_UT_root);
     }
 }
 
@@ -7995,15 +8041,19 @@ FiniteElement::initIce()
             throw std::logic_error("invalid initialization of the ice");
     }
 
+    // std::cout<<"**************************************************************M_num_elements= "<< M_num_elements <<"\n";
+
     double hi, conc_tot, weight_conc;
     // Consistency check for the slab ocean + initialization of the ice temperature (especially for Winton)
     for ( int i=0; i<M_num_elements; i++ )
     {
         hi=0.;
         if(M_conc[i]>0.)
+        {
             hi = M_thick[i]/M_conc[i];
+        }
 
-        if ( M_conc[i] < physical::cmin || hi < physical::hmin)
+        if ( (M_conc[i] < physical::cmin) || (hi < physical::hmin))
         {
             M_conc[i]=0.;
             M_thick[i]=0.;
@@ -8012,9 +8062,11 @@ FiniteElement::initIce()
 
         hi = 0.;
         if(M_conc_thin[i]>0.)
+        {
             hi = M_h_thin[i]/M_conc_thin[i];
+        }
 
-        if ( M_conc_thin[i] < physical::cmin || hi < physical::hmin)
+        if ( (M_conc_thin[i] < physical::cmin) || (hi < physical::hmin))
         {
             M_conc_thin[i]=0.;
             M_h_thin[i]=0.;
@@ -8030,9 +8082,13 @@ FiniteElement::initIce()
         }
 
         if ( M_snow_thick[i] > 0. )
+        {
             M_tice[0][i] = std::min(0., M_tair[i]);
+        }
         else
+        {
             M_tice[0][i] = std::min(-physical::mu*physical::si, M_tair[i]);
+        }
     }
 
     if ( M_thermo_type == setup::ThermoType::WINTON )
@@ -8047,40 +8103,17 @@ FiniteElement::initIce()
                 double slope = -deltaT/M_thick[i];
                 M_tice[1][i] = Tbot + 3*slope*M_thick[i]/4;
                 M_tice[2][i] = Tbot +   slope*M_thick[i]/4;
-            } else {
-                M_tice[1][i] = Tbot;
-                M_tice[2][i] = Tbot;
             }
-        }
-    }
-
-#if 0
-    // It's nice to initialise the ice temperature (especially for Winton)
-    for ( int i=0; i<M_num_elements; i++ )
-        if ( M_snow_thick[i] > 0. )
-            M_tice[0][i] = std::min(0., M_tair[i]);
-        else
-            M_tice[0][i] = std::min(-physical::mu*physical::si, M_tair[i]);
-
-    if ( M_thermo_type == setup::ThermoType::WINTON )
-    {
-        for ( int i=0; i<M_num_elements; i++ )
-        {
-            double Tbot  = -physical::mu*M_sss[i];
-            if ( M_thick[i] > 0. )
+            else
             {
-                // Just a linear interpolation between bottom and snow-ice interface (i.e. a zero layer model)
-                double deltaT = (Tbot - M_tice[0][i] ) / ( 1. + physical::ki*M_snow_thick[i]/(physical::ks*M_thick[i]) );
-                double slope = -deltaT/M_thick[i];
-                M_tice[1][i] = Tbot + 3*slope*M_thick[i]/4;
-                M_tice[2][i] = Tbot +   slope*M_thick[i]/4;
-            } else {
                 M_tice[1][i] = Tbot;
                 M_tice[2][i] = Tbot;
             }
         }
     }
-#endif
+
+    this->gatherElementField(M_conc, M_conc_root);
+    std::cout<<"SIZE ROOT= "<< M_conc_root.size() <<"\n";
 }
 
 void
@@ -8295,7 +8328,7 @@ FiniteElement::topazIce()
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
     {
-		tmp_var=std::min(1.,M_init_conc[i]);
+        tmp_var=std::min(1.,M_init_conc[i]);
 		M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
 		tmp_var=M_init_thick[i];
 		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
@@ -8314,7 +8347,7 @@ FiniteElement::topazIce()
             M_snow_thick[i]=0.;
         }
 
-		M_damage[i]=0.;
+        M_damage[i]=0.;
 	}
 }
 
@@ -8438,13 +8471,10 @@ void
 FiniteElement::topazForecastIce()
 {
     external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
-    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
-    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
-    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
 
     M_external_data_tmp.resize(0);
     M_external_data_tmp.push_back(&M_init_conc);
@@ -8485,16 +8515,12 @@ FiniteElement::topazForecastAmsr2Ice()
     double real_thickness, init_conc_tmp;
 
     external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
-    //M_conc_amsr2.check_and_reload(M_mesh,time_init);
 
     external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
-    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
-    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
-    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
 
     M_external_data_tmp.resize(0);
     M_external_data_tmp.push_back(&M_conc_amsr2);
@@ -8689,13 +8715,10 @@ void
 FiniteElement::piomasIce()
 {
     external_data M_init_conc=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,0,false,time_init);
-    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,1,false,time_init);
-    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_init_snow_thick=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,2,false,time_init);
-    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
 
     M_external_data_tmp.resize(0);
     M_external_data_tmp.push_back(&M_init_conc);
@@ -8733,16 +8756,12 @@ FiniteElement::topazAmsreIce()
     double real_thickness, init_conc_tmp;
 
     external_data M_conc_amsre=ExternalData(&M_ice_amsre_elements_dataset,M_mesh,0,false,time_init);
-    //M_conc_amsre.check_and_reload(M_mesh,time_init);
 
     external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
-    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
-    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
-    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
 
     M_external_data_tmp.resize(0);
     M_external_data_tmp.push_back(&M_conc_amsre);
@@ -8797,16 +8816,12 @@ FiniteElement::topazAmsr2Ice()
     double real_thickness, init_conc_tmp;
 
     external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
-    //M_conc_amsr2.check_and_reload(M_mesh,time_init);
 
     external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
-    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
-    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
-    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
 
     M_external_data_tmp.resize(0);
     M_external_data_tmp.push_back(&M_conc_amsr2);
@@ -8859,13 +8874,10 @@ void
 FiniteElement::cs2SmosIce()
 {
     external_data M_init_conc=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,0,false,time_init);
-    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,1,false,time_init);
-    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init);
-    //M_type.check_and_reload(M_mesh,time_init);
 
     M_external_data_tmp.resize(0);
     M_external_data_tmp.push_back(&M_init_conc);
@@ -8949,16 +8961,12 @@ void
 FiniteElement::cs2SmosAmsr2Ice()
 {
     external_data M_init_conc=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,0,false,time_init);
-    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_amsr2_conc=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
-    //M_conc_amsr2.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,1,false,time_init);
-    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     external_data M_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init);
-    //M_type.check_and_reload(M_mesh,time_init);
 
     M_external_data_tmp.resize(0);
     M_external_data_tmp.push_back(&M_init_conc);
@@ -9045,10 +9053,8 @@ void
 FiniteElement::smosIce()
 {
     external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
-    //M_init_conc.check_and_reload(M_mesh,time_init);
 
     external_data M_init_thick=ExternalData(&M_ice_smos_elements_dataset,M_mesh,0,false,time_init);
-    //M_init_thick.check_and_reload(M_mesh,time_init);
 
     boost::gregorian::date dt = Nextsim::parse_date(time_init);
     int month_id=dt.month().as_number(); // 1 for January, 2 for February, and so on. This will be used to compute the snow from Warren climatology
@@ -9056,7 +9062,6 @@ FiniteElement::smosIce()
     std::cout << "month_id: " << month_id <<"\n";
 
     external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
-    //M_init_snow_thick.check_and_reload(M_mesh,time_init);
 
     M_external_data_tmp.resize(0);
     M_external_data_tmp.push_back(&M_init_conc);
@@ -9312,141 +9317,152 @@ FiniteElement::nodesToElements(double const* depth, std::vector<double>& v)
 // A simple function to output the drifters in the model, IABP or otherwise
 // The output could well be prettier!
 void
-FiniteElement::outputDrifter(std::fstream &drifters_out)
+FiniteElement::outputDrifter(std::fstream& drifters_out)
 {
-    // Initialize the map
-    mapx_class *map;
-    std::string configfile = (boost::format( "%1%/%2%/%3%" )
-                              % Environment::nextsimDir().string()
-                              % "data"
-                              % vm["mesh.mppfile"].as<std::string>()
-                              ).str();
-
-    std::vector<char> str(configfile.begin(), configfile.end());
-    str.push_back('\0');
-    map = init_mapx(&str[0]);
-
-    // Assemble the coordinates from the unordered_map
-    std::vector<double> drifter_X(M_iabp_drifters.size());
-    std::vector<double> drifter_Y(M_iabp_drifters.size());
-    int j=0;
-    for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
+    if (M_rank == 0)
     {
-        drifter_X[j] = it->second[0];
-        drifter_Y[j] = it->second[1];
-        ++j;
+        // Initialize the map
+        mapx_class *map;
+        std::string configfile = (boost::format( "%1%/%2%/%3%" )
+                                  % Environment::nextsimDir().string()
+                                  % "data"
+                                  % vm["mesh.mppfile"].as<std::string>()
+                                  ).str();
+
+        std::vector<char> str(configfile.begin(), configfile.end());
+        str.push_back('\0');
+        map = init_mapx(&str[0]);
+
+        // Assemble the coordinates from the unordered_map
+        std::vector<double> drifter_X(M_iabp_drifters.size());
+        std::vector<double> drifter_Y(M_iabp_drifters.size());
+        int j=0;
+        for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
+        {
+            drifter_X[j] = it->second[0];
+            drifter_Y[j] = it->second[1];
+            ++j;
+        }
+
+        // Interpolate the total displacement and concentration onto the drifter positions
+        int nb_var=2;
+        int ndof_root = M_mesh_root.numNodes();
+        std::vector<double> interp_drifter_in(nb_var*ndof_root);
+
+        // Interpolate the velocity
+        for (int i=0; i<ndof_root; ++i)
+        {
+            interp_drifter_in[nb_var*i]   = M_UT_root[i];
+            interp_drifter_in[nb_var*i+1] = M_UT_root[i+ndof_root];
+        }
+
+        double* interp_drifter_out;
+        InterpFromMeshToMesh2dx(&interp_drifter_out,
+                                &M_mesh_root.indexTr()[0],&M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],
+                                M_mesh_root.numNodes(),M_mesh_root.numTriangles(),
+                                &interp_drifter_in[0],
+                                M_mesh_root.numNodes(),nb_var,
+                                &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
+                                true, 0.);
+
+        // Loop over the map and output
+        j=0;
+        boost::gregorian::date           date = Nextsim::parse_date( current_time );
+        boost::posix_time::time_duration time = Nextsim::parse_time( current_time );
+        for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
+        {
+            double lat, lon;
+            inverse_mapx(map,it->second[0]+interp_drifter_out[nb_var*j],it->second[1]+interp_drifter_out[nb_var*j+1],&lat,&lon);
+            j++;
+
+            drifters_out << setw(4) << date.year()
+                         << " " << setw(2) << date.month().as_number()
+                         << " " << setw(2) << date.day().as_number()
+                         << " " << setw(2) << time.hours()
+                         << " " << setw(16) << it->first
+                         << fixed << setprecision(5)
+                         << " " << setw(8) << lat
+                         << " " << setw(10) << lon << "\n";
+        }
+
+        xDelete<double>(interp_drifter_out);
+        close_mapx(map);
     }
-
-    // Interpolate the total displacement and concentration onto the drifter positions
-    int nb_var=2;
-    std::vector<double> interp_drifter_in(nb_var*M_mesh.numNodes());
-
-    // Interpolate the velocity
-    for (int i=0; i<M_mesh.numNodes(); ++i)
-    {
-        interp_drifter_in[nb_var*i]   = M_UT[i];
-        interp_drifter_in[nb_var*i+1] = M_UT[i+M_mesh.numNodes()];
-    }
-
-    double* interp_drifter_out;
-    InterpFromMeshToMesh2dx(&interp_drifter_out,
-        &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-        M_mesh.numNodes(),M_mesh.numTriangles(),
-        &interp_drifter_in[0],
-        M_mesh.numNodes(),nb_var,
-        &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
-        true, 0.);
-
-    // Loop over the map and output
-    j=0;
-    boost::gregorian::date           date = Nextsim::parse_date( current_time );
-    boost::posix_time::time_duration time = Nextsim::parse_time( current_time );
-    for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
-    {
-        double lat, lon;
-        inverse_mapx(map,it->second[0]+interp_drifter_out[nb_var*j],it->second[1]+interp_drifter_out[nb_var*j+1],&lat,&lon);
-        j++;
-
-        drifters_out << setw(4) << date.year()
-            << " " << setw( 2) << date.month().as_number()
-            << " " << setw( 2) << date.day().as_number()
-            << " " << setw( 2) << time.hours()
-            << " " << setw(16) << it->first
-            << fixed << setprecision(5)
-            << " " << setw( 8) << lat
-            << " " << setw(10) << lon << "\n";
-    }
-
-    xDelete<double>(interp_drifter_out);
-    close_mapx(map);
 }
 
 // Add the buoys that have been put into the ice and remove dead ones
 void
 FiniteElement::updateIABPDrifter()
 {
-    // Initialize the map
-    mapx_class *map;
-    std::string configfile = (boost::format( "%1%/%2%/%3%" )
-                              % Environment::nextsimDir().string()
-                              % "data"
-                              % vm["mesh.mppfile"].as<std::string>()
-                              ).str();
-
-    std::vector<char> str(configfile.begin(), configfile.end());
-    str.push_back('\0');
-    map = init_mapx(&str[0]);
-
-    // Read the current buoys from file
-    int pos;    // To be able to rewind one line
-    double time = current_time;
-    std::vector<int> keepers;
-    while ( time == current_time )
+    if (M_rank == 0)
     {
-        // Remember where we were
-        pos = M_iabp_file.tellg();
+        // Initialize the map
+        mapx_class *map;
+        std::string configfile = (boost::format( "%1%/%2%/%3%" )
+                                  % Environment::nextsimDir().string()
+                                  % "data"
+                                  % vm["mesh.mppfile"].as<std::string>()
+                                  ).str();
 
-        // Read the next line
-        int year, month, day, hour, number;
-        double lat, lon;
-        M_iabp_file >> year >> month >> day >> hour >> number >> lat >> lon;
-        std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
-        time = from_date_string(date) + hour/24.;
+        std::vector<char> str(configfile.begin(), configfile.end());
+        str.push_back('\0');
+        map = init_mapx(&str[0]);
 
-        // Remember which buoys are in the ice according to IABP
-        keepers.push_back(number);
-
-        // Project and add the buoy to the map if it's missing
-        if ( M_iabp_drifters.count(number) == 0 )
+        // Read the current buoys from file
+        int pos;    // To be able to rewind one line
+        double time = current_time;
+        std::vector<int> keepers;
+        while ( time == current_time )
         {
-            double x, y;
-            forward_mapx(map,lat,lon,&x,&y);
-            M_iabp_drifters.emplace(number, std::array<double,2>{x, y});
+            // Remember where we were
+            pos = M_iabp_file.tellg();
 
-        }
-    }
-    close_mapx(map);
+            // Read the next line
+            int year, month, day, hour, number;
+            double lat, lon;
+            M_iabp_file >> year >> month >> day >> hour >> number >> lat >> lon;
+            std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
+            time = from_date_string(date) + hour/24.;
 
-    // Go through the M_iabp_drifters map and throw out the ones which IABP doesn't
-    // report as being in the ice anymore
-    for ( auto model = M_iabp_drifters.begin(); model != M_iabp_drifters.end(); /* ++model is not allowed here, because we use 'erase' */ )
-    {
-        bool keep = false;
-        // Check against all the buoys we want to keep
-        for ( auto obs = keepers.begin(); obs != keepers.end(); ++obs )
-        {
-            if ( model->first == *obs )
+            // Remember which buoys are in the ice according to IABP
+            keepers.push_back(number);
+
+            // Project and add the buoy to the map if it's missing
+            if ( M_iabp_drifters.count(number) == 0 )
             {
-                keep = true;
-                break;
+                double x, y;
+                forward_mapx(map,lat,lon,&x,&y);
+                M_iabp_drifters.emplace(number, std::array<double,2>{x, y});
+
             }
         }
+        close_mapx(map);
 
-        // Delete or advance the iterator
-        if ( ! keep )
-            model = M_iabp_drifters.erase(model);
-        else
-            ++model;
+        // Go through the M_iabp_drifters map and throw out the ones which IABP doesn't
+        // report as being in the ice anymore
+        for ( auto model = M_iabp_drifters.begin(); model != M_iabp_drifters.end(); /* ++model is not allowed here, because we use 'erase' */ )
+        {
+            bool keep = false;
+            // Check against all the buoys we want to keep
+            for ( auto obs = keepers.begin(); obs != keepers.end(); ++obs )
+            {
+                if ( model->first == *obs )
+                {
+                    keep = true;
+                    break;
+                }
+            }
+
+            // Delete or advance the iterator
+            if ( ! keep )
+            {
+                model = M_iabp_drifters.erase(model);
+            }
+            else
+            {
+                ++model;
+            }
+        }
     }
 }
 
@@ -9455,62 +9471,77 @@ FiniteElement::updateIABPDrifter()
 void
 FiniteElement::initIABPDrifter()
 {
-    std::string filename = Environment::nextsimDir().string() + "/data/IABP_buoys.txt";
-    M_iabp_file.open(filename, std::fstream::in);
-    if ( ! M_iabp_file.good() )
-        throw std::runtime_error("File not found: " + filename);
-
-    int pos;    // To be able to rewind one line
-    double time = from_date_string("1979-01-01");
-    while ( time < time_init )
+    if (M_rank == 0)
     {
-        // Remember where we were
-        pos = M_iabp_file.tellg();
+        std::string filename = Environment::nextsimDir().string() + "/data/IABP_buoys.txt";
+        M_iabp_file.open(filename, std::fstream::in);
+        if ( ! M_iabp_file.good() )
+            throw std::runtime_error("File not found: " + filename);
 
-        // Read the next line
-        int year, month, day, hour, number;
-        double lat, lon;
-        M_iabp_file >> year >> month >> day >> hour >> number >> lat >> lon;
-        std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
+        int pos;    // To be able to rewind one line
+        double time = from_date_string("1979-01-01");
+        while ( time < time_init )
+        {
+            // Remember where we were
+            pos = M_iabp_file.tellg();
 
-        time = from_date_string(date) + hour/24.;
+            // Read the next line
+            int year, month, day, hour, number;
+            double lat, lon;
+            M_iabp_file >> year >> month >> day >> hour >> number >> lat >> lon;
+            std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
+
+            time = from_date_string(date) + hour/24.;
+        }
+
+        // We must rewind one line so that updateIABPDrifter works correctly
+        M_iabp_file.seekg(pos);
     }
-
-    // We must rewind one line so that updateIABPDrifter works correctly
-    M_iabp_file.seekg(pos);
 }
 
 void
 FiniteElement::equallySpacedDrifter()
 {
-    M_equallyspaced_drifters = Drifters(1e3*vm["simul.drifter_spacing"].as<double>(), M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
-    M_equallyspaced_drifters.initNetCDF(M_export_path+"/Drifters_", current_time);
-    M_equallyspaced_drifters.appendNetCDF(current_time, M_mesh, M_UT);
+    if (M_rank == 0)
+    {
+        M_equallyspaced_drifters = Drifters(1e3*vm["simul.drifter_spacing"].as<double>(), M_mesh_root, M_conc_root, vm["simul.drifter_climit"].as<double>());
+        M_equallyspaced_drifters.initNetCDF(M_export_path+"/Drifters_", current_time);
+        M_equallyspaced_drifters.appendNetCDF(current_time, M_mesh_root, M_UT_root);
+    }
 }
 
 void
 FiniteElement::initRGPSDrifters()
 {
-    M_rgps_drifters = Drifters();
+    if (M_rank == 0)
+    {
+        M_rgps_drifters = Drifters();
+    }
 }
 
 void
 FiniteElement::updateRGPSDrifters()
 {
-    std::string time_str = vm["simul.RGPS_time_init"].as<std::string>();
-    double RGPS_time_init = from_date_time_string(time_str);
+    if (M_rank == 0)
+    {
+        std::string time_str = vm["simul.RGPS_time_init"].as<std::string>();
+        double RGPS_time_init = from_date_time_string(time_str);
 
-    std::string filename = Environment::nextsimDir().string() + "/data/RGPS_" + time_str + ".txt";
-    M_rgps_drifters = Drifters(filename, M_mesh, M_conc, vm["simul.drifter_climit"].as<double>(),RGPS_time_init);
+        std::string filename = Environment::nextsimDir().string() + "/data/RGPS_" + time_str + ".txt";
+        M_rgps_drifters = Drifters(filename, M_mesh_root, M_conc_root, vm["simul.drifter_climit"].as<double>(),RGPS_time_init);
 
-    M_rgps_drifters.initNetCDF(M_export_path+"/RGPS_Drifters_", current_time);
-    M_rgps_drifters.appendNetCDF(current_time, M_mesh, M_UT);
+        M_rgps_drifters.initNetCDF(M_export_path+"/RGPS_Drifters_", current_time);
+        M_rgps_drifters.appendNetCDF(current_time, M_mesh_root, M_UT_root);
+    }
 }
 
 void
 FiniteElement::initOSISAFDrifters()
 {
-    M_osisaf_drifters.resize(2);
+    if (M_rank == 0)
+    {
+        M_osisaf_drifters.resize(2);
+    }
 }
 
 void

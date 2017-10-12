@@ -142,6 +142,10 @@ public:
     //void gatherUM(std::vector<double>& um);
     void gatherNodalField(std::vector<double> const& field_local, std::vector<double>& field_root);
     void scatterNodalField(std::vector<double> const& field_root, std::vector<double>& field_local);
+
+    void gatherElementField(std::vector<double> const& field_local, std::vector<double>& field_root);
+    void scatterElementField(std::vector<double> const& field_root, std::vector<double>& field_local);
+
     void gatherFieldsNode(std::vector<double>& interp_in_elements, std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
     void scatterFieldsNode(double* interp_nd_out);
     void interpFieldsNode(std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
@@ -380,6 +384,10 @@ private:
     std::vector<double> M_VT;
     std::vector<double> M_VTM;
     std::vector<double> M_VTMM;
+
+    // needed for the drifters
+    std::vector<double> M_UT_root;
+    std::vector<double> M_conc_root;
 
     std::vector<double> M_bathy_depth;
 
