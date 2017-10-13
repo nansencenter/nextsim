@@ -112,6 +112,9 @@ public:
     std::vector<double> meanLat() const;
     std::vector<double> meanLon() const;
 
+    std::vector<double> lat() const;
+    std::vector<double> lon() const;
+
     void setId(std::vector<int> const& newid);
     std::vector<int> id() const;
 

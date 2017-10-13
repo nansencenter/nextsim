@@ -5842,16 +5842,20 @@ FiniteElement::init()
 
          if ( minang < vm["simul.regrid_angle"].as<double>() )
          {
-             if ( M_use_moorings && ! M_moorings_snapshot )
-                 M_moorings.updateGridMean(M_mesh);
+             if ( (M_rank == 0) && (M_use_moorings) && (!M_moorings_snapshot) )
+             {
+                 M_moorings.updateGridMean(M_mesh_root);
+             }
 
              LOG(DEBUG) <<"Regriding starts\n";
              chrono.restart();
              this->regrid(pcpt);
              LOG(DEBUG) <<"Regriding done in "<< chrono.elapsed() <<"s\n";
 
-             if ( M_use_moorings && ! M_moorings_snapshot )
-                 M_moorings.updateGridMean(M_mesh);
+             if ( (M_rank == 0) && (M_use_moorings) )
+             {
+                 M_moorings.resetMeshMean(M_mesh_root);
+             }
 
              M_regrid = true;
              ++M_nb_regrid;
@@ -5977,9 +5981,6 @@ FiniteElement::init()
         std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
         this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
     }
-#if 0
-#endif
-
  }
 
  // This is the main working function, called from main.cpp (same as perform_simul in the old code)
@@ -6041,7 +6042,7 @@ FiniteElement::run()
         }
 
         //is_running = ((pcpt+1)*time_step) < duration;
-        is_running = (pcpt*time_step) < duration;
+        is_running = ((pcpt+1)*time_step) < duration;
 
         if (pcpt == niter)
             is_running = false;
@@ -6086,117 +6087,133 @@ FiniteElement::run()
 void
 FiniteElement::updateDrifterPosition()
 {
+    //bool enable_drifters = (M_use_iabp_drifters) || (M_use_osisaf_drifters) || (M_use_equallyspaced_drifters) || (M_use_rgps_drifters);
     // std::vector<double> M_VT_root;
-    this->gatherNodalField(M_UT,M_UT_root);
+
+    if (1)//(enable_drifters)
+    {
+        this->gatherNodalField(M_UT,M_UT_root);
+    }
 
     //std::cout<<"fine"
 
     // Update the drifters position twice a day, important to keep the same frequency as the IABP data, for the moment
-    if ( (M_rank==0) && ((pcpt==0) || (std::fmod(current_time,0.5)==0)) )
+    if ( ((pcpt==0) || (std::fmod(current_time,0.5)==0)) )
     {
-        // Read in the new buoys and output
-        if ( M_use_iabp_drifters )
+        if (M_rank == 0)
         {
-            this->updateIABPDrifter();
-
-            chrono.restart();
-            LOG(DEBUG) <<"Drifter starts\n";
-            LOG(DEBUG) <<"DRIFTER: Interp starts\n";
-
-            // Assemble the coordinates from the unordered_map
-            std::vector<double> drifter_X(M_iabp_drifters.size());
-            std::vector<double> drifter_Y(M_iabp_drifters.size());
-            int j=0;
-            for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
+            // Read in the new buoys and output
+            if ( M_use_iabp_drifters )
             {
-                drifter_X[j] = it->second[0];
-                drifter_Y[j] = it->second[1];
-                ++j;
-            }
+                this->updateIABPDrifter();
 
-            // Interpolate the total displacement and concentration onto the drifter positions
-            int nb_var=2;
-            int ndof_root = M_mesh_root.numNodes();
-            std::vector<double> interp_drifter_in(nb_var*ndof_root);
+                chrono.restart();
+                LOG(DEBUG) <<"Drifter starts\n";
+                LOG(DEBUG) <<"DRIFTER: Interp starts\n";
 
-            // Interpolate the velocity
-            for (int i=0; i<ndof_root; ++i)
-            {
-                interp_drifter_in[nb_var*i]   = M_UT_root[i];
-                interp_drifter_in[nb_var*i+1] = M_UT_root[i+ndof_root];
-            }
-
-            double* interp_drifter_out;
-            InterpFromMeshToMesh2dx(&interp_drifter_out,
-                                    &M_mesh_root.indexTr()[0],&M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],
-                                    M_mesh_root.numNodes(),M_mesh_root.numTriangles(),
-                                    &interp_drifter_in[0],
-                                    M_mesh_root.numNodes(),nb_var,
-                                    &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
-                                    true, 0.);
-
-
-            // Interpolate the concentration - re-use interp_drifter_in
-            interp_drifter_in.resize(M_mesh_root.numTriangles());
-            for (int i=0; i<M_mesh_root.numTriangles(); ++i)
-            {
-                interp_drifter_in[i]   = M_conc_root[i];
-            }
-
-            double* interp_drifter_c_out;
-            InterpFromMeshToMesh2dx(&interp_drifter_c_out,
-                                    &M_mesh_root.indexTr()[0],&M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],
-                                    M_mesh_root.numNodes(),M_mesh_root.numTriangles(),
-                                    &interp_drifter_in[0],
-                                    M_mesh_root.numTriangles(),1,
-                                    &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
-                                    true, 0.);
-
-            // Rebuild the M_iabp_drifters map
-            double clim = vm["simul.drifter_climit"].as<double>();
-            j=0;
-            for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); /* ++it is not allowed here, because we use 'erase' */ )
-            {
-                if ( interp_drifter_c_out[j] > clim )
+                // Assemble the coordinates from the unordered_map
+                std::vector<double> drifter_X(M_iabp_drifters.size());
+                std::vector<double> drifter_Y(M_iabp_drifters.size());
+                int j=0;
+                for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
                 {
-                    M_iabp_drifters[it->first] = std::array<double,2> {it->second[0]+interp_drifter_out[nb_var*j], it->second[1]+interp_drifter_out[nb_var*j+1]};
-                    ++it;
+                    drifter_X[j] = it->second[0];
+                    drifter_Y[j] = it->second[1];
+                    ++j;
                 }
-                else
+
+                // Interpolate the total displacement and concentration onto the drifter positions
+                int nb_var=2;
+                int ndof_root = M_mesh_root.numNodes();
+                std::vector<double> interp_drifter_in(nb_var*ndof_root);
+
+                // Interpolate the velocity
+                for (int i=0; i<ndof_root; ++i)
                 {
-                    // Throw out drifters that drift out of the ice
-                    it = M_iabp_drifters.erase(it);
+                    interp_drifter_in[nb_var*i]   = M_UT_root[i];
+                    interp_drifter_in[nb_var*i+1] = M_UT_root[i+ndof_root];
                 }
-                ++j;
+
+                double* interp_drifter_out;
+                InterpFromMeshToMesh2dx(&interp_drifter_out,
+                                        &M_mesh_root.indexTr()[0],&M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],
+                                        M_mesh_root.numNodes(),M_mesh_root.numTriangles(),
+                                        &interp_drifter_in[0],
+                                        M_mesh_root.numNodes(),nb_var,
+                                        &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
+                                        true, 0.);
+
+
+                // Interpolate the concentration - re-use interp_drifter_in
+                interp_drifter_in.resize(M_mesh_root.numTriangles());
+                for (int i=0; i<M_mesh_root.numTriangles(); ++i)
+                {
+                    interp_drifter_in[i]   = M_conc_root[i];
+                }
+
+                double* interp_drifter_c_out;
+                InterpFromMeshToMesh2dx(&interp_drifter_c_out,
+                                        &M_mesh_root.indexTr()[0],&M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],
+                                        M_mesh_root.numNodes(),M_mesh_root.numTriangles(),
+                                        &interp_drifter_in[0],
+                                        M_mesh_root.numTriangles(),1,
+                                        &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
+                                        true, 0.);
+
+                // Rebuild the M_iabp_drifters map
+                double clim = vm["simul.drifter_climit"].as<double>();
+                j=0;
+                for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); /* ++it is not allowed here, because we use 'erase' */ )
+                {
+                    if ( interp_drifter_c_out[j] > clim )
+                    {
+                        M_iabp_drifters[it->first] = std::array<double,2> {it->second[0]+interp_drifter_out[nb_var*j],
+                                                                           it->second[1]+interp_drifter_out[nb_var*j+1]};
+                        ++it;
+                    }
+                    else
+                    {
+                        // Throw out drifters that drift out of the ice
+                        it = M_iabp_drifters.erase(it);
+                    }
+                    ++j;
+                }
+
+                xDelete<double>(interp_drifter_out);
+                xDelete<double>(interp_drifter_c_out);
+
+                LOG(DEBUG) <<"DRIFTER: Interp done\n";
+                LOG(DEBUG) <<"Drifter interp done in "<< chrono.elapsed() <<"s\n";
+
+                // TODO: Do we want to output drifters at a different time interval?
+                this->outputDrifter(M_iabp_out);
             }
 
-            xDelete<double>(interp_drifter_out);
-            xDelete<double>(interp_drifter_c_out);
-
-            LOG(DEBUG) <<"DRIFTER: Interp done\n";
-            LOG(DEBUG) <<"Drifter interp done in "<< chrono.elapsed() <<"s\n";
-
-            // TODO: Do we want to output drifters at a different time interval?
-            this->outputDrifter(M_iabp_out);
-        }
-
-        if ( M_use_equallyspaced_drifters )
-        {
-            M_equallyspaced_drifters.move(M_mesh_root, M_UT_root);
-        }
-
-        if ( M_use_rgps_drifters )
-        {
-            M_rgps_drifters.move(M_mesh_root, M_UT_root);
-        }
-
-        if ( M_use_osisaf_drifters )
-        {
-            for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
+            if ( M_use_equallyspaced_drifters )
             {
-                it->move(M_mesh_root, M_UT_root);
+                M_equallyspaced_drifters.move(M_mesh_root, M_UT_root);
             }
-        }
+
+            if ( M_use_rgps_drifters )
+            {
+                M_rgps_drifters.move(M_mesh_root, M_UT_root);
+            }
+
+            if ( M_use_osisaf_drifters )
+            {
+                for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
+                {
+                    it->move(M_mesh_root, M_UT_root);
+                }
+            }
+
+            for (int i=0; i<M_UT_root.size(); ++i)
+            {
+                // UM_root
+                M_UT_root[i] = 0.;
+            }
+
+        }// M_rank == 0
 
 	    for (int i=0; i<M_num_nodes; ++i)
 	    {
@@ -6220,7 +6237,6 @@ FiniteElement::updateDrifterPosition()
 
             if( (!M_rgps_drifters.isInitialised()) && (current_time == RGPS_time_init))
             {
-                std::cout<<"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@updateIABPDrifter():1:\n";
                 this->updateRGPSDrifters();
             }
 
@@ -6261,7 +6277,7 @@ FiniteElement::updateDrifterPosition()
 
 // Add to the mean on the mesh
 void
-FiniteElement::updateMeans(GridOutput &means, double time_factor)
+FiniteElement::updateMeans(GridOutput& means, double time_factor)
 {
     // Update elements and multiply with time_factor
     for ( auto it=means.M_elemental_variables.begin(); it!=means.M_elemental_variables.end(); ++it )
@@ -6394,142 +6410,92 @@ FiniteElement::updateMeans(GridOutput &means, double time_factor)
 void
 FiniteElement::initMoorings()
 {
-    // Output and averaging grids
-    std::vector<double> data_nodes(M_num_nodes);
-    std::vector<double> data_elements(M_num_elements);
-    std::vector<double> data_grid;
-
-    // Output variables - elements
-    GridOutput::Variable conc(GridOutput::variableID::conc, data_elements, data_grid);
-    GridOutput::Variable thick(GridOutput::variableID::thick, data_elements, data_grid);
-    GridOutput::Variable snow(GridOutput::variableID::snow, data_elements, data_grid);
-    GridOutput::Variable tsurf(GridOutput::variableID::tsurf, data_elements, data_grid);
-    GridOutput::Variable Qa(GridOutput::variableID::Qa, data_elements, data_grid);
-    GridOutput::Variable Qsw(GridOutput::variableID::Qsw, data_elements, data_grid);
-    GridOutput::Variable Qlw(GridOutput::variableID::Qlw, data_elements, data_grid);
-    GridOutput::Variable Qsh(GridOutput::variableID::Qsh, data_elements, data_grid);
-    GridOutput::Variable Qlh(GridOutput::variableID::Qlh, data_elements, data_grid);
-    GridOutput::Variable Qo(GridOutput::variableID::Qo, data_elements, data_grid);
-    GridOutput::Variable delS(GridOutput::variableID::delS, data_elements, data_grid);
-
-    std::vector<GridOutput::Variable> elemental_variables(11);
-    elemental_variables[0] = conc;
-    elemental_variables[1] = thick;
-    elemental_variables[2] = snow;
-    elemental_variables[3] = tsurf;
-    elemental_variables[4] = Qa;
-    elemental_variables[5] = Qsw;
-    elemental_variables[6] = Qlw;
-    elemental_variables[7] = Qsh;
-    elemental_variables[8] = Qlh;
-    elemental_variables[9] = Qo;
-    elemental_variables[10] = delS;
-    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+    if (M_rank == 0)
     {
-        GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin, data_elements, data_grid);
-        GridOutput::Variable h_thin(GridOutput::variableID::h_thin, data_elements, data_grid);
-        GridOutput::Variable hs_thin(GridOutput::variableID::hs_thin, data_elements, data_grid);
+        int num_nodes = M_mesh_root.numNodes();
+        int num_elements = M_mesh_root.numTriangles();
+        // Output and averaging grids
+        std::vector<double> data_nodes(num_nodes);
+        std::vector<double> data_elements(num_elements);
+        std::vector<double> data_grid;
 
-        elemental_variables.push_back(conc_thin);
-        elemental_variables.push_back(h_thin);
-        elemental_variables.push_back(hs_thin);
-    }
+        // Output variables - elements
+        GridOutput::Variable conc(GridOutput::variableID::conc, data_elements, data_grid);
+        GridOutput::Variable thick(GridOutput::variableID::thick, data_elements, data_grid);
+        GridOutput::Variable snow(GridOutput::variableID::snow, data_elements, data_grid);
+        GridOutput::Variable tsurf(GridOutput::variableID::tsurf, data_elements, data_grid);
+        GridOutput::Variable Qa(GridOutput::variableID::Qa, data_elements, data_grid);
+        GridOutput::Variable Qsw(GridOutput::variableID::Qsw, data_elements, data_grid);
+        GridOutput::Variable Qlw(GridOutput::variableID::Qlw, data_elements, data_grid);
+        GridOutput::Variable Qsh(GridOutput::variableID::Qsh, data_elements, data_grid);
+        GridOutput::Variable Qlh(GridOutput::variableID::Qlh, data_elements, data_grid);
+        GridOutput::Variable Qo(GridOutput::variableID::Qo, data_elements, data_grid);
+        GridOutput::Variable delS(GridOutput::variableID::delS, data_elements, data_grid);
 
-    // Output variables - nodes
-    GridOutput::Variable siu(GridOutput::variableID::VT_x, data_nodes, data_grid);
+        std::vector<GridOutput::Variable> elemental_variables(11);
+        elemental_variables[0] = conc;
+        elemental_variables[1] = thick;
+        elemental_variables[2] = snow;
+        elemental_variables[3] = tsurf;
+        elemental_variables[4] = Qa;
+        elemental_variables[5] = Qsw;
+        elemental_variables[6] = Qlw;
+        elemental_variables[7] = Qsh;
+        elemental_variables[8] = Qlh;
+        elemental_variables[9] = Qo;
+        elemental_variables[10] = delS;
 
-    GridOutput::Variable siv(GridOutput::variableID::VT_y, data_nodes, data_grid);
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {
+            GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin, data_elements, data_grid);
+            GridOutput::Variable h_thin(GridOutput::variableID::h_thin, data_elements, data_grid);
+            GridOutput::Variable hs_thin(GridOutput::variableID::hs_thin, data_elements, data_grid);
 
-    std::vector<GridOutput::Variable> nodal_variables(2);
-    nodal_variables[0] = siu;
-    nodal_variables[1] = siv;
+            elemental_variables.push_back(conc_thin);
+            elemental_variables.push_back(h_thin);
+            elemental_variables.push_back(hs_thin);
+        }
 
-    // The vectorial variables are (always on the nodes) ...
-    std::vector<int> siuv_id(2);
-    siuv_id[0] = 0;
-    siuv_id[1] = 1;
+        // Output variables - nodes
+        GridOutput::Variable siu(GridOutput::variableID::VT_x, data_nodes, data_grid);
 
-    GridOutput::Vectorial_Variable siuv{
+        GridOutput::Variable siv(GridOutput::variableID::VT_y, data_nodes, data_grid);
+
+        std::vector<GridOutput::Variable> nodal_variables(2);
+        nodal_variables[0] = siu;
+        nodal_variables[1] = siv;
+
+        // The vectorial variables are (always on the nodes) ...
+        std::vector<int> siuv_id(2);
+        siuv_id[0] = 0;
+        siuv_id[1] = 1;
+
+        GridOutput::Vectorial_Variable siuv
+        {
         components_Id: siuv_id,
-        // east_west_oriented: true
-        east_west_oriented: false
-    };
+                // east_west_oriented: true
+                east_west_oriented: false
+                };
 
-    std::vector<GridOutput::Vectorial_Variable> vectorial_variables(1);
-    vectorial_variables[0] = siuv;
+        std::vector<GridOutput::Vectorial_Variable> vectorial_variables(1);
+        vectorial_variables[0] = siuv;
 
-#if 1
-    // Calculate the grid spacing (assuming a regular grid for now)
-    auto RX = M_mesh.coordX();
-    auto RY = M_mesh.coordY();
-    auto xcoords = std::minmax_element( RX.begin(), RX.end() );
-    auto ycoords = std::minmax_element( RY.begin(), RY.end() );
+        // Calculate the grid spacing (assuming a regular grid for now)
+        auto RX = M_mesh_root.coordX();
+        auto RY = M_mesh_root.coordY();
+        auto xcoords = std::minmax_element( RX.begin(), RX.end() );
+        auto ycoords = std::minmax_element( RY.begin(), RY.end() );
 
-    double mooring_spacing = 1e3 * vm["simul.mooring_spacing"].as<double>();
-    int ncols = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/mooring_spacing );
-    int nrows = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
+        double mooring_spacing = 1e3 * vm["simul.mooring_spacing"].as<double>();
+        int ncols = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/mooring_spacing );
+        int nrows = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
 
-    // Define the mooring dataset
-    M_moorings = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first, nodal_variables, elemental_variables, vectorial_variables);
-#else
-    // Read the grid in from file
-    // Define a grid
-    GridOutput::Grid grid{
-        gridFile: "ice_drift_nh_polstere-625_multi-oi.nc",
-        dirname: "data",
-        mpp_file: Environment::vm()["mesh.mppfile"].as<std::string>(),
-        dimNameX: "yc",
-        dimNameY: "xc",
-        latName: "lat",
-        lonName: "lon"
-    };
+        // Define the mooring dataset
+        M_moorings = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first, nodal_variables, elemental_variables, vectorial_variables);
 
-    // Define the mooring dataset
-    M_moorings = GridOutput(grid, nodal_variables, elemental_variables, vectorial_variables);
-
-    /* Just for debuging
-    // Save the grid info - this is still just an ascii dump!
-    std::ofstream myfile;
-    myfile.open("lon_grid.dat");
-    std::copy(M_moorings.M_grid.gridLON.begin(), M_moorings.M_grid.gridLON.end(), ostream_iterator<float>(myfile," "));
-    myfile.close();
-    myfile.open("lat_grid.dat");
-    std::copy(M_moorings.M_grid.gridLAT.begin(), M_moorings.M_grid.gridLAT.end(), ostream_iterator<float>(myfile," "));
-    myfile.close();
-
-    myfile.open("x_grid.dat");
-    std::copy(M_moorings.M_grid.gridX.begin(), M_moorings.M_grid.gridX.end(), ostream_iterator<float>(myfile," "));
-    myfile.close();
-    myfile.open("y_grid.dat");
-    std::copy(M_moorings.M_grid.gridY.begin(), M_moorings.M_grid.gridY.end(), ostream_iterator<float>(myfile," "));
-    myfile.close();
-    */
-#endif
-
-    double output_time;
-    if ( M_moorings_snapshot )
-        // shift the timestamp in the file to the centre of the output interval
-        output_time = current_time;
-    else
-        output_time = current_time - mooring_output_time_step/86400/2;
-
-    M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
-}
-
-void
-FiniteElement::updateMoorings()
-{
-    // If we're taking snapshots the we only call updateMeans before writing to file
-    if ( ! M_moorings_snapshot )
-        this->updateMeans(M_moorings, mooring_time_factor);
-
-    if ( fmod(pcpt*time_step,mooring_output_time_step) == 0 )
-    {
         double output_time;
         if ( M_moorings_snapshot )
         {
-            // Update the snapshot
-            this->updateMeans(M_moorings, 1.);
             // shift the timestamp in the file to the centre of the output interval
             output_time = current_time;
         }
@@ -6538,36 +6504,67 @@ FiniteElement::updateMoorings()
             output_time = current_time - mooring_output_time_step/86400/2;
         }
 
-        // If it's a new day we check if we need a new file
-        double not_used;
-        if ( M_moorings_file_length != GridOutput::fileLength::inf && modf(output_time, &not_used) < time_step*86400 )
+        M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
+    }
+}
+
+void
+FiniteElement::updateMoorings()
+{
+    if (M_rank == 0)
+    {
+        // If we're taking snapshots the we only call updateMeans before writing to file
+        if ( !M_moorings_snapshot )
         {
-            boost::gregorian::date now = Nextsim::parse_date(output_time);
-            switch (M_moorings_file_length)
-            {
-            case GridOutput::fileLength::daily:
-                M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
-                break;
-            case GridOutput::fileLength::weekly:
-                if ( now.day_of_week().as_number() == 1 )
-                    M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
-                break;
-            case GridOutput::fileLength::monthly:
-                if ( now.day().as_number() == 1 )
-                    M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
-                break;
-            case GridOutput::fileLength::yearly:
-                if ( now.day_of_year() == 1 )
-                    M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
-            }
+            this->updateMeans(M_moorings, mooring_time_factor);
         }
 
-        M_moorings.updateGridMean(M_mesh);
+        if ( fmod(pcpt*time_step,mooring_output_time_step) == 0 )
+        {
+            double output_time;
+            if ( M_moorings_snapshot )
+            {
+                // Update the snapshot
+                this->updateMeans(M_moorings, 1.);
+                // shift the timestamp in the file to the centre of the output interval
+                output_time = current_time;
+            }
+            else
+            {
+                output_time = current_time - mooring_output_time_step/86400/2;
+            }
 
-        M_moorings.appendNetCDF(M_moorings_file, output_time);
+            // If it's a new day we check if we need a new file
+            double not_used;
+            if ( M_moorings_file_length != GridOutput::fileLength::inf && modf(output_time, &not_used) < time_step*86400 )
+            {
+                boost::gregorian::date now = Nextsim::parse_date(output_time);
+                switch (M_moorings_file_length)
+                {
+                case GridOutput::fileLength::daily:
+                    M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
+                    break;
+                case GridOutput::fileLength::weekly:
+                    if ( now.day_of_week().as_number() == 1 )
+                        M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
+                    break;
+                case GridOutput::fileLength::monthly:
+                    if ( now.day().as_number() == 1 )
+                        M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
+                    break;
+                case GridOutput::fileLength::yearly:
+                    if ( now.day_of_year() == 1 )
+                        M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
+                }
+            }
 
-        M_moorings.resetMeshMean(M_mesh);
-        M_moorings.resetGridMean();
+            M_moorings.updateGridMean(M_mesh_root);
+
+            M_moorings.appendNetCDF(M_moorings_file, output_time);
+
+            M_moorings.resetMeshMean(M_mesh_root);
+            M_moorings.resetGridMean();
+        }
     }
 }
 

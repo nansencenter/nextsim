@@ -14,6 +14,7 @@
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <boost/format.hpp>
 #include <gmshmesh.hpp>
+#include <gmshmeshseq.hpp>
 #include <Bamgx.h>
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromMeshToGridx.h>
@@ -307,13 +308,13 @@ public:
 
     ~GridOutput();
 
-    void updateGridMean(GmshMesh const& mesh);
+    void updateGridMean(GmshMeshSeq const& mesh);
     void resetGridMean();
-    void resetMeshMean(GmshMesh const& mesh);
+    void resetMeshMean(GmshMeshSeq const& mesh);
     std::string initNetCDF(std::string file_prefix, fileLength file_length, double current_time);
     void appendNetCDF(std::string filename, double timestamp);
 
-    std::vector<int> getMask(GmshMesh const &mesh, variableKind kind);
+    std::vector<int> getMask(GmshMeshSeq const &mesh, variableKind kind);
 
     int M_ncols;
     int M_nrows;
@@ -338,9 +339,9 @@ private:
 
     void initArbitraryGrid(Grid grid);
 
-    void updateGridMeanWorker(GmshMesh const& mesh, int mesh_size, std::vector<Variable>& variables, double miss_val);
+    void updateGridMeanWorker(GmshMeshSeq const& mesh, int mesh_size, std::vector<Variable>& variables, double miss_val);
 
-    void rotateVectors(GmshMesh const& mesh, Vectorial_Variable const& vectorial_variable, std::vector<Variable>& variables);
+    void rotateVectors(GmshMeshSeq const& mesh, Vectorial_Variable const& vectorial_variable, std::vector<Variable>& variables);
 
     size_t M_nc_step;
 };

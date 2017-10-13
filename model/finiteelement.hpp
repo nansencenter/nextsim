@@ -644,7 +644,7 @@ private:
     void updateIABPDrifter();
 
     //void updateMeans(GridOutput &means);
-    void updateMeans(GridOutput &means, double time_factor);
+    void updateMeans(GridOutput& means, double time_factor);
     void initMoorings();
     void updateMoorings();
 
