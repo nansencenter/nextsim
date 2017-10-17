@@ -610,7 +610,7 @@ FiniteElement::initVariables()
         }
     }
 
-    if (M_rank == 0)
+    if ((M_rank == 0) && (M_use_drifters))
     {
         M_UT_root.assign(2*M_ndof,0.);
         M_conc_root.resize(M_mesh_root.numTriangles());
@@ -1019,11 +1019,11 @@ FiniteElement::initConstant()
 
     mooring_output_time_step =  vm["simul.mooring_output_timestep"].as<double>()*days_in_sec;
     mooring_time_factor = time_step/mooring_output_time_step;
-    //drifter_output_time_step =  vm["simul.drifter_output_timestep"].as<double>()*days_in_sec;
 
     restart_time_step =  vm["setup.restart_time_step"].as<double>()*days_in_sec;
     M_use_restart   = vm["setup.use_restart"].as<bool>();
     M_write_restart = vm["setup.write_restart"].as<bool>();
+
     if ( fmod(restart_time_step,time_step) != 0)
     {
         std::cout << restart_time_step << " " << time_step << "\n";
@@ -1166,6 +1166,7 @@ FiniteElement::initConstant()
         M_use_rgps_drifters=true;
     }
 
+    M_use_drifters = (M_use_iabp_drifters) || (M_use_osisaf_drifters) || (M_use_equallyspaced_drifters) || (M_use_rgps_drifters);
 
     // option for enabling/disabling the moorings
     M_use_moorings =  vm["simul.use_moorings"].as<bool>();
@@ -3219,7 +3220,7 @@ FiniteElement::regrid(bool step)
             step_order++;
 
             flip = this->flip(M_mesh_root,um_root,displacement_factor);
-            minang = this->minAngle(M_mesh,M_UM,displacement_factor,true);
+            minang = this->minAngle(M_mesh_root,um_root,displacement_factor,true);
 
             if (substep > 1)
                 LOG(DEBUG) <<"FLIP DETECTED "<< substep-1 <<"\n";
@@ -3430,7 +3431,7 @@ FiniteElement::updateBoundaryFlags()
     // get the global number of nodes
     int num_nodes = M_mesh_root.numNodes();
 
-#if 0
+#if 1
     // We mask out the boundary nodes
     M_mask_root.assign(num_nodes,false);
     M_mask_dirichlet_root.assign(num_nodes,false);
@@ -3453,7 +3454,7 @@ FiniteElement::updateBoundaryFlags()
     }
 #endif
 
-#if 1
+#if 0
     // We mask out the boundary nodes
     M_mask_root.assign(bamgmesh_root->VerticesSize[0],false) ;
     M_mask_dirichlet_root.assign(bamgmesh_root->VerticesSize[0],false) ;
@@ -5804,7 +5805,7 @@ FiniteElement::init()
 
     // Open the output file for drifters
     // TODO: Is this the right place to open the file?
-    if ( (M_rank == 0) && M_use_iabp_drifters )
+    if ( (M_rank == 0) && (M_use_iabp_drifters) )
     {
         // We should tag the file name with the init time in case of a re-start.
         std::stringstream filename;
@@ -6090,17 +6091,19 @@ FiniteElement::updateDrifterPosition()
     //bool enable_drifters = (M_use_iabp_drifters) || (M_use_osisaf_drifters) || (M_use_equallyspaced_drifters) || (M_use_rgps_drifters);
     // std::vector<double> M_VT_root;
 
-    if (1)//(enable_drifters)
+    if (M_use_drifters)
     {
         this->gatherNodalField(M_UT,M_UT_root);
+
+        this->gatherElementField(M_conc, M_conc_root);
     }
 
     //std::cout<<"fine"
 
     // Update the drifters position twice a day, important to keep the same frequency as the IABP data, for the moment
-    if ( ((pcpt==0) || (std::fmod(current_time,0.5)==0)) )
+    if ((M_rank == 0) && (M_use_drifters))
     {
-        if (M_rank == 0)
+        if ( (pcpt==0) || (std::fmod(current_time,0.5)==0) )
         {
             // Read in the new buoys and output
             if ( M_use_iabp_drifters )
@@ -6209,69 +6212,71 @@ FiniteElement::updateDrifterPosition()
 
             for (int i=0; i<M_UT_root.size(); ++i)
             {
-                // UM_root
+                // UT_root
                 M_UT_root[i] = 0.;
             }
+        }// (pcpt == 0)
 
-        }// M_rank == 0
-
-	    for (int i=0; i<M_num_nodes; ++i)
-	    {
-	        // UM
-		    M_UT[i] = 0.;
-		    M_UT[i+M_num_nodes] = 0.;
-	    }
-    }
-
-    if( (M_rank == 0) && (pcpt>0))
-    {
-        if ( M_use_equallyspaced_drifters && fmod(current_time,M_equallyspaced_drifters_output_time_step) == 0 )
+        if(pcpt>0)
         {
-            M_equallyspaced_drifters.appendNetCDF(current_time, M_mesh_root, M_UT_root);
-        }
-
-        if ( M_use_rgps_drifters )
-        {
-            std::string time_str = vm["simul.RGPS_time_init"].as<std::string>();
-            double RGPS_time_init = from_date_time_string(time_str);
-
-            if( (!M_rgps_drifters.isInitialised()) && (current_time == RGPS_time_init))
+            if ( M_use_equallyspaced_drifters && fmod(current_time,M_equallyspaced_drifters_output_time_step) == 0 )
             {
-                this->updateRGPSDrifters();
+                M_equallyspaced_drifters.appendNetCDF(current_time, M_mesh_root, M_UT_root);
             }
 
-            if( (current_time != RGPS_time_init) && (fmod(current_time,M_rgps_drifters_output_time_step) == 0) )
+            if ( M_use_rgps_drifters )
             {
-                if ( M_rgps_drifters.isInitialised() )
+                std::string time_str = vm["simul.RGPS_time_init"].as<std::string>();
+                double RGPS_time_init = from_date_time_string(time_str);
+
+                if( (!M_rgps_drifters.isInitialised()) && (current_time == RGPS_time_init))
                 {
-                    M_rgps_drifters.appendNetCDF(current_time, M_mesh_root, M_UT_root);
+                    this->updateRGPSDrifters();
+                }
+
+                if( (current_time != RGPS_time_init) && (fmod(current_time,M_rgps_drifters_output_time_step) == 0) )
+                {
+                    if ( M_rgps_drifters.isInitialised() )
+                    {
+                        M_rgps_drifters.appendNetCDF(current_time, M_mesh_root, M_UT_root);
+                    }
                 }
             }
         }
+
+        if ( (M_use_osisaf_drifters && fmod(current_time+0.5,1.) == 0) )
+        {
+            // OSISAF drift is calculated as a dirfter displacement over 48 hours
+            // and they have two sets of drifters in the field at all times.
+
+            // Write out the contents of [1] if it's meaningfull
+            if ( M_osisaf_drifters[1].isInitialised() )
+            {
+                M_osisaf_drifters[1].appendNetCDF(current_time, M_mesh_root, M_UT_root);
+            }
+
+            // Flip the vector so we move [0] to be [1]
+            std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
+
+            // Create a new M_drifters instance in [0], with a properly initialised netCDF file
+            M_osisaf_drifters[0] = Drifters("data", "ice_drift_nh_polstere-625_multi-oi.nc",
+                                            "yc", "yx",
+                                            "lat", "lon",
+                                            M_mesh_root, M_conc_root, vm["simul.drifter_climit"].as<double>());
+
+            M_osisaf_drifters[0].initNetCDF(M_export_path+"/OSISAF_", current_time);
+            M_osisaf_drifters[0].appendNetCDF(current_time, M_mesh_root, M_UT_root);
+        }
     }
 
-    if ( (M_rank==0) && (M_use_osisaf_drifters && fmod(current_time+0.5,1.) == 0) )
+    if ( (M_use_drifters) && ((pcpt == 0) || (std::fmod(current_time,0.5)==0)) )
     {
-        // OSISAF drift is calculated as a dirfter displacement over 48 hours
-        // and they have two sets of drifters in the field at all times.
-
-        // Write out the contents of [1] if it's meaningfull
-        if ( M_osisaf_drifters[1].isInitialised() )
-        {
-            M_osisaf_drifters[1].appendNetCDF(current_time, M_mesh_root, M_UT_root);
-        }
-
-        // Flip the vector so we move [0] to be [1]
-        std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
-
-        // Create a new M_drifters instance in [0], with a properly initialised netCDF file
-        M_osisaf_drifters[0] = Drifters("data", "ice_drift_nh_polstere-625_multi-oi.nc",
-                                        "yc", "yx",
-                                        "lat", "lon",
-                                        M_mesh_root, M_conc_root, vm["simul.drifter_climit"].as<double>());
-
-        M_osisaf_drifters[0].initNetCDF(M_export_path+"/OSISAF_", current_time);
-        M_osisaf_drifters[0].appendNetCDF(current_time, M_mesh_root, M_UT_root);
+        for (int i=0; i<M_num_nodes; ++i)
+	    {
+	        // UT
+		    M_UT[i] = 0.;
+		    M_UT[i+M_num_nodes] = 0.;
+	    }
     }
 }
 
@@ -7500,7 +7505,7 @@ FiniteElement::updateVelocity()
 #endif
 
     // increment M_UT that is used for the drifters
-    for (int nd=0; nd<M_UM.size(); ++nd)
+    for (int nd=0; nd<M_UT.size(); ++nd)
     {
         M_UT[nd] += time_step*M_VT[nd]; // Total displacement (for drifters)
     }
@@ -8110,7 +8115,6 @@ FiniteElement::initIce()
     }
 
     this->gatherElementField(M_conc, M_conc_root);
-    std::cout<<"SIZE ROOT= "<< M_conc_root.size() <<"\n";
 }
 
 void
@@ -9243,17 +9247,20 @@ FiniteElement::initThermodynamics()
 void
 FiniteElement::initDrifter()
 {
-    if(M_use_equallyspaced_drifters)
-        this->equallySpacedDrifter();
+    if (M_use_drifters)
+    {
+        if(M_use_equallyspaced_drifters)
+            this->equallySpacedDrifter();
 
-    if(M_use_iabp_drifters)
-        this->initIABPDrifter();
+        if(M_use_iabp_drifters)
+            this->initIABPDrifter();
 
-    if(M_use_rgps_drifters)
-        this->initRGPSDrifters();
+        if(M_use_rgps_drifters)
+            this->initRGPSDrifters();
 
-    if(M_use_osisaf_drifters)
-        this->initOSISAFDrifters();
+        if(M_use_osisaf_drifters)
+            this->initOSISAFDrifters();
+    }
 }
 
 void

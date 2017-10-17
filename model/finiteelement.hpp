@@ -556,6 +556,7 @@ private:
     external_data M_element_depth;
 
     // Drifters
+    bool M_use_drifters;
     bool M_use_iabp_drifters;
     boost::unordered_map<int, std::array<double,2>> M_iabp_drifters; // Drifters are kept in an unordered map containing number and coordinates
     std::fstream M_iabp_file;   // The file we read the IABP buoy data from
