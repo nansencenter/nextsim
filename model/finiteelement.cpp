@@ -1581,15 +1581,15 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var, bool che
 		if (M_thick[i] != 0.)
 		{
 			// integrated_stress1
-			M_sigma[3*i] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
+			M_sigma[3*i] = interp_elt_out[nb_var*i+tmp_nb_var];
 			tmp_nb_var++;
 
 			// integrated_stress2
-			M_sigma[3*i+1] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
+			M_sigma[3*i+1] = interp_elt_out[nb_var*i+tmp_nb_var];
 			tmp_nb_var++;
 
 			// integrated_stress3
-			M_sigma[3*i+2] = interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i];
+			M_sigma[3*i+2] = interp_elt_out[nb_var*i+tmp_nb_var];
 			tmp_nb_var++;
 
             // damage
@@ -1597,7 +1597,7 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var, bool che
 		    tmp_nb_var++;
             
             // damage
-		    M_ridge_ratio[i] = std::max(0., std::min(1.,interp_elt_out[nb_var*i+tmp_nb_var]/M_thick[i]));
+		    M_ridge_ratio[i] = std::max(0., std::min(1.,interp_elt_out[nb_var*i+tmp_nb_var]));
 		    tmp_nb_var++;
 		}
 		else
@@ -2005,19 +2005,19 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
 		tmp_nb_var++;
 
 		// integrated_stress1
-		interp_elt_in[nb_var*i+tmp_nb_var] = M_sigma[3*i]*M_thick[i];
+		interp_elt_in[nb_var*i+tmp_nb_var] = M_sigma[3*i];
         interp_method[tmp_nb_var] = 1;
         diffusivity_parameters[tmp_nb_var]=0.;
 		tmp_nb_var++;
 
 		// integrated_stress2
-		interp_elt_in[nb_var*i+tmp_nb_var] = M_sigma[3*i+1]*M_thick[i];
+		interp_elt_in[nb_var*i+tmp_nb_var] = M_sigma[3*i+1];
         interp_method[tmp_nb_var] = 1;
         diffusivity_parameters[tmp_nb_var]=0.;
 		tmp_nb_var++;
 
 		// integrated_stress3
-		interp_elt_in[nb_var*i+tmp_nb_var] = M_sigma[3*i+2]*M_thick[i];
+		interp_elt_in[nb_var*i+tmp_nb_var] = M_sigma[3*i+2];
         interp_method[tmp_nb_var] = 1;
         diffusivity_parameters[tmp_nb_var]=0.;
 		tmp_nb_var++;
@@ -2029,7 +2029,7 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
 		tmp_nb_var++;
 
 		// ridge_ratio
-		interp_elt_in[nb_var*i+tmp_nb_var] = M_ridge_ratio[i]*M_thick[i];
+		interp_elt_in[nb_var*i+tmp_nb_var] = M_ridge_ratio[i];
         interp_method[tmp_nb_var] = 1;
         diffusivity_parameters[tmp_nb_var]=0.;
 		tmp_nb_var++;
