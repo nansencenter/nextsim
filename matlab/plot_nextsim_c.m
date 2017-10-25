@@ -411,10 +411,10 @@ function set_axis_colormap_colorbar(mesh_filename,field,region_of_zoom,manual_ax
         colormap(cmap_def);
         name_colorbar='Thickness (m)';
     elseif (strcmp(field,'Lead_fraction'))
-        default_axis_range = [0,0.1];
+        default_axis_range = [0.,1];
         load('ice_conc_cmap64.mat')
         colormap(ice_conc_cmap64);
-        name_colorbar='Concentration';
+        name_colorbar='Lead';
     elseif (strcmp(field,'Lambda'))
         default_axis_range = [0,1e5];
         colormap(cmap_def);
