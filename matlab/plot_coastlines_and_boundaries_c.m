@@ -1,4 +1,9 @@
-function plot_coastlines_and_boundaries_c(mesh_filename)
+function plot_coastlines_and_boundaries_c(mesh_filename,RGPS_projection)
+switch nargin
+    case 1
+        RGPS_projection=false;
+end
+
 % The files defining the domain are on /Data/sim/data/mesh and have to be
 % in your matlab path
 
@@ -56,17 +61,31 @@ if strcmp(mppfile,'')
 end
 
 % projection
-[closed_boundaryX,closed_boundaryY]= mapx_forward(mppfile,closed_boundaryLon(:)',closed_boundaryLat(:)');
-[free_boundaryX,free_boundaryY]= mapx_forward(mppfile,free_boundaryLon(:)',free_boundaryLat(:)');
-
-%reshape and scaling to km
-closed_boundaryX=reshape(0.001*closed_boundaryX,size(closed_boundaryLon));
-closed_boundaryY=reshape(0.001*closed_boundaryY,size(closed_boundaryLon));
-free_boundaryX=reshape(0.001*free_boundaryX,size(free_boundaryLon));
-free_boundaryY=reshape(0.001*free_boundaryY,size(free_boundaryLon));
+if(~RGPS_projection)
+    [closed_boundaryX,closed_boundaryY]= mapx_forward(mppfile,closed_boundaryLon(:)',closed_boundaryLat(:)');
+    [free_boundaryX,free_boundaryY]= mapx_forward(mppfile,free_boundaryLon(:)',free_boundaryLat(:)');
+    
+    %reshape and scaling to km
+    closed_boundaryX=reshape(0.001*closed_boundaryX,size(closed_boundaryLon));
+    closed_boundaryY=reshape(0.001*closed_boundaryY,size(closed_boundaryLon));
+    free_boundaryX=reshape(0.001*free_boundaryX,size(free_boundaryLon));
+    free_boundaryY=reshape(0.001*free_boundaryY,size(free_boundaryLon));
+else
+% projection used when reading the RGPS Lagrangian data    
+    m_proj('Stereographic','lon',-45,'lat',90,'radius',60);
+    
+    [closed_boundaryX,closed_boundaryY]=m_ll2xy(closed_boundaryLon,closed_boundaryLat);
+    closed_boundaryX=double(closed_boundaryX)*6378.273;
+    closed_boundaryY=double(closed_boundaryY)*6378.273;
+    
+    [free_boundaryX,free_boundaryY]=m_ll2xy(free_boundaryLon,free_boundaryLat);
+    free_boundaryX=double(free_boundaryX)*6378.273;
+    free_boundaryY=double(free_boundaryY)*6378.273;
+end
 
 %Plotting closed mesh boundaries (e.g. coastlines)
 plot(closed_boundaryX,closed_boundaryY,'Color',[0.3 0.3 0.3],'LineWidth',0.2);
+hold on
 %plot(closed_boundaryX,closed_boundaryY,'Color',[1 1 1],'LineWidth',0.2);
 %Plotting open mesh boundaries
 plot(free_boundaryX,free_boundaryY,'g','LineWidth',2);
