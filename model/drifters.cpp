@@ -33,6 +33,7 @@ namespace Nextsim
         M_no_drifters    = 0;
         M_X.resize(0);
         M_Y.resize(0);
+        M_i.resize(0);
     }
 
 	Drifters::Drifters(double spacing, GmshMesh const &mesh, std::vector<double> &conc, double climit)
@@ -207,12 +208,14 @@ namespace Nextsim
         // Add drifter positions where conc > conc_lim
         M_X.resize(0); // this shouldn't be necessary!
         M_Y.resize(0);
+        M_i.resize(0);
         for ( int i=0; i<gridSize; ++i )
         {
             if ( interp_drifter_out[i] > clim )
             {
                 M_X.push_back(X[i]);
                 M_Y.push_back(Y[i]);
+                M_i.push_back(i);
             }
         }
         M_no_drifters = M_X.size();
@@ -339,6 +342,12 @@ namespace Nextsim
         lat.putAtt("standard_name","latitude");
         lat.putAtt("long_name","latitude");
         lat.putAtt("units","degrees_north");
+        
+        // Reference indices if comming from a grid or a reference dataset
+        netCDF::NcVar ind = dataFile.addVar("indice", netCDF::ncInt, dims2);
+        ind.putAtt("standard_name","indice");
+        ind.putAtt("long_name","reference indice");
+        ind.putAtt("units","");
 
         dataFile.putAtt("Conventions", "CF-1.6");
         dataFile.putAtt("institution", "NERSC, Thormoehlens gate 47, N-5006 Bergen, Norway");
@@ -400,5 +409,8 @@ namespace Nextsim
 
         data = dataFile.getVar("latitude");
         data.putVar(start, count, &lat[0]);
+        
+        data = dataFile.getVar("indice");
+        data.putVar(start, count, &M_i[0]);
     }
 }

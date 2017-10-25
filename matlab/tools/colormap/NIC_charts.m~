@@ -1,0 +1,27 @@
+function map = marsan_2004(varargin)
+%GRAY2RED  colormap used for NIC ice charts
+%
+%   MAP = gray2red
+%   return a 256x3 array which can be used with colormap.
+%
+%   Example
+%   colormap(gray2red);
+%
+%   See also
+%   colormap
+%
+%
+
+y=[1 1 0];
+m=[1 0 1];
+c=[0 1 1];
+r=[1 0 0];
+g=[0 1 0];
+b=[0 0 1];
+w=[1 1 1];
+k=[0 0 0];
+
+map=zeros(101,3);
+map(1:18) = b ;
+map(19:80) = y;
+map(81:101)es(18,1)y; c; b; m];
