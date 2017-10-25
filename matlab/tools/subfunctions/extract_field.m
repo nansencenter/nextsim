@@ -109,9 +109,9 @@ function [field_tmp, field_plotted]=extract_field(field,data_out,dirname,step,si
      field_plotted='Thick and thin ice concentration';
   elseif strcmp(field,'Lead_fraction')
       fld = 'Concentration';
-      [field_tmp]=get_and_check(fld,data_out,dirname,step);   
-      
-      field_tmp = (1.-field_tmp);
+      [field_tmp1]=get_and_check(fld,data_out,dirname,step);   
+            
+      field_tmp = (field_tmp1<0.95)*1.;
       field_plotted='Lead_fraction';
   elseif strcmp(field,'Critical_external_stress')
      fld = 'Concentration';
