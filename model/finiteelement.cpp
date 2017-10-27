@@ -148,7 +148,7 @@ FiniteElement::distributedMeshProcessing(bool start)
     if (M_rank == 0)
         std::cout<<"-------------------GATHERSIZE done in "<< timer["gathersize"].first.elapsed() <<"s\n";
 
-#if 0
+#if 1
     timer["scattercvt"].first.restart();
     this->scatterElementConnectivity();
     //if (M_rank == 0)
@@ -1786,19 +1786,19 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
         tmp_nb_var++;
 
         // integrated_stress1
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sigma[3*i]*M_thick[i];
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sigma[3*i]/**M_thick[i]*/;
         M_interp_method[tmp_nb_var] = 1;
         M_diffusivity_parameters[tmp_nb_var]=0.;
         tmp_nb_var++;
 
         // integrated_stress2
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sigma[3*i+1]*M_thick[i];
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sigma[3*i+1]/**M_thick[i]*/;
         M_interp_method[tmp_nb_var] = 1;
         M_diffusivity_parameters[tmp_nb_var]=0.;
         tmp_nb_var++;
 
         // integrated_stress3
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sigma[3*i+2]*M_thick[i];
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sigma[3*i+2]/**M_thick[i]*/;
         M_interp_method[tmp_nb_var] = 1;
         M_diffusivity_parameters[tmp_nb_var]=0.;
         tmp_nb_var++;
@@ -1810,7 +1810,7 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
         tmp_nb_var++;
 
         // ridge_ratio
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_ridge_ratio[i]*M_thick[i];
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_ridge_ratio[i]/**M_thick[i]*/;
         M_interp_method[tmp_nb_var] = 1;
         M_diffusivity_parameters[tmp_nb_var]=0.;
         tmp_nb_var++;
@@ -2014,15 +2014,15 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
         if (M_thick[i] != 0.)
         {
             // integrated_stress1
-            M_sigma[3*i] = out_elt_values[nb_var_element*i+tmp_nb_var]/M_thick[i];
+            M_sigma[3*i] = out_elt_values[nb_var_element*i+tmp_nb_var]/*/M_thick[i]*/;
             tmp_nb_var++;
 
             // integrated_stress2
-            M_sigma[3*i+1] = out_elt_values[nb_var_element*i+tmp_nb_var]/M_thick[i];
+            M_sigma[3*i+1] = out_elt_values[nb_var_element*i+tmp_nb_var]/*/M_thick[i]*/;
             tmp_nb_var++;
 
             // integrated_stress3
-            M_sigma[3*i+2] = out_elt_values[nb_var_element*i+tmp_nb_var]/M_thick[i];
+            M_sigma[3*i+2] = out_elt_values[nb_var_element*i+tmp_nb_var]/*/M_thick[i]*/;
             tmp_nb_var++;
 
             // damage
@@ -2030,7 +2030,7 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
             tmp_nb_var++;
 
             // ridge_ratio
-            M_ridge_ratio[i] = std::max(0., std::min(1.,out_elt_values[nb_var_element*i+tmp_nb_var]/M_thick[i]));
+            M_ridge_ratio[i] = std::max(0., std::min(1.,out_elt_values[nb_var_element*i+tmp_nb_var]/*/M_thick[i]*/));
             tmp_nb_var++;
         }
         else
@@ -2222,62 +2222,69 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
     // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
     // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
 
-    std::vector<double> vt_root;
-    std::vector<double> M_VT_smoothed;
-    std::vector<double> M_VT_smoothed_root;
-    this->gatherNodalField(M_VT,vt_root);
-
-    // get the global number of nodes
-    int num_nodes = M_mesh_root.numNodes();
+    std::vector<double> UM_P = M_UM;
 
     interp_elt_out.resize(M_nb_var_element*M_num_elements);
 
-    if((ALE_smoothing_step_nb>=0) && (M_rank == 0))
+    if(ALE_smoothing_step_nb>=0)
     {
-        M_VT_smoothed_root = vt_root;
-        std::vector<double> M_VT_tmp = M_VT_smoothed_root;
-        int Nd = bamgmesh_root->NodalConnectivitySize[1];
+        std::vector<double> vt_root;
+        std::vector<double> M_VT_smoothed;
+        std::vector<double> M_VT_smoothed_root;
 
-        for (int k=0; k<ALE_smoothing_step_nb; ++k)
+        this->gatherNodalField(M_VT,vt_root);
+
+        if(M_rank == 0)
         {
-            M_VT_tmp = M_VT_smoothed_root;
+            M_VT_smoothed_root = vt_root;
+            std::vector<double> M_VT_tmp = M_VT_smoothed_root;
 
-            for (int i=0; i<M_ndof; ++i)
+            // get the global number of nodes
+            int num_nodes = M_mesh_root.numNodes();
+            int Nd = bamgmesh_root->NodalConnectivitySize[1];
+
+            for (int k=0; k<ALE_smoothing_step_nb; ++k)
             {
-                int Nc;
-                double UM_x, UM_y;
+                M_VT_tmp = M_VT_smoothed_root;
 
-                if(M_mask_dirichlet_root[i]==false)
+                //for (int i=0; i<M_ndof; ++i)
+                for (int i=0; i<num_nodes; ++i)
                 {
-                    Nc = bamgmesh_root->NodalConnectivity[Nd*(i+1)-1];
+                    int Nc;
+                    double UM_x, UM_y;
 
-                    UM_x = 0.;
-                    UM_y = 0.;
-                    for (int j=0; j<Nc; ++j)
+                    if(M_mask_dirichlet_root[i]==false)
                     {
-                        UM_x += M_VT_tmp[bamgmesh_root->NodalConnectivity[Nd*i+j]-1];
-                        UM_y += M_VT_tmp[bamgmesh_root->NodalConnectivity[Nd*i+j]-1+num_nodes];
-                    }
+                        Nc = bamgmesh_root->NodalConnectivity[Nd*(i+1)-1];
 
-                    M_VT_smoothed_root[i          ] = UM_x/Nc;
-                    M_VT_smoothed_root[i+num_nodes] = UM_y/Nc;
+                        UM_x = 0.;
+                        UM_y = 0.;
+                        for (int j=0; j<Nc; ++j)
+                        {
+                            UM_x += M_VT_tmp[bamgmesh_root->NodalConnectivity[Nd*i+j]-1];
+                            UM_y += M_VT_tmp[bamgmesh_root->NodalConnectivity[Nd*i+j]-1+num_nodes];
+                        }
+
+                        M_VT_smoothed_root[i          ] = UM_x/Nc;
+                        M_VT_smoothed_root[i+num_nodes] = UM_y/Nc;
+                    }
                 }
             }
         }
-    }
 
-    this->scatterNodalField(M_VT_smoothed_root,M_VT_smoothed);
+        this->scatterNodalField(M_VT_smoothed_root,M_VT_smoothed);
 
-    std::vector<double> UM_P = M_UM;
+        M_comm.barrier();
 
-    for (int nd=0; nd<M_UM.size(); ++nd)
-    {
-        M_UM[nd] += time_step*M_VT_smoothed[nd];
-    }
+        for (int nd=0; nd<M_UM.size(); ++nd)
+        {
+            M_UM[nd] += time_step*M_VT_smoothed[nd];
+        }
 
-    for (const int& nd : M_neumann_nodes)
-    {
-        M_UM[nd] = UM_P[nd];
+        for (const int& nd : M_neumann_nodes)
+        {
+            M_UM[nd] = UM_P[nd];
+        }
     }
 
 
@@ -2354,11 +2361,11 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
             }
             else
             {
-                neighbour_double = bamgmesh->ElementConnectivity[cpt*3+i];
-                neighbour_int = (int)bamgmesh->ElementConnectivity[cpt*3+i];
+                // neighbour_double = bamgmesh->ElementConnectivity[cpt*3+i];
+                // neighbour_int = (int)bamgmesh->ElementConnectivity[cpt*3+i];
 
-                // neighbour_double = M_element_connectivity[cpt*3+i];
-                // neighbour_int = (int)M_element_connectivity[cpt*3+i];
+                neighbour_double = M_element_connectivity[cpt*3+i];
+                neighbour_int = (int)M_element_connectivity[cpt*3+i];
 
                 if (!std::isnan(neighbour_double) && neighbour_int>0)
                 {
@@ -2422,11 +2429,11 @@ FiniteElement::diffuse(std::vector<double>& variable_elt, double diffusivity_par
 
         for(int i=0;i<3;i++)
         {
-            neighbour_double = bamgmesh->ElementConnectivity[cpt*3+i];
-            neighbour_int = (int)bamgmesh->ElementConnectivity[cpt*3+i];
+            // neighbour_double = bamgmesh->ElementConnectivity[cpt*3+i];
+            // neighbour_int = (int)bamgmesh->ElementConnectivity[cpt*3+i];
 
-            // neighbour_double = M_element_connectivity[cpt*3+i];
-            // neighbour_int = (int)M_element_connectivity[cpt*3+i];
+            neighbour_double = M_element_connectivity[cpt*3+i];
+            neighbour_int = (int)M_element_connectivity[cpt*3+i];
 
             if (!std::isnan(neighbour_double) && neighbour_int>0)
             {
@@ -3213,7 +3220,7 @@ FiniteElement::regrid(bool step)
         chrono.restart();
         LOG(DEBUG) <<"Flip starts\n";
 
-        while (flip || (minang<(vm["simul.regrid_angle"].as<double>())/10.))
+        while (flip /*|| (minang<(vm["simul.regrid_angle"].as<double>())/10.)*/)
         {
             ++substep;
             displacement_factor /= 2.;
@@ -3431,7 +3438,7 @@ FiniteElement::updateBoundaryFlags()
     // get the global number of nodes
     int num_nodes = M_mesh_root.numNodes();
 
-#if 1
+#if 0
     // We mask out the boundary nodes
     M_mask_root.assign(num_nodes,false);
     M_mask_dirichlet_root.assign(num_nodes,false);
@@ -3454,7 +3461,7 @@ FiniteElement::updateBoundaryFlags()
     }
 #endif
 
-#if 0
+#if 1
     // We mask out the boundary nodes
     M_mask_root.assign(bamgmesh_root->VerticesSize[0],false) ;
     M_mask_dirichlet_root.assign(bamgmesh_root->VerticesSize[0],false) ;
@@ -3807,7 +3814,7 @@ FiniteElement::assemble(int pcpt)
         {
             int index_u = it->indices[s]-1;
 
-            if (!it->ghostNodes[s])
+            if (!(it->ghostNodes[s]))
             {
                 rindices[2*vs] = index_u;
                 rindices[2*vs+1] = index_u+M_local_ndof;
@@ -3858,7 +3865,7 @@ FiniteElement::assemble(int pcpt)
             Vcor_index_v = beta0*vt_v + beta1*M_VTM[index_v] + beta2*M_VTMM[index_v];
             Vcor_index_u = beta0*vt_u + beta1*M_VTM[index_u] + beta2*M_VTMM[index_u];
 
-            if (!it->ghostNodes[j])
+            if (!(it->ghostNodes[j]))
             {
                 l_j = l_j + 1;
 
@@ -3969,6 +3976,7 @@ FiniteElement::assemble(int pcpt)
                 std::cout<<"\n";
             }
         }
+
         ++cpt;
     }
 
@@ -4016,8 +4024,8 @@ FiniteElement::assemble(int pcpt)
 
     M_matrix->on(M_dirichlet_nodes,*M_vector);
 
-    // if (M_rank==0)
-    //     std::cout <<"TIMER DBCA= " << timer["dirichlet"].first.elapsed() <<"s\n";
+    if (M_rank==0)
+        std::cout <<"TIMER DBCA= " << timer["dirichlet"].first.elapsed() <<"s\n";
 
 #if 0
     int S1 = M_matrix->size1();

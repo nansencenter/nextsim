@@ -222,7 +222,7 @@ namespace Nextsim
             ("simul.ERAcorr2T", po::value<std::vector<std::string>>()->multitoken()->zero_tokens()->composing(), "")
             ("simul.close_all_boundaries", po::value<bool>()->default_value( false ), "")
             ("simul.use_stability_drag", po::value<double>()->default_value( 0. ), "")
-            ("simul.expansion-factor", po::value<double>()->default_value( 0.05 ), "")
+            ("simul.expansion_factor", po::value<double>()->default_value( 0.05 ), "")
 
         /*
          *-----------------------------------------------------------------------------------

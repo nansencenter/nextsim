@@ -5437,7 +5437,7 @@ void
 DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double RX_min, double RX_max, double RY_min, double RY_max)
 {
     // we make the loaded domain a bit larger to avoid problems
-    double expansion_factor = 0.05;
+    double expansion_factor = Environment::vm()["simul.expansion_factor"].as<double>();// 0.05;
 
     double X_domain_size = RX_max-RX_min;
     double Y_domain_size = RY_max-RY_min;
