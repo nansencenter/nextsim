@@ -22,7 +22,7 @@ else
 
 	CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I $(NEXTSIMDIR)/contrib/bamg/include -I $(NEXTSIMDIR)/contrib/mapx/include
 	CXXFLAGS += -I /usr/local/include -I /opt/local/include/openmpi-mp
-	CXXFLAGS +=	-I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I .
+	CXXFLAGS +=	-I $(PETSC_DIR)/include -I $(BOOST_INCDIR) -I .
 	CXXFLAGS +=	-I $(NETCDF_DIR)/include -I $(GMSH_DIR)/include/gmsh
 
 	LDFLAGS += -Wl,-rpath,/usr/local/lib -Wl,-rpath,/opt/local/lib/openmpi-mp
@@ -33,8 +33,8 @@ else
 	LDFLAGS += -stdlib=libc++
 	endif
 
-	LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib
-	LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi
+	LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
+	LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi
 
 	LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
 	LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc

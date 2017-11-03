@@ -9865,7 +9865,8 @@ FiniteElement::writeLogFile()
         logfile << std::setw(log_width) << std::left << "SIMDATADIR "  << getEnv("SIMDATADIR") <<"\n";
         logfile << std::setw(log_width) << std::left << "SIMFORECASTDIR "  << getEnv("SIMFORECASTDIR") <<"\n";
         logfile << std::setw(log_width) << std::left << "PETSC_DIR "  << getEnv("PETSC_DIR") <<"\n";
-        logfile << std::setw(log_width) << std::left << "BOOST_DIR "  << getEnv("BOOST_DIR") <<"\n";
+        logfile << std::setw(log_width) << std::left << "BOOST_INCDIR "  << getEnv("BOOST_INCDIR") <<"\n";
+        logfile << std::setw(log_width) << std::left << "BOOST_LIBDIR "  << getEnv("BOOST_LIBDIR") <<"\n";
         logfile << std::setw(log_width) << std::left << "GMSH_DIR "  << getEnv("GMSH_DIR") <<"\n";
         logfile << std::setw(log_width) << std::left << "NETCDF_DIR "  << getEnv("NETCDF_DIR") <<"\n";
         logfile << std::setw(log_width) << std::left << "OPENMPI_LIB_DIR "  << getEnv("OPENMPI_LIB_DIR") <<"\n";
