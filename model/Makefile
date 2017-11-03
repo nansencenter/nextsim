@@ -16,7 +16,7 @@ endif
 CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v -DHAVE_CONFIG_H -D_MULTITHREADING_
 #CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v -DHAVE_CONFIG_H -D_MULTITHREADING_
 
-ifdef USE_WAVES
+ifdef USE_NEXTWIM
 	CXXFLAGS += -DWAVES
 	CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
 	LDFLAGS += -L $(NEXTSIMDIR)/lib -lwim

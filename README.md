@@ -139,8 +139,11 @@ export NETCDF_DIR=/opt/local/netcdf-cxx
 
 export PETSC_DIR=/opt/local/petsc
 export PETSC_ARCH=arch-darwin-c-opt
+# export PETSC_DIR=/opt/local/petsc-debug
+# export PETSC_ARCH=arch-darwin-c-debug
 
-export BOOST_DIR=/opt/local/boost
+export BOOST_LIBDIR=/opt/local/boost/lib
+export BOOST_INCDIR=/opt/local/boost/include
 
 export OPENMPI_LIB_DIR=/opt/local/lib/openmpi-gcc48
 export OPENMPI_INCLUDE_DIR=/opt/local/include/openmpi-gcc48
@@ -168,8 +171,11 @@ export OPENMPI_LIB_DIR=/opt/local/lib/openmpi-gcc48
 
 
 ##-------  neXtWIM ---------
-now compiled automatically with first "make"
-To run with it set
+1) in .bash_profile, add
+export USE_NEXTWIM=1
+(compiler just checks if it's defined)
+2) now compiled automatically with first "make"
+3) To run with it set
 simul.use_wim=True (as in coupling_wim.cfg)
 
 ##------- Compile with OASIS3-MCT support -------
