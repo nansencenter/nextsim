@@ -300,3 +300,100 @@ def interp_mesh_to_points(mesh_obj,xout,yout,data_in,**kwargs):
          out.append( np.reshape(dat,shp) )
       return out
 # ===============================================================
+
+
+# ===============================================================
+def sort_program_options(po0):
+   po = {}
+   for key0 in po0:
+      val         = po0[key0]
+      key,subkey  = key0.split('.')
+      if key not in po:
+         po.update({key:{}})
+      po[key].update({subkey:val})
+   return po
+# ===============================================================
+
+
+# ===============================================================
+def read_nextsim_log(logfile):
+
+   if logfile is None:
+      return
+
+   from datetime import datetime as DT
+   fid   = open(logfile,'r')
+   lines = fid.readlines()
+   fid.close()
+
+   options        = {}
+   keys           = []
+   config_files   = []
+   badlines       = []
+   for lin in lines:
+      # print(lin)
+
+      if '#---' in lin:
+         # header of section
+         # - these will be the keys of a dictionary
+         key   = lin.split('-')[-1]
+         key   = key.replace(' ','_')
+         key   = key.split()[0].lower()# removes \n and makes lower case
+         keys.append(key) 
+         options.update({key:{}})
+         continue
+
+      elif ']=' in lin:
+         # multiple config files
+         config_files.append(lin.split(']=')[1])
+         options.update({'config_files':config_files})
+         continue
+
+      else:
+         ls = lin.split()
+
+         # ======================================================
+         if len(ls)==2:
+            # normal situation
+            key,val0 = ls
+
+         elif len(ls)==1:
+            # key name is probably too long - skip
+            badlines.append(lin)
+            continue
+
+         elif ls[0].lower()=='build':
+            # special case
+            key      = 'build_date'
+            keywidth = lin.find(ls[2])
+            fmt      = '%Y-%b-%d %H:%M:%S'
+            ds       = ls[2]+' '+ls[3]
+            val0     = DT.strptime(ds,fmt)
+
+         else:
+            key      = lin[:keywidth].replace(' ','_').strip('_')
+            val0     = lin[keywidth:].replace(' ','_')
+         # ======================================================
+
+
+         # ======================================================
+         try:
+            # convert to numeric value
+            val   = float(val0)
+         except:
+            # keep as string
+            val   = val0
+         # ======================================================
+
+         options[keys[-1]].update({key:val})
+
+   options['program_options'] = sort_program_options(options['program_options'])
+
+   if len(badlines)>0:
+      print("WARNING: couldn't parse these lines (either too long or no value):\n")
+      for lin in badlines:
+         print(lin)
+      print("\n")
+
+   return options
+# ===============================================================
