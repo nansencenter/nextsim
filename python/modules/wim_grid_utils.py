@@ -4,6 +4,58 @@
 import numpy as np
 
 # ===============================================================
+def make_grid(grid_params):
+
+   nx    = grid_params['nx']
+   ny    = grid_params['ny']
+   xmin  = grid_params['xmin']
+   ymin  = grid_params['ymin']
+   xmax  = grid_params['xmax']
+   ymax  = grid_params['ymax']
+
+   # output
+   arrays   = {}
+
+   # corners: (nx+1)*(ny+1)
+   # X increases down rows, Y increases along columns
+   qx    = np.linspace(xmin,xmax,nx+1)
+   qy    = np.linspace(ymin,ymax,ny+1)
+   qY,qX = np.meshgrid(qy,qx)
+   arrays.update({'qx':qX})
+   arrays.update({'qy':qY})
+
+   # centres: nx*ny
+   px    = .5*(qx[1:]+qx[:-1])
+   py    = .5*(qy[1:]+qy[:-1])
+   pY,pX = np.meshgrid(py,px)
+   arrays.update({'px':pX})
+   arrays.update({'py':pY})
+
+   # side points: (nx+1)*ny
+   uY,uX = np.meshgrid(py,qx)
+   arrays.update({'ux':uX})
+   arrays.update({'uy':uY})
+
+   # up/down points: nx*(ny+1)
+   vY,vX = np.meshgrid(qy,px)
+   arrays.update({'vx':vX})
+   arrays.update({'vy':vY})
+
+   # ================================================
+   # grid cell sizes
+   dx = qx[1]-qx[0]
+   dy = qy[1]-qy[0]
+   arrays.update({'scuy':np.zeros((nx+1,ny))+dy})
+   arrays.update({'scvx':np.zeros((nx,ny+1))+dx})
+   arrays.update({'scpy':np.zeros((nx,ny))+dy})
+   arrays.update({'scpx':np.zeros((nx,ny))+dx})
+   arrays.update({'scp2':np.zeros((nx,ny))+dx*dy})
+
+   return arrays
+# ===============================================================
+
+
+# ===============================================================
 def sav2bin(aid,arr,fields,nbytes=8):
    import struct
 
@@ -199,7 +251,7 @@ class wim_grid:
       # ====================================================================================
       # should now have grid_params
       # - make the grid
-      self.make_grid(grid_params)
+      self.arrays = make_grid(grid_params)
       # ====================================================================================
 
       return
@@ -269,56 +321,7 @@ class wim_grid:
       return gridname,grid_params
    # =======================================================================
 
-   # =======================================================================
-   def make_grid(self):
 
-      nx    = self.grid_params['nx']
-      ny    = self.grid_params['ny']
-      xmin  = self.grid_params['xmin']
-      ymin  = self.grid_params['ymin']
-      xmax  = self.grid_params['xmax']
-      ymax  = self.grid_params['ymax']
-
-      # corners: (nx+1)*(ny+1)
-      # X increases down rows, Y increases along columns
-      qx    = np.linspace(xmin,xmax,nx+1)
-      qy    = np.linspace(ymin,ymax,ny+1)
-      qY,qX = np.meshgrid(qy,qx)
-      self.arrays.update({'qx':qX})
-      self.arrays.update({'qy':qY})
-
-      # centres: nx*ny
-      px    = .5*(qx[1:]+qx[:-1])
-      py    = .5*(qy[1:]+qy[:-1])
-      pY,pX = np.meshgrid(py,px)
-      self.arrays.update({'px':pX})
-      self.arrays.update({'py':pY})
-
-      # side points: (nx+1)*ny
-      uY,uX = np.meshgrid(py,qx)
-      self.arrays.update({'ux':uX})
-      self.arrays.update({'uy':uY})
-
-      # up/down points: nx*(ny+1)
-      vY,vX = np.meshgrid(qy,px)
-      self.arrays.update({'vx':vX})
-      self.arrays.update({'vy':vY})
-
-      # ================================================
-      # grid cell sizes
-      self.arrays.update({'scuy':np.zeros((nx+1,ny))+res})
-      self.arrays.update({'scvx':np.zeros((nx,ny+1))+res})
-      self.arrays.update({'scpy':np.zeros((nx,ny))+res})
-      self.arrays.update({'scpx':np.zeros((nx,ny))+res})
-
-      self.arrays.update({'scuy':scuy})
-      self.arrays.update({'scvx':scvx})
-      self.arrays.update({'scp2':scp2})
-      # ================================================
-
-
-      return
-   # =======================================================================
    # =======================================================================
    def write_binary(gridname,outdir='.'):
 

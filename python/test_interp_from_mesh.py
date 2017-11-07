@@ -14,11 +14,12 @@ gmsh  = nsc.gmsh_mesh(gmf)
 
 # make a grid covering the same area
 grid_params = gmsh.define_grid()
-grid        = wgu.regular_grid(grid_params)
+arrays      = wgu.make_grid(grid_params)
+xout        = arrays['px'] # centre points of grid
+yout        = arrays['py']
 
 # define a land mask using nsf.interp_mesh_to_points
 # (calls InterpMeshToMesh2dx)
-xout,yout   = grid.get_xy(loc='p')
 data_in     = [np.zeros((gmsh.num_triangles))] #interp zeros to grid
 
 # what to do outside the mesh
