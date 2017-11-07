@@ -94,7 +94,7 @@ public:
     void initSimple();
     void setElements();
     void setFields( T_gmsh const &mesh);
-    T_val lengthCfl() const { return 0.1*M_resolution; }
+    T_val lengthCfl() const { return M_resolution/12.; }
     void advect(T_val** interp_elt_out_ptr, // pointer to pointer to output data
             T_val* interp_elt_in,           // pointer to input data
             T_val* VC_in,                   // pointer to convective velocities (len = 2*num_nodes)
