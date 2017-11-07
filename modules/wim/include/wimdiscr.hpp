@@ -134,9 +134,17 @@ public:
     // ========================================================================
     // set mesh
     void setMesh( T_gmsh const &mesh);
-    void setMesh( T_gmsh const &mesh,T_val_vec const &um);
-    void setMesh( T_gmsh const &mesh,T_val_vec const &um,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding=false);
-    void setMesh( T_gmsh const &mesh,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding=false);
+    void setMesh( T_gmsh const &mesh,
+            T_val_vec const &um);
+    void setMesh( T_gmsh const &mesh,
+            T_val_vec const &um,
+            BamgMesh* bamgmesh,
+            int const& flag_fix,
+            bool const& assign_spatial=false);
+    void setMesh( T_gmsh const &mesh,
+            BamgMesh* bamgmesh,
+            int const& flag_fix,
+            bool const& assign_spatial=false);
 
     T_val_vec getRelativeMeshDisplacement(T_gmsh const &mesh_in) const;
     T_val_vec getRelativeMeshDisplacement(T_gmsh const &mesh_in,T_val_vec const &um_in) const;

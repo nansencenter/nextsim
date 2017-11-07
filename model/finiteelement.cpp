@@ -8415,6 +8415,7 @@ FiniteElement::wimPreRegrid()
 void
 FiniteElement::wimPostRegrid()
 {
+    std::cout<<"in wimPostRegrid()\n";
     // no longer need to collect M_wavespec inside collectVariables()
     // - eg don't need it in update(), before advect()
     M_collect_wavespec  = false;

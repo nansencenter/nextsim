@@ -314,7 +314,8 @@ void WimDiscr<T>::assignSpatial()
     // ie initially, and if(M_wim_on_mesh), after regridding
     // set sizes of arrays, initialises some others that are constant in time
 
-    M_assigned  = true;
+    M_assigned      = true;
+    M_num_elements  = this->getNumElements();
 
     //2D var's
     M_dave.assign(M_num_elements,0.);
@@ -1213,11 +1214,11 @@ void WimDiscr<T>::timeStep()
 template<typename T>
 void WimDiscr<T>::setMesh(T_gmsh const &movedmesh)
 {
-    M_time_mesh_set     = M_update_time;//used in check when ice fields are set on mesh
-    M_mesh_old    = M_mesh;
+    M_time_mesh_set = M_update_time;//used in check when ice fields are set on mesh
+    M_mesh_old      = M_mesh;
 
     //update M_mesh with moved mesh
-    M_mesh    = T_mesh(movedmesh);
+    M_mesh  = T_mesh(movedmesh);
 }
 
 
@@ -1237,7 +1238,7 @@ void WimDiscr<T>::setMesh(T_gmsh const &mesh_in,
     //interface for M_wim_on_mesh
     auto movedmesh = mesh_in;
     movedmesh.move(um_in,1.);
-    this->setMesh(movedmesh,bamgmesh,assign_spatial);
+    this->setMesh(movedmesh,bamgmesh,flag_fix,assign_spatial);
 }
 
 
@@ -1251,10 +1252,9 @@ void WimDiscr<T>::setMesh(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& 
     if(assign_spatial)
         M_assigned  = false;
 
-    M_time_mesh_set     = M_update_time;//used in check when ice fields are set on mesh
-    M_mesh_old    = M_mesh;
-
-    M_mesh    = T_mesh(movedmesh,bamgmesh,flag_fix);
+    M_time_mesh_set = M_update_time;//used in check when ice fields are set on mesh
+    M_mesh_old      = M_mesh;
+    M_mesh          = T_mesh(movedmesh,bamgmesh,flag_fix);
 
     // get relative displacement of nodes since last call
     // - M_UM may already be nonzero if regridding has happened
@@ -1980,6 +1980,16 @@ void WimDiscr<T>::run()
     }
 #endif
 
+    // check sizes of wave arrays
+    if (M_Hs.size()!=M_Tp.size()||M_Hs.size()!=M_num_elements)
+    {
+        std::cout<<"M_cpt = "<<M_cpt<<"\n";
+        std::cout<<"size Hs = "<<M_Hs.size()<<"\n";
+        std::cout<<"size Tp = "<<M_Tp.size()<<"\n";
+        std::cout<<"M_num_elements = "<<M_num_elements<<"\n";
+        throw std::runtime_error("Wave arrays wrong size\n");
+    }
+
     while (lcpt < M_num_timesteps)
     {
         std::cout <<  ":[WIM2D TIME STEP]^"<< lcpt+1
@@ -2171,11 +2181,14 @@ void WimDiscr<T>::intWaveSpec()
     std::fill( M_Tp.begin() , M_Tp.end() , 0. );
     std::fill( M_mwd.begin(), M_mwd.end(), 0. );
     for (int i=0;i<M_num_elements;i++)
+    {
+        M_Hs[i]   = 4*std::sqrt(mom0[i]);
         if(mom2[i]>0)
         {
             M_Tp[i]   = 2*PI*std::sqrt(mom0[i]/mom2[i]);
             M_mwd[i]  = -90.-(180./PI)*std::atan2(M_mwd_y[i],M_mwd_x[i]);
         }
+    }
 }//intWaveSpec()
 
 
