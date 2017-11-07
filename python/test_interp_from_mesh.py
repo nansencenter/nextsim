@@ -30,5 +30,5 @@ defval   = np.double(1) # any points outside the mesh get given the value 1.
 land_mask   = nsf.interp_mesh_to_points(gmsh,xout,yout,data_in,
                   usedefault=usedef,defaultvalue=defval)[0]
 
-plt.imshow(land_mask.transpose(),origin='upper')
+plt.imshow(land_mask.transpose(),origin='lower')
 plt.show()
