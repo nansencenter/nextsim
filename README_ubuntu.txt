@@ -175,8 +175,6 @@ simul.use_wim=True (as in coupling_wim.cfg)
 # =============================================================
 
 
-
-
 # =============================================================
 MATLAB
 
@@ -186,7 +184,9 @@ Installation with Bjerknes license
 https://it.uib.no/en/Matlab
 
 R2017b:
-sudo apt-get install g++-4.9
+# complains it needs g++-4.9 for mex to compile c++,
+# but it still compiles with g++-5
+# c++ code itself won't compile with g++-4.8/4.9 (boost)
 
 3) Test mex compilation with:
    cd matlab
