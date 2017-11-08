@@ -35,6 +35,9 @@ public:
     template<typename Type>
     void writeContainer(std::fstream& out, std::vector<Type> const& container);
     void writeMesh(std::fstream& out, GmshMesh const& Mesh);
+    void writeMesh(std::fstream& out,
+        std::vector<double> const& nodes_x,std::vector<double> const& nodes_y,
+        std::vector<int> const& id,std::vector<int> const& index);
     template<typename Type>
 	void writeField(std::fstream& out, std::vector<Type> const& field, std::string const& name);
 	void writeRecord(std::fstream& out, std::string const& rtype = "field");

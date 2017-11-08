@@ -22,6 +22,10 @@ ifdef USE_NEXTWIM
 	LDFLAGS += -L $(NEXTSIMDIR)/lib -lwim
 endif
 
+ifneq ($(XSIMCOMP_VERBOSE),no)
+	CXXFLAGS += -v
+endif
+
 ifdef USE_OASIS
 	CXXFLAGS += -DOASIS
 	CXXFLAGS += -I $(NEXTSIMDIR)/modules/oasis/include
@@ -38,9 +42,10 @@ ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
 endif
 
 # add include paths
-CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I $(NEXTSIMDIR)/contrib/bamg/include
-CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include # -I $(NEXTSIMDIR)/contrib/interp/include
-#CXXFLAGS += -I $(NEXTSIMDIR)/modules/oasis/include
+CXXFLAGS += -I $(NEXTSIMDIR)/core/include
+CXXFLAGS += -isystem $(NEXTSIMDIR)/contrib/bamg/include # suppress annoying compilation warnings from -I
+CXXFLAGS += -isystem $(NEXTSIMDIR)/contrib/mapx/include # suppress annoying compilation warnings from -I
+# CXXFLAGS += -I $(NEXTSIMDIR)/contrib/interp/include
 
 
 CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
@@ -104,7 +109,6 @@ endif
 
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lnextsim
 
-EXEC=$(PROGNAME)
 OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
 BINARYDIR=bin/
@@ -117,26 +121,45 @@ OBJS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.o)
 DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
 # Rules to always execute.
-.PHONY: all clean mrproper
+.PHONY: all clean mrproper fortran libs cleanlibs mrproperlibs
 
 # Default action.
-all: $(EXEC)
+default: $(PROGNAME)
+
+# Compile the libraries as well as the executable
+all: libs $(PROGNAME)
 
 # Delete the object files.
 clean:
+	@echo " "
 	$(RM) $(OBJS) $(DEPS)
+	@echo " "
 
 mrproper: clean
 	$(RM) $(BINARYDIR)$(PROGNAME)
+	@echo " "
 
 # Rule for making the actual target
+lines="=========="
+Lines=$(lines)$(lines)$(lines)$(lines)$(lines)$(lines)$(lines)$(lines)
 $(PROGNAME): $(OBJS) #$(CCOBJS)
 	@mkdir -p $(BINARYDIR)
+	@echo " "
+	@echo $(Lines)$(Lines)
+	@echo "Creating executable: $(BINARYDIR)$(PROGNAME)"
+	@echo $(Lines)$(Lines)
+	@echo " "
 	$(CXX) $(CXXFLAGS) -o $(BINARYDIR)$@ $^ $(LIBPSMILE) $(LDFLAGS)
+	@echo " "
+	@echo $(Lines)$(Lines)
+	@echo "Created executable: $(BINARYDIR)$(PROGNAME)"
+	@echo $(Lines)$(Lines)
+	@echo " "
 
 # Rules for object files from cpp files
 $(OBJECTDIR)%.o: %.cpp
 	@mkdir -p $(OBJECTDIR) # $(dir $@)
+	@echo " "
 	$(CXX) -o $@ -c $< $(CXXFLAGS)
 
 # Make dependancy rules
@@ -149,6 +172,24 @@ $(OBJS): Makefile
 
 # The fortran wrapper
 fortran: $(FPROGNAME)
+
+# Make the required libraries
+libs:
+	cd ..; make
+
+# Clean the required libraries
+cleanlibs:
+	cd ..; make clean
+
+# Clean libs and current dir
+cleanall: cleanlibs clean
+
+# Clean recompile
+fresh: cleanall all
+
+# Fully clean the required libraries
+mrproperlibs:
+	cd ..; make mrproper
 
 $(FPROGNAME): $(filter-out $(OBJECTDIR)$(CXXSRCDIR)/main.o, $(OBJS)) finiteelement_mod.f90
 	$(FC) $(FFLAGS) $(LDFLAGS) -o $(BINARYDIR)$@ $^ FE.f90

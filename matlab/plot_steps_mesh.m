@@ -43,6 +43,7 @@ other_prams.figdir      = [rootdir,'/figs'];%%default place to save figures
 po_def.visible       = 0;
 po_def.apply_mask    = 1;
 po_def.save_figure   = 0;
+po_def.no_error      = 1;
 
 if ~exist('step_range','var'); step_range  = []; end
 if ~ischar(step_range)
@@ -95,30 +96,69 @@ eval(['!mkdir -p ',figdir]);
 figdir   = [figdir,'/mesh'];
 eval(['!mkdir -p ',figdir]);
 
-%%variables to plot
-if exist('variables','var');
-   vbls  = variables;
-   if ~iscell(vbls)
-      error('input ''variables'' should be a cell containing variables to be plotted (as strings)');
-   end
+if isfield(plot_options,'logfile')
+   simul_in = read_simul_in(plot_options.logfile,0);
 else
-   vbls  = {'Dfloe' ,...            %1
-            'Stresses',...          %2
-            'Concentration',...     %3
-            'Thickness'  ,...       %4
-            'Damage',...            %5
-            'Nfloes'...             %6
-            'M_wind'...             %7
+   simul_in = read_simul_in([rootdir,'/nextsim.log'],0);
+end
+
+% ========================================================================
+%% default variables to plot
+%% - standard variables
+vbls_def = {
+            'Concentration',...     %1
+            'Thickness'  ,...       %2
+            'Damage'...             %3
             };
 
-   if 1
-      %% shorten default list of var's
-      %jkeep = [3,4,5,7];
-      jkeep = [1,2,4,5];
-      vbls  = vbls(jkeep);
+if simul_in.simul.use_wim==1
+   %% waves-in-ice vars
+   tmp   =  {
+             'Stress_waves_ice',...  %4
+             'Dfloe' ,...            %5
+             'Nfloes',...            %6
+            };
+   vbls_def(end+1:end+length(tmp))  = tmp;
+
+   if simul_in.nextwim.export_diags_mesh==1
+      %% diagnostic waves-in-ice vars
+      tmp   =  {
+               'Stokes_drift',...      %7
+               'Hs',...                %8
+               'Tp',...                %9
+               'MWD',...               %10
+               };
+      vbls_def(end+1:end+length(tmp))  = tmp;
    end
+   clear tmp;
+end
+
+if (simul_in.simul.save_forcing_field==1)&(strcmp(simul_in.setup.atmosphere_type,'constant')==0) 
+   vbls_def{end+1}   = 'M_wind'; %11
+end
+
+if 0
+   %% shorten default list of var's
+   jkeep = [1,2,3,4,5,7,8];
+   vbls_def  = vbls_def(jkeep);
+end
+% ========================================================================
+
+if exist('variables','var');
+   vbls  = variables;
+   if length(vbls)==0%[] or {}
+      vbls  = vbls_def;
+   elseif ~iscell(vbls)
+      error(['input ''variables'' should be a cell containing variables to be plotted (as strings)',...
+             ' (use default vars: [] or {})']);
+   end
+   clear variables;
+else
+   vbls  = vbls_def;
 end
 Nv = length(vbls);
+vbls
+clear vbls_def;
 %cmaps = {};
 %lims  = {[0,350]};
 
@@ -166,19 +206,33 @@ else
 end
 
 Nsteps   = length(steps);
+if Nsteps==0
+   disp('No files found');
+   return;
+end
 disp(' ');
 
 region_of_zoom = [];
 %region_of_zoom = 'framstrait';
 is_sequential  = 1;
+ignore         = zeros(Nv,1);
 
 for nstep=1:Nsteps
    step  = steps{nstep};
 
    for k=1:Nv
+      if ignore(k); continue; end
+
       vbl   = vbls{k};
       %cmap  = cmaps{k};
       %lim   = lims{k};
+      po_tmp   = plot_options;
+      if strcmp(vbl,'Stokes_drift')|...
+            strcmp(vbl,'Hs')|...
+            strcmp(vbl,'Tp')|...
+            strcmp(vbl,'MWD')
+         po_tmp.apply_mask = 0;
+      end
 
       %% initial/final filenames
       if isempty(name_filter)
@@ -191,10 +245,13 @@ for nstep=1:Nsteps
       if ~(exist(fig_full)&~OVER_WRITE)
          disp([vbl,' - ',step,' (',num2str(nstep),'/',num2str(Nsteps),')']);
          if ~RESPLOT
-            plot_nextsim_c(vbl,step,region_of_zoom,is_sequential,outdir,plot_options);
+            [step_,failed] = plot_nextsim_c(vbl,step,region_of_zoom,is_sequential,outdir,po_tmp,simul_in);
          else
-            resplot(vbl,step,outdir,plot_options);
+            failed = resplot(vbl,step,outdir,po_tmp);
          end
+         clear po_tmp;
+
+         if failed;ignore(k)=1;continue;end
          %%
          eval(['!mkdir -p ',figdir,'/',vbl]);
          disp(['saving to ',fig_full]);
