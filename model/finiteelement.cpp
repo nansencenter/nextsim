@@ -383,10 +383,12 @@ FiniteElement::initDatasets()
     // M_datasets_regrid.push_back(&M_ice_cs2_smos_elements_dataset);
     // M_datasets_regrid.push_back(&M_ice_smos_elements_dataset);
 
+#if defined (WAVES)
     if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
         // need to re-interpolate wave forcing at regrid time if running on mesh,
         // but not if on grid
         M_datasets_regrid.push_back(&M_wave_elements_dataset);
+#endif
 
 }//initDatasets
 
@@ -1478,6 +1480,7 @@ FiniteElement::regrid(bool step)
 			M_UM.assign(2*M_num_nodes,0.);
 			M_UT.assign(2*M_num_nodes,0.);
 
+#if defined (WAVES)
             if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
             {
                 M_tau.assign(2*M_num_nodes,0.);
@@ -1486,6 +1489,7 @@ FiniteElement::regrid(bool step)
                     for (auto it=M_wim_fields_nodes.begin();it!=M_wim_fields_nodes.end();it++)
                         (it->second).assign(2*M_num_nodes,0.);
             }//M_wim_on_mesh
+#endif
 
 			for (int i=0; i<M_num_nodes; ++i)
 			{
@@ -5059,15 +5063,17 @@ FiniteElement::step(int &pcpt)
 
 
     // ====================================================================================
+#if defined (WAVES)
     if(!M_use_wim)
         //other cases taken care of inside wimCall()
         M_tau.assign(2*M_num_nodes,0.);
-#if defined (WAVES)
     else
         // coupling with wim
         // 2. run wim
         // 3. exchange from wim to nextsim
         this->wimCall();
+#else
+    M_tau.assign(2*M_num_nodes,0.);
 #endif
     // ====================================================================================
 
@@ -7163,6 +7169,8 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
     external_data_tmp.push_back(&M_osisaf_type);
     external_data_tmp.push_back(&M_amsr2_conc);
     external_data_tmp.push_back(&M_nic_conc);
+
+    external_data M_nic_weekly_conc;
     if(use_weekly_nic)
     {
         M_nic_weekly_conc=ExternalData(&M_ice_nic_weekly_elements_dataset,M_mesh,0,false,time_init-0.5);
@@ -7410,20 +7418,20 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
 
     external_data M_topaz_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
 
-    M_external_data_tmp.resize(0);
-    M_external_data_tmp.push_back(&M_osisaf_conc);
-    M_external_data_tmp.push_back(&M_osisaf_type);
-    M_external_data_tmp.push_back(&M_amsr2_conc);
-    this->checkReloadDatasets(M_external_data_tmp,time_init-0.5,
+    external_data_vec external_data_tmp;
+    external_data_tmp.push_back(&M_osisaf_conc);
+    external_data_tmp.push_back(&M_osisaf_type);
+    external_data_tmp.push_back(&M_amsr2_conc);
+    this->checkReloadDatasets(external_data_tmp,time_init-0.5,
             "init - OSISAF - AMSR2");
     
-    M_external_data_tmp.resize(0);
-    M_external_data_tmp.push_back(&M_topaz_conc);
-    M_external_data_tmp.push_back(&M_topaz_thick);
-    M_external_data_tmp.push_back(&M_topaz_snow_thick);
-    this->checkReloadDatasets(M_external_data_tmp,time_init,
+    external_data_tmp.resize(0);
+    external_data_tmp.push_back(&M_topaz_conc);
+    external_data_tmp.push_back(&M_topaz_thick);
+    external_data_tmp.push_back(&M_topaz_snow_thick);
+    this->checkReloadDatasets(external_data_tmp,time_init,
             "init - TOPAZ ice forecast");
-    M_external_data_tmp.resize(0);
+    external_data_tmp.resize(0);
 
     double tmp_var;
     double sigma_mod=1.;
@@ -7509,20 +7517,20 @@ FiniteElement::topazForecastAmsr2OsisafIce()
 
     external_data M_topaz_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
 
-    M_external_data_tmp.resize(0);
-    M_external_data_tmp.push_back(&M_osisaf_conc);
-    M_external_data_tmp.push_back(&M_osisaf_type);
-    M_external_data_tmp.push_back(&M_amsr2_conc);
-    this->checkReloadDatasets(M_external_data_tmp,time_init-0.5,
+    external_data_vec external_data_tmp;
+    external_data_tmp.push_back(&M_osisaf_conc);
+    external_data_tmp.push_back(&M_osisaf_type);
+    external_data_tmp.push_back(&M_amsr2_conc);
+    this->checkReloadDatasets(external_data_tmp,time_init-0.5,
             "init - OSISAF - AMSR2");
     
-    M_external_data_tmp.resize(0);
-    M_external_data_tmp.push_back(&M_topaz_conc);
-    M_external_data_tmp.push_back(&M_topaz_thick);
-    M_external_data_tmp.push_back(&M_topaz_snow_thick);
-    this->checkReloadDatasets(M_external_data_tmp,time_init,
+    external_data_tmp.resize(0);
+    external_data_tmp.push_back(&M_topaz_conc);
+    external_data_tmp.push_back(&M_topaz_thick);
+    external_data_tmp.push_back(&M_topaz_snow_thick);
+    this->checkReloadDatasets(external_data_tmp,time_init,
             "init - TOPAZ ice forecast");
-    M_external_data_tmp.resize(0);
+    external_data_tmp.resize(0);
 
     double tmp_var;
     double hi;
@@ -7647,29 +7655,29 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 
     external_data M_topaz_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
 
-    M_external_data_tmp.resize(0);
-    M_external_data_tmp.push_back(&M_osisaf_conc);
-    M_external_data_tmp.push_back(&M_osisaf_type);
-    M_external_data_tmp.push_back(&M_amsr2_conc);
-    M_external_data_tmp.push_back(&M_nic_conc);
+    external_data_vec external_data_tmp;
+    external_data_tmp.push_back(&M_osisaf_conc);
+    external_data_tmp.push_back(&M_osisaf_type);
+    external_data_tmp.push_back(&M_amsr2_conc);
+    external_data_tmp.push_back(&M_nic_conc);
     
     external_data M_nic_weekly_conc;
     if(use_weekly_nic)
     {
         M_nic_weekly_conc=ExternalData(&M_ice_nic_weekly_elements_dataset,M_mesh,0,false,time_init-0.5);
-        M_external_data_tmp.push_back(&M_nic_weekly_conc);
+        external_data_tmp.push_back(&M_nic_weekly_conc);
     }
     
-    this->checkReloadDatasets(M_external_data_tmp,time_init-0.5,
+    this->checkReloadDatasets(external_data_tmp,time_init-0.5,
             "init - OSISAF - AMSR2");
     
-    M_external_data_tmp.resize(0);
-    M_external_data_tmp.push_back(&M_topaz_conc);
-    M_external_data_tmp.push_back(&M_topaz_thick);
-    M_external_data_tmp.push_back(&M_topaz_snow_thick);
-    this->checkReloadDatasets(M_external_data_tmp,time_init,
+    external_data_tmp.resize(0);
+    external_data_tmp.push_back(&M_topaz_conc);
+    external_data_tmp.push_back(&M_topaz_thick);
+    external_data_tmp.push_back(&M_topaz_snow_thick);
+    this->checkReloadDatasets(external_data_tmp,time_init,
             "init - TOPAZ ice forecast");
-    M_external_data_tmp.resize(0);
+    external_data_tmp.resize(0);
 
     double hi;		
     double tmp_var;
