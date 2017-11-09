@@ -1,6 +1,8 @@
-function [field_tmp]=get_and_check(fld,data_out,dirname,step,quiet)
+function [field_tmp]=get_and_check(fld,data_out,dirname,step,quiet,no_error)
     
-    if nargin==4, quiet = false; end
+    if ~exist('quiet','var'); quiet = false; end
+    if ~exist('no_error','var'); no_error = 0; end
+    field_tmp = [];
 
     try
         field_tmp=data_out.(fld);
@@ -17,6 +19,8 @@ function [field_tmp]=get_and_check(fld,data_out,dirname,step,quiet)
              end
          end
 
-        error([fld,' not present in ',dirname,'(step=',num2str(step),')']);
+        if ~no_error
+           error([fld,' not present in ',dirname,'(step=',num2str(step),')']);
+        end
      end
 end
