@@ -184,6 +184,7 @@ class gmsh_mesh:
 
       import nextsim_funs as nsf
 
+      print('Reading '+meshfile+'...\n')
       self.meshfile  = meshfile
       self.read_meshfile()
 
@@ -207,6 +208,8 @@ class gmsh_mesh:
       self.ymax   = self.boundary.ymax
 
       self.resolution   = nsf.get_resolution(self)
+
+      print('Finished reading '+meshfile+'.\n')
       return
    # ================================================================
 
@@ -560,7 +563,8 @@ class gmsh_mesh:
 class nextsim_mesh_info:
 
    # ================================================================
-   def __init__(self,mesh_file,mapping=None,mppfile=None,gmsh_obj=None,gmsh_file=None,**kwargs):
+   def __init__(self,mesh_file,mapping=None,mppfile=None,\
+         boundary=None,gmsh_obj=None,gmsh_file=None,**kwargs):
       import nextsim_funs as nsf
       import numpy as np
       import os
@@ -587,12 +591,13 @@ class nextsim_mesh_info:
          self.mapping   = nsf.mppfile_to_pyproj(self.mppfile)
 
       # boundary if given
-      self.boundary  = None
-      if gmsh_obj is not None:
-         self.boundary  = gmsh_obj.boundary
-      elif gmsh_file is not None:
-         gmsh_obj = gmsh_mesh(gmsh_file,mapping=self.mapping,**kwargs)
-         self.boundary  = gmsh_obj.boundary
+      self.boundary  = boundary
+      if boundary is None:
+         if gmsh_obj is not None:
+            self.boundary  = gmsh_obj.boundary
+         elif gmsh_file is not None:
+            gmsh_obj = gmsh_mesh(gmsh_file,mapping=self.mapping,**kwargs)
+            self.boundary  = gmsh_obj.boundary
 
       nodes_x,nodes_y   = self.get_nodes_xy()
       self.xmin         = np.min(nodes_x)
@@ -713,6 +718,7 @@ class nextsim_binary_info:
 
       # =======================================================
       if options is not None:
+         self.logfile   = logfile
          self.options   = options
       else:
          # read log file to get options
@@ -822,21 +828,35 @@ class nextsim_binary_info:
       return
    # =============================================================================
 
+   
    # =============================================================================
    def get_var(self,vname):
       import nextsim_funs as nsf
       return nsf.get_array(vname,self.data_file,self.variables,self.variable_types)
+   # =============================================================================
 
-   def get_vars(self):
+
+   # =============================================================================
+   def get_vars(self,vlist=None):
       import nextsim_funs as nsf
-      return nsf.get_arrays(self.data_file,self.variables,self.variable_types)
+      if vlist is None:
+         vlist = self.variables
+      return nsf.get_arrays(self.data_file,vlist,self.variable_types)
+   # =============================================================================
 
+
+   # =============================================================================
    def plot_mesh(self,**kwargs):
       return self.mesh_info.plot(**kwargs)
+   # =============================================================================
 
+
+   # =============================================================================
    def plot_var(self,vname,**kwargs):
       import nextsim_plot as nsp
       return nsp.plot_mesh_data(self.mesh_info,data=self.get_var(vname),**kwargs)
+   # =============================================================================
+
 
    # =============================================================================
    def interp_var(self,vlist,xout,yout,**kwargs):
@@ -864,6 +884,8 @@ class nextsim_binary_info:
       return nsf.interp_mesh_to_points(self.mesh_info,xout,yout,data_in,**kwargs)
    # =============================================================================
 
+
+   # =============================================================================
    def imshow(self,vname):
 
       import numpy as np
@@ -886,8 +908,172 @@ class nextsim_binary_info:
       plt.show(fig)
 
       return
-
+   # =============================================================================
 
 # ================================================================================
 
 
+# ================================================================================
+class file_list:
+   def __init__(self,rootdir='.',name_filter=None,\
+         step1=None,step2=None,date1=None,date2=None,**kwargs):
+
+      import os
+      import numpy as np
+      import nextsim_funs as nsf
+      import time
+      t0 = time.time()
+
+      lst   = os.listdir(rootdir)
+
+      # check the files
+      filelist  = []
+      steplist  = []
+      datelist  = []
+      for f in lst:
+
+         # =============================================
+         # check if we should include the file
+         prefix   = 'field_'
+         if name_filter is not None:
+            prefix  += name_filter+'_'
+
+         if prefix in f and '.bin' in f:
+            # check if step is a number
+            cstep = f[len(prefix):len(f)-4]
+            try:
+               step  = int(cstep)
+            except:
+               continue
+
+            # check if it is in the step range
+            if step1 is not None:
+               date1 = None
+               if step<step1:
+                  continue
+
+            if step2 is not None:
+               date2 = None
+               if step>step2:
+                  continue
+
+            ff    = os.path.abspath(rootdir)+'/'+f
+            fdat  = ff.replace('.bin','.dat')
+            dto   = nsf.get_nextsim_time(fdat)
+
+            if type(date1) != type(None):
+               if dto<date1:
+                  continue
+
+            if type(date2) != type(None):
+               if dto>date2:
+                  continue
+
+            steplist.append(step)
+            filelist.append(ff)
+            datelist.append(dto)
+         # finished sorting files
+         # =============================================
+
+      # ======================================================================
+      # now sort the times into order
+      lst   = sorted([(e,i) for i,e in enumerate(datelist)])
+      self.number_of_time_records   = len(lst)
+      if self.number_of_time_records==0:
+         return
+
+      self.datetimes = []
+      self.filelist  = []
+      self.steplist  = []
+      self.objects  = []
+      for dto,i in lst:
+         f     = filelist[i]
+         step  = steplist[i]
+         self.datetimes.append(dto)
+         self.filelist.append(f)
+         self.steplist.append(step)
+
+         # get binary file object for each file
+         print( 'Getting object for step %d (%d - %d)...' %(step,np.min(steplist),np.max(steplist)) )
+         nbi   = nextsim_binary_info(f,**kwargs)
+         self.objects.append(nbi)
+
+         if len(self.objects)==1:
+            # gmsh boundary object applies to all (boundary nodes don't move),
+            # and takes some time to create,
+            # so just make it once
+            self.boundary  = nbi.mesh_info.boundary
+            if self.boundary is not None:
+               kwargs.update({'boundary':self.boundary})
+
+            # reading log file takes a bit of time too
+            self.options   = nbi.options
+            if self.options is not None:
+               kwargs.update({'options':self.options})
+      # ======================================================================
+
+      self.variables = self.objects[0].variables
+      t1 = time.time()
+      print('\nSorting/initialisation time: %f seconds.'%(t1-t0))
+      return
+   # =========================================================================
+
+
+   # =========================================================================
+   def nearestDate(self, pivot):
+      """
+      dto,time_index = self.nearestDate(dto0)
+      dto0  = datetime.datetime objects
+      dto   = datetime.datetime objects - nearest value in self.datetimes to dto0
+      time_index: dto=self.datetimes[time_index]
+      """
+      dto         = min(self.datetimes, key=lambda x: abs(x - pivot))
+      time_index  = self.datetimes.index(dto)
+      return dto,time_index
+   # =========================================================================
+
+
+   # =========================================================================
+   def get_var(self,varname,time_index=0):
+      return self.objects[time_index].get_var(varname,**kwargs)
+   # =========================================================================
+
+
+   # =============================================================================
+   def plot_mesh(self,time_index=0,**kwargs):
+      return self.objects[time_index].plot_mesh(**kwargs)
+   # =============================================================================
+
+
+   # =============================================================================
+   def plot_var(self,vname,time_index=0,**kwargs):
+      nbi   = self.objects[time_index]
+      return nbi.plot_var(vname,**kwargs)
+   # =============================================================================
+
+
+   # =============================================================================
+   def plot_var_all(self,vname,figdir='.',**kwargs):
+
+      import os
+      if 'pobj' in kwargs:
+         pobj  = kwargs['pobj']
+      else:
+         pobj  = None
+      
+      if not os.path.exists(figdir):
+         os.mkdir(figdir)
+      figdir2  = figdir+'/'+vname
+      if not os.path.exists(figdir2):
+         os.mkdir(figdir2)
+
+      for i,nbi in enumerate(self.objects):
+
+         kwargs.update({'pobj':pobj})
+         kwargs.update({'show':False})
+         figname  = figdir2+'/'+nbi.basename+'.png'
+
+         pobj  = nbi.plot_var(vname,figname=figname,**kwargs)
+
+      return
+   # =============================================================================

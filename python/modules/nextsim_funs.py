@@ -89,8 +89,9 @@ def mppfile_to_pyproj(mppfile=None):
 
    rotation = float(lines[2].split()[0])
 
-   print(a,b,ecc)
-   print(rotation,lat0,lat_ts)
+   if 0:
+      print(a,b,ecc)
+      print(rotation,lat0,lat_ts)
    
    return pyproj.Proj(proj='stere',a=a,b=b,\
                   lon_0=rotation,lat_0=lat0,lat_ts=lat_ts)
@@ -204,6 +205,17 @@ def get_arrays(binfile,vnames,vtypes):
 
    f.close()
    return out
+# ===============================================================
+
+
+# ===============================================================
+def get_nextsim_time(fdat):
+   from datetime import datetime as DT,timedelta as TD
+
+   variables,record_numbers,variable_types  = read_file_info(fdat)
+
+   Time  = get_array("Time",fdat.replace('.dat','.bin'),variables,variable_types)[0]
+   return DT(1900,1,1)+TD(Time)
 # ===============================================================
 
 
