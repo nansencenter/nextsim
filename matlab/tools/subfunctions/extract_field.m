@@ -24,7 +24,7 @@ function [field_tmp, field_plotted]=extract_field(field,data_out,dirname,step,si
      fld = 'Tice_0';
      [tsurf]=get_and_check(fld,data_out,dirname,step,quiet,no_error);
 
-     %% try to get the thing ice
+     %% try to get the thin ice
      fld = 'Tsurf_thin_ice';
      [tsurf_thin]=get_and_check(fld,data_out,dirname,step,true,true);
   
@@ -44,13 +44,13 @@ function [field_tmp, field_plotted]=extract_field(field,data_out,dirname,step,si
      field_plotted = 'Ocean degrees above the freezing point';
 %   elseif strcmp(field,'Qatm')
 %      fld = 'Qsw';
-%      [Qsw]=get_and_check(fld,data_out,dirname,step,no_error);
+%      [Qsw]=get_and_check(fld,data_out,dirname,step,quiet,no_error);
 % 
 %      fld = 'Qlw';
-%      [Qlw]=get_and_check(fld,data_out,dirname,step,no_error);
+%      [Qlw]=get_and_check(fld,data_out,dirname,step,quiet,no_error);
 %      
 %      fld = 'Qsh';
-%      [Qsh]=get_and_check(fld,data_out,dirname,step,no_error);
+%      [Qsh]=get_and_check(fld,data_out,dirname,step,quiet,no_error);
 %      
 %      fld = 'Qlh';
 %      [Qlh]=get_and_check(fld,data_out,dirname,step,no_error);
@@ -68,7 +68,7 @@ function [field_tmp, field_plotted]=extract_field(field,data_out,dirname,step,si
      field_plotted = 'Ridged volume per area';
   elseif strcmp(field,'Total_thickness')
      fld = 'Thickness';
-     [field_tmp]=get_and_check(fld,data_out,dirname,step);
+     [field_tmp]=get_and_check(fld,data_out,dirname,step,quiet,no_error);
 
      %% try to get the thin ice thickness (volume)
      fld = 'Thin_ice';
@@ -113,7 +113,7 @@ function [field_tmp, field_plotted]=extract_field(field,data_out,dirname,step,si
      field_plotted='Thick and thin ice concentration';
   elseif strcmp(field,'Lead_fraction')
       fld = 'Concentration';
-      [field_tmp1]=get_and_check(fld,data_out,dirname,step);   
+      [field_tmp1]=get_and_check(fld,data_out,dirname,step,quiet,no_error);   
             
       field_tmp = (field_tmp1<0.95)*1.;
       field_plotted='Lead_fraction';
@@ -135,11 +135,11 @@ function [field_tmp, field_plotted]=extract_field(field,data_out,dirname,step,si
      b_param=19.5;
 
      fld = 'Thickness';
-     [field_tmp]=get_and_check(fld,data_out,dirname,step)/10;
+     [field_tmp]=get_and_check(fld,data_out,dirname,step,quiet,no_error)/10;
 
      
      fld = 'Concentration';
-     [field_tmp2]=get_and_check(fld,data_out,dirname,step);
+     [field_tmp2]=get_and_check(fld,data_out,dirname,step,quiet,no_error);
 
      field_tmp = field_tmp./field_tmp2;
      field_tmp(field_tmp2<=0.01) = 0.;
@@ -149,16 +149,16 @@ function [field_tmp, field_plotted]=extract_field(field,data_out,dirname,step,si
      field_tmp=field_tmp2.*SIC_SIT;
      
      fld = 'Tice_2';
-     [field_tmp3]=get_and_check(fld,data_out,dirname,step);  
+     [field_tmp3]=get_and_check(fld,data_out,dirname,step,quiet,no_error);  
           
      field_tmp(field_tmp3>-2) = field_tmp(field_tmp3>-2) - 0.11 * (2 + field_tmp3(field_tmp3>-2));
      field_plotted='sat_concentration';        
      elseif strcmp(field,'melt_ponds')
      fld = 'Concentration';
-     [field_tmp]=get_and_check(fld,data_out,dirname,step);
+     [field_tmp]=get_and_check(fld,data_out,dirname,step,quiet,no_error);
 
      fld = 'Tice_2';
-     [field_tmp2]=get_and_check(fld,data_out,dirname,step);  
+     [field_tmp2]=get_and_check(fld,data_out,dirname,step,quiet,no_error);  
           
      field_tmp = 0.11 * (2 + field_tmp2);
      field_tmp(field_tmp2<-2)=0;
