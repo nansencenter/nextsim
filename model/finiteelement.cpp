@@ -7145,6 +7145,101 @@ FiniteElement::topazForecastAmsr2Ice()
 		M_damage[i]=1.-M_conc[i];
 	}
 }
+
+void
+FiniteElement::concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,double ci,bool use_weekly_nic)
+{
+
+    double alpha_up = 0.;
+    if(!use_weekly_nic)
+    {
+        if(ci<=0.45)
+        {
+            // CT18
+            // .45: .1 - .8
+            alpha_up=(0.45-ci)/0.45;
+            thin_conc_obs_min=0.*alpha_up+0.1*(1-alpha_up);
+            thin_conc_obs_max=0.1*alpha_up+0.8*(1-alpha_up);
+        }
+        else if(ci<=0.9)
+        {
+            // CT81
+            // .9: .8 - 1.
+            //alpha_up=(0.9-ci)/0.45; # 0 anyway
+            alpha_up=(0.9-ci)/0.9;
+            thin_conc_obs_min=0.1*alpha_up+0.8*(1-alpha_up);
+            thin_conc_obs_max=0.8*alpha_up+1.0*(1-alpha_up);
+        }
+        else if(ci<=1.)
+        {
+            thin_conc_obs_min=0.8;
+            thin_conc_obs_max=1.;
+        }
+        else // should not happen
+        {
+            thin_conc_obs_min=1.;
+            thin_conc_obs_max=1.;
+        }
+    }
+    else
+    {
+        if(ci<=0.05) // CT01
+        {
+            // 0 - .1
+            alpha_up=(0.05-ci)/(0.05-0.);
+            thin_conc_obs_min=0.0*alpha_up+0.0*(1-alpha_up);
+            thin_conc_obs_max=0.0*alpha_up+0.1*(1-alpha_up);
+        }
+        else if(ci<=0.10) // CT02
+        {
+            // 0 - .2
+            alpha_up=(0.10-ci)/(0.10-0.);
+            thin_conc_obs_min=0.0*alpha_up+0.0*(1-alpha_up);
+            thin_conc_obs_max=0.0*alpha_up+0.2*(1-alpha_up);
+        }
+        else if(ci<=0.25) // CT14, CT13, CT24
+        {
+            // .1 - .4
+            alpha_up=(0.25-ci)/(0.25-0.);
+            thin_conc_obs_min=0.0*alpha_up+0.1*(1-alpha_up);
+            thin_conc_obs_max=0.1*alpha_up+0.4*(1-alpha_up);
+        }
+        else if(ci<=0.50) // CT46
+        {
+            // .4 - .6
+            alpha_up=(0.50-ci)/(0.50-0.25);
+            thin_conc_obs_min=0.1*alpha_up+0.40*(1-alpha_up);
+            thin_conc_obs_max=0.4*alpha_up+0.60*(1-alpha_up);
+        }
+        else if(ci<=0.70) //CT68
+        {
+            // .6 - .8
+            alpha_up=(0.70-ci)/(0.70-0.50);
+            thin_conc_obs_min=0.40*alpha_up+0.60*(1-alpha_up);
+            thin_conc_obs_max=0.60*alpha_up+0.80*(1-alpha_up);
+        }
+        else if(ci<=0.90) // CT81
+        {
+            // .8 - 1.
+            alpha_up=(0.90-ci)/(0.90-0.70);
+            thin_conc_obs_min=0.60*alpha_up+0.80*(1-alpha_up);
+            thin_conc_obs_max=0.80*alpha_up+1.0*(1-alpha_up);
+        }
+        else if(ci<=1.) // CT92
+        {
+            // .9 - 1.
+            alpha_up=(1.0-ci)/(1.0-0.9);
+            thin_conc_obs_min=0.8*alpha_up+1.0*(1-alpha_up);
+            thin_conc_obs_max=1.0*alpha_up+1.0*(1-alpha_up);
+        }
+        else // should not happen
+        {
+            thin_conc_obs_min=1.;
+            thin_conc_obs_max=1.;
+        }
+    }
+}//concBinsNic
+
 void
 FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 {
@@ -7246,85 +7341,17 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
             M_ridge_ratio[i]=0.;
         }
 
-        double thin_conc_obs;
-        double thin_conc_obs_min, thin_conc_obs_max;
-        double alpha_up;
 
+        //get conc bins from NIC dataset
+        double thin_conc_obs = 0.;
+        double thin_conc_obs_min = 0.;
+        double thin_conc_obs_max = 0.;
+        if (!use_weekly_nic)
+            this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_conc[i],use_weekly_nic);
+        else
+            this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_weekly_conc[i],use_weekly_nic);
                 
-        if(M_nic_conc[i]<=0.45)
-        {
-            alpha_up=(0.45-M_nic_conc[i])/0.45;
-            thin_conc_obs_min=0.*alpha_up+0.1*(1-alpha_up);
-            thin_conc_obs_max=0.1*alpha_up+0.8*(1-alpha_up);
-        }
-        else if(M_nic_conc[i]<=0.9)
-        {
-            alpha_up=(0.9-M_nic_conc[i])/0.45;
-            thin_conc_obs_min=0.1*alpha_up+0.8*(1-alpha_up);
-            thin_conc_obs_max=0.8*alpha_up+1.0*(1-alpha_up);
-        }
-        else if(M_nic_conc[i]<=1.)
-        {
-            thin_conc_obs_min=0.8;
-            thin_conc_obs_max=1.;
-        }
-        else // should not happen
-        {
-            thin_conc_obs_min=1.;
-            thin_conc_obs_max=1.;
-        }
-        
-        if(use_weekly_nic)
-        {
-            if(M_nic_weekly_conc[i]<=0.05) // CT01
-            {
-                alpha_up=(0.05-M_nic_weekly_conc[i])/(0.05-0.);
-                thin_conc_obs_min=0.0*alpha_up+0.0*(1-alpha_up);
-                thin_conc_obs_max=0.0*alpha_up+0.1*(1-alpha_up);
-            }
-            if(M_nic_weekly_conc[i]<=0.10) // CT02
-            {
-                alpha_up=(0.10-M_nic_weekly_conc[i])/(0.10-0.);
-                thin_conc_obs_min=0.0*alpha_up+0.0*(1-alpha_up);
-                thin_conc_obs_max=0.0*alpha_up+0.2*(1-alpha_up);
-            }
-            if(M_nic_weekly_conc[i]<=0.25) // CT14, CT13, CT24
-            {
-                alpha_up=(0.25-M_nic_weekly_conc[i])/(0.25-0.);
-                thin_conc_obs_min=0.0*alpha_up+0.1*(1-alpha_up);
-                thin_conc_obs_max=0.1*alpha_up+0.4*(1-alpha_up);
-            }
-            else if(M_nic_weekly_conc[i]<=0.50) // CT46
-            {
-                alpha_up=(0.50-M_nic_weekly_conc[i])/(0.50-0.25);
-                thin_conc_obs_min=0.1*alpha_up+0.40*(1-alpha_up);
-                thin_conc_obs_max=0.4*alpha_up+0.60*(1-alpha_up);
-            }
-            else if(M_nic_weekly_conc[i]<=0.70) //CT68
-            {
-                alpha_up=(0.70-M_nic_weekly_conc[i])/(0.70-0.50);
-                thin_conc_obs_min=0.40*alpha_up+0.60*(1-alpha_up);
-                thin_conc_obs_max=0.60*alpha_up+0.80*(1-alpha_up);
-            }
-            else if(M_nic_weekly_conc[i]<=0.90) // CT81
-            {
-                alpha_up=(0.90-M_nic_weekly_conc[i])/(0.90-0.70);
-                thin_conc_obs_min=0.60*alpha_up+0.80*(1-alpha_up);
-                thin_conc_obs_max=0.80*alpha_up+1.0*(1-alpha_up);
-            }
-            else if(M_nic_weekly_conc[i]<=1.) // CT92
-            {
-                alpha_up=(1.0-M_nic_weekly_conc[i])/(1.0-0.9);
-                thin_conc_obs_min=0.8*alpha_up+1.0*(1-alpha_up);
-                thin_conc_obs_max=1.0*alpha_up+1.0*(1-alpha_up);
-            }
-            else // should not happen
-            {
-                thin_conc_obs_min=1.;
-                thin_conc_obs_max=1.;
-            }
-        }
-        
+
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
             //double thin_conc_obs  = std::max(M_amsr2_conc[i]-M_conc[i],0.);
@@ -7334,30 +7361,37 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 
             if((M_conc[i]+M_conc_thin[i])<thin_conc_obs_min)
             {
-                thin_conc_obs = thin_conc_obs_min-M_conc[i];
+                thin_conc_obs = thin_conc_obs_min-M_conc[i];//always >=0?
                 if(thin_conc_obs>=0.)
                 {   
+                    //increase thin ice conc so total conc = thin_conc_obs_min
                     if(thin_conc_obs>M_conc_thin[i])
+                        //increase thin ice vol
                         M_h_thin[i] = M_h_thin[i]+(h_thin_min + (h_thin_max/2.-h_thin_min)*0.5)*(thin_conc_obs-M_conc_thin[i]); 
                     else
+                        //reduce thin ice vol
                         M_h_thin[i] = M_h_thin[i]*thin_conc_obs/M_conc_thin[i];
 
                     M_conc_thin[i] = thin_conc_obs;
                 }
+#if 0
                 else
                 {
+                    //not possible? 
                     M_conc_thin[i]=0.;
                     M_h_thin[i]=0.;
 
                     M_thick[i]=M_thick[i]/(M_conc[i])*(M_conc[i]+thin_conc_obs);
                     M_conc[i]=M_conc[i]+thin_conc_obs;
                 }
+#endif
             }
             else if((M_conc[i]+M_conc_thin[i])>thin_conc_obs_max)
             {
                 thin_conc_obs = thin_conc_obs_max-M_conc[i];
                 if(thin_conc_obs>=0.)
                 {   
+                    //some thin ice
                     if(thin_conc_obs>M_conc_thin[i])
                         M_h_thin[i] = M_h_thin[i]+(h_thin_min + (h_thin_max/2.-h_thin_min)*0.5)*(thin_conc_obs-M_conc_thin[i]); 
                     else
@@ -7367,10 +7401,12 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
                 }
                 else
                 {
+                    //no thin ice
                     M_conc_thin[i]=0.;
                     M_h_thin[i]=0.;
 
-                    M_thick[i]=M_thick[i]/(M_conc[i])*(M_conc[i]+thin_conc_obs);
+                    // reduce thick ice to max value
+                    M_thick[i]=M_thick[i]*(M_conc[i]+thin_conc_obs)/(M_conc[i]);
                     M_conc[i]=M_conc[i]+thin_conc_obs;
                 }
             }
@@ -7383,24 +7419,27 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
             double max_h_thin=(h_thin_min+(h_thin_max+h_thin_min)/2.)*M_conc_thin[i];
             if ( M_h_thin[i] > max_h_thin)
                 M_h_thin[i] = max_h_thin; 
-        }
+        }//using thin ice
         else
         {
             if(M_conc[i]<thin_conc_obs_min)
             { 
+                //thin_conc_obs = .25*thin_conc_obs_max + .75*thin_conc_obs_min;
                 thin_conc_obs = ( thin_conc_obs_min + (thin_conc_obs_min+thin_conc_obs_max)/2.) /2.;
                 M_thick[i] = M_thick[i] + std::max(hi,0.5)*(thin_conc_obs-M_conc[i]); // 50 cm minimum for the added ice 
                 M_conc[i] = thin_conc_obs;
             }
             else if(M_conc[i]>thin_conc_obs_max)
             {
+                //thin_conc_obs = .75*thin_conc_obs_max + .25*thin_conc_obs_min;
                 thin_conc_obs = ( thin_conc_obs_max + (thin_conc_obs_min+thin_conc_obs_max)/2.) /2.;
                 M_thick[i] = M_thick[i]*thin_conc_obs/M_conc[i];
                 M_conc[i] = thin_conc_obs;
             }
-        }
-	}
-}
+        }//not using thin ice
+	}//loop over elements
+}//assimilate_topazForecastAmsr2OsisafNicIce
+
 void
 FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
 {
@@ -7773,83 +7812,17 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
             M_ridge_ratio[i]=0.;
         }
 
-        double thin_conc_obs;
-        double thin_conc_obs_min, thin_conc_obs_max;
-        double alpha_up;
-        if(M_nic_conc[i]<=0.45)
-        {
-            alpha_up=(0.45-M_nic_conc[i])/0.45;
-            thin_conc_obs_min=0.0*alpha_up+0.1*(1-alpha_up);
-            thin_conc_obs_max=0.0*alpha_up+0.8*(1-alpha_up);
-        }
-        else if(M_nic_conc[i]<=0.9)
-        {
-            alpha_up=(0.9-M_nic_conc[i])/0.45;
-            thin_conc_obs_min=0.1*alpha_up+0.8*(1-alpha_up);
-            thin_conc_obs_max=0.8*alpha_up+1.0*(1-alpha_up);
-        }
-        else if(M_nic_conc[i]<=1.)
-        {
-            thin_conc_obs_min=0.8;
-            thin_conc_obs_max=1.0;
-        }
-        else // should not happen
-        {
-            thin_conc_obs_min=1.;
-            thin_conc_obs_max=1.;
-        }
 
-        if(use_weekly_nic)
-        {
-            if(M_nic_weekly_conc[i]<=0.05) // CT01
-            {
-                alpha_up=(0.05-M_nic_weekly_conc[i])/(0.05-0.);
-                thin_conc_obs_min=0.0*alpha_up+0.0*(1-alpha_up);
-                thin_conc_obs_max=0.0*alpha_up+0.1*(1-alpha_up);
-            }
-            if(M_nic_weekly_conc[i]<=0.10) // CT02
-            {
-                alpha_up=(0.10-M_nic_weekly_conc[i])/(0.10-0.);
-                thin_conc_obs_min=0.0*alpha_up+0.0*(1-alpha_up);
-                thin_conc_obs_max=0.0*alpha_up+0.2*(1-alpha_up);
-            }
-            if(M_nic_weekly_conc[i]<=0.25)
-            {
-                alpha_up=(0.25-M_nic_weekly_conc[i])/(0.25-0.);
-                thin_conc_obs_min=0.0*alpha_up+0.1*(1-alpha_up);
-                thin_conc_obs_max=0.0*alpha_up+0.4*(1-alpha_up);
-            }
-            else if(M_nic_weekly_conc[i]<=0.50)
-            {
-                alpha_up=(0.50-M_nic_weekly_conc[i])/(0.50-0.25);
-                thin_conc_obs_min=0.1*alpha_up+0.4*(1-alpha_up);
-                thin_conc_obs_max=0.4*alpha_up+0.6*(1-alpha_up);
-            }
-            else if(M_nic_weekly_conc[i]<=0.70)
-            {
-                alpha_up=(0.70-M_nic_weekly_conc[i])/(0.70-0.50);
-                thin_conc_obs_min=0.4*alpha_up+0.6*(1-alpha_up);
-                thin_conc_obs_max=0.6*alpha_up+0.8*(1-alpha_up);
-            }
-            else if(M_nic_weekly_conc[i]<=0.90)
-            {
-                alpha_up=(0.90-M_nic_weekly_conc[i])/(0.90-0.70);
-                thin_conc_obs_min=0.6*alpha_up+0.8*(1-alpha_up);
-                thin_conc_obs_max=0.8*alpha_up+1.0*(1-alpha_up);
-            }
-            else if(M_nic_weekly_conc[i]<=1.)
-            {
-                alpha_up=(1.0-M_nic_weekly_conc[i])/(1.0-0.9);
-                thin_conc_obs_min=0.8*alpha_up+1.0*(1-alpha_up);
-                thin_conc_obs_max=1.0*alpha_up+1.0*(1-alpha_up);
-            }
-            else // should not happen
-            {
-                thin_conc_obs_min=1.;
-                thin_conc_obs_max=1.;
-            }
-        }
+        //get conc bins from NIC dataset
+        double thin_conc_obs = 0.;
+        double thin_conc_obs_min = 0.;
+        double thin_conc_obs_max = 0.;
+        if (!use_weekly_nic)
+            this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_conc[i],use_weekly_nic);
+        else
+            this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_weekly_conc[i],use_weekly_nic);
        
+
         if((M_amsr2_conc[i]>=thin_conc_obs_min) && (M_amsr2_conc[i]<=thin_conc_obs_max))
         {
             thin_conc_obs_min=M_amsr2_conc[i];
@@ -9126,32 +9099,41 @@ FiniteElement::exportResults(std::vector<std::string> const &filenames, bool exp
             }
         }//save forcing
 
+
 #if defined (WAVES)
         if (M_use_wim)
         {
-            exporter.writeField(outbin, M_tau, "Stress_waves_ice");
             exporter.writeField(outbin, M_nfloes, "Nfloes");
             exporter.writeField(outbin, M_dfloe, "Dfloe");
-            if (M_export_wim_diags_mesh)
+
+            if (M_wim_cpt>0)
             {
-                this->getWimDiagnostics();
+                //currently export crashes if WIM hasn't been called yet
+                // TODO separate wim export
+                // TODO enable time interp in WIM to let export
+                //  correspond to same time in WIM model
+                exporter.writeField(outbin, M_tau, "Stress_waves_ice");
+                if (M_export_wim_diags_mesh)
+                {
+                    this->getWimDiagnostics();
 
-                //export diagnostics on elements (eg Hs,Tp,MWD)
-                for (auto it=M_wim_fields_els.begin();it!=M_wim_fields_els.end();it++)
-                    exporter.writeField(outbin, it->second, it->first);//"first" is a string, "second" a vector
+                    //export diagnostics on elements (eg Hs,Tp,MWD)
+                    for (auto it=M_wim_fields_els.begin();it!=M_wim_fields_els.end();it++)
+                        exporter.writeField(outbin, it->second, it->first);//"first" is a string, "second" a vector
 
-                //export diagnostics on nodes (eg Stokes_drift)
-                for (auto it=M_wim_fields_nodes.begin();it!=M_wim_fields_nodes.end();it++)
-                    exporter.writeField(outbin, it->second, it->first);//"first" is a string, "second" a vector
+                    //export diagnostics on nodes (eg Stokes_drift)
+                    for (auto it=M_wim_fields_nodes.begin();it!=M_wim_fields_nodes.end();it++)
+                        exporter.writeField(outbin, it->second, it->first);//"first" is a string, "second" a vector
 
-                //clear the fields
-                M_wim_fields_els.clear();
-                if(!(M_wave_mode==setup::WaveMode::RUN_ON_MESH))
-                    // if M_wim_on_mesh, easier to keep the things on the nodes
-                    // and regrid them
-                    M_wim_fields_nodes.clear();
-            }
-        }
+                    //clear the fields
+                    M_wim_fields_els.clear();
+                    if(!(M_wave_mode==setup::WaveMode::RUN_ON_MESH))
+                        // if M_wim_on_mesh, easier to keep the things on the nodes
+                        // and regrid them
+                        M_wim_fields_nodes.clear();
+                }
+            }//M_wim_cpt>0
+        }//M_use_wim
 #endif
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
@@ -9224,7 +9206,7 @@ FiniteElement::wimPreRegrid()
     M_wim.updateWaveSpec(movedmesh);
 
     // - get wave spec
-    M_wavespec      = M_wim.getWaveSpec();
+    M_wavespec  = M_wim.getWaveSpec();
 
     // need to get displacement of nodes at last WIM call,
     // relative to current position of nodes;

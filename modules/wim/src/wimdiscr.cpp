@@ -1475,7 +1475,7 @@ void WimDiscr<T>::setIceFields(
         // ice fields already where we need them,
         M_ice[IceType::wim].setFields(conc,vol,nfloes);
     else if (M_break_on_mesh)
-        //if(M_break_on_mesh), ice fields already where we need them,
+        // if(M_break_on_mesh), ice fields already where we need them,
         M_ice[IceType::sim].setFields(conc,vol,nfloes);
 
     // end of post-regrid options
