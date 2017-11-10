@@ -20,16 +20,12 @@ clean:
 	#@cd $(NEXTSIMDIR)/contrib/interp/src; make clean
 	@cd $(NEXTSIMDIR)/modules/wim/src; make clean
 	@cd $(NEXTSIMDIR)/core/src; make clean
-ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; make clean
-endif
 
-mrproper: clean
+mrproper:
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; make clean mrproper
 	@cd $(NEXTSIMDIR)/contrib/mapx/src; make clean mrproper
 	#@cd $(NEXTSIMDIR)/contrib/interp/src; make clean mrproper
 	@cd $(NEXTSIMDIR)/modules/wim/src; make clean mrproper
 	@cd $(NEXTSIMDIR)/core/src; make clean mrproper
-ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; make clean mrproper
-endif
