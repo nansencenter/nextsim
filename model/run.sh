@@ -34,10 +34,14 @@ fi
 # Run the nextsim model
 $prog --config-files=$config
 
+
 # do git diff to record changes to code
-outdir=(`grep "output_directory" expt_01/out_cpp_1dirn/mesh/nextsim.log`)
-P=`pwd`
-cd $NEXTSIMDIR
+# default directory
+outdir=$NEXTSIMDIR/matlab
+lin=`grep "output_directory" $config`
+outdir=${lin#*=}
+git diff > $outdir/git_changes.txt
+
 
 # Run the CPU profiler (google perftools)
 if [ \( "$NEXTSIM_BUILD_TYPE" == "DEBUG" \) -o \( "$NEXTSIM_BUILD_TYPE" == "Debug" \) -o \( "$NEXTSIM_BUILD_TYPE" == "debug" \) ]; then
