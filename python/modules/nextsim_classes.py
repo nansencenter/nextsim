@@ -899,7 +899,9 @@ class nextsim_binary_info:
       yout        = arrays['py']
 
       # interpolate vname
-      zout  = self.interp_var([vname],xout,yout)
+      usedef   = True
+      defval   = np.NaN
+      zout     = self.interp_var([vname],xout,yout,use_default=usedef,default_value=defval)
 
       fig   = plt.figure()
       ax    = fig.add_subplot(111)
@@ -1074,6 +1076,9 @@ class file_list:
          figname  = figdir2+'/'+nbi.basename+'.png'
 
          pobj  = nbi.plot_var(vname,figname=figname,**kwargs)
+         pobj.ax.cla()
 
+      from matplotlib import pyplot as plt
+      plt.close(pobj.fig)
       return
    # =============================================================================

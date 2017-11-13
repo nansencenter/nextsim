@@ -11,7 +11,9 @@ class plot_object:
 
 
 # ================================================================
-def plot_mesh_data(mesh_obj,pobj=None,data=None,clabel=None,plot_grid=False,units='km',
+def plot_mesh_data(mesh_obj,pobj=None,data=None,\
+      clabel=None,clim=None,\
+      plot_grid=False,units='km',\
       plot_coast=False,show=True,figname=None,colorbar=True):
    from matplotlib import patches,cm,collections
    import numpy as np
@@ -64,6 +66,9 @@ def plot_mesh_data(mesh_obj,pobj=None,data=None,clabel=None,plot_grid=False,unit
       pc.set_edgecolor('k')
    else:
       pc.set_linewidth(0)
+
+   if clim is not None:
+      pc.set_clim(clim)
 
    ax.add_collection(pc)
    ax.set_xlabel('x, km')

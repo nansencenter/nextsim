@@ -267,7 +267,7 @@ def define_grid(mesh_obj,resolution=None):
 
 
 # ===============================================================
-def interp_mesh_to_points(mesh_obj,xout,yout,data_in,**kwargs):
+def interp_mesh_to_points(mesh_obj,xout,yout,data_in,use_default=False,default_value=0.):
       
    import bamg # wrapper for some functions in bamg c++ library
    import numpy as np
@@ -297,7 +297,7 @@ def interp_mesh_to_points(mesh_obj,xout,yout,data_in,**kwargs):
 
    print('calling bamg interp')
    data_out = bamg.interpMeshToPoints(indices,nodes_x,nodes_y,
-                                       data,X,Y,**kwargs)
+                                       data,X,Y,use_default,default_value)
 
    if isdict:
       # return as dict of arrays the same shape as xout,yout
