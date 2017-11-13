@@ -1,7 +1,8 @@
 #! /bin/sh
 
 # record changes from last git commit:
-# file gets moved to "output_directory"
+# file gets moved from current dir to "output_directory" inside nextsim code
+# NB want file paths relative to $NEXTSIMDIR
 P=`pwd`
 cd $NEXTSIMDIR
 git diff > $P/git_changes.txt

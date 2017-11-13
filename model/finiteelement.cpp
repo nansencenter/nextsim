@@ -9783,6 +9783,7 @@ FiniteElement::writeLogFile()
         }
     }
 
+    //move git_changes.txt from current dir to output dir
     fs::path path1("git_changes.txt");
     if ( fs::exists(path1) )
     {
