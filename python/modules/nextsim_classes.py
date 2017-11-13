@@ -1074,6 +1074,9 @@ class file_list:
          figname  = figdir2+'/'+nbi.basename+'.png'
 
          pobj  = nbi.plot_var(vname,figname=figname,**kwargs)
+         pobj.ax.cla()
 
+      from matplotlib import pyplot as plt
+      plt.close(pobj.fig)
       return
    # =============================================================================
