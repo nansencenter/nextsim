@@ -899,7 +899,9 @@ class nextsim_binary_info:
       yout        = arrays['py']
 
       # interpolate vname
-      zout  = self.interp_var([vname],xout,yout)
+      usedef   = True
+      defval   = np.NaN
+      zout     = self.interp_var([vname],xout,yout,use_default=usedef,default_value=defval)
 
       fig   = plt.figure()
       ax    = fig.add_subplot(111)
