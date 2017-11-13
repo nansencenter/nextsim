@@ -67,3 +67,11 @@ ext = Extension('lib/bamg',
                 )
 setup(name='lib/bamg', ext_modules = cythonize(ext,build_dir='build'))
 # ========================================================================
+
+
+# ========================================================================
+# clean if necessary
+for src in ignore:
+   if os.path.exists(src):
+      os.remove(src)
+# ========================================================================

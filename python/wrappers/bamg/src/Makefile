@@ -27,6 +27,7 @@ fresh: clean lib
 # Delete the object and dependancy files, and the library
 vclean: clean
 	rm -rf lib
+	rm -f $(LIBRARYDIR)/$(LIBRARYNAME)
 	@echo " "
 
 lib:
