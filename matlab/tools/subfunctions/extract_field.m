@@ -53,7 +53,7 @@ function [field_tmp, field_plotted]=extract_field(field,data_out,dirname,step,si
 %      [Qsh]=get_and_check(fld,data_out,dirname,step,quiet,no_error);
 %      
 %      fld = 'Qlh';
-%      [Qlh]=get_and_check(fld,data_out,dirname,step,no_error);
+%      [Qlh]=get_and_check(fld,data_out,dirname,step,quiet,no_error);
 %           
 %      field_tmp = Qsw + Qlw + Qsh + Qlh;
 %      field_plotted = 'Total atmospheric heat flux';

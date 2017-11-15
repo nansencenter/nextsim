@@ -163,7 +163,7 @@ clear vbls_def;
 %lims  = {[0,350]};
 
 % steps to be loaded
-dir0  = dir([outdir,'/mesh_',name_filter,'*.dat']);
+dir0  = dir([outdir,'/mesh_',name_filter,'*.dat'])
 if isempty(name_filter)
    %%only consider numeric steps
    step1 = 1e30;
@@ -245,9 +245,10 @@ for nstep=1:Nsteps
       if ~(exist(fig_full)&~OVER_WRITE)
          disp([vbl,' - ',step,' (',num2str(nstep),'/',num2str(Nsteps),')']);
          if ~RESPLOT
-            [step_,failed] = plot_nextsim_c(vbl,step,region_of_zoom,is_sequential,outdir,po_tmp,simul_in);
+            [step,failed]  =...
+               plot_nextsim_c(vbl,step,region_of_zoom,is_sequential,outdir,po_tmp,simul_in);
          else
-            failed = resplot(vbl,step,outdir,po_tmp);
+            failed   = resplot(vbl,step,outdir,po_tmp);
          end
          clear po_tmp;
 

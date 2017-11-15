@@ -94,7 +94,9 @@ if(~isempty(field))
     try
         field_tmp=data_out.(field);
     catch err
-        disp(['Available fields are: ' fieldnames(data_out)'])
+        if ~quiet
+           disp(['Available fields are: ' fieldnames(data_out)']);
+        end
         if no_error
            failed = 1;
            return;
