@@ -32,7 +32,7 @@ def plot_mesh_data(mesh_obj,pobj=None,data=None,\
 
    # get nodes and indices
    nodes_x,nodes_y   = mesh_obj.get_nodes_xy()
-   indices           = mesh_obj.get_indices("triangles",numbering='gmsh')
+   indices           = mesh_obj.get_indices("triangles",numbering='gmsh',asvector=False)
    Nn = mesh_obj.num_nodes
    Ne = mesh_obj.num_triangles
       
