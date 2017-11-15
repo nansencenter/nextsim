@@ -618,7 +618,7 @@ class nextsim_mesh_info:
 
 
    # ================================================================
-   def get_vars(self,vname):
+   def get_vars(self):
       import nextsim_funs as nsf
       return nsf.get_arrays(self.mesh_file,self.variables,self.variable_types)
    # ================================================================
@@ -661,11 +661,29 @@ class nextsim_mesh_info:
       verts    = []
 
       for inds in indices:
-         x  = 1*vv["Nodes_x"][ind] # take a copy to destroy pointer
-         y  = 1*vv["Nodes_y"][ind] # take a copy to destroy pointer
+         x  = 1*vv["Nodes_x"][inds-1] # take a copy to destroy pointer
+         y  = 1*vv["Nodes_y"][inds-1] # take a copy to destroy pointer
          verts.append((x,y))
 
       return verts
+   # ================================================================
+
+
+   # ================================================================
+   def get_elements_xy(self,dtype='float'):
+      import numpy as np
+
+      vv       = self.get_vars()
+      Nt       = self.num_triangles
+      indices  = vv["Elements"].reshape((Nt,3))
+
+      x  = np.zeros((Nt,),dtype=dtype)
+      y  = np.zeros((Nt,),dtype=dtype)
+      for i,inds in enumerate(indices):
+         x[i]  = np.mean(vv["Nodes_x"][inds-1])
+         y[i]  = np.mean(vv["Nodes_y"][inds-1])
+
+      return x,y
    # ================================================================
 
 
@@ -686,7 +704,54 @@ class nextsim_mesh_info:
       return nsf.define_grid(self,**kwargs)
    # ================================================================
 
-# gmsh_mesh class
+
+   # ================================================================
+   def get_external_data(self,ncfil,vname,dto_in=None,loc='Elements',**kwargs):
+      import mod_netcdf_utils as mnu
+      
+      if loc=='Elements':
+         tx,ty = self.get_elements_xy()
+      else:
+         tx,ty = self.get_nodes_xy()
+
+      target_lonlats = self.mapping(tx,ty,inverse=True)
+
+      # ========================================================
+      # initialise mnu.nc_getinfo object
+      nci   = mnu.nc_getinfo(ncfil,**kwargs)
+      # ========================================================
+
+      tind  = 0
+      if type(dto_in) != type(None):
+         dto,tind  = nci.nearestDate(dto_in)
+
+      vout  = nci.interp2points(vname,target_lonlats,time_index=tind,mapping=self.mapping)
+      return vout
+   # ================================================================
+
+
+   # ================================================================
+   def plot_external_data(self,ncfil,vname,**kwargs):
+
+      # ========================================================
+      # get the interpolated array
+      # - 1st extract arguments from kwargs
+      kw0   = {}
+      ky0   = ['loc','dto_in','lonlat_file']
+      for key in ky0:
+         if key in kwargs:
+            kw0.update({key:kwargs[key]})
+            del(kwargs[key])
+
+      vbl   = self.get_external_data(ncfil,vname,**kw0)
+      # ========================================================
+
+      # kwargs should now be only key words for plot_mesh_data
+      import nextsim_plot as nsp
+      return nsp.plot_mesh_data(self,data=vbl,**kwargs)
+   # ================================================================
+
+# nextsim_mesh_info class
 # ================================================================================
 
 
@@ -912,6 +977,44 @@ class nextsim_binary_info:
       return
    # =============================================================================
 
+
+   # =============================================================================
+   def get_external_data(self,ncfil,vname,**kwargs):
+      """
+      self.get_external_data(ncfil,vname,**kwargs)
+      Interpolate from netcdf dataset onto mesh
+
+      Inputs:
+      *ncfil = netcdf file;
+      *vname = name of variable in netcdf file;
+
+      kwargs for nextsim_mesh_info.get_external_data():
+      *lonlat_file = netcdf with grid corresponding to ncfil
+       (needed if ncfil doesn't have lon,lat inside it)
+      *loc  = 'Elements' or 'Nodes'; where on mesh to interpolate to
+      *dto_in = date to search for in netcdf file;
+      
+
+      returns:
+      array 
+      """
+      if 'dto_in' not in kwargs:
+         kwargs.update({'dto_in':self.datetime})
+      elif type(kwargs['dto_in']) is type(None):
+         kwargs.update({'dto_in':self.datetime})
+      return self.mesh_info.get_external_data(ncfil,vname,**kwargs)
+   # =============================================================================
+
+
+   # =============================================================================
+   def plot_external_data(self,ncfil,vname,**kwargs):
+      if 'dto_in' not in kwargs:
+         kwargs.update({'dto_in':self.datetime})
+      elif type(kwargs['dto_in']) is type(None):
+         kwargs.update({'dto_in':self.datetime})
+      return self.mesh_info.plot_external_data(ncfil,vname,**kwargs)
+   # =============================================================================
+
 # ================================================================================
 
 
@@ -1081,4 +1184,16 @@ class file_list:
       from matplotlib import pyplot as plt
       plt.close(pobj.fig)
       return
+   # =============================================================================
+
+
+   # =============================================================================
+   def get_external_data(self,ncfil,vname,time_index=0,**kwargs):
+      return self.objects[time_index].get_external_data(ncfil,vname,**kwargs)
+   # =============================================================================
+
+
+   # =============================================================================
+   def plot_external_data(self,ncfil,vname,time_index=0,**kwargs):
+      return self.objects[time_index].plot_external_data(ncfil,vname,**kwargs)
    # =============================================================================

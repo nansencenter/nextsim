@@ -343,7 +343,6 @@ def read_nextsim_log(logfile):
    config_files   = []
    badlines       = []
    for lin in lines:
-      # print(lin)
 
       if '#---' in lin:
          # header of section
