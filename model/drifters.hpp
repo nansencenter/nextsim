@@ -69,6 +69,7 @@ namespace Nextsim
 
             std::vector<double> M_X;
             std::vector<double> M_Y;
+            std::vector<int> M_i;
 
             void move(GmshMesh const &mesh, std::vector<double> const &UT, std::vector<double> &X, std::vector<double> &Y);
 

@@ -1,7 +1,6 @@
 KERNEL := $(shell uname -s)
 
 PROGNAME=nextsim.exec
-#WIM_PROG=nextwim.exec
 FPROGNAME=FWrap.x
 
 CXX = g++
@@ -14,13 +13,17 @@ else
 endif
 
 # add g++ option flags
-CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -DHAVE_CONFIG_H -D_MULTITHREADING_ -DWAVES #-DOASIS
-#CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -DHAVE_CONFIG_H -D_MULTITHREADING_ #-DOASIS
+CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -DHAVE_CONFIG_H -D_MULTITHREADING_
+
+ifdef USE_NEXTWIM
+	CXXFLAGS += -DWAVES
+	CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
+	LDFLAGS += -L $(NEXTSIMDIR)/lib -lwim
+endif
 
 ifneq ($(XSIMCOMP_VERBOSE),no)
 	CXXFLAGS += -v
 endif
-
 
 ifdef USE_OASIS
 	CXXFLAGS += -DOASIS
@@ -42,12 +45,10 @@ CXXFLAGS += -I $(NEXTSIMDIR)/core/include
 CXXFLAGS += -isystem $(NEXTSIMDIR)/contrib/bamg/include # suppress annoying compilation warnings from -I
 CXXFLAGS += -isystem $(NEXTSIMDIR)/contrib/mapx/include # suppress annoying compilation warnings from -I
 # CXXFLAGS += -I $(NEXTSIMDIR)/contrib/interp/include
-CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
-#CXXFLAGS += -I $(NEXTSIMDIR)/modules/oasis/include
 
 
 CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
-CXXFLAGS +=	-I $(PETSC_DIR)/include -I $(BOOST_DIR)/include -I .
+CXXFLAGS +=	-I $(PETSC_DIR)/include -I $(BOOST_INCDIR) -I .
 CXXFLAGS +=	-I $(NETCDF_DIR)/include -I $(GMSH_DIR)/include/gmsh
 
 CXXFLAGS +=	-I /opt/local/include
@@ -87,8 +88,8 @@ endif
 
 LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf_c++4
 
-LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib
-LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi -lboost_date_time
+LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
+LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi -lboost_date_time
 
 # LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
 # LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
@@ -97,7 +98,6 @@ LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
 #LDFLAGS += -L $(NEXTSIMDIR)/lib -linterp
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
-LDFLAGS += -L $(NEXTSIMDIR)/lib -lwim
 #LDFLAGS += -L $(NEXTSIMDIR)/lib -loasis
 
 ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))

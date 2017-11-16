@@ -8,7 +8,8 @@ else
 fi
 
 # record changes from last git commit:
-# file gets moved to "output_directory"
+# file gets moved from current dir to "output_directory" inside nextsim code
+# NB want file paths relative to $NEXTSIMDIR
 P=`pwd`
 cd $NEXTSIMDIR
 git diff > $P/git_changes.txt
@@ -28,19 +29,17 @@ kernel=$(uname -s)
 if [ $kernel == "Darwin" ]
 then
     # mac
-    export DYLD_LIBRARY_PATH=$NEXTSIMDIR/lib:$BOOST_DIR/lib
+    export DYLD_LIBRARY_PATH=$NEXTSIMDIR/lib:$BOOST_LIBDIR
 fi
 
 # Run the nextsim model
 $prog --config-files=$config
 
-# do git diff to record changes to code
-outdir=(`grep "output_directory" expt_01/out_cpp_1dirn/mesh/nextsim.log`)
-P=`pwd`
-cd $NEXTSIMDIR
-
 # Run the CPU profiler (google perftools)
-if [ \( "$NEXTSIM_BUILD_TYPE" == "DEBUG" \) -o \( "$NEXTSIM_BUILD_TYPE" == "Debug" \) -o \( "$NEXTSIM_BUILD_TYPE" == "debug" \) ]; then
+nbt=`echo ${NEXTSIM_BUILD_TYPE,,}`
+# this is now lower case
+if [ "$nbt" == "debug" ]
+then
 	echo "============================================"
 	echo "CPU profiling starts..."
 	CMDSTRPROF="pprof --pdf --functions --focus=run --cum --drop_negative --nodecount=50 bin/nextsim.exec profile.log > profile.pdf"

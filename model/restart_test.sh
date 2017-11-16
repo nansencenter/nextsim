@@ -1,6 +1,6 @@
 #! /bin/bash
 
-export DYLD_LIBRARY_PATH=$NEXTSIMDIR/lib:$BOOST_DIR/lib
+export DYLD_LIBRARY_PATH=$NEXTSIMDIR/lib:$BOOST_LIBDIR
 
 if [ "$1" == "--help" ]
 then

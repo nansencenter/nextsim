@@ -29,8 +29,9 @@ run_pierre.sh
 model/out_cpp/*
 model/results/*
 model/bak/*
-matlab/mapx_forward.mex*
-matlab/mapx_inverse.mex*
+*.mexmaci64
+*.mexa64
+python/wrappers/bamg/src/build/*
 
 model/Run.log
 .DS_Store

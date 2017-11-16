@@ -37,25 +37,24 @@ endif
 
 # add g++ option flags
 CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp
-CXXFLAGS += -Wfatal-errors
-# CXXFLAGS += -pedantic
 ifneq ($(XSIMCOMP_VERBOSE),no)
 	CXXFLAGS += -v
 	CFLAGS   += -v
 endif
-
+CXXFLAGS += -Wfatal-errors
+# CXXFLAGS += -pedantic
 
 # add include paths
+# CXXFLAGS += -I .
+CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
 
-CXXFLAGS += -I .
-CXXFLAGS += -I $(BOOST_DIR)/include
-CXXFLAGS += -I $(PETSC_DIR)/include
-CXXFLAGS += -I $(GMSH_DIR)/include/gmsh
+CXXFLAGS += -I $(BOOST_INCDIR)
 CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
-CXXFLAGS += -isystem $(NEXTSIMDIR)/contrib/bamg/include # turn off annoying bamg warnings during compilation
+CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include
+CXXFLAGS += -I $(PETSC_DIR)/include
+CXXFLAGS += -I $(GMSH_DIR)/include/gmsh
 CXXFLAGS += -I $(NEXTSIMDIR)/core/include
-CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
 # ========================================================
 
 
@@ -70,8 +69,6 @@ CCDEPS=$(CCSRC:%.c=$(DEPENDDIR)%.d)
 CC = gcc
 CFLAGS += -Wno-inline -fPIC -O3 # -MMD -MP -lm #-Wall -pedantic
 CFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
-# CFLAGS += -I .
-# CFLAGS += -I $(CCSRCDIR)
 # ========================================================
 
 # ========================================================
@@ -79,11 +76,9 @@ CFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
 LDFLAGS += -fopenmp
 LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
 LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
-LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib
-LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi -lboost_date_time
-LDFLAGS += -L $(NEXTSIMDIR)/lib
-LDFLAGS += -lmapx -lbamg
-LDFLAGS += -lnextsim # eg has gmsh
+LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
+LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi -lboost_date_time
+LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx -lbamg -lnextsim
 # ========================================================
 
 

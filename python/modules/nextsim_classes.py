@@ -186,7 +186,7 @@ class gmsh_mesh:
 
       print('Reading '+meshfile+'...\n')
       self.meshfile  = meshfile
-      self.read_meshfile()
+      self._read_meshfile()
 
       # stereographic projection
       if mapping is not None:
@@ -198,7 +198,7 @@ class gmsh_mesh:
          self.mppfile   = mppfile
          self.mapping   = nsf.mppfile_to_pyproj(self.mppfile)
 
-      self.stereographic_projection()
+      self._stereographic_projection()
 
       self.get_boundary()
 
@@ -214,7 +214,7 @@ class gmsh_mesh:
    # ================================================================
 
    # ================================================================
-   def read_meshfile(self):
+   def _read_meshfile(self):
 
       import numpy as np
       import nextsim_funs as nsf
@@ -358,24 +358,27 @@ class gmsh_mesh:
       self.num_triangles   = len(self.triangles)
       # =============================================================
 
-      return # read_meshfile
+      return # _read_meshfile
    # ================================================================
 
 
    # ================================================================
-   def stereographic_projection(self):
+   def _stereographic_projection(self):
       self.nodes_x,self.nodes_y  = self.mapping(self.nodes_lon,self.nodes_lat)
       return
    # ================================================================
 
+
+   # ================================================================
    def get_nodes_xy(self,dtype='float'):
       import numpy as np
       return np.array(self.nodes_x,dtype=dtype),\
                np.array(self.nodes_y,dtype=dtype)
+   # ================================================================
 
 
    # ================================================================
-   def get_indices(self,eltype="triangles",numbering='gmsh',asvector=True):
+   def get_indices(self,eltype="triangles",numbering='gmsh',asvector=False):
 
       import numpy as np
 
@@ -404,6 +407,36 @@ class gmsh_mesh:
       else:
          # 
          return np.array(indices)
+   # ================================================================
+
+
+   # ================================================================
+   def get_elements_xy(self,eltype='triangles',**kwargs):
+
+      import numpy as np
+      xnod,ynod   = self.get_nodes_xy(**kwargs)
+
+      indices  = []
+      if eltype=="triangles":
+         els      = self.triangles
+         nverts   = 3
+      else:
+         els      = self.edges
+         nverts   = 2
+
+      Ne = len(els)
+      xe = np.zeros((Ne,),**kwargs)
+      ye = np.zeros((Ne,),**kwargs)
+      for i,el in enumerate(els):
+         x  = []
+         y  = []
+         for v in el.vertices:
+            x.append(xnod[v])
+            y.append(ynod[v])
+         xe[i] = np.mean(x)
+         ye[i] = np.mean(y)
+
+      return xe,ye
    # ================================================================
 
 
@@ -559,6 +592,23 @@ class gmsh_mesh:
    # ================================================================
 
 
+   # ================================================================
+   def get_external_data(self,ncfil,vname,**kwargs):
+      import nextsim_funs as nsf
+      return nsf.get_external_data(self,ncfil,vname,**kwargs)
+   # ================================================================
+
+
+   # ================================================================
+   def plot_external_data(self,ncfil,vname,**kwargs):
+      import nextsim_funs as nsf
+      return nsf.plot_external_data(self,ncfil,vname,**kwargs)
+   # ================================================================
+
+# gmsh_mesh class
+# ===================================================================
+
+
 # ===================================================================
 class nextsim_mesh_info:
 
@@ -618,7 +668,7 @@ class nextsim_mesh_info:
 
 
    # ================================================================
-   def get_vars(self,vname):
+   def get_vars(self):
       import nextsim_funs as nsf
       return nsf.get_arrays(self.mesh_file,self.variables,self.variable_types)
    # ================================================================
@@ -661,11 +711,29 @@ class nextsim_mesh_info:
       verts    = []
 
       for inds in indices:
-         x  = 1*vv["Nodes_x"][ind] # take a copy to destroy pointer
-         y  = 1*vv["Nodes_y"][ind] # take a copy to destroy pointer
+         x  = 1*vv["Nodes_x"][inds-1] # take a copy to destroy pointer
+         y  = 1*vv["Nodes_y"][inds-1] # take a copy to destroy pointer
          verts.append((x,y))
 
       return verts
+   # ================================================================
+
+
+   # ================================================================
+   def get_elements_xy(self,dtype='float'):
+      import numpy as np
+
+      vv       = self.get_vars()
+      Nt       = self.num_triangles
+      indices  = vv["Elements"].reshape((Nt,3))
+
+      x  = np.zeros((Nt,),dtype=dtype)
+      y  = np.zeros((Nt,),dtype=dtype)
+      for i,inds in enumerate(indices):
+         x[i]  = np.mean(vv["Nodes_x"][inds-1])
+         y[i]  = np.mean(vv["Nodes_y"][inds-1])
+
+      return x,y
    # ================================================================
 
 
@@ -686,7 +754,21 @@ class nextsim_mesh_info:
       return nsf.define_grid(self,**kwargs)
    # ================================================================
 
-# gmsh_mesh class
+
+   # ================================================================
+   def get_external_data(self,ncfil,vname,**kwargs):
+      import nextsim_funs as nsf
+      return nsf.get_external_data(self,ncfil,vname,**kwargs)
+   # ================================================================
+
+
+   # ================================================================
+   def plot_external_data(self,ncfil,vname,**kwargs):
+      import nextsim_funs as nsf
+      return nsf.plot_external_data(self,ncfil,vname,**kwargs)
+   # ================================================================
+
+# nextsim_mesh_info class
 # ================================================================================
 
 
@@ -912,6 +994,44 @@ class nextsim_binary_info:
       return
    # =============================================================================
 
+
+   # =============================================================================
+   def get_external_data(self,ncfil,vname,**kwargs):
+      """
+      self.get_external_data(ncfil,vname,**kwargs)
+      Interpolate from netcdf dataset onto mesh
+
+      Inputs:
+      *ncfil = netcdf file;
+      *vname = name of variable in netcdf file;
+
+      kwargs for nextsim_mesh_info.get_external_data():
+      *lonlat_file = netcdf with grid corresponding to ncfil
+       (needed if ncfil doesn't have lon,lat inside it)
+      *loc  = 'Elements' or 'Nodes'; where on mesh to interpolate to
+      *dto_in = date to search for in netcdf file;
+      
+
+      returns:
+      array 
+      """
+      if 'dto_in' not in kwargs:
+         kwargs.update({'dto_in':self.datetime})
+      elif type(kwargs['dto_in']) is type(None):
+         kwargs.update({'dto_in':self.datetime})
+      return self.mesh_info.get_external_data(ncfil,vname,**kwargs)
+   # =============================================================================
+
+
+   # =============================================================================
+   def plot_external_data(self,ncfil,vname,**kwargs):
+      if 'dto_in' not in kwargs:
+         kwargs.update({'dto_in':self.datetime})
+      elif type(kwargs['dto_in']) is type(None):
+         kwargs.update({'dto_in':self.datetime})
+      return self.mesh_info.plot_external_data(ncfil,vname,**kwargs)
+   # =============================================================================
+
 # ================================================================================
 
 
@@ -1049,8 +1169,7 @@ class file_list:
 
    # =============================================================================
    def plot_var(self,vname,time_index=0,**kwargs):
-      nbi   = self.objects[time_index]
-      return nbi.plot_var(vname,**kwargs)
+      return self.objects[time_index].plot_var(vname,**kwargs)
    # =============================================================================
 
 
@@ -1081,4 +1200,16 @@ class file_list:
       from matplotlib import pyplot as plt
       plt.close(pobj.fig)
       return
+   # =============================================================================
+
+
+   # =============================================================================
+   def get_external_data(self,ncfil,vname,time_index=0,**kwargs):
+      return self.objects[time_index].get_external_data(ncfil,vname,**kwargs)
+   # =============================================================================
+
+
+   # =============================================================================
+   def plot_external_data(self,ncfil,vname,time_index=0,**kwargs):
+      return self.objects[time_index].plot_external_data(ncfil,vname,**kwargs)
    # =============================================================================

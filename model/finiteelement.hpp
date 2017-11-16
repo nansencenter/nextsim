@@ -153,6 +153,8 @@ public:
     Dataset M_ice_osisaf_elements_dataset;
     Dataset M_ice_osisaf_type_elements_dataset;
     Dataset M_ice_amsr2_elements_dataset;
+    Dataset M_ice_nic_elements_dataset;
+    Dataset M_ice_nic_weekly_elements_dataset;
     Dataset M_ice_cs2_smos_elements_dataset;
     Dataset M_ice_smos_elements_dataset;
 #if defined (WAVES)
@@ -186,6 +188,8 @@ public:
 	void bathymetry();
     void checkReloadDatasets(external_data_vec const& ext_data_vec,
         double const& CRtime, std::string const& printout);
+    void assimilateIce();
+    void assimilateSlabOcean();
     void initIce();
     void initThermodynamics();
     void initSlabOcean();
@@ -197,6 +201,7 @@ public:
     void importBamg(BamgMesh const* bamg_mesh);
     void initVariables();
     void initModelState();
+    void DataAssimilation();
     void tensors();
     void cohesion();
     void updateVelocity();
@@ -401,6 +406,7 @@ private:
 
     bool M_use_restart;
     bool M_write_restart;
+    bool M_use_assimilation;
 
     std::string M_export_path;
 
@@ -527,6 +533,10 @@ private:
     void topazForecastIce();
     void topazForecastAmsr2Ice();
     void topazForecastAmsr2OsisafIce();
+    void topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
+    void assimilate_topazForecastAmsr2OsisafIce();
+    void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
+    void concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,double ci,bool use_weekly_nic);
     void cs2SmosIce();
     void cs2SmosAmsr2Ice();
     void warrenClimatology();

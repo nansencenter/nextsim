@@ -123,6 +123,7 @@ template<typename Type>
 void
 Exporter::writeField(std::fstream& out, std::vector<Type> const& field, std::string const& name)
 {
+    //std::cout<<"Writing "<<name<<": len = "<<field.size()<<"\n";
     std::string description;
     writeContainer(out, field);
 

@@ -343,7 +343,6 @@ def read_nextsim_log(logfile):
    config_files   = []
    badlines       = []
    for lin in lines:
-      # print(lin)
 
       if '#---' in lin:
          # header of section
@@ -409,3 +408,50 @@ def read_nextsim_log(logfile):
 
    return options
 # ===============================================================
+
+
+# ================================================================
+def get_external_data(meshobj,ncfil,vname,dto_in=None,loc='Elements',**kwargs):
+   import mod_netcdf_utils as mnu
+   
+   if loc=='Elements':
+      tx,ty = meshobj.get_elements_xy()
+   else:
+      tx,ty = meshobj.get_nodes_xy()
+
+   target_lonlats = meshobj.mapping(tx,ty,inverse=True)
+
+   # ========================================================
+   # initialise mnu.nc_getinfo object
+   nci   = mnu.nc_getinfo(ncfil,**kwargs)
+   # ========================================================
+
+   tind  = 0
+   if type(dto_in) != type(None):
+      dto,tind  = nci.nearestDate(dto_in)
+
+   vout  = nci.interp2points(vname,target_lonlats,time_index=tind,mapping=meshobj.mapping)
+   return vout
+# ================================================================
+
+
+# ================================================================
+def plot_external_data(meshobj,ncfil,vname,**kwargs):
+
+   # ========================================================
+   # get the interpolated array
+   # - 1st extract arguments from kwargs
+   kw0   = {}
+   ky0   = ['loc','dto_in','lonlat_file']
+   for key in ky0:
+      if key in kwargs:
+         kw0.update({key:kwargs[key]})
+         del(kwargs[key])
+
+   vbl   = get_external_data(meshobj,ncfil,vname,**kw0)
+   # ========================================================
+
+   # kwargs should now be only key words for plot_mesh_data
+   import nextsim_plot as nsp
+   return nsp.plot_mesh_data(meshobj,data=vbl,**kwargs)
+# ================================================================
