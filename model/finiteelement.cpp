@@ -405,7 +405,7 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
         return;
     }
 
-    //loop over M_external_data and call check and reload for each:
+    //loop over ext_data_vec and call check and reload for each:
     chrono.restart();
     LOG(DEBUG) <<"check_and_reload ("<<printout<<") starts\n";
 
@@ -4499,10 +4499,7 @@ FiniteElement::init()
     if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
     {
         M_export_path = vm["simul.output_directory"].as<std::string>();
-
         fs::path path(M_export_path);
-        // add a subdirecory if needed
-        // path /= "subdir";
 
         // create the output directory if it does not exist
         if ( !fs::exists(path) )
@@ -4996,11 +4993,16 @@ FiniteElement::step(int &pcpt)
     }
 #if 1
     if (pcpt == 0)
-    {
+    { 
+        // Write results/restart before regrid - useful for debugging
+        // NB this only helps if starting from a restart,
+        // otherwise regridding has already happened in init(),
+        // so won't happen this time step
+        // TODO just write restart in init() as well?
         chrono.restart();
         LOG(DEBUG) <<"first export starts\n";
         this->exportResults(0);
-        this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
+        this->writeRestart(pcpt, 0);
         LOG(DEBUG) <<"first export done in " << chrono.elapsed() <<"s\n";
     }
 #endif
@@ -9042,11 +9044,11 @@ FiniteElement::exportResults(std::vector<std::string> const &filenames, bool exp
 
         if(vm["simul.save_forcing_field"].as<bool>())
         {
-            // Thermodynamic and dynamic forcing
-            // Atmosphere
             std::vector<std::string> ext_data_names;
             external_data_vec external_data_tmp;
 
+            // Thermodynamic and dynamic forcing
+            // Atmosphere
             external_data_tmp.push_back(&M_wind);         // Surface wind [m/s]
             ext_data_names.push_back("M_wind");
             external_data_tmp.push_back(&M_tair);         // 2 m temperature [C]
@@ -9085,8 +9087,9 @@ FiniteElement::exportResults(std::vector<std::string> const &filenames, bool exp
             ext_data_names.push_back("M_mld");
 
             // Bathymetry
-            external_data_tmp.push_back(&M_element_depth);           // Mixed-layer depth [m]
+            external_data_tmp.push_back(&M_element_depth);           // Depth [m]
             ext_data_names.push_back("M_element_depth");
+
 
             //loop over external data pointers and check if they should be saved
             for (int i=0;i<external_data_tmp.size();i++)
@@ -9131,7 +9134,35 @@ FiniteElement::exportResults(std::vector<std::string> const &filenames, bool exp
                         // if M_wim_on_mesh, easier to keep the things on the nodes
                         // and regrid them
                         M_wim_fields_nodes.clear();
-                }
+                }//wim_diags_mesh
+
+                if( (M_wave_type!=setup::WaveType::SET_IN_WIM)
+                    && (M_wave_mode==setup::WaveMode::RUN_ON_MESH)
+                    && (vm["simul.save_forcing_field"].as<bool>()) )
+                {
+                    // if compiled with wim, using wim,
+                    // using wave datasets, and running on mesh,
+                    // save the wave forcings too
+                    std::vector<std::string> ext_data_names;
+                    external_data_vec external_data_tmp;
+
+                    external_data_tmp.push_back(&M_SWH);           // Hs [m]
+                    ext_data_names.push_back("M_SWH");
+                    external_data_tmp.push_back(&M_MWP);           // Tp [s]
+                    ext_data_names.push_back("M_MWP");
+                    external_data_tmp.push_back(&M_MWD);           // MWD: stored as a unit vector
+                    ext_data_names.push_back("M_MWD");
+
+                    //loop over the external data things
+                    for (int i=0;i<external_data_tmp.size();i++)
+                    {
+                        if ((external_data_tmp[i]->M_initialized)&&
+                            (!external_data_tmp[i]->M_is_constant))
+                        {
+                            exporter.writeField(outbin,external_data_tmp[i]->getVector(), ext_data_names[i]);
+                        }
+                    }
+                }//save wave forcings
             }//M_wim_cpt>0
         }//M_use_wim
 #endif
@@ -9286,6 +9317,11 @@ FiniteElement::wimCheckWaves()
     dbl_vec swh_in(num_elements_wim,0.);
     dbl_vec mwp_in(num_elements_wim,0.);
     dbl_vec mwd_in(num_elements_wim,0.);
+
+    double Hs_data_min  = 1.e30;
+    double Hs_data_max  = -1.e30;
+    double Tp_data_min  = 1.e30;
+    double Tp_data_max  = -1.e30;
     for (int i=0; i<num_elements_wim; ++i)
     {
         //get incident waves from datasets
@@ -9330,16 +9366,27 @@ FiniteElement::wimCheckWaves()
             mwp_in[i] = 0.;
             mwd_in[i] = 0.;
         }
+
+        Hs_data_min  = std::min(Hs_data_min,M_SWH[i]);
+        Hs_data_max  = std::max(Hs_data_max,M_SWH[i]);
+        Tp_data_min  = std::min(Tp_data_min,M_MWP[i]);
+        Tp_data_max  = std::max(Tp_data_max,M_MWP[i]);
     }//loop over wim grid cells
 
 
 #if 1
-    LOG(DEBUG)<<"min swh_in = "<< *std::min_element(swh_in.begin(),swh_in.end() )<<"\n";
-    LOG(DEBUG)<<"max swh_in = "<< *std::max_element(swh_in.begin(),swh_in.end() )<<"\n";
-    LOG(DEBUG)<<"min mwd_in = "<< *std::min_element(mwd_in.begin(),mwd_in.end() )<<"\n";
-    LOG(DEBUG)<<"max mwd_in = "<< *std::max_element(mwd_in.begin(),mwd_in.end() )<<"\n";
-    LOG(DEBUG)<<"min mwp_in = "<< *std::min_element(mwp_in.begin(),mwp_in.end() )<<"\n";
-    LOG(DEBUG)<<"max mwp_in = "<< *std::max_element(mwp_in.begin(),mwp_in.end() )<<"\n";
+    std::cout<<"min swh (dataset) = "<< Hs_data_min <<"\n";
+    std::cout<<"max swh (dataset) = "<< Hs_data_max <<"\n";
+    std::cout<<"min mwp (dataset) = "<< Tp_data_min <<"\n";
+    std::cout<<"max mwp (dataset) = "<< Tp_data_max <<"\n";
+    //
+    std::cout<<"min swh (processed dataset) = "<< *std::min_element(swh_in.begin(),swh_in.end() )<<"\n";
+    std::cout<<"max swh (processed dataset) = "<< *std::max_element(swh_in.begin(),swh_in.end() )<<"\n";
+    std::cout<<"min mwp (processed dataset) = "<< *std::min_element(mwp_in.begin(),mwp_in.end() )<<"\n";
+    std::cout<<"max mwp (processed dataset) = "<< *std::max_element(mwp_in.begin(),mwp_in.end() )<<"\n";
+    std::cout<<"min mwd (processed dataset) = "<< *std::min_element(mwd_in.begin(),mwd_in.end() )<<"\n";
+    std::cout<<"max mwd (processed dataset) = "<< *std::max_element(mwd_in.begin(),mwd_in.end() )<<"\n";
+    std::cout<<"9364\n";
 #endif
 
 
