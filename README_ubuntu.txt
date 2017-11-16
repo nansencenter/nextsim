@@ -43,6 +43,11 @@ mpicc --version
 *gfortran 4.8
 sudo apt-get install gfortran-4.8
 sudo ln -sf gfortran-4.8 gfortran
+
+# Comment: It cal also be compiled with the default compilers from APT:
+# sudo apt install build-essential
+# GNU Fortran (Ubuntu 5.4.0-6ubuntu1~16.04.5) 5.4.0 20160609
+# gcc (Ubuntu 5.4.0-6ubuntu1~16.04.5) 5.4.0 20160609
 # =============================================================
 
 
@@ -110,6 +115,10 @@ NETCDF
    make
    make check
    sudo make install
+
+# Comment: it can also be compiled with the default version from APT 
+# sudo apt install libnetcdf-dev
+# libnetcdf-dev Version: 1:4.4.0-2
 # =============================================================
 
 
@@ -123,6 +132,10 @@ NETCDF-CXX
    make check
    sudo make install
 3) sudo cp /opt/local/netcdf/include/* /opt/local/netcdf-cxx/include
+
+# Comment: it can also be compiled with the default version from APT 
+# sudo apt install libnetcdf-c++4-dev
+# libnetcdf-c++4-dev Version: 4.2.1-3
 # =============================================================
 
 
