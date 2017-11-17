@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('Agg')
 import os,sys
 from getopt import getopt
 from datetime import datetime as DT
