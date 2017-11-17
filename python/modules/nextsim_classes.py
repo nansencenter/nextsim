@@ -934,8 +934,10 @@ class nextsim_binary_info:
 
 
    # =============================================================================
-   def plot_var(self,vname,**kwargs):
+   def plot_var(self,vname,date_label=1,**kwargs):
       import nextsim_plot as nsp
+      if date_label==1 and 'dtime' not in kwargs:
+         kwargs.update({'dtime':self.datetime})
       return nsp.plot_mesh_data(self.mesh_info,data=self.get_var(vname),**kwargs)
    # =============================================================================
 
@@ -1116,7 +1118,8 @@ class file_list:
          self.steplist.append(step)
 
          # get binary file object for each file
-         print( 'Getting object for step %d (%d - %d)...' %(step,np.min(steplist),np.max(steplist)) )
+         print( 'Getting object for step %d (%d - %d): %s...' \
+               %(step,np.min(steplist),np.max(steplist),dto.strftime('%Y-%b-%d %H:%M:%S')) )
          nbi   = nextsim_binary_info(f,**kwargs)
          self.objects.append(nbi)
 

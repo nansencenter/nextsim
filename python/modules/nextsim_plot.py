@@ -14,7 +14,8 @@ class plot_object:
 def plot_mesh_data(mesh_obj,pobj=None,data=None,\
       clabel=None,clim=None,\
       plot_grid=False,units='km',\
-      plot_coast=False,show=True,figname=None,colorbar=True):
+      plot_coast=False,show=True,figname=None,
+      dtime=None,colorbar=True):
    from matplotlib import patches,cm,collections
    import numpy as np
 
@@ -73,6 +74,10 @@ def plot_mesh_data(mesh_obj,pobj=None,data=None,\
    ax.add_collection(pc)
    ax.set_xlabel('x, km')
    ax.set_ylabel('y, km')
+
+   if type(dtime)!=type(None):
+      ttl   = dtime.strftime('%Y-%b-%d %H:%M:%S')
+      ax.set_title(ttl)
 
    if colorbar:
       from mpl_toolkits.axes_grid1 import make_axes_locatable as MAL
