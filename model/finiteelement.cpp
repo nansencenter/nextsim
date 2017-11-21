@@ -565,6 +565,11 @@ FiniteElement::initConstant()
     output_time_step =  (vm["simul.output_per_day"].as<int>()<0) ? time_step : days_in_sec/vm["simul.output_per_day"].as<int>();
     mooring_output_time_step =  vm["simul.mooring_output_timestep"].as<double>()*days_in_sec;
     mooring_time_factor = time_step/mooring_output_time_step;
+    if ( fmod(mooring_output_time_step,time_step) != 0)
+    {
+        std::cout << mooring_output_time_step << " " << time_step << "\n";
+        throw std::runtime_error("mooring_output_time_step is not an integer multiple of time_step");
+    }
 
     // output_time_step =  time_step*vm["simul.output_per_day"].as<int>(); // useful for debuging
     duration = (vm["simul.duration"].as<double>())*days_in_sec;
