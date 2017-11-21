@@ -1,4 +1,4 @@
-function resplot(field,step,dirname,plot_options)
+function failed = resplot(field,step,dirname,plot_options)
 %% CALL: resplot(field,step,dirname,plot_options)
 
 % clearvars -except step;
@@ -93,7 +93,8 @@ if(~isempty(field))
         field_tmp=data_out.(field);
     catch err
         disp(['Available fields are: ' fieldnames(data_out)'])
-        rethrow(err)
+        failed = 1;
+        return;
     end
 else
     field_tmp=zeros(Ne,1);
