@@ -7,7 +7,9 @@ all:
 	@cd $(NEXTSIMDIR)/contrib/mapx/src; make
 	#@cd $(NEXTSIMDIR)/contrib/interp/src; make
 	@cd $(NEXTSIMDIR)/core/src; make;
+ifdef USE_NEXTWIM
 	@cd $(NEXTSIMDIR)/modules/wim/src; make
+endif
 ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; make
 endif

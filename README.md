@@ -78,12 +78,22 @@ You can run the code with the options:
 ####### Install netcdf #######
 1) install hdf5 via macport: "sudo port install hdf5"
 2) download latest stable c version of netcdf on http://www.unidata.ucar.edu/downloads/netcdf/index.jsp and unzip it
-3) copy configure_c.sh from /nextsim/scripts/netcdf
-4) From netcdf directory, type: "./configure_c.sh" then "make", "make check" and finally "sudo make install"
-5) download latest stable c-xx version of netcdf on http://www.unidata.ucar.edu/downloads/netcdf/index.jsp and unzip it
-6) copy configure_cxx.sh from /nextsim/scripts/netcdf
-7) From netcdf-cxx directory, type: "./configure_cxx.sh", then "make", "make check", and finally "sudo make install"
-8) do "sudo cp /opt/local/netcdf/include/* /opt/local/netcdf-cxx/include/."
+3) copy configure_osx.sh from /nextsim/scripts/netcdf
+4) In netcdf directory
+   ./configure_osx.sh
+   make
+   make check
+   sudo make install
+
+####### Install netcdf-cxx #######
+1) download latest stable c-xx version of netcdf on http://www.unidata.ucar.edu/downloads/netcdf/index.jsp and unzip it
+2) copy configure_osx.sh from /nextsim/scripts/netcdf-cxx
+3) In netcdf-cxx directory
+   ./configure_osx.sh
+   make
+   make check
+   sudo make install
+4) do "sudo cp /opt/local/netcdf/include/* /opt/local/netcdf-cxx/include/."
 
 ####### install gmsh from the source code #######
 
@@ -129,8 +139,11 @@ export NETCDF_DIR=/opt/local/netcdf-cxx
 
 export PETSC_DIR=/opt/local/petsc
 export PETSC_ARCH=arch-darwin-c-opt
+# export PETSC_DIR=/opt/local/petsc-debug
+# export PETSC_ARCH=arch-darwin-c-debug
 
-export BOOST_DIR=/opt/local/boost
+export BOOST_LIBDIR=/opt/local/boost/lib
+export BOOST_INCDIR=/opt/local/boost/include
 
 export OPENMPI_LIB_DIR=/opt/local/lib/openmpi-gcc48
 export OPENMPI_INCLUDE_DIR=/opt/local/include/openmpi-gcc48
@@ -141,9 +154,6 @@ export DYLD_LIBRARY_PATH=NEXTSIMDIR/lib:$DYLD_LIBRARY_PATH
 export OPENMPI_INCLUDE_DIR=/opt/local/include/openmpi-gcc48
 export OPENMPI_LIB_DIR=/opt/local/lib/openmpi-gcc48
 
-# Check your environment variables
-Check if you have the environment variable WIM2D_PATH (echo $WIM2D_PATH)?
-if so, you will need to unset it (unset WIM2D_PATH)
 
 ##-------  Compile neXtSIM itself ---------
 
@@ -159,24 +169,13 @@ if so, you will need to unset it (unset WIM2D_PATH)
 
 # type "bin/nextsim.exec --configfile=nextsim.cfg"
 
-##-------  Compile neXtWIM itself ---------
 
-First go to the WIM2D github repo ( = $WIM2D_PATH - probably need to set
-this)
-
-Compile the WIM library with:
-
-cd CXX/Build
-make vclean
-make lib
-
-back in nextsim/model
-
-compile with
-
-make clean
-make wim
-
+##-------  neXtWIM ---------
+1) in .bash_profile, add
+export USE_NEXTWIM=1
+(compiler just checks if it's defined)
+2) now compiled automatically with first "make"
+3) To run with it set
 simul.use_wim=True (as in coupling_wim.cfg)
 
 ##------- Compile with OASIS3-MCT support -------

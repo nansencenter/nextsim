@@ -37,10 +37,13 @@ else
 endif
 
 # add g++ option flags
-CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v #-pedantic
+CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp
+CXXFLAGS += -v
+CXXFLAGS += -Wfatal-errors
+# CXXFLAGS += -pedantic
 
 # add include paths
-CXXFLAGS += -I . -I $(BOOST_DIR)/include -I $(OPENMPI_INCLUDE_DIR)/ #-I $(WIM2D_CXX)/include
+CXXFLAGS += -I . -I $(BOOST_INCDIR) -I $(OPENMPI_INCLUDE_DIR)/ #-I $(WIM2D_CXX)/include
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include -I $(NEXTSIMDIR)/contrib/bamg/include
 CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
 # ========================================================
@@ -64,8 +67,8 @@ CFLAGS += -I $(NEXTSIMDIR)/modules/wim/include #-I $(CCSRCDIR) -I . -I $(WIM2D_C
 LDFLAGS += -fopenmp
 LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
 LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
-LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib
-LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi -lboost_date_time
+LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
+LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi -lboost_date_time
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx -lbamg
 # ========================================================
 

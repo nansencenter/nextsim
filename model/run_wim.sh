@@ -21,7 +21,7 @@ kernel=$(uname -s)
 if [ $kernel == "Darwin" ]
 then
     # mac
-    export DYLD_LIBRARY_PATH=$NEXTSIMDIR/lib:$BOOST_DIR/lib
+    export DYLD_LIBRARY_PATH=$NEXTSIMDIR/lib:$BOOST_LIBDIR
 fi
 
 # Run the nextsim model coupled with wim
