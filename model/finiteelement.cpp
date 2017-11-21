@@ -2347,7 +2347,7 @@ FiniteElement::assemble(int pcpt)
 
         int index_u, index_v;
 
-        double coef_min = 10.;
+        double coef_min = 100.;
 
         // values used when no ice or when ice too thin
         double coef_drag    = 0.;  // coef_drag is a switch that set the external forcings to 0 (wind, ocean, bottom drag, waves stress) where there is too little ice
