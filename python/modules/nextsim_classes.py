@@ -689,19 +689,42 @@ class nextsim_mesh_info:
 class nextsim_binary_info:
 
    # =============================================================================
-   def __init__(self,data_file,**kwargs):
+   def __init__(self,data_file,options=None,logfile=None,**kwargs):
+      """
+      nbi   = nextsim_classes.nextsim_binary_info(data_file,logfile=None,**kwargs)
+      * data_file: eg field_0.bin
+      * logfile: eg nextsim.log
+      * kwargs are passed to nextsim_classes.nextsim_mesh_info()
+      """
 
       import os
 
+      # =======================================================
       # full or relative path to file
       self.data_file       = os.path.abspath(data_file)
       self.data_file_info  = self.data_file.replace('.bin','.dat')
-      ss             = self.data_file.split('/')
-      self.basename  = ss[-1].strip('.bin')
-      self.dirname   = '/' #self.data_file.strip('/'+ss[-1])
+      ss                   = self.data_file.split('/')
+      self.basename        = ss[-1].strip('.bin')
+      self.dirname         = '/' #self.data_file.strip('/'+ss[-1])
       for sdir in ss[:-1]:
          self.dirname  += (sdir+'/')
+      # =======================================================
 
+
+      # =======================================================
+      if options is not None:
+         self.options   = options
+      else:
+         # read log file to get options
+         # - update kwargs if possible
+         self.logfile   = logfile
+         self._read_log()
+
+      self._check_options(kwargs)
+      # =======================================================
+
+
+      # =======================================================
       # field info
       self._read_field_info()
       self.variables_all   = self.variables
@@ -710,12 +733,76 @@ class nextsim_binary_info:
       ss          = self.dirname+'/'+self.basename.replace('field','mesh')
       mesh_file   = ss +'.bin'
       self.mesh_info = nextsim_mesh_info(mesh_file,**kwargs)
-
-      #TODO read nextsim.log (mppfile to initialise projection, original mesh_file)
-      #TODO or pass them in as arguments?
+      # =======================================================
 
       return
    # =============================================================================
+
+
+   # =============================================================================
+   def _read_log(self):
+      # reads log if present
+      import nextsim_funs as nsf
+      import os
+
+      # =======================================================
+      # read log file to get options
+      if self.logfile is None:
+         lf = self.dirname+'/nextsim.log'
+         if os.path.exists(lf):
+            self.logfile   = lf
+
+      self.options   = nsf.read_nextsim_log(self.logfile)
+      return
+   # =============================================================================
+
+
+   # =============================================================================
+   def _check_options(self,kwargs):
+      # checks options and updates kwargs to pass to nextsim_mesh_info
+
+      if self.options is not None:
+         import os
+
+         # =======================================================
+         # determine original mesh file if needed
+         haveinfo = False
+         for key in ['gmsh_file','gmsh_obj']:
+            if key in kwargs:
+               if key is not None:
+                  haveinfo = True
+
+         if not haveinfo:
+            # can give extra info to the mesh object about the original mesh
+            # (this gives the coastlines)
+            gmsh_dirs   = {'simdatadir':os.getenv('SIMDATADIR')+'/data/mesh',\
+                           'nextsimdir':os.getenv('NEXTSIMDIR')+'/mesh'}
+            gmsh_file   = self.options['program_options']['simul']['mesh_filename']
+            gmsh_dir    = self.options['program_options']['simul']['mesh_path']
+            if gmsh_dir in gmsh_dirs:
+               gmsh_dir = gmsh_dirs[gmsh_dir]
+            kwargs.update({'gmsh_file':gmsh_dir+'/'+gmsh_file})
+         # =======================================================
+
+         # =======================================================
+         # determine mapping if needed
+         haveinfo = False
+         for key in ['mppfile','mapping']:
+            if key in kwargs:
+               if key is not None:
+                  haveinfo = True
+
+         if not haveinfo:
+            # can give extra info to the mesh object about the original mesh
+            # (this gives the coastlines)
+            mpp_dir  = os.getenv('NEXTSIMDIR')+'/data'
+            mpp_file = mpp_dir+'/'+self.options['program_options']['simul']['proj_filename']
+            kwargs.update({'mppfile':mpp_file})
+         # =======================================================
+
+      return
+      # =======================================================
+
 
    # =============================================================================
    def _read_field_info(self):
@@ -750,7 +837,56 @@ class nextsim_binary_info:
    def plot_var(self,vname,**kwargs):
       import nextsim_plot as nsp
       return nsp.plot_mesh_data(self.mesh_info,data=self.get_var(vname),**kwargs)
+
    # =============================================================================
+   def interp_var(self,vlist,xout,yout,**kwargs):
+      """
+      self.interp_var(vlist,x_out,y_out,**kwargs)
+      
+      Inputs:
+
+      vlist: list of variables
+      x_out,y_out: lists/vectors with x,y coordinates
+      kwargs (for nextsim_funs.interp_mesh_to_points):
+         use_default=True - use default_value outside the mesh; if False, use the nearest point inside the mesh
+         default_value=0., see use_default=True
+      
+      Output:
+      dictionary with requested fields interpolated onto x_out,y_out
+      """
+
+      import nextsim_funs as nsf
+      data_in  = {}
+      for vname in vlist:
+         data_in.update({vname:self.get_var(vname)})
+
+      # do interpolation
+      return nsf.interp_mesh_to_points(self.mesh_info,xout,yout,data_in,**kwargs)
+   # =============================================================================
+
+   def imshow(self,vname):
+
+      import numpy as np
+      from matplotlib import pyplot as plt
+      import wim_grid_utils as wgu
+
+      # make a grid covering the same area as the mesh
+      grid_params = self.mesh_info.define_grid()
+      arrays      = wgu.make_grid(grid_params)
+      xout        = arrays['px'] # centre points of grid
+      yout        = arrays['py']
+
+      # interpolate vname
+      zout  = self.interp_var([vname],xout,yout)
+
+      fig   = plt.figure()
+      ax    = fig.add_subplot(111)
+      im    = ax.imshow(zout[vname].transpose(),origin='upper')
+      fig.colorbar(im)
+      plt.show(fig)
+
+      return
+
 
 # ================================================================================
 
