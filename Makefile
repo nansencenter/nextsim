@@ -29,3 +29,14 @@ mrproper:
 	@cd $(NEXTSIMDIR)/modules/wim/src; make clean mrproper
 	@cd $(NEXTSIMDIR)/core/src; make clean mrproper
 	@cd $(NEXTSIMDIR)/modules/oasis/src; make clean mrproper
+
+All: all
+	cd model; make
+
+Clean: clean
+	cd model; make clean
+
+Mrproper: mrproper
+	cd model; make mrproper
+
+fresh: Clean All
