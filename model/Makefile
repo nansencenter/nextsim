@@ -174,11 +174,11 @@ fortran: $(FPROGNAME)
 
 # Make the required libraries
 libs:
-	cd $(NEXTSIMDIR); make
+	cd ..; make
 
 # Clean the required libraries
 cleanlibs:
-	cd $(NEXTSIMDIR); make clean
+	cd ..; make clean
 
 # Clean libs and current dir
 cleanall: cleanlibs clean
@@ -188,7 +188,7 @@ fresh: cleanall all
 
 # Fully clean the required libraries
 mrproperlibs:
-	cd $(NEXTSIMDIR); make mrproper
+	cd ..; make mrproper
 
 $(FPROGNAME): $(filter-out $(OBJECTDIR)$(CXXSRCDIR)/main.o, $(OBJS)) finiteelement_mod.f90
 	$(FC) $(FFLAGS) $(LDFLAGS) -o $(BINARYDIR)$@ $^ FE.f90
