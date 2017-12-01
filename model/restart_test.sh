@@ -33,9 +33,9 @@ $execfile --setup.exporter_precision=double --simul.output_directory=$tmpdir_res
 
 # Test for diff
 results=0
-diff -qs $tmpdir_start/field_1000.bin $tmpdir_restart/field_1000.bin
+diff -qs $tmpdir_start/field_final.bin $tmpdir_restart/field_final.bin
 (( results=results+$? ))
-diff -qs $tmpdir_start/mesh_1000.bin $tmpdir_restart/mesh_1000.bin
+diff -qs $tmpdir_start/mesh_final.bin $tmpdir_restart/mesh_final.bin
 (( results=results+$? ))
 
 if [ $results -gt 0 ]

@@ -30,9 +30,9 @@ OMP_NUM_THREADS=8 $execfile --setup.exporter_precision=double --simul.output_dir
 
 # Test for diff
 results=0
-diff -qs $tmpdir1/field_1000.bin $tmpdir8/field_1000.bin
+diff -qs $tmpdir1/field_final.bin $tmpdir8/field_final.bin
 (( results=results+$? ))
-diff -qs $tmpdir1/mesh_1000.bin $tmpdir8/mesh_1000.bin
+diff -qs $tmpdir1/mesh_final.bin $tmpdir8/mesh_final.bin
 (( results=results+$? ))
 
 if [ $results -gt 0 ]
@@ -44,6 +44,5 @@ then
     exit 1
 else
     echo "Different threads produce bit-wise identical results"
+        rm -rf $tmpdir1 $tmpdir8
 fi
-
-
