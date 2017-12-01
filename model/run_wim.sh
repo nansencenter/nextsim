@@ -26,6 +26,7 @@ then
 fi
 
 # Run the nextsim model coupled with wim
+echo $prog --config-files=coupling_wim.cfg wim.cfg
 $prog --config-files=coupling_wim.cfg wim.cfg
 
 # print info on plotting on grid
