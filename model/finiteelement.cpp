@@ -5590,6 +5590,13 @@ FiniteElement::writeRestart(int pcpt, int step)
     exporter.writeField(outbin, M_UM, "M_UM");
     exporter.writeField(outbin, M_UT, "M_UT");
 
+    std::vector<double> PreviousNumbering(M_mesh.numNodes());
+
+    for ( int i=0; i<M_mesh.numNodes(); ++i )
+        PreviousNumbering[i]=bamgmesh->PreviousNumbering[i];
+
+    exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering");
+
     if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
     {
         exporter.writeField(outbin, M_h_thin, "M_h_thin");
@@ -5788,6 +5795,12 @@ FiniteElement::readRestart(int step)
         M_neumann_nodes[2*i] = M_neumann_flags[i];
         M_neumann_nodes[2*i+1] = M_neumann_flags[i]+M_num_nodes;
     }
+
+    std::vector<double> PreviousNumbering(M_mesh.numNodes());
+    PreviousNumbering = field_map_dbl["PreviousNumbering"];
+
+    for ( int i=0; i<M_mesh.numNodes(); ++i )
+        bamgmesh->PreviousNumbering[i] = PreviousNumbering[i];
 
     // === Set the prognostic variables ===
     M_conc       = field_map_dbl["M_conc"];
