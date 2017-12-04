@@ -4464,7 +4464,7 @@ FiniteElement::init()
     {
         LOG(DEBUG) <<"Reading restart file\n";
         pcpt = this->readRestart(vm["setup.step_nb"].as<int>());
-        // current_time = time_init + pcpt*time_step/(24*3600.0);
+        current_time = time_init + pcpt*time_step/(24*3600.0);
         if(M_use_osisaf_drifters)
             this->initOSISAFDrifters();
         
@@ -5564,8 +5564,7 @@ FiniteElement::writeRestart(int pcpt, int step)
     std::vector<int> misc_int(4);
     misc_int[0] = pcpt;
     misc_int[1] = M_flag_fix;
-    misc_int[2] = current_time;
-    misc_int[3] = mesh_adapt_step;
+    misc_int[2] = mesh_adapt_step;
     exporter.writeField(outbin, misc_int, "Misc_int");
     exporter.writeField(outbin, M_dirichlet_flags, "M_dirichlet_flags");
 
@@ -5721,11 +5720,9 @@ FiniteElement::readRestart(int step)
             );
 
     // Fix boundaries
-    //int pcpt     = field_map_int["Misc_int"].at(0);
+    int pcpt     = field_map_int["Misc_int"].at(0);
     M_flag_fix   = field_map_int["Misc_int"].at(1);
-    current_time = field_map_int["Misc_int"].at(2);
-    mesh_adapt_step = field_map_int["Misc_int"].at(3);
-    int pcpt = (current_time-time_init)*(24*3600)/time_step;
+    mesh_adapt_step = field_map_int["Misc_int"].at(2);
 
     std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
     for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
