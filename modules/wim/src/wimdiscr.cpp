@@ -318,7 +318,9 @@ void WimDiscr<T>::assignSpatial()
     M_num_elements  = this->getNumElements();
 
     //2D var's
+    std::cout<<"Made it to 321\n";
     M_dave.assign(M_num_elements,0.);
+    std::cout<<"Didn't make it to 323\n";
 
     // NB this clears wave diagnostics
     // so take care to reset them after regrid
@@ -1340,6 +1342,8 @@ void WimDiscr<T>::updateWaveSpec(T_gmsh const &movedmesh)
     auto nodes_x = movedmesh.coordX();
     auto nodes_y = movedmesh.coordY();
     auto index   = movedmesh.indexTr();
+
+    std::cout<<"updateWaveSpec: calling getSurfaceFactor";
     auto surface_fac = this->getSurfaceFactor(movedmesh);
 
     int Nels = movedmesh.numTriangles();
@@ -1526,7 +1530,10 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
 
     T_val_vec surface_fac(xel.size(),1.);
     if(M_wim_on_mesh)
+    {
+        std::cout<<"returnFieldsElements: calling getSurfaceFactor";
         surface_fac = this->getSurfaceFactor(movedmesh);
+    }
 
     return this->returnFieldsElements(fields,xel,yel,surface_fac);
 }

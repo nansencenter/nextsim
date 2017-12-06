@@ -9267,6 +9267,8 @@ FiniteElement::wimPostRegrid()
     // relative to the new mesh
     // - this has now been interpolated to the new nodes
     M_wim.setRelativeMeshDisplacement(M_wim_meshdisp);
+
+    std::cout<<"leaving wimPostRegrid()\n";
 }//wimPostRegrid()
 #endif
 
@@ -9538,7 +9540,7 @@ FiniteElement::wimCall()
             M_wim.getFsdMesh(M_nfloes,M_dfloe,broken);//outputs (already calculated on mesh)
         else
             M_wim.getFsdMesh(M_nfloes,M_dfloe,broken, //outputs
-                    ctot,movedmesh);              //extra inputs
+                    ctot,movedmesh);                  //extra inputs
 #if 1
         LOG(DEBUG)<<"min Dfloe on mesh = "<< *std::min_element(M_dfloe.begin(),M_dfloe.end() )<<"\n";
         LOG(DEBUG)<<"max Dfloe on mesh = "<< *std::max_element(M_dfloe.begin(),M_dfloe.end() )<<"\n";
@@ -9594,7 +9596,7 @@ FiniteElement::wimCall()
                 }
             }
             else if (interp_taux)
-                M_wim.returnWaveStress(M_tau,movedmesh);
+                M_wim.returnWaveStress(M_tau);
         }
     }
     else if(interp_taux)
