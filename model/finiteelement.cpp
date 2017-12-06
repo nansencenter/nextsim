@@ -708,6 +708,7 @@ FiniteElement::initConstant()
     M_bathymetry_type = str2bathymetry.find(vm["setup.bathymetry-type"].as<std::string>())->second;
 
     const boost::unordered_map<const std::string, setup::BasalStressType> str2basal_stress= boost::assign::map_list_of
+        ("none", setup::BasalStressType::NONE)
         ("lemieux", setup::BasalStressType::LEMIEUX)
         ("bouillon", setup::BasalStressType::BOUILLON);
     M_basal_stress_type = str2basal_stress.find(vm["simul.basal_stress-type"].as<std::string>())->second;
@@ -2421,6 +2422,9 @@ FiniteElement::assemble(int pcpt)
             {
                 switch ( M_basal_stress_type )
                 {
+                    case setup::BasalStressType::NONE:
+                        critical_h     = 0.;
+                        critical_h_mod = 0.;
                     case setup::BasalStressType::BOUILLON:
                         // Sylvain's grounding scheme
                         keel_height_estimate = ice_to_keel_factor*std::pow(M_thick[cpt]/M_conc[cpt],0.5);
