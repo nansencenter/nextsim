@@ -5520,7 +5520,7 @@ FiniteElement::initMoorings()
 void
 FiniteElement::writeRestart(int pcpt, int step)
 {
-    Exporter exporter;
+    Exporter exporter("double");
     std::string filename;
 
     // === Start with the mesh ===
@@ -5569,6 +5569,7 @@ FiniteElement::writeRestart(int pcpt, int step)
     misc_int[0] = pcpt;
     misc_int[1] = M_flag_fix;
     misc_int[2] = mesh_adapt_step;
+    misc_int[3] = M_nb_regrid;
     exporter.writeField(outbin, misc_int, "Misc_int");
     exporter.writeField(outbin, M_dirichlet_flags, "M_dirichlet_flags");
 
@@ -5652,7 +5653,7 @@ FiniteElement::writeRestart(int pcpt, int step)
 int
 FiniteElement::readRestart(int step)
 {
-    Exporter exp_field, exp_mesh;
+    Exporter exp_field("double"), exp_mesh("double");
     std::string filename;
     boost::unordered_map<std::string, std::vector<int>>    field_map_int;
     boost::unordered_map<std::string, std::vector<double>> field_map_dbl;
@@ -5726,7 +5727,6 @@ FiniteElement::readRestart(int step)
     // Fix boundaries
     int pcpt     = field_map_int["Misc_int"].at(0);
     M_flag_fix   = field_map_int["Misc_int"].at(1);
-    mesh_adapt_step = field_map_int["Misc_int"].at(2);
 
     std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
     for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
@@ -5763,6 +5763,8 @@ FiniteElement::readRestart(int step)
 
     // Initialise all the variables to zero
     this->initVariables();
+    mesh_adapt_step = field_map_int["Misc_int"].at(2);
+    M_nb_regrid  = field_map_int["Misc_int"].at(3);
 
     // update dirichlet nodes
     M_boundary_flags.resize(0);
