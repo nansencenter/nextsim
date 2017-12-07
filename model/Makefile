@@ -13,7 +13,7 @@ else
 endif
 
 # add g++ option flags
-CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v -DHAVE_CONFIG_H -D_MULTITHREADING_
+CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -fopenmp -v -DHAVE_CONFIG_H -D_MULTITHREADING_
 #CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v -DHAVE_CONFIG_H -D_MULTITHREADING_
 
 ifdef USE_NEXTWIM
@@ -31,10 +31,18 @@ ifdef USE_OASIS
 	#LIBPSMILE = $(OASIS_DIR)/lib/libpsmile.${CHAN}.a $(OASIS_DIR)/lib/libmct.a $(OASIS_DIR)/lib/libmpeu.a $(OASIS_DIR)/lib/libscrip.a
 endif
 
-ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
+ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
-	CXXFLAGS += -g -O0 -Wl,-no_pie -DNDEBUG -DWITHGPERFTOOLS
+	CXXFLAGS += -g -O0 -DNDEBUG 
+ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
+	CXXFLAGS += -DWITHGPERFTOOLS
+endif
+ifneq ($(KERNEL),Linux)
+	CXXFLAGS += -Wl,-no_pie
+endif
+else
+	CXXFLAGS += -O3 -pthread  
 endif
 
 # add include paths
@@ -96,10 +104,12 @@ LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
 #LDFLAGS += -L $(NEXTSIMDIR)/lib -loasis
 
-ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
+ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 #ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	LDFLAGS += -Wl,-rpath,/opt/local/lib
+ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 	LDFLAGS += -L /opt/local/lib -lprofiler
+endif
 endif
 
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lnextsim

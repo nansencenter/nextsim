@@ -13,6 +13,7 @@ endif
 ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; make
 endif
+	@cd $(NEXTSIMDIR)/model; make;
 
 clean:
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; make clean
@@ -23,6 +24,7 @@ clean:
 ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; make clean
 endif
+	@cd $(NEXTSIMDIR)/model; make clean;
 
 mrproper: clean
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; make clean mrproper
@@ -33,3 +35,4 @@ mrproper: clean
 ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; make clean mrproper
 endif
+	@cd $(NEXTSIMDIR)/model; make clean mrproper;

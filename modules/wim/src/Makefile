@@ -37,10 +37,21 @@ else
 endif
 
 # add g++ option flags
-CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp
+CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -fopenmp
 CXXFLAGS += -v
 CXXFLAGS += -Wfatal-errors
 # CXXFLAGS += -pedantic
+
+ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
+	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
+	#CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
+	CXXFLAGS += -g -O0 -DNDEBUG
+ifneq ($(KERNEL),Linux)
+	CXXFLAGS += -Wl,-no_pie
+endif
+else
+	CXXFLAGS += -O3 -pthread  
+endif
 
 # add include paths
 CXXFLAGS += -I . -I $(BOOST_INCDIR) -I $(OPENMPI_INCLUDE_DIR)/ #-I $(WIM2D_CXX)/include
