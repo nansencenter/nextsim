@@ -1,9 +1,9 @@
 #! /bin/bash
 
-duration=0.5
+duration=10.125
 output_per_day=4
 restart_time_step=0.25
-step_nb=1
+step_nb=40
 
 export DYLD_LIBRARY_PATH=$NEXTSIMDIR/lib:$BOOST_LIBDIR
 
@@ -28,13 +28,13 @@ tmpdir_start=$(mktemp -d)
 tmpdir_restart=$(mktemp -d)
 
 # Run from start
-$execfile --setup.exporter_precision=double --simul.output_directory=$tmpdir_start --setup.use_restart=false --simul.duration=$duration --setup.write_restart=true --setup.restart_time_step=$restart_time_step --simul.output_per_day=$output_per_day --config-files=$cfgfile &> $tmpdir_start/output.log || exit 5
+$execfile --setup.exporter_precision=double --simul.output_directory=$tmpdir_start --setup.use_restart=false --simul.duration=$duration --setup.write_restart=true --setup.restart_time_step=$restart_time_step --simul.output_per_day=$output_per_day --config-files=$cfgfile 2>&1 | tee $tmpdir_start/output.log || exit 5
 
 # Copy the restart files to ../restart so they can be read by the model
 cp $tmpdir_start/restart/* ../restart/
 
 # Run with a restart
-$execfile --setup.exporter_precision=double --simul.output_directory=$tmpdir_restart --setup.use_restart=true --setup.step_nb=$step_nb --simul.duration=$duration --setup.write_restart=false --simul.output_per_day=$output_per_day --config-files=$cfgfile &> $tmpdir_restart/output.log || exit 6
+$execfile --setup.exporter_precision=double --simul.output_directory=$tmpdir_restart --setup.use_restart=true --setup.step_nb=$step_nb --simul.duration=$duration --setup.write_restart=false --simul.output_per_day=$output_per_day --config-files=$cfgfile 2>&1 | tee $tmpdir_restart/output.log || exit 6
 
 # Test for diff
 results=0
