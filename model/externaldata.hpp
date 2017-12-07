@@ -89,6 +89,8 @@ public:
 
     value_type get(const size_type i);
 
+    size_type size();
+
     std::vector<double> getVector();
 
 	void clear();
