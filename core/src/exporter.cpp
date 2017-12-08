@@ -58,30 +58,46 @@ Exporter::writeMesh(std::fstream& out, GmshMesh const& Mesh)
 {
     std::string description;
 
-    writeContainer(out, Mesh.indexTr());
-    description = (boost::format( "%1% %2%" )
+    std::vector<int> field_int = Mesh.indexTr();
+    writeContainer(out, field_int);
+    description = (boost::format( "%1% %2% %3$g %4$g %5$g" )
                    % "Elements"
-                   % "int" ).str();
+                   % "int"
+                   % field_int.size()
+                   % *std::min_element(field_int.begin(), field_int.end())
+                   % *std::max_element(field_int.begin(), field_int.end()) ).str();
     M_mrecord.push_back(description);
 
-
-    writeContainer(out, Mesh.coordX());
-    description = (boost::format( "%1% %2%" )
-                   % "Nodes_x"
-                   % M_precision ).str();
-    M_mrecord.push_back(description);
-
-    writeContainer(out, Mesh.coordY());
-    description = (boost::format( "%1% %2%" )
-                   % "Nodes_y"
-                   % M_precision ).str();
-
-    M_mrecord.push_back(description);
-
-    writeContainer(out, Mesh.id());
-    description = (boost::format( "%1% %2%" )
+    field_int = Mesh.id();
+    writeContainer(out, field_int);
+    description = (boost::format( "%1% %2% %3$g %4$g %5$g" )
                    % "id"
-                   % "int" ).str();
+                   % "int"
+                   % field_int.size()
+                   % *std::min_element(field_int.begin(), field_int.end())
+                   % *std::max_element(field_int.begin(), field_int.end()) ).str();
+    M_mrecord.push_back(description);
+
+
+    std::vector<double> field = Mesh.coordX();
+    writeContainer(out, field);
+    description = (boost::format( "%1% %2% %3$g %4$g %5$g" )
+                   % "Nodes_x"
+                   % "double"
+                   % field.size()
+                   % *std::min_element(field.begin(), field.end())
+                   % *std::max_element(field.begin(), field.end()) ).str();
+    M_mrecord.push_back(description);
+
+    field = Mesh.coordY();
+    writeContainer(out, field);
+    description = (boost::format( "%1% %2% %3$g %4$g %5$g" )
+                   % "Nodes_y"
+                   % "double"
+                   % field.size()
+                   % *std::min_element(field.begin(), field.end())
+                   % *std::max_element(field.begin(), field.end()) ).str();
+
     M_mrecord.push_back(description);
 }
 
@@ -103,9 +119,12 @@ Exporter::writeField(std::fstream& out, std::vector<Type> const& field, std::str
     if ( name == "Time" )
         precision = "double";
 
-    description = (boost::format( "%1% %2%" )
+    description = (boost::format( "%1% %2% %3$g %4$g %5$g" )
                    % name
-                   % precision ).str();
+                   % precision
+                   % field.size()
+                   % ( (field.size() > 0) ? *std::min_element(field.begin(), field.end()) : 0 )
+                   % ( (field.size() > 0) ? *std::max_element(field.begin(), field.end()) : 0 ) ).str();
 
 	M_frecord.push_back(description);
 }
@@ -143,10 +162,9 @@ Exporter::writeRecord(std::fstream& out, std::string const& rtype)
 void
 Exporter::readRecord(std::ifstream& in)
 {
-    std::string name;
-    std::string type;
+    std::string name, type, size, min_element, max_element;
 
-    while ( in >> name >> type )
+    while ( in >> name >> type >> size >> min_element >> max_element)
     {
         M_name_record.push_back(name);
         M_type_record.push_back(type);
