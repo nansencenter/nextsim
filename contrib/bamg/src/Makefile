@@ -20,7 +20,7 @@ else
 	CXXFLAGS += -std=c++11
 endif
 
-CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -v -D_MULTITHREADING_
+CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -D_MULTITHREADING_
 
 ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
 	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
@@ -31,6 +31,10 @@ ifneq ($(KERNEL),Linux)
 endif
 else
 	CXXFLAGS += -O3 -pthread  
+endif
+
+ifneq ($(XSIMCOMP_VERBOSE),no)
+	CXXFLAGS += -v
 endif
 
 
