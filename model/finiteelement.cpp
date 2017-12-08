@@ -5573,6 +5573,9 @@ FiniteElement::writeRestart(int pcpt, int step)
     exporter.writeField(outbin, misc_int, "Misc_int");
     exporter.writeField(outbin, M_dirichlet_flags, "M_dirichlet_flags");
 
+    std::vector<double> timevec(1);
+    timevec[0] = current_time;
+    exporter.writeField(outbin, timevec, "Time");
     exporter.writeField(outbin, M_conc, "M_conc");
     exporter.writeField(outbin, M_thick, "M_thick");
     exporter.writeField(outbin, M_snow_thick, "M_snow_thick");
@@ -5724,8 +5727,18 @@ FiniteElement::readRestart(int step)
 	    coordX.size(), indexTr.size()/3.
             );
 
+    // Set and check time
+    int pcpt    = field_map_int["Misc_int"].at(0);
+    std::vector<double> time = field_map_dbl["Time"];
+    if ( time[0] != time_init + pcpt*time_step/(24*3600.0) )
+    {
+        std::cout << "FiniteElement::readRestart: Time and Misc_int[0] (a.k.a pcpt) are inconsistent. \n"
+            << "Time = " << time[0] << std::endl
+            << "pcpt*time_step/(24*3600.0) = " << pcpt*time_step/(24*3600.0) << std::endl;
+        std::runtime_error("Inconsistent time information in restart file");
+    }
+
     // Fix boundaries
-    int pcpt     = field_map_int["Misc_int"].at(0);
     M_flag_fix   = field_map_int["Misc_int"].at(1);
 
     std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
