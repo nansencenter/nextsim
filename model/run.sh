@@ -8,7 +8,7 @@ else
 fi
 
 # record changes from last git commit:
-# file gets moved to "output_directory"
+# file gets moved to "output_directory" inside code
 P=`pwd`
 cd $NEXTSIMDIR
 git diff > $P/git_changes.txt
@@ -33,14 +33,6 @@ fi
 
 # Run the nextsim model
 $prog --config-files=$config
-
-
-# do git diff to record changes to code
-# default directory
-outdir=$NEXTSIMDIR/matlab
-lin=`grep "output_directory" $config`
-outdir=${lin#*=}
-git diff > $outdir/git_changes.txt
 
 
 # Run the CPU profiler (google perftools)
