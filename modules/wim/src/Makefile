@@ -7,7 +7,6 @@ ifeq ($(KERNEL),Linux)
 else
 	LIBRARYNAME=libwim.dylib
 endif
-
 # ========================================================
 
 # ========================================================
@@ -38,7 +37,10 @@ endif
 
 # add g++ option flags
 CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -fopenmp
-CXXFLAGS += -v
+ifneq ($(XSIMCOMP_VERBOSE),no)
+	CXXFLAGS += -v
+	CFLAGS   += -v
+endif
 CXXFLAGS += -Wfatal-errors
 # CXXFLAGS += -pedantic
 
@@ -54,9 +56,16 @@ else
 endif
 
 # add include paths
-CXXFLAGS += -I . -I $(BOOST_INCDIR) -I $(OPENMPI_INCLUDE_DIR)/ #-I $(WIM2D_CXX)/include
-CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include -I $(NEXTSIMDIR)/contrib/bamg/include
+# CXXFLAGS += -I .
 CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
+
+CXXFLAGS += -I $(BOOST_INCDIR)
+CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)
+CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
+CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include
+CXXFLAGS += -I $(PETSC_DIR)/include
+CXXFLAGS += -I $(GMSH_DIR)/include/gmsh
+CXXFLAGS += -I $(NEXTSIMDIR)/core/include
 # ========================================================
 
 
@@ -69,8 +78,8 @@ CCDEPS=$(CCSRC:%.c=$(DEPENDDIR)%.d)
 
 
 CC = gcc
-CFLAGS += -Wno-inline -fPIC -O3 #-v # -MMD -MP -lm #-Wall -pedantic
-CFLAGS += -I $(NEXTSIMDIR)/modules/wim/include #-I $(CCSRCDIR) -I . -I $(WIM2D_CXX)/include
+CFLAGS += -Wno-inline -fPIC -O3 # -MMD -MP -lm #-Wall -pedantic
+CFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
 # ========================================================
 
 # ========================================================
@@ -80,7 +89,7 @@ LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
 LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
 LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
 LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi -lboost_date_time
-LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx -lbamg
+LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx -lbamg -lnextsim
 # ========================================================
 
 
@@ -96,22 +105,22 @@ all: lib single
 
 # Delete the object and dependancy files.
 clean:
-	$(RM) $(OBJS) $(CCOBJS) $(DEPS) $(CCDEPS)
+	@echo " "
+	$(RM) $(OBJS) $(CCOBJS) $(DEPS) $(CCDEPS) $(PROGOBJS) 
+	@echo " "
+
+fresh: clean all
 
 # Delete the object and dependancy files, and the executable
-vclean: clean
+mrproper: clean
 	$(RM) $(BINARYDIR)$(PROG) $(LIBRARYDIR)/*
-
-# Delete the executable
-execlean:
-	$(RM) $(PROGOBJS) $(BINARYDIR)$(PROG)
-
 # ========================================================
 
 
 # ================================================================
 # Rules for .c files
 $(CCOBJS): $(OBJECTDIR)%.o : $(CCSRCDIR)/%.c
+	@echo " "
 	@mkdir -p $(OBJECTDIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -124,7 +133,8 @@ $(CCDEPS): $(DEPENDDIR)%.d : $(CCSRCDIR)/%.c
 
 # ================================================================
 # Rules for .cpp files
-$(OBJECTDIR)%.o: $(CXXSRCDIR)/%.cpp
+$(OBJS): $(OBJECTDIR)%.o: $(CXXSRCDIR)/%.cpp
+	@echo " "
 	@mkdir -p $(OBJECTDIR)
 	$(CXX) -o $@ -c $< $(CXXFLAGS)
 
@@ -142,6 +152,7 @@ PROG=WIM2d_single_call_cpp.exec
 # Rules to compile all programs
 ALLPROGS=$(wildcard $(PROGDIR)/*.cpp)
 PROGOBJS=$(ALLPROGS:$(PROGDIR)/%.cpp=$(OBJECTDIR)/%.o)
+$(PROGOBJS): $(OBJS) $(CCOBJS)
 $(PROGOBJS): $(OBJECTDIR)%.o : $(PROGDIR)/%.cpp
 	@mkdir -p $(OBJECTDIR)
 	$(CXX) -o $@ -c $< $(CXXFLAGS)
@@ -150,12 +161,21 @@ $(PROGOBJS): $(OBJECTDIR)%.o : $(PROGDIR)/%.cpp
 
 # ========================================================
 # make executable 1
+lines="=========="
+Lines=$(lines)$(lines)$(lines)$(lines)$(lines)$(lines)$(lines)$(lines)
 single: $(PROGOBJS) $(OBJS) $(CCOBJS)
 	@mkdir -p $(BINARYDIR)
-	$(CXX) $(CXXLAGS) -o $(BINARYDIR)$(PROG) $^ $(LDFLAGS)
-	@echo "========================================================================================"
-	@echo "output: $(BINARYDIR)$(PROG)"
-	@echo "========================================================================================"
+	@echo " "
+	@echo $(Lines)$(Lines)
+	@echo "Creating executable: $(BINARYDIR)$(PROG)"
+	@echo $(Lines)$(Lines)
+	@echo " "
+	$(CXX) $(CXXFLAGS) -o $(BINARYDIR)$(PROG) $^ $(LDFLAGS)
+	@echo " "
+	@echo $(Lines)$(Lines)
+	@echo "Created executable: $(BINARYDIR)$(PROG)"
+	@echo $(Lines)$(Lines)
+	@echo " "
 # ========================================================
 
 
@@ -176,27 +196,35 @@ LOBJS := $(filter-out $(OBJECTDIR)/main.o, $(OBJS))
 ifeq ($(KERNEL),Linux)
 lib: $(OBJS) $(CCOBJS)
 	@mkdir -p $(LIBRARYDIR)
-	@echo "========================================================================================"
+	@echo " "
+	@echo $(Lines)$(Lines)
 	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
-	@echo "========================================================================================"
+	@echo $(Lines)$(Lines)
+	@echo " "
 	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LDFLAGSLIB)
 	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)libwim.so
 	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)libwim.so.1
-	@echo "========================================================================================"
+	@echo " "
+	@echo $(Lines)$(Lines)
 	@echo Created shared library $(LIBRARYDIR)$(LIBRARYNAME)
-	@echo "========================================================================================"
+	@echo $(Lines)$(Lines)
+	@echo " "
 else
 lib: $(OBJS) $(CCOBJS)
 	@mkdir -p $(LIBRARYDIR)
-	@echo "========================================================================================"
+	@echo " "
+	@echo $(Lines)$(Lines)
 	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
-	@echo "========================================================================================"
+	@echo $(Lines)$(Lines)
+	@echo " "
 	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LDFLAGSLIB)
 	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)libwim.dylib.0
 	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)libwim.dylib.1
-	@echo "========================================================================================"
+	@echo " "
+	@echo $(Lines)$(Lines)
 	@echo Created shared library $(LIBRARYDIR)$(LIBRARYNAME)
-	@echo "========================================================================================"
+	@echo $(Lines)$(Lines)
+	@echo " "
 endif
 # ========================================================
 
