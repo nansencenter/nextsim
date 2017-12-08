@@ -1,0 +1,33 @@
+sourced=$BASH_SOURCE
+kernel=`uname -s`
+if [ "$kernel" == Darwin ]
+then
+   me=`greadlink -f $sourced`
+else
+   me=`readlink -f $sourced`
+fi
+
+echo " "
+echo export NEXTSIMDIR=$me
+export NEXTSIMDIR=`dirname $me`
+
+echo " "
+echo export SIMFORECASTDIR=$NEXTSIMDIR
+export SIMFORECASTDIR=$NEXTSIMDIR
+
+echo " "
+echo export PYTHONPATH=$PYTHONPATH:$NEXTSIM_TOOLS_DIR/python/modules
+export PYTHONPATH=$PYTHONPATH:$NEXTSIM_TOOLS_DIR/python/modules
+
+echo " "
+echo export PYTHONPATH=$PYTHONPATH:$NEXTSIM_TOOLS_DIR/python/lib
+export PYTHONPATH=$PYTHONPATH:$NEXTSIM_TOOLS_DIR/python/lib
+
+if [ "$kernel" == Linux  ]
+then
+   echo export LD_LIBRARY_PATH=$BOOST_LIBDIR:$GMSH_DIR/lib:$NEXTSIMDIR/lib
+   export LD_LIBRARY_PATH=$BOOST_LIBDIR:$GMSH_DIR/lib:$NEXTSIMDIR/lib
+else
+   echo export DYLD_LIBRARY_PATH=$BOOST_LIBDIR:$GMSH_DIR/lib:$NEXTSIMDIR/lib
+   export DYLD_LIBRARY_PATH=$BOOST_LIBDIR:$GMSH_DIR/lib:$NEXTSIMDIR/lib
+fi
