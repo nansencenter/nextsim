@@ -2325,7 +2325,11 @@ FiniteElement::assemble(int pcpt)
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
 // omp pragma causing the code not to give reproducable results across different runs and different number of threads
-//#pragma omp parallel for num_threads(max_threads) private(thread_id)
+// The reason is that we do a += update on rhsdata and lhsdata. When OpenMP is active the order of these operations is arbitrary and the result is
+// therefore not bitwise reproducable. This is du to the fact that (a + b) + c != a + (b + c).
+#ifndef NDEBUG
+#pragma omp parallel for num_threads(max_threads) private(thread_id)
+#endif
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
         // if(thread_id == 0)
@@ -2623,7 +2627,9 @@ FiniteElement::assemble(int pcpt)
 
         for (int idf=0; idf<rcindices.size(); ++idf)
         {
+#ifndef NDEBUG
 #pragma omp atomic
+#endif
             rhsdata[rcindices[idf]] += fvdata[idf];
 
 #if 1
@@ -2644,7 +2650,9 @@ FiniteElement::assemble(int pcpt)
                     }
                 }
 
+#ifndef NDEBUG
 #pragma omp atomic
+#endif
                 lhsdata[start+colind] += data[6*idf+idj];
             }
 #endif
