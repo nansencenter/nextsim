@@ -132,7 +132,7 @@ public:
 
     void regrid(bool step = true);
     void adaptMesh();
-    void updateBoundaryFlags();
+    void updateBoundaryFlags(std::vector<int> const& old_node_id);
 
     void gatherSizes();
     void gatherFieldsElement(std::vector<double>& interp_in_elements);
@@ -143,8 +143,12 @@ public:
     void gatherNodalField(std::vector<double> const& field_local, std::vector<double>& field_root);
     void scatterNodalField(std::vector<double> const& field_root, std::vector<double>& field_local);
 
-    void gatherElementField(std::vector<double> const& field_local, std::vector<double>& field_root);
-    void scatterElementField(std::vector<double> const& field_root, std::vector<double>& field_local);
+    // other interfaces
+    void gatherNodalField(std::vector<double> const& field1_local, std::vector<double> const& field2_local,
+                          std::vector<double>& field1_root, std::vector<double>& field2_root);
+
+    void gatherElementField(std::vector<double> const& field_local, std::vector<double>& field_root, int nb_fields = 1);
+    void scatterElementField(std::vector<double> const& field_root, std::vector<double>& field_local, int nb_fields = 1);
 
     void gatherFieldsNode(std::vector<double>& interp_in_elements, std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
     void scatterFieldsNode(double* interp_nd_out);
@@ -277,6 +281,7 @@ public:
 
 private:
     void advect(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out);
+    void advectRoot(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out);
     void diffuse(std::vector<double>& variable_elt, double diffusivity_parameters, double dx);
 
     void collectVariables(std::vector<double>& interp_elt_in_local, bool ghosts = false);

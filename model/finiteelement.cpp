@@ -591,6 +591,10 @@ FiniteElement::initVariables()
 
     for (int i=0; i<M_num_elements; ++i)
     {
+        M_sigma[3*i]=0.;
+        M_sigma[3*i+1]=0.;
+        M_sigma[3*i+2]=0.;
+
         if ((M_conc[i] <= 0.) || (M_thick[i] <= 0.) )
         {
             M_conc[i] = 0.;
@@ -743,9 +747,9 @@ FiniteElement::assignVariables()
     M_Compressive_strength.resize(M_num_elements);
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
 
-#if 0
+#if 1
     // root
-    M_UM_root.assign(2*M_mesh.numGlobalNodes(),0.);
+    // M_UM_root.assign(2*M_mesh.numGlobalNodes(),0.);
 
     if (M_rank == 0)
     {
@@ -1054,7 +1058,6 @@ FiniteElement::initConstant()
     C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     tan_phi = vm["simul.tan_phi"].as<double>();
-    //ridge_h = vm["simul.ridge_h"].as<double>();
 
     if ( vm["simul.newice_type"].as<int>() == 4 )
     {
@@ -1545,7 +1548,7 @@ FiniteElement::hminVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mes
         }
 
         measure.resize(j);
-        hmin[i] = std::sqrt(2.)*std::sqrt(*std::min_element(measure.begin(),measure.end()))*0.8/*0.9*/;
+        hmin[i] = std::sqrt(2.)*std::sqrt(*std::min_element(measure.begin(),measure.end()))*0.9/*0.9*/;
     }
 
     return hmin;
@@ -1775,7 +1778,7 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
 
         // thickness
         interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_thick[i];
-        M_interp_method[tmp_nb_var] = 1;
+        M_interp_method[tmp_nb_var] = 1; // crash if equal 1
         M_diffusivity_parameters[tmp_nb_var]=0.;
         tmp_nb_var++;
 
@@ -1934,7 +1937,7 @@ FiniteElement::collectVariablesIO(std::vector<double>& interp_elt_in_local, bool
         tmp_nb_var++;
 
         // ridge_ratio
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_ridge_ratio[i]*M_thick[i];
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_ridge_ratio[i]/**M_thick[i]*/;
         tmp_nb_var++;
 
         // random_number
@@ -2035,7 +2038,26 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
         }
         else
         {
-            tmp_nb_var += 5;
+            // tmp_nb_var += 5;
+            // integrated_stress1
+            M_sigma[3*i] = 0.;
+            tmp_nb_var++;
+
+            // integrated_stress2
+            M_sigma[3*i+1] = 0.;
+            tmp_nb_var++;
+
+            // integrated_stress3
+            M_sigma[3*i+2] = 0.;
+            tmp_nb_var++;
+
+            // damage
+            M_damage[i] = 0.;
+            tmp_nb_var++;
+
+            // damage
+            M_ridge_ratio[i] = 0.;
+            tmp_nb_var++;
         }
 
         // random_number
@@ -2096,7 +2118,7 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
             throw std::logic_error("tmp_nb_var not equal to nb_var");
         }
 
-        if(check_conc)
+        if (check_conc)
         {
             M_conc[i]=(M_conc[i]>1.) ? 1. : M_conc[i];
             double conc_thin_tmp = ( (M_conc[i]+M_conc_thin[i])>1.) ? 1.-M_conc[i] : M_conc_thin[i];
@@ -2272,9 +2294,11 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
             }
         }
 
+        // M_comm.barrier();
+
         this->scatterNodalField(M_VT_smoothed_root,M_VT_smoothed);
 
-        M_comm.barrier();
+        // M_comm.barrier();
 
         for (int nd=0; nd<M_UM.size(); ++nd)
         {
@@ -2361,11 +2385,11 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
             }
             else
             {
-                // neighbour_double = bamgmesh->ElementConnectivity[cpt*3+i];
-                // neighbour_int = (int)bamgmesh->ElementConnectivity[cpt*3+i];
+                neighbour_double = bamgmesh->ElementConnectivity[cpt*3+i];
+                neighbour_int = (int)bamgmesh->ElementConnectivity[cpt*3+i];
 
-                neighbour_double = M_element_connectivity[cpt*3+i];
-                neighbour_int = (int)M_element_connectivity[cpt*3+i];
+                // neighbour_double = M_element_connectivity[cpt*3+i];
+                // neighbour_int = (int)M_element_connectivity[cpt*3+i];
 
                 if (!std::isnan(neighbour_double) && neighbour_int>0)
                 {
@@ -2406,6 +2430,239 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
 }
 
 void
+FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out)
+{
+    M_comm.barrier();
+
+    int ALE_smoothing_step_nb = vm["simul.ALE_smoothing_step_nb"].as<int>();
+    // ALE_smoothing_step_nb<0 is the diffusive eulerian case where M_UM is not changed and then =0.
+    // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
+    // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
+
+    interp_elt_out.resize(M_nb_var_element*M_num_elements);
+    std::vector<double> interp_elt_out_root;
+
+    std::vector<double> M_VT_root;
+    std::vector<double> M_VT_smoothed;
+    std::vector<double> M_VT_smoothed_root;
+    std::vector<double> M_UM_root;
+
+    this->gatherNodalField(M_VT, M_UM, M_VT_root, M_UM_root);
+
+    std::vector<double> interp_elt_in_root;
+    this->gatherElementField(interp_elt_in, interp_elt_in_root, M_nb_var_element);
+
+    //std::vector<double> M_surface_root;
+
+    if (M_rank == 0)
+    {
+        std::vector<double> UM_P_root = M_UM_root;
+
+        M_VT_smoothed_root = M_VT_root;
+        std::vector<double> M_VT_tmp = M_VT_smoothed_root;
+
+        // get the global number of nodes
+        int num_nodes = M_mesh_root.numNodes();
+        int Nd = bamgmesh_root->NodalConnectivitySize[1];
+
+        for (int k=0; k<ALE_smoothing_step_nb; ++k)
+        {
+            M_VT_tmp = M_VT_smoothed_root;
+
+            for (int i=0; i<num_nodes; ++i)
+            {
+                int Nc;
+                double UM_x, UM_y;
+
+                if(M_mask_dirichlet_root[i]==false)
+                {
+                    Nc = bamgmesh_root->NodalConnectivity[Nd*(i+1)-1];
+
+                    UM_x = 0.;
+                    UM_y = 0.;
+
+                    for (int j=0; j<Nc; ++j)
+                    {
+                        UM_x += M_VT_tmp[bamgmesh_root->NodalConnectivity[Nd*i+j]-1];
+                        UM_y += M_VT_tmp[bamgmesh_root->NodalConnectivity[Nd*i+j]-1+num_nodes];
+                    }
+
+                    M_VT_smoothed_root[i          ] = UM_x/Nc;
+                    M_VT_smoothed_root[i+num_nodes] = UM_y/Nc;
+                }
+            }
+        }
+
+        for (int nd=0; nd<M_UM_root.size(); ++nd)
+        {
+            M_UM_root[nd] += time_step*M_VT_smoothed_root[nd];
+        }
+
+        for (const int& nd : M_neumann_nodes_root)
+        {
+            M_UM_root[nd] = UM_P_root[nd];
+        }
+
+
+        int num_elements = M_mesh_root.numTriangles();
+        auto elements_root = M_mesh_root.triangles();
+        auto nodes_root = M_mesh_root.nodes();
+
+        interp_elt_out_root.resize(M_nb_var_element*num_elements);
+
+        // std::cout<<"interp_elt_in_root size = "<< interp_elt_in_root.size() <<"\n";
+        // std::cout<<"interp_elt_out_root size= "<< interp_elt_out_root.size() <<"\n";
+        // M_surface_root.resize(num_elements);
+#if 1
+        for (int cpt=0; cpt < num_elements; ++cpt)
+        {
+            /* some variables used for the advection*/
+            double surface, surface_new;
+            double integrated_variable;
+
+            /* some variables used for the advection*/
+            double x[3],y[3],x_new[3],y_new[3];
+            int x_ind, y_ind, neighbour_int, vertex_1, vertex_2;
+            double outer_fluxes_area[3], vector_edge[2], outer_vector[2], VC_middle[2], VC_x[3], VC_y[3];
+            int fluxes_source_id[3];
+
+            double neighbour_double;
+            int other_vertex[3*2]={1,2 , 2,0 , 0,1};
+
+            /*======================================================================
+             * Update:
+             * Ice and snow thickness, and concentration using a Lagrangian or an Eulerian scheme
+             *======================================================================
+             */
+
+            for(int i=0;i<3;i++)
+            {
+                x_ind = (elements_root[cpt]).indices[i]-1;
+                y_ind = (elements_root[cpt]).indices[i]-1+num_nodes;
+
+                x[i] = nodes_root[(elements_root[cpt]).indices[i]-1].coords[0];
+                y[i] = nodes_root[(elements_root[cpt]).indices[i]-1].coords[1];
+
+                /* old and new positions of the mesh */
+                x_new[i] = x[i]+M_UM_root[x_ind];
+                y_new[i] = y[i]+M_UM_root[y_ind];
+                x[i]     = x[i]+UM_P_root[x_ind];
+                y[i]     = y[i]+UM_P_root[y_ind];
+
+                if(ALE_smoothing_step_nb==-2)
+                {
+                    VC_x[i] =0.;
+                    VC_y[i] =0.;
+                }
+                else
+                {
+                    VC_x[i] = M_VT_root[x_ind]-(M_UM_root[x_ind]-UM_P_root[x_ind])/time_step;
+                    VC_y[i] = M_VT_root[y_ind]-(M_UM_root[y_ind]-UM_P_root[y_ind])/time_step;
+                }
+            }
+
+            surface = this->measure(elements_root[cpt],M_mesh_root, UM_P_root);
+            surface_new = this->measure(elements_root[cpt],M_mesh_root, M_UM_root);
+
+
+            for(int i=0;i<3;i++)
+            {
+                outer_fluxes_area[i] = 0;
+
+                vertex_1 = other_vertex[2*i  ];
+                vertex_2 = other_vertex[2*i+1];
+
+                vector_edge[0] = x[vertex_2]-x[vertex_1];
+                vector_edge[1] = y[vertex_2]-y[vertex_1];
+
+                outer_vector[0] = vector_edge[1];
+                outer_vector[1] = -vector_edge[0];
+
+                VC_middle[0] = (VC_x[vertex_2]+VC_x[vertex_1])/2.;
+                VC_middle[1] = (VC_y[vertex_2]+VC_y[vertex_1])/2.;
+
+                outer_fluxes_area[i] = outer_vector[0]*VC_middle[0]+outer_vector[1]*VC_middle[1];
+
+                if(outer_fluxes_area[i]>0)
+                {
+                    // surface = this->measure(elements_root[cpt],M_mesh_root, UM_P_root);
+                    outer_fluxes_area[i] = std::min(surface/time_step/3.,outer_fluxes_area[i]);
+                    fluxes_source_id[i] = cpt;
+                }
+                else
+                {
+                    neighbour_double = bamgmesh_root->ElementConnectivity[cpt*3+i];
+                    neighbour_int = (int)bamgmesh_root->ElementConnectivity[cpt*3+i];
+
+                    // neighbour_double = M_element_connectivity[cpt*3+i];
+                    // neighbour_int = (int)M_element_connectivity[cpt*3+i];
+
+                    if (!std::isnan(neighbour_double) && neighbour_int>0)
+                    {
+                        double surface_local = this->measure(elements_root[neighbour_int-1],M_mesh_root, UM_P_root);
+                        outer_fluxes_area[i] = -std::min(surface_local/time_step/3.,-outer_fluxes_area[i]);
+                        fluxes_source_id[i] = neighbour_int-1;
+                    }
+                    else // open boundary with incoming fluxes
+                    {
+                        fluxes_source_id[i] = cpt;
+                    }
+                }
+            }
+
+            // surface = this->measure(elements_root[cpt],M_mesh_root, UM_P_root);
+            // surface_new = this->measure(elements_root[cpt],M_mesh_root, M_UM_root);
+
+
+#if 1
+            for(int j=0; j<M_nb_var_element; j++)
+            {
+                if(M_interp_method[j]==1)
+                {
+                    integrated_variable = interp_elt_in_root[cpt*M_nb_var_element+j]*surface
+                        - (
+                           interp_elt_in_root[fluxes_source_id[0]*M_nb_var_element+j]*outer_fluxes_area[0]
+                           + interp_elt_in_root[fluxes_source_id[1]*M_nb_var_element+j]*outer_fluxes_area[1]
+                           + interp_elt_in_root[fluxes_source_id[2]*M_nb_var_element+j]*outer_fluxes_area[2]
+                           )*time_step;
+
+                    interp_elt_out_root[cpt*M_nb_var_element+j] = integrated_variable/surface_new;
+                }
+                else
+                {
+                    interp_elt_out_root[cpt*M_nb_var_element+j] = interp_elt_in_root[cpt*M_nb_var_element+j];
+                }
+            }
+#endif
+        }
+#endif
+    }
+
+#if 1
+    this->scatterElementField(interp_elt_out_root, interp_elt_out, M_nb_var_element);
+
+    this->scatterNodalField(M_VT_smoothed_root,M_VT_smoothed);
+
+    std::vector<double> UM_P = M_UM;
+
+    for (int nd=0; nd<M_UM.size(); ++nd)
+    {
+        M_UM[nd] += time_step*M_VT_smoothed[nd];
+    }
+
+    for (const int& nd : M_neumann_nodes)
+    {
+        M_UM[nd] = UM_P[nd];
+    }
+
+    for (int cpt=0; cpt < M_num_elements; ++cpt)
+    {
+        M_surface[cpt] = this->measure(M_elements[cpt],M_mesh,M_UM);
+    }
+#endif
+}
+
+void
 FiniteElement::diffuse(std::vector<double>& variable_elt, double diffusivity_parameters, double dx)
 {
     if(diffusivity_parameters<=0.)
@@ -2415,39 +2672,52 @@ FiniteElement::diffuse(std::vector<double>& variable_elt, double diffusivity_par
         return;
     }
 
-    double factor = diffusivity_parameters*time_step/std::pow(dx,2.);
-    std::vector<double> old_variable_elt = variable_elt;
+    // new addition
+    std::vector<double> variable_elt_root;
+    this->gatherElementField(variable_elt, variable_elt_root);
 
-    for (int cpt=0; cpt < M_num_elements; ++cpt)
+    if (M_rank == 0)
     {
-        /* some variables used for the advection*/
-        double fluxes_source[3];
-        int fluxes_source_id;
+        double factor = diffusivity_parameters*time_step/std::pow(dx,2.);
+        std::vector<double> old_variable_elt = variable_elt_root;
 
-        int neighbour_int;
-        double neighbour_double;
+        // get the global number of nodes
+        int num_elements = M_mesh_root.numTriangles();
 
-        for(int i=0;i<3;i++)
+        for (int cpt=0; cpt < num_elements; ++cpt)
         {
-            // neighbour_double = bamgmesh->ElementConnectivity[cpt*3+i];
-            // neighbour_int = (int)bamgmesh->ElementConnectivity[cpt*3+i];
+            /* some variables used for the advection*/
+            double fluxes_source[3];
+            int fluxes_source_id;
 
-            neighbour_double = M_element_connectivity[cpt*3+i];
-            neighbour_int = (int)M_element_connectivity[cpt*3+i];
+            int neighbour_int;
+            double neighbour_double;
 
-            if (!std::isnan(neighbour_double) && neighbour_int>0)
+            for(int i=0;i<3;i++)
             {
-                fluxes_source_id=neighbour_int-1;
-                fluxes_source[i]=factor*(old_variable_elt[fluxes_source_id]-old_variable_elt[cpt]);
+                neighbour_double = bamgmesh_root->ElementConnectivity[cpt*3+i];
+                neighbour_int = (int)bamgmesh_root->ElementConnectivity[cpt*3+i];
+
+                // neighbour_double = M_element_connectivity[cpt*3+i];
+                // neighbour_int = (int)M_element_connectivity[cpt*3+i];
+
+                if (!std::isnan(neighbour_double) && neighbour_int>0)
+                {
+                    fluxes_source_id=neighbour_int-1;
+                    fluxes_source[i]=factor*(old_variable_elt[fluxes_source_id]-old_variable_elt[cpt]);
+                }
+                else // no diffusion crosses open nor closed boundaries
+                {
+                    fluxes_source[i]=0.;
+                }
             }
-            else // no diffusion crosses open nor closed boundaries
-            {
-                fluxes_source[i]=0.;
-            }
+
+            variable_elt_root[cpt] += fluxes_source[0] + fluxes_source[1] + fluxes_source[2];
         }
-
-        variable_elt[cpt] += fluxes_source[0] + fluxes_source[1] + fluxes_source[2];
     }
+
+    // scatter back verctor from root to all processes
+    this->scatterElementField(variable_elt_root, variable_elt);
 }
 
 void
@@ -2461,7 +2731,11 @@ FiniteElement::scatterElementConnectivity()
 
     if (M_rank == 0)
     {
-        connectivity_root.resize(nb_var_element*M_id_elements.size());
+
+        // std::cout<<"bamgmesh_root->ElementConnectivitySize[0]= "<< bamgmesh_root->ElementConnectivitySize[0] <<"\n";
+        // std::cout<<"bamgmesh_root->ElementConnectivitySize[1]= "<< bamgmesh_root->ElementConnectivitySize[1] <<"\n";
+
+        connectivity_root.resize(3*nb_var_element*M_id_elements.size());
 
         for (int i=0; i<M_id_elements.size(); ++i)
         {
@@ -2687,7 +2961,7 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT starts\n";
 
     int nb_var_element = M_nb_var_element;
-    if (M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
+    if (M_ice_cat_type != setup::IceCategoryType::THIN_ICE)
     {
         nb_var_element -= 4;
     }
@@ -2765,8 +3039,8 @@ FiniteElement::interpFieldsElement()
     if (M_rank == 0)
     {
         std::vector<double> surface_previous(M_mesh_previous_root.numTriangles());
-        //std::vector<double> surface(M_mesh_root.numTriangles());
-        M_surface_root.resize(M_mesh_root.numTriangles());
+        std::vector<double> surface_root(M_mesh_root.numTriangles());
+        //M_surface_root.resize(M_mesh_root.numTriangles());
 
         int cpt = 0;
         for (auto it=M_mesh_previous_root.triangles().begin(), end=M_mesh_previous_root.triangles().end(); it!=end; ++it)
@@ -2778,7 +3052,7 @@ FiniteElement::interpFieldsElement()
         cpt = 0;
         for (auto it=M_mesh_root.triangles().begin(), end=M_mesh_root.triangles().end(); it!=end; ++it)
         {
-            M_surface_root[cpt] = this->measure(*it,M_mesh_root);
+            surface_root[cpt] = this->measure(*it,M_mesh_root);
             ++cpt;
         }
 
@@ -2788,7 +3062,7 @@ FiniteElement::interpFieldsElement()
         timer["cavities"].first.restart();
         InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_in_elements[0],
                                        &M_interp_method[0], M_nb_var_element,
-                                       &surface_previous[0], &M_surface_root[0], bamgmesh_previous, bamgmesh_root);
+                                       &surface_previous[0], &surface_root[0], bamgmesh_previous, bamgmesh_root);
 
         if (M_rank == 0)
             std::cout<<"-------------------CAVITIES done in "<< timer["cavities"].first.elapsed() <<"s\n";
@@ -3041,6 +3315,61 @@ FiniteElement::gatherNodalField(std::vector<double> const& field_local, std::vec
 }
 
 void
+FiniteElement::gatherNodalField(std::vector<double> const& field1_local, std::vector<double> const& field2_local,
+                                std::vector<double>& field1_root, std::vector<double>& field2_root)
+{
+    std::vector<double> um_local(4*M_local_ndof,0.);
+    for (int i=0; i<M_local_ndof; ++i)
+    {
+        // field1
+        um_local[4*i] = field1_local[i];
+        um_local[4*i+1] = field1_local[i+M_num_nodes];
+
+        // field2
+        um_local[4*i+2] = field2_local[i];
+        um_local[4*i+3] = field2_local[i+M_num_nodes];
+    }
+
+    std::vector<int> sizes_nodes = M_sizes_nodes;
+    std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = 4*f; });
+
+    // send displacement vector to the root process (rank 0)
+
+    std::vector<double> um_root;
+
+    if (M_rank == 0)
+    {
+        um_root.resize(4*M_ndof);
+        boost::mpi::gatherv(M_comm, um_local, &um_root[0], sizes_nodes, 0);
+    }
+    else
+    {
+        boost::mpi::gatherv(M_comm, um_local, 0);
+    }
+
+    if (M_rank == 0)
+    {
+        int global_num_nodes = M_mesh.numGlobalNodes();
+
+        field1_root.resize(2*M_ndof);
+        field2_root.resize(2*M_ndof);
+
+        auto um_root_nrd = um_root;
+
+        for (int i=0; i<global_num_nodes; ++i)
+        {
+            int ri =  M_rmap_nodes[i];
+
+            field1_root[i] = um_root_nrd[4*ri];
+            field1_root[i+global_num_nodes] = um_root_nrd[4*ri+1];
+
+            field2_root[i] = um_root_nrd[4*ri+2];
+            field2_root[i+global_num_nodes] = um_root_nrd[4*ri+3];
+        }
+    }
+}
+
+void
 FiniteElement::scatterNodalField(std::vector<double> const& field_root, std::vector<double>& field_local)
 {
     std::vector<double> in_nd_values;
@@ -3090,20 +3419,30 @@ FiniteElement::scatterNodalField(std::vector<double> const& field_root, std::vec
 }
 
 void
-FiniteElement::gatherElementField(std::vector<double> const& field_local, std::vector<double>& field_root)
+FiniteElement::gatherElementField(std::vector<double> const& field_local, std::vector<double>& field_root, int nb_fields)
 {
-    std::vector<double> field_local_copy(M_local_nelements);
+    std::vector<double> field_local_copy(nb_fields*M_local_nelements);
 
     for (int i=0; i<M_local_nelements; ++i)
     {
         // copy values without ghosts
-        field_local_copy[i] = field_local[i];
+        for (int j=0; j<nb_fields; ++j)
+        {
+            field_local_copy[nb_fields*i+j] = field_local[nb_fields*i+j];
+        }
+    }
+
+    std::vector<int> sizes_elements = M_sizes_elements;
+
+    if (nb_fields != 1)
+    {
+        std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = nb_fields*f; });
     }
 
     if (M_rank == 0)
     {
-        field_root.resize(M_mesh_root.numTriangles());
-        boost::mpi::gatherv(M_comm, field_local_copy, &field_root[0], M_sizes_elements, 0);
+        field_root.resize(nb_fields*M_mesh_root.numTriangles());
+        boost::mpi::gatherv(M_comm, field_local_copy, &field_root[0], sizes_elements, 0);
     }
     else
     {
@@ -3117,37 +3456,51 @@ FiniteElement::gatherElementField(std::vector<double> const& field_local, std::v
         for (int i=0; i<M_mesh_root.numTriangles(); ++i)
         {
             int ri = M_rmap_elements[i];
-            field_root[i] = field_root_nrd[ri];
+
+            for (int j=0; j<nb_fields; ++j)
+            {
+                field_root[nb_fields*i+j] = field_root_nrd[nb_fields*ri+j];
+            }
         }
     }
 
 }
 
 void
-FiniteElement::scatterElementField(std::vector<double> const& field_root, std::vector<double>& field_local)
+FiniteElement::scatterElementField(std::vector<double> const& field_root, std::vector<double>& field_local, int nb_fields)
 {
     std::vector<double> field_root_extended;
 
     if (M_rank == 0)
     {
-        field_root_extended.resize(M_id_elements.size());
+        field_root_extended.resize(nb_fields*M_id_elements.size());
 
         for (int i=0; i<M_id_elements.size(); ++i)
         {
             int ri = M_id_elements[i]-1;
-            field_root_extended[i] = field_root[ri];
+
+            for (int j=0; j<nb_fields; ++j)
+            {
+                field_root_extended[nb_fields*i+j] = field_root[nb_fields*ri+j];
+            }
         }
     }
 
-    field_local.resize(M_num_elements);
+    field_local.resize(nb_fields*M_num_elements);
+
+    std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
+    if (nb_fields != 1)
+    {
+        std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = nb_fields*f; });
+    }
 
     if (M_rank == 0)
     {
-        boost::mpi::scatterv(M_comm, field_root_extended, M_sizes_elements_with_ghost, &field_local[0], 0);
+        boost::mpi::scatterv(M_comm, field_root_extended, sizes_elements, &field_local[0], 0);
     }
     else
     {
-        boost::mpi::scatterv(M_comm, &field_local[0], M_num_elements, 0);
+        boost::mpi::scatterv(M_comm, &field_local[0], nb_fields*M_num_elements, 0);
     }
 }
 
@@ -3420,13 +3773,15 @@ FiniteElement::adaptMesh()
     Bamgx(bamgmesh_root,bamggeom_root,bamgmesh_previous,bamggeom_previous,bamgopt_previous);
     std::cout <<"---BAMGMESH done in "<< timer["bamgmesh"].first.elapsed() <<"s\n";
 
+    std::vector<int> old_node_id = M_mesh_root.id();
+
     this->importBamg(bamgmesh_root);
 
-    this->updateBoundaryFlags();
+    this->updateBoundaryFlags(old_node_id);
 }
 
 void
-FiniteElement::updateBoundaryFlags()
+FiniteElement::updateBoundaryFlags(std::vector<int> const& old_node_id)
 {
     LOG(DEBUG) <<"CLOSED: FLAGS SIZE BEFORE= "<< M_dirichlet_flags_root.size() <<"\n";
     LOG(DEBUG) <<"OPEN  : FLAGS SIZE BEFORE= "<< M_neumann_flags_root.size() <<"\n";
@@ -3474,7 +3829,7 @@ FiniteElement::updateBoundaryFlags()
     // Recompute the node ids
     if(bamgopt->KeepVertices)
     {
-        std::vector<int> old_node_id=M_mesh_previous_root.id();
+        //std::vector<int> old_node_id=M_mesh_previous_root.id();
         std::vector<int> new_nodes_id=M_mesh_root.id();
 
         int Boundary_id = 0;
@@ -3668,6 +4023,8 @@ FiniteElement::assemble(int pcpt)
         total_concentration =   (vm["simul.min_c"].as<double>()>total_concentration)    ? vm["simul.min_c"].as<double>() : total_concentration;
 
         double coef_min = 10.;
+
+        // values used when no ice or when ice too thin
         double coef_drag = 0.;
 
 
@@ -4024,8 +4381,8 @@ FiniteElement::assemble(int pcpt)
 
     M_matrix->on(M_dirichlet_nodes,*M_vector);
 
-    if (M_rank==0)
-        std::cout <<"TIMER DBCA= " << timer["dirichlet"].first.elapsed() <<"s\n";
+    // if (M_rank==0)
+    //     std::cout <<"TIMER DBCA= " << timer["dirichlet"].first.elapsed() <<"s\n";
 
 #if 0
     int S1 = M_matrix->size1();
@@ -4208,8 +4565,8 @@ FiniteElement::update()
 
     // advect
     std::vector<double> interp_elt_out;
-    this->advect(interp_elt_in_local, interp_elt_out);
-
+    this->advectRoot(interp_elt_in_local, interp_elt_out);
+#if 1
     // redistribute the interpolated values
     this->redistributeVariables(interp_elt_out);
 
@@ -4281,7 +4638,7 @@ FiniteElement::update()
         /* Thin ice category */
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
-            open_water_concentration-=M_conc_thin[cpt];
+            open_water_concentration -= M_conc_thin[cpt];
         }
 
         // ridging scheme
@@ -4338,10 +4695,12 @@ FiniteElement::update()
                     M_snow_thick[cpt]   += newsnow;
 
                     if( newice>0. )
+                    {
                         M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt]));
+                    }
                 }
 
-                M_conc_thin[cpt]= new_conc_thin;
+                M_conc_thin[cpt] = new_conc_thin;
             }
             else
             {
@@ -4355,12 +4714,15 @@ FiniteElement::update()
         double new_conc=std::min(1.,std::max(1.-M_conc_thin[cpt]-open_water_concentration+del_c,0.));
 
         if((new_conc+M_conc_thin[cpt])>1.)
+        {
             new_conc=1.-M_conc_thin[cpt];
+        }
 
         if(new_conc<M_conc[cpt])
         {
             M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]+(1.-M_ridge_ratio[cpt])*(M_conc[cpt]-new_conc)/M_conc[cpt])));
         }
+
         M_conc[cpt]=new_conc;
 
         double max_true_thickness = 50.;
@@ -4482,7 +4844,7 @@ FiniteElement::update()
                 M_damage[cpt] = tmp;
             }
         }
-
+#if 0
         /*
          * Diagnostic:
          * Recompute the internal stress
@@ -4499,14 +4861,14 @@ FiniteElement::update()
                 M_sigma[3*cpt+i] = 0. ;
             }
         }
-
+#endif
         }
         else // if M_conc or M_thick too low, set sigma to 0.
         {
             for(int i=0;i<3;i++)
             {
                 M_sigma[3*cpt+i] = 0.;
-                M_sigma[3*cpt+i] = 0.;
+                // M_sigma[3*cpt+i] = 0.;
             }
         }
 
@@ -4534,6 +4896,7 @@ FiniteElement::update()
 
         M_damage[cpt]=((tmp>0.)?(tmp):(0.));
     }
+#endif
 }
 
 void
@@ -5702,11 +6065,12 @@ FiniteElement::init()
     // We need to set the scale_coeff et al after initialising the mesh - this was previously done in initConstants
     // The mean resolution of the small_arctic_10km mesh is 7446.71 m. Using 74.5 gives scale_coef = 0.100022, for that mesh
     boost::mpi::broadcast(M_comm, M_res_root_mesh, 0);
+#if 0
     scale_coef = std::sqrt(74.5/M_res_root_mesh/*this->resolution(M_mesh)*/);
     C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     LOG(DEBUG) << "SCALE_COEF = " << scale_coef << "\n";
-
+#endif
 
     if (!M_use_restart)
     {
@@ -5846,19 +6210,26 @@ FiniteElement::init()
 
          if (M_rank == 0)
          {
+             if(fmod(pcpt*time_step, ptime_step) == 0)
+             {
+                 std::cout <<"NB OF REGGRIDING= " << M_nb_regrid <<"\n";
+             }
+
              std::cout <<"REGRID ANGLE= "<< minang <<"\n";
          }
 
+         // if ( (0 < pcpt) && (pcpt < 4) )
          if ( minang < vm["simul.regrid_angle"].as<double>() )
          {
              if ( (M_rank == 0) && (M_use_moorings) && (!M_moorings_snapshot) )
              {
                  M_moorings.updateGridMean(M_mesh_root);
              }
-
+             // this->exportResults(1000+M_nb_regrid);
              LOG(DEBUG) <<"Regriding starts\n";
              chrono.restart();
              this->regrid(pcpt);
+             // this->exportResults(2000+M_nb_regrid);
              LOG(DEBUG) <<"Regriding done in "<< chrono.elapsed() <<"s\n";
 
              if ( (M_rank == 0) && (M_use_moorings) )
@@ -5971,7 +6342,7 @@ FiniteElement::init()
     ++pcpt;
     current_time = time_init + pcpt*time_step/(24*3600.0);
 
-
+#if 1
     if(fmod(pcpt*time_step,output_time_step) == 0)
     {
         chrono.restart();
@@ -5990,6 +6361,7 @@ FiniteElement::init()
         std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
         this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
     }
+#endif
  }
 
  // This is the main working function, called from main.cpp (same as perform_simul in the old code)
@@ -7092,8 +7464,8 @@ FiniteElement::readRestart(int step)
         // Import the bamg structs
         this->importBamg(bamgmesh_root);
 
-        // update the boundary flags
-        this->updateBoundaryFlags();
+        // update the boundary flags (to uncomment)
+        // this->updateBoundaryFlags();
     }
 
     // mesh partitioning
@@ -7307,7 +7679,7 @@ FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out, std::vect
 {
     M_nb_var_element = 15 + M_tice.size();//15;
     int nb_var_element = M_nb_var_element;
-    if (M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
+    if (M_ice_cat_type != setup::IceCategoryType::THIN_ICE)
     {
         nb_var_element -= 4;
     }
@@ -8350,6 +8722,7 @@ FiniteElement::topazIce()
             M_thick[i]=0.;
             M_snow_thick[i]=0.;
         }
+
         if(M_thick[i]<=0.)
         {
             M_conc[i]=0.;
@@ -8458,7 +8831,7 @@ FiniteElement::topazIceOsisafIcesat()
 
         //if either c or h equal zero, we set the others to zero as well
         double hi=M_thick[i]/M_conc[i];
-        if ( M_conc[i] < 0.01 || hi < physical::hmin )
+        if ( (M_conc[i] < 0.01) || (hi < physical::hmin) )
         {
             M_conc[i]=0.;
             M_thick[i]=0.;
@@ -9002,7 +9375,7 @@ FiniteElement::cs2SmosAmsr2Ice()
         double ratio_MYI=0.9;
         double ratio_Mixed=0.6;
 
-        if((M_thick[i]>0.)&&(M_conc[i])>0.2)
+        if((M_thick[i]>0.) && (M_conc[i]>0.2))
         {
             if(M_type[i]<=1.)
                 M_ridge_ratio[i]=0.;

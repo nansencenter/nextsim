@@ -118,8 +118,8 @@ namespace Nextsim
             ("simul.cohesion_thickness_exponent", po::value<double>()->default_value( 1. ), "")
 
             ("simul.use_temperature_dependent_healing", po::value<bool>()->default_value( false ), "")
-            ("simul.time_relaxation_damage", po::value<double>()->default_value( 28. ), "days")
-            ("simul.deltaT_relaxation_damage", po::value<double>()->default_value( 40. ), "kelvin")
+            ("simul.time_relaxation_damage", po::value<double>()->default_value( 25. ), "days")
+            ("simul.deltaT_relaxation_damage", po::value<double>()->default_value( 20. ), "kelvin")
             // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
             ("simul.undamaged_time_relaxation_sigma", po::value<double>()->default_value( 1e7 ), "seconds")
             // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
@@ -133,7 +133,7 @@ namespace Nextsim
             ("simul.Lemieux_basal_u_crit", po::value<double>()->default_value( 5e-4 ), "")
 
             // scaling with respect to horizontal resolution
-            ("simul.scale_coef", po::value<double>()->default_value( 0.2 ), "")
+            ("simul.scale_coef", po::value<double>()->default_value( 0.1 ), "")
 
             // thermodynamics
             ("simul.thermo-type", po::value<std::string>()->default_value( "zero-layer" ), "")
