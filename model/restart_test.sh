@@ -1,5 +1,10 @@
 #! /bin/bash
 
+duration=10.125
+output_per_day=4
+restart_time_step=0.25
+step_nb=40
+
 export DYLD_LIBRARY_PATH=$NEXTSIMDIR/lib:$BOOST_LIBDIR
 
 if [ "$1" == "--help" ]
@@ -23,19 +28,19 @@ tmpdir_start=$(mktemp -d)
 tmpdir_restart=$(mktemp -d)
 
 # Run from start
-$execfile --setup.exporter_precision=double --simul.output_directory=$tmpdir_start --setup.use_restart=false --simul.duration=0.5 --setup.write_restart=true --setup.restart_time_step=0.25 --simul.output_per_day=4 --config-files=$cfgfile || exit 5
+$execfile --setup.exporter_precision=double --simul.output_directory=$tmpdir_start --setup.use_restart=false --simul.duration=$duration --setup.write_restart=true --setup.restart_time_step=$restart_time_step --simul.output_per_day=$output_per_day --config-files=$cfgfile 2>&1 | tee $tmpdir_start/output.log || exit 5
 
 # Copy the restart files to ../restart so they can be read by the model
 cp $tmpdir_start/restart/* ../restart/
 
 # Run with a restart
-$execfile --setup.exporter_precision=double --simul.output_directory=$tmpdir_restart --setup.use_restart=true --setup.step_nb=1 --simul.duration=0.5 --setup.write_restart=false --simul.ouput_per_day=4 --config-files=$cfgfile || exit 6
+$execfile --setup.exporter_precision=double --simul.output_directory=$tmpdir_restart --setup.use_restart=true --setup.step_nb=$step_nb --simul.duration=$duration --setup.write_restart=false --simul.output_per_day=$output_per_day --config-files=$cfgfile 2>&1 | tee $tmpdir_restart/output.log || exit 6
 
 # Test for diff
 results=0
-diff -qs $tmpdir_start/field_1000.bin $tmpdir_restart/field_1000.bin
+diff -qs $tmpdir_start/field_final.bin $tmpdir_restart/field_final.bin
 (( results=results+$? ))
-diff -qs $tmpdir_start/mesh_1000.bin $tmpdir_restart/mesh_1000.bin
+diff -qs $tmpdir_start/mesh_final.bin $tmpdir_restart/mesh_final.bin
 (( results=results+$? ))
 
 if [ $results -gt 0 ]
@@ -49,7 +54,6 @@ else
     echo "Restart produces bit-wise identical results"
     echo "Removing temporary files"
     rm -rf $tmpdir_start $tmpdir_restart
-    exit 0
 fi
 
 

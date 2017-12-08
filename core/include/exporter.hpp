@@ -30,7 +30,7 @@ class Exporter
 {
 public:
 
-	Exporter(std::string const& precision = "double");
+	Exporter(std::string const& precision = "float");
 
     template<typename Type>
     void writeContainer(std::fstream& out, std::vector<Type> const& container);

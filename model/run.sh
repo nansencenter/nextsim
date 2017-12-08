@@ -35,6 +35,7 @@ fi
 # Run the nextsim model
 $prog --config-files=$config
 
+
 # Run the CPU profiler (google perftools)
 nbt=`echo ${NEXTSIM_BUILD_TYPE,,}`
 # this is now lower case

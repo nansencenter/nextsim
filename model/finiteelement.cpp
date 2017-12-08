@@ -521,9 +521,14 @@ FiniteElement::initConstant()
     //std::cout<<"time_init second= "<< std::setprecision(18) << time_init <<"\n";
     time_step = vm["simul.timestep"].as<double>();
 
-    output_time_step =  (vm["simul.output_per_day"].as<int>()<0) ? time_step : days_in_sec/vm["simul.output_per_day"].as<int>();
+    output_time_step =  (vm["simul.output_per_day"].as<int>()<0) ? time_step : time_step * floor(days_in_sec/vm["simul.output_per_day"].as<int>()/time_step);
     mooring_output_time_step =  vm["simul.mooring_output_timestep"].as<double>()*days_in_sec;
     mooring_time_factor = time_step/mooring_output_time_step;
+    if ( fmod(mooring_output_time_step,time_step) != 0)
+    {
+        std::cout << mooring_output_time_step << " " << time_step << "\n";
+        throw std::runtime_error("mooring_output_time_step is not an integer multiple of time_step");
+    }
 
     // output_time_step =  time_step*vm["simul.output_per_day"].as<int>(); // useful for debuging
     duration = (vm["simul.duration"].as<double>())*days_in_sec;
@@ -678,6 +683,7 @@ FiniteElement::initConstant()
     M_bathymetry_type = str2bathymetry.find(vm["setup.bathymetry-type"].as<std::string>())->second;
 
     const boost::unordered_map<const std::string, setup::BasalStressType> str2basal_stress= boost::assign::map_list_of
+        ("none", setup::BasalStressType::NONE)
         ("lemieux", setup::BasalStressType::LEMIEUX)
         ("bouillon", setup::BasalStressType::BOUILLON);
     M_basal_stress_type = str2basal_stress.find(vm["simul.basal_stress-type"].as<std::string>())->second;
@@ -1050,7 +1056,7 @@ FiniteElement::AllMinAngle(mesh_type const& mesh, std::vector<double> const& um,
     int thread_id;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
-//#pragma omp parallel for num_threads(max_threads) private(thread_id)
+#pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
         all_min_angle[cpt] = this->minAngles(movedmesh.triangles()[cpt],movedmesh);
@@ -2401,7 +2407,8 @@ FiniteElement::assemble(int pcpt)
     int total_threads;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
-#pragma omp parallel for num_threads(max_threads) private(thread_id)
+// omp pragma causing the code not to give reproducable results across different runs and different number of threads
+//#pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
         // if(thread_id == 0)
@@ -2430,7 +2437,7 @@ FiniteElement::assemble(int pcpt)
 
         int index_u, index_v;
 
-        double coef_min = 10.;
+        double coef_min = 100.;
 
         // values used when no ice or when ice too thin
         double coef_drag    = 0.;  // coef_drag is a switch that set the external forcings to 0 (wind, ocean, bottom drag, waves stress) where there is too little ice
@@ -2498,6 +2505,9 @@ FiniteElement::assemble(int pcpt)
             {
                 switch ( M_basal_stress_type )
                 {
+                    case setup::BasalStressType::NONE:
+                        critical_h     = 0.;
+                        critical_h_mod = 0.;
                     case setup::BasalStressType::BOUILLON:
                         // Sylvain's grounding scheme
                         keel_height_estimate = ice_to_keel_factor*std::pow(M_thick[cpt]/M_conc[cpt],0.5);
@@ -4538,7 +4548,7 @@ FiniteElement::init()
     {
         LOG(DEBUG) <<"Reading restart file\n";
         pcpt = this->readRestart(vm["setup.step_nb"].as<int>());
-        // current_time = time_init + pcpt*time_step/(24*3600.0);
+        current_time = time_init + pcpt*time_step/(24*3600.0);
         if(M_use_osisaf_drifters)
             this->initOSISAFDrifters();
         
@@ -5002,7 +5012,7 @@ FiniteElement::step(int &pcpt)
         chrono.restart();
         LOG(DEBUG) <<"first export starts\n";
         this->exportResults(0);
-        this->writeRestart(pcpt, 0);
+        // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
         LOG(DEBUG) <<"first export done in " << chrono.elapsed() <<"s\n";
     }
 #endif
@@ -5398,64 +5408,140 @@ FiniteElement::initMoorings()
     std::vector<double> data_grid;
 
     // Output variables - elements
-    GridOutput::Variable conc(GridOutput::variableID::conc, data_elements, data_grid);
-    GridOutput::Variable thick(GridOutput::variableID::thick, data_elements, data_grid);
-    //GridOutput::Variable snow(GridOutput::variableID::snow, data_elements, data_grid);
-    //GridOutput::Variable tsurf(GridOutput::variableID::tsurf, data_elements, data_grid);
-    //GridOutput::Variable Qa(GridOutput::variableID::Qa, data_elements, data_grid);
-    //GridOutput::Variable Qsw(GridOutput::variableID::Qsw, data_elements, data_grid);
-    //GridOutput::Variable Qlw(GridOutput::variableID::Qlw, data_elements, data_grid);
-    //GridOutput::Variable Qsh(GridOutput::variableID::Qsh, data_elements, data_grid);
-    //GridOutput::Variable Qlh(GridOutput::variableID::Qlh, data_elements, data_grid);
-    //GridOutput::Variable Qo(GridOutput::variableID::Qo, data_elements, data_grid);
-    //GridOutput::Variable delS(GridOutput::variableID::delS, data_elements, data_grid);
-
-    //std::vector<GridOutput::Variable> elemental_variables(11);
-    std::vector<GridOutput::Variable> elemental_variables(2);
-    elemental_variables[0] = conc;
-    elemental_variables[1] = thick;
-    //elemental_variables[2] = snow;
-    //elemental_variables[3] = tsurf;
-    //elemental_variables[4] = Qa;
-    //elemental_variables[5] = Qsw;
-    //elemental_variables[6] = Qlw;
-    //elemental_variables[7] = Qsh;
-    //elemental_variables[8] = Qlh;
-    //elemental_variables[9] = Qo;
-    //elemental_variables[10] = delS;
-    //if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-    //{
-        GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin, data_elements, data_grid);
-        GridOutput::Variable h_thin(GridOutput::variableID::h_thin, data_elements, data_grid);
-        GridOutput::Variable hs_thin(GridOutput::variableID::hs_thin, data_elements, data_grid);
-
-        elemental_variables.push_back(conc_thin);
-        elemental_variables.push_back(h_thin);
-        //elemental_variables.push_back(hs_thin);
-    //}
+    std::vector<GridOutput::Variable> elemental_variables;
 
     // Output variables - nodes
-    GridOutput::Variable siu(GridOutput::variableID::VT_x, data_nodes, data_grid);
-
-    GridOutput::Variable siv(GridOutput::variableID::VT_y, data_nodes, data_grid);
-
-    std::vector<GridOutput::Variable> nodal_variables(2);
-    nodal_variables[0] = siu;
-    nodal_variables[1] = siv;
+    std::vector<GridOutput::Variable> nodal_variables;
 
     // The vectorial variables are (always on the nodes) ...
-    std::vector<int> siuv_id(2);
-    siuv_id[0] = 0;
-    siuv_id[1] = 1;
+    std::vector<GridOutput::Vectorial_Variable> vectorial_variables;
 
-    GridOutput::Vectorial_Variable siuv{
-        components_Id: siuv_id,
-        east_west_oriented: true
-        //east_west_oriented: false
-    };
+    std::vector<std::string> names = vm["simul.mooring_names"].as<std::vector<std::string>>();
 
-    std::vector<GridOutput::Vectorial_Variable> vectorial_variables(1);
-    vectorial_variables[0] = siuv;
+    for ( auto it=names.begin(); it!=names.end(); ++it )
+    {
+        // Element variables
+        if ( *it == "conc" )
+        {
+            GridOutput::Variable conc(GridOutput::variableID::conc, data_elements, data_grid);
+            elemental_variables.push_back(conc);
+        }
+        else if ( *it == "thick" )
+        {
+            GridOutput::Variable thick(GridOutput::variableID::thick, data_elements, data_grid);
+            elemental_variables.push_back(thick);
+        }
+        else if ( *it == "snow" )
+        {
+            GridOutput::Variable snow(GridOutput::variableID::snow, data_elements, data_grid);
+            elemental_variables.push_back(snow);
+        }
+        else if ( *it == "tsurf" )
+        {
+            GridOutput::Variable tsurf(GridOutput::variableID::tsurf, data_elements, data_grid);
+            elemental_variables.push_back(tsurf);
+        }
+        else if ( *it == "Qa" )
+        {
+            GridOutput::Variable Qa(GridOutput::variableID::Qa, data_elements, data_grid);
+            elemental_variables.push_back(Qa);
+        }
+        else if ( *it == "Qsw" )
+        {
+            GridOutput::Variable Qsw(GridOutput::variableID::Qsw, data_elements, data_grid);
+            elemental_variables.push_back(Qsw);
+        }
+        else if ( *it == "Qlw" )
+        {
+            GridOutput::Variable Qlw(GridOutput::variableID::Qlw, data_elements, data_grid);
+            elemental_variables.push_back(Qlw);
+        }
+        else if ( *it == "Qsh" )
+        {
+            GridOutput::Variable Qsh(GridOutput::variableID::Qsh, data_elements, data_grid);
+            elemental_variables.push_back(Qsh);
+        }
+        else if ( *it == "Qlh" )
+        {
+            GridOutput::Variable Qlh(GridOutput::variableID::Qlh, data_elements, data_grid);
+            elemental_variables.push_back(Qlh);
+        }
+        else if ( *it == "Qo" )
+        {
+            GridOutput::Variable Qo(GridOutput::variableID::Qo, data_elements, data_grid);
+            elemental_variables.push_back(Qo);
+        }
+        else if ( *it == "delS" )
+        {
+            GridOutput::Variable delS(GridOutput::variableID::delS, data_elements, data_grid);
+            elemental_variables.push_back(delS);
+        }
+        else if ( *it == "conc_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        {
+            GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin, data_elements, data_grid);
+            elemental_variables.push_back(conc_thin);
+        }
+        else if ( *it == "h_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        {
+            GridOutput::Variable h_thin(GridOutput::variableID::h_thin, data_elements, data_grid);
+            elemental_variables.push_back(h_thin);
+        }
+        else if ( *it == "hs_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        {
+            GridOutput::Variable hs_thin(GridOutput::variableID::hs_thin, data_elements, data_grid);
+            elemental_variables.push_back(hs_thin);
+        }
+
+        // Nodal variables and vectors
+        else if ( *it == "velocity_xy" | *it == "velocity_uv" )
+        {
+            GridOutput::Variable siu(GridOutput::variableID::VT_x, data_nodes, data_grid);
+            GridOutput::Variable siv(GridOutput::variableID::VT_y, data_nodes, data_grid);
+            nodal_variables.push_back(siu);
+            nodal_variables.push_back(siv);
+
+            std::vector<int> siuv_id(2);
+            siuv_id[0] = 0;
+            siuv_id[1] = 1;
+
+            GridOutput::Vectorial_Variable siuv;
+            siuv.components_Id = siuv_id;
+            if ( *it == "velocity_xy" )
+                siuv.east_west_oriented = false;
+            else
+                siuv.east_west_oriented = true;
+
+            vectorial_variables.push_back(siuv);
+        }
+
+        // Error
+        else
+        {
+            std::cout << "Invalid mooring name: " << *it << std::endl;
+            std::cout << "Available names are ";
+            std::cout << "conc, ";
+            std::cout << "thick, ";
+            std::cout << "snow, ";
+            std::cout << "tsurf, ";
+            std::cout << "Qa, ";
+            std::cout << "Qsw, ";
+            std::cout << "Qlw, ";
+            std::cout << "Qsh, ";
+            std::cout << "Qlh, ";
+            std::cout << "Qo, ";
+            std::cout << "delS, ";
+            if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+            {
+                std::cout << "conc_thin, ";
+                std::cout << "h_thin, ";
+                std::cout << "hs_thin, ";
+            }
+            std::cout << "velocity_xy, ";
+            std::cout << "velocity_uv";
+
+            throw std::runtime_error("Invalid mooring name");
+        }
+    }
 
     if(vm["simul.mooring_grid_file"].as<std::string>()=="")
     {
@@ -5534,7 +5620,7 @@ FiniteElement::initMoorings()
 void
 FiniteElement::writeRestart(int pcpt, int step)
 {
-    Exporter exporter;
+    Exporter exporter("double");
     std::string filename;
 
     // === Start with the mesh ===
@@ -5582,8 +5668,8 @@ FiniteElement::writeRestart(int pcpt, int step)
     std::vector<int> misc_int(4);
     misc_int[0] = pcpt;
     misc_int[1] = M_flag_fix;
-    misc_int[2] = current_time;
-    misc_int[3] = mesh_adapt_step;
+    misc_int[2] = mesh_adapt_step;
+    misc_int[3] = M_nb_regrid;
     exporter.writeField(outbin, misc_int, "Misc_int");
     exporter.writeField(outbin, M_dirichlet_flags, "M_dirichlet_flags");
 
@@ -5607,6 +5693,13 @@ FiniteElement::writeRestart(int pcpt, int step)
     exporter.writeField(outbin, M_VTMM, "M_VTMM");
     exporter.writeField(outbin, M_UM, "M_UM");
     exporter.writeField(outbin, M_UT, "M_UT");
+
+    std::vector<double> PreviousNumbering(M_mesh.numNodes());
+
+    for ( int i=0; i<M_mesh.numNodes(); ++i )
+        PreviousNumbering[i]=bamgmesh->PreviousNumbering[i];
+
+    exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering");
 
     if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
     {
@@ -5660,7 +5753,7 @@ FiniteElement::writeRestart(int pcpt, int step)
 int
 FiniteElement::readRestart(int step)
 {
-    Exporter exp_field, exp_mesh;
+    Exporter exp_field("double"), exp_mesh("double");
     std::string filename;
     boost::unordered_map<std::string, std::vector<int>>    field_map_int;
     boost::unordered_map<std::string, std::vector<double>> field_map_dbl;
@@ -5732,11 +5825,8 @@ FiniteElement::readRestart(int step)
             );
 
     // Fix boundaries
-    //int pcpt     = field_map_int["Misc_int"].at(0);
+    int pcpt     = field_map_int["Misc_int"].at(0);
     M_flag_fix   = field_map_int["Misc_int"].at(1);
-    current_time = field_map_int["Misc_int"].at(2);
-    mesh_adapt_step = field_map_int["Misc_int"].at(3);
-    int pcpt = (current_time-time_init)*(24*3600)/time_step;
 
     std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
     for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
@@ -5773,6 +5863,8 @@ FiniteElement::readRestart(int step)
 
     // Initialise all the variables to zero
     this->initVariables();
+    mesh_adapt_step = field_map_int["Misc_int"].at(2);
+    M_nb_regrid  = field_map_int["Misc_int"].at(3);
 
     // update dirichlet nodes
     M_boundary_flags.resize(0);
@@ -5806,6 +5898,12 @@ FiniteElement::readRestart(int step)
         M_neumann_nodes[2*i] = M_neumann_flags[i];
         M_neumann_nodes[2*i+1] = M_neumann_flags[i]+M_num_nodes;
     }
+
+    std::vector<double> PreviousNumbering(M_mesh.numNodes());
+    PreviousNumbering = field_map_dbl["PreviousNumbering"];
+
+    for ( int i=0; i<M_mesh.numNodes(); ++i )
+        bamgmesh->PreviousNumbering[i] = PreviousNumbering[i];
 
     // === Set the prognostic variables ===
     M_conc       = field_map_dbl["M_conc"];
