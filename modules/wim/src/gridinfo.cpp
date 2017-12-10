@@ -41,12 +41,12 @@ GridInfo<T>::GridInfo(T_vmap const& vmIn)
         std::cout<<"Generating WIM grid manually...\n";
         chrono.restart();
 
-        M_num_px = vm["wim.M_num_px"].template as<int>();
-        M_num_py = vm["wim.M_num_py"].template as<int>();
-        M_dx     = vm["wim.M_dx"].template as<double>();
-        M_dy     = vm["wim.M_dy"].template as<double>();
-        M_xmin   = vm["wim.M_xmin"].template as<double>();
-        M_ymin   = vm["wim.M_ymin"].template as<double>();
+        M_num_px = vm["wim.nx"].template as<int>();
+        M_num_py = vm["wim.ny"].template as<int>();
+        M_dx     = vm["wim.dx"].template as<double>();
+        M_dy     = vm["wim.dy"].template as<double>();
+        M_xmin   = vm["wim.xmin"].template as<double>();
+        M_ymin   = vm["wim.ymin"].template as<double>();
         M_xmax   = M_xmin+(M_num_px-1)*M_dx;
         M_ymax   = M_ymin+(M_num_py-1)*M_dy;
 
