@@ -178,6 +178,15 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
     }
 }
 
+typename ExternalData::size_type
+ExternalData::size()
+{
+    if ( M_is_vector )
+        return static_cast<size_type>( 2*M_dataset->target_size );
+    else
+        return static_cast<size_type>( M_dataset->target_size );
+}
+
 typename ExternalData::value_type
 ExternalData::operator [] (const size_type i)
 {
