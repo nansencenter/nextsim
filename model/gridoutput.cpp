@@ -551,7 +551,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
         data.putAtt("standard_name",it->stdName);
         data.putAtt("long_name",it->longName);
         data.putAtt("units",it->Units);
-        data.putAtt("_FillValue", netCDF::ncFloat, -1e14);
+        data.putAtt("_FillValue", netCDF::ncFloat, M_miss_val);
     }
     for (auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); ++it)
     {
@@ -559,7 +559,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
         data.putAtt("standard_name",it->stdName);
         data.putAtt("long_name",it->longName);
         data.putAtt("units",it->Units);
-        data.putAtt("_FillValue", netCDF::ncFloat, -1e14);
+        data.putAtt("_FillValue", netCDF::ncFloat, M_miss_val);
     }
 
     dataFile.putAtt("Conventions", "CF-1.6");
