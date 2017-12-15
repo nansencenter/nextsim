@@ -864,6 +864,10 @@ FiniteElement::initDatasets()
 
     M_ice_amsr2_elements_dataset=DataSet("ice_amsr2_elements",M_num_elements);
 
+    M_ice_nic_elements_dataset=DataSet("ice_nic_elements",M_num_elements);
+
+    M_ice_nic_weekly_elements_dataset=DataSet("ice_nic_weekly_elements",M_num_elements);
+
     M_ice_cs2_smos_elements_dataset=DataSet("ice_cs2_smos_elements",M_num_elements);
 
     M_ice_smos_elements_dataset=DataSet("ice_smos_elements",M_num_elements);
@@ -6030,7 +6034,7 @@ FiniteElement::run()
     // write the logfile: assigned to the process master (rank 0)
     if (M_comm.rank() == 0)
     {
-        //this->writeLogFile();
+        this->writeLogFile();
     }
 
     // Debug file that records the time step
@@ -10181,26 +10185,30 @@ FiniteElement::writeLogFile()
     std::fstream logfile(fileout, std::ios::out | std::ios::trunc);
     std::cout << "Writing log file " << fileout << "...\n";
 
+    int log_width = 55;
     if (logfile.is_open())
     {
         logfile << "#----------Info\n";
-        logfile << std::setw(40) << std::left << "Build date "  << current_time_local() <<"\n";
-        logfile << std::setw(40) << std::left << "Git revision "  << gitRevision() <<"\n";
+        logfile << std::setw(log_width) << std::left << "Build date "  << current_time_local() <<"\n";
+        logfile << std::setw(log_width) << std::left << "Git revision "  << gitRevision() <<"\n";
 
         logfile << "#----------Compilers\n";
-        logfile << std::setw(40) << std::left << "C "  << system("which gcc") << " (version "<< system("gcc -dumpversion") << ")" <<"\n";
-        logfile << std::setw(40) << std::left << "C++ "  << system("which g++") << " (version "<< system("g++ -dumpversion") << ")" <<"\n";
+        logfile << std::setw(log_width) << std::left << "C "  << system("which gcc") << " (version "<< system("gcc -dumpversion") << ")" <<"\n";
+        logfile << std::setw(log_width) << std::left << "C++ "  << system("which g++") << " (version "<< system("g++ -dumpversion") << ")" <<"\n";
 
         logfile << "#----------Environment variables\n";
-        logfile << std::setw(40) << std::left << "NEXTSIMDIR "  << getEnv("NEXTSIMDIR") <<"\n";
-        logfile << std::setw(40) << std::left << "SIMDATADIR "  << getEnv("SIMDATADIR") <<"\n";
-        logfile << std::setw(40) << std::left << "SIMFORECASTDIR "  << getEnv("SIMFORECASTDIR") <<"\n";
-        logfile << std::setw(40) << std::left << "PETSC_DIR "  << getEnv("PETSC_DIR") <<"\n";
-        logfile << std::setw(40) << std::left << "BOOST_DIR "  << getEnv("BOOST_DIR") <<"\n";
-        logfile << std::setw(40) << std::left << "GMSH_DIR "  << getEnv("GMSH_DIR") <<"\n";
-        logfile << std::setw(40) << std::left << "NETCDF_DIR "  << getEnv("NETCDF_DIR") <<"\n";
-        logfile << std::setw(40) << std::left << "OPENMPI_LIB_DIR "  << getEnv("OPENMPI_LIB_DIR") <<"\n";
-        logfile << std::setw(40) << std::left << "OPENMPI_INCLUDE_DIR "  << getEnv("OPENMPI_INCLUDE_DIR") <<"\n";
+        logfile << std::setw(log_width) << std::left << "NEXTSIMDIR "  << Environment::nextsimDir().string() <<"\n";
+        logfile << std::setw(log_width) << std::left << "SIMDATADIR "  << Environment::simdataDir().string() <<"\n";
+        logfile << std::setw(log_width) << std::left << "SIMFORECASTDIR "  << Environment::simforecastDir().string() <<"\n";
+        /*
+        logfile << std::setw(log_width) << std::left << "PETSC_DIR "  << getEnv("PETSC_DIR") <<"\n";
+        logfile << std::setw(log_width) << std::left << "BOOST_INCDIR "  << getEnv("BOOST_INCDIR") <<"\n";
+        logfile << std::setw(log_width) << std::left << "BOOST_LIBDIR "  << getEnv("BOOST_LIBDIR") <<"\n";
+        logfile << std::setw(log_width) << std::left << "GMSH_DIR "  << getEnv("GMSH_DIR") <<"\n";
+        logfile << std::setw(log_width) << std::left << "NETCDF_DIR "  << getEnv("NETCDF_DIR") <<"\n";
+        logfile << std::setw(log_width) << std::left << "OPENMPI_LIB_DIR "  << getEnv("OPENMPI_LIB_DIR") <<"\n";
+        logfile << std::setw(log_width) << std::left << "OPENMPI_INCLUDE_DIR "  << getEnv("OPENMPI_INCLUDE_DIR") <<"\n";
+        */
 
         logfile << "#----------Program options\n";
 
@@ -10214,7 +10222,7 @@ FiniteElement::writeLogFile()
             }
 #endif
 
-            logfile << std::setw(40) << std::left << it->first;
+            logfile << std::setw(log_width) << std::left << it->first;
 
 #if 0
             if (((boost::any)it->second.value()).empty())

@@ -38,6 +38,7 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
     M_is_constant( false ),
     M_dataset( dataset ),
     M_VariableId( VariableId ),
+    M_bias_correction( 0. ),
     M_is_vector( is_vector ),
     M_current_time( 0. ),
     M_StartingTime( StartingTime ),
@@ -60,10 +61,25 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
         M_SpinUpDuration= SpinUpDuration ;
     }
 
+ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, double bias_correction, bool is_vector, double StartingTime )
+	:
+    ExternalData(dataset, mesh, VariableId, is_vector, StartingTime )
+    {
+        M_bias_correction= bias_correction ;
+    }
+
+ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, double bias_correction, bool is_vector, double StartingTime, double SpinUpDuration )
+	:
+    ExternalData(dataset, mesh, VariableId, is_vector, StartingTime, SpinUpDuration )
+    {
+        M_bias_correction= bias_correction ;
+    }
+
 ExternalData::ExternalData( double ConstantValue )
 	:
     M_is_constant( true ),
     M_constant_value( ConstantValue ),
+    M_bias_correction( 0. ),
     M_is_vector( false ),
     M_current_time( 0. ),
     M_StartingTime( 0. ),
@@ -162,6 +178,15 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
     }
 }
 
+typename ExternalData::size_type
+ExternalData::size()
+{
+    if ( M_is_vector )
+        return static_cast<size_type>( 2*M_dataset->target_size );
+    else
+        return static_cast<size_type>( M_dataset->target_size );
+}
+
 typename ExternalData::value_type
 ExternalData::operator [] (const size_type i)
 {
@@ -177,7 +202,7 @@ ExternalData::get(const size_type i)
     if(M_is_constant)
     {
         // for the moment same value is given to all the components
-        value = M_constant_value;
+        value = M_constant_value + M_bias_correction;
     }
     else
     {
@@ -257,7 +282,7 @@ ExternalData::get(const size_type i)
         }
     }
 
-	return static_cast<value_type>( value );
+	return static_cast<value_type>( value + M_bias_correction );
 }
 typename std::vector<double>
 ExternalData::getVector()
@@ -283,11 +308,11 @@ ExternalData::getVector()
         if(M_is_vector)
         {
             vector_tmp.resize(2);
-            vector_tmp[0]   = M_constant_value;
-            vector_tmp[1]   = M_constant_valuebis;
+            vector_tmp[0]   = M_constant_value + M_bias_correction;
+            vector_tmp[1]   = M_constant_valuebis + M_bias_correction;
         }
         else
-            vector_tmp[0]   = M_constant_value;
+            vector_tmp[0]   = M_constant_value + M_bias_correction;
     }
 
 	return vector_tmp;
@@ -443,11 +468,11 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 	{
         std::string init_timestr="";
 
-        if(dataset->grid.dataset_frequency=="daily_forecast")
-            init_timestr = to_date_string_yd(M_StartingTime-1.);//yyyymmdd
+        if((dataset->grid.dataset_frequency=="daily_forecast") || (dataset->grid.dataset_frequency=="daily_ec2_forecast"))
+            init_timestr = to_date_string_yd(M_StartingTime);//yyyymmdd
 
         // when using forcing from a forecast, we select the file based on the StartingTime
-        if ((dataset->grid.prefix).find("start") != std::string::npos)
+        if ( (dataset->grid.dataset_frequency!="daily_forecast") && (((dataset->grid.prefix).find("start") != std::string::npos) || (Environment::vm()["simul.forecast"].as<bool>())))
         {
             ftime = M_StartingTime;
             file_jump.push_back(0);
@@ -500,6 +525,10 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             else
                 f_timestr = to_date_string_yd(std::floor(ftime)+*jump);
 
+            if((std::floor(ftime)+*jump)<M_StartingTime)
+                init_timestr = f_timestr;//yyyymmdd
+            
+
             std::cout <<"F_TIMESTR= "<< f_timestr <<"\n";
 
             if(dataset->grid.dataset_frequency=="daily_forecast")
@@ -511,6 +540,17 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                         % init_timestr
                         % dataset->grid.postfix
                         ).str();
+            else
+            if(dataset->grid.dataset_frequency=="daily_ec2_forecast")
+            {
+                filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
+                       % Environment::simdataDir().string()
+                       % dataset->grid.dirname
+                       % dataset->grid.prefix
+                       % init_timestr
+                       % dataset->grid.postfix
+                       ).str();
+            }
             else
                 filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                         % Environment::simdataDir().string()
@@ -613,6 +653,11 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         if(dataset->grid.dataset_frequency=="nearest_daily")
         {
             ftime = M_current_time;
+            // when using forcing from a forecast, we select the file based on the StartingTime
+            if ( (dataset->grid.dataset_frequency!="daily_forecast") && (((dataset->grid.prefix).find("start") != std::string::npos) || (Environment::vm()["simul.forecast"].as<bool>())))
+            {
+                ftime = M_StartingTime;
+            }
             f_timestr = to_date_string_yd(std::floor(ftime));
 
             double f=from_date_string((boost::format( "%1%-%2%-%3%" ) % f_timestr.substr(0,4) % f_timestr.substr(4,2) % f_timestr.substr(6,2)).str())+0.5;

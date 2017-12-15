@@ -188,6 +188,8 @@ public:
     Dataset M_ice_osisaf_elements_dataset;
     Dataset M_ice_osisaf_type_elements_dataset;
     Dataset M_ice_amsr2_elements_dataset;
+    Dataset M_ice_nic_elements_dataset;
+    Dataset M_ice_nic_weekly_elements_dataset;
     Dataset M_ice_cs2_smos_elements_dataset;
     Dataset M_ice_smos_elements_dataset;
 
