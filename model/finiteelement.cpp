@@ -4,6 +4,7 @@
  * @file   finiteelement.cpp
  * @author Abdoulaye Samake <abdoulaye.samake@nersc.no>
  * @author Sylvain Bouillon <sylvain.bouillon@nersc.no>
+ * @author Einar Olason <einar.olason@nersc.no>
  * @date   Mon Aug 24 11:02:45 2015
  */
 
@@ -934,6 +935,7 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
 #endif
             else
             {
+                std::cout<<"in dataset = "<<(*it)->M_dataset->name<<"\n";
                 std::cout<<"Bad value for dataset->grid.target_location: "<<(*it)->M_dataset->grid.target_location<<"\n";
                 std::cout<<"- set to \"mesh_nodes\", or \"mesh_elements\"\n";
 #if defined (WAVES)
@@ -1012,7 +1014,7 @@ FiniteElement::initConstant()
 
     days_in_sec = 24.0*3600.0;
     time_init = from_date_time_string(vm["simul.time_init"].as<std::string>());
-    output_time_step =  days_in_sec/vm["simul.output_per_day"].as<int>();
+    output_time_step =  (vm["simul.output_per_day"].as<int>()<0) ? time_step : time_step * floor(days_in_sec/vm["simul.output_per_day"].as<int>()/time_step);
     ptime_step =  days_in_sec/vm["simul.ptime_per_day"].as<int>();
 
     time_step = vm["simul.timestep"].as<double>();
@@ -1021,6 +1023,11 @@ FiniteElement::initConstant()
 
     mooring_output_time_step =  vm["simul.mooring_output_timestep"].as<double>()*days_in_sec;
     mooring_time_factor = time_step/mooring_output_time_step;
+    if ( fmod(mooring_output_time_step,time_step) != 0)
+    {
+        std::cout << mooring_output_time_step << " " << time_step << "\n";
+        throw std::runtime_error("mooring_output_time_step is not an integer multiple of time_step");
+    }
 
     restart_time_step =  vm["setup.restart_time_step"].as<double>()*days_in_sec;
     M_use_restart   = vm["setup.use_restart"].as<bool>();
@@ -1146,6 +1153,7 @@ FiniteElement::initConstant()
     M_bathymetry_type = str2bathymetry.find(vm["setup.bathymetry-type"].as<std::string>())->second;
 
     const boost::unordered_map<const std::string, setup::BasalStressType> str2basal_stress= boost::assign::map_list_of
+        ("none", setup::BasalStressType::NONE)
         ("lemieux", setup::BasalStressType::LEMIEUX)
         ("bouillon", setup::BasalStressType::BOUILLON);
     M_basal_stress_type = str2basal_stress.find(vm["simul.basal_stress-type"].as<std::string>())->second;
@@ -3669,7 +3677,7 @@ FiniteElement::assemble(int pcpt)
         total_thickness =       (vm["simul.min_h"].as<double>()>total_thickness)        ? vm["simul.min_h"].as<double>() : total_thickness;
         total_concentration =   (vm["simul.min_c"].as<double>()>total_concentration)    ? vm["simul.min_c"].as<double>() : total_concentration;
 
-        double coef_min = 10.;
+        double coef_min = 100.;
         double coef_drag = 0.;
 
 
@@ -3732,6 +3740,10 @@ FiniteElement::assemble(int pcpt)
             {
                 switch ( M_basal_stress_type )
                 {
+                case setup::BasalStressType::NONE:
+                    // No grounding
+                    critical_h     = 0.;
+                    critical_h_mod = 0.;
                 case setup::BasalStressType::BOUILLON:
                     // Sylvain's grounding scheme
                     keel_height_estimate = ice_to_keel_factor*std::pow(M_thick[cpt]/M_conc[cpt],0.5);
@@ -5740,7 +5752,7 @@ FiniteElement::init()
             throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
         }
 
-        // current_time = time_init + pcpt*time_step/(24*3600.0);
+        current_time = time_init + pcpt*time_step/(24*3600.0);
         if(M_use_osisaf_drifters)
         {
             this->initOSISAFDrifters();
@@ -6603,8 +6615,6 @@ FiniteElement::writeRestart(int pcpt, int step)
     std::vector<double> interp_in_nodes;
     this->gatherFieldsNode(interp_in_nodes, M_rmap_nodes, M_sizes_nodes);
 
-    std::cout<< "Rank "<< M_rank <<": Arrived here\n";
-
     std::vector<double> M_VT_root;
     std::vector<double> M_VTM_root;
     std::vector<double> M_VTMM_root;
@@ -6803,7 +6813,7 @@ FiniteElement::writeRestart(int pcpt, int step)
         }
 
 
-        Exporter exporter;
+        Exporter exporter("double");
         std::string filename;
 
         // === Start with the mesh ===
@@ -6850,7 +6860,7 @@ FiniteElement::writeRestart(int pcpt, int step)
         if ( ! outbin.good() )
             throw std::runtime_error("Cannot write to file: " + filename);
 
-        std::vector<int> misc_int(3);
+        std::vector<int> misc_int(4);
 
         std::cout<<"*********pcpt           = "<< pcpt <<"\n";
         std::cout<<"*********M_flag_fix     = "<< M_flag_fix <<"\n";
@@ -6859,12 +6869,15 @@ FiniteElement::writeRestart(int pcpt, int step)
 
         misc_int[0] = pcpt;
         misc_int[1] = M_flag_fix;
-        //misc_int[2] = current_time;
         misc_int[2] = mesh_adapt_step;
+        misc_int[3] = M_nb_regrid;
 
         exporter.writeField(outbin, misc_int, "Misc_int");
         exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
 
+        std::vector<double> timevec(1);
+        timevec[0] = current_time;
+        exporter.writeField(outbin, timevec, "Time");
         exporter.writeField(outbin, M_conc_root, "M_conc");
         exporter.writeField(outbin, M_thick_root, "M_thick");
         exporter.writeField(outbin, M_snow_thick_root, "M_snow_thick");
@@ -6948,7 +6961,7 @@ FiniteElement::writeRestart(int pcpt, int step)
 int
 FiniteElement::readRestart(int step)
 {
-    Exporter exp_field, exp_mesh;
+    Exporter exp_field("double"), exp_mesh("double");
     std::string filename;
     boost::unordered_map<std::string, std::vector<int>>    field_map_int;
     boost::unordered_map<std::string, std::vector<double>> field_map_dbl;
@@ -7060,6 +7073,16 @@ FiniteElement::readRestart(int step)
         int pcpt        = map_field.at(0);
         M_flag_fix      = map_field.at(1);
         mesh_adapt_step = map_field.at(2);
+        M_nb_regrid     = map_field.at(3);
+
+        std::vector<double> time = field_map_dbl["Time"];
+        if ( time[0] != time_init + pcpt*time_step/(24*3600.0) )
+        {
+            std::cout << "FiniteElement::readRestart: Time and Misc_int[0] (a.k.a pcpt) are inconsistent. \n"
+                << "Time = " << time[0] << std::endl
+                << "pcpt*time_step/(24*3600.0) = " << pcpt*time_step/(24*3600.0) << std::endl;
+            std::runtime_error("Inconsistent time information in restart file");
+        }
 
         std::cout<<".....................PCPT      = "<< pcpt <<"\n";
         std::cout<<".....................M_flag_fix= "<< M_flag_fix <<"\n";

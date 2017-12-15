@@ -74,8 +74,9 @@ namespace setup
 
     enum class BasalStressType
     {
-        LEMIEUX  = 0,
-        BOUILLON = 1
+        NONE     = 0,
+        LEMIEUX  = 1,
+        BOUILLON = 2
     };
 
     enum class IceCategoryType
