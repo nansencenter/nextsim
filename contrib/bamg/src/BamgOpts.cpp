@@ -40,10 +40,10 @@ BamgOpts::~BamgOpts(){/*{{{*/
 
 	delete [] this->hminVertices;
 	delete [] this->hmaxVertices;
-	delete this->hVertices;
+	delete [] this->hVertices;
 	delete [] this->metric;
-	delete this->field;
-	delete this->err;
+	delete [] this->field;
+	delete [] this->err;
 
 }
 /*}}}*/
