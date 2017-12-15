@@ -1,7 +1,56 @@
-#!/bin/bash
+#! /bin/bash
 
-#mpirun -np 4 bin/nextsim.exec --config-file=nextsim.cfg -log_summary -sub_pc_type cholesky -sub_pc_factor_mat_solver_package cholmod -sub_ksp_type preonly #-pc_factor_shift_type POSITIVE_DEFINITE -pc_factor_shift_type NONZERO
+if [ "$1" = "" -o "$2" = "" ]
+then
+        echo "Usage: $0 config_file.cfg num_cpus"
+        exit 1
+fi
 
-#mpirun -np 4 bin/nextsim.exec --config-file=nextsim.cfg #-log_summary #-sub_pc_type cholesky -sub_pc_factor_mat_solver_package cholmod -sub_ksp_type preonly
+config=$1
+ncpu=$2
 
-mpirun -np 4 bin/nextsim.exec --config-file=nextsim.cfg -sub_pc_type cholesky -sub_pc_factor_mat_solver_package cholmod -sub_ksp_type preonly
+# record changes from last git commit:
+# file gets moved from current dir to "output_directory" inside nextsim code
+# NB want file paths relative to $NEXTSIMDIR
+P=`pwd`
+cd $NEXTSIMDIR
+git diff > $P/git_changes.txt
+cd $P
+
+prog=bin/nextsim.exec
+if [ `pwd` != $NEXTSIMDIR ]
+then
+   # make a local copy of executable
+   # (so can recompile code and run somewhere else)
+   mkdir -p bin
+   cp $NEXTSIMDIR/model/$prog $prog
+fi
+
+# extra settings required for mac
+kernel=$(uname -s)
+if [ $kernel == "Darwin" ]
+then
+    # mac
+    export DYLD_LIBRARY_PATH=$NEXTSIMDIR/lib:$BOOST_LIBDIR
+fi
+
+# Run the nextsim model
+mpirun -n $ncpu $prog --config-files=$config
+
+
+# Run the CPU profiler (google perftools)
+# nbt=`echo ${NEXTSIM_BUILD_TYPE,,}`
+nbt=`echo $NEXTSIM_BUILD_TYPE  | tr '[:upper:]' '[:lower:]'`
+# this is now lower case
+if [ "$nbt" == "debug" ]
+then
+	echo "============================================"
+	echo "CPU profiling starts..."
+	CMDSTRPROF="pprof --pdf --functions --focus=run --cum --drop_negative --nodecount=50 bin/nextsim.exec profile.log > profile.pdf"
+	echo $CMDSTRPROF
+	eval $CMDSTRPROF
+	echo "CPU profiling done"
+	echo "============================================"
+	echo "Run the following command to analyze the CPU profile:"
+	echo "open profile.pdf"
+fi
