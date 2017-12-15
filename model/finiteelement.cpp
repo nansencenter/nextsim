@@ -511,6 +511,16 @@ FiniteElement::initBamg()
 void
 FiniteElement::initConstant()
 {
+
+    // log
+    const boost::unordered_map<const std::string, LogLevel> str2log = boost::assign::map_list_of
+        ("info", INFO)
+        ("warning", WARNING)
+        ("debug", DEBUG)
+        ("error", ERROR);
+
+    M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
+
     nu0 = vm["simul.nu0"].as<double>();
     young = vm["simul.young"].as<double>();
     rhoi = physical::rhoi;
@@ -603,7 +613,7 @@ FiniteElement::initConstant()
                     quad_drag_coef_air = vm["simul.ECMWF_quad_drag_coef_air"].as<double>(); break;
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
-    LOG(DEBUG)<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
+    LOG(DEBUG) <<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::OceanType> str2ocean = boost::assign::map_list_of
         ("constant", setup::OceanType::CONSTANT)
@@ -612,7 +622,7 @@ FiniteElement::initConstant()
         ("topaz_forecast", setup::OceanType::TOPAZF)
         ("topaz_altimeter", setup::OceanType::TOPAZR_ALTIMETER);
     M_ocean_type = str2ocean.find(vm["setup.ocean-type"].as<std::string>())->second;
-    LOG(DEBUG)<<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
+    LOG(DEBUG) <<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::IceType> str2conc = boost::assign::map_list_of
         ("constant", setup::IceType::CONSTANT)
@@ -634,14 +644,14 @@ FiniteElement::initConstant()
         ("smos", setup::IceType::SMOS)
         ("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT);
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
-    LOG(DEBUG)<<"ICETYPE= "<< (int)M_ice_type <<"\n";
+    LOG(DEBUG) <<"ICETYPE= "<< (int)M_ice_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::DynamicsType> str2dynamics = boost::assign::map_list_of
         ("default", setup::DynamicsType::DEFAULT)
         ("no_motion", setup::DynamicsType::NO_MOTION)
         ("free_drift", setup::DynamicsType::FREE_DRIFT);
     M_dynamics_type = str2dynamics.find(vm["setup.dynamics-type"].as<std::string>())->second;
-    LOG(DEBUG)<<"DYNAMICSTYPE= "<< (int)M_dynamics_type <<"\n";
+    LOG(DEBUG) <<"DYNAMICSTYPE= "<< (int)M_dynamics_type <<"\n";
 
 #ifdef OASIS
     cpl_time_step = vm["coupler.timestep"].as<double>();
@@ -673,7 +683,7 @@ FiniteElement::initConstant()
             throw std::runtime_error("Unknown wave mode type: "+swave);
 
         M_wave_mode = str2wave2.find(swave)->second;
-        LOG(DEBUG)<<"WAVEMODE = "+swave+"(enum = "<< (int)M_wave_mode <<")\n";
+        LOG(DEBUG) <<"WAVEMODE = "+swave+"(enum = "<< (int)M_wave_mode <<")\n";
     }
 #endif
 
@@ -720,15 +730,6 @@ FiniteElement::initConstant()
         M_mesh.setOrdering("gmsh");
     else
         throw std::logic_error("Unknown setup::MeshType");
-
-    // log
-    const boost::unordered_map<const std::string, LogLevel> str2log = boost::assign::map_list_of
-        ("info", INFO)
-        ("warning", WARNING)
-        ("debug", DEBUG)
-        ("error", ERROR);
-
-    M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
 
     // Moorings
     M_use_moorings =  vm["simul.use_moorings"].as<bool>();
@@ -2408,7 +2409,11 @@ FiniteElement::assemble(int pcpt)
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
 // omp pragma causing the code not to give reproducable results across different runs and different number of threads
-//#pragma omp parallel for num_threads(max_threads) private(thread_id)
+// The reason is that we do a += update on rhsdata and lhsdata. When OpenMP is active the order of these operations is arbitrary and the result is
+// therefore not bitwise reproducable. This is du to the fact that (a + b) + c != a + (b + c).
+#ifndef NDEBUG
+#pragma omp parallel for num_threads(max_threads) private(thread_id)
+#endif
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
         // if(thread_id == 0)
@@ -2706,7 +2711,9 @@ FiniteElement::assemble(int pcpt)
 
         for (int idf=0; idf<rcindices.size(); ++idf)
         {
+#ifndef NDEBUG
 #pragma omp atomic
+#endif
             rhsdata[rcindices[idf]] += fvdata[idf];
 
 #if 1
@@ -2727,7 +2734,9 @@ FiniteElement::assemble(int pcpt)
                     }
                 }
 
+#ifndef NDEBUG
 #pragma omp atomic
+#endif
                 lhsdata[start+colind] += data[6*idf+idj];
             }
 #endif
@@ -5673,6 +5682,9 @@ FiniteElement::writeRestart(int pcpt, int step)
     exporter.writeField(outbin, misc_int, "Misc_int");
     exporter.writeField(outbin, M_dirichlet_flags, "M_dirichlet_flags");
 
+    std::vector<double> timevec(1);
+    timevec[0] = current_time;
+    exporter.writeField(outbin, timevec, "Time");
     exporter.writeField(outbin, M_conc, "M_conc");
     exporter.writeField(outbin, M_thick, "M_thick");
     exporter.writeField(outbin, M_snow_thick, "M_snow_thick");
@@ -5824,8 +5836,18 @@ FiniteElement::readRestart(int step)
 	    coordX.size(), indexTr.size()/3.
             );
 
+    // Set and check time
+    int pcpt    = field_map_int["Misc_int"].at(0);
+    std::vector<double> time = field_map_dbl["Time"];
+    if ( time[0] != time_init + pcpt*time_step/(24*3600.0) )
+    {
+        std::cout << "FiniteElement::readRestart: Time and Misc_int[0] (a.k.a pcpt) are inconsistent. \n"
+            << "Time = " << time[0] << std::endl
+            << "pcpt*time_step/(24*3600.0) = " << pcpt*time_step/(24*3600.0) << std::endl;
+        std::runtime_error("Inconsistent time information in restart file");
+    }
+
     // Fix boundaries
-    int pcpt     = field_map_int["Misc_int"].at(0);
     M_flag_fix   = field_map_int["Misc_int"].at(1);
 
     std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];

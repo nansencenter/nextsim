@@ -33,7 +33,7 @@ public:
 	Exporter(std::string const& precision = "float");
 
     template<typename Type>
-    void writeContainer(std::fstream& out, std::vector<Type> const& container);
+    void writeContainer(std::fstream& out, std::vector<Type> const& container, std::string const precision);
     void writeMesh(std::fstream& out, GmshMesh const& Mesh);
     void writeMesh(std::fstream& out,
         std::vector<double> const& nodes_x,std::vector<double> const& nodes_y,
