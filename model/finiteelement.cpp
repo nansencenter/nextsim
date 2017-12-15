@@ -1014,7 +1014,7 @@ FiniteElement::initConstant()
 
     days_in_sec = 24.0*3600.0;
     time_init = from_date_time_string(vm["simul.time_init"].as<std::string>());
-    output_time_step =  (vm["simul.output_per_day"].as<int>()<0) ? time_step : time_step * floor(days_in_sec/vm["simul.output_per_day"].as<int>()/time_step);
+    output_time_step =  days_in_sec/vm["simul.output_per_day"].as<int>();
     ptime_step =  days_in_sec/vm["simul.ptime_per_day"].as<int>();
 
     time_step = vm["simul.timestep"].as<double>();
