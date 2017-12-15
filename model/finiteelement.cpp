@@ -859,6 +859,8 @@ FiniteElement::initDatasets()
 
     M_ice_osisaf_elements_dataset=DataSet("ice_osisaf_elements",M_num_elements);
 
+    M_ice_osisaf_type_elements_dataset=DataSet("ice_osisaf_type_elements",M_num_elements);
+
     M_ice_amsr2_elements_dataset=DataSet("ice_amsr2_elements",M_num_elements);
 
     M_ice_cs2_smos_elements_dataset=DataSet("ice_cs2_smos_elements",M_num_elements);
@@ -6016,7 +6018,7 @@ FiniteElement::run()
     // write the logfile: assigned to the process master (rank 0)
     if (M_comm.rank() == 0)
     {
-        this->writeLogFile();
+        //this->writeLogFile();
     }
 
     // Debug file that records the time step
