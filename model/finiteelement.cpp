@@ -328,31 +328,14 @@ FiniteElement::initDatasets()
 #if defined (WAVES)
     if (M_use_wim)
     {
-        bool have_wave_dataset=false;
-        switch (M_wave_type)
+        if (M_wave_type == setup::WaveType::WW3A)
+            M_wave_elements_dataset = DataSet("ww3a_elements",M_num_elements);
+        else if (M_wave_type == setup::WaveType::ERAI_WAVES_1DEG)
+            M_wave_elements_dataset = DataSet("erai_waves_1deg_elements",M_num_elements);
+        else if (M_wave_type != setup::WaveType::SET_IN_WIM)
         {
-            case setup::WaveType::SET_IN_WIM:
-                break;
-
-            case setup::WaveType::CONSTANT:
-                break;
-
-            case setup::WaveType::CONSTANT_PARTIAL:
-                break;
-
-            case setup::WaveType::WW3A:
-                M_wave_elements_dataset=DataSet("ww3a_elements",M_num_elements);
-                have_wave_dataset=true;
-                break;
-
-            case setup::WaveType::ERAI_WAVES_1DEG:
-                M_wave_elements_dataset=DataSet("erai_waves_1deg_elements",M_num_elements);
-                have_wave_dataset=true;
-                break;
-
-            default:
-                std::cout << "invalid wave forcing"<<"\n";
-                throw std::logic_error("invalid wave forcing");
+            std::cout << "invalid wave forcing"<<"\n";
+            throw std::logic_error("invalid wave forcing");
         }
     }
 #endif
@@ -402,37 +385,6 @@ FiniteElement::initDatasets()
 
 }//initDatasets
 
-#if 0
-std::vector<double>
-FiniteElements::rotatedWimElementsX(double const& rotangle) const
-{
-    //get x coord of WIM centers (rotated)
-    std::vector<double> x(num_elements_wim_grid);
-    double cos_rotangle=std::cos(rotangle);
-    double sin_rotangle=std::sin(rotangle);
-    for (int i=0; i<num_elements_wim_grid; ++i)
-    {
-        x[i] = cos_rotangle*wim_grid.X[i] + sin_rotangle*wim_grid.Y[i];
-    }
-
-    return x;
-}
-
-std::vector<double>
-FiniteElements::rotatedWimElementsY(double const& rotangle) const
-{
-    //get x coord of WIM centers (rotated)
-    std::vector<double> y(num_elements_wim_grid);
-    double cos_rotangle=std::cos(rotangle);
-    double sin_rotangle=std::sin(rotangle);
-    for (int i=0; i<num_elements_wim_grid; ++i)
-    {
-        y[i] = -sin_rotangle*wim_grid.X[i] + cos_rotangle*wim_grid.Y[i];
-    }
-
-    return y;
-}
-#endif
 
 void
 FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
@@ -552,6 +504,16 @@ FiniteElement::initBamg()
 void
 FiniteElement::initConstant()
 {
+
+    // log
+    const boost::unordered_map<const std::string, LogLevel> str2log = boost::assign::map_list_of
+        ("info", INFO)
+        ("warning", WARNING)
+        ("debug", DEBUG)
+        ("error", ERROR);
+
+    M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
+
     nu0 = vm["simul.nu0"].as<double>();
     young = vm["simul.young"].as<double>();
     rhoi = physical::rhoi;
@@ -583,7 +545,9 @@ FiniteElement::initConstant()
         throw std::runtime_error("restart_time_step not an integer multiple of time_step");
     }
 
-    ocean_turning_angle_rad = (PI/180.)*vm["simul.oceanic_turning_angle"].as<double>();
+    ocean_turning_angle_rad = 0.;
+    if (vm["simul.use_coriolis"].as<bool>())
+        ocean_turning_angle_rad = (PI/180.)*vm["simul.oceanic_turning_angle"].as<double>();
     ridging_exponent = vm["simul.ridging_exponent"].as<double>();
 
     quad_drag_coef_water = vm["simul.quad_drag_coef_water"].as<double>();
@@ -642,8 +606,7 @@ FiniteElement::initConstant()
                     quad_drag_coef_air = vm["simul.ECMWF_quad_drag_coef_air"].as<double>(); break;
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
-
-    //std::cout<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
+    LOG(DEBUG) <<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::OceanType> str2ocean = boost::assign::map_list_of
         ("constant", setup::OceanType::CONSTANT)
@@ -652,8 +615,7 @@ FiniteElement::initConstant()
         ("topaz_forecast", setup::OceanType::TOPAZF)
         ("topaz_altimeter", setup::OceanType::TOPAZR_ALTIMETER);
     M_ocean_type = str2ocean.find(vm["setup.ocean-type"].as<std::string>())->second;
-
-    //std::cout<<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
+    LOG(DEBUG) <<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::IceType> str2conc = boost::assign::map_list_of
         ("constant", setup::IceType::CONSTANT)
@@ -675,12 +637,14 @@ FiniteElement::initConstant()
         ("smos", setup::IceType::SMOS)
         ("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT);
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
+    LOG(DEBUG) <<"ICETYPE= "<< (int)M_ice_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::DynamicsType> str2dynamics = boost::assign::map_list_of
         ("default", setup::DynamicsType::DEFAULT)
         ("no_motion", setup::DynamicsType::NO_MOTION)
         ("free_drift", setup::DynamicsType::FREE_DRIFT);
     M_dynamics_type = str2dynamics.find(vm["setup.dynamics-type"].as<std::string>())->second;
+    LOG(DEBUG) <<"DYNAMICSTYPE= "<< (int)M_dynamics_type <<"\n";
 
 #ifdef OASIS
     cpl_time_step = vm["coupler.timestep"].as<double>();
@@ -696,9 +660,13 @@ FiniteElement::initConstant()
             ("constant_partial", setup::WaveType::CONSTANT_PARTIAL)
             ("ww3a", setup::WaveType::WW3A)
             ("eraiw_1deg", setup::WaveType::ERAI_WAVES_1DEG);
-        M_wave_type = str2wave.find(vm["setup.wave-type"].as<std::string>())->second;
-        std::cout<<"wave forcing type "<<vm["setup.wave-type"].as<std::string>()<<"\n";
-        std::cout<<"wave forcing enum "<<(int)M_wave_type<<"\n";
+
+        std::string swave = vm["setup.wave-type"].as<std::string>();
+        if ( str2wave.count(swave) == 0)
+            throw std::runtime_error("Unknown wave forcing type: "+swave);
+
+        M_wave_type = str2wave.find(swave)->second;
+        LOG(DEBUG) <<"WAVETYPE = "+swave+"(enum = "<< (int)M_wave_type <<")\n";
     }
 #endif
 
@@ -708,6 +676,7 @@ FiniteElement::initConstant()
     M_bathymetry_type = str2bathymetry.find(vm["setup.bathymetry-type"].as<std::string>())->second;
 
     const boost::unordered_map<const std::string, setup::BasalStressType> str2basal_stress= boost::assign::map_list_of
+        ("none", setup::BasalStressType::NONE)
         ("lemieux", setup::BasalStressType::LEMIEUX)
         ("bouillon", setup::BasalStressType::BOUILLON);
     M_basal_stress_type = str2basal_stress.find(vm["simul.basal_stress-type"].as<std::string>())->second;
@@ -744,15 +713,6 @@ FiniteElement::initConstant()
         M_mesh.setOrdering("gmsh");
     else
         throw std::logic_error("Unknown setup::MeshType");
-
-    // log
-    const boost::unordered_map<const std::string, LogLevel> str2log = boost::assign::map_list_of
-        ("info", INFO)
-        ("warning", WARNING)
-        ("debug", DEBUG)
-        ("error", ERROR);
-
-    M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
 
     // Moorings
     M_use_moorings =  vm["simul.use_moorings"].as<bool>();
@@ -1080,7 +1040,7 @@ FiniteElement::AllMinAngle(mesh_type const& mesh, std::vector<double> const& um,
     int thread_id;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
-//#pragma omp parallel for num_threads(max_threads) private(thread_id)
+#pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
         all_min_angle[cpt] = this->minAngles(movedmesh.triangles()[cpt],movedmesh);
@@ -1297,61 +1257,6 @@ FiniteElement::regrid(bool step)
 
 		if (step)
 		{
-#if 0
-	        chrono.restart();
-	        LOG(DEBUG) <<"Slab Interp starts\n";
-
-            // We need to interpolate the slab first so that we have the right
-            // SSS for setting the freezing temperature in M_tice[1] &
-            // M_tice[2] for ice free elements
-			// ELEMENT INTERPOLATION FOR SLAB OCEAN FROM OLD MESH ON ITS ORIGINAL POSITION
-            int prv_num_elements = M_mesh_previous.numTriangles();
-			int nb_var=2;
-
-			// memory leak:
-			std::vector<double> interp_elt_slab_in(nb_var*prv_num_elements);
-
-			double* interp_elt_slab_out;
-
-			LOG(DEBUG) <<"ELEMENT SLAB: Interp starts\n";
-
-			M_mesh_previous.move(M_UM,-displacement_factor);
-
-			for (int i=0; i<prv_num_elements; ++i)
-			{
-				// Sea surface temperature
-				interp_elt_slab_in[nb_var*i+0] = M_sst[i];
-
-				// Sea surface salinity
-				interp_elt_slab_in[nb_var*i+1] = M_sss[i];
-			}
-
-			InterpFromMeshToMesh2dx(&interp_elt_slab_out,
-                                    &M_mesh_previous.indexTr()[0],&M_mesh_previous.coordX()[0],&M_mesh_previous.coordY()[0],
-                                    M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
-                                    &interp_elt_slab_in[0],
-                                    M_mesh_previous.numTriangles(),nb_var,
-                                    &M_mesh.bcoordX()[0],&M_mesh.bcoordY()[0],M_mesh.numTriangles(),
-                                    false);
-
-			M_sst.resize(M_num_elements);
-			M_sss.resize(M_num_elements);
-
-			for (int i=0; i<M_mesh.numTriangles(); ++i)
-			{
-				// Sea surface temperature
-				M_sst[i] = interp_elt_slab_out[nb_var*i+0];
-
-				// Sea surface salinity
-				M_sss[i] = interp_elt_slab_out[nb_var*i+1];
-			}
-
-			xDelete<double>(interp_elt_slab_out);
-
-			M_mesh_previous.move(M_UM,displacement_factor);
-			LOG(DEBUG) <<"ELEMENT SLAB: Interp done\n";
-			LOG(DEBUG) <<"Slab Interp done in "<< chrono.elapsed() <<"s\n";
-#endif
             chrono.restart();
 
             LOG(DEBUG) <<"Element Interp starts\n";
@@ -2323,7 +2228,12 @@ FiniteElement::assemble(int pcpt)
     int total_threads;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
+// omp pragma causing the code not to give reproducable results across different runs and different number of threads
+// The reason is that we do a += update on rhsdata and lhsdata. When OpenMP is active the order of these operations is arbitrary and the result is
+// therefore not bitwise reproducable. This is du to the fact that (a + b) + c != a + (b + c).
+#ifndef NDEBUG
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
+#endif
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
         // if(thread_id == 0)
@@ -2420,6 +2330,9 @@ FiniteElement::assemble(int pcpt)
             {
                 switch ( M_basal_stress_type )
                 {
+                    case setup::BasalStressType::NONE:
+                        critical_h     = 0.;
+                        critical_h_mod = 0.;
                     case setup::BasalStressType::BOUILLON:
                         // Sylvain's grounding scheme
                         keel_height_estimate = ice_to_keel_factor*std::pow(M_thick[cpt]/M_conc[cpt],0.5);
@@ -2618,7 +2531,9 @@ FiniteElement::assemble(int pcpt)
 
         for (int idf=0; idf<rcindices.size(); ++idf)
         {
+#ifndef NDEBUG
 #pragma omp atomic
+#endif
             rhsdata[rcindices[idf]] += fvdata[idf];
 
 #if 1
@@ -2639,7 +2554,9 @@ FiniteElement::assemble(int pcpt)
                     }
                 }
 
+#ifndef NDEBUG
 #pragma omp atomic
+#endif
                 lhsdata[start+colind] += data[6*idf+idj];
             }
 #endif
@@ -4421,10 +4338,7 @@ FiniteElement::init()
     if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
     {
         M_export_path = vm["simul.output_directory"].as<std::string>();
-
         fs::path path(M_export_path);
-        // add a subdirecory if needed
-        // path /= "subdir";
 
         // create the output directory if it does not exist
         if ( !fs::exists(path) )
@@ -4463,7 +4377,7 @@ FiniteElement::init()
     {
         LOG(DEBUG) <<"Reading restart file\n";
         pcpt = this->readRestart(vm["setup.step_nb"].as<int>());
-        // current_time = time_init + pcpt*time_step/(24*3600.0);
+        current_time = time_init + pcpt*time_step/(24*3600.0);
         if(M_use_osisaf_drifters)
             this->initOSISAFDrifters();
         
@@ -4918,7 +4832,7 @@ FiniteElement::step(int &pcpt)
         chrono.restart();
         LOG(DEBUG) <<"first export starts\n";
         this->exportResults(0);
-        this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
+        // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
         LOG(DEBUG) <<"first export done in " << chrono.elapsed() <<"s\n";
     }
 #endif
@@ -5515,7 +5429,7 @@ FiniteElement::initMoorings()
 void
 FiniteElement::writeRestart(int pcpt, int step)
 {
-    Exporter exporter;
+    Exporter exporter("double");
     std::string filename;
 
     // === Start with the mesh ===
@@ -5563,11 +5477,14 @@ FiniteElement::writeRestart(int pcpt, int step)
     std::vector<int> misc_int(4);
     misc_int[0] = pcpt;
     misc_int[1] = M_flag_fix;
-    misc_int[2] = current_time;
-    misc_int[3] = mesh_adapt_step;
+    misc_int[2] = mesh_adapt_step;
+    misc_int[3] = M_nb_regrid;
     exporter.writeField(outbin, misc_int, "Misc_int");
     exporter.writeField(outbin, M_dirichlet_flags, "M_dirichlet_flags");
 
+    std::vector<double> timevec(1);
+    timevec[0] = current_time;
+    exporter.writeField(outbin, timevec, "Time");
     exporter.writeField(outbin, M_conc, "M_conc");
     exporter.writeField(outbin, M_thick, "M_thick");
     exporter.writeField(outbin, M_snow_thick, "M_snow_thick");
@@ -5588,6 +5505,13 @@ FiniteElement::writeRestart(int pcpt, int step)
     exporter.writeField(outbin, M_VTMM, "M_VTMM");
     exporter.writeField(outbin, M_UM, "M_UM");
     exporter.writeField(outbin, M_UT, "M_UT");
+
+    std::vector<double> PreviousNumbering(M_mesh.numNodes());
+
+    for ( int i=0; i<M_mesh.numNodes(); ++i )
+        PreviousNumbering[i]=bamgmesh->PreviousNumbering[i];
+
+    exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering");
 
     if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
     {
@@ -5641,7 +5565,7 @@ FiniteElement::writeRestart(int pcpt, int step)
 int
 FiniteElement::readRestart(int step)
 {
-    Exporter exp_field, exp_mesh;
+    Exporter exp_field("double"), exp_mesh("double");
     std::string filename;
     boost::unordered_map<std::string, std::vector<int>>    field_map_int;
     boost::unordered_map<std::string, std::vector<double>> field_map_dbl;
@@ -5712,12 +5636,19 @@ FiniteElement::readRestart(int step)
 	    coordX.size(), indexTr.size()/3.
             );
 
+    // Set and check time
+    int pcpt    = field_map_int["Misc_int"].at(0);
+    std::vector<double> time = field_map_dbl["Time"];
+    if ( time[0] != time_init + pcpt*time_step/(24*3600.0) )
+    {
+        std::cout << "FiniteElement::readRestart: Time and Misc_int[0] (a.k.a pcpt) are inconsistent. \n"
+            << "Time = " << time[0] << std::endl
+            << "pcpt*time_step/(24*3600.0) = " << pcpt*time_step/(24*3600.0) << std::endl;
+        std::runtime_error("Inconsistent time information in restart file");
+    }
+
     // Fix boundaries
-    //int pcpt     = field_map_int["Misc_int"].at(0);
     M_flag_fix   = field_map_int["Misc_int"].at(1);
-    current_time = field_map_int["Misc_int"].at(2);
-    mesh_adapt_step = field_map_int["Misc_int"].at(3);
-    int pcpt = (current_time-time_init)*(24*3600)/time_step;
 
     std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
     for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
@@ -5754,6 +5685,8 @@ FiniteElement::readRestart(int step)
 
     // Initialise all the variables to zero
     this->initVariables();
+    mesh_adapt_step = field_map_int["Misc_int"].at(2);
+    M_nb_regrid  = field_map_int["Misc_int"].at(3);
 
     // update dirichlet nodes
     M_boundary_flags.resize(0);
@@ -5787,6 +5720,12 @@ FiniteElement::readRestart(int step)
         M_neumann_nodes[2*i] = M_neumann_flags[i];
         M_neumann_nodes[2*i+1] = M_neumann_flags[i]+M_num_nodes;
     }
+
+    std::vector<double> PreviousNumbering(M_mesh.numNodes());
+    PreviousNumbering = field_map_dbl["PreviousNumbering"];
+
+    for ( int i=0; i<M_mesh.numNodes(); ++i )
+        bamgmesh->PreviousNumbering[i] = PreviousNumbering[i];
 
     // === Set the prognostic variables ===
     M_conc       = field_map_dbl["M_conc"];

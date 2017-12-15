@@ -1,5 +1,10 @@
 #! /bin/bash
 
+# script to run code to find memory errors
+# run in a screen (be careful of possibly changed enviroment variables)
+# or use nohup as valgrind is very slow
+# NB code needs to compiled with env variable NEXTSIM_BUILD_TYPE=debug
+
 if [ "$1" ]
 then
         config=$1
@@ -7,16 +12,17 @@ else
         config=nextsim.cfg
 fi
 
-# record changes from last git commit:
-# file gets moved from current dir to "output_directory" inside nextsim code
-# NB want file paths relative to $NEXTSIMDIR
-P=`pwd`
-cd $NEXTSIMDIR
-git diff > $P/git_changes.txt
-cd $P
+# valgrind options
+vopts[0]="--log-file=vlgrnd.log"
+vopts[1]="--leak-check=full"  # see details of leaked memory
+vopts[2]="--track-origins=yes" # see where uninitialised values come from
+
+# nextsim options
+nsopts[0]="--config-file=$config"
+nsopts[1]="--simul.maxiteration=1" # just run nextsim for 1 time step
 
 prog=bin/nextsim.exec
-if [ `pwd` != $NEXTSIMDIR ]
+if [ `pwd` != $NEXTSIMDIR/model ]
 then
    # make a local copy of executable
    # (so can recompile code and run somewhere else)
@@ -33,7 +39,7 @@ then
 fi
 
 # Run the nextsim model
-$prog --config-files=$config
+valgrind ${vopts[@]} $prog ${nsopts[@]} > simdebug.log
 
 
 # Run the CPU profiler (google perftools)

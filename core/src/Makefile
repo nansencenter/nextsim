@@ -22,12 +22,21 @@ else
 endif
 
 # add g++ option flags
-CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v
+CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -fopenmp
 
 ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
 	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
-	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
-	CXXFLAGS += -g -O0 -Wl,-no_pie -DNDEBUG
+	#CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
+	CXXFLAGS += -g -O0 -DNDEBUG
+ifneq ($(KERNEL),Linux)
+	CXXFLAGS += -Wl,-no_pie
+endif
+else
+	CXXFLAGS += -O3 -pthread  
+endif
+
+ifneq ($(XSIMCOMP_VERBOSE),no)
+	CXXFLAGS += -v
 endif
 
 # add include paths
@@ -36,7 +45,7 @@ CXXFLAGS += -I $(PETSC_DIR)/include -I $(BOOST_INCDIR) -I $(GMSH_DIR)/include/gm
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
 
 ifeq ($(KERNEL),Linux)
-	#CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -lm -pthread -v #-MMD -MP
+	#CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -lm -pthread #-MMD -MP
 
 	LDFLAGS += -shared -Wl,-soname,libnextsim.so.1
 
