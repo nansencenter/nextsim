@@ -25,23 +25,23 @@ BamgMesh::BamgMesh(){/*{{{*/
 /*}}}*/
 BamgMesh::~BamgMesh(){/*{{{*/
 
-	delete this->Vertices;
-	delete this->PreviousNumbering;
-	delete this->Edges;
-	delete this->Triangles;
+	delete [] this->Vertices;
+	delete [] this->PreviousNumbering;
+	delete [] this->Edges;
+	delete [] this->Triangles;
 
-	delete this->SubDomains;
-	delete this->SubDomainsFromGeom;
+	delete [] this->SubDomains;
+	delete [] this->SubDomainsFromGeom;
 
-	delete this->VerticesOnGeomVertex;
-	delete this->VerticesOnGeomEdge;
-	delete this->EdgesOnGeomEdge;
+	delete [] this->VerticesOnGeomVertex;
+	delete [] this->VerticesOnGeomEdge;
+	delete [] this->EdgesOnGeomEdge;
 
-	delete this->IssmEdges;
-	delete this->IssmSegments;
+	delete [] this->IssmEdges;
+	delete [] this->IssmSegments;
 
-	delete this->ElementConnectivity;
-	delete this->NodalConnectivity;
-	delete this->NodalElementConnectivity;
+	delete [] this->ElementConnectivity;
+	delete [] this->NodalConnectivity;
+	delete [] this->NodalElementConnectivity;
 }
 /*}}}*/

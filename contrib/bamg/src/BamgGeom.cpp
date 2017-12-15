@@ -16,13 +16,13 @@ BamgGeom::BamgGeom(){/*{{{*/
 /*}}}*/
 BamgGeom::~BamgGeom(){/*{{{*/
 
-	delete this->Vertices;
-	delete this->Edges;
-	delete this->TangentAtEdges;
-	delete this->Corners;
-	delete this->RequiredVertices;
-	delete this->RequiredEdges;
-	delete this->SubDomains;
+	delete [] this->Vertices;
+	delete [] this->Edges;
+	delete [] this->TangentAtEdges;
+	delete [] this->Corners;
+	delete [] this->RequiredVertices;
+	delete [] this->RequiredEdges;
+	delete [] this->SubDomains;
 }
 /*}}}*/
 
@@ -37,11 +37,11 @@ BamgGeom::reset()
 	this->RequiredEdgesSize[0]=0,     this->RequiredEdgesSize[1]=0;
 	this->SubDomainsSize[0]=0,        this->SubDomainsSize[1]=0;
 
-	delete this->Vertices;
-	delete this->Edges;
-	delete this->TangentAtEdges;
-	delete this->Corners;
-	delete this->RequiredVertices;
-	delete this->RequiredEdges;
-	delete this->SubDomains;
+	delete [] this->Vertices;
+	delete [] this->Edges;
+	delete [] this->TangentAtEdges;
+	delete [] this->Corners;
+	delete [] this->RequiredVertices;
+	delete [] this->RequiredEdges;
+	delete [] this->SubDomains;
 }

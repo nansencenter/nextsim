@@ -499,7 +499,10 @@ static bool decode_mpp(mapx_class *this, char *label)
 
   if (streq(projection_name, keyval_FALL_THRU_STRING)) {
     if (mapx_verbose) fprintf(stderr,"> assuming old style fixed format file\n");
-    return old_fixed_format_decode_mpp(this, label);
+    {
+      free(projection_name);
+      return old_fixed_format_decode_mpp(this, label);
+    }
   }
 
   this->projection_name = strdup(standard_name(projection_name));

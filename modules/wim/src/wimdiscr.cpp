@@ -2976,25 +2976,25 @@ void WimDiscr<T>::saveLog(T_val const& t_out) const
 #define WIMDIAG1D
 #if defined (WIMDIAG1D)
     //this definition of MIZ only works in 1d geometries
+    //and calculation only works for wim on grid
     T_val W_miz;
-    if ( M_grid.M_num_py == 1 )
+    if (!M_wim_on_mesh)
     {
-       W_miz = (Nmiz*M_grid.M_dx);
-    }
-    else if ( vm["wim.landon3edges"].template as<bool>() )
-    {
-       W_miz = (Nmiz*M_grid.M_dx)/(M_grid.M_num_py-2);
-    }
-    else
-    {
-       W_miz = (Nmiz*M_grid.M_dx)/M_grid.M_num_py;
+       if ( M_grid.M_num_py == 1 )
+          W_miz = (Nmiz*M_grid.M_dx);
+       else if ( vm["wim.landon3edges"].template as<bool>() )
+          W_miz = (Nmiz*M_grid.M_dx)/(M_grid.M_num_py-2);
+       else
+          W_miz = (Nmiz*M_grid.M_dx)/M_grid.M_num_py;
     }
 #endif
 
     out << "\n***********************************************\n";
     out << "Diagnostics:\n";
 #if defined (WIMDIAG1D)
-    out << std::left << std::setw(log_width) << "MIZ width (km)"<<" : "         << W_miz/1.e3 << "\n";
+    if (!M_wim_on_mesh)
+       out << std::left << std::setw(log_width) << "MIZ width (km)"<<" : "
+          << W_miz/1.e3 << "\n";
 #endif
     out << std::left << std::setw(log_width) << "Dmax range in MIZ (m)" <<" : " << Dmax_min << ", " << Dmax_max << "\n";
     out << std::left << std::setw(log_width) << "tau_x range (Pa)"      <<" : " << taux_min << ", " << taux_max << "\n";
