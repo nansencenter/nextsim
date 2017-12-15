@@ -4,6 +4,7 @@
  * @file   exporter.cpp
  * @author Abdoulaye Samake <abdoulaye.samake@nersc.no>
  * @author Sylvain Bouillon <sylvain.bouillon@nersc.no>
+ * @author Einar Olason <einar.olason@nersc.no>
  * @date   Mon Dec 28 15:59:43 2015
  */
 
@@ -18,11 +19,17 @@ Exporter::Exporter(std::string const& precision)
     M_type_record(),
     M_name_record(),
     M_precision(precision)
-{}
+{
+    if ( precision != "double" & precision != "float" & precision != "int" )
+    {
+        std::string error_str = "Exporter: Unknown precision: " + precision;
+        throw std::logic_error(error_str);
+    }
+}
 
 template<typename Type>
 void
-Exporter::writeContainer(std::fstream& out, std::vector<Type> const& container)
+Exporter::writeContainer(std::fstream& out, std::vector<Type> const& container, std::string const precision)
 {
     if (out.is_open())
 	{
@@ -30,7 +37,8 @@ Exporter::writeContainer(std::fstream& out, std::vector<Type> const& container)
         out.write((char*)&fsize, sizeof(fsize)); // write first the record length
 
         int typesize = sizeof(Type);
-        if ((M_precision != "double") && (typesize == sizeof(double)))
+        // if ((precision != "double") && (typesize == sizeof(double)))
+        if ( precision == "float" )
         {
             for (int i=0; i<container.size(); ++i)
             {
@@ -59,30 +67,46 @@ Exporter::writeMesh(std::fstream& out, FEMeshType const& Mesh)
 {
     std::string description;
 
-    writeContainer(out, Mesh.indexTr());
-    description = (boost::format( "%1% %2%" )
+    std::vector<int> field_int = Mesh.indexTr();
+    writeContainer(out, field_int, "int");
+    description = (boost::format( "%1% %2% %3$g %4$g %5$g" )
                    % "Elements"
-                   % "int" ).str();
+                   % "int"
+                   % field_int.size()
+                   % *std::min_element(field_int.begin(), field_int.end())
+                   % *std::max_element(field_int.begin(), field_int.end()) ).str();
     M_mrecord.push_back(description);
 
-
-    writeContainer(out, Mesh.coordX());
-    description = (boost::format( "%1% %2%" )
-                   % "Nodes_x"
-                   % M_precision ).str();
-    M_mrecord.push_back(description);
-
-    writeContainer(out, Mesh.coordY());
-    description = (boost::format( "%1% %2%" )
-                   % "Nodes_y"
-                   % M_precision ).str();
-
-    M_mrecord.push_back(description);
-
-    writeContainer(out, Mesh.id());
-    description = (boost::format( "%1% %2%" )
+    field_int = Mesh.id();
+    writeContainer(out, field_int, "int");
+    description = (boost::format( "%1% %2% %3$g %4$g %5$g" )
                    % "id"
-                   % "int" ).str();
+                   % "int"
+                   % field_int.size()
+                   % *std::min_element(field_int.begin(), field_int.end())
+                   % *std::max_element(field_int.begin(), field_int.end()) ).str();
+    M_mrecord.push_back(description);
+
+
+    std::vector<double> field = Mesh.coordX();
+    writeContainer(out, field, "double");
+    description = (boost::format( "%1% %2% %3$g %4$g %5$g" )
+                   % "Nodes_x"
+                   % "double"
+                   % field.size()
+                   % *std::min_element(field.begin(), field.end())
+                   % *std::max_element(field.begin(), field.end()) ).str();
+    M_mrecord.push_back(description);
+
+    field = Mesh.coordY();
+    writeContainer(out, field, "double");
+    description = (boost::format( "%1% %2% %3$g %4$g %5$g" )
+                   % "Nodes_y"
+                   % "double"
+                   % field.size()
+                   % *std::min_element(field.begin(), field.end())
+                   % *std::max_element(field.begin(), field.end()) ).str();
+
     M_mrecord.push_back(description);
 }
 
@@ -91,20 +115,25 @@ void
 Exporter::writeField(std::fstream& out, std::vector<Type> const& field, std::string const& name)
 {
     std::string description;
-    writeContainer(out, field);
 
+    std::string precision;
+    // We must choose either integer or floating point
     if (((boost::any)field[0]).type() == typeid(int))
-    {
-        description = (boost::format( "%1% %2%" )
-                       % name
-                       % "int" ).str();
-    }
+        precision = "int";
     else
-    {
-        description = (boost::format( "%1% %2%" )
-                       % name
-                       % M_precision ).str();
-    }
+        precision = M_precision;
+
+    // Time should always be in double
+    if ( name == "Time" )
+        precision = "double";
+
+    writeContainer(out, field, precision);
+    description = (boost::format( "%1% %2% %3$g %4$g %5$g" )
+                   % name
+                   % precision
+                   % field.size()
+                   % ( (field.size() > 0) ? *std::min_element(field.begin(), field.end()) : 0 )
+                   % ( (field.size() > 0) ? *std::max_element(field.begin(), field.end()) : 0 ) ).str();
 
 	M_frecord.push_back(description);
 }
@@ -142,10 +171,9 @@ Exporter::writeRecord(std::fstream& out, std::string const& rtype)
 void
 Exporter::readRecord(std::ifstream &in)
 {
-    std::string name;
-    std::string type;
+    std::string name, type, size, min_element, max_element;
 
-    while ( in >> name >> type )
+    while ( in >> name >> type >> size >> min_element >> max_element)
     {
         M_name_record.push_back(name);
         M_type_record.push_back(type);
@@ -160,15 +188,11 @@ Exporter::loadFile(std::fstream &in, boost::unordered_map<std::string, std::vect
     {
         in.read((char*) &reclen, sizeof(reclen));
 
-        std::cout<<"___________NAME: "<< M_name_record[i] << "  --- Record Length: "<< reclen <<"\n";
-
         if ( M_type_record[i] == "double" )
         {
-            std::cout<<"___________here double starts\n";
             std::vector<double> dvec(reclen);
             in.read((char*) &dvec[0], reclen*sizeof(double));
             field_map_dbl.emplace(M_name_record[i], dvec);
-            std::cout<<"___________here double done\n";
         }
         else if ( M_type_record[i] == "int" )
         {
