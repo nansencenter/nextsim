@@ -516,8 +516,8 @@ void GridInfo<T>::readFromBinary(std::fstream &in, T_val_vec& in_array, int off,
     }
     else
     {
-        std::cout << "Cannot open " << in << "\n";
-        std::cerr << "error: open file " << in << " for input failed!" <<"\n";
+        std::cout << "readFromBinary: Cannot open file\n";
+        std::cerr << "error: opening file for input failed!" <<"\n";
         std::abort();
     }
 }//readFromBinary
