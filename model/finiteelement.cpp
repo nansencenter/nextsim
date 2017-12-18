@@ -874,7 +874,8 @@ FiniteElement::minAngle(mesh_type const& mesh) const
     int thread_id;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
-#pragma omp parallel for num_threads(max_threads) private(thread_id)
+    //valgrind found a memory leak if OMP is used here
+//#pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
         all_min_angle[cpt] = this->minAngles(M_elements[cpt],mesh);
@@ -1057,7 +1058,8 @@ FiniteElement::AllMinAngle(mesh_type const& mesh, std::vector<double> const& um,
     int thread_id;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
-#pragma omp parallel for num_threads(max_threads) private(thread_id)
+    //valgrind found a memory leak if OMP is used here
+//#pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
         all_min_angle[cpt] = this->minAngles(movedmesh.triangles()[cpt],movedmesh);
@@ -1254,6 +1256,9 @@ FiniteElement::regrid(bool step)
                                    % substep ).str();
             
             this->exportResults(tmp_string1,true,true,false);
+
+            int pcpt = (current_time - time_init)/(time_step/(24*3600.0));
+            this->writeRestart(pcpt,tmp_string1);
 		}
 
         chrono.restart();
@@ -5628,6 +5633,14 @@ FiniteElement::initMoorings()
 
 void
 FiniteElement::writeRestart(int pcpt, int step)
+{
+
+    std::string tmp = (boost::format( "%1%" ) % step).str();
+    this->writeRestart(pcpt,tmp);
+}
+
+void
+FiniteElement::writeRestart(int pcpt, std::string step)
 {
     Exporter exporter("double");
     std::string filename;

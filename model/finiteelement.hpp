@@ -216,6 +216,7 @@ public:
             bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
 
     void writeRestart(int pcpt, int step);
+    void writeRestart(int pcpt, std::string step);
     int readRestart(int step);
 
 #if defined (WAVES)
