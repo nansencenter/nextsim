@@ -77,6 +77,8 @@ namespace Nextsim
             ("simul.mooring_file_length", po::value<std::string>()->default_value( "inf" ), "")
             ("simul.mooring_spacing", po::value<double>()->default_value( 10 ), "km")
             ("simul.mooring_output_timestep", po::value<double>()->default_value( 1 ), "days")
+            ("simul.mooring_names", po::value<std::vector<std::string>>()->multitoken()->default_value(std::vector<std::string>(), "conc thick snow conc_thin h_thin hs_thin velocity_xy")->composing(), "")
+            ("simul.mooring_grid_file", po::value<std::string>()->default_value( "" ), "") // It must be a netcdf file having x y as dimensions and latitude longitude as variables
 
             ("simul.use_iabp_drifters", po::value<bool>()->default_value( false), "")
             ("simul.equallyspaced_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days") // must be a multiple of 0.5

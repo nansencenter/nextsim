@@ -6451,93 +6451,182 @@ FiniteElement::initMoorings()
         std::vector<double> data_grid;
 
         // Output variables - elements
-        GridOutput::Variable conc(GridOutput::variableID::conc, data_elements, data_grid);
-        GridOutput::Variable thick(GridOutput::variableID::thick, data_elements, data_grid);
-        GridOutput::Variable snow(GridOutput::variableID::snow, data_elements, data_grid);
-        GridOutput::Variable tsurf(GridOutput::variableID::tsurf, data_elements, data_grid);
-        GridOutput::Variable Qa(GridOutput::variableID::Qa, data_elements, data_grid);
-        GridOutput::Variable Qsw(GridOutput::variableID::Qsw, data_elements, data_grid);
-        GridOutput::Variable Qlw(GridOutput::variableID::Qlw, data_elements, data_grid);
-        GridOutput::Variable Qsh(GridOutput::variableID::Qsh, data_elements, data_grid);
-        GridOutput::Variable Qlh(GridOutput::variableID::Qlh, data_elements, data_grid);
-        GridOutput::Variable Qo(GridOutput::variableID::Qo, data_elements, data_grid);
-        GridOutput::Variable delS(GridOutput::variableID::delS, data_elements, data_grid);
-
-        std::vector<GridOutput::Variable> elemental_variables(11);
-        elemental_variables[0] = conc;
-        elemental_variables[1] = thick;
-        elemental_variables[2] = snow;
-        elemental_variables[3] = tsurf;
-        elemental_variables[4] = Qa;
-        elemental_variables[5] = Qsw;
-        elemental_variables[6] = Qlw;
-        elemental_variables[7] = Qsh;
-        elemental_variables[8] = Qlh;
-        elemental_variables[9] = Qo;
-        elemental_variables[10] = delS;
-
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        {
-            GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin, data_elements, data_grid);
-            GridOutput::Variable h_thin(GridOutput::variableID::h_thin, data_elements, data_grid);
-            GridOutput::Variable hs_thin(GridOutput::variableID::hs_thin, data_elements, data_grid);
-
-            elemental_variables.push_back(conc_thin);
-            elemental_variables.push_back(h_thin);
-            elemental_variables.push_back(hs_thin);
-        }
+        std::vector<GridOutput::Variable> elemental_variables;
 
         // Output variables - nodes
-        GridOutput::Variable siu(GridOutput::variableID::VT_x, data_nodes, data_grid);
-
-        GridOutput::Variable siv(GridOutput::variableID::VT_y, data_nodes, data_grid);
-
-        std::vector<GridOutput::Variable> nodal_variables(2);
-        nodal_variables[0] = siu;
-        nodal_variables[1] = siv;
+        std::vector<GridOutput::Variable> nodal_variables;
 
         // The vectorial variables are (always on the nodes) ...
-        std::vector<int> siuv_id(2);
-        siuv_id[0] = 0;
-        siuv_id[1] = 1;
+        std::vector<GridOutput::Vectorial_Variable> vectorial_variables;
 
-        GridOutput::Vectorial_Variable siuv
+        std::vector<std::string> names = vm["simul.mooring_names"].as<std::vector<std::string>>();
+
+        for ( auto it=names.begin(); it!=names.end(); ++it )
         {
-        components_Id: siuv_id,
-                // east_west_oriented: true
-                east_west_oriented: false
-                };
+            // Element variables
+            if ( *it == "conc" )
+            {
+                GridOutput::Variable conc(GridOutput::variableID::conc, data_elements, data_grid);
+                elemental_variables.push_back(conc);
+            }
+            else if ( *it == "thick" )
+            {
+                GridOutput::Variable thick(GridOutput::variableID::thick, data_elements, data_grid);
+                elemental_variables.push_back(thick);
+            }
+            else if ( *it == "snow" )
+            {
+                GridOutput::Variable snow(GridOutput::variableID::snow, data_elements, data_grid);
+                elemental_variables.push_back(snow);
+            }
+            else if ( *it == "tsurf" )
+            {
+                GridOutput::Variable tsurf(GridOutput::variableID::tsurf, data_elements, data_grid);
+                elemental_variables.push_back(tsurf);
+            }
+            else if ( *it == "Qa" )
+            {
+                GridOutput::Variable Qa(GridOutput::variableID::Qa, data_elements, data_grid);
+                elemental_variables.push_back(Qa);
+            }
+            else if ( *it == "Qsw" )
+            {
+                GridOutput::Variable Qsw(GridOutput::variableID::Qsw, data_elements, data_grid);
+                elemental_variables.push_back(Qsw);
+            }
+            else if ( *it == "Qlw" )
+            {
+                GridOutput::Variable Qlw(GridOutput::variableID::Qlw, data_elements, data_grid);
+                elemental_variables.push_back(Qlw);
+            }
+            else if ( *it == "Qsh" )
+            {
+                GridOutput::Variable Qsh(GridOutput::variableID::Qsh, data_elements, data_grid);
+                elemental_variables.push_back(Qsh);
+            }
+            else if ( *it == "Qlh" )
+            {
+                GridOutput::Variable Qlh(GridOutput::variableID::Qlh, data_elements, data_grid);
+                elemental_variables.push_back(Qlh);
+            }
+            else if ( *it == "Qo" )
+            {
+                GridOutput::Variable Qo(GridOutput::variableID::Qo, data_elements, data_grid);
+                elemental_variables.push_back(Qo);
+            }
+            else if ( *it == "delS" )
+            {
+                GridOutput::Variable delS(GridOutput::variableID::delS, data_elements, data_grid);
+                elemental_variables.push_back(delS);
+            }
+            else if ( *it == "conc_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+            {
+                GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin, data_elements, data_grid);
+                elemental_variables.push_back(conc_thin);
+            }
+            else if ( *it == "h_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+            {
+                GridOutput::Variable h_thin(GridOutput::variableID::h_thin, data_elements, data_grid);
+                elemental_variables.push_back(h_thin);
+            }
+            else if ( *it == "hs_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+            {
+                GridOutput::Variable hs_thin(GridOutput::variableID::hs_thin, data_elements, data_grid);
+                elemental_variables.push_back(hs_thin);
+            }
+            // Nodal variables and vectors
+            else if ( *it == "velocity_xy" | *it == "velocity_uv" )
+            {
+                GridOutput::Variable siu(GridOutput::variableID::VT_x, data_nodes, data_grid);
+                GridOutput::Variable siv(GridOutput::variableID::VT_y, data_nodes, data_grid);
+                nodal_variables.push_back(siu);
+                nodal_variables.push_back(siv);
 
-        std::vector<GridOutput::Vectorial_Variable> vectorial_variables(1);
-        vectorial_variables[0] = siuv;
+                std::vector<int> siuv_id(2);
+                siuv_id[0] = 0;
+                siuv_id[1] = 1;
 
-        // Calculate the grid spacing (assuming a regular grid for now)
-        auto RX = M_mesh_root.coordX();
-        auto RY = M_mesh_root.coordY();
-        auto xcoords = std::minmax_element( RX.begin(), RX.end() );
-        auto ycoords = std::minmax_element( RY.begin(), RY.end() );
+                GridOutput::Vectorial_Variable siuv;
+                siuv.components_Id = siuv_id;
+                if ( *it == "velocity_xy" )
+                    siuv.east_west_oriented = false;
+                else
+                    siuv.east_west_oriented = true;
 
-        double mooring_spacing = 1e3 * vm["simul.mooring_spacing"].as<double>();
-        int ncols = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/mooring_spacing );
-        int nrows = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
+                vectorial_variables.push_back(siuv);
+            }
+            // Error
+            else
+            {
+                std::cout << "Invalid mooring name: " << *it << std::endl;
+                std::cout << "Available names are ";
+                std::cout << "conc, ";
+                std::cout << "thick, ";
+                std::cout << "snow, ";
+                std::cout << "tsurf, ";
+                std::cout << "Qa, ";
+                std::cout << "Qsw, ";
+                std::cout << "Qlw, ";
+                std::cout << "Qsh, ";
+                std::cout << "Qlh, ";
+                std::cout << "Qo, ";
+                std::cout << "delS, ";
+                if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+                {
+                    std::cout << "conc_thin, ";
+                    std::cout << "h_thin, ";
+                    std::cout << "hs_thin, ";
+                }
+                std::cout << "velocity_xy, ";
+                std::cout << "velocity_uv";
 
-        // Define the mooring dataset
-        M_moorings = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first, nodal_variables, elemental_variables, vectorial_variables);
+                throw std::runtime_error("Invalid mooring name");
+            }
+        }
 
-        double output_time;
-        if ( M_moorings_snapshot )
+
+        if(vm["simul.mooring_grid_file"].as<std::string>()=="")
         {
-            // shift the timestamp in the file to the centre of the output interval
-            output_time = current_time;
+            // Calculate the grid spacing (assuming a regular grid for now)
+            auto RX = M_mesh_root.coordX();
+            auto RY = M_mesh_root.coordY();
+            auto xcoords = std::minmax_element( RX.begin(), RX.end() );
+            auto ycoords = std::minmax_element( RY.begin(), RY.end() );
+
+            double mooring_spacing = 1e3 * vm["simul.mooring_spacing"].as<double>();
+            int ncols = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/mooring_spacing );
+            int nrows = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
+
+            // Define the mooring dataset
+            M_moorings = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first, nodal_variables, elemental_variables, vectorial_variables);
         }
         else
         {
-            output_time = current_time - mooring_output_time_step/86400/2;
+            // Read the grid in from file
+            GridOutput::Grid grid{
+                gridFile: Environment::vm()["simul.mooring_grid_file"].as<std::string>(),
+                dirname: "data",
+                mpp_file: Environment::vm()["simul.proj_filename"].as<std::string>(),
+                dimNameX: "y",
+                dimNameY: "x",
+                latName: "latitude",
+                lonName: "longitude"
+            };
+
+            // Define the mooring dataset
+            M_moorings = GridOutput(grid, nodal_variables, elemental_variables, vectorial_variables);
         }
+
+        double output_time;
+        if ( M_moorings_snapshot )
+            // shift the timestamp in the file to the centre of the output interval
+            output_time = current_time;
+        else
+            output_time = current_time - mooring_output_time_step/86400/2;
 
         M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
     }
-}
+} //initMoorings
 
 void
 FiniteElement::updateMoorings()
