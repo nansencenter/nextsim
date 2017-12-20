@@ -47,19 +47,23 @@ GridOutput::GridOutput(std::vector<Variable> variables, variableKind kind)
 }
 
 // Constructor for only one set of variables - regular grid
-GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind)
+GridOutput::GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind)
     :
     GridOutput(variables, kind)
 {
     this->initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
+    this->resetGridMean();
+    this->resetMeshMean(mesh);
 }
 
 // Constructor for only one set of variables - arbitrary grid
-GridOutput::GridOutput(Grid grid, std::vector<Variable> variables, variableKind kind)
+GridOutput::GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> variables, variableKind kind)
     :
     GridOutput(variables, kind)
 {
     this->initArbitraryGrid(grid);
+    this->resetGridMean();
+    this->resetMeshMean(mesh);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -74,21 +78,25 @@ GridOutput::GridOutput(std::vector<Variable> nodal_variables, std::vector<Variab
 }
 
 // constructor for nodal and elemental variables only (no vectors) - regular grid
-GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing,
+GridOutput::GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacing,
                        double xmin, double ymin,
                        std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables)
     :
     GridOutput(nodal_variables, elemental_variables)
 {
     this->initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
+    this->resetGridMean();
+    this->resetMeshMean(mesh);
 }
 
 // constructor for nodal and elemental variables only (no vectors) - arbitrary grid
-GridOutput::GridOutput(Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables)
+GridOutput::GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables)
     :
     GridOutput(nodal_variables, elemental_variables)
 {
     this->initArbitraryGrid(grid);
+    this->resetGridMean();
+    this->resetMeshMean(mesh);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -102,22 +110,26 @@ GridOutput::GridOutput(std::vector<Variable> nodal_variables, std::vector<Variab
 {}
 
 // constructor for nodal, elemental and vectorial variables - regular grid
-GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing,
+GridOutput::GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacing,
                        double xmin, double ymin,
                        std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables)
     :
     GridOutput(nodal_variables, elemental_variables, vectorial_variables)
 {
     this->initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
+    this->resetGridMean();
+    this->resetMeshMean(mesh);
 }
 
 // constructor for nodal, elemental and vectorial variables - arbitrary grid
-GridOutput::GridOutput(Grid grid, std::vector<Variable> nodal_variables,
+GridOutput::GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> nodal_variables,
                        std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables)
     :
     GridOutput(nodal_variables, elemental_variables, vectorial_variables)
 {
     this->initArbitraryGrid(grid);
+    this->resetGridMean();
+    this->resetMeshMean(mesh);
 }
 
 GridOutput::~GridOutput()

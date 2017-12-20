@@ -6444,10 +6444,6 @@ FiniteElement::initMoorings()
 {
     int num_nodes = M_mesh.numNodes();
     int num_elements = M_mesh.numTriangles();
-    // Output and averaging grids
-    std::vector<double> data_nodes(num_nodes);
-    std::vector<double> data_elements(num_elements);
-    std::vector<double> data_grid;
 
     // Output variables - elements
     std::vector<GridOutput::Variable> elemental_variables;
@@ -6465,79 +6461,79 @@ FiniteElement::initMoorings()
         // Element variables
         if ( *it == "conc" )
         {
-            GridOutput::Variable conc(GridOutput::variableID::conc, data_elements, data_grid);
+            GridOutput::Variable conc(GridOutput::variableID::conc);
             elemental_variables.push_back(conc);
         }
         else if ( *it == "thick" )
         {
-            GridOutput::Variable thick(GridOutput::variableID::thick, data_elements, data_grid);
+            GridOutput::Variable thick(GridOutput::variableID::thick);
             elemental_variables.push_back(thick);
         }
         else if ( *it == "snow" )
         {
-            GridOutput::Variable snow(GridOutput::variableID::snow, data_elements, data_grid);
+            GridOutput::Variable snow(GridOutput::variableID::snow);
             elemental_variables.push_back(snow);
         }
         else if ( *it == "tsurf" )
         {
-            GridOutput::Variable tsurf(GridOutput::variableID::tsurf, data_elements, data_grid);
+            GridOutput::Variable tsurf(GridOutput::variableID::tsurf);
             elemental_variables.push_back(tsurf);
         }
         else if ( *it == "Qa" )
         {
-            GridOutput::Variable Qa(GridOutput::variableID::Qa, data_elements, data_grid);
+            GridOutput::Variable Qa(GridOutput::variableID::Qa);
             elemental_variables.push_back(Qa);
         }
         else if ( *it == "Qsw" )
         {
-            GridOutput::Variable Qsw(GridOutput::variableID::Qsw, data_elements, data_grid);
+            GridOutput::Variable Qsw(GridOutput::variableID::Qsw);
             elemental_variables.push_back(Qsw);
         }
         else if ( *it == "Qlw" )
         {
-            GridOutput::Variable Qlw(GridOutput::variableID::Qlw, data_elements, data_grid);
+            GridOutput::Variable Qlw(GridOutput::variableID::Qlw);
             elemental_variables.push_back(Qlw);
         }
         else if ( *it == "Qsh" )
         {
-            GridOutput::Variable Qsh(GridOutput::variableID::Qsh, data_elements, data_grid);
+            GridOutput::Variable Qsh(GridOutput::variableID::Qsh);
             elemental_variables.push_back(Qsh);
         }
         else if ( *it == "Qlh" )
         {
-            GridOutput::Variable Qlh(GridOutput::variableID::Qlh, data_elements, data_grid);
+            GridOutput::Variable Qlh(GridOutput::variableID::Qlh);
             elemental_variables.push_back(Qlh);
         }
         else if ( *it == "Qo" )
         {
-            GridOutput::Variable Qo(GridOutput::variableID::Qo, data_elements, data_grid);
+            GridOutput::Variable Qo(GridOutput::variableID::Qo);
             elemental_variables.push_back(Qo);
         }
         else if ( *it == "delS" )
         {
-            GridOutput::Variable delS(GridOutput::variableID::delS, data_elements, data_grid);
+            GridOutput::Variable delS(GridOutput::variableID::delS);
             elemental_variables.push_back(delS);
         }
         else if ( *it == "conc_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
-            GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin, data_elements, data_grid);
+            GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin);
             elemental_variables.push_back(conc_thin);
         }
         else if ( *it == "h_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
-            GridOutput::Variable h_thin(GridOutput::variableID::h_thin, data_elements, data_grid);
+            GridOutput::Variable h_thin(GridOutput::variableID::h_thin);
             elemental_variables.push_back(h_thin);
         }
         else if ( *it == "hs_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
-            GridOutput::Variable hs_thin(GridOutput::variableID::hs_thin, data_elements, data_grid);
+            GridOutput::Variable hs_thin(GridOutput::variableID::hs_thin);
             elemental_variables.push_back(hs_thin);
         }
         // Nodal variables and vectors
         else if ( *it == "velocity_xy" | *it == "velocity_uv" )
         {
-            GridOutput::Variable siu(GridOutput::variableID::VT_x, data_nodes, data_grid);
-            GridOutput::Variable siv(GridOutput::variableID::VT_y, data_nodes, data_grid);
+            GridOutput::Variable siu(GridOutput::variableID::VT_x);
+            GridOutput::Variable siv(GridOutput::variableID::VT_y);
             nodal_variables.push_back(siu);
             nodal_variables.push_back(siv);
 
@@ -6602,7 +6598,7 @@ FiniteElement::initMoorings()
         int nrows = (int) ( 0.5 + ( ymax - ymin )/mooring_spacing );
 
         // Define the mooring dataset
-        M_moorings = GridOutput(ncols, nrows, mooring_spacing, xmin, ymin, nodal_variables, elemental_variables, vectorial_variables);
+        M_moorings = GridOutput(M_mesh, ncols, nrows, mooring_spacing, xmin, ymin, nodal_variables, elemental_variables, vectorial_variables);
     }
     else
     {
@@ -6618,7 +6614,7 @@ FiniteElement::initMoorings()
         };
 
         // Define the mooring dataset
-        M_moorings = GridOutput(grid, nodal_variables, elemental_variables, vectorial_variables);
+        M_moorings = GridOutput(M_mesh, grid, nodal_variables, elemental_variables, vectorial_variables);
     }
 
     if ( (M_rank==0) || M_moorings_parallel_output )
