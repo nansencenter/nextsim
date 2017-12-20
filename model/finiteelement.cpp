@@ -1184,6 +1184,7 @@ FiniteElement::initConstant()
 
     // option for enabling/disabling the moorings
     M_use_moorings =  vm["simul.use_moorings"].as<bool>();
+    M_moorings_parallel_output =  vm["simul.mooring_parallel_output"].as<bool>();
     M_moorings_snapshot =  vm["simul.mooring_snapshot"].as<bool>();
     const boost::unordered_map<const std::string, GridOutput::fileLength> str2mooringsfl = boost::assign::map_list_of
         ("inf", GridOutput::fileLength::inf)
@@ -5869,9 +5870,9 @@ FiniteElement::init()
 
          if ( minang < vm["simul.regrid_angle"].as<double>() )
          {
-             if ( (M_rank == 0) && (M_use_moorings) && (!M_moorings_snapshot) )
+             if ( (M_use_moorings) && (!M_moorings_snapshot) )
              {
-                 M_moorings.updateGridMean(M_mesh_root);
+                 M_moorings.updateGridMean(M_mesh);
              }
 
              LOG(DEBUG) <<"Regriding starts\n";
@@ -5879,9 +5880,9 @@ FiniteElement::init()
              this->regrid(pcpt);
              LOG(DEBUG) <<"Regriding done in "<< chrono.elapsed() <<"s\n";
 
-             if ( (M_rank == 0) && (M_use_moorings) )
+             if ( M_use_moorings )
              {
-                 M_moorings.resetMeshMean(M_mesh_root);
+                 M_moorings.resetMeshMean(M_mesh);
              }
 
              M_regrid = true;
@@ -6317,99 +6318,99 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
         {
             // Prognostic variables
             case (GridOutput::variableID::conc):
-                for (int i=0; i<M_num_elements; i++)
+                for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_conc[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::thick):
-                for (int i=0; i<M_num_elements; i++)
+                for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_thick[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::damage):
-                for (int i=0; i<M_num_elements; i++)
+                for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_damage[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::snow):
-                for (int i=0; i<M_num_elements; i++)
+                for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_snow_thick[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::tsurf):
-                for (int i=0; i<M_num_elements; i++)
+                for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += ( M_conc[i]*M_tice[0][i] + M_conc_thin[i]*M_tsurf_thin[i] + (1-M_conc[i]-M_conc_thin[i])*M_sst[i] )*time_factor;
                 break;
 
             case (GridOutput::variableID::sst):
-                for (int i=0; i<M_num_elements; i++)
+                for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_sst[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::sss):
-                for (int i=0; i<M_num_elements; i++)
+                for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_sss[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::tsurf_ice):
-                for (int i=0; i<M_num_elements; i++)
+                for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_tice[0][i]*time_factor;
                 break;
 
             case (GridOutput::variableID::t1):
-                for (int i=0; i<M_num_elements; i++)
+                for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_tice[1][i]*time_factor;
                 break;
 
             case (GridOutput::variableID::t2):
-                for (int i=0; i<M_num_elements; i++)
+                for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_tice[2][i]*time_factor;
                 break;
 
             case (GridOutput::variableID::conc_thin):
-                for (int i=0; i<M_num_elements; i++)
+                for (int i=0; i<M_local_nelements; i++)
                 {
                     it->data_mesh[i] += M_conc_thin[i]*time_factor;
                 }
                 break;
 
             case (GridOutput::variableID::h_thin):
-                for (int i=0; i<M_num_elements; i++)
+                for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_h_thin[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::hs_thin):
-                for (int i=0; i<M_num_elements; i++)
+                for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_hs_thin[i]*time_factor;
                 break;
 
             // Diagnostic variables
             case (GridOutput::variableID::Qa):
-                for (int i=0; i<M_num_elements; i++)
+                for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_Qa[i]*time_factor;
                 break;
             case (GridOutput::variableID::Qsw):
-                for (int i=0; i<M_num_elements; i++)
+                for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_Qsw[i]*time_factor;
                 break;
             case (GridOutput::variableID::Qlw):
-                for (int i=0; i<M_num_elements; i++)
+                for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_Qlw[i]*time_factor;
                 break;
             case (GridOutput::variableID::Qsh):
-                for (int i=0; i<M_num_elements; i++)
+                for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_Qsh[i]*time_factor;
                 break;
             case (GridOutput::variableID::Qlh):
-                for (int i=0; i<M_num_elements; i++)
+                for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_Qlh[i]*time_factor;
                 break;
             case (GridOutput::variableID::Qo):
-                for (int i=0; i<M_num_elements; i++)
+                for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_Qo[i]*time_factor;
                 break;
             case (GridOutput::variableID::delS):
-                for (int i=0; i<M_num_elements; i++)
+                for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_delS[i]*time_factor;
                 break;
 
@@ -6423,13 +6424,13 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
         switch (it->varID)
         {
             case (GridOutput::variableID::VT_x):
-                for (int i=0; i<M_num_nodes; i++)
+                for (int i=0; i<M_local_ndof; i++)
                     it->data_mesh[i] += M_VT[i];
                 break;
 
             case (GridOutput::variableID::VT_y):
-                for (int i=0; i<M_num_nodes; i++)
-                    it->data_mesh[i] += M_VT[i+M_num_nodes];
+                for (int i=0; i<M_local_ndof; i++)
+                    it->data_mesh[i] += M_VT[i+M_local_ndof];
                 break;
 
             default: std::logic_error("Updating of given variableID not implimented (nodes)");
@@ -6441,182 +6442,187 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 void
 FiniteElement::initMoorings()
 {
-    if (M_rank == 0)
+    int num_nodes = M_mesh.numNodes();
+    int num_elements = M_mesh.numTriangles();
+    // Output and averaging grids
+    std::vector<double> data_nodes(num_nodes);
+    std::vector<double> data_elements(num_elements);
+    std::vector<double> data_grid;
+
+    // Output variables - elements
+    std::vector<GridOutput::Variable> elemental_variables;
+
+    // Output variables - nodes
+    std::vector<GridOutput::Variable> nodal_variables;
+
+    // The vectorial variables are (always on the nodes) ...
+    std::vector<GridOutput::Vectorial_Variable> vectorial_variables;
+
+    std::vector<std::string> names = vm["simul.mooring_names"].as<std::vector<std::string>>();
+
+    for ( auto it=names.begin(); it!=names.end(); ++it )
     {
-        int num_nodes = M_mesh_root.numNodes();
-        int num_elements = M_mesh_root.numTriangles();
-        // Output and averaging grids
-        std::vector<double> data_nodes(num_nodes);
-        std::vector<double> data_elements(num_elements);
-        std::vector<double> data_grid;
-
-        // Output variables - elements
-        std::vector<GridOutput::Variable> elemental_variables;
-
-        // Output variables - nodes
-        std::vector<GridOutput::Variable> nodal_variables;
-
-        // The vectorial variables are (always on the nodes) ...
-        std::vector<GridOutput::Vectorial_Variable> vectorial_variables;
-
-        std::vector<std::string> names = vm["simul.mooring_names"].as<std::vector<std::string>>();
-
-        for ( auto it=names.begin(); it!=names.end(); ++it )
+        // Element variables
+        if ( *it == "conc" )
         {
-            // Element variables
-            if ( *it == "conc" )
-            {
-                GridOutput::Variable conc(GridOutput::variableID::conc, data_elements, data_grid);
-                elemental_variables.push_back(conc);
-            }
-            else if ( *it == "thick" )
-            {
-                GridOutput::Variable thick(GridOutput::variableID::thick, data_elements, data_grid);
-                elemental_variables.push_back(thick);
-            }
-            else if ( *it == "snow" )
-            {
-                GridOutput::Variable snow(GridOutput::variableID::snow, data_elements, data_grid);
-                elemental_variables.push_back(snow);
-            }
-            else if ( *it == "tsurf" )
-            {
-                GridOutput::Variable tsurf(GridOutput::variableID::tsurf, data_elements, data_grid);
-                elemental_variables.push_back(tsurf);
-            }
-            else if ( *it == "Qa" )
-            {
-                GridOutput::Variable Qa(GridOutput::variableID::Qa, data_elements, data_grid);
-                elemental_variables.push_back(Qa);
-            }
-            else if ( *it == "Qsw" )
-            {
-                GridOutput::Variable Qsw(GridOutput::variableID::Qsw, data_elements, data_grid);
-                elemental_variables.push_back(Qsw);
-            }
-            else if ( *it == "Qlw" )
-            {
-                GridOutput::Variable Qlw(GridOutput::variableID::Qlw, data_elements, data_grid);
-                elemental_variables.push_back(Qlw);
-            }
-            else if ( *it == "Qsh" )
-            {
-                GridOutput::Variable Qsh(GridOutput::variableID::Qsh, data_elements, data_grid);
-                elemental_variables.push_back(Qsh);
-            }
-            else if ( *it == "Qlh" )
-            {
-                GridOutput::Variable Qlh(GridOutput::variableID::Qlh, data_elements, data_grid);
-                elemental_variables.push_back(Qlh);
-            }
-            else if ( *it == "Qo" )
-            {
-                GridOutput::Variable Qo(GridOutput::variableID::Qo, data_elements, data_grid);
-                elemental_variables.push_back(Qo);
-            }
-            else if ( *it == "delS" )
-            {
-                GridOutput::Variable delS(GridOutput::variableID::delS, data_elements, data_grid);
-                elemental_variables.push_back(delS);
-            }
-            else if ( *it == "conc_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
-            {
-                GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin, data_elements, data_grid);
-                elemental_variables.push_back(conc_thin);
-            }
-            else if ( *it == "h_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
-            {
-                GridOutput::Variable h_thin(GridOutput::variableID::h_thin, data_elements, data_grid);
-                elemental_variables.push_back(h_thin);
-            }
-            else if ( *it == "hs_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
-            {
-                GridOutput::Variable hs_thin(GridOutput::variableID::hs_thin, data_elements, data_grid);
-                elemental_variables.push_back(hs_thin);
-            }
-            // Nodal variables and vectors
-            else if ( *it == "velocity_xy" | *it == "velocity_uv" )
-            {
-                GridOutput::Variable siu(GridOutput::variableID::VT_x, data_nodes, data_grid);
-                GridOutput::Variable siv(GridOutput::variableID::VT_y, data_nodes, data_grid);
-                nodal_variables.push_back(siu);
-                nodal_variables.push_back(siv);
+            GridOutput::Variable conc(GridOutput::variableID::conc, data_elements, data_grid);
+            elemental_variables.push_back(conc);
+        }
+        else if ( *it == "thick" )
+        {
+            GridOutput::Variable thick(GridOutput::variableID::thick, data_elements, data_grid);
+            elemental_variables.push_back(thick);
+        }
+        else if ( *it == "snow" )
+        {
+            GridOutput::Variable snow(GridOutput::variableID::snow, data_elements, data_grid);
+            elemental_variables.push_back(snow);
+        }
+        else if ( *it == "tsurf" )
+        {
+            GridOutput::Variable tsurf(GridOutput::variableID::tsurf, data_elements, data_grid);
+            elemental_variables.push_back(tsurf);
+        }
+        else if ( *it == "Qa" )
+        {
+            GridOutput::Variable Qa(GridOutput::variableID::Qa, data_elements, data_grid);
+            elemental_variables.push_back(Qa);
+        }
+        else if ( *it == "Qsw" )
+        {
+            GridOutput::Variable Qsw(GridOutput::variableID::Qsw, data_elements, data_grid);
+            elemental_variables.push_back(Qsw);
+        }
+        else if ( *it == "Qlw" )
+        {
+            GridOutput::Variable Qlw(GridOutput::variableID::Qlw, data_elements, data_grid);
+            elemental_variables.push_back(Qlw);
+        }
+        else if ( *it == "Qsh" )
+        {
+            GridOutput::Variable Qsh(GridOutput::variableID::Qsh, data_elements, data_grid);
+            elemental_variables.push_back(Qsh);
+        }
+        else if ( *it == "Qlh" )
+        {
+            GridOutput::Variable Qlh(GridOutput::variableID::Qlh, data_elements, data_grid);
+            elemental_variables.push_back(Qlh);
+        }
+        else if ( *it == "Qo" )
+        {
+            GridOutput::Variable Qo(GridOutput::variableID::Qo, data_elements, data_grid);
+            elemental_variables.push_back(Qo);
+        }
+        else if ( *it == "delS" )
+        {
+            GridOutput::Variable delS(GridOutput::variableID::delS, data_elements, data_grid);
+            elemental_variables.push_back(delS);
+        }
+        else if ( *it == "conc_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        {
+            GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin, data_elements, data_grid);
+            elemental_variables.push_back(conc_thin);
+        }
+        else if ( *it == "h_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        {
+            GridOutput::Variable h_thin(GridOutput::variableID::h_thin, data_elements, data_grid);
+            elemental_variables.push_back(h_thin);
+        }
+        else if ( *it == "hs_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        {
+            GridOutput::Variable hs_thin(GridOutput::variableID::hs_thin, data_elements, data_grid);
+            elemental_variables.push_back(hs_thin);
+        }
+        // Nodal variables and vectors
+        else if ( *it == "velocity_xy" | *it == "velocity_uv" )
+        {
+            GridOutput::Variable siu(GridOutput::variableID::VT_x, data_nodes, data_grid);
+            GridOutput::Variable siv(GridOutput::variableID::VT_y, data_nodes, data_grid);
+            nodal_variables.push_back(siu);
+            nodal_variables.push_back(siv);
 
-                std::vector<int> siuv_id(2);
-                siuv_id[0] = 0;
-                siuv_id[1] = 1;
+            std::vector<int> siuv_id(2);
+            siuv_id[0] = 0;
+            siuv_id[1] = 1;
 
-                GridOutput::Vectorial_Variable siuv;
-                siuv.components_Id = siuv_id;
-                if ( *it == "velocity_xy" )
-                    siuv.east_west_oriented = false;
-                else
-                    siuv.east_west_oriented = true;
-
-                vectorial_variables.push_back(siuv);
-            }
-            // Error
+            GridOutput::Vectorial_Variable siuv;
+            siuv.components_Id = siuv_id;
+            if ( *it == "velocity_xy" )
+                siuv.east_west_oriented = false;
             else
-            {
-                std::cout << "Invalid mooring name: " << *it << std::endl;
-                std::cout << "Available names are ";
-                std::cout << "conc, ";
-                std::cout << "thick, ";
-                std::cout << "snow, ";
-                std::cout << "tsurf, ";
-                std::cout << "Qa, ";
-                std::cout << "Qsw, ";
-                std::cout << "Qlw, ";
-                std::cout << "Qsh, ";
-                std::cout << "Qlh, ";
-                std::cout << "Qo, ";
-                std::cout << "delS, ";
-                if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
-                {
-                    std::cout << "conc_thin, ";
-                    std::cout << "h_thin, ";
-                    std::cout << "hs_thin, ";
-                }
-                std::cout << "velocity_xy, ";
-                std::cout << "velocity_uv";
+                siuv.east_west_oriented = true;
 
-                throw std::runtime_error("Invalid mooring name");
-            }
+            vectorial_variables.push_back(siuv);
         }
-
-
-        if(vm["simul.mooring_grid_file"].as<std::string>()=="")
-        {
-            // Calculate the grid spacing (assuming a regular grid for now)
-            auto RX = M_mesh_root.coordX();
-            auto RY = M_mesh_root.coordY();
-            auto xcoords = std::minmax_element( RX.begin(), RX.end() );
-            auto ycoords = std::minmax_element( RY.begin(), RY.end() );
-
-            double mooring_spacing = 1e3 * vm["simul.mooring_spacing"].as<double>();
-            int ncols = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/mooring_spacing );
-            int nrows = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
-
-            // Define the mooring dataset
-            M_moorings = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first, nodal_variables, elemental_variables, vectorial_variables);
-        }
+        // Error
         else
         {
-            // Read the grid in from file
-            GridOutput::Grid grid{
-                gridFile: Environment::vm()["simul.mooring_grid_file"].as<std::string>(),
-                dirname: "data",
-                mpp_file: Environment::vm()["simul.proj_filename"].as<std::string>(),
-                dimNameX: "y",
-                dimNameY: "x",
-                latName: "latitude",
-                lonName: "longitude"
-            };
+            std::cout << "Invalid mooring name: " << *it << std::endl;
+            std::cout << "Available names are ";
+            std::cout << "conc, ";
+            std::cout << "thick, ";
+            std::cout << "snow, ";
+            std::cout << "tsurf, ";
+            std::cout << "Qa, ";
+            std::cout << "Qsw, ";
+            std::cout << "Qlw, ";
+            std::cout << "Qsh, ";
+            std::cout << "Qlh, ";
+            std::cout << "Qo, ";
+            std::cout << "delS, ";
+            if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+            {
+                std::cout << "conc_thin, ";
+                std::cout << "h_thin, ";
+                std::cout << "hs_thin, ";
+            }
+            std::cout << "velocity_xy, ";
+            std::cout << "velocity_uv";
 
-            // Define the mooring dataset
-            M_moorings = GridOutput(grid, nodal_variables, elemental_variables, vectorial_variables);
+            throw std::runtime_error("Invalid mooring name");
         }
+    }
 
+
+    if(vm["simul.mooring_grid_file"].as<std::string>()=="")
+    {
+        // Calculate the grid spacing (assuming a regular grid for now)
+        auto RX = M_mesh.coordX();
+        auto RY = M_mesh.coordY();
+        auto xcoords = std::minmax_element( RX.begin(), RX.end() );
+        auto ycoords = std::minmax_element( RY.begin(), RY.end() );
+
+        double xmin = boost::mpi::all_reduce(M_comm, *xcoords.first,  boost::mpi::minimum<double>());
+        double xmax = boost::mpi::all_reduce(M_comm, *xcoords.second, boost::mpi::maximum<double>());
+        double ymin = boost::mpi::all_reduce(M_comm, *ycoords.first,  boost::mpi::minimum<double>());
+        double ymax = boost::mpi::all_reduce(M_comm, *ycoords.second, boost::mpi::maximum<double>());
+
+        double mooring_spacing = 1e3 * vm["simul.mooring_spacing"].as<double>();
+        int ncols = (int) ( 0.5 + ( xmax - xmin )/mooring_spacing );
+        int nrows = (int) ( 0.5 + ( ymax - ymin )/mooring_spacing );
+
+        // Define the mooring dataset
+        M_moorings = GridOutput(ncols, nrows, mooring_spacing, xmin, ymin, nodal_variables, elemental_variables, vectorial_variables);
+    }
+    else
+    {
+        // Read the grid in from file
+        GridOutput::Grid grid{
+            gridFile: Environment::vm()["simul.mooring_grid_file"].as<std::string>(),
+            dirname: "data",
+            mpp_file: Environment::vm()["simul.proj_filename"].as<std::string>(),
+            dimNameX: "y",
+            dimNameY: "x",
+            latName: "latitude",
+            lonName: "longitude"
+        };
+
+        // Define the mooring dataset
+        M_moorings = GridOutput(grid, nodal_variables, elemental_variables, vectorial_variables);
+    }
+
+    if ( (M_rank==0) || M_moorings_parallel_output )
+    {
         double output_time;
         if ( M_moorings_snapshot )
             // shift the timestamp in the file to the centre of the output interval
@@ -6624,67 +6630,94 @@ FiniteElement::initMoorings()
         else
             output_time = current_time - mooring_output_time_step/86400/2;
 
-        M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
+        std::string filename_root;
+        if ( M_moorings_parallel_output )
+            filename_root = M_export_path + "/Moorings_" + std::to_string(M_rank);
+        else
+            filename_root = M_export_path + "/Moorings";
+
+        M_moorings_file = M_moorings.initNetCDF(filename_root, M_moorings_file_length, output_time);
     }
+
 } //initMoorings
 
 void
 FiniteElement::updateMoorings()
 {
-    if (M_rank == 0)
+    // If we're taking snapshots the we only call updateMeans before writing to file
+    if ( !M_moorings_snapshot )
     {
-        // If we're taking snapshots the we only call updateMeans before writing to file
-        if ( !M_moorings_snapshot )
+        this->updateMeans(M_moorings, mooring_time_factor);
+    }
+
+    if ( fmod(pcpt*time_step,mooring_output_time_step) == 0 )
+    {
+        double output_time;
+        if ( M_moorings_snapshot )
         {
-            this->updateMeans(M_moorings, mooring_time_factor);
+            // Update the snapshot
+            this->updateMeans(M_moorings, 1.);
+            // shift the timestamp in the file to the centre of the output interval
+            output_time = current_time;
+        }
+        else
+        {
+            output_time = current_time - mooring_output_time_step/86400/2;
         }
 
-        if ( fmod(pcpt*time_step,mooring_output_time_step) == 0 )
+        // If it's a new day we check if we need a new file
+        double not_used;
+        if ( (M_rank==0||M_moorings_parallel_output) && (M_moorings_file_length != GridOutput::fileLength::inf) && (modf(output_time, &not_used) < time_step*86400) )
         {
-            double output_time;
-            if ( M_moorings_snapshot )
-            {
-                // Update the snapshot
-                this->updateMeans(M_moorings, 1.);
-                // shift the timestamp in the file to the centre of the output interval
-                output_time = current_time;
-            }
+            std::string filename_root;
+            if ( M_moorings_parallel_output )
+                filename_root = M_export_path + "/Moorings_" + std::to_string(M_rank);
             else
+                filename_root = M_export_path + "/Moorings";
+
+            boost::gregorian::date now = Nextsim::parse_date(output_time);
+            switch (M_moorings_file_length)
             {
-                output_time = current_time - mooring_output_time_step/86400/2;
+            case GridOutput::fileLength::daily:
+                M_moorings_file = M_moorings.initNetCDF(filename_root, M_moorings_file_length, output_time);
+                break;
+            case GridOutput::fileLength::weekly:
+                if ( now.day_of_week().as_number() == 1 )
+                    M_moorings_file = M_moorings.initNetCDF(filename_root, M_moorings_file_length, output_time);
+                break;
+            case GridOutput::fileLength::monthly:
+                if ( now.day().as_number() == 1 )
+                    M_moorings_file = M_moorings.initNetCDF(filename_root, M_moorings_file_length, output_time);
+                break;
+            case GridOutput::fileLength::yearly:
+                if ( now.day_of_year() == 1 )
+                    M_moorings_file = M_moorings.initNetCDF(filename_root, M_moorings_file_length, output_time);
             }
+        }
 
-            // If it's a new day we check if we need a new file
-            double not_used;
-            if ( M_moorings_file_length != GridOutput::fileLength::inf && modf(output_time, &not_used) < time_step*86400 )
+        M_moorings.updateGridMean(M_mesh);
+
+        if ( ! M_moorings_parallel_output )
+        {
+            for (auto it=M_moorings.M_nodal_variables.begin(); it!=M_moorings.M_nodal_variables.end(); ++it)
             {
-                boost::gregorian::date now = Nextsim::parse_date(output_time);
-                switch (M_moorings_file_length)
-                {
-                case GridOutput::fileLength::daily:
-                    M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
-                    break;
-                case GridOutput::fileLength::weekly:
-                    if ( now.day_of_week().as_number() == 1 )
-                        M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
-                    break;
-                case GridOutput::fileLength::monthly:
-                    if ( now.day().as_number() == 1 )
-                        M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
-                    break;
-                case GridOutput::fileLength::yearly:
-                    if ( now.day_of_year() == 1 )
-                        M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
-                }
+                std::vector<double> result;
+                boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0.);
+                it->data_grid = result;
             }
+            for (auto it=M_moorings.M_elemental_variables.begin(); it!=M_moorings.M_elemental_variables.end(); ++it)
+            {
+                std::vector<double> result;
+                boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0.);
+                it->data_grid = result;
+            }
+        }
 
-            M_moorings.updateGridMean(M_mesh_root);
-
+        if ( (M_rank==0) || M_moorings_parallel_output )
             M_moorings.appendNetCDF(M_moorings_file, output_time);
 
-            M_moorings.resetMeshMean(M_mesh_root);
-            M_moorings.resetGridMean();
-        }
+        M_moorings.resetMeshMean(M_mesh);
+        M_moorings.resetGridMean();
     }
 }
 

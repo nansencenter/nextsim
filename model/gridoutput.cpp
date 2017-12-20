@@ -134,6 +134,7 @@ GridOutput::initRegularGrid(int ncols, int nrows, double mooring_spacing, double
     M_nrows = nrows;
     M_mooring_spacing = mooring_spacing;
     M_grid_size = M_ncols*M_nrows;
+    M_xmin = xmin;
 
     M_grid = Grid();
     M_grid.loaded = false;
@@ -165,6 +166,7 @@ GridOutput::initRegularGrid(int ncols, int nrows, double mooring_spacing, double
             i++;
         }
         X += mooring_spacing;
+        M_ymax = Y - mooring_spacing;
     }
 
     close_mapx(map);
@@ -237,7 +239,7 @@ GridOutput::initArbitraryGrid(Grid grid)
 
 // Interpolate from the mesh values to the grid
 void
-GridOutput::updateGridMean(GmshMeshSeq const& mesh)
+GridOutput::updateGridMean(GmshMesh const& mesh)
 {
     // Call the worker routine for the elements
     this->updateGridMeanWorker(mesh, mesh.numTriangles(), M_elemental_variables, M_miss_val);
@@ -253,11 +255,24 @@ GridOutput::updateGridMean(GmshMeshSeq const& mesh)
 
     // Call the worker routine for the nodes
     this->updateGridMeanWorker(mesh, mesh.numNodes(), M_nodal_variables, M_miss_val);
+
+    // Mask if we find thick or conc
+    for ( auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); it++ )
+    {
+        if ( (it->varID==variableID::thick) || (it->varID==variableID::conc) )
+        {
+            for ( auto jt=M_nodal_variables.begin(); jt!=M_nodal_variables.end(); jt++ )
+                for ( int j=0; j<M_grid_size; ++j )
+                    if ( it->data_grid[j] <= 0. )
+                        jt->data_grid[j] = 0.;
+            break;
+        }
+    }
 }
 
 // Interpolate from the mesh to the grid - updateing the gridded mean
 void
-GridOutput::updateGridMeanWorker(GmshMeshSeq const& mesh, int source_size, std::vector<Variable>& variables, double miss_val)
+GridOutput::updateGridMeanWorker(GmshMesh const& mesh, int source_size, std::vector<Variable>& variables, double miss_val)
 {
     int nb_var = variables.size();
 
@@ -275,12 +290,6 @@ GridOutput::updateGridMeanWorker(GmshMeshSeq const& mesh, int source_size, std::
         }
     }
 
-    // interpolation from mesh to grid
-    auto RX = mesh.coordX();
-    auto RY = mesh.coordY();
-    double xmin = *std::min_element( RX.begin(), RX.end() );
-    double ymax = *std::max_element( RY.begin(), RY.end() );
-
     // At the moment a non-regular grid, loaded into M_grid is handled by InterpFromMeshToMesh2dx.
     // Regular grids, based on the polar stereographic coordinate system and a regular spacing, are handled by InterpFromMeshToGridx.
     // This will likely change in the future with improved interpolation schemes for non-regular grids.
@@ -292,7 +301,7 @@ GridOutput::updateGridMeanWorker(GmshMeshSeq const& mesh, int source_size, std::
                                 &interp_in[0],
                                 source_size,nb_var,
                                 &M_grid.gridX[0],&M_grid.gridY[0],M_grid_size,
-                                true, miss_val);
+                                true, 0.);
     }
     else if ( (M_ncols>0) && (M_nrows>0) && (M_mooring_spacing>0) )
     {
@@ -301,10 +310,10 @@ GridOutput::updateGridMeanWorker(GmshMeshSeq const& mesh, int source_size, std::
                               mesh.numNodes(),mesh.numTriangles(),
                               &interp_in[0],
                               source_size, nb_var,
-                              xmin,ymax,
+                              M_xmin,M_ymax,
                               M_mooring_spacing,M_mooring_spacing,
                               M_ncols, M_nrows,
-                              miss_val);
+                              0.);
     }
     else
     {
@@ -334,7 +343,7 @@ GridOutput::updateGridMeanWorker(GmshMeshSeq const& mesh, int source_size, std::
 
 // Return a mask
 std::vector<int>
-GridOutput::getMask(GmshMeshSeq const& mesh, variableKind kind)
+GridOutput::getMask(GmshMesh const& mesh, variableKind kind)
 {
     double source_size;
     switch (kind)
@@ -367,7 +376,7 @@ GridOutput::getMask(GmshMeshSeq const& mesh, variableKind kind)
 
 // Rotate the vectors as needed
 void
-GridOutput::rotateVectors(GmshMeshSeq const& mesh, Vectorial_Variable const& vectorial_variable, std::vector<Variable>& variables)
+GridOutput::rotateVectors(GmshMesh const& mesh, Vectorial_Variable const& vectorial_variable, std::vector<Variable>& variables)
 {
     // First we decide the rotation angle
     // Get the rotation of the neXtSIM grid
@@ -450,7 +459,7 @@ GridOutput::resetGridMean()
 
 // Set the _mesh values back to zero
 void
-GridOutput::resetMeshMean(GmshMeshSeq const& mesh)
+GridOutput::resetMeshMean(GmshMesh const& mesh)
 {
     for (int i=0; i<M_nodal_variables.size(); i++)
         M_nodal_variables[i].data_mesh.assign(mesh.numNodes(), 0.);
