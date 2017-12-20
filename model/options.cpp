@@ -83,13 +83,17 @@ namespace Nextsim
             ("simul.init_snow_thickness", po::value<double>()->default_value( 0. ), "")
             // not used: ("simul.init_snow_thin_thickness", po::value<double>()->default_value( 0. ), "")
 
+            //inputs (restart)
+            ("setup.use_restart", po::value<bool>()->default_value( false ), "")
+            ("setup.restart_string", po::value<std::string>()->default_value( "" ), "")
+            ("setup.step_nb", po::value<int>()->default_value( 0 ), "")
+
             // outputs
             ("setup.use_assimilation", po::value<bool>()->default_value( false ), "")
-            ("setup.use_restart", po::value<bool>()->default_value( false ), "")
             ("setup.write_restart", po::value<bool>()->default_value( false ), "")
             ("setup.restart_at_rest", po::value<bool>()->default_value( false ), "")
             ("setup.restart_time_step", po::value<double>()->default_value( 15 ), "days")
-            ("setup.step_nb", po::value<int>()->default_value( 0 ), "")
+
             ("simul.output_per_day", po::value<int>()->default_value( 4 ), "")
             ("simul.output_directory", po::value<std::string>()->default_value( "" ), "")
             ("simul.logfile", po::value<std::string>()->default_value( "" ), "")

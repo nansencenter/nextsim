@@ -347,7 +347,7 @@ void WimDiscr<T>::assignSpatial()
     Mtmp_mom2w     .assign( M_num_elements, 0. );
     if(M_atten)
     {
-        Mtmp_atten_dim.assign(M_num_elements,0.);
+        Mtmp_atten_dim.assign(M_num_elements,0.);//valgrind error here
         Mtmp_damp_dim.assign(M_num_elements,0.);
         Mtmp_taux_om.assign(M_num_elements,0.);
         Mtmp_tauy_om.assign(M_num_elements,0.);
@@ -1255,7 +1255,7 @@ void WimDiscr<T>::setMesh(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& 
         M_assigned  = false;
 
     M_time_mesh_set = M_update_time;//used in check when ice fields are set on mesh
-    M_mesh_old      = M_mesh;
+    M_mesh_old      = M_mesh;//valgrind error here
     M_mesh          = T_mesh(movedmesh,bamgmesh,flag_fix);
 
     // get relative displacement of nodes since last call
@@ -1264,13 +1264,13 @@ void WimDiscr<T>::setMesh(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& 
     // - used to correct group velocity when waves are advected
     int Nn = M_mesh.M_num_nodes;
     if (M_cpt==0)
-        M_UM.assign(2*Nn,0.);
+        M_UM.assign(2*Nn,0.);//valgrind error here
     else
         for (int i=0;i<Nn;i++)
         {
             //nextsim_mesh_old is either from last WIM call or last regrid
             M_UM[i]    += M_mesh.M_nodes_x[i]-M_mesh_old.M_nodes_x[i];
-            M_UM[i+Nn] += M_mesh.M_nodes_y[i]-M_mesh_old.M_nodes_y[i];
+            M_UM[i+Nn] += M_mesh.M_nodes_y[i]-M_mesh_old.M_nodes_y[i];//2 valgrind errors here
         }
 
     // ================================================================================

@@ -218,6 +218,7 @@ public:
     void writeRestart(int pcpt, int step);
     void writeRestart(int pcpt, std::string step);
     int readRestart(int step);
+    int readRestart(std::string step);
 
 #if defined (WAVES)
     void initWim(int const pcpt);

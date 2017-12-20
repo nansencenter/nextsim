@@ -1256,9 +1256,6 @@ FiniteElement::regrid(bool step)
                                    % substep ).str();
             
             this->exportResults(tmp_string1,true,true,false);
-
-            int pcpt = (current_time - time_init)/(time_step/(24*3600.0));
-            this->writeRestart(pcpt,tmp_string1);
 		}
 
         chrono.restart();
@@ -4561,8 +4558,14 @@ FiniteElement::init()
     if ( M_use_restart )
     {
         LOG(DEBUG) <<"Reading restart file\n";
-        pcpt = this->readRestart(vm["setup.step_nb"].as<int>());
+
+        std::string res_str = vm["setup.restart_string"].as<std::string>();
+        if ( !res_str.empty() )
+            pcpt = this->readRestart(res_str);
+        else
+            pcpt = this->readRestart(vm["setup.step_nb"].as<int>());
         current_time = time_init + pcpt*time_step/(24*3600.0);
+
         if(M_use_osisaf_drifters)
             this->initOSISAFDrifters();
         
@@ -5266,11 +5269,17 @@ FiniteElement::step(int &pcpt)
 
 #endif
 
+#ifdef NDEBUG
+    //write restart every timestep
+    this->writeRestart(pcpt, pcpt);
+#else
     if ( fmod(pcpt*time_step,restart_time_step) == 0)
     {
         std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
         this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
     }
+#endif
+
 
 #if defined (WAVES)
     if(M_use_wim)
@@ -5778,6 +5787,13 @@ FiniteElement::writeRestart(int pcpt, std::string step)
 int
 FiniteElement::readRestart(int step)
 {
+    std::string tmp = (boost::format( "%1%" ) % step).str();
+    return this->readRestart(tmp);
+}
+
+int
+FiniteElement::readRestart(std::string step)
+{
     Exporter exp_field("double"), exp_mesh("double");
     std::string filename;
     boost::unordered_map<std::string, std::vector<int>>    field_map_int;
@@ -5795,12 +5811,15 @@ FiniteElement::readRestart(int step)
     filename = (boost::format( "%1%/mesh_%2%.dat" )
                % restart_path
                % step ).str();
+    LOG(DEBUG)<<"restart file = "<<filename<<"\n";
+
     std::ifstream meshrecord(filename);
     if ( ! meshrecord.good() )
         throw std::runtime_error("File not found: " + filename);
 
     exp_mesh.readRecord(meshrecord);
     meshrecord.close();
+    std::cout<<"5819\n";
 
     // Then onto the data itself
     filename = (boost::format( "%1%/mesh_%2%.bin" )
@@ -5811,6 +5830,7 @@ FiniteElement::readRestart(int step)
         throw std::runtime_error("File not found: " + filename);
     exp_mesh.loadFile(meshbin, field_map_int, field_map_dbl);
     meshbin.close();
+    std::cout<<"5830\n";
 
     std::vector<int>   indexTr = field_map_int["Elements"];
     std::vector<double> coordX = field_map_dbl["Nodes_x"];
@@ -5828,6 +5848,7 @@ FiniteElement::readRestart(int step)
 
     exp_field.readRecord(inrecord);
     inrecord.close();
+    std::cout<<"5848\n";
 
     // Then onto the data itself
     filename = (boost::format( "%1%/field_%2%.bin" )
@@ -5841,6 +5862,7 @@ FiniteElement::readRestart(int step)
     exp_field.loadFile(inbin, field_map_int, field_map_dbl);
     inbin.close();
 
+    std::cout<<"5862\n";
     // === Recreate the mesh ===
     // Create bamgmesh and bamggeom
     BamgConvertMeshx(
