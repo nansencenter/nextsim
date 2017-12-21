@@ -308,13 +308,14 @@ public:
 
     ~GridOutput();
 
+    void setLSM(GmshMeshSeq const& mesh);
+    std::vector<double> getMask(GmshMeshSeq const &mesh, variableKind kind);
+
     void updateGridMean(GmshMesh const& mesh);
     void resetGridMean();
     void resetMeshMean(GmshMesh const& mesh);
     std::string initNetCDF(std::string file_prefix, fileLength file_length, double current_time);
     void appendNetCDF(std::string filename, double timestamp);
-
-    std::vector<int> getMask(GmshMesh const &mesh, variableKind kind);
 
     int M_ncols;
     int M_nrows;
@@ -332,6 +333,9 @@ private:
     double M_xmin;
     double M_ymax;
 
+    std::vector<double> M_lsm_nodes;
+    std::vector<double> M_lsm_elements;
+
     GridOutput(std::vector<Variable> variables, variableKind kind);
 
     GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
@@ -342,7 +346,10 @@ private:
 
     void initArbitraryGrid(Grid grid);
 
-    void updateGridMeanWorker(GmshMesh const& mesh, int mesh_size, std::vector<Variable>& variables, double miss_val);
+    void initMeshLSM(GmshMesh const& mesh);
+
+    void updateGridMeanWorker(int* indexTr, double* coordX, double* coordY, int numNodes, int numTriangles,
+        int source_size, std::vector<Variable>& variables);
 
     void rotateVectors(GmshMesh const& mesh, Vectorial_Variable const& vectorial_variable, std::vector<Variable>& variables);
 

@@ -52,7 +52,6 @@ GridOutput::GridOutput(GmshMesh const& mesh, int ncols, int nrows, double moorin
     GridOutput(variables, kind)
 {
     this->initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
-    this->resetGridMean();
     this->resetMeshMean(mesh);
 }
 
@@ -62,7 +61,6 @@ GridOutput::GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> va
     GridOutput(variables, kind)
 {
     this->initArbitraryGrid(grid);
-    this->resetGridMean();
     this->resetMeshMean(mesh);
 }
 
@@ -85,7 +83,6 @@ GridOutput::GridOutput(GmshMesh const& mesh, int ncols, int nrows, double moorin
     GridOutput(nodal_variables, elemental_variables)
 {
     this->initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
-    this->resetGridMean();
     this->resetMeshMean(mesh);
 }
 
@@ -95,7 +92,6 @@ GridOutput::GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> no
     GridOutput(nodal_variables, elemental_variables)
 {
     this->initArbitraryGrid(grid);
-    this->resetGridMean();
     this->resetMeshMean(mesh);
 }
 
@@ -117,7 +113,6 @@ GridOutput::GridOutput(GmshMesh const& mesh, int ncols, int nrows, double moorin
     GridOutput(nodal_variables, elemental_variables, vectorial_variables)
 {
     this->initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
-    this->resetGridMean();
     this->resetMeshMean(mesh);
 }
 
@@ -128,7 +123,6 @@ GridOutput::GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> no
     GridOutput(nodal_variables, elemental_variables, vectorial_variables)
 {
     this->initArbitraryGrid(grid);
-    this->resetGridMean();
     this->resetMeshMean(mesh);
 }
 
@@ -146,6 +140,7 @@ GridOutput::initRegularGrid(int ncols, int nrows, double mooring_spacing, double
     M_nrows = nrows;
     M_mooring_spacing = mooring_spacing;
     M_grid_size = M_ncols*M_nrows;
+
     M_xmin = xmin;
 
     M_grid = Grid();
@@ -183,6 +178,8 @@ GridOutput::initRegularGrid(int ncols, int nrows, double mooring_spacing, double
 
     close_mapx(map);
 
+    M_lsm_nodes.assign(M_grid_size, 1.);
+    M_lsm_elements.assign(M_grid_size, 1.);
     this->resetGridMean();
 }
 
@@ -242,6 +239,8 @@ GridOutput::initArbitraryGrid(Grid grid)
 
     M_grid.loaded = true;
 
+    M_lsm_nodes.assign(M_grid_size, 1.);
+    M_lsm_elements.assign(M_grid_size, 1.);
     this->resetGridMean();
 }
 
@@ -254,7 +253,8 @@ void
 GridOutput::updateGridMean(GmshMesh const& mesh)
 {
     // Call the worker routine for the elements
-    this->updateGridMeanWorker(mesh, mesh.numTriangles(), M_elemental_variables, M_miss_val);
+    this->updateGridMeanWorker(&mesh.indexTr()[0], &mesh.coordX()[0], &mesh.coordY()[0], mesh.numNodes(), mesh.numTriangles(),
+            mesh.numTriangles(), M_elemental_variables);
 
     // Rotate vectors if needed (these are assumed to be on the nodes)
     for ( auto it=M_vectorial_variables.begin(); it!=M_vectorial_variables.end(); it++ )
@@ -266,7 +266,8 @@ GridOutput::updateGridMean(GmshMesh const& mesh)
     }
 
     // Call the worker routine for the nodes
-    this->updateGridMeanWorker(mesh, mesh.numNodes(), M_nodal_variables, M_miss_val);
+    this->updateGridMeanWorker(&mesh.indexTr()[0], &mesh.coordX()[0], &mesh.coordY()[0], mesh.numNodes(), mesh.numTriangles(),
+            mesh.numNodes(), M_nodal_variables);
 
     // Mask if we find thick or conc
     for ( auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); it++ )
@@ -284,7 +285,8 @@ GridOutput::updateGridMean(GmshMesh const& mesh)
 
 // Interpolate from the mesh to the grid - updateing the gridded mean
 void
-GridOutput::updateGridMeanWorker(GmshMesh const& mesh, int source_size, std::vector<Variable>& variables, double miss_val)
+GridOutput::updateGridMeanWorker(int* indexTr, double* coordX, double* coordY, int numNodes, int numTriangles,
+        int source_size, std::vector<Variable>& variables)
 {
     int nb_var = variables.size();
 
@@ -295,12 +297,8 @@ GridOutput::updateGridMeanWorker(GmshMesh const& mesh, int source_size, std::vec
 
     // Stuff the input vector
     for (int i=0; i<source_size; ++i)
-    {
         for (int j=0; j<nb_var; j++)
-        {
             interp_in[nb_var*i+j] = variables[j].data_mesh[i];
-        }
-    }
 
     // At the moment a non-regular grid, loaded into M_grid is handled by InterpFromMeshToMesh2dx.
     // Regular grids, based on the polar stereographic coordinate system and a regular spacing, are handled by InterpFromMeshToGridx.
@@ -308,8 +306,8 @@ GridOutput::updateGridMeanWorker(GmshMesh const& mesh, int source_size, std::vec
     if ( M_grid.loaded )
     {
         InterpFromMeshToMesh2dx(&interp_out,
-                                &mesh.indexTr()[0],&mesh.coordX()[0],&mesh.coordY()[0],
-                                mesh.numNodes(),mesh.numTriangles(),
+                                indexTr,coordX,coordY,
+                                numNodes,numTriangles,
                                 &interp_in[0],
                                 source_size,nb_var,
                                 &M_grid.gridX[0],&M_grid.gridY[0],M_grid_size,
@@ -318,8 +316,8 @@ GridOutput::updateGridMeanWorker(GmshMesh const& mesh, int source_size, std::vec
     else if ( (M_ncols>0) && (M_nrows>0) && (M_mooring_spacing>0) )
     {
         InterpFromMeshToGridx(interp_out,
-                              &mesh.indexTr()[0],&mesh.coordX()[0],&mesh.coordY()[0],
-                              mesh.numNodes(),mesh.numTriangles(),
+                              indexTr,coordX,coordY,
+                              numNodes,numTriangles,
                               &interp_in[0],
                               source_size, nb_var,
                               M_xmin,M_ymax,
@@ -334,28 +332,24 @@ GridOutput::updateGridMeanWorker(GmshMesh const& mesh, int source_size, std::vec
 
     // Add the output pointer value to the grid vectors
     for (int i=0; i<nb_var; i++)
-    {
         for (int j=0; j<M_grid_size; ++j)
-        {
-            double val = interp_out[nb_var*j+i];
-            if ( val != miss_val )
-            {
-                variables[i].data_grid[j] += val;
-            }
-            else
-            {
-                variables[i].data_grid[j] = miss_val;
-            }
-        }
-
-    }
+                variables[i].data_grid[j] += interp_out[nb_var*j+i];
 
     xDelete<double>(interp_out);
 }
 
+// Set the land-sea mask
+void
+GridOutput::setLSM(GmshMeshSeq const& mesh)
+{
+    M_lsm_nodes = getMask(mesh, variableKind::nodal);
+    M_lsm_elements = getMask(mesh, variableKind::elemental);
+    this->resetGridMean();
+}
+
 // Return a mask
-std::vector<int>
-GridOutput::getMask(GmshMesh const& mesh, variableKind kind)
+std::vector<double>
+GridOutput::getMask(GmshMeshSeq const& mesh, variableKind kind)
 {
     double source_size;
     switch (kind)
@@ -373,17 +367,19 @@ GridOutput::getMask(GmshMesh const& mesh, variableKind kind)
     }
 
     // Call the worker routine using a vector of ones and give zero for missing values (land mask)
-    std::vector<double> data_mesh(source_size);
-    data_mesh.assign(source_size, 1.);
+    std::vector<double> data_mesh(source_size, 1.);
     std::vector<double> data_grid(M_grid_size);
 
-    Variable lsm(variableID::lsm, data_mesh, data_grid);
+    Variable lsm(variableID::lsm);
+    lsm.data_mesh = data_mesh;
+    lsm.data_grid = data_grid;
 
     std::vector<Variable> variables(1);
     variables[0] = lsm;
-    updateGridMeanWorker(mesh, source_size, variables, 0.);
+    this->updateGridMeanWorker(&mesh.indexTr()[0], &mesh.coordX()[0], &mesh.coordY()[0], mesh.numNodes(), mesh.numTriangles(),
+            source_size, variables);
 
-    return std::vector<int>(variables[1].data_grid.begin(), variables[1].data_grid.end());
+    return variables[0].data_grid;
 }
 
 // Rotate the vectors as needed
@@ -458,15 +454,29 @@ GridOutput::rotateVectors(GmshMesh const& mesh, Vectorial_Variable const& vector
 
 }
 
-// Set the _grid values back to zero
+// Set the _grid values back to zero - with land mask
 void
 GridOutput::resetGridMean()
 {
     for (int i=0; i<M_nodal_variables.size(); i++)
-        M_nodal_variables[i].data_grid.assign(M_grid_size, 0.);
+    {
+        M_nodal_variables[i].data_grid.resize(M_grid_size);
+        for (int j=0; j<M_grid_size; j++)
+            if (M_lsm_nodes[j] == 0.)
+                M_nodal_variables[i].data_grid[j] = M_miss_val;
+            else
+                M_nodal_variables[i].data_grid[j] = 0.;
+    }
 
     for (int i=0; i<M_elemental_variables.size(); i++)
-        M_elemental_variables[i].data_grid.assign(M_grid_size, 0.);
+    {
+        M_elemental_variables[i].data_grid.resize(M_grid_size);
+        for (int j=0; j<M_grid_size; j++)
+            if (M_lsm_elements[j] == 0.)
+                M_elemental_variables[i].data_grid[j] = M_miss_val;
+            else
+                M_elemental_variables[i].data_grid[j] = 0.;
+    }
 }
 
 // Set the _mesh values back to zero

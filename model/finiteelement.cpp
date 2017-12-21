@@ -6617,6 +6617,11 @@ FiniteElement::initMoorings()
         M_moorings = GridOutput(M_mesh, grid, nodal_variables, elemental_variables, vectorial_variables);
     }
 
+    // As only the root processor knows the entire grid we set the land mask using it
+    if ( M_rank == 0 )
+        M_moorings.setLSM(M_mesh_root);
+
+    // Initialise netCDF output
     if ( (M_rank==0) || M_moorings_parallel_output )
     {
         double output_time;
