@@ -113,7 +113,8 @@ public:
         delS        = 106,
 
         // Non-output variables - all negative
-        proc_mask   = -1
+        proc_mask   = -1,
+        ice_mask    = -2
     };
 
     typedef struct Variable
@@ -121,7 +122,11 @@ public:
         Variable(){}
 
         Variable(variableID id)
-            : varID(id), data_mesh(), data_grid()
+            : Variable(id, false)
+        {}
+
+        Variable(variableID id, bool masked)
+            : varID(id), mask(masked), data_mesh(), data_grid()
         {
             switch (varID)
             {
@@ -281,6 +286,13 @@ public:
                     Units    = "1";
                     break;
 
+                case (variableID::ice_mask):
+                    name     = "ice_mask";
+                    longName = "Ice Mask";
+                    stdName  = "ice_mask";
+                    Units    = "1";
+                    break;
+
             }
         }
 
@@ -289,6 +301,7 @@ public:
         std::string longName;
         std::string stdName;
         std::string Units;
+        bool mask;
 
         std::vector<double> data_mesh;
         std::vector<double> data_grid;
@@ -349,6 +362,7 @@ private:
     std::vector<double> M_lsm_elements;
 
     int M_proc_mask_indx;
+    int M_ice_mask_indx;
 
     GridOutput(std::vector<Variable> variables, variableKind kind);
 

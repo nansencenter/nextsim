@@ -254,9 +254,13 @@ void
 GridOutput::initMask()
 {
     M_proc_mask_indx = -1;
+    M_ice_mask_indx = -1;
 
     for ( int i=0; i<M_elemental_variables.size(); ++i )
+    {
         if (M_elemental_variables[i].varID==variableID::proc_mask) M_proc_mask_indx = i;
+        if (M_elemental_variables[i].varID==variableID::ice_mask)  M_ice_mask_indx = i;
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -281,25 +285,25 @@ GridOutput::updateGridMean(GmshMesh const& mesh)
             this->rotateVectors(mesh, *it, M_nodal_variables);
 
     // Call the worker routine for the nodes
-
-    // Mask if we find thick or conc
-    for ( auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); it++ )
-    {
-        if ( (it->varID==variableID::thick) || (it->varID==variableID::conc) )
-        {
-            for ( auto jt=M_nodal_variables.begin(); jt!=M_nodal_variables.end(); jt++ )
-                for ( int j=0; j<M_grid_size; ++j )
-                    if ( it->data_grid[j] <= 0. )
-                        jt->data_grid[j] = 0.;
-            break;
-        }
-    }
     if (M_proc_mask_indx != -1)
         this->updateGridMeanWorker(&mesh.indexTr()[0], &mesh.coordX()[0], &mesh.coordY()[0], mesh.numNodes(), mesh.numTriangles(),
                 mesh.numNodes(), M_nodal_variables, true, M_elemental_variables[M_proc_mask_indx]);
     else
         if ( M_nodal_variables.size() > 0 )
             throw std::logic_error("GridOutput::updateGridMean: There are nodal variables to be interpolated but no proc_mask set.");
+
+    // Mask if that's requested
+    for ( auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); it++ )
+        if ( it->mask )
+            for ( int i=0; i<M_grid_size; ++i )
+                if ( M_elemental_variables[M_ice_mask_indx].data_grid[i] <= 0. && it->data_grid[i] != M_miss_val )
+                    it->data_grid[i] = 0.;
+
+    for ( auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); it++ )
+        if ( it->mask )
+            for ( int i=0; i<M_grid_size; ++i )
+                if ( M_elemental_variables[M_ice_mask_indx].data_grid[i] <= 0. && it->data_grid[i] != M_miss_val )
+                    it->data_grid[i] = 0.;
 }
 
 // Interpolate from the mesh to the grid - updateing the gridded mean

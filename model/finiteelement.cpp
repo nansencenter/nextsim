@@ -6420,6 +6420,11 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] = 1;
                 break;
 
+            case (GridOutput::variableID::ice_mask):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += (M_thick[i]>0.) ? 1. : 0.;
+                break;
+
             default: std::logic_error("Updating of given variableID not implimented (elements)");
         }
     }
@@ -6448,6 +6453,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 void
 FiniteElement::initMoorings()
 {
+    bool use_ice_mask = false;
     int num_nodes = M_mesh.numNodes();
     int num_elements = M_mesh.numTriangles();
 
@@ -6538,8 +6544,9 @@ FiniteElement::initMoorings()
         // Nodal variables and vectors
         else if ( *it == "velocity_xy" | *it == "velocity_uv" )
         {
-            GridOutput::Variable siu(GridOutput::variableID::VT_x);
-            GridOutput::Variable siv(GridOutput::variableID::VT_y);
+            use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
+            GridOutput::Variable siu(GridOutput::variableID::VT_x, use_ice_mask);
+            GridOutput::Variable siv(GridOutput::variableID::VT_y, use_ice_mask);
             nodal_variables.push_back(siu);
             nodal_variables.push_back(siv);
 
@@ -6590,6 +6597,13 @@ FiniteElement::initMoorings()
     {
         GridOutput::Variable proc_mask(GridOutput::variableID::proc_mask);
         elemental_variables.push_back(proc_mask);
+    }
+
+    // A mask for velocity (if we want it)
+    if ( use_ice_mask )
+    {
+        GridOutput::Variable ice_mask(GridOutput::variableID::ice_mask);
+        elemental_variables.push_back(ice_mask);
     }
 
     if(vm["simul.mooring_grid_file"].as<std::string>()=="")
