@@ -53,6 +53,7 @@ GridOutput::GridOutput(GmshMesh const& mesh, int ncols, int nrows, double moorin
 {
     this->initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
     this->resetMeshMean(mesh);
+    this->initMask();
 }
 
 // Constructor for only one set of variables - arbitrary grid
@@ -62,6 +63,7 @@ GridOutput::GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> va
 {
     this->initArbitraryGrid(grid);
     this->resetMeshMean(mesh);
+    this->initMask();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -84,6 +86,7 @@ GridOutput::GridOutput(GmshMesh const& mesh, int ncols, int nrows, double moorin
 {
     this->initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
     this->resetMeshMean(mesh);
+    this->initMask();
 }
 
 // constructor for nodal and elemental variables only (no vectors) - arbitrary grid
@@ -93,6 +96,7 @@ GridOutput::GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> no
 {
     this->initArbitraryGrid(grid);
     this->resetMeshMean(mesh);
+    this->initMask();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -114,6 +118,7 @@ GridOutput::GridOutput(GmshMesh const& mesh, int ncols, int nrows, double moorin
 {
     this->initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
     this->resetMeshMean(mesh);
+    this->initMask();
 }
 
 // constructor for nodal, elemental and vectorial variables - arbitrary grid
@@ -124,13 +129,14 @@ GridOutput::GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> no
 {
     this->initArbitraryGrid(grid);
     this->resetMeshMean(mesh);
+    this->initMask();
 }
 
 GridOutput::~GridOutput()
 {}
 
 ////////////////////////////////////////////////////////////////////////////////
-// Initialisation routines for the two kinds of grids
+// Initialisation routines
 ////////////////////////////////////////////////////////////////////////////////
 void
 GridOutput::initRegularGrid(int ncols, int nrows, double mooring_spacing, double xmin, double ymin)
@@ -244,6 +250,15 @@ GridOutput::initArbitraryGrid(Grid grid)
     this->resetGridMean();
 }
 
+void
+GridOutput::initMask()
+{
+    M_proc_mask_indx = -1;
+
+    for ( int i=0; i<M_elemental_variables.size(); ++i )
+        if (M_elemental_variables[i].varID==variableID::proc_mask) M_proc_mask_indx = i;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Functions other than construction and initialisation
 ////////////////////////////////////////////////////////////////////////////////
@@ -252,22 +267,20 @@ GridOutput::initArbitraryGrid(Grid grid)
 void
 GridOutput::updateGridMean(GmshMesh const& mesh)
 {
+    // Reset proc_mask
+    if (M_proc_mask_indx != -1)
+        M_elemental_variables[M_proc_mask_indx].data_grid.assign(M_grid_size, 0.);
+
     // Call the worker routine for the elements
     this->updateGridMeanWorker(&mesh.indexTr()[0], &mesh.coordX()[0], &mesh.coordY()[0], mesh.numNodes(), mesh.numTriangles(),
             mesh.numTriangles(), M_elemental_variables);
 
     // Rotate vectors if needed (these are assumed to be on the nodes)
     for ( auto it=M_vectorial_variables.begin(); it!=M_vectorial_variables.end(); it++ )
-    {
         if ( (it->east_west_oriented) || (M_grid.loaded) )
-        {
             this->rotateVectors(mesh, *it, M_nodal_variables);
-        }
-    }
 
     // Call the worker routine for the nodes
-    this->updateGridMeanWorker(&mesh.indexTr()[0], &mesh.coordX()[0], &mesh.coordY()[0], mesh.numNodes(), mesh.numTriangles(),
-            mesh.numNodes(), M_nodal_variables);
 
     // Mask if we find thick or conc
     for ( auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); it++ )
@@ -281,6 +294,12 @@ GridOutput::updateGridMean(GmshMesh const& mesh)
             break;
         }
     }
+    if (M_proc_mask_indx != -1)
+        this->updateGridMeanWorker(&mesh.indexTr()[0], &mesh.coordX()[0], &mesh.coordY()[0], mesh.numNodes(), mesh.numTriangles(),
+                mesh.numNodes(), M_nodal_variables, true, M_elemental_variables[M_proc_mask_indx]);
+    else
+        if ( M_nodal_variables.size() > 0 )
+            throw std::logic_error("GridOutput::updateGridMean: There are nodal variables to be interpolated but no proc_mask set.");
 }
 
 // Interpolate from the mesh to the grid - updateing the gridded mean
@@ -288,7 +307,18 @@ void
 GridOutput::updateGridMeanWorker(int* indexTr, double* coordX, double* coordY, int numNodes, int numTriangles,
         int source_size, std::vector<Variable>& variables)
 {
+    bool apply_mask = false;
+    Variable mask(variableID::proc_mask);
+
+    updateGridMeanWorker(indexTr, coordX, coordY, numNodes, numTriangles, source_size, variables, apply_mask, mask);
+}
+
+void
+GridOutput::updateGridMeanWorker(int* indexTr, double* coordX, double* coordY, int numNodes, int numTriangles,
+        int source_size, std::vector<Variable>& variables, bool apply_mask, Variable mask)
+{
     int nb_var = variables.size();
+    if (nb_var==0) exit;
 
     // TODO: We should check and make sure all variables in the vector are the same size
     // Input vector and output pointer
@@ -333,7 +363,7 @@ GridOutput::updateGridMeanWorker(int* indexTr, double* coordX, double* coordY, i
     // Add the output pointer value to the grid vectors
     for (int i=0; i<nb_var; i++)
         for (int j=0; j<M_grid_size; ++j)
-                variables[i].data_grid[j] += interp_out[nb_var*j+i];
+                variables[i].data_grid[j] += apply_mask ? (interp_out[nb_var*j+i]*mask.data_grid[j]) : interp_out[nb_var*j+i];
 
     xDelete<double>(interp_out);
 }
@@ -578,6 +608,8 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     dims[2] = yDim;
     for (auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); ++it)
     {
+        if ( it->varID < 0 ) // Skip non-outputing variables
+            continue;
         data = dataFile.addVar(it->name, netCDF::ncFloat, dims);
         data.putAtt("standard_name",it->stdName);
         data.putAtt("long_name",it->longName);
@@ -586,6 +618,8 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     }
     for (auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); ++it)
     {
+        if ( it->varID < 0 ) // Skip non-outputing variables
+            continue;
         data = dataFile.addVar(it->name, netCDF::ncFloat, dims);
         data.putAtt("standard_name",it->stdName);
         data.putAtt("long_name",it->longName);
@@ -626,16 +660,19 @@ GridOutput::appendNetCDF(std::string filename, double timestamp)
     count.push_back(M_ncols);
     count.push_back(M_nrows);
 
+    // Save to file
     netCDF::NcVar data;
     for (auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); ++it)
     {
-        // Save to file
+        if ( it->varID < 0 ) // Skip non-outputing variables
+            continue;
         data = dataFile.getVar(it->name);
         data.putVar(start, count, &it->data_grid[0]);
     }
     for (auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); ++it)
     {
-        // Save to file
+        if ( it->varID < 0 ) // Skip non-outputing variables
+            continue;
         data = dataFile.getVar(it->name);
         data.putVar(start, count, &it->data_grid[0]);
     }

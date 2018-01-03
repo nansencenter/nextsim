@@ -6414,6 +6414,12 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += D_delS[i]*time_factor;
                 break;
 
+            // Non-output variables
+            case (GridOutput::variableID::proc_mask):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] = 1;
+                break;
+
             default: std::logic_error("Updating of given variableID not implimented (elements)");
         }
     }
@@ -6424,12 +6430,12 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
         switch (it->varID)
         {
             case (GridOutput::variableID::VT_x):
-                for (int i=0; i<M_local_ndof; i++)
+                for (int i=0; i<M_num_nodes; i++)
                     it->data_mesh[i] += M_VT[i];
                 break;
 
             case (GridOutput::variableID::VT_y):
-                for (int i=0; i<M_local_ndof; i++)
+                for (int i=0; i<M_num_nodes; i++)
                     it->data_mesh[i] += M_VT[i+M_num_nodes];
                 break;
 
@@ -6446,13 +6452,13 @@ FiniteElement::initMoorings()
     int num_elements = M_mesh.numTriangles();
 
     // Output variables - elements
-    std::vector<GridOutput::Variable> elemental_variables;
+    std::vector<GridOutput::Variable> elemental_variables(0);
 
     // Output variables - nodes
-    std::vector<GridOutput::Variable> nodal_variables;
+    std::vector<GridOutput::Variable> nodal_variables(0);
 
     // The vectorial variables are (always on the nodes) ...
-    std::vector<GridOutput::Vectorial_Variable> vectorial_variables;
+    std::vector<GridOutput::Vectorial_Variable> vectorial_variables(0);
 
     std::vector<std::string> names = vm["simul.mooring_names"].as<std::vector<std::string>>();
 
@@ -6579,6 +6585,12 @@ FiniteElement::initMoorings()
         }
     }
 
+    // Need a mask for the nodal variables
+    if ( nodal_variables.size() > 0 )
+    {
+        GridOutput::Variable proc_mask(GridOutput::variableID::proc_mask);
+        elemental_variables.push_back(proc_mask);
+    }
 
     if(vm["simul.mooring_grid_file"].as<std::string>()=="")
     {
@@ -6704,13 +6716,13 @@ FiniteElement::updateMoorings()
             {
                 std::vector<double> result;
                 boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0.);
-                it->data_grid = result;
+                if (M_rank==0) it->data_grid = result;
             }
             for (auto it=M_moorings.M_elemental_variables.begin(); it!=M_moorings.M_elemental_variables.end(); ++it)
             {
                 std::vector<double> result;
                 boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0.);
-                it->data_grid = result;
+                if (M_rank==0) it->data_grid = result;
             }
         }
 

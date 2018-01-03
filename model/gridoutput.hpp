@@ -110,7 +110,10 @@ public:
         Qsh         = 103,
         Qlh         = 104,
         Qo          = 105,
-        delS        = 106
+        delS        = 106,
+
+        // Non-output variables - all negative
+        proc_mask   = -1
     };
 
     typedef struct Variable
@@ -269,6 +272,15 @@ public:
                     stdName  = "downward_slatflux_in_ocean";
                     Units    = "kg m-2 s-1";
                     break;
+
+                // Non-output variables
+                case (variableID::proc_mask):
+                    name     = "proc_mask";
+                    longName = "MPI Processor Mask";
+                    stdName  = "mpi_proc_mask";
+                    Units    = "1";
+                    break;
+
             }
         }
 
@@ -336,6 +348,8 @@ private:
     std::vector<double> M_lsm_nodes;
     std::vector<double> M_lsm_elements;
 
+    int M_proc_mask_indx;
+
     GridOutput(std::vector<Variable> variables, variableKind kind);
 
     GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
@@ -346,10 +360,12 @@ private:
 
     void initArbitraryGrid(Grid grid);
 
-    void initMeshLSM(GmshMesh const& mesh);
+    void initMask();
 
     void updateGridMeanWorker(int* indexTr, double* coordX, double* coordY, int numNodes, int numTriangles,
         int source_size, std::vector<Variable>& variables);
+    void updateGridMeanWorker(int* indexTr, double* coordX, double* coordY, int numNodes, int numTriangles,
+        int source_size, std::vector<Variable>& variables, bool apply_mask, Variable mask);
 
     void rotateVectors(GmshMesh const& mesh, Vectorial_Variable const& vectorial_variable, std::vector<Variable>& variables);
 
