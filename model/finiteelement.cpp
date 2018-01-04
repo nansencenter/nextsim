@@ -5198,12 +5198,12 @@ FiniteElement::updateMeans(GridOutput &means, double time_factor)
         {
             case (GridOutput::variableID::VT_x):
                 for (int i=0; i<M_num_nodes; i++)
-                    it->data_mesh[i] += M_VT[i];
+                    it->data_mesh[i] += M_VT[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::VT_y):
                 for (int i=0; i<M_num_nodes; i++)
-                    it->data_mesh[i] += M_VT[i+M_num_nodes];
+                    it->data_mesh[i] += M_VT[i+M_num_nodes]*time_factor;
                 break;
 
             default: std::logic_error("Updating of given variableID not implimented (nodes)");
