@@ -155,9 +155,13 @@ Drifters::Drifters(std::string dirname, std::string gridFile,
     // Read the dimension of the grid
     netCDF::NcDim dim;
     dim = dataFile.getDim(dimNameX);
+    if ( dim.isNull() )
+        throw std::runtime_error("Drifters::Drifters: Empty dimension: " + dimNameX + " in file: " + filename);
     int ncols = dim.getSize();
 
     dim = dataFile.getDim(dimNameY);
+    if ( dim.isNull() )
+        throw std::runtime_error("Drifters::Drifters: Empty dimension: " + dimNameY + " in file: " + filename);
     int nrows = dim.getSize();
 
     int gridSize = ncols*nrows;

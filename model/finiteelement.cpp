@@ -6287,7 +6287,7 @@ FiniteElement::updateDrifterPosition()
 
             // Create a new M_drifters instance in [0], with a properly initialised netCDF file
             M_osisaf_drifters[0] = Drifters("data", "ice_drift_nh_polstere-625_multi-oi.nc",
-                                            "yc", "yx",
+                                            "xc", "yc",
                                             "lat", "lon",
                                             M_mesh_root, M_conc_root, vm["simul.drifter_climit"].as<double>());
 
