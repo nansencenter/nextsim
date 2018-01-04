@@ -15,7 +15,6 @@
 #include <exporter.hpp>
 #include <numeric>
 
-
 #define GMSH_EXECUTABLE gmsh
 
 namespace Nextsim
@@ -2247,10 +2246,10 @@ FiniteElement::assemble(int pcpt)
         double total_concentration=M_conc[cpt];
         double total_thickness=M_thick[cpt];
         double total_snow=M_snow_thick[cpt];
-       
-        // Add the thin ice concentration and thickness 
+
+        // Add the thin ice concentration and thickness
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        {            
+        {
             total_concentration += M_conc_thin[cpt];
             total_thickness     += M_h_thin[cpt];
             total_snow          += M_hs_thin[cpt];
@@ -4822,7 +4821,10 @@ FiniteElement::step(int &pcpt)
         std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
 
         // Create a new M_drifters instance in [0], with a properly initialised netCDF file
-        M_osisaf_drifters[0] = Drifters("data", "ice_drift_nh_polstere-625_multi-oi.nc", "xc", "yc", "lat", "lon", M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
+        M_osisaf_drifters[0] = Drifters("data", "ice_drift_nh_polstere-625_multi-oi.nc",
+                "xc", "yc",
+                "lat", "lon", M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
+
         M_osisaf_drifters[0].initNetCDF(M_export_path+"/OSISAF_", current_time);
         M_osisaf_drifters[0].appendNetCDF(current_time, M_mesh, M_UT);
     }
@@ -5300,7 +5302,6 @@ FiniteElement::initMoorings()
             GridOutput::Variable hs_thin(GridOutput::variableID::hs_thin, data_elements, data_grid);
             elemental_variables.push_back(hs_thin);
         }
-
         // Nodal variables and vectors
         else if ( *it == "velocity_xy" | *it == "velocity_uv" )
         {
@@ -5322,7 +5323,6 @@ FiniteElement::initMoorings()
 
             vectorial_variables.push_back(siuv);
         }
-
         // Error
         else
         {
@@ -5369,50 +5369,19 @@ FiniteElement::initMoorings()
     }
     else
     {
-    // Read the grid in from file
-    // Define a grid
-#if 0
-    GridOutput::Grid grid{
-        gridFile: "ice_drift_nh_polstere-625_multi-oi.nc",
-        dirname: "data",
-        mpp_file: Environment::vm()["simul.proj_filename"].as<std::string>(),
-        dimNameX: "yc",
-        dimNameY: "xc",
-        latName: "lat",
-        lonName: "lon"
-    };
-#endif
-    // Define a grid
-    GridOutput::Grid grid{
-        gridFile: Environment::vm()["simul.mooring_grid_file"].as<std::string>(),
-        dirname: "data",
-        mpp_file: Environment::vm()["simul.proj_filename"].as<std::string>(),
-        dimNameX: "y",
-        dimNameY: "x",
-        latName: "latitude",
-        lonName: "longitude"
-    };
+        // Read the grid in from file
+        GridOutput::Grid grid{
+            gridFile: Environment::vm()["simul.mooring_grid_file"].as<std::string>(),
+            dirname: "data",
+            mpp_file: Environment::vm()["simul.proj_filename"].as<std::string>(),
+            dimNameX: "y",
+            dimNameY: "x",
+            latName: "latitude",
+            lonName: "longitude"
+        };
 
-    // Define the mooring dataset
-    M_moorings = GridOutput(grid, nodal_variables, elemental_variables, vectorial_variables);
-
-    /* Just for debuging
-    // Save the grid info - this is still just an ascii dump!
-    std::ofstream myfile;
-    myfile.open("lon_grid.dat");
-    std::copy(M_moorings.M_grid.gridLON.begin(), M_moorings.M_grid.gridLON.end(), ostream_iterator<float>(myfile," "));
-    myfile.close();
-    myfile.open("lat_grid.dat");
-    std::copy(M_moorings.M_grid.gridLAT.begin(), M_moorings.M_grid.gridLAT.end(), ostream_iterator<float>(myfile," "));
-    myfile.close();
-
-    myfile.open("x_grid.dat");
-    std::copy(M_moorings.M_grid.gridX.begin(), M_moorings.M_grid.gridX.end(), ostream_iterator<float>(myfile," "));
-    myfile.close();
-    myfile.open("y_grid.dat");
-    std::copy(M_moorings.M_grid.gridY.begin(), M_moorings.M_grid.gridY.end(), ostream_iterator<float>(myfile," "));
-    myfile.close();
-    */
+        // Define the mooring dataset
+        M_moorings = GridOutput(grid, nodal_variables, elemental_variables, vectorial_variables);
     }
 
     double output_time;
@@ -5423,7 +5392,6 @@ FiniteElement::initMoorings()
         output_time = current_time - mooring_output_time_step/86400/2;
 
     M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
-
 } //initMoorings
 
 void

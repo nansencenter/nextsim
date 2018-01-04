@@ -23,9 +23,9 @@ namespace Nextsim
 GridOutput::GridOutput()
 {}
 
-    ////////////////////////////////////////////////////////////////////////////////
-    // Constructor for only one set of variables
-    ////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Constructor for only one set of variables
+////////////////////////////////////////////////////////////////////////////////
 GridOutput::GridOutput(std::vector<Variable> variables, variableKind kind)
 {
     M_vectorial_variables.resize(0);
@@ -46,7 +46,7 @@ GridOutput::GridOutput(std::vector<Variable> variables, variableKind kind)
     }
 }
 
-    // Constructor for only one set of variables - regular grid
+// Constructor for only one set of variables - regular grid
 GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind)
     :
     GridOutput(variables, kind)
@@ -54,7 +54,7 @@ GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, double xmin
     this->initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
 }
 
-    // Constructor for only one set of variables - arbitrary grid
+// Constructor for only one set of variables - arbitrary grid
 GridOutput::GridOutput(Grid grid, std::vector<Variable> variables, variableKind kind)
     :
     GridOutput(variables, kind)
@@ -62,9 +62,9 @@ GridOutput::GridOutput(Grid grid, std::vector<Variable> variables, variableKind 
     this->initArbitraryGrid(grid);
 }
 
-    ////////////////////////////////////////////////////////////////////////////////
-    // constructor for nodal and elemental variables only (no vectors)
-    ////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// constructor for nodal and elemental variables only (no vectors)
+////////////////////////////////////////////////////////////////////////////////
 GridOutput::GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables)
     :
     M_nodal_variables(nodal_variables),
@@ -73,15 +73,17 @@ GridOutput::GridOutput(std::vector<Variable> nodal_variables, std::vector<Variab
     M_vectorial_variables.resize(0);
 }
 
-    // constructor for nodal and elemental variables only (no vectors) - regular grid
-GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables)
+// constructor for nodal and elemental variables only (no vectors) - regular grid
+GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing,
+                       double xmin, double ymin,
+                       std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables)
     :
     GridOutput(nodal_variables, elemental_variables)
 {
     this->initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
 }
 
-    // constructor for nodal and elemental variables only (no vectors) - arbitrary grid
+// constructor for nodal and elemental variables only (no vectors) - arbitrary grid
 GridOutput::GridOutput(Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables)
     :
     GridOutput(nodal_variables, elemental_variables)
@@ -89,9 +91,9 @@ GridOutput::GridOutput(Grid grid, std::vector<Variable> nodal_variables, std::ve
     this->initArbitraryGrid(grid);
 }
 
-    ////////////////////////////////////////////////////////////////////////////////
-    // constructor for nodal, elemental and vectorial variables
-    ////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// constructor for nodal, elemental and vectorial variables
+////////////////////////////////////////////////////////////////////////////////
 GridOutput::GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables)
     :
     M_nodal_variables(nodal_variables),
@@ -99,16 +101,19 @@ GridOutput::GridOutput(std::vector<Variable> nodal_variables, std::vector<Variab
     M_vectorial_variables(vectorial_variables)
 {}
 
-    // constructor for nodal, elemental and vectorial variables - regular grid
-GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables)
+// constructor for nodal, elemental and vectorial variables - regular grid
+GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing,
+                       double xmin, double ymin,
+                       std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables)
     :
     GridOutput(nodal_variables, elemental_variables, vectorial_variables)
 {
     this->initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
 }
 
-    // constructor for nodal, elemental and vectorial variables - arbitrary grid
-GridOutput::GridOutput(Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables)
+// constructor for nodal, elemental and vectorial variables - arbitrary grid
+GridOutput::GridOutput(Grid grid, std::vector<Variable> nodal_variables,
+                       std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables)
     :
     GridOutput(nodal_variables, elemental_variables, vectorial_variables)
 {
@@ -117,10 +122,12 @@ GridOutput::GridOutput(Grid grid, std::vector<Variable> nodal_variables, std::ve
 
 GridOutput::~GridOutput()
 {}
-    ////////////////////////////////////////////////////////////////////////////////
-    // Initialisation routines for the two kinds of grids
-    ////////////////////////////////////////////////////////////////////////////////
-void GridOutput::initRegularGrid(int ncols, int nrows, double mooring_spacing, double xmin, double ymin)
+
+////////////////////////////////////////////////////////////////////////////////
+// Initialisation routines for the two kinds of grids
+////////////////////////////////////////////////////////////////////////////////
+void
+GridOutput::initRegularGrid(int ncols, int nrows, double mooring_spacing, double xmin, double ymin)
 {
     // Set the grid size
     M_ncols = ncols;
@@ -165,7 +172,8 @@ void GridOutput::initRegularGrid(int ncols, int nrows, double mooring_spacing, d
     this->resetGridMean();
 }
 
-void GridOutput::initArbitraryGrid(Grid grid)
+void
+GridOutput::initArbitraryGrid(Grid grid)
 {
     M_grid = grid;
 
@@ -223,12 +231,13 @@ void GridOutput::initArbitraryGrid(Grid grid)
     this->resetGridMean();
 }
 
-    ////////////////////////////////////////////////////////////////////////////////
-    // Functions other than construction and initialisation
-    ////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Functions other than construction and initialisation
+////////////////////////////////////////////////////////////////////////////////
 
-    // Interpolate from the mesh values to the grid
-void GridOutput::updateGridMean(GmshMesh const& mesh)
+// Interpolate from the mesh values to the grid
+void
+GridOutput::updateGridMean(GmshMesh const& mesh)
 {
     // Call the worker routine for the elements
     this->updateGridMeanWorker(mesh, mesh.numTriangles(), M_elemental_variables, M_miss_val);
@@ -246,8 +255,9 @@ void GridOutput::updateGridMean(GmshMesh const& mesh)
     this->updateGridMeanWorker(mesh, mesh.numNodes(), M_nodal_variables, M_miss_val);
 }
 
-    // Interpolate from the mesh to the grid - updateing the gridded mean
-void GridOutput::updateGridMeanWorker(GmshMesh const& mesh, int source_size, std::vector<Variable>& variables, double miss_val)
+// Interpolate from the mesh to the grid - updateing the gridded mean
+void
+GridOutput::updateGridMeanWorker(GmshMesh const& mesh, int source_size, std::vector<Variable>& variables, double miss_val)
 {
     int nb_var = variables.size();
 
@@ -322,40 +332,42 @@ void GridOutput::updateGridMeanWorker(GmshMesh const& mesh, int source_size, std
     xDelete<double>(interp_out);
 }
 
-    // Return a mask
-    std::vector<int> GridOutput::getMask(GmshMesh const &mesh, variableKind kind)
+// Return a mask
+std::vector<int>
+GridOutput::getMask(GmshMesh const& mesh, variableKind kind)
+{
+    double source_size;
+    switch (kind)
     {
-        double source_size;
-        switch (kind)
-        {
-            case variableKind::nodal:
-                source_size = mesh.numNodes();
-                break;
+        case variableKind::nodal:
+            source_size = mesh.numNodes();
+            break;
 
-            case variableKind::elemental:
-                source_size = mesh.numTriangles();
-                break;
+        case variableKind::elemental:
+            source_size = mesh.numTriangles();
+            break;
 
-            default:
-                std::logic_error("Incorrect variable kind in GridOutput::getMask");
-        }
-
-        // Call the worker routine using a vector of ones and give zero for missing values (land mask)
-        std::vector<double> data_mesh(source_size);
-        data_mesh.assign(source_size, 1.);
-        std::vector<double> data_grid(M_grid_size);
-
-        Variable lsm(variableID::lsm, data_mesh, data_grid);
-
-        std::vector<Variable> variables(1);
-        variables[0] = lsm;
-        updateGridMeanWorker(mesh, source_size, variables, 0.);
-
-        return std::vector<int>(variables[1].data_grid.begin(), variables[1].data_grid.end());
+        default:
+            std::logic_error("Incorrect variable kind in GridOutput::getMask");
     }
 
-    // Rotate the vectors as needed
-void GridOutput::rotateVectors(GmshMesh const& mesh, Vectorial_Variable const& vectorial_variable, std::vector<Variable>& variables)
+    // Call the worker routine using a vector of ones and give zero for missing values (land mask)
+    std::vector<double> data_mesh(source_size);
+    data_mesh.assign(source_size, 1.);
+    std::vector<double> data_grid(M_grid_size);
+
+    Variable lsm(variableID::lsm, data_mesh, data_grid);
+
+    std::vector<Variable> variables(1);
+    variables[0] = lsm;
+    updateGridMeanWorker(mesh, source_size, variables, 0.);
+
+    return std::vector<int>(variables[1].data_grid.begin(), variables[1].data_grid.end());
+}
+
+// Rotate the vectors as needed
+void
+GridOutput::rotateVectors(GmshMesh const& mesh, Vectorial_Variable const& vectorial_variable, std::vector<Variable>& variables)
 {
     // First we decide the rotation angle
     // Get the rotation of the neXtSIM grid
@@ -425,8 +437,9 @@ void GridOutput::rotateVectors(GmshMesh const& mesh, Vectorial_Variable const& v
 
 }
 
-    // Set the _grid values back to zero
-void GridOutput::resetGridMean()
+// Set the _grid values back to zero
+void
+GridOutput::resetGridMean()
 {
     for (int i=0; i<M_nodal_variables.size(); i++)
         M_nodal_variables[i].data_grid.assign(M_grid_size, 0.);
@@ -435,8 +448,9 @@ void GridOutput::resetGridMean()
         M_elemental_variables[i].data_grid.assign(M_grid_size, 0.);
 }
 
-    // Set the _mesh values back to zero
-void GridOutput::resetMeshMean(GmshMesh const& mesh)
+// Set the _mesh values back to zero
+void
+GridOutput::resetMeshMean(GmshMesh const& mesh)
 {
     for (int i=0; i<M_nodal_variables.size(); i++)
         M_nodal_variables[i].data_mesh.assign(mesh.numNodes(), 0.);
@@ -445,8 +459,9 @@ void GridOutput::resetMeshMean(GmshMesh const& mesh)
         M_elemental_variables[i].data_mesh.assign(mesh.numTriangles(), 0.);
 }
 
-    // Initialise a netCDF file and return the file name in an std::string
-std::string GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double current_time)
+// Initialise a netCDF file and return the file name in an std::string
+std::string
+GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double current_time)
 {
     // Choose the right file name, depending on how much data goes in there
     boost::gregorian::date now = Nextsim::parse_date(current_time);
@@ -554,8 +569,9 @@ std::string GridOutput::initNetCDF(std::string file_prefix, fileLength file_leng
     return filename.str();
 }
 
-    // Write data to the netCDF file
-void GridOutput::appendNetCDF(std::string filename, double timestamp)
+// Write data to the netCDF file
+void
+GridOutput::appendNetCDF(std::string filename, double timestamp)
 {
     // Open the netCDF file
     netCDF::NcFile dataFile(filename, netCDF::NcFile::write);
