@@ -37,7 +37,8 @@ $prog --config-files=$config
 
 
 # Run the CPU profiler (google perftools)
-nbt=`echo ${NEXTSIM_BUILD_TYPE,,}`
+# nbt=`echo ${NEXTSIM_BUILD_TYPE,,}`
+nbt=`echo $NEXTSIM_BUILD_TYPE  | tr '[:upper:]' '[:lower:]'`
 # this is now lower case
 if [ "$nbt" == "debug" ]
 then

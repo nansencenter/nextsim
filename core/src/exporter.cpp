@@ -160,7 +160,7 @@ Exporter::writeRecord(std::fstream& out, std::string const& rtype)
 }
 
 void
-Exporter::readRecord(std::ifstream& in)
+Exporter::readRecord(std::ifstream &in)
 {
     std::string name, type, size, min_element, max_element;
 
@@ -172,7 +172,7 @@ Exporter::readRecord(std::ifstream& in)
 }
 
 void
-Exporter::loadFile(std::fstream& in, boost::unordered_map<std::string, std::vector<int>>& field_map_int, boost::unordered_map<std::string, std::vector<double>>& field_map_dbl)
+Exporter::loadFile(std::fstream &in, boost::unordered_map<std::string, std::vector<int>> &field_map_int, boost::unordered_map<std::string, std::vector<double>> &field_map_dbl)
 {
     int reclen;
     for ( int i=0; i<M_type_record.size(); ++i )
