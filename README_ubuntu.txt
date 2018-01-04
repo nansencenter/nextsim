@@ -10,20 +10,20 @@ git clone https://tdcwilliams@bitbucket.org/asamake/nextsim.git
 
 # =============================================================
 BOOST
-sudo apt-get install libboost-dev
-sudo apt-get install libboost-chrono-dev
-sudo apt-get install libboost-date-time-dev
-sudo apt-get install libboost-filesystem-dev
-sudo apt-get install libboost-iostreams-dev
-sudo apt-get install libboost-log-dev
-sudo apt-get install libboost-locale-dev
-sudo apt-get install libboost-math-dev
-sudo apt-get install libboost-mpi-dev
-sudo apt-get install libboost-program-options-dev
-sudo apt-get install libboost-regex-dev
-sudo apt-get install libboost-serialization-dev
-sudo apt-get install libboost-system-dev
-sudo apt-get install libboost-timer-dev
+sudo apt-get install libboost-dev \
+                     libboost-chrono-dev \
+                     libboost-date-time-dev \
+                     libboost-filesystem-dev \
+                     libboost-iostreams-dev \
+                     libboost-log-dev \
+                     libboost-locale-dev \
+                     libboost-math-dev \
+                     libboost-mpi-dev \
+                     libboost-program-options-dev \
+                     libboost-regex-dev \
+                     libboost-serialization-dev \
+                     libboost-system-dev \
+                     libboost-timer-dev
 # =============================================================
 
 
@@ -53,8 +53,9 @@ sudo ln -sf gfortran-4.8 gfortran
 
 # =============================================================
 OTHER TOOLS/LIBRARIES
-sudo apt-get install cmake valgrind
-sudo apt-get install liblapack-dev libblas-dev
+sudo apt-get install cmake valgrind tau \
+                     liblapack-dev libblas-dev \
+                     nco ncview libnetcdf-dev libnetcdf-c++4-dev
 # =============================================================
 
 
@@ -110,7 +111,7 @@ NETCDF
 1) sudo apt-get install libhdf5-dev libhdf5-openmpi-dev
 2) download latest stable c version of netcdf from
    http://www.unidata.ucar.edu/downloads/netcdf/index.jsp and unzip it
-3) copy configure_ubuntu.sh from /nextsim/scripts/netcdf
+3) copy configure_ubuntu.sh from nextsim/scripts/netcdf
    ./configure_ubuntu.sh
    make
    make check
@@ -126,7 +127,7 @@ NETCDF
 NETCDF-CXX
 1) download latest stable c++ version of netcdf from
    http://www.unidata.ucar.edu/downloads/netcdf/index.jsp and unzip it
-2) copy configure_ubuntu.sh from /nextsim/scripts/netcdf-cxx
+2) copy configure_ubuntu.sh from nextsim/scripts/netcdf-cxx
    ./configure_ubuntu.sh
    make
    make check
