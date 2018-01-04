@@ -856,7 +856,8 @@ FiniteElement::minAngle(mesh_type const& mesh) const
     int thread_id;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
-#pragma omp parallel for num_threads(max_threads) private(thread_id)
+    // valgrind found memory leak if OMP used here
+//#pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
         all_min_angle[cpt] = this->minAngles(M_elements[cpt],mesh);
@@ -1039,7 +1040,8 @@ FiniteElement::AllMinAngle(mesh_type const& mesh, std::vector<double> const& um,
     int thread_id;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
-#pragma omp parallel for num_threads(max_threads) private(thread_id)
+    // valgrind found memory leak if OMP used here
+//#pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
         all_min_angle[cpt] = this->minAngles(movedmesh.triangles()[cpt],movedmesh);
