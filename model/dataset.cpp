@@ -113,7 +113,6 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "erai_waves_1deg_elements") == 0)
         this->initEraiWaves1deg();
 
-    //errors
     else
     {
         fprintf (stderr, "Dataset: unknown dataset %s\n",DatasetName);
