@@ -247,6 +247,7 @@ private:
 
     // ocean forcing
     void initTopaz(const std::string option);
+    void initTopazCpl(const std::string option);
     void initTopazForecast(const std::string option);
     void initOceanCurrents(const std::string option);
 
