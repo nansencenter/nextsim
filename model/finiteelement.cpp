@@ -626,6 +626,7 @@ FiniteElement::initVariables()
     D_Qo.resize(M_num_elements);
     D_delS.resize(M_num_elements);
 
+    M_UT.assign(2*M_num_nodes,0.);
     this->assignVariables();
 }
 
@@ -649,7 +650,7 @@ FiniteElement::assignVariables()
     M_solution->init(2*M_ndof,2*M_local_ndof,M_graphmpi);
 
     M_UM.assign(2*M_num_nodes,0.);
-    M_UT.assign(2*M_num_nodes,0.);
+    //M_UT.assign(2*M_num_nodes,0.);
 
     M_fcor.resize(M_num_elements);
 
