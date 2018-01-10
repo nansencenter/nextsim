@@ -5198,6 +5198,129 @@ void DataSet::initIceNicWeekly()
 
 // ============================================
 // topography
+void DataSet::initDist2Coast()
+{
+    // Definition of dist2coast grid and datasets
+    Dimension dimension_x={
+        name:"lon",
+        cyclic:true
+    };
+
+    Dimension dimension_y={
+        name:"lat",
+        cyclic:false
+    };
+
+    std::vector<Dimension> dimensions_lon(1);
+    dimensions_lon[0] = dimension_x;
+
+    std::vector<Dimension> dimensions_lat(1);
+    dimensions_lat[0] = dimension_y;
+
+    std::vector<Dimension> dimensions(2);
+    dimensions[0] = dimension_y;
+    dimensions[1] = dimension_x;
+
+    Variable latitude={
+        name: "lat",
+        dimensions: dimensions_lat,
+        land_mask_defined: false,
+        land_mask_value: 0.,
+        NaN_mask_defined: false,
+        NaN_mask_value: 0.,
+        use_FillValue: true,
+        use_missing_value: true,
+        a: 1.,
+        b: 0.,
+        Units: "degree_north",
+        loaded_data: loaded_data_tmp,
+        interpolated_data: interpolated_data_tmp,
+        wavDirOptions: wavdiropt_none
+    };
+
+    Variable longitude={
+        name: "lon",
+        dimensions: dimensions_lon,
+        land_mask_defined: false,
+        land_mask_value: 0.,
+        NaN_mask_defined: false,
+        NaN_mask_value: 0.,
+        use_FillValue: true,
+        use_missing_value: true,
+        a: 1.,
+        b: 0.,
+        Units: "degree_east",
+        loaded_data: loaded_data_tmp,
+        interpolated_data: interpolated_data_tmp,
+        wavDirOptions: wavdiropt_none
+    };
+
+    Grid grid_tmp={
+        interpolation_method: InterpolationType::FromGridToMesh,
+        //interp_type : TriangleInterpEnum, // slower
+        interp_type : BilinearInterpEnum,
+        //interp_type : NearestInterpEnum,
+        dirname:"data",
+        prefix:"dist2coast_4deg.nc",
+        //prefix:"dist2coast_1deg.nc",
+        postfix:"",
+        reference_date: "",
+
+        latitude: latitude,
+        longitude: longitude,
+
+        dimension_x: dimension_x,
+        dimension_y: dimension_y,
+
+        mpp_file: "",
+        interpolation_in_latlon: true,
+        branch_cut_lon: -179.98, // for the 4 deg dataset
+        //branch_cut_lon: -180,// for the 1 deg dataset
+            //where the discontinuity in lon is
+            //(only for if interpolation_in_latlon=true)
+
+        loaded: false,
+        dataset_frequency:"constant",
+        target_location:"mesh_elements",
+
+        waveOptions: wavopt_none,
+
+         masking: false
+    };
+
+    Variable dist={
+        name:"dist",
+        dimensions: dimensions,
+        land_mask_defined: false,
+        land_mask_value: 0.,
+        NaN_mask_defined: false,
+        NaN_mask_value: 0.,
+        use_FillValue: true,
+        use_missing_value: true,
+        a:1000.,
+        b:0.,
+        Units:"m",
+        loaded_data: loaded_data_tmp,
+        interpolated_data: interpolated_data_tmp,
+        wavDirOptions: wavdiropt_none
+    };
+
+    std::vector<Variable> variables_tmp(1);
+    variables_tmp[0] = dist;
+
+    std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+    variables= variables_tmp;
+    vectorial_variables= vectorial_variables_tmp;
+
+    grid= grid_tmp;
+
+    averaging_period=0.;
+#ifdef OASIS
+    coupled = false;
+#endif
+}//initDist2Coast()
+
 void DataSet::initEtopo()
 {
     // Definition of etopo grid and datasets

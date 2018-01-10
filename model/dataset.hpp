@@ -265,6 +265,7 @@ private:
     void initIceIcesat();//TODO test
 
     // topography
+    void initDist2Coast();//TODO test
     void initEtopo();
 
     // wave forcing
