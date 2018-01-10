@@ -35,30 +35,28 @@ extern "C"
 
 namespace Nextsim
 {
+    enum InterpolationType
+    {
+        None = -1,
+        FromGridToMesh = 0,
+        FromMeshToMesh2dx = 1,
+        FromMeshToMesh2dCavities = 2,
+    };
 
+    typedef struct WaveOptions
+    {
+       bool wave_dataset;
+       bool use_mwp;
+       bool use_ice;
+       std::string time_interp_option;
+    } WaveOptions;
 
-enum InterpolationType
-{
-    None = -1,
-    FromGridToMesh = 0,
-    FromMeshToMesh2dx = 1,
-    FromMeshToMesh2dCavities = 2,
-};
-
-typedef struct WaveOptions
-{
-   bool wave_dataset;
-   bool use_mwp;
-   bool use_ice;
-   std::string time_interp_option;
-} WaveOptions;
-
-typedef struct WaveDirOptions
-{
-    bool isWavDir;
-    bool waveFrom;
-    bool xComponent;
-} WaveDirOptions;
+    typedef struct WaveDirOptions
+    {
+        bool isWavDir;
+        bool waveFrom;
+        bool xComponent;
+    } WaveDirOptions;
 
 
 class DataSet
@@ -124,12 +122,6 @@ public:
         xComponent: false
     };
 
-    //place holders in variables
-    std::vector<double> dummy_vec;
-    std::vector<std::vector<double>>
-        loaded_data_tmp = {dummy_vec,dummy_vec};
-    std::vector<std::vector<double>>
-        interpolated_data_tmp = {dummy_vec,dummy_vec};
 
     typedef struct Grid
     {
@@ -235,44 +227,7 @@ public:
 #if defined OASIS
     bool coupled;
 #endif
-
-private:
-
-    // atmospheric forcing
-    void initAsr(const std::string option);
-    void initErai(const std::string option);
-    void initEc(const std::string option);
-    void initCfsr(const std::string option);
-    void initCfsrHi();
-
-    // ocean forcing
-    void initTopaz(const std::string option);
-    void initTopazCpl(const std::string option);
-    void initTopazForecast(const std::string option);
-    void initOceanCurrents(const std::string option);
-
-    // ice for initialisation
-    void initIceTopaz();
-    void initIcePiomas();
-    void initIceOsisaf();
-    void initIceTypeOsisaf();
-    void initIceSmos();
-    void initIceAmsre();
-    void initIceAmsr2();
-    void initIceCs2Smos();
-    void initIceNic();
-    void initIceNicWeekly();
-    void initIceIcesat();
-
-    // topography
-    void initDist2Coast();
-    void initEtopo();
-
-    // wave forcing
-    void initWw3Arctic();
-    void initEraiWaves1deg();
-
-};//Dataset class
+};
 
 } // Nextsim
 
