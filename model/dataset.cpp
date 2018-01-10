@@ -3026,11 +3026,11 @@ void DataSet::initTopaz(const std::string option)
         interpolated_data: interpolated_data_tmp,
         wavDirOptions: wavdiropt_none};
 
+    //use values for nodes as default parameters in grid
     std::string target_loc = "mesh_nodes";
-    std::string postfix =  "_30m.nc";//use the 30m currents
-    int mask_index = 2;//ssh for nodes
+    int mask_index = 2;//mask with ssh
 
-    if(option=="nodes")
+    if(option == "nodes")
     {
         Variable u={
             name: "u",
@@ -3083,6 +3083,7 @@ void DataSet::initTopaz(const std::string option)
             wavDirOptions: wavdiropt_none
         };
 
+
         variables.resize(3);
         variables[0] = u;
         variables[1] = v;
@@ -3098,14 +3099,12 @@ void DataSet::initTopaz(const std::string option)
                 // if false, then we assume it is oriented
                 // following the mpp_file defined for the grid
         };
+
         vectorial_variables.resize(1);
         vectorial_variables[0] = uv;
     }
     else if(option == "elements")
     {
-        target_loc = "mesh_elements";
-        postfix =  "_3m.nc";//use the 3m variables (surface)
-
         Variable sst={
             name: "temperature",
             dimensions: dimensions_uv,
@@ -3173,7 +3172,7 @@ void DataSet::initTopaz(const std::string option)
         interp_type: -1,
         dirname: "data",
         prefix: "TP4DAILY_",
-        postfix: postfix,
+        postfix: "_30m.nc",
         reference_date: "1950-01-01",
 
         latitude: latitude,
@@ -3189,8 +3188,8 @@ void DataSet::initTopaz(const std::string option)
             //(only for if interpolation_in_latlon=true)
 
         loaded: false,
-        dataset_frequency: "monthly",
-        target_location: target_loc,
+        dataset_frequency:"monthly",
+        target_location:"mesh_nodes",
 
         waveOptions: wavopt_none,
 

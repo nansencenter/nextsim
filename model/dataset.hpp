@@ -239,38 +239,38 @@ public:
 private:
 
     // atmospheric forcing
-    void initAsr(const std::string option);//TODO test
-    void initErai(const std::string option);//TODO test
-    void initEc(const std::string option);//TODO test
-    void initEc2(const std::string option);//TODO test
+    void initAsr(const std::string option);
+    void initErai(const std::string option);
+    void initEc(const std::string option);
+    void initEc2(const std::string option);
     void initCfsr(const std::string option);
-    void initCfsrHi();//TODO test
+    void initCfsrHi();
 
     // ocean forcing
     void initTopaz(const std::string option);
-    void initTopazForecast(const std::string option);//TODO test
-    void initOceanCurrents();//TODO test
+    void initTopazForecast(const std::string option);
+    void initOceanCurrents();
 
     // ice for initialisation
     void initIceTopaz();
-    void initIcePiomas();//TODO test
-    void initIceOsisaf();//TODO test
-    void initIceTypeOsisaf();//TODO test
-    void initIceSmos();//TODO test
-    void initIceAmsre();//TODO test
-    void initIceAmsr2();//TODO test
-    void initIceCs2Smos();//TODO test
-    void initIceNic();//TODO test
-    void initIceNicWeekly();//TODO test
-    void initIceIcesat();//TODO test
+    void initIcePiomas();
+    void initIceOsisaf();
+    void initIceTypeOsisaf();
+    void initIceSmos();
+    void initIceAmsre();
+    void initIceAmsr2();
+    void initIceCs2Smos();
+    void initIceNic();
+    void initIceNicWeekly();
+    void initIceIcesat();
 
     // topography
-    void initDist2Coast();//TODO test
+    void initDist2Coast();
     void initEtopo();
 
     // wave forcing
-    void initWw3Arctic();//TODO test
-    void initEraiWaves1deg();//TODO test
+    void initWw3Arctic();
+    void initEraiWaves1deg();
 
 };//Dataset class
 
