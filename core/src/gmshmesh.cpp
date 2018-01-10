@@ -172,6 +172,34 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
         if (M_comm.rank() == 0)
             std::cout << "[gmshmesh::reading] " << buf << " (expect $PhysicalNames)\n";
 
+        if ( std::string( buf ) == "$PhysicalNames" )
+        {
+            int nnames;
+            ifs >> nnames;
+
+            for ( int n = 0; n < nnames; ++n )
+            {
+                int id, topodim;
+                std::string name;
+
+                ifs >> topodim >> id >> name;
+
+                boost::trim( name );
+                boost::trim_if( name,boost::is_any_of( "\"" ) );
+
+                if (M_comm.rank() == 0)
+                    std::cout << "[gmshmesh::reading] topodim: "  << topodim << " id: " << id << " name: " << name << "\n";
+
+                std::vector<int> marker_data = {id, topodim};
+                M_marker_names.insert(std::make_pair(name,marker_data));
+            }
+
+            ifs >> buf;
+            ASSERT(std::string( buf ) == "$EndPhysicalNames","invalid file format entry");
+
+            ifs >> buf;
+        }
+
     }
 
     // Read NODES
