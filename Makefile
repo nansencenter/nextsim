@@ -39,8 +39,10 @@ endif
 
 
 # rules to compile model code as well as lib's
-All: all
+Model:
 	@cd $(NEXTSIMDIR)/model; make;
+
+All: all Model
 
 Clean: clean
 	@cd $(NEXTSIMDIR)/model; make clean;
