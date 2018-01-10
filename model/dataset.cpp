@@ -44,12 +44,6 @@ DataSet::DataSet(char const *DatasetName)
         this->initAsr("nodes");
     else if (strcmp (DatasetName, "asr_elements") == 0)
         this->initAsr("elements");
-    else if (strcmp (DatasetName, "cfsr_elements") == 0)
-        this->initCfsr("elements");
-    else if (strcmp (DatasetName, "cfsr_nodes") == 0)
-        this->initCfsr("nodes");
-    else if (strcmp (DatasetName, "cfsr_nodes_hi") == 0)
-        this->initCfsrHi();
     else if (strcmp (DatasetName, "topaz_nodes") == 0)
     {
         // Definition of topaz grid and datasets
@@ -1079,12 +1073,684 @@ DataSet::DataSet(char const *DatasetName)
         this->initIceCs2Smos();
     else if (strcmp (DatasetName, "ice_amsr2_elements") == 0)
         this->initIceAmsr2();
-    else if (strcmp (DatasetName, "ice_nic_elements") == 0)
-        this->initIceNic();
     else if (strcmp (DatasetName, "ice_nic_weekly_elements") == 0)
-        this->initIceNicWeekly();
-    else if (strcmp (DatasetName, "ice_icesat_elements") == 0)
-         this->initIceIcesat();
+    {
+        // Definition of topaz grid and datasets
+        Dimension dimension_x={
+            name:"x",
+            cyclic:false
+        };
+
+        Dimension dimension_y={
+            name:"y",
+            cyclic:false
+        };
+
+        Dimension dimension_time={
+            name:"time", // "Time"
+            cyclic:false
+        };
+
+        std::vector<Dimension> dimensions(3);
+        dimensions[0] = dimension_time;
+        dimensions[1] = dimension_y;
+        dimensions[2] = dimension_x;
+
+        std::vector<Dimension> dimensions_latlon(2);
+        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[1] = dimension_x;
+
+        std::vector<Dimension> dimensions_time(1);
+        dimensions_time[0] = dimension_time;
+
+        Variable latitude={
+            name: "latitude",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "degree_north",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none};
+
+        Variable longitude={
+            name: "longitude",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "degree_east",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none};
+
+        Variable time_tmp={
+            name: "time",
+            dimensions: dimensions_time,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 24.,
+            b: 12., // to center the time on the middle of the day
+            Units: "hours",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none};
+
+        Variable conc={
+            name: "sea_ice_concentration",
+            dimensions: dimensions,
+            land_mask_defined: true,
+            land_mask_value: 12500.,
+            NaN_mask_defined: true,
+            NaN_mask_value: 11500.,
+            use_FillValue: false,
+            use_missing_value: false,
+            a: 0.01,
+            b: 0.,
+            Units: "",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable mask={
+            name: "land",
+            dimensions: dimensions_latlon,
+            land_mask_defined: true,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Grid grid_tmp={
+            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interp_type: -1,
+            dirname: "data",
+            prefix: "NIC_weekly_",
+            postfix: "_res3.125_pyres.nc",
+            reference_date: "0001-01-01",
+
+            latitude: latitude,
+            longitude: longitude,
+
+            dimension_x: dimension_x,
+            dimension_y: dimension_y,
+
+            mpp_file: projfilename,
+            interpolation_in_latlon: false,
+            branch_cut_lon: -180,
+                //where the discontinuity in lon is
+                //(only for if interpolation_in_latlon=true)
+
+            loaded: false,
+            dataset_frequency:"nearest_daily",
+            target_location:"mesh_elements",
+
+            waveOptions: wavopt_none,
+
+            masking: true,
+            masking_variable: conc
+        };
+
+        std::vector<Variable> variables_tmp(1);
+        variables_tmp[0] = conc;
+
+        std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+        variables= variables_tmp;
+        vectorial_variables= vectorial_variables_tmp;
+        grid= grid_tmp;
+
+         averaging_period=1.; // days
+         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
+    }
+    else if (strcmp (DatasetName, "ice_nic_elements") == 0)
+    {
+        // Definition of topaz grid and datasets
+        Dimension dimension_x={
+            name:"x",
+            cyclic:false
+        };
+
+        Dimension dimension_y={
+            name:"y",
+            cyclic:false
+        };
+
+        Dimension dimension_time={
+            name:"time", // "Time"
+            cyclic:false
+        };
+
+        std::vector<Dimension> dimensions(3);
+        dimensions[0] = dimension_time;
+        dimensions[1] = dimension_y;
+        dimensions[2] = dimension_x;
+
+        std::vector<Dimension> dimensions_latlon(2);
+        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[1] = dimension_x;
+
+        std::vector<Dimension> dimensions_time(1);
+        dimensions_time[0] = dimension_time;
+
+        Variable latitude={
+            name: "latitude",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "degree_north",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none};
+
+        Variable longitude={
+            name: "longitude",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "degree_east",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none};
+
+        Variable time_tmp={
+            name: "time",
+            dimensions: dimensions_time,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 24.,
+            b: 12., // to center the time on the middle of the day
+            Units: "hours",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none};
+
+        Variable conc={
+            name: "sea_ice_concentration",
+            dimensions: dimensions,
+            land_mask_defined: true,
+            land_mask_value: 12500.,
+            NaN_mask_defined: true,
+            NaN_mask_value: 11500.,
+            use_FillValue: false,
+            use_missing_value: false,
+            a: 0.01,
+            b: 0.,
+            Units: "",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable mask={
+            name: "land",
+            dimensions: dimensions_latlon,
+            land_mask_defined: true,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Grid grid_tmp={
+            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interp_type: -1,
+            dirname: "data",
+            prefix: "NIC_",
+            postfix: "_res3.125_pyres.nc",
+            reference_date: "0001-01-01",
+
+            latitude: latitude,
+            longitude: longitude,
+
+            dimension_x: dimension_x,
+            dimension_y: dimension_y,
+
+            mpp_file: projfilename,
+            interpolation_in_latlon: false,
+            branch_cut_lon: -180,
+                //where the discontinuity in lon is
+                //(only for if interpolation_in_latlon=true)
+
+            loaded: false,
+            dataset_frequency:"nearest_daily",
+            target_location:"mesh_elements",
+
+            waveOptions: wavopt_none,
+
+            masking: true,
+            masking_variable: conc
+        };
+
+        std::vector<Variable> variables_tmp(1);
+        variables_tmp[0] = conc;
+
+        std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+        variables= variables_tmp;
+        vectorial_variables= vectorial_variables_tmp;
+        grid= grid_tmp;
+
+         averaging_period=1.; // days
+         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
+     }
+     else if (strcmp (DatasetName, "ice_icesat_elements") == 0)
+     {
+     	// Definition of the icesat grid and datasets
+         Dimension dimension_x={
+             name:"x",
+             cyclic:false
+     	};
+
+         Dimension dimension_y={
+             name:"y",
+             cyclic:false
+     	};
+
+        std::vector<Dimension> dimensions_latlon(2);
+        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[1] = dimension_x;
+
+        Variable latitude={
+            name: "Lat",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "degree_north",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable longitude={
+            name: "Lon",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "degree_east",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable thickness={
+     		name: "Th",
+     		dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+     		a: 0.01,
+     		b: 0.,
+     		Units: "",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+     	};
+
+        Grid grid_tmp={
+            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interp_type: -1,
+            dirname: "data",
+            prefix: "icesat_icethk_ON06",
+            postfix: "_filled.nc",
+            reference_date: "",
+
+            latitude: latitude,
+            longitude: longitude,
+
+            dimension_x: dimension_x,
+            dimension_y: dimension_y,
+
+            mpp_file: projfilename,
+     		interpolation_in_latlon: false,
+            branch_cut_lon: -180,
+                //where the discontinuity in lon is
+                //(only for if interpolation_in_latlon=true)
+
+            loaded: false,
+            dataset_frequency:"constant",
+            target_location:"mesh_elements",
+
+            waveOptions: wavopt_none,
+
+     		masking: false
+        };
+
+        std::vector<Variable> variables_tmp(1);
+        variables_tmp[0] = thickness;
+
+        std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+        variables= variables_tmp;
+        vectorial_variables= vectorial_variables_tmp;
+        grid= grid_tmp;
+
+        averaging_period=0.; // days
+#ifdef OASIS
+        coupled = false;
+#endif
+     }
+    else if (strcmp (DatasetName, "dist2coast_elements") == 0)
+    {
+        // Definition of dist2coast grid and datasets
+        Dimension dimension_x={
+            name:"lon",
+            cyclic:true
+        };
+
+        Dimension dimension_y={
+            name:"lat",
+            cyclic:false
+        };
+
+        std::vector<Dimension> dimensions_lon(1);
+        dimensions_lon[0] = dimension_x;
+
+        std::vector<Dimension> dimensions_lat(1);
+        dimensions_lat[0] = dimension_y;
+
+        std::vector<Dimension> dimensions(2);
+        dimensions[0] = dimension_y;
+        dimensions[1] = dimension_x;
+
+        Variable latitude={
+            name: "lat",
+            dimensions: dimensions_lat,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "degree_north",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable longitude={
+            name: "lon",
+            dimensions: dimensions_lon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "degree_east",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Grid grid_tmp={
+            interpolation_method: InterpolationType::FromGridToMesh,
+            //interp_type : TriangleInterpEnum, // slower
+            interp_type : BilinearInterpEnum,
+            //interp_type : NearestInterpEnum,
+            dirname:"data",
+            prefix:"dist2coast_4deg.nc",
+            //prefix:"dist2coast_1deg.nc",
+            postfix:"",
+            reference_date: "",
+
+            latitude: latitude,
+            longitude: longitude,
+
+            dimension_x: dimension_x,
+            dimension_y: dimension_y,
+
+            mpp_file: "",
+            interpolation_in_latlon: true,
+            branch_cut_lon: -179.98, // for the 4 deg dataset
+            //branch_cut_lon: -180,// for the 1 deg dataset
+                //where the discontinuity in lon is
+                //(only for if interpolation_in_latlon=true)
+
+            loaded: false,
+            dataset_frequency:"constant",
+            target_location:"mesh_elements",
+
+            waveOptions: wavopt_none,
+
+             masking: false
+        };
+
+        Variable dist={
+            name:"dist",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a:1000.,
+            b:0.,
+            Units:"m",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        std::vector<Variable> variables_tmp(1);
+        variables_tmp[0] = dist;
+
+        std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+        variables= variables_tmp;
+        vectorial_variables= vectorial_variables_tmp;
+
+        grid= grid_tmp;
+
+        averaging_period=0.;
+#ifdef OASIS
+        coupled = false;
+#endif
+    }
+    else if (strcmp (DatasetName, "etopo_elements") == 0)
+    {
+        // Definition of etopo grid and datasets
+        Dimension dimension_x={
+            name:"lon", // for ETOPO_Arctic_1arcmin.nc
+            //name:"x", // for ETOPO1_Ice_g_gmt4.grd
+            cyclic:false
+        };
+
+        Dimension dimension_y={
+            name:"lat", // for ETOPO_Arctic_1arcmin.nc
+            //name:"y", // for ETOPO1_Ice_g_gmt4.grd
+            cyclic:false
+        };
+
+        std::vector<Dimension> dimensions_lon(1);
+        dimensions_lon[0] = dimension_x;
+
+        std::vector<Dimension> dimensions_lat(1);
+        dimensions_lat[0] = dimension_y;
+
+        std::vector<Dimension> dimensions(2);
+        dimensions[0] = dimension_y;
+        dimensions[1] = dimension_x;
+
+        Variable latitude={
+            name: "lat",  // for ETOPO_Arctic_1arcmin.nc
+            //name: "y", // for ETOPO1_Ice_g_gmt4.grd
+            dimensions: dimensions_lat,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "degree_north",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable longitude={
+            name: "lon", // for ETOPO_Arctic_1arcmin.nc
+            //name: "x", // for ETOPO1_Ice_g_gmt4.grd
+            dimensions: dimensions_lon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "degree_east",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Grid grid_tmp={
+            interpolation_method: InterpolationType::FromGridToMesh,
+            //interp_type : TriangleInterpEnum, // slower
+            interp_type : BilinearInterpEnum,
+            //interp_type : NearestInterpEnum,
+            dirname:"data",
+            prefix:"ETOPO_Arctic_1arcmin.nc",
+            //prefix:"ETOPO1_Ice_g_gmt4.grd",
+            postfix:"",
+            reference_date: "",
+
+            latitude: latitude,
+            longitude: longitude,
+
+            dimension_x: dimension_x,
+            dimension_y: dimension_y,
+
+            mpp_file: "",
+            interpolation_in_latlon: true,
+            branch_cut_lon: -180,
+                //where the discontinuity in lon is
+                //(only for if interpolation_in_latlon=true)
+
+            loaded: false,
+            dataset_frequency:"constant",
+            target_location:"mesh_elements",
+
+            waveOptions: wavopt_none,
+
+             masking: false
+        };
+
+        Variable z={
+            name:"z",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a:-1.,
+            b:0.,
+            Units:"m",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        std::vector<Variable> variables_tmp(1);
+        variables_tmp[0] = z;
+
+        std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+        variables= variables_tmp;
+        vectorial_variables= vectorial_variables_tmp;
+
+        grid= grid_tmp;
+
+        averaging_period=0.;
+#ifdef OASIS
+        coupled = false;
+#endif
+    }
+    else if (strcmp (DatasetName, "cfsr_elements") == 0)
+        this->initCfsr("elements");
+    else if (strcmp (DatasetName, "cfsr_nodes") == 0)
+        this->initCfsr("nodes");
+    else if (strcmp (DatasetName, "cfsr_nodes_hi") == 0)
+        this->initCfsrHi();
     else if (strcmp (DatasetName, "ERAi_elements") == 0)
     {
         // Definition of dimensions
@@ -2336,10 +3002,6 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
-    else if (strcmp (DatasetName, "dist2coast_elements") == 0)
-        this->initDist2Coast();
-    else if (strcmp (DatasetName, "etopo_elements") == 0)
-        this->initEtopo();
     else if (strcmp (DatasetName, "ww3a_elements") == 0)
     {
         // Definition of WW3 Arctic analysed - grid and datasets
@@ -5811,696 +6473,25 @@ void DataSet::initIceAmsre()
 #endif
 }//initIceAmsre()
 
-void DataSet::initIceIcesat()
-{
-    // Definition of the icesat grid and datasets
-    Dimension dimension_x={
-         name:"x",
-         cyclic:false
-    };
-
-    Dimension dimension_y={
-         name:"y",
-         cyclic:false
-    };
-
-    std::vector<Dimension> dimensions_latlon(2);
-    dimensions_latlon[0] = dimension_y;
-    dimensions_latlon[1] = dimension_x;
-
-    Variable latitude={
-        name: "Lat",
-        dimensions: dimensions_latlon,
-        land_mask_defined: false,
-        land_mask_value: 0.,
-        NaN_mask_defined: false,
-        NaN_mask_value: 0.,
-        use_FillValue: true,
-        use_missing_value: true,
-        a: 1.,
-        b: 0.,
-        Units: "degree_north",
-        loaded_data: loaded_data_tmp,
-        interpolated_data: interpolated_data_tmp,
-        wavDirOptions: wavdiropt_none
-    };
-
-    Variable longitude={
-        name: "Lon",
-        dimensions: dimensions_latlon,
-        land_mask_defined: false,
-        land_mask_value: 0.,
-        NaN_mask_defined: false,
-        NaN_mask_value: 0.,
-        use_FillValue: true,
-        use_missing_value: true,
-        a: 1.,
-        b: 0.,
-        Units: "degree_east",
-        loaded_data: loaded_data_tmp,
-        interpolated_data: interpolated_data_tmp,
-        wavDirOptions: wavdiropt_none
-    };
-
-    Variable thickness={
-        name: "Th",
-        dimensions: dimensions_latlon,
-        land_mask_defined: false,
-        land_mask_value: 0.,
-        NaN_mask_defined: false,
-        NaN_mask_value: 0.,
-        use_FillValue: true,
-        use_missing_value: true,
-        a: 0.01,
-        b: 0.,
-        Units: "",
-        loaded_data: loaded_data_tmp,
-        interpolated_data: interpolated_data_tmp,
-        wavDirOptions: wavdiropt_none
-    };
-
-    Grid grid_tmp={
-        interpolation_method: InterpolationType::FromMeshToMesh2dx,
-        interp_type: -1,
-        dirname: "data",
-        prefix: "icesat_icethk_ON06",
-        postfix: "_filled.nc",
-        reference_date: "",
-
-        latitude: latitude,
-        longitude: longitude,
-
-        dimension_x: dimension_x,
-        dimension_y: dimension_y,
-
-        mpp_file: projfilename,
-        interpolation_in_latlon: false,
-        branch_cut_lon: -180,
-            //where the discontinuity in lon is
-            //(only for if interpolation_in_latlon=true)
-
-        loaded: false,
-        dataset_frequency:"constant",
-        target_location:"mesh_elements",
-
-        waveOptions: wavopt_none,
-
-        masking: false
-    };
-
-    std::vector<Variable> variables_tmp(1);
-    variables_tmp[0] = thickness;
-
-    std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
-
-    variables= variables_tmp;
-    vectorial_variables= vectorial_variables_tmp;
-    grid= grid_tmp;
-
-    averaging_period=0.; // days
-#ifdef OASIS
-    coupled = false;
-#endif
-}//initIceIcesat()
-
-void DataSet::initIceNic()
-{
-    // Definition of topaz grid and datasets
-    Dimension dimension_x={
-        name:"x",
-        cyclic:false
-    };
-
-    Dimension dimension_y={
-        name:"y",
-        cyclic:false
-    };
-
-    Dimension dimension_time={
-        name:"time", // "Time"
-        cyclic:false
-    };
-
-    std::vector<Dimension> dimensions(3);
-    dimensions[0] = dimension_time;
-    dimensions[1] = dimension_y;
-    dimensions[2] = dimension_x;
-
-    std::vector<Dimension> dimensions_latlon(2);
-    dimensions_latlon[0] = dimension_y;
-    dimensions_latlon[1] = dimension_x;
-
-    std::vector<Dimension> dimensions_time(1);
-    dimensions_time[0] = dimension_time;
-
-    Variable latitude={
-        name: "latitude",
-        dimensions: dimensions_latlon,
-        land_mask_defined: false,
-        land_mask_value: 0.,
-        NaN_mask_defined: false,
-        NaN_mask_value: 0.,
-        use_FillValue: true,
-        use_missing_value: true,
-        a: 1.,
-        b: 0.,
-        Units: "degree_north",
-        loaded_data: loaded_data_tmp,
-        interpolated_data: interpolated_data_tmp,
-        wavDirOptions: wavdiropt_none};
-
-    Variable longitude={
-        name: "longitude",
-        dimensions: dimensions_latlon,
-        land_mask_defined: false,
-        land_mask_value: 0.,
-        NaN_mask_defined: false,
-        NaN_mask_value: 0.,
-        use_FillValue: true,
-        use_missing_value: true,
-        a: 1.,
-        b: 0.,
-        Units: "degree_east",
-        loaded_data: loaded_data_tmp,
-        interpolated_data: interpolated_data_tmp,
-        wavDirOptions: wavdiropt_none};
-
-    Variable time_tmp={
-        name: "time",
-        dimensions: dimensions_time,
-        land_mask_defined: false,
-        land_mask_value: 0.,
-        NaN_mask_defined: false,
-        NaN_mask_value: 0.,
-        use_FillValue: true,
-        use_missing_value: true,
-        a: 24.,
-        b: 12., // to center the time on the middle of the day
-        Units: "hours",
-        loaded_data: loaded_data_tmp,
-        interpolated_data: interpolated_data_tmp,
-        wavDirOptions: wavdiropt_none};
-
-    Variable conc={
-        name: "sea_ice_concentration",
-        dimensions: dimensions,
-        land_mask_defined: true,
-        land_mask_value: 12500.,
-        NaN_mask_defined: true,
-        NaN_mask_value: 11500.,
-        use_FillValue: false,
-        use_missing_value: false,
-        a: 0.01,
-        b: 0.,
-        Units: "",
-        loaded_data: loaded_data_tmp,
-        interpolated_data: interpolated_data_tmp,
-        wavDirOptions: wavdiropt_none
-    };
-
-    Variable mask={
-        name: "land",
-        dimensions: dimensions_latlon,
-        land_mask_defined: true,
-        land_mask_value: 0.,
-        NaN_mask_defined: false,
-        NaN_mask_value: 0.,
-        use_FillValue: true,
-        use_missing_value: true,
-        a: 1.,
-        b: 0.,
-        Units: "",
-        loaded_data: loaded_data_tmp,
-        interpolated_data: interpolated_data_tmp,
-        wavDirOptions: wavdiropt_none
-    };
-
-    Grid grid_tmp={
-        interpolation_method: InterpolationType::FromMeshToMesh2dx,
-        interp_type: -1,
-        dirname: "data",
-        prefix: "NIC_",
-        postfix: "_res3.125_pyres.nc",
-        reference_date: "0001-01-01",
-
-        latitude: latitude,
-        longitude: longitude,
-
-        dimension_x: dimension_x,
-        dimension_y: dimension_y,
-
-        mpp_file: projfilename,
-        interpolation_in_latlon: false,
-        branch_cut_lon: -180,
-            //where the discontinuity in lon is
-            //(only for if interpolation_in_latlon=true)
-
-        loaded: false,
-        dataset_frequency:"nearest_daily",
-        target_location:"mesh_elements",
-
-        waveOptions: wavopt_none,
-
-        masking: true,
-        masking_variable: conc
-    };
-
-    std::vector<Variable> variables_tmp(1);
-    variables_tmp[0] = conc;
-
-    std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
-
-    variables= variables_tmp;
-    vectorial_variables= vectorial_variables_tmp;
-    grid= grid_tmp;
-
-     averaging_period=1.; // days
-     time= time_tmp;
-#ifdef OASIS
-    coupled = false;
-#endif
-}//initIceNic()
-
-void DataSet::initIceNicWeekly()
-{
-    // Definition of topaz grid and datasets
-    Dimension dimension_x={
-        name:"x",
-        cyclic:false
-    };
-
-    Dimension dimension_y={
-        name:"y",
-        cyclic:false
-    };
-
-    Dimension dimension_time={
-        name:"time", // "Time"
-        cyclic:false
-    };
-
-    std::vector<Dimension> dimensions(3);
-    dimensions[0] = dimension_time;
-    dimensions[1] = dimension_y;
-    dimensions[2] = dimension_x;
-
-    std::vector<Dimension> dimensions_latlon(2);
-    dimensions_latlon[0] = dimension_y;
-    dimensions_latlon[1] = dimension_x;
-
-    std::vector<Dimension> dimensions_time(1);
-    dimensions_time[0] = dimension_time;
-
-    Variable latitude={
-        name: "latitude",
-        dimensions: dimensions_latlon,
-        land_mask_defined: false,
-        land_mask_value: 0.,
-        NaN_mask_defined: false,
-        NaN_mask_value: 0.,
-        use_FillValue: true,
-        use_missing_value: true,
-        a: 1.,
-        b: 0.,
-        Units: "degree_north",
-        loaded_data: loaded_data_tmp,
-        interpolated_data: interpolated_data_tmp,
-        wavDirOptions: wavdiropt_none};
-
-    Variable longitude={
-        name: "longitude",
-        dimensions: dimensions_latlon,
-        land_mask_defined: false,
-        land_mask_value: 0.,
-        NaN_mask_defined: false,
-        NaN_mask_value: 0.,
-        use_FillValue: true,
-        use_missing_value: true,
-        a: 1.,
-        b: 0.,
-        Units: "degree_east",
-        loaded_data: loaded_data_tmp,
-        interpolated_data: interpolated_data_tmp,
-        wavDirOptions: wavdiropt_none};
-
-    Variable time_tmp={
-        name: "time",
-        dimensions: dimensions_time,
-        land_mask_defined: false,
-        land_mask_value: 0.,
-        NaN_mask_defined: false,
-        NaN_mask_value: 0.,
-        use_FillValue: true,
-        use_missing_value: true,
-        a: 24.,
-        b: 12., // to center the time on the middle of the day
-        Units: "hours",
-        loaded_data: loaded_data_tmp,
-        interpolated_data: interpolated_data_tmp,
-        wavDirOptions: wavdiropt_none};
-
-    Variable conc={
-        name: "sea_ice_concentration",
-        dimensions: dimensions,
-        land_mask_defined: true,
-        land_mask_value: 12500.,
-        NaN_mask_defined: true,
-        NaN_mask_value: 11500.,
-        use_FillValue: false,
-        use_missing_value: false,
-        a: 0.01,
-        b: 0.,
-        Units: "",
-        loaded_data: loaded_data_tmp,
-        interpolated_data: interpolated_data_tmp,
-        wavDirOptions: wavdiropt_none
-    };
-
-    Variable mask={
-        name: "land",
-        dimensions: dimensions_latlon,
-        land_mask_defined: true,
-        land_mask_value: 0.,
-        NaN_mask_defined: false,
-        NaN_mask_value: 0.,
-        use_FillValue: true,
-        use_missing_value: true,
-        a: 1.,
-        b: 0.,
-        Units: "",
-        loaded_data: loaded_data_tmp,
-        interpolated_data: interpolated_data_tmp,
-        wavDirOptions: wavdiropt_none
-    };
-
-    Grid grid_tmp={
-        interpolation_method: InterpolationType::FromMeshToMesh2dx,
-        interp_type: -1,
-        dirname: "data",
-        prefix: "NIC_weekly_",
-        postfix: "_res3.125_pyres.nc",
-        reference_date: "0001-01-01",
-
-        latitude: latitude,
-        longitude: longitude,
-
-        dimension_x: dimension_x,
-        dimension_y: dimension_y,
-
-        mpp_file: projfilename,
-        interpolation_in_latlon: false,
-        branch_cut_lon: -180,
-            //where the discontinuity in lon is
-            //(only for if interpolation_in_latlon=true)
-
-        loaded: false,
-        dataset_frequency:"nearest_daily",
-        target_location:"mesh_elements",
-
-        waveOptions: wavopt_none,
-
-        masking: true,
-        masking_variable: conc
-    };
-
-    std::vector<Variable> variables_tmp(1);
-    variables_tmp[0] = conc;
-
-    std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
-
-    variables= variables_tmp;
-    vectorial_variables= vectorial_variables_tmp;
-    grid= grid_tmp;
-
-    averaging_period=1.; // days
-    time= time_tmp;
-#ifdef OASIS
-    coupled = false;
-#endif
-}//initIceNicWeekly()
-
-// ============================================
-// topography
-void DataSet::initDist2Coast()
-{
-    // Definition of dist2coast grid and datasets
-    Dimension dimension_x={
-        name:"lon",
-        cyclic:true
-    };
-
-    Dimension dimension_y={
-        name:"lat",
-        cyclic:false
-    };
-
-    std::vector<Dimension> dimensions_lon(1);
-    dimensions_lon[0] = dimension_x;
-
-    std::vector<Dimension> dimensions_lat(1);
-    dimensions_lat[0] = dimension_y;
-
-    std::vector<Dimension> dimensions(2);
-    dimensions[0] = dimension_y;
-    dimensions[1] = dimension_x;
-
-    Variable latitude={
-        name: "lat",
-        dimensions: dimensions_lat,
-        land_mask_defined: false,
-        land_mask_value: 0.,
-        NaN_mask_defined: false,
-        NaN_mask_value: 0.,
-        use_FillValue: true,
-        use_missing_value: true,
-        a: 1.,
-        b: 0.,
-        Units: "degree_north",
-        loaded_data: loaded_data_tmp,
-        interpolated_data: interpolated_data_tmp,
-        wavDirOptions: wavdiropt_none
-    };
-
-    Variable longitude={
-        name: "lon",
-        dimensions: dimensions_lon,
-        land_mask_defined: false,
-        land_mask_value: 0.,
-        NaN_mask_defined: false,
-        NaN_mask_value: 0.,
-        use_FillValue: true,
-        use_missing_value: true,
-        a: 1.,
-        b: 0.,
-        Units: "degree_east",
-        loaded_data: loaded_data_tmp,
-        interpolated_data: interpolated_data_tmp,
-        wavDirOptions: wavdiropt_none
-    };
-
-    Grid grid_tmp={
-        interpolation_method: InterpolationType::FromGridToMesh,
-        //interp_type : TriangleInterpEnum, // slower
-        interp_type : BilinearInterpEnum,
-        //interp_type : NearestInterpEnum,
-        dirname:"data",
-        prefix:"dist2coast_4deg.nc",
-        //prefix:"dist2coast_1deg.nc",
-        postfix:"",
-        reference_date: "",
-
-        latitude: latitude,
-        longitude: longitude,
-
-        dimension_x: dimension_x,
-        dimension_y: dimension_y,
-
-        mpp_file: "",
-        interpolation_in_latlon: true,
-        branch_cut_lon: -179.98, // for the 4 deg dataset
-        //branch_cut_lon: -180,// for the 1 deg dataset
-            //where the discontinuity in lon is
-            //(only for if interpolation_in_latlon=true)
-
-        loaded: false,
-        dataset_frequency:"constant",
-        target_location:"mesh_elements",
-
-        waveOptions: wavopt_none,
-
-         masking: false
-    };
-
-    Variable dist={
-        name:"dist",
-        dimensions: dimensions,
-        land_mask_defined: false,
-        land_mask_value: 0.,
-        NaN_mask_defined: false,
-        NaN_mask_value: 0.,
-        use_FillValue: true,
-        use_missing_value: true,
-        a:1000.,
-        b:0.,
-        Units:"m",
-        loaded_data: loaded_data_tmp,
-        interpolated_data: interpolated_data_tmp,
-        wavDirOptions: wavdiropt_none
-    };
-
-    std::vector<Variable> variables_tmp(1);
-    variables_tmp[0] = dist;
-
-    std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
-
-    variables= variables_tmp;
-    vectorial_variables= vectorial_variables_tmp;
-
-    grid= grid_tmp;
-
-    averaging_period=0.;
-#ifdef OASIS
-    coupled = false;
-#endif
-}//initDist2Coast()
-
-void DataSet::initEtopo()
-{
-    // Definition of etopo grid and datasets
-    Dimension dimension_x={
-        name:"lon", // for ETOPO_Arctic_1arcmin.nc
-        //name:"x", // for ETOPO1_Ice_g_gmt4.grd
-        cyclic:false
-    };
-
-    Dimension dimension_y={
-        name:"lat", // for ETOPO_Arctic_1arcmin.nc
-        //name:"y", // for ETOPO1_Ice_g_gmt4.grd
-        cyclic:false
-    };
-
-    std::vector<Dimension> dimensions_lon(1);
-    dimensions_lon[0] = dimension_x;
-
-    std::vector<Dimension> dimensions_lat(1);
-    dimensions_lat[0] = dimension_y;
-
-    std::vector<Dimension> dimensions(2);
-    dimensions[0] = dimension_y;
-    dimensions[1] = dimension_x;
-
-    Variable latitude={
-        name: "lat",  // for ETOPO_Arctic_1arcmin.nc
-        //name: "y", // for ETOPO1_Ice_g_gmt4.grd
-        dimensions: dimensions_lat,
-        land_mask_defined: false,
-        land_mask_value: 0.,
-        NaN_mask_defined: false,
-        NaN_mask_value: 0.,
-        use_FillValue: true,
-        use_missing_value: true,
-        a: 1.,
-        b: 0.,
-        Units: "degree_north",
-        loaded_data: loaded_data_tmp,
-        interpolated_data: interpolated_data_tmp,
-        wavDirOptions: wavdiropt_none
-    };
-
-    Variable longitude={
-        name: "lon", // for ETOPO_Arctic_1arcmin.nc
-        //name: "x", // for ETOPO1_Ice_g_gmt4.grd
-        dimensions: dimensions_lon,
-        land_mask_defined: false,
-        land_mask_value: 0.,
-        NaN_mask_defined: false,
-        NaN_mask_value: 0.,
-        use_FillValue: true,
-        use_missing_value: true,
-        a: 1.,
-        b: 0.,
-        Units: "degree_east",
-        loaded_data: loaded_data_tmp,
-        interpolated_data: interpolated_data_tmp,
-        wavDirOptions: wavdiropt_none
-    };
-
-    Grid grid_tmp={
-        interpolation_method: InterpolationType::FromGridToMesh,
-        //interp_type : TriangleInterpEnum, // slower
-        interp_type : BilinearInterpEnum,
-        //interp_type : NearestInterpEnum,
-        dirname:"data",
-        prefix:"ETOPO_Arctic_1arcmin.nc",
-        //prefix:"ETOPO1_Ice_g_gmt4.grd",
-        postfix:"",
-        reference_date: "",
-
-        latitude: latitude,
-        longitude: longitude,
-
-        dimension_x: dimension_x,
-        dimension_y: dimension_y,
-
-        mpp_file: "",
-        interpolation_in_latlon: true,
-        branch_cut_lon: -180,
-            //where the discontinuity in lon is
-            //(only for if interpolation_in_latlon=true)
-
-        loaded: false,
-        dataset_frequency:"constant",
-        target_location:"mesh_elements",
-
-        waveOptions: wavopt_none,
-
-         masking: false
-    };
-
-    Variable z={
-        name:"z",
-        dimensions: dimensions,
-        land_mask_defined: false,
-        land_mask_value: 0.,
-        NaN_mask_defined: false,
-        NaN_mask_value: 0.,
-        use_FillValue: true,
-        use_missing_value: true,
-        a:-1.,
-        b:0.,
-        Units:"m",
-        loaded_data: loaded_data_tmp,
-        interpolated_data: interpolated_data_tmp,
-        wavDirOptions: wavdiropt_none
-    };
-
-    std::vector<Variable> variables_tmp(1);
-    variables_tmp[0] = z;
-
-    std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
-
-    variables= variables_tmp;
-    vectorial_variables= vectorial_variables_tmp;
-
-    grid= grid_tmp;
-
-    averaging_period=0.;
-#ifdef OASIS
-    coupled = false;
-#endif
-}//initEtopo()
-
 #if 0
 // atmospheric forcing
 void DataSet::initErai(const std::string option)
 void DataSet::initEc(const std::string option)
-void DataSet::initEc2(const std::string option)
 
 // ocean forcing
 void DataSet::initTopaz(const std::string option)
 void DataSet::initTopazForecast(const std::string option)
 void DataSet::initOceanCurrents(const std::string option)
 
+// ice
+void DataSet::initIceNic()
+void DataSet::initIceNicWeekly()
+void DataSet::initIceIcesat()
+
+// ============================================
+// topography
+void DataSet::initDist2Coast()
+void DataSet::initEtopo()
 
 // ============================================
 // wave forcing

@@ -242,7 +242,6 @@ private:
     void initAsr(const std::string option);
     void initErai(const std::string option);
     void initEc(const std::string option);
-    void initEc2(const std::string option);
     void initCfsr(const std::string option);
     void initCfsrHi();
 
