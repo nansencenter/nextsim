@@ -72,6 +72,8 @@ public:
     std::vector<element_type> const& triangles() const {return M_triangles;}
     std::vector<element_type> const& edges() const {return M_edges;}
 
+    std::map<std::string, std::vector<int> > markerNames() const {return M_marker_names;}
+
     int numGlobalNodes() const {return M_global_num_nodes;}
     int numGlobalNodesFromSarialMesh() const {return M_global_num_nodes_from_serial;}
     int numNodes() const {return M_num_nodes;}
@@ -183,6 +185,9 @@ private:
     bimap_type M_transfer_map;
     bimap_type M_transfer_map_reordered;
     bimap_type M_transfer_map_elt;
+
+    // container for storing the mesh marker names
+    std::map<std::string, std::vector<int> > M_marker_names;
 
     //bimap_type M_reorder_map_nodes;
     //std::map<int,int> M_reorder_map_nodes; (not stored in memory)
