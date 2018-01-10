@@ -170,18 +170,13 @@ public:
 
     DataSet();
 
-    DataSet(char const *DatasetName);
+    DataSet(char const *DatasetName,int target_size);
 
 public:
     Grid grid;
 
-    std::vector<Variable> variables;
-        // vector listing all the available variables,
-        // including the components of the vectorial variables
-
-    std::vector<Vectorial_Variable> vectorial_variables;
-        // vectors listing the vectorial variables
-
+    std::vector<Variable> variables; // vector listing all the available variables, included the components of the vectorial variables
+    std::vector<Vectorial_Variable> vectorial_variables; // vectors listing the vectorial variables
     int target_size;
     int nb_forcing_step;
     double rotation_angle;
@@ -189,33 +184,24 @@ public:
     bool loaded;
     bool interpolated;
 
-    double averaging_period;
-        // 0. for snapshot, 1. for daily values, 365./12 for monthly values.
+    double averaging_period; // 0. for snapshot, 1. for daily values, 365./12 for monthly values.
     Variable time;
 
     std::vector<double> ftime_range;
             
-    std::string getFilename(Grid *grid,
-            double init_time, double current_time); 
+    std::string getFilename(Grid *grid, double init_time, double current_time); 
 
-    void loadGrid(Grid *grid, double init_time,
-            double current_time);
+    void loadGrid(Grid *grid, double init_time, double current_time);
 
-    void loadGrid(Grid *grid, double init_time,
-            double current_time, double RX_min, double RX_max,
-            double RY_min, double RY_max);
+    void loadGrid(Grid *grid, double init_time, double current_time, double RX_min, double RX_max, double RY_min, double RY_max);
 
     void getLatLonRegularLatLon(double* LAT, double* LON,
-            netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
+                                  netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
 
-    void getXYRegularXY(double* X, double* Y,
-            netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
+    void getXYRegularXY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
 
-    void getXYLatLonFromLatLon(double* X, double* Y,
-            double* LAT, double* LON,
-            netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
-    double thetaInRange(double const& th_,
-            double const& th1, bool const& close_on_right=false) const;
+    void getXYLatLonFromLatLon(double* X, double* Y,double* LAT, double* LON, netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
+    double thetaInRange(double const& th_, double const& th1, bool const& close_on_right=false);
 
     void getLatLonXYVectors(std::vector<double> &LAT,std::vector<double> &LON,
         std::vector<double> &X,std::vector<double> &Y,mapx_class *mapNextsim);

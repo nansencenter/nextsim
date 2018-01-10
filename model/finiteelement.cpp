@@ -263,39 +263,39 @@ FiniteElement::initDatasets()
             break;
 
         case setup::AtmosphereType::ASR:
-            M_atmosphere_nodes_dataset=DataSet("asr_nodes");
-            M_atmosphere_elements_dataset=DataSet("asr_elements");
+            M_atmosphere_nodes_dataset=DataSet("asr_nodes",M_num_nodes);
+            M_atmosphere_elements_dataset=DataSet("asr_elements",M_num_elements);
             break;
 
         case setup::AtmosphereType::ERAi:
-            M_atmosphere_nodes_dataset=DataSet("ERAi_nodes");
-            M_atmosphere_elements_dataset=DataSet("ERAi_elements");
+            M_atmosphere_nodes_dataset=DataSet("ERAi_nodes",M_num_nodes);
+            M_atmosphere_elements_dataset=DataSet("ERAi_elements",M_num_elements);
             break;
 
         case setup::AtmosphereType::EC:
-            M_atmosphere_nodes_dataset=DataSet("ec_nodes");
-            M_atmosphere_elements_dataset=DataSet("ec_elements");
+            M_atmosphere_nodes_dataset=DataSet("ec_nodes",M_num_nodes);
+            M_atmosphere_elements_dataset=DataSet("ec_elements",M_num_elements);
             break;
         
         case setup::AtmosphereType::EC2:
-            M_atmosphere_nodes_dataset=DataSet("ec2_nodes");
-            M_atmosphere_elements_dataset=DataSet("ec2_elements");
+            M_atmosphere_nodes_dataset=DataSet("ec2_nodes",M_num_nodes);
+            M_atmosphere_elements_dataset=DataSet("ec2_elements",M_num_elements);
             break;
 
         case setup::AtmosphereType::EC_ERAi:
-            M_atmosphere_nodes_dataset=DataSet("ec_nodes");
-            M_atmosphere_elements_dataset=DataSet("ec_elements");
-            M_atmosphere_bis_elements_dataset=DataSet("ERAi_elements");
+            M_atmosphere_nodes_dataset=DataSet("ec_nodes",M_num_nodes);
+            M_atmosphere_elements_dataset=DataSet("ec_elements",M_num_elements);
+            M_atmosphere_bis_elements_dataset=DataSet("ERAi_elements",M_num_elements);
             break;
 
         case setup::AtmosphereType::CFSR:
-            M_atmosphere_nodes_dataset=DataSet("cfsr_nodes");
-            M_atmosphere_elements_dataset=DataSet("cfsr_elements");
+            M_atmosphere_nodes_dataset=DataSet("cfsr_nodes",M_num_nodes);
+            M_atmosphere_elements_dataset=DataSet("cfsr_elements",M_num_elements);
             break;
 
         case setup::AtmosphereType::CFSR_HI:
-            M_atmosphere_nodes_dataset=DataSet("cfsr_nodes_hi");
-            M_atmosphere_elements_dataset=DataSet("cfsr_elements");
+            M_atmosphere_nodes_dataset=DataSet("cfsr_nodes_hi",M_num_nodes);
+            M_atmosphere_elements_dataset=DataSet("cfsr_elements",M_num_elements);
             break;
 
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
@@ -308,18 +308,18 @@ FiniteElement::initDatasets()
 
         case setup::OceanType::TOPAZR:
         case setup::OceanType::TOPAZR_atrest:
-            M_ocean_nodes_dataset=DataSet("topaz_nodes");
-            M_ocean_elements_dataset=DataSet("topaz_elements");
+            M_ocean_nodes_dataset=DataSet("topaz_nodes",M_num_nodes);
+            M_ocean_elements_dataset=DataSet("topaz_elements",M_num_elements);
             break;
             
         case setup::OceanType::TOPAZR_ALTIMETER:
-            M_ocean_nodes_dataset=DataSet("ocean_currents_nodes");
-            M_ocean_elements_dataset=DataSet("topaz_elements");
+            M_ocean_nodes_dataset=DataSet("ocean_currents_nodes",M_num_nodes);
+            M_ocean_elements_dataset=DataSet("topaz_elements",M_num_elements);
             break;
 
         case setup::OceanType::TOPAZF:
-            M_ocean_nodes_dataset=DataSet("topaz_forecast_nodes");
-            M_ocean_elements_dataset=DataSet("topaz_forecast_elements");
+            M_ocean_nodes_dataset=DataSet("topaz_forecast_nodes",M_num_nodes);
+            M_ocean_elements_dataset=DataSet("topaz_forecast_elements",M_num_elements);
             break;
 
         default:        std::cout << "invalid ocean forcing"<<"\n";throw std::logic_error("invalid ocean forcing");
@@ -328,9 +328,9 @@ FiniteElement::initDatasets()
     if (M_use_wim)
     {
         if (M_wave_type == setup::WaveType::WW3A)
-            M_wave_elements_dataset = DataSet("ww3a_elements");
+            M_wave_elements_dataset = DataSet("ww3a_elements",M_num_elements);
         else if (M_wave_type == setup::WaveType::ERAI_WAVES_1DEG)
-            M_wave_elements_dataset = DataSet("erai_waves_1deg_elements");
+            M_wave_elements_dataset = DataSet("erai_waves_1deg_elements",M_num_elements);
         else if (M_wave_type != setup::WaveType::SET_IN_WIM)
         {
             std::cout << "invalid wave forcing"<<"\n";
@@ -339,29 +339,29 @@ FiniteElement::initDatasets()
     }
 #endif
 
-    M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements");
+    M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements",M_num_elements);
 
-    M_ice_icesat_elements_dataset=DataSet("ice_icesat_elements");
+    M_ice_icesat_elements_dataset=DataSet("ice_icesat_elements",M_num_elements);
 
-    M_ice_piomas_elements_dataset=DataSet("ice_piomas_elements");
+    M_ice_piomas_elements_dataset=DataSet("ice_piomas_elements",M_num_elements);
 
-    M_ice_amsre_elements_dataset=DataSet("ice_amsre_elements");
+    M_ice_amsre_elements_dataset=DataSet("ice_amsre_elements",M_num_elements);
 
-    M_ice_osisaf_elements_dataset=DataSet("ice_osisaf_elements");
+    M_ice_osisaf_elements_dataset=DataSet("ice_osisaf_elements",M_num_elements);
 
-    M_ice_osisaf_type_elements_dataset=DataSet("ice_osisaf_type_elements");
+    M_ice_osisaf_type_elements_dataset=DataSet("ice_osisaf_type_elements",M_num_elements);
 
-    M_ice_amsr2_elements_dataset=DataSet("ice_amsr2_elements");
+    M_ice_amsr2_elements_dataset=DataSet("ice_amsr2_elements",M_num_elements);
     
-    M_ice_nic_elements_dataset=DataSet("ice_nic_elements");
+    M_ice_nic_elements_dataset=DataSet("ice_nic_elements",M_num_elements);
     
-    M_ice_nic_weekly_elements_dataset=DataSet("ice_nic_weekly_elements");
+    M_ice_nic_weekly_elements_dataset=DataSet("ice_nic_weekly_elements",M_num_elements);
 
-    M_ice_cs2_smos_elements_dataset=DataSet("ice_cs2_smos_elements");
+    M_ice_cs2_smos_elements_dataset=DataSet("ice_cs2_smos_elements",M_num_elements);
 
-    M_ice_smos_elements_dataset=DataSet("ice_smos_elements");
+    M_ice_smos_elements_dataset=DataSet("ice_smos_elements",M_num_elements);
 
-    M_bathymetry_elements_dataset=DataSet("etopo_elements");
+    M_bathymetry_elements_dataset=DataSet("etopo_elements",M_num_elements);//M_num_nodes);
 
     // datasets that need to be re-interpolated after regridding
     // - not needed if only used at initialisation, or if not interpolated onto
