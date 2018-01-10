@@ -9410,18 +9410,19 @@ FiniteElement::wimPostRegrid()
     // - eg don't need it in update(), before advect()
     M_collect_wavespec  = false;
 
+    // pass back displacement of nodes at last WIM call,
+    // relative to the new mesh
+    // - this has now been interpolated to the new nodes
+    M_wim.setRelativeMeshDisplacement(M_wim_meshdisp);
+
     //M_wim.nextsim_mesh
-    M_wim.setMesh(M_mesh,M_UM,bamgmesh,M_flag_fix,true);//true means M_wim.assignSpatial() is called here
+    M_wim.setMesh2(M_mesh,M_UM,bamgmesh,M_flag_fix,true);//true means M_wim.assignSpatial() is called here
 
     // pass back interpolated wave spectrum to new elements;
     // interpolation scheme interp2cavities is conservative
     // - ie new element area is accounted for
     M_wim.setWaveSpec(M_wavespec);
 
-    // pass back displacement of nodes at last WIM call,
-    // relative to the new mesh
-    // - this has now been interpolated to the new nodes
-    M_wim.setRelativeMeshDisplacement(M_wim_meshdisp);
 
     std::cout<<"leaving wimPostRegrid()\n";
 }//wimPostRegrid()
@@ -9662,7 +9663,7 @@ FiniteElement::wimCall()
                 M_wim.setMesh(movedmesh);
             else if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
                 //NB setMesh() already called in init
-                M_wim.setMesh(movedmesh,bamgmesh,M_flag_fix);
+                M_wim.setMesh2(movedmesh,bamgmesh,M_flag_fix);
 
             //set ice fields on mesh
             if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE)

@@ -133,15 +133,20 @@ public:
 
     // ========================================================================
     // set mesh
+
+    // wim on its own grid
+    // - need mesh for interpolation etc
     void setMesh( T_gmsh const &mesh);
     void setMesh( T_gmsh const &mesh,
             T_val_vec const &um);
-    void setMesh( T_gmsh const &mesh,
+
+    // wim on nextsim mesh
+    void setMesh2( T_gmsh const &mesh,
             T_val_vec const &um,
             BamgMesh* bamgmesh,
             int const& flag_fix,
             bool const& assign_spatial=false);
-    void setMesh( T_gmsh const &mesh,
+    void setMesh2( T_gmsh const &mesh,
             BamgMesh* bamgmesh,
             int const& flag_fix,
             bool const& assign_spatial=false);
