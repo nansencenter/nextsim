@@ -96,19 +96,19 @@ void IceInfo<T>::setFields(T_val_vec const& conc,
     M_conc          = conc;
     M_vol           = vol;
     M_nfloes        = nfloes;
-    this->setFields();
+    this->updateFields();
 }//setFields()
 
 
 template<typename T>
-void IceInfo<T>::setFields()
+void IceInfo<T>::updateFields()
 {
     // this needs to be called each time grid or mesh changes
     // ie initially, and if(M_wim_on_mesh), after regridding
     // set sizes of arrays, initialises some others that are constant in time
 
     if(!M_initialized)
-        throw std::runtime_error("IceInfo objected (name="+M_name+") not initialised yet - can't call setFields()\n");
+        throw std::runtime_error("IceInfo objected (name="+M_name+") not initialised yet - can't call updateFields()\n");
     M_num_elements  = M_conc.size();
 
     //2D var's
@@ -116,7 +116,7 @@ void IceInfo<T>::setFields()
     M_thick.assign (M_num_elements ,0.);
     M_broken.assign(M_num_elements ,0.);
     M_mask.assign  (M_num_elements ,0.);
-    //std::cout<<"cicemin (setFields) = "<<M_ice_params.M_cice_min<<"\n";
+    //std::cout<<"cicemin (updateFields) = "<<M_ice_params.M_cice_min<<"\n";
 
 #pragma omp parallel for num_threads(M_max_threads) collapse(1)
     for (int i=0;i<M_num_elements;i++)
@@ -158,7 +158,7 @@ void IceInfo<T>::setFields()
 
 #if 1
     //test fields
-    std::cout<<"IceInfo::setFields ("<<M_name<<"): check ice fields\n";
+    std::cout<<"IceInfo::updateFields ("<<M_name<<"): check ice fields\n";
     this->printRange( "conc      (iceinfo)" , M_conc   );
     this->printRange( "thickness (iceinfo)" , M_thick  );
     this->printRange( "Nfloes    (iceinfo)" , M_nfloes );
@@ -166,7 +166,7 @@ void IceInfo<T>::setFields()
     this->printRange( "M_mask    (iceinfo)" , M_mask   );
 #endif
 
-}//setFields()
+}//updateFields()
 
 template<typename T>
 void IceInfo<T>::doBreaking(T_val_vec const& mom0,T_val_vec const& mom2,T_val_vec const& var_strain)
