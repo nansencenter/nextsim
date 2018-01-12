@@ -20,6 +20,7 @@ if [ `pwd` != $NEXTSIMDIR/model ]
 then
    # make a local copy of executable
    # (so can recompile code and run somewhere else)
+   rm -rf bin #make sure any old executable is deleted
    mkdir -p bin
    cp $NEXTSIMDIR/model/$prog $prog
 fi
