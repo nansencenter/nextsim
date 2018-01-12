@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <assert.hpp>
 #include <boost/bimap.hpp>
+#include <boost/algorithm/string/trim.hpp>
 
 #include <environment.hpp>
 #include <entities.hpp>
@@ -73,6 +74,8 @@ public:
     std::vector<point_type> const& nodes() const {return M_nodes;}
     std::vector<element_type> const& triangles() const {return M_triangles;}
     std::vector<element_type> const& edges() const {return M_edges;}
+
+    std::map<std::string, std::vector<int> > markerNames() const {return M_marker_names;}
 
     int numNodes() const {return M_num_nodes;}
     int numTriangles() const {return M_num_triangles;}
@@ -144,6 +147,9 @@ private:
     int M_num_nodes;
     int M_num_triangles;
     int M_num_edges;
+
+    // container for storing the mesh marker names
+    std::map<std::string, std::vector<int> > M_marker_names;
 
     //meshPartitionOptions M_partition_options;
     GModel*  M_gmodel;

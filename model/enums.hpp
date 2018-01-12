@@ -96,7 +96,9 @@ namespace setup
         BIGKARA        = 3,
         ARCTIC         = 4,
         BIGARCTIC      = 5,
-        WIM            = 6
+        WIM            = 6,
+        FROM_SPLIT     = 7,
+        UNREF          = 8
     };
 
     enum class MeshType

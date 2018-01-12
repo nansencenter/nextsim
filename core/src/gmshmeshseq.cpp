@@ -116,6 +116,33 @@ GmshMeshSeq::readFromFile(std::string const& filename)
 
         std::cout << "[importergmsh] " << __buf << " (expect $PhysicalNames)\n";
 
+        if ( std::string( __buf ) == "$PhysicalNames" )
+        {
+            int nnames;
+            __is >> nnames;
+
+            for ( int n = 0; n < nnames; ++n )
+            {
+                int id, topodim;
+                std::string name;
+
+                __is >> topodim >> id >> name;
+
+                boost::trim( name );
+                boost::trim_if( name,boost::is_any_of( "\"" ) );
+
+                std::cout << "[gmshmesh::reading] topodim: "  << topodim << " id: " << id << " name: " << name << "\n";
+
+                std::vector<int> marker_data = {id, topodim};
+                M_marker_names.insert(std::make_pair(name,marker_data));
+            }
+
+            __is >> __buf;
+            ASSERT(std::string( __buf ) == "$EndPhysicalNames","invalid file format entry");
+
+            __is >> __buf;
+        }
+
     }
 
     // Read NODES

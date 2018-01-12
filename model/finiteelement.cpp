@@ -33,31 +33,6 @@ FiniteElement::FiniteElement()
 void
 FiniteElement::initMesh()
 {
-    switch (M_domain_type)
-    {
-        case setup::DomainType::DEFAULT:
-            M_flag_fix = 10000; // free = [10001 10002];
-            break;
-        case setup::DomainType::KARA:
-            M_flag_fix = 17; // free = [15 16];
-            break;
-        case setup::DomainType::BERINGKARA:
-            M_flag_fix = 1; // free = [];
-            break;
-        case setup::DomainType::BIGKARA:
-            M_flag_fix = 158; // free = 157;
-            break;
-        case setup::DomainType::ARCTIC:
-            M_flag_fix = 174; // free = [172 173];
-            break;
-        case setup::DomainType::BIGARCTIC:
-            M_flag_fix = 161; // free = 158:160;
-            break;
-        default:
-            std::cout << "invalid domain type"<<"\n";
-            throw std::logic_error("invalid domain type");
-    }
-
     this->initBamg();
 
     M_comm = M_mesh.comm();
@@ -314,7 +289,43 @@ FiniteElement::rootMeshProcessing()
 {
     if (M_rank == 0)
     {
-        M_mesh_root.setOrdering("bamg");
+        // For backwards compatability with older setups
+        switch (M_domain_type)
+        {
+            case setup::DomainType::DEFAULT:
+            case setup::DomainType::FROM_SPLIT:
+                M_flag_fix = 10000; // free = [10001 10002];
+                M_mesh_root.setOrdering("gmsh");
+                break;
+            case setup::DomainType::KARA:
+                M_flag_fix = 17; // free = [15 16];
+                M_mesh_root.setOrdering("bamg");
+                break;
+            case setup::DomainType::BERINGKARA:
+                M_flag_fix = 1; // free = [];
+                M_mesh_root.setOrdering("bamg");
+                break;
+            case setup::DomainType::BIGKARA:
+                M_flag_fix = 158; // free = 157;
+                M_mesh_root.setOrdering("bamg");
+                break;
+            case setup::DomainType::ARCTIC:
+                M_flag_fix = 174; // free = [172 173];
+                M_mesh_root.setOrdering("bamg");
+                break;
+            case setup::DomainType::BIGARCTIC:
+                M_flag_fix = 161; // free = 158:160;
+                M_mesh_root.setOrdering("bamg");
+                break;
+            case setup::DomainType::UNREF:
+                M_flag_fix = 1; // free = 2;
+                M_mesh_root.setOrdering("gmsh");
+                break;
+            default:
+                std::cout << "invalid domain type"<<"\n";
+                throw std::logic_error("invalid domain type");
+        }
+
         LOG(DEBUG) <<"Reading root mesh starts\n";
         chrono.restart();
         M_mesh_root.readFromFile(M_mesh_filename);
@@ -333,6 +344,18 @@ FiniteElement::rootMeshProcessing()
                          M_mesh_root.numNodes(), M_mesh_root.numTriangles()
                          );
 
+        // ------ Boundary conditions -----------
+
+        // set M_flag_fix to its correct value when PhysicalNames section is present in the msh file (version 2.2)
+        if (!(M_mesh_root.markerNames()).empty())
+        {
+            LOG(DEBUG) <<"M_flag_fix before being changed was: " << M_flag_fix << "\n";
+            // get the id associated to the physical name "coast" and assign it to M_flag_fix
+            M_flag_fix = M_mesh_root.markerNames().find("coast")->second[0];
+            LOG(DEBUG) <<"M_flag_fix changed to: " << M_flag_fix << "\n";
+        } else {
+            LOG(DEBUG) <<"M_flag_fix left as: " << M_flag_fix << "\n";
+        }
 
         for (auto it=M_mesh_root.edges().begin(), end=M_mesh_root.edges().end(); it!=end; ++it)
         {
@@ -457,6 +480,9 @@ FiniteElement::rootMeshProcessing()
         M_mesh_filename = (boost::format( "par%1%%2%" ) % M_comm.size() % M_mesh_filename ).str();
         // LOG(DEBUG) <<"["<< M_rank <<"] " <<"filename= "<< M_mesh_filename <<"\n";
     }
+
+    boost::mpi::broadcast(M_comm, M_flag_fix, 0);
+
 }
 
 void
@@ -1016,6 +1042,13 @@ FiniteElement::initBamg()
 void
 FiniteElement::initConstant()
 {
+    const boost::unordered_map<const std::string, LogLevel> str2log = boost::assign::map_list_of
+        ("info", INFO)
+        ("warning", WARNING)
+        ("debug", DEBUG)
+        ("error", ERROR);
+    M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
+
     nu0 = vm["simul.nu0"].as<double>();
     young = vm["simul.young"].as<double>();
     rhoi = physical::rhoi;
@@ -1159,12 +1192,14 @@ FiniteElement::initConstant()
         ("constant", setup::BathymetryType::CONSTANT)
         ("etopo", setup::BathymetryType::ETOPO);
     M_bathymetry_type = str2bathymetry.find(vm["setup.bathymetry-type"].as<std::string>())->second;
+    LOG(DEBUG) <<"BATHYMETRYTYPE= "<< (int) M_bathymetry_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::BasalStressType> str2basal_stress= boost::assign::map_list_of
         ("none", setup::BasalStressType::NONE)
         ("lemieux", setup::BasalStressType::LEMIEUX)
         ("bouillon", setup::BasalStressType::BOUILLON);
     M_basal_stress_type = str2basal_stress.find(vm["simul.basal_stress-type"].as<std::string>())->second;
+    LOG(DEBUG) <<"BASALSTRESTYPE= "<< (int) M_basal_stress_type <<"\n";
 
     M_use_iabp_drifters=vm["simul.use_iabp_drifters"].as<bool>();
     M_equallyspaced_drifters_output_time_step=vm["simul.equallyspaced_drifters_output_time_step"].as<double>();
@@ -1185,6 +1220,27 @@ FiniteElement::initConstant()
     }
 
     M_use_drifters = (M_use_iabp_drifters) || (M_use_osisaf_drifters) || (M_use_equallyspaced_drifters) || (M_use_rgps_drifters);
+
+    const boost::unordered_map<const std::string, setup::DomainType> str2domain = boost::assign::map_list_of
+        ("default", setup::DomainType::DEFAULT)
+        ("from_split", setup::DomainType::FROM_SPLIT)
+        ("kara", setup::DomainType::KARA)
+        ("beringkara", setup::DomainType::BERINGKARA)
+        ("bigkara", setup::DomainType::BIGKARA)
+        ("arctic", setup::DomainType::ARCTIC)
+        ("bigarctic", setup::DomainType::BIGARCTIC)
+        ("unref", setup::DomainType::UNREF);
+    M_domain_type = str2domain.find(vm["setup.domain-type"].as<std::string>())->second;
+    LOG(DEBUG) <<"DOMAINTYPE= "<< (int) M_domain_type <<"\n";
+
+    // mesh type
+    if ( M_domain_type == setup::DomainType::FROM_SPLIT )
+        M_mesh_type = setup::MeshType::FROM_SPLIT;
+    else
+        M_mesh_type = setup::MeshType::FROM_GMSH;
+
+    M_mesh_filename = vm["mesh.filename"].as<std::string>();
+    M_mesh_fileformat = vm["mesh.fileformat"].as<std::string>();
 
     // option for enabling/disabling the moorings
     M_use_moorings =  vm["simul.use_moorings"].as<bool>();
@@ -1207,30 +1263,6 @@ FiniteElement::initConstant()
         ("memory", mesh::PartitionSpace::MEMORY)
         ("disk", mesh::PartitionSpace::DISK);
     M_partition_space = str2partitionspace.find(vm["mesh.partition-space"].as<std::string>())->second;
-
-    const boost::unordered_map<const std::string, LogLevel> str2log = boost::assign::map_list_of
-        ("info", INFO)
-        ("warning", WARNING)
-        ("debug", DEBUG)
-        ("error", ERROR);
-    M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
-
-    M_mesh.setOrdering("bamg");
-
-    M_mesh_filename = vm["mesh.filename"].as<std::string>();
-
-    if (M_mesh_filename.find("split") != std::string::npos)
-    {
-        M_domain_type = setup::DomainType::DEFAULT;
-        M_mesh_type = setup::MeshType::FROM_SPLIT;
-    }
-    else
-    {
-        M_domain_type = setup::DomainType::BIGARCTIC;
-        M_mesh_type = setup::MeshType::FROM_GMSH;
-    }
-
-    M_mesh_fileformat = vm["mesh.fileformat"].as<std::string>();
 }
 
 void
