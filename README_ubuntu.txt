@@ -44,7 +44,7 @@ mpicc --version
 sudo apt-get install gfortran-4.8
 sudo ln -sf gfortran-4.8 gfortran
 
-# Comment: It cal also be compiled with the default compilers from APT:
+# Comment: It can also be compiled with the default compilers from APT:
 # sudo apt install build-essential
 # GNU Fortran (Ubuntu 5.4.0-6ubuntu1~16.04.5) 5.4.0 20160609
 # gcc (Ubuntu 5.4.0-6ubuntu1~16.04.5) 5.4.0 20160609
@@ -53,9 +53,16 @@ sudo ln -sf gfortran-4.8 gfortran
 
 # =============================================================
 OTHER TOOLS/LIBRARIES
-sudo apt-get install cmake valgrind tau \
-                     liblapack-dev libblas-dev \
-                     nco ncview libnetcdf-dev libnetcdf-c++4-dev
+sudo apt-get install cmake \
+                     valgrind \
+                     tau \
+                     liblapack-dev \
+                     libblas-dev \
+                     nco \
+                     ncview \
+                     libnetcdf-dev \
+                     libnetcdf-c++4-dev \
+                     subversion
 # =============================================================
 
 
@@ -97,7 +104,8 @@ export PETSC_DIR=/opt/local/petsc-debug
 GMSH
 1) svn --username=gmsh co https://onelab.info/svn/gmsh/trunk gmsh
       password: gmsh
-2) mkdir Build
+2) cd gmsh
+   mkdir Build
    cd Build
    cp $NEXTSIMDIR/scripts/gmsh/gconfigure.sh .
    ./gconfigure.sh
