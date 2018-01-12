@@ -19,8 +19,10 @@ using namespace std;
 
 
 
-int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in, int* method_in, int nb_variables,
-		double* surface_old, double* surface_new, BamgMesh* bamgmesh_old,BamgMesh* bamgmesh_new){
+int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,
+      int* method_in, int nb_variables, double* surface_old,
+      double* surface_new, BamgMesh* bamgmesh_old,BamgMesh* bamgmesh_new)
+{
     /*  Conservative interpolation method
         Use the cavities detected by detect_cavity to transfer physical
         quantities from the old element to the new ones*/
@@ -197,7 +199,10 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in, i
             /* Second method (fully conservative)*/
 
             /* interpolation over the cavity*/
-            InterpCavity(tmp_mean_variables, tmp_integrated_area, nb_dead_elements, nb_born_elements, nb_variables, dead_elements, born_elements, gate.PreviousNumbering, IntMatrix_in, method_in, bamgmesh_old, bamgmesh_new, 0);
+            InterpCavity(tmp_mean_variables, tmp_integrated_area,
+                  nb_dead_elements, nb_born_elements, nb_variables,
+                  dead_elements, born_elements, gate.PreviousNumbering,
+                  IntMatrix_in, method_in, bamgmesh_old, bamgmesh_new, 0);
 
             /* Sanity check
               does the integrated area corresponds to the area of the born element*/
