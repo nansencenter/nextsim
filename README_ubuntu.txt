@@ -10,6 +10,20 @@ git clone https://tdcwilliams@bitbucket.org/asamake/nextsim.git
 
 # =============================================================
 BOOST
+
+Compile from source:
+1) Download version 1.60 of boost on http://www.boost.org
+   (It is better to restart from here if you had an upgrade of your os)
+2) copy bconfigure_ubuntu.sh and binstall_ubuntu.sh from /nextsim/scripts/boost/
+   to your boost directory
+3) type the command "unset BOOST_DIR"
+4) check if bconfigure.sh corresponds to your architecture
+5) From boost directory, type: "./bconfigure.sh"
+6) Add the line "using mpi ;" at the end of the file project-config.jam
+7) From boost directory, type: "./binstall.sh" (sudo password is required during the process)
+
+Compile with apt:
+NB only boost v1.58 is available so won't run parallel code
 sudo apt-get install libboost-dev \
                      libboost-chrono-dev \
                      libboost-date-time-dev \
