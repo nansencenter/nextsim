@@ -11,6 +11,9 @@
 *.pos
 *.back
 *octave*
+*.sw?
 lib/
 objs/
 bin/
+expt_*/
+.deps/
