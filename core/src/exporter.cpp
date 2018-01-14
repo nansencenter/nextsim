@@ -55,8 +55,7 @@ Exporter::writeContainer(std::fstream& out, std::vector<Type> const& container, 
 	}
 	else
 	{
-		std::cout << "Cannot open " << out  << "\n";
-		std::cerr << "error: open file " << out << " for output failed!" <<"\n";
+		std::cerr << "writeContainer error: opening file for output failed!" <<"\n";
 		std::abort();
 	}
 }
@@ -162,8 +161,7 @@ Exporter::writeRecord(std::fstream& out, std::string const& rtype)
 	}
 	else
 	{
-		std::cout << "Cannot open " << out  << "\n";
-		std::cerr << "error: open file " << out << " for output failed!" <<"\n";
+		std::cerr << "writeRecord error: opening file for output failed!" <<"\n";
 		std::abort();
 	}
 }
