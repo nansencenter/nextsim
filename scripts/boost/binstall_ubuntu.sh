@@ -1,5 +1,5 @@
-#export BOOST_PREFIX=/opt/local/boost-1.60
-export BOOST_PREFIX=/opt/local/boost-1.66
+export BOOST_PREFIX=/opt/local/boost-1.60
+#export BOOST_PREFIX=/opt/local/boost-1.66
 
 GCCDPC=$(echo `gcc -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc)
 STDFLAG="\"-std=c++11\""
