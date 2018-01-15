@@ -24,7 +24,7 @@ CXXFLAGS += -I $(NEXTSIMDIR)/contrib/interp/include
 CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
 
 # boost
-CXXFLAGS +=	-I $(BOOST_DIR)/include -I .
+CXXFLAGS +=	-I $(BOOST_INCDIR) -I .
 
 # gmsh
 CXXFLAGS += -I $(GMSH_DIR)/include/gmsh
@@ -65,8 +65,8 @@ endif
 
 LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf_c++4
 
-LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib
-LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi -lboost_date_time
+LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
+LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi -lboost_date_time
 
 # LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
 # LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
