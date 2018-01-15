@@ -121,4 +121,22 @@ $(DEPENDDIR)%.d: %.cpp
 # The compilation depends on this Makefile.
 $(OBJS): Makefile
 
+# Make the required libraries
+libs:
+	cd ..; make
+
+# Clean the required libraries
+cleanlibs:
+	cd ..; make clean
+
+# Clean libs and current dir
+cleanall: cleanlibs clean
+
+# Clean recompile
+fresh: cleanall all
+
+# Fully clean the required libraries
+mrproperlibs:
+	cd ..; make mrproper
+
 -include $(DEPS)
