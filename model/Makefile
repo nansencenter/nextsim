@@ -1,6 +1,6 @@
 KERNEL := $(shell uname -s)
 
-PROGNAME=nextsim.exec
+EXEC=nextsim.exec
 
 CXX = g++
 
@@ -12,7 +12,13 @@ else
 endif
 
 # add g++ option flags
-CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v -DHAVE_CONFIG_H -D_MULTITHREADING_
+CXXFLAGS += -ftemplate-depth-256 -Wno-inline \
+		-fPIC -O3 -pthread -fopenmp \
+		-DHAVE_CONFIG_H -D_MULTITHREADING_
+
+ifneq ($(XSIMCOMP_VERBOSE),no)
+	CXXFLAGS += -v
+endif
 
 # nextsim
 CXXFLAGS += -I $(NEXTSIMDIR)/core/include
@@ -77,8 +83,6 @@ LDFLAGS += -L $(NEXTSIMDIR)/lib -linterp
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lnextsim
 
-
-EXEC=$(PROGNAME)
 OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
 BINARYDIR=bin/
@@ -91,26 +95,42 @@ OBJS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.o)
 DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
 # Rules to always execute.
-.PHONY: all clean mrproper
+.PHONY: all clean mrproper libs cleanlibs mrproperlibs
 
 # Default action.
 all: $(EXEC)
 
 # Delete the object files.
 clean:
-	$(RM) $(OBJS) $(DEPS) # $(CCOBJS) $(CCDEPS)
+	@echo " "
+	$(RM) $(OBJS) $(DEPS)
+	@echo " "
 
 mrproper: clean
 	$(RM) $(BINARYDIR)$(PROGNAME)
+	@echo " "
 
 # Rule for making the actual target
-$(PROGNAME): $(OBJS) #$(CCOBJS)
+lines="=========="
+Lines=$(lines)$(lines)$(lines)$(lines)$(lines)$(lines)$(lines)$(lines)
+$(EXEC): $(OBJS) #$(CCOBJS)
 	@mkdir -p $(BINARYDIR)
+	@echo " "
+	@echo $(Lines)$(Lines)
+	@echo "Creating executable: $(BINARYDIR)$(PROGNAME)"
+	@echo $(Lines)$(Lines)
+	@echo " "
 	$(CXX) $(CXXFLAGS) -o $(BINARYDIR)$@ $^ $(LDFLAGS)
+	@echo " "
+	@echo $(Lines)$(Lines)
+	@echo "Created executable: $(BINARYDIR)$(PROGNAME)"
+	@echo $(Lines)$(Lines)
+	@echo " "
 
 # Rules for object files from cpp files
 $(OBJECTDIR)%.o: %.cpp
 	@mkdir -p $(OBJECTDIR) # $(dir $@)
+	@echo " "
 	$(CXX) -o $@ -c $< $(CXXFLAGS)
 
 # Make dependancy rules
