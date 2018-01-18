@@ -801,9 +801,9 @@ FiniteElement::initModelState()
 {
     // Initialise the physical state of the model
 
-    this->initIce();
-
     this->initSlabOcean();
+
+    this->initIce();
 
     this->initDrifter();
 }
