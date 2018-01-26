@@ -1056,13 +1056,12 @@ FiniteElement::initConstant()
 
     days_in_sec = 24.0*3600.0;
     time_init = from_date_time_string(vm["simul.time_init"].as<std::string>());
-    output_time_step =  days_in_sec/vm["simul.output_per_day"].as<int>();
     ptime_step =  days_in_sec/vm["simul.ptime_per_day"].as<int>();
 
     time_step = vm["simul.timestep"].as<double>();
     duration = (vm["simul.duration"].as<double>())*days_in_sec;
 
-
+    output_time_step =  (vm["simul.output_per_day"].as<int>()<0) ? -vm["simul.output_per_day"].as<int>()*time_step : days_in_sec/vm["simul.output_per_day"].as<int>();
     mooring_output_time_step =  vm["simul.mooring_output_timestep"].as<double>()*days_in_sec;
     mooring_time_factor = time_step/mooring_output_time_step;
     if ( fmod(mooring_output_time_step,time_step) != 0)
@@ -3962,53 +3961,6 @@ FiniteElement::assemble(int pcpt)
     M_vector->zero();
     LOG(DEBUG) << "Reinitialize matrix and vector to zero done\n";
 
-    double coef_V, coef_Voce, coef_Vair, coef_basal, coef_X, coef_Y, coef_C;
-    double coef = 0;
-    double coef_P = 0.;
-    double mass_e = 0.;
-    double surface_e = 0.;
-    double g_ssh_e_x = 0.;
-    double g_ssh_e = 0.;
-    double g_ssh_e_y = 0.;
-    double tmp_thick, tmp_conc;
-    double coef_sigma;
-
-    double welt_oce_ice = 0.;
-    double welt_air_ice = 0.;
-    double welt_ice = 0.;
-    double welt_ssh = 0.;
-    double element_ssh = 0.;
-    double critical_h = 0.;
-
-    double max_keel_height;
-    double ice_to_keel_factor;
-    double keel_height_estimate;
-    double critical_h_mod;
-
-    double norm_Voce_ice = 0.;
-    double norm_Voce_ice_min = 0.;
-    double norm_Vair_ice = 0.;
-    double norm_Vair_ice_min = 0.;
-    double norm_Vice = 0.;
-
-    double Vcor_index_v, Vcor_index_u;
-
-    double b0tj_sigma_hu = 0.;
-    double b0tj_sigma_hv = 0.;
-    double mloc = 0.;
-    double dloc = 0.;
-
-    double undamaged_time_relaxation_sigma= 0.;
-    double exponent_relaxation_sigma = 0.;;
-
-    double time_viscous = 0.;
-    double multiplicator = 0.;
-
-
-    double duu, dvu, duv, dvv;
-    int index_u, index_v;
-
-    int nind;
 
     //std::vector<int> extended_dirichlet_nodes = M_dirichlet_nodes;
 
@@ -4044,13 +3996,8 @@ FiniteElement::assemble(int pcpt)
 
     // ---------- Assembling starts -----------
 
-    // if (M_rank == 0)
-    //     std::cout<<"Assembling starts\n";
-
     timer["assembly"].first.restart();
-    LOG(DEBUG) <<"Loop starts...\n";
-    int cpt = 0;
-    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
+    for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
 
         // total thickness and concentration
@@ -4070,61 +4017,61 @@ FiniteElement::assemble(int pcpt)
         total_thickness =       (vm["simul.min_h"].as<double>()>total_thickness)        ? vm["simul.min_h"].as<double>() : total_thickness;
         total_concentration =   (vm["simul.min_c"].as<double>()>total_concentration)    ? vm["simul.min_c"].as<double>() : total_concentration;
 
-        // values used when no ice or when ice too thin
         double coef_min = 100.;
-        double coef_drag = 0.;
+
+        // values used when no ice or when ice too thin
+        double coef_drag    = 0.;  // coef_drag is a switch that set the external forcings to 0 (wind, ocean, bottom drag, waves stress) where there is too little ice
+        double coef         = coef_min;
+        double mass_e       = 0.;
+        double coef_C       = 0.;
+        double coef_V       = 0.;
+        double coef_X       = 0.;
+        double coef_Y       = 0.;
+        double coef_sigma   = 0.;
 
 
-        coef = coef_min;
-        mass_e = 0.;
-        coef_C = 0.;
-        coef_V = 0.;
-        coef_X = 0.;
-        coef_Y = 0.;
-        coef_sigma = 0.;
+        // temporary variables
+        double mloc = 0.;
+        double dloc = 0.;
 
-        coef_Vair = 0.;
-        coef_Voce = 0.;
-        coef_basal = 0.;
-        coef_P = 0.;
+        double b0tj_sigma_hu = 0.;
+        double b0tj_sigma_hv = 0.;
 
-        mloc = 0.;
-        dloc = 0.;
+        double coef_Vair = 0.;
+        double coef_Voce = 0.;
+        double coef_basal = 0.;
 
-        b0tj_sigma_hu = 0.;
-        b0tj_sigma_hv = 0.;
+        double undamaged_time_relaxation_sigma = vm["simul.undamaged_time_relaxation_sigma"].as<double>();
+        double exponent_relaxation_sigma = vm["simul.exponent_relaxation_sigma"].as<double>();
 
-        undamaged_time_relaxation_sigma = vm["simul.undamaged_time_relaxation_sigma"].as<double>();
-        exponent_relaxation_sigma = vm["simul.exponent_relaxation_sigma"].as<double>();
+        double time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-M_damage[cpt],exponent_relaxation_sigma-1.);
+        double multiplicator = time_viscous/(time_viscous+time_step);
 
-        time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-M_damage[cpt],exponent_relaxation_sigma-1.);
-        multiplicator = time_viscous/(time_viscous+time_step);
+        double norm_Voce_ice = 0.;
+        double norm_Voce_ice_min = 0.01; // minimum value to avoid 0 water drag term.
 
-        norm_Voce_ice = 0.;
-        norm_Voce_ice_min = 0.01; // minimum value to avoid 0 water drag term.
+        double norm_Vair_ice = 0.;
+        double norm_Vair_ice_min = 0.01; // minimum value to avoid 0 water drag term.
 
-        norm_Vair_ice = 0.;
-        norm_Vair_ice_min = 0.01; // minimum value to avoid 0 water drag term.
+        double norm_Vice = 0.;
 
-        norm_Vice = 0.;
-
-        element_ssh = 0.;
-        critical_h = 0.;
-        max_keel_height=28; // [m] from "A comprehensive analysis of the morphology of first-year sea ice ridges"
-        ice_to_keel_factor=19.28; // from "A comprehensive analysis of the morphology of first-year sea ice ridges"
-        keel_height_estimate;
-        critical_h_mod=0.;
+        double element_ssh = 0.;
+        double critical_h = 0.;
+        double max_keel_height=28; // [m] from "A comprehensive analysis of the morphology of first-year sea ice ridges"
+        double ice_to_keel_factor=19.28; // from "A comprehensive analysis of the morphology of first-year sea ice ridges"
+        double keel_height_estimate;
+        double critical_h_mod=0.;
 
         if( (M_conc[cpt] > vm["simul.min_c"].as<double>()) && (M_thick[cpt] > vm["simul.min_h"].as<double>()) )
         {
             /* Compute the value that only depends on the element */
-            welt_ice = 0.;
-            welt_ssh = 0.;
-            nind = 0;
+            double welt_ice = 0.;
+            double welt_ssh = 0.;
+            int nind;
 
             for (int i=0; i<3; ++i)
             {
-                nind = it->indices[i]-1;
+                nind = (M_elements[cpt]).indices[i]-1;
                 welt_ssh += M_ssh[nind];
             }
 
@@ -4180,13 +4127,13 @@ FiniteElement::assemble(int pcpt)
             }
 
             /* compute the x and y derivative of g*ssh */
-            g_ssh_e_x = 0.;
-            g_ssh_e_y = 0.;
-            g_ssh_e = 0.;
+            double g_ssh_e_x = 0.;
+            double g_ssh_e_y = 0.;
+            double g_ssh_e;
 
             for(int i=0; i<3; i++)
             {
-                g_ssh_e = (physical::gravity)*M_ssh[it->indices[i]-1] /*g_ssh*/;   /* g*ssh at the node k of the element e */
+                g_ssh_e = (physical::gravity)*M_ssh[(M_elements[cpt]).indices[i]-1] /*g_ssh*/;   /* g*ssh at the node k of the element e */
                 g_ssh_e_x += M_shape_coeff[cpt][i]*g_ssh_e; /* x derivative of g*ssh */
                 g_ssh_e_y += M_shape_coeff[cpt][i+3]*g_ssh_e; /* y derivative of g*ssh */
             }
@@ -4198,20 +4145,6 @@ FiniteElement::assemble(int pcpt)
             coef_Y = - mass_e*g_ssh_e_y;              /* for the ocean slope */
             coef_sigma = M_thick[cpt]*multiplicator;
 
-        } // test assemble
-
-        surface_e = M_surface[cpt];
-
-        if (0)
-        {
-            std::cout<<"************************\n";
-            std::cout<<"Coef_C    = "<< coef_C <<"\n";
-            std::cout<<"Coef_V    = "<< coef_V <<"\n";
-            std::cout<<"Coef_X    = "<< coef_X <<"\n";
-            std::cout<<"Coef_Y    = "<< coef_Y <<"\n";
-            std::cout<<"coef_Vair = "<< coef_Vair <<"\n";
-            std::cout<<"coef_Voce = "<< coef_Voce <<"\n";
-            std::cout<<"coef_basal= "<< coef_basal <<"\n";
         }
 
         std::vector<int> rindices(6); //new
@@ -4220,9 +4153,9 @@ FiniteElement::assemble(int pcpt)
 
         for (int s=0; s<3; ++s)
         {
-            int index_u = it->indices[s]-1;
+            int index_u = (M_elements[cpt]).indices[s]-1;
 
-            if (!(it->ghostNodes[s]))
+            if (!((M_elements[cpt]).ghostNodes[s]))
             {
                 rindices[2*vs] = index_u;
                 rindices[2*vs+1] = index_u+M_local_ndof;
@@ -4235,16 +4168,7 @@ FiniteElement::assemble(int pcpt)
 
         rindices.resize(2*vs);
 
-        int nlrow = rindices.size();
-        int nlcol = cindices.size();
-
-        std::vector<double> data(nlrow*nlcol,0.);
-        std::vector<double> fvdata(nlcol,0.);
-
-
-        int l_j = -1;
-
-        /* Loop over the 6 by 6 components of the finite element intergrale
+        /* Loop over the 6 by 6 components of the finite element integral
          * this is done smartly by looping over j=0:2 and i=0:2
          * col = (mwIndex)it[2*j]-1  , row = (mwIndex)it[2*i]-1;
          * col  , row   -> UU component
@@ -4252,13 +4176,20 @@ FiniteElement::assemble(int pcpt)
          * col+1, row   -> VV component
          * col+1, row+1 -> UV component */
 
+        double Vcor_index_v, Vcor_index_u;
+        double surface_e = M_surface[cpt];
+        double duu, dvu, duv, dvv;
+        std::vector<double> data(36);
+        std::vector<double> fvdata(6,0.);
+
+        int l_j = -1; // node counter to skip gohsts
         for(int j=0; j<3; j++)
         {
             /* Column corresponding to indice j (we also assemble terms in col+1) */
             //col = (mwIndex)it[2*j]-1; /* -1 to use the indice convention of C */
 
-            index_u = it->indices[j]-1;
-            index_v = it->indices[j]-1+M_num_nodes;
+            int index_u = (M_elements[cpt]).indices[j]-1;
+            int index_v = (M_elements[cpt]).indices[j]-1+M_num_nodes;
 
             double vt_u = M_VT[index_u];
             double vt_v = M_VT[index_v];
@@ -4269,11 +4200,11 @@ FiniteElement::assemble(int pcpt)
             double wind_u = M_wind[index_u];
             double wind_v = M_wind[index_v];
 
-
             Vcor_index_v = beta0*vt_v + beta1*M_VTM[index_v] + beta2*M_VTMM[index_v];
             Vcor_index_u = beta0*vt_u + beta1*M_VTM[index_u] + beta2*M_VTMM[index_u];
 
-            if (!(it->ghostNodes[j]))
+            /* Skip gohst nodes */
+            if (!((M_elements[cpt]).ghostNodes[j]))
             {
                 l_j = l_j + 1;
 
@@ -4294,7 +4225,8 @@ FiniteElement::assemble(int pcpt)
                         b0tj_sigma_hv += M_B0T[cpt][k*6+2*i+1]*(M_sigma[3*cpt+k]*coef_sigma/*+sigma_P[k]*/);
                     }
 
-                    // --------------------------------------------------------------------------------------------------------
+                    /* ---------- UU component */
+
                     norm_Voce_ice = std::hypot(M_VT[index_u]-M_ocean[index_u],M_VT[index_v]-M_ocean[index_v]);
                     norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
 
@@ -4312,9 +4244,7 @@ FiniteElement::assemble(int pcpt)
 
                     coef_basal = basal_k2/norm_Vice;
                     coef_basal *= coef_drag*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
-                    // --------------------------------------------------------------------------------------------------------
 
-                    /* ---------- UU component */
                     duu = surface_e*( mloc*(coef_V)
                                       +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
                                       +M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*time_step );
@@ -4330,13 +4260,13 @@ FiniteElement::assemble(int pcpt)
                                       +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
                                       +M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*time_step );
 
-#if 1
                     data[(2*l_j  )*6+2*i  ] = duu;
                     data[(2*l_j+1)*6+2*i  ] = dvu;
                     data[(2*l_j  )*6+2*i+1] = duv;
                     data[(2*l_j+1)*6+2*i+1] = dvv;
 
                     fvdata[2*i] += surface_e*( mloc*(
+                                                     // TODO: +coef_drag*M_tau[index_u] <- waves are not here yet!!
                                                      +coef_X
                                                      +coef_V*vt_u
                                                      +coef_C*Vcor_index_v
@@ -4348,8 +4278,8 @@ FiniteElement::assemble(int pcpt)
                                                       )
                                                - b0tj_sigma_hu/3);
 
-
                     fvdata[2*i+1] += surface_e*( mloc*(
+                                                       // TODO: +coef_drag*M_tau[index_v] <- waves are not here yet!!
                                                        +coef_Y
                                                        +coef_V*vt_v
                                                        -coef_C*Vcor_index_u
@@ -4360,7 +4290,6 @@ FiniteElement::assemble(int pcpt)
                                                         +coef_Voce*sin_ocean_turning_angle*(ocean_u-vt_u)
                                                         )
                                                  - b0tj_sigma_hv/3);
-#endif
                 }
             }
         }
@@ -4371,21 +4300,7 @@ FiniteElement::assemble(int pcpt)
         // update vector
         M_vector->addVector(&cindices[0], cindices.size(), &fvdata[0]);
 
-        if ((cpt < 0))
-        {
-            std::cout<<"-------------------------------------------\n";
 
-            for (int i=0; i<nlrow; ++i)
-            {
-                for (int j=0; j<nlcol; ++j)
-                {
-                    std::cout<< std::left << std::setw(12) << data[nlcol*i+j] <<"  ";
-                }
-                std::cout<<"\n";
-            }
-        }
-
-        ++cpt;
     }
 
     // close petsc matrix
@@ -4393,68 +4308,13 @@ FiniteElement::assemble(int pcpt)
     M_matrix->close();
     LOG(DEBUG) <<"Closing matrix done\n";
 
-#if 0
-    if (pcpt == 0)
-    {
-        M_matrix->sameNonZeroPattern();
-    }
-#endif
-
     // close petsc vector
     LOG(DEBUG) <<"Closing vector starts\n";
     M_vector->close();
     LOG(DEBUG) <<"Closing vector done\n";
 
-    if (M_rank == 0)
-    {
-        //std::cout<<"TIMER ASSEMBLY= " << timer["assembly"].first.elapsed() <<"s\n";
-    }
-    //std::cout<<"[" << M_rank <<"] " <<" TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
-
-    // extended dirichlet nodes (add nodes where M_conc <= 0)
-    timer["dirichlet"].first.restart();
-
-#if 0
-    for (int i=0; i<M_local_ndof; ++i)
-    {
-        if(!M_valid_conc[i])
-        {
-            extended_dirichlet_nodes.push_back(i);
-            extended_dirichlet_nodes.push_back(i+M_num_nodes);
-        }
-    }
-    std::sort(extended_dirichlet_nodes.begin(), extended_dirichlet_nodes.end());
-    extended_dirichlet_nodes.erase(std::unique( extended_dirichlet_nodes.begin(), extended_dirichlet_nodes.end() ), extended_dirichlet_nodes.end());
-
-    std::cout<<"["<< M_rank <<"] EXTENDED = "<< extended_dirichlet_nodes.size() <<"\n";
-    std::cout<<"["<< M_rank <<"] DIRICHLET= "<< M_dirichlet_nodes.size() <<"\n";
-#endif
-
     M_matrix->on(M_dirichlet_nodes,*M_vector);
 
-    // if (M_rank==0)
-    //     std::cout <<"TIMER DBCA= " << timer["dirichlet"].first.elapsed() <<"s\n";
-
-#if 0
-    int S1 = M_matrix->size1();
-    int S2 = M_matrix->size2();
-    double _norm = M_matrix->linftyNorm();
-    double _l2norm = M_vector->l2Norm();
-
-    if (M_rank == 0)
-    {
-        std::cout<<"[PETSC MATRIX] CLOSED          = "<< M_matrix->closed() <<"\n";
-        //std::cout<<"[PETSC MATRIX] SIZE        = "<< M_matrix->size1() << " " << M_matrix->size2() <<"\n";
-        std::cout<<"[PETSC MATRIX] SIZE            = "<< S1 << " " << S2 <<"\n";
-        //std::cout<<"[PETSC MATRIX] SYMMETRIC   = "<< M_matrix->isSymmetric() <<"\n";
-        //std::cout<<"[PETSC MATRIX] NORM        = "<< M_matrix->linftyNorm() <<"\n";
-        std::cout<<"[PETSC MATRIX] NORM            = "<< _norm <<"\n";
-        std::cout<<"[PETSC VECTOR] NORM            = "<< _l2norm <<"\n";
-    }
-#endif
-
-    //M_matrix->printMatlab("stiffness.m");
-    //M_vector->printMatlab("rhs.m");
 }
 
 void
