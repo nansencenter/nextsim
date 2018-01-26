@@ -659,7 +659,7 @@ FiniteElement::initVariables()
 
     M_UT.assign(2*M_num_nodes,0.);
     this->assignVariables();
-}
+}//end initVariables
 
 void
 FiniteElement::assignVariables()
@@ -1044,12 +1044,14 @@ FiniteElement::initBamg()
 void
 FiniteElement::initConstant()
 {
+
     // log
     const boost::unordered_map<const std::string, LogLevel> str2log = boost::assign::map_list_of
         ("info", INFO)
         ("warning", WARNING)
         ("debug", DEBUG)
         ("error", ERROR);
+
     M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
 
     nu0 = vm["simul.nu0"].as<double>();
@@ -1180,6 +1182,8 @@ FiniteElement::initConstant()
         ("topaz_forecast", setup::IceType::TOPAZ4F)
         ("topaz_forecast_amsr2", setup::IceType::TOPAZ4FAMSR2)
         ("topaz_forecast_amsr2_osisaf", setup::IceType::TOPAZ4FAMSR2OSISAF)
+        ("topaz_forecast_amsr2_osisaf_nic", setup::IceType::TOPAZ4FAMSR2OSISAFNIC)
+        ("topaz_forecast_amsr2_osisaf_nic_weekly", setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY)
         ("amsre", setup::IceType::AMSRE)
         ("amsr2", setup::IceType::AMSR2)
         ("osisaf", setup::IceType::OSISAF)
@@ -1274,7 +1278,7 @@ FiniteElement::initConstant()
         ("memory", mesh::PartitionSpace::MEMORY)
         ("disk", mesh::PartitionSpace::DISK);
     M_partition_space = str2partitionspace.find(vm["mesh.partition-space"].as<std::string>())->second;
-}
+}//initConstant
 
 void
 FiniteElement::createGMSHMesh(std::string const& geofilename)
@@ -7840,39 +7844,6 @@ FiniteElement::updateVelocity()
     M_VTM = M_VT;
     M_VT = M_solution->container();
 
-#if 0
-    std::vector<double> speed_scaling;
-    this->speedScaling(speed_scaling);
-
-    // linear scaling of ice velocity
-    for (int i=0; i<M_num_nodes; ++i)
-    {
-        M_VT[i] *= speed_scaling[i];
-        M_VT[i+M_num_nodes] *= speed_scaling[i];
-    }
-#endif
-
-#if 0
-    M_speed_scaling = speed_scaling;
-
-    double min_elt = *std::min_element(M_VT.begin(),M_VT.end());
-    double max_elt = *std::max_element(M_VT.begin(),M_VT.end());
-
-    // std::cout<<"----------------------------[" << M_rank <<"] " <<" VT MIN= "<< min_elt <<"\n";
-    // std::cout<<"----------------------------[" << M_rank <<"] " <<" VT MAX= "<< max_elt <<"\n";
-
-    M_comm.barrier();
-
-    double gmin = boost::mpi::all_reduce(M_comm, min_elt, boost::mpi::minimum<double>());
-    double gmax = boost::mpi::all_reduce(M_comm, max_elt, boost::mpi::maximum<double>());
-
-    if (M_comm.rank()==0)
-    {
-        std::cout<<"----------------------------VT MIN= "<< gmin <<"\n";
-        std::cout<<"----------------------------VT MAX= "<< gmax <<"\n";
-    }
-#endif
-
     // increment M_UT that is used for the drifters
     for (int nd=0; nd<M_UT.size(); ++nd)
     {
@@ -9941,7 +9912,6 @@ void
 FiniteElement::importBamg(BamgMesh const* bamg_mesh)
 {
     std::vector<point_type> mesh_nodes;
-    //std::vector<element_type> mesh_edges;
     std::vector<element_type> mesh_triangles;
     std::vector<double> coords(3,0);
 
@@ -9956,32 +9926,9 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
         mesh_nodes[id].coords = coords;
     }
 
-
     int type = 2;
     int physical = 0;
     int elementary = 0;
-
-#if 0
-    int numVertices = 2;
-    std::vector<int> edges(numVertices);
-
-    for (int edg=0; edg<bamg_mesh->EdgesSize[0]; ++edg)
-    {
-        edges[0] = bamg_mesh->Edges[3*edg];
-        edges[1] = bamg_mesh->Edges[3*edg+1];
-        //std::cout<< "Edges= "<< bamg_mesh->Edges[3*edg+2] <<"\n";
-
-        element_type gmshElt( edg,
-                              type,
-                              physical,
-                              elementary,
-                              numVertices,
-                              edges );
-
-        //mesh_edges.insert(std::make_pair(edg,gmshElt));
-        mesh_edges.push_back(gmshElt);
-    }
-#endif
 
     int numVertices = 3;
     std::vector<int> indices(numVertices);

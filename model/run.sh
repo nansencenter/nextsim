@@ -35,7 +35,7 @@ then
 fi
 
 # Run the nextsim model
-mpirun -n $ncpu $prog --config-files=$config
+mpirun -n $ncpu $prog --config-files=$config 2>&1 | tee $(basename $config .cfg).log
 
 
 # Run the CPU profiler (google perftools)
