@@ -1503,7 +1503,7 @@ void WimDiscr<T>::interpIceMeshToGrid()
     T_val_vec_ptrs input_data  = {&(M_ice[IceType::sim].M_conc),&(M_ice[IceType::sim].M_vol),&(M_ice[IceType::sim].M_nfloes)};
     T_val_vec_ptrs output_data = {&(M_ice[IceType::wim].M_conc),&(M_ice[IceType::wim].M_vol),&(M_ice[IceType::wim].M_nfloes)};
     M_grid.interpFromMesh(M_mesh,output_data,input_data);
-    M_ice[IceType::wim].setFields();
+    M_ice[IceType::wim].updateFields();
 }//iceMeshToGrid
 
 
