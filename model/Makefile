@@ -187,6 +187,19 @@ fortran: $(FPROGNAME)
 libs:
 	cd ..; make
 
+# just compile single libraries
+Bamg:
+	@cd ..; make Bamg
+Mapx:
+	@cd ..; make Mapx
+Core:
+	@cd ..; make Core
+Wim:
+	@cd ..; make Wim
+Oasis:
+	@cd ..; make Oasis
+
+
 # Clean the required libraries
 cleanlibs:
 	cd ..; make clean
