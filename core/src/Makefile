@@ -22,19 +22,30 @@ else
 endif
 
 # add g++ option flags
-CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v
+CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -fopenmp
+
+ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
+	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
+	#CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
+	CXXFLAGS += -g -O0 -DNDEBUG
+ifneq ($(KERNEL),Linux)
+	CXXFLAGS += -Wl,-no_pie
+endif
+else
+	CXXFLAGS += -O3 -pthread
+endif
+
+ifneq ($(XSIMCOMP_VERBOSE),no)
+	CXXFLAGS += -v
+endif
 
 # add include paths
-CXXFLAGS += -I $(NEXTSIMDIR)/core/include
-CXXFLAGS += -I /usr/local/include
-CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
-CXXFLAGS += -I $(BOOST_DIR)/include
-CXXFLAGS += -I $(GMSH_DIR)/include/gmsh
+CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I /usr/local/include -I $(OPENMPI_INCLUDE_DIR)/
+CXXFLAGS += -I $(PETSC_DIR)/include -I $(BOOST_INCDIR) -I $(GMSH_DIR)/include/gmsh
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
-CXXFLAGS += -I $(PETSC_DIR)/include
 
 ifeq ($(KERNEL),Linux)
-	#CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -lm -pthread -v #-MMD -MP
+	#CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -lm -pthread #-MMD -MP
 	LDFLAGS += -shared -Wl,-soname,libnextsim.so.1
 else
 	ifeq ($(CXX),clang)
@@ -53,22 +64,22 @@ endif
 
 LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
 ifndef MACHINE_HEXAGON
-	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
+	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ #-lpthread
 else
-	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpichcxx -lmpich -ldl -lstdc++ -lpthread #-lm -lrt
+	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpichcxx -lmpich -ldl -lstdc++ #-lpthread #-lm -lrt
 endif
 
-
-LDFLAGS += -Wl,-rpath,$(BOOST_DIR)/lib
-LDFLAGS += -L $(BOOST_DIR)/lib -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi
-
-# gmsh
-LDFLAGS += -Wl,-rpath,$(GMSH_DIR)/lib
-LDFLAGS += -L $(GMSH_DIR)/lib -lGmsh
+#boost
+LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
+LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi
 
 # petsc
 LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
 LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
+
+# gmsh
+LDFLAGS += -Wl,-rpath,$(GMSH_DIR)/lib
+LDFLAGS += -L $(GMSH_DIR)/lib -lGmsh
 
 # mapx
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
