@@ -131,13 +131,13 @@ namespace Nextsim
             ("simul.use_iabp_drifters", po::value<bool>()->default_value( false), "")
             ("simul.equallyspaced_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days") // must be a multiple of 0.5
             ("simul.rgps_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days") // must be a multiple of 0.5
-            ("simul.use_osisaf_drifters", po::value<bool>()->default_value( false ), "") 
-            
+            ("simul.use_osisaf_drifters", po::value<bool>()->default_value( false ), "")
+
             ("simul.drifter_climit", po::value<double>()->default_value( 0.15 ), "")
             ("simul.drifter_spacing", po::value<double>()->default_value( 10 ), "")
 
             ("simul.RGPS_time_init", po::value<std::string>()->default_value( "2007-12-01" ), "")
-               
+
             /*
              *-----------------------------------------------------------------------------------
              * DYNAMICS
@@ -164,7 +164,7 @@ namespace Nextsim
             ("simul.use_temperature_dependent_healing", po::value<bool>()->default_value( false ), "")
             ("simul.time_relaxation_damage", po::value<double>()->default_value( 25. ), "days")
             ("simul.deltaT_relaxation_damage", po::value<double>()->default_value( 20. ), "Kelvin")
-            
+
             ("simul.undamaged_time_relaxation_sigma", po::value<double>()->default_value( 1e7 ), "seconds") // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
             ("simul.exponent_relaxation_sigma", po::value<double>()->default_value( 4. ), "")              // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
 

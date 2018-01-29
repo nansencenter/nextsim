@@ -148,7 +148,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
         else if(M_dataset->grid.dataset_frequency=="nearest_daily")
             to_be_reloaded=(to_date_string_yd(current_time)!=to_date_string_yd(M_dataset->ftime_range[0]) || !M_dataset->loaded);
         else
-            to_be_reloaded=((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp) || !M_dataset->loaded);            
+            to_be_reloaded=((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp) || !M_dataset->loaded);
 
 #ifdef OASIS
         // We call oasis_get every time step, but only actually recieve data at coupling times
@@ -167,7 +167,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             //need to interpolate again if reloading
             M_dataset->interpolated = false;
         }
-        
+
         if (!M_dataset->interpolated)
         {
             std::cout << "Interpolate " << M_datasetname << "\n";
@@ -299,7 +299,7 @@ ExternalData::getVector()
 
         for (int i=0; i<size_vector; ++i)
         {
-            vector_tmp[i]=(double) get(i) ;
+            vector_tmp[i]=(double) get(i);
         }
     }
     else if (M_is_constant)
@@ -470,7 +470,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
         if((dataset->grid.dataset_frequency=="daily_forecast") || (dataset->grid.dataset_frequency=="daily_ec2_forecast"))
             init_timestr = to_date_string_yd(M_StartingTime);//yyyymmdd
-        
+
         // when using forcing from a forecast, we select the file based on the StartingTime
         if ( (dataset->grid.dataset_frequency!="daily_forecast") && (((dataset->grid.prefix).find("start") != std::string::npos) || (Environment::vm()["simul.forecast"].as<bool>())))
         {
@@ -577,33 +577,33 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
                 // Set the time range XTIME
                 netCDF::NcVar FVTIME = dataFile.getVar(dataset->time.name);
-                
+
 		        netCDF::NcDim timeDim = dataFile.getDim(dataset->time.name);
-                
+
                 index_start[0]=0;
                 index_count[0]=timeDim.getSize();
 
                 XTIME.resize(index_count[0]);
-                
+
                 FVTIME.getVar(index_start, index_count, &XTIME[0]);
-                
+
                 has_time_variable=true;
-            } 
-            catch(const std::exception& e) // if no time dimension is available in the netcdf, we define the time as 
+            }
+            catch(const std::exception& e) // if no time dimension is available in the netcdf, we define the time as
             {
                 index_start[0]=0;
                 index_count[0]=1;
 
                 XTIME.resize(index_count[0]);
-                
+
                 XTIME[0]=-1.;
-                
+
                 has_time_variable=false;
-                
+
                 if(dataset->grid.dataset_frequency=="monthly" || dataset->grid.dataset_frequency=="yearly")
                     throw std::runtime_error("The case monthly and yearly when no time dimension is available is not implemented!");
             }
-            
+
             double f;
             for (int it=0; it < XTIME.size(); ++it) // always need one step before and one after the target time
             {
@@ -634,7 +634,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         }
         else
             throw std::runtime_error("Not found a a file for before current_date!");
-            
+
 
         if(filename_prev!="")
         {
@@ -648,7 +648,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 		dataset->ftime_range.push_back(time_prev);
         dataset->ftime_range.push_back(time_next);
 	}
-    else 
+    else
     {
         if(dataset->grid.dataset_frequency=="nearest_daily")
         {
@@ -659,14 +659,14 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 ftime = M_StartingTime;
             }
             f_timestr = to_date_string_yd(std::floor(ftime));
-            
+
             double f=from_date_string((boost::format( "%1%-%2%-%3%" ) % f_timestr.substr(0,4) % f_timestr.substr(4,2) % f_timestr.substr(6,2)).str())+0.5;
-    		
+
             dataset->ftime_range.resize(0);
             dataset->ftime_range.push_back(f);
         }
         else
-            f_timestr ="";   
+            f_timestr ="";
 
         filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                     % Environment::simdataDir().string()
@@ -675,7 +675,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                     % f_timestr
                     % dataset->grid.postfix
                     ).str();
-        
+
         filename_fstep.push_back(filename);
         index_fstep.push_back(0);
     }
@@ -707,7 +707,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 // then rotated to x-y grid coords
                 // - do nothing now for y-component
                 // (not used yet - only for storage later)
-                dataset->variables[j].loaded_data[fstep]   = 
+                dataset->variables[j].loaded_data[fstep]   =
                     dataset->variables[j-1].loaded_data[fstep];
                 continue;
             }
@@ -750,17 +750,17 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             	index_start[0] = index;
             	index_count[0] = 1;
 			}
-            
+
             // depth dimension
 			if(dataset->variables[j].dimensions.size()>3)
 			{
             	index_start[1] = 0;
             	index_count[1] = 1;
 			}
-            
+
             // Reading the netcdf
-            NcVars[j].getVar(index_start,index_count,&data_in_tmp[0]);    
-                
+            NcVars[j].getVar(index_start,index_count,&data_in_tmp[0]);
+
             //----------- Unit transformation ------------
             // scale factor and add offset are stored as variable attributes
             scale_factor=1.;
@@ -780,7 +780,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             }
             catch(netCDF::exceptions::NcException& e)
             {}
-                
+
             // The factor and b are defined for each variables to get the right units for the neXtSIM model
             for(double& d : data_in_tmp)
                 d=(d*scale_factor + add_offset)*dataset->variables[j].a+dataset->variables[j].b;
@@ -788,15 +788,15 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
             // Check Nan and store the loaded data
             dataset->variables[j].loaded_data[fstep].resize(final_MN);
-                        
+
             double tmp_data_i;
-            int reduced_i;            
+            int reduced_i;
 			for (int i=0; i<(final_MN); ++i)
             {
                 reduced_i=i;
     			if(dataset->grid.reduced_nodes_ind.size()!=0)
     			    reduced_i=dataset->grid.reduced_nodes_ind[i];
-                
+
                 tmp_data_i=data_in_tmp[reduced_i];
                 if ((!dataset->variables[j].wavDirOptions.isWavDir)
                         && (std::isnan(tmp_data_i)))
@@ -813,7 +813,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     dataset->nb_forcing_step=nb_forcing_step;
     dataset->loaded=true;
 }
-    
+
 
 // Transformation of the vectorial variables from the coordinate system of the data to the polar stereographic projection used in the model
 // Once we are in the polar stereographic projection, we can do spatial interpolation without bothering about the North Pole
@@ -921,7 +921,7 @@ ExternalData::transformData(Dataset *dataset)
                     else
                     {
 #if 1
-                        //use shape of earth according to nextsim projection 
+                        //use shape of earth according to nextsim projection
                         lon_factor  = R_eq*std::cos((PI/180.)*lat_tmp);
                         lat_factor  = std::hypot( R_eq*std::sin((PI/180.)*lat_tmp),
                                                  R_pol*std::cos((PI/180.)*lat_tmp));
@@ -942,7 +942,7 @@ ExternalData::transformData(Dataset *dataset)
                         lat_tmp_bis = lat_tmp+delta_lat;
                         lon_tmp_bis = lon_tmp+delta_lon;
                         lon_tmp_bis = lon_tmp_bis-360.*std::floor(lon_tmp_bis/(360.));
-                        
+
                         //(x,y) position after moving delta_r
                         forward_mapx(mapNextsim,lat_tmp_bis,lon_tmp_bis,
                                 &x_tmp_bis,&y_tmp_bis);
@@ -989,7 +989,7 @@ ExternalData::transformData(Dataset *dataset)
                     }//rotation of unit vector representing mwd
 
                     // modify original scalar variables
-                    // - store unit vector representing wave direction 
+                    // - store unit vector representing wave direction
                     // as a unit vector in nextsim's x/y coordinates
                     dataset->variables[j0].loaded_data[fstep][i] = tmp_data0;
                     dataset->variables[j1].loaded_data[fstep][i] = tmp_data1;
@@ -1024,7 +1024,7 @@ ExternalData::transformData(Dataset *dataset)
                 LATtmp.resize(0);
             }//mwd option
 
-            else if(dataset->vectorial_variables[j].east_west_oriented 
+            else if(dataset->vectorial_variables[j].east_west_oriented
                     && dataset->grid.interpolation_method==InterpolationType::FromGridToMesh)
             {
                 int M=dataset->grid.gridLAT.size();
@@ -1148,7 +1148,7 @@ ExternalData::transformData(Dataset *dataset)
 
     // closing maps
     close_mapx(mapNextsim);
-}   
+}
 
 
 void
@@ -1199,18 +1199,18 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
     // ---------------------------------
     // Spatial interpolation
     std::cout<<"Spatial interpolation of the data\n";
-    
+
     // size of the data
     int M  = dataset->grid.dimension_y_count;
     int N  = dataset->grid.dimension_x_count;
 
     int MN = M*N;
-    
+
     int final_MN=MN;
-    
+
     int cyclic_N=N;
     int cyclic_M=M;
-    
+
     if(dataset->grid.reduced_nodes_ind.size()!=0)
     {
         final_MN=dataset->grid.reduced_nodes_ind.size();
@@ -1233,11 +1233,11 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
 
         final_MN=cyclic_M*cyclic_N;
     }
-    
+
     // Collect all the data before the interpolation
     std::cout << "Collect the ivariables before interpolation:" <<"\n";
     std::vector<double> data_in(dataset->variables.size()*dataset->nb_forcing_step*final_MN);
-    
+
     for (int fstep=0; fstep < dataset->nb_forcing_step; ++fstep)
     {
         for(int j=0; j<dataset->variables.size(); ++j)
@@ -1254,7 +1254,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
                         data_in[(dataset->variables.size()*dataset->nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=dataset->variables[j].loaded_data[fstep][i];
                     }
                 }
-                
+
                 if(cyclic_M!=M)
                 {
                     for (int x_ind=0; x_ind<N; ++x_ind)
@@ -1271,15 +1271,15 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
                     {
                         int i=y_ind*N+0;
                         int cyclic_i=y_ind*cyclic_N+(cyclic_N-1);
-                
+
                         data_in[(dataset->variables.size()*dataset->nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=dataset->variables[j].loaded_data[fstep][i];
                     }
-                }                
+                }
             }
             else // with no cyclic dimension, simply use the same indice i
                 for (int i=0; i<final_MN; ++i)
                     data_in[(dataset->variables.size()*dataset->nb_forcing_step)*i+fstep*dataset->variables.size()+j]=dataset->variables[j].loaded_data[fstep][i];
-            
+
         }
     }
 
@@ -1327,15 +1327,15 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
 #endif
     std::vector<double> RX,RY;//size set in convertTargetXY;
     this->convertTargetXY(dataset,RX_in, RY_in, RX, RY,mapNextsim);//(double const& u, double const& v)
-    
+
     // closing maps
     close_mapx(mapNextsim);
 
 
     std::cout << "Interpolation:" <<"\n";
-    
+
     double* data_out;
-    
+
     switch(dataset->grid.interpolation_method)
     {
         case InterpolationType::FromGridToMesh:
@@ -1366,7 +1366,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
         dataset->grid.gridX.pop_back();
 
     // Redistribute all the data after the interpolation
-    //std::cout << "Redistribution of the interpolated variables:" <<"\n";        
+    //std::cout << "Redistribution of the interpolated variables:" <<"\n";
     for (int fstep=0; fstep < dataset->nb_forcing_step; ++fstep)
     {
         for (int j=0; j<dataset->variables.size(); ++j)
@@ -1375,8 +1375,8 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
             for (int i=0; i<dataset->target_size; ++i)
                 dataset->variables[j].interpolated_data[fstep][i]=data_out[(dataset->variables.size()*dataset->nb_forcing_step)*i+fstep*dataset->variables.size()+j];
         }
-    }    
-    
+    }
+
 	xDelete<double>(data_out);
 
     dataset->interpolated=true;

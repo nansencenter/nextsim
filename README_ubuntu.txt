@@ -10,20 +10,34 @@ git clone https://tdcwilliams@bitbucket.org/asamake/nextsim.git
 
 # =============================================================
 BOOST
-sudo apt-get install libboost-dev
-sudo apt-get install libboost-chrono-dev
-sudo apt-get install libboost-date-time-dev
-sudo apt-get install libboost-filesystem-dev
-sudo apt-get install libboost-iostreams-dev
-sudo apt-get install libboost-log-dev
-sudo apt-get install libboost-locale-dev
-sudo apt-get install libboost-math-dev
-sudo apt-get install libboost-mpi-dev
-sudo apt-get install libboost-program-options-dev
-sudo apt-get install libboost-regex-dev
-sudo apt-get install libboost-serialization-dev
-sudo apt-get install libboost-system-dev
-sudo apt-get install libboost-timer-dev
+
+Compile from source:
+1) Download version 1.60 of boost on http://www.boost.org
+   (It is better to restart from here if you had an upgrade of your os)
+2) copy bconfigure_ubuntu.sh and binstall_ubuntu.sh from /nextsim/scripts/boost/
+   to your boost directory
+3) type the command "unset BOOST_DIR"
+4) check if bconfigure.sh corresponds to your architecture
+5) From boost directory, type: "./bconfigure.sh"
+6) Add the line "using mpi ;" at the end of the file project-config.jam
+7) From boost directory, type: "./binstall.sh" (sudo password is required during the process)
+
+Compile with apt:
+NB only boost v1.58 is available so won't run parallel code
+sudo apt-get install libboost-dev \
+                     libboost-chrono-dev \
+                     libboost-date-time-dev \
+                     libboost-filesystem-dev \
+                     libboost-iostreams-dev \
+                     libboost-log-dev \
+                     libboost-locale-dev \
+                     libboost-math-dev \
+                     libboost-mpi-dev \
+                     libboost-program-options-dev \
+                     libboost-regex-dev \
+                     libboost-serialization-dev \
+                     libboost-system-dev \
+                     libboost-timer-dev
 # =============================================================
 
 
@@ -44,7 +58,7 @@ mpicc --version
 sudo apt-get install gfortran-4.8
 sudo ln -sf gfortran-4.8 gfortran
 
-# Comment: It cal also be compiled with the default compilers from APT:
+# Comment: It can also be compiled with the default compilers from APT:
 # sudo apt install build-essential
 # GNU Fortran (Ubuntu 5.4.0-6ubuntu1~16.04.5) 5.4.0 20160609
 # gcc (Ubuntu 5.4.0-6ubuntu1~16.04.5) 5.4.0 20160609
@@ -53,8 +67,16 @@ sudo ln -sf gfortran-4.8 gfortran
 
 # =============================================================
 OTHER TOOLS/LIBRARIES
-sudo apt-get install cmake valgrind
-sudo apt-get install liblapack-dev libblas-dev
+sudo apt-get install cmake \
+                     valgrind \
+                     tau \
+                     liblapack-dev \
+                     libblas-dev \
+                     nco \
+                     ncview \
+                     libnetcdf-dev \
+                     libnetcdf-c++4-dev \
+                     subversion
 # =============================================================
 
 
@@ -96,7 +118,8 @@ export PETSC_DIR=/opt/local/petsc-debug
 GMSH
 1) svn --username=gmsh co https://onelab.info/svn/gmsh/trunk gmsh
       password: gmsh
-2) mkdir Build
+2) cd gmsh
+   mkdir Build
    cd Build
    cp $NEXTSIMDIR/scripts/gmsh/gconfigure.sh .
    ./gconfigure.sh
@@ -110,7 +133,7 @@ NETCDF
 1) sudo apt-get install libhdf5-dev libhdf5-openmpi-dev
 2) download latest stable c version of netcdf from
    http://www.unidata.ucar.edu/downloads/netcdf/index.jsp and unzip it
-3) copy configure_ubuntu.sh from /nextsim/scripts/netcdf
+3) copy configure_ubuntu.sh from nextsim/scripts/netcdf
    ./configure_ubuntu.sh
    make
    make check
@@ -126,7 +149,7 @@ NETCDF
 NETCDF-CXX
 1) download latest stable c++ version of netcdf from
    http://www.unidata.ucar.edu/downloads/netcdf/index.jsp and unzip it
-2) copy configure_ubuntu.sh from /nextsim/scripts/netcdf-cxx
+2) copy configure_ubuntu.sh from nextsim/scripts/netcdf-cxx
    ./configure_ubuntu.sh
    make
    make check

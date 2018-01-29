@@ -39,7 +39,7 @@ enum SolverType
 
 enum PreconditionerType
 {
-	IDENTITY_PRECOND=0,
+	 IDENTITY_PRECOND=0,
      JACOBI_PRECOND,
      BLOCK_JACOBI_PRECOND,
      SOR_PRECOND,

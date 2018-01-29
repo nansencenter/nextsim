@@ -27,53 +27,60 @@ namespace Nextsim
 {
     class Drifters
     {
-        public:
+public:
 
-            typedef struct Grid
-            {
-                std::string gridFile;
-                std::string dirname;
-                std::string mpp_file;
-                std::string dimNameX;
-                std::string dimNameY;
-                std::string latName;
-                std::string lonName;
+        typedef struct Grid
+        {
+            std::string gridFile;
+            std::string dirname;
+            std::string mpp_file;
+            std::string dimNameX;
+            std::string dimNameY;
+            std::string latName;
+            std::string lonName;
 
-                bool loaded;
-                std::vector<double> gridLAT;
-                std::vector<double> gridLON;
-                std::vector<double> gridX;
-                std::vector<double> gridY;
-            } Grid;
+            bool loaded;
+            std::vector<double> gridLAT;
+            std::vector<double> gridLON;
+            std::vector<double> gridX;
+            std::vector<double> gridY;
+        } Grid;
 
-            Drifters();
-            Drifters(double spacing, GmshMesh const &mesh, std::vector<double> &conc, double climit);
-            Drifters(std::string dirname, std::string gridFile, std::string dimNameX, std::string dimNameY, std::string latName, std::string lonName, GmshMesh const &mesh, std::vector<double> &conc, double climit);
-            Drifters(std::string filename, GmshMesh const &mesh, std::vector<double> &conc, double climit, double time);
+        Drifters();
 
-            void move(GmshMesh const &mesh, std::vector<double> const &UT);
+        Drifters(double spacing, GmshMesh const& mesh, std::vector<double>& conc, double climit);
 
-            void initNetCDF(std::string file_prefix, double current_time);
-            void appendNetCDF(double current_time, GmshMesh const &mesh, std::vector<double> const &UT);
+        Drifters(std::string dirname, std::string gridFile,
+                 std::string dimNameX, std::string dimNameY,
+                 std::string latName, std::string lonName,
+                 GmshMesh const& mesh, std::vector<double>& conc, double climit);
 
-            bool isInitialised();
+        Drifters(std::string filename, GmshMesh const& mesh, std::vector<double>& conc, double climit, double time);
 
-        private:
-            bool M_is_initialised;
+        void move(GmshMesh const& mesh, std::vector<double> const& UT);
 
-            int M_no_drifters;
+        void initNetCDF(std::string file_prefix, double current_time);
 
-            size_t M_nc_step;
+        void appendNetCDF(double current_time, GmshMesh const& mesh, std::vector<double> const& UT);
 
-            std::string M_filename;
+        bool isInitialised();
 
-            std::vector<double> M_X;
-            std::vector<double> M_Y;
-            std::vector<int> M_i;
+private:
+        bool M_is_initialised;
 
-            void move(GmshMesh const &mesh, std::vector<double> const &UT, std::vector<double> &X, std::vector<double> &Y);
+        int M_no_drifters;
 
-            void maskXY(GmshMesh const &mesh, std::vector<double> &X, std::vector<double> &Y, std::vector<double> &conc, double clim);
+        size_t M_nc_step;
+
+        std::string M_filename;
+
+        std::vector<double> M_X;
+        std::vector<double> M_Y;
+        std::vector<int> M_i;
+
+        void move(GmshMesh const& mesh, std::vector<double> const& UT, std::vector<double>& X, std::vector<double>& Y);
+
+        void maskXY(GmshMesh const& mesh, std::vector<double>& X, std::vector<double>& Y, std::vector<double>& conc, double clim);
     };
 } // Nextsim
 

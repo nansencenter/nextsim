@@ -30,8 +30,8 @@ namespace setup
 		CONSTANT = 0,
 		TOPAZR   = 1,
 		TOPAZF   = 2,
-		MITGCM   = 3,
-		TOPAZR_atrest   = 4,
+        MITGCM   = 3,
+        TOPAZR_atrest   = 4,
         TOPAZR_ALTIMETER   = 5
     };
 
@@ -104,13 +104,13 @@ namespace setup
         ZERO_LAYER = 0,
         WINTON     = 1
     };
-    
+
     enum class DynamicsType
-	{
-		DEFAULT         = 0,
-		NO_MOTION       = 1,
-		FREE_DRIFT      = 2
-	};
+    {
+        DEFAULT         = 0,
+        NO_MOTION       = 1,
+        FREE_DRIFT      = 2
+    };
 
 } // setup
 } // Nextsim
