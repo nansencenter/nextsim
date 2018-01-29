@@ -35,11 +35,10 @@ then
 fi
 
 # Run the nextsim model
-mpirun -n $ncpu $prog --config-files=$config
+mpirun -np $ncpu $prog --config-files=$config 2>&1 | tee $(basename $config .cfg).log
 
 
 # Run the CPU profiler (google perftools)
-# nbt=`echo ${NEXTSIM_BUILD_TYPE,,}`
 nbt=`echo $NEXTSIM_BUILD_TYPE  | tr '[:upper:]' '[:lower:]'`
 # this is now lower case
 if [ "$nbt" == "debug" ]
