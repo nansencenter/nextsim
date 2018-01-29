@@ -10001,15 +10001,13 @@ FiniteElement::writeLogFile()
 void
 FiniteElement::clear()
 {
-    //delete[] M_topaz_grid.pfindex;
-
     delete bamgmesh;
     delete bamggeom;
     delete bamgopt;
     // We need to point these to NULL because 'delete bamgopt' clears the
     // memory they were pointing to before
-    bamgopt_previous->hminVertices      = NULL;
-    bamgopt_previous->hmaxVertices      = NULL;
+    bamgopt_previous->hminVertices = NULL;
+    bamgopt_previous->hmaxVertices = NULL;
 
     delete bamgmesh_previous;
     delete bamggeom_previous;

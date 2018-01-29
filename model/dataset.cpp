@@ -6749,7 +6749,12 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 		}
 
 		std::cout <<"GRID : Triangulate starts\n";
-		BamgTriangulatex(&grid_ptr->pfindex,&grid_ptr->pfnels,&grid_ptr->gridX[0],&grid_ptr->gridY[0],grid_ptr->gridX.size());
+        int* pfindex;
+		BamgTriangulatex(&pfindex,&grid_ptr->pfnels,&grid_ptr->gridX[0],&grid_ptr->gridY[0],grid_ptr->gridX.size());
+        grid_ptr->pfindex.resize(3*(grid_ptr->pfnels));
+        for(int i=0;i<grid_ptr->pfindex.size();i++)
+            grid_ptr->pfindex[i] = pfindex[i];
+        xDelete<int>(pfindex);
 		std::cout <<"GRID : NUMTRIANGLES= "<< grid_ptr->pfnels <<"\n";
 		std::cout <<"GRID : Triangulate done\n";
 
