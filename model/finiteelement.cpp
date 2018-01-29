@@ -6539,7 +6539,8 @@ FiniteElement::forcingWave()
     if (M_wave_type==setup::WaveType::WW3A)
     {
         // define external_data objects
-        M_SWH        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init, vm["simul.spinup_duration"].as<double>());
+        //M_SWH        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init, vm["simul.spinup_duration"].as<double>());
+        M_SWH        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init);//no spinup
         M_MWP        = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
         M_MWD        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,true,time_init);//now a vector
         M_fice_waves = ExternalData(&M_wave_elements_dataset, M_mesh, 4,false,time_init);
