@@ -18,7 +18,7 @@ git diff > $P/git_changes.txt
 cd $P
 
 prog=bin/nextsim.exec
-if [ `pwd` != $NEXTSIMDIR ]
+if [ `pwd` != "$NEXTSIMDIR/model" ]
 then
    # make a local copy of executable
    # (so can recompile code and run somewhere else)
