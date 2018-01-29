@@ -5,6 +5,9 @@
 # or use nohup as valgrind is very slow
 # NB code needs to compiled with env variable NEXTSIM_BUILD_TYPE=debug
 
+export MPIWRAP_DEBUG=warn
+export LD_PRELOAD=/opt/local/lib/valgrind/libmpiwrap-amd64-darwin.so
+
 if [ "$1" = "" -o "$2" = "" ]
 then
         echo "Usage: $0 config_file.cfg num_cpus"
@@ -49,8 +52,5 @@ then
 fi
 
 # Run the nextsim model
-MPIWRAP_DEBUG=warn                                               \
-   LD_PRELOAD=/opt/local/lib/valgrind/libmpiwrap-amd64-darwin.so \
-   mpirun -np $ncpu                                              \
-   /opt/local/bin/valgrind ${vopts[@]} $prog ${nsopts[@]} 2>&1 | tee simdebug.log
+mpirun -np $ncpu valgrind ${vopts[@]} $prog ${nsopts[@]} 2>&1 | tee simdebug.log
 

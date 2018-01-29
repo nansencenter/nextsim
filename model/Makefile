@@ -12,7 +12,9 @@ else
 endif
 
 # add g++ option flags
-CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -fopenmp -DHAVE_CONFIG_H -D_MULTITHREADING_
+CXXFLAGS += -ftemplate-depth-256 -Wno-inline \
+		-fPIC -fopenmp \
+		-DHAVE_CONFIG_H -D_MULTITHREADING_
 ifneq ($(XSIMCOMP_VERBOSE),no)
 	CXXFLAGS += -v
 endif
@@ -64,7 +66,6 @@ else
 	endif
 
 	CXXFLAGS += -I /usr/local/include #-I /opt/local/include/openmpi-mp
-	CXXFLAGS +=	-I /opt/local/netcdf/include/
 
 	#LDFLAGS += -Wl,-rpath,/usr/local/lib #-Wl,-rpath,/opt/local/lib/openmpi-mp
 	#LDFLAGS += -L /usr/local/lib #-L /opt/local/lib/openmpi-mp -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
@@ -120,13 +121,10 @@ OBJS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.o)
 DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
 # Rules to always execute.
-.PHONY: all clean mrproper libs cleanlibs mrproperlibs
+.PHONY: exec all clean mrproper libs cleanlibs mrproperlibs
 
 # Default action.
-default: $(PROGNAME)
-
-# Compile the libraries as well as the executable
-all: libs $(PROGNAME)
+exec: $(PROGNAME)
 
 # Delete the object files.
 clean:
@@ -172,6 +170,9 @@ $(OBJS): Makefile
 # Make the required libraries
 libs:
 	cd ..; make
+
+# Compile the libraries as well as the executable
+all: libs exec
 
 # Clean the required libraries
 cleanlibs:
