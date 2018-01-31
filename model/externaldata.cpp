@@ -172,7 +172,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
         {
             std::cout << "Interpolate " << M_datasetname << "\n";
             //interpolateDataset(M_dataset, mesh);
-            interpolateDataset(M_dataset, RX_in, RY_in);
+            this->interpolateDataset(M_dataset, RX_in, RY_in);
             std::cout << "Done\n";
         }
     }
@@ -1251,7 +1251,8 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
                     {
                         int i=y_ind*N+x_ind;
                         int cyclic_i=y_ind*cyclic_N+x_ind;
-                        data_in[(dataset->variables.size()*dataset->nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=dataset->variables[j].loaded_data[fstep][i];
+                        int ind = (dataset->variables.size()*dataset->nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j;
+                        data_in[ind] = dataset->variables[j].loaded_data[fstep][i];
                     }
                 }
 
@@ -1259,26 +1260,29 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
                 {
                     for (int x_ind=0; x_ind<N; ++x_ind)
                     {
-                        int i=0*N+x_ind;
-                        int cyclic_i=(cyclic_M-1)*cyclic_N+x_ind;
-
-                        data_in[(dataset->variables.size()*dataset->nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=dataset->variables[j].loaded_data[fstep][i];
+                        int i = 0*N+x_ind;
+                        int cyclic_i = (cyclic_M-1)*cyclic_N+x_ind;
+                        int ind = (dataset->variables.size()*dataset->nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j;
+                        data_in[ind] = dataset->variables[j].loaded_data[fstep][i];
                     }
                 }
                 if(cyclic_N!=N)
                 {
                     for (int y_ind=0; y_ind<M; ++y_ind)
                     {
-                        int i=y_ind*N+0;
-                        int cyclic_i=y_ind*cyclic_N+(cyclic_N-1);
-
-                        data_in[(dataset->variables.size()*dataset->nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=dataset->variables[j].loaded_data[fstep][i];
+                        int i = y_ind*N+0;
+                        int cyclic_i = y_ind*cyclic_N+(cyclic_N-1);
+                        int ind = (dataset->variables.size()*dataset->nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j;
+                        data_in[ind] = dataset->variables[j].loaded_data[fstep][i];
                     }
                 }
             }
             else // with no cyclic dimension, simply use the same indice i
                 for (int i=0; i<final_MN; ++i)
-                    data_in[(dataset->variables.size()*dataset->nb_forcing_step)*i+fstep*dataset->variables.size()+j]=dataset->variables[j].loaded_data[fstep][i];
+                {
+                    int ind = (dataset->variables.size()*dataset->nb_forcing_step)*i+fstep*dataset->variables.size()+j;
+                    data_in[ind] = dataset->variables[j].loaded_data[fstep][i];
+                }
 
         }
     }
