@@ -4,11 +4,8 @@
 
 .PHONY: all clean mrproper All Clean Mrproper fresh
 
-all:
-	@cd $(NEXTSIMDIR)/contrib/bamg/src; make
-	@cd $(NEXTSIMDIR)/contrib/mapx/src; make
+all: Bamg Mapx Core
 	#@cd $(NEXTSIMDIR)/contrib/interp/src; make
-	@cd $(NEXTSIMDIR)/core/src; make;
 ifdef USE_NEXTWIM
 	@cd $(NEXTSIMDIR)/modules/wim/src; make
 endif
@@ -39,8 +36,7 @@ endif
 
 
 # rules to compile model code as well as lib's
-All: all
-	@cd $(NEXTSIMDIR)/model; make;
+All: all Model
 
 Clean: clean
 	@cd $(NEXTSIMDIR)/model; make clean;
@@ -50,3 +46,16 @@ Mrproper: mrproper
 
 # fresh compile (clean first)
 fresh: Clean All
+
+Bamg:
+	@cd $(NEXTSIMDIR)/contrib/bamg/src; make
+Mapx:
+	@cd $(NEXTSIMDIR)/contrib/mapx/src; make
+Core:
+	@cd $(NEXTSIMDIR)/core/src; make;
+Model:
+	@cd $(NEXTSIMDIR)/model; make;
+Wim:
+	@cd $(NEXTSIMDIR)/modules/wim/src; make
+Oasis:
+	@cd $(NEXTSIMDIR)/modules/oasis/src; make

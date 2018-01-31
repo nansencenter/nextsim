@@ -1,11 +1,12 @@
 #! /bin/bash
 
-if [ "$1" ]
+if [ $# -ne 1 ]
 then
-        config=$1
-else
-        config=nextsim.cfg
+   echo "not enough arguments"
+   echo "run.sh [config file name]"
+   exit
 fi
+config=$1
 
 # record changes from last git commit:
 # file gets moved from current dir to "output_directory" inside nextsim code
@@ -16,10 +17,11 @@ git diff > $P/git_changes.txt
 cd $P
 
 prog=bin/nextsim.exec
-if [ `pwd` != $NEXTSIMDIR ]
+if [ `pwd` != $NEXTSIMDIR/model ]
 then
    # make a local copy of executable
    # (so can recompile code and run somewhere else)
+   rm -rf bin #make sure any old executable is deleted
    mkdir -p bin
    cp $NEXTSIMDIR/model/$prog $prog
 fi

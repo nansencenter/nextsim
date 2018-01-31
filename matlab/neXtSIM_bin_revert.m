@@ -1,4 +1,4 @@
-function [mesh_out,data_out] = neXtSIM_bin_revert(dirname, proc, step)%,varargin)
+function [mesh_out,data_out] = neXtSIM_bin_revert(dirname, proc, step,SHOW_INFO)%,varargin)
 
 %Sylvain: Created 20160105 to take a binary file and revert it to a slim_out.
 %Only works for binary files created by neXtSIM
@@ -18,6 +18,7 @@ function [mesh_out,data_out] = neXtSIM_bin_revert(dirname, proc, step)%,varargin
 if ~exist('dirname','var'); dirname  = './'; end
 if ~exist('proc','var'); proc  = []; end
 if ~exist('step','var'); step  = 'final'; end
+if ~exist('SHOW_INFO','var'); SHOW_INFO = 0; end
 
 if(~isempty(dirname)&& dirname(end)~='/')
     dirname=[dirname, '/'];
@@ -48,11 +49,11 @@ end
 
 
 %Getting mesh
-mesh_out=read_bin_export(mesh_info,mesh_data);
+mesh_out=read_bin_export(mesh_info,mesh_data,SHOW_INFO);
 
 %Getting field
 if(exist(field_info))
-    data_out=read_bin_export(field_info,field_data);
+    data_out=read_bin_export(field_info,field_data,SHOW_INFO);
 else
     data_out=[];
 end

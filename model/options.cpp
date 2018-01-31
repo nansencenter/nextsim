@@ -11,7 +11,7 @@
 #include <constants.hpp>
 
 #if defined (WAVES)
-#include <wimoptions.hpp>
+#include <options_wim.hpp>
 #endif
 
 namespace po = boost::program_options;
@@ -83,13 +83,17 @@ namespace Nextsim
             ("simul.init_snow_thickness", po::value<double>()->default_value( 0. ), "")
             // not used: ("simul.init_snow_thin_thickness", po::value<double>()->default_value( 0. ), "")
 
+            //inputs (restart)
+            ("setup.use_restart", po::value<bool>()->default_value( false ), "")
+            ("setup.restart_string", po::value<std::string>()->default_value( "" ), "")
+            ("setup.step_nb", po::value<int>()->default_value( 0 ), "")
+
             // outputs
             ("setup.use_assimilation", po::value<bool>()->default_value( false ), "")
-            ("setup.use_restart", po::value<bool>()->default_value( false ), "")
             ("setup.write_restart", po::value<bool>()->default_value( false ), "")
             ("setup.restart_at_rest", po::value<bool>()->default_value( false ), "")
             ("setup.restart_time_step", po::value<double>()->default_value( 15 ), "days")
-            ("setup.step_nb", po::value<int>()->default_value( 0 ), "")
+
             ("simul.output_per_day", po::value<int>()->default_value( 4 ), "")
             ("simul.output_directory", po::value<std::string>()->default_value( "" ), "")
             ("simul.logfile", po::value<std::string>()->default_value( "" ), "")
@@ -288,7 +292,8 @@ namespace Nextsim
 #if defined(WAVES)
             ("simul.use_wim", po::value<bool>()->default_value( false ), "")
             ("simul.wim_grid", po::value<bool>()->default_value( false ), "")
-            ("setup.wave-type", po::value<std::string>()->default_value( "constant" ), "constant, ww3a")
+            ("setup.wave-type", po::value<std::string>()->default_value( "set_in_wim" ),
+                "set_in_wim, ww3a, eraiw_1deg")
             ("setup.wave-time-interp-option", po::value<std::string>()->default_value( "step" ), "step, linear")
 
             ("simul.constant_significant_wave_height", po::value<double>()->default_value( 2. ), "")

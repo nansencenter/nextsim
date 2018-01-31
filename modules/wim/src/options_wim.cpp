@@ -1,6 +1,6 @@
 /* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
-#include <wimoptions.hpp>
+#include <options_wim.hpp>
 
 namespace Wim
 {
@@ -31,9 +31,7 @@ namespace Wim
                   "Number of wave directions")
             //("wim.gridfilename", po::value<std::string>()->default_value( "wim_grid_full_ONR_Oct2015_2km_big.a" ),
             ("wim.gridfilename", po::value<std::string>()->default_value( "" ),
-                  "wim grid binary filename")
-            ("wim.gridremoveouter", po::value<bool>()->default_value( true ),
-                  "Remove outer nodes from the grid (=true), or not (=false)")
+                  "wim grid binary filename - default is to create the grid from parameters in cfg file (uncoupled code), or to use the nextsim mesh to determine the parameters (coupled code)")
 
             //'int_prams' in fortran
             ("wim.scatmod", po::value<std::string>()->default_value( "dissipated" ),
@@ -60,8 +58,8 @@ namespace Wim
             // 'real_prams' in fortran code
             ("wim.young", po::value<double>()->default_value( 5.49e+9 ),
                   "Young's modulus [Pa]")
-            ("wim.viscrp", po::value<double>()->default_value( 13. ),
-                  "Robinson-Palmer viscosity [Pa.s/m]")
+            ("wim.dragrp", po::value<double>()->default_value( 13. ),
+                  "Robinson-Palmer drag coefficient [Pa.s/m]")
             ("wim.duration", po::value<double>()->default_value( 43200.0 ),
                   "length of simulation [s]")
             ("wim.cfl", po::value<double>()->default_value( 0.7 ),
@@ -84,6 +82,8 @@ namespace Wim
                   "Add land on upper,lower and RH edges")
             ("wim.initialtime", po::value<std::string>()->default_value( "2015-01-01 00:00:00" ),
                   "Initial time")
+            ("wim.useregulargridtools", po::value<bool>()->default_value( false ),
+                  "use regular grid tools if possible (else triangulate grid and use mesh tools)")
 
             //outputs of WIM
             ("wim.checkinit", po::value<bool>()->default_value( true ),
@@ -124,14 +124,16 @@ namespace Wim
                   "Export results in coupled mode")
             ("nextwim.couplingfreq", po::value<int>()->default_value( 20 ),
                   "Coupling frequency between neXtSIM and WIM (# neXtSIM time-steps)")
-            ("nextwim.coupling-option", po::value<std::string>()->default_value( "naive" ),
-                  "Coupling option: naive->interp nfloes onto mesh after exiting WIM; breaking_on_mesh->import mesh and do breaking on mesh in parallel")
+            ("nextwim.coupling-option", po::value<std::string>()->default_value( "break_on_mesh" ),
+                  "Coupling option: naive->interp nfloes onto mesh after exiting WIM; break_on_mesh->import mesh and do breaking on mesh in parallel; run_on_mesh->run WIM on neXtSIM mesh")
             ("nextwim.wim_damage_mesh", po::value<bool>()->default_value( true ),
                   "If ice is broken by waves, increase damage to nextwim.wim_damage_value (if nextwim_coupling_option=breaking_on_mesh)")
             ("nextwim.wim_damage_value", po::value<double>()->default_value( 0.999 ),
                   "If ice is broken by waves, increase damage to this value (if wim_damage_mesh=true)")
-            ("nextwim.export_stokes_drift_mesh", po::value<bool>()->default_value( false ),
-                  "export Stokes drift on mesh or not")
+            ("nextwim.export_diags_mesh", po::value<bool>()->default_value( false ),
+                  "export wave diagnostics on mesh or not")
+            ("nextwim.test_and_exit", po::value<bool>()->default_value( false ),
+                  "Stop the run after 1 call to the wim")
             ;
         return desc;
     }

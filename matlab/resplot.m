@@ -1,5 +1,5 @@
 function failed = resplot(field,step,dirname,plot_options)
-%% CALL: resplot(field,step,dirname,plot_options)
+%% CALL: failed = resplot(field,step,dirname,plot_options)
 
 % clearvars -except step;
 
@@ -41,6 +41,7 @@ function failed = resplot(field,step,dirname,plot_options)
 %   plot_grid        : 1
 %  vector_components : []
 
+failed   = 0;
 if ~exist('dirname','var'), dirname='.'; end
 if ~exist('step','var'); step='init'; end
 
@@ -66,6 +67,7 @@ if ~exist('visible','var'),            visible = 1; end;
 if ~exist('vector_components','var'),  vector_components = []; end;
    % if a vector: vector_components is [] (plot all components) or vector of components to plot,
    % where i=1 is x-component, i=2 is y-component, i=3 is modulus
+if ~exist('no_error','var'), no_error = 0; end;
 
 
 [mesh_out,data_out] = neXtSIM_bin_revert(dirname,[], step);
@@ -92,9 +94,15 @@ if(~isempty(field))
     try
         field_tmp=data_out.(field);
     catch err
-        disp(['Available fields are: ' fieldnames(data_out)'])
-        failed = 1;
-        return;
+        if ~quiet
+           disp(['Available fields are: ' fieldnames(data_out)']);
+        end
+        if no_error
+           failed = 1;
+           return;
+        else
+           rethrow(err);
+        end
     end
 else
     field_tmp=zeros(Ne,1);
