@@ -1,11 +1,12 @@
 #! /bin/bash
 
-if [ "$1" ]
+if [ $# -ne 1 ]
 then
-        config=$1
-else
-        config=nextsim.cfg
+   echo "not enough arguments"
+   echo "run.sh [config file name]"
+   exit
 fi
+config=$1
 
 # record changes from last git commit:
 # file gets moved from current dir to "output_directory" inside nextsim code
