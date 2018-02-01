@@ -18,7 +18,7 @@ git diff > $P/git_changes.txt
 cd $P
 
 prog=bin/nextsim.exec
-if [ `pwd` != $NEXTSIMDIR ]
+if [ `pwd` != "$NEXTSIMDIR/model" ]
 then
    # make a local copy of executable
    # (so can recompile code and run somewhere else)
@@ -35,11 +35,10 @@ then
 fi
 
 # Run the nextsim model
-mpirun -n $ncpu $prog --config-files=$config 2>&1 | tee $(basename $config .cfg).log
+mpirun -np $ncpu $prog --config-files=$config 2>&1 | tee $(basename $config .cfg).log
 
 
 # Run the CPU profiler (google perftools)
-# nbt=`echo ${NEXTSIM_BUILD_TYPE,,}`
 nbt=`echo $NEXTSIM_BUILD_TYPE  | tr '[:upper:]' '[:lower:]'`
 # this is now lower case
 if [ "$nbt" == "debug" ]
