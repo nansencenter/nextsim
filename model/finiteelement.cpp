@@ -2412,7 +2412,7 @@ FiniteElement::assemble(int pcpt)
 // omp pragma causing the code not to give reproducable results across different runs and different number of threads
 // The reason is that we do a += update on rhsdata and lhsdata. When OpenMP is active the order of these operations is arbitrary and the result is
 // therefore not bitwise reproducable. This is du to the fact that (a + b) + c != a + (b + c).
-#ifndef NDEBUG
+#ifndef DEBUGGING
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
 #endif
     for (int cpt=0; cpt < M_num_elements; ++cpt)
@@ -2712,7 +2712,7 @@ FiniteElement::assemble(int pcpt)
 
         for (int idf=0; idf<rcindices.size(); ++idf)
         {
-#ifndef NDEBUG
+#ifndef DEBUGGING
 #pragma omp atomic
 #endif
             rhsdata[rcindices[idf]] += fvdata[idf];
@@ -2735,7 +2735,7 @@ FiniteElement::assemble(int pcpt)
                     }
                 }
 
-#ifndef NDEBUG
+#ifndef DEBUGGING
 #pragma omp atomic
 #endif
                 lhsdata[start+colind] += data[6*idf+idj];
@@ -5271,7 +5271,7 @@ FiniteElement::step(int &pcpt)
 
 #endif
 
-#ifdef NDEBUG
+#ifdef DEBUGGING
     if(vm["setup.restart_debugging"].as<bool>())
         //write restart every timestep
         this->writeRestart(pcpt, pcpt);

@@ -22,7 +22,7 @@ endif
 ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
 	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	#CCFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
-	CCFLAGS += -g -O0 -DNDEBUG
+	CCFLAGS += -g -O0 -DDEBUGGING
 ifneq ($(KERNEL),Linux)
 	CCFLAGS += -Wl,-no_pie
 endif
