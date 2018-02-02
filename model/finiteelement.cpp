@@ -6401,7 +6401,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
     {
         case setup::OceanType::CONSTANT:
             M_ocean=ExternalData(
-                vm["simul.constant_ocean_v"].as<double>(),
+                vm["simul.constant_ocean_u"].as<double>(),
                 vm["simul.constant_ocean_v"].as<double>(),
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_ocean);
@@ -9436,7 +9436,6 @@ FiniteElement::wimCheckWaves()
         return;
 
     this->checkReloadDatasets(M_external_data_waves,current_time,"wimCheckWaves");
-    std::cout<<"9439\n";
 
     int num_elements_wim = M_wim.getX().size();
     dbl_vec swh_in(num_elements_wim,0.);
@@ -9448,7 +9447,6 @@ FiniteElement::wimCheckWaves()
     double Tp_data_min  = 1.e30;
     double Tp_data_max  = -1.e30;
 
-    std::cout<<"9450\n";
     for (int i=0; i<num_elements_wim; ++i)
     {
         //get incident waves from datasets
