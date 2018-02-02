@@ -65,7 +65,6 @@ public:
         full          = 2//full info - eg can use advect
     };
     E_mesh_type M_mesh_type = E_mesh_type::uninitialised;
-    bool M_initialised = false;
 
     // ===============================================================
     //destructor
@@ -91,6 +90,9 @@ public:
 
     // ===============================================================
     //functions
+    bool initialised() const
+    { return ( !(M_mesh_type == E_mesh_type::uninitialised) ); }
+
     void initSimple();
     void setElements();
     void setFields( T_gmsh const &mesh);

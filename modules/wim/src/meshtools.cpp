@@ -21,7 +21,6 @@ template<typename T>
 MeshInfo<T>::MeshInfo(T_gmsh const &movedmesh)
 {
     M_mesh_type = E_mesh_type::simple;
-    M_initialised = true;
 
     //update mesh with moved mesh
     this->setFields(movedmesh);
@@ -36,7 +35,6 @@ MeshInfo<T>::MeshInfo(std::vector<int> const& index,T_val_vec const &nodes_x,T_v
 {
     //set some scalars
     M_mesh_type   = E_mesh_type::simple;
-    M_initialised = true;
 
     M_num_nodes    = nodes_x.size();
     M_num_elements = (index.size())/3;
@@ -59,7 +57,6 @@ MeshInfo<T>::MeshInfo(T_val_vec const &nodes_x,T_val_vec const &nodes_y)
 
     //set some scalars
     M_mesh_type   = E_mesh_type::simple;
-    M_initialised = true;
     M_num_nodes   = nodes_x.size();
 
     //set some vectors
@@ -97,7 +94,6 @@ MeshInfo<T>::MeshInfo(std::vector<int> const& index,T_val_vec const &nodes_x,T_v
 {
     //set some scalars
     M_mesh_type   = E_mesh_type::simple;
-    M_initialised = true;
 
     M_num_nodes     = nodes_x.size();
     M_num_elements  = (index.size())/3;
@@ -120,7 +116,6 @@ MeshInfo<T>::MeshInfo(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& flag
 {
     //interface for M_wim_on_mesh
     M_mesh_type = E_mesh_type::full;
-    M_initialised = true;
 
     //set the basic fields
     this->setFields(movedmesh);
@@ -406,7 +401,7 @@ void MeshInfo<T>::interpToPoints(
         T_val const& default_val)            //optional: default value for points outside the mesh
 {
 
-    if(M_mesh_type==E_mesh_type::uninitialised)
+    if(!(this->initialised()))
         throw runtime_error("interpToPoints: Mesh object uninitialised\n");
 
     int nb_var      = input_data.size();
@@ -473,7 +468,7 @@ void MeshInfo<T>::elementsToNodes(
         T_val_vec_ptrs const &input_data)  //input data
 {
 
-    if(M_mesh_type==E_mesh_type::uninitialised)
+    if(!(this->initialised()))
         throw runtime_error("elementsToNodes: Mesh object uninitialised\n");
 
     if(0)
@@ -532,7 +527,7 @@ void MeshInfo<T>::interpToGrid(
 
 {
 
-    if(M_mesh_type==E_mesh_type::uninitialised)
+    if(!(this->initialised()))
         throw runtime_error("interpToGrid: Mesh object uninitialised\n");
 
     int nb_var      = input_data.size();
