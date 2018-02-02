@@ -21,6 +21,7 @@ template<typename T>
 MeshInfo<T>::MeshInfo(T_gmsh const &movedmesh)
 {
     M_mesh_type = E_mesh_type::simple;
+    M_initialised = true;
 
     //update mesh with moved mesh
     this->setFields(movedmesh);
@@ -34,9 +35,11 @@ template<typename T>
 MeshInfo<T>::MeshInfo(std::vector<int> const& index,T_val_vec const &nodes_x,T_val_vec const &nodes_y)
 {
     //set some scalars
-    M_mesh_type     = E_mesh_type::simple;
-    M_num_nodes     = nodes_x.size();
-    M_num_elements  = (index.size())/3;
+    M_mesh_type   = E_mesh_type::simple;
+    M_initialised = true;
+
+    M_num_nodes    = nodes_x.size();
+    M_num_elements = (index.size())/3;
 
     //set some vectors
     M_index   = index;
@@ -55,8 +58,9 @@ MeshInfo<T>::MeshInfo(T_val_vec const &nodes_x,T_val_vec const &nodes_y)
     //takes nodes and does triangulation
 
     //set some scalars
-    M_mesh_type     = E_mesh_type::simple;
-    M_num_nodes     = nodes_x.size();
+    M_mesh_type   = E_mesh_type::simple;
+    M_initialised = true;
+    M_num_nodes   = nodes_x.size();
 
     //set some vectors
     M_nodes_x = nodes_x;
@@ -92,7 +96,9 @@ MeshInfo<T>::MeshInfo(std::vector<int> const& index,T_val_vec const &nodes_x,T_v
         T_val_vec const &elements_x,T_val_vec const &elements_y)
 {
     //set some scalars
-    M_mesh_type     = E_mesh_type::simple;
+    M_mesh_type   = E_mesh_type::simple;
+    M_initialised = true;
+
     M_num_nodes     = nodes_x.size();
     M_num_elements  = (index.size())/3;
 
@@ -114,6 +120,7 @@ MeshInfo<T>::MeshInfo(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& flag
 {
     //interface for M_wim_on_mesh
     M_mesh_type = E_mesh_type::full;
+    M_initialised = true;
 
     //set the basic fields
     this->setFields(movedmesh);
