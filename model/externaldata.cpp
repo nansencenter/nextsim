@@ -211,7 +211,7 @@ ExternalData::get(const size_type i)
         bool interp_linear_time = (M_dataset->grid.dataset_frequency!="constant"
                 && M_dataset->grid.dataset_frequency!="nearest_daily");
         bool interp_const_wave  = ((M_dataset->grid.waveOptions.wave_dataset)
-                && (Environment::vm()["setup.wave-time-interp-option"].as<std::string>()=="step"));
+                && (Environment::vm()["wimsetup.wave-time-interp-option"].as<std::string>()=="step"));
                 //&& (M_dataset->grid.waveOptions.time_interp_option=="step"));
         interp_linear_time  = (interp_linear_time && !interp_const_wave);
 
@@ -472,7 +472,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             init_timestr = to_date_string_yd(M_StartingTime);//yyyymmdd
 
         // when using forcing from a forecast, we select the file based on the StartingTime
-        if ( (dataset->grid.dataset_frequency!="daily_forecast") && (((dataset->grid.prefix).find("start") != std::string::npos) || (Environment::vm()["simul.forecast"].as<bool>())))
+        if ( (dataset->grid.dataset_frequency!="daily_forecast")
+                && (((dataset->grid.prefix).find("start") != std::string::npos)
+                    || (Environment::vm()["simul.forecast"].as<bool>())))
         {
             ftime = M_StartingTime;
             file_jump.push_back(0);
@@ -654,7 +656,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         {
             ftime = M_current_time;
             // when using forcing from a forecast, we select the file based on the StartingTime
-            if ( (dataset->grid.dataset_frequency!="daily_forecast") && (((dataset->grid.prefix).find("start") != std::string::npos) || (Environment::vm()["simul.forecast"].as<bool>())))
+            if ( (dataset->grid.dataset_frequency!="daily_forecast")
+                    && (((dataset->grid.prefix).find("start") != std::string::npos)
+                        || (Environment::vm()["simul.forecast"].as<bool>())))
             {
                 ftime = M_StartingTime;
             }

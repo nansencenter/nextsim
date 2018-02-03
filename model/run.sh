@@ -23,6 +23,7 @@ then
    # (so can recompile code and run somewhere else)
    rm -rf bin #make sure any old executable is deleted
    mkdir -p bin
+   echo "cp $NEXTSIMDIR/model/$prog $prog"
    cp $NEXTSIMDIR/model/$prog $prog
 fi
 

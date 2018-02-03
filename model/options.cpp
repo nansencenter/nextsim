@@ -93,6 +93,8 @@ namespace Nextsim
             ("setup.write_restart", po::value<bool>()->default_value( false ), "")
             ("setup.restart_at_rest", po::value<bool>()->default_value( false ), "")
             ("setup.restart_time_step", po::value<double>()->default_value( 15 ), "days")
+            ("setup.restart_debugging", po::value<bool>()->default_value( false ),
+                "save restart every time step for debugging (only with build type DEBUG)")
 
             ("simul.output_per_day", po::value<int>()->default_value( 4 ), "")
             ("simul.output_directory", po::value<std::string>()->default_value( "" ), "")
@@ -290,19 +292,7 @@ namespace Nextsim
 #endif
 
 #if defined(WAVES)
-            ("simul.use_wim", po::value<bool>()->default_value( false ), "")
-            ("simul.wim_grid", po::value<bool>()->default_value( false ), "")
-            ("setup.wave-type", po::value<std::string>()->default_value( "set_in_wim" ),
-                "set_in_wim, ww3a, eraiw_1deg")
-            ("setup.wave-time-interp-option", po::value<std::string>()->default_value( "step" ), "step, linear")
-
-            ("simul.constant_significant_wave_height", po::value<double>()->default_value( 2. ), "")
-            ("simul.constant_wave_mean_direction", po::value<double>()->default_value( 90. ), "")
-            ("simul.constant_wave_peak_frequency", po::value<double>()->default_value( 0.05 ), "")
-
-            ("simul.export_after_wim_call", po::value<bool>()->default_value( false ), "")
-            ;
-
+        ;
         return desc.add( Wim::descrWimOptions() );
 #else
         ;

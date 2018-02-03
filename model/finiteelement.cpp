@@ -612,7 +612,7 @@ FiniteElement::initConstant()
                     quad_drag_coef_air = vm["simul.ECMWF_quad_drag_coef_air"].as<double>(); break;
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
-    LOG(DEBUG) <<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
+    LOG(DEBUG)<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::OceanType> str2ocean = boost::assign::map_list_of
         ("constant", setup::OceanType::CONSTANT)
@@ -621,7 +621,7 @@ FiniteElement::initConstant()
         ("topaz_forecast", setup::OceanType::TOPAZF)
         ("topaz_altimeter", setup::OceanType::TOPAZR_ALTIMETER);
     M_ocean_type = str2ocean.find(vm["setup.ocean-type"].as<std::string>())->second;
-    LOG(DEBUG) <<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
+    LOG(DEBUG)<<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::IceType> str2conc = boost::assign::map_list_of
         ("constant", setup::IceType::CONSTANT)
@@ -643,21 +643,21 @@ FiniteElement::initConstant()
         ("smos", setup::IceType::SMOS)
         ("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT);
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
-    LOG(DEBUG) <<"ICETYPE= "<< (int)M_ice_type <<"\n";
+    LOG(DEBUG)<<"ICETYPE= "<< (int)M_ice_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::DynamicsType> str2dynamics = boost::assign::map_list_of
         ("default", setup::DynamicsType::DEFAULT)
         ("no_motion", setup::DynamicsType::NO_MOTION)
         ("free_drift", setup::DynamicsType::FREE_DRIFT);
     M_dynamics_type = str2dynamics.find(vm["setup.dynamics-type"].as<std::string>())->second;
-    LOG(DEBUG) <<"DYNAMICSTYPE= "<< (int)M_dynamics_type <<"\n";
+    LOG(DEBUG)<<"DYNAMICSTYPE= "<< (int)M_dynamics_type <<"\n";
 
 #ifdef OASIS
     cpl_time_step = vm["coupler.timestep"].as<double>();
 #endif
 
 #if defined (WAVES)
-    M_use_wim   = vm["simul.use_wim"].as<bool>();
+    M_use_wim   = vm["nextwim.use_wim"].as<bool>();
     if (M_use_wim)
     {
         const boost::unordered_map<const std::string, setup::WaveType> str2wave = boost::assign::map_list_of
@@ -665,7 +665,7 @@ FiniteElement::initConstant()
             ("ww3a", setup::WaveType::WW3A)
             ("eraiw_1deg", setup::WaveType::ERAI_WAVES_1DEG);
 
-        std::string swave = vm["setup.wave-type"].as<std::string>();
+        std::string swave = vm["wimsetup.wave-type"].as<std::string>();
         if ( str2wave.count(swave) == 0)
             throw std::runtime_error("Unknown wave forcing type: "+swave);
 
@@ -682,7 +682,7 @@ FiniteElement::initConstant()
             throw std::runtime_error("Unknown wave mode type: "+swave);
 
         M_wave_mode = str2wave2.find(swave)->second;
-        LOG(DEBUG) <<"WAVEMODE = "+swave+"(enum = "<< (int)M_wave_mode <<")\n";
+        LOG(DEBUG)<<"WAVEMODE = "+swave+"(enum = "<< (int)M_wave_mode <<")\n";
     }
 #endif
 
@@ -2412,7 +2412,7 @@ FiniteElement::assemble(int pcpt)
 // omp pragma causing the code not to give reproducable results across different runs and different number of threads
 // The reason is that we do a += update on rhsdata and lhsdata. When OpenMP is active the order of these operations is arbitrary and the result is
 // therefore not bitwise reproducable. This is du to the fact that (a + b) + c != a + (b + c).
-#ifndef NDEBUG
+#ifndef DEBUGGING
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
 #endif
     for (int cpt=0; cpt < M_num_elements; ++cpt)
@@ -2712,7 +2712,7 @@ FiniteElement::assemble(int pcpt)
 
         for (int idf=0; idf<rcindices.size(); ++idf)
         {
-#ifndef NDEBUG
+#ifndef DEBUGGING
 #pragma omp atomic
 #endif
             rhsdata[rcindices[idf]] += fvdata[idf];
@@ -2735,7 +2735,7 @@ FiniteElement::assemble(int pcpt)
                     }
                 }
 
-#ifndef NDEBUG
+#ifndef DEBUGGING
 #pragma omp atomic
 #endif
                 lhsdata[start+colind] += data[6*idf+idj];
@@ -5271,9 +5271,10 @@ FiniteElement::step(int &pcpt)
 
 #endif
 
-#ifdef NDEBUG
-    //write restart every timestep
-    this->writeRestart(pcpt, pcpt);
+#ifdef DEBUGGING
+    if(vm["setup.restart_debugging"].as<bool>())
+        //write restart every timestep
+        this->writeRestart(pcpt, pcpt);
 #else
     if ( fmod(pcpt*time_step,restart_time_step) == 0)
     {
@@ -5787,7 +5788,6 @@ FiniteElement::readRestart(std::string step)
 
     exp_mesh.readRecord(meshrecord);
     meshrecord.close();
-    std::cout<<"5819\n";
 
     // Then onto the data itself
     filename = (boost::format( "%1%/mesh_%2%.bin" )
@@ -5798,7 +5798,6 @@ FiniteElement::readRestart(std::string step)
         throw std::runtime_error("File not found: " + filename);
     exp_mesh.loadFile(meshbin, field_map_int, field_map_dbl);
     meshbin.close();
-    std::cout<<"5830\n";
 
     std::vector<int>   indexTr = field_map_int["Elements"];
     std::vector<double> coordX = field_map_dbl["Nodes_x"];
@@ -5816,7 +5815,6 @@ FiniteElement::readRestart(std::string step)
 
     exp_field.readRecord(inrecord);
     inrecord.close();
-    std::cout<<"5848\n";
 
     // Then onto the data itself
     filename = (boost::format( "%1%/field_%2%.bin" )
@@ -5830,7 +5828,6 @@ FiniteElement::readRestart(std::string step)
     exp_field.loadFile(inbin, field_map_int, field_map_dbl);
     inbin.close();
 
-    std::cout<<"5862\n";
     // === Recreate the mesh ===
     // Create bamgmesh and bamggeom
     BamgConvertMeshx(
@@ -6404,7 +6401,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
     {
         case setup::OceanType::CONSTANT:
             M_ocean=ExternalData(
-                vm["simul.constant_ocean_v"].as<double>(),
+                vm["simul.constant_ocean_u"].as<double>(),
                 vm["simul.constant_ocean_v"].as<double>(),
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_ocean);
@@ -6524,7 +6521,7 @@ FiniteElement::forcingWave()
     else if (M_wave_type==setup::WaveType::ERAI_WAVES_1DEG)
     {
         // define external_data objects
-        M_SWH = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init, vm["simul.spinup_duration"].as<double>());
+        M_SWH = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init);//, vm["simul.spinup_duration"].as<double>());
         M_MWP = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
         M_MWD = ExternalData(&M_wave_elements_dataset, M_mesh, 0,true,time_init);//now a vector
 
@@ -9449,6 +9446,7 @@ FiniteElement::wimCheckWaves()
     double Hs_data_max  = -1.e30;
     double Tp_data_min  = 1.e30;
     double Tp_data_max  = -1.e30;
+
     for (int i=0; i<num_elements_wim; ++i)
     {
         //get incident waves from datasets
@@ -9518,6 +9516,7 @@ FiniteElement::wimCheckWaves()
 
 
     M_wim.setWaveFields(swh_in, mwp_in, mwd_in);
+    std::cout<<"9518\n";
 }//wimCheckWaves()
 #endif
 
@@ -9530,7 +9529,7 @@ FiniteElement::initWim(int const pcpt)
     if(!(M_wave_mode==setup::WaveMode::RUN_ON_MESH))
     {
         // - initialise grid using mesh if no gridfilename is present
-        std::string wim_gridfile = vm["wim.gridfilename"].as<std::string>();
+        std::string wim_gridfile = vm["wimgrid.gridfilename"].as<std::string>();
         if ( wim_gridfile != "" )
             //init grid from gridfile
             M_wim = wim_type(vm,pcpt);
@@ -9727,7 +9726,7 @@ FiniteElement::wimCall()
     else if(interp_taux)
         M_wim.returnWaveStress(M_tau,movedmesh);
 
-    if(M_run_wim&&(vm["simul.export_after_wim_call"].as<bool>()))
+    if(M_run_wim&&(vm["nextwim.export_after_wim_call"].as<bool>()))
     {
         std::string tmp_string3
             = ( boost::format( "after_wim_call_%1%" ) % (M_wim_cpt-1) ).str();
