@@ -4,7 +4,7 @@
 
 .PHONY: all clean mrproper All Clean Mrproper fresh
 
-all: Bamg Mapx Core
+all: Bamg Mapx Libnextsim
 	#@cd $(NEXTSIMDIR)/contrib/interp/src; make
 ifdef USE_NEXTWIM
 	@cd $(NEXTSIMDIR)/modules/wim/src; make
@@ -51,7 +51,7 @@ Bamg:
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; make
 Mapx:
 	@cd $(NEXTSIMDIR)/contrib/mapx/src; make
-Core:
+Libnextsim:
 	@cd $(NEXTSIMDIR)/core/src; make;
 Model:
 	@cd $(NEXTSIMDIR)/model; make;
