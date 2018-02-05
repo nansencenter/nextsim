@@ -2,9 +2,9 @@
 # @author Abdoulaye Samake <abdoulaye.samake@nersc.no>
 # @date   Tue May 10 10:52:04 2016
 
-.PHONY: all clean mrproper All Clean Mrproper fresh
+.PHONY: all clean mrproper All Clean Mrproper fresh core bamg mapx model wim oasis
 
-all: Bamg Mapx Libnextsim
+all: bamg mapx core
 	#@cd $(NEXTSIMDIR)/contrib/interp/src; make
 ifdef USE_NEXTWIM
 	@cd $(NEXTSIMDIR)/modules/wim/src; make
@@ -36,7 +36,7 @@ endif
 
 
 # rules to compile model code as well as lib's
-All: all Model
+All: all model
 
 Clean: clean
 	@cd $(NEXTSIMDIR)/model; make clean;
@@ -47,15 +47,15 @@ Mrproper: mrproper
 # fresh compile (clean first)
 fresh: Clean All
 
-Bamg:
+bamg:
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; make
-Mapx:
+mapx:
 	@cd $(NEXTSIMDIR)/contrib/mapx/src; make
-Libnextsim:
+core:
 	@cd $(NEXTSIMDIR)/core/src; make;
-Model:
+model:
 	@cd $(NEXTSIMDIR)/model; make;
-Wim:
+wim:
 	@cd $(NEXTSIMDIR)/modules/wim/src; make
-Oasis:
+oasis:
 	@cd $(NEXTSIMDIR)/modules/oasis/src; make

@@ -131,7 +131,7 @@ OBJS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.o)
 DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
 # Rules to always execute.
-.PHONY: all clean mrproper fortran libs cleanlibs mrproperlibs
+.PHONY: all clean mrproper fortran libs cleanlibs mrproperlibs fresh core bamg mapx wim oasis
 
 # Default action.
 default: $(PROGNAME)
@@ -188,16 +188,16 @@ libs:
 	cd ..; make
 
 # just compile single libraries
-Bamg:
-	@cd ..; make Bamg
-Mapx:
-	@cd ..; make Mapx
-Core:
-	@cd ..; make Core
-Wim:
-	@cd ..; make Wim
-Oasis:
-	@cd ..; make Oasis
+bamg:
+	@cd ..; make bamg
+mapx:
+	@cd ..; make mapx
+core:
+	@cd ..; make core
+wim:
+	@cd ..; make wim
+oasis:
+	@cd ..; make oasis
 
 
 # Clean the required libraries

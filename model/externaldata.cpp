@@ -153,15 +153,14 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
 #ifdef OASIS
         // We call oasis_get every time step, but only actually recieve data at coupling times
         if (M_dataset->coupled)
-            recieveCouplingData(M_dataset, cpl_time);
+            this->recieveCouplingData(M_dataset, cpl_time);
 #endif
 
         if (to_be_reloaded)
         {
             std::cout << "Load " << M_datasetname << "\n";
-            //loadDataset(M_dataset, mesh);
-            loadDataset(M_dataset, RX_in, RY_in);
-            transformData(M_dataset);
+            this->loadDataset(M_dataset, RX_in, RY_in);
+            this->transformData(M_dataset);
             std::cout << "Done\n";
 
             //need to interpolate again if reloading
@@ -171,7 +170,6 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
         if (!M_dataset->interpolated)
         {
             std::cout << "Interpolate " << M_datasetname << "\n";
-            //interpolateDataset(M_dataset, mesh);
             this->interpolateDataset(M_dataset, RX_in, RY_in);
             std::cout << "Done\n";
         }
@@ -1179,7 +1177,7 @@ ExternalData::convertTargetXY(Dataset *dataset,
                 //if true  make target lon >  bc_lon,<=bc_lon+180
                 //if false make target lon >= bc_lon,< bc_lon+180
                 //this shouldn't matter here though?
-			RX_out[i]=thetaInRange(lon,bc_lon,close_on_right);
+			RX_out[i]=dataset->thetaInRange(lon,bc_lon,close_on_right);
         }
     }
     else
@@ -1196,9 +1194,8 @@ ExternalData::convertTargetXY(Dataset *dataset,
 }
 
 void
-//ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(double const& u, double const& v)
 ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX_in,
-        std::vector<double> const& RY_in)//(double const& u, double const& v)
+        std::vector<double> const& RY_in)
 {
     // ---------------------------------
     // Spatial interpolation
@@ -1334,7 +1331,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
 	}
 #endif
     std::vector<double> RX,RY;//size set in convertTargetXY;
-    this->convertTargetXY(dataset,RX_in, RY_in, RX, RY,mapNextsim);//(double const& u, double const& v)
+    this->convertTargetXY(dataset,RX_in, RY_in, RX, RY,mapNextsim);
 
     // closing maps
     close_mapx(mapNextsim);
