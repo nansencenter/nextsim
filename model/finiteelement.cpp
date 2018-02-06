@@ -588,6 +588,7 @@ FiniteElement::initConstant()
         ("zero-layer", setup::ThermoType::ZERO_LAYER)
         ("winton", setup::ThermoType::WINTON);
     M_thermo_type = str2thermo.find(vm["setup.thermo-type"].as<std::string>())->second;
+    LOG(DEBUG)<<"ThermoType= "<< (int)M_thermo_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::AtmosphereType> str2atmosphere = boost::assign::map_list_of
         ("constant", setup::AtmosphereType::CONSTANT)
