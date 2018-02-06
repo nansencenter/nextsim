@@ -8,7 +8,6 @@
 
 #include <externaldata.hpp>
 #include <date.hpp>
-#include <dataset.hpp>
 extern "C"
 {
 #include <mapx.h>
@@ -1171,7 +1170,6 @@ ExternalData::convertTargetXY(Dataset *dataset,
             //convert to lon,lat
 			inverse_mapx(mapNextsim,RX_in[i],RY_in[i],&lat,&lon);
 			RY_out[i]=lat;
-			//RX[i]=lon;
             double bc_lon=dataset->grid.branch_cut_lon;
             bool close_on_right=false;
                 //if true  make target lon >  bc_lon,<=bc_lon+180

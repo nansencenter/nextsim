@@ -2,7 +2,7 @@
 # @author Abdoulaye Samake <abdoulaye.samake@nersc.no>
 # @date   Tue May 10 10:52:04 2016
 
-.PHONY: all clean mrproper All Clean Mrproper fresh core bamg mapx model wim oasis
+.PHONY: all clean mrproper All Clean fresh core bamg mapx model wim oasis
 
 all: bamg mapx core
 	#@cd $(NEXTSIMDIR)/contrib/interp/src; make
@@ -36,16 +36,17 @@ endif
 
 
 # rules to compile model code as well as lib's
+# - NB doesn't work on osx
+# - still need to do "cd model;make clean;make" afterwards
 All: all model
 
 Clean: clean
 	@cd $(NEXTSIMDIR)/model; make clean;
 
-Mrproper: mrproper
-	@cd $(NEXTSIMDIR)/model; make mrproper;
-
 # fresh compile (clean first)
-fresh: Clean All
+# - NB doesn't work on osx
+# - still need to do "cd model;make clean;make" afterwards
+fresh: mrproper All
 
 bamg:
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; make

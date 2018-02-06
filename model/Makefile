@@ -137,6 +137,8 @@ DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 default: $(PROGNAME)
 
 # Compile the libraries as well as the executable
+# - NB doesn't work on osx
+# - still need to do "make clean; make" afterwards
 all: libs $(PROGNAME)
 
 # Delete the object files.
@@ -208,7 +210,9 @@ cleanlibs:
 cleanall: cleanlibs clean
 
 # Clean recompile
-fresh: cleanall all
+# - NB doesn't work on osx
+# - still need to do "make clean; make" afterwards
+fresh: mrproperlibs mrproper all
 
 # Fully clean the required libraries
 mrproperlibs:

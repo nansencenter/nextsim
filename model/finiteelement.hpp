@@ -35,9 +35,9 @@
 #include "enums.hpp"
 #include <debug.hpp>
 #include <omp.h>
-#include <externaldata.hpp>
 #include <gridoutput.hpp>
 #include <dataset.hpp>
+#include <externaldata.hpp>
 #include <drifters.hpp>
 
 #ifdef WITHGPERFTOOLS
