@@ -17,3 +17,5 @@ objs/
 bin/
 expt_*/
 .deps/
+*.log
+profile.pdf
