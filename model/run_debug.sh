@@ -6,7 +6,6 @@
 # NB code needs to compiled with env variable NEXTSIM_BUILD_TYPE=debug
 
 export MPIWRAP_DEBUG=warn
-export LD_PRELOAD=/opt/local/lib/valgrind/libmpiwrap-amd64-darwin.so
 
 if [ "$1" = "" -o "$2" = "" ]
 then
@@ -43,14 +42,22 @@ then
    cp $NEXTSIMDIR/model/$prog $prog
 fi
 
-# extra settings required for mac
+# settings required for mac
 kernel=$(uname -s)
 if [ $kernel == "Darwin" ]
 then
     # mac
     export DYLD_LIBRARY_PATH=$NEXTSIMDIR/lib:$BOOST_LIBDIR
+    export LD_PRELOAD=/opt/local/lib/valgrind/libmpiwrap-amd64-darwin.so
+fi
+
+# settings required for johansen
+if [ $(hostname) == "johansen.ad.nersc.no" ]
+then
+	mpi_opts="--mca pml ob1 --mca btl self,tcp"
+	export LD_PRELOAD=/usr/lib64/valgrind/libmpiwrap-amd64-linux.so
 fi
 
 # Run the nextsim model
-mpirun -np $ncpu valgrind ${vopts[@]} $prog ${nsopts[@]} 2>&1 | tee simdebug.log
+mpirun $mpi_opts -np $ncpu valgrind ${vopts[@]} $prog ${nsopts[@]} 2>&1 | tee simdebug.log
 
