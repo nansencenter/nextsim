@@ -9,6 +9,12 @@ fi
 config=$1
 ncpu=$2
 
+if [ $ncpu -lt 2 ]
+then
+	echo "Error: num_cpus cannot be less than 2"
+	exit 2
+fi
+
 # record changes from last git commit:
 # file gets moved from current dir to "output_directory" inside nextsim code
 # NB want file paths relative to $NEXTSIMDIR
@@ -18,7 +24,7 @@ git diff > $P/git_changes.txt
 cd $P
 
 prog=bin/nextsim.exec
-if [ `pwd` != $NEXTSIMDIR ]
+if [ `pwd` != "$NEXTSIMDIR/model" ]
 then
    # make a local copy of executable
    # (so can recompile code and run somewhere else)
@@ -34,12 +40,17 @@ then
     export DYLD_LIBRARY_PATH=$NEXTSIMDIR/lib:$BOOST_LIBDIR
 fi
 
+# bugfix for johansen
+if [ $(hostname) == "johansen.ad.nersc.no" ]
+then
+	opts="--mca pml ob1 --mca btl self,tcp"
+fi
+
 # Run the nextsim model
-mpirun -n $ncpu $prog --config-files=$config
+mpirun $opts -np $ncpu $prog --config-files=$config 2>&1 | tee $(basename $config .cfg).log
 
 
 # Run the CPU profiler (google perftools)
-# nbt=`echo ${NEXTSIM_BUILD_TYPE,,}`
 nbt=`echo $NEXTSIM_BUILD_TYPE  | tr '[:upper:]' '[:lower:]'`
 # this is now lower case
 if [ "$nbt" == "debug" ]

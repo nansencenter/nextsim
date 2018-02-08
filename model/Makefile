@@ -1,6 +1,6 @@
 KERNEL := $(shell uname -s)
 
-EXEC=nextsim.exec
+PROGNAME=nextsim.exec
 
 CXX = g++
 
@@ -13,33 +13,48 @@ endif
 
 # add g++ option flags
 CXXFLAGS += -ftemplate-depth-256 -Wno-inline \
-		-fPIC -O3 -pthread -fopenmp \
+		-fPIC -fopenmp \
 		-DHAVE_CONFIG_H -D_MULTITHREADING_
-
 ifneq ($(XSIMCOMP_VERBOSE),no)
 	CXXFLAGS += -v
 endif
 
-# nextsim
+ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
+	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
+	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
+	CXXFLAGS += -g -O0 -DNDEBUG 
+ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
+	CXXFLAGS += -DWITHGPERFTOOLS
+endif
+ifneq ($(KERNEL),Linux)
+	CXXFLAGS += -Wl,-no_pie
+endif
+else
+	CXXFLAGS += -O3 -pthread
+endif
+
+# add include paths
 CXXFLAGS += -I $(NEXTSIMDIR)/core/include
-CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include
-CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
-CXXFLAGS += -I $(NEXTSIMDIR)/contrib/interp/include
+CXXFLAGS += -isystem $(NEXTSIMDIR)/contrib/bamg/include # suppress annoying compilation warnings from -I
+CXXFLAGS += -isystem $(NEXTSIMDIR)/contrib/mapx/include # suppress annoying compilation warnings from -I
+# CXXFLAGS += -I $(NEXTSIMDIR)/contrib/interp/include
 
 # openmpi
 CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
 
-# boost
-CXXFLAGS +=	-I $(BOOST_INCDIR) -I .
+# petsc
+CXXFLAGS +=	-I $(PETSC_DIR)/include
 
-# gmsh
-CXXFLAGS += -I $(GMSH_DIR)/include/gmsh
+# boost
+CXXFLAGS += -I $(BOOST_INCDIR) -I .
 
 # netcdf
 CXXFLAGS +=	-I $(NETCDF_DIR)/include
 
-# petsc
-CXXFLAGS +=	-I $(PETSC_DIR)/include
+# gmsh
+CXXFLAGS += -I $(GMSH_DIR)/include/gmsh
+
+CXXFLAGS +=	-I /opt/local/include
 
 ifeq ($(KERNEL),Linux)
 	#CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -lm -pthread -v #-MMD -MP -lm -pthread -v
@@ -51,7 +66,6 @@ else
 	endif
 
 	CXXFLAGS += -I /usr/local/include #-I /opt/local/include/openmpi-mp
-	#CXXFLAGS +=	-I /opt/local/netcdf/include/
 
 	#LDFLAGS += -Wl,-rpath,/usr/local/lib #-Wl,-rpath,/opt/local/lib/openmpi-mp
 	#LDFLAGS += -L /usr/local/lib #-L /opt/local/lib/openmpi-mp -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
@@ -62,11 +76,13 @@ else
 
 endif
 
+LDFLAGS += -L /usr/local/lib
+
 LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
 ifndef MACHINE_HEXAGON
-	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
+	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ #-lpthread
 else
-	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpichcxx -lmpich -ldl -lstdc++ -lpthread #-lssl -luuid -lpthread -lrt
+	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpichcxx -lmpich -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
 endif
 
 LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf_c++4
@@ -79,8 +95,18 @@ LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost
 
 LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
-LDFLAGS += -L $(NEXTSIMDIR)/lib -linterp
+#LDFLAGS += -L $(NEXTSIMDIR)/lib -linterp
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
+#LDFLAGS += -L $(NEXTSIMDIR)/lib -loasis
+
+ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
+#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
+	LDFLAGS += -Wl,-rpath,/opt/local/lib
+ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
+	LDFLAGS += -L /opt/local/lib -lprofiler
+endif
+endif
+
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lnextsim
 
 OBJECTDIR=$(NEXTSIMDIR)/objs/
@@ -95,10 +121,10 @@ OBJS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.o)
 DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
 # Rules to always execute.
-.PHONY: all clean mrproper libs cleanlibs mrproperlibs
+.PHONY: exec all clean mrproper libs cleanlibs mrproperlibs
 
 # Default action.
-all: $(EXEC)
+exec: $(PROGNAME)
 
 # Delete the object files.
 clean:
@@ -113,7 +139,7 @@ mrproper: clean
 # Rule for making the actual target
 lines="=========="
 Lines=$(lines)$(lines)$(lines)$(lines)$(lines)$(lines)$(lines)$(lines)
-$(EXEC): $(OBJS) #$(CCOBJS)
+$(PROGNAME): $(OBJS) #$(CCOBJS)
 	@mkdir -p $(BINARYDIR)
 	@echo " "
 	@echo $(Lines)$(Lines)
@@ -144,6 +170,9 @@ $(OBJS): Makefile
 # Make the required libraries
 libs:
 	cd ..; make
+
+# Compile the libraries as well as the executable
+all: libs exec
 
 # Clean the required libraries
 cleanlibs:

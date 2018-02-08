@@ -152,7 +152,7 @@ public:
 		Variable masking_variable;
 		std::vector<int> reduced_nodes_ind;
 
-        int* pfindex;
+        std::vector<int> pfindex;
         int pfnels;
         std::vector<double> gridX;
         std::vector<double> gridY;

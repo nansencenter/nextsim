@@ -1346,7 +1346,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
         break;
         case InterpolationType::FromMeshToMesh2dx:
             InterpFromMeshToMesh2dx(&data_out,
-                                dataset->grid.pfindex,&dataset->grid.gridX[0],&dataset->grid.gridY[0],
+                                &(dataset->grid.pfindex)[0],&dataset->grid.gridX[0],&dataset->grid.gridY[0],
                                         dataset->grid.gridX.size(),dataset->grid.pfnels,
                                         &data_in[0],
                                         dataset->grid.gridX.size(),dataset->variables.size()*dataset->nb_forcing_step,

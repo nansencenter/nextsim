@@ -445,8 +445,8 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
         version = boost::lexical_cast<double>( theversion );
 
         // ----------------------------------------------------------------------
-        char c;
-        ASSERT( (c=ifs.get()) == '\n', "Invalid character");
+        char c=ifs.get();
+        ASSERT( c == '\n', "Invalid character");
 
         int one;
         ifs.read( (char*)&one, sizeof(int) );
