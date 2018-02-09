@@ -996,21 +996,80 @@ GmshMesh::nodalGrid()
                         std::back_inserter(M_local_ghost));
 
 
+#if 0
     // check the nodal partitions
     int nd_size = M_local_dof_without_ghost.size();
-    int num_nodes = boost::mpi::all_reduce(M_comm, nd_size, std::plus<int>());
+    // int num_nodes = boost::mpi::all_reduce(M_comm, nd_size, std::plus<int>());
+
+    std::vector<int> container_dof_size;
+    boost::mpi::all_gather(M_comm, nd_size, container_dof_size);
+    int num_nodes = std::accumulate(container_dof_size.begin(),container_dof_size.end(),0);
+
+    for (int i=0; i<container_dof_size.size(); ++i)
+    {
+        std::cout<<"[Proc "<< M_comm.rank() <<"] container["<< i <<"]= "<< container_dof_size[i] <<"\n";
+    }
+
+    // gather operations for global node renumbering
+
+    // std::vector<int> sizes_nodes = M_sizes_nodes_with_ghost;
+
+    std::vector<int> renumbering_vector(num_nodes);
+
+    if (M_comm.rank() == 0)
+    {
+        // int out_dof_size = std::accumulate(container_dof_size.begin(),container_dof_size.end(),0);
+        //renumbering_vector_root.resize(num_nodes);
+        boost::mpi::gatherv(M_comm, M_local_dof_without_ghost, &renumbering_vector[0], container_dof_size, 0);
+    }
+    else
+    {
+        boost::mpi::gatherv(M_comm, M_local_dof_without_ghost, 0);
+    }
+
+    boost::mpi::broadcast(M_comm, &renumbering_vector[0], num_nodes, 0);
+
+    // boost::mpi::all_gather(M_comm,
+    //                        &M_local_dof_without_ghost[0],
+    //                        nd_size,
+    //                        &renumbering_vector[]);
+
+
+    // new addition
+    std::vector<std::vector<int>> renumbering(M_comm.size());
+
+    // this->allGather(M_local_dof_without_ghost, renumbering_vector);
+
+    int global_indexing = 0;
+    for (int ii=0; ii<M_comm.size(); ++ii)
+    {
+        int current_size = container_dof_size[ii];
+        renumbering[ii].resize(current_size);
+
+        for (int jj=0; jj<current_size; ++jj)
+        {
+            renumbering[ii][jj] = renumbering_vector[global_indexing+jj];
+        }
+        global_indexing += current_size;
+    }
+
+    renumbering_vector.resize(0);
+    // end new addition
+
+#endif
+
+    std::vector<std::vector<int> > renumbering;
+    int num_nodes;
+
+    this->allGather(M_local_dof_without_ghost, renumbering, num_nodes);
+
+    std::cout<<"num_nodes = "<< num_nodes <<"\n";
 
     if (M_num_nodes != num_nodes)
     {
         if (M_comm.rank() == 0)
             std::cout<<"---------------------------------------Post-processing needed for nodal mesh partition: "<< M_num_nodes <<" != "<< num_nodes <<"\n";
     }
-
-    // gather operations for global node renumbering
-    std::vector<std::vector<int>> renumbering;
-    boost::mpi::all_gather(M_comm,
-                           M_local_dof_without_ghost,
-                           renumbering);
 
     // check the nodal partition starts
     if (M_num_nodes != num_nodes)
@@ -1286,11 +1345,13 @@ GmshMesh::nodalGrid()
     // move renumbering of triangles here (previously at the end of this function)
     // --------------------------------BEGINNING-------------------------
     renumbering.resize(0);
+    int num_trls;
+    this->allGather(triangles_num_without_ghost, renumbering, num_trls);
 
-    // gather operations for global element renumbering
-    boost::mpi::all_gather(M_comm,
-                           triangles_num_without_ghost,
-                           renumbering);
+    // // gather operations for global element renumbering
+    // boost::mpi::all_gather(M_comm,
+    //                        triangles_num_without_ghost,
+    //                        renumbering);
 
     std::vector<int> diff_trs;
 
@@ -1406,10 +1467,13 @@ GmshMesh::nodalGrid()
     // --------------------------------BEGINNING-------------------------
     std::sort(triangles_num_without_ghost.begin(), triangles_num_without_ghost.end());
     renumbering.resize(0);
-    // gather operations for global element renumbering
-    boost::mpi::all_gather(M_comm,
-                           triangles_num_without_ghost,
-                           renumbering);
+    //int num_trls;
+    allGather(triangles_num_without_ghost, renumbering, num_trls);
+
+    // // gather operations for global element renumbering
+    // boost::mpi::all_gather(M_comm,
+    //                        triangles_num_without_ghost,
+    //                        renumbering);
 
     cpts = 0;
     cpts_dom = 0;
@@ -1451,6 +1515,53 @@ GmshMesh::nodalGrid()
         //     std::cout<<"--Key= "<< it->first <<"   Value= "<< it->second <<"\n";
         M_map_nodes[cpts] = it->second-1;
         ++cpts;
+    }
+
+}
+
+void
+GmshMesh::allGather(std::vector<int> const& field_in, std::vector<std::vector<int> >& field_out, int& acc_size)
+{
+    int fd_size = field_in.size();
+
+    std::vector<int> container_size;
+    boost::mpi::all_gather(M_comm, fd_size, container_size);
+    int num_elts = std::accumulate(container_size.begin(),container_size.end(),0);
+    acc_size = num_elts;
+
+    for (int i=0; i<container_size.size(); ++i)
+    {
+        std::cout<<"[Proc "<< M_comm.rank() <<"] container["<< i <<"]= "<< container_size[i] <<"\n";
+    }
+
+    std::vector<int> field_gather(num_elts);
+
+    if (M_comm.rank() == 0)
+    {
+        // int out_dof_size = std::accumulate(container_dof_size.begin(),container_dof_size.end(),0);
+        //renumbering_vector_root.resize(num_nodes);
+        boost::mpi::gatherv(M_comm, field_in, &field_gather[0], container_size, 0);
+    }
+    else
+    {
+        boost::mpi::gatherv(M_comm, field_in, 0);
+    }
+
+    boost::mpi::broadcast(M_comm, &field_gather[0], num_elts, 0);
+
+    field_out.resize(M_comm.size());
+
+    int global_indexing = 0;
+    for (int ii=0; ii<M_comm.size(); ++ii)
+    {
+        int current_size = container_size[ii];
+        field_out[ii].resize(current_size);
+
+        for (int jj=0; jj<current_size; ++jj)
+        {
+            field_out[ii][jj] = field_gather[global_indexing+jj];
+        }
+        global_indexing += current_size;
     }
 
 }
