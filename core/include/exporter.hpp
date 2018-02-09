@@ -30,14 +30,16 @@ class Exporter
 {
 public:
 
-	Exporter(std::string const& precision = "double");
+	Exporter(std::string const& precision = "float");
 
     template<typename Type>
-    void writeContainer(std::fstream& out, std::vector<Type> const& container);
+    void writeContainer(std::fstream& out, std::vector<Type> const& container, std::string const precision);
+
     void writeMesh(std::fstream& out, GmshMesh const& Mesh);
-    void writeMesh(std::fstream& out,
-        std::vector<double> const& nodes_x,std::vector<double> const& nodes_y,
-        std::vector<int> const& id,std::vector<int> const& index);
+    template<typename Type>
+	void writeMesh(std::fstream& out, std::vector<Type> const& xnod, std::vector<Type> const& ynod,
+            std::vector<int> const& idnod, std::vector<int> const& elements);
+
     template<typename Type>
 	void writeField(std::fstream& out, std::vector<Type> const& field, std::string const& name);
 	void writeRecord(std::fstream& out, std::string const& rtype = "field");

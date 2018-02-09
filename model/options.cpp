@@ -83,13 +83,19 @@ namespace Nextsim
             ("simul.init_snow_thickness", po::value<double>()->default_value( 0. ), "")
             // not used: ("simul.init_snow_thin_thickness", po::value<double>()->default_value( 0. ), "")
 
+            //inputs (restart)
+            ("setup.use_restart", po::value<bool>()->default_value( false ), "")
+            ("setup.restart_string", po::value<std::string>()->default_value( "" ), "")
+            ("setup.step_nb", po::value<int>()->default_value( 0 ), "")
+
             // outputs
             ("setup.use_assimilation", po::value<bool>()->default_value( false ), "")
-            ("setup.use_restart", po::value<bool>()->default_value( false ), "")
             ("setup.write_restart", po::value<bool>()->default_value( false ), "")
             ("setup.restart_at_rest", po::value<bool>()->default_value( false ), "")
             ("setup.restart_time_step", po::value<double>()->default_value( 15 ), "days")
-            ("setup.step_nb", po::value<int>()->default_value( 0 ), "")
+            ("setup.restart_debugging", po::value<bool>()->default_value( false ),
+                "save restart every time step for debugging (only with build type DEBUG)")
+
             ("simul.output_per_day", po::value<int>()->default_value( 4 ), "")
             ("simul.output_directory", po::value<std::string>()->default_value( "" ), "")
             ("simul.logfile", po::value<std::string>()->default_value( "" ), "")
@@ -119,7 +125,7 @@ namespace Nextsim
             ("simul.use_moorings", po::value<bool>()->default_value( false ), "")
             ("simul.mooring_snapshot", po::value<bool>()->default_value( false ), "")
             ("simul.mooring_file_length", po::value<std::string>()->default_value( "inf" ), "")
-            // not used: ("simul.mooring_names", po::value<std::vector<std::string>>()->multitoken()->zero_tokens()->composing(), "")
+            ("simul.mooring_names", po::value<std::vector<std::string>>()->multitoken()->default_value(std::vector<std::string>(), "conc thick snow conc_thin h_thin hs_thin velocity_xy")->composing(), "")
             ("simul.mooring_spacing", po::value<double>()->default_value( 10 ), "km")
             ("simul.mooring_grid_file", po::value<std::string>()->default_value( "" ), "") // It must be a netcdf file having x y as dimensions and latitude longitude as variables
             ("simul.mooring_output_timestep", po::value<double>()->default_value( 1 ), "days")
@@ -127,13 +133,13 @@ namespace Nextsim
             ("simul.use_iabp_drifters", po::value<bool>()->default_value( false), "")
             ("simul.equallyspaced_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days") // must be a multiple of 0.5
             ("simul.rgps_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days") // must be a multiple of 0.5
-            ("simul.use_osisaf_drifters", po::value<bool>()->default_value( false ), "") 
-            
+            ("simul.use_osisaf_drifters", po::value<bool>()->default_value( false ), "")
+
             ("simul.drifter_climit", po::value<double>()->default_value( 0.15 ), "")
             ("simul.drifter_spacing", po::value<double>()->default_value( 10 ), "")
 
             ("simul.RGPS_time_init", po::value<std::string>()->default_value( "2007-12-01" ), "")
-               
+
             /*
              *-----------------------------------------------------------------------------------
              * DYNAMICS
@@ -160,7 +166,7 @@ namespace Nextsim
             ("simul.use_temperature_dependent_healing", po::value<bool>()->default_value( false ), "")
             ("simul.time_relaxation_damage", po::value<double>()->default_value( 25. ), "days")
             ("simul.deltaT_relaxation_damage", po::value<double>()->default_value( 20. ), "Kelvin")
-            
+
             ("simul.undamaged_time_relaxation_sigma", po::value<double>()->default_value( 1e7 ), "seconds") // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
             ("simul.exponent_relaxation_sigma", po::value<double>()->default_value( 4. ), "")              // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
 
@@ -194,7 +200,7 @@ namespace Nextsim
              * -----------------------------------------------------------------------------------
              */
 
-            ("setup.thermo-type", po::value<std::string>()->default_value( "zero-layer" ), "")
+            ("setup.thermo-type", po::value<std::string>()->default_value( "winton" ), "")
             ("simul.Qio-type", po::value<std::string>()->default_value( "basic" ), "")
             ("simul.use_thermo_forcing", po::value<bool>()->default_value( true ), "")
             ("simul.albedoW", po::value<double>()->default_value( 0.07 ), "")
@@ -286,19 +292,7 @@ namespace Nextsim
 #endif
 
 #if defined(WAVES)
-            ("simul.use_wim", po::value<bool>()->default_value( false ), "")
-            ("simul.wim_grid", po::value<bool>()->default_value( false ), "")
-            ("setup.wave-type", po::value<std::string>()->default_value( "set_in_wim" ),
-                "set_in_wim, ww3a, eraiw_1deg")
-            ("setup.wave-time-interp-option", po::value<std::string>()->default_value( "step" ), "step, linear")
-
-            ("simul.constant_significant_wave_height", po::value<double>()->default_value( 2. ), "")
-            ("simul.constant_wave_mean_direction", po::value<double>()->default_value( 90. ), "")
-            ("simul.constant_wave_peak_frequency", po::value<double>()->default_value( 0.05 ), "")
-
-            ("simul.export_after_wim_call", po::value<bool>()->default_value( false ), "")
-            ;
-
+        ;
         return desc.add( Wim::descrWimOptions() );
 #else
         ;

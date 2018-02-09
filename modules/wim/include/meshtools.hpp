@@ -66,7 +66,6 @@ public:
     };
     E_mesh_type M_mesh_type = E_mesh_type::uninitialised;
 
-
     // ===============================================================
     //destructor
     ~MeshInfo() {}
@@ -91,6 +90,9 @@ public:
 
     // ===============================================================
     //functions
+    bool initialised() const
+    { return ( !(M_mesh_type == E_mesh_type::uninitialised) ); }
+
     void initSimple();
     void setElements();
     void setFields( T_gmsh const &mesh);

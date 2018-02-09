@@ -15,7 +15,6 @@
 #include <exporter.hpp>
 #include <numeric>
 
-
 #define GMSH_EXECUTABLE gmsh
 
 namespace Nextsim
@@ -511,6 +510,16 @@ FiniteElement::initBamg()
 void
 FiniteElement::initConstant()
 {
+
+    // log
+    const boost::unordered_map<const std::string, LogLevel> str2log = boost::assign::map_list_of
+        ("info", INFO)
+        ("warning", WARNING)
+        ("debug", DEBUG)
+        ("error", ERROR);
+
+    M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
+
     nu0 = vm["simul.nu0"].as<double>();
     young = vm["simul.young"].as<double>();
     rhoi = physical::rhoi;
@@ -521,9 +530,14 @@ FiniteElement::initConstant()
     //std::cout<<"time_init second= "<< std::setprecision(18) << time_init <<"\n";
     time_step = vm["simul.timestep"].as<double>();
 
-    output_time_step =  (vm["simul.output_per_day"].as<int>()<0) ? time_step : days_in_sec/vm["simul.output_per_day"].as<int>();
+    output_time_step =  (vm["simul.output_per_day"].as<int>()<0) ? time_step : time_step * floor(days_in_sec/vm["simul.output_per_day"].as<int>()/time_step);
     mooring_output_time_step =  vm["simul.mooring_output_timestep"].as<double>()*days_in_sec;
     mooring_time_factor = time_step/mooring_output_time_step;
+    if ( fmod(mooring_output_time_step,time_step) != 0)
+    {
+        std::cout << mooring_output_time_step << " " << time_step << "\n";
+        throw std::runtime_error("mooring_output_time_step is not an integer multiple of time_step");
+    }
 
     // output_time_step =  time_step*vm["simul.output_per_day"].as<int>(); // useful for debuging
     duration = (vm["simul.duration"].as<double>())*days_in_sec;
@@ -574,6 +588,7 @@ FiniteElement::initConstant()
         ("zero-layer", setup::ThermoType::ZERO_LAYER)
         ("winton", setup::ThermoType::WINTON);
     M_thermo_type = str2thermo.find(vm["setup.thermo-type"].as<std::string>())->second;
+    LOG(DEBUG)<<"ThermoType= "<< (int)M_thermo_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::AtmosphereType> str2atmosphere = boost::assign::map_list_of
         ("constant", setup::AtmosphereType::CONSTANT)
@@ -643,7 +658,7 @@ FiniteElement::initConstant()
 #endif
 
 #if defined (WAVES)
-    M_use_wim   = vm["simul.use_wim"].as<bool>();
+    M_use_wim   = vm["nextwim.use_wim"].as<bool>();
     if (M_use_wim)
     {
         const boost::unordered_map<const std::string, setup::WaveType> str2wave = boost::assign::map_list_of
@@ -651,7 +666,7 @@ FiniteElement::initConstant()
             ("ww3a", setup::WaveType::WW3A)
             ("eraiw_1deg", setup::WaveType::ERAI_WAVES_1DEG);
 
-        std::string swave = vm["setup.wave-type"].as<std::string>();
+        std::string swave = vm["wimsetup.wave-type"].as<std::string>();
         if ( str2wave.count(swave) == 0)
             throw std::runtime_error("Unknown wave forcing type: "+swave);
 
@@ -678,6 +693,7 @@ FiniteElement::initConstant()
     M_bathymetry_type = str2bathymetry.find(vm["setup.bathymetry-type"].as<std::string>())->second;
 
     const boost::unordered_map<const std::string, setup::BasalStressType> str2basal_stress= boost::assign::map_list_of
+        ("none", setup::BasalStressType::NONE)
         ("lemieux", setup::BasalStressType::LEMIEUX)
         ("bouillon", setup::BasalStressType::BOUILLON);
     M_basal_stress_type = str2basal_stress.find(vm["simul.basal_stress-type"].as<std::string>())->second;
@@ -714,15 +730,6 @@ FiniteElement::initConstant()
         M_mesh.setOrdering("gmsh");
     else
         throw std::logic_error("Unknown setup::MeshType");
-
-    // log
-    const boost::unordered_map<const std::string, LogLevel> str2log = boost::assign::map_list_of
-        ("info", INFO)
-        ("warning", WARNING)
-        ("debug", DEBUG)
-        ("error", ERROR);
-
-    M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
 
     // Moorings
     M_use_moorings =  vm["simul.use_moorings"].as<bool>();
@@ -867,7 +874,8 @@ FiniteElement::minAngle(mesh_type const& mesh) const
     int thread_id;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
-#pragma omp parallel for num_threads(max_threads) private(thread_id)
+    // valgrind found memory leak if OMP is used here
+//#pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
         all_min_angle[cpt] = this->minAngles(M_elements[cpt],mesh);
@@ -1050,6 +1058,7 @@ FiniteElement::AllMinAngle(mesh_type const& mesh, std::vector<double> const& um,
     int thread_id;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
+    // valgrind found a memory leak if OMP is used here
 //#pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
@@ -2401,7 +2410,12 @@ FiniteElement::assemble(int pcpt)
     int total_threads;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
+// omp pragma causing the code not to give reproducable results across different runs and different number of threads
+// The reason is that we do a += update on rhsdata and lhsdata. When OpenMP is active the order of these operations is arbitrary and the result is
+// therefore not bitwise reproducable. This is du to the fact that (a + b) + c != a + (b + c).
+#ifndef DEBUGGING
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
+#endif
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
         // if(thread_id == 0)
@@ -2415,10 +2429,10 @@ FiniteElement::assemble(int pcpt)
         double total_concentration=M_conc[cpt];
         double total_thickness=M_thick[cpt];
         double total_snow=M_snow_thick[cpt];
-       
-        // Add the thin ice concentration and thickness 
+
+        // Add the thin ice concentration and thickness
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        {            
+        {
             total_concentration += M_conc_thin[cpt];
             total_thickness     += M_h_thin[cpt];
             total_snow          += M_hs_thin[cpt];
@@ -2430,7 +2444,7 @@ FiniteElement::assemble(int pcpt)
 
         int index_u, index_v;
 
-        double coef_min = 10.;
+        double coef_min = 100.;
 
         // values used when no ice or when ice too thin
         double coef_drag    = 0.;  // coef_drag is a switch that set the external forcings to 0 (wind, ocean, bottom drag, waves stress) where there is too little ice
@@ -2498,6 +2512,9 @@ FiniteElement::assemble(int pcpt)
             {
                 switch ( M_basal_stress_type )
                 {
+                    case setup::BasalStressType::NONE:
+                        critical_h     = 0.;
+                        critical_h_mod = 0.;
                     case setup::BasalStressType::BOUILLON:
                         // Sylvain's grounding scheme
                         keel_height_estimate = ice_to_keel_factor*std::pow(M_thick[cpt]/M_conc[cpt],0.5);
@@ -2696,7 +2713,9 @@ FiniteElement::assemble(int pcpt)
 
         for (int idf=0; idf<rcindices.size(); ++idf)
         {
+#ifndef DEBUGGING
 #pragma omp atomic
+#endif
             rhsdata[rcindices[idf]] += fvdata[idf];
 
 #if 1
@@ -2717,7 +2736,9 @@ FiniteElement::assemble(int pcpt)
                     }
                 }
 
+#ifndef DEBUGGING
 #pragma omp atomic
+#endif
                 lhsdata[start+colind] += data[6*idf+idj];
             }
 #endif
@@ -4537,8 +4558,14 @@ FiniteElement::init()
     if ( M_use_restart )
     {
         LOG(DEBUG) <<"Reading restart file\n";
-        pcpt = this->readRestart(vm["setup.step_nb"].as<int>());
-        // current_time = time_init + pcpt*time_step/(24*3600.0);
+
+        std::string res_str = vm["setup.restart_string"].as<std::string>();
+        if ( !res_str.empty() )
+            pcpt = this->readRestart(res_str);
+        else
+            pcpt = this->readRestart(vm["setup.step_nb"].as<int>());
+        current_time = time_init + pcpt*time_step/(24*3600.0);
+
         if(M_use_osisaf_drifters)
             this->initOSISAFDrifters();
         
@@ -4987,7 +5014,10 @@ FiniteElement::step(int &pcpt)
         std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
 
         // Create a new M_drifters instance in [0], with a properly initialised netCDF file
-        M_osisaf_drifters[0] = Drifters("data", "ice_drift_nh_polstere-625_multi-oi.nc", "xc", "yc", "lat", "lon", M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
+        M_osisaf_drifters[0] = Drifters("data", "ice_drift_nh_polstere-625_multi-oi.nc",
+                "xc", "yc",
+                "lat", "lon", M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
+
         M_osisaf_drifters[0].initNetCDF(M_export_path+"/OSISAF_", current_time);
         M_osisaf_drifters[0].appendNetCDF(current_time, M_mesh, M_UT);
     }
@@ -5002,7 +5032,7 @@ FiniteElement::step(int &pcpt)
         chrono.restart();
         LOG(DEBUG) <<"first export starts\n";
         this->exportResults(0);
-        this->writeRestart(pcpt, 0);
+        // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
         LOG(DEBUG) <<"first export done in " << chrono.elapsed() <<"s\n";
     }
 #endif
@@ -5242,11 +5272,18 @@ FiniteElement::step(int &pcpt)
 
 #endif
 
+#ifdef DEBUGGING
+    if(vm["setup.restart_debugging"].as<bool>())
+        //write restart every timestep
+        this->writeRestart(pcpt, pcpt);
+#else
     if ( fmod(pcpt*time_step,restart_time_step) == 0)
     {
         std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
         this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
     }
+#endif
+
 
 #if defined (WAVES)
     if(M_use_wim)
@@ -5375,12 +5412,12 @@ FiniteElement::updateMeans(GridOutput &means, double time_factor)
         {
             case (GridOutput::variableID::VT_x):
                 for (int i=0; i<M_num_nodes; i++)
-                    it->data_mesh[i] += M_VT[i];
+                    it->data_mesh[i] += M_VT[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::VT_y):
                 for (int i=0; i<M_num_nodes; i++)
-                    it->data_mesh[i] += M_VT[i+M_num_nodes];
+                    it->data_mesh[i] += M_VT[i+M_num_nodes]*time_factor;
                 break;
 
             default: std::logic_error("Updating of given variableID not implimented (nodes)");
@@ -5398,64 +5435,138 @@ FiniteElement::initMoorings()
     std::vector<double> data_grid;
 
     // Output variables - elements
-    GridOutput::Variable conc(GridOutput::variableID::conc, data_elements, data_grid);
-    GridOutput::Variable thick(GridOutput::variableID::thick, data_elements, data_grid);
-    //GridOutput::Variable snow(GridOutput::variableID::snow, data_elements, data_grid);
-    //GridOutput::Variable tsurf(GridOutput::variableID::tsurf, data_elements, data_grid);
-    //GridOutput::Variable Qa(GridOutput::variableID::Qa, data_elements, data_grid);
-    //GridOutput::Variable Qsw(GridOutput::variableID::Qsw, data_elements, data_grid);
-    //GridOutput::Variable Qlw(GridOutput::variableID::Qlw, data_elements, data_grid);
-    //GridOutput::Variable Qsh(GridOutput::variableID::Qsh, data_elements, data_grid);
-    //GridOutput::Variable Qlh(GridOutput::variableID::Qlh, data_elements, data_grid);
-    //GridOutput::Variable Qo(GridOutput::variableID::Qo, data_elements, data_grid);
-    //GridOutput::Variable delS(GridOutput::variableID::delS, data_elements, data_grid);
-
-    //std::vector<GridOutput::Variable> elemental_variables(11);
-    std::vector<GridOutput::Variable> elemental_variables(2);
-    elemental_variables[0] = conc;
-    elemental_variables[1] = thick;
-    //elemental_variables[2] = snow;
-    //elemental_variables[3] = tsurf;
-    //elemental_variables[4] = Qa;
-    //elemental_variables[5] = Qsw;
-    //elemental_variables[6] = Qlw;
-    //elemental_variables[7] = Qsh;
-    //elemental_variables[8] = Qlh;
-    //elemental_variables[9] = Qo;
-    //elemental_variables[10] = delS;
-    //if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-    //{
-        GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin, data_elements, data_grid);
-        GridOutput::Variable h_thin(GridOutput::variableID::h_thin, data_elements, data_grid);
-        GridOutput::Variable hs_thin(GridOutput::variableID::hs_thin, data_elements, data_grid);
-
-        elemental_variables.push_back(conc_thin);
-        elemental_variables.push_back(h_thin);
-        //elemental_variables.push_back(hs_thin);
-    //}
+    std::vector<GridOutput::Variable> elemental_variables;
 
     // Output variables - nodes
-    GridOutput::Variable siu(GridOutput::variableID::VT_x, data_nodes, data_grid);
-
-    GridOutput::Variable siv(GridOutput::variableID::VT_y, data_nodes, data_grid);
-
-    std::vector<GridOutput::Variable> nodal_variables(2);
-    nodal_variables[0] = siu;
-    nodal_variables[1] = siv;
+    std::vector<GridOutput::Variable> nodal_variables;
 
     // The vectorial variables are (always on the nodes) ...
-    std::vector<int> siuv_id(2);
-    siuv_id[0] = 0;
-    siuv_id[1] = 1;
+    std::vector<GridOutput::Vectorial_Variable> vectorial_variables;
 
-    GridOutput::Vectorial_Variable siuv{
-        components_Id: siuv_id,
-        east_west_oriented: true
-        //east_west_oriented: false
-    };
+    std::vector<std::string> names = vm["simul.mooring_names"].as<std::vector<std::string>>();
 
-    std::vector<GridOutput::Vectorial_Variable> vectorial_variables(1);
-    vectorial_variables[0] = siuv;
+    for ( auto it=names.begin(); it!=names.end(); ++it )
+    {
+        // Element variables
+        if ( *it == "conc" )
+        {
+            GridOutput::Variable conc(GridOutput::variableID::conc, data_elements, data_grid);
+            elemental_variables.push_back(conc);
+        }
+        else if ( *it == "thick" )
+        {
+            GridOutput::Variable thick(GridOutput::variableID::thick, data_elements, data_grid);
+            elemental_variables.push_back(thick);
+        }
+        else if ( *it == "snow" )
+        {
+            GridOutput::Variable snow(GridOutput::variableID::snow, data_elements, data_grid);
+            elemental_variables.push_back(snow);
+        }
+        else if ( *it == "tsurf" )
+        {
+            GridOutput::Variable tsurf(GridOutput::variableID::tsurf, data_elements, data_grid);
+            elemental_variables.push_back(tsurf);
+        }
+        else if ( *it == "Qa" )
+        {
+            GridOutput::Variable Qa(GridOutput::variableID::Qa, data_elements, data_grid);
+            elemental_variables.push_back(Qa);
+        }
+        else if ( *it == "Qsw" )
+        {
+            GridOutput::Variable Qsw(GridOutput::variableID::Qsw, data_elements, data_grid);
+            elemental_variables.push_back(Qsw);
+        }
+        else if ( *it == "Qlw" )
+        {
+            GridOutput::Variable Qlw(GridOutput::variableID::Qlw, data_elements, data_grid);
+            elemental_variables.push_back(Qlw);
+        }
+        else if ( *it == "Qsh" )
+        {
+            GridOutput::Variable Qsh(GridOutput::variableID::Qsh, data_elements, data_grid);
+            elemental_variables.push_back(Qsh);
+        }
+        else if ( *it == "Qlh" )
+        {
+            GridOutput::Variable Qlh(GridOutput::variableID::Qlh, data_elements, data_grid);
+            elemental_variables.push_back(Qlh);
+        }
+        else if ( *it == "Qo" )
+        {
+            GridOutput::Variable Qo(GridOutput::variableID::Qo, data_elements, data_grid);
+            elemental_variables.push_back(Qo);
+        }
+        else if ( *it == "delS" )
+        {
+            GridOutput::Variable delS(GridOutput::variableID::delS, data_elements, data_grid);
+            elemental_variables.push_back(delS);
+        }
+        else if ( *it == "conc_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        {
+            GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin, data_elements, data_grid);
+            elemental_variables.push_back(conc_thin);
+        }
+        else if ( *it == "h_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        {
+            GridOutput::Variable h_thin(GridOutput::variableID::h_thin, data_elements, data_grid);
+            elemental_variables.push_back(h_thin);
+        }
+        else if ( *it == "hs_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        {
+            GridOutput::Variable hs_thin(GridOutput::variableID::hs_thin, data_elements, data_grid);
+            elemental_variables.push_back(hs_thin);
+        }
+        // Nodal variables and vectors
+        else if ( *it == "velocity_xy" | *it == "velocity_uv" )
+        {
+            GridOutput::Variable siu(GridOutput::variableID::VT_x, data_nodes, data_grid);
+            GridOutput::Variable siv(GridOutput::variableID::VT_y, data_nodes, data_grid);
+            nodal_variables.push_back(siu);
+            nodal_variables.push_back(siv);
+
+            std::vector<int> siuv_id(2);
+            siuv_id[0] = 0;
+            siuv_id[1] = 1;
+
+            GridOutput::Vectorial_Variable siuv;
+            siuv.components_Id = siuv_id;
+            if ( *it == "velocity_xy" )
+                siuv.east_west_oriented = false;
+            else
+                siuv.east_west_oriented = true;
+
+            vectorial_variables.push_back(siuv);
+        }
+        // Error
+        else
+        {
+            std::cout << "Invalid mooring name: " << *it << std::endl;
+            std::cout << "Available names are ";
+            std::cout << "conc, ";
+            std::cout << "thick, ";
+            std::cout << "snow, ";
+            std::cout << "tsurf, ";
+            std::cout << "Qa, ";
+            std::cout << "Qsw, ";
+            std::cout << "Qlw, ";
+            std::cout << "Qsh, ";
+            std::cout << "Qlh, ";
+            std::cout << "Qo, ";
+            std::cout << "delS, ";
+            if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+            {
+                std::cout << "conc_thin, ";
+                std::cout << "h_thin, ";
+                std::cout << "hs_thin, ";
+            }
+            std::cout << "velocity_xy, ";
+            std::cout << "velocity_uv";
+
+            throw std::runtime_error("Invalid mooring name");
+        }
+    }
 
     if(vm["simul.mooring_grid_file"].as<std::string>()=="")
     {
@@ -5474,50 +5585,19 @@ FiniteElement::initMoorings()
     }
     else
     {
-    // Read the grid in from file
-    // Define a grid
-#if 0
-    GridOutput::Grid grid{
-        gridFile: "ice_drift_nh_polstere-625_multi-oi.nc",
-        dirname: "data",
-        mpp_file: Environment::vm()["simul.proj_filename"].as<std::string>(),
-        dimNameX: "yc",
-        dimNameY: "xc",
-        latName: "lat",
-        lonName: "lon"
-    };
-#endif
-    // Define a grid
-    GridOutput::Grid grid{
-        gridFile: Environment::vm()["simul.mooring_grid_file"].as<std::string>(),
-        dirname: "data",
-        mpp_file: Environment::vm()["simul.proj_filename"].as<std::string>(),
-        dimNameX: "y",
-        dimNameY: "x",
-        latName: "latitude",
-        lonName: "longitude"
-    };
+        // Read the grid in from file
+        GridOutput::Grid grid{
+            gridFile: Environment::vm()["simul.mooring_grid_file"].as<std::string>(),
+            dirname: "data",
+            mpp_file: Environment::vm()["simul.proj_filename"].as<std::string>(),
+            dimNameX: "y",
+            dimNameY: "x",
+            latName: "latitude",
+            lonName: "longitude"
+        };
 
-    // Define the mooring dataset
-    M_moorings = GridOutput(grid, nodal_variables, elemental_variables, vectorial_variables);
-
-    /* Just for debuging
-    // Save the grid info - this is still just an ascii dump!
-    std::ofstream myfile;
-    myfile.open("lon_grid.dat");
-    std::copy(M_moorings.M_grid.gridLON.begin(), M_moorings.M_grid.gridLON.end(), ostream_iterator<float>(myfile," "));
-    myfile.close();
-    myfile.open("lat_grid.dat");
-    std::copy(M_moorings.M_grid.gridLAT.begin(), M_moorings.M_grid.gridLAT.end(), ostream_iterator<float>(myfile," "));
-    myfile.close();
-
-    myfile.open("x_grid.dat");
-    std::copy(M_moorings.M_grid.gridX.begin(), M_moorings.M_grid.gridX.end(), ostream_iterator<float>(myfile," "));
-    myfile.close();
-    myfile.open("y_grid.dat");
-    std::copy(M_moorings.M_grid.gridY.begin(), M_moorings.M_grid.gridY.end(), ostream_iterator<float>(myfile," "));
-    myfile.close();
-    */
+        // Define the mooring dataset
+        M_moorings = GridOutput(grid, nodal_variables, elemental_variables, vectorial_variables);
     }
 
     double output_time;
@@ -5528,13 +5608,20 @@ FiniteElement::initMoorings()
         output_time = current_time - mooring_output_time_step/86400/2;
 
     M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
-
 } //initMoorings
 
 void
 FiniteElement::writeRestart(int pcpt, int step)
 {
-    Exporter exporter;
+
+    std::string tmp = (boost::format( "%1%" ) % step).str();
+    this->writeRestart(pcpt,tmp);
+}
+
+void
+FiniteElement::writeRestart(int pcpt, std::string step)
+{
+    Exporter exporter("double");
     std::string filename;
 
     // === Start with the mesh ===
@@ -5582,11 +5669,14 @@ FiniteElement::writeRestart(int pcpt, int step)
     std::vector<int> misc_int(4);
     misc_int[0] = pcpt;
     misc_int[1] = M_flag_fix;
-    misc_int[2] = current_time;
-    misc_int[3] = mesh_adapt_step;
+    misc_int[2] = mesh_adapt_step;
+    misc_int[3] = M_nb_regrid;
     exporter.writeField(outbin, misc_int, "Misc_int");
     exporter.writeField(outbin, M_dirichlet_flags, "M_dirichlet_flags");
 
+    std::vector<double> timevec(1);
+    timevec[0] = current_time;
+    exporter.writeField(outbin, timevec, "Time");
     exporter.writeField(outbin, M_conc, "M_conc");
     exporter.writeField(outbin, M_thick, "M_thick");
     exporter.writeField(outbin, M_snow_thick, "M_snow_thick");
@@ -5607,6 +5697,13 @@ FiniteElement::writeRestart(int pcpt, int step)
     exporter.writeField(outbin, M_VTMM, "M_VTMM");
     exporter.writeField(outbin, M_UM, "M_UM");
     exporter.writeField(outbin, M_UT, "M_UT");
+
+    std::vector<double> PreviousNumbering(M_mesh.numNodes());
+
+    for ( int i=0; i<M_mesh.numNodes(); ++i )
+        PreviousNumbering[i]=bamgmesh->PreviousNumbering[i];
+
+    exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering");
 
     if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
     {
@@ -5660,7 +5757,14 @@ FiniteElement::writeRestart(int pcpt, int step)
 int
 FiniteElement::readRestart(int step)
 {
-    Exporter exp_field, exp_mesh;
+    std::string tmp = (boost::format( "%1%" ) % step).str();
+    return this->readRestart(tmp);
+}
+
+int
+FiniteElement::readRestart(std::string step)
+{
+    Exporter exp_field("double"), exp_mesh("double");
     std::string filename;
     boost::unordered_map<std::string, std::vector<int>>    field_map_int;
     boost::unordered_map<std::string, std::vector<double>> field_map_dbl;
@@ -5677,6 +5781,8 @@ FiniteElement::readRestart(int step)
     filename = (boost::format( "%1%/mesh_%2%.dat" )
                % restart_path
                % step ).str();
+    LOG(DEBUG)<<"restart file = "<<filename<<"\n";
+
     std::ifstream meshrecord(filename);
     if ( ! meshrecord.good() )
         throw std::runtime_error("File not found: " + filename);
@@ -5731,12 +5837,19 @@ FiniteElement::readRestart(int step)
 	    coordX.size(), indexTr.size()/3.
             );
 
+    // Set and check time
+    int pcpt    = field_map_int["Misc_int"].at(0);
+    std::vector<double> time = field_map_dbl["Time"];
+    if ( time[0] != time_init + pcpt*time_step/(24*3600.0) )
+    {
+        std::cout << "FiniteElement::readRestart: Time and Misc_int[0] (a.k.a pcpt) are inconsistent. \n"
+            << "Time = " << time[0] << std::endl
+            << "pcpt*time_step/(24*3600.0) = " << pcpt*time_step/(24*3600.0) << std::endl;
+        std::runtime_error("Inconsistent time information in restart file");
+    }
+
     // Fix boundaries
-    //int pcpt     = field_map_int["Misc_int"].at(0);
     M_flag_fix   = field_map_int["Misc_int"].at(1);
-    current_time = field_map_int["Misc_int"].at(2);
-    mesh_adapt_step = field_map_int["Misc_int"].at(3);
-    int pcpt = (current_time-time_init)*(24*3600)/time_step;
 
     std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
     for (int edg=0; edg<bamgmesh->EdgesSize[0]; ++edg)
@@ -5773,6 +5886,8 @@ FiniteElement::readRestart(int step)
 
     // Initialise all the variables to zero
     this->initVariables();
+    mesh_adapt_step = field_map_int["Misc_int"].at(2);
+    M_nb_regrid  = field_map_int["Misc_int"].at(3);
 
     // update dirichlet nodes
     M_boundary_flags.resize(0);
@@ -5806,6 +5921,12 @@ FiniteElement::readRestart(int step)
         M_neumann_nodes[2*i] = M_neumann_flags[i];
         M_neumann_nodes[2*i+1] = M_neumann_flags[i]+M_num_nodes;
     }
+
+    std::vector<double> PreviousNumbering(M_mesh.numNodes());
+    PreviousNumbering = field_map_dbl["PreviousNumbering"];
+
+    for ( int i=0; i<M_mesh.numNodes(); ++i )
+        bamgmesh->PreviousNumbering[i] = PreviousNumbering[i];
 
     // === Set the prognostic variables ===
     M_conc       = field_map_dbl["M_conc"];
@@ -6281,7 +6402,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
     {
         case setup::OceanType::CONSTANT:
             M_ocean=ExternalData(
-                vm["simul.constant_ocean_v"].as<double>(),
+                vm["simul.constant_ocean_u"].as<double>(),
                 vm["simul.constant_ocean_v"].as<double>(),
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_ocean);
@@ -6384,7 +6505,8 @@ FiniteElement::forcingWave()
     if (M_wave_type==setup::WaveType::WW3A)
     {
         // define external_data objects
-        M_SWH        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init, vm["simul.spinup_duration"].as<double>());
+        //M_SWH        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init, vm["simul.spinup_duration"].as<double>());
+        M_SWH        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init);//no spinup
         M_MWP        = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
         M_MWD        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,true,time_init);//now a vector
         M_fice_waves = ExternalData(&M_wave_elements_dataset, M_mesh, 4,false,time_init);
@@ -6400,7 +6522,7 @@ FiniteElement::forcingWave()
     else if (M_wave_type==setup::WaveType::ERAI_WAVES_1DEG)
     {
         // define external_data objects
-        M_SWH = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init, vm["simul.spinup_duration"].as<double>());
+        M_SWH = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init);//, vm["simul.spinup_duration"].as<double>());
         M_MWP = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
         M_MWD = ExternalData(&M_wave_elements_dataset, M_mesh, 0,true,time_init);//now a vector
 
@@ -9255,18 +9377,21 @@ FiniteElement::wimPostRegrid()
     // - eg don't need it in update(), before advect()
     M_collect_wavespec  = false;
 
+    // pass back displacement of nodes at last WIM call,
+    // relative to the new mesh
+    // - this has now been interpolated to the new nodes
+    M_wim.setRelativeMeshDisplacement(M_wim_meshdisp);
+
     //M_wim.nextsim_mesh
-    M_wim.setMesh(M_mesh,M_UM,bamgmesh,M_flag_fix,true);//true means M_wim.assignSpatial() is called here
+    M_wim.setMesh2(M_mesh,M_UM,bamgmesh,M_flag_fix,true);//true means M_wim.assignSpatial() is called here
 
     // pass back interpolated wave spectrum to new elements;
     // interpolation scheme interp2cavities is conservative
     // - ie new element area is accounted for
     M_wim.setWaveSpec(M_wavespec);
 
-    // pass back displacement of nodes at last WIM call,
-    // relative to the new mesh
-    // - this has now been interpolated to the new nodes
-    M_wim.setRelativeMeshDisplacement(M_wim_meshdisp);
+
+    std::cout<<"leaving wimPostRegrid()\n";
 }//wimPostRegrid()
 #endif
 
@@ -9322,6 +9447,7 @@ FiniteElement::wimCheckWaves()
     double Hs_data_max  = -1.e30;
     double Tp_data_min  = 1.e30;
     double Tp_data_max  = -1.e30;
+
     for (int i=0; i<num_elements_wim; ++i)
     {
         //get incident waves from datasets
@@ -9391,6 +9517,7 @@ FiniteElement::wimCheckWaves()
 
 
     M_wim.setWaveFields(swh_in, mwp_in, mwd_in);
+    std::cout<<"9518\n";
 }//wimCheckWaves()
 #endif
 
@@ -9403,7 +9530,7 @@ FiniteElement::initWim(int const pcpt)
     if(!(M_wave_mode==setup::WaveMode::RUN_ON_MESH))
     {
         // - initialise grid using mesh if no gridfilename is present
-        std::string wim_gridfile = vm["wim.gridfilename"].as<std::string>();
+        std::string wim_gridfile = vm["wimgrid.gridfilename"].as<std::string>();
         if ( wim_gridfile != "" )
             //init grid from gridfile
             M_wim = wim_type(vm,pcpt);
@@ -9505,7 +9632,7 @@ FiniteElement::wimCall()
                 M_wim.setMesh(movedmesh);
             else if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
                 //NB setMesh() already called in init
-                M_wim.setMesh(movedmesh,bamgmesh,M_flag_fix);
+                M_wim.setMesh2(movedmesh,bamgmesh,M_flag_fix);
 
             //set ice fields on mesh
             if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
@@ -9538,7 +9665,7 @@ FiniteElement::wimCall()
             M_wim.getFsdMesh(M_nfloes,M_dfloe,broken);//outputs (already calculated on mesh)
         else
             M_wim.getFsdMesh(M_nfloes,M_dfloe,broken, //outputs
-                    ctot,movedmesh);              //extra inputs
+                    ctot,movedmesh);                  //extra inputs
 #if 1
         LOG(DEBUG)<<"min Dfloe on mesh = "<< *std::min_element(M_dfloe.begin(),M_dfloe.end() )<<"\n";
         LOG(DEBUG)<<"max Dfloe on mesh = "<< *std::max_element(M_dfloe.begin(),M_dfloe.end() )<<"\n";
@@ -9594,13 +9721,13 @@ FiniteElement::wimCall()
                 }
             }
             else if (interp_taux)
-                M_wim.returnWaveStress(M_tau,movedmesh);
+                M_wim.returnWaveStress(M_tau);
         }
     }
     else if(interp_taux)
         M_wim.returnWaveStress(M_tau,movedmesh);
 
-    if(M_run_wim&&(vm["simul.export_after_wim_call"].as<bool>()))
+    if(M_run_wim&&(vm["nextwim.export_after_wim_call"].as<bool>()))
     {
         std::string tmp_string3
             = ( boost::format( "after_wim_call_%1%" ) % (M_wim_cpt-1) ).str();
@@ -9842,15 +9969,13 @@ FiniteElement::writeLogFile()
 void
 FiniteElement::clear()
 {
-    //delete[] M_topaz_grid.pfindex;
-
     delete bamgmesh;
     delete bamggeom;
     delete bamgopt;
     // We need to point these to NULL because 'delete bamgopt' clears the
     // memory they were pointing to before
-    bamgopt_previous->hminVertices      = NULL;
-    bamgopt_previous->hmaxVertices      = NULL;
+    bamgopt_previous->hminVertices = NULL;
+    bamgopt_previous->hmaxVertices = NULL;
 
     delete bamgmesh_previous;
     delete bamggeom_previous;

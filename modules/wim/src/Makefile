@@ -36,13 +36,24 @@ else
 endif
 
 # add g++ option flags
-CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp
+CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -fopenmp
 ifneq ($(XSIMCOMP_VERBOSE),no)
 	CXXFLAGS += -v
 	CFLAGS   += -v
 endif
 CXXFLAGS += -Wfatal-errors
 # CXXFLAGS += -pedantic
+
+ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
+	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
+	#CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
+	CXXFLAGS += -g -O0 -DDEBUGGING
+ifneq ($(KERNEL),Linux)
+	CXXFLAGS += -Wl,-no_pie
+endif
+else
+	CXXFLAGS += -O3 -pthread  
+endif
 
 # add include paths
 # CXXFLAGS += -I .
@@ -84,7 +95,7 @@ LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx -lbamg -lnextsim
 
 # ========================================================
 # Rules to always execute.
-.PHONY: default all lib clean mrproper single execlean
+.PHONY: default all lib clean mrproper single
 
 # Default action.
 default: lib
@@ -101,12 +112,8 @@ clean:
 fresh: clean all
 
 # Delete the object and dependancy files, and the executable
-vclean: clean
+mrproper: clean
 	$(RM) $(BINARYDIR)$(PROG) $(LIBRARYDIR)/*
-
-# Delete the executable
-execlean:
-	$(RM) $(BINARYDIR)$(PROG) $(PROGOBJS)
 # ========================================================
 
 

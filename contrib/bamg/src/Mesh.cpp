@@ -255,7 +255,7 @@ namespace bamg {
 		long i1,i2,i3;
 		long i;
 		Metric M1(1);
-		int verbose=7;
+		int verbose=0;
 		bool* nodeflags=NULL;
 
 		nbv=nods;
@@ -309,7 +309,7 @@ namespace bamg {
 		if(isorphan) _error_("Orphan found in mesh, see ids above");
 
 		/*Clean up*/
-		delete nodeflags;
+		delete [] nodeflags;
 	}
 	/*}}}*/
 	void Mesh::ReadMesh(BamgMesh* bamgmesh, BamgOpts* bamgopts){/*{{{*/
@@ -630,7 +630,7 @@ namespace bamg {
 		}
 		//clean up
 		delete edge4;
-		delete elemedge;
+		delete [] elemedge;
 
 		/*IssmSegments*/
 		if(verbose>5) _printf_("      writing IssmSegments\n");
@@ -865,12 +865,12 @@ namespace bamg {
 		}
 
 		//clean up
-		delete connectivitysize_1;
-		delete head_1;
-		delete next_1;
-		delete connectivitysize_2;
-		delete head_2;
-		delete next_2;
+		delete [] connectivitysize_1;
+		delete [] head_1;
+		delete [] next_1;
+		delete [] connectivitysize_2;
+		delete [] head_2;
+		delete [] next_2;
 		delete [] reft;
 		delete [] numt;
 	}

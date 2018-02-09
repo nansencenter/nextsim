@@ -22,7 +22,7 @@ Exporter::Exporter(std::string const& precision)
 
 template<typename Type>
 void
-Exporter::writeContainer(std::fstream& out, std::vector<Type> const& container)
+Exporter::writeContainer(std::fstream& out, std::vector<Type> const& container, std::string const precision)
 {
     if (out.is_open())
 	{
@@ -30,8 +30,10 @@ Exporter::writeContainer(std::fstream& out, std::vector<Type> const& container)
         out.write((char*)&fsize, sizeof(fsize)); // write first the record length
 
         int typesize = sizeof(Type);
-        if ((M_precision != "double") && (typesize == sizeof(double)))
+        if ((precision != "double") && (typesize == sizeof(double)))
         {
+            // if input is double, but only ask for float precision,
+            // convert to float before writing into binary file
             for (int i=0; i<container.size(); ++i)
             {
                 // convert to float before writing into binary file
@@ -56,68 +58,66 @@ Exporter::writeContainer(std::fstream& out, std::vector<Type> const& container)
 void
 Exporter::writeMesh(std::fstream& out, GmshMesh const& Mesh)
 {
-    std::string description;
-
-    writeContainer(out, Mesh.indexTr());
-    description = (boost::format( "%1% %2%" )
-                   % "Elements"
-                   % "int" ).str();
-    M_mrecord.push_back(description);
-
-
-    writeContainer(out, Mesh.coordX());
-    description = (boost::format( "%1% %2%" )
-                   % "Nodes_x"
-                   % M_precision ).str();
-    M_mrecord.push_back(description);
-
-    writeContainer(out, Mesh.coordY());
-    description = (boost::format( "%1% %2%" )
-                   % "Nodes_y"
-                   % M_precision ).str();
-
-    M_mrecord.push_back(description);
-
-    writeContainer(out, Mesh.id());
-    description = (boost::format( "%1% %2%" )
-                   % "id"
-                   % "int" ).str();
-    M_mrecord.push_back(description);
+    auto xnod = Mesh.coordX();
+    auto ynod = Mesh.coordY();
+    auto elements = Mesh.indexTr();
+    auto idnod = Mesh.id();
+    this->writeMesh(out, xnod, ynod, idnod, elements);
 }
 
+template<typename Type>
 void
-Exporter::writeMesh(std::fstream& out,
-        std::vector<double> const& nodes_x,std::vector<double> const& nodes_y,
-        std::vector<int> const& id,std::vector<int> const& index)
+Exporter::writeMesh(std::fstream& out, std::vector<Type> const &xnod, std::vector<Type> const &ynod,
+        std::vector<int> const &idnod, std::vector<int> const &elements)
 {
     std::string description;
 
-    writeContainer(out, index);
-    description = (boost::format( "%1% %2%" )
+    std::vector<int> field_int = elements;
+    writeContainer(out, field_int, "int");
+    description = (boost::format( "%1% %2% %3$g %4$g %5$g" )
                    % "Elements"
-                   % "int" ).str();
+                   % "int"
+                   % field_int.size()
+                   % *std::min_element(field_int.begin(), field_int.end())
+                   % *std::max_element(field_int.begin(), field_int.end()) ).str();
     M_mrecord.push_back(description);
 
-
-    writeContainer(out, nodes_x);
-    description = (boost::format( "%1% %2%" )
-                   % "Nodes_x"
-                   % M_precision ).str();
-    M_mrecord.push_back(description);
-
-    writeContainer(out, nodes_y);
-    description = (boost::format( "%1% %2%" )
-                   % "Nodes_y"
-                   % M_precision ).str();
-
-    M_mrecord.push_back(description);
-
-    writeContainer(out, id);
-    description = (boost::format( "%1% %2%" )
+    field_int = idnod;
+    writeContainer(out, field_int, "int");
+    description = (boost::format( "%1% %2% %3$g %4$g %5$g" )
                    % "id"
-                   % "int" ).str();
+                   % "int"
+                   % field_int.size()
+                   % *std::min_element(field_int.begin(), field_int.end())
+                   % *std::max_element(field_int.begin(), field_int.end()) ).str();
+    M_mrecord.push_back(description);
+
+    std::string prec = "double";
+    if (sizeof(Type)==sizeof(float))
+        prec = "float";
+
+    auto field = xnod;
+    writeContainer(out, field, prec);
+    description = (boost::format( "%1% %2% %3$g %4$g %5$g" )
+                   % "Nodes_x"
+                   % prec
+                   % field.size()
+                   % *std::min_element(field.begin(), field.end())
+                   % *std::max_element(field.begin(), field.end()) ).str();
+    M_mrecord.push_back(description);
+
+    field = ynod;
+    writeContainer(out, field, prec);
+    description = (boost::format( "%1% %2% %3$g %4$g %5$g" )
+                   % "Nodes_y"
+                   % prec
+                   % field.size()
+                   % *std::min_element(field.begin(), field.end())
+                   % *std::max_element(field.begin(), field.end()) ).str();
+
     M_mrecord.push_back(description);
 }
+
 
 template<typename Type>
 void
@@ -125,7 +125,6 @@ Exporter::writeField(std::fstream& out, std::vector<Type> const& field, std::str
 {
     //std::cout<<"Writing "<<name<<": len = "<<field.size()<<"\n";
     std::string description;
-    writeContainer(out, field);
 
     std::string precision;
     // We must choose either integer or floating point
@@ -135,12 +134,16 @@ Exporter::writeField(std::fstream& out, std::vector<Type> const& field, std::str
         precision = M_precision;
 
     // Time should always be in double
-    //if ( name == "Time" )
-    //    precision = "double";
+    if ( name == "Time" )
+        precision = "double";
 
-    description = (boost::format( "%1% %2%" )
+    writeContainer(out, field, precision);
+    description = (boost::format( "%1% %2% %3$g %4$g %5$g" )
                    % name
-                   % precision ).str();
+                   % precision
+                   % field.size()
+                   % ( (field.size() > 0) ? *std::min_element(field.begin(), field.end()) : 0 )
+                   % ( (field.size() > 0) ? *std::max_element(field.begin(), field.end()) : 0 ) ).str();
 
 	M_frecord.push_back(description);
 }
@@ -176,12 +179,11 @@ Exporter::writeRecord(std::fstream& out, std::string const& rtype)
 }
 
 void
-Exporter::readRecord(std::ifstream& in)
+Exporter::readRecord(std::ifstream &in)
 {
-    std::string name;
-    std::string type;
+    std::string name, type, size, min_element, max_element;
 
-    while ( in >> name >> type )
+    while ( in >> name >> type >> size >> min_element >> max_element)
     {
         M_name_record.push_back(name);
         M_type_record.push_back(type);
@@ -189,7 +191,7 @@ Exporter::readRecord(std::ifstream& in)
 }
 
 void
-Exporter::loadFile(std::fstream& in, boost::unordered_map<std::string, std::vector<int>>& field_map_int, boost::unordered_map<std::string, std::vector<double>>& field_map_dbl)
+Exporter::loadFile(std::fstream &in, boost::unordered_map<std::string, std::vector<int>> &field_map_int, boost::unordered_map<std::string, std::vector<double>> &field_map_dbl)
 {
     int reclen;
     for ( int i=0; i<M_type_record.size(); ++i )
@@ -210,12 +212,18 @@ Exporter::loadFile(std::fstream& in, boost::unordered_map<std::string, std::vect
         }
         else
         {
-            throw std::logic_error("unknown type in file");
+            std::string error_str = "Unknow typ in file: " + M_type_record[i];
+            throw std::logic_error(error_str);
         }
     }
 }
 
 template void Exporter::writeField<double>(std::fstream&, std::vector<double> const&, std::string const&);
 template void Exporter::writeField<int>(std::fstream&, std::vector<int> const&, std::string const&);
+
+template void Exporter::writeMesh<double>(std::fstream&, std::vector<double> const&, std::vector<double> const&,
+        std::vector<int> const&,std::vector<int> const&);
+template void Exporter::writeMesh<float>(std::fstream&, std::vector<float> const&, std::vector<float> const&,
+        std::vector<int> const&,std::vector<int> const&);
 
 } // Nextsim

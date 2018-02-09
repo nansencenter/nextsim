@@ -35,9 +35,9 @@
 #include "enums.hpp"
 #include <debug.hpp>
 #include <omp.h>
-#include <externaldata.hpp>
 #include <gridoutput.hpp>
 #include <dataset.hpp>
+#include <externaldata.hpp>
 #include <drifters.hpp>
 
 #ifdef WITHGPERFTOOLS
@@ -216,7 +216,9 @@ public:
             bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
 
     void writeRestart(int pcpt, int step);
+    void writeRestart(int pcpt, std::string step);
     int readRestart(int step);
+    int readRestart(std::string step);
 
 #if defined (WAVES)
     void initWim(int const pcpt);

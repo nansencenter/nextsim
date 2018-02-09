@@ -28,9 +28,9 @@ GridInfo<T>::GridInfo(T_vmap const& vmIn)
     M_max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
     vm = vmIn;
     M_initialised = true;
-    M_use_regular = (vm["wim.useregulargridtools"].template as<bool>());
+    M_use_regular = (vm["wimgrid.useregulargridtools"].template as<bool>());
 
-    M_gridfile    = vm["wim.gridfilename"].template as<std::string>();
+    M_gridfile    = vm["wimgrid.gridfilename"].template as<std::string>();
     if ( M_gridfile != "" )
     {
         std::cout<<"Getting WIM grid from file: "<<M_gridfile<<"\n";
@@ -41,12 +41,12 @@ GridInfo<T>::GridInfo(T_vmap const& vmIn)
         std::cout<<"Generating WIM grid manually...\n";
         chrono.restart();
 
-        M_num_px = vm["wim.nx"].template as<int>();
-        M_num_py = vm["wim.ny"].template as<int>();
-        M_dx     = vm["wim.dx"].template as<double>();
-        M_dy     = vm["wim.dy"].template as<double>();
-        M_xmin   = vm["wim.xmin"].template as<double>();
-        M_ymin   = vm["wim.ymin"].template as<double>();
+        M_num_px = vm["wimgrid.nx"].template as<int>();
+        M_num_py = vm["wimgrid.ny"].template as<int>();
+        M_dx     = vm["wimgrid.dx"].template as<double>();
+        M_dy     = vm["wimgrid.dy"].template as<double>();
+        M_xmin   = vm["wimgrid.xmin"].template as<double>();
+        M_ymin   = vm["wimgrid.ymin"].template as<double>();
         M_xmax   = M_xmin+(M_num_px-1)*M_dx;
         M_ymax   = M_ymin+(M_num_py-1)*M_dy;
 
@@ -54,7 +54,7 @@ GridInfo<T>::GridInfo(T_vmap const& vmIn)
 
         // land mask
         // - add land on 3 edges (upper,lower,RH)
-        if (vm["wim.landon3edges"].template as<bool>())
+        if (vm["wimgrid.landon3edges"].template as<bool>())
         {
 #pragma omp parallel for num_threads(M_max_threads) collapse(1)
             for (int j = 0; j < M_num_py; j++)
@@ -87,7 +87,7 @@ GridInfo<T>::GridInfo(T_vmap const &vmIn,T_mesh &mesh_in)
     M_max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
     vm = vmIn;
     M_initialised = true;
-    M_use_regular = (vm["wim.useregulargridtools"].template as<bool>());
+    M_use_regular = (vm["wimgrid.useregulargridtools"].template as<bool>());
 
     std::cout<<"Generating WIM grid from mesh...\n";
     chrono.restart();
@@ -184,10 +184,10 @@ void GridInfo<T>::gridFromParameters()
 template<typename T>
 void GridInfo<T>::gridPostProcessing()
 {
-    M_use_regular   = (vm["wim.useregulargridtools"].template as<bool>());
-    bool DoSaveGrid = (vm["wim.checkprog"].template as<bool>())
-                   || (vm["wim.checkinit"].template as<bool>())
-                   || (vm["wim.checkfinal"].template as<bool>())
+    M_use_regular   = (vm["wimgrid.useregulargridtools"].template as<bool>());
+    bool DoSaveGrid = (vm["wimgrid.checkprog"].template as<bool>())
+                   || (vm["wimgrid.checkinit"].template as<bool>())
+                   || (vm["wimgrid.checkfinal"].template as<bool>())
                    || (vm["nextwim.exportresults"].template as<bool>());
 
     //std::cout<<" ---before saving\n";
@@ -278,7 +278,7 @@ template<typename T>
 void GridInfo<T>::saveGrid()
 {
     //save grid to binary
-    std::string str = vm["wim.outparentdir"].template as<std::string>();
+    std::string str = vm["wimdiag.outparentdir"].template as<std::string>();
     fs::path path(str);
     path /= "binaries";
 
@@ -376,7 +376,6 @@ void GridInfo<T>::readGridFromFile()
     std::string str = std::string(senv);
     fs::path path(str);
 
-    //str = vm["wim.gridfilename"].template as<std::string>();
     str = M_gridfile;
     std::size_t found = str.find(".");
     if (found != std::string::npos)
@@ -516,8 +515,8 @@ void GridInfo<T>::readFromBinary(std::fstream &in, T_val_vec& in_array, int off,
     }
     else
     {
-        std::cout << "Cannot open " << in << "\n";
-        std::cerr << "error: open file " << in << " for input failed!" <<"\n";
+        std::cout << "readFromBinary: Cannot open file\n";
+        std::cerr << "error: opening file for input failed!" <<"\n";
         std::abort();
     }
 }//readFromBinary

@@ -139,10 +139,10 @@ public:
     // ===============================================================
     // public functions
     void clearFields();
-    void setFields();
     void setFields(T_val_vec const& conc,
             T_val_vec const& vol,
             T_val_vec const& nfloes);
+    void updateFields();
 
     void doBreaking(T_val_vec const& mom0,T_val_vec const& mom2,
             T_val_vec const& var_strain);

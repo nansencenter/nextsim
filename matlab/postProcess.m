@@ -97,9 +97,11 @@ end
 % Initialize for speed
 t = 0.*(steps(1):skip:steps(end));
 
-vice     = t;
-vice_DRA = t;
-vice_ICE = t;
+hice     = t;
+hice_DRA = t;
+hice_ICE = t;
+hice_GCB = t;
+hice_GC = t;
 
 area       = t;
 area_SSMI  = t;
@@ -109,7 +111,11 @@ extent       = t;
 extent_SSMI  = t;
 extent_AMSRE = t;
 
-vsnow = t;
+hsnow = t;
+hsnow_DRA = t;
+hsnow_ICE = t;
+hsnow_GCB = t;
+hsnow_GC = t;
 
 k=0;
 for i = steps(1):skip:steps(end)
@@ -126,11 +132,11 @@ for i = steps(1):skip:steps(end)
 
     t(k) = simul_out.current_time;
 
-    vice(k)   = simul_out.h'*simul_out.surface;
-    vice_DRA(k)   = simul_out.h(mask_DRA)'*simul_out.surface(mask_DRA);
-    vice_ICE(k)   = simul_out.h(mask_ICE)'*simul_out.surface(mask_ICE);
-    vice_GCB(k)   = simul_out.h(mask_GCB)'*simul_out.surface(mask_GCB);
-    vice_GC(k)   = simul_out.h(mask_GC)'*simul_out.surface(mask_GC);
+    hice(k)   = simul_out.h'*simul_out.surface/sum(simul_out.surface);
+    hice_DRA(k)   = simul_out.h(mask_DRA)'*simul_out.surface(mask_DRA)/sum(simul_out.surface(mask_DRA));
+    hice_ICE(k)   = simul_out.h(mask_ICE)'*simul_out.surface(mask_ICE)/sum(simul_out.surface(mask_ICE));
+    hice_GCB(k)   = simul_out.h(mask_GCB)'*simul_out.surface(mask_GCB)/sum(simul_out.surface(mask_GCB));
+    hice_GC(k)   = simul_out.h(mask_GC)'*simul_out.surface(mask_GC)/sum(simul_out.surface(mask_GC));
 
     area(k)       = simul_out.c'*simul_out.surface;
     area_SSMI(k)  = simul_out.c(mask_SSMI)'*simul_out.surface(mask_SSMI);
@@ -140,12 +146,14 @@ for i = steps(1):skip:steps(end)
     extent_SSMI(k)  = (simul_out.c(mask_SSMI) >= 0.15)'*simul_out.surface(mask_SSMI);
     extent_AMSRE(k) = (simul_out.c(mask_AMSRE) >= 0.15)'*simul_out.surface(mask_AMSRE);
 
-    vsnow(k)     = simul_out.hs'*simul_out.surface;
+    hsnow(k)     = simul_out.hs'*simul_out.surface/sum(simul_out.surface);
+    hsnow_DRA(k) = simul_out.hs(mask_DRA)'*simul_out.surface(mask_DRA)/sum(simul_out.surface(mask_DRA));
+    hsnow_ICE(k) = simul_out.hs(mask_ICE)'*simul_out.surface(mask_ICE)/sum(simul_out.surface(mask_ICE));
+    hsnow_GCB(k) = simul_out.hs(mask_GCB)'*simul_out.surface(mask_GCB)/sum(simul_out.surface(mask_GCB));
+    hsnow_GC(k)  = simul_out.hs(mask_GC)'*simul_out.surface(mask_GC)/sum(simul_out.surface(mask_GC));
 end
 
-save(outputfile, 'directory', 'vice', 'area', 'extent', 'vsnow', 't', ...
-    'vice_ICE', 'vice_DRA', 'vice_GCB', 'vice_GC', ...
-    'area_SSMI', 'area_AMSRE', 'extent_SSMI', 'extent_AMSRE')
+save(outputfile, 'directory', 'hice*', 'area*', 'extent*', 'hsnow*', 't', '-regexp')
 
 end
 

@@ -1,5 +1,6 @@
 # untracked files to ignore
 .*.swp
+.*.swo
 *.mat
 *.msh
 *.geo

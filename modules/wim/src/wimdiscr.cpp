@@ -33,7 +33,7 @@ WimDiscr<T>::WimDiscr(po::variables_map const& vmIn,int const& nextsim_cpt)
     if(!M_wim_on_mesh)
     {
         // wim grid generation/reading
-        // NB if M_wim_on_mesh, setMesh before wim.run() and at regridding
+        // NB if M_wim_on_mesh, setMesh2 before wim.run() and at regridding
         // time
         M_grid  = T_grid(vm);
     }
@@ -50,7 +50,7 @@ WimDiscr<T>::WimDiscr(po::variables_map const& vmIn,T_gmsh const &mesh_in,int co
 
     // init grid FROM mesh
     T_mesh mesh(mesh_in);//tmp mesh object
-    M_grid          = T_grid(vm,mesh);
+    M_grid  = T_grid(vm,mesh);
 
     this->initRemaining();
 }//WimDiscr()
@@ -68,8 +68,8 @@ void WimDiscr<T>::initRemaining()
 
     // ==============================================================================
     //local diagnostics
-    int wim_itest = vm["wim.itest"].template as<int>();
-    int wim_jtest = vm["wim.jtest"].template as<int>();
+    int wim_itest = vm["wimdiag.itest"].template as<int>();
+    int wim_jtest = vm["wimdiag.jtest"].template as<int>();
 
     M_itest  = -1;
     if(!M_wim_on_mesh)
@@ -82,7 +82,7 @@ void WimDiscr<T>::initRemaining()
             {
                 std::cout<<"\nitest,jtest: "<<wim_itest<<","<<wim_jtest<<"\n";
                 std::cout<<"\nnx,ny: "<<M_grid.M_num_px<<","<<M_grid.M_num_py<<"\n";
-                throw std::runtime_error("wim.itest/jtest out of range");
+                throw std::runtime_error("wimdiag.itest/jtest out of range");
             }
         }
 
@@ -121,10 +121,11 @@ void WimDiscr<T>::initConstant(int const& nextsim_cpt)
     M_cpt = 0;
 
     // wave parameters
-    nwavedirn   = vm["wim.nwavedirn"].template as<int>();
-    nwavefreq   = vm["wim.nwavefreq"].template as<int>();
-    Tmin        = vm["wim.tmin"].template as<double>(); /* 2.5 */
-    Tmax        = vm["wim.tmax"].template as<double>(); /* 25. */
+    nwavedirn   = vm["wimsetup.nwavedirn"].template as<int>();
+    nwavefreq   = vm["wimsetup.nwavefreq"].template as<int>();
+    Tmin        = vm["wimsetup.tmin"].template as<double>(); /* 2.5 */
+    Tmax        = vm["wimsetup.tmax"].template as<double>(); /* 25. */
+
     M_ref_Hs_ice  = vm["wim.refhsice"].template as<bool>();
     M_atten       = vm["wim.atten"].template as<bool>();
     M_useicevel   = vm["wim.useicevel"].template as<bool>();
@@ -152,15 +153,15 @@ void WimDiscr<T>::initConstant(int const& nextsim_cpt)
     }
 
     //some options need to be disabled if being called from nextsim
-    docoupling = !( vm.count("simul.use_wim")==0 );
+    docoupling = !( vm.count("simul.duration")==0 );
     M_restart_time  = 0.;
     if (!docoupling)
     {
         //set duration of call to wim.run() from wim.duration
-        M_duration = vm["wim.duration"].template as<double>();
+        M_duration = vm["wimsetup.duration"].template as<double>();
 
-        //get initial time from wim.initialtime
-        M_init_time_str = vm["wim.initialtime"].as<std::string>();
+        //get initial time from wimsetup.initialtime
+        M_init_time_str = vm["wimsetup.initialtime"].as<std::string>();
 
         //save options from wimoptions.cpp
         this->saveOptionsLog();
@@ -574,7 +575,7 @@ void WimDiscr<T>::setWaveFields(T_val_vec const& swh_in,
 {
     M_initialised_waves = true;
 
-    bool checkincwaves = vm["wim.checkincwaves"].template as<bool>();
+    bool checkincwaves = vm["wimdiag.checkincwaves"].template as<bool>();
     if (checkincwaves)
     {
         //these arrays are only needed for diagnostics
@@ -844,7 +845,7 @@ void WimDiscr<T>::timeStep()
 
     // dump local diagnostic file
     // - directory to put it
-    std::string outdir = vm["wim.outparentdir"].template as<std::string>();
+    std::string outdir = vm["wimdiag.outparentdir"].template as<std::string>();
     fs::path path(outdir);
     path /= "diagnostics/local";
     if ( !fs::exists(path) )
@@ -871,8 +872,8 @@ void WimDiscr<T>::timeStep()
                     << M_itest << " # itest\n";
             else
             {
-                int wim_itest = vm["wim.itest"].template as<int>();
-                int wim_jtest = vm["wim.jtest"].template as<int>();
+                int wim_itest = vm["wimdiag.itest"].template as<int>();
+                int wim_jtest = vm["wimdiag.jtest"].template as<int>();
                 diagID << std::setw(16) << std::left
                     << wim_itest << " # itest\n";
                 diagID << std::setw(16) << std::left
@@ -1232,28 +1233,28 @@ void WimDiscr<T>::setMesh(T_gmsh const &mesh_in,T_val_vec const &um_in)
 
 
 template<typename T>
-void WimDiscr<T>::setMesh(T_gmsh const &mesh_in,
-        T_val_vec const &um_in,BamgMesh* bamgmesh,int const& flag_fix,bool const& assign_spatial)
+void WimDiscr<T>::setMesh2(T_gmsh const &mesh_in,
+        T_val_vec const &um_in,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding)
 {
     //interface for M_wim_on_mesh
     auto movedmesh = mesh_in;
     movedmesh.move(um_in,1.);
-    this->setMesh(movedmesh,bamgmesh,flag_fix,assign_spatial);
+    this->setMesh2(movedmesh,bamgmesh,flag_fix,regridding);
 }
 
 
 template<typename T>
-void WimDiscr<T>::setMesh(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& flag_fix,bool const& assign_spatial)
+void WimDiscr<T>::setMesh2(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding)
 {
     //interface for M_wim_on_mesh
 
-    //can force call to assignSpatial() by passing in assign_spatial=true (eg after regrid)
-    //also needs to be called at initialisation time
-    if(assign_spatial)
-        M_assigned  = false;
+    if(regridding)
+        //need to call assignSpatial() to resize vectors
+        M_assigned = false;
+    else
+        M_mesh_old = M_mesh;
 
     M_time_mesh_set = M_update_time;//used in check when ice fields are set on mesh
-    M_mesh_old      = M_mesh;
     M_mesh          = T_mesh(movedmesh,bamgmesh,flag_fix);
 
     // get relative displacement of nodes since last call
@@ -1261,9 +1262,22 @@ void WimDiscr<T>::setMesh(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& 
     // - it is reset to zero at end of wim.run() and at initialisation
     // - used to correct group velocity when waves are advected
     int Nn = M_mesh.M_num_nodes;
-    if (M_cpt==0)
+    int sz = M_UM.size(); 
+    bool update_mesh_disp = (!regridding);
+    if(sz==0)
+    {
+        update_mesh_disp = false;
         M_UM.assign(2*Nn,0.);
-    else
+    }
+    else if(sz!=2*Nn)
+    {
+        std::string msg  = (boost::format(  "M_UM is wrong size (%1%) - should be %2%\n" )
+                % sz % (2*Nn)).str();
+        throw std::runtime_error(msg);
+    }
+
+    if(update_mesh_disp)
+        //NB if regridding don't need to add any correction to M_UM
         for (int i=0;i<Nn;i++)
         {
             //nextsim_mesh_old is either from last WIM call or last regrid
@@ -1279,17 +1293,13 @@ void WimDiscr<T>::setMesh(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& 
     if(!M_assigned)
     {
         //need to set sizes each time mesh changes: init,regrid
-        std::cout<<"calling assignSpatial() inside setMesh()\n";
+        std::cout<<"calling assignSpatial() inside setMesh2()\n";
         this->assignSpatial();
         M_land_mask.assign(M_num_elements,0.);
     }
 
     M_length_cfl = M_mesh.lengthCfl();
-#if 0
-    std::cout<<"setMesh: calling testMesh\n";
-    this->testMesh();
-#endif
-}//setMesh
+}//setMesh2
 
 
 template<typename T>
@@ -1298,7 +1308,7 @@ WimDiscr<T>::getSurfaceFactor(T_gmsh const &movedmesh)
 {
     // wave spectrum needs to be updated if mesh changes due to divergence of mesh velocity
     // ie element surface area changes need to be taken into account;
-    // call this before setMesh() at regrid time or before call to WIM
+    // call this before setMesh2() at regrid time or before call to WIM
     auto nodes_x = movedmesh.coordX();
     auto nodes_y = movedmesh.coordY();
     auto index   = movedmesh.indexTr();
@@ -1336,10 +1346,12 @@ void WimDiscr<T>::updateWaveSpec(T_gmsh const &movedmesh)
 {
     // wave spectrum needs to be updated if mesh changes due to divergence of mesh velocity
     // ie element surface area changes need to be taken into account;
-    // call this before setMesh() at regrid time or before call to WIM
+    // call this before setMesh2() at regrid time or before call to WIM
     auto nodes_x = movedmesh.coordX();
     auto nodes_y = movedmesh.coordY();
     auto index   = movedmesh.indexTr();
+
+    std::cout<<"updateWaveSpec: calling getSurfaceFactor";
     auto surface_fac = this->getSurfaceFactor(movedmesh);
 
     int Nels = movedmesh.numTriangles();
@@ -1490,7 +1502,7 @@ void WimDiscr<T>::interpIceMeshToGrid()
     T_val_vec_ptrs input_data  = {&(M_ice[IceType::sim].M_conc),&(M_ice[IceType::sim].M_vol),&(M_ice[IceType::sim].M_nfloes)};
     T_val_vec_ptrs output_data = {&(M_ice[IceType::wim].M_conc),&(M_ice[IceType::wim].M_vol),&(M_ice[IceType::wim].M_nfloes)};
     M_grid.interpFromMesh(M_mesh,output_data,input_data);
-    M_ice[IceType::wim].setFields();
+    M_ice[IceType::wim].updateFields();
 }//iceMeshToGrid
 
 
@@ -1526,7 +1538,10 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
 
     T_val_vec surface_fac(xel.size(),1.);
     if(M_wim_on_mesh)
+    {
+        std::cout<<"returnFieldsElements: calling getSurfaceFactor";
         surface_fac = this->getSurfaceFactor(movedmesh);
+    }
 
     return this->returnFieldsElements(fields,xel,yel,surface_fac);
 }
@@ -1963,10 +1978,10 @@ void WimDiscr<T>::run()
     std::cout<<"M_timestep = "<< M_timestep <<"\n";
     std::cout<<"M_num_timesteps = "<< M_num_timesteps <<"\n";
 
-    if (vm["wim.checkinit"].template as<bool>())
+    if (vm["wimdiag.checkinit"].template as<bool>())
         this->exportResults("init");
 
-    if (vm["wim.checkincwaves"].template as<bool>()
+    if (vm["wimdiag.checkincwaves"].template as<bool>()
         &&(M_swh_in.size()>0))
         this->exportResults("incwaves");
 
@@ -1997,10 +2012,10 @@ void WimDiscr<T>::run()
 
         //export progress results
         bool export_now = false;
-        int dump_freq   = vm["wim.dumpfreq"].template as<int>();//output "prog" and diagnostic text files after this no of time steps
+        int dump_freq   = vm["wimdiag.dumpfreq"].template as<int>();//output "prog" and diagnostic text files after this no of time steps
         if (dump_freq>0)
             export_now = !(M_cpt % dump_freq);
-        bool exportProg = export_now && (vm["wim.checkprog"].template as<bool>());
+        bool exportProg = export_now && (vm["wimdiag.checkprog"].template as<bool>());
         if ( exportProg )
             this->exportResults("prog");
 
@@ -2016,11 +2031,11 @@ void WimDiscr<T>::run()
     }
 
 
-    if (vm["wim.checkfinal"].template as<bool>())
+    if (vm["wimdiag.checkfinal"].template as<bool>())
        this->exportResults("final");
 
     // save diagnostic file
-    if (vm["wim.savelog"].template as<bool>())
+    if (vm["wimdiag.savelog"].template as<bool>())
        this->saveLog(M_update_time);
 
     if (M_wim_on_mesh)
@@ -2116,7 +2131,7 @@ void WimDiscr<T>::advectDirectionsMesh(T_val_vec2d& Sdir,T_val_vec & agnod,
     extract_fields.emplace("E_post",&(Sdir[0]));
 
     //filenames
-    std::string pathstr = vm["wim.outparentdir"].template as<std::string>();
+    std::string pathstr = vm["wimdiag.outparentdir"].template as<std::string>();
     pathstr += "/binaries/test_advection";
     fs::path path(pathstr);
     if ( !fs::exists(path) )
@@ -2567,7 +2582,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type)
 
     T_map_vec_ptrs extract_fields;
 
-    std::string pathstr = vm["wim.outparentdir"].template as<std::string>();
+    std::string pathstr = vm["wimdiag.outparentdir"].template as<std::string>();
     pathstr += "/binaries/"+output_type;
 
     std::string prefix = output_type;
@@ -2806,7 +2821,7 @@ void WimDiscr<T>::exportResultsMesh(T_map_vec_ptrs & extract_fields,
 template<typename T>
 void WimDiscr<T>::testMesh()
 {
-    std::string pathstr = vm["wim.outparentdir"].template as<std::string>();
+    std::string pathstr = vm["wimdiag.outparentdir"].template as<std::string>();
     pathstr += "/binaries/test_mesh";
     fs::path path(pathstr);
     if ( !fs::exists(path) )
@@ -2846,7 +2861,7 @@ void WimDiscr<T>::exportMesh(std::string const &filename)
 template<typename T>
 void WimDiscr<T>::saveLog(T_val const& t_out) const
 {
-    std::string str = vm["wim.outparentdir"].template as<std::string>();
+    std::string str = vm["wimdiag.outparentdir"].template as<std::string>();
     fs::path path(str);
     path /= "diagnostics/global";
     if ( !fs::exists(path) )
@@ -2966,28 +2981,29 @@ void WimDiscr<T>::saveLog(T_val const& t_out) const
           Dmax_max   = std::max(M_ice[IceType::wim].M_dfloe[i],Dmax_max);
        }
 
-#define WIMDIAG1D
+//#define WIMDIAG1D
 #if defined (WIMDIAG1D)
     //this definition of MIZ only works in 1d geometries
+    //and calculation only works for wim on grid
     T_val W_miz;
-    if ( M_grid.M_num_py == 1 )
+    if(!M_wim_on_mesh)
     {
-       W_miz = (Nmiz*M_grid.M_dx);
-    }
-    else if ( vm["wim.landon3edges"].template as<bool>() )
-    {
-       W_miz = (Nmiz*M_grid.M_dx)/(M_grid.M_num_py-2);
-    }
-    else
-    {
-       W_miz = (Nmiz*M_grid.M_dx)/M_grid.M_num_py;
+        //this definition of MIZ only works in 1d geometries
+        if ( M_grid.M_num_py == 1 )
+            W_miz = (Nmiz*M_grid.M_dx);
+        else if ( vm["wimgrid.landon3edges"].template as<bool>() )
+            W_miz = (Nmiz*M_grid.M_dx)/(M_grid.M_num_py-2);
+        else
+            W_miz = (Nmiz*M_grid.M_dx)/M_grid.M_num_py;
     }
 #endif
 
     out << "\n***********************************************\n";
     out << "Diagnostics:\n";
 #if defined (WIMDIAG1D)
-    out << std::left << std::setw(log_width) << "MIZ width (km)"<<" : "         << W_miz/1.e3 << "\n";
+    if(!M_wim_on_mesh)
+        out << std::left << std::setw(log_width) << "MIZ width (km)"<<" : "
+            << W_miz/1.e3 << "\n";
 #endif
     out << std::left << std::setw(log_width) << "Dmax range in MIZ (m)" <<" : " << Dmax_min << ", " << Dmax_max << "\n";
     out << std::left << std::setw(log_width) << "tau_x range (Pa)"      <<" : " << taux_min << ", " << taux_max << "\n";
@@ -3002,7 +3018,7 @@ void WimDiscr<T>::saveLog(T_val const& t_out) const
 template<typename T>
 void WimDiscr<T>::saveOptionsLog()
 {
-    std::string fileout = vm["wim.outparentdir"].template as<std::string>();
+    std::string fileout = vm["wimdiag.outparentdir"].template as<std::string>();
     fileout += "/diagnostics/global";
     fs::path path(fileout);
     if ( !fs::exists(path) )

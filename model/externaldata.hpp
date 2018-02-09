@@ -89,6 +89,8 @@ public:
 
     value_type get(const size_type i);
 
+    size_type size();
+
     std::vector<double> getVector();
 
 	void clear();
@@ -104,7 +106,6 @@ public:
 
     void transformData(Dataset *dataset);
 
-    //void interpolateDataset(Dataset *dataset, GmshMesh const& mesh);
     void interpolateDataset(Dataset *dataset, std::vector<double> const& RX,
             std::vector<double> const& RY );
 
