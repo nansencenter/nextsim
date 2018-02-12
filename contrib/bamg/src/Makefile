@@ -35,8 +35,11 @@ endif
 
 CXXFLAGS += -pedantic -ftemplate-depth-256 \
 		-Wno-inline -fPIC
-ifndef BAMG_NO_OMP
+ifndef BAMG_NO_PTHREAD
    CXXFLAGS += -D_MULTITHREADING_
+endif
+ifndef BAMG_NO_OMP
+   CXXFLAGS += -DBAMG_NO_OMP
 endif
 
 ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
@@ -48,7 +51,7 @@ ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
 else
    # optimised
    CXXFLAGS += -O3
-   ifndef BAMG_NO_OMP
+   ifndef BAMG_NO_PTHREAD
       CXXFLAGS += -pthread  
    endif
 endif

@@ -23,6 +23,7 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,
       int* method_in, int nb_variables, double* surface_old,
       double* surface_new, BamgMesh* bamgmesh_old,BamgMesh* bamgmesh_new)
 {
+    
     /*  Conservative interpolation method
         Use the cavities detected by detect_cavity to transfer physical
         quantities from the old element to the new ones*/
@@ -87,7 +88,6 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,
 
         for(int j=0; j<nb_variables; j++)
 	        IntMatrix_out[((int)new_element_i-1)*nb_variables+j]=IntMatrix_in[((int)old_element_i-1)*nb_variables+j];
-        
     }
 
     if (verbosity>1) _printf_("   Interp Cavities: initialize intermediary...\n");
@@ -110,11 +110,11 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,
 
     if (verbosity>1) _printf_("   Interp Cavities: loop1...\n");
 
-    //for(int cavity_id=0; cavity_id< gate.nb_cavities; cavity_id++)
-	int thread_id;
+#ifndef BAMG_NO_OMP
+    int thread_id;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
+#endif
     for (int cavity_id=0; cavity_id < gate.nb_cavities; ++cavity_id)
     {
 	    if (verbosity>1) _printf_("   Interp Cavities: enter loop1...\n");
@@ -370,66 +370,68 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 
     for (int i=0; i<new_bamg_mesh_Ne; i++)
     {
-	    /*       if (verbosity>1) _printf_("   Detect_cavities: Previous_num_node...\n");
+       /*  if (verbosity>1) _printf_("   Detect_cavities: Previous_num_node...\n");
 
 
-	             _printf_("   new_bamg_mesh_Triangles = " << new_bamg_mesh_Triangles[4*i+0] << "\n");
-	             _printf_("   new_bamg_mesh_Triangles = " << new_bamg_mesh_Triangles[4*i+1] << "\n");
-	             _printf_("   new_bamg_mesh_Triangles = " << new_bamg_mesh_Triangles[4*i+2] << "\n");
-	             _printf_("   new_bamg_mesh_Triangles = " << new_bamg_mesh_Triangles[4*i+3] << "\n");
-	             _printf_("   new_bamg_mesh_Triangles = " << bamgmesh_old->Triangles[4*i+0] << "\n");
-	             _printf_("   new_bamg_mesh_Triangles = " << bamgmesh_old->Triangles[4*i+1] << "\n");
-	             _printf_("   new_bamg_mesh_Triangles = " << bamgmesh_old->Triangles[4*i+2] << "\n");
-	             _printf_("   new_bamg_mesh_Triangles = " << bamgmesh_old->Triangles[4*i+3] << "\n");*/
+           _printf_("   new_bamg_mesh_Triangles = " << new_bamg_mesh_Triangles[4*i+0] << "\n");
+           _printf_("   new_bamg_mesh_Triangles = " << new_bamg_mesh_Triangles[4*i+1] << "\n");
+           _printf_("   new_bamg_mesh_Triangles = " << new_bamg_mesh_Triangles[4*i+2] << "\n");
+           _printf_("   new_bamg_mesh_Triangles = " << new_bamg_mesh_Triangles[4*i+3] << "\n");
+           _printf_("   new_bamg_mesh_Triangles = " << bamgmesh_old->Triangles[4*i+0] << "\n");
+           _printf_("   new_bamg_mesh_Triangles = " << bamgmesh_old->Triangles[4*i+1] << "\n");
+           _printf_("   new_bamg_mesh_Triangles = " << bamgmesh_old->Triangles[4*i+2] << "\n");
+           _printf_("   new_bamg_mesh_Triangles = " << bamgmesh_old->Triangles[4*i+3] << "\n");*/
 
-	    for (int j=0; j<3; j++)
-	    {
-		    /* _printf_("   i = " << i << "\n");
-		       _printf_("   j = " << j << "\n");
-		       _printf_("   new_bamg_mesh_Triangles = " << new_bamg_mesh_Triangles[4*i+j] << "\n");
-		       _printf_("   new_bamg_mesh_Triangles = " << (ulong) new_bamg_mesh_Triangles[4*i+j] << "\n");
-		       _printf_("   Previous = " << PreviousNumbering[(ulong) new_bamg_mesh_Triangles[4*i+j]-1] << "\n");*/
+       for (int j=0; j<3; j++)
+       {
+          /* _printf_("   i = " << i << "\n");
+             _printf_("   j = " << j << "\n");
+             _printf_("   new_bamg_mesh_Triangles = " << new_bamg_mesh_Triangles[4*i+j] << "\n");
+             _printf_("   new_bamg_mesh_Triangles = " << (ulong) new_bamg_mesh_Triangles[4*i+j] << "\n");
+             _printf_("   Previous = " << PreviousNumbering[(ulong) new_bamg_mesh_Triangles[4*i+j]-1] << "\n");*/
 
-		    Previous_num_node[j]=PreviousNumbering[(int)new_bamg_mesh_Triangles[4*i+j]-1];
-	    }
-	    found_intersect=0;
-	    if((Previous_num_node[0]>0) && (Previous_num_node[1]>0) && (Previous_num_node[2]>0))
-	    {
-		    // if (verbosity>1) _printf_("   Detect_cavities: found intersect...\n");
-		    for (int j=0; (j<3) && (found_intersect==0); j++)
-		    {
-			    for (int k=0; (k<bamg_mesh_NNodalElementConnectivity)  && (found_intersect==0); k++)
-			    {
-				    // if (verbosity>1) _printf_("   Detect_cavities: loop k...\n");
-				    Previous_connected_element=bamg_mesh_NodalElementConnectivity[((int)Previous_num_node[j]-1)*bamg_mesh_NNodalElementConnectivity+k];
+          Previous_num_node[j]=PreviousNumbering[(int)new_bamg_mesh_Triangles[4*i+j]-1];
+       }
+       found_intersect=0;
+       if((Previous_num_node[0]>0) && (Previous_num_node[1]>0) && (Previous_num_node[2]>0))
+       {
+          // if (verbosity>1) _printf_("   Detect_cavities: found intersect...\n");
+          for (int j=0; (j<3) && (found_intersect==0); j++)
+          {
+             for (int k=0; (k<bamg_mesh_NNodalElementConnectivity)  && (found_intersect==0); k++)
+             {
+                // if (verbosity>1) _printf_("   Detect_cavities: loop k...\n");
+                Previous_connected_element=bamg_mesh_NodalElementConnectivity[((int)Previous_num_node[j]-1)*bamg_mesh_NNodalElementConnectivity+k];
 
-				    /* If NaN in matlab (0 after calling uint32)  */
-				    if (std::isnan(Previous_connected_element))
-					    break;
+                /* If NaN in matlab (0 after calling uint32)  */
+                if (std::isnan(Previous_connected_element))
+                   break;
 
-				    for (l=0; l<3; l++)
-				    {
-					    Previous_connected_element_num_node[l]=bamg_mesh_Triangles[((int)Previous_connected_element-1)*4+l];
-				    }
+                for (l=0; l<3; l++)
+                {
+                   Previous_connected_element_num_node[l]=bamg_mesh_Triangles[((int)Previous_connected_element-1)*4+l];
+                }
 
-				    for (l=0; (l<3)  && (found_intersect==0); l++)
-				    {
-					    /* l0, l1, l2 */
-					    l0=l;
-					    l1=next(l0);
-					    l2=next(l1);
+                for (l=0; (l<3)  && (found_intersect==0); l++)
+                {
+                   /* l0, l1, l2 */
+                   l0=l;
+                   l1=next(l0);
+                   l2=next(l1);
 
-					    if((Previous_connected_element_num_node[0]==Previous_num_node[l0]) && (Previous_connected_element_num_node[1]==Previous_num_node[l1]) && (Previous_connected_element_num_node[2]==Previous_num_node[l2]))
-					    {
-						    tmp_old_elements[nb_matching_elements]=Previous_connected_element;
-						    tmp_new_elements[nb_matching_elements]=double(i)+1;
-						    nb_matching_elements=nb_matching_elements+1;
-						    found_intersect=1;
-					    }
-				    }
-			    }
-		    }
-	    }
+                   if((Previous_connected_element_num_node[0]==Previous_num_node[l0])
+                         && (Previous_connected_element_num_node[1]==Previous_num_node[l1])
+                         && (Previous_connected_element_num_node[2]==Previous_num_node[l2]))
+                   {
+                      tmp_old_elements[nb_matching_elements]=Previous_connected_element;
+                      tmp_new_elements[nb_matching_elements]=double(i)+1;
+                      nb_matching_elements=nb_matching_elements+1;
+                      found_intersect=1;
+                   }
+                }
+             }
+          }
+       }
     }
 
     if (verbosity>1) _printf_("   Detect_cavities: reducing the old_elements and new_elements arrays...\n");
@@ -502,175 +504,175 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
     new_cavity_number=0;
     for (int i_born=0; i_born<nb_born; i_born++)
     {
-	    /*  first element to be checked */
-	    tmp_born=(int)ind_born[i_born];
+       /*  first element to be checked */
+       tmp_born=(int)ind_born[i_born];
 
-	    /*  if the born element is already treated, do nothing */
-	    if(cavity_number_born[tmp_born-1]!=-1)
-		    continue;
+       /*  if the born element is already treated, do nothing */
+       if(cavity_number_born[tmp_born-1]!=-1)
+          continue;
 
-	    /*  We start the detection of a new cavity */
-	    new_cavity_number++;
+       /*  We start the detection of a new cavity */
+       new_cavity_number++;
 
-	    /*  we will store the candidate element to treat in an expandable vector, whose */
-	    /*  initial size is max_candidate_element_to_treat */
-	    number_candidate_element_to_treat=0;
-	    for (int i=0; i<max_candidate_element_to_treat; i++)
-		    candidate_element_to_treat[i]=0;
+       /*  we will store the candidate element to treat in an expandable vector, whose */
+       /*  initial size is max_candidate_element_to_treat */
+       number_candidate_element_to_treat=0;
+       for (int i=0; i<max_candidate_element_to_treat; i++)
+          candidate_element_to_treat[i]=0;
 
-	    for (int i=0; i<new_bamg_mesh_Ne; i++)
-		    is_born_element_to_treat[i]=0;
+       for (int i=0; i<new_bamg_mesh_Ne; i++)
+          is_born_element_to_treat[i]=0;
 
-	    /*  Initialization with this first element */
-	    candidate_element_to_treat[number_candidate_element_to_treat]=tmp_born;
-	    number_candidate_element_to_treat++;
+       /*  Initialization with this first element */
+       candidate_element_to_treat[number_candidate_element_to_treat]=tmp_born;
+       number_candidate_element_to_treat++;
 
-	    is_born_element_to_treat[tmp_born-1]=1;
+       is_born_element_to_treat[tmp_born-1]=1;
 
-	    /*  Starting the treating loop */
-	    number_candidate_element_treated=0;
-	    while(number_candidate_element_treated<number_candidate_element_to_treat)
-	    {
-		    tmp_born=candidate_element_to_treat[number_candidate_element_treated];
-		    number_candidate_element_treated++;
+       /*  Starting the treating loop */
+       number_candidate_element_treated=0;
+       while(number_candidate_element_treated<number_candidate_element_to_treat)
+       {
+          tmp_born=candidate_element_to_treat[number_candidate_element_treated];
+          number_candidate_element_treated++;
 
-		    cavity_number_born[tmp_born-1]=new_cavity_number;
+          cavity_number_born[tmp_born-1]=new_cavity_number;
 
-		    /*  Loop over the neighbours, */
-		    for (int j_born=0; j_born<3; j_born++)
-		    {
-			    neighbour_double=new_bamg_mesh_ElementConnectivity[(tmp_born-1)*3+j_born];
-			    neighbour=(int)neighbour_double;
+          /*  Loop over the neighbours, */
+          for (int j_born=0; j_born<3; j_born++)
+          {
+             neighbour_double=new_bamg_mesh_ElementConnectivity[(tmp_born-1)*3+j_born];
+             neighbour=(int)neighbour_double;
 
-			    /*  if neighbour exists and is already detected in this cavity, do nothing */
-			    if (!std::isnan(neighbour_double))
-			    {
-				    if(cavity_number_born[neighbour-1]==new_cavity_number)
-					    continue;
-			    }
+             /*  if neighbour exists and is already detected in this cavity, do nothing */
+             if (!std::isnan(neighbour_double))
+             {
+                if(cavity_number_born[neighbour-1]==new_cavity_number)
+                   continue;
+             }
 
-			    /*  if the edge exists in the old mesh */
-			    /*  the edge j goes from node j to node jnext */
-			    edge_node_1 = next(j_born);
-			    edge_node_2 =next(edge_node_1);
+             /*  if the edge exists in the old mesh */
+             /*  the edge j goes from node j to node jnext */
+             edge_node_1 = next(j_born);
+             edge_node_2 =next(edge_node_1);
 
-			    Previous_edge_node_1=PreviousNumbering[(int)new_bamg_mesh_Triangles[(tmp_born-1)*4+edge_node_1]-1];
-			    Previous_edge_node_2=PreviousNumbering[(int)new_bamg_mesh_Triangles[(tmp_born-1)*4+edge_node_2]-1];
+             Previous_edge_node_1=PreviousNumbering[(int)new_bamg_mesh_Triangles[(tmp_born-1)*4+edge_node_1]-1];
+             Previous_edge_node_2=PreviousNumbering[(int)new_bamg_mesh_Triangles[(tmp_born-1)*4+edge_node_2]-1];
 
-			    // _printf_("   Previous_edge_node_1 = " << Previous_edge_node_1 << "\n");
-			    // _printf_("   Previous_edge_node_2 = " << Previous_edge_node_2 << "\n");
+             // _printf_("   Previous_edge_node_1 = " << Previous_edge_node_1 << "\n");
+             // _printf_("   Previous_edge_node_2 = " << Previous_edge_node_2 << "\n");
 
-			    if((Previous_edge_node_1>0) && (Previous_edge_node_2>0))
-			    {
-				    /*  the last indices in the connectivity vector is the number */
-				    /*  of connected nodes */
+             if((Previous_edge_node_1>0) && (Previous_edge_node_2>0))
+             {
+                /*  the last indices in the connectivity vector is the number */
+                /*  of connected nodes */
 
-				    nb_connected_nodes=(int)bamg_mesh_NodalConnectivity[(Previous_edge_node_1-1)*bamg_mesh_NNodalConnectivity+bamg_mesh_NNodalConnectivity-1];
+                nb_connected_nodes=(int)bamg_mesh_NodalConnectivity[(Previous_edge_node_1-1)*bamg_mesh_NNodalConnectivity+bamg_mesh_NNodalConnectivity-1];
 
-				    found_intersect=0;
-				    double _edge_node_2 = (double)Previous_edge_node_2;
-				    for (int i=0; i<nb_connected_nodes; i++)
-					    if(bamg_mesh_NodalConnectivity[(Previous_edge_node_1-1)*bamg_mesh_NNodalConnectivity+i]==_edge_node_2)
-					    {
-						    found_intersect=1;
-						    break;
-					    }
+                found_intersect=0;
+                double _edge_node_2 = (double)Previous_edge_node_2;
+                for (int i=0; i<nb_connected_nodes; i++)
+                   if(bamg_mesh_NodalConnectivity[(Previous_edge_node_1-1)*bamg_mesh_NNodalConnectivity+i]==_edge_node_2)
+                   {
+                      found_intersect=1;
+                      break;
+                   }
 
-				    /*  if this edge exists in the old mesh, we are at the */
-				    /*  boundary of the cavity. */
-				    if(found_intersect==1)
-				    {
-					    /*  we look for the dead element that share the same */
-					    /*  edge, to include it in the cavity */
+                /*  if this edge exists in the old mesh, we are at the */
+                /*  boundary of the cavity. */
+                if(found_intersect==1)
+                {
+                   /*  we look for the dead element that share the same */
+                   /*  edge, to include it in the cavity */
 
-					    /* resetting candidate_dead_elements */
-					    candidate_dead_element[0]=0;
-					    candidate_dead_element[1]=0;
-					    nb_candidate_dead_element=0;
+                   /* resetting candidate_dead_elements */
+                   candidate_dead_element[0]=0;
+                   candidate_dead_element[1]=0;
+                   nb_candidate_dead_element=0;
 
-					    /* searching for candidates */
-					    for (i_dead_element_node_1=0; i_dead_element_node_1<bamg_mesh_NNodalElementConnectivity; i_dead_element_node_1++)
-					    {
-						    dead_element_node_1=bamg_mesh_NodalElementConnectivity[(Previous_edge_node_1-1)*bamg_mesh_NNodalElementConnectivity+i_dead_element_node_1];
+                   /* searching for candidates */
+                   for (i_dead_element_node_1=0; i_dead_element_node_1<bamg_mesh_NNodalElementConnectivity; i_dead_element_node_1++)
+                   {
+                      dead_element_node_1=bamg_mesh_NodalElementConnectivity[(Previous_edge_node_1-1)*bamg_mesh_NNodalElementConnectivity+i_dead_element_node_1];
 
-						    if(dead_element_node_1==0)
-							    break;
+                      if(dead_element_node_1==0)
+                         break;
 
-						    for (i_dead_element_node_2=0; i_dead_element_node_2<bamg_mesh_NNodalElementConnectivity; i_dead_element_node_2++)
-						    {
-							    dead_element_node_2=bamg_mesh_NodalElementConnectivity[(Previous_edge_node_2-1)*bamg_mesh_NNodalElementConnectivity+i_dead_element_node_2];
+                      for (i_dead_element_node_2=0; i_dead_element_node_2<bamg_mesh_NNodalElementConnectivity; i_dead_element_node_2++)
+                      {
+                         dead_element_node_2=bamg_mesh_NodalElementConnectivity[(Previous_edge_node_2-1)*bamg_mesh_NNodalElementConnectivity+i_dead_element_node_2];
 
-							    if(dead_element_node_2==0.)
-								    break;
+                         if(dead_element_node_2==0.)
+                            break;
 
-							    if(dead_element_node_1==dead_element_node_2)
-							    {
-								    candidate_dead_element[nb_candidate_dead_element]=(int)dead_element_node_1;
-								    nb_candidate_dead_element++;
-								    // _printf_("   nb_candidate_dead_element = " << nb_candidate_dead_element << "\n");
-								    // _printf_("   dead_element_node_1 = " << dead_element_node_1 << "\n");
-								    // _printf_("   dead_element_node_2 = " << dead_element_node_2 << "\n");
-							    }
-						    }
-					    }
+                         if(dead_element_node_1==dead_element_node_2)
+                         {
+                            candidate_dead_element[nb_candidate_dead_element]=(int)dead_element_node_1;
+                            nb_candidate_dead_element++;
+                            // _printf_("   nb_candidate_dead_element = " << nb_candidate_dead_element << "\n");
+                            // _printf_("   dead_element_node_1 = " << dead_element_node_1 << "\n");
+                            // _printf_("   dead_element_node_2 = " << dead_element_node_2 << "\n");
+                         }
+                      }
+                   }
 
-					    if(nb_candidate_dead_element>2)
-						    _error_("nb_candidate_dead_element should not be larger than 2. Here it is: " << nb_candidate_dead_element <<" ");
+                   if(nb_candidate_dead_element>2)
+                      _error_("nb_candidate_dead_element should not be larger than 2. Here it is: " << nb_candidate_dead_element <<" ");
 
-					    /*  register if the edge is the boundary between two cavities */
-					    for (i_dead_element=0; i_dead_element<nb_candidate_dead_element; i_dead_element++)
-					    {
-						    tmp_dead=candidate_dead_element[i_dead_element];
+                   /*  register if the edge is the boundary between two cavities */
+                   for (i_dead_element=0; i_dead_element<nb_candidate_dead_element; i_dead_element++)
+                   {
+                      tmp_dead=candidate_dead_element[i_dead_element];
 
-						    int j;
-						    for (j=0; j<3; j++)
-						    {
-							    /*  if the edge exists in the old mesh */
-							    /*  the edge j goes from node j to node jnext */
-							    edge_node_1=next(j);
-							    edge_node_2=next(edge_node_1);
+                      int j;
+                      for (j=0; j<3; j++)
+                      {
+                         /*  if the edge exists in the old mesh */
+                         /*  the edge j goes from node j to node jnext */
+                         edge_node_1=next(j);
+                         edge_node_2=next(edge_node_1);
 
-							    tmp_node_1=(int)bamg_mesh_Triangles[(tmp_dead-1)*4+edge_node_1];
-							    tmp_node_2=(int)bamg_mesh_Triangles[(tmp_dead-1)*4+edge_node_2];
+                         tmp_node_1=(int)bamg_mesh_Triangles[(tmp_dead-1)*4+edge_node_1];
+                         tmp_node_2=(int)bamg_mesh_Triangles[(tmp_dead-1)*4+edge_node_2];
 
-							    if( (tmp_node_1==Previous_edge_node_1) && (tmp_node_2==Previous_edge_node_2))
-								    break;
-						    }
+                         if( (tmp_node_1==Previous_edge_node_1) && (tmp_node_2==Previous_edge_node_2))
+                            break;
+                      }
 
-						    if(j<3)
-						    {
-							    if(cavity_number_dead[tmp_dead-1]==-1.)
-								    cavity_number_dead[tmp_dead-1]=(double)new_cavity_number;
+                      if(j<3)
+                      {
+                         if(cavity_number_dead[tmp_dead-1]==-1.)
+                            cavity_number_dead[tmp_dead-1]=(double)new_cavity_number;
 
-							    boundary_between_two_cavities[(tmp_dead-1)*3+j]=true;
-							    break;
-						    }
-					    }
-					    continue;
-				    } /* end of the if on found_intersect */
-			    } /* end of the if */
+                         boundary_between_two_cavities[(tmp_dead-1)*3+j]=true;
+                         break;
+                      }
+                   }
+                   continue;
+                } /* end of the if on found_intersect */
+             } /* end of the if */
 
-			    /*  if no neighbour, do nothing */
-			    if (std::isnan(neighbour_double))
-				    continue;
+             /*  if no neighbour, do nothing */
+             if (std::isnan(neighbour_double))
+                continue;
 
-			    /*  if neighbour is not born, do nothing */
-			    if(cavity_number_born[neighbour-1]==0.)
-				    continue;
+             /*  if neighbour is not born, do nothing */
+             if(cavity_number_born[neighbour-1]==0.)
+                continue;
 
-			    /*  if neighbour is already selected to be treated */
-			    if(is_born_element_to_treat[neighbour-1]==1)
-				    continue;
+             /*  if neighbour is already selected to be treated */
+             if(is_born_element_to_treat[neighbour-1]==1)
+                continue;
 
-			    if(number_candidate_element_to_treat==max_candidate_element_to_treat)
-				    _error_("You have to increase the value of max_candidate_element_to_treat in detect_cavities_mex.c. Sorry for that...");
+             if(number_candidate_element_to_treat==max_candidate_element_to_treat)
+                _error_("You have to increase the value of max_candidate_element_to_treat in detect_cavities_mex.c. Sorry for that...");
 
-			    candidate_element_to_treat[number_candidate_element_to_treat]=neighbour;
-			    number_candidate_element_to_treat++;
-			    is_born_element_to_treat[neighbour-1]=1;
+             candidate_element_to_treat[number_candidate_element_to_treat]=neighbour;
+             number_candidate_element_to_treat++;
+             is_born_element_to_treat[neighbour-1]=1;
 
-		    } /*  end of the loop over the neighbours */
-	    } /*  end of the while loop */
+          } /*  end of the loop over the neighbours */
+       } /*  end of the while loop */
     } /*  end of the loop of the born elements */
 
 
@@ -680,72 +682,72 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
     /*  New loop on the dead element to define their cavity number. */
     for (int i_dead=0; i_dead<nb_dead; i_dead++)
     {
-	    /*  first element to be checked */
-	    tmp_dead=(int)ind_dead[i_dead];
+       /*  first element to be checked */
+       tmp_dead=(int)ind_dead[i_dead];
 
-	    /*  We want to start from a dead element that has already be assigned to */
-	    /*  a cavity. */
+       /*  We want to start from a dead element that has already be assigned to */
+       /*  a cavity. */
 
-	    /*  if the dead element is not already treated, do nothing. It will be */
-	    /*  treated from another element */
-	    if(cavity_number_dead[tmp_dead-1]==-1.)
-		    continue;
+       /*  if the dead element is not already treated, do nothing. It will be */
+       /*  treated from another element */
+       if(cavity_number_dead[tmp_dead-1]==-1.)
+          continue;
 
-	    new_cavity_number=(int)cavity_number_dead[tmp_dead-1];
+       new_cavity_number=(int)cavity_number_dead[tmp_dead-1];
 
-	    /*  we will store the candidate element to treat in an expandable vector, whose */
-	    /*  initial size is max_candidate_element_to_treat */
-	    number_candidate_element_to_treat=0;
-	    for (int i=0; i<max_candidate_element_to_treat; i++)
-		    candidate_element_to_treat[i]=0;
+       /*  we will store the candidate element to treat in an expandable vector, whose */
+       /*  initial size is max_candidate_element_to_treat */
+       number_candidate_element_to_treat=0;
+       for (int i=0; i<max_candidate_element_to_treat; i++)
+          candidate_element_to_treat[i]=0;
 
-	    for (int i=0; i<bamg_mesh_Ne; i++)
-		    is_dead_element_to_treat[i]=0;
+       for (int i=0; i<bamg_mesh_Ne; i++)
+          is_dead_element_to_treat[i]=0;
 
-	    /*  Initialization with this first element */
-	    candidate_element_to_treat[number_candidate_element_to_treat]=tmp_dead;
-	    number_candidate_element_to_treat++;
-	    is_dead_element_to_treat[tmp_dead-1]=1;
+       /*  Initialization with this first element */
+       candidate_element_to_treat[number_candidate_element_to_treat]=tmp_dead;
+       number_candidate_element_to_treat++;
+       is_dead_element_to_treat[tmp_dead-1]=1;
 
-	    /*  Starting the treating loop */
-	    number_candidate_element_treated=0;
+       /*  Starting the treating loop */
+       number_candidate_element_treated=0;
 
-	    while(number_candidate_element_treated<number_candidate_element_to_treat)
-	    {
-		    tmp_dead=candidate_element_to_treat[number_candidate_element_treated];
-		    number_candidate_element_treated++;
+       while(number_candidate_element_treated<number_candidate_element_to_treat)
+       {
+          tmp_dead=candidate_element_to_treat[number_candidate_element_treated];
+          number_candidate_element_treated++;
 
-		    cavity_number_dead[tmp_dead-1]=(double)new_cavity_number;
+          cavity_number_dead[tmp_dead-1]=(double)new_cavity_number;
 
-		    for (int j_dead=0; j_dead<3; j_dead++)
-		    {
-			    neighbour_double = bamg_mesh_ElementConnectivity[(tmp_dead-1)*3+j_dead];
-			    neighbour=(int)neighbour_double;
+          for (int j_dead=0; j_dead<3; j_dead++)
+          {
+             neighbour_double = bamg_mesh_ElementConnectivity[(tmp_dead-1)*3+j_dead];
+             neighbour=(int)neighbour_double;
 
-			    /*  if no neighbour, do nothing */
-			    if (std::isnan(neighbour_double))
-				    continue;
+             /*  if no neighbour, do nothing */
+             if (std::isnan(neighbour_double))
+                continue;
 
-			    /*  if neighbour is already treated, do nothing */
-			    if(cavity_number_dead[neighbour-1]!=-1.)
-				    continue;
+             /*  if neighbour is already treated, do nothing */
+             if(cavity_number_dead[neighbour-1]!=-1.)
+                continue;
 
-			    /*  if the edge corresponds to the boudary between two cavities */
-			    if( boundary_between_two_cavities[(tmp_dead-1)*3+j_dead] )
-				    continue;
+             /*  if the edge corresponds to the boudary between two cavities */
+             if( boundary_between_two_cavities[(tmp_dead-1)*3+j_dead] )
+                continue;
 
-			    /*  if neighbour is already selected to be treated */
-			    if(is_dead_element_to_treat[neighbour-1]==1)
-				    continue;
+             /*  if neighbour is already selected to be treated */
+             if(is_dead_element_to_treat[neighbour-1]==1)
+                continue;
 
-			    if(number_candidate_element_to_treat==max_candidate_element_to_treat)
-				    _error_("You have to increase the value of max_candidate_element_to_treat in detect_cavities_mex.c. Sorry for that...");
+             if(number_candidate_element_to_treat==max_candidate_element_to_treat)
+                _error_("You have to increase the value of max_candidate_element_to_treat in detect_cavities_mex.c. Sorry for that...");
 
-			    candidate_element_to_treat[number_candidate_element_to_treat]=neighbour;
-			    number_candidate_element_to_treat++;
-			    is_dead_element_to_treat[neighbour-1]=1;
-		    }
-	    } /*  end of the while loop */
+             candidate_element_to_treat[number_candidate_element_to_treat]=neighbour;
+             number_candidate_element_to_treat++;
+             is_dead_element_to_treat[neighbour-1]=1;
+          }
+       } /*  end of the while loop */
     } /*  end of the loop of the dead elements */
 
     int *size_born_cavity = xNew<int>(nb_cavities);
@@ -761,30 +763,30 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
     if (verbosity>1) _printf_("   Detect_cavities: loop6...\n");
     for (int i_born=0; i_born<nb_born; i_born++)
     {
-	    new_cavity_number=cavity_number_born[(int)ind_born[i_born]-1];
+       new_cavity_number=cavity_number_born[(int)ind_born[i_born]-1];
 
-	    if(new_cavity_number<0)
-		    _error_("A born element has not been assigned to a cavity");
+       if(new_cavity_number<0)
+          _error_("A born element has not been assigned to a cavity");
 
-	    if(new_cavity_number>0)
-		    size_born_cavity[new_cavity_number-1]++;
+       if(new_cavity_number>0)
+          size_born_cavity[new_cavity_number-1]++;
     }
 
     bool not_all_dead_assigned=0;
     if (verbosity>1) _printf_("   Detect_cavities: loop7...\n");
     for (int i_dead=0; i_dead<nb_dead; i_dead++)
     {
-	    new_cavity_number=cavity_number_dead[(int)ind_dead[i_dead]-1];
-	    if (verbosity>1) _printf_("i_dead:" << i_dead << ", ind_dead[i_dead]:" << ind_dead[i_dead] << ", new_cavity_number: " << new_cavity_number <<"\n");
+       new_cavity_number=cavity_number_dead[(int)ind_dead[i_dead]-1];
+       if (verbosity>1) _printf_("i_dead:" << i_dead << ", ind_dead[i_dead]:" << ind_dead[i_dead] << ", new_cavity_number: " << new_cavity_number <<"\n");
 
-	    if(new_cavity_number<0)
-	    {
-		    if (verbosity>1) _printf_("not assigned \n");
-		    not_all_dead_assigned=1;
-	    }
+       if(new_cavity_number<0)
+       {
+          if (verbosity>1) _printf_("not assigned \n");
+          not_all_dead_assigned=1;
+       }
 
-	    if(new_cavity_number>0)
-		    size_dead_cavity[new_cavity_number-1]++;
+       if(new_cavity_number>0)
+          size_dead_cavity[new_cavity_number-1]++;
     }
     if(not_all_dead_assigned)
 	    _error_("A dead element has not been assigned to a cavity");
@@ -794,15 +796,15 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
     max_size_dead_cavity=0;
     for (int i=0; i<nb_cavities; i++)
     {
-	    if(max_size_born_cavity<size_born_cavity[i])
-		    max_size_born_cavity= size_born_cavity[i];
+       if(max_size_born_cavity<size_born_cavity[i])
+          max_size_born_cavity= size_born_cavity[i];
 
-	    size_born_cavity[i]=0;
+       size_born_cavity[i]=0;
 
-	    if(max_size_dead_cavity<size_dead_cavity[i])
-		    max_size_dead_cavity= size_dead_cavity[i];
+       if(max_size_dead_cavity<size_dead_cavity[i])
+          max_size_dead_cavity= size_dead_cavity[i];
 
-	    size_dead_cavity[i]=0;
+       size_dead_cavity[i]=0;
     }
 
     if (verbosity>1) _printf_("  max_size_born_cavity" << max_size_born_cavity << "\n");
@@ -816,27 +818,27 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
     if (verbosity>1) _printf_("   Detect_cavities: loop9...\n");
     for (int i_born=0; i_born<nb_born; i_born++)
     {
-	    new_cavity_number=cavity_number_born[(int)ind_born[i_born]-1];
+       new_cavity_number=cavity_number_born[(int)ind_born[i_born]-1];
 
-	    if(new_cavity_number>0)
-	    {
-		    element_born_cavity[(new_cavity_number-1)*max_size_born_cavity+size_born_cavity[new_cavity_number-1]]=ind_born[i_born];
-		    //element_born_cavity[nb_cavities*size_born_cavity[new_cavity_number-1]+new_cavity_number-1]=ind_born[i_born];
-		    size_born_cavity[new_cavity_number-1]++;
-	    }
+       if(new_cavity_number>0)
+       {
+          element_born_cavity[(new_cavity_number-1)*max_size_born_cavity+size_born_cavity[new_cavity_number-1]]=ind_born[i_born];
+          //element_born_cavity[nb_cavities*size_born_cavity[new_cavity_number-1]+new_cavity_number-1]=ind_born[i_born];
+          size_born_cavity[new_cavity_number-1]++;
+       }
     }
 
     if (verbosity>1) _printf_("   Detect_cavities: loop10...\n");
     for (int i_dead=0; i_dead<nb_dead; i_dead++)
     {
-	    new_cavity_number=cavity_number_dead[(int)ind_dead[i_dead]-1];
+       new_cavity_number=cavity_number_dead[(int)ind_dead[i_dead]-1];
 
-	    if(new_cavity_number>0)
-	    {
-		    element_dead_cavity[(new_cavity_number-1)*max_size_dead_cavity+size_dead_cavity[new_cavity_number-1]]=ind_dead[i_dead];
-		    //element_dead_cavity[nb_cavities*size_dead_cavity[new_cavity_number-1]+new_cavity_number-1]=ind_dead[i_dead];
-		    size_dead_cavity[new_cavity_number-1]++;
-	    }
+       if(new_cavity_number>0)
+       {
+          element_dead_cavity[(new_cavity_number-1)*max_size_dead_cavity+size_dead_cavity[new_cavity_number-1]]=ind_dead[i_dead];
+          //element_dead_cavity[nb_cavities*size_dead_cavity[new_cavity_number-1]+new_cavity_number-1]=ind_dead[i_dead];
+          size_dead_cavity[new_cavity_number-1]++;
+       }
     }
 
     if (verbosity>1) _printf_("   Detect_cavities: destroy final...\n");
@@ -867,7 +869,6 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
     gate->nb_cavities           =nb_cavities;
     gate->max_size_born_cavity  =max_size_born_cavity;
     gate->max_size_dead_cavity  =max_size_dead_cavity;
-
 
     return 1;
 }
@@ -1047,9 +1048,7 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
                             if(flag_print==1)
                                 _printf_("set to same node as dist/dist_max<alpha_tol smaller than =" << alpha_tol <<"\n");
                         }
-
                     }
-
 
 
                 /* 2) Born nodes included in dead element: */
@@ -1488,7 +1487,9 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
                 for (j_dead=0; j_dead<3; j_dead++)
                 {
                     if(flag_print==1)
-                        _printf_("j_born=" << j_born << ",j_dead=" << j_dead << ",born_edge_intersect_dead_edge[j_born*3+j_dead]=" << born_edge_intersect_dead_edge[j_born*3+j_dead] << "\n");
+                        _printf_("j_born=" << j_born << ",j_dead=" << j_dead
+                              << ",born_edge_intersect_dead_edge[j_born*3+j_dead]="
+                              << born_edge_intersect_dead_edge[j_born*3+j_dead] << "\n");
 
                     if(born_edge_intersect_dead_edge[j_born*3+j_dead]!=-1.)
                     {
@@ -1537,7 +1538,9 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
 
             if(flag_print==1)
                 for (i_intersection_points=0; i_intersection_points<nb_intersection_points; i_intersection_points++)
-                    _printf_("intersection_points_x[i_intersection_points]=" << intersection_points_x[i_intersection_points] << ",intersection_points_y[i_intersection_points]=" << intersection_points_y[i_intersection_points] << "\n");
+                    _printf_("intersection_points_x[i_intersection_points]="
+                          << intersection_points_x[i_intersection_points] << ",intersection_points_y[i_intersection_points]="
+                          << intersection_points_y[i_intersection_points] << "\n");
 
             /* Building the polygon as in https://hal.archives-ouvertes.fr/inria-00354509/document */
             /* "The convex polygon is meshed by primarily constructing an oriented triangle with three points chosen randomly. */
@@ -1572,7 +1575,8 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
                 ind_max=0;
                 for (i_intersection_points=1; i_intersection_points<nb_intersection_points; i_intersection_points++)
                 {
-                    dist=pow(pow(intersection_points_x[i_intersection_points]-intersection_points_x[0],2.)+pow(intersection_points_y[i_intersection_points]-intersection_points_y[0],2.),0.5);
+                    dist=pow(pow(intersection_points_x[i_intersection_points]-intersection_points_x[0],2.)
+                          +pow(intersection_points_y[i_intersection_points]-intersection_points_y[0],2.),0.5);
                     if(dist>dist_max)
                     {
                         dist_max=dist;
@@ -1593,8 +1597,10 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
                 ind_max=0;
                 for (i_intersection_points=2; i_intersection_points<nb_intersection_points; i_intersection_points++)
                 {
-                    dist= pow(pow(intersection_points_x[i_intersection_points]-intersection_points_x[0],2.)+pow(intersection_points_y[i_intersection_points]-intersection_points_y[0],2.),0.5);
-                    dist+=pow(pow(intersection_points_x[i_intersection_points]-intersection_points_x[1],2.)+pow(intersection_points_y[i_intersection_points]-intersection_points_y[1],2.),0.5);
+                    dist= pow(pow(intersection_points_x[i_intersection_points]-intersection_points_x[0],2.)
+                          +pow(intersection_points_y[i_intersection_points]-intersection_points_y[0],2.),0.5);
+                    dist+=pow(pow(intersection_points_x[i_intersection_points]-intersection_points_x[1],2.)
+                          +pow(intersection_points_y[i_intersection_points]-intersection_points_y[1],2.),0.5);
                     if(dist>dist_max)
                     {
                         dist_max=dist;
