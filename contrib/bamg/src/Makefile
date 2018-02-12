@@ -23,7 +23,7 @@ else
    DEPENDDIR=./.deps/
 endif
 
-LIB=$(LIB0).$(LIBEXT)
+LIBRARYNAME=$(LIB0).$(LIBEXT)
 CXX = g++
 
 # setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
@@ -38,7 +38,7 @@ CXXFLAGS += -pedantic -ftemplate-depth-256 \
 ifndef BAMG_NO_PTHREAD
    CXXFLAGS += -D_MULTITHREADING_
 endif
-ifndef BAMG_NO_OMP
+ifdef BAMG_NO_OMP
    CXXFLAGS += -DBAMG_NO_OMP
 endif
 
@@ -75,7 +75,7 @@ else
    endif
    
    CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include -I /usr/local/include
-   LDFLAGS += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,$(LIBRARYDIR)$(LIB)
+   LDFLAGS += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,$(LIBRARYDIR)$(LIBRARYNAME)
    LDFLAGS += -ldl -lstdc++
    
    ifeq ($(CXX),clang)
@@ -94,7 +94,7 @@ DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 .PHONY: all clean mrproper
 
 # Default action.
-all: $(LIB)
+all: $(LIBRARYNAME)
 
 # Delete the object files.
 clean:
@@ -105,7 +105,7 @@ mrproper: clean
 
 # Rule for making the actual target
 ifeq ($(KERNEL),Linux)
-$(LIB): $(OBJS) #$(CCOBJS)
+$(LIBRARYNAME): $(OBJS) #$(CCOBJS)
 	@mkdir -p $(LIBRARYDIR)
 	@echo "============================================"
 	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
@@ -114,7 +114,7 @@ $(LIB): $(OBJS) #$(CCOBJS)
 	@ln -sf $@ $(LIBRARYDIR)$(LIB0).so
 	@ln -sf $@ $(LIBRARYDIR)$(LIB0).so.1
 else
-$(LIB): $(OBJS) #$(CCOBJS)
+$(LIBRARYNAME): $(OBJS) #$(CCOBJS)
 	@mkdir -p $(LIBRARYDIR)
 	@echo "============================================"
 	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)

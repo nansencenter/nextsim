@@ -6,7 +6,6 @@ else
 	LIBRARYNAME=libmapx.dylib
 endif
 
-LIB=$(LIBRARYNAME)
 OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
 
@@ -67,7 +66,7 @@ DEPS=$(CCSRC:%.c=$(DEPENDDIR)%.d)
 .PHONY: all clean mrproper
 
 # Default action.
-all: $(LIB)
+all: $(LIBRARYNAME)
 
 # Delete the object files.
 clean:
