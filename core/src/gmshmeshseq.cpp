@@ -128,8 +128,8 @@ GmshMeshSeq::readFromFile(std::string const& filename)
 
                 __is >> topodim >> id >> name;
 
-                boost::trim( name );
-                boost::trim_if( name,boost::is_any_of( "\"" ) );
+                //boost::trim( name );
+                //boost::trim_if( name,boost::is_any_of( "\"" ) );
 
                 std::cout << "[gmshmesh::reading] topodim: "  << topodim << " id: " << id << " name: " << name << "\n";
 
