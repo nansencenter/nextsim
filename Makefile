@@ -4,6 +4,11 @@
 
 .PHONY: all clean mrproper All Clean fresh core bamg mapx model wim oasis
 
+ifdef NEXTSIM_TOOLS_COMP_LIBS
+# only need bamg and mapx; these are then saved to $NEXTSIMTOOLS_ROOT_DIR/lib/nextsim
+all: bamg mapx
+else
+# compile all the libraries; these are saved to $(NEXTSIMDIR)/lib as usual
 all: bamg mapx core
 	#@cd $(NEXTSIMDIR)/contrib/interp/src; make
 ifdef USE_NEXTWIM
@@ -11,6 +16,7 @@ ifdef USE_NEXTWIM
 endif
 ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; make
+endif
 endif
 
 clean:
