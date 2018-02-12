@@ -5,18 +5,22 @@ else
    LIBEXT=dylib
 endif
 
+ifndef NEXTSIM_TOOLS_COMP_LIBS
+   LIBRARYDIR=$(NEXTSIMDIR)/lib/
+else
+   LIBRARYDIR=$(NEXTSIMTOOLS_ROOT_DIR)/lib/nextsim/
+endif
+
 ifndef BAMG_NO_OMP
    # using omp
    LIB0=libbamg
    OBJECTDIR=$(NEXTSIMDIR)/objs/
    DEPENDDIR=$(NEXTSIMDIR)/.deps/
-   LIBRARYDIR=$(NEXTSIMDIR)/lib/
 else
    # not using omp
    LIB0=libbamg_no_omp
    OBJECTDIR=./objs/
    DEPENDDIR=./.deps/
-   LIBRARYDIR=$(NEXTSIMDIR)/lib/
 endif
 
 LIB=$(LIB0).$(LIBEXT)
