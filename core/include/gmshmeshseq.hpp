@@ -75,7 +75,7 @@ public:
     std::vector<element_type> const& triangles() const {return M_triangles;}
     std::vector<element_type> const& edges() const {return M_edges;}
 
-    std::map<std::string, std::vector<int> > markerNames() const {return M_marker_names;}
+    std::map<std::string, std::vector<int> > const& markerNames() const {return M_marker_names;}
 
     int numNodes() const {return M_num_nodes;}
     int numTriangles() const {return M_num_triangles;}
