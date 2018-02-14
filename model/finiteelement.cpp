@@ -6476,7 +6476,7 @@ FiniteElement::run()
         //is_running = ((pcpt+1)*time_step) < duration;
         is_running = ((pcpt+1)*time_step) < duration;
 
-        if (pcpt == niter)
+        if (pcpt >= niter-1)
             is_running = false;
 
         //current_time = time_init + pcpt*time_step/days_in_sec;
