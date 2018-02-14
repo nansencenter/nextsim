@@ -160,6 +160,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
         {
             std::cout << "Load " << M_datasetname << "\n";
             //loadDataset(M_dataset, mesh);
+
             loadDataset(M_dataset, RX_in, RY_in);
             transformData(M_dataset);
             std::cout << "Done\n";
@@ -411,9 +412,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
     // ---------------------------------
     // Load grid if unloaded
-    if(!dataset->grid.loaded)
+    if(!dataset->grid.loaded) {
         dataset->loadGrid(&(dataset->grid), M_StartingTime, M_current_time, RX_min, RX_max, RY_min, RY_max);
-
+    }
     // ---------------------------------
 	std::vector<double> XTIME(1);
 	std::vector<size_t> index_start(1);
@@ -484,7 +485,6 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             file_jump.push_back(0);
             file_jump.push_back(1);
         }
-
         for (std::vector<int>::iterator jump = file_jump.begin() ; jump != file_jump.end(); ++jump)
         {
             std::string myString;
@@ -522,8 +522,17 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 value_year+=*jump;
                 f_timestr=(boost::format( "%1%" ) % boost::io::group(std::setw(4), std::setfill('0'), value_year)).str();
             }
-            else
+            // add daily_nesting frequencies for nesting
+            else if(dataset->grid.dataset_frequency=="daily_nesting")
+            {
+                int nSnap=Environment::vm()["nesting.snap"].as<int>();
+                cout << "nSnap=" << nSnap << endl;
+                double hstep=1./nSnap;
+                f_timestr = to_date_string_yd(std::floor(ftime+(*jump*hstep)));
+            }
+            else {
                 f_timestr = to_date_string_yd(std::floor(ftime)+*jump);
+            }
 
             if((std::floor(ftime)+*jump)<M_StartingTime)
                 init_timestr = f_timestr;//yyyymmdd
@@ -607,9 +616,13 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             double f;
             for (int it=0; it < XTIME.size(); ++it) // always need one step before and one after the target time
             {
+                 cout << XTIME[it] << endl;
                 if (!has_time_variable || ((dataset->name).find("ice_amsr2") != std::string::npos))
                     f = from_date_string((boost::format( "%1%-%2%-%3%" ) % f_timestr.substr(0,4) % f_timestr.substr(4,2) % f_timestr.substr(6,2)).str())+0.5;
-                else
+                else if (dataset->grid.dataset_frequency=="daily_nesting")
+                    f=XTIME[it];
+                else 
+                    //cout << dataset->time.a << " " << dataset->time.b << endl;
                     f = (XTIME[it]*dataset->time.a+dataset->time.b)/24.0+from_date_string(dataset->grid.reference_date);
 
                 if(f>M_current_time && index_next==-1)
@@ -619,7 +632,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                     filename_next = filename;
                 }
                 if(f<=M_current_time)
-                {
+                { 
                     time_prev=f;
                     index_prev = it;
                     filename_prev = filename;
@@ -638,6 +651,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
         if(filename_prev!="")
         {
+             cout << filename_next << endl;
             filename_fstep.push_back(filename_next);
             index_fstep.push_back(index_next);
         }
@@ -679,7 +693,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         filename_fstep.push_back(filename);
         index_fstep.push_back(0);
     }
-
+    cout << f_timestr << endl << endl;
     // Initialise counters etc.
 	int nb_forcing_step =filename_fstep.size();
 

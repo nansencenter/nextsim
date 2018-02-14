@@ -140,7 +140,6 @@ public:
     Dataset M_ocean_nodes_dataset;
     Dataset M_ocean_elements_dataset;
     Dataset M_bathymetry_elements_dataset;
-
     Dataset M_ice_topaz_elements_dataset;
     Dataset M_ice_icesat_elements_dataset;
     Dataset M_ice_piomas_elements_dataset;
@@ -152,6 +151,15 @@ public:
     Dataset M_ice_nic_weekly_elements_dataset;
     Dataset M_ice_cs2_smos_elements_dataset;
     Dataset M_ice_smos_elements_dataset;
+
+    // Datasets for nesting from outter domain with coarse resolution
+    Dataset M_nesting_ocean_nodes_dataset;
+    Dataset M_nesting_ocean_elements_dataset;
+    Dataset M_nesting_nodes_dataset;
+    Dataset M_nesting_ice_elements_dataset;
+    Dataset M_nesting_distance_nodes_dataset;
+    Dataset M_nesting_distance_elements_dataset;
+
 #if defined (WAVES)
     Dataset M_wave_elements_dataset;
 #endif
@@ -323,6 +331,18 @@ private:
     std::vector<double> M_time_relaxation_damage;
 
     // =============================================================================
+    // variables needed for nesting
+    bool M_use_nesting;
+    int M_nest_snap;
+    std::string M_nest_path;
+    std::string M_nest_method;
+    std::string M_nudge_function;
+    double M_nudge_timescale;
+    double M_nudge_lengthscale;
+    bool M_nest_dynamic_vars;
+    // =============================================================================
+
+    // =============================================================================
     // variables needed for coupling with wim
 #if defined (WAVES)
     wim_type wim;
@@ -463,6 +483,9 @@ private:
     external_data M_fice_waves;   // Waves masked if ice used in external wave model 
                                   // - due to inconsistent ice masks,
                                   // there could be attenuation in the open ocean
+
+    // Nesting
+    external_data M_nesting_dist; // Distance to the nearest open boundaries
 
     // Bathymetry
     external_data M_element_depth;

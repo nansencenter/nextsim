@@ -130,6 +130,7 @@ public:
         std::string dirname;
         std::string prefix;
         std::string postfix;
+        std::string gridfile;
         std::string reference_date;
 
         Variable latitude;

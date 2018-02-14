@@ -138,6 +138,7 @@ private:
     std::string M_datasetname;
     int M_VariableId;
     double M_current_time;
+    int M_nest_snap;
     double M_constant_value;
     double M_constant_valuebis;
     double M_bias_correction;

@@ -339,6 +339,15 @@ FiniteElement::initDatasets()
     }
 #endif
 
+    if (M_use_nesting)
+    {
+        M_nesting_ocean_nodes_dataset=DataSet("nesting_nodes",M_num_nodes);
+        M_nesting_ocean_elements_dataset=DataSet("nesting_ocean_elements",M_num_elements);
+        M_nesting_ice_elements_dataset=DataSet("nesting_ice_elements",M_num_elements);
+        M_nesting_distance_elements_dataset=DataSet("nesting_distance_elements",M_num_elements);
+        M_nesting_distance_nodes_dataset=DataSet("nesting_distance_nodes",M_num_nodes);
+    }
+
     M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements",M_num_elements);
 
     M_ice_icesat_elements_dataset=DataSet("ice_icesat_elements",M_num_elements);
@@ -372,6 +381,15 @@ FiniteElement::initDatasets()
     M_datasets_regrid.push_back(&M_ocean_nodes_dataset);
     M_datasets_regrid.push_back(&M_ocean_elements_dataset);
     M_datasets_regrid.push_back(&M_bathymetry_elements_dataset);
+    if (M_use_nesting)
+    {
+        M_datasets_regrid.push_back(&M_nesting_ocean_nodes_dataset);
+        M_datasets_regrid.push_back(&M_nesting_ocean_elements_dataset);
+        M_datasets_regrid.push_back(&M_nesting_ice_elements_dataset);
+        M_datasets_regrid.push_back(&M_nesting_distance_nodes_dataset);
+        M_datasets_regrid.push_back(&M_nesting_distance_elements_dataset);
+    } 
+    // M_datasets_regrid.push_back(&M_ice_nesting_elements_dataset);
     // M_datasets_regrid.push_back(&M_ice_topaz_elements_dataset);
     // M_datasets_regrid.push_back(&M_ice_icesat_elements_dataset);
     // M_datasets_regrid.push_back(&M_ice_piomas_elements_dataset);
@@ -503,7 +521,6 @@ FiniteElement::initBamg()
 void
 FiniteElement::initConstant()
 {
-
     // log
     const boost::unordered_map<const std::string, LogLevel> str2log = boost::assign::map_list_of
         ("info", INFO)
@@ -606,6 +623,19 @@ FiniteElement::initConstant()
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
     LOG(DEBUG) <<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
+
+    M_use_nesting= vm["nesting.use_nesting"].as<bool>();
+
+    if (M_use_nesting)
+    {   
+        M_nest_snap=vm["nesting.snap"].as<int>();
+        M_nest_path=vm["nesting.path"].as<std::string>();
+        M_nest_method=vm["nesting.method"].as<std::string>();
+        M_nudge_function=vm["nesting.nudge_function"].as<std::string>();
+        M_nudge_timescale=vm["nesting.nudge_timescale"].as<double>();
+        M_nudge_lengthscale=vm["nesting.nudge_lengthscale"].as<double>();
+        M_nest_dynamic_vars=vm["nesting.nest_dynamic_vars"].as<bool>();
+    }
 
     const boost::unordered_map<const std::string, setup::OceanType> str2ocean = boost::assign::map_list_of
         ("constant", setup::OceanType::CONSTANT)
@@ -3185,6 +3215,11 @@ FiniteElement::thermo()
 
     // constant variables
     // Set local variable to values defined by options
+    if ( M_use_nesting )
+    {
+        double const nudge_time  = M_nudge_timescale;
+        double const nudge_scale = M_nudge_lengthscale;
+    }
     double const timeT = vm["simul.ocean_nudge_timeT"].as<double>();
     double const timeS = vm["simul.ocean_nudge_timeS"].as<double>();
     double const Qdw_const = vm["simul.constant_Qdw"].as<double>();
@@ -3308,6 +3343,27 @@ FiniteElement::thermo()
             Qdw=Qdw_const;
             Fdw=Fdw_const;
         }
+        /*else if ( M_use_nesting )
+        {
+            double dcpT, dcpS, fNudge;
+            dcpT = (M_sst[i] - M_ocean_temp[i]);
+            dcpS = (M_sss[i] - M_ocean_salt[i]);
+            // nudgeFlux for nesting with outter domain
+            if ( ( M_nudge_function != "linear" ) && ( M_nudge_function != "exponential" ) ) 
+            {
+                throw std::logic_error("M_nudge_function not known: use exponential or linear");
+            }
+            else
+            {
+                if ( M_nudge_function == "linear" ) 
+                    fNudge = 1 - std::min(1,(M_nesting_dist[i]/nudge_scale));
+                if ( M_nudge_function == "exponential" ) 
+                    fNudge = std::exp(-M_nesting_dist[i]/nudge_scale);
+                
+                Qdw = -(fNudge*dcpT) * mld * physical::rhow * physical::cpw/nudge_time;
+                Fdw = fNudge * dcpS * mld * physical::rhow / (nudge_time*M_sss[i] - time_step* fNudge* dcpS) ;
+            }
+        }*/
         else
         {
             // nudgeFlux
@@ -3320,12 +3376,12 @@ FiniteElement::thermo()
 
                 double delS = M_sss[i] - M_ocean_salt[i];
                 Fdw = delS * mld * physical::rhow /(timeS*M_sss[i] - time_step*delS);
-            } else {
+            } 
+            else {
                 Qdw = Qdw_const;
                 Fdw = Fdw_const;
             }
         }
-
         // SYL: Calculate the drag coefficients missing??
 
         // -------------------------------------------------
@@ -4352,7 +4408,6 @@ FiniteElement::init()
     this->initConstant();
     current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
     this->initDatasets();
-
     LOG(INFO) << "-----------------------Simulation started on "<< current_time_local() <<"\n";
 
     LOG(INFO) <<"TIMESTEP= "<< time_step <<"\n";
@@ -4437,7 +4492,6 @@ FiniteElement::init()
 #endif
 
     this->checkReloadDatasets(M_external_data,current_time,"init - time-dependant");
-
     if ( ! M_use_restart )
     {
         chrono.restart();
@@ -6167,6 +6221,17 @@ FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
 void
 FiniteElement::forcingOcean()//(double const& u, double const& v)
 {
+    if(M_use_nesting)    
+    {
+        M_ocean_temp=ExternalData(&M_nesting_ocean_elements_dataset, M_mesh, 0,false,time_init);
+        M_external_data.push_back(&M_ocean_temp);
+        M_ocean_salt=ExternalData(&M_nesting_ocean_elements_dataset, M_mesh, 1,false,time_init);
+        M_external_data.push_back(&M_ocean_salt);
+
+        M_nesting_dist=ExternalData(&M_nesting_distance_elements_dataset, M_mesh, 0,false,time_init);
+        M_external_data.push_back(&M_nesting_dist);
+    }
+
     switch (M_ocean_type)
     {
         case setup::OceanType::CONSTANT:
@@ -6180,15 +6245,19 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_ssh);
 
-            M_ocean_temp=ExternalData(physical::ocean_freezing_temp);
-            M_external_data.push_back(&M_ocean_temp);
+            if (!M_use_nesting)
+            {
+                M_ocean_temp=ExternalData(physical::ocean_freezing_temp);
+                M_external_data.push_back(&M_ocean_temp);
 
-            M_ocean_salt=ExternalData(physical::ocean_freezing_temp/physical::mu);
-            M_external_data.push_back(&M_ocean_salt);
+                M_ocean_salt=ExternalData(physical::ocean_freezing_temp/physical::mu);
+                M_external_data.push_back(&M_ocean_salt);
+            }
 
             M_mld=ExternalData(vm["simul.constant_mld"].as<double>());
             M_external_data.push_back(&M_mld);
             break;
+
         case setup::OceanType::TOPAZR: case setup::OceanType::TOPAZF:
             M_ocean=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 0, true,
@@ -6200,11 +6269,14 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_ssh);
 
-            M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
-            M_external_data.push_back(&M_ocean_temp);
+            if (!M_use_nesting)
+            {
+                M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
+                M_external_data.push_back(&M_ocean_temp);
 
-            M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
-            M_external_data.push_back(&M_ocean_salt);
+                M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
+                M_external_data.push_back(&M_ocean_salt);
+            }
 
             M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
             M_external_data.push_back(&M_mld);
@@ -6223,11 +6295,14 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_ssh);
 
-            M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
-            M_external_data.push_back(&M_ocean_temp);
+            if (!M_use_nesting)
+            {
+                M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
+                M_external_data.push_back(&M_ocean_temp);
 
-            M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
-            M_external_data.push_back(&M_ocean_salt);
+                M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
+                M_external_data.push_back(&M_ocean_salt);
+            }
 
             M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
             M_external_data.push_back(&M_mld);
@@ -6247,11 +6322,14 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_ssh);
 
-            M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
-            M_external_data.push_back(&M_ocean_temp);
+            if (!M_use_nesting)
+            {
+                M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
+                M_external_data.push_back(&M_ocean_temp);
 
-            M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
-            M_external_data.push_back(&M_ocean_salt);
+                M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
+                M_external_data.push_back(&M_ocean_salt);
+            }
 
             M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
             M_external_data.push_back(&M_mld);
