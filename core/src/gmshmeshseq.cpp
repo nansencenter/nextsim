@@ -22,6 +22,7 @@ GmshMeshSeq::GmshMeshSeq()
     M_num_nodes(0),
     M_num_triangles(0),
     M_num_edges(0),
+    M_marker_names(),
     timer()
 {
     M_mppfile = (Environment::vm()["mesh.mppfile"]).as<std::string>();
@@ -128,8 +129,8 @@ GmshMeshSeq::readFromFile(std::string const& filename)
 
                 __is >> topodim >> id >> name;
 
-                //boost::trim( name );
-                //boost::trim_if( name,boost::is_any_of( "\"" ) );
+                boost::trim( name );
+                boost::trim_if( name,boost::is_any_of( "\"" ) );
 
                 std::cout << "[gmshmesh::reading] topodim: "  << topodim << " id: " << id << " name: " << name << "\n";
 
@@ -142,7 +143,6 @@ GmshMeshSeq::readFromFile(std::string const& filename)
 
             __is >> __buf;
         }
-
     }
 
     // Read NODES
