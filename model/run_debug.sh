@@ -60,4 +60,3 @@ fi
 
 # Run the nextsim model
 mpirun $mpi_opts -np $ncpu valgrind ${vopts[@]} $prog ${nsopts[@]} 2>&1 | tee simdebug.log
-
