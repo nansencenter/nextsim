@@ -47,7 +47,7 @@ then
 fi
 
 # Run the nextsim model
-mpirun $opts -np $ncpu $prog --config-files=$config 2>&1 | tee $(basename $config .cfg).log
+mpirun $opts -np $ncpu $prog -mat_mumps_icntl_14 20 --config-files=$config 2>&1 | tee $(basename $config .cfg).log
 
 
 # Run the CPU profiler (google perftools)

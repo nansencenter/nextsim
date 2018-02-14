@@ -346,15 +346,26 @@ FiniteElement::rootMeshProcessing()
 
         // ------ Boundary conditions -----------
 
+
+        // for (auto it=M_mesh_root.markerNames().begin(), end=M_mesh_root.markerNames().end(); it!=end; ++it)
+        // {
+        //     std::cout<<"*******************************markerNames["<< it->first <<"]= ("<< it->second[0] << "," << it->second[1] <<")\n";
+        // }
+
         // set M_flag_fix to its correct value when PhysicalNames section is present in the msh file (version 2.2)
-        if (!(M_mesh_root.markerNames()).empty())
+        if (!(M_mesh_root.markerNames().empty()))
         {
-            LOG(DEBUG) <<"M_flag_fix before being changed was: " << M_flag_fix << "\n";
+            //LOG(DEBUG) <<"M_flag_fix before being changed was: " << M_flag_fix << "\n";
+            std::cout <<"------------------------------------------------M_flag_fix before being changed was: " << M_flag_fix << "\n";
             // get the id associated to the physical name "coast" and assign it to M_flag_fix
             M_flag_fix = M_mesh_root.markerNames().find("coast")->second[0];
-            LOG(DEBUG) <<"M_flag_fix changed to: " << M_flag_fix << "\n";
-        } else {
-            LOG(DEBUG) <<"M_flag_fix left as: " << M_flag_fix << "\n";
+            //LOG(DEBUG) <<"M_flag_fix changed to: " << M_flag_fix << "\n";
+            std::cout <<"---------------------------------------------------------------M_flag_fix changed to: " << M_flag_fix << "\n";
+        }
+        else
+        {
+            // LOG(DEBUG) <<"M_flag_fix left as: " << M_flag_fix << "\n";
+            std::cout <<"----------------------------------------------------------------M_flag_fix left as: " << M_flag_fix << "\n";
         }
 
         for (auto it=M_mesh_root.edges().begin(), end=M_mesh_root.edges().end(); it!=end; ++it)
@@ -6232,6 +6243,8 @@ FiniteElement::step()
         this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
     }
 #endif
+#if 0
+#endif
  }
 
 // This is the main working function, called from main.cpp (same as perform_simul in the old code)
@@ -6264,16 +6277,17 @@ FiniteElement::run()
         pcpt_file.open(M_export_path + "/Timestamp.txt", std::ios::out | std::ios::trunc);
     }
 
-#if 1
+
     current_time = time_init + pcpt*time_step/(24*3600.0);
     bool is_running = true;
     if(duration<=0)
         is_running = false;
 
-    // main loop for nextsim program
+#if 1
+    / main loop for nextsim program
     while (is_running)
     {
-        M_comm.barrier();
+         M_comm.barrier();
 
         if (M_rank == 0)
         {
@@ -6282,8 +6296,8 @@ FiniteElement::run()
 
             if(fmod(pcpt*time_step, ptime_step) == 0)
             {
-                std::cout <<" ---------- progression: ("<< 100.0*(pcpt*time_step/duration) <<"%)"
-                          <<" ---------- time spent: "<< time_spent(current_time_system);
+                std::string time_spent_str = time_spent(current_time_system);
+                std::cout <<" ---------- progression: ("<< 100.0*(pcpt*time_step/duration) <<"%) ---------- time spent: "<< time_spent_str <<"\n";
             }
 
             std::cout <<"\n";
@@ -6291,7 +6305,7 @@ FiniteElement::run()
 
         is_running = ((pcpt+1)*time_step) < duration;
 
-        if (pcpt == niter)
+        if (pcpt >= niter-1)
             is_running = false;
 
         // **********************************************************************
@@ -6305,6 +6319,8 @@ FiniteElement::run()
             pcpt_file << to_date_string(current_time) << "\n";
             pcpt_file.seekp(0);
         }
+
+        //++pcpt;
     }
 
     if (M_rank == 0)
