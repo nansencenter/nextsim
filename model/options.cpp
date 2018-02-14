@@ -19,8 +19,10 @@ namespace po = boost::program_options;
 double const days_in_sec = 24.0*3600.0;
 namespace Nextsim
 {
+
     po::options_description
     descrOptions()
+
     {
         po::options_description desc("Options");
 
@@ -260,6 +262,22 @@ namespace Nextsim
             ("simul.use_ship", po::value<bool>()->default_value( false ), "")
             ("simul.min_h", po::value<double>()->default_value( 0.05 ), "")
             ("simul.min_c", po::value<double>()->default_value( 0.01 ), "")
+
+            /*
+             *-----------------------------------------------------------------------------------
+             * NESTING
+             * -----------------------------------------------------------------------------------
+          */
+
+            ("nesting.use_nesting", po::value<bool>()->default_value( false ), "")
+            ("nesting.snap", po::value<int>()->default_value( 4 ), "")
+            ("nesting.path",po::value<std::string>()->default_value( "" ),
+                "where to find nestings file ?")
+            ("nesting.method", po::value<std::string>()->default_value( "nudging" ), "")
+            ("nesting.nudge_function", po::value<std::string>()->default_value( "exponential" ), "")
+            ("nesting.nudge_timescale", po::value<double>()->default_value(30*days_in_sec), "")
+            ("nesting.nudge_lengthscale", po::value<double>()->default_value(30*days_in_sec), "")
+            ("nesting.nest_dynamic_vars", po::value<bool>()->default_value( false ), "")
 
             /*
              *-----------------------------------------------------------------------------------
