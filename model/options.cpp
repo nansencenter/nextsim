@@ -183,7 +183,6 @@ namespace Nextsim
             ("simul.lin_drag_coef_water", po::value<double>()->default_value( 0. ), "")
 
             // basal stress parameterization
-            //not used: ("simul.Lemieux_basal_gamma", po::value<double>()->default_value( 10. ), "")
             ("simul.Lemieux_basal_k1", po::value<double>()->default_value( 10. ), "")
             ("simul.Lemieux_basal_k2", po::value<double>()->default_value( 15. ), "")
             ("simul.Lemieux_basal_Cb", po::value<double>()->default_value( 20. ), "")
@@ -260,16 +259,6 @@ namespace Nextsim
             ("simul.use_ship", po::value<bool>()->default_value( false ), "")
             ("simul.min_h", po::value<double>()->default_value( 0.05 ), "")
             ("simul.min_c", po::value<double>()->default_value( 0.01 ), "")
-
-            /*
-             *-----------------------------------------------------------------------------------
-             * OTHERS (TO BE SORTED)
-             * -----------------------------------------------------------------------------------
-             */
-            //only used in commented-out-test: ("simul.drift_limit_concentration", po::value<double>()->default_value( 0.05 ), "")
-            //not used: ("simul.ERAcorr2T", po::value<std::vector<std::string>>()->multitoken()->zero_tokens()->composing(), "")
-            //not used: ("simul.use_stability_drag", po::value<double>()->default_value( 0. ), "")
-            // not used: ("simul.close_all_boundaries", po::value<bool>()->default_value( false ), "")
 
             /*
              *-----------------------------------------------------------------------------------
