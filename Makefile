@@ -64,7 +64,7 @@ oasis:
 
 tools:
 	@cd $(NEXTSIMDIR)/contrib/mapx/src; make tools
-	@cd $(NEXTSIMDIR)/contrib/bamg/src; make tools; make tools-no-omp
+	@cd $(NEXTSIMDIR)/contrib/bamg/src; make tools-no-omp; make tools
 
 clean-tools:
 	rm -f $(NEXTSIMTOOLS_ROOT_DIR)/lib/nextsim/*
