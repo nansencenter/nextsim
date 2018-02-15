@@ -2,8 +2,9 @@
 # @author Abdoulaye Samake <abdoulaye.samake@nersc.no>
 # @date   Tue May 10 10:52:04 2016
 
-.PHONY: all clean mrproper All Clean fresh core bamg mapx model wim oasis
+.PHONY: all clean mrproper All Clean fresh core bamg mapx model wim oasis tools clean-tools
 
+# compile all the libraries; these are saved to $(NEXTSIMDIR)/lib as usual
 all: bamg mapx core
 	#@cd $(NEXTSIMDIR)/contrib/interp/src; make
 ifdef USE_NEXTWIM
@@ -60,3 +61,10 @@ wim:
 	@cd $(NEXTSIMDIR)/modules/wim/src; make
 oasis:
 	@cd $(NEXTSIMDIR)/modules/oasis/src; make
+
+tools:
+	@cd $(NEXTSIMDIR)/contrib/mapx/src; make tools
+	@cd $(NEXTSIMDIR)/contrib/bamg/src; make tools-no-omp; make tools
+
+clean-tools:
+	rm -f $(NEXTSIMTOOLS_ROOT_DIR)/lib/nextsim/*
