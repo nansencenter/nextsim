@@ -5,23 +5,19 @@ else
    LIBEXT=dylib
 endif
 
-ifndef NEXTSIM_TOOLS_COMP_LIBS
-   LIBRARYDIR=$(NEXTSIMDIR)/lib/
-else
-   LIBRARYDIR=$(NEXTSIMTOOLS_ROOT_DIR)/lib/nextsim/
-endif
+# default stuff
+LIBRARYDIR=$(NEXTSIMDIR)/lib/
+LIB0=libbamg
+OBJECTDIR=$(NEXTSIMDIR)/objs/
+DEPENDDIR=$(NEXTSIMDIR)/.deps/
 
-ifndef BAMG_NO_OMP
-   # using omp
-   LIB0=libbamg
-   OBJECTDIR=$(NEXTSIMDIR)/objs/
-   DEPENDDIR=$(NEXTSIMDIR)/.deps/
-else
-   # not using omp
-   LIB0=libbamg_no_omp
-   OBJECTDIR=./objs/
-   DEPENDDIR=./.deps/
-endif
+# compile tools using omp
+tools: LIBRARYDIR=$(NEXTSIMTOOLS_ROOT_DIR)/lib/nextsim/
+
+# compile tools without using omp
+tools-no-omp: LIBRARYDIR=$(NEXTSIMTOOLS_ROOT_DIR)/lib/nextsim/
+tools-no-omp: LIB0=libbamg_no_omp
+tools-no-omp: CXXFLAGS+= -DBAMG_NO_OMP
 
 LIBRARYNAME=$(LIB0).$(LIBEXT)
 CXX = g++
@@ -34,13 +30,8 @@ else
 endif
 
 CXXFLAGS += -pedantic -ftemplate-depth-256 \
-		-Wno-inline -fPIC
-ifndef BAMG_NO_PTHREAD
-   CXXFLAGS += -D_MULTITHREADING_
-endif
-ifdef BAMG_NO_OMP
-   CXXFLAGS += -DBAMG_NO_OMP
-endif
+		-Wno-inline -fPIC \
+		-D_MULTITHREADING_
 
 ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
    # debugging
@@ -51,9 +42,7 @@ ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
 else
    # optimised
    CXXFLAGS += -O3
-   ifndef BAMG_NO_PTHREAD
-      CXXFLAGS += -pthread  
-   endif
+   CXXFLAGS += -pthread  
 endif
 
 ifneq ($(XSIMCOMP_VERBOSE),no)
@@ -61,12 +50,9 @@ ifneq ($(XSIMCOMP_VERBOSE),no)
 endif
 
 
+CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include
 ifeq ($(KERNEL),Linux)
-   CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include
-   ifndef BAMG_NO_OMP
-      # CXXFLAGS += -I /usr/lib/openmpi/include
-      CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)
-   endif
+   CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)
    LDFLAGS += -shared -Wl,-soname,$(LIB0).so.1
    LDFLAGS += -lm -ldl #-lhwloc
 else
@@ -74,7 +60,7 @@ else
       CXXFLAGS += -stdlib=libc++
    endif
    
-   CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include -I /usr/local/include
+   CXXFLAGS += -I /usr/local/include
    LDFLAGS += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,$(LIBRARYDIR)$(LIBRARYNAME)
    LDFLAGS += -ldl -lstdc++
    
@@ -91,37 +77,40 @@ OBJS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.o)
 DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
 # Rules to always execute.
-.PHONY: all clean mrproper
+.PHONY: default lib clean mrproper tools tools-no-omp
 
 # Default action.
-all: $(LIBRARYNAME)
+default: lib
+
+tools: clean lib
+tools-no-omp: clean lib
 
 # Delete the object files.
 clean:
-	$(RM) $(OBJS) $(DEPS) # $(CCOBJS) $(CCDEPS)
+	$(RM) $(OBJS) $(DEPS)
 
 mrproper: clean
 	$(RM) $(LIBRARYDIR)$(LIBRARYNAME)
 
 # Rule for making the actual target
 ifeq ($(KERNEL),Linux)
-$(LIBRARYNAME): $(OBJS) #$(CCOBJS)
+lib: $(OBJS)
 	@mkdir -p $(LIBRARYDIR)
 	@echo "============================================"
 	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
 	@echo "============================================"
-	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$@ $^ $(LDFLAGS)
-	@ln -sf $@ $(LIBRARYDIR)$(LIB0).so
-	@ln -sf $@ $(LIBRARYDIR)$(LIB0).so.1
+	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LDFLAGS)
+	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)$(LIB0).so
+	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)$(LIB0).so.1
 else
-$(LIBRARYNAME): $(OBJS) #$(CCOBJS)
+lib: $(OBJS)
 	@mkdir -p $(LIBRARYDIR)
 	@echo "============================================"
 	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
 	@echo "============================================"
-	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$@ $^ $(LDFLAGS)
-	@ln -sf $@ $(LIBRARYDIR)$(LIB0).dylib.0
-	@ln -sf $@ $(LIBRARYDIR)$(LIB0).dylib.1
+	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LDFLAGS)
+	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)$(LIB0).dylib.0
+	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)$(LIB0).dylib.1
 endif
 
 # Rules for object files from cpp files
@@ -133,7 +122,6 @@ $(OBJECTDIR)%.o: %.cpp
 $(DEPENDDIR)%.d: %.cpp
 	@mkdir -p $(DEPENDDIR)
 	@$(SHELL) -ec '$(CXX) -M $(CXXFLAGS) $< | sed "s^$*.o^$(OBJECTDIR)$*.o^" > $@'
-
 
 # The compilation depends on this Makefile.
 $(OBJS): Makefile
