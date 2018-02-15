@@ -29,7 +29,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 {
 
     name = std::string(DatasetName);
-    projfilename = Environment::vm()["simul.proj_filename"].as<std::string>();
+    projfilename = Environment::vm()["mesh.mppfile"].as<std::string>();
 
     std::vector<std::vector<double>> loaded_data_tmp;
     loaded_data_tmp.resize(2);

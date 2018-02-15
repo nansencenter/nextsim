@@ -24,7 +24,7 @@ GmshMesh::GmshMesh()
     M_num_edges(0),
     M_marker_names()
 {
-    M_projection_file = (Environment::vm()["simul.proj_filename"]).as<std::string>();
+    M_projection_file = (Environment::vm()["mesh.mppfile"]).as<std::string>();
 }
 
 GmshMesh::GmshMesh(std::vector<point_type> const& nodes,
@@ -41,7 +41,7 @@ GmshMesh::GmshMesh(std::vector<point_type> const& nodes,
     M_num_triangles(triangles.size()),
     M_num_edges(edges.size())
 {
-    M_projection_file = Environment::vm()["simul.proj_filename"].as<std::string>();
+    M_projection_file = Environment::vm()["mesh.mppfile"].as<std::string>();
 }
 
 GmshMesh::GmshMesh(std::vector<point_type> const& nodes,
@@ -55,7 +55,7 @@ GmshMesh::GmshMesh(std::vector<point_type> const& nodes,
     M_num_nodes(nodes.size()),
     M_num_triangles(triangles.size())
 {
-    M_projection_file = Environment::vm()["simul.proj_filename"].as<std::string>();
+    M_projection_file = Environment::vm()["mesh.mppfile"].as<std::string>();
 }
 
 GmshMesh::GmshMesh(GmshMesh const& mesh)

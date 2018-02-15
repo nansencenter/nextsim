@@ -336,7 +336,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 	std::string configfileNextsim = (boost::format( "%1%/%2%/%3%" )
                               % Environment::nextsimDir().string()
                               % "data"
-                              % Environment::vm()["simul.proj_filename"].as<std::string>()
+                              % Environment::vm()["mesh.mppfile"].as<std::string>()
                               ).str();
 
 	std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
@@ -840,7 +840,7 @@ ExternalData::transformData(Dataset *dataset)
     std::string configfileNextsim = (boost::format( "%1%/%2%/%3%" )
                               % Environment::nextsimDir().string()
                               % "data"
-                              % Environment::vm()["simul.proj_filename"].as<std::string>()
+                              % Environment::vm()["mesh.mppfile"].as<std::string>()
                               ).str();
 
     std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
@@ -1296,7 +1296,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
 	std::string configfileNextsim = (boost::format( "%1%/%2%/%3%" )
                               % Environment::nextsimDir().string()
                               % "data"
-                              % Environment::vm()["simul.proj_filename"].as<std::string>()
+                              % Environment::vm()["mesh.mppfile"].as<std::string>()
                               ).str();
 
 	std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());

@@ -113,7 +113,7 @@ public:
     std::string meshPath() const
     {
         std::string meshpath =
-           Environment::vm()["simul.mesh_path"].as<std::string>();
+           Environment::vm()["mesh.path"].as<std::string>();
     
         if(meshpath=="nextsimdir")
             // default location of meshes

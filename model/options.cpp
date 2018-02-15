@@ -47,21 +47,17 @@ namespace Nextsim
             ("simul.log-level", po::value<std::string>()->default_value( "info" ), "")
             ("simul.maxiteration", po::value<int>()->default_value( -1 ), "")
 
-
-            // remesher
+            // remeshing
             ("simul.regrid", po::value<std::string>()->default_value( "bamg" ), "No-regridding or bamg")
             ("simul.regrid_output_flag", po::value<bool>()->default_value( false ), "")
             ("simul.regrid_angle", po::value<double>()->default_value( 10. ), "")
             ("simul.interp_with_cavities", po::value<bool>()->default_value( true ), "")
 
-
             // advection scheme
+            // - ALE_smoothing_step_nb<0 is the eulerian case where M_UM is not changed and then =0.
+            // - ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
+            // - ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
             ("simul.ALE_smoothing_step_nb", po::value<int>()->default_value( 0 ), "")
-            // ALE_smoothing_step_nb<0 is the eulerian case where M_UM is not changed and then =0.
-            // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
-            // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
-
-            // TODO: partitioner (for the parallel version)
 
             /*
              *-----------------------------------------------------------------------------------
@@ -78,10 +74,10 @@ namespace Nextsim
             ("setup.use_assimilation", po::value<bool>()->default_value( false ), "")
 
             // mesh
-            ("simul.mesh_filename", po::value<std::string>()->default_value( "medium_Arctic_10km.msh" ), "")
-            ("simul.mesh_path", po::value<std::string>()->default_value( "nextsimdir" ), "nextsimdir or simdatadir")
-            ("simul.proj_filename", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "")
-            ("simul.hsize", po::value<double>()->default_value( 0.01 ), "") // to be checked
+            ("mesh.path", po::value<std::string>()->default_value( "nextsimdir" ), "nextsimdir or simdatadir")
+            ("mesh.filename", po::value<std::string>()->default_value( "medium_Arctic_10km.msh" ), "")
+            ("mesh.mppfile", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "")
+            //not used: ("mesh.hsize", po::value<double>()->default_value( 0.01 ), "") // to be checked
 
             // simul
             ("simul.time_init", po::value<std::string>()->default_value( "2008-Mar-05" ), "")
@@ -122,7 +118,7 @@ namespace Nextsim
             ("setup.restart_string", po::value<std::string>()->default_value( "" ), "")
             ("setup.step_nb", po::value<int>()->default_value( 0 ), "")
             ("setup.restart_path", po::value<std::string>()->default_value( "" ),
-                "where to find restarts (default is $NEXTSIMDIR/restart)")
+                    "where to find restarts (default is $NEXTSIMDIR/restart)")
 
             // outputs (restart)
             ("setup.write_restart", po::value<bool>()->default_value( false ), "")
@@ -138,17 +134,15 @@ namespace Nextsim
             ("simul.save_diagnostics", po::value<bool>()->default_value( false ), "")
 
             // exporter
-            ("simul.output_directory", po::value<std::string>()->default_value( "" ), "")
-            ("setup.exporter_precision", po::value<std::string>()->default_value("float"),
+            ("exporter.path", po::value<std::string>()->default_value( "" ), "")
+            ("exporter.precision", po::value<std::string>()->default_value("float"),
                     "float (default) or double (almost only for testing)")
-
 
             /*
              *-----------------------------------------------------------------------------------
              * DYNAMICS
              * -----------------------------------------------------------------------------------
              */
-
             ("setup.dynamics-type", po::value<std::string>()->default_value( "default" ), "")
 
             // internal stresses
@@ -182,13 +176,14 @@ namespace Nextsim
             ("simul.ERAi_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("simul.ECMWF_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("simul.ASR_quad_drag_coef_air", po::value<double>()->default_value( 0.0049 ), "")
-            ("simul.CFSR_quad_drag_coef_air", po::value<double>()->default_value( 0.0023 ), "") // Updated value, based on comparison with OSISAF drift in the free drift case
+            ("simul.CFSR_quad_drag_coef_air", po::value<double>()->default_value( 0.0023 ), "")
+                // Updated value, based on comparison with OSISAF drift in the free drift case
             ("simul.lin_drag_coef_air", po::value<double>()->default_value( 0. ), "")
             ("simul.quad_drag_coef_water", po::value<double>()->default_value( 0.0055 ), "")
             ("simul.lin_drag_coef_water", po::value<double>()->default_value( 0. ), "")
 
             // basal stress parameterization
-            //("simul.Lemieux_basal_gamma", po::value<double>()->default_value( 10. ), "")
+            //not used: ("simul.Lemieux_basal_gamma", po::value<double>()->default_value( 10. ), "")
             ("simul.Lemieux_basal_k1", po::value<double>()->default_value( 10. ), "")
             ("simul.Lemieux_basal_k2", po::value<double>()->default_value( 15. ), "")
             ("simul.Lemieux_basal_Cb", po::value<double>()->default_value( 20. ), "")
@@ -271,10 +266,10 @@ namespace Nextsim
              * OTHERS (TO BE SORTED)
              * -----------------------------------------------------------------------------------
              */
-            ("simul.drift_limit_concentration", po::value<double>()->default_value( 0.05 ), "")
-            ("simul.ERAcorr2T", po::value<std::vector<std::string>>()->multitoken()->zero_tokens()->composing(), "")
-            ("simul.use_stability_drag", po::value<double>()->default_value( 0. ), "")
-            ("simul.close_all_boundaries", po::value<bool>()->default_value( false ), "")
+            //only used in commented-out-test: ("simul.drift_limit_concentration", po::value<double>()->default_value( 0.05 ), "")
+            //not used: ("simul.ERAcorr2T", po::value<std::vector<std::string>>()->multitoken()->zero_tokens()->composing(), "")
+            //not used: ("simul.use_stability_drag", po::value<double>()->default_value( 0. ), "")
+            // not used: ("simul.close_all_boundaries", po::value<bool>()->default_value( false ), "")
 
             /*
              *-----------------------------------------------------------------------------------

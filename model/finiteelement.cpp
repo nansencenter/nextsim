@@ -711,7 +711,7 @@ FiniteElement::initConstant()
     if(M_rgps_drifters_output_time_step>0.)
         M_use_rgps_drifters=true;
 
-    M_mesh_filename = vm["simul.mesh_filename"].as<std::string>();
+    M_mesh_filename = vm["mesh.filename"].as<std::string>();
 
     // mesh type
     M_mesh_type = setup::MeshType::FROM_GMSH;
@@ -4516,10 +4516,10 @@ FiniteElement::init()
     // Initialise everything that doesn't depend on the mesh (constants, data set description, and time)
 
     M_export_path = Environment::nextsimDir().string() + "/matlab";
-    // change directory for outputs if the option "output_directory" is not empty
-    if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
+    // change directory for outputs if the option "exporter.path" is not empty
+    if ( ! (vm["exporter.path"].as<std::string>()).empty() )
     {
-        M_export_path = vm["simul.output_directory"].as<std::string>();
+        M_export_path = vm["exporter.path"].as<std::string>();
         fs::path path(M_export_path);
 
         // create the output directory if it does not exist
@@ -5589,7 +5589,7 @@ FiniteElement::initMoorings()
         GridOutput::Grid grid{
             gridFile: Environment::vm()["simul.mooring_grid_file"].as<std::string>(),
             dirname: "data",
-            mpp_file: Environment::vm()["simul.proj_filename"].as<std::string>(),
+            mpp_file: Environment::vm()["mesh.mppfile"].as<std::string>(),
             dimNameX: "y",
             dimNameY: "x",
             latName: "latitude",
@@ -5627,9 +5627,9 @@ FiniteElement::writeRestart(int pcpt, std::string step)
     // === Start with the mesh ===
     // First the data
     std::string directory = Environment::nextsimDir().string() + "/restart";
-    // change directory for outputs if the option "output_directory" is not empty
-    if ( ! (vm["simul.output_directory"].as<std::string>()).empty() )
-        directory = vm["simul.output_directory"].as<std::string>() + "/restart";
+    // change directory for outputs if the option "exporter.path" is not empty
+    if ( ! (vm["exporter.path"].as<std::string>()).empty() )
+        directory = vm["exporter.path"].as<std::string>() + "/restart";
 
     // create the output directory if it does not exist
     fs::path path(directory);
@@ -6023,45 +6023,6 @@ FiniteElement::updateVelocity()
 
     // TODO (updateVelocity) Sylvain: This limitation cost about 1/10 of the solver time.
     // TODO (updateVelocity) Sylvain: We could add a term in the momentum equation to avoid the need of this limitation.
-    //std::vector<double> speed_c_scaling_test(bamgmesh->NodalElementConnectivitySize[0]);
-    #if 0
-    int elt_num, i, j;
-    double c_max_nodal_neighbour;
-    double speed_c_scaling;
-
-    std::vector<double> cloc_elts(bamgmesh->NodalElementConnectivitySize[1]);
-
-    for (i=0; i<bamgmesh->NodalElementConnectivitySize[0]; ++i)
-    {
-        for (j=0; j<bamgmesh->NodalElementConnectivitySize[1]; ++j)
-        {
-            elt_num = bamgmesh->NodalElementConnectivity[bamgmesh->NodalElementConnectivitySize[1]*i+j]-1;
-
-            if ((0 <= elt_num) && (elt_num < M_mesh.numTriangles()) && (elt_num != NAN))
-            {
-                cloc_elts[j] = M_conc[elt_num];
-            }
-            else
-            {
-                break;
-            }
-        }
-
-        c_max_nodal_neighbour = *std::max_element(cloc_elts.begin(),cloc_elts.begin()+j-1);
-        c_max_nodal_neighbour /= vm["simul.drift_limit_concentration"].as<double>();
-        speed_c_scaling = std::min(1.,c_max_nodal_neighbour);
-        //std::cout<<"c_max_nodal_neighbour["<< i <<"]= "<< c_max_nodal_neighbour <<"\n";
-        //std::cout<<"speed_c_scaling["<< i <<"]= "<< speed_c_scaling <<"\n";
-        //speed_c_scaling_test[i] = speed_c_scaling;
-
-        // linear scaling of ice velocity
-        M_VT[i] *= speed_c_scaling;
-        M_VT[i+M_num_nodes] *= speed_c_scaling;
-    }
-    #endif
-
-    // std::cout<<"MAX SPEED= "<< *std::max_element(speed_c_scaling_test.begin(),speed_c_scaling_test.end()) <<"\n";
-    // std::cout<<"MIN SPEED= "<< *std::min_element(speed_c_scaling_test.begin(),speed_c_scaling_test.end()) <<"\n";
     
     // increment M_UT that is used for the drifters
     for (int nd=0; nd<M_UM.size(); ++nd)
@@ -8632,7 +8593,7 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
     std::string configfile = (boost::format( "%1%/%2%/%3%" )
                               % Environment::nextsimDir().string()
                               % "data"
-                              % vm["simul.proj_filename"].as<std::string>()
+                              % vm["mesh.mppfile"].as<std::string>()
                               ).str();
 
     std::vector<char> str(configfile.begin(), configfile.end());
@@ -8703,7 +8664,7 @@ FiniteElement::updateIABPDrifter()
     std::string configfile = (boost::format( "%1%/%2%/%3%" )
                               % Environment::nextsimDir().string()
                               % "data"
-                              % vm["simul.proj_filename"].as<std::string>()
+                              % vm["mesh.mppfile"].as<std::string>()
                               ).str();
 
     std::vector<char> str(configfile.begin(), configfile.end());
@@ -9086,7 +9047,7 @@ FiniteElement::exportResults(std::string name_str, bool export_mesh, bool export
 void
 FiniteElement::exportResults(std::vector<std::string> const &filenames, bool export_mesh, bool export_fields, bool apply_displacement)
 {
-    Exporter exporter(vm["setup.exporter_precision"].as<std::string>());
+    Exporter exporter(vm["exporter.precision"].as<std::string>());
     std::string fileout;
 
 
