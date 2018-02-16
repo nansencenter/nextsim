@@ -212,7 +212,8 @@ cleanall: cleanlibs clean
 # Clean recompile
 # - NB doesn't work on osx
 # - still need to do "make clean; make" afterwards
-fresh: mrproperlibs mrproper all
+fresh:
+	cd ..; make fresh
 
 # Fully clean the required libraries
 mrproperlibs:
