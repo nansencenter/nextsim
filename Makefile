@@ -1,8 +1,9 @@
 # @file   Makefile
 # @author Abdoulaye Samake <abdoulaye.samake@nersc.no>
 # @date   Tue May 10 10:52:04 2016
+KERNEL=$(shell uname -s)
 
-.PHONY: all clean mrproper All Clean fresh core bamg mapx model wim oasis tools clean-tools
+.PHONY: all clean mrproper All Clean fresh core bamg mapx model model2 wim oasis tools clean-tools
 
 # compile all the libraries; these are saved to $(NEXTSIMDIR)/lib as usual
 all: bamg mapx core
@@ -39,7 +40,7 @@ endif
 # rules to compile model code as well as lib's
 # - NB doesn't work on osx
 # - still need to do "cd model;make clean;make" afterwards
-All: all model
+All: all model2
 
 Clean: clean
 	@cd $(NEXTSIMDIR)/model; make clean;
@@ -57,6 +58,12 @@ core:
 	@cd $(NEXTSIMDIR)/core/src; make;
 model:
 	@cd $(NEXTSIMDIR)/model; make;
+ifeq ($(KERNEL),Darwin)
+model2:
+	@cd $(NEXTSIMDIR)/model; make clean; make
+else
+model2: model
+endif
 wim:
 	@cd $(NEXTSIMDIR)/modules/wim/src; make
 oasis:
