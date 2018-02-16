@@ -7,7 +7,6 @@
  * @date   Tue Jul 14 13:23:45 2015
  */
 
-
 #include <boost/program_options.hpp>
 #include <constants.hpp>
 
@@ -36,10 +35,10 @@ namespace Nextsim
             ("solver.ksp-type", po::value<std::string>()->default_value( "preonly" ), "")
             ("solver.pc-type", po::value<std::string>()->default_value( "cholesky" ), "")
             ("solver.mat-package-type", po::value<std::string>()->default_value( "cholmod" ), "")
-            ("solver.ksp-reuse-prec", po::value<bool>()->default_value( false ), "")
             ("solver.ksp-view", po::value<bool>()->default_value( false ), "")
-            ("solver.ksp-monitor", po::value<bool>()->default_value( false ), "")
             ("solver.ksp-convergence-info", po::value<bool>()->default_value( true ), "")
+            ("solver.ksp-reuse-prec", po::value<bool>()->default_value( false ), "")
+            ("solver.ksp-monitor", po::value<bool>()->default_value( false ), "")
 
             // debugging options
             ("simul.verbose", po::value<int>()->default_value( 7 ), "")
@@ -53,26 +52,29 @@ namespace Nextsim
             ("simul.interp_with_cavities", po::value<bool>()->default_value( true ), "")
 
             // advection scheme
+            // - ALE_smoothing_step_nb<0 is the eulerian case where M_UM is not changed and then =0.
+            // - ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
+            // - ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
             ("simul.ALE_smoothing_step_nb", po::value<int>()->default_value( 0 ), "")
-            // ALE_smoothing_step_nb<0 is the eulerian case where M_UM is not changed and then =0.
-            // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
-            // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
 
             /*
              *-----------------------------------------------------------------------------------
              * SETUP
              * -----------------------------------------------------------------------------------
              */
+
             // setup
             ("setup.atmosphere-type", po::value<std::string>()->default_value( "asr" ), "")
             ("setup.ocean-type", po::value<std::string>()->default_value( "constant" ), "")
             ("setup.ice-type", po::value<std::string>()->default_value( "constant" ), "")
             ("setup.bathymetry-type", po::value<std::string>()->default_value( "etopo" ), "")
             ("simul.basal_stress-type", po::value<std::string>()->default_value( "lemieux" ), "")
+            ("simul.expansion_factor", po::value<double>()->default_value( 0.05 ),
+                    "used in DataSet::loadGrid - makes loaded grid slightly larger than actually needed (default is by 5%)")
 
             // mesh
             ("mesh.path", po::value<std::string>()->default_value( "nextsimdir" ), "nextsimdir or simdatadir")
-            ("mesh.filename", po::value<std::string>()->default_value( "bigarctic10km.msh" ), "")
+            ("mesh.filename", po::value<std::string>()->default_value( "medium_Arctic_10km.msh" ), "")
             ("mesh.fileformat", po::value<std::string>()->default_value( "binary" ), "")
             ("mesh.mppfile", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "")
             ("mesh.hsize", po::value<double>()->default_value( 0.01 ), "")
@@ -145,16 +147,17 @@ namespace Nextsim
              * DYNAMICS
              * -----------------------------------------------------------------------------------
              */
-            // internal stresses
             ("setup.dynamics-type", po::value<std::string>()->default_value( "default" ), "")
+
+            // internal stresses
             ("simul.use_coriolis", po::value<bool>()->default_value( true ), "")
             ("simul.alea_factor", po::value<double>()->default_value( 0. ), "")
-            ("simul.young", po::value<double>()->default_value( 5.49e+9 ), "")
-            ("simul.cfix", po::value<double>()->default_value( 40e+3 ), "")
+            ("simul.young", po::value<double>()->default_value( 5.49e+9 ), "Pa") // 5.49e+9 is a more reasonable than 9GPa, and same as used in WIM paper.
+            ("simul.cfix", po::value<double>()->default_value( 40e+3 ), "Pa")
             ("simul.nu0", po::value<double>()->default_value( 0.3 ), "")
             ("simul.tan_phi", po::value<double>()->default_value( 0.7 ), "")
             ("simul.tract_coef", po::value<double>()->default_value( 5./6 ), "")
-            ("simul.compr_strength", po::value<double>()->default_value( 750e+3 ), "")
+            ("simul.compr_strength", po::value<double>()->default_value( 750e+3 ), "Pa")
             ("simul.ridging_exponent", po::value<double>()->default_value( -20. ), "")
 
             // - Ratio of ridged ice cohesion and compressive strength compared to level ice (1. does nothing)
@@ -167,7 +170,7 @@ namespace Nextsim
 
             ("simul.use_temperature_dependent_healing", po::value<bool>()->default_value( false ), "")
             ("simul.time_relaxation_damage", po::value<double>()->default_value( 25. ), "days")
-            ("simul.deltaT_relaxation_damage", po::value<double>()->default_value( 20. ), "kelvin")
+            ("simul.deltaT_relaxation_damage", po::value<double>()->default_value( 20. ), "Kelvin")
             ("simul.undamaged_time_relaxation_sigma", po::value<double>()->default_value( 1e7 ), "seconds")
                 // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
             ("simul.exponent_relaxation_sigma", po::value<double>()->default_value( 4. ), "")
@@ -178,6 +181,7 @@ namespace Nextsim
             ("simul.ECMWF_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("simul.ASR_quad_drag_coef_air", po::value<double>()->default_value( 0.0049 ), "")
             ("simul.CFSR_quad_drag_coef_air", po::value<double>()->default_value( 0.0023 ), "")
+                // Updated value, based on comparison with OSISAF drift in the free drift case
             ("simul.lin_drag_coef_air", po::value<double>()->default_value( 0. ), "")
             ("simul.quad_drag_coef_water", po::value<double>()->default_value( 0.0055 ), "")
             ("simul.lin_drag_coef_water", po::value<double>()->default_value( 0. ), "")
@@ -264,11 +268,10 @@ namespace Nextsim
              * OTHERS (TO BE SORTED)
              * -----------------------------------------------------------------------------------
              */
-            ("simul.drift_limit_concentration", po::value<double>()->default_value( 0.05 ), "")
-            ("simul.ERAcorr2T", po::value<std::vector<std::string>>()->multitoken()->zero_tokens()->composing(), "")
-            ("simul.close_all_boundaries", po::value<bool>()->default_value( false ), "")
-            ("simul.use_stability_drag", po::value<double>()->default_value( 0. ), "")
-            ("simul.expansion_factor", po::value<double>()->default_value( 0.05 ), "")
+            //only used in commented-out-test: ("simul.drift_limit_concentration", po::value<double>()->default_value( 0.05 ), "")
+            //not used: ("simul.ERAcorr2T", po::value<std::vector<std::string>>()->multitoken()->zero_tokens()->composing(), "")
+            //not used: ("simul.close_all_boundaries", po::value<bool>()->default_value( false ), "")
+            //not used: ("simul.use_stability_drag", po::value<double>()->default_value( 0. ), "")
 
             /*
              *-----------------------------------------------------------------------------------

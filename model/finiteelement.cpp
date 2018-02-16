@@ -8157,6 +8157,7 @@ FiniteElement::updateFreeDriftVelocity()
     }
 }
 
+#if 0
 void
 FiniteElement::speedScaling(std::vector<double>& speed_scaling)
 {
@@ -8253,6 +8254,7 @@ FiniteElement::speedScaling(std::vector<double>& speed_scaling)
         boost::mpi::scatterv(M_comm, &speed_scaling[0], M_num_nodes, 0);
     }
 }
+#endif
 
 void
 FiniteElement::forcingAtmosphere()
