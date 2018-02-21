@@ -635,7 +635,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             throw std::runtime_error("Not found a a file for before current_date!");
 
 
-        if(filename_prev!="")
+        if(filename_next!="")
         {
             filename_fstep.push_back(filename_next);
             index_fstep.push_back(index_next);
