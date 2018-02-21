@@ -7686,9 +7686,6 @@ FiniteElement::topazForecastAmsr2OsisafIce()
         double ratio_MYI=0.9;
         double ratio_Mixed=0.5*(ratio_FYI+ratio_MYI);
 
-        //double thick_FYI=hi;
-        //double thick_MYI=1.5*hi;
-        //double thick_Mixed=0.5*(thick_FYI+thick_MYI);
         double thickfac_FYI=1.;
         double thickfac_MYI=1.5;
         double thickfac_Mixed=0.5*(thickfac_FYI+thickfac_MYI);
@@ -7707,57 +7704,33 @@ FiniteElement::topazForecastAmsr2OsisafIce()
             } 
             else
             {
-                //if(M_osisaf_type[i]<=1.)//1. no ice in OSISAF
                 if(M_osisaf_type[i]<1.5)//1. no ice in OSISAF
                 {
                     M_ridge_ratio[i]=0.;
-                    //M_thick[i]=thick_FYI;
                     hi*=thickfac_FYI;
                     type_case = 1;
                 }
-                //if(M_osisaf_type[i]>1. && M_osisaf_type[i]<=2.)//2. FYI
                 else if(M_osisaf_type[i]<2.5)//2. FYI
                 {
-                    //M_ridge_ratio[i]=(M_osisaf_type[i]-1.)*ratio_FYI;
                     M_ridge_ratio[i]=ratio_FYI;
-                    //M_thick[i]      =thick_FYI;
                     hi*=thickfac_FYI;
                     type_case = 2;
                 }
-                //if(M_osisaf_type[i]>2. && M_osisaf_type[i]<=3.)//3. MYI
                 else if(M_osisaf_type[i]<3.5)//3. MYI
                 {
-#if 0
-                    M_ridge_ratio[i] = (1.-(M_osisaf_type[i]-2.))*ratio_FYI
-                        + (M_osisaf_type[i]-2.)*ratio_MYI;
-                    M_thick[i] = (1.-(M_osisaf_type[i]-2.))*thick_FYI
-                        + (M_osisaf_type[i]-2.)*thick_MYI;
-#else
                     M_ridge_ratio[i]=ratio_MYI;
-                    //M_thick[i]      =thick_MYI;
                     hi*=thickfac_MYI;
-#endif
                     type_case = 3;
                 }
-                //if(M_osisaf_type[i]>3. && M_osisaf_type[i]<=4.)//4. mixed
                 else if(M_osisaf_type[i]<4.5)//4. mixed
                 {
-#if 0
-                    M_ridge_ratio[i]=(1.-(M_osisaf_type[i]-3.))*ratio_MYI
-                        + (M_osisaf_type[i]-3.)*ratio_Mixed;
-                    M_thick[i]      =(1.-(M_osisaf_type[i]-3.))*thick_MYI
-                        + (M_osisaf_type[i]-3.)*thick_Mixed;
-#else
                     M_ridge_ratio[i]=ratio_Mixed;
-                    //M_thick[i]      =thick_Mixed;
                     hi*=thickfac_Mixed;
-#endif
                     type_case = 4;
                 }
                 else if(M_osisaf_type[i]>4.)//can't happen, can it?
                 {
                     M_ridge_ratio[i]=ratio_Mixed;
-                    //M_thick[i]=thick_Mixed;
                     hi*=thickfac_Mixed;
                     type_case = 5;
                 }
