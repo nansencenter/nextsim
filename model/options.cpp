@@ -259,6 +259,19 @@ namespace Nextsim
             ("simul.use_ship", po::value<bool>()->default_value( false ), "")
             ("simul.min_h", po::value<double>()->default_value( 0.05 ), "")
             ("simul.min_c", po::value<double>()->default_value( 0.01 ), "")
+#if 0
+            ("forecast.true_forecast", po::value<bool>()->default_value( false ),
+                "if false, use <<analysis/best est>> - forecast that started on the same day as the model time; else use the one that began on simul.time_init, or  forecast.time_init_atm_fc/forecast.time_init_ocean_fc (if provided)")
+            ("forecast.time_init_atm_fc", po::value<std::string>()->default_value( "" ),
+                "if(forecast.true_forecast), get atmospheric forecast starting from this date as opposed to simul.time_init (eg if usual one is absent)")
+            ("forecast.time_init_ocean_fc", po::value<std::string>()->default_value( "" ),
+                "if(forecast.true_forecast), get ocean forecast starting from this date as opposed to simul.time_init (eg if usual one is absent)")
+            ("forecast.air_temperature_correction", po::value<double>()->default_value( 0. ),
+                "for use in BADA (Bias-Aware-Data-Assimilation)")
+            ("forecast.use_ship", po::value<bool>()->default_value( false ), "")
+            ("forecast.min_h", po::value<double>()->default_value( 0.05 ), "")
+            ("forecast.min_c", po::value<double>()->default_value( 0.01 ), "")
+#endif
 
             /*
              *-----------------------------------------------------------------------------------

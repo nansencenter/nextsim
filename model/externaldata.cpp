@@ -473,7 +473,11 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         std::cout<<"475\n";
         bool is_topaz_fc = (dataset->grid.dataset_frequency=="daily_forecast");//topaz forecast
         bool is_ec_dataset = ((dataset->grid.prefix).find("start") != std::string::npos);//ec_[nodes,elements],ec2_[nodes,elements]
+#if 1
         bool true_forecast = (Environment::vm()["simul.forecast"].as<bool>());
+#else
+        bool true_forecast = (Environment::vm()["forecast.true_forecast"].as<bool>());
+#endif
         std::cout<<is_topaz_fc<<"\n";
         std::cout<<is_ec_dataset<<"\n";
         std::cout<<true_forecast<<"\n";
@@ -500,7 +504,20 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                     // - one file for all records
                     // - ftime not used (only init_time)
                     file_jump ={0};
+#if 0
+                    std::string tmpstr = vm["forecast.time_init_atm_fc"].as<std::string>();
+                    if(tmpstr!="")
+                        init_time = Nextsim::from_date_time_string(tmpstr);
+#endif
                 }
+#if 0
+                else
+                {
+                    std::string tmpstr = vm["forecast.time_init_ocean_fc"].as<std::string>();
+                    if(tmpstr!="")
+                        init_time = Nextsim::from_date_time_string(tmpstr);
+                }
+#endif
             }
             else
             {
