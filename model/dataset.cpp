@@ -6251,7 +6251,10 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time)
             current_timestr = to_date_string_ym(current_time);//yyyymm
         else if(grid_ptr->dataset_frequency=="yearly")
             current_timestr = to_date_string_y(std::floor(current_time));//yyyy
-        else if(grid_ptr->dataset_frequency=="daily" || grid_ptr->dataset_frequency=="nearest_daily" || grid_ptr->dataset_frequency=="daily_forecast"  || grid_ptr->dataset_frequency=="daily_ec2_forecast")
+        else if(grid_ptr->dataset_frequency=="daily"
+                || grid_ptr->dataset_frequency=="nearest_daily"
+                || grid_ptr->dataset_frequency=="daily_forecast"
+                || grid_ptr->dataset_frequency=="daily_ec2_forecast")
             current_timestr = to_date_string_yd(current_time);//yyyymmdd
         else if(grid_ptr->dataset_frequency=="constant")
             current_timestr = "";
@@ -6276,8 +6279,7 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time)
                             % grid_ptr->postfix
                        ).str();
     }
-    else
-    if(grid_ptr->dataset_frequency=="daily_ec2_forecast")
+    else if(grid_ptr->dataset_frequency=="daily_ec2_forecast")
     {
         std::string init_timestr= to_date_string_yd(init_time);//yyyymmdd
         filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
@@ -6289,13 +6291,13 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time)
                        ).str();
     }
     else
-    filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
-                       % Environment::simdataDir().string()
-                       % grid_ptr->dirname
-                       % grid_ptr->prefix
-                       % current_timestr
-                       % grid_ptr->postfix
-                       ).str();
+        filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
+                           % Environment::simdataDir().string()
+                           % grid_ptr->dirname
+                           % grid_ptr->prefix
+                           % current_timestr
+                           % grid_ptr->postfix
+                           ).str();
 
     return filename;
 }

@@ -461,14 +461,20 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     std::string f_timestr;
 
     // Filename depends on the date for time varying data
-	if(dataset->grid.dataset_frequency!="constant" && dataset->grid.dataset_frequency!="nearest_daily")
+	if(dataset->grid.dataset_frequency!="constant"
+            && dataset->grid.dataset_frequency!="nearest_daily")
 	{
         std::string init_timestr="";
 
-        if((dataset->grid.dataset_frequency=="daily_forecast") || (dataset->grid.dataset_frequency=="daily_ec2_forecast"))
+        if((dataset->grid.dataset_frequency=="daily_forecast")
+                || (dataset->grid.dataset_frequency=="daily_ec2_forecast"))
             init_timestr = to_date_string_yd(M_StartingTime);//yyyymmdd
 
         // when using forcing from a forecast, we select the file based on the StartingTime
+
+        std::cout<<(dataset->grid.dataset_frequency!="daily_forecast")<<"\n";
+        std::cout<<((dataset->grid.prefix).find("start") != std::string::npos)<<"\n";
+        std::cout<<(Environment::vm()["simul.forecast"].as<bool>())<<"\n";
         if ( (dataset->grid.dataset_frequency!="daily_forecast")
                 && (((dataset->grid.prefix).find("start") != std::string::npos)
                     || (Environment::vm()["simul.forecast"].as<bool>())))
@@ -484,12 +490,12 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             file_jump.push_back(1);
         }
 
-        for (std::vector<int>::iterator jump = file_jump.begin() ; jump != file_jump.end(); ++jump)
+        for (auto jump = file_jump.begin() ; jump != file_jump.end(); ++jump)
         {
             std::string myString;
             if(dataset->grid.dataset_frequency=="monthly")
             {
-                f_timestr = to_date_string_ym(std::floor(ftime));
+                f_timestr = to_date_string_ym(std::floor(ftime));//yyyymm
 
                 myString = f_timestr.substr(4,2);
                 std::cout <<"month= "<< myString <<"\n";
@@ -512,20 +518,28 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                     value_month=12;
                     value_year--;
                 }
-                f_timestr=(boost::format( "%1%%2%" ) % boost::io::group(std::setw(4), std::setfill('0'), value_year) % boost::io::group(std::setw(2), std::setfill('0'), value_month)).str();
+                f_timestr=(boost::format( "%1%%2%" )
+                        % boost::io::group(std::setw(4), std::setfill('0'), value_year)
+                        % boost::io::group(std::setw(2), std::setfill('0'), value_month)).str();
             }
             else if(dataset->grid.dataset_frequency=="yearly")
             {
                 f_timestr = to_date_string_y(std::floor(ftime));//yyyy
                 int value_year = atoi(f_timestr.c_str());
                 value_year+=*jump;
-                f_timestr=(boost::format( "%1%" ) % boost::io::group(std::setw(4), std::setfill('0'), value_year)).str();
+                f_timestr=(boost::format( "%1%" )
+                        % boost::io::group(std::setw(4), std::setfill('0'), value_year)).str();
             }
             else
-                f_timestr = to_date_string_yd(std::floor(ftime)+*jump);
+            {
+                f_timestr = to_date_string_yd(std::floor(ftime)+*jump);//daily freq, yyyymmdd
 
-            if((std::floor(ftime)+*jump)<M_StartingTime)
-                init_timestr = f_timestr;//yyyymmdd
+                //for the daily forecast files
+                // - if one of the days is before the starting time,
+                // reduce the starting time
+                if((std::floor(ftime)+*jump)<M_StartingTime)
+                    init_timestr = f_timestr;//yyyymmdd
+            }
             
 
             std::cout <<"F_TIMESTR= "<< f_timestr <<"\n";
@@ -539,8 +553,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                         % init_timestr
                         % dataset->grid.postfix
                         ).str();
-            else
-            if(dataset->grid.dataset_frequency=="daily_ec2_forecast")
+            else if(dataset->grid.dataset_frequency=="daily_ec2_forecast")
             {
                 filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                        % Environment::simdataDir().string()
