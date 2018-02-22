@@ -459,39 +459,72 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     std::vector<int> index_fstep;
 
     std::string f_timestr;
+    bool is_topaz_fc = (dataset->grid.dataset_frequency=="daily_forecast");//topaz forecast
+    bool is_ec_fc = ((dataset->grid.prefix).find("start") != std::string::npos);//ec_[nodes,elements],ec2_[nodes,elements]
+    bool true_forecast = (Environment::vm()["simul.forecast"].as<bool>());
+    double init_time = M_StartingTime;
+        // - for forecasts, filename depends on start time
+        // - if(!true_forecast), want to change this
 
     // Filename depends on the date for time varying data
 	if(dataset->grid.dataset_frequency!="constant"
             && dataset->grid.dataset_frequency!="nearest_daily")
 	{
-        std::string init_timestr="";
-
-        if((dataset->grid.dataset_frequency=="daily_forecast")
-                || (dataset->grid.dataset_frequency=="daily_ec2_forecast"))
-            init_timestr = to_date_string_yd(M_StartingTime);//yyyymmdd
-
-        // when using forcing from a forecast, we select the file based on the StartingTime
-
-        std::cout<<(dataset->grid.dataset_frequency!="daily_forecast")<<"\n";
-        std::cout<<((dataset->grid.prefix).find("start") != std::string::npos)<<"\n";
-        std::cout<<(Environment::vm()["simul.forecast"].as<bool>())<<"\n";
-        if ( (dataset->grid.dataset_frequency!="daily_forecast")
-                && (((dataset->grid.prefix).find("start") != std::string::npos)
-                    || (Environment::vm()["simul.forecast"].as<bool>())))
+        std::cout<<"475\n";
+        bool is_topaz_fc = (dataset->grid.dataset_frequency=="daily_forecast");//topaz forecast
+        bool is_ec_dataset = ((dataset->grid.prefix).find("start") != std::string::npos);//ec_[nodes,elements],ec2_[nodes,elements]
+        bool true_forecast = (Environment::vm()["simul.forecast"].as<bool>());
+        std::cout<<is_topaz_fc<<"\n";
+        std::cout<<is_ec_dataset<<"\n";
+        std::cout<<true_forecast<<"\n";
+#if 0
+        if ( (!is_daily_fc) && (is_ec_dataset || true_forecast))
         {
+            std::cout<<"485\n";
             ftime = M_StartingTime;
             file_jump.push_back(0);
         }
+#else
+        ftime = M_current_time-dataset->averaging_period/2.;
+        file_jump ={-1,0,1};
+        if(is_ec_fc||is_topaz_fc)
+        {
+            // when using forcing from ECMWF forecasts, we select the file based on the StartingTime
+            if(true_forecast)
+            {
+                //starting time is start time of run
+                init_time = std::floor(M_StartingTime);
+                std::cout<<"502\n";
+                if (is_ec_fc)
+                {
+                    // - one file for all records
+                    // - ftime not used (only init_time)
+                    file_jump ={0};
+                }
+            }
+            else
+            {
+                // use "analysis" product
+                // (forecasts that started on the same day as the current time)
+                std::cout<<"515\n";
+                init_time = std::floor(M_current_time);
+            }
+        }
+#endif
         else // otherwise, we check for
         {
+            std::cout<<"491\n";
             ftime = M_current_time-dataset->averaging_period/2.;
+            std::cout<<"times = "<<M_current_time<<","<<ftime<<"\n";
             file_jump.push_back(-1);
             file_jump.push_back(0);
             file_jump.push_back(1);
         }
 
-        for (auto jump = file_jump.begin() ; jump != file_jump.end(); ++jump)
+        for (auto jump_ptr = file_jump.begin() ; jump_ptr != file_jump.end(); ++jump_ptr)
         {
+#if 0
+            int jump = *jump_ptr;//get jump as an integer
             std::string myString;
             if(dataset->grid.dataset_frequency=="monthly")
             {
@@ -507,7 +540,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 std::cout <<"value_year= "<< value_year <<"\n";
                                 std::cout <<"value_month= "<< value_month <<"\n";
 
-                value_month+=*jump;
+                value_month+=jump;
                 if(value_month==13)
                 {
                     value_month=1;
@@ -526,13 +559,13 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             {
                 f_timestr = to_date_string_y(std::floor(ftime));//yyyy
                 int value_year = atoi(f_timestr.c_str());
-                value_year+=*jump;
+                value_year+=jump;
                 f_timestr=(boost::format( "%1%" )
                         % boost::io::group(std::setw(4), std::setfill('0'), value_year)).str();
             }
             else
             {
-                f_timestr = to_date_string_yd(std::floor(ftime)+*jump);//daily freq, yyyymmdd
+                f_timestr = to_date_string_yd(std::floor(ftime)+jump);//daily freq, yyyymmdd
 
                 //for the daily forecast files
                 // - if one of the days is before the starting time,
@@ -571,7 +604,10 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                         % f_timestr
                         % dataset->grid.postfix
                         ).str();
+#endif
 
+            int jump = *jump_ptr;//get jump as an integer
+            filename = dataset->getFilename(&(dataset->grid),init_time,ftime,jump);
             std::cout<<"FILENAME= "<< filename <<"\n";
             if ( ! boost::filesystem::exists(filename) )
                 continue;
@@ -637,7 +673,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                     filename_prev = filename;
                 }
             }
-        }
+        }//loop over jump
 
         if(filename_prev!="")
         {
@@ -645,7 +681,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             index_fstep.push_back(index_prev);
         }
         else
-            throw std::runtime_error("Not found a a file for before current_date!");
+            throw std::runtime_error("Not found a file for before current_date!");
 
 
         if(filename_next!="")
@@ -654,30 +690,27 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             index_fstep.push_back(index_next);
         }
         else
-            throw std::runtime_error("Not found a a file for after current_date!");
+            throw std::runtime_error("Not found a file for after current_date!");
 
-		dataset->ftime_range.resize(0);
-		dataset->ftime_range.push_back(time_prev);
-        dataset->ftime_range.push_back(time_next);
-	}
+		dataset->ftime_range = {time_prev,time_next};
+	}//not nearest_daily or constant
     else
     {
         if(dataset->grid.dataset_frequency=="nearest_daily")
         {
             ftime = M_current_time;
-            // when using forcing from a forecast, we select the file based on the StartingTime
-            if ( (dataset->grid.dataset_frequency!="daily_forecast")
-                    && (((dataset->grid.prefix).find("start") != std::string::npos)
-                        || (Environment::vm()["simul.forecast"].as<bool>())))
-            {
+            if ( is_ec_fc && true_forecast)
+                // - when using forcing from a forecast, we select the file based on the StartingTime
+                // - if (!true_forecast), use "analysis" product
+                //   (forecast that started on the same day as the current time)
                 ftime = M_StartingTime;
-            }
             f_timestr = to_date_string_yd(std::floor(ftime));
 
-            double f=from_date_string((boost::format( "%1%-%2%-%3%" ) % f_timestr.substr(0,4) % f_timestr.substr(4,2) % f_timestr.substr(6,2)).str())+0.5;
-
-            dataset->ftime_range.resize(0);
-            dataset->ftime_range.push_back(f);
+            double f=from_date_string((boost::format( "%1%-%2%-%3%" )
+                        % f_timestr.substr(0,4)
+                        % f_timestr.substr(4,2)
+                        % f_timestr.substr(6,2)).str());
+            dataset->ftime_range = {f+.5};
         }
         else
             f_timestr ="";

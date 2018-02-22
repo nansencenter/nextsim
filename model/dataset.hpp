@@ -189,7 +189,7 @@ public:
 
     std::vector<double> ftime_range;
             
-    std::string getFilename(Grid *grid, double init_time, double current_time); 
+    std::string getFilename(Grid *grid, double init_time, double current_time, int jump=0); 
 
     void loadGrid(Grid *grid, double init_time, double current_time);
 
