@@ -1,12 +1,21 @@
 #! /bin/bash
 
-if [ $# -ne 1 ]
+if [ $# -eq 0 ]
 then
    echo "not enough arguments"
    echo "run.sh [config file name]"
+   echo or
+   echo "run.sh [config file name] [file to source environment variables from]"
    exit
 fi
+
 config=$1
+if [ $# -ge 2 ]
+then
+   echo source $2
+   source $2
+   echo " "
+fi
 
 # record changes from last git commit:
 # file gets moved from current dir to "output_directory" inside nextsim code
