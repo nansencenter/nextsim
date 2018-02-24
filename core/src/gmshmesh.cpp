@@ -14,6 +14,7 @@
 #include <iterator>
 #include <algorithm>
 #include <iostream>
+#include <numeric>
 
 namespace Nextsim
 {
@@ -1529,10 +1530,10 @@ GmshMesh::allGather(std::vector<int> const& field_in, std::vector<std::vector<in
     int num_elts = std::accumulate(container_size.begin(),container_size.end(),0);
     acc_size = num_elts;
 
-    for (int i=0; i<container_size.size(); ++i)
-    {
-        std::cout<<"[Proc "<< M_comm.rank() <<"] container["<< i <<"]= "<< container_size[i] <<"\n";
-    }
+    // for (int i=0; i<container_size.size(); ++i)
+    // {
+    //     std::cout<<"[Proc "<< M_comm.rank() <<"] container["<< i <<"]= "<< container_size[i] <<"\n";
+    // }
 
     std::vector<int> field_gather(num_elts);
 
