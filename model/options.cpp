@@ -48,8 +48,10 @@ namespace Nextsim
             ("mesh.filename", po::value<std::string>()->default_value( "bigarctic10km.msh" ), "")
             ("mesh.fileformat", po::value<std::string>()->default_value( "binary" ), "")
             ("mesh.mppfile", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "")
-            ("mesh.partitioner", po::value<std::string>()->default_value( "metis" ), "mesh partitioner: chaco or metis")
-            ("mesh.partition-space", po::value<std::string>()->default_value( "disk" ), "")
+            ("mesh.partitioner", po::value<std::string>()->default_value( "metis" ),
+                "mesh partitioner: chaco or metis")
+            ("mesh.partition-space", po::value<std::string>()->default_value( "memory" ),
+                "where the partitioned mesh is kept (disk/memory)")
             ("mesh.hsize", po::value<double>()->default_value( 0.01 ), "")
 
             // debugging options
