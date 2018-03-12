@@ -6284,7 +6284,7 @@ FiniteElement::run()
         is_running = false;
 
 #if 1
-    / main loop for nextsim program
+    // main loop for nextsim program
     while (is_running)
     {
          M_comm.barrier();
