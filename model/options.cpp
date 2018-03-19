@@ -80,10 +80,14 @@ namespace Nextsim
                     "file for mapx to set up the stereographic projection with")
             ("mesh.hsize", po::value<double>()->default_value( 0.01 ), "")
             ("setup.domain-type", po::value<std::string>()->default_value( "unref" ), "unref or split")//TODO add split_xy
+
             // - output and partitioning
-            ("mesh.fileformat", po::value<std::string>()->default_value( "binary" ), "format to output partitioned meshes in")
-            ("mesh.partitioner", po::value<std::string>()->default_value( "metis" ), "mesh partitioner: chaco or metis")
-            ("mesh.partition-space", po::value<std::string>()->default_value( "disk" ), "disk or memory")
+            ("mesh.fileformat", po::value<std::string>()->default_value( "binary" ),
+                "format to output partitioned meshes in")
+            ("mesh.partitioner", po::value<std::string>()->default_value( "metis" ),
+                "mesh partitioner: chaco or metis")
+            ("mesh.partition-space", po::value<std::string>()->default_value( "disk" ),
+                "where the partitioned mesh is kept (disk/memory)")
 
             // simul
             ("simul.time_init", po::value<std::string>()->default_value( "2008-Mar-05" ), "")
