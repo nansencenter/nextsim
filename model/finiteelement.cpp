@@ -660,13 +660,13 @@ FiniteElement::initVariables()
     }
 
     // Diagnostics
-    D_Qa.resize(M_num_elements);
-    D_Qsh.resize(M_num_elements);
-    D_Qlh.resize(M_num_elements);
-    D_Qlw.resize(M_num_elements);
-    D_Qsw.resize(M_num_elements);
-    D_Qo.resize(M_num_elements);
-    D_delS.resize(M_num_elements);
+    D_Qa.assign(M_num_elements, 0.);
+    D_Qsh.assign(M_num_elements, 0.);
+    D_Qlh.assign(M_num_elements, 0.);
+    D_Qlw.assign(M_num_elements, 0.);
+    D_Qsw.assign(M_num_elements, 0.);
+    D_Qo.assign(M_num_elements, 0.);
+    D_delS.assign(M_num_elements, 0.);
 
     M_UT.assign(2*M_num_nodes,0.);
     this->assignVariables();
@@ -10142,6 +10142,11 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
         nb_var_element -= 4;
     }
 
+    if (vm["simul.save_diagnostics"].as<bool>())
+    {
+        nb_var_element += 7;
+    }
+
     std::vector<double> interp_in_elements;
     this->gatherFieldsElementIO(interp_in_elements,M_ice_cat_type==setup::IceCategoryType::THIN_ICE);
 
@@ -10183,6 +10188,25 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
             M_conc_thin_root.resize(num_elements_root);
             M_hs_thin_root.resize(num_elements_root);
             M_tsurf_thin_root.resize(num_elements_root);
+        }
+
+        std::vector<double> D_Qa_root;
+        std::vector<double> D_Qsw_root;
+        std::vector<double> D_Qlw_root;
+        std::vector<double> D_Qsh_root;
+        std::vector<double> D_Qlh_root;
+        std::vector<double> D_Qo_root;
+        std::vector<double> D_delS_root;
+
+        if (vm["simul.save_diagnostics"].as<bool>())
+        {
+            D_Qa_root.resize(num_elements_root);
+            D_Qsw_root.resize(num_elements_root);
+            D_Qlw_root.resize(num_elements_root);
+            D_Qsh_root.resize(num_elements_root);
+            D_Qlh_root.resize(num_elements_root);
+            D_Qo_root.resize(num_elements_root);
+            D_delS_root.resize(num_elements_root);
         }
 
         int tmp_nb_var = 0;
@@ -10270,6 +10294,36 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
                 tmp_nb_var++;
             }
 
+            if (vm["simul.save_diagnostics"].as<bool>())
+            {
+                // Qatm
+                D_Qa_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                tmp_nb_var++;
+
+                // Qsw
+                D_Qsw_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                tmp_nb_var++;
+
+                // Qlw
+                D_Qlw_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                tmp_nb_var++;
+
+                // Qsh
+                D_Qsh_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                tmp_nb_var++;
+
+                // Qlh
+                D_Qlh_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                tmp_nb_var++;
+
+                // Qocean
+                D_Qo_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                tmp_nb_var++;
+
+                // Saltflux
+                D_delS_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                tmp_nb_var++;
+            }
             if(tmp_nb_var>nb_var_element)
             {
                 throw std::logic_error("tmp_nb_var not equal to nb_var");
