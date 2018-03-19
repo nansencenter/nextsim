@@ -3,6 +3,8 @@
 if [ "$1" = "" -o "$2" = "" ]
 then
         echo "Usage: $0 config_file.cfg num_cpus"
+        echo "Usage: $0 config_file.cfg num_cpus envfile"
+        echo envfile is a file to be sourced to set some environment variables
         exit 1
 fi
 
@@ -13,6 +15,12 @@ if [ $ncpu -lt 2 ]
 then
 	echo "Error: num_cpus cannot be less than 2"
 	exit 2
+fi
+
+if [ $# -ge 2 ]
+then
+   echo "source $3"
+   source $3
 fi
 
 # record changes from last git commit:

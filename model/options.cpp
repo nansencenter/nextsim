@@ -73,14 +73,17 @@ namespace Nextsim
                     "used in DataSet::loadGrid - makes loaded grid slightly larger than actually needed (default is by 5%)")
 
             // mesh
+            // - input
             ("mesh.path", po::value<std::string>()->default_value( "nextsimdir" ), "nextsimdir or simdatadir")
             ("mesh.filename", po::value<std::string>()->default_value( "medium_Arctic_10km.msh" ), "")
-            ("mesh.fileformat", po::value<std::string>()->default_value( "binary" ), "")
-            ("mesh.mppfile", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "")
+            ("mesh.mppfile", po::value<std::string>()->default_value( "NpsNextsim.mpp" ),
+                    "file for mapx to set up the stereographic projection with")
             ("mesh.hsize", po::value<double>()->default_value( 0.01 ), "")
-            ("setup.domain-type", po::value<std::string>()->default_value( "unref" ), "")
+            ("setup.domain-type", po::value<std::string>()->default_value( "unref" ), "unref or split")//TODO add split_xy
+            // - output and partitioning
+            ("mesh.fileformat", po::value<std::string>()->default_value( "binary" ), "format to output partitioned meshes in")
             ("mesh.partitioner", po::value<std::string>()->default_value( "metis" ), "mesh partitioner: chaco or metis")
-            ("mesh.partition-space", po::value<std::string>()->default_value( "disk" ), "")
+            ("mesh.partition-space", po::value<std::string>()->default_value( "disk" ), "disk or memory")
 
             // simul
             ("simul.time_init", po::value<std::string>()->default_value( "2008-Mar-05" ), "")
