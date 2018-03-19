@@ -1970,6 +1970,11 @@ FiniteElement::collectVariablesIO(std::vector<double>& interp_elt_in_local, bool
         nb_var_element -= 4;
     }
 
+    if (vm["simul.save_diagnostics"].as<bool>())
+    {
+        nb_var_element += 7;
+    }
+
     int num_elements = M_local_nelements;
     if (ghosts)
     {
@@ -2056,6 +2061,37 @@ FiniteElement::collectVariablesIO(std::vector<double>& interp_elt_in_local, bool
 
             // Ice surface temperature for thin ice
             interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_tsurf_thin[i];
+            tmp_nb_var++;
+        }
+
+        if (vm["simul.save_diagnostics"].as<bool>())
+        {
+            // Qatm
+            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = D_Qa[i];
+            tmp_nb_var++;
+
+            // Qsw
+            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = D_Qsw[i];
+            tmp_nb_var++;
+
+            // Qlw
+            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = D_Qlw[i];
+            tmp_nb_var++;
+
+            // Qsh
+            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = D_Qsh[i];
+            tmp_nb_var++;
+
+            // Qlh
+            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = D_Qlh[i];
+            tmp_nb_var++;
+
+            // Qocean
+            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = D_Qo[i];
+            tmp_nb_var++;
+
+            // Saltflux
+            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = D_delS[i];
             tmp_nb_var++;
         }
 
@@ -2933,6 +2969,11 @@ FiniteElement::gatherFieldsElementIO(std::vector<double>& interp_in_elements, bo
         nb_var_element -= 4;
     }
 
+    if (vm["simul.save_diagnostics"].as<bool>())
+    {
+        nb_var_element += 7;
+    }
+
     timer["gather"].first.restart();
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------IO: GATHER ELEMENT starts\n";
@@ -3046,6 +3087,11 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
         nb_var_element -= 4;
     }
 
+    if (vm["simul.save_diagnostics"].as<bool>())
+    {
+        nb_var_element += 7;
+    }
+
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
 
     std::vector<double> in_elt_values;
@@ -3098,6 +3144,15 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
     M_conc_thin.assign(M_num_elements,0.);
     M_hs_thin.assign(M_num_elements,0.);
     M_tsurf_thin.assign(M_num_elements,0.);
+
+    // Diagnostics
+    D_Qa.assign(M_num_elements,0.);
+    D_Qsh.assign(M_num_elements,0.);
+    D_Qlh.assign(M_num_elements,0.);
+    D_Qlw.assign(M_num_elements,0.);
+    D_Qsw.assign(M_num_elements,0.);
+    D_Qo.assign(M_num_elements,0.);
+    D_delS.assign(M_num_elements,0.);
 
     this->redistributeVariablesIO(out_elt_values, thin_ice);
 
@@ -10324,6 +10379,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
                 D_delS_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
                 tmp_nb_var++;
             }
+
             if(tmp_nb_var>nb_var_element)
             {
                 throw std::logic_error("tmp_nb_var not equal to nb_var");
@@ -10462,13 +10518,13 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
 
             if (vm["simul.save_diagnostics"].as<bool>())
             {
-                exporter.writeField(outbin, D_Qa, "Qatm");
-                exporter.writeField(outbin, D_Qsw, "Qsw");
-                exporter.writeField(outbin, D_Qlw, "Qlw");
-                exporter.writeField(outbin, D_Qsh, "Qsh");
-                exporter.writeField(outbin, D_Qlh, "Qlh");
-                exporter.writeField(outbin, D_Qo,  "Qocean");
-                exporter.writeField(outbin, D_delS, "Saltflux");
+                exporter.writeField(outbin, D_Qa_root, "Qatm");
+                exporter.writeField(outbin, D_Qsw_root, "Qsw");
+                exporter.writeField(outbin, D_Qlw_root, "Qlw");
+                exporter.writeField(outbin, D_Qsh_root, "Qsh");
+                exporter.writeField(outbin, D_Qlh_root, "Qlh");
+                exporter.writeField(outbin, D_Qo_root,  "Qocean");
+                exporter.writeField(outbin, D_delS_root, "Saltflux");
             }
 
             outbin.close();
