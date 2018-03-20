@@ -90,8 +90,8 @@ LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf_c++4
 LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
 LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi -lboost_date_time
 
-# LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
-# LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
+LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
+LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
 
 LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
