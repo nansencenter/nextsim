@@ -2,10 +2,10 @@
 
 if [ "$1" = "" -o "$2" = "" ]
 then
-        echo "Usage: $0 config_file.cfg num_cpus"
-        echo "Usage: $0 config_file.cfg num_cpus envfile"
-        echo envfile is a file to be sourced to set some environment variables
-        exit 1
+   echo "Usage: $0 config_file.cfg num_cpus"
+   echo "Usage: $0 config_file.cfg num_cpus envfile"
+   echo envfile is a file to be sourced to set some environment variables
+   exit 1
 fi
 
 config=$1
@@ -13,11 +13,11 @@ ncpu=$2
 
 if [ $ncpu -lt 2 ]
 then
-	echo "Error: num_cpus cannot be less than 2"
-	exit 2
+   echo "Error: num_cpus cannot be less than 2"
+   exit 2
 fi
 
-if [ $# -ge 2 ]
+if [ $# -ge 3 ]
 then
    echo "source $3"
    source $3
@@ -44,18 +44,18 @@ fi
 kernel=$(uname -s)
 if [ $kernel == "Darwin" ]
 then
-    # mac
-    export DYLD_LIBRARY_PATH=$NEXTSIMDIR/lib:$BOOST_LIBDIR
+   # mac
+   export DYLD_LIBRARY_PATH=$NEXTSIMDIR/lib:$BOOST_LIBDIR
 fi
 
 # bugfix for johansen
 if [ $(hostname) == "johansen.ad.nersc.no" ]
 then
-	opts="--mca pml ob1 --mca btl self,tcp"
+   opts="--mca pml ob1 --mca btl self,tcp"
 fi
 
 # Run the nextsim model
-mpirun $opts -np $ncpu $prog -mat_mumps_icntl_14 20 --config-files=$config 2>&1 | tee $(basename $config .cfg).log
+mpirun $opts -np $ncpu $prog -mat_mumps_icntl_14 60 --config-files=$config 2>&1 | tee $(basename $config .cfg).log
 
 
 # Run the CPU profiler (google perftools)
@@ -63,13 +63,13 @@ nbt=`echo $NEXTSIM_BUILD_TYPE  | tr '[:upper:]' '[:lower:]'`
 # this is now lower case
 if [ "$nbt" == "debug" ]
 then
-	echo "============================================"
-	echo "CPU profiling starts..."
-	CMDSTRPROF="pprof --pdf --functions --focus=run --cum --drop_negative --nodecount=50 bin/nextsim.exec profile.log > profile.pdf"
-	echo $CMDSTRPROF
-	eval $CMDSTRPROF
-	echo "CPU profiling done"
-	echo "============================================"
-	echo "Run the following command to analyze the CPU profile:"
-	echo "open profile.pdf"
+   echo "============================================"
+   echo "CPU profiling starts..."
+   CMDSTRPROF="pprof --pdf --functions --focus=run --cum --drop_negative --nodecount=50 bin/nextsim.exec profile.log > profile.pdf"
+   echo $CMDSTRPROF
+   eval $CMDSTRPROF
+   echo "CPU profiling done"
+   echo "============================================"
+   echo "Run the following command to analyze the CPU profile:"
+   echo "open profile.pdf"
 fi
