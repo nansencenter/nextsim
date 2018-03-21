@@ -29,17 +29,17 @@ BamgMesh::~BamgMesh(){/*{{{*/
 	delete [] this->PreviousNumbering;
 	delete [] this->Edges;
 	delete [] this->Triangles;
-              
+
 	delete [] this->SubDomains;
 	delete [] this->SubDomainsFromGeom;
-              
+
 	delete [] this->VerticesOnGeomVertex;
 	delete [] this->VerticesOnGeomEdge;
 	delete [] this->EdgesOnGeomEdge;
-              
+
 	delete [] this->IssmEdges;
 	delete [] this->IssmSegments;
-              
+
 	delete [] this->ElementConnectivity;
 	delete [] this->NodalConnectivity;
 	delete [] this->NodalElementConnectivity;

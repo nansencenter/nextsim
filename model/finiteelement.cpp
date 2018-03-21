@@ -530,20 +530,18 @@ FiniteElement::initVariables()
 {
     chrono_tot.restart();
 
+    M_nb_regrid = 0;
+
     M_solver = solver_ptrtype(new solver_type());
     M_matrix = matrix_ptrtype(new matrix_type());
     M_vector = vector_ptrtype(new vector_type());
     M_solution = vector_ptrtype(new vector_type());
 
     M_reuse_prec = true;
-    M_nb_regrid = 0;
 
     M_VT.resize(2*M_num_nodes,0.);
     M_VTM.resize(2*M_num_nodes,0.);
     M_VTMM.resize(2*M_num_nodes,0.);
-
-    M_sst.resize(M_num_elements);
-    M_sss.resize(M_num_elements);
 
     M_h_thin.assign(M_num_elements,0.);
     M_conc_thin.assign(M_num_elements,0.);
@@ -608,8 +606,11 @@ FiniteElement::initVariables()
     M_conc.resize(M_num_elements);
     M_thick.resize(M_num_elements);
     M_damage.resize(M_num_elements);
-    M_ridge_ratio.resize(M_num_elements);
+    M_ridge_ratio.assign(M_num_elements,0.);
     M_snow_thick.resize(M_num_elements);
+
+    M_sst.resize(M_num_elements);
+    M_sss.resize(M_num_elements);
 
     switch (M_thermo_type)
     {
@@ -659,17 +660,17 @@ FiniteElement::initVariables()
     }
 
     // Diagnostics
-    D_Qa.resize(M_num_elements);
-    D_Qsh.resize(M_num_elements);
-    D_Qlh.resize(M_num_elements);
-    D_Qlw.resize(M_num_elements);
-    D_Qsw.resize(M_num_elements);
-    D_Qo.resize(M_num_elements);
-    D_delS.resize(M_num_elements);
+    D_Qa.assign(M_num_elements, 0.);
+    D_Qsh.assign(M_num_elements, 0.);
+    D_Qlh.assign(M_num_elements, 0.);
+    D_Qlw.assign(M_num_elements, 0.);
+    D_Qsw.assign(M_num_elements, 0.);
+    D_Qo.assign(M_num_elements, 0.);
+    D_delS.assign(M_num_elements, 0.);
 
     M_UT.assign(2*M_num_nodes,0.);
     this->assignVariables();
-}
+}//end initVariables
 
 void
 FiniteElement::assignVariables()
@@ -811,13 +812,15 @@ void
 FiniteElement::initModelState()
 {
     // Initialise the physical state of the model
-
+    LOG(DEBUG) << "initSlabOcean\n";
     this->initSlabOcean();
 
+    LOG(DEBUG) << "initIce\n";
     this->initIce();
 
+    LOG(DEBUG) << "initDrifter\n";
     this->initDrifter();
-}
+}//initModelState
 
 void
 FiniteElement::initDatasets()
@@ -889,7 +892,7 @@ FiniteElement::initDatasets()
             break;
 
         default:
-            std::cout << "invalid ocean forcing"<<"\n";throw std::logic_error("invalid wind forcing");
+            std::cout << "invalid ocean forcing"<<"\n";throw std::logic_error("invalid ocean forcing");
     }
 
     M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements",M_num_elements);
@@ -925,7 +928,7 @@ FiniteElement::initDatasets()
     M_datasets_regrid.push_back(&M_ocean_nodes_dataset);
     M_datasets_regrid.push_back(&M_ocean_elements_dataset);
     M_datasets_regrid.push_back(&M_bathymetry_elements_dataset);
-}
+}//initDatasets
 
 void
 FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
@@ -999,7 +1002,6 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
     LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
 }//checkReloadDatasets
 
-
 void
 FiniteElement::initBamg()
 {
@@ -1053,11 +1055,14 @@ FiniteElement::initBamg()
 void
 FiniteElement::initConstant()
 {
+
+    // log
     const boost::unordered_map<const std::string, LogLevel> str2log = boost::assign::map_list_of
         ("info", INFO)
         ("warning", WARNING)
         ("debug", DEBUG)
         ("error", ERROR);
+
     M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
 
     nu0 = vm["simul.nu0"].as<double>();
@@ -1067,13 +1072,11 @@ FiniteElement::initConstant()
 
     days_in_sec = 24.0*3600.0;
     time_init = from_date_time_string(vm["simul.time_init"].as<std::string>());
-    output_time_step =  days_in_sec/vm["simul.output_per_day"].as<int>();
     ptime_step =  days_in_sec/vm["simul.ptime_per_day"].as<int>();
 
     time_step = vm["simul.timestep"].as<double>();
-    duration = (vm["simul.duration"].as<double>())*days_in_sec;
 
-
+    output_time_step =  (vm["simul.output_per_day"].as<int>()<0) ? -vm["simul.output_per_day"].as<int>()*time_step : days_in_sec/vm["simul.output_per_day"].as<int>();
     mooring_output_time_step =  vm["simul.mooring_output_timestep"].as<double>()*days_in_sec;
     mooring_time_factor = time_step/mooring_output_time_step;
     if ( fmod(mooring_output_time_step,time_step) != 0)
@@ -1082,17 +1085,21 @@ FiniteElement::initConstant()
         throw std::runtime_error("mooring_output_time_step is not an integer multiple of time_step");
     }
 
+    duration = (vm["simul.duration"].as<double>())*days_in_sec;
     restart_time_step =  vm["setup.restart_time_step"].as<double>()*days_in_sec;
     M_use_restart   = vm["setup.use_restart"].as<bool>();
     M_write_restart = vm["setup.write_restart"].as<bool>();
-
     if ( fmod(restart_time_step,time_step) != 0)
     {
         std::cout << restart_time_step << " " << time_step << "\n";
-        throw std::logic_error("restart_time_step not an integer multiple of time_step");
+        throw std::runtime_error("restart_time_step not an integer multiple of time_step");
     }
 
-    ocean_turning_angle_rad = (PI/180.)*vm["simul.oceanic_turning_angle"].as<double>();
+    ocean_turning_angle_rad = 0.;
+    if (vm["simul.use_coriolis"].as<bool>())
+    {
+        ocean_turning_angle_rad = (PI/180.)*vm["simul.oceanic_turning_angle"].as<double>();
+    }
     ridging_exponent = vm["simul.ridging_exponent"].as<double>();
 
     quad_drag_coef_water = vm["simul.quad_drag_coef_water"].as<double>();
@@ -1102,19 +1109,20 @@ FiniteElement::initConstant()
     basal_Cb = vm["simul.Lemieux_basal_Cb"].as<double>();
 
     time_relaxation_damage = vm["simul.time_relaxation_damage"].as<double>()*days_in_sec;
-    deltaT_relaxation_damage = vm["simul.deltaT_relaxation_damage"].as<double>()/**days_in_sec*/;
+    deltaT_relaxation_damage = vm["simul.deltaT_relaxation_damage"].as<double>();
 
-    h_thin_min = vm["simul.h_thin_min"].as<double>();
     h_thin_max = vm["simul.h_thin_max"].as<double>();
+    h_thin_min = vm["simul.h_thin_min"].as<double>();
 
     compr_strength = vm["simul.compr_strength"].as<double>();
     tract_coef = vm["simul.tract_coef"].as<double>();
-    scale_coef = vm["simul.scale_coef"].as<double>();
+    // scale_coef is now set after initialising the mesh
+    // scale_coef = vm["simul.scale_coef"].as<double>();
     alea_factor = vm["simul.alea_factor"].as<double>();
     cfix = vm["simul.cfix"].as<double>();
 
-    C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
-    C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
+    // C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
+    // C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     tan_phi = vm["simul.tan_phi"].as<double>();
 
     if ( vm["simul.newice_type"].as<int>() == 4 )
@@ -1165,6 +1173,7 @@ FiniteElement::initConstant()
         default:
             std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
+    LOG(DEBUG) <<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::OceanType> str2ocean = boost::assign::map_list_of
         ("constant", setup::OceanType::CONSTANT)
@@ -1173,6 +1182,7 @@ FiniteElement::initConstant()
         ("topaz_forecast", setup::OceanType::TOPAZF)
         ("topaz_altimeter", setup::OceanType::TOPAZR_ALTIMETER);
     M_ocean_type = str2ocean.find(vm["setup.ocean-type"].as<std::string>())->second;
+    LOG(DEBUG) <<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::IceType> str2conc = boost::assign::map_list_of
         ("constant", setup::IceType::CONSTANT)
@@ -1183,6 +1193,8 @@ FiniteElement::initConstant()
         ("topaz_forecast", setup::IceType::TOPAZ4F)
         ("topaz_forecast_amsr2", setup::IceType::TOPAZ4FAMSR2)
         ("topaz_forecast_amsr2_osisaf", setup::IceType::TOPAZ4FAMSR2OSISAF)
+        ("topaz_forecast_amsr2_osisaf_nic", setup::IceType::TOPAZ4FAMSR2OSISAFNIC)
+        ("topaz_forecast_amsr2_osisaf_nic_weekly", setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY)
         ("amsre", setup::IceType::AMSRE)
         ("amsr2", setup::IceType::AMSR2)
         ("osisaf", setup::IceType::OSISAF)
@@ -1192,12 +1204,14 @@ FiniteElement::initConstant()
         ("smos", setup::IceType::SMOS)
         ("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT);
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
+    LOG(DEBUG) <<"ICETYPE= "<< (int)M_ice_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::DynamicsType> str2dynamics = boost::assign::map_list_of
         ("default", setup::DynamicsType::DEFAULT)
         ("no_motion", setup::DynamicsType::NO_MOTION)
         ("free_drift", setup::DynamicsType::FREE_DRIFT);
     M_dynamics_type = str2dynamics.find(vm["setup.dynamics-type"].as<std::string>())->second;
+    LOG(DEBUG) <<"DYNAMICSTYPE= "<< (int)M_dynamics_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::BathymetryType> str2bathymetry = boost::assign::map_list_of
         ("constant", setup::BathymetryType::CONSTANT)
@@ -1252,8 +1266,9 @@ FiniteElement::initConstant()
 
     M_mesh_filename = vm["mesh.filename"].as<std::string>();
     M_mesh_fileformat = vm["mesh.fileformat"].as<std::string>();
+    M_mesh.setOrdering("bamg");
 
-    // option for enabling/disabling the moorings
+    // Moorings
     M_use_moorings =  vm["simul.use_moorings"].as<bool>();
     M_moorings_parallel_output =  vm["simul.mooring_parallel_output"].as<bool>();
     M_moorings_snapshot =  vm["simul.mooring_snapshot"].as<bool>();
@@ -1274,7 +1289,7 @@ FiniteElement::initConstant()
         ("memory", mesh::PartitionSpace::MEMORY)
         ("disk", mesh::PartitionSpace::DISK);
     M_partition_space = str2partitionspace.find(vm["mesh.partition-space"].as<std::string>())->second;
-}
+}//initConstant
 
 void
 FiniteElement::createGMSHMesh(std::string const& geofilename)
@@ -1607,7 +1622,7 @@ FiniteElement::hminVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mes
         }
 
         measure.resize(j);
-        hmin[i] = std::sqrt(2.)*std::sqrt(*std::min_element(measure.begin(),measure.end()))*0.9/*0.9*/;
+        hmin[i] = std::sqrt(2.)*std::sqrt(*std::min_element(measure.begin(),measure.end()))*0.8;
     }
 
     return hmin;
@@ -1812,6 +1827,7 @@ FiniteElement::gatherSizes()
 void
 FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool ghosts)
 {
+    // ELEMENT INTERPOLATION With Cavities
     int nb_var_element = M_nb_var_element;
 
     int num_elements = M_local_nelements;
@@ -1821,8 +1837,8 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
     }
 
     interp_elt_in_local.resize(nb_var_element*num_elements);
-    M_interp_method.resize(nb_var_element);
-    M_diffusivity_parameters.resize(nb_var_element);
+    M_interp_method.resize(nb_var_element); // 0 for non conservative method, 1 for conservative method (for variables defined in terms of blabla/per unit area)
+    M_diffusivity_parameters.resize(nb_var_element); // 0 for non added diffusion, positive value for active diffusion in [m^2/s] (only non conservative implementation available)
 
     int tmp_nb_var=0;
     for (int i=0; i<num_elements; ++i)
@@ -1848,19 +1864,19 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
         tmp_nb_var++;
 
         // integrated_stress1
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sigma[3*i]/**M_thick[i]*/;
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sigma[3*i];
         M_interp_method[tmp_nb_var] = 1;
         M_diffusivity_parameters[tmp_nb_var]=0.;
         tmp_nb_var++;
 
         // integrated_stress2
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sigma[3*i+1]/**M_thick[i]*/;
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sigma[3*i+1];
         M_interp_method[tmp_nb_var] = 1;
         M_diffusivity_parameters[tmp_nb_var]=0.;
         tmp_nb_var++;
 
         // integrated_stress3
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sigma[3*i+2]/**M_thick[i]*/;
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sigma[3*i+2];
         M_interp_method[tmp_nb_var] = 1;
         M_diffusivity_parameters[tmp_nb_var]=0.;
         tmp_nb_var++;
@@ -1872,7 +1888,7 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
         tmp_nb_var++;
 
         // ridge_ratio
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_ridge_ratio[i]/**M_thick[i]*/;
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_ridge_ratio[i];
         M_interp_method[tmp_nb_var] = 1;
         M_diffusivity_parameters[tmp_nb_var]=0.;
         tmp_nb_var++;
@@ -1883,13 +1899,13 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
         M_diffusivity_parameters[tmp_nb_var]=0.;
         tmp_nb_var++;
 
-        // diffusivity_sss
+        // sea surface salinity
         interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sss[i];
         M_interp_method[tmp_nb_var] = 0;
         M_diffusivity_parameters[tmp_nb_var]=vm["simul.diffusivity_sss"].as<double>();
         tmp_nb_var++;
 
-        // diffusivity_sst
+		// sea surface temperature
         interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sst[i];
         M_interp_method[tmp_nb_var] = 0;
         M_diffusivity_parameters[tmp_nb_var]=vm["simul.diffusivity_sst"].as<double>();
@@ -1952,6 +1968,11 @@ FiniteElement::collectVariablesIO(std::vector<double>& interp_elt_in_local, bool
     if (!thin_ice)
     {
         nb_var_element -= 4;
+    }
+
+    if (vm["simul.save_diagnostics"].as<bool>())
+    {
+        nb_var_element += 7;
     }
 
     int num_elements = M_local_nelements;
@@ -2040,6 +2061,37 @@ FiniteElement::collectVariablesIO(std::vector<double>& interp_elt_in_local, bool
 
             // Ice surface temperature for thin ice
             interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_tsurf_thin[i];
+            tmp_nb_var++;
+        }
+
+        if (vm["simul.save_diagnostics"].as<bool>())
+        {
+            // Qatm
+            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = D_Qa[i];
+            tmp_nb_var++;
+
+            // Qsw
+            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = D_Qsw[i];
+            tmp_nb_var++;
+
+            // Qlw
+            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = D_Qlw[i];
+            tmp_nb_var++;
+
+            // Qsh
+            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = D_Qsh[i];
+            tmp_nb_var++;
+
+            // Qlh
+            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = D_Qlh[i];
+            tmp_nb_var++;
+
+            // Qocean
+            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = D_Qo[i];
+            tmp_nb_var++;
+
+            // Saltflux
+            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = D_delS[i];
             tmp_nb_var++;
         }
 
@@ -2298,14 +2350,15 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
 {
     M_comm.barrier();
 
-    int ALE_smoothing_step_nb = vm["simul.ALE_smoothing_step_nb"].as<int>();
-    // ALE_smoothing_step_nb<0 is the diffusive eulerian case where M_UM is not changed and then =0.
-    // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
-    // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
 
     std::vector<double> UM_P = M_UM;
 
     interp_elt_out.resize(M_nb_var_element*M_num_elements);
+
+    int ALE_smoothing_step_nb = vm["simul.ALE_smoothing_step_nb"].as<int>();
+    // ALE_smoothing_step_nb<0 is the diffusive eulerian case where M_UM is not changed and then =0.
+    // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
+    // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
 
     if(ALE_smoothing_step_nb>=0)
     {
@@ -2364,12 +2417,15 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
             M_UM[nd] += time_step*M_VT_smoothed[nd];
         }
 
+        // set back the neumann nodes (open boundaries) at their position, the fluxes will be computed thanks to the convective velocity
         for (const int& nd : M_neumann_nodes)
         {
             M_UM[nd] = UM_P[nd];
         }
     }
 
+    LOG(DEBUG) <<"VT MIN= "<< *std::min_element(M_VT.begin(),M_VT.end()) <<"\n";
+    LOG(DEBUG) <<"VT MAX= "<< *std::max_element(M_VT.begin(),M_VT.end()) <<"\n";
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
@@ -2392,6 +2448,7 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
          *======================================================================
          */
 
+        /* convective velocity */
         for(int i=0;i<3;i++)
         {
             x_ind = (M_elements[cpt]).indices[i]-1;
@@ -2428,7 +2485,7 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
             vector_edge[0] = x[vertex_2]-x[vertex_1];
             vector_edge[1] = y[vertex_2]-y[vertex_1];
 
-            outer_vector[0] = vector_edge[1];
+            outer_vector[0] =  vector_edge[1];
             outer_vector[1] = -vector_edge[0];
 
             VC_middle[0] = (VC_x[vertex_2]+VC_x[vertex_1])/2.;
@@ -2440,7 +2497,7 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
             {
                 surface = this->measure(M_elements[cpt],M_mesh, UM_P);
                 outer_fluxes_area[i] = std::min(surface/time_step/3.,outer_fluxes_area[i]);
-                fluxes_source_id[i] = cpt;
+                fluxes_source_id[i]  = cpt;
             }
             else
             {
@@ -2454,7 +2511,7 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
                 {
                     surface = this->measure(M_elements[neighbour_int-1],M_mesh, UM_P);
                     outer_fluxes_area[i] = -std::min(surface/time_step/3.,-outer_fluxes_area[i]);
-                    fluxes_source_id[i] = neighbour_int-1;
+                    fluxes_source_id[i]  = neighbour_int-1;
                 }
                 else // open boundary with incoming fluxes
                 {
@@ -2755,7 +2812,7 @@ FiniteElement::diffuse(std::vector<double>& variable_elt, double diffusivity_par
             for(int i=0;i<3;i++)
             {
                 neighbour_double = bamgmesh_root->ElementConnectivity[cpt*3+i];
-                neighbour_int = (int)bamgmesh_root->ElementConnectivity[cpt*3+i];
+                neighbour_int    = (int)bamgmesh_root->ElementConnectivity[cpt*3+i];
 
                 // neighbour_double = M_element_connectivity[cpt*3+i];
                 // neighbour_int = (int)M_element_connectivity[cpt*3+i];
@@ -2912,6 +2969,11 @@ FiniteElement::gatherFieldsElementIO(std::vector<double>& interp_in_elements, bo
         nb_var_element -= 4;
     }
 
+    if (vm["simul.save_diagnostics"].as<bool>())
+    {
+        nb_var_element += 7;
+    }
+
     timer["gather"].first.restart();
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------IO: GATHER ELEMENT starts\n";
@@ -3025,6 +3087,11 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
         nb_var_element -= 4;
     }
 
+    if (vm["simul.save_diagnostics"].as<bool>())
+    {
+        nb_var_element += 7;
+    }
+
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
 
     std::vector<double> in_elt_values;
@@ -3077,6 +3144,15 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
     M_conc_thin.assign(M_num_elements,0.);
     M_hs_thin.assign(M_num_elements,0.);
     M_tsurf_thin.assign(M_num_elements,0.);
+
+    // Diagnostics
+    D_Qa.assign(M_num_elements,0.);
+    D_Qsh.assign(M_num_elements,0.);
+    D_Qlh.assign(M_num_elements,0.);
+    D_Qlw.assign(M_num_elements,0.);
+    D_Qsw.assign(M_num_elements,0.);
+    D_Qo.assign(M_num_elements,0.);
+    D_delS.assign(M_num_elements,0.);
 
     this->redistributeVariablesIO(out_elt_values, thin_ice);
 
@@ -3973,53 +4049,6 @@ FiniteElement::assemble(int pcpt)
     M_vector->zero();
     LOG(DEBUG) << "Reinitialize matrix and vector to zero done\n";
 
-    double coef_V, coef_Voce, coef_Vair, coef_basal, coef_X, coef_Y, coef_C;
-    double coef = 0;
-    double coef_P = 0.;
-    double mass_e = 0.;
-    double surface_e = 0.;
-    double g_ssh_e_x = 0.;
-    double g_ssh_e = 0.;
-    double g_ssh_e_y = 0.;
-    double tmp_thick, tmp_conc;
-    double coef_sigma;
-
-    double welt_oce_ice = 0.;
-    double welt_air_ice = 0.;
-    double welt_ice = 0.;
-    double welt_ssh = 0.;
-    double element_ssh = 0.;
-    double critical_h = 0.;
-
-    double max_keel_height;
-    double ice_to_keel_factor;
-    double keel_height_estimate;
-    double critical_h_mod;
-
-    double norm_Voce_ice = 0.;
-    double norm_Voce_ice_min = 0.;
-    double norm_Vair_ice = 0.;
-    double norm_Vair_ice_min = 0.;
-    double norm_Vice = 0.;
-
-    double Vcor_index_v, Vcor_index_u;
-
-    double b0tj_sigma_hu = 0.;
-    double b0tj_sigma_hv = 0.;
-    double mloc = 0.;
-    double dloc = 0.;
-
-    double undamaged_time_relaxation_sigma= 0.;
-    double exponent_relaxation_sigma = 0.;;
-
-    double time_viscous = 0.;
-    double multiplicator = 0.;
-
-
-    double duu, dvu, duv, dvv;
-    int index_u, index_v;
-
-    int nind;
 
     //std::vector<int> extended_dirichlet_nodes = M_dirichlet_nodes;
 
@@ -4055,13 +4084,8 @@ FiniteElement::assemble(int pcpt)
 
     // ---------- Assembling starts -----------
 
-    // if (M_rank == 0)
-    //     std::cout<<"Assembling starts\n";
-
     timer["assembly"].first.restart();
-    LOG(DEBUG) <<"Loop starts...\n";
-    int cpt = 0;
-    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
+    for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
 
         // total thickness and concentration
@@ -4081,61 +4105,61 @@ FiniteElement::assemble(int pcpt)
         total_thickness =       (vm["simul.min_h"].as<double>()>total_thickness)        ? vm["simul.min_h"].as<double>() : total_thickness;
         total_concentration =   (vm["simul.min_c"].as<double>()>total_concentration)    ? vm["simul.min_c"].as<double>() : total_concentration;
 
-        // values used when no ice or when ice too thin
         double coef_min = 100.;
-        double coef_drag = 0.;
+
+        // values used when no ice or when ice too thin
+        double coef_drag    = 0.;  // coef_drag is a switch that set the external forcings to 0 (wind, ocean, bottom drag, waves stress) where there is too little ice
+        double coef         = coef_min;
+        double mass_e       = 0.;
+        double coef_C       = 0.;
+        double coef_V       = 0.;
+        double coef_X       = 0.;
+        double coef_Y       = 0.;
+        double coef_sigma   = 0.;
 
 
-        coef = coef_min;
-        mass_e = 0.;
-        coef_C = 0.;
-        coef_V = 0.;
-        coef_X = 0.;
-        coef_Y = 0.;
-        coef_sigma = 0.;
+        // temporary variables
+        double mloc = 0.;
+        double dloc = 0.;
 
-        coef_Vair = 0.;
-        coef_Voce = 0.;
-        coef_basal = 0.;
-        coef_P = 0.;
+        double b0tj_sigma_hu = 0.;
+        double b0tj_sigma_hv = 0.;
 
-        mloc = 0.;
-        dloc = 0.;
+        double coef_Vair = 0.;
+        double coef_Voce = 0.;
+        double coef_basal = 0.;
 
-        b0tj_sigma_hu = 0.;
-        b0tj_sigma_hv = 0.;
+        double undamaged_time_relaxation_sigma = vm["simul.undamaged_time_relaxation_sigma"].as<double>();
+        double exponent_relaxation_sigma = vm["simul.exponent_relaxation_sigma"].as<double>();
 
-        undamaged_time_relaxation_sigma = vm["simul.undamaged_time_relaxation_sigma"].as<double>();
-        exponent_relaxation_sigma = vm["simul.exponent_relaxation_sigma"].as<double>();
+        double time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-M_damage[cpt],exponent_relaxation_sigma-1.);
+        double multiplicator = time_viscous/(time_viscous+time_step);
 
-        time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-M_damage[cpt],exponent_relaxation_sigma-1.);
-        multiplicator = time_viscous/(time_viscous+time_step);
+        double norm_Voce_ice = 0.;
+        double norm_Voce_ice_min = 0.01; // minimum value to avoid 0 water drag term.
 
-        norm_Voce_ice = 0.;
-        norm_Voce_ice_min = 0.01; // minimum value to avoid 0 water drag term.
+        double norm_Vair_ice = 0.;
+        double norm_Vair_ice_min = 0.01; // minimum value to avoid 0 water drag term.
 
-        norm_Vair_ice = 0.;
-        norm_Vair_ice_min = 0.01; // minimum value to avoid 0 water drag term.
+        double norm_Vice = 0.;
 
-        norm_Vice = 0.;
-
-        element_ssh = 0.;
-        critical_h = 0.;
-        max_keel_height=28; // [m] from "A comprehensive analysis of the morphology of first-year sea ice ridges"
-        ice_to_keel_factor=19.28; // from "A comprehensive analysis of the morphology of first-year sea ice ridges"
-        keel_height_estimate;
-        critical_h_mod=0.;
+        double element_ssh = 0.;
+        double critical_h = 0.;
+        double max_keel_height=28; // [m] from "A comprehensive analysis of the morphology of first-year sea ice ridges"
+        double ice_to_keel_factor=19.28; // from "A comprehensive analysis of the morphology of first-year sea ice ridges"
+        double keel_height_estimate;
+        double critical_h_mod=0.;
 
         if( (M_conc[cpt] > vm["simul.min_c"].as<double>()) && (M_thick[cpt] > vm["simul.min_h"].as<double>()) )
         {
             /* Compute the value that only depends on the element */
-            welt_ice = 0.;
-            welt_ssh = 0.;
-            nind = 0;
+            double welt_ice = 0.;
+            double welt_ssh = 0.;
+            int nind;
 
             for (int i=0; i<3; ++i)
             {
-                nind = it->indices[i]-1;
+                nind = (M_elements[cpt]).indices[i]-1;
                 welt_ssh += M_ssh[nind];
             }
 
@@ -4191,13 +4215,13 @@ FiniteElement::assemble(int pcpt)
             }
 
             /* compute the x and y derivative of g*ssh */
-            g_ssh_e_x = 0.;
-            g_ssh_e_y = 0.;
-            g_ssh_e = 0.;
+            double g_ssh_e_x = 0.;
+            double g_ssh_e_y = 0.;
+            double g_ssh_e;
 
             for(int i=0; i<3; i++)
             {
-                g_ssh_e = (physical::gravity)*M_ssh[it->indices[i]-1] /*g_ssh*/;   /* g*ssh at the node k of the element e */
+                g_ssh_e = (physical::gravity)*M_ssh[(M_elements[cpt]).indices[i]-1] /*g_ssh*/;   /* g*ssh at the node k of the element e */
                 g_ssh_e_x += M_shape_coeff[cpt][i]*g_ssh_e; /* x derivative of g*ssh */
                 g_ssh_e_y += M_shape_coeff[cpt][i+3]*g_ssh_e; /* y derivative of g*ssh */
             }
@@ -4209,20 +4233,6 @@ FiniteElement::assemble(int pcpt)
             coef_Y = - mass_e*g_ssh_e_y;              /* for the ocean slope */
             coef_sigma = M_thick[cpt]*multiplicator;
 
-        } // test assemble
-
-        surface_e = M_surface[cpt];
-
-        if (0)
-        {
-            std::cout<<"************************\n";
-            std::cout<<"Coef_C    = "<< coef_C <<"\n";
-            std::cout<<"Coef_V    = "<< coef_V <<"\n";
-            std::cout<<"Coef_X    = "<< coef_X <<"\n";
-            std::cout<<"Coef_Y    = "<< coef_Y <<"\n";
-            std::cout<<"coef_Vair = "<< coef_Vair <<"\n";
-            std::cout<<"coef_Voce = "<< coef_Voce <<"\n";
-            std::cout<<"coef_basal= "<< coef_basal <<"\n";
         }
 
         std::vector<int> rindices(6); //new
@@ -4231,9 +4241,9 @@ FiniteElement::assemble(int pcpt)
 
         for (int s=0; s<3; ++s)
         {
-            int index_u = it->indices[s]-1;
+            int index_u = (M_elements[cpt]).indices[s]-1;
 
-            if (!(it->ghostNodes[s]))
+            if (!((M_elements[cpt]).ghostNodes[s]))
             {
                 rindices[2*vs] = index_u;
                 rindices[2*vs+1] = index_u+M_local_ndof;
@@ -4246,16 +4256,7 @@ FiniteElement::assemble(int pcpt)
 
         rindices.resize(2*vs);
 
-        int nlrow = rindices.size();
-        int nlcol = cindices.size();
-
-        std::vector<double> data(nlrow*nlcol,0.);
-        std::vector<double> fvdata(nlcol,0.);
-
-
-        int l_j = -1;
-
-        /* Loop over the 6 by 6 components of the finite element intergrale
+        /* Loop over the 6 by 6 components of the finite element integral
          * this is done smartly by looping over j=0:2 and i=0:2
          * col = (mwIndex)it[2*j]-1  , row = (mwIndex)it[2*i]-1;
          * col  , row   -> UU component
@@ -4263,13 +4264,20 @@ FiniteElement::assemble(int pcpt)
          * col+1, row   -> VV component
          * col+1, row+1 -> UV component */
 
+        double Vcor_index_v, Vcor_index_u;
+        double surface_e = M_surface[cpt];
+        double duu, dvu, duv, dvv;
+        std::vector<double> data(36);
+        std::vector<double> fvdata(6,0.);
+
+        int l_j = -1; // node counter to skip gohsts
         for(int j=0; j<3; j++)
         {
             /* Column corresponding to indice j (we also assemble terms in col+1) */
             //col = (mwIndex)it[2*j]-1; /* -1 to use the indice convention of C */
 
-            index_u = it->indices[j]-1;
-            index_v = it->indices[j]-1+M_num_nodes;
+            int index_u = (M_elements[cpt]).indices[j]-1;
+            int index_v = (M_elements[cpt]).indices[j]-1+M_num_nodes;
 
             double vt_u = M_VT[index_u];
             double vt_v = M_VT[index_v];
@@ -4280,11 +4288,11 @@ FiniteElement::assemble(int pcpt)
             double wind_u = M_wind[index_u];
             double wind_v = M_wind[index_v];
 
-
             Vcor_index_v = beta0*vt_v + beta1*M_VTM[index_v] + beta2*M_VTMM[index_v];
             Vcor_index_u = beta0*vt_u + beta1*M_VTM[index_u] + beta2*M_VTMM[index_u];
 
-            if (!(it->ghostNodes[j]))
+            /* Skip gohst nodes */
+            if (!((M_elements[cpt]).ghostNodes[j]))
             {
                 l_j = l_j + 1;
 
@@ -4305,7 +4313,8 @@ FiniteElement::assemble(int pcpt)
                         b0tj_sigma_hv += M_B0T[cpt][k*6+2*i+1]*(M_sigma[3*cpt+k]*coef_sigma/*+sigma_P[k]*/);
                     }
 
-                    // --------------------------------------------------------------------------------------------------------
+                    /* ---------- UU component */
+
                     norm_Voce_ice = std::hypot(M_VT[index_u]-M_ocean[index_u],M_VT[index_v]-M_ocean[index_v]);
                     norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
 
@@ -4323,9 +4332,7 @@ FiniteElement::assemble(int pcpt)
 
                     coef_basal = basal_k2/norm_Vice;
                     coef_basal *= coef_drag*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
-                    // --------------------------------------------------------------------------------------------------------
 
-                    /* ---------- UU component */
                     duu = surface_e*( mloc*(coef_V)
                                       +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
                                       +M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*time_step );
@@ -4341,13 +4348,13 @@ FiniteElement::assemble(int pcpt)
                                       +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
                                       +M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*time_step );
 
-#if 1
                     data[(2*l_j  )*6+2*i  ] = duu;
                     data[(2*l_j+1)*6+2*i  ] = dvu;
                     data[(2*l_j  )*6+2*i+1] = duv;
                     data[(2*l_j+1)*6+2*i+1] = dvv;
 
                     fvdata[2*i] += surface_e*( mloc*(
+                                                     // TODO: +coef_drag*M_tau[index_u] <- waves are not here yet!!
                                                      +coef_X
                                                      +coef_V*vt_u
                                                      +coef_C*Vcor_index_v
@@ -4359,8 +4366,8 @@ FiniteElement::assemble(int pcpt)
                                                       )
                                                - b0tj_sigma_hu/3);
 
-
                     fvdata[2*i+1] += surface_e*( mloc*(
+                                                       // TODO: +coef_drag*M_tau[index_v] <- waves are not here yet!!
                                                        +coef_Y
                                                        +coef_V*vt_v
                                                        -coef_C*Vcor_index_u
@@ -4371,7 +4378,6 @@ FiniteElement::assemble(int pcpt)
                                                         +coef_Voce*sin_ocean_turning_angle*(ocean_u-vt_u)
                                                         )
                                                  - b0tj_sigma_hv/3);
-#endif
                 }
             }
         }
@@ -4382,21 +4388,7 @@ FiniteElement::assemble(int pcpt)
         // update vector
         M_vector->addVector(&cindices[0], cindices.size(), &fvdata[0]);
 
-        if ((cpt < 0))
-        {
-            std::cout<<"-------------------------------------------\n";
 
-            for (int i=0; i<nlrow; ++i)
-            {
-                for (int j=0; j<nlcol; ++j)
-                {
-                    std::cout<< std::left << std::setw(12) << data[nlcol*i+j] <<"  ";
-                }
-                std::cout<<"\n";
-            }
-        }
-
-        ++cpt;
     }
 
     // close petsc matrix
@@ -4404,68 +4396,13 @@ FiniteElement::assemble(int pcpt)
     M_matrix->close();
     LOG(DEBUG) <<"Closing matrix done\n";
 
-#if 0
-    if (pcpt == 0)
-    {
-        M_matrix->sameNonZeroPattern();
-    }
-#endif
-
     // close petsc vector
     LOG(DEBUG) <<"Closing vector starts\n";
     M_vector->close();
     LOG(DEBUG) <<"Closing vector done\n";
 
-    if (M_rank == 0)
-    {
-        //std::cout<<"TIMER ASSEMBLY= " << timer["assembly"].first.elapsed() <<"s\n";
-    }
-    //std::cout<<"[" << M_rank <<"] " <<" TIMER ASSEMBLY= " << chrono.elapsed() <<"s\n";
-
-    // extended dirichlet nodes (add nodes where M_conc <= 0)
-    timer["dirichlet"].first.restart();
-
-#if 0
-    for (int i=0; i<M_local_ndof; ++i)
-    {
-        if(!M_valid_conc[i])
-        {
-            extended_dirichlet_nodes.push_back(i);
-            extended_dirichlet_nodes.push_back(i+M_num_nodes);
-        }
-    }
-    std::sort(extended_dirichlet_nodes.begin(), extended_dirichlet_nodes.end());
-    extended_dirichlet_nodes.erase(std::unique( extended_dirichlet_nodes.begin(), extended_dirichlet_nodes.end() ), extended_dirichlet_nodes.end());
-
-    std::cout<<"["<< M_rank <<"] EXTENDED = "<< extended_dirichlet_nodes.size() <<"\n";
-    std::cout<<"["<< M_rank <<"] DIRICHLET= "<< M_dirichlet_nodes.size() <<"\n";
-#endif
-
     M_matrix->on(M_dirichlet_nodes,*M_vector);
 
-    // if (M_rank==0)
-    //     std::cout <<"TIMER DBCA= " << timer["dirichlet"].first.elapsed() <<"s\n";
-
-#if 0
-    int S1 = M_matrix->size1();
-    int S2 = M_matrix->size2();
-    double _norm = M_matrix->linftyNorm();
-    double _l2norm = M_vector->l2Norm();
-
-    if (M_rank == 0)
-    {
-        std::cout<<"[PETSC MATRIX] CLOSED          = "<< M_matrix->closed() <<"\n";
-        //std::cout<<"[PETSC MATRIX] SIZE        = "<< M_matrix->size1() << " " << M_matrix->size2() <<"\n";
-        std::cout<<"[PETSC MATRIX] SIZE            = "<< S1 << " " << S2 <<"\n";
-        //std::cout<<"[PETSC MATRIX] SYMMETRIC   = "<< M_matrix->isSymmetric() <<"\n";
-        //std::cout<<"[PETSC MATRIX] NORM        = "<< M_matrix->linftyNorm() <<"\n";
-        std::cout<<"[PETSC MATRIX] NORM            = "<< _norm <<"\n";
-        std::cout<<"[PETSC VECTOR] NORM            = "<< _l2norm <<"\n";
-    }
-#endif
-
-    //M_matrix->printMatlab("stiffness.m");
-    //M_vector->printMatlab("rhs.m");
 }
 
 void
@@ -4628,33 +4565,9 @@ FiniteElement::update()
     // advect
     std::vector<double> interp_elt_out;
     this->advectRoot(interp_elt_in_local, interp_elt_out);
-#if 1
+
     // redistribute the interpolated values
     this->redistributeVariables(interp_elt_out);
-
-    double old_damage;
-    /* deformation, deformation rate and internal stress tensor and temporary variables */
-    double epsilon_veloc_i;
-    std::vector<double> epsilon_veloc(3);
-
-    std::vector<double> sigma_pred(3);
-    double sigma_dot_i;
-
-    /* divergence */
-    double divergence_rate;
-
-    /* shear*/
-    double shear_rate;
-
-    // ridging scheme
-    double delta_ridging;
-    double G_star=0.15;
-    double e_factor=2.;
-
-    /* invariant of the internal stress tensor and some variables used for the damaging process*/
-    double sigma_s, sigma_n, sigma_1, sigma_2;
-    double tract_max, sigma_t, sigma_c, q;
-    double tmp, sigma_target;
 
     // Horizontal diffusion
     this->diffuse(M_sst,vm["simul.diffusivity_sst"].as<double>(),M_res_root_mesh);
@@ -4662,6 +4575,30 @@ FiniteElement::update()
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
+        double old_damage;
+        /* deformation, deformation rate and internal stress tensor and temporary variables */
+        double epsilon_veloc_i;
+        std::vector<double> epsilon_veloc(3);
+
+        /* divergence */
+        double divergence_rate;
+
+        /* shear*/
+        double shear_rate;
+
+        // ridging scheme
+        double delta_ridging;
+        double G_star=0.15;
+        double e_factor=2.;
+
+        std::vector<double> sigma_pred(3);
+        double sigma_dot_i;
+
+        /* invariant of the internal stress tensor and some variables used for the damaging process*/
+        double sigma_s, sigma_n, sigma_1, sigma_2;
+        double tract_max, sigma_t, sigma_c, q;
+        double tmp, sigma_target;
+
         // Temporary memory
         old_damage = M_damage[cpt];
 
@@ -4688,7 +4625,6 @@ FiniteElement::update()
         divergence_rate = (epsilon_veloc[0]+epsilon_veloc[1]);
         shear_rate= std::hypot(epsilon_veloc[0]-epsilon_veloc[1],epsilon_veloc[2]);
         delta_ridging= std::hypot(divergence_rate,shear_rate/e_factor);
-
 
         /*======================================================================
          * Ridging scheme
@@ -4728,7 +4664,6 @@ FiniteElement::update()
         double newsnow = 0.;
 
         double ridge_thin_ice_aspect_ratio=10.;
-
 
 #if 1
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
@@ -4839,7 +4774,7 @@ FiniteElement::update()
         /* Compute the shear and normal stress, which are two invariants of the internal stress tensor */
 
         sigma_s = std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
-        sigma_n = -          (sigma_pred[0]+sigma_pred[1])/2.;
+        sigma_n =-          (sigma_pred[0]+sigma_pred[1])/2.;
 
         sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
         sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
@@ -4906,24 +4841,7 @@ FiniteElement::update()
                 M_damage[cpt] = tmp;
             }
         }
-#if 0
-        /*
-         * Diagnostic:
-         * Recompute the internal stress
-         */
 
-        for(int i=0;i<3;i++)
-        {
-            if(old_damage<1.0)
-            {
-                M_sigma[3*cpt+i] = (1.-M_damage[cpt])/(1.-old_damage)*M_sigma[3*cpt+i] ;
-            }
-            else
-            {
-                M_sigma[3*cpt+i] = 0. ;
-            }
-        }
-#endif
         }
         else // if M_conc or M_thick too low, set sigma to 0.
         {
@@ -4957,9 +4875,8 @@ FiniteElement::update()
         }
 
         M_damage[cpt]=((tmp>0.)?(tmp):(0.));
-    }
-#endif
-}
+    }//loop over elements
+}//update
 
 void
 FiniteElement::solve()
@@ -4977,7 +4894,7 @@ FiniteElement::solve()
                     _ksp=vm["solver.ksp-type"].as<std::string>()/*"preonly"*/,
                     _pc=vm["solver.pc-type"].as<std::string>()/*"cholesky"*/,
                     _pcfactormatsolverpackage=vm["solver.mat-package-type"].as<std::string>()/*"cholmod"*/,
-                    _reuse_prec=vm["solver.ksp-reuse-prec"].as<bool>()/*false*/,
+                    _reuse_prec=vm["solver.ksp-reuse-prec"].as<bool>()/*true*/,
                     _rebuild=M_regrid
                     );
 
@@ -4991,7 +4908,6 @@ FiniteElement::solve()
 }
 
 // Routine for the 1D thermodynamical model
-// No thin ice for now
 // No stability dependent drag for now
 void
 FiniteElement::thermo()
@@ -5283,83 +5199,83 @@ FiniteElement::thermo()
         /* Freezing conditions */
         switch ( newice_type )
         {
-             case 1:
-                 /* Hibler's (79) approach */
-                 del_c = newice*rh0;
-                 break;
-             case 2:
-                 /* Mellor and Kantha (89) */
-                 if ( hi_old > 0. )
-                 {
-                     del_c = newice*PhiF/hi_old;
-                 }
-                 else
-                 {
-                     if ( newice > 0. )
-                     {
-                         del_c = 1.;
-                     }
-                     else
-                     {
-                         del_c = 0.;
-                     }
-                 }
-                 break;
-             case 3:
-                 /* Olason and Harms (09) */
-                 h0    = (1.+0.1*wspeed)/15.;
-                 del_c = newice/std::max(rPhiF*hi_old,h0);
-                 break;
-             case 4:
-                 /* Thin ice category */
-                 M_h_thin[i]+=newice;
-                 M_conc_thin[i]=std::min(1.-M_conc[i],M_conc_thin[i]+newice/h_thin_min);
-                 newice  = 0.;
-                 newsnow = 0.;
+            case 1:
+                /* Hibler's (79) approach */
+                del_c = newice*rh0;
+                break;
+            case 2:
+                /* Mellor and Kantha (89) */
+                if ( hi_old > 0. )
+                {
+                    del_c = newice*PhiF/hi_old;
+                }
+                else
+                {
+                    if ( newice > 0. )
+                    {
+                        del_c = 1.;
+                    }
+                    else
+                    {
+                        del_c = 0.;
+                    }
+                }
+                break;
+            case 3:
+                /* Olason and Harms (09) */
+                h0    = (1.+0.1*wspeed)/15.;
+                del_c = newice/std::max(rPhiF*hi_old,h0);
+                break;
+            case 4:
+                /* Thin ice category */
+                M_h_thin[i]+=newice;
+                M_conc_thin[i]=std::min(1.-M_conc[i],M_conc_thin[i]+newice/h_thin_min);
+                newice  = 0.;
+                newsnow = 0.;
 
-                 if(M_conc_thin[i]>0.)
-                 {
-                     /* Two cases: Thin ice fills the cell or not */
-                     if ( M_h_thin[i] < h_thin_min*M_conc_thin[i] )
-                     {
-                         M_conc_thin[i] = M_h_thin[i]/h_thin_min;
-                     }
-                     else
-                     {
-                         h0 = h_thin_min + 2.*(M_h_thin[i]-h_thin_min*M_conc_thin[i])/(M_conc_thin[i]);
-                         if(h0>h_thin_max)
-                         {
-                             del_c = M_conc_thin[i]/(h0-h_thin_min) * (h0-h_thin_max);
-                             double del_h_thin = del_c*(h0+h_thin_max)/2.;
-                             double del_hs_thin = del_c*M_hs_thin[i]/M_conc_thin[i];
+                if(M_conc_thin[i]>0.)
+                {
+                    /* Two cases: Thin ice fills the cell or not */
+                    if ( M_h_thin[i] < h_thin_min*M_conc_thin[i] )
+                    {
+                        M_conc_thin[i] = M_h_thin[i]/h_thin_min;
+                    }
+                    else
+                    {
+                        h0 = h_thin_min + 2.*(M_h_thin[i]-h_thin_min*M_conc_thin[i])/(M_conc_thin[i]);
+                        if(h0>h_thin_max)
+                        {
+                            del_c = M_conc_thin[i]/(h0-h_thin_min) * (h0-h_thin_max);
+                            double del_h_thin = del_c*(h0+h_thin_max)/2.;
+                            double del_hs_thin = del_c*M_hs_thin[i]/M_conc_thin[i];
 
-                             M_thick[i] += del_h_thin;
-                             // M_conc[i]  += del_c; ; <- this is done properly below
+                            M_thick[i] += del_h_thin;
+                            // M_conc[i]  += del_c; ; <- this is done properly below
 
-                             newice  = del_h_thin; // Reset newice to use below
-                             newsnow = del_hs_thin;
-                             // M_snow_thick[i] += newsnow; <- this is done properly below
+                            newice  = del_h_thin; // Reset newice to use below
+                            newsnow = del_hs_thin;
+                            // M_snow_thick[i] += newsnow; <- this is done properly below
 
-                             M_conc_thin[i] -= del_c;
-                             M_h_thin[i]    -= del_h_thin;
-                             M_hs_thin[i]   -= del_hs_thin;
-                         }
-                     }
-                 }
-                 else // we should not have thin ice, no space for it
-                 {
-                     M_thick[i] += M_h_thin[i];
+                            M_conc_thin[i] -= del_c;
+                            M_h_thin[i]    -= del_h_thin;
+                            M_hs_thin[i]   -= del_hs_thin;
+                        }
+                    }
+                }
+                else // we should not have thin ice, no space for it
+                {
+                    M_thick[i] += M_h_thin[i];
 
-                     newice  = M_h_thin[i];
-                     newsnow = M_hs_thin[i];
+                    newice  = M_h_thin[i];
+                    newsnow = M_hs_thin[i];
 
-                     M_h_thin[i] = 0.;
-                     M_hs_thin[i]= 0.;
-                 }
-                 break;
-             default:
-                 std::cout << "newice_type = " << newice_type << "\n";
-                 throw std::logic_error("Wrong newice_type");
+                    M_h_thin[i] = 0.;
+                    M_hs_thin[i]= 0.;
+                }
+                break;
+            default:
+                std::cout << "newice_type = " << newice_type << "\n";
+                throw std::logic_error("Wrong newice_type");
             }
             /* Check bounds on del_c */
             del_c = std::min( 1.-M_conc[i], del_c );
@@ -5449,7 +5365,7 @@ FiniteElement::thermo()
                 M_tice[j][i] = tfrw;
             }
 
-            M_tsurf_thin[i] = tfrw;
+            //M_tsurf_thin[i] = tfrw;
             hi     = 0.;
             hs     = 0.;
         }
@@ -5769,9 +5685,9 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
 
         /* Calculate atmospheric fluxes */
         // Shortwave is modulated by the albedo
-        double Qsw = -Qsw_in*(1.-FiniteElement::albedo(alb_scheme, Tsurf, hs, alb_sn, alb_ice, I_0))*(1.-I_0);
+        double Qsw = -Qsw_in*(1.-this->albedo(alb_scheme, Tsurf, hs, alb_sn, alb_ice, I_0))*(1.-I_0);
         // The rest is calculated by bulk formula
-        FiniteElement::atmFluxBulk(i, Tsurf, sphuma, drag_ice_t, Qsw, Qlw_in, wspeed, Qai, dQaidT,subl,
+        this->atmFluxBulk(i, Tsurf, sphuma, drag_ice_t, Qsw, Qlw_in, wspeed, Qai, dQaidT,subl,
                 Qsh, Qlh, Qlw);
 
         // First some coefficients based on temperatures from the previous time step
@@ -5845,7 +5761,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         }
 
         // Bottom melt/freezing
-        Qio    = FiniteElement::iceOceanHeatflux(i, M_sst[i], M_sss[i], mld, dt);
+        Qio    = this->iceOceanHeatflux(i, M_sst[i], M_sss[i], mld, dt);
         double Mbot  = Qio - 4*physical::ki*(Tbot-T2)/hi; // (23)
 
         // Growth/melt at the ice-ocean interface
@@ -6013,7 +5929,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
             // Shortwave is modulated by the albedo
             Qsw = -Qsw_in*(1.-albedo)*(1.-I_0);
             // The rest is calculated by bulk formula
-            FiniteElement::atmFluxBulk(i, Tsurf, sphuma, drag_ice_t, Qsw, Qlw_in, wspeed, Qai, dQaidT,subl,
+            this->atmFluxBulk(i, Tsurf, sphuma, drag_ice_t, Qsw, Qlw_in, wspeed, Qai, dQaidT,subl,
                     Qsh, Qlh, Qlw);
 
             // -------------------------------------------------
@@ -6057,7 +5973,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         hs  = hs + del_hs + snowfall/physical::rhos*time_step;
 
         /* Heatflux from ocean */
-        Qio = FiniteElement::iceOceanHeatflux(i, M_sst[i], M_sss[i], mld, time_step);
+        Qio = this->iceOceanHeatflux(i, M_sst[i], M_sss[i], mld, time_step);
         /* Bottom melt/growth */
         del_hb = (Qic-Qio)*time_step/qi;
 
@@ -6087,30 +6003,31 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
     }
 }
 
+// Initialise everything
 void
 FiniteElement::init()
 {
+    // Initialise everything that doesn't depend on the mesh (constants, data set description, and time)
+
     // define export path
     M_export_path = Environment::nextsimDir().string() + "/matlab";
     // change directory for outputs if the option "exporter.path" is not empty
     if ( ! (vm["exporter.path"].as<std::string>()).empty() )
     {
         M_export_path = vm["exporter.path"].as<std::string>();
-
         fs::path path(M_export_path);
-        // add a subdirecory if needed
-        // path /= "subdir";
 
         // create the output directory if it does not exist
         if ( (!fs::exists(path)) && (M_comm.rank()==0) )
             fs::create_directories(path);
     }
-    // export path
 
     M_comm.barrier();
 
 
-    // Initialise everything that doesn't depend on the mesh (constants, data set description, and time)
+    pcpt = 0;
+    mesh_adapt_step=0;
+    had_remeshed=false;
     this->initConstant();
     current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
     this->initDatasets();
@@ -6127,43 +6044,24 @@ FiniteElement::init()
     // We need to set the scale_coeff et al after initialising the mesh - this was previously done in initConstants
     // The mean resolution of the small_arctic_10km mesh is 7446.71 m. Using 74.5 gives scale_coef = 0.100022, for that mesh
     boost::mpi::broadcast(M_comm, M_res_root_mesh, 0);
-#if 0
-    scale_coef = std::sqrt(74.5/M_res_root_mesh/*this->resolution(M_mesh)*/);
+    scale_coef = std::sqrt(74.5/M_res_root_mesh);
     C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     LOG(DEBUG) << "SCALE_COEF = " << scale_coef << "\n";
-#endif
 
-    if (!M_use_restart)
+    // Check the minimum angle of the grid
+    double minang = this->minAngle(M_mesh);
+
+    if (minang < vm["simul.regrid_angle"].as<double>())
     {
-        // Check the minimum angle of the grid
-        minang = this->minAngle(M_mesh);
-
-        if (minang < vm["simul.regrid_angle"].as<double>())
-        {
-            // LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
-            std::cout << "[INFO]: " <<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
-            throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
-        }
+        LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
+        throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
     }
-
-    //std::cout<<"-----------------------------------------------------------USE RESTART= "<< M_use_restart <<"\n";
 
     if ( M_use_restart )
     {
         LOG(DEBUG) <<"Reading restart file\n";
         pcpt = this->readRestart(vm["setup.step_nb"].as<int>());
-
-        // Check the minimum angle of the grid
-        minang = this->minAngle(M_mesh);
-
-        if (minang < vm["simul.regrid_angle"].as<double>())
-        {
-            // LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
-            std::cout << "[INFO]: " <<"invalid regridding angle: should be smaller than the minimal angle in the intial grid\n";
-            throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
-        }
-
         current_time = time_init + pcpt*time_step/(24*3600.0);
         if(M_use_osisaf_drifters)
         {
@@ -6174,10 +6072,9 @@ FiniteElement::init()
         {
             LOG(DEBUG) <<"export starts\n";
             //this->exportResults((int) pcpt*time_step/output_time_step);
+            this->exportResults("restart");
             LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
         }
-
-        // std::cout<< "-----------------------------------------------------------pcpt= "<< pcpt <<"\n";
     }
     else
     {
@@ -6186,42 +6083,23 @@ FiniteElement::init()
 
         // Initialise variables
         chrono.restart();
-        timer["initvar"].first.restart();
-        if (M_rank == 0)
-            std::cout <<"Initialize variables\n";
+        LOG(DEBUG) <<"Initialize variables\n";
         this->initVariables();
-        if (M_rank == 0)
-            std::cout <<"Initialize variables done "<< timer["initvar"].first.elapsed() <<"s\n";
     }
 
 
-    timer["atmost"].first.restart();
-    // if (M_rank == 0)
-    //     std::cout <<"Initialize forcingAtmosphere\n";
+    LOG(DEBUG) <<"Initialize forcingAtmosphere\n";
     this->forcingAtmosphere();
-    if (M_rank == 0)
-        std::cout <<"Initialize forcingAtmosphere done in "<< timer["atmost"].first.elapsed() <<"s\n";
 
-    timer["ocean"].first.restart();
-    // if (M_rank == 0)
-    //     std::cout <<"Initialize forcingOcean\n";
+    LOG(DEBUG) <<"Initialize forcingOcean\n";
     this->forcingOcean();
-    if (M_rank == 0)
-        std::cout <<"Initialize forcingOcean done in "<< timer["ocean"].first.elapsed() <<"s\n";
 
-    timer["bathy"].first.restart();
-    // if (M_rank == 0)
-    //     std::cout <<"Initialize bathymetry\n";
+    LOG(DEBUG) <<"Initialize bathymetry\n";
     this->bathymetry();
-    //if (M_rank == 0)
-    //std::cout <<"Initialize bathymetry done in "<< timer["bathy"].first.elapsed() <<"s\n";
 
-    timer["checkload"].first.restart();
-    // if (M_rank == 0)
-    //     std::cout <<"check_and_reload starts\n";
 
     this->checkReloadDatasets(M_external_data,
-                              time_init,
+                              current_time,
                               "init - time-dependant");
     if (M_rank == 0)
         std::cout <<"check_and_reload in "<< timer["checkload"].first.elapsed() <<"s\n";
@@ -6230,11 +6108,9 @@ FiniteElement::init()
     if (!M_use_restart)
     {
         timer["state"].first.restart();
-        // if (M_rank == 0)
-        //     std::cout <<"initModelState starts\n";
         this->initModelState();
         if (M_rank == 0)
-            std::cout <<"initModelState done in "<< timer["state"].first.elapsed() <<"s\n";
+            LOG(DEBUG) <<"initModelState done in "<< timer["state"].first.elapsed() <<"s\n";
     }
 
     // Open the output file for drifters
@@ -6255,89 +6131,87 @@ FiniteElement::init()
         this->initMoorings();
 }
 
- void
- FiniteElement::step()
- {
-     this->updateDrifterPosition();
+// Take one time step
+void
+FiniteElement::step()
+{
+    this->updateDrifterPosition();
 
-     // The first time step we behave as if we just did a regrid
-     M_regrid = (pcpt==0);
+    // The first time step we behave as if we just did a regrid
+    M_regrid = (pcpt==0);
 
-     double displacement_factor = 1.;
-     bool force_regrid = (!(pcpt % 30)) && (pcpt != 0);
+    if (vm["simul.regrid"].as<std::string>() == "bamg")
+    {
+        double displacement_factor = 1.;
+        minang = this->minAngle(M_mesh,M_UM,displacement_factor);
 
-     if (vm["simul.regrid"].as<std::string>() == "bamg")
-     {
-         minang = this->minAngle(M_mesh,M_UM,displacement_factor);
+        if (M_rank == 0)
+        {
+            if(fmod(pcpt*time_step, ptime_step) == 0)
+            {
+                std::cout <<"NB OF REGGRIDING= " << M_nb_regrid <<"\n";
+            }
 
-         if (M_rank == 0)
-         {
-             if(fmod(pcpt*time_step, ptime_step) == 0)
-             {
-                 std::cout <<"NB OF REGGRIDING= " << M_nb_regrid <<"\n";
-             }
+            std::cout <<"REGRID ANGLE= "<< minang <<"\n";
+        }
 
-             std::cout <<"REGRID ANGLE= "<< minang <<"\n";
-         }
+        if ( minang < vm["simul.regrid_angle"].as<double>() )
+        {
+            if ( (M_use_moorings) && (!M_moorings_snapshot) )
+            {
+                M_moorings.updateGridMean(M_mesh);
+            }
+            // this->exportResults(1000+M_nb_regrid);
+            LOG(DEBUG) <<"Regriding starts\n";
+            chrono.restart();
+            this->regrid(pcpt);
+            // this->exportResults(2000+M_nb_regrid);
+            LOG(DEBUG) <<"Regriding done in "<< chrono.elapsed() <<"s\n";
 
-         // if ( (0 < pcpt) && (pcpt < 4) )
-         if ( minang < vm["simul.regrid_angle"].as<double>() )
-         {
-             if ( (M_use_moorings) && (!M_moorings_snapshot) )
-             {
-                 M_moorings.updateGridMean(M_mesh);
-             }
-             // this->exportResults(1000+M_nb_regrid);
-             LOG(DEBUG) <<"Regriding starts\n";
-             chrono.restart();
-             this->regrid(pcpt);
-             // this->exportResults(2000+M_nb_regrid);
-             LOG(DEBUG) <<"Regriding done in "<< chrono.elapsed() <<"s\n";
+            if ( M_use_moorings )
+            {
+                M_moorings.resetMeshMean(M_mesh);
+            }
 
-             if ( M_use_moorings )
-             {
-                 M_moorings.resetMeshMean(M_mesh);
-             }
+            M_regrid = true;
+            ++M_nb_regrid;
+        }
+    }
 
-             M_regrid = true;
-             ++M_nb_regrid;
-         }
-     }
+    M_comm.barrier();
 
-     M_comm.barrier();
+    if ( M_regrid || M_use_restart )
+    {
+        timer["tensors"].first.restart();
+        this->tensors();
+        if (M_rank == 0)
+            std::cout <<"---timer tensors:              "<< timer["tensors"].first.elapsed() <<"\n";
 
-     if ( M_regrid || M_use_restart )
-     {
-         timer["tensors"].first.restart();
-         this->tensors();
-         if (M_rank == 0)
-             std::cout <<"---timer tensors:              "<< timer["tensors"].first.elapsed() <<"\n";
+        timer["cohesion"].first.restart();
+        this->cohesion();
+        if (M_rank == 0)
+            std::cout <<"---timer cohesion:             "<< timer["cohesion"].first.elapsed() <<"\n";
 
-         timer["cohesion"].first.restart();
-         this->cohesion();
-         if (M_rank == 0)
-             std::cout <<"---timer cohesion:             "<< timer["cohesion"].first.elapsed() <<"\n";
+        timer["coriolis"].first.restart();
+        this->coriolis();
+        if (M_rank == 0)
+            std::cout <<"---timer coriolis:             "<< timer["coriolis"].first.elapsed() <<"\n";
+    }
 
-         timer["coriolis"].first.restart();
-         this->coriolis();
-         if (M_rank == 0)
-             std::cout <<"---timer coriolis:             "<< timer["coriolis"].first.elapsed() <<"\n";
-     }
+    timer["reload"].first.restart();
+    this->checkReloadDatasets(M_external_data,
+                              current_time+time_step/(24*3600.0),
+                              "init - time-dependant");
+    if (M_rank == 0)
+        std::cout <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
 
-     timer["reload"].first.restart();
-     this->checkReloadDatasets(M_external_data,
-                               current_time+time_step/(24*3600.0),
-                               "init - time-dependant");
-     if (M_rank == 0)
-         std::cout <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
-
-     if (pcpt == 0)
-     {
-         LOG(DEBUG) <<"first export starts\n";
-         this->exportResults(0);
-         //this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
-         LOG(DEBUG) <<"first export done\n";
-     }
+    if (pcpt == 0)
+    {
+        LOG(DEBUG) <<"first export starts\n";
+        this->exportResults(0);
+        //this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
+        LOG(DEBUG) <<"first export done\n";
+    }
 
     //======================================================================
     // Do the thermodynamics
@@ -6428,7 +6302,7 @@ FiniteElement::init()
 #endif
  }
 
- // This is the main working function, called from main.cpp (same as perform_simul in the old code)
+// This is the main working function, called from main.cpp (same as perform_simul in the old code)
 void
 FiniteElement::run()
 {
@@ -6439,15 +6313,10 @@ FiniteElement::run()
     }
 
     std::string current_time_system = current_time_local();
-    double displacement_factor = 1.;
 
     pcpt = 0;
-    niter = vm["simul.maxiteration"].as<int>();
-    mesh_adapt_step = 0;
-    had_remeshed = false;
-    minang = 0.;
-
     this->init();
+    int niter = vm["simul.maxiteration"].as<int>();
 
     // write the logfile: assigned to the process master (rank 0)
     if (M_comm.rank() == 0)
@@ -6466,6 +6335,9 @@ FiniteElement::run()
 
     current_time = time_init + pcpt*time_step/(24*3600.0);
     bool is_running = true;
+    if(duration<=0)
+        is_running = false;
+
 #if 1
     // main loop for nextsim program
     while (is_running)
@@ -6491,8 +6363,6 @@ FiniteElement::run()
         if (pcpt >= niter-1)
             is_running = false;
 
-        //current_time = time_init + pcpt*time_step/days_in_sec;
-
         // **********************************************************************
         // Take one time-step
         // **********************************************************************
@@ -6514,6 +6384,7 @@ FiniteElement::run()
     }
 
     this->exportResults("final");
+
 
     this->finalise();
 
@@ -7537,9 +7408,6 @@ FiniteElement::readRestart(int step)
     boost::unordered_map<std::string, std::vector<int>>    field_map_int;
     boost::unordered_map<std::string, std::vector<double>> field_map_dbl;
 
-    //bool thin_ice = (M_ice_cat_type==setup::IceCategoryType::THIN_ICE);
-    //std::fstream inbin;
-
     if (M_rank == 0)
     {
         M_mesh_filename = (boost::format( "par%1%%2%" ) % M_comm.size() % M_mesh_filename ).str();
@@ -7601,8 +7469,6 @@ FiniteElement::readRestart(int step)
             throw std::runtime_error("File not found: " + filename);
         }
 
-        std::cout<<"filename= "<< filename <<"\n";
-
         exp_field.readRecord(inrecord);
         inrecord.close();
 
@@ -7611,7 +7477,6 @@ FiniteElement::readRestart(int step)
                     % restart_path
                     % step ).str();
 
-        //inbin.open(filename, std::ios::binary | std::ios::in);
         std::fstream inbin(filename, std::ios::binary | std::ios::in);
 
         if ( ! inbin.good() )
@@ -7619,14 +7484,10 @@ FiniteElement::readRestart(int step)
             throw std::runtime_error("File not found: " + filename);
         }
 
-        std::cout<<"filename= "<< filename <<"\n";
-
         field_map_int.clear();
         field_map_dbl.clear();
         exp_field.loadFile(inbin, field_map_int, field_map_dbl);
         inbin.close();
-
-        std::cout<<".......................END PROCESS\n";
 
         // === Recreate the mesh ===
         // Create bamgmesh and bamggeom
@@ -7636,13 +7497,9 @@ FiniteElement::readRestart(int step)
                          coordX.size(), indexTr.size()/3.
                          );
 
-        std::cout<<".....................SIZE= "<< field_map_int["Misc_int"].size() <<"\n";
-
-
-        // Fix boundaries
         auto map_field  = field_map_int["Misc_int"];
+        // Set and check time
         int pcpt        = map_field.at(0);
-        M_flag_fix      = map_field.at(1);
         mesh_adapt_step = map_field.at(2);
         M_nb_regrid     = map_field.at(3);
 
@@ -7655,17 +7512,8 @@ FiniteElement::readRestart(int step)
             std::runtime_error("Inconsistent time information in restart file");
         }
 
-        std::cout<<".....................PCPT      = "<< pcpt <<"\n";
-        std::cout<<".....................M_flag_fix= "<< M_flag_fix <<"\n";
-        //std::cout<<".....................M_current_time= "<< current_time <<"\n";
-        std::cout<<".....................M_mesh_adapt_step= "<< mesh_adapt_step <<"\n";
-
-        current_time = time_init + (pcpt*time_step)/(24*3600);
-
-        std::cout<<"current_time= "<< current_time <<"\n";
-
-
-        //int pcpt = (current_time-time_init)*(24*3600)/time_step;
+        // Fix boundaries
+        M_flag_fix      = map_field.at(1);
 
         std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
 
@@ -7673,16 +7521,16 @@ FiniteElement::readRestart(int step)
         {
             int fnd = bamgmesh_root->Edges[3*edg];
 
-            if ((std::binary_search(dirichlet_flags .begin(),dirichlet_flags.end(),fnd)))
+            if ((std::binary_search(dirichlet_flags.begin(),dirichlet_flags.end(),fnd)))
             {
                 bamggeom_root->Edges[3*edg+2] = M_flag_fix;
                 bamgmesh_root->Edges[3*edg+2] = M_flag_fix;
             }
-            // else
-            // {
-            //     bamggeom_root->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
-            //     bamgmesh_root->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
-            // }
+            else
+            {
+                bamggeom_root->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
+                bamgmesh_root->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
+            }
         }
 
         // Import the bamg structs
@@ -7696,8 +7544,8 @@ FiniteElement::readRestart(int step)
     this->partitionMeshRestart();
 
     // Initialise all the variables to zero
+    // done below
     // this->initVariables();
-#if 1
 
     if (M_rank == 0)
     {
@@ -7774,13 +7622,6 @@ FiniteElement::readRestart(int step)
             }
         }
 
-        // int i=0;
-        // for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
-        // {
-        //     *it = field_map_dbl["M_Tice_"+std::to_string(i)];
-        //     i++;
-        // }
-
         M_sst        = field_map_dbl["M_sst"];
         M_sss        = field_map_dbl["M_sss"];
 
@@ -7851,9 +7692,8 @@ FiniteElement::readRestart(int step)
 
     this->scatterFieldsNode(&interp_nd_out[0]);
 
-#endif
     return pcpt;
-}
+}//readRestart
 
 void
 FiniteElement::partitionMeshRestart()
@@ -8075,39 +7915,6 @@ FiniteElement::updateVelocity()
     M_VTM = M_VT;
     M_VT = M_solution->container();
 
-#if 0
-    std::vector<double> speed_scaling;
-    this->speedScaling(speed_scaling);
-
-    // linear scaling of ice velocity
-    for (int i=0; i<M_num_nodes; ++i)
-    {
-        M_VT[i] *= speed_scaling[i];
-        M_VT[i+M_num_nodes] *= speed_scaling[i];
-    }
-#endif
-
-#if 0
-    M_speed_scaling = speed_scaling;
-
-    double min_elt = *std::min_element(M_VT.begin(),M_VT.end());
-    double max_elt = *std::max_element(M_VT.begin(),M_VT.end());
-
-    // std::cout<<"----------------------------[" << M_rank <<"] " <<" VT MIN= "<< min_elt <<"\n";
-    // std::cout<<"----------------------------[" << M_rank <<"] " <<" VT MAX= "<< max_elt <<"\n";
-
-    M_comm.barrier();
-
-    double gmin = boost::mpi::all_reduce(M_comm, min_elt, boost::mpi::minimum<double>());
-    double gmax = boost::mpi::all_reduce(M_comm, max_elt, boost::mpi::maximum<double>());
-
-    if (M_comm.rank()==0)
-    {
-        std::cout<<"----------------------------VT MIN= "<< gmin <<"\n";
-        std::cout<<"----------------------------VT MAX= "<< gmax <<"\n";
-    }
-#endif
-
     // increment M_UT that is used for the drifters
     for (int nd=0; nd<M_UT.size(); ++nd)
     {
@@ -8259,6 +8066,8 @@ FiniteElement::speedScaling(std::vector<double>& speed_scaling)
 void
 FiniteElement::forcingAtmosphere()
 {
+    double air_temperature_correction=vm["simul.air_temperature_correction"].as<double>();
+    
     switch (M_atmosphere_type)
     {
         case setup::AtmosphereType::CONSTANT:
@@ -8364,10 +8173,10 @@ FiniteElement::forcingAtmosphere()
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_wind);
 
-            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
+            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,air_temperature_correction,false,time_init);
             M_external_data.push_back(&M_tair);
 
-            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
+            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,air_temperature_correction,false,time_init);
             M_external_data.push_back(&M_dair);
 
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
@@ -8390,23 +8199,22 @@ FiniteElement::forcingAtmosphere()
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_wind);
 
-            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
+            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,air_temperature_correction,false,time_init);
             M_external_data.push_back(&M_tair);
 
-            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
+            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,air_temperature_correction,false,time_init);
             M_external_data.push_back(&M_dair);
 
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
             M_external_data.push_back(&M_mslp);
 
-            M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
-            M_external_data.push_back(&M_tcc);
-
-            // Syl: The following two lines should be removed when approxSW will be implemented in Thermo()
-            M_Qsw_in=ExternalData(vm["simul.constant_Qsw_in"].as<double>());
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
             M_external_data.push_back(&M_Qsw_in);
 
-            M_precip=ExternalData(0.);
+            M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
+            M_external_data.push_back(&M_tcc);
+
+            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
             M_external_data.push_back(&M_precip);
         break;
 
@@ -8620,6 +8428,9 @@ FiniteElement::initIce()
         case setup::IceType::TOPAZ4:
             this->topazIce();
             break;
+        case setup::IceType::TOPAZ4OSISAFICESAT:
+            this->topazIceOsisafIcesat();
+            break;
         case setup::IceType::TOPAZ4F:
             this->topazForecastIce();
             break;
@@ -8641,6 +8452,9 @@ FiniteElement::initIce()
         case setup::IceType::CS2_SMOS:
             this->cs2SmosIce();
             break;
+        case setup::IceType::CS2_SMOS_AMSR2:
+            this->cs2SmosAmsr2Ice();
+            break;    
         case setup::IceType::SMOS:
             this->smosIce();
             break;
@@ -8648,8 +8462,6 @@ FiniteElement::initIce()
             std::cout << "invalid initialization of the ice"<<"\n";
             throw std::logic_error("invalid initialization of the ice");
     }
-
-    // std::cout<<"**************************************************************M_num_elements= "<< M_num_elements <<"\n";
 
     double hi, conc_tot, weight_conc;
     // Consistency check for the slab ocean + initialization of the ice temperature (especially for Winton)
@@ -8682,7 +8494,7 @@ FiniteElement::initIce()
         }
 
         conc_tot=M_conc[i]+M_conc_thin[i];
-        weight_conc=std::min(1.,conc_tot*2.);
+        weight_conc=std::min(1.,conc_tot*100.);
         if(conc_tot>0.)
         {
             M_sst[i] = -M_sss[i]*physical::mu*weight_conc+M_sst[i]*(1.-weight_conc);
@@ -8720,7 +8532,7 @@ FiniteElement::initIce()
         }
     }
 
-    this->gatherElementField(M_conc, M_conc_root);
+    //this->gatherElementField(M_conc, M_conc_root);
 }
 
 void
@@ -8797,7 +8609,7 @@ FiniteElement::targetIce()
     {
         tmp_var = (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max)*(RX[i]>=x_min);
 
-        /*        tmp_var = (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max1)*(RX[i]>=x_min1)
+/*        tmp_var = (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max1)*(RX[i]>=x_min1)
                   + (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max2)*(RX[i]>=x_min2);
 */
         /*
@@ -8988,14 +8800,17 @@ FiniteElement::topazIceOsisafIcesat()
     M_external_data_tmp.resize(0);
 
     double tmp_var;
+    double hi;
     for (int i=0; i<M_num_elements; ++i)
     {
 		tmp_var=std::min(1.,M_topaz_conc[i]);
 		M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
 		tmp_var=M_topaz_thick[i];
 		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
-        double hi_topaz=M_thick[i]/M_conc[i];
-        hi_topaz=std::min(hi_topaz,3.); // TOPAZ thickness is only used for FYI and then capped to 3 m, to avoid unrealistic thickness where concentration is low
+
+        hi=M_thick[i]/M_conc[i];
+        if(M_conc[i]<0.1)
+            hi=M_thick[i];
 
         if(M_conc[i]>0.) // use osisaf only where topaz says there is ice to avoid near land issues and fake concentration over the ocean
             M_conc[i]=M_osisaf_conc[i];
@@ -9014,8 +8829,8 @@ FiniteElement::topazIceOsisafIcesat()
         double ratio_MYI=0.9;
         double ratio_Mixed=0.5*(ratio_FYI+ratio_MYI);
 
-        double thick_FYI=hi_topaz;
-        double thick_MYI=std::max(M_icesat_thick[i],hi_topaz);
+        double thick_FYI=hi;
+        double thick_MYI=std::max(M_icesat_thick[i],hi);
         double thick_Mixed=0.5*(thick_FYI+thick_MYI);
 
         if((M_thick[i]>0.)&&(M_conc[i])>0.2)
@@ -9049,7 +8864,7 @@ FiniteElement::topazIceOsisafIcesat()
         else
         {
             M_ridge_ratio[i]=0.;
-            M_thick[i]=hi_topaz;
+            M_thick[i]=hi;
         }
 
         M_ridge_ratio[i]=M_ridge_ratio[i]*M_conc[i]; // Icesat gives the actual thickness (see "Uncertainties in Arctic sea ice thickness and volume: new estimates and implications for trends")
@@ -9122,7 +8937,7 @@ FiniteElement::topazForecastAmsr2Ice()
 {
     double real_thickness, init_conc_tmp;
 
-    external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
+    external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init-0.5);
 
     external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
 
@@ -9132,11 +8947,15 @@ FiniteElement::topazForecastAmsr2Ice()
 
     M_external_data_tmp.resize(0);
     M_external_data_tmp.push_back(&M_conc_amsr2);
+    this->checkReloadDatasets(M_external_data_tmp,time_init-0.5,
+            "init - AMSR2");
+    
+    M_external_data_tmp.resize(0);
     M_external_data_tmp.push_back(&M_init_conc);
     M_external_data_tmp.push_back(&M_init_thick);
     M_external_data_tmp.push_back(&M_init_snow_thick);
     this->checkReloadDatasets(M_external_data_tmp,time_init,
-            "init - TOPAZ ice forecast + AMSR2");
+            "init - TOPAZ ice forecast");
     M_external_data_tmp.resize(0);
 
     double tmp_var;
@@ -9185,7 +9004,7 @@ FiniteElement::topazForecastAmsr2Ice()
         if(M_thick[i]<0.1*M_conc[i])
             M_thick[i]=0.1*M_conc[i];
 
-		M_damage[i]=0.;
+		M_damage[i]=1.-M_conc[i];
 	}
 }
 
@@ -9194,11 +9013,11 @@ FiniteElement::topazForecastAmsr2OsisafIce()
 {
     double real_thickness, init_conc_tmp;
 
-    external_data M_osisaf_conc=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,0,false,time_init);
+    external_data M_osisaf_conc=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,0,false,time_init-0.5);
 
-    external_data M_osisaf_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init);
+    external_data M_osisaf_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init-0.5);
 
-    external_data M_amsr2_conc=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
+    external_data M_amsr2_conc=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init-0.5);
 
     external_data M_topaz_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
 
@@ -9210,22 +9029,28 @@ FiniteElement::topazForecastAmsr2OsisafIce()
     M_external_data_tmp.push_back(&M_osisaf_conc);
     M_external_data_tmp.push_back(&M_osisaf_type);
     M_external_data_tmp.push_back(&M_amsr2_conc);
+    this->checkReloadDatasets(M_external_data_tmp,time_init-0.5,
+            "init - OSISAF - AMSR2");
+    
+    M_external_data_tmp.resize(0);
     M_external_data_tmp.push_back(&M_topaz_conc);
     M_external_data_tmp.push_back(&M_topaz_thick);
     M_external_data_tmp.push_back(&M_topaz_snow_thick);
     this->checkReloadDatasets(M_external_data_tmp,time_init,
-            "init - TOPAZ ice forecast + AMSR2 + OSISAF");
+            "init - TOPAZ ice forecast");
     M_external_data_tmp.resize(0);
 
     double tmp_var;
+    double hi;
     for (int i=0; i<M_num_elements; ++i)
     {
 		tmp_var=std::min(1.,M_topaz_conc[i]);
 		M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
 		tmp_var=M_topaz_thick[i];
 		M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
-        double hi_topaz=M_thick[i]/M_conc[i];
-        hi_topaz=std::min(hi_topaz,3.); // TOPAZ thickness is only used for FYI and then capped to 3 m, to avoid unrealistic thickness where concentration is low
+        hi=M_thick[i]/M_conc[i];
+        if(M_conc[i]<0.1)
+            hi=M_thick[i];
 
         if(M_conc[i]>0.) // use osisaf only where topaz says there is ice to avoid near land issues and fake concentration over the ocean
             M_conc[i]=M_osisaf_conc[i];
@@ -9247,8 +9072,8 @@ FiniteElement::topazForecastAmsr2OsisafIce()
         double ratio_MYI=0.9;
         double ratio_Mixed=0.5*(ratio_FYI+ratio_MYI);
 
-        double thick_FYI=hi_topaz;
-        double thick_MYI=1.5*hi_topaz;
+        double thick_FYI=hi;
+        double thick_MYI=1.5*hi;
         double thick_Mixed=0.5*(thick_FYI+thick_MYI);
 
         if( (M_thick[i]>0.) && (M_conc[i])>0.2 )
@@ -9292,7 +9117,7 @@ FiniteElement::topazForecastAmsr2OsisafIce()
         else
         {
             M_ridge_ratio[i]=0.;
-            M_thick[i]=hi_topaz;
+            M_thick[i]=hi;
         }
 
         M_ridge_ratio[i]=M_ridge_ratio[i]*M_conc[i];
@@ -9300,7 +9125,7 @@ FiniteElement::topazForecastAmsr2OsisafIce()
         M_thick[i]=M_thick[i]*M_conc[i];
 
         //if either c or h equal zero, we set the others to zero as well
-        double hi=M_thick[i]/M_conc[i];
+        hi=M_thick[i]/M_conc[i];
         if ( M_conc[i] < 0.01 || hi < physical::hmin )
         {
             M_conc[i]=0.;
@@ -9315,7 +9140,8 @@ FiniteElement::topazForecastAmsr2OsisafIce()
             M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
         }
 
-		M_damage[i]=0.;
+		M_damage[i]=1.-M_conc[i];
+		//M_damage[i]=0.;
 	}
 }
 
@@ -10159,7 +9985,6 @@ void
 FiniteElement::importBamg(BamgMesh const* bamg_mesh)
 {
     std::vector<point_type> mesh_nodes;
-    //std::vector<element_type> mesh_edges;
     std::vector<element_type> mesh_triangles;
     std::vector<double> coords(3,0);
 
@@ -10174,32 +9999,9 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
         mesh_nodes[id].coords = coords;
     }
 
-
     int type = 2;
     int physical = 0;
     int elementary = 0;
-
-#if 0
-    int numVertices = 2;
-    std::vector<int> edges(numVertices);
-
-    for (int edg=0; edg<bamg_mesh->EdgesSize[0]; ++edg)
-    {
-        edges[0] = bamg_mesh->Edges[3*edg];
-        edges[1] = bamg_mesh->Edges[3*edg+1];
-        //std::cout<< "Edges= "<< bamg_mesh->Edges[3*edg+2] <<"\n";
-
-        element_type gmshElt( edg,
-                              type,
-                              physical,
-                              elementary,
-                              numVertices,
-                              edges );
-
-        //mesh_edges.insert(std::make_pair(edg,gmshElt));
-        mesh_edges.push_back(gmshElt);
-    }
-#endif
 
     int numVertices = 3;
     std::vector<int> indices(numVertices);
@@ -10371,7 +10173,6 @@ FiniteElement::exportResults(std::string const& name_str, bool export_mesh, bool
 }
 
 void
-//FiniteElement::exportResults(int step, bool export_mesh)
 FiniteElement::exportResults(std::vector<std::string> const& filenames, bool export_mesh, bool export_fields, bool apply_displacement)
 {
     std::vector<double> M_VT_root;
@@ -10396,6 +10197,11 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
     if (M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
     {
         nb_var_element -= 4;
+    }
+
+    if (vm["simul.save_diagnostics"].as<bool>())
+    {
+        nb_var_element += 7;
     }
 
     std::vector<double> interp_in_elements;
@@ -10439,6 +10245,25 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
             M_conc_thin_root.resize(num_elements_root);
             M_hs_thin_root.resize(num_elements_root);
             M_tsurf_thin_root.resize(num_elements_root);
+        }
+
+        std::vector<double> D_Qa_root;
+        std::vector<double> D_Qsw_root;
+        std::vector<double> D_Qlw_root;
+        std::vector<double> D_Qsh_root;
+        std::vector<double> D_Qlh_root;
+        std::vector<double> D_Qo_root;
+        std::vector<double> D_delS_root;
+
+        if (vm["simul.save_diagnostics"].as<bool>())
+        {
+            D_Qa_root.resize(num_elements_root);
+            D_Qsw_root.resize(num_elements_root);
+            D_Qlw_root.resize(num_elements_root);
+            D_Qsh_root.resize(num_elements_root);
+            D_Qlh_root.resize(num_elements_root);
+            D_Qo_root.resize(num_elements_root);
+            D_delS_root.resize(num_elements_root);
         }
 
         int tmp_nb_var = 0;
@@ -10523,6 +10348,37 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
 
                 // tsurf_thin
                 M_tsurf_thin_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                tmp_nb_var++;
+            }
+
+            if (vm["simul.save_diagnostics"].as<bool>())
+            {
+                // Qatm
+                D_Qa_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                tmp_nb_var++;
+
+                // Qsw
+                D_Qsw_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                tmp_nb_var++;
+
+                // Qlw
+                D_Qlw_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                tmp_nb_var++;
+
+                // Qsh
+                D_Qsh_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                tmp_nb_var++;
+
+                // Qlh
+                D_Qlh_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                tmp_nb_var++;
+
+                // Qocean
+                D_Qo_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                tmp_nb_var++;
+
+                // Saltflux
+                D_delS_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
                 tmp_nb_var++;
             }
 
@@ -10662,15 +10518,15 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
             exporter.writeField(outbin, sigma2, "Sigma2");
 #endif
 
-            if (0) //(vm["simul.save_diagnostics"].as<bool>())
+            if (vm["simul.save_diagnostics"].as<bool>())
             {
-                exporter.writeField(outbin, D_Qa, "Qatm");
-                exporter.writeField(outbin, D_Qsw, "Qsw");
-                exporter.writeField(outbin, D_Qlw, "Qlw");
-                exporter.writeField(outbin, D_Qsh, "Qsh");
-                exporter.writeField(outbin, D_Qlh, "Qlh");
-                exporter.writeField(outbin, D_Qo,  "Qocean");
-                exporter.writeField(outbin, D_delS, "Saltflux");
+                exporter.writeField(outbin, D_Qa_root, "Qatm");
+                exporter.writeField(outbin, D_Qsw_root, "Qsw");
+                exporter.writeField(outbin, D_Qlw_root, "Qlw");
+                exporter.writeField(outbin, D_Qsh_root, "Qsh");
+                exporter.writeField(outbin, D_Qlh_root, "Qlh");
+                exporter.writeField(outbin, D_Qo_root,  "Qocean");
+                exporter.writeField(outbin, D_delS_root, "Saltflux");
             }
 
             outbin.close();
@@ -10731,7 +10587,9 @@ FiniteElement::system(std::string const& command)
 std::string
 FiniteElement::getEnv(std::string const& envname)
 {
-    char* senv = ::getenv(envname.c_str());
+    const char* senv = ::getenv(envname.c_str());
+    if ( senv == NULL )
+        senv = "NULL";
     return std::string(senv);
 }
 
@@ -10767,10 +10625,14 @@ FiniteElement::writeLogFile()
         logfile << std::setw(log_width) << std::left << "C++ "  << system("which g++") << " (version "<< system("g++ -dumpversion") << ")" <<"\n";
 
         logfile << "#----------Environment variables\n";
+        /*
         logfile << std::setw(log_width) << std::left << "NEXTSIMDIR "  << Environment::nextsimDir().string() <<"\n";
         logfile << std::setw(log_width) << std::left << "SIMDATADIR "  << Environment::simdataDir().string() <<"\n";
         logfile << std::setw(log_width) << std::left << "SIMFORECASTDIR "  << Environment::simforecastDir().string() <<"\n";
-        /*
+        */
+        logfile << std::setw(log_width) << std::left << "NEXTSIMDIR "  << getEnv("NEXTSIMDIR") <<"\n";
+        logfile << std::setw(log_width) << std::left << "SIMDATADIR "  << getEnv("SIMDATADIR") <<"\n";
+        logfile << std::setw(log_width) << std::left << "SIMFORECASTDIR "  << getEnv("SIMFORECASTDIR") <<"\n";
         logfile << std::setw(log_width) << std::left << "PETSC_DIR "  << getEnv("PETSC_DIR") <<"\n";
         logfile << std::setw(log_width) << std::left << "BOOST_INCDIR "  << getEnv("BOOST_INCDIR") <<"\n";
         logfile << std::setw(log_width) << std::left << "BOOST_LIBDIR "  << getEnv("BOOST_LIBDIR") <<"\n";
@@ -10778,7 +10640,6 @@ FiniteElement::writeLogFile()
         logfile << std::setw(log_width) << std::left << "NETCDF_DIR "  << getEnv("NETCDF_DIR") <<"\n";
         logfile << std::setw(log_width) << std::left << "OPENMPI_LIB_DIR "  << getEnv("OPENMPI_LIB_DIR") <<"\n";
         logfile << std::setw(log_width) << std::left << "OPENMPI_INCLUDE_DIR "  << getEnv("OPENMPI_INCLUDE_DIR") <<"\n";
-        */
 
         logfile << "#----------Program options\n";
 
@@ -10880,7 +10741,14 @@ FiniteElement::writeLogFile()
             }
         }
     }
-}
+
+    fs::path path1("git_changes.txt");
+    if ( fs::exists(path1) )
+    {
+        fs::path path2(M_export_path+"/git_changes.txt");
+        fs::rename(path1,path2);
+    }
+}//writeLogFile
 
 void
 FiniteElement::clear()
@@ -10901,9 +10769,9 @@ FiniteElement::clear()
         bamgopt_previous->hminVertices      = NULL;
         bamgopt_previous->hmaxVertices      = NULL;
 
-        delete bamgopt_previous;
-        delete bamggeom_previous;
         delete bamgmesh_previous;
+        delete bamggeom_previous;
+        delete bamgopt_previous;
 
         // clear GModel from mesh data structure
         if (M_partition_space == mesh::PartitionSpace::MEMORY)
