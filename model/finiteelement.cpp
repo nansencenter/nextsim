@@ -1075,6 +1075,12 @@ FiniteElement::initConstant()
     ptime_step =  days_in_sec/vm["simul.ptime_per_day"].as<int>();
 
     time_step = vm["simul.timestep"].as<double>();
+    thermo_timestep = vm["simul.thermo_timestep"].as<double>();
+    if ( fmod(thermo_timestep,time_step) != 0)
+    {
+        std::cout << thermo_timestep << " " << time_step << "\n";
+        throw std::runtime_error("thermo_timestep is not an integer multiple of time_step");
+    }
 
     output_time_step =  (vm["simul.output_per_day"].as<int>()<0) ? -vm["simul.output_per_day"].as<int>()*time_step : days_in_sec/vm["simul.output_per_day"].as<int>();
     mooring_output_time_step =  vm["simul.mooring_output_timestep"].as<double>()*days_in_sec;
@@ -4910,7 +4916,7 @@ FiniteElement::solve()
 // Routine for the 1D thermodynamical model
 // No stability dependent drag for now
 void
-FiniteElement::thermo()
+FiniteElement::thermo(double dt)
 {
     M_comm.barrier();
 
@@ -5054,7 +5060,7 @@ FiniteElement::thermo()
                 Qdw = -(M_sst[i]-M_ocean_temp[i]) * mld * physical::rhow * physical::cpw/timeT;
 
                 double delS = M_sss[i] - M_ocean_salt[i];
-                Fdw = delS * mld * physical::rhow /(timeS*M_sss[i] - time_step*delS);
+                Fdw = delS * mld * physical::rhow /(timeS*M_sss[i] - dt*delS);
             }
             else
             {
@@ -5148,12 +5154,12 @@ FiniteElement::thermo()
         switch ( M_thermo_type )
         {
             case setup::ThermoType::ZERO_LAYER:
-                this->thermoIce0(i, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i],
+                this->thermoIce0(i, dt, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i],
                         Qlw_in, Qsw_in, mld, tmp_snowfall, hi, hs, hi_old, Qio, del_hi, M_tice[0][i],
                         Qai, Qswi, Qlwi, Qshi, Qlhi);
                 break;
             case setup::ThermoType::WINTON:
-                this->thermoWinton(i, time_step, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i],
+                this->thermoWinton(i, dt, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i],
                         Qlw_in, Qsw_in, mld, tmp_snowfall, hi, hs, hi_old, Qio, del_hi,
                         M_tice[0][i], M_tice[1][i], M_tice[2][i],
                         Qai, Qswi, Qlwi, Qshi, Qlhi);
@@ -5162,7 +5168,7 @@ FiniteElement::thermo()
 
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
-            this->thermoIce0(i, wspeed, sphuma, old_conc_thin, M_h_thin[i], M_hs_thin[i],
+            this->thermoIce0(i, dt, wspeed, sphuma, old_conc_thin, M_h_thin[i], M_hs_thin[i],
                     Qlw_in, Qsw_in, mld, tmp_snowfall, hi_thin, hs_thin, hi_thin_old, Qio_thin, del_hi_thin, M_tsurf_thin[i],
                         Qai_thin, Qsw_thin, Qlw_thin, Qsh_thin, Qlh_thin);
             M_h_thin[i]  = hi_thin * old_conc_thin;
@@ -5176,14 +5182,14 @@ FiniteElement::thermo()
         double tw_new, tfrw, newice, del_c, newsnow, h0;
 
         /* dT/dt due to heatflux ocean->atmosphere */
-        tw_new = M_sst[i] - Qow*time_step/(mld*physical::rhow*physical::cpw);
+        tw_new = M_sst[i] - Qow*dt/(mld*physical::rhow*physical::cpw);
         tfrw   = -physical::mu*M_sss[i];
 
         /* Form new ice in case of super cooling, and reset Qow and evap */
         if ( tw_new < tfrw )
         {
             newice  = (1.-M_conc[i]-M_conc_thin[i])*(tfrw-tw_new)*mld*physical::rhow*physical::cpw/qi;// m
-            Qow  = -(tfrw-M_sst[i])*mld*physical::rhow*physical::cpw/time_step;
+            Qow  = -(tfrw-M_sst[i])*mld*physical::rhow*physical::cpw/dt;
             // evap = 0.;
         }
         else
@@ -5302,7 +5308,7 @@ FiniteElement::thermo()
                     if ( hi > 0. )
                     {
                         /* Use the fraction PhiM of (1-c)*Qow to melt laterally */
-                        del_c += PhiM*(1.-M_conc[i])*std::min(0.,Qow)*time_step/( hi*qi+hs*qs );
+                        del_c += PhiM*(1.-M_conc[i])*std::min(0.,Qow)*dt/( hi*qi+hs*qs );
                         /* Deliver the fraction (1-PhiM) of Qow to the ocean */
                         Qow = (1.-PhiM)*Qow;
                     }
@@ -5312,7 +5318,7 @@ FiniteElement::thermo()
                     }
                     // This is handled below
                     // /* + Deliver excess energy to the ocean when there's no ice left */
-                    //         + std::min(0., std::max(0.,M_conc[i]+del_c)*( hi*qi+hs*qs )/time_step);
+                    //         + std::min(0., std::max(0.,M_conc[i]+del_c)*( hi*qi+hs*qs )/dt);
                     // /* Don't suffer negative c! */
                     // del_c = std::max(del_c, -M_conc[i]);
                     break;
@@ -5333,7 +5339,7 @@ FiniteElement::thermo()
             if ( del_c < 0. )
             {
                 /* We conserve the snow height, but melt away snow as the concentration decreases */
-                Qow = Qow + del_c*hs*qs/time_step;
+                Qow = Qow + del_c*hs*qs/dt;
             }
             else
             {
@@ -5357,7 +5363,7 @@ FiniteElement::thermo()
         {
             // Extract heat from the ocean corresponding to the heat in the
             // remaining ice and snow
-            Qow    = Qow + M_conc[i]*hi*qi/time_step + M_conc[i]*hs*qs/time_step;
+            Qow    = Qow + M_conc[i]*hi*qi/dt + M_conc[i]*hs*qs/dt;
             M_conc[i]  = 0.;
 
             for (int j=0; j<M_tice.size(); j++)
@@ -5400,14 +5406,14 @@ FiniteElement::thermo()
         Qow_mean = Qow*(1.-old_conc-old_conc_thin);
 
         /* Heat-flux */
-        M_sst[i] = M_sst[i] - time_step*( Qio_mean + Qow_mean - Qdw )/(physical::rhow*physical::cpw*mld);
+        M_sst[i] = M_sst[i] - dt*( Qio_mean + Qow_mean - Qdw )/(physical::rhow*physical::cpw*mld);
 
         /* Change in salinity */
-        double denominator= ( mld*physical::rhow - del_vi*physical::rhoi - ( del_vs*physical::rhos + (emp-Fdw)*time_step) );
+        double denominator= ( mld*physical::rhow - del_vi*physical::rhoi - ( del_vs*physical::rhos + (emp-Fdw)*dt) );
         denominator = ( denominator > 1.*physical::rhow ) ? denominator : 1.*physical::rhow;
 
         double sss_old = M_sss[i];
-        M_sss[i] = M_sss[i] + ( (M_sss[i]-physical::si)*physical::rhoi*del_vi + M_sss[i]*(del_vs*physical::rhos + (emp-Fdw)*time_step) )
+        M_sss[i] = M_sss[i] + ( (M_sss[i]-physical::si)*physical::rhoi*del_vi + M_sss[i]*(del_vs*physical::rhos + (emp-Fdw)*dt) )
             / denominator;
 
         // -------------------------------------------------
@@ -5448,7 +5454,7 @@ FiniteElement::thermo()
                         throw std::logic_error("Wrong thermo_type");
                 }
 
-                M_time_relaxation_damage[i] = std::max(time_relaxation_damage*deltaT_relaxation_damage/deltaT, time_step);
+                M_time_relaxation_damage[i] = std::max(time_relaxation_damage*deltaT_relaxation_damage/deltaT, dt);
             }
             else
             {
@@ -5479,7 +5485,7 @@ FiniteElement::thermo()
         D_Qo[i] = Qio_mean + Qow_mean;
 
         // Salt release into the ocean - kg/day
-        D_delS[i] = (M_sss[i] - sss_old)*physical::rhow*mld/time_step;
+        D_delS[i] = (M_sss[i] - sss_old)*physical::rhow*mld/dt;
     }// end for loop
 }// end thermo function
 
@@ -5864,7 +5870,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
 
 // This is Semtner zero layer
 void
-FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfall,
+FiniteElement::thermoIce0(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfall,
         double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf,
         double &Qai, double &Qsw, double &Qlw, double &Qsh, double &Qlh)
 {
@@ -5964,18 +5970,18 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
 
         /* Top melt */
         /* Snow melt and sublimation */
-        del_hs = std::min(Qai-Qic,0.)*time_step/qs - subl*time_step/physical::rhos;
+        del_hs = std::min(Qai-Qic,0.)*dt/qs - subl*dt/physical::rhos;
         /* Use the energy left over after snow melts to melt the ice */
         del_ht = std::min(hs+del_hs,0.)*qs/qi;
         /* Can't have negative hs! */
         del_hs = std::max(del_hs,-hs);
         // snowfall in kg/m^2/s
-        hs  = hs + del_hs + snowfall/physical::rhos*time_step;
+        hs  = hs + del_hs + snowfall/physical::rhos*dt;
 
         /* Heatflux from ocean */
-        Qio = this->iceOceanHeatflux(i, M_sst[i], M_sss[i], mld, time_step);
+        Qio = this->iceOceanHeatflux(i, M_sst[i], M_sss[i], mld, dt);
         /* Bottom melt/growth */
-        del_hb = (Qic-Qio)*time_step/qi;
+        del_hb = (Qic-Qio)*dt/qi;
 
         /* Combine top and bottom */
         del_hi = del_ht+del_hb;
@@ -5994,7 +6000,7 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
         if ( hi < physical::hmin )
         {
             del_hi  = -hi_old; //del_hi-hi;
-            Qio     = Qio + hi*qi/time_step + hs*qs/time_step;
+            Qio     = Qio + hi*qi/dt + hs*qs/dt;
 
             hi      = 0.;
             hs      = 0.;
@@ -6216,10 +6222,10 @@ FiniteElement::step()
     //======================================================================
     // Do the thermodynamics
     //======================================================================
-    if(vm["simul.use_thermo_forcing"].as<bool>())
+    if ( vm["simul.use_thermo_forcing"].as<bool>() && (fmod(pcpt*time_step,thermo_timestep) == 0) )
     {
         timer["thermo"].first.restart();
-        this->thermo();
+        this->thermo(thermo_timestep);
         if (M_rank == 0)
             std::cout <<"---timer thermo:               "<< timer["thermo"].first.elapsed() <<"s\n";
     }

@@ -63,6 +63,7 @@ namespace Nextsim
             ("simul.time_init", po::value<std::string>()->default_value( "2008-Mar-05" ), "")
             ("simul.duration", po::value<double>()->default_value( 1. ), "")
             ("simul.timestep", po::value<double>()->default_value( 200. ), "")
+            ("simul.thermo_timestep", po::value<double>()->default_value( 3600. ), "")
             ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "")
 
             // advection scheme
