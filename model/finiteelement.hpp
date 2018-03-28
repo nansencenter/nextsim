@@ -273,7 +273,6 @@ public:
 
     void bcMarkedNodes();
 
-    void clear();
     void finalise();
 
 public:

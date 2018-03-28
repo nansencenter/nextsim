@@ -10730,9 +10730,18 @@ FiniteElement::writeLogFile()
     }
 }//writeLogFile
 
+// Finalise everything
 void
-FiniteElement::clear()
+FiniteElement::finalise()
 {
+    // Don't forget to close the iabp file!
+    if (M_use_iabp_drifters)
+    {
+        M_iabp_file.close();
+        M_iabp_out.close();
+    }
+
+    // Clear pinters etc
     M_comm.barrier();
 
     delete bamgmesh;
@@ -10764,20 +10773,6 @@ FiniteElement::clear()
     M_vector->clear();
     M_solution->clear();
     M_solver->clear();
-}
-
-// Finalise everything
-void
-FiniteElement::finalise()
-{
-    // Don't forget to close the iabp file!
-    if (M_use_iabp_drifters)
-    {
-        M_iabp_file.close();
-        M_iabp_out.close();
-    }
-
-    this->clear();
 }
 
 } // Nextsim
