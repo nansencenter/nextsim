@@ -217,7 +217,7 @@ public:
     std::vector<double> hmaxVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mesh) const;
 
     void initBamg();
-    void initConstant();
+    void initOptAndParam();
     void forcing();
     void forcingAtmosphere();//(bool reload);
     void forcingOcean();//(bool reload);
@@ -229,7 +229,7 @@ public:
     void initDrifter();
     void updateDrifterPosition();
 
-    void coriolis();
+    void calcCoriolis();
     //void timeInterpolation(int step);
     void nodesToElements(double const* depth, std::vector<double>& v);
 
@@ -240,7 +240,7 @@ public:
     void initVariables();
     void initModelState();
     void tensors();
-    void cohesion();
+    void calcCohesion();
     void updateVelocity();
     void updateFreeDriftVelocity();
     void speedScaling(std::vector<double>& speed_scaling);

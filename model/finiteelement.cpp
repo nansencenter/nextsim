@@ -1055,7 +1055,7 @@ FiniteElement::initBamg()
 }
 
 void
-FiniteElement::initConstant()
+FiniteElement::initOptAndParam()
 {
 
     // log
@@ -1290,7 +1290,7 @@ FiniteElement::initConstant()
         ("memory", mesh::PartitionSpace::MEMORY)
         ("disk", mesh::PartitionSpace::DISK);
     M_partition_space = str2partitionspace.find(vm["mesh.partition-space"].as<std::string>())->second;
-}//initConstant
+}//initOptAndParam
 
 void
 FiniteElement::createGMSHMesh(std::string const& geofilename)
@@ -4547,7 +4547,7 @@ FiniteElement::tensors()
 }
 
 void
-FiniteElement::cohesion()
+FiniteElement::calcCohesion()
 {
     for (int i=0; i<M_Cohesion.size(); ++i)
         M_Cohesion[i] = C_fix+C_alea*(M_random_number[i]-0.5);
@@ -4628,7 +4628,7 @@ FiniteElement::update()
         delta_ridging= std::hypot(divergence_rate,shear_rate/e_factor);
 
         /*======================================================================
-         * Ridging scheme
+         * Ridging scheme and mechanical redistribution
          * After the advection the concentration can be higher than 1, meaning that ridging should have occured.
          *======================================================================
          */
@@ -4736,6 +4736,8 @@ FiniteElement::update()
             M_thick[cpt]=0.;
             M_snow_thick[cpt]=0.;
         }
+
+        // END: Ridging scheme and mechanical redistribution
 
         /*======================================================================
          * Update the internal stress
@@ -4854,7 +4856,7 @@ FiniteElement::update()
         }
 
         /*======================================================================
-         * Update:
+         * Check:
          *======================================================================
          */
 
@@ -6029,7 +6031,7 @@ FiniteElement::init()
     pcpt = 0;
     mesh_adapt_step=0;
     had_remeshed=false;
-    this->initConstant();
+    this->initOptAndParam();
     current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
 
     // Initialise the mesh
@@ -6189,15 +6191,15 @@ FiniteElement::step()
         if (M_rank == 0)
             std::cout <<"---timer tensors:              "<< timer["tensors"].first.elapsed() <<"\n";
 
-        timer["cohesion"].first.restart();
-        this->cohesion();
+        timer["calcCohesion"].first.restart();
+        this->calcCohesion();
         if (M_rank == 0)
-            std::cout <<"---timer cohesion:             "<< timer["cohesion"].first.elapsed() <<"\n";
+            std::cout <<"---timer calcCohesion:             "<< timer["calcCohesion"].first.elapsed() <<"\n";
 
-        timer["coriolis"].first.restart();
-        this->coriolis();
+        timer["calcCoriolis"].first.restart();
+        this->calcCoriolis();
         if (M_rank == 0)
-            std::cout <<"---timer coriolis:             "<< timer["coriolis"].first.elapsed() <<"\n";
+            std::cout <<"---timer calcCoriolis:             "<< timer["calcCoriolis"].first.elapsed() <<"\n";
     }
 
     timer["reload"].first.restart();
@@ -6281,6 +6283,10 @@ FiniteElement::step()
     current_time = time_init + pcpt*time_step/(24*3600.0);
 
 #if 1
+    //======================================================================
+    // Output (export and moorings)
+    //======================================================================
+
     if(fmod(pcpt*time_step,output_time_step) == 0)
     {
         chrono.restart();
@@ -9670,7 +9676,7 @@ FiniteElement::initDrifter()
 }
 
 void
-FiniteElement::coriolis()
+FiniteElement::calcCoriolis()
 {
     // Interpolation of the latitude
     std::vector<double> lat = M_mesh.meanLat();
@@ -9696,6 +9702,7 @@ FiniteElement::initBathymetry()
     // if we use CONSTANT then we don't put any data into the object.
     M_bathymetry_elements_dataset=DataSet("etopo_elements",M_num_elements);//M_num_nodes);
     M_datasets_regrid.push_back(&M_bathymetry_elements_dataset);
+
     switch (M_bathymetry_type)
     {
         case setup::BathymetryType::CONSTANT:
