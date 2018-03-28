@@ -918,8 +918,6 @@ FiniteElement::initForcings()
 
     M_ice_smos_elements_dataset=DataSet("ice_smos_elements",M_num_elements);
 
-    M_bathymetry_elements_dataset=DataSet("etopo_elements",M_num_elements);//M_num_nodes);
-
     // datasets that need to be re-interpolated after regridding
     // - not needed if only used at initialisation, or if not interpolated onto
     // mesh (eg wave datasets are interpolated onto a fixed grid)
@@ -928,7 +926,6 @@ FiniteElement::initForcings()
     M_datasets_regrid.push_back(&M_atmosphere_bis_elements_dataset);
     M_datasets_regrid.push_back(&M_ocean_nodes_dataset);
     M_datasets_regrid.push_back(&M_ocean_elements_dataset);
-    M_datasets_regrid.push_back(&M_bathymetry_elements_dataset);
 
     // Then we populate the forcing variables
     LOG(DEBUG) <<"Initialize forcingAtmosphere\n";
@@ -9702,6 +9699,11 @@ FiniteElement::coriolis()
 void
 FiniteElement::initBathymetry()
 {
+    // This alwyas needs to be done, regardless of which bathymetry type we
+    // have as the object M_bthymetry_elements_dataset must be initialised. But
+    // if we use CONSTANT then we don't put any data into the object.
+    M_bathymetry_elements_dataset=DataSet("etopo_elements",M_num_elements);//M_num_nodes);
+    M_datasets_regrid.push_back(&M_bathymetry_elements_dataset);
     switch (M_bathymetry_type)
     {
         case setup::BathymetryType::CONSTANT:
