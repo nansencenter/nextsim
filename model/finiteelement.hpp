@@ -99,7 +99,7 @@ public:
     vector_type const& solution() const {return *M_solution;}
 
     void initMesh();
-    void initDatasets();
+    void initForcings();
     void createGMSHMesh(std::string const& geofilename);
 
     double jacobian(element_type const& element, mesh_type const& mesh) const;
@@ -221,7 +221,7 @@ public:
     void forcing();
     void forcingAtmosphere();//(bool reload);
     void forcingOcean();//(bool reload);
-	void bathymetry();//(bool reload);
+	void initBathymetry();//(bool reload);
 
     void initIce();
     void initThermodynamics();

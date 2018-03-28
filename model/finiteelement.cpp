@@ -769,7 +769,7 @@ FiniteElement::assignVariables()
     // --------------------------------------------------------------
 #endif
 
-    // //loop over vector of pointers to datasets defined in initDatasets()
+    // //loop over vector of pointers to datasets defined in initForcings()
     // for (auto it=M_datasets_regrid.begin(), end=M_datasets_regrid.end(); it!=end; ++it)
     // {
     //     if (M_rank == 0)
@@ -823,8 +823,9 @@ FiniteElement::initModelState()
 }//initModelState
 
 void
-FiniteElement::initDatasets()
+FiniteElement::initForcings()
 {
+    // First we initialise the dataset definitions (including topography as it is remeshed as well)
     // Definition of the datasets
     switch(M_atmosphere_type){
         case setup::AtmosphereType::CONSTANT:
@@ -928,7 +929,14 @@ FiniteElement::initDatasets()
     M_datasets_regrid.push_back(&M_ocean_nodes_dataset);
     M_datasets_regrid.push_back(&M_ocean_elements_dataset);
     M_datasets_regrid.push_back(&M_bathymetry_elements_dataset);
-}//initDatasets
+
+    // Then we populate the forcing variables
+    LOG(DEBUG) <<"Initialize forcingAtmosphere\n";
+    this->forcingAtmosphere();
+
+    LOG(DEBUG) <<"Initialize forcingOcean\n";
+    this->forcingOcean();
+}//initForcings
 
 void
 FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
@@ -6036,7 +6044,6 @@ FiniteElement::init()
     had_remeshed=false;
     this->initConstant();
     current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
-    this->initDatasets();
 
     // Initialise the mesh
     this->initMesh();
@@ -6093,17 +6100,14 @@ FiniteElement::init()
         this->initVariables();
     }
 
+    // Initialise atmospheric and oceanic forcing
+    this->initForcings();
 
-    LOG(DEBUG) <<"Initialize forcingAtmosphere\n";
-    this->forcingAtmosphere();
-
-    LOG(DEBUG) <<"Initialize forcingOcean\n";
-    this->forcingOcean();
-
+    // Initialise bathymetry
     LOG(DEBUG) <<"Initialize bathymetry\n";
-    this->bathymetry();
+    this->initBathymetry();
 
-
+    // Load data from the datasets we just initialised
     this->checkReloadDatasets(M_external_data,
                               current_time,
                               "init - time-dependant");
@@ -9696,7 +9700,7 @@ FiniteElement::coriolis()
 }
 
 void
-FiniteElement::bathymetry()
+FiniteElement::initBathymetry()
 {
     switch (M_bathymetry_type)
     {
