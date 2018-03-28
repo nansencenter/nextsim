@@ -86,8 +86,10 @@ namespace Nextsim
             ("simul.mooring_parallel_output", po::value<bool>()->default_value( false ), "")
 
             ("simul.use_iabp_drifters", po::value<bool>()->default_value( false), "")
-            ("simul.equallyspaced_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days") // must be a multiple of 0.5
-            ("simul.rgps_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days") // must be a multiple of 0.5
+            ("simul.use_equallyspaced_drifters", po::value<bool>()->default_value( false), "")
+            ("simul.equallyspaced_drifters_output_time_step", po::value<double>()->default_value( 1. ), "days")
+            ("simul.use_rgps_drifters", po::value<bool>()->default_value( false), "")
+            ("simul.rgps_drifters_output_time_step", po::value<double>()->default_value( 0.5 ), "days")
             ("simul.use_osisaf_drifters", po::value<bool>()->default_value( false ), "")
 
             ("simul.drifter_climit", po::value<double>()->default_value( 0.15 ), "")

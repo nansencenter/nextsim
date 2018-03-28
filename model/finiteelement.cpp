@@ -817,9 +817,6 @@ FiniteElement::initModelState()
 
     LOG(DEBUG) << "initIce\n";
     this->initIce();
-
-    LOG(DEBUG) << "initDrifter\n";
-    this->initDrifter();
 }//initModelState
 
 void
@@ -1237,23 +1234,16 @@ FiniteElement::initConstant()
     M_basal_stress_type = str2basal_stress.find(vm["simul.basal_stress-type"].as<std::string>())->second;
     LOG(DEBUG) <<"BASALSTRESTYPE= "<< (int) M_basal_stress_type <<"\n";
 
+    // Are we using drifters?
     M_use_iabp_drifters=vm["simul.use_iabp_drifters"].as<bool>();
+
+    M_use_equallyspaced_drifters=vm["simul.use_equallyspaced_drifters"].as<bool>();
     M_equallyspaced_drifters_output_time_step=vm["simul.equallyspaced_drifters_output_time_step"].as<double>();
+
+    M_use_rgps_drifters=vm["simul.use_rgps_drifters"].as<bool>();
     M_rgps_drifters_output_time_step=vm["simul.rgps_drifters_output_time_step"].as<double>();
+
     M_use_osisaf_drifters=vm["simul.use_osisaf_drifters"].as<bool>();
-
-    M_use_equallyspaced_drifters=false;
-    M_use_rgps_drifters=false;
-
-    if(M_equallyspaced_drifters_output_time_step>0.)
-    {
-        M_use_equallyspaced_drifters=true;
-    }
-
-    if(M_rgps_drifters_output_time_step>0.)
-    {
-        M_use_rgps_drifters=true;
-    }
 
     M_use_drifters = (M_use_iabp_drifters) || (M_use_osisaf_drifters) || (M_use_equallyspaced_drifters) || (M_use_rgps_drifters);
 
@@ -6136,6 +6126,11 @@ FiniteElement::init()
     // Initialise the moorings - if requested
     if ( M_use_moorings )
         this->initMoorings();
+
+    // Initialise drifters - if requested
+    LOG(DEBUG) << "initDrifter\n";
+    if (M_use_drifters)
+        this->initDrifter();
 }
 
 // Take one time step
@@ -9661,20 +9656,17 @@ FiniteElement::initThermodynamics()
 void
 FiniteElement::initDrifter()
 {
-    if (M_use_drifters)
-    {
-        if(M_use_equallyspaced_drifters)
-            this->equallySpacedDrifter();
+    if(M_use_equallyspaced_drifters)
+        this->equallySpacedDrifter();
 
-        if(M_use_iabp_drifters)
-            this->initIABPDrifter();
+    if(M_use_iabp_drifters)
+        this->initIABPDrifter();
 
-        if(M_use_rgps_drifters)
-            this->initRGPSDrifters();
+    if(M_use_rgps_drifters)
+        this->initRGPSDrifters();
 
-        if(M_use_osisaf_drifters)
-            this->initOSISAFDrifters();
-    }
+    if(M_use_osisaf_drifters)
+        this->initOSISAFDrifters();
 }
 
 void
