@@ -6330,15 +6330,6 @@ FiniteElement::run()
         this->writeLogFile();
     }
 
-    // Debug file that records the time step
-    std::fstream pcpt_file;
-
-    if (M_rank == 0)
-    {
-        pcpt_file.open(M_export_path + "/Timestamp.txt", std::ios::out | std::ios::trunc);
-    }
-
-
     current_time = time_init + pcpt*time_step/(24*3600.0);
     bool is_running = true;
     if(duration<=0)
@@ -6373,24 +6364,9 @@ FiniteElement::run()
         // Take one time-step
         // **********************************************************************
         this->step();
-
-        if (M_rank == 0)
-        {
-            pcpt_file << pcpt << "\n";
-            pcpt_file << to_date_string(current_time) << "\n";
-            pcpt_file.seekp(0);
-        }
-
-        //++pcpt;
-    }
-
-    if (M_rank == 0)
-    {
-        pcpt_file.close();
     }
 
     this->exportResults("final");
-
 
     this->finalise();
 
