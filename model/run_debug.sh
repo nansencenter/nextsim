@@ -59,5 +59,5 @@ then
 fi
 
 # Run the nextsim model
-mpirun $mpi_opts -np $ncpu valgrind ${vopts[@]} $prog -mat_mumps_icntl_14 20 ${nsopts[@]} 2>&1 | tee simdebug.log
+mpirun $mpi_opts -np $ncpu valgrind ${vopts[@]} $prog -mat_mumps_icntl_14 60 ${nsopts[@]} 2>&1 | tee simdebug.log
 
