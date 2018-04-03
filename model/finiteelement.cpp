@@ -782,7 +782,7 @@ FiniteElement::initModelState()
 void
 FiniteElement::initForcings()
 {
-    // First we initialise the dataset definitions (including topography as it is remeshed as well)
+    // First we initialise the dataset definitions
     // Definition of the datasets
     switch(M_atmosphere_type){
         case setup::AtmosphereType::CONSTANT:
@@ -9646,7 +9646,6 @@ FiniteElement::initBathymetry()
     // have as the object M_bthymetry_elements_dataset must be initialised. But
     // if we use CONSTANT then we don't put any data into the object.
     M_bathymetry_elements_dataset=DataSet("etopo_elements",M_num_elements);//M_num_nodes);
-    M_datasets_regrid.push_back(&M_bathymetry_elements_dataset);
 
     switch (M_bathymetry_type)
     {
@@ -9657,6 +9656,7 @@ FiniteElement::initBathymetry()
         case setup::BathymetryType::ETOPO:
             M_element_depth=ExternalData(&M_bathymetry_elements_dataset,M_mesh,0,false,time_init);
             M_external_data.push_back(&M_element_depth);
+            M_datasets_regrid.push_back(&M_bathymetry_elements_dataset);
             break;
         default:
             std::cout << "invalid bathymetry"<<"\n";
