@@ -103,7 +103,7 @@ namespace setup
 
     enum class MeshType
     {
-        FROM_GMSH      = 0,
+        FROM_UNREF     = 0,
         FROM_SPLIT     = 1
     };
 

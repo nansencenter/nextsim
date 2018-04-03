@@ -53,6 +53,7 @@ namespace Nextsim
             ("mesh.partition-space", po::value<std::string>()->default_value( "memory" ),
                 "where the partitioned mesh is kept (disk/memory)")
             ("mesh.hsize", po::value<double>()->default_value( 0.01 ), "")
+            ("mesh.type", po::value<std::string>()->default_value( "from_unref" ), "from_unref (implies constant vertice length) or from_split (implies variable vertice length)")
 
             // debugging options
             ("simul.verbose", po::value<int>()->default_value( 7 ), "")

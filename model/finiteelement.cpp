@@ -289,43 +289,8 @@ FiniteElement::rootMeshProcessing()
 {
     if (M_rank == 0)
     {
-        // For backwards compatability with older setups
-        switch (M_domain_type)
-        {
-            case setup::DomainType::DEFAULT:
-            case setup::DomainType::FROM_SPLIT:
-                M_flag_fix = 10000; // free = [10001 10002];
-                M_mesh_root.setOrdering("gmsh");
-                break;
-            case setup::DomainType::KARA:
-                M_flag_fix = 17; // free = [15 16];
-                M_mesh_root.setOrdering("bamg");
-                break;
-            case setup::DomainType::BERINGKARA:
-                M_flag_fix = 1; // free = [];
-                M_mesh_root.setOrdering("bamg");
-                break;
-            case setup::DomainType::BIGKARA:
-                M_flag_fix = 158; // free = 157;
-                M_mesh_root.setOrdering("bamg");
-                break;
-            case setup::DomainType::ARCTIC:
-                M_flag_fix = 174; // free = [172 173];
-                M_mesh_root.setOrdering("bamg");
-                break;
-            case setup::DomainType::BIGARCTIC:
-                M_flag_fix = 161; // free = 158:160;
-                M_mesh_root.setOrdering("bamg");
-                break;
-            case setup::DomainType::UNREF:
-                M_flag_fix = 1; // free = 2;
-                M_mesh_root.setOrdering("gmsh");
-                break;
-            default:
-                std::cout << "invalid domain type"<<"\n";
-                throw std::logic_error("invalid domain type");
-        }
 
+        M_mesh_root.setOrdering("gmsh");
         LOG(DEBUG) <<"Reading root mesh starts\n";
         chrono.restart();
         M_mesh_root.readFromFile(M_mesh_filename);
@@ -355,17 +320,12 @@ FiniteElement::rootMeshProcessing()
         // set M_flag_fix to its correct value when PhysicalNames section is present in the msh file (version 2.2)
         if (!(M_mesh_root.markerNames().empty()))
         {
-            //LOG(DEBUG) <<"M_flag_fix before being changed was: " << M_flag_fix << "\n";
-            std::cout <<"------------------------------------------------M_flag_fix before being changed was: " << M_flag_fix << "\n";
             // get the id associated to the physical name "coast" and assign it to M_flag_fix
             M_flag_fix = M_mesh_root.markerNames().find("coast")->second[0];
-            //LOG(DEBUG) <<"M_flag_fix changed to: " << M_flag_fix << "\n";
-            std::cout <<"---------------------------------------------------------------M_flag_fix changed to: " << M_flag_fix << "\n";
         }
         else
         {
-            // LOG(DEBUG) <<"M_flag_fix left as: " << M_flag_fix << "\n";
-            std::cout <<"----------------------------------------------------------------M_flag_fix left as: " << M_flag_fix << "\n";
+            throw std::runtime_error("No \"coast\" marker in mesh file. Check your input file (" + M_mesh_filename + ")");
         }
 
         for (auto it=M_mesh_root.edges().begin(), end=M_mesh_root.edges().end(); it!=end; ++it)
@@ -397,7 +357,7 @@ FiniteElement::rootMeshProcessing()
 
         switch (M_mesh_type)
         {
-        case setup::MeshType::FROM_GMSH:
+        case setup::MeshType::FROM_UNREF:
             // For the other meshes, we use a constant hmin and hmax
             bamgopt->hmin = h[0];
             bamgopt->hmax = h[1];
@@ -1247,23 +1207,12 @@ FiniteElement::initOptAndParam()
 
     M_use_drifters = (M_use_iabp_drifters) || (M_use_osisaf_drifters) || (M_use_equallyspaced_drifters) || (M_use_rgps_drifters);
 
-    const boost::unordered_map<const std::string, setup::DomainType> str2domain = boost::assign::map_list_of
-        ("default", setup::DomainType::DEFAULT)
-        ("from_split", setup::DomainType::FROM_SPLIT)
-        ("kara", setup::DomainType::KARA)
-        ("beringkara", setup::DomainType::BERINGKARA)
-        ("bigkara", setup::DomainType::BIGKARA)
-        ("arctic", setup::DomainType::ARCTIC)
-        ("bigarctic", setup::DomainType::BIGARCTIC)
-        ("unref", setup::DomainType::UNREF);
-    M_domain_type = str2domain.find(vm["setup.domain-type"].as<std::string>())->second;
-    LOG(DEBUG) <<"DOMAINTYPE= "<< (int) M_domain_type <<"\n";
-
     // mesh type
-    if ( M_domain_type == setup::DomainType::FROM_SPLIT )
-        M_mesh_type = setup::MeshType::FROM_SPLIT;
-    else
-        M_mesh_type = setup::MeshType::FROM_GMSH;
+    const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
+        ("from_unref", setup::MeshType::FROM_UNREF)
+        ("from_split", setup::MeshType::FROM_SPLIT);
+    M_mesh_type = str2mesh.find(vm["mesh.type"].as<std::string>())->second;
+    LOG(DEBUG) <<"MESHTYPE= "<< (int) M_mesh_type <<"\n";
 
     M_mesh_filename = vm["mesh.filename"].as<std::string>();
     M_mesh_fileformat = vm["mesh.fileformat"].as<std::string>();
