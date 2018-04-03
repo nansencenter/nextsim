@@ -4514,7 +4514,7 @@ FiniteElement::update()
 
     // advect
     std::vector<double> interp_elt_out;
-    this->advectRoot(interp_elt_in_local, interp_elt_out);
+    this->advect(interp_elt_in_local, interp_elt_out);
 
     // redistribute the interpolated values
     this->redistributeVariables(interp_elt_out);
@@ -7994,7 +7994,7 @@ void
 FiniteElement::forcingAtmosphere()
 {
     double air_temperature_correction=vm["simul.air_temperature_correction"].as<double>();
-    
+
     switch (M_atmosphere_type)
     {
         case setup::AtmosphereType::CONSTANT:
@@ -8381,7 +8381,7 @@ FiniteElement::initIce()
             break;
         case setup::IceType::CS2_SMOS_AMSR2:
             this->cs2SmosAmsr2Ice();
-            break;    
+            break;
         case setup::IceType::SMOS:
             this->smosIce();
             break;
@@ -8876,7 +8876,7 @@ FiniteElement::topazForecastAmsr2Ice()
     M_external_data_tmp.push_back(&M_conc_amsr2);
     this->checkReloadDatasets(M_external_data_tmp,time_init-0.5,
             "init - AMSR2");
-    
+
     M_external_data_tmp.resize(0);
     M_external_data_tmp.push_back(&M_init_conc);
     M_external_data_tmp.push_back(&M_init_thick);
@@ -8958,7 +8958,7 @@ FiniteElement::topazForecastAmsr2OsisafIce()
     M_external_data_tmp.push_back(&M_amsr2_conc);
     this->checkReloadDatasets(M_external_data_tmp,time_init-0.5,
             "init - OSISAF - AMSR2");
-    
+
     M_external_data_tmp.resize(0);
     M_external_data_tmp.push_back(&M_topaz_conc);
     M_external_data_tmp.push_back(&M_topaz_thick);
