@@ -6014,10 +6014,6 @@ FiniteElement::init()
         LOG(DEBUG) <<"Reading restart file\n";
         pcpt = this->readRestart(vm["setup.step_nb"].as<int>());
         current_time = time_init + pcpt*time_step/(24*3600.0);
-        if(M_use_osisaf_drifters)
-        {
-            this->initOSISAFDrifters();
-        }
 
         if(fmod(pcpt*time_step,output_time_step) == 0)
         {
@@ -6079,9 +6075,9 @@ FiniteElement::init()
         this->initMoorings();
 
     // Initialise drifters - if requested
-    LOG(DEBUG) << "initDrifter\n";
+    LOG(DEBUG) << "initDrifters\n";
     if (M_use_drifters)
-        this->initDrifter();
+        this->initDrifters();
 }
 
 // Take one time step
@@ -9609,7 +9605,7 @@ FiniteElement::initThermodynamics()
 }
 
 void
-FiniteElement::initDrifter()
+FiniteElement::initDrifters()
 {
     if(M_use_equallyspaced_drifters)
         this->equallySpacedDrifter();

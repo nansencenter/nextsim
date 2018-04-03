@@ -226,7 +226,7 @@ public:
     void initIce();
     void initThermodynamics();
     void initSlabOcean();
-    void initDrifter();
+    void initDrifters();
     void updateDrifterPosition();
 
     void calcCoriolis();
