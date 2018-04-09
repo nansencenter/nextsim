@@ -5443,7 +5443,7 @@ FiniteElement::initMoorings()
     // The vectorial variables are (always on the nodes) ...
     std::vector<GridOutput::Vectorial_Variable> vectorial_variables;
 
-    std::vector<std::string> names = vm["simul.mooring_names"].as<std::vector<std::string>>();
+    std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
 
     for ( auto it=names.begin(); it!=names.end(); ++it )
     {
