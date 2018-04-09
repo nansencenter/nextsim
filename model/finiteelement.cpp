@@ -5568,7 +5568,7 @@ FiniteElement::initMoorings()
         }
     }
 
-    if(vm["simul.mooring_grid_file"].as<std::string>()=="")
+    if(vm["moorings.grid_file"].as<std::string>()=="")
     {
         // Calculate the grid spacing (assuming a regular grid for now)
         auto RX = M_mesh.coordX();
@@ -5587,7 +5587,7 @@ FiniteElement::initMoorings()
     {
         // Read the grid in from file
         GridOutput::Grid grid{
-            gridFile: Environment::vm()["simul.mooring_grid_file"].as<std::string>(),
+            gridFile: Environment::vm()["moorings.grid_file"].as<std::string>(),
             dirname: "data",
             mpp_file: Environment::vm()["mesh.mppfile"].as<std::string>(),
             dimNameX: "y",
