@@ -530,7 +530,7 @@ FiniteElement::initConstant()
     //std::cout<<"time_init second= "<< std::setprecision(18) << time_init <<"\n";
     time_step = vm["simul.timestep"].as<double>();
 
-    output_time_step =  (vm["simul.output_per_day"].as<int>()<0) ? time_step : time_step * floor(days_in_sec/vm["simul.output_per_day"].as<int>()/time_step);
+    output_time_step =  (vm["output.output_per_day"].as<int>()<0) ? time_step : time_step * floor(days_in_sec/vm["output.output_per_day"].as<int>()/time_step);
     mooring_output_time_step =  vm["moorings.output_timestep"].as<double>()*days_in_sec;
     mooring_time_factor = time_step/mooring_output_time_step;
     if ( fmod(mooring_output_time_step,time_step) != 0)
@@ -539,7 +539,7 @@ FiniteElement::initConstant()
         throw std::runtime_error("mooring_output_time_step is not an integer multiple of time_step");
     }
 
-    // output_time_step =  time_step*vm["simul.output_per_day"].as<int>(); // useful for debuging
+    // output_time_step =  time_step*vm["output.output_per_day"].as<int>(); // useful for debuging
     duration = (vm["simul.duration"].as<double>())*days_in_sec;
     restart_time_step =  vm["restart.output_time_step"].as<double>()*days_in_sec;
     M_use_assimilation   = vm["setup.use_assimilation"].as<bool>();
