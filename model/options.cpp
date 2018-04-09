@@ -70,7 +70,7 @@ namespace Nextsim
             ("setup.ocean-type", po::value<std::string>()->default_value( "constant" ), "")
             ("setup.ice-type", po::value<std::string>()->default_value( "constant" ), "")
             ("setup.bathymetry-type", po::value<std::string>()->default_value( "etopo" ), "")
-            ("setup.basal_stress_type", po::value<std::string>()->default_value( "lemieux" ), "")
+            ("setup.basal_stress-type", po::value<std::string>()->default_value( "lemieux" ), "")
             ("setup.use_assimilation", po::value<bool>()->default_value( false ), "")
 
             // mesh
