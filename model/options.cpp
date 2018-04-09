@@ -72,6 +72,8 @@ namespace Nextsim
             ("setup.bathymetry-type", po::value<std::string>()->default_value( "etopo" ), "")
             ("setup.basal_stress-type", po::value<std::string>()->default_value( "lemieux" ), "")
             ("setup.use_assimilation", po::value<bool>()->default_value( false ), "")
+            ("setup.dynamics-type", po::value<std::string>()->default_value( "default" ), "")
+            ("setup.thermo-type", po::value<std::string>()->default_value( "winton" ), "")
 
             // mesh
             ("mesh.path", po::value<std::string>()->default_value( "nextsimdir" ), "nextsimdir or simdatadir")
@@ -86,7 +88,7 @@ namespace Nextsim
             ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "")
 
             // moorings
-            ("simul.use_moorings", po::value<bool>()->default_value( false ), "")
+            ("moorings.use_moorings", po::value<bool>()->default_value( false ), "")
             ("simul.mooring_snapshot", po::value<bool>()->default_value( false ), "")
             ("simul.mooring_file_length", po::value<std::string>()->default_value( "inf" ), "")
             ("simul.mooring_spacing", po::value<double>()->default_value( 10 ), "km")
@@ -143,7 +145,6 @@ namespace Nextsim
              * DYNAMICS
              * -----------------------------------------------------------------------------------
              */
-            ("setup.dynamics-type", po::value<std::string>()->default_value( "default" ), "")
 
             // internal stresses
             ("simul.use_coriolis", po::value<bool>()->default_value( true ), "")
@@ -198,7 +199,6 @@ namespace Nextsim
              * THERMODYNAMICS
              * -----------------------------------------------------------------------------------
              */
-            ("setup.thermo-type", po::value<std::string>()->default_value( "winton" ), "")
             ("simul.Qio-type", po::value<std::string>()->default_value( "basic" ), "")
             ("simul.use_thermo_forcing", po::value<bool>()->default_value( true ), "")
             ("simul.albedoW", po::value<double>()->default_value( 0.07 ), "")

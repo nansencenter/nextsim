@@ -732,7 +732,7 @@ FiniteElement::initConstant()
         throw std::logic_error("Unknown setup::MeshType");
 
     // Moorings
-    M_use_moorings =  vm["simul.use_moorings"].as<bool>();
+    M_use_moorings =  vm["moorings.use_moorings"].as<bool>();
 
     M_moorings_snapshot =  vm["simul.mooring_snapshot"].as<bool>();
 
