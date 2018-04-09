@@ -9133,7 +9133,7 @@ FiniteElement::exportResults(std::vector<std::string> const &filenames, bool exp
 
         exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering");
 
-        if(vm["simul.save_forcing_field"].as<bool>())
+        if(vm["output.save_forcing_fields"].as<bool>())
         {
             std::vector<std::string> ext_data_names;
             external_data_vec external_data_tmp;
@@ -9229,7 +9229,7 @@ FiniteElement::exportResults(std::vector<std::string> const &filenames, bool exp
 
                 if( (M_wave_type!=setup::WaveType::SET_IN_WIM)
                     && (M_wave_mode==setup::WaveMode::RUN_ON_MESH)
-                    && (vm["simul.save_forcing_field"].as<bool>()) )
+                    && (vm["output.save_forcing_fields"].as<bool>()) )
                 {
                     // if compiled with wim, using wim,
                     // using wave datasets, and running on mesh,

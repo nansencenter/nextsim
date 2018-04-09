@@ -129,7 +129,7 @@ namespace Nextsim
             // other outputs
             ("output.output_per_day", po::value<int>()->default_value( 4 ), "")
             ("output.logfile", po::value<std::string>()->default_value( "" ), "")
-            ("simul.save_forcing_field", po::value<bool>()->default_value( false ), "")
+            ("output.save_forcing_fields", po::value<bool>()->default_value( false ), "")
             ("simul.save_diagnostics", po::value<bool>()->default_value( false ), "")
 
             // exporter
