@@ -9055,7 +9055,7 @@ FiniteElement::exportResults(std::string name_str, bool export_mesh, bool export
 void
 FiniteElement::exportResults(std::vector<std::string> const &filenames, bool export_mesh, bool export_fields, bool apply_displacement)
 {
-    Exporter exporter(vm["exporter.precision"].as<std::string>());
+    Exporter exporter(vm["output.exporter_precision"].as<std::string>());
     std::string fileout;
 
 

@@ -134,7 +134,7 @@ namespace Nextsim
 
             // exporter
             ("output.exporter_path", po::value<std::string>()->default_value( "" ), "")
-            ("exporter.precision", po::value<std::string>()->default_value("float"),
+            ("output.exporter_precision", po::value<std::string>()->default_value("float"),
                     "float (default) or double (almost only for testing)")
 
             // bathymetry
