@@ -133,7 +133,7 @@ namespace Nextsim
             ("output.save_diagnostics", po::value<bool>()->default_value( false ), "")
 
             // exporter
-            ("exporter.path", po::value<std::string>()->default_value( "" ), "")
+            ("output.exporter_path", po::value<std::string>()->default_value( "" ), "")
             ("exporter.precision", po::value<std::string>()->default_value("float"),
                     "float (default) or double (almost only for testing)")
 

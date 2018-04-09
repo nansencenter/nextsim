@@ -4516,10 +4516,10 @@ FiniteElement::init()
     // Initialise everything that doesn't depend on the mesh (constants, data set description, and time)
 
     M_export_path = Environment::nextsimDir().string() + "/matlab";
-    // change directory for outputs if the option "exporter.path" is not empty
-    if ( ! (vm["exporter.path"].as<std::string>()).empty() )
+    // change directory for outputs if the option "output.exporter_path" is not empty
+    if ( ! (vm["output.exporter_path"].as<std::string>()).empty() )
     {
-        M_export_path = vm["exporter.path"].as<std::string>();
+        M_export_path = vm["output.exporter_path"].as<std::string>();
         fs::path path(M_export_path);
 
         // create the output directory if it does not exist
@@ -5627,9 +5627,9 @@ FiniteElement::writeRestart(int pcpt, std::string step)
     // === Start with the mesh ===
     // First the data
     std::string directory = Environment::nextsimDir().string() + "/restart";
-    // change directory for outputs if the option "exporter.path" is not empty
-    if ( ! (vm["exporter.path"].as<std::string>()).empty() )
-        directory = vm["exporter.path"].as<std::string>() + "/restart";
+    // change directory for outputs if the option "output.exporter_path" is not empty
+    if ( ! (vm["output.exporter_path"].as<std::string>()).empty() )
+        directory = vm["output.exporter_path"].as<std::string>() + "/restart";
 
     // create the output directory if it does not exist
     fs::path path(directory);
