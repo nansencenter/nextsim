@@ -5959,7 +5959,7 @@ FiniteElement::readRestart(std::string step)
     }
 
     // // Pre-processing
-    if(vm["setup.restart_at_rest"].as<bool>())
+    if(vm["restart.restart_at_rest"].as<bool>())
     {
         for (int i=0; i < M_sigma.size(); i++)
         {

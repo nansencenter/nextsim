@@ -121,7 +121,7 @@ namespace Nextsim
 
             // - outputs
             ("restart.write_restart", po::value<bool>()->default_value( false ), "")
-            ("setup.restart_at_rest", po::value<bool>()->default_value( false ), "")
+            ("restart.restart_at_rest", po::value<bool>()->default_value( false ), "")
             ("setup.restart_time_step", po::value<double>()->default_value( 15 ), "days")
             ("setup.restart_debugging", po::value<bool>()->default_value( false ),
                 "save restart every time step for debugging (only with build type DEBUG)")
