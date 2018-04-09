@@ -143,14 +143,40 @@ namespace Nextsim
              * -----------------------------------------------------------------------------------
              */
 
-            // bathymetry
+            // - if setup.bathymetry-type = constant
             ("ideal_simul.constant_bathymetry", po::value<double>()->default_value( 200. ), "")
 
-            // if ice-type=constant
+            // - if setup.ice-type = constant
             ("simul.init_thickness", po::value<double>()->default_value( 1.0 ), "")
             ("simul.init_concentration", po::value<double>()->default_value( 1.0 ), "")
             ("simul.init_thin_conc", po::value<double>()->default_value( 0. ), "")
             ("simul.init_snow_thickness", po::value<double>()->default_value( 0. ), "")
+
+            // - if atmosphere-type=constant
+            // -- thermodynamics
+            ("ideal_simul.constant_tair", po::value<double>()->default_value( -25. ), "")
+            ("ideal_simul.constant_dair", po::value<double>()->default_value( -1. ), "")
+            ("ideal_simul.constant_mixrat", po::value<double>()->default_value( 0.001 ), "")
+            ("ideal_simul.constant_mslp", po::value<double>()->default_value( 1013e2 ), "")
+            ("ideal_simul.constant_Qsw_in", po::value<double>()->default_value( 50. ), "")
+            ("ideal_simul.constant_Qlw_in", po::value<double>()->default_value( 250. ), "")
+            ("ideal_simul.constant_precip", po::value<double>()->default_value( 1e-5 ), "")
+            ("ideal_simul.constant_snowfr", po::value<double>()->default_value( 0.9 ), "")
+            ("ideal_simul.constant_Qdw", po::value<double>()->default_value( 0. ), "")
+            ("ideal_simul.constant_Fdw", po::value<double>()->default_value( 0. ), "")
+            ("ideal_simul.constant_mld", po::value<double>()->default_value( 9. ), "")
+
+            // - if atmosphere-type=constant
+            // -- dynamics
+            ("ideal_simul.constant_wind_u", po::value<double>()->default_value( 0. ), "")
+            ("ideal_simul.constant_wind_v", po::value<double>()->default_value( -10. ), "")
+
+            // - if ocean-type=constant
+            ("ideal_simul.constant_ocean_u", po::value<double>()->default_value( 0. ), "")
+            ("ideal_simul.constant_ocean_v", po::value<double>()->default_value( 0. ), "")
+            ("ideal_simul.constant_ssh", po::value<double>()->default_value( 0. ), "")
+            // -----------------------------------------------------------------------------------
+
 
             /*
              *-----------------------------------------------------------------------------------
@@ -238,19 +264,6 @@ namespace Nextsim
             ("simul.diffusivity_sss", po::value<double>()->default_value( 100. ), "") //[m^2/s]
             ("simul.diffusivity_sst", po::value<double>()->default_value( 100. ), "") //[m^2/s]
 
-            // if atmosphere-type=constant
-            ("ideal_simul.constant_tair", po::value<double>()->default_value( -25. ), "")
-            ("ideal_simul.constant_dair", po::value<double>()->default_value( -1. ), "")
-            ("ideal_simul.constant_mixrat", po::value<double>()->default_value( 0.001 ), "")
-            ("ideal_simul.constant_mslp", po::value<double>()->default_value( 1013e2 ), "")
-            ("ideal_simul.constant_Qsw_in", po::value<double>()->default_value( 50. ), "")
-            ("ideal_simul.constant_Qlw_in", po::value<double>()->default_value( 250. ), "")
-            ("ideal_simul.constant_precip", po::value<double>()->default_value( 1e-5 ), "")
-            ("ideal_simul.constant_snowfr", po::value<double>()->default_value( 0.9 ), "")
-            ("ideal_simul.constant_Qdw", po::value<double>()->default_value( 0. ), "")
-            ("ideal_simul.constant_Fdw", po::value<double>()->default_value( 0. ), "")
-            ("ideal_simul.constant_mld", po::value<double>()->default_value( 9. ), "")
-
             /*
              *-----------------------------------------------------------------------------------
              * EXTERNAL FORCINGS
@@ -258,11 +271,6 @@ namespace Nextsim
              */
             ("simul.ocean_nudge_timeT", po::value<double>()->default_value( 30*days_in_sec), "")
             ("simul.ocean_nudge_timeS", po::value<double>()->default_value( 30*days_in_sec), "")
-            ("ideal_simul.constant_wind_u", po::value<double>()->default_value( 0. ), "")
-            ("ideal_simul.constant_wind_v", po::value<double>()->default_value( -10. ), "")
-            ("ideal_simul.constant_ocean_u", po::value<double>()->default_value( 0. ), "")
-            ("ideal_simul.constant_ocean_v", po::value<double>()->default_value( 0. ), "")
-            ("ideal_simul.constant_ssh", po::value<double>()->default_value( 0. ), "")
             ("simul.oceanic_turning_angle", po::value<double>()->default_value( 25. ), "")
 
             /*
