@@ -4942,7 +4942,7 @@ FiniteElement::step(int &pcpt)
                                     true, 0.);
 
             // Rebuild the M_iabp_drifters map
-            double clim = vm["simul.drifter_climit"].as<double>();
+            double clim = vm["drifters.concentration_limit"].as<double>();
             j=0;
             for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); /* ++it is not allowed here, because we use 'erase' */ )
             {
@@ -5016,7 +5016,7 @@ FiniteElement::step(int &pcpt)
         // Create a new M_drifters instance in [0], with a properly initialised netCDF file
         M_osisaf_drifters[0] = Drifters("data", "ice_drift_nh_polstere-625_multi-oi.nc",
                 "xc", "yc",
-                "lat", "lon", M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
+                "lat", "lon", M_mesh, M_conc, vm["drifters.concentration_limit"].as<double>());
 
         M_osisaf_drifters[0].initNetCDF(M_export_path+"/OSISAF_", current_time);
         M_osisaf_drifters[0].appendNetCDF(current_time, M_mesh, M_UT);
@@ -8765,7 +8765,7 @@ FiniteElement::initIABPDrifter()
 void
 FiniteElement::equallySpacedDrifter()
 {
-    M_equallyspaced_drifters = Drifters(1e3*vm["simul.drifter_spacing"].as<double>(), M_mesh, M_conc, vm["simul.drifter_climit"].as<double>());
+    M_equallyspaced_drifters = Drifters(1e3*vm["drifters.spacing"].as<double>(), M_mesh, M_conc, vm["drifters.concentration_limit"].as<double>());
     M_equallyspaced_drifters.initNetCDF(M_export_path+"/Drifters_", current_time);
     M_equallyspaced_drifters.appendNetCDF(current_time, M_mesh, M_UT);
 }
@@ -8783,7 +8783,7 @@ FiniteElement::updateRGPSDrifters()
     double RGPS_time_init = Nextsim::from_date_time_string(time_str);
     
     std::string filename = Environment::nextsimDir().string() + "/data/RGPS_" + time_str + ".txt";
-    M_rgps_drifters = Drifters(filename, M_mesh, M_conc, vm["simul.drifter_climit"].as<double>(),RGPS_time_init);
+    M_rgps_drifters = Drifters(filename, M_mesh, M_conc, vm["drifters.concentration_limit"].as<double>(),RGPS_time_init);
     
     M_rgps_drifters.initNetCDF(M_export_path+"/RGPS_Drifters_", current_time);
     M_rgps_drifters.appendNetCDF(current_time, M_mesh, M_UT);
