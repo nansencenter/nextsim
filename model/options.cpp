@@ -89,7 +89,7 @@ namespace Nextsim
 
             // moorings
             ("moorings.use_moorings", po::value<bool>()->default_value( false ), "")
-            ("simul.mooring_snapshot", po::value<bool>()->default_value( false ), "")
+            ("moorings.snapshot", po::value<bool>()->default_value( false ), "")
             ("simul.mooring_file_length", po::value<std::string>()->default_value( "inf" ), "")
             ("simul.mooring_spacing", po::value<double>()->default_value( 10 ), "km")
             ("simul.mooring_output_timestep", po::value<double>()->default_value( 1 ), "days")

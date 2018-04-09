@@ -734,7 +734,7 @@ FiniteElement::initConstant()
     // Moorings
     M_use_moorings =  vm["moorings.use_moorings"].as<bool>();
 
-    M_moorings_snapshot =  vm["simul.mooring_snapshot"].as<bool>();
+    M_moorings_snapshot =  vm["moorings.snapshot"].as<bool>();
 
     const boost::unordered_map<const std::string, GridOutput::fileLength> str2mooringsfl = boost::assign::map_list_of
         ("inf", GridOutput::fileLength::inf)
