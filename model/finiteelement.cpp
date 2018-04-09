@@ -9289,7 +9289,7 @@ FiniteElement::exportResults(std::vector<std::string> const &filenames, bool exp
         exporter.writeField(outbin, sigma2, "Sigma2");
 #endif
 
-        if(vm["simul.save_diagnostics"].as<bool>())
+        if(vm["output.save_diagnostics"].as<bool>())
         {
             exporter.writeField(outbin, D_Qa, "Qatm");
             exporter.writeField(outbin, D_Qsw, "Qsw");

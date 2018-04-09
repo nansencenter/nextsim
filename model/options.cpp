@@ -126,11 +126,11 @@ namespace Nextsim
             ("restart.debugging", po::value<bool>()->default_value( false ),
                 "save restart every time step for debugging (only with build type DEBUG)")
 
-            // other outputs
+            // general outputs
             ("output.output_per_day", po::value<int>()->default_value( 4 ), "")
             ("output.logfile", po::value<std::string>()->default_value( "" ), "")
             ("output.save_forcing_fields", po::value<bool>()->default_value( false ), "")
-            ("simul.save_diagnostics", po::value<bool>()->default_value( false ), "")
+            ("output.save_diagnostics", po::value<bool>()->default_value( false ), "")
 
             // exporter
             ("exporter.path", po::value<std::string>()->default_value( "" ), "")
