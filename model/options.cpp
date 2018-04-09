@@ -118,11 +118,11 @@ namespace Nextsim
             ("restart.step_nb", po::value<int>()->default_value( 0 ), "")
             ("restart.input_path", po::value<std::string>()->default_value( "" ),
                     "where to find restarts (default is $NEXTSIMDIR/restart)")
+            ("restart.restart_at_rest", po::value<bool>()->default_value( false ), "")
 
             // - outputs
             ("restart.write_restart", po::value<bool>()->default_value( false ), "")
-            ("restart.restart_at_rest", po::value<bool>()->default_value( false ), "")
-            ("setup.restart_time_step", po::value<double>()->default_value( 15 ), "days")
+            ("restart.ouput_time_step", po::value<double>()->default_value( 15 ), "days")
             ("setup.restart_debugging", po::value<bool>()->default_value( false ),
                 "save restart every time step for debugging (only with build type DEBUG)")
 
