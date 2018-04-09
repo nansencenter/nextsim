@@ -5273,7 +5273,7 @@ FiniteElement::step(int &pcpt)
 #endif
 
 #ifdef DEBUGGING
-    if(vm["setup.restart_debugging"].as<bool>())
+    if(vm["restart.debugging"].as<bool>())
         //write restart every timestep
         this->writeRestart(pcpt, pcpt);
 #else
