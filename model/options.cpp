@@ -91,7 +91,7 @@ namespace Nextsim
             ("moorings.use_moorings", po::value<bool>()->default_value( false ), "")
             ("moorings.snapshot", po::value<bool>()->default_value( false ), "")
             ("moorings.file_length", po::value<std::string>()->default_value( "inf" ), "")
-            ("simul.mooring_spacing", po::value<double>()->default_value( 10 ), "km")
+            ("moorings.spacing", po::value<double>()->default_value( 10 ), "km")
             ("simul.mooring_output_timestep", po::value<double>()->default_value( 1 ), "days")
             ("simul.mooring_names", po::value<std::vector<std::string>>()->multitoken()->default_value(std::vector<std::string>(),
                     "conc thick snow conc_thin h_thin hs_thin velocity_xy")->composing(), "")

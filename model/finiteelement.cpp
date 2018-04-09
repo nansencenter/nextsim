@@ -4729,7 +4729,7 @@ FiniteElement::initOASIS()
     auto xcoords = std::minmax_element( RX.begin(), RX.end() );
     auto ycoords = std::minmax_element( RY.begin(), RY.end() );
 
-    double mooring_spacing = 1e3 * vm["simul.mooring_spacing"].as<double>();
+    double mooring_spacing = 1e3 * vm["moorings.spacing"].as<double>();
     int nrows = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/mooring_spacing );
     int ncols = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
 
@@ -5576,7 +5576,7 @@ FiniteElement::initMoorings()
         auto xcoords = std::minmax_element( RX.begin(), RX.end() );
         auto ycoords = std::minmax_element( RY.begin(), RY.end() );
 
-        double mooring_spacing = 1e3 * vm["simul.mooring_spacing"].as<double>();
+        double mooring_spacing = 1e3 * vm["moorings.spacing"].as<double>();
         int ncols = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/mooring_spacing );
         int nrows = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
 
