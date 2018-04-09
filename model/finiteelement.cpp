@@ -6131,9 +6131,9 @@ FiniteElement::error()
 }
 
 void
-FiniteElement::forcingAtmosphere()//(double const& u, double const& v)
+FiniteElement::forcingAtmosphere()
 {
-    double air_temperature_correction=vm["simul.air_temperature_correction"].as<double>();
+    double air_temperature_correction=vm["forecast.air_temperature_correction"].as<double>();
     
     switch (M_atmosphere_type)
     {
