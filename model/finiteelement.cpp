@@ -4989,7 +4989,7 @@ FiniteElement::step(int &pcpt)
 
         if ( M_use_rgps_drifters )
         {
-            std::string time_str = vm["simul.RGPS_time_init"].as<std::string>();
+            std::string time_str = vm["drifters.RGPS_time_init"].as<std::string>();
             double RGPS_time_init = Nextsim::from_date_time_string(time_str);
         
             if( !M_rgps_drifters.isInitialised() && current_time == RGPS_time_init)
@@ -8779,7 +8779,7 @@ FiniteElement::initRGPSDrifters()
 void
 FiniteElement::updateRGPSDrifters()
 {    
-    std::string time_str = vm["simul.RGPS_time_init"].as<std::string>();
+    std::string time_str = vm["drifters.RGPS_time_init"].as<std::string>();
     double RGPS_time_init = Nextsim::from_date_time_string(time_str);
     
     std::string filename = Environment::nextsimDir().string() + "/data/RGPS_" + time_str + ".txt";

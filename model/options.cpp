@@ -109,7 +109,7 @@ namespace Nextsim
             ("drifters.use_osisaf_drifters", po::value<bool>()->default_value( false ), "")
             ("drifters.concentration_limit", po::value<double>()->default_value( 0.15 ), "")
             ("drifters.spacing", po::value<double>()->default_value( 10 ), "")
-            ("simul.RGPS_time_init", po::value<std::string>()->default_value( "2007-12-01" ), "")
+            ("drifters.RGPS_time_init", po::value<std::string>()->default_value( "2007-12-01" ), "")
 
             // bathymetry
             ("simul.constant_bathymetry", po::value<double>()->default_value( 200. ), "")
