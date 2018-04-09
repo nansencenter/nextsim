@@ -111,23 +111,15 @@ namespace Nextsim
             ("drifters.spacing", po::value<double>()->default_value( 10 ), "")
             ("drifters.RGPS_time_init", po::value<std::string>()->default_value( "2007-12-01" ), "")
 
-            // bathymetry
-            ("simul.constant_bathymetry", po::value<double>()->default_value( 200. ), "")
-
-            // if ice-type=constant
-            ("simul.init_thickness", po::value<double>()->default_value( 1.0 ), "")
-            ("simul.init_concentration", po::value<double>()->default_value( 1.0 ), "")
-            ("simul.init_thin_conc", po::value<double>()->default_value( 0. ), "")
-            ("simul.init_snow_thickness", po::value<double>()->default_value( 0. ), "")
-
-            //inputs (restart)
-            ("setup.use_restart", po::value<bool>()->default_value( false ), "")
+            // restart
+            // - inputs
+            ("restart.start_from_restart", po::value<bool>()->default_value( false ), "")
             ("setup.restart_string", po::value<std::string>()->default_value( "" ), "")
             ("setup.step_nb", po::value<int>()->default_value( 0 ), "")
             ("setup.restart_path", po::value<std::string>()->default_value( "" ),
                     "where to find restarts (default is $NEXTSIMDIR/restart)")
 
-            // outputs (restart)
+            // - outputs
             ("setup.write_restart", po::value<bool>()->default_value( false ), "")
             ("setup.restart_at_rest", po::value<bool>()->default_value( false ), "")
             ("setup.restart_time_step", po::value<double>()->default_value( 15 ), "days")
@@ -144,6 +136,15 @@ namespace Nextsim
             ("exporter.path", po::value<std::string>()->default_value( "" ), "")
             ("exporter.precision", po::value<std::string>()->default_value("float"),
                     "float (default) or double (almost only for testing)")
+
+            // bathymetry
+            ("simul.constant_bathymetry", po::value<double>()->default_value( 200. ), "")
+
+            // if ice-type=constant
+            ("simul.init_thickness", po::value<double>()->default_value( 1.0 ), "")
+            ("simul.init_concentration", po::value<double>()->default_value( 1.0 ), "")
+            ("simul.init_thin_conc", po::value<double>()->default_value( 0. ), "")
+            ("simul.init_snow_thickness", po::value<double>()->default_value( 0. ), "")
 
             /*
              *-----------------------------------------------------------------------------------
