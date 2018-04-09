@@ -407,7 +407,31 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     // ---------------------------------
     // Load grid if unloaded
     if(!dataset->grid.loaded)
-        dataset->loadGrid(&(dataset->grid), M_StartingTime, M_current_time, RX_min, RX_max, RY_min, RY_max);
+    {
+        bool is_topaz_fc = (dataset->grid.dataset_frequency=="daily_forecast");//topaz forecast
+        bool is_ec_fc = ((dataset->grid.prefix).find("start") != std::string::npos);//ec_[nodes,elements],ec2_[nodes,elements]
+        bool true_forecast = (Environment::vm()["forecast.true_forecast"].as<bool>());
+        double init_time = M_StartingTime;
+        if((is_ec_fc||is_topaz_fc)&&true_forecast)
+        {
+            if (is_ec_fc)
+            {
+                // use forecast.time_init_atm_fc option to get init_time
+                std::string tmpstr = (Environment::vm()["forecast.time_init_atm_fc"].as<std::string>());
+                if(tmpstr!="")
+                    init_time = Nextsim::from_date_time_string(tmpstr);
+            }
+            else
+            {
+                // use forecast.time_init_ocean_fc option to get init_time
+                std::string tmpstr = (Environment::vm()["forecast.time_init_ocean_fc"].as<std::string>());
+                if(tmpstr!="")
+                    init_time = Nextsim::from_date_time_string(tmpstr);
+            }
+        }
+        //only need init_time to get grid
+        dataset->loadGrid(&(dataset->grid), init_time, init_time, RX_min, RX_max, RY_min, RY_max);
+    }
 
     // ---------------------------------
 	std::vector<double> XTIME(1);
