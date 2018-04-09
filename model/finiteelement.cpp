@@ -742,7 +742,7 @@ FiniteElement::initConstant()
         ("weekly", GridOutput::fileLength::weekly)
         ("monthly", GridOutput::fileLength::monthly)
         ("yearly", GridOutput::fileLength::yearly);
-    M_moorings_file_length = str2mooringsfl.find(vm["simul.mooring_file_length"].as<std::string>())->second;
+    M_moorings_file_length = str2mooringsfl.find(vm["moorings.file_length"].as<std::string>())->second;
 }//initConstant
 
 void
