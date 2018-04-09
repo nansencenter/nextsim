@@ -699,7 +699,7 @@ FiniteElement::initConstant()
     M_basal_stress_type = str2basal_stress.find(vm["setup.basal_stress-type"].as<std::string>())->second;
 
     M_use_iabp_drifters=vm["drifters.use_iabp_drifters"].as<bool>();
-    M_equallyspaced_drifters_output_time_step=vm["simul.equallyspaced_drifters_output_time_step"].as<double>();
+    M_equallyspaced_drifters_output_time_step=vm["drifters.equallyspaced_drifters_output_time_step"].as<double>();
     M_rgps_drifters_output_time_step=vm["simul.rgps_drifters_output_time_step"].as<double>();
     M_use_osisaf_drifters=vm["simul.use_osisaf_drifters"].as<bool>();
     
