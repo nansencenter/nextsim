@@ -156,6 +156,10 @@ namespace Nextsim
             ("simul.compr_strength", po::value<double>()->default_value( 750e+3 ), "Pa")
             ("simul.ridging_exponent", po::value<double>()->default_value( -20. ), "")
 
+            // c,h limits for where to use MEB rheology and where to use the Laplacian free drift thing
+            ("simul.min_h", po::value<double>()->default_value( 0.05 ), "")
+            ("simul.min_c", po::value<double>()->default_value( 0.01 ), "")
+
             // - Ratio of ridged ice cohesion and compressive strength compared to level ice (1. does nothing)
             ("simul.ridge_to_normal_cohesion_ratio", po::value<double>()->default_value( 1. ), "")
             // - Scaling of cohesion w.r.t. ice thickness (normalisation factor = 1 and exponent = 0 does nothing)
@@ -254,11 +258,14 @@ namespace Nextsim
              * FORECASTING
              * -----------------------------------------------------------------------------------
              */
-            ("simul.forecast", po::value<bool>()->default_value( false ), "")
-            ("simul.air_temperature_correction", po::value<double>()->default_value( 0. ), "")
-            ("simul.use_ship", po::value<bool>()->default_value( false ), "")
-            ("simul.min_h", po::value<double>()->default_value( 0.05 ), "")
-            ("simul.min_c", po::value<double>()->default_value( 0.01 ), "")
+            ("forecast.air_temperature_correction", po::value<double>()->default_value( 0. ),
+                "for use in BADA (Bias-Aware-Data-Assimilation)")
+            ("forecast.true_forecast", po::value<bool>()->default_value( false ),
+                "if false, use <<analysis/best est>> - forecast that started on the same day as the model time; else use the one that began on simul.time_init, or  forecast.time_init_atm_fc/forecast.time_init_ocean_fc (if provided)")
+            ("forecast.time_init_atm_fc", po::value<std::string>()->default_value( "" ),
+                "if(forecast.true_forecast), get atmospheric forecast starting from this date as opposed to simul.time_init (eg if usual one is absent)")
+            ("forecast.time_init_ocean_fc", po::value<std::string>()->default_value( "" ),
+                "if(forecast.true_forecast), get ocean forecast starting from this date as opposed to simul.time_init (eg if usual one is absent)")
 
             /*
              *-----------------------------------------------------------------------------------
