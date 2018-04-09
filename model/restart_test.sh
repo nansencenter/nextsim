@@ -34,7 +34,7 @@ $execfile --exporter.precision=double --exporter.path=$tmpdir_start --restart.st
 cp $tmpdir_start/restart/* ../restart/
 
 # Run with a restart
-$execfile --exporter.precision=double --exporter.path=$tmpdir_restart --restart.start_from_restart=true --setup.step_nb=$step_nb --simul.duration=$duration --setup.write_restart=false --simul.output_per_day=$output_per_day --config-files=$cfgfile 2>&1 | tee $tmpdir_restart/output.log || exit 6
+$execfile --exporter.precision=double --exporter.path=$tmpdir_restart --restart.start_from_restart=true --restart.step_nb=$step_nb --simul.duration=$duration --setup.write_restart=false --simul.output_per_day=$output_per_day --config-files=$cfgfile 2>&1 | tee $tmpdir_restart/output.log || exit 6
 
 # Test for diff
 results=0

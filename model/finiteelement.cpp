@@ -4563,7 +4563,7 @@ FiniteElement::init()
         if ( !res_str.empty() )
             pcpt = this->readRestart(res_str);
         else
-            pcpt = this->readRestart(vm["setup.step_nb"].as<int>());
+            pcpt = this->readRestart(vm["restart.step_nb"].as<int>());
         current_time = time_init + pcpt*time_step/(24*3600.0);
 
         if(M_use_osisaf_drifters)
@@ -5771,11 +5771,11 @@ FiniteElement::readRestart(std::string step)
 
     // === Read in the mesh restart files ===
     std::string restart_path;
-    if ( (vm["setup.restart_path"].as<std::string>()).empty() )
+    if ( (vm["restart.input_path"].as<std::string>()).empty() )
         //default restart path is $NEXTSIMDIR/restart
         restart_path = Environment::nextsimDir().string()+"/restart";
     else
-        restart_path = vm["setup.restart_path"].as<std::string>();
+        restart_path = vm["restart.input_path"].as<std::string>();
 
     // Start with the record
     filename = (boost::format( "%1%/mesh_%2%.dat" )
