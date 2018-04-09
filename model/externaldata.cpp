@@ -462,7 +462,6 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     bool true_forecast = (Environment::vm()["forecast.true_forecast"].as<bool>());
     double init_time = M_StartingTime;
         // - for forecasts, filename depends on start time
-        // - if(!true_forecast), want to change this
 
     // Filename depends on the date for time varying data
 	if(dataset->grid.dataset_frequency!="constant"
@@ -474,8 +473,11 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
         ftime = M_current_time-dataset->averaging_period/2.;
         file_jump ={-1,0,1};
-        std::cout<<"515\n";
-        std::cout<<"times = "<<init_time<<","<<M_current_time<<","<<ftime<<"\n";
+
+        std::cout<<"LOAD DATASET TIMES:\n";
+        std::cout<<"init_time = "<<init_time<<" = "<<to_date_time_string(init_time)<<"\n";
+        std::cout<<"M_current_time = "<<M_current_time<<" = "<<to_date_time_string(M_current_time)<<"\n";
+        std::cout<<"ftime = "<<ftime<<" = "<<to_date_time_string(ftime)<<"\n";
         if((is_ec_fc||is_topaz_fc)&&true_forecast)
         {
             // when using forcing from ECMWF or topaz forecasts, we select the file based on the StartingTime
