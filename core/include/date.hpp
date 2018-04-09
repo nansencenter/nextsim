@@ -66,23 +66,37 @@ inline double from_date_string( const std::string& datestr )
 inline std::string to_date_string( double date_time )
 {
     boost::gregorian::date dt = Nextsim::parse_date( date_time );
-    return (boost::format( "%1%-%2%-%3%" ) % dt.year() % dt.month().as_number() % dt.day().as_number()).str();
+    return (boost::format( "%1%-%2%-%3%" )
+            % dt.year()
+            % dt.month().as_number()
+            % dt.day().as_number()
+            ).str();
 }
 
 inline std::string to_date_string_yd( double date_time )
 {
+    // yyyymmdd
     boost::gregorian::date dt = Nextsim::parse_date( date_time );
-    return (boost::format( "%1%%2%%3%" ) % dt.year() % boost::io::group(std::setw(2), std::setfill('0'), dt.month().as_number()) % boost::io::group(std::setw(2), std::setfill('0'), dt.day().as_number())).str();
+    return (boost::format( "%1%%2%%3%" )
+            % dt.year()
+            % boost::io::group(std::setw(2), std::setfill('0'), dt.month().as_number())
+            % boost::io::group(std::setw(2), std::setfill('0'), dt.day().as_number())
+            ).str();
 }
 
 inline std::string to_date_string_ym( double date_time )
 {
+    // yyyymm
     boost::gregorian::date dt = Nextsim::parse_date( date_time );
-    return (boost::format( "%1%%2%" ) % dt.year() % boost::io::group(std::setw(2), std::setfill('0'), dt.month().as_number())).str();
+    return (boost::format( "%1%%2%" )
+            % dt.year()
+            % boost::io::group(std::setw(2), std::setfill('0'), dt.month().as_number())
+            ).str();
 }
 
 inline std::string to_date_string_y( double date_time )
 {
+    // yyyy
     boost::gregorian::date dt = Nextsim::parse_date( date_time );
     return (boost::format( "%1%" ) % dt.year()).str();
 }
@@ -108,6 +122,7 @@ inline double from_date_time_string( const std::string& datestr )
 
 inline std::string to_date_time_string( double date_time )
 {
+    // yyyy-mm-dd hh:mm:ss.fss
     boost::gregorian::date date_part = Nextsim::parse_date( date_time );
     boost::posix_time::time_duration time_part = Nextsim::parse_time( date_time );
 
@@ -124,8 +139,14 @@ inline std::string to_date_time_string( double date_time )
     }
 
     return (boost::format( "%d-%02d-%02d %02d:%02d:%02d.%03d" )
-            % date_part.year() % date_part.month().as_number() % date_part.day().as_number()
-            % time_part.hours() % time_part.minutes() % time_part.seconds() % fractional_seconds ).str();
+            % date_part.year()
+            % date_part.month().as_number()
+            % date_part.day().as_number()
+            % time_part.hours()
+            % time_part.minutes()
+            % time_part.seconds()
+            % fractional_seconds
+            ).str();
 }
 
 inline std::string current_time_local()
