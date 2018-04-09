@@ -544,7 +544,7 @@ FiniteElement::initConstant()
     restart_time_step =  vm["setup.restart_time_step"].as<double>()*days_in_sec;
     M_use_assimilation   = vm["setup.use_assimilation"].as<bool>();
     M_use_restart   = vm["restart.start_from_restart"].as<bool>();
-    M_write_restart = vm["setup.write_restart"].as<bool>();
+    M_write_restart = vm["restart.write_restart"].as<bool>();
     if ( fmod(restart_time_step,time_step) != 0)
     {
         std::cout << restart_time_step << " " << time_step << "\n";

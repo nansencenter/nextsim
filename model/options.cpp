@@ -120,7 +120,7 @@ namespace Nextsim
                     "where to find restarts (default is $NEXTSIMDIR/restart)")
 
             // - outputs
-            ("setup.write_restart", po::value<bool>()->default_value( false ), "")
+            ("restart.write_restart", po::value<bool>()->default_value( false ), "")
             ("setup.restart_at_rest", po::value<bool>()->default_value( false ), "")
             ("setup.restart_time_step", po::value<double>()->default_value( 15 ), "days")
             ("setup.restart_debugging", po::value<bool>()->default_value( false ),

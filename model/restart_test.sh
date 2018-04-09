@@ -28,13 +28,13 @@ tmpdir_start=$(mktemp -d)
 tmpdir_restart=$(mktemp -d)
 
 # Run from start
-$execfile --exporter.precision=double --exporter.path=$tmpdir_start --restart.start_from_restart=false --simul.duration=$duration --setup.write_restart=true --setup.restart_time_step=$restart_time_step --simul.output_per_day=$output_per_day --config-files=$cfgfile 2>&1 | tee $tmpdir_start/output.log || exit 5
+$execfile --exporter.precision=double --exporter.path=$tmpdir_start --restart.start_from_restart=false --simul.duration=$duration --restart.write_restart=true --setup.restart_time_step=$restart_time_step --simul.output_per_day=$output_per_day --config-files=$cfgfile 2>&1 | tee $tmpdir_start/output.log || exit 5
 
 # Copy the restart files to ../restart so they can be read by the model
 cp $tmpdir_start/restart/* ../restart/
 
 # Run with a restart
-$execfile --exporter.precision=double --exporter.path=$tmpdir_restart --restart.start_from_restart=true --restart.step_nb=$step_nb --simul.duration=$duration --setup.write_restart=false --simul.output_per_day=$output_per_day --config-files=$cfgfile 2>&1 | tee $tmpdir_restart/output.log || exit 6
+$execfile --exporter.precision=double --exporter.path=$tmpdir_restart --restart.start_from_restart=true --restart.step_nb=$step_nb --simul.duration=$duration --restart.write_restart=false --simul.output_per_day=$output_per_day --config-files=$cfgfile 2>&1 | tee $tmpdir_restart/output.log || exit 6
 
 # Test for diff
 results=0
