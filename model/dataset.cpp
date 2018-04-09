@@ -6251,47 +6251,43 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int j
 
     std::string current_timestr="";
     std::string filename="";
-    if(is_ec_fc)
+    if(is_ec_fc||is_topaz_fc)
     {
-        //filename only depends on the init time
-        double ftime = std::floor(init_time);
-
         // if current (shifted) time before init_time, reduce the init_time to find a file
         // NB jump is in days
-        ftime = std::min(std::floor(current_time + jump),ftime);
-        std::string init_timestr= to_date_string_yd(ftime);//yyyymmdd
+        double inittime = std::floor(init_time);
+        if(std::floor(current_time+jump)<inittime)
+            inittime = std::floor(current_time + jump);
+        std::string init_timestr= to_date_string_yd(inittime);//yyyymmdd
 
-        //get filename
-        filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
-                       % Environment::simdataDir().string()
-                       % grid_ptr->dirname
-                       % grid_ptr->prefix
-                       % init_timestr
-                       % grid_ptr->postfix
-                       ).str();
-        return filename;
-    }
-    else if (is_topaz_fc)
-    {
-        double ftime = std::floor(init_time);
+        if(is_ec_fc)
+        {
+            //get filename
+            filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
+                           % Environment::simdataDir().string()
+                           % grid_ptr->dirname
+                           % grid_ptr->prefix
+                           % init_timestr
+                           % grid_ptr->postfix
+                           ).str();
+            return filename;
+        }
+        else
+        {
 
-        // if current (shifted) time before init_time, reduce the init_time to find a file
-        // NB jump is in days
-        ftime = std::min(std::floor(current_time + jump),ftime);
-        std::string init_timestr= to_date_string_yd(ftime);//yyyymmdd
+            // also need current time for filename
+            current_timestr = to_date_string_yd(std::floor(current_time+jump));//yyyymmdd
 
-        // also need current time for filename
-        current_timestr = to_date_string_yd(std::floor(current_time+jump));//yyyymmdd
-
-        filename = (boost::format( "%1%/%2%/%3%%4%%5%%6%" )
-                            % Environment::simdataDir().string()
-                            % grid_ptr->dirname
-                            % current_timestr
-                            % grid_ptr->prefix
-                            % init_timestr
-                            % grid_ptr->postfix
-                       ).str();
-        return filename;
+            filename = (boost::format( "%1%/%2%/%3%%4%%5%%6%" )
+                                % Environment::simdataDir().string()
+                                % grid_ptr->dirname
+                                % current_timestr
+                                % grid_ptr->prefix
+                                % init_timestr
+                                % grid_ptr->postfix
+                           ).str();
+            return filename;
+        }
     }
 
     if(grid_ptr->dataset_frequency=="monthly")
@@ -6343,7 +6339,6 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int j
                 "This option for grid_ptr->dataset_frequency is not implemented: "
                 + grid_ptr->dataset_frequency);
 
-    std::cout <<"TIMESTR= "<< current_timestr <<"\n";
     filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                        % Environment::simdataDir().string()
                        % grid_ptr->dirname
