@@ -541,7 +541,7 @@ FiniteElement::initConstant()
 
     // output_time_step =  time_step*vm["simul.output_per_day"].as<int>(); // useful for debuging
     duration = (vm["simul.duration"].as<double>())*days_in_sec;
-    restart_time_step =  vm["restart.ouput_time_step"].as<double>()*days_in_sec;
+    restart_time_step =  vm["restart.output_time_step"].as<double>()*days_in_sec;
     M_use_assimilation   = vm["setup.use_assimilation"].as<bool>();
     M_use_restart   = vm["restart.start_from_restart"].as<bool>();
     M_write_restart = vm["restart.write_restart"].as<bool>();

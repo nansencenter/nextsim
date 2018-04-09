@@ -28,7 +28,7 @@ tmpdir_start=$(mktemp -d)
 tmpdir_restart=$(mktemp -d)
 
 # Run from start
-$execfile --exporter.precision=double --exporter.path=$tmpdir_start --restart.start_from_restart=false --simul.duration=$duration --restart.write_restart=true --restart.ouput_time_step=$restart_time_step --simul.output_per_day=$output_per_day --config-files=$cfgfile 2>&1 | tee $tmpdir_start/output.log || exit 5
+$execfile --exporter.precision=double --exporter.path=$tmpdir_start --restart.start_from_restart=false --simul.duration=$duration --restart.write_restart=true --restart.output_time_step=$restart_time_step --simul.output_per_day=$output_per_day --config-files=$cfgfile 2>&1 | tee $tmpdir_start/output.log || exit 5
 
 # Copy the restart files to ../restart so they can be read by the model
 cp $tmpdir_start/restart/* ../restart/
