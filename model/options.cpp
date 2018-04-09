@@ -98,7 +98,12 @@ namespace Nextsim
             ("moorings.grid_file", po::value<std::string>()->default_value( "" ), "") // It must be a netcdf file having x y as dimensions and latitude longitude as variables
 
             // drifters
-            ("simul.use_iabp_drifters", po::value<bool>()->default_value( false), "")
+            ("drifters.use_iabp_drifters", po::value<bool>()->default_value( false), "")
+            // TODO implement as in parallel code
+            //("drifters.use_rgps_drifters", po::value<bool>()->default_value( false), "")
+            //("drifters.use_equally_spaced_drifters", po::value<bool>()->default_value( false), "")
+            //("drifters.equallyspaced_drifters_output_time_step", po::value<double>()->default_value( 1. ), "days") // must be a multiple of 0.5
+            //("drifters.rgps_drifters_output_time_step", po::value<double>()->default_value( 0.5 ), "days") // must be a multiple of 0.5
             ("simul.equallyspaced_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days") // must be a multiple of 0.5
             ("simul.rgps_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days") // must be a multiple of 0.5
             ("simul.use_osisaf_drifters", po::value<bool>()->default_value( false ), "")
