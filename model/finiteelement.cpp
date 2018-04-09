@@ -9786,13 +9786,13 @@ FiniteElement::writeLogFile()
 {
 
     std::string logfilename = "";
-    if ((vm["simul.logfile"].as<std::string>()).empty())
+    if ((vm["output.logfile"].as<std::string>()).empty())
     {
         logfilename = "nextsim.log";
     }
     else
     {
-        logfilename = vm["simul.logfile"].as<std::string>();
+        logfilename = vm["output.logfile"].as<std::string>();
     }
 
     std::string fileout = (boost::format( "%1%/%2%" )
