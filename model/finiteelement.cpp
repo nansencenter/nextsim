@@ -701,7 +701,7 @@ FiniteElement::initConstant()
     M_use_iabp_drifters=vm["drifters.use_iabp_drifters"].as<bool>();
     M_equallyspaced_drifters_output_time_step=vm["drifters.equallyspaced_drifters_output_time_step"].as<double>();
     M_rgps_drifters_output_time_step=vm["drifters.rgps_drifters_output_time_step"].as<double>();
-    M_use_osisaf_drifters=vm["simul.use_osisaf_drifters"].as<bool>();
+    M_use_osisaf_drifters=vm["drifters.use_osisaf_drifters"].as<bool>();
     
     M_use_equallyspaced_drifters=false;
     M_use_rgps_drifters=false;
