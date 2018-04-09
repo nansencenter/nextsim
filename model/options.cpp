@@ -147,10 +147,10 @@ namespace Nextsim
             ("ideal_simul.constant_bathymetry", po::value<double>()->default_value( 200. ), "")
 
             // - if setup.ice-type = constant
-            ("simul.init_thickness", po::value<double>()->default_value( 1.0 ), "")
-            ("simul.init_concentration", po::value<double>()->default_value( 1.0 ), "")
-            ("simul.init_thin_conc", po::value<double>()->default_value( 0. ), "")
-            ("simul.init_snow_thickness", po::value<double>()->default_value( 0. ), "")
+            ("ideal_simul.init_thickness", po::value<double>()->default_value( 1.0 ), "")
+            ("ideal_simul.init_concentration", po::value<double>()->default_value( 1.0 ), "")
+            ("ideal_simul.init_thin_conc", po::value<double>()->default_value( 0. ), "")
+            ("ideal_simul.init_snow_thickness", po::value<double>()->default_value( 0. ), "")
 
             // - if atmosphere-type=constant
             // -- thermodynamics

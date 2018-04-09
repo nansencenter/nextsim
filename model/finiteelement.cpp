@@ -6762,9 +6762,9 @@ void
 FiniteElement::constantIce()
 {
 	LOG(DEBUG) <<"Constant Ice\n";
-    double c_const = vm["simul.init_concentration"].as<double>();
-    double h_const = vm["simul.init_thickness"].as<double>();
-    double hs_const = vm["simul.init_snow_thickness"].as<double>();
+    double c_const = vm["ideal_simul.init_concentration"].as<double>();
+    double h_const = vm["ideal_simul.init_thickness"].as<double>();
+    double hs_const = vm["ideal_simul.init_snow_thickness"].as<double>();
     std::fill(M_conc.begin(), M_conc.end(), c_const);
     std::fill(M_thick.begin(), M_thick.end(), c_const*h_const);//M_thick is ice volume
     std::fill(M_snow_thick.begin(), M_snow_thick.end(), hs_const);
@@ -6850,27 +6850,27 @@ FiniteElement::targetIce()
             */
         std::cout<<"RX: "<< RX[i] << "RY: "<< RY[i] << "tmp_var: " << tmp_var << "\n";
 	
-        //M_conc[i]  = std::max(vm["simul.init_concentration"].as<double>()*tmp_var,cmin);
-	//	M_thick[i] = vm["simul.init_thickness"].as<double>()*M_conc[i];
-	//	M_snow_thick[i] = vm["simul.init_snow_thickness"].as<double>()*M_conc[i];
+        //M_conc[i]  = std::max(vm["ideal_simul.init_concentration"].as<double>()*tmp_var,cmin);
+	//	M_thick[i] = vm["ideal_simul.init_thickness"].as<double>()*M_conc[i];
+	//	M_snow_thick[i] = vm["ideal_simul.init_snow_thickness"].as<double>()*M_conc[i];
 
-        M_conc[i]  = vm["simul.init_concentration"].as<double>();
+        M_conc[i]  = vm["ideal_simul.init_concentration"].as<double>();
 	
 	if(i==10)
 		M_conc[i]=0.;
 	
-	M_thick[i] = vm["simul.init_thickness"].as<double>()*M_conc[i];
-	M_snow_thick[i] = vm["simul.init_snow_thickness"].as<double>()*M_conc[i];
+	M_thick[i] = vm["ideal_simul.init_thickness"].as<double>()*M_conc[i];
+	M_snow_thick[i] = vm["ideal_simul.init_snow_thickness"].as<double>()*M_conc[i];
 	
 	M_damage[i]=0.;
         
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
-            M_conc_thin[i]  = vm["simul.init_thin_conc"].as<double>();
+            M_conc_thin[i]  = vm["ideal_simul.init_thin_conc"].as<double>();
             
             M_h_thin[i]     = (vm["simul.h_thin_min"].as<double>()+(vm["simul.h_thin_max"].as<double>()-vm["simul.h_thin_min"].as<double>())/2.)*M_conc_thin[i];
             
-            M_hs_thin[i]    = vm["simul.init_snow_thickness"].as<double>()*M_conc_thin[i];
+            M_hs_thin[i]    = vm["ideal_simul.init_snow_thickness"].as<double>()*M_conc_thin[i];
         }
 
         //if either c or h equal zero, we set the others to zero as well
