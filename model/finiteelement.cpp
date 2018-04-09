@@ -531,7 +531,7 @@ FiniteElement::initConstant()
     time_step = vm["simul.timestep"].as<double>();
 
     output_time_step =  (vm["simul.output_per_day"].as<int>()<0) ? time_step : time_step * floor(days_in_sec/vm["simul.output_per_day"].as<int>()/time_step);
-    mooring_output_time_step =  vm["simul.mooring_output_timestep"].as<double>()*days_in_sec;
+    mooring_output_time_step =  vm["moorings.output_timestep"].as<double>()*days_in_sec;
     mooring_time_factor = time_step/mooring_output_time_step;
     if ( fmod(mooring_output_time_step,time_step) != 0)
     {
