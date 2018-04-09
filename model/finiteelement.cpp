@@ -4559,7 +4559,7 @@ FiniteElement::init()
     {
         LOG(DEBUG) <<"Reading restart file\n";
 
-        std::string res_str = vm["setup.restart_string"].as<std::string>();
+        std::string res_str = vm["restart.restart_string"].as<std::string>();
         if ( !res_str.empty() )
             pcpt = this->readRestart(res_str);
         else
