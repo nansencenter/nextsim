@@ -696,7 +696,7 @@ FiniteElement::initConstant()
         ("none", setup::BasalStressType::NONE)
         ("lemieux", setup::BasalStressType::LEMIEUX)
         ("bouillon", setup::BasalStressType::BOUILLON);
-    M_basal_stress_type = str2basal_stress.find(vm["simul.basal_stress-type"].as<std::string>())->second;
+    M_basal_stress_type = str2basal_stress.find(vm["setup.basal_stress_type"].as<std::string>())->second;
 
     M_use_iabp_drifters=vm["simul.use_iabp_drifters"].as<bool>();
     M_equallyspaced_drifters_output_time_step=vm["simul.equallyspaced_drifters_output_time_step"].as<double>();
