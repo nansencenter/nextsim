@@ -3368,8 +3368,8 @@ FiniteElement::thermo()
     // Set local variable to values defined by options
     double const timeT = vm["simul.ocean_nudge_timeT"].as<double>();
     double const timeS = vm["simul.ocean_nudge_timeS"].as<double>();
-    double const Qdw_const = vm["simul.constant_Qdw"].as<double>();
-    double const Fdw_const = vm["simul.constant_Fdw"].as<double>();
+    double const Qdw_const = vm["ideal_simul.constant_Qdw"].as<double>();
+    double const Fdw_const = vm["ideal_simul.constant_Fdw"].as<double>();
 
     double const ocean_albedo = vm["simul.albedoW"].as<double>();
     double const drag_ocean_t = vm["simul.drag_ocean_t"].as<double>();
@@ -3480,7 +3480,7 @@ FiniteElement::thermo()
             //Qsw_in=approxSW();
         }
 
-        double mld=( M_mld[i] > vm["simul.constant_mld"].as<double>() ) ? M_mld[i] : vm["simul.constant_mld"].as<double>();
+        double mld=( M_mld[i] > vm["ideal_simul.constant_mld"].as<double>() ) ? M_mld[i] : vm["ideal_simul.constant_mld"].as<double>();
 
         // -------------------------------------------------
         // 2) We calculate or set the flux due to nudging
@@ -6139,33 +6139,33 @@ FiniteElement::forcingAtmosphere()
     {
         case setup::AtmosphereType::CONSTANT:
             M_wind=ExternalData(
-                vm["simul.constant_wind_u"].as<double>(),
-                vm["simul.constant_wind_v"].as<double>(),
+                vm["ideal_simul.constant_wind_u"].as<double>(),
+                vm["ideal_simul.constant_wind_v"].as<double>(),
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_wind);
 
-            M_tair=ExternalData(vm["simul.constant_tair"].as<double>());
+            M_tair=ExternalData(vm["ideal_simul.constant_tair"].as<double>());
             M_external_data.push_back(&M_tair);
 
-            M_mixrat=ExternalData(vm["simul.constant_mixrat"].as<double>());
+            M_mixrat=ExternalData(vm["ideal_simul.constant_mixrat"].as<double>());
             M_external_data.push_back(&M_mixrat);
 
-            M_mslp=ExternalData(vm["simul.constant_mslp"].as<double>());
+            M_mslp=ExternalData(vm["ideal_simul.constant_mslp"].as<double>());
             M_external_data.push_back(&M_mslp);
 
-            M_Qsw_in=ExternalData(vm["simul.constant_Qsw_in"].as<double>());
+            M_Qsw_in=ExternalData(vm["ideal_simul.constant_Qsw_in"].as<double>());
             M_external_data.push_back(&M_Qsw_in);
 
-            M_Qlw_in=ExternalData(vm["simul.constant_Qlw_in"].as<double>());
+            M_Qlw_in=ExternalData(vm["ideal_simul.constant_Qlw_in"].as<double>());
             M_external_data.push_back(&M_Qlw_in);
 
-            M_snowfr=ExternalData(vm["simul.constant_snowfr"].as<double>());
+            M_snowfr=ExternalData(vm["ideal_simul.constant_snowfr"].as<double>());
             M_external_data.push_back(&M_snowfr);
 
-            M_precip=ExternalData(vm["simul.constant_precip"].as<double>());
+            M_precip=ExternalData(vm["ideal_simul.constant_precip"].as<double>());
             M_external_data.push_back(&M_precip);
 
-            M_dair=ExternalData(vm["simul.constant_dair"].as<double>());
+            M_dair=ExternalData(vm["ideal_simul.constant_dair"].as<double>());
             M_external_data.push_back(&M_dair);
         break;
 
@@ -6254,7 +6254,7 @@ FiniteElement::forcingAtmosphere()
             M_external_data.push_back(&M_tcc);
 
             // Syl: The following two lines should be removed when approxSW will be implemented in Thermo()
-            M_Qsw_in=ExternalData(vm["simul.constant_Qsw_in"].as<double>());
+            M_Qsw_in=ExternalData(vm["ideal_simul.constant_Qsw_in"].as<double>());
             M_external_data.push_back(&M_Qsw_in);
 
             M_precip=ExternalData(0.);
@@ -6280,7 +6280,7 @@ FiniteElement::forcingAtmosphere()
             M_external_data.push_back(&M_Qsw_in);
             
             // Syl: The following two lines should be removed when approxSW will be implemented in Thermo()
-            //M_Qsw_in=ExternalData(vm["simul.constant_Qsw_in"].as<double>());
+            //M_Qsw_in=ExternalData(vm["ideal_simul.constant_Qsw_in"].as<double>());
             //M_external_data.push_back(&M_Qsw_in);
 
             // M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
@@ -6363,12 +6363,12 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
     {
         case setup::OceanType::CONSTANT:
             M_ocean=ExternalData(
-                vm["simul.constant_ocean_u"].as<double>(),
-                vm["simul.constant_ocean_v"].as<double>(),
+                vm["ideal_simul.constant_ocean_u"].as<double>(),
+                vm["ideal_simul.constant_ocean_v"].as<double>(),
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_ocean);
 
-            M_ssh=ExternalData(vm["simul.constant_ssh"].as<double>(),
+            M_ssh=ExternalData(vm["ideal_simul.constant_ssh"].as<double>(),
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_ssh);
 
@@ -6378,7 +6378,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             M_ocean_salt=ExternalData(physical::ocean_freezing_temp/physical::mu);
             M_external_data.push_back(&M_ocean_salt);
 
-            M_mld=ExternalData(vm["simul.constant_mld"].as<double>());
+            M_mld=ExternalData(vm["ideal_simul.constant_mld"].as<double>());
             M_external_data.push_back(&M_mld);
             break;
         case setup::OceanType::TOPAZR: case setup::OceanType::TOPAZF:
@@ -6400,7 +6400,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
 
             M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
             M_external_data.push_back(&M_mld);
-            // SYL: there was a capping of the mld at minimum vm["simul.constant_mld"].as<double>()
+            // SYL: there was a capping of the mld at minimum vm["ideal_simul.constant_mld"].as<double>()
             // but Einar said it is not necessary, so it is not implemented
     		break;
             
@@ -6423,14 +6423,14 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
 
             M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
             M_external_data.push_back(&M_mld);
-            // SYL: there was a capping of the mld at minimum vm["simul.constant_mld"].as<double>()
+            // SYL: there was a capping of the mld at minimum vm["ideal_simul.constant_mld"].as<double>()
             // but Einar said it is not necessary, so it is not implemented
             break;
             
         case setup::OceanType::TOPAZR_atrest:
             M_ocean=ExternalData(
-                vm["simul.constant_ocean_v"].as<double>(),
-                vm["simul.constant_ocean_v"].as<double>(),
+                vm["ideal_simul.constant_ocean_u"].as<double>(),
+                vm["ideal_simul.constant_ocean_v"].as<double>(),
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_ocean);
 
@@ -6447,7 +6447,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
 
             M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
             M_external_data.push_back(&M_mld);
-            // SYL: there was a capping of the mld at minimum vm["simul.constant_mld"].as<double>()
+            // SYL: there was a capping of the mld at minimum vm["ideal_simul.constant_mld"].as<double>()
             // but Einar said it is not necessary, so it is not implemented
     		break;
 
@@ -8560,7 +8560,7 @@ FiniteElement::bathymetry()//(double const& u, double const& v)
     switch (M_bathymetry_type)
     {
         case setup::BathymetryType::CONSTANT:
-            M_element_depth=ExternalData(vm["simul.constant_bathymetry"].as<double>());
+            M_element_depth=ExternalData(vm["ideal_simul.constant_bathymetry"].as<double>());
             M_external_data.push_back(&M_element_depth);
             break;
         case setup::BathymetryType::ETOPO:
