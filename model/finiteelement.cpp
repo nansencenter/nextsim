@@ -2325,59 +2325,67 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
 
     if(ALE_smoothing_step_nb>=0)
     {
-        std::vector<double> vt_root;
-        std::vector<double> M_VT_smoothed;
-        std::vector<double> M_VT_smoothed_root;
-
-        this->gatherNodalField(M_VT,vt_root);
-
-        if(M_rank == 0)
+        if(ALE_smoothing_step_nb>0)
         {
-            M_VT_smoothed_root = vt_root;
-            std::vector<double> M_VT_tmp = M_VT_smoothed_root;
+            std::vector<double> vt_root;
+            std::vector<double> M_VT_smoothed;
+            std::vector<double> M_VT_smoothed_root;
 
-            // get the global number of nodes
-            int num_nodes = M_mesh_root.numNodes();
-            int Nd = bamgmesh_root->NodalConnectivitySize[1];
+            this->gatherNodalField(M_VT,vt_root);
 
-            for (int k=0; k<ALE_smoothing_step_nb; ++k)
+            if(M_rank == 0)
             {
-                M_VT_tmp = M_VT_smoothed_root;
+                M_VT_smoothed_root = vt_root;
+                std::vector<double> M_VT_tmp = M_VT_smoothed_root;
 
-                //for (int i=0; i<M_ndof; ++i)
-                for (int i=0; i<num_nodes; ++i)
+                // get the global number of nodes
+                int num_nodes = M_mesh_root.numNodes();
+                int Nd = bamgmesh_root->NodalConnectivitySize[1];
+
+                for (int k=0; k<ALE_smoothing_step_nb; ++k)
                 {
-                    int Nc;
-                    double UM_x, UM_y;
+                    M_VT_tmp = M_VT_smoothed_root;
 
-                    if(M_mask_dirichlet_root[i]==false)
+                    //for (int i=0; i<M_ndof; ++i)
+                    for (int i=0; i<num_nodes; ++i)
                     {
-                        Nc = bamgmesh_root->NodalConnectivity[Nd*(i+1)-1];
+                        int Nc;
+                        double UM_x, UM_y;
 
-                        UM_x = 0.;
-                        UM_y = 0.;
-                        for (int j=0; j<Nc; ++j)
+                        if(M_mask_dirichlet_root[i]==false)
                         {
-                            UM_x += M_VT_tmp[bamgmesh_root->NodalConnectivity[Nd*i+j]-1];
-                            UM_y += M_VT_tmp[bamgmesh_root->NodalConnectivity[Nd*i+j]-1+num_nodes];
-                        }
+                            Nc = bamgmesh_root->NodalConnectivity[Nd*(i+1)-1];
 
-                        M_VT_smoothed_root[i          ] = UM_x/Nc;
-                        M_VT_smoothed_root[i+num_nodes] = UM_y/Nc;
+                            UM_x = 0.;
+                            UM_y = 0.;
+                            for (int j=0; j<Nc; ++j)
+                            {
+                                UM_x += M_VT_tmp[bamgmesh_root->NodalConnectivity[Nd*i+j]-1];
+                                UM_y += M_VT_tmp[bamgmesh_root->NodalConnectivity[Nd*i+j]-1+num_nodes];
+                            }
+
+                            M_VT_smoothed_root[i          ] = UM_x/Nc;
+                            M_VT_smoothed_root[i+num_nodes] = UM_y/Nc;
+                        }
                     }
                 }
             }
-        }
 
-        // M_comm.barrier();
+            // M_comm.barrier();
 
-        this->scatterNodalField(M_VT_smoothed_root,M_VT_smoothed);
+            this->scatterNodalField(M_VT_smoothed_root,M_VT_smoothed);
 
-        // M_comm.barrier();
+            // M_comm.barrier();
 
-        for (int nd=0; nd<M_UM.size(); ++nd)
-        {
-            M_UM[nd] += time_step*M_VT_smoothed[nd];
+            for (int nd=0; nd<M_UM.size(); ++nd)
+            {
+                M_UM[nd] += time_step*M_VT_smoothed[nd];
+            }
+        } else {
+            for (int nd=0; nd<M_UM.size(); ++nd)
+            {
+                M_UM[nd] += time_step*M_VT[nd];
+            }
         }
 
         // set back the neumann nodes (open boundaries) at their position, the fluxes will be computed thanks to the convective velocity
