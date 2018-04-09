@@ -239,7 +239,7 @@ public:
     void assignVariables();
     void initVariables();
     void initModelState();
-    void tensors();
+    void FETensors();
     void calcCohesion();
     void updateVelocity();
     void updateFreeDriftVelocity();

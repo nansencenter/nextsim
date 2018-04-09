@@ -1027,6 +1027,19 @@ FiniteElement::initOptAndParam()
 
     M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
 
+    // define export path
+    M_export_path = Environment::nextsimDir().string() + "/matlab";
+    // change directory for outputs if the option "exporter.path" is not empty
+    if ( ! (vm["exporter.path"].as<std::string>()).empty() )
+    {
+        M_export_path = vm["exporter.path"].as<std::string>();
+        fs::path path(M_export_path);
+
+        // create the output directory if it does not exist
+        if ( (!fs::exists(path)) && (M_comm.rank()==0) )
+            fs::create_directories(path);
+    }
+
     nu0 = vm["simul.nu0"].as<double>();
     young = vm["simul.young"].as<double>();
     rhoi = physical::rhoi;
@@ -4356,7 +4369,7 @@ FiniteElement::assemble(int pcpt)
 }
 
 void
-FiniteElement::tensors()
+FiniteElement::FETensors()
 {
     M_Dunit.assign(9,0);
     M_Mass.assign(9,0);
@@ -5961,25 +5974,12 @@ FiniteElement::init()
 {
     // Initialise everything that doesn't depend on the mesh (constants, data set description, and time)
 
-    // define export path
-    M_export_path = Environment::nextsimDir().string() + "/matlab";
-    // change directory for outputs if the option "exporter.path" is not empty
-    if ( ! (vm["exporter.path"].as<std::string>()).empty() )
-    {
-        M_export_path = vm["exporter.path"].as<std::string>();
-        fs::path path(M_export_path);
-
-        // create the output directory if it does not exist
-        if ( (!fs::exists(path)) && (M_comm.rank()==0) )
-            fs::create_directories(path);
-    }
-
     M_comm.barrier();
-
 
     pcpt = 0;
     mesh_adapt_step=0;
     had_remeshed=false;
+
     this->initOptAndParam();
     current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
 
@@ -6071,6 +6071,7 @@ FiniteElement::init()
     }
 
     // Initialise the moorings - if requested
+    LOG(DEBUG) << "initMoorings\n";
     if ( M_use_moorings )
         this->initMoorings();
 
@@ -6131,10 +6132,10 @@ FiniteElement::step()
 
     if ( M_regrid || M_use_restart )
     {
-        timer["tensors"].first.restart();
-        this->tensors();
+        timer["FETensors"].first.restart();
+        this->FETensors();
         if (M_rank == 0)
-            std::cout <<"---timer tensors:              "<< timer["tensors"].first.elapsed() <<"\n";
+            std::cout <<"---timer FETensors:              "<< timer["FETensors"].first.elapsed() <<"\n";
 
         timer["calcCohesion"].first.restart();
         this->calcCohesion();
