@@ -105,7 +105,7 @@ namespace Nextsim
             //("drifters.equallyspaced_drifters_output_time_step", po::value<double>()->default_value( 1. ), "days") // must be a multiple of 0.5
             //("drifters.rgps_drifters_output_time_step", po::value<double>()->default_value( 0.5 ), "days") // must be a multiple of 0.5
             ("drifters.equallyspaced_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days") // must be a multiple of 0.5
-            ("simul.rgps_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days") // must be a multiple of 0.5
+            ("drifters.rgps_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days") // must be a multiple of 0.5
             ("simul.use_osisaf_drifters", po::value<bool>()->default_value( false ), "")
             ("simul.drifter_climit", po::value<double>()->default_value( 0.15 ), "")
             ("simul.drifter_spacing", po::value<double>()->default_value( 10 ), "")
