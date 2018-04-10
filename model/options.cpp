@@ -185,7 +185,6 @@ namespace Nextsim
              */
 
             // internal stresses
-            ("dynamics.use_coriolis", po::value<bool>()->default_value( true ), "")
             ("dynamics.alea_factor", po::value<double>()->default_value( 0. ), "")
             ("dynamics.young", po::value<double>()->default_value( 5.49e+9 ), "Pa") // 5.49e+9 is a more reasonable than 9GPa, and same as used in WIM paper.
             ("dynamics.cfix", po::value<double>()->default_value( 40e+3 ), "Pa")
@@ -224,6 +223,10 @@ namespace Nextsim
             ("dynamics.lin_drag_coef_air", po::value<double>()->default_value( 0. ), "")
             ("dynamics.quad_drag_coef_water", po::value<double>()->default_value( 0.0055 ), "")
             ("dynamics.lin_drag_coef_water", po::value<double>()->default_value( 0. ), "")
+
+            //coriolis
+            ("dynamics.use_coriolis", po::value<bool>()->default_value( true ), "")
+            ("dynamics.oceanic_turning_angle", po::value<double>()->default_value( 25. ), "")
 
             // basal stress parameterization
             ("dynamics.Lemieux_basal_k1", po::value<double>()->default_value( 10. ), "")
@@ -271,7 +274,6 @@ namespace Nextsim
              */
             ("simul.ocean_nudge_timeT", po::value<double>()->default_value( 30*days_in_sec), "")
             ("simul.ocean_nudge_timeS", po::value<double>()->default_value( 30*days_in_sec), "")
-            ("simul.oceanic_turning_angle", po::value<double>()->default_value( 25. ), "")
 
             /*
              *-----------------------------------------------------------------------------------

@@ -553,7 +553,7 @@ FiniteElement::initConstant()
 
     ocean_turning_angle_rad = 0.;
     if (vm["dynamics.use_coriolis"].as<bool>())
-        ocean_turning_angle_rad = (PI/180.)*vm["simul.oceanic_turning_angle"].as<double>();
+        ocean_turning_angle_rad = (PI/180.)*vm["dynamics.oceanic_turning_angle"].as<double>();
     ridging_exponent = vm["dynamics.ridging_exponent"].as<double>();
 
     quad_drag_coef_water = vm["dynamics.quad_drag_coef_water"].as<double>();
