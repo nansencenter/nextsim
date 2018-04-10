@@ -352,7 +352,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         mapx_class *map;
 	    std::string configfile = (boost::format( "%1%/%2%/%3%" )
                               % Environment::nextsimDir().string()
-                              % dataset->grid.dirname
+                              % "data"
                               % dataset->grid.mpp_file
                               ).str();
 
@@ -522,14 +522,6 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 value_year+=*jump;
                 f_timestr=(boost::format( "%1%" ) % boost::io::group(std::setw(4), std::setfill('0'), value_year)).str();
             }
-            // add daily_nesting frequencies for nesting
-            else if(dataset->grid.dataset_frequency=="daily_nesting")
-            {
-                int nSnap=Environment::vm()["nesting.snap"].as<int>();
-                cout << "nSnap=" << nSnap << endl;
-                double hstep=1./nSnap;
-                f_timestr = to_date_string_yd(std::floor(ftime+(*jump*hstep)));
-            }
             else {
                 f_timestr = to_date_string_yd(std::floor(ftime)+*jump);
             }
@@ -619,8 +611,6 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                  cout << XTIME[it] << endl;
                 if (!has_time_variable || ((dataset->name).find("ice_amsr2") != std::string::npos))
                     f = from_date_string((boost::format( "%1%-%2%-%3%" ) % f_timestr.substr(0,4) % f_timestr.substr(4,2) % f_timestr.substr(6,2)).str())+0.5;
-                else if (dataset->grid.dataset_frequency=="daily_nesting")
-                    f=XTIME[it];
                 else 
                     //cout << dataset->time.a << " " << dataset->time.b << endl;
                     f = (XTIME[it]*dataset->time.a+dataset->time.b)/24.0+from_date_string(dataset->grid.reference_date);
@@ -681,15 +671,13 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         }
         else
             f_timestr ="";
-
-        filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
-                    % Environment::simdataDir().string()
-                    % dataset->grid.dirname
-                    % dataset->grid.prefix
-                    % f_timestr
-                    % dataset->grid.postfix
-                    ).str();
-
+            filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
+                        % Environment::simdataDir().string()
+                        % dataset->grid.dirname
+                        % dataset->grid.prefix
+                        % f_timestr
+                        % dataset->grid.postfix
+                        ).str();
         filename_fstep.push_back(filename);
         index_fstep.push_back(0);
     }
