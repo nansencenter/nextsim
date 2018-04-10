@@ -1,3 +1,8 @@
+#!/bin/bash
+# example script to rename nextsim variables
+# use with care
+# - eg only run on a clean model so changes can be checked easily and also be reversed with 'git checkout'
+
 oldnames=()
 
 # DYNAMICS
