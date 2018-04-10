@@ -240,40 +240,40 @@ namespace Nextsim
              * THERMODYNAMICS
              * -----------------------------------------------------------------------------------
              */
-            ("simul.Qio-type", po::value<std::string>()->default_value( "basic" ), "")
-            ("simul.use_thermo_forcing", po::value<bool>()->default_value( true ), "")
-            ("simul.albedoW", po::value<double>()->default_value( 0.07 ), "")
-            ("simul.alb_scheme", po::value<int>()->default_value( 3 ), "")
-            ("simul.flooding", po::value<bool>()->default_value( true ), "")
-            ("simul.alb_ice", po::value<double>()->default_value( 0.63 ), "")
-            ("simul.alb_sn", po::value<double>()->default_value( 0.88 ), "")
-            ("simul.I_0", po::value<double>()->default_value( 0.17 ), "")
-            ("simul.Qdw", po::value<double>()->default_value( 0.5 ), "")
-            ("simul.Fdw", po::value<double>()->default_value( 0. ), "")
-            ("simul.newice_type", po::value<int>()->default_value( 4 ), "4: THIN_ICE; else CLASSIC")
-            ("simul.melt_type", po::value<int>()->default_value( 1 ), "")
-            ("simul.hnull", po::value<double>()->default_value( 0.25 ), "")
-            ("simul.PhiF", po::value<double>()->default_value( 4. ), "")
-            ("simul.PhiM", po::value<double>()->default_value( 0.5 ), "")
-            ("simul.h_thin_max", po::value<double>()->default_value( 0.5 ), "")
-            ("simul.h_thin_min", po::value<double>()->default_value( 0.05 ), "")
+            ("thermo.Qio-type", po::value<std::string>()->default_value( "basic" ), "")
+            ("thermo.use_thermo_forcing", po::value<bool>()->default_value( true ), "")
+            ("thermo.albedoW", po::value<double>()->default_value( 0.07 ), "")
+            ("thermo.alb_scheme", po::value<int>()->default_value( 3 ), "")
+            ("thermo.flooding", po::value<bool>()->default_value( true ), "")
+            ("thermo.alb_ice", po::value<double>()->default_value( 0.63 ), "")
+            ("thermo.alb_sn", po::value<double>()->default_value( 0.88 ), "")
+            ("thermo.I_0", po::value<double>()->default_value( 0.17 ), "")
+            ("thermo.Qdw", po::value<double>()->default_value( 0.5 ), "")
+            ("thermo.Fdw", po::value<double>()->default_value( 0. ), "")
+            ("thermo.newice_type", po::value<int>()->default_value( 4 ), "4: THIN_ICE; else CLASSIC")
+            ("thermo.melt_type", po::value<int>()->default_value( 1 ), "")
+            ("thermo.hnull", po::value<double>()->default_value( 0.25 ), "")
+            ("thermo.PhiF", po::value<double>()->default_value( 4. ), "")
+            ("thermo.PhiM", po::value<double>()->default_value( 0.5 ), "")
+            ("thermo.h_thin_max", po::value<double>()->default_value( 0.5 ), "")
+            ("thermo.h_thin_min", po::value<double>()->default_value( 0.05 ), "")
 
-            ("simul.drag_ice_t", po::value<double>()->default_value( 1.3e-3 ), "")
-            ("simul.drag_ocean_u", po::value<double>()->default_value( 1.1e-3 ), "")
-            ("simul.drag_ocean_t", po::value<double>()->default_value( 0.83e-3 ), "")
-            ("simul.drag_ocean_q", po::value<double>()->default_value( 1.5e-3 ), "")
+            ("thermo.drag_ice_t", po::value<double>()->default_value( 1.3e-3 ), "")
+            ("thermo.drag_ocean_u", po::value<double>()->default_value( 1.1e-3 ), "")
+            ("thermo.drag_ocean_t", po::value<double>()->default_value( 0.83e-3 ), "")
+            ("thermo.drag_ocean_q", po::value<double>()->default_value( 1.5e-3 ), "")
 
             // diffusivity
-            ("simul.diffusivity_sss", po::value<double>()->default_value( 100. ), "") //[m^2/s]
-            ("simul.diffusivity_sst", po::value<double>()->default_value( 100. ), "") //[m^2/s]
+            ("thermo.diffusivity_sss", po::value<double>()->default_value( 100. ), "") //[m^2/s]
+            ("thermo.diffusivity_sst", po::value<double>()->default_value( 100. ), "") //[m^2/s]
 
             /*
              *-----------------------------------------------------------------------------------
              * EXTERNAL FORCINGS
              * -----------------------------------------------------------------------------------
              */
-            ("simul.ocean_nudge_timeT", po::value<double>()->default_value( 30*days_in_sec), "")
-            ("simul.ocean_nudge_timeS", po::value<double>()->default_value( 30*days_in_sec), "")
+            ("thermo.ocean_nudge_timeT", po::value<double>()->default_value( 30*days_in_sec), "")
+            ("thermo.ocean_nudge_timeS", po::value<double>()->default_value( 30*days_in_sec), "")
 
             /*
              *-----------------------------------------------------------------------------------

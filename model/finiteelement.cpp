@@ -565,8 +565,8 @@ FiniteElement::initConstant()
     time_relaxation_damage = vm["dynamics.time_relaxation_damage"].as<double>()*days_in_sec;
     deltaT_relaxation_damage = vm["dynamics.deltaT_relaxation_damage"].as<double>();
 
-    h_thin_max = vm["simul.h_thin_max"].as<double>();
-    h_thin_min = vm["simul.h_thin_min"].as<double>();
+    h_thin_max = vm["thermo.h_thin_max"].as<double>();
+    h_thin_min = vm["thermo.h_thin_min"].as<double>();
 
     compr_strength = vm["dynamics.compr_strength"].as<double>();
     tract_coef = vm["dynamics.tract_coef"].as<double>();
@@ -579,7 +579,7 @@ FiniteElement::initConstant()
     // C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     tan_phi = vm["dynamics.tan_phi"].as<double>();
 
-    if ( vm["simul.newice_type"].as<int>() == 4 )
+    if ( vm["thermo.newice_type"].as<int>() == 4 )
         M_ice_cat_type = setup::IceCategoryType::THIN_ICE;
     else
         M_ice_cat_type = setup::IceCategoryType::CLASSIC;
@@ -2122,13 +2122,13 @@ FiniteElement::collectVariables(double** interp_elt_in_ptr, int** interp_method_
 		// random_number
 		interp_elt_in[nb_var*i+tmp_nb_var] = M_sss[i];
         interp_method[tmp_nb_var] = 0;
-        diffusivity_parameters[tmp_nb_var]=vm["simul.diffusivity_sss"].as<double>();
+        diffusivity_parameters[tmp_nb_var]=vm["thermo.diffusivity_sss"].as<double>();
 		tmp_nb_var++;
         
 		// random_number
 		interp_elt_in[nb_var*i+tmp_nb_var] = M_sst[i];
         interp_method[tmp_nb_var] = 0;
-        diffusivity_parameters[tmp_nb_var]=vm["simul.diffusivity_sst"].as<double>();
+        diffusivity_parameters[tmp_nb_var]=vm["thermo.diffusivity_sst"].as<double>();
 		tmp_nb_var++;
 
 		// Ice temperature
@@ -3022,8 +3022,8 @@ FiniteElement::update()
     xDelete<int>(interp_method);
 
     // Horizontal diffusion
-    this->diffuse(&M_sst[0],vm["simul.diffusivity_sst"].as<double>(),this->resolution(M_mesh));
-    this->diffuse(&M_sss[0],vm["simul.diffusivity_sss"].as<double>(),this->resolution(M_mesh));
+    this->diffuse(&M_sst[0],vm["thermo.diffusivity_sst"].as<double>(),this->resolution(M_mesh));
+    this->diffuse(&M_sss[0],vm["thermo.diffusivity_sss"].as<double>(),this->resolution(M_mesh));
 
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < M_num_elements; ++cpt)
@@ -3366,25 +3366,25 @@ FiniteElement::thermo()
 
     // constant variables
     // Set local variable to values defined by options
-    double const timeT = vm["simul.ocean_nudge_timeT"].as<double>();
-    double const timeS = vm["simul.ocean_nudge_timeS"].as<double>();
+    double const timeT = vm["thermo.ocean_nudge_timeT"].as<double>();
+    double const timeS = vm["thermo.ocean_nudge_timeS"].as<double>();
     double const Qdw_const = vm["ideal_simul.constant_Qdw"].as<double>();
     double const Fdw_const = vm["ideal_simul.constant_Fdw"].as<double>();
 
-    double const ocean_albedo = vm["simul.albedoW"].as<double>();
-    double const drag_ocean_t = vm["simul.drag_ocean_t"].as<double>();
-    double const drag_ocean_q = vm["simul.drag_ocean_q"].as<double>();
+    double const ocean_albedo = vm["thermo.albedoW"].as<double>();
+    double const drag_ocean_t = vm["thermo.drag_ocean_t"].as<double>();
+    double const drag_ocean_q = vm["thermo.drag_ocean_q"].as<double>();
 
-    double const rh0   = 1./vm["simul.hnull"].as<double>();
-    double const rPhiF = 1./vm["simul.PhiF"].as<double>();
+    double const rh0   = 1./vm["thermo.hnull"].as<double>();
+    double const rPhiF = 1./vm["thermo.PhiF"].as<double>();
 
     double const qi = physical::Lf * physical::rhoi;// J m^{-3}
     double const qs = physical::Lf * physical::rhos;// J m^{-3}
 
-    int const newice_type = vm["simul.newice_type"].as<int>();
-    int const melt_type = vm["simul.melt_type"].as<int>();
-    double const PhiM = vm["simul.PhiM"].as<double>();
-    double const PhiF = vm["simul.PhiF"].as<double>();
+    int const newice_type = vm["thermo.newice_type"].as<int>();
+    int const melt_type = vm["thermo.melt_type"].as<int>();
+    double const PhiM = vm["thermo.PhiM"].as<double>();
+    double const PhiF = vm["thermo.PhiF"].as<double>();
 
     const double aw=6.1121e2, bw=18.729, cw=257.87, dw=227.3;
     const double Aw=7.2e-4, Bw=3.20e-6, Cw=5.9e-10;
@@ -3957,10 +3957,10 @@ FiniteElement::iceOceanHeatflux(int cpt, double sst, double sss, double mld, dou
     /* Use all excess heat to melt or grow ice. This is not
      * accurate, but will have to do for now! */
     double const Tbot = -physical::mu*sss; // Temperature at ice base (bottom), also freezing point of sea-water
-    if ( vm["simul.Qio-type"].as<std::string>() == "basic" )
+    if ( vm["thermo.Qio-type"].as<std::string>() == "basic" )
     {
         return (sst-Tbot)*physical::rhow*physical::cpw*mld/dt;
-    } else if ( vm["simul.Qio-type"].as<std::string>() == "exchange" ) {
+    } else if ( vm["thermo.Qio-type"].as<std::string>() == "exchange" ) {
         double welt_oce_ice = 0.;
         for (int i=0; i<3; ++i)
         {
@@ -3971,7 +3971,7 @@ FiniteElement::iceOceanHeatflux(int cpt, double sst, double sss, double mld, dou
         double Csens_io = 1e-3;
         return (sst-Tbot)*norm_Voce_ice*Csens_io*physical::rhow*physical::cpw;
     } else {
-        std::cout << "Qio-type = " << vm["simul.Qio-type"].as<std::string>() << "\n";
+        std::cout << "Qio-type = " << vm["thermo.Qio-type"].as<std::string>() << "\n";
         throw std::logic_error("Wrong Qio-type");
     }
 }
@@ -4044,14 +4044,14 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         double &Qai, double &Qsw, double &Qlw, double &Qsh, double &Qlh)
 {
     // Constants
-    double const alb_ice = vm["simul.alb_ice"].as<double>();
-    double const alb_sn  = vm["simul.alb_sn"].as<double>();
-    double const I_0     = vm["simul.I_0"].as<double>();
-    int const alb_scheme = vm["simul.alb_scheme"].as<int>();
+    double const alb_ice = vm["thermo.alb_ice"].as<double>();
+    double const alb_sn  = vm["thermo.alb_sn"].as<double>();
+    double const I_0     = vm["thermo.I_0"].as<double>();
+    int const alb_scheme = vm["thermo.alb_scheme"].as<int>();
 
-    double const drag_ice_t = vm["simul.drag_ice_t"].as<double>();
+    double const drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
 
-    bool const flooding = vm["simul.flooding"].as<bool>();
+    bool const flooding = vm["thermo.flooding"].as<bool>();
 
     // Useful volumetric quantities
     double const qi   = physical::Lf * physical::rhoi;
@@ -4281,14 +4281,14 @@ FiniteElement::thermoIce0(int i, double wspeed, double sphuma, double conc, doub
 {
 
     // Constants
-    double const alb_ice = vm["simul.alb_ice"].as<double>();
-    double const alb_sn  = vm["simul.alb_sn"].as<double>();
-    double const I_0     = vm["simul.I_0"].as<double>();
-    int const alb_scheme = vm["simul.alb_scheme"].as<int>();
+    double const alb_ice = vm["thermo.alb_ice"].as<double>();
+    double const alb_sn  = vm["thermo.alb_sn"].as<double>();
+    double const I_0     = vm["thermo.I_0"].as<double>();
+    int const alb_scheme = vm["thermo.alb_scheme"].as<int>();
 
-    double const drag_ice_t = vm["simul.drag_ice_t"].as<double>();
+    double const drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
 
-    bool const flooding = vm["simul.flooding"].as<bool>();
+    bool const flooding = vm["thermo.flooding"].as<bool>();
 
     double const qi = physical::Lf * physical::rhoi;
     double const qs = physical::Lf * physical::rhos;
@@ -5135,7 +5135,7 @@ FiniteElement::step(int &pcpt)
     //======================================================================
     // Do the thermodynamics
     //======================================================================
-    if(vm["simul.use_thermo_forcing"].as<bool>())
+    if(vm["thermo.use_thermo_forcing"].as<bool>())
     {
         chrono.restart();
         LOG(DEBUG) <<"thermo starts\n";
@@ -6868,7 +6868,7 @@ FiniteElement::targetIce()
         {
             M_conc_thin[i]  = vm["ideal_simul.init_thin_conc"].as<double>();
             
-            M_h_thin[i]     = (vm["simul.h_thin_min"].as<double>()+(vm["simul.h_thin_max"].as<double>()-vm["simul.h_thin_min"].as<double>())/2.)*M_conc_thin[i];
+            M_h_thin[i]     = (vm["thermo.h_thin_min"].as<double>()+(vm["thermo.h_thin_max"].as<double>()-vm["thermo.h_thin_min"].as<double>())/2.)*M_conc_thin[i];
             
             M_hs_thin[i]    = vm["ideal_simul.init_snow_thickness"].as<double>()*M_conc_thin[i];
         }
