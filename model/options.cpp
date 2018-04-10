@@ -270,13 +270,13 @@ namespace Nextsim
           */
 
             ("nesting.use_nesting", po::value<bool>()->default_value( false ), "")
-            ("nesting.snap", po::value<int>()->default_value( 4 ), "")
-            ("nesting.path",po::value<std::string>()->default_value( "" ),
-                "where to find nestings file ?")
+            ("nesting.use_ocean_nesting", po::value<bool>()->default_value( false ), "")
+            ("nesting.outter_mesh",po::value<std::string>()->default_value( "" ),"")
+            ("nesting.inner_mesh",po::value<std::string>()->default_value( "" ),"")
             ("nesting.method", po::value<std::string>()->default_value( "nudging" ), "")
             ("nesting.nudge_function", po::value<std::string>()->default_value( "exponential" ), "")
-            ("nesting.nudge_timescale", po::value<double>()->default_value(30*days_in_sec), "")
-            ("nesting.nudge_lengthscale", po::value<double>()->default_value(30*days_in_sec), "")
+            ("nesting.nudge_timescale", po::value<double>()->default_value((1./2.)*days_in_sec), "")
+            ("nesting.nudge_lengthscale", po::value<double>()->default_value(10.), "")
             ("nesting.nest_dynamic_vars", po::value<bool>()->default_value( false ), "")
 
             /*
