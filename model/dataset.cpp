@@ -932,7 +932,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a: 1./24.,
+            a: 24.,
             b: 0.,
             Units: "hours",
             loaded_data: loaded_data_tmp,
@@ -974,14 +974,12 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         };
 
         Grid grid_tmp={
-            //interpolation_method: InterpolationType::FromGridToMesh,
-            //interp_type: BilinearInterpEnum,
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "data",
-            prefix: "nesting_",
+            prefix: "nesting_"+Environment::vm()["nesting.outter_mesh"].as<std::string>()+"_",
             postfix: ".nc",
-            gridfile: "nesting_grid.nc",
+            gridfile: "nesting_grid_"+Environment::vm()["nesting.inner_mesh"].as<std::string>()+".nc",
             reference_date: "1900-01-01",
 
             latitude: latitude,
@@ -995,7 +993,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
-            dataset_frequency:"daily_nesting",
+            dataset_frequency:"daily",
             target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
@@ -1025,6 +1023,418 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 #endif
     }
     else if (strcmp (DatasetName, "nesting_ice_elements") == 0)
+    {
+        if ( Environment::vm()["simul.newice_type"].as<int>() == 4 ) {
+            // Definition of nesting grid and datasets
+            Dimension dimension_x={
+                name:"x",
+                cyclic:false
+            };
+
+            Dimension dimension_y={
+                name:"y",
+                cyclic:false
+            };
+
+            Dimension dimension_time={
+                name:"time", // "Time"
+                cyclic:false
+            };
+            std::vector<Dimension> dimensions(3);
+            dimensions[0] = dimension_time;
+            dimensions[1] = dimension_y;
+            dimensions[2] = dimension_x;
+
+            std::vector<Dimension> dimensions_latlon(2);
+            dimensions_latlon[0] = dimension_y;
+            dimensions_latlon[1] = dimension_x;
+
+            std::vector<Dimension> dimensions_time(1);
+            dimensions_time[0] = dimension_time;
+
+            Variable latitude={
+                name: "latitude",
+                dimensions: dimensions_latlon,
+                land_mask_defined: false,
+                land_mask_value: 0.,
+                NaN_mask_defined: false,
+                NaN_mask_value: 0.,
+                use_FillValue: true,
+                use_missing_value: true,
+                a: 1.,
+                b: 0.,
+                Units: "degree_north",
+                loaded_data: loaded_data_tmp,
+                interpolated_data: interpolated_data_tmp,
+                wavDirOptions: wavdiropt_none};
+
+            Variable longitude={
+                name: "longitude",
+                dimensions: dimensions_latlon,
+                land_mask_defined: false,
+                land_mask_value: 0.,
+                NaN_mask_defined: false,
+                NaN_mask_value: 0.,
+                use_FillValue: true,
+                use_missing_value: true,
+                a: 1.,
+                b: 0.,
+                Units: "degree_east",
+                loaded_data: loaded_data_tmp,
+                interpolated_data: interpolated_data_tmp,
+                wavDirOptions: wavdiropt_none};
+
+            Variable time_tmp={
+                name: "time",
+                dimensions: dimensions_time,
+                land_mask_defined: false,
+                land_mask_value: 0.,
+                NaN_mask_defined: false,
+                NaN_mask_value: 0.,
+                use_FillValue: true,
+                use_missing_value: true,
+                a: 24.,
+                b: 0.,
+                Units: "hours",
+                loaded_data: loaded_data_tmp,
+                interpolated_data: interpolated_data_tmp,
+                wavDirOptions: wavdiropt_none};
+
+            Variable sit={
+                name: "sea_ice_thickness",
+                dimensions: dimensions,
+                land_mask_defined: false,
+                land_mask_value: 0.,
+                NaN_mask_defined: false,
+                NaN_mask_value: 0.,
+                use_FillValue: true,
+                use_missing_value: true,
+                a: 1.,
+                b: 0.,
+                Units: "m",
+                loaded_data: loaded_data_tmp,
+                interpolated_data: interpolated_data_tmp,
+                wavDirOptions: wavdiropt_none
+            };
+
+            Variable sic={
+                name: "sea_ice_area_fraction",
+                dimensions: dimensions,
+                land_mask_defined: false,
+                land_mask_value: 0.,
+                NaN_mask_defined: false,
+                NaN_mask_value: 0.,
+                use_FillValue: true,
+                use_missing_value: true,
+                a: 1.,
+                b: 0.,
+                Units: "1",
+                loaded_data: loaded_data_tmp,
+                interpolated_data: interpolated_data_tmp,
+                wavDirOptions: wavdiropt_none
+            };
+
+            Variable snt={
+                name: "surface_snow_thickness",
+                dimensions: dimensions,
+                land_mask_defined: false,
+                land_mask_value: 0.,
+                NaN_mask_defined: false,
+                NaN_mask_value: 0.,
+                use_FillValue: true,
+                use_missing_value: true,
+                a: 1.,
+                b: 0.,
+                Units: "m",
+                loaded_data: loaded_data_tmp,
+                interpolated_data: interpolated_data_tmp,
+                wavDirOptions: wavdiropt_none
+            };
+
+            Variable sit_thin={
+                name: "thin_ice_thickness",
+                dimensions: dimensions,
+                land_mask_defined: false,
+                land_mask_value: 0.,
+                NaN_mask_defined: false,
+                NaN_mask_value: 0.,
+                use_FillValue: true,
+                use_missing_value: true,
+                a: 1.,
+                b: 0.,
+                Units: "m",
+                loaded_data: loaded_data_tmp,
+                interpolated_data: interpolated_data_tmp,
+                wavDirOptions: wavdiropt_none
+            };
+
+            Variable sic_thin={
+                name: "thin_ice_area_fraction",
+                dimensions: dimensions,
+                land_mask_defined: false,
+                land_mask_value: 0.,
+                NaN_mask_defined: false,
+                NaN_mask_value: 0.,
+                use_FillValue: true,
+                use_missing_value: true,
+                a: 1.,
+                b: 0.,
+                Units: "1",
+                loaded_data: loaded_data_tmp,
+                interpolated_data: interpolated_data_tmp,
+                wavDirOptions: wavdiropt_none
+            };
+
+            Variable snt_thin={
+                name: "surface_snow_thickness_on_thin_ice",
+                dimensions: dimensions,
+                land_mask_defined: false,
+                land_mask_value: 0.,
+                NaN_mask_defined: false,
+                NaN_mask_value: 0.,
+                use_FillValue: true,
+                use_missing_value: true,
+                a: 1.,
+                b: 0.,
+                Units: "m",
+                loaded_data: loaded_data_tmp,
+                interpolated_data: interpolated_data_tmp,
+                wavDirOptions: wavdiropt_none
+            };
+
+            Grid grid_tmp={
+                interpolation_method: InterpolationType::FromMeshToMesh2dx,
+                interp_type: -1,
+                dirname: "data",
+                prefix: "nesting_"+Environment::vm()["nesting.outter_mesh"].as<std::string>()+"_",
+                postfix: ".nc",
+                gridfile: "nesting_grid_"+Environment::vm()["nesting.inner_mesh"].as<std::string>()+".nc",
+                reference_date: "1900-01-01",
+
+                latitude: latitude,
+                longitude: longitude,
+
+                dimension_x: dimension_x,
+                dimension_y: dimension_y,
+
+                mpp_file: projfilename,
+                interpolation_in_latlon: false,
+                branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+
+                loaded: false,
+                dataset_frequency:"daily",
+                target_location:"mesh_elements",
+
+                waveOptions: wavopt_none,
+
+                masking: true,
+                masking_variable: sit
+            };
+
+            std::vector<Variable> variables_tmp(6);
+            variables_tmp[0] = sit;
+            variables_tmp[1] = sic;
+            variables_tmp[2] = snt;
+            variables_tmp[3] = sit_thin;
+            variables_tmp[4] = sic_thin;
+            variables_tmp[5] = snt_thin;
+
+            std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+            variables= variables_tmp;
+            vectorial_variables= vectorial_variables_tmp;
+            target_size= target_size_tmp;
+            grid= grid_tmp;
+
+            loaded=false;
+            interpolated=false;
+
+            averaging_period=0; // hours
+            time= time_tmp;
+    #ifdef OASIS
+            coupled = false;
+    #endif
+        }
+        else{
+          // Definition of nesting grid and datasets
+          Dimension dimension_x={
+              name:"x",
+              cyclic:false
+          };
+
+          Dimension dimension_y={
+              name:"y",
+              cyclic:false
+          };
+
+          Dimension dimension_time={
+              name:"time", // "Time"
+              cyclic:false
+          };
+          std::vector<Dimension> dimensions(3);
+          dimensions[0] = dimension_time;
+          dimensions[1] = dimension_y;
+          dimensions[2] = dimension_x;
+
+          std::vector<Dimension> dimensions_latlon(2);
+          dimensions_latlon[0] = dimension_y;
+          dimensions_latlon[1] = dimension_x;
+
+          std::vector<Dimension> dimensions_time(1);
+          dimensions_time[0] = dimension_time;
+
+          Variable latitude={
+              name: "latitude",
+              dimensions: dimensions_latlon,
+              land_mask_defined: false,
+              land_mask_value: 0.,
+              NaN_mask_defined: false,
+              NaN_mask_value: 0.,
+              use_FillValue: true,
+              use_missing_value: true,
+              a: 1.,
+              b: 0.,
+              Units: "degree_north",
+              loaded_data: loaded_data_tmp,
+              interpolated_data: interpolated_data_tmp,
+              wavDirOptions: wavdiropt_none};
+
+          Variable longitude={
+              name: "longitude",
+              dimensions: dimensions_latlon,
+              land_mask_defined: false,
+              land_mask_value: 0.,
+              NaN_mask_defined: false,
+              NaN_mask_value: 0.,
+              use_FillValue: true,
+              use_missing_value: true,
+              a: 1.,
+              b: 0.,
+              Units: "degree_east",
+              loaded_data: loaded_data_tmp,
+              interpolated_data: interpolated_data_tmp,
+              wavDirOptions: wavdiropt_none};
+
+          Variable time_tmp={
+              name: "time",
+              dimensions: dimensions_time,
+              land_mask_defined: false,
+              land_mask_value: 0.,
+              NaN_mask_defined: false,
+              NaN_mask_value: 0.,
+              use_FillValue: true,
+              use_missing_value: true,
+              a: 24.,
+              b: 0.,
+              Units: "hours",
+              loaded_data: loaded_data_tmp,
+              interpolated_data: interpolated_data_tmp,
+              wavDirOptions: wavdiropt_none};
+
+          Variable sit={
+              name: "sea_ice_thickness",
+              dimensions: dimensions,
+              land_mask_defined: false,
+              land_mask_value: 0.,
+              NaN_mask_defined: false,
+              NaN_mask_value: 0.,
+              use_FillValue: true,
+              use_missing_value: true,
+              a: 1.,
+              b: 0.,
+              Units: "m",
+              loaded_data: loaded_data_tmp,
+              interpolated_data: interpolated_data_tmp,
+              wavDirOptions: wavdiropt_none
+          };
+
+          Variable sic={
+              name: "sea_ice_area_fraction",
+              dimensions: dimensions,
+              land_mask_defined: false,
+              land_mask_value: 0.,
+              NaN_mask_defined: false,
+              NaN_mask_value: 0.,
+              use_FillValue: true,
+              use_missing_value: true,
+              a: 1.,
+              b: 0.,
+              Units: "1",
+              loaded_data: loaded_data_tmp,
+              interpolated_data: interpolated_data_tmp,
+              wavDirOptions: wavdiropt_none
+          };
+
+          Variable snt={
+              name: "surface_snow_thickness",
+              dimensions: dimensions,
+              land_mask_defined: false,
+              land_mask_value: 0.,
+              NaN_mask_defined: false,
+              NaN_mask_value: 0.,
+              use_FillValue: true,
+              use_missing_value: true,
+              a: 1.,
+              b: 0.,
+              Units: "m",
+              loaded_data: loaded_data_tmp,
+              interpolated_data: interpolated_data_tmp,
+              wavDirOptions: wavdiropt_none
+          };
+
+          Grid grid_tmp={
+              interpolation_method: InterpolationType::FromMeshToMesh2dx,
+              interp_type: -1,
+              dirname: "data",
+              prefix: "nesting_"+Environment::vm()["nesting.outter_mesh"].as<std::string>()+"_",
+              postfix: ".nc",
+              gridfile: "nesting_grid_"+Environment::vm()["nesting.inner_mesh"].as<std::string>()+".nc",
+              reference_date: "1900-01-01",
+
+              latitude: latitude,
+              longitude: longitude,
+
+              dimension_x: dimension_x,
+              dimension_y: dimension_y,
+
+              mpp_file: projfilename,
+              interpolation_in_latlon: false,
+              branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+
+              loaded: false,
+              dataset_frequency:"daily",
+              target_location:"mesh_elements",
+
+              waveOptions: wavopt_none,
+
+              masking: true,
+              masking_variable: sit
+          };
+
+          std::vector<Variable> variables_tmp(3);
+          variables_tmp[0] = sit;
+          variables_tmp[1] = sic;
+          variables_tmp[2] = snt;
+
+          std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+          variables= variables_tmp;
+          vectorial_variables= vectorial_variables_tmp;
+          target_size= target_size_tmp;
+          grid= grid_tmp;
+
+          loaded=false;
+          interpolated=false;
+
+          averaging_period=0; // hours
+          time= time_tmp;
+  #ifdef OASIS
+          coupled = false;
+  #endif
+        }          
+
+    }
+    else if (strcmp (DatasetName, "nesting_dynamics_elements") == 0)
     {
         // Definition of nesting grid and datasets
         Dimension dimension_x={
@@ -1094,15 +1504,15 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a: 1./24.,
+            a: 24.,
             b: 0.,
             Units: "hours",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none};
 
-        Variable sit={
-            name: "sea_ice_thickness",
+        Variable sigma1={
+            name: "stress_tensor_first_component",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -1112,14 +1522,65 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             use_missing_value: true,
             a: 1.,
             b: 0.,
-            Units: "m",
+            Units: "1",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
         };
 
-        Variable sic={
-            name: "sea_ice_area_fraction",
+        Variable sigma2={
+            name: "stress_tensor_second_component",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "1",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable sigma3={
+            name: "stress_tensor_third_component",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "1",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable damage={
+            name: "sea_ice_damage",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "1",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable ridge_ratio={
+            name: "ridge_ratio",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -1141,9 +1602,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "data",
-            prefix: "nesting_",
+            prefix: "nesting_"+Environment::vm()["nesting.outter_mesh"].as<std::string>()+"_",
             postfix: ".nc",
-            gridfile: "nesting_grid.nc",
+            gridfile: "nesting_grid_"+Environment::vm()["nesting.inner_mesh"].as<std::string>()+".nc",
             reference_date: "1900-01-01",
 
             latitude: latitude,
@@ -1157,18 +1618,21 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
-            dataset_frequency:"daily_nesting",
+            dataset_frequency:"daily",
             target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
             masking: true,
-            masking_variable: sit
+            masking_variable: damage
         };
 
-        std::vector<Variable> variables_tmp(2);
-        variables_tmp[0] = sit;
-        variables_tmp[1] = sic;
+        std::vector<Variable> variables_tmp(5);
+        variables_tmp[0] = sigma1;
+        variables_tmp[1] = sigma2;
+        variables_tmp[2] = sigma3;
+        variables_tmp[3] = damage;
+        variables_tmp[4] = ridge_ratio;
 
         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
@@ -1256,7 +1720,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a: 1./24.,
+            a: 24.,
             b: 0.,
             Units: "hours",
             loaded_data: loaded_data_tmp,
@@ -1303,9 +1767,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "data",
-            prefix: "nesting_",
+            prefix: "nesting_"+Environment::vm()["nesting.outter_mesh"].as<std::string>()+"_",
             postfix: ".nc",
-            gridfile: "nesting_grid.nc",
+            gridfile: "nesting_grid_"+Environment::vm()["nesting.inner_mesh"].as<std::string>()+".nc",
             reference_date: "1900-01-01",
 
             latitude: latitude,
@@ -1319,7 +1783,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
-            dataset_frequency:"daily_nesting",
+            dataset_frequency:"daily",
             target_location:"mesh_nodes",
 
             waveOptions: wavopt_none,
@@ -1415,14 +1879,12 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             wavDirOptions: wavdiropt_none};
 
         Grid grid_tmp={
-            //interpolation_method: InterpolationType::FromGridToMesh,
-            //interp_type: BilinearInterpEnum,
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "data",
-            prefix: "nesting_grid.nc",
+            prefix: "nesting_grid_"+Environment::vm()["nesting.inner_mesh"].as<std::string>()+".nc",
             postfix: "",
-            gridfile: "nesting_grid.nc",
+            gridfile: "nesting_grid_"+Environment::vm()["nesting.inner_mesh"].as<std::string>()+".nc",
             reference_date: "",
 
             latitude: latitude,
@@ -1530,14 +1992,12 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             wavDirOptions: wavdiropt_none};
 
         Grid grid_tmp={
-            //interpolation_method: InterpolationType::FromGridToMesh,
-            //interp_type: BilinearInterpEnum,
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "data",
-            prefix: "nesting_grid.nc",
+            prefix: "nesting_grid_"+Environment::vm()["nesting.inner_mesh"].as<std::string>()+".nc",
             postfix: "",
-            gridfile: "nesting_grid.nc",
+            gridfile: "nesting_grid_"+Environment::vm()["nesting.inner_mesh"].as<std::string>()+".nc",
             reference_date: "",
 
             latitude: latitude,
@@ -7006,8 +7466,8 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time)
             current_timestr = to_date_string_y(std::floor(current_time));//yyyy
         else if(grid_ptr->dataset_frequency=="daily" || grid_ptr->dataset_frequency=="nearest_daily" || grid_ptr->dataset_frequency=="daily_forecast"  || grid_ptr->dataset_frequency=="daily_ec2_forecast")
             current_timestr = to_date_string_yd(current_time);//yyyymmdd
-        else if(grid_ptr->dataset_frequency=="daily_nesting")
-            current_timestr = to_date_string_yd(current_time);//yyyymm 
+        else if(grid_ptr->dataset_frequency=="daily")
+            current_timestr = to_date_string_yd(current_time);//yyyymm
         else if(grid_ptr->dataset_frequency=="constant")
             current_timestr = "";
         else
@@ -7081,7 +7541,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
     if ( filename=="" )
         filename = getFilename(grid_ptr, init_time, init_time);
     else
-        filename=Environment::vm()["nesting.path"].as<std::string>()+"/"+grid_ptr->gridfile;
+        filename=Environment::simdataDir().string()+"/data/"+grid_ptr->gridfile;
 
     std::cout<<"GRID : FILENAME = "<< filename <<"\n";
 
@@ -7333,8 +7793,10 @@ for (auto i = X.begin(); i != X.end(); ++i)
             netCDF::NcDim tmpDim;
 
             // Open the datafile
-            //std::string filename = getFilename(grid_ptr, init_time, current_time);
-            std::string filename = getFilename(grid_ptr, init_time, init_time);
+            // if ( grid_ptr->masking_variable.name!="nesting_distance" )
+              filename = getFilename(grid_ptr, init_time, init_time);
+            // else
+            //  filename=Environment::simdataDir().string()+grid_ptr->gridfile;
 
             std::cout<<"GRID for masking: FILENAME = "<< filename <<"\n";
 
