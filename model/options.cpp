@@ -31,21 +31,26 @@ namespace Nextsim
 
             /*
              *-----------------------------------------------------------------------------------
-             * NUMERICS
+             * SIMULATION PARAMETERS
              * -----------------------------------------------------------------------------------
              */
 
-            // solver
-            ("solver.ksp-type", po::value<std::string>()->default_value( "preonly" ), "")
-            ("solver.pc-type", po::value<std::string>()->default_value( "cholesky" ), "")
-            ("solver.mat-package-type", po::value<std::string>()->default_value( "cholmod" ), "")
-            ("solver.ksp-view", po::value<bool>()->default_value( false ), "")
-            ("solver.ksp-convergence-info", po::value<bool>()->default_value( true ), "")
+            // - basics
+            ("simul.time_init", po::value<std::string>()->default_value( "2008-Mar-05" ), "")
+            ("simul.duration", po::value<double>()->default_value( 1. ), "")
+            ("simul.timestep", po::value<double>()->default_value( 200. ), "")
+            ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "")
 
-            // debugging options
+            // - debugging options
             ("simul.verbose", po::value<int>()->default_value( 7 ), "")
             ("simul.log-level", po::value<std::string>()->default_value( "info" ), "")
             ("simul.maxiteration", po::value<int>()->default_value( -1 ), "")
+
+            /*
+             *-----------------------------------------------------------------------------------
+             * NUMERICS
+             * -----------------------------------------------------------------------------------
+             */
 
             // remeshing
             ("simul.regrid", po::value<std::string>()->default_value( "bamg" ), "No-regridding or bamg")
@@ -58,6 +63,13 @@ namespace Nextsim
             // - ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
             // - ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
             ("simul.ALE_smoothing_step_nb", po::value<int>()->default_value( 0 ), "")
+
+            // solver
+            ("solver.ksp-type", po::value<std::string>()->default_value( "preonly" ), "")
+            ("solver.pc-type", po::value<std::string>()->default_value( "cholesky" ), "")
+            ("solver.mat-package-type", po::value<std::string>()->default_value( "cholmod" ), "")
+            ("solver.ksp-view", po::value<bool>()->default_value( false ), "")
+            ("solver.ksp-convergence-info", po::value<bool>()->default_value( true ), "")
 
             /*
              *-----------------------------------------------------------------------------------
@@ -80,12 +92,6 @@ namespace Nextsim
             ("mesh.filename", po::value<std::string>()->default_value( "medium_Arctic_10km.msh" ), "")
             ("mesh.mppfile", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "")
             //not used: ("mesh.hsize", po::value<double>()->default_value( 0.01 ), "") // to be checked
-
-            // simul
-            ("simul.time_init", po::value<std::string>()->default_value( "2008-Mar-05" ), "")
-            ("simul.duration", po::value<double>()->default_value( 1. ), "")
-            ("simul.timestep", po::value<double>()->default_value( 200. ), "")
-            ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "")
 
             // moorings
             ("moorings.use_moorings", po::value<bool>()->default_value( false ), "")
