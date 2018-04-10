@@ -1,14 +1,13 @@
 # @file   Makefile
 # @author Abdoulaye Samake <abdoulaye.samake@nersc.no>
 # @date   Tue May 10 10:52:04 2016
+KERNEL=$(shell uname -s)
 
-.PHONY: all clean mrproper All Clean Mrproper fresh
+.PHONY: all clean mrproper All Clean fresh core bamg mapx model model2 wim oasis tools clean-tools
 
-all:
-	@cd $(NEXTSIMDIR)/contrib/bamg/src; make
-	@cd $(NEXTSIMDIR)/contrib/mapx/src; make
+# compile all the libraries; these are saved to $(NEXTSIMDIR)/lib as usual
+all: bamg mapx core
 	#@cd $(NEXTSIMDIR)/contrib/interp/src; make
-	@cd $(NEXTSIMDIR)/core/src; make;
 ifdef USE_NEXTWIM
 	@cd $(NEXTSIMDIR)/modules/wim/src; make
 endif
@@ -39,14 +38,40 @@ endif
 
 
 # rules to compile model code as well as lib's
-All: all
-	@cd $(NEXTSIMDIR)/model; make;
+# - NB doesn't work on osx
+# - still need to do "cd model;make clean;make" afterwards
+All: all model2
 
 Clean: clean
 	@cd $(NEXTSIMDIR)/model; make clean;
 
-Mrproper: mrproper
-	@cd $(NEXTSIMDIR)/model; make mrproper;
-
 # fresh compile (clean first)
-fresh: Clean All
+# - NB doesn't work on osx
+# - still need to do "cd model;make clean;make" afterwards
+fresh: mrproper All
+
+bamg:
+	@cd $(NEXTSIMDIR)/contrib/bamg/src; make
+mapx:
+	@cd $(NEXTSIMDIR)/contrib/mapx/src; make
+core:
+	@cd $(NEXTSIMDIR)/core/src; make;
+model:
+	@cd $(NEXTSIMDIR)/model; make;
+ifeq ($(KERNEL),Darwin)
+model2:
+	@cd $(NEXTSIMDIR)/model; make clean; make
+else
+model2: model
+endif
+wim:
+	@cd $(NEXTSIMDIR)/modules/wim/src; make
+oasis:
+	@cd $(NEXTSIMDIR)/modules/oasis/src; make
+
+tools:
+	@cd $(NEXTSIMDIR)/contrib/mapx/src; make tools
+	@cd $(NEXTSIMDIR)/contrib/bamg/src; make tools-no-omp; make tools
+
+clean-tools:
+	rm -f $(NEXTSIMTOOLS_ROOT_DIR)/lib/nextsim/*
