@@ -184,7 +184,7 @@ namespace Nextsim
              * -----------------------------------------------------------------------------------
              */
 
-            // internal stresses
+            // - internal stresses
             ("dynamics.alea_factor", po::value<double>()->default_value( 0. ), "")
             ("dynamics.young", po::value<double>()->default_value( 5.49e+9 ), "Pa") // 5.49e+9 is a more reasonable than 9GPa, and same as used in WIM paper.
             ("dynamics.cfix", po::value<double>()->default_value( 40e+3 ), "Pa")
@@ -194,7 +194,7 @@ namespace Nextsim
             ("dynamics.compr_strength", po::value<double>()->default_value( 750e+3 ), "Pa")
             ("dynamics.ridging_exponent", po::value<double>()->default_value( -20. ), "")
 
-            // c,h limits for where to use MEB rheology and where to use the Laplacian free drift thing
+            // - c,h limits for where to use MEB rheology and where to use the Laplacian free drift thing
             ("dynamics.min_h", po::value<double>()->default_value( 0.05 ), "")
             ("dynamics.min_c", po::value<double>()->default_value( 0.01 ), "")
 
@@ -214,7 +214,7 @@ namespace Nextsim
             ("dynamics.exponent_relaxation_sigma", po::value<double>()->default_value( 4. ), "")
                 // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
 
-            // water and air drag parameterizations
+            // - water and air drag parameterizations
             ("dynamics.ERAi_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("dynamics.ECMWF_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("dynamics.ASR_quad_drag_coef_air", po::value<double>()->default_value( 0.0049 ), "")
@@ -224,11 +224,11 @@ namespace Nextsim
             ("dynamics.quad_drag_coef_water", po::value<double>()->default_value( 0.0055 ), "")
             ("dynamics.lin_drag_coef_water", po::value<double>()->default_value( 0. ), "")
 
-            //coriolis
+            // - Coriolis force
             ("dynamics.use_coriolis", po::value<bool>()->default_value( true ), "")
             ("dynamics.oceanic_turning_angle", po::value<double>()->default_value( 25. ), "")
 
-            // basal stress parameterization
+            // - basal stress parameterization
             ("dynamics.Lemieux_basal_k1", po::value<double>()->default_value( 10. ), "")
             ("dynamics.Lemieux_basal_k2", po::value<double>()->default_value( 15. ), "")
             ("dynamics.Lemieux_basal_Cb", po::value<double>()->default_value( 20. ), "")
@@ -263,15 +263,11 @@ namespace Nextsim
             ("thermo.drag_ocean_t", po::value<double>()->default_value( 0.83e-3 ), "")
             ("thermo.drag_ocean_q", po::value<double>()->default_value( 1.5e-3 ), "")
 
-            // diffusivity
+            // - diffusivity
             ("thermo.diffusivity_sss", po::value<double>()->default_value( 100. ), "") //[m^2/s]
             ("thermo.diffusivity_sst", po::value<double>()->default_value( 100. ), "") //[m^2/s]
 
-            /*
-             *-----------------------------------------------------------------------------------
-             * EXTERNAL FORCINGS
-             * -----------------------------------------------------------------------------------
-             */
+            // - relaxation of slab ocean to ocean forcing
             ("thermo.ocean_nudge_timeT", po::value<double>()->default_value( 30*days_in_sec), "")
             ("thermo.ocean_nudge_timeS", po::value<double>()->default_value( 30*days_in_sec), "")
 
