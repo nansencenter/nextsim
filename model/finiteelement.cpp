@@ -520,8 +520,8 @@ FiniteElement::initConstant()
 
     M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
 
-    nu0 = vm["simul.nu0"].as<double>();
-    young = vm["simul.young"].as<double>();
+    nu0 = vm["dynamics.nu0"].as<double>();
+    young = vm["dynamics.young"].as<double>();
     rhoi = physical::rhoi;
     rhos = physical::rhos;
 
@@ -552,32 +552,32 @@ FiniteElement::initConstant()
     }
 
     ocean_turning_angle_rad = 0.;
-    if (vm["simul.use_coriolis"].as<bool>())
+    if (vm["dynamics.use_coriolis"].as<bool>())
         ocean_turning_angle_rad = (PI/180.)*vm["simul.oceanic_turning_angle"].as<double>();
-    ridging_exponent = vm["simul.ridging_exponent"].as<double>();
+    ridging_exponent = vm["dynamics.ridging_exponent"].as<double>();
 
-    quad_drag_coef_water = vm["simul.quad_drag_coef_water"].as<double>();
+    quad_drag_coef_water = vm["dynamics.quad_drag_coef_water"].as<double>();
 
-    basal_k2 = vm["simul.Lemieux_basal_k2"].as<double>();
-    basal_u_0 = vm["simul.Lemieux_basal_u_0"].as<double>();
-    basal_Cb = vm["simul.Lemieux_basal_Cb"].as<double>();
+    basal_k2 = vm["dynamics.Lemieux_basal_k2"].as<double>();
+    basal_u_0 = vm["dynamics.Lemieux_basal_u_0"].as<double>();
+    basal_Cb = vm["dynamics.Lemieux_basal_Cb"].as<double>();
 
-    time_relaxation_damage = vm["simul.time_relaxation_damage"].as<double>()*days_in_sec;
-    deltaT_relaxation_damage = vm["simul.deltaT_relaxation_damage"].as<double>();
+    time_relaxation_damage = vm["dynamics.time_relaxation_damage"].as<double>()*days_in_sec;
+    deltaT_relaxation_damage = vm["dynamics.deltaT_relaxation_damage"].as<double>();
 
     h_thin_max = vm["simul.h_thin_max"].as<double>();
     h_thin_min = vm["simul.h_thin_min"].as<double>();
 
-    compr_strength = vm["simul.compr_strength"].as<double>();
-    tract_coef = vm["simul.tract_coef"].as<double>();
+    compr_strength = vm["dynamics.compr_strength"].as<double>();
+    tract_coef = vm["dynamics.tract_coef"].as<double>();
     // scale_coef is now set after initialising the mesh
-    // scale_coef = vm["simul.scale_coef"].as<double>();
-    alea_factor = vm["simul.alea_factor"].as<double>();
-    cfix = vm["simul.cfix"].as<double>();
+    // scale_coef = vm["dynamics.scale_coef"].as<double>();
+    alea_factor = vm["dynamics.alea_factor"].as<double>();
+    cfix = vm["dynamics.cfix"].as<double>();
 
     // C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
     // C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
-    tan_phi = vm["simul.tan_phi"].as<double>();
+    tan_phi = vm["dynamics.tan_phi"].as<double>();
 
     if ( vm["simul.newice_type"].as<int>() == 4 )
         M_ice_cat_type = setup::IceCategoryType::THIN_ICE;
@@ -602,15 +602,15 @@ FiniteElement::initConstant()
     M_atmosphere_type = str2atmosphere.find(vm["setup.atmosphere-type"].as<std::string>())->second;
 
     switch(M_atmosphere_type){
-        case setup::AtmosphereType::CONSTANT:   quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>(); break;
-        case setup::AtmosphereType::ASR:        quad_drag_coef_air = vm["simul.ASR_quad_drag_coef_air"].as<double>(); break;
+        case setup::AtmosphereType::CONSTANT:   quad_drag_coef_air = vm["dynamics.ASR_quad_drag_coef_air"].as<double>(); break;
+        case setup::AtmosphereType::ASR:        quad_drag_coef_air = vm["dynamics.ASR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::CFSR_HI:
-        case setup::AtmosphereType::CFSR:       quad_drag_coef_air = vm["simul.CFSR_quad_drag_coef_air"].as<double>(); break;
-        case setup::AtmosphereType::ERAi:       quad_drag_coef_air = vm["simul.ERAi_quad_drag_coef_air"].as<double>(); break;
+        case setup::AtmosphereType::CFSR:       quad_drag_coef_air = vm["dynamics.CFSR_quad_drag_coef_air"].as<double>(); break;
+        case setup::AtmosphereType::ERAi:       quad_drag_coef_air = vm["dynamics.ERAi_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::EC:
         case setup::AtmosphereType::EC2:
         case setup::AtmosphereType::EC_ERAi:
-                    quad_drag_coef_air = vm["simul.ECMWF_quad_drag_coef_air"].as<double>(); break;
+                    quad_drag_coef_air = vm["dynamics.ECMWF_quad_drag_coef_air"].as<double>(); break;
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
     LOG(DEBUG)<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
@@ -2439,8 +2439,8 @@ FiniteElement::assemble(int pcpt)
         }
 
         // Limits to avoid very small values
-        total_thickness =       (vm["simul.min_h"].as<double>()>total_thickness)        ? vm["simul.min_h"].as<double>() : total_thickness;
-        total_concentration =   (vm["simul.min_c"].as<double>()>total_concentration)    ? vm["simul.min_c"].as<double>() : total_concentration;
+        total_thickness =       (vm["dynamics.min_h"].as<double>()>total_thickness)        ? vm["dynamics.min_h"].as<double>() : total_thickness;
+        total_concentration =   (vm["dynamics.min_c"].as<double>()>total_concentration)    ? vm["dynamics.min_c"].as<double>() : total_concentration;
 
         int index_u, index_v;
 
@@ -2468,8 +2468,8 @@ FiniteElement::assemble(int pcpt)
         double coef_Voce;
         double coef_basal;
         
-        double undamaged_time_relaxation_sigma=vm["simul.undamaged_time_relaxation_sigma"].as<double>();
-        double exponent_relaxation_sigma=vm["simul.exponent_relaxation_sigma"].as<double>();
+        double undamaged_time_relaxation_sigma=vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
+        double exponent_relaxation_sigma=vm["dynamics.exponent_relaxation_sigma"].as<double>();
 
         double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-M_damage[cpt],exponent_relaxation_sigma-1.);
         double multiplicator=time_viscous/(time_viscous+time_step);
@@ -2489,9 +2489,9 @@ FiniteElement::assemble(int pcpt)
         double keel_height_estimate;
         double critical_h_mod=0.; 
         
-        //if(total_concentration > vm["simul.min_c"].as<double>())
-        //if( (total_concentration > vm["simul.min_c"].as<double>()) && (total_thickness > vm["simul.min_h"].as<double>()) )
-        if( (M_conc[cpt] > vm["simul.min_c"].as<double>()) && (M_thick[cpt] > vm["simul.min_h"].as<double>()) )
+        //if(total_concentration > vm["dynamics.min_c"].as<double>())
+        //if( (total_concentration > vm["dynamics.min_c"].as<double>()) && (total_thickness > vm["dynamics.min_h"].as<double>()) )
+        if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) )
         {
 
             /* Compute the value that only depends on the element */
@@ -2508,7 +2508,7 @@ FiniteElement::assemble(int pcpt)
             element_ssh = welt_ssh/3.;
             
            
-            if(M_conc[cpt]>vm["simul.min_c"].as<double>())
+            if(M_conc[cpt]>vm["dynamics.min_c"].as<double>())
             {
                 switch ( M_basal_stress_type )
                 {
@@ -2524,11 +2524,11 @@ FiniteElement::assemble(int pcpt)
                         break;
                     case setup::BasalStressType::LEMIEUX:
                         // JF Lemieux's grounding
-                        keel_height_estimate = vm["simul.Lemieux_basal_k1"].as<double>()*M_thick[cpt]/M_conc[cpt];
+                        keel_height_estimate = vm["dynamics.Lemieux_basal_k1"].as<double>()*M_thick[cpt]/M_conc[cpt];
                         keel_height_estimate = ( keel_height_estimate > max_keel_height ) ? max_keel_height : keel_height_estimate;
 
-                        critical_h      = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["simul.Lemieux_basal_k1"].as<double>());
-                        critical_h_mod  = M_conc[cpt]*keel_height_estimate/(vm["simul.Lemieux_basal_k1"].as<double>()); 
+                        critical_h      = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/(vm["dynamics.Lemieux_basal_k1"].as<double>());
+                        critical_h_mod  = M_conc[cpt]*keel_height_estimate/(vm["dynamics.Lemieux_basal_k1"].as<double>()); 
                         break;
                 }
             } 
@@ -2538,14 +2538,14 @@ FiniteElement::assemble(int pcpt)
             else // Linear viscous rheology where nominal viscosity is defined as -young*time_step
             {
 
-                double norm_factor=vm["simul.cohesion_thickness_normalisation"].as<double>();
-                double exponent=vm["simul.cohesion_thickness_exponent"].as<double>();
+                double norm_factor=vm["dynamics.cohesion_thickness_normalisation"].as<double>();
+                double exponent=vm["dynamics.cohesion_thickness_exponent"].as<double>();
                 double mult_factor = std::pow(M_thick[cpt]/norm_factor,exponent);
                 coef = -young*M_thick[cpt]*mult_factor*std::exp(ridging_exponent*(1.-M_conc[cpt]));
             }
             coef = (coef<coef_min) ? coef_min : coef ;
 
-            if (vm["simul.use_coriolis"].as<bool>())
+            if (vm["dynamics.use_coriolis"].as<bool>())
                 mass_e = (rhoi*total_thickness + rhos*total_snow)/total_concentration;
             else
                 mass_e=0.;
@@ -2618,13 +2618,13 @@ FiniteElement::assemble(int pcpt)
                 norm_Voce_ice = std::hypot(M_VT[index_u]-M_ocean[index_u],M_VT[index_v]-M_ocean[index_v]);
                 norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
 
-                coef_Voce = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
+                coef_Voce = (vm["dynamics.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
                 coef_Voce *= coef_drag*physical::rhow; //(vm["simul.rho_water"].as<double>());
                 
                 norm_Vair_ice = std::hypot(M_VT[index_u]-M_wind [index_u],M_VT[index_v]-M_wind [index_v]);
                 norm_Vair_ice = (norm_Vair_ice > norm_Vair_ice_min) ? (norm_Vair_ice):norm_Vair_ice_min;
 
-                coef_Vair = (vm["simul.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*norm_Vair_ice));
+                coef_Vair = (vm["dynamics.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*norm_Vair_ice));
                 coef_Vair *= coef_drag*(physical::rhoa);
                 
                 norm_Vice = std::hypot(M_VT[index_u],M_VT[index_v]);
@@ -3125,7 +3125,7 @@ FiniteElement::update()
                 new_conc_thin   = std::min(1.,std::max(1.-M_conc[cpt]-open_water_concentration,0.));
                 
                 // Ridging
-                if( (M_conc[cpt] > vm["simul.min_c"].as<double>()) && (M_thick[cpt] > vm["simul.min_h"].as<double>()) && (new_conc_thin < M_conc_thin[cpt] ))
+                if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) && (new_conc_thin < M_conc_thin[cpt] ))
                 {
                     new_h_thin      = new_conc_thin*M_h_thin[cpt]/M_conc_thin[cpt]; // so that we keep the same h0, no preferences for the ridging
                     new_hs_thin     = new_conc_thin*M_hs_thin[cpt]/M_conc_thin[cpt];
@@ -3186,12 +3186,12 @@ FiniteElement::update()
          * Update the internal stress
          *======================================================================
          */
-        if( (M_conc[cpt] > vm["simul.min_c"].as<double>()) && (M_thick[cpt] > vm["simul.min_h"].as<double>()) && (young>0.))
+        if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) && (young>0.))
         {
 
         double damaging_exponent = ridging_exponent;
-        double undamaged_time_relaxation_sigma=vm["simul.undamaged_time_relaxation_sigma"].as<double>();
-        double exponent_relaxation_sigma=vm["simul.exponent_relaxation_sigma"].as<double>();
+        double undamaged_time_relaxation_sigma=vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
+        double exponent_relaxation_sigma=vm["dynamics.exponent_relaxation_sigma"].as<double>();
 
         double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-old_damage,exponent_relaxation_sigma-1.);
         double multiplicator=time_viscous/(time_viscous+time_step);
@@ -3207,10 +3207,10 @@ FiniteElement::update()
             }
             
             sigma_pred[i] = (M_sigma[3*cpt+i]+4.*time_step*sigma_dot_i)*multiplicator;
-            sigma_pred[i] = (M_conc[cpt] > vm["simul.min_c"].as<double>()) ? (sigma_pred[i]):0.;
+            sigma_pred[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma_pred[i]):0.;
             
             M_sigma[3*cpt+i] = (M_sigma[3*cpt+i]+time_step*sigma_dot_i)*multiplicator;
-            M_sigma[3*cpt+i] = (M_conc[cpt] > vm["simul.min_c"].as<double>()) ? (M_sigma[3*cpt+i]):0.;
+            M_sigma[3*cpt+i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (M_sigma[3*cpt+i]):0.;
             
         }
 
@@ -3227,9 +3227,9 @@ FiniteElement::update()
         sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
         sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
 
-        double ridge_to_normal_cohesion_ratio=vm["simul.ridge_to_normal_cohesion_ratio"].as<double>();
-        double norm_factor=vm["simul.cohesion_thickness_normalisation"].as<double>();
-        double exponent=vm["simul.cohesion_thickness_exponent"].as<double>();
+        double ridge_to_normal_cohesion_ratio=vm["dynamics.ridge_to_normal_cohesion_ratio"].as<double>();
+        double norm_factor=vm["dynamics.cohesion_thickness_normalisation"].as<double>();
+        double exponent=vm["dynamics.cohesion_thickness_exponent"].as<double>();
         
 	double hi=0.; 
         if(M_conc[cpt]>0.1)
@@ -3838,7 +3838,7 @@ FiniteElement::thermo()
             M_ridge_ratio[i] = M_ridge_ratio[i]*old_vol/M_thick[i];
         }
 
-        if ( vm["simul.use_temperature_dependent_healing"].as<bool>() )
+        if ( vm["dynamics.use_temperature_dependent_healing"].as<bool>() )
         {
             // Set time_relaxation_damage to be inversely proportional to
             // temperature difference between bottom and snow-ice interface
@@ -6054,13 +6054,13 @@ FiniteElement::updateFreeDriftVelocity()
             norm_Voce_ice = std::hypot(M_VT[index_u]-M_ocean[index_u],M_VT[index_v]-M_ocean[index_v]);
             norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
 
-            coef_Voce = (vm["simul.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
+            coef_Voce = (vm["dynamics.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
             coef_Voce *= physical::rhow; 
                 
             norm_Vair_ice = std::hypot(M_VT[index_u]-M_wind [index_u],M_VT[index_v]-M_wind [index_v]);
             norm_Vair_ice = (norm_Vair_ice > norm_Vair_ice_min) ? (norm_Vair_ice):norm_Vair_ice_min;
 
-            coef_Vair = (vm["simul.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*norm_Vair_ice));
+            coef_Vair = (vm["dynamics.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*norm_Vair_ice));
             coef_Vair *= (physical::rhoa);
 
             M_VT[index_u] = ( coef_Vair*M_wind [index_u] + coef_Voce*M_ocean [index_u] ) / ( coef_Vair+coef_Voce );
@@ -8543,7 +8543,7 @@ FiniteElement::coriolis()
 
     for (int i=0; i<M_fcor.size(); ++i)
     {
-        if (vm["simul.use_coriolis"].as<bool>())
+        if (vm["dynamics.use_coriolis"].as<bool>())
         {
             M_fcor[i] = 2*(physical::omega)*std::sin(lat[i]*PI/180.);
         }

@@ -185,52 +185,52 @@ namespace Nextsim
              */
 
             // internal stresses
-            ("simul.use_coriolis", po::value<bool>()->default_value( true ), "")
-            ("simul.alea_factor", po::value<double>()->default_value( 0. ), "")
-            ("simul.young", po::value<double>()->default_value( 5.49e+9 ), "Pa") // 5.49e+9 is a more reasonable than 9GPa, and same as used in WIM paper.
-            ("simul.cfix", po::value<double>()->default_value( 40e+3 ), "Pa")
-            ("simul.nu0", po::value<double>()->default_value( 0.3 ), "")
-            ("simul.tan_phi", po::value<double>()->default_value( 0.7 ), "")
-            ("simul.tract_coef", po::value<double>()->default_value( 5./6 ), "")
-            ("simul.compr_strength", po::value<double>()->default_value( 750e+3 ), "Pa")
-            ("simul.ridging_exponent", po::value<double>()->default_value( -20. ), "")
+            ("dynamics.use_coriolis", po::value<bool>()->default_value( true ), "")
+            ("dynamics.alea_factor", po::value<double>()->default_value( 0. ), "")
+            ("dynamics.young", po::value<double>()->default_value( 5.49e+9 ), "Pa") // 5.49e+9 is a more reasonable than 9GPa, and same as used in WIM paper.
+            ("dynamics.cfix", po::value<double>()->default_value( 40e+3 ), "Pa")
+            ("dynamics.nu0", po::value<double>()->default_value( 0.3 ), "")
+            ("dynamics.tan_phi", po::value<double>()->default_value( 0.7 ), "")
+            ("dynamics.tract_coef", po::value<double>()->default_value( 5./6 ), "")
+            ("dynamics.compr_strength", po::value<double>()->default_value( 750e+3 ), "Pa")
+            ("dynamics.ridging_exponent", po::value<double>()->default_value( -20. ), "")
 
             // c,h limits for where to use MEB rheology and where to use the Laplacian free drift thing
-            ("simul.min_h", po::value<double>()->default_value( 0.05 ), "")
-            ("simul.min_c", po::value<double>()->default_value( 0.01 ), "")
+            ("dynamics.min_h", po::value<double>()->default_value( 0.05 ), "")
+            ("dynamics.min_c", po::value<double>()->default_value( 0.01 ), "")
 
             // - Ratio of ridged ice cohesion and compressive strength compared to level ice (1. does nothing)
-            ("simul.ridge_to_normal_cohesion_ratio", po::value<double>()->default_value( 1. ), "")
+            ("dynamics.ridge_to_normal_cohesion_ratio", po::value<double>()->default_value( 1. ), "")
             // - Scaling of cohesion w.r.t. ice thickness (normalisation factor = 1 and exponent = 0 does nothing)
-            ("simul.cohesion_thickness_normalisation", po::value<double>()->default_value( 1. ), "")
-            ("simul.cohesion_thickness_exponent", po::value<double>()->default_value( 1. ), "")
+            ("dynamics.cohesion_thickness_normalisation", po::value<double>()->default_value( 1. ), "")
+            ("dynamics.cohesion_thickness_exponent", po::value<double>()->default_value( 1. ), "")
             // - scaling with respect to horizontal resolution
-            ("simul.scale_coef", po::value<double>()->default_value( 0.1 ), "")
+            ("dynamics.scale_coef", po::value<double>()->default_value( 0.1 ), "")
 
-            ("simul.use_temperature_dependent_healing", po::value<bool>()->default_value( false ), "")
-            ("simul.time_relaxation_damage", po::value<double>()->default_value( 25. ), "days")
-            ("simul.deltaT_relaxation_damage", po::value<double>()->default_value( 20. ), "Kelvin")
-            ("simul.undamaged_time_relaxation_sigma", po::value<double>()->default_value( 1e7 ), "seconds")
+            ("dynamics.use_temperature_dependent_healing", po::value<bool>()->default_value( false ), "")
+            ("dynamics.time_relaxation_damage", po::value<double>()->default_value( 25. ), "days")
+            ("dynamics.deltaT_relaxation_damage", po::value<double>()->default_value( 20. ), "Kelvin")
+            ("dynamics.undamaged_time_relaxation_sigma", po::value<double>()->default_value( 1e7 ), "seconds")
                 // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
-            ("simul.exponent_relaxation_sigma", po::value<double>()->default_value( 4. ), "")
+            ("dynamics.exponent_relaxation_sigma", po::value<double>()->default_value( 4. ), "")
                 // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
 
             // water and air drag parameterizations
-            ("simul.ERAi_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
-            ("simul.ECMWF_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
-            ("simul.ASR_quad_drag_coef_air", po::value<double>()->default_value( 0.0049 ), "")
-            ("simul.CFSR_quad_drag_coef_air", po::value<double>()->default_value( 0.0023 ), "")
+            ("dynamics.ERAi_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
+            ("dynamics.ECMWF_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
+            ("dynamics.ASR_quad_drag_coef_air", po::value<double>()->default_value( 0.0049 ), "")
+            ("dynamics.CFSR_quad_drag_coef_air", po::value<double>()->default_value( 0.0023 ), "")
                 // Updated value, based on comparison with OSISAF drift in the free drift case
-            ("simul.lin_drag_coef_air", po::value<double>()->default_value( 0. ), "")
-            ("simul.quad_drag_coef_water", po::value<double>()->default_value( 0.0055 ), "")
-            ("simul.lin_drag_coef_water", po::value<double>()->default_value( 0. ), "")
+            ("dynamics.lin_drag_coef_air", po::value<double>()->default_value( 0. ), "")
+            ("dynamics.quad_drag_coef_water", po::value<double>()->default_value( 0.0055 ), "")
+            ("dynamics.lin_drag_coef_water", po::value<double>()->default_value( 0. ), "")
 
             // basal stress parameterization
-            ("simul.Lemieux_basal_k1", po::value<double>()->default_value( 10. ), "")
-            ("simul.Lemieux_basal_k2", po::value<double>()->default_value( 15. ), "")
-            ("simul.Lemieux_basal_Cb", po::value<double>()->default_value( 20. ), "")
-            ("simul.Lemieux_basal_u_0", po::value<double>()->default_value( 5e-5 ), "")
-            ("simul.Lemieux_basal_u_crit", po::value<double>()->default_value( 5e-4 ), "")
+            ("dynamics.Lemieux_basal_k1", po::value<double>()->default_value( 10. ), "")
+            ("dynamics.Lemieux_basal_k2", po::value<double>()->default_value( 15. ), "")
+            ("dynamics.Lemieux_basal_Cb", po::value<double>()->default_value( 20. ), "")
+            ("dynamics.Lemieux_basal_u_0", po::value<double>()->default_value( 5e-5 ), "")
+            ("dynamics.Lemieux_basal_u_crit", po::value<double>()->default_value( 5e-4 ), "")
 
             /*
              *-----------------------------------------------------------------------------------
