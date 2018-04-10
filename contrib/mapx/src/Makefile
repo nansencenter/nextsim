@@ -6,10 +6,10 @@ else
 	LIBRARYNAME=libmapx.dylib
 endif
 
-LIB=$(LIBRARYNAME)
 OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
 LIBRARYDIR=$(NEXTSIMDIR)/lib/
+tools: LIBRARYDIR=$(NEXTSIMTOOLS_ROOT_DIR)/lib/nextsim/
 
 CC = gcc
 
@@ -22,7 +22,7 @@ endif
 ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
 	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	#CCFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
-	CCFLAGS += -g -O0 -DNDEBUG
+	CCFLAGS += -g -O0 -DDEBUGGING
 ifneq ($(KERNEL),Linux)
 	CCFLAGS += -Wl,-no_pie
 endif
@@ -59,10 +59,12 @@ OBJS=$(CCSRC:%.c=$(OBJECTDIR)%.o)
 DEPS=$(CCSRC:%.c=$(DEPENDDIR)%.d)
 
 # Rules to always execute.
-.PHONY: all clean mrproper
+.PHONY: default lib tools clean mrproper
 
 # Default action.
-all: $(LIB)
+default: lib
+
+tools: clean lib
 
 # Delete the object files.
 clean:
@@ -73,23 +75,23 @@ mrproper: clean
 
 # Rule for making the actual target
 ifeq ($(KERNEL),Linux)
-$(LIBRARYNAME): $(OBJS) #$(CCOBJS)
+lib: $(OBJS)
 	@mkdir -p $(LIBRARYDIR)
 	@echo "============================================"
 	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
 	@echo "============================================"
-	$(CC) $(CCFLAGS) -o $(LIBRARYDIR)$@ $^ $(LDFLAGS)
-	@ln -sf $@ $(LIBRARYDIR)libmapx.so
-	@ln -sf $@ $(LIBRARYDIR)libmapx.so.1
+	$(CC) $(CCFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LDFLAGS)
+	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)libmapx.so
+	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)libmapx.so.1
 else
-$(LIBRARYNAME): $(OBJS) #$(CCOBJS)
+lib: $(OBJS)
 	@mkdir -p $(LIBRARYDIR)
 	@echo "============================================"
 	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
 	@echo "============================================"
-	$(CC) $(CCFLAGS) -o $(LIBRARYDIR)$@ $^ $(LDFLAGS)
-	@ln -sf $@ $(LIBRARYDIR)libmapx.dylib.0
-	@ln -sf $@ $(LIBRARYDIR)libmapx.dylib.1
+	$(CC) $(CCFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LDFLAGS)
+	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)libmapx.dylib.0
+	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)libmapx.dylib.1
 endif
 
 # Rules for object files from cpp files
