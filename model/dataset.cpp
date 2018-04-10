@@ -29,7 +29,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 {
 
     name = std::string(DatasetName);
-    projfilename = Environment::vm()["simul.proj_filename"].as<std::string>();
+    projfilename = Environment::vm()["mesh.mppfile"].as<std::string>();
 
     std::vector<std::vector<double>> loaded_data_tmp;
     loaded_data_tmp.resize(2);
@@ -7103,7 +7103,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"daily",
-            target_location:"wim_grid",
+            target_location:"wim_elements",
 
             waveOptions: {
                wave_dataset:true,
@@ -7244,7 +7244,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"yearly",
-            target_location:"wim_grid",
+            target_location:"wim_elements",
 
             waveOptions: {
                 wave_dataset:true,
@@ -7454,56 +7454,105 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time)
 }
 
 std::string
-DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time)
+DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int jump)
 {
 
+    bool is_topaz_fc = (grid_ptr->dataset_frequency=="daily_forecast");//topaz forecast
+    bool is_ec_fc = ((grid_ptr->prefix).find("start") != std::string::npos);//ECMWF forecasts (ec_[nodes,elements],ec2_[nodes,elements])
+
+    if ( current_time < 0 )
+        throw std::runtime_error("getFilename: current time < 0");
+
     std::string current_timestr="";
-    if ( current_time > 0 )
+    std::string filename="";
+    if(is_ec_fc||is_topaz_fc)
     {
-        if(grid_ptr->dataset_frequency=="monthly")
-            current_timestr = to_date_string_ym(current_time);//yyyymm
-        else if(grid_ptr->dataset_frequency=="yearly")
-            current_timestr = to_date_string_y(std::floor(current_time));//yyyy
-        else if(grid_ptr->dataset_frequency=="daily" || grid_ptr->dataset_frequency=="nearest_daily" || grid_ptr->dataset_frequency=="daily_forecast"  || grid_ptr->dataset_frequency=="daily_ec2_forecast")
-            current_timestr = to_date_string_yd(current_time);//yyyymmdd
-        else if(grid_ptr->dataset_frequency=="daily")
-            current_timestr = to_date_string_yd(current_time);//yyyymm
-        else if(grid_ptr->dataset_frequency=="constant")
-            current_timestr = "";
+        // if current (shifted) time before init_time, reduce the init_time to find a file
+        // NB jump is in days
+        double inittime = std::floor(init_time);
+        if(std::floor(current_time+jump)<inittime)
+            inittime = std::floor(current_time + jump);
+        std::string init_timestr= to_date_string_yd(inittime);//yyyymmdd
+
+        if(is_ec_fc)
+        {
+            //get filename
+            filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
+                           % Environment::simdataDir().string()
+                           % grid_ptr->dirname
+                           % grid_ptr->prefix
+                           % init_timestr
+                           % grid_ptr->postfix
+                           ).str();
+            return filename;
+        }
         else
-            throw std::runtime_error("This option for grid_ptr->dataset_frequency is not implemented: " + grid_ptr->dataset_frequency);
-        std::cout <<"TIMESTR= "<< current_timestr <<"\n";
+        {
+
+            // also need current time for filename
+            current_timestr = to_date_string_yd(std::floor(current_time+jump));//yyyymmdd
+
+            filename = (boost::format( "%1%/%2%/%3%%4%%5%%6%" )
+                                % Environment::simdataDir().string()
+                                % grid_ptr->dirname
+                                % current_timestr
+                                % grid_ptr->prefix
+                                % init_timestr
+                                % grid_ptr->postfix
+                           ).str();
+            return filename;
+        }
     }
 
-
-    std::string filename;
-
-
-    if(grid_ptr->dataset_frequency=="daily_forecast")
+    if(grid_ptr->dataset_frequency=="monthly")
     {
-        std::string init_timestr= to_date_string_yd(init_time);//yyyymmdd
-        filename = (boost::format( "%1%/%2%/%3%%4%%5%%6%" )
-                            % Environment::simdataDir().string()
-                            % grid_ptr->dirname
-                            % current_timestr
-                            % grid_ptr->prefix
-                            % init_timestr
-                            % grid_ptr->postfix
-                       ).str();
+        //jump is in months
+        current_timestr = to_date_string_ym(current_time);//yyyymm
+
+        std::string myString = current_timestr.substr(4,2);
+        std::cout <<"month= "<< myString <<"\n";
+        int value_month = atoi(myString.c_str());
+        myString = current_timestr.substr(0,4);
+        std::cout <<"year= "<< myString <<"\n";
+        int value_year = atoi(myString.c_str());
+
+        std::cout <<"value_year= "<< value_year <<"\n";
+                        std::cout <<"value_month= "<< value_month <<"\n";
+
+        value_month+=jump;
+        if(value_month==13)
+        {
+            value_month=1;
+            value_year++;
+        }
+        if(value_month==0)
+        {
+            value_month=12;
+            value_year--;
+        }
+        current_timestr=(boost::format( "%1%%2%" )
+                % boost::io::group(std::setw(4), std::setfill('0'), value_year)
+                % boost::io::group(std::setw(2), std::setfill('0'), value_month)).str();
     }
-    else
-    if(grid_ptr->dataset_frequency=="daily_ec2_forecast")
+    else if(grid_ptr->dataset_frequency=="yearly")
     {
-        std::string init_timestr= to_date_string_yd(init_time);//yyyymmdd
-        filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
-                       % Environment::simdataDir().string()
-                       % grid_ptr->dirname
-                       % grid_ptr->prefix
-                       % init_timestr
-                       % grid_ptr->postfix
-                       ).str();
+        //jump is in years
+        current_timestr = to_date_string_y(std::floor(current_time));//yyyy
+        int value_year = atoi(current_timestr.c_str());
+        value_year+=jump;
+        current_timestr=(boost::format( "%1%" )
+                % boost::io::group(std::setw(4), std::setfill('0'), value_year)).str();
     }
+    else if(grid_ptr->dataset_frequency=="daily"
+            || grid_ptr->dataset_frequency=="nearest_daily")
+        current_timestr = to_date_string_yd(std::floor(current_time+jump));//yyyymmdd
+    else if(grid_ptr->dataset_frequency=="constant")
+        current_timestr = "";
     else
+        throw std::runtime_error(
+                "This option for grid_ptr->dataset_frequency is not implemented: "
+                + grid_ptr->dataset_frequency);
+
     filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                        % Environment::simdataDir().string()
                        % grid_ptr->dirname
@@ -7969,7 +8018,12 @@ for (auto i = X.begin(); i != X.end(); ++i)
 		}
 
 		std::cout <<"GRID : Triangulate starts\n";
-		BamgTriangulatex(&grid_ptr->pfindex,&grid_ptr->pfnels,&grid_ptr->gridX[0],&grid_ptr->gridY[0],grid_ptr->gridX.size());
+        int* pfindex;
+		BamgTriangulatex(&pfindex,&grid_ptr->pfnels,&grid_ptr->gridX[0],&grid_ptr->gridY[0],grid_ptr->gridX.size());
+        grid_ptr->pfindex.resize(3*(grid_ptr->pfnels));
+        for(int i=0;i<grid_ptr->pfindex.size();i++)
+            grid_ptr->pfindex[i] = pfindex[i];
+        xDelete<int>(pfindex);
 		std::cout <<"GRID : NUMTRIANGLES= "<< grid_ptr->pfnels <<"\n";
 		std::cout <<"GRID : Triangulate done\n";
 

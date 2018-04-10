@@ -9,17 +9,19 @@ git diff > $P/git_changes.txt
 cd $P
 
 prog=bin/nextsim.exec
-if [ `pwd` != $NEXTSIMDIR/model ]
+if [ `pwd` != "$NEXTSIMDIR/model" ]
 then
    # make a local copy of executable
    # (so can recompile code and run somewhere else)
+   rm -rf bin #make sure any old executable is deleted
    mkdir -p bin
+   echo "cp $NEXTSIMDIR/model/$prog $prog"
    cp $NEXTSIMDIR/model/$prog $prog
 fi
 
 # extra settings needed for mac
 kernel=$(uname -s)
-if [ $kernel == "Darwin" ]
+if [ "$kernel" == "Darwin" ]
 then
     # mac
     export DYLD_LIBRARY_PATH=$NEXTSIMDIR/lib:$BOOST_LIBDIR

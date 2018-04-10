@@ -6,7 +6,7 @@
  * @date   Fri Jul  3 16:28:01 2015
  */
 
-#ifndef NDEBUG
+#ifndef DEBUGGING
 #define ASSERT(condition, message) \
 	do { \
 		if ( ! (condition)) { \

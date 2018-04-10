@@ -28,10 +28,10 @@ tmpdir1=$(mktemp -d)
 tmpdir2=$(mktemp -d)
 
 # Run with one thread
-OMP_NUM_THREADS=$num_threads1 $execfile --setup.exporter_precision=double --simul.output_directory=$tmpdir1 --simul.duration=$duration --simul.output_per_day=$output_per_day --config-files=$cfgfile 2>&1 | tee $tmpdir1/output.log  || exit 5
+OMP_NUM_THREADS=$num_threads1 $execfile --exporter.precision=double --exporter.path=$tmpdir1 --simul.duration=$duration --simul.output_per_day=$output_per_day --config-files=$cfgfile 2>&1 | tee $tmpdir1/output.log  || exit 5
 
 # Run with 8 threads
-OMP_NUM_THREADS=$num_threads2 $execfile --setup.exporter_precision=double --simul.output_directory=$tmpdir2 --simul.duration=$duration --simul.output_per_day=$output_per_day --config-files=$cfgfile 2>&1 | tee $tmpdir2/output.log  || exit 6
+OMP_NUM_THREADS=$num_threads2 $execfile --exporter.precision=double --exporter.path=$tmpdir2 --simul.duration=$duration --simul.output_per_day=$output_per_day --config-files=$cfgfile 2>&1 | tee $tmpdir2/output.log  || exit 6
 
 # Test for diff
 results=0

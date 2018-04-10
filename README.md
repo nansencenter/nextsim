@@ -46,8 +46,8 @@ This README would normally document whatever steps are necessary to get your app
 ##------- Installation of the needed libraries ----------
 
 ####### Install boost #######
-	1) Download version 1.55 of boost on http://www.boost.org (It is better to restart from here if you had an upgrade of your os)
-	2) copy bconfigure.sh and binstall.sh from /nextsim/scripts/boost/ to your boost directory
+	1) Download version 1.60 of boost on http://www.boost.org (It is better to restart from here if you had an upgrade of your os)
+	2) copy bconfigure_osx.sh and binstall_osx.sh from /nextsim/scripts/boost/ to your boost directory
 	3) type the command "unset BOOST_DIR"
 	4) check if bconfigure.sh corresponds to your architecture
 	5) From boost directory, type: "./bconfigure.sh"

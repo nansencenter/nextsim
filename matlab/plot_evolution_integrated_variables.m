@@ -30,7 +30,7 @@ function [ output_args ] = plot_evolution_integrated_variables( fields,step_star
 %%    M_ocean_salt
 %%    M_mld
 %%    M_element_depth
-%%    Stresses, Stresses_x, Stresses_y
+%%    Stress_waves_ice, Stress_waves_ice_x, Stress_waves_ice_y
 %%    Nfloes
 %%    Dfloe
 %%    Sigma1

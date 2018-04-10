@@ -38,7 +38,7 @@ endif
 ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
-	CXXFLAGS += -g -O0 -DNDEBUG 
+	CXXFLAGS += -g -O0 -DDEBUGGING 
 ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 	CXXFLAGS += -DWITHGPERFTOOLS
 endif
@@ -100,8 +100,8 @@ LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf_c++4
 LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
 LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi -lboost_date_time
 
-# LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
-# LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
+LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
+LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
 
 LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
@@ -131,12 +131,14 @@ OBJS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.o)
 DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
 # Rules to always execute.
-.PHONY: all clean mrproper fortran libs cleanlibs mrproperlibs
+.PHONY: all clean mrproper fortran libs cleanlibs mrproperlibs fresh core bamg mapx wim oasis
 
 # Default action.
 default: $(PROGNAME)
 
 # Compile the libraries as well as the executable
+# - NB doesn't work on osx
+# - still need to do "make clean; make" afterwards
 all: libs $(PROGNAME)
 
 # Delete the object files.
@@ -187,6 +189,19 @@ fortran: $(FPROGNAME)
 libs:
 	cd ..; make
 
+# just compile single libraries
+bamg:
+	@cd ..; make bamg
+mapx:
+	@cd ..; make mapx
+core:
+	@cd ..; make core
+wim:
+	@cd ..; make wim
+oasis:
+	@cd ..; make oasis
+
+
 # Clean the required libraries
 cleanlibs:
 	cd ..; make clean
@@ -195,7 +210,10 @@ cleanlibs:
 cleanall: cleanlibs clean
 
 # Clean recompile
-fresh: cleanall all
+# - NB doesn't work on osx
+# - still need to do "make clean; make" afterwards
+fresh:
+	cd ..; make fresh
 
 # Fully clean the required libraries
 mrproperlibs:

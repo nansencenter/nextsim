@@ -105,9 +105,33 @@ public:
 
     GmshMesh(GmshMesh const& mesh);
 
+    //small functions to get some paths
+    std::string mppFile() const
+    { return Environment::nextsimDir().string()
+        + "/data/" + M_projection_file; }
+
+    std::string meshPath() const
+    {
+        std::string meshpath =
+           Environment::vm()["mesh.path"].as<std::string>();
+    
+        if(meshpath=="nextsimdir")
+            // default location of meshes
+            // - mesh dir of repo ($NEXTSIMDIR/mesh)
+            meshpath = Environment::nextsimDir().string() + "/mesh";
+        else if(meshpath=="simdatadir")
+            // $SIMDATADIR/mesh
+            meshpath = Environment::simdataDir().string() + "/mesh";
+
+        return meshpath;
+    }
+
+    //file ops
     void readFromFile(std::string const& filename);
     void writeTofile(std::string const& filename);
-    void writeGeometry(std::string const& geofile, int nx, int ny, double xmin, double ymin, double dx, double dy);
+    void writeGeometry(std::string const& geofile, int nx, int ny,
+            double xmin, double ymin, double dx, double dy);
+
     void move(std::vector<double> const& um, double factor);
     void setId(std::vector<int> const& new_id);
 

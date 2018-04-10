@@ -106,7 +106,6 @@ public:
 
     void transformData(Dataset *dataset);
 
-    //void interpolateDataset(Dataset *dataset, GmshMesh const& mesh);
     void interpolateDataset(Dataset *dataset, std::vector<double> const& RX,
             std::vector<double> const& RY );
 

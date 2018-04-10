@@ -114,7 +114,7 @@ Drifters::Drifters(std::string filename, GmshMesh const& mesh, std::vector<doubl
     std::vector<double> Y(gridSize);
 
     mapx_class *map;
-    filename = Environment::nextsimDir().string() + "/data/" + Environment::vm()["simul.proj_filename"].as<std::string>();
+    filename = Environment::nextsimDir().string() + "/data/" + Environment::vm()["mesh.mppfile"].as<std::string>();
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
@@ -177,7 +177,7 @@ Drifters::Drifters(std::string dirname, std::string gridFile,
     std::vector<double> Y(gridSize);
 
     mapx_class *map;
-    filename = Environment::nextsimDir().string() + "/data/" + Environment::vm()["simul.proj_filename"].as<std::string>();
+    filename = Environment::nextsimDir().string() + "/data/" + Environment::vm()["mesh.mppfile"].as<std::string>();
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
@@ -368,16 +368,14 @@ Drifters::initNetCDF(std::string file_prefix, double current_time)
 void
 Drifters::appendNetCDF(double current_time, GmshMesh const& mesh, std::vector<double> const& UT)
 {
-#if 0 // not necessary anymore ence the position are updated twice a day, so that it works also with an Eulerian and ALE scheme
     // Move the drifters before export, but save the result in a different variable
     std::vector<double> X(M_no_drifters);
     std::vector<double> Y(M_no_drifters);
     move(mesh, UT, X, Y);
-#endif
 
     // Calculate lat and lon
     mapx_class *map;
-    std::string mpp_file = Environment::nextsimDir().string() + "/data/" + Environment::vm()["simul.proj_filename"].as<std::string>();
+    std::string mpp_file = Environment::nextsimDir().string() + "/data/" + Environment::vm()["mesh.mppfile"].as<std::string>();
     std::vector<char> str(mpp_file.begin(), mpp_file.end());
     str.push_back('\0');
 

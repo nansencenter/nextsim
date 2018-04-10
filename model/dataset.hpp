@@ -153,7 +153,7 @@ public:
 		Variable masking_variable;
 		std::vector<int> reduced_nodes_ind;
 
-        int* pfindex;
+        std::vector<int> pfindex;
         int pfnels;
         std::vector<double> gridX;
         std::vector<double> gridY;
@@ -190,7 +190,7 @@ public:
 
     std::vector<double> ftime_range;
             
-    std::string getFilename(Grid *grid, double init_time, double current_time); 
+    std::string getFilename(Grid *grid, double init_time, double current_time, int jump=0); 
 
     void loadGrid(Grid *grid, double init_time, double current_time);
 

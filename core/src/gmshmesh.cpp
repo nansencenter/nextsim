@@ -24,7 +24,7 @@ GmshMesh::GmshMesh()
     M_num_edges(0),
     M_marker_names()
 {
-    M_projection_file = (Environment::vm()["simul.proj_filename"]).as<std::string>();
+    M_projection_file = (Environment::vm()["mesh.mppfile"]).as<std::string>();
 }
 
 GmshMesh::GmshMesh(std::vector<point_type> const& nodes,
@@ -41,7 +41,7 @@ GmshMesh::GmshMesh(std::vector<point_type> const& nodes,
     M_num_triangles(triangles.size()),
     M_num_edges(edges.size())
 {
-    M_projection_file = Environment::vm()["simul.proj_filename"].as<std::string>();
+    M_projection_file = Environment::vm()["mesh.mppfile"].as<std::string>();
 }
 
 GmshMesh::GmshMesh(std::vector<point_type> const& nodes,
@@ -55,7 +55,7 @@ GmshMesh::GmshMesh(std::vector<point_type> const& nodes,
     M_num_nodes(nodes.size()),
     M_num_triangles(triangles.size())
 {
-    M_projection_file = Environment::vm()["simul.proj_filename"].as<std::string>();
+    M_projection_file = Environment::vm()["mesh.mppfile"].as<std::string>();
 }
 
 GmshMesh::GmshMesh(GmshMesh const& mesh)
@@ -69,22 +69,12 @@ GmshMesh::GmshMesh(GmshMesh const& mesh)
     M_num_triangles(mesh.M_num_triangles)
 {}
 
+
 void
 GmshMesh::readFromFile(std::string const& filename)
 {
-    std::string meshpath = Environment::vm()["simul.mesh_path"].as<std::string>();
-    std::string gmshmshfile;
-
-    if(meshpath=="nextsimdir")
-        // default location of meshes
-        // - mesh dir of repo ($NEXTSIMDIR/mesh)
-        gmshmshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
-    else if(meshpath=="simdatadir")
-        // usual location on johansen ($SIMDATADIR/data/mesh)
-        gmshmshfile = Environment::simdataDir().string() + "/data/mesh/" + filename;
-    else
-        // manual path
-        gmshmshfile = meshpath + "/" + filename;
+    std::string meshpath = this->meshPath();
+    std::string gmshmshfile = meshpath+"/"+filename;
 
     std::cout<<"Reading Msh file "<< gmshmshfile <<"\n";
 
@@ -319,17 +309,8 @@ void
 GmshMesh::writeTofile(std::string const& filename)
 {
 
-    std::string meshpath = Environment::vm()["simul.mesh_path"].as<std::string>();
-    std::string gmshmshfile;
-    if(meshpath=="nextsimdir")
-    {
-        gmshmshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
-    }
-    else if(meshpath=="simdatadir")
-    {
-        gmshmshfile = Environment::simdataDir().string() + "/data/mesh/" + filename;
-    }
-
+    std::string meshpath = this->meshPath();
+    std::string gmshmshfile = meshpath+"/"+filename;
     std::fstream gmshfile(gmshmshfile, std::ios::out | std::ios::trunc);
 
     if (gmshfile.is_open())
@@ -404,9 +385,11 @@ GmshMesh::writeTofile(std::string const& filename)
 }
 
 void
-GmshMesh::writeGeometry(std::string const& geofile, int nx, int ny, double xmin, double ymin, double dx, double dy)
+GmshMesh::writeGeometry(std::string const& geofile, int nx, int ny,
+      double xmin, double ymin, double dx, double dy)
 {
-    std::string gmshgeofile = Environment::nextsimDir().string() + "/mesh/" + geofile;
+    std::string meshpath = this->meshPath();
+    std::string gmshgeofile = meshpath+"/"+geofile;
     std::fstream gmshfile(gmshgeofile, std::ios::out | std::ios::trunc);
 
     if (gmshfile.is_open())
@@ -492,7 +475,7 @@ GmshMesh::stereographicProjection()
 {
     // polar stereographic projection
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/" + M_projection_file;
+    std::string filename = this->mppFile();
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
@@ -752,7 +735,7 @@ std::vector<double>
 GmshMesh::meanLon() const
 {
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/" + M_projection_file;
+    std::string filename = this->mppFile();
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
@@ -780,7 +763,7 @@ std::vector<double>
 GmshMesh::meanLat() const
 {
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/" + M_projection_file;
+    std::string filename = this->mppFile();
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
@@ -808,7 +791,7 @@ std::vector<double>
 GmshMesh::lon() const
 {
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/" + M_projection_file;
+    std::string filename = this->mppFile();
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
@@ -836,7 +819,7 @@ std::vector<double>
 GmshMesh::lat() const
 {
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/" + M_projection_file;
+    std::string filename = this->mppFile();
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
