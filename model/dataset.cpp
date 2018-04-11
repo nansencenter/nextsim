@@ -1024,7 +1024,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
     }
     else if (strcmp (DatasetName, "nesting_ice_elements") == 0)
     {
-        if ( Environment::vm()["simul.newice_type"].as<int>() == 4 ) {
+        if ( Environment::vm()["thermo.newice_type"].as<int>() == 4 ) {
             // Definition of nesting grid and datasets
             Dimension dimension_x={
                 name:"x",
