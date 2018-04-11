@@ -346,7 +346,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         mapx_class *map;
 	    std::string configfile = (boost::format( "%1%/%2%/%3%" )
                               % Environment::nextsimDir().string()
-                              % dataset->grid.dirname
+                              % "data"
                               % dataset->grid.mpp_file
                               ).str();
 
@@ -582,6 +582,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
             for (int it=0; it < nt; ++it) // always need one step before and one after the target time
             {
+                 cout << XTIME[it] << endl;
                 if (!has_time_variable || ((dataset->name).find("ice_amsr2") != std::string::npos))
                     f = from_date_string((boost::format( "%1%-%2%-%3%" )
                                 % f_timestr.substr(0,4)
@@ -598,7 +599,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                     filename_next = filename;
                 }
                 if(f<=M_current_time)
-                {
+                { 
                     time_prev=f;
                     index_prev = it;
                     filename_prev = filename;
@@ -617,6 +618,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
         if(filename_next!="")
         {
+             cout << filename_next << endl;
             filename_fstep.push_back(filename_next);
             index_fstep.push_back(index_next);
         }
@@ -639,19 +641,17 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         }
         else
             f_timestr ="";
-
-        filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
-                    % Environment::simdataDir().string()
-                    % dataset->grid.dirname
-                    % dataset->grid.prefix
-                    % f_timestr
-                    % dataset->grid.postfix
-                    ).str();
-
+            filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
+                        % Environment::simdataDir().string()
+                        % dataset->grid.dirname
+                        % dataset->grid.prefix
+                        % f_timestr
+                        % dataset->grid.postfix
+                        ).str();
         filename_fstep.push_back(filename);
         index_fstep.push_back(0);
     }
-
+    cout << f_timestr << endl << endl;
     // Initialise counters etc.
 	int nb_forcing_step =filename_fstep.size();
 
