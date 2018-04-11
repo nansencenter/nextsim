@@ -311,17 +311,6 @@ namespace Nextsim
 
             /*
              *-----------------------------------------------------------------------------------
-             * OTHERS (TO BE SORTED)
-             * -----------------------------------------------------------------------------------
-             */
-
-            ("simul.drift_limit_concentration", po::value<double>()->default_value( 0.05 ), "")
-            ("simul.ERAcorr2T", po::value<std::vector<std::string>>()->multitoken()->zero_tokens()->composing(), "")
-            ("simul.use_stability_drag", po::value<double>()->default_value( 0. ), "")
-            ("simul.close_all_boundaries", po::value<bool>()->default_value( false ), "")
-
-            /*
-             *-----------------------------------------------------------------------------------
              * MODULES
              * -----------------------------------------------------------------------------------
              */
