@@ -257,6 +257,7 @@ FiniteElement::initModelState()
 void
 FiniteElement::initDatasets()
 {
+cout << "toto1" << endl;
     // Definition of the datasets
     switch(M_atmosphere_type){
         case setup::AtmosphereType::CONSTANT:
@@ -300,7 +301,7 @@ FiniteElement::initDatasets()
 
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
-
+cout << "toto2" << endl;
     switch (M_ocean_type)
     {
         case setup::OceanType::CONSTANT:
@@ -338,7 +339,6 @@ FiniteElement::initDatasets()
         }
     }
 #endif
-
     if (M_use_nesting)
     {
         M_nesting_nodes_dataset=DataSet("nesting_nodes",M_num_nodes);
@@ -538,7 +538,7 @@ FiniteElement::initConstant()
         ("error", ERROR);
 
     M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
-
+    
     nu0 = vm["dynamics.nu0"].as<double>();
     young = vm["dynamics.young"].as<double>();
     rhoi = physical::rhoi;
@@ -557,7 +557,6 @@ FiniteElement::initConstant()
         std::cout << mooring_output_time_step << " " << time_step << "\n";
         throw std::runtime_error("mooring_output_time_step is not an integer multiple of time_step");
     }
-
     // output_time_step =  time_step*vm["output.output_per_day"].as<int>(); // useful for debuging
     duration = (vm["simul.duration"].as<double>())*days_in_sec;
     restart_time_step =  vm["restart.output_time_step"].as<double>()*days_in_sec;
@@ -569,7 +568,6 @@ FiniteElement::initConstant()
         std::cout << restart_time_step << " " << time_step << "\n";
         throw std::runtime_error("restart_time_step not an integer multiple of time_step");
     }
-
     ocean_turning_angle_rad = 0.;
     if (vm["dynamics.use_coriolis"].as<bool>())
         ocean_turning_angle_rad = (PI/180.)*vm["dynamics.oceanic_turning_angle"].as<double>();
@@ -593,7 +591,6 @@ FiniteElement::initConstant()
     // scale_coef = vm["dynamics.scale_coef"].as<double>();
     alea_factor = vm["dynamics.alea_factor"].as<double>();
     cfix = vm["dynamics.cfix"].as<double>();
-
     // C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
     // C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     tan_phi = vm["dynamics.tan_phi"].as<double>();
@@ -619,7 +616,6 @@ FiniteElement::initConstant()
         ("cfsr", setup::AtmosphereType::CFSR)
         ("cfsr_hi", setup::AtmosphereType::CFSR_HI);
     M_atmosphere_type = str2atmosphere.find(vm["setup.atmosphere-type"].as<std::string>())->second;
-
     switch(M_atmosphere_type){
         case setup::AtmosphereType::CONSTANT:   quad_drag_coef_air = vm["dynamics.ASR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ASR:        quad_drag_coef_air = vm["dynamics.ASR_quad_drag_coef_air"].as<double>(); break;
@@ -656,7 +652,6 @@ FiniteElement::initConstant()
         ("topaz_altimeter", setup::OceanType::TOPAZR_ALTIMETER);
     M_ocean_type = str2ocean.find(vm["setup.ocean-type"].as<std::string>())->second;
     LOG(DEBUG)<<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
-
     const boost::unordered_map<const std::string, setup::IceType> str2conc = boost::assign::map_list_of
         ("constant", setup::IceType::CONSTANT)
         ("constant_partial", setup::IceType::CONSTANT_PARTIAL)
@@ -719,7 +714,6 @@ FiniteElement::initConstant()
         LOG(DEBUG)<<"WAVEMODE = "+swave+"(enum = "<< (int)M_wave_mode <<")\n";
     }
 #endif
-
     const boost::unordered_map<const std::string, setup::BathymetryType> str2bathymetry = boost::assign::map_list_of
         ("constant", setup::BathymetryType::CONSTANT)
         ("etopo", setup::BathymetryType::ETOPO);
@@ -745,7 +739,6 @@ FiniteElement::initConstant()
         M_use_rgps_drifters=true;
 
     M_mesh_filename = vm["mesh.filename"].as<std::string>();
-
     // mesh type
     M_mesh_type = setup::MeshType::FROM_GMSH;
     if (M_mesh_filename.find("split") != std::string::npos)
@@ -3411,7 +3404,7 @@ FiniteElement::nestingIce()
             if ( M_nudge_function == "exponential" ) 
                 fNudge = std::exp(-M_nesting_dist_elements[i]/nudge_scale);
 
-            if ( Environment::vm()["simul.newice_type"].as<int>() == 4 ) {
+            if ( Environment::vm()["thermo.newice_type"].as<int>() == 4 ) {
                 M_conc_thin[i]  += (fNudge*(time_step/nudge_time)*(M_ice_conc_thin[i]-M_conc_thin[i]));
                 M_h_thin[i]     += (fNudge*(time_step/nudge_time)*(M_ice_h_thin[i]-M_h_thin[i]));
                 M_hs_thin[i]    += (fNudge*(time_step/nudge_time)*(M_ice_hs_thin[i]-M_hs_thin[i]));
@@ -4540,10 +4533,8 @@ FiniteElement::run()
 #endif
 
     std::string current_time_system = Nextsim::current_time_local();
-
     int pcpt = this->init();
     int niter = vm["simul.maxiteration"].as<int>();
-
     this->writeLogFile();
 
     // Debug file that records the time step
@@ -4555,7 +4546,6 @@ FiniteElement::run()
     bool is_running = true;
     if(duration<=0)
         is_running = false;
-
     while (is_running)
     {
         //std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
@@ -4643,7 +4633,6 @@ FiniteElement::init()
         if ( !fs::exists(path) )
             fs::create_directories(path);
     }
-
     int pcpt = 0;
     mesh_adapt_step=0;
     had_remeshed=false;
@@ -4654,7 +4643,6 @@ FiniteElement::init()
     LOG(INFO) << "-----------------------Simulation started on "<< Nextsim::current_time_local() <<"\n";
     LOG(INFO) <<"TIMESTEP= "<< time_step <<"\n";
     LOG(INFO) <<"DURATION= "<< duration <<"\n";
-
     // Initialise the mesh
     this->initMesh(M_mesh_type);
     // We need to set the scale_coeff et al after initialising the mesh - this was previously done in initConstants
@@ -6509,7 +6497,7 @@ FiniteElement::forcingNesting()//(double const& u, double const& v)
     M_external_data.push_back(&M_ice_conc);
     M_ice_snow_thick=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 2,false,time_init);
     M_external_data.push_back(&M_ice_snow_thick); 
-    if ( Environment::vm()["simul.newice_type"].as<int>() == 4 ) {
+    if ( Environment::vm()["thermo.newice_type"].as<int>() == 4 ) {
         M_ice_h_thin=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 3,false,time_init);
         M_external_data.push_back(&M_ice_h_thin);
         M_ice_conc_thin=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 4,false,time_init);
