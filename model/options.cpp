@@ -127,6 +127,7 @@ namespace Nextsim
             ("restart.input_path", po::value<std::string>()->default_value( "" ),
                     "where to find restarts (default is $NEXTSIMDIR/restart)")
             ("restart.restart_at_rest", po::value<bool>()->default_value( false ), "")
+            ("restart.reset_time_counter", po::value<bool>()->default_value( false ), "false: simulation starts at simul.time_init eg for forecast; true: simulation starts at simul.time_init+pcpt*simul.timestep eg to restart interrupted simulation")
 
             // - outputs
             ("restart.write_restart", po::value<bool>()->default_value( false ), "")
@@ -287,7 +288,7 @@ namespace Nextsim
 
             ("nesting.use_nesting", po::value<bool>()->default_value( false ), "")
             ("nesting.use_ocean_nesting", po::value<bool>()->default_value( false ), "")
-            ("nesting.outter_mesh",po::value<std::string>()->default_value( "" ),"")
+            ("nesting.outer_mesh",po::value<std::string>()->default_value( "" ),"")
             ("nesting.inner_mesh",po::value<std::string>()->default_value( "" ),"")
             ("nesting.method", po::value<std::string>()->default_value( "nudging" ), "")
             ("nesting.nudge_function", po::value<std::string>()->default_value( "exponential" ), "")
