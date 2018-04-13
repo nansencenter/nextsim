@@ -582,28 +582,27 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
             for (int it=0; it < nt; ++it) // always need one step before and one after the target time
             {
-                 cout << XTIME[it] << endl;
-                if (!has_time_variable || ((dataset->name).find("ice_amsr2") != std::string::npos))
-                    f = from_date_string((boost::format( "%1%-%2%-%3%" )
-                                % f_timestr.substr(0,4)
-                                % f_timestr.substr(4,2)
-                                % f_timestr.substr(6,2)).str())+0.5;
-                else
-                    f = (XTIME[it]*dataset->time.a+dataset->time.b)/24.0
-                         + from_date_string(dataset->grid.reference_date);
+                 if (!has_time_variable || ((dataset->name).find("ice_amsr2") != std::string::npos))
+                     f = from_date_string((boost::format( "%1%-%2%-%3%" )
+                                 % f_timestr.substr(0,4)
+                                 % f_timestr.substr(4,2)
+                                 % f_timestr.substr(6,2)).str())+0.5;
+                 else
+                     f = (XTIME[it]*dataset->time.a+dataset->time.b)/24.0
+                          + from_date_string(dataset->grid.reference_date);
 
-                if(f>M_current_time && index_next==-1)
-                {
-                    time_next=f;
-                    index_next = it;
-                    filename_next = filename;
-                }
-                if(f<=M_current_time)
-                { 
-                    time_prev=f;
-                    index_prev = it;
-                    filename_prev = filename;
-                }
+                 if(f>M_current_time && index_next==-1)
+                 {
+                     time_next=f;
+                     index_next = it;
+                     filename_next = filename;
+                 }
+                 if(f<=M_current_time)
+                 { 
+                     time_prev=f;
+                     index_prev = it;
+                     filename_prev = filename;
+                 }
             }
         }//loop over jump
 
@@ -618,7 +617,6 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
         if(filename_next!="")
         {
-             cout << filename_next << endl;
             filename_fstep.push_back(filename_next);
             index_fstep.push_back(index_next);
         }
@@ -651,7 +649,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         filename_fstep.push_back(filename);
         index_fstep.push_back(0);
     }
-    cout << f_timestr << endl << endl;
+
     // Initialise counters etc.
 	int nb_forcing_step =filename_fstep.size();
 
