@@ -257,7 +257,6 @@ FiniteElement::initModelState()
 void
 FiniteElement::initDatasets()
 {
-cout << "toto1" << endl;
     // Definition of the datasets
     switch(M_atmosphere_type){
         case setup::AtmosphereType::CONSTANT:
@@ -301,7 +300,6 @@ cout << "toto1" << endl;
 
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
-cout << "toto2" << endl;
     switch (M_ocean_type)
     {
         case setup::OceanType::CONSTANT:
@@ -635,7 +633,7 @@ FiniteElement::initConstant()
     if (M_use_nesting)
     {   
         M_use_ocean_nesting= vm["nesting.use_ocean_nesting"].as<bool>();
-        M_nest_outter_mesh=vm["nesting.outter_mesh"].as<std::string>();
+        M_nest_outer_mesh=vm["nesting.outer_mesh"].as<std::string>();
         M_nest_inner_mesh=vm["nesting.inner_mesh"].as<std::string>();
         M_nest_method=vm["nesting.method"].as<std::string>();
         M_nudge_function=vm["nesting.nudge_function"].as<std::string>();
@@ -3383,7 +3381,7 @@ FiniteElement::solve()
     //Environment::logMemoryUsage("");
 }
 
-// Routine for nesting the ice variables () from outter domain
+// Routine for nesting the ice variables () from outer domain
 void
 FiniteElement::nestingIce()
 {
@@ -5970,14 +5968,29 @@ FiniteElement::readRestart(std::string step)
             );
 
     // Set and check time
-    int pcpt    = field_map_int["Misc_int"].at(0);
+    int pcpt = field_map_int["Misc_int"].at(0);
     std::vector<double> time = field_map_dbl["Time"];
-    if ( time[0] != time_init + pcpt*time_step/(24*3600.0) )
+    if (!vm["restart.reset_time_counter"].as<bool>())
     {
-        std::cout << "FiniteElement::readRestart: Time and Misc_int[0] (a.k.a pcpt) are inconsistent. \n"
-            << "Time = " << time[0] << std::endl
-            << "pcpt*time_step/(24*3600.0) = " << pcpt*time_step/(24*3600.0) << std::endl;
-        std::runtime_error("Inconsistent time information in restart file");
+        double tmp = time_init + pcpt*time_step/(24*3600.0);
+        if ( time[0] != tmp )
+        {
+            std::cout << "FiniteElement::readRestart: Time and Misc_int[0] (a.k.a pcpt) are inconsistent. \n";
+            std::cout << "Time = " << time[0] << " = " << to_date_time_string(time[0])<<"\n";
+            std::cout << "time_init + pcpt*time_step/(24*3600.0) = " << tmp << " = " << to_date_time_string(tmp)<<"\n";
+            throw std::runtime_error("Inconsistent time information in restart file");
+        }
+    }
+    else
+    {
+        pcpt = 0;
+        if ( time[0] != time_init )
+        {
+            std::cout << "FiniteElement::readRestart: Restart Time and time_init are inconsistent. \n";
+            std::cout << "Time = " << time[0] << " = " << to_date_time_string(time[0])<<"\n";
+            std::cout << "time_init = " << pcpt*time_step/(24*3600.0) << " = " << to_date_time_string(time_init) <<"\n";
+            throw std::runtime_error("Inconsistent time information in restart file");
+        }
     }
 
     // Fix boundaries
