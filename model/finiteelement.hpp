@@ -159,7 +159,7 @@ public:
     Dataset M_ice_cs2_smos_elements_dataset;
     Dataset M_ice_smos_elements_dataset;
 
-    // Datasets for nesting from outter domain with coarse resolution
+    // Datasets for nesting from outer domain with coarse resolution
     Dataset M_nesting_ocean_elements_dataset;
     Dataset M_nesting_nodes_dataset;
     Dataset M_nesting_ice_elements_dataset;
@@ -350,7 +350,7 @@ private:
     // variables needed for nesting
     bool M_use_nesting;
     bool M_use_ocean_nesting;
-    std::string M_nest_outter_mesh;
+    std::string M_nest_outer_mesh;
     std::string M_nest_inner_mesh;
     std::string M_nest_method;
     std::string M_nudge_function;
@@ -494,19 +494,19 @@ private:
     // Nesting
     external_data M_nesting_dist_elements; // Distance to the nearest open boundaries
     external_data M_nesting_dist_nodes; // Distance to the nearest open boundaries
-    external_data M_ice_conc; // sea_ice_area_fraction from the outter domain
-    external_data M_ice_thick; // sea_ice_thickness from the outter domain
-    external_data M_ice_snow_thick; // surface_snow_thickness from the outter domain
-    external_data M_ice_h_thin ; // thin_ice_thickness from the outter domain
-    external_data M_ice_conc_thin ; // thin_ice_area_fraction from the outter domain
-    external_data M_ice_hs_thin ; // surface_snow_thickness_on_thin_ice from the outter domain
-    external_data M_nesting_damage; // damage from the outter domain
-    external_data M_nesting_ridge_ratio; // ridge_ratio from the outter domain
-    external_data M_nesting_VT1; // X-velocity from the outter domain
-    external_data M_nesting_VT2; // Y-velocity from the outter domain
-    external_data M_nesting_sigma1; // 1st component stress tensor from the outter domain
-    external_data M_nesting_sigma2; // 2nd component stress tensor from the outter domain
-    external_data M_nesting_sigma3; // 3rd component stress tensor from the outter domain
+    external_data M_ice_conc; // sea_ice_area_fraction from the outer domain
+    external_data M_ice_thick; // sea_ice_thickness from the outer domain
+    external_data M_ice_snow_thick; // surface_snow_thickness from the outer domain
+    external_data M_ice_h_thin ; // thin_ice_thickness from the outer domain
+    external_data M_ice_conc_thin ; // thin_ice_area_fraction from the outer domain
+    external_data M_ice_hs_thin ; // surface_snow_thickness_on_thin_ice from the outer domain
+    external_data M_nesting_damage; // damage from the outer domain
+    external_data M_nesting_ridge_ratio; // ridge_ratio from the outer domain
+    external_data M_nesting_VT1; // X-velocity from the outer domain
+    external_data M_nesting_VT2; // Y-velocity from the outer domain
+    external_data M_nesting_sigma1; // 1st component stress tensor from the outer domain
+    external_data M_nesting_sigma2; // 2nd component stress tensor from the outer domain
+    external_data M_nesting_sigma3; // 3rd component stress tensor from the outer domain
 
     // Bathynetry
     external_data M_element_depth;
