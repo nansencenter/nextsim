@@ -5430,7 +5430,10 @@ FiniteElement::step(int &pcpt)
     if ( fmod(pcpt*time_step,restart_time_step) == 0)
     {
         std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
-        this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
+        if (vm["output.datetime_in_filename"].as<bool>())
+            this->writeRestart(pcpt, M_current_time);
+        else
+            this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
     }
 #endif
 
