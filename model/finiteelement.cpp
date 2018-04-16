@@ -4540,13 +4540,13 @@ FiniteElement::run()
     pcpt_file.open(M_export_path + "/Timestamp.txt", std::ios::out | std::ios::trunc);
 
     // main loop for nextsim program
-    current_time = time_init + pcpt*time_step/(24*3600.0);
+    M_current_time = time_init + pcpt*time_step/(24*3600.0);
     bool is_running = true;
     if(duration<=0)
         is_running = false;
     while (is_running)
     {
-        //std::cout<<"TIME STEP "<< pcpt << " for "<< current_time <<"\n";
+        //std::cout<<"TIME STEP "<< pcpt << " for "<< M_current_time <<"\n";
         std::cout<<"---------------------- TIME STEP "<< pcpt << " : "
                  << Nextsim::model_time_str(vm["simul.time_init"].as<std::string>(), pcpt*time_step);
 
@@ -4575,7 +4575,7 @@ FiniteElement::run()
         //std::cout<< "pcpt= " << pcpt  <<"\n";
 
         pcpt_file << pcpt << "\n";
-        pcpt_file << Nextsim::to_date_string(current_time) << "\n";
+        pcpt_file << Nextsim::to_date_string(M_current_time) << "\n";
         pcpt_file.seekp(0);
     }
 
@@ -4635,7 +4635,7 @@ FiniteElement::init()
     mesh_adapt_step=0;
     had_remeshed=false;
     this->initConstant();
-    current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
+    M_current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
     this->initDatasets();
 
     LOG(INFO) << "-----------------------Simulation started on "<< Nextsim::current_time_local() <<"\n";
@@ -4666,7 +4666,7 @@ FiniteElement::init()
             pcpt = this->readRestart(res_str);
         else
             pcpt = this->readRestart(vm["restart.step_nb"].as<int>());
-        current_time = time_init + pcpt*time_step/(24*3600.0);
+        M_current_time = time_init + pcpt*time_step/(24*3600.0);
 
         if(M_use_osisaf_drifters)
             this->initOSISAFDrifters();
@@ -4735,7 +4735,7 @@ FiniteElement::init()
     this->initOASIS();
 #endif
 
-    this->checkReloadDatasets(M_external_data,current_time,"init - time-dependant");
+    this->checkReloadDatasets(M_external_data,M_current_time,"init - time-dependant");
     if ( ! M_use_restart )
     {
         chrono.restart();
@@ -4761,7 +4761,7 @@ FiniteElement::init()
     {
         // We should tag the file name with the init time in case of a re-start.
         std::stringstream filename;
-        filename << M_export_path << "/drifters_out_" << current_time << ".txt";
+        filename << M_export_path << "/drifters_out_" << M_current_time << ".txt";
         M_iabp_out.open(filename.str(), std::fstream::out);
         if ( ! M_iabp_out.good() )
             throw std::runtime_error("Cannot write to file: " + filename.str());
@@ -4989,7 +4989,7 @@ FiniteElement::step(int &pcpt)
 #endif
 
     // Update the drifters position twice a day, important to keep the same frequency as the IABP data, for the moment
-    if( pcpt==0 || std::fmod(current_time,0.5)==0 )
+    if( pcpt==0 || std::fmod(M_current_time,0.5)==0 )
     {   
         // Read in the new buoys and output
         if ( M_use_iabp_drifters )
@@ -5091,42 +5091,53 @@ FiniteElement::step(int &pcpt)
     }
     if(pcpt>0)
     {
-        if ( M_use_equallyspaced_drifters && fmod(current_time,M_equallyspaced_drifters_output_time_step) == 0 )
-            M_equallyspaced_drifters.appendNetCDF(current_time, M_mesh, M_UT);
+        if ( M_use_equallyspaced_drifters && fmod(M_current_time,M_equallyspaced_drifters_output_time_step) == 0 )
+            M_equallyspaced_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
 
         if ( M_use_rgps_drifters )
         {
             std::string time_str = vm["drifters.RGPS_time_init"].as<std::string>();
             double RGPS_time_init = Nextsim::from_date_time_string(time_str);
         
-            if( !M_rgps_drifters.isInitialised() && current_time == RGPS_time_init)
+            if( !M_rgps_drifters.isInitialised() && M_current_time == RGPS_time_init)
                 this->updateRGPSDrifters();
             
-            if( current_time != RGPS_time_init && fmod(current_time,M_rgps_drifters_output_time_step) == 0 )
+            if( M_current_time != RGPS_time_init && fmod(M_current_time,M_rgps_drifters_output_time_step) == 0 )
                 if ( M_rgps_drifters.isInitialised() )
-                    M_rgps_drifters.appendNetCDF(current_time, M_mesh, M_UT);
+                    M_rgps_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
         }
     }
      
-    if ( M_use_osisaf_drifters && fmod(current_time+0.5,1.) == 0 )
+    if ( M_use_osisaf_drifters && fmod(M_current_time+0.5,1.) == 0 )
     {
         // OSISAF drift is calculated as a dirfter displacement over 48 hours
         // and they have two sets of drifters in the field at all times.
 
-        // Write out the contents of [1] if it's meaningfull
+        // Write out the contents of [1] if it's meaningful
         if ( M_osisaf_drifters[1].isInitialised() )
-            M_osisaf_drifters[1].appendNetCDF(current_time, M_mesh, M_UT);
+            M_osisaf_drifters[1].appendNetCDF(M_current_time, M_mesh, M_UT);
 
         // Flip the vector so we move [0] to be [1]
         std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
 
         // Create a new M_drifters instance in [0], with a properly initialised netCDF file
-        M_osisaf_drifters[0] = Drifters("data", "ice_drift_nh_polstere-625_multi-oi.nc",
+        std::string osi_grid_file = "ice_drift_nh_polstere-625_multi-oi.nc";
+        std::string osi_output_path = M_export_path+"/OSISAF_";
+        if(vm["drifters.use_refined_osisaf_grid"].as<bool>())
+        {
+            // use grid refined by a factor of 9
+            // - can then compared averaged drift to the observations
+            // - using an odd number in the refinement means the original grid points are a sub-sample of the refined grid
+            osi_grid_file = "ice_drift_nh_polstere-625_multi-grid_refined_9.nc";
+            osi_output_path = M_export_path+"/OSISAF_refined9_";
+        }
+            
+        M_osisaf_drifters[0] = Drifters("data", osi_grid_file,
                 "xc", "yc",
                 "lat", "lon", M_mesh, M_conc, vm["drifters.concentration_limit"].as<double>());
 
-        M_osisaf_drifters[0].initNetCDF(M_export_path+"/OSISAF_", current_time);
-        M_osisaf_drifters[0].appendNetCDF(current_time, M_mesh, M_UT);
+        M_osisaf_drifters[0].initNetCDF(osi_output_path, M_current_time);
+        M_osisaf_drifters[0].appendNetCDF(M_current_time, M_mesh, M_UT);
     }
 #if 1
     if (pcpt == 0)
@@ -5234,7 +5245,7 @@ FiniteElement::step(int &pcpt)
     }
 
     chrono.restart();
-    this->checkReloadDatasets(M_external_data,current_time+time_step/(24*3600.0),
+    this->checkReloadDatasets(M_external_data,M_current_time+time_step/(24*3600.0),
             "step - time-dependant");
 
     M_use_restart = false;
@@ -5318,7 +5329,7 @@ FiniteElement::step(int &pcpt)
     //======================================================================
 
     ++pcpt;
-    current_time = time_init + pcpt*time_step/(24*3600.0);
+    M_current_time = time_init + pcpt*time_step/(24*3600.0);
 
 #if 1
     if(fmod(pcpt*time_step,output_time_step) == 0)
@@ -5343,9 +5354,9 @@ FiniteElement::step(int &pcpt)
                 // Update the snapshot
                 this->updateMeans(M_moorings, 1.);
                 // shift the timestamp in the file to the centre of the output interval
-                output_time = current_time;
+                output_time = M_current_time;
             } else {
-                output_time = current_time - mooring_output_time_step/86400/2;
+                output_time = M_current_time - mooring_output_time_step/86400/2;
             }
 
             // If it's a new day we check if we need a new file
@@ -5733,9 +5744,9 @@ FiniteElement::initMoorings()
     double output_time;
     if ( M_moorings_snapshot )
         // shift the timestamp in the file to the centre of the output interval
-        output_time = current_time;
+        output_time = M_current_time;
     else
-        output_time = current_time - mooring_output_time_step/86400/2;
+        output_time = M_current_time - mooring_output_time_step/86400/2;
 
     M_moorings_file = M_moorings.initNetCDF(M_export_path + "/Moorings", M_moorings_file_length, output_time);
 } //initMoorings
@@ -5805,7 +5816,7 @@ FiniteElement::writeRestart(int pcpt, std::string step)
     exporter.writeField(outbin, M_dirichlet_flags, "M_dirichlet_flags");
 
     std::vector<double> timevec(1);
-    timevec[0] = current_time;
+    timevec[0] = M_current_time;
     exporter.writeField(outbin, timevec, "Time");
     exporter.writeField(outbin, M_conc, "M_conc");
     exporter.writeField(outbin, M_thick, "M_thick");
@@ -8849,8 +8860,8 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
 
     // Loop over the map and output
     j=0;
-    boost::gregorian::date           date = Nextsim::parse_date( current_time );
-    boost::posix_time::time_duration time = Nextsim::parse_time( current_time );
+    boost::gregorian::date           date = Nextsim::parse_date( M_current_time );
+    boost::posix_time::time_duration time = Nextsim::parse_time( M_current_time );
     for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
     {
         double lat, lon;
@@ -8889,9 +8900,9 @@ FiniteElement::updateIABPDrifter()
 
     // Read the current buoys from file
     int pos;    // To be able to rewind one line
-    double time = current_time;
+    double time = M_current_time;
     std::vector<int> keepers;
-    while ( time == current_time )
+    while ( time == M_current_time )
     {
         // Remember where we were
         pos = M_iabp_file.tellg();
@@ -8974,8 +8985,8 @@ void
 FiniteElement::equallySpacedDrifter()
 {
     M_equallyspaced_drifters = Drifters(1e3*vm["drifters.spacing"].as<double>(), M_mesh, M_conc, vm["drifters.concentration_limit"].as<double>());
-    M_equallyspaced_drifters.initNetCDF(M_export_path+"/Drifters_", current_time);
-    M_equallyspaced_drifters.appendNetCDF(current_time, M_mesh, M_UT);
+    M_equallyspaced_drifters.initNetCDF(M_export_path+"/Drifters_", M_current_time);
+    M_equallyspaced_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
 }
 
 void
@@ -8993,8 +9004,8 @@ FiniteElement::updateRGPSDrifters()
     std::string filename = Environment::nextsimDir().string() + "/data/RGPS_" + time_str + ".txt";
     M_rgps_drifters = Drifters(filename, M_mesh, M_conc, vm["drifters.concentration_limit"].as<double>(),RGPS_time_init);
     
-    M_rgps_drifters.initNetCDF(M_export_path+"/RGPS_Drifters_", current_time);
-    M_rgps_drifters.appendNetCDF(current_time, M_mesh, M_UT);
+    M_rgps_drifters.initNetCDF(M_export_path+"/RGPS_Drifters_", M_current_time);
+    M_rgps_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
 }
 
 void
@@ -9211,7 +9222,7 @@ FiniteElement::exportInitMesh()
     if ( ! outbin.good() )
         throw std::runtime_error("Cannot write to file: " + fileout);
     std::vector<double> timevec(1);
-    timevec[0] = current_time;
+    timevec[0] = M_current_time;
     exporter.writeField(outbin, timevec, "Time");
 
     exporter.writeField(outbin, M_hminVertices, "hminVertices");
@@ -9308,7 +9319,7 @@ FiniteElement::exportResults(std::vector<std::string> const &filenames, bool exp
         if ( ! outbin.good() )
             throw std::runtime_error("Cannot write to file: " + fileout);
         std::vector<double> timevec(1);
-        timevec[0] = current_time;
+        timevec[0] = M_current_time;
         std::vector<int> regridvec(1);
         regridvec[0] = M_nb_regrid;
         exporter.writeField(outbin, timevec, "Time");
@@ -9613,7 +9624,7 @@ FiniteElement::wimCheckWaves()
         //nothing to do
         return;
 
-    this->checkReloadDatasets(M_external_data_waves,current_time,"wimCheckWaves");
+    this->checkReloadDatasets(M_external_data_waves,M_current_time,"wimCheckWaves");
 
     int num_elements_wim = M_wim.getX().size();
     dbl_vec swh_in(num_elements_wim,0.);

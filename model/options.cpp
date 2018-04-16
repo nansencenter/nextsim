@@ -115,6 +115,8 @@ namespace Nextsim
             ("drifters.equallyspaced_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days") // must be a multiple of 0.5
             ("drifters.rgps_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days") // must be a multiple of 0.5
             ("drifters.use_osisaf_drifters", po::value<bool>()->default_value( false ), "")
+            ("drifters.use_refined_osisaf_grid", po::value<bool>()->default_value( false ),
+                "true: if using OSISAF drifters, use grid refined by a factor of 9, so averaged model results can be compared to the data; false: use same grid as OSISAF drift dataset")
             ("drifters.concentration_limit", po::value<double>()->default_value( 0.15 ), "")
             ("drifters.spacing", po::value<double>()->default_value( 10 ), "")
             ("drifters.RGPS_time_init", po::value<std::string>()->default_value( "2007-12-01" ), "")
@@ -127,7 +129,8 @@ namespace Nextsim
             ("restart.input_path", po::value<std::string>()->default_value( "" ),
                     "where to find restarts (default is $NEXTSIMDIR/restart)")
             ("restart.restart_at_rest", po::value<bool>()->default_value( false ), "")
-            ("restart.reset_time_counter", po::value<bool>()->default_value( false ), "false: simulation starts at simul.time_init eg for forecast; true: simulation starts at simul.time_init+pcpt*simul.timestep eg to restart interrupted simulation")
+            ("restart.reset_time_counter", po::value<bool>()->default_value( false ),
+                "false: simulation starts at simul.time_init eg for forecast; true: simulation starts at simul.time_init+pcpt*simul.timestep eg to restart interrupted simulation")
 
             // - outputs
             ("restart.write_restart", po::value<bool>()->default_value( false ), "")

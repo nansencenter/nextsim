@@ -420,7 +420,7 @@ private:
     double C_alea;
     double tan_phi;
     double ridge_h;
-    double current_time;
+    double M_current_time;
     bool M_reuse_prec;
     bool M_regrid;
     int M_nb_regrid;
