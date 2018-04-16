@@ -145,6 +145,7 @@ namespace Nextsim
             ("output.save_diagnostics", po::value<bool>()->default_value( false ), "")
 
             // exporter
+            ("output.datetime_in_filename", po::value<bool>()->default_value( false ), "filename outputs are eg [mesh,field]_20180101T000000Z.[bin,dat]")
             ("output.exporter_path", po::value<std::string>()->default_value( "" ), "")
             ("output.exporter_precision", po::value<std::string>()->default_value("float"),
                     "float (default) or double (almost only for testing)")
