@@ -5152,7 +5152,10 @@ FiniteElement::step(int &pcpt)
         if (vm["output.datetime_in_filename"].as<bool>())
             this->exportResults(M_current_time);
         else
-            this->exportResults(0);
+        {
+            int ostep = 0;//need to declare as an int, to make sure it's not interpreted as a double
+            this->exportResults(ostep);
+        }
         // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
         LOG(DEBUG) <<"first export done in " << chrono.elapsed() <<"s\n";
     }
@@ -5342,7 +5345,10 @@ FiniteElement::step(int &pcpt)
         if (vm["output.datetime_in_filename"].as<bool>())
             this->exportResults(M_current_time);
         else
-            this->exportResults((int) pcpt*time_step/output_time_step);
+        {
+            int ostep = pcpt*time_step/output_time_step;//need to declare as an int, to make sure it's not interpreted as a double
+            this->exportResults(ostep);
+        }
         LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
     }
 
@@ -5433,7 +5439,10 @@ FiniteElement::step(int &pcpt)
         if (vm["output.datetime_in_filename"].as<bool>())
             this->writeRestart(pcpt, M_current_time);
         else
-            this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
+        {
+            int rstep = pcpt*time_step/restart_time_step;//need to declare as an int, to make sure it's not interpreted as a double
+            this->writeRestart(pcpt, rstep );
+        }
     }
 #endif
 
