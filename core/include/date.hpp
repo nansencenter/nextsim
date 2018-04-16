@@ -155,7 +155,7 @@ inline std::string to_date_time_string_for_filename( double date_time )
     boost::gregorian::date date_part = Nextsim::parse_date( date_time );
     boost::posix_time::time_duration time_part = Nextsim::parse_time( date_time );
 
-    return (boost::format( "%d%02d%02dT%02d%02d%02d" )
+    return (boost::format( "%d%02d%02dT%02d%02d%02dZ" )
             % date_part.year()
             % date_part.month().as_number()
             % date_part.day().as_number()
