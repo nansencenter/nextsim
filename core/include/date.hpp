@@ -149,6 +149,22 @@ inline std::string to_date_time_string( double date_time )
             ).str();
 }
 
+inline std::string to_date_time_string_for_filename( double date_time )
+{
+    // yyyymmddThhmmssZ
+    boost::gregorian::date date_part = Nextsim::parse_date( date_time );
+    boost::posix_time::time_duration time_part = Nextsim::parse_time( date_time );
+
+    return (boost::format( "%d%02d%02dT%02d%02d%02d" )
+            % date_part.year()
+            % date_part.month().as_number()
+            % date_part.day().as_number()
+            % time_part.hours()
+            % time_part.minutes()
+            % time_part.seconds()
+            ).str();
+}
+
 inline std::string current_time_local()
 {
     posix_time::ptime today_local(gregorian::day_clock::local_day(), posix_time::second_clock::local_time().time_of_day());
