@@ -13,7 +13,7 @@ static const char define_h_rcsid[] = "$Id: define.h 16072 2010-01-30 19:39:09Z b
 #include <math.h>
 #include <stdbool.h>
 
-#ifndef DEBUG
+#ifndef DEBUGGING
 #define NDEBUG
 #endif
 #include <assert.h>
