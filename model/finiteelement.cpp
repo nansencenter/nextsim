@@ -7454,22 +7454,24 @@ FiniteElement::concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,d
     double alpha_up = 0.;
     if(!use_weekly_nic)
     {
+        if(ci<=1.e-3)
+        {
+            thin_conc_obs_min=0.;
+            thin_conc_obs_max=0.1;
+        }
         if(ci<=0.45)
         {
             // CT18
             // .45: .1 - .8
-            alpha_up=(0.45-ci)/0.45;
-            thin_conc_obs_min=0.*alpha_up+0.1*(1-alpha_up);
-            thin_conc_obs_max=0.1*alpha_up+0.8*(1-alpha_up);
+            thin_conc_obs_min=0.1;
+            thin_conc_obs_max=0.8;
         }
         else if(ci<=0.9)
         {
             // CT81
             // .9: .8 - 1.
-            //alpha_up=(0.9-ci)/0.45; # 0 anyway
-            alpha_up=(0.9-ci)/0.9;
-            thin_conc_obs_min=0.1*alpha_up+0.8*(1-alpha_up);
-            thin_conc_obs_max=0.8*alpha_up+1.0*(1-alpha_up);
+            thin_conc_obs_min=0.8;
+            thin_conc_obs_max=1.;
         }
         else if(ci<=1.)
         {
@@ -7487,51 +7489,44 @@ FiniteElement::concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,d
         if(ci<=0.05) // CT01
         {
             // 0 - .1
-            alpha_up=(0.05-ci)/(0.05-0.);
-            thin_conc_obs_min=0.0*alpha_up+0.0*(1-alpha_up);
-            thin_conc_obs_max=0.0*alpha_up+0.1*(1-alpha_up);
+            thin_conc_obs_min=0.;
+            thin_conc_obs_max=0.1;
         }
         else if(ci<=0.10) // CT02
         {
             // 0 - .2
-            alpha_up=(0.10-ci)/(0.10-0.);
-            thin_conc_obs_min=0.0*alpha_up+0.0*(1-alpha_up);
-            thin_conc_obs_max=0.0*alpha_up+0.2*(1-alpha_up);
+            thin_conc_obs_min=0.;
+            thin_conc_obs_max=0.2;
         }
         else if(ci<=0.25) // CT14, CT13, CT24
         {
             // .1 - .4
-            alpha_up=(0.25-ci)/(0.25-0.);
-            thin_conc_obs_min=0.0*alpha_up+0.1*(1-alpha_up);
-            thin_conc_obs_max=0.1*alpha_up+0.4*(1-alpha_up);
+            thin_conc_obs_min=0.1;
+            thin_conc_obs_max=0.4;
         }
         else if(ci<=0.50) // CT46
         {
             // .4 - .6
-            alpha_up=(0.50-ci)/(0.50-0.25);
-            thin_conc_obs_min=0.1*alpha_up+0.40*(1-alpha_up);
-            thin_conc_obs_max=0.4*alpha_up+0.60*(1-alpha_up);
+            thin_conc_obs_min=0.4;
+            thin_conc_obs_max=0.6;
         }
         else if(ci<=0.70) //CT68
         {
             // .6 - .8
-            alpha_up=(0.70-ci)/(0.70-0.50);
-            thin_conc_obs_min=0.40*alpha_up+0.60*(1-alpha_up);
-            thin_conc_obs_max=0.60*alpha_up+0.80*(1-alpha_up);
+            thin_conc_obs_min=0.6;
+            thin_conc_obs_max=0.8;
         }
         else if(ci<=0.90) // CT81
         {
             // .8 - 1.
-            alpha_up=(0.90-ci)/(0.90-0.70);
-            thin_conc_obs_min=0.60*alpha_up+0.80*(1-alpha_up);
-            thin_conc_obs_max=0.80*alpha_up+1.0*(1-alpha_up);
+            thin_conc_obs_min=0.8;
+            thin_conc_obs_max=1.0;
         }
         else if(ci<=1.) // CT92
         {
             // .9 - 1.
-            alpha_up=(1.0-ci)/(1.0-0.9);
-            thin_conc_obs_min=0.8*alpha_up+1.0*(1-alpha_up);
-            thin_conc_obs_max=1.0*alpha_up+1.0*(1-alpha_up);
+            thin_conc_obs_min=0.9;
+            thin_conc_obs_max=1.0;
         }
         else // should not happen
         {
@@ -7619,9 +7614,9 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 
         if(c_model>0.01)
         {
-            M_thick[i]=h_model/c_model*M_conc[i];            
-            M_ridge_ratio[i]=M_ridge_ratio[i]/c_model*M_conc[i]; 
-		    M_damage[i]=M_damage[i]/c_model*M_conc[i];
+            M_thick[i]=(h_model/c_model)*M_conc[i];            
+            M_ridge_ratio[i]=(M_ridge_ratio[i]/c_model)*M_conc[i]; 
+		    M_damage[i]=(M_damage[i]/c_model)*M_conc[i];
         }
         else
         {
@@ -7648,7 +7643,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         double thin_conc_obs_min = 0.;
         double thin_conc_obs_max = 0.;
         if (!use_weekly_nic)
-            this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_conc[i],use_weekly_nic);
+            this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_conc[i],(!use_weekly_nic));
         else
             this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_weekly_conc[i],use_weekly_nic);
                 
@@ -7763,14 +7758,14 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
     external_data_tmp.push_back(&M_osisaf_type);
     external_data_tmp.push_back(&M_amsr2_conc);
     this->checkReloadDatasets(external_data_tmp,time_init-0.5,
-            "init - OSISAF - AMSR2");
+            "assim - OSISAF - AMSR2");
     
     external_data_tmp.resize(0);
     external_data_tmp.push_back(&M_topaz_conc);
     external_data_tmp.push_back(&M_topaz_thick);
     external_data_tmp.push_back(&M_topaz_snow_thick);
     this->checkReloadDatasets(external_data_tmp,time_init,
-            "init - TOPAZ ice forecast");
+            "assim - TOPAZ ice forecast");
     external_data_tmp.resize(0);
 
     double tmp_var;
@@ -7789,10 +7784,15 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
 		topaz_conc = (M_topaz_conc[i]>1e-14) ? M_topaz_conc[i] : 0.; // TOPAZ puts very small values instead of 0.
 		topaz_thick = (M_topaz_thick[i]>1e-14) ? M_topaz_thick[i] : 0.; // TOPAZ puts very small values instead of 0.
 
-        if((topaz_conc>0.)||(M_conc[i]>0.)) // use osisaf only where topaz or the model says there is ice to avoid near land issues and fake concentration over the ocean
+        if(((topaz_conc>0.)||(M_conc[i]>0.))
+                && (M_osisaf_conc[i]>.15))
+            // use osisaf only
+            // - where its conc is > .15
+            // - where topaz or the model says there is ice to avoid near land issues and fake concentration over the ocean
 		    M_conc[i] = (sigma_osisaf*M_conc[i]+sigma_mod*M_osisaf_conc[i])/(sigma_osisaf+sigma_mod);
             
-        if(M_amsr2_conc[i]<M_conc[i]) // AMSR2 is higher resolution and see small opening that would not be see in OSISAF
+        if((M_amsr2_conc[i]<M_conc[i]) // AMSR2 is higher resolution and see small opening that would not be see in OSISAF
+                && (M_amsr2_conc[i]>.15))
             M_conc[i]=M_amsr2_conc[i];
 
 		//tmp_var=M_topaz_snow_thick[i];
@@ -7803,9 +7803,9 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
 
         if(c_model>0.01)
         {
-            M_thick[i]=h_model/c_model*M_conc[i];            
-            M_ridge_ratio[i]=M_ridge_ratio[i]/c_model*M_conc[i]; 
-		    M_damage[i]=M_damage[i]/c_model*M_conc[i];
+            M_thick[i]=(h_model/c_model)*M_conc[i];            
+            M_ridge_ratio[i]=(M_ridge_ratio[i]/c_model)*M_conc[i]; 
+		    M_damage[i]=(M_damage[i]/c_model)*M_conc[i];
         }
         else
         {
@@ -7814,8 +7814,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
         }
 
         //if either c or h equal zero, we set the others to zero as well
-        double hi=M_thick[i]/M_conc[i];
-        if ( M_conc[i] < 0.01 || hi < physical::hmin )
+        if ( M_conc[i] < 0.01 || M_thick[i] < (M_conc[i]*physical::hmin) )
         {
             M_conc[i]=0.;
             M_thick[i]=0.;
@@ -8129,7 +8128,7 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         double thin_conc_obs_min = 0.;
         double thin_conc_obs_max = 0.;
         if (!use_weekly_nic)
-            this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_conc[i],use_weekly_nic);
+            this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_conc[i],(!use_weekly_nic));
         else
             this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_weekly_conc[i],use_weekly_nic);
        
