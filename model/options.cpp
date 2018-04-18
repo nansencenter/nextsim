@@ -79,7 +79,7 @@ namespace Nextsim
             ("mesh.mppfile", po::value<std::string>()->default_value( "NpsNextsim.mpp" ),
                     "file for mapx to set up the stereographic projection with")
             ("mesh.hsize", po::value<double>()->default_value( 0.01 ), "")
-            ("setup.domain-type", po::value<std::string>()->default_value( "unref" ), "unref or split")//TODO add split_xy
+            ("mesh.type", po::value<std::string>()->default_value( "from_unref" ), "from_unref (implies constant vertice length) or from_split (implies variable vertice length)")
 
             // - output and partitioning
             ("mesh.fileformat", po::value<std::string>()->default_value( "binary" ),
@@ -93,6 +93,7 @@ namespace Nextsim
             ("simul.time_init", po::value<std::string>()->default_value( "2008-Mar-05" ), "")
             ("simul.duration", po::value<double>()->default_value( 1. ), "")
             ("simul.timestep", po::value<double>()->default_value( 200. ), "")
+            ("simul.thermo_timestep", po::value<double>()->default_value( 3600. ), "")
             ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "")
 
             // frequency for info output
@@ -111,8 +112,10 @@ namespace Nextsim
 
             // drifters
             ("simul.use_iabp_drifters", po::value<bool>()->default_value( false), "")
-            ("simul.equallyspaced_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days") // must be a multiple of 0.5
-            ("simul.rgps_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days") // must be a multiple of 0.5
+            ("simul.use_equallyspaced_drifters", po::value<bool>()->default_value( false), "")
+            ("simul.equallyspaced_drifters_output_time_step", po::value<double>()->default_value( 1. ), "days")
+            ("simul.use_rgps_drifters", po::value<bool>()->default_value( false), "")
+            ("simul.rgps_drifters_output_time_step", po::value<double>()->default_value( 0.5 ), "days")
             ("simul.use_osisaf_drifters", po::value<bool>()->default_value( false ), "")
             ("simul.drifter_climit", po::value<double>()->default_value( 0.15 ), "")
             ("simul.drifter_spacing", po::value<double>()->default_value( 10 ), "")

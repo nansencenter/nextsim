@@ -99,7 +99,7 @@ public:
     vector_type const& solution() const {return *M_solution;}
 
     void initMesh();
-    void initDatasets();
+    void initForcings();
     void createGMSHMesh(std::string const& geofilename);
 
     double jacobian(element_type const& element, mesh_type const& mesh) const;
@@ -161,8 +161,8 @@ public:
     void step();
     void run();
 
-    void thermo();
-    void thermoIce0(int i, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfall,
+    void thermo(double dt);
+    void thermoIce0(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfall,
                     double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf,
                     double &Qai, double &Qsw, double &Qlw, double &Qsh, double &Qlh);
     void thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols,
@@ -217,19 +217,19 @@ public:
     std::vector<double> hmaxVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mesh) const;
 
     void initBamg();
-    void initConstant();
+    void initOptAndParam();
     void forcing();
     void forcingAtmosphere();//(bool reload);
     void forcingOcean();//(bool reload);
-	void bathymetry();//(bool reload);
+	void initBathymetry();//(bool reload);
 
     void initIce();
     void initThermodynamics();
     void initSlabOcean();
-    void initDrifter();
+    void initDrifters();
     void updateDrifterPosition();
 
-    void coriolis();
+    void calcCoriolis();
     //void timeInterpolation(int step);
     void nodesToElements(double const* depth, std::vector<double>& v);
 
@@ -239,8 +239,8 @@ public:
     void assignVariables();
     void initVariables();
     void initModelState();
-    void tensors();
-    void cohesion();
+    void FETensors();
+    void calcCohesion();
     void updateVelocity();
     void updateFreeDriftVelocity();
     void speedScaling(std::vector<double>& speed_scaling);
@@ -273,7 +273,6 @@ public:
 
     void bcMarkedNodes();
 
-    void clear();
     void finalise();
 
 public:
@@ -361,8 +360,6 @@ private:
     setup::DynamicsType M_dynamics_type;
 
     setup::IceCategoryType M_ice_cat_type;
-    //setup::DrifterType M_drifter_type;
-    setup::DomainType M_domain_type;
     setup::MeshType M_mesh_type;
     mesh::Partitioner M_partitioner;
     mesh::PartitionSpace M_partition_space;
@@ -464,6 +461,7 @@ private:
     double drifter_output_time_step;
     double restart_time_step;
     double time_step;
+    double thermo_timestep;
     double duration;
     double divergence_min;
     double compression_factor;
