@@ -5151,7 +5151,13 @@ FiniteElement::step(int &pcpt)
         // TODO just write restart in init() as well?
         chrono.restart();
         LOG(DEBUG) <<"first export starts\n";
-        this->exportResults(0);
+        if (vm["output.datetime_in_filename"].as<bool>())
+            this->exportResults(M_current_time);
+        else
+        {
+            int ostep = 0;//need to declare as an int, to make sure it's not interpreted as a double
+            this->exportResults(ostep);
+        }
         // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
         LOG(DEBUG) <<"first export done in " << chrono.elapsed() <<"s\n";
     }
@@ -5338,7 +5344,13 @@ FiniteElement::step(int &pcpt)
     {
         chrono.restart();
         LOG(DEBUG) <<"export starts\n";
-        this->exportResults((int) pcpt*time_step/output_time_step);
+        if (vm["output.datetime_in_filename"].as<bool>())
+            this->exportResults(M_current_time);
+        else
+        {
+            int ostep = pcpt*time_step/output_time_step;//need to declare as an int, to make sure it's not interpreted as a double
+            this->exportResults(ostep);
+        }
         LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
     }
 
@@ -5418,12 +5430,21 @@ FiniteElement::step(int &pcpt)
 #ifdef DEBUGGING
     if(vm["restart.debugging"].as<bool>())
         //write restart every timestep
-        this->writeRestart(pcpt, pcpt);
+        if (vm["output.datetime_in_filename"].as<bool>())
+            this->writeRestart(pcpt, M_current_time);
+        else
+            this->writeRestart(pcpt, pcpt);
 #else
     if ( fmod(pcpt*time_step,restart_time_step) == 0)
     {
         std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
-        this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
+        if (vm["output.datetime_in_filename"].as<bool>())
+            this->writeRestart(pcpt, M_current_time);
+        else
+        {
+            int rstep = pcpt*time_step/restart_time_step;//need to declare as an int, to make sure it's not interpreted as a double
+            this->writeRestart(pcpt, rstep );
+        }
     }
 #endif
 
@@ -5758,6 +5779,14 @@ FiniteElement::writeRestart(int pcpt, int step)
 {
 
     std::string tmp = (boost::format( "%1%" ) % step).str();
+    this->writeRestart(pcpt,tmp);
+}
+
+void
+FiniteElement::writeRestart(int pcpt, double date_time)
+{
+
+    std::string tmp = to_date_time_string_for_filename(date_time);
     this->writeRestart(pcpt,tmp);
 }
 
@@ -9256,6 +9285,14 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
     std::string name_str    = (boost::format( "%1%" )
                                % step ).str();
 
+    this->exportResults(name_str, export_mesh, export_fields, apply_displacement);
+}
+
+void
+FiniteElement::exportResults(double date_time, bool export_mesh, bool export_fields, bool apply_displacement)
+{
+    //define name_str from date_time
+    std::string name_str = to_date_time_string_for_filename(date_time);
     this->exportResults(name_str, export_mesh, export_fields, apply_displacement);
 }
 
