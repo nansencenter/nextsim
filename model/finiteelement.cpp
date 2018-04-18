@@ -371,6 +371,8 @@ FiniteElement::initDatasets()
 
     M_bathymetry_elements_dataset=DataSet("etopo_elements",M_num_elements);//M_num_nodes);
 
+    M_dist2coast_elements_dataset=DataSet("dist2coast_elements",M_num_elements);//M_num_nodes);
+
     // datasets that need to be re-interpolated after regridding
     // - not needed if only used at initialisation, or if not interpolated onto
     // mesh (eg wave datasets are interpolated onto a fixed grid)
@@ -7752,13 +7754,15 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
     external_data M_topaz_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
 
     external_data M_topaz_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
+    external_data M_dist2coast = ExternalData(&M_dist2coast_elements_dataset,M_mesh,0,false,time_init);
 
     external_data_vec external_data_tmp;
     external_data_tmp.push_back(&M_osisaf_conc);
     external_data_tmp.push_back(&M_osisaf_type);
     external_data_tmp.push_back(&M_amsr2_conc);
+    external_data_tmp.push_back(&M_dist2coast);
     this->checkReloadDatasets(external_data_tmp,time_init-0.5,
-            "assim - OSISAF - AMSR2");
+            "assim - OSISAF - AMSR2 -dist2coast");
     
     external_data_tmp.resize(0);
     external_data_tmp.push_back(&M_topaz_conc);
@@ -7778,6 +7782,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
 
     for (int i=0; i<M_num_elements; ++i)
     {
+        //initial fields
         h_model=M_thick[i];
         c_model=M_conc[i];
 
@@ -7785,10 +7790,12 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
 		topaz_thick = (M_topaz_thick[i]>1e-14) ? M_topaz_thick[i] : 0.; // TOPAZ puts very small values instead of 0.
 
         if(((topaz_conc>0.)||(M_conc[i]>0.))
-                && (M_osisaf_conc[i]>.15))
+                && (M_osisaf_conc[i]>.15)
+                && (M_dist2coast[i]>25.e3))
             // use osisaf only
-            // - where its conc is > .15
             // - where topaz or the model says there is ice to avoid near land issues and fake concentration over the ocean
+            // - where its conc is > .15 (can be trusted)
+            // - also take into account distance to coast
 		    M_conc[i] = (sigma_osisaf*M_conc[i]+sigma_mod*M_osisaf_conc[i])/(sigma_osisaf+sigma_mod);
             
         if((M_amsr2_conc[i]<M_conc[i]) // AMSR2 is higher resolution and see small opening that would not be see in OSISAF
