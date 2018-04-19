@@ -7993,6 +7993,7 @@ FiniteElement::topazForecastAmsr2OsisafIce()
             M_thick[i]=0.;
             M_snow_thick[i]=0.;
             M_ridge_ratio[i]=0.;
+            M_damage[i]=0.;
         }
         else
         {
@@ -8000,6 +8001,7 @@ FiniteElement::topazForecastAmsr2OsisafIce()
             M_ridge_ratio[i]=M_ridge_ratio[i]*M_conc[i]; 
             M_snow_thick[i] = M_conc[i]*hs; 
             M_thick[i] = M_conc[i]*hi; 
+            M_damage[i]=1.-M_conc[i];
         }
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
@@ -8008,7 +8010,6 @@ FiniteElement::topazForecastAmsr2OsisafIce()
             M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
         }
 
-		M_damage[i]=1.-M_conc[i];
 	}//loop over elements
 }//topazForecastAmsr2OsisafIce
 
