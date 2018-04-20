@@ -62,15 +62,10 @@ namespace setup
     enum class WaveType
     {
         SET_IN_WIM          = 0,
-        WW3A                = 1,
-        ERAI_WAVES_1DEG     = 2
-    };
-
-    enum class WaveMode
-    {
-        SIMPLE              = 0,
-        BREAK_ON_MESH       = 1,
-        RUN_ON_MESH         = 2
+        CONSTANT            = 1,
+        CONSTANT_PARTIAL    = 2,
+        WW3A                = 3,
+        ERAI_WAVES_1DEG     = 4
     };
 
     enum class BathymetryType
@@ -95,7 +90,7 @@ namespace setup
 
     enum class MeshType
     {
-        FROM_GMSH      = 0,
+        FROM_UNREF     = 0,
         FROM_SPLIT     = 1
     };
 

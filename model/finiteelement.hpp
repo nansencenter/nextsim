@@ -161,6 +161,8 @@ public:
     void step();
     void run();
 
+    void nestingIce();
+    void nestingDynamics();
     void thermo(double dt);
     void thermoIce0(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfall,
                     double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf,
@@ -197,6 +199,14 @@ public:
     Dataset M_ice_cs2_smos_elements_dataset;
     Dataset M_ice_smos_elements_dataset;
 
+    // Datasets for nesting from outer domain with coarse resolution
+    Dataset M_nesting_ocean_elements_dataset;
+    Dataset M_nesting_nodes_dataset;
+    Dataset M_nesting_ice_elements_dataset;
+    Dataset M_nesting_distance_nodes_dataset;
+    Dataset M_nesting_distance_elements_dataset;
+    Dataset M_nesting_dynamics_elements_dataset;
+
     template<typename FEMeshType>
     double minAngles(element_type const& element, FEMeshType const& mesh) const;
     template<typename FEMeshType>
@@ -219,10 +229,13 @@ public:
     void initBamg();
     void initOptAndParam();
     void forcing();
-    void forcingAtmosphere();//(bool reload);
-    void forcingOcean();//(bool reload);
-	void initBathymetry();//(bool reload);
+    void forcingAtmosphere();
+    void forcingOcean();
+    void forcingNesting();
+	void initBathymetry();
 
+    void assimilateIce();
+    void assimilateSlabOcean();
     void initIce();
     void initThermodynamics();
     void initSlabOcean();
@@ -239,6 +252,7 @@ public:
     void assignVariables();
     void initVariables();
     void initModelState();
+    void DataAssimilation();
     void FETensors();
     void calcCohesion();
     void updateVelocity();
@@ -259,7 +273,9 @@ public:
                        bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
 
     void writeRestart(int pcpt, int step);
+    void writeRestart(int pcpt, std::string step);
     int readRestart(int step);
+    int readRestart(std::string step);
     void partitionMeshRestart();
     void collectRootRestart(std::vector<double>& interp_elt_out, std::vector<double>& interp_nd_out);
 
@@ -444,6 +460,19 @@ private:
     std::vector<double> M_Compressive_strength;
     std::vector<double> M_time_relaxation_damage;
 
+    // =============================================================================
+    // variables needed for nesting
+    bool M_use_nesting;
+    bool M_use_ocean_nesting;
+    std::string M_nest_outer_mesh;
+    std::string M_nest_inner_mesh;
+    std::string M_nest_method;
+    std::string M_nudge_function;
+    double M_nudge_timescale;
+    double M_nudge_lengthscale;
+    bool M_nest_dynamic_vars;
+    // =============================================================================
+
     LogLevel M_log_level;
 
 private:
@@ -497,6 +526,7 @@ private:
 
     bool M_use_restart;
     bool M_write_restart;
+    bool M_use_assimilation;
 
     std::string M_export_path;
 
@@ -557,6 +587,23 @@ private:
     external_data M_ocean_temp;   // Ocean temperature in top layer [C]
     external_data M_ocean_salt;   // Ocean salinity in top layer [C]
     external_data M_mld;          // Mixed-layer depth [m]
+
+    // Nesting
+    external_data M_nesting_dist_elements; // Distance to the nearest open boundaries
+    external_data M_nesting_dist_nodes; // Distance to the nearest open boundaries
+    external_data M_ice_conc; // sea_ice_area_fraction from the outer domain
+    external_data M_ice_thick; // sea_ice_thickness from the outer domain
+    external_data M_ice_snow_thick; // surface_snow_thickness from the outer domain
+    external_data M_ice_h_thin ; // thin_ice_thickness from the outer domain
+    external_data M_ice_conc_thin ; // thin_ice_area_fraction from the outer domain
+    external_data M_ice_hs_thin ; // surface_snow_thickness_on_thin_ice from the outer domain
+    external_data M_nesting_damage; // damage from the outer domain
+    external_data M_nesting_ridge_ratio; // ridge_ratio from the outer domain
+    external_data M_nesting_VT1; // X-velocity from the outer domain
+    external_data M_nesting_VT2; // Y-velocity from the outer domain
+    external_data M_nesting_sigma1; // 1st component stress tensor from the outer domain
+    external_data M_nesting_sigma2; // 2nd component stress tensor from the outer domain
+    external_data M_nesting_sigma3; // 3rd component stress tensor from the outer domain
 
     // Bathymetry
     external_data M_element_depth;
@@ -635,6 +682,10 @@ private:
     void topazForecastIce();
     void topazForecastAmsr2Ice();
     void topazForecastAmsr2OsisafIce();
+    void topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
+    void assimilate_topazForecastAmsr2OsisafIce();
+    void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
+    void concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,double ci,bool use_weekly_nic);
     void cs2SmosIce();
     void cs2SmosAmsr2Ice();
     void warrenClimatology();
