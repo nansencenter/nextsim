@@ -83,6 +83,8 @@ ifndef MACHINE_HEXAGON
 	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ #-lpthread
 else
 	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpichcxx -lmpich -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
+        LDFLAGS += -Wl,-rpath,$(BLAS_LAPACK_DIR)/lib
+        LDFLAGS += -L $(BLAS_LAPACK_DIR)/lib -lsci_gnu_mp
 endif
 
 LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf_c++4
