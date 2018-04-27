@@ -1,0 +1,32 @@
+#!/bin/bash
+#
+#  Give the job a name
+#PBS -N "job_openmp"
+#
+#  Specify the project the job belongs to
+#PBS -A nn2993k
+#
+#  We want 60 hours on 32 cpu's (cores):
+#PBS -l walltime=40:00:00,mppwidth=2
+#
+#  Send me an email on  a=abort, b=begin, e=end
+#PBS -m abe
+#
+#  Use this email address (check that it is correct):
+#PBS -M your.email.address@example.com
+#
+#  Write the standard output of the job to file 'mpijob.out' (optional)
+#PBS -o openmpjob2.out
+#
+#  Write the standard error of the job to file 'mpijob.err' (optional)
+#PBS -e openmpjob2.err
+#
+#  Make sure I am in the correct directory
+# mkdir -p /work/$USER/openmp-work
+# cd /work/$USER/openmp-work
+# aprun -n1 -d32 ./program
+
+cd $NEXTSIMDIR/model
+
+export OMP_NUM_THREADS=2
+aprun -n1 -d2 bin/nextsim.exec --config-files=nextsim.cfg

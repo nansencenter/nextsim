@@ -48,7 +48,7 @@ inline boost::posix_time::time_duration parse_time( double date_time )
     return boost::posix_time::milliseconds( milliseconds );
 }
 
-inline double from_date_string( std::string const& datestr )
+inline double from_date_string( const std::string& datestr )
 {
     boost::gregorian::date epoch = boost::date_time::parse_date<boost::gregorian::date>( "1900-01-01", boost::date_time::ymd_order_iso);
     boost::gregorian::date date = boost::date_time::parse_date<boost::gregorian::date>( datestr, boost::date_time::ymd_order_iso);
@@ -66,28 +66,42 @@ inline double from_date_string( std::string const& datestr )
 inline std::string to_date_string( double date_time )
 {
     boost::gregorian::date dt = Nextsim::parse_date( date_time );
-    return (boost::format( "%1%-%2%-%3%" ) % dt.year() % dt.month().as_number() % dt.day().as_number()).str();
+    return (boost::format( "%1%-%2%-%3%" )
+            % dt.year()
+            % dt.month().as_number()
+            % dt.day().as_number()
+            ).str();
 }
 
 inline std::string to_date_string_yd( double date_time )
 {
+    // yyyymmdd
     boost::gregorian::date dt = Nextsim::parse_date( date_time );
-    return (boost::format( "%1%%2%%3%" ) % dt.year() % boost::io::group(std::setw(2), std::setfill('0'), dt.month().as_number()) % boost::io::group(std::setw(2), std::setfill('0'), dt.day().as_number())).str();
+    return (boost::format( "%1%%2%%3%" )
+            % dt.year()
+            % boost::io::group(std::setw(2), std::setfill('0'), dt.month().as_number())
+            % boost::io::group(std::setw(2), std::setfill('0'), dt.day().as_number())
+            ).str();
 }
 
 inline std::string to_date_string_ym( double date_time )
 {
+    // yyyymm
     boost::gregorian::date dt = Nextsim::parse_date( date_time );
-    return (boost::format( "%1%%2%" ) % dt.year() % boost::io::group(std::setw(2), std::setfill('0'), dt.month().as_number())).str();
+    return (boost::format( "%1%%2%" )
+            % dt.year()
+            % boost::io::group(std::setw(2), std::setfill('0'), dt.month().as_number())
+            ).str();
 }
 
 inline std::string to_date_string_y( double date_time )
 {
+    // yyyy
     boost::gregorian::date dt = Nextsim::parse_date( date_time );
     return (boost::format( "%1%" ) % dt.year()).str();
 }
 
-inline double from_date_time_string( std::string const& datestr )
+inline double from_date_time_string( const std::string& datestr )
 {
     double date = from_date_string( datestr );
 
@@ -108,6 +122,7 @@ inline double from_date_time_string( std::string const& datestr )
 
 inline std::string to_date_time_string( double date_time )
 {
+    // yyyy-mm-dd hh:mm:ss.fss
     boost::gregorian::date date_part = Nextsim::parse_date( date_time );
     boost::posix_time::time_duration time_part = Nextsim::parse_time( date_time );
 
@@ -124,8 +139,14 @@ inline std::string to_date_time_string( double date_time )
     }
 
     return (boost::format( "%d-%02d-%02d %02d:%02d:%02d.%03d" )
-            % date_part.year() % date_part.month().as_number() % date_part.day().as_number()
-            % time_part.hours() % time_part.minutes() % time_part.seconds() % fractional_seconds ).str();
+            % date_part.year()
+            % date_part.month().as_number()
+            % date_part.day().as_number()
+            % time_part.hours()
+            % time_part.minutes()
+            % time_part.seconds()
+            % fractional_seconds
+            ).str();
 }
 
 inline std::string current_time_local()
@@ -140,7 +161,7 @@ inline std::string current_time_UTC()
     return posix_time::to_simple_string(today_utc);
 }
 
-inline std::string time_spent( std::string const& value )
+inline std::string time_spent( const std::string& value )
 {
     posix_time::ptime epoch = posix_time::time_from_string( value );
     posix_time::ptime today_local(gregorian::day_clock::local_day(), posix_time::second_clock::local_time().time_of_day());
@@ -148,7 +169,7 @@ inline std::string time_spent( std::string const& value )
     return posix_time::to_simple_string(diff);
 }
 
-inline std::string model_time_str( std::string const& datestr, double time_in_seconds = 0)
+inline std::string model_time_str( const std::string& datestr, double time_in_seconds = 0)
 {
     std::string date_time_str = datestr;
     if (date_time_str.find(" ") == std::string::npos)
