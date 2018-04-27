@@ -74,10 +74,10 @@ namespace Nextsim
                 "Minimum value that any angle in an element can have.")
 
             // advection scheme
-            // - ALE_smoothing_step_nb<0 is the Eulerian case where M_UM is not changed and then =0.
-            // - ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
-            // - ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
-            //TODO implement separate option: ("numerics.mesh_adaptation_mode", po::value<int>()->default_value( "Lagrangian" ), "Options: Lagrangian, ALE, Eulerian")
+            // - diffusive Eulerian case where M_UM is kept as 0
+            // - purely Lagrangian case where M_UM is updated with M_VT
+            // - ALE case where M_UM is updated with a smoothed version of M_VT
+            ("numerics.mesh_adaptation_mode", po::value<int>()->default_value( "Lagrangian" ), "Options: Lagrangian, ALE, Eulerian")
             ("numerics.ALE_smoothing_step_nb", po::value<int>()->default_value( 0 ),
                 "Number of time steps to average over when smoothing in ALE scheme. 0: pure Lagrangian; <0: pure Eulerian")
 

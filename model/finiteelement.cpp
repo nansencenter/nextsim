@@ -2343,15 +2343,40 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
 
     interp_elt_out.resize(M_nb_var_element*M_num_elements);
 
+    bool use_eulerian = false;
+    bool use_lagrangian = false;
+    bool use_ALE = false;
     int ALE_smoothing_step_nb = vm["numerics.ALE_smoothing_step_nb"].as<int>();
-    // ALE_smoothing_step_nb<0 is the diffusive eulerian case where M_UM is not changed and then =0.
-    // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
-    // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
-
-    if(ALE_smoothing_step_nb>=0)
+    if (vm["numerics.mesh_adaptation_mode"].as<string>()=="Eulerian")
+        // Diffusive eulerian case where M_UM is not changed and then =0.
+        use_eulerian = true;
+    else if (vm["numerics.mesh_adaptation_mode"].as<string>()=="Lagrangian")
+        // Purely Lagrangian case where M_UM is updated with M_VT
+        use_lagrangian = true;
+    else if (vm["numerics.mesh_adaptation_mode"].as<string>()=="ALE")
     {
-        if(ALE_smoothing_step_nb>0)
+        // ALE case where M_UM is updated with a smoothed version of M_VT
+        use_ALE = true;
+        if (ALE_smoothing_step_nb<=0)
+            throw std::runtime_error("numerics.ALE_smoothing_step_nb option should be >0");
+    }
+    else
+        throw std::runtime_error("numerics.mesh_adaptation_mode option should be Eulerian, Lagrangian or ALE");
+
+    //change M_UM if not in Eulerian mode
+    if(!use_eulerian)
+    {
+        if(use_lagrangian)
         {
+            // pure Lagrangian case
+            for (int nd=0; nd<M_UM.size(); ++nd)
+            {
+                M_UM[nd] += time_step*M_VT[nd];
+            }
+        }
+        else
+        {
+            // ALE case - need to calculate the smoothed velocity
             std::vector<double> vt_root;
             std::vector<double> M_VT_smoothed;
             std::vector<double> M_VT_smoothed_root;
@@ -2406,19 +2431,14 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
             {
                 M_UM[nd] += time_step*M_VT_smoothed[nd];
             }
-        } else {
-            for (int nd=0; nd<M_UM.size(); ++nd)
-            {
-                M_UM[nd] += time_step*M_VT[nd];
-            }
-        }
+        }//using ALE
 
         // set back the neumann nodes (open boundaries) at their position, the fluxes will be computed thanks to the convective velocity
         for (const int& nd : M_neumann_nodes)
         {
             M_UM[nd] = UM_P[nd];
         }
-    }
+    }//not Eulerian
 
     LOG(DEBUG) <<"VT MIN= "<< *std::min_element(M_VT.begin(),M_VT.end()) <<"\n";
     LOG(DEBUG) <<"VT MAX= "<< *std::max_element(M_VT.begin(),M_VT.end()) <<"\n";
@@ -2459,16 +2479,11 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
             x[i]     = M_nodes.find((M_elements[cpt]).indices[i])->second.coords[0]+UM_P[x_ind];
             y[i]     = M_nodes.find((M_elements[cpt]).indices[i])->second.coords[1]+UM_P[y_ind];
 
-            if(ALE_smoothing_step_nb==-2)
-            {
-                VC_x[i] =0.;
-                VC_y[i] =0.;
-            }
-            else
-            {
-                VC_x[i] = M_VT[x_ind]-(M_UM[x_ind]-UM_P[x_ind])/time_step;
-                VC_y[i] = M_VT[y_ind]-(M_UM[y_ind]-UM_P[y_ind])/time_step;
-            }
+            // convective velocity
+            // - this is zero for pure Lagrangian, except for at open boundaries,
+            // where it is M_VT
+            VC_x[i] = M_VT[x_ind]-(M_UM[x_ind]-UM_P[x_ind])/time_step;
+            VC_y[i] = M_VT[y_ind]-(M_UM[y_ind]-UM_P[y_ind])/time_step;
         }
 
         for(int i=0;i<3;i++)
@@ -2497,13 +2512,13 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
             }
             else
             {
-		neighbour_double = bamgmesh->ElementConnectivity[cpt*3+i];
+		        neighbour_double = bamgmesh->ElementConnectivity[cpt*3+i];
                 neighbour_int = (int)bamgmesh->ElementConnectivity[cpt*3+i];
 
                 // neighbour_double = M_element_connectivity[cpt*3+i];
                 // neighbour_int = (int)M_element_connectivity[cpt*3+i];
 
-		if (!std::isnan(neighbour_double) && neighbour_int>0)
+		        if (!std::isnan(neighbour_double) && neighbour_int>0)
                 {
                     surface = this->measure(M_elements[neighbour_int-1],M_mesh, UM_P);
                     outer_fluxes_area[i] = -std::min(surface/time_step/3.,-outer_fluxes_area[i]);
@@ -2539,15 +2554,31 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
     }
 }//advect()
 
+#if 0//advectRoot not used - looks weird too
 void
 FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out)
 {
     M_comm.barrier();
 
+    bool use_eulerian = false;
+    bool use_lagrangian = false;
+    bool use_ALE = false;
     int ALE_smoothing_step_nb = vm["numerics.ALE_smoothing_step_nb"].as<int>();
-    // ALE_smoothing_step_nb<0 is the diffusive eulerian case where M_UM is not changed and then =0.
-    // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
-    // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
+    if (vm["numerics.mesh_adaptation_mode"].as<string>()=="Eulerian")
+        // Diffusive eulerian case where M_UM is not changed and then =0.
+        use_eulerian = true;
+    else if (vm["numerics.mesh_adaptation_mode"].as<string>()=="Lagrangian")
+        // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
+        use_lagrangian = true;
+    else if (vm["numerics.mesh_adaptation_mode"].as<string>()=="ALE")
+    {
+        // ALE case where M_UM is updated with a smoothed version of M_VT
+        use_ALE = true;
+        if (ALE_smoothing_step_nb<=0)
+            throw std::runtime_error("numerics.ALE_smoothing_step_nb option should be >0");
+    }
+    else
+        throw std::runtime_error("numerics.mesh_adaptation_mode option should be Eulerian, Lagrangian or ALE");
 
     interp_elt_out.resize(M_nb_var_element*M_num_elements);
     std::vector<double> interp_elt_out_root;
@@ -2659,16 +2690,9 @@ FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<
                 x[i]     = x[i]+UM_P_root[x_ind];
                 y[i]     = y[i]+UM_P_root[y_ind];
 
-                if(ALE_smoothing_step_nb==-2)
-                {
-                    VC_x[i] =0.;
-                    VC_y[i] =0.;
-                }
-                else
-                {
-                    VC_x[i] = M_VT_root[x_ind]-(M_UM_root[x_ind]-UM_P_root[x_ind])/time_step;
-                    VC_y[i] = M_VT_root[y_ind]-(M_UM_root[y_ind]-UM_P_root[y_ind])/time_step;
-                }
+                // VC_x,y are 0 in Lagrangian case
+                VC_x[i] = M_VT_root[x_ind]-(M_UM_root[x_ind]-UM_P_root[x_ind])/time_step;
+                VC_y[i] = M_VT_root[y_ind]-(M_UM_root[y_ind]-UM_P_root[y_ind])/time_step;
             }
 
             surface = this->measure(elements_root[cpt],M_mesh_root, UM_P_root);
@@ -2771,6 +2795,7 @@ FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<
     }
 #endif
 }
+#endif
 
 void
 FiniteElement::diffuse(std::vector<double>& variable_elt, double diffusivity_parameters, double dx)
