@@ -1015,7 +1015,7 @@ FiniteElement::initBamg()
     bamgopt->splitcorners      = 0; //the Devil!  Changed to 0, original 1 Phil
     bamgopt->geometricalmetric = 0;
     bamgopt->random            = true;
-    bamgopt->verbose           = vm["simul.verbose"].as<int>();
+    bamgopt->verbose           = vm["simul.bamg_verbose"].as<int>();
 
     bamggeom = new BamgGeom();
     bamgmesh = new BamgMesh();
@@ -1064,7 +1064,10 @@ FiniteElement::initOptAndParam()
     rhos = physical::rhos;
 
     days_in_sec = 24.0*3600.0;
-    time_init = Nextsim::from_date_time_string(vm["simul.time_init"].as<std::string>());
+    if (vm["simul.time_init"].as<std::string>() == "")
+        throw std::runtime_error("Please provide simul.time_init option (start time)\n");
+    else
+        time_init = Nextsim::from_date_time_string(vm["simul.time_init"].as<std::string>());
     ptime_step =  days_in_sec/vm["simul.ptime_per_day"].as<int>();
 
     time_step = vm["simul.timestep"].as<double>();
@@ -1161,14 +1164,14 @@ FiniteElement::initOptAndParam()
 
     if (M_use_nesting)
     {
-        M_use_ocean_nesting= vm["nesting.use_ocean_nesting"].as<bool>();
-        M_nest_outer_mesh=vm["nesting.outer_mesh"].as<std::string>();
-        M_nest_inner_mesh=vm["nesting.inner_mesh"].as<std::string>();
-        M_nest_method=vm["nesting.method"].as<std::string>();
-        M_nudge_function=vm["nesting.nudge_function"].as<std::string>();
-        M_nudge_timescale=vm["nesting.nudge_timescale"].as<double>();
-        M_nudge_lengthscale=vm["nesting.nudge_lengthscale"].as<double>();
-        M_nest_dynamic_vars=vm["nesting.nest_dynamic_vars"].as<bool>();
+        M_use_ocean_nesting = vm["nesting.use_ocean_nesting"].as<bool>();
+        M_nest_outer_mesh   = vm["nesting.outer_mesh"].as<std::string>();
+        M_nest_inner_mesh   = vm["nesting.inner_mesh"].as<std::string>();
+        M_nest_method       = vm["nesting.method"].as<std::string>();
+        M_nudge_function    = vm["nesting.nudge_function"].as<std::string>();
+        M_nudge_timescale   = vm["nesting.nudge_timescale"].as<double>();
+        M_nudge_lengthscale = vm["nesting.nudge_lengthscale"].as<double>();
+        M_nest_dynamic_vars = vm["nesting.nest_dynamic_vars"].as<bool>();
     }
 
     const boost::unordered_map<const std::string, setup::OceanType> str2ocean = boost::assign::map_list_of
@@ -6204,7 +6207,7 @@ FiniteElement::step()
         if (M_rank == 0)
         {
             if(fmod(pcpt*time_step, ptime_step) == 0)
-                std::cout <<"NB OF REGGRIDING= " << M_nb_regrid <<"\n";
+                std::cout <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
 
             std::cout <<"REGRID ANGLE= "<< minang <<"\n";
         }
@@ -6395,7 +6398,9 @@ FiniteElement::run()
 
     current_time = time_init + pcpt*time_step/(24*3600.0);
     bool is_running = true;
-    if(duration<=0)
+    if(duration<0)
+        throw std::runtime_error("Set simul.duration >= 0\n");
+    else if(duration==0)
         is_running = false;
 
 #if 1
