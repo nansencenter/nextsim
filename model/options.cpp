@@ -37,7 +37,6 @@ namespace Nextsim
              * -----------------------------------------------------------------------------------
              */
 
-            // - basics
             ("simul.time_init", po::value<std::string>()->default_value( "" ),
                 "Start date/time of simulation. Formats: yyyy-mm-dd, yyyy-mm-dd HH:MM:SS; can also use 3 letter month name for 'mm' eg Mar for March")
             ("simul.duration", po::value<double>()->default_value( -1. ),
@@ -47,13 +46,17 @@ namespace Nextsim
             ("simul.spinup_duration", po::value<double>()->default_value( 1. ),
                 "Spinup duration in days over which the forcing is linearly increased from 0 to its correct value.")
 
-            // - debugging options
-            ("simul.bamg_verbose", po::value<int>()->default_value( 6 ),
+            /*
+             *-----------------------------------------------------------------------------------
+             * DEBUGGING OPTIONS
+             * -----------------------------------------------------------------------------------
+             */
+            ("debugging.bamg_verbose", po::value<int>()->default_value( 6 ),
                  "Bamg verbose mode: 0 is not verbose, 6 is very verbose")
-            ("simul.log-level", po::value<std::string>()->default_value( "info" ),
+            ("debugging.log-level", po::value<std::string>()->default_value( "info" ),
                 "Nextsim printouts. Options: debug, info, warning, error")
-            ("simul.ptime_per_day", po::value<int>()->default_value( 12 ), "frequency of info printouts.")
-            ("simul.maxiteration", po::value<int>()->default_value( -1 ),
+            ("debugging.ptime_per_day", po::value<int>()->default_value( 12 ), "frequency of info printouts.")
+            ("debugging.maxiteration", po::value<int>()->default_value( -1 ),
                 "Stop simulation after this number of model time steps (overrides simul.duration)")
 
             /*
@@ -63,19 +66,19 @@ namespace Nextsim
              */
 
             // remeshing
-            ("simul.regrid", po::value<std::string>()->default_value( "bamg" ),
+            ("numerics.regrid", po::value<std::string>()->default_value( "bamg" ),
                 "Options for regridding: No-regridding or bamg")
-            ("simul.regrid_output_flag", po::value<bool>()->default_value( false ),
+            ("numerics.regrid_output_flag", po::value<bool>()->default_value( false ),
                 "Export results for debugging after each mesh adaptation. NB currently deactivated")
-            ("simul.regrid_angle", po::value<double>()->default_value( 10. ),
+            ("numerics.regrid_angle", po::value<double>()->default_value( 10. ),
                 "Minimum value that any angle in an element can have.")
 
             // advection scheme
             // - ALE_smoothing_step_nb<0 is the Eulerian case where M_UM is not changed and then =0.
             // - ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
             // - ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
-            //TODO implement separate option: ("simul.mesh_adaptation_mode", po::value<int>()->default_value( "Lagrangian" ), "Options: Lagrangian, ALE, Eulerian")
-            ("simul.ALE_smoothing_step_nb", po::value<int>()->default_value( 0 ),
+            //TODO implement separate option: ("numerics.mesh_adaptation_mode", po::value<int>()->default_value( "Lagrangian" ), "Options: Lagrangian, ALE, Eulerian")
+            ("numerics.ALE_smoothing_step_nb", po::value<int>()->default_value( 0 ),
                 "Number of time steps to average over when smoothing in ALE scheme. 0: pure Lagrangian; <0: pure Eulerian")
 
             // solver

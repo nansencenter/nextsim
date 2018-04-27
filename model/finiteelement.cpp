@@ -1015,7 +1015,7 @@ FiniteElement::initBamg()
     bamgopt->splitcorners      = 0; //the Devil!  Changed to 0, original 1 Phil
     bamgopt->geometricalmetric = 0;
     bamgopt->random            = true;
-    bamgopt->verbose           = vm["simul.bamg_verbose"].as<int>();
+    bamgopt->verbose           = vm["debugging.bamg_verbose"].as<int>();
 
     bamggeom = new BamgGeom();
     bamgmesh = new BamgMesh();
@@ -1043,7 +1043,7 @@ FiniteElement::initOptAndParam()
         ("debug", DEBUG)
         ("error", ERROR);
 
-    M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
+    M_log_level = str2log.find(vm["debugging.log-level"].as<std::string>())->second;
 
     // define export path
     M_export_path = Environment::nextsimDir().string() + "/matlab";
@@ -1068,7 +1068,7 @@ FiniteElement::initOptAndParam()
         throw std::runtime_error("Please provide simul.time_init option (start time)\n");
     else
         time_init = Nextsim::from_date_time_string(vm["simul.time_init"].as<std::string>());
-    ptime_step =  days_in_sec/vm["simul.ptime_per_day"].as<int>();
+    ptime_step =  days_in_sec/vm["debugging.ptime_per_day"].as<int>();
 
     time_step = vm["simul.timestep"].as<double>();
     thermo_timestep = vm["simul.thermo_timestep"].as<double>();
@@ -2343,7 +2343,7 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
 
     interp_elt_out.resize(M_nb_var_element*M_num_elements);
 
-    int ALE_smoothing_step_nb = vm["simul.ALE_smoothing_step_nb"].as<int>();
+    int ALE_smoothing_step_nb = vm["numerics.ALE_smoothing_step_nb"].as<int>();
     // ALE_smoothing_step_nb<0 is the diffusive eulerian case where M_UM is not changed and then =0.
     // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
     // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
@@ -2544,7 +2544,7 @@ FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<
 {
     M_comm.barrier();
 
-    int ALE_smoothing_step_nb = vm["simul.ALE_smoothing_step_nb"].as<int>();
+    int ALE_smoothing_step_nb = vm["numerics.ALE_smoothing_step_nb"].as<int>();
     // ALE_smoothing_step_nb<0 is the diffusive eulerian case where M_UM is not changed and then =0.
     // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
     // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
@@ -3701,7 +3701,7 @@ FiniteElement::regrid(bool step)
         chrono.restart();
         LOG(DEBUG) <<"Flip starts\n";
 
-        while (flip /*|| (minang<(vm["simul.regrid_angle"].as<double>())/10.)*/)
+        while (flip /*|| (minang<(vm["numerics.regrid_angle"].as<double>())/10.)*/)
         {
             ++substep;
             displacement_factor /= 2.;
@@ -3765,7 +3765,7 @@ FiniteElement::regrid(bool step)
 
 #if 0
             had_remeshed=true;
-            if(step && (vm["simul.regrid_output_flag"].as<bool>()))
+            if(step && (vm["numerics.regrid_output_flag"].as<bool>()))
             {
 
                 std::string tmp_string1    = (boost::format( "before_adaptMesh_%1%_mesh_adapt_step_%2%_substep_%3%" )
@@ -3783,7 +3783,7 @@ FiniteElement::regrid(bool step)
             std::cout <<"---TRUE AdaptMesh done in "<< timer["adaptmesh"].first.elapsed() <<"s\n";
 
 #if 0
-            if(step && (vm["simul.regrid_output_flag"].as<bool>()))
+            if(step && (vm["numerics.regrid_output_flag"].as<bool>()))
             {
                 std::string tmp_string2    = (boost::format( "after_adaptMesh_%1%_mesh_adapt_step_%2%_substep_%3%" )
                                               % step
@@ -4310,7 +4310,7 @@ FiniteElement::assemble(int pcpt)
                     norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
 
                     coef_Voce = (vm["dynamics.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
-                    coef_Voce *= coef_drag*physical::rhow; //(vm["simul.rho_water"].as<double>());
+                    coef_Voce *= coef_drag*physical::rhow;
 
                     norm_Vair_ice = std::hypot(M_VT[index_u]-M_wind [index_u],M_VT[index_v]-M_wind [index_v]);
                     norm_Vair_ice = (norm_Vair_ice > norm_Vair_ice_min) ? (norm_Vair_ice):norm_Vair_ice_min;
@@ -6081,7 +6081,7 @@ FiniteElement::init()
     // Check the minimum angle of the grid
     double minang = this->minAngle(M_mesh);
 
-    if (minang < vm["simul.regrid_angle"].as<double>())
+    if (minang < vm["numerics.regrid_angle"].as<double>())
     {
         LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the initial grid\n";
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
@@ -6198,7 +6198,7 @@ FiniteElement::step()
     // The first time step we behave as if we just did a regrid
     M_regrid = (pcpt==0);
 
-    if (vm["simul.regrid"].as<std::string>() == "bamg")
+    if (vm["numerics.regrid"].as<std::string>() == "bamg")
     {
         double displacement_factor = 1.;
         double minang = this->minAngle(M_mesh,M_UM,displacement_factor);
@@ -6212,7 +6212,7 @@ FiniteElement::step()
             std::cout <<"REGRID ANGLE= "<< minang <<"\n";
         }
 
-        if ( minang < vm["simul.regrid_angle"].as<double>() )
+        if ( minang < vm["numerics.regrid_angle"].as<double>() )
         {
             M_regrid = true;
 
@@ -6310,7 +6310,7 @@ FiniteElement::step()
             std::cout <<"---timer assemble:             "<< timer["assemble"].first.elapsed() <<"s\n";
 
 #if 0
-        if(had_remeshed && (vm["simul.regrid_output_flag"].as<bool>()))
+        if(had_remeshed && (vm["numerics.regrid_output_flag"].as<bool>()))
         {
             std::string tmp_string3    = (boost::format( "after_assemble_%1%_mesh_adapt_step_%2%" )
                                    % pcpt
@@ -6388,7 +6388,7 @@ FiniteElement::run()
 {
     std::string current_time_system = current_time_local();
     this->init();
-    int niter = vm["simul.maxiteration"].as<int>();
+    int niter = vm["debugging.maxiteration"].as<int>();
 
     // write the logfile: assigned to the process master (rank 0)
     if (M_comm.rank() == 0)
