@@ -2347,13 +2347,13 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
     bool use_lagrangian = false;
     bool use_ALE = false;
     int ALE_smoothing_step_nb = vm["numerics.ALE_smoothing_step_nb"].as<int>();
-    if (vm["numerics.mesh_adaptation_mode"].as<string>()=="Eulerian")
+    if (vm["numerics.advection_scheme"].as<string>()=="Eulerian")
         // Diffusive eulerian case where M_UM is not changed and then =0.
         use_eulerian = true;
-    else if (vm["numerics.mesh_adaptation_mode"].as<string>()=="Lagrangian")
+    else if (vm["numerics.advection_scheme"].as<string>()=="Lagrangian")
         // Purely Lagrangian case where M_UM is updated with M_VT
         use_lagrangian = true;
-    else if (vm["numerics.mesh_adaptation_mode"].as<string>()=="ALE")
+    else if (vm["numerics.advection_scheme"].as<string>()=="ALE")
     {
         // ALE case where M_UM is updated with a smoothed version of M_VT
         use_ALE = true;
@@ -2361,7 +2361,7 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
             throw std::runtime_error("numerics.ALE_smoothing_step_nb option should be >0");
     }
     else
-        throw std::runtime_error("numerics.mesh_adaptation_mode option should be Eulerian, Lagrangian or ALE");
+        throw std::runtime_error("numerics.advection_scheme option should be Eulerian, Lagrangian or ALE");
 
     //change M_UM if not in Eulerian mode
     if(!use_eulerian)
@@ -2564,13 +2564,13 @@ FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<
     bool use_lagrangian = false;
     bool use_ALE = false;
     int ALE_smoothing_step_nb = vm["numerics.ALE_smoothing_step_nb"].as<int>();
-    if (vm["numerics.mesh_adaptation_mode"].as<string>()=="Eulerian")
+    if (vm["numerics.advection_scheme"].as<string>()=="Eulerian")
         // Diffusive eulerian case where M_UM is not changed and then =0.
         use_eulerian = true;
-    else if (vm["numerics.mesh_adaptation_mode"].as<string>()=="Lagrangian")
+    else if (vm["numerics.advection_scheme"].as<string>()=="Lagrangian")
         // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
         use_lagrangian = true;
-    else if (vm["numerics.mesh_adaptation_mode"].as<string>()=="ALE")
+    else if (vm["numerics.advection_scheme"].as<string>()=="ALE")
     {
         // ALE case where M_UM is updated with a smoothed version of M_VT
         use_ALE = true;
@@ -2578,7 +2578,7 @@ FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<
             throw std::runtime_error("numerics.ALE_smoothing_step_nb option should be >0");
     }
     else
-        throw std::runtime_error("numerics.mesh_adaptation_mode option should be Eulerian, Lagrangian or ALE");
+        throw std::runtime_error("numerics.advection_scheme option should be Eulerian, Lagrangian or ALE");
 
     interp_elt_out.resize(M_nb_var_element*M_num_elements);
     std::vector<double> interp_elt_out_root;
