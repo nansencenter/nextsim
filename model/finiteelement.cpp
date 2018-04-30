@@ -6030,7 +6030,7 @@ FiniteElement::readRestart(std::string step)
         {
             std::cout << "FiniteElement::readRestart: Restart Time and time_init are inconsistent. \n";
             std::cout << "Time = " << time[0] << " = " << to_date_time_string(time[0])<<"\n";
-            std::cout << "time_init = " << pcpt*time_step/(24*3600.0) << " = " << to_date_time_string(time_init) <<"\n";
+            std::cout << "time_init = " << time_init << " = " << to_date_time_string(time_init) <<"\n";
             throw std::runtime_error("Inconsistent time information in restart file");
         }
     }
@@ -9296,7 +9296,6 @@ FiniteElement::exportResults(double date_time, bool export_mesh, bool export_fie
     std::string name_str = to_date_time_string_for_filename(date_time);
     this->exportResults(name_str, export_mesh, export_fields, apply_displacement);
 }
-
 
 void
 FiniteElement::exportResults(std::string name_str, bool export_mesh, bool export_fields, bool apply_displacement)
