@@ -28,6 +28,9 @@
 #include <gmshmeshseq.hpp>
 #include <graphcsr.hpp>
 #include <graphcsrmpi.hpp>
+#if defined (WAVES)
+#include <wimdiscr.hpp>
+#endif
 #include <externaldata.hpp>
 #include <gridoutput.hpp>
 #include <dataset.hpp>
@@ -84,6 +87,13 @@ public:
 
     typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
 
+    typedef typename std::vector<double>    dbl_vec;
+    typedef typename std::vector<dbl_vec>   dbl_vec2d;
+    typedef typename std::vector<dbl_vec2d> dbl_vec3d;
+#if defined (WAVES)
+    typedef Wim::WimDiscr<double> wim_type;
+    typedef Wim::WimDiscr<double>::T_map_vec T_map_vec;
+#endif
     FiniteElement();
 
     mesh_type const& mesh() const {return M_mesh;}
@@ -207,6 +217,10 @@ public:
     Dataset M_nesting_distance_elements_dataset;
     Dataset M_nesting_dynamics_elements_dataset;
 
+#if defined (WAVES)
+    Dataset M_wave_elements_dataset;
+#endif
+
     template<typename FEMeshType>
     double minAngles(element_type const& element, FEMeshType const& mesh) const;
     template<typename FEMeshType>
@@ -232,6 +246,10 @@ public:
     void forcingAtmosphere();
     void forcingOcean();
     void forcingNesting();
+#if defined (WAVES)
+    void forcingWave();
+    WaveOptions M_wim_forcing_options;
+#endif
 	void initBathymetry();
 
     void assimilateIce();
@@ -289,6 +307,17 @@ public:
     void bcMarkedNodes();
 
     void finalise();
+
+#if defined (WAVES)
+    void initWim(int const pcpt);
+    void initWimVariables();
+    void wimCommPreRegrid();
+    void wimPreRegrid();
+    void wimPostRegrid();
+    void wimCheckWaves();
+    void wimCall();
+    void getWimDiagnostics();
+#endif
 
 public:
     std::string gitRevision();
@@ -369,6 +398,10 @@ private:
     setup::AtmosphereType M_atmosphere_type;
     setup::OceanType M_ocean_type;
     setup::IceType M_ice_type;
+#if defined (WAVES)
+    setup::WaveType M_wave_type;
+    setup::WaveMode M_wave_mode;
+#endif
     setup::BathymetryType M_bathymetry_type;
     setup::BasalStressType M_basal_stress_type;
     setup::ThermoType M_thermo_type;
@@ -472,6 +505,30 @@ private:
     bool M_nest_dynamic_vars;
     // =============================================================================
 
+
+    // =============================================================================
+    // variables needed for coupling with wim
+#if defined (WAVES)
+    wim_type M_wim;
+    std::vector<double> M_nfloes;
+    std::vector<double> M_dfloe;
+
+    int M_wim_cpt;//no of times WIM has been called
+    int M_wim_steps_since_last_call;//no of time steps since WIM was last called
+    int M_wim_cpl_freq;//call wim every "M_wim_cpl_freq" nextsim time steps
+
+    T_map_vec M_wim_fields_nodes;
+    T_map_vec M_wim_fields_els;
+    //std::vector<double> M_stokes_drift;
+
+    bool M_export_wim_diags_mesh;
+    bool M_collect_wavespec = false;
+    dbl_vec   M_wim_meshdisp;
+    dbl_vec3d M_wavespec;
+#endif
+    std::vector<double> M_tau;//this can just be set to zero if not using WIM
+    // =============================================================================
+
     LogLevel M_log_level;
 
 private:
@@ -522,6 +579,12 @@ private:
     bool M_reuse_prec;
     bool M_regrid;
     int M_nb_regrid;
+
+#if defined (WAVES)
+    bool M_run_wim;
+    bool M_use_wim;
+    bool M_interp_fsd;
+#endif
 
     bool M_use_restart;
     bool M_write_restart;
