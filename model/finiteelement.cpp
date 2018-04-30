@@ -3234,7 +3234,7 @@ FiniteElement::interpFieldsElement()
                                 M_mesh_previous_root.numNodes(),M_mesh_previous_root.numTriangles(),
                                 &interp_in_elements[0],
                                 M_mesh_previous_root.numTriangles(),M_nb_var_element,
-                                &M_mesh_root.bcoordX()[0],&M_mesh_root.bcoordY()[0],M_mesh_root.numTriangles(),
+                                &M_mesh_root.bCoordX()[0],&M_mesh_root.bCoordY()[0],M_mesh_root.numTriangles(),
                                 false);
 
         // std::cout<<"InterpFromMeshToMesh2dx done in "<< chrono.elapsed() <<"\n";

@@ -380,8 +380,8 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
     if(dataset->target_size==mesh.numTriangles())
     {
-    	RX = mesh.bcoordX(dataset->rotation_angle);
-        RY = mesh.bcoordY(dataset->rotation_angle);
+    	RX = mesh.bCoordX(dataset->rotation_angle);
+        RY = mesh.bCoordY(dataset->rotation_angle);
     }
 
 	if(dataset->grid.interpolation_in_latlon)
@@ -1290,8 +1290,8 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
 
     if(dataset->target_size==mesh.numTriangles())
     {
-    	RX = mesh.bcoordX(dataset->rotation_angle);
-        RY = mesh.bcoordY(dataset->rotation_angle);
+    	RX = mesh.bCoordX(dataset->rotation_angle);
+        RY = mesh.bCoordY(dataset->rotation_angle);
     }
 
 	if(dataset->grid.interpolation_in_latlon)

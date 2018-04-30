@@ -1531,8 +1531,8 @@ typename WimDiscr<T>::T_map_vec
 WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
         T_gmsh const &movedmesh)
 {
-    auto xel  = movedmesh.bcoordX();
-    auto yel  = movedmesh.bcoordY();
+    auto xel  = movedmesh.bCoordX();
+    auto yel  = movedmesh.bCoordY();
 
     T_val_vec surface_fac(xel.size(),1.);
     if(M_wim_on_mesh)
