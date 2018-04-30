@@ -76,6 +76,13 @@ else
 
 endif
 
+ifdef USE_NEXTWIM
+	CXXFLAGS += -DWAVES
+	CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
+	LDFLAGS += -L $(NEXTSIMDIR)/lib -lwim
+endif
+
+
 LDFLAGS += -L /usr/local/lib
 
 LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
