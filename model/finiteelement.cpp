@@ -862,6 +862,20 @@ FiniteElement::initForcings()
         default:
             std::cout << "invalid ocean forcing"<<"\n";throw std::logic_error("invalid ocean forcing");
     }
+#if defined (WAVES)
+    if (M_use_wim)
+    {
+        if (M_wave_type == setup::WaveType::WW3A)
+            M_wave_elements_dataset = DataSet("ww3a_elements",M_num_elements);
+        else if (M_wave_type == setup::WaveType::ERAI_WAVES_1DEG)
+            M_wave_elements_dataset = DataSet("erai_waves_1deg_elements",M_num_elements);
+        else if (M_wave_type != setup::WaveType::SET_IN_WIM)
+        {
+            std::cout << "invalid wave forcing"<<"\n";
+            throw std::logic_error("invalid wave forcing");
+        }
+    }
+#endif
     if (M_use_nesting)
     {
         M_nesting_nodes_dataset=DataSet("nesting_nodes",M_num_nodes);
@@ -873,25 +887,15 @@ FiniteElement::initForcings()
     }
 
     M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements",M_num_elements);
-
     M_ice_icesat_elements_dataset=DataSet("ice_icesat_elements",M_num_elements);
-
     M_ice_piomas_elements_dataset=DataSet("ice_piomas_elements",M_num_elements);
-
     M_ice_amsre_elements_dataset=DataSet("ice_amsre_elements",M_num_elements);
-
     M_ice_osisaf_elements_dataset=DataSet("ice_osisaf_elements",M_num_elements);
-
     M_ice_osisaf_type_elements_dataset=DataSet("ice_osisaf_type_elements",M_num_elements);
-
     M_ice_amsr2_elements_dataset=DataSet("ice_amsr2_elements",M_num_elements);
-
     M_ice_nic_elements_dataset=DataSet("ice_nic_elements",M_num_elements);
-
     M_ice_nic_weekly_elements_dataset=DataSet("ice_nic_weekly_elements",M_num_elements);
-
     M_ice_cs2_smos_elements_dataset=DataSet("ice_cs2_smos_elements",M_num_elements);
-
     M_ice_smos_elements_dataset=DataSet("ice_smos_elements",M_num_elements);
 
     // datasets that need to be re-interpolated after regridding
@@ -902,6 +906,13 @@ FiniteElement::initForcings()
     M_datasets_regrid.push_back(&M_atmosphere_bis_elements_dataset);
     M_datasets_regrid.push_back(&M_ocean_nodes_dataset);
     M_datasets_regrid.push_back(&M_ocean_elements_dataset);
+
+#if defined (WAVES)
+    if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
+        // need to re-interpolate wave forcing at regrid time if running on mesh,
+        // but not if on grid
+        M_datasets_regrid.push_back(&M_wave_elements_dataset);
+#endif
 
     // Then we populate the forcing variables
     LOG(DEBUG) <<"Initialize forcingAtmosphere\n";
