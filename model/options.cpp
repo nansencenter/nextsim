@@ -165,13 +165,15 @@ namespace Nextsim
             ("restart.write_restart", po::value<bool>()->default_value( false ), "")
             ("restart.output_time_step", po::value<double>()->default_value( 15 ), "days")
             ("restart.debugging", po::value<bool>()->default_value( false ),
-                "save restart every time step for debugging (only with build type DEBUG)")
+                "save restart every time step for debugging")
 
             // general outputs
             ("output.output_per_day", po::value<int>()->default_value( 4 ), "")
             ("output.logfile", po::value<std::string>()->default_value( "" ), "")
             ("output.save_forcing_fields", po::value<bool>()->default_value( false ), "")
             ("output.save_diagnostics", po::value<bool>()->default_value( false ), "")
+            ("output.datetime_in_filename", po::value<bool>()->default_value( false ),
+                "filename outputs are eg [mesh,field]_20180101T000000Z.[bin,dat]")
 
             // exporter
             ("output.exporter_path", po::value<std::string>()->default_value( "" ), "")
