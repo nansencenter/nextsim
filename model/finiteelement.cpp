@@ -348,29 +348,18 @@ FiniteElement::initDatasets()
     }
 
     M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements",M_num_elements);
-
     M_ice_icesat_elements_dataset=DataSet("ice_icesat_elements",M_num_elements);
-
     M_ice_piomas_elements_dataset=DataSet("ice_piomas_elements",M_num_elements);
-
     M_ice_amsre_elements_dataset=DataSet("ice_amsre_elements",M_num_elements);
-
     M_ice_osisaf_elements_dataset=DataSet("ice_osisaf_elements",M_num_elements);
-
     M_ice_osisaf_type_elements_dataset=DataSet("ice_osisaf_type_elements",M_num_elements);
-
     M_ice_amsr2_elements_dataset=DataSet("ice_amsr2_elements",M_num_elements);
-    
     M_ice_nic_elements_dataset=DataSet("ice_nic_elements",M_num_elements);
-    
     M_ice_nic_weekly_elements_dataset=DataSet("ice_nic_weekly_elements",M_num_elements);
-
     M_ice_cs2_smos_elements_dataset=DataSet("ice_cs2_smos_elements",M_num_elements);
-
     M_ice_smos_elements_dataset=DataSet("ice_smos_elements",M_num_elements);
 
     M_bathymetry_elements_dataset=DataSet("etopo_elements",M_num_elements);//M_num_nodes);
-
     M_dist2coast_elements_dataset=DataSet("dist2coast_elements",M_num_elements);//M_num_nodes);
 
     // datasets that need to be re-interpolated after regridding
@@ -9597,9 +9586,7 @@ FiniteElement::wimPreRegrid()
     // - this will be interpolated too
     M_wim_meshdisp  = M_wim.getRelativeMeshDisplacement(movedmesh);
 }//wimPreRegrid()
-#endif
 
-#if defined (WAVES)
 void
 FiniteElement::wimPostRegrid()
 {
@@ -9624,9 +9611,7 @@ FiniteElement::wimPostRegrid()
 
     std::cout<<"leaving wimPostRegrid()\n";
 }//wimPostRegrid()
-#endif
 
-#if defined (WAVES)
 void
 FiniteElement::wimCommPreRegrid()
 {
@@ -9750,9 +9735,8 @@ FiniteElement::wimCheckWaves()
     M_wim.setWaveFields(swh_in, mwp_in, mwd_in);
     std::cout<<"9518\n";
 }//wimCheckWaves()
-#endif
 
-#if defined (WAVES)
+
 void
 FiniteElement::initWim(int const pcpt)
 {
@@ -9803,9 +9787,7 @@ FiniteElement::initWim(int const pcpt)
     if(M_wim_cpl_freq<=0)
         throw runtime_error("nextwim.couplingfreq should be >0\n");
 }//initWim
-#endif
 
-#if defined (WAVES)
 void
 FiniteElement::initWimVariables()
 {
@@ -9838,9 +9820,7 @@ FiniteElement::initWimVariables()
 
     std::cout<<"end initWimVariables()\n";
 }//initWimVariables()
-#endif
 
-#if defined (WAVES)
 void
 FiniteElement::wimCall()
 {
@@ -9971,9 +9951,7 @@ FiniteElement::wimCall()
         throw std::runtime_error("Quitting after calling WIM\n");
 
 }//wimCall()
-#endif
 
-#if defined (WAVES)
 void
 FiniteElement::getWimDiagnostics()
 {

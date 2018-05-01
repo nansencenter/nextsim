@@ -175,8 +175,7 @@ void WimDiscr<T>::initConstant(int const& nextsim_cpt)
         //get initial time from simul.time_init
         M_init_time_str  = vm["simul.time_init"].template as<std::string>();
 
-        //if using restart, need to calculate shift from initial
-        //time
+        //if using restart, may need to calculate shift from initial time
         M_restart_time = nextsim_cpt*nextsim_time_step;//model time of current call to wim
  
         if ( vm["nextwim.coupling-option"].template as<std::string>() == "run_on_mesh")
@@ -186,8 +185,8 @@ void WimDiscr<T>::initConstant(int const& nextsim_cpt)
             M_break_on_mesh   =  true;
     }
 
-    M_current_time  = M_restart_time;//reset at last update
-    M_update_time   = M_restart_time;//reset at last update
+    M_current_time = M_restart_time;//reset at last update
+    M_update_time  = M_restart_time;//reset at last update
 
 #if 1
     //print initial & restart times
@@ -373,7 +372,6 @@ void WimDiscr<T>::assignSpatial()
             it->assign(nwavedirn,ztmp);
     // =============================================
 
-
 }//end: assignSpatial()
 
 
@@ -543,7 +541,7 @@ void WimDiscr<T>::idealWaveFields(T_val const xfac)
     {
         if ((xvec[i] < x_edge) && (M_land_mask[i]<.5))
         {
-            i_wave  = i;// just need index of one element inside wave mask
+            i_wave  = i;// just need index of one element inside wave mask for testing
             wave_mask[i] = 1.;
             M_Hs [i] = vm["wim.hsinc"].template as<double>();
             M_Tp [i] = vm["wim.tpinc"].template as<double>();
@@ -1801,12 +1799,12 @@ typename WimDiscr<T>::T_val_vec
 WimDiscr<T>::dfloeToNfloes(T_val_vec const& dfloe_in,
                            T_val_vec const& conc_in)
 {
-    int N   = conc_in.size();
+    int N = conc_in.size();
     T_val_vec nfloes_out(N);
 
 #pragma omp parallel for num_threads(M_max_threads) collapse(1)
     for (int i=0;i<N;i++)
-        nfloes_out[i]   = this->dfloeToNfloes(dfloe_in[i],conc_in[i]);
+        nfloes_out[i] = this->dfloeToNfloes(dfloe_in[i],conc_in[i]);
 
     return nfloes_out;
 }//dfloesToNfloes
@@ -1822,7 +1820,7 @@ WimDiscr<T>::nfloesToDfloe(T_val const& nfloes_in,
                 &&(conc_in >= vm["wim.cicemin"].template as<double>()) )
         {
             //conc high enough & Nfloes OK
-            dfloe_out   = std::sqrt(conc_in/nfloes_in);
+            dfloe_out = std::sqrt(conc_in/nfloes_in);
         }
 
         //dfloe shouldn't get too big
@@ -1920,17 +1918,17 @@ void WimDiscr<T>::getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out,T_val_ve
                 // cinterp and ctot should be the same, apart from errors in interpolation,
                 // so hopefully the errors in nfloes can be estimated from this process
                 T_val cfac = conc_tot[i]/cinterp[i];
-                nfloes_out[i]   = cfac*nfloes_out[i];
+                nfloes_out[i] = cfac*nfloes_out[i];
             }
 
             //else keep nfloes_out the same
-            dfloe_out[i]    = nfloesToDfloe(nfloes_out[i],conc_tot[i]);
-            broken[i]       = std::round(broken[i]);
+            dfloe_out[i] = nfloesToDfloe(nfloes_out[i],conc_tot[i]);
+            broken[i]    = std::round(broken[i]);
         }
         else
         {
-            nfloes_out[i]   = 0.;
-            broken[i]       = 0.;
+            nfloes_out[i] = 0.;
+            broken[i]     = 0.;
         }
     }
 }//getFsdMesh
