@@ -650,6 +650,17 @@ private:
     external_data M_ocean_salt;   // Ocean salinity in top layer [C]
     external_data M_mld;          // Mixed-layer depth [m]
 
+#if defined (WAVES)
+    // Wave
+    external_data_vec M_external_data_waves;
+    external_data M_SWH;	      // Significant wave height [m]
+    external_data M_MWD;	      // Mean wave direction (deg)
+    external_data M_MWP;          // Peak wave period (s)
+    external_data M_fice_waves;   // Waves masked if ice used in external wave model 
+                                  // - due to inconsistent ice masks,
+                                  // there could be attenuation in the open ocean
+#endif
+
     // Nesting
     external_data M_nesting_dist_elements; // Distance to the nearest open boundaries
     external_data M_nesting_dist_nodes; // Distance to the nearest open boundaries
