@@ -4763,7 +4763,7 @@ FiniteElement::init()
         this->initMoorings();
 
     return pcpt;
-}
+}//init()
 
 #ifdef OASIS
 void

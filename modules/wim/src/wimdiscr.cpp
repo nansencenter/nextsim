@@ -26,7 +26,6 @@ namespace Wim
 template<typename T>
 WimDiscr<T>::WimDiscr(po::variables_map const& vmIn,int const& nextsim_cpt)
 {
-
     vm  = vmIn;
     this->initConstant(nextsim_cpt);
 
@@ -35,7 +34,7 @@ WimDiscr<T>::WimDiscr(po::variables_map const& vmIn,int const& nextsim_cpt)
         // wim grid generation/reading
         // NB if M_wim_on_mesh, setMesh2 before wim.run() and at regridding
         // time
-        M_grid  = T_grid(vm);
+        M_grid = T_grid(vm);
     }
 
     this->initRemaining();
@@ -54,6 +53,93 @@ WimDiscr<T>::WimDiscr(po::variables_map const& vmIn,T_gmsh const &mesh_in,int co
 
     this->initRemaining();
 }//WimDiscr()
+
+
+template<typename T>
+void WimDiscr<T>::initConstant(int const& nextsim_cpt)
+{
+
+    //OMP max threads
+    M_max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
+
+    //set global counter to 0
+    M_cpt = 0;
+
+    // wave parameters
+    nwavedirn = vm["wimsetup.nwavedirn"].template as<int>();
+    nwavefreq = vm["wimsetup.nwavefreq"].template as<int>();
+    Tmin      = vm["wimsetup.tmin"].template as<double>(); /* 2.5 */
+    Tmax      = vm["wimsetup.tmax"].template as<double>(); /* 25. */
+
+    M_ref_Hs_ice = vm["wim.refhsice"].template as<bool>();
+    M_atten      = vm["wim.atten"].template as<bool>();
+    M_useicevel  = vm["wim.useicevel"].template as<bool>();
+    M_steady     = vm["wim.steady"].template as<bool>();
+    M_scatmod    = vm["wim.scatmod"].template as<std::string>();
+
+    // ice parameters
+    M_breaking        = vm["wim.breaking"].template as<bool>();
+    M_dfloe_pack_init = vm["wim.dfloepackinit"].template as<double>(); /* 300.0 */
+    M_ice_params      = T_icep(vm);
+
+    //numerical parameters
+    M_advdim = vm["wim.advdim"].template as<int>();
+    M_advopt = vm["wim.advopt"].template as<std::string>();
+    M_cfl    = vm["wim.cfl"].template as<double>();
+
+    if (M_useicevel)
+        throw std::runtime_error("M_useicevel=true not implemented\n");
+
+    if(M_steady && (M_advopt=="xy-periodic"))
+    {
+        std::string tmps = "advopt = xy-periodic and steady options incompatible - ";
+        tmps += "use y-periodic with steady or turn off steady\n";
+        throw std::runtime_error(tmps);
+    }
+
+    //some options need to be disabled if being called from nextsim
+    docoupling = !( vm.count("simul.duration")==0 );
+    M_restart_time = 0.;
+    if (!docoupling)
+    {
+        //set duration of call to wim.run() from wim.duration
+        M_duration = vm["wimsetup.duration"].template as<double>();
+
+        //get initial time from wimsetup.initialtime
+        M_init_time_str = vm["wimsetup.initialtime"].as<std::string>();
+
+        //save options from wimoptions.cpp
+        this->saveOptionsLog();
+    }
+    else
+    {
+        //set duration of call to wim.run() from nextwim.couplingfreq
+        T_val nextsim_time_step = vm["simul.timestep"].template as<double>();
+        M_duration = vm["nextwim.couplingfreq"].template as<int>()*nextsim_time_step;
+                     
+        //get initial time from simul.time_init
+        M_init_time_str = vm["simul.time_init"].template as<std::string>();
+
+        //if using restart, may need to calculate shift from initial time
+        M_restart_time = nextsim_cpt*nextsim_time_step;//model time of current call to wim
+ 
+        if ( vm["nextwim.coupling-option"].template as<std::string>() == "run_on_mesh")
+            //run on mesh takes priority
+            M_wim_on_mesh = true;
+        else if ( vm["nextwim.coupling-option"].template as<std::string>() == "break_on_mesh")
+            M_break_on_mesh =  true;
+    }
+
+    M_current_time = M_restart_time;//reset at last update
+    M_update_time  = M_restart_time;//reset at last update
+
+#if 1
+    //print initial & restart times
+    auto time_str1 = ptime(M_init_time_str,M_restart_time);
+    std::cout<<"initial time = "<<M_init_time_str<<"\n";
+    std::cout<<"restart time = "<<time_str1<<"\n";
+#endif
+}//end ::initConstant()
 
 
 template<typename T>
@@ -107,94 +193,7 @@ void WimDiscr<T>::initRemaining()
     }
 
     std::cout<<"wim instantiation finished\n";
-}//initRemaining
-
-
-template<typename T>
-void WimDiscr<T>::initConstant(int const& nextsim_cpt)
-{
-
-    //OMP max threads
-    M_max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-
-    //set global counter to 0
-    M_cpt = 0;
-
-    // wave parameters
-    nwavedirn   = vm["wimsetup.nwavedirn"].template as<int>();
-    nwavefreq   = vm["wimsetup.nwavefreq"].template as<int>();
-    Tmin        = vm["wimsetup.tmin"].template as<double>(); /* 2.5 */
-    Tmax        = vm["wimsetup.tmax"].template as<double>(); /* 25. */
-
-    M_ref_Hs_ice  = vm["wim.refhsice"].template as<bool>();
-    M_atten       = vm["wim.atten"].template as<bool>();
-    M_useicevel   = vm["wim.useicevel"].template as<bool>();
-    M_steady      = vm["wim.steady"].template as<bool>();
-    M_scatmod     = vm["wim.scatmod"].template as<std::string>();
-
-    // ice parameters
-    M_breaking        = vm["wim.breaking"].template as<bool>();
-    M_dfloe_pack_init = vm["wim.dfloepackinit"].template as<double>(); /* 300.0 */
-    M_ice_params      = T_icep(vm);
-
-    //numerical parameters
-    M_advdim    = vm["wim.advdim"].template as<int>();
-    M_advopt    = vm["wim.advopt"].template as<std::string>();
-    M_cfl       = vm["wim.cfl"].template as<double>();
-
-    if (M_useicevel)
-        throw std::runtime_error("M_useicevel=true not implemented\n");
-
-    if(M_steady && (M_advopt=="xy-periodic"))
-    {
-        std::string tmps = "advopt = xy-periodic and steady options incompatible - ";
-        tmps += "use y-periodic with steady or turn off steady\n";
-        throw std::runtime_error(tmps);
-    }
-
-    //some options need to be disabled if being called from nextsim
-    docoupling = !( vm.count("simul.duration")==0 );
-    M_restart_time  = 0.;
-    if (!docoupling)
-    {
-        //set duration of call to wim.run() from wim.duration
-        M_duration = vm["wimsetup.duration"].template as<double>();
-
-        //get initial time from wimsetup.initialtime
-        M_init_time_str = vm["wimsetup.initialtime"].as<std::string>();
-
-        //save options from wimoptions.cpp
-        this->saveOptionsLog();
-    }
-    else
-    {
-        //set duration of call to wim.run() from nextwim.couplingfreq
-        T_val nextsim_time_step = vm["simul.timestep"].template as<double>();
-        M_duration   = vm["nextwim.couplingfreq"].template as<int>()*nextsim_time_step;
-                     
-        //get initial time from simul.time_init
-        M_init_time_str  = vm["simul.time_init"].template as<std::string>();
-
-        //if using restart, may need to calculate shift from initial time
-        M_restart_time = nextsim_cpt*nextsim_time_step;//model time of current call to wim
- 
-        if ( vm["nextwim.coupling-option"].template as<std::string>() == "run_on_mesh")
-            //run on mesh takes priority
-            M_wim_on_mesh   = true;
-        else if ( vm["nextwim.coupling-option"].template as<std::string>() == "break_on_mesh")
-            M_break_on_mesh   =  true;
-    }
-
-    M_current_time = M_restart_time;//reset at last update
-    M_update_time  = M_restart_time;//reset at last update
-
-#if 1
-    //print initial & restart times
-    auto time_str1 = ptime(M_init_time_str,M_restart_time);
-    std::cout<<"initial time = "<<M_init_time_str<<"\n";
-    std::cout<<"restart time = "<<time_str1<<"\n";
-#endif
-}//end ::initConstant()
+}//initRemaining()
 
 
 template<typename T>
