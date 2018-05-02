@@ -641,6 +641,7 @@ FiniteElement::initConstant()
         ("topaz_altimeter", setup::OceanType::TOPAZR_ALTIMETER);
     M_ocean_type = str2ocean.find(vm["setup.ocean-type"].as<std::string>())->second;
     LOG(DEBUG)<<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
+
     const boost::unordered_map<const std::string, setup::IceType> str2conc = boost::assign::map_list_of
         ("constant", setup::IceType::CONSTANT)
         ("constant_partial", setup::IceType::CONSTANT_PARTIAL)
@@ -660,6 +661,10 @@ FiniteElement::initConstant()
         ("cs2_smos_amsr2", setup::IceType::CS2_SMOS_AMSR2)
         ("smos", setup::IceType::SMOS)
         ("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT);
+
+    std::string sice = vm["setup.ice-type"].as<std::string>();
+    if ( str2conc.count(sice) == 0)
+        throw std::runtime_error("Unknown ice-type: "+sice);
     M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
     LOG(DEBUG)<<"ICETYPE= "<< (int)M_ice_type <<"\n";
 
