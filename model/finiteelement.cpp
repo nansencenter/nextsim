@@ -5671,7 +5671,7 @@ FiniteElement::initMoorings()
         {
             if(M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
             {
-                LOG(WARNING)<<"Moorings: skipping "<< *it<<" as not running with thin ice\n";
+                LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with thin ice\n";
                 continue;
             }
             GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin, data_elements, data_grid);
@@ -5681,7 +5681,7 @@ FiniteElement::initMoorings()
         {
             if(M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
             {
-                LOG(WARNING)<<"Moorings: skipping "<< *it<<" as not running with thin ice\n";
+                LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with thin ice\n";
                 continue;
             }
             GridOutput::Variable h_thin(GridOutput::variableID::h_thin, data_elements, data_grid);
@@ -5691,7 +5691,7 @@ FiniteElement::initMoorings()
         {
             if(M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
             {
-                LOG(WARNING)<<"Moorings: skipping "<< *it<<" as not running with thin ice\n";
+                LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with thin ice\n";
                 continue;
             }
             GridOutput::Variable hs_thin(GridOutput::variableID::hs_thin, data_elements, data_grid);
