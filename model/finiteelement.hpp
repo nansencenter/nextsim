@@ -353,7 +353,7 @@ private:
     // =============================================================================
     // variables needed for nesting
     bool M_use_nesting;
-    bool M_use_ocean_nesting;
+    bool M_use_ocean_nesting = false;
     std::string M_nest_outer_mesh;
     std::string M_nest_inner_mesh;
     std::string M_nest_method;

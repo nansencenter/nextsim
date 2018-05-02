@@ -6588,15 +6588,12 @@ void
 FiniteElement::forcingOcean()//(double const& u, double const& v)
 {
 
-    if(M_use_nesting)    
+    if(M_use_ocean_nesting)
     {
-        if(M_use_ocean_nesting)
-        {
-            M_ocean_temp=ExternalData(&M_nesting_ocean_elements_dataset, M_mesh, 0,false,time_init);
-            M_external_data.push_back(&M_ocean_temp);
-            M_ocean_salt=ExternalData(&M_nesting_ocean_elements_dataset, M_mesh, 1,false,time_init);
-            M_external_data.push_back(&M_ocean_salt);
-        }
+        M_ocean_temp=ExternalData(&M_nesting_ocean_elements_dataset, M_mesh, 0,false,time_init);
+        M_external_data.push_back(&M_ocean_temp);
+        M_ocean_salt=ExternalData(&M_nesting_ocean_elements_dataset, M_mesh, 1,false,time_init);
+        M_external_data.push_back(&M_ocean_salt);
     }
 
     switch (M_ocean_type)
@@ -6612,9 +6609,8 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_ssh);
 
-            if ( (!M_use_nesting) || ( (M_use_nesting) && (!M_use_ocean_nesting) ) )
+            if (!M_use_ocean_nesting)
             {
-                cout << "dont use ocean nesting!";
                 M_ocean_temp=ExternalData(physical::ocean_freezing_temp);
                 M_external_data.push_back(&M_ocean_temp);
 
@@ -6637,7 +6633,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_ssh);
 
-            if ( (!M_use_nesting) || ( (M_use_nesting) && (!M_use_ocean_nesting) ) )
+            if (!M_use_ocean_nesting)
             {
                 M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
                 M_external_data.push_back(&M_ocean_temp);
@@ -6663,7 +6659,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_ssh);
 
-            if ( (!M_use_nesting) || ( (M_use_nesting) && (!M_use_ocean_nesting) ) )
+            if (!M_use_ocean_nesting)
             {
                 M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
                 M_external_data.push_back(&M_ocean_temp);
@@ -6690,7 +6686,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
                 time_init, vm["simul.spinup_duration"].as<double>());
             M_external_data.push_back(&M_ssh);
 
-            if ( (!M_use_nesting) || ( (M_use_nesting) && (!M_use_ocean_nesting) ) )
+            if (!M_use_ocean_nesting)
             {
                 M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
                 M_external_data.push_back(&M_ocean_temp);
