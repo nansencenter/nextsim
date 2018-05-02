@@ -369,7 +369,7 @@ private:
     bool M_regular           = false;
     bool M_initialised_ice   = false;
     bool M_initialised_waves = false;
-    bool M_assigned          = false;// if (false), need to call assignSpatial() inside setMesh()
+    bool M_assigned          = false;// if (false), need to call assignSpatial() inside setMesh2()
 
     int M_nb_export_nextwim = 0;
     int M_nb_export_inc     = 0;
