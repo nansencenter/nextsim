@@ -1942,10 +1942,16 @@ void WimDiscr<T>::run()
     // - incident wave spectrum set in here now
     // (or in setWaveFields)
     if (!M_initialised_ice)
+    {
+        std::cout<<"WIM: Calling idealIceFields()";
         this->idealIceFields(0.7);
+    }
 
     if (!M_initialised_waves)
+    {
+        std::cout<<"WIM: Calling idealWaveFields()";
         this->idealWaveFields(0.8);
+    }
     // ===================================================
 
 
@@ -2585,6 +2591,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type)
     std::string prefix = output_type;
     int step = 0;
 
+    //select output_type
     if ( output_type == "prog" )
     {
         prefix  = "wim_prog";
@@ -2660,7 +2667,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type)
 
         step = M_nb_export_nextwim;
         M_nb_export_nextwim++;
-    }
+    }//select output_type
 
     fs::path path(pathstr);
     if ( !fs::exists(path) )
@@ -2788,7 +2795,7 @@ void WimDiscr<T>::exportResultsMesh(T_map_vec_ptrs & extract_fields,
         throw std::runtime_error("Cannot write to file: " + fileout);
 
     //construct exporter
-    Nextsim::Exporter exporter(vm["setup.exporter_precision"].as<std::string>());
+    Nextsim::Exporter exporter(vm["output.exporter_precision"].as<std::string>());
     std::vector<double> timevec = {this->getNextsimTime()};
     exporter.writeField(outbin, timevec, "Time");
     exporter.writeField(outbin, M_mesh.M_surface, "Element_area");
@@ -2833,7 +2840,7 @@ void WimDiscr<T>::testMesh()
 template<typename T>
 void WimDiscr<T>::exportMesh(std::string const &filename)
 {
-    Nextsim::Exporter exporter(vm["setup.exporter_precision"].as<std::string>());
+    Nextsim::Exporter exporter(vm["output.exporter_precision"].as<std::string>());
     std::string fileout;
 
     fileout = filename+".bin";
