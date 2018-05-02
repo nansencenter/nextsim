@@ -237,8 +237,8 @@ void MeshInfo<T>::setFields(T_gmsh const &mesh_in)
     M_id            = mesh_in.id();
     M_nodes_x       = mesh_in.coordX();
     M_nodes_y       = mesh_in.coordY();
-    M_elements_x    = mesh_in.bcoordX();
-    M_elements_y    = mesh_in.bcoordY();
+    M_elements_x    = mesh_in.bCoordX();
+    M_elements_y    = mesh_in.bCoordY();
 }//setFields
 
 

@@ -420,8 +420,8 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
     //don't rotate yet since rotation angle not always defined yet
     auto RX_nod = M_mesh.coordX ();//nodes
     auto RY_nod = M_mesh.coordY ();
-    auto RX_el  = M_mesh.bcoordX();//elements
-    auto RY_el  = M_mesh.bcoordY();
+    auto RX_el  = M_mesh.bCoordX();//elements
+    auto RY_el  = M_mesh.bCoordY();
 
     for ( auto it = ext_data_vec.begin(); it != ext_data_vec.end(); ++it )
     {
@@ -1333,7 +1333,7 @@ FiniteElement::regrid(bool step)
                                     M_mesh_previous.numNodes(),M_mesh_previous.numTriangles(),
                                     &interp_elt_in[0],
                                     M_mesh_previous.numTriangles(),nb_var,
-                                    &M_mesh.bcoordX()[0],&M_mesh.bcoordY()[0],M_mesh.numTriangles(),
+                                    &M_mesh.bCoordX()[0],&M_mesh.bCoordY()[0],M_mesh.numTriangles(),
                                     false);
 #endif
 
@@ -7037,7 +7037,7 @@ FiniteElement::constantIce()
         std::cout<<"xmax="<<xmax<<"\n";
         std::cout<<"xedge="<<xedge<<"\n";
 
-        Bx = M_mesh.bcoordX();//set conc, etc on elements
+        Bx = M_mesh.bCoordX();//set conc, etc on elements
         for (int i=0; i<M_conc.size(); ++i)
         {
             if (Bx[i] < xedge)
@@ -7077,8 +7077,8 @@ FiniteElement::targetIce()
 
 	double tmp_var;
 
-    auto RX = M_mesh.bcoordX();
-    auto RY = M_mesh.bcoordY();
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
     double cmin= 0.;
             
     for (int i=0; i<M_num_elements; ++i)
