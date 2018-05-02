@@ -139,7 +139,6 @@ namespace Wim
 
             // [nextwim]
             // coupling of wim to nextsim
-
             ("nextwim.use_wim", po::value<bool>()->default_value( false ),
                 "use the WIM")
 
