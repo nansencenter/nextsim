@@ -5656,18 +5656,33 @@ FiniteElement::initMoorings()
             GridOutput::Variable delS(GridOutput::variableID::delS, data_elements, data_grid);
             elemental_variables.push_back(delS);
         }
-        else if ( *it == "conc_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        else if ( *it == "conc_thin" )
         {
+            if(M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
+            {
+                LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with thin ice\n";
+                continue;
+            }
             GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin, data_elements, data_grid);
             elemental_variables.push_back(conc_thin);
         }
-        else if ( *it == "h_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        else if ( *it == "h_thin" )
         {
+            if(M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
+            {
+                LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with thin ice\n";
+                continue;
+            }
             GridOutput::Variable h_thin(GridOutput::variableID::h_thin, data_elements, data_grid);
             elemental_variables.push_back(h_thin);
         }
-        else if ( *it == "hs_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        else if ( *it == "hs_thin" )
         {
+            if(M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
+            {
+                LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with thin ice\n";
+                continue;
+            }
             GridOutput::Variable hs_thin(GridOutput::variableID::hs_thin, data_elements, data_grid);
             elemental_variables.push_back(hs_thin);
         }
@@ -10148,12 +10163,16 @@ FiniteElement::writeLogFile()
                 try
                 {
                     std::vector<std::string> vect = vm[it->first].as<std::vector<std::string> >();
+                    if(vect.size()==0)
+                        //make sure we go to the next line if vector is empty
+                        logfile<<"\n";
+
                     uint i = 0;
-                    for (std::vector<std::string>::iterator oit=vect.begin(); oit != vect.end(); oit++, ++i)
+                    for (auto oit=vect.begin(); oit != vect.end(); oit++, ++i)
                     {
                         //logfile << it->first << "[" << i << "]=" << (*oit) <<"\n";
                         if (i > 0)
-                            logfile << std::setw(41) << std::right;
+                            logfile << std::setw(log_width) << std::right<<" ";
 
                         logfile << "[" << i << "]=" << (*oit) <<"\n";
                     }
