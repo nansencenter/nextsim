@@ -26,7 +26,7 @@ namespace Wim
 template<typename T>
 WimDiscr<T>::WimDiscr(po::variables_map const& vmIn,int const& nextsim_cpt)
 {
-    vm  = vmIn;
+    vm = vmIn;
     this->initConstant(nextsim_cpt);
 
     if(!M_wim_on_mesh)
@@ -44,12 +44,12 @@ WimDiscr<T>::WimDiscr(po::variables_map const& vmIn,int const& nextsim_cpt)
 template<typename T>
 WimDiscr<T>::WimDiscr(po::variables_map const& vmIn,T_gmsh const &mesh_in,int const& nextsim_cpt)
 {
-    vm  = vmIn;
+    vm = vmIn;
     this->initConstant(nextsim_cpt);
 
     // init grid FROM mesh
     T_mesh mesh(mesh_in);//tmp mesh object
-    M_grid  = T_grid(vm,mesh);
+    M_grid = T_grid(vm,mesh);
 
     this->initRemaining();
 }//WimDiscr()
@@ -1452,8 +1452,8 @@ template<typename T>
 void WimDiscr<T>::setIceFields(
                           std::vector<T_val> const& conc,  // conc
                           std::vector<T_val> const& vol,   // ice vol or effective thickness (conc*thickness)
-                          std::vector<T_val> const& nfloes,// Nfloes=conc/Dmax^2
-                          bool pre_regrid)
+                          std::vector<T_val> const& nfloes)// Nfloes=conc/Dmax^2
+                          //bool pre_regrid
 {
     if(M_time_mesh_set != M_current_time)
     {
@@ -1461,6 +1461,7 @@ void WimDiscr<T>::setIceFields(
         throw std::runtime_error("setIceFields: setting ice without setting mesh first");
     }
 
+#if 0
     // pre-regrid options:
     if(pre_regrid&&M_wim_on_mesh)
         //do nothing
@@ -1477,15 +1478,25 @@ void WimDiscr<T>::setIceFields(
     }
     // end of pre-regrid options
     // ================================================================
+#endif
 
     // ================================================================
     // post-regrid options:
     if (M_wim_on_mesh)
         // ice fields already where we need them,
         M_ice[IceType::wim].setFields(conc,vol,nfloes);
+#if 0
     else if (M_break_on_mesh)
         // if(M_break_on_mesh), ice fields already where we need them,
         M_ice[IceType::sim].setFields(conc,vol,nfloes);
+#else
+    else
+    {
+        M_ice[IceType::sim].setFields(conc,vol,nfloes);//set fields on mesh
+        this->interpIceMeshToGrid();//set fields on grid
+    }
+#endif
+
 
     // end of post-regrid options
     // ================================================================

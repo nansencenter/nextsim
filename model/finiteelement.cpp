@@ -4979,8 +4979,10 @@ FiniteElement::step(int &pcpt)
     if (M_use_wim)
     {
         M_run_wim = !(M_wim_steps_since_last_call % M_wim_cpl_freq);
+#if 0
         if (M_run_wim)
             this->wimCommPreRegrid();
+#endif
     }
 #endif
 
@@ -9628,6 +9630,7 @@ FiniteElement::wimPostRegrid()
     std::cout<<"leaving wimPostRegrid()\n";
 }//wimPostRegrid()
 
+#if 0
 void
 FiniteElement::wimCommPreRegrid()
 {
@@ -9656,6 +9659,7 @@ FiniteElement::wimCommPreRegrid()
     //interp here
     M_wim.setIceFields(ctot,vtot,M_nfloes,pre_regrid);
 }//wimCommPreRegrid
+#endif
 
 void
 FiniteElement::wimCheckWaves()
@@ -9744,12 +9748,9 @@ FiniteElement::wimCheckWaves()
     std::cout<<"max mwp (processed dataset) = "<< *std::max_element(mwp_in.begin(),mwp_in.end() )<<"\n";
     std::cout<<"min mwd (processed dataset) = "<< *std::min_element(mwd_in.begin(),mwd_in.end() )<<"\n";
     std::cout<<"max mwd (processed dataset) = "<< *std::max_element(mwd_in.begin(),mwd_in.end() )<<"\n";
-    std::cout<<"9364\n";
 #endif
 
-
     M_wim.setWaveFields(swh_in, mwp_in, mwd_in);
-    std::cout<<"9518\n";
 }//wimCheckWaves()
 
 
@@ -9842,7 +9843,7 @@ FiniteElement::wimCall()
 {
 
     std::cout<<"wimCall(): M_run_wim = "<<M_run_wim<<"\n";
-    bool pre_regrid = false;
+    //bool pre_regrid = false;
     auto movedmesh  = M_mesh;
     movedmesh.move(M_UM,1.);
 
@@ -9869,7 +9870,7 @@ FiniteElement::wimCall()
                     ctot[i] += M_conc_thin[i];
                     vtot[i] += M_h_thin[i];
                 }
-            M_wim.setIceFields(ctot,vtot,M_nfloes,pre_regrid);
+            M_wim.setIceFields(ctot,vtot,M_nfloes);//,pre_regrid);
         }
 
         bool TEST_INTERP_MESH = false;
