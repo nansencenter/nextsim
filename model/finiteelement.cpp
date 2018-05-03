@@ -4691,17 +4691,6 @@ FiniteElement::init()
     }
 
 
-#if defined (WAVES)
-    // initialize M_wim here to give access to WIM grid
-    // - before forcingWave() but after readRestart()
-    // - also after 1st regrid
-    if (M_use_wim)
-    {
-        LOG(DEBUG) <<"Initialize WIM\n";
-        this->initWim(pcpt);
-    }
-#endif
-
 
     LOG(DEBUG) <<"Initialize forcingAtmosphere\n";
     this->forcingAtmosphere();
@@ -4718,8 +4707,6 @@ FiniteElement::init()
 #if defined (WAVES)
     if (M_use_wim)
     {
-        LOG(DEBUG) <<"Initialize forcingWave\n";
-        this->forcingWave();
     }
 #endif
 
@@ -4747,8 +4734,20 @@ FiniteElement::init()
     }
 
 #if defined (WAVES)
+    // initialize M_wim here to give access to WIM grid
+    // - after ice is initialised
+    // - before forcingWave() but after readRestart()
+    // - also after 1st regrid
     if (M_use_wim)
+    {
+        LOG(DEBUG) <<"Initialize WIM\n";
+        this->initWim(pcpt);
+
+        LOG(DEBUG) <<"Initialize forcingWave\n";
+        this->forcingWave();
+
         this->initWimVariables();
+    }
 #endif
 
     // Open the output file for drifters
@@ -9788,9 +9787,11 @@ FiniteElement::initWim(int const pcpt)
         std::cout<<"ymax (WIM grid) = "<<ymax_wim<<"\n";
     }
     else
+    {
         // init WIM on mesh
-        // NB setMesh() is called before M_wim.run() and at regridding time
+        // NB setMesh2() is called before M_wim.run() and at regridding time
         M_wim = wim_type(vm,pcpt);
+    }
 
     //check if we want to export the Stokes drift
     M_export_wim_diags_mesh  = vm["nextwim.export_diags_mesh"].as<bool>();
