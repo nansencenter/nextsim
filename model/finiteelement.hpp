@@ -235,9 +235,10 @@ public:
     int readRestart(int step);
     int readRestart(std::string step);
 
+    void getTotalConcVol(std::vector<double> &ctot, std::vector<double> &vtot);
 #if defined (WAVES)
     void initWim(int const pcpt);
-    void initWimVariables(dbl_vec &ctot, dbl_vec &vtot);
+    void initWimVariables(dbl_vec const &ctot, dbl_vec const &vtot);
     void wimCommPreRegrid();
     void wimPreRegrid();
     void wimPostRegrid();

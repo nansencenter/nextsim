@@ -9895,15 +9895,6 @@ FiniteElement::wimCall()
             this->wimCheckWaves();
         }
 
-#if 0
-        bool TEST_INTERP_MESH = false;
-        //save mesh before entering WIM:
-        // mesh file can then be copied inside WIM to correct path to allow plotting
-        if (TEST_INTERP_MESH)
-            this->exportResults("test_interp_mesh",true,false);
-#endif
-
-
         std::cout<<"before M_wim.run()\n";
         M_wim.run();
 
@@ -9962,22 +9953,24 @@ FiniteElement::wimCall()
                 if(interp_taux)
                     ss.push_back("Stress_waves_ice");
 
-                M_wim_fields_nodes  = M_wim.returnFieldsNodes(ss,movedmesh);
+                M_wim_fields_nodes = M_wim.returnFieldsNodes(ss,movedmesh);
 
                 if(interp_taux)
                 {
-                    M_tau   = M_wim_fields_nodes["Stress_waves_ice"];
+                    M_tau = M_wim_fields_nodes["Stress_waves_ice"];
                     M_wim_fields_nodes.erase("Stress_waves_ice");
                 }
             }
             else if (interp_taux)
-                M_wim.returnWaveStress(M_tau);
+                M_tau = M_wim.returnWaveStress();
         }
     }
     else if(interp_taux)
-        M_wim.returnWaveStress(M_tau,movedmesh);
+        M_tau = M_wim.returnWaveStress(movedmesh);
 
-    if(M_run_wim&&(vm["nextwim.export_after_wim_call"].as<bool>()))
+    if(M_run_wim
+            && (vm["nextwim.export_after_wim_call"].as<bool>())
+            && M_export_wim_diags_mesh)
     {
         std::string tmp_string3
             = ( boost::format( "after_wim_call_%1%" ) % (M_wim_cpt-1) ).str();

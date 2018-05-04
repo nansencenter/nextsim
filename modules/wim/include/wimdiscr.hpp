@@ -207,10 +207,18 @@ public:
     T_map_vec returnFieldsNodes(std::vector<std::string> const&fields,
             T_gmsh const &mesh_in);
 
-    void returnWaveStress(T_val_vec &M_tau, T_val_vec &xnod, T_val_vec &ynod);
-    void returnWaveStress(T_val_vec &M_tau, T_gmsh const &mesh_in,T_val_vec const &um_in);
-    void returnWaveStress(T_val_vec &M_tau, T_gmsh const &mesh_in);
-    void returnWaveStress(T_val_vec &M_tau);
+    T_val_vec returnWaveStress(T_val_vec &xnod, T_val_vec &ynod);
+        //base interface - pass in the nodes for interpolation to these points
+    T_val_vec returnWaveStress(T_gmsh const &mesh_in,T_val_vec const &um_in);
+        //pass in the unmoved mesh, move it, then all the movedmesh interface
+    T_val_vec returnWaveStress(T_gmsh const &movedmesh);
+        //pass in the moved mesh, then get the nodes
+    T_val_vec returnWaveStress();
+        //if running on mesh, have stresses on elements: interp them to nodes
+
+    T_val_vec combineVectorComponents(T_val_vec const &vec_x, T_val_vec const &vec_y);
+        //combine x,y components of vector into one vector:
+        // {vec_x[0], ..., vec_x[N-1], vec_y[0], ..., vec_y[N-1]}
     // ========================================================================
 
 

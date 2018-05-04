@@ -1616,17 +1616,9 @@ WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const &fields,
     for (auto it = output_nodes.begin(); it != output_nodes.end(); it++)
     {
         if(it->first=="Stress_waves_ice")
-            for (int i=0;i<Nnod;i++)
-            {
-                (it->second)[i]         = tx_out[i];
-                (it->second)[i+Nnod]    = ty_out[i];
-            }
+            it->second = this->combineVectorComponents(tx_out,ty_out);
         else if(it->first=="Stokes_drift")
-            for (int i=0;i<Nnod;i++)
-            {
-                (it->second)[i]         = sdfx_out[i];
-                (it->second)[i+Nnod]    = sdfy_out[i];
-            }
+            it->second = this->combineVectorComponents(sdfx_out,sdfy_out);
     }
     // ==========================================================================================
 
@@ -1708,27 +1700,32 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
 
 
 template<typename T>
-void WimDiscr<T>::returnWaveStress(T_val_vec &M_tau,T_gmsh const &mesh_in,T_val_vec const &um_in)
+typename WimDiscr<T>::T_val_vec
+WimDiscr<T>::returnWaveStress(T_gmsh const &mesh_in, T_val_vec const &um_in)
 {
+    //pass in the unmoved mesh, move it, then all the movedmesh interface
     auto movedmesh  = mesh_in;
     movedmesh.move(um_in,1.);
-    this->returnWaveStress(M_tau,movedmesh);
+    return this->returnWaveStress(movedmesh);
 }
 
 
 template<typename T>
-void WimDiscr<T>::returnWaveStress(T_val_vec &M_tau,T_gmsh const &movedmesh)
+typename WimDiscr<T>::T_val_vec
+WimDiscr<T>::returnWaveStress(T_gmsh const &movedmesh)
 {
+    //pass in the moved mesh, then get the nodes
     auto xnod = movedmesh.coordX();
     auto ynod = movedmesh.coordY();
-    this->returnWaveStress(M_tau,xnod,ynod);
+    return this->returnWaveStress(xnod,ynod);
 }
 
 
 template<typename T>
-void WimDiscr<T>::returnWaveStress(T_val_vec &M_tau,T_val_vec &xnod,T_val_vec &ynod)
+typename WimDiscr<T>::T_val_vec
+WimDiscr<T>::returnWaveStress(T_val_vec &xnod, T_val_vec &ynod)
 {
-    //return wave stress on nodes of nextsim mesh
+    //base interface: pass in the nodes of nextsim mesh and interp the wave stress there
 
     int Nnod = xnod.size();
 
@@ -1743,24 +1740,44 @@ void WimDiscr<T>::returnWaveStress(T_val_vec &M_tau,T_val_vec &xnod,T_val_vec &y
     else
         throw std::runtime_error("returnWaveStress: using wrong interface for M_wim_on_mesh");
 
-    M_tau.resize(2*Nnod,0.);
-    for (int i=0;i<Nnod;i++)
-    {
-        M_tau[i]        = tx_out[i];
-        M_tau[i+Nnod]   = ty_out[i];
-    }
+    //finally set tau
+    return this->combineVectorComponents(tx_out,ty_out);
 
 }//returnWaveStress
 
 
 template<typename T>
-void WimDiscr<T>::returnWaveStress(T_val_vec &M_tau)
+typename WimDiscr<T>::T_val_vec
+WimDiscr<T>::returnWaveStress()
 {
     //nodes - vectors
     T_val_vec tx_out,ty_out;
     T_val_vec_ptrs input_nodes = {&M_tau_x,&M_tau_y};
     T_val_vec_ptrs out_nodes   = {&tx_out,&ty_out};
     M_mesh.elementsToNodes(out_nodes,input_nodes);
+
+    //finally set tau
+    return this->combineVectorComponents(tx_out,ty_out);
+}
+
+template<typename T>
+typename WimDiscr<T>::T_val_vec
+WimDiscr<T>::combineVectorComponents(T_val_vec const& vec_x, T_val_vec const& vec_y)
+{
+    //combine x,y components of vector into one vector:
+    // {vec_x[0], ..., vec_x[N-1], vec_y[0], ..., vec_y[N-1]}
+    int Nnod = vec_x.size();
+    if(vec_y.size()!=Nnod)
+        throw std::runtime_error(
+                "combineVectorComponents: vec_x and vec_y must be the same size\n");
+
+    T_val_vec vec(2*Nnod);
+    for (int i=0; i<Nnod; i++)
+    {
+        vec[i]      = vec_x[i];
+        vec[i+Nnod] = vec_y[i];
+    }
+    return vec;
 }
 
 
