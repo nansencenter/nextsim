@@ -9576,6 +9576,22 @@ FiniteElement::exportResults(std::vector<std::string> const &filenames, bool exp
 }// exportResults()
 
 
+void
+FiniteElement::getTotalConcVol(std::vector<double> &ctot, std::vector<double> &vtot)
+{
+    //get total conc and volume
+    ctot = M_conc; //total ice conc
+    vtot = M_thick;//total ice vol
+    if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+        for (int i=0;i<ctot.size();i++)
+        {
+            //add thin ice
+            ctot[i] += M_conc_thin[i];
+            vtot[i] += M_h_thin[i];
+        }
+}//getTotalConcVol
+
+
 #if defined (WAVES)
 void
 FiniteElement::wimPreRegrid()
@@ -9624,36 +9640,6 @@ FiniteElement::wimPostRegrid()
     std::cout<<"leaving wimPostRegrid()\n";
 }//wimPostRegrid()
 
-#if 0
-void
-FiniteElement::wimCommPreRegrid()
-{
-
-    if (M_wave_mode==setup::WaveMode::RUN_ON_MESH)
-        //nothing to do
-        return;
-
-    bool pre_regrid = true;
-
-    // ============================================================
-    // set mesh and ice fields on grid
-    // - better to do this before regridding
-    // so don't interp mesh->mesh->grid)
-    M_wim.setMesh(M_mesh,M_UM);
-    auto ctot   = M_conc; //total ice conc
-    auto vtot   = M_thick;//total ice vol
-    if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
-        for (int i=0;i<ctot.size();i++)
-        {
-            //add thin ice
-            ctot[i] += M_conc_thin[i];
-            vtot[i] += M_h_thin[i];
-        }
-
-    //interp here
-    M_wim.setIceFields(ctot,vtot,M_nfloes,pre_regrid);
-}//wimCommPreRegrid
-#endif
 
 void
 FiniteElement::wimCheckWaves()
@@ -9796,9 +9782,12 @@ FiniteElement::initWim(int const pcpt)
         M_wim.setMesh2(movedmesh,bamgmesh,M_flag_fix);
     }
 
-    // init Dfloe etc and get ctot, vtot
+    // get ctot, vtot
+    std::vector<double> ctot, vtot;//calculated in getTotalConcVol()
+    this->getTotalConcVol(ctot,vtot);
+
+    // init Dfloe etc
     // TODO would change if starting from restart 
-    std::vector<double> ctot, vtot;//calculated in initWimVariables()
     this->initWimVariables(ctot,vtot);
 
     //set the ice fields inside the WIM
@@ -9833,8 +9822,9 @@ FiniteElement::initWim(int const pcpt)
         throw runtime_error("nextwim.couplingfreq should be >0\n");
 }//initWim
 
+
 void
-FiniteElement::initWimVariables(std::vector<double> &ctot, std::vector<double> &vtot)
+FiniteElement::initWimVariables(std::vector<double> const &ctot, std::vector<double> const &vtot)
 {
     std::cout<<"start initWimVariables()\n";
 
@@ -9844,20 +9834,13 @@ FiniteElement::initWimVariables(std::vector<double> &ctot, std::vector<double> &
     // - NB need M_conc
     M_nfloes.assign(M_num_elements,0.);
     M_dfloe.assign(M_num_elements,0.);
-    ctot.assign(M_num_elements,0.);
-    vtot.assign(M_num_elements,0.);
+    if(ctot.size()!=M_num_elements)
+        throw std::runtime_error("initWimVariables: ctot has wrong size\n");
+    if(vtot.size()!=M_num_elements)
+        throw std::runtime_error("initWimVariables: vtot has wrong size\n");
 
     for (int i=0; i<M_num_elements; ++i)
     {
-        ctot[i] = M_conc[i];
-        vtot[i] = M_thick[i];
-        if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
-        {
-            //add thin ice
-            ctot[i] += M_conc_thin[i];
-            vtot[i] += M_h_thin[i];
-        }
-
         if (ctot[i]>=vm["wim.cicemin"].as<double>())
         {
             M_dfloe[i]  = vm["wim.dfloepackinit"].as<double>();
@@ -9898,15 +9881,8 @@ FiniteElement::wimCall()
         }
 
         //get total conc and volume
-        auto ctot   = M_conc; //total ice conc
-        auto vtot   = M_thick;//total ice vol
-        if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
-            for (int i=0;i<ctot.size();i++)
-            {
-                //add thin ice
-                ctot[i] += M_conc_thin[i];
-                vtot[i] += M_h_thin[i];
-            }
+        std::vector<double> ctot, vtot;//calculated in getTotalConcVol()
+        this->getTotalConcVol(ctot,vtot);
 
         if (M_wim_cpt>0)
         {
