@@ -2838,12 +2838,12 @@ FiniteElement::assemble(int pcpt)
         
         std::cout<<"---------------------- TIME STEP "<< pcpt << " : "
                  << Nextsim::model_time_str(vm["simul.time_init"].as<std::string>(), pcpt*time_step);
-        throw std::runtime_error("inf in the solution, results outputed with output name inf");
+        throw std::runtime_error("inf in the solution, results output to [field,mesh]_inf.[bin,dat]");
     }
 
     //M_matrix->printMatlab("stiffness.m");
     //M_vector->printMatlab("rhs.m");
-}
+}//assemble
 
 void
 FiniteElement::tensors()
@@ -4967,18 +4967,6 @@ FiniteElement::initOASIS()
 void
 FiniteElement::step(int &pcpt)
 {
-#if defined (WAVES)
-    // coupling with wim
-    // 1. exchange from nextsim to wim
-    if (M_use_wim)
-    {
-        M_run_wim = !(M_wim_steps_since_last_call % M_wim_cpl_freq);
-#if 0
-        if (M_run_wim)
-            this->wimCommPreRegrid();
-#endif
-    }
-#endif
 
     // Update the drifters position twice a day, important to keep the same frequency as the IABP data, for the moment
     if( pcpt==0 || std::fmod(M_current_time,0.5)==0 )
@@ -5080,7 +5068,8 @@ FiniteElement::step(int &pcpt)
 		    M_UT[i] = 0.;
 		    M_UT[i+M_num_nodes] = 0.;
 	    }
-    }
+    }//IABP drifters
+
     if(pcpt>0)
     {
         if ( M_use_equallyspaced_drifters && fmod(M_current_time,M_equallyspaced_drifters_output_time_step) == 0 )
@@ -5098,7 +5087,7 @@ FiniteElement::step(int &pcpt)
                 if ( M_rgps_drifters.isInitialised() )
                     M_rgps_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
         }
-    }
+    }//equally-spaced/RGPS drifters
      
     if ( M_use_osisaf_drifters && fmod(M_current_time+0.5,1.) == 0 )
     {
@@ -5131,14 +5120,20 @@ FiniteElement::step(int &pcpt)
         M_osisaf_drifters[0].initNetCDF(osi_output_path, M_current_time);
         M_osisaf_drifters[0].appendNetCDF(M_current_time, M_mesh, M_UT);
     }
-#if 1
+
     if (pcpt == 0)
     { 
-        // Write results/restart before regrid - useful for debugging
-        // NB this only helps if starting from a restart,
-        // otherwise regridding has already happened in init(),
-        // so won't happen this time step
-        // TODO just write restart in init() as well?
+        //write initial conditions to moorings file if using snapshot
+        if ( M_use_moorings && M_moorings_snapshot )
+        {
+            this->updateMeans(M_moorings, 1.);
+            M_moorings.updateGridMean(M_mesh);
+            M_moorings.appendNetCDF(M_moorings_file, M_current_time);
+            M_moorings.resetMeshMean(M_mesh);
+            M_moorings.resetGridMean();
+        }
+
+        // Write results before regrid - useful for debugging
         chrono.restart();
         LOG(DEBUG) <<"first export starts\n";
         if (vm["output.datetime_in_filename"].as<bool>())
@@ -5148,10 +5143,10 @@ FiniteElement::step(int &pcpt)
             int ostep = 0;//need to declare as an int, to make sure it's not interpreted as a double
             this->exportResults(ostep);
         }
-        // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
         LOG(DEBUG) <<"first export done in " << chrono.elapsed() <<"s\n";
+
+        // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
     }
-#endif
 
 
     // remeshing and remapping of the prognostic variables
@@ -5329,7 +5324,6 @@ FiniteElement::step(int &pcpt)
     ++pcpt;
     M_current_time = time_init + pcpt*time_step/(24*3600.0);
 
-#if 1
     if(fmod(pcpt*time_step,output_time_step) == 0)
     {
         chrono.restart();
@@ -5346,7 +5340,7 @@ FiniteElement::step(int &pcpt)
 
     if ( M_use_moorings )
     {
-        // If we're taking snapshots the we only call updateMeans before writing to file
+        // If we're taking snapshots then we only call updateMeans before writing to file
         if ( ! M_moorings_snapshot )
             this->updateMeans(M_moorings, mooring_time_factor);
 
@@ -5357,9 +5351,11 @@ FiniteElement::step(int &pcpt)
             {
                 // Update the snapshot
                 this->updateMeans(M_moorings, 1.);
-                // shift the timestamp in the file to the centre of the output interval
                 output_time = M_current_time;
-            } else {
+            }
+            else
+            {
+                // shift the timestamp in the file to the centre of the output interval
                 output_time = M_current_time - mooring_output_time_step/86400/2;
             }
 
@@ -5388,9 +5384,7 @@ FiniteElement::step(int &pcpt)
             }
 
             M_moorings.updateGridMean(M_mesh);
-
             M_moorings.appendNetCDF(M_moorings_file, output_time);
-
             M_moorings.resetMeshMean(M_mesh);
             M_moorings.resetGridMean();
         }
@@ -5415,36 +5409,32 @@ FiniteElement::step(int &pcpt)
 #endif
 
 
-#endif
-
-#ifdef DEBUGGING
-    if(vm["restart.debugging"].as<bool>())
-        //write restart every timestep
-        if (vm["output.datetime_in_filename"].as<bool>())
-            this->writeRestart(pcpt, M_current_time);
-        else
-            this->writeRestart(pcpt, pcpt);
-#else
-    if ( fmod(pcpt*time_step,restart_time_step) == 0)
+    if(vm["restart.write_restart"].as<bool>())
     {
-        std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
-        if (vm["output.datetime_in_filename"].as<bool>())
-            this->writeRestart(pcpt, M_current_time);
-        else
+        if(vm["restart.debugging"].as<bool>())
+            //write restart every timestep
+            if (vm["output.datetime_in_filename"].as<bool>())
+                this->writeRestart(pcpt, M_current_time);
+            else
+                this->writeRestart(pcpt, pcpt);
+        else if ( fmod(pcpt*time_step,restart_time_step) == 0)
         {
-            int rstep = pcpt*time_step/restart_time_step;//need to declare as an int, to make sure it's not interpreted as a double
-            this->writeRestart(pcpt, rstep );
+            std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
+            if (vm["output.datetime_in_filename"].as<bool>())
+                this->writeRestart(pcpt, M_current_time);
+            else
+            {
+                int rstep = pcpt*time_step/restart_time_step;//need to declare as an int, to make sure it's not interpreted as a double
+                this->writeRestart(pcpt, rstep );
+            }
         }
-    }
-#endif
+    }//write restart
 
 
 #if defined (WAVES)
     if(M_use_wim)
-    {
-        // increment counter
+        // increment wim counter
         M_wim_steps_since_last_call++;
-    }
 #endif
 }//step
 
@@ -9463,7 +9453,8 @@ FiniteElement::exportResults(std::vector<std::string> const &filenames, bool exp
             exporter.writeField(outbin, M_nfloes, "Nfloes");
             exporter.writeField(outbin, M_dfloe, "Dfloe");
 
-            if (M_wim_cpt>0)
+            //if (M_wim_cpt>0)
+            if (1)
             {
                 //currently export crashes if WIM hasn't been called yet
                 // TODO separate wim export
@@ -9858,6 +9849,8 @@ void
 FiniteElement::wimCall()
 {
 
+    M_run_wim = !(M_wim_steps_since_last_call % M_wim_cpl_freq);
+
     std::cout<<"wimCall(): M_run_wim = "<<M_run_wim<<"\n";
     //bool pre_regrid = false;
     auto movedmesh  = M_mesh;
@@ -9865,7 +9858,7 @@ FiniteElement::wimCall()
 
     if (M_run_wim)
     {
-        // run wim
+        // pass in the nextsim mesh
         if ((M_wim_cpt>0)||(!M_regrid))
         {
             //if we have just initialised or remeshed,
@@ -9884,6 +9877,7 @@ FiniteElement::wimCall()
         std::vector<double> ctot, vtot;//calculated in getTotalConcVol()
         this->getTotalConcVol(ctot,vtot);
 
+        // set the ice and wave fields
         if (M_wim_cpt>0)
         {
             //if we have just initialised, we already have the ice and incident wave fields
@@ -9895,10 +9889,11 @@ FiniteElement::wimCall()
             this->wimCheckWaves();
         }
 
+        //run the wim
         std::cout<<"before M_wim.run()\n";
         M_wim.run();
 
-        //FSD info
+        //get FSD info
         std::vector<double> broken;
         if ( (M_wave_mode==setup::WaveMode::BREAK_ON_MESH) ||
              (M_wave_mode==setup::WaveMode::RUN_ON_MESH) )
@@ -9916,10 +9911,9 @@ FiniteElement::wimCall()
         LOG(DEBUG)<<"max broken on mesh = "<< *std::max_element(broken.begin(),broken.end() )<<"\n";
 #endif
 
+        //damage the ice if broken
         if ( vm["nextwim.wim_damage_mesh"].template as<bool>() )
         {
-            //M_wim.clearMeshFields();
-
             for (int i=1;i<M_num_elements;i++)
             {
                 if (broken[i])
@@ -9927,7 +9921,7 @@ FiniteElement::wimCall()
                        (vm["nextwim.wim_damage_value"].template as<double>()));
                 //std::cout<<"broken?,damage"<<M_broken[i]<<","<<M_damage[i]<<"\n";
             }
-        }//damage the ice if broken
+        }
 
         //reset counter
         M_wim_steps_since_last_call = 0;
@@ -9936,6 +9930,7 @@ FiniteElement::wimCall()
         M_wim_cpt++;
     }//run WIM
 
+    // wave stress
     bool interp_taux = vm["nextwim.applywavestress"].as<bool>();
     if(!interp_taux)
         M_tau.assign(2*M_num_nodes,0.);
