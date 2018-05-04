@@ -5139,8 +5139,10 @@ FiniteElement::step(int &pcpt)
         this->exportResults(0);
         LOG(DEBUG) <<"first export done in " << chrono.elapsed() <<"s\n";
 
-        //write a restart
-        this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging (eg to see the assimilation)
+        // write a restart before regrid
+        // - useful for debugging (eg to see the assimilation)
+        if(vm["restart.write_restart"].as<bool>())
+            this->writeRestart(pcpt, 0);
     }
 
 
@@ -5163,7 +5165,6 @@ FiniteElement::step(int &pcpt)
         {
             M_regrid = true;
 
-            // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
             if ( M_use_moorings && ! M_moorings_snapshot )
                 M_moorings.updateGridMean(M_mesh);
 
