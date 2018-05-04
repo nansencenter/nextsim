@@ -237,7 +237,7 @@ public:
 
 #if defined (WAVES)
     void initWim(int const pcpt);
-    void initWimVariables();
+    void initWimVariables(dbl_vec &ctot, dbl_vec &vtot);
     void wimCommPreRegrid();
     void wimPreRegrid();
     void wimPostRegrid();

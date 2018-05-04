@@ -4742,11 +4742,6 @@ FiniteElement::init()
     {
         LOG(DEBUG) <<"Initialize WIM\n";
         this->initWim(pcpt);
-
-        LOG(DEBUG) <<"Initialize forcingWave\n";
-        this->forcingWave();
-
-        this->initWimVariables();
     }
 #endif
 
@@ -9758,6 +9753,9 @@ FiniteElement::initWim(int const pcpt)
 {
     // initialization of M_wim
     // - need pcpt to get correct initial start time if restarting
+
+    auto movedmesh = M_mesh;
+    movedmesh.move(M_UM,1.);
     if(!(M_wave_mode==setup::WaveMode::RUN_ON_MESH))
     {
         // - initialise grid using mesh if no gridfilename is present
@@ -9767,7 +9765,7 @@ FiniteElement::initWim(int const pcpt)
             M_wim = wim_type(vm,pcpt);
         else
             //init grid from mesh
-            M_wim = wim_type(vm,M_mesh,pcpt);
+            M_wim = wim_type(vm,movedmesh,pcpt);
 
         // get M_wim grid
         std::cout<<"Getting WIM grid info\n";
@@ -9785,16 +9783,45 @@ FiniteElement::initWim(int const pcpt)
         std::cout<<"xmax (WIM grid) = "<<xmax_wim<<"\n";
         std::cout<<"ymin (WIM grid) = "<<ymin_wim<<"\n";
         std::cout<<"ymax (WIM grid) = "<<ymax_wim<<"\n";
+
+        //set mesh in order to set ice fields
+        M_wim.setMesh(movedmesh);
     }
     else
     {
         // init WIM on mesh
-        // NB setMesh2() is called before M_wim.run() and at regridding time
         M_wim = wim_type(vm,pcpt);
+
+        //set mesh in order to set ice fields
+        M_wim.setMesh2(movedmesh,bamgmesh,M_flag_fix);
+    }
+
+    // init Dfloe etc and get ctot, vtot
+    // TODO would change if starting from restart 
+    std::vector<double> ctot, vtot;//calculated in initWimVariables()
+    this->initWimVariables(ctot,vtot);
+
+    //set the ice fields inside the WIM
+    M_wim.setIceFields(ctot,vtot,M_nfloes);
+
+    //init external_data_waves (wave forcing)
+    LOG(DEBUG) <<"Initialize forcingWave\n";
+    this->forcingWave();
+
+    // set the initial waves
+    if (M_wave_type==setup::WaveType::SET_IN_WIM)
+    {
+        LOG(DEBUG)<<"initWim: calling setIdealWaveFields()\n";
+        M_wim.idealWaveFields();
+    }
+    else
+    {
+        LOG(DEBUG)<<"initWim: loading wave forcing\n";
+        this->wimCheckWaves();
     }
 
     //check if we want to export the Stokes drift
-    M_export_wim_diags_mesh  = vm["nextwim.export_diags_mesh"].as<bool>();
+    M_export_wim_diags_mesh = vm["nextwim.export_diags_mesh"].as<bool>();
 
     // init counters to 0
     M_wim_cpt                   = 0;// number of times WIM has been called
@@ -9807,10 +9834,9 @@ FiniteElement::initWim(int const pcpt)
 }//initWim
 
 void
-FiniteElement::initWimVariables()
+FiniteElement::initWimVariables(std::vector<double> &ctot, std::vector<double> &vtot)
 {
     std::cout<<"start initWimVariables()\n";
-
 
     // ==============================================================
     // WIM variables on the mesh
@@ -9818,18 +9844,24 @@ FiniteElement::initWimVariables()
     // - NB need M_conc
     M_nfloes.assign(M_num_elements,0.);
     M_dfloe.assign(M_num_elements,0.);
+    ctot.assign(M_num_elements,0.);
+    vtot.assign(M_num_elements,0.);
 
     for (int i=0; i<M_num_elements; ++i)
     {
-        double ctot = M_conc[i];
+        ctot[i] = M_conc[i];
+        vtot[i] = M_thick[i];
         if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+        {
             //add thin ice
-            ctot += M_conc_thin[i];
+            ctot[i] += M_conc_thin[i];
+            vtot[i] += M_h_thin[i];
+        }
 
-        if (ctot>=vm["wim.cicemin"].as<double>())
+        if (ctot[i]>=vm["wim.cicemin"].as<double>())
         {
             M_dfloe[i]  = vm["wim.dfloepackinit"].as<double>();
-            M_nfloes[i] = M_wim.dfloeToNfloes(M_dfloe[i],ctot);
+            M_nfloes[i] = M_wim.dfloeToNfloes(M_dfloe[i],ctot[i]);
         }
     }
     std::cout<<"init dfloe in pack = "<<vm["wim.dfloepackinit"].as<double>()<<"\n";
@@ -9851,37 +9883,50 @@ FiniteElement::wimCall()
     if (M_run_wim)
     {
         // run wim
-        auto ctot   = M_conc; //total ice conc
-        auto vtot   = M_thick;//total ice vol
-        if ( (M_wave_mode==setup::WaveMode::BREAK_ON_MESH) ||
-             (M_wave_mode==setup::WaveMode::RUN_ON_MESH) )
+        if ((M_wim_cpt>0)||(!M_regrid))
         {
+            //if we have just initialised or remeshed,
+            //we don't need to pass in the mesh
+
             //give moved mesh to WIM
-            if(M_wave_mode==setup::WaveMode::BREAK_ON_MESH)
-                M_wim.setMesh(movedmesh);
-            else if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
+            if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
                 //NB setMesh() already called in init
                 M_wim.setMesh2(movedmesh,bamgmesh,M_flag_fix);
+            else
+                M_wim.setMesh(movedmesh);
 
-            //set ice fields on mesh
-            if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
-                for (int i=0;i<ctot.size();i++)
-                {
-                    //add thin ice
-                    ctot[i] += M_conc_thin[i];
-                    vtot[i] += M_h_thin[i];
-                }
-            M_wim.setIceFields(ctot,vtot,M_nfloes);//,pre_regrid);
         }
 
+        //get total conc and volume
+        auto ctot   = M_conc; //total ice conc
+        auto vtot   = M_thick;//total ice vol
+        if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+            for (int i=0;i<ctot.size();i++)
+            {
+                //add thin ice
+                ctot[i] += M_conc_thin[i];
+                vtot[i] += M_h_thin[i];
+            }
+
+        if (M_wim_cpt>0)
+        {
+            //if we have just initialised, we already have the ice and incident wave fields
+
+            //set ice fields on mesh
+            M_wim.setIceFields(ctot,vtot,M_nfloes);
+
+            LOG(DEBUG)<<"wimCall: check wave forcing and set waves\n";
+            this->wimCheckWaves();
+        }
+
+#if 0
         bool TEST_INTERP_MESH = false;
         //save mesh before entering WIM:
         // mesh file can then be copied inside WIM to correct path to allow plotting
         if (TEST_INTERP_MESH)
             this->exportResults("test_interp_mesh",true,false);
+#endif
 
-        LOG(DEBUG)<<"wimCall (check wave forcing)\n";
-        this->wimCheckWaves();
 
         std::cout<<"before M_wim.run()\n";
         M_wim.run();
@@ -9915,7 +9960,7 @@ FiniteElement::wimCall()
                        (vm["nextwim.wim_damage_value"].template as<double>()));
                 //std::cout<<"broken?,damage"<<M_broken[i]<<","<<M_damage[i]<<"\n";
             }
-        }//break on mesh
+        }//damage the ice if broken
 
         //reset counter
         M_wim_steps_since_last_call = 0;

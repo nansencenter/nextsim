@@ -1453,35 +1453,16 @@ void WimDiscr<T>::setIceFields(
                           std::vector<T_val> const& conc,  // conc
                           std::vector<T_val> const& vol,   // ice vol or effective thickness (conc*thickness)
                           std::vector<T_val> const& nfloes)// Nfloes=conc/Dmax^2
-                          //bool pre_regrid
 {
+    M_initialised_ice = true;
+
     if(M_time_mesh_set != M_current_time)
     {
         std::cout<<"M_time_mesh_set,M_current_time = "<<M_time_mesh_set<<","<<M_current_time<<"\n";
         throw std::runtime_error("setIceFields: setting ice without setting mesh first");
     }
 
-#if 0
-    // pre-regrid options:
-    if(pre_regrid&&M_wim_on_mesh)
-        //do nothing
-        return;
-
-    //if here, not (M_wim_on_mesh && pre_regrid)
-    M_initialised_ice = true;
-    if (pre_regrid)//not M_wim_on_mesh
-    {
-        //interp from mesh to grid
-        M_ice[IceType::sim].setFields(conc,vol,nfloes);
-        this->interpIceMeshToGrid();
-        return;
-    }
-    // end of pre-regrid options
-    // ================================================================
-#endif
-
-    // ================================================================
-    // post-regrid options:
+    // now only called after regridding
     if (M_wim_on_mesh)
         // ice fields already where we need them,
         M_ice[IceType::wim].setFields(conc,vol,nfloes);
@@ -1496,10 +1477,6 @@ void WimDiscr<T>::setIceFields(
         this->interpIceMeshToGrid();//set fields on grid
     }
 #endif
-
-
-    // end of post-regrid options
-    // ================================================================
 
 }//setIceFields()
 

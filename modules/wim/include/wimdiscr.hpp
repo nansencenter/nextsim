@@ -175,7 +175,7 @@ public:
 
     // ==============================================================================
     // set ice
-    void idealIceFields (T_val const xfac);
+    void idealIceFields (T_val const xfac=0.7);
     void setIceFields( std::vector<T_val> const& conc,  // conc
                        std::vector<T_val> const& vol, // ice vol or effective thickness (conc*thickness)
                        std::vector<T_val> const& nfloes);// Nfloes=conc/Dmax^2
@@ -183,7 +183,7 @@ public:
     void clearMeshFields() { M_ice[IceType::sim].clearFields(); }
 
     // set waves
-    void idealWaveFields(T_val const xfac);
+    void idealWaveFields(T_val const xfac=0.8);
     void setWaveFields(T_val_vec const& swh_in,
             T_val_vec const& mwp_in,
             T_val_vec const& mwd_in);
