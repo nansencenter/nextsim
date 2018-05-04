@@ -42,7 +42,7 @@ WimDiscr<T>::WimDiscr(po::variables_map const& vmIn,int const& nextsim_cpt)
 
 
 template<typename T>
-WimDiscr<T>::WimDiscr(po::variables_map const& vmIn,T_gmsh const &mesh_in,int const& nextsim_cpt)
+WimDiscr<T>::WimDiscr(po::variables_map const& vmIn, T_gmsh const &mesh_in, int const& nextsim_cpt)
 {
     vm = vmIn;
     this->initConstant(nextsim_cpt);
