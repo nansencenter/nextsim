@@ -9732,7 +9732,7 @@ FiniteElement::initWim(int const pcpt)
         std::cout<<"ymax (WIM grid) = "<<ymax_wim<<"\n";
 
         //set mesh in order to set ice fields
-        M_wim.setMesh(movedmesh);
+        M_wim.setMeshSimple(movedmesh);
     }
     else
     {
@@ -9836,10 +9836,10 @@ FiniteElement::wimCall()
 
             //give moved mesh to WIM
             if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
-                //NB setMesh() already called in init
+                //NB setMeshSimple() already called in init
                 M_wim.setMeshFull(movedmesh,bamgmesh,M_flag_fix);
             else
-                M_wim.setMesh(movedmesh);
+                M_wim.setMeshSimple(movedmesh);
 
         }
 

@@ -136,8 +136,8 @@ public:
 
     // wim on its own grid
     // - need mesh for interpolation etc
-    void setMesh( T_gmsh const &mesh);
-    void setMesh( T_gmsh const &mesh,
+    void setMeshSimple( T_gmsh const &mesh);
+    void setMeshSimple( T_gmsh const &mesh,
             T_val_vec const &um);
 
     // wim on nextsim mesh

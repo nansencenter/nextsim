@@ -1210,7 +1210,7 @@ void WimDiscr<T>::timeStep()
 
 
 template<typename T>
-void WimDiscr<T>::setMesh(T_gmsh const &movedmesh)
+void WimDiscr<T>::setMeshSimple(T_gmsh const &movedmesh)
 {
     M_time_mesh_set = M_update_time;//used in check when ice fields are set on mesh
     M_mesh_old      = M_mesh;
@@ -1221,11 +1221,11 @@ void WimDiscr<T>::setMesh(T_gmsh const &movedmesh)
 
 
 template<typename T>
-void WimDiscr<T>::setMesh(T_gmsh const &mesh_in,T_val_vec const &um_in)
+void WimDiscr<T>::setMeshSimple(T_gmsh const &mesh_in,T_val_vec const &um_in)
 {
     auto movedmesh = mesh_in;
     movedmesh.move(um_in,1.);
-    this->setMesh(movedmesh);
+    this->setMeshSimple(movedmesh);
 }//setMesh
 
 
