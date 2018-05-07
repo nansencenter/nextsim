@@ -9590,7 +9590,7 @@ FiniteElement::wimPostRegrid()
     M_wim.setRelativeMeshDisplacement(M_wim_meshdisp);
 
     //M_wim.nextsim_mesh
-    M_wim.setMesh2(M_mesh,M_UM,bamgmesh,M_flag_fix,true);//true means M_wim.assignSpatial() is called here
+    M_wim.setMeshFull(M_mesh,M_UM,bamgmesh,M_flag_fix,true);//true means M_wim.assignSpatial() is called here
 
     // pass back interpolated wave spectrum to new elements;
     // interpolation scheme interp2cavities is conservative
@@ -9740,7 +9740,7 @@ FiniteElement::initWim(int const pcpt)
         M_wim = wim_type(vm,pcpt);
 
         //set mesh in order to set ice fields
-        M_wim.setMesh2(movedmesh,bamgmesh,M_flag_fix);
+        M_wim.setMeshFull(movedmesh,bamgmesh,M_flag_fix);
     }
 
     // get ctot, vtot
@@ -9837,7 +9837,7 @@ FiniteElement::wimCall()
             //give moved mesh to WIM
             if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
                 //NB setMesh() already called in init
-                M_wim.setMesh2(movedmesh,bamgmesh,M_flag_fix);
+                M_wim.setMeshFull(movedmesh,bamgmesh,M_flag_fix);
             else
                 M_wim.setMesh(movedmesh);
 

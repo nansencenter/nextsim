@@ -32,7 +32,7 @@ WimDiscr<T>::WimDiscr(po::variables_map const& vmIn,int const& nextsim_cpt)
     if(!M_wim_on_mesh)
     {
         // wim grid generation/reading
-        // NB if M_wim_on_mesh, setMesh2 before wim.run() and at regridding
+        // NB if M_wim_on_mesh, setMeshFull before wim.run() and at regridding
         // time
         M_grid = T_grid(vm);
     }
@@ -1230,18 +1230,18 @@ void WimDiscr<T>::setMesh(T_gmsh const &mesh_in,T_val_vec const &um_in)
 
 
 template<typename T>
-void WimDiscr<T>::setMesh2(T_gmsh const &mesh_in,
+void WimDiscr<T>::setMeshFull(T_gmsh const &mesh_in,
         T_val_vec const &um_in,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding)
 {
     //interface for M_wim_on_mesh
     auto movedmesh = mesh_in;
     movedmesh.move(um_in,1.);
-    this->setMesh2(movedmesh,bamgmesh,flag_fix,regridding);
+    this->setMeshFull(movedmesh,bamgmesh,flag_fix,regridding);
 }
 
 
 template<typename T>
-void WimDiscr<T>::setMesh2(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding)
+void WimDiscr<T>::setMeshFull(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding)
 {
     //interface for M_wim_on_mesh
 
@@ -1290,13 +1290,13 @@ void WimDiscr<T>::setMesh2(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const&
     if(!M_assigned)
     {
         //need to set sizes each time mesh changes: init,regrid
-        std::cout<<"calling assignSpatial() inside setMesh2()\n";
+        std::cout<<"calling assignSpatial() inside setMeshFull()\n";
         this->assignSpatial();
         M_land_mask.assign(M_num_elements,0.);
     }
 
     M_length_cfl = M_mesh.lengthCfl();
-}//setMesh2
+}//setMeshFull
 
 
 template<typename T>
@@ -1305,7 +1305,7 @@ WimDiscr<T>::getSurfaceFactor(T_gmsh const &movedmesh)
 {
     // wave spectrum needs to be updated if mesh changes due to divergence of mesh velocity
     // ie element surface area changes need to be taken into account;
-    // call this before setMesh2() at regrid time or before call to WIM
+    // call this before setMeshFull() at regrid time or before call to WIM
     auto nodes_x = movedmesh.coordX();
     auto nodes_y = movedmesh.coordY();
     auto index   = movedmesh.indexTr();
@@ -1343,7 +1343,7 @@ void WimDiscr<T>::updateWaveSpec(T_gmsh const &movedmesh)
 {
     // wave spectrum needs to be updated if mesh changes due to divergence of mesh velocity
     // ie element surface area changes need to be taken into account;
-    // call this before setMesh2() at regrid time or before call to WIM
+    // call this before setMeshFull() at regrid time or before call to WIM
     auto nodes_x = movedmesh.coordX();
     auto nodes_y = movedmesh.coordY();
     auto index   = movedmesh.indexTr();

@@ -141,12 +141,12 @@ public:
             T_val_vec const &um);
 
     // wim on nextsim mesh
-    void setMesh2( T_gmsh const &mesh,
+    void setMeshFull( T_gmsh const &mesh,
             T_val_vec const &um,
             BamgMesh* bamgmesh,
             int const& flag_fix,
             bool const& assign_spatial=false);
-    void setMesh2( T_gmsh const &mesh,
+    void setMeshFull( T_gmsh const &mesh,
             BamgMesh* bamgmesh,
             int const& flag_fix,
             bool const& assign_spatial=false);
@@ -377,7 +377,7 @@ private:
     bool M_regular           = false;
     bool M_initialised_ice   = false;
     bool M_initialised_waves = false;
-    bool M_assigned          = false;// if (false), need to call assignSpatial() inside setMesh2()
+    bool M_assigned          = false;// if (false), need to call assignSpatial() inside setMeshFull()
 
     int M_nb_export_nextwim = 0;
     int M_nb_export_inc     = 0;
