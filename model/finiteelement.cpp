@@ -9590,13 +9590,15 @@ FiniteElement::wimPostRegrid()
     M_wim.setRelativeMeshDisplacement(M_wim_meshdisp);
 
     //M_wim.nextsim_mesh
-    M_wim.setMeshFull(M_mesh,M_UM,bamgmesh,M_flag_fix,true);//true means M_wim.assignSpatial() is called here
+    auto movedmesh = M_mesh;
+    movedmesh.move(M_UM,1.);
+    bool regridding = true;
+    M_wim.setMeshFull(movedmesh,bamgmesh,M_flag_fix,regridding);//true means M_wim.assignSpatial() is called here
 
     // pass back interpolated wave spectrum to new elements;
     // interpolation scheme interp2cavities is conservative
     // - ie new element area is accounted for
     M_wim.setWaveSpec(M_wavespec);
-
 
     std::cout<<"leaving wimPostRegrid()\n";
 }//wimPostRegrid()
@@ -9703,6 +9705,29 @@ FiniteElement::initWim(int const pcpt)
 
     auto movedmesh = M_mesh;
     movedmesh.move(M_UM,1.);
+
+#if 1
+    M_wim = wim_type(vm,pcpt);
+    M_wim.initCoupled(movedmesh,bamgmesh,M_flag_fix);
+    if(!(M_wave_mode==setup::WaveMode::RUN_ON_MESH))
+    {
+        std::cout<<"Getting WIM grid info\n";
+
+        //total number of grid cells
+        auto xwim = M_wim.getX();
+        auto ywim = M_wim.getY();
+
+        //range of x,y
+        double xmin_wim = *std::min_element(xwim.begin(),xwim.end());
+        double xmax_wim = *std::max_element(xwim.begin(),xwim.end());
+        double ymin_wim = *std::min_element(ywim.begin(),ywim.end());
+        double ymax_wim = *std::max_element(ywim.begin(),ywim.end());
+        std::cout<<"xmin (WIM grid) = "<<xmin_wim<<"\n";
+        std::cout<<"xmax (WIM grid) = "<<xmax_wim<<"\n";
+        std::cout<<"ymin (WIM grid) = "<<ymin_wim<<"\n";
+        std::cout<<"ymax (WIM grid) = "<<ymax_wim<<"\n";
+    }
+#else
     if(!(M_wave_mode==setup::WaveMode::RUN_ON_MESH))
     {
         // - initialise grid using mesh if no gridfilename is present
@@ -9742,6 +9767,7 @@ FiniteElement::initWim(int const pcpt)
         //set mesh in order to set ice fields
         M_wim.setMeshFull(movedmesh,bamgmesh,M_flag_fix);
     }
+#endif
 
     // get ctot, vtot
     std::vector<double> ctot, vtot;//calculated in getTotalConcVol()
