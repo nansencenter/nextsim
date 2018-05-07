@@ -9706,11 +9706,13 @@ FiniteElement::initWim(int const pcpt)
     auto movedmesh = M_mesh;
     movedmesh.move(M_UM,1.);
 
-#if 1
     M_wim = wim_type(vm);
     M_wim.initCoupled(pcpt, movedmesh, bamgmesh, M_flag_fix);
+
+#if 1
     if(!(M_wave_mode==setup::WaveMode::RUN_ON_MESH))
     {
+        //test printouts
         std::cout<<"Getting WIM grid info\n";
 
         //total number of grid cells
@@ -9726,46 +9728,6 @@ FiniteElement::initWim(int const pcpt)
         std::cout<<"xmax (WIM grid) = "<<xmax_wim<<"\n";
         std::cout<<"ymin (WIM grid) = "<<ymin_wim<<"\n";
         std::cout<<"ymax (WIM grid) = "<<ymax_wim<<"\n";
-    }
-#else
-    if(!(M_wave_mode==setup::WaveMode::RUN_ON_MESH))
-    {
-        // - initialise grid using mesh if no gridfilename is present
-        std::string wim_gridfile = vm["wimgrid.gridfilename"].as<std::string>();
-        if ( wim_gridfile != "" )
-            //init grid from gridfile
-            M_wim = wim_type(vm,pcpt);
-        else
-            //init grid from mesh
-            M_wim = wim_type(vm,movedmesh,pcpt);
-
-        // get M_wim grid
-        std::cout<<"Getting WIM grid info\n";
-
-        //total number of grid cells
-        auto xwim = M_wim.getX();
-        auto ywim = M_wim.getY();
-
-        //range of x,y
-        double xmin_wim = *std::min_element(xwim.begin(),xwim.end());
-        double xmax_wim = *std::max_element(xwim.begin(),xwim.end());
-        double ymin_wim = *std::min_element(ywim.begin(),ywim.end());
-        double ymax_wim = *std::max_element(ywim.begin(),ywim.end());
-        std::cout<<"xmin (WIM grid) = "<<xmin_wim<<"\n";
-        std::cout<<"xmax (WIM grid) = "<<xmax_wim<<"\n";
-        std::cout<<"ymin (WIM grid) = "<<ymin_wim<<"\n";
-        std::cout<<"ymax (WIM grid) = "<<ymax_wim<<"\n";
-
-        //set mesh in order to set ice fields
-        M_wim.setMeshSimple(movedmesh);
-    }
-    else
-    {
-        // init WIM on mesh
-        M_wim = wim_type(vm,pcpt);
-
-        //set mesh in order to set ice fields
-        M_wim.setMeshFull(movedmesh,bamgmesh,M_flag_fix);
     }
 #endif
 
@@ -9840,6 +9802,7 @@ FiniteElement::initWimVariables(std::vector<double> const &ctot, std::vector<dou
 
     std::cout<<"end initWimVariables()\n";
 }//initWimVariables()
+
 
 void
 FiniteElement::wimCall()

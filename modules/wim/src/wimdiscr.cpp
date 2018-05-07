@@ -27,35 +27,7 @@ template<typename T>
 WimDiscr<T>::WimDiscr(po::variables_map const& vmIn)
 {
     vm = vmIn;
-
-#if 0
-    if(!M_wim_on_mesh)
-    {
-        // wim grid generation/reading
-        // NB if M_wim_on_mesh, setMeshFull before wim.run() and at regridding
-        // time
-        M_grid = T_grid(vm);
-    }
-
-    this->initRemaining();
-#endif
 }//WimDiscr()
-
-
-#if 0
-template<typename T>
-WimDiscr<T>::WimDiscr(po::variables_map const& vmIn, T_gmsh const &mesh_in, int const& nextsim_cpt)
-{
-    vm = vmIn;
-    this->initConstant(nextsim_cpt);
-
-    // init grid FROM mesh
-    T_mesh mesh(mesh_in);//tmp mesh object
-    M_grid = T_grid(vm,mesh);
-
-    this->initRemaining();
-}//WimDiscr()
-#endif
 
 
 template<typename T>
@@ -235,16 +207,7 @@ void WimDiscr<T>::initRemaining()
     // call assign to set sizes of some arrays (not depending on space)
     this->assign();
 
-#if 0
-    if(!M_wim_on_mesh)
-    {
-        // if(M_wim_on_mesh), assignSpatial() called in run()
-        // - since mesh is changing each time
-        M_num_elements  = M_grid.M_num_elements;
-        M_land_mask     = M_grid.M_land_mask;
-        this->assignSpatial();
-    }
-#endif
+    // call assign to set sizes of remaining arrays (that are depending on space)
     this->assignSpatial();
 
     std::cout<<"wim instantiation finished\n";
