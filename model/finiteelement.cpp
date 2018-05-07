@@ -9707,8 +9707,8 @@ FiniteElement::initWim(int const pcpt)
     movedmesh.move(M_UM,1.);
 
 #if 1
-    M_wim = wim_type(vm,pcpt);
-    M_wim.initCoupled(movedmesh,bamgmesh,M_flag_fix);
+    M_wim = wim_type(vm);
+    M_wim.initCoupled(pcpt, movedmesh, bamgmesh, M_flag_fix);
     if(!(M_wave_mode==setup::WaveMode::RUN_ON_MESH))
     {
         std::cout<<"Getting WIM grid info\n";

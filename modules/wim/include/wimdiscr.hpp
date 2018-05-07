@@ -93,15 +93,18 @@ public:
     //constructors
     ~WimDiscr() {}
     WimDiscr() {}
-
-    WimDiscr(po::variables_map const& vmIn,int const& nextsim_cpt=0);
-    WimDiscr(po::variables_map const& vmIn,T_gmsh const &mesh,int const& nextsim_cpt=0);
+    WimDiscr(po::variables_map const& vmIn);
     // ====================================================================================
 
 
     // ====================================================================================
     // init
-    void initConstant(int const& nextsim_cpt);
+    void initStandAlone();
+    void initCoupled(int const& nextsim_cpt,
+            T_gmsh const &movedmesh,
+            BamgMesh* bamgmesh,
+            int const& flag_fix);
+    void initConstant(int const& nextsim_cpt=0);
     void initRemaining();
     void assign();
     void assignSpatial();
@@ -137,28 +140,25 @@ public:
     // wim on its own grid
     // - need mesh for interpolation etc
     void setMeshSimple( T_gmsh const &mesh);
-    void setMeshSimple( T_gmsh const &mesh,
-            T_val_vec const &um);
 
     // wim on nextsim mesh
     void setMeshFull( T_gmsh const &mesh,
-            T_val_vec const &um,
             BamgMesh* bamgmesh,
             int const& flag_fix,
-            bool const& assign_spatial=false);
-    void setMeshFull( T_gmsh const &mesh,
-            BamgMesh* bamgmesh,
-            int const& flag_fix,
-            bool const& assign_spatial=false);
+            bool const& regridding=false);
 
-    T_val_vec getRelativeMeshDisplacement(T_gmsh const &mesh_in) const;
-    T_val_vec getRelativeMeshDisplacement(T_gmsh const &mesh_in,T_val_vec const &um_in) const;
+    // wrapper for setMeshSimple and setMeshFull
+    void setMesh( T_gmsh const &mesh,
+            BamgMesh* bamgmesh,
+            int const& flag_fix,
+            bool const& regridding=false);
+
+    T_val_vec getRelativeMeshDisplacement(T_gmsh const &movedmesh) const;
     T_val_vec getMeshDisplacement() const { return M_UM; }
     void setRelativeMeshDisplacement(T_val_vec const&um_in) { M_UM = um_in; return; }
 
     void updateWaveSpec( T_gmsh const &mesh);
-    void updateWaveSpec( T_gmsh const &mesh,T_val_vec const &um);
-    T_val_vec getSurfaceFactor(T_gmsh const &mesh_in);
+    T_val_vec getSurfaceFactor(T_gmsh const &movedmesh);
 
     T_val_vec3d getWaveSpec() const { return M_sdf_dir; }
     void setWaveSpec(T_val_vec3d const&sdf_in)
@@ -196,21 +196,15 @@ public:
     T_map_vec returnFieldsElements(std::vector<std::string> const&fields,
             T_val_vec &xel, T_val_vec &yel, T_val_vec const&surface_fac);
     T_map_vec returnFieldsElements(std::vector<std::string> const&fields,
-            T_gmsh const &mesh_in,T_val_vec const &um_in);
-    T_map_vec returnFieldsElements(std::vector<std::string> const&fields,
-            T_gmsh const &mesh_in);
+            T_gmsh const &movedmesh);
 
     T_map_vec returnFieldsNodes(std::vector<std::string> const&fields,
             T_val_vec &xnod, T_val_vec &ynod);
     T_map_vec returnFieldsNodes(std::vector<std::string> const&fields,
-            T_gmsh const &mesh_in,T_val_vec const &um_in);
-    T_map_vec returnFieldsNodes(std::vector<std::string> const&fields,
-            T_gmsh const &mesh_in);
+            T_gmsh const &movedmesh);
 
     T_val_vec returnWaveStress(T_val_vec &xnod, T_val_vec &ynod);
         //base interface - pass in the nodes for interpolation to these points
-    T_val_vec returnWaveStress(T_gmsh const &mesh_in,T_val_vec const &um_in);
-        //pass in the unmoved mesh, move it, then all the movedmesh interface
     T_val_vec returnWaveStress(T_gmsh const &movedmesh);
         //pass in the moved mesh, then get the nodes
     T_val_vec returnWaveStress();
@@ -240,9 +234,7 @@ public:
 
     void getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out,T_val_vec &broken);
     void getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out, T_val_vec &broken,
-            T_val_vec const & conc_tot, T_gmsh const &mesh_in,T_val_vec const &um_in);
-    void getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out, T_val_vec &broken,
-            T_val_vec const & conc_tot, T_gmsh const &mesh_in);
+            T_val_vec const & conc_tot, T_gmsh const &movedmesh);
     // ========================================================================
 
 
@@ -377,7 +369,6 @@ private:
     bool M_regular           = false;
     bool M_initialised_ice   = false;
     bool M_initialised_waves = false;
-    bool M_assigned          = false;// if (false), need to call assignSpatial() inside setMeshFull()
 
     int M_nb_export_nextwim = 0;
     int M_nb_export_inc     = 0;
@@ -395,6 +386,7 @@ private:
 
     bool M_break_on_mesh = false;// do breaking on nextsim mesh as well as on grid
     bool M_wim_on_mesh   = false;// to run WIM on nextsim mesh
+    bool M_do_coupling   = false;// run WIM coupled to nextsim
     
     T_val_vec M_land_mask;
     T_val_vec M_UM;// displacement of mesh nodes between calls to wim.run()
