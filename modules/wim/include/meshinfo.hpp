@@ -128,74 +128,18 @@ public:
 
     T_val_vec getX() const { return M_elements_x; }
     T_val_vec getY() const { return M_elements_y; }
-    // ===============================================================
+
+    T_val jacobian(T_val const x0, T_val const y0,
+            T_val const x1, T_val const y1,
+            T_val const x2, T_val const y2) const
+    {
+        //signed area of a triangle with vertices (going anti-clockwise)
+        //(x0,y0), (x1,y1), (x2,y2)
+        return (x1-x0)*(y2-y0)-(x2-x0)*(y1-y0);
+    }
+
 
 };//class MeshInfo
-
-
-namespace MeshTools
-{
-
-// ==========================================================================================
-//typenames
-typedef typename Nextsim::GmshMesh::element_type T_gmsh_el;
-typedef Nextsim::GmshMesh T_gmsh;
-//typedef typename Wim::WimDiscr<double>::MeshInfo mesh_info_type_dbl;
-// ==========================================================================================
-
-
-// ==========================================================================================
-// mesh functions
-double jacobian(double const x0, double const y0, double const x1, double const y1,double const x2, double const y2);
-double jacobian(T_gmsh_el const& element, T_gmsh const& mesh);
-double jacobian(T_gmsh_el const& element, T_gmsh const& mesh,
-                std::vector<double> const& um, double factor = 1.);
-std::vector<double> sides(T_gmsh_el const& element, T_gmsh const& mesh);
-std::vector<double> minMaxSide(T_gmsh const& mesh);
-//void movedMesh(std::vector<double> const& um, double factor = 0);
-double measure(double const x0, double const y0, double const x1, double const y1,double const x2, double const y2);
-double measure(T_gmsh_el const& element, T_gmsh const& mesh);
-double measure(T_gmsh_el const& element, T_gmsh const& mesh,
-               std::vector<double> const& um, double factor = 1.);
-
-double minAngles(T_gmsh_el const& element, T_gmsh const& mesh);
-double minAngle(T_gmsh const& mesh);
-
-double minAngle(T_gmsh const& mesh, std::vector<double> const& um, double factor);
-
-bool flip(T_gmsh const& mesh, std::vector<double> const& um, double factor);
-
-double resolution(T_gmsh const& mesh);
-
-std::vector<double> hminVertices(T_gmsh const& mesh, BamgMesh const* bamg_mesh);
-std::vector<double> hmaxVertices(T_gmsh const& mesh, BamgMesh const* bamg_mesh);
-
-std::vector<double> AllMinAngle(T_gmsh const& mesh, std::vector<double> const& um, double factor);
-
-//void nodesToElements(double const* depth, std::vector<double>& v);
-// ==========================================================================================
-
-#if 0
-void advect(double** interp_elt_out_ptr, // pointer to pointer to output data
-double* interp_elt_in,               // pointer to input data
-mesh_info_type_dbl* mesh_info,       // pointer to structure with mesh info: positions of nodes and elements,
-                                     //  index (maps elements to nodes), element connectivity
-double* VC_in,                       // pointer to convective velocities (len = 2*num_nodes)
-int* interp_method,                  // pointer to interp methods for each variable
-int nb_var,                          // number of variables
-double time_step,                    // time step (s)
-double* inc_values);                 // pointer to values coming in from open boundaries (len = nb_var)
-#endif
-//void diffuse
-
-// ==========================================================================================
-// other functions
-std::string gitRevision();
-std::string system(std::string const& command);
-std::string getEnv(std::string const& envname);
-// ==========================================================================================
-
-} // namespace MeshTools
 
 } // namespace Wim
 #endif

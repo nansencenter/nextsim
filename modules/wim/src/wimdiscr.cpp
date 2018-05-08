@@ -1323,7 +1323,7 @@ WimDiscr<T>::getSurfaceFactor(FEMeshType const &movedmesh)
             ynods[k] = nodes_y[ind];
         }
 
-        T_val area = .5*MeshTools::jacobian(
+        T_val area = .5*this->jacobian(
                 xnods[0],ynods[0],xnods[1],ynods[1],xnods[2],ynods[2]);
         if (area>0)
             surface_fac[i] = area/M_mesh.M_surface[i];
@@ -2006,13 +2006,11 @@ void WimDiscr<T>::advectDirections(T_val_vec2d& Sdir,T_val_vec const& ag2d_eff)
         T_val_vec vwave   = ag2d_eff;
 
         //set wave speeds
-        //TODO if M_wim_on_mesh, subtract average mesh velocity
         std::for_each(uwave.begin(), uwave.end(), [&](T_val& f){ f *= std::cos(adv_dir); });
         if (M_advdim == 2)
             std::for_each(vwave.begin(), vwave.end(), [&](T_val& f){ f *= std::sin(adv_dir); });
 
         //do advection
-        //TODO if M_wim_on_mesh call MeshTools::advect here
         M_grid.waveAdvWeno(Sdir[nth],uwave,vwave,M_timestep);
     }//advection of each direction done
 

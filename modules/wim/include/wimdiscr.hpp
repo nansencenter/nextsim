@@ -37,7 +37,7 @@
 #include <omp.h>
 #include <gmshmesh.hpp>
 #include <iceinfo.hpp>
-#include <meshtools.hpp>
+#include <meshinfo.hpp>
 #include <gridinfo.hpp>
 
 #ifdef PI
@@ -303,6 +303,15 @@ public:
     void getRange(T_val_vec const &vec, T_val &xmin, T_val &xmax) const;
 
     std::string getWimGridFilename() const { return M_grid.M_gridfile; }
+
+    T_val jacobian(T_val const x0, T_val const y0,
+            T_val const x1, T_val const y1,
+            T_val const x2, T_val const y2) const
+    {
+        //signed area of a triangle with vertices (going anti-clockwise)
+        //(x0,y0), (x1,y1), (x2,y2)
+        return (x1-x0)*(y2-y0)-(x2-x0)*(y1-y0);
+    }
     // ==========================================================================
 
 
