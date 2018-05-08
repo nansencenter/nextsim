@@ -33,13 +33,14 @@
 namespace Wim
 {
 
-template<typename T=float> class MeshInfo
+template<typename T=float,typename FEMeshType=Nextsim::GmshMesh> class MeshInfo
 {
 
     typedef T T_val;
     typedef std::vector<T_val> T_val_vec;
     typedef typename std::vector<T_val_vec*>  T_val_vec_ptrs;
-    typedef Nextsim::GmshMesh T_gmsh;
+    //typedef Nextsim::GmshMesh T_gmsh;
+    typedef FEMeshType T_gmsh;
 
     //private variables    
     int  M_max_node_el_conn = 0;

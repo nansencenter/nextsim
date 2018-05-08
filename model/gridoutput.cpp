@@ -26,7 +26,7 @@ GridOutput::GridOutput()
 ////////////////////////////////////////////////////////////////////////////////
 // Constructor for only one set of variables
 ////////////////////////////////////////////////////////////////////////////////
-GridOutput::GridOutput(std::vector<Variable> variables, variableKind kind)
+GridOutput::GridOutput(std::vector<Variable> variables, variableKind kind, double averaging_period)
 {
     M_vectorial_variables.resize(0);
 
@@ -42,22 +42,25 @@ GridOutput::GridOutput(std::vector<Variable> variables, variableKind kind)
             M_nodal_variables.resize(0);
 
         default:
-            std::logic_error("Incorrect varible kind in GridOutput::GridOutput");
+            std::logic_error("Incorrect variable kind in GridOutput::GridOutput");
     }
+
+    M_averaging_period = averaging_period;
 }
 
 // Constructor for only one set of variables - regular grid
-GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind)
+GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin,
+        std::vector<Variable> variables, variableKind kind, double averaging_period)
     :
-    GridOutput(variables, kind)
+    GridOutput(variables, kind, averaging_period)
 {
     this->initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
 }
 
 // Constructor for only one set of variables - arbitrary grid
-GridOutput::GridOutput(Grid grid, std::vector<Variable> variables, variableKind kind)
+GridOutput::GridOutput(Grid grid, std::vector<Variable> variables, variableKind kind, double averaging_period)
     :
-    GridOutput(variables, kind)
+    GridOutput(variables, kind, averaging_period)
 {
     this->initArbitraryGrid(grid);
 }
@@ -65,10 +68,13 @@ GridOutput::GridOutput(Grid grid, std::vector<Variable> variables, variableKind 
 ////////////////////////////////////////////////////////////////////////////////
 // constructor for nodal and elemental variables only (no vectors)
 ////////////////////////////////////////////////////////////////////////////////
-GridOutput::GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables)
+GridOutput::GridOutput(std::vector<Variable> nodal_variables,
+        std::vector<Variable> elemental_variables,
+        double averaging_period)
     :
     M_nodal_variables(nodal_variables),
-    M_elemental_variables(elemental_variables)
+    M_elemental_variables(elemental_variables),
+    M_averaging_period(averaging_period)
 {
     M_vectorial_variables.resize(0);
 }
@@ -76,17 +82,19 @@ GridOutput::GridOutput(std::vector<Variable> nodal_variables, std::vector<Variab
 // constructor for nodal and elemental variables only (no vectors) - regular grid
 GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing,
                        double xmin, double ymin,
-                       std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables)
+                       std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
+                       double averaging_period)
     :
-    GridOutput(nodal_variables, elemental_variables)
+    GridOutput(nodal_variables, elemental_variables, averaging_period)
 {
     this->initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
 }
 
 // constructor for nodal and elemental variables only (no vectors) - arbitrary grid
-GridOutput::GridOutput(Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables)
+GridOutput::GridOutput(Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
+                       double averaging_period)
     :
-    GridOutput(nodal_variables, elemental_variables)
+    GridOutput(nodal_variables, elemental_variables, averaging_period)
 {
     this->initArbitraryGrid(grid);
 }
@@ -94,28 +102,34 @@ GridOutput::GridOutput(Grid grid, std::vector<Variable> nodal_variables, std::ve
 ////////////////////////////////////////////////////////////////////////////////
 // constructor for nodal, elemental and vectorial variables
 ////////////////////////////////////////////////////////////////////////////////
-GridOutput::GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables)
+GridOutput::GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
+        std::vector<Vectorial_Variable> vectorial_variables, double averaging_period)
     :
     M_nodal_variables(nodal_variables),
     M_elemental_variables(elemental_variables),
-    M_vectorial_variables(vectorial_variables)
+    M_vectorial_variables(vectorial_variables),
+    M_averaging_period(averaging_period)
 {}
 
 // constructor for nodal, elemental and vectorial variables - regular grid
 GridOutput::GridOutput(int ncols, int nrows, double mooring_spacing,
                        double xmin, double ymin,
-                       std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables)
+                       std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
+                       std::vector<Vectorial_Variable> vectorial_variables,
+                       double averaging_period)
     :
-    GridOutput(nodal_variables, elemental_variables, vectorial_variables)
+    GridOutput(nodal_variables, elemental_variables, vectorial_variables, averaging_period)
 {
     this->initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
 }
 
 // constructor for nodal, elemental and vectorial variables - arbitrary grid
 GridOutput::GridOutput(Grid grid, std::vector<Variable> nodal_variables,
-                       std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables)
+                       std::vector<Variable> elemental_variables,
+                       std::vector<Vectorial_Variable> vectorial_variables,
+                       double averaging_period)
     :
-    GridOutput(nodal_variables, elemental_variables, vectorial_variables)
+    GridOutput(nodal_variables, elemental_variables, vectorial_variables, averaging_period)
 {
     this->initArbitraryGrid(grid);
 }
@@ -545,20 +559,32 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     dims[0] = tDim;
     dims[1] = xDim;
     dims[2] = yDim;
+
+    //cell methods - combine time method with area method defined for each variable
+    std::string cell_methods_time = "time: point ";
+    if (M_averaging_period>0)
+    {
+        cell_methods_time = (boost::format( "time: mean (interval: %1% days) " )
+                               % M_averaging_period
+                               ).str();
+    }
+
     for (auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); ++it)
     {
         data = dataFile.addVar(it->name, netCDF::ncFloat, dims);
-        data.putAtt("standard_name",it->stdName);
-        data.putAtt("long_name",it->longName);
-        data.putAtt("units",it->Units);
+        data.putAtt("standard_name", it->stdName);
+        data.putAtt("long_name", it->longName);
+        data.putAtt("units", it->Units);
+        data.putAtt("cell_methods", cell_methods_time + it->cell_methods);
         data.putAtt("_FillValue", netCDF::ncFloat, M_miss_val);
     }
     for (auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); ++it)
     {
         data = dataFile.addVar(it->name, netCDF::ncFloat, dims);
-        data.putAtt("standard_name",it->stdName);
-        data.putAtt("long_name",it->longName);
-        data.putAtt("units",it->Units);
+        data.putAtt("standard_name", it->stdName);
+        data.putAtt("long_name", it->longName);
+        data.putAtt("units", it->Units);
+        data.putAtt("cell_methods", cell_methods_time + it->cell_methods);
         data.putAtt("_FillValue", netCDF::ncFloat, M_miss_val);
     }
 

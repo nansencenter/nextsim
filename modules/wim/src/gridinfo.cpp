@@ -185,9 +185,9 @@ template<typename T>
 void GridInfo<T>::gridPostProcessing()
 {
     M_use_regular   = (vm["wimgrid.useregulargridtools"].template as<bool>());
-    bool DoSaveGrid = (vm["wimgrid.checkprog"].template as<bool>())
-                   || (vm["wimgrid.checkinit"].template as<bool>())
-                   || (vm["wimgrid.checkfinal"].template as<bool>())
+    bool DoSaveGrid = (vm["wimdiag.checkprog"].template as<bool>())
+                   || (vm["wimdiag.checkinit"].template as<bool>())
+                   || (vm["wimdiag.checkfinal"].template as<bool>())
                    || (vm["nextwim.exportresults"].template as<bool>());
 
     //std::cout<<" ---before saving\n";
@@ -242,7 +242,7 @@ void GridInfo<T>::setupAdvection()
     M_advopt = vm["wim.advopt"].template as<std::string>();
 
     //need nghost>=4 for WENO advection
-    T_val nghost  = 4;
+    T_val nghost = 4;
     M_nbdy_x    = nghost;
     M_nbdy_y    = nghost;
 

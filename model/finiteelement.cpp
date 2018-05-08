@@ -2838,12 +2838,12 @@ FiniteElement::assemble(int pcpt)
         
         std::cout<<"---------------------- TIME STEP "<< pcpt << " : "
                  << Nextsim::model_time_str(vm["simul.time_init"].as<std::string>(), pcpt*time_step);
-        throw std::runtime_error("inf in the solution, results outputed with output name inf");
+        throw std::runtime_error("inf in the solution, results output to [field,mesh]_inf.[bin,dat]");
     }
 
     //M_matrix->printMatlab("stiffness.m");
     //M_vector->printMatlab("rhs.m");
-}
+}//assemble
 
 void
 FiniteElement::tensors()
@@ -4691,17 +4691,6 @@ FiniteElement::init()
     }
 
 
-#if defined (WAVES)
-    // initialize M_wim here to give access to WIM grid
-    // - before forcingWave() but after readRestart()
-    // - also after 1st regrid
-    if (M_use_wim)
-    {
-        LOG(DEBUG) <<"Initialize WIM\n";
-        this->initWim(pcpt);
-    }
-#endif
-
 
     LOG(DEBUG) <<"Initialize forcingAtmosphere\n";
     this->forcingAtmosphere();
@@ -4718,8 +4707,6 @@ FiniteElement::init()
 #if defined (WAVES)
     if (M_use_wim)
     {
-        LOG(DEBUG) <<"Initialize forcingWave\n";
-        this->forcingWave();
     }
 #endif
 
@@ -4747,8 +4734,15 @@ FiniteElement::init()
     }
 
 #if defined (WAVES)
+    // initialize M_wim here to give access to WIM grid
+    // - after ice is initialised
+    // - before forcingWave() but after readRestart()
+    // - also after 1st regrid
     if (M_use_wim)
-        this->initWimVariables();
+    {
+        LOG(DEBUG) <<"Initialize WIM\n";
+        this->initWim(pcpt);
+    }
 #endif
 
     // Open the output file for drifters
@@ -4837,7 +4831,8 @@ FiniteElement::initOASIS()
     int ncols = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
 
     // Define the mooring dataset
-    M_cpl_out = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first, elemental_variables, GridOutput::variableKind::elemental);
+    M_cpl_out = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first,
+            elemental_variables, GridOutput::variableKind::elemental);
     //std::vector<int> lsm = M_cpl_out.getMask(M_mesh, GridOutput::variableKind::elemental);
     std::cout << "ncols: " << ncols << " M_ncols: " << M_cpl_out.M_ncols << std::endl;
     std::cout << "nrows: " << nrows << " M_nrows: " << M_cpl_out.M_nrows << std::endl;
@@ -4973,16 +4968,6 @@ FiniteElement::initOASIS()
 void
 FiniteElement::step(int &pcpt)
 {
-#if defined (WAVES)
-    // coupling with wim
-    // 1. exchange from nextsim to wim
-    if (M_use_wim)
-    {
-        M_run_wim = !(M_wim_steps_since_last_call % M_wim_cpl_freq);
-        if (M_run_wim)
-            this->wimCommPreRegrid();
-    }
-#endif
 
     // Update the drifters position twice a day, important to keep the same frequency as the IABP data, for the moment
     if( pcpt==0 || std::fmod(M_current_time,0.5)==0 )
@@ -5084,7 +5069,8 @@ FiniteElement::step(int &pcpt)
 		    M_UT[i] = 0.;
 		    M_UT[i+M_num_nodes] = 0.;
 	    }
-    }
+    }//IABP drifters
+
     if(pcpt>0)
     {
         if ( M_use_equallyspaced_drifters && fmod(M_current_time,M_equallyspaced_drifters_output_time_step) == 0 )
@@ -5102,7 +5088,7 @@ FiniteElement::step(int &pcpt)
                 if ( M_rgps_drifters.isInitialised() )
                     M_rgps_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
         }
-    }
+    }//equally-spaced/RGPS drifters
      
     if ( M_use_osisaf_drifters && fmod(M_current_time+0.5,1.) == 0 )
     {
@@ -5135,27 +5121,30 @@ FiniteElement::step(int &pcpt)
         M_osisaf_drifters[0].initNetCDF(osi_output_path, M_current_time);
         M_osisaf_drifters[0].appendNetCDF(M_current_time, M_mesh, M_UT);
     }
-#if 1
+
     if (pcpt == 0)
     { 
-        // Write results/restart before regrid - useful for debugging
-        // NB this only helps if starting from a restart,
-        // otherwise regridding has already happened in init(),
-        // so won't happen this time step
-        // TODO just write restart in init() as well?
+        //write initial conditions to moorings file if using snapshot
+        if ( M_use_moorings && M_moorings_snapshot )
+        {
+            this->updateMeans(M_moorings, 1.);
+            M_moorings.updateGridMean(M_mesh);
+            M_moorings.appendNetCDF(M_moorings_file, M_current_time);
+            M_moorings.resetMeshMean(M_mesh);
+            M_moorings.resetGridMean();
+        }
+
+        // Write results before regrid - useful for debugging
         chrono.restart();
         LOG(DEBUG) <<"first export starts\n";
-        if (vm["output.datetime_in_filename"].as<bool>())
-            this->exportResults(M_current_time);
-        else
-        {
-            int ostep = 0;//need to declare as an int, to make sure it's not interpreted as a double
-            this->exportResults(ostep);
-        }
-        // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
+        this->exportResults(0);
         LOG(DEBUG) <<"first export done in " << chrono.elapsed() <<"s\n";
+
+        // write a restart before regrid
+        // - useful for debugging (eg to see the assimilation)
+        if(vm["restart.write_restart"].as<bool>())
+            this->writeRestart(pcpt, 0);
     }
-#endif
 
 
     // remeshing and remapping of the prognostic variables
@@ -5177,7 +5166,6 @@ FiniteElement::step(int &pcpt)
         {
             M_regrid = true;
 
-            // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
             if ( M_use_moorings && ! M_moorings_snapshot )
                 M_moorings.updateGridMean(M_mesh);
 
@@ -5333,24 +5321,17 @@ FiniteElement::step(int &pcpt)
     ++pcpt;
     M_current_time = time_init + pcpt*time_step/(24*3600.0);
 
-#if 1
     if(fmod(pcpt*time_step,output_time_step) == 0)
     {
         chrono.restart();
         LOG(DEBUG) <<"export starts\n";
-        if (vm["output.datetime_in_filename"].as<bool>())
-            this->exportResults(M_current_time);
-        else
-        {
-            int ostep = pcpt*time_step/output_time_step;//need to declare as an int, to make sure it's not interpreted as a double
-            this->exportResults(ostep);
-        }
+        this->exportResults(pcpt*time_step/output_time_step);
         LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
     }
 
     if ( M_use_moorings )
     {
-        // If we're taking snapshots the we only call updateMeans before writing to file
+        // If we're taking snapshots then we only call updateMeans before writing to file
         if ( ! M_moorings_snapshot )
             this->updateMeans(M_moorings, mooring_time_factor);
 
@@ -5361,9 +5342,11 @@ FiniteElement::step(int &pcpt)
             {
                 // Update the snapshot
                 this->updateMeans(M_moorings, 1.);
-                // shift the timestamp in the file to the centre of the output interval
                 output_time = M_current_time;
-            } else {
+            }
+            else
+            {
+                // shift the timestamp in the file to the centre of the output interval
                 output_time = M_current_time - mooring_output_time_step/86400/2;
             }
 
@@ -5392,9 +5375,7 @@ FiniteElement::step(int &pcpt)
             }
 
             M_moorings.updateGridMean(M_mesh);
-
             M_moorings.appendNetCDF(M_moorings_file, output_time);
-
             M_moorings.resetMeshMean(M_mesh);
             M_moorings.resetGridMean();
         }
@@ -5419,36 +5400,23 @@ FiniteElement::step(int &pcpt)
 #endif
 
 
-#endif
-
-#ifdef DEBUGGING
-    if(vm["restart.debugging"].as<bool>())
-        //write restart every timestep
-        if (vm["output.datetime_in_filename"].as<bool>())
-            this->writeRestart(pcpt, M_current_time);
-        else
-            this->writeRestart(pcpt, pcpt);
-#else
-    if ( fmod(pcpt*time_step,restart_time_step) == 0)
+    if(vm["restart.write_restart"].as<bool>())
     {
-        std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
-        if (vm["output.datetime_in_filename"].as<bool>())
-            this->writeRestart(pcpt, M_current_time);
-        else
+        if(vm["restart.debugging"].as<bool>())
+            //write restart every timestep
+            this->writeRestart(pcpt, pcpt);
+        else if ( fmod(pcpt*time_step,restart_time_step) == 0)
         {
-            int rstep = pcpt*time_step/restart_time_step;//need to declare as an int, to make sure it's not interpreted as a double
-            this->writeRestart(pcpt, rstep );
+            std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
+            this->writeRestart(pcpt, pcpt*time_step/restart_time_step );
         }
-    }
-#endif
+    }//write restart
 
 
 #if defined (WAVES)
     if(M_use_wim)
-    {
-        // increment counter
+        // increment wim counter
         M_wim_steps_since_last_call++;
-    }
 #endif
 }//step
 
@@ -5559,6 +5527,14 @@ FiniteElement::updateMeans(GridOutput &means, double time_factor)
                     it->data_mesh[i] += D_delS[i]*time_factor;
                 break;
 
+#if defined (WAVES)
+            // WIM variables
+            case (GridOutput::variableID::dfloe):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_dfloe[i]*time_factor;
+                break;
+#endif
+
             default: std::logic_error("Updating of given variableID not implimented (elements)");
         }
     }
@@ -5602,9 +5578,37 @@ FiniteElement::initMoorings()
     std::vector<GridOutput::Vectorial_Variable> vectorial_variables;
 
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
+    std::vector<std::string> names_thin = {"conc_thin", "h_thin", "hs_thin"};
+    std::vector<std::string> names_wim = {"dfloe"};
+
+    double averaging_period = mooring_output_time_step;
+    if (M_moorings_snapshot)
+        averaging_period = 0.;
 
     for ( auto it=names.begin(); it!=names.end(); ++it )
     {
+        // skip thin ice variables if not using thin ice category
+        if (std::count(names_thin.begin(), names_thin.end(), *it) > 0)
+            if(M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
+            {
+                LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with thin ice\n";
+                continue;
+            }
+
+        // skip wave variables if not running WIM
+        if (std::count(names_wim.begin(), names_wim.end(), *it) > 0)
+#if ! defined (WAVES)
+        {
+            LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with waves\n";
+            continue;
+        }
+#else
+            if(!M_use_wim)
+            {
+                LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with waves\n";
+                continue;
+            }
+#endif
         // Element variables
         if ( *it == "conc" )
         {
@@ -5663,33 +5667,23 @@ FiniteElement::initMoorings()
         }
         else if ( *it == "conc_thin" )
         {
-            if(M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
-            {
-                LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with thin ice\n";
-                continue;
-            }
             GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin, data_elements, data_grid);
             elemental_variables.push_back(conc_thin);
         }
         else if ( *it == "h_thin" )
         {
-            if(M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
-            {
-                LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with thin ice\n";
-                continue;
-            }
             GridOutput::Variable h_thin(GridOutput::variableID::h_thin, data_elements, data_grid);
             elemental_variables.push_back(h_thin);
         }
         else if ( *it == "hs_thin" )
         {
-            if(M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
-            {
-                LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with thin ice\n";
-                continue;
-            }
             GridOutput::Variable hs_thin(GridOutput::variableID::hs_thin, data_elements, data_grid);
             elemental_variables.push_back(hs_thin);
+        }
+        else if ( *it == "dfloe" )
+        {
+            GridOutput::Variable dfloe(GridOutput::variableID::dfloe, data_elements, data_grid);
+            elemental_variables.push_back(dfloe);
         }
         // Nodal variables and vectors
         else if ( *it == "velocity_xy" | *it == "velocity_uv" )
@@ -5734,6 +5728,12 @@ FiniteElement::initMoorings()
                 std::cout << "h_thin, ";
                 std::cout << "hs_thin, ";
             }
+#if defined (WAVES)
+            if ( M_use_wim )
+            {
+                std::cout << "dfloe, ";
+            }
+#endif
             std::cout << "velocity_xy, ";
             std::cout << "velocity_uv";
 
@@ -5754,7 +5754,10 @@ FiniteElement::initMoorings()
         int nrows = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
 
         // Define the mooring dataset
-        M_moorings = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first, nodal_variables, elemental_variables, vectorial_variables);
+        M_moorings = GridOutput(ncols, nrows, mooring_spacing,
+                *xcoords.first, *ycoords.first,
+                nodal_variables, elemental_variables, vectorial_variables,
+                averaging_period);
     }
     else
     {
@@ -5770,7 +5773,9 @@ FiniteElement::initMoorings()
         };
 
         // Define the mooring dataset
-        M_moorings = GridOutput(grid, nodal_variables, elemental_variables, vectorial_variables);
+        M_moorings = GridOutput(grid,
+                nodal_variables, elemental_variables, vectorial_variables,
+                averaging_period);
     }
 
     double output_time;
@@ -5786,18 +5791,12 @@ FiniteElement::initMoorings()
 void
 FiniteElement::writeRestart(int pcpt, int step)
 {
-
     std::string tmp = (boost::format( "%1%" ) % step).str();
+    if (vm["output.datetime_in_filename"].as<bool>())
+        tmp = to_date_time_string_for_filename(M_current_time);
     this->writeRestart(pcpt,tmp);
 }
 
-void
-FiniteElement::writeRestart(int pcpt, double date_time)
-{
-
-    std::string tmp = to_date_time_string_for_filename(date_time);
-    this->writeRestart(pcpt,tmp);
-}
 
 void
 FiniteElement::writeRestart(int pcpt, std::string step)
@@ -9288,19 +9287,14 @@ void
 FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, bool apply_displacement)
 {
     //define name_str from step
-    std::string name_str    = (boost::format( "%1%" )
+    std::string name_str = (boost::format( "%1%" )
                                % step ).str();
+    if (vm["output.datetime_in_filename"].as<bool>())
+        name_str = to_date_time_string_for_filename(M_current_time);
 
     this->exportResults(name_str, export_mesh, export_fields, apply_displacement);
 }
 
-void
-FiniteElement::exportResults(double date_time, bool export_mesh, bool export_fields, bool apply_displacement)
-{
-    //define name_str from date_time
-    std::string name_str = to_date_time_string_for_filename(date_time);
-    this->exportResults(name_str, export_mesh, export_fields, apply_displacement);
-}
 
 void
 FiniteElement::exportResults(std::string name_str, bool export_mesh, bool export_fields, bool apply_displacement)
@@ -9467,7 +9461,8 @@ FiniteElement::exportResults(std::vector<std::string> const &filenames, bool exp
             exporter.writeField(outbin, M_nfloes, "Nfloes");
             exporter.writeField(outbin, M_dfloe, "Dfloe");
 
-            if (M_wim_cpt>0)
+            //if (M_wim_cpt>0)
+            if (1)
             {
                 //currently export crashes if WIM hasn't been called yet
                 // TODO separate wim export
@@ -9580,6 +9575,22 @@ FiniteElement::exportResults(std::vector<std::string> const &filenames, bool exp
 }// exportResults()
 
 
+void
+FiniteElement::getTotalConcVol(std::vector<double> &ctot, std::vector<double> &vtot)
+{
+    //get total conc and volume
+    ctot = M_conc; //total ice conc
+    vtot = M_thick;//total ice vol
+    if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+        for (int i=0;i<ctot.size();i++)
+        {
+            //add thin ice
+            ctot[i] += M_conc_thin[i];
+            vtot[i] += M_h_thin[i];
+        }
+}//getTotalConcVol
+
+
 #if defined (WAVES)
 void
 FiniteElement::wimPreRegrid()
@@ -9617,45 +9628,19 @@ FiniteElement::wimPostRegrid()
     M_wim.setRelativeMeshDisplacement(M_wim_meshdisp);
 
     //M_wim.nextsim_mesh
-    M_wim.setMesh2(M_mesh,M_UM,bamgmesh,M_flag_fix,true);//true means M_wim.assignSpatial() is called here
+    auto movedmesh = M_mesh;
+    movedmesh.move(M_UM,1.);
+    bool regridding = true;
+    M_wim.setMeshFull(movedmesh,bamgmesh,M_flag_fix,regridding);//true means M_wim.assignSpatial() is called here
 
     // pass back interpolated wave spectrum to new elements;
     // interpolation scheme interp2cavities is conservative
     // - ie new element area is accounted for
     M_wim.setWaveSpec(M_wavespec);
 
-
     std::cout<<"leaving wimPostRegrid()\n";
 }//wimPostRegrid()
 
-void
-FiniteElement::wimCommPreRegrid()
-{
-
-    if (M_wave_mode==setup::WaveMode::RUN_ON_MESH)
-        //nothing to do
-        return;
-
-    bool pre_regrid = true;
-
-    // ============================================================
-    // set mesh and ice fields on grid
-    // - better to do this before regridding
-    // so don't interp mesh->mesh->grid)
-    M_wim.setMesh(M_mesh,M_UM);
-    auto ctot   = M_conc; //total ice conc
-    auto vtot   = M_thick;//total ice vol
-    if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
-        for (int i=0;i<ctot.size();i++)
-        {
-            //add thin ice
-            ctot[i] += M_conc_thin[i];
-            vtot[i] += M_h_thin[i];
-        }
-
-    //interp here
-    M_wim.setIceFields(ctot,vtot,M_nfloes,pre_regrid);
-}//wimCommPreRegrid
 
 void
 FiniteElement::wimCheckWaves()
@@ -9744,12 +9729,9 @@ FiniteElement::wimCheckWaves()
     std::cout<<"max mwp (processed dataset) = "<< *std::max_element(mwp_in.begin(),mwp_in.end() )<<"\n";
     std::cout<<"min mwd (processed dataset) = "<< *std::min_element(mwd_in.begin(),mwd_in.end() )<<"\n";
     std::cout<<"max mwd (processed dataset) = "<< *std::max_element(mwd_in.begin(),mwd_in.end() )<<"\n";
-    std::cout<<"9364\n";
 #endif
 
-
     M_wim.setWaveFields(swh_in, mwp_in, mwd_in);
-    std::cout<<"9518\n";
 }//wimCheckWaves()
 
 
@@ -9758,18 +9740,17 @@ FiniteElement::initWim(int const pcpt)
 {
     // initialization of M_wim
     // - need pcpt to get correct initial start time if restarting
+
+    auto movedmesh = M_mesh;
+    movedmesh.move(M_UM,1.);
+
+    M_wim = wim_type(vm);
+    M_wim.initCoupled(pcpt, movedmesh, bamgmesh, M_flag_fix);
+
+#if 1
     if(!(M_wave_mode==setup::WaveMode::RUN_ON_MESH))
     {
-        // - initialise grid using mesh if no gridfilename is present
-        std::string wim_gridfile = vm["wimgrid.gridfilename"].as<std::string>();
-        if ( wim_gridfile != "" )
-            //init grid from gridfile
-            M_wim = wim_type(vm,pcpt);
-        else
-            //init grid from mesh
-            M_wim = wim_type(vm,M_mesh,pcpt);
-
-        // get M_wim grid
+        //test printouts
         std::cout<<"Getting WIM grid info\n";
 
         //total number of grid cells
@@ -9786,13 +9767,37 @@ FiniteElement::initWim(int const pcpt)
         std::cout<<"ymin (WIM grid) = "<<ymin_wim<<"\n";
         std::cout<<"ymax (WIM grid) = "<<ymax_wim<<"\n";
     }
+#endif
+
+    // get ctot, vtot
+    std::vector<double> ctot, vtot;//calculated in getTotalConcVol()
+    this->getTotalConcVol(ctot,vtot);
+
+    // init Dfloe etc
+    // TODO would change if starting from restart 
+    this->initWimVariables(ctot,vtot);
+
+    //set the ice fields inside the WIM
+    M_wim.setIceFields(ctot,vtot,M_nfloes);
+
+    //init external_data_waves (wave forcing)
+    LOG(DEBUG) <<"Initialize forcingWave\n";
+    this->forcingWave();
+
+    // set the initial waves
+    if (M_wave_type==setup::WaveType::SET_IN_WIM)
+    {
+        LOG(DEBUG)<<"initWim: calling setIdealWaveFields()\n";
+        M_wim.idealWaveFields();
+    }
     else
-        // init WIM on mesh
-        // NB setMesh() is called before M_wim.run() and at regridding time
-        M_wim = wim_type(vm,pcpt);
+    {
+        LOG(DEBUG)<<"initWim: loading wave forcing\n";
+        this->wimCheckWaves();
+    }
 
     //check if we want to export the Stokes drift
-    M_export_wim_diags_mesh  = vm["nextwim.export_diags_mesh"].as<bool>();
+    M_export_wim_diags_mesh = vm["nextwim.export_diags_mesh"].as<bool>();
 
     // init counters to 0
     M_wim_cpt                   = 0;// number of times WIM has been called
@@ -9804,11 +9809,11 @@ FiniteElement::initWim(int const pcpt)
         throw runtime_error("nextwim.couplingfreq should be >0\n");
 }//initWim
 
+
 void
-FiniteElement::initWimVariables()
+FiniteElement::initWimVariables(std::vector<double> const &ctot, std::vector<double> const &vtot)
 {
     std::cout<<"start initWimVariables()\n";
-
 
     // ==============================================================
     // WIM variables on the mesh
@@ -9816,18 +9821,17 @@ FiniteElement::initWimVariables()
     // - NB need M_conc
     M_nfloes.assign(M_num_elements,0.);
     M_dfloe.assign(M_num_elements,0.);
+    if(ctot.size()!=M_num_elements)
+        throw std::runtime_error("initWimVariables: ctot has wrong size\n");
+    if(vtot.size()!=M_num_elements)
+        throw std::runtime_error("initWimVariables: vtot has wrong size\n");
 
     for (int i=0; i<M_num_elements; ++i)
     {
-        double ctot = M_conc[i];
-        if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
-            //add thin ice
-            ctot += M_conc_thin[i];
-
-        if (ctot>=vm["wim.cicemin"].as<double>())
+        if (ctot[i]>=vm["wim.cicemin"].as<double>())
         {
             M_dfloe[i]  = vm["wim.dfloepackinit"].as<double>();
-            M_nfloes[i] = M_wim.dfloeToNfloes(M_dfloe[i],ctot);
+            M_nfloes[i] = M_wim.dfloeToNfloes(M_dfloe[i],ctot[i]);
         }
     }
     std::cout<<"init dfloe in pack = "<<vm["wim.dfloepackinit"].as<double>()<<"\n";
@@ -9837,54 +9841,56 @@ FiniteElement::initWimVariables()
     std::cout<<"end initWimVariables()\n";
 }//initWimVariables()
 
+
 void
 FiniteElement::wimCall()
 {
 
+    M_run_wim = !(M_wim_steps_since_last_call % M_wim_cpl_freq);
+
     std::cout<<"wimCall(): M_run_wim = "<<M_run_wim<<"\n";
-    bool pre_regrid = false;
+    //bool pre_regrid = false;
     auto movedmesh  = M_mesh;
     movedmesh.move(M_UM,1.);
 
     if (M_run_wim)
     {
-        // run wim
-        auto ctot   = M_conc; //total ice conc
-        auto vtot   = M_thick;//total ice vol
-        if ( (M_wave_mode==setup::WaveMode::BREAK_ON_MESH) ||
-             (M_wave_mode==setup::WaveMode::RUN_ON_MESH) )
+        // pass in the nextsim mesh
+        if ((M_wim_cpt>0)||(!M_regrid))
         {
-            //give moved mesh to WIM
-            if(M_wave_mode==setup::WaveMode::BREAK_ON_MESH)
-                M_wim.setMesh(movedmesh);
-            else if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
-                //NB setMesh() already called in init
-                M_wim.setMesh2(movedmesh,bamgmesh,M_flag_fix);
+            //if we have just initialised or remeshed,
+            //we don't need to pass in the mesh
 
-            //set ice fields on mesh
-            if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
-                for (int i=0;i<ctot.size();i++)
-                {
-                    //add thin ice
-                    ctot[i] += M_conc_thin[i];
-                    vtot[i] += M_h_thin[i];
-                }
-            M_wim.setIceFields(ctot,vtot,M_nfloes,pre_regrid);
+            //give moved mesh to WIM
+            if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
+                //NB setMeshSimple() already called in init
+                M_wim.setMeshFull(movedmesh,bamgmesh,M_flag_fix);
+            else
+                M_wim.setMeshSimple(movedmesh);
+
         }
 
-        bool TEST_INTERP_MESH = false;
-        //save mesh before entering WIM:
-        // mesh file can then be copied inside WIM to correct path to allow plotting
-        if (TEST_INTERP_MESH)
-            this->exportResults("test_interp_mesh",true,false);
+        //get total conc and volume
+        std::vector<double> ctot, vtot;//calculated in getTotalConcVol()
+        this->getTotalConcVol(ctot,vtot);
 
-        LOG(DEBUG)<<"wimCall (check wave forcing)\n";
-        this->wimCheckWaves();
+        // set the ice and wave fields
+        if (M_wim_cpt>0)
+        {
+            //if we have just initialised, we already have the ice and incident wave fields
 
+            //set ice fields on mesh
+            M_wim.setIceFields(ctot,vtot,M_nfloes);
+
+            LOG(DEBUG)<<"wimCall: check wave forcing and set waves\n";
+            this->wimCheckWaves();
+        }
+
+        //run the wim
         std::cout<<"before M_wim.run()\n";
         M_wim.run();
 
-        //FSD info
+        //get FSD info
         std::vector<double> broken;
         if ( (M_wave_mode==setup::WaveMode::BREAK_ON_MESH) ||
              (M_wave_mode==setup::WaveMode::RUN_ON_MESH) )
@@ -9902,10 +9908,9 @@ FiniteElement::wimCall()
         LOG(DEBUG)<<"max broken on mesh = "<< *std::max_element(broken.begin(),broken.end() )<<"\n";
 #endif
 
+        //damage the ice if broken
         if ( vm["nextwim.wim_damage_mesh"].template as<bool>() )
         {
-            //M_wim.clearMeshFields();
-
             for (int i=1;i<M_num_elements;i++)
             {
                 if (broken[i])
@@ -9913,7 +9918,7 @@ FiniteElement::wimCall()
                        (vm["nextwim.wim_damage_value"].template as<double>()));
                 //std::cout<<"broken?,damage"<<M_broken[i]<<","<<M_damage[i]<<"\n";
             }
-        }//break on mesh
+        }
 
         //reset counter
         M_wim_steps_since_last_call = 0;
@@ -9922,6 +9927,7 @@ FiniteElement::wimCall()
         M_wim_cpt++;
     }//run WIM
 
+    // wave stress
     bool interp_taux = vm["nextwim.applywavestress"].as<bool>();
     if(!interp_taux)
         M_tau.assign(2*M_num_nodes,0.);
@@ -9939,22 +9945,24 @@ FiniteElement::wimCall()
                 if(interp_taux)
                     ss.push_back("Stress_waves_ice");
 
-                M_wim_fields_nodes  = M_wim.returnFieldsNodes(ss,movedmesh);
+                M_wim_fields_nodes = M_wim.returnFieldsNodes(ss,movedmesh);
 
                 if(interp_taux)
                 {
-                    M_tau   = M_wim_fields_nodes["Stress_waves_ice"];
+                    M_tau = M_wim_fields_nodes["Stress_waves_ice"];
                     M_wim_fields_nodes.erase("Stress_waves_ice");
                 }
             }
             else if (interp_taux)
-                M_wim.returnWaveStress(M_tau);
+                M_tau = M_wim.returnWaveStress();
         }
     }
     else if(interp_taux)
-        M_wim.returnWaveStress(M_tau,movedmesh);
+        M_tau = M_wim.returnWaveStress(movedmesh);
 
-    if(M_run_wim&&(vm["nextwim.export_after_wim_call"].as<bool>()))
+    if(M_run_wim
+            && (vm["nextwim.export_after_wim_call"].as<bool>())
+            && M_export_wim_diags_mesh)
     {
         std::string tmp_string3
             = ( boost::format( "after_wim_call_%1%" ) % (M_wim_cpt-1) ).str();

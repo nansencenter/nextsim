@@ -17,8 +17,8 @@ namespace Wim
 // ===============================================================
 // MeshInfo class
 
-template<typename T>
-MeshInfo<T>::MeshInfo(T_gmsh const &movedmesh)
+template<typename T, typename FEMeshType>
+MeshInfo<T, FEMeshType>::MeshInfo(T_gmsh const &movedmesh)
 {
     M_mesh_type = E_mesh_type::simple;
 
@@ -30,8 +30,8 @@ MeshInfo<T>::MeshInfo(T_gmsh const &movedmesh)
 }//MeshInfo constructor (simple)
 
 
-template<typename T>
-MeshInfo<T>::MeshInfo(std::vector<int> const& index,T_val_vec const &nodes_x,T_val_vec const &nodes_y)
+template<typename T, typename FEMeshType>
+MeshInfo<T, FEMeshType>::MeshInfo(std::vector<int> const& index,T_val_vec const &nodes_x,T_val_vec const &nodes_y)
 {
     //set some scalars
     M_mesh_type   = E_mesh_type::simple;
@@ -50,8 +50,8 @@ MeshInfo<T>::MeshInfo(std::vector<int> const& index,T_val_vec const &nodes_x,T_v
 }//MeshInfo constructor (simple)
 
 
-template<typename T>
-MeshInfo<T>::MeshInfo(T_val_vec const &nodes_x,T_val_vec const &nodes_y)
+template<typename T, typename FEMeshType>
+MeshInfo<T, FEMeshType>::MeshInfo(T_val_vec const &nodes_x,T_val_vec const &nodes_y)
 {
     //takes nodes and does triangulation
 
@@ -88,8 +88,8 @@ MeshInfo<T>::MeshInfo(T_val_vec const &nodes_x,T_val_vec const &nodes_y)
 }//MeshInfo constructor (simple)
 
 
-template<typename T>
-MeshInfo<T>::MeshInfo(std::vector<int> const& index,T_val_vec const &nodes_x,T_val_vec const &nodes_y,
+template<typename T, typename FEMeshType>
+MeshInfo<T, FEMeshType>::MeshInfo(std::vector<int> const& index,T_val_vec const &nodes_x,T_val_vec const &nodes_y,
         T_val_vec const &elements_x,T_val_vec const &elements_y)
 {
     //set some scalars
@@ -111,8 +111,8 @@ MeshInfo<T>::MeshInfo(std::vector<int> const& index,T_val_vec const &nodes_x,T_v
 }//MeshInfo constructor (simple)
 
 
-template<typename T>
-MeshInfo<T>::MeshInfo(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& flag_fix)
+template<typename T, typename FEMeshType>
+MeshInfo<T, FEMeshType>::MeshInfo(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& flag_fix)
 {
     //interface for M_wim_on_mesh
     M_mesh_type = E_mesh_type::full;
@@ -147,7 +147,7 @@ MeshInfo<T>::MeshInfo(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& flag
         else
         {
             std::cout<<"Area of triangle "<<i<<" <0 : "<<area<<"\n";
-            throw std::runtime_error("MeshInfo<T>::MeshInfo (full): negative area found\n");
+            throw std::runtime_error("MeshInfo<T, FEMeshType>::MeshInfo (full): negative area found\n");
         }
     }
 
@@ -183,8 +183,8 @@ MeshInfo<T>::MeshInfo(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& flag
 }//MeshInfo constructor (full)
 
 
-template<typename T>
-void MeshInfo<T>::initSimple()
+template<typename T, typename FEMeshType>
+void MeshInfo<T, FEMeshType>::initSimple()
 {
     if(M_elements_x.size()==0)
         this->setElements();
@@ -209,8 +209,8 @@ void MeshInfo<T>::initSimple()
     M_resolution = std::sqrt(area_tot/Nels);//sqrt of the mean area of the triangles
 }
 
-template<typename T>
-void MeshInfo<T>::setElements()
+template<typename T, typename FEMeshType>
+void MeshInfo<T, FEMeshType>::setElements()
 {
     M_elements_x.assign(M_num_elements,0.);
     M_elements_y.assign(M_num_elements,0.);
@@ -227,8 +227,8 @@ void MeshInfo<T>::setElements()
 }//setElements()
 
 
-template<typename T>
-void MeshInfo<T>::setFields(T_gmsh const &mesh_in)
+template<typename T, typename FEMeshType>
+void MeshInfo<T, FEMeshType>::setFields(T_gmsh const &mesh_in)
 {
     //sets the basic mesh fields
     M_num_nodes     = mesh_in.numNodes();
@@ -242,8 +242,8 @@ void MeshInfo<T>::setFields(T_gmsh const &mesh_in)
 }//setFields
 
 
-template<typename T>
-void MeshInfo<T>::advect(T_val** interp_elt_out_ptr, // pointer to pointer to output data
+template<typename T, typename FEMeshType>
+void MeshInfo<T, FEMeshType>::advect(T_val** interp_elt_out_ptr, // pointer to pointer to output data
         T_val* interp_elt_in,                        // pointer to input data
         T_val* VC_in,                                // pointer to convective velocities (len = 2*num_nodes)
         int* interp_method,                           // pointer to interp methods for each variable
@@ -390,8 +390,8 @@ void MeshInfo<T>::advect(T_val** interp_elt_out_ptr, // pointer to pointer to ou
 }//advect
 
 
-template<typename T>
-void MeshInfo<T>::interpToPoints(
+template<typename T, typename FEMeshType>
+void MeshInfo<T, FEMeshType>::interpToPoints(
         T_val_vec_ptrs &output_data,         //output data
         T_val_vec_ptrs const &input_data,    //input data
         T_val_vec &Rx,                       //location of output data (x-coord)
@@ -462,8 +462,8 @@ void MeshInfo<T>::interpToPoints(
 }//interpToPoints
 
 
-template<typename T>
-void MeshInfo<T>::elementsToNodes(
+template<typename T, typename FEMeshType>
+void MeshInfo<T, FEMeshType>::elementsToNodes(
         T_val_vec_ptrs &output_data,       //output data
         T_val_vec_ptrs const &input_data)  //input data
 {
@@ -516,8 +516,8 @@ void MeshInfo<T>::elementsToNodes(
 }//elementsToNodes()
 
 
-template<typename T>
-void MeshInfo<T>::interpToGrid(
+template<typename T, typename FEMeshType>
+void MeshInfo<T, FEMeshType>::interpToGrid(
         T_val_vec_ptrs &output_data,            //output data
         T_val_vec_ptrs const &input_data,       //input data
         T_val const &xmin, T_val const &ymax,   //grid parameters
@@ -1011,6 +1011,7 @@ getEnv(std::string const& envname)
 //template class MeshInfo<float>;
 
 // instantiate wim class for type double
-template class MeshInfo<double>;
+//template class MeshInfo<double>;
+template class MeshInfo<double,Nextsim::GmshMesh>;
 
 } // namespace Wim
