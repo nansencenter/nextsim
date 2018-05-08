@@ -4831,7 +4831,8 @@ FiniteElement::initOASIS()
     int ncols = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
 
     // Define the mooring dataset
-    M_cpl_out = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first, elemental_variables, GridOutput::variableKind::elemental);
+    M_cpl_out = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first,
+            elemental_variables, GridOutput::variableKind::elemental);
     //std::vector<int> lsm = M_cpl_out.getMask(M_mesh, GridOutput::variableKind::elemental);
     std::cout << "ncols: " << ncols << " M_ncols: " << M_cpl_out.M_ncols << std::endl;
     std::cout << "nrows: " << nrows << " M_nrows: " << M_cpl_out.M_nrows << std::endl;
@@ -5526,6 +5527,14 @@ FiniteElement::updateMeans(GridOutput &means, double time_factor)
                     it->data_mesh[i] += D_delS[i]*time_factor;
                 break;
 
+#if defined (WAVES)
+            // WIM variables
+            case (GridOutput::variableID::dfloe):
+                for (int i=0; i<M_num_elements; i++)
+                    it->data_mesh[i] += M_dfloe[i]*time_factor;
+                break;
+#endif
+
             default: std::logic_error("Updating of given variableID not implimented (elements)");
         }
     }
@@ -5569,9 +5578,37 @@ FiniteElement::initMoorings()
     std::vector<GridOutput::Vectorial_Variable> vectorial_variables;
 
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
+    std::vector<std::string> names_thin = {"conc_thin", "h_thin", "hs_thin"};
+    std::vector<std::string> names_wim = {"dfloe"};
+
+    double averaging_period = mooring_output_time_step;
+    if (M_moorings_snapshot)
+        averaging_period = 0.;
 
     for ( auto it=names.begin(); it!=names.end(); ++it )
     {
+        // skip thin ice variables if not using thin ice category
+        if (std::count(names_thin.begin(), names_thin.end(), *it) > 0)
+            if(M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
+            {
+                LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with thin ice\n";
+                continue;
+            }
+
+        // skip wave variables if not running WIM
+        if (std::count(names_wim.begin(), names_wim.end(), *it) > 0)
+#if ! defined (WAVES)
+        {
+            LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with waves\n";
+            continue;
+        }
+#else
+            if(!M_use_wim)
+            {
+                LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with waves\n";
+                continue;
+            }
+#endif
         // Element variables
         if ( *it == "conc" )
         {
@@ -5630,33 +5667,23 @@ FiniteElement::initMoorings()
         }
         else if ( *it == "conc_thin" )
         {
-            if(M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
-            {
-                LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with thin ice\n";
-                continue;
-            }
             GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin, data_elements, data_grid);
             elemental_variables.push_back(conc_thin);
         }
         else if ( *it == "h_thin" )
         {
-            if(M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
-            {
-                LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with thin ice\n";
-                continue;
-            }
             GridOutput::Variable h_thin(GridOutput::variableID::h_thin, data_elements, data_grid);
             elemental_variables.push_back(h_thin);
         }
         else if ( *it == "hs_thin" )
         {
-            if(M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
-            {
-                LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with thin ice\n";
-                continue;
-            }
             GridOutput::Variable hs_thin(GridOutput::variableID::hs_thin, data_elements, data_grid);
             elemental_variables.push_back(hs_thin);
+        }
+        else if ( *it == "dfloe" )
+        {
+            GridOutput::Variable dfloe(GridOutput::variableID::dfloe, data_elements, data_grid);
+            elemental_variables.push_back(dfloe);
         }
         // Nodal variables and vectors
         else if ( *it == "velocity_xy" | *it == "velocity_uv" )
@@ -5701,6 +5728,12 @@ FiniteElement::initMoorings()
                 std::cout << "h_thin, ";
                 std::cout << "hs_thin, ";
             }
+#if defined (WAVES)
+            if ( M_use_wim )
+            {
+                std::cout << "dfloe, ";
+            }
+#endif
             std::cout << "velocity_xy, ";
             std::cout << "velocity_uv";
 
@@ -5721,7 +5754,10 @@ FiniteElement::initMoorings()
         int nrows = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/mooring_spacing );
 
         // Define the mooring dataset
-        M_moorings = GridOutput(ncols, nrows, mooring_spacing, *xcoords.first, *ycoords.first, nodal_variables, elemental_variables, vectorial_variables);
+        M_moorings = GridOutput(ncols, nrows, mooring_spacing,
+                *xcoords.first, *ycoords.first,
+                nodal_variables, elemental_variables, vectorial_variables,
+                averaging_period);
     }
     else
     {
@@ -5737,7 +5773,9 @@ FiniteElement::initMoorings()
         };
 
         // Define the mooring dataset
-        M_moorings = GridOutput(grid, nodal_variables, elemental_variables, vectorial_variables);
+        M_moorings = GridOutput(grid,
+                nodal_variables, elemental_variables, vectorial_variables,
+                averaging_period);
     }
 
     double output_time;
