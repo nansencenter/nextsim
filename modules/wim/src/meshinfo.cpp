@@ -8,7 +8,7 @@
  * @date   Mon Aug 24 11:02:45 2015
  */
 
-#include <meshtools.hpp>
+#include <meshinfo.hpp>
 #include <BamgTriangulatex.h>
 
 namespace Wim
