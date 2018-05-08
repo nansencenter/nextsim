@@ -243,8 +243,8 @@ void GridInfo<T>::setupAdvection()
 
     //need nghost>=4 for WENO advection
     T_val nghost = 4;
-    M_nbdy_x    = nghost;
-    M_nbdy_y    = nghost;
+    M_nbdy_x = nghost;
+    M_nbdy_y = nghost;
 
     if (M_advdim == 1)
         M_nbdy_y = 0;
