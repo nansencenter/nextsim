@@ -59,9 +59,6 @@ template<typename T=float> class WimDiscr
     typedef typename std::vector<T_val_vec*>  T_val_vec_ptrs;
     typedef typename std::vector<T_val_vec>   T_val_vec2d;//vector of vectors
     typedef typename std::vector<T_val_vec2d> T_val_vec3d;//vector of vectors of vectors
-    
-    //gmsh types
-    typedef Nextsim::GmshMesh T_gmsh;
 
     //other types
     typedef Wim::IceParams<T_val>                         T_icep;
@@ -100,8 +97,9 @@ public:
     // ====================================================================================
     // init
     void initStandAlone();
+    template<typename FEMeshType>
     void initCoupled(int const& nextsim_cpt,
-            T_gmsh const &movedmesh,
+            FEMeshType const &movedmesh,
             BamgMesh* bamgmesh,
             int const& flag_fix);
     void initConstant(int const& nextsim_cpt=0);
@@ -139,26 +137,25 @@ public:
 
     // wim on its own grid
     // - need mesh for interpolation etc
-    void setMeshSimple( T_gmsh const &mesh);
+    template<typename FEMeshType>
+    void setMeshSimple( FEMeshType const &mesh);
 
     // wim on nextsim mesh
-    void setMeshFull( T_gmsh const &mesh,
+    template<typename FEMeshType>
+    void setMeshFull( FEMeshType const &mesh,
             BamgMesh* bamgmesh,
             int const& flag_fix,
             bool const& regridding=false);
 
-    // wrapper for setMeshSimple and setMeshFull
-    void setMesh( T_gmsh const &mesh,
-            BamgMesh* bamgmesh,
-            int const& flag_fix,
-            bool const& regridding=false);
-
-    T_val_vec getRelativeMeshDisplacement(T_gmsh const &movedmesh) const;
+    template<typename FEMeshType>
+    T_val_vec getRelativeMeshDisplacement(FEMeshType const &movedmesh) const;
     T_val_vec getMeshDisplacement() const { return M_UM; }
     void setRelativeMeshDisplacement(T_val_vec const&um_in) { M_UM = um_in; return; }
 
-    void updateWaveSpec( T_gmsh const &mesh);
-    T_val_vec getSurfaceFactor(T_gmsh const &movedmesh);
+    template<typename FEMeshType>
+    void updateWaveSpec( FEMeshType const &mesh);
+    template<typename FEMeshType>
+    T_val_vec getSurfaceFactor(FEMeshType const &movedmesh);
 
     T_val_vec3d getWaveSpec() const { return M_sdf_dir; }
     void setWaveSpec(T_val_vec3d const&sdf_in)
@@ -195,17 +192,20 @@ public:
     // output fields, wave stress,...
     T_map_vec returnFieldsElements(std::vector<std::string> const&fields,
             T_val_vec &xel, T_val_vec &yel, T_val_vec const&surface_fac);
+    template<typename FEMeshType>
     T_map_vec returnFieldsElements(std::vector<std::string> const&fields,
-            T_gmsh const &movedmesh);
+            FEMeshType const &movedmesh);
 
     T_map_vec returnFieldsNodes(std::vector<std::string> const&fields,
             T_val_vec &xnod, T_val_vec &ynod);
+    template<typename FEMeshType>
     T_map_vec returnFieldsNodes(std::vector<std::string> const&fields,
-            T_gmsh const &movedmesh);
+            FEMeshType const &movedmesh);
 
     T_val_vec returnWaveStress(T_val_vec &xnod, T_val_vec &ynod);
         //base interface - pass in the nodes for interpolation to these points
-    T_val_vec returnWaveStress(T_gmsh const &movedmesh);
+    template<typename FEMeshType>
+    T_val_vec returnWaveStress(FEMeshType const &movedmesh);
         //pass in the moved mesh, then get the nodes
     T_val_vec returnWaveStress();
         //if running on mesh, have stresses on elements: interp them to nodes
@@ -233,8 +233,9 @@ public:
                  std::vector<T_val> const& m_conc);
 
     void getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out,T_val_vec &broken);
+    template<typename FEMeshType>
     void getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out, T_val_vec &broken,
-            T_val_vec const & conc_tot, T_gmsh const &movedmesh);
+            T_val_vec const & conc_tot, FEMeshType const &movedmesh);
     // ========================================================================
 
 

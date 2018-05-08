@@ -45,8 +45,9 @@ void WimDiscr<T>::initStandAlone()
 
 
 template<typename T>
+template<typename FEMeshType>
 void WimDiscr<T>::initCoupled(int const& nextsim_cpt,
-        T_gmsh const &movedmesh,
+        FEMeshType const &movedmesh,
         BamgMesh* bamgmesh,
         int const& flag_fix)
 {
@@ -1230,22 +1231,8 @@ void WimDiscr<T>::timeStep()
 
 
 template<typename T>
-void WimDiscr<T>::setMesh(T_gmsh const &movedmesh,
-            BamgMesh* bamgmesh,
-            int const& flag_fix,
-            bool const & regridding)
-{
-
-    if(M_wim_on_mesh)
-        //set full mesh in order to set ice fields and enable advection on it
-        this->setMeshFull(movedmesh, bamgmesh, flag_fix, regridding);
-    else
-        //set simple mesh in order to set ice fields
-        this->setMeshSimple(movedmesh);
-}
-
-template<typename T>
-void WimDiscr<T>::setMeshSimple(T_gmsh const &movedmesh)
+template<typename FEMeshType>
+void WimDiscr<T>::setMeshSimple(FEMeshType const &movedmesh)
 {
     M_time_mesh_set = M_update_time;//used in check when ice fields are set on mesh
     M_mesh_old      = M_mesh;
@@ -1256,7 +1243,8 @@ void WimDiscr<T>::setMeshSimple(T_gmsh const &movedmesh)
 
 
 template<typename T>
-void WimDiscr<T>::setMeshFull(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding)
+template<typename FEMeshType>
+void WimDiscr<T>::setMeshFull(FEMeshType const &movedmesh,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding)
 {
     //interface for M_wim_on_mesh
 
@@ -1311,8 +1299,9 @@ void WimDiscr<T>::setMeshFull(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int con
 
 
 template<typename T>
+template<typename FEMeshType>
 typename WimDiscr<T>::T_val_vec
-WimDiscr<T>::getSurfaceFactor(T_gmsh const &movedmesh)
+WimDiscr<T>::getSurfaceFactor(FEMeshType const &movedmesh)
 {
     // wave spectrum needs to be updated if mesh changes due to divergence of mesh velocity
     // ie element surface area changes need to be taken into account;
@@ -1350,7 +1339,8 @@ WimDiscr<T>::getSurfaceFactor(T_gmsh const &movedmesh)
 
 
 template<typename T>
-void WimDiscr<T>::updateWaveSpec(T_gmsh const &movedmesh)
+template<typename FEMeshType>
+void WimDiscr<T>::updateWaveSpec(FEMeshType const &movedmesh)
 {
     // wave spectrum needs to be updated if mesh changes due to divergence of mesh velocity
     // ie element surface area changes need to be taken into account;
@@ -1416,8 +1406,9 @@ void WimDiscr<T>::updateWaveSpec(T_gmsh const &movedmesh)
 
 
 template<typename T>
+template<typename FEMeshType>
 typename WimDiscr<T>::T_val_vec
-WimDiscr<T>::getRelativeMeshDisplacement(T_gmsh const &movedmesh) const
+WimDiscr<T>::getRelativeMeshDisplacement(FEMeshType const &movedmesh) const
 {
     auto nodes_x = movedmesh.coordX();
     auto nodes_y = movedmesh.coordY();
@@ -1484,9 +1475,10 @@ void WimDiscr<T>::interpIceMeshToGrid()
 
 
 template<typename T>
+template<typename FEMeshType>
 typename WimDiscr<T>::T_map_vec
 WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const & fields,
-        T_gmsh const &movedmesh)
+        FEMeshType const &movedmesh)
 {
     auto xnod = movedmesh.coordX();
     auto ynod = movedmesh.coordY();
@@ -1495,9 +1487,10 @@ WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const & fields,
 
 
 template<typename T>
+template<typename FEMeshType>
 typename WimDiscr<T>::T_map_vec
 WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
-        T_gmsh const &movedmesh)
+        FEMeshType const &movedmesh)
 {
     auto xel  = movedmesh.bCoordX();
     auto yel  = movedmesh.bCoordY();
@@ -1670,8 +1663,9 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
 
 
 template<typename T>
+template<typename FEMeshType>
 typename WimDiscr<T>::T_val_vec
-WimDiscr<T>::returnWaveStress(T_gmsh const &movedmesh)
+WimDiscr<T>::returnWaveStress(FEMeshType const &movedmesh)
 {
     //pass in the moved mesh, then get the nodes
     auto xnod = movedmesh.coordX();
@@ -1831,8 +1825,9 @@ void WimDiscr<T>::getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out,T_val_ve
 
 
 template<typename T>
+template<typename FEMeshType>
 void WimDiscr<T>::getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out,T_val_vec &broken,
-        T_val_vec const & conc_tot, T_gmsh const &movedmesh)
+        T_val_vec const & conc_tot, FEMeshType const &movedmesh)
 {
     if((M_wim_on_mesh)||(M_break_on_mesh))
         throw std::runtime_error("getFsdMesh: using wrong interface");
@@ -3115,5 +3110,33 @@ void WimDiscr<T>::printRange(std::string const &name,T_val_vec const &vec, int c
 
 // instantiate wim class for type double
 template class WimDiscr<double>;
+
+// Instantiate the FEMeshType templates for Nextsim::GmshMesh objects
+// this can change to GmshMeshSeq in parallel code which is why a template is used
+template void
+WimDiscr<double>::initCoupled<Nextsim::GmshMesh>(int const&,
+        Nextsim::GmshMesh const&, BamgMesh*, int const&);
+template void
+WimDiscr<double>::setMeshSimple<Nextsim::GmshMesh>( Nextsim::GmshMesh const&);
+template void
+WimDiscr<double>::setMeshFull<Nextsim::GmshMesh>( Nextsim::GmshMesh const &,
+            BamgMesh*, int const&, bool const&);
+template typename WimDiscr<double>::T_val_vec
+WimDiscr<double>::getRelativeMeshDisplacement<Nextsim::GmshMesh>(Nextsim::GmshMesh const &) const;
+template void
+WimDiscr<double>::updateWaveSpec<Nextsim::GmshMesh>( Nextsim::GmshMesh const &);
+template typename WimDiscr<double>::T_val_vec
+WimDiscr<double>::getSurfaceFactor<Nextsim::GmshMesh>(Nextsim::GmshMesh const &);
+template typename WimDiscr<double>::T_map_vec
+WimDiscr<double>::returnFieldsElements<Nextsim::GmshMesh>(std::vector<std::string> const&,
+                 Nextsim::GmshMesh const &);
+template typename WimDiscr<double>::T_map_vec
+WimDiscr<double>::returnFieldsNodes<Nextsim::GmshMesh>(std::vector<std::string> const&,
+                 Nextsim::GmshMesh const &);
+template typename WimDiscr<double>::T_val_vec
+WimDiscr<double>::returnWaveStress<Nextsim::GmshMesh>(Nextsim::GmshMesh const &);
+template void
+WimDiscr<double>::getFsdMesh<Nextsim::GmshMesh>(T_val_vec &,T_val_vec &, T_val_vec &,
+                 T_val_vec const &, Nextsim::GmshMesh const &);
 
 } // namespace WIM2D
