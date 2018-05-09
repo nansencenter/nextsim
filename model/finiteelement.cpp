@@ -4734,10 +4734,11 @@ FiniteElement::init()
     }
 
 #if defined (WAVES)
-    // initialize M_wim here to give access to WIM grid
+    // initialize M_wim here to give access to WIM elements
     // - after ice is initialised
-    // - before forcingWave() but after readRestart()
-    // - also after 1st regrid
+    // - after readRestart()
+    // - after 1st regrid
+    // - NB it calls forcingWave() 
     if (M_use_wim)
     {
         LOG(DEBUG) <<"Initialize WIM\n";
@@ -5209,6 +5210,7 @@ FiniteElement::step(int &pcpt)
         M_tau.assign(2*M_num_nodes,0.);
     else
         // coupling with wim
+        // 1. exchange from nextsim to wim
         // 2. run wim
         // 3. exchange from wim to nextsim
         this->wimCall();
@@ -5535,7 +5537,7 @@ FiniteElement::updateMeans(GridOutput &means, double time_factor)
                 break;
 #endif
 
-            default: std::logic_error("Updating of given variableID not implimented (elements)");
+            default: std::logic_error("Updating of given variableID not implemented (elements)");
         }
     }
 
@@ -6711,47 +6713,6 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
     }
 }
 
-#if defined (WAVES)
-void
-FiniteElement::forcingWave()
-{
-    int num_elements_wim = M_wim.getNumElements();
-
-    if (M_wave_type==setup::WaveType::WW3A)
-    {
-        // define external_data objects
-        //M_SWH        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init, vm["simul.spinup_duration"].as<double>());
-        M_SWH        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init);//no spinup
-        M_MWP        = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
-        M_MWD        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,true,time_init);//now a vector
-        M_fice_waves = ExternalData(&M_wave_elements_dataset, M_mesh, 4,false,time_init);
-
-        // add them to a vector for looping
-        M_external_data_waves.push_back(&M_SWH);
-        M_external_data_waves.push_back(&M_MWP);
-        M_external_data_waves.push_back(&M_MWD);
-        M_external_data_waves.push_back(&M_fice_waves);
-
-        M_wim_forcing_options = M_wave_elements_dataset.grid.waveOptions;
-    }
-    else if (M_wave_type==setup::WaveType::ERAI_WAVES_1DEG)
-    {
-        // define external_data objects
-        M_SWH = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init);//, vm["simul.spinup_duration"].as<double>());
-        M_MWP = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
-        M_MWD = ExternalData(&M_wave_elements_dataset, M_mesh, 0,true,time_init);//now a vector
-
-        // add them to a vector for looping
-        M_external_data_waves.push_back(&M_SWH);
-        M_external_data_waves.push_back(&M_MWP);
-        M_external_data_waves.push_back(&M_MWD);
-
-        M_wim_forcing_options = M_wave_elements_dataset.grid.waveOptions;
-    }
-    else if(M_wave_type!=setup::WaveType::SET_IN_WIM)
-        throw std::logic_error("invalid wave forcing");
-}
-#endif
 
 void
 FiniteElement::initSlabOcean()
@@ -9593,149 +9554,6 @@ FiniteElement::getTotalConcVol(std::vector<double> &ctot, std::vector<double> &v
 
 #if defined (WAVES)
 void
-FiniteElement::wimPreRegrid()
-{
-    //collect M_wavespec inside collectVariables()
-    M_collect_wavespec  = true;
-
-    // need to interpolate wave spectrum to new elements,
-    // taking account of change in surface area of elements
-    // - update for change in surface area
-    auto movedmesh  = M_mesh;
-    movedmesh.move(M_UM,1.);
-    M_wim.updateWaveSpec(movedmesh);
-
-    // - get wave spec
-    M_wavespec  = M_wim.getWaveSpec();
-
-    // need to get displacement of nodes at last WIM call,
-    // relative to current position of nodes;
-    // - this will be interpolated too
-    M_wim_meshdisp  = M_wim.getRelativeMeshDisplacement(movedmesh);
-}//wimPreRegrid()
-
-void
-FiniteElement::wimPostRegrid()
-{
-    std::cout<<"in wimPostRegrid()\n";
-    // no longer need to collect M_wavespec inside collectVariables()
-    // - eg don't need it in update(), before advect()
-    M_collect_wavespec  = false;
-
-    // pass back displacement of nodes at last WIM call,
-    // relative to the new mesh
-    // - this has now been interpolated to the new nodes
-    M_wim.setRelativeMeshDisplacement(M_wim_meshdisp);
-
-    //M_wim.nextsim_mesh
-    auto movedmesh = M_mesh;
-    movedmesh.move(M_UM,1.);
-    bool regridding = true;
-    M_wim.setMeshFull(movedmesh,bamgmesh,M_flag_fix,regridding);//true means M_wim.assignSpatial() is called here
-
-    // pass back interpolated wave spectrum to new elements;
-    // interpolation scheme interp2cavities is conservative
-    // - ie new element area is accounted for
-    M_wim.setWaveSpec(M_wavespec);
-
-    std::cout<<"leaving wimPostRegrid()\n";
-}//wimPostRegrid()
-
-
-void
-FiniteElement::wimCheckWaves()
-{
-    // ============================================================
-
-    // set inputs to WIM:
-    // - waves from datasets if needed
-    if (M_wave_type==setup::WaveType::SET_IN_WIM)
-        //nothing to do
-        return;
-
-    this->checkReloadDatasets(M_external_data_waves,M_current_time,"wimCheckWaves");
-
-    int num_elements_wim = M_wim.getX().size();
-    dbl_vec swh_in(num_elements_wim,0.);
-    dbl_vec mwp_in(num_elements_wim,0.);
-    dbl_vec mwd_in(num_elements_wim,0.);
-
-    double Hs_data_min  = 1.e30;
-    double Hs_data_max  = -1.e30;
-    double Tp_data_min  = 1.e30;
-    double Tp_data_max  = -1.e30;
-
-    for (int i=0; i<num_elements_wim; ++i)
-    {
-        //get incident waves from datasets
-        double cfac = 1.;
-        double uwave,vwave;
-        if ( M_wim_forcing_options.use_ice )
-            //cancel waves if ice present
-            if (M_fice_waves[i]>0.)
-                cfac = 0.;
-
-
-        // significant wave height
-        // - Hs given to the WIM should have the waves-in-ice
-        // removed (so we can do our own attenuation)
-        swh_in[i] = cfac*M_SWH[i];
-
-        // mean wave direction
-        uwave   = cfac*M_MWD[i];
-        vwave   = cfac*M_MWD[i+num_elements_wim];
-        if ( std::hypot(uwave,vwave)>.5 )
-        {
-            // if there are waves |(uwave,vwave)|=1,
-            // so convert to wave-from direction
-            // (degrees, clockwise from north)
-            mwd_in[i] = 90.-(180./PI)*std::atan2(-uwave,-vwave);
-        }
-
-        // peak wave period
-        if ( M_MWP[i]>0. )
-            if ( M_wim_forcing_options.use_mwp )
-                //Tp given to the WIM should have the waves-in-ice
-                //removed (so we can do our own attenuation)
-                mwp_in[i] = cfac*M_MWP[i];
-            else
-                // we are given fp, so convert to Tp,
-                // taking account of the ice
-                mwp_in[i] = cfac/M_MWP[i];
-        else
-        {
-            //if fp or Tp are 0, set all wave inputs to 0
-            swh_in[i] = 0.;
-            mwp_in[i] = 0.;
-            mwd_in[i] = 0.;
-        }
-
-        Hs_data_min  = std::min(Hs_data_min,M_SWH[i]);
-        Hs_data_max  = std::max(Hs_data_max,M_SWH[i]);
-        Tp_data_min  = std::min(Tp_data_min,M_MWP[i]);
-        Tp_data_max  = std::max(Tp_data_max,M_MWP[i]);
-    }//loop over wim grid cells
-
-
-#if 1
-    std::cout<<"min swh (dataset) = "<< Hs_data_min <<"\n";
-    std::cout<<"max swh (dataset) = "<< Hs_data_max <<"\n";
-    std::cout<<"min mwp (dataset) = "<< Tp_data_min <<"\n";
-    std::cout<<"max mwp (dataset) = "<< Tp_data_max <<"\n";
-    //
-    std::cout<<"min swh (processed dataset) = "<< *std::min_element(swh_in.begin(),swh_in.end() )<<"\n";
-    std::cout<<"max swh (processed dataset) = "<< *std::max_element(swh_in.begin(),swh_in.end() )<<"\n";
-    std::cout<<"min mwp (processed dataset) = "<< *std::min_element(mwp_in.begin(),mwp_in.end() )<<"\n";
-    std::cout<<"max mwp (processed dataset) = "<< *std::max_element(mwp_in.begin(),mwp_in.end() )<<"\n";
-    std::cout<<"min mwd (processed dataset) = "<< *std::min_element(mwd_in.begin(),mwd_in.end() )<<"\n";
-    std::cout<<"max mwd (processed dataset) = "<< *std::max_element(mwd_in.begin(),mwd_in.end() )<<"\n";
-#endif
-
-    M_wim.setWaveFields(swh_in, mwp_in, mwd_in);
-}//wimCheckWaves()
-
-
-void
 FiniteElement::initWim(int const pcpt)
 {
     // initialization of M_wim
@@ -9840,6 +9658,98 @@ FiniteElement::initWimVariables(std::vector<double> const &ctot, std::vector<dou
 
     std::cout<<"end initWimVariables()\n";
 }//initWimVariables()
+
+
+void
+FiniteElement::forcingWave()
+{
+    int num_elements_wim = M_wim.getNumElements();
+
+    if (M_wave_type==setup::WaveType::WW3A)
+    {
+        // define external_data objects
+        //M_SWH        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init, vm["simul.spinup_duration"].as<double>());
+        M_SWH        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init);//no spinup
+        M_MWP        = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
+        M_MWD        = ExternalData(&M_wave_elements_dataset, M_mesh, 0,true,time_init);//now a vector
+        M_fice_waves = ExternalData(&M_wave_elements_dataset, M_mesh, 4,false,time_init);
+
+        // add them to a vector for looping
+        M_external_data_waves.push_back(&M_SWH);
+        M_external_data_waves.push_back(&M_MWP);
+        M_external_data_waves.push_back(&M_MWD);
+        M_external_data_waves.push_back(&M_fice_waves);
+
+        M_wim_forcing_options = M_wave_elements_dataset.grid.waveOptions;
+    }
+    else if (M_wave_type==setup::WaveType::ERAI_WAVES_1DEG)
+    {
+        // define external_data objects
+        M_SWH = ExternalData(&M_wave_elements_dataset, M_mesh, 0,false,time_init);//, vm["simul.spinup_duration"].as<double>());
+        M_MWP = ExternalData(&M_wave_elements_dataset, M_mesh, 1,false,time_init);
+        M_MWD = ExternalData(&M_wave_elements_dataset, M_mesh, 0,true,time_init);//now a vector
+
+        // add them to a vector for looping
+        M_external_data_waves.push_back(&M_SWH);
+        M_external_data_waves.push_back(&M_MWP);
+        M_external_data_waves.push_back(&M_MWD);
+
+        M_wim_forcing_options = M_wave_elements_dataset.grid.waveOptions;
+    }
+    else if(M_wave_type!=setup::WaveType::SET_IN_WIM)
+        throw std::logic_error("invalid wave forcing");
+}//forcingWave
+
+
+void
+FiniteElement::wimPreRegrid()
+{
+    //collect M_wavespec inside collectVariables()
+    M_collect_wavespec  = true;
+
+    // need to interpolate wave spectrum to new elements,
+    // taking account of change in surface area of elements
+    // - update for change in surface area
+    auto movedmesh  = M_mesh;
+    movedmesh.move(M_UM,1.);
+    M_wim.updateWaveSpec(movedmesh);
+
+    // - get wave spec
+    M_wavespec  = M_wim.getWaveSpec();
+
+    // need to get displacement of nodes at last WIM call,
+    // relative to current position of nodes;
+    // - this will be interpolated too
+    M_wim_meshdisp  = M_wim.getRelativeMeshDisplacement(movedmesh);
+}//wimPreRegrid()
+
+
+void
+FiniteElement::wimPostRegrid()
+{
+    std::cout<<"in wimPostRegrid()\n";
+    // no longer need to collect M_wavespec inside collectVariables()
+    // - eg don't need it in update(), before advect()
+    M_collect_wavespec  = false;
+
+    // pass back displacement of nodes at last WIM call,
+    // relative to the new mesh
+    // - this has now been interpolated to the new nodes
+    M_wim.setRelativeMeshDisplacement(M_wim_meshdisp);
+
+    //M_wim.nextsim_mesh
+    auto movedmesh = M_mesh;
+    movedmesh.move(M_UM,1.);
+    bool regridding = true;
+    M_wim.setMeshFull(movedmesh,bamgmesh,M_flag_fix,regridding);//true means M_wim.assignSpatial() is called here
+
+    // pass back interpolated wave spectrum to new elements;
+    // interpolation scheme interp2cavities is conservative
+    // - ie new element area is accounted for
+    M_wim.setWaveSpec(M_wavespec);
+
+    std::cout<<"leaving wimPostRegrid()\n";
+}//wimPostRegrid()
 
 
 void
@@ -9975,6 +9885,100 @@ FiniteElement::wimCall()
         throw std::runtime_error("Quitting after calling WIM\n");
 
 }//wimCall()
+
+
+void
+FiniteElement::wimCheckWaves()
+{
+    // ============================================================
+
+    // set inputs to WIM:
+    // - waves from datasets if needed
+    if (M_wave_type==setup::WaveType::SET_IN_WIM)
+        //nothing to do
+        return;
+
+    this->checkReloadDatasets(M_external_data_waves,M_current_time,"wimCheckWaves");
+
+    int num_elements_wim = M_wim.getX().size();
+    dbl_vec swh_in(num_elements_wim,0.);
+    dbl_vec mwp_in(num_elements_wim,0.);
+    dbl_vec mwd_in(num_elements_wim,0.);
+
+    double Hs_data_min  = 1.e30;
+    double Hs_data_max  = -1.e30;
+    double Tp_data_min  = 1.e30;
+    double Tp_data_max  = -1.e30;
+
+    for (int i=0; i<num_elements_wim; ++i)
+    {
+        //get incident waves from datasets
+        double cfac = 1.;
+        double uwave,vwave;
+        if ( M_wim_forcing_options.use_ice )
+            //cancel waves if ice present
+            if (M_fice_waves[i]>0.)
+                cfac = 0.;
+
+
+        // significant wave height
+        // - Hs given to the WIM should have the waves-in-ice
+        // removed (so we can do our own attenuation)
+        swh_in[i] = cfac*M_SWH[i];
+
+        // mean wave direction
+        uwave   = cfac*M_MWD[i];
+        vwave   = cfac*M_MWD[i+num_elements_wim];
+        if ( std::hypot(uwave,vwave)>.5 )
+        {
+            // if there are waves |(uwave,vwave)|=1,
+            // so convert to wave-from direction
+            // (degrees, clockwise from north)
+            mwd_in[i] = 90.-(180./PI)*std::atan2(-uwave,-vwave);
+        }
+
+        // peak wave period
+        if ( M_MWP[i]>0. )
+            if ( M_wim_forcing_options.use_mwp )
+                //Tp given to the WIM should have the waves-in-ice
+                //removed (so we can do our own attenuation)
+                mwp_in[i] = cfac*M_MWP[i];
+            else
+                // we are given fp, so convert to Tp,
+                // taking account of the ice
+                mwp_in[i] = cfac/M_MWP[i];
+        else
+        {
+            //if fp or Tp are 0, set all wave inputs to 0
+            swh_in[i] = 0.;
+            mwp_in[i] = 0.;
+            mwd_in[i] = 0.;
+        }
+
+        Hs_data_min  = std::min(Hs_data_min,M_SWH[i]);
+        Hs_data_max  = std::max(Hs_data_max,M_SWH[i]);
+        Tp_data_min  = std::min(Tp_data_min,M_MWP[i]);
+        Tp_data_max  = std::max(Tp_data_max,M_MWP[i]);
+    }//loop over wim grid cells
+
+
+#if 1
+    std::cout<<"min swh (dataset) = "<< Hs_data_min <<"\n";
+    std::cout<<"max swh (dataset) = "<< Hs_data_max <<"\n";
+    std::cout<<"min mwp (dataset) = "<< Tp_data_min <<"\n";
+    std::cout<<"max mwp (dataset) = "<< Tp_data_max <<"\n";
+    //
+    std::cout<<"min swh (processed dataset) = "<< *std::min_element(swh_in.begin(),swh_in.end() )<<"\n";
+    std::cout<<"max swh (processed dataset) = "<< *std::max_element(swh_in.begin(),swh_in.end() )<<"\n";
+    std::cout<<"min mwp (processed dataset) = "<< *std::min_element(mwp_in.begin(),mwp_in.end() )<<"\n";
+    std::cout<<"max mwp (processed dataset) = "<< *std::max_element(mwp_in.begin(),mwp_in.end() )<<"\n";
+    std::cout<<"min mwd (processed dataset) = "<< *std::min_element(mwd_in.begin(),mwd_in.end() )<<"\n";
+    std::cout<<"max mwd (processed dataset) = "<< *std::max_element(mwd_in.begin(),mwd_in.end() )<<"\n";
+#endif
+
+    M_wim.setWaveFields(swh_in, mwp_in, mwd_in);
+}//wimCheckWaves()
+
 
 void
 FiniteElement::getWimDiagnostics()

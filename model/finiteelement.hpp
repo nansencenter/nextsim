@@ -236,8 +236,8 @@ public:
     // Running
     void wimPreRegrid();
     void wimPostRegrid();
-    void wimCheckWaves();
     void wimCall();
+    void wimCheckWaves();
     void getWimDiagnostics();
 #endif
     void getTotalConcVol(std::vector<double> &ctot, std::vector<double> &vtot);
