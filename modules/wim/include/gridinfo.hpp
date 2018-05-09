@@ -31,10 +31,7 @@
 #include <InterpFromGridToMeshx.h>
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromMeshToGridx.h>
-//#include <Bamgx.h>
-//#include <iomanip>
 #include <omp.h>
-//#include <gmshmesh.hpp>
 #include <meshinfo.hpp>
 
 #ifdef PI
@@ -62,8 +59,8 @@ template<typename T=float> class GridInfo
     typedef Wim::MeshInfo<T_val> T_mesh;
 
     //other types
-    typedef boost::unordered_map<std::string,std::string> T_map;
-    typedef boost::unordered_map<std::string,T_val_vec*>  T_map_vec_ptrs;
+    typedef boost::unordered_map<std::string, std::string> T_map;
+    typedef boost::unordered_map<std::string, T_val_vec*>  T_map_vec_ptrs;
     typedef po::variables_map T_vmap;
 
     enum IceType//distinguish between wim ice and sim ice
@@ -92,7 +89,8 @@ public:
 
     void saveGrid();
     void readGridFromFile();
-    void readFromBinary(std::fstream &in, T_val_vec& in_array, int off = 0, std::ios_base::seekdir direction = std::ios::beg,
+    void readFromBinary(std::fstream &in, T_val_vec& in_array, int off = 0,
+            std::ios_base::seekdir direction = std::ios::beg,
             int addx = 0, int addy = 0);
     //===========================================================================
 
@@ -119,7 +117,7 @@ public:
             T_val_vec const& scp2i, T_val_vec const& scp2,
             T_val_vec& saoout, T_val const& timestep);
     void padVar(T_val_vec const& u, T_val_vec& upad,
-            std::string const& advopt_,bool const&steady=false);
+            std::string const& advopt_, bool const&steady=false);
     //===========================================================================
 
 
