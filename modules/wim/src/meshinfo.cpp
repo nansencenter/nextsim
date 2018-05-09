@@ -1,21 +1,16 @@
 /* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
- * @file   finiteelement.cpp
- * @author Abdoulaye Samake <abdoulaye.samake@nersc.no>
- * @author Sylvain Bouillon <sylvain.bouillon@nersc.no>
- * @author Einar Olason <einar.olason@nersc.no>
- * @date   Mon Aug 24 11:02:45 2015
+ * @file   meshinfo.cpp
+ * @author Timothy Williams <timothy.williams@nersc.no>
+ * @date   May 8 2018
  */
 
-#include <meshtools.hpp>
+#include <meshinfo.hpp>
 #include <BamgTriangulatex.h>
 
 namespace Wim
 {
-
-// ===============================================================
-// MeshInfo class
 
 template<typename T, typename FEMeshType>
 MeshInfo<T, FEMeshType>::MeshInfo(T_gmsh const &movedmesh)
@@ -126,6 +121,7 @@ MeshInfo<T, FEMeshType>::MeshInfo(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int
     int Nels = M_num_elements;
     M_surface.assign(Nels,0);
     M_element_connectivity.assign(3*Nels,0);
+    T_val area_tot = 0;
     for (int i=0;i<Nels;i++)
     {
         T_val_vec xnods(3);
@@ -140,7 +136,7 @@ MeshInfo<T, FEMeshType>::MeshInfo(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int
                 = bamgmesh->ElementConnectivity[3*i+k];//NB stick to bamg convention (indices go from 1 to Nels)
         }
 
-        T_val area = .5*MeshTools::jacobian(
+        T_val area = .5*this->jacobian(
                 xnods[0],ynods[0],xnods[1],ynods[1],xnods[2],ynods[2]);
         if(area>=0.)
             M_surface[i] = area;
@@ -149,7 +145,10 @@ MeshInfo<T, FEMeshType>::MeshInfo(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int
             std::cout<<"Area of triangle "<<i<<" <0 : "<<area<<"\n";
             throw std::runtime_error("MeshInfo<T, FEMeshType>::MeshInfo (full): negative area found\n");
         }
+        area_tot += area;
     }
+    M_resolution = std::sqrt(area_tot/Nels);//sqrt of the mean area of the triangles
+
 
     // ================================================================
     //get the Dirichlet mask
@@ -179,7 +178,6 @@ MeshInfo<T, FEMeshType>::MeshInfo(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int
         }
     // ================================================================================
 
-    M_resolution = MeshTools::resolution(movedmesh);
 }//MeshInfo constructor (full)
 
 
@@ -202,7 +200,7 @@ void MeshInfo<T, FEMeshType>::initSimple()
             ynods[k] = M_nodes_y[ind];
         }
 
-        area_tot += .5*MeshTools::jacobian(
+        area_tot += .5*this->jacobian(
                 xnods[0],ynods[0],xnods[1],ynods[1],xnods[2],ynods[2]);
     }
 
@@ -570,448 +568,9 @@ void MeshInfo<T, FEMeshType>::interpToGrid(
     xDelete<T_val>(interp_out);
 
 }//interpToGrid
-// ===============================================================
 
-
-// ===============================================================
-// general functions
-namespace MeshTools
-{
-
-
-double
-measure(double const x0,double const y0,double const x1,double const y1,double const x2,double const y2)
-{
-    double jac = (x1-x0)*(y2-y0)-(x2-x0)*(y1-y0);
-    return .5*std::abs(jac);
-}
-
-
-double
-jacobian(double const x0,double const y0,double const x1,double const y1,double const x2,double const y2)
-{
-    return (x1-x0)*(y2-y0)-(x2-x0)*(y1-y0);
-}
-
-
-double
-jacobian(T_gmsh_el const& element, T_gmsh const& mesh)
-{
-    std::vector<double> vertex_0 = mesh.nodes()[element.indices[0]-1].coords;//{x0,y0}
-    std::vector<double> vertex_1 = mesh.nodes()[element.indices[1]-1].coords;//{x1,y1}
-    std::vector<double> vertex_2 = mesh.nodes()[element.indices[2]-1].coords;//{x2,y2}
-
-    //jacobian = determinant([x1-x0,y1-y0;x2-x0,y2-y0]);
-    double jac = (vertex_1[0]-vertex_0[0])*(vertex_2[1]-vertex_0[1]);//(x1-x0)*(y2-y0)
-    jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);//(x2-x0)*(y1-y0)
-
-    return  jac;
-}
-
-
-double
-jacobian(T_gmsh_el const& element, T_gmsh const& mesh,
-                        std::vector<double> const& um, double factor)
-{
-    std::vector<double> vertex_0 = mesh.nodes()[element.indices[0]-1].coords;
-    std::vector<double> vertex_1 = mesh.nodes()[element.indices[1]-1].coords;
-    std::vector<double> vertex_2 = mesh.nodes()[element.indices[2]-1].coords;
-    int M_num_nodes = mesh.numNodes();
-
-    for (int i=0; i<2; ++i)
-    {
-        vertex_0[i] += factor*um[element.indices[0]-1+i*(M_num_nodes)];
-        vertex_1[i] += factor*um[element.indices[1]-1+i*(M_num_nodes)];
-        vertex_2[i] += factor*um[element.indices[2]-1+i*(M_num_nodes)];
-    }
-
-    double jac = (vertex_1[0]-vertex_0[0])*(vertex_2[1]-vertex_0[1]);
-    jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);
-
-    return  jac;
-}
-
-
-std::vector<double>
-sides(T_gmsh_el const& element, T_gmsh const& mesh)
-{
-    std::vector<double> vertex_0 = mesh.nodes()[element.indices[0]-1].coords;
-    std::vector<double> vertex_1 = mesh.nodes()[element.indices[1]-1].coords;
-    std::vector<double> vertex_2 = mesh.nodes()[element.indices[2]-1].coords;
-
-    std::vector<double> side(3);
-
-    side[0] = std::hypot(vertex_1[0]-vertex_0[0], vertex_1[1]-vertex_0[1]);
-    side[1] = std::hypot(vertex_2[0]-vertex_1[0], vertex_2[1]-vertex_1[1]);
-    side[2] = std::hypot(vertex_2[0]-vertex_0[0], vertex_2[1]-vertex_0[1]);
-
-    return side;
-}
-
-
-std::vector<double>
-minMaxSide(T_gmsh const& mesh)
-{
-    std::vector<double> minmax(2);
-    std::vector<double> all_min_side(mesh.numTriangles());
-    std::vector<double> all_max_side(mesh.numTriangles());
-
-    int cpt = 0;
-    for (auto it=mesh.triangles().begin(), end=mesh.triangles().end(); it!=end; ++it)
-    {
-        auto side = MeshTools::sides(*it,mesh);
-        all_min_side[cpt] = *std::min_element(side.begin(),side.end());
-        all_max_side[cpt] = *std::max_element(side.begin(),side.end());
-        ++cpt;
-    }
-
-    // minmax[0] = *std::min_element(all_min_side.begin(),all_min_side.end());
-    // minmax[1] = *std::max_element(all_max_side.begin(),all_max_side.end());
-
-    minmax[0] = std::accumulate(all_min_side.begin(),all_min_side.end(),0.)/(all_min_side.size());
-    minmax[1] = std::accumulate(all_max_side.begin(),all_max_side.end(),0.)/(all_max_side.size());
-
-    return minmax;
-}
-
-
-double
-minAngles(T_gmsh_el const& element, T_gmsh const& mesh)
-{
-    std::vector<double> side = MeshTools::sides(element,mesh);
-    //std::for_each(side.begin(), side.end(), [&](double& f){ f = 1000.*f; });
-    std::sort(side.begin(),side.end());
-    double minang = std::acos( (std::pow(side[1],2.) + std::pow(side[2],2.) - std::pow(side[0],2.) )/(2*side[1]*side[2]) );
-    minang = minang*45.0/std::atan(1.0);
-
-    return minang;
-}
-
-
-double
-minAngle(T_gmsh const& mesh)
-{
-    int M_num_elements = mesh.numTriangles();
-    auto M_elements = mesh.triangles();
-    std::vector<double> all_min_angle(M_num_elements);
-    double min_angle;
-
-#if 0
-    int cpt = 0;
-    for (auto it=mesh.triangles().begin(), end=mesh.triangles().end(); it!=end; ++it)
-    {
-        all_min_angle[cpt] = MeshTools::minAngles(*it,mesh);
-        ++cpt;
-    }
-#endif
-
-#if 1
-    int thread_id;
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-
-#pragma omp parallel for num_threads(max_threads) private(thread_id)
-    for (int cpt=0; cpt < M_num_elements; ++cpt)
-    {
-        all_min_angle[cpt] = MeshTools::minAngles(M_elements[cpt],mesh);
-    }
-#endif
-
-    min_angle = *std::min_element(all_min_angle.begin(),all_min_angle.end());
-    return min_angle;
-}//minAngle
-
-
-double
-minAngle(T_gmsh const& mesh, std::vector<double> const& um, double factor)
-{
-    auto movedmesh = mesh;
-    movedmesh.move(um,factor);
-
-    int M_num_elements = movedmesh.numTriangles();
-    std::vector<double> all_min_angle(movedmesh.numTriangles());
-
-#if 0
-    // int cpt = 0;
-    // for (auto it=movedmesh.triangles().begin(), end=movedmesh.triangles().end(); it!=end; ++it)
-    // {
-    //     all_min_angle[cpt] = MeshTools::minAngles(*it,movedmesh);
-    //     ++cpt;
-    // }
-#endif
-
-#if 1
-    int thread_id;
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-
-#pragma omp parallel for num_threads(max_threads) private(thread_id)
-    for (int cpt=0; cpt < M_num_elements; ++cpt)
-    {
-        all_min_angle[cpt] = MeshTools::minAngles(movedmesh.triangles()[cpt],movedmesh);
-    }
-#endif
-
-    return *std::min_element(all_min_angle.begin(),all_min_angle.end());;
-}//minAngle
-
-
-bool
-flip(T_gmsh const& mesh, std::vector<double> const& um, double factor)
-{
-    auto movedmesh = mesh;
-    movedmesh.move(um,factor);
-
-    std::vector<double> area(movedmesh.numTriangles());
-    double area_init;
-
- #if 0
-    int cpt = 0;
-    for (auto it=movedmesh.triangles().begin(), end=movedmesh.triangles().end(); it!=end; ++it)
-    {
-        area[cpt] = MeshTools::jacobian(*it,movedmesh);
-        ++cpt;
-    }
-#endif
-
-#if 1
-    int thread_id;
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-    int M_num_elements = mesh.numTriangles();
-
-#pragma omp parallel for num_threads(max_threads) private(thread_id)
-    for (int cpt=0; cpt < M_num_elements; ++cpt)
-    {
-        area_init = MeshTools::jacobian(mesh.triangles()[cpt],mesh);
-        area[cpt] = MeshTools::jacobian(movedmesh.triangles()[cpt],movedmesh);
-
-        if(area_init*area[cpt]<=0.)
-        {
-            std::cout <<"FLIP DETECTED element:"<< cpt <<"\n";
-        }
-    }
-#endif
-
-    double minarea = *std::min_element(area.begin(),area.end());
-    double maxarea = *std::max_element(area.begin(),area.end());
-
-    return ((minarea <= 0.) && (maxarea >= 0.));
-}//flip
-
-
-double
-resolution(T_gmsh const& mesh)
-{
-    std::vector<double> all_min_measure(mesh.numTriangles());
-
-    int cpt = 0;
-    for (auto it=mesh.triangles().begin(), end=mesh.triangles().end(); it!=end; ++it)
-    {
-        all_min_measure[cpt] = MeshTools::measure(*it,mesh);
-        ++cpt;
-    }
-
-    double resol = std::accumulate(all_min_measure.begin(),all_min_measure.end(),0.)/(all_min_measure.size());
-    resol = std::pow(resol,0.5);//sqrt of the mean area of the triangles
-
-    return resol;
-}//resolution
-
-
-std::vector<double>
-hminVertices(T_gmsh const& mesh, BamgMesh const* bamg_mesh)
-{
-    std::vector<double> hmin(bamg_mesh->NodalElementConnectivitySize[0]);
-
-    for (int i=0; i<bamg_mesh->NodalElementConnectivitySize[0]; ++i)
-    {
-        std::vector<double> measure(bamg_mesh->NodalElementConnectivitySize[1]);
-        int j = 0;
-        for (j=0; j<bamg_mesh->NodalElementConnectivitySize[1]; ++j)
-        {
-            int elt_num = bamg_mesh->NodalElementConnectivity[bamg_mesh->NodalElementConnectivitySize[1]*i+j]-1;
-
-            if ((0 <= elt_num) && (elt_num < mesh.numTriangles()) && (elt_num != NAN))
-            {
-                measure[j] = MeshTools::measure(mesh.triangles()[elt_num],mesh);
-            }
-            else
-            {
-                break;
-            }
-        }
-
-        measure.resize(j);
-        hmin[i] = std::sqrt(2.)*std::sqrt(*std::min_element(measure.begin(),measure.end()))*0.8;
-    }
-
-    return hmin;
-}//hminVertices
-
-
-std::vector<double>
-hmaxVertices(T_gmsh const& mesh, BamgMesh const* bamg_mesh)
-{
-    std::vector<double> hmax(bamg_mesh->NodalElementConnectivitySize[0]);
-
-    for (int i=0; i<bamg_mesh->NodalElementConnectivitySize[0]; ++i)
-    {
-        std::vector<double> measure(bamg_mesh->NodalElementConnectivitySize[1]);
-        int j = 0;
-        for (j=0; j<bamg_mesh->NodalElementConnectivitySize[1]; ++j)
-        {
-            int elt_num = bamg_mesh->NodalElementConnectivity[bamg_mesh->NodalElementConnectivitySize[1]*i+j]-1;
-
-            if ((0 <= elt_num) && (elt_num < mesh.numTriangles()) && (elt_num != NAN))
-            {
-                measure[j] = MeshTools::measure(mesh.triangles()[elt_num],mesh);
-            }
-            else
-            {
-                break;
-            }
-        }
-
-        measure.resize(j);
-        hmax[i] = std::sqrt(2.)*std::sqrt(*std::max_element(measure.begin(),measure.end()))*1.2;
-    }
-
-    return hmax;
-}//hmaxVertices
-
-
-std::vector<double>
-AllMinAngle(T_gmsh const& mesh, std::vector<double> const& um, double factor)
-{
-    auto movedmesh = mesh;
-    movedmesh.move(um,factor);
-
-    std::vector<double> all_min_angle(movedmesh.numTriangles());
-
-#if 0
-    // int cpt = 0;
-    // for (auto it=movedmesh.triangles().begin(), end=movedmesh.triangles().end(); it!=end; ++it)
-    // {
-    //     all_min_angle[cpt] = MeshTools::minAngles(*it,movedmesh);
-    //     ++cpt;
-    // }
-#endif
-
-#if 1
-    int thread_id;
-    int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-    int M_num_elements = mesh.numTriangles();
-
-//#pragma omp parallel for num_threads(max_threads) private(thread_id)
-    for (int cpt=0; cpt < M_num_elements; ++cpt)
-    {
-        all_min_angle[cpt] = MeshTools::minAngles(movedmesh.triangles()[cpt],movedmesh);
-    }
-#endif
-
-    return all_min_angle;
-}//AllMinAngle
-
-
-double
-measure(T_gmsh_el const& element, T_gmsh const& mesh)
-{
-    return (1./2)*std::abs(jacobian(element,mesh));
-}//measure
-
-
-double
-measure(T_gmsh_el const& element, T_gmsh const& mesh,
-                       std::vector<double> const& um, double factor)
-{
-    return (1./2)*std::abs(jacobian(element,mesh,um,factor));
-}//measure
-
-
-std::vector<double>
-shapeCoeff(T_gmsh_el const& element, T_gmsh const& mesh)
-{
-    std::vector<double> x(3);
-    std::vector<double> y(3);
-
-    for (int i=0; i<3; ++i)
-    {
-        x[i] = mesh.nodes()[element.indices[i]-1].coords[0];
-        y[i] = mesh.nodes()[element.indices[i]-1].coords[1];
-    }
-
-    std::vector<double> coeff(6);
-    double jac = jacobian(element,mesh);
-
-    for (int k=0; k<6; ++k)
-    {
-        int kp1 = (k+1)%3;
-        int kp2 = (k+2)%3;
-
-        if (k<3)
-        {
-            coeff[k] = (y[kp1]-y[kp2])/jac;
-        }
-        else
-        {
-            coeff[k] = (x[kp2]-x[kp1])/jac;
-        }
-    }
-
-    return coeff;
-}//shapeCoeff
-
-
-std::string
-gitRevision()
-{
-    //std::string command = "git rev-parse HEAD";
-    return MeshTools::system("git rev-parse HEAD");
-}//gitRevision
-
-std::string
-system(std::string const& command)
-{
-    char buffer[128];
-    //std::string command = "git rev-parse HEAD";
-    std::string result = "";
-    std::shared_ptr<FILE> pipe(popen(command.c_str(), "r"), pclose);
-    if (!pipe)
-    {
-        throw std::runtime_error("popen() failed!");
-    }
-
-    while (!feof(pipe.get()))
-    {
-        if (fgets(buffer, 128, pipe.get()) != NULL)
-        {
-            // remove newline from the buffer
-            int len = strlen(buffer);
-            if( buffer[len-1] == '\n' )
-                buffer[len-1] = 0;
-
-            result += buffer;
-        }
-    }
-
-    // return the result of the command
-    return result;
-}//system
-
-std::string
-getEnv(std::string const& envname)
-{
-    const char* senv = ::getenv(envname.c_str());
-    if ( senv == NULL )
-        senv = "NULL";
-    return std::string(senv);
-}//getEnv
-
-} // namespace MeshTools
-
-// instantiate wim class for type double
-//template class MeshInfo<float>;
-
-// instantiate wim class for type double
-//template class MeshInfo<double>;
+// instantiate wim class for type double and the 2 types of meshes
 template class MeshInfo<double,Nextsim::GmshMesh>;
+template class MeshInfo<double,Nextsim::GmshMeshSeq>;
 
 } // namespace Wim
