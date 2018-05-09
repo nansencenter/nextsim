@@ -34,14 +34,12 @@
 namespace Wim
 {
 
-template<typename T=float,typename FEMeshType=Nextsim::GmshMesh> class MeshInfo
+template<typename T=float> class MeshInfo
 {
 
     typedef T T_val;
     typedef std::vector<T_val> T_val_vec;
     typedef typename std::vector<T_val_vec*>  T_val_vec_ptrs;
-    //typedef Nextsim::GmshMesh T_gmsh;
-    typedef FEMeshType T_gmsh;
 
     //private variables    
     int  M_max_node_el_conn = 0;
@@ -83,10 +81,12 @@ public:
     // - simple
     MeshInfo(std::vector<int> const &index,T_val_vec const &nodes_x,T_val_vec const &nodes_y,
        T_val_vec const &elements_x,T_val_vec const &elements_y);
-    MeshInfo( T_gmsh const &mesh);
+    template<typename FEMeshType>
+    MeshInfo( FEMeshType const &mesh);
 
     // - full
-    MeshInfo( T_gmsh const &mesh,BamgMesh* bamgmesh,int const& flag_fix);
+    template<typename FEMeshType>
+    MeshInfo( FEMeshType const &mesh,BamgMesh* bamgmesh,int const& flag_fix);
     // ===============================================================
 
 
@@ -97,7 +97,8 @@ public:
 
     void initSimple();
     void setElements();
-    void setFields( T_gmsh const &mesh);
+    template<typename FEMeshType>
+    void setFields( FEMeshType const &mesh);
     T_val lengthCfl() const { return M_resolution/12.; }
     void advect(T_val** interp_elt_out_ptr, // pointer to pointer to output data
             T_val* interp_elt_in,           // pointer to input data
