@@ -1238,7 +1238,7 @@ void WimDiscr<T>::setMeshSimple(FEMeshType const &movedmesh)
     M_mesh_old      = M_mesh;
 
     //update M_mesh with moved mesh
-    M_mesh = T_mesh(movedmesh);
+    M_mesh = MeshInfo<T>(movedmesh);
 }
 
 
@@ -1252,7 +1252,7 @@ void WimDiscr<T>::setMeshFull(FEMeshType const &movedmesh,BamgMesh* bamgmesh,int
         M_mesh_old = M_mesh;
 
     M_time_mesh_set = M_update_time;//used in check when ice fields are set on mesh
-    M_mesh          = T_mesh(movedmesh,bamgmesh,flag_fix);
+    M_mesh          = MeshInfo<T>(movedmesh,bamgmesh,flag_fix);
 
     // get relative displacement of nodes since last call
     // - M_UM may already be nonzero if regridding has happened
@@ -1414,7 +1414,7 @@ WimDiscr<T>::getRelativeMeshDisplacement(FEMeshType const &movedmesh) const
     auto nodes_y = movedmesh.coordY();
     int Nn = nodes_x.size();
 
-    if (M_mesh.M_mesh_type==T_mesh::E_mesh_type::uninitialised)
+    if (M_mesh.M_mesh_type==MeshInfo<T>::E_mesh_type::uninitialised)
         throw std::runtime_error("relativeMeshDisplacement: M_mesh not initialised yet");
     if (M_mesh.M_num_nodes!=Nn)
         throw std::runtime_error("relativeMeshDisplacement: mesh_in and M_mesh have different sizes");
@@ -1836,7 +1836,7 @@ void WimDiscr<T>::getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out,T_val_ve
     // - NB set in FiniteElement::wimPreRegrid(),
     // but this function is called from FiniteElement::wimPostRegrid(),
     // and mesh could have changed due to regridding
-    M_mesh    = T_mesh(movedmesh);
+    M_mesh = MeshInfo<T>(movedmesh);
 
     //do interpolation
     T_val_vec cinterp;//interp conc as well, to correct for interpolation error
