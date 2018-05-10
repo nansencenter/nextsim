@@ -3324,7 +3324,7 @@ FiniteElement::interpFieldsElement()
 
 
 int
-FiniteElement::get_nb_var_node() const
+FiniteElement::getNumVarsNode(bool read_restart) const
 {
     // number of nodal variables, for:
     // - gatherFieldsNode
@@ -3332,7 +3332,7 @@ FiniteElement::get_nb_var_node() const
     int nb_var_node = 10;
 
 #if defined (WAVES)
-    if(M_use_wim)
+    if(M_use_wim && !read_restart)
         if (M_wave_mode==setup::WaveMode::RUN_ON_MESH)
         {
             // regrid wim fields on nodes
@@ -3348,7 +3348,7 @@ FiniteElement::get_nb_var_node() const
 #endif//WAVES
 
     return nb_var_node;
-}//get_nb_var_node
+}//getNumVarsNode
 
 
 void
@@ -3358,7 +3358,7 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------GATHER NODE starts\n";
 
-    M_nb_var_node = this->get_nb_var_node();
+    M_nb_var_node = this->getNumVarsNode();
     std::vector<double> interp_node_in_local(M_nb_var_node*M_prv_local_ndof,0.);
 
     chrono.restart();
@@ -8140,7 +8140,8 @@ FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out, std::vect
         }
     }
 
-    M_nb_var_node = this->get_nb_var_node();
+    bool read_restart = true;
+    M_nb_var_node = this->getNumVarsNode(read_restart);
     if (M_rank == 0)
     {
         int num_nodes_root = M_mesh_root.numNodes();

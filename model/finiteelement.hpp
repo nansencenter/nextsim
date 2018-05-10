@@ -163,7 +163,7 @@ public:
     void gatherElementField(std::vector<double> const& field_local, std::vector<double>& field_root, int nb_fields = 1);
     void scatterElementField(std::vector<double> const& field_root, std::vector<double>& field_local, int nb_fields = 1);
 
-    int get_nb_var_node() const;
+    int getNumVarsNode(bool read_restart=false) const;
     void gatherFieldsNode(std::vector<double>& interp_in_elements, std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
     void scatterFieldsNode(double* interp_nd_out);
     void interpFieldsNode(std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
