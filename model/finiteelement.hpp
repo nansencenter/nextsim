@@ -263,7 +263,7 @@ public:
     void importBamg(BamgMesh const* bamg_mesh);
     void createGraph();//(BamgMesh const* bamg_mesh);
     void assignVariables();
-    void initVariables();
+    void initVariables(bool read_restart=false);
     void initModelState();
     void DataAssimilation();
     void FETensors();

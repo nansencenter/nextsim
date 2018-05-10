@@ -486,11 +486,27 @@ FiniteElement::rootMeshRenumbering()
 
 // Initialise size of all physical variables with values set to zero
 void
-FiniteElement::initVariables()
+FiniteElement::initVariables(bool read_restart)
 {
     chrono_tot.restart();
 
-    M_nb_regrid = 0;
+    if (!read_restart)
+        M_nb_regrid = 0;
+
+    if ((M_rank == 0) && (M_use_drifters))
+    {
+        if (!read_restart)
+        {
+            M_UT_root.assign(2*M_ndof,0.);
+            M_conc_root.resize(M_mesh_root.numTriangles());
+        }
+        else
+        {
+            // already have M_conc and M_UT from restart file
+            M_conc_root = M_conc;
+            M_UT_root = M_UT;
+        }
+    }
 
     M_solver = solver_ptrtype(new solver_type());
     M_matrix = matrix_ptrtype(new matrix_type());
@@ -620,12 +636,6 @@ FiniteElement::initVariables()
             M_surface_root[cpt] = this->measure(*it,M_mesh_root);
             ++cpt;
         }
-    }
-
-    if ((M_rank == 0) && (M_use_drifters))
-    {
-        M_UT_root.assign(2*M_ndof,0.);
-        M_conc_root.resize(M_mesh_root.numTriangles());
     }
 
     this->assignVariables();
@@ -7973,12 +7983,19 @@ FiniteElement::readRestart(std::string step)
         }
     }
 
+    // all the variables from the restart file are collected
+    // into these 2 vectors
+    // - these are all on the root mesh
     std::vector<double> interp_elt_out;
     std::vector<double> interp_nd_out;
     this->collectRootRestart(interp_elt_out, interp_nd_out);
 
-    this->initVariables();
+    // Resize all the variables to the local meshes
+    // - they are also reset to 0
+    bool read_restart = true;
+    this->initVariables(read_restart);
 
+    // Now set the local variables using interp_elt_out, interp_nd_out
     this->scatterFieldsElementIO(interp_elt_out, M_ice_cat_type==setup::IceCategoryType::THIN_ICE);
     this->scatterFieldsNode(&interp_nd_out[0]);
 
@@ -8031,6 +8048,11 @@ FiniteElement::partitionMeshRestart()
 void
 FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out, std::vector<double>& interp_nd_out)
 {
+    // after restart file is read,
+    // M_conc etc all correspond to the root mesh
+    // - here we collect all the root variables into:
+    //  interp_elt_out (elements)
+    //  interp_nd_out (nodes)
     M_nb_var_element = 15 + M_tice.size();//15;
     int nb_var_element = M_nb_var_element;
     if (M_ice_cat_type != setup::IceCategoryType::THIN_ICE)
