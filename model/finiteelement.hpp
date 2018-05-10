@@ -30,7 +30,7 @@
 #include <graphcsrmpi.hpp>
 #if defined (WAVES)
 #include <wimdiscr.hpp>
-#endif
+#endif//WAVES
 #include <externaldata.hpp>
 #include <gridoutput.hpp>
 #include <dataset.hpp>
@@ -90,10 +90,12 @@ public:
     typedef typename std::vector<double>    dbl_vec;
     typedef typename std::vector<dbl_vec>   dbl_vec2d;
     typedef typename std::vector<dbl_vec2d> dbl_vec3d;
+
 #if defined (WAVES)
+    // WIM types
     typedef Wim::WimDiscr<double> wim_type;
     typedef Wim::WimDiscr<double>::T_map_vec T_map_vec;
-#endif
+#endif//WAVES
     FiniteElement();
 
     mesh_type const& mesh() const {return M_mesh;}
@@ -217,10 +219,6 @@ public:
     Dataset M_nesting_distance_elements_dataset;
     Dataset M_nesting_dynamics_elements_dataset;
 
-#if defined (WAVES)
-    Dataset M_wave_elements_dataset;
-#endif
-
     template<typename FEMeshType>
     double minAngles(element_type const& element, FEMeshType const& mesh) const;
     template<typename FEMeshType>
@@ -246,10 +244,6 @@ public:
     void forcingAtmosphere();
     void forcingOcean();
     void forcingNesting();
-#if defined (WAVES)
-    void forcingWave();
-    WaveOptions M_wim_forcing_options;
-#endif
 	void initBathymetry();
 
     void assimilateIce();
@@ -309,15 +303,82 @@ public:
     void finalise();
 
 #if defined (WAVES)
-    void initWim(int const pcpt);
-    void initWimVariables();
-    void wimCommPreRegrid();
-    void wimPreRegrid();
-    void wimPostRegrid();
+    // WIM methods
+
+    // Init 
+    void initWim(int const pcpt)
+    {
+        if (M_parallel_wim)
+            this->initWim( pcpt, this->getMovedMesh() );
+        else
+            this->initWim( pcpt, this->getMovedMeshRoot() );
+    }
+    template<typename FEMeshType>
+    void initWim(int const pcpt, FEMeshType const &movedmesh);
+
+    void initWimVariables(dbl_vec const &ctot, dbl_vec const &vtot);
+    void forcingWave();
+
+    // Running
+    void wimPreRegrid()
+    {
+        if (M_parallel_wim)
+            this->wimPreRegrid( this->getMovedMesh() );
+        else
+            this->wimPreRegrid( this->getMovedMeshRoot() );
+    }
+    template<typename FEMeshType>
+    void wimPreRegrid(FEMeshType const &movedmesh);
+
+    void wimPostRegrid()
+    {
+        if (M_parallel_wim)
+            this->wimPostRegrid( this->getMovedMesh(), bamgmesh );
+        else
+            this->wimPostRegrid( this->getMovedMeshRoot(), bamgmesh_root );
+    }
+    template<typename FEMeshType>
+    void wimPostRegrid(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim);
+
+    template<typename FEMeshType>
+    void wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim);
+    void wimCall()
+    {
+        if (M_parallel_wim)
+            this->wimCall( this->getMovedMesh(), bamgmesh );
+        else
+            this->wimCall( this->getMovedMeshRoot(), bamgmesh_root );
+    }
+
     void wimCheckWaves();
-    void wimCall();
-    void getWimDiagnostics();
-#endif
+
+    template<typename FEMeshType>
+    void getWimDiagnostics(FEMeshType const &movedmesh);
+    void getWimDiagnostics()
+    {
+        if (M_parallel_wim)
+            this->getWimDiagnostics( this->getMovedMesh() );
+        else
+            this->getWimDiagnostics( this->getMovedMeshRoot() );
+    }
+#endif//WAVES
+    GmshMesh getMovedMesh() const
+    {
+        auto movedmesh = M_mesh;
+        movedmesh.move(M_UM,1.);
+        return movedmesh;
+    }
+
+    GmshMeshSeq getMovedMeshRoot()
+    {
+        auto movedmesh = M_mesh_root;
+        std::vector<double> um_root;
+        this->gatherNodalField(M_UM,um_root);
+        movedmesh.move(um_root,1.);
+        return movedmesh;
+    }
+
+    void getTotalConcVol(std::vector<double> &ctot, std::vector<double> &vtot);
 
 public:
     std::string gitRevision();
@@ -398,10 +459,6 @@ private:
     setup::AtmosphereType M_atmosphere_type;
     setup::OceanType M_ocean_type;
     setup::IceType M_ice_type;
-#if defined (WAVES)
-    setup::WaveType M_wave_type;
-    setup::WaveMode M_wave_mode;
-#endif
     setup::BathymetryType M_bathymetry_type;
     setup::BasalStressType M_basal_stress_type;
     setup::ThermoType M_thermo_type;
@@ -441,6 +498,11 @@ private:
     // needed for the drifters
     std::vector<double> M_UT_root;
     std::vector<double> M_conc_root;
+#if defined (WAVES)
+    std::vector<double> M_thick_root;
+    std::vector<double> M_h_thin_root;
+    std::vector<double> M_conc_thin_root;
+#endif
 
     std::vector<double> M_bathy_depth;
 
@@ -507,25 +569,50 @@ private:
 
 
     // =============================================================================
-    // variables needed for coupling with wim
 #if defined (WAVES)
+    // variables needed for coupling with wim
     wim_type M_wim;
-    std::vector<double> M_nfloes;
-    std::vector<double> M_dfloe;
 
+    //options
+    bool M_run_wim;
+    bool M_use_wim;
+    bool M_interp_fsd;
+    bool M_export_wim_diags_mesh;
+    bool M_collect_wavespec = false;
+    bool M_parallel_wim = false;//TODO make an option
+
+    //forcing
+    setup::WaveType M_wave_type;
+    setup::WaveMode M_wave_mode;
+
+    // Dataset
+    Dataset M_wave_elements_dataset;
+    WaveOptions M_wim_forcing_options;
+
+    // External data objects
+    external_data_vec M_external_data_waves;
+    external_data M_SWH;	      // Significant wave height [m]
+    external_data M_MWD;	      // Mean wave direction (deg)
+    external_data M_MWP;          // Peak wave period (s)
+    external_data M_fice_waves;   // Waves masked if ice used in external wave model 
+                                  // - due to inconsistent ice masks,
+                                  // there could be attenuation in the open ocean
+
+    // counters
     int M_wim_cpt;//no of times WIM has been called
     int M_wim_steps_since_last_call;//no of time steps since WIM was last called
     int M_wim_cpl_freq;//call wim every "M_wim_cpl_freq" nextsim time steps
 
-    T_map_vec M_wim_fields_nodes;
-    T_map_vec M_wim_fields_els;
-    //std::vector<double> M_stokes_drift;
+    // unordered mappings (for diagnostics)
+    T_map_vec M_wim_fields_nodes, M_wim_fields_nodes_root;
+    T_map_vec M_wim_fields_els, M_wim_fields_els_root;
 
-    bool M_export_wim_diags_mesh;
-    bool M_collect_wavespec = false;
-    dbl_vec   M_wim_meshdisp;
-    dbl_vec3d M_wavespec;
-#endif
+    //variables
+    std::vector<double> M_nfloes, M_nfloes_root;
+    std::vector<double> M_dfloe, M_dfloe_root;
+    dbl_vec   M_wim_meshdisp, M_wim_meshdisp_root;
+    dbl_vec3d M_wavespec, M_wavespec_root;
+#endif//WAVES
     std::vector<double> M_tau;//this can just be set to zero if not using WIM
     // =============================================================================
 
@@ -580,11 +667,6 @@ private:
     bool M_regrid;
     int M_nb_regrid;
 
-#if defined (WAVES)
-    bool M_run_wim;
-    bool M_use_wim;
-    bool M_interp_fsd;
-#endif
 
     bool M_use_restart;
     bool M_write_restart;
@@ -650,16 +732,6 @@ private:
     external_data M_ocean_salt;   // Ocean salinity in top layer [C]
     external_data M_mld;          // Mixed-layer depth [m]
 
-#if defined (WAVES)
-    // Wave
-    external_data_vec M_external_data_waves;
-    external_data M_SWH;	      // Significant wave height [m]
-    external_data M_MWD;	      // Mean wave direction (deg)
-    external_data M_MWP;          // Peak wave period (s)
-    external_data M_fice_waves;   // Waves masked if ice used in external wave model 
-                                  // - due to inconsistent ice masks,
-                                  // there could be attenuation in the open ocean
-#endif
 
     // Nesting
     external_data M_nesting_dist_elements; // Distance to the nearest open boundaries
