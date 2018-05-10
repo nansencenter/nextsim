@@ -3322,6 +3322,35 @@ FiniteElement::interpFieldsElement()
     }
 }//interpFieldsElement
 
+
+int
+FiniteElement::get_nb_var_node() const
+{
+    // number of nodal variables, for:
+    // - gatherFieldsNode
+    // - collectRootRestart
+    int nb_var_node = 10;
+
+#if defined (WAVES)
+    if(M_use_wim)
+        if (M_wave_mode==setup::WaveMode::RUN_ON_MESH)
+        {
+            // regrid wim fields on nodes
+            // - otherwise lose M_tau at regrid time
+            // - can retrieve Stokes drift from wave spectrum,
+            // but then need to interpolate from elements to nodes,
+            // so may as well just interpolate here.
+            nb_var_node += 2;//M_tau
+            nb_var_node += 2;//M_meshdisp
+            if (M_export_wim_diags_mesh)
+                nb_var_node += 2*(M_wim_fields_nodes.size());//usually just Stokes drift
+        }
+#endif//WAVES
+
+    return nb_var_node;
+}//get_nb_var_node
+
+
 void
 FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes)
 {
@@ -3329,7 +3358,7 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------GATHER NODE starts\n";
 
-    M_nb_var_node = 10;
+    M_nb_var_node = this->get_nb_var_node();
     std::vector<double> interp_node_in_local(M_nb_var_node*M_prv_local_ndof,0.);
 
     chrono.restart();
@@ -3338,25 +3367,65 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
 
     for (int i=0; i<M_prv_local_ndof; ++i)
     {
+        int tmp_nb_var = 0;
+
         // VT
-        interp_node_in_local[M_nb_var_node*i] = M_VT[i];
-        interp_node_in_local[M_nb_var_node*i+1] = M_VT[i+M_prv_num_nodes];
+        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_VT[i];
+        tmp_nb_var++;
+        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_VT[i+M_prv_num_nodes];
+        tmp_nb_var++;
 
         // VTM
-        interp_node_in_local[M_nb_var_node*i+2] = M_VTM[i];
-        interp_node_in_local[M_nb_var_node*i+3] = M_VTM[i+M_prv_num_nodes];
+        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_VTM[i];
+        tmp_nb_var++;
+        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_VTM[i+M_prv_num_nodes];
+        tmp_nb_var++;
 
         // VTMM
-        interp_node_in_local[M_nb_var_node*i+4] = M_VTMM[i];
-        interp_node_in_local[M_nb_var_node*i+5] = M_VTMM[i+M_prv_num_nodes];
+        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_VTMM[i];
+        tmp_nb_var++;
+        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_VTMM[i+M_prv_num_nodes];
+        tmp_nb_var++;
 
         // UM
-        interp_node_in_local[M_nb_var_node*i+6] = M_UM[i];
-        interp_node_in_local[M_nb_var_node*i+7] = M_UM[i+M_prv_num_nodes];
+        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UM[i];
+        tmp_nb_var++;
+        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UM[i+M_prv_num_nodes];
+        tmp_nb_var++;
 
         // UT
-        interp_node_in_local[M_nb_var_node*i+8] = M_UT[i];
-        interp_node_in_local[M_nb_var_node*i+9] = M_UT[i+M_prv_num_nodes];
+        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UT[i];
+        tmp_nb_var++;
+        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UT[i+M_prv_num_nodes];
+        tmp_nb_var++;
+
+#if defined (WAVES)
+        if(M_use_wim)
+            if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
+            {
+                // M_tau
+                interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_tau[i];
+                tmp_nb_var++;
+                interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_tau[i+M_prv_num_nodes];
+                tmp_nb_var++;
+
+                // M_meshdisp
+                interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_wim_meshdisp[i];
+                tmp_nb_var++;
+                interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_wim_meshdisp[i+M_prv_num_nodes];
+                tmp_nb_var++;
+
+                if(M_export_wim_diags_mesh)
+                    // M_wim_fields_nodes
+                    for (auto it=M_wim_fields_nodes.begin();it!=M_wim_fields_nodes.end();it++)
+                    {
+                        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = (it->second)[i];
+                        tmp_nb_var++;
+                        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = (it->second)[i+M_prv_num_nodes];
+                        tmp_nb_var++;
+                    }
+            }
+#endif//WAVES
     }
 
     std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = M_nb_var_node*f; });
@@ -3387,7 +3456,7 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
     }
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------GATHER NODE done in "<< timer["gather.node"].first.elapsed() <<"s\n";
-}
+}//GatherFieldsNode
 
 void
 FiniteElement::scatterFieldsNode(double* interp_nd_out)
@@ -7772,7 +7841,7 @@ FiniteElement::readRestart(std::string step)
 
     if (M_rank == 0)
     {
-        int num_elements_root = M_mesh_root.numTriangles();
+        int num_elements_root = M_mesh_root.numTriangles();// NB num_nodes_root = M_ndof
         int tice_size = M_tice.size();
 
         M_VT.resize(2*M_ndof);
@@ -8071,7 +8140,7 @@ FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out, std::vect
         }
     }
 
-    M_nb_var_node = 10;
+    M_nb_var_node = this->get_nb_var_node();
     if (M_rank == 0)
     {
         int num_nodes_root = M_mesh_root.numNodes();
