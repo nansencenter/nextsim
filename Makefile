@@ -9,6 +9,9 @@ all:
 	@cd $(NEXTSIMDIR)/contrib/mapx/src; make
 	#@cd $(NEXTSIMDIR)/contrib/interp/src; make
 	@cd $(NEXTSIMDIR)/core/src; make;
+ifeq ($(USE_NEXTWIM),1)
+	@cd $(NEXTSIMDIR)/modules/wim/src; make;
+endif
 
 clean:
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; make clean
@@ -21,6 +24,10 @@ mrproper: clean
 	@cd $(NEXTSIMDIR)/contrib/mapx/src; make clean mrproper
 	#@cd $(NEXTSIMDIR)/contrib/interp/src; make clean mrproper
 	@cd $(NEXTSIMDIR)/core/src; make clean mrproper
+
+wim:
+	@cd $(NEXTSIMDIR)/modules/wim/src; make;
+
 # rules to compile model code as well as lib's
 All: all
 	@cd $(NEXTSIMDIR)/model; make;
