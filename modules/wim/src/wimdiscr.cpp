@@ -2526,7 +2526,11 @@ void WimDiscr<T>::exportResults(std::string const& output_type)
     T_map_vec_ptrs extract_fields;
 
     std::string pathstr = vm["wimdiag.outparentdir"].template as<std::string>();
-    pathstr += "/binaries/"+output_type;
+    pathstr += "/binaries/";
+    if (!(output_type=="INIT" || output_type=="FINAL"))
+        // - save the very initial and very final conditions to root directory
+        // - else make a separate directory for each type of result
+        pathstr += output_type;
 
     std::string prefix = output_type;
     int step = 0;
@@ -2537,46 +2541,46 @@ void WimDiscr<T>::exportResults(std::string const& output_type)
         prefix  = "wim_prog";
 
         //fields to extract
-        extract_fields.emplace("MWD"           ,&(M_mwd));
-        extract_fields.emplace("Tp"            ,&(M_Tp));
-        extract_fields.emplace("Hs"            ,&(M_Hs));
-        extract_fields.emplace("stokes_drift_y",&(M_stokes_drift_y));
-        extract_fields.emplace("stokes_drift_x",&(M_stokes_drift_x));
-        extract_fields.emplace("tau_y"         ,&(M_tau_y));
-        extract_fields.emplace("tau_x"         ,&(M_tau_x));
-        extract_fields.emplace("Dmax"          ,&(M_ice[IceType::wim].M_dfloe));
+        extract_fields.emplace("MWD"           , &(M_mwd));
+        extract_fields.emplace("Tp"            , &(M_Tp));
+        extract_fields.emplace("Hs"            , &(M_Hs));
+        extract_fields.emplace("stokes_drift_y", &(M_stokes_drift_y));
+        extract_fields.emplace("stokes_drift_x", &(M_stokes_drift_x));
+        extract_fields.emplace("tau_y"         , &(M_tau_y));
+        extract_fields.emplace("tau_x"         , &(M_tau_x));
+        extract_fields.emplace("Dmax"          , &(M_ice[IceType::wim].M_dfloe));
 
         step = M_nb_export_prog;
         M_nb_export_prog++;
     }
-    else if ( output_type == "final" )
+    else if ( output_type == "final" || output_type == "FINAL" )
     {
         prefix  = "wim_out";
 
         //fields to extract
-        extract_fields.emplace("MWD"           ,&(M_mwd));
-        extract_fields.emplace("Tp"            ,&(M_Tp));
-        extract_fields.emplace("Hs"            ,&(M_Hs));
-        extract_fields.emplace("stokes_drift_y",&(M_stokes_drift_y));
-        extract_fields.emplace("stokes_drift_x",&(M_stokes_drift_x));
-        extract_fields.emplace("tau_y"         ,&(M_tau_y));
-        extract_fields.emplace("tau_x"         ,&(M_tau_x));
-        extract_fields.emplace("Dmax"          ,&(M_ice[IceType::wim].M_dfloe));
+        extract_fields.emplace("MWD"           , &(M_mwd));
+        extract_fields.emplace("Tp"            , &(M_Tp));
+        extract_fields.emplace("Hs"            , &(M_Hs));
+        extract_fields.emplace("stokes_drift_y", &(M_stokes_drift_y));
+        extract_fields.emplace("stokes_drift_x", &(M_stokes_drift_x));
+        extract_fields.emplace("tau_y"         , &(M_tau_y));
+        extract_fields.emplace("tau_x"         , &(M_tau_x));
+        extract_fields.emplace("Dmax"          , &(M_ice[IceType::wim].M_dfloe));
 
         step = M_nb_export_final;
         M_nb_export_final++;
     }
-    else if ( output_type == "init" )
+    else if ( output_type == "init" || output_type == "INIT")
     {
         prefix  = "wim_init";
 
         //fields to extract
-        extract_fields.emplace("MWD" ,&(M_mwd));
-        extract_fields.emplace("Tp"  ,&(M_Tp));
-        extract_fields.emplace("Hs"  ,&(M_Hs));
-        extract_fields.emplace("Dmax",&(M_ice[IceType::wim].M_dfloe));
-        extract_fields.emplace("iceh",&(M_ice[IceType::wim].M_thick));
-        extract_fields.emplace("icec",&(M_ice[IceType::wim].M_conc));
+        extract_fields.emplace("MWD" , &(M_mwd));
+        extract_fields.emplace("Tp"  , &(M_Tp));
+        extract_fields.emplace("Hs"  , &(M_Hs));
+        extract_fields.emplace("Dmax", &(M_ice[IceType::wim].M_dfloe));
+        extract_fields.emplace("iceh", &(M_ice[IceType::wim].M_thick));
+        extract_fields.emplace("icec", &(M_ice[IceType::wim].M_conc));
 
         step = M_nb_export_init;
         M_nb_export_init++;
@@ -2586,9 +2590,9 @@ void WimDiscr<T>::exportResults(std::string const& output_type)
         prefix  = "wim_inc";
 
         //fields to extract
-        extract_fields.emplace("MWD",&(M_mwd_in));
-        extract_fields.emplace("Tp" ,&(M_mwp_in));
-        extract_fields.emplace("Hs" ,&(M_swh_in));
+        extract_fields.emplace("MWD", &(M_mwd_in));
+        extract_fields.emplace("Tp" , &(M_mwp_in));
+        extract_fields.emplace("Hs" , &(M_swh_in));
 
         step = M_nb_export_inc;
         M_nb_export_inc++;
@@ -2596,38 +2600,51 @@ void WimDiscr<T>::exportResults(std::string const& output_type)
     else if ( output_type == "nextwim" )
     {
         //fields to extract
-        extract_fields.emplace("MWD"           ,&(M_mwd));
-        extract_fields.emplace("Tp"            ,&(M_Tp));
-        extract_fields.emplace("Hs"            ,&(M_Hs));
-        extract_fields.emplace("stokes_drift_y",&(M_stokes_drift_y));
-        extract_fields.emplace("stokes_drift_x",&(M_stokes_drift_x));
-        extract_fields.emplace("tau_y"         ,&(M_tau_y));
-        extract_fields.emplace("tau_x"         ,&(M_tau_x));
-        extract_fields.emplace("Dmax"          ,&(M_ice[IceType::wim].M_dfloe));
+        extract_fields.emplace("MWD"           , &(M_mwd));
+        extract_fields.emplace("Tp"            , &(M_Tp));
+        extract_fields.emplace("Hs"            , &(M_Hs));
+        extract_fields.emplace("stokes_drift_y", &(M_stokes_drift_y));
+        extract_fields.emplace("stokes_drift_x", &(M_stokes_drift_x));
+        extract_fields.emplace("tau_y"         , &(M_tau_y));
+        extract_fields.emplace("tau_x"         , &(M_tau_x));
+        extract_fields.emplace("Dmax"          , &(M_ice[IceType::wim].M_dfloe));
 
         step = M_nb_export_nextwim;
         M_nb_export_nextwim++;
     }//select output_type
+    else
+    {
+        std::cout<<"Unknown output_type: "<<output_type<<"\n";
+        std::cout<<"Available output types:\n";
+        std::cout<<"init, INIT\n";
+        std::cout<<"final, FINAL\n";
+        std::cout<<"incwaves\n";
+        std::cout<<"prog\n";
+        std::cout<<"nextwim\n";
+        throw std::runtime_error("exportResults: unknown output_type\n");
+    }
 
     fs::path path(pathstr);
     if ( !fs::exists(path) )
         fs::create_directories(path);
 
-    if((!M_wim_on_mesh)&&(extract_fields.size()>0))
-    {
-        std::string init_time  = Wim::ptime(M_init_time_str);
-        std::string timestpstr = Wim::ptime(M_init_time_str, M_current_time);
-        std::string fileout    = (boost::format( "%1%/%2%%3%" ) % pathstr % prefix % timestpstr).str();
-        std::vector<std::string> export_strings = {fileout,init_time,timestpstr};
-        this->exportResultsGrid(extract_fields,export_strings);
-    }
-    else
-    {
-        std::string mfile  = (boost::format(  "%1%/mesh_%2%" ) % pathstr % step).str();
-        std::string ffile  = (boost::format( "%1%/field_%2%" ) % pathstr % step).str();
-        std::vector<std::string> filenames = {mfile,ffile};
-        this->exportResultsMesh(extract_fields,filenames);
-    }
+    std::cout<<"size(extract_fields) = "<<extract_fields.size()<<"\n";
+    if(extract_fields.size()>0)
+        if(!M_wim_on_mesh)
+        {
+            std::string init_time  = Wim::ptime(M_init_time_str);
+            std::string timestpstr = Wim::ptime(M_init_time_str, M_current_time);
+            std::string fileout    = (boost::format( "%1%/%2%%3%" ) % pathstr % prefix % timestpstr).str();
+            std::vector<std::string> export_strings = {fileout, init_time, timestpstr};
+            this->exportResultsGrid(extract_fields, export_strings);
+        }
+        else
+        {
+            std::string mfile  = (boost::format(  "%1%/mesh_%2%" ) % pathstr % step).str();
+            std::string ffile  = (boost::format( "%1%/field_%2%" ) % pathstr % step).str();
+            std::vector<std::string> filenames = {mfile,ffile};
+            this->exportResultsMesh(extract_fields, filenames);
+        }
 }//exportResults
 
 
