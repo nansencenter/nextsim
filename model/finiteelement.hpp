@@ -310,14 +310,14 @@ public:
     void initWim(int const pcpt)
     {
         if (M_parallel_wim)
-            this->initWim( pcpt, this->getMovedMesh() );
+            this->initWim( pcpt, this->getMovedMesh(), bamgmesh );
         else
-            this->initWim( pcpt, this->getMovedMeshRoot() );
+            this->initWim( pcpt, this->getMovedMeshRoot(), bamgmesh_root );
     }
     template<typename FEMeshType>
-    void initWim(int const pcpt, FEMeshType const &movedmesh);
+    void initWim(int const pcpt, FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim);
 
-    void initWimVariables(dbl_vec const &ctot, dbl_vec const &vtot);
+    void initWimVariables(T_map_vec &ice_fields);
     void forcingWave();
 
     // Running
@@ -362,6 +362,8 @@ public:
         else
             this->getWimDiagnostics( this->getMovedMeshRoot() );
     }
+
+    T_map_vec getIceFieldsForWim(std::vector<std::string> const& varnames);
 #endif//WAVES
     GmshMesh getMovedMesh() const
     {
@@ -378,8 +380,6 @@ public:
         movedmesh.move(um_root,1.);
         return movedmesh;
     }
-
-    void getTotalConcVol(std::vector<double> &ctot, std::vector<double> &vtot);
 
 public:
     std::string gitRevision();
@@ -499,11 +499,6 @@ private:
     // needed for the drifters
     std::vector<double> M_UT_root;
     std::vector<double> M_conc_root;
-#if defined (WAVES)
-    std::vector<double> M_thick_root;
-    std::vector<double> M_h_thin_root;
-    std::vector<double> M_conc_thin_root;
-#endif
 
     std::vector<double> M_bathy_depth;
 
@@ -609,8 +604,8 @@ private:
     T_map_vec M_wim_fields_els, M_wim_fields_els_root;
 
     //variables
-    std::vector<double> M_nfloes, M_nfloes_root;
-    std::vector<double> M_dfloe, M_dfloe_root;
+    std::vector<double> M_nfloes;
+    std::vector<double> M_dfloe;
     dbl_vec   M_wim_meshdisp, M_wim_meshdisp_root;
     dbl_vec3d M_wavespec, M_wavespec_root;
 #endif//WAVES
