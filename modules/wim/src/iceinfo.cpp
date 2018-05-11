@@ -56,8 +56,7 @@ std::vector<double> IceParams<T>::getAttenParams()
 
 
 template<typename T>
-//IceInfo<T>::IceInfo(T_icep_ptr ice_params,std::string const &name)
-IceInfo<T>::IceInfo(T_icep ice_params,std::string const &name)
+IceInfo<T>::IceInfo(T_icep ice_params, std::string const &name)
 {
     M_initialized = true;
     M_max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
