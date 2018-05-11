@@ -11634,7 +11634,7 @@ FiniteElement::getIceFieldsForWim(std::vector<std::string> const& varnames)
             if(M_parallel_wim)
                 tmpvec = M_conc;
             else
-                tmpvec = M_conc_root;
+                this->gatherElementField(M_conc, tmpvec);
         else if (varname == "conc_thin")
             // if not using thin ice, we just return a vector of zeros
             if (!thin_ice)
@@ -11704,7 +11704,7 @@ FiniteElement::initWim(int const pcpt, FEMeshType const &movedmesh, BamgMesh* ba
         M_wim.initCoupled(pcpt, movedmesh, bamgmesh_wim, M_flag_fix);
 
 #if 1
-    if(!(M_wave_mode==setup::WaveMode::RUN_ON_MESH))
+    if(!(M_wave_mode==setup::WaveMode::RUN_ON_MESH) && M_rank==0)
     {
         //test printouts
         std::cout<<"Getting WIM grid info\n";
@@ -11752,6 +11752,10 @@ FiniteElement::initWim(int const pcpt, FEMeshType const &movedmesh, BamgMesh* ba
         this->wimCheckWaves();
     }
 
+    // save initial conditions
+    if(do_wim_comm)
+        M_wim.exportResults("INIT");
+
     //check if we want to export the Stokes drift
     M_export_wim_diags_mesh = vm["nextwim.export_diags_mesh"].as<bool>();
 
@@ -11784,14 +11788,13 @@ FiniteElement::initWimVariables(T_map_vec &ice_fields)
     // - depending on M_parallel_wim
     auto ctot = ice_fields["conc"];
     auto vtot = ice_fields["vol"];
-    int num_elements = ctot.size();
     //std::cout << "init dfloe in pack = " << vm["wim.dfloepackinit"].as<double>() << "\n";
 
     if(M_parallel_wim)
     {
         // just define the local variables
         // - don't need the root vars
-        for (int i=0; i<num_elements; ++i)
+        for (int i=0; i<ctot.size(); ++i)
         {
             ctot[i] += ice_fields["conc_thin"][i];
             vtot[i] += ice_fields["vol_thin"][i];
@@ -11808,16 +11811,26 @@ FiniteElement::initWimVariables(T_map_vec &ice_fields)
     else
     {
         //define the global variables
+        int num_elements = ctot.size();
         dbl_vec nfloes_root(num_elements, 0.);
         dbl_vec dfloe_root(num_elements, 0.);
-        for (int i=0; i<num_elements; ++i)
+        if (M_rank==0)
         {
-            ctot[i] += ice_fields["conc_thin"][i];
-            vtot[i] += ice_fields["vol_thin"][i];
-            if (ctot[i]>=vm["wim.cicemin"].as<double>())
+            if(num_elements != M_mesh_root.numTriangles())
             {
-                dfloe_root[i]  = vm["wim.dfloepackinit"].as<double>();
-                nfloes_root[i] = M_wim.dfloeToNfloes(dfloe_root[i], ctot[i]);
+                std::cout<< "size ice_fields[conc] = " << num_elements << "\n";
+                std::cout<< "num_elements_root = " << M_mesh_root.numTriangles() << "\n";
+                throw std::runtime_error("initWimVariables: ice_fields[conc] wrong size");
+            }
+            for (int i=0; i<num_elements; ++i)
+            {
+                ctot[i] += ice_fields["conc_thin"][i];
+                vtot[i] += ice_fields["vol_thin"][i];
+                if (ctot[i]>=vm["wim.cicemin"].as<double>())
+                {
+                    dfloe_root[i]  = vm["wim.dfloepackinit"].as<double>();
+                    nfloes_root[i] = M_wim.dfloeToNfloes(dfloe_root[i], ctot[i]);
+                }
             }
         }
 
@@ -11994,7 +12007,7 @@ FiniteElement::wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim)
         //get FSD info
         dbl_vec nfloes_root, dfloe_root, broken_root, broken;
         if (M_parallel_wim)
-            M_wim.getFsdMesh(M_nfloes, M_dfloe, broken);//outputs (already calculated on mesh)
+            M_wim.getFsdMesh(M_nfloes, M_dfloe, broken);//outputs (already calculated on local mesh)
         else
         {
             if (M_rank==0)
@@ -12005,7 +12018,7 @@ FiniteElement::wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim)
                     M_wim.getFsdMesh(nfloes_root, dfloe_root, broken_root);//outputs (already calculated on global mesh)
                 else
                     M_wim.getFsdMesh(nfloes_root, dfloe_root, broken_root, //outputs
-                            ctot, movedmesh);                                //extra inputs
+                            ctot, movedmesh);                              //extra inputs
 #if 1
                 LOG(DEBUG)<<"min Dfloe on mesh = "<< *std::min_element(dfloe_root.begin(),dfloe_root.end() )<<"\n";
                 LOG(DEBUG)<<"max Dfloe on mesh = "<< *std::max_element(dfloe_root.begin(),dfloe_root.end() )<<"\n";
