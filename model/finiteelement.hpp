@@ -815,6 +815,7 @@ private:
 private:
 
     void constantIce();
+    void partiallyConstantIce();
     void targetIce();
     void binaryIce();
     void topazIce();

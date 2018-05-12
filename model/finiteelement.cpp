@@ -8823,7 +8823,7 @@ FiniteElement::initIce()
             this->constantIce();
             break;
         case setup::IceType::CONSTANT_PARTIAL:
-            this->constantIce();
+            this->partiallyConstantIce();
             break;
         case setup::IceType::TARGET:
             this->targetIce();
@@ -9014,44 +9014,66 @@ FiniteElement::constantIce()
     double hs_const = vm["ideal_simul.init_snow_thickness"].as<double>();
     std::fill(M_conc.begin(), M_conc.end(), c_const);
     std::fill(M_thick.begin(), M_thick.end(), c_const*h_const);//M_thick is ice volume
-    std::fill(M_snow_thick.begin(), M_snow_thick.end(), hs_const);
+    std::fill(M_snow_thick.begin(), M_snow_thick.end(), c_const*hs_const);
+    std::fill(M_damage.begin(), M_damage.end(), 0.);
+}//constantIce
+
+
+void
+FiniteElement::partiallyConstantIce()
+{
+    LOG(DEBUG) <<"Partially Constant Ice\n";
+    double c_const = vm["ideal_simul.init_concentration"].as<double>();
+    double h_const = vm["ideal_simul.init_thickness"].as<double>();
+    double hs_const = vm["ideal_simul.init_snow_thickness"].as<double>();
     std::fill(M_damage.begin(), M_damage.end(), 0.);
 
-    if (M_ice_type==setup::IceType::CONSTANT_PARTIAL)
+    // do on master then scatter
+    // - need global xmin, xmax
+    int num_elements = M_mesh_root.numTriangles();
+    dbl_vec conc_root(num_elements);
+    dbl_vec thick_root(num_elements);
+    dbl_vec snow_thick_root(num_elements);
+
+    if (M_rank==0)
     {
-        auto Bx = M_mesh.coordX();//xmin,xmax from nodes
+        auto Bx = M_mesh_root.coordX();//xmin,xmax from nodes
         double xmin = *std::min_element(Bx.begin(),Bx.end());
         double xmax = *std::max_element(Bx.begin(),Bx.end());
         double xedge = xmin + 0.3*(xmax-xmin);
 
         std::cout<<"In constantIce (partial cover)\n";
         std::cout<<"M_ice_type "<< (int)M_ice_type<<"\n";
-        std::cout<<"Min conc = "<< *std::min_element(M_conc.begin(),M_conc.end()) <<"\n";
-        std::cout<<"Max conc = "<< *std::max_element(M_conc.begin(),M_conc.end()) <<"\n";
-        std::cout<<"Min thick = "<< *std::min_element(M_thick.begin(),M_thick.end()) <<"\n";
-        std::cout<<"Max thick = "<< *std::max_element(M_thick.begin(),M_thick.end()) <<"\n";
         std::cout<<"xmin="<<xmin<<"\n";
         std::cout<<"xmax="<<xmax<<"\n";
         std::cout<<"xedge="<<xedge<<"\n";
 
-        Bx = M_mesh.bCoordX();//set conc, etc on elements
-        for (int i=0; i<M_conc.size(); ++i)
+        Bx = M_mesh_root.bCoordX();//set conc, etc on elements
+        for (int i=0; i<num_elements; ++i)
         {
             if (Bx[i] < xedge)
             {
-                M_conc[i]       = 0.;
-                M_thick[i]      = 0.;
-                M_snow_thick[i] = 0.;
+                conc_root[i]       = 0.;
+                thick_root[i]      = 0.;
+                snow_thick_root[i] = 0.;
+            }
+            else
+            {
+                conc_root[i]       = c_const;
+                thick_root[i]      = c_const*h_const;
+                snow_thick_root[i] = c_const*hs_const;
             }
         }
-        std::cout<<"New min conc = "<< *std::min_element(M_conc.begin(),M_conc.end()) <<"\n";
-        std::cout<<"New max conc = "<< *std::max_element(M_conc.begin(),M_conc.end()) <<"\n";
-        std::cout<<"New min thick = "<< *std::min_element(M_thick.begin(),M_thick.end()) <<"\n";
-        std::cout<<"New max thick = "<< *std::max_element(M_thick.begin(),M_thick.end()) <<"\n";
-        //std::abort();
-    }//partial ice cover
-
-}
+        std::cout<<"Min conc = "<< *std::min_element(conc_root.begin(), conc_root.end()) <<"\n";
+        std::cout<<"Max conc = "<< *std::max_element(conc_root.begin(), conc_root.end()) <<"\n";
+        std::cout<<"Min thick = "<< *std::min_element(thick_root.begin(), thick_root.end()) <<"\n";
+        std::cout<<"Max thick = "<< *std::max_element(thick_root.begin(), thick_root.end()) <<"\n";
+    }//M_rank==0
+    
+    this->scatterElementField(conc_root, M_conc);
+    this->scatterElementField(thick_root, M_thick);
+    this->scatterElementField(snow_thick_root, M_snow_thick);
+}//partiallyConstantIce
 
 void
 FiniteElement::targetIce()
