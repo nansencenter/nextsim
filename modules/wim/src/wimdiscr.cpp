@@ -1884,16 +1884,10 @@ void WimDiscr<T>::run()
     // - incident wave spectrum set in here now
     // (or in setWaveFields)
     if (!M_initialised_ice)
-    {
-        std::cout<<"WIM: Calling idealIceFields()";
-        this->idealIceFields(0.7);
-    }
+        throw std::runtime_error("run: ice not initialised yet\n");
 
     if (!M_initialised_waves)
-    {
-        std::cout<<"WIM: Calling idealWaveFields()";
-        this->idealWaveFields(0.8);
-    }
+        throw std::runtime_error("run: waves not initialised yet\n");
     // ===================================================
 
 
