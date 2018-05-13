@@ -11675,9 +11675,9 @@ FiniteElement::getIceFieldsForWim(std::vector<std::string> const& varnames)
             if (!thin_ice)
                 tmpvec.assign(num_elements, 0.);
             else if(M_parallel_wim)
-                tmpvec = M_thick;
+                tmpvec = M_h_thin;
             else
-                this->gatherElementField(M_thick, tmpvec);
+                this->gatherElementField(M_h_thin, tmpvec);
         else if (varname == "nfloes")
             if(M_parallel_wim)
                 tmpvec = M_nfloes;
