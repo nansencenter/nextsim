@@ -159,6 +159,7 @@ void IceInfo<T>::updateFields()
     //test fields
     std::cout<<"IceInfo::updateFields ("<<M_name<<"): check ice fields\n";
     this->printRange( "conc      (iceinfo)" , M_conc   );
+    this->printRange( "vol       (iceinfo)" , M_vol   );
     this->printRange( "thickness (iceinfo)" , M_thick  );
     this->printRange( "Nfloes    (iceinfo)" , M_nfloes );
     this->printRange( "dfloe     (iceinfo)" , M_dfloe  );
