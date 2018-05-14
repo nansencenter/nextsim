@@ -1385,7 +1385,7 @@ FiniteElement::regrid(bool step)
                         M_wavespec[fq].assign(num_wavedirn,M_dfloe);//vec of zeros of right size
                 }
             }
-#endif
+#endif//WAVES
 
             // 4) redistribute the interpolated values
             this->redistributeVariables(&interp_elt_out[0],nb_var,true);
@@ -1414,7 +1414,7 @@ FiniteElement::regrid(bool step)
                     if (M_export_wim_diags_mesh)
                         nb_var += 2*(M_wim_fields_nodes.size());//usually just Stokes drift
                 }
-#endif
+#endif//WAVES
 
 			int prv_num_nodes = M_mesh_previous.numNodes();
 
@@ -1485,7 +1485,7 @@ FiniteElement::regrid(bool step)
                                 tmp_nb_var++;
                             }
                     }
-#endif
+#endif//WAVES
 
                 if(tmp_nb_var!=nb_var)
                 {
@@ -9663,8 +9663,6 @@ FiniteElement::initWimVariables(std::vector<double> const &ctot, std::vector<dou
 void
 FiniteElement::forcingWave()
 {
-    int num_elements_wim = M_wim.getNumElements();
-
     if (M_wave_type==setup::WaveType::WW3A)
     {
         // define external_data objects
@@ -9710,17 +9708,17 @@ FiniteElement::wimPreRegrid()
     // need to interpolate wave spectrum to new elements,
     // taking account of change in surface area of elements
     // - update for change in surface area
-    auto movedmesh  = M_mesh;
+    auto movedmesh = M_mesh;
     movedmesh.move(M_UM,1.);
     M_wim.updateWaveSpec(movedmesh);
 
     // - get wave spec
-    M_wavespec  = M_wim.getWaveSpec();
+    M_wavespec = M_wim.getWaveSpec();
 
     // need to get displacement of nodes at last WIM call,
     // relative to current position of nodes;
     // - this will be interpolated too
-    M_wim_meshdisp  = M_wim.getRelativeMeshDisplacement(movedmesh);
+    M_wim_meshdisp = M_wim.getRelativeMeshDisplacement(movedmesh);
 }//wimPreRegrid()
 
 
@@ -9741,7 +9739,7 @@ FiniteElement::wimPostRegrid()
     auto movedmesh = M_mesh;
     movedmesh.move(M_UM,1.);
     bool regridding = true;
-    M_wim.setMeshFull(movedmesh,bamgmesh,M_flag_fix,regridding);//true means M_wim.assignSpatial() is called here
+    M_wim.setMeshFull(movedmesh, bamgmesh, M_flag_fix, regridding);//true means M_wim.assignSpatial() is called here
 
     // pass back interpolated wave spectrum to new elements;
     // interpolation scheme interp2cavities is conservative
