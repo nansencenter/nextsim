@@ -39,6 +39,9 @@ public:
     template<typename FEMeshType>
     void writeMesh(std::fstream& out, FEMeshType const& Mesh);
     template<typename Type>
+	void writeMesh(std::fstream& out, std::vector<Type> const& xnod, std::vector<Type> const& ynod,
+            std::vector<int> const& idnod, std::vector<int> const& elements);
+    template<typename Type>
 	void writeField(std::fstream& out, std::vector<Type> const& field, std::string const& name);
 	void writeRecord(std::fstream& out, std::string const& rtype = "field");
 
