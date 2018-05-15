@@ -8,7 +8,6 @@
 
 #include <externaldata.hpp>
 #include <date.hpp>
-#include <dataset.hpp>
 extern "C"
 {
 #include <mapx.h>
@@ -135,9 +134,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
 
     M_factor=1.;
     if((M_current_time-M_StartingTime)<M_SpinUpDuration)
-    {
         M_factor=(M_current_time-M_StartingTime)/M_SpinUpDuration;
-    }
 
     if(!M_is_constant)
     {
@@ -153,15 +150,14 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
 #ifdef OASIS
         // We call oasis_get every time step, but only actually recieve data at coupling times
         if (M_dataset->coupled)
-            recieveCouplingData(M_dataset, cpl_time);
+            this->recieveCouplingData(M_dataset, cpl_time);
 #endif
 
         if (to_be_reloaded)
         {
             std::cout << "Load " << M_datasetname << "\n";
-            //loadDataset(M_dataset, mesh);
-            loadDataset(M_dataset, RX_in, RY_in);
-            transformData(M_dataset);
+            this->loadDataset(M_dataset, RX_in, RY_in);
+            this->transformData(M_dataset);
             std::cout << "Done\n";
 
             //need to interpolate again if reloading
@@ -171,8 +167,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
         if (!M_dataset->interpolated)
         {
             std::cout << "Interpolate " << M_datasetname << "\n";
-            //interpolateDataset(M_dataset, mesh);
-            interpolateDataset(M_dataset, RX_in, RY_in);
+            this->interpolateDataset(M_dataset, RX_in, RY_in);
             std::cout << "Done\n";
         }
     }
@@ -211,7 +206,11 @@ ExternalData::get(const size_type i)
         bool interp_linear_time = (M_dataset->grid.dataset_frequency!="constant"
                 && M_dataset->grid.dataset_frequency!="nearest_daily");
         bool interp_const_wave  = ((M_dataset->grid.waveOptions.wave_dataset)
-                && (Environment::vm()["setup.wave-time-interp-option"].as<std::string>()=="step"));
+#if defined(WAVES)
+                && (Environment::vm()["wimsetup.wave-time-interp-option"].as<std::string>()=="step"));
+#else
+                );
+#endif
                 //&& (M_dataset->grid.waveOptions.time_interp_option=="step"));
         interp_linear_time  = (interp_linear_time && !interp_const_wave);
 
@@ -351,7 +350,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         mapx_class *map;
 	    std::string configfile = (boost::format( "%1%/%2%/%3%" )
                               % Environment::nextsimDir().string()
-                              % dataset->grid.dirname
+                              % "data"
                               % dataset->grid.mpp_file
                               ).str();
 
@@ -381,8 +380,8 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
     if(dataset->target_size==mesh.numTriangles())
     {
-    	RX = mesh.bcoordX(dataset->rotation_angle);
-        RY = mesh.bcoordY(dataset->rotation_angle);
+    	RX = mesh.bCoordX(dataset->rotation_angle);
+        RY = mesh.bCoordY(dataset->rotation_angle);
     }
 
 	if(dataset->grid.interpolation_in_latlon)
@@ -412,7 +411,31 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     // ---------------------------------
     // Load grid if unloaded
     if(!dataset->grid.loaded)
-        dataset->loadGrid(&(dataset->grid), M_StartingTime, M_current_time, RX_min, RX_max, RY_min, RY_max);
+    {
+        bool is_topaz_fc = (dataset->grid.dataset_frequency=="daily_forecast");//topaz forecast
+        bool is_ec_fc = ((dataset->grid.prefix).find("start") != std::string::npos);//ec_[nodes,elements],ec2_[nodes,elements]
+        bool true_forecast = (Environment::vm()["forecast.true_forecast"].as<bool>());
+        double init_time = M_StartingTime;
+        if((is_ec_fc||is_topaz_fc)&&true_forecast)
+        {
+            if (is_ec_fc)
+            {
+                // use forecast.time_init_atm_fc option to get init_time
+                std::string tmpstr = (Environment::vm()["forecast.time_init_atm_fc"].as<std::string>());
+                if(tmpstr!="")
+                    init_time = Nextsim::from_date_time_string(tmpstr);
+            }
+            else
+            {
+                // use forecast.time_init_ocean_fc option to get init_time
+                std::string tmpstr = (Environment::vm()["forecast.time_init_ocean_fc"].as<std::string>());
+                if(tmpstr!="")
+                    init_time = Nextsim::from_date_time_string(tmpstr);
+            }
+        }
+        //only need init_time to get grid
+        dataset->loadGrid(&(dataset->grid), init_time, init_time, RX_min, RX_max, RY_min, RY_max);
+    }
 
     // ---------------------------------
 	std::vector<double> XTIME(1);
@@ -462,105 +485,66 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     std::vector<int> index_fstep;
 
     std::string f_timestr;
+    bool is_topaz_fc = (dataset->grid.dataset_frequency=="daily_forecast");//topaz forecast
+    bool is_ec_fc = ((dataset->grid.prefix).find("start") != std::string::npos);//ec_[nodes,elements],ec2_[nodes,elements]
+    bool true_forecast = (Environment::vm()["forecast.true_forecast"].as<bool>());
+    double init_time = M_StartingTime;
+        // - for forecasts, filename depends on start time
 
     // Filename depends on the date for time varying data
-	if(dataset->grid.dataset_frequency!="constant" && dataset->grid.dataset_frequency!="nearest_daily")
+	if(dataset->grid.dataset_frequency!="constant"
+            && dataset->grid.dataset_frequency!="nearest_daily")
 	{
-        std::string init_timestr="";
+        bool is_topaz_fc = (dataset->grid.dataset_frequency=="daily_forecast");//topaz forecast
+        bool is_ec_dataset = ((dataset->grid.prefix).find("start") != std::string::npos);//ec_[nodes,elements],ec2_[nodes,elements]
+        bool true_forecast = (Environment::vm()["forecast.true_forecast"].as<bool>());
 
-        if((dataset->grid.dataset_frequency=="daily_forecast") || (dataset->grid.dataset_frequency=="daily_ec2_forecast"))
-            init_timestr = to_date_string_yd(M_StartingTime);//yyyymmdd
+        ftime = M_current_time-dataset->averaging_period/2.;
+        file_jump ={-1,0,1};
 
-        // when using forcing from a forecast, we select the file based on the StartingTime
-        if ( (dataset->grid.dataset_frequency!="daily_forecast") && (((dataset->grid.prefix).find("start") != std::string::npos) || (Environment::vm()["simul.forecast"].as<bool>())))
+        std::cout<<"LOAD DATASET TIMES:\n";
+        std::cout<<"init_time = "<<init_time<<" = "<<to_date_time_string(init_time)<<"\n";
+        std::cout<<"M_current_time = "<<M_current_time<<" = "<<to_date_time_string(M_current_time)<<"\n";
+        std::cout<<"ftime = "<<ftime<<" = "<<to_date_time_string(ftime)<<"\n";
+        if((is_ec_fc||is_topaz_fc)&&true_forecast)
         {
-            ftime = M_StartingTime;
-            file_jump.push_back(0);
-        }
-        else // otherwise, we check for
-        {
-            ftime = M_current_time-dataset->averaging_period/2.;
-            file_jump.push_back(-1);
-            file_jump.push_back(0);
-            file_jump.push_back(1);
-        }
-
-        for (std::vector<int>::iterator jump = file_jump.begin() ; jump != file_jump.end(); ++jump)
-        {
-            std::string myString;
-            if(dataset->grid.dataset_frequency=="monthly")
+            // when using forcing from ECMWF or topaz forecasts, we select the file based on the StartingTime
+            if (is_ec_fc)
             {
-                f_timestr = to_date_string_ym(std::floor(ftime));
-
-                myString = f_timestr.substr(4,2);
-                std::cout <<"month= "<< myString <<"\n";
-                int value_month = atoi(myString.c_str());
-                myString = f_timestr.substr(0,4);
-                std::cout <<"year= "<< myString <<"\n";
-                int value_year = atoi(myString.c_str());
-
-                std::cout <<"value_year= "<< value_year <<"\n";
-                                std::cout <<"value_month= "<< value_month <<"\n";
-
-                value_month+=*jump;
-                if(value_month==13)
-                {
-                    value_month=1;
-                    value_year++;
-                }
-                if(value_month==0)
-                {
-                    value_month=12;
-                    value_year--;
-                }
-                f_timestr=(boost::format( "%1%%2%" ) % boost::io::group(std::setw(4), std::setfill('0'), value_year) % boost::io::group(std::setw(2), std::setfill('0'), value_month)).str();
-            }
-            else if(dataset->grid.dataset_frequency=="yearly")
-            {
-                f_timestr = to_date_string_y(std::floor(ftime));//yyyy
-                int value_year = atoi(f_timestr.c_str());
-                value_year+=*jump;
-                f_timestr=(boost::format( "%1%" ) % boost::io::group(std::setw(4), std::setfill('0'), value_year)).str();
+                // - one file for all records
+                // - ftime not used (only init_time)
+                file_jump ={0};
+                std::string tmpstr = (Environment::vm()["forecast.time_init_atm_fc"].as<std::string>());
+                if(tmpstr!="")
+                    init_time = Nextsim::from_date_time_string(tmpstr);
             }
             else
-                f_timestr = to_date_string_yd(std::floor(ftime)+*jump);
-
-            if((std::floor(ftime)+*jump)<M_StartingTime)
-                init_timestr = f_timestr;//yyyymmdd
-            
-
-            std::cout <<"F_TIMESTR= "<< f_timestr <<"\n";
-
-            if(dataset->grid.dataset_frequency=="daily_forecast")
-                filename = (boost::format( "%1%/%2%/%3%%4%%5%%6%" )
-                        % Environment::simdataDir().string()
-                        % dataset->grid.dirname
-                        % f_timestr
-                        % dataset->grid.prefix
-                        % init_timestr
-                        % dataset->grid.postfix
-                        ).str();
-            else
-            if(dataset->grid.dataset_frequency=="daily_ec2_forecast")
             {
-                filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
-                       % Environment::simdataDir().string()
-                       % dataset->grid.dirname
-                       % dataset->grid.prefix
-                       % init_timestr
-                       % dataset->grid.postfix
-                       ).str();
+                std::string tmpstr = (Environment::vm()["forecast.time_init_ocean_fc"].as<std::string>());
+                if(tmpstr!="")
+                    init_time = Nextsim::from_date_time_string(tmpstr);
+            }
+        }//forecasts
+
+        for (auto jump_ptr = file_jump.begin() ; jump_ptr != file_jump.end(); ++jump_ptr)
+        {
+            int jump = *jump_ptr;//get jump as an integer
+            if(is_ec_fc||is_topaz_fc)
+            {
+                double inittime = init_time;
+                if(!true_forecast)
+                    // * if(!true_forecast), take the forecast that started at the start of
+                    //   the "current day" (ftime+jump)
+                    // * also can't have init_time before start of
+                    //   the "current day" (ftime+jump)
+                    // NB jump is in days for these datasets
+                    inittime = std::floor(ftime+jump);
+                filename = dataset->getFilename(&(dataset->grid),inittime,ftime+jump);
             }
             else
-                filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
-                        % Environment::simdataDir().string()
-                        % dataset->grid.dirname
-                        % dataset->grid.prefix
-                        % f_timestr
-                        % dataset->grid.postfix
-                        ).str();
+                filename = dataset->getFilename(&(dataset->grid),init_time,ftime,jump);
 
-            std::cout<<"FILENAME= "<< filename <<"\n";
+            std::cout<<"FILENAME (JUMPS) = "<< filename <<"\n";
             if ( ! boost::filesystem::exists(filename) )
                 continue;
                 //throw std::runtime_error("File not found: " + filename);
@@ -591,6 +575,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             }
             catch(const std::exception& e) // if no time dimension is available in the netcdf, we define the time as
             {
+                has_time_variable=false;
                 index_start[0]=0;
                 index_count[0]=1;
 
@@ -598,34 +583,40 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
                 XTIME[0]=-1.;
 
-                has_time_variable=false;
-
                 if(dataset->grid.dataset_frequency=="monthly" || dataset->grid.dataset_frequency=="yearly")
                     throw std::runtime_error("The case monthly and yearly when no time dimension is available is not implemented!");
             }
 
             double f;
-            for (int it=0; it < XTIME.size(); ++it) // always need one step before and one after the target time
-            {
-                if (!has_time_variable || ((dataset->name).find("ice_amsr2") != std::string::npos))
-                    f = from_date_string((boost::format( "%1%-%2%-%3%" ) % f_timestr.substr(0,4) % f_timestr.substr(4,2) % f_timestr.substr(6,2)).str())+0.5;
-                else
-                    f = (XTIME[it]*dataset->time.a+dataset->time.b)/24.0+from_date_string(dataset->grid.reference_date);
+            int nt = XTIME.size();
+            if(is_ec_fc && (!true_forecast))
+                nt = 4;// just use the first day of each file (1st 4 records, each 6 hours apart)
 
-                if(f>M_current_time && index_next==-1)
-                {
-                    time_next=f;
-                    index_next = it;
-                    filename_next = filename;
-                }
-                if(f<=M_current_time)
-                {
-                    time_prev=f;
-                    index_prev = it;
-                    filename_prev = filename;
-                }
+            for (int it=0; it < nt; ++it) // always need one step before and one after the target time
+            {
+                 if (!has_time_variable || ((dataset->name).find("ice_amsr2") != std::string::npos))
+                     f = from_date_string((boost::format( "%1%-%2%-%3%" )
+                                 % f_timestr.substr(0,4)
+                                 % f_timestr.substr(4,2)
+                                 % f_timestr.substr(6,2)).str())+0.5;
+                 else
+                     f = (XTIME[it]*dataset->time.a+dataset->time.b)/24.0
+                          + from_date_string(dataset->grid.reference_date);
+
+                 if(f>M_current_time && index_next==-1)
+                 {
+                     time_next=f;
+                     index_next = it;
+                     filename_next = filename;
+                 }
+                 if(f<=M_current_time)
+                 { 
+                     time_prev=f;
+                     index_prev = it;
+                     filename_prev = filename;
+                 }
             }
-        }
+        }//loop over jump
 
         if(filename_prev!="")
         {
@@ -633,49 +624,40 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             index_fstep.push_back(index_prev);
         }
         else
-            throw std::runtime_error("Not found a a file for before current_date!");
+            throw std::runtime_error("Not found a file for before current_date!");
 
 
-        if(filename_prev!="")
+        if(filename_next!="")
         {
             filename_fstep.push_back(filename_next);
             index_fstep.push_back(index_next);
         }
         else
-            throw std::runtime_error("Not found a a file for after current_date!");
+            throw std::runtime_error("Not found a file for after current_date!");
 
-		dataset->ftime_range.resize(0);
-		dataset->ftime_range.push_back(time_prev);
-        dataset->ftime_range.push_back(time_next);
-	}
+		dataset->ftime_range = {time_prev,time_next};
+	}//not nearest_daily or constant
     else
     {
         if(dataset->grid.dataset_frequency=="nearest_daily")
         {
             ftime = M_current_time;
-            // when using forcing from a forecast, we select the file based on the StartingTime
-            if ( (dataset->grid.dataset_frequency!="daily_forecast") && (((dataset->grid.prefix).find("start") != std::string::npos) || (Environment::vm()["simul.forecast"].as<bool>())))
-            {
-                ftime = M_StartingTime;
-            }
             f_timestr = to_date_string_yd(std::floor(ftime));
-
-            double f=from_date_string((boost::format( "%1%-%2%-%3%" ) % f_timestr.substr(0,4) % f_timestr.substr(4,2) % f_timestr.substr(6,2)).str())+0.5;
-
-            dataset->ftime_range.resize(0);
-            dataset->ftime_range.push_back(f);
+            double f=from_date_string((boost::format( "%1%-%2%-%3%" )
+                        % f_timestr.substr(0,4)
+                        % f_timestr.substr(4,2)
+                        % f_timestr.substr(6,2)).str());
+            dataset->ftime_range = {f+.5};
         }
         else
             f_timestr ="";
-
-        filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
-                    % Environment::simdataDir().string()
-                    % dataset->grid.dirname
-                    % dataset->grid.prefix
-                    % f_timestr
-                    % dataset->grid.postfix
-                    ).str();
-
+            filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
+                        % Environment::simdataDir().string()
+                        % dataset->grid.dirname
+                        % dataset->grid.prefix
+                        % f_timestr
+                        % dataset->grid.postfix
+                        ).str();
         filename_fstep.push_back(filename);
         index_fstep.push_back(0);
     }
@@ -1169,13 +1151,12 @@ ExternalData::convertTargetXY(Dataset *dataset,
             //convert to lon,lat
 			inverse_mapx(mapNextsim,RX_in[i],RY_in[i],&lat,&lon);
 			RY_out[i]=lat;
-			//RX[i]=lon;
             double bc_lon=dataset->grid.branch_cut_lon;
             bool close_on_right=false;
                 //if true  make target lon >  bc_lon,<=bc_lon+180
                 //if false make target lon >= bc_lon,< bc_lon+180
                 //this shouldn't matter here though?
-			RX_out[i]=thetaInRange(lon,bc_lon,close_on_right);
+			RX_out[i]=dataset->thetaInRange(lon,bc_lon,close_on_right);
         }
     }
     else
@@ -1192,9 +1173,8 @@ ExternalData::convertTargetXY(Dataset *dataset,
 }
 
 void
-//ExternalData::interpolateDataset(Dataset *dataset, GmshMesh const& mesh)//(double const& u, double const& v)
 ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX_in,
-        std::vector<double> const& RY_in)//(double const& u, double const& v)
+        std::vector<double> const& RY_in)
 {
     // ---------------------------------
     // Spatial interpolation
@@ -1251,7 +1231,8 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
                     {
                         int i=y_ind*N+x_ind;
                         int cyclic_i=y_ind*cyclic_N+x_ind;
-                        data_in[(dataset->variables.size()*dataset->nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=dataset->variables[j].loaded_data[fstep][i];
+                        int ind = (dataset->variables.size()*dataset->nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j;
+                        data_in[ind] = dataset->variables[j].loaded_data[fstep][i];
                     }
                 }
 
@@ -1259,26 +1240,29 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
                 {
                     for (int x_ind=0; x_ind<N; ++x_ind)
                     {
-                        int i=0*N+x_ind;
-                        int cyclic_i=(cyclic_M-1)*cyclic_N+x_ind;
-
-                        data_in[(dataset->variables.size()*dataset->nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=dataset->variables[j].loaded_data[fstep][i];
+                        int i = 0*N+x_ind;
+                        int cyclic_i = (cyclic_M-1)*cyclic_N+x_ind;
+                        int ind = (dataset->variables.size()*dataset->nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j;
+                        data_in[ind] = dataset->variables[j].loaded_data[fstep][i];
                     }
                 }
                 if(cyclic_N!=N)
                 {
                     for (int y_ind=0; y_ind<M; ++y_ind)
                     {
-                        int i=y_ind*N+0;
-                        int cyclic_i=y_ind*cyclic_N+(cyclic_N-1);
-
-                        data_in[(dataset->variables.size()*dataset->nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j]=dataset->variables[j].loaded_data[fstep][i];
+                        int i = y_ind*N+0;
+                        int cyclic_i = y_ind*cyclic_N+(cyclic_N-1);
+                        int ind = (dataset->variables.size()*dataset->nb_forcing_step)*cyclic_i+fstep*dataset->variables.size()+j;
+                        data_in[ind] = dataset->variables[j].loaded_data[fstep][i];
                     }
                 }
             }
             else // with no cyclic dimension, simply use the same indice i
                 for (int i=0; i<final_MN; ++i)
-                    data_in[(dataset->variables.size()*dataset->nb_forcing_step)*i+fstep*dataset->variables.size()+j]=dataset->variables[j].loaded_data[fstep][i];
+                {
+                    int ind = (dataset->variables.size()*dataset->nb_forcing_step)*i+fstep*dataset->variables.size()+j;
+                    data_in[ind] = dataset->variables[j].loaded_data[fstep][i];
+                }
 
         }
     }
@@ -1306,8 +1290,8 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
 
     if(dataset->target_size==mesh.numTriangles())
     {
-    	RX = mesh.bcoordX(dataset->rotation_angle);
-        RY = mesh.bcoordY(dataset->rotation_angle);
+    	RX = mesh.bCoordX(dataset->rotation_angle);
+        RY = mesh.bCoordY(dataset->rotation_angle);
     }
 
 	if(dataset->grid.interpolation_in_latlon)
@@ -1326,7 +1310,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
 	}
 #endif
     std::vector<double> RX,RY;//size set in convertTargetXY;
-    this->convertTargetXY(dataset,RX_in, RY_in, RX, RY,mapNextsim);//(double const& u, double const& v)
+    this->convertTargetXY(dataset,RX_in, RY_in, RX, RY,mapNextsim);
 
     // closing maps
     close_mapx(mapNextsim);

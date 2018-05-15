@@ -711,7 +711,7 @@ GmshMeshSeq::coordY(double const& rotangle) const
 }
 
 std::vector<double>
-GmshMeshSeq::bcoordX() const
+GmshMeshSeq::bCoordX() const
 {
     std::vector<double> bcoord_x(M_num_triangles);
     int cpt = 0;
@@ -734,7 +734,7 @@ GmshMeshSeq::bcoordX() const
 }
 
 std::vector<double>
-GmshMeshSeq::bcoordY() const
+GmshMeshSeq::bCoordY() const
 {
     std::vector<double> bcoord_y(M_num_triangles);
     int cpt = 0;
@@ -757,7 +757,7 @@ GmshMeshSeq::bcoordY() const
 }
 
 std::vector<double>
-GmshMeshSeq::bcoordX(double const& rotangle) const
+GmshMeshSeq::bCoordX(double const& rotangle) const
 {
     std::vector<double> bcoord_x(M_num_triangles);
     double cos_rotangle=std::cos(rotangle);
@@ -782,7 +782,7 @@ GmshMeshSeq::bcoordX(double const& rotangle) const
 }
 
 std::vector<double>
-GmshMeshSeq::bcoordY(double const& rotangle) const
+GmshMeshSeq::bCoordY(double const& rotangle) const
 {
     std::vector<double> bcoord_y(M_num_triangles);
     double cos_rotangle=std::cos(rotangle);
@@ -820,8 +820,8 @@ GmshMeshSeq::meanLon() const
     double lat = 0.;
     double lon = 0.;
 
-    std::vector<double> X = this->bcoordX();
-    std::vector<double> Y = this->bcoordY();
+    std::vector<double> X = this->bCoordX();
+    std::vector<double> Y = this->bCoordY();
 
     for (int elt=0; elt<M_num_triangles; ++elt)
     {
@@ -848,8 +848,8 @@ GmshMeshSeq::meanLat() const
     double lat = 0.;
     double lon = 0.;
 
-    std::vector<double> X = this->bcoordX();
-    std::vector<double> Y = this->bcoordY();
+    std::vector<double> X = this->bCoordX();
+    std::vector<double> Y = this->bCoordY();
 
     for (int elt=0; elt<M_num_triangles; ++elt)
     {
