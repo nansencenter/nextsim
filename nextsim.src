@@ -8,7 +8,7 @@ else
 fi
 
 echo " "
-echo export NEXTSIMDIR=$me
+echo export NEXTSIMDIR=`dirname $me`
 export NEXTSIMDIR=`dirname $me`
 
 echo " "
