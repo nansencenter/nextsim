@@ -85,7 +85,7 @@ public:
     // WIM types
     typedef Wim::WimDiscr<double> wim_type;
     typedef Wim::WimDiscr<double>::T_map_vec T_map_vec;
-#endif
+#endif//WAVES
 
     FiniteElement();
 
@@ -239,7 +239,7 @@ public:
     void wimCall();
     void wimCheckWaves();
     void getWimDiagnostics();
-#endif
+#endif//WAVES
     void getTotalConcVol(std::vector<double> &ctot, std::vector<double> &vtot);
 
     std::string gitRevision();
@@ -359,9 +359,7 @@ private:
     // options
     bool M_run_wim;
     bool M_use_wim;
-    bool M_interp_fsd;
     bool M_export_wim_diags_mesh;
-    bool M_collect_wavespec = false;
 
     //forcing
     setup::WaveType M_wave_type;
