@@ -565,7 +565,9 @@ void WimDiscr<T>::idealWaveFields(T_val const xfac)
     T_val_vec wave_mask(M_num_elements,0.); 
     int i_wave = -1;
 
-#pragma omp parallel for num_threads(M_max_threads) collapse(1)
+#if 0
+#pragma omp parallel for num_threads(M_max_threads) collapse(1)//memory leak found by valgrind
+#endif
     for (int i = 0; i < M_num_elements; i++)
     {
         if ((xvec[i] < x_edge) && (M_land_mask[i]<.5))
@@ -831,7 +833,9 @@ void WimDiscr<T>::idealIceFields(T_val const xfac)
     T_val_vec nfloes(M_num_elements,0.);
     T_val unifc = vm["wim.unifc"].template as<double>(); /* 0.7 */
     T_val unifh = vm["wim.unifh"].template as<double>(); /* 2.0 */
-#pragma omp parallel for num_threads(M_max_threads) collapse(1)
+#if 0
+#pragma omp parallel for num_threads(M_max_threads) collapse(1)//memory leak in similar omp use in idealWaveFields
+#endif
     for (int i = 0; i < M_num_elements; i++)
     {
         if ((xvec[i] >= x_edge) && (M_land_mask[i]<.5))
@@ -1503,7 +1507,9 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
 {
     auto xel  = movedmesh.bCoordX();
     auto yel  = movedmesh.bCoordY();
+    return this->returnFieldsElements(fields, xel, yel);
 
+#if 0
     T_val_vec surface_fac(xel.size(),1.);
     if(M_wim_on_mesh)
     {
@@ -1512,6 +1518,7 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
     }
 
     return this->returnFieldsElements(fields,xel,yel,surface_fac);
+#endif
 }
 
 
@@ -1601,7 +1608,7 @@ WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const &fields,
 template<typename T>
 typename WimDiscr<T>::T_map_vec
 WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
-        T_val_vec &xel, T_val_vec &yel, T_val_vec const& surface_fac)
+        T_val_vec &xel, T_val_vec &yel)//, T_val_vec const& surface_fac)
 {
     // return fields on elements of M_mesh
     // - usually to export diagnostic fields on nextsim mesh
@@ -1612,12 +1619,12 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
         //do nothing
         return output_els;
     else
+    {
         //initialise outputs
+        T_val_vec tmp(Nels,0.);
         for (auto it=fields.begin();it!=fields.end();it++)
-        {
-            T_val_vec tmp(Nels,0.);
             output_els.emplace(*it,tmp);
-        }
+    }
 
     // ==========================================================================================
     //elements - scalars
@@ -1630,8 +1637,9 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
         if(it->first=="Hs")
         {
             if (M_wim_on_mesh)
-                for(int i=0;i<M_num_elements;i++)
-                    it->second[i] = std::sqrt(surface_fac[i])*M_Hs[i];//NB SDF scales with surface area, so Hs scales by sqrt(SDF)
+                it->second = M_Hs;
+                //for(int i=0;i<M_num_elements;i++)
+                //    it->second[i] = std::sqrt(surface_fac[i])*M_Hs[i];//NB SDF scales with surface area, so Hs scales by sqrt(SDF)
             else
             {
                 input_els.push_back(&M_Hs);
