@@ -193,8 +193,6 @@ else
 	#LDFLAGSLIB += -ldl -lstdc++
 endif
 
-LOBJS := $(filter-out $(OBJECTDIR)/main.o, $(OBJS))
-
 ifeq ($(KERNEL),Linux)
 lib: $(OBJS) $(CCOBJS)
 	@mkdir -p $(LIBRARYDIR)
