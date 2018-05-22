@@ -2026,13 +2026,6 @@ void WimDiscr<T>::advectDirectionsMesh(T_val_vec2d& Sdir,T_val_vec & agnod,
 {
 
     int Nnod = M_mesh.M_num_nodes;
-#if 0
-    std::cout<<"advectDirectionsMesh: calling testMesh\n";
-    this->testMesh();
-#endif
-#if 0
-    T_val* advect_out;
-#endif
     int nb_var  = 1;                    //have to advect 1 vbl at a time
     std::vector<int> adv_method = {1};  //alternative (0) is do nothing
 
@@ -2059,20 +2052,7 @@ void WimDiscr<T>::advectDirectionsMesh(T_val_vec2d& Sdir,T_val_vec & agnod,
         //std::cout<<"advectDirectionsMesh: calling MeshTools::advect()\n";
         M_mesh.advect(Sdir[nth], VC, adv_method,
                 M_timestep, bvals);
-#if 0
-        M_mesh.advect(&advect_out,&(Sdir[nth])[0],&VC[0],
-                &adv_method[0],nb_var,M_timestep,&bvals[0]);
-
-        // copy from 2D temporary array back to 3D input array
-#pragma omp parallel for num_threads(M_max_threads) collapse(1)
-        for (int i = 0; i < M_num_elements; i++)
-            Sdir[nth][i] = advect_out[i];
-#endif
     }//advection of each direction done
-
-#if 0
-    xDelete<T_val>(advect_out);
-#endif
 
 #if 0
     std::cout<<"export: test advection\n";

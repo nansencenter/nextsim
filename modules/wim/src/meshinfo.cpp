@@ -257,22 +257,12 @@ void MeshInfo<T>::setFields(FEMeshType const &mesh_in)
 
 
 template<typename T>
-void MeshInfo<T>::advect(T_val_vec & interp_elt_out, // thing to be advected - modified inside
-            T_val_vec const & VC_in,                   // convective velocities (len = 2*num_nodes)
-            T_int_vec interp_method,                   // vector with interp methods for each variable
-            T_val time_step,                           // time step (s)
-            T_val_vec inc_values)                      // values incoming from open boundaries
-                                                       // - currently just specify a constant (ie spatially invariant) value for each variable
-#if 0
-void MeshInfo<T>::advect(T_val** interp_elt_out_ptr, // pointer to pointer to output data
-        T_val* interp_elt_in,                        // pointer to input data
-        T_val* VC_in,                                // pointer to convective velocities (len = 2*num_nodes)
-        int* interp_method,                           // pointer to interp methods for each variable
-        int nb_var,                                   // number of variables
-        T_val time_step,                             // time step (s)
-        T_val* inc_values)                           // values incoming from open boundaries
-                                                      // - currently just specify a constant (ie spatially invariant) value for each variable
-#endif
+void MeshInfo<T>::advect(T_val_vec & advect_inout, // thing to be advected - modified inside
+            T_val_vec const & VC_in,               // convective velocities (len = 2*num_nodes)
+            T_int_vec advect_method,               // vector with advection methods for each variable
+            T_val time_step,                       // time step (s)
+            T_val_vec inc_values)                  // values incoming from open boundaries
+                                                   // - currently just specify a constant (ie spatially invariant) value for each variable
 {
 
     if(M_mesh_type!=E_mesh_type::full)
@@ -282,20 +272,15 @@ void MeshInfo<T>::advect(T_val** interp_elt_out_ptr, // pointer to pointer to ou
     }
 
     //general variables
-    int nb_var = interp_method.size();
+    int nb_var = advect_method.size();
     int Nels = M_num_elements;
     int Nnod = M_num_nodes;
     int thread_id;
     int total_threads;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
-	//take a copy of interp_elt_out for the initial conditions
-    auto interp_elt_in = interp_elt_out;
-#if 0
-	T_val* interp_elt_out   = NULL;
-    //interp_elt_out          = new T_val(nb_var*Nels);
-    interp_elt_out          = xNew<T_val>(nb_var*Nels);
-#endif
+	//take a copy of advect_inout for the initial conditions
+    auto advect_in = advect_inout;
 
 
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
@@ -397,23 +382,20 @@ void MeshInfo<T>::advect(T_val** interp_elt_out_ptr, // pointer to pointer to ou
         //std::cout<<"variables\n";
         for(int j=0; j<nb_var; j++)
         {
-            if(interp_method[j]==1)
+            if(advect_method[j]==1)
             {
                 T_val tmp = 0.;
                 for (int i=0;i<3;i++)
                     if(fluxes_source_id[i]>=0)
-                        tmp += interp_elt_in[fluxes_source_id[i]*nb_var+j]*outer_fluxes_area[i];
+                        tmp += advect_in[fluxes_source_id[i]*nb_var+j]*outer_fluxes_area[i];
                     else
                         tmp += inc_values[j]*outer_fluxes_area[i];
-                interp_elt_out[cpt*nb_var+j] = interp_elt_in[cpt*nb_var+j] - (tmp/surface)*time_step;
+                advect_inout[cpt*nb_var+j] = advect_in[cpt*nb_var+j] - (tmp/surface)*time_step;
             }
             else
-                interp_elt_out[cpt*nb_var+j] = interp_elt_in[cpt*nb_var+j];
+                advect_inout[cpt*nb_var+j] = advect_in[cpt*nb_var+j];
         }
     }//loop over elements
-#if 0
-	*interp_elt_out_ptr=interp_elt_out;
-#endif
 }//advect
 
 

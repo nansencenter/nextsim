@@ -101,16 +101,6 @@ public:
     template<typename FEMeshType>
     void setFields( FEMeshType const &mesh);
     T_val lengthCfl() const { return M_resolution/12.; }
-#if 0
-    void advect(T_val** interp_elt_out_ptr, // pointer to pointer to output data
-            T_val* interp_elt_in,           // pointer to input data
-            T_val* VC_in,                   // pointer to convective velocities (len = 2*num_nodes)
-            int* interp_method,             // pointer to interp methods for each variable
-            int nb_var,                     // number of variables
-            T_val time_step,                // time step (s)
-            T_val* inc_values);             // values incoming from open boundaries
-                                            // - currently just specify a constant (ie spatially invariant) value for each variable
-#endif
     void advect(T_val_vec & interp_elt_inout, // thing to be advected - modified inside
             T_val_vec const & VC_in,          // convective velocities (len = 2*num_nodes)
             T_int_vec interp_method,          // vector with interp methods for each variable
