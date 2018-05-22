@@ -56,9 +56,7 @@ else
 endif
 
 # add include paths
-# CXXFLAGS += -I .
 CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
-
 CXXFLAGS += -I $(BOOST_INCDIR)
 CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
@@ -76,11 +74,11 @@ CCSRC=$(wildcard $(CCSRCDIR)/*.c)
 CCOBJS=$(CCSRC:%.c=$(OBJECTDIR)%.o)
 CCDEPS=$(CCSRC:%.c=$(DEPENDDIR)%.d)
 
-
 CC = gcc
 CFLAGS += -Wno-inline -fPIC -O3 # -MMD -MP -lm #-Wall -pedantic
 CFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
 # ========================================================
+
 
 # ========================================================
 # Libraries
@@ -95,13 +93,13 @@ LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx -lbamg -lnextsim
 
 # ========================================================
 # Rules to always execute.
-.PHONY: default all lib clean mrproper single
+.PHONY: default all lib clean mrproper progs
 
 # Default action.
 default: lib
 
 # make lib and stand-alone executable
-all: lib single
+all: lib progs
 
 # Delete the object and dependancy files.
 clean:
@@ -113,7 +111,10 @@ fresh: clean all
 
 # Delete the object and dependancy files, and the executable
 mrproper: clean
-	$(RM) $(BINARYDIR)$(PROG) $(LIBRARYDIR)/*
+	$(RM) $(BINARYDIR)/* $(LIBRARYDIR)/$(LIBRARYNAME)
+
+deplibs:
+	cd $(NEXTSIMDIR); make mapx bamg core
 # ========================================================
 
 
@@ -144,38 +145,39 @@ $(DEPENDDIR)%.d: $(CXXSRCDIR)/%.cpp
 	@$(SHELL) -ec '$(CXX) -M $(CXXFLAGS) $< | sed "s^$*.o^$(OBJECTDIR)$*.o^" > $@'
 # ================================================================
 
-# ================================================================
-# Programs
-PROGDIR=$(CXXSRCDIR)/programs
-PROG=WIM2d_single_call_cpp.exec
 
+# ================================================================
 # Rules to compile all programs
+PROGDIR=$(CXXSRCDIR)/programs
 ALLPROGS=$(wildcard $(PROGDIR)/*.cpp)
 PROGOBJS=$(ALLPROGS:$(PROGDIR)/%.cpp=$(OBJECTDIR)/%.o)
+EXECS=$(ALLPROGS:$(PROGDIR)/%.cpp=$(BINARYDIR)/%.exec)
+
+# compile the objects
 $(PROGOBJS): $(OBJS) $(CCOBJS)
 $(PROGOBJS): $(OBJECTDIR)%.o : $(PROGDIR)/%.cpp
 	@mkdir -p $(OBJECTDIR)
 	$(CXX) -o $@ -c $< $(CXXFLAGS)
-# ================================================================
 
-
-# ========================================================
-# make executable 1
+# link to make executables
 lines="=========="
 Lines=$(lines)$(lines)$(lines)$(lines)$(lines)$(lines)$(lines)$(lines)
-single: $(PROGOBJS) $(OBJS) $(CCOBJS)
+$(EXECS): $(OBJS) $(CCOBJS)
+$(EXECS): $(BINARYDIR)/%.exec : $(OBJECTDIR)/%.o
 	@mkdir -p $(BINARYDIR)
 	@echo " "
 	@echo $(Lines)$(Lines)
-	@echo "Creating executable: $(BINARYDIR)$(PROG)"
+	@echo "Creating executable: $@"
 	@echo $(Lines)$(Lines)
 	@echo " "
-	$(CXX) $(CXXFLAGS) -o $(BINARYDIR)$(PROG) $^ $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) -o $@ $< $(OBJS) $(CCOBJS) $(LDFLAGS)
 	@echo " "
 	@echo $(Lines)$(Lines)
-	@echo "Created executable: $(BINARYDIR)$(PROG)"
+	@echo "Created executable: $@"
 	@echo $(Lines)$(Lines)
 	@echo " "
+
+progs: $(EXECS)
 # ========================================================
 
 
