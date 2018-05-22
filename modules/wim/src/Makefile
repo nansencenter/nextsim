@@ -96,7 +96,7 @@ LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx -lbamg -lnextsim
 .PHONY: default all lib clean mrproper progs
 
 # Default action.
-default: lib
+default: all
 
 # make lib and stand-alone executable
 all: lib progs
