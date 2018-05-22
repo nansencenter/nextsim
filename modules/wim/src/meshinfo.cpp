@@ -260,7 +260,7 @@ template<typename T>
 void MeshInfo<T>::advect(T_val_vec & advect_inout, // thing to be advected - modified inside
             T_val_vec const & VC_in,               // convective velocities (len = 2*num_nodes)
             T_int_vec advect_method,               // vector with advection methods for each variable
-            T_val time_step,                       // time step (s)
+            T_val time_step_advect,                // time step (s): length of call to this routine - NB there is also substepping in this routine
             T_val_vec inc_values)                  // values incoming from open boundaries
                                                    // - currently just specify a constant (ie spatially invariant) value for each variable
 {
@@ -279,9 +279,15 @@ void MeshInfo<T>::advect(T_val_vec & advect_inout, // thing to be advected - mod
     int total_threads;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
-	//take a copy of advect_inout for the initial conditions
-    auto advect_in = advect_inout;
+    //set time_step
+    int num_substeps = 12;
+    T_val time_step = time_step_advect/num_substeps;
+    std::vector<int> itmp(3,0);
+    std::vector<T_val> dtmp(3,0.);
+    std::vector<std::vector<int>> fluxes_source_id(Nels, itmp);
+    std::vector<std::vector<T_val>> outer_fluxes_area(Nels, dtmp);
 
+    //get flux areas - don't depend on value of advected quantity
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < Nels; ++cpt)
     {
@@ -291,8 +297,8 @@ void MeshInfo<T>::advect(T_val_vec & advect_inout, // thing to be advected - mod
 
         /* some variables used for the advection*/
         T_val x[3],y[3];
-        T_val outer_fluxes_area[3], vector_edge[2], outer_vector[2], VC_middle[2], VC_x[3], VC_y[3];
-        int fluxes_source_id[3], node_nums[3];
+        T_val vector_edge[2], outer_vector[2], VC_middle[2], VC_x[3], VC_y[3];
+        int node_nums[3];
         int other_vertex[3*2]={1,2 , 2,0 , 0,1};
 
 
@@ -310,11 +316,11 @@ void MeshInfo<T>::advect(T_val_vec & advect_inout, // thing to be advected - mod
             VC_y[i] = VC_in[node_nums[i]+Nnod];
         }
 
-        //get fluxes - doesn't depend on value of advected quantity
+        //get flux areas
         for(int i=0;i<3;i++)
         {
             //std::cout<<"node = "<<i<<"\n";
-            outer_fluxes_area[i]=0;
+            outer_fluxes_area[cpt][i]=0;
 
             int vertex_1 = other_vertex[2*i  ];
             int vertex_2 = other_vertex[2*i+1];
@@ -331,16 +337,16 @@ void MeshInfo<T>::advect(T_val_vec & advect_inout, // thing to be advected - mod
             VC_middle[0] = (VC_x[vertex_2]+VC_x[vertex_1])/2.;
             VC_middle[1] = (VC_y[vertex_2]+VC_y[vertex_1])/2.;
 
-            outer_fluxes_area[i]=outer_vector[0]*VC_middle[0]+outer_vector[1]*VC_middle[1];
+            outer_fluxes_area[cpt][i]=outer_vector[0]*VC_middle[0]+outer_vector[1]*VC_middle[1];
 
-            if(outer_fluxes_area[i]>0)
+            if(outer_fluxes_area[cpt][i]>0)
             {
                 // std::cout<<"outward flux\n";
                 // fluxes are going out of the cell
                 // - this should let the quantity leave the cell without problems, even on boundaries
                 // - we treat open and closed boundaries the same
-                outer_fluxes_area[i]=std::min(surface/time_step/3.,outer_fluxes_area[i]);//limit the flux
-                fluxes_source_id[i]=cpt;
+                outer_fluxes_area[cpt][i]=std::min(surface/time_step/3.,outer_fluxes_area[cpt][i]);//limit the flux
+                fluxes_source_id[cpt][i]=cpt;
             }//outgoing fluxes
             else
             {
@@ -355,8 +361,8 @@ void MeshInfo<T>::advect(T_val_vec & advect_inout, // thing to be advected - mod
                     // not on a boundary
                     //std::cout<<"neighbour = "<<neighbour_double<<","<<neighbour_int<<"\n";
                     T_val surface2 = M_surface[neighbour_int];
-                    outer_fluxes_area[i]=-std::min(surface2/time_step/3.,-outer_fluxes_area[i]);//limit the flux
-                    fluxes_source_id[i]=neighbour_int;
+                    outer_fluxes_area[cpt][i]=-std::min(surface2/time_step/3.,-outer_fluxes_area[cpt][i]);//limit the flux
+                    fluxes_source_id[cpt][i]=neighbour_int;
                 }//not on boundary
                 else
                 {
@@ -364,37 +370,53 @@ void MeshInfo<T>::advect(T_val_vec & advect_inout, // thing to be advected - mod
                     if (M_mask_dirichlet[node_num1]&&M_mask_dirichlet[node_num2])
                     {
                         // closed boundary (on coast) - zero flux coming in
-                        fluxes_source_id[i] = cpt;
-                        outer_fluxes_area[i] = 0.;
+                        fluxes_source_id[cpt][i] = cpt;
+                        outer_fluxes_area[cpt][i] = 0.;
                     }
                     else
                     {
                         // open boundary - zero flux coming in
-                        fluxes_source_id[i] = -1;//flag to use inc_values
+                        fluxes_source_id[cpt][i] = -1;//flag to use inc_values
                     }
                 }//on boundary
             }//incoming fluxes
         }// loop over element's nodes (fluxes)
+    }//loop over elements - get flux areas
 
 
-        //loop over variables
-        //std::cout<<"variables\n";
-        for(int j=0; j<nb_var; j++)
+	//take a copy of advect_inout for the initial conditions
+    auto advect_in = advect_inout;
+
+    //can loop over substeps since flux areas are independent of advected quantity
+    for (int n=0; n<num_substeps; n++)
+    {
+#pragma omp parallel for num_threads(max_threads) private(thread_id)
+        for (int cpt=0; cpt < Nels; ++cpt)
         {
-            if(advect_method[j]==1)
+            //loop over variables
+            //std::cout<<"variables\n";
+            for(int j=0; j<nb_var; j++)
             {
-                T_val tmp = 0.;
-                for (int i=0;i<3;i++)
-                    if(fluxes_source_id[i]>=0)
-                        tmp += advect_in[fluxes_source_id[i]*nb_var+j]*outer_fluxes_area[i];
-                    else
-                        tmp += inc_values[j]*outer_fluxes_area[i];
-                advect_inout[cpt*nb_var+j] = advect_in[cpt*nb_var+j] - (tmp/surface)*time_step;
+                if(advect_method[j]==1)
+                {
+                    T_val tmp = 0.;
+                    for (int i=0;i<3;i++)
+                        if(fluxes_source_id[cpt][i]>=0)
+                            //normal element
+                            tmp += advect_in[fluxes_source_id[cpt][i]*nb_var+j]*outer_fluxes_area[cpt][i];
+                        else
+                            //open boundary element
+                            tmp += inc_values[j]*outer_fluxes_area[cpt][i];
+                    advect_inout[cpt*nb_var+j] = advect_in[cpt*nb_var+j] - (tmp/M_surface[cpt])*time_step;
+                }
+                else
+                    advect_inout[cpt*nb_var+j] = advect_in[cpt*nb_var+j];
             }
-            else
-                advect_inout[cpt*nb_var+j] = advect_in[cpt*nb_var+j];
-        }
-    }//loop over elements
+        }//loop over elements
+
+        //new initial conditions
+        advect_in = advect_inout;
+    }//loop over substeps
 }//advect
 
 

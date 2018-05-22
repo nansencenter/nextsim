@@ -40,6 +40,7 @@ template<typename T=float> class MeshInfo
     typedef T T_val;
     typedef std::vector<int> T_int_vec;
     typedef std::vector<T_val> T_val_vec;
+    typedef std::vector<T_val_vec> T_val_vec2d;
     typedef typename std::vector<T_val_vec*>  T_val_vec_ptrs;
 
     //private variables    
@@ -100,7 +101,7 @@ public:
     void setElements();
     template<typename FEMeshType>
     void setFields( FEMeshType const &mesh);
-    T_val lengthCfl() const { return M_resolution/12.; }
+    T_val lengthCfl() const { return M_resolution; }///12.; }//now use substepping inside advect (factor of 12 is applied there)
     void advect(T_val_vec & interp_elt_inout, // thing to be advected - modified inside
             T_val_vec const & VC_in,          // convective velocities (len = 2*num_nodes)
             T_int_vec interp_method,          // vector with interp methods for each variable
