@@ -41,6 +41,15 @@ void WimDiscr<T>::initStandAlone()
     M_grid = T_grid(vm);
 
     this->initRemaining();
+
+    // set ideal ice conditions
+    std::cout<<"WIM: Calling idealIceFields()";
+    this->idealIceFields(0.7);
+
+    // set ideal wave conditions
+    std::cout<<"WIM: Calling idealWaveFields()";
+    this->idealWaveFields(0.8);
+
 }//WimDiscr()
 
 
@@ -1884,16 +1893,10 @@ void WimDiscr<T>::run()
     // - incident wave spectrum set in here now
     // (or in setWaveFields)
     if (!M_initialised_ice)
-    {
-        std::cout<<"WIM: Calling idealIceFields()";
-        this->idealIceFields(0.7);
-    }
+        throw std::runtime_error("run: ice not initialised\n");
 
     if (!M_initialised_waves)
-    {
-        std::cout<<"WIM: Calling idealWaveFields()";
-        this->idealWaveFields(0.8);
-    }
+        throw std::runtime_error("run: waves not initialised\n");
     // ===================================================
 
 
@@ -2027,7 +2030,9 @@ void WimDiscr<T>::advectDirectionsMesh(T_val_vec2d& Sdir,T_val_vec & agnod,
     std::cout<<"advectDirectionsMesh: calling testMesh\n";
     this->testMesh();
 #endif
+#if 0
     T_val* advect_out;
+#endif
     int nb_var  = 1;                    //have to advect 1 vbl at a time
     std::vector<int> adv_method = {1};  //alternative (0) is do nothing
 
@@ -2052,6 +2057,9 @@ void WimDiscr<T>::advectDirectionsMesh(T_val_vec2d& Sdir,T_val_vec & agnod,
 
         //do advection
         //std::cout<<"advectDirectionsMesh: calling MeshTools::advect()\n";
+        M_mesh.advect(Sdir[nth], VC, adv_method,
+                M_timestep, bvals);
+#if 0
         M_mesh.advect(&advect_out,&(Sdir[nth])[0],&VC[0],
                 &adv_method[0],nb_var,M_timestep,&bvals[0]);
 
@@ -2059,9 +2067,12 @@ void WimDiscr<T>::advectDirectionsMesh(T_val_vec2d& Sdir,T_val_vec & agnod,
 #pragma omp parallel for num_threads(M_max_threads) collapse(1)
         for (int i = 0; i < M_num_elements; i++)
             Sdir[nth][i] = advect_out[i];
+#endif
     }//advection of each direction done
 
+#if 0
     xDelete<T_val>(advect_out);
+#endif
 
 #if 0
     std::cout<<"export: test advection\n";
