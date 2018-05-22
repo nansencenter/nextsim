@@ -282,7 +282,6 @@ void MeshInfo<T>::advect(T_val_vec & advect_inout, // thing to be advected - mod
 	//take a copy of advect_inout for the initial conditions
     auto advect_in = advect_inout;
 
-
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
     for (int cpt=0; cpt < Nels; ++cpt)
     {
