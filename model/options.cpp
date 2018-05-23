@@ -61,6 +61,7 @@ namespace Nextsim
             ("simul.regrid_output_flag", po::value<bool>()->default_value( false ), "")
             ("simul.regrid_angle", po::value<double>()->default_value( 10. ), "")
             ("simul.interp_with_cavities", po::value<bool>()->default_value( true ), "")
+            ("simul.expansion_factor", po::value<double>()->default_value( 0.15 ), "")
 
             // advection scheme
             // - ALE_smoothing_step_nb<0 is the eulerian case where M_UM is not changed and then =0.
