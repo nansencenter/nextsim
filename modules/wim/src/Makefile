@@ -112,7 +112,7 @@ fresh: clean all
 
 # Delete the object and dependancy files, and the executable
 mrproper: clean
-	$(RM) $(BINARYDIR)/* $(LIBRARYDIR)/$(LIBRARYNAME)
+	$(RM) $(BINARYDIR)/* $(LIBRARYDIR)/$(LIBNAME_ROOT)*
 
 deplibs:
 	cd $(NEXTSIMDIR); make mapx bamg core
