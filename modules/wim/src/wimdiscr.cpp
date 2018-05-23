@@ -41,6 +41,15 @@ void WimDiscr<T>::initStandAlone()
     M_grid = T_grid(vm);
 
     this->initRemaining();
+
+    // set ideal ice conditions
+    std::cout<<"WIM: Calling idealIceFields()";
+    this->idealIceFields(0.7);
+
+    // set ideal wave conditions
+    std::cout<<"WIM: Calling idealWaveFields()";
+    this->idealWaveFields(0.8);
+
 }//WimDiscr()
 
 
@@ -556,7 +565,9 @@ void WimDiscr<T>::idealWaveFields(T_val const xfac)
     T_val_vec wave_mask(M_num_elements,0.); 
     int i_wave = -1;
 
-#pragma omp parallel for num_threads(M_max_threads) collapse(1)
+#if 0
+#pragma omp parallel for num_threads(M_max_threads) collapse(1)//memory leak found by valgrind
+#endif
     for (int i = 0; i < M_num_elements; i++)
     {
         if ((xvec[i] < x_edge) && (M_land_mask[i]<.5))
@@ -822,7 +833,9 @@ void WimDiscr<T>::idealIceFields(T_val const xfac)
     T_val_vec nfloes(M_num_elements,0.);
     T_val unifc = vm["wim.unifc"].template as<double>(); /* 0.7 */
     T_val unifh = vm["wim.unifh"].template as<double>(); /* 2.0 */
-#pragma omp parallel for num_threads(M_max_threads) collapse(1)
+#if 0
+#pragma omp parallel for num_threads(M_max_threads) collapse(1)//memory leak in similar omp use in idealWaveFields
+#endif
     for (int i = 0; i < M_num_elements; i++)
     {
         if ((xvec[i] >= x_edge) && (M_land_mask[i]<.5))
@@ -1238,7 +1251,7 @@ void WimDiscr<T>::setMeshSimple(FEMeshType const &movedmesh)
     M_mesh_old      = M_mesh;
 
     //update M_mesh with moved mesh
-    M_mesh = T_mesh(movedmesh);
+    M_mesh = MeshInfo<T>(movedmesh);
 }
 
 
@@ -1252,7 +1265,7 @@ void WimDiscr<T>::setMeshFull(FEMeshType const &movedmesh,BamgMesh* bamgmesh,int
         M_mesh_old = M_mesh;
 
     M_time_mesh_set = M_update_time;//used in check when ice fields are set on mesh
-    M_mesh          = T_mesh(movedmesh,bamgmesh,flag_fix);
+    M_mesh          = MeshInfo<T>(movedmesh,bamgmesh,flag_fix);
 
     // get relative displacement of nodes since last call
     // - M_UM may already be nonzero if regridding has happened
@@ -1323,7 +1336,7 @@ WimDiscr<T>::getSurfaceFactor(FEMeshType const &movedmesh)
             ynods[k] = nodes_y[ind];
         }
 
-        T_val area = .5*MeshTools::jacobian(
+        T_val area = .5*this->jacobian(
                 xnods[0],ynods[0],xnods[1],ynods[1],xnods[2],ynods[2]);
         if (area>0)
             surface_fac[i] = area/M_mesh.M_surface[i];
@@ -1414,7 +1427,7 @@ WimDiscr<T>::getRelativeMeshDisplacement(FEMeshType const &movedmesh) const
     auto nodes_y = movedmesh.coordY();
     int Nn = nodes_x.size();
 
-    if (M_mesh.M_mesh_type==T_mesh::E_mesh_type::uninitialised)
+    if (M_mesh.M_mesh_type==MeshInfo<T>::E_mesh_type::uninitialised)
         throw std::runtime_error("relativeMeshDisplacement: M_mesh not initialised yet");
     if (M_mesh.M_num_nodes!=Nn)
         throw std::runtime_error("relativeMeshDisplacement: mesh_in and M_mesh have different sizes");
@@ -1494,7 +1507,9 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
 {
     auto xel  = movedmesh.bCoordX();
     auto yel  = movedmesh.bCoordY();
+    return this->returnFieldsElements(fields, xel, yel);
 
+#if 0
     T_val_vec surface_fac(xel.size(),1.);
     if(M_wim_on_mesh)
     {
@@ -1503,6 +1518,7 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
     }
 
     return this->returnFieldsElements(fields,xel,yel,surface_fac);
+#endif
 }
 
 
@@ -1592,7 +1608,7 @@ WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const &fields,
 template<typename T>
 typename WimDiscr<T>::T_map_vec
 WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
-        T_val_vec &xel, T_val_vec &yel, T_val_vec const& surface_fac)
+        T_val_vec &xel, T_val_vec &yel)//, T_val_vec const& surface_fac)
 {
     // return fields on elements of M_mesh
     // - usually to export diagnostic fields on nextsim mesh
@@ -1603,12 +1619,12 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
         //do nothing
         return output_els;
     else
+    {
         //initialise outputs
+        T_val_vec tmp(Nels,0.);
         for (auto it=fields.begin();it!=fields.end();it++)
-        {
-            T_val_vec tmp(Nels,0.);
             output_els.emplace(*it,tmp);
-        }
+    }
 
     // ==========================================================================================
     //elements - scalars
@@ -1621,8 +1637,9 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
         if(it->first=="Hs")
         {
             if (M_wim_on_mesh)
-                for(int i=0;i<M_num_elements;i++)
-                    it->second[i] = std::sqrt(surface_fac[i])*M_Hs[i];//NB SDF scales with surface area, so Hs scales by sqrt(SDF)
+                it->second = M_Hs;
+                //for(int i=0;i<M_num_elements;i++)
+                //    it->second[i] = std::sqrt(surface_fac[i])*M_Hs[i];//NB SDF scales with surface area, so Hs scales by sqrt(SDF)
             else
             {
                 input_els.push_back(&M_Hs);
@@ -1836,7 +1853,7 @@ void WimDiscr<T>::getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out,T_val_ve
     // - NB set in FiniteElement::wimPreRegrid(),
     // but this function is called from FiniteElement::wimPostRegrid(),
     // and mesh could have changed due to regridding
-    M_mesh    = T_mesh(movedmesh);
+    M_mesh = MeshInfo<T>(movedmesh);
 
     //do interpolation
     T_val_vec cinterp;//interp conc as well, to correct for interpolation error
@@ -1884,16 +1901,10 @@ void WimDiscr<T>::run()
     // - incident wave spectrum set in here now
     // (or in setWaveFields)
     if (!M_initialised_ice)
-    {
-        std::cout<<"WIM: Calling idealIceFields()";
-        this->idealIceFields(0.7);
-    }
+        throw std::runtime_error("run: ice not initialised\n");
 
     if (!M_initialised_waves)
-    {
-        std::cout<<"WIM: Calling idealWaveFields()";
-        this->idealWaveFields(0.8);
-    }
+        throw std::runtime_error("run: waves not initialised\n");
     // ===================================================
 
 
@@ -2006,13 +2017,11 @@ void WimDiscr<T>::advectDirections(T_val_vec2d& Sdir,T_val_vec const& ag2d_eff)
         T_val_vec vwave   = ag2d_eff;
 
         //set wave speeds
-        //TODO if M_wim_on_mesh, subtract average mesh velocity
         std::for_each(uwave.begin(), uwave.end(), [&](T_val& f){ f *= std::cos(adv_dir); });
         if (M_advdim == 2)
             std::for_each(vwave.begin(), vwave.end(), [&](T_val& f){ f *= std::sin(adv_dir); });
 
         //do advection
-        //TODO if M_wim_on_mesh call MeshTools::advect here
         M_grid.waveAdvWeno(Sdir[nth],uwave,vwave,M_timestep);
     }//advection of each direction done
 
@@ -2025,11 +2034,6 @@ void WimDiscr<T>::advectDirectionsMesh(T_val_vec2d& Sdir,T_val_vec & agnod,
 {
 
     int Nnod = M_mesh.M_num_nodes;
-#if 0
-    std::cout<<"advectDirectionsMesh: calling testMesh\n";
-    this->testMesh();
-#endif
-    T_val* advect_out;
     int nb_var  = 1;                    //have to advect 1 vbl at a time
     std::vector<int> adv_method = {1};  //alternative (0) is do nothing
 
@@ -2054,16 +2058,9 @@ void WimDiscr<T>::advectDirectionsMesh(T_val_vec2d& Sdir,T_val_vec & agnod,
 
         //do advection
         //std::cout<<"advectDirectionsMesh: calling MeshTools::advect()\n";
-        M_mesh.advect(&advect_out,&(Sdir[nth])[0],&VC[0],
-                &adv_method[0],nb_var,M_timestep,&bvals[0]);
-
-        // copy from 2D temporary array back to 3D input array
-#pragma omp parallel for num_threads(M_max_threads) collapse(1)
-        for (int i = 0; i < M_num_elements; i++)
-            Sdir[nth][i] = advect_out[i];
+        M_mesh.advect(Sdir[nth], VC, adv_method,
+                M_timestep, bvals);
     }//advection of each direction done
-
-    xDelete<T_val>(advect_out);
 
 #if 0
     std::cout<<"export: test advection\n";
