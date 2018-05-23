@@ -1015,7 +1015,7 @@ FiniteElement::initBamg()
     bamgopt->splitcorners      = 0; //the Devil!  Changed to 0, original 1 Phil
     bamgopt->geometricalmetric = 0;
     bamgopt->random            = true;
-    bamgopt->verbose           = vm["simul.verbose"].as<int>();
+    bamgopt->verbose           = vm["debugging.bamg_verbose"].as<int>();
 
     bamggeom = new BamgGeom();
     bamgmesh = new BamgMesh();
@@ -1043,7 +1043,7 @@ FiniteElement::initOptAndParam()
         ("debug", DEBUG)
         ("error", ERROR);
 
-    M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
+    M_log_level = str2log.find(vm["debugging.log-level"].as<std::string>())->second;
 
     // define export path
     M_export_path = Environment::nextsimDir().string() + "/matlab";
@@ -1064,8 +1064,11 @@ FiniteElement::initOptAndParam()
     rhos = physical::rhos;
 
     days_in_sec = 24.0*3600.0;
-    time_init = Nextsim::from_date_time_string(vm["simul.time_init"].as<std::string>());
-    ptime_step =  days_in_sec/vm["simul.ptime_per_day"].as<int>();
+    if (vm["simul.time_init"].as<std::string>() == "")
+        throw std::runtime_error("Please provide simul.time_init option (start time)\n");
+    else
+        time_init = Nextsim::from_date_time_string(vm["simul.time_init"].as<std::string>());
+    ptime_step =  days_in_sec/vm["debugging.ptime_per_day"].as<int>();
 
     time_step = vm["simul.timestep"].as<double>();
     thermo_timestep = vm["simul.thermo_timestep"].as<double>();
@@ -1161,14 +1164,14 @@ FiniteElement::initOptAndParam()
 
     if (M_use_nesting)
     {
-        M_use_ocean_nesting= vm["nesting.use_ocean_nesting"].as<bool>();
-        M_nest_outer_mesh=vm["nesting.outer_mesh"].as<std::string>();
-        M_nest_inner_mesh=vm["nesting.inner_mesh"].as<std::string>();
-        M_nest_method=vm["nesting.method"].as<std::string>();
-        M_nudge_function=vm["nesting.nudge_function"].as<std::string>();
-        M_nudge_timescale=vm["nesting.nudge_timescale"].as<double>();
-        M_nudge_lengthscale=vm["nesting.nudge_lengthscale"].as<double>();
-        M_nest_dynamic_vars=vm["nesting.nest_dynamic_vars"].as<bool>();
+        M_use_ocean_nesting = vm["nesting.use_ocean_nesting"].as<bool>();
+        M_nest_outer_mesh   = vm["nesting.outer_mesh"].as<std::string>();
+        M_nest_inner_mesh   = vm["nesting.inner_mesh"].as<std::string>();
+        M_nest_method       = vm["nesting.method"].as<std::string>();
+        M_nudge_function    = vm["nesting.nudge_function"].as<std::string>();
+        M_nudge_timescale   = vm["nesting.nudge_timescale"].as<double>();
+        M_nudge_lengthscale = vm["nesting.nudge_lengthscale"].as<double>();
+        M_nest_dynamic_vars = vm["nesting.nest_dynamic_vars"].as<bool>();
     }
 
     const boost::unordered_map<const std::string, setup::OceanType> str2ocean = boost::assign::map_list_of
@@ -2340,15 +2343,40 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
 
     interp_elt_out.resize(M_nb_var_element*M_num_elements);
 
-    int ALE_smoothing_step_nb = vm["simul.ALE_smoothing_step_nb"].as<int>();
-    // ALE_smoothing_step_nb<0 is the diffusive eulerian case where M_UM is not changed and then =0.
-    // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
-    // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
-
-    if(ALE_smoothing_step_nb>=0)
+    bool use_eulerian = false;
+    bool use_lagrangian = false;
+    bool use_ALE = false;
+    int ALE_smoothing_step_nb = vm["numerics.ALE_smoothing_step_nb"].as<int>();
+    if (vm["numerics.advection_scheme"].as<string>()=="Eulerian")
+        // Diffusive eulerian case where M_UM is not changed and then =0.
+        use_eulerian = true;
+    else if (vm["numerics.advection_scheme"].as<string>()=="Lagrangian")
+        // Purely Lagrangian case where M_UM is updated with M_VT
+        use_lagrangian = true;
+    else if (vm["numerics.advection_scheme"].as<string>()=="ALE")
     {
-        if(ALE_smoothing_step_nb>0)
+        // ALE case where M_UM is updated with a smoothed version of M_VT
+        use_ALE = true;
+        if (ALE_smoothing_step_nb<=0)
+            throw std::runtime_error("numerics.ALE_smoothing_step_nb option should be >0");
+    }
+    else
+        throw std::runtime_error("numerics.advection_scheme option should be Eulerian, Lagrangian or ALE");
+
+    //change M_UM if not in Eulerian mode
+    if(!use_eulerian)
+    {
+        if(use_lagrangian)
         {
+            // pure Lagrangian case
+            for (int nd=0; nd<M_UM.size(); ++nd)
+            {
+                M_UM[nd] += time_step*M_VT[nd];
+            }
+        }
+        else
+        {
+            // ALE case - need to calculate the smoothed velocity
             std::vector<double> vt_root;
             std::vector<double> M_VT_smoothed;
             std::vector<double> M_VT_smoothed_root;
@@ -2403,19 +2431,14 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
             {
                 M_UM[nd] += time_step*M_VT_smoothed[nd];
             }
-        } else {
-            for (int nd=0; nd<M_UM.size(); ++nd)
-            {
-                M_UM[nd] += time_step*M_VT[nd];
-            }
-        }
+        }//using ALE
 
         // set back the neumann nodes (open boundaries) at their position, the fluxes will be computed thanks to the convective velocity
         for (const int& nd : M_neumann_nodes)
         {
             M_UM[nd] = UM_P[nd];
         }
-    }
+    }//not Eulerian
 
     LOG(DEBUG) <<"VT MIN= "<< *std::min_element(M_VT.begin(),M_VT.end()) <<"\n";
     LOG(DEBUG) <<"VT MAX= "<< *std::max_element(M_VT.begin(),M_VT.end()) <<"\n";
@@ -2456,16 +2479,11 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
             x[i]     = M_nodes.find((M_elements[cpt]).indices[i])->second.coords[0]+UM_P[x_ind];
             y[i]     = M_nodes.find((M_elements[cpt]).indices[i])->second.coords[1]+UM_P[y_ind];
 
-            if(ALE_smoothing_step_nb==-2)
-            {
-                VC_x[i] =0.;
-                VC_y[i] =0.;
-            }
-            else
-            {
-                VC_x[i] = M_VT[x_ind]-(M_UM[x_ind]-UM_P[x_ind])/time_step;
-                VC_y[i] = M_VT[y_ind]-(M_UM[y_ind]-UM_P[y_ind])/time_step;
-            }
+            // convective velocity
+            // - this is zero for pure Lagrangian, except for at open boundaries,
+            // where it is M_VT
+            VC_x[i] = M_VT[x_ind]-(M_UM[x_ind]-UM_P[x_ind])/time_step;
+            VC_y[i] = M_VT[y_ind]-(M_UM[y_ind]-UM_P[y_ind])/time_step;
         }
 
         for(int i=0;i<3;i++)
@@ -2494,13 +2512,13 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
             }
             else
             {
-		neighbour_double = bamgmesh->ElementConnectivity[cpt*3+i];
+		        neighbour_double = bamgmesh->ElementConnectivity[cpt*3+i];
                 neighbour_int = (int)bamgmesh->ElementConnectivity[cpt*3+i];
 
                 // neighbour_double = M_element_connectivity[cpt*3+i];
                 // neighbour_int = (int)M_element_connectivity[cpt*3+i];
 
-		if (!std::isnan(neighbour_double) && neighbour_int>0)
+		        if (!std::isnan(neighbour_double) && neighbour_int>0)
                 {
                     surface = this->measure(M_elements[neighbour_int-1],M_mesh, UM_P);
                     outer_fluxes_area[i] = -std::min(surface/time_step/3.,-outer_fluxes_area[i]);
@@ -2536,15 +2554,31 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
     }
 }//advect()
 
+#if 0//advectRoot not used - looks weird too
 void
 FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out)
 {
     M_comm.barrier();
 
-    int ALE_smoothing_step_nb = vm["simul.ALE_smoothing_step_nb"].as<int>();
-    // ALE_smoothing_step_nb<0 is the diffusive eulerian case where M_UM is not changed and then =0.
-    // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
-    // ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
+    bool use_eulerian = false;
+    bool use_lagrangian = false;
+    bool use_ALE = false;
+    int ALE_smoothing_step_nb = vm["numerics.ALE_smoothing_step_nb"].as<int>();
+    if (vm["numerics.advection_scheme"].as<string>()=="Eulerian")
+        // Diffusive eulerian case where M_UM is not changed and then =0.
+        use_eulerian = true;
+    else if (vm["numerics.advection_scheme"].as<string>()=="Lagrangian")
+        // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
+        use_lagrangian = true;
+    else if (vm["numerics.advection_scheme"].as<string>()=="ALE")
+    {
+        // ALE case where M_UM is updated with a smoothed version of M_VT
+        use_ALE = true;
+        if (ALE_smoothing_step_nb<=0)
+            throw std::runtime_error("numerics.ALE_smoothing_step_nb option should be >0");
+    }
+    else
+        throw std::runtime_error("numerics.advection_scheme option should be Eulerian, Lagrangian or ALE");
 
     interp_elt_out.resize(M_nb_var_element*M_num_elements);
     std::vector<double> interp_elt_out_root;
@@ -2656,16 +2690,9 @@ FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<
                 x[i]     = x[i]+UM_P_root[x_ind];
                 y[i]     = y[i]+UM_P_root[y_ind];
 
-                if(ALE_smoothing_step_nb==-2)
-                {
-                    VC_x[i] =0.;
-                    VC_y[i] =0.;
-                }
-                else
-                {
-                    VC_x[i] = M_VT_root[x_ind]-(M_UM_root[x_ind]-UM_P_root[x_ind])/time_step;
-                    VC_y[i] = M_VT_root[y_ind]-(M_UM_root[y_ind]-UM_P_root[y_ind])/time_step;
-                }
+                // VC_x,y are 0 in Lagrangian case
+                VC_x[i] = M_VT_root[x_ind]-(M_UM_root[x_ind]-UM_P_root[x_ind])/time_step;
+                VC_y[i] = M_VT_root[y_ind]-(M_UM_root[y_ind]-UM_P_root[y_ind])/time_step;
             }
 
             surface = this->measure(elements_root[cpt],M_mesh_root, UM_P_root);
@@ -2768,6 +2795,7 @@ FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<
     }
 #endif
 }
+#endif
 
 void
 FiniteElement::diffuse(std::vector<double>& variable_elt, double diffusivity_parameters, double dx)
@@ -3206,7 +3234,7 @@ FiniteElement::interpFieldsElement()
                                 M_mesh_previous_root.numNodes(),M_mesh_previous_root.numTriangles(),
                                 &interp_in_elements[0],
                                 M_mesh_previous_root.numTriangles(),M_nb_var_element,
-                                &M_mesh_root.bcoordX()[0],&M_mesh_root.bcoordY()[0],M_mesh_root.numTriangles(),
+                                &M_mesh_root.bCoordX()[0],&M_mesh_root.bCoordY()[0],M_mesh_root.numTriangles(),
                                 false);
 
         // std::cout<<"InterpFromMeshToMesh2dx done in "<< chrono.elapsed() <<"\n";
@@ -3698,7 +3726,7 @@ FiniteElement::regrid(bool step)
         chrono.restart();
         LOG(DEBUG) <<"Flip starts\n";
 
-        while (flip /*|| (minang<(vm["simul.regrid_angle"].as<double>())/10.)*/)
+        while (flip /*|| (minang<(vm["numerics.regrid_angle"].as<double>())/10.)*/)
         {
             ++substep;
             displacement_factor /= 2.;
@@ -3762,7 +3790,7 @@ FiniteElement::regrid(bool step)
 
 #if 0
             had_remeshed=true;
-            if(step && (vm["simul.regrid_output_flag"].as<bool>()))
+            if(step && (vm["numerics.regrid_output_flag"].as<bool>()))
             {
 
                 std::string tmp_string1    = (boost::format( "before_adaptMesh_%1%_mesh_adapt_step_%2%_substep_%3%" )
@@ -3780,7 +3808,7 @@ FiniteElement::regrid(bool step)
             std::cout <<"---TRUE AdaptMesh done in "<< timer["adaptmesh"].first.elapsed() <<"s\n";
 
 #if 0
-            if(step && (vm["simul.regrid_output_flag"].as<bool>()))
+            if(step && (vm["numerics.regrid_output_flag"].as<bool>()))
             {
                 std::string tmp_string2    = (boost::format( "after_adaptMesh_%1%_mesh_adapt_step_%2%_substep_%3%" )
                                               % step
@@ -4307,7 +4335,7 @@ FiniteElement::assemble(int pcpt)
                     norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
 
                     coef_Voce = (vm["dynamics.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
-                    coef_Voce *= coef_drag*physical::rhow; //(vm["simul.rho_water"].as<double>());
+                    coef_Voce *= coef_drag*physical::rhow;
 
                     norm_Vair_ice = std::hypot(M_VT[index_u]-M_wind [index_u],M_VT[index_v]-M_wind [index_v]);
                     norm_Vair_ice = (norm_Vair_ice > norm_Vair_ice_min) ? (norm_Vair_ice):norm_Vair_ice_min;
@@ -6055,7 +6083,7 @@ FiniteElement::init()
     had_remeshed=false;
 
     this->initOptAndParam();
-    current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
+    M_current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
 
     if (M_rank==0)
     {
@@ -6078,7 +6106,7 @@ FiniteElement::init()
     // Check the minimum angle of the grid
     double minang = this->minAngle(M_mesh);
 
-    if (minang < vm["simul.regrid_angle"].as<double>())
+    if (minang < vm["numerics.regrid_angle"].as<double>())
     {
         LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the initial grid\n";
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
@@ -6093,7 +6121,7 @@ FiniteElement::init()
             pcpt = this->readRestart(res_str);
         else
             pcpt = this->readRestart(vm["restart.step_nb"].as<int>());
-        current_time = time_init + pcpt*time_step/(24*3600.0);
+        M_current_time = time_init + pcpt*time_step/(24*3600.0);
 
         if(fmod(pcpt*time_step,output_time_step) == 0)
         {
@@ -6124,7 +6152,7 @@ FiniteElement::init()
     // Load data from the datasets we just initialised
     timer["reload"].first.restart();
     this->checkReloadDatasets(M_external_data,
-                              current_time,
+                              M_current_time,
                               "init - time-dependant");
     if (M_rank == 0)
         LOG(DEBUG) <<"check_and_reload in "<< timer["reload"].first.elapsed() <<"s\n";
@@ -6150,7 +6178,7 @@ FiniteElement::init()
     {
         // We should tag the file name with the init time in case of a re-start.
         std::stringstream filename;
-        filename << M_export_path << "/drifters_out_" << current_time << ".txt";
+        filename << M_export_path << "/drifters_out_" << M_current_time << ".txt";
 
         M_iabp_out.open(filename.str(), std::fstream::out);
         if ( ! M_iabp_out.good() )
@@ -6183,7 +6211,13 @@ FiniteElement::step()
         // so won't happen this time step
         // TODO just write restart in init() as well?
         LOG(DEBUG) <<"first export starts\n";
-        this->exportResults(0);
+        if (vm["output.datetime_in_filename"].as<bool>())
+            this->exportResults(M_current_time);
+        else
+        {
+            int ostep = 0;//need to declare as an int, to make sure it's not interpreted as a double
+            this->exportResults(ostep);
+        }
         // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
         LOG(DEBUG) <<"first export done\n";
     }
@@ -6195,7 +6229,7 @@ FiniteElement::step()
     // The first time step we behave as if we just did a regrid
     M_regrid = (pcpt==0);
 
-    if (vm["simul.regrid"].as<std::string>() == "bamg")
+    if (vm["numerics.regrid"].as<std::string>() == "bamg")
     {
         double displacement_factor = 1.;
         double minang = this->minAngle(M_mesh,M_UM,displacement_factor);
@@ -6204,12 +6238,12 @@ FiniteElement::step()
         if (M_rank == 0)
         {
             if(fmod(pcpt*time_step, ptime_step) == 0)
-                std::cout <<"NB OF REGGRIDING= " << M_nb_regrid <<"\n";
+                std::cout <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
 
             std::cout <<"REGRID ANGLE= "<< minang <<"\n";
         }
 
-        if ( minang < vm["simul.regrid_angle"].as<double>() )
+        if ( minang < vm["numerics.regrid_angle"].as<double>() )
         {
             M_regrid = true;
 
@@ -6253,7 +6287,7 @@ FiniteElement::step()
 
     timer["reload"].first.restart();
     this->checkReloadDatasets(M_external_data,
-                              current_time+time_step/(24*3600.0),
+                              M_current_time+time_step/(24*3600.0),
                               "step - time-dependant");
     if (M_rank == 0)
         std::cout <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
@@ -6307,7 +6341,7 @@ FiniteElement::step()
             std::cout <<"---timer assemble:             "<< timer["assemble"].first.elapsed() <<"s\n";
 
 #if 0
-        if(had_remeshed && (vm["simul.regrid_output_flag"].as<bool>()))
+        if(had_remeshed && (vm["numerics.regrid_output_flag"].as<bool>()))
         {
             std::string tmp_string3    = (boost::format( "after_assemble_%1%_mesh_adapt_step_%2%" )
                                    % pcpt
@@ -6349,7 +6383,7 @@ FiniteElement::step()
     //======================================================================
 
     ++pcpt;
-    current_time = time_init + pcpt*time_step/(24*3600.0);
+    M_current_time = time_init + pcpt*time_step/(24*3600.0);
 
 #if 1
     //======================================================================
@@ -6360,7 +6394,13 @@ FiniteElement::step()
     {
         chrono.restart();
         LOG(DEBUG) <<"export starts\n";
-        this->exportResults((int) pcpt*time_step/output_time_step);
+        if (vm["output.datetime_in_filename"].as<bool>())
+            this->exportResults(M_current_time);
+        else
+        {
+            int ostep = pcpt*time_step/output_time_step;//need to declare as an int, to make sure it's not interpreted as a double
+            this->exportResults(ostep);
+        }
         LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
     }
 
@@ -6369,10 +6409,21 @@ FiniteElement::step()
         this->updateMoorings();
     }
 
-    if ( fmod(pcpt*time_step,restart_time_step) == 0)
+    // check if writing restart each timestep
+    bool write_restart = vm["restart.debugging"].as<bool>();
+    if(!write_restart)
+        // else check if we've reached the restart timestep
+        write_restart = (fmod(pcpt*time_step,restart_time_step) == 0);
+    if (write_restart)
     {
         std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
-        this->writeRestart(pcpt, (int) pcpt*time_step/restart_time_step);
+        if (vm["output.datetime_in_filename"].as<bool>())
+            this->writeRestart(pcpt, M_current_time);
+        else
+        {
+            int rstep = pcpt*time_step/restart_time_step;//need to declare as an int, to make sure it's not interpreted as a double
+            this->writeRestart(pcpt, rstep );
+        }
     }
 #endif
 #if 0
@@ -6385,7 +6436,7 @@ FiniteElement::run()
 {
     std::string current_time_system = current_time_local();
     this->init();
-    int niter = vm["simul.maxiteration"].as<int>();
+    int niter = vm["debugging.maxiteration"].as<int>();
 
     // write the logfile: assigned to the process master (rank 0)
     if (M_comm.rank() == 0)
@@ -6393,9 +6444,11 @@ FiniteElement::run()
         this->writeLogFile();
     }
 
-    current_time = time_init + pcpt*time_step/(24*3600.0);
+    M_current_time = time_init + pcpt*time_step/(24*3600.0);
     bool is_running = true;
-    if(duration<=0)
+    if(duration<0)
+        throw std::runtime_error("Set simul.duration >= 0\n");
+    else if(duration==0)
         is_running = false;
 
 #if 1
@@ -6464,7 +6517,7 @@ FiniteElement::updateDrifterPosition()
     // Update the drifters position twice a day, important to keep the same frequency as the IABP data, for the moment
     if ((M_rank == 0) && (M_use_drifters))
     {
-        if ( (pcpt==0) || (std::fmod(current_time,0.5)==0) )
+        if ( (pcpt==0) || (std::fmod(M_current_time,0.5)==0) )
         {
             // Read in the new buoys and output
             if ( M_use_iabp_drifters )
@@ -6580,9 +6633,9 @@ FiniteElement::updateDrifterPosition()
 
         if(pcpt>0)
         {
-            if ( M_use_equallyspaced_drifters && fmod(current_time,M_equallyspaced_drifters_output_time_step) == 0 )
+            if ( M_use_equallyspaced_drifters && fmod(M_current_time,M_equallyspaced_drifters_output_time_step) == 0 )
             {
-                M_equallyspaced_drifters.appendNetCDF(current_time, M_mesh_root, M_UT_root);
+                M_equallyspaced_drifters.appendNetCDF(M_current_time, M_mesh_root, M_UT_root);
             }
 
             if ( M_use_rgps_drifters )
@@ -6590,22 +6643,22 @@ FiniteElement::updateDrifterPosition()
                 std::string time_str = vm["drifters.RGPS_time_init"].as<std::string>();
                 double RGPS_time_init = from_date_time_string(time_str);
 
-                if( (!M_rgps_drifters.isInitialised()) && (current_time == RGPS_time_init))
+                if( (!M_rgps_drifters.isInitialised()) && (M_current_time == RGPS_time_init))
                 {
                     this->updateRGPSDrifters();
                 }
 
-                if( (current_time != RGPS_time_init) && (fmod(current_time,M_rgps_drifters_output_time_step) == 0) )
+                if( (M_current_time != RGPS_time_init) && (fmod(M_current_time,M_rgps_drifters_output_time_step) == 0) )
                 {
                     if ( M_rgps_drifters.isInitialised() )
                     {
-                        M_rgps_drifters.appendNetCDF(current_time, M_mesh_root, M_UT_root);
+                        M_rgps_drifters.appendNetCDF(M_current_time, M_mesh_root, M_UT_root);
                     }
                 }
             }
         }
 
-        if ( (M_use_osisaf_drifters && fmod(current_time+0.5,1.) == 0) )
+        if ( (M_use_osisaf_drifters && fmod(M_current_time+0.5,1.) == 0) )
         {
             // OSISAF drift is calculated as a dirfter displacement over 48 hours
             // and they have two sets of drifters in the field at all times.
@@ -6613,7 +6666,7 @@ FiniteElement::updateDrifterPosition()
             // Write out the contents of [1] if it's meaningfull
             if ( M_osisaf_drifters[1].isInitialised() )
             {
-                M_osisaf_drifters[1].appendNetCDF(current_time, M_mesh_root, M_UT_root);
+                M_osisaf_drifters[1].appendNetCDF(M_current_time, M_mesh_root, M_UT_root);
             }
 
             // Flip the vector so we move [0] to be [1]
@@ -6625,12 +6678,12 @@ FiniteElement::updateDrifterPosition()
                                             "lat", "lon",
                                             M_mesh_root, M_conc_root, vm["drifters.concentration_limit"].as<double>());
 
-            M_osisaf_drifters[0].initNetCDF(M_export_path+"/OSISAF_", current_time);
-            M_osisaf_drifters[0].appendNetCDF(current_time, M_mesh_root, M_UT_root);
+            M_osisaf_drifters[0].initNetCDF(M_export_path+"/OSISAF_", M_current_time);
+            M_osisaf_drifters[0].appendNetCDF(M_current_time, M_mesh_root, M_UT_root);
         }
     }
 
-    if ( (M_use_drifters) && ((pcpt == 0) || (std::fmod(current_time,0.5)==0)) )
+    if ( (M_use_drifters) && ((pcpt == 0) || (std::fmod(M_current_time,0.5)==0)) )
     {
         for (int i=0; i<M_num_nodes; ++i)
 	    {
@@ -6990,9 +7043,9 @@ FiniteElement::initMoorings()
         double output_time;
         if ( M_moorings_snapshot )
             // shift the timestamp in the file to the centre of the output interval
-            output_time = current_time;
+            output_time = M_current_time;
         else
-            output_time = current_time - mooring_output_time_step/86400/2;
+            output_time = M_current_time - mooring_output_time_step/86400/2;
 
         std::string filename_root;
         if ( M_moorings_parallel_output )
@@ -7020,11 +7073,11 @@ FiniteElement::updateMoorings()
             // Update the snapshot
             this->updateMeans(M_moorings, 1.);
             // shift the timestamp in the file to the centre of the output interval
-            output_time = current_time;
+            output_time = M_current_time;
         }
         else
         {
-            output_time = current_time - mooring_output_time_step/86400/2;
+            output_time = M_current_time - mooring_output_time_step/86400/2;
         }
 
         // If it's a new day we check if we need a new file
@@ -7087,6 +7140,13 @@ void
 FiniteElement::writeRestart(int pcpt, int step)
 {
     std::string tmp = (boost::format( "%1%" ) % step).str();
+    this->writeRestart(pcpt,tmp);
+}
+
+void
+FiniteElement::writeRestart(int pcpt, double date_time)
+{
+    std::string tmp = to_date_time_string_for_filename(date_time);
     this->writeRestart(pcpt,tmp);
 }
 
@@ -7363,7 +7423,7 @@ FiniteElement::writeRestart(int pcpt, std::string step)
         exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
 
         std::vector<double> timevec(1);
-        timevec[0] = current_time;
+        timevec[0] = M_current_time;
         exporter.writeField(outbin, timevec, "Time");
         exporter.writeField(outbin, M_conc_root, "M_conc");
         exporter.writeField(outbin, M_thick_root, "M_thick");
@@ -7470,7 +7530,7 @@ FiniteElement::readRestart(std::string step)
         filename = (boost::format( "%1%/mesh_%2%.dat" )
                     % restart_path
                     % step ).str();
-    LOG(DEBUG)<<"restart file = "<<filename<<"\n";
+        LOG(DEBUG)<<"restart file = "<<filename<<"\n";
 
         std::ifstream meshrecord(filename);
         if ( ! meshrecord.good() )
@@ -7538,28 +7598,28 @@ FiniteElement::readRestart(std::string step)
         if (!vm["restart.reset_time_counter"].as<bool>())
         {
             double tmp = time_init + pcpt*time_step/(24*3600.0);
-        if ( time[0] != tmp )
+            if ( time[0] != tmp )
             {
-            std::cout << "FiniteElement::readRestart: Time and Misc_int[0] (a.k.a pcpt) are inconsistent. \n";
-            std::cout << "Time = " << time[0] << " = " << to_date_time_string(time[0])<<"\n";
-            std::cout << "time_init + pcpt*time_step/(24*3600.0) = " << tmp << " = " << to_date_time_string(tmp)<<"\n";
-            throw std::runtime_error("Inconsistent time information in restart file");
+                std::cout << "FiniteElement::readRestart: Time and Misc_int[0] (a.k.a pcpt) are inconsistent. \n";
+                std::cout << "Time = " << time[0] << " = " << to_date_time_string(time[0])<<"\n";
+                std::cout << "time_init + pcpt*time_step/(24*3600.0) = " << tmp << " = " << to_date_time_string(tmp)<<"\n";
+                throw std::runtime_error("Inconsistent time information in restart file");
             }
 	    }
 	    else
 	    {
-		pcpt = 0;
-		if ( time[0] != time_init )
-		{
-		    std::cout << "FiniteElement::readRestart: Restart Time and time_init are inconsistent. \n";
-		    std::cout << "Time = " << time[0] << " = " << to_date_time_string(time[0])<<"\n";
-		    std::cout << "time_init = " << pcpt*time_step/(24*3600.0) << " = " << to_date_time_string(time_init) <<"\n";
-		    throw std::runtime_error("Inconsistent time information in restart file");
-		}
+            pcpt = 0;
+            if ( time[0] != time_init )
+            {
+                std::cout << "FiniteElement::readRestart: Restart Time and time_init are inconsistent. \n";
+                std::cout << "Time = " << time[0] << " = " << to_date_time_string(time[0])<<"\n";
+                std::cout << "time_init = " << time_init << " = " << to_date_time_string(time_init) <<"\n";
+                throw std::runtime_error("Inconsistent time information in restart file");
+            }
 	    }
 
         // Fix boundaries
-    M_flag_fix   = field_map_int["Misc_int"].at(1);
+        M_flag_fix   = field_map_int["Misc_int"].at(1);
 
         std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
 
@@ -8010,6 +8070,7 @@ FiniteElement::updateFreeDriftVelocity()
     }
 }
 
+#if 0
 void
 FiniteElement::speedScaling(std::vector<double>& speed_scaling)
 {
@@ -8106,6 +8167,7 @@ FiniteElement::speedScaling(std::vector<double>& speed_scaling)
         boost::mpi::scatterv(M_comm, &speed_scaling[0], M_num_nodes, 0);
     }
 }
+#endif
 
 void
 FiniteElement::forcingAtmosphere()
@@ -10615,8 +10677,8 @@ FiniteElement::outputDrifter(std::fstream& drifters_out)
 
         // Loop over the map and output
         j=0;
-        boost::gregorian::date           date = Nextsim::parse_date( current_time );
-        boost::posix_time::time_duration time = Nextsim::parse_time( current_time );
+        boost::gregorian::date           date = Nextsim::parse_date( M_current_time );
+        boost::posix_time::time_duration time = Nextsim::parse_time( M_current_time );
         for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
         {
             double lat, lon;
@@ -10658,9 +10720,9 @@ FiniteElement::updateIABPDrifter()
 
         // Read the current buoys from file
         int pos;    // To be able to rewind one line
-        double time = current_time;
+        double time = M_current_time;
         std::vector<int> keepers;
-        while ( time == current_time )
+        while ( time == M_current_time )
         {
             // Remember where we were
             pos = M_iabp_file.tellg();
@@ -10749,8 +10811,8 @@ FiniteElement::equallySpacedDrifter()
     if (M_rank == 0)
     {
         M_equallyspaced_drifters = Drifters(1e3*vm["drifters.spacing"].as<double>(), M_mesh_root, M_conc_root, vm["drifters.concentration_limit"].as<double>());
-        M_equallyspaced_drifters.initNetCDF(M_export_path+"/Drifters_", current_time);
-        M_equallyspaced_drifters.appendNetCDF(current_time, M_mesh_root, M_UT_root);
+        M_equallyspaced_drifters.initNetCDF(M_export_path+"/Drifters_", M_current_time);
+        M_equallyspaced_drifters.appendNetCDF(M_current_time, M_mesh_root, M_UT_root);
     }
 }
 
@@ -10774,8 +10836,8 @@ FiniteElement::updateRGPSDrifters()
         std::string filename = Environment::nextsimDir().string() + "/data/RGPS_" + time_str + ".txt";
         M_rgps_drifters = Drifters(filename, M_mesh_root, M_conc_root, vm["drifters.concentration_limit"].as<double>(),RGPS_time_init);
 
-        M_rgps_drifters.initNetCDF(M_export_path+"/RGPS_Drifters_", current_time);
-        M_rgps_drifters.appendNetCDF(current_time, M_mesh_root, M_UT_root);
+        M_rgps_drifters.initNetCDF(M_export_path+"/RGPS_Drifters_", M_current_time);
+        M_rgps_drifters.appendNetCDF(M_current_time, M_mesh_root, M_UT_root);
     }
 }
 
@@ -10957,6 +11019,14 @@ FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, boo
     std::string name_str    = (boost::format( "%1%" )
                                % step ).str();
 
+    this->exportResults(name_str, export_mesh, export_fields, apply_displacement);
+}
+
+void
+FiniteElement::exportResults(double date_time, bool export_mesh, bool export_fields, bool apply_displacement)
+{
+    //define name_str from date_time
+    std::string name_str = to_date_time_string_for_filename(date_time);
     this->exportResults(name_str, export_mesh, export_fields, apply_displacement);
 }
 
@@ -11241,7 +11311,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
             if ( !outbin.good() )
                 throw std::runtime_error("Cannot write to file: " + fileout);
 
-            std::vector<double> timevec = {current_time};
+            std::vector<double> timevec = {M_current_time};
             std::vector<int> regridvec = {M_nb_regrid};
 
             exporter.writeField(outbin, timevec, "Time");

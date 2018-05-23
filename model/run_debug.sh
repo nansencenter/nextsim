@@ -31,7 +31,7 @@ vopts[2]="--track-origins=yes" # see where uninitialised values come from
 
 # nextsim options
 nsopts[0]="--config-file=$config"
-nsopts[1]="--simul.maxiteration=1" # just run nextsim for 1 time step
+nsopts[1]="--debugging.maxiteration=1" # just run nextsim for 1 time step
 
 prog=bin/nextsim.exec
 if [ `pwd` != $NEXTSIMDIR/model ]
@@ -60,4 +60,3 @@ fi
 
 # Run the nextsim model
 mpirun $mpi_opts -np $ncpu valgrind ${vopts[@]} $prog -mat_mumps_icntl_14 60 ${nsopts[@]} 2>&1 | tee simdebug.log
-

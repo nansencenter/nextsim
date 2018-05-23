@@ -37,18 +37,27 @@ namespace Nextsim
              * -----------------------------------------------------------------------------------
              */
 
-            // - basics
-            ("simul.time_init", po::value<std::string>()->default_value( "2008-Mar-05" ), "")
-            ("simul.duration", po::value<double>()->default_value( 1. ), "")
-            ("simul.timestep", po::value<double>()->default_value( 200. ), "")
-            ("simul.thermo_timestep", po::value<double>()->default_value( 3600. ), "")
-            ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "")
+            ("simul.time_init", po::value<std::string>()->default_value( "" ),
+                "Start date/time of simulation. Formats: yyyy-mm-dd, yyyy-mm-dd HH:MM:SS; can also use 3 letter month name for 'mm' eg Mar for March")
+            ("simul.duration", po::value<double>()->default_value( -1. ),
+                "Length of simulation in days.")
+            ("simul.timestep", po::value<double>()->default_value( 200. ), "Model timestep in seconds.")
+            ("simul.thermo_timestep", po::value<double>()->default_value( 3600. ), "Thermodynamic timestep in seconds.")
+            ("simul.spinup_duration", po::value<double>()->default_value( 1. ),
+                "Spinup duration in days over which the forcing is linearly increased from 0 to its correct value.")
 
-            // - debugging options
-            ("simul.verbose", po::value<int>()->default_value( 7 ), "")
-            ("simul.log-level", po::value<std::string>()->default_value( "info" ), "")
-            ("simul.ptime_per_day", po::value<int>()->default_value( 12 ), "") // frequency for info output
-            ("simul.maxiteration", po::value<int>()->default_value( -1 ), "")
+            /*
+             *-----------------------------------------------------------------------------------
+             * DEBUGGING OPTIONS
+             * -----------------------------------------------------------------------------------
+             */
+            ("debugging.bamg_verbose", po::value<int>()->default_value( 6 ),
+                 "Bamg verbose mode: 0 is not verbose, 6 is very verbose")
+            ("debugging.log-level", po::value<std::string>()->default_value( "info" ),
+                "Nextsim printouts. Options: debug, info, warning, error")
+            ("debugging.ptime_per_day", po::value<int>()->default_value( 12 ), "frequency of info printouts.")
+            ("debugging.maxiteration", po::value<int>()->default_value( -1 ),
+                "Stop simulation after this number of model time steps (overrides simul.duration)")
 
             /*
              *-----------------------------------------------------------------------------------
@@ -57,26 +66,30 @@ namespace Nextsim
              */
 
             // remeshing
-            ("simul.regrid", po::value<std::string>()->default_value( "bamg" ), "No-regridding or bamg")
-            ("simul.regrid_output_flag", po::value<bool>()->default_value( false ), "")
-            ("simul.regrid_angle", po::value<double>()->default_value( 10. ), "")
-            ("simul.interp_with_cavities", po::value<bool>()->default_value( true ), "")
-            ("simul.expansion_factor", po::value<double>()->default_value( 0.15 ), "")
+            ("numerics.regrid", po::value<std::string>()->default_value( "bamg" ),
+                "Options for regridding: No-regridding or bamg")
+            ("numerics.regrid_output_flag", po::value<bool>()->default_value( false ),
+                "Export results for debugging after each mesh adaptation. NB currently deactivated")
+            ("numerics.regrid_angle", po::value<double>()->default_value( 10. ),
+                "Minimum value that any angle in an element can have.")
+            ("numerics.expansion_factor", po::value<double>()->default_value( 0.15 ), "Expansion factor for reading forcing data (should be a few percent)")
 
             // advection scheme
-            // - ALE_smoothing_step_nb<0 is the eulerian case where M_UM is not changed and then =0.
-            // - ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
-            // - ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
-            ("simul.ALE_smoothing_step_nb", po::value<int>()->default_value( 0 ), "")
+            // - diffusive Eulerian case where M_UM is kept as 0
+            // - purely Lagrangian case where M_UM is updated with M_VT
+            // - ALE case where M_UM is updated with a smoothed version of M_VT
+            ("numerics.advection_scheme", po::value<std::string>()->default_value( "ALE" ), "Options: Lagrangian, ALE, Eulerian")
+            ("numerics.ALE_smoothing_step_nb", po::value<int>()->default_value( 2 ),
+                "Number of time steps to average over when smoothing in ALE scheme. 0: pure Lagrangian; <0: pure Eulerian")
 
             // solver
             ("solver.ksp-type", po::value<std::string>()->default_value( "preonly" ), "")
             ("solver.pc-type", po::value<std::string>()->default_value( "cholesky" ), "")
             ("solver.mat-package-type", po::value<std::string>()->default_value( "cholmod" ), "")
-            ("solver.ksp-reuse-prec", po::value<bool>()->default_value( false ), "")
             ("solver.ksp-view", po::value<bool>()->default_value( false ), "")
-            ("solver.ksp-monitor", po::value<bool>()->default_value( false ), "")
             ("solver.ksp-convergence-info", po::value<bool>()->default_value( true ), "")
+            ("solver.ksp-reuse-prec", po::value<bool>()->default_value( false ), "")
+            ("solver.ksp-monitor", po::value<bool>()->default_value( false ), "")
 
             /*
              *-----------------------------------------------------------------------------------
@@ -95,27 +108,32 @@ namespace Nextsim
             ("setup.thermo-type", po::value<std::string>()->default_value( "winton" ), "")
 
             // mesh
+            // - input
             ("mesh.path", po::value<std::string>()->default_value( "nextsimdir" ), "nextsimdir or simdatadir")
             ("mesh.filename", po::value<std::string>()->default_value( "medium_Arctic_10km.msh" ), "")
             ("mesh.mppfile", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "")
             ("mesh.partitioner", po::value<std::string>()->default_value( "metis" ),
                 "mesh partitioner: chaco or metis")
-            ("mesh.partitioner-fileformat", po::value<std::string>()->default_value( "binary" ), "")
-            ("mesh.partitioner-space", po::value<std::string>()->default_value( "memory" ),
+            ("mesh.partitioner-fileformat", po::value<std::string>()->default_value( "binary" ),
+                "Format for saving partitioned mesh. Options: ascii, binary")
+            ("mesh.partitioner-space", po::value<std::string>()->default_value( "disk" ),
                 "where the partitioned mesh is kept (disk/memory)")
             //not used: ("mesh.hsize", po::value<double>()->default_value( 0.01 ), "") // to be checked
-            ("mesh.type", po::value<std::string>()->default_value( "from_unref" ), "from_unref (implies constant vertice length) or from_split (implies variable vertice length)")
+            ("mesh.type", po::value<std::string>()->default_value( "from_unref" ),
+                "from_unref (implies constant vertice length) or from_split (implies variable vertice length)")
 
             // moorings
             ("moorings.use_moorings", po::value<bool>()->default_value( false ), "")
-            ("moorings.grid_type", po::value<std::string>()->default_value( "regular" ), "[regular|from_file] for regular spaced grid or grid read in from the file moorings.grid_file (default: regular)")
+            ("moorings.grid_type", po::value<std::string>()->default_value( "regular" ),
+                "[regular|from_file] for regular spaced grid or grid read in from the file moorings.grid_file (default: regular)")
             ("moorings.snapshot", po::value<bool>()->default_value( false ), "")
             ("moorings.file_length", po::value<std::string>()->default_value( "inf" ), "")
             ("moorings.spacing", po::value<double>()->default_value( 10 ), "km")
             ("moorings.output_timestep", po::value<double>()->default_value( 1 ), "days")
             ("moorings.variables", po::value<std::vector<std::string>>()->multitoken()->default_value(std::vector<std::string>(),
                     "conc thick snow conc_thin h_thin hs_thin velocity_xy")->composing(), "")
-            ("moorings.grid_file", po::value<std::string>()->default_value( "" ), "") // It must be a netcdf file having x y as dimensions and latitude longitude as variables
+            ("moorings.grid_file", po::value<std::string>()->default_value( "" ),
+                "Grid file with locations for moorings output. Has to be a netcdf file with x y as dimensions and latitude longitude as variables")
             ("moorings.parallel_output", po::value<bool>()->default_value( false ), "")
 
             // drifters
@@ -141,19 +159,22 @@ namespace Nextsim
             ("restart.input_path", po::value<std::string>()->default_value( "" ),
                     "where to find restarts (default is $NEXTSIMDIR/restart)")
             ("restart.restart_at_rest", po::value<bool>()->default_value( false ), "")
-            ("restart.reset_time_counter", po::value<bool>()->default_value( false ), "false: simulation starts at simul.time_init eg for forecast; true: simulation starts at simul.time_init+pcpt*simul.timestep eg to restart interrupted simulation")
+            ("restart.reset_time_counter", po::value<bool>()->default_value( false ),
+                "false: simulation starts at simul.time_init eg for forecast; true: simulation starts at simul.time_init+pcpt*simul.timestep eg to restart interrupted simulation")
 
             // - outputs
             ("restart.write_restart", po::value<bool>()->default_value( false ), "")
             ("restart.output_time_step", po::value<double>()->default_value( 15 ), "days")
             ("restart.debugging", po::value<bool>()->default_value( false ),
-                "save restart every time step for debugging (only with build type DEBUG)")
+                "save restart every time step for debugging")
 
             // general outputs
             ("output.output_per_day", po::value<int>()->default_value( 4 ), "")
             ("output.logfile", po::value<std::string>()->default_value( "" ), "")
             ("output.save_forcing_fields", po::value<bool>()->default_value( false ), "")
             ("output.save_diagnostics", po::value<bool>()->default_value( false ), "")
+            ("output.datetime_in_filename", po::value<bool>()->default_value( false ),
+                "filename outputs are eg [mesh,field]_20180101T000000Z.[bin,dat]")
 
             // exporter
             ("output.exporter_path", po::value<std::string>()->default_value( "" ), "")
@@ -264,8 +285,8 @@ namespace Nextsim
              * THERMODYNAMICS
              * -----------------------------------------------------------------------------------
              */
-            ("thermo.Qio-type", po::value<std::string>()->default_value( "basic" ), "")
             ("thermo.use_thermo_forcing", po::value<bool>()->default_value( true ), "")
+            ("thermo.Qio-type", po::value<std::string>()->default_value( "basic" ), "")
             ("thermo.albedoW", po::value<double>()->default_value( 0.07 ), "")
             ("thermo.alb_scheme", po::value<int>()->default_value( 3 ), "")
             ("thermo.flooding", po::value<bool>()->default_value( true ), "")
@@ -292,8 +313,10 @@ namespace Nextsim
             ("thermo.diffusivity_sst", po::value<double>()->default_value( 100. ), "") //[m^2/s]
 
             // - relaxation of slab ocean to ocean forcing
-            ("thermo.ocean_nudge_timeT", po::value<double>()->default_value( 30*days_in_sec), "")
-            ("thermo.ocean_nudge_timeS", po::value<double>()->default_value( 30*days_in_sec), "")
+            ("thermo.ocean_nudge_timeT", po::value<double>()->default_value( 30*days_in_sec),
+                "relaxation time of slab ocean temperature to ocean forcing")
+            ("thermo.ocean_nudge_timeS", po::value<double>()->default_value( 30*days_in_sec),
+                "relaxation time of slab ocean salinity to ocean forcing")
 
             /*
              *-----------------------------------------------------------------------------------
@@ -301,14 +324,22 @@ namespace Nextsim
              * -----------------------------------------------------------------------------------
              */
 
-            ("nesting.use_nesting", po::value<bool>()->default_value( false ), "")
-            ("nesting.use_ocean_nesting", po::value<bool>()->default_value( false ), "")
-            ("nesting.outer_mesh",po::value<std::string>()->default_value( "" ),"")
-            ("nesting.inner_mesh",po::value<std::string>()->default_value( "" ),"")
-            ("nesting.method", po::value<std::string>()->default_value( "nudging" ), "")
-            ("nesting.nudge_function", po::value<std::string>()->default_value( "exponential" ), "")
-            ("nesting.nudge_timescale", po::value<double>()->default_value((1./2.)*days_in_sec), "")
-            ("nesting.nudge_lengthscale", po::value<double>()->default_value(10.), "")
+            ("nesting.use_nesting", po::value<bool>()->default_value( false ),
+                "Use nesting at/near boundaries")
+            ("nesting.use_ocean_nesting", po::value<bool>()->default_value( false ),
+                "Use slab ocean from outer neXtSIM model as forcing")
+            ("nesting.outer_mesh",po::value<std::string>()->default_value( "" ),
+                "Filenames are nesting_[outer_mesh]_[yyyymmdd].nc")
+            ("nesting.inner_mesh",po::value<std::string>()->default_value( "" ),
+                "Grid filename is nsting_grid_[inner_mesh].nc")
+            ("nesting.method", po::value<std::string>()->default_value( "nudging" ),
+                "Options: nudging")
+            ("nesting.nudge_timescale", po::value<double>()->default_value((1./2.)*days_in_sec),
+                "relaxation timescale for nudging at boundary")
+            ("nesting.nudge_function", po::value<std::string>()->default_value( "exponential" ),
+                "Functional form for nudging frequency as a function of distance to boundary. Options: exponential, linear. Depends on nudge_length_scale")
+            ("nesting.nudge_lengthscale", po::value<double>()->default_value(10.),
+                "Length scale (units = mesh resolution) of the nudging function")
             ("nesting.nest_dynamic_vars", po::value<bool>()->default_value( false ), "")
 
             /*
@@ -331,11 +362,11 @@ namespace Nextsim
              * -----------------------------------------------------------------------------------
              */
 #if defined(OASIS)
-            ("coupler.timestep", po::value<double>()->default_value( 3600. ), "") // The coupling time step
-            ("coupler.with_ocean", po::value<bool>()->default_value( false ), "") // Do we couple with an ocean model
-            ("coupler.atm_from_ocean", po::value<bool>()->default_value( false ), "") // Do we get atmospheric state from the ocean model
-            ("coupler.with_waves", po::value<bool>()->default_value( false ), "") // Do we couple with a wave model
-            ("coupler.with_atm", po::value<bool>()->default_value( false ), "")  // Do we couple with an atmospheric model
+            ("coupler.timestep", po::value<double>()->default_value( 3600. ), "Coupling time step")
+            ("coupler.with_ocean", po::value<bool>()->default_value( false ), "Do we couple with an ocean model?")
+            ("coupler.atm_from_ocean", po::value<bool>()->default_value( false ), "Do we get atmospheric state from the ocean model?")
+            ("coupler.with_waves", po::value<bool>()->default_value( false ), "Do we couple with a wave model?")
+            ("coupler.with_atm", po::value<bool>()->default_value( false ), "Do we couple with an atmospheric model?")
 #endif
 
 #if defined(WAVES)
