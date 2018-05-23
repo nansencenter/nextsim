@@ -341,8 +341,6 @@ public:
     template<typename FEMeshType>
     void wimPostRegrid(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim);
 
-    template<typename FEMeshType>
-    void wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim);
     void wimCall()
     {
         if (M_parallel_wim)
@@ -350,11 +348,11 @@ public:
         else
             this->wimCall( this->getMovedMeshRoot(), bamgmesh_root );
     }
+    template<typename FEMeshType>
+    void wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim);
 
     void wimCheckWaves();
 
-    template<typename FEMeshType>
-    void getWimDiagnostics(FEMeshType const &movedmesh);
     void getWimDiagnostics()
     {
         if (M_parallel_wim)
@@ -362,6 +360,8 @@ public:
         else
             this->getWimDiagnostics( this->getMovedMeshRoot() );
     }
+    template<typename FEMeshType>
+    void getWimDiagnostics(FEMeshType const &movedmesh);
 
     T_map_vec getIceFieldsForWim(std::vector<std::string> const& varnames);
 #endif//WAVES
