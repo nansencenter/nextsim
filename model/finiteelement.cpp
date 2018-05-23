@@ -914,16 +914,6 @@ FiniteElement::minAngle(mesh_type const& mesh, std::vector<double> const& um, do
 
     std::vector<double> all_min_angle(movedmesh.numTriangles());
 
-#if 0
-    // int cpt = 0;
-    // for (auto it=movedmesh.triangles().begin(), end=movedmesh.triangles().end(); it!=end; ++it)
-    // {
-    //     all_min_angle[cpt] = this->minAngles(*it,movedmesh);
-    //     ++cpt;
-    // }
-#endif
-
-#if 1
     int thread_id;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
@@ -932,7 +922,6 @@ FiniteElement::minAngle(mesh_type const& mesh, std::vector<double> const& um, do
     {
         all_min_angle[cpt] = this->minAngles(movedmesh.triangles()[cpt],movedmesh);
     }
-#endif
 
     return *std::min_element(all_min_angle.begin(),all_min_angle.end());;
 }
@@ -946,16 +935,6 @@ FiniteElement::flip(mesh_type const& mesh, std::vector<double> const& um, double
     std::vector<double> area(movedmesh.numTriangles());
     double area_init;
 
- #if 0
-    int cpt = 0;
-    for (auto it=movedmesh.triangles().begin(), end=movedmesh.triangles().end(); it!=end; ++it)
-    {
-        area[cpt] = this->jacobian(*it,movedmesh);
-        ++cpt;
-    }
-#endif
-
-#if 1
     int thread_id;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
 
@@ -970,7 +949,6 @@ FiniteElement::flip(mesh_type const& mesh, std::vector<double> const& um, double
             LOG(DEBUG) <<"FLIP DETECTED element:"<< cpt <<"\n";
         }
     }
-#endif
 
     double minarea = *std::min_element(area.begin(),area.end());
     double maxarea = *std::max_element(area.begin(),area.end());
@@ -9757,6 +9735,10 @@ FiniteElement::wimPostRegrid()
     movedmesh.move(M_UM,1.);
     bool regridding = true;
     M_wim.setMeshFull(movedmesh, bamgmesh, M_flag_fix, regridding);//true means M_wim.assignSpatial() is called here
+
+    //set wave spec now to give access to Hs etc if doing an export before the next wimCall()
+    //TODO do exports inside WIM
+    M_wim.setWaveSpec(M_wavespec);
 
     std::cout<<"leaving wimPostRegrid()\n";
 }//wimPostRegrid()
