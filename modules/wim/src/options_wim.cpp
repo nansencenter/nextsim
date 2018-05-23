@@ -32,6 +32,8 @@ namespace Wim
                   "xmin [m]")
             ("wimgrid.ymin", po::value<double>()->default_value( -60e+3 ),
                   "ymin [m]")
+
+            // - extra grid options
             ("wimgrid.landon3edges", po::value<bool>()->default_value( false ),
                   "Add land on upper,lower and RH edges")
             ("wimgrid.useregulargridtools", po::value<bool>()->default_value( false ),
@@ -137,7 +139,6 @@ namespace Wim
 
             // [nextwim]
             // coupling of wim to nextsim
-
             ("nextwim.use_wim", po::value<bool>()->default_value( false ),
                 "use the WIM")
 

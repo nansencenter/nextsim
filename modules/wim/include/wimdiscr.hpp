@@ -195,7 +195,7 @@ public:
     // ==============================================================================
     // output fields, wave stress,...
     T_map_vec returnFieldsElements(std::vector<std::string> const&fields,
-            T_val_vec &xel, T_val_vec &yel, T_val_vec const&surface_fac);
+            T_val_vec &xel, T_val_vec &yel);
     template<typename FEMeshType>
     T_map_vec returnFieldsElements(std::vector<std::string> const&fields,
             FEMeshType const &movedmesh);
