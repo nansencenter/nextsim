@@ -1982,7 +1982,7 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
         M_diffusivity_parameters[tmp_nb_var]=0.;
         tmp_nb_var++;
 
-        // thin ice thickness
+        // thin ice conc
         interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_conc_thin[i];
         M_interp_method[tmp_nb_var] = 1;
         M_diffusivity_parameters[tmp_nb_var]=0.;
@@ -2002,7 +2002,7 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
 
         if(tmp_nb_var>nb_var_element)
         {
-            throw std::logic_error("tmp_nb_var not equal to nb_var");
+            throw std::logic_error("tmp_nb_var not equal to nb_var_elements");
         }
     }
 }//collectVariables
