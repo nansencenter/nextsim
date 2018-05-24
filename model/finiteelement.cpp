@@ -784,8 +784,10 @@ FiniteElement::assignVariables()
     }
 #endif
 
+#if 0
     // number of variables to interpolate
     M_nb_var_element = /*11*/15 + M_tice.size();
+#endif
 }//assignVariables()
 
 
@@ -1241,9 +1243,11 @@ FiniteElement::initOptAndParam()
     LOG(DEBUG) <<"DYNAMICSTYPE= "<< (int)M_dynamics_type <<"\n";
 
 #if defined (WAVES)
-    M_use_wim   = vm["nextwim.use_wim"].as<bool>();
+    M_use_wim = vm["nextwim.use_wim"].as<bool>();
     if (M_use_wim)
     {
+        M_num_wavefreq = vm["wimsetup.nwavefreq"].as<int>();
+        M_num_wavedirn = vm["wimsetup.nwavedirn"].as<int>();
         const boost::unordered_map<const std::string, setup::WaveType> str2wave = boost::assign::map_list_of
             ("set_in_wim", setup::WaveType::SET_IN_WIM)
             ("ww3a", setup::WaveType::WW3A)
@@ -1874,7 +1878,27 @@ void
 FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool ghosts)
 {
     // ELEMENT INTERPOLATION With Cavities
+#if 1
+    int nb_var_element = this->getNumVarsElement("standard");
+#else
     int nb_var_element = M_nb_var_element;
+#if defined (WAVES)
+    int num_wavefreq = 0;
+    int num_wavedirn = 0;
+    if (M_use_wim)
+    {
+        nb_var_element++;//Nfloes
+        if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
+        {
+            // regrid wave spectrum,
+            // or advect at mesh velocity
+            num_wavefreq = M_wavespec.size();
+            num_wavedirn = M_wavespec[0].size();
+            nb_var_element += num_wavefreq*num_wavedirn;
+        }
+    }
+#endif//WAVES
+#endif
 
     int num_elements = M_local_nelements;
     if (ghosts)
@@ -2000,6 +2024,29 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
         M_diffusivity_parameters[tmp_nb_var]=0.;
         tmp_nb_var++;
 
+#if defined (WAVES)
+        // Nfloes from wim model
+        if (M_use_wim)
+        {
+            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_nfloes[i];
+            M_interp_method[tmp_nb_var] = 1;
+            M_diffusivity_parameters[tmp_nb_var]=0.;
+            tmp_nb_var++;
+
+            if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
+            {
+                for(int fq=0;fq<M_num_wavefreq;fq++)
+                    for(int nth=0;nth<M_num_wavedirn;nth++)
+                    {
+                        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_wavespec[fq][nth][i];
+                        M_interp_method[tmp_nb_var] = 2;//advect at mesh velocity, interp conservatively
+                        M_diffusivity_parameters[tmp_nb_var]=0.;
+                        tmp_nb_var++;
+                    }
+            }
+        }
+#endif//WAVES
+
         if(tmp_nb_var>nb_var_element)
         {
             throw std::logic_error("tmp_nb_var not equal to nb_var_elements");
@@ -2011,6 +2058,9 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
 void
 FiniteElement::collectVariablesIO(std::vector<double>& interp_elt_in_local, bool ghosts, bool thin_ice)
 {
+#if 1
+    int nb_var_element = this->getNumVarsElement("IO");
+#else
     int nb_var_element = M_nb_var_element;
     if (!thin_ice)
     {
@@ -2021,6 +2071,7 @@ FiniteElement::collectVariablesIO(std::vector<double>& interp_elt_in_local, bool
     {
         nb_var_element += 7;
     }
+#endif
 
     int num_elements = M_local_nelements;
     if (ghosts)
@@ -2152,7 +2203,7 @@ FiniteElement::collectVariablesIO(std::vector<double>& interp_elt_in_local, bool
 void
 FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, bool check_conc)
 {
-    int nb_var_element = M_nb_var_element;
+    int nb_var_element = this->getNumVarsElement("standard");
 
     int tmp_nb_var=0;
 
@@ -2271,9 +2322,34 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
         M_tsurf_thin[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
         tmp_nb_var++;
 
+#if defined (WAVES)
+        //if using WIM:
+        //if breaking on mesh, always need to regrid nfloes
+        //if not, regridding wasted, since overwritten later
+        //but always need to do it inside update (advect)
+
+        // Nfloes from wim model
+        if (M_use_wim)
+        {
+            M_nfloes[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
+            tmp_nb_var++;
+
+            if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
+            {
+                //wave spec
+                for(int fq=0; fq<M_num_wavefreq; fq++)
+                    for(int nth=0; nth<M_num_wavedirn; nth++)
+                    {
+                        M_wavespec[fq][nth][i] = out_elt_values[nb_var_element*i+tmp_nb_var];
+                        tmp_nb_var++;
+                    }
+            }
+        }
+#endif//WAVES
+
         if(tmp_nb_var!=nb_var_element)
         {
-            throw std::logic_error("tmp_nb_var not equal to nb_var");
+            throw std::logic_error("tmp_nb_var not equal to nb_var_element");
         }
 
         if (check_conc)
@@ -2294,14 +2370,19 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
     }
 }
 
+
 void
 FiniteElement::redistributeVariablesIO(std::vector<double> const& out_elt_values, bool thin_ice)
 {
+#if 1
+    int nb_var_element = this->getNumVarsElement("restart");
+#else
     int nb_var_element = M_nb_var_element;
     if (!thin_ice)
     {
         nb_var_element -= 4;
     }
+#endif
 
     int tmp_nb_var=0;
 
@@ -2387,7 +2468,7 @@ FiniteElement::redistributeVariablesIO(std::vector<double> const& out_elt_values
 
         if(tmp_nb_var!=nb_var_element)
         {
-            throw std::logic_error("tmp_nb_var not equal to nb_var");
+            throw std::logic_error("tmp_nb_var not equal to nb_var_element");
         }
     }
 }
@@ -2400,7 +2481,12 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
 
     std::vector<double> UM_P = M_UM;
 
+#if 0
     interp_elt_out.resize(M_nb_var_element*M_num_elements);
+#else
+    int nb_var_element = this->getNumVarsElement("standard");
+    interp_elt_out.resize(nb_var_element*M_num_elements);
+#endif
 
     bool use_eulerian = false;
     bool use_lagrangian = false;
@@ -2592,6 +2678,26 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
         surface_new = this->measure(M_elements[cpt],M_mesh,M_UM);
         M_surface[cpt] = surface_new;
 
+#if 1
+        for(int j=0; j<nb_var_element; j++)
+        {
+            if(M_interp_method[j]==1)
+            {
+                integrated_variable = interp_elt_in[cpt*nb_var_element+j]*surface
+                    - (
+                       interp_elt_in[fluxes_source_id[0]*nb_var_element+j]*outer_fluxes_area[0]
+                       + interp_elt_in[fluxes_source_id[1]*nb_var_element+j]*outer_fluxes_area[1]
+                       + interp_elt_in[fluxes_source_id[2]*nb_var_element+j]*outer_fluxes_area[2]
+                       )*time_step;
+
+                interp_elt_out[cpt*nb_var_element+j] = integrated_variable/surface_new;
+            }
+            else
+            {
+                interp_elt_out[cpt*nb_var_element+j] = interp_elt_in[cpt*nb_var_element+j];
+            }
+        }
+#else
         for(int j=0; j<M_nb_var_element; j++)
         {
             if(M_interp_method[j]==1)
@@ -2610,6 +2716,7 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
                 interp_elt_out[cpt*M_nb_var_element+j] = interp_elt_in[cpt*M_nb_var_element+j];
             }
         }
+#endif
     }
 }//advect()
 
@@ -2996,7 +3103,11 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
 {
     //M_comm.barrier();
 
+#if 0
     int nb_var_element = M_nb_var_element;
+#else
+    int nb_var_element = this->getNumVarsElement("standard");
+#endif
 
     timer["gather"].first.restart();
 
@@ -3040,6 +3151,9 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
 void
 FiniteElement::gatherFieldsElementIO(std::vector<double>& interp_in_elements, bool thin_ice)
 {
+#if 1
+    int nb_var_element = this->getNumVarsElement("IO");
+#else
     int nb_var_element = M_nb_var_element;
 
     if (!thin_ice)
@@ -3051,6 +3165,7 @@ FiniteElement::gatherFieldsElementIO(std::vector<double>& interp_in_elements, bo
     {
         nb_var_element += 7;
     }
+#endif
 
     timer["gather"].first.restart();
 
@@ -3083,7 +3198,11 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT starts\n";
 
+#if 0
     int nb_var_element = M_nb_var_element;
+#else
+    int nb_var_element = this->getNumVarsElement("standard");
+#endif
 
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
     std::vector<double> in_elt_values;
@@ -3174,8 +3293,12 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT starts\n";
 
+#if 1
+    int nb_var_element = this->getNumVarsElement("IO");
+#else
     int nb_var_element = M_nb_var_element;
-    if (M_ice_cat_type != setup::IceCategoryType::THIN_ICE)
+
+    if (!thin_ice)
     {
         nb_var_element -= 4;
     }
@@ -3184,6 +3307,7 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
     {
         nb_var_element += 7;
     }
+#endif
 
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
 
@@ -3256,6 +3380,7 @@ void
 FiniteElement::interpFieldsElement()
 {
     std::vector<double> interp_in_elements;
+    int nb_var_element = this->getNumVarsNode("standard");
 
     timer["gather"].first.restart();
     this->gatherFieldsElement(interp_in_elements);
@@ -3289,7 +3414,7 @@ FiniteElement::interpFieldsElement()
 
         timer["cavities"].first.restart();
         InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_in_elements[0],
-                                       &M_interp_method[0], M_nb_var_element,
+                                       &M_interp_method[0], nb_var_element,//M_nb_var_element,
                                        &surface_previous[0], &surface_root[0], bamgmesh_previous, bamgmesh_root);
 
         if (M_rank == 0)
@@ -3359,6 +3484,82 @@ FiniteElement::getNumVarsNode(bool read_restart) const
 
     return nb_var_node;
 }//getNumVarsNode
+
+
+int
+FiniteElement::getNumVarsElement(std::string vartypes) const
+{
+    // number of elemental variables, for:
+    // - gatherFieldsElement
+    // - collectVariables        (vartypes="standard")
+    // - redistributeVariables   (vartypes="standard")
+    // - collectVariablesIO      (vartypes="IO")
+    // - redistributeVariablesIO (vartypes="restart")
+    // - writeRestart            (vartypes="restart")
+    // - collectRootRestart      (vartypes="restart")
+    // NB IO: in/out - ie if exporting
+
+    //Basic vars:
+    // 1.    M_conc
+    // 2.    M_thick
+    // 3.    M_snow_thick
+    // 4-6.  M_sigma
+    // 7.    M_damage
+    // 8.    M_ridge_ratio
+    // 9.    M_random_number
+    // 10.   M_sss
+    // 11.   M_sst
+    // 12.   M_tice (or 12-14 if using Winton) 
+    int nb_var_element = 15 + M_tice.size();
+                                 
+    // Also 4 thin ice vars:
+    // 1. M_h_thin
+    // 2. M_conc_thin
+    // 3. M_hs_thin
+    // 4. M_tsurf_thin
+    // By default they are kept, except if saving results or restart files
+
+    std::vector<std::string> opts = {"standard", "IO", "restart"};
+    if (std::count(opts.begin(), opts.end(), vartypes)==0)
+    {
+        std::cout << "vartypes = " << vartypes << "\n";
+        std::cout << "valid options: standard, IO, restart\n";
+        throw std::runtime_error("getNumVarsElement: unknown vartypes option\n");
+    }
+
+
+#if defined (WAVES)
+    if(M_use_wim && vartypes=="standard")
+        if (M_wave_mode==setup::WaveMode::RUN_ON_MESH)
+        {
+            // regrid wave spectrum,
+            // or advect at mesh velocity
+            nb_var_element += 1;//M_nfloes
+            nb_var_element += M_num_wavefreq*M_num_wavedirn;//M_wavespec
+        }
+#endif//WAVES
+
+    if(vartypes!="standard")
+    {
+        if (vartypes=="IO" && vm["output.save_diagnostics"].as<bool>())
+            // +7 if saving diagnostics (IO):
+            // 1. D_Qa
+            // 2. D_Qsw
+            // 3. D_Qlw
+            // 4. D_Qsh
+            // 5. D_Qlh
+            // 6. D_Qo
+            // 7. D_delS
+            nb_var_element += 7;
+
+        if (M_ice_cat_type != setup::IceCategoryType::THIN_ICE)
+            //don't put the thin ice variables into restart or results files
+            //unless we are using thin ice
+            nb_var_element -= 4;
+    }
+
+    return nb_var_element;
+}//getNumVarsElement
 
 
 void
@@ -7433,12 +7634,16 @@ FiniteElement::writeRestart(int pcpt, std::string step)
         }
     }
 
+#if 1
+    int nb_var_element = this->getNumVarsElement("restart");
+#else
     M_nb_var_element = 15 + M_tice.size();//15;
     int nb_var_element = M_nb_var_element;
     if (M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
     {
         nb_var_element -= 4;
     }
+#endif
 
     std::vector<double> interp_in_elements;
     this->gatherFieldsElementIO(interp_in_elements,M_ice_cat_type==setup::IceCategoryType::THIN_ICE);
@@ -8053,12 +8258,16 @@ FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out, std::vect
     // - here we collect all the root variables into:
     //  interp_elt_out (elements)
     //  interp_nd_out (nodes)
+#if 1
+    int nb_var_element = this->getNumVarsElement("restart");
+#else
     M_nb_var_element = 15 + M_tice.size();//15;
     int nb_var_element = M_nb_var_element;
     if (M_ice_cat_type != setup::IceCategoryType::THIN_ICE)
     {
         nb_var_element -= 4;
     }
+#endif
 
 
     if (M_rank == 0)
@@ -11292,6 +11501,9 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
     M_prv_global_num_nodes = M_mesh.numGlobalNodes();
     M_prv_global_num_elements = M_mesh.numGlobalElements();
 
+#if 1
+    int nb_var_element = this->getNumVarsElement("IO");
+#else
     M_nb_var_element = 15 + M_tice.size();//15;
     int nb_var_element = M_nb_var_element;
     if (M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
@@ -11303,6 +11515,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
     {
         nb_var_element += 7;
     }
+#endif
 
     std::vector<double> interp_in_elements;
     this->gatherFieldsElementIO(interp_in_elements,M_ice_cat_type==setup::IceCategoryType::THIN_ICE);
@@ -11919,47 +12132,76 @@ template<typename FEMeshType>
 void
 FiniteElement::wimPreRegrid(FEMeshType const &movedmesh)
 {
-    //collect M_wavespec inside collectVariables()
-    M_collect_wavespec = true;
-
-    // get wave spec
-    M_wavespec = M_wim.getWaveSpec();
-
-    // need to interpolate wave spectrum to new elements,
-    // taking account of change in surface area of elements
-    // - update for change in surface area
-    M_wim.updateWaveSpec(movedmesh);
-
     // need to get displacement of nodes at last WIM call,
     // relative to current position of nodes;
     // - this will be interpolated too
-    M_wim_meshdisp = M_wim.getRelativeMeshDisplacement(movedmesh);
+    if(!M_parallel_wim)
+    {
+        dbl_vec wim_meshdisp_root;
+        if (M_rank==0)
+            wim_meshdisp_root = M_wim.getRelativeMeshDisplacement(movedmesh);
+
+        M_comm.barrier();
+        this->scatterNodalField(wim_meshdisp_root, M_wim_meshdisp);
+    }
+    else 
+        M_wim_meshdisp = M_wim.getRelativeMeshDisplacement(movedmesh);
 }//wimPreRegrid()
+
+
+typename FiniteElement::dbl_vec3d
+FiniteElement::gatherWaveSpec()
+{
+    //gather the wave spectrum from local fields to the root
+    //- elements
+    int num_tri_root = M_mesh_root.numTriangles();
+    auto wavespec_root = M_wavespec;
+    for(int fq=0; fq<M_num_wavefreq; fq++)
+        for(int nth=0; nth<M_num_wavedirn; nth++)
+        {
+            wavespec_root[fq][nth].resize(num_tri_root);
+            this->gatherElementField(M_wavespec[fq][nth], wavespec_root[fq][nth]);
+        }
+    return wavespec_root;
+}
+
+
+void
+FiniteElement::scatterWaveSpec(dbl_vec3d wavespec_root)
+{
+    // scatter the wave spectrum from the root to the local fields
+    // - elements
+    for(int fq=0; fq<M_num_wavefreq; fq++)
+        for(int nth=0; nth<M_num_wavedirn; nth++)
+        {
+            M_wavespec[fq][nth].resize(M_num_elements);
+            this->scatterElementField(wavespec_root[fq][nth], M_wavespec[fq][nth]);
+        }
+}
 
 
 template<typename FEMeshType>
 void
-FiniteElement::wimPostRegrid(FEMeshType const &movedmesh, BamgMesh* bamgmesh_wim)
+FiniteElement::wimPostRegrid(FEMeshType const &movedmesh, BamgMesh* bamgmesh_wim, 
+            dbl_vec meshdisp, dbl_vec3d wavespec)
 {
 
     std::cout<<"in wimPostRegrid()\n";
-    // no longer need to collect M_wavespec inside collectVariables()
-    // - eg don't need it in update(), before advect()
-    M_collect_wavespec = false;
-    bool regridding = true;
+    if (M_parallel_wim || M_rank==0)
+    {
+        // pass back displacement of nodes at last WIM call,
+        // relative to the new mesh
+        // - this has now been interpolated to the new nodes
+        M_wim.setRelativeMeshDisplacement(meshdisp);
 
-    // pass back displacement of nodes at last WIM call,
-    // relative to the new mesh
-    // - this has now been interpolated to the new nodes
-    M_wim.setRelativeMeshDisplacement(M_wim_meshdisp);
+        bool regridding = true;
+        M_wim.setMeshFull(movedmesh, bamgmesh_wim, M_flag_fix, regridding);
 
-    //M_wim.nextsim_mesh
-    M_wim.setMeshFull(movedmesh, bamgmesh_wim, M_flag_fix, regridding);
-
-    // pass back interpolated wave spectrum to new elements;
-    // interpolation scheme interp2cavities is conservative
-    // - ie new element area is accounted for
-    M_wim.setWaveSpec(M_wavespec);
+        // pass back interpolated wave spectrum to new elements;
+        // interpolation scheme interp2cavities is conservative
+        // - ie new element area is accounted for
+        M_wim.setWaveSpec(wavespec);
+    }
 
     std::cout<<"leaving wimPostRegrid()\n";
 }//wimPostRegrid()
@@ -11967,7 +12209,8 @@ FiniteElement::wimPostRegrid(FEMeshType const &movedmesh, BamgMesh* bamgmesh_wim
 
 template<typename FEMeshType>
 void
-FiniteElement::wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim)
+FiniteElement::wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim,
+        dbl_vec3d wavespec)
 {
 
     std::cout<<"wimCall(): M_run_wim = "<<M_run_wim<<"\n";
@@ -11980,7 +12223,7 @@ FiniteElement::wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim)
     if (M_run_wim)
     {
         // pass in the nextsim mesh
-        if ((M_wim_cpt>0)||(!M_regrid))
+        if (!M_regrid)
         {
             //if we have just initialised or remeshed,
             //we don't need to pass in the mesh
@@ -11989,7 +12232,13 @@ FiniteElement::wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim)
             M_comm.barrier();//all processors wait here
             if (do_wim_comm)
                 if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
+                {
                     M_wim.setMeshFull(movedmesh, bamgmesh_wim, M_flag_fix);
+
+                    //also pass in the wave spectrum
+                    // which will have changed from advection and regridding
+                    M_wim.setWaveSpec(wavespec);
+                }
                 else
                     M_wim.setMeshSimple(movedmesh);
         }
@@ -12007,24 +12256,33 @@ FiniteElement::wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim)
         }
 
         // set the ice and wave fields
-        if (M_wim_cpt>0)
-        {
-            //if we have just initialised, we already have the ice and incident wave fields
 
-            //set ice fields on mesh
-            M_comm.barrier();//all processors wait here
-            if (do_wim_comm)
-                M_wim.setIceFields(ctot, vtot, ice_fields["nfloes"]);
+        //set ice fields on mesh
+        M_comm.barrier();//all processors wait here
+        if (do_wim_comm)
+            M_wim.setIceFields(ctot, vtot, ice_fields["nfloes"]);
 
-            LOG(DEBUG)<<"wimCall: check wave forcing and set waves\n";
-            this->wimCheckWaves();
-        }
+
+        LOG(DEBUG)<<"wimCall: check wave forcing and set waves\n";
+        this->wimCheckWaves();
 
         //run the wim
         std::cout<<"before M_wim.run()\n";
         if (do_wim_comm)
             M_wim.run();
         M_comm.barrier();//all processors wait here
+
+        //get waves if needed for advection/regridding
+        if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
+            if (M_parallel_wim)
+                M_wavespec = M_wim.getWaveSpec();
+            else
+            {
+                dbl_vec3d wavespec;
+                if (M_rank==0)
+                    wavespec = M_wim.getWaveSpec();
+                this->scatterWaveSpec(wavespec);
+            }
 
         //get FSD info
         dbl_vec nfloes_root, dfloe_root, broken_root, broken;
@@ -12074,13 +12332,14 @@ FiniteElement::wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim)
         M_wim_cpt++;
     }//run WIM
 
+    // wave stress
+    // - can turn off effect of wave stress for testing with option nextwim.applywavestress=false
     bool interp_taux = vm["nextwim.applywavestress"].as<bool>();
     dbl_vec tmp_tau;
     if(!interp_taux)
         M_tau.assign(2*M_num_nodes,0.);
 
-    // can turn off effect of wave stress for testing
-    // - if this is not done, we currently interp tau_x,tau_y each time step
+    // if this is not done, we currently interp tau_x, tau_y each time step
     // TODO rethink this? (let them be advected? - this could lead to instability perhaps)
     if (M_wave_mode==setup::WaveMode::RUN_ON_MESH)
     {

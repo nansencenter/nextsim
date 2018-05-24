@@ -164,6 +164,7 @@ public:
     void scatterElementField(std::vector<double> const& field_root, std::vector<double>& field_local, int nb_fields = 1);
 
     int getNumVarsNode(bool read_restart=false) const;
+    int getNumVarsElement(std::string vartype) const;
     void gatherFieldsNode(std::vector<double>& interp_in_elements, std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
     void scatterFieldsNode(double* interp_nd_out);
     void interpFieldsNode(std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
@@ -331,25 +332,51 @@ public:
     template<typename FEMeshType>
     void wimPreRegrid(FEMeshType const &movedmesh);
 
+    void scatterWaveSpec(dbl_vec3d wavespec_root);
+    dbl_vec3d gatherWaveSpec();
+
     void wimPostRegrid()
     {
         if (M_parallel_wim)
-            this->wimPostRegrid( this->getMovedMesh(), bamgmesh );
+            this->wimPostRegrid( this->getMovedMesh(), bamgmesh,
+                    M_wim_meshdisp, M_wavespec);
         else
-            this->wimPostRegrid( this->getMovedMeshRoot(), bamgmesh_root );
+        {
+            //get root meshdisp
+            dbl_vec wim_meshdisp_root;
+            this->gatherNodalField(M_wim_meshdisp, wim_meshdisp_root);
+
+            //pass what is needed to wimPostRegrid
+            this->wimPostRegrid(
+                    this->getMovedMeshRoot(),   //root mesh
+                    bamgmesh_root,              //root bamg mesh
+                    wim_meshdisp_root,          //root meshdisp from above
+                    this->gatherWaveSpec()      //root wavespec
+                    );
+            
+        }
     }
+
     template<typename FEMeshType>
-    void wimPostRegrid(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim);
+    void wimPostRegrid(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim,
+            dbl_vec meshdisp, dbl_vec3d wavespec);
 
     void wimCall()
     {
         if (M_parallel_wim)
-            this->wimCall( this->getMovedMesh(), bamgmesh );
+            this->wimCall( this->getMovedMesh(), bamgmesh,
+                    M_wavespec);
         else
-            this->wimCall( this->getMovedMeshRoot(), bamgmesh_root );
+            this->wimCall(
+                    this->getMovedMeshRoot(),   //root mesh
+                    bamgmesh_root,              //root bamg mesh
+                    this->gatherWaveSpec()      //root wavespec
+                    );
     }
     template<typename FEMeshType>
-    void wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim);
+    void wimCall(FEMeshType const &movedmesh,
+            BamgMesh *bamgmesh_wim,
+            dbl_vec3d wavespec);
 
     void wimCheckWaves();
 
@@ -432,7 +459,7 @@ private:
     int M_rank;
     Communicator M_comm;
 
-    int M_nb_var_element;
+    //int M_nb_var_element;
     int M_nb_var_node;
 
     int M_prv_local_ndof;
@@ -604,6 +631,8 @@ private:
     T_map_vec M_wim_fields_els, M_wim_fields_els_root;
 
     //variables
+    int M_num_wavefreq;
+    int M_num_wavedirn;
     std::vector<double> M_nfloes;
     std::vector<double> M_dfloe;
     dbl_vec   M_wim_meshdisp, M_wim_meshdisp_root;
