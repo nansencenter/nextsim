@@ -334,6 +334,7 @@ public:
 
     void scatterWaveSpec(dbl_vec3d wavespec_root);
     dbl_vec3d gatherWaveSpec();
+    dbl_vec3d emptyWaveSpec(int num_elements=0);
 
     void wimPostRegrid()
     {
@@ -361,18 +362,7 @@ public:
     void wimPostRegrid(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim,
             dbl_vec meshdisp, dbl_vec3d wavespec);
 
-    void wimCall()
-    {
-        if (M_parallel_wim)
-            this->wimCall( this->getMovedMesh(), bamgmesh,
-                    M_wavespec);
-        else
-            this->wimCall(
-                    this->getMovedMeshRoot(),   //root mesh
-                    bamgmesh_root,              //root bamg mesh
-                    this->gatherWaveSpec()      //root wavespec
-                    );
-    }
+    void wimCall();
     template<typename FEMeshType>
     void wimCall(FEMeshType const &movedmesh,
             BamgMesh *bamgmesh_wim,

@@ -6590,28 +6590,32 @@ FiniteElement::step()
     {
         double displacement_factor = 1.;
         double minang = this->minAngle(M_mesh,M_UM,displacement_factor);
-        LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
 
+        std::cout<<M_rank<<": 6594\n";
         if (M_rank == 0)
         {
             if(fmod(pcpt*time_step, ptime_step) == 0)
                 std::cout <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
 
-            std::cout <<"REGRID ANGLE= "<< minang <<"\n";
+            LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
         }
+        std::cout<<M_rank<<": 6602\n";
 
         if ( minang < vm["numerics.regrid_angle"].as<double>() )
         {
             M_regrid = true;
 
+            std::cout<<M_rank<<": 6608\n";
             if ( M_use_moorings && !M_moorings_snapshot )
                 M_moorings.updateGridMean(M_mesh);
 
+            std::cout<<M_rank<<": 6610\n";
 #if defined (WAVES)
             if (M_use_wim)
                 if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
                     this->wimPreRegrid();
 #endif
+            std::cout<<M_rank<<": 6615\n";
 
             LOG(DEBUG) <<"Regridding starts\n";
             chrono.restart();
@@ -6632,6 +6636,7 @@ FiniteElement::step()
 
             ++M_nb_regrid;
         }//M_regrid
+        std::cout<<M_rank<<": 6639\n";
     }//bamg-regrid
 
     M_comm.barrier();
@@ -6639,6 +6644,7 @@ FiniteElement::step()
 
     // ====================================================================================
 #if defined (WAVES)
+    std::cout<<M_rank<<": 6647\n";
     if(!M_use_wim)
         //other cases taken care of inside wimCall()
         M_tau.assign(2*M_num_nodes,0.);
@@ -6651,6 +6657,7 @@ FiniteElement::step()
 #else
     M_tau.assign(2*M_num_nodes,0.);
 #endif
+    std::cout<<M_rank<<": 6660\n";
     // ====================================================================================
 
 
@@ -11934,10 +11941,10 @@ FiniteElement::initWim(int const pcpt, FEMeshType const &movedmesh, BamgMesh* ba
     // 1. if wim is parallel (all processors)
     // 2. if on master processor
     bool do_wim_comm = (M_parallel_wim || M_rank==0);
-    M_comm.barrier();//all processors wait here
     if (do_wim_comm)
         M_wim.initCoupled(pcpt, movedmesh, bamgmesh_wim, M_flag_fix);
 
+    M_comm.barrier();//all processors wait here
 #if 1
     if(!(M_wave_mode==setup::WaveMode::RUN_ON_MESH) && M_rank==0)
     {
@@ -11968,24 +11975,44 @@ FiniteElement::initWim(int const pcpt, FEMeshType const &movedmesh, BamgMesh* ba
     // TODO would change if starting from restart 
     // - also set the ice fields inside the WIM
     this->initWimVariables(ice_fields);
+    M_comm.barrier();//all processors wait till all are here
 
     //init external_data_waves (wave forcing)
-    LOG(DEBUG) <<"Initialize forcingWave\n";
+    if(M_rank==0) LOG(DEBUG) <<"Initialize forcingWave\n";
     this->forcingWave();
 
     // set the initial waves
     if (M_wave_type==setup::WaveType::SET_IN_WIM)
     {
-        LOG(DEBUG)<<"initWim: calling setIdealWaveFields()\n";
-        M_comm.barrier();//all processors wait here
         if (do_wim_comm)
+        {
+            LOG(DEBUG)<<"initWim: calling setIdealWaveFields()\n";
             M_wim.idealWaveFields();
+        }
     }
     else
     {
         LOG(DEBUG)<<"initWim: loading wave forcing\n";
         this->wimCheckWaves();
     }
+    M_comm.barrier();//all processors wait till all are here
+
+    if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
+        //set the local wave spectrum (M_wave_spec)
+        if(M_parallel_wim)
+            M_wavespec = M_wim.getWaveSpec();
+        else
+        {
+            //get wavespec on root
+            dbl_vec3d wavespec_root = this->emptyWaveSpec();
+            if(M_rank==0)
+                wavespec_root = M_wim.getWaveSpec();
+
+            //scatter to M_wavespec
+            M_wavespec = this->emptyWaveSpec(M_num_elements);
+            this->scatterWaveSpec(wavespec_root);
+        }
+    std::cout<<M_rank<<","<<M_wavespec.size()<<","<<M_wavespec[0].size()<<","<<M_wavespec[0][0].size()<<": 12017\n";
 
     // save initial conditions
     if(do_wim_comm)
@@ -12148,20 +12175,26 @@ FiniteElement::wimPreRegrid(FEMeshType const &movedmesh)
         M_wim_meshdisp = M_wim.getRelativeMeshDisplacement(movedmesh);
 }//wimPreRegrid()
 
+typename FiniteElement::dbl_vec3d
+FiniteElement::emptyWaveSpec(int num_elements)
+{
+    //initialise the wave spec
+    dbl_vec ztmp(num_elements, 0.);
+    dbl_vec3d wavespec(M_num_wavefreq);
+    for (auto it=wavespec.begin(); it<wavespec.end(); it++)
+        it->assign(M_num_wavedirn, ztmp);
+    return wavespec;
+}
 
 typename FiniteElement::dbl_vec3d
 FiniteElement::gatherWaveSpec()
 {
     //gather the wave spectrum from local fields to the root
     //- elements
-    int num_tri_root = M_mesh_root.numTriangles();
-    auto wavespec_root = M_wavespec;
+    auto wavespec_root = this->emptyWaveSpec(M_mesh_root.numTriangles());
     for(int fq=0; fq<M_num_wavefreq; fq++)
         for(int nth=0; nth<M_num_wavedirn; nth++)
-        {
-            wavespec_root[fq][nth].resize(num_tri_root);
             this->gatherElementField(M_wavespec[fq][nth], wavespec_root[fq][nth]);
-        }
     return wavespec_root;
 }
 
@@ -12173,10 +12206,7 @@ FiniteElement::scatterWaveSpec(dbl_vec3d wavespec_root)
     // - elements
     for(int fq=0; fq<M_num_wavefreq; fq++)
         for(int nth=0; nth<M_num_wavedirn; nth++)
-        {
-            M_wavespec[fq][nth].resize(M_num_elements);
             this->scatterElementField(wavespec_root[fq][nth], M_wavespec[fq][nth]);
-        }
 }
 
 
@@ -12207,12 +12237,32 @@ FiniteElement::wimPostRegrid(FEMeshType const &movedmesh, BamgMesh* bamgmesh_wim
 }//wimPostRegrid()
 
 
+void FiniteElement::wimCall()
+{
+    std::cout<<M_rank<<","<<M_parallel_wim<<": 12220\n";
+    if (M_parallel_wim)
+        this->wimCall(
+                this->getMovedMesh(),
+                bamgmesh,
+                M_wavespec
+                );
+    else
+        this->wimCall(
+                this->getMovedMeshRoot(),   //root mesh
+                bamgmesh_root,              //root bamg mesh
+                this->gatherWaveSpec()      //root wavespec
+                );
+    std::cout<<M_rank<<": 12232\n";
+}
+
+
 template<typename FEMeshType>
 void
 FiniteElement::wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim,
         dbl_vec3d wavespec)
 {
 
+    M_run_wim = !(M_wim_steps_since_last_call % M_wim_cpl_freq);
     std::cout<<"wimCall(): M_run_wim = "<<M_run_wim<<"\n";
 
     // communicate with wim if:
@@ -12278,10 +12328,11 @@ FiniteElement::wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim,
                 M_wavespec = M_wim.getWaveSpec();
             else
             {
-                dbl_vec3d wavespec;
+                dbl_vec3d wavespec_root = this->emptyWaveSpec();
                 if (M_rank==0)
-                    wavespec = M_wim.getWaveSpec();
-                this->scatterWaveSpec(wavespec);
+                    wavespec_root = M_wim.getWaveSpec();
+                M_wavespec = this->emptyWaveSpec(M_num_elements);
+                this->scatterWaveSpec(wavespec_root);
             }
 
         //get FSD info
