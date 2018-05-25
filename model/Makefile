@@ -131,7 +131,7 @@ OBJS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.o)
 DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
 # Rules to always execute.
-.PHONY: exec all clean mrproper libs cleanlibs mrproperlibs
+.PHONY: exec all clean mrproper libs cleanlibs mrproperlibs wim core
 
 # Default action.
 exec: $(PROGNAME)
@@ -180,6 +180,10 @@ $(OBJS): Makefile
 # Make the required libraries
 libs:
 	cd ..; make
+wim:
+	cd ..; make wim
+core:
+	cd ..; make core
 
 # Compile the libraries as well as the executable
 all: libs exec
