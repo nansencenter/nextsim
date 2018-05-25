@@ -6644,7 +6644,6 @@ FiniteElement::step()
 
     // ====================================================================================
 #if defined (WAVES)
-    std::cout<<M_rank<<": 6647\n";
     if(!M_use_wim)
         //other cases taken care of inside wimCall()
         M_tau.assign(2*M_num_nodes,0.);
@@ -6657,7 +6656,6 @@ FiniteElement::step()
 #else
     M_tau.assign(2*M_num_nodes,0.);
 #endif
-    std::cout<<M_rank<<": 6660\n";
     // ====================================================================================
 
 
@@ -12239,7 +12237,6 @@ FiniteElement::wimPostRegrid(FEMeshType const &movedmesh, BamgMesh* bamgmesh_wim
 
 void FiniteElement::wimCall()
 {
-    std::cout<<M_rank<<","<<M_parallel_wim<<": 12220\n";
     if (M_parallel_wim)
         this->wimCall(
                 this->getMovedMesh(),
@@ -12252,7 +12249,6 @@ void FiniteElement::wimCall()
                 bamgmesh_root,              //root bamg mesh
                 this->gatherWaveSpec()      //root wavespec
                 );
-    std::cout<<M_rank<<": 12232\n";
 }
 
 
@@ -12263,7 +12259,7 @@ FiniteElement::wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim,
 {
 
     M_run_wim = !(M_wim_steps_since_last_call % M_wim_cpl_freq);
-    std::cout<<"wimCall(): M_run_wim = "<<M_run_wim<<"\n";
+    if(M_rank==0) std::cout<<"wimCall(): M_run_wim = "<<M_run_wim<<"\n";
 
     // communicate with wim if:
     // 1. if wim is parallel (all processors)
@@ -12279,7 +12275,6 @@ FiniteElement::wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim,
             //we don't need to pass in the mesh
 
             //give moved mesh to WIM
-            M_comm.barrier();//all processors wait here
             if (do_wim_comm)
                 if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
                 {
@@ -12291,6 +12286,7 @@ FiniteElement::wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim,
                 }
                 else
                     M_wim.setMeshSimple(movedmesh);
+            M_comm.barrier();//all processors wait here
         }
 
         //get total conc and volume
@@ -12313,17 +12309,19 @@ FiniteElement::wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim,
             M_wim.setIceFields(ctot, vtot, ice_fields["nfloes"]);
 
 
-        LOG(DEBUG)<<"wimCall: check wave forcing and set waves\n";
+        if(M_rank==0) LOG(DEBUG)<<"wimCall: check wave forcing and set waves\n";
         this->wimCheckWaves();
 
         //run the wim
-        std::cout<<"before M_wim.run()\n";
+        if(M_rank==0) std::cout<<"before M_wim.run()\n";
         if (do_wim_comm)
             M_wim.run();
         M_comm.barrier();//all processors wait here
 
         //get waves if needed for advection/regridding
         if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
+        {
+            if(M_rank==0) std::cout<<"before M_wim.getWaveSpec()\n";
             if (M_parallel_wim)
                 M_wavespec = M_wim.getWaveSpec();
             else
@@ -12334,9 +12332,12 @@ FiniteElement::wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim,
                 M_wavespec = this->emptyWaveSpec(M_num_elements);
                 this->scatterWaveSpec(wavespec_root);
             }
+        }
 
         //get FSD info
-        dbl_vec nfloes_root, dfloe_root, broken_root, broken;
+        dbl_vec nfloes_root, dfloe_root, broken_root;
+        dbl_vec broken(M_num_elements);
+        if(M_rank==0) std::cout<<"before M_wim.getFsdMesh()\n";
         if (M_parallel_wim)
             M_wim.getFsdMesh(M_nfloes, M_dfloe, broken);//outputs (already calculated on local mesh)
         else
@@ -12367,6 +12368,7 @@ FiniteElement::wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim,
         // - can now do this locally
         if ( vm["nextwim.wim_damage_mesh"].template as<bool>() )
         {
+            if(M_rank==0) std::cout<<"before damaging of ice\n";
             for (int i=1;i<M_num_elements;i++)
             {
                 if (broken[i])
@@ -12392,45 +12394,56 @@ FiniteElement::wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim,
 
     // if this is not done, we currently interp tau_x, tau_y each time step
     // TODO rethink this? (let them be advected? - this could lead to instability perhaps)
-    if (M_wave_mode==setup::WaveMode::RUN_ON_MESH)
+    if(M_rank==0) std::cout<<"before interp taux\n";
+    if(do_wim_comm)
     {
-        if(M_run_wim)
+        if (M_wave_mode==setup::WaveMode::RUN_ON_MESH)
         {
-            if (M_export_wim_diags_mesh)
+            if(M_run_wim)
             {
-                std::vector<std::string> ss = {"Stokes_drift"};
-                if(interp_taux)
-                    ss.push_back("Stress_waves_ice");
-
-                M_wim_fields_nodes = M_wim.returnFieldsNodes(ss, movedmesh);
-
-                if(interp_taux)
+                //if running WIM update M_tau and nodal diagnostic fields if needed
+                //- otherwise let it be advected with the mesh
+                if (M_export_wim_diags_mesh)
                 {
-                    tmp_tau = M_wim_fields_nodes["Stress_waves_ice"];
-                    M_wim_fields_nodes.erase("Stress_waves_ice");
+                    std::vector<std::string> ss = {"Stokes_drift"};
+                    if(interp_taux)
+                        ss.push_back("Stress_waves_ice");
+
+                    M_wim_fields_nodes = M_wim.returnFieldsNodes(ss, movedmesh);
+
+                    if(interp_taux)
+                    {
+                        tmp_tau = M_wim_fields_nodes["Stress_waves_ice"];
+                        M_wim_fields_nodes.erase("Stress_waves_ice");
+                    }
                 }
-            }
-            else if (interp_taux)
-                tmp_tau = M_wim.returnWaveStress();
+                else if (interp_taux)
+                    tmp_tau = M_wim.returnWaveStress();
+            }//if(M_run_wim)
         }
+        else if(interp_taux)
+            tmp_tau = M_wim.returnWaveStress(movedmesh);
+    }//get stresses if(do_wim_comm)
+
+    if(interp_taux)
+    {
+        // get local wave stress, M_tau
+        if(M_parallel_wim)
+            M_tau = tmp_tau;
+        else
+            this->scatterNodalField(tmp_tau, M_tau);
     }
-    else if(interp_taux)
-        tmp_tau = M_wim.returnWaveStress(movedmesh);
 
-    // get local wave stress, M_tau
-    if(M_parallel_wim)
-        M_tau = tmp_tau;
-    else
-        this->scatterNodalField(tmp_tau, M_tau);
-
+#if 0
     if(M_run_wim&&(vm["nextwim.export_after_wim_call"].as<bool>()))
     {
         std::string tmp_string3
             = ( boost::format( "after_wim_call_%1%" ) % (M_wim_cpt-1) ).str();
         this->exportResults(tmp_string3);
     }
+#endif
 
-    std::cout<<"Finished wimCall()\n";
+    if(M_rank==0) std::cout<<"Finished wimCall()\n";
 
     if((vm["nextwim.test_and_exit"].as<bool>()))
         throw std::runtime_error("Quitting after calling WIM\n");
