@@ -1491,7 +1491,7 @@ WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const & fields,
 {
     auto xnod = movedmesh.coordX();
     auto ynod = movedmesh.coordY();
-    return this->returnFieldsNodes(fields,xnod,ynod);
+    return this->returnFieldsNodes(fields, xnod, ynod);
 }
 
 
@@ -1565,12 +1565,12 @@ WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const &fields,
     // ==========================================================================================
 
     // ==========================================================================================
-    // Do the interpolation
+    // Do the interpolation:
     if(M_wim_on_mesh)
-        //from elements of last mesh to nodes of the input mesh
+        // - from elements of last mesh to nodes of the input mesh
         M_mesh.elementsToNodes(out_nodes,input_nodes);
     else
-        //from grid elements to mesh nodes
+        // - from grid elements to mesh nodes
         M_grid.interpToPoints(out_nodes,input_nodes,xnod,ynod);
     // ==========================================================================================
 
@@ -1580,9 +1580,9 @@ WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const &fields,
     for (auto it = output_nodes.begin(); it != output_nodes.end(); it++)
     {
         if(it->first=="Stress_waves_ice")
-            it->second = this->combineVectorComponents(tx_out,ty_out);
+            it->second = this->combineVectorComponents(tx_out, ty_out);
         else if(it->first=="Stokes_drift")
-            it->second = this->combineVectorComponents(sdfx_out,sdfy_out);
+            it->second = this->combineVectorComponents(sdfx_out, sdfy_out);
     }
     // ==========================================================================================
 
@@ -1607,7 +1607,7 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
     {
         //initialise outputs
         T_val_vec tmp(Nels,0.);
-        for (auto it=fields.begin();it!=fields.end();it++)
+        for (auto it=fields.begin(); it!=fields.end(); it++)
             output_els.emplace(*it,tmp);
     }
 
@@ -1656,7 +1656,7 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
 
     //interp to elements if necessary
     if (!M_wim_on_mesh)
-        M_grid.interpToPoints(out_els,input_els,xel,yel);//out_els already points to output_els
+        M_grid.interpToPoints(out_els, input_els, xel, yel);//out_els already points to output_els
 
     return output_els;
 }//returnFieldsElements
@@ -1805,7 +1805,7 @@ WimDiscr<T>::nfloesToDfloe(T_val_vec const& nfloes_in,
 
 
 template<typename T>
-void WimDiscr<T>::getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out,T_val_vec &broken)
+void WimDiscr<T>::getFsdMesh(T_val_vec &nfloes_out, T_val_vec &dfloe_out, T_val_vec &broken)
 {
     if (M_wim_on_mesh)
     {
@@ -1826,7 +1826,7 @@ void WimDiscr<T>::getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out,T_val_ve
 
 template<typename T>
 template<typename FEMeshType>
-void WimDiscr<T>::getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out,T_val_vec &broken,
+void WimDiscr<T>::getFsdMesh(T_val_vec &nfloes_out, T_val_vec &dfloe_out, T_val_vec &broken,
         T_val_vec const & conc_tot, FEMeshType const &movedmesh)
 {
     if((M_wim_on_mesh)||(M_break_on_mesh))
