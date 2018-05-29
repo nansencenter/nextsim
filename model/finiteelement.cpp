@@ -4714,7 +4714,7 @@ FiniteElement::assemble(int pcpt)
                     data[(2*l_j+1)*6+2*i+1] = dvv;
 
                     fvdata[2*i] += surface_e*( mloc*(
-                                                     // TODO: +coef_drag*M_tau[index_u] <- waves are not here yet!!
+                                                     // TODO: M_tau[index_u]
                                                      +coef_X
                                                      +coef_V*vt_u
                                                      +coef_C*Vcor_index_v
@@ -4727,7 +4727,7 @@ FiniteElement::assemble(int pcpt)
                                                - b0tj_sigma_hu/3);
 
                     fvdata[2*i+1] += surface_e*( mloc*(
-                                                       // TODO: +coef_drag*M_tau[index_v] <- waves are not here yet!!
+                                                       //TODO M_tau[index_v]
                                                        +coef_Y
                                                        +coef_V*vt_v
                                                        -coef_C*Vcor_index_u
@@ -12452,7 +12452,7 @@ FiniteElement::wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim,
         }
     }
 
-#if 1//TODO implement more export variables
+#if 1
     if(M_run_wim&&(vm["nextwim.export_after_wim_call"].as<bool>()))
     {
         std::string tmp_string3
