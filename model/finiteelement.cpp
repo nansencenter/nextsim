@@ -11529,7 +11529,11 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
 
 #if defined (WAVES)
     T_map_vec wim_fields_els, wim_fields_nodes;
-    dbl_vec tau_root;
+    dbl_vec tau_root(2*M_mesh_root.numNodes());
+    dbl_vec nfloes_root(M_mesh_root.numTriangles());
+    dbl_vec dfloe_root(M_mesh_root.numTriangles());
+    this->gatherElementField(M_nfloes, nfloes_root);
+    this->gatherElementField(M_dfloe, dfloe_root);
     if(M_export_wim_diags_mesh)
         this->getWimDiagnosticsRoot(M_mesh_root,
                 wim_fields_els, wim_fields_nodes, tau_root);
@@ -11853,6 +11857,8 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
 #if defined (WAVES)
         if(M_use_wim)
         {
+            exporter.writeField(outbin, dfloe_root, "Dfloe");
+            exporter.writeField(outbin, nfloes_root, "Nfloes");
             exporter.writeField(outbin, tau_root, "Stress_waves_ice");
             if(M_export_wim_diags_mesh)
             {
@@ -12635,10 +12641,11 @@ FiniteElement::getWimDiagnosticsRoot(GmshMeshSeq const &movedmesh,
 {
     //want the results on the root mesh
     //call from exportResults()
-    tau_root.resize(M_mesh_root.numTriangles());
+    tau_root.resize(2*M_mesh_root.numNodes());
     this->gatherNodalField(M_tau, tau_root);
 
     //if(M_parallel_wim) this is local, else it is root if running on mesh
+    bool gather_fields_nodes = true;
     wim_fields_nodes = M_wim_fields_nodes;
     wim_fields_els = M_wim_fields_els;
     if(M_parallel_wim || M_rank==0)
@@ -12654,20 +12661,24 @@ FiniteElement::getWimDiagnosticsRoot(GmshMeshSeq const &movedmesh,
         //      - NB fields on elements are also re-calculated at regrid time
         if(M_wave_mode!=setup::WaveMode::RUN_ON_MESH)
         {
-            fields           = {"Stokes_drift"};
+            fields = {"Stokes_drift"};
             wim_fields_nodes = M_wim.returnFieldsNodes(fields, movedmesh);
+            gather_fields_nodes = false;
         }
     }
 
     if(M_parallel_wim)
     {
-        //gather to the root
+        //gather elements to the root
         for (auto it=wim_fields_els.begin(); it!=wim_fields_els.end(); it++)
         {
             auto vec = it->second;
             (it->second).resize(M_mesh_root.numTriangles());
             this->gatherElementField(vec, it->second);
         }
+    }
+    if(gather_fields_nodes)
+    {
         for (auto it=wim_fields_nodes.begin(); it!=wim_fields_nodes.end(); it++)
         {
             auto vec = it->second;
