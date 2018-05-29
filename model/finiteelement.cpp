@@ -6485,6 +6485,7 @@ FiniteElement::init()
         LOG(DEBUG) <<"Initialize variables\n";
         this->initVariables();
     }
+    M_tau.assign(2*M_num_nodes, 0.);
 
     // Initialise atmospheric and oceanic forcing
     this->initForcings();
@@ -11526,6 +11527,16 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
     this->gatherFieldsElementIO(interp_in_elements,M_ice_cat_type==setup::IceCategoryType::THIN_ICE);
 
 
+#if defined (WAVES)
+    T_map_vec wim_fields_els, wim_fields_nodes;
+    dbl_vec tau_root;
+    if(M_export_wim_diags_mesh)
+        this->getWimDiagnosticsRoot(M_mesh_root,
+                wim_fields_els, wim_fields_nodes, tau_root);
+    else
+        this->gatherNodalField(M_tau, tau_root);
+#endif//WAVES
+
     M_comm.barrier();
     if (M_rank == 0)
     {
@@ -11838,6 +11849,20 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
                 exporter.writeField(outbin, D_Qo_root,  "Qocean");
                 exporter.writeField(outbin, D_delS_root, "Saltflux");
             }
+
+#if defined (WAVES)
+        if(M_use_wim)
+        {
+            exporter.writeField(outbin, tau_root, "Stress_waves_ice");
+            if(M_export_wim_diags_mesh)
+            {
+                for (auto it=wim_fields_els.begin(); it!=wim_fields_els.end(); it++)
+                    exporter.writeField(outbin, it->second, it->first);
+                for (auto it=wim_fields_nodes.begin(); it!=wim_fields_nodes.end(); it++)
+                    exporter.writeField(outbin, it->second, it->first);
+            }
+        }
+#endif//WAVES
             outbin.close();
 
             fileout = filenames[1]+".dat";
@@ -12604,18 +12629,23 @@ FiniteElement::wimCheckWaves()
 
 void
 FiniteElement::getWimDiagnosticsRoot(GmshMeshSeq const &movedmesh,
-        T_map_vec &wim_fields_nodes)
+        T_map_vec &wim_fields_els,
+        T_map_vec &wim_fields_nodes,
+        dbl_vec &tau_root)
 {
     //want the results on the root mesh
     //call from exportResults()
+    tau_root.resize(M_mesh_root.numTriangles());
+    this->gatherNodalField(M_tau, tau_root);
 
     //if(M_parallel_wim) this is local, else it is root if running on mesh
     wim_fields_nodes = M_wim_fields_nodes;
+    wim_fields_els = M_wim_fields_els;
     if(M_parallel_wim || M_rank==0)
     {
         //fields on elements - reset each call to exportResults()
         std::vector<std::string> fields = {"Hs","Tp","MWD"};
-        M_wim_fields_els = M_wim.returnFieldsElements(fields, movedmesh);
+        wim_fields_els = M_wim.returnFieldsElements(fields, movedmesh);
 
         // fields on nodes
         // - only if not M_wim_on_mesh
@@ -12632,7 +12662,7 @@ FiniteElement::getWimDiagnosticsRoot(GmshMeshSeq const &movedmesh,
     if(M_parallel_wim)
     {
         //gather to the root
-        for (auto it=M_wim_fields_els.begin(); it!=M_wim_fields_els.end(); it++)
+        for (auto it=wim_fields_els.begin(); it!=wim_fields_els.end(); it++)
         {
             auto vec = it->second;
             (it->second).resize(M_mesh_root.numTriangles());

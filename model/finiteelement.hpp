@@ -388,7 +388,10 @@ public:
     template<typename FEMeshType>
     void getWimDiagnostics(FEMeshType const &movedmesh);
 #endif
-    void getWimDiagnosticsRoot(GmshMeshSeq const &movedmesh, T_map_vec &wim_fields_nodes);
+    void getWimDiagnosticsRoot(GmshMeshSeq const &movedmesh,
+            T_map_vec &wim_fields_elements,
+            T_map_vec &wim_fields_nodes,
+            dbl_vec &tau_root);
 
     T_map_vec getIceFieldsForWim(std::vector<std::string> const& varnames);
 #endif//WAVES
