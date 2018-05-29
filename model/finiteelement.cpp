@@ -12388,53 +12388,40 @@ FiniteElement::wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim,
     // wave stress
     // - can turn off effect of wave stress for testing with option nextwim.applywavestress=false
     bool interp_taux = vm["nextwim.applywavestress"].as<bool>();
-    dbl_vec tmp_tau;
     if(!interp_taux)
         M_tau.assign(2*M_num_nodes,0.);
 
     // if this is not done, we currently interp tau_x, tau_y each time step
     // TODO rethink this? (let them be advected? - this could lead to instability perhaps)
-    if(M_rank==0) std::cout<<"before interp taux\n";
-    if(do_wim_comm)
+    if(M_run_wim)
     {
-        if (M_wave_mode==setup::WaveMode::RUN_ON_MESH)
+        if (interp_taux || M_export_wim_diags_mesh)
         {
-            if(M_run_wim)
+            if(M_rank==0) std::cout<<"before interp taux\n";
+            if (M_export_wim_diags_mesh)
             {
-                //if running WIM update M_tau and nodal diagnostic fields if needed
-                //- otherwise let it be advected with the mesh
-                if (M_export_wim_diags_mesh)
+                //more efficient to interp things simultaneously
+                //than doing 2 separate interpolations
+                std::vector<std::string> names = {"Stokes_drift"};
+                if(interp_taux)
+                    names.push_back("Stress_waves_ice");
+                this->updateWimFieldsNodes(movedmesh, names);
+                if(interp_taux)
                 {
-                    std::vector<std::string> ss = {"Stokes_drift"};
-                    if(interp_taux)
-                        ss.push_back("Stress_waves_ice");
-
-                    M_wim_fields_nodes = M_wim.returnFieldsNodes(ss, movedmesh);
-
-                    if(interp_taux)
-                    {
-                        tmp_tau = M_wim_fields_nodes["Stress_waves_ice"];
-                        M_wim_fields_nodes.erase("Stress_waves_ice");
-                    }
+                    M_tau = M_wim_fields_nodes["Stress_waves_ice"];
+                    M_wim_fields_nodes.erase("Stress_waves_ice");
                 }
-                else if (interp_taux)
-                    tmp_tau = M_wim.returnWaveStress();
-            }//if(M_run_wim)
+            }
+            else if (M_wave_mode==setup::WaveMode::RUN_ON_MESH)
+                //interp_taux and on mesh
+                this->updateWaveStress();
+            else
+                //interp_taux and on grid
+                this->updateWaveStress(movedmesh);
         }
-        else if(interp_taux)
-            tmp_tau = M_wim.returnWaveStress(movedmesh);
-    }//get stresses if(do_wim_comm)
-
-    if(interp_taux)
-    {
-        // get local wave stress, M_tau
-        if(M_parallel_wim)
-            M_tau = tmp_tau;
-        else
-            this->scatterNodalField(tmp_tau, M_tau);
     }
 
-#if 0
+#if 1//TODO implement more export variables
     if(M_run_wim&&(vm["nextwim.export_after_wim_call"].as<bool>()))
     {
         std::string tmp_string3
@@ -12449,6 +12436,57 @@ FiniteElement::wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim,
         throw std::runtime_error("Quitting after calling WIM\n");
 
 }//wimCall()
+
+
+template<typename FEMeshType>
+void
+FiniteElement::updateWimFieldsNodes(FEMeshType const &movedmesh,
+        std::vector<std::string> const &names)
+{
+    if (M_parallel_wim)
+        M_wim_fields_nodes = M_wim.returnFieldsNodes(names, movedmesh);
+    else
+    {
+        T_map_vec wfnod_root = initUnorderedMap(names);
+        M_wim_fields_nodes = initUnorderedMap(names, M_num_elements);
+        if (M_rank==0)
+            wfnod_root = M_wim.returnFieldsNodes(names, movedmesh);
+        for (auto it=names.begin(); it<names.end(); it++) 
+            this->scatterNodalField(wfnod_root[*it], M_wim_fields_nodes[*it]);
+    }
+}
+
+template<typename FEMeshType>
+void
+FiniteElement::updateWaveStress(FEMeshType const &movedmesh)
+{
+    if (M_parallel_wim)
+        M_tau = M_wim.returnWaveStress(movedmesh);
+    else
+    {
+        dbl_vec tau_root;
+        if (M_rank==0)
+            tau_root = M_wim.returnWaveStress(movedmesh);
+        M_tau.resize(2*M_num_nodes);
+        this->scatterNodalField(tau_root, M_tau);
+    }
+}
+
+
+void
+FiniteElement::updateWaveStress()
+{
+    if (M_parallel_wim)
+        M_tau = M_wim.returnWaveStress();
+    else
+    {
+        dbl_vec tau_root;
+        if (M_rank==0)
+            tau_root = M_wim.returnWaveStress();
+        M_tau.resize(2*M_num_nodes);
+        this->scatterNodalField(tau_root, M_tau);
+    }
+}
 
 
 typename FiniteElement::T_map_vec
@@ -12564,27 +12602,50 @@ FiniteElement::wimCheckWaves()
 }//wimCheckWaves()
 
 
-template<typename FEMeshType>
 void
-FiniteElement::getWimDiagnostics(FEMeshType const &movedmesh)
+FiniteElement::getWimDiagnosticsRoot(GmshMeshSeq const &movedmesh,
+        T_map_vec &wim_fields_nodes)
 {
+    //want the results on the root mesh
     //call from exportResults()
 
-    //fields on elements - reset each call to exportResults()
-    std::vector<std::string> fields = {"Hs","Tp","MWD"};
-    M_wim_fields_els = M_wim.returnFieldsElements(fields, movedmesh);
-
-    // fields on nodes
-    // - only if not M_wim_on_mesh
-    // - if M_wim_on_mesh, fields move on the mesh
-    //      - reinterpolated at regrid time
-    //      - NB fields on elements are also re-calculated at regrid time
-    if(!(M_wave_mode==setup::WaveMode::RUN_ON_MESH))
+    //if(M_parallel_wim) this is local, else it is root if running on mesh
+    wim_fields_nodes = M_wim_fields_nodes;
+    if(M_parallel_wim || M_rank==0)
     {
-        fields             = {"Stokes_drift"};
-        M_wim_fields_nodes = M_wim.returnFieldsNodes(fields, movedmesh);
+        //fields on elements - reset each call to exportResults()
+        std::vector<std::string> fields = {"Hs","Tp","MWD"};
+        M_wim_fields_els = M_wim.returnFieldsElements(fields, movedmesh);
+
+        // fields on nodes
+        // - only if not M_wim_on_mesh
+        // - if M_wim_on_mesh, fields move on the mesh
+        //      - reinterpolated at regrid time
+        //      - NB fields on elements are also re-calculated at regrid time
+        if(M_wave_mode!=setup::WaveMode::RUN_ON_MESH)
+        {
+            fields           = {"Stokes_drift"};
+            wim_fields_nodes = M_wim.returnFieldsNodes(fields, movedmesh);
+        }
     }
-}
+
+    if(M_parallel_wim)
+    {
+        //gather to the root
+        for (auto it=M_wim_fields_els.begin(); it!=M_wim_fields_els.end(); it++)
+        {
+            auto vec = it->second;
+            (it->second).resize(M_mesh_root.numTriangles());
+            this->gatherElementField(vec, it->second);
+        }
+        for (auto it=wim_fields_nodes.begin(); it!=wim_fields_nodes.end(); it++)
+        {
+            auto vec = it->second;
+            (it->second).resize(M_mesh_root.numTriangles());
+            this->gatherNodalField(vec, it->second);
+        }
+    }
+}//getWimDiagnosticsRoot
 #endif//WAVES
 
 

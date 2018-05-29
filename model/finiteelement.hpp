@@ -369,8 +369,15 @@ public:
             dbl_vec3d wavespec);
 
     T_map_vec initUnorderedMap(std::vector<std::string> const & names, int const& num_elements=0);
+    template<typename FEMeshType>
+    void updateWimFieldsNodes(FEMeshType const &movedmesh, std::vector<std::string> const & names);
+    void updateWaveStress();
+    template<typename FEMeshType>
+    void updateWaveStress(FEMeshType const &movedmesh);
+
     void wimCheckWaves();
 
+#if 0
     void getWimDiagnostics()
     {
         if (M_parallel_wim)
@@ -380,6 +387,8 @@ public:
     }
     template<typename FEMeshType>
     void getWimDiagnostics(FEMeshType const &movedmesh);
+#endif
+    void getWimDiagnosticsRoot(GmshMeshSeq const &movedmesh, T_map_vec &wim_fields_nodes);
 
     T_map_vec getIceFieldsForWim(std::vector<std::string> const& varnames);
 #endif//WAVES
