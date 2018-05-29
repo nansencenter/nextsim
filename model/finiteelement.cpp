@@ -11495,7 +11495,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
     std::vector<double> M_UM_root;
     if (apply_displacement)
     {
-        this->gatherNodalField(M_UM,M_UM_root);
+        this->gatherNodalField(M_UM, M_UM_root);
     }
 
     // fields defined on mesh elements
@@ -12450,6 +12450,16 @@ FiniteElement::wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim,
 
 }//wimCall()
 
+
+typename FiniteElement::T_map_vec
+FiniteElement::initUnorderedMap(std::vector<std::string> const & names, int const& num_elements)
+{
+    T_map_vec map_vec;
+    dbl_vec dumvec(num_elements);
+    for (auto it=names.begin(); it<names.end(); it++) 
+        map_vec.emplace(*it, dumvec);
+    return map_vec;
+}
 
 void
 FiniteElement::wimCheckWaves()

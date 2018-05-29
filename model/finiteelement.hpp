@@ -368,6 +368,7 @@ public:
             BamgMesh *bamgmesh_wim,
             dbl_vec3d wavespec);
 
+    T_map_vec initUnorderedMap(std::vector<std::string> const & names, int const& num_elements=0);
     void wimCheckWaves();
 
     void getWimDiagnostics()
