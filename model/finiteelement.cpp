@@ -4473,14 +4473,14 @@ FiniteElement::assemble(int pcpt)
         double coef_min = 100.;
 
         // values used when no ice or when ice too thin
-        double coef_drag    = 0.;  // coef_drag is a switch that set the external forcings to 0 (wind, ocean, bottom drag, waves stress) where there is too little ice
-        double coef         = coef_min;
-        double mass_e       = 0.;
-        double coef_C       = 0.;
-        double coef_V       = 0.;
-        double coef_X       = 0.;
-        double coef_Y       = 0.;
-        double coef_sigma   = 0.;
+        double forcing_switch = 0.;  // forcing_switch is a switch that set the external forcings to 0 (wind, ocean, bottom drag, wave stress) where there is too little ice
+        double coef           = coef_min;
+        double mass_e         = 0.;
+        double coef_C         = 0.;
+        double coef_V         = 0.;
+        double coef_X         = 0.;
+        double coef_Y         = 0.;
+        double coef_sigma     = 0.;
 
 
         // temporary variables
@@ -4587,7 +4587,7 @@ FiniteElement::assemble(int pcpt)
                 g_ssh_e_y += M_shape_coeff[cpt][i+3]*g_ssh_e; /* y derivative of g*ssh */
             }
 
-            coef_drag  = 1.;
+            forcing_switch  = 1.;
             coef_C     = mass_e*M_fcor[cpt];              /* for the Coriolis term */
             coef_V     = mass_e/time_step;             /* for the inertial term */
             coef_X     = - mass_e*g_ssh_e_x;              /* for the ocean slope */
@@ -4679,19 +4679,19 @@ FiniteElement::assemble(int pcpt)
                     norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
 
                     coef_Voce = (vm["dynamics.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
-                    coef_Voce *= coef_drag*physical::rhow;
+                    coef_Voce *= forcing_switch*physical::rhow;
 
                     norm_Vair_ice = std::hypot(M_VT[index_u]-M_wind [index_u],M_VT[index_v]-M_wind [index_v]);
                     norm_Vair_ice = (norm_Vair_ice > norm_Vair_ice_min) ? (norm_Vair_ice):norm_Vair_ice_min;
 
                     coef_Vair = (vm["dynamics.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*norm_Vair_ice));
-                    coef_Vair *= coef_drag*(physical::rhoa);
+                    coef_Vair *= forcing_switch*(physical::rhoa);
 
                     norm_Vice = std::hypot(M_VT[index_u],M_VT[index_v]);
                     norm_Vice = (norm_Vice > basal_u_0) ? (norm_Vice):basal_u_0;
 
                     coef_basal = basal_k2/norm_Vice;
-                    coef_basal *= coef_drag*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
+                    coef_basal *= forcing_switch*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
 
                     duu = surface_e*( mloc*(coef_V)
                                       +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
@@ -4714,7 +4714,7 @@ FiniteElement::assemble(int pcpt)
                     data[(2*l_j+1)*6+2*i+1] = dvv;
 
                     fvdata[2*i] += surface_e*( mloc*(
-                                                     // TODO: M_tau[index_u]
+                                                     forcing_switch*M_tau[index_u]
                                                      +coef_X
                                                      +coef_V*vt_u
                                                      +coef_C*Vcor_index_v
@@ -4727,7 +4727,7 @@ FiniteElement::assemble(int pcpt)
                                                - b0tj_sigma_hu/3);
 
                     fvdata[2*i+1] += surface_e*( mloc*(
-                                                       //TODO M_tau[index_v]
+                                                       forcing_switch*M_tau[index_v]
                                                        +coef_Y
                                                        +coef_V*vt_v
                                                        -coef_C*Vcor_index_u
@@ -6592,7 +6592,6 @@ FiniteElement::step()
         double displacement_factor = 1.;
         double minang = this->minAngle(M_mesh,M_UM,displacement_factor);
 
-        std::cout<<M_rank<<": 6594\n";
         if (M_rank == 0)
         {
             if(fmod(pcpt*time_step, ptime_step) == 0)
@@ -6600,23 +6599,19 @@ FiniteElement::step()
 
             LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
         }
-        std::cout<<M_rank<<": 6602\n";
 
         if ( minang < vm["numerics.regrid_angle"].as<double>() )
         {
             M_regrid = true;
 
-            std::cout<<M_rank<<": 6608\n";
             if ( M_use_moorings && !M_moorings_snapshot )
                 M_moorings.updateGridMean(M_mesh);
 
-            std::cout<<M_rank<<": 6610\n";
 #if defined (WAVES)
             if (M_use_wim)
                 if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
                     this->wimPreRegrid();
 #endif
-            std::cout<<M_rank<<": 6615\n";
 
             LOG(DEBUG) <<"Regridding starts\n";
             chrono.restart();
@@ -6637,7 +6632,6 @@ FiniteElement::step()
 
             ++M_nb_regrid;
         }//M_regrid
-        std::cout<<M_rank<<": 6639\n";
     }//bamg-regrid
 
     M_comm.barrier();
@@ -6803,9 +6797,11 @@ FiniteElement::step()
 
     // check if writing restart each timestep
     bool write_restart = vm["restart.debugging"].as<bool>();
-    if(!write_restart)
+    if( !write_restart
+            && vm["restart.write_restart"].as<bool>() )
         // else check if we've reached the restart timestep
         write_restart = (fmod(pcpt*time_step,restart_time_step) == 0);
+            
     if (write_restart)
     {
         std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
@@ -7255,9 +7251,36 @@ FiniteElement::initMoorings()
     std::vector<GridOutput::Vectorial_Variable> vectorial_variables(0);
 
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
+    std::vector<std::string> names_thin = {"conc_thin", "h_thin", "hs_thin"};
+    std::vector<std::string> names_wim = {"dfloe"};
 
     for ( auto it=names.begin(); it!=names.end(); ++it )
     {
+        // skip thin ice variables if not using thin ice category
+        if (std::count(names_thin.begin(), names_thin.end(), *it) > 0)
+            if(M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
+            {
+                LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with thin ice\n";
+                continue;
+            }
+
+        // skip wave variables if not running WIM
+        if (std::count(names_wim.begin(), names_wim.end(), *it) > 0)
+        {
+#if ! defined (WAVES)
+            {
+                LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with waves\n";
+                continue;
+            }
+#else
+            if(!M_use_wim)
+            {
+                LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with waves\n";
+                continue;
+            }
+#endif
+        }
+
         // Element variables
         if ( *it == "conc" )
         {
@@ -7314,17 +7337,17 @@ FiniteElement::initMoorings()
             GridOutput::Variable delS(GridOutput::variableID::delS);
             elemental_variables.push_back(delS);
         }
-        else if ( *it == "conc_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        else if ( *it == "conc_thin" )
         {
             GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin);
             elemental_variables.push_back(conc_thin);
         }
-        else if ( *it == "h_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        else if ( *it == "h_thin" )
         {
             GridOutput::Variable h_thin(GridOutput::variableID::h_thin);
             elemental_variables.push_back(h_thin);
         }
-        else if ( *it == "hs_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        else if ( *it == "hs_thin" )
         {
             GridOutput::Variable hs_thin(GridOutput::variableID::hs_thin);
             elemental_variables.push_back(hs_thin);
@@ -7355,28 +7378,34 @@ FiniteElement::initMoorings()
         else
         {
             std::cout << "Invalid mooring name: " << *it << std::endl;
-            std::cout << "Available names are ";
-            std::cout << "conc, ";
-            std::cout << "thick, ";
-            std::cout << "snow, ";
-            std::cout << "tsurf, ";
-            std::cout << "Qa, ";
-            std::cout << "Qsw, ";
-            std::cout << "Qlw, ";
-            std::cout << "Qsh, ";
-            std::cout << "Qlh, ";
-            std::cout << "Qo, ";
-            std::cout << "delS, ";
+            std::cout << "Available names are "<<"\n";
+            std::cout << "conc, "<<"\n";
+            std::cout << "thick, "<<"\n";
+            std::cout << "snow, "<<"\n";
+            std::cout << "tsurf, "<<"\n";
+            std::cout << "Qa, "<<"\n";
+            std::cout << "Qsw, "<<"\n";
+            std::cout << "Qlw, "<<"\n";
+            std::cout << "Qsh, "<<"\n";
+            std::cout << "Qlh, "<<"\n";
+            std::cout << "Qo, "<<"\n";
+            std::cout << "delS, "<<"\n";
             if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
             {
-                std::cout << "conc_thin, ";
-                std::cout << "h_thin, ";
-                std::cout << "hs_thin, ";
+                std::cout << "conc_thin, "<<"\n";
+                std::cout << "h_thin, "<<"\n";
+                std::cout << "hs_thin, "<<"\n";
             }
-            std::cout << "velocity_xy, ";
-            std::cout << "velocity_uv";
+#if defined (WAVES)
+            if ( M_use_wim )
+            {
+                std::cout << "dfloe, "<<"\n";
+            }
+#endif
+            std::cout << "velocity_xy, "<<"\n";
+            std::cout << "velocity_uv"<<"\n";
 
-            throw std::runtime_error("Invalid mooring name");
+            throw std::runtime_error("Invalid mooring name\n");
         }
     }
 
@@ -12041,7 +12070,6 @@ FiniteElement::initWim(int const pcpt, FEMeshType const &movedmesh, BamgMesh* ba
             M_wavespec = this->emptyWaveSpec(M_num_elements);
             this->scatterWaveSpec(wavespec_root);
         }
-    std::cout<<M_rank<<","<<M_wavespec.size()<<","<<M_wavespec[0].size()<<","<<M_wavespec[0][0].size()<<": 12017\n";
 
     // save initial conditions
     if(do_wim_comm)
