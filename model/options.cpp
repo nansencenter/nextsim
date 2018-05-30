@@ -130,8 +130,11 @@ namespace Nextsim
             ("moorings.file_length", po::value<std::string>()->default_value( "inf" ), "")
             ("moorings.spacing", po::value<double>()->default_value( 10 ), "km")
             ("moorings.output_timestep", po::value<double>()->default_value( 1 ), "days")
-            ("moorings.variables", po::value<std::vector<std::string>>()->multitoken()->default_value(std::vector<std::string>(),
-                    "conc thick snow conc_thin h_thin hs_thin velocity_xy")->composing(), "")
+            ("moorings.variables", po::value<std::vector<std::string>>()->multitoken()->default_value(
+                        std::vector<std::string>
+                            {"conc", "thick", "snow", "conc_thin", "h_thin", "hs_thin", "velocity_xy"},
+                             "conc    thick    snow    conc_thin    h_thin    hs_thin    velocity_xy"
+                    )->composing(), "list of variable names (put on separate lines in config file)")
             ("moorings.grid_file", po::value<std::string>()->default_value( "" ),
                 "Grid file with locations for moorings output. Has to be a netcdf file with x y as dimensions and latitude longitude as variables")
             ("moorings.parallel_output", po::value<bool>()->default_value( false ), "")
