@@ -3459,7 +3459,7 @@ FiniteElement::interpFieldsElement()
 
 
 int
-FiniteElement::getNumVarsNode(bool read_restart) const
+FiniteElement::getNumVarsNode(bool restart) const
 {
     // number of nodal variables, for:
     // - gatherFieldsNode
@@ -3467,7 +3467,7 @@ FiniteElement::getNumVarsNode(bool read_restart) const
     int nb_var_node = 10;
 
 #if defined (WAVES)
-    if(M_use_wim && !read_restart)
+    if(M_use_wim && !restart)
         if (M_wave_mode==setup::WaveMode::RUN_ON_MESH)
         {
             // regrid wim fields on nodes
@@ -3563,13 +3563,16 @@ FiniteElement::getNumVarsElement(std::string vartypes) const
 
 
 void
-FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes)
+FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes,
+        std::vector<int> const& rmap_nodes,
+        std::vector<int> sizes_nodes,
+        bool restart)
 {
     timer["gather.node"].first.restart();
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------GATHER NODE starts\n";
 
-    M_nb_var_node = this->getNumVarsNode();
+    M_nb_var_node = this->getNumVarsNode(restart);
     std::vector<double> interp_node_in_local(M_nb_var_node*M_prv_local_ndof,0.);
 
     chrono.restart();
@@ -3611,7 +3614,7 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
         tmp_nb_var++;
 
 #if defined (WAVES)
-        if(M_use_wim)
+        if(M_use_wim && !restart)
             if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
             {
                 // M_tau
@@ -3667,7 +3670,7 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
     }
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------GATHER NODE done in "<< timer["gather.node"].first.elapsed() <<"s\n";
-}//GatherFieldsNode
+}//gatherFieldsNode
 
 void
 FiniteElement::scatterFieldsNode(double* interp_nd_out)
@@ -3747,7 +3750,8 @@ FiniteElement::interpFieldsNode(std::vector<int> const& rmap_nodes, std::vector<
 {
     std::vector<double> interp_in_nodes;
 
-    this->gatherFieldsNode(interp_in_nodes, rmap_nodes, sizes_nodes);
+    bool restart = false;
+    this->gatherFieldsNode(interp_in_nodes, rmap_nodes, sizes_nodes, restart);
 
     double* interp_nd_out;
 
@@ -7599,8 +7603,9 @@ FiniteElement::writeRestart(int pcpt, std::string step)
     std::cout<< "["<< M_rank << "] "<<"M_ndof                   = "<< M_ndof <<"\n";
 
     // fields defined on mesh nodes
+    bool restart = true;
     std::vector<double> interp_in_nodes;
-    this->gatherFieldsNode(interp_in_nodes, M_rmap_nodes, M_sizes_nodes);
+    this->gatherFieldsNode(interp_in_nodes, M_rmap_nodes, M_sizes_nodes, restart);
 
     std::vector<double> M_VT_root;
     std::vector<double> M_VTM_root;
@@ -7669,16 +7674,7 @@ FiniteElement::writeRestart(int pcpt, std::string step)
         }
     }
 
-#if 1
     int nb_var_element = this->getNumVarsElement("restart");
-#else
-    M_nb_var_element = 15 + M_tice.size();//15;
-    int nb_var_element = M_nb_var_element;
-    if (M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
-    {
-        nb_var_element -= 4;
-    }
-#endif
 
     std::vector<double> interp_in_elements;
     this->gatherFieldsElementIO(interp_in_elements,M_ice_cat_type==setup::IceCategoryType::THIN_ICE);
@@ -8406,8 +8402,8 @@ FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out, std::vect
         }
     }
 
-    bool read_restart = true;
-    M_nb_var_node = this->getNumVarsNode(read_restart);
+    bool restart = true;
+    M_nb_var_node = this->getNumVarsNode(restart);
     if (M_rank == 0)
     {
         int num_nodes_root = M_mesh_root.numNodes();

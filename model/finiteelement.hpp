@@ -165,7 +165,10 @@ public:
 
     int getNumVarsNode(bool read_restart=false) const;
     int getNumVarsElement(std::string vartype) const;
-    void gatherFieldsNode(std::vector<double>& interp_in_elements, std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
+    void gatherFieldsNode(std::vector<double>& interp_in_elements,
+            std::vector<int> const& rmap_nodes,
+            std::vector<int> sizes_nodes,
+            bool restart);
     void scatterFieldsNode(double* interp_nd_out);
     void interpFieldsNode(std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
 
