@@ -72,6 +72,7 @@ namespace Nextsim
                 "Export results for debugging after each mesh adaptation. NB currently deactivated")
             ("numerics.regrid_angle", po::value<double>()->default_value( 10. ),
                 "Minimum value that any angle in an element can have.")
+            ("numerics.expansion_factor", po::value<double>()->default_value( 0.15 ), "Expansion factor for reading forcing data (should be a few percent)")
 
             // advection scheme
             // - diffusive Eulerian case where M_UM is kept as 0
