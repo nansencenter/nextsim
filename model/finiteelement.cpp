@@ -2047,7 +2047,7 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
         }
 #endif//WAVES
 
-        if(tmp_nb_var>nb_var_element)
+        if(tmp_nb_var!=nb_var_element)
         {
             throw std::logic_error("tmp_nb_var not equal to nb_var_elements");
         }
@@ -2193,7 +2193,7 @@ FiniteElement::collectVariablesIO(std::vector<double>& interp_elt_in_local, bool
             tmp_nb_var++;
         }
 
-        if(tmp_nb_var>nb_var_element)
+        if(tmp_nb_var!=nb_var_element)
         {
             throw std::logic_error("tmp_nb_var not equal to nb_var");
         }
@@ -3118,7 +3118,8 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
     std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = nb_var_element*f; });
 
     std::vector<double> interp_elt_in_local;
-    this->collectVariables(interp_elt_in_local, false);
+    bool ghosts = false;
+    this->collectVariables(interp_elt_in_local, ghosts);
 
     if (M_rank == 0)
     {
@@ -3380,12 +3381,18 @@ void
 FiniteElement::interpFieldsElement()
 {
     std::vector<double> interp_in_elements;
-    int nb_var_element = this->getNumVarsNode("standard");
+    int nb_var_element = this->getNumVarsElement("standard");
 
     timer["gather"].first.restart();
     this->gatherFieldsElement(interp_in_elements);
     if (M_rank == 0)
         std::cout<<"-------------------GATHER done in "<< timer["gather"].first.elapsed() <<"s\n";
+
+    if(interp_in_elements.size() != nb_var_element*M_mesh_previous_root.numTriangles())
+    {
+        std::cout<<interp_in_elements.size()<<" vs "<<nb_var_element*M_mesh_root.numTriangles()<<"\n";
+        throw std::runtime_error("interpFieldsElement: interp_in_elements is wrong size\n");
+    }
 
     double* interp_elt_out;
 
@@ -3413,7 +3420,7 @@ FiniteElement::interpFieldsElement()
         // By default, we then use the non-conservative MeshToMesh interpolation
 
         timer["cavities"].first.restart();
-        InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_in_elements[0],
+        InterpFromMeshToMesh2dCavities(&interp_elt_out, &interp_in_elements[0],
                                        &M_interp_method[0], nb_var_element,//M_nb_var_element,
                                        &surface_previous[0], &surface_root[0], bamgmesh_previous, bamgmesh_root);
 
@@ -3572,8 +3579,9 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes,
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------GATHER NODE starts\n";
 
-    M_nb_var_node = this->getNumVarsNode(restart);
-    std::vector<double> interp_node_in_local(M_nb_var_node*M_prv_local_ndof,0.);
+    int nb_var_node = this->getNumVarsNode(restart);
+    std::cout<<M_rank<<": 3577: "<<nb_var_node<<"\n";
+    std::vector<double> interp_node_in_local(nb_var_node*M_prv_local_ndof, 0.);
 
     chrono.restart();
     //std::cout<<"Nodal Interp starts\n";
@@ -3584,33 +3592,33 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes,
         int tmp_nb_var = 0;
 
         // VT
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_VT[i];
+        interp_node_in_local[nb_var_node*i+tmp_nb_var] = M_VT[i];
         tmp_nb_var++;
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_VT[i+M_prv_num_nodes];
+        interp_node_in_local[nb_var_node*i+tmp_nb_var] = M_VT[i+M_prv_num_nodes];
         tmp_nb_var++;
 
         // VTM
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_VTM[i];
+        interp_node_in_local[nb_var_node*i+tmp_nb_var] = M_VTM[i];
         tmp_nb_var++;
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_VTM[i+M_prv_num_nodes];
+        interp_node_in_local[nb_var_node*i+tmp_nb_var] = M_VTM[i+M_prv_num_nodes];
         tmp_nb_var++;
 
         // VTMM
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_VTMM[i];
+        interp_node_in_local[nb_var_node*i+tmp_nb_var] = M_VTMM[i];
         tmp_nb_var++;
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_VTMM[i+M_prv_num_nodes];
+        interp_node_in_local[nb_var_node*i+tmp_nb_var] = M_VTMM[i+M_prv_num_nodes];
         tmp_nb_var++;
 
         // UM
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UM[i];
+        interp_node_in_local[nb_var_node*i+tmp_nb_var] = M_UM[i];
         tmp_nb_var++;
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UM[i+M_prv_num_nodes];
+        interp_node_in_local[nb_var_node*i+tmp_nb_var] = M_UM[i+M_prv_num_nodes];
         tmp_nb_var++;
 
         // UT
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UT[i];
+        interp_node_in_local[nb_var_node*i+tmp_nb_var] = M_UT[i];
         tmp_nb_var++;
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UT[i+M_prv_num_nodes];
+        interp_node_in_local[nb_var_node*i+tmp_nb_var] = M_UT[i+M_prv_num_nodes];
         tmp_nb_var++;
 
 #if defined (WAVES)
@@ -3618,35 +3626,40 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes,
             if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
             {
                 // M_tau
-                interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_tau[i];
+                interp_node_in_local[nb_var_node*i+tmp_nb_var] = M_tau[i];
                 tmp_nb_var++;
-                interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_tau[i+M_prv_num_nodes];
+                interp_node_in_local[nb_var_node*i+tmp_nb_var] = M_tau[i+M_prv_num_nodes];
                 tmp_nb_var++;
 
-                // M_meshdisp
-                interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_wim_meshdisp[i];
+                // M_wim_meshdisp
+                interp_node_in_local[nb_var_node*i+tmp_nb_var] = M_wim_meshdisp[i];
                 tmp_nb_var++;
-                interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_wim_meshdisp[i+M_prv_num_nodes];
+                interp_node_in_local[nb_var_node*i+tmp_nb_var] = M_wim_meshdisp[i+M_prv_num_nodes];
                 tmp_nb_var++;
 
                 if(M_export_wim_diags_mesh)
                     // M_wim_fields_nodes
                     for (auto it=M_wim_fields_nodes.begin();it!=M_wim_fields_nodes.end();it++)
                     {
-                        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = (it->second)[i];
+                        interp_node_in_local[nb_var_node*i+tmp_nb_var] = (it->second)[i];
                         tmp_nb_var++;
-                        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = (it->second)[i+M_prv_num_nodes];
+                        interp_node_in_local[nb_var_node*i+tmp_nb_var] = (it->second)[i+M_prv_num_nodes];
                         tmp_nb_var++;
                     }
             }
 #endif//WAVES
+
+        if(tmp_nb_var!=nb_var_node)
+        {
+            throw std::logic_error("tmp_nb_var not equal to nb_var_node");
+        }
     }
 
-    std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = M_nb_var_node*f; });
+    std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = nb_var_node*f; });
 
     if (M_rank == 0)
     {
-        interp_in_nodes.resize(M_nb_var_node*M_prv_global_num_nodes);
+        interp_in_nodes.resize(nb_var_node*M_prv_global_num_nodes);
         boost::mpi::gatherv(M_comm, interp_node_in_local, &interp_in_nodes[0], sizes_nodes, 0);
     }
     else
@@ -3662,9 +3675,9 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes,
         {
             int ri =  rmap_nodes[i];
 
-            for (int j=0; j<M_nb_var_node; ++j)
+            for (int j=0; j<nb_var_node; ++j)
             {
-                interp_in_nodes[M_nb_var_node*i+j] = interp_in_nodes_nrd[M_nb_var_node*ri+j];
+                interp_in_nodes[nb_var_node*i+j] = interp_in_nodes_nrd[nb_var_node*ri+j];
             }
         }
     }
@@ -3673,72 +3686,150 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes,
 }//gatherFieldsNode
 
 void
-FiniteElement::scatterFieldsNode(double* interp_nd_out)
+FiniteElement::scatterFieldsNode(double* interp_nd_out, bool restart)
 {
     timer["scatter.node"].first.restart();
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER NODE starts\n";
 
     std::vector<double> in_nd_values;
+    int nb_var_node = this->getNumVarsNode(restart);
+    std::cout<<M_rank<<": "<<nb_var_node<<"\n";
 
     if (M_rank == 0)
     {
-        in_nd_values.resize(M_nb_var_node*M_id_nodes.size());
+        in_nd_values.resize(nb_var_node*M_id_nodes.size());
 
         for (int i=0; i<M_id_nodes.size(); ++i)
         {
             //int ri = rmap_nodes.right.find(id_nodes[i])->second-1;
             int ri = M_id_nodes[i]-1;
 
-            for (int j=0; j<M_nb_var_node; ++j)
+            for (int j=0; j<nb_var_node; ++j)
             {
-                in_nd_values[M_nb_var_node*i+j] = interp_nd_out[M_nb_var_node*ri+j];
+                in_nd_values[nb_var_node*i+j] = interp_nd_out[nb_var_node*ri+j];
             }
         }
     }
 
-    std::vector<double> out_nd_values(M_nb_var_node*M_num_nodes);
+    std::vector<double> out_nd_values(nb_var_node*M_num_nodes);
     std::vector<int> sizes_nodes = M_sizes_nodes_with_ghost;
 
     if (M_rank == 0)
     {
-        std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = M_nb_var_node*f; });
+        std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = nb_var_node*f; });
         boost::mpi::scatterv(M_comm, in_nd_values, sizes_nodes, &out_nd_values[0], 0);
     }
     else
     {
-        boost::mpi::scatterv(M_comm, &out_nd_values[0], M_nb_var_node*M_num_nodes, 0);
+        boost::mpi::scatterv(M_comm, &out_nd_values[0], nb_var_node*M_num_nodes, 0);
     }
 
 
-    M_VT.assign(2*M_num_nodes,0.);
-    M_VTM.assign(2*M_num_nodes,0.);
-    M_VTMM.assign(2*M_num_nodes,0.);
-    M_UM.assign(2*M_num_nodes,0.);
-    M_UT.assign(2*M_num_nodes,0.);
+    M_VT.assign(2*M_num_nodes, 0.);
+    M_VTM.assign(2*M_num_nodes, 0.);
+    M_VTMM.assign(2*M_num_nodes, 0.);
+    M_UM.assign(2*M_num_nodes, 0.);
+    M_UT.assign(2*M_num_nodes, 0.);
+#if defined (WAVES)
+    std::cout<<M_rank<<": 3727: nb_var_node = "<<nb_var_node<<"\n";
+    if(M_use_wim && !restart)
+    {
+        M_tau.assign(2*M_num_nodes, 0.);
+        if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
+        {
+            M_wim_meshdisp.assign(2*M_num_nodes, 0.);
+            if (M_export_wim_diags_mesh)
+                for(auto it=M_wim_fields_nodes.begin(); it!=M_wim_fields_nodes.end(); it++)
+                    (it->second).assign(2*M_num_nodes, 0.);
+        }
+    }
+#endif//WAVES
 
 
+    std::cout<<M_rank<<": 3735: nb_var_node = "<<nb_var_node<<"\n";
     for (int i=0; i<M_num_nodes; ++i)
     {
         // VT
-        M_VT[i] = out_nd_values[M_nb_var_node*i];
-        M_VT[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+1];
+        int tmp_nb_var = 0;
+        M_VT[i] = out_nd_values[nb_var_node*i+tmp_nb_var];
+        tmp_nb_var++;
+        //if (std::isnan(M_VT[i]))
+        //{
+        //    std::cout<<M_rank<<": nan in M_VT (x) at i = "<<i<<"\n";
+        //    //throw std::runtime_error("nan in M_VT (x)\n");
+        //}
+        M_VT[i+M_num_nodes] = out_nd_values[nb_var_node*i+tmp_nb_var];
+        //if (std::isnan(M_VT[i+M_num_nodes]))
+        //{
+        //    std::cout<<M_rank<<": nan in M_VT (y) at i = "<<i<<"\n";
+        //    //throw std::runtime_error("nan in M_VT (y)\n");
+        //}
+        tmp_nb_var++;
 
         // VTM
-        M_VTM[i] = out_nd_values[M_nb_var_node*i+2];
-        M_VTM[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+3];
+        M_VTM[i] = out_nd_values[nb_var_node*i+tmp_nb_var];
+        tmp_nb_var++;
+        M_VTM[i+M_num_nodes] = out_nd_values[nb_var_node*i+tmp_nb_var];
+        tmp_nb_var++;
 
         // VTMM
-        M_VTMM[i] = out_nd_values[M_nb_var_node*i+4];
-        M_VTMM[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+5];
+        M_VTMM[i] = out_nd_values[nb_var_node*i+tmp_nb_var];
+        tmp_nb_var++;
+        M_VTMM[i+M_num_nodes] = out_nd_values[nb_var_node*i+tmp_nb_var];
+        tmp_nb_var++;
 
         // UM
-        M_UM[i] = out_nd_values[M_nb_var_node*i+6];
-        M_UM[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+7];
+        M_UM[i] = out_nd_values[nb_var_node*i+tmp_nb_var];
+        tmp_nb_var++;
+        M_UM[i+M_num_nodes] = out_nd_values[nb_var_node*i+tmp_nb_var];
+        tmp_nb_var++;
 
         // UT
-        M_UT[i] = out_nd_values[M_nb_var_node*i+8];
-        M_UT[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+9];
+        M_UT[i] = out_nd_values[nb_var_node*i+tmp_nb_var];
+        tmp_nb_var++;
+        M_UT[i+M_num_nodes] = out_nd_values[nb_var_node*i+tmp_nb_var];
+        tmp_nb_var++;
+
+#if defined (WAVES)
+        if(M_use_wim && !restart)
+        {
+            M_tau[i] = out_nd_values[nb_var_node*i+tmp_nb_var];
+            tmp_nb_var++;
+            if (std::isnan(M_tau[i]))
+            {
+                std::cout<<M_rank<<": nan in M_tau (x) at i = "<<i<<"\n";
+                //throw std::runtime_error("nan in M_tau (x)\n");
+            }
+            M_tau[M_num_nodes+i] = out_nd_values[nb_var_node*i+tmp_nb_var];
+            tmp_nb_var++;
+            if (std::isnan(M_tau[i+M_num_nodes]))
+            {
+                std::cout<<M_rank<<": nan in M_tau (y) at i = "<<i<<"\n";
+                //throw std::runtime_error("nan in M_tau (y)\n");
+            }
+            if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
+            {
+                M_wim_meshdisp[i] = out_nd_values[nb_var_node*i+tmp_nb_var];
+                tmp_nb_var++;
+                M_wim_meshdisp[M_num_nodes+i] = out_nd_values[nb_var_node*i+tmp_nb_var];
+                tmp_nb_var++;
+
+                if (M_export_wim_diags_mesh)
+                    for(auto it=M_wim_fields_nodes.begin(); it!=M_wim_fields_nodes.end(); it++)
+                    {
+                        (it->second)[i] = out_nd_values[nb_var_node*i+tmp_nb_var];
+                        tmp_nb_var++;
+                        (it->second)[M_num_nodes+i] = out_nd_values[nb_var_node*i+tmp_nb_var];
+                        tmp_nb_var++;
+                    }
+            }
+        }
+#endif//WAVES
+        if(tmp_nb_var!=nb_var_node)
+        {
+            throw std::logic_error("tmp_nb_var not equal to nb_var_node");
+        }
     }
 
 
@@ -3751,23 +3842,27 @@ FiniteElement::interpFieldsNode(std::vector<int> const& rmap_nodes, std::vector<
     std::vector<double> interp_in_nodes;
 
     bool restart = false;
+    int nb_var_node = this->getNumVarsNode(restart);
+    std::cout<<M_rank<<": 3839: "<<nb_var_node<<"\n";
     this->gatherFieldsNode(interp_in_nodes, rmap_nodes, sizes_nodes, restart);
 
     double* interp_nd_out;
 
+    std::cout<<M_rank<<": 3843\n";
     if (M_rank == 0)
     {
         InterpFromMeshToMesh2dx(&interp_nd_out,
-                                &M_mesh_previous_root.indexTr()[0],&M_mesh_previous_root.coordX()[0],&M_mesh_previous_root.coordY()[0],
-                                M_mesh_previous_root.numNodes(),M_mesh_previous_root.numTriangles(),
+                                &M_mesh_previous_root.indexTr()[0], &M_mesh_previous_root.coordX()[0], &M_mesh_previous_root.coordY()[0],
+                                M_mesh_previous_root.numNodes(), M_mesh_previous_root.numTriangles(),
                                 &interp_in_nodes[0],
-                                M_mesh_previous_root.numNodes(),M_nb_var_node,
-                                &M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],M_mesh_root.numNodes(),
+                                M_mesh_previous_root.numNodes(), nb_var_node,
+                                &M_mesh_root.coordX()[0], &M_mesh_root.coordY()[0], M_mesh_root.numNodes(),
                                 false);
     }
 
-
-    this->scatterFieldsNode(interp_nd_out);
+    std::cout<<M_rank<<": 3854\n";
+    M_comm.barrier();
+    this->scatterFieldsNode(interp_nd_out, restart);
 
     if (M_rank == 0)
     {
@@ -4067,7 +4162,7 @@ FiniteElement::regrid(bool step)
 
     std::vector<double> um_root;
 
-    this->gatherNodalField(M_UM,um_root);
+    this->gatherNodalField(M_UM, um_root);
 
     if (M_rank == 0)
     {
@@ -4080,7 +4175,7 @@ FiniteElement::regrid(bool step)
             displacement_factor /= 2.;
             step_order++;
 
-            flip = this->flip(M_mesh_root,um_root,displacement_factor);
+            flip = this->flip(M_mesh_root, um_root,displacement_factor);
 
             if (substep > 1)
                 LOG(DEBUG) <<"FLIP DETECTED "<< substep-1 <<"\n";
@@ -4920,7 +5015,8 @@ FiniteElement::update()
 {
     // collect the variables into a single structure
     std::vector<double> interp_elt_in_local;
-    this->collectVariables(interp_elt_in_local, true);
+    bool ghosts = true;
+    this->collectVariables(interp_elt_in_local, ghosts);
 
     // advect
     std::vector<double> interp_elt_out;
@@ -6611,6 +6707,12 @@ FiniteElement::step()
             if ( M_use_moorings && !M_moorings_snapshot )
                 M_moorings.updateGridMean(M_mesh);
 
+            if(vm["numerics.regrid_output_flag"].as<bool>())
+            {
+                std::string name_str = (boost::format( "pre_regrid_%1%" ) % M_nb_regrid).str();
+                this->exportResults(name_str);
+            }
+
 #if defined (WAVES)
             if (M_use_wim)
                 if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
@@ -6634,6 +6736,11 @@ FiniteElement::step()
                     this->wimPostRegrid();
 #endif
 
+            if(vm["numerics.regrid_output_flag"].as<bool>())
+            {
+                std::string name_str = (boost::format( "post_regrid_%1%" ) % M_nb_regrid).str();
+                this->exportResults(name_str);
+            }
             ++M_nb_regrid;
         }//M_regrid
     }//bamg-regrid
@@ -6721,6 +6828,8 @@ FiniteElement::step()
     // Do the dynamics
     //======================================================================
 
+    if (M_rank == 0)
+        this->checkNodalFields("before assemble");
     if ( M_dynamics_type == setup::DynamicsType::DEFAULT )
     {
         //======================================================================
@@ -6730,6 +6839,8 @@ FiniteElement::step()
         this->assemble(pcpt);
         if (M_rank == 0)
             std::cout <<"---timer assemble:             "<< timer["assemble"].first.elapsed() <<"s\n";
+        if (M_rank == 0)
+            this->checkNodalFields("after assemble");
 
 #if 0
         if(had_remeshed && (vm["numerics.regrid_output_flag"].as<bool>()))
@@ -7606,14 +7717,13 @@ FiniteElement::writeRestart(int pcpt, std::string step)
     bool restart = true;
     std::vector<double> interp_in_nodes;
     this->gatherFieldsNode(interp_in_nodes, M_rmap_nodes, M_sizes_nodes, restart);
+    int nb_var_node = this->getNumVarsNode(restart);
 
     std::vector<double> M_VT_root;
     std::vector<double> M_VTM_root;
     std::vector<double> M_VTMM_root;
     std::vector<double> M_UM_root;
     std::vector<double> M_UT_root;
-
-    int tmp_nb_var=0;
 
     if (M_rank == 0)
     {
@@ -7625,49 +7735,49 @@ FiniteElement::writeRestart(int pcpt, std::string step)
 
         for (int i=0; i<M_ndof; ++i)
         {
-            tmp_nb_var = 0;
+            int tmp_nb_var = 0;
 
             // VT_X
-            M_VT_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            M_VT_root[i] = interp_in_nodes[nb_var_node*i+tmp_nb_var];
             tmp_nb_var++;
 
             // VT_Y
-            M_VT_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            M_VT_root[i+M_ndof] = interp_in_nodes[nb_var_node*i+tmp_nb_var];
             tmp_nb_var++;
 
             // VTM_X
-            M_VTM_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            M_VTM_root[i] = interp_in_nodes[nb_var_node*i+tmp_nb_var];
             tmp_nb_var++;
 
             // VTM_Y
-            M_VTM_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            M_VTM_root[i+M_ndof] = interp_in_nodes[nb_var_node*i+tmp_nb_var];
             tmp_nb_var++;
 
             // VTMM_X
-            M_VTMM_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            M_VTMM_root[i] = interp_in_nodes[nb_var_node*i+tmp_nb_var];
             tmp_nb_var++;
 
             // VTMM_Y
-            M_VTMM_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            M_VTMM_root[i+M_ndof] = interp_in_nodes[nb_var_node*i+tmp_nb_var];
             tmp_nb_var++;
 
             // UM_X
-            M_UM_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            M_UM_root[i] = interp_in_nodes[nb_var_node*i+tmp_nb_var];
             tmp_nb_var++;
 
             // UM_Y
-            M_UM_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            M_UM_root[i+M_ndof] = interp_in_nodes[nb_var_node*i+tmp_nb_var];
             tmp_nb_var++;
 
             // UT_X
-            M_UT_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            M_UT_root[i] = interp_in_nodes[nb_var_node*i+tmp_nb_var];
             tmp_nb_var++;
 
             // UT_Y
-            M_UT_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            M_UT_root[i+M_ndof] = interp_in_nodes[nb_var_node*i+tmp_nb_var];
             tmp_nb_var++;
 
-            if(tmp_nb_var>M_nb_var_node)
+            if(tmp_nb_var!=nb_var_node)
             {
                 throw std::logic_error("tmp_nb_var not equal to nb_var");
             }
@@ -7677,7 +7787,7 @@ FiniteElement::writeRestart(int pcpt, std::string step)
     int nb_var_element = this->getNumVarsElement("restart");
 
     std::vector<double> interp_in_elements;
-    this->gatherFieldsElementIO(interp_in_elements,M_ice_cat_type==setup::IceCategoryType::THIN_ICE);
+    this->gatherFieldsElementIO(interp_in_elements, M_ice_cat_type==setup::IceCategoryType::THIN_ICE);
 
     M_comm.barrier();
 
@@ -7712,7 +7822,7 @@ FiniteElement::writeRestart(int pcpt, std::string step)
 
         for (int i=0; i<M_mesh_root.numTriangles(); ++i)
         {
-            tmp_nb_var=0;
+            int tmp_nb_var=0;
             int ri = M_rmap_elements[i];
 
             // concentration
@@ -7793,7 +7903,7 @@ FiniteElement::writeRestart(int pcpt, std::string step)
                 tmp_nb_var++;
             }
 
-            if(tmp_nb_var>nb_var_element)
+            if(tmp_nb_var!=nb_var_element)
             {
                 throw std::logic_error("tmp_nb_var not equal to nb_var");
             }
@@ -8233,7 +8343,8 @@ FiniteElement::readRestart(std::string step)
 
     // Now set the local variables using interp_elt_out, interp_nd_out
     this->scatterFieldsElementIO(interp_elt_out, M_ice_cat_type==setup::IceCategoryType::THIN_ICE);
-    this->scatterFieldsNode(&interp_nd_out[0]);
+    bool restart = true;
+    this->scatterFieldsNode(&interp_nd_out[0], restart);
 
     return pcpt;
 }//readRestart
@@ -8395,7 +8506,7 @@ FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out, std::vect
                 tmp_nb_var++;
             }
 
-            if(tmp_nb_var>nb_var_element)
+            if(tmp_nb_var!=nb_var_element)
             {
                 throw std::logic_error("tmp_nb_var not equal to nb_var");
             }
@@ -8403,11 +8514,11 @@ FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out, std::vect
     }
 
     bool restart = true;
-    M_nb_var_node = this->getNumVarsNode(restart);
+    int nb_var_node = this->getNumVarsNode(restart);
     if (M_rank == 0)
     {
         int num_nodes_root = M_mesh_root.numNodes();
-        interp_nd_out.resize(M_nb_var_node*num_nodes_root,0.);
+        interp_nd_out.resize(nb_var_node*num_nodes_root, 0.);
 
         int tmp_nb_var = 0;
 
@@ -8416,43 +8527,43 @@ FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out, std::vect
             tmp_nb_var = 0;
 
             // VT
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VT[i];
+            interp_nd_out[nb_var_node*i+tmp_nb_var] = M_VT[i];
             tmp_nb_var++;
 
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VT[i+num_nodes_root];
+            interp_nd_out[nb_var_node*i+tmp_nb_var] = M_VT[i+num_nodes_root];
             tmp_nb_var++;
 
             // VTM
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VTM[i];
+            interp_nd_out[nb_var_node*i+tmp_nb_var] = M_VTM[i];
             tmp_nb_var++;
 
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VTM[i+num_nodes_root];
+            interp_nd_out[nb_var_node*i+tmp_nb_var] = M_VTM[i+num_nodes_root];
             tmp_nb_var++;
 
             // VTMM
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VTMM[i];
+            interp_nd_out[nb_var_node*i+tmp_nb_var] = M_VTMM[i];
             tmp_nb_var++;
 
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VTMM[i+num_nodes_root];
+            interp_nd_out[nb_var_node*i+tmp_nb_var] = M_VTMM[i+num_nodes_root];
             tmp_nb_var++;
 
             // UM
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_UM[i];
+            interp_nd_out[nb_var_node*i+tmp_nb_var] = M_UM[i];
             tmp_nb_var++;
 
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_UM[i+num_nodes_root];
+            interp_nd_out[nb_var_node*i+tmp_nb_var] = M_UM[i+num_nodes_root];
             tmp_nb_var++;
 
             // UT
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_UT[i];
+            interp_nd_out[nb_var_node*i+tmp_nb_var] = M_UT[i];
             tmp_nb_var++;
 
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_UT[i+num_nodes_root];
+            interp_nd_out[nb_var_node*i+tmp_nb_var] = M_UT[i+num_nodes_root];
             tmp_nb_var++;
 
-            if(tmp_nb_var>M_nb_var_node)
+            if(tmp_nb_var!=nb_var_node)
             {
-                throw std::logic_error("tmp_nb_var not equal to M_nb_var_node");
+                throw std::logic_error("tmp_nb_var not equal to nb_var_node");
             }
         }
     }//M_rank==0
@@ -8468,9 +8579,14 @@ FiniteElement::updateVelocity()
     // increment M_UT that is used for the drifters
     for (int nd=0; nd<M_UT.size(); ++nd)
     {
+        //if (std::isnan(M_VT[nd]))
+        //{
+        //    std::cout<<M_rank<<": nan in M_VT at nd = "<<nd<<"\n";
+        //    //throw std::runtime_error("nan in M_VT (x)\n");
+        //}
         M_UT[nd] += time_step*M_VT[nd]; // Total displacement (for drifters)
     }
-}
+}//updateVelocity
 
 void
 FiniteElement::updateFreeDriftVelocity()
@@ -11508,15 +11624,15 @@ FiniteElement::exportResults(std::string const& name_str, bool export_mesh, bool
                                % M_export_path
                                % name_str ).str();
 
-    std::vector<std::string> filenames = {meshfile,fieldfile};
+    std::vector<std::string> filenames = {meshfile, fieldfile};
     this->exportResults(filenames, export_mesh, export_fields, apply_displacement);
-}
+}//updateFreeDriftVelocity
 
 void
 FiniteElement::exportResults(std::vector<std::string> const& filenames, bool export_mesh, bool export_fields, bool apply_displacement)
 {
     std::vector<double> M_VT_root;
-    this->gatherNodalField(M_VT,M_VT_root);
+    this->gatherNodalField(M_VT, M_VT_root);
 
     std::vector<double> M_UM_root;
     if (apply_displacement)
@@ -11534,6 +11650,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
 
 #if 1
     int nb_var_element = this->getNumVarsElement("IO");
+    std::cout<<M_rank<<": exportResults, nvar el = "<<nb_var_element<<"\n";
 #else
     M_nb_var_element = 15 + M_tice.size();//15;
     int nb_var_element = M_nb_var_element;
@@ -11549,21 +11666,30 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
 #endif
 
     std::vector<double> interp_in_elements;
-    this->gatherFieldsElementIO(interp_in_elements,M_ice_cat_type==setup::IceCategoryType::THIN_ICE);
+    this->gatherFieldsElementIO(interp_in_elements, M_ice_cat_type==setup::IceCategoryType::THIN_ICE);
+    if(interp_in_elements.size() != nb_var_element*M_mesh_root.numTriangles())
+    {
+        std::cout<<interp_in_elements.size()<<" vs "<<nb_var_element*M_mesh_root.numTriangles()<<"\n";
+        throw std::runtime_error("exportResults: interp_in_elements is wrong size\n");
+    }
 
 
 #if defined (WAVES)
     T_map_vec wim_fields_els, wim_fields_nodes;
-    dbl_vec tau_root(2*M_mesh_root.numNodes());
-    dbl_vec nfloes_root(M_mesh_root.numTriangles());
-    dbl_vec dfloe_root(M_mesh_root.numTriangles());
-    this->gatherElementField(M_nfloes, nfloes_root);
-    this->gatherElementField(M_dfloe, dfloe_root);
-    if(M_export_wim_diags_mesh)
-        this->getWimDiagnosticsRoot(M_mesh_root,
-                wim_fields_els, wim_fields_nodes, tau_root);
-    else
-        this->gatherNodalField(M_tau, tau_root);
+    dbl_vec tau_root, nfloes_root, dfloe_root;
+    if(M_use_wim)
+    {
+        tau_root.resize(2*M_mesh_root.numNodes());
+        nfloes_root.resize(M_mesh_root.numTriangles());
+        dfloe_root.resize(M_mesh_root.numTriangles());
+        this->gatherElementField(M_nfloes, nfloes_root);
+        this->gatherElementField(M_dfloe, dfloe_root);
+        if(M_export_wim_diags_mesh)
+            this->getWimDiagnosticsRoot(M_mesh_root,
+                    wim_fields_els, wim_fields_nodes, tau_root);
+        else
+            this->gatherNodalField(M_tau, tau_root);
+    }
 #endif//WAVES
 
     M_comm.barrier();
@@ -11740,7 +11866,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
                 tmp_nb_var++;
             }
 
-            if(tmp_nb_var>nb_var_element)
+            if(tmp_nb_var!=nb_var_element)
             {
                 throw std::logic_error("tmp_nb_var not equal to nb_var");
             }
@@ -11770,7 +11896,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
             if(apply_displacement)
             {
                 // move it back after the export
-                M_mesh_root.move(M_UM_root,-1.);
+                M_mesh_root.move(M_UM_root, -1.);
             }
 
             fileout = filenames[0]+".dat";
@@ -11781,7 +11907,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
             if ( !outrecord.good() )
                 throw std::runtime_error("Cannot write to file: " + fileout);
 
-            exporter.writeRecord(outrecord,"mesh");
+            exporter.writeRecord(outrecord, "mesh");
             outrecord.close();
         }
 
@@ -11880,19 +12006,19 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
             }
 
 #if defined (WAVES)
-        if(M_use_wim)
-        {
-            exporter.writeField(outbin, dfloe_root, "Dfloe");
-            exporter.writeField(outbin, nfloes_root, "Nfloes");
-            exporter.writeField(outbin, tau_root, "Stress_waves_ice");
-            if(M_export_wim_diags_mesh)
+            if(M_use_wim)
             {
-                for (auto it=wim_fields_els.begin(); it!=wim_fields_els.end(); it++)
-                    exporter.writeField(outbin, it->second, it->first);
-                for (auto it=wim_fields_nodes.begin(); it!=wim_fields_nodes.end(); it++)
-                    exporter.writeField(outbin, it->second, it->first);
+                exporter.writeField(outbin, dfloe_root, "Dfloe");
+                exporter.writeField(outbin, nfloes_root, "Nfloes");
+                exporter.writeField(outbin, tau_root, "Stress_waves_ice");
+                if(M_export_wim_diags_mesh)
+                {
+                    for (auto it=wim_fields_els.begin(); it!=wim_fields_els.end(); it++)
+                        exporter.writeField(outbin, it->second, it->first);
+                    for (auto it=wim_fields_nodes.begin(); it!=wim_fields_nodes.end(); it++)
+                        exporter.writeField(outbin, it->second, it->first);
+                }
             }
-        }
 #endif//WAVES
             outbin.close();
 
@@ -12226,6 +12352,7 @@ FiniteElement::wimPreRegrid(FEMeshType const &movedmesh)
     }
     else 
         M_wim_meshdisp = M_wim.getRelativeMeshDisplacement(movedmesh);
+
 }//wimPreRegrid()
 
 typename FiniteElement::dbl_vec3d
@@ -12712,6 +12839,30 @@ FiniteElement::getWimDiagnosticsRoot(GmshMeshSeq const &movedmesh,
     }
 }//getWimDiagnosticsRoot
 #endif//WAVES
+
+void
+FiniteElement::checkNodalFields(std::string text)
+{
+    std::cout<<M_rank<<": checkNodalFields: "<<text<<"\n";
+    for (int nd=0; nd<2*M_num_nodes; nd++)
+    {
+        if (std::isnan(M_VT[nd]))
+            std::cout<<M_rank<<": nan in M_VT at nd = "<<nd<<"\n";
+        if (std::isnan(M_VTM[nd]))
+            std::cout<<M_rank<<": nan in M_VTM at nd = "<<nd<<"\n";
+        if (std::isnan(M_VTMM[nd]))
+            std::cout<<M_rank<<": nan in M_VTMM at nd = "<<nd<<"\n";
+        if (std::isnan(M_UM[nd]))
+            std::cout<<M_rank<<": nan in M_UM at nd = "<<nd<<"\n";
+        if (std::isnan(M_UT[nd]))
+            std::cout<<M_rank<<": nan in M_UT at nd = "<<nd<<"\n";
+#if defined (WAVES)
+        if(M_use_wim)
+            if (std::isnan(M_tau[nd]))
+                std::cout<<M_rank<<": nan in M_tau at nd = "<<nd<<"\n";
+#endif//WAVES
+    }
+}
 
 
 std::string

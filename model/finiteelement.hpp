@@ -169,7 +169,7 @@ public:
             std::vector<int> const& rmap_nodes,
             std::vector<int> sizes_nodes,
             bool restart);
-    void scatterFieldsNode(double* interp_nd_out);
+    void scatterFieldsNode(double* interp_nd_out, bool restart);
     void interpFieldsNode(std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
 
     void assemble(int pcpt);
@@ -380,17 +380,6 @@ public:
 
     void wimCheckWaves();
 
-#if 0
-    void getWimDiagnostics()
-    {
-        if (M_parallel_wim)
-            this->getWimDiagnostics( this->getMovedMesh() );
-        else
-            this->getWimDiagnostics( this->getMovedMeshRoot() );
-    }
-    template<typename FEMeshType>
-    void getWimDiagnostics(FEMeshType const &movedmesh);
-#endif
     void getWimDiagnosticsRoot(GmshMeshSeq const &movedmesh,
             T_map_vec &wim_fields_elements,
             T_map_vec &wim_fields_nodes,
@@ -464,9 +453,6 @@ private:
     int M_local_nelements;
     int M_rank;
     Communicator M_comm;
-
-    //int M_nb_var_element;
-    int M_nb_var_node;
 
     int M_prv_local_ndof;
     int M_prv_num_nodes;
@@ -883,6 +869,7 @@ private:
     void updateMeans(GridOutput& means, double time_factor);
     void initMoorings();
     void updateMoorings();
+    void checkNodalFields(std::string text);
 
 private:
 

@@ -69,10 +69,11 @@ namespace Nextsim
             ("numerics.regrid", po::value<std::string>()->default_value( "bamg" ),
                 "Options for regridding: No-regridding or bamg")
             ("numerics.regrid_output_flag", po::value<bool>()->default_value( false ),
-                "Export results for debugging after each mesh adaptation. NB currently deactivated")
+                "Export results for debugging before and after each regrid.")
             ("numerics.regrid_angle", po::value<double>()->default_value( 10. ),
                 "Minimum value that any angle in an element can have.")
-            ("numerics.expansion_factor", po::value<double>()->default_value( 0.15 ), "Expansion factor for reading forcing data (should be a few percent)")
+            ("numerics.expansion_factor", po::value<double>()->default_value( 0.15 ),
+                "Expansion factor for reading forcing data (should be a few percent)")
 
             // advection scheme
             // - diffusive Eulerian case where M_UM is kept as 0
