@@ -37,6 +37,7 @@ then
    # make a local copy of executable
    # (so can recompile code and run somewhere else)
    mkdir -p bin
+   echo cp $NEXTSIMDIR/model/$prog $prog
    cp $NEXTSIMDIR/model/$prog $prog
 fi
 
