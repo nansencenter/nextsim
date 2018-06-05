@@ -357,34 +357,34 @@ FiniteElement::rootMeshProcessing()
 
         switch (M_mesh_type)
         {
-        case setup::MeshType::FROM_UNREF:
-            // For the other meshes, we use a constant hmin and hmax
-            bamgopt->hmin = h[0];
-            bamgopt->hmax = h[1];
-            break;
-        case setup::MeshType::FROM_SPLIT:
-            bamgopt->hmin = h[0];
-            bamgopt->hmax = h[1];
+            case setup::MeshType::FROM_UNREF:
+                // For the other meshes, we use a constant hmin and hmax
+                bamgopt->hmin = h[0];
+                bamgopt->hmax = h[1];
+                break;
+            case setup::MeshType::FROM_SPLIT:
+                bamgopt->hmin = h[0];
+                bamgopt->hmax = h[1];
 
-            M_hminVertices = this->hminVertices(M_mesh_init_root, bamgmesh_root);
-            M_hmaxVertices = this->hmaxVertices(M_mesh_init_root, bamgmesh_root);
+                M_hminVertices = this->hminVertices(M_mesh_init_root, bamgmesh_root);
+                M_hmaxVertices = this->hmaxVertices(M_mesh_init_root, bamgmesh_root);
 
-            // LOG(DEBUG) <<"HMIN MIN= "<< *std::min_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
-            // LOG(DEBUG) <<"HMIN MAX= "<< *std::max_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
-            // LOG(DEBUG) <<"HMAX MIN= "<< *std::min_element(M_hmaxVertices.begin(), M_hmaxVertices.end()) <<"\n";
-            // LOG(DEBUG) <<"HMAX MAX= "<< *std::max_element(M_hmaxVertices.begin(), M_hmaxVertices.end()) <<"\n";
+                // LOG(DEBUG) <<"HMIN MIN= "<< *std::min_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
+                // LOG(DEBUG) <<"HMIN MAX= "<< *std::max_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
+                // LOG(DEBUG) <<"HMAX MIN= "<< *std::min_element(M_hmaxVertices.begin(), M_hmaxVertices.end()) <<"\n";
+                // LOG(DEBUG) <<"HMAX MAX= "<< *std::max_element(M_hmaxVertices.begin(), M_hmaxVertices.end()) <<"\n";
 
-            bamgopt->hminVertices = new double[M_mesh_init_root.numNodes()];
-            bamgopt->hmaxVertices = new double[M_mesh_init_root.numNodes()];
-            for (int i=0; i<M_mesh_init_root.numNodes(); ++i)
-            {
-                bamgopt->hminVertices[i] = M_hminVertices[i];
-                bamgopt->hmaxVertices[i] = M_hmaxVertices[i];
-            }
-            break;
-        default:
-            LOG(DEBUG)  << "invalid mesh type"<<"\n";
-            throw std::logic_error("invalid mesh type");
+                bamgopt->hminVertices = new double[M_mesh_init_root.numNodes()];
+                bamgopt->hmaxVertices = new double[M_mesh_init_root.numNodes()];
+                for (int i=0; i<M_mesh_init_root.numNodes(); ++i)
+                {
+                    bamgopt->hminVertices[i] = M_hminVertices[i];
+                    bamgopt->hmaxVertices[i] = M_hmaxVertices[i];
+                }
+                break;
+            default:
+                LOG(DEBUG)  << "invalid mesh type"<<"\n";
+                throw std::logic_error("invalid mesh type");
         }
 
         if(M_mesh_type==setup::MeshType::FROM_SPLIT)
@@ -454,7 +454,7 @@ FiniteElement::rootMeshProcessing()
 
     boost::mpi::broadcast(M_comm, M_flag_fix, 0);
 
-}
+}//rootMeshProcessing
 
 void
 FiniteElement::rootMeshRenumbering()
@@ -6537,7 +6537,7 @@ FiniteElement::init()
 
     if (M_rank==0)
     {
-	LOG(INFO) << "-----------------------Simulation started on "<< Nextsim::current_time_local() <<"\n";
+        LOG(INFO) << "-----------------------Simulation started on "<< Nextsim::current_time_local() <<"\n";
         LOG(INFO) <<"TIMESTEP= "<< time_step <<"\n";
         LOG(INFO) <<"DURATION= "<< duration <<"\n";
     }
@@ -6573,7 +6573,7 @@ FiniteElement::init()
             pcpt = this->readRestart(vm["restart.step_nb"].as<int>());
         M_current_time = time_init + pcpt*time_step/(24*3600.0);
 
-        if(fmod(pcpt*time_step,output_time_step) == 0)
+        if(fmod(pcpt*time_step, output_time_step) == 0)
         {
             LOG(DEBUG) <<"export starts\n";
             //this->exportResults((int) pcpt*time_step/output_time_step);
