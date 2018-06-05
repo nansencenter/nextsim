@@ -6553,18 +6553,9 @@ FiniteElement::init()
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     LOG(DEBUG) << "SCALE_COEF = " << scale_coef << "\n";
 
-    // Check the minimum angle of the grid
-    double minang = this->minAngle(M_mesh);
-
-    if (minang < vm["numerics.regrid_angle"].as<double>())
-    {
-        LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the initial grid\n";
-        throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
-    }
-
     if ( M_use_restart )
     {
-        LOG(DEBUG) <<"Reading restart file\n";
+        LOG(DEBUG) <<"Reading restart files\n";
 
         std::string res_str = vm["restart.restart_string"].as<std::string>();
         if ( !res_str.empty() )
@@ -6581,7 +6572,17 @@ FiniteElement::init()
             LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
         }
     }
-    else
+
+    // Check the minimum angle of the grid
+    // - do this after readRestart, but before initVariables
+    double minang = this->minAngle(M_mesh);
+    if (minang < vm["numerics.regrid_angle"].as<double>())
+    {
+        LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the initial grid\n";
+        throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
+    }
+
+    if(!M_use_restart)
     {
         // Do one regrid to get the mesh right
         //this->regrid(pcpt);
@@ -6591,6 +6592,7 @@ FiniteElement::init()
         LOG(DEBUG) <<"Initialize variables\n";
         this->initVariables();
     }
+
     M_tau.assign(2*M_num_nodes, 0.);
 
     // Initialise atmospheric and oceanic forcing
@@ -8042,22 +8044,18 @@ FiniteElement::readRestart(std::string step)
         M_mesh_filename = (boost::format( "par%1%%2%" ) % M_comm.size() % M_mesh_filename ).str();
 
         // === Read in the mesh restart files ===
-        std::string restart_path;
-        if ( (vm["restart.input_path"].as<std::string>()).empty() )
+        std::string restart_path = vm["restart.input_path"].as<std::string>();
+        if ( restart_path.empty() )
         {
             //default restart path is $NEXTSIMDIR/restart
             restart_path = Environment::nextsimDir().string()+"/restart";
-        }
-        else
-        {
-            restart_path = vm["setup.restart_path"].as<std::string>();
         }
 
         // Start with the record
         filename = (boost::format( "%1%/mesh_%2%.dat" )
                     % restart_path
                     % step ).str();
-        LOG(DEBUG)<<"restart file = "<<filename<<"\n";
+        LOG(DEBUG)<<"restart mesh file = "<<filename<<"\n";
 
         std::ifstream meshrecord(filename);
         if ( ! meshrecord.good() )
@@ -8224,7 +8222,7 @@ FiniteElement::readRestart(std::string step)
 
         for (int i=0; i<M_tice.size(); ++i)
         {
-            std::cout<<"M_tice[i]= "<< (M_tice[i]).size() <<"\n";
+            std::cout<<"size M_tice["<<i<<"]= "<< (M_tice[i]).size() <<"\n";
         }
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
@@ -8259,7 +8257,7 @@ FiniteElement::readRestart(std::string step)
         M_sss        = field_map_dbl["M_sss"];
 
         // Pre-processing
-        if(vm["setup.restart_at_rest"].as<bool>())
+        if(vm["restart.restart_at_rest"].as<bool>())
         {
             for (int i=0; i < M_sigma.size(); i++)
             {
