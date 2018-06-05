@@ -157,9 +157,12 @@ namespace Nextsim
 
             // restart
             // - inputs
-            ("restart.start_from_restart", po::value<bool>()->default_value( false ), "")
-            ("restart.restart_string", po::value<std::string>()->default_value( "" ), "")
-            ("restart.step_nb", po::value<int>()->default_value( 0 ), "")
+            ("restart.start_from_restart", po::value<bool>()->default_value( false ),
+                "start from a restart file or initialise according to setup.ice-type")
+            ("restart.restart_string", po::value<std::string>()->default_value( "" ),
+                "set filename of restart file: [field,mesh]_[restart_string].[bin,dat]")
+            ("restart.step_nb", po::value<int>()->default_value( 0 ),
+                "set filename of restart file: [field,mesh]_[step_nb].[bin,dat]")//TODO redundant now - use restart_string
             ("restart.input_path", po::value<std::string>()->default_value( "" ),
                     "where to find restarts (default is $NEXTSIMDIR/restart)")
             ("restart.restart_at_rest", po::value<bool>()->default_value( false ), "")
