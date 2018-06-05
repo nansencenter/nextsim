@@ -2368,7 +2368,13 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
             M_conc_thin[i] = conc_thin_tmp;
         }
     }
-}
+
+#if defined (WAVES)
+    if(M_use_wim)
+        this->updateDfloe();
+#endif
+
+}//redistributeVariables
 
 
 void
@@ -6669,13 +6675,7 @@ FiniteElement::step()
         // so won't happen this time step
         // TODO just write restart in init() as well?
         LOG(DEBUG) <<"first export starts\n";
-        if (vm["output.datetime_in_filename"].as<bool>())
-            this->exportResults(M_current_time);
-        else
-        {
-            int ostep = 0;//need to declare as an int, to make sure it's not interpreted as a double
-            this->exportResults(ostep);
-        }
+        this->exportResults(0);
         // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
         LOG(DEBUG) <<"first export done\n";
     }
@@ -6732,8 +6732,10 @@ FiniteElement::step()
 
 #if defined (WAVES)
             if (M_use_wim)
+            {
                 if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
                     this->wimPostRegrid();
+            }
 #endif
 
             if(vm["numerics.regrid_output_flag"].as<bool>())
@@ -6891,17 +6893,11 @@ FiniteElement::step()
     // Output (export and moorings)
     //======================================================================
 
-    if(fmod(pcpt*time_step,output_time_step) == 0)
+    if(fmod(pcpt*time_step, output_time_step) == 0)
     {
         chrono.restart();
         LOG(DEBUG) <<"export starts\n";
-        if (vm["output.datetime_in_filename"].as<bool>())
-            this->exportResults(M_current_time);
-        else
-        {
-            int ostep = pcpt*time_step/output_time_step;//need to declare as an int, to make sure it's not interpreted as a double
-            this->exportResults(ostep);
-        }
+        this->exportResults(pcpt*time_step/output_time_step);
         LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
     }
 
@@ -6910,24 +6906,17 @@ FiniteElement::step()
         this->updateMoorings();
     }
 
-    // check if writing restart each timestep
-    bool write_restart = vm["restart.debugging"].as<bool>();
-    if( !write_restart
-            && vm["restart.write_restart"].as<bool>() )
-        // else check if we've reached the restart timestep
-        write_restart = (fmod(pcpt*time_step,restart_time_step) == 0);
-            
-    if (write_restart)
+    if(vm["restart.write_restart"].as<bool>())
     {
-        std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
-        if (vm["output.datetime_in_filename"].as<bool>())
-            this->writeRestart(pcpt, M_current_time);
-        else
+        if(vm["restart.debugging"].as<bool>())
+            //write restart every timestep
+            this->writeRestart(pcpt, pcpt);
+        else if ( fmod(pcpt*time_step, restart_time_step) == 0)
         {
-            int rstep = pcpt*time_step/restart_time_step;//need to declare as an int, to make sure it's not interpreted as a double
-            this->writeRestart(pcpt, rstep );
+            std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
+            this->writeRestart(pcpt, pcpt*time_step/restart_time_step );
         }
-    }
+    }//write restart
 
 #if defined (WAVES)
     if(M_use_wim)
@@ -7686,16 +7675,12 @@ FiniteElement::updateMoorings()
 void
 FiniteElement::writeRestart(int pcpt, int step)
 {
-    std::string tmp = (boost::format( "%1%" ) % step).str();
-    this->writeRestart(pcpt,tmp);
+    std::string namestr = (boost::format( "%1%" ) % step).str();
+    if (vm["output.datetime_in_filename"].as<bool>())
+        namestr = to_date_time_string_for_filename(M_current_time);
+    this->writeRestart(pcpt, namestr);
 }
 
-void
-FiniteElement::writeRestart(int pcpt, double date_time)
-{
-    std::string tmp = to_date_time_string_for_filename(date_time);
-    this->writeRestart(pcpt,tmp);
-}
 
 void
 FiniteElement::writeRestart(int pcpt, std::string step)
@@ -11598,19 +11583,14 @@ void
 FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, bool apply_displacement)
 {
     //define name_str from step
-    std::string name_str    = (boost::format( "%1%" )
+    std::string name_str = (boost::format( "%1%" )
                                % step ).str();
+    if (vm["output.datetime_in_filename"].as<bool>())
+        name_str = to_date_time_string_for_filename(M_current_time);
 
     this->exportResults(name_str, export_mesh, export_fields, apply_displacement);
 }
 
-void
-FiniteElement::exportResults(double date_time, bool export_mesh, bool export_fields, bool apply_displacement)
-{
-    //define name_str from date_time
-    std::string name_str = to_date_time_string_for_filename(date_time);
-    this->exportResults(name_str, export_mesh, export_fields, apply_displacement);
-}
 
 void
 FiniteElement::exportResults(std::string const& name_str, bool export_mesh, bool export_fields, bool apply_displacement)
@@ -12671,6 +12651,35 @@ FiniteElement::updateWaveStress()
 }
 
 
+void
+FiniteElement::updateDfloe()
+{
+    dbl_vec ctot_root, nfloes_root, dfloe_root;
+    M_dfloe.assign(M_num_elements, 0.);
+
+    auto ctot  = M_conc;
+    if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+        for (int i=0; i<M_num_elements; i++)
+            ctot[i] += M_conc_thin[i];
+
+    if(M_parallel_wim)
+        M_dfloe = M_wim.nfloesToDfloe(M_nfloes, ctot);
+    else
+    {
+        int numtri = M_mesh.numTriangles();
+        ctot_root.resize(numtri);
+        nfloes_root.resize(numtri);
+        this->gatherElementField(ctot, ctot_root);
+        this->gatherElementField(M_nfloes, nfloes_root);
+        if (M_rank==0)
+            dfloe_root = M_wim.nfloesToDfloe(nfloes_root, ctot_root);
+    }
+
+    if(!M_parallel_wim)
+        this->scatterElementField(dfloe_root, M_dfloe);
+}
+
+
 typename FiniteElement::T_map_vec
 FiniteElement::initUnorderedMap(std::vector<std::string> const & names, int const& num_elements)
 {
@@ -12802,7 +12811,7 @@ FiniteElement::getWimDiagnosticsRoot(GmshMeshSeq const &movedmesh,
     if(M_parallel_wim || M_rank==0)
     {
         //fields on elements - reset each call to exportResults()
-        std::vector<std::string> fields = {"Hs","Tp","MWD"};
+        std::vector<std::string> fields = {"Hs", "Tp", "MWD"};
         wim_fields_els = M_wim.returnFieldsElements(fields, movedmesh);
 
         // fields on nodes
