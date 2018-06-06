@@ -44,9 +44,23 @@ then
     export DYLD_LIBRARY_PATH=$NEXTSIMDIR/lib:$BOOST_LIBDIR
 fi
 
+# set the log name - don't want to accidentally overwrite it
+logfile=${configs[0]}
+logfile=${logfile%.*}
+logfile=${logfile}-${configs[1]}
+logfile=${logfile%.*}
+n=1
+lf0=$logfile
+while [ -f $logfile.log ]
+do
+   logfile=${lf0}-${n}
+   (( n++ ))
+done
+logfile=${logfile}.log
+
 # Run the nextsim model coupled with wim
-echo $prog --config-files=${configs[@]}
-$prog --config-files=${configs[@]}
+echo "$prog --config-files=${configs[@]} > $logfile"
+$prog --config-files=${configs[@]} > $logfile 2>&1
 
 exit 0
 # print info on plotting on grid
