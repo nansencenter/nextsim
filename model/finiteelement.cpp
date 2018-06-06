@@ -1754,7 +1754,7 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var, bool che
                     }
             }
         }
-#endif
+#endif//WAVES
 
 		if(tmp_nb_var!=nb_var)
 		{
@@ -1785,9 +1785,9 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var, bool che
             double ctot = M_conc[i];
             if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
                 ctot += M_conc_thin[i];//WIM uses total concentration
-            M_dfloe[i]  = M_wim.nfloesToDfloe(M_nfloes[i],ctot);
+            M_dfloe[i]  = M_wim.nfloesToDfloe(M_nfloes[i], ctot);
         }
-#endif
+#endif//WAVES
 
 	}//loop over elements
 
@@ -9855,7 +9855,7 @@ FiniteElement::wimCall()
                 if(interp_taux)
                     ss.push_back("Stress_waves_ice");
 
-                M_wim_fields_nodes = M_wim.returnFieldsNodes(ss,movedmesh);
+                M_wim_fields_nodes = M_wim.returnFieldsNodes(ss, movedmesh);
 
                 if(interp_taux)
                 {
@@ -10002,7 +10002,7 @@ FiniteElement::getWimDiagnostics()
         M_wim_fields_nodes  = M_wim.returnFieldsNodes(fields,movedmesh);
     }
 }
-#endif
+#endif//WAVES
 
 std::string
 FiniteElement::gitRevision()
