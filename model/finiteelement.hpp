@@ -591,7 +591,6 @@ private:
     bool M_use_wim;
     bool M_interp_fsd;
     bool M_export_wim_diags_mesh;
-    bool M_collect_wavespec = false;
     bool M_parallel_wim = false;//TODO make an option
 
     //forcing

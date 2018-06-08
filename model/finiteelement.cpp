@@ -2367,7 +2367,7 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
             M_h_thin[i] = h_thin_tmp;
             M_conc_thin[i] = conc_thin_tmp;
         }
-    }
+    }//loop over elements
 
 #if defined (WAVES)
     if(M_use_wim)
@@ -3278,13 +3278,8 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     {
         M_nfloes.assign(M_num_elements,0.);
         M_dfloe.assign(M_num_elements,0.);
-        if(M_collect_wavespec)
-        {
-            int num_wavefreq = M_wavespec.size();
-            int num_wavedirn = M_wavespec[0].size();
-            for(int fq=0;fq<num_wavefreq;fq++)
-                M_wavespec[fq].assign(num_wavedirn,M_dfloe);//vec of zeros of right size
-        }
+        for(int fq=0; fq<M_num_wavefreq; fq++)
+            M_wavespec[fq].assign(M_num_wavedirn, M_dfloe);//M_dfloe is a vec of zeros of the right size
     }
 #endif//WAVES
 
@@ -6535,7 +6530,7 @@ FiniteElement::init()
     this->initOptAndParam();
     M_current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
 
-    if (M_rank==0)
+    if (M_rank==0)//TODO M_rank only set in initMesh (initBamg)
     {
         LOG(INFO) << "-----------------------Simulation started on "<< Nextsim::current_time_local() <<"\n";
         LOG(INFO) <<"TIMESTEP= "<< time_step <<"\n";
@@ -6564,13 +6559,15 @@ FiniteElement::init()
             pcpt = this->readRestart(vm["restart.step_nb"].as<int>());
         M_current_time = time_init + pcpt*time_step/(24*3600.0);
 
-        if(fmod(pcpt*time_step, output_time_step) == 0)
-        {
-            LOG(DEBUG) <<"export starts\n";
-            //this->exportResults((int) pcpt*time_step/output_time_step);
-            this->exportResults("restart");
-            LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
-        }
+        // TODO move this to step and save restart
+        // -if using wim, it crashes here (some variables set below)
+        //if(fmod(pcpt*time_step, output_time_step) == 0)
+        //{
+        //    LOG(DEBUG) <<"export starts\n";
+        //    //this->exportResults((int) pcpt*time_step/output_time_step);
+        //    this->exportResults("restart");
+        //    LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
+        //}
     }
 
     // Check the minimum angle of the grid
@@ -6934,6 +6931,7 @@ FiniteElement::run()
     std::string current_time_system = current_time_local();
     this->init();
     int niter = vm["debugging.maxiteration"].as<int>();
+    int pcpt0 = pcpt;
 
     // write the logfile: assigned to the process master (rank 0)
     if (M_comm.rank() == 0)
@@ -6970,7 +6968,7 @@ FiniteElement::run()
 
         is_running = ((pcpt+1)*time_step) < duration;
 
-        if (pcpt == niter-1)
+        if (pcpt - pcpt0 == niter-1)
             is_running = false;
 
         // **********************************************************************
