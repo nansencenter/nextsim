@@ -764,7 +764,6 @@ FiniteElement::assignVariables()
     M_Compressive_strength.resize(M_num_elements);
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
 
-#if 1
     // root
     // M_UM_root.assign(2*M_mesh.numGlobalNodes(),0.);
 
@@ -779,12 +778,7 @@ FiniteElement::assignVariables()
             ++cpt;
         }
     }
-#endif
 
-#if 0
-    // number of variables to interpolate
-    M_nb_var_element = /*11*/15 + M_tice.size();
-#endif
 }//assignVariables()
 
 
@@ -2484,12 +2478,8 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
 
     std::vector<double> UM_P = M_UM;
 
-#if 0
-    interp_elt_out.resize(M_nb_var_element*M_num_elements);
-#else
     int nb_var_element = this->getNumVarsElement("standard");
     interp_elt_out.resize(nb_var_element*M_num_elements);
-#endif
 
     bool use_eulerian = false;
     bool use_lagrangian = false;
@@ -3106,11 +3096,7 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
 {
     //M_comm.barrier();
 
-#if 0
-    int nb_var_element = M_nb_var_element;
-#else
     int nb_var_element = this->getNumVarsElement("standard");
-#endif
 
     timer["gather"].first.restart();
 
@@ -3202,11 +3188,7 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT starts\n";
 
-#if 0
-    int nb_var_element = M_nb_var_element;
-#else
     int nb_var_element = this->getNumVarsElement("standard");
-#endif
 
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
     std::vector<double> in_elt_values;
@@ -3578,7 +3560,6 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes,
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------GATHER NODE starts\n";
 
     int nb_var_node = this->getNumVarsNode(restart);
-    std::cout<<M_rank<<": 3577: "<<nb_var_node<<"\n";
     std::vector<double> interp_node_in_local(nb_var_node*M_prv_local_ndof, 0.);
 
     chrono.restart();
@@ -3692,7 +3673,6 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out, bool restart)
 
     std::vector<double> in_nd_values;
     int nb_var_node = this->getNumVarsNode(restart);
-    std::cout<<M_rank<<": "<<nb_var_node<<"\n";
 
     if (M_rank == 0)
     {
@@ -3730,7 +3710,6 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out, bool restart)
     M_UM.assign(2*M_num_nodes, 0.);
     M_UT.assign(2*M_num_nodes, 0.);
 #if defined (WAVES)
-    std::cout<<M_rank<<": 3727: nb_var_node = "<<nb_var_node<<"\n";
     if(M_use_wim && !restart)
     {
         M_tau.assign(2*M_num_nodes, 0.);
@@ -3745,24 +3724,13 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out, bool restart)
 #endif//WAVES
 
 
-    std::cout<<M_rank<<": 3735: nb_var_node = "<<nb_var_node<<"\n";
     for (int i=0; i<M_num_nodes; ++i)
     {
         // VT
         int tmp_nb_var = 0;
         M_VT[i] = out_nd_values[nb_var_node*i+tmp_nb_var];
         tmp_nb_var++;
-        //if (std::isnan(M_VT[i]))
-        //{
-        //    std::cout<<M_rank<<": nan in M_VT (x) at i = "<<i<<"\n";
-        //    //throw std::runtime_error("nan in M_VT (x)\n");
-        //}
         M_VT[i+M_num_nodes] = out_nd_values[nb_var_node*i+tmp_nb_var];
-        //if (std::isnan(M_VT[i+M_num_nodes]))
-        //{
-        //    std::cout<<M_rank<<": nan in M_VT (y) at i = "<<i<<"\n";
-        //    //throw std::runtime_error("nan in M_VT (y)\n");
-        //}
         tmp_nb_var++;
 
         // VTM
@@ -3794,18 +3762,20 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out, bool restart)
         {
             M_tau[i] = out_nd_values[nb_var_node*i+tmp_nb_var];
             tmp_nb_var++;
+            M_tau[M_num_nodes+i] = out_nd_values[nb_var_node*i+tmp_nb_var];
+            tmp_nb_var++;
+#if 0
             if (std::isnan(M_tau[i]))
             {
                 std::cout<<M_rank<<": nan in M_tau (x) at i = "<<i<<"\n";
                 //throw std::runtime_error("nan in M_tau (x)\n");
             }
-            M_tau[M_num_nodes+i] = out_nd_values[nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
             if (std::isnan(M_tau[i+M_num_nodes]))
             {
                 std::cout<<M_rank<<": nan in M_tau (y) at i = "<<i<<"\n";
                 //throw std::runtime_error("nan in M_tau (y)\n");
             }
+#endif
             if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
             {
                 M_wim_meshdisp[i] = out_nd_values[nb_var_node*i+tmp_nb_var];
@@ -3841,12 +3811,10 @@ FiniteElement::interpFieldsNode(std::vector<int> const& rmap_nodes, std::vector<
 
     bool restart = false;
     int nb_var_node = this->getNumVarsNode(restart);
-    std::cout<<M_rank<<": 3839: "<<nb_var_node<<"\n";
     this->gatherFieldsNode(interp_in_nodes, rmap_nodes, sizes_nodes, restart);
 
     double* interp_nd_out;
 
-    std::cout<<M_rank<<": 3843\n";
     if (M_rank == 0)
     {
         InterpFromMeshToMesh2dx(&interp_nd_out,
@@ -3858,7 +3826,6 @@ FiniteElement::interpFieldsNode(std::vector<int> const& rmap_nodes, std::vector<
                                 false);
     }
 
-    std::cout<<M_rank<<": 3854\n";
     M_comm.barrier();
     this->scatterFieldsNode(interp_nd_out, restart);
 
@@ -4229,48 +4196,12 @@ FiniteElement::regrid(bool step)
                 std::cout <<"Interp vertices done in "<< timer["interpvertices"].first.elapsed() <<"\n";
             }
 
-#if 0
-            had_remeshed=true;
-            if(step && (vm["numerics.regrid_output_flag"].as<bool>()))
-            {
-
-                std::string tmp_string1    = (boost::format( "before_adaptMesh_%1%_mesh_adapt_step_%2%_substep_%3%" )
-                                                                                 % step
-                                                                                 % mesh_adapt_step
-                                              % substep ).str();
-
-                this->exportResults(tmp_string1,true,true,false);
-            }
-#endif
-
             timer["adaptmesh"].first.restart();
             LOG(DEBUG) <<"---TRUE AdaptMesh starts\n";
             this->adaptMesh();
             std::cout <<"---TRUE AdaptMesh done in "<< timer["adaptmesh"].first.elapsed() <<"s\n";
 
-#if 0
-            if(step && (vm["numerics.regrid_output_flag"].as<bool>()))
-            {
-                std::string tmp_string2    = (boost::format( "after_adaptMesh_%1%_mesh_adapt_step_%2%_substep_%3%" )
-                                              % step
-                                              % mesh_adapt_step
-                                              % substep ).str();
-
-                this->exportResults(tmp_string2,true,false,false);
-            }
-#endif
-
             // save mesh (only root process)
-
-#if 0
-            std::string src_fname = Environment::nextsimDir().string() + "/mesh/" + M_mesh_filename;
-            std::string desc_fname = Environment::nextsimDir().string() + "/mesh/" + "prev_" + M_mesh_filename;
-            fs::copy_file(fs::path(src_fname), fs::path(desc_fname), fs::copy_option::overwrite_if_exists);
-
-            src_fname = Environment::nextsimDir().string() + "/mesh/" + "seq_" + M_mesh_filename;
-            desc_fname = Environment::nextsimDir().string() + "/mesh/" + "seq_prev_" + M_mesh_filename;
-            fs::copy_file(fs::path(src_fname), fs::path(desc_fname), fs::copy_option::overwrite_if_exists);
-#endif
             std::cout<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
             std::cout<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
             std::cout<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
@@ -4289,12 +4220,6 @@ FiniteElement::regrid(bool step)
                 M_mesh_root.writeTofile(M_mesh_filename);
             }
             std::cout <<"Saving mesh done in "<< timer["savemesh"].first.elapsed() <<"s\n";
-
-#if 0
-            src_fname = Environment::nextsimDir().string() + "/mesh/" + M_mesh_filename;
-            desc_fname = Environment::nextsimDir().string() + "/mesh/" + "seq_" + M_mesh_filename;
-            fs::copy_file(fs::path(src_fname), fs::path(desc_fname), fs::copy_option::overwrite_if_exists);
-#endif
 
             // partition the mesh on root process (rank 0)
             timer["meshpartition"].first.restart();
@@ -6830,8 +6755,10 @@ FiniteElement::step()
     // Do the dynamics
     //======================================================================
 
+#if 0
     if (M_rank == 0)
         this->checkNodalFields("before assemble");
+#endif
     if ( M_dynamics_type == setup::DynamicsType::DEFAULT )
     {
         //======================================================================
@@ -6841,20 +6768,9 @@ FiniteElement::step()
         this->assemble(pcpt);
         if (M_rank == 0)
             std::cout <<"---timer assemble:             "<< timer["assemble"].first.elapsed() <<"s\n";
+#if 0
         if (M_rank == 0)
             this->checkNodalFields("after assemble");
-
-#if 0
-        if(had_remeshed && (vm["numerics.regrid_output_flag"].as<bool>()))
-        {
-            std::string tmp_string3    = (boost::format( "after_assemble_%1%_mesh_adapt_step_%2%" )
-                                   % pcpt
-                                   % mesh_adapt_step ).str();
-
-            this->exportResults(tmp_string3);
-
-            had_remeshed=false;
-        }
 #endif
 
         //======================================================================
@@ -8561,11 +8477,6 @@ FiniteElement::updateVelocity()
     // increment M_UT that is used for the drifters
     for (int nd=0; nd<M_UT.size(); ++nd)
     {
-        //if (std::isnan(M_VT[nd]))
-        //{
-        //    std::cout<<M_rank<<": nan in M_VT at nd = "<<nd<<"\n";
-        //    //throw std::runtime_error("nan in M_VT (x)\n");
-        //}
         M_UT[nd] += time_step*M_VT[nd]; // Total displacement (for drifters)
     }
 }//updateVelocity
@@ -10065,17 +9976,6 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 
                     M_conc_thin[i] = thin_conc_obs;
                 }
-#if 0
-                else
-                {
-                    //not possible?
-                    M_conc_thin[i]=0.;
-                    M_h_thin[i]=0.;
-
-                    M_thick[i]=M_thick[i]/(M_conc[i])*(M_conc[i]+thin_conc_obs);
-                    M_conc[i]=M_conc[i]+thin_conc_obs;
-                }
-#endif
             }
             else if((M_conc[i]+M_conc_thin[i])>thin_conc_obs_max)
             {
@@ -10420,21 +10320,6 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.;
         if(M_conc[i]>0.) // use amsr2 only where topaz says there is ice to avoid near land issues and fake concentration over the ocean
             M_conc[i]=M_amsr2_conc[i];
-#if 0
-        tmp_var=std::min(1.,M_topaz_conc[i]);
-        M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
-        tmp_var=M_topaz_thick[i];
-        M_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
-        hi=M_thick[i]/M_conc[i];
-        if(M_conc[i]<0.1)
-            hi=M_thick[i];
-
-        tmp_var=M_topaz_snow_thick[i];
-        M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
-        if(M_conc[i]<M_topaz_conc[i])
-            M_snow_thick[i] *= M_conc[i]/M_topaz_conc[i];
-#endif
-
 
         //M_type[i]==1. // No ice
         //M_type[i]==2. // First-Year ice
@@ -11098,18 +10983,6 @@ FiniteElement::warrenClimatology()
 
 }
 
-void
-FiniteElement::initThermodynamics()
-{
-    // std::fill(damage.begin(), damage.end(), 0.);
-
-#if 0
-    for (int i=0; i<M_num_elements; ++i)
-    {
-        damage[i] = 1.0 - conc[i];
-    }
-#endif
-}
 
 void
 FiniteElement::initDrifters()
@@ -11625,22 +11498,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
     M_prv_global_num_nodes = M_mesh.numGlobalNodes();
     M_prv_global_num_elements = M_mesh.numGlobalElements();
 
-#if 1
     int nb_var_element = this->getNumVarsElement("IO");
-    std::cout<<M_rank<<": exportResults, nvar el = "<<nb_var_element<<"\n";
-#else
-    M_nb_var_element = 15 + M_tice.size();//15;
-    int nb_var_element = M_nb_var_element;
-    if (M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
-    {
-        nb_var_element -= 4;
-    }
-
-    if (vm["output.save_diagnostics"].as<bool>())
-    {
-        nb_var_element += 7;
-    }
-#endif
 
     std::vector<double> interp_in_elements;
     this->gatherFieldsElementIO(interp_in_elements, M_ice_cat_type==setup::IceCategoryType::THIN_ICE);

@@ -254,7 +254,6 @@ public:
     void assimilateIce();
     void assimilateSlabOcean();
     void initIce();
-    void initThermodynamics();
     void initSlabOcean();
     void initDrifters();
     void updateDrifterPosition();
