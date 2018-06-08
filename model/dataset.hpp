@@ -171,14 +171,13 @@ public:
 
     DataSet();
 
-    DataSet(char const *DatasetName,int target_size);
+    DataSet(char const *DatasetName);
 
 public:
     Grid grid;
 
     std::vector<Variable> variables; // vector listing all the available variables, included the components of the vectorial variables
     std::vector<Vectorial_Variable> vectorial_variables; // vectors listing the vectorial variables
-    int target_size;
     int nb_forcing_step;
     double rotation_angle;
 

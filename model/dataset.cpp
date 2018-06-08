@@ -25,7 +25,7 @@ namespace Nextsim
 DataSet::DataSet( )
 {}
 
-DataSet::DataSet(char const *DatasetName, int target_size_tmp)
+DataSet::DataSet(char const *DatasetName)
 {
 
     name = std::string(DatasetName);
@@ -205,7 +205,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -458,7 +457,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size=target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -660,7 +658,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -850,7 +847,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -1010,7 +1006,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -1243,7 +1238,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             variables= variables_tmp;
             vectorial_variables= vectorial_variables_tmp;
-            target_size= target_size_tmp;
             grid= grid_tmp;
 
             loaded=false;
@@ -1420,7 +1414,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
           variables= variables_tmp;
           vectorial_variables= vectorial_variables_tmp;
-          target_size= target_size_tmp;
           grid= grid_tmp;
 
           loaded=false;
@@ -1638,7 +1631,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -1800,7 +1792,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -1914,7 +1905,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -2027,7 +2017,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -2228,7 +2217,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -2418,7 +2406,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -2618,7 +2605,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -2862,7 +2848,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -3052,7 +3037,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -3232,7 +3216,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -3424,7 +3407,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -3564,7 +3546,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -3725,7 +3706,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -3868,7 +3848,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -4011,7 +3990,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -4145,7 +4123,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -4304,7 +4281,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -4464,7 +4440,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -4624,7 +4599,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -4739,7 +4713,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -4863,7 +4836,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size=target_size_tmp;
 
         grid= grid_tmp;
 
@@ -4991,7 +4963,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size=target_size_tmp;
 
         grid= grid_tmp;
 
@@ -5249,7 +5220,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
 
         loaded=false;
         interpolated=false;
@@ -5432,7 +5402,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
 
         loaded=false;
         interpolated=false;
@@ -5614,7 +5583,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
 
         loaded=false;
         interpolated=false;
@@ -5873,7 +5841,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
          variables= variables_tmp;
          vectorial_variables= vectorial_variables_tmp;
-         target_size= target_size_tmp;
 
          loaded=false;
          interpolated=false;
@@ -6053,7 +6020,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
 
         loaded=false;
         interpolated=false;
@@ -6260,7 +6226,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
 
         loaded=false;
         interpolated=false;
@@ -6442,7 +6407,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
 
         loaded=false;
         interpolated=false;
@@ -6701,7 +6665,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
 
         loaded=false;
         interpolated=false;
@@ -6883,7 +6846,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
 
         loaded=false;
         interpolated=false;
@@ -7143,7 +7105,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -7390,7 +7351,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
 
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
