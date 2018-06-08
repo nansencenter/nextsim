@@ -50,13 +50,17 @@ then
 fi
 
 # bugfix for johansen
+mpiopts=()
 if [ $(hostname) == "johansen.ad.nersc.no" ]
 then
-   opts="--mca pml ob1 --mca btl self,tcp"
+   mpiopts+=("--mca pml ob1 --mca btl self,tcp")
 fi
+nsopts=()
+nsopts+=(--config-files=${configs[@]})
+#nsopts+=("--debugging.maxiteration=2")
 
 # Run the nextsim model
-mpirun $opts -np $ncpu $prog -mat_mumps_icntl_14 60 --config-files=${configs[@]} 2>&1 | tee $(basename ${configs[1]} .cfg).log
+mpirun $mpiopts -np $ncpu $prog -mat_mumps_icntl_14 60 ${nsopts[@]} 2>&1 | tee $(basename ${configs[1]} .cfg).log
 
 
 # Run the CPU profiler (google perftools)
