@@ -35,9 +35,6 @@ FiniteElement::initMesh()
 {
     this->initBamg();
 
-    M_comm = M_mesh.comm();
-    M_rank = M_comm.rank();
-
     this->rootMeshProcessing();
 
     if (!M_use_restart)
@@ -1050,7 +1047,7 @@ FiniteElement::initBamg()
     bamggeom = new BamgGeom();
     bamgmesh = new BamgMesh();
 
-    if (M_mesh.comm().rank() == 0)
+    if (M_rank == 0)
     {
         bamggeom_root = new BamgGeom();
         bamgmesh_root = new BamgMesh();
@@ -6521,6 +6518,9 @@ FiniteElement::init()
 {
     // Initialise everything that doesn't depend on the mesh (constants, data set description, and time)
 
+    // mpi communicator
+    M_comm = M_mesh.comm();//communicator
+    M_rank = M_comm.rank();//processor number
     M_comm.barrier();
 
     pcpt = 0;
@@ -6559,15 +6559,6 @@ FiniteElement::init()
             pcpt = this->readRestart(vm["restart.step_nb"].as<int>());
         M_current_time = time_init + pcpt*time_step/(24*3600.0);
 
-        // TODO move this to step and save restart
-        // -if using wim, it crashes here (some variables set below)
-        //if(fmod(pcpt*time_step, output_time_step) == 0)
-        //{
-        //    LOG(DEBUG) <<"export starts\n";
-        //    //this->exportResults((int) pcpt*time_step/output_time_step);
-        //    this->exportResults("restart");
-        //    LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
-        //}
     }
 
     // Check the minimum angle of the grid
@@ -6657,6 +6648,32 @@ FiniteElement::init()
     LOG(DEBUG) << "initDrifters\n";
     if (M_use_drifters)
         this->initDrifters();
+
+    // check if want to export
+    // - useful if restarting
+    // - also exports for pcpt==0 (initial conditions)
+    if(fmod(pcpt*time_step, output_time_step) == 0)
+    {
+        LOG(DEBUG) <<"export starts\n";
+        this->exportResults((int) pcpt*time_step/output_time_step);
+        LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
+    }
+
+    //save restart here
+    //- good for testing
+    //- eg of assimilation, restart procedure
+    if (M_write_restart)
+    {
+        if(vm["restart.debugging"].as<bool>())
+            //write restart every timestep
+            this->writeRestart(pcpt, pcpt);
+        else if ( fmod(pcpt*time_step, restart_time_step) == 0)
+        {
+            std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
+            this->writeRestart(pcpt, pcpt*time_step/restart_time_step );
+        }
+    }//write restart
+
 }
 
 // Take one time step
@@ -6664,22 +6681,6 @@ void
 FiniteElement::step()
 {
     this->updateDrifterPosition();
-
-#if 1
-    if (pcpt == 0)
-    {
-        // Write results/restart before regrid - useful for debugging
-        // NB this only helps if starting from a restart,
-        // otherwise regridding has already happened in init(),
-        // so won't happen this time step
-        // TODO just write restart in init() as well?
-        LOG(DEBUG) <<"first export starts\n";
-        this->exportResults(0);
-        // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
-        LOG(DEBUG) <<"first export done\n";
-    }
-#endif
-
 
     // remeshing and remapping of the prognostic variables
 
@@ -6905,7 +6906,7 @@ FiniteElement::step()
         this->updateMoorings();
     }
 
-    if(vm["restart.write_restart"].as<bool>())
+    if(M_write_restart)
     {
         if(vm["restart.debugging"].as<bool>())
             //write restart every timestep
