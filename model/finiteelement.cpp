@@ -443,11 +443,13 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
             {
                 LOG(DEBUG)<<"in nodes: dataset = "<<(*it)->M_dataset->name<<"\n";
                 (*it)->check_and_reload(RX_nod,RY_nod,CRtime);
+                (*it)->M_target_size = M_num_nodes;
             }
             else if ( (*it)->M_dataset->grid.target_location=="mesh_elements" )
             {
                 LOG(DEBUG)<<"in elements: dataset = "<<(*it)->M_dataset->name<<"\n";
                 (*it)->check_and_reload(RX_el,RY_el,CRtime);
+                (*it)->M_target_size = M_num_elements;
             }
 #if defined (WAVES)
             else if ( (*it)->M_dataset->grid.target_location=="wim_elements" )
