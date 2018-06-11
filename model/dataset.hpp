@@ -145,7 +145,6 @@ public:
 
         bool loaded;
         std::string dataset_frequency;
-        std::string target_location;// "mesh_nodes", "mesh_elements", "wim_grid"
 
         WaveOptions waveOptions;
 
