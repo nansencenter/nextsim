@@ -979,7 +979,7 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
             else if ( (*it)->M_dataset->grid.target_location=="wim_elements" )
             {
                 //LOG(DEBUG)<<"in wim_elements: dataset = "<<(*it)->M_dataset->name<<"\n";
-                std::cout<<"in wim_elements: dataset = "<<(*it)->M_dataset->name<<"\n";
+                std::cout<<M_rank<<": in wim_elements: dataset = "<<(*it)->M_dataset->name<<"\n";
                 //interp to WIM elements
                 (*it)->check_and_reload(M_wim.getX(), M_wim.getY(), CRtime);
             }
@@ -11997,18 +11997,18 @@ FiniteElement::initWim(int const pcpt, FEMeshType const &movedmesh, BamgMesh* ba
     this->forcingWave();
 
     // set the initial waves
-    if (M_wave_type==setup::WaveType::SET_IN_WIM)
+    if (do_wim_comm)
     {
-        if (do_wim_comm)
+        if (M_wave_type==setup::WaveType::SET_IN_WIM)
         {
             LOG(DEBUG)<<"initWim: calling setIdealWaveFields()\n";
             M_wim.idealWaveFields();
         }
-    }
-    else
-    {
-        LOG(DEBUG)<<"initWim: loading wave forcing\n";
-        this->wimCheckWaves();
+        else
+        {
+            LOG(DEBUG)<<"initWim: loading wave forcing\n";
+            this->wimCheckWaves();
+        }
     }
     M_comm.barrier();//all processors wait till all are here
 
@@ -12323,11 +12323,13 @@ FiniteElement::wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim,
         //set ice fields on mesh
         M_comm.barrier();//all processors wait here
         if (do_wim_comm)
+        {
             M_wim.setIceFields(ctot, vtot, ice_fields["nfloes"]);
 
-
-        if(M_rank==0) LOG(DEBUG)<<"wimCall: check wave forcing and set waves\n";
-        this->wimCheckWaves();
+            if(M_rank==0)
+                LOG(DEBUG)<<"wimCall: check wave forcing and set waves\n";
+            this->wimCheckWaves();
+        }
 
         //run the wim
         if(M_rank==0) std::cout<<"before M_wim.run()\n";
@@ -12556,23 +12558,23 @@ FiniteElement::wimCheckWaves()
         //nothing to do
         return;
 
-    this->checkReloadDatasets(M_external_data_waves,M_current_time,"wimCheckWaves");
+    this->checkReloadDatasets(M_external_data_waves, M_current_time, "wimCheckWaves");
 
     int num_elements_wim = M_wim.getX().size();
-    dbl_vec swh_in(num_elements_wim,0.);
-    dbl_vec mwp_in(num_elements_wim,0.);
-    dbl_vec mwd_in(num_elements_wim,0.);
+    //std::cout<<M_rank<< ": num_elements_wim: "<<num_elements_wim<<", "<<M_SWH.M_target_size<<"\n";
+    dbl_vec swh_in(num_elements_wim, 0.);
+    dbl_vec mwp_in(num_elements_wim, 0.);
+    dbl_vec mwd_in(num_elements_wim, 0.);
 
-    double Hs_data_min  = 1.e30;
-    double Hs_data_max  = -1.e30;
-    double Tp_data_min  = 1.e30;
-    double Tp_data_max  = -1.e30;
+    double Hs_data_min = 1.e30;
+    double Hs_data_max = -1.e30;
+    double Tp_data_min = 1.e30;
+    double Tp_data_max = -1.e30;
 
     for (int i=0; i<num_elements_wim; ++i)
     {
         //get incident waves from datasets
         double cfac = 1.;
-        double uwave,vwave;
         if ( M_wim_forcing_options.use_ice )
             //cancel waves if ice present
             if (M_fice_waves[i]>0.)
@@ -12584,9 +12586,9 @@ FiniteElement::wimCheckWaves()
         swh_in[i] = cfac*M_SWH[i];
 
         // mean wave direction
-        uwave   = cfac*M_MWD[i];
-        vwave   = cfac*M_MWD[i+num_elements_wim];
-        if ( std::hypot(uwave,vwave)>.5 )
+        double uwave = cfac*M_MWD[i];
+        double vwave = cfac*M_MWD[i+num_elements_wim];
+        if ( std::hypot(uwave, vwave)>.5 )
         {
             // if there are waves |(uwave,vwave)|=1,
             // so convert to wave-from direction
@@ -12633,18 +12635,7 @@ FiniteElement::wimCheckWaves()
     std::cout<<"max mwd (processed dataset) = "<< *std::max_element(mwd_in.begin(),mwd_in.end() )<<"\n";
 #endif
 
-    if (M_parallel_wim)
-        M_wim.setWaveFields(swh_in, mwp_in, mwd_in);
-    else
-    {
-        dbl_vec swh_in_root, mwp_in_root, mwd_in_root;
-        this->gatherElementField(swh_in, swh_in_root);
-        this->gatherElementField(mwp_in, mwp_in_root);
-        this->gatherElementField(mwd_in, mwd_in_root);
-
-        if(M_rank==0)
-            M_wim.setWaveFields(swh_in_root, mwp_in_root, mwd_in_root);
-    }
+    M_wim.setWaveFields(swh_in, mwp_in, mwd_in);
 }//wimCheckWaves()
 
 
