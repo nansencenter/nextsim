@@ -403,10 +403,10 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     // closing maps
     close_mapx(mapNextsim);
 
-    double RX_min=*std::min_element(RX.begin(),RX.end());
-    double RX_max=*std::max_element(RX.begin(),RX.end());
-    double RY_min=*std::min_element(RY.begin(),RY.end());
-    double RY_max=*std::max_element(RY.begin(),RY.end());
+    double RX_min=*std::min_element(RX.begin(), RX.end());
+    double RX_max=*std::max_element(RX.begin(), RX.end());
+    double RY_min=*std::min_element(RY.begin(), RY.end());
+    double RY_max=*std::max_element(RY.begin(), RY.end());
 
     // ---------------------------------
     // Load grid if unloaded
