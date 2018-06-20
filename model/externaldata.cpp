@@ -129,6 +129,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
 #endif
 {
     M_current_time = current_time;
+    M_target_size = RX_in.size();
 
     double current_time_tmp=M_current_time;
 
@@ -1140,7 +1141,6 @@ ExternalData::convertTargetXY(Dataset *dataset,
         std::vector<double> & RX_out, std::vector<double> & RY_out,
         mapx_class *mapNextsim)//(double const& u, double const& v)
 {
-    M_target_size = RX_in.size();
     RX_out.resize(M_target_size);
     RY_out.resize(M_target_size);
 

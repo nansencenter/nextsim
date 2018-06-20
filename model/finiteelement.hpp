@@ -199,7 +199,9 @@ public:
 
 	void bathymetry();
     void checkReloadDatasets(external_data_vec const& ext_data_vec,
-        double const& CRtime, std::string const& printout);
+        double const& CRtime,
+        std::string const& target_location,
+        std::string const& printout);
     void assimilateIce();
     void assimilateSlabOcean();
     void initIce();
@@ -333,7 +335,7 @@ private:
     std::vector<double> M_hs_thin;
     std::vector<double> M_ridge_ratio;
 
-    external_data_vec M_external_data;
+    external_data_vec M_external_data, M_external_data_nodes;
     external_data_vec M_external_data_waves;
     Dataset_vec M_datasets_regrid;
 
