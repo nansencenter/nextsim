@@ -296,35 +296,22 @@ ExternalData::get(const size_type i)
 typename std::vector<double>
 ExternalData::getVector()
 {
-    std::vector<double> vector_tmp(1,0.);
+    std::vector<double> vector_tmp;
 
-    if((!M_is_constant)&&(M_initialized))
+    if(M_initialized)
     {
-        int size_vector=M_target_size;
+        int size_vector = M_target_size;
         if(M_is_vector)
-            size_vector*=2;
+            size_vector *= 2;
 
         vector_tmp.resize(size_vector);
 
         for (int i=0; i<size_vector; ++i)
         {
-            vector_tmp[i]=(double) get(i);
+            vector_tmp[i] = (double) get(i);
         }
     }
-    else if (M_is_constant)
-    {
-        //return the constant value(s)
-        if(M_is_vector)
-        {
-            vector_tmp.resize(2);
-            vector_tmp[0]   = M_constant_value + M_bias_correction;
-            vector_tmp[1]   = M_constant_valuebis + M_bias_correction;
-        }
-        else
-            vector_tmp[0]   = M_constant_value + M_bias_correction;
-    }
-
-	return vector_tmp;
+    return vector_tmp;
 }
 
 #ifdef OASIS
