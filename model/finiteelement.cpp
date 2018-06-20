@@ -9442,12 +9442,11 @@ FiniteElement::exportResults(std::vector<std::string> const &filenames, bool exp
 
 
             //loop over external data pointers and check if they should be saved
-            for (int i=0;i<external_data_tmp.size();i++)
+            for (int i=0; i<external_data_tmp.size(); i++)
             {
-                if ((external_data_tmp[i]->M_initialized)&&
-                    (!external_data_tmp[i]->M_is_constant))
+                if (external_data_tmp[i]->M_initialized)
                 {
-                    exporter.writeField(outbin,external_data_tmp[i]->getVector(), ext_data_names[i]);
+                    exporter.writeField(outbin, external_data_tmp[i]->getVector(), ext_data_names[i]);
                 }
             }
         }//save forcing
