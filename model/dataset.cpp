@@ -5017,7 +5017,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         };
 
         Dimension dimension_time={
-            name:"time1", // "Time"
+            name:"time0", // "Time"
             cyclic:false
         };
 
@@ -5105,7 +5105,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         dimensions[2] = dimension_x;
 
         Variable time_tmp={
-            name: "time1",
+            name: "time0",
             dimensions: dimensions_time,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -5274,7 +5274,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         };
 
         Dimension dimension_time={
-            name:"time1", // "Time"
+            name:"time0", // "Time"
             cyclic:false};
 
         // Definition of the grid
@@ -5363,7 +5363,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         dimensions[2] = dimension_x;
 
         Variable time_tmp={
-            name: "time1",
+            name: "time0",
             dimensions: dimensions_time,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -5457,7 +5457,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         };
 
         Dimension dimension_time={
-            name:"time1", // "Time"
+            name:"time0", // "Time"
             cyclic:false};
 
         // Definition of the grid
@@ -5545,7 +5545,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         dimensions[2] = dimension_x;
 
         Variable time_tmp={
-            name: "time1",
+            name: "time0",
             dimensions: dimensions_time,
             land_mask_defined: false,
             land_mask_value: 0.,
