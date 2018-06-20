@@ -4718,7 +4718,7 @@ FiniteElement::init()
     this->checkReloadDatasets(M_external_data_elements, M_current_time,
             "mesh_elements", "init - time-dependant (elements)");
     this->checkReloadDatasets(M_external_data_nodes, M_current_time,
-            "mesh_nodes", "init - time-dependant (elements)");
+            "mesh_nodes", "init - time-dependant (nodes)");
     if ( ! M_use_restart )
     {
         chrono.restart();
@@ -5237,7 +5237,7 @@ FiniteElement::step(int &pcpt)
     this->checkReloadDatasets(M_external_data_elements, M_current_time+time_step/(24*3600.0),
             "mesh_elements", "init - time-dependant (elements)");
     this->checkReloadDatasets(M_external_data_nodes, M_current_time+time_step/(24*3600.0),
-            "mesh_nodes", "init - time-dependant (elements)");
+            "mesh_nodes", "init - time-dependant (nodes)");
 
     M_use_restart = false;
 
