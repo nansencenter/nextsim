@@ -19,7 +19,7 @@ vopts[2]="--track-origins=yes" # see where uninitialised values come from
 
 # nextsim options
 nsopts[0]="--config-file=$config"
-nsopts[1]="--simul.maxiteration=1" # just run nextsim for 1 time step
+nsopts[1]="--debugging.max_iteration=1" # just run nextsim for 1 time step
 
 prog=bin/nextsim.exec
 if [ `pwd` != $NEXTSIMDIR/model ]

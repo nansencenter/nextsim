@@ -44,9 +44,9 @@ namespace Nextsim
             ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "")
 
             // - debugging options
-            ("simul.verbose", po::value<int>()->default_value( 7 ), "")
-            ("simul.log-level", po::value<std::string>()->default_value( "info" ), "")
-            ("simul.maxiteration", po::value<int>()->default_value( -1 ), "")
+            ("debugging.bamg_verbose", po::value<int>()->default_value( 7 ), "")
+            ("debugging.log-level", po::value<std::string>()->default_value( "info" ), "")
+            ("debugging.max_iteration", po::value<int>()->default_value( -1 ), "")
 
             /*
              *-----------------------------------------------------------------------------------

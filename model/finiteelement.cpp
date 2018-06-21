@@ -501,7 +501,7 @@ FiniteElement::initBamg()
     bamgopt->splitcorners      = 0; //the Devil!  Changed to 0, original 1 Phil
     bamgopt->geometricalmetric = 0;
     bamgopt->random            = true;
-    bamgopt->verbose           = vm["simul.verbose"].as<int>();
+    bamgopt->verbose           = vm["debugging.bamg_verbose"].as<int>();
 
     bamggeom = new BamgGeom();
     bamgmesh = new BamgMesh();
@@ -523,7 +523,7 @@ FiniteElement::initConstant()
         ("debug", DEBUG)
         ("error", ERROR);
 
-    M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
+    M_log_level = str2log.find(vm["debugging.log-level"].as<std::string>())->second;
     
     nu0 = vm["dynamics.nu0"].as<double>();
     young = vm["dynamics.young"].as<double>();
@@ -4536,7 +4536,7 @@ FiniteElement::run()
 
     std::string current_time_system = Nextsim::current_time_local();
     int pcpt = this->init();
-    int niter = vm["simul.maxiteration"].as<int>();
+    int niter = vm["debugging.max_iteration"].as<int>();
     this->writeLogFile();
 
     // Debug file that records the time step

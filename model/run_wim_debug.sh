@@ -16,7 +16,7 @@ vopts[2]="--track-origins=yes" # see where uninitialised values come from
 
 # nextsim options
 nsopts[0]="--config-files=coupling_wim.cfg wim.cfg"
-nsopts[1]="--simul.maxiteration=$maxits" # just run nextsim for 1 or a few time steps
+nsopts[1]="--debugging.max_iteration=$maxits" # just run nextsim for 1 or a few time steps
 nsopts[2]="--nextwim.couplingfreq=1" # run wim for only one time step of nextsim
 
 prog=bin/nextsim.exec
