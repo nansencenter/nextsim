@@ -249,9 +249,6 @@ FiniteElement::initModelState()
 
     LOG(DEBUG) << "initIce\n";
     this->initIce();
-
-    LOG(DEBUG) << "initDrifter\n";
-    this->initDrifter();
 }//initModelState
 
 void
@@ -719,18 +716,29 @@ FiniteElement::initConstant()
         ("bouillon", setup::BasalStressType::BOUILLON);
     M_basal_stress_type = str2basal_stress.find(vm["setup.basal_stress-type"].as<std::string>())->second;
 
-    M_use_iabp_drifters=vm["drifters.use_iabp_drifters"].as<bool>();
-    M_equallyspaced_drifters_output_time_step=vm["drifters.equallyspaced_drifters_output_time_step"].as<double>();
-    M_rgps_drifters_output_time_step=vm["drifters.rgps_drifters_output_time_step"].as<double>();
-    M_use_osisaf_drifters=vm["drifters.use_osisaf_drifters"].as<bool>();
-    
-    M_use_equallyspaced_drifters=false;
-    M_use_rgps_drifters=false;
-    
-    if(M_equallyspaced_drifters_output_time_step>0.)
-        M_use_equallyspaced_drifters=true;
-    if(M_rgps_drifters_output_time_step>0.)
-        M_use_rgps_drifters=true;
+    // use IABP drifters (12h check)
+    M_use_iabp_drifters = vm["drifters.use_iabp_drifters"].as<bool>();
+
+    // use OSISAF drifters (24h check, run for 48h, 24h output)
+    M_use_osisaf_drifters = vm["drifters.use_osisaf_drifters"].as<bool>();
+
+    // equally spaced drifters
+    M_use_equally_spaced_drifters = vm["drifters.use_equally_spaced_drifters"].as<bool>();
+    M_equally_spaced_drifters_output_time_step = vm["drifters.equally_spaced_drifters_output_time_step"].as<double>();
+
+    // RGPS drifters
+    M_use_rgps_drifters = vm["drifters.use_rgps_drifters"].as<bool>();
+    M_rgps_drifters_output_time_step = vm["drifters.rgps_drifters_output_time_step"].as<double>();
+
+    // SIDFEX drifters
+    M_use_sidfex_drifters = vm["drifters.use_sidfex_drifters"].as<bool>();
+    M_sidfex_drifters_output_time_step = vm["drifters.sidfex_drifters_output_time_step"].as<double>();
+
+    M_use_drifters = (M_use_iabp_drifters)
+        || (M_use_osisaf_drifters)
+        || (M_use_equally_spaced_drifters)
+        || (M_use_rgps_drifters)
+        || (M_use_sidfex_drifters);
 
     M_mesh_filename = vm["mesh.filename"].as<std::string>();
     // mesh type
@@ -4750,22 +4758,15 @@ FiniteElement::init()
     if (M_use_wim)
         this->initWimVariables();
 #endif
-
-    // Open the output file for drifters
-    // TODO: Is this the right place to open the file?
-    if (M_use_iabp_drifters )
-    {
-        // We should tag the file name with the init time in case of a re-start.
-        std::stringstream filename;
-        filename << M_export_path << "/drifters_out_" << M_current_time << ".txt";
-        M_iabp_out.open(filename.str(), std::fstream::out);
-        if ( ! M_iabp_out.good() )
-            throw std::runtime_error("Cannot write to file: " + filename.str());
-    }
-
+    
     // Initialise the moorings - if requested
     if ( M_use_moorings )
         this->initMoorings();
+
+    // Initialise drifters - if requested
+    LOG(DEBUG) << "initDrifters\n";
+    if (M_use_drifters)
+        this->initDrifters();
 
     return pcpt;
 }//init()
@@ -5070,8 +5071,8 @@ FiniteElement::step(int &pcpt)
             this->outputDrifter(M_iabp_out);
         }
         
-        if ( M_use_equallyspaced_drifters )
-            M_equallyspaced_drifters.move(M_mesh, M_UT);
+        if ( M_use_equally_spaced_drifters )
+            M_equally_spaced_drifters.move(M_mesh, M_UT);
         if ( M_use_rgps_drifters )
             M_rgps_drifters.move(M_mesh, M_UT);
         if ( M_use_osisaf_drifters )
@@ -5087,8 +5088,8 @@ FiniteElement::step(int &pcpt)
     }
     if(pcpt>0)
     {
-        if ( M_use_equallyspaced_drifters && fmod(M_current_time,M_equallyspaced_drifters_output_time_step) == 0 )
-            M_equallyspaced_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
+        if ( M_use_equally_spaced_drifters && fmod(M_current_time,M_equally_spaced_drifters_output_time_step) == 0 )
+            M_equally_spaced_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
 
         if ( M_use_rgps_drifters )
         {
@@ -8780,9 +8781,21 @@ FiniteElement::initThermodynamics()
 }
 
 void
-FiniteElement::initDrifter()
+FiniteElement::initDrifters()
 {
-    if(M_use_equallyspaced_drifters)
+    // Open the output file for IABP drifters
+    // TODO: Is this the right place to open the file?
+    if (M_use_iabp_drifters )
+    {
+        // We should tag the file name with the init time in case of a re-start.
+        std::stringstream filename;
+        filename << M_export_path << "/drifters_out_" << M_current_time << ".txt";
+        M_iabp_out.open(filename.str(), std::fstream::out);
+        if ( ! M_iabp_out.good() )
+            throw std::runtime_error("Cannot write to file: " + filename.str());
+    }
+
+    if(M_use_equally_spaced_drifters)
         this->equallySpacedDrifter();
 
     if(M_use_iabp_drifters)
@@ -9025,9 +9038,9 @@ FiniteElement::initIABPDrifter()
 void
 FiniteElement::equallySpacedDrifter()
 {
-    M_equallyspaced_drifters = Drifters(1e3*vm["drifters.spacing"].as<double>(), M_mesh, M_conc, vm["drifters.concentration_limit"].as<double>());
-    M_equallyspaced_drifters.initNetCDF(M_export_path+"/Drifters_", M_current_time);
-    M_equallyspaced_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
+    M_equally_spaced_drifters = Drifters(1e3*vm["drifters.spacing"].as<double>(), M_mesh, M_conc, vm["drifters.concentration_limit"].as<double>());
+    M_equally_spaced_drifters.initNetCDF(M_export_path+"/Drifters_", M_current_time);
+    M_equally_spaced_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
 }
 
 void

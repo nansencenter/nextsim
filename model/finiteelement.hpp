@@ -205,7 +205,7 @@ public:
     void initIce();
     void initThermodynamics();
     void initSlabOcean();
-    void initDrifter();
+    void initDrifters();
     void coriolis();
     void nodesToElements(double const* depth, std::vector<double>& v);
 
@@ -515,6 +515,9 @@ private:
     // Bathynetry
     external_data M_element_depth;
 
+    // are we using any drifters?
+    bool M_use_drifters;
+
     // IABP-like drifters
     bool M_use_iabp_drifters;
     boost::unordered_map<int, std::array<double,2>> M_iabp_drifters; // Drifters are kept in an unordered map containing number and coordinates
@@ -522,14 +525,19 @@ private:
     std::fstream M_iabp_out;    // The file we write our simulated drifter positions into
 
     // Drifters on a grid
-    double M_equallyspaced_drifters_output_time_step;
-    bool M_use_equallyspaced_drifters;
-    Drifters M_equallyspaced_drifters; 
+    double M_equally_spaced_drifters_output_time_step;
+    bool M_use_equally_spaced_drifters;
+    Drifters M_equally_spaced_drifters; 
     
     // Drifters as in the RGPS data
     double M_rgps_drifters_output_time_step;
     bool M_use_rgps_drifters;
     Drifters M_rgps_drifters; 
+
+    // Drifters for SIDFEX forecast
+    double M_sidfex_drifters_output_time_step;
+    bool M_use_sidfex_drifters;
+    Drifters M_sidfex_drifters; 
     
     // drifters for the OSISAF emulation
     bool M_use_osisaf_drifters;

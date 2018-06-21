@@ -109,20 +109,26 @@ namespace Nextsim
             ("moorings.grid_file", po::value<std::string>()->default_value( "" ), "") // It must be a netcdf file having x y as dimensions and latitude longitude as variables
 
             // drifters
+            ("drifters.concentration_limit", po::value<double>()->default_value( 0.15 ), "")
+
             ("drifters.use_iabp_drifters", po::value<bool>()->default_value( false), "")
-            // TODO implement as in parallel code
-            //("drifters.use_rgps_drifters", po::value<bool>()->default_value( false), "")
-            //("drifters.use_equally_spaced_drifters", po::value<bool>()->default_value( false), "")
-            //("drifters.equallyspaced_drifters_output_time_step", po::value<double>()->default_value( 1. ), "days") // must be a multiple of 0.5
-            //("drifters.rgps_drifters_output_time_step", po::value<double>()->default_value( 0.5 ), "days") // must be a multiple of 0.5
-            ("drifters.equallyspaced_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days") // must be a multiple of 0.5
-            ("drifters.rgps_drifters_output_time_step", po::value<double>()->default_value( 0. ), "days") // must be a multiple of 0.5
+
             ("drifters.use_osisaf_drifters", po::value<bool>()->default_value( false ), "")
             ("drifters.use_refined_osisaf_grid", po::value<bool>()->default_value( false ),
                 "true: if using OSISAF drifters, use grid refined by a factor of 9, so averaged model results can be compared to the data; false: use same grid as OSISAF drift dataset")
-            ("drifters.concentration_limit", po::value<double>()->default_value( 0.15 ), "")
-            ("drifters.spacing", po::value<double>()->default_value( 10 ), "")
+
+            ("drifters.use_equally_spaced_drifters", po::value<bool>()->default_value( false), "")
+            ("drifters.equally_spaced_drifters_output_time_step", po::value<double>()->default_value( 1. ), "days (must be a multiple of 0.5)")
+            ("drifters.spacing", po::value<double>()->default_value( 10 ), "spacing of equally spaced drifters in km")
+
+            ("drifters.use_rgps_drifters", po::value<bool>()->default_value( false), "")
+            ("drifters.rgps_drifters_output_time_step", po::value<double>()->default_value( 0.5 ), "days (must be a multiple of 0.5)")
             ("drifters.RGPS_time_init", po::value<std::string>()->default_value( "2007-12-01" ), "")
+
+            ("drifters.use_sidfex_drifters", po::value<bool>()->default_value( false), "are we using SIDFEX drifters")
+            ("drifters.sidfex_drifters_output_time_step", po::value<double>()->default_value( 0.5 ), "days (must be a multiple of 0.5)")
+            ("drifters.sidfex_filename", po::value<std::string>()->default_value( "" ), "text file with initial buoy positions")
+
 
             // restart
             // - inputs
