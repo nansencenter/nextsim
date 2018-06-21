@@ -82,7 +82,6 @@ Drifters::Drifters(std::string filename, GmshMesh const& mesh, std::vector<doubl
         throw std::runtime_error("File not found: " + filename);
 
     // Read the current buoys from file
-    int pos;    // To be able to rewind one line
     double time = current_time;
     std::vector<int> keepers;
     int gridSize=0;
@@ -90,14 +89,23 @@ Drifters::Drifters(std::string filename, GmshMesh const& mesh, std::vector<doubl
     std::vector<double> LAT(0);
     std::vector<double> LON(0);
 
-    int year, month, day, hour, number;
+    // skip header line
+    std::string header;
+    std::getline(M_rgps_file, header);
+    std::cout<<"open drifter file: "<<filename<<"\n";
+    //std::cout<<"header: "<<header<<"\n";
+
+    int year, month, day, hour, minute, second, number;
     double lat, lon;
 
     // Read the next line
-    while ( M_rgps_file >> year >> month >> day >> hour >> number >> lat >> lon )
+    while ( M_rgps_file >> year >> month >> day >> hour >> minute >> second >> number >> lat >> lon )
     {
+        //std::cout << year << ", "<< month << ", "<< day << ", "
+        //    << hour << ", "<< minute << ", "<< second << ", "
+        //    << number << ", "<< lat << ", "<< lon << "\n";
         std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
-        time = from_date_string(date) + hour/24.;
+        time = from_date_string(date) + (hour*3600+minute*60+second)/(24.*3600.);
 
         if(time== current_time )
         {
@@ -106,7 +114,6 @@ Drifters::Drifters(std::string filename, GmshMesh const& mesh, std::vector<doubl
             gridSize++;
         }
     }
-
     std::cout<<"gridSize: "<< gridSize <<"\n";
 
     // Calculate x and y
