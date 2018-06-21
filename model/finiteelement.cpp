@@ -1174,7 +1174,7 @@ FiniteElement::regrid(bool step)
             minang = this->minAngle(M_mesh,M_UM,displacement_factor);
 
             substep++;
-            while (flip || minang<(vm["simul.regrid_angle"].as<double>())/10.)
+            while (flip || minang<(vm["numerics.regrid_angle"].as<double>())/10.)
             {
                 displacement_factor /= 2.;
                 flip = this->flip(M_mesh,M_UM,displacement_factor);
@@ -1275,7 +1275,7 @@ FiniteElement::regrid(bool step)
 
 
         had_remeshed=true;
-        if(step && (vm["simul.regrid_output_flag"].as<bool>()))
+        if(step && (vm["numerics.regrid_output_flag"].as<bool>()))
         {
         
             std::string tmp_string1    = (boost::format( "before_adaptMesh_%1%_mesh_adapt_step_%2%_substep_%3%" )
@@ -1292,7 +1292,7 @@ FiniteElement::regrid(bool step)
         this->adaptMesh();
 	    LOG(INFO) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
 
-        if(step && (vm["simul.regrid_output_flag"].as<bool>()))
+        if(step && (vm["numerics.regrid_output_flag"].as<bool>()))
         {
             std::string tmp_string2    = (boost::format( "after_adaptMesh_%1%_mesh_adapt_step_%2%_substep_%3%" )
                                    % step
@@ -1840,7 +1840,7 @@ FiniteElement::advect(double** interp_elt_out_ptr,double* interp_elt_in, int* in
 
     int Nd = bamgmesh->NodalConnectivitySize[1];
 
-    int ALE_smoothing_step_nb=vm["simul.ALE_smoothing_step_nb"].as<int>();
+    int ALE_smoothing_step_nb=vm["numerics.ALE_smoothing_step_nb"].as<int>();
     // ALE_smoothing_step_nb==-2 is the case with no advection M_UM is not changed and then =0 and no fluxes are computed.
     // ALE_smoothing_step_nb==-1 is the diffusive eulerian case where M_UM is not changed and then =0.
     // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
@@ -4656,7 +4656,7 @@ FiniteElement::init()
 
     // Check the minimum angle of the grid
     double minang = this->minAngle(M_mesh);
-    if (minang < vm["simul.regrid_angle"].as<double>())
+    if (minang < vm["numerics.regrid_angle"].as<double>())
     {
         LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the initial grid\n";
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
@@ -5164,7 +5164,7 @@ FiniteElement::step(int &pcpt)
     // The first time step we behave as if we just did a regrid
     M_regrid = (pcpt==0);
 
-    if (vm["simul.regrid"].as<std::string>() == "bamg")
+    if (vm["numerics.regrid"].as<std::string>() == "bamg")
     {
         double displacement_factor = 1.;
         double minang = this->minAngle(M_mesh,M_UM,displacement_factor);
@@ -5174,7 +5174,7 @@ FiniteElement::step(int &pcpt)
         LOG(DEBUG) <<"FLIP TEST= "<< flip_test <<"\n";
 
 
-        if ( minang < vm["simul.regrid_angle"].as<double>() || flip_test )
+        if ( minang < vm["numerics.regrid_angle"].as<double>() || flip_test )
         {
             M_regrid = true;
 
@@ -5295,7 +5295,7 @@ FiniteElement::step(int &pcpt)
     {
         this->assemble(pcpt);
 
-        if(had_remeshed && (vm["simul.regrid_output_flag"].as<bool>()))
+        if(had_remeshed && (vm["numerics.regrid_output_flag"].as<bool>()))
         {
             std::string tmp_string3    = (boost::format( "after_assemble_%1%_mesh_adapt_step_%2%" )
                                    % pcpt

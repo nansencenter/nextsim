@@ -59,16 +59,16 @@ namespace Nextsim
              */
 
             // remeshing
-            ("simul.regrid", po::value<std::string>()->default_value( "bamg" ), "No-regridding or bamg")
-            ("simul.regrid_output_flag", po::value<bool>()->default_value( false ), "")
-            ("simul.regrid_angle", po::value<double>()->default_value( 10. ), "")
-            ("simul.interp_with_cavities", po::value<bool>()->default_value( true ), "")
+            ("numerics.regrid", po::value<std::string>()->default_value( "bamg" ), "No-regridding or bamg")
+            ("numerics.regrid_output_flag", po::value<bool>()->default_value( false ), "")
+            ("numerics.regrid_angle", po::value<double>()->default_value( 10. ), "")
+            ("numerics.interp_with_cavities", po::value<bool>()->default_value( true ), "")
 
             // advection scheme
             // - ALE_smoothing_step_nb<0 is the eulerian case where M_UM is not changed and then =0.
             // - ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
             // - ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
-            ("simul.ALE_smoothing_step_nb", po::value<int>()->default_value( 0 ), "")
+            ("numerics.ALE_smoothing_step_nb", po::value<int>()->default_value( 0 ), "")
 
             // solver
             ("solver.ksp-type", po::value<std::string>()->default_value( "preonly" ), "")
