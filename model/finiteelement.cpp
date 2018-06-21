@@ -673,7 +673,7 @@ FiniteElement::assignVariables()
 
     M_fcor.resize(M_num_elements);
 
-#if 1
+#if 0
     M_atmosphere_nodes_dataset.target_size=M_num_nodes;
     M_atmosphere_elements_dataset.target_size=M_num_elements;
     M_atmosphere_bis_elements_dataset.target_size=M_num_elements;
@@ -744,21 +744,25 @@ FiniteElement::assignVariables()
     M_ice_smos_elements_dataset.interpolated=false;
     M_bathymetry_elements_dataset.interpolated=false;
     // --------------------------------------------------------------
+#else
+
+    //loop over vector of pointers to datasets defined in initForcings()
+    for (auto it=M_datasets_regrid.begin(), end=M_datasets_regrid.end(); it!=end; ++it)
+    {
+        if (M_rank == 0)
+            std::cout<<"REGRIDDING: need to re-interpolate dataset "<<(*it)->name<<"\n";
+
+        // unlike in the serial code,
+        // these are needed as the domain covered by the partitions
+        // changes at each remeshing/partitioning
+        (*it)->loaded=false;//reload the data
+        (*it)->grid.loaded=false;//reload the grid
+
+        //as in the serial code
+        //NB target_size doesn't need to be reset
+        (*it)->interpolated=false;//re-interpolate the data
+    }
 #endif
-
-    // //loop over vector of pointers to datasets defined in initForcings()
-    // for (auto it=M_datasets_regrid.begin(), end=M_datasets_regrid.end(); it!=end; ++it)
-    // {
-    //     if (M_rank == 0)
-    //         std::cout<<"REGRIDDING: need to re-interpolate dataset "<<(*it)->name<<"\n";
-
-    //     (*it)->interpolated=false;
-
-    //     // for the parallel code, it will be necessary to add these lines
-    //     // as the domain covered by the partitions changes at each remeshing/partitioning
-    //     // (*it)->grid.interpolated=false;
-    //     (*it)->grid.loaded=false;
-    // }
 
     M_Cohesion.resize(M_num_elements);
     M_Compressive_strength.resize(M_num_elements);
@@ -910,6 +914,17 @@ FiniteElement::initForcings()
     M_datasets_regrid.push_back(&M_atmosphere_bis_elements_dataset);
     M_datasets_regrid.push_back(&M_ocean_nodes_dataset);
     M_datasets_regrid.push_back(&M_ocean_elements_dataset);
+    M_datasets_regrid.push_back(&M_bathymetry_elements_dataset);
+
+    // TODO are these needed? (only for init, right?)
+    M_datasets_regrid.push_back(&M_ice_topaz_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_piomas_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_amsre_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_osisaf_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_osisaf_type_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_amsr2_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_cs2_smos_elements_dataset);
+    M_datasets_regrid.push_back(&M_ice_smos_elements_dataset);
 
 #if defined (WAVES)
     if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
@@ -12553,7 +12568,11 @@ FiniteElement::wimCheckWaves()
     // ============================================================
 
     // set inputs to WIM:
-    // - waves from datasets if needed
+    // - get waves from datasets if needed
+    // - NB this is a kind of 'serial' routine
+    // - call on each processor if running with M_parallel_wim=true;
+    // otherwise only run if M_rank==0
+
     if (M_wave_type==setup::WaveType::SET_IN_WIM)
         //nothing to do
         return;
@@ -12627,12 +12646,12 @@ FiniteElement::wimCheckWaves()
     std::cout<<"min mwp (dataset) = "<< Tp_data_min <<"\n";
     std::cout<<"max mwp (dataset) = "<< Tp_data_max <<"\n";
     //
-    std::cout<<"min swh (processed dataset) = "<< *std::min_element(swh_in.begin(),swh_in.end() )<<"\n";
-    std::cout<<"max swh (processed dataset) = "<< *std::max_element(swh_in.begin(),swh_in.end() )<<"\n";
-    std::cout<<"min mwp (processed dataset) = "<< *std::min_element(mwp_in.begin(),mwp_in.end() )<<"\n";
-    std::cout<<"max mwp (processed dataset) = "<< *std::max_element(mwp_in.begin(),mwp_in.end() )<<"\n";
-    std::cout<<"min mwd (processed dataset) = "<< *std::min_element(mwd_in.begin(),mwd_in.end() )<<"\n";
-    std::cout<<"max mwd (processed dataset) = "<< *std::max_element(mwd_in.begin(),mwd_in.end() )<<"\n";
+    std::cout<<"min swh (processed dataset) = "<< *std::min_element(swh_in.begin(), swh_in.end() )<<"\n";
+    std::cout<<"max swh (processed dataset) = "<< *std::max_element(swh_in.begin(), swh_in.end() )<<"\n";
+    std::cout<<"min mwp (processed dataset) = "<< *std::min_element(mwp_in.begin(), mwp_in.end() )<<"\n";
+    std::cout<<"max mwp (processed dataset) = "<< *std::max_element(mwp_in.begin(), mwp_in.end() )<<"\n";
+    std::cout<<"min mwd (processed dataset) = "<< *std::min_element(mwd_in.begin(), mwd_in.end() )<<"\n";
+    std::cout<<"max mwd (processed dataset) = "<< *std::max_element(mwd_in.begin(), mwd_in.end() )<<"\n";
 #endif
 
     M_wim.setWaveFields(swh_in, mwp_in, mwd_in);
