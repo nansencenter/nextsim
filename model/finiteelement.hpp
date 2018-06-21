@@ -216,6 +216,7 @@ public:
     void DataAssimilation();
     void tensors();
     void cohesion();
+    void updateDrifterPosition(int const &pcpt);
     void updateVelocity();
     void updateFreeDriftVelocity();
     void update();
