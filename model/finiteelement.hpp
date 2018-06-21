@@ -603,6 +603,7 @@ private:
     void initOSISAFDrifters();
     void initRGPSDrifters();
     void updateRGPSDrifters();
+    void initSidfexDrifters();
     void equallySpacedDrifter();
     void outputDrifter(std::fstream &iabp_out);
     void initIABPDrifter();

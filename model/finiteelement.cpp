@@ -4986,7 +4986,7 @@ FiniteElement::step(int &pcpt)
 #endif
 
     // Update the drifters position twice a day, important to keep the same frequency as the IABP data, for the moment
-    if( pcpt==0 || std::fmod(M_current_time,0.5)==0 )
+    if( pcpt==0 || std::fmod(M_current_time, 0.5)==0 )
     {   
         // Read in the new buoys and output
         if ( M_use_iabp_drifters )
@@ -5075,6 +5075,8 @@ FiniteElement::step(int &pcpt)
             M_equally_spaced_drifters.move(M_mesh, M_UT);
         if ( M_use_rgps_drifters )
             M_rgps_drifters.move(M_mesh, M_UT);
+        if ( M_use_sidfex_drifters )
+            M_sidfex_drifters.move(M_mesh, M_UT);
         if ( M_use_osisaf_drifters )
             for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
                 it->move(M_mesh, M_UT);
@@ -5085,29 +5087,39 @@ FiniteElement::step(int &pcpt)
 		    M_UT[i] = 0.;
 		    M_UT[i+M_num_nodes] = 0.;
 	    }
-    }
+    } // if( pcpt==0 || std::fmod(M_current_time,0.5)==0 ), update drifter positions
+
     if(pcpt>0)
     {
-        if ( M_use_equally_spaced_drifters && fmod(M_current_time,M_equally_spaced_drifters_output_time_step) == 0 )
+        if ( M_use_equally_spaced_drifters
+                && fmod(M_current_time, M_equally_spaced_drifters_output_time_step) == 0 )
             M_equally_spaced_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
 
         if ( M_use_rgps_drifters )
         {
+            // RGPS drifters are not initialised until RGPS_time_init
+            // - check if it's time to initialise them
             std::string time_str = vm["drifters.RGPS_time_init"].as<std::string>();
             double RGPS_time_init = Nextsim::from_date_time_string(time_str);
         
             if( !M_rgps_drifters.isInitialised() && M_current_time == RGPS_time_init)
                 this->updateRGPSDrifters();
             
-            if( M_current_time != RGPS_time_init && fmod(M_current_time,M_rgps_drifters_output_time_step) == 0 )
-                if ( M_rgps_drifters.isInitialised() )
-                    M_rgps_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
+            // if initialised, append to netcdf file
+            if( M_current_time != RGPS_time_init
+                    && fmod(M_current_time, M_rgps_drifters_output_time_step) == 0
+                    && M_rgps_drifters.isInitialised() )
+                M_rgps_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
         }
-    }
+
+        if ( M_use_sidfex_drifters
+                && fmod(M_current_time, M_sidfex_drifters_output_time_step) == 0 )
+            M_sidfex_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
+    } // if( pcpt==0 ), append to drifter netcdf files
      
-    if ( M_use_osisaf_drifters && fmod(M_current_time+0.5,1.) == 0 )
+    if ( M_use_osisaf_drifters && fmod(M_current_time+0.5, 1.) == 0 )
     {
-        // OSISAF drift is calculated as a dirfter displacement over 48 hours
+        // OSISAF drift is calculated as a drifter displacement over 48 hours
         // and they have two sets of drifters in the field at all times.
 
         // Write out the contents of [1] if it's meaningful
@@ -8804,6 +8816,9 @@ FiniteElement::initDrifters()
     if(M_use_rgps_drifters)
         this->initRGPSDrifters();
 
+    if(M_use_sidfex_drifters)
+        this->initSidfexDrifters();
+
     if(M_use_osisaf_drifters)
         this->initOSISAFDrifters();
 }
@@ -9060,6 +9075,18 @@ FiniteElement::updateRGPSDrifters()
     
     M_rgps_drifters.initNetCDF(M_export_path+"/RGPS_Drifters_", M_current_time);
     M_rgps_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
+}
+
+void
+FiniteElement::initSidfexDrifters()
+{
+    std::string filename = Environment::nextsimDir().string() + "/data/"
+        + vm["drifters.sidfex_filename"].as<std::string>();
+    M_sidfex_drifters = Drifters(filename, M_mesh, M_conc,
+            vm["drifters.concentration_limit"].as<double>(), M_current_time);
+    
+    M_sidfex_drifters.initNetCDF(M_export_path+"/SIDFEx_Drifters_", M_current_time);
+    M_sidfex_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
 }
 
 void
