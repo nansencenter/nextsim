@@ -9034,10 +9034,23 @@ FiniteElement::updateIABPDrifter()
 void
 FiniteElement::initIABPDrifter()
 {
+#if 0
     std::string filename = Environment::nextsimDir().string() + "/data/IABP_buoys.txt";
+#else
+    //new buoy file has a header
+    std::string filename = Environment::nextsimDir().string() + "/data/IABP_buoys_new_format.txt";
+#endif
     M_iabp_file.open(filename, std::fstream::in);
     if ( ! M_iabp_file.good() )
         throw std::runtime_error("File not found: " + filename);
+
+#if 1
+    //skip header
+    std::string header;
+    std::getline(M_iabp_file, header);
+    std::cout<<"open IABP drifter file: "<<filename<<"\n";
+    std::cout<<"header: "<<header<<"\n";
+#endif
 
     int pos;    // To be able to rewind one line
     double time = from_date_string("1979-01-01");
