@@ -93,19 +93,18 @@ Drifters::Drifters(std::string filename, GmshMesh const& mesh, std::vector<doubl
     std::string header;
     std::getline(M_rgps_file, header);
     std::cout<<"open drifter file: "<<filename<<"\n";
-    //std::cout<<"header: "<<header<<"\n";
+    std::cout<<"header: "<<header<<"\n";
 
-    int year, month, day, hour, minute, second, number;
+    int year, month, day, hour, number;
     double lat, lon;
 
     // Read the next line
-    while ( M_rgps_file >> year >> month >> day >> hour >> minute >> second >> number >> lat >> lon )
+    while ( M_rgps_file >> year >> month >> day >> hour >> number >> lat >> lon )
     {
-        //std::cout << year << ", "<< month << ", "<< day << ", "
-        //    << hour << ", "<< minute << ", "<< second << ", "
-        //    << number << ", "<< lat << ", "<< lon << "\n";
+        std::cout << year << ", "<< month << ", "<< day << ", "
+            << hour << ", "  << number << ", "<< lat << ", "<< lon << "\n";
         std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
-        time = from_date_string(date) + (hour*3600+minute*60+second)/(24.*3600.);
+        time = from_date_string(date) + hour/24.;
 
         if(time== current_time )
         {
