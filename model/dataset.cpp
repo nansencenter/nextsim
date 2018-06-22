@@ -25,7 +25,7 @@ namespace Nextsim
 DataSet::DataSet( )
 {}
 
-DataSet::DataSet(char const *DatasetName, int target_size_tmp)
+DataSet::DataSet(char const *DatasetName)
 {
 
     name = std::string(DatasetName);
@@ -180,7 +180,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
                 loaded: false,
                 dataset_frequency:"monthly",
-                target_location:"mesh_nodes",
 
                 waveOptions: wavopt_none,
 
@@ -205,7 +204,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -323,7 +321,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"monthly",
-            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -458,7 +455,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size=target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -631,7 +627,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"monthly",
-            target_location:"mesh_nodes",
 
             waveOptions: wavopt_none,
 
@@ -660,7 +655,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -833,7 +827,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"monthly",
-            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -850,7 +843,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -994,7 +986,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"daily",
-            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -1010,7 +1001,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -1223,7 +1213,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
                 loaded: false,
                 dataset_frequency:"daily",
-                target_location:"mesh_elements",
 
                 waveOptions: wavopt_none,
 
@@ -1243,7 +1232,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             variables= variables_tmp;
             vectorial_variables= vectorial_variables_tmp;
-            target_size= target_size_tmp;
             grid= grid_tmp;
 
             loaded=false;
@@ -1403,7 +1391,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
               loaded: false,
               dataset_frequency:"daily",
-              target_location:"mesh_elements",
 
               waveOptions: wavopt_none,
 
@@ -1420,7 +1407,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
           variables= variables_tmp;
           vectorial_variables= vectorial_variables_tmp;
-          target_size= target_size_tmp;
           grid= grid_tmp;
 
           loaded=false;
@@ -1619,7 +1605,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"daily",
-            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -1638,7 +1623,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -1784,7 +1768,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"daily",
-            target_location:"mesh_nodes",
 
             waveOptions: wavopt_none,
 
@@ -1800,7 +1783,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -1899,7 +1881,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"constant",
-            target_location:"mesh_nodes",
 
             waveOptions: wavopt_none,
 
@@ -1914,7 +1895,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -2012,7 +1992,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"constant",
-            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -2027,7 +2006,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -2199,7 +2177,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"monthly",
-            target_location:"mesh_nodes",
 
             waveOptions: wavopt_none,
 
@@ -2228,7 +2205,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -2401,7 +2377,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"monthly",
-            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -2418,7 +2393,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -2591,7 +2565,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"daily_forecast",
-            target_location:"mesh_nodes",
 
             waveOptions: wavopt_none,
 
@@ -2618,7 +2591,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -2842,7 +2814,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"daily_forecast",
-            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -2862,7 +2833,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -3035,7 +3005,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"monthly",
-            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -3052,7 +3021,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -3214,7 +3182,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"yearly",
-            target_location:"mesh_elements",
             //monthly_dataset:true,
 
             waveOptions: wavopt_none,
@@ -3232,7 +3199,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -3397,7 +3363,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
                 loaded: false,
                 dataset_frequency:"yearly",
-                target_location:"mesh_nodes",
 
                 waveOptions: wavopt_none,
 
@@ -3424,7 +3389,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -3549,7 +3513,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"daily",
-            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -3564,7 +3527,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -3709,7 +3671,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"nearest_daily",
-            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -3725,7 +3686,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -3853,7 +3813,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"nearest_daily",
-            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -3868,7 +3827,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -3996,7 +3954,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"nearest_daily",
-            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -4011,7 +3968,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -4129,7 +4085,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"nearest_daily",
-            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -4145,7 +4100,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -4289,7 +4243,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"nearest_daily",
-            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -4304,7 +4257,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -4449,7 +4401,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"nearest_daily",
-            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -4464,7 +4415,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -4609,7 +4559,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"nearest_daily",
-            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -4624,7 +4573,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -4725,7 +4673,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"constant",
-            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -4739,7 +4686,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -4832,7 +4778,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"constant",
-            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -4863,7 +4808,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size=target_size_tmp;
 
         grid= grid_tmp;
 
@@ -4960,7 +4904,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"constant",
-            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -4991,7 +4934,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size=target_size_tmp;
 
         grid= grid_tmp;
 
@@ -5085,7 +5027,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"monthly",
-            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -5249,7 +5190,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
 
         loaded=false;
         interpolated=false;
@@ -5343,7 +5283,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             loaded: false,
 
             dataset_frequency:"monthly",
-            target_location:"mesh_nodes",
 
             waveOptions: wavopt_none,
 
@@ -5432,7 +5371,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
 
         loaded=false;
         interpolated=false;
@@ -5525,7 +5463,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             loaded: false,
 
             dataset_frequency:"monthly",
-            target_location:"mesh_nodes",
 
             waveOptions: wavopt_none,
 
@@ -5614,7 +5551,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
 
         loaded=false;
         interpolated=false;
@@ -5707,7 +5643,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"monthly",
-            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -5873,7 +5808,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
          variables= variables_tmp;
          vectorial_variables= vectorial_variables_tmp;
-         target_size= target_size_tmp;
 
          loaded=false;
          interpolated=false;
@@ -5964,7 +5898,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             loaded: false,
 
             dataset_frequency:"monthly",
-            target_location:"mesh_nodes",
 
             waveOptions: wavopt_none,
 
@@ -6053,7 +5986,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
 
         loaded=false;
         interpolated=false;
@@ -6146,7 +6078,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"daily",
-            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -6260,7 +6191,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
 
         loaded=false;
         interpolated=false;
@@ -6353,7 +6283,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             loaded: false,
 
             dataset_frequency:"daily",
-            target_location:"mesh_nodes",
 
             waveOptions: wavopt_none,
 
@@ -6442,7 +6371,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
 
         loaded=false;
         interpolated=false;
@@ -6535,7 +6463,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"daily_ec2_forecast",
-            target_location:"mesh_elements",
 
             waveOptions: wavopt_none,
 
@@ -6701,7 +6628,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
 
         loaded=false;
         interpolated=false;
@@ -6794,7 +6720,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             loaded: false,
 
             dataset_frequency:"daily_ec2_forecast",
-            target_location:"mesh_nodes",
 
             waveOptions: wavopt_none,
 
@@ -6883,7 +6808,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
 
         loaded=false;
         interpolated=false;
@@ -7103,7 +7027,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"daily",
-            target_location:"wim_elements",
 
             waveOptions: {
                wave_dataset:true,
@@ -7143,7 +7066,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;
@@ -7244,7 +7166,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             loaded: false,
             dataset_frequency:"yearly",
-            target_location:"wim_elements",
 
             waveOptions: {
                 wave_dataset:true,
@@ -7390,7 +7311,6 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
 
-        target_size= target_size_tmp;
         grid= grid_tmp;
 
         loaded=false;

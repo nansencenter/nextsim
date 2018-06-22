@@ -185,7 +185,7 @@ namespace Nextsim
             // - if atmosphere-type=constant
             // -- dynamics
             ("ideal_simul.constant_wind_u", po::value<double>()->default_value( 0. ), "")
-            ("ideal_simul.constant_wind_v", po::value<double>()->default_value( -10. ), "")
+            ("ideal_simul.constant_wind_v", po::value<double>()->default_value( 0. ), "")
 
             // - if ocean-type=constant
             ("ideal_simul.constant_ocean_u", po::value<double>()->default_value( 0. ), "")
