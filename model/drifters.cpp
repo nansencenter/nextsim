@@ -30,7 +30,7 @@ namespace Nextsim
 Drifters::Drifters()
 {
     M_is_initialised = false;
-    M_no_drifters    = 0;
+    M_num_drifters    = 0;
     M_X.resize(0);
     M_Y.resize(0);
     M_i.resize(0);
@@ -230,7 +230,7 @@ Drifters::maskXY(GmshMesh const& mesh, std::vector<double>& X, std::vector<doubl
         }
     }
 
-    M_no_drifters = M_X.size();
+    M_num_drifters = M_X.size();
 
     xDelete<double>(interp_drifter_out);
 }
@@ -249,12 +249,12 @@ Drifters::isInitialised()
  * case is useful when writing to file
  */
 
-// Move drifters puting output into X and Y
+// Move drifters putting output into X and Y
 void
 Drifters::move(GmshMesh const& mesh, std::vector<double> const& UT, std::vector<double>& X, std::vector<double>& Y)
 {
     // Do nothing if we don't have to
-    if ( M_no_drifters == 0 )
+    if ( M_num_drifters == 0 )
         return;
 
     // Interpolate the total displacement onto the drifter positions
@@ -275,10 +275,10 @@ Drifters::move(GmshMesh const& mesh, std::vector<double> const& UT, std::vector<
                             numNodes,mesh.numTriangles(),
                             &interp_drifter_in[0],
                             numNodes,nb_var,
-                            &M_X[0],&M_Y[0],M_no_drifters,
+                            &M_X[0],&M_Y[0],M_num_drifters,
                             true, 0.);
 
-    for ( int i=0; i<M_no_drifters; ++i )
+    for ( int i=0; i<M_num_drifters; ++i )
     {
         X[i] = M_X[i] + interp_drifter_out[nb_var*i];
         Y[i] = M_Y[i] + interp_drifter_out[nb_var*i+1];
@@ -339,7 +339,7 @@ Drifters::initNetCDF(std::string file_prefix, double current_time)
     M_nc_step=0;
 
     // Create the vector dimension
-    netCDF::NcDim vecDim = dataFile.addDim("x", M_no_drifters);
+    netCDF::NcDim vecDim = dataFile.addDim("x", M_num_drifters);
     netCDF::NcDim emptyDim = dataFile.addDim("y", 1);
     std::vector<netCDF::NcDim> dims2(3);
     dims2[0] = tDim;
@@ -375,8 +375,8 @@ void
 Drifters::appendNetCDF(double current_time, GmshMesh const& mesh, std::vector<double> const& UT)
 {
     // Move the drifters before export, but save the result in a different variable
-    std::vector<double> X(M_no_drifters);
-    std::vector<double> Y(M_no_drifters);
+    std::vector<double> X(M_num_drifters);
+    std::vector<double> Y(M_num_drifters);
     move(mesh, UT, X, Y);
 
     // Calculate lat and lon
@@ -387,9 +387,9 @@ Drifters::appendNetCDF(double current_time, GmshMesh const& mesh, std::vector<do
 
     map = init_mapx(&str[0]);
 
-    std::vector<double> lat(M_no_drifters);
-    std::vector<double> lon(M_no_drifters);
-    for (int i=0; i<M_no_drifters; ++i)
+    std::vector<double> lat(M_num_drifters);
+    std::vector<double> lon(M_num_drifters);
+    for (int i=0; i<M_num_drifters; ++i)
         inverse_mapx(map, M_X[i], M_Y[i], &lat[i], &lon[i]);
 //            inverse_mapx(map, X[i], Y[i], &lat[i], &lon[i]);
 
@@ -412,7 +412,7 @@ Drifters::appendNetCDF(double current_time, GmshMesh const& mesh, std::vector<do
 
     // Append to the output variables
     start.push_back(0);
-    count.push_back(M_no_drifters);
+    count.push_back(M_num_drifters);
 
     start.push_back(0);
     count.push_back(1);

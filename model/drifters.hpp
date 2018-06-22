@@ -68,7 +68,7 @@ public:
 private:
         bool M_is_initialised;
 
-        int M_no_drifters;
+        int M_num_drifters;
 
         size_t M_nc_step;
 
