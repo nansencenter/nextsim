@@ -523,7 +523,8 @@ private:
 
     // IABP-like drifters
     bool M_use_iabp_drifters;
-    double M_iabp_drifters_inout_time_step;
+    double M_iabp_drifters_input_time_step;
+    double M_iabp_drifters_output_time_step;
     dbl_vec M_iabp_conc;
     boost::unordered_map<int, std::array<double,2>> M_iabp_drifters; // Drifters are kept in an unordered map containing number and coordinates
     std::fstream M_iabp_file;   // The file we read the IABP buoy data from

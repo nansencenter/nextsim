@@ -721,11 +721,14 @@ FiniteElement::initConstant()
 
     // use IABP drifters (12h check)
     M_use_iabp_drifters = vm["drifters.use_iabp_drifters"].as<bool>();
-    M_iabp_drifters_inout_time_step = 0.5;
+    M_iabp_drifters_output_time_step = vm["drifters.iabp_drifters_output_time_step"].as<double>();
+    M_iabp_drifters_input_time_step = 0.5;
     if (M_use_iabp_drifters)
     {
-        drifters_timesteps.push_back(M_iabp_drifters_inout_time_step);
-        drifters_names.push_back("IABP");
+        drifters_timesteps.push_back(M_iabp_drifters_input_time_step);
+        drifters_names.push_back("IABP (input)");
+        drifters_timesteps.push_back(M_iabp_drifters_output_time_step);
+        drifters_names.push_back("IABP (output)");
     }
 
     // use OSISAF drifters (24h check, run for 48h, 24h output)
@@ -768,7 +771,7 @@ FiniteElement::initConstant()
     {
         M_move_drifters_timestep = *std::min_element(drifters_timesteps.begin(),
                 drifters_timesteps.end());
-        if( std::fmod(M_move_drifters_timestep, time_step) != 0 )
+        if( std::fmod(M_move_drifters_timestep*24*3600, time_step) != 0 )
             // check that this is a multiple of timestep
             throw std::runtime_error("M_move_drifters_timestep not a multiple of nextsim model time_step");
 
@@ -8760,7 +8763,7 @@ FiniteElement::updateIabpDrifterPosition()
 
     // Rebuild the M_iabp_drifters map
     double clim = -1.;
-    if( std::fmod(M_current_time, M_iabp_drifters_inout_time_step) == 0 )
+    if( std::fmod(M_current_time, M_iabp_drifters_output_time_step) == 0 )
         // only apply the conc criterion when we are
         // inputting/outputting drifters
         // - otherwise we could have different results depending on
@@ -8827,16 +8830,16 @@ FiniteElement::updateDrifterPosition(int const &pcpt)
             std::fill(M_UT.begin(), M_UT.end(), 0.);
         }
 
-        // check if we need to add new IABP drifters, then output
-        // NB do this after moving
-        if ( M_use_iabp_drifters
-                && (std::fmod(M_current_time, M_iabp_drifters_inout_time_step)==0) )
+        if ( M_use_iabp_drifters )
         {
-            this->updateIABPDrifter();
+            if (std::fmod(M_current_time, M_iabp_drifters_input_time_step)==0)
+                // check if we need to add new IABP drifters
+                // NB do this after moving
+                this->updateIABPDrifter();
 
-            // output IABP drifters
-            // TODO: Do we want to output drifters at a different time interval?
-            this->outputDrifter(M_iabp_out);
+            if (std::fmod(M_current_time, M_iabp_drifters_output_time_step)==0)
+                // output IABP drifters
+                this->outputDrifter(M_iabp_out);
         }
 
         // output text file or netcdf
@@ -9158,7 +9161,6 @@ void
 FiniteElement::updateRGPSDrifters()
 {    
     //called once when M_current_time == M_rgps_time_init
-
     M_rgps_drifters = Drifters(M_rgps_file, M_mesh, M_conc,
             vm["drifters.concentration_limit"].as<double>(), M_rgps_time_init);
     M_rgps_drifters.initNetCDF(M_export_path+"/RGPS_Drifters_", M_current_time);
