@@ -217,6 +217,7 @@ public:
     void tensors();
     void cohesion();
     void updateDrifterPosition(int const &pcpt);
+    void updateIabpDrifterPosition();
     void updateVelocity();
     void updateFreeDriftVelocity();
     void update();
@@ -518,9 +519,12 @@ private:
 
     // are we using any drifters?
     bool M_use_drifters;
+    double M_move_drifters_timestep;
 
     // IABP-like drifters
     bool M_use_iabp_drifters;
+    double M_iabp_drifters_inout_time_step;
+    dbl_vec M_iabp_conc;
     boost::unordered_map<int, std::array<double,2>> M_iabp_drifters; // Drifters are kept in an unordered map containing number and coordinates
     std::fstream M_iabp_file;   // The file we read the IABP buoy data from
     std::fstream M_iabp_out;    // The file we write our simulated drifter positions into
@@ -532,6 +536,8 @@ private:
     
     // Drifters as in the RGPS data
     double M_rgps_drifters_output_time_step;
+    double M_rgps_time_init;
+    std::string M_rgps_file;
     bool M_use_rgps_drifters;
     Drifters M_rgps_drifters; 
 
