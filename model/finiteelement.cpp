@@ -8684,15 +8684,7 @@ FiniteElement::initDrifters()
     // Open the output file for IABP drifters
     // TODO: Is this the right place to open the file?
     if (M_use_iabp_drifters )
-    {
-        // We should tag the file name with the init time in case of a re-start.
-        std::stringstream filename;
-        filename << M_export_path << "/drifters_out_" << M_current_time << ".txt";
-        M_iabp_out.open(filename.str(), std::fstream::out);
-        if ( ! M_iabp_out.good() )
-            throw std::runtime_error("Cannot write to file: " + filename.str());
         this->initIABPDrifter();
-    }
 
     if(M_use_equally_spaced_drifters)
         this->equallySpacedDrifter();
@@ -9101,21 +9093,30 @@ FiniteElement::updateIABPDrifter()
 void
 FiniteElement::initIABPDrifter()
 {
+    // OUTPUT:
+    // We should tag the file name with the init time in case of a re-start.
+    std::stringstream filename_out;
+    filename_out << M_export_path << "/drifters_out_" << M_current_time << ".txt";
+    M_iabp_out.open(filename_out.str(), std::fstream::out);
+    if ( ! M_iabp_out.good() )
+        throw std::runtime_error("Cannot write to file: " + filename_out.str());
+
+    // INPUT:
 #if 0
-    std::string filename = Environment::nextsimDir().string() + "/data/IABP_buoys.txt";
+    std::string filename_in = Environment::nextsimDir().string() + "/data/IABP_buoys.txt";
 #else
     //new buoy file has a header
-    std::string filename = Environment::nextsimDir().string() + "/data/IABP_buoys_new_format.txt";
+    std::string filename_in = Environment::nextsimDir().string() + "/data/IABP_buoys_new_format.txt";
 #endif
-    M_iabp_file.open(filename, std::fstream::in);
+    M_iabp_file.open(filename_in, std::fstream::in);
     if ( ! M_iabp_file.good() )
-        throw std::runtime_error("File not found: " + filename);
+        throw std::runtime_error("File not found: " + filename_in);
 
 #if 1
     //skip header
     std::string header;
     std::getline(M_iabp_file, header);
-    std::cout<<"open IABP drifter file: "<<filename<<"\n";
+    std::cout<<"open IABP drifter file: "<<filename_in<<"\n";
     std::cout<<"header: "<<header<<"\n";
 #endif
 
@@ -9137,6 +9138,9 @@ FiniteElement::initIABPDrifter()
 
     // We must rewind one line so that updateIABPDrifter works correctly
     M_iabp_file.seekg(pos);
+
+    // Get the 1st drifter positions (if any)
+    this->updateIABPDrifter();
 }
 
 void
