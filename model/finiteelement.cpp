@@ -5421,15 +5421,15 @@ FiniteElement::step(int &pcpt)
 
 #endif
 
-#ifdef DEBUGGING
     if(vm["restart.debugging"].as<bool>())
+    {
         //write restart every timestep
         if (vm["output.datetime_in_filename"].as<bool>())
             this->writeRestart(pcpt, M_current_time);
         else
             this->writeRestart(pcpt, pcpt);
-#else
-    if ( fmod(pcpt*time_step,restart_time_step) == 0)
+    }
+    else if ( fmod(pcpt*time_step, restart_time_step) == 0)
     {
         std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
         if (vm["output.datetime_in_filename"].as<bool>())
@@ -5440,7 +5440,6 @@ FiniteElement::step(int &pcpt)
             this->writeRestart(pcpt, rstep );
         }
     }
-#endif
 
 
 #if defined (WAVES)
