@@ -153,7 +153,6 @@ namespace Nextsim
             // - inputs
             ("restart.start_from_restart", po::value<bool>()->default_value( false ), "")
             ("restart.restart_string", po::value<std::string>()->default_value( "" ), "")
-            ("restart.step_nb", po::value<int>()->default_value( 0 ), "")
             ("restart.input_path", po::value<std::string>()->default_value( "" ),
                     "where to find restarts (default is $NEXTSIMDIR/restart)")
             ("restart.restart_at_rest", po::value<bool>()->default_value( false ), "")

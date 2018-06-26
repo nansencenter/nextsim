@@ -4748,7 +4748,8 @@ FiniteElement::init()
         if ( !res_str.empty() )
             pcpt = this->readRestart(res_str);
         else
-            pcpt = this->readRestart(vm["restart.step_nb"].as<int>());
+            throw std::runtime_error(
+                    "please specify restart filename with restart.restart_string option");
         M_current_time = time_init + pcpt*time_step/(24*3600.0);
 
         if(M_use_osisaf_drifters)
