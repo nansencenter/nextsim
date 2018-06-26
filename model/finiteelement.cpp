@@ -9141,6 +9141,9 @@ FiniteElement::initIABPDrifter()
 
     // Get the 1st drifter positions (if any)
     this->updateIABPDrifter();
+    
+    // Save the initial positions to the output file
+    this->outputDrifter(M_iabp_out);
 }
 
 void
