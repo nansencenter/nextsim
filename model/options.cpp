@@ -38,19 +38,24 @@ namespace Nextsim
              */
 
             // - basics
-            ("simul.time_init", po::value<std::string>()->default_value( "2008-Mar-05" ), "")
-            ("simul.duration", po::value<double>()->default_value( 1. ), "")
-            ("simul.timestep", po::value<double>()->default_value( 200. ), "")
-            ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "")
+            ("simul.time_init", po::value<std::string>()->default_value( "2008-Mar-05" ),
+                "start time of simulation: date format yyyy-mm-dd or yyyy-mmm-dd (eg 2008-Mar-05); can also add time with HH:MM:SS (eg 2008-Mar-05 00:00:00)")
+            ("simul.duration", po::value<double>()->default_value( 1. ), "length of simulation")
+            ("simul.timestep", po::value<double>()->default_value( 200. ), "model time step")
+            ("simul.spinup_duration", po::value<double>()->default_value( 1. ),
+                "forcings are inreased linearly from 0 to their full strength over this period")
 
             /*
              *-----------------------------------------------------------------------------------
              * DEBUGGING OPTIONS
              * -----------------------------------------------------------------------------------
              */
-            ("debugging.bamg_verbose", po::value<int>()->default_value( 7 ), "")
-            ("debugging.log-level", po::value<std::string>()->default_value( "info" ), "")
-            ("debugging.max_iteration", po::value<int>()->default_value( -1 ), "")
+            ("debugging.bamg_verbose", po::value<int>()->default_value( 7 ),
+                "amount of printouts from bamg; integer from 0 (no printouts) to 7 (very verbose)")
+            ("debugging.log-level", po::value<std::string>()->default_value( "info" ),
+                "amount of printouts from model; debug, info, warning or error")
+            ("debugging.max_iteration", po::value<int>()->default_value( -1 ),
+                "stop simulation after this number of timesteps (overrides simul.duration). For testing (eg memory debugging with valgrind, which is very slow)")
 
             /*
              *-----------------------------------------------------------------------------------
@@ -60,15 +65,17 @@ namespace Nextsim
 
             // remeshing
             ("numerics.regrid", po::value<std::string>()->default_value( "bamg" ), "No-regridding or bamg")
-            ("numerics.regrid_output_flag", po::value<bool>()->default_value( false ), "")
-            ("numerics.regrid_angle", po::value<double>()->default_value( 10. ), "")
-            ("numerics.interp_with_cavities", po::value<bool>()->default_value( true ), "")
+            ("numerics.regrid_output_flag", po::value<bool>()->default_value( false ),
+                "Save outputs before and after each regridding substep")
+            ("numerics.regrid_angle", po::value<double>()->default_value( 10. ),
+                "if minimum angle of a triangle goes below this, we regrid")
 
             // advection scheme
             // - ALE_smoothing_step_nb<0 is the eulerian case where M_UM is not changed and then =0.
             // - ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
             // - ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
-            ("numerics.ALE_smoothing_step_nb", po::value<int>()->default_value( 0 ), "")
+            ("numerics.ALE_smoothing_step_nb", po::value<int>()->default_value( 0 ),
+                "used to determine if using Eulerian (<0), Lagrangian (=0) or ALE (>0); if >0, this is the number of time steps to smooth M_VT with")
 
             // solver
             ("solver.ksp-type", po::value<std::string>()->default_value( "preonly" ), "")
@@ -84,33 +91,36 @@ namespace Nextsim
              */
 
             // setup
-            ("setup.atmosphere-type", po::value<std::string>()->default_value( "asr" ), "")
-            ("setup.ocean-type", po::value<std::string>()->default_value( "constant" ), "")
-            ("setup.ice-type", po::value<std::string>()->default_value( "constant" ), "")
-            ("setup.bathymetry-type", po::value<std::string>()->default_value( "etopo" ), "")
-            ("setup.basal_stress-type", po::value<std::string>()->default_value( "lemieux" ), "")
-            ("setup.use_assimilation", po::value<bool>()->default_value( false ), "")
-            ("setup.dynamics-type", po::value<std::string>()->default_value( "default" ), "")
-            ("setup.thermo-type", po::value<std::string>()->default_value( "winton" ), "")
+            ("setup.atmosphere-type", po::value<std::string>()->default_value( "asr" ), "which atmospheric forcing?")
+            ("setup.ocean-type", po::value<std::string>()->default_value( "constant" ), "which oceanic forcing?")
+            ("setup.ice-type", po::value<std::string>()->default_value( "constant" ), "ice initialisation or assimilation option")
+            ("setup.bathymetry-type", po::value<std::string>()->default_value( "etopo" ), "bathymetry option")
+            ("setup.basal_stress-type", po::value<std::string>()->default_value( "lemieux" ), "type of basal stress model")
+            ("setup.use_assimilation", po::value<bool>()->default_value( false ), "use assimilation or not")
+            ("setup.dynamics-type", po::value<std::string>()->default_value( "default" ), "type of dynamics")
+            ("setup.thermo-type", po::value<std::string>()->default_value( "winton" ), "which thermodynamics model")
 
             // mesh
             ("mesh.path", po::value<std::string>()->default_value( "nextsimdir" ), "nextsimdir or simdatadir")
-            ("mesh.filename", po::value<std::string>()->default_value( "medium_Arctic_10km.msh" ), "")
-            ("mesh.mppfile", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "")
+            ("mesh.filename", po::value<std::string>()->default_value( "medium_Arctic_10km.msh" ), "name of .msh file to use")
+            ("mesh.mppfile", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "name of .mpp projection file to use")
             //not used: ("mesh.hsize", po::value<double>()->default_value( 0.01 ), "") // to be checked
 
             // moorings
-            ("moorings.use_moorings", po::value<bool>()->default_value( false ), "")
-            ("moorings.snapshot", po::value<bool>()->default_value( false ), "")
-            ("moorings.file_length", po::value<std::string>()->default_value( "inf" ), "")
-            ("moorings.spacing", po::value<double>()->default_value( 10 ), "km")
-            ("moorings.output_timestep", po::value<double>()->default_value( 1 ), "days")
+            ("moorings.use_moorings", po::value<bool>()->default_value( false ), "do we use moorings (netcdf output to grid)?")
+            ("moorings.snapshot", po::value<bool>()->default_value( false ),
+                "do we output snapshots in time or do we use time-averaging?")
+            ("moorings.file_length", po::value<std::string>()->default_value( "inf" ), "daily, weekly, monthly, or yearly mooring files; or inf (single file)")
+            ("moorings.spacing", po::value<double>()->default_value( 10 ),
+                "spacing between grid points (km), regular grid in the model's stereographic projection")
+            ("moorings.output_timestep", po::value<double>()->default_value( 1 ), "time interval between mooring records (days)")
             ("moorings.variables", po::value<std::vector<std::string>>()->multitoken()->default_value(
                         std::vector<std::string>
                             {"conc", "thick", "snow", "conc_thin", "h_thin", "hs_thin", "velocity_xy"},
                              "conc    thick    snow    conc_thin    h_thin    hs_thin    velocity_xy"
                     )->composing(), "list of variable names (put on separate lines in config file)")
-            ("moorings.grid_file", po::value<std::string>()->default_value( "" ), "") // It must be a netcdf file having x y as dimensions and latitude longitude as variables
+            ("moorings.grid_file", po::value<std::string>()->default_value( "" ),
+                "Name of grid-file to use for mooring locations (overrides mooring.spacing). It must be a netcdf file having x, y as dimensions and latitude, longitude as variables")
 
             // drifters
             // NB output_time_step values need to be consistent between drifters:
