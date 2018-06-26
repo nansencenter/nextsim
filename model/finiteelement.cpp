@@ -4758,8 +4758,8 @@ FiniteElement::init()
                     "please specify restart filename with restart.restart_string option");
         M_current_time = time_init + pcpt*time_step/(24*3600.0);
 
-        if(M_use_osisaf_drifters)
-            this->initOSISAFDrifters();
+        //if(M_use_osisaf_drifters)
+        //    this->initOSISAFDrifters();
         
 //        for (int i=0; i<M_num_elements; i++)
 //            M_damage[i]=(M_damage[i]>0.95 ? 1. : 0.);
@@ -5089,7 +5089,7 @@ FiniteElement::step(int &pcpt)
             //do we need to update drifters? (move, output, read new inputs)
             //NB now we only call this if we after initialisation time
             LOG(DEBUG) << "updateDrifters\n";
-            this->updateDrifters(pcpt);
+            this->updateDrifters();
         }
     }
 

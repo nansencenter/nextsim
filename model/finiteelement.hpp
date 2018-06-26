@@ -611,7 +611,6 @@ private:
     void topazAmsreIce();
     void topazAmsr2Ice();
 
-    void initOSISAFDrifters();
     void initRGPSDrifters();
     void updateRGPSDrifters();
     void initSidfexDrifters();
