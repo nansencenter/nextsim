@@ -186,7 +186,8 @@ public:
     std::vector<double> AllMinAngle(mesh_type const& mesh, std::vector<double> const& um, double factor) const;
 
     void initBamg();
-    void initConstant();
+    void initOptsAndParams();
+    void initDrifterOpts();
     void forcing();
     void forcingAtmosphere();
     void forcingOcean();
@@ -216,7 +217,7 @@ public:
     void DataAssimilation();
     void tensors();
     void cohesion();
-    void updateDrifterPosition(int const &pcpt);
+    void updateDrifters(int const &pcpt);
     void updateIabpDrifterPosition();
     void updateVelocity();
     void updateFreeDriftVelocity();
@@ -520,6 +521,7 @@ private:
     // are we using any drifters?
     bool M_use_drifters;
     double M_move_drifters_timestep;
+    double M_drifters_time_init;
 
     // IABP-like drifters
     bool M_use_iabp_drifters;
