@@ -217,7 +217,7 @@ public:
     void DataAssimilation();
     void tensors();
     void cohesion();
-    void updateDrifters(int const &pcpt);
+    void updateDrifters();
     void updateIabpDrifterPosition();
     void updateVelocity();
     void updateFreeDriftVelocity();
@@ -551,6 +551,7 @@ private:
     
     // drifters for the OSISAF emulation
     bool M_use_osisaf_drifters;
+    double M_osisaf_drifters_output_time_step;
     std::vector<Drifters> M_osisaf_drifters;
 
     // Element variable

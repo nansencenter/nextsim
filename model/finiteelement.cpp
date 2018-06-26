@@ -759,6 +759,7 @@ FiniteElement::initOptsAndParams()
 void
 FiniteElement::initDrifterOpts()
 {
+    //to be run at start time
     dbl_vec drifters_timesteps;
     std::vector<std::string> drifters_names;//for debugging
 
@@ -788,8 +789,13 @@ FiniteElement::initDrifterOpts()
         drifters_names.push_back("IABP (output)");
     }
 
-    // use OSISAF drifters (24h check, run for 48h, 24h output)
+    // use OSISAF drifters
+    // - every day at 12:00 start a new set of drifters which run for 48h
+    // - output time step is an option
     M_use_osisaf_drifters = vm["drifters.use_osisaf_drifters"].as<bool>();
+    M_osisaf_drifters_output_time_step = vm["drifters.osisaf_drifters_output_time_step"].as<double>();
+    if(M_use_osisaf_drifters)
+        M_osisaf_drifters.resize(2);
 
     // equally spaced drifters
     M_use_equally_spaced_drifters = vm["drifters.use_equally_spaced_drifters"].as<bool>();
@@ -8734,6 +8740,8 @@ FiniteElement::initThermodynamics()
 void
 FiniteElement::initDrifters()
 {
+    //called once at M_drifters_time_init
+    // - initialise the drifters that start then
     if (M_use_iabp_drifters )
         this->initIABPDrifter();
 
@@ -8742,9 +8750,6 @@ FiniteElement::initDrifters()
 
     if(M_use_sidfex_drifters)
         this->initSidfexDrifters();
-
-    if(M_use_osisaf_drifters)
-        this->initOSISAFDrifters();
 }//initDrifters()
 
 void
@@ -8836,7 +8841,7 @@ FiniteElement::updateIabpDrifterPosition()
 }//updateIabpDrifterPosition
 
 void
-FiniteElement::updateDrifters(int const &pcpt)
+FiniteElement::updateDrifters()
 {
     // 1. move the drifters (if needed)
     // 2. get new inputs (IABP, OSISAF) (if needed)
@@ -8856,7 +8861,8 @@ FiniteElement::updateDrifters(int const &pcpt)
             M_sidfex_drifters.move(M_mesh, M_UT);
         if ( M_use_osisaf_drifters )
             for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
-                it->move(M_mesh, M_UT);
+                if (it->isInitialised())
+                    it->move(M_mesh, M_UT);
     
         // reset M_UT
         std::fill(M_UT.begin(), M_UT.end(), 0.);
@@ -8890,15 +8896,20 @@ FiniteElement::updateDrifters(int const &pcpt)
     if ( M_use_sidfex_drifters
             && fmod(M_current_time, M_sidfex_drifters_output_time_step) == 0 )
         M_sidfex_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
+
+    if ( M_use_osisaf_drifters
+            && fmod(M_current_time, M_osisaf_drifters_output_time_step) == 0 )
+    {
+        for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
+            if (it->isInitialised())
+                it->appendNetCDF(M_current_time, M_mesh, M_UT);
+    }
      
     if ( M_use_osisaf_drifters && fmod(M_current_time+0.5, 1.) == 0 )
     {
         // OSISAF drift is calculated as a drifter displacement over 48 hours
-        // and they have two sets of drifters in the field at all times.
-
-        // Write out the contents of [1] if it's meaningful
-        if ( M_osisaf_drifters[1].isInitialised() )
-            M_osisaf_drifters[1].appendNetCDF(M_current_time, M_mesh, M_UT);
+        // and they have two sets of drifters in the field at all times ([0] is the newest).
+        // Here we start a new set of drifters.
 
         // Flip the vector so we move [0] to be [1]
         std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
@@ -8922,7 +8933,7 @@ FiniteElement::updateDrifters(int const &pcpt)
 
         M_osisaf_drifters[0].initNetCDF(osi_output_path, M_current_time);
         M_osisaf_drifters[0].appendNetCDF(M_current_time, M_mesh, M_UT);
-    }//append to OSISAF netcdf
+    }//start a new set of OSISAF drifters
 
 }//updateDrifters
 
@@ -9211,12 +9222,6 @@ FiniteElement::initSidfexDrifters()
     
     M_sidfex_drifters.initNetCDF(M_export_path+"/SIDFEx_Drifters_", M_current_time);
     M_sidfex_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
-}
-
-void
-FiniteElement::initOSISAFDrifters()
-{
-    M_osisaf_drifters.resize(2);
 }
 
 void
