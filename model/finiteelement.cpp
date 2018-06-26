@@ -6149,11 +6149,11 @@ FiniteElement::readRestart(std::string step)
         std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
         std::vector<double> drifter_y  = field_map_dbl["Drifter_y"];
 
-        this->initIABPDrifter();
+        this->initIabpDrifter();
         if (drifter_no.size() == 0)
         {
             LOG(WARNING) << "Warning: Couldn't read drifter positions from restart file. Drifter positions initialised as if there was no restart.\n";
-            this->updateIABPDrifter();
+            this->updateIabpDrifter();
         } else {
             for ( int i=0; i<drifter_no.size(); ++i )
             {
@@ -8743,7 +8743,7 @@ FiniteElement::initDrifters()
     //called once at M_drifters_time_init
     // - initialise the drifters that start then
     if (M_use_iabp_drifters )
-        this->initIABPDrifter();
+        this->initIabpDrifter();
 
     if(M_use_equally_spaced_drifters)
         this->equallySpacedDrifter();
@@ -8752,11 +8752,47 @@ FiniteElement::initDrifters()
         this->initSidfexDrifters();
 }//initDrifters()
 
+
+void
+FiniteElement::updateIabpDrifterConc()
+{
+    // Assemble the coordinates from the unordered_map
+    int Ndrifters = M_iabp_drifters.size();
+    std::vector<double> drifter_X(Ndrifters);
+    std::vector<double> drifter_Y(Ndrifters);
+    int j=0;
+    for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
+    {
+        drifter_X[j] = it->second[0];
+        drifter_Y[j] = it->second[1];
+        ++j;
+    }
+
+    // Interpolate the concentration
+    double* interp_drifter_c_out;
+    InterpFromMeshToMesh2dx(&interp_drifter_c_out,
+                            &M_mesh.indexTr()[0], &M_mesh.coordX()[0], &M_mesh.coordY()[0],
+                            M_mesh.numNodes(), M_mesh.numTriangles(),
+                            &M_conc[0],
+                            M_mesh.numTriangles(), 1,
+                            &drifter_X[0], &drifter_Y[0],
+                            Ndrifters,
+                            true, 0.);
+
+    // Finally retrieve M_iabp_conc and delete the pointer
+    M_iabp_conc.resize(M_iabp_drifters.size());
+    for( int j=0; j<M_iabp_drifters.size(); j++ )
+        M_iabp_conc[j] = interp_drifter_c_out[j];
+    xDelete<double>(interp_drifter_c_out);
+
+}//updateIABPDrifterConc
+
+
 void
 FiniteElement::updateIabpDrifterPosition()
 {
     chrono.restart();
-    LOG(DEBUG) <<"IABP Drifter starts\n";
+    LOG(DEBUG) <<"IABP Drifter moving starts\n";
 
     // Assemble the coordinates from the unordered_map
     std::vector<double> drifter_X(M_iabp_drifters.size());
@@ -8772,8 +8808,6 @@ FiniteElement::updateIabpDrifterPosition()
     // Interpolate the total displacement and concentration onto the drifter positions
     int nb_var=2;
     std::vector<double> interp_drifter_in(nb_var*M_mesh.numNodes());
-
-    // Interpolate the velocity
     for (int i=0; i<M_mesh.numNodes(); ++i)
     {
         interp_drifter_in[nb_var*i]   = M_UT[i];
@@ -8782,62 +8816,27 @@ FiniteElement::updateIabpDrifterPosition()
 
     double* interp_drifter_out;
     InterpFromMeshToMesh2dx(&interp_drifter_out,
-                            &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-                            M_mesh.numNodes(),M_mesh.numTriangles(),
+                            &M_mesh.indexTr()[0], &M_mesh.coordX()[0], &M_mesh.coordY()[0],
+                            M_mesh.numNodes(), M_mesh.numTriangles(),
                             &interp_drifter_in[0],
-                            M_mesh.numNodes(),nb_var,
-                            &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
-                            true, 0.);
-
-
-    // Interpolate the concentration - re-use interp_drifter_in
-    interp_drifter_in.resize(M_mesh.numTriangles());
-    for (int i=0; i<M_mesh.numTriangles(); ++i)
-    {
-        interp_drifter_in[i] = M_conc[i];
-    }
-
-    double* interp_drifter_c_out;
-    InterpFromMeshToMesh2dx(&interp_drifter_c_out,
-                            &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-                            M_mesh.numNodes(),M_mesh.numTriangles(),
-                            &interp_drifter_in[0],
-                            M_mesh.numTriangles(),1,
-                            &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
+                            M_mesh.numNodes(), nb_var,
+                            &drifter_X[0], &drifter_Y[0], M_iabp_drifters.size(),
                             true, 0.);
 
     // Rebuild the M_iabp_drifters map
-    double clim = -1.;
-    if( std::fmod(M_current_time, M_iabp_drifters_output_time_step) == 0 )
-        // only apply the conc criterion when we are
-        // inputting/outputting drifters
-        // - otherwise we could have different results depending on
-        // the output freq of the other drifters
-        clim = vm["drifters.concentration_limit"].as<double>();
-
     j = 0;
-    M_iabp_conc.resize(0);
-    for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++j)// NB ++it is not allowed here, because we use 'erase'
+    for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it)
     {
-        double conc = interp_drifter_c_out[j];
-        if ( conc > clim )
-        {
-            M_iabp_drifters[it->first] = std::array<double,2> {
-                it->second[0]+interp_drifter_out[nb_var*j],
-                it->second[1]+interp_drifter_out[nb_var*j+1]
-            };
-            M_iabp_conc.push_back(conc);
-            ++it;
-        }
-        else
-            // Throw out drifters that drift out of the ice
-            it = M_iabp_drifters.erase(it);
+        M_iabp_drifters[it->first] = std::array<double,2> {
+            it->second[0]+interp_drifter_out[nb_var*j],
+            it->second[1]+interp_drifter_out[nb_var*j+1]
+        };
+        ++j;
     }
 
     xDelete<double>(interp_drifter_out);
-    xDelete<double>(interp_drifter_c_out);
 
-    LOG(DEBUG) <<"IABP Drifter interp done in "<< chrono.elapsed() <<"s\n";
+    LOG(DEBUG) <<"IABP Drifter move done in "<< chrono.elapsed() <<"s\n";
 }//updateIabpDrifterPosition
 
 void
@@ -8870,14 +8869,24 @@ FiniteElement::updateDrifters()
 
     if ( M_use_iabp_drifters )
     {
-        if (std::fmod(M_current_time, M_iabp_drifters_input_time_step)==0)
+        bool inputting = (std::fmod(M_current_time, M_iabp_drifters_input_time_step)==0);
+        bool outputting = (std::fmod(M_current_time, M_iabp_drifters_output_time_step)==0);
+
+        if (inputting)
             // check if we need to add new IABP drifters
             // NB do this after moving
-            this->updateIABPDrifter();
+            // NB this updates M_iabp_conc
+            this->updateIabpDrifter();
 
-        if (std::fmod(M_current_time, M_iabp_drifters_output_time_step)==0)
+        if (outputting)
+        {
             // output IABP drifters
+            // NB do this after moving
+            if(!inputting)
+                //still need to get M_iabp_conc
+                this->updateIabpDrifterConc();
             this->outputDrifter(M_iabp_out);
+        }
     }
 
     // output text file or netcdf
@@ -9011,6 +9020,7 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
     str.push_back('\0');
     map = init_mapx(&str[0]);
 
+#if 0
     // Assemble the coordinates from the unordered_map
     std::vector<double> drifter_X(M_iabp_drifters.size());
     std::vector<double> drifter_Y(M_iabp_drifters.size());
@@ -9041,16 +9051,26 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
         M_mesh.numNodes(),nb_var,
         &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
         true, 0.);
+#endif
 
     // Loop over the map and output
-    j=0;
+    int j=0;
     boost::gregorian::date           date = Nextsim::parse_date( M_current_time );
     boost::posix_time::time_duration time = Nextsim::parse_time( M_current_time );
     for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
     {
         double lat, lon;
-        inverse_mapx(map,it->second[0]+interp_drifter_out[nb_var*j],it->second[1]+interp_drifter_out[nb_var*j+1],&lat,&lon);
+        double conc = M_iabp_conc[j];
+
+        //inverse_mapx(map,it->second[0]+interp_drifter_out[nb_var*j],it->second[1]+interp_drifter_out[nb_var*j+1],&lat,&lon);
+        inverse_mapx(map, it->second[0], it->second[1], &lat, &lon);
         j++;
+        std::cout<< "9055: "<< j
+            << ", "<< it->first
+            << ", "<< lon
+            << ", "<< lat
+            << ", "<< conc
+            << "\n";
 
         drifters_out << setw(4) << date.year()
             << " " << setw( 2) << date.month().as_number()
@@ -9059,16 +9079,19 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
             << " " << setw(16) << it->first
             << fixed << setprecision(5)
             << " " << setw( 8) << lat
-            << " " << setw(10) << lon << "\n";
+            << " " << setw(10) << lon
+            << " " << conc
+            << "\n";
     }
 
-    xDelete<double>(interp_drifter_out);
+    //xDelete<double>(interp_drifter_out);
     close_mapx(map);
-}
+}//outputDrifter
+
 
 // Add the buoys that have been put into the ice and remove dead ones
 void
-FiniteElement::updateIABPDrifter()
+FiniteElement::updateIabpDrifter()
 {
     // Initialize the map
     mapx_class *map;
@@ -9112,33 +9135,39 @@ FiniteElement::updateIABPDrifter()
     }
     close_mapx(map);
 
-    // Go through the M_iabp_drifters map and throw out the ones which IABP doesn't
-    // report as being in the ice anymore
-    for ( auto model = M_iabp_drifters.begin(); model != M_iabp_drifters.end(); /* ++model is not allowed here, because we use 'erase' */ )
+    // update M_iabp_conc (get model conc at all drifters)
+    this->updateIabpDrifterConc();
+
+    // Rebuild the M_iabp_drifters map
+    double clim = vm["drifters.concentration_limit"].as<double>();
+
+    // Go through the M_iabp_drifters map and throw out:
+    // (i) the ones which IABP doesn't report as being in the ice anymore
+    // (ii) the ones which have a low conc according to the model
+    int j =0;
+    auto model_conc = M_iabp_conc;
+    M_iabp_conc.resize(0);
+    for ( auto model = M_iabp_drifters.begin(); model != M_iabp_drifters.end(); j++)// NB ++model is not allowed here, because we use 'erase'
     {
-        bool keep = false;
-        // Check against all the buoys we want to keep
-        for ( auto obs = keepers.begin(); obs != keepers.end(); ++obs )
-        {
-            if ( model->first == *obs )
-            {
-                keep = true;
-                break;
-            }
-        }
+        double conc = model_conc[j];
+        bool keep = (conc > clim)                                               // in ice (model)
+            && ( std::count(keepers.begin(), keepers.end(), model->first) >0 ); // in ice (IABP)
 
         // Delete or advance the iterator
         if ( ! keep )
             model = M_iabp_drifters.erase(model);
         else
+        {
             ++model;
-    }
+            M_iabp_conc.push_back(conc);
+        }
+    }//remove drifters not in ice according to IABP or model
 }
 
 // Initialise by reading all the data from '79 up to time_init
 // This is too slow, but only happens once so I won't try to optimise that for now
 void
-FiniteElement::initIABPDrifter()
+FiniteElement::initIabpDrifter()
 {
     // OUTPUT:
     // We should tag the file name with the init time in case of a re-start.
@@ -9147,6 +9176,9 @@ FiniteElement::initIABPDrifter()
     M_iabp_out.open(filename_out.str(), std::fstream::out);
     if ( ! M_iabp_out.good() )
         throw std::runtime_error("Cannot write to file: " + filename_out.str());
+
+    // add a header
+    M_iabp_out << "Year Month Day Hour BuoyID Lat Lon Concentration\n";
 
     // INPUT:
 #if 0
@@ -9183,15 +9215,17 @@ FiniteElement::initIABPDrifter()
         time = from_date_string(date) + hour/24.;
     }
 
-    // We must rewind one line so that updateIABPDrifter works correctly
+    // We must rewind one line so that updateIabpDrifter works correctly
     M_iabp_file.seekg(pos);
 
-    // Get the 1st drifter positions (if any)
-    this->updateIABPDrifter();
+    // Get:
+    // - the 1st drifter positions (if any)
+    // - M_conc at these positions
+    this->updateIabpDrifter();
     
     // Save the initial positions to the output file
     this->outputDrifter(M_iabp_out);
-}
+}//initIabpDrifter
 
 void
 FiniteElement::equallySpacedDrifter()

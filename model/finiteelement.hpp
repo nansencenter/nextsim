@@ -217,8 +217,6 @@ public:
     void DataAssimilation();
     void tensors();
     void cohesion();
-    void updateDrifters();
-    void updateIabpDrifterPosition();
     void updateVelocity();
     void updateFreeDriftVelocity();
     void update();
@@ -611,13 +609,16 @@ private:
     void topazAmsreIce();
     void topazAmsr2Ice();
 
+    void updateDrifters();
     void initRGPSDrifters();
     void updateRGPSDrifters();
     void initSidfexDrifters();
     void equallySpacedDrifter();
     void outputDrifter(std::fstream &iabp_out);
-    void initIABPDrifter();
-    void updateIABPDrifter();
+    void initIabpDrifter();
+    void updateIabpDrifter();
+    void updateIabpDrifterPosition();
+    void updateIabpDrifterConc();
 
     void updateMeans(GridOutput &means, double time_factor);
     void initMoorings();
