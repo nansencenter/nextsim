@@ -614,7 +614,7 @@ private:
     void updateRGPSDrifters();
     void initSidfexDrifters();
     void equallySpacedDrifter();
-    void outputDrifter(std::fstream &iabp_out);
+    void outputIabpDrifter();
     void initIabpDrifter();
     void updateIabpDrifter();
     void updateIabpDrifterPosition();

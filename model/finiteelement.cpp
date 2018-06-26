@@ -8885,7 +8885,7 @@ FiniteElement::updateDrifters()
             if(!inputting)
                 //still need to get M_iabp_conc
                 this->updateIabpDrifterConc();
-            this->outputDrifter(M_iabp_out);
+            this->outputIabpDrifter();
         }
     }
 
@@ -9006,7 +9006,7 @@ FiniteElement::nodesToElements(double const* depth, std::vector<double>& v)
 // A simple function to output the drifters in the model, IABP or otherwise
 // The output could well be prettier!
 void
-FiniteElement::outputDrifter(std::fstream &drifters_out)
+FiniteElement::outputIabpDrifter()
 {
     // Initialize the map
     mapx_class *map;
@@ -9020,39 +9020,6 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
     str.push_back('\0');
     map = init_mapx(&str[0]);
 
-#if 0
-    // Assemble the coordinates from the unordered_map
-    std::vector<double> drifter_X(M_iabp_drifters.size());
-    std::vector<double> drifter_Y(M_iabp_drifters.size());
-    int j=0;
-    for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
-    {
-        drifter_X[j] = it->second[0];
-        drifter_Y[j] = it->second[1];
-        ++j;
-    }
-
-    // Interpolate the total displacement and concentration onto the drifter positions
-    int nb_var=2;
-    std::vector<double> interp_drifter_in(nb_var*M_mesh.numNodes());
-
-    // Interpolate the velocity
-    for (int i=0; i<M_mesh.numNodes(); ++i)
-    {
-        interp_drifter_in[nb_var*i]   = M_UT[i];
-        interp_drifter_in[nb_var*i+1] = M_UT[i+M_mesh.numNodes()];
-    }
-
-    double* interp_drifter_out;
-    InterpFromMeshToMesh2dx(&interp_drifter_out,
-        &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-        M_mesh.numNodes(),M_mesh.numTriangles(),
-        &interp_drifter_in[0],
-        M_mesh.numNodes(),nb_var,
-        &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
-        true, 0.);
-#endif
-
     // Loop over the map and output
     int j=0;
     boost::gregorian::date           date = Nextsim::parse_date( M_current_time );
@@ -9061,18 +9028,10 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
     {
         double lat, lon;
         double conc = M_iabp_conc[j];
-
-        //inverse_mapx(map,it->second[0]+interp_drifter_out[nb_var*j],it->second[1]+interp_drifter_out[nb_var*j+1],&lat,&lon);
         inverse_mapx(map, it->second[0], it->second[1], &lat, &lon);
         j++;
-        std::cout<< "9055: "<< j
-            << ", "<< it->first
-            << ", "<< lon
-            << ", "<< lat
-            << ", "<< conc
-            << "\n";
 
-        drifters_out << setw(4) << date.year()
+        M_iabp_out << setw(4) << date.year()
             << " " << setw( 2) << date.month().as_number()
             << " " << setw( 2) << date.day().as_number()
             << " " << setw( 2) << time.hours()
@@ -9086,7 +9045,7 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
 
     //xDelete<double>(interp_drifter_out);
     close_mapx(map);
-}//outputDrifter
+}//outputIabpDrifter
 
 
 // Add the buoys that have been put into the ice and remove dead ones
@@ -9224,7 +9183,7 @@ FiniteElement::initIabpDrifter()
     this->updateIabpDrifter();
     
     // Save the initial positions to the output file
-    this->outputDrifter(M_iabp_out);
+    this->outputIabpDrifter();
 }//initIabpDrifter
 
 void
