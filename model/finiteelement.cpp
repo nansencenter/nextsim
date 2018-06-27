@@ -796,6 +796,8 @@ FiniteElement::initDrifterOpts()
     M_osisaf_drifters_output_time_step = vm["drifters.osisaf_drifters_output_time_step"].as<double>();
     if(M_use_osisaf_drifters)
         M_osisaf_drifters.resize(2);
+    drifters_timesteps.push_back(M_osisaf_drifters_output_time_step);
+    drifters_names.push_back("OSISAF");
 
     // equally spaced drifters
     M_use_equally_spaced_drifters = vm["drifters.use_equally_spaced_drifters"].as<bool>();
@@ -836,10 +838,13 @@ FiniteElement::initDrifterOpts()
         || (M_use_equally_spaced_drifters)
         || (M_use_rgps_drifters)
         || (M_use_sidfex_drifters);
-    M_drifters_time_init = time_init + vm["simul.spinup_duration"].as<double>();
 
     if(M_use_drifters)
     {
+        //init drifters after spinup
+        M_drifters_time_init = time_init + vm["simul.spinup_duration"].as<double>();
+
+        //set timestep for moving drifters
         M_move_drifters_timestep = *std::min_element(drifters_timesteps.begin(),
                 drifters_timesteps.end());
         if( std::fmod(M_move_drifters_timestep*24*3600, time_step) != 0 )
@@ -855,7 +860,7 @@ FiniteElement::initDrifterOpts()
                 throw std::runtime_error(msg);
             }
         }
-    }
+    }//set drifters init time and moving timestep
 }
 
 void
