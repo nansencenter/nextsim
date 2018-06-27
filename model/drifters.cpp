@@ -30,13 +30,15 @@ namespace Nextsim
 Drifters::Drifters()
 {
     M_is_initialised = false;
-    M_num_drifters    = 0;
+    M_num_drifters   = 0;
     M_X.resize(0);
     M_Y.resize(0);
     M_i.resize(0);
 }
 
-Drifters::Drifters(double spacing, GmshMesh const& mesh, std::vector<double>& conc, double climit)
+Drifters::Drifters(double spacing,
+        GmshMesh const& mesh, std::vector<double> const& um,
+        std::vector<double>& conc, double climit)
 {
     // Calculate the grid spacing assuming a regular grid
     std::vector<double> RX = mesh.coordX();
@@ -66,12 +68,14 @@ Drifters::Drifters(double spacing, GmshMesh const& mesh, std::vector<double>& co
     }
 
     // Apply mask using conc and climit, and save to M_X and M_Y
-    maskXY(mesh, X, Y, conc, climit);
+    this->maskXY(mesh, um, X, Y, conc, climit);
 
     M_is_initialised = true;
 }
 
-Drifters::Drifters(std::string filename, GmshMesh const& mesh, std::vector<double>& conc, double climit, double current_time)
+Drifters::Drifters(std::string filename,
+        GmshMesh const& mesh, std::vector<double> const& um,
+        std::vector<double>& conc, double climit, double current_time)
 {
     // Load the nodes from file
     // Check file
@@ -132,7 +136,7 @@ Drifters::Drifters(std::string filename, GmshMesh const& mesh, std::vector<doubl
     close_mapx(map);
 
     // Apply mask using conc and climit, and save to M_X and M_Y
-    maskXY(mesh, X, Y, conc, -1.);//climit);
+    this->maskXY(mesh, um, X, Y, conc, climit);
 
     M_is_initialised = true;
 
@@ -142,7 +146,8 @@ Drifters::Drifters(std::string filename, GmshMesh const& mesh, std::vector<doubl
 Drifters::Drifters(std::string dirname, std::string gridFile,
                    std::string dimNameX, std::string dimNameY,
                    std::string latName, std::string lonName,
-                   GmshMesh const& mesh, std::vector<double>& conc, double climit)
+                   GmshMesh const& mesh, std::vector<double> const& um,
+                   std::vector<double>& conc, double climit)
 {
     // Load the grid from file
     // Check file
@@ -195,23 +200,29 @@ Drifters::Drifters(std::string dirname, std::string gridFile,
     close_mapx(map);
 
     // Apply mask using conc and climit, and save to M_X and M_Y
-    maskXY(mesh, X, Y, conc, climit);
+    this->maskXY(mesh, um, X, Y, conc, climit);
 
     M_is_initialised = true;
 }
 
 // Mask out the initial X and Y values so we only have drifters where there's ice
 void
-Drifters::maskXY(GmshMesh const& mesh, std::vector<double>& X, std::vector<double>& Y, std::vector<double>& conc, double clim)
+Drifters::maskXY(GmshMesh const& mesh, std::vector<double> const& um,
+        std::vector<double>& X, std::vector<double>& Y,
+        std::vector<double>& conc, double clim)
 {
+    //move the mesh
+    auto movedmesh = mesh;
+    movedmesh.move(um, 1.);
+
     // Interpolate the concentration onto the drifter positions
     int gridSize = X.size();
     double* interp_drifter_out;
     InterpFromMeshToMesh2dx(&interp_drifter_out,
-                            &mesh.indexTr()[0],&mesh.coordX()[0],&mesh.coordY()[0],
-                            mesh.numNodes(),mesh.numTriangles(),
+                            &movedmesh.indexTr()[0],&movedmesh.coordX()[0],&movedmesh.coordY()[0],
+                            movedmesh.numNodes(),movedmesh.numTriangles(),
                             &conc[0],
-                            mesh.numTriangles(),1,
+                            movedmesh.numTriangles(),1,
                             &X[0],&Y[0],gridSize,
                             true, 0.);
 
@@ -219,6 +230,7 @@ Drifters::maskXY(GmshMesh const& mesh, std::vector<double>& X, std::vector<doubl
     M_X.resize(0); // this shouldn't be necessary!
     M_Y.resize(0);
     M_i.resize(0);
+    M_conc.resize(0);
 
     for ( int i=0; i<gridSize; ++i )
     {
@@ -227,6 +239,7 @@ Drifters::maskXY(GmshMesh const& mesh, std::vector<double>& X, std::vector<doubl
             M_X.push_back(X[i]);
             M_Y.push_back(Y[i]);
             M_i.push_back(i);
+            M_conc.push_back(interp_drifter_out[i]);
         }
     }
 
@@ -291,7 +304,43 @@ Drifters::move(GmshMesh const& mesh, std::vector<double> const& UT, std::vector<
 void
 Drifters::move(GmshMesh const& mesh, std::vector<double> const& UT)
 {
+    // NB M_UT is relative to the fixed mesh
+    // (unlike the concentration which moves with the mesh)
     move(mesh, UT, M_X, M_Y);
+}
+
+// Move drifters putting output into X and Y
+void
+Drifters::updateConc(GmshMesh const& mesh, std::vector<double> const& um,
+        std::vector<double> &conc)
+{
+    // Do nothing if we don't have to
+    if ( M_num_drifters == 0 )
+        return;
+
+    // move the mesh before interpolating
+    auto movedmesh = mesh;
+    movedmesh.move(um, 1.);
+
+    // Interpolate the total displacement onto the drifter positions
+    int nb_var=1;
+    int numNodes = movedmesh.numNodes();
+    int numElements = movedmesh.numTriangles();
+
+    // Interpolate the conc
+    double* interp_drifter_out;
+    InterpFromMeshToMesh2dx(&interp_drifter_out,
+                            &movedmesh.indexTr()[0], &movedmesh.coordX()[0], &movedmesh.coordY()[0],
+                            numNodes, numElements,
+                            &conc[0],
+                            numElements, nb_var,
+                            &M_X[0], &M_Y[0], M_num_drifters,
+                            true, 0.);
+
+    for ( int i=0; i<M_num_drifters; ++i )
+        M_conc[i] = interp_drifter_out[i];
+
+    xDelete<double>(interp_drifter_out);
 }
 
 /*
@@ -331,10 +380,10 @@ Drifters::initNetCDF(std::string file_prefix, double current_time)
 
     // Create the time variable
     netCDF::NcVar time = dataFile.addVar("time", netCDF::ncFloat, tDim);
-    time.putAtt("standard_name","time");
-    time.putAtt("long_name","simulation time");
-    time.putAtt("units","days since 1900-01-01 00:00:00");
-    time.putAtt("calendar","standard");
+    time.putAtt("standard_name", "time");
+    time.putAtt("long_name", "simulation time");
+    time.putAtt("units", "days since 1900-01-01 00:00:00");
+    time.putAtt("calendar", "standard");
 
     M_nc_step=0;
 
@@ -349,22 +398,29 @@ Drifters::initNetCDF(std::string file_prefix, double current_time)
     // Create the output variables
     // Longitude
     netCDF::NcVar lon = dataFile.addVar("longitude", netCDF::ncFloat, dims2);
-    lon.putAtt("standard_name","longitude");
-    lon.putAtt("long_name","longitude");
-    lon.putAtt("units","degrees_north");
+    lon.putAtt("standard_name", "longitude");
+    lon.putAtt("long_name", "longitude");
+    lon.putAtt("units", "degrees_north");
 
     // Latitude
     netCDF::NcVar lat = dataFile.addVar("latitude", netCDF::ncFloat, dims2);
-    lat.putAtt("standard_name","latitude");
-    lat.putAtt("long_name","latitude");
-    lat.putAtt("units","degrees_north");
+    lat.putAtt("standard_name", "latitude");
+    lat.putAtt("long_name", "latitude");
+    lat.putAtt("units", "degrees_north");
     
-    // Reference indices if comming from a grid or a reference dataset
+    // Reference indices if coming from a grid or a reference dataset
     netCDF::NcVar ind = dataFile.addVar("indice", netCDF::ncInt, dims2);
-    ind.putAtt("standard_name","indice");
-    ind.putAtt("long_name","reference indice");
-    ind.putAtt("units","");
+    ind.putAtt("standard_name", "indice");
+    ind.putAtt("long_name", "reference indice");
+    ind.putAtt("units", "");
 
+    // Concentration - to tell if we have gone out of the ice or not
+    netCDF::NcVar sic = dataFile.addVar("sic", netCDF::ncFloat, dims2);
+    sic.putAtt("standard_name", "sea_ice_area_fraction");
+    sic.putAtt("long_name", "Sea Ice Concentration");
+    sic.putAtt("units", "");
+
+    // Global attributes
     dataFile.putAtt("Conventions", "CF-1.6");
     dataFile.putAtt("institution", "NERSC, Thormoehlens gate 47, N-5006 Bergen, Norway");
     dataFile.putAtt("source", "neXtSIM model fields");
@@ -372,16 +428,13 @@ Drifters::initNetCDF(std::string file_prefix, double current_time)
 
 // Write data to the netCDF file
 void
-Drifters::appendNetCDF(double current_time, GmshMesh const& mesh, std::vector<double> const& UT)
+Drifters::appendNetCDF(double current_time)
 {
-    // Move the drifters before export, but save the result in a different variable
-    std::vector<double> X(M_num_drifters);
-    std::vector<double> Y(M_num_drifters);
-    move(mesh, UT, X, Y);
 
     // Calculate lat and lon
     mapx_class *map;
-    std::string mpp_file = Environment::nextsimDir().string() + "/data/" + Environment::vm()["mesh.mppfile"].as<std::string>();
+    std::string mpp_file = Environment::nextsimDir().string()
+        + "/data/" + Environment::vm()["mesh.mppfile"].as<std::string>();
     std::vector<char> str(mpp_file.begin(), mpp_file.end());
     str.push_back('\0');
 
@@ -391,7 +444,6 @@ Drifters::appendNetCDF(double current_time, GmshMesh const& mesh, std::vector<do
     std::vector<double> lon(M_num_drifters);
     for (int i=0; i<M_num_drifters; ++i)
         inverse_mapx(map, M_X[i], M_Y[i], &lat[i], &lon[i]);
-//            inverse_mapx(map, X[i], Y[i], &lat[i], &lon[i]);
 
     close_mapx(map);
 
@@ -427,5 +479,9 @@ Drifters::appendNetCDF(double current_time, GmshMesh const& mesh, std::vector<do
     
     data = dataFile.getVar("indice");
     data.putVar(start, count, &M_i[0]);
-}
+    
+    data = dataFile.getVar("sic");
+    data.putVar(start, count, &M_conc[0]);
+}//appendNetCDF
+
 } // Nextsim

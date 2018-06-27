@@ -8772,13 +8772,17 @@ FiniteElement::updateIabpDrifterConc()
         ++j;
     }
 
+    //move the mesh before interpolating
+    auto movedmesh = M_mesh;
+    movedmesh.move(M_UM, 1.);
+
     // Interpolate the concentration
     double* interp_drifter_c_out;
     InterpFromMeshToMesh2dx(&interp_drifter_c_out,
-                            &M_mesh.indexTr()[0], &M_mesh.coordX()[0], &M_mesh.coordY()[0],
-                            M_mesh.numNodes(), M_mesh.numTriangles(),
+                            &movedmesh.indexTr()[0], &movedmesh.coordX()[0], &movedmesh.coordY()[0],
+                            movedmesh.numNodes(), movedmesh.numTriangles(),
                             &M_conc[0],
-                            M_mesh.numTriangles(), 1,
+                            movedmesh.numTriangles(), 1,
                             &drifter_X[0], &drifter_Y[0],
                             Ndrifters,
                             true, 0.);
@@ -8854,6 +8858,12 @@ FiniteElement::updateDrifters()
     if (std::fmod(M_current_time, M_move_drifters_timestep)==0)
     {
         // do we need to move the drifters?
+        // NB M_UT is relative to the fixed mesh, not the moved mesh
+        // NB to update the conc we need to move the mesh
+        // TODO so far we do this inside updateIabpDrifterConc and
+        // Drifters::updateConc - would be more efficient to move the
+        // mesh here, but that would mean changing all the interfaces
+        // to the routines
         if ( M_use_iabp_drifters )
             this->updateIabpDrifterPosition();
         if ( M_use_equally_spaced_drifters )
@@ -8896,26 +8906,38 @@ FiniteElement::updateDrifters()
     // output text file or netcdf
     if ( M_use_equally_spaced_drifters
             && fmod(M_current_time, M_equally_spaced_drifters_output_time_step) == 0 )
-        M_equally_spaced_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
+    {
+        M_equally_spaced_drifters.updateConc(M_mesh, M_UM, M_conc);
+        M_equally_spaced_drifters.appendNetCDF(M_current_time);
+    }
 
     if ( M_use_rgps_drifters )
     {
         // if initialised, append to netcdf file
         if( M_rgps_drifters.isInitialised()
                 && fmod(M_current_time, M_rgps_drifters_output_time_step) == 0 )
-            M_rgps_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
+        {
+            M_rgps_drifters.updateConc(M_mesh, M_UM, M_conc);
+            M_rgps_drifters.appendNetCDF(M_current_time);
+        }
     }
 
     if ( M_use_sidfex_drifters
             && fmod(M_current_time, M_sidfex_drifters_output_time_step) == 0 )
-        M_sidfex_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
+    {
+        M_sidfex_drifters.updateConc(M_mesh, M_UM, M_conc);
+        M_sidfex_drifters.appendNetCDF(M_current_time);
+    }
 
     if ( M_use_osisaf_drifters
             && fmod(M_current_time, M_osisaf_drifters_output_time_step) == 0 )
     {
         for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
             if (it->isInitialised())
-                it->appendNetCDF(M_current_time, M_mesh, M_UT);
+            {
+                it->updateConc(M_mesh, M_UM, M_conc);
+                it->appendNetCDF(M_current_time);
+            }
     }
      
     if ( M_use_osisaf_drifters && fmod(M_current_time+0.5, 1.) == 0 )
@@ -8941,11 +8963,11 @@ FiniteElement::updateDrifters()
             
         M_osisaf_drifters[0] = Drifters("data", osi_grid_file,
                 "xc", "yc",
-                "lat", "lon", M_mesh,
+                "lat", "lon", M_mesh, M_UM,
                 M_conc, vm["drifters.concentration_limit"].as<double>());
 
         M_osisaf_drifters[0].initNetCDF(osi_output_path, M_current_time);
-        M_osisaf_drifters[0].appendNetCDF(M_current_time, M_mesh, M_UT);
+        M_osisaf_drifters[0].appendNetCDF(M_current_time);
     }//start a new set of OSISAF drifters
 
 }//updateDrifters
@@ -9208,20 +9230,21 @@ FiniteElement::initIabpDrifter()
 void
 FiniteElement::equallySpacedDrifter()
 {
-    M_equally_spaced_drifters = Drifters(1e3*vm["drifters.spacing"].as<double>(), M_mesh, M_conc, vm["drifters.concentration_limit"].as<double>());
+    M_equally_spaced_drifters = Drifters(1e3*vm["drifters.spacing"].as<double>(),
+            M_mesh, M_UM, M_conc, vm["drifters.concentration_limit"].as<double>());
     M_equally_spaced_drifters.initNetCDF(M_export_path+"/Drifters_", M_current_time);
-    M_equally_spaced_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
+    M_equally_spaced_drifters.appendNetCDF(M_current_time);
 }
 
 void
 FiniteElement::initRGPSDrifters()
 {    
     //called once when M_current_time == M_rgps_time_init
-    M_rgps_drifters = Drifters(M_rgps_file, M_mesh, M_conc,
+    M_rgps_drifters = Drifters(M_rgps_file, M_mesh, M_UM, M_conc,
             vm["drifters.concentration_limit"].as<double>(),
             M_rgps_time_init);
     M_rgps_drifters.initNetCDF(M_export_path+"/RGPS_Drifters_", M_current_time);
-    M_rgps_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
+    M_rgps_drifters.appendNetCDF(M_current_time);
 }
 
 void
@@ -9229,11 +9252,11 @@ FiniteElement::initSidfexDrifters()
 {
     std::string filename = Environment::nextsimDir().string() + "/data/"
         + vm["drifters.sidfex_filename"].as<std::string>();
-    M_sidfex_drifters = Drifters(filename, M_mesh, M_conc,
+    M_sidfex_drifters = Drifters(filename, M_mesh, M_UM, M_conc,
             vm["drifters.concentration_limit"].as<double>(), M_current_time);
     
     M_sidfex_drifters.initNetCDF(M_export_path+"/SIDFEx_Drifters_", M_current_time);
-    M_sidfex_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
+    M_sidfex_drifters.appendNetCDF(M_current_time);
 }
 
 void

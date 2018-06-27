@@ -48,20 +48,27 @@ public:
 
         Drifters();
 
-        Drifters(double spacing, GmshMesh const& mesh, std::vector<double>& conc, double climit);
+        Drifters(double spacing,
+                 GmshMesh const& mesh, std::vector<double> const& um,
+                 std::vector<double>& conc, double climit);
 
         Drifters(std::string dirname, std::string gridFile,
                  std::string dimNameX, std::string dimNameY,
                  std::string latName, std::string lonName,
-                 GmshMesh const& mesh, std::vector<double>& conc, double climit);
+                 GmshMesh const& mesh, std::vector<double> const& um,
+                 std::vector<double>& conc, double climit);
 
-        Drifters(std::string filename, GmshMesh const& mesh, std::vector<double>& conc, double climit, double time);
+        Drifters(std::string filename,
+                GmshMesh const& mesh, std::vector<double> const& um,
+                std::vector<double>& conc, double climit, double time);
 
         void move(GmshMesh const& mesh, std::vector<double> const& UT);
+        void updateConc( GmshMesh const& mesh, std::vector<double> const& um,
+                std::vector<double> & conc);
 
         void initNetCDF(std::string file_prefix, double current_time);
 
-        void appendNetCDF(double current_time, GmshMesh const& mesh, std::vector<double> const& UT);
+        void appendNetCDF(double current_time);
 
         bool isInitialised();
 
@@ -77,10 +84,13 @@ private:
         std::vector<double> M_X;
         std::vector<double> M_Y;
         std::vector<int> M_i;
+        std::vector<double> M_conc;
 
         void move(GmshMesh const& mesh, std::vector<double> const& UT, std::vector<double>& X, std::vector<double>& Y);
 
-        void maskXY(GmshMesh const& mesh, std::vector<double>& X, std::vector<double>& Y, std::vector<double>& conc, double clim);
+        void maskXY(GmshMesh const& mesh, std::vector<double> const& um,
+                std::vector<double>& X, std::vector<double>& Y,
+                std::vector<double>& conc, double clim);
     };
 } // Nextsim
 
