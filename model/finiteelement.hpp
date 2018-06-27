@@ -527,8 +527,8 @@ private:
     double M_iabp_drifters_output_time_step;
     dbl_vec M_iabp_conc;
     boost::unordered_map<int, std::array<double,2>> M_iabp_drifters; // Drifters are kept in an unordered map containing number and coordinates
-    std::fstream M_iabp_file;   // The file we read the IABP buoy data from
-    std::fstream M_iabp_out;    // The file we write our simulated drifter positions into
+    std::fstream M_iabp_infile_fstream; // The file we read the IABP buoy data from
+    std::string M_iabp_outfile;         // The file we write our simulated drifter positions into
 
     // Drifters on a grid
     double M_equally_spaced_drifters_output_time_step;

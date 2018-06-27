@@ -4692,8 +4692,7 @@ FiniteElement::finalise()
     // Don't forget to close the iabp file!
     if (M_use_iabp_drifters)
     {
-        M_iabp_file.close();
-        M_iabp_out.close();
+        M_iabp_infile_fstream.close();
     }
 
 #ifdef OASIS
@@ -9008,6 +9007,10 @@ FiniteElement::nodesToElements(double const* depth, std::vector<double>& v)
 void
 FiniteElement::outputIabpDrifter()
 {
+    if (M_iabp_drifters.size()==0)
+        //do nothing if drifters are empty
+        return;
+
     // Initialize the map
     mapx_class *map;
     std::string configfile = (boost::format( "%1%/%2%/%3%" )
@@ -9020,6 +9023,11 @@ FiniteElement::outputIabpDrifter()
     str.push_back('\0');
     map = init_mapx(&str[0]);
 
+    //open output file for appending
+    std::fstream iabp_out(M_iabp_outfile, std::fstream::out | std::fstream::app );
+    if ( ! iabp_out.good() )
+        throw std::runtime_error("Cannot write to file: " + M_iabp_outfile);
+
     // Loop over the map and output
     int j=0;
     boost::gregorian::date           date = Nextsim::parse_date( M_current_time );
@@ -9031,7 +9039,8 @@ FiniteElement::outputIabpDrifter()
         inverse_mapx(map, it->second[0], it->second[1], &lat, &lon);
         j++;
 
-        M_iabp_out << setw(4) << date.year()
+        iabp_out
+            << setw(4) << date.year()
             << " " << setw( 2) << date.month().as_number()
             << " " << setw( 2) << date.day().as_number()
             << " " << setw( 2) << time.hours()
@@ -9043,7 +9052,10 @@ FiniteElement::outputIabpDrifter()
             << "\n";
     }
 
-    //xDelete<double>(interp_drifter_out);
+    //close output file
+    iabp_out.close();
+
+    // close the map
     close_mapx(map);
 }//outputIabpDrifter
 
@@ -9071,12 +9083,12 @@ FiniteElement::updateIabpDrifter()
     while ( time == M_current_time )
     {
         // Remember where we were
-        pos = M_iabp_file.tellg();
+        pos = M_iabp_infile_fstream.tellg();
 
         // Read the next line
         int year, month, day, hour, number;
         double lat, lon;
-        M_iabp_file >> year >> month >> day >> hour >> number >> lat >> lon;
+        M_iabp_infile_fstream >> year >> month >> day >> hour >> number >> lat >> lon;
         std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
         time = from_date_string(date) + hour/24.;
 
@@ -9132,12 +9144,14 @@ FiniteElement::initIabpDrifter()
     // We should tag the file name with the init time in case of a re-start.
     std::stringstream filename_out;
     filename_out << M_export_path << "/drifters_out_" << M_drifters_time_init << ".txt";
-    M_iabp_out.open(filename_out.str(), std::fstream::out);
-    if ( ! M_iabp_out.good() )
-        throw std::runtime_error("Cannot write to file: " + filename_out.str());
+    M_iabp_outfile = filename_out.str();
+    std::fstream iabp_out(M_iabp_outfile, std::fstream::out );
+    if ( ! iabp_out.good() )
+        throw std::runtime_error("Cannot write to file: " + M_iabp_outfile);
 
-    // add a header
-    M_iabp_out << "Year Month Day Hour BuoyID Lat Lon Concentration\n";
+    //write the header and close
+    iabp_out << "Year Month Day Hour BuoyID Lat Lon Concentration\n";
+    iabp_out.close();
 
     // INPUT:
 #if 0
@@ -9146,14 +9160,14 @@ FiniteElement::initIabpDrifter()
     //new buoy file has a header
     std::string filename_in = Environment::nextsimDir().string() + "/data/IABP_buoys_new_format.txt";
 #endif
-    M_iabp_file.open(filename_in, std::fstream::in);
-    if ( ! M_iabp_file.good() )
+    M_iabp_infile_fstream.open(filename_in, std::fstream::in);
+    if ( ! M_iabp_infile_fstream.good() )
         throw std::runtime_error("File not found: " + filename_in);
 
 #if 1
     //skip header
     std::string header;
-    std::getline(M_iabp_file, header);
+    std::getline(M_iabp_infile_fstream, header);
     std::cout<<"open IABP drifter file: "<<filename_in<<"\n";
     std::cout<<"header: "<<header<<"\n";
 #endif
@@ -9163,19 +9177,19 @@ FiniteElement::initIabpDrifter()
     while ( time < M_drifters_time_init )
     {
         // Remember where we were
-        pos = M_iabp_file.tellg();
+        pos = M_iabp_infile_fstream.tellg();
 
         // Read the next line
         int year, month, day, hour, number;
         double lat, lon;
-        M_iabp_file >> year >> month >> day >> hour >> number >> lat >> lon;
+        M_iabp_infile_fstream >> year >> month >> day >> hour >> number >> lat >> lon;
         std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
 
         time = from_date_string(date) + hour/24.;
     }
 
     // We must rewind one line so that updateIabpDrifter works correctly
-    M_iabp_file.seekg(pos);
+    M_iabp_infile_fstream.seekg(pos);
 
     // Get:
     // - the 1st drifter positions (if any)
