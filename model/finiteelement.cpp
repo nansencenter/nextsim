@@ -9131,7 +9131,7 @@ FiniteElement::initIabpDrifter()
     // OUTPUT:
     // We should tag the file name with the init time in case of a re-start.
     std::stringstream filename_out;
-    filename_out << M_export_path << "/drifters_out_" << M_current_time << ".txt";
+    filename_out << M_export_path << "/drifters_out_" << M_drifters_time_init << ".txt";
     M_iabp_out.open(filename_out.str(), std::fstream::out);
     if ( ! M_iabp_out.good() )
         throw std::runtime_error("Cannot write to file: " + filename_out.str());
@@ -9160,7 +9160,7 @@ FiniteElement::initIabpDrifter()
 
     int pos;    // To be able to rewind one line
     double time = from_date_string("1979-01-01");
-    while ( time < time_init )
+    while ( time < M_drifters_time_init )
     {
         // Remember where we were
         pos = M_iabp_file.tellg();
