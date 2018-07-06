@@ -647,9 +647,9 @@ FiniteElement::initOptsAndParams()
         ("topaz", setup::IceType::TOPAZ4)
         ("topaz_forecast", setup::IceType::TOPAZ4F)
         ("topaz_forecast_amsr2", setup::IceType::TOPAZ4FAMSR2)
-        ("topaz_forecast_amsr2_osisaf", setup::IceType::TOPAZ4FAMSR2OSISAF)
-        ("topaz_forecast_amsr2_osisaf_nic", setup::IceType::TOPAZ4FAMSR2OSISAFNIC)
-        ("topaz_forecast_amsr2_osisaf_nic_weekly", setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY)
+        ("topaz_forecast_osisaf_amsr2", setup::IceType::TOPAZ4FOSISAFAMSR2)
+        ("nic", setup::IceType::NIC)
+        ("nic_weekly", setup::IceType::NICWEEKLY)
         ("amsre", setup::IceType::AMSRE)
         ("amsr2", setup::IceType::AMSR2)
         ("osisaf", setup::IceType::OSISAF)
@@ -6812,12 +6812,12 @@ FiniteElement::initIce()
         case setup::IceType::TOPAZ4FAMSR2:
             this->topazForecastAmsr2Ice();
             break;
-        case setup::IceType::TOPAZ4FAMSR2OSISAF:
+        case setup::IceType::TOPAZ4FOSISAFAMSR2:
             this->topazForecastAmsr2OsisafIce();
             break;
-        case setup::IceType::TOPAZ4FAMSR2OSISAFNIC:
-        case setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY:
-            this->topazForecastAmsr2OsisafNicIce(M_ice_type==setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY);
+        case setup::IceType::NIC:
+        case setup::IceType::NICWEEKLY:
+            this->topazForecastAmsr2OsisafNicIce(M_ice_type==setup::IceType::NICWEEKLY);
             break;
         case setup::IceType::PIOMAS:
             this->piomasIce();
@@ -6905,12 +6905,12 @@ FiniteElement::assimilateIce()
 {
     switch (M_ice_type)
     {
-        case setup::IceType::TOPAZ4FAMSR2OSISAF:
-            this->assimilate_topazForecastAmsr2OsisafIce();
+        case setup::IceType::TOPAZ4FOSISAFAMSR2:
+            this->assimilate_topazForecastOsisafAmsr2Ice();
             break;
-        case setup::IceType::TOPAZ4FAMSR2OSISAFNIC:
-        case setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY:
-            this->assimilate_topazForecastAmsr2OsisafNicIce(M_ice_type==setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY);
+        case setup::IceType::NIC:
+        case setup::IceType::NICWEEKLY:
+            this->assimilate_NicIce(M_ice_type==setup::IceType::NICWEEKLY);
             break;
         default:
             std::cout << "invalid choice for data assimilation of the ice"<<"\n";
@@ -7535,7 +7535,7 @@ FiniteElement::concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,d
 }//concBinsNic
 
 void
-FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
+FiniteElement::assimilate_NicIce(bool use_weekly_nic)
 {
     double real_thickness, init_conc_tmp;
 
@@ -7567,7 +7567,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
     }
 
     this->checkReloadDatasets(external_data_tmp,time_init-0.5,
-            "init - OSISAF - AMSR2 - NIC");
+            "assimilate - NIC");
 
     external_data_tmp.push_back(&M_topaz_conc);
     external_data_tmp.push_back(&M_topaz_thick);
@@ -7641,7 +7641,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         double thin_conc_obs_min = 0.;
         double thin_conc_obs_max = 0.;
         if (!use_weekly_nic)
-            this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_conc[i],(!use_weekly_nic));
+            this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_conc[i],use_weekly_nic);
         else
             this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_weekly_conc[i],use_weekly_nic);
                 
@@ -7732,10 +7732,10 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
             }
         }//not using thin ice
 	}//loop over elements
-}//assimilate_topazForecastAmsr2OsisafNicIce
+}//assimilate_NicIce
 
 void
-FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
+FiniteElement::assimilate_topazForecastOsisafAmsr2Ice()
 {
     double real_thickness, init_conc_tmp;
 
@@ -7841,7 +7841,9 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
                 M_h_thin[i] = max_h_thin; 
         }
 	}
-}
+}//assimilate_topazForecastOsisafAmsr2Ice
+
+
 void
 FiniteElement::topazForecastAmsr2OsisafIce()
 {
@@ -8132,7 +8134,7 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         double thin_conc_obs_min = 0.;
         double thin_conc_obs_max = 0.;
         if (!use_weekly_nic)
-            this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_conc[i],(!use_weekly_nic));
+            this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_conc[i],use_weekly_nic);
         else
             this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_weekly_conc[i],use_weekly_nic);
        

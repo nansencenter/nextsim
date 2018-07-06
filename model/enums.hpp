@@ -49,14 +49,14 @@ namespace setup
         OSISAF              = 10,
         PIOMAS              = 11,
         TOPAZ4FAMSR2        = 12,
-        TOPAZ4FAMSR2OSISAF  = 13,
+        TOPAZ4FOSISAFAMSR2  = 13,
         CS2_SMOS            = 14,
         CS2_SMOS_AMSR2      = 15,
         SMOS                = 16,
         BINARY              = 17,
         TOPAZ4OSISAFICESAT  = 18,
-        TOPAZ4FAMSR2OSISAFNIC= 19,
-        TOPAZ4FAMSR2OSISAFNICWEEKLY= 20
+        NIC                 = 19,
+        NICWEEKLY           = 20
 	};
 
     enum class WaveType
