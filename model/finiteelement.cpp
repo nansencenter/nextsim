@@ -7575,53 +7575,41 @@ FiniteElement::assimilate_NicIce(bool use_weekly_nic)
             {
                 if((M_conc[i]+M_conc_thin[i])<thin_conc_obs_min)
                 {
-                    thin_conc_obs = thin_conc_obs_min-M_conc[i];//always >=0?
-                    if(thin_conc_obs>=0.)
-                    {   
-                        //increase thin ice conc so total conc = thin_conc_obs_min
-                        if(thin_conc_obs>M_conc_thin[i])
-                            //increase thin ice vol
-                            M_h_thin[i] = M_h_thin[i]+(h_thin_min + (h_thin_max/2.-h_thin_min)*0.5)*(thin_conc_obs-M_conc_thin[i]); 
-                        else
-                            //reduce thin ice vol
-                            M_h_thin[i] = M_h_thin[i]*thin_conc_obs/M_conc_thin[i];
+                    thin_conc_obs = thin_conc_obs_min-M_conc[i];
+                        // >0, since M_conc+M_conc_thin < thin_conc_obs_min
+                        // NB M_conc_thin < thin_conc_obs_min-M_conc = thin_conc_obs
 
-                        M_conc_thin[i] = thin_conc_obs;
-                    }
-#if 0
-                    else
-                    {
-                        //not possible? 
-                        M_conc_thin[i]=0.;
-                        M_h_thin[i]=0.;
-
-                        M_thick[i]=M_thick[i]/(M_conc[i])*(M_conc[i]+thin_conc_obs);
-                        M_conc[i]=M_conc[i]+thin_conc_obs;
-                    }
-#endif
+                    // increase thin ice conc so total conc = thin_conc_obs_min
+                    // - also increase thin ice vol, but not snow thickness
+                    double wt_min = .75;
+                    double wt_max = 1-wt_min;
+                    M_h_thin[i] += (wt_min*h_thin_min + wt_max*h_thin_max)*(thin_conc_obs-M_conc_thin[i]); 
+                    M_conc_thin[i] = thin_conc_obs;
                 }
                 else if((M_conc[i]+M_conc_thin[i])>thin_conc_obs_max)
                 {
-                    thin_conc_obs = thin_conc_obs_max-M_conc[i];
+                    // total conc greater than max
+                    thin_conc_obs = thin_conc_obs_max-M_conc[i];//<M_conc_thin
                     if(thin_conc_obs>=0.)
-                    {   
-                        //some thin ice
-                        if(thin_conc_obs>M_conc_thin[i])
-                            M_h_thin[i] = M_h_thin[i]+(h_thin_min + (h_thin_max/2.-h_thin_min)*0.5)*(thin_conc_obs-M_conc_thin[i]); 
-                        else
-                            M_h_thin[i] = M_h_thin[i]*thin_conc_obs/M_conc_thin[i];
-
-                        M_conc_thin[i] = thin_conc_obs;
+                    {
+                        // M_conc<thin_conc_obs_max:
+                        // - decrease M_conc_thin, and M_h_thin, M_hs_thin proportionally
+                        M_h_thin[i]    *= (thin_conc_obs/M_conc_thin[i]);
+                        M_hs_thin[i]   *= (thin_conc_obs/M_conc_thin[i]);
+                        M_conc_thin[i]  = thin_conc_obs;
                     }
                     else
                     {
-                        //no thin ice
+                        // M_conc>=thin_conc_obs_max:
+                        // - no thin ice
                         M_conc_thin[i]=0.;
                         M_h_thin[i]=0.;
+                        M_hs_thin[i]=0.;
 
-                        // reduce thick ice to max value
-                        M_thick[i]=M_thick[i]*(M_conc[i]+thin_conc_obs)/(M_conc[i]);
-                        M_conc[i]=M_conc[i]+thin_conc_obs;
+                        // reduce M_conc, and M_thick, M_snow_thick proportionally
+                        M_thick[i]      *= ((M_conc[i]+thin_conc_obs)/M_conc[i]);
+                        M_snow_thick[i] *= ((M_conc[i]+thin_conc_obs)/M_conc[i]);
+                        M_conc[i]        =   M_conc[i]+thin_conc_obs;
                     }
                 }
 
@@ -7630,7 +7618,9 @@ FiniteElement::assimilate_NicIce(bool use_weekly_nic)
                 if ( M_h_thin[i] < min_h_thin )
                     M_h_thin[i] = min_h_thin;
                 
-                double max_h_thin=(h_thin_min+(h_thin_max+h_thin_min)/2.)*M_conc_thin[i];
+                double wt_max = .75;
+                double wt_min = 1-wt_max;
+                double max_h_thin=(wt_min*h_thin_min+wt_max*h_thin_max)*M_conc_thin[i];
                 if ( M_h_thin[i] > max_h_thin)
                     M_h_thin[i] = max_h_thin; 
             }//using thin ice
@@ -7638,18 +7628,25 @@ FiniteElement::assimilate_NicIce(bool use_weekly_nic)
             {
                 if(M_conc[i]<thin_conc_obs_min)
                 { 
-                    //thin_conc_obs = .25*thin_conc_obs_max + .75*thin_conc_obs_min;
-                    thin_conc_obs = ( thin_conc_obs_min + (thin_conc_obs_min+thin_conc_obs_max)/2.) /2.;
+                    //target M_conc = thin_conc_obs = .25*thin_conc_obs_max + .75*thin_conc_obs_min;
+                    double wt_min = .75;
+                    double wt_max = 1-wt_min;
+                    thin_conc_obs = wt_min*thin_conc_obs_min + wt_max*thin_conc_obs_max;
                     double hi = M_thick[i]/M_conc[i];
-                    M_thick[i] = M_thick[i] + std::max(hi,0.5)*(thin_conc_obs-M_conc[i]); // 50 cm minimum for the added ice 
-                    M_conc[i] = thin_conc_obs;
+                    M_thick[i] = M_thick[i] + std::max(hi, 0.5)*(thin_conc_obs-M_conc[i]); // 50 cm minimum for the added ice 
+                    M_conc[i]  = thin_conc_obs;
                 }
                 else if(M_conc[i]>thin_conc_obs_max)
                 {
-                    //thin_conc_obs = .75*thin_conc_obs_max + .25*thin_conc_obs_min;
-                    thin_conc_obs = ( thin_conc_obs_max + (thin_conc_obs_min+thin_conc_obs_max)/2.) /2.;
-                    M_thick[i] = M_thick[i]*thin_conc_obs/M_conc[i];
-                    M_conc[i] = thin_conc_obs;
+                    //reduce M_conc, and M_thick, M_snow_thick proportionally
+                    //target M_conc = thin_conc_obs = .75*thin_conc_obs_max + .25*thin_conc_obs_min;
+                    double wt_min = .25;
+                    double wt_max = 1-wt_min;
+                    thin_conc_obs = wt_min*thin_conc_obs_min + wt_max*thin_conc_obs_max;
+
+                    M_thick[i]      *= (thin_conc_obs/M_conc[i]);
+                    M_snow_thick[i] *= (thin_conc_obs/M_conc[i]);
+                    M_conc[i]        =  thin_conc_obs;
                 }
             }//not using thin ice
         }//some ice present
