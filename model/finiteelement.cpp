@@ -263,39 +263,39 @@ FiniteElement::initDatasets()
             break;
 
         case setup::AtmosphereType::ASR:
-            M_atmosphere_nodes_dataset=DataSet("asr_nodes",M_num_nodes);
-            M_atmosphere_elements_dataset=DataSet("asr_elements",M_num_elements);
+            M_atmosphere_nodes_dataset=DataSet("asr_nodes");
+            M_atmosphere_elements_dataset=DataSet("asr_elements");
             break;
 
         case setup::AtmosphereType::ERAi:
-            M_atmosphere_nodes_dataset=DataSet("ERAi_nodes",M_num_nodes);
-            M_atmosphere_elements_dataset=DataSet("ERAi_elements",M_num_elements);
+            M_atmosphere_nodes_dataset=DataSet("ERAi_nodes");
+            M_atmosphere_elements_dataset=DataSet("ERAi_elements");
             break;
 
         case setup::AtmosphereType::EC:
-            M_atmosphere_nodes_dataset=DataSet("ec_nodes",M_num_nodes);
-            M_atmosphere_elements_dataset=DataSet("ec_elements",M_num_elements);
+            M_atmosphere_nodes_dataset=DataSet("ec_nodes");
+            M_atmosphere_elements_dataset=DataSet("ec_elements");
             break;
         
         case setup::AtmosphereType::EC2:
-            M_atmosphere_nodes_dataset=DataSet("ec2_nodes",M_num_nodes);
-            M_atmosphere_elements_dataset=DataSet("ec2_elements",M_num_elements);
+            M_atmosphere_nodes_dataset=DataSet("ec2_nodes");
+            M_atmosphere_elements_dataset=DataSet("ec2_elements");
             break;
 
         case setup::AtmosphereType::EC_ERAi:
-            M_atmosphere_nodes_dataset=DataSet("ec_nodes",M_num_nodes);
-            M_atmosphere_elements_dataset=DataSet("ec_elements",M_num_elements);
-            M_atmosphere_bis_elements_dataset=DataSet("ERAi_elements",M_num_elements);
+            M_atmosphere_nodes_dataset=DataSet("ec_nodes");
+            M_atmosphere_elements_dataset=DataSet("ec_elements");
+            M_atmosphere_bis_elements_dataset=DataSet("ERAi_elements");
             break;
 
         case setup::AtmosphereType::CFSR:
-            M_atmosphere_nodes_dataset=DataSet("cfsr_nodes",M_num_nodes);
-            M_atmosphere_elements_dataset=DataSet("cfsr_elements",M_num_elements);
+            M_atmosphere_nodes_dataset=DataSet("cfsr_nodes");
+            M_atmosphere_elements_dataset=DataSet("cfsr_elements");
             break;
 
         case setup::AtmosphereType::CFSR_HI:
-            M_atmosphere_nodes_dataset=DataSet("cfsr_nodes_hi",M_num_nodes);
-            M_atmosphere_elements_dataset=DataSet("cfsr_elements",M_num_elements);
+            M_atmosphere_nodes_dataset=DataSet("cfsr_nodes_hi");
+            M_atmosphere_elements_dataset=DataSet("cfsr_elements");
             break;
 
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
@@ -307,18 +307,18 @@ FiniteElement::initDatasets()
 
         case setup::OceanType::TOPAZR:
         case setup::OceanType::TOPAZR_atrest:
-            M_ocean_nodes_dataset=DataSet("topaz_nodes",M_num_nodes);
-            M_ocean_elements_dataset=DataSet("topaz_elements",M_num_elements);
+            M_ocean_nodes_dataset=DataSet("topaz_nodes");
+            M_ocean_elements_dataset=DataSet("topaz_elements");
             break;
             
         case setup::OceanType::TOPAZR_ALTIMETER:
-            M_ocean_nodes_dataset=DataSet("ocean_currents_nodes",M_num_nodes);
-            M_ocean_elements_dataset=DataSet("topaz_elements",M_num_elements);
+            M_ocean_nodes_dataset=DataSet("ocean_currents_nodes");
+            M_ocean_elements_dataset=DataSet("topaz_elements");
             break;
 
         case setup::OceanType::TOPAZF:
-            M_ocean_nodes_dataset=DataSet("topaz_forecast_nodes",M_num_nodes);
-            M_ocean_elements_dataset=DataSet("topaz_forecast_elements",M_num_elements);
+            M_ocean_nodes_dataset=DataSet("topaz_forecast_nodes");
+            M_ocean_elements_dataset=DataSet("topaz_forecast_elements");
             break;
 
         default:        std::cout << "invalid ocean forcing"<<"\n";throw std::logic_error("invalid ocean forcing");
@@ -327,9 +327,9 @@ FiniteElement::initDatasets()
     if (M_use_wim)
     {
         if (M_wave_type == setup::WaveType::WW3A)
-            M_wave_elements_dataset = DataSet("ww3a_elements",M_num_elements);
+            M_wave_elements_dataset = DataSet("ww3a_elements");
         else if (M_wave_type == setup::WaveType::ERAI_WAVES_1DEG)
-            M_wave_elements_dataset = DataSet("erai_waves_1deg_elements",M_num_elements);
+            M_wave_elements_dataset = DataSet("erai_waves_1deg_elements");
         else if (M_wave_type != setup::WaveType::SET_IN_WIM)
         {
             std::cout << "invalid wave forcing"<<"\n";
@@ -339,28 +339,28 @@ FiniteElement::initDatasets()
 #endif
     if (M_use_nesting)
     {
-        M_nesting_nodes_dataset=DataSet("nesting_nodes",M_num_nodes);
-        M_nesting_ocean_elements_dataset=DataSet("nesting_ocean_elements",M_num_elements);
-        M_nesting_ice_elements_dataset=DataSet("nesting_ice_elements",M_num_elements);
-        M_nesting_dynamics_elements_dataset=DataSet("nesting_dynamics_elements",M_num_elements);
-        M_nesting_distance_elements_dataset=DataSet("nesting_distance_elements",M_num_elements);
-        M_nesting_distance_nodes_dataset=DataSet("nesting_distance_nodes",M_num_nodes);
+        M_nesting_nodes_dataset=DataSet("nesting_nodes");
+        M_nesting_ocean_elements_dataset=DataSet("nesting_ocean_elements");
+        M_nesting_ice_elements_dataset=DataSet("nesting_ice_elements");
+        M_nesting_dynamics_elements_dataset=DataSet("nesting_dynamics_elements");
+        M_nesting_distance_elements_dataset=DataSet("nesting_distance_elements");
+        M_nesting_distance_nodes_dataset=DataSet("nesting_distance_nodes");
     }
 
-    M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements",M_num_elements);
-    M_ice_icesat_elements_dataset=DataSet("ice_icesat_elements",M_num_elements);
-    M_ice_piomas_elements_dataset=DataSet("ice_piomas_elements",M_num_elements);
-    M_ice_amsre_elements_dataset=DataSet("ice_amsre_elements",M_num_elements);
-    M_ice_osisaf_elements_dataset=DataSet("ice_osisaf_elements",M_num_elements);
-    M_ice_osisaf_type_elements_dataset=DataSet("ice_osisaf_type_elements",M_num_elements);
-    M_ice_amsr2_elements_dataset=DataSet("ice_amsr2_elements",M_num_elements);
-    M_ice_nic_elements_dataset=DataSet("ice_nic_elements",M_num_elements);
-    M_ice_nic_weekly_elements_dataset=DataSet("ice_nic_weekly_elements",M_num_elements);
-    M_ice_cs2_smos_elements_dataset=DataSet("ice_cs2_smos_elements",M_num_elements);
-    M_ice_smos_elements_dataset=DataSet("ice_smos_elements",M_num_elements);
+    M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements");
+    M_ice_icesat_elements_dataset=DataSet("ice_icesat_elements");
+    M_ice_piomas_elements_dataset=DataSet("ice_piomas_elements");
+    M_ice_amsre_elements_dataset=DataSet("ice_amsre_elements");
+    M_ice_osisaf_elements_dataset=DataSet("ice_osisaf_elements");
+    M_ice_osisaf_type_elements_dataset=DataSet("ice_osisaf_type_elements");
+    M_ice_amsr2_elements_dataset=DataSet("ice_amsr2_elements");
+    M_ice_nic_elements_dataset=DataSet("ice_nic_elements");
+    M_ice_nic_weekly_elements_dataset=DataSet("ice_nic_weekly_elements");
+    M_ice_cs2_smos_elements_dataset=DataSet("ice_cs2_smos_elements");
+    M_ice_smos_elements_dataset=DataSet("ice_smos_elements");
 
-    M_bathymetry_elements_dataset=DataSet("etopo_elements",M_num_elements);//M_num_nodes);
-    M_dist2coast_elements_dataset=DataSet("dist2coast_elements",M_num_elements);//M_num_nodes);
+    M_bathymetry_elements_dataset=DataSet("etopo_elements");
+    M_dist2coast_elements_dataset=DataSet("dist2coast_elements");
 
     // datasets that need to be re-interpolated after regridding
     // - not needed if only used at initialisation, or if not interpolated onto
@@ -403,7 +403,9 @@ FiniteElement::initDatasets()
 
 void
 FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
-        double const& CRtime, std::string const& printout)
+        double const& CRtime,
+        std::string const& target_location,
+        std::string const& printout)
 {
     //std::cout<<"size of external data vector = "<<ext_data_vec.size()<<"\n";
     if ( ext_data_vec.size()==0 )
@@ -418,57 +420,39 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
     LOG(DEBUG) <<"check_and_reload ("<<printout<<") starts\n";
 
     //don't rotate yet since rotation angle not always defined yet
-    auto RX_nod = M_mesh.coordX ();//nodes
-    auto RY_nod = M_mesh.coordY ();
-    auto RX_el  = M_mesh.bCoordX();//elements
-    auto RY_el  = M_mesh.bCoordY();
+    auto RX = M_mesh.coordX ();//nodes
+    auto RY = M_mesh.coordY ();
+    if (target_location=="mesh_elements")
+    {
+        RX  = M_mesh.bCoordX();//elements
+        RY  = M_mesh.bCoordY();
+    }
+#if defined (WAVES)
+    else if (target_location=="wim_elements")
+    {
+        RX = M_wim.getX();
+        RY = M_wim.getY();
+    }
+#endif
+    else if (target_location != "mesh_nodes")
+    {
+        std::cout<<"Bad value for target_location: "<<target_location<<"\n";
+        std::cout<<"- set to \"mesh_nodes\", or \"mesh_elements\"\n";
+#if defined (WAVES)
+        std::cout<<"or \"wim_elements\"\n";
+#endif
+        std::abort();
+    }
 
     for ( auto it = ext_data_vec.begin(); it != ext_data_vec.end(); ++it )
     {
         if ( (*it)->M_is_constant )
-        {
-            std::vector<double> RX,RY;//not needed for constant forcings
-            (*it)->check_and_reload(RX,RY,CRtime);
-        }
+            LOG(DEBUG)<<target_location<<": constant data\n";
         else
-        {
-            LOG(DEBUG)<<" dataset = "<<(*it)->M_dataset->name<<"\n";
-            //dataset & interpolation etc needed
-            if ( (*it)->M_dataset->grid.target_location=="mesh_nodes" )
-            {
-                LOG(DEBUG)<<"in nodes: dataset = "<<(*it)->M_dataset->name<<"\n";
-                (*it)->check_and_reload(RX_nod,RY_nod,CRtime);
-            }
-            else if ( (*it)->M_dataset->grid.target_location=="mesh_elements" )
-            {
-                LOG(DEBUG)<<"in elements: dataset = "<<(*it)->M_dataset->name<<"\n";
-                (*it)->check_and_reload(RX_el,RY_el,CRtime);
-            }
-#if defined (WAVES)
-            else if ( (*it)->M_dataset->grid.target_location=="wim_elements" )
-            {
-                //LOG(DEBUG)<<"in wim_elements: dataset = "<<(*it)->M_dataset->name<<"\n";
-                std::cout<<"in wim_elements: dataset = "<<(*it)->M_dataset->name<<"\n";
-                //interp to WIM elements
-                (*it)->check_and_reload(M_wim.getX(),M_wim.getY(),CRtime);
-            }
-#endif
-            else
-            {
-                std::cout<<"Bad value for dataset->grid.target_location: "<<(*it)->M_dataset->grid.target_location<<"\n";
-                std::cout<<"- set to \"mesh_nodes\", or \"mesh_elements\"\n";
-#if defined (WAVES)
-                std::cout<<"or \"wim_elements\"\n";
-#endif
-                std::abort();
-            }
-        }
+            LOG(DEBUG)<<target_location<<": dataset = "<<(*it)->M_dataset->name<<"\n";
+        (*it)->check_and_reload(RX, RY, CRtime);
     }
 
-    RX_el.resize(0);
-    RY_el.resize(0);
-    RX_nod.resize(0);
-    RY_nod.resize(0);
     LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
 }//checkReloadDatasets
 
@@ -4721,8 +4705,10 @@ FiniteElement::init()
     this->initOASIS();
 #endif
 
-    this->checkReloadDatasets(M_external_data,
-            M_current_time, "init - time-dependant");
+    this->checkReloadDatasets(M_external_data_elements, M_current_time,
+            "mesh_elements", "init - time-dependant (elements)");
+    this->checkReloadDatasets(M_external_data_nodes, M_current_time,
+            "mesh_nodes", "init - time-dependant (nodes)");
     if ( ! M_use_restart )
     {
         chrono.restart();
@@ -5242,8 +5228,10 @@ FiniteElement::step(int &pcpt)
     }
 
     chrono.restart();
-    this->checkReloadDatasets(M_external_data,
-            M_current_time+time_step/(24*3600.0), "step - time-dependant");
+    this->checkReloadDatasets(M_external_data_elements, M_current_time+time_step/(24*3600.0),
+            "mesh_elements", "init - time-dependant (elements)");
+    this->checkReloadDatasets(M_external_data_nodes, M_current_time+time_step/(24*3600.0),
+            "mesh_nodes", "init - time-dependant (nodes)");
 
     M_use_restart = false;
 
@@ -6344,66 +6332,66 @@ FiniteElement::forcingAtmosphere()
                 vm["ideal_simul.constant_wind_u"].as<double>(),
                 vm["ideal_simul.constant_wind_v"].as<double>(),
                 time_init, vm["simul.spinup_duration"].as<double>());
-            M_external_data.push_back(&M_wind);
+            M_external_data_nodes.push_back(&M_wind);
 
             M_tair=ExternalData(vm["ideal_simul.constant_tair"].as<double>());
-            M_external_data.push_back(&M_tair);
+            M_external_data_elements.push_back(&M_tair);
 
             M_mixrat=ExternalData(vm["ideal_simul.constant_mixrat"].as<double>());
-            M_external_data.push_back(&M_mixrat);
+            M_external_data_elements.push_back(&M_mixrat);
 
             M_mslp=ExternalData(vm["ideal_simul.constant_mslp"].as<double>());
-            M_external_data.push_back(&M_mslp);
+            M_external_data_elements.push_back(&M_mslp);
 
             M_Qsw_in=ExternalData(vm["ideal_simul.constant_Qsw_in"].as<double>());
-            M_external_data.push_back(&M_Qsw_in);
+            M_external_data_elements.push_back(&M_Qsw_in);
 
             M_Qlw_in=ExternalData(vm["ideal_simul.constant_Qlw_in"].as<double>());
-            M_external_data.push_back(&M_Qlw_in);
+            M_external_data_elements.push_back(&M_Qlw_in);
 
             M_snowfr=ExternalData(vm["ideal_simul.constant_snowfr"].as<double>());
-            M_external_data.push_back(&M_snowfr);
+            M_external_data_elements.push_back(&M_snowfr);
 
             M_precip=ExternalData(vm["ideal_simul.constant_precip"].as<double>());
-            M_external_data.push_back(&M_precip);
+            M_external_data_elements.push_back(&M_precip);
 
             M_dair=ExternalData(vm["ideal_simul.constant_dair"].as<double>());
-            M_external_data.push_back(&M_dair);
+            M_external_data_elements.push_back(&M_dair);
         break;
 
         case setup::AtmosphereType::ASR:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
                 time_init, vm["simul.spinup_duration"].as<double>());
-            M_external_data.push_back(&M_wind);
+            M_external_data_nodes.push_back(&M_wind);
 
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
-            M_external_data.push_back(&M_tair);
+            M_external_data_elements.push_back(&M_tair);
 
             M_mixrat=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
-            M_external_data.push_back(&M_mixrat);
+            M_external_data_elements.push_back(&M_mixrat);
 
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
-            M_external_data.push_back(&M_mslp);
+            M_external_data_elements.push_back(&M_mslp);
 
             M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
-            M_external_data.push_back(&M_Qsw_in);
+            M_external_data_elements.push_back(&M_Qsw_in);
 
             M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
-            M_external_data.push_back(&M_Qlw_in);
+            M_external_data_elements.push_back(&M_Qlw_in);
 
             M_snowfr=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
-            M_external_data.push_back(&M_snowfr);
+            M_external_data_elements.push_back(&M_snowfr);
 
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
-            M_external_data.push_back(&M_precip);
+            M_external_data_elements.push_back(&M_precip);
         break;
 
         case setup::AtmosphereType::ERAi:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0,true ,
                 time_init, vm["simul.spinup_duration"].as<double>());
-            M_external_data.push_back(&M_wind);
+            M_external_data_nodes.push_back(&M_wind);
 
             /*
             variables[0] = tair;
@@ -6415,112 +6403,112 @@ FiniteElement::forcingAtmosphere()
             */
 
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
-            M_external_data.push_back(&M_tair);
+            M_external_data_elements.push_back(&M_tair);
 
             M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
-            M_external_data.push_back(&M_dair);
+            M_external_data_elements.push_back(&M_dair);
 
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
-            M_external_data.push_back(&M_mslp);
+            M_external_data_elements.push_back(&M_mslp);
 
             M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
-            M_external_data.push_back(&M_Qsw_in);
+            M_external_data_elements.push_back(&M_Qsw_in);
 
             M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
-            M_external_data.push_back(&M_tcc);
+            M_external_data_elements.push_back(&M_tcc);
 
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
-            M_external_data.push_back(&M_precip);
+            M_external_data_elements.push_back(&M_precip);
 
             M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
-            M_external_data.push_back(&M_snowfall);
+            M_external_data_elements.push_back(&M_snowfall);
         break;
 
         case setup::AtmosphereType::EC:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
                 time_init, vm["simul.spinup_duration"].as<double>());
-            M_external_data.push_back(&M_wind);
+            M_external_data_nodes.push_back(&M_wind);
 
 
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,air_temperature_correction,false,time_init);
-            M_external_data.push_back(&M_tair);
+            M_external_data_elements.push_back(&M_tair);
 
             M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,air_temperature_correction,false,time_init);
-            M_external_data.push_back(&M_dair);
+            M_external_data_elements.push_back(&M_dair);
 
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
-            M_external_data.push_back(&M_mslp);
+            M_external_data_elements.push_back(&M_mslp);
 
             M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
-            M_external_data.push_back(&M_tcc);
+            M_external_data_elements.push_back(&M_tcc);
 
             // Syl: The following two lines should be removed when approxSW will be implemented in Thermo()
             M_Qsw_in=ExternalData(vm["ideal_simul.constant_Qsw_in"].as<double>());
-            M_external_data.push_back(&M_Qsw_in);
+            M_external_data_elements.push_back(&M_Qsw_in);
 
             M_precip=ExternalData(0.);
-            M_external_data.push_back(&M_precip);
+            M_external_data_elements.push_back(&M_precip);
         break;
         
         case setup::AtmosphereType::EC2:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
                 time_init, vm["simul.spinup_duration"].as<double>());
-            M_external_data.push_back(&M_wind);
+            M_external_data_nodes.push_back(&M_wind);
 
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,air_temperature_correction,false,time_init);
-            M_external_data.push_back(&M_tair);
+            M_external_data_elements.push_back(&M_tair);
 
             M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,air_temperature_correction,false,time_init);
-            M_external_data.push_back(&M_dair);
+            M_external_data_elements.push_back(&M_dair);
 
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
-            M_external_data.push_back(&M_mslp);
+            M_external_data_elements.push_back(&M_mslp);
 
             M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
-            M_external_data.push_back(&M_Qsw_in);
+            M_external_data_elements.push_back(&M_Qsw_in);
             
             // Syl: The following two lines should be removed when approxSW will be implemented in Thermo()
             //M_Qsw_in=ExternalData(vm["ideal_simul.constant_Qsw_in"].as<double>());
-            //M_external_data.push_back(&M_Qsw_in);
+            //M_external_data_elements.push_back(&M_Qsw_in);
 
             // M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
-            // M_external_data.push_back(&M_Qlw_in);
+            // M_external_data_elements.push_back(&M_Qlw_in);
 
             M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
-            M_external_data.push_back(&M_tcc);
+            M_external_data_elements.push_back(&M_tcc);
             
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
-            M_external_data.push_back(&M_precip);
+            M_external_data_elements.push_back(&M_precip);
             
             //M_precip=ExternalData(0.);
-            //M_external_data.push_back(&M_precip);
+            //M_external_data_elements.push_back(&M_precip);
         break;
 
         case setup::AtmosphereType::EC_ERAi:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
                 time_init, vm["simul.spinup_duration"].as<double>());
-            M_external_data.push_back(&M_wind);
+            M_external_data_nodes.push_back(&M_wind);
 
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
-            M_external_data.push_back(&M_tair);
+            M_external_data_elements.push_back(&M_tair);
 
             M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
-            M_external_data.push_back(&M_dair);
+            M_external_data_elements.push_back(&M_dair);
 
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
-            M_external_data.push_back(&M_mslp);
+            M_external_data_elements.push_back(&M_mslp);
 
             M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
-            M_external_data.push_back(&M_tcc);
+            M_external_data_elements.push_back(&M_tcc);
 
             M_Qsw_in=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,3,false,time_init);
-            M_external_data.push_back(&M_Qsw_in);
+            M_external_data_elements.push_back(&M_Qsw_in);
 
             M_precip=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,5,false,time_init);
-            M_external_data.push_back(&M_precip);
+            M_external_data_elements.push_back(&M_precip);
         break;
 
         case setup::AtmosphereType::CFSR_HI:
@@ -6528,28 +6516,28 @@ FiniteElement::forcingAtmosphere()
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
                 time_init, vm["simul.spinup_duration"].as<double>());
-            M_external_data.push_back(&M_wind);
+            M_external_data_nodes.push_back(&M_wind);
 
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
-            M_external_data.push_back(&M_tair);
+            M_external_data_elements.push_back(&M_tair);
 
             M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
-            M_external_data.push_back(&M_sphuma);
+            M_external_data_elements.push_back(&M_sphuma);
 
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
-            M_external_data.push_back(&M_mslp);
+            M_external_data_elements.push_back(&M_mslp);
 
             M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
-            M_external_data.push_back(&M_Qsw_in);
+            M_external_data_elements.push_back(&M_Qsw_in);
 
             M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
-            M_external_data.push_back(&M_Qlw_in);
+            M_external_data_elements.push_back(&M_Qlw_in);
 
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
-            M_external_data.push_back(&M_precip);
+            M_external_data_elements.push_back(&M_precip);
 
             M_snowfr=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
-            M_external_data.push_back(&M_snowfr);
+            M_external_data_elements.push_back(&M_snowfr);
         break;
 
         default:
@@ -6562,37 +6550,37 @@ void
 FiniteElement::forcingNesting()//(double const& u, double const& v)
 {
     M_ice_thick=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 0,false,time_init);
-    M_external_data.push_back(&M_ice_thick);
+    M_external_data_elements.push_back(&M_ice_thick);
     M_ice_conc=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 1,false,time_init);
-    M_external_data.push_back(&M_ice_conc);
+    M_external_data_elements.push_back(&M_ice_conc);
     M_ice_snow_thick=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 2,false,time_init);
-    M_external_data.push_back(&M_ice_snow_thick); 
+    M_external_data_elements.push_back(&M_ice_snow_thick); 
     if ( Environment::vm()["thermo.newice_type"].as<int>() == 4 ) {
         M_ice_h_thin=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 3,false,time_init);
-        M_external_data.push_back(&M_ice_h_thin);
+        M_external_data_elements.push_back(&M_ice_h_thin);
         M_ice_conc_thin=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 4,false,time_init);
-        M_external_data.push_back(&M_ice_conc_thin);
+        M_external_data_elements.push_back(&M_ice_conc_thin);
         M_ice_hs_thin=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 5,false,time_init);
-        M_external_data.push_back(&M_ice_hs_thin);     
+        M_external_data_elements.push_back(&M_ice_hs_thin);     
     }
     M_nesting_dist_elements=ExternalData(&M_nesting_distance_elements_dataset, M_mesh, 0,false,time_init);
-    M_external_data.push_back(&M_nesting_dist_elements);
+    M_external_data_elements.push_back(&M_nesting_dist_elements);
     M_nesting_dist_nodes=ExternalData(&M_nesting_distance_nodes_dataset, M_mesh, 0,false,time_init);
-    M_external_data.push_back(&M_nesting_dist_nodes);
+    M_external_data_elements.push_back(&M_nesting_dist_nodes);
     M_nesting_VT1=ExternalData(&M_nesting_nodes_dataset, M_mesh, 0,false,time_init);
-    M_external_data.push_back(&M_nesting_VT1);
+    M_external_data_elements.push_back(&M_nesting_VT1);
     M_nesting_VT2=ExternalData(&M_nesting_nodes_dataset, M_mesh, 1,false,time_init);
-    M_external_data.push_back(&M_nesting_VT2);
+    M_external_data_elements.push_back(&M_nesting_VT2);
     M_nesting_sigma1=ExternalData(&M_nesting_dynamics_elements_dataset, M_mesh, 0,false,time_init);
-    M_external_data.push_back(&M_nesting_sigma1);
+    M_external_data_elements.push_back(&M_nesting_sigma1);
     M_nesting_sigma2=ExternalData(&M_nesting_dynamics_elements_dataset, M_mesh, 1,false,time_init);
-    M_external_data.push_back(&M_nesting_sigma2);
+    M_external_data_elements.push_back(&M_nesting_sigma2);
     M_nesting_sigma3=ExternalData(&M_nesting_dynamics_elements_dataset, M_mesh, 2,false,time_init);
-    M_external_data.push_back(&M_nesting_sigma3);
+    M_external_data_elements.push_back(&M_nesting_sigma3);
     M_nesting_damage=ExternalData(&M_nesting_dynamics_elements_dataset, M_mesh, 3,false,time_init);
-    M_external_data.push_back(&M_nesting_damage);
+    M_external_data_elements.push_back(&M_nesting_damage);
     M_nesting_ridge_ratio=ExternalData(&M_nesting_dynamics_elements_dataset, M_mesh, 4,false,time_init);
-    M_external_data.push_back(&M_nesting_ridge_ratio);
+    M_external_data_elements.push_back(&M_nesting_ridge_ratio);
 }
 
 void
@@ -6602,9 +6590,9 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
     if(M_use_ocean_nesting)
     {
         M_ocean_temp=ExternalData(&M_nesting_ocean_elements_dataset, M_mesh, 0,false,time_init);
-        M_external_data.push_back(&M_ocean_temp);
+        M_external_data_elements.push_back(&M_ocean_temp);
         M_ocean_salt=ExternalData(&M_nesting_ocean_elements_dataset, M_mesh, 1,false,time_init);
-        M_external_data.push_back(&M_ocean_salt);
+        M_external_data_elements.push_back(&M_ocean_salt);
     }
 
     switch (M_ocean_type)
@@ -6614,47 +6602,47 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
                 vm["ideal_simul.constant_ocean_u"].as<double>(),
                 vm["ideal_simul.constant_ocean_v"].as<double>(),
                 time_init, vm["simul.spinup_duration"].as<double>());
-            M_external_data.push_back(&M_ocean);
+            M_external_data_nodes.push_back(&M_ocean);
 
             M_ssh=ExternalData(vm["ideal_simul.constant_ssh"].as<double>(),
                 time_init, vm["simul.spinup_duration"].as<double>());
-            M_external_data.push_back(&M_ssh);
+            M_external_data_nodes.push_back(&M_ssh);
 
             if (!M_use_ocean_nesting)
             {
                 M_ocean_temp=ExternalData(physical::ocean_freezing_temp);
-                M_external_data.push_back(&M_ocean_temp);
+                M_external_data_elements.push_back(&M_ocean_temp);
 
                 M_ocean_salt=ExternalData(physical::ocean_freezing_temp/physical::mu);
-                M_external_data.push_back(&M_ocean_salt);
+                M_external_data_elements.push_back(&M_ocean_salt);
             }
 
             M_mld=ExternalData(vm["ideal_simul.constant_mld"].as<double>());
-            M_external_data.push_back(&M_mld);
+            M_external_data_elements.push_back(&M_mld);
             break;
 
         case setup::OceanType::TOPAZR: case setup::OceanType::TOPAZF:
             M_ocean=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 0, true,
                 time_init, vm["simul.spinup_duration"].as<double>());
-            M_external_data.push_back(&M_ocean);
+            M_external_data_nodes.push_back(&M_ocean);
 
             M_ssh=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 2, false,
                 time_init, vm["simul.spinup_duration"].as<double>());
-            M_external_data.push_back(&M_ssh);
+            M_external_data_nodes.push_back(&M_ssh);
 
             if (!M_use_ocean_nesting)
             {
                 M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
-                M_external_data.push_back(&M_ocean_temp);
+                M_external_data_elements.push_back(&M_ocean_temp);
 
                 M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
-                M_external_data.push_back(&M_ocean_salt);
+                M_external_data_elements.push_back(&M_ocean_salt);
             }
 
             M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
-            M_external_data.push_back(&M_mld);
+            M_external_data_elements.push_back(&M_mld);
             // SYL: there was a capping of the mld at minimum vm["ideal_simul.constant_mld"].as<double>()
             // but Einar said it is not necessary, so it is not implemented
     		break;
@@ -6663,24 +6651,24 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             M_ocean=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 0, true,
             time_init, vm["simul.spinup_duration"].as<double>());
-            M_external_data.push_back(&M_ocean);
+            M_external_data_nodes.push_back(&M_ocean);
 
             M_ssh=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 2, false,
             time_init, vm["simul.spinup_duration"].as<double>());
-            M_external_data.push_back(&M_ssh);
+            M_external_data_nodes.push_back(&M_ssh);
 
             if (!M_use_ocean_nesting)
             {
                 M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
-                M_external_data.push_back(&M_ocean_temp);
+                M_external_data_elements.push_back(&M_ocean_temp);
 
                 M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
-                M_external_data.push_back(&M_ocean_salt);
+                M_external_data_elements.push_back(&M_ocean_salt);
             }
 
             M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
-            M_external_data.push_back(&M_mld);
+            M_external_data_elements.push_back(&M_mld);
             // SYL: there was a capping of the mld at minimum vm["ideal_simul.constant_mld"].as<double>()
             // but Einar said it is not necessary, so it is not implemented
             break;
@@ -6690,24 +6678,24 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
                 vm["ideal_simul.constant_ocean_u"].as<double>(),
                 vm["ideal_simul.constant_ocean_v"].as<double>(),
                 time_init, vm["simul.spinup_duration"].as<double>());
-            M_external_data.push_back(&M_ocean);
+            M_external_data_nodes.push_back(&M_ocean);
 
             M_ssh=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 2, false,
                 time_init, vm["simul.spinup_duration"].as<double>());
-            M_external_data.push_back(&M_ssh);
+            M_external_data_nodes.push_back(&M_ssh);
 
             if (!M_use_ocean_nesting)
             {
                 M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
-                M_external_data.push_back(&M_ocean_temp);
+                M_external_data_elements.push_back(&M_ocean_temp);
 
                 M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
-                M_external_data.push_back(&M_ocean_salt);
+                M_external_data_elements.push_back(&M_ocean_salt);
             }
 
             M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
-            M_external_data.push_back(&M_mld);
+            M_external_data_elements.push_back(&M_mld);
             // SYL: there was a capping of the mld at minimum vm["ideal_simul.constant_mld"].as<double>()
             // but Einar said it is not necessary, so it is not implemented
     		break;
@@ -7184,7 +7172,8 @@ FiniteElement::topazIce()
     external_data_tmp.push_back(&M_init_conc);
     external_data_tmp.push_back(&M_init_thick);
     external_data_tmp.push_back(&M_init_snow_thick);
-    this->checkReloadDatasets(external_data_tmp,time_init,"init - TOPAZ ice");
+    this->checkReloadDatasets(external_data_tmp, time_init,
+            "mesh_elements", "init - TOPAZ ice");
     external_data_tmp.resize(0);
 
     double tmp_var;
@@ -7237,7 +7226,8 @@ FiniteElement::topazIceOsisafIcesat()
     external_data_tmp.push_back(&M_osisaf_conc);
     external_data_tmp.push_back(&M_icesat_thick);
     external_data_tmp.push_back(&M_amsre_conc);
-    this->checkReloadDatasets(external_data_tmp,time_init,"init - TOPAZ ice");
+    this->checkReloadDatasets(external_data_tmp, time_init,
+            "mesh_elements", "init - TOPAZ/OSISAF/Icesat ice");
     external_data_tmp.resize(0);
     
     for (int i=0; i<M_num_elements; ++i)
@@ -7346,7 +7336,8 @@ FiniteElement::topazForecastIce()
     external_data_tmp.push_back(&M_init_conc);
     external_data_tmp.push_back(&M_init_thick);
     external_data_tmp.push_back(&M_init_snow_thick);
-    this->checkReloadDatasets(external_data_tmp,time_init,"init - TOPAZ ice forecast");
+    this->checkReloadDatasets(external_data_tmp, time_init,
+            "mesh_elements", "init - TOPAZ ice forecast");
     external_data_tmp.resize(0);
 
     double tmp_var;
@@ -7393,7 +7384,7 @@ FiniteElement::topazForecastAmsr2Ice()
     external_data_tmp.push_back(&M_init_thick);
     external_data_tmp.push_back(&M_init_snow_thick);
     this->checkReloadDatasets(external_data_tmp,time_init,
-            "init - TOPAZ ice forecast + AMSR2");
+            "mesh_elements", "init - TOPAZ ice forecast + AMSR2");
     external_data_tmp.resize(0);
 
     double tmp_var;
@@ -7570,13 +7561,13 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
     }
 
     this->checkReloadDatasets(external_data_tmp,time_init-0.5,
-            "init - OSISAF - AMSR2 - NIC");
+            "mesh_elements", "init - OSISAF - AMSR2 - NIC");
 
     external_data_tmp.push_back(&M_topaz_conc);
     external_data_tmp.push_back(&M_topaz_thick);
     external_data_tmp.push_back(&M_topaz_snow_thick);
     this->checkReloadDatasets(external_data_tmp,time_init,
-            "init - TOPAZ ice forecast");
+            "mesh_elements", "init - TOPAZ ice forecast");
     external_data_tmp.resize(0);
 
     double tmp_var;
@@ -7761,14 +7752,14 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
     external_data_tmp.push_back(&M_amsr2_conc);
     external_data_tmp.push_back(&M_dist2coast);
     this->checkReloadDatasets(external_data_tmp,time_init-0.5,
-            "assim - OSISAF - AMSR2 -dist2coast");
+            "mesh_elements", "assim - OSISAF - AMSR2 -dist2coast");
     
     external_data_tmp.resize(0);
     external_data_tmp.push_back(&M_topaz_conc);
     external_data_tmp.push_back(&M_topaz_thick);
     external_data_tmp.push_back(&M_topaz_snow_thick);
     this->checkReloadDatasets(external_data_tmp,time_init,
-            "assim - TOPAZ ice forecast");
+            "mesh_elements", "assim - TOPAZ ice forecast");
     external_data_tmp.resize(0);
 
     double tmp_var;
@@ -7865,14 +7856,14 @@ FiniteElement::topazForecastAmsr2OsisafIce()
     external_data_tmp.push_back(&M_osisaf_type);
     external_data_tmp.push_back(&M_amsr2_conc);
     this->checkReloadDatasets(external_data_tmp,time_init-0.5,
-            "init - OSISAF - AMSR2");
+            "mesh_elements", "init - OSISAF - AMSR2");
     
     external_data_tmp.resize(0);
     external_data_tmp.push_back(&M_topaz_conc);
     external_data_tmp.push_back(&M_topaz_thick);
     external_data_tmp.push_back(&M_topaz_snow_thick);
     this->checkReloadDatasets(external_data_tmp,time_init,
-            "init - TOPAZ ice forecast");
+            "mesh_elements", "init - TOPAZ ice forecast");
     external_data_tmp.resize(0);
 
     for (int i=0; i<M_num_elements; ++i)
@@ -8011,14 +8002,14 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
     }
     
     this->checkReloadDatasets(external_data_tmp,time_init-0.5,
-            "init - OSISAF - AMSR2 - NIC");
+            "mesh_elements", "init - OSISAF - AMSR2 - NIC");
     
     external_data_tmp.resize(0);
     external_data_tmp.push_back(&M_topaz_conc);
     external_data_tmp.push_back(&M_topaz_thick);
     external_data_tmp.push_back(&M_topaz_snow_thick);
     this->checkReloadDatasets(external_data_tmp,time_init,
-            "init - TOPAZ ice forecast");
+            "mesh_elements", "init - TOPAZ ice forecast");
     external_data_tmp.resize(0);
 
     for (int i=0; i<M_num_elements; ++i)
@@ -8211,7 +8202,7 @@ FiniteElement::piomasIce()
     external_data_tmp.push_back(&M_init_thick);
     external_data_tmp.push_back(&M_init_snow_thick);
     this->checkReloadDatasets(external_data_tmp,time_init,
-            "init ice - PIOMAS");
+            "mesh_elements", "init ice - PIOMAS");
     external_data_tmp.resize(0);
 
     for (int i=0; i<M_num_elements; ++i)
@@ -8254,7 +8245,7 @@ FiniteElement::topazAmsreIce()
     external_data_tmp.push_back(&M_init_thick);
     external_data_tmp.push_back(&M_init_snow_thick);
     this->checkReloadDatasets(external_data_tmp,time_init,
-            "init ice - TOPAZ + AMSR-E");
+            "mesh_elements", "init ice - TOPAZ + AMSR-E");
     external_data_tmp.resize(0);
 
     double tmp_var;
@@ -8319,7 +8310,7 @@ FiniteElement::topazAmsr2Ice()
     external_data_tmp.push_back(&M_init_thick);
     external_data_tmp.push_back(&M_init_snow_thick);
     this->checkReloadDatasets(external_data_tmp,time_init,
-            "init ice - TOPAZ + AMSR2");
+            "mesh_elements", "init ice - TOPAZ + AMSR2");
     external_data_tmp.resize(0);
 
     double tmp_var;
@@ -8378,7 +8369,7 @@ FiniteElement::cs2SmosIce()
     external_data_tmp.push_back(&M_init_thick);
     external_data_tmp.push_back(&M_type);
     this->checkReloadDatasets(external_data_tmp,time_init,
-            "init ice - CS2 + SMOS");
+            "mesh_elements", "init ice - CS2 + SMOS");
     external_data_tmp.resize(0);
 
     warrenClimatology();
@@ -8472,7 +8463,7 @@ FiniteElement::cs2SmosAmsr2Ice()
     external_data_tmp.push_back(&M_type);
     external_data_tmp.push_back(&M_amsr2_conc);
     this->checkReloadDatasets(external_data_tmp,time_init,
-            "init ice - CS2 + SMOS + AMSR2");
+            "mesh_elements", "init ice - CS2 + SMOS + AMSR2");
     external_data_tmp.resize(0);
 
     warrenClimatology();
@@ -8569,7 +8560,7 @@ FiniteElement::smosIce()
     external_data_tmp.push_back(&M_init_thick);
     external_data_tmp.push_back(&M_init_snow_thick);
     this->checkReloadDatasets(external_data_tmp,time_init,
-            "init ice - SMOS");
+            "mesh_elements", "init ice - SMOS");
     external_data_tmp.resize(0);
 
     double tmp_var;
@@ -8786,11 +8777,11 @@ FiniteElement::bathymetry()//(double const& u, double const& v)
     {
         case setup::BathymetryType::CONSTANT:
             M_element_depth=ExternalData(vm["ideal_simul.constant_bathymetry"].as<double>());
-            M_external_data.push_back(&M_element_depth);
+            M_external_data_elements.push_back(&M_element_depth);
             break;
         case setup::BathymetryType::ETOPO:
             M_element_depth=ExternalData(&M_bathymetry_elements_dataset,M_mesh,0,false,time_init);
-            M_external_data.push_back(&M_element_depth);
+            M_external_data_elements.push_back(&M_element_depth);
             break;
         default:
             std::cout << "invalid bathymetry"<<"\n";
@@ -9410,12 +9401,11 @@ FiniteElement::exportResults(std::vector<std::string> const &filenames, bool exp
 
 
             //loop over external data pointers and check if they should be saved
-            for (int i=0;i<external_data_tmp.size();i++)
+            for (int i=0; i<external_data_tmp.size(); i++)
             {
-                if ((external_data_tmp[i]->M_initialized)&&
-                    (!external_data_tmp[i]->M_is_constant))
+                if (external_data_tmp[i]->M_initialized)
                 {
-                    exporter.writeField(outbin,external_data_tmp[i]->getVector(), ext_data_names[i]);
+                    exporter.writeField(outbin, external_data_tmp[i]->getVector(), ext_data_names[i]);
                 }
             }
         }//save forcing
