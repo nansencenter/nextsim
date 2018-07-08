@@ -116,8 +116,8 @@ namespace Nextsim
             ("moorings.output_timestep", po::value<double>()->default_value( 1 ), "time interval between mooring records (days)")
             ("moorings.variables", po::value<std::vector<std::string>>()->multitoken()->default_value(
                         std::vector<std::string>
-                            {"conc", "thick", "snow", "conc_thin", "h_thin", "hs_thin", "velocity_xy"},
-                             "conc    thick    snow    conc_thin    h_thin    hs_thin    velocity_xy"
+                            {"conc", "thick", "snow", "conc_thin", "h_thin", "hs_thin", "velocity_xy", "dfloe"},
+                             "conc    thick    snow    conc_thin    h_thin    hs_thin    velocity_xy    dfloe"
                     )->composing(), "list of variable names (put on separate lines in config file)")
             ("moorings.grid_file", po::value<std::string>()->default_value( "" ),
                 "Name of grid-file to use for mooring locations (overrides mooring.spacing). It must be a netcdf file having x, y as dimensions and latitude, longitude as variables")
@@ -216,7 +216,7 @@ namespace Nextsim
             // - if atmosphere-type=constant
             // -- dynamics
             ("ideal_simul.constant_wind_u", po::value<double>()->default_value( 0. ), "")
-            ("ideal_simul.constant_wind_v", po::value<double>()->default_value( -10. ), "")
+            ("ideal_simul.constant_wind_v", po::value<double>()->default_value( 0. ), "")
 
             // - if ocean-type=constant
             ("ideal_simul.constant_ocean_u", po::value<double>()->default_value( 0. ), "")

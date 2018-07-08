@@ -3,21 +3,42 @@
 # or use nohup as valgrind is very slow
 # NB code needs to compiled with env variable NEXTSIM_BUILD_TYPE=debug
 
-maxits=1
-if [ $# -eq 1 ]
+if [ $# -lt 2 ]
 then
-   maxits=$1
+   echo "not enough arguments"
+   echo "run_wim.sh cfg1 cfg2"
+   echo or
+   echo "run_wim.sh cfg1 cfg2 [file to source environment variables from]"
+   echo or
+   echo "run_wim.sh cfg1 cfg2 envfile max_iterations"
+   echo or
+   echo "run_wim.sh cfg1 cfg2 envfile max_iterations wim_coupling_freq"
+   exit 1
+else
+   configs=($1 $2)
 fi
 
+if [ $# -ge 3 ]
+then
+   echo source $3
+   source $3
+   echo " "
+fi
+
+maxits=${4-2}
+wimfq=${5-1}
+
 # valgrind options
-vopts[0]="--log-file=vlgrnd.log"
-vopts[1]="--leak-check=full"  # see details of leaked memory
-vopts[2]="--track-origins=yes" # see where uninitialised values come from
+vopts=()
+vopts+=("--log-file=vlgrnd.log")
+vopts+=("--leak-check=full")     # see details of leaked memory
+vopts+=("--track-origins=yes")   # see where uninitialised values come from
 
 # nextsim options
-nsopts[0]="--config-files=coupling_wim.cfg wim.cfg"
-nsopts[1]="--debugging.max_iteration=$maxits" # just run nextsim for 1 or a few time steps
-nsopts[2]="--nextwim.couplingfreq=1" # run wim for only one time step of nextsim
+nsopts=()
+nsopts+=("--config-files=${configs[@]}")
+nsopts+=("--simul.maxiteration=$maxits")  # just run nextsim for 1 or a few time steps
+nsopts+=("--nextwim.couplingfreq=$wimfq")      # run wim for only one time step of nextsim
 
 prog=bin/nextsim.exec
 if [ `pwd` != $NEXTSIMDIR/model ]
