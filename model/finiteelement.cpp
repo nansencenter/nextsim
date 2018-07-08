@@ -402,10 +402,11 @@ FiniteElement::initDatasets()
 
 
 void
-FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
-        double const& CRtime,
-        std::string const& target_location,
-        std::string const& printout)
+FiniteElement::checkReloadDatasets(
+        external_data_vec const& ext_data_vec,  //vector of pointers to ExternalData objects (all to be interpolated to the same target location)
+        double const& CRtime,                   //time to get the external data at
+        std::string const& target_location,     //"mesh_nodes", "mesh_elements", or "wim_elements"
+        std::string const& printout)            //string for debugging printout
 {
     //std::cout<<"size of external data vector = "<<ext_data_vec.size()<<"\n";
     if ( ext_data_vec.size()==0 )
@@ -9888,7 +9889,10 @@ FiniteElement::wimCheckWaves()
         //nothing to do
         return;
 
-    this->checkReloadDatasets(M_external_data_waves,M_current_time,"wimCheckWaves");
+    this->checkReloadDatasets(M_external_data_waves,
+            M_current_time,
+            "wim_elements",
+            "wimCheckWaves");
 
     int num_elements_wim = M_wim.getX().size();
     dbl_vec swh_in(num_elements_wim,0.);

@@ -325,7 +325,6 @@ private:
     std::vector<double> M_ridge_ratio;
 
     external_data_vec M_external_data_elements, M_external_data_nodes;
-    external_data_vec M_external_data_waves;
     Dataset_vec M_datasets_regrid;
 
     std::vector<double> M_fcor;
