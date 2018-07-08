@@ -1339,7 +1339,6 @@ FiniteElement::regrid(bool step)
             if (M_use_wim)
             {
                 M_nfloes.assign(M_num_elements,0.);
-                M_dfloe.assign(M_num_elements,0.);
                 if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
                 {
                     int num_wavefreq = M_wavespec.size();
@@ -1352,6 +1351,22 @@ FiniteElement::regrid(bool step)
 
             // 4) redistribute the interpolated values
             this->redistributeVariables(&interp_elt_out[0],nb_var,true);
+
+#if defined (WAVES)
+            if (M_use_wim)
+            {
+                //update M_dfloe
+                M_dfloe.assign(M_num_elements,0.);
+                for (int i=0; i<M_num_elements; i++)
+                {
+                    //update M_dfloe after regrid
+                    double ctot = M_conc[i];
+                    if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+                        ctot += M_conc_thin[i];//WIM uses total concentration
+                    M_dfloe[i] = M_wim.nfloesToDfloe(M_nfloes[i], ctot);
+                }
+            }
+#endif//WAVES
 
 	    // 5) cleaning
 			xDelete<double>(interp_elt_out);
@@ -1594,6 +1609,8 @@ FiniteElement::regrid(bool step)
     M_Cohesion.resize(M_num_elements);
     M_Compressive_strength.resize(M_num_elements);
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
+
+
 }//regrid
 
 void
@@ -1762,18 +1779,6 @@ FiniteElement::redistributeVariables(double* interp_elt_out,int nb_var, bool che
             M_conc_thin[i]=conc_thin_tmp;
         }
 	
-#if defined (WAVES)
-        if (M_use_wim)
-        {
-            //just need this line here since redistributeVariables() is called from
-            //regrid(), update() TODO check updateFreeDriftVelocity()
-            double ctot = M_conc[i];
-            if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
-                ctot += M_conc_thin[i];//WIM uses total concentration
-            M_dfloe[i]  = M_wim.nfloesToDfloe(M_nfloes[i], ctot);
-        }
-#endif//WAVES
-
 	}//loop over elements
 
 }//redistributeVariables()
@@ -3105,6 +3110,9 @@ FiniteElement::update()
         {
             open_water_concentration-=M_conc_thin[cpt];
         }
+#if defined (WAVES)
+        double old_conc_tot = 1-open_water_concentration;
+#endif
 
         // ridging scheme
         double opening_factor=((1.-M_conc[cpt])>G_star) ? 0. : std::pow(1.-(1.-M_conc[cpt])/G_star,2.);
@@ -3169,12 +3177,12 @@ FiniteElement::update()
                 M_h_thin[cpt]=0.;
                 M_hs_thin[cpt]=0.;
             }
-        }
+        }//thin ice
 #endif
         double new_conc=std::min(1.,std::max(1.-M_conc_thin[cpt]-open_water_concentration+del_c,0.));
 
         if((new_conc+M_conc_thin[cpt])>1.)
-		new_conc=1.-M_conc_thin[cpt];
+            new_conc=1.-M_conc_thin[cpt];
 
         if(new_conc<M_conc[cpt])
         {
@@ -3196,6 +3204,26 @@ FiniteElement::update()
             M_thick[cpt]=0.;
             M_snow_thick[cpt]=0.;
         }
+
+#if defined (WAVES)
+        if (M_use_wim)
+        {
+            //change M_nfloes to allow for ridging
+            double new_conc_tot = M_conc[cpt];
+            
+            /* Thin ice category */    
+            if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+            {
+                new_conc_tot += M_conc_thin[cpt];
+            }
+            if (old_conc_tot>0)
+            {
+                M_nfloes[cpt] *= (new_conc_tot/old_conc_tot);
+            }
+            //update M_dfloe now ctot and M_nfloes are final
+            M_dfloe[cpt] = M_wim.nfloesToDfloe(M_nfloes[cpt], new_conc_tot);
+        }
+#endif
         
         /*======================================================================
          * Update the internal stress
@@ -3204,102 +3232,102 @@ FiniteElement::update()
         if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) && (young>0.))
         {
 
-        double damaging_exponent = ridging_exponent;
-        double undamaged_time_relaxation_sigma=vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
-        double exponent_relaxation_sigma=vm["dynamics.exponent_relaxation_sigma"].as<double>();
+            double damaging_exponent = ridging_exponent;
+            double undamaged_time_relaxation_sigma=vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
+            double exponent_relaxation_sigma=vm["dynamics.exponent_relaxation_sigma"].as<double>();
 
-        double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-old_damage,exponent_relaxation_sigma-1.);
-        double multiplicator=time_viscous/(time_viscous+time_step);
+            double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-old_damage,exponent_relaxation_sigma-1.);
+            double multiplicator=time_viscous/(time_viscous+time_step);
 
-        for(int i=0;i<3;i++)
-        {
-            sigma_dot_i = 0.0;
-            for(int j=0;j<3;j++)
+            for(int i=0;i<3;i++)
             {
-            // sigma_dot_i += std::exp(ridging_exponent*(1.-old_conc))*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
-            sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
-            //sigma_dot_i += factor*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
+                sigma_dot_i = 0.0;
+                for(int j=0;j<3;j++)
+                {
+                // sigma_dot_i += std::exp(ridging_exponent*(1.-old_conc))*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
+                sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
+                //sigma_dot_i += factor*young*(1.-old_damage)*M_Dunit[i*3 + j]*epsilon_veloc[j];
+                }
+                
+                sigma_pred[i] = (M_sigma[3*cpt+i]+4.*time_step*sigma_dot_i)*multiplicator;
+                sigma_pred[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma_pred[i]):0.;
+                
+                M_sigma[3*cpt+i] = (M_sigma[3*cpt+i]+time_step*sigma_dot_i)*multiplicator;
+                M_sigma[3*cpt+i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (M_sigma[3*cpt+i]):0.;
+                
+            }
+
+            /*======================================================================
+             * Correct the internal stress and the damage
+             *======================================================================
+             */
+
+            /* Compute the shear and normal stress, which are two invariants of the internal stress tensor */
+
+            sigma_s = std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
+            sigma_n =           -(sigma_pred[0]+sigma_pred[1])/2.;
+
+            sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
+            sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
+
+            double ridge_to_normal_cohesion_ratio=vm["dynamics.ridge_to_normal_cohesion_ratio"].as<double>();
+            double norm_factor=vm["dynamics.cohesion_thickness_normalisation"].as<double>();
+            double exponent=vm["dynamics.cohesion_thickness_exponent"].as<double>();
+            
+            double hi=0.; 
+            if(M_conc[cpt]>0.1)
+                hi = M_thick[cpt]/M_conc[cpt];
+            else
+                hi = M_thick[cpt]/0.1;
+
+            double mult_factor = std::pow(hi/norm_factor,exponent)*(1. + M_ridge_ratio[cpt]*(ridge_to_normal_cohesion_ratio-1.) );
+
+            double effective_cohesion = mult_factor * M_Cohesion[cpt];
+            double effective_compressive_strength = mult_factor * M_Compressive_strength[cpt];
+
+            q=std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
+            sigma_c=2.*effective_cohesion/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
+            sigma_t=-sigma_c/q;
+
+            /* minimum and maximum normal stress */
+            tract_max=-tract_coef*effective_cohesion/tan_phi;
+
+            /* Correction of the damage */
+            if(sigma_n>effective_compressive_strength)
+            {
+                sigma_target=effective_compressive_strength;
+
+                tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
+
+                if(tmp>M_damage[cpt])
+                {
+                    M_damage[cpt]=tmp;
+                }
             }
             
-            sigma_pred[i] = (M_sigma[3*cpt+i]+4.*time_step*sigma_dot_i)*multiplicator;
-            sigma_pred[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma_pred[i]):0.;
-            
-            M_sigma[3*cpt+i] = (M_sigma[3*cpt+i]+time_step*sigma_dot_i)*multiplicator;
-            M_sigma[3*cpt+i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (M_sigma[3*cpt+i]):0.;
-            
-        }
-
-        /*======================================================================
-         * Correct the internal stress and the damage
-         *======================================================================
-         */
-
-        /* Compute the shear and normal stress, which are two invariants of the internal stress tensor */
-
-        sigma_s = std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
-        sigma_n =           -(sigma_pred[0]+sigma_pred[1])/2.;
-
-        sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
-        sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
-
-        double ridge_to_normal_cohesion_ratio=vm["dynamics.ridge_to_normal_cohesion_ratio"].as<double>();
-        double norm_factor=vm["dynamics.cohesion_thickness_normalisation"].as<double>();
-        double exponent=vm["dynamics.cohesion_thickness_exponent"].as<double>();
-        
-	double hi=0.; 
-        if(M_conc[cpt]>0.1)
-            hi = M_thick[cpt]/M_conc[cpt];
-	else
-	    hi = M_thick[cpt]/0.1;
-
-        double mult_factor = std::pow(hi/norm_factor,exponent)*(1. + M_ridge_ratio[cpt]*(ridge_to_normal_cohesion_ratio-1.) );
-
-        double effective_cohesion = mult_factor * M_Cohesion[cpt];
-        double effective_compressive_strength = mult_factor * M_Compressive_strength[cpt];
-
-        q=std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
-        sigma_c=2.*effective_cohesion/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
-        sigma_t=-sigma_c/q;
-
-        /* minimum and maximum normal stress */
-        tract_max=-tract_coef*effective_cohesion/tan_phi;
-
-        /* Correction of the damage */
-        if(sigma_n>effective_compressive_strength)
-        {
-            sigma_target=effective_compressive_strength;
-
-            tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
-
-            if(tmp>M_damage[cpt])
+            if((sigma_1-q*sigma_2)>sigma_c)
             {
-                M_damage[cpt]=tmp;
+                sigma_target=sigma_c;
+
+                tmp=1.0-sigma_target/(sigma_1-q*sigma_2)*(1.0-old_damage);
+
+                if(tmp>M_damage[cpt])
+                {
+                    M_damage[cpt]=tmp;
+                }
             }
-        }
-        
-        if((sigma_1-q*sigma_2)>sigma_c)
-        {
-            sigma_target=sigma_c;
 
-            tmp=1.0-sigma_target/(sigma_1-q*sigma_2)*(1.0-old_damage);
-
-            if(tmp>M_damage[cpt])
+            if(sigma_n<tract_max)
             {
-                M_damage[cpt]=tmp;
+                sigma_target=tract_max;
+
+                tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
+
+                if(tmp>M_damage[cpt])
+                {
+                    M_damage[cpt]=tmp;
+                }
             }
-        }
-
-        if(sigma_n<tract_max)
-        {
-            sigma_target=tract_max;
-
-            tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
-
-            if(tmp>M_damage[cpt])
-            {
-                M_damage[cpt]=tmp;
-            }
-        }
 
         }
         else // if M_conc or M_thick too low, set sigma to 0.
