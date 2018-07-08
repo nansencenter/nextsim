@@ -1338,13 +1338,14 @@ FiniteElement::regrid(bool step)
 #if defined (WAVES)
             if (M_use_wim)
             {
-                M_nfloes.assign(M_num_elements,0.);
+                dbl_vec zeros(M_num_elements, 0.);
+                M_nfloes = zeros;
                 if(M_wave_mode==setup::WaveMode::RUN_ON_MESH)
                 {
                     int num_wavefreq = M_wavespec.size();
                     int num_wavedirn = M_wavespec[0].size();
                     for(int fq=0;fq<num_wavefreq;fq++)
-                        M_wavespec[fq].assign(num_wavedirn,M_dfloe);//vec of zeros of right size
+                        M_wavespec[fq].assign(num_wavedirn, zeros);//vec of zeros of right size
                 }
             }
 #endif//WAVES
@@ -1356,7 +1357,7 @@ FiniteElement::regrid(bool step)
             if (M_use_wim)
             {
                 //update M_dfloe
-                M_dfloe.assign(M_num_elements,0.);
+                M_dfloe.assign(M_num_elements, 0.);
                 for (int i=0; i<M_num_elements; i++)
                 {
                     //update M_dfloe after regrid
