@@ -37,6 +37,7 @@ namespace Nextsim
              * -----------------------------------------------------------------------------------
              */
 
+            // - basics
             ("simul.time_init", po::value<std::string>()->default_value( "" ),
                 "Start date/time of simulation. Formats: yyyy-mm-dd, yyyy-mm-dd HH:MM:SS; can also use 3 letter month name for 'mm' eg Mar for March")
             ("simul.duration", po::value<double>()->default_value( -1. ),
@@ -75,9 +76,9 @@ namespace Nextsim
             ("numerics.expansion_factor", po::value<double>()->default_value( 0.15 ), "Expansion factor for reading forcing data (should be a few percent)")
 
             // advection scheme
-            // - diffusive Eulerian case where M_UM is kept as 0
-            // - purely Lagrangian case where M_UM is updated with M_VT
-            // - ALE case where M_UM is updated with a smoothed version of M_VT
+            // - ALE_smoothing_step_nb<0 is the eulerian case where M_UM is not changed and then =0.
+            // - ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
+            // - ALE_smoothing_step_nb>0 is the ALE case where M_UM is updated with a smoothed version of M_VT
             ("numerics.advection_scheme", po::value<std::string>()->default_value( "ALE" ), "Options: Lagrangian, ALE, Eulerian")
             ("numerics.ALE_smoothing_step_nb", po::value<int>()->default_value( 2 ),
                 "Number of time steps to average over when smoothing in ALE scheme. 0: pure Lagrangian; <0: pure Eulerian")
@@ -130,8 +131,11 @@ namespace Nextsim
             ("moorings.file_length", po::value<std::string>()->default_value( "inf" ), "")
             ("moorings.spacing", po::value<double>()->default_value( 10 ), "km")
             ("moorings.output_timestep", po::value<double>()->default_value( 1 ), "days")
-            ("moorings.variables", po::value<std::vector<std::string>>()->multitoken()->default_value(std::vector<std::string>(),
-                    "conc thick snow conc_thin h_thin hs_thin velocity_xy")->composing(), "")
+            ("moorings.variables", po::value<std::vector<std::string>>()->multitoken()->default_value(
+                        std::vector<std::string>
+                            {"conc", "thick", "snow", "conc_thin", "h_thin", "hs_thin", "velocity_xy"},
+                             "conc    thick    snow    conc_thin    h_thin    hs_thin    velocity_xy"
+                    )->composing(), "list of variable names (put on separate lines in config file)")
             ("moorings.grid_file", po::value<std::string>()->default_value( "" ),
                 "Grid file with locations for moorings output. Has to be a netcdf file with x y as dimensions and latitude longitude as variables")
             ("moorings.parallel_output", po::value<bool>()->default_value( false ), "")
@@ -173,10 +177,10 @@ namespace Nextsim
             ("output.logfile", po::value<std::string>()->default_value( "" ), "")
             ("output.save_forcing_fields", po::value<bool>()->default_value( false ), "")
             ("output.save_diagnostics", po::value<bool>()->default_value( false ), "")
-            ("output.datetime_in_filename", po::value<bool>()->default_value( false ),
-                "filename outputs are eg [mesh,field]_20180101T000000Z.[bin,dat]")
 
             // exporter
+            ("output.datetime_in_filename", po::value<bool>()->default_value( false ),
+                "filename outputs are eg [mesh,field]_20180101T000000Z.[bin,dat]")
             ("output.exporter_path", po::value<std::string>()->default_value( "" ), "")
             ("output.exporter_precision", po::value<std::string>()->default_value("float"),
                     "float (default) or double (almost only for testing)")
@@ -213,7 +217,7 @@ namespace Nextsim
             // - if atmosphere-type=constant
             // -- dynamics
             ("ideal_simul.constant_wind_u", po::value<double>()->default_value( 0. ), "")
-            ("ideal_simul.constant_wind_v", po::value<double>()->default_value( -10. ), "")
+            ("ideal_simul.constant_wind_v", po::value<double>()->default_value( 0. ), "")
 
             // - if ocean-type=constant
             ("ideal_simul.constant_ocean_u", po::value<double>()->default_value( 0. ), "")

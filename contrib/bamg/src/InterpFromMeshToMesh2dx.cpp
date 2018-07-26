@@ -1,4 +1,3 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 /*!\file InterpFromMeshToMesh2dx
  */
 
@@ -81,7 +80,6 @@ int InterpFromMeshToMesh2dx(double** pdata_interp,
 #ifndef BAMG_NO_OMP
     int thread_id;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
 #endif
     for (int i=0; i < N_interp; ++i)
