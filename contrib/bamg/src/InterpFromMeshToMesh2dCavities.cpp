@@ -1,4 +1,3 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 /**
  * @file   InterpFromMeshToMesh2dCavities.cpp
  * @author Sylvain Bouillon <sylvain.bouillon@nersc.no>
@@ -20,8 +19,11 @@ using namespace std;
 
 
 
-int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in, int* method_in, int nb_variables,
-        double* surface_old, double* surface_new, BamgMesh* bamgmesh_old,BamgMesh* bamgmesh_new){
+int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,
+      int* method_in, int nb_variables, double* surface_old,
+      double* surface_new, BamgMesh* bamgmesh_old,BamgMesh* bamgmesh_new)
+{
+
     /*  Conservative interpolation method
         Use the cavities detected by detect_cavity to transfer physical
         quantities from the old element to the new ones*/
@@ -108,11 +110,11 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in, i
 
     if (verbosity>1) _printf_("   Interp Cavities: loop1...\n");
 
-    //for(int cavity_id=0; cavity_id< gate.nb_cavities; cavity_id++)
+#ifndef BAMG_NO_OMP
     int thread_id;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
+#endif
     for (int cavity_id=0; cavity_id < gate.nb_cavities; ++cavity_id)
     {
         if (verbosity>1) _printf_("   Interp Cavities: enter loop1...\n");

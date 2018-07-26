@@ -37,7 +37,6 @@ Exporter::writeContainer(std::fstream& out, std::vector<Type> const& container, 
         out.write((char*)&fsize, sizeof(fsize)); // write first the record length
 
         int typesize = sizeof(Type);
-        // if ((precision != "double") && (typesize == sizeof(double)))
         if ( precision == "float" )
         {
             for (int i=0; i<container.size(); ++i)
@@ -55,7 +54,7 @@ Exporter::writeContainer(std::fstream& out, std::vector<Type> const& container, 
 	}
 	else
 	{
-		std::cerr << "writeContainer error: opening file for output failed!" <<"\n";
+		std::cerr << "writeContainer error: opening file " << out << " for output failed!" <<"\n";
 		std::abort();
 	}
 }
