@@ -6085,15 +6085,15 @@ FiniteElement::init()
     this->initOptAndParam();
     M_current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
 
+    // Initialise the mesh
+    this->initMesh();
+
     if (M_rank==0)
     {
 	LOG(INFO) << "-----------------------Simulation started on "<< Nextsim::current_time_local() <<"\n";
         LOG(INFO) <<"TIMESTEP= "<< time_step <<"\n";
         LOG(INFO) <<"DURATION= "<< duration <<"\n";
     }
-
-    // Initialise the mesh
-    this->initMesh();
 
     // We need to set the scale_coeff et al after initialising the mesh - this was previously done in initConstants
     // The mean resolution of the small_arctic_10km mesh is 7446.71 m. Using 74.5 gives scale_coef = 0.100022, for that mesh
