@@ -250,6 +250,7 @@ MatrixPetsc::init( const size_type m,
 
     // free
     delete[] dnzOffProc;
+    delete[] dnz;
 
     this->initLocalToGlobalMapping(graph);
 
