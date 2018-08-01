@@ -7432,7 +7432,6 @@ void
 FiniteElement::concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,double ci,bool use_weekly_nic)
 {
 
-    double alpha_up = 0.;
     if(!use_weekly_nic)
     {
         if(ci<=1.e-3)
@@ -7440,7 +7439,7 @@ FiniteElement::concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,d
             thin_conc_obs_min=0.;
             thin_conc_obs_max=0.1;
         }
-        if(ci<=0.45)
+        else if(ci<=0.45)
         {
             // CT18
             // .45: .1 - .8
@@ -7520,6 +7519,7 @@ FiniteElement::concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,d
 void
 FiniteElement::assimilate_NicIce(bool use_weekly_nic)
 {
+    LOG(INFO)<<"In assimilate_NicIce\n";
     double real_thickness, init_conc_tmp;
 
     
@@ -7535,6 +7535,10 @@ FiniteElement::assimilate_NicIce(bool use_weekly_nic)
 
     for (int i=0; i<M_num_elements; ++i)
     {
+        if(M_nic_conc[i]>1.)
+            //conc should be masked - don't change model fields
+            continue;
+
         //get conc bins from NIC dataset
         double thin_conc_obs = 0.;
         double thin_conc_obs_min = 0.;
