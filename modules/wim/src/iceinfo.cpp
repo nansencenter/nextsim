@@ -56,8 +56,7 @@ std::vector<double> IceParams<T>::getAttenParams()
 
 
 template<typename T>
-//IceInfo<T>::IceInfo(T_icep_ptr ice_params,std::string const &name)
-IceInfo<T>::IceInfo(T_icep ice_params,std::string const &name)
+IceInfo<T>::IceInfo(T_icep ice_params, std::string const &name)
 {
     M_initialized = true;
     M_max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
@@ -109,7 +108,12 @@ void IceInfo<T>::updateFields()
 
     if(!M_initialized)
         throw std::runtime_error("IceInfo objected (name="+M_name+") not initialised yet - can't call updateFields()\n");
+
     M_num_elements  = M_conc.size();
+    if (M_vol.size()!=M_num_elements)
+        throw std::runtime_error("updateFields: M_vol is different size to M_conc\n");
+    if (M_nfloes.size()!=M_num_elements)
+        throw std::runtime_error("updateFields: M_nfloes is different size to M_conc\n");
 
     //2D var's
     M_dfloe.assign (M_num_elements ,0.);
@@ -118,7 +122,8 @@ void IceInfo<T>::updateFields()
     M_mask.assign  (M_num_elements ,0.);
     //std::cout<<"cicemin (updateFields) = "<<M_ice_params.M_cice_min<<"\n";
 
-#pragma omp parallel for num_threads(M_max_threads) collapse(1)
+    int thread_id;
+#pragma omp parallel for num_threads(M_max_threads) private(thread_id)
     for (int i=0;i<M_num_elements;i++)
     {
         if (M_conc[i]>=M_ice_params.M_cice_min)
@@ -160,6 +165,7 @@ void IceInfo<T>::updateFields()
     //test fields
     std::cout<<"IceInfo::updateFields ("<<M_name<<"): check ice fields\n";
     this->printRange( "conc      (iceinfo)" , M_conc   );
+    this->printRange( "vol       (iceinfo)" , M_vol   );
     this->printRange( "thickness (iceinfo)" , M_thick  );
     this->printRange( "Nfloes    (iceinfo)" , M_nfloes );
     this->printRange( "dfloe     (iceinfo)" , M_dfloe  );
