@@ -129,6 +129,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
 #endif
 {
     M_current_time = current_time;
+    M_target_size = RX_in.size();
 
     double current_time_tmp=M_current_time;
 
@@ -177,9 +178,9 @@ typename ExternalData::size_type
 ExternalData::size()
 {
     if ( M_is_vector )
-        return static_cast<size_type>( 2*M_dataset->target_size );
+        return static_cast<size_type>( 2*M_target_size );
     else
-        return static_cast<size_type>( M_dataset->target_size );
+        return static_cast<size_type>( M_target_size );
 }
 
 typename ExternalData::value_type
@@ -197,7 +198,20 @@ ExternalData::get(const size_type i)
     if(M_is_constant)
     {
         // for the moment same value is given to all the components
-        value = M_constant_value + M_bias_correction;
+        if(!M_is_vector)
+        {
+            ASSERT(i < M_target_size, "invalid index");
+            value = M_constant_value;
+        }
+        else
+        {
+            ASSERT(i < 2*M_target_size, "invalid index");
+
+            if(i < M_target_size)
+                value = M_constant_value;
+            else
+                value = M_constant_valuebis;
+        }
     }
     else
     {
@@ -221,22 +235,22 @@ ExternalData::get(const size_type i)
 
             if(!M_is_vector)
             {
-                ASSERT(i < M_dataset->target_size, "invalid index");
+                ASSERT(i < M_target_size, "invalid index");
                 i_tmp=i;
                 VariableId_tmp=M_VariableId;
             }
             else
             {
-                ASSERT(i < 2*M_dataset->target_size, "invalid index");
+                ASSERT(i < 2*M_target_size, "invalid index");
 
-                if(i < M_dataset->target_size)
+                if(i < M_target_size)
                 {
                     i_tmp=i;
                     VariableId_tmp=M_dataset->vectorial_variables[M_VariableId].components_Id[0];
                 }
                 else
                 {
-                    i_tmp=i-M_dataset->target_size;
+                    i_tmp=i-M_target_size;
                     VariableId_tmp=M_dataset->vectorial_variables[M_VariableId].components_Id[1];
                 }
             }
@@ -251,15 +265,15 @@ ExternalData::get(const size_type i)
             //step-function or constant in time
             if(!M_is_vector)
             {
-                ASSERT(i < M_dataset->target_size, "invalid index");
+                ASSERT(i < M_target_size, "invalid index");
                 i_tmp=i;
                 VariableId_tmp=M_VariableId;
             }
             else
             {
-                ASSERT(i < 2*M_dataset->target_size, "invalid index");
+                ASSERT(i < 2*M_target_size, "invalid index");
 
-                if(i < M_dataset->target_size)
+                if(i < M_target_size)
                 {
                     // x component
                     i_tmp=i;
@@ -269,7 +283,7 @@ ExternalData::get(const size_type i)
                 else
                 {
                     // y component
-                    i_tmp=i-M_dataset->target_size;
+                    i_tmp=i-M_target_size;
                     VariableId_tmp=M_dataset->vectorial_variables[M_VariableId].components_Id[1];
                 }
             }
@@ -282,35 +296,22 @@ ExternalData::get(const size_type i)
 typename std::vector<double>
 ExternalData::getVector()
 {
-    std::vector<double> vector_tmp(1,0.);
+    std::vector<double> vector_tmp;
 
-    if((!M_is_constant)&&(M_initialized))
+    if(M_initialized)
     {
-        int size_vector=M_dataset->target_size;
+        int size_vector = M_target_size;
         if(M_is_vector)
-            size_vector*=2;
+            size_vector *= 2;
 
         vector_tmp.resize(size_vector);
 
         for (int i=0; i<size_vector; ++i)
         {
-            vector_tmp[i]=(double) get(i);
+            vector_tmp[i] = (double) get(i);
         }
     }
-    else if (M_is_constant)
-    {
-        //return the constant value(s)
-        if(M_is_vector)
-        {
-            vector_tmp.resize(2);
-            vector_tmp[0]   = M_constant_value + M_bias_correction;
-            vector_tmp[1]   = M_constant_valuebis + M_bias_correction;
-        }
-        else
-            vector_tmp[0]   = M_constant_value + M_bias_correction;
-    }
-
-	return vector_tmp;
+    return vector_tmp;
 }
 
 #ifdef OASIS
@@ -1127,14 +1128,13 @@ ExternalData::convertTargetXY(Dataset *dataset,
         std::vector<double> & RX_out, std::vector<double> & RY_out,
         mapx_class *mapNextsim)//(double const& u, double const& v)
 {
-    dataset->target_size = RX_in.size();
-    RX_out.resize(dataset->target_size);
-    RY_out.resize(dataset->target_size);
+    RX_out.resize(M_target_size);
+    RY_out.resize(M_target_size);
 
     if(dataset->grid.interpolation_in_latlon)
     {
         double lat, lon;
-        for (int i=0; i<dataset->target_size; ++i)
+        for (int i=0; i<M_target_size; ++i)
         {
             //convert to lon,lat
 			inverse_mapx(mapNextsim,RX_in[i],RY_in[i],&lat,&lon);
@@ -1152,7 +1152,7 @@ ExternalData::convertTargetXY(Dataset *dataset,
         double cos_rotangle = std::cos(dataset->rotation_angle);
         double sin_rotangle = std::sin(dataset->rotation_angle);
         //rotate to coord sys of dataset
-        for (int i=0; i<dataset->target_size; ++i)
+        for (int i=0; i<M_target_size; ++i)
         {
 			RX_out[i] =  cos_rotangle*RX_in[i]+sin_rotangle*RY_in[i];
 			RY_out[i] = -sin_rotangle*RX_in[i]+cos_rotangle*RY_in[i];
@@ -1314,7 +1314,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
             InterpFromGridToMeshx(  data_out, &dataset->grid.gridX[0], dataset->grid.gridX.size(), &dataset->grid.gridY[0], dataset->grid.gridY.size(),
                                   &data_in[0], dataset->grid.gridY.size(), dataset->grid.gridX.size(),
                                   dataset->variables.size()*dataset->nb_forcing_step,
-                                 &RX[0], &RY[0], dataset->target_size, 100000000., dataset->grid.interp_type); // We put an excessively high default value, so that it will most likely crashes when not finding data
+                                 &RX[0], &RY[0], M_target_size, 100000000., dataset->grid.interp_type); // We put an excessively high default value, so that it will most likely crashes when not finding data
         break;
         case InterpolationType::FromMeshToMesh2dx:
             InterpFromMeshToMesh2dx(&data_out,
@@ -1322,7 +1322,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
                                         dataset->grid.gridX.size(),dataset->grid.pfnels,
                                         &data_in[0],
                                         dataset->grid.gridX.size(),dataset->variables.size()*dataset->nb_forcing_step,
-                                        &RX[0], &RY[0], dataset->target_size,
+                                        &RX[0], &RY[0], M_target_size,
                                         false);
         break;
         default:
@@ -1343,8 +1343,8 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
     {
         for (int j=0; j<dataset->variables.size(); ++j)
         {
-            dataset->variables[j].interpolated_data[fstep].resize(dataset->target_size);
-            for (int i=0; i<dataset->target_size; ++i)
+            dataset->variables[j].interpolated_data[fstep].resize(M_target_size);
+            for (int i=0; i<M_target_size; ++i)
                 dataset->variables[j].interpolated_data[fstep][i]=data_out[(dataset->variables.size()*dataset->nb_forcing_step)*i+fstep*dataset->variables.size()+j];
         }
     }

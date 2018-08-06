@@ -24,35 +24,65 @@ namespace Wim
 
 
 template<typename T>
-WimDiscr<T>::WimDiscr(po::variables_map const& vmIn,int const& nextsim_cpt)
+WimDiscr<T>::WimDiscr(po::variables_map const& vmIn)
 {
-    vm  = vmIn;
-    this->initConstant(nextsim_cpt);
-
-    if(!M_wim_on_mesh)
-    {
-        // wim grid generation/reading
-        // NB if M_wim_on_mesh, setMesh2 before wim.run() and at regridding
-        // time
-        M_grid = T_grid(vm);
-    }
-
-    this->initRemaining();
+    vm = vmIn;
 }//WimDiscr()
 
 
 template<typename T>
-WimDiscr<T>::WimDiscr(po::variables_map const& vmIn,T_gmsh const &mesh_in,int const& nextsim_cpt)
+void WimDiscr<T>::initStandAlone()
 {
-    vm  = vmIn;
-    this->initConstant(nextsim_cpt);
+    M_do_coupling = false;
+    this->initConstant();
 
-    // init grid FROM mesh
-    T_mesh mesh(mesh_in);//tmp mesh object
-    M_grid  = T_grid(vm,mesh);
+    //init grid
+    // - loads grid from file or makes one from parameters
+    M_grid = T_grid(vm);
 
     this->initRemaining();
+
+    // set ideal ice conditions
+    std::cout<<"WIM: Calling idealIceFields()";
+    this->idealIceFields(0.7);
+
+    // set ideal wave conditions
+    std::cout<<"WIM: Calling idealWaveFields()";
+    this->idealWaveFields(0.8);
+
 }//WimDiscr()
+
+
+template<typename T>
+template<typename FEMeshType>
+void WimDiscr<T>::initCoupled(int const& nextsim_cpt,
+        FEMeshType const &movedmesh,
+        BamgMesh* bamgmesh,
+        int const& flag_fix)
+{
+    M_do_coupling = true;
+    this->initConstant(nextsim_cpt);
+
+    if(M_wim_on_mesh)
+        //set full mesh in order to set ice fields and enable advection on it
+        this->setMeshFull(movedmesh,bamgmesh,flag_fix);
+    else
+    {
+        //set simple mesh in order to set ice fields
+        this->setMeshSimple(movedmesh);
+
+        //init grid after mesh is set
+        std::string wim_gridfile = vm["wimgrid.gridfilename"].as<std::string>();
+        if ( wim_gridfile != "" )
+            //init grid from gridfile
+            M_grid = T_grid(vm);
+        else
+            //init grid from mesh
+            M_grid = T_grid(vm,M_mesh);
+    }
+
+    this->initRemaining();
+}//initCoupled
 
 
 template<typename T>
@@ -98,9 +128,8 @@ void WimDiscr<T>::initConstant(int const& nextsim_cpt)
     }
 
     //some options need to be disabled if being called from nextsim
-    docoupling = !( vm.count("simul.duration")==0 );
     M_restart_time = 0.;
-    if (!docoupling)
+    if (!M_do_coupling)
     {
         //set duration of call to wim.run() from wim.duration
         M_duration = vm["wimsetup.duration"].template as<double>();
@@ -146,10 +175,15 @@ template<typename T>
 void WimDiscr<T>::initRemaining()
 {
     //after grid/mesh are set
+    M_num_elements = this->getNumElements();
     if(!M_wim_on_mesh)
     {
-        M_num_elements  = M_grid.M_num_elements;
-        M_length_cfl    = M_grid.M_resolution;
+        M_length_cfl   = M_grid.M_resolution;
+        M_land_mask    = M_grid.M_land_mask;
+    }
+    else
+    {
+        M_length_cfl = M_mesh.lengthCfl();
     }
 
     // ==============================================================================
@@ -183,14 +217,8 @@ void WimDiscr<T>::initRemaining()
     // call assign to set sizes of some arrays (not depending on space)
     this->assign();
 
-    if(!M_wim_on_mesh)
-    {
-        // if(M_wim_on_mesh), assignSpatial() called in run()
-        // - since mesh is changing each time
-        M_num_elements  = M_grid.M_num_elements;
-        M_land_mask     = M_grid.M_land_mask;
-        this->assignSpatial();
-    }
+    // call assign to set sizes of remaining arrays (that are depending on space)
+    this->assignSpatial();
 
     std::cout<<"wim instantiation finished\n";
 }//initRemaining()
@@ -313,8 +341,7 @@ void WimDiscr<T>::assignSpatial()
     // ie initially, and if(M_wim_on_mesh), after regridding
     // set sizes of arrays, initialises some others that are constant in time
 
-    M_assigned      = true;
-    M_num_elements  = this->getNumElements();
+    M_num_elements = this->getNumElements();
 
     //2D var's
     M_dave.assign(M_num_elements,0.);
@@ -369,7 +396,10 @@ void WimDiscr<T>::assignSpatial()
         //std::cout<<"Init M_sdf_dir in wim.assign()\n";
         for (auto it=M_sdf_dir.begin();it!=M_sdf_dir.end();it++)
             it->assign(nwavedirn,ztmp);
-    // =============================================
+
+    if (M_wim_on_mesh)
+        //no triangles on land
+        M_land_mask.assign(M_num_elements,0.);
 
 }//end: assignSpatial()
 
@@ -535,7 +565,9 @@ void WimDiscr<T>::idealWaveFields(T_val const xfac)
     T_val_vec wave_mask(M_num_elements,0.); 
     int i_wave = -1;
 
-#pragma omp parallel for num_threads(M_max_threads) collapse(1)
+#if 0
+#pragma omp parallel for num_threads(M_max_threads) collapse(1)//memory leak found by valgrind
+#endif
     for (int i = 0; i < M_num_elements; i++)
     {
         if ((xvec[i] < x_edge) && (M_land_mask[i]<.5))
@@ -801,7 +833,9 @@ void WimDiscr<T>::idealIceFields(T_val const xfac)
     T_val_vec nfloes(M_num_elements,0.);
     T_val unifc = vm["wim.unifc"].template as<double>(); /* 0.7 */
     T_val unifh = vm["wim.unifh"].template as<double>(); /* 2.0 */
-#pragma omp parallel for num_threads(M_max_threads) collapse(1)
+#if 0
+#pragma omp parallel for num_threads(M_max_threads) collapse(1)//memory leak in similar omp use in idealWaveFields
+#endif
     for (int i = 0; i < M_num_elements; i++)
     {
         if ((xvec[i] >= x_edge) && (M_land_mask[i]<.5))
@@ -1210,49 +1244,28 @@ void WimDiscr<T>::timeStep()
 
 
 template<typename T>
-void WimDiscr<T>::setMesh(T_gmsh const &movedmesh)
+template<typename FEMeshType>
+void WimDiscr<T>::setMeshSimple(FEMeshType const &movedmesh)
 {
     M_time_mesh_set = M_update_time;//used in check when ice fields are set on mesh
     M_mesh_old      = M_mesh;
 
     //update M_mesh with moved mesh
-    M_mesh  = T_mesh(movedmesh);
+    M_mesh = MeshInfo<T>(movedmesh);
 }
 
 
 template<typename T>
-void WimDiscr<T>::setMesh(T_gmsh const &mesh_in,T_val_vec const &um_in)
-{
-    auto movedmesh = mesh_in;
-    movedmesh.move(um_in,1.);
-    this->setMesh(movedmesh);
-}//setMesh
-
-
-template<typename T>
-void WimDiscr<T>::setMesh2(T_gmsh const &mesh_in,
-        T_val_vec const &um_in,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding)
-{
-    //interface for M_wim_on_mesh
-    auto movedmesh = mesh_in;
-    movedmesh.move(um_in,1.);
-    this->setMesh2(movedmesh,bamgmesh,flag_fix,regridding);
-}
-
-
-template<typename T>
-void WimDiscr<T>::setMesh2(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding)
+template<typename FEMeshType>
+void WimDiscr<T>::setMeshFull(FEMeshType const &movedmesh,BamgMesh* bamgmesh,int const& flag_fix,bool const& regridding)
 {
     //interface for M_wim_on_mesh
 
-    if(regridding)
-        //need to call assignSpatial() to resize vectors
-        M_assigned = false;
-    else
+    if(!regridding)
         M_mesh_old = M_mesh;
 
     M_time_mesh_set = M_update_time;//used in check when ice fields are set on mesh
-    M_mesh          = T_mesh(movedmesh,bamgmesh,flag_fix);
+    M_mesh          = MeshInfo<T>(movedmesh,bamgmesh,flag_fix);
 
     // get relative displacement of nodes since last call
     // - M_UM may already be nonzero if regridding has happened
@@ -1287,25 +1300,25 @@ void WimDiscr<T>::setMesh2(T_gmsh const &movedmesh,BamgMesh* bamgmesh,int const&
     M_num_elements  = M_mesh.M_num_elements;
     std::cout<<"on mesh, M_num_elements = "<<M_num_elements<<"\n";
 
-    if(!M_assigned)
+    if(regridding)
     {
-        //need to set sizes each time mesh changes: init,regrid
-        std::cout<<"calling assignSpatial() inside setMesh2()\n";
+        //need to reset sizes each time regridding happens
+        std::cout<<"calling assignSpatial() inside setMeshFull()\n";
         this->assignSpatial();
-        M_land_mask.assign(M_num_elements,0.);
     }
 
     M_length_cfl = M_mesh.lengthCfl();
-}//setMesh2
+}//setMeshFull
 
 
 template<typename T>
+template<typename FEMeshType>
 typename WimDiscr<T>::T_val_vec
-WimDiscr<T>::getSurfaceFactor(T_gmsh const &movedmesh)
+WimDiscr<T>::getSurfaceFactor(FEMeshType const &movedmesh)
 {
     // wave spectrum needs to be updated if mesh changes due to divergence of mesh velocity
     // ie element surface area changes need to be taken into account;
-    // call this before setMesh2() at regrid time or before call to WIM
+    // call this before setMeshFull() at regrid time or before call to WIM
     auto nodes_x = movedmesh.coordX();
     auto nodes_y = movedmesh.coordY();
     auto index   = movedmesh.indexTr();
@@ -1323,7 +1336,7 @@ WimDiscr<T>::getSurfaceFactor(T_gmsh const &movedmesh)
             ynods[k] = nodes_y[ind];
         }
 
-        T_val area = .5*MeshTools::jacobian(
+        T_val area = .5*this->jacobian(
                 xnods[0],ynods[0],xnods[1],ynods[1],xnods[2],ynods[2]);
         if (area>0)
             surface_fac[i] = area/M_mesh.M_surface[i];
@@ -1339,11 +1352,12 @@ WimDiscr<T>::getSurfaceFactor(T_gmsh const &movedmesh)
 
 
 template<typename T>
-void WimDiscr<T>::updateWaveSpec(T_gmsh const &movedmesh)
+template<typename FEMeshType>
+void WimDiscr<T>::updateWaveSpec(FEMeshType const &movedmesh)
 {
     // wave spectrum needs to be updated if mesh changes due to divergence of mesh velocity
     // ie element surface area changes need to be taken into account;
-    // call this before setMesh2() at regrid time or before call to WIM
+    // call this before setMeshFull() at regrid time or before call to WIM
     auto nodes_x = movedmesh.coordX();
     auto nodes_y = movedmesh.coordY();
     auto index   = movedmesh.indexTr();
@@ -1405,33 +1419,15 @@ void WimDiscr<T>::updateWaveSpec(T_gmsh const &movedmesh)
 
 
 template<typename T>
-void WimDiscr<T>::updateWaveSpec(T_gmsh const &mesh_in,T_val_vec const &um_in)
-{
-    auto movedmesh = mesh_in;
-    movedmesh.move(um_in,1);
-    this->updateWaveSpec(movedmesh);
-}//updateWaveSpec
-
-
-template<typename T>
+template<typename FEMeshType>
 typename WimDiscr<T>::T_val_vec
-WimDiscr<T>::getRelativeMeshDisplacement(T_gmsh const &mesh_in,T_val_vec const &um_in) const
-{
-    auto movedmesh = mesh_in;
-    movedmesh.move(um_in,1);
-    this->getRelativeMeshDisplacement(movedmesh);
-}//getRelativeMeshDisplacement
-
-
-template<typename T>
-typename WimDiscr<T>::T_val_vec
-WimDiscr<T>::getRelativeMeshDisplacement(T_gmsh const &movedmesh) const
+WimDiscr<T>::getRelativeMeshDisplacement(FEMeshType const &movedmesh) const
 {
     auto nodes_x = movedmesh.coordX();
     auto nodes_y = movedmesh.coordY();
     int Nn = nodes_x.size();
 
-    if (M_mesh.M_mesh_type==T_mesh::E_mesh_type::uninitialised)
+    if (M_mesh.M_mesh_type==MeshInfo<T>::E_mesh_type::uninitialised)
         throw std::runtime_error("relativeMeshDisplacement: M_mesh not initialised yet");
     if (M_mesh.M_num_nodes!=Nn)
         throw std::runtime_error("relativeMeshDisplacement: mesh_in and M_mesh have different sizes");
@@ -1452,43 +1448,31 @@ template<typename T>
 void WimDiscr<T>::setIceFields(
                           std::vector<T_val> const& conc,  // conc
                           std::vector<T_val> const& vol,   // ice vol or effective thickness (conc*thickness)
-                          std::vector<T_val> const& nfloes,// Nfloes=conc/Dmax^2
-                          bool pre_regrid)
+                          std::vector<T_val> const& nfloes)// Nfloes=conc/Dmax^2
 {
+    M_initialised_ice = true;
+
     if(M_time_mesh_set != M_current_time)
     {
         std::cout<<"M_time_mesh_set,M_current_time = "<<M_time_mesh_set<<","<<M_current_time<<"\n";
         throw std::runtime_error("setIceFields: setting ice without setting mesh first");
     }
 
-    // pre-regrid options:
-    if(pre_regrid&&M_wim_on_mesh)
-        //do nothing
-        return;
-
-    //if here, not (M_wim_on_mesh && pre_regrid)
-    M_initialised_ice = true;
-    if (pre_regrid)//not M_wim_on_mesh
-    {
-        //interp from mesh to grid
-        M_ice[IceType::sim].setFields(conc,vol,nfloes);
-        this->interpIceMeshToGrid();
-        return;
-    }
-    // end of pre-regrid options
-    // ================================================================
-
-    // ================================================================
-    // post-regrid options:
+    // now only called after regridding
     if (M_wim_on_mesh)
         // ice fields already where we need them,
         M_ice[IceType::wim].setFields(conc,vol,nfloes);
+#if 0
     else if (M_break_on_mesh)
         // if(M_break_on_mesh), ice fields already where we need them,
         M_ice[IceType::sim].setFields(conc,vol,nfloes);
-
-    // end of post-regrid options
-    // ================================================================
+#else
+    else
+    {
+        M_ice[IceType::sim].setFields(conc,vol,nfloes);//set fields on mesh
+        this->interpIceMeshToGrid();//set fields on grid
+    }
+#endif
 
 }//setIceFields()
 
@@ -1504,9 +1488,10 @@ void WimDiscr<T>::interpIceMeshToGrid()
 
 
 template<typename T>
+template<typename FEMeshType>
 typename WimDiscr<T>::T_map_vec
 WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const & fields,
-        T_gmsh const &movedmesh)
+        FEMeshType const &movedmesh)
 {
     auto xnod = movedmesh.coordX();
     auto ynod = movedmesh.coordY();
@@ -1515,24 +1500,16 @@ WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const & fields,
 
 
 template<typename T>
-typename WimDiscr<T>::T_map_vec
-WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const & fields,
-        T_gmsh const &mesh_in,T_val_vec const &um_in)
-{
-    auto movedmesh  = mesh_in;
-    movedmesh.move(um_in,1.);
-    return this->returnFieldsNodes(fields,movedmesh);
-}
-
-
-template<typename T>
+template<typename FEMeshType>
 typename WimDiscr<T>::T_map_vec
 WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
-        T_gmsh const &movedmesh)
+        FEMeshType const &movedmesh)
 {
     auto xel  = movedmesh.bCoordX();
     auto yel  = movedmesh.bCoordY();
+    return this->returnFieldsElements(fields, xel, yel);
 
+#if 0
     T_val_vec surface_fac(xel.size(),1.);
     if(M_wim_on_mesh)
     {
@@ -1541,17 +1518,7 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
     }
 
     return this->returnFieldsElements(fields,xel,yel,surface_fac);
-}
-
-
-template<typename T>
-typename WimDiscr<T>::T_map_vec
-WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
-        T_gmsh const &mesh_in,T_val_vec const &um_in)
-{
-    auto movedmesh  = mesh_in;
-    movedmesh.move(um_in,1.);
-    return this->returnFieldsElements(fields,movedmesh);
+#endif
 }
 
 
@@ -1628,17 +1595,9 @@ WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const &fields,
     for (auto it = output_nodes.begin(); it != output_nodes.end(); it++)
     {
         if(it->first=="Stress_waves_ice")
-            for (int i=0;i<Nnod;i++)
-            {
-                (it->second)[i]         = tx_out[i];
-                (it->second)[i+Nnod]    = ty_out[i];
-            }
+            it->second = this->combineVectorComponents(tx_out,ty_out);
         else if(it->first=="Stokes_drift")
-            for (int i=0;i<Nnod;i++)
-            {
-                (it->second)[i]         = sdfx_out[i];
-                (it->second)[i+Nnod]    = sdfy_out[i];
-            }
+            it->second = this->combineVectorComponents(sdfx_out,sdfy_out);
     }
     // ==========================================================================================
 
@@ -1649,7 +1608,7 @@ WimDiscr<T>::returnFieldsNodes(std::vector<std::string> const &fields,
 template<typename T>
 typename WimDiscr<T>::T_map_vec
 WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
-        T_val_vec &xel, T_val_vec &yel, T_val_vec const& surface_fac)
+        T_val_vec &xel, T_val_vec &yel)//, T_val_vec const& surface_fac)
 {
     // return fields on elements of M_mesh
     // - usually to export diagnostic fields on nextsim mesh
@@ -1660,12 +1619,12 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
         //do nothing
         return output_els;
     else
+    {
         //initialise outputs
+        T_val_vec tmp(Nels,0.);
         for (auto it=fields.begin();it!=fields.end();it++)
-        {
-            T_val_vec tmp(Nels,0.);
             output_els.emplace(*it,tmp);
-        }
+    }
 
     // ==========================================================================================
     //elements - scalars
@@ -1678,8 +1637,9 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
         if(it->first=="Hs")
         {
             if (M_wim_on_mesh)
-                for(int i=0;i<M_num_elements;i++)
-                    it->second[i] = std::sqrt(surface_fac[i])*M_Hs[i];//NB SDF scales with surface area, so Hs scales by sqrt(SDF)
+                it->second = M_Hs;
+                //for(int i=0;i<M_num_elements;i++)
+                //    it->second[i] = std::sqrt(surface_fac[i])*M_Hs[i];//NB SDF scales with surface area, so Hs scales by sqrt(SDF)
             else
             {
                 input_els.push_back(&M_Hs);
@@ -1720,27 +1680,22 @@ WimDiscr<T>::returnFieldsElements(std::vector<std::string> const &fields,
 
 
 template<typename T>
-void WimDiscr<T>::returnWaveStress(T_val_vec &M_tau,T_gmsh const &mesh_in,T_val_vec const &um_in)
+template<typename FEMeshType>
+typename WimDiscr<T>::T_val_vec
+WimDiscr<T>::returnWaveStress(FEMeshType const &movedmesh)
 {
-    auto movedmesh  = mesh_in;
-    movedmesh.move(um_in,1.);
-    this->returnWaveStress(M_tau,movedmesh);
-}
-
-
-template<typename T>
-void WimDiscr<T>::returnWaveStress(T_val_vec &M_tau,T_gmsh const &movedmesh)
-{
+    //pass in the moved mesh, then get the nodes
     auto xnod = movedmesh.coordX();
     auto ynod = movedmesh.coordY();
-    this->returnWaveStress(M_tau,xnod,ynod);
+    return this->returnWaveStress(xnod,ynod);
 }
 
 
 template<typename T>
-void WimDiscr<T>::returnWaveStress(T_val_vec &M_tau,T_val_vec &xnod,T_val_vec &ynod)
+typename WimDiscr<T>::T_val_vec
+WimDiscr<T>::returnWaveStress(T_val_vec &xnod, T_val_vec &ynod)
 {
-    //return wave stress on nodes of nextsim mesh
+    //base interface: pass in the nodes of nextsim mesh and interp the wave stress there
 
     int Nnod = xnod.size();
 
@@ -1755,24 +1710,44 @@ void WimDiscr<T>::returnWaveStress(T_val_vec &M_tau,T_val_vec &xnod,T_val_vec &y
     else
         throw std::runtime_error("returnWaveStress: using wrong interface for M_wim_on_mesh");
 
-    M_tau.resize(2*Nnod,0.);
-    for (int i=0;i<Nnod;i++)
-    {
-        M_tau[i]        = tx_out[i];
-        M_tau[i+Nnod]   = ty_out[i];
-    }
+    //finally set tau
+    return this->combineVectorComponents(tx_out,ty_out);
 
 }//returnWaveStress
 
 
 template<typename T>
-void WimDiscr<T>::returnWaveStress(T_val_vec &M_tau)
+typename WimDiscr<T>::T_val_vec
+WimDiscr<T>::returnWaveStress()
 {
     //nodes - vectors
     T_val_vec tx_out,ty_out;
     T_val_vec_ptrs input_nodes = {&M_tau_x,&M_tau_y};
     T_val_vec_ptrs out_nodes   = {&tx_out,&ty_out};
     M_mesh.elementsToNodes(out_nodes,input_nodes);
+
+    //finally set tau
+    return this->combineVectorComponents(tx_out,ty_out);
+}
+
+template<typename T>
+typename WimDiscr<T>::T_val_vec
+WimDiscr<T>::combineVectorComponents(T_val_vec const& vec_x, T_val_vec const& vec_y)
+{
+    //combine x,y components of vector into one vector:
+    // {vec_x[0], ..., vec_x[N-1], vec_y[0], ..., vec_y[N-1]}
+    int Nnod = vec_x.size();
+    if(vec_y.size()!=Nnod)
+        throw std::runtime_error(
+                "combineVectorComponents: vec_x and vec_y must be the same size\n");
+
+    T_val_vec vec(2*Nnod);
+    for (int i=0; i<Nnod; i++)
+    {
+        vec[i]      = vec_x[i];
+        vec[i+Nnod] = vec_y[i];
+    }
+    return vec;
 }
 
 
@@ -1867,8 +1842,9 @@ void WimDiscr<T>::getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out,T_val_ve
 
 
 template<typename T>
+template<typename FEMeshType>
 void WimDiscr<T>::getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out,T_val_vec &broken,
-        T_val_vec const & conc_tot, T_gmsh const &mesh_in,T_val_vec const &um_in)
+        T_val_vec const & conc_tot, FEMeshType const &movedmesh)
 {
     if((M_wim_on_mesh)||(M_break_on_mesh))
         throw std::runtime_error("getFsdMesh: using wrong interface");
@@ -1877,24 +1853,7 @@ void WimDiscr<T>::getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out,T_val_ve
     // - NB set in FiniteElement::wimPreRegrid(),
     // but this function is called from FiniteElement::wimPostRegrid(),
     // and mesh could have changed due to regridding
-    auto movedmesh  = mesh_in;
-    movedmesh.move(um_in,1.);
-    this->getFsdMesh(nfloes_out,dfloe_out,broken,conc_tot,movedmesh);
-}
-
-
-template<typename T>
-void WimDiscr<T>::getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out,T_val_vec &broken,
-        T_val_vec const & conc_tot, T_gmsh const &movedmesh)
-{
-    if((M_wim_on_mesh)||(M_break_on_mesh))
-        throw std::runtime_error("getFsdMesh: using wrong interface");
-
-    // set M_mesh (need to know where to interpolate to)
-    // - NB set in FiniteElement::wimPreRegrid(),
-    // but this function is called from FiniteElement::wimPostRegrid(),
-    // and mesh could have changed due to regridding
-    M_mesh    = T_mesh(movedmesh);
+    M_mesh = MeshInfo<T>(movedmesh);
 
     //do interpolation
     T_val_vec cinterp;//interp conc as well, to correct for interpolation error
@@ -1942,16 +1901,10 @@ void WimDiscr<T>::run()
     // - incident wave spectrum set in here now
     // (or in setWaveFields)
     if (!M_initialised_ice)
-    {
-        std::cout<<"WIM: Calling idealIceFields()";
-        this->idealIceFields(0.7);
-    }
+        throw std::runtime_error("run: ice not initialised\n");
 
     if (!M_initialised_waves)
-    {
-        std::cout<<"WIM: Calling idealWaveFields()";
-        this->idealWaveFields(0.8);
-    }
+        throw std::runtime_error("run: waves not initialised\n");
     // ===================================================
 
 
@@ -2064,13 +2017,11 @@ void WimDiscr<T>::advectDirections(T_val_vec2d& Sdir,T_val_vec const& ag2d_eff)
         T_val_vec vwave   = ag2d_eff;
 
         //set wave speeds
-        //TODO if M_wim_on_mesh, subtract average mesh velocity
         std::for_each(uwave.begin(), uwave.end(), [&](T_val& f){ f *= std::cos(adv_dir); });
         if (M_advdim == 2)
             std::for_each(vwave.begin(), vwave.end(), [&](T_val& f){ f *= std::sin(adv_dir); });
 
         //do advection
-        //TODO if M_wim_on_mesh call MeshTools::advect here
         M_grid.waveAdvWeno(Sdir[nth],uwave,vwave,M_timestep);
     }//advection of each direction done
 
@@ -2083,11 +2034,6 @@ void WimDiscr<T>::advectDirectionsMesh(T_val_vec2d& Sdir,T_val_vec & agnod,
 {
 
     int Nnod = M_mesh.M_num_nodes;
-#if 0
-    std::cout<<"advectDirectionsMesh: calling testMesh\n";
-    this->testMesh();
-#endif
-    T_val* advect_out;
     int nb_var  = 1;                    //have to advect 1 vbl at a time
     std::vector<int> adv_method = {1};  //alternative (0) is do nothing
 
@@ -2112,16 +2058,9 @@ void WimDiscr<T>::advectDirectionsMesh(T_val_vec2d& Sdir,T_val_vec & agnod,
 
         //do advection
         //std::cout<<"advectDirectionsMesh: calling MeshTools::advect()\n";
-        M_mesh.advect(&advect_out,&(Sdir[nth])[0],&VC[0],
-                &adv_method[0],nb_var,M_timestep,&bvals[0]);
-
-        // copy from 2D temporary array back to 3D input array
-#pragma omp parallel for num_threads(M_max_threads) collapse(1)
-        for (int i = 0; i < M_num_elements; i++)
-            Sdir[nth][i] = advect_out[i];
+        M_mesh.advect(Sdir[nth], VC, adv_method,
+                M_timestep, bvals);
     }//advection of each direction done
-
-    xDelete<T_val>(advect_out);
 
 #if 0
     std::cout<<"export: test advection\n";
@@ -3168,5 +3107,33 @@ void WimDiscr<T>::printRange(std::string const &name,T_val_vec const &vec, int c
 
 // instantiate wim class for type double
 template class WimDiscr<double>;
+
+// Instantiate the FEMeshType templates for Nextsim::GmshMesh objects
+// this can change to GmshMeshSeq in parallel code which is why a template is used
+template void
+WimDiscr<double>::initCoupled<Nextsim::GmshMesh>(int const&,
+        Nextsim::GmshMesh const&, BamgMesh*, int const&);
+template void
+WimDiscr<double>::setMeshSimple<Nextsim::GmshMesh>( Nextsim::GmshMesh const&);
+template void
+WimDiscr<double>::setMeshFull<Nextsim::GmshMesh>( Nextsim::GmshMesh const &,
+            BamgMesh*, int const&, bool const&);
+template typename WimDiscr<double>::T_val_vec
+WimDiscr<double>::getRelativeMeshDisplacement<Nextsim::GmshMesh>(Nextsim::GmshMesh const &) const;
+template void
+WimDiscr<double>::updateWaveSpec<Nextsim::GmshMesh>( Nextsim::GmshMesh const &);
+template typename WimDiscr<double>::T_val_vec
+WimDiscr<double>::getSurfaceFactor<Nextsim::GmshMesh>(Nextsim::GmshMesh const &);
+template typename WimDiscr<double>::T_map_vec
+WimDiscr<double>::returnFieldsElements<Nextsim::GmshMesh>(std::vector<std::string> const&,
+                 Nextsim::GmshMesh const &);
+template typename WimDiscr<double>::T_map_vec
+WimDiscr<double>::returnFieldsNodes<Nextsim::GmshMesh>(std::vector<std::string> const&,
+                 Nextsim::GmshMesh const &);
+template typename WimDiscr<double>::T_val_vec
+WimDiscr<double>::returnWaveStress<Nextsim::GmshMesh>(Nextsim::GmshMesh const &);
+template void
+WimDiscr<double>::getFsdMesh<Nextsim::GmshMesh>(T_val_vec &,T_val_vec &, T_val_vec &,
+                 T_val_vec const &, Nextsim::GmshMesh const &);
 
 } // namespace WIM2D

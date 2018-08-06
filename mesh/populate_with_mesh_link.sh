@@ -30,6 +30,12 @@ if [ -z "$NEXTSIM_DATADIR" ]; then
 else
 	# link the meshes
 	echo "We link the meshes from $NEXTSIM_DATADIR"; 
-	ln -s $NEXTSIM_DATADIR/mesh/*.msh .
-	ln -s $NEXTSIM_DATADIR/mesh/Arctic_meshes_for_neXtSIM/*.msh .
+	ln -s $NEXTSIM_DATADIR/mesh/unref/*.msh .
+	ln -s $NEXTSIM_DATADIR/mesh/split/*.msh .
+	ln -s $NEXTSIM_DATADIR/mesh/split_xy/*.msh .
+
+        # link WIM grids
+        mkdir wim_grids
+        cd wim_grids
+	ln -s $NEXTSIM_DATADIR/mesh/wim_grids/*.*
 fi
