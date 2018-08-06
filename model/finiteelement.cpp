@@ -7500,8 +7500,8 @@ FiniteElement::assimilate_NicIce(bool use_weekly_nic)
 
     external_data_vec external_data_tmp;
     external_data_tmp.push_back(&M_nic_conc);
-    this->checkReloadDatasets(external_data_tmp,time_init-0.5,
-            "assimilate - NIC");
+    this->checkReloadDatasets(external_data_tmp, time_init-0.5,
+            "mesh_elements", "assimilate - NIC");
 
     for (int i=0; i<M_num_elements; ++i)
     {
