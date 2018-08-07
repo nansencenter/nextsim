@@ -8687,7 +8687,7 @@ FiniteElement::initDrifters()
         this->initIabpDrifter();
 
     if(M_use_equally_spaced_drifters)
-        this->equallySpacedDrifter();
+        this->initEquallySpacedDrifter();
 
     if(M_use_sidfex_drifters)
         this->initSidfexDrifters();
@@ -8792,6 +8792,12 @@ FiniteElement::updateDrifters()
     // 3. output to text file or netcdf (if needed)
     // NB this routine is only called if we are after M_drifters_time_init
 
+    // RGPS drifters have a different init time to the other drifters
+    // - only update them if it's after their init time
+    bool update_rgps_drifters = false;
+    if(M_use_rgps_drifters)
+        update_rgps_drifters = (M_current_time>M_rgps_time_init);
+
     if (std::fmod(M_current_time, M_move_drifters_timestep)==0)
     {
         // do we need to move the drifters?
@@ -8805,7 +8811,7 @@ FiniteElement::updateDrifters()
             this->updateIabpDrifterPosition();
         if ( M_use_equally_spaced_drifters )
             M_equally_spaced_drifters.move(M_mesh, M_UT);
-        if ( M_use_rgps_drifters )
+        if ( update_rgps_drifters )
             M_rgps_drifters.move(M_mesh, M_UT);
         if ( M_use_sidfex_drifters )
             M_sidfex_drifters.move(M_mesh, M_UT);
@@ -8834,7 +8840,7 @@ FiniteElement::updateDrifters()
             // output IABP drifters
             // NB do this after moving
             if(!inputting)
-                //still need to get M_iabp_conc
+                //still need to update M_iabp_conc
                 this->updateIabpDrifterConc();
             this->outputIabpDrifter();
         }
@@ -8848,7 +8854,7 @@ FiniteElement::updateDrifters()
         M_equally_spaced_drifters.appendNetCDF(M_current_time);
     }
 
-    if ( M_use_rgps_drifters )
+    if ( update_rgps_drifters )
     {
         // if initialised, append to netcdf file
         if( M_rgps_drifters.isInitialised()
@@ -9165,7 +9171,7 @@ FiniteElement::initIabpDrifter()
 }//initIabpDrifter
 
 void
-FiniteElement::equallySpacedDrifter()
+FiniteElement::initEquallySpacedDrifter()
 {
     M_equally_spaced_drifters = Drifters(1e3*vm["drifters.spacing"].as<double>(),
             M_mesh, M_UM, M_conc, vm["drifters.concentration_limit"].as<double>());
