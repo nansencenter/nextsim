@@ -614,7 +614,7 @@ private:
     void initRGPSDrifters();
     void updateRGPSDrifters();
     void initSidfexDrifters();
-    void initEquallySpacedDrifter();
+    void initEquallySpacedDrifters();
     void outputIabpDrifter();
     void initIabpDrifter();
     void updateIabpDrifter();

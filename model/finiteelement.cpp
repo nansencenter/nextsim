@@ -8687,7 +8687,7 @@ FiniteElement::initDrifters()
         this->initIabpDrifter();
 
     if(M_use_equally_spaced_drifters)
-        this->initEquallySpacedDrifter();
+        this->initEquallySpacedDrifters();
 
     if(M_use_sidfex_drifters)
         this->initSidfexDrifters();
@@ -9171,7 +9171,7 @@ FiniteElement::initIabpDrifter()
 }//initIabpDrifter
 
 void
-FiniteElement::initEquallySpacedDrifter()
+FiniteElement::initEquallySpacedDrifters()
 {
     M_equally_spaced_drifters = Drifters(1e3*vm["drifters.spacing"].as<double>(),
             M_mesh, M_UM, M_conc, vm["drifters.concentration_limit"].as<double>());
