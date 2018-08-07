@@ -844,6 +844,11 @@ FiniteElement::initDrifterOpts()
                 std::string msg = drifters_names[i]+" output timestep not a multiple of M_move_drifters_timestep";
                 throw std::runtime_error(msg);
             }
+            if( drifters_timesteps[i] > 0.5 )
+            {
+                std::string msg = drifters_names[i]+" output timestep should be <= 0.5";
+                throw std::runtime_error(msg);
+            }
         }
     }//set drifters init time and moving timestep
 }
@@ -8798,7 +8803,10 @@ FiniteElement::updateDrifters()
     if(M_use_rgps_drifters)
         update_rgps_drifters = (M_current_time>M_rgps_time_init);
 
-    if (std::fmod(M_current_time, M_move_drifters_timestep)==0)
+    if (std::fmod(
+                M_current_time,
+                M_move_drifters_timestep
+                )==0)
     {
         // do we need to move the drifters?
         // NB M_UT is relative to the fixed mesh, not the moved mesh
@@ -8873,7 +8881,11 @@ FiniteElement::updateDrifters()
     }
 
     if ( M_use_osisaf_drifters
-            && fmod(M_current_time, M_osisaf_drifters_output_time_step) == 0 )
+            && fmod(
+                M_current_time,
+                M_osisaf_drifters_output_time_step
+                ) == 0
+            )
     {
         for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
             if (it->isInitialised())
@@ -8886,7 +8898,9 @@ FiniteElement::updateDrifters()
     if ( M_use_osisaf_drifters && fmod(M_current_time+0.5, 1.) == 0 )
     {
         // OSISAF drift is calculated as a drifter displacement over 48 hours
-        // and they have two sets of drifters in the field at all times ([0] is the newest).
+        // - start a new one each day at 12:00
+        // We have two sets of drifters in the field at all times
+        // - [0] is the newest
         // Here we start a new set of drifters.
 
         // Flip the vector so we move [0] to be [1]
