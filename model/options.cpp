@@ -131,28 +131,28 @@ namespace Nextsim
 
             ("drifters.use_iabp_drifters", po::value<bool>()->default_value( false), "Use IABP drifters or not")
             ("drifters.iabp_drifters_output_time_step", po::value<double>()->default_value( .5 ),
-                 "interval between IABP drifter outputs (days)")
+                 "interval between IABP drifter outputs (days): 0.5/2n, n=1,2,... down to timestep")
 
             ("drifters.use_osisaf_drifters", po::value<bool>()->default_value( false ), "Use OSISAF drifters?")
-            ("drifters.osisaf_drifters_output_time_step", po::value<double>()->default_value( 2. ),
-                 "interval between OSISAF drifter outputs (days)")
+            ("drifters.osisaf_drifters_output_time_step", po::value<double>()->default_value( .5 ),
+                 "interval between OSISAF drifter outputs (days): 0.5/2n, n=1,2,... down to timestep")
             ("drifters.use_refined_osisaf_grid", po::value<bool>()->default_value( false ),
                 "true: if using OSISAF drifters, use grid refined by a factor of 9, so averaged model results can be compared to the data; false: use same grid as OSISAF drift dataset")
 
             ("drifters.use_equally_spaced_drifters", po::value<bool>()->default_value( false), "use equally spaced drifters?")
             ("drifters.equally_spaced_drifters_output_time_step", po::value<double>()->default_value( .5 ),
-                 "interval between equally-spaced drifter outputs (days)")
+                 "interval between equally-spaced drifter outputs (days): 0.5/2n, n=1,2,... down to timestep")
             ("drifters.spacing", po::value<double>()->default_value( 10 ), "spacing of equally spaced drifters in km")
 
             ("drifters.use_rgps_drifters", po::value<bool>()->default_value( false), "")
             ("drifters.rgps_drifters_output_time_step", po::value<double>()->default_value( 0.5 ),
-                 "interval between RGPS drifter outputs (days)")
+                 "interval between RGPS drifter outputs (days): 0.5/2n, n=1,2,... down to timestep")
             ("drifters.RGPS_time_init", po::value<std::string>()->default_value( "2007-12-01" ),
                 "time to init RGPS drifters: date format yyyy-mm-dd or yyyy-mmm-dd (eg 2008-Mar-05); can also add time with HH:MM:SS (eg 2008-Mar-05 00:00:00)")
 
             ("drifters.use_sidfex_drifters", po::value<bool>()->default_value( false), "are we using SIDFEX drifters")
             ("drifters.sidfex_drifters_output_time_step", po::value<double>()->default_value( 0.5 ),
-                 "interval between SIDFEX drifter outputs (days)")
+                 "interval between SIDFEX drifter outputs (days): 0.5/2n, n=1,2,... down to timestep")
             ("drifters.sidfex_filename", po::value<std::string>()->default_value( "" ), "text file with initial buoy positions")
 
 
