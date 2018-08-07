@@ -244,6 +244,7 @@ public:
     void getWimDiagnostics();
 #endif//WAVES
     void getTotalConcVol(std::vector<double> &ctot, std::vector<double> &vtot);
+    void isTooThick(int const & pcpt, std::string const & printme);
 
     std::string gitRevision();
     std::string system(std::string const& command);

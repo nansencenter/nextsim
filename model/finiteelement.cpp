@@ -5042,10 +5042,39 @@ FiniteElement::initOASIS()
 }
 #endif
 
+void
+FiniteElement::isTooThick(int const & pcpt, std::string const & printme)
+{
+    //check if the ice is too thick
+
+    bool too_thick = false;
+    for(int i=0; i<M_thick.size(); i++)
+    {
+        if (M_thick[i]>25.)
+        {
+            std::cout << "tooThick: " << printme << "\n";
+            std::cout << "pcpt = " <<pcpt << "\n";
+            std::cout << "M_thick[" <<i << "]=  "<< M_thick[i] <<" m\n";
+            too_thick = true;
+            break;
+        }
+    }
+    if(too_thick)
+    {
+        this->exportResults("too_thick");
+        throw std::runtime_error("M_thick too big");
+    }
+}
+
 // Take one time step
 void
 FiniteElement::step(int &pcpt)
 {
+
+#ifndef DEBUGGING
+    //check if the ice is too thick
+    this->isTooThick(pcpt, "Start of time step");
+#endif
 
     if(M_use_rgps_drifters)
     {
