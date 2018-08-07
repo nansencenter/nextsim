@@ -56,8 +56,7 @@ std::vector<double> IceParams<T>::getAttenParams()
 
 
 template<typename T>
-//IceInfo<T>::IceInfo(T_icep_ptr ice_params,std::string const &name)
-IceInfo<T>::IceInfo(T_icep ice_params,std::string const &name)
+IceInfo<T>::IceInfo(T_icep ice_params, std::string const &name)
 {
     M_initialized = true;
     M_max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
@@ -166,6 +165,7 @@ void IceInfo<T>::updateFields()
     //test fields
     std::cout<<"IceInfo::updateFields ("<<M_name<<"): check ice fields\n";
     this->printRange( "conc      (iceinfo)" , M_conc   );
+    this->printRange( "vol       (iceinfo)" , M_vol   );
     this->printRange( "thickness (iceinfo)" , M_thick  );
     this->printRange( "Nfloes    (iceinfo)" , M_nfloes );
     this->printRange( "dfloe     (iceinfo)" , M_dfloe  );

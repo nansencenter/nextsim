@@ -282,8 +282,8 @@ void MeshInfo<T>::advect(T_val_vec & advect_inout, // thing to be advected - mod
     //set time_step
     int num_substeps = 12;
     T_val time_step = time_step_advect/num_substeps;
-    std::vector<int> itmp(3,0);
-    std::vector<T_val> dtmp(3,0.);
+    std::vector<int> itmp(3, 0);
+    std::vector<T_val> dtmp(3, 0.);
     std::vector<std::vector<int>> fluxes_source_id(Nels, itmp);
     std::vector<std::vector<T_val>> outer_fluxes_area(Nels, dtmp);
 
@@ -296,7 +296,7 @@ void MeshInfo<T>::advect(T_val_vec & advect_inout, // thing to be advected - mod
         T_val surface  = M_surface[cpt];
 
         /* some variables used for the advection*/
-        T_val x[3],y[3];
+        T_val x[3], y[3];
         T_val vector_edge[2], outer_vector[2], VC_middle[2], VC_x[3], VC_y[3];
         int node_nums[3];
         int other_vertex[3*2]={1,2 , 2,0 , 0,1};
@@ -400,7 +400,7 @@ void MeshInfo<T>::advect(T_val_vec & advect_inout, // thing to be advected - mod
                 if(advect_method[j]==1)
                 {
                     T_val tmp = 0.;
-                    for (int i=0;i<3;i++)
+                    for (int i=0; i<3; i++)
                         if(fluxes_source_id[cpt][i]>=0)
                             //normal element
                             tmp += advect_in[fluxes_source_id[cpt][i]*nb_var+j]*outer_fluxes_area[cpt][i];
@@ -411,7 +411,7 @@ void MeshInfo<T>::advect(T_val_vec & advect_inout, // thing to be advected - mod
                 }
                 else
                     advect_inout[cpt*nb_var+j] = advect_in[cpt*nb_var+j];
-            }
+            }//loop over variables
         }//loop over elements
 
         //new initial conditions

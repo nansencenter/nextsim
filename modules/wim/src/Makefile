@@ -2,10 +2,11 @@
 # kernel type
 KERNEL := $(shell uname -s)
 
+LIBNAME_ROOT=libwim
 ifeq ($(KERNEL),Linux)
-	LIBRARYNAME=libwim.so.1.0
+	LIBRARYNAME=$(LIBNAME_ROOT).so.1.0
 else
-	LIBRARYNAME=libwim.dylib
+	LIBRARYNAME=$(LIBNAME_ROOT).dylib
 endif
 # ========================================================
 
@@ -93,7 +94,7 @@ LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx -lbamg -lnextsim
 
 # ========================================================
 # Rules to always execute.
-.PHONY: default all lib clean mrproper progs
+.PHONY: default all lib clean mrproper progs deplibs
 
 # Default action.
 default: all
@@ -111,7 +112,7 @@ fresh: clean all
 
 # Delete the object and dependancy files, and the executable
 mrproper: clean
-	$(RM) $(BINARYDIR)/* $(LIBRARYDIR)/$(LIBRARYNAME)
+	$(RM) $(BINARYDIR)/* $(LIBRARYDIR)/$(LIBNAME_ROOT)*
 
 deplibs:
 	cd $(NEXTSIMDIR); make mapx bamg core
@@ -186,11 +187,9 @@ progs: $(EXECS)
 
 LDFLAGSLIB = $(LDFLAGS)
 ifeq ($(KERNEL),Linux)
-	LDFLAGSLIB += -shared -Wl,-soname,libwim.so.1
-	#LDFLAGSLIB += -lm -ldl #-lhwloc
+	LDFLAGSLIB += -shared -Wl,-soname,$(LIBNAME_ROOT).so.1
 else
 	LDFLAGSLIB += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,$(LIBRARYDIR)$(LIBRARYNAME)
-	#LDFLAGSLIB += -ldl -lstdc++
 endif
 
 ifeq ($(KERNEL),Linux)
@@ -202,8 +201,8 @@ lib: $(OBJS) $(CCOBJS)
 	@echo $(Lines)$(Lines)
 	@echo " "
 	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LDFLAGSLIB)
-	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)libwim.so
-	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)libwim.so.1
+	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)$(LIBNAME_ROOT).so
+	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)$(LIBNAME_ROOT).so.1
 	@echo " "
 	@echo $(Lines)$(Lines)
 	@echo Created shared library $(LIBRARYDIR)$(LIBRARYNAME)
@@ -218,8 +217,8 @@ lib: $(OBJS) $(CCOBJS)
 	@echo $(Lines)$(Lines)
 	@echo " "
 	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LDFLAGSLIB)
-	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)libwim.dylib.0
-	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)libwim.dylib.1
+	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)$(LIBNAME_ROOT).dylib.0
+	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)$(LIBNAME_ROOT).dylib.1
 	@echo " "
 	@echo $(Lines)$(Lines)
 	@echo Created shared library $(LIBRARYDIR)$(LIBRARYNAME)

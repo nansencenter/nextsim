@@ -77,12 +77,15 @@ Drifters::Drifters(std::string filename,
         GmshMesh const& mesh, std::vector<double> const& um,
         std::vector<double>& conc, double climit, double current_time)
 {
+    // interface for RGPS, SIDFEX
+    // - reads a text file
+
     // Load the nodes from file
     // Check file
-    std::fstream M_rgps_file;   // The file we read the IABP buoy data from
+    std::fstream drifter_text_file;   // The file we read the IABP buoy data from
 
-    M_rgps_file.open(filename, std::fstream::in);
-    if ( ! M_rgps_file.good() )
+    drifter_text_file.open(filename, std::fstream::in);
+    if ( ! drifter_text_file.good() )
         throw std::runtime_error("File not found: " + filename);
 
     // Read the current buoys from file
@@ -92,30 +95,47 @@ Drifters::Drifters(std::string filename,
 
     std::vector<double> LAT(0);
     std::vector<double> LON(0);
+    std::vector<int> INDS(0);
 
     // skip header line
     std::string header;
-    std::getline(M_rgps_file, header);
+    std::getline(drifter_text_file, header);
     std::cout<<"open drifter file: "<<filename<<"\n";
     std::cout<<"header: "<<header<<"\n";
 
     int year, month, day, hour, number;
     double lat, lon;
+    int old_number;
 
     // Read the next line
-    while ( M_rgps_file >> year >> month >> day >> hour >> number >> lat >> lon )
-    {
-        std::cout << year << ", "<< month << ", "<< day << ", "
-            << hour << ", "  << number << ", "<< lat << ", "<< lon << "\n";
+    while (!drifter_text_file.eof())
+    {   
+
+        if (gridSize>0)
+            old_number = number;
+
+        drifter_text_file >> year >> month >> day >> hour >> number >> lat >> lon;
         std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
         time = from_date_string(date) + hour/24.;
+
+        // may not be eof if \n at end of file
+        // - can then repeat the last line
+        if (gridSize>0)
+            if (number == old_number)
+                break;
 
         if(time== current_time )
         {
             LAT.push_back(lat);
             LON.push_back(lon);
+            INDS.push_back(number);
             gridSize++;
+
+            std::cout << year << ", "<< month << ", "<< day << ", "
+                << hour << ", "  << number << ", "<< lat << ", "<< lon << "\n";
         }
+        else if(time>current_time)
+            break;
     }
     std::cout<<"gridSize: "<< gridSize <<"\n";
 
@@ -136,11 +156,20 @@ Drifters::Drifters(std::string filename,
     close_mapx(map);
 
     // Apply mask using conc and climit, and save to M_X and M_Y
+    // - also save indices (order drifters are read) to M_i 
     this->maskXY(mesh, um, X, Y, conc, climit);
+
+#if 0
+    //uncomment these lines to have the actual buoy numbers in the
+    //netcdf file ('indice')
+    for(int i=0; i<M_i.size(); i++)
+        //replace indices in M_i (order drifters are read), with actual buoy IDs
+        M_i[i] = INDS[i];
+#endif
 
     M_is_initialised = true;
 
-    M_rgps_file.close();
+    drifter_text_file.close();
 }
 
 Drifters::Drifters(std::string dirname, std::string gridFile,
@@ -149,7 +178,8 @@ Drifters::Drifters(std::string dirname, std::string gridFile,
                    GmshMesh const& mesh, std::vector<double> const& um,
                    std::vector<double>& conc, double climit)
 {
-    // Load the grid from file
+    // Load the grid from netcdf file
+
     // Check file
     std::string filename = (boost::format( "%1%/%2%/%3%" )
                             % Environment::simdataDir().string()

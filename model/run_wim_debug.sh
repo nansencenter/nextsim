@@ -25,17 +25,8 @@ then
    echo " "
 fi
 
-maxits=2
-if [ $# -ge 4 ]
-then
-   maxits=$4
-fi
-
-wimfq=1
-if [ $# -ge 5 ]
-then
-   wimfq=$5
-fi
+maxits=${4-2}
+wimfq=${5-1}
 
 # valgrind options
 vopts=()
