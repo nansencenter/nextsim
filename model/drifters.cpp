@@ -294,7 +294,7 @@ Drifters::isInitialised()
 
 // Move drifters putting output into X and Y
 void
-Drifters::move(GmshMesh const& mesh, std::vector<double> const& UT, std::vector<double>& X, std::vector<double>& Y)
+Drifters::move(GmshMesh const& mesh, std::vector<double> const& UT)
 {
     // Do nothing if we don't have to
     if ( M_num_drifters == 0 )
@@ -323,8 +323,8 @@ Drifters::move(GmshMesh const& mesh, std::vector<double> const& UT, std::vector<
 
     for ( int i=0; i<M_num_drifters; ++i )
     {
-        X[i] = M_X[i] + interp_drifter_out[nb_var*i];
-        Y[i] = M_Y[i] + interp_drifter_out[nb_var*i+1];
+        X[i] += interp_drifter_out[nb_var*i];
+        Y[i] += interp_drifter_out[nb_var*i+1];
     }
 
     xDelete<double>(interp_drifter_out);
