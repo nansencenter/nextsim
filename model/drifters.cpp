@@ -351,13 +351,11 @@ Drifters::updateConc(GmshMesh const& mesh, std::vector<double> const& um,
     // move the mesh before interpolating
     auto movedmesh = mesh;
     movedmesh.move(um, 1.);
-
-    // Interpolate the total displacement onto the drifter positions
-    int nb_var=1;
     int numNodes = movedmesh.numNodes();
     int numElements = movedmesh.numTriangles();
 
-    // Interpolate the conc
+    // Interpolate the concentration onto the drifter positions
+    int nb_var=1;
     double* interp_drifter_out;
     InterpFromMeshToMesh2dx(&interp_drifter_out,
                             &movedmesh.indexTr()[0], &movedmesh.coordX()[0], &movedmesh.coordY()[0],
