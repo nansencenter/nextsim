@@ -4792,12 +4792,6 @@ FiniteElement::init()
                     "please specify restart filename with restart.restart_string option");
         M_current_time = time_init + pcpt*time_step/(24*3600.0);
 
-        //if(M_use_osisaf_drifters)
-        //    this->initOSISAFDrifters();
-        
-//        for (int i=0; i<M_num_elements; i++)
-//            M_damage[i]=(M_damage[i]>0.95 ? 1. : 0.);
-        
         if(fmod(pcpt*time_step,output_time_step) == 0)
         {
             LOG(DEBUG) <<"export starts\n";
