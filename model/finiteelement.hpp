@@ -600,7 +600,7 @@ private:
     void topazForecastAmsr2OsisafIce();
     void topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
     void assimilate_topazForecastOsisafAmsr2Ice();
-    void assimilate_NicIce(bool use_weekly_nic);
+    void assimilateNicIce(bool use_weekly_nic);
     void concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,double ci,bool use_weekly_nic);
     void cs2SmosIce();
     void cs2SmosAmsr2Ice();

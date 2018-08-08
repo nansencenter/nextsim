@@ -6924,7 +6924,7 @@ FiniteElement::assimilateIce()
             break;
         case setup::IceType::NIC:
         case setup::IceType::NICWEEKLY:
-            this->assimilate_NicIce(M_ice_type==setup::IceType::NICWEEKLY);
+            this->assimilateNicIce(M_ice_type==setup::IceType::NICWEEKLY);
             break;
         default:
             std::cout << "invalid choice for data assimilation of the ice"<<"\n";
@@ -7551,9 +7551,9 @@ FiniteElement::concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,d
 }//concBinsNic
 
 void
-FiniteElement::assimilate_NicIce(bool use_weekly_nic)
+FiniteElement::assimilateNicIce(bool use_weekly_nic)
 {
-    LOG(INFO)<<"In assimilate_NicIce\n";
+    LOG(INFO)<<"In assimilateNicIce\n";
     double real_thickness, init_conc_tmp;
 
     
@@ -7672,7 +7672,7 @@ FiniteElement::assimilate_NicIce(bool use_weekly_nic)
             }//not using thin ice
         }//some ice present
 	}//loop over elements
-}//assimilate_NicIce
+}//assimilateNicIce
 
 void
 FiniteElement::assimilate_topazForecastOsisafAmsr2Ice()
