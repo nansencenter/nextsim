@@ -292,7 +292,7 @@ Drifters::isInitialised()
  * case is useful when writing to file
  */
 
-// Move drifters putting output into X and Y
+// Move drifters and replace the old coordinates with the new ones
 void
 Drifters::move(GmshMesh const& mesh, std::vector<double> const& UT)
 {
@@ -323,23 +323,14 @@ Drifters::move(GmshMesh const& mesh, std::vector<double> const& UT)
 
     for ( int i=0; i<M_num_drifters; ++i )
     {
-        X[i] += interp_drifter_out[nb_var*i];
-        Y[i] += interp_drifter_out[nb_var*i+1];
+        M_X[i] += interp_drifter_out[nb_var*i];
+        M_Y[i] += interp_drifter_out[nb_var*i+1];
     }
 
     xDelete<double>(interp_drifter_out);
 }
 
-// Move drifters and replace the old coordinates with the new ones
-void
-Drifters::move(GmshMesh const& mesh, std::vector<double> const& UT)
-{
-    // NB M_UT is relative to the fixed mesh
-    // (unlike the concentration which moves with the mesh)
-    move(mesh, UT, M_X, M_Y);
-}
-
-// Move drifters putting output into X and Y
+// interp conc onto drifter positions
 void
 Drifters::updateConc(GmshMesh const& mesh, std::vector<double> const& um,
         std::vector<double> &conc)
