@@ -79,6 +79,9 @@ Drifters::Drifters(std::string filename,
 {
     // interface for RGPS, SIDFEX
     // - reads a text file
+    // - NB usually doesn't work for true SIDFEX buoy IDs as they are too large
+    //   - therefore use an index file to map the true IDs to smaller integers
+    //     (this is what is done in the forecast system)
 
     // Load the nodes from file
     // Check file
@@ -245,7 +248,7 @@ Drifters::maskXY(GmshMesh const& mesh, std::vector<double> const& um,
     auto movedmesh = mesh;
     movedmesh.move(um, 1.);
 
-    // Interpolate the concentration onto the drifter positions
+    // Interpolate the concentration from the moved mesh onto the drifter positions
     int gridSize = X.size();
     double* interp_drifter_out;
     InterpFromMeshToMesh2dx(&interp_drifter_out,
@@ -284,13 +287,6 @@ Drifters::isInitialised()
 {
     return M_is_initialised;
 }
-
-/*
- * There are two use-cases for moving drifters. The "normal" case where you
- * overwrite the old coordinates with the new ones and the case where you
- * want to store the new coordinates in a seperate variable. This latter
- * case is useful when writing to file
- */
 
 // Move drifters and replace the old coordinates with the new ones
 void
