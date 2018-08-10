@@ -519,7 +519,6 @@ private:
 
     // are we using any drifters?
     bool M_use_drifters;
-    double M_move_drifters_timestep;
     double M_drifters_time_init;
 
     // IABP-like drifters
@@ -610,6 +609,15 @@ private:
     void topazAmsreIce();
     void topazAmsr2Ice();
 
+    void outputtingDrifters(
+        bool &output_rgps,
+        bool &input_iabp,
+        bool &output_iabp,
+        bool &output_equally_spaced,
+        bool &output_sidfex,
+        bool &output_osisaf,
+        bool &move_drifters
+        );
     void updateDrifters();
     void initRGPSDrifters();
     void updateRGPSDrifters();
