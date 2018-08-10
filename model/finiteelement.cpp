@@ -249,9 +249,6 @@ FiniteElement::initModelState()
 
     LOG(DEBUG) << "initIce\n";
     this->initIce();
-
-    LOG(DEBUG) << "initDrifter\n";
-    this->initDrifter();
 }//initModelState
 
 void
@@ -489,7 +486,7 @@ FiniteElement::initBamg()
     bamgopt->splitcorners      = 0; //the Devil!  Changed to 0, original 1 Phil
     bamgopt->geometricalmetric = 0;
     bamgopt->random            = true;
-    bamgopt->verbose           = vm["simul.verbose"].as<int>();
+    bamgopt->verbose           = vm["debugging.bamg_verbose"].as<int>();
 
     bamggeom = new BamgGeom();
     bamgmesh = new BamgMesh();
@@ -502,7 +499,7 @@ FiniteElement::initBamg()
 }
 
 void
-FiniteElement::initConstant()
+FiniteElement::initOptsAndParams()
 {
     // log
     const boost::unordered_map<const std::string, LogLevel> str2log = boost::assign::map_list_of
@@ -511,7 +508,7 @@ FiniteElement::initConstant()
         ("debug", DEBUG)
         ("error", ERROR);
 
-    M_log_level = str2log.find(vm["simul.log-level"].as<std::string>())->second;
+    M_log_level = str2log.find(vm["debugging.log-level"].as<std::string>())->second;
     
     nu0 = vm["dynamics.nu0"].as<double>();
     young = vm["dynamics.young"].as<double>();
@@ -635,9 +632,9 @@ FiniteElement::initConstant()
         ("topaz", setup::IceType::TOPAZ4)
         ("topaz_forecast", setup::IceType::TOPAZ4F)
         ("topaz_forecast_amsr2", setup::IceType::TOPAZ4FAMSR2)
-        ("topaz_forecast_amsr2_osisaf", setup::IceType::TOPAZ4FAMSR2OSISAF)
-        ("topaz_forecast_amsr2_osisaf_nic", setup::IceType::TOPAZ4FAMSR2OSISAFNIC)
-        ("topaz_forecast_amsr2_osisaf_nic_weekly", setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY)
+        ("topaz_forecast_osisaf_amsr2", setup::IceType::TOPAZ4FOSISAFAMSR2)
+        ("nic", setup::IceType::NIC)
+        ("nic_weekly", setup::IceType::NICWEEKLY)
         ("amsre", setup::IceType::AMSRE)
         ("amsr2", setup::IceType::AMSR2)
         ("osisaf", setup::IceType::OSISAF)
@@ -704,18 +701,6 @@ FiniteElement::initConstant()
         ("bouillon", setup::BasalStressType::BOUILLON);
     M_basal_stress_type = str2basal_stress.find(vm["setup.basal_stress-type"].as<std::string>())->second;
 
-    M_use_iabp_drifters=vm["drifters.use_iabp_drifters"].as<bool>();
-    M_equallyspaced_drifters_output_time_step=vm["drifters.equallyspaced_drifters_output_time_step"].as<double>();
-    M_rgps_drifters_output_time_step=vm["drifters.rgps_drifters_output_time_step"].as<double>();
-    M_use_osisaf_drifters=vm["drifters.use_osisaf_drifters"].as<bool>();
-    
-    M_use_equallyspaced_drifters=false;
-    M_use_rgps_drifters=false;
-    
-    if(M_equallyspaced_drifters_output_time_step>0.)
-        M_use_equallyspaced_drifters=true;
-    if(M_rgps_drifters_output_time_step>0.)
-        M_use_rgps_drifters=true;
 
     M_mesh_filename = vm["mesh.filename"].as<std::string>();
     // mesh type
@@ -748,7 +733,148 @@ FiniteElement::initConstant()
         ("monthly", GridOutput::fileLength::monthly)
         ("yearly", GridOutput::fileLength::yearly);
     M_moorings_file_length = str2mooringsfl.find(vm["moorings.file_length"].as<std::string>())->second;
-}//initConstant
+
+    // Drifter options - may not need to init yet
+    // (don't init until spinup is over)
+    this->initDrifterOpts();
+
+}//initOptsAndParams
+
+
+void
+FiniteElement::initDrifterOpts()
+{
+    // init drifters after spinup
+    // NB use ceil to make sure the init time is 0:00
+    M_drifters_time_init = std::ceil(time_init)
+        + vm["simul.spinup_duration"].as<double>();
+
+    //to be run at start time
+    dbl_vec drifters_timesteps;
+    std::vector<std::string> drifters_names;//for debugging
+
+    // use IABP drifters (12h check)
+    M_use_iabp_drifters = vm["drifters.use_iabp_drifters"].as<bool>();
+    M_iabp_drifters_output_time_step = vm["drifters.iabp_drifters_output_time_step"].as<double>();
+    M_iabp_drifters_input_time_step = 0.5;
+    if (M_use_iabp_drifters)
+    {
+        // check the IABP in-/out-put time steps are consistent with each other
+        // - IABP input time step should be greater than the output time step
+        //   (same frequency of outputs or more frequent outputs),
+        // - IABP input time step should be a multiple of the output time step
+        if( M_iabp_drifters_output_time_step > M_iabp_drifters_input_time_step )
+        {
+            std::string msg = "IABP drifters output timestep";
+            msg += " should be <= IABP input timestep";
+            throw std::runtime_error(msg);
+        }
+        else if ( std::fmod(M_iabp_drifters_input_time_step,
+                    M_iabp_drifters_output_time_step) != 0 )
+        {
+            throw std::runtime_error(
+                    "IABP drifter input timestep should be a multiple of the IABP output timestep");
+        }
+
+        // to check all the drifter timesteps later
+        drifters_timesteps.push_back(M_iabp_drifters_input_time_step);
+        drifters_names.push_back("IABP (input)");
+        drifters_timesteps.push_back(M_iabp_drifters_output_time_step);
+        drifters_names.push_back("IABP (output)");
+    }
+
+    // use OSISAF drifters
+    // - every day at 12:00 start a new set of drifters which run for 48h
+    // - output time step is an option
+    M_use_osisaf_drifters = vm["drifters.use_osisaf_drifters"].as<bool>();
+    M_osisaf_drifters_output_time_step = vm["drifters.osisaf_drifters_output_time_step"].as<double>();
+    if(M_use_osisaf_drifters)
+    {
+        M_osisaf_drifters.resize(2);
+
+        if( M_osisaf_drifters_output_time_step > 0.5 )
+        {
+            // currently OSISAF output time step has to be <= 0.5 (days)
+            throw std::runtime_error("OSISAF drifters output timestep should be <= 0.5");
+        }
+        else if( fmod(.5, M_osisaf_drifters_output_time_step) != 0 )
+        {
+            // output timestep should fit into .5
+            throw std::runtime_error("0.5 should be a multiple of the OSISAF drifters output timestep");
+        }
+
+        // to check all the drifter timesteps later
+        drifters_timesteps.push_back(M_osisaf_drifters_output_time_step);
+        drifters_names.push_back("OSISAF");
+    }
+
+    // equally spaced drifters
+    M_use_equally_spaced_drifters = vm["drifters.use_equally_spaced_drifters"].as<bool>();
+    M_equally_spaced_drifters_output_time_step = vm["drifters.equally_spaced_drifters_output_time_step"].as<double>();
+    if (M_use_equally_spaced_drifters)
+    {
+        // to check all the drifter timesteps later
+        drifters_timesteps.push_back(M_equally_spaced_drifters_output_time_step);
+        drifters_names.push_back("Equally-spaced");
+    }
+
+    // RGPS drifters
+    M_use_rgps_drifters = vm["drifters.use_rgps_drifters"].as<bool>();
+    M_rgps_drifters_output_time_step = vm["drifters.rgps_drifters_output_time_step"].as<double>();
+    if (M_use_rgps_drifters)
+    {
+        std::string time_str = vm["drifters.RGPS_time_init"].as<std::string>();
+        M_rgps_time_init = Nextsim::from_date_time_string(time_str);
+        M_rgps_file = Environment::nextsimDir().string()
+            + "/data/RGPS_" + time_str + ".txt";
+
+        // make sure RGPS init time is not too early
+        if(M_rgps_time_init<M_drifters_time_init)
+        {
+            std::string msg = "";
+            msg += "M_rgps_time_init should be >= M_drifters_time_init\n";
+            msg += "(ie after simulation time_init";
+            msg += "(rounded up to the nearest day) and spinup period)";
+            throw std::runtime_error(msg);
+        }
+
+        // to check all the drifter timesteps later
+        drifters_timesteps.push_back(M_rgps_drifters_output_time_step);
+        drifters_names.push_back("RGPS");
+    }
+
+    // SIDFEX drifters
+    M_use_sidfex_drifters = vm["drifters.use_sidfex_drifters"].as<bool>();
+    M_sidfex_drifters_output_time_step = vm["drifters.sidfex_drifters_output_time_step"].as<double>();
+    if (M_use_sidfex_drifters)
+    {
+        drifters_timesteps.push_back(M_sidfex_drifters_output_time_step);
+        drifters_names.push_back("SIDFEX");
+    }
+
+    // can now tell if we are using any drifters and set the init time
+    // (after spinup)
+    M_use_drifters = (
+               M_use_iabp_drifters
+            || M_use_osisaf_drifters
+            || M_use_equally_spaced_drifters
+            || M_use_sidfex_drifters
+            || M_use_rgps_drifters
+            );
+
+    if(M_use_drifters)
+    {
+        // check consistency of drifter output time steps with model time step
+        for(int i=0; i<drifters_timesteps.size(); i++)
+        {
+            if( fmod(drifters_timesteps[i]*24*3600, time_step) != 0 )
+            {
+                std::string msg = drifters_names[i]+" drifters' timestep not a multiple of model time step";
+                throw std::runtime_error(msg);
+            }
+        }
+    }
+}//initDrifterOpts
 
 void
 FiniteElement::createGMSHMesh(std::string const& geofilename)
@@ -1129,7 +1255,7 @@ FiniteElement::regrid(bool step)
             minang = this->minAngle(M_mesh,M_UM,displacement_factor);
 
             substep++;
-            while (flip || minang<(vm["simul.regrid_angle"].as<double>())/10.)
+            while (flip || minang<(vm["numerics.regrid_angle"].as<double>())/10.)
             {
                 displacement_factor /= 2.;
                 flip = this->flip(M_mesh,M_UM,displacement_factor);
@@ -1230,7 +1356,7 @@ FiniteElement::regrid(bool step)
 
 
         had_remeshed=true;
-        if(step && (vm["simul.regrid_output_flag"].as<bool>()))
+        if(step && (vm["numerics.regrid_output_flag"].as<bool>()))
         {
         
             std::string tmp_string1    = (boost::format( "before_adaptMesh_%1%_mesh_adapt_step_%2%_substep_%3%" )
@@ -1247,7 +1373,7 @@ FiniteElement::regrid(bool step)
         this->adaptMesh();
 	    LOG(INFO) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
 
-        if(step && (vm["simul.regrid_output_flag"].as<bool>()))
+        if(step && (vm["numerics.regrid_output_flag"].as<bool>()))
         {
             std::string tmp_string2    = (boost::format( "after_adaptMesh_%1%_mesh_adapt_step_%2%_substep_%3%" )
                                    % step
@@ -1802,7 +1928,7 @@ FiniteElement::advect(double** interp_elt_out_ptr, double* interp_elt_in,
 
     int Nd = bamgmesh->NodalConnectivitySize[1];
 
-    int ALE_smoothing_step_nb=vm["simul.ALE_smoothing_step_nb"].as<int>();
+    int ALE_smoothing_step_nb=vm["numerics.ALE_smoothing_step_nb"].as<int>();
     // ALE_smoothing_step_nb==-2 is the case with no advection M_UM is not changed and then =0 and no fluxes are computed.
     // ALE_smoothing_step_nb==-1 is the diffusive eulerian case where M_UM is not changed and then =0.
     // ALE_smoothing_step_nb=0 is the purely Lagrangian case where M_UM is updated with M_VT
@@ -4553,7 +4679,7 @@ FiniteElement::run()
 
     std::string current_time_system = Nextsim::current_time_local();
     int pcpt = this->init();
-    int niter = vm["simul.maxiteration"].as<int>();
+    int niter = vm["debugging.max_iteration"].as<int>();
     this->writeLogFile();
 
     // Debug file that records the time step
@@ -4621,11 +4747,10 @@ FiniteElement::run()
 void
 FiniteElement::finalise()
 {
-    // Don't forget to close the iabp file!
+    // Don't forget to close the IABP file!
     if (M_use_iabp_drifters)
     {
-        M_iabp_file.close();
-        M_iabp_out.close();
+        M_iabp_infile_fstream.close();
     }
 
 #ifdef OASIS
@@ -4655,7 +4780,7 @@ FiniteElement::init()
     int pcpt = 0;
     mesh_adapt_step=0;
     had_remeshed=false;
-    this->initConstant();
+    this->initOptsAndParams();
     M_current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
     this->initDatasets();
 
@@ -4673,7 +4798,7 @@ FiniteElement::init()
 
     // Check the minimum angle of the grid
     double minang = this->minAngle(M_mesh);
-    if (minang < vm["simul.regrid_angle"].as<double>())
+    if (minang < vm["numerics.regrid_angle"].as<double>())
     {
         LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the initial grid\n";
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
@@ -4686,15 +4811,10 @@ FiniteElement::init()
         if ( !res_str.empty() )
             pcpt = this->readRestart(res_str);
         else
-            pcpt = this->readRestart(vm["restart.step_nb"].as<int>());
+            throw std::runtime_error(
+                    "please specify restart filename with restart.restart_string option");
         M_current_time = time_init + pcpt*time_step/(24*3600.0);
 
-        if(M_use_osisaf_drifters)
-            this->initOSISAFDrifters();
-        
-//        for (int i=0; i<M_num_elements; i++)
-//            M_damage[i]=(M_damage[i]>0.95 ? 1. : 0.);
-        
         if(fmod(pcpt*time_step,output_time_step) == 0)
         {
             LOG(DEBUG) <<"export starts\n";
@@ -4765,23 +4885,11 @@ FiniteElement::init()
         this->initWim(pcpt);
     }
 #endif
-
-    // Open the output file for drifters
-    // TODO: Is this the right place to open the file?
-    if (M_use_iabp_drifters )
-    {
-        // We should tag the file name with the init time in case of a re-start.
-        std::stringstream filename;
-        filename << M_export_path << "/drifters_out_"
-            << M_current_time << ".txt";
-        M_iabp_out.open(filename.str(), std::fstream::out);
-        if ( ! M_iabp_out.good() )
-            throw std::runtime_error("Cannot write to file: " + filename.str());
-    }
-
+    
     // Initialise the moorings - if requested
     if ( M_use_moorings )
         this->initMoorings();
+
 
     return pcpt;
 }//init()
@@ -4986,162 +5094,64 @@ FiniteElement::initOASIS()
 }
 #endif
 
+void
+FiniteElement::isTooThick(int const & pcpt, std::string const & printme)
+{
+    //check if the ice is too thick
+
+    bool too_thick = false;
+    for(int i=0; i<M_thick.size(); i++)
+    {
+        if (M_thick[i]>25.)
+        {
+            std::cout << "tooThick: " << printme << "\n";
+            std::cout << "pcpt = " <<pcpt << "\n";
+            std::cout << "M_thick[" <<i << "]=  "<< M_thick[i] <<" m\n";
+            too_thick = true;
+            break;
+        }
+    }
+    if(too_thick)
+    {
+        this->exportResults("too_thick");
+        throw std::runtime_error("M_thick too big");
+    }
+}
+
 // Take one time step
 void
 FiniteElement::step(int &pcpt)
 {
 
-    // Update the drifters position twice a day, important to keep the same frequency as the IABP data, for the moment
-    if( pcpt==0 || std::fmod(M_current_time, 0.5)==0 )
-    {   
-        // Read in the new buoys and output
-        if ( M_use_iabp_drifters )
-        {
-            this->updateIABPDrifter();
-            
-            chrono.restart();
-            LOG(DEBUG) <<"Drifter starts\n";
-            LOG(DEBUG) <<"DRIFTER: Interp starts\n";
+#ifndef DEBUGGING
+    //check if the ice is too thick
+    this->isTooThick(pcpt, "Start of time step");
+#endif
 
-            // Assemble the coordinates from the unordered_map
-            std::vector<double> drifter_X(M_iabp_drifters.size());
-            std::vector<double> drifter_Y(M_iabp_drifters.size());
-            int j=0;
-            for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
-            {
-                drifter_X[j] = it->second[0];
-                drifter_Y[j] = it->second[1];
-                ++j;
-            }
-
-            // Interpolate the total displacement and concentration onto the drifter positions
-            int nb_var=2;
-            std::vector<double> interp_drifter_in(nb_var*M_mesh.numNodes());
-
-            // Interpolate the velocity
-            for (int i=0; i<M_mesh.numNodes(); ++i)
-            {
-                interp_drifter_in[nb_var*i]   = M_UT[i];
-                interp_drifter_in[nb_var*i+1] = M_UT[i+M_mesh.numNodes()];
-            }
-
-            double* interp_drifter_out;
-            InterpFromMeshToMesh2dx(&interp_drifter_out,
-                                    &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-                                    M_mesh.numNodes(),M_mesh.numTriangles(),
-                                    &interp_drifter_in[0],
-                                    M_mesh.numNodes(),nb_var,
-                                    &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
-                                    true, 0.);
-
-
-            // Interpolate the concentration - re-use interp_drifter_in
-            interp_drifter_in.resize(M_mesh.numTriangles());
-            for (int i=0; i<M_mesh.numTriangles(); ++i)
-            {
-                interp_drifter_in[i]   = M_conc[i];
-            }
-
-            double* interp_drifter_c_out;
-            InterpFromMeshToMesh2dx(&interp_drifter_c_out,
-                                    &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-                                    M_mesh.numNodes(),M_mesh.numTriangles(),
-                                    &interp_drifter_in[0],
-                                    M_mesh.numTriangles(),1,
-                                    &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
-                                    true, 0.);
-
-            // Rebuild the M_iabp_drifters map
-            double clim = vm["drifters.concentration_limit"].as<double>();
-            j=0;
-            for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); /* ++it is not allowed here, because we use 'erase' */ )
-            {
-                if ( interp_drifter_c_out[j] > clim )
-                {
-                    M_iabp_drifters[it->first] = std::array<double,2> {it->second[0]+interp_drifter_out[nb_var*j], it->second[1]+interp_drifter_out[nb_var*j+1]};
-                    ++it;
-                } else {
-                    // Throw out drifters that drift out of the ice
-                    it = M_iabp_drifters.erase(it);
-                }
-                ++j;
-            }
-
-            xDelete<double>(interp_drifter_out);
-            xDelete<double>(interp_drifter_c_out);
-
-            LOG(DEBUG) <<"DRIFTER: Interp done\n";
-            LOG(DEBUG) <<"Drifter interp done in "<< chrono.elapsed() <<"s\n";
-
-            // TODO: Do we want to output drifters at a different time interval?
-            this->outputDrifter(M_iabp_out);
-        }
-        
-        if ( M_use_equallyspaced_drifters )
-            M_equallyspaced_drifters.move(M_mesh, M_UT);
-        if ( M_use_rgps_drifters )
-            M_rgps_drifters.move(M_mesh, M_UT);
-        if ( M_use_osisaf_drifters )
-            for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
-                it->move(M_mesh, M_UT);
-    
-	    for (int i=0; i<M_num_nodes; ++i)
-	    {
-	        // UM
-		    M_UT[i] = 0.;
-		    M_UT[i+M_num_nodes] = 0.;
-	    }
-    }//IABP drifters
-
-    if(pcpt>0)
+    if(M_use_rgps_drifters)
     {
-        if ( M_use_equallyspaced_drifters && fmod(M_current_time, M_equallyspaced_drifters_output_time_step) == 0 )
-            M_equallyspaced_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
-
-        if ( M_use_rgps_drifters )
-        {
-            std::string time_str = vm["drifters.RGPS_time_init"].as<std::string>();
-            double RGPS_time_init = Nextsim::from_date_time_string(time_str);
-        
-            if( !M_rgps_drifters.isInitialised() && M_current_time == RGPS_time_init)
-                this->updateRGPSDrifters();
-            
-            if( M_current_time != RGPS_time_init && fmod(M_current_time,M_rgps_drifters_output_time_step) == 0 )
-                if ( M_rgps_drifters.isInitialised() )
-                    M_rgps_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
-        }
-    }//equally-spaced/RGPS drifters
-     
-    if ( M_use_osisaf_drifters && fmod(M_current_time+0.5,1.) == 0 )
+        // do we need to init RGPS drifters?
+        // RGPS drifters are not initialised until M_rgps_time_init
+        // - check if it's time to initialise them
+        if( !M_rgps_drifters.isInitialised() && M_current_time == M_rgps_time_init)
+            this->initRGPSDrifters();
+    }
+    if(M_use_drifters)
     {
-        // OSISAF drift is calculated as a dirfter displacement over 48 hours
-        // and they have two sets of drifters in the field at all times.
-
-        // Write out the contents of [1] if it's meaningful
-        if ( M_osisaf_drifters[1].isInitialised() )
-            M_osisaf_drifters[1].appendNetCDF(M_current_time, M_mesh, M_UT);
-
-        // Flip the vector so we move [0] to be [1]
-        std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
-
-        // Create a new M_drifters instance in [0], with a properly initialised netCDF file
-        std::string osi_grid_file = "ice_drift_nh_polstere-625_multi-oi.nc";
-        std::string osi_output_path = M_export_path+"/OSISAF_";
-        if(vm["drifters.use_refined_osisaf_grid"].as<bool>())
+        if(M_current_time == M_drifters_time_init)
         {
-            // use grid refined by a factor of 9
-            // - can then compared averaged drift to the observations
-            // - using an odd number in the refinement means the original grid points are a sub-sample of the refined grid
-            osi_grid_file = "ice_drift_nh_polstere-625_multi-grid_refined_9.nc";
-            osi_output_path = M_export_path+"/OSISAF_refined9_";
+            //do we need to init non-RGPS drifters?
+            //(RGPS has its own init time)
+            LOG(DEBUG) << "initDrifters\n";
+            this->initDrifters();
         }
-            
-        M_osisaf_drifters[0] = Drifters("data", osi_grid_file,
-                "xc", "yc",
-                "lat", "lon", M_mesh, M_conc, vm["drifters.concentration_limit"].as<double>());
-
-        M_osisaf_drifters[0].initNetCDF(osi_output_path, M_current_time);
-        M_osisaf_drifters[0].appendNetCDF(M_current_time, M_mesh, M_UT);
+        else if (M_current_time > M_drifters_time_init)
+        {
+            //do we need to update drifters? (move, output, read new inputs)
+            //NB now we only call this if we after initialisation time
+            LOG(DEBUG) << "updateDrifters\n";
+            this->updateDrifters();
+        }
     }
 
     if (pcpt == 0)
@@ -5174,7 +5184,7 @@ FiniteElement::step(int &pcpt)
     // The first time step we behave as if we just did a regrid
     M_regrid = (pcpt==0);
 
-    if (vm["simul.regrid"].as<std::string>() == "bamg")
+    if (vm["numerics.regrid"].as<std::string>() == "bamg")
     {
         double displacement_factor = 1.;
         double minang = this->minAngle(M_mesh,M_UM,displacement_factor);
@@ -5184,7 +5194,7 @@ FiniteElement::step(int &pcpt)
         LOG(DEBUG) <<"FLIP TEST= "<< flip_test <<"\n";
 
 
-        if ( minang < vm["simul.regrid_angle"].as<double>() || flip_test )
+        if ( minang < vm["numerics.regrid_angle"].as<double>() || flip_test )
         {
             M_regrid = true;
 
@@ -5307,7 +5317,7 @@ FiniteElement::step(int &pcpt)
     {
         this->assemble(pcpt);
 
-        if(had_remeshed && (vm["simul.regrid_output_flag"].as<bool>()))
+        if(had_remeshed && (vm["numerics.regrid_output_flag"].as<bool>()))
         {
             std::string tmp_string3    = (boost::format( "after_assemble_%1%_mesh_adapt_step_%2%" )
                                    % pcpt
@@ -6215,11 +6225,11 @@ FiniteElement::readRestart(std::string step)
         std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
         std::vector<double> drifter_y  = field_map_dbl["Drifter_y"];
 
-        this->initIABPDrifter();
+        this->initIabpDrifter();
         if (drifter_no.size() == 0)
         {
             LOG(WARNING) << "Warning: Couldn't read drifter positions from restart file. Drifter positions initialised as if there was no restart.\n";
-            this->updateIABPDrifter();
+            this->updateIabpDrifter();
         } else {
             for ( int i=0; i<drifter_no.size(); ++i )
             {
@@ -6833,12 +6843,12 @@ FiniteElement::initIce()
         case setup::IceType::TOPAZ4FAMSR2:
             this->topazForecastAmsr2Ice();
             break;
-        case setup::IceType::TOPAZ4FAMSR2OSISAF:
+        case setup::IceType::TOPAZ4FOSISAFAMSR2:
             this->topazForecastAmsr2OsisafIce();
             break;
-        case setup::IceType::TOPAZ4FAMSR2OSISAFNIC:
-        case setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY:
-            this->topazForecastAmsr2OsisafNicIce(M_ice_type==setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY);
+        case setup::IceType::NIC:
+        case setup::IceType::NICWEEKLY:
+            this->topazForecastAmsr2OsisafNicIce(M_ice_type==setup::IceType::NICWEEKLY);
             break;
         case setup::IceType::PIOMAS:
             this->piomasIce();
@@ -6926,12 +6936,12 @@ FiniteElement::assimilateIce()
 {
     switch (M_ice_type)
     {
-        case setup::IceType::TOPAZ4FAMSR2OSISAF:
-            this->assimilate_topazForecastAmsr2OsisafIce();
+        case setup::IceType::TOPAZ4FOSISAFAMSR2:
+            this->assimilate_topazForecastOsisafAmsr2Ice();
             break;
-        case setup::IceType::TOPAZ4FAMSR2OSISAFNIC:
-        case setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY:
-            this->assimilate_topazForecastAmsr2OsisafNicIce(M_ice_type==setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY);
+        case setup::IceType::NIC:
+        case setup::IceType::NICWEEKLY:
+            this->assimilateNicIce(M_ice_type==setup::IceType::NICWEEKLY);
             break;
         default:
             std::cout << "invalid choice for data assimilation of the ice"<<"\n";
@@ -7473,7 +7483,6 @@ void
 FiniteElement::concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,double ci,bool use_weekly_nic)
 {
 
-    double alpha_up = 0.;
     if(!use_weekly_nic)
     {
         if(ci<=1.e-3)
@@ -7481,7 +7490,7 @@ FiniteElement::concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,d
             thin_conc_obs_min=0.;
             thin_conc_obs_max=0.1;
         }
-        if(ci<=0.45)
+        else if(ci<=0.45)
         {
             // CT18
             // .45: .1 - .8
@@ -7559,207 +7568,131 @@ FiniteElement::concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,d
 }//concBinsNic
 
 void
-FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
+FiniteElement::assimilateNicIce(bool use_weekly_nic)
 {
+    LOG(INFO)<<"In assimilateNicIce\n";
     double real_thickness, init_conc_tmp;
 
-    external_data M_osisaf_conc=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,0,false,time_init-0.5);
-    
-    external_data M_osisaf_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init-0.5);
-
-    external_data M_amsr2_conc=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init-0.5);
     
     external_data M_nic_conc=ExternalData(&M_ice_nic_elements_dataset,M_mesh,0,false,time_init-0.5);
+    if(use_weekly_nic)
+        M_nic_conc = ExternalData(&M_ice_nic_weekly_elements_dataset,M_mesh,0,false,time_init-0.5);
     
-    external_data M_topaz_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
-
-    external_data M_topaz_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
-
-    external_data M_topaz_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
 
     external_data_vec external_data_tmp;
-    external_data_tmp.push_back(&M_osisaf_conc);
-    external_data_tmp.push_back(&M_osisaf_type);
-    external_data_tmp.push_back(&M_amsr2_conc);
     external_data_tmp.push_back(&M_nic_conc);
-
-    external_data M_nic_weekly_conc;
-    if(use_weekly_nic)
-    {
-        M_nic_weekly_conc=ExternalData(&M_ice_nic_weekly_elements_dataset,M_mesh,0,false,time_init-0.5);
-        external_data_tmp.push_back(&M_nic_weekly_conc);
-    }
-
     this->checkReloadDatasets(external_data_tmp,time_init-0.5,
-            "mesh_elements", "init - OSISAF - AMSR2 - NIC");
+            "mesh_elements", "assimilate - NIC");
 
-    external_data_tmp.push_back(&M_topaz_conc);
-    external_data_tmp.push_back(&M_topaz_thick);
-    external_data_tmp.push_back(&M_topaz_snow_thick);
-    this->checkReloadDatasets(external_data_tmp,time_init,
-            "mesh_elements", "init - TOPAZ ice forecast");
-    external_data_tmp.resize(0);
-
-    double tmp_var;
-    double sigma_mod=0.1;
-    double sigma_amsr2=0.1;    
-    double sigma_osisaf=0.1;
-
-    double topaz_conc, topaz_thick;
-    double h_model, c_model;
-    double hi;
     for (int i=0; i<M_num_elements; ++i)
     {
-        h_model=M_thick[i];
-        c_model=M_conc[i];
-
-		topaz_conc = (M_topaz_conc[i]>1e-14) ? M_topaz_conc[i] : 0.; // TOPAZ puts very small values instead of 0.
-		topaz_thick = (M_topaz_thick[i]>1e-14) ? M_topaz_thick[i] : 0.; // TOPAZ puts very small values instead of 0.
-
-        //if((topaz_conc>0.)||(M_conc[i]>0.)) // use osisaf only where topaz or the model says there is ice to avoid near land issues and fake concentration over the ocean
-		//    M_conc[i] = (sigma_osisaf*M_conc[i]+sigma_mod*M_osisaf_conc[i])/(sigma_osisaf+sigma_mod);
-            
-        //if(M_amsr2_conc[i]<M_conc[i]) // AMSR2 is higher resolution and see small opening that would not be see in OSISAF
-        //    M_conc[i]=M_amsr2_conc[i];
-
-        //if((topaz_conc>0.)||(M_conc[i]>0.)) // use osisaf only where topaz or the model says there is ice to avoid near land issues and fake concentration over the ocean
-        //{
-        //    if(((M_amsr2_conc[i]+sigma_amsr2)<M_conc[i]) || ((M_amsr2_conc[i]-sigma_amsr2)>M_conc[i])) // AMSR2 is higher resolution and see small opening that would not be see in OSISAF
-        //        M_conc[i] = (sigma_amsr2*M_conc[i]+sigma_mod*M_amsr2_conc[i])/(sigma_amsr2+sigma_mod);
-        //}
-
-		//tmp_var=M_topaz_snow_thick[i];
-		//M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
-        //if(M_conc[i]<M_topaz_conc[i])
-         //   M_snow_thick[i] *= M_conc[i]/M_topaz_conc[i]; 
-
-
-        if(c_model>0.01)
-        {
-            M_thick[i]=(h_model/c_model)*M_conc[i];            
-            M_ridge_ratio[i]=(M_ridge_ratio[i]/c_model)*M_conc[i]; 
-		    M_damage[i]=(M_damage[i]/c_model)*M_conc[i];
-        }
-        else
-        {
-            M_thick[i]=0.;            
-            M_ridge_ratio[i]=0.; 
-        }
-
-        //if either c or h equal zero, we set the others to zero as well
-        hi=M_thick[i]/M_conc[i];
-        if(M_conc[i]<0.1)
-            hi=M_thick[i];
-
-        if ( M_conc[i] < 0.01 || hi < physical::hmin )
-        {
-            M_conc[i]=0.;
-            M_thick[i]=0.;
-            M_snow_thick[i]=0.;
-            M_ridge_ratio[i]=0.;
-        }
-
+        if(M_nic_conc[i]>1.)
+            //conc should be masked - don't change model fields
+            continue;
 
         //get conc bins from NIC dataset
         double thin_conc_obs = 0.;
         double thin_conc_obs_min = 0.;
         double thin_conc_obs_max = 0.;
-        if (!use_weekly_nic)
-            this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_conc[i],(!use_weekly_nic));
+        this->concBinsNic(thin_conc_obs_min,
+                thin_conc_obs_max,
+                M_nic_conc[i],
+                use_weekly_nic);
+
+        if ( M_conc[i] < 0.01 || M_thick[i] < physical::hmin*M_conc[i] )
+        {
+            M_conc[i]=0.;
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+            M_ridge_ratio[i]=0.;
+            M_damage[i]=0.;
+        }
         else
-            this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_weekly_conc[i],use_weekly_nic);
+        {
+            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+            {
+                if((M_conc[i]+M_conc_thin[i])<thin_conc_obs_min)
+                {
+                    thin_conc_obs = thin_conc_obs_min-M_conc[i];
+                        // >0, since M_conc+M_conc_thin < thin_conc_obs_min
+                        // NB M_conc_thin < thin_conc_obs_min-M_conc = thin_conc_obs
+
+                    // increase thin ice conc so total conc = thin_conc_obs_min
+                    // - also increase thin ice vol, but not snow thickness
+                    double wt_min = .75;
+                    double wt_max = 1-wt_min;
+                    M_h_thin[i] += (wt_min*h_thin_min + wt_max*h_thin_max)*(thin_conc_obs-M_conc_thin[i]); 
+                    M_conc_thin[i] = thin_conc_obs;
+                }
+                else if((M_conc[i]+M_conc_thin[i])>thin_conc_obs_max)
+                {
+                    // total conc greater than max
+                    thin_conc_obs = thin_conc_obs_max-M_conc[i];//<M_conc_thin
+                    if(thin_conc_obs>=0.)
+                    {
+                        // M_conc<thin_conc_obs_max:
+                        // - decrease M_conc_thin, and M_h_thin, M_hs_thin proportionally
+                        M_h_thin[i]    *= (thin_conc_obs/M_conc_thin[i]);
+                        M_hs_thin[i]   *= (thin_conc_obs/M_conc_thin[i]);
+                        M_conc_thin[i]  = thin_conc_obs;
+                    }
+                    else
+                    {
+                        // M_conc>=thin_conc_obs_max:
+                        // - no thin ice
+                        M_conc_thin[i]=0.;
+                        M_h_thin[i]=0.;
+                        M_hs_thin[i]=0.;
+
+                        // reduce M_conc, and M_thick, M_snow_thick proportionally
+                        M_thick[i]      *= ((M_conc[i]+thin_conc_obs)/M_conc[i]);
+                        M_snow_thick[i] *= ((M_conc[i]+thin_conc_obs)/M_conc[i]);
+                        M_conc[i]        =   M_conc[i]+thin_conc_obs;
+                    }
+                }
+
+                /* Two cases: Thin ice fills the cell or not */
+                double min_h_thin = h_thin_min*M_conc_thin[i];
+                if ( M_h_thin[i] < min_h_thin )
+                    M_h_thin[i] = min_h_thin;
                 
-
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        {
-            //double thin_conc_obs  = std::max(M_amsr2_conc[i]-M_conc[i],0.);
-
-            //M_conc_thin[i] = (sigma_osisaf*M_conc_thin[i]+sigma_mod*thin_conc_obs)/(sigma_amsr2+sigma_mod);
-          
-
-            if((M_conc[i]+M_conc_thin[i])<thin_conc_obs_min)
+                double wt_max = .75;
+                double wt_min = 1-wt_max;
+                double max_h_thin=(wt_min*h_thin_min+wt_max*h_thin_max)*M_conc_thin[i];
+                if ( M_h_thin[i] > max_h_thin)
+                    M_h_thin[i] = max_h_thin; 
+            }//using thin ice
+            else
             {
-                thin_conc_obs = thin_conc_obs_min-M_conc[i];//always >=0?
-                if(thin_conc_obs>=0.)
-                {   
-                    //increase thin ice conc so total conc = thin_conc_obs_min
-                    if(thin_conc_obs>M_conc_thin[i])
-                        //increase thin ice vol
-                        M_h_thin[i] = M_h_thin[i]+(h_thin_min + (h_thin_max/2.-h_thin_min)*0.5)*(thin_conc_obs-M_conc_thin[i]); 
-                    else
-                        //reduce thin ice vol
-                        M_h_thin[i] = M_h_thin[i]*thin_conc_obs/M_conc_thin[i];
-
-                    M_conc_thin[i] = thin_conc_obs;
+                if(M_conc[i]<thin_conc_obs_min)
+                { 
+                    //target M_conc = thin_conc_obs = .25*thin_conc_obs_max + .75*thin_conc_obs_min;
+                    double wt_min = .75;
+                    double wt_max = 1-wt_min;
+                    thin_conc_obs = wt_min*thin_conc_obs_min + wt_max*thin_conc_obs_max;
+                    double hi = M_thick[i]/M_conc[i];
+                    M_thick[i] = M_thick[i] + std::max(hi, 0.5)*(thin_conc_obs-M_conc[i]); // 50 cm minimum for the added ice 
+                    M_conc[i]  = thin_conc_obs;
                 }
-#if 0
-                else
+                else if(M_conc[i]>thin_conc_obs_max)
                 {
-                    //not possible? 
-                    M_conc_thin[i]=0.;
-                    M_h_thin[i]=0.;
+                    //reduce M_conc, and M_thick, M_snow_thick proportionally
+                    //target M_conc = thin_conc_obs = .75*thin_conc_obs_max + .25*thin_conc_obs_min;
+                    double wt_min = .25;
+                    double wt_max = 1-wt_min;
+                    thin_conc_obs = wt_min*thin_conc_obs_min + wt_max*thin_conc_obs_max;
 
-                    M_thick[i]=M_thick[i]/(M_conc[i])*(M_conc[i]+thin_conc_obs);
-                    M_conc[i]=M_conc[i]+thin_conc_obs;
+                    M_thick[i]      *= (thin_conc_obs/M_conc[i]);
+                    M_snow_thick[i] *= (thin_conc_obs/M_conc[i]);
+                    M_conc[i]        =  thin_conc_obs;
                 }
-#endif
-            }
-            else if((M_conc[i]+M_conc_thin[i])>thin_conc_obs_max)
-            {
-                thin_conc_obs = thin_conc_obs_max-M_conc[i];
-                if(thin_conc_obs>=0.)
-                {   
-                    //some thin ice
-                    if(thin_conc_obs>M_conc_thin[i])
-                        M_h_thin[i] = M_h_thin[i]+(h_thin_min + (h_thin_max/2.-h_thin_min)*0.5)*(thin_conc_obs-M_conc_thin[i]); 
-                    else
-                        M_h_thin[i] = M_h_thin[i]*thin_conc_obs/M_conc_thin[i];
-
-                    M_conc_thin[i] = thin_conc_obs;
-                }
-                else
-                {
-                    //no thin ice
-                    M_conc_thin[i]=0.;
-                    M_h_thin[i]=0.;
-
-                    // reduce thick ice to max value
-                    M_thick[i]=M_thick[i]*(M_conc[i]+thin_conc_obs)/(M_conc[i]);
-                    M_conc[i]=M_conc[i]+thin_conc_obs;
-                }
-            }
-
-            /* Two cases: Thin ice fills the cell or not */
-            double min_h_thin = h_thin_min*M_conc_thin[i];
-            if ( M_h_thin[i] < min_h_thin )
-                M_h_thin[i] = min_h_thin;
-            
-            double max_h_thin=(h_thin_min+(h_thin_max+h_thin_min)/2.)*M_conc_thin[i];
-            if ( M_h_thin[i] > max_h_thin)
-                M_h_thin[i] = max_h_thin; 
-        }//using thin ice
-        else
-        {
-            if(M_conc[i]<thin_conc_obs_min)
-            { 
-                //thin_conc_obs = .25*thin_conc_obs_max + .75*thin_conc_obs_min;
-                thin_conc_obs = ( thin_conc_obs_min + (thin_conc_obs_min+thin_conc_obs_max)/2.) /2.;
-                M_thick[i] = M_thick[i] + std::max(hi,0.5)*(thin_conc_obs-M_conc[i]); // 50 cm minimum for the added ice 
-                M_conc[i] = thin_conc_obs;
-            }
-            else if(M_conc[i]>thin_conc_obs_max)
-            {
-                //thin_conc_obs = .75*thin_conc_obs_max + .25*thin_conc_obs_min;
-                thin_conc_obs = ( thin_conc_obs_max + (thin_conc_obs_min+thin_conc_obs_max)/2.) /2.;
-                M_thick[i] = M_thick[i]*thin_conc_obs/M_conc[i];
-                M_conc[i] = thin_conc_obs;
-            }
-        }//not using thin ice
+            }//not using thin ice
+        }//some ice present
 	}//loop over elements
-}//assimilate_topazForecastAmsr2OsisafNicIce
+}//assimilateNicIce
 
 void
-FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
+FiniteElement::assimilate_topazForecastOsisafAmsr2Ice()
 {
     double real_thickness, init_conc_tmp;
 
@@ -7865,7 +7798,9 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
                 M_h_thin[i] = max_h_thin; 
         }
 	}
-}
+}//assimilate_topazForecastOsisafAmsr2Ice
+
+
 void
 FiniteElement::topazForecastAmsr2OsisafIce()
 {
@@ -8766,20 +8701,336 @@ FiniteElement::initThermodynamics()
 }
 
 void
-FiniteElement::initDrifter()
+FiniteElement::initDrifters()
 {
-    if(M_use_equallyspaced_drifters)
-        this->equallySpacedDrifter();
+    //called once at M_drifters_time_init
+    // - initialise the drifters that start then
+    if (M_use_iabp_drifters )
+        this->initIabpDrifter();
 
-    if(M_use_iabp_drifters)
-        this->initIABPDrifter();
+    if(M_use_equally_spaced_drifters)
+        this->initEquallySpacedDrifters();
 
+    if(M_use_sidfex_drifters)
+        this->initSidfexDrifters();
+}//initDrifters()
+
+
+void
+FiniteElement::updateIabpDrifterConc()
+{
+    // Assemble the coordinates from the unordered_map
+    int Ndrifters = M_iabp_drifters.size();
+    std::vector<double> drifter_X(Ndrifters);
+    std::vector<double> drifter_Y(Ndrifters);
+    int j=0;
+    for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
+    {
+        drifter_X[j] = it->second[0];
+        drifter_Y[j] = it->second[1];
+        ++j;
+    }
+
+    //move the mesh before interpolating
+    auto movedmesh = M_mesh;
+    movedmesh.move(M_UM, 1.);
+
+    // Interpolate the concentration
+    double* interp_drifter_c_out;
+    InterpFromMeshToMesh2dx(&interp_drifter_c_out,
+                            &movedmesh.indexTr()[0], &movedmesh.coordX()[0], &movedmesh.coordY()[0],
+                            movedmesh.numNodes(), movedmesh.numTriangles(),
+                            &M_conc[0],
+                            movedmesh.numTriangles(), 1,
+                            &drifter_X[0], &drifter_Y[0],
+                            Ndrifters,
+                            true, 0.);
+
+    // Finally retrieve M_iabp_conc and delete the pointer
+    M_iabp_conc.resize(M_iabp_drifters.size());
+    for( int j=0; j<M_iabp_drifters.size(); j++ )
+        M_iabp_conc[j] = interp_drifter_c_out[j];
+    xDelete<double>(interp_drifter_c_out);
+
+}//updateIABPDrifterConc
+
+
+void
+FiniteElement::updateIabpDrifterPosition()
+{
+    chrono.restart();
+    LOG(DEBUG) <<"IABP Drifter moving starts\n";
+
+    // Assemble the coordinates from the unordered_map
+    std::vector<double> drifter_X(M_iabp_drifters.size());
+    std::vector<double> drifter_Y(M_iabp_drifters.size());
+    int j=0;
+    for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
+    {
+        drifter_X[j] = it->second[0];
+        drifter_Y[j] = it->second[1];
+        ++j;
+    }
+
+    // Interpolate the total displacement and concentration onto the drifter positions
+    int nb_var=2;
+    std::vector<double> interp_drifter_in(nb_var*M_mesh.numNodes());
+    for (int i=0; i<M_mesh.numNodes(); ++i)
+    {
+        interp_drifter_in[nb_var*i]   = M_UT[i];
+        interp_drifter_in[nb_var*i+1] = M_UT[i+M_mesh.numNodes()];
+    }
+
+    double* interp_drifter_out;
+    InterpFromMeshToMesh2dx(&interp_drifter_out,
+                            &M_mesh.indexTr()[0], &M_mesh.coordX()[0], &M_mesh.coordY()[0],
+                            M_mesh.numNodes(), M_mesh.numTriangles(),
+                            &interp_drifter_in[0],
+                            M_mesh.numNodes(), nb_var,
+                            &drifter_X[0], &drifter_Y[0], M_iabp_drifters.size(),
+                            true, 0.);
+
+    // Rebuild the M_iabp_drifters map
+    j = 0;
+    for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it)
+    {
+        M_iabp_drifters[it->first] = std::array<double,2> {
+            it->second[0]+interp_drifter_out[nb_var*j],
+            it->second[1]+interp_drifter_out[nb_var*j+1]
+        };
+        ++j;
+    }
+
+    xDelete<double>(interp_drifter_out);
+
+    LOG(DEBUG) <<"IABP Drifter move done in "<< chrono.elapsed() <<"s\n";
+}//updateIabpDrifterPosition
+
+void
+FiniteElement::outputtingDrifters(
+        bool &output_rgps,
+        bool &input_iabp,
+        bool &output_iabp,
+        bool &output_equally_spaced,
+        bool &output_sidfex,
+        bool &output_osisaf,
+        bool &move_drifters
+        )
+{
+    // This function tests which (if any) drifters we are outputting
+    // at the current time step
+    // If we are outputting ANY, we move ALL the drifters, since they all use the same
+    // total displcement (M_UT)
+
+    // outputting RGPS drifters?
+    // NB these drifters have different initial times
+    output_rgps = false;
     if(M_use_rgps_drifters)
-        this->initRGPSDrifters();
+    {
+        output_rgps = (
+            M_rgps_drifters.isInitialised()
+            && fmod(M_current_time - M_rgps_time_init,
+                M_rgps_drifters_output_time_step)==0
+            );
+    }
 
-    if(M_use_osisaf_drifters)
-        this->initOSISAFDrifters();
+    // inputting/outputting IABP drifters?
+    input_iabp = false;
+    output_iabp = false;
+    if ( M_use_iabp_drifters )
+    {
+        input_iabp = (std::fmod(
+                M_current_time - M_drifters_time_init,
+                M_iabp_drifters_input_time_step
+                )==0);
+        output_iabp = (std::fmod(
+                M_current_time - M_drifters_time_init,
+                M_iabp_drifters_output_time_step
+                )==0);
+    }
+
+    // outputting equally-spaced drifters?
+    output_equally_spaced = false;
+    if ( M_use_equally_spaced_drifters )
+    {
+        output_equally_spaced = (std::fmod(
+                M_current_time - M_drifters_time_init,
+                M_equally_spaced_drifters_output_time_step
+                )==0);
+    }
+
+    // outputting SIDFEX drifters?
+    output_sidfex = false;
+    if ( M_use_sidfex_drifters )
+    {
+        output_sidfex = (std::fmod(
+                    M_current_time - M_drifters_time_init,
+                    M_sidfex_drifters_output_time_step
+                    ) == 0 );
+    }
+
+    // outputting OSISAF drifters?
+    // NB note the different reference point
+    // - this is OK since we require M_osisaf_drifters_output_time_step<=.5
+    // - needed since OSISAF drifters at 12:00
+    output_osisaf = false;
+    if ( M_use_osisaf_drifters )
+    {
+        output_osisaf = (std::fmod(
+                    M_current_time,
+                    M_osisaf_drifters_output_time_step
+                    ) == 0 );
+    }
+
+    // we move ALL the drifters if we need to input/output ANY
+    move_drifters = (
+               output_rgps
+            || input_iabp
+            || output_iabp
+            || output_equally_spaced
+            || output_sidfex
+            || output_osisaf
+            );
 }
+
+void
+FiniteElement::updateDrifters()
+{
+    // 1. move the drifters (if needed)
+    // 2. get new inputs (IABP, OSISAF) (if needed)
+    // 3. output to text file or netcdf (if needed)
+    // NB this routine is only called if we are after M_drifters_time_init
+
+    bool output_rgps = false;
+    bool input_iabp = false;
+    bool output_iabp = false;
+    bool output_equally_spaced = false;
+    bool output_sidfex = false;
+    bool output_osisaf = false;
+    bool move_drifters = false;
+    this->outputtingDrifters(
+            output_rgps,
+            input_iabp,
+            output_iabp,
+            output_equally_spaced,
+            output_sidfex,
+            output_osisaf,
+            move_drifters
+            );
+
+    if (move_drifters)
+    {
+        // do we need to move the drifters?
+        // NB M_UT is relative to the fixed mesh, not the moved mesh
+        // NB to update the conc we need to move the mesh
+        // TODO so far we do this inside updateIabpDrifterConc and
+        // Drifters::updateConc - would be more efficient to move the
+        // mesh here, but that would mean changing all the interfaces
+        // to the routines
+        if ( M_use_iabp_drifters )
+            this->updateIabpDrifterPosition();
+        if ( M_use_equally_spaced_drifters )
+            M_equally_spaced_drifters.move(M_mesh, M_UT);
+        if ( M_use_rgps_drifters )
+        {
+            if ( M_rgps_drifters.isInitialised() )
+                M_rgps_drifters.move(M_mesh, M_UT);
+        }
+        if ( M_use_sidfex_drifters )
+            M_sidfex_drifters.move(M_mesh, M_UT);
+        if ( M_use_osisaf_drifters )
+        {
+            for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
+                if (it->isInitialised())
+                    it->move(M_mesh, M_UT);
+        }
+    
+        // reset M_UT
+        std::fill(M_UT.begin(), M_UT.end(), 0.);
+    }
+
+    if (input_iabp)
+    {
+        // check if we need to add new IABP drifters
+        // NB do this after moving
+        // NB this updates M_iabp_conc
+        this->updateIabpDrifter();
+    }
+
+    if (output_iabp)
+    {
+        // output IABP drifters
+        // NB do this after moving
+        if(!input_iabp)
+        {
+            //still need to update M_iabp_conc
+            this->updateIabpDrifterConc();
+        }
+        this->outputIabpDrifter();
+    }
+
+    if ( output_equally_spaced )
+    {
+        M_equally_spaced_drifters.updateConc(M_mesh, M_UM, M_conc);
+        M_equally_spaced_drifters.appendNetCDF(M_current_time);
+    }
+
+    if ( output_rgps )
+    {
+            M_rgps_drifters.updateConc(M_mesh, M_UM, M_conc);
+            M_rgps_drifters.appendNetCDF(M_current_time);
+    }
+
+    if ( output_sidfex )
+    {
+        M_sidfex_drifters.updateConc(M_mesh, M_UM, M_conc);
+        M_sidfex_drifters.appendNetCDF(M_current_time);
+    }
+
+    if ( output_osisaf )
+    {
+        for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
+            if (it->isInitialised())
+            {
+                it->updateConc(M_mesh, M_UM, M_conc);
+                it->appendNetCDF(M_current_time);
+            }
+    }
+     
+    if ( M_use_osisaf_drifters && fmod(M_current_time+0.5, 1.) == 0 )
+    {
+        // OSISAF drift is calculated as a drifter displacement over 48 hours
+        // - start a new one each day at 12:00
+        // We have two sets of drifters in the field at all times
+        // - [0] is the newest
+        // Here we start a new set of drifters.
+
+        // Flip the vector so we move [0] to be [1]
+        std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
+
+        // Create a new M_drifters instance in [0], with a properly initialised netCDF file
+        std::string osi_grid_file = "ice_drift_nh_polstere-625_multi-oi.nc";
+        std::string osi_output_path = M_export_path+"/OSISAF_";
+        if(vm["drifters.use_refined_osisaf_grid"].as<bool>())
+        {
+            // use grid refined by a factor of 9
+            // - can then compare averaged drift to the observations
+            // - using an odd number in the refinement means the original grid points are a sub-sample of the refined grid
+            osi_grid_file = "ice_drift_nh_polstere-625_multi-grid_refined_9.nc";
+            osi_output_path = M_export_path+"/OSISAF_refined9_";
+        }
+            
+        M_osisaf_drifters[0] = Drifters("data", osi_grid_file,
+                "xc", "yc",
+                "lat", "lon", M_mesh, M_UM,
+                M_conc, vm["drifters.concentration_limit"].as<double>());
+
+        M_osisaf_drifters[0].initNetCDF(osi_output_path, M_current_time);
+        M_osisaf_drifters[0].appendNetCDF(M_current_time);
+    }//start a new set of OSISAF drifters
+
+}//updateDrifters
+
 
 void
 FiniteElement::coriolis()
@@ -8840,8 +9091,12 @@ FiniteElement::nodesToElements(double const* depth, std::vector<double>& v)
 // A simple function to output the drifters in the model, IABP or otherwise
 // The output could well be prettier!
 void
-FiniteElement::outputDrifter(std::fstream &drifters_out)
+FiniteElement::outputIabpDrifter()
 {
+    if (M_iabp_drifters.size()==0)
+        //do nothing if drifters are empty
+        return;
+
     // Initialize the map
     mapx_class *map;
     std::string configfile = (boost::format( "%1%/%2%/%3%" )
@@ -8854,64 +9109,46 @@ FiniteElement::outputDrifter(std::fstream &drifters_out)
     str.push_back('\0');
     map = init_mapx(&str[0]);
 
-    // Assemble the coordinates from the unordered_map
-    std::vector<double> drifter_X(M_iabp_drifters.size());
-    std::vector<double> drifter_Y(M_iabp_drifters.size());
-    int j=0;
-    for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
-    {
-        drifter_X[j] = it->second[0];
-        drifter_Y[j] = it->second[1];
-        ++j;
-    }
-
-    // Interpolate the total displacement and concentration onto the drifter positions
-    int nb_var=2;
-    std::vector<double> interp_drifter_in(nb_var*M_mesh.numNodes());
-
-    // Interpolate the velocity
-    for (int i=0; i<M_mesh.numNodes(); ++i)
-    {
-        interp_drifter_in[nb_var*i]   = M_UT[i];
-        interp_drifter_in[nb_var*i+1] = M_UT[i+M_mesh.numNodes()];
-    }
-
-    double* interp_drifter_out;
-    InterpFromMeshToMesh2dx(&interp_drifter_out,
-        &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-        M_mesh.numNodes(),M_mesh.numTriangles(),
-        &interp_drifter_in[0],
-        M_mesh.numNodes(),nb_var,
-        &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
-        true, 0.);
+    //open output file for appending
+    std::fstream iabp_out(M_iabp_outfile, std::fstream::out | std::fstream::app );
+    if ( ! iabp_out.good() )
+        throw std::runtime_error("Cannot write to file: " + M_iabp_outfile);
 
     // Loop over the map and output
-    j=0;
+    int j=0;
     boost::gregorian::date           date = Nextsim::parse_date( M_current_time );
     boost::posix_time::time_duration time = Nextsim::parse_time( M_current_time );
     for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
     {
         double lat, lon;
-        inverse_mapx(map,it->second[0]+interp_drifter_out[nb_var*j],it->second[1]+interp_drifter_out[nb_var*j+1],&lat,&lon);
+        double conc = M_iabp_conc[j];
+        inverse_mapx(map, it->second[0], it->second[1], &lat, &lon);
         j++;
 
-        drifters_out << setw(4) << date.year()
+        iabp_out
+            << setw(4) << date.year()
             << " " << setw( 2) << date.month().as_number()
             << " " << setw( 2) << date.day().as_number()
             << " " << setw( 2) << time.hours()
             << " " << setw(16) << it->first
             << fixed << setprecision(5)
             << " " << setw( 8) << lat
-            << " " << setw(10) << lon << "\n";
+            << " " << setw(10) << lon
+            << " " << conc
+            << "\n";
     }
 
-    xDelete<double>(interp_drifter_out);
+    //close output file
+    iabp_out.close();
+
+    // close the map
     close_mapx(map);
-}
+}//outputIabpDrifter
+
 
 // Add the buoys that have been put into the ice and remove dead ones
 void
-FiniteElement::updateIABPDrifter()
+FiniteElement::updateIabpDrifter()
 {
     // Initialize the map
     mapx_class *map;
@@ -8932,12 +9169,12 @@ FiniteElement::updateIABPDrifter()
     while ( time == M_current_time )
     {
         // Remember where we were
-        pos = M_iabp_file.tellg();
+        pos = M_iabp_infile_fstream.tellg();
 
         // Read the next line
         int year, month, day, hour, number;
         double lat, lon;
-        M_iabp_file >> year >> month >> day >> hour >> number >> lat >> lon;
+        M_iabp_infile_fstream >> year >> month >> day >> hour >> number >> lat >> lon;
         std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
         time = from_date_string(date) + hour/24.;
 
@@ -8955,90 +9192,130 @@ FiniteElement::updateIABPDrifter()
     }
     close_mapx(map);
 
-    // Go through the M_iabp_drifters map and throw out the ones which IABP doesn't
-    // report as being in the ice anymore
-    for ( auto model = M_iabp_drifters.begin(); model != M_iabp_drifters.end(); /* ++model is not allowed here, because we use 'erase' */ )
+    // update M_iabp_conc (get model conc at all drifters)
+    this->updateIabpDrifterConc();
+
+    // Rebuild the M_iabp_drifters map
+    double clim = vm["drifters.concentration_limit"].as<double>();
+
+    // Go through the M_iabp_drifters map and throw out:
+    // (i) the ones which IABP doesn't report as being in the ice anymore
+    // (ii) the ones which have a low conc according to the model
+    int j =0;
+    auto model_conc = M_iabp_conc;
+    M_iabp_conc.resize(0);
+    for ( auto model = M_iabp_drifters.begin(); model != M_iabp_drifters.end(); j++)// NB ++model is not allowed here, because we use 'erase'
     {
-        bool keep = false;
-        // Check against all the buoys we want to keep
-        for ( auto obs = keepers.begin(); obs != keepers.end(); ++obs )
-        {
-            if ( model->first == *obs )
-            {
-                keep = true;
-                break;
-            }
-        }
+        double conc = model_conc[j];
+        bool keep = (conc > clim)                                               // in ice (model)
+            && ( std::count(keepers.begin(), keepers.end(), model->first) >0 ); // in ice (IABP)
 
         // Delete or advance the iterator
         if ( ! keep )
             model = M_iabp_drifters.erase(model);
         else
+        {
             ++model;
-    }
+            M_iabp_conc.push_back(conc);
+        }
+    }//remove drifters not in ice according to IABP or model
 }
 
 // Initialise by reading all the data from '79 up to time_init
 // This is too slow, but only happens once so I won't try to optimise that for now
 void
-FiniteElement::initIABPDrifter()
+FiniteElement::initIabpDrifter()
 {
-    std::string filename = Environment::nextsimDir().string() + "/data/IABP_buoys.txt";
-    M_iabp_file.open(filename, std::fstream::in);
-    if ( ! M_iabp_file.good() )
-        throw std::runtime_error("File not found: " + filename);
+    // OUTPUT:
+    // We should tag the file name with the init time in case of a re-start.
+    std::stringstream filename_out;
+    filename_out << M_export_path << "/drifters_out_" << M_drifters_time_init << ".txt";
+    M_iabp_outfile = filename_out.str();
+    std::fstream iabp_out(M_iabp_outfile, std::fstream::out );
+    if ( ! iabp_out.good() )
+        throw std::runtime_error("Cannot write to file: " + M_iabp_outfile);
+
+    //write the header and close
+    iabp_out << "Year Month Day Hour BuoyID Lat Lon Concentration\n";
+    iabp_out.close();
+
+    // INPUT:
+#if 0
+    std::string filename_in = Environment::nextsimDir().string() + "/data/IABP_buoys.txt";
+#else
+    //new buoy file has a header
+    std::string filename_in = Environment::nextsimDir().string() + "/data/IABP_buoys_new_format.txt";
+#endif
+    M_iabp_infile_fstream.open(filename_in, std::fstream::in);
+    if ( ! M_iabp_infile_fstream.good() )
+        throw std::runtime_error("File not found: " + filename_in);
+
+#if 1
+    //skip header
+    std::string header;
+    std::getline(M_iabp_infile_fstream, header);
+    std::cout<<"open IABP drifter file: "<<filename_in<<"\n";
+    std::cout<<"header: "<<header<<"\n";
+#endif
 
     int pos;    // To be able to rewind one line
     double time = from_date_string("1979-01-01");
-    while ( time < time_init )
+    while ( time < M_drifters_time_init )
     {
         // Remember where we were
-        pos = M_iabp_file.tellg();
+        pos = M_iabp_infile_fstream.tellg();
 
         // Read the next line
         int year, month, day, hour, number;
         double lat, lon;
-        M_iabp_file >> year >> month >> day >> hour >> number >> lat >> lon;
+        M_iabp_infile_fstream >> year >> month >> day >> hour >> number >> lat >> lon;
         std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
 
         time = from_date_string(date) + hour/24.;
     }
 
-    // We must rewind one line so that updateIABPDrifter works correctly
-    M_iabp_file.seekg(pos);
-}
+    // We must rewind one line so that updateIabpDrifter works correctly
+    M_iabp_infile_fstream.seekg(pos);
+
+    // Get:
+    // - the 1st drifter positions (if any)
+    // - M_conc at these positions
+    this->updateIabpDrifter();
+    
+    // Save the initial positions to the output file
+    this->outputIabpDrifter();
+}//initIabpDrifter
 
 void
-FiniteElement::equallySpacedDrifter()
+FiniteElement::initEquallySpacedDrifters()
 {
-    M_equallyspaced_drifters = Drifters(1e3*vm["drifters.spacing"].as<double>(), M_mesh, M_conc, vm["drifters.concentration_limit"].as<double>());
-    M_equallyspaced_drifters.initNetCDF(M_export_path+"/Drifters_", M_current_time);
-    M_equallyspaced_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
+    M_equally_spaced_drifters = Drifters(1e3*vm["drifters.spacing"].as<double>(),
+            M_mesh, M_UM, M_conc, vm["drifters.concentration_limit"].as<double>());
+    M_equally_spaced_drifters.initNetCDF(M_export_path+"/Drifters_", M_current_time);
+    M_equally_spaced_drifters.appendNetCDF(M_current_time);
 }
 
 void
 FiniteElement::initRGPSDrifters()
-{
-    M_rgps_drifters = Drifters();
-}
-
-void
-FiniteElement::updateRGPSDrifters()
 {    
-    std::string time_str = vm["drifters.RGPS_time_init"].as<std::string>();
-    double RGPS_time_init = Nextsim::from_date_time_string(time_str);
-    
-    std::string filename = Environment::nextsimDir().string() + "/data/RGPS_" + time_str + ".txt";
-    M_rgps_drifters = Drifters(filename, M_mesh, M_conc, vm["drifters.concentration_limit"].as<double>(),RGPS_time_init);
-    
+    //called once when M_current_time == M_rgps_time_init
+    M_rgps_drifters = Drifters(M_rgps_file, M_mesh, M_UM, M_conc,
+            vm["drifters.concentration_limit"].as<double>(),
+            M_rgps_time_init);
     M_rgps_drifters.initNetCDF(M_export_path+"/RGPS_Drifters_", M_current_time);
-    M_rgps_drifters.appendNetCDF(M_current_time, M_mesh, M_UT);
+    M_rgps_drifters.appendNetCDF(M_current_time);
 }
 
 void
-FiniteElement::initOSISAFDrifters()
+FiniteElement::initSidfexDrifters()
 {
-    M_osisaf_drifters.resize(2);
+    std::string filename = Environment::nextsimDir().string() + "/data/"
+        + vm["drifters.sidfex_filename"].as<std::string>();
+    M_sidfex_drifters = Drifters(filename, M_mesh, M_UM, M_conc,
+            vm["drifters.concentration_limit"].as<double>(), M_current_time);
+    
+    M_sidfex_drifters.initNetCDF(M_export_path+"/SIDFEx_Drifters_", M_current_time);
+    M_sidfex_drifters.appendNetCDF(M_current_time);
 }
 
 void

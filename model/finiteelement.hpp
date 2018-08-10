@@ -184,7 +184,8 @@ public:
     std::vector<double> AllMinAngle(mesh_type const& mesh, std::vector<double> const& um, double factor) const;
 
     void initBamg();
-    void initConstant();
+    void initOptsAndParams();
+    void initDrifterOpts();
     void forcing();
     void forcingAtmosphere();
     void forcingOcean();
@@ -200,7 +201,7 @@ public:
     void initIce();
     void initThermodynamics();
     void initSlabOcean();
-    void initDrifter();
+    void initDrifters();
     void coriolis();
     void nodesToElements(double const* depth, std::vector<double>& v);
 
@@ -243,6 +244,7 @@ public:
     void getWimDiagnostics();
 #endif//WAVES
     void getTotalConcVol(std::vector<double> &ctot, std::vector<double> &vtot);
+    void isTooThick(int const & pcpt, std::string const & printme);
 
     std::string gitRevision();
     std::string system(std::string const& command);
@@ -515,24 +517,39 @@ private:
     // Bathynetry
     external_data M_element_depth;
 
+    // are we using any drifters?
+    bool M_use_drifters;
+    double M_drifters_time_init;
+
     // IABP-like drifters
     bool M_use_iabp_drifters;
+    double M_iabp_drifters_input_time_step;
+    double M_iabp_drifters_output_time_step;
+    dbl_vec M_iabp_conc;
     boost::unordered_map<int, std::array<double,2>> M_iabp_drifters; // Drifters are kept in an unordered map containing number and coordinates
-    std::fstream M_iabp_file;   // The file we read the IABP buoy data from
-    std::fstream M_iabp_out;    // The file we write our simulated drifter positions into
+    std::fstream M_iabp_infile_fstream; // The file we read the IABP buoy data from
+    std::string M_iabp_outfile;         // The file we write our simulated drifter positions into
 
     // Drifters on a grid
-    double M_equallyspaced_drifters_output_time_step;
-    bool M_use_equallyspaced_drifters;
-    Drifters M_equallyspaced_drifters; 
+    double M_equally_spaced_drifters_output_time_step;
+    bool M_use_equally_spaced_drifters;
+    Drifters M_equally_spaced_drifters; 
     
     // Drifters as in the RGPS data
     double M_rgps_drifters_output_time_step;
+    double M_rgps_time_init;
+    std::string M_rgps_file;
     bool M_use_rgps_drifters;
     Drifters M_rgps_drifters; 
+
+    // Drifters for SIDFEX forecast
+    double M_sidfex_drifters_output_time_step;
+    bool M_use_sidfex_drifters;
+    Drifters M_sidfex_drifters; 
     
     // drifters for the OSISAF emulation
     bool M_use_osisaf_drifters;
+    double M_osisaf_drifters_output_time_step;
     std::vector<Drifters> M_osisaf_drifters;
 
     // Element variable
@@ -581,8 +598,8 @@ private:
     void topazForecastAmsr2Ice();
     void topazForecastAmsr2OsisafIce();
     void topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
-    void assimilate_topazForecastAmsr2OsisafIce();
-    void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
+    void assimilate_topazForecastOsisafAmsr2Ice();
+    void assimilateNicIce(bool use_weekly_nic);
     void concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,double ci,bool use_weekly_nic);
     void cs2SmosIce();
     void cs2SmosAmsr2Ice();
@@ -592,13 +609,25 @@ private:
     void topazAmsreIce();
     void topazAmsr2Ice();
 
-    void initOSISAFDrifters();
+    void outputtingDrifters(
+        bool &output_rgps,
+        bool &input_iabp,
+        bool &output_iabp,
+        bool &output_equally_spaced,
+        bool &output_sidfex,
+        bool &output_osisaf,
+        bool &move_drifters
+        );
+    void updateDrifters();
     void initRGPSDrifters();
     void updateRGPSDrifters();
-    void equallySpacedDrifter();
-    void outputDrifter(std::fstream &iabp_out);
-    void initIABPDrifter();
-    void updateIABPDrifter();
+    void initSidfexDrifters();
+    void initEquallySpacedDrifters();
+    void outputIabpDrifter();
+    void initIabpDrifter();
+    void updateIabpDrifter();
+    void updateIabpDrifterPosition();
+    void updateIabpDrifterConc();
 
     void updateMeans(GridOutput &means, double time_factor);
     void initMoorings();

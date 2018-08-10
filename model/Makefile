@@ -17,6 +17,7 @@ CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -fopenmp -DHAVE_CONFIG_H -D_M
 ifneq ($(XSIMCOMP_VERBOSE),no)
 	CXXFLAGS += -v
 endif
+#CXXFLAGS += -Wfatal-errors
 
 
 ifdef USE_NEXTWIM
