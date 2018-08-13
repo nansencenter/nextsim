@@ -8828,7 +8828,7 @@ FiniteElement::outputtingDrifters(
     if(M_use_rgps_drifters)
     {
         output_rgps = (
-            M_rgps_drifters.isInitialised()
+            M_current_time > M_rgps_time_init
             && fmod(M_current_time - M_rgps_time_init,
                 M_rgps_drifters_output_time_step)==0
             );
