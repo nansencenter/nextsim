@@ -1227,25 +1227,6 @@ FiniteElement::initOptAndParam()
     M_basal_stress_type = str2basal_stress.find(vm["setup.basal_stress-type"].as<std::string>())->second;
     LOG(DEBUG) <<"BASALSTRESTYPE= "<< (int) M_basal_stress_type <<"\n";
 
-    // Are we using drifters?
-    M_use_iabp_drifters=vm["drifters.use_iabp_drifters"].as<bool>();
-
-    M_use_equallyspaced_drifters=vm["drifters.use_equally_spaced_drifters"].as<bool>();
-    M_equallyspaced_drifters_output_time_step=vm["drifters.equallyspaced_drifters_output_time_step"].as<double>();
-
-    M_use_rgps_drifters=vm["drifters.use_rgps_drifters"].as<bool>();
-    M_rgps_drifters_output_time_step=vm["drifters.rgps_drifters_output_time_step"].as<double>();
-
-    M_use_osisaf_drifters=vm["drifters.use_osisaf_drifters"].as<bool>();
-
-    M_use_drifters = (M_use_iabp_drifters) || (M_use_osisaf_drifters) || (M_use_equallyspaced_drifters) || (M_use_rgps_drifters);
-
-    M_use_drifters = (M_use_iabp_drifters) || (M_use_osisaf_drifters) || (M_use_equallyspaced_drifters) || (M_use_rgps_drifters);
-    LOG(DEBUG) <<"USEDRIFTERS= " << M_use_drifters << " "
-        << (int) M_use_iabp_drifters << " "
-        << (int) M_use_osisaf_drifters << " "
-        << (int) M_use_equallyspaced_drifters << " "
-        << (int) M_use_rgps_drifters << "\n";
 
     // mesh type
     const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
@@ -1279,6 +1260,10 @@ FiniteElement::initOptAndParam()
         ("memory", mesh::PartitionSpace::MEMORY)
         ("disk", mesh::PartitionSpace::DISK);
     M_partition_space = str2partitionspace.find(vm["mesh.partitioner-space"].as<std::string>())->second;
+
+    // Drifter options - may not need to init yet
+    // (don't init until spinup is over)
+    this->initDrifterOpts();
 }//initOptAndParam
 
 void
@@ -6092,7 +6077,7 @@ FiniteElement::init()
 
     if (M_rank==0)
     {
-	LOG(INFO) << "-----------------------Simulation started on "<< Nextsim::current_time_local() <<"\n";
+        LOG(INFO) << "-----------------------Simulation started on "<< Nextsim::current_time_local() <<"\n";
         LOG(INFO) <<"TIMESTEP= "<< time_step <<"\n";
         LOG(INFO) <<"DURATION= "<< duration <<"\n";
     }
@@ -6174,35 +6159,46 @@ FiniteElement::init()
         LOG(DEBUG) <<"DataAssimilation done in "<< timer["assimilation"].first.elapsed() <<"s\n";
     }
 
-    // Open the output file for drifters
-    // TODO: Is this the right place to open the file?
-    if ( (M_rank == 0) && (M_use_iabp_drifters) )
-    {
-        // We should tag the file name with the init time in case of a re-start.
-        std::stringstream filename;
-        filename << M_export_path << "/drifters_out_" << M_current_time << ".txt";
-
-        M_iabp_out.open(filename.str(), std::fstream::out);
-        if ( ! M_iabp_out.good() )
-            throw std::runtime_error("Cannot write to file: " + filename.str());
-    }
-
     // Initialise the moorings - if requested
     LOG(DEBUG) << "initMoorings\n";
     if ( M_use_moorings )
         this->initMoorings();
-
-    // Initialise drifters - if requested
-    LOG(DEBUG) << "initDrifters\n";
-    if (M_use_drifters)
-        this->initDrifters();
 }
 
 // Take one time step
 void
 FiniteElement::step()
 {
-    this->updateDrifterPosition();
+    if(M_use_drifters)
+    {
+        //gather the fields needed by the drifters
+        this->gatherNodalField(M_UT, M_UT_root);
+        this->gatherNodalField(M_UM, M_UM_root);
+        this->gatherElementField(M_conc, M_conc_root);
+
+        if(M_use_rgps_drifters)
+        {
+            // do we need to init RGPS drifters?
+            // RGPS drifters are not initialised until M_rgps_time_init
+            // - check if it's time to initialise them
+            if( !M_rgps_drifters.isInitialised() && M_current_time == M_rgps_time_init)
+                this->initRGPSDrifters();
+        }
+        if(M_current_time == M_drifters_time_init)
+        {
+            //do we need to init non-RGPS drifters?
+            //(RGPS has its own init time)
+            LOG(DEBUG) << "initDrifters\n";
+            this->initDrifters();
+        }
+        else if (M_current_time > M_drifters_time_init)
+        {
+            //do we need to update drifters? (move, output, read new inputs)
+            //NB now we only call this if we after initialisation time
+            LOG(DEBUG) << "updateDrifters\n";
+            this->updateDrifters();
+        }
+    }
 
 #if 1
     if (pcpt == 0)
@@ -6501,6 +6497,7 @@ FiniteElement::run()
     }
 }
 
+#if 0
 void
 FiniteElement::updateDrifterPosition()
 {
@@ -6509,8 +6506,8 @@ FiniteElement::updateDrifterPosition()
 
     if (M_use_drifters)
     {
-        this->gatherNodalField(M_UT,M_UT_root);
-
+        this->gatherNodalField(M_UT, M_UT_root);
+        this->gatherNodalField(M_UM, M_UM_root);
         this->gatherElementField(M_conc, M_conc_root);
     }
 
@@ -6695,6 +6692,7 @@ FiniteElement::updateDrifterPosition()
 	    }
     }
 }
+#endif
 
 // Add to the mean on the mesh
 void
@@ -7773,11 +7771,11 @@ FiniteElement::readRestart(std::string step)
             std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
             std::vector<double> drifter_y  = field_map_dbl["Drifter_y"];
 
-            this->initIABPDrifter();
+            this->initIabpDrifter();
             if (drifter_no.size() == 0)
             {
                 LOG(WARNING) << "Warning: Couldn't read drifter positions from restart file. Drifter positions initialised as if there was no restart.\n";
-                this->updateIABPDrifter();
+                this->updateIabpDrifter();
             }
             else
             {
@@ -10544,20 +10542,680 @@ FiniteElement::initThermodynamics()
 }
 
 void
+FiniteElement::initDrifterOpts()
+{
+    // init drifters after spinup
+    // NB use ceil to make sure the init time is 0:00
+    M_drifters_time_init = std::ceil(time_init)
+        + vm["simul.spinup_duration"].as<double>();
+
+    //to be run at start time
+    std::vector<double> drifters_timesteps;
+    std::vector<std::string> drifters_names;//for debugging
+
+    // use IABP drifters (12h check)
+    M_use_iabp_drifters = vm["drifters.use_iabp_drifters"].as<bool>();
+    M_iabp_drifters_output_time_step = vm["drifters.iabp_drifters_output_time_step"].as<double>();
+    M_iabp_drifters_input_time_step = 0.5;
+    if (M_use_iabp_drifters)
+    {
+        // check the IABP in-/out-put time steps are consistent with each other
+        // - IABP input time step should be greater than the output time step
+        //   (same frequency of outputs or more frequent outputs),
+        // - IABP input time step should be a multiple of the output time step
+        if( M_iabp_drifters_output_time_step > M_iabp_drifters_input_time_step )
+        {
+            std::string msg = "IABP drifters output timestep";
+            msg += " should be <= IABP input timestep";
+            throw std::runtime_error(msg);
+        }
+        else if ( std::fmod(M_iabp_drifters_input_time_step,
+                    M_iabp_drifters_output_time_step) != 0 )
+        {
+            throw std::runtime_error(
+                    "IABP drifter input timestep should be a multiple of the IABP output timestep");
+        }
+
+        // to check all the drifter timesteps later
+        drifters_timesteps.push_back(M_iabp_drifters_input_time_step);
+        drifters_names.push_back("IABP (input)");
+        drifters_timesteps.push_back(M_iabp_drifters_output_time_step);
+        drifters_names.push_back("IABP (output)");
+    }
+
+    // use OSISAF drifters
+    // - every day at 12:00 start a new set of drifters which run for 48h
+    // - output time step is an option
+    M_use_osisaf_drifters = vm["drifters.use_osisaf_drifters"].as<bool>();
+    M_osisaf_drifters_output_time_step = vm["drifters.osisaf_drifters_output_time_step"].as<double>();
+    if(M_use_osisaf_drifters)
+    {
+        M_osisaf_drifters.resize(2);
+
+        if( M_osisaf_drifters_output_time_step > 0.5 )
+        {
+            // currently OSISAF output time step has to be <= 0.5 (days)
+            throw std::runtime_error("OSISAF drifters output timestep should be <= 0.5");
+        }
+        else if( fmod(.5, M_osisaf_drifters_output_time_step) != 0 )
+        {
+            // output timestep should fit into .5
+            throw std::runtime_error("0.5 should be a multiple of the OSISAF drifters output timestep");
+        }
+
+        // to check all the drifter timesteps later
+        drifters_timesteps.push_back(M_osisaf_drifters_output_time_step);
+        drifters_names.push_back("OSISAF");
+    }
+
+    // equally spaced drifters
+    M_use_equally_spaced_drifters = vm["drifters.use_equally_spaced_drifters"].as<bool>();
+    M_equally_spaced_drifters_output_time_step = vm["drifters.equally_spaced_drifters_output_time_step"].as<double>();
+    if (M_use_equally_spaced_drifters)
+    {
+        // to check all the drifter timesteps later
+        drifters_timesteps.push_back(M_equally_spaced_drifters_output_time_step);
+        drifters_names.push_back("Equally-spaced");
+    }
+
+    // RGPS drifters
+    M_use_rgps_drifters = vm["drifters.use_rgps_drifters"].as<bool>();
+    M_rgps_drifters_output_time_step = vm["drifters.rgps_drifters_output_time_step"].as<double>();
+    if (M_use_rgps_drifters)
+    {
+        std::string time_str = vm["drifters.RGPS_time_init"].as<std::string>();
+        M_rgps_time_init = Nextsim::from_date_time_string(time_str);
+        M_rgps_file = Environment::nextsimDir().string()
+            + "/data/RGPS_" + time_str + ".txt";
+
+        // make sure RGPS init time is not too early
+        if(M_rgps_time_init<M_drifters_time_init)
+        {
+            std::string msg = "";
+            msg += "M_rgps_time_init should be >= M_drifters_time_init\n";
+            msg += "(ie after simulation time_init";
+            msg += "(rounded up to the nearest day) and spinup period)";
+            throw std::runtime_error(msg);
+        }
+
+        // to check all the drifter timesteps later
+        drifters_timesteps.push_back(M_rgps_drifters_output_time_step);
+        drifters_names.push_back("RGPS");
+    }
+
+    // SIDFEX drifters
+    M_use_sidfex_drifters = vm["drifters.use_sidfex_drifters"].as<bool>();
+    M_sidfex_drifters_output_time_step = vm["drifters.sidfex_drifters_output_time_step"].as<double>();
+    if (M_use_sidfex_drifters)
+    {
+        drifters_timesteps.push_back(M_sidfex_drifters_output_time_step);
+        drifters_names.push_back("SIDFEX");
+    }
+
+    // can now tell if we are using any drifters and set the init time
+    // (after spinup)
+    M_use_drifters = (
+               M_use_iabp_drifters
+            || M_use_osisaf_drifters
+            || M_use_equally_spaced_drifters
+            || M_use_sidfex_drifters
+            || M_use_rgps_drifters
+            );
+
+    if(M_use_drifters)
+    {
+        // check consistency of drifter output time steps with model time step
+        for(int i=0; i<drifters_timesteps.size(); i++)
+        {
+            if( fmod(drifters_timesteps[i]*24*3600, time_step) != 0 )
+            {
+                std::string msg = drifters_names[i]+" drifters' timestep not a multiple of model time step";
+                throw std::runtime_error(msg);
+            }
+        }
+    }
+}//initDrifterOpts
+
+void
 FiniteElement::initDrifters()
 {
-    if(M_use_equallyspaced_drifters)
-        this->equallySpacedDrifter();
+    if(M_use_equally_spaced_drifters)
+        this->initEquallySpacedDrifters();
 
     if(M_use_iabp_drifters)
-        this->initIABPDrifter();
+        this->initIabpDrifter();
 
-    if(M_use_rgps_drifters)
-        this->initRGPSDrifters();
-
-    if(M_use_osisaf_drifters)
-        this->initOSISAFDrifters();
+    if(M_use_sidfex_drifters)
+        this->initSidfexDrifters();
 }
+
+void
+FiniteElement::initIabpDrifter()
+{
+    // OUTPUT:
+    // We should tag the file name with the init time in case of a re-start.
+    std::stringstream filename_out;
+    filename_out << M_export_path << "/drifters_out_" << M_drifters_time_init << ".txt";
+    M_iabp_outfile = filename_out.str();
+    std::fstream iabp_out(M_iabp_outfile, std::fstream::out );
+    if ( ! iabp_out.good() )
+        throw std::runtime_error("Cannot write to file: " + M_iabp_outfile);
+
+    //write the header and close
+    iabp_out << "Year Month Day Hour BuoyID Lat Lon Concentration\n";
+    iabp_out.close();
+
+    // INPUT:
+#if 0
+    std::string filename_in = Environment::nextsimDir().string() + "/data/IABP_buoys.txt";
+#else
+    //new buoy file has a header
+    std::string filename_in = Environment::nextsimDir().string() + "/data/IABP_buoys_new_format.txt";
+#endif
+    M_iabp_infile_fstream.open(filename_in, std::fstream::in);
+    if ( ! M_iabp_infile_fstream.good() )
+        throw std::runtime_error("File not found: " + filename_in);
+
+#if 1
+    //skip header
+    std::string header;
+    std::getline(M_iabp_infile_fstream, header);
+    std::cout<<"open IABP drifter file: "<<filename_in<<"\n";
+    std::cout<<"header: "<<header<<"\n";
+#endif
+
+    int pos;    // To be able to rewind one line
+    double time = from_date_string("1979-01-01");
+    while ( time < M_drifters_time_init )
+    {
+        // Remember where we were
+        pos = M_iabp_infile_fstream.tellg();
+
+        // Read the next line
+        int year, month, day, hour, number;
+        double lat, lon;
+        M_iabp_infile_fstream >> year >> month >> day >> hour >> number >> lat >> lon;
+        std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
+
+        time = from_date_string(date) + hour/24.;
+    }
+
+    // We must rewind one line so that updateIabpDrifter works correctly
+    M_iabp_infile_fstream.seekg(pos);
+
+    // Get:
+    // - the 1st drifter positions (if any)
+    // - M_conc at these positions
+    this->updateIabpDrifter();
+    
+    // Save the initial positions to the output file
+    this->outputIabpDrifter();
+}//initIabpDrifter
+
+void
+FiniteElement::outputIabpDrifter()
+{
+    if (M_rank==0)
+    {
+        if (M_iabp_drifters.size()==0)
+            //do nothing if drifters are empty
+            return;
+
+        // Initialize the map
+        mapx_class *map;
+        std::string configfile = (boost::format( "%1%/%2%/%3%" )
+                                  % Environment::nextsimDir().string()
+                                  % "data"
+                                  % vm["mesh.mppfile"].as<std::string>()
+                                  ).str();
+
+        std::vector<char> str(configfile.begin(), configfile.end());
+        str.push_back('\0');
+        map = init_mapx(&str[0]);
+
+        //open output file for appending
+        std::fstream iabp_out(M_iabp_outfile, std::fstream::out | std::fstream::app );
+        if ( ! iabp_out.good() )
+            throw std::runtime_error("Cannot write to file: " + M_iabp_outfile);
+
+        // Loop over the map and output
+        int j=0;
+        boost::gregorian::date           date = Nextsim::parse_date( M_current_time );
+        boost::posix_time::time_duration time = Nextsim::parse_time( M_current_time );
+        for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
+        {
+            double lat, lon;
+            double conc = M_iabp_conc[j];
+            inverse_mapx(map, it->second[0], it->second[1], &lat, &lon);
+            j++;
+
+            iabp_out
+                << setw(4) << date.year()
+                << " " << setw( 2) << date.month().as_number()
+                << " " << setw( 2) << date.day().as_number()
+                << " " << setw( 2) << time.hours()
+                << " " << setw(16) << it->first
+                << fixed << setprecision(5)
+                << " " << setw( 8) << lat
+                << " " << setw(10) << lon
+                << " " << conc
+                << "\n";
+        }
+
+        //close output file
+        iabp_out.close();
+
+        // close the map
+        close_mapx(map);
+    }
+}//outputIabpDrifter
+
+// Add the buoys that have been put into the ice and remove dead ones
+void
+FiniteElement::updateIabpDrifter()
+{
+
+    if(M_rank==0)
+    {
+        // Initialize the map
+        mapx_class *map;
+        std::string configfile = (boost::format( "%1%/%2%/%3%" )
+                                  % Environment::nextsimDir().string()
+                                  % "data"
+                                  % vm["mesh.mppfile"].as<std::string>()
+                                  ).str();
+
+        std::vector<char> str(configfile.begin(), configfile.end());
+        str.push_back('\0');
+        map = init_mapx(&str[0]);
+
+        // Read the current buoys from file
+        int pos;    // To be able to rewind one line
+        double time = M_current_time;
+        std::vector<int> keepers;
+        while ( time == M_current_time )
+        {
+            // Remember where we were
+            pos = M_iabp_infile_fstream.tellg();
+
+            // Read the next line
+            int year, month, day, hour, number;
+            double lat, lon;
+            M_iabp_infile_fstream >> year >> month >> day >> hour >> number >> lat >> lon;
+            std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
+            time = from_date_string(date) + hour/24.;
+
+            // Remember which buoys are in the ice according to IABP
+            keepers.push_back(number);
+
+            // Project and add the buoy to the map if it's missing
+            if ( M_iabp_drifters.count(number) == 0 )
+            {
+                double x, y;
+                forward_mapx(map,lat,lon,&x,&y);
+                M_iabp_drifters.emplace(number, std::array<double,2>{x, y});
+
+            }
+        }
+        close_mapx(map);
+
+        // update M_iabp_conc (get model conc at all drifters)
+        this->updateIabpDrifterConc();
+
+        // Rebuild the M_iabp_drifters map
+        double clim = vm["drifters.concentration_limit"].as<double>();
+
+        // Go through the M_iabp_drifters map and throw out:
+        // (i) the ones which IABP doesn't report as being in the ice anymore
+        // (ii) the ones which have a low conc according to the model
+        int j =0;
+        auto model_conc = M_iabp_conc;
+        M_iabp_conc.resize(0);
+        for ( auto model = M_iabp_drifters.begin(); model != M_iabp_drifters.end(); j++)// NB ++model is not allowed here, because we use 'erase'
+        {
+            double conc = model_conc[j];
+            bool keep = (conc > clim)                                               // in ice (model)
+                && ( std::count(keepers.begin(), keepers.end(), model->first) >0 ); // in ice (IABP)
+
+            // Delete or advance the iterator
+            if ( ! keep )
+                model = M_iabp_drifters.erase(model);
+            else
+            {
+                ++model;
+                M_iabp_conc.push_back(conc);
+            }
+        }//remove drifters not in ice according to IABP or model
+    }
+}
+
+
+void
+FiniteElement::updateIabpDrifterConc()
+{
+    if( M_rank ==0 )
+    {
+        // Assemble the coordinates from the unordered_map
+        int Ndrifters = M_iabp_drifters.size();
+        std::vector<double> drifter_X(Ndrifters);
+        std::vector<double> drifter_Y(Ndrifters);
+        int j=0;
+        for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
+        {
+            drifter_X[j] = it->second[0];
+            drifter_Y[j] = it->second[1];
+            ++j;
+        }
+
+        //move the mesh before interpolating
+        auto movedmesh = M_mesh_root;
+        movedmesh.move(M_UM_root, 1.);
+
+        // Interpolate the concentration
+        double* interp_drifter_c_out;
+        InterpFromMeshToMesh2dx(&interp_drifter_c_out,
+                                &movedmesh.indexTr()[0], &movedmesh.coordX()[0], &movedmesh.coordY()[0],
+                                movedmesh.numNodes(), movedmesh.numTriangles(),
+                                &M_conc_root[0],
+                                movedmesh.numTriangles(), 1,
+                                &drifter_X[0], &drifter_Y[0],
+                                Ndrifters,
+                                true, 0.);
+
+        // Finally retrieve M_iabp_conc and delete the pointer
+        M_iabp_conc.resize(M_iabp_drifters.size());
+        for( int j=0; j<M_iabp_drifters.size(); j++ )
+            M_iabp_conc[j] = interp_drifter_c_out[j];
+        xDelete<double>(interp_drifter_c_out);
+    }
+
+}//updateIABPDrifterConc
+
+
+void
+FiniteElement::updateIabpDrifterPosition()
+{
+    if(M_rank==0)
+    {
+        chrono.restart();
+        LOG(DEBUG) <<"IABP Drifter moving starts\n";
+
+        // Assemble the coordinates from the unordered_map
+        std::vector<double> drifter_X(M_iabp_drifters.size());
+        std::vector<double> drifter_Y(M_iabp_drifters.size());
+        int j=0;
+        for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
+        {
+            drifter_X[j] = it->second[0];
+            drifter_Y[j] = it->second[1];
+            ++j;
+        }
+
+        // Interpolate the total displacement onto the drifter positions
+        int nb_var=2;
+        std::vector<double> interp_drifter_in(nb_var*M_mesh_root.numNodes());
+        for (int i=0; i<M_mesh_root.numNodes(); ++i)
+        {
+            interp_drifter_in[nb_var*i]   = M_UT_root[i];
+            interp_drifter_in[nb_var*i+1] = M_UT_root[i+M_mesh_root.numNodes()];
+        }
+
+        double* interp_drifter_out;
+        InterpFromMeshToMesh2dx(&interp_drifter_out,
+                                &M_mesh_root.indexTr()[0], &M_mesh_root.coordX()[0], &M_mesh_root.coordY()[0],
+                                M_mesh_root.numNodes(), M_mesh_root.numTriangles(),
+                                &interp_drifter_in[0],
+                                M_mesh_root.numNodes(), nb_var,
+                                &drifter_X[0], &drifter_Y[0], M_iabp_drifters.size(),
+                                true, 0.);
+
+        // Rebuild the M_iabp_drifters map
+        j = 0;
+        for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it)
+        {
+            M_iabp_drifters[it->first] = std::array<double,2> {
+                it->second[0]+interp_drifter_out[nb_var*j],
+                it->second[1]+interp_drifter_out[nb_var*j+1]
+            };
+            ++j;
+        }
+
+        xDelete<double>(interp_drifter_out);
+
+        LOG(DEBUG) <<"IABP Drifter move done in "<< chrono.elapsed() <<"s\n";
+    }
+}//updateIabpDrifterPosition
+
+void
+FiniteElement::outputtingDrifters(
+        bool &output_rgps,
+        bool &input_iabp,
+        bool &output_iabp,
+        bool &output_equally_spaced,
+        bool &output_sidfex,
+        bool &output_osisaf,
+        bool &move_drifters
+        )
+{
+    // This function tests which (if any) drifters we are outputting
+    // at the current time step
+    // If we are outputting ANY, we move ALL the drifters, since they all use the same
+    // total displcement (M_UT)
+
+    output_rgps = false;
+    input_iabp = false;
+    output_iabp = false;
+    output_equally_spaced = false;
+    output_sidfex = false;
+    output_osisaf = false;
+    move_drifters = false;
+    if(M_rank != 0)
+        return;
+
+    // outputting RGPS drifters?
+    // NB these drifters have different initial times
+    if(M_use_rgps_drifters)
+    {
+        output_rgps = (
+            M_current_time > M_rgps_time_init
+            && fmod(M_current_time - M_rgps_time_init,
+                M_rgps_drifters_output_time_step)==0
+            );
+    }
+
+    // inputting/outputting IABP drifters?
+    if ( M_use_iabp_drifters )
+    {
+        input_iabp = (std::fmod(
+                M_current_time - M_drifters_time_init,
+                M_iabp_drifters_input_time_step
+                )==0);
+        output_iabp = (std::fmod(
+                M_current_time - M_drifters_time_init,
+                M_iabp_drifters_output_time_step
+                )==0);
+    }
+
+    // outputting equally-spaced drifters?
+    if ( M_use_equally_spaced_drifters )
+    {
+        output_equally_spaced = (std::fmod(
+                M_current_time - M_drifters_time_init,
+                M_equally_spaced_drifters_output_time_step
+                )==0);
+    }
+
+    // outputting SIDFEX drifters?
+    if ( M_use_sidfex_drifters )
+    {
+        output_sidfex = (std::fmod(
+                    M_current_time - M_drifters_time_init,
+                    M_sidfex_drifters_output_time_step
+                    ) == 0 );
+    }
+
+    // outputting OSISAF drifters?
+    // NB note the different reference point
+    // - this is OK since we require M_osisaf_drifters_output_time_step<=.5
+    // - needed since OSISAF drifters at 12:00
+    if ( M_use_osisaf_drifters )
+    {
+        output_osisaf = (std::fmod(
+                    M_current_time,
+                    M_osisaf_drifters_output_time_step
+                    ) == 0 );
+    }
+
+    // we move ALL the drifters if we need to input/output ANY
+    move_drifters = (
+               output_rgps
+            || input_iabp
+            || output_iabp
+            || output_equally_spaced
+            || output_sidfex
+            || output_osisaf
+            );
+}
+
+void
+FiniteElement::updateDrifters()
+{
+    // 1. move the drifters (if needed)
+    // 2. get new inputs (IABP, OSISAF) (if needed)
+    // 3. output to text file or netcdf (if needed)
+    // NB this routine is only called if we are after M_drifters_time_init
+    if(M_rank != 0)
+        return;
+
+    bool output_rgps = false;
+    bool input_iabp = false;
+    bool output_iabp = false;
+    bool output_equally_spaced = false;
+    bool output_sidfex = false;
+    bool output_osisaf = false;
+    bool move_drifters = false;
+    this->outputtingDrifters(
+            output_rgps,
+            input_iabp,
+            output_iabp,
+            output_equally_spaced,
+            output_sidfex,
+            output_osisaf,
+            move_drifters
+            );
+
+    if (move_drifters)
+    {
+        // do we need to move the drifters?
+        // NB M_UT is relative to the fixed mesh, not the moved mesh
+        // NB to update the conc we need to move the mesh
+        // TODO so far we do this inside updateIabpDrifterConc and
+        // Drifters::updateConc - would be more efficient to move the
+        // mesh here, but that would mean changing all the interfaces
+        // to the routines
+        if ( M_use_iabp_drifters )
+            this->updateIabpDrifterPosition();
+        if ( M_use_equally_spaced_drifters )
+            M_equally_spaced_drifters.move(M_mesh_root, M_UT_root);
+        if ( M_use_rgps_drifters )
+        {
+            if ( M_rgps_drifters.isInitialised() )
+                M_rgps_drifters.move(M_mesh_root, M_UT_root);
+        }
+        if ( M_use_sidfex_drifters )
+            M_sidfex_drifters.move(M_mesh_root, M_UT_root);
+        if ( M_use_osisaf_drifters )
+        {
+            for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
+                if (it->isInitialised())
+                    it->move(M_mesh_root, M_UT_root);
+        }
+    
+        // reset M_UT
+        std::fill(M_UT_root.begin(), M_UT_root.end(), 0.);
+    }
+
+    if (input_iabp)
+    {
+        // check if we need to add new IABP drifters
+        // NB do this after moving
+        // NB this updates M_iabp_conc
+        this->updateIabpDrifter();
+    }
+
+    if (output_iabp)
+    {
+        // output IABP drifters
+        // NB do this after moving
+        if(!input_iabp)
+        {
+            //still need to update M_iabp_conc
+            this->updateIabpDrifterConc();
+        }
+        this->outputIabpDrifter();
+    }
+
+    if ( output_equally_spaced )
+    {
+        M_equally_spaced_drifters.updateConc(M_mesh_root, M_UM_root, M_conc_root);
+        M_equally_spaced_drifters.appendNetCDF(M_current_time);
+    }
+
+    if ( output_rgps )
+    {
+            M_rgps_drifters.updateConc(M_mesh_root, M_UM_root, M_conc_root);
+            M_rgps_drifters.appendNetCDF(M_current_time);
+    }
+
+    if ( output_sidfex )
+    {
+        M_sidfex_drifters.updateConc(M_mesh_root, M_UM_root, M_conc_root);
+        M_sidfex_drifters.appendNetCDF(M_current_time);
+    }
+
+    if ( output_osisaf )
+    {
+        for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
+            if (it->isInitialised())
+            {
+                it->updateConc(M_mesh_root, M_UM_root, M_conc_root);
+                it->appendNetCDF(M_current_time);
+            }
+    }
+     
+    if ( M_use_osisaf_drifters && fmod(M_current_time+0.5, 1.) == 0 )
+    {
+        // OSISAF drift is calculated as a drifter displacement over 48 hours
+        // - start a new one each day at 12:00
+        // We have two sets of drifters in the field at all times
+        // - [0] is the newest
+        // Here we start a new set of drifters.
+
+        // Flip the vector so we move [0] to be [1]
+        std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
+
+        // Create a new M_drifters instance in [0], with a properly initialised netCDF file
+        std::string osi_grid_file = "ice_drift_nh_polstere-625_multi-oi.nc";
+        std::string osi_output_path = M_export_path+"/OSISAF_";
+        if(vm["drifters.use_refined_osisaf_grid"].as<bool>())
+        {
+            // use grid refined by a factor of 9
+            // - can then compare averaged drift to the observations
+            // - using an odd number in the refinement means the original grid points are a sub-sample of the refined grid
+            osi_grid_file = "ice_drift_nh_polstere-625_multi-grid_refined_9.nc";
+            osi_output_path = M_export_path+"/OSISAF_refined9_";
+        }
+            
+        M_osisaf_drifters[0] = Drifters("data", osi_grid_file,
+                "xc", "yc",
+                "lat", "lon", M_mesh_root, M_UM_root,
+                M_conc, vm["drifters.concentration_limit"].as<double>());
+
+        M_osisaf_drifters[0].initNetCDF(osi_output_path, M_current_time);
+        M_osisaf_drifters[0].appendNetCDF(M_current_time);
+    }//start a new set of OSISAF drifters
+
+}//updateDrifters
 
 void
 FiniteElement::calcCoriolis()
@@ -10620,6 +11278,7 @@ FiniteElement::nodesToElements(double const* depth, std::vector<double>& v)
     }
 }
 
+#if 0
 // A simple function to output the drifters in the model, IABP or otherwise
 // The output could well be prettier!
 void
@@ -10695,7 +11354,9 @@ FiniteElement::outputDrifter(std::fstream& drifters_out)
         close_mapx(map);
     }
 }
+#endif
 
+#if 0
 // Add the buoys that have been put into the ice and remove dead ones
 void
 FiniteElement::updateIABPDrifter()
@@ -10767,7 +11428,9 @@ FiniteElement::updateIABPDrifter()
         }
     }
 }
+#endif
 
+#if 0
 // Initialise by reading all the data from '79 up to time_init
 // This is too slow, but only happens once so I won't try to optimise that for now
 void
@@ -10800,15 +11463,17 @@ FiniteElement::initIABPDrifter()
         M_iabp_file.seekg(pos);
     }
 }
+#endif
 
 void
-FiniteElement::equallySpacedDrifter()
+FiniteElement::initEquallySpacedDrifters()
 {
     if (M_rank == 0)
     {
-        M_equallyspaced_drifters = Drifters(1e3*vm["drifters.spacing"].as<double>(), M_mesh_root, M_conc_root, vm["drifters.concentration_limit"].as<double>());
-        M_equallyspaced_drifters.initNetCDF(M_export_path+"/Drifters_", M_current_time);
-        M_equallyspaced_drifters.appendNetCDF(M_current_time, M_mesh_root, M_UT_root);
+        M_equally_spaced_drifters = Drifters(1e3*vm["drifters.spacing"].as<double>(),
+                M_mesh_root, M_UM_root, M_conc_root, vm["drifters.concentration_limit"].as<double>());
+        M_equally_spaced_drifters.initNetCDF(M_export_path+"/Drifters_", M_current_time);
+        M_equally_spaced_drifters.appendNetCDF(M_current_time);
     }
 }
 
@@ -10817,32 +11482,27 @@ FiniteElement::initRGPSDrifters()
 {
     if (M_rank == 0)
     {
-        M_rgps_drifters = Drifters();
-    }
-}
-
-void
-FiniteElement::updateRGPSDrifters()
-{
-    if (M_rank == 0)
-    {
-        std::string time_str = vm["drifters.RGPS_time_init"].as<std::string>();
-        double RGPS_time_init = Nextsim::from_date_time_string(time_str);
-
-        std::string filename = Environment::nextsimDir().string() + "/data/RGPS_" + time_str + ".txt";
-        M_rgps_drifters = Drifters(filename, M_mesh_root, M_conc_root, vm["drifters.concentration_limit"].as<double>(),RGPS_time_init);
-
+        //called once when M_current_time == M_rgps_time_init
+        M_rgps_drifters = Drifters(M_rgps_file, M_mesh_root, M_UM_root, M_conc_root,
+                vm["drifters.concentration_limit"].as<double>(),
+                M_rgps_time_init);
         M_rgps_drifters.initNetCDF(M_export_path+"/RGPS_Drifters_", M_current_time);
-        M_rgps_drifters.appendNetCDF(M_current_time, M_mesh_root, M_UT_root);
+        M_rgps_drifters.appendNetCDF(M_current_time);
     }
 }
 
 void
-FiniteElement::initOSISAFDrifters()
+FiniteElement::initSidfexDrifters()
 {
     if (M_rank == 0)
     {
-        M_osisaf_drifters.resize(2);
+        std::string filename = Environment::nextsimDir().string() + "/data/"
+            + vm["drifters.sidfex_filename"].as<std::string>();
+        M_sidfex_drifters = Drifters(filename, M_mesh_root, M_UM_root, M_conc_root,
+                vm["drifters.concentration_limit"].as<double>(), M_current_time);
+        
+        M_sidfex_drifters.initNetCDF(M_export_path+"/SIDFEx_Drifters_", M_current_time);
+        M_sidfex_drifters.appendNetCDF(M_current_time);
     }
 }
 
@@ -11630,8 +12290,7 @@ FiniteElement::finalise()
     // Don't forget to close the iabp file!
     if (M_use_iabp_drifters)
     {
-        M_iabp_file.close();
-        M_iabp_out.close();
+        M_iabp_infile_fstream.close();
     }
 
     // Clear ponters etc

@@ -228,6 +228,7 @@ public:
 
     void initBamg();
     void initOptAndParam();
+    void initDrifterOpts();
     void forcing();
     void forcingAtmosphere();
     void forcingOcean();
@@ -404,10 +405,6 @@ private:
     std::vector<double> M_VT;
     std::vector<double> M_VTM;
     std::vector<double> M_VTMM;
-
-    // needed for the drifters
-    std::vector<double> M_UT_root;
-    std::vector<double> M_conc_root;
 
     std::vector<double> M_bathy_depth;
 
@@ -609,23 +606,42 @@ private:
 
     // Drifters
     bool M_use_drifters;
+    double M_drifters_time_init;
+
+    // also needed for the drifters
+    std::vector<double> M_UT_root;
+    std::vector<double> M_UM_root;
+    std::vector<double> M_conc_root;
+
+    // IABP drifters
     bool M_use_iabp_drifters;
+    double M_iabp_drifters_input_time_step;
+    double M_iabp_drifters_output_time_step;
+    std::vector<double> M_iabp_conc;
     boost::unordered_map<int, std::array<double,2>> M_iabp_drifters; // Drifters are kept in an unordered map containing number and coordinates
-    std::fstream M_iabp_file;   // The file we read the IABP buoy data from
-    std::fstream M_iabp_out;    // The file we write our simulated drifter positions into
+    std::fstream M_iabp_infile_fstream; // The file we read the IABP buoy data from
+    std::string M_iabp_outfile;         // The file we write our simulated drifter positions into
 
     // Drifters on a grid
-    double M_equallyspaced_drifters_output_time_step;
-    bool M_use_equallyspaced_drifters;
-    Drifters M_equallyspaced_drifters;
+    bool M_use_equally_spaced_drifters;
+    double M_equally_spaced_drifters_output_time_step;
+    Drifters M_equally_spaced_drifters;
 
     // Drifters as in the RGPS data
-    double M_rgps_drifters_output_time_step;
     bool M_use_rgps_drifters;
+    double M_rgps_time_init;
+    std::string M_rgps_file;
+    double M_rgps_drifters_output_time_step;
     Drifters M_rgps_drifters;
+
+    // Drifters for SIDFEX forecast
+    double M_sidfex_drifters_output_time_step;
+    bool M_use_sidfex_drifters;
+    Drifters M_sidfex_drifters;
 
     // drifters for the OSISAF emulation
     bool M_use_osisaf_drifters;
+    double M_osisaf_drifters_output_time_step;
     std::vector<Drifters> M_osisaf_drifters;
 
     // Element variable
@@ -693,13 +709,32 @@ private:
     void topazAmsreIce();
     void topazAmsr2Ice();
 
-    void initOSISAFDrifters();
+    //void initOSISAFDrifters();
+    //void initRGPSDrifters();
+    //void updateRGPSDrifters();
+    //void equallySpacedDrifter();
+    //void outputDrifter(std::fstream &iabp_out);
+    //void initIABPDrifter();
+    //void updateIABPDrifter();
+    void outputtingDrifters(
+        bool &output_rgps,
+        bool &input_iabp,
+        bool &output_iabp,
+        bool &output_equally_spaced,
+        bool &output_sidfex,
+        bool &output_osisaf,
+        bool &move_drifters
+        );
+    void updateDrifters();
     void initRGPSDrifters();
     void updateRGPSDrifters();
-    void equallySpacedDrifter();
-    void outputDrifter(std::fstream &iabp_out);
-    void initIABPDrifter();
-    void updateIABPDrifter();
+    void initSidfexDrifters();
+    void initEquallySpacedDrifters();
+    void outputIabpDrifter();
+    void initIabpDrifter();
+    void updateIabpDrifter();
+    void updateIabpDrifterPosition();
+    void updateIabpDrifterConc();
 
     //void updateMeans(GridOutput &means);
     void updateMeans(GridOutput& means, double time_factor);

@@ -9,7 +9,6 @@
 #ifndef __Drifters_H
 #define __Drifters_H 1
 
-#include <gmshmesh.hpp>
 #include <gmshmeshseq.hpp>
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromMeshToGridx.h>
@@ -49,27 +48,37 @@ public:
 
         Drifters();
 
-        Drifters(double spacing, GmshMeshSeq const& mesh, std::vector<double>& conc, double climit);
+        Drifters(double spacing, GmshMeshSeq const& mesh,
+                std::vector<double> const& um,
+                std::vector<double>& conc, double climit);
 
         Drifters(std::string dirname, std::string gridFile,
                  std::string dimNameX, std::string dimNameY,
                  std::string latName, std::string lonName,
-                 GmshMeshSeq const& mesh, std::vector<double>& conc, double climit);
+                 GmshMeshSeq const& mesh,
+                 std::vector<double> const& um,
+                 std::vector<double>& conc,
+                 double climit);
 
-        Drifters(std::string filename, GmshMeshSeq const& mesh, std::vector<double>& conc, double climit, double time);
+        Drifters(std::string filename,
+                GmshMeshSeq const& mesh,
+                std::vector<double> const& um,
+                std::vector<double>& conc, double climit, double time);
 
         void move(GmshMeshSeq const& mesh, std::vector<double> const& UT);
+        void updateConc( GmshMeshSeq const& mesh, std::vector<double> const& um,
+                std::vector<double> & conc);
 
         void initNetCDF(std::string file_prefix, double current_time);
 
-        void appendNetCDF(double current_time, GmshMeshSeq const& mesh, std::vector<double> const& UT);
+        void appendNetCDF(double current_time);
 
         bool isInitialised();
 
 private:
         bool M_is_initialised;
 
-        int M_no_drifters;
+        int M_num_drifters;
 
         size_t M_nc_step;
 
@@ -78,10 +87,14 @@ private:
         std::vector<double> M_X;
         std::vector<double> M_Y;
         std::vector<int> M_i;
+        std::vector<double> M_conc;
 
         void move(GmshMeshSeq const& mesh, std::vector<double> const& UT, std::vector<double>& X, std::vector<double>& Y);
 
-        void maskXY(GmshMeshSeq const& mesh, std::vector<double>& X, std::vector<double>& Y, std::vector<double>& conc, double clim);
+        void maskXY(GmshMeshSeq const& mesh,
+                std::vector<double> const& um,
+                std::vector<double>& X, std::vector<double>& Y,
+                std::vector<double>& conc, double clim);
     };
 } // Nextsim
 
