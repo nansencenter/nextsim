@@ -2554,7 +2554,7 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
     }
 }//advect()
 
-#if 0//advectRoot not used - looks weird too
+#if 1//advectRoot not used - looks weird too
 void
 FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out)
 {
@@ -4576,7 +4576,7 @@ FiniteElement::update()
 
     // advect
     std::vector<double> interp_elt_out;
-    this->advect(interp_elt_in_local, interp_elt_out);
+    this->advectRoot(interp_elt_in_local, interp_elt_out);
 
     // redistribute the interpolated values
     this->redistributeVariables(interp_elt_out);
