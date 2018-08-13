@@ -1077,6 +1077,8 @@ FiniteElement::initOptAndParam()
         std::cout << thermo_timestep << " " << time_step << "\n";
         throw std::runtime_error("thermo_timestep is not an integer multiple of time_step");
     }
+    // Temporarly disabling super-stepping of the thermodynamcis. The model hangs randomly when it's enabled
+    thermo_timestep = time_step;
 
     output_time_step =  (vm["output.output_per_day"].as<int>()<0) ? time_step : time_step * floor(days_in_sec/vm["output.output_per_day"].as<int>()/time_step);
     mooring_output_time_step =  vm["moorings.output_timestep"].as<double>()*days_in_sec;
