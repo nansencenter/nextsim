@@ -7771,11 +7771,16 @@ FiniteElement::readRestart(std::string step)
             std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
             std::vector<double> drifter_y  = field_map_dbl["Drifter_y"];
 
-            this->initIabpDrifter();
+            this->initIabpDrifter();//initIABPDrifter();
             if (drifter_no.size() == 0)
             {
-                LOG(WARNING) << "Warning: Couldn't read drifter positions from restart file. Drifter positions initialised as if there was no restart.\n";
-                this->updateIabpDrifter();
+                if(M_rank==0)
+                {
+                    std::string msg = "Warning: Couldn't read drifter positions from restart file.";
+                    msg += " Drifter positions initialised as if there was no restart.\n";
+                    LOG(WARNING) << msg;
+                }
+                this->updateIabpDrifter();//updateIABPDrifter();
             }
             else
             {
@@ -10683,7 +10688,18 @@ FiniteElement::initDrifters()
         this->initEquallySpacedDrifters();
 
     if(M_use_iabp_drifters)
+    {
+        // init the input file
         this->initIabpDrifter();
+
+        // Get:
+        // - the 1st drifter positions (if any)
+        // - M_conc at these positions
+        this->updateIabpDrifter();
+        
+        // Save the initial positions to the output file
+        this->outputIabpDrifter();
+    }
 
     if(M_use_sidfex_drifters)
         this->initSidfexDrifters();
@@ -10742,14 +10758,6 @@ FiniteElement::initIabpDrifter()
 
     // We must rewind one line so that updateIabpDrifter works correctly
     M_iabp_infile_fstream.seekg(pos);
-
-    // Get:
-    // - the 1st drifter positions (if any)
-    // - M_conc at these positions
-    this->updateIabpDrifter();
-    
-    // Save the initial positions to the output file
-    this->outputIabpDrifter();
 }//initIabpDrifter
 
 void
