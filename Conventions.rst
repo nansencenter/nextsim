@@ -36,7 +36,7 @@ If you have been assigned an issue on https://github.com/nansencenter/nextsim/is
         3. Once the issue is fixed merge the **master** branch back into your issue branch and resolve any conflicts.
         4. Create a pull request of the issue branch on GitHub. Always include at least one reviewer who will then:
                    a. Merge the issue branch with the **master** branch
-                   b. Merge the issue branch with the **develop** branch
+                   b. Create a pull request to merge **master** into **develop**
                    c. Delete the issue branch and close the issue.
 
 For issues not requiring a hotfix (less urgent bug-fixes and feature requests):
