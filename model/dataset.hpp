@@ -41,6 +41,9 @@ namespace Nextsim
         FromGridToMesh = 0,
         FromMeshToMesh2dx = 1,
         FromMeshToMesh2dCavities = 2,
+#if defined OASIS
+        ConservativeRemapping = 3
+#endif
     };
 
     typedef struct WaveOptions
@@ -126,7 +129,7 @@ public:
     typedef struct Grid
     {
         InterpolationType interpolation_method;
-		int interp_type;
+        int interp_type;
         std::string dirname;
         std::string prefix;
         std::string postfix;
@@ -140,8 +143,8 @@ public:
         Dimension dimension_y;
 
         std::string mpp_file;
-		bool interpolation_in_latlon;
-		double branch_cut_lon;//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+        bool interpolation_in_latlon;
+        double branch_cut_lon;//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
         bool loaded;
         std::string dataset_frequency;
@@ -149,9 +152,17 @@ public:
 
         WaveOptions waveOptions;
 
-		bool masking;
-		Variable masking_variable;
-		std::vector<int> reduced_nodes_ind;
+        bool masking;
+        Variable masking_variable;
+
+#if defined OASIS
+        bool gridded_rotation_angle;
+        Variable vector_rotation_variable;
+
+        std::vector<double> gridTheta;
+#endif
+
+        std::vector<int> reduced_nodes_ind;
 
         std::vector<int> pfindex;
         int pfnels;
@@ -213,6 +224,13 @@ public:
 
 #if defined OASIS
     bool coupled;
+    std::vector<int> M_cpl_id;
+
+    void setWeights(std::vector<int> const &gridP, std::vector<std::vector<int>> const &triangles, std::vector<std::vector<double>> const &weights);
+
+    std::vector<int> M_gridP;
+    std::vector<std::vector<int>> M_triangles;
+    std::vector<std::vector<double>> M_weights;
 #endif
 };
 
