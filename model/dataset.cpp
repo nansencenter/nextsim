@@ -4454,7 +4454,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             waveOptions: wavopt_none,
 
             masking: true,
-            masking_variable: conc
+            masking_variable: mask
         };
 
         std::vector<Variable> variables_tmp(1);
@@ -4614,7 +4614,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             waveOptions: wavopt_none,
 
             masking: true,
-            masking_variable: conc
+            masking_variable: mask
         };
 
         std::vector<Variable> variables_tmp(1);
