@@ -11205,22 +11205,38 @@ FiniteElement::updateDrifters()
         if(M_current_time>M_drifters_time_init)
         {
             if ( M_use_iabp_drifters )
+            {
+                LOG(DEBUG)<<"Move IABP drifters\n";
                 this->updateIabpDrifterPosition();
+            }
             if ( M_use_equally_spaced_drifters )
+            {
+                LOG(DEBUG)<<"Move equally-spaced drifters\n";
                 M_equally_spaced_drifters.move(M_mesh_root, M_UT_root);
+            }
             if ( M_use_sidfex_drifters )
+            {
+                LOG(DEBUG)<<"Move SIDFEX drifters\n";
                 M_sidfex_drifters.move(M_mesh_root, M_UT_root);
+            }
         }
         if ( M_use_rgps_drifters )
         {
             if ( M_rgps_drifters.isInitialised() )
+            {
+                LOG(DEBUG)<<"Move RGPS drifters\n";
                 M_rgps_drifters.move(M_mesh_root, M_UT_root);
+            }
         }
         if ( M_use_osisaf_drifters )
         {
+            int i = 0;
             for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
                 if (it->isInitialised())
+                {
+                    LOG(DEBUG)<<"Move SIDFEX drifters ["<<i<<"]\n";
                     it->move(M_mesh_root, M_UT_root);
+                }
         }
     
         // reset M_UT
@@ -11301,6 +11317,17 @@ FiniteElement::initOsisafDrifters()
     // We have two sets of drifters in the field at all times
     // - [0] is the newest
     // Here we start a new set of drifters.
+
+    if(M_rank != 0)
+        return;
+
+    LOG(DEBUG)<<"Initialize a new set of OSISAF drifters\n";
+#if 1
+    double sum_ut = 0.;
+    for (int i=0; i<M_UT.size(); i++)
+        sum_ut += std::abs(M_UT[i]);
+    std::cout<<"Sum |M_UT[i]| = "<< sum_ut <<"\n";
+#endif
 
     // Flip the vector so we move [0] to be [1]
     std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
