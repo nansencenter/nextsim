@@ -155,28 +155,19 @@ namespace Nextsim
 
             ("drifters.use_equally_spaced_drifters", po::value<bool>()->default_value( false), "use equally spaced drifters?")
             ("drifters.equally_spaced_drifters_output_time_step", po::value<double>()->default_value( .5 ),
-                 "interval between equally-spaced drifter outputs (days): 0.5/2n, n=1,2,... down to timestep")
+                 "interval between equally-spaced drifter outputs (days): integer multiple of timestep")
             ("drifters.spacing", po::value<double>()->default_value( 10 ), "spacing of equally spaced drifters in km")
 
             ("drifters.use_rgps_drifters", po::value<bool>()->default_value( false), "")
             ("drifters.rgps_drifters_output_time_step", po::value<double>()->default_value( 0.5 ),
-                 "interval between RGPS drifter outputs (days): 0.5/2n, n=1,2,... down to timestep")
+                 "interval between RGPS drifter outputs (days): integer multiple of timestep")
             ("drifters.RGPS_time_init", po::value<std::string>()->default_value( "2007-12-01" ),
                 "time to init RGPS drifters: date format yyyy-mm-dd or yyyy-mmm-dd (eg 2008-Mar-05); can also add time with HH:MM:SS (eg 2008-Mar-05 00:00:00)")
 
              ("drifters.use_sidfex_drifters", po::value<bool>()->default_value( false), "are we using SIDFEX drifters")
              ("drifters.sidfex_drifters_output_time_step", po::value<double>()->default_value( 0.5 ),
-                  "interval between SIDFEX drifter outputs (days): 0.5/2n, n=1,2,... down to timestep")
+                  "interval between SIDFEX drifter outputs (days): integer multiple of timestep")
              ("drifters.sidfex_filename", po::value<std::string>()->default_value( "" ), "text file with initial buoy positions")
-#if 0
-
-
-            ("drifters.use_rgps_drifters", po::value<bool>()->default_value( false), "")
-            ("drifters.rgps_drifters_output_time_step", po::value<double>()->default_value( 0.5 ), "days") // must be a multiple of 0.5
-            ("drifters.RGPS_time_init", po::value<std::string>()->default_value( "2007-12-01" ), "")
-
-            ("drifters.use_osisaf_drifters", po::value<bool>()->default_value( false ), "")
-#endif
 
             // restart
             // - inputs
