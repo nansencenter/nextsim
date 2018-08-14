@@ -9475,12 +9475,28 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         double thin_conc_obs = 0.;
         double thin_conc_obs_min = 0.;
         double thin_conc_obs_max = 0.;
+        bool nic_masked = false;
         if (!use_weekly_nic)
-            this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_conc[i],use_weekly_nic);
+        {
+            nic_masked = (M_nic_conc[i]>1.);
+            if(!nic_masked)
+                this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_conc[i],!use_weekly_nic);
+        }
         else
-            this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_weekly_conc[i],use_weekly_nic);
+        {
+            nic_masked = (M_nic_weekly_conc[i]>1.);
+            if(!nic_masked)
+                this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_weekly_conc[i],use_weekly_nic);
+        }
 
+        // skip application of NIC if its conc is >1
+        // - then it is masked
+        // - unfortunately, applying the mask in datasets led to masked values being treated as real values of 0.0
+        //   so we have to do it manually here
+        if(nic_masked)
+            continue;
 
+        // Use the NIC ice charts
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
             //double thin_conc_obs  = std::max(M_amsr2_conc[i]-M_conc[i],0.);
@@ -9953,12 +9969,28 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         double thin_conc_obs = 0.;
         double thin_conc_obs_min = 0.;
         double thin_conc_obs_max = 0.;
+        bool nic_masked = false;
         if (!use_weekly_nic)
-            this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_conc[i],use_weekly_nic);
+        {
+            nic_masked = (M_nic_conc[i]>1.);
+            if(!nic_masked)
+                this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_conc[i],!use_weekly_nic);
+        }
         else
-            this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_weekly_conc[i],use_weekly_nic);
+        {
+            nic_masked = (M_nic_weekly_conc[i]>1.);
+            if(!nic_masked)
+                this->concBinsNic(thin_conc_obs_min,thin_conc_obs_max,M_nic_weekly_conc[i],use_weekly_nic);
+        }
 
+        // skip application of NIC if its conc is >1
+        // - then it is masked
+        // - unfortunately, applying the mask in datasets led to masked values being treated as real values of 0.0
+        //   so we have to do it manually here
+        if(nic_masked)
+            continue;
 
+        // Use the NIC ice charts
         if((M_amsr2_conc[i]>=thin_conc_obs_min) && (M_amsr2_conc[i]<=thin_conc_obs_max))
         {
             thin_conc_obs_min=M_amsr2_conc[i];
@@ -10009,7 +10041,7 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
             }
         }//no thin ice
 
-        M_damage[i]=1.-M_conc[i];
+        //M_damage[i]=1.-M_conc[i];
     }
 }//topazForecastAmsr2OsisafNicIce
 
