@@ -32,7 +32,8 @@ namespace setup
 		TOPAZF   = 2,
         MITGCM   = 3,
         TOPAZR_atrest   = 4,
-        TOPAZR_ALTIMETER   = 5
+        TOPAZR_ALTIMETER   = 5,
+        COUPLED  = 6
     };
 
     enum class IceType
