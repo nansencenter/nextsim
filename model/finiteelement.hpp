@@ -709,13 +709,12 @@ private:
     void topazAmsreIce();
     void topazAmsr2Ice();
 
-    //void initOSISAFDrifters();
-    //void initRGPSDrifters();
-    //void updateRGPSDrifters();
-    //void equallySpacedDrifter();
-    //void outputDrifter(std::fstream &iabp_out);
-    //void initIABPDrifter();
-    //void updateIABPDrifter();
+    void initialisingDrifters(
+        bool &init_main,
+        bool &init_rgps,
+        bool &init_osisaf,
+        bool &init_any
+        );
     void outputtingDrifters(
         bool &output_rgps,
         bool &input_iabp,
@@ -726,6 +725,7 @@ private:
         bool &move_drifters
         );
     void updateDrifters();
+    void initOsisafDrifters();
     void initRGPSDrifters();
     void updateRGPSDrifters();
     void initSidfexDrifters();

@@ -6175,7 +6175,9 @@ FiniteElement::step()
         this->gatherNodalField(M_UT, M_UT_root);
         this->gatherNodalField(M_UM, M_UM_root);
         this->gatherElementField(M_conc, M_conc_root);
+        this->updateDrifters();
 
+#if 0
         if(M_use_rgps_drifters)
         {
             // do we need to init RGPS drifters?
@@ -6198,6 +6200,7 @@ FiniteElement::step()
             LOG(DEBUG) << "updateDrifters\n";
             this->updateDrifters();
         }
+#endif
     }
 
 #if 1
@@ -10995,6 +10998,59 @@ FiniteElement::updateIabpDrifterPosition()
 }//updateIabpDrifterPosition
 
 void
+FiniteElement::initialisingDrifters(
+        bool &init_main,
+        bool &init_rgps,
+        bool &init_osisaf,
+        bool &init_any
+        )
+{
+    // This function tests which (if any) drifters we are initialising
+    // at the current time step
+    // It also calculates if we are doing any initialising at this timestep
+    init_main = false;
+    init_rgps = false;
+    init_osisaf = false;
+    init_any = false;
+    if(M_rank != 0)
+        return;
+
+    // initialising RGPS drifters?
+    if(M_use_rgps_drifters)
+    {
+        init_rgps = ( M_current_time == M_rgps_time_init );
+    }
+
+    // inputting/outputting IABP drifters?
+    if (       M_use_iabp_drifters
+            || M_use_equally_spaced_drifters
+            || M_use_sidfex_drifters
+            )
+    {
+        init_main = ( M_current_time == M_drifters_time_init);
+    }
+
+
+    // initialising OSISAF drifters?
+    // - is it 12:00 and past the spinup duration?
+    if ( M_use_osisaf_drifters )
+    {
+        init_osisaf = (
+                    M_current_time > M_drifters_time_init
+                 && std::fmod( M_current_time + 0.5, 1.0) == 0
+                 );
+    }
+
+    // calculate if we need to initialise ANY,
+    // since then we need to ensure M_UT = 0
+    init_any = (
+               init_main
+            || init_rgps
+            || init_osisaf
+            );
+}
+
+void
 FiniteElement::outputtingDrifters(
         bool &output_rgps,
         bool &input_iabp,
@@ -11002,13 +11058,13 @@ FiniteElement::outputtingDrifters(
         bool &output_equally_spaced,
         bool &output_sidfex,
         bool &output_osisaf,
-        bool &move_drifters
+        bool &io_any
         )
 {
     // This function tests which (if any) drifters we are outputting
     // at the current time step
-    // If we are outputting ANY, we move ALL the drifters, since they all use the same
-    // total displcement (M_UT)
+    // It also tests if IABP should be input now as well,
+    // and finally calculates if we are doing any input or output at this timestep
 
     output_rgps = false;
     input_iabp = false;
@@ -11016,7 +11072,7 @@ FiniteElement::outputtingDrifters(
     output_equally_spaced = false;
     output_sidfex = false;
     output_osisaf = false;
-    move_drifters = false;
+    io_any = false;
     if(M_rank != 0)
         return;
 
@@ -11025,57 +11081,62 @@ FiniteElement::outputtingDrifters(
     if(M_use_rgps_drifters)
     {
         output_rgps = (
-            M_current_time > M_rgps_time_init
+            M_current_time > M_rgps_time_init//only output after init time (not at init time)
             && fmod(M_current_time - M_rgps_time_init,
                 M_rgps_drifters_output_time_step)==0
             );
     }
 
-    // inputting/outputting IABP drifters?
-    if ( M_use_iabp_drifters )
+    // we only output after init time (not at init time)
+    // - netcdf/text file outputs are already written at init time of drifters
+    if(M_current_time>M_drifters_time_init)
     {
-        input_iabp = (std::fmod(
-                M_current_time - M_drifters_time_init,
-                M_iabp_drifters_input_time_step
-                )==0);
-        output_iabp = (std::fmod(
-                M_current_time - M_drifters_time_init,
-                M_iabp_drifters_output_time_step
-                )==0);
-    }
-
-    // outputting equally-spaced drifters?
-    if ( M_use_equally_spaced_drifters )
-    {
-        output_equally_spaced = (std::fmod(
-                M_current_time - M_drifters_time_init,
-                M_equally_spaced_drifters_output_time_step
-                )==0);
-    }
-
-    // outputting SIDFEX drifters?
-    if ( M_use_sidfex_drifters )
-    {
-        output_sidfex = (std::fmod(
+        // inputting/outputting IABP drifters?
+        if ( M_use_iabp_drifters )
+        {
+            input_iabp = (std::fmod(
                     M_current_time - M_drifters_time_init,
-                    M_sidfex_drifters_output_time_step
-                    ) == 0 );
-    }
+                    M_iabp_drifters_input_time_step
+                    )==0);
+            output_iabp = (std::fmod(
+                    M_current_time - M_drifters_time_init,
+                    M_iabp_drifters_output_time_step
+                    )==0);
+        }
 
-    // outputting OSISAF drifters?
-    // NB note the different reference point
-    // - this is OK since we require M_osisaf_drifters_output_time_step<=.5
-    // - needed since OSISAF drifters at 12:00
-    if ( M_use_osisaf_drifters )
-    {
-        output_osisaf = (std::fmod(
-                    M_current_time,
-                    M_osisaf_drifters_output_time_step
-                    ) == 0 );
+        // outputting equally-spaced drifters?
+        if ( M_use_equally_spaced_drifters )
+        {
+            output_equally_spaced = (std::fmod(
+                    M_current_time - M_drifters_time_init,
+                    M_equally_spaced_drifters_output_time_step
+                    )==0);
+        }
+
+        // outputting SIDFEX drifters?
+        if ( M_use_sidfex_drifters )
+        {
+            output_sidfex = (std::fmod(
+                        M_current_time - M_drifters_time_init,
+                        M_sidfex_drifters_output_time_step
+                        ) == 0 );
+        }
+
+        // outputting OSISAF drifters?
+        // NB note the different reference point
+        // - this is OK since we require M_osisaf_drifters_output_time_step<=.5
+        // - needed since OSISAF drifters at 12:00
+        if ( M_use_osisaf_drifters )
+        {
+            output_osisaf = (std::fmod(
+                        M_current_time,
+                        M_osisaf_drifters_output_time_step
+                        ) == 0 );
+        }
     }
 
     // we move ALL the drifters if we need to input/output ANY
-    move_drifters = (
+    io_any = (
                output_rgps
             || input_iabp
             || output_iabp
@@ -11095,13 +11156,26 @@ FiniteElement::updateDrifters()
     if(M_rank != 0)
         return;
 
+    // do we need to init any drifters?
+    bool init_main = false;
+    bool init_rgps = false;
+    bool init_osisaf = false;
+    bool init_any = false;
+    this->initialisingDrifters(
+            init_main,
+            init_rgps,
+            init_osisaf,
+            init_any
+            );
+
+    // do we need to output any drifters?
     bool output_rgps = false;
     bool input_iabp = false;
     bool output_iabp = false;
     bool output_equally_spaced = false;
     bool output_sidfex = false;
     bool output_osisaf = false;
-    bool move_drifters = false;
+    bool io_any = false;
     this->outputtingDrifters(
             output_rgps,
             input_iabp,
@@ -11109,29 +11183,39 @@ FiniteElement::updateDrifters()
             output_equally_spaced,
             output_sidfex,
             output_osisaf,
-            move_drifters
+            io_any
             );
 
+    // Do we need to move any drifters?
+    // * If we are outputting ANY, we move ALL the drifters, since they all use the same
+    //   total displcement (M_UT)
+    // * Also if we are initialising any, we also need to move the drifters
+    //   - this is because we need M_UT=0 at init time,
+    //     so the next move is relative to their initial position
+    bool move_drifters = (init_any || io_any);
     if (move_drifters)
     {
-        // do we need to move the drifters?
+        // move the drifters
         // NB M_UT is relative to the fixed mesh, not the moved mesh
         // NB to update the conc we need to move the mesh
         // TODO so far we do this inside updateIabpDrifterConc and
         // Drifters::updateConc - would be more efficient to move the
         // mesh here, but that would mean changing all the interfaces
         // to the routines
-        if ( M_use_iabp_drifters )
-            this->updateIabpDrifterPosition();
-        if ( M_use_equally_spaced_drifters )
-            M_equally_spaced_drifters.move(M_mesh_root, M_UT_root);
+        if(M_current_time>M_drifters_time_init)
+        {
+            if ( M_use_iabp_drifters )
+                this->updateIabpDrifterPosition();
+            if ( M_use_equally_spaced_drifters )
+                M_equally_spaced_drifters.move(M_mesh_root, M_UT_root);
+            if ( M_use_sidfex_drifters )
+                M_sidfex_drifters.move(M_mesh_root, M_UT_root);
+        }
         if ( M_use_rgps_drifters )
         {
             if ( M_rgps_drifters.isInitialised() )
                 M_rgps_drifters.move(M_mesh_root, M_UT_root);
         }
-        if ( M_use_sidfex_drifters )
-            M_sidfex_drifters.move(M_mesh_root, M_UT_root);
         if ( M_use_osisaf_drifters )
         {
             for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++)
@@ -11191,39 +11275,56 @@ FiniteElement::updateDrifters()
             }
     }
      
-    if ( M_use_osisaf_drifters && fmod(M_current_time+0.5, 1.) == 0 )
+    // * Do initialisation after moving,
+    //   to avoid moving drifters that are only just initialised
+    // * Also do it after output - this is mainly for the OSISAF drifters
+    if(init_main)
+        this->initDrifters();
+    if(init_rgps)
+        this->initRGPSDrifters();
+    if(init_osisaf)
     {
-        // OSISAF drift is calculated as a drifter displacement over 48 hours
-        // - start a new one each day at 12:00
-        // We have two sets of drifters in the field at all times
-        // - [0] is the newest
-        // Here we start a new set of drifters.
-
-        // Flip the vector so we move [0] to be [1]
-        std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
-
-        // Create a new M_drifters instance in [0], with a properly initialised netCDF file
-        std::string osi_grid_file = "ice_drift_nh_polstere-625_multi-oi.nc";
-        std::string osi_output_path = M_export_path+"/OSISAF_";
-        if(vm["drifters.use_refined_osisaf_grid"].as<bool>())
-        {
-            // use grid refined by a factor of 9
-            // - can then compare averaged drift to the observations
-            // - using an odd number in the refinement means the original grid points are a sub-sample of the refined grid
-            osi_grid_file = "ice_drift_nh_polstere-625_multi-grid_refined_9.nc";
-            osi_output_path = M_export_path+"/OSISAF_refined9_";
-        }
-            
-        M_osisaf_drifters[0] = Drifters("data", osi_grid_file,
-                "xc", "yc",
-                "lat", "lon", M_mesh_root, M_UM_root,
-                M_conc, vm["drifters.concentration_limit"].as<double>());
-
-        M_osisaf_drifters[0].initNetCDF(osi_output_path, M_current_time);
-        M_osisaf_drifters[0].appendNetCDF(M_current_time);
-    }//start a new set of OSISAF drifters
+        // start a new set of OSISAF drifters
+        // NB do this after outputting netcdf,
+        // to make sure the last time record is present
+        // for the drifters that will be terminated
+        this->initOsisafDrifters();
+    }
 
 }//updateDrifters
+
+void
+FiniteElement::initOsisafDrifters()
+{
+    // OSISAF drift is calculated as a drifter displacement over 48 hours
+    // - start a new one each day at 12:00
+    // We have two sets of drifters in the field at all times
+    // - [0] is the newest
+    // Here we start a new set of drifters.
+
+    // Flip the vector so we move [0] to be [1]
+    std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
+
+    // Create a new M_drifters instance in [0], with a properly initialised netCDF file
+    std::string osi_grid_file = "ice_drift_nh_polstere-625_multi-oi.nc";
+    std::string osi_output_path = M_export_path+"/OSISAF_";
+    if(vm["drifters.use_refined_osisaf_grid"].as<bool>())
+    {
+        // use grid refined by a factor of 9
+        // - can then compare averaged drift to the observations
+        // - using an odd number in the refinement means the original grid points are a sub-sample of the refined grid
+        osi_grid_file = "ice_drift_nh_polstere-625_multi-grid_refined_9.nc";
+        osi_output_path = M_export_path+"/OSISAF_refined9_";
+    }
+        
+    M_osisaf_drifters[0] = Drifters("data", osi_grid_file,
+            "xc", "yc",
+            "lat", "lon", M_mesh_root, M_UM_root,
+            M_conc, vm["drifters.concentration_limit"].as<double>());
+
+    M_osisaf_drifters[0].initNetCDF(osi_output_path, M_current_time);
+    M_osisaf_drifters[0].appendNetCDF(M_current_time);
+}
 
 void
 FiniteElement::calcCoriolis()
