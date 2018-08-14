@@ -54,7 +54,7 @@ Exporter::writeContainer(std::fstream& out, std::vector<Type> const& container, 
 	}
 	else
 	{
-		std::cerr << "writeContainer error: opening file " << out << " for output failed!" <<"\n";
+		std::cerr << "writeContainer error: opening file for output failed!" <<"\n";
 		std::abort();
 	}
 }
