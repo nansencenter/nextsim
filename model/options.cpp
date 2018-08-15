@@ -137,7 +137,10 @@ namespace Nextsim
                              "conc    thick    snow    conc_thin    h_thin    hs_thin    velocity_xy"
                     )->composing(), "list of variable names (put on separate lines in config file)")
             ("moorings.grid_file", po::value<std::string>()->default_value( "" ),
-                "Grid file with locations for moorings output. Has to be a netcdf file with x y as dimensions and latitude longitude as variables")
+                "Grid file with locations for moorings output. It must be a netcdf file with two dimensional lat and lon")
+            ("moorings.grid_latitude", po::value<std::string>()->default_value( "latitude" ), "The name of the latitude variable in the mooring_grid_file")
+            ("moorings.grid_longitude", po::value<std::string>()->default_value( "longitude" ), "The name of the longitude variable in the mooring_grid_file")
+            ("moorings.grid_transpose", po::value<bool>()->default_value( false ), "If true we assume the first dimension is y and the second x.")
             ("moorings.parallel_output", po::value<bool>()->default_value( false ), "")
 
             // drifters
@@ -367,10 +370,9 @@ namespace Nextsim
              */
 #if defined(OASIS)
             ("coupler.timestep", po::value<int>()->default_value( 3600 ), "Coupling time step")
-            ("coupler.with_ocean", po::value<bool>()->default_value( false ), "Do we couple with an ocean model?")
-            ("coupler.atm_from_ocean", po::value<bool>()->default_value( false ), "Do we get atmospheric state from the ocean model?")
-            ("coupler.with_waves", po::value<bool>()->default_value( false ), "Do we couple with a wave model?")
-            ("coupler.with_atm", po::value<bool>()->default_value( false ), "Do we couple with an atmospheric model?")
+            // ("coupler.with_ocean", po::value<bool>()->default_value( false ), "Do we couple with an ocean model?")
+            // ("coupler.with_waves", po::value<bool>()->default_value( false ), "Do we couple with a wave model?")
+            // ("coupler.with_atm", po::value<bool>()->default_value( false ), "Do we couple with an atmospheric model?")
 #endif
 
 #if defined(WAVES)
