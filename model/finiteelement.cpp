@@ -6202,6 +6202,11 @@ FiniteElement::init()
 void
 FiniteElement::step()
 {
+
+    if (vm["debugging.check_fields"].as<bool>())
+        // check fields for nans and if thickness is too big
+        this->checkFields();
+
     this->updateDrifterPosition();
 
 #if 1
@@ -11564,6 +11569,78 @@ FiniteElement::writeLogFile()
         }
     }
 }//writeLogFile
+
+void
+FiniteElement::checkFields()
+{
+
+    int itest = vm["debugging.test_element_number"].as<int>();
+    bool printout = (
+            M_rank == vm["debugging.test_proc_number"].as<int>()
+            && itest>0);
+    double xtest = 0.;
+    double ytest = 0.;
+    if(printout)
+    {
+        xtest = M_mesh.bCoordX()[itest];
+        ytest = M_mesh.bCoordY()[itest];
+    }
+    std::vector< std::vector<double>* > vecs_to_check;
+    std::vector< std::string > names;
+
+    vecs_to_check.push_back(&M_conc);
+    names.push_back("M_conc");
+    vecs_to_check.push_back(&M_thick);
+    names.push_back("M_thick");
+    vecs_to_check.push_back(&(M_tice[0]));
+    names.push_back("M_tice[0]");
+    for(int i=0; i<M_num_elements; i++)
+    {
+        int j = 0;
+        if(printout && i==itest)
+        {
+            std::cout<<"In checkFields\n";
+            std::cout<<"pcpt =  "<<pcpt<<"\n";
+            std::cout<<"M_nb_regrid = "<<M_nb_regrid<<"\n";
+            std::cout<<"date =  "<<to_date_time_string(M_current_time)<<"\n";
+            std::cout<<"M_rank = "<<M_rank<<"\n";
+            std::cout<<"element number = "<<i<<"\n";
+            std::cout<<"x,y = " <<xtest <<"," <<ytest <<"\n";
+            for (int j=0; j<names.size(); j++)
+            {
+                double val = ( *(vecs_to_check[j]) )[i];//vecs_to_check[j] is a pointer, so dereference
+                std::string name = names[j];
+                std::cout<<name <<" = "<< val <<"\n";
+            }
+            std::cout<<"\n";
+        }
+        for (int j=0; j<names.size(); j++)
+        {
+            double val = ( *(vecs_to_check[j]) )[i];//vecs_to_check[j] is a pointer, so dereference
+            std::string name = names[j];
+            if(std::isnan(val))
+            {
+                std::cout<<"NaN in "<<name<<"\n";
+                std::cout<<"pcpt =  "<<pcpt<<"\n";
+                std::cout<<"M_nb_regrid = "<<M_nb_regrid<<"\n";
+                std::cout<<"date =  "<<to_date_time_string(M_current_time)<<"\n";
+                std::cout<<"M_rank = "<<M_rank<<"\n";
+                std::cout<<"element number = "<<i<<"\n";
+                throw std::runtime_error("found NaN");
+            }
+            if(name=="M_thick" && val>25.)
+            {
+                std::cout<<"M_thick too big(" <<val <<")\n";
+                std::cout<<"pcpt =  "<<pcpt<<"\n";
+                std::cout<<"M_nb_regrid = "<<M_nb_regrid<<"\n";
+                std::cout<<"date =  "<<to_date_time_string(M_current_time)<<"\n";
+                std::cout<<"M_rank = "<<M_rank<<"\n";
+                std::cout<<"element number = "<<i<<"\n";
+                throw std::runtime_error("M_thick too big");
+            }
+        }
+    }
+}
 
 // Finalise everything
 void
