@@ -101,7 +101,7 @@ public:
 
 #if defined OASIS
     void check_and_reload(std::vector<double> const& RX_in,
-            std::vector<double> const& RY_in, const double current_time, const int cpl_time);
+            std::vector<double> const& RY_in, const double current_time, const int cpl_time, const int cpl_dt);
 #endif
 
     void transformData(Dataset *dataset);
