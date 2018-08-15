@@ -163,7 +163,7 @@ public:
 
     void nestingIce();
     void nestingDynamics();
-    void thermo(double dt);
+    void thermo(int dt);
     void thermoIce0(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfall,
                     double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf,
                     double &Qai, double &Qsw, double &Qlw, double &Qsh, double &Qlh);
@@ -482,14 +482,14 @@ private:
     double rhos;
     double days_in_sec;
     double time_init;
-    double output_time_step;
-    double ptime_step;
-    double mooring_output_time_step;
+    int output_time_step;
+    int ptime_step;
+    int mooring_output_time_step;
     double mooring_time_factor;
-    double drifter_output_time_step;
-    double restart_time_step;
-    double time_step;
-    double thermo_timestep;
+    int restart_time_step;
+    int time_step;
+    double dtime_step;
+    int thermo_timestep;
     double duration;
     double divergence_min;
     double compression_factor;

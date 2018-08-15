@@ -1068,35 +1068,40 @@ FiniteElement::initOptAndParam()
         throw std::runtime_error("Please provide simul.time_init option (start time)\n");
     else
         time_init = Nextsim::from_date_time_string(vm["simul.time_init"].as<std::string>());
-    ptime_step =  days_in_sec/vm["debugging.ptime_per_day"].as<int>();
 
-    time_step = vm["simul.timestep"].as<double>();
-    thermo_timestep = vm["simul.thermo_timestep"].as<double>();
-    if ( fmod(thermo_timestep,time_step) != 0)
+    time_step = vm["simul.timestep"].as<int>();
+    dtime_step = double(time_step);
+    ptime_step =  days_in_sec/vm["debugging.ptime_per_day"].as<int>();
+    // Round ptime_step to the nearest multple of time_step
+    ptime_step += time_step/2;
+    ptime_step -= ptime_step% time_step;
+    thermo_timestep = vm["simul.thermo_timestep"].as<int>();
+    if ( thermo_timestep % time_step != 0)
     {
-        std::cout << thermo_timestep << " " << time_step << "\n";
         throw std::runtime_error("thermo_timestep is not an integer multiple of time_step");
     }
     // Temporarly disabling super-stepping of the thermodynamcis. The model hangs randomly when it's enabled
     thermo_timestep = time_step;
 
-    output_time_step =  (vm["output.output_per_day"].as<int>()<0) ? time_step : time_step * floor(days_in_sec/vm["output.output_per_day"].as<int>()/time_step);
-    mooring_output_time_step =  vm["moorings.output_timestep"].as<double>()*days_in_sec;
-    mooring_time_factor = time_step/mooring_output_time_step;
-    if ( fmod(mooring_output_time_step,time_step) != 0)
+    output_time_step =  (vm["output.output_per_day"].as<int>()<0) ? time_step : days_in_sec/vm["output.output_per_day"].as<int>();
+    if ( output_time_step % time_step != 0)
     {
-        std::cout << mooring_output_time_step << " " << time_step << "\n";
+        throw std::runtime_error("output_time_step is not an integer multiple of time_step");
+    }
+    mooring_output_time_step =  vm["moorings.output_timestep"].as<double>()*days_in_sec;
+    if ( mooring_output_time_step % time_step != 0)
+    {
         throw std::runtime_error("mooring_output_time_step is not an integer multiple of time_step");
     }
+    mooring_time_factor = time_step/mooring_output_time_step;
 
     duration = (vm["simul.duration"].as<double>())*days_in_sec;
     restart_time_step =  vm["restart.output_time_step"].as<double>()*days_in_sec;
     M_use_assimilation   = vm["setup.use_assimilation"].as<bool>();
     M_use_restart   = vm["restart.start_from_restart"].as<bool>();
     M_write_restart = vm["restart.write_restart"].as<bool>();
-    if ( fmod(restart_time_step,time_step) != 0)
+    if ( restart_time_step % time_step != 0)
     {
-        std::cout << restart_time_step << " " << time_step << "\n";
         throw std::runtime_error("restart_time_step not an integer multiple of time_step");
     }
 
@@ -2373,7 +2378,7 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
             // pure Lagrangian case
             for (int nd=0; nd<M_UM.size(); ++nd)
             {
-                M_UM[nd] += time_step*M_VT[nd];
+                M_UM[nd] += dtime_step*M_VT[nd];
             }
         }
         else
@@ -2431,7 +2436,7 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
 
             for (int nd=0; nd<M_UM.size(); ++nd)
             {
-                M_UM[nd] += time_step*M_VT_smoothed[nd];
+                M_UM[nd] += dtime_step*M_VT_smoothed[nd];
             }
         }//using ALE
 
@@ -2484,8 +2489,8 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
             // convective velocity
             // - this is zero for pure Lagrangian, except for at open boundaries,
             // where it is M_VT
-            VC_x[i] = M_VT[x_ind]-(M_UM[x_ind]-UM_P[x_ind])/time_step;
-            VC_y[i] = M_VT[y_ind]-(M_UM[y_ind]-UM_P[y_ind])/time_step;
+            VC_x[i] = M_VT[x_ind]-(M_UM[x_ind]-UM_P[x_ind])/dtime_step;
+            VC_y[i] = M_VT[y_ind]-(M_UM[y_ind]-UM_P[y_ind])/dtime_step;
         }
 
         for(int i=0;i<3;i++)
@@ -2509,7 +2514,7 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
             if(outer_fluxes_area[i]>0)
             {
                 surface = this->measure(M_elements[cpt],M_mesh, UM_P);
-                outer_fluxes_area[i] = std::min(surface/time_step/3.,outer_fluxes_area[i]);
+                outer_fluxes_area[i] = std::min(surface/dtime_step/3.,outer_fluxes_area[i]);
                 fluxes_source_id[i]  = cpt;
             }
             else
@@ -2523,7 +2528,7 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
 		        if (!std::isnan(neighbour_double) && neighbour_int>0)
                 {
                     surface = this->measure(M_elements[neighbour_int-1],M_mesh, UM_P);
-                    outer_fluxes_area[i] = -std::min(surface/time_step/3.,-outer_fluxes_area[i]);
+                    outer_fluxes_area[i] = -std::min(surface/dtime_step/3.,-outer_fluxes_area[i]);
                     fluxes_source_id[i]  = neighbour_int-1;
                 }
                 else // open boundary with incoming fluxes
@@ -2544,7 +2549,7 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
                        interp_elt_in[fluxes_source_id[0]*M_nb_var_element+j]*outer_fluxes_area[0]
                        + interp_elt_in[fluxes_source_id[1]*M_nb_var_element+j]*outer_fluxes_area[1]
                        + interp_elt_in[fluxes_source_id[2]*M_nb_var_element+j]*outer_fluxes_area[2]
-                       )*time_step;
+                       )*dtime_step;
 
                 interp_elt_out[cpt*M_nb_var_element+j] = integrated_variable/surface_new;
             }
@@ -2638,7 +2643,7 @@ FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<
 
         for (int nd=0; nd<M_UM_root.size(); ++nd)
         {
-            M_UM_root[nd] += time_step*M_VT_smoothed_root[nd];
+            M_UM_root[nd] += dtime_step*M_VT_smoothed_root[nd];
         }
 
         for (const int& nd : M_neumann_nodes_root)
@@ -2693,8 +2698,8 @@ FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<
                 y[i]     = y[i]+UM_P_root[y_ind];
 
                 // VC_x,y are 0 in Lagrangian case
-                VC_x[i] = M_VT_root[x_ind]-(M_UM_root[x_ind]-UM_P_root[x_ind])/time_step;
-                VC_y[i] = M_VT_root[y_ind]-(M_UM_root[y_ind]-UM_P_root[y_ind])/time_step;
+                VC_x[i] = M_VT_root[x_ind]-(M_UM_root[x_ind]-UM_P_root[x_ind])/dtime_step;
+                VC_y[i] = M_VT_root[y_ind]-(M_UM_root[y_ind]-UM_P_root[y_ind])/dtime_step;
             }
 
             surface = this->measure(elements_root[cpt],M_mesh_root, UM_P_root);
@@ -2722,7 +2727,7 @@ FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<
                 if(outer_fluxes_area[i]>0)
                 {
                     // surface = this->measure(elements_root[cpt],M_mesh_root, UM_P_root);
-                    outer_fluxes_area[i] = std::min(surface/time_step/3.,outer_fluxes_area[i]);
+                    outer_fluxes_area[i] = std::min(surface/dtime_step/3.,outer_fluxes_area[i]);
                     fluxes_source_id[i] = cpt;
                 }
                 else
@@ -2736,7 +2741,7 @@ FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<
                     if (!std::isnan(neighbour_double) && neighbour_int>0)
                     {
                         double surface_local = this->measure(elements_root[neighbour_int-1],M_mesh_root, UM_P_root);
-                        outer_fluxes_area[i] = -std::min(surface_local/time_step/3.,-outer_fluxes_area[i]);
+                        outer_fluxes_area[i] = -std::min(surface_local/dtime_step/3.,-outer_fluxes_area[i]);
                         fluxes_source_id[i] = neighbour_int-1;
                     }
                     else // open boundary with incoming fluxes
@@ -2760,7 +2765,7 @@ FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<
                            interp_elt_in_root[fluxes_source_id[0]*M_nb_var_element+j]*outer_fluxes_area[0]
                            + interp_elt_in_root[fluxes_source_id[1]*M_nb_var_element+j]*outer_fluxes_area[1]
                            + interp_elt_in_root[fluxes_source_id[2]*M_nb_var_element+j]*outer_fluxes_area[2]
-                           )*time_step;
+                           )*dtime_step;
 
                     interp_elt_out_root[cpt*M_nb_var_element+j] = integrated_variable/surface_new;
                 }
@@ -2783,7 +2788,7 @@ FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<
 
     for (int nd=0; nd<M_UM.size(); ++nd)
     {
-        M_UM[nd] += time_step*M_VT_smoothed[nd];
+        M_UM[nd] += dtime_step*M_VT_smoothed[nd];
     }
 
     for (const int& nd : M_neumann_nodes)
@@ -2815,7 +2820,7 @@ FiniteElement::diffuse(std::vector<double>& variable_elt, double diffusivity_par
 
     if (M_rank == 0)
     {
-        double factor = diffusivity_parameters*time_step/std::pow(dx,2.);
+        double factor = diffusivity_parameters*dtime_step/std::pow(dx,2.);
         std::vector<double> old_variable_elt = variable_elt_root;
 
         // get the global number of nodes
@@ -4156,7 +4161,7 @@ FiniteElement::assemble(int pcpt)
         double exponent_relaxation_sigma = vm["dynamics.exponent_relaxation_sigma"].as<double>();
 
         double time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-M_damage[cpt],exponent_relaxation_sigma-1.);
-        double multiplicator = time_viscous/(time_viscous+time_step);
+        double multiplicator = time_viscous/(time_viscous+dtime_step);
 
         double norm_Voce_ice = 0.;
         double norm_Voce_ice_min = 0.01; // minimum value to avoid 0 water drag term.
@@ -4247,7 +4252,7 @@ FiniteElement::assemble(int pcpt)
 
             coef_drag  = 1.;
             coef_C     = mass_e*M_fcor[cpt];              /* for the Coriolis term */
-            coef_V     = mass_e/time_step;             /* for the inertial term */
+            coef_V     = mass_e/dtime_step;             /* for the inertial term */
             coef_X     = - mass_e*g_ssh_e_x;              /* for the ocean slope */
             coef_Y     = - mass_e*g_ssh_e_y;              /* for the ocean slope */
             coef_sigma = M_thick[cpt]*multiplicator;
@@ -4353,18 +4358,18 @@ FiniteElement::assemble(int pcpt)
 
                     duu = surface_e*( mloc*(coef_V)
                                       +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
-                                      +M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*time_step );
+                                      +M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*dtime_step );
 
                     /* ---------- VU component */
-                    dvu = surface_e*( +M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j]*coef*time_step );
+                    dvu = surface_e*( +M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j]*coef*dtime_step );
 
                     /* ---------- UV component */
-                    duv = surface_e*( +M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j+1]*coef*time_step );
+                    duv = surface_e*( +M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j+1]*coef*dtime_step );
 
                     /* ---------- VV component */
                     dvv = surface_e*( mloc*(coef_V)
                                       +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
-                                      +M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*time_step );
+                                      +M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*dtime_step );
 
                     data[(2*l_j  )*6+2*i  ] = duu;
                     data[(2*l_j+1)*6+2*i  ] = dvu;
@@ -4664,7 +4669,7 @@ FiniteElement::update()
         opening_factor=(young>0.) ? opening_factor : 0.;
 
         //open_water_concentration += time_step*0.5*(delta_ridging-divergence_rate)*opening_factor;
-        open_water_concentration += time_step*0.5*shear_rate/e_factor*opening_factor;
+        open_water_concentration += dtime_step*0.5*shear_rate/e_factor*opening_factor;
 
         // limit open_water concentration to 1.
         open_water_concentration=(open_water_concentration>1.)?1.:open_water_concentration;
@@ -4761,7 +4766,7 @@ FiniteElement::update()
             double exponent_relaxation_sigma=vm["dynamics.exponent_relaxation_sigma"].as<double>();
 
             double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-old_damage,exponent_relaxation_sigma-1.);
-            double multiplicator=time_viscous/(time_viscous+time_step);
+            double multiplicator=time_viscous/(time_viscous+dtime_step);
 
         for(int i=0;i<3;i++)
         {
@@ -4771,10 +4776,10 @@ FiniteElement::update()
                 sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[3*i + j]*epsilon_veloc[j];
             }
 
-            sigma_pred[i] = (M_sigma[3*cpt+i]+4.*time_step*sigma_dot_i)*multiplicator;
+            sigma_pred[i] = (M_sigma[3*cpt+i]+4.*dtime_step*sigma_dot_i)*multiplicator;
             sigma_pred[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma_pred[i]):0.;
 
-            M_sigma[3*cpt+i] = (M_sigma[3*cpt+i]+time_step*sigma_dot_i)*multiplicator;
+            M_sigma[3*cpt+i] = (M_sigma[3*cpt+i]+dtime_step*sigma_dot_i)*multiplicator;
             M_sigma[3*cpt+i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (M_sigma[3*cpt+i]):0.;
         }
 
@@ -4875,7 +4880,7 @@ FiniteElement::update()
          * otherwise, it will never heal completely.
          * time_recovery_damage still depends on the temperature when themodynamics is activated.
          */
-        tmp=M_damage[cpt]-time_step/M_time_relaxation_damage[cpt];
+        tmp=M_damage[cpt]-dtime_step/M_time_relaxation_damage[cpt];
         if(M_thick[cpt]==0.)
             tmp=0.;
 
@@ -4934,17 +4939,17 @@ FiniteElement::nestingIce()
                 fNudge = std::exp(-M_nesting_dist_elements[i]/nudge_scale);
 
             if ( Environment::vm()["thermo.newice_type"].as<int>() == 4 ) {
-                M_conc_thin[i]  += (fNudge*(time_step/nudge_time)*(M_ice_conc_thin[i]-M_conc_thin[i]));
-                M_h_thin[i]     += (fNudge*(time_step/nudge_time)*(M_ice_h_thin[i]-M_h_thin[i]));
-                M_hs_thin[i]    += (fNudge*(time_step/nudge_time)*(M_ice_hs_thin[i]-M_hs_thin[i]));
-                M_conc[i]       += (fNudge*(time_step/nudge_time)*(M_ice_conc[i]-M_conc[i]));
-                M_thick[i]      += (fNudge*(time_step/nudge_time)*(M_ice_thick[i]-M_thick[i]));
-                M_snow_thick[i] +=(fNudge*(time_step/nudge_time)*(M_ice_snow_thick[i]-M_snow_thick[i]));
+                M_conc_thin[i]  += (fNudge*(dtime_step/nudge_time)*(M_ice_conc_thin[i]-M_conc_thin[i]));
+                M_h_thin[i]     += (fNudge*(dtime_step/nudge_time)*(M_ice_h_thin[i]-M_h_thin[i]));
+                M_hs_thin[i]    += (fNudge*(dtime_step/nudge_time)*(M_ice_hs_thin[i]-M_hs_thin[i]));
+                M_conc[i]       += (fNudge*(dtime_step/nudge_time)*(M_ice_conc[i]-M_conc[i]));
+                M_thick[i]      += (fNudge*(dtime_step/nudge_time)*(M_ice_thick[i]-M_thick[i]));
+                M_snow_thick[i] +=(fNudge*(dtime_step/nudge_time)*(M_ice_snow_thick[i]-M_snow_thick[i]));
             }
             else {
-                M_conc[i]       += (fNudge*(time_step/nudge_time)*(M_ice_conc[i]-M_conc[i]));
-                M_thick[i]      += (fNudge*(time_step/nudge_time)*(M_ice_thick[i]-M_thick[i]));
-                M_snow_thick[i] += (fNudge*(time_step/nudge_time)*(M_ice_snow_thick[i]-M_snow_thick[i]));
+                M_conc[i]       += (fNudge*(dtime_step/nudge_time)*(M_ice_conc[i]-M_conc[i]));
+                M_thick[i]      += (fNudge*(dtime_step/nudge_time)*(M_ice_thick[i]-M_thick[i]));
+                M_snow_thick[i] += (fNudge*(dtime_step/nudge_time)*(M_ice_snow_thick[i]-M_snow_thick[i]));
             }
         }
     }
@@ -4969,11 +4974,11 @@ FiniteElement::nestingDynamics()
                 fNudge = 1. - std::min(1.,(M_nesting_dist_elements[i]/nudge_scale));
             if ( M_nudge_function == "exponential" )
                 fNudge = std::exp(-M_nesting_dist_elements[i]/nudge_scale);
-            M_sigma[3*i]     += (fNudge*(time_step/nudge_time)*(M_nesting_sigma1[i]-M_sigma[3*i]));
-            M_sigma[3*i+1]   += (fNudge*(time_step/nudge_time)*(M_nesting_sigma2[i]-M_sigma[3*i+1]));
-            M_sigma[3*i+2]   += (fNudge*(time_step/nudge_time)*(M_nesting_sigma3[i]-M_sigma[3*i+2]));
-            M_damage[i]      += (fNudge*(time_step/nudge_time)*(M_nesting_damage[i]-M_damage[i]));
-            M_ridge_ratio[i] += (fNudge*(time_step/nudge_time)*(M_nesting_ridge_ratio[i]-M_ridge_ratio[i]));
+            M_sigma[3*i]     += (fNudge*(dtime_step/nudge_time)*(M_nesting_sigma1[i]-M_sigma[3*i]));
+            M_sigma[3*i+1]   += (fNudge*(dtime_step/nudge_time)*(M_nesting_sigma2[i]-M_sigma[3*i+1]));
+            M_sigma[3*i+2]   += (fNudge*(dtime_step/nudge_time)*(M_nesting_sigma3[i]-M_sigma[3*i+2]));
+            M_damage[i]      += (fNudge*(dtime_step/nudge_time)*(M_nesting_damage[i]-M_damage[i]));
+            M_ridge_ratio[i] += (fNudge*(dtime_step/nudge_time)*(M_nesting_ridge_ratio[i]-M_ridge_ratio[i]));
         }
     }
 
@@ -4990,8 +4995,8 @@ FiniteElement::nestingDynamics()
                 fNudge = 1. - std::min(1.,(M_nesting_dist_nodes[i]/nudge_scale));
             if ( M_nudge_function == "exponential" )
                 fNudge = std::exp(-M_nesting_dist_nodes[i]/nudge_scale);
-            M_VT[i]             += (fNudge*(time_step/nudge_time)*(M_nesting_VT1[i]-M_VT[i]));
-            M_VT[i+M_num_nodes] += (fNudge*(time_step/nudge_time)*(M_nesting_VT2[i]-M_VT[i+M_num_nodes]));
+            M_VT[i]             += (fNudge*(dtime_step/nudge_time)*(M_nesting_VT1[i]-M_VT[i]));
+            M_VT[i+M_num_nodes] += (fNudge*(dtime_step/nudge_time)*(M_nesting_VT2[i]-M_VT[i+M_num_nodes]));
         }
     }
 }
@@ -4999,13 +5004,15 @@ FiniteElement::nestingDynamics()
 // Routine for the 1D thermodynamical model
 // No stability dependent drag for now
 void
-FiniteElement::thermo(double dt)
+FiniteElement::thermo(int dt)
 {
     M_comm.barrier();
 
     // There is now only one big loop for the thermodynamics so that we can use multithreading.
 
     // constant variables
+    double ddt = double(dt);
+
     // Set local variable to values defined by options
     double const timeT = vm["thermo.ocean_nudge_timeT"].as<double>();
     double const timeS = vm["thermo.ocean_nudge_timeS"].as<double>();
@@ -5135,7 +5142,7 @@ FiniteElement::thermo(double dt)
                 Qdw = -(M_sst[i]-M_ocean_temp[i]) * mld * physical::rhow * physical::cpw/timeT;
 
                 double delS = M_sss[i] - M_ocean_salt[i];
-                Fdw = delS * mld * physical::rhow /(timeS*M_sss[i] - dt*delS);
+                Fdw = delS * mld * physical::rhow /(timeS*M_sss[i] - ddt*delS);
             }
             else
             {
@@ -5229,12 +5236,12 @@ FiniteElement::thermo(double dt)
         switch ( M_thermo_type )
         {
             case setup::ThermoType::ZERO_LAYER:
-                this->thermoIce0(i, dt, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i],
+                this->thermoIce0(i, ddt, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i],
                         Qlw_in, Qsw_in, mld, tmp_snowfall, hi, hs, hi_old, Qio, del_hi, M_tice[0][i],
                         Qai, Qswi, Qlwi, Qshi, Qlhi);
                 break;
             case setup::ThermoType::WINTON:
-                this->thermoWinton(i, dt, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i],
+                this->thermoWinton(i, ddt, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i],
                         Qlw_in, Qsw_in, mld, tmp_snowfall, hi, hs, hi_old, Qio, del_hi,
                         M_tice[0][i], M_tice[1][i], M_tice[2][i],
                         Qai, Qswi, Qlwi, Qshi, Qlhi);
@@ -5243,7 +5250,7 @@ FiniteElement::thermo(double dt)
 
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
-            this->thermoIce0(i, dt, wspeed, sphuma, old_conc_thin, M_h_thin[i], M_hs_thin[i],
+            this->thermoIce0(i, ddt, wspeed, sphuma, old_conc_thin, M_h_thin[i], M_hs_thin[i],
                     Qlw_in, Qsw_in, mld, tmp_snowfall, hi_thin, hs_thin, hi_thin_old, Qio_thin, del_hi_thin, M_tsurf_thin[i],
                         Qai_thin, Qsw_thin, Qlw_thin, Qsh_thin, Qlh_thin);
             M_h_thin[i]  = hi_thin * old_conc_thin;
@@ -5257,14 +5264,14 @@ FiniteElement::thermo(double dt)
         double tw_new, tfrw, newice, del_c, newsnow, h0;
 
         /* dT/dt due to heatflux ocean->atmosphere */
-        tw_new = M_sst[i] - Qow*dt/(mld*physical::rhow*physical::cpw);
+        tw_new = M_sst[i] - Qow*ddt/(mld*physical::rhow*physical::cpw);
         tfrw   = -physical::mu*M_sss[i];
 
         /* Form new ice in case of super cooling, and reset Qow and evap */
         if ( tw_new < tfrw )
         {
             newice  = (1.-M_conc[i]-M_conc_thin[i])*(tfrw-tw_new)*mld*physical::rhow*physical::cpw/qi;// m
-            Qow  = -(tfrw-M_sst[i])*mld*physical::rhow*physical::cpw/dt;
+            Qow  = -(tfrw-M_sst[i])*mld*physical::rhow*physical::cpw/ddt;
             // evap = 0.;
         }
         else
@@ -5375,7 +5382,7 @@ FiniteElement::thermo(double dt)
                     if ( hi > 0. )
                     {
                         /* Use the fraction PhiM of (1-c)*Qow to melt laterally */
-                        del_c += PhiM*(1.-M_conc[i])*std::min(0.,Qow)*dt/( hi*qi+hs*qs );
+                        del_c += PhiM*(1.-M_conc[i])*std::min(0.,Qow)*ddt/( hi*qi+hs*qs );
                         /* Deliver the fraction (1-PhiM) of Qow to the ocean */
                         Qow = (1.-PhiM)*Qow;
                     }
@@ -5406,7 +5413,7 @@ FiniteElement::thermo(double dt)
             if ( del_c < 0. )
             {
                 /* We conserve the snow height, but melt away snow as the concentration decreases */
-                Qow = Qow + del_c*hs*qs/dt;
+                Qow = Qow + del_c*hs*qs/ddt;
             }
             else
             {
@@ -5429,7 +5436,7 @@ FiniteElement::thermo(double dt)
         {
             // Extract heat from the ocean corresponding to the heat in the
             // remaining ice and snow
-            Qow    = Qow + M_conc[i]*hi*qi/dt + M_conc[i]*hs*qs/dt;
+            Qow    = Qow + M_conc[i]*hi*qi/ddt + M_conc[i]*hs*qs/ddt;
             M_conc[i]  = 0.;
 
             for (int j=0; j<M_tice.size(); j++)
@@ -5470,14 +5477,14 @@ FiniteElement::thermo(double dt)
         Qow_mean = Qow*(1.-old_conc-old_conc_thin);
 
         /* Heat-flux */
-        M_sst[i] = M_sst[i] - dt*( Qio_mean + Qow_mean - Qdw )/(physical::rhow*physical::cpw*mld);
+        M_sst[i] = M_sst[i] - ddt*( Qio_mean + Qow_mean - Qdw )/(physical::rhow*physical::cpw*mld);
 
         /* Change in salinity */
-        double denominator= ( mld*physical::rhow - del_vi*physical::rhoi - ( del_vs*physical::rhos + (emp-Fdw)*dt) );
+        double denominator= ( mld*physical::rhow - del_vi*physical::rhoi - ( del_vs*physical::rhos + (emp-Fdw)*ddt) );
         denominator = ( denominator > 1.*physical::rhow ) ? denominator : 1.*physical::rhow;
 
         double sss_old = M_sss[i];
-        M_sss[i] = M_sss[i] + ( (M_sss[i]-physical::si)*physical::rhoi*del_vi + M_sss[i]*(del_vs*physical::rhos + (emp-Fdw)*dt) )
+        M_sss[i] = M_sss[i] + ( (M_sss[i]-physical::si)*physical::rhoi*del_vi + M_sss[i]*(del_vs*physical::rhos + (emp-Fdw)*ddt) )
             / denominator;
 
         // -------------------------------------------------
@@ -5517,7 +5524,7 @@ FiniteElement::thermo(double dt)
                         std::cout << "thermo_type= " << (int)M_thermo_type << "\n";
                         throw std::logic_error("Wrong thermo_type");
                 }
-                M_time_relaxation_damage[i] = std::max(time_relaxation_damage*deltaT_relaxation_damage/deltaT, dt);
+                M_time_relaxation_damage[i] = std::max(time_relaxation_damage*deltaT_relaxation_damage/deltaT, ddt);
             }
             else
             {
@@ -5548,7 +5555,7 @@ FiniteElement::thermo(double dt)
         D_Qo[i] = Qio_mean + Qow_mean;
 
         // Salt release into the ocean - kg/day
-        D_delS[i] = (M_sss[i] - sss_old)*physical::rhow*mld/dt;
+        D_delS[i] = (M_sss[i] - sss_old)*physical::rhow*mld/ddt;
     }// end for loop
 }// end thermo function
 
@@ -6123,12 +6130,11 @@ FiniteElement::init()
             pcpt = this->readRestart(res_str);
         else
             pcpt = this->readRestart(vm["restart.step_nb"].as<int>());
-        M_current_time = time_init + pcpt*time_step/(24*3600.0);
+        M_current_time = time_init + pcpt*dtime_step/(24*3600.0);
 
-        if(fmod(pcpt*time_step,output_time_step) == 0)
+        if( pcpt*time_step % output_time_step == 0)
         {
             LOG(DEBUG) <<"export starts\n";
-            //this->exportResults((int) pcpt*time_step/output_time_step);
             this->exportResults("restart");
             LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
         }
@@ -6239,7 +6245,7 @@ FiniteElement::step()
 
         if (M_rank == 0)
         {
-            if(fmod(pcpt*time_step, ptime_step) == 0)
+            if( pcpt*time_step % ptime_step == 0)
                 std::cout <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
 
             std::cout <<"REGRID ANGLE= "<< minang <<"\n";
@@ -6289,7 +6295,7 @@ FiniteElement::step()
 
     timer["reload"].first.restart();
     this->checkReloadDatasets(M_external_data,
-                              M_current_time+time_step/(24*3600.0),
+                              M_current_time+dtime_step/(24*3600.0),
                               "step - time-dependant");
     if (M_rank == 0)
         std::cout <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
@@ -6297,7 +6303,7 @@ FiniteElement::step()
     //======================================================================
     // Do the thermodynamics
     //======================================================================
-    if ( vm["thermo.use_thermo_forcing"].as<bool>() && (fmod(pcpt*time_step,thermo_timestep) == 0) )
+    if ( vm["thermo.use_thermo_forcing"].as<bool>() && ( pcpt*time_step % thermo_timestep == 0) )
     {
         timer["thermo"].first.restart();
         this->thermo(thermo_timestep);
@@ -6385,24 +6391,22 @@ FiniteElement::step()
     //======================================================================
 
     ++pcpt;
-    M_current_time = time_init + pcpt*time_step/(24*3600.0);
+    M_current_time = time_init + pcpt*dtime_step/(24*3600.0);
 
 #if 1
     //======================================================================
     // Output (export and moorings)
     //======================================================================
 
-    if(fmod(pcpt*time_step,output_time_step) == 0)
+    if( pcpt*time_step % output_time_step == 0)
     {
         chrono.restart();
         LOG(DEBUG) <<"export starts\n";
         if (vm["output.datetime_in_filename"].as<bool>())
             this->exportResults(M_current_time);
         else
-        {
-            int ostep = pcpt*time_step/output_time_step;//need to declare as an int, to make sure it's not interpreted as a double
-            this->exportResults(ostep);
-        }
+            this->exportResults(pcpt*time_step/output_time_step);
+
         LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
     }
 
@@ -6415,17 +6419,14 @@ FiniteElement::step()
     bool write_restart = vm["restart.debugging"].as<bool>();
     if(!write_restart)
         // else check if we've reached the restart timestep
-        write_restart = (fmod(pcpt*time_step,restart_time_step) == 0);
+        write_restart = ( pcpt*time_step % restart_time_step == 0);
     if (write_restart)
     {
         std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
         if (vm["output.datetime_in_filename"].as<bool>())
             this->writeRestart(pcpt, M_current_time);
         else
-        {
-            int rstep = pcpt*time_step/restart_time_step;//need to declare as an int, to make sure it's not interpreted as a double
-            this->writeRestart(pcpt, rstep );
-        }
+            this->writeRestart(pcpt, pcpt*time_step/restart_time_step);
     }
 #endif
 #if 0
@@ -6446,7 +6447,7 @@ FiniteElement::run()
         this->writeLogFile();
     }
 
-    M_current_time = time_init + pcpt*time_step/(24*3600.0);
+    M_current_time = time_init + pcpt*dtime_step/(24*3600.0);
     bool is_running = true;
     if(duration<0)
         throw std::runtime_error("Set simul.duration >= 0\n");
@@ -6464,16 +6465,16 @@ FiniteElement::run()
             std::cout <<"---------------------- TIME STEP "<< pcpt << " : "
                       << model_time_str(vm["simul.time_init"].as<std::string>(), pcpt*time_step);
 
-            if(fmod(pcpt*time_step, ptime_step) == 0)
+            if( pcpt*time_step % ptime_step == 0)
             {
                 std::string time_spent_str = time_spent(current_time_system);
-                std::cout <<" ---------- progression: ("<< 100.0*(pcpt*time_step/duration) <<"%) ---------- time spent: "<< time_spent_str <<"\n";
+                std::cout <<" ---------- progression: ("<< 100.0*(pcpt*dtime_step/duration) <<"%) ---------- time spent: "<< time_spent_str <<"\n";
             }
 
             std::cout <<"\n";
         }
 
-        is_running = ((pcpt+1)*time_step) < duration;
+        is_running = ((pcpt+1)*dtime_step) < duration;
 
         if (pcpt == niter-1)
             is_running = false;
@@ -7044,10 +7045,10 @@ FiniteElement::initMoorings()
     {
         double output_time;
         if ( M_moorings_snapshot )
-            // shift the timestamp in the file to the centre of the output interval
             output_time = M_current_time;
         else
-            output_time = M_current_time - mooring_output_time_step/86400/2;
+            // shift the timestamp in the file to the centre of the output interval
+            output_time = M_current_time - double(mooring_output_time_step)/86400./2.;
 
         std::string filename_root;
         if ( M_moorings_parallel_output )
@@ -7067,24 +7068,24 @@ FiniteElement::updateMoorings()
     if ( !M_moorings_snapshot )
         this->updateMeans(M_moorings, mooring_time_factor);
 
-    if ( fmod(pcpt*time_step,mooring_output_time_step) == 0 )
+    if ( pcpt*time_step % mooring_output_time_step == 0 )
     {
         double output_time;
         if ( M_moorings_snapshot )
         {
             // Update the snapshot
             this->updateMeans(M_moorings, 1.);
-            // shift the timestamp in the file to the centre of the output interval
             output_time = M_current_time;
         }
         else
         {
-            output_time = M_current_time - mooring_output_time_step/86400/2;
+            // shift the timestamp in the file to the centre of the output interval
+            output_time = M_current_time - double(mooring_output_time_step)/86400./2.;
         }
 
         // If it's a new day we check if we need a new file
         double not_used;
-        if ( (M_rank==0||M_moorings_parallel_output) && (M_moorings_file_length != GridOutput::fileLength::inf) && (modf(output_time, &not_used) < time_step*86400) )
+        if ( (M_rank==0||M_moorings_parallel_output) && (M_moorings_file_length != GridOutput::fileLength::inf) && (modf(output_time, &not_used) < dtime_step*86400) )
         {
             std::string filename_root;
             if ( M_moorings_parallel_output )
@@ -7599,7 +7600,7 @@ FiniteElement::readRestart(std::string step)
         std::vector<double> time = field_map_dbl["Time"];
         if (!vm["restart.reset_time_counter"].as<bool>())
         {
-            double tmp = time_init + pcpt*time_step/(24*3600.0);
+            double tmp = time_init + pcpt*dtime_step/(24*3600.0);
             if ( time[0] != tmp )
             {
                 std::cout << "FiniteElement::readRestart: Time and Misc_int[0] (a.k.a pcpt) are inconsistent. \n";
@@ -8026,7 +8027,7 @@ FiniteElement::updateVelocity()
     // increment M_UT that is used for the drifters
     for (int nd=0; nd<M_UT.size(); ++nd)
     {
-        M_UT[nd] += time_step*M_VT[nd]; // Total displacement (for drifters)
+        M_UT[nd] += dtime_step*M_VT[nd]; // Total displacement (for drifters)
     }
 }
 
@@ -8066,8 +8067,8 @@ FiniteElement::updateFreeDriftVelocity()
             M_VT[index_v] = ( coef_Vair*M_wind [index_v] + coef_Voce*M_ocean [index_v] ) / ( coef_Vair+coef_Voce );
 
             // increment M_UT that is used for the drifters
-            M_UT[index_u] += time_step*M_VT[index_u]; // Total displacement (for drifters)
-            M_UT[index_v] += time_step*M_VT[index_v]; // Total displacement (for drifters)
+            M_UT[index_u] += dtime_step*M_VT[index_u]; // Total displacement (for drifters)
+            M_UT[index_v] += dtime_step*M_VT[index_v]; // Total displacement (for drifters)
         }
     }
 }

@@ -42,8 +42,8 @@ namespace Nextsim
                 "Start date/time of simulation. Formats: yyyy-mm-dd, yyyy-mm-dd HH:MM:SS; can also use 3 letter month name for 'mm' eg Mar for March")
             ("simul.duration", po::value<double>()->default_value( -1. ),
                 "Length of simulation in days.")
-            ("simul.timestep", po::value<double>()->default_value( 200. ), "Model timestep in seconds.")
-            ("simul.thermo_timestep", po::value<double>()->default_value( 3600. ), "Thermodynamic timestep in seconds.")
+            ("simul.timestep", po::value<int>()->default_value( 200 ), "Model timestep in seconds.")
+            ("simul.thermo_timestep", po::value<int>()->default_value( 3600 ), "Thermodynamic timestep in seconds.")
             ("simul.spinup_duration", po::value<double>()->default_value( 1. ),
                 "Spinup duration in days over which the forcing is linearly increased from 0 to its correct value.")
 
@@ -366,7 +366,7 @@ namespace Nextsim
              * -----------------------------------------------------------------------------------
              */
 #if defined(OASIS)
-            ("coupler.timestep", po::value<double>()->default_value( 3600. ), "Coupling time step")
+            ("coupler.timestep", po::value<int>()->default_value( 3600 ), "Coupling time step")
             ("coupler.with_ocean", po::value<bool>()->default_value( false ), "Do we couple with an ocean model?")
             ("coupler.atm_from_ocean", po::value<bool>()->default_value( false ), "Do we get atmospheric state from the ocean model?")
             ("coupler.with_waves", po::value<bool>()->default_value( false ), "Do we couple with a wave model?")
