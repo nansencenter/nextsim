@@ -7536,7 +7536,7 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int j
     else if(grid_ptr->dataset_frequency=="daily"
             || grid_ptr->dataset_frequency=="nearest_daily")
         current_timestr = to_date_string_yd(std::floor(current_time+jump));//yyyymmdd
-    else if(grid_ptr->dataset_frequency=="constant" || grid_ptr->dataset_frequency=="coupled")
+    else if(grid_ptr->dataset_frequency=="constant" || grid_ptr->dataset_frequency=="coupled")
         current_timestr = "";
     else
         throw std::runtime_error(
