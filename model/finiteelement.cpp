@@ -11580,10 +11580,28 @@ FiniteElement::checkFields()
             && itest>0);
     double xtest = 0.;
     double ytest = 0.;
+    double lat_test = 0.;
+    double lon_test = 0.;
     if(printout)
     {
-        xtest = M_mesh.bCoordX()[itest];
-        ytest = M_mesh.bCoordY()[itest];
+        auto movedmesh = M_mesh;
+        movedmesh.move(M_UM, 1.);
+        xtest = movedmesh.bCoordX()[itest];
+        ytest = movedmesh.bCoordY()[itest];
+
+        // get lon, lat at test position
+        mapx_class *map;
+        std::string configfile = (boost::format( "%1%/%2%/%3%" )
+                                  % Environment::nextsimDir().string()
+                                  % "data"
+                                  % vm["mesh.mppfile"].as<std::string>()
+                                  ).str();
+
+        std::vector<char> str(configfile.begin(), configfile.end());
+        str.push_back('\0');
+        map = init_mapx(&str[0]);
+        inverse_mapx(map, xtest, ytest, &lat_test, &lon_test);
+        close_mapx(map);
     }
     std::vector< std::vector<double>* > vecs_to_check;
     std::vector< std::string > names;
@@ -11601,11 +11619,12 @@ FiniteElement::checkFields()
         {
             std::cout<<"In checkFields\n";
             std::cout<<"pcpt =  "<<pcpt<<"\n";
-            std::cout<<"M_nb_regrid = "<<M_nb_regrid<<"\n";
             std::cout<<"date =  "<<to_date_time_string(M_current_time)<<"\n";
+            std::cout<<"M_nb_regrid = "<<M_nb_regrid<<"\n";
             std::cout<<"M_rank = "<<M_rank<<"\n";
             std::cout<<"element number = "<<i<<"\n";
             std::cout<<"x,y = " <<xtest <<"," <<ytest <<"\n";
+            std::cout<<"lon,lat = " <<lon_test <<"," <<lat_test <<"\n";
             for (int j=0; j<names.size(); j++)
             {
                 double val = ( *(vecs_to_check[j]) )[i];//vecs_to_check[j] is a pointer, so dereference
