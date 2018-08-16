@@ -8,16 +8,16 @@ RUN apt-get update && apt-get install -y \
 
 ENV NEXTSIMDIR=/nextsim
 
-COPY Makefile $NEXTSIMDIR/
-COPY contrib $NEXTSIMDIR/contrib
-COPY core $NEXTSIMDIR/core
-COPY model $NEXTSIMDIR/model
 
 SHELL ["/bin/bash", "-c"]
 
+COPY Makefile $NEXTSIMDIR/
+COPY contrib $NEXTSIMDIR/contrib
+COPY core $NEXTSIMDIR/core
 WORKDIR $NEXTSIMDIR
 RUN source $NEXTSIMDIR/nextsim.src && make
 
+COPY model $NEXTSIMDIR/model
 WORKDIR $NEXTSIMDIR/model
 RUN source $NEXTSIMDIR/nextsim.src && make
 
