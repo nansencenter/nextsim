@@ -9820,10 +9820,12 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         tmp_var=std::min(1.,M_topaz_conc[i]);
         M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.;
         if(     (M_conc[i]>0.)
-             && (M_amsr2_conc[i]>.15))
+             && (M_amsr2_conc[i]>.15)
+             && (M_amsr2_conc[i]<=1.))
             // use amsr2 only where
             // - topaz says there is ice to avoid near land issues and fake concentration over the ocean
             // - it is large enough to be trusted
+            // - it is not masked (mask value = 1.15, but using masking from dataset fills missing values to 0)
             M_conc[i]=M_amsr2_conc[i];
 
         double ratio_FYI=0.3;
@@ -9900,66 +9902,66 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         // - then it is masked
         // - unfortunately, applying the mask in datasets led to masked values being treated as real values of 0.0
         //   so we have to do it manually here
-        if(M_nic_conc[i]>1.)
-            continue;
-
-        // Use the NIC ice charts
-        // - get conc bins from NIC dataset
-        double thin_conc_obs = 0.;
-        double thin_conc_obs_min = 0.;
-        double thin_conc_obs_max = 0.;
-        this->concBinsNic(thin_conc_obs_min, thin_conc_obs_max, M_nic_conc[i], use_weekly_nic);
-
-        if((M_amsr2_conc[i]>=thin_conc_obs_min) && (M_amsr2_conc[i]<=thin_conc_obs_max))
+        if(M_nic_conc[i]<=1.)
         {
-            thin_conc_obs_min=M_amsr2_conc[i];
-            thin_conc_obs_max=M_amsr2_conc[i];
-        }
-        else
-        {
-            thin_conc_obs_min=0.5*(thin_conc_obs_min+thin_conc_obs_max);
-            thin_conc_obs_max=thin_conc_obs_min;
-        }
+            // Use the NIC ice charts
+            // - get conc bins from NIC dataset
+            double thin_conc_obs = 0.;
+            double thin_conc_obs_min = 0.;
+            double thin_conc_obs_max = 0.;
+            this->concBinsNic(thin_conc_obs_min, thin_conc_obs_max, M_nic_conc[i], use_weekly_nic);
 
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        {
-            M_conc_thin[i]=0.;
-
-            thin_conc_obs = thin_conc_obs_min-M_conc[i];
-            if(thin_conc_obs>=0.)
+            if((M_amsr2_conc[i]>=thin_conc_obs_min) && (M_amsr2_conc[i]<=thin_conc_obs_max))
             {
-                //if(thin_conc_obs>M_conc_thin[i])
-                //    M_h_thin[i] = M_h_thin[i]+(h_thin_min + (h_thin_max/2.-h_thin_min)*0.5)*(thin_conc_obs-M_conc_thin[i]);
-                //else
-                //    M_h_thin[i] = M_h_thin[i]*thin_conc_obs/M_conc_thin[i];
-
-                M_conc_thin[i] = thin_conc_obs;
-                M_h_thin[i] = (h_thin_min + (h_thin_max/2.-h_thin_min)*0.5)*M_conc_thin[i];
+                thin_conc_obs_min=M_amsr2_conc[i];
+                thin_conc_obs_max=M_amsr2_conc[i];
             }
             else
             {
+                thin_conc_obs_min=0.5*(thin_conc_obs_min+thin_conc_obs_max);
+                thin_conc_obs_max=thin_conc_obs_min;
+            }
+
+            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+            {
                 M_conc_thin[i]=0.;
-                M_h_thin[i]=0.;
 
-                M_conc[i]=M_conc[i]+thin_conc_obs;
-                M_thick[i]=hi*M_conc[i];
-            }
+                thin_conc_obs = thin_conc_obs_min-M_conc[i];
+                if(thin_conc_obs>=0.)
+                {
+                    //if(thin_conc_obs>M_conc_thin[i])
+                    //    M_h_thin[i] = M_h_thin[i]+(h_thin_min + (h_thin_max/2.-h_thin_min)*0.5)*(thin_conc_obs-M_conc_thin[i]);
+                    //else
+                    //    M_h_thin[i] = M_h_thin[i]*thin_conc_obs/M_conc_thin[i];
 
-        }//thin ice
-        else
-        {
-            if(M_conc[i]<thin_conc_obs_min)
+                    M_conc_thin[i] = thin_conc_obs;
+                    M_h_thin[i] = (h_thin_min + (h_thin_max/2.-h_thin_min)*0.5)*M_conc_thin[i];
+                }
+                else
+                {
+                    M_conc_thin[i]=0.;
+                    M_h_thin[i]=0.;
+
+                    M_conc[i]=M_conc[i]+thin_conc_obs;
+                    M_thick[i]=hi*M_conc[i];
+                }
+
+            }//thin ice
+            else
             {
-                M_thick[i] = M_thick[i] + std::max(hi,0.5)*(thin_conc_obs_min-M_conc[i]); // 50 cm minimum for the added ice
-                M_conc[i] = thin_conc_obs_min;
-            }
-            else if(M_conc[i]>thin_conc_obs_max)
-            {
-                M_conc[i] = thin_conc_obs_max;
-                M_thick[i]=hi*M_conc[i];
-            }
-        }//no thin ice
-    }
+                if(M_conc[i]<thin_conc_obs_min)
+                {
+                    M_thick[i] = M_thick[i] + std::max(hi,0.5)*(thin_conc_obs_min-M_conc[i]); // 50 cm minimum for the added ice
+                    M_conc[i] = thin_conc_obs_min;
+                }
+                else if(M_conc[i]>thin_conc_obs_max)
+                {
+                    M_conc[i] = thin_conc_obs_max;
+                    M_thick[i]=hi*M_conc[i];
+                }
+            }//no thin ice
+        }//use NIC
+    }//loop over elements
 }//topazForecastAmsr2OsisafNicIce
 
 void
