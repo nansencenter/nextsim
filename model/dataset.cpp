@@ -4808,7 +4808,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         };
 
         Grid grid_tmp={
-            interpolation_method: InterpolationType::FromGridToMesh,
+            interpolation_method: InterpolationType::FromGridToMesh, //NB can't use _FillValue with this
             //interp_type : TriangleInterpEnum, // slower
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
@@ -4836,7 +4836,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 
             waveOptions: wavopt_none,
 
-             masking: false
+            masking: false
         };
 
         Variable dist={
@@ -7728,7 +7728,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 	}//end interpolation_method==InterpolationType::FromGridToMesh
 	else
 	{
-        //interpolation_method==InterpolationType::MeshToMesh2d
+        //interpolation_method==InterpolationType::FromMeshToMesh2dx
 
 		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
@@ -8023,7 +8023,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 		std::cout <<"GRID : NUMTRIANGLES= "<< grid_ptr->pfnels <<"\n";
 		std::cout <<"GRID : Triangulate done\n";
 
-	}//interpolation_method==InterpolationType::MeshToMesh2d
+	}//interpolation_method==InterpolationType::FromMeshToMesh2dx
 
     grid_ptr->loaded=true;
 }
