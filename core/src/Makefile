@@ -22,7 +22,7 @@ else
 endif
 
 # add g++ option flags
-CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -fopenmp
+CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -fopenmp -fpermissive
 
 ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
 	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
