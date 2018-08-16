@@ -22,7 +22,8 @@ WORKDIR $NEXTSIMDIR/model
 RUN source $NEXTSIMDIR/nextsim.src && make
 
 COPY docker/nextsim.sh $NEXTSIMDIR/model/bin/
-COPY docker/test.cfg $NEXTSIMDIR/model/bin/
+
+RUN ln -s /opt/local/gmsh/bin/gmsh /usr/local/bin/gmsh
 
 ENTRYPOINT ["/nextsim/model/bin/nextsim.sh"]
 #CMD [ "/bin/bash" ]
