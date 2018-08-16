@@ -8671,6 +8671,13 @@ FiniteElement::initIce()
             throw std::logic_error("invalid initialization of the ice");
     }
 
+#if 1
+    // check consistency of fields after initialisation
+    // - init ice temp everywhere (in contrast to assimilation)
+    std::vector<bool> init_ice_temp(M_num_elements, true);
+    this->checkConsistency(init_ice_temp);
+#else
+
     double hi, conc_tot, weight_conc;
     // Consistency check for the slab ocean + initialization of the ice temperature (especially for Winton)
     for ( int i=0; i<M_num_elements; i++ )
@@ -8726,6 +8733,7 @@ FiniteElement::initIce()
             }
         }
     }
+#endif
 }//initIce
 
 
