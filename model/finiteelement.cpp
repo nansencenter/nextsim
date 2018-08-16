@@ -5230,12 +5230,14 @@ FiniteElement::thermo(double dt)
         {
             case setup::ThermoType::ZERO_LAYER:
                 this->thermoIce0(i, dt, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i],
-                        Qlw_in, Qsw_in, mld, tmp_snowfall, hi, hs, hi_old, Qio, del_hi, M_tice[0][i],
+                        Qlw_in, Qsw_in, mld, tmp_snowfall,//end of inputs - rest are outputs
+                        hi, hs, hi_old, Qio, del_hi, M_tice[0][i],
                         Qai, Qswi, Qlwi, Qshi, Qlhi);
                 break;
             case setup::ThermoType::WINTON:
                 this->thermoWinton(i, dt, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i],
-                        Qlw_in, Qsw_in, mld, tmp_snowfall, hi, hs, hi_old, Qio, del_hi,
+                        Qlw_in, Qsw_in, mld, tmp_snowfall,//end of inputs - rest are outputs
+                        hi, hs, hi_old, Qio, del_hi,
                         M_tice[0][i], M_tice[1][i], M_tice[2][i],
                         Qai, Qswi, Qlwi, Qshi, Qlhi);
                 break;
@@ -9817,7 +9819,11 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 
         tmp_var=std::min(1.,M_topaz_conc[i]);
         M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.;
-        if(M_conc[i]>0.) // use amsr2 only where topaz says there is ice to avoid near land issues and fake concentration over the ocean
+        if(     (M_conc[i]>0.)
+             && (M_amsr2_conc[i]>.15))
+            // use amsr2 only where
+            // - topaz says there is ice to avoid near land issues and fake concentration over the ocean
+            // - it is large enough to be trusted
             M_conc[i]=M_amsr2_conc[i];
 
         double ratio_FYI=0.3;
@@ -10530,8 +10536,8 @@ FiniteElement::calcCoriolis()
 void
 FiniteElement::initBathymetry()//(double const& u, double const& v)
 {
-    // This alwyas needs to be done, regardless of which bathymetry type we
-    // have as the object M_bthymetry_elements_dataset must be initialised. But
+    // This always needs to be done, regardless of which bathymetry type we
+    // have as the object M_bathymetry_elements_dataset must be initialised. But
     // if we use CONSTANT then we don't put any data into the object.
     M_bathymetry_elements_dataset=DataSet("etopo_elements",M_num_elements);//M_num_nodes);
 
@@ -10550,6 +10556,11 @@ FiniteElement::initBathymetry()//(double const& u, double const& v)
             std::cout << "invalid bathymetry"<<"\n";
             throw std::logic_error("invalid bathymetry");
     }
+
+    M_datasets_regrid.push_back(&M_bathymetry_elements_dataset);//this needs to be reloaded if we are regridding
+
+    //sometimes need to use distance to coast during init or assimilation
+    M_dist2coast_elements_dataset=DataSet("dist2coast_elements",M_num_elements);
 }
 
 void
@@ -11604,14 +11615,26 @@ FiniteElement::checkFields()
         close_mapx(map);
     }
     std::vector< std::vector<double>* > vecs_to_check;
-    std::vector< std::string > names;
+    std::vector< std::string > vec_names;
+    std::vector< ExternalData* > forcings_to_check;
+    std::vector< std::string > forcing_names;
 
     vecs_to_check.push_back(&M_conc);
-    names.push_back("M_conc");
+    vec_names.push_back("M_conc");
     vecs_to_check.push_back(&M_thick);
-    names.push_back("M_thick");
+    vec_names.push_back("M_thick");
     vecs_to_check.push_back(&(M_tice[0]));
-    names.push_back("M_tice[0]");
+    vec_names.push_back("M_tice[0]");
+    vecs_to_check.push_back(&(M_sss));
+    vec_names.push_back("M_sss");
+    vecs_to_check.push_back(&(M_sst));
+    vec_names.push_back("M_sst");
+
+    forcings_to_check.push_back(&M_ocean_temp);
+    forcing_names.push_back("SST_forcing");
+    forcings_to_check.push_back(&M_ocean_salt);
+    forcing_names.push_back("SSS_forcing");
+
     for(int i=0; i<M_num_elements; i++)
     {
         int j = 0;
@@ -11625,18 +11648,24 @@ FiniteElement::checkFields()
             std::cout<<"element number = "<<i<<"\n";
             std::cout<<"x,y = " <<xtest <<"," <<ytest <<"\n";
             std::cout<<"lon,lat = " <<lon_test <<"," <<lat_test <<"\n";
-            for (int j=0; j<names.size(); j++)
+            for (int j=0; j<vec_names.size(); j++)
             {
                 double val = ( *(vecs_to_check[j]) )[i];//vecs_to_check[j] is a pointer, so dereference
-                std::string name = names[j];
+                std::string name = vec_names[j];
+                std::cout<<name <<" = "<< val <<"\n";
+            }
+            for (int j=0; j<forcing_names.size(); j++)
+            {
+                double val = forcings_to_check[j]->get(i);//forcings_to_check[j] is a pointer
+                std::string name = forcing_names[j];
                 std::cout<<name <<" = "<< val <<"\n";
             }
             std::cout<<"\n";
         }
-        for (int j=0; j<names.size(); j++)
+        for (int j=0; j<vec_names.size(); j++)
         {
             double val = ( *(vecs_to_check[j]) )[i];//vecs_to_check[j] is a pointer, so dereference
-            std::string name = names[j];
+            std::string name = vec_names[j];
             if(std::isnan(val))
             {
                 std::cout<<"NaN in "<<name<<"\n";
