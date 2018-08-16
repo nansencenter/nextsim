@@ -84,6 +84,11 @@ public:
 
     enum variableID
     {
+        // Non-output variables - all negative
+        proc_mask   = -1,
+        ice_mask    = -2,
+
+        // Land-sea mask
         lsm         =  0,
 
         // Prognostic variables
@@ -112,9 +117,13 @@ public:
         Qo          = 105,
         delS        = 106,
 
-        // Non-output variables - all negative
-        proc_mask   = -1,
-        ice_mask    = -2
+        // Coupling variables not already covered elsewhere
+        taux        = 201,
+        tauy        = 202,
+        taumod      = 203,
+        emp         = 204,
+        QNoSw       = 205,
+        Fsalt       = 206
     };
 
     typedef struct Variable
@@ -130,6 +139,22 @@ public:
         {
             switch (varID)
             {
+                // Non-output variables
+                case (variableID::proc_mask):
+                    name     = "proc_mask";
+                    longName = "MPI Processor Mask";
+                    stdName  = "mpi_proc_mask";
+                    Units    = "1";
+                    break;
+
+                case (variableID::ice_mask):
+                    name     = "ice_mask";
+                    longName = "Ice Mask";
+                    stdName  = "ice_mask";
+                    Units    = "1";
+                    break;
+
+                // Land-sea mask
                 case (variableID::lsm):
                     name     = "lsm";
                     longName = "Land Sea Mask";
@@ -278,21 +303,43 @@ public:
                     Units    = "kg m-2 s-1";
                     break;
 
-                // Non-output variables
-                case (variableID::proc_mask):
-                    name     = "proc_mask";
-                    longName = "MPI Processor Mask";
-                    stdName  = "mpi_proc_mask";
-                    Units    = "1";
+                // Coupling variables
+                case (variableID::taux):
+                    name     = "taux";
+                    longName = "Eastward Stress at Ocean Surface";
+                    stdName  = "eastward_stress_at_ocean_surface";
+                    Units    = "Pa";
                     break;
-
-                case (variableID::ice_mask):
-                    name     = "ice_mask";
-                    longName = "Ice Mask";
-                    stdName  = "ice_mask";
-                    Units    = "1";
+                case (variableID::tauy):
+                    name     = "tauy";
+                    longName = "Northward Stress at Ocean Surface";
+                    stdName  = "northward_stress_at_ocean_surface";
+                    Units    = "Pa";
                     break;
-
+                case (variableID::taumod):
+                    name     = "taumod";
+                    longName = "Downward Stress Magnitude at Ocean Surface";
+                    stdName  = "downward_stress_magnitude_at_ocean_surface";
+                    Units    = "Pa";
+                    break;
+                case (variableID::emp):
+                    name     = "emp";
+                    longName = "Total Upward Ocean Surface Freshwater Flux";
+                    stdName  = "total_upward_ocean_surface_freshwater_flux";
+                    Units    = "kg m-2 s-1";
+                    break;
+                case (variableID::QNoSw):
+                    name     = "rsnos";
+                    longName = "Surface Net Upward Nonsolar Heatflux";
+                    stdName  = "surface_net_upward_nonsolar_heatflux";
+                    Units    = "W m-2";
+                    break;
+                case (variableID::Fsalt):
+                    name     = "sfi";
+                    longName = "Downward Sea Ice Basal Salt Flux";
+                    stdName  = "downward_sea_ice_basal_salt_flux";
+                    Units    = "W m-2";
+                    break;
             }
         }
 

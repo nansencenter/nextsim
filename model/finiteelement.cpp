@@ -606,7 +606,12 @@ FiniteElement::initVariables()
     D_Qlw.resize(M_num_elements);
     D_Qsw.resize(M_num_elements);
     D_Qo.resize(M_num_elements);
+    D_Qnosun.resize(M_num_elements);
     D_delS.resize(M_num_elements);
+    D_emp.resize(M_num_elements);
+    D_brine.resize(M_num_elements);
+    D_tau_w.resize(2*M_num_nodes);
+    D_tau_a.resize(2*M_num_nodes); 
 
     M_UT.assign(2*M_num_nodes,0.);
 
@@ -1111,6 +1116,7 @@ FiniteElement::initOptAndParam()
     ridging_exponent = vm["dynamics.ridging_exponent"].as<double>();
 
     quad_drag_coef_water = vm["dynamics.quad_drag_coef_water"].as<double>();
+    lin_drag_coef_water  = vm["dynamics.lin_drag_coef_water"].as<double>();
 
     basal_k2 = vm["dynamics.Lemieux_basal_k2"].as<double>();
     basal_u_0 = vm["dynamics.Lemieux_basal_u_0"].as<double>();
@@ -1165,6 +1171,7 @@ FiniteElement::initOptAndParam()
                     quad_drag_coef_air = vm["dynamics.ECMWF_quad_drag_coef_air"].as<double>(); break;
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
+    lin_drag_coef_air = vm["dynamics.lin_drag_coef_air"].as<double>();
     LOG(DEBUG)<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
 
     M_use_nesting= vm["nesting.use_nesting"].as<bool>();
@@ -3093,7 +3100,12 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     D_Qlw.assign(M_num_elements,0.);
     D_Qsw.assign(M_num_elements,0.);
     D_Qo.assign(M_num_elements,0.);
+    D_Qnosun.assign(M_num_elements,0.);
     D_delS.assign(M_num_elements,0.);
+    D_emp.assign(M_num_elements,0.);
+    D_brine.assign(M_num_elements,0.);
+    D_tau_w.assign(2*M_num_nodes,0.);
+    D_tau_a.assign(2*M_num_nodes,0.); 
 
     this->redistributeVariables(out_elt_values,true);
 
@@ -3178,7 +3190,12 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
     D_Qlw.assign(M_num_elements,0.);
     D_Qsw.assign(M_num_elements,0.);
     D_Qo.assign(M_num_elements,0.);
+    D_Qnosun.assign(M_num_elements,0.);
     D_delS.assign(M_num_elements,0.);
+    D_emp.assign(M_num_elements,0.);
+    D_brine.assign(M_num_elements,0.);
+    D_tau_w.assign(2*M_num_nodes,0.);
+    D_tau_a.assign(2*M_num_nodes,0.); 
 
     this->redistributeVariablesIO(out_elt_values, thin_ice);
 
@@ -4163,6 +4180,7 @@ FiniteElement::assemble(int pcpt)
         double time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-M_damage[cpt],exponent_relaxation_sigma-1.);
         double multiplicator = time_viscous/(time_viscous+dtime_step);
 
+        // TODO: Do we need the _min values here?
         double norm_Voce_ice = 0.;
         double norm_Voce_ice_min = 0.01; // minimum value to avoid 0 water drag term.
 
@@ -4314,6 +4332,32 @@ FiniteElement::assemble(int pcpt)
             Vcor_index_v = beta0*vt_v + beta1*M_VTM[index_v] + beta2*M_VTMM[index_v];
             Vcor_index_u = beta0*vt_u + beta1*M_VTM[index_u] + beta2*M_VTMM[index_u];
 
+            norm_Voce_ice = std::hypot(vt_u-ocean_u,vt_v-ocean_v);
+            norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
+
+            coef_Voce = lin_drag_coef_water + quad_drag_coef_water*norm_Voce_ice;
+
+            norm_Vair_ice = std::hypot(vt_u-wind_u,vt_v-wind_v);
+            norm_Vair_ice = (norm_Vair_ice > norm_Vair_ice_min) ? (norm_Vair_ice):norm_Vair_ice_min;
+
+            coef_Vair = lin_drag_coef_air + quad_drag_coef_air*norm_Vair_ice;
+
+            norm_Vice = std::hypot(vt_u,vt_v);
+            norm_Vice = (norm_Vice > basal_u_0) ? (norm_Vice):basal_u_0;
+
+            coef_basal = basal_k2/norm_Vice;
+
+            // Diagnostic/coupling: Ice-ocean and ice-atmosphere drag
+            D_tau_w[index_u] = coef_Voce * (vt_u-ocean_u);
+            D_tau_w[index_v] = coef_Voce * (vt_v-ocean_v);
+            D_tau_a[index_u] = coef_Vair * (vt_u-wind_u);
+            D_tau_a[index_v] = coef_Vair * (vt_v-wind_v);
+
+            // Multply with rho and mask out no-ice points
+            coef_Voce  *= coef_drag*physical::rhow;
+            coef_Vair  *= coef_drag*physical::rhoa;
+            coef_basal *= coef_drag*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
+
             /* Skip gohst nodes */
             if (!((M_elements[cpt]).ghostNodes[j]))
             {
@@ -4337,24 +4381,6 @@ FiniteElement::assemble(int pcpt)
                     }
 
                     /* ---------- UU component */
-
-                    norm_Voce_ice = std::hypot(M_VT[index_u]-M_ocean[index_u],M_VT[index_v]-M_ocean[index_v]);
-                    norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
-
-                    coef_Voce = (vm["dynamics.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
-                    coef_Voce *= coef_drag*physical::rhow;
-
-                    norm_Vair_ice = std::hypot(M_VT[index_u]-M_wind [index_u],M_VT[index_v]-M_wind [index_v]);
-                    norm_Vair_ice = (norm_Vair_ice > norm_Vair_ice_min) ? (norm_Vair_ice):norm_Vair_ice_min;
-
-                    coef_Vair = (vm["dynamics.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*norm_Vair_ice));
-                    coef_Vair *= coef_drag*(physical::rhoa);
-
-                    norm_Vice = std::hypot(M_VT[index_u],M_VT[index_v]);
-                    norm_Vice = (norm_Vice > basal_u_0) ? (norm_Vice):basal_u_0;
-
-                    coef_basal = basal_k2/norm_Vice;
-                    coef_basal *= coef_drag*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
 
                     duu = surface_e*( mloc*(coef_V)
                                       +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
@@ -6781,7 +6807,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 break;
             case (GridOutput::variableID::Qsw):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += D_Qsw[i]*time_factor;
+                    it->data_mesh[i] -= D_Qsw[i]*time_factor;
                 break;
             case (GridOutput::variableID::Qlw):
                 for (int i=0; i<M_local_nelements; i++)
@@ -6801,7 +6827,21 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 break;
             case (GridOutput::variableID::delS):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += D_delS[i]*time_factor;
+                    it->data_mesh[i] -= D_delS[i]*time_factor;
+                break;
+
+            // Coupling variables (not covered elsewhere)
+            case (GridOutput::variableID::emp):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] -= D_emp[i]*time_factor;
+                break;
+            case (GridOutput::variableID::QNoSw):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] -= D_Qnosun[i]*time_factor;
+                break;
+            case (GridOutput::variableID::Fsalt):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] -= D_brine[i]*time_factor;
                 break;
 
             // Non-output variables
@@ -6834,6 +6874,101 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_VT[i+M_num_nodes]*time_factor;
                 break;
 
+            // Coupling variables (not covered elsewhere)
+            // TODO: Double-check that the ghost nodes see all the connected elements (i.e. ghosts)
+            case (GridOutput::variableID::taux):
+                for (int i=0; i<M_num_nodes; i++)
+                {
+                    int index_u = i;
+                    int index_v = i + M_num_nodes;
+
+                    double tau_i = D_tau_w[index_u];
+
+                    // Drag coefficient from Gill(1982) / Smith (1980)
+                    double wspeed    = std::hypot(M_wind[index_u], M_wind[index_v]);
+                    double coef_Vair = 1e-3 * std::max(1., std::min(2., 0.61 + 0.063*wspeed) );
+                    double tau_a     = physical::rhoa*coef_Vair*wspeed*M_wind[index_u];
+
+                    // Concentration is the area-weighted mean over all neighbouring elements
+                    double conc = 0;
+                    double surface = 0;
+                    int num_elements = bamgmesh->NodalElementConnectivitySize[1];
+                    for (int j=0; j<num_elements; j++)
+                    {
+                        int elt_num = bamgmesh->NodalElementConnectivity[num_elements*i+j]-1;
+                        // Negative elt_num means there are no more elements belonging to this node
+                        if ( elt_num < 0 ) break;
+
+                        conc    += M_conc[elt_num] * M_surface[elt_num];
+                        surface += M_surface[elt_num];
+                    }
+                    conc /= surface;
+
+                    it->data_mesh[i] += ( tau_i*conc + tau_a*(1.-conc) )*time_factor;
+                }
+                break;
+            case (GridOutput::variableID::tauy):
+                for (int i=0; i<M_num_nodes; i++)
+                {
+                    int index_u = i;
+                    int index_v = i + M_num_nodes;
+
+                    double tau_i = D_tau_w[index_v];
+
+                    // Drag coefficient from Gill(1982) / Smith (1980)
+                    double wspeed    = std::hypot(M_wind[index_u], M_wind[index_v]);
+                    double coef_Vair = 1e-3 * std::max(1., std::min(2., 0.61 + 0.063*wspeed) );
+                    double tau_a     = physical::rhoa*coef_Vair*wspeed*M_wind[index_v];
+
+                    // Concentration is the area-weighted mean over all neighbouring elements
+                    double conc = 0;
+                    double surface = 0;
+                    int num_elements = bamgmesh->NodalElementConnectivitySize[1];
+                    for (int j=0; j<num_elements; j++)
+                    {
+                        int elt_num = bamgmesh->NodalElementConnectivity[num_elements*i+j]-1;
+                        // Negative elt_num means there are no more elements belonging to this node
+                        if ( elt_num < 0 ) break;
+
+                        conc    += M_conc[elt_num] * M_surface[elt_num];
+                        surface += M_surface[elt_num];
+                    }
+                    conc /= surface;
+
+                    it->data_mesh[i] += ( tau_i*conc + tau_a*(1.-conc) )*time_factor;
+                }
+                break;
+            case (GridOutput::variableID::taumod):
+                for (int i=0; i<M_num_nodes; i++)
+                {
+                    int index_u = i;
+                    int index_v = i + M_num_nodes;
+
+                    double tau_i = std::hypot(D_tau_w[index_v], D_tau_w[index_v]);
+
+                    // Drag coefficient from Gill(1982) / Smith (1980)
+                    double wspeed    = std::hypot(M_wind[index_u], M_wind[index_v]);
+                    double coef_Vair = 1e-3 * std::max(1., std::min(2., 0.61 + 0.063*wspeed) );
+                    double tau_a     = physical::rhoa*coef_Vair*wspeed*wspeed;
+
+                    // Concentration is the area-weighted mean over all neighbouring elements
+                    double conc = 0;
+                    double surface = 0;
+                    int num_elements = bamgmesh->NodalElementConnectivitySize[1];
+                    for (int j=0; j<num_elements; j++)
+                    {
+                        int elt_num = bamgmesh->NodalElementConnectivity[num_elements*i+j]-1;
+                        // Negative elt_num means there are no more elements belonging to this node
+                        if ( elt_num < 0 ) break;
+
+                        conc    += M_conc[elt_num] * M_surface[elt_num];
+                        surface += M_surface[elt_num];
+                    }
+                    conc /= surface;
+
+                    it->data_mesh[i] += ( tau_i*conc + tau_a*(1.-conc) )*time_factor;
+                }
+                break;
             default: std::logic_error("Updating of given variableID not implimented (nodes)");
         }
     }
@@ -8054,13 +8189,13 @@ FiniteElement::updateFreeDriftVelocity()
             norm_Voce_ice = std::hypot(M_VT[index_u]-M_ocean[index_u],M_VT[index_v]-M_ocean[index_v]);
             norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
 
-            coef_Voce = (vm["dynamics.lin_drag_coef_water"].as<double>()+(quad_drag_coef_water*norm_Voce_ice));
+            coef_Voce = lin_drag_coef_water + quad_drag_coef_water*norm_Voce_ice;
             coef_Voce *= physical::rhow;
 
             norm_Vair_ice = std::hypot(M_VT[index_u]-M_wind [index_u],M_VT[index_v]-M_wind [index_v]);
             norm_Vair_ice = (norm_Vair_ice > norm_Vair_ice_min) ? (norm_Vair_ice):norm_Vair_ice_min;
 
-            coef_Vair = (vm["dynamics.lin_drag_coef_air"].as<double>()+(quad_drag_coef_air*norm_Vair_ice));
+            coef_Vair = lin_drag_coef_air + quad_drag_coef_air*norm_Vair_ice;
             coef_Vair *= (physical::rhoa);
 
             M_VT[index_u] = ( coef_Vair*M_wind [index_u] + coef_Voce*M_ocean [index_u] ) / ( coef_Vair+coef_Voce );

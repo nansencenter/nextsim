@@ -498,6 +498,8 @@ private:
     double ridging_exponent;
     double quad_drag_coef_air;
     double quad_drag_coef_water;
+    double lin_drag_coef_air;
+    double lin_drag_coef_water;
     double time_relaxation_damage;
     double deltaT_relaxation_damage;
 
@@ -714,8 +716,13 @@ private:
     std::vector<double> D_Qlw; // Total long wave at surface [W/m2]
     std::vector<double> D_Qsh; // Total sensible heat flux at surface [W/m2]
     std::vector<double> D_Qlh; // Total latent heat flux at surface [W/m2]
+    std::vector<double> D_Qnosun; // Non-solar heat loss from ocean [W/m2]
     std::vector<double> D_Qo; // Heat loss from ocean [W/m2]
     std::vector<double> D_delS; // Salt flux to ocean
+    std::vector<double> D_emp; // Evaporation minus Precipitation [kg/m2/s]
+    std::vector<double> D_brine; // Brine release into the ocean [kg/m2/s]
+    std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
+    std::vector<double> D_tau_a; // Ice-atmosphere drag [Pa]
 
 };
 } // Nextsim
