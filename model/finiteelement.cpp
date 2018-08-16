@@ -8726,7 +8726,94 @@ FiniteElement::initIce()
             }
         }
     }
-}
+}//initIce
+
+
+void
+FiniteElement::checkConsistency(std::vector<bool> const &init_ice_temp)
+{
+    //check consistency of fields after init/assimilation
+    //1. set things to zero if conc/abs thickness are too small
+    //2. check SST is consistent
+    //3. Initialise M_tice[i]
+    //   - where input vector init_ice_temp is True
+    //   - if initialising, this is everywhere
+    //   - if assimilating, this should just be where we are adding new ice
+    for ( int i=0; i<M_num_elements; i++ )
+    {
+        //if conc or absolute thickness too small, set all fields to 0
+        if (       (M_conc[i] < physical::cmin)
+                || (M_thick[i] < M_conc[i]*physical::hmin))
+        {
+            M_conc[i]=0.;
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+            M_damage[i]=0.;
+            M_ridge_ratio[i]=0.;
+        }
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {
+            if (       (M_conc_thin[i] < physical::cmin)
+                    || (M_h_thin[i] < M_conc_thin[i]*physical::hmin))
+            {
+                M_conc_thin[i]=0.;
+                M_h_thin[i]=0.;
+                M_hs_thin[i]=0.;
+            }
+        }
+
+        // check SST is consistent
+        double conc_tot = M_conc[i];
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+            conc_tot += M_conc_thin[i];
+        double Tfr_ice  = -physical::mu*M_sss[i];//freezing point
+        double weight_conc = std::min(1., conc_tot*100.);//increases linearly from 0 to 1 as conc goes from 0 to .01
+        if(conc_tot>0.)
+        {
+            M_sst[i] = Tfr_ice*weight_conc + M_sst[i]*(1-weight_conc);
+        }
+
+        //init M_tice[j] where it is needed
+        // - initialization: where ice
+        // - assimilation: where new ice is added
+        if(init_ice_temp[i])
+        {
+            //init surface temp
+            if ( M_snow_thick[i] > 0. )
+            {
+                // some snow
+                // - can't be greater than melting point of snow (0degC)
+                M_tice[0][i] = std::min(0., M_tair[i]);
+            }
+            else
+            {
+                // no snow
+                // - can't be greater than melting point of ice
+                M_tice[0][i] = std::min(-physical::mu*physical::si, M_tair[i]);
+            }
+
+            //if using Winton, init T1 and T2
+            if ( M_thermo_type == setup::ThermoType::WINTON )
+            {
+                if ( M_thick[i] > 0. )
+                {
+                    // Just a linear interpolation between bottom and snow-ice interface (i.e. a zero layer model)
+                    double deltaT = (Tfr_ice - M_tice[0][i] )
+                        / ( 1. + physical::ki*M_snow_thick[i]/(physical::ks*M_thick[i]) );
+                    double slope = -deltaT/M_thick[i];
+                    M_tice[1][i] = Tfr_ice + 3*slope*M_thick[i]/4;
+                    M_tice[2][i] = Tfr_ice +   slope*M_thick[i]/4;
+                }
+                else
+                {
+                    // Just set them to freezing point if no ice
+                    M_tice[1][i] = Tfr_ice;
+                    M_tice[2][i] = Tfr_ice;
+                }
+            }
+        }//init M_tice[j]
+    }
+}//checkConsistency
 
 void
 FiniteElement::assimilateIce()
