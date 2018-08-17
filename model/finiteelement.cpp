@@ -8770,53 +8770,72 @@ FiniteElement::checkConsistency(std::vector<bool> const &init_ice_temp)
             }
         }
 
+        // freezing points of ice and water needed for init of ice temp
+        // and to check SST
+        double Tfr_wtr = -physical::mu*M_sss[i];    //freezing point for water
+        double Tfr_ice = -physical::mu*physical::si;//freezing point for ice salinity
+
         // check SST is consistent
         double conc_tot = M_conc[i];
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
             conc_tot += M_conc_thin[i];
-        double Tfr_ice  = -physical::mu*M_sss[i];//freezing point
         double weight_conc = std::min(1., conc_tot*100.);//increases linearly from 0 to 1 as conc goes from 0 to .01
         if(conc_tot>0.)
-        {
-            M_sst[i] = Tfr_ice*weight_conc + M_sst[i]*(1-weight_conc);
-        }
+            M_sst[i] = Tfr_wtr*weight_conc + M_sst[i]*(1-weight_conc);
 
-        //init M_tice[j] where it is needed
+        // init M_tice[j] where it is needed
         // - initialization: where ice
         // - assimilation: where new ice is added
         if(init_ice_temp[i])
         {
             //init surface temp
+            double tsurf = 0.;
             if ( M_snow_thick[i] > 0. )
             {
                 // some snow
                 // - can't be greater than melting point of snow (0degC)
-                M_tice[0][i] = std::min(0., M_tair[i]);
+                tsurf = std::min(0., M_tair[i]);
             }
             else
             {
                 // no snow
                 // - can't be greater than melting point of ice
-                M_tice[0][i] = std::min(-physical::mu*physical::si, M_tair[i]);
+                tsurf = std::min(Tfr_ice, M_tair[i]);
             }
+            M_tice[0][i] = tsurf;
+            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+                M_tsurf_thin[i] = tsurf;
 
             //if using Winton, init T1 and T2
             if ( M_thermo_type == setup::ThermoType::WINTON )
             {
-                if ( M_thick[i] > 0. )
-                {
-                    // Just a linear interpolation between bottom and snow-ice interface (i.e. a zero layer model)
-                    double deltaT = (Tfr_ice - M_tice[0][i] )
-                        / ( 1. + physical::ki*M_snow_thick[i]/(physical::ks*M_thick[i]) );
-                    double slope = -deltaT/M_thick[i];
-                    M_tice[1][i] = Tfr_ice + 3*slope*M_thick[i]/4;
-                    M_tice[2][i] = Tfr_ice +   slope*M_thick[i]/4;
-                }
-                else
+                if ( M_thick[i] <= 0. )
                 {
                     // Just set them to freezing point if no ice
                     M_tice[1][i] = Tfr_ice;
                     M_tice[2][i] = Tfr_ice;
+                }
+                else
+                {
+                    // Calculate the temp at the top of the ice
+                    double Ti = M_tice[0][i];
+                    if(M_snow_thick[i]>0)
+                    {
+                        // Calculate the temp of the ice-snow interface (Ti) using a zero-layer model
+                        // => ki*(Tfr_bot - Ti)/hi = ks(Ti - Ts)/hs
+                        // => ki*hs*(Tfr_bot - Ti) = ks*hi*(Ti - Ts)
+                        // => (ki*hs+ks*hi)*Ti = ki*hs*Tfr_bot + ks*hi*Ts
+                        // => a*Ti = b
+                        double a = physical::ki*M_snow_thick[i]
+                            + physical::ks*M_thick[i];
+                        double b = physical::ki*M_snow_thick[i]*Tfr_wtr
+                            + physical::ks*M_thick[i]*M_tice[0][i];
+                        Ti = std::min(b/a, Tfr_ice);//make sure it is not higher than freezing point
+                    }
+
+                    // Then use linear interpolation between bottom and top of ice
+                    M_tice[1][i] = Tfr_wtr + .75*(Ti - Tfr_wtr);
+                    M_tice[2][i] = Tfr_wtr + .25*(Ti - Tfr_wtr);
                 }
             }
         }//init M_tice[j]

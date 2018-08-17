@@ -643,7 +643,6 @@ private:
     std::vector<double> M_sss;          // Sea-surface salinity [psu]
 
     // Non-prognostic variables used to speed up the convergence of a non-linear equation in thermodynamics
-    //std::vector<double> M_tsurf;        // Ice surface temperature [C]
     std::vector<std::vector<double>> M_tice;    // Ice temperature - 0 for surface and higher ordinals for layers in the ice
     std::vector<double> M_tsurf_thin;   // Ice surface temperature of thin ice [C]
 
