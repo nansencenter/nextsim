@@ -16,10 +16,6 @@ ENV NEXTSIMDIR=/nextsim
 
 SHELL ["/bin/bash", "-c"]
 
-COPY Makefile $NEXTSIMDIR/
-COPY contrib $NEXTSIMDIR/contrib
-COPY core $NEXTSIMDIR/core
-WORKDIR $NEXTSIMDIR
 
 ENV BOOST_INCDIR=/opt/local/boost/include
 ENV BOOST_LIBDIR=/opt/local/boost/lib
@@ -33,11 +29,22 @@ ENV NETCDF_DIR=/usr/lib/x86_64-linux-gnu
 ENV OPENMPI_LIB_DIR=/usr/lib/x86_64-linux-gnu/openmpi/lib
 ENV OPENMPI_INCLUDE_DIR=/usr/lib/x86_64-linux-gnu/openmpi/include
 
-#RUN make
+COPY contrib $NEXTSIMDIR/contrib
+WORKDIR $NEXTSIMDIR/contrib/bamg/src
+RUN make
 
-#COPY model $NEXTSIMDIR/model
-#WORKDIR $NEXTSIMDIR/model
-#RUN make
+WORKDIR $NEXTSIMDIR/contrib/mapx/src
+RUN make
+
+COPY core $NEXTSIMDIR/core
+WORKDIR $NEXTSIMDIR/core/src
+COPY dockerlite/Makefile ./
+RUN make
+
+COPY model $NEXTSIMDIR/model
+WORKDIR $NEXTSIMDIR/model
+COPY dockerlite/Makefile_model ./Makefile
+RUN make
 
 #COPY docker/nextsim.sh $NEXTSIMDIR/model/bin/
 
