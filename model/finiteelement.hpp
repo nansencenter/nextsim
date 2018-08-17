@@ -237,7 +237,9 @@ public:
     void assimilateIce();
     void assimilateSlabOcean();
     void initIce();
-    void checkConsistency(std::vector<bool> const &init_ice_temp);
+    void checkConsistency(
+            std::vector<bool> const &init_thick_ice_temp,
+            std::vector<bool> const &init_thin_ice_temp);
     void initThermodynamics();
     void initSlabOcean();
     void initDrifters();
@@ -682,7 +684,9 @@ private:
     void topazForecastAmsr2Ice();
     void topazForecastAmsr2OsisafIce();
     void topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
-    void assimilate_topazForecastAmsr2OsisafIce();
+    void assimilate_topazForecastAmsr2OsisafIce(
+        std::vector<bool> &new_thick_ice,
+        std::vector<bool> &new_thin_ice);
     void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
     void concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,double ci,bool use_weekly_nic);
     void cs2SmosIce();

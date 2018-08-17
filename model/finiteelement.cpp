@@ -8673,13 +8673,16 @@ FiniteElement::initIce()
 
     // check consistency of fields after initialisation
     // - init ice temp everywhere (in contrast to assimilation)
-    std::vector<bool> init_ice_temp(M_num_elements, true);
-    this->checkConsistency(init_ice_temp);
+    std::vector<bool> init_thick_ice_temp(M_num_elements, true);
+    std::vector<bool> init_thin_ice_temp(M_num_elements, true);
+    this->checkConsistency(init_thick_ice_temp, init_thin_ice_temp);
 }//initIce
 
 
 void
-FiniteElement::checkConsistency(std::vector<bool> const &init_ice_temp)
+FiniteElement::checkConsistency(
+        std::vector<bool> const &init_thick_ice_temp,
+        std::vector<bool> const &init_thin_ice_temp)
 {
     //check consistency of fields after init/assimilation
     //1. set things to zero if conc/abs thickness are too small
@@ -8724,10 +8727,10 @@ FiniteElement::checkConsistency(std::vector<bool> const &init_ice_temp)
         if(conc_tot>0.)
             M_sst[i] = Tfr_wtr*weight_conc + M_sst[i]*(1-weight_conc);
 
-        // init M_tice[j] where it is needed
-        // - initialization: where ice
+        // init M_tice[j], M_tsurf_thin where it is needed
+        // - initialization: wherever there is ice
         // - assimilation: where new ice is added
-        if(init_ice_temp[i])
+        if(init_thick_ice_temp[i] || init_thin_ice_temp[i])
         {
             //init surface temp
             double tsurf = 0.;
@@ -8743,63 +8746,82 @@ FiniteElement::checkConsistency(std::vector<bool> const &init_ice_temp)
                 // - can't be greater than melting point of ice
                 tsurf = std::min(Tfr_ice, M_tair[i]);
             }
-            M_tice[0][i] = tsurf;
-            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-                M_tsurf_thin[i] = tsurf;
 
-            //if using Winton, init T1 and T2
-            if ( M_thermo_type == setup::ThermoType::WINTON )
+            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE
+                    && init_thin_ice_temp[i])
             {
-                if ( M_thick[i] <= 0. )
-                {
-                    // Just set them to freezing point if no ice
-                    M_tice[1][i] = Tfr_ice;
-                    M_tice[2][i] = Tfr_ice;
-                }
-                else
-                {
-                    // Calculate the temp at the top of the ice
-                    double Ti = M_tice[0][i];
-                    if(M_snow_thick[i]>0)
-                    {
-                        // Calculate the temp of the ice-snow interface (Ti) using a zero-layer model
-                        // => ki*(Tfr_bot - Ti)/hi = ks(Ti - Ts)/hs
-                        // => ki*hs*(Tfr_bot - Ti) = ks*hi*(Ti - Ts)
-                        // => (ki*hs+ks*hi)*Ti = ki*hs*Tfr_bot + ks*hi*Ts
-                        // => a*Ti = b
-                        double a = physical::ki*M_snow_thick[i]
-                            + physical::ks*M_thick[i];
-                        double b = physical::ki*M_snow_thick[i]*Tfr_wtr
-                            + physical::ks*M_thick[i]*M_tice[0][i];
-                        Ti = std::min(b/a, Tfr_ice);//make sure it is not higher than freezing point
-                    }
-
-                    // Then use linear interpolation between bottom and top of ice
-                    M_tice[1][i] = Tfr_wtr + .75*(Ti - Tfr_wtr);
-                    M_tice[2][i] = Tfr_wtr + .25*(Ti - Tfr_wtr);
-                }
+                //init thin ice temp
+                M_tsurf_thin[i] = tsurf;
             }
-        }//init M_tice[j]
+
+            if(init_thick_ice_temp[i])
+            {
+                M_tice[0][i] = tsurf;
+
+                //if using Winton, init T1 and T2
+                if ( M_thermo_type == setup::ThermoType::WINTON )
+                {
+                    if ( M_thick[i] <= 0. )
+                    {
+                        // Just set them to freezing point if no ice
+                        M_tice[1][i] = Tfr_ice;
+                        M_tice[2][i] = Tfr_ice;
+                    }
+                    else
+                    {
+                        // Calculate the temp at the top of the ice
+                        double Ti = M_tice[0][i];
+                        if(M_snow_thick[i]>0)
+                        {
+                            // Calculate the temp of the ice-snow interface (Ti) using a zero-layer model
+                            // => ki*(Tfr_bot - Ti)/hi = ks(Ti - Ts)/hs
+                            // => ki*hs*(Tfr_bot - Ti) = ks*hi*(Ti - Ts)
+                            // => (ki*hs+ks*hi)*Ti = ki*hs*Tfr_bot + ks*hi*Ts
+                            // => a*Ti = b
+                            double a = physical::ki*M_snow_thick[i]
+                                + physical::ks*M_thick[i];
+                            double b = physical::ki*M_snow_thick[i]*Tfr_wtr
+                                + physical::ks*M_thick[i]*M_tice[0][i];
+                            Ti = std::min(b/a, Tfr_ice);//make sure it is not higher than freezing point
+                        }
+
+                        // Then use linear interpolation between bottom and top of ice
+                        M_tice[1][i] = Tfr_wtr + .75*(Ti - Tfr_wtr);
+                        M_tice[2][i] = Tfr_wtr + .25*(Ti - Tfr_wtr);
+                    }
+                }//Winton
+            }//init thick ice temp
+
+        }//init M_tice[j], M_tsurf_thin
     }
 }//checkConsistency
 
 void
 FiniteElement::assimilateIce()
 {
+    // where we need to initialise the ice temp
+    // - only if new ice is created by the assimilation
+    // - set in the individual routines
+    std::vector<bool> new_thick_ice, new_thin_ice;
     switch (M_ice_type)
     {
         case setup::IceType::TOPAZ4FAMSR2OSISAF:
-            this->assimilate_topazForecastAmsr2OsisafIce();
+            this->assimilate_topazForecastAmsr2OsisafIce(
+                    new_thick_ice, new_thin_ice);
             break;
         case setup::IceType::TOPAZ4FAMSR2OSISAFNIC:
         case setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY:
-            this->assimilate_topazForecastAmsr2OsisafNicIce(M_ice_type==setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY);
+            this->assimilate_topazForecastAmsr2OsisafNicIce(
+                    M_ice_type==setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY);
             break;
         default:
             std::cout << "invalid choice for data assimilation of the ice"<<"\n";
             throw std::logic_error("invalid initialization of the ice");
     }
 
+#if 1
+    this->checkConsistency(new_thick_ice, new_thin_ice);
+#else
     double hi, conc_tot, weight_conc;
     // Consistency check for the slab ocean + initialization of the ice temperature (especially for Winton)
     for ( int i=0; i<M_num_elements; i++ )
@@ -8856,6 +8878,7 @@ FiniteElement::assimilateIce()
             }
         }
     }
+#endif
 }
 
 void
@@ -9625,30 +9648,35 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 }//assimilate_topazForecastAmsr2OsisafNicIce
 
 void
-FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
+FiniteElement::assimilate_topazForecastAmsr2OsisafIce(
+        std::vector<bool> &new_thick_ice,
+        std::vector<bool> &new_thin_ice)
 {
+    new_thick_ice.assign(M_num_elements, false);
+    new_thin_ice.assign(M_num_elements, false);
     double real_thickness, init_conc_tmp;
 
-    external_data M_osisaf_conc=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,0,false,time_init-0.5);
-
-    external_data M_osisaf_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init-0.5);
-
-    external_data M_amsr2_conc=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init-0.5);
-
-    external_data M_topaz_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
-
-    external_data M_topaz_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
-
-    external_data M_topaz_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
-
     external_data_vec external_data_tmp;
+    external_data M_osisaf_conc = ExternalData(&M_ice_osisaf_elements_dataset, M_mesh, 0, false, time_init-0.5);
     external_data_tmp.push_back(&M_osisaf_conc);
+    external_data M_osisaf_type = ExternalData(&M_ice_osisaf_type_elements_dataset, M_mesh, 0, false, time_init-0.5);
     external_data_tmp.push_back(&M_osisaf_type);
+    external_data M_amsr2_conc  = ExternalData(&M_ice_amsr2_elements_dataset, M_mesh, 0, false, time_init-0.5);
     external_data_tmp.push_back(&M_amsr2_conc);
+
+    //only trust OSISAF away from coast
+    Dataset dist2coast_elements_dataset = DataSet("dist2coast_elements", M_num_elements);
+    external_data M_dist2coast = ExternalData(&dist2coast_elements_dataset, M_mesh, 0, false, time_init-0.5);
+    external_data_tmp.push_back(&M_dist2coast);
+
+    external_data M_topaz_conc=ExternalData(&M_ocean_elements_dataset, M_mesh, 3, false, time_init);
+    external_data M_topaz_thick=ExternalData(&M_ocean_elements_dataset, M_mesh, 4, false, time_init);
+    external_data M_topaz_snow_thick=ExternalData(&M_ocean_elements_dataset, M_mesh, 5, false, time_init);
+
     this->checkReloadDatasets(external_data_tmp,time_init-0.5,
             "init - OSISAF - AMSR2");
-
     external_data_tmp.resize(0);
+
     external_data_tmp.push_back(&M_topaz_conc);
     external_data_tmp.push_back(&M_topaz_thick);
     external_data_tmp.push_back(&M_topaz_snow_thick);
@@ -9663,66 +9691,97 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
 
     double topaz_conc, topaz_thick;
     double h_model, c_model;
+    double c_thin_orig = 0.;
 
     for (int i=0; i<M_num_elements; ++i)
     {
         h_model=M_thick[i];
         c_model=M_conc[i];
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+            c_thin_orig = M_conc_thin[i];
 
         topaz_conc = (M_topaz_conc[i]>1e-14) ? M_topaz_conc[i] : 0.; // TOPAZ puts very small values instead of 0.
         topaz_thick = (M_topaz_thick[i]>1e-14) ? M_topaz_thick[i] : 0.; // TOPAZ puts very small values instead of 0.
 
-        if((topaz_conc>0.)||(M_conc[i]>0.)) // use osisaf only where topaz or the model says there is ice to avoid near land issues and fake concentration over the ocean
+        bool use_osisaf = (
+                   M_osisaf_conc[i]>.15   //high enough to trust
+                && M_dist2coast[i]<=25.e3 //not too close to land
+                );
+
+        // use osisaf only where topaz or the model says there is ice
+        // to avoid near land issues and fake concentration over the ocean
+        // TODO is this needed - this greatly reduces the assimilation potential
+        // if ice can't grow outside the union of topaz and nextsim
+        use_osisaf = use_osisaf && ((topaz_conc>0.)||(M_conc[i]>0.));
+        if(use_osisaf) 
             M_conc[i] = (sigma_osisaf*M_conc[i]+sigma_mod*M_osisaf_conc[i])/(sigma_osisaf+sigma_mod);
 
-        if(M_amsr2_conc[i]<M_conc[i]) // AMSR2 is higher resolution and see small opening that would not be see in OSISAF
+        bool use_amsr2 = (
+                M_amsr2_conc[i]>.15    //high enough to trust
+                && M_amsr2_conc[i]<=1. //not masked (need to mask manually for wet points)
+                );
+        if(use_amsr2 && M_amsr2_conc[i]<M_conc[i])
+        {
+            // AMSR2 is higher resolution and see small opening that would not be see in OSISAF
             M_conc[i]=M_amsr2_conc[i];
-
-        //tmp_var=M_topaz_snow_thick[i];
-        //M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
-        //if(M_conc[i]<M_topaz_conc[i])
-         //   M_snow_thick[i] *= M_conc[i]/M_topaz_conc[i];
-
-
-        if(c_model>0.01)
-        {
-            M_thick[i]=h_model/c_model*M_conc[i];
-            M_ridge_ratio[i]=M_ridge_ratio[i]/c_model*M_conc[i];
-            M_damage[i]=M_damage[i]/c_model*M_conc[i];
         }
-        else
+
+        if(c_model>0.01)//NB this is original conc
         {
-            M_thick[i]=0.;
-            M_ridge_ratio[i]=0.;
+            // scale fields which are volumes per unit area
+            double cfac = M_conc[i]/c_model;
+            M_thick[i]       *= cfac;
+            M_ridge_ratio[i] *= cfac;
+            M_snow_thick[i]  *= cfac;
         }
 
         //if either c or h equal zero, we set the others to zero as well
-        double hi=M_thick[i]/M_conc[i];
-        if ( M_conc[i] < 0.01 || hi < physical::hmin )
+        if ( M_conc[i] < 0.01 || M_thick[i] < M_conc[i]*physical::hmin )
         {
             M_conc[i]=0.;
             M_thick[i]=0.;
             M_snow_thick[i]=0.;
             M_ridge_ratio[i]=0.;
+            M_damage[i]=0.;
+        }
+
+        if(M_conc[i]>0 && c_model<=0)
+        {
+            //flag as new ice for checkConsistency
+            new_thick_ice[i] = true;
+
+            //set the thickness
+            M_thick[i] = c_model*vm["thermo.hnull"].as<double>();
         }
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
-            double thin_conc_obs  = std::max(M_amsr2_conc[i]-M_conc[i],0.);
+            if(use_amsr2)
+            {
+                double thin_conc_obs  = std::max(M_amsr2_conc[i]-M_conc[i], 0.);//can't reduce thin ice conc -why?
+                double wt_mod = sigma_amsr2/(sigma_amsr2+sigma_mod);
+                double wt_obs = sigma_mod/(sigma_amsr2+sigma_mod);
+                M_conc_thin[i] = wt_mod*M_conc_thin[i]+wt_obs*thin_conc_obs;
 
-            M_conc_thin[i] = (sigma_osisaf*M_conc_thin[i]+sigma_mod*thin_conc_obs)/(sigma_amsr2+sigma_mod);
+                /* Two cases: Thin ice fills the cell or not */
+                double min_h_thin = h_thin_min*M_conc_thin[i];
+                if ( M_h_thin[i] < min_h_thin )
+                    M_h_thin[i] = min_h_thin;
 
-            /* Two cases: Thin ice fills the cell or not */
-            double min_h_thin = h_thin_min*M_conc_thin[i];
-            if ( M_h_thin[i] < min_h_thin )
-                M_h_thin[i] = min_h_thin;
+                double max_h_thin=(h_thin_min+(h_thin_max+h_thin_min)/2.)*M_conc_thin[i];
+                if ( M_h_thin[i] > max_h_thin)
+                    M_h_thin[i] = max_h_thin;
+            }
+            M_conc_thin[i] = std::max(0.,
+                    std::min(M_conc_thin[i], 1-M_conc[i]));
 
-            double max_h_thin=(h_thin_min+(h_thin_max+h_thin_min)/2.)*M_conc_thin[i];
-            if ( M_h_thin[i] > max_h_thin)
-                M_h_thin[i] = max_h_thin;
+            //flag as new ice for checkConsistency
+            new_thin_ice[i] = (M_conc_thin[i]>0 && c_thin_orig<=0);
         }
     }
 }
+
+
 void
 FiniteElement::topazForecastAmsr2OsisafIce()
 {
