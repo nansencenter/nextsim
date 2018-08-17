@@ -7194,6 +7194,10 @@ FiniteElement::initMoorings()
         M_moorings_file = M_moorings.initNetCDF(filename_root, M_moorings_file_length, output_time);
     }
 
+    // We want an output at the start iff we're using snapshots
+    if ( M_moorings_snapshot )
+        this->updateMoorings();
+
 } //initMoorings
 
 void
