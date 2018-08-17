@@ -1,5 +1,5 @@
 #!/bin/bash
 export NEXTSIMDIR=/nextsimdir
-export SIMDATADIR=/simdatadir
+export SIMDATADIR=/nextsimdir
 export SIMFORECASTDIR=/simforecastdir
-mpirun --allow-run-as-root -np 4 /nextsim/model/bin/nextsim.exec -mat_mumps_icntl_14 60 --config-files=/nextsimdir/docker/test.cfg
+mpirun --allow-run-as-root -np 7 /nextsim/model/bin/nextsim.exec --config-files=/nextsimdir/docker/test.cfg

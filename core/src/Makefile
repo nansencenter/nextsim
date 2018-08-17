@@ -76,10 +76,10 @@ LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost
 # petsc
 LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
 LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
-ifeq ($(KERNEL),Linux)
-	LDFLAGS += -L $(PETSC_DIR)/lib -lparmetis
-	LDFLAGS += -L $(PETSC_DIR)/lib -lmetis
-endif
+#ifeq ($(KERNEL),Linux)
+#	LDFLAGS += -L $(PETSC_DIR)/lib -lparmetis
+#	LDFLAGS += -L $(PETSC_DIR)/lib -lmetis
+#endif
 
 # gmsh
 LDFLAGS += -Wl,-rpath,$(GMSH_DIR)/lib

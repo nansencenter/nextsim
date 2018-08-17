@@ -1,9 +1,12 @@
-FROM akorosov/boost_petsc_gmsh:0.0.2
+FROM boost_petsc_gmsh:0.0.3
 
 RUN apt-get update && apt-get install -y \
+    gdb \
     libnetcdf-dev \
     libnetcdf-c++4-dev \
     ssh \
+    vim \
+    xterm \
 && rm -rf /var/lib/apt/lists/*
 
 ENV NEXTSIMDIR=/nextsim
@@ -25,5 +28,6 @@ COPY docker/nextsim.sh $NEXTSIMDIR/model/bin/
 
 RUN ln -s /opt/local/gmsh/bin/gmsh /usr/local/bin/gmsh
 
-ENTRYPOINT ["/nextsim/model/bin/nextsim.sh"]
-#CMD [ "/bin/bash" ]
+WORKDIR /nextsimdir/docker
+#ENTRYPOINT ["/nextsim/model/bin/nextsim.sh"]
+CMD [ "/bin/bash" ]
