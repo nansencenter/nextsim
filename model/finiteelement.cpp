@@ -10552,17 +10552,12 @@ FiniteElement::initBathymetry()//(double const& u, double const& v)
         case setup::BathymetryType::ETOPO:
             M_element_depth=ExternalData(&M_bathymetry_elements_dataset,M_mesh,0,false,time_init);
             M_external_data.push_back(&M_element_depth);
-            M_datasets_regrid.push_back(&M_bathymetry_elements_dataset);
             break;
         default:
             std::cout << "invalid bathymetry"<<"\n";
             throw std::logic_error("invalid bathymetry");
     }
-
     M_datasets_regrid.push_back(&M_bathymetry_elements_dataset);//this needs to be reloaded if we are regridding
-
-    //sometimes need to use distance to coast during init or assimilation
-    M_dist2coast_elements_dataset=DataSet("dist2coast_elements",M_num_elements);
 }
 
 void
