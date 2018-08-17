@@ -1,16 +1,12 @@
-FROM boost_petsc_gmsh:0.0.3
+FROM akorosov/boost_petsc_gmsh:0.0.3
 
 RUN apt-get update && apt-get install -y \
-    gdb \
     libnetcdf-dev \
     libnetcdf-c++4-dev \
     ssh \
-    vim \
-    xterm \
 && rm -rf /var/lib/apt/lists/*
 
 ENV NEXTSIMDIR=/nextsim
-
 
 SHELL ["/bin/bash", "-c"]
 

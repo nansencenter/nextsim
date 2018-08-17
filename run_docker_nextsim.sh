@@ -9,4 +9,4 @@ docker run --rm -it \
     -v /Data/nextsimf/data/:/Data/nextsimf/data/ \
     -v /Data/nextsimf/src/nextsim-cxx/nextsim-develop-new/data/:/nextsimdir/data \
     -v /home/antonk/nextsim/nextsimf_forecasts/:/simforecastdir/ \
-    nextsim:$1
+    $1
