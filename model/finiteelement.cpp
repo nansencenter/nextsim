@@ -8798,9 +8798,6 @@ FiniteElement::checkConsistency(
 void
 FiniteElement::assimilateIce()
 {
-    // where we need to initialise the ice temp
-    // - only if new ice is created by the assimilation
-    // - set in the individual routines
     std::vector<bool> new_thick_ice, new_thin_ice;
     switch (M_ice_type)
     {
@@ -8818,66 +8815,11 @@ FiniteElement::assimilateIce()
             throw std::logic_error("invalid choice for data assimilation of the ice");
     }
 
-#if 1
+    // Check consistency of fields and init ice temp.
+    // We only need to initialise the ice temp
+    // - if new ice is created by the assimilation
+    // - determine where to do this in the individual assimilation routines
     this->checkConsistency(new_thick_ice, new_thin_ice);
-#else
-    double hi, conc_tot, weight_conc;
-    // Consistency check for the slab ocean + initialization of the ice temperature (especially for Winton)
-    for ( int i=0; i<M_num_elements; i++ )
-    {
-        hi=0.;
-        if(M_conc[i]>0.)
-            hi = M_thick[i]/M_conc[i];
-
-        if ( M_conc[i] < physical::cmin || hi < physical::hmin)
-        {
-            M_conc[i]=0.;
-            M_thick[i]=0.;
-            M_snow_thick[i]=0.;
-        }
-
-        hi = 0.;
-        if(M_conc_thin[i]>0.)
-            hi = M_h_thin[i]/M_conc_thin[i];
-
-        if ( M_conc_thin[i] < physical::cmin || hi < physical::hmin)
-        {
-            M_conc_thin[i]=0.;
-            M_h_thin[i]=0.;
-            M_hs_thin[i]=0.;
-        }
-
-        conc_tot=M_conc[i]+M_conc_thin[i];
-        weight_conc=std::min(1.,conc_tot*100.);
-        if(conc_tot>0.)
-            M_sst[i] = -M_sss[i]*physical::mu*weight_conc+M_sst[i]*(1.-weight_conc);
-            //M_sst[i] = -M_sss[i]*physical::mu;//*M_conc[i]+M_ocean_temp[i]*(1.-M_conc[i]);
-
-        if ( M_snow_thick[i] > 0. )
-            M_tice[0][i] = std::min(0., M_tair[i]);
-        else
-            M_tice[0][i] = std::min(-physical::mu*physical::si, M_tair[i]);
-    }
-
-    if ( M_thermo_type == setup::ThermoType::WINTON )
-    {
-        for ( int i=0; i<M_num_elements; i++ )
-        {
-            double Tbot  = -physical::mu*M_sss[i];
-            if ( M_thick[i] > 0. )
-            {
-                // Just a linear interpolation between bottom and snow-ice interface (i.e. a zero layer model)
-                double deltaT = (Tbot - M_tice[0][i] ) / ( 1. + physical::ki*M_snow_thick[i]/(physical::ks*M_thick[i]) );
-                double slope = -deltaT/M_thick[i];
-                M_tice[1][i] = Tbot + 3*slope*M_thick[i]/4;
-                M_tice[2][i] = Tbot +   slope*M_thick[i]/4;
-            } else {
-                M_tice[1][i] = Tbot;
-                M_tice[2][i] = Tbot;
-            }
-        }
-    }
-#endif
 }
 
 void
