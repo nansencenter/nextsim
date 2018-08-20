@@ -6715,12 +6715,20 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             // Prognostic variables
             case (GridOutput::variableID::conc):
                 for (int i=0; i<M_local_nelements; i++)
+                {
                     it->data_mesh[i] += M_conc[i]*time_factor;
+                    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+                        it->data_mesh[i] += M_conc_thin[i]*time_factor;
+                }
                 break;
 
             case (GridOutput::variableID::thick):
                 for (int i=0; i<M_local_nelements; i++)
+                {
                     it->data_mesh[i] += M_thick[i]*time_factor;
+                    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+                        it->data_mesh[i] += M_h_thin[i]*time_factor;
+                }
                 break;
 
             case (GridOutput::variableID::damage):
@@ -6730,7 +6738,11 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 
             case (GridOutput::variableID::snow):
                 for (int i=0; i<M_local_nelements; i++)
+                {
                     it->data_mesh[i] += M_snow_thick[i]*time_factor;
+                    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+                        it->data_mesh[i] += M_hs_thin[i]*time_factor;
+                }
                 break;
 
             case (GridOutput::variableID::tsurf):
@@ -11154,16 +11166,20 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
 
             if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
             {
+                // We also add the "thin" quantities to the "thick" ones
                 // h_thin
                 M_h_thin_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                M_thick_root[i] += M_h_thin_root[i];
                 tmp_nb_var++;
 
                 // conc_thin
                 M_conc_thin_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                M_conc_root[i] += M_conc_thin_root[i];
                 tmp_nb_var++;
 
                 // hs_thin
                 M_hs_thin_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                M_snow_thick_root[i] += M_hs_thin_root[i];
                 tmp_nb_var++;
 
                 // tsurf_thin
