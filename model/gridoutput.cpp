@@ -47,23 +47,41 @@ GridOutput::GridOutput(std::vector<Variable> variables, variableKind kind)
 }
 
 // Constructor for only one set of variables - regular grid
-GridOutput::GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind)
+GridOutput::GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind)
     :
     GridOutput(variables, kind)
 {
-    this->initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
-    this->resetMeshMean(mesh);
-    this->initMask();
+    this->initRegularGrid(bamgmesh, ncols, nrows, mooring_spacing, xmin, ymin);
 }
 
 // Constructor for only one set of variables - arbitrary grid
-GridOutput::GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> variables, variableKind kind)
+GridOutput::GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> variables, variableKind kind)
     :
     GridOutput(variables, kind)
 {
-    this->initArbitraryGrid(grid);
-    this->resetMeshMean(mesh);
-    this->initMask();
+    this->initArbitraryGrid(bamgmesh, grid);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Constructor for one set of variables plus vectors
+////////////////////////////////////////////////////////////////////////////////
+
+// Constructor for one set of variables plus vectors - regular grid
+GridOutput::GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables)
+    :
+    GridOutput(variables, kind)
+{
+    M_vectorial_variables = vectorial_variables;
+    this->initRegularGrid(bamgmesh, ncols, nrows, mooring_spacing, xmin, ymin);
+}
+
+// Constructor for only one set of variables - arbitrary grid
+GridOutput::GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables)
+    :
+    GridOutput(variables, kind)
+{
+    M_vectorial_variables = vectorial_variables;
+    this->initArbitraryGrid(bamgmesh, grid);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -78,25 +96,21 @@ GridOutput::GridOutput(std::vector<Variable> nodal_variables, std::vector<Variab
 }
 
 // constructor for nodal and elemental variables only (no vectors) - regular grid
-GridOutput::GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacing,
+GridOutput::GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing,
                        double xmin, double ymin,
                        std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables)
     :
     GridOutput(nodal_variables, elemental_variables)
 {
-    this->initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
-    this->resetMeshMean(mesh);
-    this->initMask();
+    this->initRegularGrid(bamgmesh, ncols, nrows, mooring_spacing, xmin, ymin);
 }
 
 // constructor for nodal and elemental variables only (no vectors) - arbitrary grid
-GridOutput::GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables)
+GridOutput::GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables)
     :
     GridOutput(nodal_variables, elemental_variables)
 {
-    this->initArbitraryGrid(grid);
-    this->resetMeshMean(mesh);
-    this->initMask();
+    this->initArbitraryGrid(bamgmesh, grid);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -110,26 +124,22 @@ GridOutput::GridOutput(std::vector<Variable> nodal_variables, std::vector<Variab
 {}
 
 // constructor for nodal, elemental and vectorial variables - regular grid
-GridOutput::GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacing,
+GridOutput::GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing,
                        double xmin, double ymin,
                        std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables)
     :
     GridOutput(nodal_variables, elemental_variables, vectorial_variables)
 {
-    this->initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
-    this->resetMeshMean(mesh);
-    this->initMask();
+    this->initRegularGrid(bamgmesh, ncols, nrows, mooring_spacing, xmin, ymin);
 }
 
 // constructor for nodal, elemental and vectorial variables - arbitrary grid
-GridOutput::GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> nodal_variables,
+GridOutput::GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> nodal_variables,
                        std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables)
     :
     GridOutput(nodal_variables, elemental_variables, vectorial_variables)
 {
-    this->initArbitraryGrid(grid);
-    this->resetMeshMean(mesh);
-    this->initMask();
+    this->initArbitraryGrid(bamgmesh, grid);
 }
 
 GridOutput::~GridOutput()
@@ -139,7 +149,7 @@ GridOutput::~GridOutput()
 // Initialisation routines
 ////////////////////////////////////////////////////////////////////////////////
 void
-GridOutput::initRegularGrid(int ncols, int nrows, double mooring_spacing, double xmin, double ymin)
+GridOutput::initRegularGrid(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin)
 {
     // Set the grid size
     M_ncols = ncols;
@@ -184,20 +194,21 @@ GridOutput::initRegularGrid(int ncols, int nrows, double mooring_spacing, double
 
     close_mapx(map);
 
-    M_lsm_nodes.assign(M_grid_size, 1.);
-    M_lsm_elements.assign(M_grid_size, 1.);
+    M_lsm.assign(M_grid_size, 1);
     this->resetGridMean();
+    this->resetMeshMean(bamgmesh);
+    this->initMask();
 }
 
 void
-GridOutput::initArbitraryGrid(Grid grid)
+GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, Grid grid)
 {
     M_grid = grid;
 
     // Load the grid from file
     // Check file
     std::string filename = (boost::format( "%1%/%2%/%3%" )
-                            % Environment::simdataDir().string()
+                            % Environment::nextsimDir().string()
                             % M_grid.dirname
                             % M_grid.gridFile
                             ).str();
@@ -205,27 +216,52 @@ GridOutput::initArbitraryGrid(Grid grid)
         throw std::runtime_error("File not found: " + filename);
 
     // Open file
-	netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
+    netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
 
-    // Read the dimension of the grid
-    netCDF::NcDim dim;
-    dim = dataFile.getDim(M_grid.dimNameX);
-    M_ncols = dim.getSize();
-
-    dim = dataFile.getDim(M_grid.dimNameY);
-    M_nrows = dim.getSize();
-    M_mooring_spacing = -1.;
-    M_grid_size = M_ncols*M_nrows;
-
-    // Read the lat and lon
+    // If we don't know the dimNameX and dimNameY we assume the first dimension
+    // is x and the second is y ... unless M_grid.transpose is true, then we do
+    // it the other way around.
     netCDF::NcVar VLAT = dataFile.getVar(M_grid.latName);
     netCDF::NcVar VLON = dataFile.getVar(M_grid.lonName);
 
+    // Read the dimension of the grid
+    netCDF::NcDim dim;
+    if ( M_grid.dimNameX == "" )
+        M_grid.dimNameX = VLAT.getDim((int)M_grid.transpose).getName();
+
+    dim = dataFile.getDim(M_grid.dimNameX);
+    M_ncols = dim.getSize();
+
+    if ( M_grid.dimNameY == "" )
+        M_grid.dimNameY = VLAT.getDim((int)!M_grid.transpose).getName();
+
+    dim = dataFile.getDim(M_grid.dimNameY);
+    M_nrows = dim.getSize();
+
+    M_mooring_spacing = -1.;
+    M_grid_size = M_ncols*M_nrows;
+
+    // Read the lat and lon, and theta and corners if requested
     // Read data into M_grid.gridLON & M_grid.gridLAT
     M_grid.gridLAT.resize(M_grid_size);
     M_grid.gridLON.resize(M_grid_size);
     VLAT.getVar(&M_grid.gridLAT[0]);
     VLON.getVar(&M_grid.gridLON[0]);
+    if ( M_grid.thetaName != "" )
+    {
+        netCDF::NcVar Theta = dataFile.getVar(M_grid.thetaName);
+        M_grid.gridTheta.resize(M_grid_size);
+        Theta.getVar(&M_grid.gridTheta[0]);
+    }
+    if ( M_grid.cornerLatName!= "" && M_grid.cornerLonName!= "")
+    {
+        netCDF::NcVar cornerLat = dataFile.getVar(M_grid.cornerLatName);
+        netCDF::NcVar cornerLon = dataFile.getVar(M_grid.cornerLonName);
+        M_grid.gridCornerLat.resize(M_grid_size*4);
+        M_grid.gridCornerLon.resize(M_grid_size*4);
+        cornerLat.getVar(&M_grid.gridCornerLat[0]);
+        cornerLon.getVar(&M_grid.gridCornerLon[0]);
+    }
 
     // Calculate x and y
     M_grid.gridX.resize(M_grid_size);
@@ -241,13 +277,22 @@ GridOutput::initArbitraryGrid(Grid grid)
     for (int i=0; i<M_grid_size; ++i)
         forward_mapx(map, M_grid.gridLAT[i], M_grid.gridLON[i], &M_grid.gridX[i], &M_grid.gridY[i]);
 
+    if ( M_grid.cornerLatName!= "" && M_grid.cornerLonName!= "")
+    {
+        M_grid.gridCornerX.resize(4*M_grid_size);
+        M_grid.gridCornerY.resize(4*M_grid_size);
+        for (int i=0; i<4*M_grid_size; ++i)
+            forward_mapx(map, M_grid.gridCornerLat[i], M_grid.gridCornerLon[i], &M_grid.gridCornerX[i], &M_grid.gridCornerY[i]);
+    }
+
     close_mapx(map);
 
     M_grid.loaded = true;
 
-    M_lsm_nodes.assign(M_grid_size, 1.);
-    M_lsm_elements.assign(M_grid_size, 1.);
+    M_lsm.assign(M_grid_size, 1);
     this->resetGridMean();
+    this->resetMeshMean(bamgmesh, true);
+    this->initMask();
 }
 
 void
@@ -269,25 +314,19 @@ GridOutput::initMask()
 
 // Interpolate from the mesh values to the grid
 void
-GridOutput::updateGridMean(GmshMesh const& mesh)
+GridOutput::updateGridMean(BamgMesh* bamgmesh)
 {
     // Reset proc_mask
     if (M_proc_mask_indx != -1)
         M_elemental_variables[M_proc_mask_indx].data_grid.assign(M_grid_size, 0.);
 
     // Call the worker routine for the elements
-    this->updateGridMeanWorker(&mesh.indexTr()[0], &mesh.coordX()[0], &mesh.coordY()[0], mesh.numNodes(), mesh.numTriangles(),
-            mesh.numTriangles(), M_elemental_variables);
-
-    // Rotate vectors if needed (these are assumed to be on the nodes)
-    for ( auto it=M_vectorial_variables.begin(); it!=M_vectorial_variables.end(); it++ )
-        if ( (it->east_west_oriented) || (M_grid.loaded) )
-            this->rotateVectors(mesh, *it, M_nodal_variables);
+    this->updateGridMeanWorker(bamgmesh, variableKind::elemental, M_elemental_variables, M_miss_val);
 
     // Call the worker routine for the nodes
     if (M_proc_mask_indx != -1)
-        this->updateGridMeanWorker(&mesh.indexTr()[0], &mesh.coordX()[0], &mesh.coordY()[0], mesh.numNodes(), mesh.numTriangles(),
-                mesh.numNodes(), M_nodal_variables, true, M_elemental_variables[M_proc_mask_indx]);
+        this->updateGridMeanWorker(bamgmesh, variableKind::nodal, M_nodal_variables, M_miss_val,
+                true, M_elemental_variables[M_proc_mask_indx]);
     else
         if ( M_nodal_variables.size() > 0 )
             throw std::logic_error("GridOutput::updateGridMean: There are nodal variables to be interpolated but no proc_mask set.");
@@ -306,51 +345,83 @@ GridOutput::updateGridMean(GmshMesh const& mesh)
                     it->data_grid[i] = 0.;
 }
 
-// Interpolate from the mesh to the grid - updateing the gridded mean
+// Interpolate from the mesh to the grid - updating the gridded mean
 void
-GridOutput::updateGridMeanWorker(int* indexTr, double* coordX, double* coordY, int numNodes, int numTriangles,
-        int source_size, std::vector<Variable>& variables)
+GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, std::vector<Variable>& variables, double miss_val)
 {
     bool apply_mask = false;
     Variable mask(variableID::proc_mask);
 
-    updateGridMeanWorker(indexTr, coordX, coordY, numNodes, numTriangles, source_size, variables, apply_mask, mask);
+    this->updateGridMeanWorker(bamgmesh, kind, variables, miss_val, apply_mask, mask);
 }
 
 void
-GridOutput::updateGridMeanWorker(int* indexTr, double* coordX, double* coordY, int numNodes, int numTriangles,
-        int source_size, std::vector<Variable>& variables, bool apply_mask, Variable mask)
+GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, std::vector<Variable>& variables, double miss_val,
+        bool apply_mask, Variable mask)
 {
     int nb_var = variables.size();
-    if (nb_var==0) exit;
+    if ( nb_var == 0 )
+        return;
 
-    // TODO: We should check and make sure all variables in the vector are the same size
+    // Copy the triangle information
+    int numTriangles = bamgmesh->TrianglesSize[0]; // mesh.numTriangles();
+    std::vector<int> indexTr(3*numTriangles); // = mesh.indexTr();
+    for (int tr=0; tr<numTriangles; ++tr)
+    {
+        indexTr[3*tr  ] = bamgmesh->Triangles[4*tr];
+        indexTr[3*tr+1] = bamgmesh->Triangles[4*tr+1];
+        indexTr[3*tr+2] = bamgmesh->Triangles[4*tr+2];
+    }
+
+    // Copy the node information
+    int numNodes     = bamgmesh->VerticesSize[0]; //mesh.numNodes();
+    std::vector<double> coordX(numNodes); // = mesh.coordX();
+    std::vector<double> coordY(numNodes); // = mesh.coordY();
+    for (int id=0; id<numNodes; ++id)
+    {
+        coordX[id] = bamgmesh->Vertices[3*id];
+        coordY[id] = bamgmesh->Vertices[3*id+1];
+    }
+
+    int source_size = (kind==variableKind::nodal) ? numNodes : numTriangles;
+
     // Input vector and output pointer
     std::vector<double> interp_in(nb_var*source_size);
     double* interp_out;
 
+
     // Stuff the input vector
     for (int i=0; i<source_size; ++i)
+    {
         for (int j=0; j<nb_var; j++)
+        {
+            assert( variables[j].data_mesh.size() == source_size );
             interp_in[nb_var*i+j] = variables[j].data_mesh[i];
+        }
+    }
 
-    // At the moment a non-regular grid, loaded into M_grid is handled by InterpFromMeshToMesh2dx.
+    // Non-regular grids, loaded into M_grid is handled by InterpFromMeshToMesh2dx or ConservativeRemappingMeshToGrid.
     // Regular grids, based on the polar stereographic coordinate system and a regular spacing, are handled by InterpFromMeshToGridx.
-    // This will likely change in the future with improved interpolation schemes for non-regular grids.
+    // TODO: Permit regular grids to use the conservative remapping.
     if ( M_grid.loaded )
     {
-        InterpFromMeshToMesh2dx(&interp_out,
-                                indexTr,coordX,coordY,
-                                numNodes,numTriangles,
-                                &interp_in[0],
-                                source_size,nb_var,
-                                &M_grid.gridX[0],&M_grid.gridY[0],M_grid_size,
-                                true, 0.);
+        if ( kind==variableKind::elemental && M_grid.cornerLatName!="" && M_grid.cornerLonName!="" )
+            ConservativeRemappingMeshToGrid(interp_out, interp_in,
+                                    nb_var, M_grid_size, miss_val,
+                                    M_gridP, M_triangles, M_weights);
+        else
+            InterpFromMeshToMesh2dx(&interp_out,
+                                    &indexTr[0],&coordX[0],&coordY[0],
+                                    numNodes,numTriangles,
+                                    &interp_in[0],
+                                    source_size,nb_var,
+                                    &M_grid.gridX[0],&M_grid.gridY[0],M_grid_size,
+                                    true, miss_val);
     }
     else if ( (M_ncols>0) && (M_nrows>0) && (M_mooring_spacing>0) )
     {
         InterpFromMeshToGridx(interp_out,
-                              indexTr,coordX,coordY,
+                              &indexTr[0],&coordX[0],&coordY[0],
                               numNodes,numTriangles,
                               &interp_in[0],
                               source_size, nb_var,
@@ -364,6 +435,13 @@ GridOutput::updateGridMeanWorker(int* indexTr, double* coordX, double* coordY, i
         std::logic_error("GridOutput::updateGridMeanWorker: No grid loaded from file and one of M_ncols, M_nrows, or M_mooring_spacing not set properly.");
     }
 
+    // Rotate vectors if needed (these may only be on the nodes)
+    if ( kind == variableKind::nodal )
+        for ( auto it=M_vectorial_variables.begin(); it!=M_vectorial_variables.end(); it++ )
+            if ( it->orientation != vectorOrientation::neXtSIM )
+                this->rotateVectors(*it, nb_var, interp_out, miss_val);
+
+
     // Add the output pointer value to the grid vectors
     for (int i=0; i<nb_var; i++)
         for (int j=0; j<M_grid_size; ++j)
@@ -374,51 +452,44 @@ GridOutput::updateGridMeanWorker(int* indexTr, double* coordX, double* coordY, i
 
 // Set the land-sea mask
 void
-GridOutput::setLSM(GmshMeshSeq const& mesh)
+GridOutput::setLSM(BamgMesh* bamgmesh)
 {
-    M_lsm_nodes = getMask(mesh, variableKind::nodal);
-    M_lsm_elements = getMask(mesh, variableKind::elemental);
+    M_lsm = getMask(bamgmesh, variableKind::elemental);
     this->resetGridMean();
 }
 
 // Return a mask
-std::vector<double>
-GridOutput::getMask(GmshMeshSeq const& mesh, variableKind kind)
+std::vector<int>
+GridOutput::getMask(BamgMesh* bamgmesh, variableKind kind)
 {
-    double source_size;
+    // Call the worker routine using a vector of ones and give zero for missing values (land mask)
+    std::vector<Variable> variables(1);
+    variables[0] = Variable(variableID::lsm);
+
+    variables[0].data_grid.assign(M_grid_size,0);
     switch (kind)
     {
         case variableKind::nodal:
-            source_size = mesh.numNodes();
+            throw std::logic_error("variableKind::nodal not supported in GridOutput::getMask");
+            variables[0].data_mesh.assign(bamgmesh->VerticesSize[0], 1.);
             break;
 
         case variableKind::elemental:
-            source_size = mesh.numTriangles();
+            variables[0].data_mesh.assign(bamgmesh->TrianglesSize[0], 1.);
             break;
 
         default:
-            std::logic_error("Incorrect variable kind in GridOutput::getMask");
+            throw std::logic_error("Incorrect variable kind in GridOutput::getMask");
     }
 
-    // Call the worker routine using a vector of ones and give zero for missing values (land mask)
-    std::vector<double> data_mesh(source_size, 1.);
-    std::vector<double> data_grid(M_grid_size);
+    this->updateGridMeanWorker(bamgmesh, kind, variables, 0.);
 
-    Variable lsm(variableID::lsm);
-    lsm.data_mesh = data_mesh;
-    lsm.data_grid = data_grid;
-
-    std::vector<Variable> variables(1);
-    variables[0] = lsm;
-    this->updateGridMeanWorker(&mesh.indexTr()[0], &mesh.coordX()[0], &mesh.coordY()[0], mesh.numNodes(), mesh.numTriangles(),
-            source_size, variables);
-
-    return variables[0].data_grid;
+    return std::vector<int>(variables[0].data_grid.begin(), variables[0].data_grid.end());
 }
 
 // Rotate the vectors as needed
 void
-GridOutput::rotateVectors(GmshMesh const& mesh, Vectorial_Variable const& vectorial_variable, std::vector<Variable>& variables)
+GridOutput::rotateVectors(Vectorial_Variable const& vectorial_variable, int nb_var, double* &interp_out, double miss_val)
 {
     // First we decide the rotation angle
     // Get the rotation of the neXtSIM grid
@@ -433,70 +504,56 @@ GridOutput::rotateVectors(GmshMesh const& mesh, Vectorial_Variable const& vector
     strNextsim.push_back('\0');
     mapNextsim = init_mapx(&strNextsim[0]);
 
-    // Try to get the rotation of the data set
-    double rotation_angle;
-    if((!vectorial_variable.east_west_oriented) && (M_grid.mpp_file!=""))
-    {
-        mapx_class *map;
-        std::string configfile = (boost::format( "%1%/%2%/%3%" )
-                                  % Environment::nextsimDir().string()
-                                  % M_grid.dirname
-                                  % M_grid.mpp_file
-                                  ).str();
+    double rotation_angle = mapNextsim->rotation*PI/180.;
 
-        std::vector<char> str(configfile.begin(), configfile.end());
-        str.push_back('\0');
-        map = init_mapx(&str[0]);
-        rotation_angle = (mapNextsim->rotation-map->rotation)*PI/180.;
-        close_mapx(map);
-    }
-    else if (vectorial_variable.east_west_oriented)
-    {
-        // or rotate to zonal/meridional
-        rotation_angle = mapNextsim->rotation*PI/180.;
-    }
-    else
-    {
-        // or do nothing
-        rotation_angle=0.;
-    }
     close_mapx(mapNextsim);
 
+    // One last check before we start
+    if ( (vectorial_variable.orientation == vectorOrientation::grid) && (M_grid.thetaName == "") )
+        throw std::logic_error("GridOutput::rotateVectors: You asked for vectors aligned with the output grid, but did not provide the rotation angle. Check your inputs when constructing your GridOutput::Grid object, or make sure you use simul.moorings_grid_file if you're using moorins.");
+
     // Rotate!
-    if ( (rotation_angle!=0.) || (vectorial_variable.east_west_oriented) )
+    for (int i=0; i<M_grid_size; ++i)
     {
-        double cosang = std::cos(rotation_angle);
-        double sinang = std::sin(rotation_angle);
-        std::vector<double> lon = mesh.lon();
+        int first  = i*nb_var + vectorial_variable.components_Id.first;
+        int second = i*nb_var + vectorial_variable.components_Id.second;
+        if ( interp_out[first] == miss_val )
+            continue;
 
-        for (int i=0; i<mesh.numNodes(); ++i)
+        double cosang;
+        double sinang;
+
+        switch (vectorial_variable.orientation)
         {
-            if (vectorial_variable.east_west_oriented)
-            {
-                cosang = std::cos(-lon[i]*PI/180+rotation_angle);
-                sinang = std::sin(-lon[i]*PI/180+rotation_angle);
-            }
-
-            // Calculate u and v
-            double ull = cosang*variables[vectorial_variable.components_Id[0]].data_mesh[i] - sinang*variables[vectorial_variable.components_Id[1]].data_mesh[i];
-            double vll = sinang*variables[vectorial_variable.components_Id[0]].data_mesh[i] + cosang*variables[vectorial_variable.components_Id[1]].data_mesh[i];
-            // Overwrite x and y with u and v
-            variables[vectorial_variable.components_Id[0]].data_mesh[i] = ull;
-            variables[vectorial_variable.components_Id[1]].data_mesh[i] = vll;
+            case vectorOrientation::east_west:
+                cosang = std::cos(rotation_angle - M_grid.gridLON[i]*PI/180);
+                sinang = std::sin(rotation_angle - M_grid.gridLON[i]*PI/180);
+                break;
+            case vectorOrientation::grid:
+                cosang = std::cos(rotation_angle - M_grid.gridTheta[i]);
+                sinang = std::sin(rotation_angle - M_grid.gridTheta[i]);
+                break;
         }
-    }
 
+        // Calculate u and v
+        double u = cosang*interp_out[first] - sinang*interp_out[second];
+        double v = sinang*interp_out[first] + cosang*interp_out[second];
+        // Overwrite x and y with u and v
+        interp_out[first]  = u;
+        interp_out[second] = v;
+    }
 }
 
 // Set the _grid values back to zero - with land mask
 void
 GridOutput::resetGridMean()
 {
+    // TODO: This is ugly - we should be able to loop over all the variables at once.
     for (int i=0; i<M_nodal_variables.size(); i++)
     {
         M_nodal_variables[i].data_grid.resize(M_grid_size);
         for (int j=0; j<M_grid_size; j++)
-            if (M_lsm_nodes[j] == 0.)
+            if (M_lsm[j] == 0)
                 M_nodal_variables[i].data_grid[j] = M_miss_val;
             else
                 M_nodal_variables[i].data_grid[j] = 0.;
@@ -506,22 +563,28 @@ GridOutput::resetGridMean()
     {
         M_elemental_variables[i].data_grid.resize(M_grid_size);
         for (int j=0; j<M_grid_size; j++)
-            if (M_lsm_elements[j] == 0.)
+            if (M_lsm[j] == 0)
                 M_elemental_variables[i].data_grid[j] = M_miss_val;
             else
                 M_elemental_variables[i].data_grid[j] = 0.;
     }
 }
 
-// Set the _mesh values back to zero
+// Set the _mesh values back to zero and recalculate weights if needed (and if they're being used)
 void
-GridOutput::resetMeshMean(GmshMesh const& mesh)
+GridOutput::resetMeshMean(BamgMesh* bamgmesh, bool regrid)
 {
     for (int i=0; i<M_nodal_variables.size(); i++)
-        M_nodal_variables[i].data_mesh.assign(mesh.numNodes(), 0.);
+        M_nodal_variables[i].data_mesh.assign(bamgmesh->VerticesSize[0], 0.);
 
     for (int i=0; i<M_elemental_variables.size(); i++)
-        M_elemental_variables[i].data_mesh.assign(mesh.numTriangles(), 0.);
+        M_elemental_variables[i].data_mesh.assign(bamgmesh->TrianglesSize[0], 0.);
+
+    if ( regrid && (M_grid.cornerLatName != "" && M_grid.cornerLonName != "") )
+        ConservativeRemappingWeights(bamgmesh,
+                                M_grid.gridX,M_grid.gridY,
+                                M_grid.gridCornerX,M_grid.gridCornerY,
+                                M_gridP, M_triangles, M_weights);
 }
 
 // Initialise a netCDF file and return the file name in an std::string

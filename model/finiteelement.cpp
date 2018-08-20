@@ -5114,6 +5114,7 @@ FiniteElement::thermo(int dt)
             old_conc_thin  = M_conc_thin[i];
             old_hs_thin = M_hs_thin[i];
         }
+        double old_ow_fraction = 1. - old_conc - old_conc_thin;
 
         double sum_u=0.;
         double sum_v=0.;
@@ -5151,7 +5152,11 @@ FiniteElement::thermo(int dt)
             //Qsw_in=approxSW();
         }
 
-        double mld=( M_mld[i] > vm["ideal_simul.constant_mld"].as<double>() ) ? M_mld[i] : vm["ideal_simul.constant_mld"].as<double>();
+        double mld;
+        if (M_mld.M_initialized )
+            mld = M_mld[i];
+        else
+            mld = vm["ideal_simul.constant_mld"].as<double>();
 
         // -------------------------------------------------
         // 2) We calculate or set the flux due to nudging
@@ -5160,6 +5165,17 @@ FiniteElement::thermo(int dt)
             Qdw=Qdw_const;
             Fdw=Fdw_const;
         }
+#ifdef OASIS
+        // Don't nudge if we're coupled to an ocean, just reset SST and SSS to the values recieved
+        else if ( M_ocean_type == setup::OceanType::COUPLED )
+        {
+            Qdw = 0;
+            Fdw = 0;
+            // Assuming thermo_timestep == cpl_time_step
+            M_sst[i] = M_ocean_temp[i];
+            M_sss[i] = M_ocean_salt[i];
+        }
+#endif
         else
         {
             // nudgeFlux
@@ -5283,22 +5299,26 @@ FiniteElement::thermo(int dt)
             M_hs_thin[i] = hs_thin * old_conc_thin;
         }
 
+        // Element mean ice-ocean heat flux
+        double Qio_mean = Qio*old_conc + Qio_thin*old_conc_thin;
+        // Element mean open water heat flux
+        double Qow_mean = Qow*old_ow_fraction;
+
         // -------------------------------------------------
         // 5) Ice growth over open water and lateral melt (thermoOW in matlab)
 
         /* Local variables */
-        double tw_new, tfrw, newice, del_c, newsnow, h0;
+        double newice, del_c, newsnow, h0;
 
         /* dT/dt due to heatflux ocean->atmosphere */
-        tw_new = M_sst[i] - Qow*ddt/(mld*physical::rhow*physical::cpw);
-        tfrw   = -physical::mu*M_sss[i];
+        double const tw_new = M_sst[i] - ddt*(Qow_mean+Qio_mean)/(mld*physical::rhow*physical::cpw);
+        double const tfrw   = -physical::mu*M_sss[i];
 
         /* Form new ice in case of super cooling, and reset Qow and evap */
         if ( tw_new < tfrw )
         {
-            newice  = (1.-M_conc[i]-M_conc_thin[i])*(tfrw-tw_new)*mld*physical::rhow*physical::cpw/qi;// m
-            Qow  = -(tfrw-M_sst[i])*mld*physical::rhow*physical::cpw/ddt;
-            // evap = 0.;
+            newice    = old_ow_fraction*(tfrw-tw_new)*mld*physical::rhow*physical::cpw/qi;// m
+            Qow_mean -= newice*qi/ddt;
         }
         else
         {
@@ -5408,9 +5428,9 @@ FiniteElement::thermo(int dt)
                     if ( hi > 0. )
                     {
                         /* Use the fraction PhiM of (1-c)*Qow to melt laterally */
-                        del_c += PhiM*(1.-M_conc[i])*std::min(0.,Qow)*ddt/( hi*qi+hs*qs );
+                        del_c += PhiM*(1.-M_conc[i])*std::min(0.,Qow_mean)*ddt/( hi*qi+hs*qs );
                         /* Deliver the fraction (1-PhiM) of Qow to the ocean */
-                        Qow = (1.-PhiM)*Qow;
+                        Qow_mean *= (1.-PhiM);
                     }
                     else
                     {
@@ -5429,7 +5449,7 @@ FiniteElement::thermo(int dt)
         }
 
         /* New concentration */
-        M_conc[i] = M_conc[i] + del_c;
+        M_conc[i] += del_c;
 
         /* New thickness */
         /* We conserve volume and energy */
@@ -5439,7 +5459,7 @@ FiniteElement::thermo(int dt)
             if ( del_c < 0. )
             {
                 /* We conserve the snow height, but melt away snow as the concentration decreases */
-                Qow = Qow + del_c*hs*qs/ddt;
+                Qow_mean -= del_c*hs*qs/ddt;
             }
             else
             {
@@ -5462,7 +5482,7 @@ FiniteElement::thermo(int dt)
         {
             // Extract heat from the ocean corresponding to the heat in the
             // remaining ice and snow
-            Qow    = Qow + M_conc[i]*hi*qi/ddt + M_conc[i]*hs*qs/ddt;
+            Qow_mean  += M_conc[i]*hi*qi/ddt + M_conc[i]*hs*qs/ddt;
             M_conc[i]  = 0.;
 
             for (int j=0; j<M_tice.size(); j++)
@@ -5483,15 +5503,13 @@ FiniteElement::thermo(int dt)
 
         // local variables
         double del_vi;      // Change in ice volume
-        double del_vs;      // Change in snow olume
+        double del_vs_mlt;  // Change in snow volume due to melt
         double rain;        // Liquid precipitation
         double emp;         // Evaporation minus liquid precipitation
-        double Qio_mean;    // Element mean ice-ocean heat flux
-        double Qow_mean;    // Element mean open water heat flux
 
         // Calculate change in volume to calculate salt rejection
         del_vi = M_thick[i] - old_vol + M_h_thin[i] - old_h_thin;
-        del_vs = M_snow_thick[i] - old_snow_vol + M_hs_thin[i] - old_hs_thin;
+        del_vs_mlt = std::min(0., M_snow_thick[i] - old_snow_vol + M_hs_thin[i] - old_hs_thin);
 
         // Rain falling on ice falls straight through. We need to calculate the
         // bulk freshwater input into the entire cell, i.e. everything in the
@@ -5499,19 +5517,19 @@ FiniteElement::thermo(int dt)
         rain = (1.-old_conc-old_conc_thin)*M_precip[i] + (old_conc+old_conc_thin)*(M_precip[i]-tmp_snowfall);
         emp  = (evap*(1.-old_conc-old_conc_thin)-rain);
 
-        Qio_mean = Qio*old_conc + Qio_thin*old_conc_thin;
-        Qow_mean = Qow*(1.-old_conc-old_conc_thin);
-
+#ifndef OASIS
         /* Heat-flux */
         M_sst[i] = M_sst[i] - ddt*( Qio_mean + Qow_mean - Qdw )/(physical::rhow*physical::cpw*mld);
+#endif
 
         /* Change in salinity */
-        double denominator= ( mld*physical::rhow - del_vi*physical::rhoi - ( del_vs*physical::rhos + (emp-Fdw)*ddt) );
-        denominator = ( denominator > 1.*physical::rhow ) ? denominator : 1.*physical::rhow;
+        double denominator= ( mld*physical::rhow - del_vi*physical::rhoi - ( del_vs_mlt*physical::rhos + (emp-Fdw)*ddt) );
+        denominator = ( denominator > 1.*physical::rhow ) ? denominator : 1.*physical::rhow;        
 
-        double sss_old = M_sss[i];
-        M_sss[i] = M_sss[i] + ( (M_sss[i]-physical::si)*physical::rhoi*del_vi + M_sss[i]*(del_vs*physical::rhos + (emp-Fdw)*ddt) )
-            / denominator;
+        double delsss = ( (M_sss[i]-physical::si)*physical::rhoi*del_vi + M_sss[i]*(del_vs_mlt*physical::rhos + (emp-Fdw)*ddt) ) / denominator;
+#ifndef OASIS
+        M_sss[i] += delsss;
+#endif
 
         // -------------------------------------------------
         // 8) Damage manipulation (thermoDamage in matlab)
@@ -5560,28 +5578,37 @@ FiniteElement::thermo(int dt)
         // -------------------------------------------------
 
         // Diagnostics
-        double ow_fraction = 1. - old_conc - old_conc_thin;
 
         // Total heat flux to the atmosphere
-        D_Qa[i] = Qai*old_conc + Qai_thin*old_conc_thin + (Qsw_ow+Qlw_ow+Qsh_ow+Qlh_ow)*ow_fraction;
+        D_Qa[i] = Qai*old_conc + Qai_thin*old_conc_thin + (Qsw_ow+Qlw_ow+Qsh_ow+Qlh_ow)*old_ow_fraction;
 
         // Short wave flux to the atmosphere
-        D_Qsw[i] = Qswi*old_conc + Qsw_thin*old_conc_thin + Qsw_ow*ow_fraction;
+        D_Qsw[i] = Qswi*old_conc + Qsw_thin*old_conc_thin + Qsw_ow*old_ow_fraction;
 
         // Long wave flux to the atmosphere
-        D_Qlw[i] = Qlwi*old_conc + Qlw_thin*old_conc_thin + Qlw_ow*ow_fraction;
+        D_Qlw[i] = Qlwi*old_conc + Qlw_thin*old_conc_thin + Qlw_ow*old_ow_fraction;
 
         // Sensible heat flux to the atmosphere
-        D_Qsh[i] = Qshi*old_conc + Qsh_thin*old_conc_thin + Qsh_ow*ow_fraction;
+        D_Qsh[i] = Qshi*old_conc + Qsh_thin*old_conc_thin + Qsh_ow*old_ow_fraction;
 
         // Latent heat flux to the atmosphere
-        D_Qlh[i] = Qlhi*old_conc + Qlh_thin*old_conc_thin + Qlh_ow*ow_fraction;
+        D_Qlh[i] = Qlhi*old_conc + Qlh_thin*old_conc_thin + Qlh_ow*old_ow_fraction;
 
         // Total heat lost by ocean
         D_Qo[i] = Qio_mean + Qow_mean;
 
-        // Salt release into the ocean - kg/day
-        D_delS[i] = (M_sss[i] - sss_old)*physical::rhow*mld/ddt;
+        // Non-solar fluxes to ocean
+        D_Qnosun[i] = Qio_mean + Qow_mean - old_ow_fraction*Qsw_ow;
+
+        // Salt balance of the ocean (all sources) - kg/day
+        D_delS[i] = physical::si*(delsss)*physical::rhow*mld/ddt;
+
+        // Freshwater ballance at the surface - kg/m^2/s
+        D_emp[i] = emp/ddt;
+
+        // Brine release - kg/m^2/s
+        D_brine[i] = physical::si*physical::rhoi*del_vi/ddt;
+
     }// end for loop
 }// end thermo function
 
@@ -6282,7 +6309,7 @@ FiniteElement::step()
             M_regrid = true;
 
             if ( M_use_moorings && !M_moorings_snapshot )
-                M_moorings.updateGridMean(M_mesh);
+                M_moorings.updateGridMean(bamgmesh);
 
             LOG(DEBUG) <<"Regridding starts\n";
             chrono.restart();
@@ -6293,7 +6320,7 @@ FiniteElement::step()
 
             LOG(DEBUG) <<"Regridding done in "<< chrono.elapsed() <<"s\n";
             if ( M_use_moorings )
-                M_moorings.resetMeshMean(M_mesh);
+                M_moorings.resetMeshMean(bamgmesh);
 
             ++M_nb_regrid;
         }//M_regrid
@@ -6991,6 +7018,7 @@ FiniteElement::initMoorings()
 
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
 
+    int vector_counter = 0;
     for ( auto it=names.begin(); it!=names.end(); ++it )
     {
         // Element variables
@@ -7064,8 +7092,29 @@ FiniteElement::initMoorings()
             GridOutput::Variable hs_thin(GridOutput::variableID::hs_thin);
             elemental_variables.push_back(hs_thin);
         }
+        // Primarely coupling variables, but perhaps useful for debugging
+        else if ( *it == "taumod" )
+        {
+            GridOutput::Variable taumod(GridOutput::variableID::taumod);
+            nodal_variables.push_back(taumod);
+        }
+        else if ( *it == "emp" )
+        {
+            GridOutput::Variable emp(GridOutput::variableID::emp);
+            elemental_variables.push_back(emp);
+        }
+        else if ( *it == "QNoSw" )
+        {
+            GridOutput::Variable QNoSw(GridOutput::variableID::QNoSw);
+            elemental_variables.push_back(QNoSw);
+        }
+        else if ( *it == "Fsalt" )
+        {
+            GridOutput::Variable Fsalt(GridOutput::variableID::Fsalt);
+            elemental_variables.push_back(Fsalt);
+        }
         // Nodal variables and vectors
-        else if ( *it == "velocity_xy" | *it == "velocity_uv" )
+        else if ( *it == "velocity_xy" | *it == "velocity_uv" | *it == "velocity_grid" )
         {
             use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
             GridOutput::Variable siu(GridOutput::variableID::VT_x, use_ice_mask);
@@ -7073,18 +7122,36 @@ FiniteElement::initMoorings()
             nodal_variables.push_back(siu);
             nodal_variables.push_back(siv);
 
-            std::vector<int> siuv_id(2);
-            siuv_id[0] = 0;
-            siuv_id[1] = 1;
-
-            GridOutput::Vectorial_Variable siuv;
-            siuv.components_Id = siuv_id;
+            GridOutput::Vectorial_Variable siuv(std::make_pair(vector_counter,vector_counter+1));
+            vector_counter += 2;
             if ( *it == "velocity_xy" )
-                siuv.east_west_oriented = false;
-            else
-                siuv.east_west_oriented = true;
+                siuv.orientation = GridOutput::vectorOrientation::neXtSIM;
+            else if ( *it == "velocity_uv" )
+                siuv.orientation = GridOutput::vectorOrientation::east_west;
+            else if ( *it == "velocity_grid" )
+                siuv.orientation = GridOutput::vectorOrientation::grid;
 
             vectorial_variables.push_back(siuv);
+        }
+        // Primarely coupling variables, but perhaps useful for debugging
+        else if ( *it == "tau_xy" | *it == "tau_uv" | *it == "tau_grid" )
+        {
+            use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
+            GridOutput::Variable taux(GridOutput::variableID::taux, use_ice_mask);
+            GridOutput::Variable tauy(GridOutput::variableID::tauy, use_ice_mask);
+            nodal_variables.push_back(taux);
+            nodal_variables.push_back(tauy);
+
+            GridOutput::Vectorial_Variable tau(std::make_pair(vector_counter,vector_counter+1));
+            vector_counter += 2;
+            if ( *it == "tau_xy" )
+                tau.orientation = GridOutput::vectorOrientation::neXtSIM;
+            else if ( *it == "tau_uv" )
+                tau.orientation = GridOutput::vectorOrientation::east_west;
+            else if ( *it == "tau_grid" )
+                tau.orientation = GridOutput::vectorOrientation::grid;
+
+            vectorial_variables.push_back(tau);
         }
         // Error
         else
@@ -7108,8 +7175,16 @@ FiniteElement::initMoorings()
                 std::cout << "h_thin, ";
                 std::cout << "hs_thin, ";
             }
+            std::cout << "taumod, ";
+            std::cout << "emp, ";
+            std::cout << "QNoSw, ";
+            std::cout << "Fsalt, "; 
             std::cout << "velocity_xy, ";
             std::cout << "velocity_uv";
+            std::cout << "velocity_grid";
+            std::cout << "tau_xy, ";
+            std::cout << "tau_uv";
+            std::cout << "tau_grid";
 
             throw std::runtime_error("Invalid mooring name");
         }
@@ -7147,23 +7222,19 @@ FiniteElement::initMoorings()
         int nrows = (int) ( 0.5 + ( ymax - ymin )/mooring_spacing );
 
         // Define the mooring dataset
-        M_moorings = GridOutput(M_mesh, ncols, nrows, mooring_spacing, xmin, ymin, nodal_variables, elemental_variables, vectorial_variables);
+        M_moorings = GridOutput(bamgmesh, ncols, nrows, mooring_spacing, xmin, ymin, nodal_variables, elemental_variables, vectorial_variables);
     }
     else if(vm["moorings.grid_type"].as<std::string>()=="from_file")
     {
         // Read the grid in from file
-        GridOutput::Grid grid{
-            gridFile: Environment::vm()["moorings.grid_file"].as<std::string>(),
-            dirname: "data",
-            mpp_file: Environment::vm()["mesh.mppfile"].as<std::string>(),
-            dimNameX: "y",
-            dimNameY: "x",
-            latName: "latitude",
-            lonName: "longitude"
-        };
+        GridOutput::Grid grid( Environment::vm()["moorings.grid_file"].as<std::string>(),
+                std::string("data"),
+                Environment::vm()["moorings.grid_latitute"].as<std::string>(),
+                Environment::vm()["moorings.grid_longitude"].as<std::string>(),
+                Environment::vm()["moorings.grid_transpose"].as<std::string>() );
 
         // Define the mooring dataset
-        M_moorings = GridOutput(M_mesh, grid, nodal_variables, elemental_variables, vectorial_variables);
+        M_moorings = GridOutput(bamgmesh, grid, nodal_variables, elemental_variables, vectorial_variables);
     }
     else
     {
@@ -7173,7 +7244,7 @@ FiniteElement::initMoorings()
 
     // As only the root processor knows the entire grid we set the land mask using it
     if ( M_rank == 0 )
-        M_moorings.setLSM(M_mesh_root);
+        M_moorings.setLSM(bamgmesh_root);
 
     // Initialise netCDF output
     if ( (M_rank==0) || M_moorings_parallel_output )
@@ -7252,7 +7323,7 @@ FiniteElement::updateMoorings()
             }
         }
 
-        M_moorings.updateGridMean(M_mesh);
+        M_moorings.updateGridMean(bamgmesh);
 
         if ( ! M_moorings_parallel_output )
         {
@@ -7273,7 +7344,7 @@ FiniteElement::updateMoorings()
         if ( (M_rank==0) || M_moorings_parallel_output )
             M_moorings.appendNetCDF(M_moorings_file, output_time);
 
-        M_moorings.resetMeshMean(M_mesh);
+        M_moorings.resetMeshMean(bamgmesh);
         M_moorings.resetGridMean();
     }
 }//updateMoorings

@@ -18,6 +18,7 @@
 #include <Bamgx.h>
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromMeshToGridx.h>
+#include <ConservativeRemapping.hpp>
 #include <BamgTriangulatex.h>
 #include <netcdf>
 
@@ -55,21 +56,73 @@ public:
         elemental  =  1
     };
 
+    enum vectorOrientation
+    {
+        neXtSIM   = 0,
+        east_west = 1,
+        grid      = 2,
+    };
+
+    // NB! You need to wrap direct "strings" in std::string() so that the constructor gives the expected results
+    // I.e. GridOutput::Grid new(std::string("file"), ...), not GridOutput::Grid new("file", ...)
     typedef struct Grid
     {
+        Grid() {}
+
+        Grid(std::string file, std::string dir, std::string lat, std::string lon)
+            : gridFile(file), dirname(dir), latName(lat), lonName(lon),
+                transpose(false), thetaName(""), cornerLatName(""), cornerLonName(""), dimNameX(""), dimNameY(""), loaded(false)
+        {}
+
+        Grid(std::string file, std::string dir, std::string lat, std::string lon, bool transp)
+            : gridFile(file), dirname(dir), latName(lat), lonName(lon), transpose(transp),
+                thetaName(""), cornerLatName(""), cornerLonName(""), dimNameX(""), dimNameY(""), loaded(false)
+        {}
+
+        Grid(std::string file, std::string dir, std::string lat, std::string lon, std::string theta)
+            : gridFile(file), dirname(dir), latName(lat), lonName(lon), thetaName(theta),
+                transpose(false), cornerLatName(""), cornerLonName(""), dimNameX(""), dimNameY(""), loaded(false)
+        {}
+
+        Grid(std::string file, std::string dir, std::string lat, std::string lon, std::string theta, bool transp)
+            : gridFile(file), dirname(dir), latName(lat), lonName(lon), thetaName(theta), transpose(transp),
+                cornerLatName(""), cornerLonName(""), dimNameX(""), dimNameY(""), loaded(false)
+        {}
+
+        Grid(std::string file, std::string dir, std::string lat, std::string lon, std::string theta, std::string cornerLat, std::string cornerLon)
+            : gridFile(file), dirname(dir), latName(lat), lonName(lon), thetaName(theta), cornerLatName(cornerLat), cornerLonName(cornerLon),
+                transpose(false), dimNameX(""), dimNameY(""), loaded(false)
+        {}
+
+        Grid(std::string file, std::string dir, std::string lat, std::string lon, std::string theta, std::string cornerLat, std::string cornerLon, bool transp)
+            : gridFile(file), dirname(dir), latName(lat), lonName(lon), thetaName(theta), cornerLatName(cornerLat), cornerLonName(cornerLon), transpose(transp),
+                dimNameX(""), dimNameY(""), loaded(false)
+        {}
+
         std::string gridFile;
         std::string dirname;
-        std::string mpp_file;
-        std::string dimNameX;
-        std::string dimNameY;
         std::string latName;
         std::string lonName;
+        std::string thetaName;
+        std::string cornerLatName;
+        std::string cornerLonName;
 
         bool loaded;
+        bool transpose;
+
+        std::string dimNameX;
+        std::string dimNameY;
         std::vector<double> gridLAT;
         std::vector<double> gridLON;
         std::vector<double> gridX;
         std::vector<double> gridY;
+
+        std::vector<double> gridTheta;
+        std::vector<double> gridCornerLat;
+        std::vector<double> gridCornerLon;
+        std::vector<double> gridCornerX;
+        std::vector<double> gridCornerY;
+
     } Grid;
 
     //////////////////////////////////////////////////////////////////////
@@ -353,12 +406,26 @@ public:
         std::vector<double> data_mesh;
         std::vector<double> data_grid;
 
+#ifdef OASIS
+        int cpl_id;
+#endif
+
     } Variable;
 
     typedef struct Vectorial_Variable
     {
-        std::vector<int> components_Id;
-        bool east_west_oriented;
+        Vectorial_Variable() {}
+
+        Vectorial_Variable(std::pair<int,int> id)
+            : components_Id(id), orientation(vectorOrientation::neXtSIM)
+        {}
+
+        Vectorial_Variable(std::pair<int,int> id, vectorOrientation myOrientation)
+            : components_Id(id), orientation(myOrientation)
+        {}
+
+        std::pair<int,int> components_Id;
+        vectorOrientation orientation;
     } Vectorial_Variable;
 
     ///////////////////////////////////////////////////////////////////////
@@ -366,28 +433,33 @@ public:
     ///////////////////////////////////////////////////////////////////////
     GridOutput();
 
-    GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind);
+    GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind);
 
-    GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> variables, variableKind kind);
+    GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> variables, variableKind kind);
 
-    GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
+    GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables);
 
-    GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
+    GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables);
 
-    GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacin, double xmin, double yming, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
+    GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
 
-    GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
+    GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
+
+    GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacin, double xmin, double yming, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
+
+    GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
 
     ~GridOutput();
 
-    void setLSM(GmshMeshSeq const& mesh);
-    std::vector<double> getMask(GmshMeshSeq const &mesh, variableKind kind);
+    void setLSM(BamgMesh* bamgmesh);
 
-    void updateGridMean(GmshMesh const& mesh);
+    void updateGridMean(BamgMesh* bamgmesh);
     void resetGridMean();
-    void resetMeshMean(GmshMesh const& mesh);
+    void resetMeshMean(BamgMesh* bamgmesh, bool regrid=false);
     std::string initNetCDF(std::string file_prefix, fileLength file_length, double current_time);
     void appendNetCDF(std::string filename, double timestamp);
+
+    std::vector<int> getMask(BamgMesh* bamgmesh, variableKind kind);
 
     int M_ncols;
     int M_nrows;
@@ -400,13 +472,16 @@ public:
 
     double M_miss_val = -1e+14; // Must be smaller than any expected result
 
+    std::vector<int> const &getGridP() const { return M_gridP; }
+    std::vector<std::vector<int>> const &getTriangles() const { return M_triangles; }
+    std::vector<std::vector<double>> const &getWeights() const { return M_weights; }
+
 private:
 
     double M_xmin;
     double M_ymax;
 
-    std::vector<double> M_lsm_nodes;
-    std::vector<double> M_lsm_elements;
+    std::vector<int> M_lsm;
 
     int M_proc_mask_indx;
     int M_ice_mask_indx;
@@ -417,20 +492,23 @@ private:
 
     GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
 
-    void initRegularGrid(int ncols, int nrows, double mooring_spacing, double xmin, double ymin);
+    void initRegularGrid(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin);
 
-    void initArbitraryGrid(Grid grid);
+    void initArbitraryGrid(BamgMesh* bamgmesh, Grid grid);
 
     void initMask();
 
-    void updateGridMeanWorker(int* indexTr, double* coordX, double* coordY, int numNodes, int numTriangles,
-        int source_size, std::vector<Variable>& variables);
-    void updateGridMeanWorker(int* indexTr, double* coordX, double* coordY, int numNodes, int numTriangles,
-        int source_size, std::vector<Variable>& variables, bool apply_mask, Variable mask);
+    void updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, std::vector<Variable>& variables, double miss_val);
+    void updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, std::vector<Variable>& variables, double miss_val,
+        bool apply_mask, Variable mask);
 
-    void rotateVectors(GmshMesh const& mesh, Vectorial_Variable const& vectorial_variable, std::vector<Variable>& variables);
+    void rotateVectors(Vectorial_Variable const& vectorial_variable, int nb_var, double* &interp_out, double miss_val);
 
     size_t M_nc_step;
+
+    std::vector<int> M_gridP;
+    std::vector<std::vector<int>> M_triangles;
+    std::vector<std::vector<double>> M_weights;
 };
 } // Nextsim
 #endif // __GridOutput_H
