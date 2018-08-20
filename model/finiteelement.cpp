@@ -5756,7 +5756,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
 
         /* Calculate atmospheric fluxes */
         // Shortwave is modulated by the albedo
-        double Qsw = -Qsw_in*(1.-this->albedo(alb_scheme, Tsurf, hs, alb_sn, alb_ice, I_0))*(1.-I_0);
+        Qsw = -Qsw_in*(1.-this->albedo(alb_scheme, Tsurf, hs, alb_sn, alb_ice, I_0))*(1.-I_0);
         // The rest is calculated by bulk formula
         this->atmFluxBulk(i, Tsurf, sphuma, drag_ice_t, Qsw, Qlw_in, wspeed, Qai, dQaidT,subl,
                 Qsh, Qlh, Qlw);
@@ -5974,16 +5974,8 @@ FiniteElement::thermoIce0(int i, double dt, double wspeed, double sphuma, double
         hs     = vols/conc;
 
         /* Local variables */
-        double Qsw, Qout, dQaidT, subl;
+        double dQaidT, subl;
         double Qic, del_hs, del_ht, del_hb, draft;
-
-        double Qlw_out, dQlwdT;
-        double tairK, sphumi;
-        double rhoair, Qsh, dQshdT;
-        double Qlh, dsphumidT, dQlhdT;
-
-        double fi, esti;
-        double dsphumdesti, destidT, dfidT;
 
         /* ---------------------------------------------------------------
         * Calculate the surface temperature within a while-loop
