@@ -41,7 +41,7 @@ endif
 
 # add include paths
 CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I /usr/local/include -I $(OPENMPI_INCLUDE_DIR)/
-CXXFLAGS += -I $(PETSC_DIR)/include -I $(BOOST_INCDIR) -I $(GMSH_DIR)/include/gmsh
+CXXFLAGS += -I $(PETSC_DIR)/include -I $(BOOST_INCDIR)/ -I $(GMSH_DIR)/include/gmsh
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
 
 ifeq ($(KERNEL),Linux)
