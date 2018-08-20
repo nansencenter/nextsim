@@ -9479,11 +9479,13 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(
                     }
                 }
 
-                /* Two cases: Thin ice fills the cell or not */
+                // make sure thin ice absolute thickness is not too small
                 double min_h_thin = h_thin_min*M_conc_thin[i];
                 if ( M_h_thin[i] < min_h_thin )
                     M_h_thin[i] = min_h_thin;
 
+                // make sure thin ice absolute thickness is not too large
+                // - choice of max value from Sylvain, unsure of reason for it
                 double max_h_thin=(h_thin_min+(h_thin_max+h_thin_min)/2.)*M_conc_thin[i];
                 if ( M_h_thin[i] > max_h_thin)
                     M_h_thin[i] = max_h_thin;
@@ -9546,6 +9548,10 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce(
     new_thick_ice.assign(M_num_elements, false);
     new_thin_ice.assign(M_num_elements, false);
     double real_thickness, init_conc_tmp;
+
+    //thickness of new thin ice (default 25cm, but it needs to be
+    //relative to h_thin_[min,max])
+    double h_thin_new = h_thin_min + (4./9.)*(h_thin_max-h_thin_min);
 
     external_data_vec external_data_tmp;
     external_data M_osisaf_conc = ExternalData(&M_ice_osisaf_elements_dataset, M_mesh, 0, false, time_init-0.5);
@@ -9652,23 +9658,40 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce(
                 double wt_mod = sigma_amsr2/(sigma_amsr2+sigma_mod);
                 double wt_obs = sigma_mod/(sigma_amsr2+sigma_mod);
                 M_conc_thin[i] = wt_mod*M_conc_thin[i]+wt_obs*thin_conc_obs;
-
-                /* Two cases: Thin ice fills the cell or not */
-                double min_h_thin = h_thin_min*M_conc_thin[i];
-                if ( M_h_thin[i] < min_h_thin )
-                    M_h_thin[i] = min_h_thin;
-
-                double max_h_thin=(h_thin_min+(h_thin_max+h_thin_min)/2.)*M_conc_thin[i];
-                if ( M_h_thin[i] > max_h_thin)
-                    M_h_thin[i] = max_h_thin;
             }
+
+            //make sure 0. <= total conc <= 1.
             M_conc_thin[i] = std::max(0.,
                     std::min(M_conc_thin[i], 1-M_conc[i]));
 
-            //flag as new ice for checkConsistency
-            new_thin_ice[i] = (M_conc_thin[i]>0 && c_thin_orig<=0);
-        }
-    }
+            if(c_thin_orig>.01)
+            {
+                // scale volumes according to conc changes
+                double cfac = M_conc_thin[i]/c_thin_orig;
+                M_h_thin *= cfac;
+                M_hs_thin *= cfac;
+            }
+            else if (M_conc_thin[i]>0)
+            {
+                //flag as new thin ice for checkConsistency
+                new_thin_ice[i] = true;
+                
+                // set thin ice volume
+                M_h_thin[i] = h_thin_new*M_conc_thin[i];
+            }
+
+            // make sure thin ice absolute thickness is not too small
+            double min_h_thin = h_thin_min*M_conc_thin[i];
+            if ( M_h_thin[i] < min_h_thin )
+                M_h_thin[i] = min_h_thin;
+
+            // make sure thin ice absolute thickness is not too large
+            // - choice of max value from Sylvain, unsure of reason for it
+            double max_h_thin=(h_thin_min+(h_thin_max+h_thin_min)/2.)*M_conc_thin[i];
+            if ( M_h_thin[i] > max_h_thin)
+                M_h_thin[i] = max_h_thin;
+        }//using thin ice
+    }//loop over elements
 }//assimilate_topazForecastAmsr2OsisafIce
 
 
