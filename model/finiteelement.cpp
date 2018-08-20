@@ -9668,8 +9668,8 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce(
             {
                 // scale volumes according to conc changes
                 double cfac = M_conc_thin[i]/c_thin_orig;
-                M_h_thin *= cfac;
-                M_hs_thin *= cfac;
+                M_h_thin[i]  *= cfac;
+                M_hs_thin[i] *= cfac;
             }
             else if (M_conc_thin[i]>0)
             {
