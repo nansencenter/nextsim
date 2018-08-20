@@ -9600,10 +9600,10 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(
             //scale volumes per unit area
             // according to the concentration change
             double cfac = M_conc[i]/c_model;
-            double dvol = std::min(
-                    (cfac-1)*M_thick[i],    // new M_thick would be cfac*M_thick_orig
-                    (M_conc[i]-c_model)*.5  // don't allow a positive increase in thickness of >50cm
-                    );
+            double dvol = (cfac-1)*M_thick[i];        // new M_thick would be cfac*M_thick_orig
+            double dvol_max = .5*(M_conc[i]-c_model); // don't allow a positive increase in absolute thickness of >50cm
+            if (dvol>dvol_max)
+                dvol = dvol_max;
             M_thick[i]       += dvol;
             M_ridge_ratio[i] *= cfac;
             M_snow_thick[i]  *= cfac;
