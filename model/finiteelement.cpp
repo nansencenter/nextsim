@@ -9513,10 +9513,11 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(
                 }
                 else if((M_conc[i]+M_conc_thin[i])>thin_conc_obs_max)
                 {
+                    //increase thick &/or thin ice conc so total conc = thin_conc_obs_max
                     thin_conc_obs = thin_conc_obs_max-M_conc[i];
-                    if(thin_conc_obs<0.)
+                    if(thin_conc_obs<=0.)
                     {
-                        // M_conc > thin_conc_obs_max
+                        // M_conc >= thin_conc_obs_max
                         // - reduce thick ice to max value
                         M_conc[i] = thin_conc_obs_max;
 
@@ -9527,8 +9528,8 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(
                     }
                     else
                     {
-                        //some thin ice left - reduce it
-                        // NB thin_conc_obs>=0, M_conc_thin>0
+                        // leave the thick ice as is, reduce the thin ice
+                        // so total concentration = max value
                         double cfac = thin_conc_obs/M_conc_thin[i];
                         M_conc_thin[i] = thin_conc_obs;
                         M_h_thin[i]   *= cfac;
