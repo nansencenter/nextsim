@@ -8819,6 +8819,7 @@ FiniteElement::assimilateIce()
         case setup::IceType::TOPAZ4FAMSR2OSISAFNIC:
         case setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY:
             this->assimilate_topazForecastAmsr2OsisafNicIce(
+                    new_thick_ice, new_thin_ice,
                     M_ice_type==setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY);
             break;
         default:
@@ -9455,10 +9456,14 @@ FiniteElement::concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,d
 }//concBinsNic
 
 void
-FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
+FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(
+        std::vector<bool> &new_thick_ice,
+        std::vector<bool> &new_thin_ice,
+        bool use_weekly_nic)
 {
+    new_thick_ice.assign(M_num_elements, false);
+    new_thin_ice.assign(M_num_elements, false);
     double real_thickness, init_conc_tmp;
-
 
     external_data_vec external_data_tmp;
     external_data M_nic_conc;
@@ -9473,37 +9478,117 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
     this->checkReloadDatasets(external_data_tmp, time_init-0.5,
             "assimilate - NIC");
 
-    double tmp_var;
-    double sigma_mod=0.1;
-    double sigma_amsr2=0.1;
-    double sigma_osisaf=0.1;
-
     double topaz_conc, topaz_thick;
     double h_model, c_model;
-    double hi;
+    double c_thin_orig = 0.;
     for (int i=0; i<M_num_elements; ++i)
     {
         h_model=M_thick[i];
         c_model=M_conc[i];
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+            c_thin_orig = M_conc_thin[i];
 
-        if(c_model>0.01)
+        // don't change model if NIC conc > 1
+        // - then it is masked
+        // - unfortunately, applying the mask in datasets led to masked values being treated as real values of 0.0
+        //   so we have to do it manually here
+        if(M_nic_conc[i]<=1.)
         {
-            M_thick[i]=h_model/c_model*M_conc[i];
-            M_ridge_ratio[i]=M_ridge_ratio[i]/c_model*M_conc[i];
-            M_damage[i]=M_damage[i]/c_model*M_conc[i];
-        }
-        else
-        {
-            M_thick[i]=0.;
-            M_ridge_ratio[i]=0.;
-        }
+
+            // Use the NIC ice charts
+            // - get conc bins from NIC dataset
+            double thin_conc_obs = 0.;
+            double thin_conc_obs_min = 0.;
+            double thin_conc_obs_max = 0.;
+            this->concBinsNic(thin_conc_obs_min, thin_conc_obs_max, M_nic_conc[i], use_weekly_nic);
+
+            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+            {
+
+                if((M_conc[i]+M_conc_thin[i])<thin_conc_obs_min)
+                {
+                    thin_conc_obs = thin_conc_obs_min-M_conc[i];//always >=0?
+                    if(thin_conc_obs>=0.)
+                    {
+                        //increase thin ice conc so total conc = thin_conc_obs_min
+                        if(thin_conc_obs>M_conc_thin[i])
+                            //increase thin ice vol
+                            M_h_thin[i] = M_h_thin[i]+(h_thin_min + (h_thin_max/2.-h_thin_min)*0.5)*(thin_conc_obs-M_conc_thin[i]);
+                        else
+                            //reduce thin ice vol
+                            M_h_thin[i] = M_h_thin[i]*thin_conc_obs/M_conc_thin[i];
+
+                        M_conc_thin[i] = thin_conc_obs;
+                    }
+#if 0
+                    else
+                    {
+                        //not possible?
+                        M_conc_thin[i]=0.;
+                        M_h_thin[i]=0.;
+
+                        M_thick[i]=M_thick[i]/(M_conc[i])*(M_conc[i]+thin_conc_obs);
+                        M_conc[i]=M_conc[i]+thin_conc_obs;
+                    }
+#endif
+                }
+                else if((M_conc[i]+M_conc_thin[i])>thin_conc_obs_max)
+                {
+                    thin_conc_obs = thin_conc_obs_max-M_conc[i];
+                    if(thin_conc_obs>=0.)
+                    {
+                        //some thin ice
+                        if(thin_conc_obs>M_conc_thin[i])
+                            M_h_thin[i] = M_h_thin[i]+(h_thin_min + (h_thin_max/2.-h_thin_min)*0.5)*(thin_conc_obs-M_conc_thin[i]);
+                        else
+                            M_h_thin[i] = M_h_thin[i]*thin_conc_obs/M_conc_thin[i];
+
+                        M_conc_thin[i] = thin_conc_obs;
+                    }
+                    else
+                    {
+                        //no thin ice
+                        M_conc_thin[i]=0.;
+                        M_h_thin[i]=0.;
+
+                        // reduce thick ice to max value
+                        M_conc[i]=M_conc[i]+thin_conc_obs;
+                    }
+                }
+
+                /* Two cases: Thin ice fills the cell or not */
+                double min_h_thin = h_thin_min*M_conc_thin[i];
+                if ( M_h_thin[i] < min_h_thin )
+                    M_h_thin[i] = min_h_thin;
+
+                double max_h_thin=(h_thin_min+(h_thin_max+h_thin_min)/2.)*M_conc_thin[i];
+                if ( M_h_thin[i] > max_h_thin)
+                    M_h_thin[i] = max_h_thin;
+
+                if (M_conc_thin[i]>0 && c_thin_orig<=0)
+                    new_thin_ice[i] = true;
+            }//using thin ice
+            else
+            {
+                if(M_conc[i]<thin_conc_obs_min)
+                {
+                    //thin_conc_obs = .25*thin_conc_obs_max + .75*thin_conc_obs_min;
+                    thin_conc_obs = ( thin_conc_obs_min + (thin_conc_obs_min+thin_conc_obs_max)/2.) /2.;
+                    M_conc[i] = thin_conc_obs;
+                }
+                else if(M_conc[i]>thin_conc_obs_max)
+                {
+                    //thin_conc_obs = .75*thin_conc_obs_max + .25*thin_conc_obs_min;
+                    thin_conc_obs = ( thin_conc_obs_max + (thin_conc_obs_min+thin_conc_obs_max)/2.) /2.;
+                    M_conc[i] = thin_conc_obs;
+                }
+            }//not using thin ice
+
+        }//use NIC
+
 
         //if either c or h equal zero, we set the others to zero as well
-        hi=M_thick[i]/M_conc[i];
-        if(M_conc[i]<0.1)
-            hi=M_thick[i];
-
-        if ( M_conc[i] < 0.01 || hi < physical::hmin )
+        if ( M_conc[i] < 0.01 || M_thick[i] < physical::hmin*M_conc[i] )
         {
             M_conc[i]=0.;
             M_thick[i]=0.;
@@ -9511,102 +9596,28 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
             M_ridge_ratio[i]=0.;
         }
 
-        // don't change model if NIC conc > 1
-        // - then it is masked
-        // - unfortunately, applying the mask in datasets led to masked values being treated as real values of 0.0
-        //   so we have to do it manually here
-        if(M_nic_conc[i]>1.)
-            continue;
-
-
-        // Use the NIC ice charts
-        // - get conc bins from NIC dataset
-        double thin_conc_obs = 0.;
-        double thin_conc_obs_min = 0.;
-        double thin_conc_obs_max = 0.;
-        this->concBinsNic(thin_conc_obs_min, thin_conc_obs_max, M_nic_conc[i], use_weekly_nic);
-
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        if(c_model>0.01)
         {
-
-            if((M_conc[i]+M_conc_thin[i])<thin_conc_obs_min)
-            {
-                thin_conc_obs = thin_conc_obs_min-M_conc[i];//always >=0?
-                if(thin_conc_obs>=0.)
-                {
-                    //increase thin ice conc so total conc = thin_conc_obs_min
-                    if(thin_conc_obs>M_conc_thin[i])
-                        //increase thin ice vol
-                        M_h_thin[i] = M_h_thin[i]+(h_thin_min + (h_thin_max/2.-h_thin_min)*0.5)*(thin_conc_obs-M_conc_thin[i]);
-                    else
-                        //reduce thin ice vol
-                        M_h_thin[i] = M_h_thin[i]*thin_conc_obs/M_conc_thin[i];
-
-                    M_conc_thin[i] = thin_conc_obs;
-                }
-#if 0
-                else
-                {
-                    //not possible?
-                    M_conc_thin[i]=0.;
-                    M_h_thin[i]=0.;
-
-                    M_thick[i]=M_thick[i]/(M_conc[i])*(M_conc[i]+thin_conc_obs);
-                    M_conc[i]=M_conc[i]+thin_conc_obs;
-                }
-#endif
-            }
-            else if((M_conc[i]+M_conc_thin[i])>thin_conc_obs_max)
-            {
-                thin_conc_obs = thin_conc_obs_max-M_conc[i];
-                if(thin_conc_obs>=0.)
-                {
-                    //some thin ice
-                    if(thin_conc_obs>M_conc_thin[i])
-                        M_h_thin[i] = M_h_thin[i]+(h_thin_min + (h_thin_max/2.-h_thin_min)*0.5)*(thin_conc_obs-M_conc_thin[i]);
-                    else
-                        M_h_thin[i] = M_h_thin[i]*thin_conc_obs/M_conc_thin[i];
-
-                    M_conc_thin[i] = thin_conc_obs;
-                }
-                else
-                {
-                    //no thin ice
-                    M_conc_thin[i]=0.;
-                    M_h_thin[i]=0.;
-
-                    // reduce thick ice to max value
-                    M_thick[i]=M_thick[i]*(M_conc[i]+thin_conc_obs)/(M_conc[i]);
-                    M_conc[i]=M_conc[i]+thin_conc_obs;
-                }
-            }
-
-            /* Two cases: Thin ice fills the cell or not */
-            double min_h_thin = h_thin_min*M_conc_thin[i];
-            if ( M_h_thin[i] < min_h_thin )
-                M_h_thin[i] = min_h_thin;
-
-            double max_h_thin=(h_thin_min+(h_thin_max+h_thin_min)/2.)*M_conc_thin[i];
-            if ( M_h_thin[i] > max_h_thin)
-                M_h_thin[i] = max_h_thin;
-        }//using thin ice
-        else
+            //scale volumes per unit area
+            // according to the concentration change
+            double cfac = M_conc[i]/c_model;
+            double dvol = std::min(
+                    (cfac-1)*M_thick[i],    // new M_thick would be cfac*M_thick_orig
+                    (M_conc[i]-c_model)*.5  // don't allow a positive increase in thickness of >50cm
+                    );
+            M_thick[i]       += dvol;
+            M_ridge_ratio[i] *= cfac;
+            M_snow_thick[i]  *= cfac;
+        }
+        else if(M_conc[i]>0)
         {
-            if(M_conc[i]<thin_conc_obs_min)
-            {
-                //thin_conc_obs = .25*thin_conc_obs_max + .75*thin_conc_obs_min;
-                thin_conc_obs = ( thin_conc_obs_min + (thin_conc_obs_min+thin_conc_obs_max)/2.) /2.;
-                M_thick[i] = M_thick[i] + std::max(hi,0.5)*(thin_conc_obs-M_conc[i]); // 50 cm minimum for the added ice
-                M_conc[i] = thin_conc_obs;
-            }
-            else if(M_conc[i]>thin_conc_obs_max)
-            {
-                //thin_conc_obs = .75*thin_conc_obs_max + .25*thin_conc_obs_min;
-                thin_conc_obs = ( thin_conc_obs_max + (thin_conc_obs_min+thin_conc_obs_max)/2.) /2.;
-                M_thick[i] = M_thick[i]*thin_conc_obs/M_conc[i];
-                M_conc[i] = thin_conc_obs;
-            }
-        }//not using thin ice
+            //flag as new ice for checkConsistency
+            new_thick_ice[i] = true;
+
+            //set the thickness
+            M_thick[i] = M_conc[i]*vm["thermo.hnull"].as<double>();
+        }
+
     }//loop over elements
 }//assimilate_topazForecastAmsr2OsisafNicIce
 
@@ -9689,15 +9700,6 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce(
             M_conc[i]=M_amsr2_conc[i];
         }
 
-        if(c_model>0.01)//NB this is original conc
-        {
-            // scale fields which are volumes per unit area
-            double cfac = M_conc[i]/c_model;
-            M_thick[i]       *= cfac;
-            M_ridge_ratio[i] *= cfac;
-            M_snow_thick[i]  *= cfac;
-        }
-
         //if either c or h equal zero, we set the others to zero as well
         if ( M_conc[i] < 0.01 || M_thick[i] < M_conc[i]*physical::hmin )
         {
@@ -9708,7 +9710,15 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce(
             M_damage[i]=0.;
         }
 
-        if(M_conc[i]>0 && c_model<=0)
+        if(c_model>0.01)//NB this is original conc
+        {
+            // scale fields which are volumes per unit area
+            double cfac = M_conc[i]/c_model;
+            M_thick[i]       *= cfac;
+            M_ridge_ratio[i] *= cfac;
+            M_snow_thick[i]  *= cfac;
+        }
+        else if(M_conc[i]>0)
         {
             //flag as new ice for checkConsistency
             new_thick_ice[i] = true;
@@ -9742,7 +9752,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce(
             new_thin_ice[i] = (M_conc_thin[i]>0 && c_thin_orig<=0);
         }
     }
-}
+}//assimilate_topazForecastAmsr2OsisafIce
 
 
 void
